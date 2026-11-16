@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, type MockInstance, vi } from "vitest";
 import type { GridCellAnchor, GridCellRange, GridCellTarget } from "./core";
 import {
   createGridInteractionController,
@@ -84,6 +84,21 @@ afterEach(() => {
   vi.restoreAllMocks();
   document.body.replaceChildren();
 });
+
+/** Every capture-phase session listener added must be removed by identity. */
+function expectSessionListenersRemoved(
+  addListener: MockInstance<typeof document.addEventListener>,
+  removeListener: MockInstance<typeof document.removeEventListener>,
+) {
+  for (const event of ["pointermove", "pointerup", "pointercancel"]) {
+    const listeners = addListener.mock.calls
+      .filter((call) => call[0] === event && call[2] === true)
+      .map((call) => call[1]);
+    expect(listeners, event).not.toHaveLength(0);
+    for (const listener of listeners)
+      expect(removeListener).toHaveBeenCalledWith(event, listener, true);
+  }
+}
 
 describe("semantic range interaction", () => {
   it("classifies tolerance once and shares pointer and keyboard anchors through reversal", () => {
@@ -300,6 +315,7 @@ describe("semantic range interaction", () => {
 
 describe("range pointer binding", () => {
   it("scrolls both axes with bounded frame work and stops after outside release", () => {
+    const addListener = vi.spyOn(document, "addEventListener");
     const removeListener = vi.spyOn(document, "removeEventListener");
     const h = harness();
     const root = document.createElement("div");
@@ -384,12 +400,7 @@ describe("range pointer binding", () => {
     expect(h.accept).toHaveBeenCalledTimes(1);
     expect(h.accept.mock.calls[0]?.[0].start).toEqual(a);
     expect(frames.size).toBe(0);
-    for (const event of ["pointermove", "pointerup", "pointercancel"])
-      expect(removeListener).toHaveBeenCalledWith(
-        event,
-        expect.any(Function),
-        true,
-      );
+    expectSessionListenersRemoved(addListener, removeListener);
     advance(2100);
     expect(scroll).toHaveBeenCalledTimes(1);
     binding.dispose();
@@ -417,6 +428,7 @@ describe("range pointer binding", () => {
     const cancelFrame = vi
       .spyOn(window, "cancelAnimationFrame")
       .mockImplementation(() => {});
+    const addListener = vi.spyOn(document, "addEventListener");
     const removeListener = vi.spyOn(document, "removeEventListener");
     const binding = bindGridInteractionDom(root, h.controller, () => cells);
     const pointer = (target: HTMLElement, type: string) => {
@@ -458,18 +470,17 @@ describe("range pointer binding", () => {
     input.focus();
     expect(h.read().range).toBeNull();
     pointer(cell, "pointerdown");
-    const pendingFrame = raf.mock.calls.at(-1)?.[0];
+    // The second session requests exactly one new frame; its callback must
+    // stay inert after dispose.
+    expect(raf).toHaveBeenCalledTimes(2);
+    const pendingFrame = raf.mock.calls[1]?.[0];
+    if (pendingFrame === undefined) throw new Error("Missing pending frame");
     binding.dispose();
     expect(h.controller.active).toBe(false);
     expect(cancelFrame).toHaveBeenLastCalledWith(12);
     expect(release).toHaveBeenLastCalledWith(1);
-    for (const event of ["pointermove", "pointerup", "pointercancel"])
-      expect(removeListener).toHaveBeenCalledWith(
-        event,
-        expect.any(Function),
-        true,
-      );
-    pendingFrame?.(performance.now() + 16);
+    expectSessionListenersRemoved(addListener, removeListener);
+    pendingFrame(performance.now() + 16);
     pointer(document.body, "pointermove");
     pointer(document.body, "pointerup");
     const count = capture.mock.calls.length;

@@ -255,25 +255,31 @@ it("admits one selected Task editor with role gates and no confirmation", async 
   );
   expect(mutation.submitPatchMutation).toHaveBeenCalledTimes(1);
   expect(screen.queryByRole("dialog")).toBeNull();
+  const applyDisabled = () =>
+    screen
+      .getByRole("button", { name: "Apply task status" })
+      .matches(":disabled");
+  // Each gate is the only change from an enabled editor with the same draft.
+  const requireEnabledControl = () => {
+    rerender(<CoordinationWorkflowBindings {...props} />);
+    fireEvent.change(screen.getByLabelText("Task lifecycle status"), {
+      target: { value: "in_progress" },
+    });
+    expect(applyDisabled()).toBe(false);
+  };
+  requireEnabledControl();
   rerender(
     <CoordinationWorkflowBindings {...props} currentIncidentRole="viewer" />,
   );
-  expect(
-    screen
-      .getByRole("button", { name: "Apply task status" })
-      .matches(":disabled"),
-  ).toBe(true);
+  expect(applyDisabled()).toBe(true);
+  requireEnabledControl();
   rerender(
     <CoordinationWorkflowBindings
       {...props}
       disabledTokens={new Set(["incident_closed"])}
     />,
   );
-  expect(
-    screen
-      .getByRole("button", { name: "Apply task status" })
-      .matches(":disabled"),
-  ).toBe(true);
+  expect(applyDisabled()).toBe(true);
 });
 
 it("binds Task server feedback to the captured draft and originating workflow", async () => {

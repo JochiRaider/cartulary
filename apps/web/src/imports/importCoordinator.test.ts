@@ -229,11 +229,11 @@ describe("extension import coordinator stages", () => {
       }),
       signal(),
     );
-    expect(result.kind).toBe("accepted");
-    if (result.kind === "accepted" && result.receipt.kind === "unit")
-      expect(
-        networkFlowApprovedPreviewMatches(result.receipt.unit, "a".repeat(64)),
-      ).toBe(false);
+    if (result.kind !== "accepted" || result.receipt.kind !== "unit")
+      throw new Error(`expected an accepted unit receipt, got ${result.kind}`);
+    expect(
+      networkFlowApprovedPreviewMatches(result.receipt.unit, "a".repeat(64)),
+    ).toBe(false);
     expect(fetch).toHaveBeenCalledTimes(1);
   });
   it("creates and previews a durable operator-selected region", async () => {

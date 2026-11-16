@@ -26,28 +26,31 @@ import {
 } from "./index";
 import { listProjectedWorkbookSurfaceContracts } from "./projection";
 
-const schemaConstants = [
-  timelineViewSchemaId,
-  hostsViewSchemaId,
-  identitiesViewSchemaId,
-  evidenceViewSchemaId,
-  notesViewSchemaId,
-  indicatorsViewSchemaId,
-  assessmentsViewSchemaId,
-  taskRequestsViewSchemaId,
-  decisionsViewSchemaId,
-  partiesViewSchemaId,
-  commLogViewSchemaId,
-  handoffViewSchemaId,
-  statusReviewViewSchemaId,
-  lessonViewSchemaId,
-  findingsViewSchemaId,
-  investigativeQueriesViewSchemaId,
-  forensicKeywordsViewSchemaId,
-];
+const schemaConstantPairs = [
+  [timelineViewSchemaId, "cartulary.view.timeline.v2"],
+  [hostsViewSchemaId, "cartulary.view.hosts.v1"],
+  [identitiesViewSchemaId, "cartulary.view.identities.v1"],
+  [evidenceViewSchemaId, "cartulary.view.evidence.v1"],
+  [notesViewSchemaId, "cartulary.view.notes.v1"],
+  [indicatorsViewSchemaId, "cartulary.view.indicators.v1"],
+  [assessmentsViewSchemaId, "cartulary.view.assessments.v1"],
+  [taskRequestsViewSchemaId, "cartulary.view.task_requests.v1"],
+  [decisionsViewSchemaId, "cartulary.view.decisions.v1"],
+  [partiesViewSchemaId, "cartulary.view.parties.v1"],
+  [commLogViewSchemaId, "cartulary.view.comm_log.v1"],
+  [handoffViewSchemaId, "cartulary.view.handoff.v1"],
+  [statusReviewViewSchemaId, "cartulary.view.status_review.v1"],
+  [lessonViewSchemaId, "cartulary.view.lesson.v1"],
+  [findingsViewSchemaId, "cartulary.view.findings.v1"],
+  [investigativeQueriesViewSchemaId, "cartulary.view.investigative_queries.v1"],
+  [forensicKeywordsViewSchemaId, "cartulary.view.forensic_keywords.v1"],
+] as const;
+const schemaConstants = schemaConstantPairs.map(([, literal]) => literal);
 
 describe("workbook surface contracts", () => {
   it("derives every schema constant and status partition in registry order", () => {
+    for (const [constant, literal] of schemaConstantPairs)
+      expect(constant).toBe(literal);
     expect(
       listWorkbookSurfaceContracts().map((entry) => entry.viewSchemaId),
     ).toEqual(schemaConstants);

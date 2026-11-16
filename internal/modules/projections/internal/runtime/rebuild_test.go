@@ -3,6 +3,7 @@ package runtime_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -42,6 +43,30 @@ func TestRebuildRestoreProjectionsRejectsInvalidRequestBeforeStoreAccess(t *test
 	if result.ProviderResults == nil || result.Warnings == nil || result.Errors == nil {
 		t.Fatalf("restore result collections must be non-nil: %#v", result)
 	}
+	valid := restorecontract.ProjectionRebuildRequest{
+		RestoreOperationID:     uuid.New(),
+		RestoredSourceStateRef: "backup_set:" + uuid.NewString(),
+		RebuildScope:           restorecontract.ProjectionRebuildScopeAllActiveProviders,
+		ProviderRegistryRef:    restorecontract.ProviderRegistryRefCodeBacked,
+	}
+	for want, mutate := range map[string]func(*restorecontract.ProjectionRebuildRequest){
+		"restored_source_state_ref is required": func(request *restorecontract.ProjectionRebuildRequest) { request.RestoredSourceStateRef = " " },
+		`unsupported rebuild_scope "partial"`: func(request *restorecontract.ProjectionRebuildRequest) {
+			request.RebuildScope = restorecontract.ProjectionRebuildScope("partial")
+		},
+		"provider_registry_ref is required": func(request *restorecontract.ProjectionRebuildRequest) { request.ProviderRegistryRef = "" },
+	} {
+		request := valid
+		mutate(&request)
+		result, err := rebuilder.RebuildRestoreProjections(context.Background(), request)
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Fatalf("single-defect request error = %v, want %q", err, want)
+		}
+		if result.Status != restorecontract.ProjectionRebuildStatusFailed ||
+			len(result.Errors) != 1 || result.Errors[0].Code != "invalid_restore_projection_rebuild_request" {
+			t.Fatalf("single-defect request %q result = %#v", want, result)
+		}
+	}
 }
 
 func TestTimelineProjectionSourceEnumerationIsDeterministicAndKeysetPaged(t *testing.T) {
@@ -73,6 +98,9 @@ func TestTimelineProjectionSourceEnumerationIsDeterministicAndKeysetPaged(t *tes
 		first.Inputs[0].RecordID.String() != "10000000-0000-4000-8000-000000000001" ||
 		first.Inputs[1].RecordID.String() != "10000000-0000-4000-8000-000000000002" {
 		t.Fatalf("unexpected first projection source page: %#v", first)
+	}
+	if again, err := source.ListProjectionInputsTx(ctx, tx, incident.ID, nil, 2); err != nil || !reflect.DeepEqual(again, first) {
+		t.Fatalf("repeated first Timeline projection page = %#v, %v; want %#v", again, err, first)
 	}
 	second, err := source.ListProjectionInputsTx(ctx, tx, incident.ID, first.NextRecordID, 2)
 	if err != nil {
@@ -168,11 +196,11 @@ VALUES ($1, $2, 'Foreign Party', 'team')
 		t.Fatalf("construct Party projection contribution: %v", err)
 	}
 	source := contribution.Source()
-	if _, err := source.ListProjectionInputsTx(ctx, tx, incident.ID, nil, 0); err == nil {
-		t.Fatal("zero Party projection page limit unexpectedly succeeded")
-	}
-	if _, err := source.ListProjectionInputsTx(ctx, tx, incident.ID, nil, 1001); err == nil {
-		t.Fatal("oversized Party projection page limit unexpectedly succeeded")
+	for _, limit := range []int{0, 1001} {
+		want := fmt.Sprintf("party projection source page limit %d is outside 1..1000", limit)
+		if _, err := source.ListProjectionInputsTx(ctx, tx, incident.ID, nil, limit); err == nil || err.Error() != want {
+			t.Fatalf("Party projection page limit %d error = %v, want %q", limit, err, want)
+		}
 	}
 	if _, err := source.ListProjectionInputsTx(ctx, tx, incident.ID, nil, 1000); err != nil {
 		t.Fatalf("maximum Party projection page limit rejected: %v", err)
@@ -274,6 +302,9 @@ func TestAssessmentProjectionSourceEnumerationIsDeterministicAndKeysetPaged(t *t
 		first.Inputs[0].RecordID.String() != "30000000-0000-4000-8000-000000000001" ||
 		first.Inputs[1].RecordID.String() != "30000000-0000-4000-8000-000000000002" {
 		t.Fatalf("unexpected first assessment projection page: %#v", first)
+	}
+	if again, err := source.ListProjectionInputsTx(ctx, tx, incident.ID, nil, 2); err != nil || !reflect.DeepEqual(again, first) {
+		t.Fatalf("repeated first assessment projection page = %#v, %v; want %#v", again, err, first)
 	}
 	second, err := source.ListProjectionInputsTx(
 		ctx,
@@ -394,8 +425,13 @@ func TestRebuildRestoreProjectionsReportsProviderResultsAndReplacesStaleRows(t *
 			t.Fatalf("provider %s did not report rebuilt projection tables", providerResult.ProviderKey)
 		}
 		for _, tableResult := range providerResult.RebuiltProjectionTables {
-			if tableResult.ProjectionTableID == "" || tableResult.RowCount < 0 {
-				t.Fatalf("provider %s invalid table result %#v", providerResult.ProviderKey, tableResult)
+			// The only seeded source record is one Timeline event.
+			wantRows := int64(0)
+			if tableResult.ProjectionTableID == "timeline_grid_projection" {
+				wantRows = 1
+			}
+			if tableResult.ProjectionTableID == "" || tableResult.RowCount != wantRows {
+				t.Fatalf("provider %s table result %#v, want %d rows", providerResult.ProviderKey, tableResult, wantRows)
 			}
 		}
 	}

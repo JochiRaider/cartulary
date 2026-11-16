@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
+	"github.com/JochiRaider/cartulary/internal/platform/recoverystate"
 	"github.com/google/uuid"
 	"strings"
 	"testing"
@@ -114,8 +115,8 @@ func TestVerificationResetPreservesMigrationIdentity_Integration(t *testing.T) {
 	if _, err := admin.Exec(`CREATE TABLE public.unowned_recovery_state(id integer)`); err != nil {
 		t.Fatal(err)
 	}
-	if err := recovery.ResetRestoreVerificationTarget(ctx, admission, target, generation, bindings, extensions, catalog); err == nil {
-		t.Fatal("reset accepted unknown table")
+	if err := recovery.ResetRestoreVerificationTarget(ctx, admission, target, generation, bindings, extensions, catalog); !errors.Is(err, recoverystate.ErrInvalidCatalog) || !strings.Contains(err.Error(), "database tables and frozen catalog") {
+		t.Fatalf("reset with unknown table error = %v; want the frozen-catalog coverage rejection", err)
 	}
 	var count int
 	if err := admin.QueryRow(`SELECT count(*) FROM users`).Scan(&count); err != nil || count != 1 {

@@ -1,6 +1,8 @@
 package queryengine
 
 import (
+	"fmt"
+	"slices"
 	"strings"
 	"testing"
 
@@ -25,11 +27,14 @@ func TestIdentityPageSQLIsKeysetBoundedAndProjectionOwned(t *testing.T) {
 	if err != nil {
 		t.Fatalf("build identity page SQL: %v", err)
 	}
-	if !strings.Contains(sqlshape.Text(sqlText), "identity_grid_projection") || strings.Contains(sqlshape.Text(sqlText), "FROM identities") {
+	if !strings.Contains(sqlshape.Text(sqlText), "identity_grid_projection") || referencesBaseTable(sqlshape.Text(sqlText), "identities") {
 		t.Fatalf("identity page selection does not isolate projection storage: %s", sqlText)
 	}
 	if !strings.Contains(sqlshape.Text(sqlText), "record_id >") || !strings.Contains(sqlshape.Text(sqlText), " LIMIT $") || strings.Contains(strings.ToUpper(sqlshape.Text(sqlText)), "OFFSET") {
 		t.Fatalf("identity page SQL is not bounded keyset retrieval: %s", sqlText)
+	}
+	if !slices.ContainsFunc(args, func(arg any) bool { return fmt.Sprint(arg) == positionID }) {
+		t.Fatalf("%s page SQL does not bind keyset position %s: %#v", "identity", positionID, args)
 	}
 	if got := args[len(args)-1]; got != 26 {
 		t.Fatalf("identity page SQL limit argument = %#v, want 26", got)

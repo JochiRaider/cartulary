@@ -74,9 +74,9 @@ func TestArtifactMutationAdmissionAndReplayHashing(t *testing.T) {
 			field  string
 			reason AdmissionReasonCode
 		}{
-			{"empty", map[string]any{}, "payload", admissionMissingMinimumCreateSignal},
-			{"whitespace", map[string]any{"note.title": "\u2003 ", "note.body": " \n "}, "payload", admissionMissingMinimumCreateSignal},
-			{"tags only", map[string]any{"note.tags": map[string]any{"kind": "collection_actions_v1", "actions": []any{map[string]any{"op": "add_tag", "tag_name": "tag"}}}}, "payload", admissionMissingMinimumCreateSignal},
+			{"empty", map[string]any{}, "payload", AdmissionReasonCode("minimum_create_signal_missing")},
+			{"whitespace", map[string]any{"note.title": "\u2003 ", "note.body": " \n "}, "payload", AdmissionReasonCode("minimum_create_signal_missing")},
+			{"tags only", map[string]any{"note.tags": map[string]any{"kind": "collection_actions_v1", "actions": []any{map[string]any{"op": "add_tag", "tag_name": "tag"}}}}, "payload", AdmissionReasonCode("minimum_create_signal_missing")},
 			{"title control", map[string]any{"note.title": "bad\u0001"}, "note.title", admissionInvalidValue},
 			{"body control", map[string]any{"note.body": "bad\u0085"}, "note.body", admissionInvalidValue},
 			{"title length", map[string]any{"note.title": strings.Repeat("😀", 513)}, "note.title", admissionInvalidValue},

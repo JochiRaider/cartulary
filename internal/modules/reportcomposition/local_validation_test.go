@@ -70,6 +70,29 @@ func TestCompositionLocalValidationScopeAndOrdering(t *testing.T) {
 	if !reflect.DeepEqual(first, second) {
 		t.Fatal("diagnostics depend on append order")
 	}
+	// Each locally emitted diagram code has a single-defect witness.
+	const validDiagram = `{"decl_id":"diagram","diagram_kind":"flowchart","diagram_source_kind":"graph","source_graph_view_id":"mermaid-view","selection_rule":{"schema_id":"diagram_selection_rule.v1","rule_id":"explicit_refs","vertex_refs":["vx_opaque-mermaid"],"edge_refs":[],"seed_vertex_refs":[],"depth":null,"edge_kind_filter":[],"timeline_record_ids":[],"overflow_policy":"fail"}}`
+	if clean := validateDraft(json.RawMessage(`[]`), json.RawMessage(`[`+validDiagram+`]`), json.RawMessage(`[]`)); clean["valid"] != true {
+		t.Fatal("valid diagram declaration rejected", clean)
+	}
+	withMember := func(member string) string {
+		return strings.Replace(validDiagram, `"decl_id":"diagram",`, `"decl_id":"diagram",`+member+`,`, 1)
+	}
+	for code, decls := range map[string]string{
+		"composition_duplicate_id":               `[` + validDiagram + `,` + validDiagram + `]`,
+		"composition_replacement_target_missing": `[` + withMember(`"replaces_decl_id":"other"`) + `]`,
+		"raw_generated_source_invalid":           `[` + strings.Replace(validDiagram, `"rule_id":"explicit_refs",`, `"rule_id":"explicit_refs","mermaid_source":"graph TD",`, 1) + `]`,
+		"diagram_label_override_invalid":         `[` + withMember(`"label_overrides":[{"target":{"target_kind":"section","ref":"vx_opaque-mermaid"},"label":"Renamed"}]`) + `]`,
+	} {
+		summary := validateDraft(json.RawMessage(`[]`), json.RawMessage(decls), json.RawMessage(`[]`))
+		found := false
+		for _, issue := range summary["issues"].([]map[string]any) {
+			found = found || issue["code"] == code
+		}
+		if summary["valid"] != false || !found {
+			t.Fatalf("%s was not reported: %#v", code, summary)
+		}
+	}
 	unsafe := issue("composition_schema_invalid", map[string]any{"composition_op_id": "secret/value", "target_ref": "https://private.invalid", "unexpected": "raw payload", "field": "deck_ops"}).public()
 	if details := unsafe["safe_details"].(map[string]any); len(details) != 1 || details["field"] != "deck_ops" {
 		t.Fatal("unsafe diagnostic values escaped", unsafe)

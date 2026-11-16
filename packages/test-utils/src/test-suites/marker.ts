@@ -157,7 +157,8 @@ export function registerMarkerSuite() {
       await vi.advanceTimersByTimeAsync(50);
 
       await expect(assertion).resolves.toBeUndefined();
-      expect(gridEvaluateCount).toBeGreaterThanOrEqual(3);
+      // The first read throws; the assertion then completes in two reads.
+      expect(gridEvaluateCount).toBe(3);
     });
 
     it("times out with bounded diagnostics when the target never becomes observable", async () => {
@@ -200,21 +201,28 @@ export function registerMarkerSuite() {
         }),
       ).resolves.toBeUndefined();
 
-      vi.restoreAllMocks();
-      vi.useFakeTimers();
-      const outsideTolerance = installMarkerAnchorFixture({
-        markerRect: { height: 66, left: 97, top: 37, width: 126 },
-      });
-      await expectTimedMarkerFailure(
-        assertMarkerAnchoredToGridTarget({
-          anchorKind: "cell",
-          markerTestId: outsideTolerance.markerTestId,
-          page: outsideTolerance.page,
-          surface: testTimelineViewSchemaId,
-          targetTestId: outsideTolerance.targetTestId,
-        }),
-        "to be geometrically inside target cell",
-      );
+      // Each edge alone is 3 px outside the cell (100..220 x 40..100) while
+      // the other edges stay inside, so every edge's bound is observed.
+      for (const markerRect of [
+        { height: 18, left: 97, top: 50, width: 48 },
+        { height: 18, left: 130, top: 37, width: 48 },
+        { height: 18, left: 175, top: 50, width: 48 },
+        { height: 18, left: 130, top: 85, width: 48 },
+      ]) {
+        vi.restoreAllMocks();
+        vi.useFakeTimers();
+        const outsideTolerance = installMarkerAnchorFixture({ markerRect });
+        await expectTimedMarkerFailure(
+          assertMarkerAnchoredToGridTarget({
+            anchorKind: "cell",
+            markerTestId: outsideTolerance.markerTestId,
+            page: outsideTolerance.page,
+            surface: testTimelineViewSchemaId,
+            targetTestId: outsideTolerance.targetTestId,
+          }),
+          "to be geometrically inside target cell",
+        );
+      }
     });
 
     it("passes row-gutter markers only when vertically aligned to the intended row", async () => {
@@ -256,6 +264,43 @@ export function registerMarkerSuite() {
         }),
         "to be vertically anchored to row record-1",
       );
+
+      // The row spans 40..100. A gutter cell taller than the row keeps
+      // containment from deciding, so the anchoring bound decides alone: a
+      // marker centre 2 px outside the row is accepted and 3 px is rejected.
+      const tallGutterCell = { height: 160, left: 0, top: 0, width: 90 };
+      for (const [markerTop, accepted] of [
+        [93, true],
+        [94, false],
+        [29, true],
+        [28, false],
+      ] as const) {
+        vi.restoreAllMocks();
+        vi.useFakeTimers();
+        const fixture = installMarkerAnchorFixture({
+          markerCellFieldKey: "__cartulary_row_gutter__",
+          markerRect: { height: 18, left: 16, top: markerTop, width: 34 },
+          targetCellFieldKey: "__cartulary_row_gutter__",
+          targetCellRect: tallGutterCell,
+          targetTestId: gridRowGutterTestId(
+            testTimelineViewSchemaId,
+            "record-1",
+          ),
+        });
+        const assertion = assertMarkerAnchoredToGridTarget({
+          anchorKind: "row-gutter",
+          markerTestId: fixture.markerTestId,
+          page: fixture.page,
+          surface: testTimelineViewSchemaId,
+          targetTestId: fixture.targetTestId,
+        });
+        if (accepted) await expect(assertion).resolves.toBeUndefined();
+        else
+          await expectTimedMarkerFailure(
+            assertion,
+            "to be vertically anchored to row record-1",
+          );
+      }
     });
   });
 }

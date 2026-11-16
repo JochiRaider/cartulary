@@ -958,7 +958,7 @@ test("keeps the incident workbook inside the browser viewport and delegates over
   await page.evaluate(() => window.scrollTo(0, 10_000));
   expectWorkbookDocumentBounded(
     await readWorkbookDocumentLayout(page),
-    "initial 1280x720",
+    "initial 1440x900",
   );
   await expectWideWorkbookTopBarChrome(page);
   await expect(

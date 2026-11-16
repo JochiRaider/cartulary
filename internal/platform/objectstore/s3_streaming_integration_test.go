@@ -7,8 +7,10 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -70,8 +72,16 @@ func TestS3QualifiedStreamingAndPresigning(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if aws.ToString(metadata.ChecksumSHA256) == "" {
-				t.Fatal("backend retained no SHA-256 checksum")
+			// Single-part objects carry the payload digest; multipart objects
+			// carry a composite checksum suffixed with the 8 MiB part count.
+			checksum := aws.ToString(metadata.ChecksumSHA256)
+			if tc.count < 8<<20 {
+				digest := sha256.Sum256(payload)
+				if want := base64.StdEncoding.EncodeToString(digest[:]); checksum != want {
+					t.Fatalf("checksum = %q, want %q", checksum, want)
+				}
+			} else if parts := (tc.count + (8 << 20) - 1) / (8 << 20); !strings.HasSuffix(checksum, fmt.Sprintf("-%d", parts)) {
+				t.Fatalf("multipart checksum = %q, want a composite of %d parts", checksum, parts)
 			}
 		})
 	}
@@ -90,6 +100,12 @@ func TestS3QualifiedStreamingAndPresigning(t *testing.T) {
 			_, err := typed.Put(t.Context(), objectstore.PutObjectRequest{Key: tc.name, Body: bytes.NewReader(bytes.Repeat([]byte{1}, tc.actual)), Size: tc.declared, Purpose: objectstore.PurposeProductUpload})
 			if err == nil {
 				t.Fatal("mismatched upload accepted")
+			}
+			// The declared size is checked before the body is read, so the
+			// short body cannot be the cause.
+			if adapterErr, ok := objectstore.AsAdapterError(err); tc.name == "oversize-hint" &&
+				(!ok || adapterErr.Code != objectstore.ErrorCodeInvalidRequest || !strings.Contains(err.Error(), "object exceeds the S3 upload limit")) {
+				t.Fatalf("oversize hint error = %v", err)
 			}
 			if _, err := typed.Head(t.Context(), objectstore.HeadObjectRequest{Key: tc.name, Purpose: objectstore.PurposeProductRead}); !objectstore.IsObjectNotFound(err) {
 				t.Fatalf("mismatched upload published: %v", err)

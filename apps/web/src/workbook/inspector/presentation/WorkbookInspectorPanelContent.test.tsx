@@ -26,7 +26,9 @@ describe("Inspector panel states", () => {
       <WorkbookInspectorPanelContent model={{ access: "concealed" }} />,
     );
     expect(view.container.textContent).toBe("");
-    expect(() => inspectorCommands("")).toThrow();
+    expect(() => inspectorCommands("")).toThrow(
+      "Commands-only panel requires an owner explanation",
+    );
     view.unmount();
   });
   it("announces each owner transition once across remounts and never carries feedback across subjects", () => {

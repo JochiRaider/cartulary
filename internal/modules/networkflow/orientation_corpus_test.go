@@ -36,6 +36,9 @@ func TestOrientationCorpus(t *testing.T) {
 	if err := json.Unmarshal(raw, &manifest); err != nil {
 		t.Fatal(err)
 	}
+	if len(manifest.Datasets) == 0 {
+		t.Fatal("orientation corpus manifest lists no datasets")
+	}
 	for _, dataset := range manifest.Datasets {
 		t.Run("corpus_"+dataset.Name, func(t *testing.T) {
 			source, err := os.ReadFile(filepath.Join(root, dataset.CSV))

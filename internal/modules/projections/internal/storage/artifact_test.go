@@ -191,7 +191,7 @@ func TestArtifactPhysicalRowBindingPreservesClosedVariantMatrix(t *testing.T) {
 		})
 	}
 
-	if _, err := artifactPhysicalRowFromInput(artifactprojection.ProjectionInput{}); err == nil {
-		t.Fatal("zero typed source input produced a physical row")
+	if _, err := artifactPhysicalRowFromInput(artifactprojection.ProjectionInput{}); err == nil || err.Error() != "bind Artifact projection row: invalid input" {
+		t.Fatalf("zero typed source input error = %v", err)
 	}
 }

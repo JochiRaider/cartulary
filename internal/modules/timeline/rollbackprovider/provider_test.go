@@ -1,11 +1,19 @@
 package rollbackprovider
 
 import (
+	"context"
+	"errors"
 	"reflect"
 	"testing"
+	"time"
+
+	"github.com/google/uuid"
+
+	"github.com/JochiRaider/cartulary/internal/modules/revisions/rollbackcontract"
 )
 
 func TestTimelineProviderSourceForRollbackValueMapsTimelineCells(t *testing.T) {
+	t.Run("source update requires its state members", checkUpdateSourceRequiresStateMembers)
 	want := map[string]any{
 		"date_entered_text":        "2026-01-02",
 		"analyst_text":             "analyst",
@@ -35,5 +43,32 @@ func TestTimelineProviderSourceForRollbackValueMapsTimelineCells(t *testing.T) {
 	}
 	if _, ok, err := sourceForRollbackValue(map[string]any{"cells": map[string]any{"timeline.raw_activity_text": map[string]any{"value": "legacy"}}}); err != nil || ok {
 		t.Fatalf("schema-less projection row admission = %v, %v", ok, err)
+	}
+}
+
+func checkUpdateSourceRequiresStateMembers(t *testing.T) {
+	complete := func() map[string]any {
+		return map[string]any{
+			"capture_state":            "rough",
+			"activity_time_pair_state": "disabled",
+			"activity_utc_generated":   false,
+			"activity_local_generated": false,
+		}
+	}
+	for name, mutate := range map[string]func(map[string]any){
+		"missing capture_state":     func(source map[string]any) { delete(source, "capture_state") },
+		"empty capture_state":       func(source map[string]any) { source["capture_state"] = "" },
+		"missing pair state":        func(source map[string]any) { delete(source, "activity_time_pair_state") },
+		"empty pair state":          func(source map[string]any) { source["activity_time_pair_state"] = "" },
+		"non-boolean UTC generated": func(source map[string]any) { source["activity_utc_generated"] = "false" },
+		"non-boolean local flag":    func(source map[string]any) { delete(source, "activity_local_generated") },
+	} {
+		source := complete()
+		mutate(source)
+		// The nil transaction proves rejection happens before any write.
+		err := updateSourceTx(context.Background(), nil, uuid.New(), uuid.New(), time.Now(), 2, source)
+		if !errors.Is(err, rollbackcontract.ErrTargetNotReversible) {
+			t.Fatalf("%s error = %v, want ErrTargetNotReversible", name, err)
+		}
 	}
 }

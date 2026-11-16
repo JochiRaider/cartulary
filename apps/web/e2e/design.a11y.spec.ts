@@ -1,4 +1,7 @@
-import { scrollGridCellIntoView } from "@cartulary/test-utils/grid";
+import {
+  applyFilterChip,
+  scrollGridCellIntoView,
+} from "@cartulary/test-utils/grid";
 import {
   gridFilterFieldTestId,
   gridGroupingSelectTestId,
@@ -15,6 +18,7 @@ import {
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
 import {
+  decisionsViewSchemaId,
   indicatorsViewSchemaId,
   taskRequestsViewSchemaId,
   timelineViewSchemaId,
@@ -35,10 +39,16 @@ import { openA11ySystemSurface } from "./support/accessibility/queryControls";
 import { expectAndRecordContrast } from "./support/accessibility/records";
 import { expectWorkbookSavePresentation } from "./support/accessibility/status";
 import { createIncident } from "./support/incidents/fixtures";
+import { responseBarrier } from "./support/runtime/cleanup";
 import {
   uniqueIncidentKey,
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
+import {
+  awaitResponseBarrier,
+  installOwnedRoute,
+  removeOwnedRoute,
+} from "./support/transport/requestInterception";
 import {
   expectCellTextOrValue,
   mountedGridCell,
@@ -183,20 +193,23 @@ test("a11y.design-readiness.row-01 Verify global accessibility matrix for keyboa
 
   const trigger = page.getByTestId(systemViewSwitcherTriggerTestId());
   await expectVisibleFocus(trigger);
+  await expect(trigger).toHaveAttribute("aria-expanded", "false");
   await trigger.press("Enter");
   const menu = page.getByTestId(systemViewSwitcherMenuTestId());
   await expect(menu).toBeVisible();
+  await expect(trigger).toHaveAttribute("aria-expanded", "true");
   await expect(menu).toHaveAttribute("role", "menu");
-  await expect(
-    page.getByTestId(
-      systemViewSwitcherOptionTestId(
-        "scope-indicators",
-        indicatorsViewSchemaId,
-      ),
-    ),
-  ).toHaveAttribute("role", "menuitemradio");
+  const indicatorsOption = page.getByTestId(
+    systemViewSwitcherOptionTestId("scope-indicators", indicatorsViewSchemaId),
+  );
+  await expect(indicatorsOption).toHaveAttribute("role", "menuitemradio");
+  await expect(indicatorsOption).toHaveAttribute("aria-checked", "false");
+  await expect(menu.getByRole("menuitemradio", { checked: true })).toHaveCount(
+    1,
+  );
   await page.keyboard.press("Escape");
   await expect(trigger).toBeFocused();
+  await expect(trigger).toHaveAttribute("aria-expanded", "false");
 
   await expectAllInteractiveControlsNamed(page);
   await expectInitialTabRoundTrip(page);
@@ -207,4 +220,83 @@ test("a11y.design-readiness.row-01 Verify global accessibility matrix for keyboa
     rowCellTestId(taskRow.record_id, "task.title"),
     saveStateTestId(),
   ]);
+
+  // Non-color-only states: each grid state carries a role, text and action.
+  await page.keyboard.press("Escape");
+  // The fixture task is "normal" priority, so an "urgent" filter matches nothing.
+  await applyFilterChip(
+    page,
+    taskRequestsViewSchemaId,
+    "task.priority",
+    "urgent",
+  );
+  const emptyState = page.locator('[data-grid-data-state="filtered_empty"]');
+  await expect(emptyState.getByRole("status")).toHaveText(
+    "No rows match the current filters.",
+  );
+  const failQuery = async (
+    route: Parameters<Parameters<typeof installOwnedRoute>[2]>[0],
+  ) => {
+    await route.fulfill({
+      status: 503,
+      json: {
+        error: {
+          code: "service_unavailable",
+          details: {},
+          message: "Service unavailable.",
+          request_id: "a11y-design-readiness",
+          retryable: true,
+        },
+      },
+    });
+  };
+  // Error: a failed refresh keeps the loaded rows and says so in text.
+  const taskQuery = `**/api/v1/incidents/${incidentId}/views/${taskRequestsViewSchemaId}/query`;
+  await installOwnedRoute(page, taskQuery, failQuery);
+  await emptyState
+    .getByRole("button", { name: "Clear filters", exact: true })
+    .click();
+  const errorState = page.locator('[data-grid-data-state="stale_error"]');
+  await expect(errorState).toHaveAttribute("data-grid-blocking", "false");
+  await expect(errorState.getByRole("alert")).toHaveText(
+    "Workbook view load failed. Previously loaded rows may be stale.",
+  );
+  await removeOwnedRoute(page, taskQuery);
+  await errorState.getByRole("button", { name: "Retry", exact: true }).click();
+  await expect(errorState).toHaveCount(0);
+  await expect(
+    page.getByTestId(rowCellTestId(taskRow.record_id, "task.title")),
+  ).toBeVisible();
+
+  // Blocked: a surface whose first read fails blocks its body in text.
+  const decisionQuery = `**/api/v1/incidents/${incidentId}/views/${decisionsViewSchemaId}/query`;
+  await installOwnedRoute(page, decisionQuery, failQuery);
+  await openA11ySystemSurface(page, {
+    groupToken: "coordination",
+    viewSchemaId: decisionsViewSchemaId,
+  });
+  const blockedState = page.locator('[data-grid-data-state="unavailable"]');
+  await expect(blockedState).toHaveAttribute("data-grid-blocking", "true");
+  await expect(blockedState.getByRole("alert")).toHaveText(/\S/);
+  const retry = blockedState.getByRole("button", {
+    name: "Retry",
+    exact: true,
+  });
+  await expect(retry).toBeVisible();
+  await removeOwnedRoute(page, decisionQuery);
+
+  // Loading: a held read is announced in text until it settles.
+  const held = responseBarrier(page);
+  await installOwnedRoute(page, decisionQuery, async (route) => {
+    if (!(await awaitResponseBarrier(route, held.promise))) return;
+    await route.continue();
+  });
+  await retry.click();
+  const loadingState = page.locator(
+    '[data-grid-data-state="initial_loading"], [data-grid-data-state="refreshing"]',
+  );
+  await expect(loadingState.getByRole("status")).toHaveText(/\S/);
+  held.release();
+  await expect(loadingState).toHaveCount(0);
+  await removeOwnedRoute(page, decisionQuery);
 });

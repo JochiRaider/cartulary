@@ -14,6 +14,7 @@ import {
   fullWorkbookViewRow,
 } from "../../../testing/workbookFixtureData";
 import { renderHookWithWorkbookQueryBrowsing as renderHook } from "../../../testing/workbookQueryTestSupport";
+import { WorkbookSurfaceRefreshError } from "../../collaboration/workbookSurfacePort";
 import { WorkbookRecordHistoryOwner } from "../../history/WorkbookRecordHistoryOwner";
 import { emptyWorkbookQueryState } from "../../models/workbookQuery";
 import { useGenericSurfaceQuery } from "../../query/useGenericSurfaceQuery";
@@ -123,7 +124,7 @@ it("Observation reconciliation reads source previous and new Indicator identitie
   });
   await expect(
     reconcileObservationReceipt(t.owner, history, a, receipt, scope),
-  ).rejects.toThrow();
+  ).rejects.toThrow("Affected record history needs refresh");
   expect(t.owner.latestVersion(observationSource.recordId)).toBe(5);
 });
 it("Observation query materialization fences older HTTP projections against accepted socket evidence", async () => {
@@ -167,9 +168,12 @@ it("Observation query materialization fences older HTTP projections against acce
     },
   });
   await act(async () => {
-    await expect(
-      hook.result.current.refresh({ requireAcceptance: true }),
-    ).rejects.toThrow();
+    const refused = hook.result.current.refresh({ requireAcceptance: true });
+    await expect(refused).rejects.toBeInstanceOf(WorkbookSurfaceRefreshError);
+    await expect(refused).rejects.toHaveProperty("recovery", {
+      kind: "unavailable",
+      failure: "transient",
+    });
   });
   expect(hook.result.current.rows[0]?.row_version).toBe(8);
   act(() => t.owner.acceptRow(row(10)));

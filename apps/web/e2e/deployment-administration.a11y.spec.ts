@@ -92,8 +92,9 @@ test("a11y.deployment-users guarded drafts and credential dialogs remain keyboar
     expect(box).not.toBeNull();
     if (box) {
       expect(box.x).toBeGreaterThanOrEqual(0);
-      expect(box.width).toBeLessThanOrEqual(viewport.width);
-      expect(box.height).toBeLessThanOrEqual(viewport.height);
+      expect(box.y).toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
+      expect(box.y + box.height).toBeLessThanOrEqual(viewport.height);
     }
   }
   await page.setViewportSize({ width: 1280, height: 720 });
@@ -140,6 +141,7 @@ test("a11y.administrative-audit exact filters paging inspection and recovery sta
   fixture.setPage([auditBrowserEvent()], "next-page");
   const panel = await openAdministrativeAudit(page);
   await expect(panel.getByRole("status")).toContainText("Page 1:");
+  const readsBeforeTarget = fixture.requests.length;
   const target = panel.getByLabel("Target ID", { exact: true });
   await target.fill("exact-target");
   await target.press("Enter");
@@ -147,9 +149,23 @@ test("a11y.administrative-audit exact filters paging inspection and recovery sta
   await expect(kind).toBeFocused();
   await expect(kind).toHaveAccessibleDescription(/Choose a target kind/);
   await expectVisibleFocus(kind);
+  // A target ID without its kind is not submitted.
+  expect(fixture.requests.length).toBe(readsBeforeTarget);
+  await kind.selectOption("user");
+  await panel
+    .getByRole("button", { name: "Apply filters", exact: true })
+    .click();
+  await expect.poll(() => fixture.requests.length).toBe(readsBeforeTarget + 1);
+  const filtered = fixture.requests.at(-1)?.searchParams;
+  expect(filtered?.get("target_kind")).toBe("user");
+  expect(filtered?.get("target_id")).toBe("exact-target");
   await panel
     .getByRole("button", { name: "Clear filters", exact: true })
     .click();
+  await expect.poll(() => fixture.requests.length).toBe(readsBeforeTarget + 2);
+  const cleared = fixture.requests.at(-1)?.searchParams;
+  expect(cleared?.has("target_kind")).toBe(false);
+  expect(cleared?.has("target_id")).toBe(false);
   const inspect = panel.getByRole("button", { name: /^Inspect / });
   await inspect.focus();
   await page.keyboard.press("Enter");
@@ -158,6 +174,9 @@ test("a11y.administrative-audit exact filters paging inspection and recovery sta
   await expect(
     panel.getByRole("region", { name: /^Details for / }),
   ).toContainText("Redacted");
+  await expect(
+    panel.getByRole("region", { name: /^Details for / }),
+  ).toContainText("<script>inert text</script>");
   await expect(panel.locator("script")).toHaveCount(0);
   for (const viewport of [
     { width: 1280, height: 720 },

@@ -131,20 +131,36 @@ it("conceals suspended drafts and retires them across incident or account replac
   }
 });
 it("admits only the frozen existing-record capabilities while preserving create-only contracts", () => {
+  let refused = 0;
   for (const contract of listViewContracts())
     for (const field of contract.fields)
-      if (!field.patchWritable)
+      if (!field.patchWritable) {
         expect(
           prepareWorkbookInspectorChange(
             field,
             "value",
             "add",
             contract.viewSchemaId,
-          ).error,
-        ).toBeDefined();
+          ),
+          `${contract.viewSchemaId} ${field.fieldKey}`,
+        ).toEqual({ error: "This field is unavailable for editing." });
+        refused++;
+      }
+  expect(listViewContracts()).toHaveLength(17);
+  expect(refused).toBe(87);
   const host = requireViewContract("cartulary.view.hosts.v1");
-  expect(host.fieldMap["host.fqdn"]?.createWritable).toBe(true);
-  expect(host.fieldMap["host.fqdn"]?.patchWritable).toBe(false);
+  const fqdn = host.fieldMap["host.fqdn"];
+  if (!fqdn) throw new Error("Missing FQDN contract");
+  expect(fqdn.createWritable).toBe(true);
+  expect(fqdn.patchWritable).toBe(false);
+  expect(
+    prepareWorkbookInspectorChange(
+      fqdn,
+      "host.example",
+      "add",
+      host.viewSchemaId,
+    ),
+  ).toEqual({ error: "This field is unavailable for editing." });
 });
 it("validates scalar values and explicit clearing without mutating rough authoring", () => {
   const host = requireViewContract("cartulary.view.hosts.v1"),
@@ -172,14 +188,16 @@ it("validates scalar values and explicit clearing without mutating rough authori
       "add",
       identity.viewSchemaId,
     ).error,
-  ).toBeDefined();
+  ).toBe("Enter a valid RFC3339 timestamp.");
 });
 
 it("preserves exact direct reference input and rejects implicit clearing", () => {
+  const visited: string[] = [];
   for (const contract of listViewContracts())
     for (const field of contract.fields.filter(
       (field) => field.patchWritable && field.directReferenceContractId,
     )) {
+      visited.push(field.fieldKey);
       const id = "00000000-0000-4000-8000-000000000905";
       for (const raw of ["", " ", ` ${id}`, `${id} `, "Display label"])
         expect(
@@ -188,8 +206,9 @@ it("preserves exact direct reference input and rejects implicit clearing", () =>
             raw,
             "add",
             contract.viewSchemaId,
-          ).error,
-        ).toBeDefined();
+          ),
+          `${field.fieldKey} ${JSON.stringify(raw)}`,
+        ).toEqual({ error: "Enter or select an exact reference identifier." });
       expect(
         prepareWorkbookInspectorChange(field, id, "add", contract.viewSchemaId)
           .change,
@@ -205,6 +224,23 @@ it("preserves exact direct reference input and rejects implicit clearing", () =>
           field_key: field.fieldKey,
           value: null,
         });
-      else expect(clear.error).toBeDefined();
+      else
+        expect(clear, field.fieldKey).toEqual({
+          error: "This field cannot be cleared.",
+        });
     }
+  expect([...visited].sort()).toEqual([
+    "decision.owner_user_id",
+    "evidence.collector_party_id",
+    "evidence.owner_user_id",
+    "evidence.source_party_id",
+    "finding.owner_user_id",
+    "handoff.incoming_owner_user_id",
+    "handoff.outgoing_owner_user_id",
+    "lesson.owner_user_id",
+    "status_review.review_owner_user_id",
+    "task.decision_record_id",
+    "task.owner_user_id",
+    "task.requester_party_id",
+  ]);
 });

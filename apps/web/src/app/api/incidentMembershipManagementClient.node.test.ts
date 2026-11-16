@@ -74,7 +74,11 @@ describe("Incident membership management typed transport", () => {
           cursor: null,
           signal: signal(),
         }),
-      ).toMatchObject({ ok: false, status: 502 });
+      ).toEqual({
+        ok: false,
+        status: 502,
+        problem: { code: "invalid_public_contract_response" },
+      });
     }
   });
   it("preserves 201 and 200 create outcomes and sends one email selector", async () => {
@@ -162,7 +166,11 @@ describe("Incident membership management typed transport", () => {
           },
           signal: signal(),
         }),
-      ).toMatchObject({ ok: false, status: 502 });
+      ).toEqual({
+        ok: false,
+        status: 502,
+        problem: { code: "invalid_public_contract_response" },
+      });
     }
   });
   it("retains safe error identities without raw server message or arbitrary details", async () => {

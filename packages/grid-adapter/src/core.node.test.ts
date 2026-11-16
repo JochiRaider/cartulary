@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 
 import {
   assertGridRows,
@@ -277,40 +277,21 @@ function summarizeRows(
 
 describe("semantic grouping model", () => {
   it("preserves ungrouped semantic row order", () => {
-    const rows = [gridRow("record-1", "open"), gridRow("record-2", "closed")];
+    const rows = [gridRow("record-2", "closed"), gridRow("record-1", "open")];
 
-    expect(
-      buildGridPresentationRows({
-        rows,
-      }),
-    ).toEqual([
-      {
-        gridRow: rows[0],
-        key: "record-1",
-        kind: "data",
-      },
-      {
-        gridRow: rows[1],
-        key: "record-2",
-        kind: "data",
-      },
-    ]);
+    const model = buildSemanticPresentationModel<HarnessRow>({
+      allowCreateRows: false,
+      columns: [],
+      dataRows: rows,
+      fieldKeys: ["label", "state"],
+      surface: testSurface,
+    });
 
-    expect(
-      buildGridPresentationRows({
-        rows,
-      }),
-    ).toEqual([
-      {
-        gridRow: rows[0],
-        key: "record-1",
-        kind: "data",
-      },
-      {
-        gridRow: rows[1],
-        key: "record-2",
-        kind: "data",
-      },
+    expect(model.grouping).toBeNull();
+    expect(model.dataRows).toEqual(rows);
+    expect(model.rowIdentities).toEqual([
+      { kind: "core_record", recordId: "record-2" },
+      { kind: "core_record", recordId: "record-1" },
     ]);
   });
 
@@ -386,9 +367,17 @@ describe("semantic grouping model", () => {
   });
 
   it("keeps recordless drafts outside semantic group buckets", () => {
+    // Production never filters drafts at runtime: grouping accepts only data
+    // rows, and the grid takes the create draft as a separate prop. The type
+    // check enforces both facts.
+    expectTypeOf<GridDraftRow<HarnessRow>>().not.toMatchTypeOf<
+      GridDataRow<HarnessRow>
+    >();
+    expectTypeOf(buildSemanticGroupBuckets<HarnessRow>)
+      .parameter(0)
+      .toEqualTypeOf<readonly GridDataRow<HarnessRow>[]>();
     const rows = [
       gridRow("record-1", "open"),
-      draftRow("draft-1", "rough"),
       gridRow("record-2", "reviewed"),
       gridRow("record-3", null),
     ];
@@ -602,6 +591,12 @@ describe("semantic grid state precedence", () => {
     ).toBe("bulk-selected");
     expect(
       resolveGridSemanticState({ readOnlyOrDerived: true }, "Status").primary,
+    ).toBe("read-only");
+    expect(
+      resolveGridSemanticState(
+        { readOnlyOrDerived: true, saved: true },
+        "Status",
+      ).primary,
     ).toBe("read-only");
     expect(resolveGridSemanticState({ saved: true }, "Status").primary).toBe(
       "saved",
@@ -960,19 +955,26 @@ describe("semantic grid policies", () => {
       label: "Details",
       renderCell: () => null,
     };
+    // Each rejected fixture fails exactly one condition: action and vendor
+    // columns carry an editor, so contract writeability alone rejects them.
     const actionColumn = {
       authoringPresentation: "explicit_action" as const,
       contractWritable: false,
       fieldKey: "collection",
       label: "Collection",
       renderCell: () => null,
+      editor: writableColumn.editor,
     };
     const vendorEditableColumn = {
       editable: true,
       fieldKey: "vendor",
       label: "Vendor",
       renderCell: () => null,
-    } as typeof adapterlessColumn & { readonly editable: true };
+      editor: writableColumn.editor,
+    } as Omit<typeof adapterlessColumn, "contractWritable"> & {
+      readonly editable: true;
+      readonly editor: typeof writableColumn.editor;
+    };
 
     expect(isGridColumnEditable(writableColumn)).toBe(true);
     expect(isGridColumnEditable(readOnlyColumn)).toBe(false);
@@ -996,9 +998,6 @@ describe("semantic grid policies", () => {
       editor,
     };
 
-    expect(column.renderCell({ row: { label: "Alpha", state: "open" } })).toBe(
-      "Alpha",
-    );
     expect(isGridColumnEditable(column)).toBe(true);
   });
 

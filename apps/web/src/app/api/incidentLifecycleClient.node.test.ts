@@ -118,17 +118,22 @@ describe("Incident lifecycle transport", () => {
         authority: attempt.authority,
         signal: signal(),
       }),
-    ).toMatchObject({ ok: false });
+    ).toEqual({
+      ok: false,
+      status: 502,
+      problem: { code: "invalid_public_contract_response" },
+    });
   });
   it("preserves typed error distinctions without retaining private diagnostics", async () => {
-    for (const code of [
-      "invalid_incident_lifecycle_request",
-      "incident_version_conflict",
-      "illegal_transition",
-      "client_txn_conflict",
-      "authorization_denied",
-      "session_required",
+    for (const [code, status] of [
+      ["invalid_incident_lifecycle_request", 400],
+      ["incident_version_conflict", 409],
+      ["illegal_transition", 409],
+      ["client_txn_conflict", 409],
+      ["authorization_denied", 403],
+      ["session_required", 401],
     ] as const) {
+      const validation = code === "invalid_incident_lifecycle_request";
       vi.stubGlobal(
         "fetch",
         vi.fn(async () =>
@@ -137,24 +142,31 @@ describe("Incident lifecycle transport", () => {
               error: {
                 code,
                 message: "private",
-                details: {
-                  field: "reason",
-                  reason_code: "reason_too_long",
-                  secret: "private",
-                },
+                details: validation
+                  ? {
+                      field: "reason",
+                      reason_code: "reason_too_long",
+                      secret: "private",
+                    }
+                  : { secret: "private" },
               },
             },
-            409,
+            status,
           ),
         ),
       );
-      expect(
-        await mutateIncidentLifecycle({ attempt, signal: signal() }),
-      ).toEqual({
-        ok: false,
-        status: 409,
-        problem: { code, field: "reason", reason: "reason_too_long" },
+      const result = await mutateIncidentLifecycle({
+        attempt,
+        signal: signal(),
       });
+      expect(result, code).toEqual({
+        ok: false,
+        status,
+        problem: validation
+          ? { code, field: "reason", reason: "reason_too_long" }
+          : { code },
+      });
+      expect(JSON.stringify(result), code).not.toContain("private");
     }
   });
   it("accepts exact historical receipts and sends normalized-valid long raw reasons unchanged", async () => {

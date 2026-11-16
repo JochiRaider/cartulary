@@ -687,7 +687,7 @@ describe("Workbook Inspector presentation", () => {
     );
     expect((field as HTMLInputElement).value).toBe("Retained value plus draft");
     expect(screen.getByText("Sections: History")).not.toBeNull();
-    if (body) fireEvent.scroll(body);
+    fireEvent.scroll(body);
     expect(openHistory).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "Open history" })).toBe(
       document.activeElement,

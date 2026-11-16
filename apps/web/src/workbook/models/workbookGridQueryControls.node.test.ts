@@ -150,6 +150,16 @@ describe("workbookGridQueryControls", () => {
       kind: "sort_remove",
       fieldKey: first,
     });
+    // A slot is free, so only the duplicate rule can refuse this add.
+    const present = shortened[0]?.fieldKey;
+    expect(present).toBeDefined();
+    if (present === undefined) return;
+    expect(
+      applyWorkbookSortCommand(contract, shortened, {
+        kind: "sort_add",
+        fieldKey: present,
+      }),
+    ).toBe(shortened);
     sort = applyWorkbookSortCommand(contract, shortened, {
       kind: "sort_add",
       fieldKey: ninth,
@@ -232,14 +242,31 @@ describe("workbookGridQueryControls", () => {
     const entries = projectWorkbookQueryEntries(maximumContract, queryState);
     expect(entries).toHaveLength(25);
     expect(new Set(entries.map((entry) => entry.token)).size).toBe(25);
-    expect(entries.slice(0, 3).map((entry) => entry.token)).toEqual([
+    expect(entries.map((entry) => entry.token)).toEqual([
       "G",
-      "S1",
-      "S2",
+      ...Array.from({ length: 8 }, (_, index) => `S${index + 1}`),
+      ...Array.from({ length: 16 }, (_, index) => `F${index + 1}`),
     ]);
-    expect(entries.length - 3).toBe(22);
-    expect(entries.length - 2).toBe(23);
-    expect(entries.length).toBe(25);
+    const layoutState = defaultWorkbookLayoutState(contract);
+    for (const [chromeMode, capacity, visible, firstHidden] of [
+      ["base", 3, ["G", "S1", "S2"], "S3"],
+      ["narrow_desktop", 2, ["G", "S1"], "S2"],
+      ["compact_desktop", 0, [], "G"],
+    ] as const) {
+      const projection = projectWorkbookGridQueryControls({
+        chromeMode,
+        contract: maximumContract,
+        layoutState,
+        queryState,
+      });
+      expect(projection.visibleChipCapacity, chromeMode).toBe(capacity);
+      expect(
+        projection.visibleChips.map((chip) => chip.token),
+        chromeMode,
+      ).toEqual(visible);
+      expect(projection.hiddenChips, chromeMode).toHaveLength(25 - capacity);
+      expect(projection.hiddenChips[0]?.token, chromeMode).toBe(firstHidden);
+    }
   });
 
   it("projects one closure-free working set across saved-view, query, layout, and focus state", () => {

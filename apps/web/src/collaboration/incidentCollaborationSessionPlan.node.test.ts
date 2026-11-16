@@ -59,11 +59,15 @@ describe("incident collaboration session plan", () => {
         } as IncidentStreamMessage,
         resetting: false,
       }),
-    ).toMatchObject({
+    ).toEqual({
+      connectionId: null,
       kind: "established",
+      messageType: "resume_ack",
       nextStreamSeq: 8,
       resetRequired: true,
       resumeToken: "opaque",
+      serverHighWaterStreamSeq: 8,
+      status: "reset_required",
     });
     expect(
       planIncidentCollaborationSessionMessage({

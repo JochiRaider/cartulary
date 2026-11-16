@@ -397,11 +397,12 @@ describe("application session lifecycle", () => {
         if (reason === "dispose") controller.dispose();
         if (reason === "replacement") {
           const snapshot = controller.getSnapshot();
-          if (snapshot.session)
-            controller.authenticationCompleted(
-              snapshot.session,
-              snapshot.revision,
-            );
+          if (!snapshot.session)
+            throw new Error("Replacement requires an established session");
+          controller.authenticationCompleted(
+            snapshot.session,
+            snapshot.revision,
+          );
         }
         const snapshot = controller.getSnapshot();
         if (reject) late.reject(new Error("obsolete"));
@@ -485,6 +486,25 @@ describe("application session lifecycle", () => {
     await pending;
     expect(lost).not.toHaveBeenCalled();
     expect(sessionLost).not.toHaveBeenCalled();
+
+    // Control: the same access-loss result reaches a mounted owner.
+    const mountedLost = vi.fn();
+    const mountedSessionLost = vi.fn();
+    const mounted = renderHook(() =>
+      useWorkbookAuthorizationState({
+        accountUserId: accountA,
+        authorizationRecovery: {
+          recover: vi.fn().mockResolvedValue({ kind: "access_lost" }),
+        },
+        incidentId: incident,
+        onIncidentAccessLost: mountedLost,
+        onSessionLost: mountedSessionLost,
+      }),
+    );
+    await act(() => mounted.result.current.loadSessionRole());
+    expect(mountedLost).toHaveBeenCalledOnce();
+    expect(mountedSessionLost).not.toHaveBeenCalled();
+    mounted.unmount();
   });
 });
 
@@ -527,7 +547,23 @@ it("observes operation session and current profiles with explicit cancellation a
   gate.resolve({
     ok: true,
     status: 200,
-    payload: { data: { extensions: [] } },
+    payload: { meta: { request_id: "extensions" }, data: { extensions: [] } },
   });
   expect(await observation).toEqual({ kind: "cancelled" });
+  extensions.mockResolvedValueOnce({
+    ok: false,
+    status: 401,
+    payload: {
+      error: {
+        code: "session_required",
+        details: {},
+        message: "Session required.",
+        request_id: "extensions",
+        retryable: false,
+      },
+    },
+  });
+  expect(
+    await controller.observeOperationExtensions(lifetime, signal, () => true),
+  ).toEqual({ kind: "session_lost" });
 });

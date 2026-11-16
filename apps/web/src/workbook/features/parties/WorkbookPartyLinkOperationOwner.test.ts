@@ -269,7 +269,7 @@ it("retains accepted Party creation after navigation and rejected linking withou
   await f.owner.linkCreated(saved?.id ?? "", current);
   expect(f.send).toHaveBeenCalledTimes(1);
   expect(f.patchSend).toHaveBeenCalledTimes(2);
-  expect(f.owner.getSnapshot().patches[1]?.receipt).not.toBeNull();
+  expect(f.owner.getSnapshot().patches[1]?.receipt).toEqual(expect.anything());
 });
 
 it("replays uncertain creation and linking with their captured identities after selection changes", async () => {
@@ -358,7 +358,7 @@ it("retains late accepted source receipts while hiding suspended and retired Par
   f.patches.setAuthority({ ...taskAuthority, role: "viewer" });
   f.owner.setAuthority({ ...taskAuthority, role: "viewer" });
   expect(f.owner.canSubmit()).toBe(false);
-  expect(f.owner.getSnapshot().patches[0]?.receipt).not.toBeNull();
+  expect(f.owner.getSnapshot().patches[0]?.receipt).toEqual(expect.anything());
   f.patches.setAuthority({ ...taskAuthority, actorId: "another-account" });
   f.owner.setAuthority({ ...taskAuthority, actorId: "another-account" });
   expect(f.authorityUncertain).not.toHaveBeenCalled();

@@ -640,7 +640,7 @@ SELECT COUNT(*)
 					return
 				}
 				data := httptestx.RequireSuccessEnvelope(t, rollbackRecord(t, harness, login, recordID, body), http.StatusOK)["data"].(map[string]any)
-				if data["rollback_change_set_id"] == "" {
+				if stringField(t, data, "rollback_change_set_id") == "" {
 					t.Fatalf("rollback response missing change set: %#v", data)
 				}
 				if verify != nil {

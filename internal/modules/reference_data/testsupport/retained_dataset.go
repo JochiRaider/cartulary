@@ -63,7 +63,7 @@ func retainedDataset(t testing.TB, repositoryRoot, name, key, repository, class 
 func WindowsRelease(t testing.TB, root string) ProducedWindowsPack {
 	t.Helper()
 	f, _ := retainedDataset(t, root, "windows", "enrichment.windows_event_ids", "cartulary.windows_event_ids", "release", 503, 0)
-	return ProducedWindowsPack{f.PortablePackFixture, f.ManifestSHA256, f.PayloadSHA256, f.Members}
+	return ProducedWindowsPack(f)
 }
 
 func ATTACKRelease(t testing.TB, root string) AuthenticATTACKPack {

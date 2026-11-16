@@ -79,29 +79,56 @@ describe("clipboard representation", () => {
         "text/plain": "wrong",
       }),
     ).toMatchObject({ value: "  a\nb & c" });
-    for (const html of [
-      '<table data-cartulary-clipboard="2"><tr><td>a</td></tr></table>',
-      '<table><tr><td colspan="2">a</td></tr></table>',
-      "<table><tr><td><table><tr><td>a</td></tr></table></td></tr></table>",
-      '<table><tr><td><img src="https://invalid.test/no-fetch"></td></tr></table>',
-      "<table><tr><td><script>alert(1)</script></td></tr></table>",
-      "<table><tr><td>a</td></tr><tr><td>b</td><td>c</td></tr></table>",
-    ])
+    for (const [html, reason] of [
+      [
+        '<table data-cartulary-clipboard="2"><tr><td>a</td></tr></table>',
+        "unsupported_table",
+      ],
+      ['<table><tr><td colspan="2">a</td></tr></table>', "unsupported_table"],
+      [
+        "<table><tr><td><table><tr><td>a</td></tr></table></td></tr></table>",
+        "unsupported_table",
+      ],
+      [
+        '<table><tr><td><img src="https://invalid.test/no-fetch"></td></tr></table>',
+        "unsupported_table",
+      ],
+      [
+        "<table><tr><td><script>alert(1)</script></td></tr></table>",
+        "unsupported_table",
+      ],
+      [
+        "<table><tr><td>a</td></tr><tr><td>b</td><td>c</td></tr></table>",
+        "ragged_rows",
+      ],
+    ] as const)
       expect(
         decodeGridClipboard({
           "text/html": html,
           "text/plain": "must not fall back",
         }),
-      ).toMatchObject({ kind: "failure" });
+        html,
+      ).toMatchObject({ kind: "failure", reason });
+    // The byte bound is paired at both entry points, and counted in UTF-8
+    // bytes rather than UTF-16 code units (a four-byte scalar is two units).
+    const atLimit = "x".repeat(clipboardLimits.maxBytes);
+    const fourByteAtLimit = "😀".repeat(clipboardLimits.maxBytes / 4);
+    expect(decodeDelimitedClipboard(atLimit, "tsv").kind).toBe("decoded");
+    expect(decodeDelimitedClipboard(`${atLimit}x`, "tsv")).toMatchObject({
+      kind: "failure",
+      reason: "too_large",
+    });
+    expect(decodeGridClipboard({ "text/plain": atLimit }).kind).toBe("scalar");
+    expect(decodeGridClipboard({ "text/plain": `${atLimit}x` })).toMatchObject({
+      kind: "failure",
+      reason: "too_large",
+    });
+    expect(decodeGridClipboard({ "text/plain": fourByteAtLimit }).kind).toBe(
+      "scalar",
+    );
     expect(
-      decodeDelimitedClipboard("x".repeat(clipboardLimits.maxBytes), "tsv")
-        .kind,
-    ).toBe("decoded");
-    expect(
-      decodeGridClipboard({
-        "text/plain": "x".repeat(clipboardLimits.maxBytes + 1),
-      }),
-    ).toMatchObject({ reason: "too_large" });
+      decodeGridClipboard({ "text/plain": `${fourByteAtLimit}x` }),
+    ).toMatchObject({ kind: "failure", reason: "too_large" });
     expect(
       decodeDelimitedClipboard(Array(65).fill("x").join("\t"), "tsv"),
     ).toMatchObject({ reason: "too_many_columns" });

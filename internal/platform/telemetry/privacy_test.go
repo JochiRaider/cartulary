@@ -67,6 +67,11 @@ func TestSafeAttributesOmitNullEquivalentAndUnknownCartularyKeys(t *testing.T) {
 		attribute.String("cartulary.result", "failed"),
 	)
 
+	// The folded map would hide an admitted null value behind a later value of
+	// the same key, so the unfolded output must hold exactly one attribute.
+	if len(attrs) != 1 || string(attrs[0].Key) != "cartulary.result" || attrs[0].Value.AsString() != "failed" {
+		t.Fatalf("expected exactly the valid result attribute, got %#v", attrs)
+	}
 	got := attributesByName(attrs)
 	if len(got) != 1 || got["cartulary.result"] != "failed" {
 		t.Fatalf("expected only valid result attribute, got %#v", got)
@@ -98,7 +103,12 @@ func TestNullLikeValuesOmittedBeforeRecordingForAllSignalFamilies(t *testing.T) 
 	}
 	for signal, attrs := range signalCases {
 		t.Run(signal, func(t *testing.T) {
-			got := attributesByName(SafeAttributes(attrs...))
+			safe := SafeAttributes(attrs...)
+			want := attrs[len(attrs)-1]
+			if len(safe) != 1 || safe[0] != want {
+				t.Fatalf("expected only %v for %s, got %#v", want, signal, safe)
+			}
+			got := attributesByName(safe)
 			if len(got) != 1 {
 				t.Fatalf("expected only one safe attribute for %s, got %#v", signal, got)
 			}

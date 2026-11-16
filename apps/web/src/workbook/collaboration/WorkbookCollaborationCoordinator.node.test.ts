@@ -74,6 +74,9 @@ const serverEnvelope = {
   incident_id: "incident-1",
 } as const;
 
+/** One real macrotask turn; the manual scheduler's clock does not advance. */
+const settle = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+
 function projectionFixture(
   initialSheetRef:
     | { readonly kind: "view_schema"; readonly id: string }
@@ -597,9 +600,9 @@ describe("WorkbookCollaborationCoordinator", () => {
       });
       fixture.emit({ kind: "authorization_lost" });
       await fixture.timing.advanceBy(1000);
-      for (let i = 0; i < 6; ++i) await Promise.resolve();
+      await settle();
       await fixture.timing.advanceBy(1000);
-      for (let i = 0; i < 6; ++i) await Promise.resolve();
+      await settle();
       expect(refresh).toHaveBeenCalledTimes(
         recovery.kind === "cancelled" ||
           (recovery.kind === "unavailable" && recovery.failure === "transient")
@@ -633,8 +636,33 @@ describe("WorkbookCollaborationCoordinator", () => {
     expect(fixture.onSessionLost).toHaveBeenCalledOnce();
     expect(fixture.onIncidentAccessLost).not.toHaveBeenCalled();
     expect(fixture.mutationRuntime.getSnapshot().authPaused).toBe(true);
+    expect(
+      fixture.mutationRuntime.enqueuePatch({
+        baseRowVersion: 1,
+        changes: [
+          {
+            field_key: "timeline.activity_synopsis_text",
+            value: "Pending through revocation",
+          },
+        ],
+        fieldKey: "timeline.activity_synopsis_text",
+        localValue: "Pending through revocation",
+        recordId: "record-1",
+        rowLabel: "Timeline row",
+        surfaceLabel: "Timeline",
+        viewSchemaId: "cartulary.view.timeline.v2",
+      }),
+    ).toMatchObject({ kind: "admitted" });
+    const pendingUnits = fixture.mutationRuntime
+      .pendingQueue()
+      .model.snapshot().units;
+    expect(pendingUnits).toHaveLength(1);
     await fixture.timing.advanceBy(30_000);
     expect(recover).not.toHaveBeenCalled();
+    expect(fixture.mutationRuntime.getSnapshot().authPaused).toBe(true);
+    expect(
+      fixture.mutationRuntime.pendingQueue().model.snapshot().units,
+    ).toEqual(pendingUnits);
     fixture.projection.dispose();
   });
   it("conceals a revoked incident immediately once and rejects obsolete recovery without ending the account session", async () => {
@@ -741,14 +769,16 @@ describe("WorkbookCollaborationCoordinator", () => {
       );
       fixture.emit({ kind: "authorization_lost" });
       await fixture.timing.advanceBy(1_000);
-      await Promise.resolve();
+      await settle();
       await fixture.timing.advanceBy(1_000);
-      await Promise.resolve();
+      await settle();
       expect(recover).toHaveBeenCalledTimes(
         outcome.kind === "unavailable" && outcome.failure === "transient"
           ? 2
           : 1,
       );
+      expect(fixture.mutationRuntime.getSnapshot().authPaused).toBe(true);
+      expect(fixture.session.reconnect).not.toHaveBeenCalled();
       expect(fixture.onIncidentAccessLost).not.toHaveBeenCalled();
       expect(fixture.onSessionLost).not.toHaveBeenCalled();
       fixture.projection.dispose();
@@ -772,6 +802,7 @@ describe("WorkbookCollaborationCoordinator", () => {
       } as IncidentCollaborationEvent);
     send("presence_snapshot", { presences: [p] });
     const oldExpiry = fixture.timing.pendingCallbacks()[0];
+    expect(oldExpiry).toBeTypeOf("function");
     send("presence_delta", {
       delta_kind: "upsert",
       presence: { ...p, sheet_ref: { kind: "saved_view", id: "saved" } },
@@ -896,12 +927,14 @@ describe("WorkbookCollaborationCoordinator", () => {
     } as IncidentCollaborationEvent;
     fixture.emit(event);
     const callbacks = fixture.timing.pendingCallbacks();
+    expect(callbacks.length).toBeGreaterThan(0);
     fixture.timing.jumpBy(10_000);
     fixture.projection.refreshPresenceTime();
     expect(fixture.projection.getSnapshot().presence.header.users).toEqual([]);
     for (const callback of callbacks) callback();
     expect(fixture.projection.getSnapshot().presence.header.users).toEqual([]);
     const oldListener = fixture.session.subscribe.mock.calls[0]?.[0];
+    expect(oldListener).toBeTypeOf("function");
     fixture.projection.dispose();
     for (const callback of callbacks) callback();
     oldListener?.(event);
@@ -1267,15 +1300,18 @@ describe("WorkbookCollaborationCoordinator", () => {
         resolveRecovery = resolve;
       },
     );
+    const recover = vi.fn(() => recovery);
     const fixture = projectionFixture(
       { kind: "view_schema", id: "cartulary.view.timeline.v2" },
       {
-        recover: () => recovery,
+        recover,
       },
     );
 
     fixture.emit({ kind: "authorization_lost" });
     await fixture.timing.advanceBy(1_000);
+    // The recovery must be in flight, so its late result reaches a disposed owner.
+    expect(recover).toHaveBeenCalledTimes(1);
     fixture.projection.dispose();
     fixture.projection.dispose();
     resolveRecovery?.({ kind: "access_lost" });
@@ -1408,7 +1444,7 @@ describe("WorkbookCollaborationCoordinator", () => {
       kind: "reset_required",
       reason: "sequence_gap",
     });
-    await Promise.resolve();
+    await settle();
     expect(fixture.session.completeReset).not.toHaveBeenCalled();
     expect(fixture.timing.pendingTaskCount()).toBe(1);
     await fixture.timing.advanceBy(1_000);
@@ -1566,7 +1602,7 @@ describe("WorkbookCollaborationCoordinator", () => {
       else if (stop === "closed") cancelled.emit({ kind: "incident_closed" });
       else cancelled.projection.dispose();
       staleRead.resolve();
-      await Promise.resolve();
+      await settle();
       expect(cancelled.session.completeReset).not.toHaveBeenCalled();
       if (stop === "new_reset") {
         freshRead.resolve();

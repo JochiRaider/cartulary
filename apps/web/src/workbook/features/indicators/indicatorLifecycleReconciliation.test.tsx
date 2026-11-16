@@ -10,6 +10,7 @@ import {
 import { acceptedQueryMetadata } from "../../../testing/workbookFixtureData";
 import { renderHookWithWorkbookQueryBrowsing as renderHook } from "../../../testing/workbookQueryTestSupport";
 import { createIndicatorLifecycleAdapter } from "../../adapters/createIndicatorLifecycleAdapter";
+import { WorkbookSurfaceRefreshError } from "../../collaboration/workbookSurfacePort";
 import { WorkbookRecordHistoryOwner } from "../../history/WorkbookRecordHistoryOwner";
 import { emptyWorkbookQueryState } from "../../models/workbookQuery";
 import { useGenericSurfaceQuery } from "../../query/useGenericSurfaceQuery";
@@ -113,7 +114,7 @@ it("Lifecycle reconciliation refreshes every affected identity beyond the first 
   });
   await expect(
     reconcileIndicatorLifecycleReceipt(o, history, receipt, scope),
-  ).rejects.toThrow();
+  ).rejects.toThrow("Affected record history needs refresh");
   expect(o.latestVersion(lifecycleIndicator)).toBe(2);
   expect(refresh).toHaveBeenCalledTimes(2);
 });
@@ -152,9 +153,12 @@ it("Lifecycle query materialization never regresses HTTP or socket version evide
     },
   });
   await act(async () => {
-    await expect(
-      hook.result.current.refresh({ requireAcceptance: true }),
-    ).rejects.toThrow();
+    const refused = hook.result.current.refresh({ requireAcceptance: true });
+    await expect(refused).rejects.toBeInstanceOf(WorkbookSurfaceRefreshError);
+    await expect(refused).rejects.toHaveProperty("recovery", {
+      kind: "unavailable",
+      failure: "transient",
+    });
   });
   expect(hook.result.current.rows[0]?.row_version).toBe(8);
   expect(hook.result.current.loadState.kind).toBe("stale_error");

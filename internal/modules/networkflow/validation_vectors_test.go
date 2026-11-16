@@ -38,6 +38,9 @@ func readValidationVectors(t testing.TB, name string, target any) {
 func TestNetworkFlowCanonicalEndpointVectors(t *testing.T) {
 	var vectors endpointValidationVectors
 	readValidationVectors(t, "endpoints", &vectors)
+	if len(vectors.IPs) == 0 || len(vectors.Pairs) == 0 {
+		t.Fatalf("endpoint vectors are empty: %d IP and %d pair cases", len(vectors.IPs), len(vectors.Pairs))
+	}
 	for _, v := range vectors.IPs {
 		t.Run(v.Name, func(t *testing.T) {
 			accepted := false
@@ -71,6 +74,9 @@ func AssertCanonicalEndpointSQLVectors(t testing.TB, db dbport.DB) {
 	t.Helper()
 	var vectors endpointValidationVectors
 	readValidationVectors(t, "endpoints", &vectors)
+	if len(vectors.IPs) == 0 || len(vectors.Pairs) == 0 {
+		t.Fatalf("endpoint vectors are empty: %d IP and %d pair cases", len(vectors.IPs), len(vectors.Pairs))
+	}
 	for _, v := range vectors.IPs {
 		var accepted bool
 		if err := db.QueryRow(t.Context(), `SELECT public.network_flow_ip_literal_is_canonical_v1($1)`, v.Input).Scan(&accepted); err != nil {
@@ -105,6 +111,9 @@ func TestNetworkFlowDiagnosticIDV2KnownAnswers(t *testing.T) {
 		Retired     string  `json:"retired"`
 	}
 	readValidationVectors(t, "diagnostic-ids", &vectors)
+	if len(vectors) == 0 {
+		t.Fatal("diagnostic-ID vectors are empty")
+	}
 	for _, v := range vectors {
 		t.Run(v.Name, func(t *testing.T) {
 			got := diagnosticID(v.Source, v.Fingerprint, v.Row, v.Ordinal, v.Field, v.Code, v.Reason)

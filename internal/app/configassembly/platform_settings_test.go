@@ -19,8 +19,8 @@ import (
 func TestPlatformSettingsProjection_Unit(t *testing.T) {
 	cfg := Deployment{
 		Roots: config.RootBindings{
-			DatabaseStorage: config.RootBinding{BindingKind: "managed_service", Path: "db-root", ServiceRef: "database-primary"},
-			ObjectStorage:   config.RootBinding{BindingKind: "filesystem_root", Path: "object-root", ServiceRef: "object-primary"},
+			DatabaseStorage: config.RootBinding{BindingKind: "managed_service", ServiceRef: "database-primary"},
+			ObjectStorage:   config.RootBinding{BindingKind: "filesystem_root", Path: "/srv/cartulary/object-root"},
 		},
 		Bootstrap: config.BootstrapConfig{FirstAdminManifestPath: "/deployment/bootstrap.json"},
 		Telemetry: telemetryconfiguration.Config{
@@ -29,12 +29,12 @@ func TestPlatformSettingsProjection_Unit(t *testing.T) {
 		},
 	}
 	if got, want := PostgresBinding(cfg), (postgres.Binding{
-		BindingKind: "managed_service", RootPath: "db-root", ServiceRef: "database-primary",
+		BindingKind: "managed_service", ServiceRef: "database-primary",
 	}); !reflect.DeepEqual(got, want) {
 		t.Fatalf("postgres binding = %#v, want %#v", got, want)
 	}
 	if got, want := ObjectStoreBinding(cfg), (objectstore.Binding{
-		BindingKind: "filesystem_root", RootPath: "object-root", ServiceRef: "object-primary",
+		BindingKind: "filesystem_root", RootPath: "/srv/cartulary/object-root",
 	}); !reflect.DeepEqual(got, want) {
 		t.Fatalf("object-store binding = %#v, want %#v", got, want)
 	}

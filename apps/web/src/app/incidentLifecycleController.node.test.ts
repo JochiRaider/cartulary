@@ -91,6 +91,7 @@ describe("Incident lifecycle ownership", () => {
     controller.propose("close");
     controller.confirm();
     expect(controller.getSnapshot().operation.kind).toBe("pending");
+    await flush();
     expect(mutate).not.toHaveBeenCalled();
     access.resolve({
       kind: "authorized",
@@ -112,10 +113,12 @@ describe("Incident lifecycle ownership", () => {
     controller.propose("close");
     controller.changeReason("newer");
     controller.confirm();
+    await flush();
     expect(mutate).not.toHaveBeenCalled();
     controller.review();
     controller.acceptResource(incident({ incident_version: 2 }));
     controller.confirm();
+    await flush();
     expect(mutate).not.toHaveBeenCalled();
     expect(controller.getSnapshot().review).toBeNull();
     controller.review();

@@ -118,8 +118,13 @@ describe("view contracts", () => {
 
   it("freezes contracts and Inspector metadata", () => {
     expect(Object.isFrozen(listViewContracts())).toBe(true);
-    expect(Object.isFrozen(listViewContracts()[0]?.fieldMap)).toBe(true);
-    expect(Object.isFrozen(listViewContracts()[0]?.inspectorConfig)).toBe(true);
+    // Object.isFrozen(undefined or null) is true, so require each member first.
+    for (const contract of listViewContracts()) {
+      for (const member of [contract.fieldMap, contract.inspectorConfig]) {
+        expect(typeof member === "object" && member !== null).toBe(true);
+        expect(Object.isFrozen(member)).toBe(true);
+      }
+    }
   });
 
   it("derives the four exact Indicator feature signatures from the owner registry", () => {

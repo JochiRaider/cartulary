@@ -174,12 +174,13 @@ describe("useTimelineCollaborationBindings", () => {
       rowVersion: 2,
       scope: acceptedScope,
     });
+    const firstRawRow = () => {
+      const raw = rowsRef.current[0]?.rawRow;
+      if (!raw) throw new Error("Expected the first row to carry its raw row");
+      return raw;
+    };
     expect(
-      workbookRowIsAdmissible(
-        rowsRef.current[0]!.rawRow!,
-        "record-1",
-        acceptedScope,
-      ),
+      workbookRowIsAdmissible(firstRawRow(), "record-1", acceptedScope),
     ).toBe(true);
     for (const scope of [
       null,
@@ -191,7 +192,9 @@ describe("useTimelineCollaborationBindings", () => {
       currentScope = scope;
       rowsRef.current = [committedRow("record-1", 1, "Before"), draft];
       act(() => {
-        fixture.activeSurface()?.applyRecordChanged(change);
+        expect(fixture.activeSurface()?.applyRecordChanged(change)).toEqual({
+          kind: "applied",
+        });
       });
       expect(rowsRef.current[0]?.rawRow?.observation).toEqual({
         recordId: "record-1",
@@ -199,19 +202,20 @@ describe("useTimelineCollaborationBindings", () => {
         scope: acceptedScope,
       });
       expect(
-        workbookRowIsAdmissible(
-          rowsRef.current[0]!.rawRow!,
-          "record-1",
-          currentScope,
-        ),
+        workbookRowIsAdmissible(firstRawRow(), "record-1", currentScope),
       ).toBe(false);
     }
     currentScope = acceptedScope;
     const unobserved = committedRow("record-1", 1, "Before");
-    const { observation: _observation, ...raw } = unobserved.rawRow!;
+    const unobservedRaw = unobserved.rawRow;
+    if (!unobservedRaw)
+      throw new Error("Expected the committed row to carry its raw row");
+    const { observation: _observation, ...raw } = unobservedRaw;
     rowsRef.current = [{ ...unobserved, rawRow: raw }, draft];
     act(() => {
-      fixture.activeSurface()?.applyRecordChanged(change);
+      expect(fixture.activeSurface()?.applyRecordChanged(change)).toEqual({
+        kind: "applied",
+      });
     });
     expect(rowsRef.current[0]?.rawRow?.observation).toBeUndefined();
 
@@ -318,6 +322,36 @@ describe("useTimelineCollaborationBindings", () => {
       }),
     ).toEqual({ kind: "refresh_required" });
     expect(rowsRef.current[0]?.values.activitySynopsisText).toBe("Before");
+
+    const sparse = (patchCells?: unknown): RecordChangedPayload =>
+      ({
+        record_id: "record-1",
+        row_version: 2,
+        change_set_id: "change-malformed",
+        client_txn_id: "remote-malformed",
+        actor_user_id: "user-2",
+        changed_field_keys: ["timeline.activity_synopsis_text"],
+        affected_views: [
+          {
+            view_schema_id: timelineViewSchemaId,
+            change_kind: "patch",
+            ...(patchCells === undefined ? {} : { patch_cells: patchCells }),
+          },
+        ],
+      }) as unknown as RecordChangedPayload;
+    for (const payload of [
+      sparse({
+        record_id: "record-1",
+        row_version: "two",
+        cells: { "timeline.activity_synopsis_text": { value: "Malformed" } },
+      }),
+      sparse(),
+    ]) {
+      expect(fixture.activeSurface()?.applyRecordChanged(payload)).toEqual({
+        kind: "refresh_required",
+      });
+      expect(rowsRef.current[0]?.values.activitySynopsisText).toBe("Before");
+    }
     unmount();
   });
 });

@@ -40,38 +40,6 @@ func buildIndicatorLifecycleValue(record IndicatorLifecycleIntervalRecord) map[s
 	return intervalhistory.Value(record).Map()
 }
 
-func formatTimestamp(value time.Time) string {
-	return value.UTC().Format(time.RFC3339Nano)
-}
-
-func formatTimestampPointer(value *time.Time) any {
-	if value == nil {
-		return nil
-	}
-	return value.UTC().Format(time.RFC3339Nano)
-}
-
-func formatUUIDPointer(value *uuid.UUID) any {
-	if value == nil {
-		return nil
-	}
-	return value.String()
-}
-
-func derefString(value *string) any {
-	if value == nil {
-		return nil
-	}
-	return *value
-}
-
-func derefInt(value *int) any {
-	if value == nil {
-		return nil
-	}
-	return *value
-}
-
 func stringPointer(value string) *string {
 	cloned := value
 	return &cloned

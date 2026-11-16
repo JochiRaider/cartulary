@@ -580,6 +580,9 @@ func TestManagerFailsDurableHandlerClosedAfterMaxAttempts(t *testing.T) {
 	}
 	jobID := uuid.MustParse(resource.JobID)
 
+	if got := jobs.ProductionRuntimePolicy().MaximumFailures; got != 3 {
+		t.Fatalf("durable handler maximum failures = %d; Core 01 fixes 3", got)
+	}
 	for attempt := range jobs.DefaultHandlerMaxAttempts {
 		execution := claimTestExecution(t, manager, jobID)
 		if err := manager.RecordExecutionFailure(ctx, execution, false); err != nil {
@@ -590,7 +593,8 @@ func TestManagerFailsDurableHandlerClosedAfterMaxAttempts(t *testing.T) {
 			if err := pool.QueryRow(ctx, `SELECT handler_next_attempt_at FROM jobs WHERE job_id = $1`, jobID).Scan(&nextAttemptAt); err != nil {
 				t.Fatal(err)
 			}
-			delay := jobs.ProductionRuntimePolicy().RetryDelays[attempt]
+			// Core 01 fixes the production delays at 5 seconds, then 30 seconds.
+			delay := []time.Duration{5 * time.Second, 30 * time.Second}[attempt]
 			if !nextAttemptAt.Equal(now.Add(delay)) {
 				t.Fatalf("attempt %d eligibility = %s, want %s", attempt+1, nextAttemptAt, now.Add(delay))
 			}

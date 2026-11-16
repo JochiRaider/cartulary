@@ -39,6 +39,11 @@ describe("@cartulary/ui-contracts selector core", () => {
       tab: surfaceTabTestId("cartulary.view.timeline.v2"),
     };
 
+    expect(first).toEqual({
+      cell: "row-record-1-timeline.activity_synopsis_text",
+      shell: "cartulary.view.timeline.v2-grid-shell",
+      tab: "surface-tab-cartulary.view.timeline.v2",
+    });
     expect(second).toEqual(first);
   });
 
@@ -122,7 +127,7 @@ describe("@cartulary/ui-contracts selector core", () => {
       "Invalid view_schema_id selector token: timeline",
     );
     expect(() => gridShellTestId("")).toThrow(
-      "Invalid view_schema_id selector token: ",
+      /^Invalid view_schema_id selector token: $/,
     );
     expect(() => rowCellTestId("record-1", "timeline summary")).toThrow(
       "Invalid field_key selector token: timeline summary",
@@ -131,11 +136,11 @@ describe("@cartulary/ui-contracts selector core", () => {
       "Invalid field_key selector token: timeline..summary",
     );
     expect(() => rowCellTestId("", "timeline.activity_synopsis_text")).toThrow(
-      "Invalid record_id selector token: ",
+      /^Invalid record_id selector token: $/,
     );
     expect(() =>
       rowCellTestId("   ", "timeline.activity_synopsis_text"),
-    ).toThrow("Invalid record_id selector token:    ");
+    ).toThrow(/^Invalid record_id selector token: {4}$/);
     expect(() =>
       rowHistoryActionTestId({
         action: "restore" as never,
@@ -157,10 +162,10 @@ describe("@cartulary/ui-contracts selector core", () => {
       }),
     ).toThrow("Invalid row history destructive operation token: remove");
     expect(() => rowHistoryItemTestId({ historyItemRef: "" })).toThrow(
-      "Invalid history_item_ref selector token: ",
+      /^Invalid history_item_ref selector token: $/,
     );
     expect(() => rowHistoryItemTestId({ historyItemRef: "   " })).toThrow(
-      "Invalid history_item_ref selector token:    ",
+      /^Invalid history_item_ref selector token: {4}$/,
     );
 
     expect(rowHistoryItemTestId({ historyItemRef: "h:item/1?x=y#z" })).toBe(
@@ -180,8 +185,12 @@ describe("@cartulary/ui-contracts selector core", () => {
     ).toBe(
       "row-history-rollback-preview-h%3Aitem%2F1%3Fx%3Dy%23z-history_entry",
     );
-    expect(rowHistoryItemTestId({ historyItemRef: "a:b" })).not.toBe(
-      rowHistoryItemTestId({ historyItemRef: "a-b" }),
+    // Distinct refs keep distinct encodings.
+    expect(rowHistoryItemTestId({ historyItemRef: "a:b" })).toBe(
+      "row-history-item-a%3Ab",
+    );
+    expect(rowHistoryItemTestId({ historyItemRef: "a-b" })).toBe(
+      "row-history-item-a-b",
     );
     expect(
       rowCellTestId("record/1?x=y#z", "timeline.activity_synopsis_text"),
@@ -200,12 +209,9 @@ describe("@cartulary/ui-contracts selector core", () => {
       "presence-cell-record%2F1%3Fx%3Dy%23z-timeline.activity_synopsis_text",
     );
 
-    expect(relationshipChipTestId("a:b")).not.toBe(
-      relationshipChipTestId("a-b"),
-    );
-    expect(relationshipChipTestId("a b")).not.toBe(
-      relationshipChipTestId("a-b"),
-    );
+    expect(relationshipChipTestId("a:b")).toBe("chip-a%3Ab");
+    expect(relationshipChipTestId("a b")).toBe("chip-a%20b");
+    expect(relationshipChipTestId("a-b")).toBe("chip-a-b");
   });
 
   it("validates view_schema_id selectors against the generated registry", () => {
@@ -237,7 +243,7 @@ describe("@cartulary/ui-contracts selector core", () => {
       '[data-testid^="saved-view-"]',
     );
     expect(() => dataTestIdSelector("")).toThrow(
-      "Invalid data-testid selector token: ",
+      /^Invalid data-testid selector token: $/,
     );
 
     for (const surface of ["grid", "inspector"] as const) {

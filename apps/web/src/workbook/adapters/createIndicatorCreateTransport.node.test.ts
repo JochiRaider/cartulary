@@ -72,16 +72,18 @@ it("Canonical transport retains closed request bytes and complete accepted resul
     "resolved_indicator_record_id",
     "indicator.observation_count",
   ])
-    expect(() =>
-      port().capture(
-        observationAuthority,
-        1,
-        testObservation,
-        canonicalCreateContract,
-        { ...canonicalCreateValues, [field]: "not admitted" },
-        "txn",
-      ),
-    ).toThrow();
+    expect(
+      () =>
+        port().capture(
+          observationAuthority,
+          1,
+          testObservation,
+          canonicalCreateContract,
+          { ...canonicalCreateValues, [field]: "not admitted" },
+          "txn",
+        ),
+      field,
+    ).toThrow("Invalid canonical proposal");
 });
 it("Canonical transport rejects invalid receipt bindings and classifies malformed or lost responses as uncertainty", async () => {
   const attempt = capture(),

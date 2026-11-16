@@ -73,7 +73,7 @@ it("Decision runtime coordinates queued and direct writes without clearing unrel
     });
     if (!attempt) throw new Error("Expected admission");
     const running = owner.execute(attempt);
-    await Promise.resolve();
+    await new Promise((resolve) => setTimeout(resolve, 0));
     expect(send).not.toHaveBeenCalled();
     expect(runtime.enqueuePatch(patch).kind).toBe("rejected_mutation");
     expect(runtime.beginDecisionWrite([decisionTargetId])).toBeNull();

@@ -211,7 +211,7 @@ describe("useWorkbookStartupAdmission", () => {
     const startupPort = startupPortReturning(pending.promise);
     const ownedPorts = ports();
     const onAvailabilityChange = vi.fn();
-    renderAdmission(
+    const rendered = renderAdmission(
       ownedPorts,
       onAvailabilityChange,
       "incident-1",
@@ -224,6 +224,7 @@ describe("useWorkbookStartupAdmission", () => {
       pending.resolve(acceptedStartup(baseStartup()));
       await pending.promise;
     });
+    await waitFor(() => expect(rendered.result.current.pending).toBe(false));
 
     expect(onAvailabilityChange).not.toHaveBeenCalled();
     expect(
@@ -343,12 +344,15 @@ describe("useWorkbookStartupAdmission", () => {
       failure: { kind: "retryable", message: "Startup is unavailable." },
     });
     const ownedPorts = ports();
-    renderAdmission(ownedPorts, vi.fn(), "incident-1", startupPort);
+    const rendered = renderAdmission(
+      ownedPorts,
+      vi.fn(),
+      "incident-1",
+      startupPort,
+    );
 
     await waitFor(() => expect(startupPort.load).toHaveBeenCalledOnce());
-    await act(async () => {
-      await Promise.resolve();
-    });
+    await waitFor(() => expect(rendered.result.current.pending).toBe(false));
     expect(
       ownedPorts.availabilityPort.acceptWorkbookStartup,
     ).not.toHaveBeenCalled();
@@ -364,7 +368,7 @@ describe("useWorkbookStartupAdmission", () => {
     });
     const ownedPorts = ports();
     const onAvailabilityChange = vi.fn();
-    renderAdmission(
+    const rendered = renderAdmission(
       ownedPorts,
       onAvailabilityChange,
       "incident-1",
@@ -372,6 +376,7 @@ describe("useWorkbookStartupAdmission", () => {
     );
 
     await waitFor(() => expect(startupPort.load).toHaveBeenCalledOnce());
+    await waitFor(() => expect(rendered.result.current.pending).toBe(false));
     expect(onAvailabilityChange).not.toHaveBeenCalled();
     expect(
       ownedPorts.selectionPort.applyStartupIdentity,
@@ -398,6 +403,7 @@ describe("useWorkbookStartupAdmission", () => {
     await act(async () => {
       pending.resolve(acceptedStartup(baseStartup()));
       await pending.promise;
+      await new Promise((resolve) => setTimeout(resolve, 0));
     });
     expect(onAvailabilityChange).not.toHaveBeenCalled();
     expect(
@@ -413,7 +419,7 @@ describe("useWorkbookStartupAdmission", () => {
     const startupPort = startupPortReturning(pending.promise);
     const ownedPorts = ports();
     const onAvailabilityChange = vi.fn();
-    renderAdmission(
+    const rendered = renderAdmission(
       ownedPorts,
       onAvailabilityChange,
       "incident-1",
@@ -426,6 +432,7 @@ describe("useWorkbookStartupAdmission", () => {
       pending.resolve(acceptedStartup(savedViewStartup()));
       await pending.promise;
     });
+    await waitFor(() => expect(rendered.result.current.pending).toBe(false));
 
     expect(onAvailabilityChange).not.toHaveBeenCalled();
     expect(

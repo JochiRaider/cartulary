@@ -131,7 +131,7 @@ func TestReportingInstalledSandboxRenders(t *testing.T) {
 			if err != nil {
 				t.Fatalf("installed candidate %s: %s: %v (supervisor: %v)", kind, reason, err, errors.Unwrap(err))
 			}
-			found := false
+			found, snapshots := false, 0
 			for _, file := range rendered.RenderBundle.Files {
 				if file.Role == renderBundleRoleRenderedPDF || file.Role == renderBundleRoleRenderedSVG {
 					found = true
@@ -140,6 +140,7 @@ func TestReportingInstalledSandboxRenders(t *testing.T) {
 					}
 				}
 				if file.Role == renderBundleRoleToolchainSnapshot {
+					snapshots++
 					var snapshot ToolchainSnapshot
 					if json.Unmarshal(file.Bytes, &snapshot) != nil || snapshot.NodeVersion != installation.Manifest().NodeVersion || snapshot.OSImageSHA256 == nil || *snapshot.OSImageSHA256 != installation.Digest() || len(snapshot.BrowserLaunchArgs) == 0 || len(snapshot.EnvAllowlist) == 0 {
 						t.Fatal("candidate toolchain is not bound to its installation")
@@ -151,6 +152,9 @@ func TestReportingInstalledSandboxRenders(t *testing.T) {
 			}
 			if !found {
 				t.Fatal("candidate omitted requested rendering")
+			}
+			if snapshots != 1 {
+				t.Fatalf("candidate carried %d toolchain snapshots; want 1", snapshots)
 			}
 		}
 	})

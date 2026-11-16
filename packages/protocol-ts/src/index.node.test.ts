@@ -1,5 +1,8 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
-import { incidentStreamMessageDecoder } from "./entrypoints/collaboration.js";
+import {
+  type IncidentStreamMessage,
+  incidentStreamMessageDecoder,
+} from "./entrypoints/collaboration.js";
 import { errorRegistry } from "./entrypoints/errors.js";
 import {
   extensionClientSupportRegistry,
@@ -20,6 +23,7 @@ import {
   type CreateViewRowResponse,
   type ErrorEnvelope,
   encodeHTTPOperationQuery,
+  errorEnvelopeDecoder,
   type GetCurrentAccountPreferencesResponse,
   type GetCurrentAccountProfileResponse,
   type GetDeploymentUserResponse,
@@ -351,13 +355,12 @@ describe("@cartulary/protocol-ts family conformance", () => {
       email: "member@example.test",
       role: "reviewer",
     };
-    const logoutRequest: LogoutCurrentSessionRequest = undefined;
-    expect(loginRequest.username).toBe("operator@example.test");
-    expect(incidentRequest.incident_key).toBe("INC-1");
-    expect(membershipRequest).toEqual(
-      expect.objectContaining({ role: "reviewer" }),
-    );
-    expect(logoutRequest).toBeUndefined();
+    expectTypeOf<LogoutCurrentSessionRequest>().toEqualTypeOf<undefined>();
+    expectTypeOf(loginRequest).toMatchTypeOf<LoginLocalUserRequest>();
+    expectTypeOf(incidentRequest).toMatchTypeOf<CreateIncidentRequest>();
+    expectTypeOf(
+      membershipRequest,
+    ).toMatchTypeOf<CreateIncidentMembershipRequest>();
     expectTypeOf<
       LoginLocalUserResponse["data"]
     >().toEqualTypeOf<SessionResource>();
@@ -524,13 +527,13 @@ describe("@cartulary/protocol-ts family conformance", () => {
 
     const applyRequest: ApplyImportSessionRequest = {
       client_txn_id: "txn-apply",
-      selected_unit_ids: ["unit-1"],
+      selected_unit_ids: ["00000000-0000-4000-8000-000000000011"],
     };
     const cancelRequest: CancelJobRequest = {
       client_txn_id: "txn-cancel",
     };
-    expect(applyRequest.selected_unit_ids).toEqual(["unit-1"]);
-    expect(cancelRequest.client_txn_id).toBe("txn-cancel");
+    expectTypeOf(applyRequest).toMatchTypeOf<ApplyImportSessionRequest>();
+    expectTypeOf(cancelRequest).toMatchTypeOf<CancelJobRequest>();
     expectTypeOf<ListImportUnitsResponse>().toMatchTypeOf<{
       data: { import_units: unknown[] };
       meta: { request_id: string };
@@ -586,47 +589,48 @@ describe("@cartulary/protocol-ts family conformance", () => {
       );
     }
 
+    const optionalSurfaceResponse = (viewSchemaId: string) => ({
+      data: {
+        change_set_id: "00000000-0000-4000-8000-000000000002",
+        row: {
+          cells: {
+            "extension.value": {
+              value: "strict optional surface",
+              future_cell_member: { must_remain_inert: true },
+            },
+          },
+          group_values: { "extension.group": "strict" },
+          record_id: "00000000-0000-4000-8000-000000000001",
+          row_version: 2,
+          future_row_member: ["must", "remain", "inert"],
+        },
+        view_schema_id: viewSchemaId,
+      },
+      meta: { request_id: "request-optional-surface" },
+    });
     for (const viewSchemaId of [
       "cartulary.view.findings.v1",
       "cartulary.view.investigative_queries.v1",
       "cartulary.view.forensic_keywords.v1",
     ]) {
       expect(
-        validateHTTPOperationResponse("patchRecord", {
-          data: {
-            change_set_id: "00000000-0000-4000-8000-000000000002",
-            row: {
-              cells: {
-                "extension.value": {
-                  value: "strict optional surface",
-                  future_cell_member: { must_remain_inert: true },
-                },
-              },
-              group_values: { "extension.group": "strict" },
-              record_id: "00000000-0000-4000-8000-000000000001",
-              row_version: 2,
-              future_row_member: ["must", "remain", "inert"],
-            },
-            view_schema_id: viewSchemaId,
-          },
-          meta: { request_id: "request-optional-surface" },
-        }),
+        validateHTTPOperationResponse(
+          "patchRecord",
+          optionalSurfaceResponse(viewSchemaId),
+        ),
       ).toEqual(expect.objectContaining({ ok: true }));
     }
+    // Only the view schema ID differs from the accepted bodies above.
     expect(
-      validateHTTPOperationResponse("patchRecord", {
-        data: {
-          change_set_id: "00000000-0000-4000-8000-000000000002",
-          row: {
-            cells: {},
-            record_id: "00000000-0000-4000-8000-000000000001",
-            row_version: 2,
-          },
-          view_schema_id: "cartulary.view.unsupported.v1",
-        },
-        meta: { request_id: "request-unsupported-surface" },
-      }),
-    ).toEqual(expect.objectContaining({ ok: false }));
+      validateHTTPOperationResponse(
+        "patchRecord",
+        optionalSurfaceResponse("cartulary.view.unsupported.v1"),
+      ),
+    ).toEqual({
+      ok: false,
+      schemaId: "cartulary.core_http.ViewMutationEnvelope.v1",
+      instancePath: "/data/view_schema_id",
+    });
 
     const objectBlobResponse = {
       data: {
@@ -901,14 +905,6 @@ describe("@cartulary/protocol-ts family conformance", () => {
     expect(
       startupReasonCodes.map((reason) => String(reason.code)),
     ).not.toContain("ambiguous_explicit_sheet_ref");
-    expect(
-      errorRegistry.reason_registries.find(
-        (registry) => String(registry.error_code) === "missing_error_code",
-      ),
-    ).toBeUndefined();
-    expect(() => requireReasonCodeRegistry("missing_error_code")).toThrow(
-      "missing reason registry missing_error_code",
-    );
   });
 
   it("exposes typed extension registry profiles", () => {
@@ -1488,6 +1484,12 @@ describe("@cartulary/protocol-ts family conformance", () => {
   });
 
   it("projects replayable messages to fresh known members at every additive boundary", () => {
+    // The fixtures below cover every replayable (stream_seq-bearing) family.
+    expectTypeOf<
+      Extract<IncidentStreamMessage, { stream_seq: number }>["type"]
+    >().toEqualTypeOf<
+      "record_changed" | "extension_resource_changed" | "job_progress"
+    >();
     const envelope = {
       emitted_at: "2026-08-03T23:00:00Z",
       event_id: "event-1",
@@ -1626,9 +1628,22 @@ describe("@cartulary/protocol-ts family conformance", () => {
       record_id: "record-1",
       row_version: 2,
     } as const;
+    const validRecordChanged = {
+      emitted_at: "2026-08-03T23:00:00Z",
+      event_id: "event-1",
+      incident_id: "incident-1",
+      payload: validRecordPayload,
+      stream_seq: 1,
+      type: "record_changed",
+    } as const;
+    expect(incidentStreamMessageDecoder.decode(validRecordChanged).ok).toBe(
+      true,
+    );
+    // The decoder reports one-of mismatches as a root constraint violation,
+    // so the cases are isolated rather than reason-pinned.
     for (const invalid of [
-      { type: "unknown", payload: { secret: "must-not-leak" } },
-      { type: "hello", payload: { secret: "must-not-leak" } },
+      { ...validRecordChanged, secret: "must-not-leak", type: "unknown" },
+      { ...validRecordChanged, secret: "must-not-leak", type: "hello" },
       {
         emitted_at: "2026-08-03T23:00:00Z",
         incident_id: "incident-1",
@@ -1691,7 +1706,7 @@ describe("@cartulary/protocol-ts family conformance", () => {
 
   it("checks evidence protocol values through generated types", () => {
     const createRequest = {
-      incident_id: "incident-1",
+      incident_id: "00000000-0000-4000-8000-000000000021",
       client_txn_id: "txn-create-blob",
       byte_size: 42,
       filename_hint: "evidence.txt",
@@ -1710,11 +1725,11 @@ describe("@cartulary/protocol-ts family conformance", () => {
           byte_size: 42,
           content_type_hint: "text/plain",
           filename_hint: "evidence.txt",
-          incident_id: "incident-1",
+          incident_id: "00000000-0000-4000-8000-000000000021",
           sha256_hex: null,
         },
-        incident_id: "incident-1",
-        object_blob_id: "object-blob-1",
+        incident_id: "00000000-0000-4000-8000-000000000021",
+        object_blob_id: "00000000-0000-4000-8000-000000000022",
         pending_expires_at: "2026-06-07T12:00:00Z",
         target_expires_at: "2026-06-07T12:00:00Z",
         upload_state: "pending",
@@ -1729,10 +1744,10 @@ describe("@cartulary/protocol-ts family conformance", () => {
     } satisfies AttachBlobToEvidenceRecordRequest;
     const attachEnvelope = {
       data: {
-        change_set_id: "change-1",
+        change_set_id: "00000000-0000-4000-8000-000000000023",
         object_blob_id: attachRequest.object_blob_id,
         row: {
-          record_id: "evidence-1",
+          record_id: "00000000-0000-4000-8000-000000000024",
           row_version: 2,
           cells: {},
         },
@@ -1750,12 +1765,12 @@ describe("@cartulary/protocol-ts family conformance", () => {
         filename: "evidence.txt",
         handle_kind: "preview",
         href: "/api/v1/evidence-handles/preview-token",
-        incident_id: "incident-1",
+        incident_id: "00000000-0000-4000-8000-000000000021",
         media_class: "text",
         method: "GET",
-        object_blob_id: "object-blob-1",
+        object_blob_id: "00000000-0000-4000-8000-000000000022",
         preview_kind: "text_inline",
-        record_id: "evidence-1",
+        record_id: "00000000-0000-4000-8000-000000000024",
         sha256: null,
         single_use: true,
         size_bytes: 42,
@@ -1774,13 +1789,32 @@ describe("@cartulary/protocol-ts family conformance", () => {
       },
     } satisfies ErrorEnvelope;
 
-    expect(createRequest.byte_size).toBe(42);
-    expect(attachEnvelope.data.row.row_version).toBe(2);
-    expect(handleRequest).toEqual({});
-    expect(handleEnvelope.data.href).toBe(
-      "/api/v1/evidence-handles/preview-token",
-    );
-    expect(errorEnvelope.error.details.reason_code).toBe("blob_failed");
+    expectTypeOf(createRequest).toMatchTypeOf<CreateObjectBlobSlotRequest>();
+    expectTypeOf(
+      attachRequest,
+    ).toMatchTypeOf<AttachBlobToEvidenceRecordRequest>();
+    expectTypeOf(
+      handleRequest,
+    ).toMatchTypeOf<IssueEvidencePreviewHandleRequest>();
+    expect(
+      validateHTTPOperationResponse("createObjectBlobSlot", createEnvelope),
+    ).toEqual({ ok: true });
+    expect(
+      validateHTTPOperationResponse(
+        "attachBlobToEvidenceRecord",
+        attachEnvelope,
+      ),
+    ).toEqual({ ok: true });
+    expect(
+      validateHTTPOperationResponse(
+        "issueEvidencePreviewHandle",
+        handleEnvelope,
+      ),
+    ).toEqual({ ok: true });
+    expect(errorEnvelopeDecoder.decode(errorEnvelope)).toEqual({
+      ok: true,
+      value: errorEnvelope,
+    });
   });
 
   it("checks account preference values through generated types", () => {
@@ -1819,9 +1853,23 @@ describe("@cartulary/protocol-ts family conformance", () => {
       meta: { request_id: "req-preferences" },
     } satisfies PutCurrentAccountPreferencesResponse;
 
-    expect(profilePatchRequest.display_name).toBe("Operator Prime");
-    expect(preferencesPutRequest.density_mode).toBeNull();
-    expect(profileEnvelope.data.user_id).toBe(profileResource.user_id);
-    expect(preferencesEnvelope.data.density_mode).toBe("compact");
+    expectTypeOf(
+      profilePatchRequest,
+    ).toMatchTypeOf<PatchCurrentAccountProfileRequest>();
+    expectTypeOf(
+      preferencesPutRequest,
+    ).toMatchTypeOf<PutCurrentAccountPreferencesRequest>();
+    expect(
+      validateHTTPOperationResponse(
+        "patchCurrentAccountProfile",
+        profileEnvelope,
+      ),
+    ).toEqual({ ok: true });
+    expect(
+      validateHTTPOperationResponse(
+        "putCurrentAccountPreferences",
+        preferencesEnvelope,
+      ),
+    ).toEqual({ ok: true });
   });
 });

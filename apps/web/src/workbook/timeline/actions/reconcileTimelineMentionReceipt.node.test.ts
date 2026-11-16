@@ -89,19 +89,23 @@ it("Mention reconciliation accepts cleared dismissal and keeps newer remote corr
   });
 });
 it("Mention reconciliation rejects stale sources malformed same-version projections and detached reads", async () => {
-  for (const mismatch of [
-    "source",
-    "text",
-    "target",
-    "mention_version",
-    "detached",
+  const staleSource = "A newer source version still needs refresh.";
+  const incomplete = "Mention result projection is incomplete.";
+  for (const [mismatch, message] of [
+    ["source", staleSource],
+    ["text", incomplete],
+    ["target", incomplete],
+    ["mention_version", "A newer mention version still needs refresh."],
+    ["detached", staleSource],
   ] as const) {
     const f = fixture();
     const subject = {
       ...f.subject,
       ...(mismatch === "source" ? { sourceRowVersion: 4 } : {}),
       ...(mismatch === "text" ? { rawText: "changed" } : {}),
-      ...(mismatch === "target" ? { resolvedRecordId: "wrong" } : {}),
+      ...(mismatch === "target"
+        ? { resolvedRecordId: "70000000-0000-4000-8000-000000000009" }
+        : {}),
       ...(mismatch === "mention_version"
         ? { mentionRowVersion: 2, sourceRowVersion: 10 }
         : {}),
@@ -113,7 +117,37 @@ it("Mention reconciliation rejects stale sources malformed same-version projecti
         ...f.scope,
         isCurrent: () => mismatch !== "detached",
       }),
-    ).rejects.toThrow();
-    expect(f.owner.latestMention(f.subject.mentionId)).toBeNull();
+      mismatch,
+    ).rejects.toThrow(message);
+    expect(f.owner.latestMention(f.subject.mentionId), mismatch).toBeNull();
   }
+
+  const dismissal = fixture();
+  await expect(
+    reconcileTimelineMentionReceipt(
+      dismissal.owner,
+      async () => dismissal.row,
+      mentionReceipt({
+        ...dismissal.review,
+        intent: { action: "dismiss_item" },
+      }),
+      dismissal.scope,
+    ),
+  ).rejects.toThrow(incomplete);
+  expect(dismissal.owner.latestMention(dismissal.subject.mentionId)).toBeNull();
+
+  const late = fixture();
+  let currentChecks = 0;
+  await expect(
+    reconcileTimelineMentionReceipt(
+      late.owner,
+      async () => late.row,
+      late.receipt,
+      {
+        ...late.scope,
+        isCurrent: () => ++currentChecks === 1,
+      },
+    ),
+  ).rejects.toThrow("Mention reconciliation detached.");
+  expect(currentChecks).toBe(2);
 });

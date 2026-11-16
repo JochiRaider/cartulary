@@ -43,7 +43,7 @@ func TestStableFieldKeysOnly_Unit(t *testing.T) {
 		"unknown filter label":     {body: `{"filters":[{"field_key":"Summary","op":"eq","arg":{"value":"x"}}]}`, reasonCode: "unknown_filter_field", fieldKey: "Summary"},
 		"filter record id":         {body: `{"filters":[{"field_key":"record_id","op":"eq","arg":{"value":"x"}}]}`, reasonCode: "unknown_filter_field", fieldKey: "record_id"},
 		"filter row version":       {body: `{"filters":[{"field_key":"row_version","op":"eq","arg":{"value":1}}]}`, reasonCode: "unknown_filter_field", fieldKey: "row_version"},
-		"operator not allowed":     {body: `{"filters":[{"field_key":"timeline.activity_synopsis_text","op":"contains_any","arg":{"values":["x"]}}]}`, reasonCode: "unknown_filter_field", fieldKey: "timeline.activity_synopsis_text"},
+		"non-filterable field":     {body: `{"filters":[{"field_key":"timeline.activity_synopsis_text","op":"contains_any","arg":{"values":["x"]}}]}`, reasonCode: "unknown_filter_field", fieldKey: "timeline.activity_synopsis_text"},
 		"invalid operator":         {body: `{"filters":[{"field_key":"timeline.capture_state","op":"contains_any","arg":{"values":["rough"]}}]}`, reasonCode: "operator_not_allowed", fieldKey: "timeline.capture_state"},
 		"missing arg":              {body: `{"filters":[{"field_key":"timeline.capture_state","op":"eq"}]}`, reasonCode: "invalid_filter_operand"},
 		"malformed arg shape":      {body: `{"filters":[{"field_key":"timeline.capture_state","op":"eq","arg":{"value":"rough","unexpected":true}}]}`, reasonCode: "invalid_filter_operand", fieldKey: "timeline.capture_state"},
@@ -235,6 +235,11 @@ func TestQueryNormalizationMeta_Unit(t *testing.T) {
 
 	requireWorkbookQueryOpenAPIHasCanonicalMeta(t)
 
+	atCeiling, err := Decode(strings.NewReader(oversizeSortBody(PublicSortLimit)), timelineViewSchemaID)
+	// Accepted: the eight user entries plus the normalized record_id tail.
+	if err != nil || len(atCeiling.Meta.Sort) != PublicSortLimit+1 || atCeiling.Meta.Sort[PublicSortLimit].FieldKey != "record_id" {
+		t.Fatalf("sort at the ceiling must be accepted: %#v %+v", atCeiling, err)
+	}
 	for name, body := range map[string]string{
 		"sort ceiling":   oversizeSortBody(PublicSortLimit + 1),
 		"filter ceiling": oversizeFilterBody(PublicFilterLimit + 1),
@@ -406,10 +411,18 @@ func quoteJSON(value string) string {
 	return string(payload)
 }
 
+// distinctSortableTimelineFields are nine distinct Timeline sort_fields, so
+// a sort body exceeds the ceiling without also repeating a field.
+var distinctSortableTimelineFields = []string{
+	"timeline.activity_sort_ts", "timeline.date_entered_sort_day", "timeline.activity_synopsis_text",
+	"timeline.analyst_text", "timeline.mitre_stage_text", "timeline.device_object_text",
+	"timeline.ip_address_text", "timeline.data_source_text", "timeline.edited_at",
+}
+
 func oversizeSortBody(count int) string {
 	entries := make([]string, 0, count)
 	for index := 0; index < count; index++ {
-		entries = append(entries, `{"field_key":"timeline.activity_synopsis_text","direction":"asc"}`)
+		entries = append(entries, `{"field_key":"`+distinctSortableTimelineFields[index]+`","direction":"asc"}`)
 	}
 	return `{"sort":[` + strings.Join(entries, ",") + `]}`
 }

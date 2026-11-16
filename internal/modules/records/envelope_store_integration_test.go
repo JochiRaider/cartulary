@@ -122,8 +122,11 @@ func TestEnvelopeStoreContract_Integration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("batch-load envelopes: %v", err)
 	}
-	if len(loaded) != 2 {
-		t.Fatalf("batch-loaded envelope count = %d; want 2", len(loaded))
+	if _, generatedLoaded := loaded[generatedRecordID]; len(loaded) != 2 || !generatedLoaded {
+		t.Fatalf("batch-loaded envelopes = %#v; want exactly the generated and supplied records", loaded)
+	}
+	if _, suppliedLoaded := loaded[suppliedRecordID]; !suppliedLoaded {
+		t.Fatalf("batch-loaded envelopes omit the supplied record: %#v", loaded)
 	}
 	empty, err := store.LoadEnvelopesTx(ctx, tx, nil, false)
 	if err != nil {
@@ -147,6 +150,13 @@ func TestEnvelopeStoreContract_Integration(t *testing.T) {
 	}
 	if loadedVersion != 8 {
 		t.Fatalf("loaded row version = %d; want 8", loadedVersion)
+	}
+	advanced, err := store.LoadEnvelopeTx(ctx, tx, suppliedRecordID, false)
+	if err != nil {
+		t.Fatalf("load advanced envelope: %v", err)
+	}
+	if !advanced.UpdatedAt.Equal(advancedAt) || advanced.UpdatedByUserID != actorID {
+		t.Fatalf("advanced envelope update facts = (%s, %s); want (%s, %s)", advanced.UpdatedAt, advanced.UpdatedByUserID, advancedAt, actorID)
 	}
 	deletedAt := advancedAt.Add(time.Minute)
 	deletedVersion, err := store.SetDeleteStateTx(ctx, tx, suppliedRecordID, actorID, deletedAt, true)

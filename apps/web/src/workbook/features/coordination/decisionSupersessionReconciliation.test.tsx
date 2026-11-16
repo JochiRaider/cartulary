@@ -12,6 +12,7 @@ import {
 import { acceptedQueryMetadata } from "../../../testing/workbookFixtureData";
 import { renderHookWithWorkbookQueryBrowsing as renderHook } from "../../../testing/workbookQueryTestSupport";
 import { createWorkbookDecisionSupersessionAdapter } from "../../adapters/createWorkbookDecisionSupersessionAdapter";
+import { WorkbookSurfaceRefreshError } from "../../collaboration/workbookSurfacePort";
 import { WorkbookRecordHistoryOwner } from "../../history/WorkbookRecordHistoryOwner";
 import { emptyWorkbookQueryState } from "../../models/workbookQuery";
 import { useGenericSurfaceQuery } from "../../query/useGenericSurfaceQuery";
@@ -143,9 +144,12 @@ it("Decision query and live patches cannot regress accepted high-water versions"
     },
   });
   await act(async () => {
-    await expect(
-      hook.result.current.refresh({ requireAcceptance: true }),
-    ).rejects.toThrow();
+    const refused = hook.result.current.refresh({ requireAcceptance: true });
+    await expect(refused).rejects.toBeInstanceOf(WorkbookSurfaceRefreshError);
+    await expect(refused).rejects.toHaveProperty("recovery", {
+      kind: "unavailable",
+      failure: "transient",
+    });
   });
   expect(hook.result.current.rows[0]?.row_version).toBe(8);
   expect(hook.result.current.loadState.kind).toBe("stale_error");

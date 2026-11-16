@@ -1,6 +1,7 @@
 import {
   gridGroupRowSelector,
   gridScrollportClassName,
+  workbookGridRowHeightPx,
 } from "@cartulary/ui-contracts";
 import {
   act,
@@ -363,7 +364,9 @@ describe("grid-adapter", () => {
         cancelable: true,
       });
       fireEvent(active, event);
+      expect(onClearCells).toHaveBeenCalledTimes(1);
       fireEvent(active, event);
+      expect(onClearCells).toHaveBeenCalledTimes(1);
       fireEvent.keyDown(active, { key: "Delete", repeat: true });
       expect(onClearCells).toHaveBeenCalledTimes(1);
       expect(onClearCells.mock.calls[0]?.[0].targets).toHaveLength(4);
@@ -685,16 +688,10 @@ describe("grid-adapter", () => {
   });
 
   it("runs fail-closed capability admission through both semantic bindings", async () => {
+    const admissionMessage =
+      "Extension grid surfaces cannot enable Core mutation or bulk-selection capabilities.";
     for (const { Grid, name } of semanticContractBindings) {
-      const onFillCells = vi.fn();
-      const onPaste = vi.fn();
-      const unsafeExtensionProps = {
-        actionsColumn: {
-          label: "Unsafe actions",
-          renderCell: () => <button type="button">Unsafe action</button>,
-        },
-        allowPasteCreateRows: true,
-        clipboardPaste: { decode: decodeTestClipboard, onPaste },
+      const safeExtensionProps = {
         columns: [
           {
             contractWritable: true,
@@ -715,10 +712,6 @@ describe("grid-adapter", () => {
             renderCell: ({ row }: { readonly row: HarnessRow }) => row.label,
           },
         ],
-        coreRecordBulkSelection: {
-          onSelectedRecordIdsChange: vi.fn(),
-          selectedRecordIds: new Set<string>(),
-        },
         dataRows: [
           {
             data: { label: "Extension row", state: "accepted" },
@@ -731,12 +724,6 @@ describe("grid-adapter", () => {
             },
           },
         ],
-        draftRow: {
-          data: { label: "Unsafe draft", state: "draft" },
-          kind: "draft" as const,
-        },
-        interactionMode: { kind: "editable" as const },
-        onFillCells,
         surface: {
           extensionProfileId: "network_flow_activity",
           gridSchemaId: "network_flow.accepted_rows.v1",
@@ -744,10 +731,49 @@ describe("grid-adapter", () => {
           workspaceKey: "contract-workspace",
         },
       } as unknown as SemanticDataGridProps<HarnessRow>;
-      expect(() => render(<Grid {...unsafeExtensionProps} />)).toThrow(
-        /cannot enable Core mutation/i,
-      );
+      render(<Grid {...safeExtensionProps} />);
+      expect(await screen.findByText("Extension row")).toBeTruthy();
       cleanup();
+      // Each capability alone must fail closed, so a binding that drops one
+      // forwarded capability is detected.
+      for (const [capability, value] of [
+        [
+          "actionsColumn",
+          {
+            label: "Unsafe actions",
+            renderCell: () => <button type="button">Unsafe action</button>,
+          },
+        ],
+        ["allowPasteCreateRows", true],
+        ["clipboardPaste", { decode: decodeTestClipboard, onPaste: vi.fn() }],
+        [
+          "coreRecordBulkSelection",
+          {
+            onSelectedRecordIdsChange: vi.fn(),
+            selectedRecordIds: new Set<string>(),
+          },
+        ],
+        [
+          "draftRow",
+          {
+            data: { label: "Unsafe draft", state: "draft" },
+            kind: "draft" as const,
+          },
+        ],
+        ["interactionMode", { kind: "editable" as const }],
+        ["onFillCells", vi.fn()],
+        ["onClearCells", vi.fn()],
+      ] as const) {
+        const unsafeExtensionProps = {
+          ...safeExtensionProps,
+          [capability]: value,
+        } as unknown as SemanticDataGridProps<HarnessRow>;
+        expect(
+          () => render(<Grid {...unsafeExtensionProps} />),
+          `${name} ${capability}`,
+        ).toThrow(admissionMessage);
+        cleanup();
+      }
     }
   });
 
@@ -1331,7 +1357,6 @@ describe("grid-adapter", () => {
     const unsafe = {
       columns,
       dataRows: [],
-      interactionMode: { kind: "editable" },
       onFillCells: vi.fn(),
       surface: {
         kind: "extension_grid",
@@ -1342,7 +1367,7 @@ describe("grid-adapter", () => {
     } as unknown as SemanticDataGridProps<HarnessRow>;
 
     expect(() => render(<SemanticDataGrid {...unsafe} />)).toThrow(
-      /cannot enable Core mutation/i,
+      "Extension grid surfaces cannot enable Core mutation or bulk-selection capabilities.",
     );
   });
 
@@ -2269,7 +2294,7 @@ describe("grid-adapter", () => {
     expect(document.activeElement).toBe(input);
     expect(
       handle.current?.getAnchorRect(gridAnchor("record-1", "label")),
-    ).not.toBeNull();
+    ).toEqual(expect.anything());
     expect(
       handle.current?.getAnchorRect({
         ...gridAnchor("record-1", "label"),
@@ -2517,7 +2542,7 @@ describe("grid-adapter", () => {
       }),
     );
     expect(handle.current?.getScrollElement()).toBeTruthy();
-    expect(handle.current?.getAnchorRect(anchor)).not.toBeNull();
+    expect(handle.current?.getAnchorRect(anchor)).toEqual(expect.anything());
     expect(
       handle.current?.getAnchorRect({
         ...anchor,
@@ -2857,15 +2882,7 @@ describe("grid-adapter", () => {
     });
     fireEvent.doubleClick(fillHandle);
     expect(onFillCells).not.toHaveBeenCalled();
-
-    fireEvent.keyDown(alphaCell, { key: "ArrowDown", shiftKey: true });
-    const betaCell = screen
-      .getByTestId("fill-Beta")
-      .closest<HTMLElement>('[role="gridcell"]');
-    if (betaCell === null) throw new Error("Expected fill target cell");
-    fireEvent.keyDown(betaCell, { ctrlKey: true, key: "d" });
-    await waitFor(() => expect(onFillCells).toHaveBeenCalledTimes(1));
-    expect(onFillCells).toHaveBeenCalledWith({
+    const alphaToBetaFill = {
       range: {
         end: gridAnchor("record-2", "label"),
         start: gridAnchor("record-1", "label"),
@@ -2884,7 +2901,46 @@ describe("grid-adapter", () => {
           mutationIdentity: { kind: "core_row_version", baseRowVersion: 2 },
         },
       ],
+    };
+
+    // Pointer fill: drag the labeled handle from Alpha over the Beta row. The
+    // header and data rows share the density row height.
+    const rowHeight = workbookGridRowHeightPx("default");
+    const handleCapture = vi.fn();
+    Object.defineProperty(fillHandle, "setPointerCapture", {
+      configurable: true,
+      value: handleCapture,
     });
+    const dragFillHandle = (type: string, clientY: number) => {
+      const event = new MouseEvent(type, {
+        bubbles: true,
+        button: 0,
+        buttons: 1,
+        cancelable: true,
+        clientY,
+      });
+      Object.defineProperties(event, {
+        pointerId: { value: 1 },
+        pointerType: { value: "mouse" },
+      });
+      fireEvent(fillHandle, event);
+    };
+    dragFillHandle("pointerdown", rowHeight * 1.5);
+    expect(handleCapture).toHaveBeenCalledWith(1);
+    dragFillHandle("pointermove", rowHeight * 2.5);
+    fireEvent(fillHandle, new Event("lostpointercapture", { bubbles: true }));
+    await waitFor(() => expect(onFillCells).toHaveBeenCalledTimes(1));
+    expect(onFillCells).toHaveBeenLastCalledWith(alphaToBetaFill);
+    onFillCells.mockClear();
+
+    fireEvent.keyDown(alphaCell, { key: "ArrowDown", shiftKey: true });
+    const betaCell = screen
+      .getByTestId("fill-Beta")
+      .closest<HTMLElement>('[role="gridcell"]');
+    if (betaCell === null) throw new Error("Expected fill target cell");
+    fireEvent.keyDown(betaCell, { ctrlKey: true, key: "d" });
+    await waitFor(() => expect(onFillCells).toHaveBeenCalledTimes(1));
+    expect(onFillCells).toHaveBeenCalledWith(alphaToBetaFill);
     view.rerender(
       grid(fillRows.map((row) => ({ ...row, data: { ...row.data } }))),
     );
@@ -4146,10 +4202,14 @@ describe("grid-adapter", () => {
     const input = await screen.findByTestId("editable-label");
     fireEvent.change(input, { target: { value: "Beta" } });
     fireEvent.click(screen.getByTestId("force-rerender"));
+    expect(screen.getByTestId("force-rerender").textContent).toBe("Render 1");
+    // A remount would replace the input node, so identity is the subject.
+    expect(screen.getByTestId("editable-label")).toBe(input);
     fireEvent.change(screen.getByTestId("editable-label"), {
       target: { value: "Gamma" },
     });
 
+    expect(screen.getByTestId("editable-label")).toBe(input);
     expect(
       (screen.getByTestId("editable-label") as HTMLInputElement).value,
     ).toBe("Gamma");

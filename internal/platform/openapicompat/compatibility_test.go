@@ -1,8 +1,11 @@
 package openapicompat
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -101,8 +104,19 @@ func TestReleaseRegistryRejectsModifiedSnapshot(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "contracts/openapi-releases/1.0.0.openapi.json"), []byte(`{}`), 0o644); err != nil {
 		t.Fatalf("write release: %v", err)
 	}
-	if _, err := CheckRepository(root); err == nil {
-		t.Fatal("modified release snapshot unexpectedly passed")
+	// The digest is checked before the target document, manifest or change
+	// sets are read, so only the digest can reject this fixture.
+	if _, err := CheckRepository(root); err == nil || err.Error() != "released document SHA-256 does not match registry" {
+		t.Fatalf("modified release snapshot error = %v", err)
+	}
+	// Control: with the true digest the gate proceeds to the next stage.
+	sum := sha256.Sum256([]byte(`{}`))
+	registry := strings.Replace(`{"schema_id":"cartulary.openapi_release_registry.v1","latest_released_version":"1.0.0","releases":[{"version":"1.0.0","document_path":"contracts/openapi-releases/1.0.0.openapi.json","sha256":"DIGEST","byte_length":2,"source_commit":"53f4553150117d09535794e59a8f500485bdb94c","publication_state":"historical_baseline"}]}`, "DIGEST", hex.EncodeToString(sum[:]), 1)
+	if err := os.WriteFile(filepath.Join(root, "contracts/openapi-releases/index.json"), []byte(registry), 0o644); err != nil {
+		t.Fatalf("write registry: %v", err)
+	}
+	if _, err := CheckRepository(root); err == nil || !strings.HasPrefix(err.Error(), "read current document:") {
+		t.Fatalf("true digest must pass the digest check, got %v", err)
 	}
 }
 

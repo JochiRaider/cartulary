@@ -66,7 +66,7 @@ func TestEvidenceProjectionContractOwnsSemanticSurface(t *testing.T) {
 
 func TestEvidenceProjectionIntentRejectsUnknownViewSchema(t *testing.T) {
 	t.Parallel()
-	if _, err := surfaceIntent("cartulary.view.unknown.v1"); err == nil {
+	if _, err := surfaceIntent("cartulary.view.unknown.v1"); err == nil || err.Error() != `evidence projection surface "cartulary.view.unknown.v1" has no view-schema contract` {
 		t.Fatal("unknown Evidence view schema produced a semantic intent")
 	}
 }

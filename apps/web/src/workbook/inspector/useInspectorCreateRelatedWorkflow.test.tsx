@@ -13,8 +13,27 @@ import {
   inspectorRelatedCreationOwner,
 } from "./inspectorCapabilityResolver";
 import { useInspectorCreateRelatedWorkflow } from "./useInspectorCreateRelatedWorkflow";
+import {
+  buildWorkbookInspectorSubject,
+  type WorkbookInspectorLiveRowBinding,
+} from "./workbookInspectorSubject";
 
 const timeline = requireViewContract("cartulary.view.timeline.v2");
+
+function liveTimelineSubject(): WorkbookInspectorLiveRowBinding {
+  const subject = buildWorkbookInspectorSubject({
+    config: timeline.inspectorConfig,
+    kind: "live",
+    label: "Timeline row",
+    recordId: "11111111-1111-4111-8111-111111111111",
+    rowVersion: 3,
+    surfaceLabel: "Timeline",
+  });
+  if (subject?.kind !== "live") throw new Error("Live subject fixture");
+  return { cells: {}, subject };
+}
+
+const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 describe("useInspectorCreateRelatedWorkflow", () => {
   it("binds every authored creation feature to exactly one retained operation owner", () => {
@@ -64,15 +83,16 @@ describe("useInspectorCreateRelatedWorkflow", () => {
     ]);
   });
 
-  it("omits unbound additive creation and never dispatches a fallback", () => {
+  it("omits unbound additive creation and never dispatches a fallback", async () => {
     const feature = timeline.inspectorConfig.featureGroups.find(
       (f) => f.featureGroupKey === "create_related.task_request",
     );
     if (!feature) throw new Error("Missing authored feature");
     const unknown = { ...feature, featureGroupKey: "create_related.future" };
     const fetch = vi.spyOn(globalThis, "fetch");
+    const selectedSubject = liveTimelineSubject();
     const { result, unmount } = renderHook(() =>
-      useInspectorCreateRelatedWorkflow({ selectedSubject: null }),
+      useInspectorCreateRelatedWorkflow({ selectedSubject }),
     );
     act(() => {
       expect(result.current.commands.begin(unknown)).toBe(false);
@@ -82,22 +102,46 @@ describe("useInspectorCreateRelatedWorkflow", () => {
       inspectorRelatedCreationOwner(timeline.viewSchemaId, unknown),
     ).toBeNull();
     expect(result.current.snapshot.workflow).toBeNull();
+    await act(settle);
     expect(fetch).not.toHaveBeenCalled();
     unmount();
     fetch.mockRestore();
   });
 
-  it("does not replace a missing retained owner with a generic form or transport", () => {
-    const { result } = renderHook(() =>
-      useInspectorCreateRelatedWorkflow({ selectedSubject: null }),
+  it("does not replace a missing retained owner with a generic form or transport", async () => {
+    const fetch = vi.spyOn(globalThis, "fetch");
+    const selectedSubject = liveTimelineSubject();
+    const { result, unmount } = renderHook(() =>
+      useInspectorCreateRelatedWorkflow({ selectedSubject }),
     );
+    const claimed: string[] = [];
     for (const feature of timeline.inspectorConfig.featureGroups) {
-      act(() => result.current.commands.begin(feature));
-      expect(result.current.snapshot.workflow).toBeNull();
+      act(() => {
+        if (result.current.commands.begin(feature))
+          claimed.push(feature.featureGroupKey);
+      });
+      expect(
+        result.current.snapshot.workflow,
+        feature.featureGroupKey,
+      ).toBeNull();
     }
+    expect(claimed.sort()).toEqual([
+      "create_related.comm_log",
+      "create_related.decision",
+      "create_related.handoff",
+      "create_related.lesson",
+      "create_related.note",
+      "create_related.status_review",
+      "create_related.task_request",
+    ]);
+    await act(settle);
+    expect(result.current.snapshot.workflow).toBeNull();
+    expect(fetch).not.toHaveBeenCalled();
     expect(Object.keys(result.current.commands).sort()).toEqual([
       "begin",
       "cancel",
     ]);
+    unmount();
+    fetch.mockRestore();
   });
 });

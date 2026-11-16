@@ -2063,6 +2063,7 @@
         "file": "apps/web/src/app/api/incidentMembershipAuditClient.node.test.ts",
         "titles": [
           "Incident membership audit typed client accepts additive read vocabulary and safe redaction without weakening response validation",
+          "Incident membership audit typed client maps a non-JSON failure body to an unknown public error with its status",
           "Incident membership audit typed client rejects malformed wrong scope unordered duplicate and inconsistent paging responses",
           "Incident membership audit typed client uses the generated incident operation with only exact filters and captured cursor context"
         ],

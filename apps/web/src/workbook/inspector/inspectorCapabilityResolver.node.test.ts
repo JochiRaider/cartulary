@@ -70,13 +70,37 @@ describe("inspector capability resolver", () => {
           ),
         ).toBe(true);
       }
-      counts.record_history += inspectorRecordHistoryActions(
-        contract.inspectorConfig,
-      ).size;
-      counts.non_contextual +=
-        contract.inspectorConfig.featureGroups.length -
-        contextual.length -
-        inspectorRecordHistoryActions(contract.inspectorConfig).size;
+      const contextualIdentities = new Set(
+        contextual.map((capability) =>
+          inspectorFeatureIdentity(
+            contract.viewSchemaId,
+            capability.featureGroup,
+          ),
+        ),
+      );
+      let historyFeatures = 0;
+      for (const featureGroup of contract.inspectorConfig.featureGroups) {
+        const identity = inspectorFeatureIdentity(
+          contract.viewSchemaId,
+          featureGroup,
+        );
+        const isContextual = contextualIdentities.has(identity);
+        const historyActions = inspectorRecordHistoryActions(
+          withFeatureGroups(contract.inspectorConfig, [featureGroup]),
+        ).size;
+        expect(historyActions, identity).toBeLessThanOrEqual(1);
+        const isHistory = historyActions === 1;
+        expect(isContextual && isHistory, identity).toBe(false);
+        if (isHistory) historyFeatures += 1;
+        if (!isContextual && !isHistory) counts.non_contextual += 1;
+      }
+      expect(contextualIdentities.size, contract.viewSchemaId).toBe(
+        contextual.length,
+      );
+      expect(historyFeatures, contract.viewSchemaId).toBe(
+        inspectorRecordHistoryActions(contract.inspectorConfig).size,
+      );
+      counts.record_history += historyFeatures;
     }
 
     expect(counts).toEqual({

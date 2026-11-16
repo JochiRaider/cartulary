@@ -1,6 +1,7 @@
 package cryptography
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/ed25519"
@@ -15,7 +16,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -150,7 +150,9 @@ func TestTLSCertificateAndFileAdmission(t *testing.T) {
 		name string
 		data []byte
 	}{
-		{"empty", nil}, {"oversized", []byte(strings.Repeat("x", TLSPEMMaximumBytes+1))},
+		// Valid PEM padded past the limit with trimmed whitespace: only the
+		// size is wrong.
+		{"empty", nil}, {"oversized", padTLSPEM(identity.CertificatePEM, TLSPEMMaximumBytes+1)},
 		{"trailing garbage", append(append([]byte{}, identity.CertificatePEM...), []byte("garbage")...)},
 		{"leading garbage", append([]byte("garbage"), identity.CertificatePEM...)},
 	} {
@@ -160,6 +162,10 @@ func TestTLSCertificateAndFileAdmission(t *testing.T) {
 				t.Fatalf("certificate admission: %v", err)
 			}
 		})
+	}
+	atLimit := writeTLSFixture(t, t.TempDir(), "at-limit.pem", padTLSPEM(identity.CertificatePEM, TLSPEMMaximumBytes))
+	if _, err := TLSServer("localhost", atLimit, keyPath); err != nil {
+		t.Fatalf("certificate at the size limit must be admitted: %v", err)
 	}
 	link := filepath.Join(dir, "link.pem")
 	if err := os.Symlink(certPath, link); err != nil {
@@ -175,6 +181,17 @@ func TestTLSCertificateAndFileAdmission(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	resign := func(cert *x509.Certificate) []byte {
+		raw, err := ca.Sign(cert, cert.PublicKey)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: raw})
+	}
+	control := *base
+	if _, err := parseTLSCertificates(resign(&control)); err != nil {
+		t.Fatalf("unmodified re-signed certificate must be admitted: %v", err)
+	}
 	for _, tc := range []struct {
 		name   string
 		change func(*x509.Certificate)
@@ -182,7 +199,8 @@ func TestTLSCertificateAndFileAdmission(t *testing.T) {
 		{"expired", func(c *x509.Certificate) { c.NotAfter = time.Now().Add(-time.Minute) }},
 		{"future", func(c *x509.Certificate) { c.NotBefore = time.Now().Add(time.Hour) }},
 		{"weak RSA", func(c *x509.Certificate) {
-			c.PublicKey = &rsa.PublicKey{N: new(big.Int).Lsh(big.NewInt(1), 1023), E: 65537}
+			// Odd and 2047 bits: only the size is wrong.
+			c.PublicKey = &rsa.PublicKey{N: new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 2047), big.NewInt(1)), E: 65537}
 		}},
 		{"unsupported curve", func(c *x509.Certificate) {
 			key, err := ecdsa.GenerateKey(elliptic.P521(), rand.Reader)
@@ -195,11 +213,7 @@ func TestTLSCertificateAndFileAdmission(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			cert := *base
 			tc.change(&cert)
-			raw, err := ca.Sign(&cert, cert.PublicKey)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if _, err := parseTLSCertificates(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: raw})); err == nil {
+			if _, err := parseTLSCertificates(resign(&cert)); err == nil {
 				t.Fatal("unsupported certificate admitted")
 			}
 		})
@@ -298,4 +312,11 @@ func tlsHandshake(t *testing.T, server, client *tls.Config) error {
 		return err
 	}
 	return serverErr
+}
+
+// padTLSPEM pads valid PEM with trailing newlines, which admission trims, to
+// exactly size bytes.
+func padTLSPEM(pemBytes []byte, size int) []byte {
+	padded := append([]byte{}, pemBytes...)
+	return append(padded, bytes.Repeat([]byte("\n"), size-len(padded))...)
 }

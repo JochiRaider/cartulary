@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
+import type { WorkbookOperationFailure } from "../../mutations/workbookOperationOutcome";
 import type {
   PendingQueueSnapshot,
+  PendingReplaySameFieldConflict,
   PendingReplaySettlement,
   PendingReplayUnitState,
 } from "../../runtime/pending/workbookPendingQueue";
@@ -38,6 +40,34 @@ const unit: PendingReplayUnitState = {
   source: "autosave",
   status: "queued",
   viewSchemaId: "cartulary.view.timeline.v2",
+};
+
+const createUnit: PendingReplayUnitState = {
+  ...unit,
+  clientTxnId: "txn-create",
+  coalesceKey: "draft-1",
+  id: "unit-create",
+  identity: {
+    client_txn_id: "txn-create",
+    kind: "create",
+    route_scope: {
+      incident_id: "incident-1",
+      view_schema_id: "cartulary.view.timeline.v2",
+    },
+  },
+  kind: "create",
+  recordId: null,
+  rowKey: "draft-1",
+};
+
+const queuedConflict: PendingReplaySameFieldConflict = {
+  base_row_version: 3,
+  conflict_resolution_class: "text_compare_merge",
+  conflict_token: "token-queued",
+  current_row_version: 4,
+  field_key: "timeline.activity_synopsis_text",
+  key: "record-1:timeline.activity_synopsis_text",
+  record_id: "record-1",
 };
 
 function snapshot(
@@ -110,6 +140,16 @@ describe("Timeline mutation driver plans", () => {
       kind: "pause",
       reason: "refresh",
     });
+    expect(
+      admission({ envelopeViewSchemaId: "cartulary.view.task_requests.v1" }),
+    ).toEqual({ kind: "pause", reason: "owner_mismatch" });
+    expect(
+      admission({
+        candidate: createUnit,
+        currentRowVersion: null,
+        expectedUnitId: createUnit.id,
+      }),
+    ).toEqual({ kind: "dispatch", committedRowVersion: null });
   });
 
   it("pauses for authentication, terminal, and conflict gates", () => {
@@ -133,6 +173,12 @@ describe("Timeline mutation driver plans", () => {
       kind: "pause",
       reason: "conflict",
     });
+    expect(
+      admission({
+        hasLocalConflict: false,
+        snapshot: snapshot({ sameFieldConflicts: [queuedConflict] }),
+      }),
+    ).toEqual({ kind: "pause", reason: "conflict" });
     expect(admission({ candidate: null })).toEqual({ kind: "idle" });
   });
 
@@ -201,6 +247,75 @@ describe("Timeline mutation driver plans", () => {
         message: "Raw failure",
       }),
     ).toEqual({ kind: "halt", message: "Safe public halt" });
+
+    const conflictSettlement: PendingReplaySettlement = {
+      conflict: queuedConflict,
+      outcome: "same_field_conflict",
+      snapshot: snapshot({ sameFieldConflicts: [queuedConflict] }),
+      unit,
+    };
+    const exactConflict: WorkbookOperationFailure = {
+      conflict: {
+        base_row_version: 3,
+        client_value: "Local",
+        conflict_resolution_class: "text_compare_merge",
+        conflict_token: "token-exact",
+        current_row_version: 4,
+        field_key: "timeline.activity_synopsis_text",
+        record_id: "record-1",
+        server_value: "Server",
+      },
+      kind: "same_field_conflict",
+      message: "Conflict",
+    };
+    expect(
+      planTimelineRejectedSettlement(conflictSettlement, exactConflict),
+    ).toEqual({
+      kind: "register_conflict",
+      conflict: {
+        base_row_version: 3,
+        client_value: "Local",
+        conflict_resolution_class: "text_compare_merge",
+        conflict_token: "token-exact",
+        current_row_version: 4,
+        field_key: "timeline.activity_synopsis_text",
+        record_id: "record-1",
+        server_value: "Server",
+      },
+    });
+    expect(
+      planTimelineRejectedSettlement(conflictSettlement, {
+        kind: "retryable",
+        message: "Retry",
+      }),
+    ).toEqual({
+      kind: "invalid_settlement",
+      message: "Conflict settlement did not include an exact conflict.",
+    });
+
+    expect(
+      planTimelineRejectedSettlement(
+        { outcome: "no_dispatched_unit", snapshot: snapshot() },
+        { kind: "retryable", message: "Retry" },
+      ),
+    ).toEqual({
+      kind: "invalid_settlement",
+      message: "Mutation settlement lost its dispatched unit.",
+    });
+    expect(
+      planTimelineRejectedSettlement(
+        {
+          outcome: "success",
+          row: { record_id: "record-1", row_version: 4 },
+          snapshot: snapshot(),
+          unit,
+        },
+        { kind: "terminal", message: "Raw failure" },
+      ),
+    ).toEqual({
+      kind: "invalid_settlement",
+      message: "A rejected mutation produced a success settlement.",
+    });
   });
 
   it("makes stale accepted projection and discard effects explicit", () => {
@@ -215,9 +330,23 @@ describe("Timeline mutation driver plans", () => {
       preserveKnownCommittedRow: true,
       refreshAfterApply: true,
     });
+    expect(
+      planTimelineAcceptedProjection({
+        currentRowVersion: 4,
+        postMutationQueryRefreshRequired: false,
+        responseRowVersion: 4,
+      }),
+    ).toEqual({
+      kind: "apply_committed_result",
+      preserveKnownCommittedRow: false,
+      refreshAfterApply: false,
+    });
     expect(planTimelineDiscard({ hasMetadata: true, recovered: true })).toEqual(
       { kind: "reconcile", clearViewportContinuity: true },
     );
+    expect(
+      planTimelineDiscard({ hasMetadata: false, recovered: true }),
+    ).toEqual({ kind: "reconcile", clearViewportContinuity: false });
     expect(
       planTimelineDiscard({ hasMetadata: false, recovered: false }),
     ).toEqual({ kind: "refused" });

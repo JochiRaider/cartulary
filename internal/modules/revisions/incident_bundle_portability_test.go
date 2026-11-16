@@ -938,6 +938,13 @@ func TestRevisionsIncidentBundleFailureIsAtomic(t *testing.T) {
 	}
 	err = harness.port.ValidateImportTx(context.Background(), tx, prepared, harness.context)
 	requireRevisionsInvariant(t, err, "revisions.history_reconstruction")
+	// Control: the import wrote inside the caller's transaction, so the zero
+	// counts below prove the rollback removed real writes.
+	var applied int
+	if err := tx.QueryRow(context.Background(), `SELECT count(*) FROM change_sets WHERE change_set_id = $1`, harness.changeSet).Scan(&applied); err != nil || applied != 1 {
+		_ = tx.Rollback(context.Background())
+		t.Fatalf("applied change sets inside the import transaction = %d, %v; want 1", applied, err)
+	}
 	if rollbackErr := tx.Rollback(context.Background()); rollbackErr != nil {
 		t.Fatalf("rollback invalid Revisions import: %v", rollbackErr)
 	}

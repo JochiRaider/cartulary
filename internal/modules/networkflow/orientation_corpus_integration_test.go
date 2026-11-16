@@ -54,6 +54,9 @@ func TestOrientationIncidentCorpusService(t *testing.T) {
 		raw, _ := json.Marshal([]any{kind, a, b, protocol})
 		return string(raw)
 	}
+	if len(manifest.Datasets) == 0 {
+		t.Fatal("orientation corpus manifest lists no datasets")
+	}
 	for index, dataset := range manifest.Datasets {
 		if dataset.Name == "example1200" {
 			continue

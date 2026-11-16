@@ -1,6 +1,8 @@
 package viewquery
 
 import (
+	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -26,8 +28,8 @@ func TestDecode_DefaultsToSchemaMeta(t *testing.T) {
 	if query.Meta.GroupBy != nil {
 		t.Fatalf("expected omitted group_by, got %#v", query.Meta.GroupBy)
 	}
-	if len(query.Meta.Sort) != len(schema.DefaultSort()) {
-		t.Fatalf("expected default sort length %d, got %#v", len(schema.DefaultSort()), query.Meta.Sort)
+	if !reflect.DeepEqual(query.Meta.Sort, schema.DefaultSort()) {
+		t.Fatalf("expected schema default sort %#v, got %#v", schema.DefaultSort(), query.Meta.Sort)
 	}
 	if query.Pagination.Limit != nil || query.Pagination.CursorToken != nil {
 		t.Fatalf("expected no explicit pagination members, got %#v", query.Pagination)
@@ -88,6 +90,13 @@ func TestDecode_AcceptsBodyPaginationMembers(t *testing.T) {
 }
 
 func TestDecode_RejectsInvalidPaginationMembers(t *testing.T) {
+	// The rejected 0 and 501 below sit outside the accepted 1..500.
+	for _, limit := range []int{1, 500} {
+		query, err := Decode(strings.NewReader(fmt.Sprintf(`{"limit": %d}`, limit)), timelineViewSchemaID)
+		if err != nil || query.Pagination.Limit == nil || *query.Pagination.Limit != limit {
+			t.Fatalf("limit %d must be accepted: %#v %+v", limit, query.Pagination.Limit, err)
+		}
+	}
 	tests := []struct {
 		name  string
 		body  string

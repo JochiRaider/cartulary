@@ -121,7 +121,9 @@ describe("view row normalization", () => {
     });
     expect(row.recordId).toBe("record-1");
     expect(row.rowVersion).toBe(2);
-    expect(row.cells["fixture.editable"]).toEqual({ value: "editable" });
+    expect(row.cells).toEqual(fixtureCells());
+    expect(row.groupValues).toEqual({ "fixture.group": "bucket" });
+    expect(row).not.toHaveProperty("additive");
     expect(Object.isFrozen(row)).toBe(true);
     expect(Object.isFrozen(row.cells)).toBe(true);
     expect(Object.isFrozen(row.groupValues)).toBe(true);
@@ -146,14 +148,23 @@ describe("view row normalization", () => {
   });
 
   it("rejects row view identity mismatches deterministically", () => {
-    expect(() =>
-      normalizeViewRowPatchV1(contract, {
-        cells: {},
-        record_id: "record-1",
-        row_version: 2,
-        view_schema_id: "cartulary.view.other.v1",
-      }),
-    ).toThrow("view_schema_id must be cartulary.view.fixture.v1");
+    // The message names the contract's ID whatever the mismatched input is,
+    // and repeats exactly for the same input.
+    for (const viewSchemaId of [
+      "cartulary.view.other.v1",
+      "cartulary.view.fixture.v2",
+    ])
+      for (let attempt = 0; attempt < 2; attempt++)
+        expect(() =>
+          normalizeViewRowPatchV1(contract, {
+            cells: {},
+            record_id: "record-1",
+            row_version: 2,
+            view_schema_id: viewSchemaId,
+          }),
+        ).toThrow(
+          /^View row invariant failed: .*view_schema_id must be cartulary\.view\.fixture\.v1$/,
+        );
   });
 
   it("enforces conditional full-row group_values and sparse patch group_values", () => {

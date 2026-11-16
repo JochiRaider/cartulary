@@ -31,6 +31,15 @@ func TestRenderInstallationAdmission(t *testing.T) {
 				}
 				files = append(files, InstallationFile{Path: name, SHA256: installationHash(content)})
 			}
+			if mutation == "human_material" {
+				// A regular, declared file, so only the human-material name rule
+				// can reject it.
+				content := []byte("operator notes")
+				if err := os.WriteFile(filepath.Join(staging, "README.md"), content, 0o600); err != nil {
+					t.Fatal(err)
+				}
+				files = append(files, InstallationFile{Path: "README.md", SHA256: installationHash(content)})
+			}
 			slices.SortFunc(files, func(a, b InstallationFile) int { return strings.Compare(a.Path, b.Path) })
 			setDigest := func(prefix string) string {
 				entries := []InstallationFile{}
@@ -84,11 +93,6 @@ func TestRenderInstallationAdmission(t *testing.T) {
 				if err := os.Link(changedFile, filepath.Join(directory, "alias")); err != nil {
 					t.Fatal(err)
 				}
-			case "human_material":
-				// The name must reject before following even a nonexistent target.
-				if err := os.Symlink(filepath.Join(directory, "absent"), filepath.Join(staging, "README.md")); err != nil {
-					t.Fatal(err)
-				}
 			case "package_version":
 				manifest.Packages["mermaid"] = "floating"
 			case "version_label":
@@ -122,7 +126,12 @@ func TestRenderInstallationAdmission(t *testing.T) {
 				t.Fatal(err)
 			}
 			if mutation == "root_escape" {
-				rootName = "../outside"
+				// The complete, valid root exists outside the installation
+				// directory, so only the escape rule can reject it.
+				if err := os.Rename(filepath.Join(directory, rootName), filepath.Join(filepath.Dir(directory), rootName)); err != nil {
+					t.Fatal(err)
+				}
+				rootName = "../" + rootName
 			}
 			receipt, err := json.Marshal(map[string]string{"schema_id": "cartulary.reporting_runtime_receipt.v1", "manifest_sha256": digest, "root": rootName, "manifest": digest + ".json"})
 			if err != nil {

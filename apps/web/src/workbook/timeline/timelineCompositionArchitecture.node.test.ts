@@ -7,6 +7,12 @@ import type { TimelineWorkbookPresentationRuntime } from "./presentation/useTime
 
 const timelineDirectory = path.dirname(fileURLToPath(import.meta.url));
 const presentationDirectory = path.join(timelineDirectory, "presentation");
+const webSourceDirectory = path.resolve(timelineDirectory, "../..");
+const compositionModule = path.join(
+  timelineDirectory,
+  "composition",
+  "useTimelineWorkbookComposition",
+);
 
 function productionTypeScriptPaths(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -70,6 +76,28 @@ function stateImports(source: ts.SourceFile): string[] {
   }
   return result;
 }
+/** Resolved relative module paths imported for their runtime values. */
+function valueImports(file: string, source: ts.SourceFile): string[] {
+  const result: string[] = [];
+  for (const statement of source.statements) {
+    if (!ts.isImportDeclaration(statement)) continue;
+    if (!ts.isStringLiteral(statement.moduleSpecifier)) continue;
+    const clause = statement.importClause;
+    const bindings = clause?.namedBindings;
+    const typeOnly =
+      clause?.isTypeOnly === true ||
+      (clause !== undefined &&
+        clause.name === undefined &&
+        bindings !== undefined &&
+        ts.isNamedImports(bindings) &&
+        bindings.elements.every((element) => element.isTypeOnly));
+    if (typeOnly || !statement.moduleSpecifier.text.startsWith(".")) continue;
+    result.push(
+      path.resolve(path.dirname(file), statement.moduleSpecifier.text),
+    );
+  }
+  return result;
+}
 function exportsFunction(
   source: ts.SourceFile,
   matches: (name: string) => boolean,
@@ -109,6 +137,31 @@ describe("Timeline workbook composition architecture", () => {
       visit(syntax);
       expect(dom, file).toEqual([]);
     }
+    const compositionImporters = productionTypeScriptPaths(webSourceDirectory)
+      .map((file) => ({ file, source: readFileSync(file, "utf8") }))
+      .filter(({ source }) => source.includes("useTimelineWorkbookComposition"))
+      .filter(({ file, source }) =>
+        valueImports(file, parsed(source)).includes(compositionModule),
+      )
+      .map(({ file }) => path.relative(timelineDirectory, file));
+    expect(compositionImporters).toEqual(["components/TimelineWorkbook.tsx"]);
+    const probe = path.join(timelineDirectory, "components", "Probe.tsx");
+    expect(
+      valueImports(
+        probe,
+        parsed(
+          'import { useTimelineWorkbookComposition as local } from "../composition/useTimelineWorkbookComposition";',
+        ),
+      ),
+    ).toEqual([compositionModule]);
+    expect(
+      valueImports(
+        probe,
+        parsed(
+          'import type { TimelineWorkbookCompositionResult } from "../composition/useTimelineWorkbookComposition";\nimport { type TimelineWorkbookCompositionResult as Other } from "../composition/useTimelineWorkbookComposition";',
+        ),
+      ),
+    ).toEqual([]);
     expect(
       stateImports(parsed('import {useState as localState} from "react";')),
     ).toEqual(["useState"]);
@@ -122,12 +175,26 @@ describe("Timeline workbook composition architecture", () => {
   });
 
   it("keeps presentation regions stateless and excludes privileged runtime capabilities", () => {
+    const regions: string[] = [];
+    const hookOwners: string[] = [];
     for (const file of productionTypeScriptPaths(presentationDirectory)) {
       const syntax = parsed(readFileSync(file, "utf8"));
       // Presentation hooks own binding lifecycle; component regions do not.
-      if (!exportsFunction(syntax, (name) => /^use[A-Z]/u.test(name)))
+      if (!exportsFunction(syntax, (name) => /^use[A-Z]/u.test(name))) {
         expect(stateImports(syntax), file).toEqual([]);
+        regions.push(path.basename(file));
+      } else hookOwners.push(path.basename(file));
     }
+    expect(regions.sort()).toEqual([
+      "TimelineWorkbookInspectorRegion.tsx",
+      "TimelineWorkbookOverlayRegion.tsx",
+      "TimelineWorkbookView.tsx",
+      "TimelineWorkbookViewBarRegion.tsx",
+    ]);
+    expect(hookOwners.sort()).toEqual([
+      "useTimelineInspectorPresentation.tsx",
+      "useTimelineWorkbookPresentation.tsx",
+    ]);
     type Privileged =
       | "mutationRuntime"
       | "pendingMutationPort"

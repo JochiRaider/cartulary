@@ -1,6 +1,7 @@
 package maintenancequery
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -8,41 +9,42 @@ import (
 )
 
 func TestMaintenanceSQLCapabilities(t *testing.T) {
-	for _, build := range []func([]string) (sqlshape.Statement, error){LockMutable, TruncateRestore, TruncateVerification} {
+	refused := func(t *testing.T, err error, want string) {
+		t.Helper()
+		if err == nil || err.Error() != want {
+			t.Fatalf("error = %v, want %q", err, want)
+		}
+	}
+	for _, set := range []struct {
+		name  string
+		build func([]string) (sqlshape.Statement, error)
+	}{{"LockMutable", LockMutable}, {"TruncateRestore", TruncateRestore}, {"TruncateVerification", TruncateVerification}} {
 		for _, names := range [][]string{nil, {"users"}, {"users", "users"}, {"recovery_target_state"}} {
-			if _, err := build(names); err == nil {
-				t.Fatalf("partial or protected set admitted: %v", names)
-			}
+			_, err := set.build(names)
+			refused(t, err, "unadmitted "+set.name+" relation set")
 		}
 	}
 
 	for _, name := range []string{"future_unadmitted_table", "users; DELETE FROM records", "public.users"} {
-		if _, err := From(name); err == nil {
-			t.Fatalf("read accepted unadmitted relation %q", name)
-		}
-		if _, err := Insert(name, sqlshape.Identifier("id"), false); err == nil {
-			t.Fatalf("write accepted unadmitted relation %q", name)
-		}
+		_, err := From(name)
+		refused(t, err, fmt.Sprintf("unadmitted maintenance relation %q", name))
+		_, err = Insert(name, sqlshape.Identifier("id"), false)
+		refused(t, err, fmt.Sprintf("unadmitted restore relation %q", name))
 	}
 	for _, name := range []string{"goose_db_version", "schema_migration_lineage", "recovery_target_state"} {
 		if _, err := From(name); err != nil {
 			t.Fatal(err)
 		}
-		for _, build := range []func(string) (sqlshape.Statement, error){Delete} {
-			if _, err := build(name); err == nil {
-				t.Fatalf("mutation accepted protected relation %q", name)
-			}
-		}
+		_, err := Delete(name)
+		refused(t, err, fmt.Sprintf("unadmitted Delete relation %q", name))
 	}
-	if _, err := Insert("timeline_grid_projection", sqlshape.Identifier("record_id"), false); err == nil {
-		t.Fatal("derived projections cannot be restored as authoritative rows")
-	}
+	_, err := Insert("timeline_grid_projection", sqlshape.Identifier("record_id"), false)
+	refused(t, err, `unadmitted restore relation "timeline_grid_projection"`)
 	if _, err := LockShare("recovery_target_state"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := LockShare("users"); err == nil {
-		t.Fatal("control read lock widened")
-	}
+	_, err = LockShare("users")
+	refused(t, err, `unadmitted LockShare relation "users"`)
 	query, err := Insert("users", sqlshape.Join([]sqlshape.Fragment{sqlshape.Identifier("id"), sqlshape.Identifier("email")}, sqlshape.Literal(",")), true)
 	if err != nil {
 		t.Fatal(err)

@@ -691,6 +691,17 @@ describe("Saved-view operation owner", () => {
     }
   });
   it("enforces the complete visible scope ownership and role action matrix", async () => {
+    const all = ["create", "duplicate", "reset", "update", "delete"];
+    const copy = ["create", "duplicate", "reset"];
+    // Core 03 REQ-03-018 (private), REQ-03-019 (shared), REQ-03-020 (system).
+    const matrix: Record<string, { admin: string[]; member: string[] }> = {
+      "private/other": { admin: all, member: [] },
+      "private/own": { admin: all, member: all },
+      "shared/other": { admin: all, member: copy },
+      "shared/own": { admin: all, member: all },
+      "system/other": { admin: copy, member: copy },
+      "system/own": { admin: copy, member: copy },
+    };
     for (const role of ["viewer", "editor", "reviewer", "admin"] as const) {
       for (const scope of ["private", "shared", "system"] as const) {
         for (const own of [false, true]) {
@@ -708,23 +719,17 @@ describe("Saved-view operation owner", () => {
           h.resources([source]);
           await h.controller.refresh();
           const binding = selectSaved(h, source);
-          const visible = scope !== "private" || own || role === "admin";
-          for (const action of [
-            "create",
-            "duplicate",
-            "reset",
-            "update",
-            "delete",
-          ] as const) {
-            const allowed =
-              visible &&
-              ((action !== "update" && action !== "delete") ||
-                (scope !== "system" && (own || role === "admin")));
-            expect(
+          const allowed = (
+            ["create", "duplicate", "reset", "update", "delete"] as const
+          ).filter(
+            (action) =>
               h.controller.unavailableReason(action, binding.subject) === null,
-              `${role}/${scope}/${own}/${action}`,
-            ).toBe(allowed);
-          }
+          );
+          const expected =
+            matrix[`${scope}/${own ? "own" : "other"}`]?.[
+              role === "admin" ? "admin" : "member"
+            ];
+          expect(allowed, `${role}/${scope}/${own}`).toEqual(expected);
           h.controller.dispose();
         }
       }

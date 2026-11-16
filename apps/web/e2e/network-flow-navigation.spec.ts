@@ -7,7 +7,7 @@ import {
   networkAnalysisVertexFamilySelector,
   networkAnalysisVertexTestId,
 } from "@cartulary/ui-contracts";
-import type { Page, Request, Response } from "@playwright/test";
+import type { Page, Response } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import {
   importNetworkFlowCSV,
@@ -18,6 +18,7 @@ import {
   awaitResponseBarrier,
   installOwnedRoute,
 } from "./support/transport/requestInterception";
+import { settledRequest } from "./support/transport/settledRequest";
 
 const graphRoute = /\/network-flow\/graphs\/query$/;
 const contributorRoute = /\/network-flow\/graphs\/contributors\/query$/;
@@ -79,26 +80,6 @@ async function contributors(response: Response) {
   );
   if (!decoded.ok) throw new Error("Invalid real contributors");
   return decoded.value;
-}
-function settledRequest(
-  page: Page,
-  method: string,
-  pathPattern: RegExp,
-): Promise<void> {
-  return new Promise<void>((resolve) => {
-    const onSettled = (request: Request) => {
-      if (
-        request.method() !== method ||
-        !pathPattern.test(new URL(request.url()).pathname)
-      )
-        return;
-      page.off("requestfinished", onSettled);
-      page.off("requestfailed", onSettled);
-      resolve();
-    };
-    page.on("requestfinished", onSettled);
-    page.on("requestfailed", onSettled);
-  });
 }
 async function nextBucket(page: Page) {
   const next = page.getByRole("button", { name: "Next bucket" });
@@ -230,6 +211,15 @@ test("Network Analysis navigates exact temporal contributors and rejects superse
       .getByTestId(networkAnalysisTestId("status-strip"))
       .locator("[data-network-flow-state]"),
   ).toHaveAttribute("data-network-flow-state", "graph_available");
+  // Sentinel: an app-issued tables read settles through the same request
+  // events before the graph-query count is read.
+  const tablesRefreshed = settledRequest(
+    page,
+    "GET",
+    /\/network-flow\/tables$/u,
+  );
+  await page.getByTestId(networkAnalysisTestId("refresh")).click();
+  await tablesRefreshed;
   expect(graphQueries).toBe(0);
 });
 
@@ -368,6 +358,15 @@ test("Network Analysis measures bounded exploration and reveals selection across
   await page.getByRole("button", { name: "Close graph contributors" }).focus();
   await page.keyboard.press("Escape");
   await expect(selectedControl).toBeFocused();
+  // Sentinel: an app-issued tables read settles through the same request
+  // events before the graph-query count is read.
+  const tablesRefreshed = settledRequest(
+    page,
+    "GET",
+    /\/network-flow\/tables$/u,
+  );
+  await page.getByTestId(networkAnalysisTestId("refresh")).click();
+  await tablesRefreshed;
   expect(graphQueries).toBe(0);
   expect(contributorQueries).toBe(1);
   const observed = await page.evaluate(() => {

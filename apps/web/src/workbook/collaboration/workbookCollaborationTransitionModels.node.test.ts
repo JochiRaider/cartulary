@@ -163,6 +163,9 @@ describe("Workbook collaboration transition models", () => {
       presence: { connection_id: "b" },
     });
     expect(removed.has("b")).toBe(false);
+    expect(Array.from(removed.keys())).toEqual(["self", "a"]);
+    expect(removed.get("self")).toBe(snapshot.get("self"));
+    expect(removed.get("a")).toBe(snapshot.get("a"));
     expect(
       applyWorkbookPresenceDelta(removed, {
         delta_kind: "future",
@@ -191,6 +194,12 @@ describe("Workbook collaboration transition models", () => {
       workbookCollaborationResetIsCurrent(started.machine, started.admission, {
         sessionGeneration: 3,
         sheetKey: "view:timeline",
+      }),
+    ).toBe(false);
+    expect(
+      workbookCollaborationResetIsCurrent(started.machine, started.admission, {
+        sessionGeneration: 2,
+        sheetKey: "view:hosts",
       }),
     ).toBe(false);
     expect(

@@ -117,6 +117,57 @@ func TestDescriptorSetOwnsDeclarativeValidation(t *testing.T) {
 			mutate: mutateFirstDescriptor(func(descriptor *ProviderDescriptor) { descriptor.RebuildAfter = []string{"missing"} }),
 			want:   "references unknown provider",
 		},
+		"empty descriptor set": {
+			mutate: func([]ProviderDescriptor) []ProviderDescriptor { return nil },
+			want:   "projection descriptor set is empty",
+		},
+		"nonparticipating restore with capability": {
+			mutate: mutateFirstDescriptor(func(descriptor *ProviderDescriptor) {
+				descriptor.RestoreRebuild = RestoreRebuildNonparticipating
+			}),
+			want: "nonparticipating restore rebuild with capability",
+		},
+		"deprecated unsupported restore with capability": {
+			mutate: mutateFirstDescriptor(func(descriptor *ProviderDescriptor) {
+				descriptor.Status = ProviderStatusDeprecated
+				descriptor.RestoreRebuild = RestoreRebuildUnsupported
+			}),
+			want: "declares unsupported restore rebuild with capability",
+		},
+		"unknown restore participation": {
+			mutate: mutateFirstDescriptor(func(descriptor *ProviderDescriptor) {
+				descriptor.RestoreRebuild = RestoreRebuildParticipation("partial")
+			}),
+			want: `unsupported restore_rebuild "partial"`,
+		},
+		"blank facade": {
+			mutate: mutateFirstDescriptor(func(descriptor *ProviderDescriptor) { descriptor.FacadePackages = []string{" "} }),
+			want:   "empty facade_packages value",
+		},
+		"backslash facade": {
+			mutate: mutateFirstDescriptor(func(descriptor *ProviderDescriptor) {
+				descriptor.FacadePackages = []string{`internal\modules\entities`}
+			}),
+			want: "must use slash-separated repo paths",
+		},
+		"unnormalized facade": {
+			mutate: mutateFirstDescriptor(func(descriptor *ProviderDescriptor) {
+				descriptor.FacadePackages = []string{"internal/modules/../modules/entities"}
+			}),
+			want: "must be a normalized relative repo path",
+		},
+		"absolute facade": {
+			mutate: mutateFirstDescriptor(func(descriptor *ProviderDescriptor) {
+				descriptor.FacadePackages = []string{"/internal/modules/entities"}
+			}),
+			want: "must be a normalized relative repo path",
+		},
+		"non-module facade": {
+			mutate: mutateFirstDescriptor(func(descriptor *ProviderDescriptor) {
+				descriptor.FacadePackages = []string{"internal/platform/config"}
+			}),
+			want: "must be module-owned",
+		},
 		"dependency cycle": {
 			mutate: mutateFirstDescriptor(func(descriptor *ProviderDescriptor) { descriptor.RebuildAfter = []string{"identity"} }),
 			want:   "cycle",

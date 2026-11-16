@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -81,13 +82,23 @@ func TestServeOrdinaryListenerReportsEffectiveAddress(t *testing.T) {
 			Logger:  slog.New(slog.NewTextHandler(&output, nil)),
 		})
 	}()
+	// The configured port is 0, so only a non-zero logged port is the
+	// effective, bound address.
+	effective := regexp.MustCompile(`addr=127\.0\.0\.1:([1-9][0-9]*)`)
 	deadline := time.Now().Add(5 * time.Second)
-	for time.Now().Before(deadline) && !strings.Contains(output.String(), "addr=127.0.0.1:") {
+	for time.Now().Before(deadline) && !effective.MatchString(output.String()) {
 		time.Sleep(10 * time.Millisecond)
 	}
-	if got := output.String(); !strings.Contains(got, "starting cartulary bootstrap server") || !strings.Contains(got, "addr=127.0.0.1:") {
+	got := output.String()
+	match := effective.FindStringSubmatch(got)
+	if !strings.Contains(got, "starting cartulary bootstrap server") || match == nil {
 		t.Fatalf("effective listening address was not logged: %q", got)
 	}
+	connection, err := net.DialTimeout("tcp", "127.0.0.1:"+match[1], 5*time.Second)
+	if err != nil {
+		t.Fatalf("logged effective address is not accepting connections: %v", err)
+	}
+	_ = connection.Close()
 	cancel()
 	if err := waitServe(t, done); err != nil {
 		t.Fatalf("ordinary listener shutdown: %v", err)

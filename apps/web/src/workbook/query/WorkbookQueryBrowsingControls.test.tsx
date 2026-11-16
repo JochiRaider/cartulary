@@ -21,6 +21,7 @@ import {
   acceptedQueryMetadata,
   fullWorkbookViewRow,
 } from "../../testing/workbookFixtureData";
+import { WorkbookSurfaceRefreshError } from "../collaboration/workbookSurfacePort";
 import { useWorkbookQueryController } from "../hooks/useWorkbookQueryController";
 import { emptyWorkbookQueryState } from "../models/workbookQuery";
 import { notesViewSchemaId } from "../models/workbookSurfaceRegistry";
@@ -142,6 +143,11 @@ function fixture(total = 405) {
 }
 afterEach(cleanup);
 
+async function expectCancelledRefresh(read: Promise<void> | undefined) {
+  await expect(read).rejects.toBeInstanceOf(WorkbookSurfaceRefreshError);
+  await expect(read).rejects.toHaveProperty("recovery", { kind: "cancelled" });
+}
+
 it("requires the browsing provider and refuses inactive or uncommitted reads", async () => {
   const query = queryPort();
   expect(() =>
@@ -160,9 +166,9 @@ it("requires the browsing provider and refuses inactive or uncommitted reads", a
     wrapper: WorkbookQueryBrowsingProvider,
   });
   expect(hook.result.current.browser).toBeUndefined();
-  await expect(
+  await expectCancelledRefresh(
     hook.result.current.refresh({ requireAcceptance: true }),
-  ).rejects.toThrow();
+  );
   expect(query).not.toHaveBeenCalled();
   const gate = deferred<void>();
   let candidate: ReturnType<typeof useGenericSurfaceQuery> | undefined;
@@ -178,9 +184,9 @@ it("requires the browsing provider and refuses inactive or uncommitted reads", a
     </WorkbookQueryBrowsingProvider>,
   );
   expect(candidate?.browser).toBeUndefined();
-  await expect(
+  await expectCancelledRefresh(
     requireObserved(candidate).refresh({ requireAcceptance: true }),
-  ).rejects.toThrow();
+  );
   expect(query).not.toHaveBeenCalled();
 });
 
@@ -239,7 +245,7 @@ it("retires a replaced query port before reading its successor and refuses its l
   act(() => {
     read = hook.result.current.refresh({ requireAcceptance: true });
   });
-  const rejected = expect(read).rejects.toThrow();
+  const rejected = expectCancelledRefresh(read);
   const previous = requireObserved(hook.result.current.browser);
   hook.rerender({ query: source });
   expect(oldQuery.mock.calls[0]?.[0].signal?.aborted).toBe(true);
@@ -296,7 +302,7 @@ it("fences predecessor cleanup and readers after a successor commits", async () 
       requireObserved(registry).find(notesViewSchemaId),
     ).getSnapshot().accepted,
   ).toBe(accepted);
-  await expect(oldRefresh({ requireAcceptance: true })).rejects.toThrow();
+  await expectCancelledRefresh(oldRefresh({ requireAcceptance: true }));
   expect(query).toHaveBeenCalledTimes(2);
   await act(() =>
     requireObserved(registry).activate(notesViewSchemaId, "more"),

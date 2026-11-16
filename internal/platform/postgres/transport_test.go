@@ -58,10 +58,14 @@ func TestPostgresCertificateDSNPolicy(t *testing.T) {
 			}
 		})
 	}
-	for _, raw := range []string{"host=localhost user=login database=cartulary", dsn + "&sslmode=verify-full", dsn + "&sslmode=disable", dsn + "\n", strings.Repeat("x", 65537)} {
+	for _, raw := range []string{"host=localhost user=login database=cartulary", dsn + "&sslmode=verify-full", dsn + "&sslmode=disable", dsn + "\n", paddedCertificateDSN(t, dsn, 65537)} {
 		if _, err := parseCertificateDSN(raw); err == nil {
 			t.Fatal("malformed or duplicate DSN admitted")
 		}
+	}
+	// The 65,537-byte DSN above is otherwise valid; at 65,536 it is admitted.
+	if _, err := parseCertificateDSN(paddedCertificateDSN(t, dsn, 65536)); err != nil {
+		t.Fatalf("DSN at the size bound rejected: %v", err)
 	}
 	t.Run("home-directory defaults never read", func(t *testing.T) {
 		home := t.TempDir()
@@ -133,4 +137,25 @@ func certificatePolicyFixture(t *testing.T) string {
 		}
 	}
 	return u.String()
+}
+
+// paddedCertificateDSN lengthens dsn's sslrootcert path so the DSN is
+// exactly size bytes and otherwise valid.
+func paddedCertificateDSN(t testing.TB, dsn string, size int) string {
+	t.Helper()
+	u, err := url.Parse(dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	withPad := func(n int) string {
+		query := u.Query()
+		query.Set("sslrootcert", "/pad/"+strings.Repeat("a", n)+"/root.pem")
+		u.RawQuery = query.Encode()
+		return u.String()
+	}
+	padded := withPad(size - len(withPad(0)))
+	if len(padded) != size {
+		t.Fatalf("padded DSN is %d bytes, want %d", len(padded), size)
+	}
+	return padded
 }

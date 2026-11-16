@@ -99,7 +99,8 @@ describe("ordinary workbook authoring", () => {
       "task.blocked_reason",
       "task.completed_at",
     ]);
-    let covered = 0;
+    const coveredFields: Record<string, number> = {};
+    const rejectedInputs: Record<string, number> = {};
     for (const [name, base] of Object.entries(minimumDrafts)) {
       const contract = requireViewContract(view(name));
       for (const field of contract.fields.filter(
@@ -149,16 +150,39 @@ describe("ordinary workbook authoring", () => {
             null,
           );
         else expect(cleared.request, `${key} rejects null`).toBeNull();
-        covered++;
+        coveredFields[name] = (coveredFields[name] ?? 0) + 1;
       }
       for (const input of contract.createInputs) {
         expect(
           prepare(name, { ...base, [input.inputKey]: actor }).request,
           input.inputKey,
         ).toBeNull();
+        rejectedInputs[name] = (rejectedInputs[name] ?? 0) + 1;
       }
     }
-    expect(covered).toBeGreaterThan(100);
+    expect(coveredFields).toEqual({
+      hosts: 13,
+      identities: 13,
+      parties: 8,
+      task_requests: 15,
+      decisions: 8,
+      comm_log: 11,
+      handoff: 9,
+      status_review: 8,
+      lesson: 6,
+      findings: 7,
+      investigative_queries: 3,
+      forensic_keywords: 4,
+      evidence: 10,
+      indicators: 8,
+    });
+    expect(rejectedInputs).toEqual({
+      comm_log: 1,
+      handoff: 1,
+      status_review: 1,
+      lesson: 1,
+      evidence: 1,
+    });
   });
   it("covers the frozen fourteen-schema minimum matrix without manufactured defaults", () => {
     const runtime = owner();

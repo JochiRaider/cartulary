@@ -170,6 +170,7 @@ describe("Incident membership management ownership", () => {
     controller.submit();
     controller.submit();
     expect(controller.getSnapshot().operation.kind).toBe("pending");
+    await settle();
     expect(mutate).not.toHaveBeenCalled();
     access.resolve({
       kind: "authorized",
@@ -360,6 +361,7 @@ describe("Incident membership management ownership", () => {
     await settle();
     expect(controller.canSubmit()).toBe(false);
     controller.submit();
+    await settle();
     expect(mutate).not.toHaveBeenCalled();
     controller.reviewObserved();
     expect(controller.canSubmit()).toBe(true);
@@ -482,6 +484,7 @@ describe("Incident membership management ownership", () => {
     expect(controller.getSnapshot().page?.rows).toHaveLength(1);
     controller.openAdd();
     controller.submit();
+    await settle();
     expect(mutate).not.toHaveBeenCalled();
   });
   it("distinguishes temporary authority failure incident loss and session loss", async () => {

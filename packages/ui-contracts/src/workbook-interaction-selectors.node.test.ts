@@ -142,7 +142,7 @@ describe("@cartulary/ui-contracts workbook interaction selectors", () => {
       "chip-mention%3Ahost%3A1",
     );
     expect(relationshipChipTestId(renamedItem.itemRef)).toBe(
-      relationshipChipTestId(item.itemRef),
+      "chip-mention%3Ahost%3A1",
     );
     expect(mentionItemTestId(renamedItem.itemRef)).toBe(
       mentionItemTestId(item.itemRef),
@@ -228,7 +228,7 @@ describe("@cartulary/ui-contracts workbook interaction selectors", () => {
           action,
           historyItemRef: "hitem_change_set_1",
         }),
-      ).toContain(`-${action}`);
+      ).toBe(`row-history-action-hitem_change_set_1-${action}`);
     }
     for (const operation of ["delete", "restore"] as const) {
       expect(rowHistoryDestructiveConfirmPanelTestId({ operation })).toBe(
@@ -316,8 +316,8 @@ describe("@cartulary/ui-contracts workbook interaction selectors", () => {
     expect(administrativeAuditEventTestId("event/id")).toBe(
       "administrative-audit-event-event%2Fid",
     );
-    expect(incidentMembershipAuditDetailTestId("event-1")).toContain(
-      "membership-audit-detail",
+    expect(incidentMembershipAuditDetailTestId("event/1")).toBe(
+      "membership-audit-detail-event%2F1",
     );
     expect(administrativeAuditDetailTestId("event/id")).toBe(
       "administrative-audit-detail-event%2Fid",
@@ -525,10 +525,37 @@ describe("@cartulary/ui-contracts workbook interaction selectors", () => {
       evidenceAccessMessageTestId,
       evidenceAccessStateTestId,
     ]) {
-      expect(selector("evidence-1", "inspector")).not.toBe(
-        selector("evidence-1", "row"),
-      );
       expect(selector("evidence-1", "row")).toBe(selector("evidence-1"));
+    }
+    for (const [selector, row, inspector] of [
+      [
+        evidencePreviewButtonTestId,
+        "evidence-preview-evidence-1",
+        "evidence-inspector-preview-evidence-1",
+      ],
+      [
+        evidenceDownloadButtonTestId,
+        "evidence-download-evidence-1",
+        "evidence-inspector-download-evidence-1",
+      ],
+      [
+        evidenceAttachFileInputTestId,
+        "evidence-attach-file-evidence-1",
+        "evidence-inspector-attach-file-evidence-1",
+      ],
+      [
+        evidenceAccessMessageTestId,
+        "evidence-access-message-evidence-1",
+        "evidence-inspector-access-message-evidence-1",
+      ],
+      [
+        evidenceAccessStateTestId,
+        "evidence-access-state-evidence-1",
+        "evidence-inspector-access-state-evidence-1",
+      ],
+    ] as const) {
+      expect(selector("evidence-1", "row")).toBe(row);
+      expect(selector("evidence-1", "inspector")).toBe(inspector);
     }
     expect(evidencePreviewPanelTestId()).toBe("evidence-preview-panel");
     expect(genericCreateFieldTestId("note.title")).toBe(
@@ -648,7 +675,7 @@ describe("@cartulary/ui-contracts workbook interaction selectors", () => {
       "row-history-open-record%2F1-inspector",
     );
     expect(() => rowHistoryOpenButtonTestId("")).toThrow(
-      "Invalid record_id selector token: ",
+      /^Invalid record_id selector token: $/,
     );
   });
 
@@ -661,7 +688,7 @@ describe("@cartulary/ui-contracts workbook interaction selectors", () => {
       "paste-conflict-item-record%2F1%3Afield%20key",
     );
     expect(() => pasteConflictItemTestId(" ")).toThrow(
-      "Invalid paste conflict key selector token:  ",
+      /^Invalid paste conflict key selector token: {2}$/,
     );
   });
 
@@ -680,6 +707,6 @@ describe("@cartulary/ui-contracts workbook interaction selectors", () => {
     ).toThrow("Invalid entity type selector token: account");
     expect(() =>
       entityReusableIdentifierItemTestId("host", "host-1", ""),
-    ).toThrow("Invalid item_ref selector token: ");
+    ).toThrow(/^Invalid item_ref selector token: $/);
   });
 });

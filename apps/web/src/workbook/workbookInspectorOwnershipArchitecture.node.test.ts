@@ -173,6 +173,7 @@ describe("Workbook inspector owner boundaries", () => {
         /\/(?:services|mutations|runtime)\//u.test(module),
       ),
     ];
+    const scanned: string[] = [];
     for (const filename of readdirSync(directory)) {
       if (!/\.tsx?$/u.test(filename) || /\.test\.tsx?$/u.test(filename))
         continue;
@@ -180,7 +181,18 @@ describe("Workbook inspector owner boundaries", () => {
         stateHooks(readFileSync(path.join(directory, filename), "utf8")),
         filename,
       ).toEqual([]);
+      scanned.push(filename);
     }
+    expect(scanned.sort()).toEqual([
+      "WorkbookHistoryPresentation.tsx",
+      "WorkbookInspectorActions.tsx",
+      "WorkbookInspectorCommandSubject.ts",
+      "WorkbookInspectorFeedback.tsx",
+      "WorkbookInspectorPanelContent.tsx",
+      "WorkbookInspectorShell.tsx",
+      "workbookInspectorFieldReveal.ts",
+      "workbookInspectorPresentationModel.ts",
+    ]);
     expect(
       stateHooks(
         'import { useWorkbookInspectorCoordinator as local } from "../inspector/useWorkbookInspectorCoordinator";',

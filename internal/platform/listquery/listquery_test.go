@@ -29,6 +29,10 @@ func TestParseNormalizesSearchAndFilters(t *testing.T) {
 }
 
 func TestParseRejectsListQueryFailures(t *testing.T) {
+	// Sixteen search tokens are accepted; the 17-token case below is rejected.
+	if _, queryErr := Parse("search="+strings.Join([]string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p"}, "+"), Config{Search: true}); queryErr != nil {
+		t.Fatalf("16-token search must be accepted: %#v", queryErr)
+	}
 	cases := []struct {
 		name string
 		raw  string

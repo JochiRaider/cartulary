@@ -284,24 +284,66 @@ describe("Workbook history operation owner", () => {
     expect(JSON.parse(attempt.body).base_row_version).toBe(4);
   });
   it("reauthorizes after sequencing and never resumes automatically after reopening", async () => {
-    const t = setup();
-    let release!: (version: number) => void;
-    const binding = {
-      ...t.binding,
-      coordinate: () =>
-        new Promise<number>((resolve) => {
-          release = resolve;
-        }),
+    const held = () => {
+      const t = setup();
+      let release!: (version: number) => void;
+      const binding = {
+        ...t.binding,
+        coordinate: () =>
+          new Promise<number>((resolve) => {
+            release = resolve;
+          }),
+      };
+      const attempt = t.owner.admit(t.intent, binding);
+      if (!attempt) throw new Error("admission");
+      const completion = t.owner.execute(attempt);
+      return {
+        ...t,
+        completion,
+        release: (version: number) => release(version),
+      };
     };
-    const attempt = t.owner.admit(t.intent, binding);
-    if (!attempt) throw new Error("admission");
-    const completion = t.owner.execute(attempt);
+
+    const control = held();
+    control.release(4);
+    await control.completion;
+    expect(control.send).toHaveBeenCalledOnce();
+
+    const demoted = held();
+    demoted.owner.setAuthority({ ...authority, role: "viewer" });
+    demoted.release(4);
+    await demoted.completion;
+    expect(demoted.send).not.toHaveBeenCalled();
+    expect(demoted.owner.getSnapshot()[0]).toMatchObject({
+      dispatched: false,
+      failure: {
+        kind: "authorization_lost",
+        message: "Current access does not permit this history action.",
+      },
+      phase: "rejected",
+    });
+
+    const t = held();
     t.owner.closeIncident();
+    const closedFailure = {
+      kind: "terminal",
+      message: "Closed, read-only",
+      publicCode: "incident_closed",
+    };
+    expect(t.owner.getSnapshot()[0]).toMatchObject({
+      dispatched: false,
+      failure: closedFailure,
+      phase: "rejected",
+    });
     t.owner.setAuthority(authority);
-    release(4);
-    await completion;
-    t.owner.setAuthority(authority);
+    t.release(4);
+    await t.completion;
     expect(t.send).not.toHaveBeenCalled();
+    expect(t.owner.getSnapshot()[0]).toMatchObject({
+      dispatched: false,
+      failure: closedFailure,
+      phase: "rejected",
+    });
   });
   it("acknowledges before failed refresh and refresh recovery never resends", async () => {
     const t = setup();

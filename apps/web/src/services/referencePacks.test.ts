@@ -239,6 +239,7 @@ describe("Reference Pack transport", () => {
             : "uncertain",
       );
       if ("problem" in outcome) expect(outcome.problem.status).toBe(status);
+      else expect(outcome).toEqual({ kind: "access_failed", status });
     }
     fetchMock.mockRejectedValueOnce(new TypeError("network"));
     expect(await submitReferencePackAttempt(attempt, signal())).toMatchObject({

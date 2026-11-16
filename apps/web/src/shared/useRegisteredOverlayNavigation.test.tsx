@@ -320,6 +320,7 @@ describe("registered overlay navigation", () => {
     expect(document.activeElement).not.toBe(
       screen.getByRole("button", { name: "Open unmounting overlay" }),
     );
+    expect(document.activeElement).toBe(document.body);
   });
 
   it("reconciles a removed focused item without using its detached element", () => {
@@ -402,6 +403,7 @@ describe("registered overlay navigation", () => {
     expect(document.activeElement).not.toBe(
       screen.getByRole("button", { name: "Open" }),
     );
+    expect(document.activeElement).toBe(document.body);
   });
 
   it("focuses on open, wraps, skips disabled items, and restores on Escape", () => {
@@ -433,6 +435,7 @@ describe("registered overlay navigation", () => {
       relatedTarget: document.body,
     });
     expect(screen.queryByRole("menu")).toBeNull();
+    expect(document.activeElement).toBe(document.body);
   });
 
   it("keeps a programmatically focused overlay root inside the focus boundary", () => {

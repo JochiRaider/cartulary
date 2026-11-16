@@ -255,7 +255,9 @@ func TestQualifiedTelemetryTransports(t *testing.T) {
 			destination.TLS = config.Clone()
 			destination.StartTLS()
 			defer destination.Close()
+			var redirected atomic.Int32
 			redirect := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				redirected.Add(1)
 				http.Redirect(w, r, destination.URL, http.StatusTemporaryRedirect)
 			}))
 			redirect.TLS = config
@@ -273,6 +275,10 @@ func TestQualifiedTelemetryTransports(t *testing.T) {
 			}
 			if err == nil || reached.Load() != 0 {
 				t.Fatal("redirect followed")
+			}
+			// The 307 must actually have been served, not failed earlier.
+			if served := redirected.Load(); served != 1 {
+				t.Fatalf("redirecting collector served %d requests, want 1", served)
 			}
 		})
 
@@ -340,6 +346,16 @@ func TestQualifiedTelemetryTransports(t *testing.T) {
 							}
 							if mode != "valid" && err == nil {
 								t.Fatal("unqualified collector accepted")
+							}
+							// Verification failures surface only as the redacted TLS
+							// rejection; the version mismatch keeps its own cause.
+							if cause := map[string]string{
+								"wrong-root": "TLS peer rejected",
+								"wrong-name": "TLS peer rejected",
+								"expired":    "TLS peer rejected",
+								"tls12":      "protocol version",
+							}[mode]; cause != "" && !strings.Contains(err.Error(), cause) {
+								t.Fatalf("%s rejection = %v, want cause %q", mode, err, cause)
 							}
 						})
 					}

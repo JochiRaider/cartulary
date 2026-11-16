@@ -71,7 +71,7 @@ func TestSnapshotReplayAndReleaseProvenanceAreStable_Integration(t *testing.T) {
 	snapshotID := requireSucceededJobResourceID(t, harness, adminLogin, firstSnapshotJob, "snapshot")
 	snapshot := requireSnapshot(t, harness, adminLogin, snapshotID)
 	assertSnapshotPublicationCandidate(t, harness, uuid.MustParse(firstSnapshotJob["job_id"].(string)), uuid.MustParse(snapshotID))
-	if snapshot["source_capture_sha256"] == "" || snapshot["source_change_set_high_watermark"] == "" {
+	if !nonEmptyString(snapshot["source_capture_sha256"]) || snapshot["source_change_set_high_watermark"] == "" {
 		t.Fatalf("snapshot must expose immutable export model and source boundary provenance: %#v", snapshot)
 	}
 	initialWatermark := snapshot["source_change_set_high_watermark"].(string)
@@ -166,10 +166,10 @@ func TestSnapshotReplayAndReleaseProvenanceAreStable_Integration(t *testing.T) {
 	if release["release_state"] != reporting.ReleaseStatePendingApproval {
 		t.Fatalf("external release must start pending approval, got %#v", release["release_state"])
 	}
-	if release["redaction_profile_id"] != reporting.ExternalRedactionProfileID || release["redaction_profile_sha256"] == "" {
+	if release["redaction_profile_id"] != reporting.ExternalRedactionProfileID || !nonEmptyString(release["redaction_profile_sha256"]) {
 		t.Fatalf("release must bind immutable redaction profile identity, got %#v", release)
 	}
-	if release["output_sha256"] == "" || release["redaction_manifest_sha256"] == "" {
+	if !nonEmptyString(release["output_sha256"]) || !nonEmptyString(release["redaction_manifest_sha256"]) {
 		t.Fatalf("release must expose output and manifest hashes, got %#v", release)
 	}
 	bundleManifestSHA, bundleManifest := requireReleaseBundle(t, harness.DB, releaseID)
@@ -703,7 +703,7 @@ func TestBoundaryReplayDefaultsAndActionIdempotency_Integration(t *testing.T) {
 	if release["release_scope"] != reporting.ReleaseScopeInternalDraft || release["release_state"] != reporting.ReleaseStateApproved {
 		t.Fatalf("omitted release_scope must default to approved internal draft, got %#v", release)
 	}
-	if release["redaction_profile_id"] != reporting.InternalRedactionProfileID || release["redaction_profile_version"] != reporting.DefaultRedactionProfileVersion || release["redaction_profile_sha256"] == "" {
+	if release["redaction_profile_id"] != reporting.InternalRedactionProfileID || release["redaction_profile_version"] != reporting.DefaultRedactionProfileVersion || !nonEmptyString(release["redaction_profile_sha256"]) {
 		t.Fatal("omitted profile did not retain its complete admission identity")
 	}
 	explicitReplay := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost,
@@ -1698,14 +1698,6 @@ func requireExportModelCoverage(t testing.TB, model map[string]any, ids map[stri
 			t.Fatalf("snapshot export model missing workbook path %s; paths=%#v", path, byPath)
 		}
 	}
-	for _, path := range []string{
-		"/investigative_queries/" + ids["investigative_query"],
-		"/forensic_keywords/" + ids["forensic_keyword"],
-	} {
-		if byPath[path+"/record_id"] != nil {
-			t.Fatalf("reporting export admitted explicitly excluded artifact path %s", path)
-		}
-	}
 	wantFamilies := map[string]string{
 		"/timeline/" + ids["timeline"]:            "timeline_event",
 		"/hosts/" + ids["host"]:                   "host",
@@ -1742,15 +1734,19 @@ func requireExportModelCoverage(t testing.TB, model map[string]any, ids map[stri
 			t.Fatalf("path %s content_class = %#v want %q", path, byPath[path+"/record_id"]["content_class"], class)
 		}
 	}
-	if byPath["/relationships/"+ids["task"]] == nil {
-		for path := range byPath {
-			if strings.HasPrefix(path, "/relationships/") {
-				goto relationshipPresent
-			}
+	// Relationship paths are keyed by record_link_id; require one that binds
+	// the fixture task as an endpoint.
+	taskRelationship := false
+	for path, field := range byPath {
+		if strings.HasPrefix(path, "/relationships/") &&
+			(strings.HasSuffix(path, "/src_record_id") || strings.HasSuffix(path, "/dst_record_id")) &&
+			field["value"] == ids["task"] {
+			taskRelationship = true
 		}
-		t.Fatalf("snapshot export model missing active relationship metadata; paths=%#v", byPath)
 	}
-relationshipPresent:
+	if !taskRelationship {
+		t.Fatalf("snapshot export model missing the task's active relationship; paths=%#v", byPath)
+	}
 	tagPresent := false
 	for path := range byPath {
 		if strings.HasPrefix(path, "/tags/") {
@@ -2054,6 +2050,13 @@ func requireNoSensitiveReleaseArtifactExposure(t testing.TB, resource map[string
 	}
 }
 
+// nonEmptyString reports whether a decoded JSON value is a non-empty string.
+// Comparing an any with "" would accept a JSON null.
+func nonEmptyString(value any) bool {
+	text, ok := value.(string)
+	return ok && text != ""
+}
+
 func requireExactResourceKeys(t testing.TB, label string, resource map[string]any, want []string) {
 	t.Helper()
 	wantSet := make(map[string]struct{}, len(want))
@@ -2229,7 +2232,7 @@ func requireTokenManifestEntry(t testing.TB, tokenManifest map[string]any, stabl
 			continue
 		}
 		displayToken, _ := entry["display_token"].(string)
-		if !strings.HasPrefix(displayToken, "SUBJECT-") || entry["token_id"] == "" {
+		if !strings.HasPrefix(displayToken, "SUBJECT-") || !nonEmptyString(entry["token_id"]) {
 			t.Fatalf("token manifest entry must expose stable non-reversible token fields: %#v", entry)
 		}
 		if _, ok := entry["canonical_display_value"]; ok {

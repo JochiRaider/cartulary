@@ -92,8 +92,27 @@ func TestViewSchemasDiscoveryHTTP(t *testing.T) {
 			httptestx.WithCookies(login.Session),
 		)
 		nextBody := httptestx.RequireSuccessEnvelope(t, next, http.StatusOK)
-		if got := len(nextBody["data"].(map[string]any)["view_schemas"].([]any)); got != 5 {
+		nextItems := nextBody["data"].(map[string]any)["view_schemas"].([]any)
+		if got := len(nextItems); got != 5 {
 			t.Fatalf("expected cursor page to preserve bound limit, got %d", got)
+		}
+		// Page 2 continues page 1 exactly, in registry order.
+		all := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(
+			t, http.DefaultClient,
+			http.MethodGet,
+			harness.Server.HTTP.URL+"/api/v1/view-schemas?limit=500",
+			nil,
+			httptestx.WithCookies(login.Session),
+		), http.StatusOK)["data"].(map[string]any)["view_schemas"].([]any)
+		ids := func(items []any) []any {
+			out := make([]any, 0, len(items))
+			for _, item := range items {
+				out = append(out, item.(map[string]any)["view_schema_id"])
+			}
+			return out
+		}
+		if got, want := append(ids(items), ids(nextItems)...), ids(all)[:10]; !reflect.DeepEqual(got, want) {
+			t.Fatalf("pages 1 and 2 = %v, want the first ten %v", got, want)
 		}
 
 		replay := httptestx.DoJSON(
@@ -121,6 +140,13 @@ func TestViewSchemasDiscoveryHTTP(t *testing.T) {
 		} {
 			resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+target, nil, httptestx.WithCookies(login.Session))
 			httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_pagination_request")
+		}
+		// The maximum limit is accepted: every schema in one terminal page.
+		maximum := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/view-schemas?limit=500", nil, httptestx.WithCookies(login.Session)), http.StatusOK)
+		paging := maximum["meta"].(map[string]any)["paging"].(map[string]any)
+		if paging["limit"] != float64(500) || paging["has_more"] != false || paging["next_cursor"] != nil ||
+			len(maximum["data"].(map[string]any)["view_schemas"].([]any)) < 10 {
+			t.Fatalf("limit=500 page = %#v", paging)
 		}
 	})
 

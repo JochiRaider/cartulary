@@ -100,6 +100,7 @@ describe("Incident metadata ownership", () => {
     const { controller, patch, recover } = setup();
     await settle();
     controller.save();
+    await settle();
     expect(patch).not.toHaveBeenCalled();
     const access =
       deferred<Awaited<ReturnType<IncidentMetadataPorts["recover"]>>>();
@@ -108,6 +109,7 @@ describe("Incident metadata ownership", () => {
     controller.save();
     controller.save();
     expect(controller.getSnapshot().operation.kind).toBe("pending");
+    await settle();
     expect(patch).not.toHaveBeenCalled();
     access.resolve({
       kind: "authorized",
@@ -179,6 +181,7 @@ describe("Incident metadata ownership", () => {
     expect(controller.getSnapshot().draft?.base.incident_version).toBe(1);
     expect(controller.canSave()).toBe(false);
     controller.review();
+    await settle();
     expect(patch).not.toHaveBeenCalled();
     expect(controller.getSnapshot().draft?.values.severity).toBe("external");
     expect(controller.canSave()).toBe(true);

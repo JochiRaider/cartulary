@@ -66,7 +66,9 @@ describe("Recovery navigation", () => {
       selected: null,
       count: 1,
     });
-    expect(navigation.getSnapshot().message).toBeTruthy();
+    expect(navigation.getSnapshot().message).toBe(
+      "This recovery item is no longer available.",
+    );
   });
   it("ignores replaced registrations and permanently retires every presentation reference", () => {
     const navigation = new WorkbookRecoveryNavigation();
@@ -105,7 +107,10 @@ describe("Recovery navigation", () => {
       open: true,
       selected: null,
       count: 1,
+      message: "This recovery item is no longer available.",
     });
+    navigation.activate(workbookRecoveryKey("source", "working"));
+    expect(activate).toHaveBeenCalledExactlyOnceWith("working");
   });
   it("coordinates secondary panels without reopening them after recovery closes", () => {
     const navigation = new WorkbookRecoveryNavigation();

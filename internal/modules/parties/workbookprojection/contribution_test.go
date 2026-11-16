@@ -12,7 +12,7 @@ type partyProjectionSourceStub struct{}
 
 func TestNewContributionRequiresSource(t *testing.T) {
 	t.Parallel()
-	if _, err := NewContribution(nil); err == nil {
+	if _, err := NewContribution(nil); err == nil || err.Error() != "parties projection source is required" {
 		t.Fatal("source-less Party projection contribution unexpectedly constructed")
 	}
 }
@@ -47,7 +47,7 @@ func TestPartyProjectionContractOwnsSemanticSurface(t *testing.T) {
 
 func TestPartyProjectionIntentRejectsUnknownViewSchema(t *testing.T) {
 	t.Parallel()
-	if _, err := surfaceIntent("cartulary.view.unknown.v1"); err == nil {
+	if _, err := surfaceIntent("cartulary.view.unknown.v1"); err == nil || err.Error() != `parties projection surface "cartulary.view.unknown.v1" has no view-schema contract` {
 		t.Fatal("unknown Party view schema produced a semantic intent")
 	}
 }

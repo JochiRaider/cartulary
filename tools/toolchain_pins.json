@@ -1,8 +1,8 @@
 {
   "schema_id": "cartulary.toolchain_pins.v1",
   "module_path": "github.com/JochiRaider/cartulary",
-  "go_version": "1.27.3",
-  "go_toolchain": "go1.27.3",
+  "go_version": "1.27.4",
+  "go_toolchain": "go1.27.4",
   "node_version": "24.15.0",
   "pnpm_version": "10.33.0",
   "biome_version": "2.6.6",

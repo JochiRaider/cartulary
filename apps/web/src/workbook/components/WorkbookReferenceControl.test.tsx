@@ -1235,6 +1235,15 @@ it("uses exact collection action identities in declared order with the pending e
             : "linked_record_id"]: id(number),
         })),
       );
+      // The pending edit limit is 64 identities: 64 are accepted, 65 rejected.
+      const atLimit = prepareWorkbookInspectorChange(
+        field,
+        Array.from({ length: 64 }, (_, i) => id(i)).join("\n"),
+        "add",
+        contract.viewSchemaId,
+      );
+      expect(atLimit.error).toBeUndefined();
+      expect(atLimit.change?.action_payload?.actions).toHaveLength(64);
       for (const raw of [
         "",
         ` ${id(1)}`,

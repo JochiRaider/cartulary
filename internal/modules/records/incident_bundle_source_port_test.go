@@ -42,8 +42,8 @@ func TestRecordsSourcePortRejectsMissingSubtypeCatalog_Unit(t *testing.T) {
 	if !ok {
 		t.Fatal("records source port does not expose contract validation")
 	}
-	if err := validator.ValidateSourcePortContract(); !errors.Is(err, sourceport.ErrInvalidCatalog) {
-		t.Fatalf("missing subtype catalog error = %v; want ErrInvalidCatalog", err)
+	if err := validator.ValidateSourcePortContract(); !errors.Is(err, sourceport.ErrInvalidCatalog) || !strings.Contains(err.Error(), "source port contract rejected") {
+		t.Fatalf("missing subtype catalog error = %v; want ErrInvalidCatalog with the contract rejection", err)
 	}
 }
 
@@ -285,6 +285,18 @@ func TestRecordsPortableEnvelopeRejectsEveryInvalidCategory_Unit(t *testing.T) {
 				}
 			})
 		}
+		for name, ids := range map[string][2]uuid.UUID{
+			"nil incident": {uuid.Nil, recordID},
+			"nil record":   {incidentID, uuid.Nil},
+		} {
+			requireRecordsInvariant := func(err error) {
+				var invariant *recordsInvariantError
+				if !errors.As(err, &invariant) || invariant.InvariantID != "records.envelope_legal" {
+					t.Fatalf("%s snapshot error = %v, want records.envelope_legal", name, err)
+				}
+			}
+			requireRecordsInvariant(ValidateSnapshotEnvelope(ids[0], ids[1], "timeline_event", cloneRecordsPortableMap(base)))
+		}
 	})
 
 	t.Run("historical and portable exact clock forms", func(t *testing.T) {
@@ -466,15 +478,57 @@ func TestRecordsPortableEnvelopeRejectsEveryInvalidCategory_Unit(t *testing.T) {
 			context: baseContext, invariantID: "records.envelope_legal",
 		},
 		"multiple_values": {
-			payload: []byte("{} {}\n"),
+			payload: append(bytes.TrimSuffix(encodeRecordsPortableRow(t, base), []byte("\n")), []byte(" {}\n")...),
 			context: baseContext, invariantID: "records.envelope_legal",
 		},
 		"duplicate_member": {
-			payload: []byte(fmt.Sprintf(
-				`{"record_id":%q,"record_id":%q}`+"\n",
-				recordID.String(),
-				recordID.String(),
-			)),
+			payload: bytes.Replace(encodeRecordsPortableRow(t, base), []byte("{"), []byte(fmt.Sprintf(`{"record_id":%q,`, recordID.String())), 1),
+			context: baseContext, invariantID: "records.envelope_legal",
+		},
+		"renamed_member": {
+			payload: mutateRecordsPayload(t, base, func(row map[string]any) {
+				row["deleted"] = row["deleted_at"]
+				delete(row, "deleted_at")
+			}),
+			context: baseContext, invariantID: "records.envelope_legal",
+		},
+		"malformed_incident": {
+			payload: mutateRecordsPayload(t, base, func(row map[string]any) {
+				row["incident_id"] = "not-a-uuid"
+			}),
+			context: baseContext, invariantID: "records.envelope_legal",
+		},
+		"updated_actor_not_cataloged": {
+			payload: mutateRecordsPayload(t, base, func(row map[string]any) {
+				row["updated_by_user_id"] = uuid.NewString()
+			}),
+			context: baseContext, invariantID: "records.envelope_legal",
+		},
+		"row_version_overflow": {
+			payload: mutateRecordsPayload(t, base, func(row map[string]any) {
+				row["row_version"] = json.Number("99999999999999999999")
+			}),
+			context: baseContext, invariantID: "records.envelope_legal",
+		},
+		"deleted_at_wrong_type": {
+			payload: mutateRecordsPayload(t, base, func(row map[string]any) {
+				row["deleted_at"] = json.Number("1")
+				row["deleted_by_user_id"] = actorID.String()
+			}),
+			context: baseContext, invariantID: "records.envelope_legal",
+		},
+		"deleted_actor_not_cataloged": {
+			payload: mutateRecordsPayload(t, base, func(row map[string]any) {
+				row["deleted_at"] = row["updated_at"]
+				row["deleted_by_user_id"] = uuid.NewString()
+			}),
+			context: baseContext, invariantID: "records.envelope_legal",
+		},
+		"descending_record_order": {
+			payload: append(
+				mutateRecordsPayload(t, base, func(row map[string]any) { row["record_id"] = "10000000-0000-4000-8000-000000000002" }),
+				mutateRecordsPayload(t, base, func(row map[string]any) { row["record_id"] = "10000000-0000-4000-8000-000000000001" })...,
+			),
 			context: baseContext, invariantID: "records.envelope_legal",
 		},
 	}
@@ -489,6 +543,12 @@ func TestRecordsPortableEnvelopeRejectsEveryInvalidCategory_Unit(t *testing.T) {
 			requireRecordsFailure(t, err, testCase.invariantID)
 		})
 	}
+	t.Run("missing_member_path", func(t *testing.T) {
+		missing := baseContext
+		missing.OperationID = "records-invalid-missing-member"
+		_, err := port.PrepareImport(context.Background(), portabilitysupport.MapBundle{}, missing)
+		requireRecordsFailure(t, err, "records.envelope_legal")
+	})
 }
 
 func TestRecordsPortableEnvelopeRejectsIncompleteSubtypeBindings_Integration(t *testing.T) {

@@ -222,6 +222,8 @@ it("frozen data placement admits only complete prefixes at the measured CSS pixe
   for (const geometry of [
     null,
     { viewport: Number.NaN, structural: 44, prefix: 220 },
+    { viewport: 0, structural: 44, prefix: 220 },
+    { viewport: 600, structural: -1, prefix: 220 },
     { viewport: 600, structural: 44, prefix: 0 },
   ])
     expect(frozenColumnPlacement(2, geometry)).toEqual({
@@ -236,13 +238,15 @@ it("frozen data placement admits only complete prefixes at the measured CSS pixe
     [504, 44.01, 220, "suspended"],
     [505, 44.01, 220, "active"],
     [4400, 44, 4096, "active"],
+    [4380, 44, 4096, "active"],
     [4379, 44, 4096, "suspended"],
   ] as const) {
     const geometry = { viewport, structural, prefix };
+    const expected =
+      kind === "active"
+        ? { kind, visibleCount: 2 }
+        : { kind, visibleCount: 2, reason: "insufficient_space" };
     for (let observation = 0; observation < 5; observation++)
-      expect(frozenColumnPlacement(2, geometry)).toMatchObject({
-        kind,
-        visibleCount: 2,
-      });
+      expect(frozenColumnPlacement(2, geometry)).toEqual(expected);
   }
 });

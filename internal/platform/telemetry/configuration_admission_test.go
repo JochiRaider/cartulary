@@ -448,6 +448,20 @@ endpoint = "https://collector.example.test:4317/"
 		requireDiagnostic(t, err, "telemetry.processor.export_timeout_ms", "invalid_telemetry_config")
 		requireDiagnostic(t, err, "telemetry.self_diagnostics.recursion_guard", "invalid_telemetry_config")
 		requireDiagnostic(t, err, "telemetry.shutdown.flush_timeout_ms", "invalid_telemetry_config")
+
+		// Each rejected bound above is one step past an accepted bound.
+		cfg := mustLoadTelemetryConfig(t, string(fixturesConfigValid(t)), map[string]string{
+			"CARTULARY__TELEMETRY__EXPORTER__RETRY__MULTIPLIER":     "5",
+			"CARTULARY__TELEMETRY__EXPORTER__RETRY__MAX_ELAPSED_MS": "300000",
+			"CARTULARY__TELEMETRY__LOGS__BODY_MAX_CHARS":            "8192",
+			"CARTULARY__TELEMETRY__PROCESSOR__EXPORT_TIMEOUT_MS":    "100",
+			"CARTULARY__TELEMETRY__SHUTDOWN__FLUSH_TIMEOUT_MS":      "100",
+		})
+		got := cfg.Telemetry
+		if got.Exporter.Retry.Multiplier != 5 || got.Exporter.Retry.MaxElapsedMS != 300000 || got.Logs.BodyMaxChars != 8192 ||
+			got.Processor.ExportTimeoutMS != 100 || got.Shutdown.FlushTimeoutMS != 100 {
+			t.Fatalf("at-bound values not admitted as configured: %#v", got)
+		}
 	})
 
 	t.Run("enforces service instance id opacity predicate", func(t *testing.T) {

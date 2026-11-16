@@ -338,6 +338,8 @@ describe("Workbook runtime responsibilities", () => {
     const lifecycle = new WorkbookRuntimeLifecycle(controlled.scheduler);
     const drain = vi.fn(async () => undefined);
     lifecycle.requestDrain(drain);
+    // The drain must actually be queued for disposal to have something to fence.
+    expect(controlled.microtasks).toHaveLength(1);
     lifecycle.dispose();
     controlled.microtasks.shift()?.();
     await Promise.resolve();
@@ -583,7 +585,7 @@ describe("Workbook runtime responsibilities", () => {
         completed = true;
         return value;
       });
-    await Promise.resolve();
+    await new Promise((resolve) => setTimeout(resolve, 0));
     expect(completed).toBe(false);
     const unit = runtime.pendingQueue().model.snapshot().units[0];
     expect(unit).toBeDefined();

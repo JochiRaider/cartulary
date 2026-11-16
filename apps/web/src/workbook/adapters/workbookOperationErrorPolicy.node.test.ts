@@ -153,35 +153,48 @@ describe("Workbook operation error policy", () => {
   });
 
   it("classifies validation, merge preconditions, and retryability exactly", () => {
+    const blockingRecordId = "20000000-0000-4000-8000-000000000002";
     expect(
       classifyWorkbookOperationFailure(
-        422,
-        publicError("invalid_mutation_payload", 422, {
-          details: { field: "task.title", reason_code: "required" },
+        400,
+        publicError("invalid_mutation_payload", 400, {
+          details: {
+            field: "task.title",
+            reason_code: "missing_required_field",
+          },
         }),
         "patchRecord",
       ),
-    ).toMatchObject({
+    ).toEqual({
       kind: "validation",
-      fields: [{ field: "task.title", message: "required" }],
+      message: "invalid_mutation_payload",
+      fields: [{ field: "task.title", message: "missing_required_field" }],
+      publicCode: "invalid_mutation_payload",
+      publicReason: "missing_required_field",
+      presentation: expect.any(Object),
     });
     expect(
       classifyWorkbookOperationFailure(
         409,
         publicError("merge_precondition_failed", 409, {
           details: {
-            reason_code: "identifier_collision",
-            blocking_record_id: "host-2",
+            reason_code: "carry_forward_identifier_collision",
+            blocking_record_id: blockingRecordId,
           },
         }),
         "mergeEntityRecord",
       ),
-    ).toMatchObject({
+    ).toEqual({
       kind: "validation",
-      fields: expect.arrayContaining([
-        { field: "reason_code", message: "identifier_collision" },
-        { field: "blocking_record_id", message: "host-2" },
-      ]),
+      message:
+        "merge_precondition_failed message: carry_forward_identifier_collision",
+      fields: [
+        { field: "reason_code", message: "carry_forward_identifier_collision" },
+        { field: "blocking_record_id", message: blockingRecordId },
+      ],
+      publicCode: "merge_precondition_failed",
+      publicReason: "carry_forward_identifier_collision",
+      presentation: expect.any(Object),
     });
     expect(
       classifyWorkbookOperationFailure(
@@ -189,14 +202,24 @@ describe("Workbook operation error policy", () => {
         publicError("future_retryable_error", 409, { retryable: true }),
         "patchRecord",
       ),
-    ).toMatchObject({ kind: "retryable" });
+    ).toEqual({
+      kind: "retryable",
+      message: "future_retryable_error message",
+      publicCode: "future_retryable_error",
+      presentation: expect.any(Object),
+    });
     expect(
       classifyWorkbookOperationFailure(
         503,
         publicError("future_terminal_error", 503),
         "patchRecord",
       ),
-    ).toMatchObject({ kind: "retryable" });
+    ).toEqual({
+      kind: "retryable",
+      message: "future_terminal_error message",
+      publicCode: "future_terminal_error",
+      presentation: expect.any(Object),
+    });
   });
 
   it("projects Evidence access reasons without exposing server prose", () => {

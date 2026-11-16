@@ -41,6 +41,104 @@ import {
 
 const timelineViewSchemaId = "cartulary.view.timeline.v2";
 
+function renderGroupedTimelineGrid() {
+  type HarnessRow = {
+    readonly actionTestId: string;
+    readonly editableTestId: string;
+    readonly recordId: string;
+    readonly state: string;
+    readonly summary: string;
+  };
+  const rows: readonly GridDataRow<HarnessRow>[] = [
+    {
+      kind: "data",
+      mutationIdentity: { kind: "core_row_version", baseRowVersion: 1 },
+      rowIdentity: { kind: "core_record", recordId: "record-1" },
+      data: {
+        actionTestId: "action-record-1",
+        editableTestId: "editable-record-1",
+        recordId: "record-1",
+        state: "rough",
+        summary: "Alpha",
+      },
+      testId: "saved-view-row-record-1",
+    },
+    {
+      kind: "data",
+      mutationIdentity: { kind: "core_row_version", baseRowVersion: 1 },
+      rowIdentity: { kind: "core_record", recordId: "record-2" },
+      data: {
+        actionTestId: "action-record-2",
+        editableTestId: "editable-record-2",
+        recordId: "record-2",
+        state: "reviewed",
+        summary: "Beta",
+      },
+      testId: "saved-view-row-record-2",
+    },
+  ];
+  const columns: readonly GridColumn<HarnessRow>[] = [
+    {
+      fieldKey: "timeline.activity_synopsis_text",
+      label: "Summary",
+      renderCell: ({ row }) => (
+        <input data-testid={row.editableTestId} defaultValue={row.summary} />
+      ),
+    },
+    {
+      fieldKey: "timeline.capture_state",
+      label: "State",
+      renderCell: ({ row }) => <span>{row.state}</span>,
+    },
+  ];
+
+  return render(
+    <SemanticDataGrid
+      surface={{ kind: "view_schema", viewSchemaId: timelineViewSchemaId }}
+      actionsColumn={{
+        label: "Actions",
+        renderCell: ({ data: row }) => (
+          <button data-testid={row.actionTestId} type="button">
+            Mutate
+          </button>
+        ),
+      }}
+      columns={columns}
+      grouping={{
+        fieldKey: "timeline.capture_state",
+        formatLabel: (value) => (value === null ? null : String(value)),
+        getTestId: (fieldKey, _value, label) =>
+          label === null
+            ? undefined
+            : gridGroupRowTestId(timelineViewSchemaId, fieldKey, label),
+        getValue: (row) => row.state,
+      }}
+      dataRows={rows}
+    />,
+  );
+}
+
+const groupedMembers = [
+  ["rough", "record-1"],
+  ["reviewed", "record-2"],
+] as const;
+
+function groupHeader(container: HTMLElement, label: string): HTMLElement {
+  const header = container
+    .querySelector(
+      dataTestIdSelector(
+        gridGroupRowTestId(
+          timelineViewSchemaId,
+          "timeline.capture_state",
+          label,
+        ),
+      ),
+    )
+    ?.closest("tr");
+  if (!header) throw new Error(`Missing ${label} group header`);
+  return header;
+}
+
 describe("workbook query controls", () => {
   it("emits stable schema keys for sort, filter, and group query controls", () => {
     const contract = requireViewContract(timelineViewSchemaId);
@@ -701,211 +799,45 @@ describe("workbook query controls", () => {
   });
 
   it("renders group headers as presentation-only rows", () => {
-    type HarnessRow = {
-      readonly actionTestId: string;
-      readonly editableTestId: string;
-      readonly recordId: string;
-      readonly state: string;
-      readonly summary: string;
-    };
-    const rows: readonly GridDataRow<HarnessRow>[] = [
-      {
-        kind: "data",
-        mutationIdentity: { kind: "core_row_version", baseRowVersion: 1 },
-        rowIdentity: { kind: "core_record", recordId: "record-1" },
-        data: {
-          actionTestId: "action-record-1",
-          editableTestId: "editable-record-1",
-          recordId: "record-1",
-          state: "rough",
-          summary: "Alpha",
-        },
-        testId: "saved-view-row-record-1",
-      },
-      {
-        kind: "data",
-        mutationIdentity: { kind: "core_row_version", baseRowVersion: 1 },
-        rowIdentity: { kind: "core_record", recordId: "record-2" },
-        data: {
-          actionTestId: "action-record-2",
-          editableTestId: "editable-record-2",
-          recordId: "record-2",
-          state: "reviewed",
-          summary: "Beta",
-        },
-        testId: "saved-view-row-record-2",
-      },
-    ];
-    const columns: readonly GridColumn<HarnessRow>[] = [
-      {
-        fieldKey: "timeline.activity_synopsis_text",
-        label: "Summary",
-        renderCell: ({ row }) => (
-          <input data-testid={row.editableTestId} defaultValue={row.summary} />
-        ),
-      },
-      {
-        fieldKey: "timeline.capture_state",
-        label: "State",
-        renderCell: ({ row }) => <span>{row.state}</span>,
-      },
-    ];
-
-    const { container } = render(
-      <SemanticDataGrid
-        surface={{ kind: "view_schema", viewSchemaId: "test.view" }}
-        actionsColumn={{
-          label: "Actions",
-          renderCell: ({ data: row }) => (
-            <button data-testid={row.actionTestId} type="button">
-              Mutate
-            </button>
-          ),
-        }}
-        columns={columns}
-        grouping={{
-          fieldKey: "timeline.capture_state",
-          formatLabel: (value) => (value === null ? null : String(value)),
-          getTestId: (fieldKey, _value, label) =>
-            label === null
-              ? undefined
-              : gridGroupRowTestId(timelineViewSchemaId, fieldKey, label),
-          getValue: (row) => row.state,
-        }}
-        dataRows={rows}
-      />,
-    );
-
-    const groupHeader = container
-      .querySelector(
-        dataTestIdSelector(
-          gridGroupRowTestId(
-            timelineViewSchemaId,
-            "timeline.capture_state",
-            "rough",
-          ),
-        ),
-      )
-      ?.closest("tr");
-    expect(groupHeader).not.toBeNull();
-    expect(groupHeader?.getAttribute("data-grid-record-id")).toBeNull();
-    expect(groupHeader?.querySelector("input,textarea,select")).toBeNull();
-    expect(
-      groupHeader?.querySelector(dataTestIdSelector("action-record-1")),
-    ).toBeNull();
-    expect(
-      groupHeader?.querySelector(dataTestIdSelector("action-record-2")),
-    ).toBeNull();
-    expect(groupHeader?.querySelector("[data-grid-field-key]")).toBeNull();
-    expect(
-      container
-        .querySelector(dataTestIdSelector("saved-view-row-record-1"))
-        ?.getAttribute("data-grid-record-id"),
-    ).toBe("record-1");
+    const { container } = renderGroupedTimelineGrid();
+    for (const [label, recordId] of groupedMembers) {
+      const header = groupHeader(container, label);
+      expect(header.textContent).toContain(label);
+      expect(header.getAttribute("data-grid-record-id")).toBeNull();
+      const member = container.querySelector(
+        dataTestIdSelector(`saved-view-row-${recordId}`),
+      );
+      if (!member) throw new Error(`Missing ${recordId} row`);
+      expect(
+        header.compareDocumentPosition(member) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    }
   });
 
   it("keeps grouped presentation rows out of mutation-capable anchors", () => {
-    type HarnessRow = {
-      readonly actionTestId: string;
-      readonly editableTestId: string;
-      readonly recordId: string;
-      readonly state: string;
-      readonly summary: string;
-    };
-    const rows: readonly GridDataRow<HarnessRow>[] = [
-      {
-        kind: "data",
-        mutationIdentity: { kind: "core_row_version", baseRowVersion: 1 },
-        rowIdentity: { kind: "core_record", recordId: "record-1" },
-        data: {
-          actionTestId: "action-record-1",
-          editableTestId: "editable-record-1",
-          recordId: "record-1",
-          state: "rough",
-          summary: "Alpha",
-        },
-        testId: "saved-view-row-record-1",
-      },
-      {
-        kind: "data",
-        mutationIdentity: { kind: "core_row_version", baseRowVersion: 1 },
-        rowIdentity: { kind: "core_record", recordId: "record-2" },
-        data: {
-          actionTestId: "action-record-2",
-          editableTestId: "editable-record-2",
-          recordId: "record-2",
-          state: "reviewed",
-          summary: "Beta",
-        },
-        testId: "saved-view-row-record-2",
-      },
-    ];
-    const columns: readonly GridColumn<HarnessRow>[] = [
-      {
-        fieldKey: "timeline.activity_synopsis_text",
-        label: "Summary",
-        renderCell: ({ row }) => (
-          <input data-testid={row.editableTestId} defaultValue={row.summary} />
-        ),
-      },
-      {
-        fieldKey: "timeline.capture_state",
-        label: "State",
-        renderCell: ({ row }) => <span>{row.state}</span>,
-      },
-    ];
-
-    const { container } = render(
-      <SemanticDataGrid
-        surface={{ kind: "view_schema", viewSchemaId: "test.view" }}
-        actionsColumn={{
-          label: "Actions",
-          renderCell: ({ data: row }) => (
-            <button data-testid={row.actionTestId} type="button">
-              Mutate
-            </button>
-          ),
-        }}
-        columns={columns}
-        grouping={{
-          fieldKey: "timeline.capture_state",
-          formatLabel: (value) => (value === null ? null : String(value)),
-          getTestId: (fieldKey, _value, label) =>
-            label === null
-              ? undefined
-              : gridGroupRowTestId(timelineViewSchemaId, fieldKey, label),
-          getValue: (row) => row.state,
-        }}
-        dataRows={rows}
-      />,
-    );
-
-    const groupHeader = container
-      .querySelector(
-        dataTestIdSelector(
-          gridGroupRowTestId(
-            timelineViewSchemaId,
-            "timeline.capture_state",
-            "rough",
-          ),
-        ),
-      )
-      ?.closest("tr");
-    expect(groupHeader).not.toBeNull();
-    expect(groupHeader?.getAttribute("data-grid-record-id")).toBeNull();
-    expect(groupHeader?.querySelector("[data-grid-field-key]")).toBeNull();
-    expect(groupHeader?.querySelector("input,textarea,select")).toBeNull();
-    expect(
-      groupHeader?.querySelector(dataTestIdSelector("action-record-1")),
-    ).toBeNull();
-    expect(
-      groupHeader?.querySelector(dataTestIdSelector("action-record-2")),
-    ).toBeNull();
-    expect(
-      container
-        .querySelector(dataTestIdSelector("saved-view-row-record-1"))
-        ?.getAttribute("data-grid-record-id"),
-    ).toBe("record-1");
+    const { container } = renderGroupedTimelineGrid();
+    for (const [label, recordId] of groupedMembers) {
+      const header = groupHeader(container, label);
+      expect(header.getAttribute("data-grid-record-id")).toBeNull();
+      expect(header.querySelector("[data-grid-field-key]")).toBeNull();
+      expect(header.querySelector("input,textarea,select")).toBeNull();
+      for (const [, actionRecordId] of groupedMembers)
+        expect(
+          header.querySelector(dataTestIdSelector(`action-${actionRecordId}`)),
+        ).toBeNull();
+      const member = container.querySelector(
+        dataTestIdSelector(`saved-view-row-${recordId}`),
+      );
+      expect(member?.getAttribute("data-grid-record-id")).toBe(recordId);
+      expect(member?.querySelector("[data-grid-field-key]")).not.toBeNull();
+      expect(
+        member?.querySelector(dataTestIdSelector(`editable-${recordId}`)),
+      ).not.toBeNull();
+      expect(
+        member?.querySelector(dataTestIdSelector(`action-${recordId}`)),
+      ).not.toBeNull();
+    }
   });
 
   it("Notes full_text controls submit the exact-token operator", () => {

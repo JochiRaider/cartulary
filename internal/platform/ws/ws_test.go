@@ -12,6 +12,41 @@ import (
 )
 
 func TestConnectionFrameIOAndOrigin(t *testing.T) {
+	t.Run("frames over the read limit fail the read", func(t *testing.T) {
+		readErrors := make(chan error, 1)
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			connection, err := Accept(w, r, "")
+			if err != nil {
+				readErrors <- err
+				return
+			}
+			defer connection.CloseNow()
+			connection.SetReadLimit(4)
+			_, _, err = connection.Read(r.Context())
+			readErrors <- err
+		}))
+		defer server.Close()
+
+		target := "ws" + strings.TrimPrefix(server.URL, "http")
+		client, _, err := websocket.Dial(context.Background(), target, nil)
+		if err != nil {
+			t.Fatalf("dial transport server: %v", err)
+		}
+		defer client.CloseNow()
+		// One byte over the limit; the 4-byte "ping" below is accepted.
+		if err := client.Write(context.Background(), websocket.MessageText, []byte("pings")); err != nil {
+			t.Fatalf("write client frame: %v", err)
+		}
+		select {
+		case err := <-readErrors:
+			if err == nil {
+				t.Fatal("server read accepted a frame over the read limit")
+			}
+		case <-time.After(time.Second):
+			t.Fatal("timed out waiting for the over-limit read")
+		}
+	})
+
 	t.Run("text frame I/O stays transport generic", func(t *testing.T) {
 		serverErrors := make(chan error, 1)
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

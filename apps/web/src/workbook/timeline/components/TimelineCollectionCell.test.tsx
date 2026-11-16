@@ -242,8 +242,9 @@ describe("Timeline collection inspection", () => {
     }
     // The contract, not the production binding list, defines every action field.
     const actionFieldKeys = Object.values(tagContract.fieldMap)
-      .filter((field) => field?.writeKind === "action_payload")
-      .map((field) => field!.fieldKey)
+      .flatMap((field) =>
+        field?.writeKind === "action_payload" ? [field.fieldKey] : [],
+      )
       .sort();
     expect(actionFieldKeys).toEqual([
       "timeline.attached_evidence_ids",

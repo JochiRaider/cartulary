@@ -3,6 +3,7 @@ package objectstore
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"strings"
 	"testing"
@@ -71,11 +72,26 @@ func TestTelemetryStorePreservesTypedStoreBehaviorNoSDK(t *testing.T) {
 }
 
 func TestObjectStoreErrorClass(t *testing.T) {
-	if got := objectStoreErrorClass(adapterError(OperationGetObject, ErrorCodeUnavailable, ReasonEndpointUnreachable, true, "unavailable", nil)); got != "dependency_unavailable" {
-		t.Fatalf("unexpected unavailable class: %q", got)
+	for _, tc := range []struct {
+		code ErrorCode
+		want string
+	}{
+		{ErrorCodeUnavailable, "dependency_unavailable"},
+		{ErrorCodeAccessRejected, "dependency_unavailable"},
+		{ErrorCodeRetryExhausted, "dependency_unavailable"},
+		{ErrorCodeDeadlineExceeded, "timeout"},
+		{ErrorCodeInvalidRequest, "invariant_violation"},
+		{ErrorCodeObjectNotFound, "internal_error"},
+		{ErrorCodeRangeNotSatisfiable, "internal_error"},
+		{ErrorCodeIntegrityMismatch, "internal_error"},
+		{ErrorCodeCleanupFailed, "internal_error"},
+	} {
+		if got := objectStoreErrorClass(adapterError(OperationGetObject, tc.code, ReasonInvalidRequest, false, "failure", nil)); got != tc.want {
+			t.Fatalf("%s class = %q, want %q", tc.code, got, tc.want)
+		}
 	}
-	if got := objectStoreErrorClass(adapterError(OperationGetObject, ErrorCodeDeadlineExceeded, ReasonDeadlineExceeded, true, "timeout", nil)); got != "timeout" {
-		t.Fatalf("unexpected timeout class: %q", got)
+	if got := objectStoreErrorClass(fmt.Errorf("wrapped: %w", context.DeadlineExceeded)); got != "timeout" {
+		t.Fatalf("unexpected wrapped deadline class: %q", got)
 	}
 	if got := objectStoreErrorClass(errors.New("plain failure")); got != "internal_error" {
 		t.Fatalf("unexpected generic class: %q", got)

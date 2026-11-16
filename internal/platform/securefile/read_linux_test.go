@@ -30,7 +30,11 @@ func TestSecureFileRead_Unit(t *testing.T) {
 	if document.Size() != int64(len(document.Bytes())) || document.Mode().Perm() != 0o600 {
 		t.Fatalf("metadata = size %d mode %v", document.Size(), document.Mode())
 	}
-	if _, err := Read(path, 4); err == nil {
+	// The manifest is 15 bytes: accepted at a maximum of 15, rejected at 14.
+	if _, err := Read(path, 15); err != nil {
+		t.Fatalf("manifest at the size bound rejected: %v", err)
+	}
+	if _, err := Read(path, 14); err == nil {
 		t.Fatal("oversized manifest succeeded")
 	} else {
 		var typed *Error
@@ -40,6 +44,8 @@ func TestSecureFileRead_Unit(t *testing.T) {
 	}
 	if _, err := Read("relative.json", 1024); err == nil {
 		t.Fatal("relative path succeeded")
+	} else if typed := (*Error)(nil); !errors.As(err, &typed) || typed.Kind != FailureInvalidPath {
+		t.Fatalf("relative path error = %v; want FailureInvalidPath", err)
 	}
 }
 
@@ -83,12 +89,21 @@ func TestSecureFileRejectsUnsafeObjectsAndRedactsPaths_Unit(t *testing.T) {
 			if err == nil {
 				t.Fatal("unsafe object succeeded")
 			}
-			if strings.Contains(err.Error(), root) || strings.Contains(err.Error(), path) {
-				t.Fatalf("error disclosed host path: %v", err)
+			// No path, and no unique component of one, may be disclosed.
+			for _, fragment := range []string{root, path, "long-path-", "final-link", "parent-link"} {
+				if strings.Contains(err.Error(), fragment) {
+					t.Fatalf("error disclosed %q: %v", fragment, err)
+				}
+			}
+			// A socket cannot be opened at all (ENXIO), so it fails closed as
+			// unavailable before any object-type check.
+			want := FailureUnsafeObject
+			if name == "socket" {
+				want = FailureUnavailable
 			}
 			var typed *Error
-			if !errors.As(err, &typed) {
-				t.Fatalf("error type = %T; want *Error", err)
+			if !errors.As(err, &typed) || typed.Kind != want {
+				t.Fatalf("error = %T %v; want %s", err, err, want)
 			}
 		})
 	}

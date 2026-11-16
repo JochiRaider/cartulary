@@ -54,7 +54,9 @@ type File = envelope.File
 type License = envelope.License
 type LicenseBinding = envelope.LicenseBinding
 
-var manifestShape = compileProjection("manifest.v2.schema.json")
+// Compiled at init so an invalid manifest projection fails fast; the value
+// itself is not consulted.
+var _ = compileProjection("manifest.v2.schema.json")
 var hintShape = compileProjection("bundle_hint.v1.schema.json")
 var profiles = loadProfiles()
 var keyPattern = regexp.MustCompile(`^[a-z][a-z0-9_]{0,31}(\.[a-z][a-z0-9_]{0,31}){1,7}$`)

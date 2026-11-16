@@ -52,16 +52,43 @@ function fixture() {
 describe("ordinary create transport", () => {
   it("verifies all fourteen discovered contracts and rejects changed fields, inputs and minima", async () => {
     const transport = createOrdinaryCreateTransport(undefined);
-    for (const view of ordinaryCreateContributions.flatMap(
-      (item) => item.views,
-    )) {
+    const views = ordinaryCreateContributions.flatMap((item) => item.views);
+    expect([...views].sort()).toEqual(
+      [
+        "comm_log",
+        "decisions",
+        "evidence",
+        "findings",
+        "forensic_keywords",
+        "handoff",
+        "hosts",
+        "identities",
+        "indicators",
+        "investigative_queries",
+        "lesson",
+        "parties",
+        "status_review",
+        "task_requests",
+      ].map((name) => `cartulary.view.${name}.v1`),
+    );
+    for (const view of views) {
       const target = requireViewContract(view);
       const schema = publicWorkbookSchema(target);
       for (const [key, value] of Object.entries({
         valid: schema,
         unavailable: { ...schema, create_capable: false },
         fields: { ...schema, fields: [] },
-        inputs: { ...schema, create_inputs: [{ input_key: "fabricated" }] },
+        inputs: {
+          ...schema,
+          create_inputs: [
+            {
+              input_key: "fabricated",
+              nullable: true,
+              required: false,
+              value_contract_id: "incident_member_user_ref_v1",
+            },
+          ],
+        },
         minima: {
           ...schema,
           inline_create: {
@@ -89,9 +116,31 @@ describe("ordinary create transport", () => {
         const verified = transport.verify(target, new AbortController().signal);
         if (key === "valid")
           await expect(verified, view).resolves.toBeUndefined();
-        else await expect(verified, `${view} ${key}`).rejects.toThrow();
+        else
+          await expect(verified, `${view} ${key}`).rejects.toThrow(
+            "Creation capability changed. Review the retained draft.",
+          );
       }
     }
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              error: {
+                code: "not_found",
+                message: "Not found.",
+                request_id: "discovery",
+              },
+            }),
+            { status: 404, headers: { "content-type": "application/json" } },
+          ),
+      ),
+    );
+    await expect(
+      transport.verify(requireViewContract(view), new AbortController().signal),
+    ).rejects.toThrow("Creation capability could not be verified.");
   });
   it("preserves complete receipts and HTTP outcomes with unchanged captured replay bytes", async () => {
     const { transport, attempt, receipt } = fixture();

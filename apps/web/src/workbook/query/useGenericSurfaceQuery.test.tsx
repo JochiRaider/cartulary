@@ -23,6 +23,7 @@ import {
   renderHookWithWorkbookQueryBrowsing as renderHook,
 } from "../../testing/workbookQueryTestSupport";
 import { createWorkbookViewQueryAdapter } from "../adapters/createWorkbookViewQueryAdapter";
+import { WorkbookSurfaceRefreshError } from "../collaboration/workbookSurfacePort";
 import { taskViewId } from "../features/coordination/taskLifecycleModel";
 import { emptyWorkbookQueryState } from "../models/workbookQuery";
 import {
@@ -472,9 +473,12 @@ it("fences Task committed rows across receipts queries and filtered departures",
   expect(result.current.rows[0]?.row_version).toBe(9);
   expect(result.current.rows[1]).toBe(untouched);
   await act(async () => {
-    await expect(
-      result.current.refresh({ requireAcceptance: true }),
-    ).rejects.toThrow();
+    const refused = result.current.refresh({ requireAcceptance: true });
+    await expect(refused).rejects.toBeInstanceOf(WorkbookSurfaceRefreshError);
+    await expect(refused).rejects.toHaveProperty("recovery", {
+      kind: "unavailable",
+      failure: "transient",
+    });
   });
   expect(result.current.rows[0]?.row_version).toBe(9);
   responseRows = [sibling];

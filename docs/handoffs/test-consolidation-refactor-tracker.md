@@ -3,10 +3,10 @@
 Version: 1.15.0
 Date: 2026-11-15
 Target: Cartulary testing ecosystem  
-Authoring status: S-064 DONE (E-843), corrected by E-845; all 66 owner workstreams complete; R-04 fixture-legality workstream DONE (E-845, S-798–S-827); residual register R-01–R-03, R-05 and R-06 deferred
+Authoring status: S-064 DONE (E-843), corrected by E-845; all 66 owner workstreams complete; R-04 fixture-legality workstream DONE (E-845, S-798–S-827); R-05 assertion-strength workstream DONE with R-03 folded in (E-876, S-828–S-854); R-05 phase 2 verified-deferred repairs DONE (E-904, S-855–S-900); residual register R-01, R-02 and R-06 deferred
 Artifact mode: normal; S-065 → S-059–S-063 → S-066–S-073 → all owner audits → S-064; S-001–S-058 remain completed history
 
-Current execution point: complete. Read the [R-04 handoff](#r-04-and-s-064-correction-handoff-2026-11-15) and then the [final S-064 handoff](#final-s-064-handoff-2026-11-15). Its residual register (E-843) is the follow-up backlog. The [S-641](#maintainer-requested-pause-after-s-641-2026-11-14) and [S-342](#maintainer-requested-pause-after-s-342-2026-11-11) pause checkpoints remain historical evidence.
+Current execution point: complete. Read the [R-05 phase 2 handoff](#r-05-phase-2-handoff-2026-11-15), then the [R-04 handoff](#r-04-and-s-064-correction-handoff-2026-11-15) and then the [final S-064 handoff](#final-s-064-handoff-2026-11-15). Its residual register (E-843) is the follow-up backlog. The [S-641](#maintainer-requested-pause-after-s-641-2026-11-14) and [S-342](#maintainer-requested-pause-after-s-342-2026-11-11) pause checkpoints remain historical evidence.
 
 ## 1. Scope and Source Posture
 
@@ -65291,6 +65291,7865 @@ with `config/configuration_error`. They were re-run under the IDs above.
 **Non-claims.** No full-suite, browser-wide, release, performance or
 stability acceptance. Census results are diagnostics. Nothing was staged,
 committed, merged or published.
+
+### R-05 assertion-strength workstream — entry (E-876 reserved), 2026-11-15
+
+Maintainer request: "start the R-05 workstream". Identities S-828/F-813/E-876
+onward were verified unused. E-876 is reserved for the closure, and slices
+start at S-828/F-813/E-877. The standing constraints apply: no stage, commit
+or publication; each confirmed correction is a recorded slice before editing;
+qualify successors before retiring anything; use exact selections; no
+blanket reruns.
+
+**Scope source.** E-843 R-05 covers the "Open for S-064" lists in the owner
+closures E-686 through E-838. Their items were located by sweep and not
+individually verified. A script extracted every bullet, kept leaves only, and
+dropped the E-843 register restatements. Totals: 386 leaf items, of which 11
+are R-04 fixture legality (done) and 3 are R-02 routing (tracked separately).
+That leaves **372 candidates across 32 owners**.
+
+- *Largest owners:* module.workbook 37, web.workbook 30,
+  package.grid_adapter 23, module.timeline 19, web.application 17,
+  web.networkflow 16, package.protocol_ts 15, platform.telemetry 15.
+- *First-cut keyword classes:*
+
+  | Class | Candidates |
+  | --- | --- |
+  | Vacuous or uncontrolled checks | 30 |
+  | Self-comparison or production-derived oracles | 28 |
+  | Unpinned reasons or multi-defect inputs | 35 |
+  | Missing accepted bounds | 34 |
+  | Title over-claims | 22 |
+  | Browser-spec items | 23 |
+  | Timing | 9 |
+  | Redundant | 7 |
+  | Unclassified | 184 |
+
+The extract is the scratch inventory `r05-candidates.json`. It is a
+locator, not evidence.
+
+**Governing rule set.** A candidate is *confirmed* only when reading the test
+and the production boundary shows one of the following:
+
+- the assertion cannot fail for the regression its title or purpose names
+  (vacuous, a self-comparison, or an oracle derived from the code under test);
+- the input carries several defects, so the asserted rejection cannot
+  attribute the cause;
+- the claimed bound or behavior is not exercised.
+
+Candidates that are not confirmed are dispositioned with a reason (retain,
+covered elsewhere, or intentional).
+
+**Method.** Owners are taken in lexical order. For each owner: verify every
+candidate by reading, then record the confirmed corrections as one or more
+owner slices, then qualify them at exact rows. The scope decisions
+follow. DONE (see the E-876 closure).
+
+**Maintainer decisions, 2026-11-15.**
+
+1. **Verify every candidate; fix the can't-fail class first.** Fix confirmed
+   assertions that cannot detect the regression they claim: vacuous checks,
+   self-comparisons, oracles derived from the code under test, and negatives
+   with no control. Pin a confirmed multi-defect or unpinned case only where
+   the rejection reason is a public contract. Other confirmed weaknesses
+   (title wording, sound but loose bounds) are recorded as verified-deferred.
+2. **R-03 is folded in.** Its owner-confirmed items are handled in their
+   owner's R-05 pass without re-verification.
+3. **Browser candidates are included.** Only the Playwright rows whose spec or
+   helper changes run. A visual row runs only if a visual spec changes, and
+   goldens are never updated automatically.
+
+**Owner queue (lexical).** Owners with R-05 or R-03 items:
+
+- Six owners whose S-064 items were inline sentences rather than bullets:
+  module.networkflow (vector-loop vacuity), module.parties (bounded browser
+  negatives), module.projections (coverage notes), module.records (validator
+  coverage notes), module.recovery (optional sentinel pinning, the R-03
+  advisory-lock waiter, titles), and module.reference_data (status-only HTTP
+  checks, titles).
+- The 32 owners of the bullet inventory, from module.reportcomposition to
+  web.workbook.
+- R-03 items join their owners: timeline (the S-745 sentinel mappings),
+  workbook (`TestWorkbookTelemetryNoSDK`), platform.audit (raw-insert
+  rollback), platform.httpruntime (the unreachable weak-token lookup),
+  platform.jobs (the exhaustion leak check and `TestJobTelemetryNoSDK`),
+  platform.viewquery (the misnamed case), platform.ws (before-upgrade and the
+  read limit), web.application (the non-JSON transport fallback),
+  web.networkflow (the E-662 hand-offs) and web.workbook (the `"SA"`
+  negative).
+- Coverage gaps, meaning missing tests rather than weak ones, are
+  verified-deferred unless a nearby assertion is can't-fail. REQ-RC-084 stays
+  under R-01.
+
+#### R-05 module.networkflow verification
+
+| Candidate (source) | Verdict | Disposition |
+| --- | --- | --- |
+| Authored vector loops, `validation_vectors_test.go:41/53/74/83/108` (E-662 item 5) | Confirmed latent vacuity. Each loop ranges over a slice decoded from committed JSON into tagged fields (`ip_cases`, `pair_cases` and the diagnostic-ID array). A renamed key or an emptied file decodes to zero cases, and the test then passes. | Fix in S-828: non-empty guards per vector set, for the Go and SQL adapters. |
+| `orientation_corpus_test.go:156` and `orientation_corpus_integration_test.go:57` dataset loops | Confirmed, same class (`manifest.Datasets` is unguarded). | Fix in S-828. |
+| Request-count negatives without a sentinel: the table-lifecycle `graphRequests`, navigation `graphQueries === 0` and `:337-341`, and the reopen observer (R-03, E-662) | Not can't-fail. Each counts requests across the rest of the test after the action, so a prompt extra request is detected; only a late request would escape. | Verified-deferred as bounded observations. A sentinel would add new steps to each flow. |
+| `settledRequest` duplication (R-03) | A refactor, not an assertion weakness. | Deferred. |
+| Items 24, 29 and 36 (redundant `getBy…toBeTruthy` and role/DOM-ceiling overclaims) | Redundant or title class. Roles are owned by S-663's row and DOM ceilings by the measurement rows. | Verified-deferred, covered elsewhere. |
+
+### S-828 / F-813 / E-877 — Network Flow vector and corpus loops cannot pass empty
+
+Recorded before editing; identities verified unused. IN_PROGRESS. R-05
+can't-fail class (vacuous under fixture or tag drift).
+
+Successor:
+
+- After decoding, `TestNetworkFlowCanonicalEndpointVectors`,
+  `AssertCanonicalEndpointSQLVectors` and
+  `TestNetworkFlowDiagnosticIDV2KnownAnswers` require every vector set they
+  iterate to be non-empty.
+- The two orientation-corpus tests require a non-empty `manifest.Datasets`.
+
+The assertions inside each loop are unchanged. Selection: the rows holding
+these roots. No production, routing or fixture change.
+
+Baseline note. The maintainer committed `eba4501fa` ("Rework UI workflows and
+verification contracts", 2026-11-15 18:13 −05:00). It contains every change
+through the R-04 handoff and none of R-05. R-05's working-tree changes
+therefore start from `eba4501fa`, and its runs record that commit.
+
+Closure: DONE.
+
+- `tcr-s828-format01` exited 0.
+- `tcr-s828-qualified01` exited 0: five rows passed, pass5/5. Rows:
+  `module.networkflow.unit.canonical_endpoint_vectors`,
+  `…unit.diagnostic_id_v2_vectors`, `…unit.orientation_corpus`,
+  `…integration.canonical_endpoint_storage` and
+  `…integration.orientation_corpus`.
+- Source `8b7ba121…` at `eba4501fa`, dirty; scan pass; 18 cleanups completed.
+
+#### R-05 module.parties verification
+
+| Candidate (source) | Verdict | Disposition |
+| --- | --- | --- |
+| `parties.authoring.spec.ts:97` `patchRequests` length 1 | Not can't-fail. The listener is installed before the click and the count is read after the matched response, so a duplicate request issued with the edit is detected. Only a late request escapes. | Verified-deferred as a bounded observation (the Network Flow class). |
+| `parties.recovery.spec.ts:168-169` record-ID negatives | Not can't-fail. They are read after the positive `party_match_conflict` text renders in the same region, so a render that also exposed either ID is detected. | Retain. |
+| `parties.recovery.spec.ts:541` `links` length 0 for `create_lost` and `navigation` | Not can't-fail. Route capture runs for the whole test, and the count is read after the retained dialog closes and focus returns. | Verified-deferred as a bounded observation. |
+| `parties.authoring.spec.ts:235-237/:436` `*_party_id` null after a text edit | Not can't-fail. The value is read back through the view query after the positive text value, and a server-side link would make it non-null. | Retain. |
+| Corpus index fragility (E-686) | Resolved by S-799 (indexed `contractparties` lookup with a `schema_id` check). | Closed. |
+
+#### R-05 module.projections verification
+
+| Candidate (source) | Verdict | Disposition |
+| --- | --- | --- |
+| `queryengine/host_test.go:28` exact-text `FROM hosts` negative (and the Identity twin) | Not can't-fail. A positive `host_grid_projection` check controls it, and a direct table read is detected. JOIN-based access escapes. | Verified-deferred, weak. |
+| Coverage gaps (descriptor, registry, engine and catalog validator branches; non-strict manifest decoding) | Missing tests, not weak assertions. | Verified-deferred, coverage. |
+| `CompileSurface`-guaranteed restatements, `catalog_construction:40`, `rebuild_test:395` | Redundant but able to fail. | Verified-deferred, simplify. |
+| Wording ("Deterministic", "one transaction", participation-matrix size); dead `note.full_text` exemption | Title and wording. | Verified-deferred. |
+| Fixed-clock seeds (`rebuild_test` :111/:117/:462, `query_store_test` command clocks) | `rebuild_test` was converted in S-820. The `query_store_test` commands keep their own in-row order; their records predate the `now()` incident (R-04 class C, legal), and census v4 logged no illegal write. | Closed by R-04. |
+| Projection SQL checker self-test routing | Routing, not assertion strength. | R-02. |
+
+#### R-05 module.records verification
+
+| Candidate (source) | Verdict | Disposition |
+| --- | --- | --- |
+| `subtypepresence/catalog_test.go:179` "cross-incident inventory accepted" | **Confirmed can't-fail.** `frozen` holds 70,000 bindings and is compared with an *empty* inventory for another incident. The per-type counts differ, so `Summary.Equal` returns false even if it ignored the incident. | Fix in S-829. |
+| `reportingprovider/provider_integration_test.go:49` foreign-incident filter | **Confirmed uncontrolled for active facts.** The only foreign-incident row is also deleted. The exact `DeletedRecords` assertion controls the deleted-record query, but the active query (`incident_id = $1 AND deleted_at IS NULL`) would drop that row through `deleted_at` alone. Removing its incident predicate would still pass. | Fix in S-830. |
+| `reportingprovider` :85-87/:91-92 absent keys | Superseded. The test now asserts the exact sorted key set. | Retain. |
+| `catalog_test.go:35/:36` `missing` and `duplicate` (each also changes type coverage) | Confirmed multi-defect, but `ErrInvalidCatalog` is the only reason. Catalog validation is composition-time and has no public reason contract, and `duplicate_type` isolates the type rule. | Verified-deferred (no public reason contract). |
+| Source-port SP:24-48, SP:494-531, SP:280/324/468/472/45 | Pinned invariant IDs or sentinels; positive controls in `…AppliesAndRollsBack_Integration` and the valid-catalog construction. | Retain (E-696). |
+| DL:54-79, RT:50/89 | Closed by S-690 and S-689. | Closed. |
+| ES:65-87/:108, status and count items, clock ordering, untested PORT branches, shell `scan_paths` | As recorded in E-696: covered by S-690/SL:71, beside exact checks, legal ordering, coverage gaps, or harness routing. | Verified-deferred. |
+
+### S-829 / F-814 / E-878 — Records inventory cross-incident check compares like with like
+
+Recorded before editing; identities verified unused. IN_PROGRESS. R-05
+can't-fail class.
+
+**Governing.** Core 01 Records invariants: `records.subtype_complete` (no
+binding targets a different-incident envelope), and Records owns aggregate
+comparison.
+
+**Defect (F-814).** `TestInventoryStreamsExactOrderedBindings` checks
+cross-incident rejection against an empty inventory. A `Summary.Equal` that
+ignored the incident would still return false, because the counts differ.
+
+**Successor.** Stream the same 70,000 record IDs and types into a second
+inventory for a different incident. Then require:
+
+- `frozen.Equal(foreign.Summary())` is false;
+- the per-type counts are equal, so the incident is the only difference.
+
+The existing identical-stream positive control stays. Retire the
+empty-inventory comparison.
+
+**Selection.** `module.records.unit.subtype_presence_catalog`. No production,
+routing or fixture change.
+
+Closure: DONE.
+
+- `tcr-s829-format01` exited 0.
+- `tcr-s829-successor01` (shared with S-830) exited 0, pass 4/4 units. It ran
+  the successor next to the old predicate, at
+  `module.records.unit.subtype_presence_catalog` and
+  `module.records.reporting.envelope_facts`.
+- The empty-inventory comparison was then retired. `tcr-s829-qualified01`
+  exited 0 with the row passed, pass 1/1.
+- Source `820dae8a…` at `eba4501fa`, dirty; scan pass; 10 cleanups completed.
+- `Summary.Equal` rejects the foreign inventory through both its incident field
+  and its incident-seeded digests. The new check fails only if both stop
+  discriminating, which is the regression the message names.
+
+### S-830 / F-815 / E-879 — Records reporting facts exercise the active-row incident filter
+
+Recorded before editing; identities verified unused. IN_PROGRESS. R-05
+can't-fail class (uncontrolled negative).
+
+**Governing.** The Core 02 reporting derivation profile, which covers the
+record envelopes of the reported incident. Core 01 report export: the
+canonical export model is materialized for one incident's release tuple.
+
+**Defect (F-815).** The only foreign-incident row is deleted, so the
+active-fact query's incident predicate is never exercised.
+
+**Successor.** Seed a live (non-deleted) `artifact` row in the foreign
+incident. The existing exact assertions then control both queries:
+
+- one field fact and one record fact, for the active record only;
+- `DeletedRecords` equal to the local deleted record only.
+
+The deleted foreign row stays as the deleted-query control. No assertion is
+removed.
+
+**Selection.** `module.records.reporting.envelope_facts`. No production,
+routing or profile change.
+
+Closure: DONE. `tcr-s829-successor01` exited 0 with the row passed; the
+existing exact fact counts held against the new live foreign row. No predicate
+was retired, so that run is the qualification. Source `7fc1e80b…` at
+`eba4501fa`, dirty; scan pass; 15 cleanups completed. The seed is legal: the
+new row has `created_at = updated_at`, version 1 and no tombstone.
+
+#### R-05 module.recovery verification
+
+| Candidate (source) | Verdict | Disposition |
+| --- | --- | --- |
+| `extension_recovery_contract_test.go:236-251` tamper cases with no re-signed control | **Confirmed uncontrolled negative.** Each case re-encodes and re-signs the mutated manifest, writes it under a new `…/tampered/` reference and rebinds the backup set's key, digest and size. The comment says this makes rejection prove semantic binding validation. But no case shows that an *unmutated* manifest taken through the same path is admitted. If the rewrite itself were invalid, all four cases would be rejected with `ErrVNextBackup` even with the binding checks removed. | Fix in S-831. |
+| `operatortest/target_control_process_test.go:45-104` advisory lock 784193 waiter (R-03) | Not can't-fail. The trigger blocks only the source journal `started` insert. The test needs the target to reach `TargetRestoring` before the kill, so a production order that wrote the journal first would block and time out ("operator did not durably admit target"). The interrupted state therefore follows from the lock, without a waiter observation. | Verified-deferred; a `pg_blocking_pids` observation is optional hardening. |
+| `object_store_backup_artifacts_test.go:69` duplicate-key negative with no executable control | Not can't-fail, by reading. `strictDecodeJSON` runs `canonicaljson.DecodeStrict`, which rejects duplicate members and does not enforce key order. `validateSelfDigest` hashes the decoded struct, which is unchanged by a same-value duplicate. The new logical ref is not validated. The duplicate member is therefore the only defect. | Verified-deferred; an executable control is optional. |
+| `backup_metadata_store_test.go:482-499/:534` missing-proof cases | Not can't-fail. Each case removes one proof from a real `Capture` result, and `PublishVNextCapturedBackup` rejects it at the facts check. The same capture path publishes successfully in `current_metadata_capture_fixture_test.go:53`. | Verified-deferred. |
+| `testsupport/recovery_test.go:58` nested run ID | A single-defect input; the valid location is written at :45-49. | Retain. |
+| Wrong-control items (graph restore :242, generation :241-246, operator counts, due_batch :49/:71) | Closed by S-691, S-692, S-694 and S-693. | Closed. |
+| Any-error items (E-700 list) | Fail-closed claims over corrupted or retired inputs, with no public reason contract. | Verified-deferred (optional sentinel pinning). |
+| Absence checks, titles, status and count items, fixed clocks, gated branches, `vnext_codec:66`, `backup_metadata_store:57-59` | As recorded in E-700: bounded or setup-guaranteed, wording, beside exact checks, legal ordering (R-04 census v4 clean), or harmless. | Verified-deferred. |
+
+### S-831 / F-816 / E-880 — Recovery extension-binding tamper cases get a re-signed control
+
+Recorded before editing; identities verified unused. IN_PROGRESS. R-05
+can't-fail class (uncontrolled negative).
+
+**Governing.** Core 01 recovery and the backup integrity manifest v4. Restore
+must reject legacy or unbound extension evidence before target mutation.
+The test's own premise is that a validly re-enveloped, self-digested manifest
+isolates semantic binding validation.
+
+**Defect (F-816).** The four tamper cases in
+`TestRestoreRejectsLegacyOrInvalidExtensionBindingEvidenceBeforeMutation_Integration`
+have no control showing that the rewrite path yields an admissible backup set.
+
+**Successor.**
+
+- Add a final case, "unmodified re-signed manifest", with a no-op mutation.
+  It must be admitted: no error and a non-nil fence.
+- It runs last because a successful admission advances target control, which
+  the earlier cases require to stay `TargetInitialized`. The fence and serving
+  admission are released by the existing subtest cleanups.
+
+The rejection cases are unchanged and nothing is retired.
+
+**Selection.**
+`module.recovery.integration.selected_backup_restore_fails_before_readiness_w_3a6ccb7d7a`.
+No production, routing or profile change.
+
+Closure: DONE.
+
+- `tcr-s831-format01` exited 0.
+- `tcr-s831-qualified01` exited 0: the row passed, pass 3/3 units. Source
+  `ec931443…` at `eba4501fa`, dirty; scan pass; 14 cleanups completed.
+- The control was admitted. The rewrite path therefore yields an admissible
+  backup set, so each of the four rejections is caused by its own mutation.
+- Nothing was retired.
+
+#### R-05 module.reference_data verification
+
+| Candidate (source) | Verdict | Disposition |
+| --- | --- | --- |
+| `packformat/content_test.go:237-245` `testCanonicalProfileBytes` loop over rows | Not can't-fail. Every caller first runs `testCanonicalProfileContent` on the same fixture through the same deterministic `ValidateContent` call, and it fails at `len(rows) == 0` (:79-81). | Verified-deferred; a local guard is optional. |
+| `http_admission_integration_test.go:201/:253/:284/:288` status-only errors | Not can't-fail. Each input has one defect (unclaimed family, foreign prefix, wrong method), and the status discriminates. The 405 cases also check `Allow`. | Verified-deferred (code pinning optional). |
+| `reference_pack_integration_test.go:195` "NoNetworkIsNeeded" and :330 "Exactly" | Title over-claims. No test blocks the network, and the index count is a lower bound beside an exact Base inventory. Adding network denial would be new coverage. | Verified-deferred (title class). |
+| `referencePacks.test.ts:241` `if ("problem" in outcome)` | Type narrowing. `AccessFailure` has no `problem`, and the other kinds require it by type; `kind` is asserted unconditionally. The 401/403 `status` is not asserted. | Verified-deferred (simplify). |
+| `referencePacks.test.ts:113-115`, `reference-pack.spec.ts:565`, model :91-98, progress "cancel" title, `consumer_integrity:256` wording | Status-only or title items beside exact checks. | Verified-deferred. |
+| Shared `…contract.v1` fixture; object_collector and storage windows | Fixed by S-821 and S-822. | Closed. |
+| `cleanup_lifetime` 20 ms windows | Bounded negative windows, not can't-fail; already recorded as an E-845 residual. | Verified-deferred. |
+
+#### R-05 module.reportcomposition verification
+
+| Candidate (source) | Verdict | Disposition |
+| --- | --- | --- |
+| Emitted but untested reasons (`composition_duplicate_id`, `composition_version_bound`, `raw_generated_source_invalid`, `diagram_label_override_invalid`, `composition_duplicate_diagram_insert`, `composition_replacement_target_missing`) | Missing tests, not weak assertions. | Verified-deferred, coverage. |
+| Never-emitted `composition_version_immutable` (structurally unreachable) and `composition_anchor_invalid` | Coverage or unreachable code. | Verified-deferred. |
+| RC-FIX-014 preview of a retired resource | Not exercised; coverage. | Verified-deferred. |
+
+#### R-05 module.reporting verification
+
+| Candidate (source) | Verdict | Disposition |
+| --- | --- | --- |
+| `reporting_integration_test.go` `x == ""` checks on decoded `any` values: `source_capture_sha256` (:74), `redaction_profile_sha256` (:169, :706), `redaction_manifest_sha256` (:172) and `token_id` (:2232) | **Confirmed can't-fail for a null value.** A JSON `null` decodes to `nil`, and `nil == ""` is false, so these "must expose" checks pass for null. `requireExactResourceKeys` checks only key presence, and the harness does no response-schema validation. Null is a real state: :1423 requires `output_sha256` and `redaction_manifest_sha256` to be null after a failed render. `output_sha256` is later compared exactly (:177), and :1906/:1920 type-assert to string. The others have no later exact comparison, except that :193 compares the external-release profile digest with the manifest. | Fix in S-832. |
+| `render_stage_test.go:142-147` toolchain-snapshot binding check | **Confirmed latent vacuity.** The installation-binding check runs only if a `toolchain_snapshot` file is present, and nothing requires one. If the renderer omitted the snapshot, the binding claim would be skipped silently. Bundle-level `validateBundleToolchain` runs at retention and portability, not in this test's `Render` result. | Fix in S-833. |
+| Exclusion loop for investigative-query and forensic-keyword paths (:1701) | It cannot fail by itself, but the exclusion is not hidden: an admitted family without an alias fails snapshot creation earlier in the same test. | Verified-deferred (remove candidate). |
+| `/relationships/` prefix check (:1737) | Accepts any relationship path beside exact family and class maps. | Verified-deferred, weak. |
+| `23514` early returns (release_recovery :133-137, template_assets :111) | A database CHECK rejection is also fail-closed; the layers are not distinguished (E-722). | Verified-deferred. |
+| `networkflow/reporting_graph_source_integration_test.go:167` nil cleanup candidate | Not can't-fail. The result is published with `SourceOwnerID: ProfileID` (:221/:226). `LockCleanupCandidate` selects that owner's rows `FOR UPDATE SKIP LOCKED`, so nil means the row is locked. | Verified-deferred; an executable unlocked control is optional. |
+| render_attempt_deadline :93 counts; redaction :889/:344 titles; render_failure_record "unsupported schema" | Trivial or title items (E-722). | Verified-deferred. |
+| `human_material` and `root_escape` installation cases; no stderr overflow case after S-725 | Multi-defect, but `ErrInstallation` is the only reason and installation admission has no public reason contract. The stderr case is coverage. | Verified-deferred. |
+| container_redaction :46/:60 (ignored `canonicalJSON` errors) | An encoding failure of these fixed model types would also fail the production digest and redaction path the same test drives. The drop check is exact on counts and evidence. | Retain. |
+| concurrent_admission :54 | Observes two `pg_blocking_pids` waiters before release. | Retain. |
+| render_stage :136-152 rendered-file guard and :201 byte search | `found` requires the rendering, and `source` is the positive control for the negative. | Retain. |
+| release_recovery :304-312 rehash mutations and :400 stale capability | One field per mutation, re-hashed; the stale case changes only the row version. | Retain. |
+| createReportingWorkflow :161 attempt identity across remount | Paired with the rendered "Recover request" control and the fetch count. | Retain. |
+
+### S-832 / F-817 / E-881 — Reporting "must expose" checks reject null
+
+Recorded before editing; identities verified unused. IN_PROGRESS. R-05
+can't-fail class.
+
+**Governing.** The Reporting NLSpec snapshot and release provenance. A
+successful snapshot exposes `source_capture_sha256`. A rendered release binds
+`redaction_profile_sha256` and exposes `redaction_manifest_sha256`. Token
+manifest entries expose a stable `token_id`.
+
+**Defect (F-817).** The checks compare an `any` with `""`, so `null` passes.
+
+**Successor.** A test helper `requireNonEmptyString` requires a string-typed,
+non-empty value. It replaces the five `== ""` comparisons at :74, :169, :172,
+:706 and :2232. The other conjuncts on those lines are unchanged. This is an
+in-place replacement: each comparison is strictly weaker than its successor,
+so nothing is lost.
+
+**Selection.**
+`module.reporting.integration.snapshot_creation_resolves_and_persists_an_immut_afe792169c`
+and
+`module.reporting.integration.snapshot_reporting_route_idempotency_treats_an_o_1d2451a56f`.
+No production, routing or profile change.
+
+Closure: DONE.
+
+- The helper is named `nonEmptyString`. It replaced six comparisons on five
+  lines: :172 holds two, `output_sha256` and `redaction_manifest_sha256`.
+- `tcr-s832-format01` exited 0.
+- `tcr-s832-qualified01` exited 0: both rows passed, pass 3/3 units. Source
+  `2e2f020d…` at `eba4501fa`, dirty; scan pass; 14 cleanups completed.
+- Each replaced comparison is strictly weaker than its successor, so nothing
+  separate was retired.
+
+### S-833 / F-818 / E-882 — installed-sandbox render requires the toolchain snapshot
+
+Recorded before editing; identities verified unused. IN_PROGRESS. R-05
+can't-fail class (latent vacuity).
+
+**Governing.** Reporting NLSpec render bundle: every rendered candidate
+carries `validation/toolchain.json`, bound to the installation that produced
+it.
+
+**Defect (F-818).** The binding check is gated on the file's presence, so an
+omitted snapshot passes.
+
+**Successor.** Require exactly one `toolchain_snapshot` file per installed
+candidate, next to the existing rendered-output `found` guard. The binding
+checks are unchanged.
+
+**Selection.** `module.reporting.integration.renderer_installed_sandbox`
+(`renderer_browser` resource profile). No production, routing or profile
+change.
+
+Closure: DONE.
+
+- `tcr-s832-format01` covered this edit.
+- `tcr-s833-qualified01` exited 0: the row passed with real installed renders
+  (90,090 ms), pass 4/4 units. Every candidate carried exactly one toolchain
+  snapshot.
+- Source `2e2f020d…` at `eba4501fa`, dirty; scan pass; 13 cleanups completed.
+- Nothing was retired.
+
+#### R-05 module.revisions verification
+
+| Candidate (source) | Verdict | Disposition |
+| --- | --- | --- |
+| `history_test.go:282/:286/:290` `assertHistoryItem` checks `actor_user_id`, `committed_at`, `diff_summary.summary` and `unit_ref` with `== ""`; `rollback_test.go:643` checks `rollback_change_set_id` | **Confirmed can't-fail for null** (the S-832 class). The owner OpenAPI marks all of these as required non-nullable strings (`RecordHistoryItem`, `RecordHistoryDiffSummary` and `RecordHistoryUnit`). Most `:643` cases have no later typed use. The other sites, `delete_restore:596` and `rollback:164`, are followed by `.(string)` assertions (:599, :181), which fail on null. | Fix in S-834. |
+| `assertHistoryItem` ignores its sequence argument | Intentional: the public contract hides storage sequence, and the helper asserts `sequence_no` is absent. Order is fixed by item position. | Verified-deferred (simplify: drop the parameter). |
+| Count-based atomicity with zero before-values (rollback :296-388, integration :161-249, delete_restore :805) | "Unchanged" counts detect partial writes, the regression of interest for failed operations. Only deletion would need a non-zero before-value. | Verified-deferred. |
+| Zero counts after the test's own rollback (portability :920-956, observation history, attribution, allocator) | Not can't-fail. The port receives the caller's transaction, so a write through another connection would survive the rollback and fail the count. | Verified-deferred; an in-transaction non-zero control is optional. |
+| Multi-defect any-error cases (delete_restore restore-state and indicator validator matrices, conflict_token, catalog_admission, command_service, appender, history_components, observation and preserved history, portability :127-135, revisionassembly, generic_dispatch, rollback_result) | The read sites are validator matrices with valid controls, or APIs with no reason output (`ConflictTokenCodec.Parse` returns a bool). None has a public reason contract. | Verified-deferred. |
+| Conflict-token "retired key" | Redundant by design. | Verified-deferred. |
+| history_source_paging secret scan | Controlled: `historytest.Source` injects `private-upload-token` and `private-credential` into every row snapshot. | Retain. |
+| failure_injection any 500 | Status-only for one injected failure. | Verified-deferred. |
+| `history.spec.ts:569-573` "always-true `some`" | Not always true. It requires the restored-from item to remain in history after restore (append-only retention). The appended `row_restore` item is checked separately. | Retain. |
+| `history.spec.ts:379-381` | Requires rollback to preserve the unrelated later synopsis edit. | Retain. |
+| Other browser and measurement branches (history-browsing Timeline-only, history-recovery optional refresh, inspector-actions :133/:548-557, timing support message, wall-clock threshold) | Bounded absence checks after positive renders, branch coverage, or measurement wording. | Verified-deferred; no browser path changed. |
+
+### S-834 / F-819 / E-883 — Revisions history and rollback checks reject null
+
+Recorded before editing; identities verified unused. IN_PROGRESS. R-05
+can't-fail class (the S-832 pattern).
+
+**Governing.** Owner OpenAPI `RecordHistoryItem`, `RecordHistoryDiffSummary`
+and `RecordHistoryUnit` (required non-nullable strings), and the rollback
+success response's `rollback_change_set_id`.
+
+**Defect (F-819).** Comparing an `any` with `""` accepts null.
+
+**Successor.** Use the existing `stringField` helper, which yields `""` for a
+non-string, in place of the six raw comparisons:
+
+- `history_test.go`: :282 (two comparisons), :286 and :290;
+- `rollback_test.go`: :643.
+
+This is an in-place replacement; each comparison is strictly weaker than its
+successor.
+
+**Selection.**
+
+- `module.revisions.store.managed_service_assertions_for_get_api_v1_record_049278bce8`
+  (`TestRecordHistoryEnvelope_Unit`);
+- `module.revisions.store.covers_rollback_route_admission_derived_rollback_c6c889199c`
+  (`TestRollbackSelectorUnion_Unit`).
+
+No production, routing or profile change.
+
+Closure: DONE.
+
+- `tcr-s834-format01` exited 0.
+- `tcr-s834-qualified01` exited 0: both rows passed, pass 3/3 units. Source
+  `de73e5dd…` at `eba4501fa`, dirty; scan pass; 14 cleanups completed.
+- This was an in-place replacement, so nothing separate was retired.
+
+#### R-05 module.tasksdecisions verification
+
+| Candidate (source) | Verdict | Disposition |
+| --- | --- | --- |
+| `reference_concurrency_integration_test.go:174` state reset after the deletion wait | **Confirmed masking.** Before the full-state comparison, the test resets the target's `deleted_at`, `deleted_by_user_id` and `row_version` to their pre-barrier values. A rejected write that also tombstoned the target or bumped its version would be erased by the reset. `updated_at` is not reset, so only those three columns are masked. | Fix in S-835. |
+| `internal/providers/rollback/provider_test.go:12` "ExcludesCollections" | **Confirmed vacuous.** The input value holds only `source`, so nothing exists to exclude. `sourceForRollbackValue` returns `source` verbatim; Core 02 requires a row snapshot to be exactly `snapshot_schema_id`, `record` and `source`, with collections never folded in. | Fix in S-836. |
+| `useCoordinationWorkflowController.test.tsx:258-276` viewer and `incident_closed` disabled checks | **Confirmed uncontrolled.** The only enabled observation precedes a successful submit. The button is also disabled for editor errors or stale fields (`CoordinationWorkflowBindings.tsx:232-235`), and nothing shows it enabled under the same draft just before each gate. | Fix in S-837. |
+| Reference concurrency `state()` table list | It covers every table the module writes (`records`, `task_requests`, `decisions`, `parties` and `record_links`) plus history, projection, receipt and publication. | Retain. |
+| Remaining type-only `requireLifecycle` sites (supersession :61/:102/:106/:109/:185/:218/:222/:229/:239, task :232/:241/:249/:398, support :533, decision terminal matrix) | Single-defect cases, except :185, which is both superseded and replaced. The reason and guard vocabulary (`superseded_direct_write`, `inconsistent_decision_machine` and so on) reaches the 409 details, but no adopted spec or contract artifact defines it; Core 03 fixes only `409 illegal_transition`. Pinning it would use oracles taken from production. | Verified-deferred (no adopted reason contract). |
+| Absence counts on untouched collections | Bounded regression guards. | Verified-deferred. |
+| mutation_admission :186, decision_reference_admission (title lacks encoding variants) | One defect per value, with valid controls; the title gap is recorded. | Verified-deferred. |
+| Source-port :313-316 and :643-660, association, sourcecatalog, nil-dependency checks | Pinned invariant IDs (`tasks_decisions.references_same_incident` and `tasks_decisions.dependent_fields_legal`), or composition-time checks with no public reason. | Retain. |
+| Coordination titles without matching bodies | Title class. | Verified-deferred. |
+| Browser branches and absence checks (decisions.recovery, tasks.lifecycle, authoring :517-521) | Bounded observations; no browser path changed. | Verified-deferred. |
+
+### S-835 / F-820 / E-884 — Task reference concurrency verifies the barrier tombstone before undoing it
+
+Recorded before editing; identities verified unused. IN_PROGRESS. R-05
+can't-fail class (a reset that masks writes).
+
+**Governing.** Core 01 reference admission. A rejected reference write leaves
+source, history, projection, receipt and publication unchanged, including the
+referenced target.
+
+**Defect (F-820).** The deletion-wait undo resets the target's tombstone and
+version unconditionally.
+
+**Successor.** Before the undo, require the target to hold exactly the
+barrier's values:
+
+- `deleted_at = updated_at`;
+- `deleted_by_user_id` = the actor;
+- `row_version` = 2.
+
+Then undo only rows matching those values, and require exactly one affected
+row. The full-state comparison is unchanged.
+
+**Selection.** `module.tasksdecisions.integration.direct_reference_concurrency`.
+No production, routing or profile change.
+
+Closure: DONE.
+
+- `tcr-s835-format01` exited 0.
+- `tcr-s835-qualified01` exited 0, a shared run for S-835 to S-837: all three
+  rows passed, pass 6/6 units. Source `87e0911f…` at `eba4501fa`, dirty; scan
+  pass; 17 cleanups completed.
+- The guarded undo affected exactly one row in each deletion-wait case, so
+  the rejected writes left the target's tombstone and version alone.
+- The unconditional reset was replaced in place.
+
+### S-836 / F-821 / E-885 — Task rollback source excludes non-source members
+
+Recorded before editing; identities verified unused. IN_PROGRESS. R-05
+can't-fail class (vacuous exclusion).
+
+**Governing.** Core 02 canonical snapshot envelope: exactly
+`snapshot_schema_id`, `record` and `source`, with separately revisioned
+collections never folded in. Rollback restores from `source`.
+
+**Successor.** The input value also carries `snapshot_schema_id`, a `record`
+object and a sibling collection member (`collections` holding a
+`task.linked_record_ids` list). The returned map must still equal exactly the
+`source` object. The existing schema-less negative is unchanged.
+
+**Selection.**
+`module.tasksdecisions.rollback_provider.source_policy_null_and_owner_validation`.
+No production, routing or profile change.
+
+Closure: DONE.
+
+- `tcr-s835-format01` exited 0.
+- `tcr-s835-qualified01` exited 0, a shared run for S-835 to S-837: all three
+  rows passed, pass 6/6 units. Source `87e0911f…` at `eba4501fa`, dirty; scan
+  pass; 17 cleanups completed.
+- The returned source still equals exactly `source`, with the envelope and
+  collection members present in the input.
+- Nothing was retired.
+
+### S-837 / F-822 / E-886 — Task role gates are each proven against an enabled control
+
+Recorded before editing; identities verified unused. IN_PROGRESS. R-05
+can't-fail class (negative without a control).
+
+**Governing.** The Core 03 inspector feature gates: a viewer role or an
+`incident_closed` state disables the Task status transition. Design §4.6
+local disabled reason.
+
+**Successor.** Before each gate, rerender the editor props with no tokens,
+choose a new valid status (`in_progress`) and require "Apply task status" to
+be enabled. Then apply the gate (viewer role, or `incident_closed`) to the
+same draft and require the button to be disabled. The existing submit
+assertions are unchanged.
+
+**Selection.**
+`module.tasksdecisions.frontend_unit.coordination_workflow_lifecycle_7a8d13c2f0`.
+No production, routing or profile change.
+
+Closure: DONE.
+
+- `tcr-s835-format01` exited 0.
+- `tcr-s835-qualified01` exited 0, a shared run for S-835 to S-837: all three
+  rows passed, pass 6/6 units. Source `87e0911f…` at `eba4501fa`, dirty; scan
+  pass; 17 cleanups completed.
+- Each enabled control held, so each disabled observation is attributable to
+  its gate.
+- `tcr-s837-types01` (`make lint CHECK=types`) exited 0, pass 2/2 units. It
+  type-checks the edited `.tsx` file and the whole frontend. That also closes
+  the E-845 residual that S-821's TypeScript literal was never type-checked.
+
+#### R-05 module.timeline verification
+
+| Candidate (source) | Verdict | Disposition |
+| --- | --- | --- |
+| `projection_contract_test.go:31` descriptor compared with `workbookprojection.Descriptor()` | Not can't-fail. It is a wiring claim ("contribution owns typed runtime facts") and fails if the contribution builds a different descriptor. The facade-package literal (:37) is independent, and descriptor content belongs to the Projections descriptor and registry tests. | Verified-deferred (simplify). |
+| Sentinel `ErrIllegalTransition` mappings (S-745 residual, R-03) | A production robustness note, not an assertion. `workbookassembly/action_adapters.go:318` and the classifier sentinel are unreachable from a persisted legal capture state (E-764), and no test asserts on them. | Verified-deferred. |
+| `incident_bundle_provenance_test.go:139` `provenance_coherent` multi-member case | Each existing case is single-defect and pins its invariant; the multi-member case is missing coverage. | Verified-deferred, coverage. |
+| `useTimelineRowMutationCoordinator.test.tsx:557` conflict local-value echo | Not can't-fail. A coordinator that collapsed the draft into the server value would report "server value". The value pinned is the `client_value` echo, not the pending optimistic text; that is recorded as a weak title. | Verified-deferred. |
+| Fixture legality (SQL supersedes links onto rough targets, bundle supersession after the envelope edit, and the rest of E-759 class 5) | Converted by S-826 or legal; census v4 logged no illegal write. | Closed by R-04. |
+| `ExpectNoSocketMessage` (300 ms) and one-microtask settles | Bounded-window absences. | Verified-deferred. |
+| Simplify candidates (revision join, repeated code comparisons, identical-branch ternary, registry scope loop, `requireFieldKeyConformance`, two-outcome comment) | Redundant but able to fail, or wording. | Verified-deferred. |
+| `updateSourceTx` required-member rejections | Coverage. | Verified-deferred. |
+| Inspector-navigation and autosave titles; adapter multi-defect rejections; measurement-support any-throw tables | Title class; adapter rejections have no public reason contract; test-support input guards. | Verified-deferred. |
+| Playwright conditional, two-rAF and immediate-absence checks; measurement thresholds | Bounded observations or measurement; no browser path changed. | Verified-deferred. |
+
+#### R-05 module.workbook verification
+
+| Candidate (source) | Verdict | Disposition |
+| --- | --- | --- |
+| Patch and conflict surface checks built from production maps (`contribution_catalog_test.go:183/:188`, fixtures at :1182-1191) | Patch surfaces: not can't-fail. `owner_admission_contract_test.go` counts writable fields per public resource independently and requires each such surface in `expectedPatchSurfaces()`. **Conflict surfaces: confirmed production-derived oracle.** `expectedConflictSurfaces()` builds both the fixture and the expectation, and nothing checks it independently. If `schemaHasConflictCapableField` dropped a surface, the catalog, fixture and test would all agree. | Fix in S-838. |
+| `TestWorkbookTelemetryNoSDK` (R-03) | Claims only that nothing panics under the global no-op provider; same as the Projections twin. | Retain. |
+| About 18 `invalid_mutation_payload` code-only sites; multi-defect bodies (coordination :298-309, full-row patch, `replace_all` with `raw_text`, wrong-view with 501 targets) | The claims are rejection without writes (followed by record-count or effect equality) or authorization precedence (the viewer 403 with a deliberately invalid body). Any rejection satisfies them. Core 03 publishes `details.reason_code` for specific reference cases, not a precedence among several missing fields. | Verified-deferred. |
+| "Suggestion on atomic" and "invalid collection" same-field inputs; 8,388,609-byte paste, 501-target and 33-change cases without accepted exact bounds | Missing accepted-bound controls (coverage). The Timeline rows and S-742/S-755 own the exact 500/501 bounds. | Verified-deferred. |
+| `contribution_catalog_test.go:703` `view_schema_id` absence; `requireNoRecordChanged` (300 ms); `hypotheses` 404; location filter; `current_field_value` | Regression guards beside exact key sets, or bounded windows. | Verified-deferred. |
+| Surface-registry comparisons (`workbookSurfaceRegistry.node.test.ts`) | They compare the generated registry's status markers with generated required-ID lists, two separate artifacts, so a divergence fails. The authored registry is the source of both. | Verified-deferred. |
+| Contracts loop (`contracts.node.test.ts`) | Each loop follows an exact list or length assertion (17 contracts, four note actions, 12 coordination pairs). | Retain. |
+| Surface contract tables omitting optional surfaces; OpenAPI create subset; locator "defaults" `len(Sort)`; startup decoders title; `replacementSession` branches; `expectCorePrimaryLabel` | Coverage, title or simplify. | Verified-deferred. |
+| Clear-cells partial SQL-null coverage | The response covers all 10 columns, and S-742 owns decode. | Verified-deferred. |
+| Fixture legality (fixed clocks, SQL tombstones, inserted approved decisions and received evidence) | Converted by S-827 or legal; census v4 logged no illegal write. | Closed by R-04. |
+| Vitest inspector-model titles, paste-planner nulls, `resolveVendorSelection` negative, evidence-panel and `saveState` absences, request-decoder multi-defect, density "every surface" | Title, bounded or no-public-reason items. | Verified-deferred. |
+| Playwright absent strings, soft `contextFits`, count-bound loops, status-only 403/409, immediate editor absence, conditional Escape | Bounded observations; no browser path changed. | Verified-deferred. |
+
+### S-838 / F-823 / E-887 — Workbook conflict surfaces are checked independently of production
+
+Recorded before editing; identities verified unused. IN_PROGRESS. R-05
+can't-fail class (production-derived oracle).
+
+**Governing.** Core 03 same-field conflict handling. Every writable field
+declares a conflict-resolution class, so every writable surface is
+conflict-capable and needs a conflict provider.
+
+**Successor.** In
+`TestWorkbookWritableConflictCapabilityDerivedFromRegistry_Unit`, the loop
+already counts writable fields independently and requires an allowed
+non-empty class for each. For each surface with writable fields, it now also
+requires membership in `expectedConflictSurfaces()` for its record type. Its
+existing patch-surface check is the model. Nothing is retired.
+
+**Selection.**
+`module.workbook.unit.registry_derived_writable_conflict_capabilities_c0614db52a`.
+No production, routing or profile change.
+
+Closure: DONE.
+
+- `tcr-s838-format01` exited 0.
+- `tcr-s838-qualified01` exited 0: the row passed, pass 1/1. Source
+  `fb739178…` at `eba4501fa`, dirty; scan pass; 10 cleanups completed.
+- Every independently counted writable surface is a conflict requirement for
+  its record type.
+- Nothing was retired.
+
+#### R-05 package.grid_adapter verification
+
+| Candidate (source) | Verdict | Disposition |
+| --- | --- | --- |
+| `core.node.test.ts` "preserves ungrouped semantic row order" | **Confirmed test-owned.** The whole subject is the test-local `buildGridPresentationRows`, whose ungrouped branch is the test's own `dataRows.map`. The same call is also asserted twice. | Fix in S-839: retarget at production `buildSemanticPresentationModel`. |
+| `core.node.test.ts` "keeps recordless drafts outside semantic group buckets" | **Confirmed test-owned.** The test-local filter (`row.kind === "data"`) excludes the draft. Production never filters at runtime: `buildSemanticGroupBuckets` and `buildSemanticPresentationModel` take `readonly GridDataRow<Row>[]`, and the grid receives the draft as a separate `draftRow` prop (`SemanticDataGrid.tsx` passes `dataRows`). | Fix in S-839: assert the type-level guarantee, checked by `make lint CHECK=types`. |
+| `core.node.test.ts:999` (the old :1027) `column.renderCell(...)` | **Confirmed self-comparison.** It calls the test's own `renderCell` closure. | Fix in S-839: remove it. The `isGridColumnEditable` check remains; the title's renderer and cleanup claim is recorded as a gap. |
+| Trimming and empty-to-null tests through `stateGrouping` | They exercise production `buildSemanticGroupBuckets` (E-791). | Retain. |
+| `gridInteraction.test.ts:461/:472` optional `pendingFrame?.()` | Not vacuous. `raf.mock.calls.at(-1)` is defined from the earlier frame, so a stale frame runs after dispose. That it is the second pointerdown's frame is not shown. | Verified-deferred (weak). |
+| Cell-navigation session that "detaches by construction"; `removeListener` with `expect.any(Function)` | The detach and remove calls are observed, but the listener identity is not. | Verified-deferred (weak). |
+| `not.toHaveBeenCalled` checks without controls (`index.test.tsx`) | Each follows a positive interaction in the same test (focus requests and the S-771/E-791 controls). | Verified-deferred. |
+| Negatives on names absent from production ("Retry" and the legacy row-kind and group-row names) | Regression guards for retired names; they fail if the names return. | Retain. |
+| `isGridColumnEditable` double-condition fixtures; multi-capability `toThrow` (:747, :1344); semantic-state precedence without `saved` | Multi-defect without a public reason (a boolean or an internal throw), or coverage. | Verified-deferred. |
+| "Keeps mounted" value-only check; pointer-fill title; reused `KeyboardEvent` | Title or weak. | Verified-deferred. |
+| Unpinned kernel nulls, editor-reveal reason and 4380 bound, HTML clipboard reasons, byte bound | No public reason contract; S-771 owns the codec bounds. | Verified-deferred. |
+| Playwright late listener, negated locators, attribute-only read-only, `?? 0` toggle count; unswept visual spec | Bounded or weak; no browser path changed. | Verified-deferred. |
+
+### S-839 / F-824 / E-888 — grid-adapter grouping and renderer tests exercise production
+
+Recorded before editing; identities verified unused. IN_PROGRESS. R-05
+can't-fail class (test-owned oracles).
+
+**Governing.** Design §8 grid presentation. Ungrouped rows keep their supplied
+order, and the create draft is separate from committed data rows and never
+grouped.
+
+**Successor (`packages/grid-adapter/src/core.node.test.ts`).**
+
+1. "preserves ungrouped semantic row order": build the production
+   `buildSemanticPresentationModel` with no grouping. Require its `dataRows`
+   to be the supplied rows in order, and its `rowIdentities` to be their
+   identities in order. This replaces both wrapper assertions.
+2. "keeps recordless drafts outside semantic group buckets":
+   - require at the type level that `GridDraftRow` does not match
+     `GridDataRow`, and that `buildSemanticGroupBuckets`' row parameter is
+     `readonly GridDataRow<Row>[]`;
+   - remove the draft from the runtime input. The data-row bucket summary is
+     unchanged, so this is a production bucket check.
+3. "Resolve renderers…": remove the `renderCell` self-call.
+
+The routed titles are unchanged.
+
+**Selection.**
+
+- `package.grid_adapter.regression.core_maps_rows_directly_to_data_presentation_row_8f047d4faa`;
+- `package.grid_adapter.regression.core_keeps_recordless_draft_rows_outside_grouped_6ef906adea`;
+- `package.grid_adapter.frontend_unit.verify_renderer_editor_registry_precedence_deter_869e70b60f`;
+- plus `make lint CHECK=types`, which enforces the type assertions.
+
+No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s839-format01` exited 0.
+- `tcr-s839-qualified01` exited 0: all three rows passed, pass 2/2 units.
+  Source `c64f72e1…` at `eba4501fa`, dirty; scan pass; 11 cleanups completed.
+- `tcr-s839-types01` (`make lint CHECK=types`) exited 0. The root `tsc -b`
+  references `packages/grid-adapter`, whose `include` is `src`, so the type
+  assertions in `core.node.test.ts` are enforced there.
+- The ungrouped input is deliberately unsorted (`record-2` before `record-1`),
+  so production order preservation is observable.
+- Retired: the duplicated wrapper assertions, the runtime draft input that only
+  the test-local filter removed, and the `renderCell` self-call.
+
+#### R-05 package.protocol_ts verification
+
+| Candidate (source) | Verdict | Disposition |
+| --- | --- | --- |
+| `entrypoints.node.test.ts:84` `Object.isFrozen(importTargetRegistry.targets[0])` | **Confirmed latent vacuity.** `Object.isFrozen(undefined)` is `true`, so an empty target list passes. No test asserts the list is non-empty; the deep-frozen walk in `index.node.test.ts:115` also visits no element when it is empty. | Fix in S-840. |
+| `index.node.test.ts:905-911` `missing_error_code` negative and the `requireReasonCodeRegistry` throw | **Confirmed can't-fail.** `missing_error_code` was never a production code (Git history has no non-documentation occurrence), so its absence check detects no regression. The throw assertion tests the test's own helper. | Fix in S-840: remove both. The production `arrayContaining` positives remain. |
+| `index.node.test.ts:903` `ambiguous_explicit_sheet_ref` negative | A retired code: it appears in earlier commits and was removed in "Production-Readiness Legacy-Removal". So this is a regression guard. | Retain. |
+| Runtime checks of local literals covered by `satisfies` (:349-354, :526-527, :1771-1819) | The compile-time `satisfies` is the real assertion, and `make lint CHECK=types` enforces it. The runtime half is a redundant restatement. | Verified-deferred (simplify). |
+| Sentinel-free loop member (:822-832, `future_structure`) | Its claim is the rejection (`ok: false` with the schema ID). The leak negative applies only to sentinel-bearing members. | Verified-deferred. |
+| Multi-defect fixtures (non-server stream messages, empty `{}` response, unsupported view schema IDs, entrypoint `unknown`/`invalid` envelopes) | Decoder rejections with no public reason contract. | Verified-deferred. |
+| `toBeDefined` for "one family", entrypoints "only", "every additive boundary" | Title class. | Verified-deferred. |
+| Reachability script: empty contract-record scan, `sources` defaulting to `[]`, two of six Network Flow modules | Checker hardening in `tools/`, which is tooling development under the harness review. | Verified-deferred (R-02 class). |
+| Unfrozen Network Flow mapping and presentation registries | Generator choice. | Verified-deferred. |
+
+### S-840 / F-825 / E-889 — protocol-ts frozen-target and reason-registry checks have production subjects
+
+Recorded before editing; identities verified unused. IN_PROGRESS. R-05
+can't-fail class.
+
+**Governing.** The protocol-ts package contract: owner-selected registries are
+deeply readonly stable values, and the typed error and reason-code registry
+is exposed.
+
+**Successor.**
+
+- `entrypoints.node.test.ts`: require `importTargetRegistry.targets` to be
+  non-empty and every target to be frozen, replacing the single `targets[0]`
+  check.
+- `index.node.test.ts`: remove the invented-name `missing_error_code` absence
+  check and the helper self-throw assertion.
+
+**Selection.**
+
+- `package.protocol_ts.frontend_unit.source_entrypoints_test_ts_50c3a02e28`;
+- `package.protocol_ts.frontend_unit.family_registries_and_account_types_i2`;
+- `make lint CHECK=types`.
+
+No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s840-format01` exited 0.
+- `tcr-s840-qualified01` exited 0: both rows passed, pass 2/2 units. Source
+  `9fc17d27…` at `eba4501fa`, dirty; scan pass; 11 cleanups completed.
+- `tcr-s840-types01` exited 0.
+- The import target list is non-empty and every target is frozen.
+- Retired: the `targets[0]` check, the invented-name negative and the helper
+  self-throw.
+
+#### R-05 package.test_utils verification
+
+| Candidate (source) | Verdict | Disposition |
+| --- | --- | --- |
+| `virtual-targeting.ts` "target unmounted between visibility and geometry reads" | Not can't-fail. Without the unmount, the geometry read succeeds and production returns after one visibility check. The required `visibilityChecks === 2` therefore pins the catch-and-recheck path that the unmount triggers (`grid-observers.ts:51-58`). | Retain. |
+| `virtual-targeting.ts` "retries through the stable grid shell…" with `timeoutMs: 0` | It shows rejection with no alignment scroll, but neither a retry nor the shell. | Verified-deferred (title). |
+| Continuity `focus`, `click`, `dispatchEvent`, `scrollTop`/`scrollLeft` setter and `scrollIntoView` spies without positive controls; `scrollTo`/`scrollBy` unspied | The prototype spies intercept any production call on the fixture elements, so each negative can fail. jsdom elements do not implement `scrollTo`/`scrollBy`, so a call would throw and fail the test. | Verified-deferred (positive controls optional). |
+| Mutation recorder without a positive control | Same class: an observable negative. | Verified-deferred. |
+| `actions.ts:296` `target?.addEventListener`; `marker.ts:144` `locator.evaluate?.` | Not vacuous. A missing target leaves `clipboardText` empty and fails the exact paste expectation. The `evaluate` wrapper is installed only after `locator.evaluate === undefined` is excluded. | Retain. |
+| Edge tolerance moving all four edges; row-gutter case far from its limit; loose evaluate counts | Bounds not exercised at their limit. | Verified-deferred. |
+| Actions `apply` resolve and click negatives resting on the rejection | Ordered after the rejection, which is the claim. | Verified-deferred. |
+
+#### R-05 package.ui verification
+
+| Candidate (source) | Verdict | Disposition |
+| --- | --- | --- |
+| `workbook-shell-grid-selectors.node.test.ts:292-303` local `systemViewSwitcherGroupTokens` | **Confirmed tautology.** The test declares its own copy and compares it with an identical literal. Production `systemViewSwitcherGroupTokens` (`viewSchemaSelectors.ts:16`) is never asserted. | Fix in S-841: assert the production export. |
+| `application-selectors.node.test.ts:282-284` `timelineInspectorSectionTestId("operational-text")` compared with itself | **Confirmed self-comparison.** The exact literal is pinned at :268-270. | Fix in S-841: remove. |
+| `workbook-shell-grid-selectors.node.test.ts:166-178` `workbookQueryEntryTestId(...)` compared with itself | **Confirmed self-comparison.** The exact query-entry literal and the label rejection ("Capture state" throws) are pinned at :320-356. | Fix in S-841: remove. |
+| Network Flow selectors expected from `` `network-flow-analysis-${selector}` `` | Not production-derived. The test writes its own prefix literal, so a production prefix change fails. The vocabulary is a TypeScript union with no runtime list, so completeness is a type-level gap. | Verified-deferred. |
+| Retired-token negatives (`task-submit`, `task-target`) | Pinned throw messages; they fail if the vocabulary re-admits the tokens. | Retain. |
+| Identical `selector-core` builds; renamed session-field titles; selector tables omitting production tokens; "validates closed vocabulary" without a rejection; `.not.toBe` collisions; prefix-only empty-token messages; `MAX_SAFE_INTEGER` never accepted; shared design-token mutation with conditional restore; substring-only `membership-audit-detail` | Redundant, coverage, title, bounds or hygiene items. Each can fail for the regression it names. | Verified-deferred. |
+
+### S-841 / F-826 / E-890 — UI contract selector tests assert production values
+
+Recorded before editing; identities verified unused. IN_PROGRESS. R-05
+can't-fail class (self-comparisons).
+
+**Governing.** The ui-contracts package selector contract: closed shell and
+system-view order, and stable test-identity builders.
+
+**Successor.**
+
+- Import production `systemViewSwitcherGroupTokens` and require it to equal
+  the four-token literal, in order. This replaces the local copy.
+- Remove the two self-comparisons. Their exact literals are already pinned in
+  the same files.
+
+**Selection.**
+
+- `package.ui.frontend_unit.application_selector_contracts_675995f2ab`;
+- `package.ui.frontend_unit.workbook_shell_grid_contracts_07bd0aad94`;
+- `make lint CHECK=types`.
+
+No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s841-format01` exited 0.
+- `tcr-s841-qualified01` exited 0: both rows passed, pass 2/2 units. Source
+  `56650a5e…` at `eba4501fa`, dirty; scan pass; 11 cleanups completed.
+- `tcr-s841-types01` exited 0.
+- The production token list is imported from `./viewSchemaSelectors`; it is
+  not re-exported by the package index.
+- Retired: the local copy and the two self-comparisons.
+
+#### R-05 package.view_contracts verification
+
+| Candidate (source) | Verdict | Disposition |
+| --- | --- | --- |
+| `contracts.node.test.ts:121-122` `Object.isFrozen(listViewContracts()[0]?.fieldMap)` and `…inspectorConfig` | **Confirmed latent vacuity (the S-840 class).** `Object.isFrozen(undefined)` is `true`, so a contract without these members passes, and only the first of 17 contracts is checked. | Fix in S-842. |
+| `surfaces.node.test.ts:85` `requiredReferencePackKeys` compared with `contract.requiredReferencePackKeys` | A tautology by construction: both come from the same generated entry (`projection.ts:50/:77`). No value can be lost today, because all 34 canonical `contracts/view-schemas/*.json` declarations are `[]`. It becomes meaningful once a schema declares keys. | Verified-deferred (recorded). |
+| `contracts.node.test.ts:116` `listViewContracts() === listProjectedViewContracts()` | A wiring identity check that fails if `contracts.ts` builds its own copy. | Verified-deferred. |
+| `surfaces.node.test.ts:29-62` `schemaConstants` from production constants | The order is authored in the test. Constant values are pinned only for Timeline and Evidence (`expectTypeOf`), which is a value-coverage gap. | Verified-deferred. |
+| Header-sort `if (candidate)` | Guarded by `toBeDefined()`. The resolver's job is to return the field's declared `headerSortFieldKey`, so the metadata is the specification, not an oracle. | Retain. |
+| References loop (`references.node.test.ts`) omitting action-kind fields; `> 0` and `every` | `target?.…every()` fails on a missing target (`undefined` is not `true`). Action-kind enumeration from the contract side is a coverage gap. | Verified-deferred. |
+| "Requires explicit boolean" and "exact inline_create" titles running only `typeof`; "ignores additive row members" checking one cell; "deterministically" with one call | Title class. | Verified-deferred. |
+
+### S-842 / F-827 / E-891 — every view contract's members are proven frozen
+
+Recorded before editing; identities verified unused. IN_PROGRESS. R-05
+can't-fail class (latent vacuity).
+
+**Governing.** The view-contracts package contract: contracts and Inspector
+metadata are frozen.
+
+**Successor.** In "freezes contracts and Inspector metadata", for every
+contract require `fieldMap` and `inspectorConfig` to be defined objects and
+frozen. This replaces the two first-element checks.
+
+**Selection.** `package.view_contracts.frontend_unit.contracts`, plus
+`make lint CHECK=types`. No production or routing change.
+
+Closure: DONE.
+
+| Run | Command | Exit | Result |
+| --- | --- | --- | --- |
+| `tcr-s842-format01` | `make format` | 0 | first successor |
+| `tcr-s842-qualified01` | exact row | 0 | passed, 2/2 units |
+| `tcr-s842-types01` | `make lint CHECK=types` | 0 | first successor |
+
+Review of that first successor found that `typeof null` is `"object"` and
+`Object.isFrozen(null)` is `true`, so a null member would still have passed.
+The check now requires `typeof member === "object" && member !== null`.
+
+| Run | Command | Exit | Result |
+| --- | --- | --- | --- |
+| `tcr-s842-format02` | `make format` | 0 | final source |
+| `tcr-s842-qualified02` | exact row | 0 | passed, 2/2 units; source `2f3d922e…` at `eba4501fa`, dirty; scan pass; 11 cleanups completed |
+| `tcr-s842-types02` | `make lint CHECK=types` | 0 | final source |
+
+Retired: the two first-element checks.
+
+#### R-05 platform.audit, platform.bootstrap and platform.config verification
+
+| Owner | Candidate (source) | Verdict | Disposition |
+| --- | --- | --- | --- |
+| audit | `audit_test.go:96-106` action bindings "derived from production maps" | Not an oracle. It is a parity check of the authored canonical contract (`contracts/audit/index.json` through `gencontracts`) against the Go `actionBindings` map, so drift on either side fails. | Retain. |
+| audit | Raw-insert rollback after a projection-insert failure (R-03) | Unreachable, because validation runs first; this is coverage. | Verified-deferred. |
+| audit | First-change-only order, combined "redacted value" case, incident-only pair mismatch, normalization title, fixed fixture clocks | Weak, title or legal-clock items. | Verified-deferred. |
+| bootstrap | "Queries bootstrap state first"; the stale/invalid stub without data | The first subtest requires exactly one state read and zero manifest stat or read calls, so the order is implied by the skipped filesystem. The second subtest repeats it, because the filesystem is never touched. | Verified-deferred (redundant). |
+| bootstrap | Extra diagnostics tolerated; no minimum-password-length pair; non-zero hash check | Weak or coverage. | Verified-deferred. |
+| config | `core_config_test.go:284-286` "dependency probe budget is configurable" | **Confirmed can't-fail.** It sets `DEPENDENCY_PROBE_SECONDS=30`, which equals the default (`validation.go:330`, default 30 with bounds 1..300), and asserts nothing about the loaded value. An ignored override would pass. | Fix in S-843. |
+| config | Catalog claim-leak check (`catalog_test.go:131`) | Not vacuous. An implementation that read an unregistered owner's `Enabled` flag as a claim would return it. The positive is the explicit claim set in "preserves explicit continuing claims…". | Verified-deferred. |
+| config | "Validates and discards a syntax-only overlay" | Validation is observed through the invalid-enum and reference cases. The discard cannot be observed through the public snapshot. | Verified-deferred (title). |
+| config | Configassembly requested-claims loop (`configuration_test.go:91-95`) | A negative that fails if either profile appears; an empty set is the expected state. | Retain. |
+| config | Expected values from production defaults (`configuration_test.go:59`) | An equivalence between explicit fixture limits and omitted-section defaults, beside literal pins (1800 and 536870912). | Verified-deferred. |
+| config | `unknown_key` probes for absent names | Unknown-key rejection needs an absent name by definition, and retired names are regression guards. | Retain. |
+| config | Disconnected-only defaults without a production counterpart; one fixed ceiling; multi-defect builder and catalog cases; unpinned loaders; bound pairs without accepted N; root-only `Geteuid` branch; illegal platform-settings bindings; compile-time-only signatures | Coverage, title or no-public-reason items. | Verified-deferred. |
+
+### S-843 / F-828 / E-892 — the extension dependency probe override is observed
+
+Recorded before editing; identities verified unused. IN_PROGRESS. R-05
+can't-fail class.
+
+**Governing.** Core 04 deployment configuration.
+`timeouts.extensions.dependency_probe_seconds` is configurable within 1..300
+(default 30).
+
+**Successor.** Load with `DEPENDENCY_PROBE_SECONDS=45`, a non-default value.
+Require `cfg.Timeouts.Extensions.DependencyProbeSeconds == 45`, and require
+the default load to report 30. This replaces the assertion-free load in place.
+
+**Selection.** `platform.config.unit.extension_runtime_defaults_and_bounds_8528ff7cc9`.
+No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s843-format01` exited 0.
+- `tcr-s843-qualified01` exited 0: the row passed, pass 1/1. Source
+  `45756748…` at `eba4501fa`, dirty; scan pass; 10 cleanups completed.
+- The default load reports 30 and the override reports 45.
+- Retired: the assertion-free load at the default value.
+
+#### R-05 platform.cryptography, platform.httpruntime and platform.jobs verification
+
+| Owner | Candidate (source) | Verdict | Disposition |
+| --- | --- | --- | --- |
+| cryptography | Modulus `2^1023` (weak and even); oversized non-PEM input; all-zero oversized envelopes; unpinned TLS any-error (P521); `MaxArtifactSeals - 16` fixture | Multi-defect or unpinned cases with no public reason contract. | Verified-deferred. |
+| cryptography | Execution-identity expectations recomputed from runtime facts | The subject is the runtime's own identity, and the facts are its specification. | Verified-deferred. |
+| cryptography | Sealing N-accepted controls; environment-conditional branch | Coverage. | Verified-deferred. |
+| httpruntime | `weakTestRouteTokens` lookup unreachable (R-03) | Production dead code: every entry is shorter than the 43-character minimum, so no test can reach it. The spec requires only at least 128 bits of entropy. | Verified-deferred (production simplification). |
+| httpruntime | Runtime-profile comparison decoding the same registry artifact | A parity check between the decoded artifact and the runtime projection; it fails if either side drifts. | Verified-deferred. |
+| httpruntime | `addr=127.0.0.1:` matching port 0; "DoesNotBind" checking only that the address is free; non-blocking `select` after `cancel()`; 20 ms readiness windows; zero-offset test clock with one code; unpinned TLS/environment/403 failures | Weak, bounded-window or unpinned items. | Verified-deferred. |
+| jobs | `correction_test.go:381-414` "exhaustion publishes fixed safe summary" (R-03) | **Confirmed can't-fail.** `RecordExecutionFailure(ctx, execution, incomplete)` accepts no handler text (`durable_persistence.go:419`), so the sentinel never reaches production and the leak check cannot fail. On exhaustion production writes the fixed `HandlerAttemptsExhausted` code and a fixed summary (`:476-490`), which the test does not pin exactly. | Fix in S-844. |
+| jobs | `jobs_test.go:593` retry delays read from `ProductionRuntimePolicy()` | **Confirmed production-derived oracle.** Core 01 fixes the production policy: maximum failures 3, retry delays 5 s then 30 s. A changed policy would move the expectation with it. | Fix in S-845. |
+| jobs | "Initial recovery renews a long attempt" | Not can't-fail. The handler completes after three leases, and completion requires `handler_lease_expires_at > now` (`transaction_service.go:228/:278`), so success implies renewal. | Verified-deferred (indirect observation). |
+| jobs | `TestJobTelemetryNoSDK` (R-03) | A no-panic smoke claim under the no-op provider, like the Projections and Workbook twins. | Retain. |
+| jobs | Literal handler values, retention-before-finish SQL fixtures, all-missing `ManagerOptions{}`, multi-defect admission, 50 ms expiry probe, migration object counts, retired-name guard, status re-checks | Weak, legal (R-04 census) or regression-guard items. | Verified-deferred. |
+
+### S-844 / F-829 / E-893 — job exhaustion pins its fixed safe summary
+
+Recorded before editing; identities verified unused. IN_PROGRESS. R-05
+can't-fail class (uncontrolled negative).
+
+**Governing.** Core 01 job execution policy: exhausted durable handler
+attempts fail closed with a fixed public summary and no raw handler text.
+
+**Successor.** Remove the never-injected sentinel. Require exactly:
+
+- `handler_last_error` equals `jobs.HandlerAttemptsExhausted`;
+- `ErrorSummary` equals {code `HandlerAttemptsExhausted`, the fixed message,
+  `Retryable=false`, details `{"reason_code": HandlerAttemptsExhausted}`}.
+
+Any variable text from any source then fails. The status and attempt checks
+are retained.
+
+**Selection.** `platform.jobs.integration.runner_failure_security`. No
+production or routing change.
+
+Closure: DONE.
+
+- The shared run `tcr-s844-qualified01` (exit 2) was an infrastructure
+  failure caused by S-845's own edit, not a test failure. `go vet` reported
+  "suspect or" at `jobs_test.go:583`, because `DefaultHandlerMaxAttempts` is a
+  constant. Diagnosed from the unit build output and repaired in S-845.
+- `tcr-s844-format02` exited 0.
+- `tcr-s844-qualified02` exited 0: both rows passed, pass 4/4 units. Source
+  `594f599b…` at `eba4501fa`, dirty; scan pass; 17 cleanups completed.
+- The exhausted job reports exactly the fixed code, message, non-retryable
+  flag and details.
+- Retired: the never-injected sentinel and its leak checks.
+
+### S-845 / F-830 / E-894 — durable retry delays use the specified values
+
+Recorded before editing; identities verified unused. IN_PROGRESS. R-05
+can't-fail class (production-derived oracle).
+
+**Governing.** Core 01 immutable production execution policy: retry delays
+5 seconds and then 30 seconds, maximum failures 3.
+
+**Successor.** In `TestManagerFailsDurableHandlerClosedAfterMaxAttempts`,
+the expected delays are the literal `[]time.Duration{5 * time.Second,
+30 * time.Second}`, and `jobs.DefaultHandlerMaxAttempts` must be 3. This
+replaces the read of `ProductionRuntimePolicy().RetryDelays`.
+
+**Selection.** `platform.jobs.integration.runner_and_recovery`. No production
+or routing change.
+
+Closure: DONE.
+
+- The first form,
+  `MaximumFailures != 3 || DefaultHandlerMaxAttempts != MaximumFailures`,
+  failed `go vet` ("suspect or", constant operand) in `tcr-s844-qualified01`.
+- It was simplified to `ProductionRuntimePolicy().MaximumFailures != 3`. The
+  loop still runs `DefaultHandlerMaxAttempts` times.
+- `tcr-s844-qualified02`, shared with S-844, exited 0 with the row passed.
+- Retired: the read of `ProductionRuntimePolicy().RetryDelays`.
+
+#### R-05 platform.objectstore, platform.openapi, platform.pagination and platform.postgres verification
+
+| Owner | Candidate (source) | Verdict | Disposition |
+| --- | --- | --- | --- |
+| openapi | `assembly_test.go:128/:131` `strings.Index` ordering | **Confirmed can't-fail for a dropped member.** `strings.Index` returns -1 for an absent string, so `-1 > index("/z")` is false and the check passes if assembly drops `"/a"` (or `"A"`). The permutation equality drops it identically on both sides. | Fix in S-846. |
+| openapi | Expected security schemes from production `requiredSecuritySchemeNames`; response presence without the closed set | The scheme names are a closed internal list, and response presence is checked beside exact operation parity. | Verified-deferred. |
+| openapi | Change-list loops (production gate, classification) | The gate's claim is `CheckRepository` success, and an empty change list is legal. The fixture classification test requires both `Breaking` and `NonBehavioral` to be found. | Retain. |
+| openapi | Modified release snapshot also lacking target, manifest and change sets; method set without head/options/trace, unchecked `StateChanging` and subset route comparison; "IsClosed" uniqueness only; unpinned family-route reasons; depth and zero-limit bounds | Multi-defect without a public reason, coverage or title items. | Verified-deferred. |
+| objectstore | `s3_policy_test.go:141` `requests == 0` after rejected configurations | Controlled by sibling subtests. The same `policyS3Server` helper receives the regional-init request (`creates == 1`), so the server is reachable. | Verified-deferred. |
+| objectstore | Pre-cancelled contexts making "no publication" trivially true | A production that ignored the context would publish and fail; mid-operation cancellation is coverage. | Verified-deferred. |
+| objectstore | `TestProxyHelperProcess` re-exec entry; any-error never-created deletion and proxy checks; S3 "binds digest size" title; incomplete telemetry and reason maps; non-empty `ChecksumSHA256`; short oversize-hint case; POST substitution; root-path placement; unchecked operator init output | A helper entry point, weak, title or coverage items. | Verified-deferred. |
+| pagination | Invalid-cursor fixtures also lacking bindings; `max+1` cursor also lacking its prefix; "Signed" and "WithoutRetainingRows" unverified; untested binding and limit bounds | Multi-defect without a public reason, title or coverage items. | Verified-deferred. |
+| postgres | `postgres_settings_test.go:228` forbidden-substring loop | Controlled: the secret is in the input map, so an echoed value fails. The parse-error disclosure path is coverage. | Verified-deferred. |
+| postgres | Stub-owned truncation status; impossible password-auth fixtures; invalid-DSN link payloads; multi-defect transport, nil-harness and invalid-name cases; unpinned 42501; wrong-certificate role ambiguity; unused `recycledPID`; switch without default; telemetry, HBA substring and "migrated" existence checks | Multi-defect without a public reason, weak or simplify items. | Verified-deferred. |
+
+### S-846 / F-831 / E-895 — OpenAPI assembly ordering requires both members
+
+Recorded before editing; identities verified unused. IN_PROGRESS. R-05
+can't-fail class.
+
+**Governing.** The OpenAPI source assembly contract: deterministic canonical
+serialization that includes every owner unit's paths and components.
+
+**Successor.** Each ordering check first requires both substrings to be
+present (index at least 0), then requires `"/a"` before `"/z"` and `"A"`
+before `"Z"`. This replaces the two raw comparisons in place.
+
+**Selection.** `platform.openapi.unit.deterministic_assembly_742e38b57c`. No
+production or routing change.
+
+Closure: DONE.
+
+- `tcr-s846-format01` exited 0.
+- `tcr-s846-qualified01` exited 0: the row passed, pass 1/1. Source
+  `fb4ade34…` at `eba4501fa`, dirty; scan pass; 10 cleanups completed.
+- The two raw comparisons were replaced in place.
+
+#### R-05 platform.rootedfs, platform.telemetry, platform.viewquery, platform.viewschema and platform.ws verification
+
+| Owner | Candidate (source) | Verdict | Disposition |
+| --- | --- | --- | --- |
+| telemetry | `privacy_test.go:71` and `:101-109` via `attributesByName` | **Confirmed can't-fail for same-key null values.** `SafeAttributes` filters per attribute without deduplicating (`privacy.go:11-21`), and the helper folds its output into a map. An admitted `cartulary.result=""` or `"null"` is hidden behind the later valid value of the same key, so `len(got) == 1` and the null-value scan still pass. | Fix in S-848. |
+| telemetry | Recursive self-diagnostic suppressing its own metric | The recursive case pins "no metric". The null-attribute path for a recursive diagnostic is coverage. | Verified-deferred. |
+| telemetry | Production-declared literal matrices, sampler corpus, production name constants as expected values, multi-defect export inputs, unregistered-key absences, unpinned path and TLS reasons, bootstrap `service.name` only, unserved 307, escaped-secret rendering, bound pairs, direct `safeHTTPRoute`, incomplete code lists | Weak, coverage or no-public-reason items. | Verified-deferred. |
+| viewquery | `query_test.go:29` default sort compared by length only | **Confirmed can't-fail for a substituted sort.** "Defaults to schema meta" means `Meta.Sort` equals the schema's declared default. A different sort of the same length (other fields or directions) passes. The schema default is the declared specification, and its record-ID tail is pinned in `viewschema`. | Fix in S-847. |
+| viewquery | Misnamed "operator not allowed" case (R-03) | Title class: the case exercises `unknown_filter_field` with a pinned reason. | Verified-deferred (rename). |
+| viewquery | Contract-derived Vitest expectations, duplicated title body, `test.view` mismatch; test-only `timeline.event_type`; duplicate oversize bodies; Playwright sort/creation order and unsettled absences; partial `maintenancequery` sets; multi-defect `sqlshape` literal; loose token bounds | Title, coverage, bounded or no-public-reason items. | Verified-deferred. |
+| viewschema | `registry_test.go:191-196` hypothesis negatives | `cartulary.view.hypotheses.v1` existed in earlier commits and is retired, so these are regression guards. | Retain. |
+| viewschema | Field order from the same embedded artifacts; forbidden keys structurally absent; unpinned layout reasons; no page-2 or `limit=500` acceptance; public-versus-internal comparison; `nullable` keyword check | Parity, structural, coverage or simplify items. | Verified-deferred. |
+| ws | "Cookie browser Origin check fails before upgrade" (R-03) | It pins the pre-upgrade helper's 403, with trusted and cookieless controls. The handler-level ordering is a title gap. The real handshake rejection is observed by the Windows probe (`untrusted_wss_origin_rejected`, release smoke only). | Verified-deferred. |
+| ws | Read limit exercised only at 4 bytes (R-03) | Coverage of the over-limit case. | Verified-deferred. |
+| rootedfs | `ListRegular` any-error with several symlinks; hand-maintained boundary scan; missing-parent nested publish and unused `ErrRootIdentityChanged`; unpinned securefile kinds and relative path; `ValidateReferenceSet` without an accepted control; full-path-only disclosure; "bounded traversal" without a bound; loose size bounds | No-public-reason, coverage, title or bounds items. | Verified-deferred. |
+
+### S-847 / F-832 / E-896 — view query default sort equals the schema default
+
+Recorded before editing; identities verified unused. IN_PROGRESS. R-05
+can't-fail class.
+
+**Governing.** Core 01 view query contract: an omitted sort applies the
+schema's default sort, which ends in `record_id asc`.
+
+**Successor.** Require `reflect.DeepEqual(query.Meta.Sort,
+schema.DefaultSort())`, which replaces the length-only comparison in place.
+
+**Selection.** `platform.viewquery.unit.decode_defaults_to_schema_meta_0c64ab2f71`.
+No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s847-format01` exited 0; the same format run covered S-848.
+- `tcr-s847-qualified01` exited 0: the row passed, pass 1/1. Source
+  `c69e5b6a…` at `eba4501fa`, dirty; scan pass; 10 cleanups completed.
+- The length-only comparison was replaced in place.
+
+### S-848 / F-833 / E-897 — telemetry null-omission checks see every emitted attribute
+
+Recorded before editing; identities verified unused. IN_PROGRESS. R-05
+can't-fail class.
+
+**Governing.** Core 04 telemetry privacy. Null-equivalent and unknown
+Cartulary attribute values are omitted before recording, for every signal
+family.
+
+**Successor.** Both tests also require the unfolded `SafeAttributes` output
+to have exactly one attribute, with the expected key and value, so a
+same-key null value can no longer hide. The folded map checks are retained.
+
+**Selection.** `platform.telemetry.unit.privacy_and_redaction`. No production
+or routing change.
+
+Closure: DONE.
+
+- `tcr-s848-qualified01` exited 0: the row passed, pass 1/1. Source
+  `c69e5b6a…`; scan pass; 10 cleanups completed.
+- Every signal case emits exactly its final valid attribute, and the
+  first test emits only `cartulary.result=failed`.
+- Nothing was retired.
+
+#### R-05 web.application and web.architecture verification
+
+| Owner | Candidate (source) | Verdict | Disposition |
+| --- | --- | --- | --- |
+| application | `importCoordinator.test.ts:233` stale-fingerprint check guarded by `result.receipt.kind === "unit"` | **Confirmed conditional vacuity.** Only `result.kind` is asserted, so a receipt of another kind skips the stale-fingerprint assertion, which is the test's only check of the stale approval. | Fix in S-849. |
+| application | `App.landing` negatives ("Debug harness shell", "Workbook access", "Open selected", imported-incident withholding text) | Each string occurs in earlier production revisions (`git log -S`), so these are retired-text regression guards. | Retain. |
+| application | Optional-chained `attachment?.detach()` and `controller?.retire()` | Fixture callbacks and teardown. A null attachment would leave the "detached" precondition unexercised, but the outcome checks (snapshot cleared, one send) remain. | Verified-deferred (weak precondition). |
+| application | `importCoordinator.test.ts:309` `if (result.kind !== "accepted")` | Always true after `expect(result.kind).toBe("uncertain")`. | Retain. |
+| application | Non-JSON transport fallback (R-03, from S-642) | No transport test covers content-aware parsing of non-JSON error bodies into `unknown_public_error`. Coverage. | Verified-deferred. |
+| application | Metadata, membership, import-model and lifecycle line items; fencing titles whose writes never settle; focus-restoration titles without focus checks; unpinned client failure kinds; session-gate, audit-event and import-job payloads; error presentation omissions; missing font baseline; timing header; mixed-unit text bounds | Weak, title, coverage or bounded items. | Verified-deferred. |
+| architecture | `test-fallow-policy.mjs:93` matcherless `assert.throws` | Not can't-fail: removing validation makes nothing throw. Any-error over single-defect reports, with no public reason; this is harness tooling. | Verified-deferred. |
+| architecture | Transport-boundary `if` guard with a manifest allowlist | The guard is the policy: only files with raw transport references are checked. The detector has five synthetic positive controls and comment/string negatives, and the allowlist is required non-empty. Non-`fetch` transports are a coverage gap. | Verified-deferred. |
+| architecture | Layout filler count | Uses production `workbookGridRows` with exact length and identity per row, so added filler fails. | Retain. |
+| architecture | Visitor rules without a synthetic positive; workbook-only transaction scan; path-substring diagnostics; multi-defect CLI configurations; policy fixtures bypassing facades | Coverage or no-public-reason items. | Verified-deferred. |
+
+### S-849 / F-834 / E-898 — stale approval check runs unconditionally
+
+Recorded before editing; identities verified unused. IN_PROGRESS. R-05
+can't-fail class (conditional vacuity).
+
+**Governing.** The Network Flow import approval contract: a durable approval
+whose fingerprint differs from the reviewed preview blocks selection and
+apply.
+
+**Successor.** Require `result.kind === "accepted"` and
+`result.receipt.kind === "unit"` with failing assertions. Then evaluate
+`networkFlowApprovedPreviewMatches` unconditionally. This replaces the `if`
+guard in place.
+
+**Selection.** `web.application.regression.importcoordinator_suite_fd42b7df92`,
+plus `make lint CHECK=types`. No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s849-format01` exited 0.
+- `tcr-s849-qualified01` exited 0: the row passed, pass 2/2 units. Source
+  `42cdc109…` at `eba4501fa`, dirty; scan pass; 11 cleanups completed.
+- `tcr-s849-types01` exited 0.
+- The receipt is a unit receipt, and the stale fingerprint is reported as
+  not matching.
+- The guard was replaced in place.
+
+#### R-05 web.collaboration verification
+
+| Candidate (source) | Verdict | Disposition |
+| --- | --- | --- |
+| `WorkbookCollaborationCoordinator.node.test.ts:1261-1288` `resolveRecovery?.()` | **Confirmed uncontrolled.** The `Promise` executor assigns `resolveRecovery` synchronously, so the call always runs, but nothing shows the coordinator invoked `recover`. If authorization loss started no recovery, resolving does nothing and all three negatives pass. | Fix in S-850: `recover` becomes a spy and must be called once before disposal. |
+| `:772/:788/:795` `oldExpiry?.()` from `pendingCallbacks()[0]`, and `:898-907` callbacks loop and `oldListener?.(event)` | **Confirmed conditional vacuity.** An empty pending list or an absent subscriber makes each "stale callback cannot restore" step a no-op. | Fix in S-850: require the captured callbacks and listener to exist. |
+| `:1253-1259` "disposes shell projections without disposing the borrowed mutation runtime" | Its claim is a pure negative, which a no-op `dispose` would also satisfy. The shell-disposal effects are observed by the late-recovery and old-listener tests above. | Verified-deferred (covered elsewhere). |
+| Pending-work and authorization-pause titles; one- and six-tick negatives; unacknowledged replacement sockets; discarded `applyRecordChanged` results and single malformed case; presence multi-defect batch, absence-only status and caps; partial survivor checks; "exactly" title with `toMatchObject` | Title, bounded or coverage items. | Verified-deferred. |
+
+### S-850 / F-835 / E-899 — collaboration stale-callback and late-recovery checks exercise their subjects
+
+Recorded before editing; identities verified unused. IN_PROGRESS. R-05
+can't-fail class.
+
+**Governing.** Core 03 collaboration session and presence lifetime: stale
+presence expiry and listener callbacks, and late authorization recovery after
+disposal, cannot restore state.
+
+**Successor.**
+
+- The late-recovery test's `recover` is a spy, required to have been called
+  once before disposal.
+- The presence test requires `oldExpiry` to be a function.
+- The clock-jump test requires a non-empty `callbacks` list and a function
+  `oldListener`.
+
+The existing assertions are unchanged.
+
+**Selection.**
+`web.collaboration.regression.workbookcollaborationcoordinator_suite_514be174a8`,
+plus `make lint CHECK=types`. No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s850-format01` exited 0.
+- `tcr-s850-qualified01` exited 0: the row passed, pass 2/2 units. Source
+  `39d0609e…` at `eba4501fa`, dirty; scan pass; 11 cleanups completed.
+- `tcr-s850-types01` exited 0.
+- `recover` ran once before disposal, and every captured stale callback and
+  listener existed, so each "cannot restore" step now runs.
+- Nothing was retired.
+
+#### R-05 web.design and web.networkflow verification
+
+| Owner | Candidate (source) | Verdict | Disposition |
+| --- | --- | --- | --- |
+| design | `<script>` absence checks in the administration a11y specs | Controlled. `auditBrowserEvent` (`e2e/support/administrativeAudit.ts`) carries `<script>inert text</script>`, and the membership event reuses it. A rendered-as-text positive is optional. | Verified-deferred. |
+| design | a11y "non-color-only" and "ARIA states" claims inducing no states; unpinned appearance length; hard-coded attached-evidence values; comment-only read ordering; missing settle; width-only containment; request-derived version; 21 of 197 theme variables; viewport label mismatch; loose box bounds; "exact filters" titles; visual-registry `>=` bounds and conditional mask | Title, bounded, coverage or visual-registry items. No browser or visual path changed. | Verified-deferred. |
+| networkflow | `SavedGraphRecovery.node.test.ts:249-263` and `:293-319` subscriber collectors | **Confirmed conditional vacuity.** Each test passes when its collector stays empty, which also happens if the owner publishes no notification at all. The withdrawal test never checks that the protected result is actually gone. | Fix in S-851. |
+| networkflow | Import-controller handoff expectation "derived from production state" | Not reproduced. The handoff expectations (`NetworkFlowImportController.node.test.ts:520-535` and `:614`) use test-authored failures and the literal `tableId` (:67). | Retain. |
+| networkflow | "Production CSS constants compared with themselves"; comparator self-check in the alias fixture | Not reproduced: a search of the owned Vitest files finds no literal `expect(X).toBe(X)`. Remaining constant checks compare two artifacts. | Verified-deferred. |
+| networkflow | Matcherless `toThrow` in saved-graph transport (:114-121) and indicator-link dispatch (:396) | Any-error over single-defect envelopes with a `not.toThrow` control (:109); no public reason contract. | Verified-deferred. |
+| networkflow | Boundary-policy names; white-hex fallback allowlist; multi-defect range inputs and the 1-versus-2 limit; absence-only admission; one-tick negatives; first-grid-schema inventory; workspace titles; untested contract major 11; collapsed scopes; status-and-code isolation; relative column order; `30_001` boundary; E-662 hand-offs (R-03) | Regression-guard, coverage, title, bounded or no-public-reason items, as dispositioned in E-662 and E-836. | Verified-deferred. |
+
+### S-851 / F-836 / E-900 — saved-graph publication collectors prove they observed publication
+
+Recorded before editing; identities verified unused. IN_PROGRESS. R-05
+can't-fail class (conditional vacuity).
+
+**Governing.** Design §4.6 and the Network Flow saved-graph boundary.
+Selection and result exposure publish atomically. Source or scope withdrawal
+removes protected results without an intermediate exposed state.
+
+**Successor.**
+
+- Atomic-selection test: count notifications and require at least one. After
+  selecting `b`, which has no result binding, the final snapshot must select
+  `b` and expose no result.
+- Withdrawal test (both kinds): count notifications and require at least
+  one, and require `navigation.result` to be null afterwards. The setup
+  already guarantees a result was exposed beforehand.
+
+The collectors and their empty expectations are retained.
+
+**Selection.** `web.networkflow.regression.saved_graph_recovery_boundaries`,
+plus `make lint CHECK=types`. No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s851-format01` exited 0.
+- `tcr-s851-qualified01` exited 0: the row passed, pass 2/2 units. Source
+  `fb844922…` at `eba4501fa`, dirty; scan pass; 11 cleanups completed.
+- `tcr-s851-types01` exited 0.
+- Each publication was observed, the final selection is `b` with no result,
+  and both withdrawal kinds leave no exposed result.
+- Nothing was retired.
+
+#### R-05 web.workbook verification
+
+| Candidate (source) | Verdict | Disposition |
+| --- | --- | --- |
+| Optional-chained `.not.toBeNull()` receipts across the indicator, party, capture and history owners | **Confirmed vacuous for a missing owner entry.** `expect(x?.y).not.toBeNull()` passes when `x` is undefined, because `undefined` is not `null`. Fifteen sites in four files: indicator :97; party :272/:361; history :207/:224/:226/:262/:303/:317/:357/:364/:365; capture :164/:299/:323. The same pattern appears at four sites owned by completed owners (imports :638/:639; grid-adapter :2270/:2520). | Fix in S-852 (web.workbook) and S-853 (imports and grid_adapter). |
+| `WorkbookShell.collaboration.test.tsx:190-192` `not.toContain("SA")` (R-03) | **Confirmed can't-fail.** `displayInitials` takes the first letters of the first two words (`workbookPresence.ts:21-29`), so "Saved View Analyst" renders "SV" and "SA" can never appear. The saved-view presence shares the Timeline ID with a different `kind`, so the correct negative also catches a kind-blind sheet comparison. | Fix in S-854: `not.toContain("SV")`. |
+| `workbookCommandIndex.node.test.ts:42` "never invokes actions during matching" | **Confirmed unobservable.** `invoke` is a plain `() => true`, not a spy. | Fix in S-854: `invoke` spies that must not be called. |
+| `WorkbookRuntimeResponsibilities.node.test.ts:337-345` "does not drain a microtask queued before terminal disposal" | **Confirmed uncontrolled.** Nothing shows a microtask was queued. With an empty queue, `shift()?.()` is a no-op and the negative passes. The other `shift()?.()` sites follow a length assertion or await an outcome. | Fix in S-854: require one queued microtask before disposal. |
+| `workbookSurfaceRegistration.node.test.ts:16-20` `viewSchemaId === "network_flow_activity"` | **Confirmed can't-fail.** It is a profile ID, never a view-schema ID. The exclusion claim is already carried by the exact equality of registration IDs with view-contract IDs at :11-15. | Fix in S-854: remove (covered). |
+| `WorkbookBatchHistoryReview.test.tsx:271` `calls[3]?.[2]` versus `calls[4]?.[2]` | Controlled. The "Page failed" and "Cursor expired" texts are produced only by the fourth and fifth loads. | Verified-deferred. |
+| Saved-view controller `every` over observations (:445/:526/:600) | An empty map also exposes no resource, which is the claim; any exposed entry fails. | Verified-deferred. |
+| Mutation-driver plan omissions; unpinned production-contribution iteration; one-tick negatives; sort titles and limits; draft-store loops; multi-defect mention reconciliation; bare `rejects.toThrow()`; generic fill rejection; `> 100` create coverage; 65 IDs without an accepted 64; unasserted reauthorization; unsettled startup negatives; re-stated policy oracle; architecture titles; null create-related subject; `if (body)` scroll guard; about 300 redundant `getBy… not.toBeNull()`; `toMatchObject` under "exactly"; subtraction-derived count; unbounded retries and send counts; matcherless metadata throws; placeholder sheet IDs | Coverage, title, bounded, redundant or no-public-reason items. | Verified-deferred. |
+
+### S-852 / F-837 / E-901 — web.workbook receipt checks reject a missing entry
+
+Recorded before editing; identities verified unused. IN_PROGRESS. R-05
+can't-fail class (optional-chain vacuity).
+
+**Governing.** The owners' retained-receipt and history-browsing contracts
+(design §4.6 local recovery; Core 03 receipt retention).
+
+**Successor.** Replace `.not.toBeNull()` with `.toEqual(expect.anything())`
+at the fifteen sites. `expect.anything()` rejects both `null` and
+`undefined`. This is an in-place replacement.
+
+**Selection.**
+
+- `web.workbook.regression.indicator_canonical_owner`;
+- `web.workbook.regression.party_link_recovery`;
+- `web.workbook.regression.history_browsing_characterization`;
+- `web.workbook.regression.timeline_capture_recovery`;
+- `make lint CHECK=types`.
+
+No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s852-format01` exited 0; it covered S-852 to S-854.
+- `tcr-s852-qualified01` exited 0: four rows passed, pass 3/3 units. Source
+  `7c818504…` at `eba4501fa`, dirty; scan pass; 12 cleanups completed.
+- `tcr-s852-types01` exited 0; it covered S-852 to S-854.
+- The fifteen sites were replaced in place.
+
+### S-853 / F-838 / E-902 — cross-owner receipt and anchor checks reject a missing entry
+
+Recorded before editing; identities verified unused. IN_PROGRESS. The same
+class, found while verifying web.workbook, in tests owned by module.imports
+and package.grid_adapter (both closed in R-05 earlier).
+
+**Successor.** The same replacement at `WorkbookImportController.node.test.ts`
+:638/:639 and grid-adapter `index.test.tsx` :2270/:2520. There,
+`handle.current?.getAnchorRect(...)` passes for a missing handle.
+
+**Selection.**
+
+- `module.imports.frontend.lifecycle`;
+- `package.grid_adapter.regression.source_index_test_tsx_acaaa93e3d`;
+- `package.grid_adapter.regression.index_suite_d804ef9789`;
+- `make lint CHECK=types`.
+
+No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s853-imports01` exited 0 (row passed, 2/2 units).
+- `tcr-s853-grid01` exited 0 (both rows passed, 2/2 units).
+- Source `7c818504…`; scans pass; 11 cleanups each.
+- Type check: `tcr-s852-types01`.
+- The four sites were replaced in place.
+
+### S-854 / F-839 / E-903 — web.workbook negatives observe their subjects
+
+Recorded before editing; identities verified unused. IN_PROGRESS. R-05
+can't-fail class.
+
+**Governing.** Core 03 presence scoping (only active-sheet presence is
+summarized), command search purity, and runtime terminal disposal.
+
+**Successor.**
+
+1. `not.toContain("SA")` becomes `not.toContain("SV")`.
+2. The command fixtures' `invoke` is a `vi.fn`, required not to have been
+   called after matching.
+3. The disposal test requires `controlled.microtasks` to have length 1
+   before `dispose()`.
+4. The `network_flow_activity` negative is removed. The exact ID-set
+   equality above it carries the claim.
+
+**Selection.**
+
+- `web.workbook.regression.workbookshell_presence_indicators_render_from_ke_10dbb35d28`;
+- `web.workbook.regression.command_search`;
+- `web.workbook.regression.workbookz_mutation_runtime_responsibilities_a106000001`;
+- `web.workbook.boundary_support.workbooksurfaceregistration_suite_95c45285ef`;
+- `make lint CHECK=types`.
+
+No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s854-qualified01` exited 0: four rows passed, pass 4/4 units. Source
+  `7c818504…`; scan pass; 13 cleanups completed.
+- The saved-view presence ("SV") is absent from the active-sheet summary.
+- Matching invoked no action.
+- One microtask was queued and was not drained after disposal.
+- Retired: the `"SA"` literal (replaced) and the `network_flow_activity`
+  negative (covered by the exact ID-set equality).
+
+### E-876 closure — R-05 assertion-strength workstream, 2026-11-15
+
+DONE. Every R-05 candidate in the 38 queued owners was verified by reading the
+assertion and the production path it exercises:
+
+- the six inline-item owners;
+- the 32 owners of the bullet inventory (372 candidates);
+- the R-03 items folded into their owners.
+
+Each candidate has a recorded verdict and disposition in the per-owner tables
+above. The confirmed can't-fail class was repaired as 27 recorded slices,
+S-828 to S-854. Each was recorded before editing and qualified at its exact
+rows.
+
+| Slice | Owner | Correction |
+| --- | --- | --- |
+| S-828 | module.networkflow | vector and corpus loops cannot pass empty |
+| S-829 | module.records | inventory cross-incident check compares like with like |
+| S-830 | module.records | reporting facts exercise the active-row incident filter |
+| S-831 | module.recovery | extension-binding tamper cases get a re-signed admission control |
+| S-832 | module.reporting | "must expose" checks reject null |
+| S-833 | module.reporting | installed-sandbox render requires exactly one toolchain snapshot |
+| S-834 | module.revisions | history and rollback checks reject null |
+| S-835 | module.tasksdecisions | reference-concurrency undo verifies the barrier tombstone first |
+| S-836 | module.tasksdecisions | rollback source excludes non-source members |
+| S-837 | module.tasksdecisions | role gates proven against an enabled control |
+| S-838 | module.workbook | conflict surfaces checked independently of production |
+| S-839 | package.grid_adapter | grouping and renderer tests exercise production (type-level draft guarantee) |
+| S-840 | package.protocol_ts | frozen targets non-empty; invented-name and helper self-checks removed |
+| S-841 | package.ui | production token list asserted; self-comparisons removed |
+| S-842 | package.view_contracts | every contract's members proven frozen (null-safe) |
+| S-843 | platform.config | dependency-probe override observed at a non-default value |
+| S-844 | platform.jobs | exhaustion pins its fixed safe summary |
+| S-845 | platform.jobs | retry delays use the Core 01 values |
+| S-846 | platform.openapi | assembly ordering requires both members |
+| S-847 | platform.viewquery | default sort equals the schema default |
+| S-848 | platform.telemetry | null-omission checks see every emitted attribute |
+| S-849 | web.application | stale approval check runs unconditionally |
+| S-850 | web.collaboration | stale-callback and late-recovery checks exercise their subjects |
+| S-851 | web.networkflow | publication collectors prove they observed publication |
+| S-852 | web.workbook | receipt checks reject a missing entry (15 sites) |
+| S-853 | module.imports, package.grid_adapter | the same class at four cross-owner sites |
+| S-854 | web.workbook | presence, command, microtask and profile-ID negatives observe their subjects |
+
+**What changed.** Test files only, plus this tracker. There is no
+production, routing, generated-artifact, fixture-data or golden change.
+
+**Retired assertions.** Each was retired only after its successor passed, or
+was replaced in place by a strictly stronger check. The removed checks are:
+
+- the S-829 empty-inventory comparison;
+- S-839's duplicated wrapper assertions, test-local draft filtering and
+  `renderCell` self-call;
+- S-840's `targets[0]`, invented-name negative and helper self-throw;
+- S-841's local token copy and two self-comparisons;
+- S-842's first-element checks;
+- S-843's assertion-free load;
+- S-844's never-injected sentinel;
+- S-845's policy-derived delays;
+- S-854's `"SA"` literal and `network_flow_activity` negative.
+
+**Verification.**
+
+- Every slice ran `make format` and an exact `make test-slice` at its rows;
+  all exited 0.
+- TypeScript slices also ran `make lint CHECK=types` (exit 0). That also
+  closes the E-845 note that S-821 was never type-checked.
+- Final routing check: `tcr-r05-final-catalog01`
+  (`make source-check CHECK=catalog`) exited 0, pass 2/2 units. All routed
+  titles still resolve, and no title changed.
+- `make lint-markdown` and `git diff --check` passed after every slice.
+
+**Failures, all diagnosed before any rerun.**
+
+- `tcr-s844-qualified01` exited 2 with an infrastructure failure caused by
+  my S-845 edit: `go vet` reported "suspect or" against a constant operand.
+  Repaired and requalified as `tcr-s844-qualified02`.
+- S-842's first successor accepted a null member. This was found by review,
+  not by a failure, and was tightened and requalified.
+
+**Baseline.** All R-05 runs are at `eba4501fa` with a dirty working tree.
+That commit contains every change through the R-04 handoff and no R-05 work.
+
+**Verified-deferred, not repaired, by the maintainer's decision.** These
+were confirmed weaknesses rather than can't-fail checks, or items outside
+assertion repair:
+
+- multi-defect or unpinned cases with no adopted public reason contract;
+- title and wording gaps;
+- sound but loose bounds;
+- bounded browser observations;
+- coverage gaps (missing tests);
+- simplify and redundancy candidates;
+- harness and static-analysis checker hardening (the R-02 class);
+- production dead code (`weakTestRouteTokens`; the unreachable
+  `ErrIllegalTransition` sentinels).
+
+The lifecycle reason and guard vocabulary in Tasks/Decisions is the largest
+such group: 15 type-only sites are left unpinned because no spec or contract
+artifact adopts that vocabulary.
+
+**Not claimed:**
+
+- that every remaining assertion is optimal;
+- any browser or visual run (no browser spec changed);
+- whole-owner suites;
+- performance, whole-suite stability or release acceptance.
+
+R-01, R-02 and R-06 remain deferred as recorded in E-843.
+
+### R-05 handoff, 2026-11-15
+
+- **State.** R-05 is DONE (E-876). The working tree holds the R-05 changes
+  (39 test files and this tracker), unstaged and uncommitted, on top of
+  `eba4501fa`.
+- **Identities.** S-828 to S-854, F-813 to F-839 and E-876 to E-903 are used.
+  The next free identities are S-855, F-840 and E-904; verify before use.
+- **Evidence roots.** `.cartulary/test-results/tcr-s8NN-*` and
+  `tcr-r05-final-catalog01`.
+- **Open residual register.**
+  - R-01: REQ-RC-084 and the related coverage.
+  - R-02: routing items, plus the harness checker hardening recorded in R-05.
+  - R-06: unexecuted evidence, including the browser rows of the
+    pre-checkpoint owners.
+  - The verified-deferred R-05 classes above, if the maintainer wants them
+    pursued (for example, adopting a lifecycle reason vocabulary and then
+    pinning it).
+- **Suggested next step.** The maintainer reviews the R-05 diff and commits
+  it. No further R-05 slices are pending.
+
+### R-05 phase 2 — verified-deferred repairs with the can't-fail rule lifted (E-904 reserved), 2026-11-15
+
+Maintainer request: "Work on the deferred items from R-04, left the
+'can't-fail' rule for the scope". Clarified the same day:
+
+- **Scope.** The R-05 verified-deferred set, with the can't-fail rule
+  lifted. These are not the R-04 residuals.
+- **Repair classes.**
+  - multi-defect and unpinned cases;
+  - loose bounds and missing controls;
+  - titles and simplify;
+  - coverage gaps.
+
+Identities S-855/F-840/E-904 onward were verified unused; the only earlier
+mentions are the R-05 handoff's pointer. E-904 is reserved for the phase
+closure, and slices start at S-855/F-840/E-905. The name "R-05 phase 2"
+avoids the unrelated `R-07` validation-row key in §5.
+
+**Standing constraints.** As for R-05: no stage, commit or publication; each
+correction is recorded as a slice before editing; successors are qualified
+before anything is retired; selections are exact; no blanket reruns; tracker
+checks run after every slice.
+
+**Rules for this phase.**
+
+1. **Multi-defect and unpinned.** Isolate an input to the single defect its
+   case names, as S-723 did.
+   - Where an internal sentinel or reason code exists, pin it. Such a pin
+     records engineering precision, not a requirement.
+   - Where the vocabulary is not adopted by a spec or contract artifact (for
+     example the Tasks/Decisions lifecycle guards), the slice says so. Tests
+     still do not define requirements (root procedure).
+2. **Loose bounds and controls.**
+   - Add an accepted at-limit pair beside each rejected bound.
+   - Add a positive control for each negative.
+   - Replace lower bounds with exact counts where the count is deterministic.
+3. **Titles and simplify.**
+   - Rename over-claiming titles or cases, or strengthen the body to match
+     the title.
+   - Remove redundant, dead or tautological assertions only when an owning
+     check is cited.
+   - A routed title or test-function rename updates the authored family
+     input first, then runs `make generate`, a review of the generated diff,
+     and `make source-check CHECK=generated` and `CHECK=catalog`.
+4. **Coverage gaps.** Prefer new subtests or assertions inside existing
+   routed roots, so routing is unchanged. A new routed root goes through
+   authored routing and generation as in rule 3.
+5. **Out of scope** (recorded, not changed):
+   - production code changes, such as dead-code removal and sentinel
+     mappings;
+   - harness checker logic (`tools/**`), which belongs to R-02;
+   - visual specs and goldens;
+   - measurement thresholds and timing claims.
+
+   Playwright specs may change; only their touched rows run.
+6. **Order and closure.** Owners are taken in the R-05 lexical order. Each
+   owner's deferred items come from its R-05 verification table and the
+   cited owner ledger. Each owner closes with a phase-2 table that gives
+   every deferred item a repaired, retained-with-reason or out-of-scope
+   disposition.
+
+DONE: see the [E-904 closure](#e-904-closure--r-05-phase-2-verified-deferred-repairs-2026-11-15).
+
+#### Phase 2 module.networkflow — deferred items and S-855
+
+| Deferred item (source) | Phase-2 disposition |
+| --- | --- |
+| Request-count negatives without a sentinel: table-lifecycle `graphRequests` (`network-flow.spec.ts:1847`), navigation `graphQueries === 0` (`network-flow-navigation.spec.ts:233` and `:371`), and the Cisco reopen mutation observer (`network-flow.spec.ts:2057`) | Repaired in S-855: a "Refresh tables" sentinel, an app-issued tables GET settled through the same page request events, runs before each count is read. |
+| Duplicated `settledRequest` helpers (`network-flow.spec.ts`, `network-flow-navigation.spec.ts`, `reference-pack.spec.ts`) | Repaired in S-855: one shared `e2e/support/transport/settledRequest.ts` with predicate and method-and-path forms. |
+| E-662 item 24 (`NetworkAnalysisWorkspace` :205 redundant `getBy…toBeTruthy`), items 29 and 36 | Owned by web.networkflow rows; handled in that owner's phase-2 pass. |
+| Items 25 and 28 (verification-matrix "Verify …" titles) | Out of scope: this is claim mapping to verification IDs (R-01). |
+| Items 30, 31 and 32 (contributors `toContainText("Row")`; final Apply unobserved; `.first()` re-visibility; a11y visibility only) | Owned by the web.networkflow rows; handled there. |
+| `FuzzTimeBucketArithmetic` routing; `network_flow.direction` default visibility | Out of scope (R-02 and R-01). |
+
+### S-855 / F-840 / E-905 — Network Flow request-count negatives get sentinels; `settledRequest` consolidated
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-2
+class: loose controls, plus simplify.
+
+**Governing.** NF-REQ-054f bounded exploration: local navigation issues no
+graph query. Table rename preserves graph context. Reopening a saved graph is
+read-only. The E-662 hand-off asked for sentinels and consolidation.
+
+**Successor.**
+
+- A shared helper module exports:
+  - `settledRequestMatching(page, matches)`;
+  - `settledRequest(page, method, pathPattern)`.
+- The three file-local copies are removed and their call sites import the
+  shared helper. Reference-pack call sites use the predicate form.
+- At each of the four count assertions, register
+  `settledRequest(page, "GET", /\/network-flow\/tables$/)`, press "Refresh
+  tables", and await settlement before reading the count.
+
+The count expectations are unchanged.
+
+**Selection.**
+
+- module.networkflow:
+  - `browser.table_lifecycle_continuity`;
+  - `browser.cisco_flow_search_upload_builds_and_saves_the_co_06fe25b179`;
+  - `browser_stateful.saved_graph_read_recovery`;
+  - `browser_stateful.saved_graph_deferred_navigation`;
+  - `browser_stateful.exploration_navigation`;
+  - `measurement.exploration_graph_dom_ceiling` (functional assertions only;
+    no timing claim).
+- module.reference_data:
+  `browser.deployment_admin_browser_sessions_expose_referen_8c10ae0a9c`.
+- `make lint CHECK=types`.
+
+No production or routing change.
+
+Closure: DONE.
+
+| Run | Command | Exit | Result |
+| --- | --- | --- | --- |
+| `tcr-s855-format01` | `make format` | 0 | — |
+| `tcr-s855-types01` | `make lint CHECK=types` | 2 | Caused by this edit: the removed helpers left `Request` (navigation spec) and `Page`/`Request` (reference-pack spec) as unused type imports (TS6196). Fixed by dropping them. |
+| `tcr-s855-format02` | `make format` | 0 | — |
+| `tcr-s855-types02` | `make lint CHECK=types` | 0 | — |
+| `tcr-s855-browser01` | `make test-slice` (six Network Flow rows) | 0 | pass 18/18 units; scan pass; 35 cleanups completed |
+| `tcr-s855-browser02` | `make test-slice` (Reference Pack row) | 0 | pass 12/12 units; scan pass; 23 cleanups completed |
+
+Source `cb52c473…` at `eba4501fa`, dirty. Each sentinel's tables GET
+settled, and every count held:
+
+- graph queries unchanged after the table rename;
+- zero graph queries after temporal navigation and after bounded
+  exploration;
+- no reopen mutations.
+
+Retired: the three file-local helpers. No timing or measurement claim is
+made.
+
+#### Phase 2 module.parties — deferred items and S-856
+
+| Deferred item (source) | Phase-2 disposition |
+| --- | --- |
+| `parties.authoring.spec.ts:97` `patchRequests` length 1, read at the matched response | Repaired in S-856: re-read after the authoritative row read and the saved state. |
+| `parties.recovery.spec.ts:541` `links` length 0 for `create_lost` and `navigation` | Retained with reason: the end of the same test requires exactly one link in those modes, after a deliberate manual link with its receipt. A late automatic link would make it 2. |
+
+### S-856 / F-841 / E-906 — Party patch count re-checked after save settles
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-2
+class: loose controls.
+
+**Governing.** Core 03 single-dispatch authoring: one edit dispatches exactly
+one PATCH.
+
+**Successor.** `applyPartyPatchAndWait` keeps its immediate count, then
+requires `patchRequests` to still have length 1 after
+`waitForAuthoritativeViewRowCells` and `expectWorkbookSaved`. Those later
+reads act as the sentinel.
+
+**Selection.**
+`module.parties.browser.the_browser_workbook_surface_keeps_ordinary_evid_687c58e86e`
+(the only caller's row), plus `make lint CHECK=types`. No production or
+routing change.
+
+Closure: DONE.
+
+- `tcr-s856-format01` exited 0.
+- `tcr-s856-browser01` exited 0: the row passed, pass 12/12 units. Source
+  `f2de7753…` at `eba4501fa`, dirty; scan pass; 23 cleanups completed.
+- `tcr-s856-types01` exited 0.
+- All nine Party edits dispatched exactly one PATCH through the saved state.
+
+### S-857 / F-842 / E-907 — Host and Identity projection SQL rejects any base-table access
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-2
+class: loose controls (R-05 projections "weak" item).
+
+**Governing.** Core 01 projection authority: workbook page reads use the
+projection tables, not the source `hosts` or `identities` tables.
+
+**Defect (F-842).** The negative is the exact text `FROM hosts` (or
+`FROM identities`). A `JOIN hosts`, a schema- or quote-qualified relation, or
+a `hosts.` column qualifier would pass.
+
+**Successor.** A test-local `referencesBaseTable(sql, table)` matches
+`(FROM|JOIN) [schema.]["]table["]` and `table.` as whole words, case-
+insensitively. It carries its own positive and negative self-checks. Both
+tests use it in place of the substring negative, and the positive
+`*_grid_projection` checks remain.
+
+**Selection.**
+`module.projections.unit.host_page_sqlis_keyset_bounded_and_projection_ow_d9e98c6e8c`
+and `module.projections.unit.identity_page_sqlis_keyset_bounded_and_projectio_d3964a85d6`.
+No production or routing change.
+
+Closure: DONE.
+
+- The detector's controls run as the subtest "base-table detector" inside the
+  routed Host test, so no unrouted test function was added.
+- `tcr-s857-format01` exited 0.
+- `tcr-s857-qualified01` exited 0: both rows passed, pass 1/1 unit. Source
+  `e63b2a75…` at `eba4501fa`, dirty; scan pass; 10 cleanups completed.
+- The substring negatives were replaced in place.
+
+### S-858 / F-843 / E-908 — projection descriptor, registry and engine validation branches covered
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-2
+classes: coverage gaps, plus unpinned reasons (E-693 "untested validator
+branches").
+
+**Governing.** Core 01 projection provider contract: declarative descriptor
+validation, executable binding validation and compiled-surface admission fail
+closed with specific diagnostics.
+
+**Successor.** New cases are added to the existing routed tables (new
+subtests only).
+
+- `TestDescriptorSetOwnsDeclarativeValidation` gains nine cases:
+  - empty descriptor set;
+  - nonparticipating restore rebuild with capability;
+  - a deprecated provider with unsupported restore and capability;
+  - an unknown restore participation value;
+  - a blank facade value;
+  - backslash, unnormalized, absolute and non-module facade paths.
+- `TestProjectionProviderRegistryRejectsInvalidExecutableBindings` gains five
+  checks:
+  - refresh capability without an implementation;
+  - incident-rebuild capability without an implementation;
+  - an incident-rebuild implementation without the capability;
+  - an empty provider registry;
+  - a nil catalog through `(*Store).providerRegistry`.
+- `TestCompileSurfaceOwnsExecutablePlanValidation`:
+  - the existing token cases pin the exact token (`";"`, `"$"`);
+  - three new cases cover an empty field key, an empty field expression and
+    a forbidden token in a field's `sort_expr`.
+
+**Recorded, not covered.** The engine's NUL and comment-token branches are
+unreachable: `sqlshape.Literal` panics on those inputs first (the
+`sqltemplate` rules), so they are defense in depth.
+
+**Selection.**
+
+- `module.projections.foundation.descriptor_validation_iteration3`;
+- `module.projections.provider.catalog_validation_684d752cb4`;
+- `module.projections.query.compiled_surface_iteration3`.
+
+No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s858-format01` exited 0.
+- `tcr-s858-qualified01` exited 0: all three rows passed, pass 3/3 units.
+  Source `927d8d17…` at `eba4501fa`, dirty; scan pass; 12 cleanups completed.
+- The empty-expression case was then pinned to `"has empty field "`, and
+  `tcr-s858-qualified02` exited 0 at that row.
+- Production already produced every newly pinned diagnostic. Nothing was
+  retired; the existing token cases were tightened in place.
+
+### S-859 / F-844 / E-909 — projection construction and limit rejections pin their reasons
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-2
+class: unpinned reasons (E-693 "any-error contribution and construction
+tests").
+
+**Governing.** Core 01 projection composition: a missing source, store
+dependency or unknown surface fails closed with its specific diagnostic. A
+provider page limit is bounded to 1..1000.
+
+**Successor.** Each single-defect any-error check requires its exact message:
+
+- Store construction (`catalog_construction_test.go`): "projection database
+  is required", "… catalog is required", "… physical storage is required" and
+  "record endpoint locker is required".
+- Artifact storage zero input (`storage/artifact_test.go:194`): "bind
+  Artifact projection row: invalid input".
+- Party page limits 0 and 1001 (`rebuild_test.go:171/:174`): "party
+  projection source page limit N is outside 1..1000".
+- Contributions:
+  - Artifacts nil source and unknown surface;
+  - Parties nil source and unknown surface;
+  - Tasks/Decisions each missing source ("task-request …" and "decision
+    projection source is required") and unknown surface;
+  - Evidence unknown surface.
+
+  Each pins "… projection surface \"cartulary.view.unknown.v1\" has no
+  view-schema contract" or "… source is required".
+
+**Selection.**
+
+- `module.projections.unit.canonical_store_rejects_incomplete_construction…`
+  (the row holding `TestCanonicalStoreRejectsIncompleteConstruction`);
+- the storage, rebuild and contribution rows found by test name;
+- `module.parties.unit.new_contribution_requires_source_7a663ababe`.
+
+No production or routing change.
+
+Closure: DONE.
+
+- Resolved rows:
+  - `module.projections.foundation.private_catalog_validation_iteration2`;
+  - `source.party_projection_source_enumeration_is_determini_69ccf7df7c`;
+  - `storage.artifact_physical_binding_parity_iteration3`;
+  - the four `construction.*` rows.
+- `tcr-s859-format01` exited 0.
+- `tcr-s859-qualified01` exited 0: seven rows passed, pass 9/9 units. Source
+  `bcc960f4…` at `eba4501fa`, dirty; scan pass; 20 cleanups completed.
+- `tcr-s859-parties01` exited 0 (row passed, 1/1).
+- Every any-error check now requires its exact message, and the existing
+  checks were tightened in place.
+
+### S-860 / F-845 / E-910 — projection counts and presence checks become exact values
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-2
+class: loose bounds (E-693 status and count items).
+
+**Governing.** Core 01 projection composition and keyset paging. The
+application composes exactly the ten current providers. Each surface maps to
+its owning provider. The Artifact contribution owns exactly its eight views.
+A page query binds its keyset position.
+
+**Successor.**
+
+- `adapters_test.go`: `DescriptorSet().Len() != 10` becomes the exact sorted
+  provider IDs (`artifact`, `assessment`, `decision`, `evidence`, `host`,
+  `identity`, `indicator`, `party`, `task_request`, `timeline`).
+- `provider_registry_test.go:26-29`: `providerForView` must return the
+  provider whose ID owns the view (`host` and `identity`), not just any
+  non-nil provider.
+- Artifact contribution: the descriptor's views and the intents' views equal
+  the literal eight Artifact view IDs. This replaces the two length checks.
+- Host and Identity page SQL: the keyset position is bound as an argument,
+  next to the existing `LIMIT 26` argument check.
+
+**Retained with reason.**
+
+- `query_test.go:150-156` value-wrapper presence: exact per-kind values are
+  owned by the null-variant matrix (:190-220) and the per-surface tests.
+- `query_store_test.go:65-99` counts are already exact (1, then 0) for the
+  fixture's upsert and delete.
+
+**Selection.**
+
+- `module.projections.foundation.adapter_contract_48f57d6542`;
+- `provider.catalog_validation_684d752cb4`;
+- `construction.artifact_typed_variants_iteration3`;
+- the Host and Identity page-SQL rows.
+
+No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s860-format01` exited 0.
+- `tcr-s860-qualified01` exited 0: five rows passed, pass 4/4 units. Source
+  `6f06ad19…` at `eba4501fa`, dirty; scan pass; 13 cleanups completed.
+- The count conjuncts were replaced in place by exact values.
+
+### S-861 / F-846 / E-911 — projection titles made true and dead or tautological checks replaced
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-2
+class: titles and simplify (E-693 wording and simplify items).
+
+**Successor.**
+
+1. `TestMaintenanceRebuildIsOneCompleteCatalogTransaction`: each provider
+   records the transaction it receives, and all three must receive the same
+   non-nil transaction, so the title's "one transaction" is observed. The
+   begin, commit and rollback counts stay.
+2. `TestGenericProjectionContractQueryFieldsAreMapped`: remove the dead
+   `note.full_text` exemption. `note.full_text` is a
+   `synthetic_filter_predicates` entry in `cartulary.view.notes.v1`, not a
+   `filter_fields` member, so the exemption never matched.
+3. `TestRebuildRestoreProjectionsReportsProviderResultsAndReplacesStaleRows`:
+   the tautological `RowCount < 0` becomes exact counts. The only seeded
+   source record is one Timeline event, so `timeline_grid_projection` must
+   report 1 and every other table 0.
+4. The Timeline and Assessment source-enumeration tests, titled
+   "Deterministic…": re-read the first page in the same transaction and
+   require it to equal the first read. The Party test is unchanged; its exact
+   ordered pages already pin the order.
+
+**Retained with reason.**
+
+- The `CompileSurface` restatements in `TestGenericProjectionContractQueryFieldsAreMapped`:
+  they check that default-sort, filter and grouping keys are mapped
+  surface fields, which `CompileSurface` (all schema fields mapped) does
+  not imply for keys outside `Fields`.
+- `catalog_construction_test.go:40`: a parity check between the registry
+  and the descriptor set, two structures.
+
+**Selection.** The rows holding these four tests, resolved by test name. No
+production or routing change.
+
+Closure: DONE.
+
+- Rows:
+  - `module.projections.query.contract_shape_and_keyset_59528aa56d`;
+  - `rebuild.managed_service_assertions_for_restore_contract_f5f84e9227`;
+  - `rebuild.service_free_contract_assertions_for_atomic_cata_73ede45d54`.
+- The first edit compared `int64` with `int`; it was corrected before
+  formatting, so no run was affected.
+- `tcr-s861-format01` exited 0.
+- `tcr-s861-qualified01` exited 0: three rows passed, pass 4/4 units. Source
+  `2404b508…` at `eba4501fa`, dirty; scan pass; 15 cleanups completed.
+- All three maintenance providers shared one transaction.
+  `timeline_grid_projection` reported 1 row and every other table 0.
+- Repeated first pages were identical.
+- Retired: the dead exemption and the `RowCount < 0` tautology.
+
+### S-862 / F-847 / E-912 — restore projection request validation isolated per field
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-2
+class: multi-defect.
+
+**Defect.** `TestRebuildRestoreProjectionsRejectsInvalidRequestBeforeStoreAccess`
+submits the zero request, which is missing all four fields. Only the first
+reason is pinned, so the later required-field rules are untested.
+
+**Successor.** Keep the zero-request case. Add three single-defect variants
+of an otherwise valid request:
+
+- blank `restored_source_state_ref`;
+- unsupported `rebuild_scope` `"partial"`;
+- blank `provider_registry_ref`.
+
+Each requires its exact message, the failed and incomplete result with code
+`invalid_restore_projection_rebuild_request`, and no store access (the
+rebuilder has a nil store). The governing contract is `restorecontract`
+(`ProjectionRebuildRequest.Validate`).
+
+**Selection.** The row holding the test, resolved by name. No production or
+routing change.
+
+Closure: DONE.
+
+- Row: `module.projections.rebuild.service_free_contract_assertions_for_restore_con_663c31db5c`.
+- `tcr-s862-format01` exited 0.
+- `tcr-s862-qualified01` exited 0: the row passed, pass 1/1. Source
+  `4a06fd2f…`; scan pass; 10 cleanups completed.
+- Nothing was retired.
+
+#### Phase 2 module.projections — owner table
+
+| R-05 deferred item | Phase-2 disposition |
+| --- | --- |
+| `FROM hosts` and `FROM identities` text negatives | Repaired in S-857. |
+| Descriptor, registry and engine validator branches; catalog nil registry | Repaired in S-858. The engine NUL and comment branches are unreachable through `sqlshape.Literal` (recorded). |
+| Any-error contribution and construction tests; storage zero input; Party page limits | Repaired in S-859. |
+| Count and presence items (adapter providers, `providerForView`, Artifact intents, keyset position) | Repaired in S-860. Cell-wrapper presence and the `query_store` exact counts were retained with reason. |
+| "One transaction" wording; dead `note.full_text` exemption; `RowCount < 0`; "Deterministic" single runs | Repaired in S-861. |
+| Zero-request multi-defect | Repaired in S-862. |
+| `CompileSurface` restatements; `catalog_construction:40` | Retained with reason (see S-861). |
+| Walker scanned-file minimum | Retained: a wrong `repoRoot` already fails fatally at the projections-root read and at the exclusion-inventory load (E-693). |
+| "Non-strict manifest decoding" | Retained: the only decoder in scope is the test-local exclusion inventory loader, not a production manifest. |
+| Projection SQL checker self-test routing | Out of scope (R-02). |
+| Fixed-clock seeds | Closed by R-04. |
+
+### S-863 / F-848 / E-913 — Records portable decoding cases isolated and uncovered row branches covered
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-2
+classes: multi-defect, unpinned and coverage (E-696 SP:45, SP:468/472, "about
+15 untested PORT branches").
+
+**Governing.** Core 01 Records invariants table: `records.envelope_legal`,
+covering exact shape, canonical UUIDs, admitted actors, positive version and
+the deletion tuple, and `records.incident_scope`.
+
+**Successor (`incident_bundle_source_port_test.go`).**
+
+- `multiple_values` and `duplicate_member` are built from the complete valid
+  row: a valid row followed by a second value on the same line, and the
+  valid row with a duplicated `record_id` member. The trailing value or the
+  duplicate member is then each case's only defect.
+- `TestRecordsSourcePortRejectsMissingSubtypeCatalog_Unit` also requires
+  "source port contract rejected". The adapter wraps both its rules in the
+  shared `ErrInvalidCatalog`, and this distinguishes the contract rule from
+  "incomplete source port implementation".
+- New single-defect cases in `…RejectsEveryInvalidCategory_Unit` (subtests
+  only):
+  - a renamed member (same count, required member missing);
+  - a malformed `incident_id`;
+  - an uncataloged `updated_by_user_id`;
+  - an overflowing `row_version`;
+  - a non-string `deleted_at`;
+  - an uncataloged `deleted_by_user_id` with an in-range `deleted_at`;
+  - two valid rows in descending `record_id` order;
+  - a bundle without the Records member path.
+
+**Selection.** The row or rows holding these three tests, resolved by name.
+No production or routing change.
+
+Closure: DONE.
+
+- Row: `module.records.unit.portability_duplicate_identity_ad2a48986e`; it
+  holds both tests.
+- `tcr-s863-format01` exited 0.
+- `tcr-s863-qualified01` exited 0: the row passed, pass 1/1. Source
+  `fb2c6947…` at `eba4501fa`, dirty; scan pass; 10 cleanups completed.
+- Production rejects every new single-defect case with its declared
+  invariant.
+- The two multi-defect payloads were replaced in place.
+
+### S-864 / F-849 / E-914 — Records catalog validation, envelope loads and snapshot identity covered exactly
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-2
+classes: coverage and loose values (E-696: production `Catalog.ValidateTx`
+wiring, snapshot nil IDs, ES count items).
+
+**Governing.** Core 01 `records.subtype_complete`: aggregate comparison of
+source-owner bindings against the envelope inventory, with exact envelope
+loads and versioning.
+
+**Successor.**
+
+- `TestValidateBindingsRequiresExactForwardAndReverseCoverage` gains the
+  subtest "production catalog ValidateTx". `testSource` can now emit
+  bindings and a visit error. The subtest requires:
+  - complete bindings to be accepted;
+  - a missing binding, or a binding emitted by the wrong family, to give
+    `ErrIncompleteBindings`;
+  - a visitor error to propagate;
+  - a nil catalog, nil transaction, nil incident or foreign summary to give
+    `ErrInvalidCatalog`.
+- `TestEnvelopeStoreContract_Integration`:
+  - the batch load must return exactly the two known record IDs as keys
+    (a duplicate collapsed, the unknown omitted), not just a count of 2;
+  - after `AdvanceVersionTx`, the envelope's `updated_at` and
+    `updated_by_user_id` must be the advance instant and actor.
+- The historical snapshot validation also rejects a nil incident and a nil
+  record ID with `records.envelope_legal`.
+
+**Retained with reason.**
+
+- Bundle-version admission: it belongs to the incidentbundles source-port
+  adapter (E-361 reuse).
+- Deleted-row export: already covered by the clock re-export, which carries
+  a deletion tuple (:155-166).
+- `lock=true` loads: covered by the generated-envelope load.
+
+
+**Added, not retained.** The inventory nil visitor turned out to be untested.
+The inventory test now requires `VisitIncidentRecordIDsTx` with a nil
+visitor to fail with "records: missing incident record visitor".
+
+**Selection.** The rows holding these three tests, resolved by name. No
+production or routing change.
+
+Closure: DONE.
+
+- Rows:
+  - `module.records.envelope.store` (the inventory helper runs inside
+    `TestEnvelopeStoreContract_Integration`);
+  - `unit.subtype_presence_catalog`;
+  - `unit.portability_duplicate_identity_ad2a48986e`.
+- `tcr-s864-format01` exited 0.
+- `tcr-s864-qualified01` exited 0: three rows passed, pass 5/5 units. Source
+  `caa01924…` at `eba4501fa`, dirty; scan pass; 16 cleanups completed.
+- The count check was replaced by an exact key set. Nothing else was
+  retired.
+
+#### Phase 2 module.records — owner table
+
+| R-05 deferred item | Phase-2 disposition |
+| --- | --- |
+| CT:35/:36 `missing` and `duplicate` multi-defect | Retained with reason. `NewCatalog` returns one bare `ErrInvalidCatalog` for every rule, and a duplicate family necessarily duplicates its types, so neither pinning nor isolation is possible. |
+| SP:45 shared sentinel; SP:468/:472 strict-decoder multi-defect; untested port branches | Repaired in S-863. |
+| Production `Catalog.ValidateTx`; snapshot nil IDs; batch-load count; advance-version facts; nil inventory visitor | Repaired in S-864. |
+| SP:94/:98/:162/:205-222 and the remaining ES counts | Retained: already exact values (1, 2, exact clocks, exact predicate counts) beside exact envelope checks. |
+| ES:65-87/:108 single-transaction lock calls; SL:80-89 uncontended load | Retained: the contention contract is owned by S-690 and SL:71. |
+| Bundle-version admission; deleted-row export; `lock=true` loads | Retained with reason (see S-864). |
+| Shell checker `scan_paths` and lock paths | Out of scope (R-02). |
+| Clock ordering | Closed by R-04. |
+
+### S-865 / F-850 / E-915 — Recovery integrity, reset and runtime failures pin their causes
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-2
+class: unpinned reasons (E-700 any-error items).
+
+**Governing.** Core 01 recovery: restore and reset fail closed for the
+specific integrity, coverage or runtime cause. Runtime failures close the
+created resources in reverse order.
+
+**Successor.**
+
+- `postgres_integrity_integration_test.go`:
+  - :128 (orphan incident row) also requires "restored foreign key";
+  - :153 (orphan support reference) requires "restored owner invariants".
+  These are the two distinct `ErrVNextBackup` causes in
+  `postgres_integrity.go:77/:92`.
+- `reset_metadata_integration_test.go:118`: the unowned table must fail as
+  `recoverystate.ErrInvalidCatalog` with "database tables and frozen catalog"
+  (`ValidateDatabaseTableNames`).
+- `application/runtime_lifetime_test.go:50/:73`: the injected backup-open
+  failure becomes a sentinel. Both runtimes must return an error that
+  `errors.Is` that sentinel and mentions "open source backup storage". The
+  close-order checks are unchanged.
+- `target_restore_admission_integration_test.go:257`: the injected reset
+  listing failure becomes a sentinel, and the reset error must wrap it.
+
+**Selection.** The rows holding these tests, resolved by name. No production
+or routing change.
+
+Closure: DONE.
+
+- Rows:
+  - `module.recovery.integration.reset_preserves_crypto_format_identity`;
+  - `integration.restore_control_fences_admission_canonical_compl_9d6e6a25d6`;
+  - `unit.runtime_resource_lifetimes_9c37e10ad6`.
+- `tcr-s865-format01` exited 0.
+- `tcr-s865-qualified01` exited 0: three rows passed, pass 4/4 units. Source
+  `c31b50da…` at `eba4501fa`, dirty; scan pass; 15 cleanups completed.
+- Each injected or integrity failure is reported with its own cause.
+- The any-error checks were replaced in place.
+
+### S-866 / F-851 / E-916 — restore target marker rejections pin their reasons
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-2
+class: unpinned reasons (E-700 target_admission :93-94).
+
+**Governing.** Recovery restore-target admission. A marker is admitted only
+when it is strict JSON with the current schema, purpose and application
+format, the exact generation proof, the exact target bindings and a valid
+lifetime and issue window.
+
+**Successor.** Each `ValidateRestoreTargetMarker` table case also requires
+its reason (`target_admission.go`):
+
+| Reason | Cases |
+| --- | --- |
+| "wrong schema or purpose" | purpose, v1/v2/v4 schema, application format |
+| "wrong target binding" | database, object and Reference Pack bindings |
+| "wrong target generation" | wrong generation |
+| "generation proof is invalid" | missing generation |
+| "not strict JSON" | duplicate member, trailing data |
+| "decode restore target marker" | unknown member |
+| `errTargetMarkerExpired` | expired |
+| "not currently valid" | future issued |
+| "lifetime is invalid" | over 24 hours |
+
+**Selection.** The row holding the marker test, resolved by name. No
+production or routing change.
+
+Closure: DONE.
+
+- Row: `module.recovery.unit.restore_target_marker_v2_validates_purpose_gener_492d40e257`.
+- `tcr-s866-format01` exited 0.
+- `tcr-s866-qualified01` exited 0: the row passed, pass 1/1. Source
+  `a12055e9…`; scan pass; 10 cleanups completed.
+- All 16 reasons matched production on the first run.
+- The any-error check was replaced in place.
+
+### S-867 / F-852 / E-917 — operator interruption observes the blocked journal admission
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-2
+class: missing control (R-03; E-700 "no observed lock waiter").
+
+**Governing.** Recovery operator admission ordering: the target transition
+commits independently before the source journal `started` row. Interruption
+between them leaves the target quarantined in `restoring`.
+
+**Successor.** In `target_control_process_test.go` ("interrupted_admission"),
+after the target reaches `TargetRestoring` and before the kill, poll the
+source database until a session is waiting on the held advisory lock 784193:
+
+- an ungranted `pg_locks` row (`locktype='advisory'`, `objid=784193`);
+- whose `pg_blocking_pids` includes the blocker's backend PID;
+- within the existing deadline.
+
+This proves the process reached the journal insert fenced by the trigger.
+The existing quarantine and retry assertions are unchanged.
+
+**Selection.** The row holding `target_control_process_test.go`, resolved by
+name. No production or routing change.
+
+Closure: DONE.
+
+- Row: `module.recovery.process.real_operator_interruption_preserves_quarantine_ed07ead5c1`.
+- `tcr-s867-format01` exited 0.
+- `tcr-s867-qualified01` exited 0: the row passed, pass 7/7 units. Source
+  `c0fe66ec…`; scan pass; 18 cleanups completed.
+- The operator was observed waiting on lock 784193 before the kill, and the
+  quarantine and retry assertions held.
+- Nothing was retired.
+
+### S-868 / F-853 / E-918 — restore candidate ordering covers every tie-breaker
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-2
+class: titles and coverage (E-700 "TieBreakers", `created_at` tie-break
+untested).
+
+**Governing.** Recovery latest-candidate selection (`catalog.go`). The order
+is the latest consistency point, then the latest `created_at`, then the
+highest `backup_set_id`.
+
+**Successor.** `TestRestoreCandidateUsesObjectStoreBackupLatestTieBreakers`
+keeps its ID tie, then adds two steps:
+
+1. A lower-ID set (…0201) at the same consistency point with a later
+   `created_at` must be selected over …0204.
+2. A still-lower-ID set (…0200) with a later consistency point and an
+   earlier `created_at` must then be selected over both.
+
+Each key now outranks the next.
+
+**Selection.** The row holding the test, resolved by name. No production or
+routing change.
+
+Closure: DONE.
+
+- Row: `module.recovery.integration.restore_candidate_uses_object_store_backup_lates_c2cf211fbd`.
+- `tcr-s868-format01` exited 0.
+- `tcr-s868-qualified01` exited 0: the row passed, pass 3/3 units. Source
+  `6380be0d…`; scan pass; 14 cleanups completed.
+- Each of the three ordering keys outranked the next.
+
+### S-869 / F-854 / E-919 — Recovery tamper and duplicate-key rejections pin their reasons
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-2
+class: unpinned reasons (E-700 `ErrVNextBackup`-only checks; object-store
+duplicate key :69).
+
+**Successor.**
+
+- `extension_recovery_contract_test.go` tamper table: each case requires its
+  reason next to `ErrVNextBackup`:
+  - legacy v1, missing owner catalog binding and unpackaged codec digest:
+    "integrity manifest facts mismatch";
+  - implementation binding mismatch: "Graph Projection restore artifact
+    binding mismatch". A first guess, "implementation binding", was corrected
+    from the `tcr-s869-qualified01` failure output; the artifact proof binding
+    is this mutation's actual cause.
+  The S-831 re-signed control stays.
+- `object_store_backup_artifacts_test.go:69`: the duplicated-member manifest
+  must also report "duplicate object member" (`canonicaljson.DecodeStrict`).
+
+**Selection.** The rows holding these tests, resolved by name. No production
+or routing change.
+
+Closure: DONE.
+
+| Run | Exit | Result |
+| --- | --- | --- |
+| `tcr-s869-format01` | 0 | — |
+| `tcr-s869-qualified01` | 2 | The implementation-binding pin was my wrong guess; production reported "Graph Projection restore artifact binding mismatch". The pin was corrected (no production change). |
+| `tcr-s869-qualified02` | 0 | Both rows passed (`…selected_backup_restore_fails_before_readiness_w_3a6ccb7d7a` and `…support_object_store_backup_object_store_backup_445727db3c`), pass 4/4 units; source `7c072d83…`; scan pass; 15 cleanups completed. |
+
+#### Phase 2 module.recovery — owner table
+
+| R-05 deferred item | Phase-2 disposition |
+| --- | --- |
+| postgres integrity :128/:153, reset_metadata :118, runtime_lifetime :50/:73, target_restore_admission :257 | Repaired in S-865. |
+| target_admission marker table :93-94 | Repaired in S-866. |
+| Operator advisory-lock waiter (R-03) | Repaired in S-867. |
+| restore_test "TieBreakers" | Repaired in S-868. |
+| Extension tamper `ErrVNextBackup`-only checks; object-store duplicate key | Repaired in S-869. |
+| binding_validation :61-62 multi-defect | Retained with reason. `validatePostgresBinding` deliberately reports the single opaque finding `invariant_check_failed` (`binding_validation.go:33`). Any change to entries also changes the proof digest, so the defects cannot be separated. |
+| target_admission journal decoder :257, restore_verification_artifact :109, state and recoverystate catalogs, storage :109, structural_completion :56 | Retained with reason: strict-decoder or catalog rejections of single mutations, beside their valid controls. The decoders report stage-level messages, not per-defect reasons. |
+| restore_owner :96, reference_attack :116, backup_metadata :441/:603 | Retained with reason. These are injected-fault and defect matrices whose claim is "fails closed before readiness". `reference_attack` already requires the injected fault to have fired, and :603 the claim callback count. |
+| Operator :835 reason code | Retained: `Error.Code` `verification_failed` and the backup set are pinned. The determinate cause belongs to the verification rows. |
+| target_restore_admission :157 lease loss | Retained (E-700): the runner refuses on admission cancellation, and `ErrTargetServingLeaseLost` is an application-layer mapping. |
+| Absence checks (structural_restore :30-33, restored_networkflow_claim :121-124, restore.spec :275, target_restore_admission :123, evidence_inventory :242, reference_attack :134) | Retained: bounded or setup-guaranteed, as recorded in E-700. |
+| Titles ("Atomic", generation :149, types "Closed", verification "Lexicographic", catalog "Every", portable plaintext, null generation, streaming "V2") | Retained: each title names a property its body or the owning row demonstrates; no routed rename was justified. "TieBreakers" was the only title with a missing case, and S-868 repaired it. |
+| Status and count items; gated branches; `vnext_codec:66`; `backup_metadata_store:57-59` | Retained (E-700): exact beside their checks, or unreachable and harmless. |
+| Fixed clocks | Closed by R-04. |
+
+### S-870 / F-855 / E-920 — Reference Data content-bytes guard and access-failure status
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-2
+classes: controls and simplify (R-05 reference_data items).
+
+**Successor.**
+
+- `packformat/content_test.go` `testCanonicalProfileBytes`: require at least
+  one validated row before the per-row byte search. The helper then stands
+  alone instead of relying on its sibling's guard.
+- `referencePacks.test.ts:241`: when an outcome has no `problem`, require
+  exactly `{ kind: "access_failed", status }` for 401 and 403, so their
+  status is asserted.
+
+**Selection.** The rows holding these tests, resolved by name, plus
+`make lint CHECK=types`. No production or routing change.
+
+Closure: DONE.
+
+- The 12 per-profile packformat rows, which hold every caller of the helper,
+  and `module.reference_data.frontend.administration_transport`.
+- `tcr-s870-format01` exited 0.
+- `tcr-s870-qualified01` exited 0: 13 rows passed, pass 3/3 units. Source
+  `00bf29a5…`; scan pass; 12 cleanups completed.
+- `tcr-s870-types01` exited 0.
+- Nothing was retired.
+
+#### Phase 2 module.reference_data — owner table
+
+| R-05 deferred item | Phase-2 disposition |
+| --- | --- |
+| Content-bytes helper guard; `referencePacks.test.ts:241` access status | Repaired in S-870. |
+| `http_admission` status-only 404 and 405 | Retained with reason. The 405 path writes a bodiless response (`family_routes.go:93`) with `Allow` asserted; the unclaimed 404 has no error code by design. |
+| `reference_pack_integration` "NoNetworkIsNeeded" | Retained: denying the network needs harness support beyond a test assertion (out of scope). |
+| `reference_pack_integration` "Exactly" lower bound | Retained: the exact Base inventory is pinned; the index count follows Base content, and a literal would duplicate the fixture. |
+| `referencePacks.test.ts:113-115`, `reference-pack.spec.ts:565`, model :91-98, progress "cancel", `consumer_integrity:256` wording | Retained: status-only or wording items beside exact checks. |
+| `cleanup_lifetime` 20 ms ordering | Out of scope: deterministic ordering needs a production hook exposing the lease wait (E-845 residual). |
+| Shared contract.v1 fixture; object_collector and storage windows | Closed by S-821 and S-822. |
+
+### S-871 / F-856 / E-921 — Report composition local validation covers its emitted diagram codes
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-2
+class: coverage (E-720 and R-05 reportcomposition: emitted but untested
+codes).
+
+**Governing.** REQ-RC-084 Table 14-A (composition validation reason codes),
+as emitted by `canonical.go` local validation.
+
+**Successor.** In `TestCompositionLocalValidationScopeAndOrdering`, the
+valid graph diagram declaration (the same one used by
+`render_source_test.go`) first validates clean. Each of four single
+mutations must then report its code:
+
+| Mutation | Required code |
+| --- | --- |
+| Two declarations with the same `decl_id` | `composition_duplicate_id` |
+| `replaces_decl_id` naming another declaration | `composition_replacement_target_missing` |
+| A `mermaid_source` member inside `selection_rule` | `raw_generated_source_invalid` |
+| A label override on an unsupported `target_kind` | `diagram_label_override_invalid` |
+
+**Recorded, not covered here.**
+
+- `composition_version_bound` is the HTTP 409 mapping of `ErrVersionBound`
+  in `routes.go`; it needs a route integration fixture.
+- `composition_duplicate_diagram_insert` is emitted by the Reporting render
+  path (`reporting/composition_diagrams.go`) and belongs to that owner.
+- The never-emitted codes and RC-FIX-014 stay under R-01.
+
+**Selection.** `module.reportcomposition.unit.canonical_digests`. No
+production or routing change.
+
+Closure: DONE.
+
+- `tcr-s871-format01` exited 0.
+- `tcr-s871-qualified01` exited 0: the row passed, pass 1/1. Source
+  `78cca557…`; scan pass; 10 cleanups completed.
+- The valid declaration validated clean, and each mutation reported its
+  code.
+
+#### Phase 2 module.reportcomposition — owner table
+
+| R-05 deferred item | Phase-2 disposition |
+| --- | --- |
+| Emitted but untested: `composition_duplicate_id`, `composition_replacement_target_missing`, `raw_generated_source_invalid`, `diagram_label_override_invalid` | Repaired in S-871. |
+| `composition_version_bound` | Retained: it is the 409 mapping of `ErrVersionBound` in `routes.go` and needs a version-bound route integration fixture. Recorded for the R-01 REQ-RC-084 decision. |
+| `composition_duplicate_diagram_insert` | Reassigned: Reporting emits it (`composition_diagrams.go:57`), so it belongs to module.reporting coverage. |
+| Never-emitted codes and RC-FIX-014 | Out of scope (R-01: tests or an NLSpec revision need a maintainer decision). |
+
+Phase-2 progress at this point: S-855 to S-871, closed through
+module.reportcomposition. Next owner: module.reporting.
+
+### S-872 / F-857 / E-922 — Reporting export coverage requires the task's relationship and drops a vacuous loop
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-2
+classes: loose controls and simplify (R-05 reporting :1737 and :1701).
+
+**Finding (diagnostic `tcr-s872-diag02`, reverted).** Export-model
+relationship paths are keyed by `record_link_id`
+(`/relationships/<link>/src_record_id` and so on). The exact lookup
+`/relationships/<task id>` never matches, so `requireExportModelCoverage`
+always fell back to "any relationship path". The first diagnostic attempt
+(`tcr-s872-diag01`) selected the wrong row, because the check is in a
+helper; it passed without reaching the check, and the file was restored.
+
+**Successor.**
+
+- Require at least one relationship whose `src_record_id` or
+  `dst_record_id` field value is the fixture task's record ID. This replaces
+  the unreachable exact lookup and the prefix fallback.
+- Remove the vacuous exclusion loop for investigative-query and
+  forensic-keyword paths. Those families have no export alias, so their
+  admission fails snapshot creation earlier in the same test (R-05).
+
+**Selection.**
+`module.reporting.integration.snapshot_creation_resolves_and_persists_an_immut_afe792169c`
+(caller `TestSnapshotReplayAndReleaseProvenanceAreStable_Integration`). No
+production or routing change.
+
+Closure: DONE.
+
+| Run | Exit | Result |
+| --- | --- | --- |
+| `tcr-s872-diag01` | 0 | Diagnostic only, not evidence: the wrong row, so the check was never reached. |
+| `tcr-s872-diag02` | 2 | Diagnostic only, not evidence: listed the relationship paths. The file was restored and `cmp` matched. |
+| `tcr-s872-format01` | 0 | — |
+| `tcr-s872-qualified01` | 0 | The row passed, pass 3/3 units; source `3a462687…`; scan pass; 14 cleanups completed. |
+
+The fixture task appears as a relationship endpoint. Retired: the
+unreachable exact lookup with its prefix fallback, and the vacuous exclusion
+loop.
+
+### S-873 / F-858 / E-923 — render installation name and root-escape rules isolated
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-2
+class: multi-defect (R-05 reporting: `human_material` and `root_escape`).
+
+**Governing.** Reporting NLSpec §24.3 installed renderer admission. Human
+material names and a root outside the installation directory are rejected.
+
+**Defect (F-858).**
+
+- `human_material` was a dangling symlink, which is also undeclared and a
+  link.
+- `root_escape` pointed at a nonexistent `../outside`, which is also
+  missing.
+
+Each would still be rejected if its named rule were removed.
+
+**Successor.**
+
+- `human_material`: `README.md` becomes a regular, declared file with the
+  correct digest, so only the human-material name rule can reject it.
+- `root_escape`: the complete, valid installation root is moved beside the
+  installation directory, and the receipt names it as `../<digest>.root`.
+  Only the escape rule can reject it.
+
+Both still require `ErrInstallation`, and the `none` control stays.
+
+**Selection.** The row holding `installation_linux_test.go`, resolved by
+name. No production or routing change.
+
+Closure: DONE.
+
+- Row: `module.reporting.integration.renderer_process`.
+- `tcr-s873-format01` exited 0.
+- `tcr-s873-qualified01` exited 0: the row passed, pass 1/1. Source
+  `d5dc91db…`; scan pass; 10 cleanups completed.
+- Production rejected both isolated cases with `ErrInstallation`.
+- Retired: the dangling-link and nonexistent-root inputs.
+
+#### Phase 2 module.reporting — owner table
+
+| R-05 deferred item | Phase-2 disposition |
+| --- | --- |
+| Exclusion loop :1701; `/relationships/` fallback :1737 | Repaired in S-872. |
+| `human_material` and `root_escape` multi-defect | Repaired in S-873. |
+| `23514` early returns (release_recovery :133-137, template_assets :111) | Retained: a database CHECK rejection is fail-closed. Separating the layers needs a per-mutation constraint inventory beyond assertion repair (recorded). |
+| networkflow :167 cleanup-candidate negative | Retained: controlled by the `ProfileID` source owner and `FOR UPDATE SKIP LOCKED` (R-05). |
+| render_attempt_deadline :93 trivial counts; redaction :889/:344 titles; render_failure_record "unsupported schema" | Retained: wording or trivial zeros beside `successCalls == 1` (E-722). |
+| Stderr (diagnostic) overflow case after S-725 | Retained: the real-render rows (`renderer_installed_sandbox`, `renderer_stage_boundary`) cover the bound through S-725. A dedicated overflow fixture action is optional coverage. |
+| `composition_duplicate_diagram_insert` (reassigned from reportcomposition) | Retained: emitted by `composition_diagrams.go:57` on the render path; its coverage needs a render fixture with a duplicated diagram insert (recorded). |
+| E-722 location-sweep items (container_redaction, concurrent_admission, render_stage, release_recovery, createReportingWorkflow) | Retained with the reasons recorded in R-05. |
+
+### S-874 / F-859 / E-924 — Revisions history helper simplified; atomicity test gets an in-transaction control
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-2
+classes: simplify and controls (R-05 revisions: ignored sequence argument,
+zero counts after the test's own rollback).
+
+**Successor.**
+
+- `assertHistoryItem` drops its ignored sequence parameter, and its three
+  callers drop the argument. The public contract hides storage sequence, and
+  the helper keeps asserting `sequence_no` is absent.
+- `TestRevisionsIncidentBundleFailureIsAtomic`: after `ApplyImportTx` and
+  before the test's rollback, the same transaction must show the imported
+  change set (`change_sets` count 1). The later zero counts then prove the
+  rollback removed real writes, not that nothing was written.
+
+**Selection.** The rows holding `TestRecordHistoryEnvelope_Unit` and
+`TestRevisionsIncidentBundleFailureIsAtomic`, resolved by name. No production
+or routing change.
+
+Closure: DONE.
+
+- Rows: `module.revisions.portability.atomicity` and
+  `store.managed_service_assertions_for_get_api_v1_record_049278bce8`.
+- `tcr-s874-format01` exited 0.
+- `tcr-s874-qualified01` exited 0: both rows passed, pass 4/4 units. Source
+  `beb26ce5…`; scan pass; 17 cleanups completed.
+- Retired: the ignored helper parameter.
+
+#### Phase 2 module.revisions — owner table
+
+| R-05 deferred item | Phase-2 disposition |
+| --- | --- |
+| Null-passing checks | Closed by S-834. |
+| `assertHistoryItem` ignored sequence argument; atomicity zero counts after the test's own rollback | Repaired in S-874 (the in-transaction control). |
+| Count-based atomicity with zero before-values (rollback, integration, delete_restore) | Retained: "unchanged" counts detect partial writes, the regression of interest for a failed operation. |
+| Multi-defect any-error validator matrices; conflict_token (bool-only `Parse`) | Retained with reason: the validators report no per-rule reason (Parse returns a bool), and the matrices carry valid controls. |
+| Conflict-token "retired key" redundancy; failure_injection any 500 | Retained: redundant by design, or status-only for one injected failure. |
+| Browser and measurement branches | Retained: bounded or measurement; no browser path changed. |
+
+Phase-2 progress: S-855 to S-874, closed through module.revisions. Next
+owner: module.tasksdecisions.
+
+### S-875 / F-860 / E-925 — Tasks/Decisions lifecycle rejections pin reason and guards
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-2
+class: unpinned reasons. The maintainer's phase-2 decision names the
+Tasks/Decisions lifecycle guards.
+
+**Engineering pin, not a requirement.** The reason and guard vocabulary
+reaches the 409 `illegal_transition` details but is not adopted by any spec
+or contract artifact. Core 02 §10.4.1.1 adopts the guard concepts, and
+Core 03 fixes only `409 illegal_transition`. These pins record the current
+implementation for test precision; tests still do not define requirements.
+
+**Successor.** Each `requireLifecycle(t, err)` site becomes
+`requireLifecycleGuards(t, err, reason, guards...)`. The expected values are
+derived from the case's single change and `internal/policy/policy.go` or
+`mutation_supersede.go`:
+
+| Site | Expected reason and guards |
+| --- | --- |
+| supersession :61, :102 (status set to `superseded`) | `superseded_direct_write` / `decision.status` |
+| supersession :106 (rejected→proposed), :109 (executed→approved) | `illegal_status_transition` / `decision.status` |
+| supersession :185 (re-supersede of a superseded target) | `decision_supersede_not_allowed` / `target_decision_must_be_proposed_approved_or_executed` |
+| supersession :218, :222, :229, :239 (writes to an inconsistent proposed source) | `inconsistent_decision_machine` / `superseding_decision_requires_approved_or_executed` |
+| task :232 (done→canceled), :241 (canceled→done), :398 (matrix done↔canceled) | `illegal_status_transition` / `task.status` |
+| task :249 (owner cleared on an open task) | `violated_lifecycle_guards` / `active_task_requires_owner` |
+| support :533 (blocker cleared on a blocked task) | `violated_lifecycle_guards` / `blocked_requires_reason` |
+| decision terminal matrix :46 | `superseded_direct_write` / `decision.status` when the target is `superseded`; otherwise `illegal_status_transition` / `decision.status` |
+
+The type-only `requireLifecycle` helper is retired once no caller remains.
+
+**Selection.** The rows holding these four files' tests, resolved by name.
+No production or routing change.
+
+Closure: DONE.
+
+| Run | Exit | Result |
+| --- | --- | --- |
+| `tcr-s875-format01` | 0 | — |
+| `tcr-s875-successor01` | 0 | Every pinned reason and guard matched, pass 3/3 units, at row `module.tasksdecisions.source_workbook.managed_service_assertions_for_task_requests_and_9063e4f330`; this row holds all affected tests (checked against the family). |
+| `tcr-s875-format02` | 0 | Run after the type-only `requireLifecycle` helper was retired. |
+| `tcr-s875-qualified01` | 0 | pass 3/3 units; source `d5c35efb…`; scan pass; 14 cleanups completed. |
+
+### S-876 / F-861 / E-926 — direct Decision reference admission rejects alternate UUID spellings
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-2
+class: titles and coverage (R-05: "AcceptsOnlyExactStableIDs" lacks encoding
+variants).
+
+**Successor.** `TestDirectDecisionReferenceDecoderAcceptsOnlyExactStableIDs_Unit`
+adds four alternate spellings of the valid ID to its invalid values: upper
+case, braced, `urn:uuid:` prefixed and unhyphenated. Each must fail
+admission. If production admits any of them, that is a production defect to
+report, not to work around.
+
+**Selection.** The row holding the test, resolved by name. No production or
+routing change.
+
+Closure: DONE.
+
+- Row: `module.tasksdecisions.unit.task_decision_direct_references_admit_exact_stab_7bf2beff80`.
+- `tcr-s876-format01` exited 0.
+- `tcr-s876-qualified01` exited 0: the row passed, pass 1/1. Source
+  `0df8b0d2…`; scan pass; 10 cleanups completed.
+- Production rejects all four alternate spellings.
+
+#### Phase 2 module.tasksdecisions — owner table
+
+| R-05 deferred item | Phase-2 disposition |
+| --- | --- |
+| Type-only `requireLifecycle` sites | Repaired in S-875 (engineering pins). |
+| "AcceptsOnlyExactStableIDs" encoding variants | Repaired in S-876. |
+| Reference concurrency, rollback provider, role gates | Closed by S-835 to S-837. |
+| Absence counts on untouched collections | Retained: bounded regression guards. |
+| mutation_admission :186 | Retained: one defect per reason value, with valid controls. |
+| Source-port, association, sourcecatalog, nil-dependency checks | Retained: pinned invariant IDs, or composition-time checks. |
+| Coordination titles without matching bodies | Retained: wording. |
+| Browser branches and absences | Retained: bounded; no browser path changed. |
+
+Phase-2 progress: S-855 to S-876, closed through module.tasksdecisions. Next
+owner: module.timeline.
+
+### S-877 / F-862 / E-927 — Timeline rollback source update rejects missing required members
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-2
+class: coverage (E-759 "`updateSourceTx` required-member rejections lack
+direct unit coverage").
+
+**Governing.** Revisions rollback contract: a target whose source lacks its
+required state cannot be restored (`rollbackcontract.ErrTargetNotReversible`).
+
+**Successor.** In `TestTimelineProviderSourceForRollbackValueMapsTimelineCells`,
+a new subtest starts from a complete source and applies one defect at a
+time:
+
+- missing or empty `capture_state`;
+- missing or empty `activity_time_pair_state`;
+- non-boolean `activity_utc_generated`;
+- non-boolean `activity_local_generated`.
+
+Each must return `ErrTargetNotReversible` before any database access (a nil
+transaction is passed and never used).
+
+**Selection.** `module.timeline.support_unit.rollback_provider_mapping_dafe7d4b5c`.
+No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s877-format01` exited 0.
+- `tcr-s877-qualified01` exited 0: the row passed, pass 1/1. Source
+  `da4c6a59…`; scan pass; 10 cleanups completed.
+- All six single-defect sources were rejected before any database access.
+
+#### Phase 2 module.timeline — owner table
+
+| R-05 deferred item | Phase-2 disposition |
+| --- | --- |
+| `updateSourceTx` required-member rejections | Repaired in S-877. |
+| Projection descriptor wiring comparison | Retained: a wiring claim, with an independent facade literal. |
+| S-745 sentinel `ErrIllegalTransition` mappings | Out of scope: production code that is unreachable from legal state. |
+| `provenance_coherent` multi-member case | Retained: the existing single-member cases each pin `provenance_coherent`. "Multi-member" is additional coverage with no defined expected precedence. |
+| Coordinator conflict local-value echo | Retained: a collapsed draft fails the test, and the pinned value is the contract's `client_value` echo. |
+| `ExpectNoSocketMessage` (300 ms) and one-microtask settles | Retained: bounded windows; a deterministic replacement needs runtime hooks. |
+| Simplify candidates; titles; adapter multi-defect; measurement any-throw tables | Retained with the R-05 reasons. |
+| Playwright conditional, two-rAF and absence checks | Retained: bounded; no browser path changed. |
+
+Phase-2 progress: S-855 to S-877, closed through module.timeline. Next
+owner: module.workbook.
+
+### S-878 / F-863 / E-928 — production: Notes create emits the canonical minimum-signal reason
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Found by
+the phase-2 workbook pinning diagnostic (`tcr-s878-diag01`, reverted; the
+file was restored and `cmp` matched).
+
+**Governing.** Core 01 (§ around line 4354): "`minimum_create_signal_missing`
+is the canonical `error.details.reason_code` … The retired spelling
+`missing_minimum_create_signal` MUST NOT be accepted or emitted."
+`contracts/errors/index.json` registers only `minimum_create_signal_missing`.
+
+**Defect (F-863, production).** A blank or tag-only Notes create
+(`internal/modules/artifacts/create_validation.go:34`, and the admission
+constant `mutation_admission_error.go:13`) emits the retired
+`missing_minimum_create_signal`. Evidence emits the canonical spelling. A
+repository search finds no test, frontend or package consumer of the retired
+spelling.
+
+**Repair.** Both production values become `minimum_create_signal_missing`.
+No other behavior changes. S-879 qualifies it by pinning the Notes create
+sites to the canonical spelling.
+
+Closure: DONE.
+
+- Qualified by `tcr-s879-qualified01` (module.workbook, five rows, pass 3/3
+  units) and `tcr-s879-artifacts01`
+  (`module.artifacts.source_mutations.artifact_admission_and_replay_hashing_are_owner_local`,
+  pass 1/1).
+- Source `d402292c…` at `eba4501fa`, dirty; scans pass.
+- Production change: `internal/modules/artifacts/create_validation.go:34`
+  and `mutation_admission_error.go:13` only.
+- Not claimed: no frontend or OpenAPI change was needed, because the
+  registry already carries only the canonical spelling.
+
+### S-879 / F-864 / E-929 — Workbook invalid-payload rejections pin `details.field` and `reason_code`
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-2
+class: unpinned reasons (R-05 workbook: about 18 code-only sites; Core 03
+publishes `error.details.field` and `error.details.reason_code`).
+
+**Successor.** A helper `requireInvalidMutationPayload(t, resp, field,
+reason)` replaces the 23 code-only `RequireErrorEnvelope(…,
+"invalid_mutation_payload")` sites in `workbook_mutation_integration_test.go`.
+Each expected value was confirmed by the reverted diagnostic
+`tcr-s878-diag01` and checked against the defect its site introduces: the
+field named is the field mutated or missing, and the reason is the defect's
+class. Notes creates expect the canonical `minimum_create_signal_missing`
+(S-878).
+
+The coordination loop (:309) creates bodies that each miss several required
+fields, and no spec fixes a precedence among them. It therefore requires
+`missing_required_field` and a field within the surface's own namespace.
+
+`internal/modules/artifacts/mutation_admission_test.go` expected the
+production constant. It now expects the literal canonical spelling, so a
+regression in the constant is detected.
+
+**Selection.**
+
+- The five module.workbook rows holding the five tests (as in
+  `tcr-s878-diag01`);
+- the module.artifacts row holding `mutation_admission_test.go`'s Notes
+  cases;
+- the S-878 production change is qualified by the same runs.
+
+No routing change.
+
+Closure: DONE.
+
+- `tcr-s879-format01` exited 0.
+- `tcr-s879-qualified01` exited 0: five rows passed, pass 3/3 units; scan
+  pass; 14 cleanups completed.
+- `tcr-s879-artifacts01` exited 0.
+- All 23 sites pin their details. The 22 single-defect sites match exactly,
+  and the coordination loop matches its namespace.
+- The code-only checks were replaced in place.
+
+#### Phase 2 module.workbook — owner table
+
+| R-05 deferred item | Phase-2 disposition |
+| --- | --- |
+| About 18 `invalid_mutation_payload` code-only sites; coordination multi-defect bodies | Repaired in S-879 (23 sites). S-878 repaired the retired-spelling production defect found there. |
+| Conflict surfaces built from production maps | Closed by S-838. |
+| "SA" negative; command index; microtask; profile-ID negative; optional-chain receipts | Closed by S-852 to S-854. |
+| Full-row patch, `replace_all` with `raw_text` and wrong-view 501-target multi-defect bodies | Retained: their claims are rejection without writes, or authorization precedence. |
+| Paste 8,388,609-byte and 501-target cases without accepted exact bounds; 33 changes without 32 accepted | Retained: the accepted at-limit pairs are owned by the Timeline admission rows (S-742, S-755). |
+| `requireNoRecordChanged` (300 ms); `hypotheses` 404; location filter; `current_field_value`; `view_schema_id` absence | Retained: bounded windows or regression guards beside exact key sets. |
+| Surface contract tables omitting optional surfaces; OpenAPI create subset; locator "defaults" `len(Sort)`; startup decoders title; `replacementSession` branches; `expectCorePrimaryLabel` | Retained: coverage, title or simplify items with owning rows elsewhere. |
+| Clear-cells partial SQL-null coverage | Retained: the response covers all 10 columns, and S-742 owns decode. |
+| `TestWorkbookTelemetryNoSDK` | Retained: a no-panic smoke claim. |
+| Vitest and Playwright items | Retained: bounded or title; no browser path changed. |
+
+Phase-2 progress: S-855 to S-879, closed through module.workbook (all
+`module.*` owners done). Next owners: the `package.*` owners, starting with
+package.grid_adapter.
+
+### S-880 / F-865 / E-930 — grid-adapter rejection inputs isolated, reasons pinned and bounds paired
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-2
+classes: multi-defect and unpinned; loose bounds and controls (R-05
+package.grid_adapter table and the E-791 ledger).
+
+**Successor.**
+
+1. `semanticKernel.node.test.ts` "admits only surface-valid capabilities…":
+   each of the eight Core mutation capabilities named by
+   `hasCoreMutationCapability` is attached alone to a read-only extension
+   surface and must raise the exact admission message. An explicit
+   `read_only` mode and `allowPasteCreateRows: false` are accepted controls.
+2. `index.test.tsx` "runs fail-closed capability admission through both
+   semantic bindings": each binding is rendered once per single capability,
+   with the exact message. The test-support binding forwards props
+   field by field, so the all-capability input could not detect a dropped
+   field. The safe extension props render as the accepted control.
+3. `index.test.tsx` "fails closed when untyped callers…": the input carries
+   only `onFillCells`, and the message is exact.
+4. `core.node.test.ts` editability: `actionColumn` and
+   `vendorEditableColumn` get an editor, so `contractWritable` is the only
+   condition each one fails.
+5. `core.node.test.ts` precedence: `{ readOnlyOrDerived, saved }` must
+   resolve to `read-only`, so `saved` is shown to rank lowest.
+6. `editorReveal.test.ts` frozen placement:
+   - suspended cases pin `reason: "insufficient_space"`, and the
+     placement is compared whole;
+   - `[4380, 44, 4096]` is added as the accepted at-limit pair beside 4379;
+   - `viewport: 0` and `structural: -1` cover the two untested
+     `geometry_unavailable` branches.
+7. `clipboardCodec.test.ts`:
+   - the six HTML rejections pin their reasons (`unsupported_table` five
+     times, `ragged_rows` once);
+   - the byte bound is paired at both entry points
+     (`decodeDelimitedClipboard` and `decodeGridClipboard`);
+   - a four-byte UTF-8 at-limit pair checks the byte, not code-unit,
+     count.
+8. `index.test.tsx` clear capture: the same native event is counted after
+   each dispatch, so event identity and `repeat` are observed separately.
+
+The reasons are exported `ClipboardFailure` and `GridFrozenColumnStatus`
+values; pinning them records engineering precision, not a requirement.
+
+**Selection.**
+
+- `package.grid_adapter.regression.core_verifies_a_surface_valid_capability_admissi_33749dc7a6`;
+- `package.grid_adapter.regression.index_suite_d804ef9789`;
+- `package.grid_adapter.frontend_unit.verify_editability_derives_from_explicit_editor_b4d5d35a4f`;
+- `package.grid_adapter.regression.core_orders_invalid_pending_active_selected_read_cd0d921838`;
+- `package.grid_adapter.regression.frozen_column_placement`;
+- `package.grid_adapter.regression.clipboard_representation`;
+- plus `make lint CHECK=types`.
+
+No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s880-format01` and `tcr-s880-format02` exited 0.
+- `tcr-s880-qualified01` exited 0: all six rows passed, pass 3/3 units.
+  Source `c296ef8a…` at `eba4501fa`, dirty; scan pass; 12 cleanups
+  completed. The runner reports show each edited title passed (none
+  skipped).
+- `tcr-s880-types01` exited 2 with TS2352: my vendor fixture cast did not
+  overlap the writable column's `renderCell`. The cast now uses the
+  adapterless column's shape with the editor added. `tcr-s880-types02`
+  exited 0, and `tcr-s880-qualified02` requalified the editability row
+  (exit 0).
+- The clipboard rejections are matched on literal `{ kind, reason }`
+  objects, not through production `clipboardFailure`, so the messages
+  are not self-defined.
+- Replaced in place by stronger checks: the regex `toThrow` matches; the
+  all-capability input; the joint clear count; the kind-only frozen
+  placement match; and the kind-only HTML failures.
+
+The diagnostics `tcr-s880-diag01` and `tcr-s880-diag02` (for S-881) are not
+evidence. The file was restored from the scratchpad copy and verified with
+`cmp`.
+
+### S-881 / F-866 / E-931 — grid-adapter interaction checks observe their subjects
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-2
+classes: loose controls, and titles (R-05 package.grid_adapter table and the
+E-791 ledger).
+
+**Successor.**
+
+1. `gridInteraction.test.ts`, both "range pointer binding" tests:
+   - a `document.addEventListener` spy records the capture-phase
+     `pointermove`, `pointerup` and `pointercancel` listeners each session
+     adds;
+   - every recorded listener must be removed with the same function, in
+     place of `expect.any(Function)`.
+2. "owns capture cleanup…": the second pointerdown must request exactly one
+   new frame (`raf` called twice in total). That frame callback is required
+   and run unconditionally after `dispose`, replacing the optional
+   `pendingFrame?.()`.
+3. `index.test.tsx` "keeps editable cells mounted…": after the parent
+   rerender (its marker reads `Render 1`) the input must be the same DOM
+   node. The value-only check could not detect a remount.
+4. `index.test.tsx` "…routes labeled pointer and keyboard fill through
+   semantic targets": a pointer drag on the fill handle (pointerdown,
+   pointermove over the target row, lost capture) must call `onFillCells`
+   once with the same semantic intent the keyboard fill produces, before
+   the keyboard path runs. The title's pointer claim is then exercised. The
+   reverted diagnostics `tcr-s880-diag01` and `tcr-s880-diag02` showed
+   that the drag reaches `onFillCells` in jsdom.
+
+**Selection.**
+
+- `package.grid_adapter.regression.range_pointer_binding`;
+- `package.grid_adapter.regression.index_suite_d804ef9789`;
+- plus `make lint CHECK=types`.
+
+No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s881-format01` exited 0.
+- `tcr-s881-qualified01` exited 0: both rows passed, pass 2/2 units.
+  Source `b1b01957…` at `eba4501fa`, dirty; scan pass; 11 cleanups
+  completed. The four edited titles passed.
+- `tcr-s881-types01` (`make lint CHECK=types`) exited 0.
+- The pointer drag produces the same semantic fill intent as the keyboard
+  path, so one literal expectation now serves both.
+- Replaced in place by stronger checks: `expect.any(Function)` (twice); the
+  optional `pendingFrame?.()` and its `at(-1)` lookup; and the value-only
+  mount check.
+
+### S-882 / F-867 / E-932 — grid-interaction a11y group checks cannot pass on absent subjects
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-2
+class: loose controls (E-791 Playwright items).
+
+**Successor (`apps/web/e2e/grid-interaction.a11y.spec.ts`, "a11y.grid
+editing and grouped navigation preserve keyboard semantics").**
+
+1. `toggleCount` is `null` when focus is in no group row, instead of
+   `?? 0`. Every group row renders its toggle button
+   (`SemanticDataGrid.tsx` `renderGroupCell`), so the initial `0` could
+   only mean "no focused group row". The initial observation now requires
+   `null`; the pointer-collapse observation still requires `1`.
+2. Before the two negated fill-description checks after regrouping,
+   `alphaCell` and `betaCell` must be attached. A missing cell would
+   otherwise satisfy `not.toHaveAttribute` vacuously.
+
+**Selection.**
+`package.grid_adapter.accessibility.verify_grid_cells_editors_group_rows_active_cell_3156bd379d`
+(the touched spec's row; it also holds the viewer test), plus
+`make lint CHECK=types`. No production, routing, visual or golden change.
+
+Closure: DONE.
+
+- `tcr-s882-format01` exited 0.
+- `tcr-s882-qualified01` exited 0: the row passed, pass 12/12 units.
+  Source `a516ca7c…` at `eba4501fa`, dirty; scan pass; 23 cleanups
+  completed. The Playwright report lists both titles as passed (2
+  expected, 0 skipped, 0 flaky). This run was under the current
+  balanced-packing browser harness.
+- `tcr-s882-types01` (`make lint CHECK=types`) exited 0.
+- Both cells were attached after regrouping, and initial focus was in no
+  group row.
+- Replaced in place: `?? 0` and the initial `toBe(0)`.
+
+#### Phase 2 package.grid_adapter — owner table
+
+| R-05 or E-791 deferred item | Phase-2 disposition |
+| --- | --- |
+| `isGridColumnEditable` double-condition fixtures | Repaired in S-880: each rejected fixture fails one condition. |
+| Multi-capability `toThrow` (`:747`, `:1344`) | Repaired in S-880: each capability alone, per binding and at the resolver, with the exact message and accepted controls. |
+| Semantic-state precedence without `saved` | Repaired in S-880. |
+| Editor-reveal suspended reason and the 4380 control | Repaired in S-880, with the two untested `geometry_unavailable` branches. |
+| HTML clipboard failure reasons; byte bound through different entry points | Repaired in S-880, with a four-byte UTF-8 at-limit pair. |
+| Reused `KeyboardEvent` | Retained: it is the subject. Production dedupes clear keys by native-event identity (`deliveredClearEvents`), and the final fresh `Delete` is the accepted control. S-880 splits the joint count per dispatch. |
+| Kernel nulls | Retained: `editorSeedForTarget`, `planSemanticPaste` and `planSemanticFillFromRange` return `null` with no reason channel. Each null case already isolates one defect beside an accepted control. |
+| Listener identity (`expect.any(Function)`); optional `pendingFrame?.()` | Repaired in S-881. |
+| "Keeps mounted" value-only check; pointer-fill title | Repaired in S-881: node identity; a real handle drag. |
+| `not.toHaveBeenCalled` without controls | Retained: R-05 verified that each follows a positive interaction in the same test. |
+| Playwright `?? 0` toggle count; negated locators after regrouping | Repaired in S-882. |
+| Playwright group-write listener attached late | Retained: it is attached before the first group toggle and removed after the last, so it brackets every interaction the no-write claim names. The grouping selection is not part of that claim. |
+| Playwright read-only checked through an attribute | Retained: this a11y spec claims the exposed `treegrid` and `aria-readonly` semantics. Behavioural no-mutation on a read-only grid is owned by `timeline-range-selection.spec.ts` ("…remain readable without mutation rights"). A grouped-viewer behavioural check is not added. |
+| Unswept visual spec | Out of scope (visual specs and goldens). |
+
+Phase-2 progress: S-855 to S-882, closed through package.grid_adapter.
+Next owner: package.protocol_ts.
+
+### S-883 / F-868 / E-933 — protocol-ts rejections isolated and pinned; "one family", "only" and "every" made concrete
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-2
+classes: multi-defect and unpinned; titles (R-05 package.protocol_ts table).
+
+The reverted diagnostics `tcr-s883-diag01` and `tcr-s883-diag02` (not
+evidence) showed:
+
+- the stream decoder reports `constraint_violation` at the root for
+  almost every family mismatch, so a reason pin there would not
+  distinguish cases;
+- an unsupported view ID in an otherwise valid `patchRecord` response
+  fails at `/data/view_schema_id`;
+- an error envelope without `status` fails as `required_member` at
+  `/error/status`.
+
+**Successor.**
+
+1. `index.node.test.ts` "rejects incomplete envelopes, invalid payloads,
+   and non-server families":
+   - the complete `record_changed` base decodes (positive control);
+   - the `unknown` and `hello` cases become that base with only `type`
+     changed, carrying the secret as an ignored top-level member;
+   - the stream reasons stay unpinned, for the reason above.
+2. `entrypoints.node.test.ts` collaboration: the `unknown` case is the
+   decoded `ping` with only `type` changed.
+3. `entrypoints.node.test.ts` HTTP: a complete error envelope decodes
+   (positive control). The rejected input is that envelope without
+   `status`, with the secret inside the free-form `details`. It pins
+   `instancePath: "/error/status"` and `reasonCategory: "required_member"`.
+4. `index.node.test.ts` bindings: the unsupported view case is the
+   accepted optional-surface body with only `view_schema_id` changed. It
+   pins `schemaId: "cartulary.core_http.ViewMutationEnvelope.v1"` and
+   `instancePath: "/data/view_schema_id"`.
+5. "keeps Network Flow projections and exact decoders in one family": the
+   two `toBeDefined` checks become the registries' schema IDs, and a
+   `profile_id` equal to the descriptor's.
+6. "exposes only view-schema-specific registry access": the entrypoint's
+   runtime exports must be exactly `listViewSchemaRegistryEntries`,
+   `viewReferenceRegistry` and `viewSchemaRegistry`.
+7. "projects replayable messages … at every additive boundary": a
+   compile-time check that the stream families carrying `stream_seq` are
+   exactly the three fixtures' families (`record_changed`,
+   `extension_resource_changed`, `job_progress`).
+
+Pins of decoder paths and categories are engineering pins; the decoders
+expose them in `DecodeFailure` and `HTTPResponseValidation`.
+
+**Retained.** The strict-operation `{}` loop claims fail-closed responses
+and a missing validator is also fail-closed, so isolating each operation
+adds nothing.
+
+**Selection.**
+
+- `package.protocol_ts.boundary_support.index_decodes_exact_network_flow_contracts_witho_8fee657f09`;
+- `package.protocol_ts.frontend_unit.generated_http_operation_bindings`;
+- `package.protocol_ts.frontend_unit.source_entrypoints_test_ts_50c3a02e28`;
+- plus `make lint CHECK=types`, which enforces item 7.
+
+No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s883-format01` exited 0.
+- `tcr-s883-qualified01` exited 0: all three rows passed, pass 3/3 units.
+  Source `9dcb0783…` at `eba4501fa`, dirty; scan pass; 12 cleanups
+  completed. All 11 titles in the selection passed, including each edited
+  one.
+- `tcr-s883-types01` (`make lint CHECK=types`) exited 0. The
+  protocol-ts `tsconfig` includes `src`, so the compile-time family check
+  is enforced.
+- Replaced in place by stronger checks: the two multi-defect stream inputs
+  and the multi-defect entrypoint inputs; the `ok: false`-only unsupported
+  view check; and the two `toBeDefined` checks.
+- The diagnostic file was restored from the scratchpad copy and verified
+  with `cmp`.
+
+### S-884 / F-869 / E-934 — protocol-ts typed literals are checked by their generated validators
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-2
+class: simplify (R-05 package.protocol_ts: runtime restatements of local
+literals already covered by `satisfies`).
+
+**Finding.** The reverted diagnostic `tcr-s883-diag02` ran the literals
+through the generated JSON-schema validators. Several are not
+schema-legal; the TypeScript types accept any string where the schemas
+require `format: uuid`:
+
+- `createRequest.incident_id`;
+- `attachRequest.object_blob_id`;
+- `applyRequest.selected_unit_ids`;
+- the evidence envelopes' `incident_id` and `change_set_id`.
+
+The runtime half restated the literals, so it could not notice.
+
+**Successor (`packages/protocol-ts/src/index.node.test.ts`).**
+
+1. The restating `expect`s become generated-validator acceptance:
+   - request literals through their generated request validators
+     (`generated/core-http-validators.js`, as the file already does for
+     collaboration validators);
+   - response envelopes through the public
+     `validateHTTPOperationResponse`, requiring `{ ok: true }`;
+   - the error envelope through `errorEnvelopeDecoder`.
+2. Every illegal identifier becomes a legal UUID. No other literal value
+   changes.
+3. The logout request, which has no body, becomes a compile-time
+   `undefined` type check.
+
+This is a replace disposition: the compile-time `satisfies` still checks
+the types, and the runtime half now checks the same literals against the
+generated schemas, so type and schema drift is detected.
+
+**Selection.**
+
+- `package.protocol_ts.frontend_unit.generated_http_operation_bindings`;
+- `package.protocol_ts.boundary_support.index_anchors_evidence_protocol_facade_types_to_c902d238a7`;
+- `package.protocol_ts.frontend_unit.family_registries_and_account_types_i2`;
+- plus `make lint CHECK=types`.
+
+No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s884-format01` exited 0.
+- `tcr-s884-qualified01` exited 0: all three rows passed, pass 3/3 units.
+  Source `d5eaf752…` at `eba4501fa`, dirty; scan pass; 12 cleanups
+  completed. Every literal passed its generated validator once the four
+  identifier kinds were legal UUIDs.
+- `tcr-s884-types01` (`make lint CHECK=types`) exited 0.
+- Replaced in place: the 15 restating `expect`s and the `logoutRequest`
+  local.
+
+#### Phase 2 package.protocol_ts — owner table
+
+| R-05 deferred item | Phase-2 disposition |
+| --- | --- |
+| Runtime restatements of `satisfies` literals | Repaired in S-884: replaced by generated-validator acceptance, after making the illegal identifiers legal. |
+| Multi-defect stream, envelope and unsupported-view fixtures | Repaired in S-883: isolated, with positive controls. The error-envelope and view-ID paths are pinned. Stream reasons are left unpinned: the decoder reports a root `constraint_violation` for one-of mismatches. |
+| Empty `{}` responses for strict operations | Retained: the claim is fail-closed acceptance, and a missing validator is also fail-closed. |
+| `toBeDefined` in "one family"; "only"; "every additive boundary" | Repaired in S-883. |
+| Sentinel-free loop member (`future_structure`) | Retained: its claim is the rejection; the leak negative applies to sentinel-bearing members (R-05). |
+| Reachability script hardening | Out of scope: `tools/**` checker logic (R-02). |
+| Unfrozen Network Flow mapping and presentation registries | Out of scope: a generator (production) choice. |
+
+Phase-2 progress: S-855 to S-884, closed through package.protocol_ts.
+Next owner: package.test_utils.
+
+### S-885 / F-870 / E-935 — test-utils retry, tolerance and polling checks observe their limits
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-2
+classes: titles; loose bounds (R-05 package.test_utils table).
+
+**Successor (`packages/test-utils/src/test-suites/`).**
+
+1. `virtual-targeting.ts` "retries through the stable grid shell when a
+   target unmounts before alignment":
+   - a first scenario remounts the same target during the second
+     visibility check. The retry must then align it through the shell's
+     document query: the call resolves, `scrollIntoView` is recorded once,
+     and visibility was checked three times;
+   - the existing never-remounted scenario still rejects without scrolling.
+2. `marker.ts` "honors the exact two-pixel geometry tolerance": the
+   all-edges-at-3 px rejection becomes four single-edge rejections (left,
+   top, right, bottom). Each has the other edges inside the cell, so each
+   edge's bound is observed alone. The all-edges-at-2 px acceptance stays.
+3. `marker.ts` row-gutter: the vertical-anchoring bound gets at-limit pairs
+   on both sides. A marker centre 2 px outside the row is accepted and 3 px
+   outside is rejected with the anchoring message. A gutter cell taller than
+   the row keeps containment from deciding these cases.
+4. Exact poll counts replace lower bounds. The reverted diagnostics
+   `tcr-s885-diag01` and `tcr-s885-diag02` (not evidence) both observed:
+   - 6 grid evaluations for continuity convergence (in place of `> 2`);
+   - 3 for marker remount reacquisition (in place of `>= 3`).
+
+**Selection.** `package.test_utils.boundary_support.index_suite_466a5263a0`
+(the suite's single row), plus `make lint CHECK=types`. No production or
+routing change.
+
+Closure: DONE.
+
+- `tcr-s885-format01` and `tcr-s885-format02` exited 0. The second
+  followed a comment correction: the first wording explained the counts by
+  a polling structure I had not verified.
+- `tcr-s885-qualified01` exited 0: the row passed, pass 2/2 units.
+  Source `23c7f47a…` at `eba4501fa`, dirty; scan pass; 11 cleanups
+  completed. The five edited titles passed.
+- `tcr-s885-types01` (`make lint CHECK=types`) exited 0.
+- Replaced in place: the all-edges rejection; `> 2`; `>= 3`.
+- The diagnostic edits were restored from scratchpad copies and verified
+  with `cmp`.
+
+#### Phase 2 package.test_utils — owner table
+
+| R-05 deferred item | Phase-2 disposition |
+| --- | --- |
+| "Retries through the stable grid shell…" shows neither retry nor shell | Repaired in S-885: a remounted target is aligned on retry through the shell. |
+| Edge tolerance moving all four edges; row-gutter case far from its limit | Repaired in S-885: single-edge rejections; at-limit anchoring pairs on both sides. |
+| Loose evaluate counts | Repaired in S-885: exact counts, stable across two diagnostic runs. |
+| Continuity spies without positive controls | Retained: the prototype spies intercept every production call on the fixture elements. A self-call control would exercise only the spy, not production. |
+| Mutation recorder without a positive control | Retained, for the same reason: it wraps every mutating capability of each locator the assertion obtains. |
+| Actions `apply` resolve and click negatives | Retained: they are ordered after the rejection, which is the claim (R-05). |
+
+Phase-2 progress: S-855 to S-885, closed through package.test_utils.
+Next owner: package.ui.
+
+### S-886 / F-871 / E-936 — ui-contracts selector tables become complete, exact and hygienic
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-2
+classes: coverage gaps; multi-defect and unpinned; loose bounds; titles
+(R-05 package.ui table and the package.ui ledger's open list).
+
+**Successor (`packages/ui-contracts/src/`).**
+
+1. `application-selectors.node.test.ts`:
+   - `expectSelectorCases` takes a `Record<NoInfer<T>, string>` in place
+     of a tuple list. The compiler then requires every member of each
+     selector vocabulary. The seven tables (auth, incident import, incident
+     landing, landing-admin shell, app route, account, deployment admin)
+     gain the members they omitted, with literal expected values;
+   - the landing-admin menu-item and panel checks cover all eight panel
+     tokens;
+   - the renamed-session check pins `account-session-user-id` exactly, in
+     place of comparing a builder call with itself.
+2. `network-flow-selectors.node.test.ts`:
+   - a compile-time check that the test's selector list is exactly the
+     `NetworkAnalysisSelector` union;
+   - `Number.MAX_SAFE_INTEGER` is accepted as the at-limit mapping-column
+     ordinal.
+3. `selector-core.node.test.ts`:
+   - the "identical stable identifiers" builds pin exact selectors;
+   - the `.not.toBe` collision checks pin each exact encoding;
+   - empty and whitespace-token messages are matched in full (anchored),
+     not as substrings.
+4. `workbook-interaction-selectors.node.test.ts`:
+   - "validates closed-vocabulary-derived selector tokens" pins the
+     row-history action selectors exactly. The rejections of the same
+     vocabularies are owned by the selector-core test;
+   - `membership-audit-detail` is pinned exactly;
+   - the remaining substring-only empty-token message is anchored.
+5. `workbook-shell-grid-selectors.node.test.ts`: the three token overrides
+   go through one helper. It restores the original value, or deletes a
+   token that did not exist, unconditionally.
+
+**Selection.** The five `package.ui.frontend_unit` rows for these files:
+`application_selector_contracts_675995f2ab`,
+`network_flow_selector_contracts_b95d925bdf`,
+`selector_core_contracts_375732dc80`,
+`workbook_interaction_contracts_dcad48388a`,
+`workbook_shell_grid_contracts_07bd0aad94`, and
+`source_workbook_shell_grid_selectors_test_ts_577f5e45a4`; plus
+`make lint CHECK=types`, which enforces items 1 and 2. No production or
+routing change.
+
+Closure: DONE.
+
+- `tcr-s886-types01` exited 2, as intended: with the exhaustive record,
+  the compiler listed the four vocabularies whose tables omitted members.
+  The omissions matched the ledger:
+  - auth: the two enterprise-provider selectors;
+  - landing: the five create fields, `search` and `status-filter`;
+  - account: the appearance and profile selectors;
+  - deployment admin: `patch-email` and the two user filters.
+
+  A membership-controls table with a different layout was converted by
+  hand.
+- `tcr-s886-format01` and `tcr-s886-types02` exited 0.
+- `tcr-s886-qualified01` exited 0: all six rows passed, pass 2/2 units,
+  35 titles with none failed or skipped. Source `e21fce52…` at
+  `eba4501fa`, dirty; scan pass; 11 cleanups completed.
+- 13 empty and whitespace-token messages are now anchored: 6 in
+  selector-core, 4 in network-flow and 3 in workbook-interaction.
+- Replaced in place:
+  - the tuple helper;
+  - four self-comparisons (the renamed session, the chip and the
+    identical builds' implicit oracle);
+  - the `.not.toBe` collisions;
+  - the `toContain` action and audit-detail checks;
+  - the conditional restores.
+
+#### Phase 2 package.ui — owner table
+
+| R-05 or ledger deferred item | Phase-2 disposition |
+| --- | --- |
+| Selector tables omitting production tokens | Repaired in S-886: exhaustive records are compiler-enforced for eight tables, and all eight landing-admin panels are covered. |
+| Network Flow vocabulary completeness (type-level gap); `MAX_SAFE_INTEGER` never accepted | Repaired in S-886. |
+| Identical `selector-core` builds; renamed session fields; `.not.toBe` collisions | Repaired in S-886: exact values. |
+| Prefix-only empty-token messages | Repaired in S-886: anchored full messages. |
+| "Validates closed vocabulary" without a rejection | Repaired in part in S-886: the accepted actions are exact. Retained: the rejections of these vocabularies are owned by the selector-core test (`account`, `rollback`, `restore`, `remove`). |
+| Shared design-token mutation with conditional restore | Repaired in S-886: one helper restores or deletes unconditionally, with a restoration control. |
+| Substring-only `membership-audit-detail` | Repaired in S-886. |
+| Retired-token negatives | Retained: they are regression guards on pinned throws (R-05). |
+
+Phase-2 progress: S-855 to S-886, closed through package.ui. Next owner:
+package.view_contracts.
+
+### S-887 / F-872 / E-937 — view-contract constants, additive members and identity mismatches checked exactly
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-2
+classes: coverage gaps; titles (R-05 package.view_contracts table).
+
+**Successor (`packages/view-contracts/src/`).**
+
+1. `surfaces.node.test.ts` "derives every schema constant…": each of the 17
+   exported schema constants is paired with its literal view schema ID.
+   Registry order and the status partitions are checked against the
+   literals. Before this, only Timeline and Evidence values were pinned.
+2. `rows.node.test.ts` "ignores additive row and cell members…": the whole
+   normalized `cells` and `groupValues` must equal the wire values without
+   the additive members, and the row carries no `additive` member. Before
+   this, one cell was checked.
+3. `rows.node.test.ts` "rejects row view identity mismatches
+   deterministically": two different mismatched IDs, each normalized twice,
+   must give the same exact message naming the contract's ID.
+
+**Selection.** `package.view_contracts.frontend_unit.surfaces` and
+`package.view_contracts.frontend_unit.rows`, plus `make lint CHECK=types`.
+No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s887-format01` exited 0.
+- `tcr-s887-qualified01` exited 0: both rows passed, pass 2/2 units, 11
+  titles. Source `2507c9b4…` at `eba4501fa`, dirty; scan pass; 11
+  cleanups completed.
+- `tcr-s887-types01` (`make lint CHECK=types`) exited 0.
+- Replaced in place: the constant-only order list; the one-cell check;
+  the single mismatched call.
+
+#### Phase 2 package.view_contracts — owner table
+
+| R-05 deferred item | Phase-2 disposition |
+| --- | --- |
+| `schemaConstants` values pinned only for Timeline and Evidence | Repaired in S-887. |
+| "Ignores additive row members" checks one cell; "deterministically" with one call | Repaired in S-887. |
+| "Requires explicit boolean" and "exact inline_create" run only `typeof` | Retained: these check the published projection's invariant. Rejection of non-boolean `grid_editable` and malformed `inline_create` is owned upstream: by `tools/contractgen/validation_test.go` (for example "inline_create must be an object") and by `internal/platform/viewschema/viewschema_test.go`. |
+| `requiredReferencePackKeys` compared with the same generated entry | Retained, as recorded in R-05: all 34 canonical declarations are `[]`, so no value can be lost until a schema declares keys. |
+| `listViewContracts() === listProjectedViewContracts()` | Retained: a wiring identity check that fails if `contracts.ts` builds its own copy. |
+| References loop omits contract-side enumeration of collection (action) fields | Retained, not repaired: a contract-side enumeration needs a discriminator between ordinary collection references and the specialized action-payload fields the test excludes. This pass did not establish one. The registry side already checks `writeKind` agreement for every listed field. |
+| Header-sort `if (candidate)` | Retained (R-05). |
+
+Phase-2 progress: S-855 to S-887, closed through package.view_contracts
+(all `package.*` owners done). Next owners: the `platform.*` owners,
+starting with platform.audit.
+
+### S-888 / F-873 / E-938 — administrative-audit rejections isolated per branch; persistence and normalization checked whole
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-2
+classes: multi-defect and unpinned; coverage gaps; titles (R-05
+platform.audit and the E-803 ledger).
+
+**Successor (`internal/platform/administrativeaudit`).**
+
+1. `TestAdministrativeAuditValidationSortsAndRejectsUnsafeChanges`:
+   - each case pins its production detail (`strings.Contains` beside
+     `errors.Is(ErrUnsafeChanges)`);
+   - the "redacted value" case used the secret-bearing name `password`,
+     so a name-based regression would still reject it. It becomes two
+     cases on a non-secret field, with a non-null `After` or `Before`
+     respectively;
+   - a `Redacted("password")` control is accepted;
+   - the untested empty `field_path` and unknown `value_state` branches get
+     cases.
+2. `TestAdministrativeAuditRawProjectionPairMustMatch`: every branch of
+   `validateRawProjectionPair` gets a single-defect case with its detail
+   pinned, and a deployment-scope matching control. The branches are a
+   zero or different occurrence time, an actor mismatch or a one-sided nil
+   actor, a deployment projection with an incident raw event, and an
+   incident mismatch or nil.
+3. `TestAdministrativeAuditHTTPListContractIsScopeCorrectAndNormalized`:
+   the whole normalized scope map is compared, not three of its keys.
+4. `TestAdministrativeAuditProjectionPersistence_Integration`: the
+   persisted changes are compared whole, in order (`backup_set_id`, then
+   `result`), not only the first path.
+
+Detail strings are internal error text: engineering pins, not
+requirements.
+
+**Selection.**
+
+- `platform.audit.unit.contract_and_safe_projection`;
+- `platform.audit.integration.transactional_immutable_persistence`.
+
+No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s888-format01` exited 0.
+- `tcr-s888-qualified01` exited 0: both rows passed, pass 4/4 units.
+  Source `ef75a30e…` at `eba4501fa`, dirty; scan pass; 15 cleanups
+  completed. The normalized scope has exactly the six expected members.
+  Every new single-defect case matched its production detail.
+- Replaced in place: the three-key scope check; the first-change check;
+  the secret-named redacted case; the `errors.Is`-only rejections.
+
+#### Phase 2 platform.audit — owner table
+
+| R-05 or E-803 deferred item | Phase-2 disposition |
+| --- | --- |
+| First-change-only persistence order | Repaired in S-888. |
+| Combined "redacted value" case | Repaired in S-888: isolated, with an accepted control and two new branches. |
+| Incident-only pair mismatch | Repaired in S-888: every branch. |
+| Normalization title | Repaired in S-888: the whole scope map. |
+| Raw-insert rollback after a projection-insert failure | Retained: unreachable, because validation runs first. Reaching it needs a production fault hook (out of scope). |
+| Fixed fixture clocks | Retained: audit `occurred_at` is independent of the parent rows here (E-803), and the dates are legal. |
+| Action bindings "derived from production maps" | Retained (R-05): a parity check of the authored contract against the Go map. |
+
+Phase-2 progress: S-855 to S-888, closed through platform.audit. Next
+owner: platform.bootstrap.
+
+### S-889 / F-874 / E-939 — bootstrap diagnostics exact, password bound paired, persisted hashes verified
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-2
+classes: loose bounds and controls; titles (R-05 platform.bootstrap and the
+E-806 record).
+
+**Successor (`internal/platform/bootstrap/bootstrap_test.go`).**
+
+1. `requireBootstrapDiagnostic` requires the expected diagnostic to be the
+   only one. Every caller passes a single-defect body, so extra diagnostics
+   are no longer tolerated.
+2. "password too short" uses an 11-scalar password, one below the
+   12-scalar minimum (`authn.minPasswordScalars`). An accepted 12-scalar
+   manifest is the at-limit pair.
+3. "consumes the configured manifest…":
+   - `ArtifactSHA256` must equal an independent `crypto/sha256` sum of the
+     fixture bytes, not merely be non-empty;
+   - the persisted password hash must verify against the manifest's
+     password through `authn.VerifyPasswordHash`.
+4. "skips stale and invalid manifests…": the filesystem stub carries an
+   invalid manifest and a stat result, so the claimed skip of stale and
+   invalid content is observable. Before this, the stub repeated the
+   previous subtest's empty stub.
+
+**Retained.** The "queries bootstrap state first" order is implied by the
+exact zero filesystem counts (R-05).
+
+**Selection.**
+
+- `platform.bootstrap.unit.bootstrap_manifest_validation_accepts_only_the_v_fefdd450cd`;
+- `platform.bootstrap.unit.bootstrap_preflight_queries_bootstrap_state_firs_06b74b5f82`.
+
+No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s889-format01` exited 0.
+- `tcr-s889-qualified01` exited 0: both rows passed, pass 1/1 unit.
+  Source `cce42bcd…` at `eba4501fa`, dirty; scan pass; 10 cleanups
+  completed. Every single-defect body yields exactly one diagnostic.
+- Replaced in place: the tolerant helper; the `"short"` password; the
+  non-empty hash checks; the empty skip stub.
+
+#### Phase 2 platform.bootstrap — owner table
+
+| R-05 or E-806 deferred item | Phase-2 disposition |
+| --- | --- |
+| Extra diagnostics tolerated | Repaired in S-889. |
+| No minimum-password-length pair | Repaired in S-889 (11 rejected, 12 accepted). |
+| Hash checked only for being non-zero | Repaired in S-889: an independent SHA-256, and password-hash verification. |
+| Stale/invalid stub without data | Repaired in S-889. |
+| "Queries bootstrap state first" records no order | Retained: the exact zero filesystem counts imply the order (R-05). |
+
+Phase-2 progress: S-855 to S-889, closed through platform.bootstrap. Next
+owner: platform.config.
+
+### S-890 / F-875 / E-940 — config loaders pin their reasons, catalog duplicates isolated, compression bound paired
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-2
+classes: multi-defect and unpinned; loose bounds (R-05 platform.config and
+the E-807 ledger).
+
+The reverted diagnostic `tcr-s890-diag01` (not evidence) recorded each
+loader's actual outcome. Every TLS case yields exactly one diagnostic.
+
+**Successor.**
+
+1. `core_config_test.go` `TestApplicationTLSConfiguration_Unit`: each
+   invalid TLS binding pins its path (`application.tls_certificate_path`
+   or `application.tls_private_key_path`) and reason:
+   - `missing_required_key` for the empty value;
+   - `path_not_absolute` for the relative and the Windows paths;
+   - `path_forbidden_segment` for `..`, `.`, `$KEY` and NUL.
+2. `TestConfigDiscovery_Unit` "requires selector overrides to be absolute"
+   pins the error text `CARTULARY_CONFIG_FILE must be an absolute path`.
+3. `TestFilesystemRootPaths_Unit` inspection overlap requires exactly the
+   two `path_overlap` findings, on `roots.backup_storage.path` and
+   `roots.export_outputs.path`.
+4. `TestResourceLimits_Unit`: compression ratios 1 and 1000 are accepted
+   beside the existing 0 and 1001 rejections (bounds 1..1000,
+   `validation.go`).
+5. `catalog_test.go` "duplicate identity": the second registration reuses
+   the key ID with a distinct namespace and paths. Only the duplicate ID is
+   then wrong; before this, the namespace-overlap check also rejected it.
+   The duplicate and overlap errors pin their messages.
+
+Pins of reason codes are the published diagnostic vocabulary. Pins of error
+text are engineering pins.
+
+**Selection.**
+
+- `platform.config.unit.configuration_discovery_enforces_canonical_selec_05a3b9ee90`;
+- `platform.config.unit.filesystem_root_validation_rejects_non_absolute_ed2c3e652c`;
+- `platform.config.unit.resource_limit_validation_resolves_defaults_dete_13cd1f63b3`;
+- `platform.config.unit.catalog_snapshot_lifecycle`.
+
+No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s890-format01` exited 0.
+- `tcr-s890-qualified01` exited 0: all four rows passed, pass 1/1 unit.
+  Source `3653841b…` at `eba4501fa`, dirty; scan pass; 10 cleanups
+  completed.
+- The diagnostic file was restored from the scratchpad copy and verified
+  with `cmp`.
+- Replaced in place: the `err == nil` loader checks (TLS, selector and
+  overlap) and the multi-defect duplicate registration.
+
+### S-891 / F-876 / E-941 — platform-settings projection fixture uses legal root bindings
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-2
+item: the E-807 "illegal binding fixtures in the platform settings test"
+(fixture legality).
+
+**Defect.** `TestPlatformSettingsProjection_Unit`
+(`internal/app/configassembly/platform_settings_test.go`) projects two
+root bindings that validation would reject:
+
+- a `path` on a `managed_service` binding ("path is not allowed for
+  managed_service bindings");
+- a `service_ref` on a `filesystem_root` binding ("service_ref is not
+  allowed for filesystem_root bindings");
+- a relative filesystem path (`object-root`), where roots must be
+  absolute.
+
+The quoted messages are from `validateRootBinding` in `validation.go`.
+
+**Successor.**
+
+- The managed-service database binding keeps only its `service_ref`.
+- The filesystem object root keeps only an absolute path
+  (`/srv/cartulary/object-root`).
+
+The expected projections change to match. Each copied field is still
+observed with a non-empty value in one of the two bindings.
+
+**Selection.** `platform.config.unit.platform_adapter_settings_projection`.
+No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s891-format01` exited 0.
+- `tcr-s891-qualified01` exited 0: the row passed, pass 1/1 unit. Source
+  `12e85d38…` at `eba4501fa`, dirty; scan pass; 10 cleanups completed.
+- Identity check: S-891, F-876 and E-941 follow the identities verified free
+  when S-890 was recorded; the post-write count of 1 each is this entry.
+- Tracker repair: the S-890 closure edit dropped the
+  `### Historical document-update handoff` prefix of the following heading.
+  It was restored exactly; no other line changed.
+
+#### Phase 2 platform.config — owner table
+
+| R-05 or E-807 deferred item | Phase-2 disposition |
+| --- | --- |
+| Unpinned path/reason loaders | Repaired in S-890 (TLS, selector override, inspection overlap). |
+| Duplicate-builder catalog multi-defect | Repaired in S-890; both catalog messages are pinned. |
+| Bound pairs without accepted N | Repaired in S-890 for compression ratio (1 and 1000). Retained for `max_graph_vertices` (100001): module.networkflow `configuration_test.go` owns the accepted minimum and maximum of every Network Flow limit. |
+| Illegal platform-settings bindings | Repaired in S-891. |
+| `DEPENDENCY_PROBE_SECONDS=30` asserts nothing | Closed by S-843. |
+| Catalog claim-leak check | Retained (R-05): not vacuous; the positive is the explicit claim set. |
+| "Validates and discards a syntax-only overlay" | Retained: the discard is not observable through the public snapshot. |
+| Expected values from production defaults | Retained: an equivalence beside literal pins (1800 and 536870912). |
+| "Keeps fixed public ceilings deployment-invariant" checks one value | Retained, not repaired: the test does not name which ceilings are fixed, and this pass did not establish them. |
+| Disconnected-only defaults without a production counterpart | Retained: a negative guard on the current default set. |
+| Root-only `Geteuid` branch | Retained: it depends on the execution identity, which the harness does not vary. |
+| `unknown_key` probes; configassembly profile loop | Retained (R-05). |
+| Compile-time-only signature checks | Retained: the signatures are the claim, and the compiler enforces them. |
+
+Phase-2 progress: S-855 to S-891, closed through platform.config. Next
+owners: platform.cryptography, platform.httpruntime and platform.jobs.
+
+### S-892 / F-877 / E-942 — TLS admission rejections isolated with accepted controls
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-2
+classes: multi-defect; loose controls (R-05 platform.cryptography).
+
+**Successor (`internal/platform/cryptography/tls_test.go`,
+`TestTLSCertificateAndFileAdmission`).**
+
+1. The "oversized" certificate file was `x` repeated past the limit, which
+   is non-PEM as well as oversized. It becomes the valid certificate PEM
+   padded with newlines to `TLSPEMMaximumBytes + 1`. Parsing trims
+   surrounding whitespace (`parseTLSCertificates`), so only the size is
+   wrong. The same padding to exactly `TLSPEMMaximumBytes` is admitted by
+   `TLSServer` (the at-limit pair).
+2. The certificate-validity cases get a positive control: the unmodified
+   base certificate, re-signed by the same CA, is admitted by
+   `parseTLSCertificates`. Each rejection is therefore caused by its
+   change.
+3. "weak RSA" used the modulus `2^1023`, which is both under 2048 bits and
+   even. It becomes the odd 2047-bit modulus `2^2047 - 1`, so only the size
+   is wrong.
+
+**Retained.** The TLS and sealing failures expose only generic errors
+(`ErrTLSConfiguration`, `ErrOpen`), so no reason exists to pin. An oversize
+sealed envelope cannot be isolated, because any such envelope also fails
+authentication. Setting the seal counter (`MaxArtifactSeals - 16`) is the
+only practical way to reach the limit.
+
+**Selection.** `platform.cryptography.unit.tls_transport`. No production or
+routing change.
+
+Closure: DONE.
+
+- `tcr-s892-format01` exited 0.
+- `tcr-s892-qualified01` exited 2: an infrastructure failure (build)
+  caused by my edit. `strings` became unused once the `x` padding was
+  removed. The import was removed; it was a whole-line deletion, so there
+  was no reformat.
+- `tcr-s892-qualified02` exited 0: the row passed, pass 1/1 unit. Source
+  `a01d9958…` at `eba4501fa`, dirty; scan pass; 10 cleanups completed.
+- The certificate at exactly `TLSPEMMaximumBytes` was admitted, and the
+  re-signed unmodified certificate was accepted.
+- Replaced in place: the non-PEM oversize input; the even `2^1023`
+  modulus; the inline re-signing.
+
+### S-893 / F-878 / E-943 — the effective listen address is a real bound port; job constructors pin their sentinel
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-2
+classes: weak and unpinned (R-05 platform.httpruntime and platform.jobs).
+
+**Successor.**
+
+1. `internal/platform/httpruntime/runtime_test.go`
+   `TestServeOrdinaryListenerReportsEffectiveAddress`: the log must carry
+   `addr=127.0.0.1:<port>` with a non-zero port, and a TCP connection to
+   that port must succeed while serving. Before this, the substring
+   `addr=127.0.0.1:` also matched the configured, unbound `127.0.0.1:0`.
+2. `internal/platform/jobs/composition_test.go`
+   `TestImmutableCompositionContract_Unit`: `NewManager(ManagerOptions{})`
+   and `NewRunner(RunnerOptions{})` must fail with `ErrNotConfigured`, not
+   with any error.
+
+**Selection.**
+
+- `platform.httpruntime.support_unit.serve_inherited_listener_and_graceful_cancellati_97cc1e4ffc`;
+- `platform.jobs.unit.immutable_composition`.
+
+No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s893-format01` exited 0.
+- `tcr-s893-qualified01` (httpruntime) and `tcr-s893-jobs01` (jobs) each
+  exited 0, pass 1/1 unit. Source `9917e9ef…` at `eba4501fa`, dirty; scan
+  pass; 10 cleanups completed each.
+- Replaced in place: the substring address check and the `err == nil`
+  constructor checks.
+
+#### Phase 2 platform.cryptography, platform.httpruntime and platform.jobs — owner table
+
+| Owner | R-05 deferred item | Phase-2 disposition |
+| --- | --- | --- |
+| cryptography | Modulus `2^1023` (weak and even); oversized non-PEM input; unpinned TLS any-error (P521) | Repaired in S-892: isolated, with an accepted re-signed control and an at-limit size pair. The TLS errors are generic (`ErrTLSConfiguration`), so no reason exists to pin. |
+| cryptography | All-zero oversized envelopes | Retained: an oversize envelope also fails authentication, so it cannot be isolated, and `ErrOpen` is generic. |
+| cryptography | `MaxArtifactSeals - 16` fixture; sealing N-accepted controls | Retained: setting the counter is the only practical way to reach the limit. The inclusive-bound seal-and-open control exists. |
+| cryptography | Execution identity from runtime facts; environment-conditional branch | Retained (R-05): the runtime facts are the specification, and the branch depends on the environment. |
+| httpruntime | `addr=127.0.0.1:` matching port 0 | Repaired in S-893. |
+| httpruntime | `weakTestRouteTokens` dead lookup | Out of scope: production dead code. |
+| httpruntime | Registry parity decoding the same artifact | Retained (R-05): a parity check. |
+| httpruntime | "DoesNotBind" checks only that the address is free; non-blocking `select` after `cancel()`; 20 ms windows; zero-offset clock; unpinned TLS/environment/403 failures | Retained: bounded observation windows, or generic errors without a reason vocabulary. A bind that never happens is not observable without a production hook. |
+| jobs | `NewManager`/`NewRunner` missing-dependency admission | Repaired in S-893: pinned to `ErrNotConfigured`. Isolating each field would need live Postgres and transaction services; the sentinel is shared by every field. |
+| jobs | Exhaustion summary; retry delays | Closed by S-844 and S-845. |
+| jobs | "Initial recovery renews a long attempt" | Retained (R-05): success implies renewal. |
+| jobs | `TestJobTelemetryNoSDK` | Retained (R-05): a no-panic smoke claim. |
+| jobs | Literal handler values; retention-before-finish SQL fixtures; 50 ms expiry probe; migration object counts; retired-name guard; status re-checks | Retained: legal fixtures (R-04 census), bounded windows or regression guards. |
+
+Phase-2 progress: S-855 to S-893, closed through platform.jobs. Next
+owners: platform.objectstore, platform.openapi, platform.pagination and
+platform.postgres.
+
+### S-894 / F-879 / E-944 — pagination binding mismatches, limit bounds and retained cursor content checked exactly
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-2
+classes: coverage gaps; loose bounds; titles (R-05 platform.pagination).
+
+**Successor (`internal/platform/pagination/pagination_test.go`).**
+
+1. `TestResolveRequestReusesCursorBoundLimitAndValidatesBindings`:
+   - a route mismatch and a scope mismatch each give
+     `invalid_cursor_token`, beside the existing limit and actor cases;
+   - explicit limits 1 and `MaxLimit` (500) are accepted into the
+     binding, and `MaxLimit + 1` gives `invalid_limit`. Only 0 was tested.
+2. `TestPageRawMessagesUsesSignedOffsetCursorWithoutRetainingRows`: each
+   returned cursor is compared whole. It holds the offset mode, the
+   binding's route, actor and limit, and a position of exactly
+   `{"offset": "2"}`, so no row content is retained. Signing is owned by
+   the codec tests (`TestCodecRejectsTamperedCursor`), because this
+   function returns the unsealed cursor.
+
+**Retained.** The oversize-token and invalid-cursor fixtures cannot be
+isolated: any oversize or forged token also fails authentication. The
+struct-level invalid cursors each fail validation for their named field.
+
+**Selection.** `platform.pagination.unit.cursor_contract`. No production or
+routing change.
+
+Closure: DONE.
+
+- `tcr-s894-format01` exited 0.
+- `tcr-s894-qualified01` exited 2 with a product assertion failure caused
+  by my expectation: the returned cursor also carries
+  `Version: "pagination.cursor.v2"`, which the expected value omitted.
+  Production was correct, so the literal version was added.
+- `tcr-s894-format02` exited 0. `tcr-s894-qualified02` exited 0: the row
+  passed, pass 1/1 unit. Source `893968ac…` at `eba4501fa`, dirty; scan
+  pass; 10 cleanups completed.
+- Replaced in place: the offset-only cursor check.
+
+### S-895 / F-880 / E-945 — Postgres pool reset is shown to replace physical connections
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-2
+item: R-05 platform.postgres "unused `recycledPID`" (simplify or
+strengthen).
+
+**Defect.** In `TestPostgresPurposeConnectionsEstablishExactIdentity_Integration`
+(`postgres_role_integration_test.go`), the identity of the connection
+acquired after `pool.Reset()` is checked, but its backend PID is read and
+then ignored.
+
+**Successor.** The post-reset PID must differ from both earlier backend PIDs.
+`pool.Reset()` closes the released connections, so the next query needs a
+new physical connection that still establishes the exact identity.
+
+**Selection.** `platform.postgres.integration.purpose_identity_roles_and_acl`.
+No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s895-format01` exited 0.
+- `tcr-s895-qualified01` exited 0: the row passed, pass 3/3 units. Source
+  `230e3c53…` at `eba4501fa`, dirty; scan pass; 14 cleanups completed.
+
+#### Phase 2 platform.objectstore, platform.openapi, platform.pagination and platform.postgres — owner table
+
+| Owner | R-05 deferred item | Phase-2 disposition |
+| --- | --- | --- |
+| openapi | `strings.Index` ordering | Closed by S-846. |
+| openapi | Expected security schemes from `requiredSecuritySchemeNames`; response presence | Retained (R-05): a closed internal list, beside exact operation parity. |
+| openapi | Modified release snapshot also lacking target, manifest and change sets; method set without head/options/trace; unchecked `StateChanging`; subset route comparison; "IsClosed" uniqueness only; unpinned family-route reasons; depth and zero-limit bounds | Retained, not repaired in this pass. These are multi-defect fixtures whose checker returns no reason vocabulary, or coverage and title items on repository-gate checkers. |
+| objectstore | `requests == 0` after rejected configurations; pre-cancelled contexts | Retained (R-05): controlled by sibling subtests; mid-operation cancellation is coverage that needs a production hook. |
+| objectstore | `TestProxyHelperProcess`; any-error never-created deletion and proxy checks; "binds digest size" title; telemetry and reason maps; `ChecksumSHA256`; short oversize hint; POST substitution; root-path placement; operator init output | Retained, not repaired in this pass: a helper entry point, or weak and title items without an adopted reason vocabulary. |
+| pagination | Untested binding and limit bounds; "Signed" and "WithoutRetainingRows" | Repaired in S-894; signing is owned by the codec tests. |
+| pagination | Invalid-cursor fixtures; `max+1` cursor without prefix | Retained: any oversize or forged token also fails authentication, so it cannot be isolated (S-894). |
+| postgres | Unused `recycledPID` | Repaired in S-895. |
+| postgres | Forbidden-substring loop | Retained (R-05): controlled by the input secret. |
+| postgres | Stub-owned truncation status; impossible password-auth fixtures; invalid-DSN link payloads; multi-defect transport, nil-harness and invalid-name cases; unpinned 42501; wrong-certificate role ambiguity; switch without default; telemetry, HBA substring and "migrated" existence checks | Retained, not repaired in this pass. These are role-integration items that need the TLS role service stack to rework; there is no adopted reason vocabulary beyond SQLSTATE. |
+
+Phase-2 progress: S-855 to S-895, closed through platform.postgres. Next
+owners: platform.rootedfs, platform.telemetry, platform.viewquery,
+platform.viewschema and platform.ws.
+
+### S-896 / F-881 / E-946 — view-query case renamed; reference-set and WebSocket read-limit controls
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-2
+classes: titles; loose controls and bounds (R-05 platform.viewquery,
+platform.rootedfs and platform.ws).
+
+**Successor.**
+
+1. `internal/platform/viewquery/query_contract_test.go`
+   `TestStableFieldKeysOnly_Unit`: the case "operator not allowed"
+   exercises a filter on a non-filterable field, and pins
+   `unknown_filter_field`. It is renamed "non-filterable field". This is a
+   `t.Run` case name, not a routed title, so routing does not change. The
+   real `operator_not_allowed` case already exists ("invalid operator").
+2. `internal/platform/rootedfs/root_linux_test.go`
+   `TestRootedFSReferenceValidation_Unit`: an accepted control shows that
+   `ValidateReferenceSet` admits distinct siblings and a name sharing only a
+   string prefix (`a/b`, `a/c`, `ab`). The rejected prefix case is
+   therefore a path-component rule.
+3. `internal/platform/ws/ws_test.go` `TestConnectionFrameIOAndOrigin`: a
+   new subtest sets the read limit to 4 and requires a 5-byte frame to fail
+   the server read. The existing 4-byte `ping` is the accepted at-limit
+   pair.
+
+**Selection.**
+
+- `platform.viewquery.unit.view_query_filters_sort_and_group_by_accept_stab_0032c0a062`;
+- `platform.rootedfs.unit.operation_containment`;
+- `platform.ws.support_unit.generic_transport_frame_io_and_origin_f9129f9942`.
+
+No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s896-format01` exited 0.
+- `tcr-s896-qualified01` (viewquery), `tcr-s896-rootedfs01` and
+  `tcr-s896-ws01` each exited 0, pass 1/1 unit, with scan pass and every
+  cleanup completed.
+
+#### Phase 2 platform.rootedfs, platform.telemetry, platform.viewquery, platform.viewschema and platform.ws — owner table
+
+| Owner | R-05 deferred item | Phase-2 disposition |
+| --- | --- | --- |
+| telemetry | Same-key null values | Closed by S-848. |
+| telemetry | Recursive self-diagnostic null path; literal matrices; sampler corpus; name constants as expected values; multi-defect export inputs; unregistered-key absences; unpinned path and TLS reasons; bootstrap `service.name` only; unserved 307; escaped-secret rendering; bound pairs; direct `safeHTTPRoute`; incomplete code lists | Retained, not repaired in this pass. These are coverage, weak and no-reason items. Telemetry's reason surface is attribute presence, already exercised by the S-848 null-omission checks. |
+| viewquery | Default sort by length | Closed by S-847. |
+| viewquery | Misnamed "operator not allowed" case | Repaired in S-896 (renamed). |
+| viewquery | Contract-derived Vitest expectations; duplicated title body; `test.view` mismatch; test-only `timeline.event_type`; duplicate oversize bodies; Playwright sort and creation order and unsettled absences; partial `maintenancequery` sets; multi-defect `sqlshape` literal; loose token bounds | Retained, not repaired in this pass: title, coverage, bounded browser or no-reason items. No Playwright spec was touched. |
+| viewschema | Hypothesis negatives | Retained (R-05): regression guards for a retired view. |
+| viewschema | Field order from the same artifacts; forbidden keys structurally absent; unpinned layout reasons; no page-2 or `limit=500` acceptance; public-versus-internal comparison; `nullable` keyword check | Retained, not repaired in this pass: parity, structural, coverage or simplify items. |
+| ws | Read limit exercised only at 4 bytes | Repaired in S-896: over-limit rejection beside the at-limit frame. |
+| ws | "Cookie browser Origin check fails before upgrade" | Retained (R-05): the helper's 403 is pinned with controls, and the handshake rejection is observed by the release smoke probe. |
+| rootedfs | `ValidateReferenceSet` without an accepted control | Repaired in S-896. |
+| rootedfs | `ListRegular` any-error with several symlinks; hand-maintained boundary scan; missing-parent nested publish and unused `ErrRootIdentityChanged`; unpinned securefile kinds and relative path; full-path-only disclosure; "bounded traversal" without a bound; loose size bounds | Retained, not repaired in this pass. The unused sentinel is production dead code (out of scope); the rest are no-reason or coverage items. |
+
+Phase-2 progress: S-855 to S-896, closed through platform.ws (all
+`platform.*` owners done). Next owners: the `web.*` owners, starting with
+web.application.
+
+### S-897 / F-882 / E-947 — membership-audit client maps non-JSON failures to `unknown_public_error` (new routed title)
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-2
+class: coverage gap (R-05 web.application "non-JSON transport fallback",
+first recorded by S-642).
+
+**Finding.** The transport parses failure bodies by content type
+(`httpTransport.ts` `requestJSON`, `content-aware`), so a non-JSON body
+becomes text. `incidentMembershipAuditClient.ts` then maps a failure without
+a public error to `{ code: "unknown_public_error" }`, with the response
+status. No test exercised that path. Workbook adapters drive non-JSON 409
+and 503 bodies to `uncertain`, but that is their own mapping.
+
+**Successor.**
+
+- A new title in `incidentMembershipAuditClient.node.test.ts`: "maps a
+  non-JSON failure body to an unknown public error with its status". A
+  `text/plain` 503 must give exactly
+  `{ ok: false, status: 503, error: { code: "unknown_public_error" } }`.
+- As a control, a JSON public error is preserved with its own code.
+
+**Routing (rule 4).** The title is added to the authored family input
+`tools/test_families/web.application.json`, row
+`web.application.regression.incident_membership_audit_typed_client` (3 to 4
+titles). Then `make generate`, a review of the generated diff, and
+`make source-check CHECK=generated` and `CHECK=catalog`.
+
+**Selection.** That row. No production change.
+
+Closure: DONE.
+
+- `tcr-s897-generate01` (`make generate`) exited 0. It changed only
+  `tools/execution_topology_render_index.json`: the family input's hash
+  and the input digest. That was reviewed as expected for the one-line
+  title addition.
+- `tcr-s897-generated01` (`make source-check CHECK=generated`) and
+  `tcr-s897-catalog01` (`CHECK=catalog`) exited 0. The new title resolves.
+- `tcr-s897-format01` exited 0; the family file kept its one-line diff.
+- `tcr-s897-qualified01` exited 0: the row passed, pass 2/2 units, with all
+  four titles passed. Source `f63cd484…` at `eba4501fa`, dirty; scan pass;
+  11 cleanups completed.
+- `tcr-s897-types01` (`make lint CHECK=types`) exited 0.
+- Routing changed: one title was added; nothing was retired. This is the
+  first phase-2 routing change.
+
+#### Phase 2 web.application and web.architecture — owner table
+
+| Owner | R-05 deferred item | Phase-2 disposition |
+| --- | --- | --- |
+| application | Stale-fingerprint conditional check | Closed by S-849. |
+| application | Non-JSON transport fallback (from S-642) | Repaired in S-897 at the client that owns `unknown_public_error`. Workbook adapters already cover their own non-JSON mapping to `uncertain`. |
+| application | Optional-chained `attachment?.detach()` and `controller?.retire()` | Retained (R-05): fixture callbacks, and the outcome checks remain. |
+| application | `App.landing` retired-text negatives; the always-true `if (result.kind !== "accepted")` | Retained (R-05). |
+| application | Metadata, membership, import-model and lifecycle line items; fencing titles whose writes never settle; focus-restoration titles without focus checks; unpinned client failure kinds; session-gate, audit-event and import-job payloads; error presentation omissions; missing font baseline; timing header; mixed-unit text bounds | Retained, not repaired in this pass. They are weak, title, coverage or bounded items spread across many web.application rows; each would need its own slice. |
+| architecture | Matcherless `assert.throws` (`test-fallow-policy.mjs`); transport-boundary guard; visitor rules without a synthetic positive; workbook-only transaction scan; path-substring diagnostics; multi-defect CLI configurations; policy fixtures bypassing facades | Out of scope: harness and static-analysis checker logic (R-02 class). |
+| architecture | Layout filler count | Retained (R-05). |
+
+Phase-2 progress: S-855 to S-897, closed through web.architecture. Next
+owner: web.collaboration.
+
+### S-898 / F-883 / E-948 — collaboration session plan "exactly" title compares the whole plan
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-2
+class: titles (R-05 web.collaboration: "'exactly' title with
+`toMatchObject`").
+
+**Successor.** In `incidentCollaborationSessionPlan.node.test.ts`, the test
+"classifies handshake, heartbeat, and terminal messages exactly" matched
+its `resume_ack` plan with `toMatchObject`. It now uses `toEqual` against the
+complete established plan, adding `connectionId: null`,
+`messageType: "resume_ack"`, `serverHighWaterStreamSeq: 8` and
+`status: "reset_required"`. The ping and session-revoked plans already used
+`toEqual`.
+
+**Selection.**
+`web.collaboration.regression.incident_collaboration_session_plan_lr07`,
+plus `make lint CHECK=types`. No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s898-format01` exited 0.
+- `tcr-s898-qualified01` exited 0: the row passed, pass 2/2 units. Source
+  `d2d7124a…` at `eba4501fa`, dirty; scan pass; 11 cleanups completed.
+- `tcr-s898-types01` (`make lint CHECK=types`) exited 0.
+- Replaced in place: the partial `toMatchObject`.
+
+#### Phase 2 web.collaboration — owner table
+
+| R-05 deferred item | Phase-2 disposition |
+| --- | --- |
+| `resolveRecovery?.()`; stale callbacks and listener | Closed by S-850. |
+| "Exactly" title with `toMatchObject` | Repaired in S-898. |
+| "Disposes shell projections without disposing the borrowed mutation runtime" | Retained (R-05): the disposal effects are observed by the late-recovery and old-listener tests. |
+| Pending-work and authorization-pause titles; one- and six-tick negatives; unacknowledged replacement sockets; discarded `applyRecordChanged` results and the single malformed case; presence multi-defect batch, absence-only status and caps; partial survivor checks | Retained, not repaired in this pass: title, bounded-tick or coverage items in the coordinator, which would each need their own slice. The `applyRecordChanged` stubs are fixture callbacks whose effects are asserted through `toHaveBeenCalledOnce` and refresh outcomes. |
+
+Phase-2 progress: S-855 to S-898, closed through web.collaboration. Next
+owners: web.design and web.networkflow.
+
+### S-899 / F-884 / E-949 — Network Flow table operations show the 30-second bound from both sides
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-2
+class: loose bounds (R-05 web.networkflow "`30_001` boundary").
+
+**Successor.** In `NetworkFlowTableController.node.test.ts`, "bounds
+uncertainty and replays the identical attempt…", both scenarios now advance
+the fake clock to 29,999 ms and require the operation to still be
+`pending`. Two more milliseconds then give the existing outcome:
+
+- `rejected` ("was not submitted") for the undispatched attempt;
+- `uncertain` for the dispatched one.
+
+The controller's bound is 30,000 ms (`NetworkFlowTableController.ts`).
+This is a fake-timer functional bound, not a timing measurement.
+
+**Selection.** `web.networkflow.regression.table_captured_operations`, plus
+`make lint CHECK=types`. No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s899-format01` exited 0.
+- `tcr-s899-qualified01` exited 0: the row passed, pass 2/2 units. Source
+  `dd16ad8d…` at `eba4501fa`, dirty; scan pass; 11 cleanups completed.
+- `tcr-s899-types01` (`make lint CHECK=types`) exited 0.
+- Both operations were `pending` at 29,999 ms.
+
+#### Phase 2 web.design and web.networkflow — owner table
+
+| Owner | R-05 deferred item | Phase-2 disposition |
+| --- | --- | --- |
+| design | `<script>` absence checks | Retained (R-05): controlled by the inert-text fixture. |
+| design | a11y "non-color-only" and "ARIA states" titles; appearance length; attached-evidence values; read ordering; missing settle; width-only containment; request-derived version; 21 of 197 theme variables; viewport label; box bounds; "exact filters" titles; visual-registry `>=` bounds and conditional mask | Retained, not repaired in this pass. They are browser a11y and visual items: the visual specs, registry and goldens are out of scope, and each a11y item would need a browser run of its row. |
+| networkflow | Saved-graph collectors | Closed by S-851. |
+| networkflow | `30_001` boundary | Repaired in S-899. |
+| networkflow | Import-controller handoff expectation; CSS constants | Retained (R-05): not reproduced. |
+| networkflow | Matcherless `toThrow` in saved-graph transport and indicator-link dispatch | Retained (R-05): any-error over single-defect envelopes with a `not.toThrow` control, and no public reason contract. |
+| networkflow | Boundary-policy names; white-hex fallback allowlist; multi-defect range inputs and the 1-versus-2 limit; absence-only admission; one-tick negatives; first-grid-schema inventory; workspace titles; contract major 11; collapsed scopes; status-and-code isolation; relative column order; E-662 hand-offs | Retained, as dispositioned in E-662 and E-836: regression-guard, coverage, title, bounded or no-reason items. |
+
+Phase-2 progress: S-855 to S-899, closed through web.networkflow. Next
+owner: web.workbook (the last).
+
+### S-900 / F-885 / E-950 — web.workbook bound pair, exact startup plans and a redundant guard
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-2
+classes: loose bounds; titles; simplify (R-05 web.workbook).
+
+**Successor.**
+
+1. `WorkbookReferenceControl.test.tsx`, "uses exact collection action
+   identities in declared order with the pending edit limit": beside the
+   rejected 65-ID input, 64 IDs are accepted with exactly 64 actions (the
+   at-limit pair). The assessment model test already pairs its own 64 and
+   65.
+2. `workbookStartupAdmissionMachine.node.test.ts`, "plans base, saved-view,
+   extension, and availability outcomes exactly": the three `apply` plans
+   use `toEqual` against the complete plan shape
+   `{ kind, identity: { sheetRef, viewSchemaId }, savedView }`, not
+   `toMatchObject`.
+3. `WorkbookInspectorPresentation.test.tsx`, "keeps record context and
+   Close outside the scrolling section body": the `if (body)` guard before
+   a scroll is removed. `body` is narrowed to `HTMLElement` earlier in the
+   same test, so the guard was always true. That narrowing check is the
+   owning check.
+
+**Selection.**
+
+- `web.workbook.regression.reference_controls`;
+- `web.workbook.regression.workbook_startup_admission_machine_lr06`;
+- `web.workbook.regression.inspector_persistent_context`;
+- plus `make lint CHECK=types`.
+
+No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s900-format01` exited 0.
+- `tcr-s900-qualified01` exited 0: all three rows passed, pass 3/3 units.
+  Source `724c2640…` at `eba4501fa`, dirty; scan pass; 12 cleanups
+  completed. The three edited titles passed.
+- `tcr-s900-types01` (`make lint CHECK=types`) exited 0.
+- Replaced in place: three `toMatchObject` plans. Removed: the always-true
+  guard; the narrowing check is the owning check.
+
+#### Phase 2 web.workbook — owner table
+
+| R-05 deferred item | Phase-2 disposition |
+| --- | --- |
+| Optional-chained receipts; "SA" negative; command index; microtask; profile-ID negative | Closed by S-852 to S-854. |
+| 65 IDs without an accepted 64 | Repaired in S-900. |
+| `toMatchObject` under "exactly" | Repaired in S-900 for the startup plans; S-898 did the collaboration session plan. |
+| `if (body)` scroll guard | Repaired in S-900 (simplify). |
+| `calls[3]` versus `calls[4]`; saved-view `every` | Retained (R-05): controlled. |
+| Mutation-driver plan omissions; unpinned production-contribution iteration; one-tick negatives; sort titles and limits; draft-store loops; multi-defect mention reconciliation; bare `rejects.toThrow()`; generic fill rejection; `> 100` create coverage; unasserted reauthorization; unsettled startup negatives; re-stated policy oracle; architecture titles; null create-related subject; about 300 redundant `getBy… not.toBeNull()`; subtraction-derived count; unbounded retries and send counts; matcherless metadata throws; placeholder sheet IDs | Retained, not repaired in this pass. They are spread across many web.workbook rows; each would need its own slice. The redundant `getBy…` checks are harmless, because `getBy` throws first. |
+
+Phase-2 progress: S-855 to S-900, closed through web.workbook. All owners
+in the R-05 lexical order are done. Next: the E-904 phase-2 closure.
+
+### E-904 closure — R-05 phase 2 verified-deferred repairs, 2026-11-15
+
+DONE. Every owner in the R-05 lexical order was taken through phase 2:
+
+- 18 `module.*` owners;
+- 5 `package.*` owners;
+- 15 `platform.*` owners;
+- 6 `web.*` owners.
+
+Each has a phase-2 owner table that gives every R-05 verified-deferred item
+(and the cited ledger items) a disposition: repaired (with its slice),
+retained with a reason, or out of scope. Confirmed corrections were made as
+46 recorded slices, S-855 to S-900. Each was recorded before editing and
+qualified at its exact rows.
+
+| Slices | Owners | Corrections |
+| --- | --- | --- |
+| S-855 to S-856 | module.networkflow, module.parties | request-count sentinels; post-save patch count |
+| S-857 to S-862 | module.projections | base-table detector; validation branches; exact reasons, counts and titles; restore request isolation |
+| S-863 to S-864 | module.records | portable decoding isolation and branches; catalog, envelope and snapshot exactness |
+| S-865 to S-869 | module.recovery | integrity, reset, marker, interruption, tie-breaker and tamper causes |
+| S-870 to S-874 | reference_data, reportcomposition, reporting, renderprocess, revisions | content guard; diagram codes; relationship coverage; installation rules; in-transaction control |
+| S-875 to S-877 | module.tasksdecisions, module.timeline | lifecycle reason and guards (an engineering pin); UUID spellings; rollback source members |
+| S-878 | module.artifacts (production) | Notes create emits the Core 01 canonical `minimum_create_signal_missing` |
+| S-879 | module.workbook | invalid-payload `details.field` and `reason_code` (23 sites) |
+| S-880 to S-882 | package.grid_adapter | single-capability admission; reasons and bound pairs; listener identity; real pointer fill; a11y absent-subject guards |
+| S-883 to S-884 | package.protocol_ts | isolated rejections; concrete titles; generated-validator checks with legal UUID literals |
+| S-885 | package.test_utils | shell retry; single-edge tolerance; anchoring pairs; exact poll counts |
+| S-886 | package.ui | compiler-enforced complete selector tables; exact encodings; anchored messages; token hygiene |
+| S-887 | package.view_contracts | literal schema constants; whole additive check; repeated mismatches |
+| S-888 to S-891 | platform.audit, bootstrap, config | branch-isolated rejections; exact diagnostics; password and compression pairs; verified hashes; legal bindings |
+| S-892 to S-896 | platform.cryptography, httpruntime, jobs, pagination, postgres, viewquery, rootedfs, ws | TLS isolation; bound port; sentinels; cursor bounds; pool reset; read-limit and reference controls |
+| S-897 | web.application | non-JSON failure mapping to `unknown_public_error` (new routed title) |
+| S-898 to S-900 | web.collaboration, web.networkflow, web.workbook | exact plans; 30-second bound pair; 64-identity pair; redundant guard |
+
+**What changed.**
+
+- Test files and this tracker.
+- One production change, S-878. It was spec-mandated: Core 01 says the
+  retired `missing_minimum_create_signal` "MUST NOT be accepted or emitted".
+  It follows the S-725 and S-745 precedent.
+- One routing change, S-897: one title added to
+  `tools/test_families/web.application.json`, with the regenerated
+  `tools/execution_topology_render_index.json` (hash and digest only).
+- No fixture-data, visual, golden or `tools/**` checker change.
+
+**Verification.**
+
+- Every slice ran `make format` and an exact `make test-slice` at its rows,
+  and TypeScript slices also ran `make lint CHECK=types`. Each closure
+  records its run IDs and outcomes.
+- Browser rows ran only where a spec was touched: `tcr-s855-browser01`
+  and `tcr-s855-browser02`, `tcr-s856-browser01`, and
+  `tcr-s882-qualified01`. All exited 0 under the balanced-packing browser
+  harness.
+- Final routing checks: `tcr-p2-final-catalog01`
+  (`make source-check CHECK=catalog`, pass 2/2 units) and
+  `tcr-p2-final-generated01` (`CHECK=generated`, pass 5/5 units) exited 0.
+- `make lint-markdown` and `git diff --check` passed after every slice and
+  owner table.
+
+**Failures, all diagnosed before any rerun** (each also recorded in its
+closure). None was a product regression. Each was an expectation,
+diagnostic or edit error of mine:
+
+- S-855: types (unused imports);
+- S-861: an anchor and a type mismatch;
+- S-869: a guessed pin;
+- S-872 and S-878: diagnostic setup;
+- S-880: types (a cast);
+- S-892: a build error (an unused import);
+- S-894: an expected cursor missing `Version`.
+
+A tracker edit in S-890 dropped a heading prefix; S-891 restored it exactly.
+
+**Diagnostics** (`tcr-s8NN-diag*`) are not evidence. Each edited file was
+restored from a scratchpad copy and verified with `cmp`.
+
+**Retained or out of scope.** Each owner table names its retained items
+and reasons. The main classes are:
+
+- multi-defect inputs whose code under test exposes no reason channel, or
+  where any such input also fails authentication;
+- bounded browser and timing windows;
+- harness and static-analysis checker logic (R-02);
+- production dead code (`weakTestRouteTokens`, `ErrRootIdentityChanged` and
+  the unreachable sentinels);
+- visual specs and goldens;
+- many-row title and coverage items in web.application, web.workbook,
+  platform.objectstore, openapi, postgres, telemetry and viewschema, marked
+  "not repaired in this pass".
+
+**Not claimed:**
+
+- that every remaining assertion is optimal;
+- whole-owner suites;
+- visual runs;
+- performance, whole-suite stability or release acceptance.
+
+R-01, R-02 and R-06 remain deferred as recorded in E-843.
+
+### R-05 phase 2 handoff, 2026-11-15
+
+- **State.** Phase 2 is DONE (E-904). The working tree holds R-05 and
+  phase-2 changes, unstaged and uncommitted, on top of `eba4501fa`.
+- **Identities.** Used: S-855 to S-900, F-840 to F-885, E-904 to E-950.
+  The next free identities are S-901, F-886 and E-951; verify before use.
+- **Evidence roots.** `.cartulary/test-results/tcr-s8NN-*`,
+  `tcr-s9NN-*`, `tcr-p2-final-catalog01` and `tcr-p2-final-generated01`.
+- **For review.**
+  - the production change in S-878
+    (`internal/modules/artifacts/create_validation.go`,
+    `mutation_admission_error.go`);
+  - the routing change in S-897;
+  - the engineering pins of unadopted vocabularies, such as the
+    Tasks/Decisions lifecycle guards in S-875. If such a vocabulary is
+    later adopted by the spec, the pins become requirement checks;
+    otherwise they may need updating when the code changes.
+- **Open.** The "not repaired in this pass" items in the owner tables, plus
+  R-01, R-02 and R-06.
+- **Suggested next step.** The maintainer reviews the diff and commits it.
+
+### R-05 phase 3 — the "not repaired in this pass" items (E-951 reserved), 2026-11-15
+
+Maintainer request: "work on the 'not repaired in this pass' items".
+
+**Scope.** The phase-2 owner-table rows marked "not repaired" (E-904):
+
+- package.view_contracts: references enumeration;
+- platform.config: fixed ceilings;
+- platform.objectstore, openapi, postgres, rootedfs, telemetry, viewquery
+  and viewschema;
+- web.application, web.collaboration, web.design and web.workbook.
+
+Each bundle is expanded from its R-05 table and the cited owner ledger.
+
+**Identities.** S-901, F-886 and E-951 had only the E-904 handoff's
+pointer. E-951 is reserved for this closure, and slices start at
+S-901/F-886/E-952.
+
+**Rules.** As for phase 2 (rules 1 to 6), with the same standing
+constraints. Each item is first verified by reading the assertion and the
+code it exercises. Then it is either:
+
+- repaired as a recorded slice, qualified at its exact rows; or
+- given a recorded reason when, on reading, it is not a weakness, or is
+  out of scope.
+
+Out of scope: production code, `tools/**` checker logic (R-02), visual
+specs and goldens, and measurement thresholds. A touched Playwright spec
+runs only its own row.
+
+IN_PROGRESS. Owners are taken in lexical order.
+
+### S-901 / F-886 / E-952 — every action-payload contract field is classified as a collection reference or a listed specialized field
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-3
+item: package.view_contracts "references loop omits contract-side
+enumeration of collection (action) fields".
+
+**Finding (read from the generated projections).** The contracts declare
+31 `action_payload` fields. Exactly 22 are registry `collection`
+references. The other 9 are specialized:
+
+- `assessment.support_refs`;
+- `handoff.open_risk_refs`;
+- `host.aliases` and `identity.aliases`;
+- `note.tags` and `timeline.tags`;
+- `timeline.attached_evidence_ids`;
+- `timeline.host_refs` and `timeline.identity_refs`.
+
+The `writeAction` values are prose, so no machine discriminator exists.
+
+**Successor (`references.node.test.ts`, "accounts for every ordinary
+direct reference and declared reference action…").** Every contract field
+with `writeKind: "action_payload"` must be either a registry reference of
+kind `collection`, or one of the 9 specialized fields, listed as literals.
+The listed fields must be absent from the registry. A new action-payload
+field therefore fails until it is classified. The three existing
+specialized `toBeUndefined` checks are kept; they are a subset.
+
+**Selection.** `package.view_contracts.frontend_unit.references`, plus
+`make lint CHECK=types`. No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s901-format01` exited 0.
+- `tcr-s901-qualified01` exited 0: the row passed, pass 2/2 units. Source
+  `819c751e…` at `eba4501fa`, dirty; scan pass; 11 cleanups completed.
+- `tcr-s901-types01` (`make lint CHECK=types`) exited 0.
+
+### S-902 / F-887 / E-953 — config override subtest renamed to its claim; both overrides observed
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-3
+item: platform.config "keeps fixed public ceilings deployment-invariant
+checks one value".
+
+**Finding (Git history).** The subtest was added in `f1a4ff72a` with a
+check that four fixed public ceilings stayed constant: sort 8, filters 16,
+changes 32 and collection actions 64. Those constants later moved to their
+owners (`viewquery.PublicSortLimit`, `PublicFilterLimit`, and
+`mutationpolicy.MaxCollectionActions`), and the check left the config test.
+What remains overrides `imports.max_rows` and `archives.max_members` but
+checks only `max_rows`. The deployment-invariance of the four ceilings is
+already owned by the sibling subtest "rejects undeclared pseudo
+resource-limit keys", which rejects all four as `unknown_key`.
+
+**Successor (`core_config_test.go` `TestResourceLimits_Unit`).** The
+subtest is renamed "applies declared import and archive limit overrides"
+(a `t.Run` name, not routed). It requires `MaxRows == 777` and
+`MaxMembers == 123`, and requires `MaxColumns` to keep its default.
+
+**Selection.**
+`platform.config.unit.resource_limit_validation_resolves_defaults_dete_13cd1f63b3`.
+No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s902-format01` exited 0.
+- `tcr-s902-qualified01` exited 0: the row passed, pass 1/1 unit. Source
+  `d925f181…` at `eba4501fa`, dirty; scan pass; 10 cleanups completed.
+
+### S-903 / F-888 / E-954 — object-store size binding, purpose isolation, error classes, checksums and placement checked exactly
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-3
+items: platform.objectstore (R-05 table and the E-813 ledger).
+
+**Successor (`internal/platform/objectstore`, unless noted).**
+
+1. `s3_policy_test.go`, "presigned PUT binds digest size and method": the
+   presigned URL's `X-Amz-SignedHeaders` must include `content-length`.
+   Production signs `ContentLength` (`s3.go` `CreateUploadTarget`), so the
+   size claim is now observed.
+2. `objectstore_adapter_contract_test.go`: the wrong-purpose delete targeted
+   a never-created key, so it also had no object to delete. The key is now
+   seeded. The delete must fail as `object_store_invalid_request` /
+   `invalid_request`, and the object must still be readable afterwards.
+3. `telemetry_test.go` `TestObjectStoreErrorClass`: a table over all nine
+   `ErrorCode` values, a wrapped `context.DeadlineExceeded`, and a plain
+   error, each with its class. Before this, 3 of the mapping's branches
+   were covered.
+4. `s3_streaming_integration_test.go`:
+   - each single-part object's `ChecksumSHA256` equals the base64 SHA-256
+     of its payload, where only non-empty was checked;
+   - each multipart object's checksum is a composite ending `-N`, where N
+     is the number of 8 MiB parts;
+   - the "oversize-hint" case pins the adapter's
+     "object exceeds the S3 upload limit". The declared size is checked
+     before the body is read, so the short body cannot be the cause.
+5. `objectstore_test.go`, "derives disconnected filesystem-root storage
+   only from roots.object_storage.path": the stored bytes are read
+   directly at `<roots.object_storage.path>/proof/proof.txt`.
+Item 6 was dropped before editing. The operator init output is already
+decoded and checked exactly by the sibling
+`TestMVPObjectStoreInitOperatorTransport` (schema ID, result, flags,
+single-line transport, empty stderr, no storage details). The durable-effect
+test's claim is the bucket's existence afterwards.
+
+**Retained.**
+
+- `TestProxyHelperProcess` and the proxy any-error checks: harness
+  utilities in `internal/testutil` (R-02 class).
+- The POST substitution: the claim is that a substituted method is not
+  authorized (any non-2xx). The status vocabulary is the S3 backend's.
+- Pre-cancelled contexts: mid-operation cancellation needs a production
+  hook.
+- The at-limit oversize pair: a valid upload at `s3MaximumUploadBytes` is
+  infeasible.
+
+**Selection.** The platform.objectstore rows:
+
+- `unit.cryptographic_policy`;
+- `unit.typed_adapter_purpose_and_error_contract_a1b2c3d4e5`;
+- `unit.telemetry_store_preserves_store_behavior_no_sdk_698de09dc3`;
+- `integration.disconnected_filesystem_root_object_store_setup_0f6ea3351e`;
+- `support_integration.qualified_streaming`.
+
+No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s903-format01` exited 0.
+- `tcr-s903-qualified01` exited 0: all five rows passed, pass 4/4 units.
+  Source `d29250fe…` at `eba4501fa`, dirty; scan pass; 15 cleanups
+  completed.
+- The S3 rows ran against the provisioned test S3 service: `s3test` has no
+  skip path, and the run's service journals are retained. The single-part
+  checksums equalled the payload digests, and the multipart checksums
+  carried the `-N` part-count suffix.
+- Replaced in place: the non-empty checksum check; the any-error oversize
+  and delete checks; the three-branch error-class test.
+
+### S-904 / F-889 / E-955 — OpenAPI gate, limits, parity and family-route rejections checked exactly
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-3
+items: platform.openapi (R-05 table and the E-815 record).
+
+**Successor.**
+
+1. `openapicompat/compatibility_test.go`
+   `TestReleaseRegistryRejectsModifiedSnapshot`:
+   - the rejection pins "released document SHA-256 does not match
+     registry". `reportRepository` checks the digest right after the byte
+     length, before the target document, manifest or change sets are read,
+     so the missing parts cannot be the cause;
+   - as a control, the registry carries the true digest of the snapshot.
+     The gate then fails later, at "read current document", so the digest
+     check is the discriminator.
+2. `openapiassembly/assembly_test.go` `TestAggregateResourceLimits`:
+   - at the fixture document's exact counts (1 path, 1 operation, 6 named
+     components) the limit checks pass, and validation proceeds to its next
+     check: the fixture's unused security schemes. The fixture is not a
+     complete document, so this is a stage control, as in item 1;
+   - the component rejection moves to 5 (one below), and paths and
+     operations stay at 0 (one below 1);
+   - a JSON depth pair is checked on `parseOrderedJSON`: 128 nested
+     containers accepted, 129 rejected with "JSON depth exceeds 128".
+3. `app/server/openapi_contract_test.go`
+   `TestGeneratedRuntimeOpenAPIContractParity`:
+   - the reverse scan covers every OpenAPI 3.1 operation method (adding
+     `head`, `options` and `trace`);
+   - each operation's `x-cartulary-state-changing` must equal the
+     descriptor's `StateChanging`;
+   - runtime descriptors must be unique by method and path.
+4. `httpapi/family_routes_test.go`: the duplicate-family and
+   lost-projection rejections pin their messages ("owner family %q overlaps
+   a bound family"; "bound owner family is absent from the claimed route
+   projection").
+
+**Retained.**
+
+- "IsClosed" checks uniqueness only: closure against the document is owned
+  by the parity test (item 3), which is now two-way over every method.
+- Security scheme names and change classification per change: retained
+  (R-05).
+
+**Selection.** The platform.openapi rows:
+
+- `unit.release_compatibility`;
+- `unit.deterministic_assembly_742e38b57c`;
+- `unit.runtime_contract_parity_4fc98c2b71`;
+- `unit.runtime_profile_catalog`.
+
+No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s904-format01` exited 0.
+- `tcr-s904-qualified01` exited 2 with a product assertion failure caused
+  by my control. `validateAggregate` checks limits first and then rejects
+  this partial fixture's unused security schemes, so "accepted at the exact
+  counts" was the wrong expectation. The control now requires that the
+  limit checks pass and validation reaches the unused-scheme check.
+- `tcr-s904-format02` exited 0. `tcr-s904-qualified02` exited 0: all four
+  rows passed, pass 4/4 units. Three were cache hits of the identical
+  passing units from `qualified01`. Source `a0a4328f…` at `eba4501fa`,
+  dirty; scan pass; 10 cleanups completed.
+- Replaced in place: the any-error snapshot and family-route checks; the
+  zero-component rejection; the five-method set.
+
+### S-905 / F-890 / E-956 — Postgres credential, DSN, privilege and telemetry checks isolated and exact
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-3
+items: platform.postgres (R-05 table and the E-817 ledger).
+
+**Successor (`internal/platform/postgres`).**
+
+1. `postgres_settings_test.go` `TestPostgresFilesystemCredentialSafety`:
+   - the symlinked and hard-linked payloads become the valid test DSN.
+     Before, they were `postgres://secret`, an invalid DSN, so a lost link
+     rule could hide behind the grammar check;
+   - "oversized" was 65,537 NUL bytes. It becomes the valid DSN padded
+     (through its `sslrootcert` path) to 65,537 bytes, with a 65,536-byte
+     valid payload accepted as the pair (`filesystemRootDSNMaximumBytes`).
+2. `transport_test.go` `TestPostgresCertificateDSNPolicy`: the
+   `strings.Repeat("x", 65537)` input (oversize and not a URL) becomes the
+   fixture DSN padded to 65,537 bytes, beside an accepted 65,536-byte DSN.
+   `parseCertificateDSN` applies the same guard.
+3. `postgres_role_integration_test.go`:
+   - the privilege-manifest object-kind switch becomes closed. Its first
+     run (`tcr-s905-qualified01`) showed that the manifest also holds kinds
+     the switch skipped silently: `constraint` (1,184), `index` (624),
+     `trigger` (78) and `extension` (2). Constraints, indexes and
+     triggers have no grantable privileges of their own and are now named
+     as such. Each extension entry must be `type_use` for both roles and be
+     one of the extensions `assertExtensionTypePrivileges` checks
+     (`pgcrypto` and `citext`). Any other kind fails;
+   - `assertOperationDenied` requires SQLSTATE `42501`
+     (`insufficient_privilege`) through `pgconn.PgError`;
+   - the "wrong certificate identity" connection must not be rejected as
+     `effective_role_mismatch`. The certificate must be refused before any
+     role check.
+4. `telemetry_test.go`:
+   - the wrapper must forward each statement exactly, not merely
+     non-empty;
+   - `TestPostgresErrorClass` becomes a table over every branch: all four
+     constraint codes, `40001`, a default code (`42501`), a wrapped
+     deadline, and a non-PostgreSQL error.
+
+**Retained.**
+
+- The password-method fixtures in `authentication_policy_test.go`: the
+  client must refuse password, MD5, SCRAM, GSS and OAuth challenges that a
+  misconfigured or hostile server might send. Certificate-only HBA does
+  not make the client policy redundant.
+- The stub-owned truncation status, nil-harness and invalid-name cases, HBA
+  substring and "migrated" existence check: these are `internal/testutil/pgtest`
+  harness tests (R-02 class).
+- The forbidden-substring loop (R-05).
+
+**Selection.** The platform.postgres rows:
+
+- `support_unit.root_bound_dsn_is_bounded_and_no_follow_5c8a0a293d`;
+- `integration.purpose_identity_roles_and_acl`;
+- `unit.postgres_telemetry_behavior`.
+
+No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s905-format01` exited 0.
+- `tcr-s905-qualified01` exited 2: the new `default` failed on
+  `public.pgcrypto` (kind `extension`). This was a real finding: the switch
+  had silently skipped 1,889 manifest entries of 4 kinds. The record above
+  was amended, and the switch was closed over those kinds.
+- `tcr-s905-format02` exited 0. `tcr-s905-qualified02` exited 0: all three
+  rows passed, pass 4/4 units. Source `6400abbd…` at `eba4501fa`, dirty;
+  scan pass; 15 cleanups completed.
+- Every denied operation failed as `42501`. No invalid-certificate case
+  reached the effective-role check.
+- Replaced in place: the invalid-DSN link and oversize payloads; the
+  `x`-string; the existence-only telemetry check; the four-case
+  error-class test.
+
+### S-906 / F-891 / E-957 — rooted-filesystem listing, publication and secure-read rejections isolated and pinned
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-3
+items: platform.rootedfs (R-05 table and the E-820 record).
+
+**Successor.**
+
+1. `rootedfs/root_linux_test.go` `TestRootedFSOperationContainment_Unit`:
+   the hard-link listing rejection ran after four symlinks were also
+   created in the same root, and the listing error message does not
+   distinguish object kinds. A fresh root now holds one regular file. It
+   lists cleanly (the control), and after a hard link is added the listing
+   fails. The existing check is kept.
+2. `TestRootedFSAtomicLifecycleAndRootIdentity_Unit`: the non-sibling
+   publication `nested/name` was rejected while its parent did not exist.
+   The parent is now created first, so only the non-sibling rule can reject
+   it, and nothing may appear at `nested/name`.
+3. `securefile/read_linux_test.go`:
+   - the 15-byte manifest is read at a maximum of exactly 15 and rejected
+     as `too_large` at 14. The old pair was 15 against 4;
+   - the relative path pins `invalid_path`;
+   - each unsafe object pins its kind. The first run showed that a socket
+     fails closed as `unavailable`, because `open(2)` refuses it (ENXIO)
+     before any object-type check; the other four are `unsafe_object`;
+   - redaction also forbids the unique path components (`long-path-`,
+     `final-link`, `parent-link`), not only the full paths.
+
+**Retained or not reproduced.**
+
+- `ErrRootIdentityChanged` "unused": not reproduced. Production returns it
+  at four sites, and three tests pin it.
+- "Bounded traversal": the bound is `ReadDir(128)` batching, which the API
+  cannot observe. The 300-entry case crosses two batch boundaries while
+  entries are removed.
+- The production-boundary scan is a static source checker (R-02 class).
+
+**Selection.** `platform.rootedfs.unit.operation_containment` and
+`platform.rootedfs.unit.secure_absolute_file_reads`. No production or
+routing change.
+
+Closure: DONE.
+
+- `tcr-s906-format01` exited 0.
+- `tcr-s906-qualified01` exited 2: the socket subtest reported
+  `unavailable`, not my expected `unsafe_object`. That is correct
+  fail-closed production behaviour (see item 3), and the expectation was
+  amended.
+- `tcr-s906-format02` exited 0. `tcr-s906-qualified02` exited 0: both rows
+  passed, pass 2/2 units. The unchanged rootedfs unit was a cache hit of
+  `qualified01`'s pass. Source `9cc979f5…` at `eba4501fa`, dirty; scan
+  pass; 10 cleanups completed.
+- Replaced in place: the 15-against-4 bound; the type-only error checks.
+
+### S-907 / F-892 / E-958 — production: OTLP/gRPC export retry classifies by canonical status name (OTEL-REQ-135)
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+Production slice under the S-878 precedent: a spec-mandated defect found
+while completing the platform.telemetry "incomplete gRPC code lists" item.
+
+**Governing.** `opentelemetry-instrumentation-nlspec.md` OTEL-REQ-135: the
+retry loop MUST treat retryable OTLP/gRPC status codes as transient.
+`ClassifyOTLPGRPCStatus` encodes the OTLP retryable set by canonical name:
+`CANCELLED`, `DEADLINE_EXCEEDED`, `ABORTED`, `OUT_OF_RANGE`,
+`UNAVAILABLE` and `DATA_LOSS`, plus `RESOURCE_EXHAUSTED` with `RetryInfo`.
+
+**Defect.** `classifyExportRetry` (`export_retry.go`) passes
+`st.Code().String()`. In grpc-go v1.83.2 that is the Go identifier
+(`Canceled`, `DeadlineExceeded`, `OutOfRange`, `DataLoss`,
+`ResourceExhausted`), not the canonical name, and upper-casing it does not
+recover the canonical form. Only `Aborted` and `Unavailable` match. In
+the real export path, cancelled, deadline-exceeded, out-of-range,
+data-loss, and retry-info resource-exhausted failures are therefore
+dropped as permanent. The existing test passed canonical strings straight to
+the classifier and never went through `classifyExportRetry`.
+
+**Successor.**
+
+1. Test (`exporter_test.go` `TestOTLPStatusRetryClassification`): every
+   gRPC code from 1 to 16 is sent through `classifyExportRetry` as a real
+   `status.Error`, and must classify like its canonical name. A
+   `RESOURCE_EXHAUSTED` status carrying `RetryInfo` must be transient with
+   its delay. This test is run first, to confirm the defect.
+2. Production: `classifyExportRetry` maps `codes.Code` to its canonical
+   name (a closed switch over the 16 codes) before calling
+   `ClassifyOTLPGRPCStatus`. Nothing else changes.
+
+**Selection.** `platform.telemetry.unit.exporter_failure_invariance`. No
+routing change.
+
+Closure: DONE.
+
+- `tcr-s907-format01` to `format04` exited 2 at `runtime_plan`
+  (`configuration_error`, a redacted public diagnostic). This was my error:
+  I had added the check as a new top-level Go test function, which is not
+  routed, and the harness refuses to plan an unrouted test root. Restoring
+  the HEAD file made format pass (`tcr-s907-diag01`); removing only the
+  new imports did not (`tcr-s907-diag02`). The check now runs as a `t.Run`
+  subtest inside the routed `TestOTLPStatusRetryClassification`, as
+  recorded above, and `tcr-s907-format05` exited 0.
+- `tcr-s907-successor02` exited 2, confirming the defect exactly. The
+  successor failed for CANCELLED, DEADLINE_EXCEEDED, OUT_OF_RANGE,
+  DATA_LOSS and RetryInfo RESOURCE_EXHAUSTED, all classified `permanent`.
+- Production fix applied (`export_retry.go`: `grpcCanonicalStatusName`).
+  `tcr-s907-format06` exited 0. `tcr-s907-qualified01` exited 0: the row
+  passed, pass 1/1 unit. Source `6091b9c4…` at `eba4501fa`, dirty; scan
+  pass; 10 cleanups completed.
+- `classifyExportRetry` has no other caller outside this package. The
+  retrying exporters that use it are tested in the same row
+  (`TestRetryingSpanExporter*`).
+- For the maintainer's review: this is the second production change after
+  S-878. It restores OTEL-REQ-135 for live gRPC export failures.
+
+### S-908 / F-893 / E-959 — telemetry hostile-environment, bound, redirect and TLS-cause checks complete
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-3
+items: platform.telemetry (R-05 table and the E-821 ledger).
+
+**Successor (`internal/platform/telemetry`).**
+
+1. `bootstrap_test.go` `TestBootstrapIgnoresHostileOTelEnvironment`: the
+   whole resource identity under the hostile `OTEL_*` environment must equal
+   the identity bootstrapped from the same configuration with no
+   environment. Before, `service.name` alone was checked.
+2. `configuration_admission_test.go`, "enforces closed enums and bounds":
+   each rejected bound gets its accepted at-bound value, loaded and read
+   back:
+   - `retry.multiplier` 5;
+   - `retry.max_elapsed_ms` 300000;
+   - `logs.body_max_chars` 8192;
+   - `processor.export_timeout_ms` 100;
+   - `shutdown.flush_timeout_ms` 100.
+3. `transport_test.go`, "plaintext and redirects rejected": the redirecting
+   collector counts its requests and must have served the 307 exactly once.
+   A failure before the redirect could otherwise satisfy "not followed".
+4. `transport_test.go` TLS modes: each rejected mode pins the cause it
+   exposes. The first run (`tcr-s908-qualified01`) showed that production
+   redacts verification failures. `wrong-root`, `wrong-name` and `expired`
+   all surface as "TLS peer rejected" over both OTLP/HTTP and OTLP/gRPC, so
+   the per-cause `crypto/x509` texts I first recorded are not observable.
+   The redacted text is pinned for those three; `tls12` keeps "protocol
+   version". These are engineering pins.
+
+**Retained.**
+
+- Production-declared literal matrices, name constants and the sampler
+  corpus: they are parity checks against the adopted registries, which are
+  the specification.
+- Multi-defect export-failure inputs: each pins its own attribute path.
+- Unregistered-key absences: closed-registry checks.
+- Path-valued attribute reasons; escaped-secret rendering; the direct
+  `safeHTTPRoute` call; the recursive null path: no reason vocabulary
+  exists, or the item is an internal-helper unit.
+
+**Selection.** The platform.telemetry rows:
+
+- `unit.bootstrap_activation_and_containment`;
+- `unit.configuration_validation`;
+- `unit.qualified_transports`.
+
+No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s908-format01` exited 0.
+- `tcr-s908-qualified01` exited 2: my per-cause TLS pins were wrong,
+  because production redacts verification causes (item 4). The other two
+  rows passed.
+- `tcr-s908-format02` exited 0. `tcr-s908-qualified02` exited 0: all three
+  rows passed, pass 2/2 units. Source `6253eb45…` at `eba4501fa`, dirty;
+  scan pass; 11 cleanups completed.
+- Replaced in place: the `service.name`-only check; the any-error TLS and
+  redirect checks.
+
+### S-909 / F-894 / E-960 — query ceilings, limits, alias and token bounds paired; SQL literal case isolated
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-3
+items: platform.viewquery (R-05 table and the E-823 record).
+
+**Successor.**
+
+1. `viewquery/query_contract_test.go` `TestQueryNormalizationMeta_Unit`:
+   - the sort-ceiling body repeated one field nine times, so it was also a
+     duplicate. It now uses nine distinct entries of the Timeline schema's
+     `sort_fields`. That is the query allowlist; the per-field `sortable`
+     flag is not, as `tcr-s909-qualified02` showed;
+   - eight distinct fields are accepted (the at-limit pair).
+2. `viewquery/query_test.go`: limits 1 and 500 are accepted beside the
+   rejected 0 and 501.
+3. `sqlshape/sqlshape_test.go`: `SELECT 'unterminated` was formatted with
+   an argument it has no placeholder for, so a count mismatch could also
+   reject it. It is now checked through `Format` and `Command` with no
+   arguments.
+4. `fieldnorm/text_test.go`: 256 two-byte scalars are accepted and 257 are
+   rejected. This pairs the bound and shows it counts Unicode scalars, not
+   bytes.
+5. `listquery/listquery_test.go`: a 16-token search is accepted beside the
+   rejected 17.
+
+**Retained.**
+
+- The filter-ceiling at-limit case: no view declares 16 filterable fields,
+  so 16 distinct filters cannot be built. The count check is shown to come
+  first by the pinned `filter_count_exceeded` reason, with requested and
+  maximum counts.
+- `timeline.event_type`: a retired field (it existed in production paths in
+  `76faa15c1`), so a regression guard.
+
+**Carried forward** (not examined in this slice): the frontend Vitest
+items, the Playwright items, and the partial `maintenancequery` sets.
+
+**Selection.** The platform.viewquery rows:
+
+- `unit.sort_and_filter_ceilings_canonical_normalization_4ca84c1e10`;
+- `unit.decode_defaults_to_schema_meta_0c64ab2f71`;
+- `unit.closed_sql_fragments`;
+- `unit.normalize_alias_text_v1_122b8c996b`;
+- `unit.list_query_duplicate_precedence_and_normalization_c36fa08271`.
+
+No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s909-format01` exited 0.
+- `tcr-s909-qualified01` exited 2: a build error from my edit (`Query.Sort`
+  is `Query.Meta.Sort`).
+- `tcr-s909-qualified02` exited 2: `timeline.date_entered_text` is
+  schema-`sortable` but not in `sort_fields`. The list was switched to
+  `sort_fields`.
+- `tcr-s909-qualified03` exited 2: the at-ceiling query was accepted, but
+  normalization appends the `record_id` tail, so the expectation now pins
+  eight user entries plus that tail.
+- `tcr-s909-format02` and `format03` exited 0. `tcr-s909-qualified04`
+  exited 0: all five rows passed, pass 4/4 units. Three were cache hits of
+  unchanged passing units. Source `d61e8c55…` at `eba4501fa`, dirty; scan
+  pass; 10 cleanups completed.
+- None of these failures was a product regression.
+
+### S-910 / F-895 / E-961 — view-schema discovery paging continues exactly and accepts its maximum limit
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-3
+items: platform.viewschema (R-05 table and the E-824 record).
+
+**Successor (`internal/modules/viewschemas/viewschemas_integration_test.go`
+`TestViewSchemasDiscoveryHTTP`).**
+
+1. "Supports bounded pagination…": the IDs of the first and second
+   five-item pages, together, must equal the first ten IDs of a complete
+   listing (`limit=500`), in order. Before, page 2 was checked only for its
+   size, so a cursor that repeated page 1 would pass.
+2. "Fails closed for invalid list pagination": `limit=500` is accepted with
+   every schema in one terminal page, beside the rejected `limit=501`.
+
+**Retained.**
+
+- Field order against the same embedded artifacts, and public output
+  against its internal source: parity with the artifacts that are the
+  specification.
+- Forbidden internal keys: the public struct cannot carry them, so the
+  check is structural.
+- The `nullable` check: it guards against OpenAPI 3.0 vocabulary
+  reappearing in 3.1 output.
+- Hypothesis names: retired-view regression guards (R-05).
+- Layout reasons: the layout tests already pin `Field` and `ReasonCode`
+  per case.
+
+**Selection.**
+`platform.viewschema.integration.view_schemas_discovery_http_036651fc36`.
+No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s910-format01` exited 0.
+- `tcr-s910-qualified01` exited 0: the row passed, pass 3/3 units. Source
+  `33a3d5a0…` at `eba4501fa`, dirty; scan pass; 14 cleanups completed.
+
+Phase-3 progress: S-901 to S-910 closed. Owners done:
+
+- package.view_contracts;
+- platform.config, objectstore, openapi, postgres, rootedfs, telemetry
+  (including the S-907 production fix), viewquery (Go items) and
+  viewschema.
+
+Next: web.application, web.collaboration, web.design and web.workbook, each
+expanded from its owner ledger; then the viewquery frontend items carried
+forward in S-909.
+
+### S-911 / F-896 / E-962 — controller dispatch negatives observed after the asynchronous admission settles (S-788 class)
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-3
+item: web.application, from the E-827 ledger: "synchronous dispatch
+negatives before the async `recover` in other controllers, … the same class
+as S-788".
+
+**Defect class.** Each controller dispatches its write (or navigation) only
+after an asynchronous step: the authority `recover`, or the import model's
+open read. A `not.toHaveBeenCalled()` checked synchronously, right after
+the triggering call, therefore cannot see a dispatch that wrongly
+proceeds.
+
+**Sites, verified by reading.**
+
+- `incidentMetadataController.node.test.ts`:
+  - :103, an untouched save;
+  - :111, save while admission is pending;
+  - :182, `review()` must not save.
+
+  Lines :441 and :451 already settle first.
+- `incidentMembershipManagementController.node.test.ts`:
+  - :173, submit while admission is pending;
+  - :363, submit after confirmation is invalidated;
+  - :485, submit of an empty add.
+- `incidentLifecycleController.node.test.ts`:
+  - :94, confirm while admission is pending;
+  - :115, a reason changed after proposal;
+  - :119, an unreviewed newer version.
+- `incidentImportModel.node.test.ts`:
+  - :359, open after a failed observation;
+  - :432, open for a non-success job.
+
+  Its positive case needs `await tick()` before `openIncident` is
+  observed. Lines :339 (an intended synchronous check followed by a
+  positive), :377 and :470 already wait.
+
+**Successor.** Each site waits on the file's own helper (`settle`, `flush`
+or `tick`) before its unchanged assertion. Where admission is deliberately
+held pending by a deferred, the wait shows that the write stays undispatched
+across microtasks, not just synchronously.
+
+**Selection.** The web.application rows:
+
+- `regression.metadata_ownership`;
+- `regression.membership_management_ownership`;
+- `regression.lifecycle_ownership`;
+- `regression.incident_import_lifecycle`;
+- plus `make lint CHECK=types`.
+
+No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s911-format01` exited 0.
+- `tcr-s911-qualified01` exited 0: all four rows passed, pass 2/2 units.
+  Source `9bde8f9d…` at `eba4501fa`, dirty; scan pass; 11 cleanups
+  completed. Production dispatches none of the 11 negatives after its
+  asynchronous step settles.
+- `tcr-s911-types01` (`make lint CHECK=types`) exited 0.
+- Each wait was inserted before an unchanged assertion, after the target
+  line's content was checked.
+
+### S-912 / F-897 / E-963 — public error presentation covers every access-loss code and each authentication trigger alone
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-3
+item: web.application, from the E-827 ledger: "error presentation … omits
+`authorization_denied` and `incident_not_found`".
+
+**Successor (`publicErrorPresentation.node.test.ts`, "uses structured
+code and operation context for every current locus").**
+
+- `authorization_denied` and `incident_not_found` are added beside
+  `incident_access_lost`. Each must present as
+  `permission_or_incident_access_loss`, the three codes that
+  `publicErrorPresentation.ts` maps there.
+- The authentication case sets both `status: 401` and
+  `code: "session_required"`, either of which triggers it. Two cases now
+  show each trigger alone: a 401 with an unknown code, and
+  `session_required` with status 400.
+
+**Selection.**
+`web.application.regression.public_error_presentation_typed_mapping_1ea7e57fb4`,
+plus `make lint CHECK=types`. No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s912-format01` exited 0.
+- `tcr-s912-qualified01` exited 0: the row passed, pass 2/2 units. Source
+  `b8ed0713…` at `eba4501fa`, dirty; scan pass; 11 cleanups completed.
+- `tcr-s912-types01` (`make lint CHECK=types`) exited 0.
+
+#### Phase 3 web.application — owner table
+
+| E-827 or R-05 item | Phase-3 disposition |
+| --- | --- |
+| Synchronous dispatch negatives before async `recover` (metadata, membership management, lifecycle, import model) | Repaired in S-911 (11 sites). |
+| Error presentation omits `authorization_denied` and `incident_not_found` | Repaired in S-912, with each authentication trigger alone. |
+| Non-JSON transport fallback | Closed by S-897. |
+| `App.landing` retired-text negatives; optional-chained calls; the `if`-guarded coordinator assertion | Retained (R-05); the conditional case is S-849. |
+| Fencing titles whose writes never settle (workbook and Network Flow import); focus-restoration titles without focus checks; unpinned client failure kinds; session-gate, membership-audit-event and import-job multi-defect payloads; font-bundle baseline; browserApi timing header; mixed-unit text bounds | Carried forward, not yet examined in phase 3. |
+
+Phase-3 progress: S-901 to S-912 closed. Next: web.collaboration,
+web.design and web.workbook, then the carried-forward web.application and
+viewquery frontend items.
+
+### S-913 / F-898 / E-964 — presence expiry, caps and invalid records checked with their accepted counterparts
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-3
+items: web.collaboration presence (E-833 ledger).
+
+**Successor (`apps/web/src/workbook/utils/workbookPresence.test.tsx`).**
+
+1. "Excludes expired records": at 44,999 ms the record must be shown (its
+   connection in the header users), not only report its next expiry. This
+   pairs it with the 45,000 ms exclusion.
+2. "Counts overflow at every capacity…": the single six-user population
+   is complemented by at-capacity populations, each showing every user
+   with no overflow:
+   - five users in the header;
+   - three on a row;
+   - two on a cell.
+3. "Rejects malformed times modes and anchors…": a valid record is added
+   to the seven invalid ones and must be the only user shown. The
+   projection is therefore shown to reject the invalid records, not
+   everything.
+
+**Selection.** `web.collaboration.regression.presence_presentation`, plus
+`make lint CHECK=types`. No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s913-format01` exited 0.
+- `tcr-s913-qualified01` exited 0: the row passed, pass 2/2 units. Source
+  `20a97b25…` at `eba4501fa`, dirty; scan pass; 11 cleanups completed.
+- `tcr-s913-types01` (`make lint CHECK=types`) exited 0.
+
+#### Phase 3 web.collaboration — owner table
+
+| E-833 or R-05 item | Phase-3 disposition |
+| --- | --- |
+| Presence: invalid batch, single population against three caps, the 44,999 case | Repaired in S-913. |
+| Session plan "exactly" with `toMatchObject` | Closed by S-898. |
+| Coordinator stale callbacks and `resolveRecovery?.()` | Closed by S-850. |
+| Disposal negative as the only assertion | Retained (R-05): the disposal effects are observed by the late-recovery and old-listener tests. |
+| Pending-work and authorization-pause titles; one- and six-tick negatives; unacknowledged replacement sockets; discarded `applyRecordChanged` results and the single malformed case; transition-model survivor checks and the missing `sheetKey` mismatch | Carried forward, not yet examined in phase 3. |
+
+### S-914 / F-899 / E-965 — Workbook sort admission covers its duplicate case and an unconditional owner limit
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Phase-3
+items: web.workbook (E-838 ledger):
+
+- "The ninth-or-duplicate sort title lacks a duplicate case";
+- "the owner sort limit is conditional on `sortable.length`".
+
+**Successor.**
+
+1. `workbookGridQueryControls.node.test.ts`, "rejects a ninth or duplicate
+   sort…": with one slot free (after a removal), adding a field already in
+   the sort must be refused. The same sort reference is returned, as it is
+   for the ninth add, so only the duplicate rule can refuse it.
+2. `workbookQuery.node.test.ts`, "supports ordered additive sort cycles and
+   enforces the owner limit": the fixture must hold nine sortable Timeline
+   fields, and exactly eight are kept. This replaces
+   `Math.min(8, sortable.length)`, which would pass with fewer than nine
+   fields.
+
+**Selection.**
+
+- `web.workbook.regression.grid_controls_model_a104000001`;
+- `web.workbook.regression.workbookquery_suite_904073db6c`;
+- plus `make lint CHECK=types`.
+
+No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s914-format01` exited 0.
+- `tcr-s914-qualified01` exited 0: both rows passed, pass 2/2 units.
+  Source `9ebd437d…` at `eba4501fa`, dirty; scan pass; 11 cleanups
+  completed. The duplicate add was refused with the same reference.
+- `tcr-s914-types01` (`make lint CHECK=types`) exited 0.
+
+### R-05 phase 3 interim handoff, 2026-11-15
+
+**State.** Phase 3 is IN_PROGRESS (E-951 is still reserved). Slices
+S-901 to S-914 are closed, each qualified at its exact rows. Nothing is
+staged or committed.
+
+**Owners whose phase-3 items are done:**
+
+- package.view_contracts;
+- platform.config, objectstore, openapi, postgres, rootedfs, telemetry,
+  viewquery (Go items) and viewschema.
+
+**Production change (for review): S-907.** OTLP/gRPC export retry passed
+grpc-go's Go-identifier code names (`DeadlineExceeded`) to a
+canonical-name classifier (`DEADLINE_EXCEEDED`). Cancelled,
+deadline-exceeded, out-of-range, data-loss and retry-info
+resource-exhausted export failures were therefore dropped as permanent,
+against OTEL-REQ-135. The fix (`grpcCanonicalStatusName`) was confirmed by
+a successor that failed first.
+
+**Real findings from strengthening:**
+
+- S-905: 1,889 privilege-manifest entries of 4 kinds were silently skipped
+  by an open switch;
+- S-906: a socket fails closed as `unavailable`;
+- S-908: TLS verification causes are deliberately redacted.
+
+**Remaining, carried forward (not yet examined in phase 3):**
+
+- web.application: fencing titles; focus-restoration titles; client
+  failure kinds; session-gate, audit-event and import-job payloads; font
+  baseline; timing header; text bounds.
+- web.collaboration: coordinator titles and tick negatives; replacement
+  sockets; binding results and the malformed case; transition-model
+  survivor and `sheetKey` cases.
+- web.design: the a11y title items (browser rows). Visual-registry items
+  are out of scope.
+- web.workbook: the E-838 list except the items closed by S-852 to S-854,
+  S-900 and S-914.
+- viewquery frontend: the Vitest and Playwright items and the partial
+  `maintenancequery` sets.
+
+**Identities.** Used: S-901 to S-914, F-886 to F-899, E-952 to E-965 (with
+E-951 reserved). The next free identities are S-915, F-900 and E-966;
+verify before use.
+
+**Lesson recorded (S-907).** A new top-level Go test function makes
+harness planning fail with a redacted `configuration_error`. New coverage
+must be a `t.Run` subtest inside a routed root, as rule 4 requires.
+
+### S-915 / F-900 / E-966 — Timeline mutation-driver plans cover every settlement outcome and admission gate
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+Phase-3 item: web.workbook (E-838 ledger), "mutation-driver plans omit
+`same_field_conflict`, `success` and `no_dispatched_unit`".
+
+**Defect.** "Projects every rejected settlement into an explicit driver
+action" checks three of the six `PendingReplaySettlement` outcomes. The
+conflict outcome (in both its exact-conflict and mismatched-failure
+branches), `no_dispatched_unit` and `success` are never observed. A
+regression that registered a conflict without its exact payload, or
+retried a rejected success, would pass. Reading the whole file found four
+more unobserved branches:
+
+- the conflict gate is reached only through `hasLocalConflict`, never
+  through a queued `sameFieldConflicts` entry;
+- the view-schema half of the owner check;
+- a create candidate with no committed row, which must still dispatch
+  (with a `null` version);
+- an accepted projection that keeps nothing (`preserveKnownCommittedRow`
+  false), and a recovered discard without metadata
+  (`clearViewportContinuity` false).
+
+**Classification.** An engineering pin: the plan functions are internal,
+and the outcome set is the closed `PendingReplaySettlement` union.
+
+**Successor (same file, same five titles; no new title).**
+
+1. Rejected settlement: the conflict outcome with a same-field failure
+   gives `register_conflict` with that failure's exact conflict. With a
+   non-conflict failure it gives `invalid_settlement` with its exact
+   message. `no_dispatched_unit` and `success` each give
+   `invalid_settlement` with their exact messages.
+2. Gates: a snapshot holding a queued same-field conflict pauses for
+   `conflict` with no local conflict.
+3. Owner admission: a candidate whose view schema differs from the
+   envelope pauses for `owner_mismatch`. A create candidate with a `null`
+   committed version dispatches with `committedRowVersion: null`.
+4. Accepted projection: equal versions and no refresh give both flags
+   false.
+5. Discard: a recovered discard without metadata reconciles with
+   `clearViewportContinuity: false`.
+
+**Selection.** `web.workbook.regression.timeline_mutation_driver_plans_7f34b61c90`,
+plus `make lint CHECK=types`. No production or routing change.
+
+Closure: DONE. The change is additive (nothing retired), so the
+successor run is the qualification.
+
+- `tcr-s915-format01` exited 0.
+- `tcr-s915-successor01` exited 0: the row passed, 5/5 titles; pass 2/2
+  units. Source `fa039b13…` at `eba4501fa`, dirty; scan pass; 11
+  cleanups completed.
+- `tcr-s915-types01` (`make lint CHECK=types`) exited 0.
+
+### S-916 / F-901 / E-967 — Ordinary-create transport verification counts its contracts and pins its rejection
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+Phase-3 item: web.workbook (E-838 ledger), "ordinary-create transport
+iterates the production contributions with an unpinned throw and no
+count".
+
+**Defect.** "Verifies all fourteen discovered contracts and rejects
+changed fields, inputs and minima" iterates whatever views the production
+contributions declare, so a dropped contribution still passes, and
+"fourteen" is never checked. Each changed schema only needs to make
+`verify` throw something. `verify` has two failures: "Creation capability
+could not be verified." (the discovery read was not accepted) and
+"Creation capability changed. Review the retained draft." (the capability
+comparison). A changed schema rejected by response validation, rather
+than by the comparison the title names, would pass. The not-accepted
+branch is not observed at all.
+
+**Successor (same title).**
+
+1. The visited views must equal a literal list of the 14 ordinary
+   create view IDs.
+2. Each of the four changed schemas must be rejected with "Creation
+   capability changed. Review the retained draft."
+3. A discovery response that is not accepted (a 404 error envelope) must
+   be rejected with "Creation capability could not be verified." This
+   isolates the two branches.
+
+**Selection.** `web.workbook.regression.ordinary_create_transport`, plus
+`make lint CHECK=types`. No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s916-format01` exited 0.
+- `tcr-s916-successor01` exited 2 (preserved): the row failed, and only
+  the transport title. For `cartulary.view.hosts.v1`, the changed-inputs
+  schema was rejected with "Creation capability could not be verified."
+  Its fabricated create input (`{ input_key: "fabricated" }`) lacked the
+  required `nullable`, `required` and `value_contract_id`, so it failed
+  response validation and never reached the capability comparison. The
+  "rejects changed … inputs" claim was met by an illegal fixture. The
+  successor did what it was written to detect.
+- Amendment: the fabricated input is now a complete, legal
+  `CreateInputDescriptor` (nullable, not required,
+  `incident_member_user_ref_v1`).
+- `tcr-s916-format02` exited 0.
+- `tcr-s916-successor02` exited 0: the row passed, pass 2/2 units. Source
+  `e35f90f5…` at `eba4501fa`, dirty; scan pass; 11 cleanups completed.
+  All four changed schemas on all 14 views are rejected by the
+  comparison, and the 404 by the read branch.
+- `tcr-s916-types01` (`make lint CHECK=types`) exited 0.
+
+The change only strengthens assertions and repairs one fixture; nothing
+was retired, so the passing successor is the qualification.
+
+### S-917 / F-902 / E-968 — Ordinary-create field coverage is counted per schema
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+Phase-3 item: web.workbook (E-838 ledger), "ordinary create coverage
+`> 100`".
+
+**Defect.** "Covers every declared create field and input with explicit
+clear and source lifecycle dispositions" ends with
+`expect(covered).toBeGreaterThan(100)`. The adopted projection declares
+123 create-writable fields across the 14 schemas, so up to 22 fields
+(for example a whole schema whose fields stopped being create-writable)
+could go unvisited and the test would pass. The create-input loop has no
+count at all.
+
+**Successor (same title).** Visited fields and rejected create inputs are
+counted per schema and compared with literal tables:
+
+- fields: hosts 13, identities 13, parties 8, task_requests 15,
+  decisions 8, comm_log 11, handoff 9, status_review 8, lesson 6,
+  findings 7, investigative_queries 3, forensic_keywords 4, evidence 10,
+  indicators 8 (123 in all);
+- create inputs: comm_log, handoff, status_review, lesson and evidence,
+  one each.
+
+The counts were read from the generated view-contract projection. This
+is an engineering pin: a contract change that alters the set must update
+the table deliberately.
+
+**Selection.** `web.workbook.regression.ordinary_create_authoring`, plus
+`make lint CHECK=types`. No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s917-format01` exited 0.
+- `tcr-s917-successor01` exited 0: the row passed, pass 2/2 units.
+  Source `0ae23fc2…` at `eba4501fa`, dirty; scan pass; 11 cleanups
+  completed. Both tables matched.
+- `tcr-s917-types01` (`make lint CHECK=types`) exited 0.
+
+The `> 100` bound is retired by replacement in place (the successor is
+strictly stronger), so the successor run is the qualification.
+
+### S-918 / F-903 / E-969 — Mention reconciliation rejections are isolated and pinned
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+Phase-3 items: web.workbook (E-838 ledger), "mention receipt
+reconciliation is multi-defect" and the mention site of "bare
+`rejects.toThrow()` across the reconciliation … suites".
+
+**Defect.** "Mention reconciliation rejects stale sources malformed
+same-version projections and detached reads" loops five mismatches into a
+bare `rejects.toThrow()`. `reconcileTimelineMentionReceipt` has four
+distinct rejections, and the loop never says which one each case reaches:
+
+- the `target` case uses `resolvedRecordId: "wrong"`, which is not a
+  record ID, so it is not a legal mismatched projection;
+- the `detached` case is detached before the read is examined, so it
+  reaches the stale-source rejection ("A newer source version still
+  needs refresh."). The final "Mention reconciliation detached." check,
+  after the presentation refresh, is never reached;
+- the same-version dismissal branch (a dismissed receipt whose item is
+  still present) is not covered.
+
+**Successor (same title).** Each case names its expected message:
+
+| Case | Expected message |
+| --- | --- |
+| older source (4 against the receipt's 5) | "A newer source version still needs refresh." |
+| changed raw text at the same version | "Mention result projection is incomplete." |
+| a different, legal resolved record UUID at the same version | "Mention result projection is incomplete." |
+| newer source with an older mention version | "A newer mention version still needs refresh." |
+| detached before the read is examined | "A newer source version still needs refresh." |
+| dismissed receipt with the item still present at the same version | "Mention result projection is incomplete." |
+| detached after the presentation refresh | "Mention reconciliation detached." |
+
+Every case except the last must also leave no mention in the owner. In
+the last case the complete source row has been observed before the
+detach, so only the rejection is asserted.
+
+The early-detach message is production's internal copy, pinned as an
+engineering pin.
+
+**Selection.** `web.workbook.regression.timeline_mention_reconciliation`,
+plus `make lint CHECK=types`. No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s918-format01` exited 0.
+- `tcr-s918-successor01` exited 0: the row passed, pass 2/2 units.
+  Source `3b9ce313…` at `eba4501fa`, dirty; scan pass; 11 cleanups
+  completed. All seven cases reached their named rejection; the late
+  detach consulted `isCurrent` exactly twice.
+- `tcr-s918-types01` (`make lint CHECK=types`) exited 0.
+
+The bare `rejects.toThrow()` and the illegal `"wrong"` target are retired
+by replacement in place; the successor run is the qualification.
+
+### S-919 / F-904 / E-970 — Indicator and Decision reconciliation rejections name their branch
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+Phase-3 item: web.workbook (E-838 ledger), "bare `rejects.toThrow()`
+across the reconciliation … suites" (the sites other than Mentions,
+which S-918 covered).
+
+**Defect.** Seven reconciliation rejections accept any error. Each
+production function has several rejections (detached, history refresh,
+unreadable pages, missing or older rows). An earlier, unintended failure
+(for example a fixture that no longer reaches the history read) would
+satisfy the assertion in place of the branch the test describes.
+
+**Successor (same titles).** Each site names the rejection its setup
+reaches:
+
+| Site | Expected rejection |
+| --- | --- |
+| Decision supersession, stale query after an accepted version | `WorkbookSurfaceRefreshError` with recovery `{ kind: "unavailable", failure: "transient" }` |
+| Observation receipt, scope detached during the history read | "Affected record history needs refresh" |
+| Observation query, stale query after an accepted version | `WorkbookSurfaceRefreshError`, recovery as above |
+| Indicator create, older receipt row on the only page | "Canonical record is unavailable or needs refresh" |
+| Indicator create, owner retired during the history read | "Canonical history needs refresh" |
+| Indicator lifecycle, scope detached during the history read | "Affected record history needs refresh" |
+| Indicator lifecycle query, stale query after an accepted version | `WorkbookSurfaceRefreshError`, recovery as above |
+
+The stale-query sites assert the error class and its exact `recovery`.
+The stale-target failure maps to `unavailable`/`transient`.
+
+**Selection.**
+
+- `web.workbook.regression.decision_supersession_reconciliation`;
+- `web.workbook.regression.indicator_observations_reconciliation`;
+- `web.workbook.regression.indicator_canonical_reconciliation`;
+- `web.workbook.regression.indicator_lifecycle_reconciliation`;
+- plus `make lint CHECK=types`.
+
+No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s919-format01` exited 0.
+- `tcr-s919-successor01` exited 0: all four rows passed, pass 3/3 units.
+  Source `40047d71…` at `eba4501fa`, dirty; scan pass; 12 cleanups
+  completed. Every site reached the rejection named in the table.
+- `tcr-s919-types01` (`make lint CHECK=types`) exited 0.
+
+The seven bare rejections are retired by replacement in place; the
+successor run is the qualification.
+
+### S-920 / F-905 / E-971 — Workbook query refresh refusals name their recovery
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+Phase-3 item: web.workbook (E-838 ledger), "bare `rejects.toThrow()`
+across the … query suites".
+
+**Defect.** Eight acceptance-required refreshes in four query suites
+accept any rejection. A refusal carries a `WorkbookSurfaceRefreshError`
+whose `recovery` tells the collaboration coordinator what to do next:
+`cancelled` keeps a confirmed authorization pending and retries, while
+any other recovery ends the pending refresh. A refusal of the wrong kind,
+or an unrelated error, would pass every one of these sites.
+
+**Successor (same titles).** Each site asserts the error class and its
+exact `recovery`:
+
+| Site | Expected recovery |
+| --- | --- |
+| Generic query: Task row older than an accepted receipt | `{ kind: "unavailable", failure: "transient" }` (stale target) |
+| Entity merge query: 403 `authorization_denied` | `{ kind: "unavailable", failure: "transient" }` |
+| Ordinary create, generic schemas: older row after an accepted create | `{ kind: "unavailable", failure: "transient" }` |
+| Ordinary create, Entity sheets: older row after suspension | `{ kind: "unavailable", failure: "transient" }` |
+| Browsing controls: inactive reader | `{ kind: "cancelled" }` |
+| Browsing controls: uncommitted reader | `{ kind: "cancelled" }` |
+| Browsing controls: late result of a retired port | `{ kind: "cancelled" }` |
+| Browsing controls: predecessor reader after a successor commits | `{ kind: "cancelled" }` |
+
+**Governing requirement for the 403 site.** Core 03 says an
+operation-level denial "MUST NOT by itself establish incident access
+loss"; uncertain authorization needs an authoritative observation. A
+denied refresh therefore maps to `unavailable`/`transient`, not to
+`access_lost`. The other rows are engineering pins of the refresh
+contract.
+
+**Selection.**
+
+- `web.workbook.regression.use_generic_surface_query_owner_fab9b06dde`;
+- `web.workbook.regression.entity_merge_query_concealment`;
+- `web.workbook.regression.ordinary_create_query`;
+- `web.workbook.regression.query_browsing_controls`;
+- plus `make lint CHECK=types`.
+
+No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s920-format01` exited 0.
+- `tcr-s920-successor01` exited 0: all four rows passed, pass 2/2 units.
+  Source `73f0b80f…` at `eba4501fa`, dirty; scan pass; 11 cleanups
+  completed. Every refusal carried the recovery named in the table.
+- `tcr-s920-types01` (`make lint CHECK=types`) exited 0.
+
+The eight bare rejections are retired by replacement in place; the
+successor run is the qualification.
+
+### S-921 / F-906 / E-972 — Query metadata validator rejections name their check
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+Phase-3 item: web.workbook (E-838 ledger), "metadata validators with
+matcherless throws".
+
+**Defect.** `readWorkbookQueryMetadata` has seven distinct rejections.
+Nine rejections in `workbookQueryMetadata.node.test.ts` use a bare
+`toThrow()`: seven in the paging/default-sort loop, plus the grouping
+and reversed-sort cases. A case that fails an earlier check than the one
+it describes would pass. For example, the empty-sort case only shows the
+effective default sort is required if it gets past the structural and
+paging checks. The paging rule's repeated-cursor and empty-cursor
+branches are not covered.
+
+**Successor (same titles).**
+
+| Case | Expected message |
+| --- | --- |
+| no `paging` | "Missing query metadata" |
+| no `query` | "Missing query metadata" |
+| empty sort (no effective default tail) | "Mismatched effective sort" |
+| limit 99 for a 100 request | "Invalid query metadata" |
+| `has_more` with a `null` cursor | "Invalid query metadata" |
+| no more pages but a cursor | "Invalid query metadata" |
+| `group_by: null` | "Invalid query metadata" |
+| added: an empty next cursor | "Invalid query metadata" |
+| added: a next cursor equal to the request cursor | "Invalid query metadata" |
+| grouped response for an ungrouped request | "Invalid query metadata" |
+| reversed authored sort | "Mismatched effective sort" |
+
+**Selection.** `web.workbook.regression.query_metadata`, plus
+`make lint CHECK=types`. No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s921-format01` exited 0.
+- `tcr-s921-successor01` exited 0: the row passed, pass 2/2 units.
+  Source `f6359e20…` at `eba4501fa`, dirty; scan pass; 11 cleanups
+  completed. All eleven cases reached the named check.
+- `tcr-s921-types01` (`make lint CHECK=types`) exited 0.
+
+The nine matcherless throws are retired by replacement in place; the
+successor run is the qualification.
+
+Tracker checks after S-915 to S-921: `make lint-markdown` exited 0 (126
+files, no fixes) and `git diff --check` exited 0. They were run once after
+S-921 rather than after each slice; each slice's entry and closure were
+written before the next slice began.
+
+### S-922 / F-907 / E-973 — Inspector draft admission loops count their fields and pin their reasons
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+Phase-3 item: web.workbook (E-838 ledger), "the draft store admits-only
+and error loops have no counts or reasons".
+
+**Defect.** Three checks in `WorkbookInspectorDraftStore.node.test.ts`
+only require `error` to be defined:
+
+- "admits only the frozen existing-record capabilities…" loops over every
+  field that cannot be patched. It has no count, so a projection change
+  that removed those fields would leave the loop empty, and any error
+  satisfies it;
+- "preserves exact direct reference input and rejects implicit
+  clearing" loops over patchable direct-reference fields with no count.
+  Its five invalid spellings and its non-clearable clears accept any
+  error;
+- the impossible-date timestamp case accepts any error.
+
+`prepareWorkbookInspectorChange` returns different public messages for
+an unavailable field, a field that cannot be cleared, an inexact
+reference and an invalid timestamp. Any one of them satisfies these
+checks.
+
+**Successor (same titles).**
+
+1. Admission: the 87 fields that cannot be patched across the 17 view
+   contracts each give "This field is unavailable for editing." The
+   visited count must be 87, and the create-only `host.fqdn` gives that
+   message explicitly.
+2. Direct references: the visited fields must equal a literal list of the
+   12 patchable direct-reference fields. Each invalid spelling gives
+   "Enter or select an exact reference identifier.", and each
+   non-clearable clear (7 fields) gives "This field cannot be cleared."
+3. Timestamp: "2026-02-31T12:00:00Z" gives "Enter a valid RFC3339
+   timestamp."
+
+The counts and the list were read from the generated view-contract
+projection (engineering pins).
+
+**Selection.** `web.workbook.regression.inspector_draft_lifetime`, plus
+`make lint CHECK=types`. No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s922-format01` exited 0.
+- `tcr-s922-successor01` exited 0: the row passed, pass 2/2 units.
+  Source `c84bea88…` at `eba4501fa`, dirty; scan pass; 11 cleanups
+  completed. 87 refusals, the 12-field list and every pinned reason
+  matched.
+- `tcr-s922-types01` (`make lint CHECK=types`) exited 0.
+
+The `toBeDefined()` checks are retired by replacement in place; the
+successor run is the qualification.
+
+Tracker checks after S-922: `make lint-markdown` and `git diff --check`
+both exited 0.
+
+### S-923 / F-908 / E-974 — History owner reauthorization after sequencing is isolated and observed
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+Phase-3 item: web.workbook (E-838 ledger), "history owner
+reauthorization is unasserted".
+
+**Defect.** "Reauthorizes after sequencing and never resumes
+automatically after reopening" closes the incident while the attempt
+waits on sequencing (`coordinate`), reopens it, releases sequencing and
+asserts only that nothing was sent:
+
+- closing the incident rejects the preparing attempt directly and
+  cancels its read, so the post-sequencing authorization check
+  (`!this.authorized(attempt)` after `coordinate`) is never what stops
+  the send;
+- the attempt's resulting state (rejected, not dispatched, with the
+  closure failure) is not observed, before or after reopening;
+- the final `setAuthority(authority)` repeats an identical authority and
+  is a no-op.
+
+**Successor (same title).**
+
+1. Control: the same held sequencing, released with no authority
+   change, sends exactly once.
+2. Reauthorization: the role drops to `viewer` while sequencing is held.
+   After release nothing is sent, and the attempt is `rejected`, not
+   dispatched, with "Current access does not permit this history
+   action." (`authorization_lost`).
+3. Closure: the existing close-and-reopen sequence leaves the attempt
+   `rejected`, not dispatched, with the `incident_closed` failure
+   ("Closed, read-only"). Reopening does not change that, and nothing is
+   sent. The redundant second `setAuthority` is removed.
+
+**Selection.** `web.workbook.regression.history_operation_owner`, plus
+`make lint CHECK=types`. No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s923-format01` exited 0.
+- `tcr-s923-successor01` exited 0: the row passed (23 titles), pass 2/2
+  units. Source `c8f26cb8…` at `eba4501fa`, dirty; scan pass; 11
+  cleanups completed. The control sent once, the demoted attempt was
+  rejected for access, and the closed attempt stayed rejected with
+  `incident_closed` across reopening.
+- `tcr-s923-types01` (`make lint CHECK=types`) exited 0.
+
+The send-only assertion and the redundant `setAuthority` are retired by
+replacement in place; the successor run is the qualification.
+
+Tracker checks after S-923: `make lint-markdown` and `git diff --check`
+both exited 0.
+
+### S-924 / F-909 / E-975 — Startup admission negatives wait for the read to settle
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+Phase-3 item: web.workbook (E-838 ledger), "startup admission … negatives
+have no settle" (the startup half).
+
+**Defect.** Five tests in `useWorkbookStartupAdmission.test.tsx` assert
+that nothing was applied before the startup read has finished:
+
+- "applies no selection-owned state for a malformed result" asserts
+  straight after `load` is called, with no wait at all;
+- "applies no response state for a non-OK result" waits a single
+  microtask;
+- "keeps a user selection made while startup is delayed" and "does not
+  hydrate a late saved view after a later selection" only await the
+  deferred promise. The hook's own `await` on that promise may resume
+  after the test's;
+- "applies no callback or response state after effect teardown" does the
+  same after unmounting.
+
+If admission later moved one step later, these negatives would still
+pass without the hook having processed the result.
+
+**Successor (same titles).**
+
+1. The four mounted cases wait until the hook reports `pending: false`.
+   The hook sets this in the `finally` of its read when the read was not
+   aborted, so it shows the result was fully processed (rejected,
+   stale or superseded) before the negatives run.
+2. The teardown case cannot observe `pending` (the read is aborted). It
+   waits a full macrotask turn after resolving the read. That drains all
+   microtask continuations, and the base startup path has no timers.
+
+**Selection.** `web.workbook.regression.use_workbook_startup_admission_suite_919ed32f45`,
+plus `make lint CHECK=types`. No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s924-format01` exited 0.
+- `tcr-s924-successor01` exited 0: the row passed (11 titles), pass 2/2
+  units. Source `8f45ffe6…` at `eba4501fa`, dirty; scan pass; 11
+  cleanups completed.
+- `tcr-s924-types01` (`make lint CHECK=types`) exited 0.
+
+The one-microtask settle is retired by replacement; the successor run is
+the qualification. The "runtime negatives" half of the ledger item is
+examined separately.
+
+Tracker checks after S-924: `make lint-markdown` and `git diff --check`
+both exited 0.
+
+### S-925 / F-910 / E-976 — One-tick Workbook runtime negatives wait for a full turn
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+Phase-3 items: web.workbook (E-838 ledger), "one-tick `.then`
+negatives" and the runtime half of "startup admission and runtime
+negatives have no settle".
+
+**Sites examined.** Every web.workbook-owned site that asserts a
+negative after a single `await Promise.resolve()`:
+
+| Site | Disposition |
+| --- | --- |
+| Runtime responsibilities, "distinguishes completed history null from same-record queue waiting": `completed` false after one tick | Repair. `coordinateHistory` is async and its result reaches `.then` only after several ticks, so one tick shows nothing even when the wait has completed. |
+| Decision runtime, "coordinates queued and direct writes…": `send` not called after one tick | Repair. `execute` is async; one tick cannot reach `send` even without the write gate. |
+| Indicator lifecycle runtime, "waits for same-record edits…": `send` not called after one tick | Repair, same reason. |
+| Committed-record idle, "pending record readiness follows queue and scoped refresh publications…": `completed` not called after one tick | Repair. The final exact-once `"idle"` check cannot catch an early completion (it would also be one `"idle"` call). |
+| Runtime responsibilities, "does not drain a microtask queued before terminal disposal" | Retain: controlled. The coalescing test runs the identical sequence (run the queued microtask, then one tick) and observes the drain. |
+| Committed-record idle, the raced readiness negative | Retain: controlled. Accepting the stale version would call `action` with row version 9 first, which the final exactly-once-with-10 check rejects. That test also spies on `setTimeout`, so a timer settle is not available there. |
+
+**Successor.** At the four repaired sites, the single tick becomes a full
+macrotask turn (`await new Promise((resolve) => setTimeout(resolve, 0))`).
+That turn drains every pending microtask continuation. None of these
+tests uses fake timers. Each later positive still runs.
+
+**Observation, not in scope.** `evidenceFileRecovery.test.ts` (row
+`module.evidence.frontend_unit.retained_file_recovery`) has two- and
+three-tick negatives of the same kind. That row belongs to module.evidence
+and is not on any carried list; it is recorded here and not repaired.
+
+**Selection.**
+
+- `web.workbook.regression.workbookz_mutation_runtime_responsibilities_a106000001`;
+- `web.workbook.regression.decision_supersession_runtime`;
+- `web.workbook.regression.indicator_lifecycle_runtime`;
+- `web.workbook.regression.timeline_committed_idle_refreshes_once_19e6098c0e`;
+- plus `make lint CHECK=types`.
+
+No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s925-format01` exited 0.
+- `tcr-s925-successor01` exited 0: all four rows passed, pass 3/3 units.
+  Source `e7c27ab2…` at `eba4501fa`, dirty; scan pass; 12 cleanups
+  completed. Each negative held across a full macrotask turn, and each
+  later positive still ran.
+- `tcr-s925-types01` (`make lint CHECK=types`) exited 0.
+
+The four one-tick settles are retired by replacement in place; the
+successor run is the qualification.
+
+Tracker checks after S-925: `make lint-markdown` and `git diff --check`
+both exited 0.
+
+### S-926 / F-911 / E-977 — Inspector capability classes are counted per feature, not by subtraction
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+Phase-3 item: web.workbook (E-838 ledger), "a subtraction-derived
+capability count".
+
+**Defect.** "Classifies exactly 37 create, 4 Note, 4 Indicator, 51
+history, 1 Decision action, 2 Timeline actions, and 148 non-contextual
+features" never classifies a feature as non-contextual. It computes
+feature groups minus contextual capabilities minus the size of the
+contract's history-action set. Two errors would go unnoticed:
+
+- a feature classified as both contextual and history (the subtraction
+  counts it twice, and the table cannot say which feature);
+- two features collapsing to one history action. The set is smaller
+  than the number of history features, and the gap reappears as
+  "non-contextual".
+
+**Successor (same title; row
+`web.workbook.regression.decision_supersession_canonical_composition`).**
+Each feature group is classified on its own:
+
+- contextual if one of its panel's contextual capabilities has its exact
+  feature identity;
+- history if a configuration holding only that feature yields one
+  history action.
+
+No feature may be both. Non-contextual is counted directly as neither.
+Per contract, the number of history features must equal the size of the
+production history-action set, so no actions collapse. The expected
+table is unchanged.
+
+**Selection.** `web.workbook.regression.decision_supersession_canonical_composition`,
+plus `make lint CHECK=types`. No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s926-format01` exited 0.
+- `tcr-s926-successor01` exited 0: the row passed, pass 2/2 units.
+  Source `98af08ec…` at `eba4501fa`, dirty; scan pass; 11 cleanups
+  completed. No feature was both contextual and history, no history
+  actions collapsed, and the directly counted table matched (148
+  non-contextual).
+- `tcr-s926-types01` (`make lint CHECK=types`) exited 0.
+
+The subtraction is retired by replacement in place; the successor run is
+the qualification.
+
+Tracker checks after S-926: `make lint-markdown` and `git diff --check`
+both exited 0.
+
+### S-927 / F-912 / E-978 — Maximum-pressure query chips are split by production, not by arithmetic
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+Phase-3 item: web.workbook (E-838 ledger), the second
+subtraction-derived count (found while locating the first).
+
+**Defect.** "Projects deterministic semantic slots at maximum query
+pressure" ends with `expect(entries.length - 3).toBe(22)` and
+`expect(entries.length - 2).toBe(23)`. The length is already pinned at
+25, so both lines are arithmetic identities and cannot fail. They state
+the hidden-chip overflow for the `base` (3 visible) and `narrow_desktop`
+(2 visible) chrome capacities, but never call the projection that
+computes it (`projectWorkbookGridQueryControls`, `visibleChips` and
+`hiddenChips`). Beyond the first three, the token order is unchecked.
+
+**Successor (same title).**
+
+1. The tokens must be exactly `G`, `S1` to `S8`, `F1` to `F16`, in that
+   order.
+2. Projected through `projectWorkbookGridQueryControls`:
+   - `base`: capacity 3, the visible chips are `G`, `S1`, `S2`, and 22
+     chips are hidden, starting with `S3`;
+   - `narrow_desktop`: capacity 2, 23 hidden, starting with `S2`;
+   - `compact_desktop`: capacity 0, all 25 hidden.
+
+The capacities come from the generated design-presentation contract;
+the test pins their effect.
+
+**Selection.** `web.workbook.regression.grid_controls_model_a104000001`,
+plus `make lint CHECK=types`. No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s927-format01` exited 0.
+- `tcr-s927-successor01` exited 0: the row passed (10 titles), pass 2/2
+  units. Source `1eb591dc…` at `eba4501fa`, dirty; scan pass; 11
+  cleanups completed. All 25 tokens were in order, and the three chrome
+  modes split them 3/22, 2/23 and 0/25.
+- `tcr-s927-types01` (`make lint CHECK=types`) exited 0.
+
+The two arithmetic identities are retired by replacement in place; the
+successor run is the qualification.
+
+Tracker checks after S-927: `make lint-markdown` and `git diff --check`
+both exited 0.
+
+**Locating note.** The remaining E-838 items were located from the
+original E-838 sweep list (its numbered items 22 to 38, with file and
+line). The closure ledger summarised them without locations.
+
+### S-928 / F-913 / E-979 — Workbook capture and panel guards pin their reasons
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+Phase-3 item: web.workbook (E-838 sweep item 34), "matcherless
+`.toThrow()`".
+
+**Defect.** Three guards accept any thrown error:
+
+- the Clipboard paste capture with a blank column. The batch transport
+  can throw "Invalid batch scope" or "Invalid paste plan";
+- the canonical Indicator create capture with an unadmitted field. It
+  can throw "Indicator creation context changed", "Invalid canonical
+  proposal" or "Canonical create request is not admitted";
+- `inspectorCommands("")`.
+
+A guard that fails for an earlier, unrelated reason would pass.
+
+**Successor (same titles).**
+
+| Site | Expected message |
+| --- | --- |
+| Paste capture, column `" "` | "Invalid paste plan" |
+| Indicator create capture, each of `observation_id`, `origin_locator`, `resolved_indicator_record_id` and `indicator.observation_count` | the specific capture rejection, confirmed by the run (see closure) |
+| `inspectorCommands("")` | "Commands-only panel requires an owner explanation" |
+
+**Selection.**
+
+- `web.workbook.regression.workbookz_mutation_runtime_paste_adapter_a108000001`;
+- `web.workbook.regression.indicator_canonical_transport`;
+- `web.workbook.regression.inspector_explicit_panel_states`;
+- plus `make lint CHECK=types`.
+
+No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s928-format01` exited 0.
+- `tcr-s928-successor01` exited 0: all three rows passed, pass 3/3
+  units. Source `411eefcb…` at `eba4501fa`, dirty; scan pass; 12
+  cleanups completed. All four unadmitted Indicator fields are rejected
+  with "Invalid canonical proposal": the create model refuses values
+  outside the contract before request decoding.
+- `tcr-s928-types01` (`make lint CHECK=types`) exited 0.
+
+The three matcherless throws are retired by replacement in place; the
+successor run is the qualification.
+
+Tracker checks after S-928: `make lint-markdown` and `git diff --check`
+both exited 0.
+
+### S-929 / F-914 / E-980 — Workbook validation and retry classification is exact and uses registered errors
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+Phase-3 item: web.workbook (E-838 sweep item 29), "the title says
+'classifies … exactly', but it uses `toMatchObject` /
+`expect.arrayContaining`".
+
+**Defect.** "Classifies validation, merge preconditions, and retryability
+exactly" checks only part of each result:
+
+- extra or wrong `fields`, `publicCode` or `publicReason` would pass;
+- the merge fields could arrive in any order, or with extra entries.
+
+Reading the fixtures against the generated error registry found three
+illegal values:
+
+- `invalid_mutation_payload` is sent with status 422. The registry
+  declares 400;
+- its reason `required` is not a registered reason. The registered one
+  is `missing_required_field`;
+- the merge reason `identifier_collision` is not registered for
+  `merge_precondition_failed`. The registered one is
+  `carry_forward_identifier_collision`. The blocking record is `host-2`,
+  not a record identifier.
+
+Because the reasons were unregistered, `publicReason` was never
+produced, so that half of the classification was never exercised.
+
+**Successor (same title).** Legal fixtures (400, `missing_required_field`;
+`carry_forward_identifier_collision` with a UUID blocking record). Each
+result is compared with `toEqual`:
+
+- `kind`, `message`, the complete ordered `fields`, `publicCode` and
+  (for registered reasons) `publicReason` are exact;
+- `presentation` is `expect.any(Object)`. Presentation mapping is owned
+  and pinned by `publicErrorPresentation.node.test.ts` (S-912).
+
+The two forward-compatible unknown codes (`future_retryable_error`
+declared retryable at 409; `future_terminal_error` at 503) keep their
+cases, now compared exactly as well.
+
+**Selection.** `web.workbook.regression.evidence_access_error_identity_ea02`,
+plus `make lint CHECK=types`. No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s929-format01` exited 0.
+- `tcr-s929-successor01` exited 0: the row passed (5 titles), pass 2/2
+  units. Source `2a6db53b…` at `eba4501fa`, dirty; scan pass; 11
+  cleanups completed. With registered reasons, both validation results
+  carry `publicReason`, and every result matched exactly.
+- `tcr-s929-types01` (`make lint CHECK=types`) exited 0.
+
+The partial matchers and the illegal fixture values are retired by
+replacement in place; the successor run is the qualification.
+
+Tracker checks after S-929: `make lint-markdown` and `git diff --check`
+both exited 0.
+
+### S-930 / F-915 / E-981 — Aborted mention-source paging is shown to stop, against a paging control
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+Phase-3 item: web.workbook (E-838 sweep item 22), "'does not request
+another page' rests on one tick".
+
+**Defect.** "Aborted Review source reading does not request another
+Timeline page" awaits the reader's rejection, waits one tick, and
+asserts a single `execute` call. `boundedRead` rejects with `aborted`
+as soon as the signal aborts, while the inner paging loop keeps running.
+So the rejection is not a settle point for the loop, and one tick may
+end before the released first page is processed. There is also no
+control showing that the same first page, without the abort, does
+request page two.
+
+**Successor (same title).**
+
+1. Control: with no abort, the same first page (`has_more`,
+   `next_cursor: "page-two"`, no matching row) is followed by exactly one
+   more `execute` call, whose request carries `cursor_token:
+   "page-two"`. An empty final page then rejects with the "no longer in
+   the active Timeline" message.
+2. Aborted case: after the rejection, a full macrotask turn drains the
+   loop's continuations before `execute` is asserted to have been called
+   exactly once.
+
+**Selection.** `web.workbook.regression.cancelled_review_source_read_stops_paging_0de2c50ecb`,
+plus `make lint CHECK=types`. No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s930-format01` exited 0.
+- `tcr-s930-successor01` exited 0: the row passed, pass 2/2 units.
+  Source `95b2a17e…` at `eba4501fa`, dirty; scan pass; 11 cleanups
+  completed. The control requested page two with its cursor, and the
+  aborted read still made one request after a full turn.
+- `tcr-s930-types01` (`make lint CHECK=types`) exited 0.
+
+The one-tick settle is retired by replacement; the successor run is the
+qualification.
+
+Tracker checks after S-930: `make lint-markdown` and `git diff --check`
+both exited 0.
+
+### S-931 / F-916 / E-982 — Create-related workflow is tested with a live subject and no retained owners
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+Phase-3 item: web.workbook (E-838 sweep item 26), "the inspector
+create-related null subject" and its unsettled fetch negative.
+
+**Defect.**
+
+- "Does not replace a missing retained owner with a generic form or
+  transport" renders with `selectedSubject: null`. Every attachment
+  `begin` then does nothing, whether or not a retained owner exists, so
+  the "missing owner" case is never exercised. It also never checks what
+  `begin` reports, or that nothing is sent.
+- "Omits unbound additive creation and never dispatches a fallback" also
+  uses a null subject. It asserts `fetch` was not called straight after
+  the synchronous `begin`, with no settle.
+
+**Successor (same titles).** Both use a legal live Timeline subject
+(`buildWorkbookInspectorSubject`, a UUID record at version 3) with no
+retained-owner providers mounted:
+
+1. Missing owner: for every Timeline feature, `begin` leaves the
+   workflow `null`. The features `begin` claims must be exactly the seven
+   with a retained owner in this hook:
+   - `create_related.note`;
+   - `create_related.task_request`, `create_related.decision`
+     (contextual);
+   - `create_related.comm_log`, `create_related.handoff`,
+     `create_related.status_review`, `create_related.lesson`
+     (coordination).
+
+   Claimed features are not replaced by anything: no workflow appears,
+   and after a full macrotask turn `fetch` has not been called.
+2. Unbound additive feature: with the live subject, `begin` of
+   `create_related.future` returns `false`. After a full macrotask turn,
+   `fetch` has not been called.
+
+**Selection.** `web.workbook.regression.inspector_create_related_workflow_stale_results_31f0cbe2d1`,
+plus `make lint CHECK=types`. No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s931-format01` exited 0.
+- `tcr-s931-successor01` exited 0: the row passed (3 titles), pass 2/2
+  units. Source `3298fa9c…` at `eba4501fa`, dirty; scan pass; 11
+  cleanups completed. With a live subject and no owners, exactly the
+  seven owned features were claimed, no workflow appeared, and nothing
+  was fetched after a full turn.
+- `tcr-s931-types01` (`make lint CHECK=types`) exited 0.
+
+The null-subject fixtures and the unsettled fetch negative are retired
+by replacement in place; the successor run is the qualification.
+
+Tracker checks after S-931: `make lint-markdown` and `git diff --check`
+both exited 0.
+
+### S-932 / F-917 / E-983 — Semantic grid focus attempts are bounded and counted
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+Phase-3 item: web.workbook (E-838 sweep item 31), "unbounded focus
+retries".
+
+**Defect.**
+
+- "Keeps the request pending when every focus command fails" waits until
+  `requestFocus` has been called 5 times. `waitFor` stops as soon as the
+  count reaches 5, so a hook that kept retrying past its ordered target
+  list would pass. The test never shows the request is still pending
+  (not cancelled), or which targets were tried.
+- "Does nothing after unmount and has no deferred retry" checks only
+  that nothing was acknowledged. It never counts `requestFocus` after the
+  unmount, so a deferred retry would pass.
+
+**Successor (same titles).**
+
+1. All commands fail: after the fifth call and a full macrotask turn,
+   `requestFocus` has been called exactly 5 times, on the ordered
+   targets: row 1 `first`, row 1 `second`, row 2 `first`, row 2
+   `second`, then the grid root. Neither `acknowledge` nor `cancel` was
+   called, so the request stays pending.
+2. After unmount: once the held command completes and a full macrotask
+   turn passes, `requestFocus` has still been called exactly once, and
+   nothing was acknowledged.
+
+**Selection.** `web.workbook.regression.useworkbookstartupcontroller_zsemantic_grid_focus_6f31bf7e92`,
+plus `make lint CHECK=types`. No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s932-format01` exited 0.
+- `tcr-s932-successor01` exited 0: the row passed (14 titles), pass 2/2
+  units. Source `fa41532e…` at `eba4501fa`, dirty; scan pass; 11
+  cleanups completed. Five ordered attempts and no more; one attempt
+  after unmount.
+- `tcr-s932-types01` (`make lint CHECK=types`) exited 0.
+
+The unbounded `waitFor` count is retired by replacement; the successor
+run is the qualification.
+
+Tracker checks after S-932: `make lint-markdown` and `git diff --check`
+both exited 0.
+
+### S-933 / F-918 / E-984 — Mention recovery bounds its sends and creates
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+Phase-3 item: web.workbook (E-838 sweep item 32), "unbounded mention
+send counts".
+
+**Defect.** Three recovery checks compare the second call with the first
+but never bound the total:
+
+- "Uncertain linking recovers only the original resolution request":
+  `send.mock.calls[1]` is the first call's request;
+- "Uncertain creation replays its exact attempt": `create.mock.calls[1]`
+  is the first call's attempt;
+- "Renewed resolution never creates twice": the renewed link's
+  `send.mock.calls[1]` carries the renewed version.
+
+A third, extra send or create would pass all three, against "recovers
+only" and "exact attempt".
+
+**Successor (same titles).** Exact totals sit beside each comparison:
+
+- uncertain linking: `send` exactly 2 times;
+- uncertain creation: `create` exactly 2 times;
+- renewed resolution: `send` exactly 2 times (with `create` still once).
+
+**Selection.** `web.workbook.regression.timeline_mention_operation_recovery`,
+plus `make lint CHECK=types`. No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s933-format01`, `tcr-s933-successor01` and `tcr-s933-types01`
+  (all exit 0) are **void**. The edit script stopped before writing,
+  because the uncertain-linking comparison line occurs twice in the file,
+  so these runs exercised the unchanged file. The source digest matched
+  S-932's (`fa41532e…`). They are not evidence for S-933.
+- Amendment: reading the duplicate found two more replay comparisons of
+  the same class in the same row:
+  - "Mention exact replay keeps original body…" (`send.mock.calls[1]`
+    against the original attempt);
+  - "Mention timeout permits exact replay…" (the second call against the
+    first).
+
+  Both now also require `send` exactly 2 times. The auto-resolution
+  correction's comparison already has an exact count of 2 right after
+  it, so it is unchanged. Five counts were added in all.
+- `tcr-s933-format02` exited 0.
+- `tcr-s933-successor02` exited 0: the row passed, pass 2/2 units.
+  Source `e3de7f7b…` at `eba4501fa`, dirty; scan pass; 11 cleanups
+  completed.
+- `tcr-s933-types02` (`make lint CHECK=types`) exited 0.
+
+Additive bounds; nothing retired. The successor run is the
+qualification.
+
+Tracker checks after S-933: `make lint-markdown` and `git diff --check`
+both exited 0.
+
+### S-934 / F-919 / E-985 — Saved-view action matrix is a literal table from REQ-03-018 to REQ-03-020
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+Phase-3 item: web.workbook (E-838 sweep item 23), "a re-stated policy
+oracle".
+
+**Defect.** "Enforces the complete visible scope ownership and role
+action matrix" computes each expected cell with a formula:
+`visible && (not update/delete || (not system && (own || admin)))`.
+That formula is a copy of the policy. If production and the formula
+were changed the same way, or both shared a mistake, the test would
+still pass, and the matrix the title promises is never written down.
+
+**Governing requirements.** Core 03:
+
+- REQ-03-018: `private` is visible only to its owner and incident
+  admins, and any member may create one;
+- REQ-03-019: `shared` is visible to all members, and only the owner and
+  admins may update or delete it in place;
+- REQ-03-020: `system` is visible to all members, may be duplicated, and
+  is never updated or deleted in place.
+
+**Successor (same title).** A literal table gives the allowed actions for
+each scope and ownership, for admins and for the other roles (viewer,
+editor and reviewer, which the requirements do not distinguish):
+
+| Saved view | Admin | Viewer, editor, reviewer |
+| --- | --- | --- |
+| private, another owner | all five | none |
+| private, own | all five | all five |
+| shared, another owner | all five | create, duplicate, reset |
+| shared, own | all five | all five |
+| system (no owner) | create, duplicate, reset | create, duplicate, reset |
+
+"All five" means create, duplicate, reset, update and delete. For each
+of the 24 combinations, the actions with no `unavailableReason` must
+equal the table's list exactly.
+
+**Selection.** `web.workbook.regression.saved_view_operation_owner`, plus
+`make lint CHECK=types`. No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s934-format01` exited 0.
+- `tcr-s934-successor01` exited 0: the row passed (24 titles), pass 2/2
+  units. Source `ab33bb11…` at `eba4501fa`, dirty; scan pass; 11
+  cleanups completed. All 24 combinations matched the literal table.
+- `tcr-s934-types01` (`make lint CHECK=types`) exited 0.
+
+The formula oracle is retired by replacement in place; the successor run
+is the qualification. The `every` over the observation map (sweep item
+23's first half) stays retained as controlled (phase 2).
+
+Tracker checks after S-934: `make lint-markdown` and `git diff --check`
+both exited 0.
+
+### S-935 / F-920 / E-986 — Workbook architecture checks assert their titles and count what they scan
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+Phase-3 items: web.workbook (E-838 sweep items 24 and 25), "architecture
+title claims without counts".
+
+**Defects.**
+
+1. `timelineCompositionArchitecture.node.test.ts`, "keeps the public root
+   slim and makes it the sole composition-hook caller": nothing checks
+   the "sole composition-hook caller" half. A comment defers it to the
+   frontend import-boundary policy. That policy covers only some
+   directories (components, composition and the semantic owners), so it
+   does not by itself establish the title for all production web
+   sources.
+2. Same file, "keeps presentation regions stateless…": files that export
+   a `use…` hook are skipped by `if (!exportsFunction(…))`. Nothing says
+   which files were checked or skipped, so a scan that skipped
+   everything would pass.
+3. `workbookInspectorOwnershipArchitecture.node.test.ts`, "keeps
+   presentation source free of state orchestration hooks": the
+   `readdirSync` loop `continue`s past non-source files and tests, with
+   no record of what it checked.
+
+**Successor (same titles).**
+
+1. Every production `.ts`/`.tsx` file under `apps/web/src` that mentions
+   the composition module is parsed. Its value (not `import type`)
+   imports whose specifier resolves to
+   `timeline/composition/useTimelineWorkbookComposition` are collected.
+   The importers must be exactly `timeline/components/TimelineWorkbook.tsx`.
+   The check uses module specifiers, so local aliases cannot hide a
+   caller. The type-only import in `useTimelineWorkbookPresentation.tsx`
+   is correctly ignored.
+2. The stateless check covers exactly the four region files:
+   - `TimelineWorkbookInspectorRegion.tsx`;
+   - `TimelineWorkbookOverlayRegion.tsx`;
+   - `TimelineWorkbookView.tsx`;
+   - `TimelineWorkbookViewBarRegion.tsx`.
+
+   It skips exactly the two hook owners:
+   - `useTimelineInspectorPresentation.tsx`;
+   - `useTimelineWorkbookPresentation.tsx`.
+3. The inspector scan covers exactly the eight presentation sources,
+   pinned by name.
+
+These lists are engineering pins: adding a file means updating the list
+on purpose.
+
+**Selection.**
+
+- `web.workbook.regression.timeline_workbook_public_root_remains_slim_and_i_72f70cc3fc`;
+- `web.workbook.regression.timeline_workbook_presentation_regions_remain_st_f91e14f779`;
+- `web.workbook.boundary_support.source_workbookinspectorownershiparchitecture_test_t_8849e53c39`;
+- plus `make lint CHECK=types`.
+
+No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s935-format01` exited 0.
+- `tcr-s935-successor01` exited 0: all three rows passed, pass 3/3
+  units. Source `5ce42ce4…` at `eba4501fa`, dirty; scan pass; 12
+  cleanups completed. `TimelineWorkbook.tsx` is the only value importer
+  of the composition hook across `apps/web/src`. The aliased-import
+  probe was detected and the type-only probes were ignored. The region,
+  hook-owner and inspector file lists matched.
+- `tcr-s935-types01` (`make lint CHECK=types`) exited 0.
+
+Additive checks; nothing retired. The deferring comment stays, since the
+import policy still enforces direction. The successor run is the
+qualification.
+
+Tracker checks after S-935: `make lint-markdown` and `git diff --check`
+both exited 0.
+
+### S-936 / F-921 / E-987 — Each Workbook surface registration names its owner
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+Phase-3 item: web.workbook (E-838 sweep item 36), "'assigns every
+registration to one owner' checks only the owner set".
+
+**Defect.** The test compares only the set of distinct owner IDs.
+Moving a surface from one owner to another (for example Evidence to
+Artifacts), or dropping a registration, leaves the set unchanged and
+passes. Nothing ties any registration to its owner.
+
+**Successor (same title).** The registrations, as a map from view schema
+to owner, must equal a literal table of 17 entries:
+
+- artifacts: notes, findings, investigative_queries, forensic_keywords;
+- assessments: assessments;
+- capture_timeline: timeline (v2);
+- coordination: parties, task_requests, decisions, comm_log, handoff,
+  status_review, lesson;
+- entities_observations: hosts, identities, indicators;
+- evidence: evidence.
+
+The test also checks there are 17 registrations, so no view schema is
+registered twice. The existing owner-set check is kept. This is an
+engineering pin of the declared ownership.
+
+**Selection.** `web.workbook.boundary_support.declarative_surface_policy`,
+plus `make lint CHECK=types`. No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s936-format01` exited 0.
+- `tcr-s936-successor01` exited 0: the row passed, pass 2/2 units.
+  Source `0f3f4c42…` at `eba4501fa`, dirty; scan pass; 11 cleanups
+  completed. The 17-entry owner map matched.
+- `tcr-s936-types01` (`make lint CHECK=types`) exited 0.
+
+Additive; the successor run is the qualification.
+
+Tracker checks after S-936: `make lint-markdown` and `git diff --check`
+both exited 0.
+
+**Item 35 disposition (no slice).** `WorkbookShell.history.test.tsx`,
+`.not.toContain("field_update_record_1")`: retained. `operation` is an
+open string in the published `RecordHistoryItem` contract, so the
+distinct marker is a legal fixture value. The negative is controlled:
+after the record-2 history resolves, the same panel contains
+`field_update_record_2`, which shows the operation text does render
+there. The test-ID check beside it covers the item itself.
+
+### S-937 / F-922 / E-988 — Recovery navigation pins its unavailable message and controls stale activation
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+Phase-3 item: web.workbook (E-838 sweep item 37).
+
+**Defect.**
+
+- "Detaches exactly the previous owner when switching closing or
+  withdrawing a selection" ends with `message` merely truthy. The
+  navigation's one public message for a withdrawn or stale item is "This
+  recovery item is no longer available."; any text would pass.
+- "Keeps completed notice dismissal separate from work and rejects stale
+  activation" asserts that activating the dismissed item did not call
+  `activate`. There is no positive control showing the same source's
+  `activate` is called for a live item, so a navigation that never
+  called `activate` would also pass.
+
+**Successor (same titles).**
+
+1. The withdrawn selection's message is exactly "This recovery item is
+   no longer available."
+2. The stale activation leaves the snapshot open, with nothing selected,
+   count 1 and that message. Then activating the live `working` item
+   calls the source's `activate` exactly once, with `working`.
+
+**Selection.** `web.workbook.regression.recovery_navigation_model`, plus
+`make lint CHECK=types`. No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s937-format01` exited 0.
+- `tcr-s937-successor01` exited 0: the row passed (7 titles), pass 2/2
+  units. Source `4d6e41af…` at `eba4501fa`, dirty; scan pass; 11
+  cleanups completed.
+- `tcr-s937-types01` (`make lint CHECK=types`) exited 0.
+
+The truthy message check is retired by replacement; the successor run is
+the qualification.
+
+Tracker checks after S-937: `make lint-markdown` and `git diff --check`
+both exited 0.
+
+#### Phase 3 web.workbook — owner table
+
+Every numbered item of the original E-838 sweep (38 items) now has a
+disposition.
+
+| E-838 sweep item | Phase-3 disposition |
+| --- | --- |
+| 1, 2, 11, 18 ("SA" negative, command index, optional-chained receipts, profile-ID negative) | Closed by S-852 to S-854 (phase 2). |
+| 3 mutation-driver plan omissions | Repaired in S-915. |
+| 4 ordinary-create transport count and throw | Repaired in S-916 (an illegal fixture was found and fixed). |
+| 5 disposal microtask negative | Retained: controlled by the coalescing test's identical sequence (S-925 table). |
+| 6, 21 one-tick negatives | Repaired in S-925. |
+| 7, 8 sort duplicate and owner limit | Repaired in S-914. |
+| 9, 10 draft-store loops | Repaired in S-922. |
+| 12 `calls[3]` retry | Retained (phase 2): controlled. |
+| 13 mention reconciliation | Repaired in S-918. |
+| 14 bare `rejects.toThrow()` | Repaired in S-919 (reconciliation) and S-920 (query). |
+| 15 generic fill rejection | Retained. Production deliberately emits one public message (no per-reason copy is specified), and each rejected input differs in one input from a base the previous title shows is accepted. |
+| 16 `> 100` create coverage | Repaired in S-917. |
+| 17 65 IDs without 64; 27 `if (body)` guard | Repaired in S-900 (phase 2). |
+| 19 history reauthorization | Repaired in S-923. |
+| 20 startup negatives without settle | Repaired in S-924. |
+| 22 mention-source paging tick | Repaired in S-930. |
+| 23 saved-view policy oracle | Repaired in S-934. The `every` half is retained (phase 2): controlled. |
+| 24, 25 architecture titles and counts | Repaired in S-935. |
+| 26 create-related null subject | Repaired in S-931. |
+| 28 about 300 redundant `getBy… not.toBeNull()` | Retained: harmless, because `getBy` throws first. |
+| 29 `toMatchObject` under "exactly" | Repaired in S-929 (three illegal fixture values found and fixed). |
+| 30 subtraction-derived count | Repaired in S-926; a second subtraction was repaired in S-927. |
+| 31 unbounded focus retries | Repaired in S-932. |
+| 32 unbounded mention send counts | Repaired in S-933. |
+| 33 metadata matcherless throws | Repaired in S-921. |
+| 34 capture and panel matcherless throws | Repaired in S-928. |
+| 35 `field_update_record_1` negative | Retained: controlled, and legal under the open-string contract (see above). |
+| 36 owner set only | Repaired in S-936. |
+| 37 recovery navigation message and control | Repaired in S-937. |
+| 38 placeholder sheet IDs | Retained. Session navigation, navigation status, recovery navigation and mutation presentation treat sheet references as opaque keys, and none renders or resolves the ID. ID legality is owned by the surface-registry and startup admission tests, so substituting real IDs adds no assurance. |
+
+web.workbook phase-3 work is complete: S-915 to S-937.
+
+**Locating note (web.application).** The carried web.application items
+were located from the original web.application sweep list (its numbered
+items 9, 11, 12, 17, 26, 30, 31, 32, 37 and 41).
+
+### S-938 / F-923 / E-989 — Import replacement fencing is shown against an accepted pending write
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+Phase-3 item: web.application (sweep item 9), "fencing titles whose
+writes never settle".
+
+**Defect.** "Fences incident and account replacement before a pending
+write can be accepted" (Workbook import) and "…before accepting a pending
+analytical write" (Network Flow import) both use a `send` that never
+settles (`new Promise<never>(() => {})`). The pending write is never
+accepted, so neither test shows that an acceptance arriving after the
+replacement is ignored. Network Flow's final `discovery` null check has
+no control showing an accepted upload changes state at all.
+
+**Successor (same titles).** In each harness, `send` is typed as the
+port's `send`, so a test can hold the upload and later resolve it:
+
+1. Control (new, within the same title): an upload resolved as an
+   accepted `job` receipt with no replacement is adopted:
+   - Workbook: `job` is the receipt's job, with `jobPurpose: "discovery"`;
+   - Network Flow: the write is `accepted`, and `discoveryJob` holds the
+     job.
+2. Fenced: after the incident and then the account are replaced, the
+   held upload is resolved as the same accepted receipt. Nothing is
+   adopted:
+   - Workbook: `job`, `operation` and `file` stay `null`;
+   - Network Flow: `write`, `discoveryJob` and `discovery` stay `null`.
+
+   `send` was still called once.
+
+**Selection.**
+
+- `web.application.regression.workbook_import_lifetime`;
+- `web.application.regression.network_flow_import_lifetime`;
+- plus `make lint CHECK=types`.
+
+No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s938-format01` and `tcr-s938-successor01` (both exit 0) are
+  **void**. The edit script stopped before writing, because a closing
+  anchor matched three tests, so the runs exercised unchanged files. The
+  source digest matched S-937's (`4d6e41af…`). From here on, runs are
+  chained so they only start after a successful edit.
+- `tcr-s938-format02` exited 0.
+- `tcr-s938-successor02` exited 0: both rows passed, pass 3/3 units.
+  Source `e861d714…` at `eba4501fa`, dirty; scan pass; 12 cleanups
+  completed. In both controllers the control adopted the accepted job,
+  and after the incident and account replacement the same acceptance was
+  ignored.
+- `tcr-s938-types01` (`make lint CHECK=types`) exited 0.
+
+The never-settling `send` is replaced in place by a held, resolvable one;
+the successor run is the qualification.
+
+Tracker checks after S-938: `make lint-markdown` and `git diff --check`
+both exited 0.
+
+### S-939 / F-924 / E-990 — Focus-restoration titles assert where focus goes
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+Phase-3 item: web.application (sweep items 11 and 12),
+"focus-restoration titles without focus checks".
+
+**Defect.**
+
+- `AccountApplicationMenu.test.tsx`, "dismisses on an outside nonfocusable
+  pointer without restoring focus", checks only `aria-expanded`. Focus is
+  never examined.
+- "Closes stale context state without stealing destination focus" never
+  focuses the Destination button, so "stealing" is never tested.
+- `useRegisteredOverlayNavigation.test.tsx`:
+  - "cancels requested restoration on unmount…" and "allows a destination
+    owner to suppress subject-change restoration" only assert focus is
+    not on the trigger, never where it is;
+  - "closes without restoring when focus leaves the registered surface"
+    checks only that the menu closed;
+  - found while reading: "reconciles a removed focused item without
+    using its detached element" has no assertion at all. It passes
+    unless rendering throws.
+
+**Successor (same titles).** Expected values are taken from the hook's
+restoration policy (`restoreFocusOnSubjectChange` and
+`restoreFocusOnUnmount` set to false) and its reconciliation rule. The
+run confirms them, and any difference is investigated.
+
+1. Outside pointer: the menu closes and focus is on `document.body`,
+   not the trigger.
+2. Stale context: in one `act`, the context changes and the Destination
+   button takes focus. After effects run, the menu is closed and
+   Destination still has focus.
+3. Overlay unmount with consumer-owned policy, suppressed subject-change
+   restoration, and focus leaving the surface: in each, focus ends on
+   `document.body`.
+4. Removed focused item: after `first` is removed, the menu stays open
+   and focus moves to the next eligible item, `last` (`disabled` is
+   skipped).
+
+**Selection.**
+
+- `web.application.regression.account_application_menu_keyboard_focus_and_life_e79d61a853`;
+- `web.application.regression.registered_overlay_semantic_focus_navigation_42dc7fdfee`;
+- plus `make lint CHECK=types`.
+
+No production or routing change.
+
+Closure: DONE.
+
+- **Correction to the entry above.** "Reconciles a removed focused item
+  without using its detached element" does have an assertion: focus
+  moves to `last`. My first reading stopped at the end of a printed range,
+  and the claim that the test has no assertion was wrong. Successor item
+  4 is withdrawn, and that test is unchanged.
+- `tcr-s939-format01` exited 0.
+- `tcr-s939-successor01` exited 0: both rows passed, pass 2/2 units.
+  Source `c105220c…` at `eba4501fa`, dirty; scan pass; 11 cleanups
+  completed. Results:
+  - on outside dismissal, focus is on the body;
+  - after the context change, Destination keeps focus;
+  - in the three overlay non-restoration cases, focus ends on the body.
+- `tcr-s939-types01` (`make lint CHECK=types`) exited 0.
+
+Additive focus assertions (the stale-context test now places focus on
+Destination); the successor run is the qualification.
+
+Tracker checks after S-939: `make lint-markdown` and `git diff --check`
+both exited 0.
+
+### S-940 / F-925 / E-991 — Application clients pin their failure results and use registered statuses
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+Phase-3 item: web.application (sweep items 26, 30 and 31), "unpinned
+client failure kinds".
+
+**Defect.**
+
+- Administrative audit page (malformed pages): `toMatchObject({ ok:
+  false, status: 502 })` leaves the error code open. Membership list
+  (malformed pages): the same.
+- Lifecycle read of a contradictory incident: only `ok: false`.
+- Lifecycle typed errors: all six codes are sent with status 409 and
+  with validation `field` and `reason` details. The error registry
+  declares:
+  - `invalid_incident_lifecycle_request` 400;
+  - `session_required` 401;
+  - `authorization_denied` 403;
+  - `incident_version_conflict`, `illegal_transition` and
+    `client_txn_conflict` 409.
+
+  The `reason_too_long` reason is registered only for
+  `invalid_incident_lifecycle_request`. So five of the six fixtures are
+  illegal.
+- Import job reads of six inconsistent jobs: only `kind: "failed"`.
+- Import job ordering: a single case lowers `completed` and clears
+  `total` together, so it is not known which change refuses the
+  advance, and there is no accepted advance as a control.
+
+**Successor (same titles).**
+
+1. Audit and membership malformed pages, and the contradictory
+   lifecycle read, equal exactly `status: 502` with
+   `invalid_public_contract_response` (as `error` or `problem`, matching
+   each client's shape).
+2. Lifecycle typed errors: each code is sent with its registered status.
+   Only `invalid_incident_lifecycle_request` carries
+   `field: "reason"` and `reason_code: "reason_too_long"`. Every error
+   also carries a private `secret` detail and message. Each result
+   equals `{ ok: false, status, problem }`, where `problem` holds the
+   code, plus field and reason only for the validation error. The
+   private values never appear.
+3. Inconsistent import jobs: each read equals `{ kind: "failed",
+   problem: "contract" }`.
+4. Import job ordering, from running 3/8:
+   - 4/8 advances (control);
+   - 2/8 does not (completed regresses);
+   - 4/null does not (total cleared).
+
+**Selection.**
+
+- `web.application.regression.administrative_audit_typed_client`;
+- `web.application.regression.membership_management_transport`;
+- `web.application.regression.lifecycle_transport`;
+- `web.application.regression.incident_import_client`;
+- plus `make lint CHECK=types`.
+
+No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s940-format01` exited 0. `tcr-s940-successor01` exited 2 and is
+  **partly void**. The edit script stopped at the membership file (its
+  502 anchor matched two sites) after the audit file was written, and
+  the run was not chained to the edit. Only the audit change was
+  exercised, and it failed: the audit row's malformed pages do not share
+  one error shape.
+- **Finding (diagnosed, preserved).** Malformed audit pages are rejected
+  by two layers:
+  - the generated response-schema validator in `fetchHTTPOperation`.
+    The audit client passes its error through, with `details`
+    `{ instance_path, operation_id, schema_id }`, a message, `retryable`
+    and `status`;
+  - the client's own checks, which return the bare
+    `{ code: "invalid_public_contract_response" }`.
+
+  Both use the same code and leak no rejected values. Diagnostic runs
+  `tcr-s940-diag01` to `diag03` (expected failures, not evidence)
+  recorded which layer rejects each case:
+  - schema: missing paging, empty changes, the redacted value with an
+    `after` value, the nested visible value and the missing cursor;
+  - client: an incident scope, duplicate events and a wrong limit.
+- Amendment: the audit check asserts `502`, the code, the rejecting
+  layer for each case (the validator's `operation_id` for schema
+  rejections; the bare code for client rejections) and the ordered layer
+  list. The membership mutation site (identities, roles, undeclared
+  status) is now also exact. Its client maps both layers to the bare
+  code.
+- `tcr-s940-format02` and `format03` exited 0.
+- `tcr-s940-successor02` exited 0: all four rows passed, pass 3/3 units.
+  Source `daae58cd…` at `eba4501fa`, dirty; scan pass; 12 cleanups
+  completed. The lifecycle errors at their registered statuses project
+  exactly, with no private values. Each inconsistent job fails as
+  `contract`. The progress control advances, and the two isolated
+  regressions do not.
+- `tcr-s940-types01` (`make lint CHECK=types`) exited 0.
+
+The partial matchers and the illegal status and reason fixtures are
+retired by replacement in place; the successor run is the qualification.
+
+Tracker checks after S-940: `make lint-markdown` and `git diff --check`
+both exited 0.
+
+### S-941 / F-926 / E-992 — Membership-audit scope rejection uses a single deployment-scope change
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+Phase-3 item: web.application (sweep item 29), "membership-audit-event
+multi-defect payload".
+
+**Defect.** In "rejects malformed wrong scope unordered duplicate and
+inconsistent paging responses", one case is the default deployment
+`auditEvent()`. It differs from the incident membership event in scope
+kind, scope ID, action (`user_created`) and target (`user`). The client
+checks only the scope (`scope_kind` must be `incident` with the
+authority's incident ID). Actions and targets are additive vocabulary,
+which the client deliberately accepts. So the case does not show which
+difference is rejected, and two of the four are differences the client
+accepts.
+
+**Successor (same title).** The case becomes the membership event with
+only its scope changed to a deployment scope (`scope_kind: "deployment"`,
+`scope_id: null`). That is the one schema-legal combination for a
+deployment event, and it differs from the accepted event only in scope.
+The existing case with another incident's ID covers the `scope_id`
+check on its own. The loop's exact 502 and
+`invalid_public_contract_response` expectation applies unchanged.
+
+**Selection.** `web.application.regression.incident_membership_audit_typed_client`,
+plus `make lint CHECK=types`. No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s941-format01` exited 0.
+- `tcr-s941-successor01` exited 0: the row passed, pass 2/2 units.
+  Source `b0dc9e44…` at `eba4501fa`, dirty; scan pass; 11 cleanups
+  completed. The deployment-scoped membership event was rejected with
+  the exact 502 contract result.
+- `tcr-s941-types01` (`make lint CHECK=types`) exited 0.
+
+The multi-defect default event is replaced in place; the successor run is
+the qualification.
+
+Tracker checks after S-941: `make lint-markdown` and `git diff --check`
+both exited 0.
+
+### S-942 / F-927 / E-993 — Session controller cancellation, failure and hook-callback cases are isolated and controlled
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+Phase-3 item: web.application (sweep item 17), "session-gate payload"
+and its neighbours.
+
+**Defect.**
+
+1. "Observes operation session and current profiles with explicit
+   cancellation and failure outcomes":
+   - the gated extensions result that should be cancelled is also
+     malformed (no `meta`) while `current` turns false, so it has two
+     defects;
+   - the only failure outcome tested is `unavailable`. The
+     `session_lost` outcome for a 401 is untested.
+2. "Cancels recovery before publication after caller cancellation
+   navigation replacement and disposal": the replacement branch is
+   `if (snapshot.session) controller.authenticationCompleted(…)`. Without
+   a session it does nothing, and the case still passes.
+3. "Keeps workbook authorization through temporary failure and rejects
+   obsolete hook callbacks": `lost` and `sessionLost` not being called
+   after unmount has no control showing that the same `access_lost`
+   result, while still mounted, does call `lost`.
+
+**Successor (same titles).**
+
+1. The gated result is well formed (with `meta`), so only `current`
+   turning false causes `{ kind: "cancelled" }`. After it, a current
+   observation answered with a 401 `session_required` envelope returns
+   `{ kind: "session_lost" }`.
+2. The replacement branch requires a session (it throws otherwise) before
+   completing authentication with it.
+3. Control: a fresh mounted hook whose recovery resolves `access_lost`
+   calls `lost` exactly once, and not `sessionLost`.
+
+**Selection.** `web.application.regression.app_session_lifecycle_d770146af2`,
+plus `make lint CHECK=types`. No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s942-format01` exited 0.
+- `tcr-s942-successor01` exited 0: the row passed, pass 2/2 units.
+  Source `7702029a…` at `eba4501fa`, dirty; scan pass; 11 cleanups
+  completed. Results:
+  - the well-formed gated result was still cancelled, and the 401
+    returned `session_lost`;
+  - every replacement iteration had a session;
+  - the mounted control called `lost` once.
+- `tcr-s942-types01` (`make lint CHECK=types`) exited 0.
+
+The malformed gate payload and the guarded replacement are replaced in
+place; the session-lost case and the control are additive. The successor
+run is the qualification.
+
+Tracker checks after S-942: `make lint-markdown` and `git diff --check`
+both exited 0.
+
+**Dispositions without a slice (web.application).**
+
+- Font-bundle baseline (sweep item 32): out of scope.
+  `fontBundle.node.test.ts` exercises the harness static-analysis checker
+  `tools/harness/static-analysis/font-bundle-check-cli.mjs`. Harness
+  checker logic is the R-02 class, as the architecture
+  `test-fallow-policy.mjs` items were.
+- `X-Cartulary-Timing-Debug` header negative (sweep item 41): retained.
+  `git log -S` finds the header in four earlier production revisions
+  outside the test (`43447b50e`, `007b6cda4`, `b45905b1d`, `9f0a22c6f`).
+  It is a retired-protocol regression guard, like the R-05 `App.landing`
+  retired-text negatives.
+
+### S-943 / F-928 / E-994 — Display-name bounds pair each unit, and double replay sends once
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+Phase-3 item: web.application (sweep item 37), "mixed-unit text bounds".
+
+**Defect.**
+
+1. "Validates scalar display names and preserves rejected drafts"
+   accepts 256 emoji and rejects 257 ASCII characters. The limit is 256
+   Unicode scalars (`display_name_line_v1`), but the accepted and
+   rejected sides use different units, so neither side has its pair. A
+   limit counted in UTF-16 units or bytes, or an off-by-one for one kind
+   of character, could pass. The four rejections also accept any error.
+2. "Replays an uncertain request exactly while retaining newer edits and
+   explicit discard" calls `replay` twice but never counts the writes.
+   A second replay that sent again would pass.
+
+**Successor (same titles).**
+
+1. Paired bounds, each with its exact result:
+   - 256 emoji and 256 ASCII are accepted;
+   - 257 emoji and 257 ASCII give "Use 256 characters or fewer.";
+   - U+0085, `a` followed by U+0001, and a lone surrogate give "Remove
+     control characters from the display name."
+2. After the double replay, the write has been called exactly twice (the
+   original and one replay). The replayed body still equals the
+   original.
+
+**Selection.** `web.application.regression.account_edit_resource_draft_attempt_lifecycle_9420b2e411`,
+plus `make lint CHECK=types`. No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s943-format01` exited 0; `tcr-s943-types01` exited 0.
+- `tcr-s943-successor01` exited 2 (preserved). Only the display-name
+  title failed: U+0085 on its own returned "Enter a display name.", not
+  the control-character message.
+- **Finding.** U+0085 (NEL) is Unicode `White_Space`. The validator trims
+  leading and trailing white space before checking control characters,
+  so a name that is only U+0085 is rejected as empty. The old any-error
+  check hid that this case never reached the C1 control rule. This is
+  consistent with `display_name_line_v1`'s trim-then-validate order, so
+  it is not a defect.
+- Amendment: U+0085 alone now expects "Enter a display name.". A new
+  interior case (`a`, U+0085, `b`) exercises the C1 rule, with the
+  control-character message.
+- `tcr-s943-format02` exited 0.
+- `tcr-s943-successor02` exited 0: the row passed, pass 2/2 units.
+  Source `0f920991…` at `eba4501fa`, dirty; scan pass; 11 cleanups
+  completed. The paired emoji and ASCII bounds hold, and the double
+  replay sends exactly once more.
+- `tcr-s943-types02` (`make lint CHECK=types`) exited 0.
+
+The mixed-unit bounds and any-error checks are replaced in place; the
+successor run is the qualification.
+
+#### Phase 3 web.application — owner table (completion)
+
+| Carried item | Phase-3 disposition |
+| --- | --- |
+| Fencing titles whose writes never settle (sweep item 9) | Repaired in S-938. |
+| Focus-restoration titles (sweep items 11 and 12) | Repaired in S-939. |
+| Unpinned client failure kinds (sweep items 26, 30 and 31) | Repaired in S-940 (illegal status and reason fixtures fixed; two rejection layers pinned). |
+| Membership-audit-event payload (sweep item 29) | Repaired in S-941. |
+| Session-gate payload and neighbours (sweep item 17) | Repaired in S-942. |
+| Import-job progress payload (sweep item 30) | Repaired in S-940. |
+| Font-bundle baseline (sweep item 32) | Out of scope: harness checker logic (R-02 class). |
+| Timing header (sweep item 41) | Retained: retired-protocol guard. |
+| Mixed-unit text bounds (sweep item 37) | Repaired in S-943. |
+
+web.application phase-3 work is complete: S-911, S-912 and S-938 to
+S-943.
+
+Tracker checks after S-943: `make lint-markdown` and `git diff --check`
+both exited 0.
+
+**Locating note (web.collaboration).** The carried web.collaboration
+items were located from the original combined sweep (web.architecture,
+web.collaboration, web.design and web.networkflow), web.collaboration
+items 1 to 16. Item 12 (the presence status checked only for absence) was
+not dispositioned in any earlier table, so it is added to this phase.
+
+### S-944 / F-929 / E-995 — Presence removal keeps its survivors and reset currency checks the sheet
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+Phase-3 item: web.collaboration (sweep item 15), "transition-model
+survivor checks and the missing `sheetKey` mismatch".
+
+**Defect.**
+
+1. "Projects presence as an exact keyed collection…": after a remove
+   delta for `b`, only `b`'s absence is checked. A delta that cleared
+   the whole collection, or replaced the survivors, would pass.
+2. "Settles only the current reset subject" varies the session
+   generation and cancellation, but never the sheet key. A currency check
+   that ignored the sheet would pass.
+
+**Successor (same titles).**
+
+1. After removing `b`, the keys are exactly `self` then `a`, and both
+   survivors are the same entries as before the delta.
+2. With the same session generation and a different sheet key
+   (`view:hosts`), the reset is not current.
+
+**Selection.** `web.collaboration.regression.workbook_collaboration_transition_models_lr07`,
+plus `make lint CHECK=types`. No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s944-format01` exited 0.
+- `tcr-s944-successor01` exited 0: the row passed, pass 2/2 units.
+  Source `03026de2…` at `eba4501fa`, dirty; scan pass; 11 cleanups
+  completed.
+- `tcr-s944-types01` (`make lint CHECK=types`) exited 0.
+
+Additive; the successor run is the qualification.
+
+Tracker checks after S-944: `make lint-markdown` and `git diff --check`
+both exited 0.
+
+### S-945 / F-930 / E-996 — Timeline live-patch results are asserted, and malformed patches are covered
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+Phase-3 items: web.collaboration (sweep items 9 and 10), "discarded
+`applyRecordChanged` results and the single malformed case".
+
+**Defect.**
+
+1. "Owns Timeline live admission…": in the read-scope loop (five
+   mismatched scopes) and the unobserved-row case, the result of
+   `applyRecordChanged` is discarded. The test asserts only the row's
+   observation afterwards. A change rejected as `stale` or
+   `refresh_required` would also leave the observation unchanged, so it
+   is not shown that the patch was applied while the observation stayed
+   bound to the accepted scope.
+2. "Fails closed to refresh for malformed or target-inconsistent sparse
+   patches" covers only the target-inconsistent patch (`record-other`).
+   No malformed `patch_cells` is tested, so the `refresh_required` path
+   for a patch that cannot be normalized is never reached.
+
+**Successor (same titles).**
+
+1. Each scope-loop iteration, and the unobserved-row case, require
+   `{ kind: "applied" }` beside the existing observation checks. The
+   patch is applied, and only the observation is withheld from the
+   mismatched scope.
+2. A malformed patch (`row_version: "two"`) and a patch view without
+   `patch_cells` each return `{ kind: "refresh_required" }` and leave the
+   row's value unchanged, beside the existing target-inconsistent case.
+
+**Selection.** `web.collaboration.regression.timeline_collaboration_binding_5e6a9b1472`,
+plus `make lint CHECK=types`. No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s945-format01` exited 0.
+- `tcr-s945-successor01` exited 0: the row passed. `tcr-s945-types01`
+  exited 2: TS2352 on the deliberately malformed payload's direct cast.
+- Amendment: the cast goes through `unknown`.
+- `tcr-s945-format02` exited 0.
+- `tcr-s945-successor02` exited 0: the row passed, pass 2/2 units.
+  Source `de5e2898…` at `eba4501fa`, dirty; scan pass; 11 cleanups
+  completed. All five mismatched-scope applications and the unobserved
+  row returned `applied`, with the observation kept bound to the
+  accepted scope. The malformed patch and the patch without cells each
+  returned `refresh_required` and left the value unchanged.
+- `tcr-s945-types02` (`make lint CHECK=types`) exited 0.
+
+Additive; `tcr-s945-successor02` is the qualification.
+
+Tracker checks after S-945: `make lint-markdown` and `git diff --check`
+both exited 0.
+
+### S-946 / F-931 / E-997 — Replaced and disposed sockets are shown live before they are fenced
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+Phase-3 item: web.collaboration (sweep item 5), "un-acknowledged
+replacement sockets".
+
+**Defect.** "Fences foreign incidents replaced sockets account lifetimes
+and disposal before stream mutation" sends to the second socket (after
+the incident change) and the third (after the account change) only once
+they have been replaced or unmounted, and asserts nothing reached
+`onEvent`. Neither socket is ever opened or acknowledged (`hello_ack`),
+and nothing shows they are new instances. A message dropped because the
+socket was never accepted, or because `at(-1)` returned the old socket,
+would pass as "fenced by replacement".
+
+**Successor (same title).** For the second and the third socket:
+
+1. It is a new instance (not the previous socket).
+2. It is opened and acknowledged with an incident-2 `hello_ack`.
+3. Control: while it is current, an incident-2 change at stream
+   sequence 1 reaches `onEvent` exactly once.
+4. After it is replaced (by the account change) or disposed (unmount),
+   the same session-revocation message reaches nothing.
+
+**Selection.** `web.collaboration.regression.incidentcollaborationsession_suite_6b9c4a2c72`,
+plus `make lint CHECK=types`. No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s946-format01` exited 0.
+- `tcr-s946-successor01` exited 0: the row passed, pass 2/2 units.
+  Source `1655899b…` at `eba4501fa`, dirty; scan pass; 11 cleanups
+  completed. Each replacement socket was a new instance and delivered
+  one change while current. After the account replacement and the
+  unmount, its revocation reached nothing.
+- `tcr-s946-types01` (`make lint CHECK=types`) exited 0.
+
+Additive controls; the successor run is the qualification.
+
+Tracker checks after S-946: `make lint-markdown` and `git diff --check`
+both exited 0.
+
+### S-947 / F-932 / E-998 — Presence stays out of every live region, shown against a rendered summary
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+Phase-3 item: web.collaboration (sweep item 12), "absence-only status".
+
+**Defect.** "Keeps presence outside live announcements" asserts only
+`queryByRole("status")` is null:
+
+- it never shows the summary rendered, so a summary that rendered
+  nothing would pass;
+- it ignores the other live mechanisms: `aria-live` attributes and the
+  `alert`, `log`, `marquee` and `timer` roles. The editing cell marker
+  rendered later in the test is never checked for live regions.
+
+**Successor (same title).**
+
+1. The summary renders as its labelled image ("1 collaborator present on
+   this sheet…"), and its container holds no element with `aria-live` or
+   any of the roles `status`, `alert`, `log`, `marquee` or `timer`.
+2. After the rerender with a remote editing presence on the cell, the
+   editor layout's container also holds none of those live regions. The
+   existing focus-retention checks are unchanged.
+
+**Selection.** `web.collaboration.regression.presence_presentation`, plus
+`make lint CHECK=types`. No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s947-format01`, `successor01` and `types01` exited 0. Review
+  found that the editor-side live-region check had no positive: an
+  absent marker would also contain no live region.
+- Amendment: before the live-region check, the editing marker must be
+  present as its labelled image ("1 collaborator…").
+- `tcr-s947-format02` exited 0.
+- `tcr-s947-successor02` exited 0: the row passed, pass 2/2 units.
+  Source `f564643c…` at `eba4501fa`, dirty; scan pass; 11 cleanups
+  completed.
+- `tcr-s947-types02` (`make lint CHECK=types`) exited 0.
+
+The status-only absence check is replaced in place; `successor02` is the
+qualification.
+
+Tracker checks after S-947: `make lint-markdown` and `git diff --check`
+both exited 0.
+
+### S-948 / F-933 / E-999 — Coordinator titles about pending work and pauses are asserted, and its tick waits are settled
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+Phase-3 items: web.collaboration (sweep items 6, 7 and 8),
+"pending-work and authorization-pause titles; one- and six-tick
+negatives".
+
+**Defect.**
+
+1. "Prompts authentication immediately for revocation while preserving
+   pending work" never creates or checks any pending work.
+2. "Retries transient recovery but pauses cancellation and contract
+   defects without access-loss navigation" never asserts the pause
+   (`authPaused`), only recovery counts and the absent access-loss
+   callbacks.
+3. Negatives after counted ticks:
+   - "classifies failed surface confirmation…" waits six ticks between
+     manual-clock advances before its `reconnect` and lost-callback
+     negatives;
+   - "retries reset refresh and settles only after synchronization
+     succeeds" waits one tick before `completeReset` is asserted
+     uncalled, both after the first reset and after each cancelled stale
+     read.
+
+**Successor (same titles).**
+
+1. After the session revocation, a Timeline patch is admitted under the
+   authentication pause. After 30 seconds of manual time, the queue
+   still holds exactly that unit, `recover` was not called, and the
+   runtime is still paused.
+2. For each of the three outcomes, after recovery settles the runtime is
+   still `authPaused`, and `reconnect` was not called.
+3. A shared `settle()` (one real macrotask turn) replaces the six-tick
+   loops and the single ticks before those negatives. This file drives
+   time with a manual scheduler, so a real macrotask drains continuations
+   without advancing it. Each later positive (the refresh counts, and
+   `completeReset` with 8 or with 13) is unchanged.
+
+**Selection.** `web.collaboration.regression.workbookcollaborationcoordinator_suite_514be174a8`,
+plus `make lint CHECK=types`. No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s948-format01` exited 0.
+- `tcr-s948-successor01` exited 0: the row passed (26 titles), pass 2/2
+  units. Source `06bd3bb0…` at `eba4501fa`, dirty; scan pass; 11
+  cleanups completed. Results:
+  - the patch admitted under the revocation pause was retained
+    unchanged through 30 seconds;
+  - every recovery outcome left the runtime paused, with no reconnect;
+  - the settled negatives held, and their positives still ran.
+- `tcr-s948-types01` (`make lint CHECK=types`) exited 0.
+
+The counted-tick waits are retired by replacement; the title checks are
+additive. The successor run is the qualification.
+
+#### Phase 3 web.collaboration — owner table (completion)
+
+| Sweep item | Phase-3 disposition |
+| --- | --- |
+| 1, 3, 4 (try/catch, optional stale callbacks, `resolveRecovery?.()`) | Closed by S-850 (phase 2). |
+| 2 disposal negative | Retained (R-05): its effects are observed by the late-recovery and old-listener tests. |
+| 5 unacknowledged replacement sockets | Repaired in S-946. |
+| 6, 7 pending-work and pause titles; 8 tick negatives | Repaired in S-948. |
+| 9, 10 discarded `applyRecordChanged` results; single malformed case | Repaired in S-945. |
+| 11, 13, 14 presence batch, caps, 44,999 | Repaired in S-913. |
+| 12 absence-only status | Repaired in S-947. |
+| 15 transition-model survivors and `sheetKey` | Repaired in S-944. |
+| 16 session plan "exactly" | Closed by S-898 (phase 2). |
+
+web.collaboration phase-3 work is complete: S-913 and S-944 to S-948.
+
+Tracker checks after S-948: `make lint-markdown` and `git diff --check`
+both exited 0.
+
+### S-949 / F-934 / E-1000 — Maintenance SQL capability rejections are pinned to their admission check
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+Phase-3 item: platform.viewquery (E-823 ledger), "partial
+`maintenancequery` sets".
+
+**Defect.** `TestMaintenanceSQLCapabilities` accepts any error from
+every rejection:
+
+- the partial, duplicated and protected table sets passed to
+  `LockMutable`, `TruncateRestore` and `TruncateVerification`;
+- unadmitted relations passed to `From` and `Insert`;
+- protected relations passed to `Delete`;
+- the derived projection passed to `Insert`;
+- the widened `LockShare`.
+
+The generated builders each have one specific refusal. An unrelated
+error (for example from fragment construction) would satisfy these
+checks.
+
+**Positive path.** Each set builder admits exactly one generated table
+set taken from the Recovery catalog. That set is consumed at the
+module.recovery boundary by the restore, verification and lock paths.
+`structural_restore_integration_test.go` and
+`target_restore_admission_integration_test.go` cover it; this was
+established by reading, not rerun here. Reproducing the generated set in
+this unit test would restate the generator's selection rule, so no
+full-set case is added here.
+
+**Successor (same root).** Every rejection compares the exact error
+text:
+
+- `unadmitted LockMutable relation set`,
+  `unadmitted TruncateRestore relation set` and
+  `unadmitted TruncateVerification relation set`;
+- `unadmitted maintenance relation "<name>"` (`From`);
+- `unadmitted restore relation "<name>"` (`Insert`, including the
+  derived projection);
+- `unadmitted Delete relation "<name>"`;
+- `unadmitted LockShare relation "users"`.
+
+**Selection.** `platform.viewquery.unit.maintenance_sql_capabilities`. No
+production or routing change.
+
+Closure: DONE.
+
+- `tcr-s949-format01` exited 0.
+- `tcr-s949-successor01` exited 0: the row passed (Go, cache miss), pass
+  1/1 unit. Source `20142459…` at `eba4501fa`, dirty; scan pass; 10
+  cleanups completed. Every rejection matched its exact generated
+  message.
+
+The any-error checks are replaced in place; the successor run is the
+qualification. No full-set positive is added here; see "Positive path"
+above.
+
+Tracker checks after S-949: `make lint-markdown` and `git diff --check`
+both exited 0.
+
+**Disposition without a slice (viewquery Vitest).** In
+`WorkbookShell.query.test.tsx`, the grouping, filter-field and
+sort-label expectations are compared with the view contract's
+`groupingFields`, `filterFields` and field labels. They are retained:
+the controls are required to offer exactly the contract-declared
+allowlists, so the generated contract is the governing source, and a
+literal copy would duplicate it. The same test also exercises concrete
+members (grouping by `timeline.capture_state`, changing to
+`timeline.has_evidence`, chips for capture state and tags), so the lists
+are not vacuous.
+
+### S-950 / F-935 / E-1001 — Group-row tests stop duplicating each other and use the Timeline surface
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+Phase-3 item: platform.viewquery (E-823 ledger), "a duplicated title
+body, and a `test.view` surface mismatch".
+
+**Defect.** "Renders group headers as presentation-only rows" (row
+`…frontend.grid_sort_filter_and_group_controls…`) and "keeps grouped
+presentation rows out of mutation-capable anchors" (row
+`…frontend_unit.compile_sort_filter_group_layout…`) have identical
+bodies:
+
+- both render the grid with surface `test.view`, an illegal view
+  schema, while building group test IDs from
+  `cartulary.view.timeline.v2`;
+- both check only the `rough` header;
+- neither shows that data rows are the mutation-capable anchors the
+  group rows must not be. Only one data row's record ID is checked.
+
+**Successor (same titles, one shared fixture).** A single helper renders
+the grouped grid on the Timeline surface.
+
+1. "Renders group headers as presentation-only rows": both the `rough`
+   and `reviewed` headers render with their labels. Each comes before
+   its member row in document order, and neither carries a record ID.
+2. "Keeps grouped presentation rows out of mutation-capable anchors":
+   neither header has a record ID, a field-key cell, an editable control
+   or an action. Control: each data row carries its record ID,
+   field-key cells, its editable input and its action button.
+
+**Selection.**
+
+- `platform.viewquery.frontend.grid_sort_filter_and_group_controls_send_only_st_63c9867421`;
+- `platform.viewquery.frontend_unit.compile_sort_filter_group_layout_and_active_chip_b59bab4f62`;
+- plus `make lint CHECK=types`.
+
+No production or routing change.
+
+Closure: DONE.
+
+- `tcr-s950-format01` exited 0.
+- `tcr-s950-successor01` exited 0: both rows passed, pass 2/2 units.
+  Source `754fdb66…` at `eba4501fa`, dirty; scan pass; 11 cleanups
+  completed. On the Timeline surface:
+  - both group headers render before their member rows, with no record
+    ID or mutation affordance;
+  - each data row keeps its record ID, field-key cells, editable input
+    and action.
+- `tcr-s950-types01` (`make lint CHECK=types`) exited 0.
+
+The duplicated bodies and the `test.view` surface are replaced in place
+by one fixture and two distinct claims; the successor run is the
+qualification.
+
+Tracker checks after S-950: `make lint-markdown` and `git diff --check`
+both exited 0.
+
+### S-951 / F-936 / E-1002 — Timeline sort and Notes full-text browser checks prove the change they claim
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+Phase-3 items: platform.viewquery (E-823 ledger), "Playwright: sort
+order equals creation order; absence checks without a settle".
+
+**Defect.**
+
+1. "Browser Timeline sort, filter, and group controls submit stable query
+   keys" creates Alpha, Beta and Gamma rows with no activity time, then
+   asserts the ascending synopsis sort shows Alpha, Beta, Gamma. The
+   Timeline default sort is activity time (nulls last), then record ID.
+   Record IDs are random UUIDv4s, so the unsorted order is random and
+   matches the sorted one about one run in six. A sort that was not
+   applied would then pass.
+2. "Browser Notes full_text and prefix queries remain exact" asserts the
+   `Powershell only` note is absent after the full-text filter. It never
+   shows that note was present before the filter, so the absence does
+   not show that the filter removed it.
+
+**Successor (same titles).**
+
+1. The rows get activity times so the default order is fixed: Gamma
+   earliest, then Beta, then Alpha. Before sorting, the visible order
+   must be Gamma, Beta, Alpha. After the ascending synopsis sort it must
+   be Alpha, Beta, Gamma.
+2. Before the filter is applied, the `Powershell only` note's title cell
+   must be visible. After the filtered response it must be absent, while
+   Alpha Delta stays visible.
+
+**Kept as settled (no change).** In "Timestamp drafts correct locally and
+fractional ranges select exact populated workbook membership", the
+per-row absences follow `expect.poll` on the visible IDs. The two
+request-count negatives follow a visible invalid state with the apply
+button disabled.
+
+**Selection.**
+
+- `platform.viewquery.browser.browser_timeline_sort_filter_and_group_reaches_a_165ffa9afd`;
+- `platform.viewquery.browser.browser_exact_token_full_text_and_strict_prefix_55beeb13a5`;
+- plus `make lint CHECK=types`.
+
+These are browser rows, run because they are touched. No production,
+routing or golden change.
+
+Closure: DONE.
+
+- `tcr-s951-format01` exited 0.
+- Plan inspected (`make target-plan TARGET=test-slice … DETAIL=rows
+  JSON=1`): one web-server-backed browser cohort (Postgres and object
+  store, `browser_stack`), with the build, migrate, server-harness,
+  Playwright-install and service-image prerequisites.
+- `tcr-s951-successor01` exited 0: both browser rows passed, pass 12/12
+  units (prerequisites included). Wall time 92.6 s, recorded only as
+  observed and not a performance claim. Source `1d202129…` at
+  `eba4501fa`, dirty; scan pass (93 files); 23 cleanups completed.
+  Results:
+  - before sorting, the Timeline showed Gamma, Beta, Alpha (the activity
+    order), and Alpha, Beta, Gamma after the synopsis sort;
+  - `Powershell only` was visible before the full-text filter and absent
+    after it.
+- `tcr-s951-types01` (`make lint CHECK=types`) exited 0.
+
+Additive; the successor run is the qualification. No golden was
+involved.
+
+Tracker checks after S-951: `make lint-markdown` and `git diff --check`
+both exited 0.
+
+**Locating note (web.design).** The web.design a11y items were located
+from the original combined sweep (web.design items 1 to 14). All of them
+map to web.design-owned browser rows. Item 10 (theme CSS variables in
+`design.visual.spec.ts`) and item 14 (the visual-registry checker) stay
+out of scope (visual specs and goldens; harness checker).
+
+### S-952 / F-937 / E-1003 — Audit a11y tests prove exact filters and text-only rendering of hostile values
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+Phase-3 items: web.design (sweep items 2, 3 and 13).
+
+**Defect.** In "a11y.membership-audit exact filters inspection paging
+recovery and drawer focus remain reachable" and "a11y.administrative-audit
+exact filters paging inspection and recovery stay reachable":
+
+- "Exact filters" is never observed at the request level. A target ID
+  entered without a target kind moves focus to Target kind, but nothing
+  shows the partial pair was withheld. Nothing shows that a complete
+  pair is sent exactly, or that Clear filters removes it.
+- `expect(panel.locator("script")).toHaveCount(0)` is an absence check.
+  The shared audit fixture's change carries the value
+  `<script>inert text</script>`, but nothing shows that value is
+  displayed as text. A panel that dropped the value would also contain
+  no script element.
+
+**Successor (same titles).**
+
+1. Target ID alone, then Enter: no audit request is sent. After choosing
+   the target kind (`incident_membership` or `user`) and applying, there
+   is exactly one more request, carrying exactly that `target_kind` and
+   `target_id`. Clear filters sends one more request with neither.
+2. The opened details region contains the literal text
+   `<script>inert text</script>`, and the panel still contains no
+   `script` element.
+
+**Selection.**
+
+- `web.design.accessibility.membership_audit_browsing`;
+- `web.design.accessibility.administrative_audit_browsing`;
+- plus `make lint CHECK=types`.
+
+These are browser rows, run because they are touched. No production,
+routing or golden change.
+
+Closure: DONE.
+
+- `tcr-s952-format01` exited 0.
+- `tcr-s952-successor01` exited 0: both browser rows passed, pass 12/12
+  units. Source `97ba9dd6…` at `eba4501fa`, dirty; scan pass; 23
+  cleanups completed. In both panels:
+  - the incomplete target pair sent nothing;
+  - Apply sent exactly one request with the exact kind and ID;
+  - Clear filters sent one request with neither;
+  - the hostile value was displayed as text, with no script element.
+- `tcr-s952-types01` (`make lint CHECK=types`) exited 0.
+
+Additive; the successor run is the qualification.
+
+Tracker checks after S-952: `make lint-markdown` and `git diff --check`
+both exited 0.
+
+**Disposition without a slice (web.design sweep item 12).**
+`reference-packs.a11y.spec.ts`: the "Version actions" label box checks
+(`width > 50`, `height < 100`) are retained. They are legibility
+heuristics with no bound specified in design.md. A missing box fails
+anyway, because `toBeGreaterThan` rejects `undefined`.
+
+### S-953 / F-938 / E-1004 — Deployment-user dialogs are fully contained at every viewport
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+Phase-3 item: web.design (sweep item 8), "box containment checks width
+only".
+
+**Defect.** "a11y.deployment-users guarded drafts and credential dialogs
+remain keyboard…" checks, at each constrained viewport with text spacing
+applied, only `x >= 0`, `width <= viewport.width` and `height <=
+viewport.height`. A dialog shifted right or down, overflowing the right
+or bottom edge, or starting above the viewport would pass. The 200%
+zoom block in the same test already checks all four edges.
+
+**Successor (same title).** At each viewport the dialog satisfies
+`x >= 0`, `y >= 0`, `x + width <= viewport.width` and
+`y + height <= viewport.height`, matching the zoom block.
+
+**Selection.** `web.design.accessibility.deployment_user_draft_credential_dialogs_ac3e…`
+(the exact row ID is resolved from the family before running), plus
+`make lint CHECK=types`. This is a browser row, run because it is
+touched. No production, routing or golden change.
+
+Closure: DONE.
+
+- `tcr-s953-format01` exited 0.
+- `tcr-s953-successor01` exited 0: the browser row
+  `web.design.accessibility.deployment_user_draft_credential_dialogs_ac3e5d7802`
+  passed, pass 12/12 units. Source `d76b37fc…` at `eba4501fa`, dirty;
+  scan pass; 23 cleanups completed. The dialog was within all four
+  edges at every viewport.
+- `tcr-s953-types01` (`make lint CHECK=types`) exited 0.
+
+The width-only check is replaced in place; the successor run is the
+qualification.
+
+Tracker checks after S-953: `make lint-markdown` and `git diff --check`
+both exited 0.
+
+### S-954 / F-939 / E-1005 — Incident import evidence, ordering and busy-read checks are observed, not asserted by fiat
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+Phase-3 items: web.design (sweep items 5, 6 and 7).
+
+**Defect.**
+
+1. "Imports real active and closed bundles with exact recovery and
+   explicit workbook launch":
+   - its evidence attachment hard-codes `identicalMultipartValues: true`
+     and `workbookOpenedExplicitly: true`;
+   - it computes `jobCount` (distinct job IDs across the original and
+     replayed admission) but never asserts it, so an admission replay
+     that created a second job would only change the attachment.
+2. The same test comments that the session refresh must happen before
+   the ordinary startup, but asserts only that job reads increased. It
+   never asserts the order.
+3. "Checks import actions and recovers access explicitly before
+   accepting…": after the second Enter on a busy Cancel, the read count
+   is checked at once. A read issued by that keypress could still be on
+   its way. The later "could not be confirmed" message is a settled
+   point, because any extra read would have been gated and counted by
+   then.
+
+**Successor (same titles).**
+
+1. `jobCount` must be 1: the replay reuses the job. The attachment
+   records values computed from what was observed: multipart equality
+   of the two admissions, and that the workbook shell was absent before
+   Open.
+2. A request and response listener records the order of the
+   `/api/v1/auth/session` response and the incident workbook startup
+   request. The session response must come first.
+3. After the confirmation-failure message is visible, the read count is
+   still exactly one more than before the first Enter. The immediate
+   check is kept.
+
+**Selection.**
+
+- `web.design.browser.incident_import_real_workflow`;
+- `web.design.browser.incident_import_action_access_hardening`;
+- plus `make lint CHECK=types`.
+
+These are browser rows, run because they are touched. No production,
+routing or golden change.
+
+Closure: DONE.
+
+- `tcr-s954-format01` exited 0.
+- `tcr-s954-successor01` exited 0: both browser rows passed, pass 12/12
+  units. Source `6783f61f…` at `eba4501fa`, dirty; scan pass; 23
+  cleanups completed. Results:
+  - for both the active and the closed bundle, the replay reused one
+    job, and the session response preceded the workbook startup;
+  - the busy Cancel issued no extra read through the settled failure
+    message.
+- `tcr-s954-types01` (`make lint CHECK=types`) exited 0.
+
+The hard-coded evidence values are replaced in place; the order and
+count checks are additive. The successor run is the qualification.
+
+Tracker checks after S-954: `make lint-markdown` and `git diff --check`
+both exited 0.
+
+### S-955 / F-940 / E-1006 — Account settings replay checks pin request counts and versions independently
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+Phase-3 items: web.design (sweep items 4 and 9).
+
+**Defect.**
+
+1. "Account settings keyboard density recovery and constrained
+   presentation…" compares `appearance[2]` with `appearance[1]`, the lost
+   save and its retry, without the request count. If neither request
+   was sent, `undefined` equals `undefined` and the replay check passes.
+2. "Account settings retain edits through real version conflicts and
+   exact committed replay" expects the final `user_version` to be
+   `bodies[2].base_user_version + 1`, a value taken from the request
+   under test. A save sent with the wrong base would move the expectation
+   with it.
+
+**Successor (same titles).**
+
+1. The appearance request count is exactly 3 before the replay
+   comparison.
+2. Versions are anchored on the profile read before the test
+   (`original.user_version`):
+   - the conflicting save is based on `original`;
+   - the reviewed save on `original + 1`, after the external patch;
+   - the response-lost save on `original + 2`.
+
+   The final profile version is `original + 3`. The exact replay changes
+   nothing further.
+
+**Selection.**
+
+- `web.design.browser.account_settings_keyboard_responsive_781bd74a33`;
+- `web.design.browser.account_settings_real_conflict_replay_46b2ec9831`;
+- plus `make lint CHECK=types`.
+
+These are browser rows, run because they are touched. No production,
+routing or golden change.
+
+Closure: DONE.
+
+- `tcr-s955-format01` exited 0.
+- `tcr-s955-successor01` exited 0: both browser rows passed, pass 12/12
+  units. Source `0509324c…` at `eba4501fa`, dirty; scan pass; 23
+  cleanups completed. Results:
+  - three appearance requests were sent, and the retry matched the lost
+    save;
+  - the four profile saves carried bases `original`, `+1`, `+2`, `+2`,
+    and the profile ended at `original + 3`.
+- `tcr-s955-types01` (`make lint CHECK=types`) exited 0.
+
+The request-derived expectation is replaced in place; the count is
+additive. The successor run is the qualification.
+
+Tracker checks after S-955: `make lint-markdown` and `git diff --check`
+both exited 0.
+
+### S-956 / F-941 / E-1007 — Workbook frame geometry diagnostics name the viewport actually measured
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+Phase-3 item: web.design (sweep item 11), "the label says 'initial
+1280x720', but the viewport is set to 1440x900".
+
+**Defect.** "Keeps the incident workbook inside the browser viewport and
+delegates…" sets a 1440 by 900 viewport, but labels its first bounded-
+document check "initial 1280x720". The label appears in every failure
+message of `expectWorkbookDocumentBounded`, so a failure there would
+report the wrong viewport.
+
+**Successor (same title).** The label becomes "initial 1440x900". No
+assertion changes.
+
+**Selection.** `web.design.browser.workbook_responsive_frame_geometry_e78e1d1ac3`,
+plus `make lint CHECK=types`. This is a browser row, run because it is
+touched. No production, routing or golden change.
+
+Closure: DONE.
+
+- `tcr-s956-format01` exited 0.
+- `tcr-s956-successor01` exited 0: the browser row passed, pass 12/12
+  units. Source `ed0b480e…` at `eba4501fa`, dirty; scan pass; 23
+  cleanups completed.
+- `tcr-s956-types01` (`make lint CHECK=types`) exited 0.
+
+A diagnostic-label correction only; the successor run is the
+qualification.
+
+Tracker checks after S-956: `make lint-markdown` and `git diff --check`
+both exited 0.
+
+### S-957 / F-942 / E-1008 — The design-readiness matrix induces the states and ARIA states its title names
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+Phase-3 item: web.design (sweep item 1), "`design.a11y` 'non-color-only
+states' and 'ARIA states' claims induce none of those states".
+
+**Governing requirement.** design.md: "Color MUST NOT be the only
+carrier of state. Every state-bearing color MUST be paired with at least
+one non-color cue". The grid data-state presentation contract gives each
+state a role, text and action.
+
+**Defect.** "a11y.design-readiness.row-01 Verify global accessibility
+matrix … ARIA states … non-color-only empty/loading/error/blocked states"
+never induces an empty, loading, error or blocked grid state. Its only
+ARIA checks are static `role` attributes (`menu`, `menuitemradio`). No
+state attribute (expanded, checked) is observed.
+
+**Successor (same title; the test is extended).**
+
+1. ARIA states:
+   - the system-view switcher trigger is `aria-expanded="false"` closed,
+     `"true"` open, and `"false"` again after Escape;
+   - the open menu has exactly one checked `menuitemradio` (the current
+     Task Requests view);
+   - the Indicators option is `aria-checked="false"`.
+2. Empty: a Task title filter matching nothing renders the
+   `filtered_empty` state. Its status text is "No rows match the current
+   filters." and it offers the "Clear filters" action.
+3. Blocked or error: with Task queries failing with 503, Clear filters
+   leads to the `unavailable` state:
+   - it is marked `data-grid-blocking="true"`;
+   - it carries a non-empty `alert` text and a "Retry" action.
+4. Loading: with the next query held, Retry shows a loading state
+   (`initial_loading` or `refreshing`) with non-empty `status` text.
+   Releasing the query returns the grid to the Task row.
+
+Each state is distinguished by role, text and action, never by color
+alone.
+
+**Selection.** `web.design.accessibility.verify_global_accessibility_matrix_for_keyboard_90088a3666`,
+plus `make lint CHECK=types`. This is a browser row, run because it is
+touched. No production, routing or golden change.
+
+Closure: DONE.
+
+- `tcr-s957-format01` exited 0. `tcr-s957-successor01` exited 2
+  (preserved): the test timed out at the empty-state step, because
+  `task.title` is not a Task Requests filter field (the declared filter
+  fields are status, owner, priority, kind, workstream, dates, requester,
+  blocked reason, ticket and no-owner). The new ARIA-state checks before
+  that step passed.
+- Amendment 1: the empty state uses `task.priority = urgent`. The
+  fixture task is `normal`.
+- `tcr-s957-format02` exited 0. `tcr-s957-successor02` exited 2
+  (preserved): the empty state passed with its exact text. After the
+  failed read, the Task surface showed `stale_error`, not `unavailable`.
+- **Finding.** A surface with accepted rows reports a failed read as
+  non-blocking `stale_error`: "Workbook view load failed. Previously
+  loaded rows may be stale." with Retry. Only a surface whose first read
+  fails reports the blocking `unavailable` state. This matches the
+  design presentation contract (`stale_error` retains previously
+  authorized rows, and `unavailable` is blocking). The test's
+  expectation was wrong, not production.
+- Amendment 2:
+  - error is the Task surface's `stale_error`, with its exact text,
+    `data-grid-blocking="false"` and Retry, which restores the Task row;
+  - blocked is the `unavailable` state of a freshly opened Decisions
+    surface whose first read fails, with `data-grid-blocking="true"`,
+    alert text and Retry;
+  - loading is the held Decisions retry, with status text until it
+    settles.
+- `tcr-s957-format03` exited 0.
+- `tcr-s957-successor03` exited 0: the browser row passed, pass 12/12
+  units. Source `45fb2f12…` at `eba4501fa`, dirty; scan pass; 23
+  cleanups completed. All the ARIA states, and the empty, error, blocked
+  and loading states, were observed with their non-color cues.
+- `tcr-s957-types01` (`make lint CHECK=types`) exited 0.
+
+Additive coverage; `successor03` is the qualification.
+
+#### Phase 3 web.design — owner table
+
+| Sweep item | Phase-3 disposition |
+| --- | --- |
+| 1 readiness title: ARIA and non-color states not induced | Repaired in S-957 (coverage added under design.md's non-color rule). |
+| 2, 3, 13 script absence without text rendering; "exact filters" not observed | Repaired in S-952. |
+| 4 appearance array length; 9 version taken from the request under test | Repaired in S-955. |
+| 5, 6, 7 hard-coded import evidence; unasserted ordering; unsettled busy read | Repaired in S-954. |
+| 8 width-only dialog containment | Repaired in S-953. |
+| 11 viewport label mismatch | Repaired in S-956. |
+| 12 reference-pack label box bounds | Retained: heuristic bounds with no design-specified value; a missing box fails anyway. |
+| 10 theme CSS variables (visual spec); 14 visual-registry checker | Out of scope: visual specs and goldens; harness checker. |
+
+web.design phase-3 work is complete: S-952 to S-957. No golden was
+changed or regenerated.
+
+Tracker checks after S-957: `make lint-markdown` and `git diff --check`
+both exited 0.
+
+### E-951 closure — R-05 phase 3 "not repaired in this pass" items, 2026-11-16
+
+DONE. Every item that phase 2 marked "retained, not repaired in this
+pass" or "carried forward" now has a disposition. Each disposition is
+one of:
+
+- repaired in a recorded slice;
+- retained with a stated reason;
+- out of scope (visual specs and goldens, harness checkers).
+
+**Slices.** S-901 to S-957 (57 slices; F-886 to F-942; E-952 to
+E-1008). Each was recorded before editing, qualified at its exact rows,
+and closed with `make lint-markdown` and `git diff --check` before the
+next began. The one exception is the S-915 to S-921 run, whose tracker
+checks were batched once after S-921; that is recorded there.
+
+| Owner | Slices |
+| --- | --- |
+| package.view_contracts | S-901 |
+| platform.config, objectstore, openapi, postgres, rootedfs, telemetry, viewquery (Go), viewschema | S-902 to S-910 |
+| web.application | S-911, S-912, S-938 to S-943 |
+| web.collaboration | S-913, S-944 to S-948 |
+| web.workbook | S-914 to S-937 |
+| platform.viewquery (maintenance SQL, frontend Vitest and Playwright) | S-949 to S-951 |
+| web.design (a11y and browser) | S-952 to S-957 |
+
+**Production change (for review): S-907 only.** OTLP/gRPC export retry
+now passes canonical status names to its classifier (OTEL-REQ-135).
+Before the fix, cancelled, deadline-exceeded, out-of-range, data-loss
+and retry-info resource-exhausted failures were dropped as permanent.
+The fix was confirmed by a successor that failed first.
+
+**Facts the stronger checks exposed.** None needed a production change
+except S-907.
+
+- Illegal fixtures that had been hiding the path under test:
+  - S-916: an incomplete create input meant changed inputs were
+    rejected by response validation, not by the capability check;
+  - S-929: `invalid_mutation_payload` sent as 422, and two unregistered
+    reason codes, so `publicReason` was never exercised;
+  - S-940: lifecycle errors at unregistered statuses;
+  - S-941: a four-defect scope event.
+- Behaviour now pinned:
+  - S-905: 1,889 privilege-manifest entries had been silently skipped;
+  - S-906: a socket fails closed as `unavailable`;
+  - S-908: TLS verification causes are redacted;
+  - S-918: an early detach reaches the stale-source rejection;
+  - S-940: malformed audit pages are rejected by two layers (schema
+    validator and client checks);
+  - S-943: U+0085 alone trims to an empty display name;
+  - S-957: a failed read on a loaded surface is the non-blocking
+    `stale_error`; only a first read that fails is the blocking
+    `unavailable`.
+- Checks that could not fail:
+  - S-923: closure, not reauthorization, stopped the history send;
+  - S-925: one-tick negatives;
+  - S-927: arithmetic identities;
+  - S-930: a rejection that was not a settle point;
+  - S-931: a null subject;
+  - S-945: discarded binding results;
+  - S-951: random default order equal to the sorted order.
+
+**Void and diagnostic runs (preserved, not evidence).**
+
+- `tcr-s933-*01` and `tcr-s938-*01`, and the audit-only part of
+  `tcr-s940-successor01`: the edit script stopped before writing, and
+  the runs were not yet chained to it.
+- `tcr-s940-diag01` to `diag03`: these measured the audit rejection
+  layers.
+
+Every preserved failing run is recorded with its diagnosis in its slice.
+
+**Checks.**
+
+- Per slice: `make format`, the exact-row `make test-slice`, and
+  `make lint CHECK=types` for TypeScript.
+- Browser rows ran only for the specs touched (S-951 to S-957).
+- At closure: `make source-check CHECK=catalog` (`tcr-e951-catalog01`)
+  exited 0 (2/2 units), so every routed title still resolves after the
+  test restructuring.
+
+**Not run, with reasons.**
+
+- `make generate` and `source-check CHECK=generated`: no authored
+  routing or generator input changed in phase 3.
+- Visual suites and golden updates: no visual spec or golden was
+  touched.
+- Whole-owner and whole-suite runs, and `agent-finalize`: not required
+  by the targeted changes.
+
+**Not claimed.** No whole-suite stability, no performance or speed
+improvement (the browser wall times are observations only), and no
+release acceptance. Nothing is staged or committed.
+
+### R-05 phase 3 final handoff, 2026-11-16
+
+**State.** Phase 3 is DONE (E-951). Every phase-2 "not repaired" and
+carried-forward item now has a disposition.
+
+**Where to look.**
+
+- Phase-3 owner tables:
+  - web.collaboration and web.application (partial, then completion);
+  - web.workbook (all 38 E-838 sweep items);
+  - web.design;
+  - the slice entries for the platform owners.
+- The original sweep lists used to locate items are named in each
+  owner's "Locating note".
+
+**For maintainer review.**
+
+1. S-907, the only production change (`internal/platform/telemetry/
+   export_retry.go`, `grpcCanonicalStatusName`).
+2. The fixture-legality findings (S-916, S-929, S-940, S-941). Each
+   changed a test that had passed for the wrong reason.
+
+**Residual, deliberately not done.**
+
+- Whole-suite and performance claims; visual goldens.
+- Harness checkers (the font-bundle checker, frontend and fallow
+  policies, the visual registry): R-02 class.
+- Retained items, each with its reason in its table:
+  - web.workbook: fill single-message, placeholder sheet IDs, about 300
+    redundant `getBy…` checks;
+  - web.application: the timing-header guard;
+  - web.design: the reference-pack bounds;
+  - viewquery: the contract-derived option lists;
+  - the maintenance-SQL full-set positive, which is covered at
+    module.recovery.
+
+**Identities.** Used: S-901 to S-957, F-886 to F-942, E-951 to E-1008.
+The next free identities are S-958, F-943 and E-1009; verify before use.
+
+### `make check` analysis, 2026-11-16 (run `tcr-check-20261116-01`)
+
+The maintainer asked for `make check` and an analysis. It exited 2:
+345/352 units passed and 7 failed. Wall time was 975 s, an observation
+only. Source `45fb2f12…` at `eba4501fa`, dirty; scan pass; 582 cleanups
+completed.
+
+| Failure | Cause | Relationship to this effort |
+| --- | --- | --- |
+| `web.architecture…enforce_frontend_import_boundaries…` and `package.protocol_ts…browser_bundle_excludes_protected…` | `packages/protocol-ts/src/index.node.test.ts:84` imports `generated/core-http-validators.js`. Rule `frontend-generated-protocol-http-owner` allows only `entrypoints/http.ts` to import it. | **Regression from S-884** (phase 2). It was qualified only at its protocol-ts Vitest rows, not at the two rows that enforce the boundary. |
+| `operation:harness.go_vulncheck` | GO-2026-6859 / CVE-2026-97054, "HTTP/1 server crash due to MaxBytesReader header race in net/http". Go 1.27.3 is affected; the fix is in 1.27.4. It is reachable at symbol level from production packages (`app/server`, `platform/httpapi`, `httpruntime`, `httpauth`, `ws` and others). | Not caused by code changes: a newly published advisory (vulnerability database updated 2026-11-11) against the pinned toolchain (`tools/toolchain_pins.json`). |
+| `operation:harness.lint_go_vet`, `lint_go_staticcheck`, `lint_biome` | go vet: unkeyed fields in reference_data `packformat` and a possible context leak in an imports integration test. staticcheck: 22 findings (unused code, SA5001, S1016, deprecated APIs, ST1005). Biome: 6 `noNonNullAssertion` warnings. | Present at HEAD: every flagged file has the same content (or the same warnings) at `eba4501fa`, and lint configs and pins are unchanged. |
+| `module.revisions.integration.covers_delete_restore_single_entry_rollback…` | `TestDeleteRestoreRollbackAtomicConsequences_Integration`: the collaboration socket was closed with `heartbeat_timeout` while the test awaited `record_changed`. The test jumps the server's fixed clock by minutes; the session checks heartbeats against that clock on a 1-second real-time ticker; the test client never answers pings. | Not caused by code changes (the test and WebSocket code are unchanged). It passed in isolation on the same source (`tcr-check-revisions-isolated01`, 1.85 s), consistent with a load-dependent timing race. A single isolated pass is not proof. |
+
+The maintainer approved fixing these in order: item 1 (the S-884
+regression), then the Go toolchain advisory, then the lint findings,
+then the heartbeat race.
+
+### S-958 / F-943 / E-1009 — protocol-ts test stops importing the generated Core HTTP validators
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+Corrects F-869 (S-884).
+
+**Governing policy.** `tools/frontend_import_boundaries.json` rule
+`frontend-generated-protocol-http-owner`: "Only the HTTP entrypoint may
+import generated Core HTTP validators and operation bindings." It applies
+to every file except `packages/protocol-ts/src/entrypoints/http.ts`.
+
+**Defect.** S-884 replaced ten request-literal restatements with
+`expectSchemaValid(validateCartularyCoreHttp…RequestV1, literal, …)`,
+importing the validators directly from `generated/core-http-validators.js`.
+That breaks the boundary rule, and so fails both the web.architecture
+import-boundary row and the protocol-ts browser-bundle row, which runs the
+same ownership check. The HTTP entrypoint exposes response validation
+(`validateHTTPOperationResponse`) but no request validators, so the
+request-schema checks cannot stay in this test without a policy or API
+change.
+
+**Successor (`packages/protocol-ts/src/index.node.test.ts`).**
+
+- The `core-http-validators` import, the `SchemaValidator` type and the
+  `expectSchemaValid` helper are removed.
+- Each of the ten request literals is anchored at compile time with
+  `expectTypeOf(literal).toMatchTypeOf<RequestType>()`. This file already
+  uses that style, and it keeps the literals referenced under
+  `noUnusedLocals`.
+- S-884's other parts are unchanged: the legal-UUID literal corrections,
+  the response envelopes through `validateHTTPOperationResponse`, the
+  error envelope through `errorEnvelopeDecoder`, and the logout
+  `undefined` type check.
+
+**What is given up.** Request literals are no longer checked against the
+JSON schemas at run time in this frontend test. Under the policy, only
+the HTTP entrypoint may perform that check. The corrected UUID values
+stay. Exposing request validation through the entrypoint is a possible
+later API decision and is not made here.
+
+**Selection.**
+
+- `web.architecture.support.enforce_frontend_import_boundaries_apps_web_must_cc56151788`;
+- `package.protocol_ts.boundary_support.browser_bundle_excludes_protected_audit_and_revi_13733d4a6b`;
+- the S-884 protocol-ts rows (exact IDs resolved from the family before
+  running);
+- plus `make lint CHECK=types`.
+
+No production, routing or policy change.
+
+Closure: DONE.
+
+- `tcr-s958-format01` exited 0.
+- `tcr-s958-protocol01` exited 0: pass 5/5 units. The rows were:
+  - `browser_bundle_excludes_protected…`;
+  - `index_anchors_evidence_protocol_facade_types…`;
+  - `family_registries_and_account_types_i2`;
+  - `generated_http_operation_bindings`.
+
+  Source `a5fd8166…` at `eba4501fa`, dirty; scan pass; 14 cleanups
+  completed.
+- `tcr-s958-architecture01` exited 0: the web.architecture
+  import-boundary row passed, pass 2/2 units, on the same source. The
+  boundary check now reports no errors.
+- `tcr-s958-types01` (`make lint CHECK=types`) exited 0.
+
+The ten disallowed request-validator checks are replaced in place by
+compile-time anchors; the qualified runs above are the qualification.
+
+Tracker checks after S-958: `make lint-markdown` and `git diff --check`
+both exited 0.
+
+### S-959 / F-944 / E-1010 — Go toolchain pin moves to 1.27.4 for GO-2026-6859
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+Authorized by the maintainer ("start the fixes with item 1 and plan on
+fixing the rest in order"). This is toolchain maintenance, not a test
+consolidation slice. It is recorded here because `make check` surfaced
+it.
+
+**Finding.** govulncheck reports GO-2026-6859 (CVE-2026-97054), "HTTP/1
+server crash due to MaxBytesReader header race in net/http":
+
+- it affects the pinned Go 1.27.3 and is fixed in 1.27.4;
+- it is reachable at symbol level from production packages;
+- it is blocking.
+
+**Change.** The pin and every place the pin check enforces it move from
+1.27.3 to 1.27.4:
+
+- `tools/toolchain_pins.json` `go_version` and `go_toolchain` (the
+  authored pin registry);
+- the `Makefile` `GO_TOOLCHAIN`;
+- the `go.mod` `go` directive (it has no separate `toolchain` line);
+- `tools/go-analysis/go.mod` `go`;
+- `internal/platform/cryptography/execution.go` `Toolchain`. This is a
+  production constant: the execution policy requires the binary's build
+  Go version to equal it.
+
+Go 1.27.4 was fetched through the Go module proxy, and the go command
+verified its checksum (`go version go1.27.4 linux/amd64`).
+
+**Left unchanged, with reasons.**
+
+- `referencepacks/*/go.mod` (five offline dataset-producer modules) and
+  the committed reference-pack build reports, which record `go1.27.3` as
+  the version that produced them. These are not checked against the pin
+  (the reference-pack audit compares builder identity, version, source
+  digest and size, not `go_version`), and rewriting them would misstate
+  how the committed packs were built.
+- The release-evidence test fixtures that use `go1.27.3` as sample
+  values.
+
+**Selection.**
+
+- `make source-check CHECK=toolchain`;
+- `make go-vulncheck` (must report no blocking finding);
+- the platform.cryptography rows (exact IDs resolved from the family),
+  which exercise the execution policy that compares the build version
+  with `Toolchain`.
+
+The whole gate is rerun after the remaining items.
+
+Closure: DONE.
+
+- `tcr-s959-toolchain01` (`make source-check CHECK=toolchain`) exited 0.
+  The toolchain identity moved from `0e302b723a65` to `b3b63284b2e9`.
+- `tcr-s959-generated01` (`make source-check CHECK=generated`) exited 2
+  (preserved): generated-artifact drift in `internal/gen/contractextensions`.
+  The contract-extension generator records the SHA-256 of its inputs,
+  including `go.mod` and `tools/toolchain_pins.json`, in
+  `generator_sources`. Both had changed. This is the expected effect of
+  changing authored inputs, not a defect.
+- `tcr-s959-generate01` (`make generate`) exited 0. It changed only:
+  - `internal/gen/contractextensions/artifacts_gen.go`: the two input
+    digests and the derived registry integrity digest
+    (`0225fd15…` to `b19ac3eb…`);
+  - `tools/execution_topology_render_index.json`: its input digest and
+    hash.
+
+  The diff was reviewed; nothing else changed.
+- `tcr-s959-generated02` (`make source-check CHECK=generated`) exited 0,
+  pass 5/5 units.
+- `tcr-s959-vulncheck01` (`make go-vulncheck`) exited 0:
+  - status `pass` on `go1.27.4`;
+  - 1 finding, 0 blocking;
+  - GO-2026-6859 is gone;
+  - the remaining finding is the non-blocking GO-2026-5932
+    (`x/crypto/openpgp` in the module graph, unreachable from our code).
+- `tcr-s959-cryptography01` exited 0: all four platform.cryptography rows
+  passed, including `TestExecutionActualIdentity`, which requires the
+  build version to equal `Toolchain`. Source `6f8ff242…` at `eba4501fa`,
+  dirty; scan pass; 10 cleanups completed.
+
+Not run here: the whole gate, and the Go lint units (they still carry
+the item-3 findings from before this work). Both come after items 3 and
+4.
+
+Tracker checks after S-959: `make lint-markdown` and `git diff --check`
+both exited 0.
+
+### S-960 / F-945 / E-1011 — go vet findings from before this work are cleared
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Item 3
+of the `make check` analysis (lint findings present at HEAD), part 1 of
+3 (go vet).
+
+**Findings (`make check` unit `operation:harness.lint_go_vet`).**
+
+1. `internal/modules/reference_data/internal/packformat/diagnostics.go:155`:
+   `SafeDetails{…}` uses unkeyed fields. `SafeDetails` is an alias of
+   `formatschema.SafeDetails` from another package, so a field reorder
+   there would silently swap values.
+2. `internal/modules/reference_data/internal/packformat/dependencies_test.go:14`:
+   `Dependency{…}` uses unkeyed fields, for the same reason
+   (`envelope.Dependency`).
+3. `internal/modules/imports/mapping_source_protection_integration_test.go:125`
+   and `:210`: lostcancel. `requestCancel` is released by a deferred
+   closure that checks it for nil, which vet cannot follow.
+
+**Change.**
+
+1. and 2. The literals name their fields: `LimitID`, `ExpectedToken`,
+   `ActualToken`, `RelatedPackKey`, `RelatedPackVersion`; and `Key`,
+   `Version`, `SHA256`. The values and their order are unchanged.
+3. `defer requestCancel()` immediately follows the assignment. Deferred
+   calls run last-in-first-out, so the request is still cancelled before
+   the existing closure rolls back the transaction. That closure's own
+   call then has no effect. Behaviour is unchanged.
+
+**Selection.**
+
+- `module.reference_data.unit.canonical_pack_diagnostics`;
+- `module.reference_data.unit.canonical_pack_manifest`;
+- `module.imports.integration.mapping_source_protection`;
+- `make lint CHECK=go` (vet must report nothing; the staticcheck
+  findings remain until S-961).
+
+`diagnostics.go` is production code, but the change only names the
+fields of a literal.
+
+Closure: DONE.
+
+- `tcr-s960-format01` exited 0.
+- `tcr-s960-refdata01` exited 0: `canonical_pack_diagnostics` and
+  `canonical_pack_manifest` passed (cache miss). Source `1e0e56e9…`,
+  toolchain `b3b63284b2e9`; scan pass; 10 cleanups completed.
+- `tcr-s960-imports01` exited 0: `mapping_source_protection` passed, pass
+  3/3 units; 14 cleanups completed.
+- `tcr-s960-lintgo01` (`make lint CHECK=go`) exited 2, as expected:
+  - `lint_go_vet` passed, along with format, toolchain drift and the lint
+    toolchain;
+  - only `lint_go_staticcheck` failed, with the same 22 findings that
+    S-961 addresses.
+
+Tracker checks after S-960: `make lint-markdown` and `git diff --check`
+both exited 0.
+
+### S-961 / F-946 / E-1012 — staticcheck findings from before this work are cleared
+
+Recorded before editing; identities verified unused (the two earlier
+mentions are S-960's forward references). IN_PROGRESS. Item 3, part 2 of
+3 (staticcheck, 22 findings at HEAD).
+
+| Finding | Site | Change |
+| --- | --- | --- |
+| U1000 unused functions (5) | `internal/modules/indicators/value_serialization.go`: `formatTimestamp`, `formatTimestampPointer`, `formatUUIDPointer`, `derefString`, `derefInt` | Removed: dead code with no references. |
+| U1000 unused field | `internal/modules/incidentbundles/sourceport/adapter.go`: `adapterInstance{marker byte}` | The field becomes blank (`_ byte`). It exists only to make instances non-zero-sized so their pointers stay distinct (as the comment explains), and a blank field keeps that size. |
+| U1000 unused variable | `internal/modules/reference_data/internal/packformat/manifest.go`: `manifestShape` | It becomes `var _ = compileProjection(…)`, which keeps the init-time compile of the manifest schema projection. Removing the line would also drop that check. |
+| ST1005 capitalized error | `internal/app/tasksdecisionassembly/reference_targets.go:39` | "task reference envelope kind is unsupported". An internal invariant error that no caller matches on. |
+| SA5001 defer before error check (4) | `internal/app/server/runtime_integration_test.go:442, 590, 617, 712` | `if unexpected != nil { defer unexpected.Close() }`. These tests expect construction to fail, and `Runtime.Close` is nil-safe, so behaviour is unchanged and the intent is stated. |
+| S1016 struct literal over identical fields (7) | `internal/app/migrate/migrate_test.go:286`; `reference_data/testsupport` Entra, VERIS and Windows fixtures (6) | Type conversions. |
+| SA1019 `go/ast.Object` (2) | `internal/testutil/sourcecheck/sql.go:42, 129` | `//lint:ignore SA1019` with a reason. The SQL-binding analyzer resolves identifiers with `ast.Object` and no type information; replacing it is a harness redesign, not a lint fix. |
+| SA1019 `zip.FileHeader.SetModTime` | `tools/reference-pack-modules/main.go:179` | `//lint:ignore SA1019` with a reason. The replacement (`Modified`) makes `archive/zip` write an extended-timestamp extra field, which would change the bytes of the module archives this tool generates deterministically. |
+
+The `//lint:ignore` form follows the three existing `SA1012` directives,
+each of which has a reason.
+
+**Selection.**
+
+- `make lint CHECK=go` (vet and staticcheck must be clean);
+- `app.migrate.unit.migrate_facade_contract`;
+- `app.server.integration.existing_active_admins_skip_stale_or_invalid_man_c8b4b869ec`,
+  `…required_bootstrap_failures_for_missing_unreadab_4ca79573fd` and
+  `…successful_bootstrap_commits_exactly_one_active_9859f7c12b`;
+- `module.tasksdecisions.composition.link_facts_adapter_is_copy_safe_3f86c2a1d4`
+  (builds `tasksdecisionassembly`);
+- `module.indicators.lifecycle.exact_production_vocabulary` (builds
+  `indicators`);
+- `module.reference_data.unit.canonical_pack_manifest` (builds
+  `manifest.go`);
+- `harness.command_surface.unit.go_import_inspection_distinguishes_declarations_8c659e57a3`
+  (`sourcecheck`; comments only).
+
+`sourceport` has no package-local row; it is compiled by the lint units
+and covered by the whole-gate rerun.
+
+Closure: DONE.
+
+- `tcr-s961-format01` exited 0.
+- `tcr-s961-lintgo01` (`make lint CHECK=go`) exited 0: `lint_go_vet`,
+  `lint_go_staticcheck`, `lint_go_format` and toolchain drift all passed.
+  Staticcheck reports nothing.
+- Every behaviour row exited 0 on source `39a4a977…`, toolchain
+  `b3b63284b2e9`:
+  - `tcr-s961-app-migrate01`: `migrate_facade_contract`;
+  - `tcr-s961-app-server01`: the three bootstrap integration rows, pass
+    3/3 units;
+  - `tcr-s961-module-tasksdecisions01`;
+  - `tcr-s961-module-indicators01`;
+  - `tcr-s961-module-reference-data01`: `canonical_pack_manifest`;
+  - `tcr-s961-harness-command-surface01`: the `sourcecheck` row.
+
+Production changes, all behaviour-preserving:
+
+- five dead `indicators` helpers removed;
+- `sourceport`'s non-zero-size marker field made blank;
+- the manifest projection's init-time compile kept under a blank
+  identifier;
+- one internal error string lowercased.
+
+Two SA1019 sites carry `//lint:ignore` directives with reasons.
+
+### S-962 / F-947 / E-1013 — Biome non-null assertion warnings from before this work are cleared
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Item 3,
+part 3 of 3 (Biome `lint/style/noNonNullAssertion`, 6 warnings at HEAD;
+`make check` treats Biome warnings as failures).
+
+**Sites.**
+
+1. `apps/web/src/workbook/timeline/collaboration/useTimelineCollaborationBindings.test.tsx:179`
+   and `:205`: `rowsRef.current[0]!.rawRow!` (two assertions per line,
+   four warnings).
+2. `apps/web/src/workbook/timeline/components/TimelineCollectionCell.test.tsx:246`:
+   `.filter(field => field?.writeKind === "action_payload").map(field =>
+   field!.fieldKey)` (the fifth and sixth warnings are counted on this
+   chain).
+
+**Change.**
+
+1. A local `firstRawRow()` helper returns `rowsRef.current[0]?.rawRow`,
+   failing with a message if it is missing, and both sites call it. A
+   missing row now fails with that message instead of a `TypeError`.
+2. A `flatMap` keeps the field key only for action-payload fields, so no
+   assertion is needed. The resulting list and its expected value are
+   unchanged.
+
+**Selection.**
+
+- `web.collaboration.regression.timeline_collaboration_binding_5e6a9b1472`;
+- `module.timeline.frontend.collection_inspection_preserves_draft_text_and_s_f5c8c4c211`;
+- `make lint CHECK=frontend` (Biome must report no warnings);
+- `make lint CHECK=types`.
+
+Closure: DONE.
+
+- `tcr-s962-format01` exited 0. `tcr-s962-collab01` and
+  `tcr-s962-timeline01` passed, and `tcr-s962-types01` exited 0.
+- `tcr-s962-lintfrontend01` exited 2 (preserved): 1 warning remained, in
+  the bindings test. My reading of the sites missed a third assertion,
+  `unobserved.rawRow!` at line 210 (the five warnings in that file were
+  two per line on lines 179 and 205, plus this one).
+- Amendment: that site takes the raw row into a local and fails with a
+  message if it is missing, before destructuring.
+- `tcr-s962-format02` exited 0.
+- `tcr-s962-collab02` exited 0: the bindings row passed. Source
+  `eb27221c…`, toolchain `b3b63284b2e9`.
+- `tcr-s962-lintfrontend02` (`make lint CHECK=frontend`) exited 0:
+  Biome checked 1,748 files with no warnings.
+- `tcr-s962-types02` (`make lint CHECK=types`) exited 0.
+
+The collection-cell file was not touched by the amendment, so its pass
+in `tcr-s962-timeline01` stands.
+
+Tracker checks after S-962: `make lint-markdown` and `git diff --check`
+both exited 0.
+
+### S-963 / F-948 / E-1014 — Revisions rollback integration keeps its fixed clock within the socket heartbeat window
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Item 4
+of the `make check` analysis.
+
+**Mechanism (by reading).** In
+`TestDeleteRestoreRollbackAtomicConsequences_Integration`:
+
+1. The collaboration socket session reads the server's `httpapi.TestClock`
+   (`s.now`). On every 1-second real-time tick, and on every inbound
+   message, it closes the socket with `heartbeat_timeout` when
+   `now - lastInbound >= 45 s`, before `lastInbound` is updated.
+2. The test connects while the clock is real (`lastInbound` = real
+   connect time), then pins the clock to `clockBase` (database time plus
+   5 minutes) and jumps it to `+1`, `+3`, `+4`, `+5`, `+5:45`, `+6` and
+   `+7` minutes.
+3. Every jump is at least 45 s away from `lastInbound`, so the first tick
+   after the first jump closes the socket. The test passes only if all
+   its steps finish before that tick (about 1 real second), which fails
+   under the parallel load of `make check`.
+
+Production uses the real clock, so this is a test clock-schedule defect,
+not a production one.
+
+**Planned confirmation (diagnostic, not evidence).** With a 1.5 s sleep
+inserted after the `+1` minute jump, the current test should fail with
+`heartbeat_timeout` deterministically. The fixed test with the same sleep
+should pass.
+
+**Successor (same test; no title change).**
+
+1. The clock is pinned to `clockBase` *before* the socket connects, so
+   `lastInbound` is `clockBase`.
+2. The schedule keeps its order but uses seconds:
+
+   | Before | After |
+   | --- | --- |
+   | `+0` | `+0` |
+   | `+1 min` | `+5 s` |
+   | seed `+2 min` | seed `+10 s` |
+   | `+3 min` | `+15 s` |
+   | `+4 min` | `+20 s` |
+   | `+5 min` | `+25 s` |
+   | seed `+5:30` | seed `+27 s` |
+   | `+5:45` | `+28 s` |
+   | `+6 min` | `+30 s` |
+   | `+7 min` | `+35 s` |
+
+   The largest offset, 35 s, is below the 45 s heartbeat timeout, so the
+   check cannot fire however slowly the test runs. `clockBase` itself is
+   unchanged, so mutations stay after the database-created rows and
+   within the session idle window.
+
+**Selection.** `module.revisions.integration.covers_delete_restore_single_entry_rollback_dire_b348439e6d`,
+plus the two diagnostic runs above.
+
+Closure: DONE.
+
+- **Reproduction (diagnostic, not evidence).** `tcr-s963-diag01` ran the
+  unmodified test with `time.Sleep(1.5 s)` after the `+1` minute jump. It
+  exited 2, failing at line 118 with `received close frame … reason =
+  "heartbeat_timeout"`, so the mechanism is confirmed deterministically.
+- The original file was restored from its backup and verified with
+  `cmp`.
+- **Fix under the same stress (diagnostic).** `tcr-s963-diag02` ran the
+  fixed test with the same 1.5 s sleep after the `+5 s` jump. It exited
+  0 and the row passed: the socket now survives a tick that sees the
+  jump.
+- The diagnostic sleep was removed by restoring the saved fixed version
+  (`cmp` verified, no `DIAG` marker left).
+- `tcr-s963-format01` exited 0.
+- `tcr-s963-qualified01` exited 0: the row passed, pass 3/3 units. Source
+  `a5181c66…`, toolchain `b3b63284b2e9`; scan pass; 14 cleanups
+  completed.
+
+Only `internal/modules/revisions/integration_test.go` changed (13 lines
+added, 10 removed). No production change.
+
+Tracker checks after S-963: `make lint-markdown` and `git diff --check`
+both exited 0.
+
+### `make check` rerun after S-958 to S-963, 2026-11-16
+
+`tcr-check-20261116-02` (`make check`) exited 0:
+
+- 352/352 units passed and none failed;
+- wall time 1,057 s, an observation only;
+- source `a5181c66…` at `eba4501fa`, dirty, on toolchain `b3b63284b2e9`
+  (Go 1.27.4);
+- retained-secret scan passed (4,728 files); 595 cleanups completed.
+
+All seven failures of `tcr-check-20261116-01` are resolved:
+
+- the two frontend-boundary rows (S-958);
+- govulncheck (S-959);
+- go vet (S-960), staticcheck (S-961) and Biome (S-962);
+- the revisions heartbeat race (S-963).
+
+**Not claimed.** One passing run does not establish whole-suite
+stability.
+
+**Open follow-up, not examined.** These test files also combine a live
+collaboration socket with server-clock control, so they may carry the
+S-963 race:
+
+- `internal/modules/auth/integration_test.go`;
+- `internal/modules/networkflow/routes_integration_test.go`;
+- `internal/modules/revisions/indicator_children_test.go`.
+
+**Identities.** Used through S-963, F-948 and E-1014. The next free
+identities are S-964, F-949 and E-1015; verify before use.
 
 ### Historical document-update handoff: S-059–S-064 plan, 2026-11-10
 

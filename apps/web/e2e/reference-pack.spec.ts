@@ -10,7 +10,7 @@ import {
   referencePackRefreshAllButtonTestId,
   referencePackRowTestId,
 } from "@cartulary/ui-contracts";
-import type { Page, Request, Route } from "@playwright/test";
+import type { Route } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { DeploymentAdministration } from "./pages/deploymentAdministration";
 import { IncidentDirectory } from "./pages/incidentDirectory";
@@ -27,6 +27,7 @@ import {
   awaitResponseBarrier,
   installOwnedRoute,
 } from "./support/transport/requestInterception";
+import { settledRequestMatching } from "./support/transport/settledRequest";
 
 test("imports and replays real pack bytes then activates disables reverifies and refreshes exact scope by keyboard", async ({
   testActorPage: page,
@@ -493,14 +494,14 @@ test("shows Reference Pack progress and cancel controls without blocking landing
     page.getByTestId(referencePackRowTestId("type_registry.host", "1")),
   ).toBeVisible();
   await page.getByRole("button", { name: "Load more" }).click();
-  const appendDelivered = settledRequest(
+  const appendDelivered = settledRequestMatching(
     page,
     (url) => url.searchParams.get("cursor_token") === "cursor-a",
   );
   await page.getByLabel("Search reference packs").fill("identity");
   await page.getByLabel("Search reference packs").press("Enter");
   await identityRequested.promise;
-  const identityDelivered = settledRequest(
+  const identityDelivered = settledRequestMatching(
     page,
     (url) => url.searchParams.get("search") === "identity",
   );
@@ -533,7 +534,7 @@ test("shows Reference Pack progress and cancel controls without blocking landing
   await page.getByLabel("Search reference packs").fill("stale-error");
   await page.getByLabel("Search reference packs").press("Enter");
   await staleErrorRequested.promise;
-  const staleErrorDelivered = settledRequest(
+  const staleErrorDelivered = settledRequestMatching(
     page,
     (url) => url.searchParams.get("search") === "stale-error",
   );
@@ -641,21 +642,5 @@ async function fulfillPackList(
       data: { pack_versions: packVersions },
       meta: { request_id: "request-list", paging },
     }),
-  });
-}
-
-function settledRequest(
-  page: Page,
-  matches: (url: URL) => boolean,
-): Promise<void> {
-  return new Promise<void>((resolve) => {
-    const onSettled = (request: Request) => {
-      if (!matches(new URL(request.url()))) return;
-      page.off("requestfinished", onSettled);
-      page.off("requestfailed", onSettled);
-      resolve();
-    };
-    page.on("requestfinished", onSettled);
-    page.on("requestfailed", onSettled);
   });
 }

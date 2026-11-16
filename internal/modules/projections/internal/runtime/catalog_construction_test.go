@@ -130,15 +130,18 @@ func TestCanonicalStoreRejectsIncompleteConstruction(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewCatalog: %v", err)
 	}
-	for name, build := range map[string]func() error{
-		"endpoint locker": func() error { _, err := NewStore(db, catalog, physical, nil); return err },
-		"database":        func() error { _, err := NewStore(nil, catalog, physical, inertEndpointLocker); return err },
-		"catalog":         func() error { _, err := NewStore(db, nil, physical, inertEndpointLocker); return err },
-		"physical":        func() error { _, err := NewStore(db, catalog, nil, inertEndpointLocker); return err },
+	for name, test := range map[string]struct {
+		build func() error
+		want  string
+	}{
+		"endpoint locker": {func() error { _, err := NewStore(db, catalog, physical, nil); return err }, "record endpoint locker is required"},
+		"database":        {func() error { _, err := NewStore(nil, catalog, physical, inertEndpointLocker); return err }, "projection database is required"},
+		"catalog":         {func() error { _, err := NewStore(db, nil, physical, inertEndpointLocker); return err }, "projection catalog is required"},
+		"physical":        {func() error { _, err := NewStore(db, catalog, nil, inertEndpointLocker); return err }, "projection physical storage is required"},
 	} {
 		t.Run(name, func(t *testing.T) {
-			if err := build(); err == nil {
-				t.Fatalf("incomplete %s construction succeeded", name)
+			if err := test.build(); err == nil || err.Error() != test.want {
+				t.Fatalf("incomplete %s construction error = %v, want %q", name, err, test.want)
 			}
 		})
 	}

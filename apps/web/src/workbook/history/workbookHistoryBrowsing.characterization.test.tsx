@@ -204,7 +204,9 @@ describe("History browsing characterization", () => {
     );
     act(() => result.current.commands.open());
     await waitFor(() =>
-      expect(result.current.snapshot.browsing?.accepted).not.toBeNull(),
+      expect(result.current.snapshot.browsing?.accepted).toEqual(
+        expect.anything(),
+      ),
     );
     const read = required(t.load.getMockImplementation());
     let fail!: () => void;
@@ -221,9 +223,13 @@ describe("History browsing characterization", () => {
     expect(t.load).toHaveBeenCalledTimes(2);
     act(() => fail());
     await waitFor(() =>
-      expect(result.current.snapshot.browsing?.failure).not.toBeNull(),
+      expect(result.current.snapshot.browsing?.failure).toEqual(
+        expect.anything(),
+      ),
     );
-    expect(result.current.snapshot.browsing?.accepted).not.toBeNull();
+    expect(result.current.snapshot.browsing?.accepted).toEqual(
+      expect.anything(),
+    );
     t.load.mockImplementation(read);
     act(() => result.current.commands.retryRead());
     await waitFor(() =>
@@ -259,7 +265,9 @@ describe("History browsing characterization", () => {
     );
     act(() => result.current.commands.open());
     await waitFor(() =>
-      expect(result.current.snapshot.browsing?.accepted).not.toBeNull(),
+      expect(result.current.snapshot.browsing?.accepted).toEqual(
+        expect.anything(),
+      ),
     );
     let finish!: (value: Awaited<ReturnType<typeof t.load>>) => void;
     t.load.mockImplementationOnce(
@@ -300,7 +308,9 @@ describe("History browsing characterization", () => {
     );
     act(() => result.current.commands.open());
     await waitFor(() =>
-      expect(result.current.snapshot.browsing?.accepted).not.toBeNull(),
+      expect(result.current.snapshot.browsing?.accepted).toEqual(
+        expect.anything(),
+      ),
     );
     const old = required(result.current.snapshot.browsing).scope;
     act(() =>
@@ -314,7 +324,9 @@ describe("History browsing characterization", () => {
     );
     expect(workbookRecordHistoryLoadedData(result.current.snapshot)).toBeNull();
     await waitFor(() =>
-      expect(result.current.snapshot.browsing?.accepted).not.toBeNull(),
+      expect(result.current.snapshot.browsing?.accepted).toEqual(
+        expect.anything(),
+      ),
     );
     expect(result.current.snapshot.browsing?.scope).not.toEqual(old);
     act(() => t.owner.closeIncident());
@@ -354,15 +366,21 @@ describe("History browsing characterization", () => {
     );
     act(() => result.current.commands.open());
     await waitFor(() =>
-      expect(result.current.snapshot.browsing?.accepted).not.toBeNull(),
+      expect(result.current.snapshot.browsing?.accepted).toEqual(
+        expect.anything(),
+      ),
     );
     t.load.mockImplementationOnce(() => new Promise(() => {}));
     act(() => result.current.commands.loadOlder());
     rerender({ active: false });
     expect(t.load.mock.calls[1]?.[1].aborted).toBe(true);
     expect(result.current.snapshot.browsing?.pending).toBeNull();
-    expect(result.current.snapshot.browsing?.accepted).not.toBeNull();
-    expect(result.current.snapshot.browsing?.failure).not.toBeNull();
+    expect(result.current.snapshot.browsing?.accepted).toEqual(
+      expect.anything(),
+    );
+    expect(result.current.snapshot.browsing?.failure).toEqual(
+      expect.anything(),
+    );
     rerender({ active: true });
     act(() => result.current.commands.retryRead());
     await waitFor(() => {

@@ -21,6 +21,7 @@ import {
   renderHookWithWorkbookQueryBrowsing as renderHook,
 } from "../../testing/workbookQueryTestSupport";
 import { createWorkbookViewQueryAdapter } from "../adapters/createWorkbookViewQueryAdapter";
+import { WorkbookSurfaceRefreshError } from "../collaboration/workbookSurfacePort";
 import { emptyWorkbookQueryState } from "../models/workbookQuery";
 import {
   hostsViewSchemaId,
@@ -554,9 +555,16 @@ describe("useEntitySurfaceQuery", () => {
         Promise.resolve(errorResponse("authorization_denied", 403)),
       );
       await act(async () => {
-        await expect(
-          query.result.current.refresh({ requireAcceptance: true }),
-        ).rejects.toThrow();
+        const refused = query.result.current.refresh({
+          requireAcceptance: true,
+        });
+        await expect(refused).rejects.toBeInstanceOf(
+          WorkbookSurfaceRefreshError,
+        );
+        await expect(refused).rejects.toHaveProperty("recovery", {
+          kind: "unavailable",
+          failure: "transient",
+        });
       });
       expect(query.result.current.hostRows).toEqual([]);
       expect(query.result.current.identityRows).toEqual([]);

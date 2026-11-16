@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   searchWorkbookCommands,
   type WorkbookCommandDescriptor,
@@ -40,9 +40,13 @@ describe("command metadata search", () => {
     expect(searchWorkbookCommands(commands, "open absent")).toEqual([]);
   });
   it("breaks equal labels by stable identity and never invokes actions during matching", () => {
-    const commands = [command("b", "Inspect"), command("a", "Inspect")];
+    const commands = [command("b", "Inspect"), command("a", "Inspect")].map(
+      (entry) => ({ ...entry, invoke: vi.fn(() => true) }),
+    );
     expect(searchWorkbookCommands(commands, "").map((item) => item.id)).toEqual(
       ["a", "b"],
     );
+    expect(searchWorkbookCommands(commands, "inspect")).toHaveLength(2);
+    for (const entry of commands) expect(entry.invoke).not.toHaveBeenCalled();
   });
 });

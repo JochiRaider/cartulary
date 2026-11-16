@@ -10,7 +10,7 @@ const (
 	admissionUnknownField                  AdmissionReasonCode = "unknown_field"
 	admissionMissingRequiredField          AdmissionReasonCode = "missing_required_field"
 	admissionInvalidValue                  AdmissionReasonCode = "invalid_value"
-	admissionMissingMinimumCreateSignal    AdmissionReasonCode = "missing_minimum_create_signal"
+	admissionMissingMinimumCreateSignal    AdmissionReasonCode = "minimum_create_signal_missing"
 	admissionInvalidBaseRowVersion         AdmissionReasonCode = "invalid_base_row_version"
 	admissionEmptyChanges                  AdmissionReasonCode = "empty_changes"
 	admissionChangeCountExceeded           AdmissionReasonCode = "change_count_exceeded"

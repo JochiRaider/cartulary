@@ -11,12 +11,16 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
+// Every OpenAPI 3.1 path-item operation method.
 var openAPIOperationMethods = map[string]struct{}{
-	"delete": {},
-	"get":    {},
-	"patch":  {},
-	"post":   {},
-	"put":    {},
+	"delete":  {},
+	"get":     {},
+	"head":    {},
+	"options": {},
+	"patch":   {},
+	"post":    {},
+	"put":     {},
+	"trace":   {},
 }
 
 func TestGeneratedRuntimeOpenAPIContractParity(t *testing.T) {
@@ -30,6 +34,9 @@ func TestGeneratedRuntimeOpenAPIContractParity(t *testing.T) {
 		operation := openAPIObject(t, pathItem[strings.ToLower(descriptor.Method)], descriptor.Pattern)
 		if got := openAPIString(operation["operationId"]); got != descriptor.OperationID {
 			t.Fatalf("%s operation ID = %q, want %q", descriptor.Pattern, got, descriptor.OperationID)
+		}
+		if got, ok := operation["x-cartulary-state-changing"].(bool); !ok || got != descriptor.StateChanging {
+			t.Fatalf("%s state-changing = %#v, want %t", descriptor.OperationID, operation["x-cartulary-state-changing"], descriptor.StateChanging)
 		}
 		availability := openAPIString(operation["x-cartulary-availability"])
 		if availability == "" {
@@ -47,7 +54,11 @@ func TestGeneratedRuntimeOpenAPIContractParity(t *testing.T) {
 				t.Fatalf("%s omits successful status %d", descriptor.OperationID, status)
 			}
 		}
-		seen[descriptor.Method+" "+descriptor.PathTemplate] = struct{}{}
+		key := descriptor.Method + " " + descriptor.PathTemplate
+		if _, duplicate := seen[key]; duplicate {
+			t.Fatalf("runtime catalog repeats %s", key)
+		}
+		seen[key] = struct{}{}
 	}
 
 	for path, rawPathItem := range paths {

@@ -140,7 +140,10 @@ describe("incident import client", () => {
         "fetch",
         vi.fn().mockResolvedValue(jsonResponse(jobEnvelope(job))),
       );
-      expect((await readImportJob(importJobID, signal)).kind).toBe("failed");
+      expect(await readImportJob(importJobID, signal)).toEqual({
+        kind: "failed",
+        problem: "contract",
+      });
     }
     const fetch = vi
       .fn()
@@ -216,10 +219,25 @@ describe("incident import client", () => {
       expect(importedIncidentTarget(job)).toBeNull();
     expect(importJobAdvances(importJob(), succeeded)).toBe(true);
     expect(importJobAdvances(succeeded, importJob())).toBe(false);
+    const running = importJob("running", {
+      progress: { completed: 3, total: 8 },
+    });
     expect(
       importJobAdvances(
-        importJob("running", { progress: { completed: 3, total: 8 } }),
-        importJob("running", { progress: { completed: 2, total: null } }),
+        running,
+        importJob("running", { progress: { completed: 4, total: 8 } }),
+      ),
+    ).toBe(true);
+    expect(
+      importJobAdvances(
+        running,
+        importJob("running", { progress: { completed: 2, total: 8 } }),
+      ),
+    ).toBe(false);
+    expect(
+      importJobAdvances(
+        running,
+        importJob("running", { progress: { completed: 4, total: null } }),
       ),
     ).toBe(false);
   });

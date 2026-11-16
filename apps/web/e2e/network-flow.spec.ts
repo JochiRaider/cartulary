@@ -28,6 +28,7 @@ import {
   installOwnedRoute,
   removeOwnedRoute,
 } from "./support/transport/requestInterception";
+import { settledRequest } from "./support/transport/settledRequest";
 import { openRecoveryItem, recoveryEntry } from "./support/workbook/recovery";
 
 const test = base.extend<NetworkFlowFixtureFields>(networkFlowFixtureSetup);
@@ -1717,27 +1718,6 @@ test("Verify claimed Network Analysis discovery, import, mapping approval, seman
   }
 });
 
-function settledRequest(
-  page: Page,
-  method: string,
-  pathPattern: RegExp,
-): Promise<void> {
-  return new Promise<void>((resolve) => {
-    const onSettled = (request: Request) => {
-      if (
-        request.method() !== method ||
-        !pathPattern.test(new URL(request.url()).pathname)
-      )
-        return;
-      page.off("requestfinished", onSettled);
-      page.off("requestfailed", onSettled);
-      resolve();
-    };
-    page.on("requestfinished", onSettled);
-    page.on("requestfailed", onSettled);
-  });
-}
-
 function requestJSON(request: Request): Record<string, unknown> {
   return JSON.parse(request.postData() ?? "{}") as Record<string, unknown>;
 }
@@ -1844,6 +1824,15 @@ test("Network Analysis table dialogs review peer changes preserve graph context 
   await expect(contributors).not.toBeVisible();
   await edge.click();
   await expect(contributors).toBeVisible();
+  // Sentinel: an app-issued tables read settles through the same request
+  // events before the graph-query count is read.
+  const tablesRefreshed = settledRequest(
+    page,
+    "GET",
+    /\/network-flow\/tables$/u,
+  );
+  await page.getByTestId(networkAnalysisTestId("refresh")).click();
+  await tablesRefreshed;
   expect(graphRequests).toHaveLength(count);
 
   const requests: string[] = [];
@@ -2054,6 +2043,15 @@ test("Network Analysis imports the original Cisco Flow Search example and saves 
     // every projected member, selectors, metadata and all established totals.
     expect(reopened.response).toEqual(savedIdentity.response);
     await expectSavedGraphResult(reopenedPanel, savedIdentity);
+    // Sentinel: an app-issued tables read settles on the reopened page before
+    // the mutation observer is read.
+    const freshTablesRefreshed = settledRequest(
+      fresh,
+      "GET",
+      /\/network-flow\/tables$/u,
+    );
+    await fresh.getByTestId(networkAnalysisTestId("refresh")).click();
+    await freshTablesRefreshed;
     expect(reopenMutations).toEqual([]);
     fresh.off("request", observeReopen);
 

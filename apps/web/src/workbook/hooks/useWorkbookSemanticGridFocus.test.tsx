@@ -283,7 +283,11 @@ describe("useWorkbookSemanticGridFocus", () => {
     const signal = vi.mocked(handle.requestFocus).mock.calls[0]?.[1]?.signal;
     view.unmount();
     expect(signal?.aborted).toBe(true);
-    await act(async () => complete("focused"));
+    await act(async () => {
+      complete("focused");
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(handle.requestFocus).toHaveBeenCalledOnce();
     expect(focusOwner.acknowledge).not.toHaveBeenCalled();
   });
   it("cancels pending entry after deliberate keyboard navigation", async () => {
@@ -307,7 +311,25 @@ describe("useWorkbookSemanticGridFocus", () => {
     vi.mocked(handle.requestFocus).mockResolvedValue("unavailable");
     render(<SemanticFocusHarness handle={handle} focusOwner={focusOwner} />);
     await waitFor(() => expect(handle.requestFocus).toHaveBeenCalledTimes(5));
+    await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+    expect(handle.requestFocus).toHaveBeenCalledTimes(5);
+    expect(
+      vi
+        .mocked(handle.requestFocus)
+        .mock.calls.map(([target]) =>
+          target.kind === "cell"
+            ? `${target.anchor.rowIdentity.kind === "core_record" ? target.anchor.rowIdentity.recordId : "?"}:${target.anchor.fieldKey}`
+            : target.kind,
+        ),
+    ).toEqual([
+      "row-1:first",
+      "row-1:second",
+      "row-2:first",
+      "row-2:second",
+      "root",
+    ]);
     expect(focusOwner.acknowledge).not.toHaveBeenCalled();
+    expect(focusOwner.cancel).not.toHaveBeenCalled();
   });
   it("cancels user navigation while loading and cancels entry after authority loss", async () => {
     const handle = createGridHandle();

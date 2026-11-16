@@ -78,6 +78,11 @@ describe("Workbook presence", () => {
       project([record("expired")], 45_000).presentation.header.users,
     ).toEqual([]);
     expect(project([record("active")], 44_999).nextExpiryAtMs).toBe(45_000);
+    expect(
+      project([record("active")], 44_999).presentation.header.users.map(
+        (user) => user.connection_id,
+      ),
+    ).toEqual(["active"]);
     expect(project([record("expired")], 45_000).nextExpiryAtMs).toBeNull();
   });
   it("selects users independently after row and cell matching", () => {
@@ -110,6 +115,18 @@ describe("Workbook presence", () => {
       2,
     );
     expect(presenceForCell(presentation, "row", "summary").overflow).toBe(4);
+    // At each capacity exactly, every user is shown without overflow.
+    const atCapacity = (count: number) =>
+      project(Array.from({ length: count }, (_, index) => editing(`c${index}`)))
+        .presentation;
+    expect(atCapacity(5).header.shown).toHaveLength(5);
+    expect(atCapacity(5).header.overflow).toBe(0);
+    expect(presenceForRow(atCapacity(3), "row").shown).toHaveLength(3);
+    expect(presenceForRow(atCapacity(3), "row").overflow).toBe(0);
+    expect(presenceForCell(atCapacity(2), "row", "summary").shown).toHaveLength(
+      2,
+    );
+    expect(presenceForCell(atCapacity(2), "row", "summary").overflow).toBe(0);
   });
   it("uses UTC precision NFC and code points with input independent ties", () => {
     const records = [
@@ -169,6 +186,12 @@ describe("Workbook presence", () => {
       },
     ] as PresenceRecord[];
     expect(project(invalid).presentation.header.users).toEqual([]);
+    // A valid record beside them is still accepted.
+    expect(
+      project([...invalid, record("valid")]).presentation.header.users.map(
+        (user) => user.connection_id,
+      ),
+    ).toEqual(["valid"]);
   });
   it("preserves exact sheet boundaries connection self exclusion and extension restrictions", () => {
     const extension = {
@@ -220,12 +243,20 @@ describe("Workbook presence", () => {
     ).toBe(canonical);
   });
   it("keeps presence outside live announcements", () => {
-    render(
+    const liveRegions =
+      '[aria-live],[role="status"],[role="alert"],[role="log"],[role="marquee"],[role="timer"]';
+    const summary = render(
       <WorkbookPresenceSummary
         records={project([record("Analyst")]).presentation.header}
       />,
     );
-    expect(screen.queryByRole("status")).toBeNull();
+    expect(
+      screen.getByRole("img", {
+        name: /^1 collaborator present on this sheet: /,
+      }),
+    ).toBeTruthy();
+    expect(summary.container.querySelectorAll(liveRegions)).toHaveLength(0);
+    summary.unmount();
     const renderEditor = (records: PresenceRecord[]) => (
       <WorkbookPresenceCellLayout
         editing
@@ -260,6 +291,12 @@ describe("Workbook presence", () => {
     );
     expect(screen.getByRole("textbox")).toBe(input);
     expect(document.activeElement).toBe(input);
+    expect(
+      view.container.querySelector(
+        '[role="img"][aria-label^="1 collaborator"]',
+      ),
+    ).not.toBeNull();
+    expect(view.container.querySelectorAll(liveRegions)).toHaveLength(0);
     view.rerender(renderEditor([]));
     expect(screen.getByRole("textbox")).toBe(input);
     expect(document.activeElement).toBe(input);

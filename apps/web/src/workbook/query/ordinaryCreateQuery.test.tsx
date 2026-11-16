@@ -7,6 +7,7 @@ import {
   fullWorkbookViewRow,
 } from "../../testing/workbookFixtureData";
 import { renderHookWithWorkbookQueryBrowsing as renderHook } from "../../testing/workbookQueryTestSupport";
+import { WorkbookSurfaceRefreshError } from "../collaboration/workbookSurfacePort";
 import { ordinaryCreateContributions } from "../features/ordinary/ordinaryCreateContributions";
 import { WorkbookOrdinaryCreateOwner } from "../features/ordinary/WorkbookOrdinaryCreateOwner";
 import { emptyWorkbookQueryState } from "../models/workbookQuery";
@@ -77,9 +78,16 @@ describe("ordinary creation query reconciliation", () => {
       });
       expect(hook.result.current.rows[0]?.row_version, view).toBe(4);
       await act(async () => {
-        await expect(
-          hook.result.current.refresh({ requireAcceptance: true }),
-        ).rejects.toThrow();
+        const refused = hook.result.current.refresh({
+          requireAcceptance: true,
+        });
+        await expect(refused).rejects.toBeInstanceOf(
+          WorkbookSurfaceRefreshError,
+        );
+        await expect(refused).rejects.toHaveProperty("recovery", {
+          kind: "unavailable",
+          failure: "transient",
+        });
       });
       expect(hook.result.current.rows[0]?.row_version).toBe(4);
       expect(hook.result.current.loadState.kind).toBe("stale_error");
@@ -199,9 +207,16 @@ describe("ordinary creation query reconciliation", () => {
           : hook.result.current.hostRows,
       ).toEqual([]);
       await act(async () => {
-        await expect(
-          hook.result.current.refresh({ requireAcceptance: true }),
-        ).rejects.toThrow();
+        const refused = hook.result.current.refresh({
+          requireAcceptance: true,
+        });
+        await expect(refused).rejects.toBeInstanceOf(
+          WorkbookSurfaceRefreshError,
+        );
+        await expect(refused).rejects.toHaveProperty("recovery", {
+          kind: "unavailable",
+          failure: "transient",
+        });
       });
       expect(selectedRows()[0]?.rowVersion).toBe(3);
       version = 4;

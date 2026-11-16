@@ -125,11 +125,12 @@ func TestAssemblyIgnoresManifestAndMemberOrder(t *testing.T) {
 	if !bytes.Equal(first, permuted) {
 		t.Fatal("manifest permutation changed canonical bytes")
 	}
-	if strings.Index(string(first), `"/a"`) > strings.Index(string(first), `"/z"`) {
-		t.Fatal("paths are not serialized canonically")
-	}
-	if strings.Index(string(first), `"A"`) > strings.Index(string(first), `"Z"`) {
-		t.Fatal("components are not serialized canonically")
+	// strings.Index returns -1 for an absent member, so require presence first.
+	for _, pair := range [][2]string{{`"/a"`, `"/z"`}, {`"A"`, `"Z"`}} {
+		before, after := strings.Index(string(first), pair[0]), strings.Index(string(first), pair[1])
+		if before < 0 || after < 0 || before > after {
+			t.Fatalf("%s and %s are not both serialized in canonical order: %d, %d", pair[0], pair[1], before, after)
+		}
 	}
 }
 
@@ -432,7 +433,23 @@ func TestAggregateResourceLimits(t *testing.T) {
 	}{
 		{name: "paths", limits: resourceLimits{MaxPaths: 0, MaxOperations: 10, MaxNamedComponents: 10}, wantError: "max_paths"},
 		{name: "operations", limits: resourceLimits{MaxPaths: 10, MaxOperations: 0, MaxNamedComponents: 10}, wantError: "max_operations"},
-		{name: "components", limits: resourceLimits{MaxPaths: 10, MaxOperations: 10, MaxNamedComponents: 0}, wantError: "max_named_components"},
+		{name: "components", limits: resourceLimits{MaxPaths: 10, MaxOperations: 10, MaxNamedComponents: 5}, wantError: "max_named_components"},
+	}
+	// The fixture holds exactly 1 path, 1 operation and 6 named components;
+	// each rejection above is one below its count. At the exact counts the
+	// limit checks pass and validation reaches the next check, the fixture's
+	// unused security schemes.
+	if err := validateAggregate(cloneValue(document), resourceLimits{MaxPaths: 1, MaxOperations: 1, MaxNamedComponents: 6}); err == nil || !strings.HasPrefix(err.Error(), "unused security scheme ") {
+		t.Fatalf("exact aggregate counts must pass the limit checks, got %v", err)
+	}
+	nested := func(depth int) []byte {
+		return []byte(strings.Repeat(`{"a":`, depth-1) + `{}` + strings.Repeat(`}`, depth-1))
+	}
+	if _, err := parseOrderedJSON(nested(128), 128); err != nil {
+		t.Fatalf("depth 128 must be accepted: %v", err)
+	}
+	if _, err := parseOrderedJSON(nested(129), 128); err == nil || err.Error() != "JSON depth exceeds 128" {
+		t.Fatalf("depth 129 error = %v", err)
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

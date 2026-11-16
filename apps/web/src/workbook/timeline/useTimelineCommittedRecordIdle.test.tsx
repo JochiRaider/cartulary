@@ -107,7 +107,7 @@ it("pending record readiness follows queue and scoped refresh publications witho
   runtime.notifyPendingChanged();
   pending.model.settleUnchanged(unit);
   flush();
-  await Promise.resolve();
+  await new Promise((resolve) => setTimeout(resolve, 0));
   expect(completed).not.toHaveBeenCalled();
   finishWorkbookPendingRefreshBlock(pending, scope);
   runtime.notifyPendingChanged();

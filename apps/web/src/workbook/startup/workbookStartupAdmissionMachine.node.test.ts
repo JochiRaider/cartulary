@@ -102,7 +102,7 @@ describe("Workbook startup admission machine", () => {
         extensionRenderable: true,
         startup: startupSelection(),
       }),
-    ).toMatchObject({
+    ).toEqual({
       kind: "apply",
       identity: {
         sheetRef: { kind: "view_schema", id: hostsViewSchemaId },
@@ -123,16 +123,27 @@ describe("Workbook startup admission machine", () => {
           selected_sheet_ref: { kind: "saved_view", id: "saved-1" },
         }),
       }),
-    ).toMatchObject({ kind: "apply", savedView });
+    ).toEqual({
+      kind: "apply",
+      identity: {
+        sheetRef: { kind: "saved_view", id: "saved-1" },
+        viewSchemaId: hostsViewSchemaId,
+      },
+      savedView,
+    });
     expect(
       planAcceptedWorkbookStartup({
         availabilityAccepted: false,
         extensionRenderable: true,
         startup: startupSelection(),
       }),
-    ).toMatchObject({
+    ).toEqual({
       kind: "apply",
-      identity: { viewSchemaId: hostsViewSchemaId },
+      identity: {
+        sheetRef: { kind: "view_schema", id: hostsViewSchemaId },
+        viewSchemaId: hostsViewSchemaId,
+      },
+      savedView: null,
     });
     expect(
       planAcceptedWorkbookStartup({

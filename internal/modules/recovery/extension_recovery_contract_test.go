@@ -191,24 +191,31 @@ func TestRestoreRejectsLegacyOrInvalidExtensionBindingEvidenceBeforeMutation_Int
 	tests := []struct {
 		name   string
 		mutate func(*recovery.VNextBackupIntegrityManifest)
+		// admit marks the control: the same rewrite without a mutation must be
+		// admitted, so each rejection is caused by its mutation.
+		admit bool
+		want  string
 	}{
 		{
 			name: "legacy v1 manifest",
 			mutate: func(manifest *recovery.VNextBackupIntegrityManifest) {
 				manifest.SchemaID = "cartulary.backup_integrity_manifest.v1"
 			},
+			want: "integrity manifest facts mismatch",
 		},
 		{
 			name: "missing owner catalog binding",
 			mutate: func(manifest *recovery.VNextBackupIntegrityManifest) {
 				manifest.RecoveryStateCatalogSHA256 = ""
 			},
+			want: "integrity manifest facts mismatch",
 		},
 		{
 			name: "unpackaged codec digest",
 			mutate: func(manifest *recovery.VNextBackupIntegrityManifest) {
 				manifest.CodecRegistrySHA256 = strings.Repeat("f", 64)
 			},
+			want: "integrity manifest facts mismatch",
 		},
 		{
 			name: "implementation binding mismatch",
@@ -221,6 +228,14 @@ func TestRestoreRejectsLegacyOrInvalidExtensionBindingEvidenceBeforeMutation_Int
 				}
 				t.Fatal("missing implementation binding in producer fixture")
 			},
+			want: "Graph Projection restore artifact binding mismatch",
+		},
+		{
+			// Runs last: admission advances target control, which the rejection
+			// cases require to stay initialized.
+			name:   "unmodified re-signed manifest",
+			mutate: func(*recovery.VNextBackupIntegrityManifest) {},
+			admit:  true,
 		},
 	}
 	for _, tc := range tests {
@@ -254,8 +269,14 @@ func TestRestoreRejectsLegacyOrInvalidExtensionBindingEvidenceBeforeMutation_Int
 			target.Observer = observer
 			runner := recovery.NewVersionedRestoreRunner(fixture.Store, fixture.BackupStorage, testExtensionBackupCatalog(t), currentStateCatalog(t))
 			admitted, err := tryAdmitCurrentRestore(t, fixture.capturedBackupContractFixture, runner, target, backupSet)
-			if !errors.Is(err, recovery.ErrVNextBackup) {
-				t.Fatalf("restore error got %v want invalid catalog-driven backup", err)
+			if tc.admit {
+				if err != nil || admitted.Fence == nil {
+					t.Fatalf("unmodified re-signed manifest was not admitted: %v", err)
+				}
+				return
+			}
+			if !errors.Is(err, recovery.ErrVNextBackup) || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("restore error got %v want invalid catalog-driven backup containing %q", err, tc.want)
 			}
 			if len(observer.Steps) != 0 || admitted.Fence != nil {
 				t.Fatalf("invalid evidence reached mutation: %v", observer.Steps)

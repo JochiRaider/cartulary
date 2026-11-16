@@ -11,10 +11,17 @@ import (
 
 func TestTaskSourcePreservesNullAndExcludesCollections(t *testing.T) {
 	t.Parallel()
-	value := map[string]any{"source": map[string]any{
-		"title":              "Collect logs",
-		"decision_record_id": nil,
-	}}
+	// Only source is restorable. The envelope members and a sibling collection
+	// member must not reach the returned source.
+	value := map[string]any{
+		"snapshot_schema_id": "cartulary.revisions.snapshot.task_request.v1",
+		"record":             map[string]any{"record_id": "task-1", "row_version": 3},
+		"collections":        map[string]any{"task.linked_record_ids": []any{"linked-1"}},
+		"source": map[string]any{
+			"title":              "Collect logs",
+			"decision_record_id": nil,
+		},
+	}
 	got, ok := taskSourceForRollbackValue(value)
 	if !ok {
 		t.Fatal("taskSourceForRollbackValue returned ok=false")

@@ -73,10 +73,16 @@ func requireObjectStoreAdapterInputContracts(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("typed Evidence cleanup purpose was rejected: %v", err)
 	}
-	if err := typed.Delete(context.Background(), objectstore.DeleteObjectRequest{
+	// The object exists, so only the purpose is wrong.
+	if err := store.PutObject(context.Background(), "evidence/disallowed-delete.txt", strings.NewReader("retained"), int64(len("retained")), "text/plain"); err != nil {
+		t.Fatalf("seed disallowed-delete object: %v", err)
+	}
+	err = typed.Delete(context.Background(), objectstore.DeleteObjectRequest{
 		Key: "evidence/disallowed-delete.txt", Purpose: objectstore.PurposeProductRead,
-	}); err == nil {
-		t.Fatal("non-delete object-store purpose was accepted for delete")
+	})
+	requireAdapterError(t, err, objectstore.ErrorCodeInvalidRequest, objectstore.ReasonInvalidRequest)
+	if _, _, err := store.ReadObject(context.Background(), "evidence/disallowed-delete.txt", objectstore.ReadOptions{}); err != nil {
+		t.Fatalf("rejected delete removed the object: %v", err)
 	}
 }
 

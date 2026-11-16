@@ -101,6 +101,28 @@ CREATE TRIGGER block_control_admission BEFORE INSERT ON operator_recovery_journa
 						t.Fatal(commandCtx.Err())
 					}
 				}
+				// The process must be blocked on the trigger's lock, so the kill
+				// interrupts the fenced journal admission itself.
+				var holder int32
+				if err := blocker.QueryRow(ctx, `SELECT pg_backend_pid()`).Scan(&holder); err != nil {
+					t.Fatal(err)
+				}
+				for {
+					var waiting bool
+					if err := sourcePool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM pg_locks l WHERE l.locktype = 'advisory' AND l.objid = 784193 AND NOT l.granted AND $1::integer = ANY(pg_blocking_pids(l.pid)))`, holder).Scan(&waiting); err != nil {
+						t.Fatal(err)
+					}
+					if waiting {
+						break
+					}
+					select {
+					case <-tick.C:
+					case <-deadline.C:
+						t.Fatal("operator did not block on the fenced journal admission")
+					case <-commandCtx.Done():
+						t.Fatal(commandCtx.Err())
+					}
+				}
 				if err := cmd.Process.Kill(); err != nil {
 					t.Fatal(err)
 				}

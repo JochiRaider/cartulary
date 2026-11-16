@@ -55,8 +55,8 @@ func TestConfigDiscovery_Unit(t *testing.T) {
 				ConfigFileEnv: "relative/config.toml",
 			},
 		})
-		if err == nil {
-			t.Fatal("expected relative selector override to fail")
+		if err == nil || err.Error() != "CARTULARY_CONFIG_FILE must be an absolute path" {
+			t.Fatalf("expected relative selector override rejection, got %v", err)
 		}
 	})
 
@@ -282,7 +282,14 @@ func TestExtensionRuntimeConfig_Unit(t *testing.T) {
 		}
 	})
 	t.Run("dependency probe budget is configurable", func(t *testing.T) {
-		mustLoadConfig(t, string(fixtures.MustRead("config", "valid.toml")), map[string]string{"CARTULARY__TIMEOUTS__EXTENSIONS__DEPENDENCY_PROBE_SECONDS": "30"})
+		if got := mustLoadConfig(t, string(fixtures.MustRead("config", "valid.toml")), nil).Timeouts.Extensions.DependencyProbeSeconds; got != 30 {
+			t.Fatalf("default dependency probe budget = %d; want 30", got)
+		}
+		// A non-default value, so an ignored override cannot pass.
+		cfg := mustLoadConfig(t, string(fixtures.MustRead("config", "valid.toml")), map[string]string{"CARTULARY__TIMEOUTS__EXTENSIONS__DEPENDENCY_PROBE_SECONDS": "45"})
+		if got := cfg.Timeouts.Extensions.DependencyProbeSeconds; got != 45 {
+			t.Fatalf("configured dependency probe budget = %d; want 45", got)
+		}
 	})
 	t.Run("rejects retired render participant timeout", func(t *testing.T) {
 		err := loadInvalidConfig(t, string(fixtures.MustRead("config", "valid.toml")), map[string]string{"CARTULARY__TIMEOUTS__EXTENSIONS__SNAPSHOT_REPORTING_PARTICIPANT_SECONDS": "300"})
@@ -504,8 +511,13 @@ func TestFilesystemRootPaths_Unit(t *testing.T) {
 			}
 		}
 		roots.ExportOutputs = RootBinding{BindingKind: "filesystem_root", Path: roots.BackupStorage.Path}
-		if findings := validateInspectionFilesystemRoots(roots); len(findings) == 0 {
-			t.Fatal("inspection accepted overlapping roots")
+		findings := validateInspectionFilesystemRoots(roots)
+		gotOverlap := make([]string, 0, len(findings))
+		for _, finding := range findings {
+			gotOverlap = append(gotOverlap, finding.Path+"|"+finding.ReasonCode)
+		}
+		if want := []string{"roots.backup_storage.path|path_overlap", "roots.export_outputs.path|path_overlap"}; !reflect.DeepEqual(gotOverlap, want) {
+			t.Fatalf("inspection overlap findings = %v, want %v", gotOverlap, want)
 		}
 	})
 
@@ -691,6 +703,17 @@ func TestResourceLimits_Unit(t *testing.T) {
 		requireDiagnostic(t, err, "limits.archives.max_compression_ratio", "value_below_minimum")
 	})
 
+	t.Run("accepts the closed numeric domain bounds", func(t *testing.T) {
+		for _, value := range []int64{1, 1000} {
+			cfg := mustLoadConfig(t, string(fixtures.MustRead("config", "valid.toml")), map[string]string{
+				"CARTULARY__LIMITS__ARCHIVES__MAX_COMPRESSION_RATIO": fmt.Sprint(value),
+			})
+			if cfg.Limits.Archives.MaxCompressionRatio != value {
+				t.Fatalf("max_compression_ratio = %d, want %d", cfg.Limits.Archives.MaxCompressionRatio, value)
+			}
+		}
+	})
+
 	t.Run("rejects values above the closed numeric domain maximum", func(t *testing.T) {
 		err := loadInvalidConfig(t, string(fixtures.MustRead("config", "valid.toml")), map[string]string{
 			"CARTULARY__LIMITS__ARCHIVES__MAX_COMPRESSION_RATIO": "1001",
@@ -726,13 +749,18 @@ func TestResourceLimits_Unit(t *testing.T) {
 		}
 	})
 
-	t.Run("keeps fixed public ceilings deployment-invariant", func(t *testing.T) {
+	// The fixed public ceilings are not deployment keys; the sibling
+	// "rejects undeclared pseudo resource-limit keys" owns their invariance.
+	t.Run("applies declared import and archive limit overrides", func(t *testing.T) {
 		cfg := mustLoadConfig(t, string(fixtures.MustRead("config", "valid.toml")), map[string]string{
 			"CARTULARY__LIMITS__IMPORTS__MAX_ROWS":     "777",
 			"CARTULARY__LIMITS__ARCHIVES__MAX_MEMBERS": "123",
 		})
-		if cfg.Limits.Imports.MaxRows != 777 {
-			t.Fatalf("unexpected overridden import row limit: got %d", cfg.Limits.Imports.MaxRows)
+		if cfg.Limits.Imports.MaxRows != 777 || cfg.Limits.Archives.MaxMembers != 123 {
+			t.Fatalf("overrides not applied: max_rows=%d max_members=%d", cfg.Limits.Imports.MaxRows, cfg.Limits.Archives.MaxMembers)
+		}
+		if cfg.Limits.Imports.MaxColumns != defaultImportMaxColumns {
+			t.Fatalf("unrelated import column limit changed: got %d want %d", cfg.Limits.Imports.MaxColumns, defaultImportMaxColumns)
 		}
 	})
 }
@@ -953,12 +981,23 @@ func requireExactInactiveDiagnostic(t testing.TB, err error, profileID string, p
 
 func TestApplicationTLSConfiguration_Unit(t *testing.T) {
 	for _, key := range []string{"TLS_CERTIFICATE_PATH", "TLS_PRIVATE_KEY_PATH"} {
-		for _, value := range []string{"", "relative/file", "/tls/../file", "/tls/./file", "/tls/$KEY", "/tls/\x00file", "C:\\tls\\file"} {
-			t.Run(key+value, func(t *testing.T) {
-				_, err := loadWithTestCatalog(t, LoadOptions{Path: fixtureConfigPath(), Env: map[string]string{"CARTULARY__APPLICATION__" + key: value}})
-				if err == nil {
-					t.Fatal("invalid TLS binding accepted")
+		path := "application." + strings.ToLower(key)
+		for _, tc := range []struct{ value, reason string }{
+			{"", "missing_required_key"},
+			{"relative/file", "path_not_absolute"},
+			{"/tls/../file", "path_forbidden_segment"},
+			{"/tls/./file", "path_forbidden_segment"},
+			{"/tls/$KEY", "path_forbidden_segment"},
+			{"/tls/\x00file", "path_forbidden_segment"},
+			{"C:\\tls\\file", "path_not_absolute"},
+		} {
+			t.Run(key+tc.value, func(t *testing.T) {
+				_, err := loadWithTestCatalog(t, LoadOptions{Path: fixtureConfigPath(), Env: map[string]string{"CARTULARY__APPLICATION__" + key: tc.value}})
+				diagnosticsErr, ok := err.(*DiagnosticsError)
+				if !ok || len(diagnosticsErr.Diagnostics) != 1 {
+					t.Fatalf("invalid TLS binding %q: want one diagnostic, got %v", tc.value, err)
 				}
+				requireDiagnostic(t, err, path, tc.reason)
 			})
 		}
 	}

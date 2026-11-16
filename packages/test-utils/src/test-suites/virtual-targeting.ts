@@ -87,6 +87,36 @@ export function registerVirtualTargetingSuite() {
     });
 
     it("retries through the stable grid shell when a target unmounts before alignment", async () => {
+      // A target that remounts after the failed alignment is aligned on retry
+      // through the shell's document query.
+      let remountChecks = 0;
+      let targetToRemount: HTMLInputElement | null = null;
+      const remounting = installGridTargetFixture({
+        isTargetVisible: (grid) => {
+          remountChecks += 1;
+          if (remountChecks === 1) {
+            targetToRemount?.remove();
+          } else if (remountChecks === 2 && targetToRemount !== null) {
+            grid.append(targetToRemount);
+          }
+          return true;
+        },
+      });
+      targetToRemount = remounting.target;
+
+      await expect(
+        scrollGridTargetIntoView({
+          intervalMs: 0,
+          page: remounting.page,
+          surface: testTimelineViewSchemaId,
+          targetTestId: remounting.targetTestId,
+          timeoutMs: 50,
+        }),
+      ).resolves.toEqual({ left: 0, top: 0 });
+      expect(remounting.scrollIntoViewCalls).toEqual([remounting.targetTestId]);
+      expect(remountChecks).toBe(3);
+
+      // A target that never returns still fails without an alignment scroll.
       let visibilityChecks = 0;
       let targetToUnmount: HTMLInputElement | null = null;
       const { page, scrollIntoViewCalls, target, targetTestId } =

@@ -152,7 +152,13 @@ func makeIssue(check Check, f Finding) (Issue, error) {
 	// Retained issues own their values. A streaming producer can safely reuse
 	// its per-row findings without mutating the retained prefix or digest.
 	f.EntryID = cloneDiagnosticString(f.EntryID)
-	f.Details = SafeDetails{cloneDiagnosticString(f.Details.LimitID), cloneDiagnosticString(f.Details.ExpectedToken), cloneDiagnosticString(f.Details.ActualToken), cloneDiagnosticString(f.Details.RelatedPackKey), cloneDiagnosticString(f.Details.RelatedPackVersion)}
+	f.Details = SafeDetails{
+		LimitID:            cloneDiagnosticString(f.Details.LimitID),
+		ExpectedToken:      cloneDiagnosticString(f.Details.ExpectedToken),
+		ActualToken:        cloneDiagnosticString(f.Details.ActualToken),
+		RelatedPackKey:     cloneDiagnosticString(f.Details.RelatedPackKey),
+		RelatedPackVersion: cloneDiagnosticString(f.Details.RelatedPackVersion),
+	}
 	preimage := struct {
 		CheckID  string      `json:"check_id"`
 		Severity string      `json:"severity"`

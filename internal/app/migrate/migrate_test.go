@@ -283,7 +283,7 @@ func TestMigrateRunnerClosesAcquiredResources(t *testing.T) {
 type migrateClosingConnector struct{ close func() }
 
 func (connector migrateClosingConnector) Connect(context.Context) (driver.Conn, error) {
-	return migrateClosingConnection{close: connector.close}, nil
+	return migrateClosingConnection(connector), nil
 }
 func (migrateClosingConnector) Driver() driver.Driver { return migrateNoConnectDriver{} }
 

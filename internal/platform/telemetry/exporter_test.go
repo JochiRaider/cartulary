@@ -9,8 +9,10 @@ import (
 
 	telemetryconfiguration "github.com/JochiRaider/cartulary/internal/platform/telemetry/configuration"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/durationpb"
 )
 
 func TestBuildOTLPHTTPURLs(t *testing.T) {
@@ -176,6 +178,7 @@ func TestExporterUserAgentGrammar(t *testing.T) {
 }
 
 func TestOTLPStatusRetryClassification(t *testing.T) {
+	t.Run("export errors classify by canonical gRPC status", checkGRPCExportErrorsClassifyByCanonicalStatus)
 	for _, statusCode := range []int{429, 502, 503, 504} {
 		if got := ClassifyOTLPHTTPStatus(statusCode); got != RetryTransient {
 			t.Fatalf("HTTP %d should be transient, got %q", statusCode, got)
@@ -214,6 +217,41 @@ func TestOTLPStatusRetryClassification(t *testing.T) {
 		if got := DropReasonForRetryClassification(ClassifyOTLPGRPCStatus(code, false)); got != ExporterPermanentDiscardDropReason {
 			t.Fatalf("gRPC %s should record permanent discard drop reason, got %q", code, got)
 		}
+	}
+}
+
+func checkGRPCExportErrorsClassifyByCanonicalStatus(t *testing.T) {
+	// Real export errors carry codes.Code, whose String form is a Go
+	// identifier; classification must follow the canonical status name.
+	for code, canonical := range map[codes.Code]string{
+		codes.Canceled:           "CANCELLED",
+		codes.Unknown:            "UNKNOWN",
+		codes.InvalidArgument:    "INVALID_ARGUMENT",
+		codes.DeadlineExceeded:   "DEADLINE_EXCEEDED",
+		codes.NotFound:           "NOT_FOUND",
+		codes.AlreadyExists:      "ALREADY_EXISTS",
+		codes.PermissionDenied:   "PERMISSION_DENIED",
+		codes.ResourceExhausted:  "RESOURCE_EXHAUSTED",
+		codes.FailedPrecondition: "FAILED_PRECONDITION",
+		codes.Aborted:            "ABORTED",
+		codes.OutOfRange:         "OUT_OF_RANGE",
+		codes.Unimplemented:      "UNIMPLEMENTED",
+		codes.Internal:           "INTERNAL",
+		codes.Unavailable:        "UNAVAILABLE",
+		codes.DataLoss:           "DATA_LOSS",
+		codes.Unauthenticated:    "UNAUTHENTICATED",
+	} {
+		got, delay := classifyExportRetry(status.Error(code, "export failed"))
+		if want := ClassifyOTLPGRPCStatus(canonical, false); got != want || delay != 0 {
+			t.Errorf("gRPC %s classified %q (delay %s), want %q", canonical, got, delay, want)
+		}
+	}
+	withRetryInfo, err := status.New(codes.ResourceExhausted, "throttled").WithDetails(&errdetails.RetryInfo{RetryDelay: durationpb.New(2 * time.Second)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, delay := classifyExportRetry(withRetryInfo.Err()); got != RetryTransient || delay != 2*time.Second {
+		t.Fatalf("RESOURCE_EXHAUSTED with RetryInfo classified %q (delay %s), want transient after 2s", got, delay)
 	}
 }
 

@@ -278,6 +278,7 @@ describe("account edit lifecycle", () => {
       controller.replay(kind);
       controller.replay(kind);
       await flush();
+      expect(write).toHaveBeenCalledTimes(2);
       const { signal: _firstSignal, ...original } =
         write.mock.calls[0]?.[0] ?? {};
       const { signal: _replaySignal, ...replayed } =
@@ -445,9 +446,21 @@ describe("account edit lifecycle", () => {
       value: "é  Analyst",
       error: null,
     });
-    expect(validateAccountDisplayName("😀".repeat(256)).error).toBeNull();
-    for (const value of ["\u0085", "a\u0001", "x".repeat(257), "\ud800"])
-      expect(validateAccountDisplayName(value).error).not.toBeNull();
+    for (const unit of ["😀", "x"]) {
+      expect(validateAccountDisplayName(unit.repeat(256)).error).toBeNull();
+      expect(validateAccountDisplayName(unit.repeat(257)).error).toBe(
+        "Use 256 characters or fewer.",
+      );
+    }
+    // U+0085 is Unicode white space: alone it trims to an empty name, and
+    // only an interior U+0085 reaches the C1 control-character rule.
+    expect(validateAccountDisplayName("\u0085").error).toBe(
+      "Enter a display name.",
+    );
+    for (const value of ["a\u0085b", "a\u0001", "\ud800"])
+      expect(validateAccountDisplayName(value).error, value).toBe(
+        "Remove control characters from the display name.",
+      );
     const { controller, patch } = await setup();
     controller.change("profile", " ");
     controller.submit("profile");

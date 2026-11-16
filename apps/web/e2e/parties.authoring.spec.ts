@@ -110,6 +110,9 @@ async function applyPartyPatchAndWait(
       expectation.expectedCells,
     );
     await expectWorkbookSaved(page);
+    // The authoritative read and saved state are the sentinel: a late
+    // duplicate PATCH dispatched by the same edit would be counted by now.
+    expect(patchRequests).toHaveLength(1);
     return row;
   } finally {
     page.off("request", capturePatchRequest);

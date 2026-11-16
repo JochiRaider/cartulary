@@ -75,5 +75,5 @@ func WindowsFixture(t testing.TB, version string, now time.Time, keys *reference
 		members[name] = raw
 	}
 	f := signSyntheticDataset(t, "windows", version, now, keys, metadataVersion, members, 4, 0)
-	return ProducedWindowsPack{f.PortablePackFixture, f.ManifestSHA256, f.PayloadSHA256, f.Members}
+	return ProducedWindowsPack(f)
 }

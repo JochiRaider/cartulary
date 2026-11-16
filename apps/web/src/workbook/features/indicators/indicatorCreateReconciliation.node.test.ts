@@ -72,7 +72,7 @@ it("Canonical refresh reads unfiltered pages and fences historical receipts agai
       scope,
       vi.fn(),
     ),
-  ).rejects.toThrow();
+  ).rejects.toThrow("Canonical record is unavailable or needs refresh");
   expect(t.owner.latestRow(observationTargetId)?.row_version).toBe(9);
   expect(t.transport.send).not.toHaveBeenCalled();
 });
@@ -121,7 +121,7 @@ it("Canonical refresh retains receipt on unavailable target access loss and deta
       scope,
       suspendForAuthorityRecovery,
     ),
-  ).rejects.toThrow();
+  ).rejects.toThrow("Canonical history needs refresh");
   expect(suspendForAuthorityRecovery).toHaveBeenCalledOnce();
   expect(t.transport.send).toHaveBeenCalledOnce();
 });

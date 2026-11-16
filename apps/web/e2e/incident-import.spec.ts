@@ -106,7 +106,25 @@ test("imports real active and closed bundles with exact recovery and explicit wo
     await expect(open).toHaveCount(1);
     expect(new URL(page.url()).pathname).toBe("/deployment-administration");
     await expect(page.getByTestId(workbookShellReadyTestId())).toHaveCount(0);
+    const shellReadyBeforeOpen = await page
+      .getByTestId(workbookShellReadyTestId())
+      .count();
     // Session refresh must happen before the ordinary startup, without sheet_ref.
+    const order: string[] = [];
+    const recordStartup = (request: { url(): string }) => {
+      if (
+        new URL(request.url()).pathname.includes(
+          `/incidents/${bundle.incidentId}/workbook`,
+        )
+      )
+        order.push("startup");
+    };
+    const recordSession = (response: { url(): string }) => {
+      if (new URL(response.url()).pathname === "/api/v1/auth/session")
+        order.push("session");
+    };
+    page.on("request", recordStartup);
+    page.on("response", recordSession);
     const session = page.waitForResponse(
       (response) => new URL(response.url()).pathname === "/api/v1/auth/session",
     );
@@ -131,6 +149,10 @@ test("imports real active and closed bundles with exact recovery and explicit wo
     expect(new URL((await startup).url()).searchParams.has("sheet_ref")).toBe(
       false,
     );
+    page.off("request", recordStartup);
+    page.off("response", recordSession);
+    expect(order.indexOf("session")).toBeGreaterThanOrEqual(0);
+    expect(order.indexOf("session")).toBeLessThan(order.indexOf("startup"));
     await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
     expect(new URL(page.url()).searchParams.get("incident_id")).toBe(
       bundle.incidentId,
@@ -144,12 +166,15 @@ test("imports real active and closed bundles with exact recovery and explicit wo
     expect(admissions).toHaveLength(2);
     await removeOwnedRoute(page, "**/api/v1/incident-bundles/import");
     await removeOwnedRoute(page, "**/api/v1/jobs/*");
+    const jobCount = new Set(admissions.map((entry) => entry.id)).size;
+    expect(jobCount).toBe(1);
     await testInfo.attach(`real-import-replay-evidence-${lifecycle}`, {
       body: JSON.stringify({
         lifecycle,
-        jobCount: new Set(admissions.map((entry) => entry.id)).size,
-        identicalMultipartValues: true,
-        workbookOpenedExplicitly: true,
+        jobCount,
+        identicalMultipartValues:
+          JSON.stringify(admissions[1]) === JSON.stringify(admissions[0]),
+        workbookOpenedExplicitly: shellReadyBeforeOpen === 0,
       }),
       contentType: "application/json",
     });
@@ -286,6 +311,8 @@ test("checks import actions and recovers access explicitly before accepting curr
       )
       .first(),
   ).toBeVisible();
+  // Settled: a read from the second Enter would have been gated and counted.
+  expect(fixture.readCount()).toBe(before + 1);
   expect(fixture.cancellationBodies).toHaveLength(0);
   await expect(cancel).toBeFocused();
   fixture.gateReads(null);

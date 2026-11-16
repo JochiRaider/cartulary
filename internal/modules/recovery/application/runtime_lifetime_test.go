@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -25,7 +26,7 @@ func TestRestoreRuntimeFailureClosesCreatedResourcesInReverseOrder_Unit(t *testi
 			return &lifetimeObjectStore{name: "source-object", closed: &closed}, nil
 		},
 		OpenBackup: func() (recovery.BackupStorage, error) {
-			return nil, errors.New("injected backup open failure")
+			return nil, errInjectedBackupOpen
 		},
 	}
 	target := Deployment{
@@ -47,8 +48,8 @@ func TestRestoreRuntimeFailureClosesCreatedResourcesInReverseOrder_Unit(t *testi
 		SourceConfigPath: "source",
 		TargetConfigPath: "target",
 	})
-	if err == nil {
-		t.Fatal("restore runtime accepted injected backup open failure")
+	if !errors.Is(err, errInjectedBackupOpen) || !strings.Contains(err.Error(), "open source backup storage") {
+		t.Fatalf("restore runtime error = %v; want the wrapped injected backup open failure", err)
 	}
 	want := []string{"target-object", "source-object", "target-postgres", "source-postgres"}
 	if !reflect.DeepEqual(closed, want) {
@@ -64,14 +65,14 @@ func TestSourceRuntimeFailureClosesCreatedPostgres_Unit(t *testing.T) {
 				return &lifetimePool{name: "source-postgres", closed: &closed}, nil
 			},
 			OpenBackup: func() (recovery.BackupStorage, error) {
-				return nil, errors.New("injected backup open failure")
+				return nil, errInjectedBackupOpen
 			},
 		}, nil
 	}}
 
 	_, _, _, _, err := service.openSourceRuntime(context.Background(), "source")
-	if err == nil {
-		t.Fatal("source runtime accepted injected backup open failure")
+	if !errors.Is(err, errInjectedBackupOpen) || !strings.Contains(err.Error(), "open source backup storage") {
+		t.Fatalf("source runtime error = %v; want the wrapped injected backup open failure", err)
 	}
 	if want := []string{"source-postgres"}; !reflect.DeepEqual(closed, want) {
 		t.Fatalf("source runtime close order got %v want %v", closed, want)
@@ -146,3 +147,5 @@ func (store *lifetimeObjectStore) Close() error {
 	*store.closed = append(*store.closed, store.name)
 	return nil
 }
+
+var errInjectedBackupOpen = errors.New("injected backup open failure")

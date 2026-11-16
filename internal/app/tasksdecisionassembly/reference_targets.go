@@ -36,7 +36,7 @@ func (a referenceTargetAdapter) LockEnvelopeFactTx(ctx context.Context, tx pgx.T
 	var err error
 	switch {
 	case expectedType != "party" && expectedType != "decision":
-		return tasksdecisions.EnvelopeFact{}, false, errors.New("Task reference envelope kind is unsupported")
+		return tasksdecisions.EnvelopeFact{}, false, errors.New("task reference envelope kind is unsupported")
 	case expectedType == "decision" && nowait:
 		envelope, err = a.envelopes.LoadEnvelopeForNoKeyUpdateNowaitTx(ctx, tx, recordID)
 	case expectedType == "decision":

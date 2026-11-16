@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"github.com/jackc/pgx/v5/pgconn"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -79,6 +80,11 @@ func TestPostgresPurposeConnectionsEstablishExactIdentity_Integration(t *testing
 			pool.Reset()
 			var recycledPID int64
 			assertPGXPostgresIdentity(t, pool.QueryRow(ctx, `SELECT session_user::text, current_user::text, pg_backend_pid()::bigint`), test.login, test.role, &recycledPID)
+			// Reset closed both released connections, so the identity above was
+			// established on a new physical connection.
+			if recycledPID == firstPID || recycledPID == secondPID {
+				t.Fatalf("pool reset reused a closed connection: pid %d (earlier %d, %d)", recycledPID, firstPID, secondPID)
+			}
 			pool.Close()
 			// A stopped/reconstructed adapter loads the renewed identity;
 			// existing pools do not reread mutable paths during handshakes.
@@ -170,8 +176,14 @@ func TestPostgresPurposeConnectionsEstablishExactIdentity_Integration(t *testing
 					return err
 				},
 			} {
-				if err := open(); err == nil {
+				err := open()
+				if err == nil {
 					t.Fatal("invalid certificate connection admitted")
+				}
+				// The certificate must be refused, not a later role check.
+				var configurationErr *postgres.ConfigurationError
+				if errors.As(err, &configurationErr) && configurationErr.Reason() == postgres.ReasonEffectiveRoleMismatch {
+					t.Fatalf("invalid certificate reached the effective-role check: %v", err)
 				}
 			}
 		})
@@ -290,6 +302,17 @@ func assertManifestPrivilegeParity(t testing.TB, migration *sql.DB, runtimeDB *s
 		case "schema":
 			assertSchemaAccessClass(t, runtimeDB, entry.QualifiedName, entry.RuntimeAccessClass)
 			assertSchemaAccessClass(t, recoveryDB, entry.QualifiedName, entry.RecoveryAccessClass)
+		case "constraint", "index", "trigger":
+			// No grantable privileges of their own; access follows the table.
+		case "extension":
+			// Extension types are checked by assertExtensionTypePrivileges,
+			// which covers exactly these extensions.
+			if entry.QualifiedName != "public.pgcrypto" && entry.QualifiedName != "public.citext" ||
+				entry.RuntimeAccessClass != "type_use" || entry.RecoveryAccessClass != "type_use" {
+				t.Fatalf("privilege manifest extension entry is not covered: %#v", entry)
+			}
+		default:
+			t.Fatalf("privilege manifest entry %s has unknown object kind %q", entry.QualifiedName, entry.ObjectKind)
 		}
 	}
 	assertExtensionTypePrivileges(t, migration)
@@ -785,5 +808,7 @@ func assertOperationDenied(t testing.TB, db *sql.DB, statement string) {
 		t.Fatalf("prohibited operation succeeded: %s", statement)
 	} else if strings.Contains(strings.ToLower(err.Error()), "password") || strings.Contains(strings.ToLower(err.Error()), "postgres://") {
 		t.Fatalf("prohibited operation disclosed credentials: %v", err)
+	} else if pgErr := (*pgconn.PgError)(nil); !errors.As(err, &pgErr) || pgErr.Code != "42501" {
+		t.Fatalf("prohibited operation must fail as insufficient_privilege (42501): %s: %v", statement, err)
 	}
 }

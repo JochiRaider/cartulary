@@ -356,6 +356,7 @@ describe("incident import lifecycle", () => {
       observation: { kind: "failed" },
     });
     controller.open();
+    await tick();
     expect(ports.openIncident).not.toHaveBeenCalled();
     controller.refresh();
     await tick();
@@ -429,6 +430,7 @@ describe("incident import lifecycle", () => {
       controller.submit();
       await tick();
       controller.open();
+      await tick();
       expect(ports.openIncident).not.toHaveBeenCalled();
       expect(controller.getSnapshot().jobs[importJobID]?.job.status).toBe(
         status,

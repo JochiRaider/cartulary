@@ -249,7 +249,9 @@ describe("Saved graph recovery boundaries", () => {
   it("publishes selection and immutable result exposure atomically to subscribers", async () => {
     const { owner, b } = await setup();
     const inconsistent: string[] = [];
+    let notifications = 0;
     const unsubscribe = owner.subscribe(() => {
+      notifications += 1;
       const snapshot = owner.getSnapshot();
       const resultGraph =
         snapshot.navigation.result?.result.graph_projection_result
@@ -259,6 +261,10 @@ describe("Saved graph recovery boundaries", () => {
     });
     owner.selectGraphView(b.graph_view_id);
     unsubscribe();
+    // An empty collector proves nothing unless the selection was published.
+    expect(notifications).toBeGreaterThan(0);
+    expect(owner.getSnapshot().selectedGraphViewId).toBe(b.graph_view_id);
+    expect(owner.getSnapshot().navigation.result).toBeNull();
     expect(inconsistent).toEqual([]);
   });
 
@@ -294,7 +300,9 @@ describe("Saved graph recovery boundaries", () => {
     for (const kind of ["source", "scope"] as const) {
       const { owner, a } = await setup();
       const exposed: unknown[] = [];
+      let notifications = 0;
       const unsubscribe = owner.subscribe(() => {
+        notifications += 1;
         if (owner.getSnapshot().navigation.result !== null)
           exposed.push(owner.getSnapshot().navigation.result);
       });
@@ -314,6 +322,8 @@ describe("Saved graph recovery boundaries", () => {
             },
       );
       unsubscribe();
+      expect(notifications).toBeGreaterThan(0);
+      expect(owner.getSnapshot().navigation.result).toBeNull();
       expect(exposed).toEqual([]);
     }
   });

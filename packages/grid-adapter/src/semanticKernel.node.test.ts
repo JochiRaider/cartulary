@@ -102,12 +102,43 @@ describe("shared semantic grid kernel", () => {
       editable: false,
       interactionMode: { kind: "read_only", label: "Read only" },
     });
-    expect(() =>
-      resolveSemanticGridCapabilities({
-        ...extension,
-        interactionMode: { kind: "editable" },
-      } as unknown as SemanticDataGridProps<Row>),
-    ).toThrow(/cannot enable Core mutation/i);
+    const admissionMessage =
+      "Extension grid surfaces cannot enable Core mutation or bulk-selection capabilities.";
+    for (const accepted of [
+      { interactionMode: { kind: "read_only", label: "Read only" } },
+      { allowPasteCreateRows: false },
+    ])
+      expect(
+        resolveSemanticGridCapabilities({
+          ...extension,
+          ...accepted,
+        } as unknown as SemanticDataGridProps<Row>),
+      ).toMatchObject({ editable: false });
+    for (const [capability, value] of [
+      ["actionsColumn", { label: "Actions", renderCell: () => null }],
+      ["allowPasteCreateRows", true],
+      [
+        "clipboardPaste",
+        { decode: () => ({ kind: "noop" }), onPaste: () => undefined },
+      ],
+      [
+        "coreRecordBulkSelection",
+        {
+          onSelectedRecordIdsChange: () => undefined,
+          selectedRecordIds: new Set<string>(),
+        },
+      ],
+      ["draftRow", { data: { label: "Draft", state: "draft" }, kind: "draft" }],
+      ["interactionMode", { kind: "editable" }],
+      ["onFillCells", () => undefined],
+      ["onClearCells", () => undefined],
+    ] as const)
+      expect(() =>
+        resolveSemanticGridCapabilities({
+          ...extension,
+          [capability]: value,
+        } as unknown as SemanticDataGridProps<Row>),
+      ).toThrow(admissionMessage);
   });
 
   it("resolves every data-state branch through one precedence table", () => {

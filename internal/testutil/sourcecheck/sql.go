@@ -39,6 +39,7 @@ type sqlValue struct {
 }
 type sqlEnv map[string][]sqlValue
 type sqlAnalyzer struct {
+	//lint:ignore SA1019 The analyzer resolves identifiers syntactically, without type information; ast.Object is the parser's binding record for that.
 	packageConstantBindings map[*ast.Object]bool
 	bindings                map[string]*sqlBindingFacts
 	packageConstants        map[string]map[string]ast.Expr
@@ -126,6 +127,7 @@ func AnalyzeSQL(sources map[string]string) (map[string][]SQLDeclaration, error) 
 	constants := map[string]map[string]ast.Expr{}
 	packageConstants := map[string]map[string]ast.Expr{}
 	constantImports := map[ast.Expr]map[string]string{}
+	//lint:ignore SA1019 Syntactic identifier resolution without type information; see sqlAnalyzer.packageConstantBindings.
 	constantBindings := map[*ast.Object]bool{}
 	functions := map[string]map[string]*ast.FuncDecl{}
 	names := []string{}

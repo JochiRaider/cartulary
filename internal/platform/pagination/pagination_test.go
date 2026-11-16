@@ -4,6 +4,8 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"net/url"
+	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -52,6 +54,35 @@ func TestResolveRequestReusesCursorBoundLimitAndValidatesBindings(t *testing.T) 
 	}, "incidents.list", "user-2", map[string]string{"incident_id": "incident-1"})
 	if reason != ReasonInvalidCursorToken {
 		t.Fatalf("expected invalid cursor for mismatched actor, got %q", reason)
+	}
+
+	_, _, reason = codec.ResolveRequest(url.Values{
+		"cursor_token": []string{cursorToken},
+	}, "incidents.other", "user-1", map[string]string{"incident_id": "incident-1"})
+	if reason != ReasonInvalidCursorToken {
+		t.Fatalf("expected invalid cursor for mismatched route, got %q", reason)
+	}
+
+	_, _, reason = codec.ResolveRequest(url.Values{
+		"cursor_token": []string{cursorToken},
+	}, "incidents.list", "user-1", map[string]string{"incident_id": "incident-2"})
+	if reason != ReasonInvalidCursorToken {
+		t.Fatalf("expected invalid cursor for mismatched scope, got %q", reason)
+	}
+
+	for _, limit := range []int{1, MaxLimit} {
+		accepted, _, reason := codec.ResolveRequest(url.Values{
+			"limit": []string{strconv.Itoa(limit)},
+		}, "incidents.list", "user-1", nil)
+		if reason != "" || accepted.Limit != limit {
+			t.Fatalf("limit %d: binding=%#v reason=%q", limit, accepted, reason)
+		}
+	}
+	_, _, reason = codec.ResolveRequest(url.Values{
+		"limit": []string{strconv.Itoa(MaxLimit + 1)},
+	}, "incidents.list", "user-1", nil)
+	if reason != ReasonInvalidLimit {
+		t.Fatalf("expected invalid_limit above the maximum, got %q", reason)
 	}
 
 	_, _, reason = codec.ResolveRequest(url.Values{
@@ -156,7 +187,9 @@ func TestPageRawMessagesUsesSignedOffsetCursorWithoutRetainingRows(t *testing.T)
 	if err != nil {
 		t.Fatalf("page one: %v", err)
 	}
-	if len(pageOne) != 2 || cursor == nil || cursor.Position["offset"] != "2" {
+	// The cursor carries only the binding and an offset: no row content.
+	wantCursor := &Cursor{Version: "pagination.cursor.v2", Mode: ModeOffset, Route: "users.list", ActorUserID: "admin-1", Limit: 2, Position: map[string]string{"offset": "2"}}
+	if len(pageOne) != 2 || !reflect.DeepEqual(cursor, wantCursor) {
 		t.Fatalf("unexpected page one: rows=%d cursor=%#v", len(pageOne), cursor)
 	}
 	pageTwo, cursor, err := PageRawMessages(binding, cursor, rows)

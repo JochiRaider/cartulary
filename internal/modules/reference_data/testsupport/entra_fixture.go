@@ -25,7 +25,7 @@ func EntraRelease(t testing.TB, repositoryRoot string) ProducedEntraPack {
 	if err := checkEntraBaseline(repositoryRoot, m, f.Members["payload/objects.ndjson"]); err != nil {
 		t.Fatal(err)
 	}
-	return ProducedEntraPack{f.PortablePackFixture, f.ManifestSHA256, f.PayloadSHA256, f.Members}
+	return ProducedEntraPack(f)
 }
 
 // EntraFixture signs a canonical generic corpus derivative with isolated test
@@ -33,5 +33,5 @@ func EntraRelease(t testing.TB, repositoryRoot string) ProducedEntraPack {
 func EntraFixture(t testing.TB, version string, now time.Time, keys *referencepackfixture.SigningContext, metadataVersion int64) ProducedEntraPack {
 	t.Helper()
 	f := corpusDatasetFixture(t, "entra", version, now, keys, metadataVersion)
-	return ProducedEntraPack{f.PortablePackFixture, f.ManifestSHA256, f.PayloadSHA256, f.Members}
+	return ProducedEntraPack(f)
 }

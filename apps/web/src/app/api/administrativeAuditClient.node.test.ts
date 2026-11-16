@@ -67,6 +67,7 @@ describe("Administrative audit typed client", () => {
       expect((await listAdministrativeAuditPage(request())).ok).toBe(true);
     }
     const event = auditEvent();
+    const layers: string[] = [];
     for (const body of [
       { ...auditEnvelope(), meta: { request_id: "missing-paging" } },
       auditEnvelope([{ ...event, scope_kind: "incident" }]),
@@ -115,8 +116,33 @@ describe("Administrative audit typed client", () => {
     ]) {
       vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(body)));
       const result = await listAdministrativeAuditPage(request());
-      expect(result).toMatchObject({ ok: false, status: 502 });
+      if (result.ok) throw new Error("Malformed audit page was accepted");
+      expect(result.status).toBe(502);
+      if ("details" in result.error) {
+        expect(result.error).toMatchObject({
+          code: "invalid_public_contract_response",
+          details: { operation_id: "listAdministrativeAuditEvents" },
+        });
+        layers.push("schema");
+      } else {
+        expect(result.error).toEqual({
+          code: "invalid_public_contract_response",
+        });
+        layers.push("client");
+      }
       expect(JSON.stringify(result)).not.toContain("must-not-leak");
     }
+    // Missing paging, empty changes, redaction and value shape, and the
+    // missing cursor are schema-invalid; the rest fail the client's checks.
+    expect(layers).toEqual([
+      "schema",
+      "client",
+      "schema",
+      "client",
+      "schema",
+      "schema",
+      "client",
+      "schema",
+    ]);
   });
 });

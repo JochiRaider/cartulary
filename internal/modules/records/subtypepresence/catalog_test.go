@@ -11,7 +11,9 @@ import (
 )
 
 type testSource struct {
-	types []RecordType
+	types    []RecordType
+	bindings []Binding
+	err      error
 }
 
 func (s *testSource) SupportedRecordTypes() []RecordType {
@@ -21,9 +23,20 @@ func (s *testSource) SupportedRecordTypes() []RecordType {
 	return append([]RecordType(nil), s.types...)
 }
 
-func (*testSource) VisitSubtypeBindingsTx(context.Context, pgx.Tx, uuid.UUID, func(Binding) error) error {
+func (s *testSource) VisitSubtypeBindingsTx(_ context.Context, _ pgx.Tx, _ uuid.UUID, visit func(Binding) error) error {
+	if s.err != nil {
+		return s.err
+	}
+	for _, binding := range s.bindings {
+		if err := visit(binding); err != nil {
+			return err
+		}
+	}
 	return nil
 }
+
+// catalogTestTx is a non-nil transaction for sources that never use it.
+type catalogTestTx struct{ pgx.Tx }
 
 func TestCatalogRejectsInvalidContributions(t *testing.T) {
 	valid := validContributions()
@@ -57,6 +70,7 @@ func TestCatalogAcceptsClosedTenTypeCoverage(t *testing.T) {
 }
 
 func TestValidateBindingsRequiresExactForwardAndReverseCoverage(t *testing.T) {
+	t.Run("production catalog ValidateTx", checkProductionCatalogValidateTx)
 	incidentID := uuid.New()
 	recordID := uuid.New()
 	envelopes := []Binding{{
@@ -131,8 +145,11 @@ func validateBindings(incidentID uuid.UUID, envelopes, bindings []Binding) error
 }
 
 func TestInventoryStreamsExactOrderedBindings(t *testing.T) {
-	incidentID := uuid.New()
+	incidentID, foreignIncidentID := uuid.New(), uuid.New()
 	expected, actual := NewInventory(incidentID), NewInventory(incidentID)
+	// foreign streams the same record IDs and types under another incident, so
+	// the incident is the only difference from expected.
+	foreign := NewInventory(foreignIncidentID)
 	var last Binding
 	for n := uint64(1); n <= 70000; n++ {
 		id := uuid.UUID{}
@@ -145,6 +162,9 @@ func TestInventoryStreamsExactOrderedBindings(t *testing.T) {
 		if err := expected.Add(last); err != nil {
 			t.Fatal(err)
 		}
+		if err := foreign.Add(Binding{RecordID: id, IncidentID: foreignIncidentID, RecordType: kind}); err != nil {
+			t.Fatal(err)
+		}
 		if n < 70000 {
 			if err := actual.Add(last); err != nil {
 				t.Fatal(err)
@@ -152,6 +172,15 @@ func TestInventoryStreamsExactOrderedBindings(t *testing.T) {
 		}
 	}
 	frozen := expected.Summary()
+	foreignSummary := foreign.Summary()
+	for kind := range expectedFamilyByType {
+		if frozen.types[kind].count != foreignSummary.types[kind].count {
+			t.Fatalf("%s count = %d; foreign count = %d", kind, frozen.types[kind].count, foreignSummary.types[kind].count)
+		}
+	}
+	if frozen.Equal(foreignSummary) || foreignSummary.Equal(frozen) {
+		t.Fatal("cross-incident inventory with identical bindings accepted")
+	}
 	if frozen.Equal(actual.Summary()) {
 		t.Fatal("missing final binding was accepted")
 	}
@@ -176,7 +205,53 @@ func TestInventoryStreamsExactOrderedBindings(t *testing.T) {
 	if frozen.Equal(expected.Summary()) {
 		t.Fatal("summary changed with its source or extra binding was ignored")
 	}
-	if frozen.Equal(NewInventory(uuid.New()).Summary()) {
-		t.Fatal("cross-incident inventory accepted")
+}
+
+func checkProductionCatalogValidateTx(t *testing.T) {
+	ctx := context.Background()
+	incidentID := uuid.New()
+	host := Binding{RecordID: uuid.MustParse("10000000-0000-4000-8000-000000000001"), IncidentID: incidentID, RecordType: RecordTypeHost}
+	party := Binding{RecordID: uuid.MustParse("10000000-0000-4000-8000-000000000002"), IncidentID: incidentID, RecordType: RecordTypeParty}
+	build := func(entities, parties []Binding, visitErr error) *Catalog {
+		t.Helper()
+		contributions := replaceContribution(validContributions(), "entities", Contribution{FamilyID: "entities", Source: &testSource{types: []RecordType{RecordTypeHost, RecordTypeIdentity}, bindings: entities, err: visitErr}})
+		contributions = replaceContribution(contributions, "parties", Contribution{FamilyID: "parties", Source: &testSource{types: []RecordType{RecordTypeParty}, bindings: parties}})
+		catalog, err := NewCatalog(contributions)
+		if err != nil {
+			t.Fatalf("NewCatalog: %v", err)
+		}
+		return catalog
+	}
+	expectedInventory := NewInventory(incidentID)
+	for _, binding := range []Binding{host, party} {
+		if err := expectedInventory.Add(binding); err != nil {
+			t.Fatal(err)
+		}
+	}
+	expected := expectedInventory.Summary()
+	tx := catalogTestTx{}
+	if err := build([]Binding{host}, []Binding{party}, nil).ValidateTx(ctx, tx, incidentID, expected); err != nil {
+		t.Fatalf("complete bindings rejected: %v", err)
+	}
+	if err := build(nil, []Binding{party}, nil).ValidateTx(ctx, tx, incidentID, expected); !errors.Is(err, ErrIncompleteBindings) {
+		t.Fatalf("missing binding error = %v", err)
+	}
+	if err := build([]Binding{host, party}, nil, nil).ValidateTx(ctx, tx, incidentID, expected); !errors.Is(err, ErrIncompleteBindings) {
+		t.Fatalf("wrong-family binding error = %v", err)
+	}
+	visitFailure := errors.New("visit failed")
+	if err := build(nil, []Binding{party}, visitFailure).ValidateTx(ctx, tx, incidentID, expected); !errors.Is(err, visitFailure) {
+		t.Fatalf("visitor error = %v", err)
+	}
+	catalog := build([]Binding{host}, []Binding{party}, nil)
+	for name, call := range map[string]func() error{
+		"nil catalog":     func() error { return (*Catalog)(nil).ValidateTx(ctx, tx, incidentID, expected) },
+		"nil transaction": func() error { return catalog.ValidateTx(ctx, nil, incidentID, expected) },
+		"nil incident":    func() error { return catalog.ValidateTx(ctx, tx, uuid.Nil, expected) },
+		"foreign summary": func() error { return catalog.ValidateTx(ctx, tx, incidentID, NewInventory(uuid.New()).Summary()) },
+	} {
+		if err := call(); !errors.Is(err, ErrInvalidCatalog) {
+			t.Fatalf("%s error = %v, want ErrInvalidCatalog", name, err)
+		}
 	}
 }

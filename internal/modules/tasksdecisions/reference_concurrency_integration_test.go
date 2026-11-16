@@ -170,8 +170,16 @@ func TestTaskDirectReferenceConcurrency_Integration(t *testing.T) {
 						t.Fatalf("reference admission details=%#v", failure)
 					}
 					if scenario == "deletion wait" {
-						// Undo only the barrier fixture's synthetic deletion before comparing all effects.
-						exec(`UPDATE records SET deleted_at=NULL,deleted_by_user_id=NULL,row_version=1 WHERE record_id=$1`, id)
+						// Undo only the barrier fixture's synthetic deletion before comparing all
+						// effects. The target must still hold exactly the barrier's tombstone, so the
+						// undo cannot erase a tombstone or version bump made by the rejected write.
+						undo, err := h.DB.ExecContext(ctx, `UPDATE records SET deleted_at=NULL,deleted_by_user_id=NULL,row_version=1 WHERE record_id=$1 AND deleted_at=updated_at AND deleted_by_user_id=$2 AND row_version=2`, id, actor)
+						if err != nil {
+							t.Fatal(err)
+						}
+						if undone, err := undo.RowsAffected(); err != nil || undone != 1 {
+							t.Fatalf("barrier tombstone changed before undo: %d rows, %v", undone, err)
+						}
 					}
 					if state() != before {
 						t.Fatal("rejected reference write changed source/history/projection/receipt/publication")

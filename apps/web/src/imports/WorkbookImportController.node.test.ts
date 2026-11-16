@@ -635,8 +635,12 @@ describe("Workbook import lifecycle", () => {
     expect(h.client.preview).toHaveBeenCalledTimes(1);
     pending.resolve(interrupted);
     await settle();
-    expect(h.controller.getSnapshot().units[0]?.previewFailure).not.toBeNull();
-    expect(h.controller.getSnapshot().units[1]?.preview).not.toBeNull();
+    expect(h.controller.getSnapshot().units[0]?.previewFailure).toEqual(
+      expect.anything(),
+    );
+    expect(h.controller.getSnapshot().units[1]?.preview).toEqual(
+      expect.anything(),
+    );
     h.controller.loadPreview(ids.unit);
     await settle();
     expect(h.controller.getSnapshot().units[0]?.previewFailure).toBeNull();

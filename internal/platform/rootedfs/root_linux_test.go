@@ -39,6 +39,11 @@ func TestRootedFSReferenceValidation_Unit(t *testing.T) {
 		t.Fatalf("canonical reference = %q, %v", reference.String(), err)
 	}
 
+	// Distinct siblings and a name sharing only a string prefix are not
+	// collisions.
+	if _, err := ValidateReferenceSet([]string{"a/b", "a/c", "ab"}); err != nil {
+		t.Fatalf("ValidateReferenceSet(distinct) error = %v", err)
+	}
 	for name, references := range map[string][]string{
 		"duplicate":               {"a/b", "a/b"},
 		"prefix":                  {"a/b", "a/b/c"},
@@ -182,6 +187,26 @@ func TestRootedFSOperationContainment_Unit(t *testing.T) {
 	if _, err := root.ListRegular(); err == nil {
 		t.Fatal("listing with a hard link succeeded")
 	}
+	// The root above also holds symlinks, so isolate the hard-link rule in a
+	// fresh root: it lists cleanly until a hard link is added.
+	linkRootPath := t.TempDir()
+	if err := os.WriteFile(filepath.Join(linkRootPath, "only.json"), []byte("{}"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	linkRoot, err := Open(linkRootPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = linkRoot.Close() })
+	if listed, err := linkRoot.ListRegular(); err != nil || len(listed) != 1 {
+		t.Fatalf("single-file listing = %#v, %v", listed, err)
+	}
+	if err := os.Link(filepath.Join(linkRootPath, "only.json"), filepath.Join(linkRootPath, "second-name.json")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := linkRoot.ListRegular(); err == nil {
+		t.Fatal("listing with only a hard link succeeded")
+	}
 	if err := unix.Mkfifo(filepath.Join(rootPath, "fifo"), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -223,8 +248,15 @@ func TestRootedFSAtomicLifecycleAndRootIdentity_Unit(t *testing.T) {
 		if err := staged.PublishSiblingExclusive(MustParseReference("occupied")); err == nil {
 			t.Fatal("occupied directory replaced")
 		}
+		// The parent exists, so only the non-sibling rule can reject this.
+		if err := os.Mkdir(filepath.Join(parent, "nested"), 0700); err != nil {
+			t.Fatal(err)
+		}
 		if err := staged.PublishSiblingExclusive(MustParseReference("nested/name")); err == nil {
 			t.Fatal("non-sibling admitted")
+		}
+		if _, err := os.Lstat(filepath.Join(parent, "nested", "name")); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("rejected non-sibling publication left an object: %v", err)
 		}
 		if err := staged.PublishSiblingExclusive(MustParseReference("published")); err != nil {
 			t.Fatal(err)

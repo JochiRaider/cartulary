@@ -684,8 +684,35 @@ describe("Scoped connection termination", () => {
       payload: { reason_code: "session_revoked" },
     });
     act(() => f.socket.onclose?.({ code: 1008, reason: "session_revoked" }));
+    const acknowledgeLive = (target: FakeWebSocket) => {
+      act(() => {
+        target.readyState = FakeWebSocket.OPEN;
+        target.onopen?.();
+      });
+      f.send(
+        {
+          incident_id: "incident-2",
+          type: "hello_ack",
+          payload: {
+            connection_id: "connection-replacement",
+            resume_token: "replacement-resume",
+            server_time: "2026-07-13T12:00:00Z",
+            heartbeat_interval_ms: 15_000,
+            presence_ttl_ms: 45_000,
+            resume_window_ms: 300_000,
+          },
+        },
+        target,
+      );
+      f.onEvent.mockClear();
+      f.send({ ...change, incident_id: "incident-2", stream_seq: 1 }, target);
+      expect(f.onEvent).toHaveBeenCalledOnce();
+      f.onEvent.mockClear();
+    };
     const second = FakeWebSocket.instances.at(-1);
     if (!second) throw new Error("Missing second socket");
+    expect(second).not.toBe(f.socket);
+    acknowledgeLive(second);
     f.view.rerender(f.element("incident-2", "account-2"));
     f.send(
       {
@@ -695,8 +722,11 @@ describe("Scoped connection termination", () => {
       },
       second,
     );
+    expect(f.onEvent).not.toHaveBeenCalled();
     const third = FakeWebSocket.instances.at(-1);
     if (!third) throw new Error("Missing third socket");
+    expect(third).not.toBe(second);
+    acknowledgeLive(third);
     f.view.unmount();
     f.send(
       {

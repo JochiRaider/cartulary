@@ -28,6 +28,49 @@ const request = () => ({
 });
 afterEach(() => vi.unstubAllGlobals());
 describe("Incident membership audit typed client", () => {
+  it("maps a non-JSON failure body to an unknown public error with its status", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof globalThis.fetch>(
+        async () =>
+          new Response("Service Unavailable", {
+            status: 503,
+            headers: { "Content-Type": "text/plain" },
+          }),
+      ),
+    );
+    expect(await listIncidentMembershipAuditPage(request())).toEqual({
+      ok: false,
+      status: 503,
+      error: { code: "unknown_public_error" },
+    });
+
+    // Control: a JSON public error keeps its own code.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof globalThis.fetch>(
+        async () =>
+          new Response(
+            JSON.stringify({
+              error: {
+                code: "service_unavailable",
+                details: {},
+                message: "Service unavailable.",
+                request_id: "request-unavailable",
+                retryable: true,
+                status: 503,
+              },
+            }),
+            { status: 503, headers: { "Content-Type": "application/json" } },
+          ),
+      ),
+    );
+    expect(await listIncidentMembershipAuditPage(request())).toMatchObject({
+      ok: false,
+      status: 503,
+      error: { code: "service_unavailable" },
+    });
+  });
   it("uses the generated incident operation with only exact filters and captured cursor context", async () => {
     const fetch = vi.fn<typeof globalThis.fetch>(
       async () =>
@@ -95,7 +138,7 @@ describe("Incident membership audit typed client", () => {
       auditEnvelope([
         { ...event(), scope_id: "00000000-0000-4000-8000-000000001002" },
       ]),
-      auditEnvelope([auditEvent()]),
+      auditEnvelope([{ ...event(), scope_kind: "deployment", scope_id: null }]),
       auditEnvelope([event(), event()]),
       auditEnvelope([
         event(),

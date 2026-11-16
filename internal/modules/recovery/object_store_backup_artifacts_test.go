@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"strings"
 	"testing"
 	"time"
 
@@ -78,7 +79,7 @@ func TestSupportObjectStoreBackup_DuplicateArtifactKeysRejected(t *testing.T) {
 		t.Fatal(err)
 	}
 	target := &vNextRestoreTargetFake{}
-	if err := fixture.restore.Restore(t.Context(), target, proof); !errors.Is(err, recovery.ErrVNextBackup) {
+	if err := fixture.restore.Restore(t.Context(), target, proof); !errors.Is(err, recovery.ErrVNextBackup) || !strings.Contains(err.Error(), "duplicate object member") {
 		t.Fatalf("duplicate current artifact key error = %v", err)
 	}
 	if target.commits != 0 || target.rollbacks != 0 {

@@ -37,9 +37,34 @@ describe("workbook surface ownership policy", () => {
     expect(plainData(Object.freeze(new Date()))).toBe(false);
   });
   it("assigns every registration to one declared bounded-context owner", () => {
-    const owners = new Set(
-      listWorkbookSurfaceRegistrations().map((entry) => entry.ownerId),
-    );
+    const registrations = listWorkbookSurfaceRegistrations();
+    expect(registrations).toHaveLength(17);
+    const view = (name: string, version = 1) =>
+      `cartulary.view.${name}.v${version}`;
+    expect(
+      Object.fromEntries(
+        registrations.map((entry) => [entry.viewSchemaId, entry.ownerId]),
+      ),
+    ).toEqual({
+      [view("notes")]: "artifacts",
+      [view("findings")]: "artifacts",
+      [view("investigative_queries")]: "artifacts",
+      [view("forensic_keywords")]: "artifacts",
+      [view("assessments")]: "assessments",
+      [view("timeline", 2)]: "capture_timeline",
+      [view("parties")]: "coordination",
+      [view("task_requests")]: "coordination",
+      [view("decisions")]: "coordination",
+      [view("comm_log")]: "coordination",
+      [view("handoff")]: "coordination",
+      [view("status_review")]: "coordination",
+      [view("lesson")]: "coordination",
+      [view("hosts")]: "entities_observations",
+      [view("identities")]: "entities_observations",
+      [view("indicators")]: "entities_observations",
+      [view("evidence")]: "evidence",
+    });
+    const owners = new Set(registrations.map((entry) => entry.ownerId));
     expect([...owners].sort()).toEqual([
       "artifacts",
       "assessments",

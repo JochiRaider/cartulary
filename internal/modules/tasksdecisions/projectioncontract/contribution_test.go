@@ -13,15 +13,16 @@ func TestNewContributionRequiresBothSources(t *testing.T) {
 	tests := map[string]struct {
 		taskRequests TaskRequestSourceReader
 		decisions    DecisionSourceReader
+		want         string
 	}{
-		"task requests": {decisions: contractSource{}},
-		"decisions":     {taskRequests: contractSource{}},
+		"task requests": {decisions: contractSource{}, want: "task-request projection source is required"},
+		"decisions":     {taskRequests: contractSource{}, want: "decision projection source is required"},
 	}
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			if _, err := NewContribution(test.taskRequests, test.decisions); err == nil {
-				t.Fatalf("Tasks/Decisions contribution without %s source unexpectedly constructed", name)
+			if _, err := NewContribution(test.taskRequests, test.decisions); err == nil || err.Error() != test.want {
+				t.Fatalf("Tasks/Decisions contribution without %s source error = %v, want %q", name, err, test.want)
 			}
 		})
 	}
@@ -55,7 +56,7 @@ func TestTaskDecisionProjectionContractOwnsTwoSemanticSurfaces(t *testing.T) {
 
 func TestTaskDecisionProjectionIntentRejectsUnknownViewSchema(t *testing.T) {
 	t.Parallel()
-	if _, err := surfaceIntent("cartulary.view.unknown.v1"); err == nil {
+	if _, err := surfaceIntent("cartulary.view.unknown.v1"); err == nil || err.Error() != `Tasks/Decisions projection surface "cartulary.view.unknown.v1" has no view-schema contract` {
 		t.Fatal("unknown Tasks/Decisions view schema produced a semantic intent")
 	}
 }

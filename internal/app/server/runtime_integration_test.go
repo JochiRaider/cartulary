@@ -439,7 +439,9 @@ EXECUTE FUNCTION bootstrap_fail_bootstrap_audit();
 
 		counters, dependencies := installStartupCounters()
 		unexpected, err := newRuntimeWithTestDependencies(t, context.Background(), cfg, Options{BrowserBuild: browserbuild.New(t), ReportingRuntime: reportingfixture.Runtime{}, Env: env}, dependencies)
-		defer unexpected.Close()
+		if unexpected != nil {
+			defer unexpected.Close()
+		}
 		requireBootstrapReason(t, err, "bootstrap_persist_failed")
 		counters.RequireNotStarted(t)
 
@@ -587,7 +589,9 @@ func TestBootstrapFailures_Integration(t *testing.T) {
 
 			counters, dependencies := installStartupCounters()
 			unexpected, err := newRuntimeWithTestDependencies(t, context.Background(), cfg, Options{BrowserBuild: browserbuild.New(t), ReportingRuntime: reportingfixture.Runtime{}, Env: env}, dependencies)
-			defer unexpected.Close()
+			if unexpected != nil {
+				defer unexpected.Close()
+			}
 			configtest.RequireDiagnosticsMatchGolden(t, err, []string{"bootstrap", "diagnostics", tc.goldenFile})
 			counters.RequireNotStarted(t)
 
@@ -614,7 +618,9 @@ func TestBootstrapFailures_Integration(t *testing.T) {
 		env := IntegrationEnv(testDB.Env(), s3Harness.Env(bucket))
 		cfg := BindPostgres(t, RuntimeConfig(t), env)
 		unexpected, err := NewRuntime(context.Background(), cfg, Options{BrowserBuild: browserbuild.New(t), ReportingRuntime: reportingfixture.Runtime{}, Env: env, Postgres: admittedPool})
-		defer unexpected.Close()
+		if unexpected != nil {
+			defer unexpected.Close()
+		}
 		if err == nil {
 			t.Fatal("expected missing bootstrap manifest to fail startup")
 		}
@@ -709,7 +715,9 @@ func TestBootstrapSkipAndRecovery_Integration(t *testing.T) {
 
 		counters, dependencies := installStartupCounters()
 		unexpected, err := newRuntimeWithTestDependencies(t, context.Background(), cfg, Options{BrowserBuild: browserbuild.New(t), ReportingRuntime: reportingfixture.Runtime{}, Env: env}, dependencies)
-		defer unexpected.Close()
+		if unexpected != nil {
+			defer unexpected.Close()
+		}
 		configtest.RequireDiagnosticsMatchGolden(t, err, []string{"bootstrap", "diagnostics", "bootstrap_recovery_not_supported.json"})
 		counters.RequireNotStarted(t)
 

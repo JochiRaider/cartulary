@@ -1,8 +1,12 @@
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { ImportWriteResult } from "../services/importClient";
 import { sessionResource } from "../testing/appShellTestSupport";
 import { useAppWorkflowsForTest } from "../testing/appWorkflowsTestSupport";
-import { importTestIds as ids } from "../testing/workbookImportTestSupport";
+import {
+  importTestIds as ids,
+  importTestJob,
+} from "../testing/workbookImportTestSupport";
 import type { NetworkFlowImportPort } from "../workbook/features/NetworkFlowOperations";
 import { AppSessionController } from "./appSessionController";
 
@@ -74,7 +78,9 @@ function setup() {
       currentIncidentId: () => incidentId,
     }),
   );
-  const send = vi.fn(() => new Promise<never>(() => {}));
+  const send = vi.fn<NetworkFlowImportPort["send"]>(
+    () => new Promise(() => {}),
+  );
   const unavailable = async () => ({
     kind: "failed" as const,
     failure: {
@@ -182,13 +188,41 @@ describe("Network Flow import application binding", () => {
     }
   });
   it("fences incident and account replacement before accepting a pending analytical write", async () => {
+    const job = importTestJob();
+    const accepted = (): ImportWriteResult => ({
+      kind: "accepted",
+      receipt: { kind: "job", job },
+    });
+    const holdUpload = (harness: ReturnType<typeof setup>) => {
+      let release!: (result: ImportWriteResult) => void;
+      harness.send.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            release = resolve;
+          }),
+      );
+      act(() => {
+        void harness.hook.result.current.controller.upload(
+          new File(["source"], "source.csv"),
+        );
+      });
+      return (result: ImportWriteResult) => release(result);
+    };
+
+    const control = setup();
+    await control.login();
+    const releaseControl = holdUpload(control);
+    await act(async () => {
+      releaseControl(accepted());
+      await flush();
+    });
+    const controlled = control.hook.result.current.controller.getSnapshot();
+    expect(controlled.write?.disposition).toBe("accepted");
+    expect(controlled.discoveryJob?.resource).toEqual(job);
+
     const h = setup();
     await h.login();
-    act(() => {
-      void h.hook.result.current.controller.upload(
-        new File(["source"], "source.csv"),
-      );
-    });
+    const release = holdUpload(h);
     expect(h.send).toHaveBeenCalledTimes(1);
     h.setIncident(ids.secondUnit);
     act(() => h.bind());
@@ -205,6 +239,15 @@ describe("Network Flow import application binding", () => {
       h.bind();
     });
     expect(h.hook.result.current.controller.getSnapshot().discovery).toBeNull();
+    await act(async () => {
+      release(accepted());
+      await flush();
+    });
+    expect(h.hook.result.current.controller.getSnapshot()).toMatchObject({
+      discovery: null,
+      discoveryJob: null,
+      write: null,
+    });
     expect(h.send).toHaveBeenCalledTimes(1);
   });
   it("hides protected state while the shell is absent and restores only explicit recovery", async () => {

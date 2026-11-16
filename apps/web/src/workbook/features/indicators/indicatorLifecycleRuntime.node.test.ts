@@ -59,7 +59,7 @@ it("Lifecycle runtime waits for same-record edits and requires review of their a
   });
   if (!attempt) throw new Error("admission");
   const running = owner.execute(attempt);
-  await Promise.resolve();
+  await new Promise((resolve) => setTimeout(resolve, 0));
   expect(send).not.toHaveBeenCalled();
   expect(runtime.enqueuePatch(patch).kind).toBe("rejected_mutation");
   earlier.resolve({

@@ -36,11 +36,11 @@ func TestImmutableCompositionContract_Unit(t *testing.T) {
 		definition.Extension == nil || definition.Terminal.Resources[0].Kind != "incident" || definition.Terminal.SuccessCodes[0] != "done" {
 		t.Fatalf("catalog changed through caller mutation: %#v", definition)
 	}
-	if _, err := NewManager(ManagerOptions{}); err == nil {
-		t.Fatal("NewManager accepted missing dependencies")
+	if _, err := NewManager(ManagerOptions{}); !errors.Is(err, ErrNotConfigured) {
+		t.Fatalf("NewManager missing dependencies error = %v, want ErrNotConfigured", err)
 	}
-	if _, err := NewRunner(RunnerOptions{}); err == nil {
-		t.Fatal("NewRunner accepted missing dependencies")
+	if _, err := NewRunner(RunnerOptions{}); !errors.Is(err, ErrNotConfigured) {
+		t.Fatalf("NewRunner missing dependencies error = %v, want ErrNotConfigured", err)
 	}
 	emptySelection, err := NewRuntimeSelection(catalog, nil, nil)
 	if err != nil || len(emptySelection.jobKinds()) != 0 || len(emptySelection.handlerNames()) != 0 {

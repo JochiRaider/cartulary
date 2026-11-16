@@ -2,6 +2,7 @@ package workbookprojection
 
 import (
 	"reflect"
+	"slices"
 	"testing"
 	"time"
 
@@ -10,7 +11,7 @@ import (
 
 func TestNewContributionRequiresSource(t *testing.T) {
 	t.Parallel()
-	if _, err := NewContribution(nil); err == nil {
+	if _, err := NewContribution(nil); err == nil || err.Error() != "artifacts projection source is required" {
 		t.Fatal("source-less Artifact projection contribution unexpectedly constructed")
 	}
 }
@@ -28,14 +29,19 @@ func TestArtifactProjectionContractOwnsEightSemanticSurfaces(t *testing.T) {
 	if descriptor.ProviderID != "artifact" ||
 		descriptor.SourceOwnerModule != "artifacts" ||
 		descriptor.ProjectionStorageOwnerModule != "projections" ||
-		len(descriptor.ViewSchemaIDs) != 8 ||
+		!slices.Equal(slices.Sorted(slices.Values(descriptor.ViewSchemaIDs)), artifactViewSchemaIDsForTest) ||
 		len(descriptor.FacadePackages) != 1 ||
 		descriptor.FacadePackages[0] != "internal/modules/artifacts/workbookprojection" {
 		t.Fatalf("unexpected Artifact descriptor: %#v", descriptor)
 	}
 	intents := contribution.ProjectionContribution().SurfaceIntents()
-	if len(intents) != 8 {
-		t.Fatalf("Artifact semantic intents = %d, want 8", len(intents))
+	intentViews := make([]string, 0, len(intents))
+	for _, intent := range intents {
+		intentViews = append(intentViews, intent.ViewSchemaID)
+	}
+	slices.Sort(intentViews)
+	if !slices.Equal(intentViews, artifactViewSchemaIDsForTest) {
+		t.Fatalf("Artifact semantic intent views = %v, want %v", intentViews, artifactViewSchemaIDsForTest)
 	}
 	seen := make(map[string]struct{}, len(intents))
 	for _, intent := range intents {
@@ -53,7 +59,7 @@ func TestArtifactProjectionContractOwnsEightSemanticSurfaces(t *testing.T) {
 
 func TestArtifactProjectionIntentRejectsUnknownViewSchema(t *testing.T) {
 	t.Parallel()
-	if _, err := surfaceIntent("cartulary.view.unknown.v1"); err == nil {
+	if _, err := surfaceIntent("cartulary.view.unknown.v1"); err == nil || err.Error() != `artifact projection surface "cartulary.view.unknown.v1" has no view-schema contract` {
 		t.Fatal("unknown Artifact view schema produced a semantic intent")
 	}
 }
@@ -208,3 +214,16 @@ type unknownProjectionVariant struct{}
 func (unknownProjectionVariant) projectionVariant() {}
 
 type artifactSourceStub struct{ SourceReader }
+
+// artifactViewSchemaIDsForTest is the independent, sorted list of the eight
+// Artifact-owned workbook views.
+var artifactViewSchemaIDsForTest = []string{
+	"cartulary.view.comm_log.v1",
+	"cartulary.view.findings.v1",
+	"cartulary.view.forensic_keywords.v1",
+	"cartulary.view.handoff.v1",
+	"cartulary.view.investigative_queries.v1",
+	"cartulary.view.lesson.v1",
+	"cartulary.view.notes.v1",
+	"cartulary.view.status_review.v1",
+}

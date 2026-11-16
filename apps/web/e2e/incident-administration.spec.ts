@@ -1892,7 +1892,13 @@ test("account settings retain edits through real version conflicts and exact com
       await (await page.request.get(`${apiBase}/api/v1/account/profile`)).json()
     ).data;
     expect(current.display_name).toBe("Committed response lost");
-    expect(current.user_version).toBe(Number(bodies[2]?.base_user_version) + 1);
+    expect(bodies.map((body) => body.base_user_version)).toEqual([
+      original.user_version,
+      original.user_version + 1,
+      original.user_version + 2,
+      original.user_version + 2,
+    ]);
+    expect(current.user_version).toBe(original.user_version + 3);
 
     release.release();
 
@@ -1971,6 +1977,7 @@ test("account settings keyboard density recovery and constrained presentation", 
   await expect(
     page.getByRole("status").filter({ hasText: "Appearance saved." }),
   ).toBeVisible();
+  expect(fixture.requests.appearance).toHaveLength(3);
   expect(fixture.requests.appearance[2]).toEqual(
     fixture.requests.appearance[1],
   );

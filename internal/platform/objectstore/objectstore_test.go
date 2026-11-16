@@ -40,6 +40,10 @@ func TestObjectStoreInitialization_Integration(t *testing.T) {
 		if err := store.PutObject(context.Background(), "proof/proof.txt", bytes.NewReader(payload), int64(len(payload)), "text/plain"); err != nil {
 			t.Fatalf("put filesystem object: %v", err)
 		}
+		// The object lands under roots.object_storage.path, not elsewhere.
+		if placed, err := os.ReadFile(filepath.Join(cfg.binding.RootPath, "proof", "proof.txt")); err != nil || !bytes.Equal(placed, payload) {
+			t.Fatalf("object not placed under the configured root: %q %v", placed, err)
+		}
 
 		stat, err := store.StatObject(context.Background(), "proof/proof.txt")
 		if err != nil {

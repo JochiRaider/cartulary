@@ -18,8 +18,10 @@ import (
 func TestMaintenanceRebuildIsOneCompleteCatalogTransaction(t *testing.T) {
 	incidentID := uuid.New()
 	calls := make([]string, 0, 3)
-	providers := maintenanceProviders(func(providerID string, _ pgx.Tx) error {
+	transactions := make([]pgx.Tx, 0, 3)
+	providers := maintenanceProviders(func(providerID string, tx pgx.Tx) error {
 		calls = append(calls, providerID)
+		transactions = append(transactions, tx)
 		return nil
 	})
 	tracked := &trackingMaintenanceDB{}
@@ -29,6 +31,9 @@ func TestMaintenanceRebuildIsOneCompleteCatalogTransaction(t *testing.T) {
 	}
 	if got, want := calls, []string{"first", "middle", "final"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("provider order = %#v, want %#v", got, want)
+	}
+	if len(transactions) != 3 || transactions[0] == nil || transactions[1] != transactions[0] || transactions[2] != transactions[0] {
+		t.Fatalf("providers did not share one rebuild transaction: %#v", transactions)
 	}
 	if tracked.begins != 1 || tracked.commits != 1 || tracked.rollbacks != 1 {
 		t.Fatalf("transaction calls begin=%d commit=%d rollback=%d", tracked.begins, tracked.commits, tracked.rollbacks)

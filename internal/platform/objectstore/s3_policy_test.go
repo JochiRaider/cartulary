@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -179,6 +180,11 @@ func TestS3CryptographicPolicy(t *testing.T) {
 		}
 		if target.Method != "PUT" || request.URL.Scheme != "https" || checksum != base64.StdEncoding.EncodeToString(digest[:]) {
 			t.Fatal("presign checksum binding missing")
+		}
+		// The declared size is bound by signing Content-Length.
+		signed := strings.Split(request.URL.Query().Get("X-Amz-SignedHeaders"), ";")
+		if !slices.Contains(signed, "content-length") {
+			t.Fatalf("presign does not bind the declared size: signed headers %q", signed)
 		}
 	})
 }

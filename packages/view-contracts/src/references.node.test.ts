@@ -44,6 +44,34 @@ describe("ordinary reference field contracts", () => {
         ).toBe(true);
       }
     }
+    // Every action-payload field is an ordinary collection reference or one
+    // of these specialized fields, so a new field must be classified.
+    const specializedActionFields = new Set([
+      "cartulary.view.assessments.v1:assessment.support_refs",
+      "cartulary.view.handoff.v1:handoff.open_risk_refs",
+      "cartulary.view.hosts.v1:host.aliases",
+      "cartulary.view.identities.v1:identity.aliases",
+      "cartulary.view.notes.v1:note.tags",
+      "cartulary.view.timeline.v2:timeline.attached_evidence_ids",
+      "cartulary.view.timeline.v2:timeline.host_refs",
+      "cartulary.view.timeline.v2:timeline.identity_refs",
+      "cartulary.view.timeline.v2:timeline.tags",
+    ]);
+    const unclassified: string[] = [];
+    for (const contract of listViewContracts())
+      for (const field of contract.fields.filter(
+        (f) => f.writeKind === "action_payload",
+      )) {
+        const key = `${contract.viewSchemaId}:${field.fieldKey}`;
+        const reference = getReferenceFieldContract(
+          contract.viewSchemaId,
+          field.fieldKey,
+        );
+        if (specializedActionFields.has(key))
+          expect(reference, key).toBeUndefined();
+        else if (reference?.kind !== "collection") unclassified.push(key);
+      }
+    expect(unclassified).toEqual([]);
     expect(
       getReferenceFieldContract(
         "cartulary.view.assessments.v1",

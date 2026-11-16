@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -52,11 +53,11 @@ func testOwnerFamilyRegistration(t *testing.T) {
 	if err := deps.PublicRoutes.ValidateActive(); err != nil {
 		t.Fatal(err)
 	}
-	if err := BindOwnerFamilyRoutes(deps, owner, profile, root, policy, handlers); err == nil {
-		t.Fatal("duplicate family admitted")
+	if err := BindOwnerFamilyRoutes(deps, owner, profile, root, policy, handlers); err == nil || err.Error() != fmt.Sprintf("owner family %q overlaps a bound family", root) {
+		t.Fatalf("duplicate family error = %v", err)
 	}
-	if _, err := deps.PublicRoutes.withOwnerFamilies(http.NotFoundHandler(), nil); err == nil {
-		t.Fatal("lost claimed projection admitted")
+	if _, err := deps.PublicRoutes.withOwnerFamilies(http.NotFoundHandler(), nil); err == nil || err.Error() != "bound owner family is absent from the claimed route projection" {
+		t.Fatalf("lost claimed projection error = %v", err)
 	}
 	dispatch, err := deps.PublicRoutes.withOwnerFamilies(http.NotFoundHandler(), extensionRoutesFromDependencies(deps))
 	if err != nil {

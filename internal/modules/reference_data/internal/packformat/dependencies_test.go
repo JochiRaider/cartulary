@@ -11,7 +11,7 @@ import (
 func TestDependencyVerificationGraphAndPrecedence_Unit(t *testing.T) {
 	ctx := context.Background()
 	edge := func(version string) Dependency {
-		return Dependency{"enrichment.lolbas", version, strings.Repeat("a", 64)}
+		return Dependency{Key: "enrichment.lolbas", Version: version, SHA256: strings.Repeat("a", 64)}
 	}
 	root := Manifest{Key: "enrichment.lolbas", Version: "root"}
 	graph := map[string]Manifest{}

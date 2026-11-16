@@ -54,6 +54,15 @@ func TestWorkbookWritableConflictCapabilityDerivedFromRegistry_Unit(t *testing.T
 				resource.ViewSchemaID,
 			)
 		}
+		// Every writable field above has a non-empty conflict class, so the surface
+		// must also be a conflict requirement. This count is independent of
+		// production's schemaHasConflictCapableField.
+		if !slices.Contains(expectedConflictSurfaces()[resource.SourceRecordTypes[0]], resource.ViewSchemaID) {
+			t.Fatalf(
+				"writable surface %s is absent from the registry-derived conflict requirements",
+				resource.ViewSchemaID,
+			)
+		}
 	}
 	if len(recordTypes) == 0 {
 		t.Fatal("machine registry produced no conflict-capable record types")

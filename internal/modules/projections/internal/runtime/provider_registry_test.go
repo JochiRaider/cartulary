@@ -23,9 +23,9 @@ func TestProjectionProviderRegistryOrdersAndIndexesContributions(t *testing.T) {
 	if got, want := providerKeys(registry.rebuildOrder), []string{"host", "identity"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("rebuild order: got %#v want %#v", got, want)
 	}
-	for _, viewSchemaID := range []string{hostsViewSchemaID, identitiesViewSchemaID} {
-		if provider, ok := registry.providerForView(viewSchemaID); !ok || provider == nil {
-			t.Fatalf("projection surface %s has no provider", viewSchemaID)
+	for viewSchemaID, providerID := range map[string]string{hostsViewSchemaID: "host", identitiesViewSchemaID: "identity"} {
+		if provider, ok := registry.providerForView(viewSchemaID); !ok || provider == nil || provider.descriptor.ProviderID != providerID {
+			t.Fatalf("projection surface %s provider = %#v, want %q", viewSchemaID, provider, providerID)
 		}
 	}
 	if got, want := providerKeys(registry.evidenceAssociationProviders("host")), []string{"host"}; !reflect.DeepEqual(got, want) {
@@ -147,6 +147,29 @@ func TestProjectionProviderRegistryRejectsInvalidExecutableBindings(t *testing.T
 			},
 			want: "refresh implementation without capability",
 		},
+		"refresh capability without implementation": {
+			mutate: func(providers []Provider) []Provider {
+				providers[0].refreshRowTx = nil
+				return providers
+			},
+			want: "declares refresh support without implementation",
+		},
+		"incident rebuild capability without implementation": {
+			mutate: func(providers []Provider) []Provider {
+				providers[0].rebuildIncidentTx = nil
+				return providers
+			},
+			want: "declares incident rebuild support without implementation",
+		},
+		"incident rebuild implementation without capability": {
+			mutate: func(providers []Provider) []Provider {
+				providers[0].descriptor.Capabilities.IncidentRebuild = false
+				providers[0].descriptor.Capabilities.RestoreRebuild = false
+				providers[0].descriptor.RestoreRebuild = providercontract.RestoreRebuildNonparticipating
+				return providers
+			},
+			want: "has incident rebuild implementation without capability",
+		},
 		"association fields without state loader": {
 			mutate: func(providers []Provider) []Provider {
 				providers[0].loadEvidenceAssociationStateTx = nil
@@ -163,6 +186,24 @@ func TestProjectionProviderRegistryRejectsInvalidExecutableBindings(t *testing.T
 			}
 		})
 	}
+	t.Run("empty provider registry", func(t *testing.T) {
+		providers := registryValidationProviders()
+		descriptorSet, err := providercontract.NewDescriptorSet([]providercontract.ProviderDescriptor{providers[0].descriptor})
+		if err != nil {
+			t.Fatalf("descriptor set: %v", err)
+		}
+		if _, err := newProviderRegistry(descriptorSet, nil); err == nil || err.Error() != "projection provider registry is empty" {
+			t.Fatalf("empty registry error = %v", err)
+		}
+	})
+	t.Run("nil catalog", func(t *testing.T) {
+		if _, err := (*Store)(nil).providerRegistry(); err == nil || err.Error() != "projection catalog is required" {
+			t.Fatalf("nil catalog error = %v", err)
+		}
+		if _, err := (&Store{}).providerRegistry(); err == nil || err.Error() != "projection catalog is required" {
+			t.Fatalf("missing registry error = %v", err)
+		}
+	})
 }
 
 func TestProjectionProviderRegistryRequiresExactExecutableMembership(t *testing.T) {

@@ -57,6 +57,9 @@ func exerciseIncidentRecordEnumeration(t *testing.T, db dbport.DB) {
 	if err := store.VisitIncidentRecordIDsTx(t.Context(), tx, uuid.New(), func(uuid.UUID) error { t.Fatal("empty incident invoked visitor"); return nil }); err != nil {
 		t.Fatal(err)
 	}
+	if err := store.VisitIncidentRecordIDsTx(t.Context(), tx, incidentID, nil); err == nil || err.Error() != "records: missing incident record visitor" {
+		t.Fatalf("nil visitor error = %v", err)
+	}
 	stop := errors.New("stop inventory")
 	calls := 0
 	if err := store.VisitIncidentRecordIDsTx(t.Context(), tx, incidentID, func(uuid.UUID) error { calls++; return stop }); !errors.Is(err, stop) || calls != 1 {

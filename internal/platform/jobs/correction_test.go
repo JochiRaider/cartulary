@@ -379,7 +379,8 @@ func TestRunnerFailureSecurity_Integration(t *testing.T) {
 		func() time.Time { return time.Now().UTC() },
 	)
 	t.Run("exhaustion publishes fixed safe summary", func(t *testing.T) {
-		const sentinel = "SENTINEL_EXHAUSTED_HANDLER_SECRET"
+		// RecordExecutionFailure accepts no handler text, so safety is shown by
+		// pinning the fixed exhaustion summary exactly.
 		jobID := createCorrectionJob(t, manager, actorID, incidentID, "test.exhaustion")
 		for attempt := 1; attempt <= jobs.DefaultHandlerMaxAttempts; attempt++ {
 			execution := claimTestExecution(t, manager, jobID)
@@ -396,10 +397,6 @@ func TestRunnerFailureSecurity_Integration(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		encoded, err := json.Marshal(resource)
-		if err != nil {
-			t.Fatal(err)
-		}
 		var lastError *string
 		var attemptID *uuid.UUID
 		if err := pool.QueryRow(ctx, `SELECT handler_last_error, handler_attempt_id FROM jobs WHERE job_id = $1`, jobID).Scan(&lastError, &attemptID); err != nil {
@@ -409,8 +406,14 @@ func TestRunnerFailureSecurity_Integration(t *testing.T) {
 			resource.ErrorSummary.Code != jobs.HandlerAttemptsExhausted || attemptID != nil {
 			t.Errorf("unsafe exhaustion state: resource=%#v attempt_id=%v", resource, attemptID)
 		}
-		if strings.Contains(string(encoded), sentinel) || lastError == nil || strings.Contains(*lastError, sentinel) {
-			t.Errorf("exhaustion leaked raw handler text: resource=%s last_error=%v", encoded, lastError)
+		if lastError == nil || *lastError != jobs.HandlerAttemptsExhausted {
+			t.Errorf("exhaustion last error = %v; want %q", lastError, jobs.HandlerAttemptsExhausted)
+		}
+		if summary := resource.ErrorSummary; summary == nil ||
+			summary.Message != "Job failed closed after exhausting durable handler attempts." ||
+			summary.Retryable || len(summary.Details) != 1 ||
+			summary.Details["reason_code"] != jobs.HandlerAttemptsExhausted {
+			t.Errorf("exhaustion summary is not the fixed safe summary: %#v", resource.ErrorSummary)
 		}
 	})
 

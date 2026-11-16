@@ -7,7 +7,7 @@ func TestClosedSQLFragments(t *testing.T) {
 		for _, template := range []string{
 			"SELECT 1 FROM artifacts /* %s */", "SELECT 1 -- %s", "SELECT /* outer /* %s */ end */ 1",
 			"SELECT '%s'", "SELECT E'%s'", `SELECT "%s"`, "SELECT $$%s$$", "SELECT $tag$%s$tag$",
-			"SELECT prefix%s", "SELECT %ssuffix", "SELECT $%s", "SELECT '%s", "SELECT 'unterminated",
+			"SELECT prefix%s", "SELECT %ssuffix", "SELECT $%s", "SELECT '%s",
 		} {
 			for _, command := range []bool{false, true} {
 				func() {
@@ -23,6 +23,21 @@ func TestClosedSQLFragments(t *testing.T) {
 					}
 				}()
 			}
+		}
+		// No placeholder and no argument: only the unterminated literal is wrong.
+		for _, command := range []bool{false, true} {
+			func() {
+				defer func() {
+					if recover() == nil {
+						t.Errorf("unterminated literal template accepted command=%v", command)
+					}
+				}()
+				if command {
+					Command("SELECT 'unterminated")
+				} else {
+					Format("SELECT 'unterminated")
+				}
+			}()
 		}
 		for _, template := range []string{"SELECT 1 /* comment */", "SELECT 1 -- comment", "SELECT 'unterminated", "SELECT $$nul\x00$$", "SELECT E'\\\x00'"} {
 			func() {

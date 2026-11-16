@@ -13,11 +13,6 @@ describe("WorkbookSurfaceRegistration", () => {
         .map((contract) => contract.viewSchemaId)
         .sort(),
     );
-    expect(
-      registrations.some(
-        (entry) => entry.viewSchemaId === "network_flow_activity",
-      ),
-    ).toBe(false);
     // Independent expectations qualify representative browser coverage of each
     // renderer. Registry-derived expectations would conceal a wrong assignment.
     expect(

@@ -21,7 +21,7 @@ func VERISSetDigest(t testing.TB, repositoryRoot string, f ProducedVERISPack) st
 func VERISRelease(t testing.TB, repositoryRoot string) ProducedVERISPack {
 	t.Helper()
 	f, _ := retainedDataset(t, repositoryRoot, "veris", "framework.veris", "cartulary.veris.community", "release", 2491, 2533)
-	return ProducedVERISPack{f.PortablePackFixture, f.ManifestSHA256, f.PayloadSHA256, f.Members}
+	return ProducedVERISPack(f)
 }
 
 // VERISFixture signs a canonical generic corpus derivative with isolated test
@@ -29,5 +29,5 @@ func VERISRelease(t testing.TB, repositoryRoot string) ProducedVERISPack {
 func VERISFixture(t testing.TB, version string, now time.Time, keys *referencepackfixture.SigningContext, metadataVersion int64) ProducedVERISPack {
 	t.Helper()
 	f := corpusDatasetFixture(t, "veris", version, now, keys, metadataVersion)
-	return ProducedVERISPack{f.PortablePackFixture, f.ManifestSHA256, f.PayloadSHA256, f.Members}
+	return ProducedVERISPack(f)
 }

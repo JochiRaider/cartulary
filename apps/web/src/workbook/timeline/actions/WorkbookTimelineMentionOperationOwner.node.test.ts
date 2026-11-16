@@ -84,6 +84,7 @@ it("Mention creation retains its receipt before rejected linking and renewed res
   const binding = { ...f.binding, prepare: async () => subject };
   expect(f.owner.linkCreated(1, subject, binding)).toBe(true);
   await flush();
+  expect(f.send).toHaveBeenCalledTimes(2);
   expect(f.send.mock.calls[1]?.[0].review.subject.mentionRowVersion).toBe(3);
   expect(f.create).toHaveBeenCalledTimes(1);
 });
@@ -96,6 +97,7 @@ it("Mention creation followed by uncertain linking recovers only the original re
   expect(resolution?.phase).toBe("uncertain");
   expect(f.owner.linkCreated(1, f.review.subject, f.binding)).toBe(false);
   await f.owner.replay(resolution?.key ?? -1);
+  expect(f.send).toHaveBeenCalledTimes(2);
   expect(f.send.mock.calls[1]?.[0]).toBe(f.send.mock.calls[0]?.[0]);
   expect(f.create).toHaveBeenCalledTimes(1);
   expect(f.owner.getSnapshot().entries[0]?.refresh).toBe("complete");
@@ -130,6 +132,7 @@ it("Mention uncertain creation replays its exact attempt and requires renewed re
   f.owner.createAndResolve(f.createReview, f.binding);
   await flush();
   await f.owner.replayCreation(1);
+  expect(f.create).toHaveBeenCalledTimes(2);
   expect(f.create.mock.calls[1]?.[0]).toBe(f.create.mock.calls[0]?.[0]);
   expect(f.owner.getSnapshot().creations[0]?.receipt).toEqual(f.createReceipt);
   expect(f.send).not.toHaveBeenCalled();
@@ -263,6 +266,7 @@ it("Mention exact replay keeps original body version route and key despite newer
   f.owner.observeMention({ ...f.review.subject, mentionRowVersion: 20 });
   f.owner.acceptVersion(f.review.subject.sourceRecordId, 30);
   await f.owner.replay(1);
+  expect(f.send).toHaveBeenCalledTimes(2);
   expect(f.send.mock.calls[1]?.[0]).toBe(original);
   expect(f.ids.create).toHaveBeenCalledTimes(1);
   expect(f.owner.latestVersion(f.review.subject.sourceRecordId)).toBe(30);
@@ -339,6 +343,7 @@ it("Mention timeout permits exact replay and retains a late accepted receipt", a
   });
   const replaying = f.owner.replay(1);
   await flush();
+  expect(f.send).toHaveBeenCalledTimes(2);
   expect(f.send.mock.calls[1]?.[0]).toBe(f.send.mock.calls[0]?.[0]);
   original.resolve({ kind: "accepted", receipt: mentionReceipt() });
   await flush();

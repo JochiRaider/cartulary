@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/jackc/pgx/v5"
@@ -23,23 +24,29 @@ func TestTelemetryDBPreservesDBBehaviorNoSDK(t *testing.T) {
 	if value != "ok" {
 		t.Fatalf("unexpected scan value: %q", value)
 	}
-	if fake.execSQL == "" || fake.queryRowSQL == "" {
-		t.Fatalf("wrapper did not call fake DB: %#v", fake)
+	if fake.execSQL != "SELECT private_table WHERE id=$1" || fake.queryRowSQL != "SELECT private_column" {
+		t.Fatalf("wrapper did not forward statements exactly: %#v", fake)
 	}
 }
 
 func TestPostgresErrorClass(t *testing.T) {
-	if got := postgresErrorClass(context.DeadlineExceeded); got != "timeout" {
-		t.Fatalf("unexpected deadline class: %q", got)
-	}
-	if got := postgresErrorClass(&pgconn.PgError{Code: "40001"}); got != "serialization_conflict" {
-		t.Fatalf("unexpected serialization class: %q", got)
-	}
-	if got := postgresErrorClass(&pgconn.PgError{Code: "23505"}); got != "constraint_violation" {
-		t.Fatalf("unexpected constraint class: %q", got)
-	}
-	if got := postgresErrorClass(errors.New("network unavailable")); got != "dependency_unavailable" {
-		t.Fatalf("unexpected dependency class: %q", got)
+	for _, tc := range []struct {
+		err  error
+		want string
+	}{
+		{context.DeadlineExceeded, "timeout"},
+		{fmt.Errorf("wrapped: %w", context.DeadlineExceeded), "timeout"},
+		{&pgconn.PgError{Code: "40001"}, "serialization_conflict"},
+		{&pgconn.PgError{Code: "23502"}, "constraint_violation"},
+		{&pgconn.PgError{Code: "23503"}, "constraint_violation"},
+		{&pgconn.PgError{Code: "23505"}, "constraint_violation"},
+		{&pgconn.PgError{Code: "23514"}, "constraint_violation"},
+		{&pgconn.PgError{Code: "42501"}, "internal_error"},
+		{errors.New("network unavailable"), "dependency_unavailable"},
+	} {
+		if got := postgresErrorClass(tc.err); got != tc.want {
+			t.Fatalf("class(%v) = %q, want %q", tc.err, got, tc.want)
+		}
 	}
 }
 

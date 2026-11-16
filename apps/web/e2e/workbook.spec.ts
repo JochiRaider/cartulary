@@ -1070,14 +1070,17 @@ test("browser Timeline sort, filter, and group controls submit stable query keys
   );
   const alpha = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("e803-alpha"),
+    "timeline.activity_utc_text": "2026-05-03T10:00:00Z",
     "timeline.activity_synopsis_text": "Alpha Workbook query",
   });
   const beta = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("e803-beta"),
+    "timeline.activity_utc_text": "2026-05-02T10:00:00Z",
     "timeline.activity_synopsis_text": "Beta Workbook query",
   });
   const gamma = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("e803-gamma"),
+    "timeline.activity_utc_text": "2026-05-01T10:00:00Z",
     "timeline.activity_synopsis_text": "Gamma Workbook query",
   });
 
@@ -1111,6 +1114,15 @@ test("browser Timeline sort, filter, and group controls submit stable query keys
   await expect(
     page.getByTestId(rowCellTestId(beta.record_id, "timeline.capture_state")),
   ).toHaveText("reviewed");
+  // Default order is activity time ascending, the reverse of the synopsis
+  // order, so the sorted order below can only come from the sort request.
+  await expect
+    .poll(() => visibleRecordIds(page))
+    .toEqual([
+      String(gamma.record_id),
+      String(beta.record_id),
+      String(alpha.record_id),
+    ]);
 
   const sortRequest = waitForViewQueryBody(
     page,
@@ -2039,6 +2051,11 @@ test("browser Notes full_text and prefix queries remain exact", async ({
     page.getByTestId(gridShellTestId(notesViewSchemaId)),
   ).toBeVisible();
 
+  await expect(
+    page.getByTestId(
+      rowCellTestId(powershell.record_id as string, "note.title"),
+    ),
+  ).toHaveText("Powershell only");
   const uiFilterBody = {
     limit: 100,
     filters: [

@@ -123,6 +123,7 @@ func TestMappingApprovalProtectsPreparedSource_Integration(t *testing.T) {
 				}
 				var requestCtx context.Context
 				requestCtx, requestCancel = context.WithCancel(ctx)
+				defer requestCancel()
 				request, err := http.NewRequestWithContext(requestCtx, http.MethodPut, h.Server.HTTP.URL+"/api/v1/import-sessions/"+session+"/units/"+unit+"/mapping", bytes.NewReader(raw))
 				if err != nil {
 					t.Fatal(err)

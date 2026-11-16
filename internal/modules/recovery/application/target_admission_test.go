@@ -88,28 +88,29 @@ func TestRestoreTargetMarkerV2Admission_Unit(t *testing.T) {
 		material TargetMarkerMaterial
 		purpose  string
 		expected recovery.TargetBindingDigests
+		want     string
 	}{
-		{"wrong purpose", validMaterial, RestoreTargetPurpose, expected},
-		{"wrong database binding", validMaterial, RestoreVerificationTargetPurpose, recovery.TargetBindingDigests{DatabaseSHA256: strings.Repeat("3", 64), ObjectStoreSHA256: expected.ObjectStoreSHA256}},
-		{"wrong object binding", validMaterial, RestoreVerificationTargetPurpose, recovery.TargetBindingDigests{DatabaseSHA256: expected.DatabaseSHA256, ObjectStoreSHA256: strings.Repeat("3", 64)}},
-		{"wrong generation", TargetMarkerMaterial{MarkerBody: validMaterial.MarkerBody, GenerationBody: []byte("00000000-0000-0000-0000-000000005002\n")}, RestoreVerificationTargetPurpose, expected},
-		{"missing generation", TargetMarkerMaterial{MarkerBody: validMaterial.MarkerBody}, RestoreVerificationTargetPurpose, expected},
-		{"v1 schema", replaceMarkerMember(validMaterial, RestoreTargetMarkerSchemaID, "cartulary.restore_verification_target.v1"), RestoreVerificationTargetPurpose, expected},
-		{"v2 schema", replaceMarkerMember(validMaterial, RestoreTargetMarkerSchemaID, "cartulary.restore_target_marker.v2"), RestoreVerificationTargetPurpose, expected},
-		{"v4 schema", replaceMarkerMember(validMaterial, RestoreTargetMarkerSchemaID, "cartulary.restore_target_marker.v4"), RestoreVerificationTargetPurpose, expected},
-		{"wrong application format", replaceMarkerMember(validMaterial, recovery.ApplicationCryptoFormatID, "cartulary.application_crypto_format.v0"), RestoreVerificationTargetPurpose, expected},
-		{"wrong Reference Pack root", replaceMarkerMember(validMaterial, expected.ReferencePackStorageSHA256, strings.Repeat("4", 64)), RestoreVerificationTargetPurpose, expected},
-		{"duplicate member", TargetMarkerMaterial{MarkerBody: bytes.Replace(validMaterial.MarkerBody, []byte(`"purpose":`), []byte(`"purpose":"restore_verification_target","purpose":`), 1), GenerationBody: validMaterial.GenerationBody}, RestoreVerificationTargetPurpose, expected},
-		{"unknown member", TargetMarkerMaterial{MarkerBody: bytes.Replace(validMaterial.MarkerBody, []byte(`{`), []byte(`{"unknown":true,`), 1), GenerationBody: validMaterial.GenerationBody}, RestoreVerificationTargetPurpose, expected},
-		{"trailing data", TargetMarkerMaterial{MarkerBody: append(append([]byte(nil), validMaterial.MarkerBody...), []byte(` {}`)...), GenerationBody: validMaterial.GenerationBody}, RestoreVerificationTargetPurpose, expected},
-		{"expired", markerMaterialForTest(t, markerWithTimes(validMarker, now.Add(-2*time.Hour), now.Add(-time.Hour)), generationID), RestoreVerificationTargetPurpose, expected},
-		{"future issued", markerMaterialForTest(t, markerWithTimes(validMarker, now.Add(time.Minute), now.Add(time.Hour)), generationID), RestoreVerificationTargetPurpose, expected},
-		{"lifetime over 24 hours", markerMaterialForTest(t, markerWithTimes(validMarker, now.Add(-time.Minute), now.Add(24*time.Hour)), generationID), RestoreVerificationTargetPurpose, expected},
+		{"wrong purpose", validMaterial, RestoreTargetPurpose, expected, "wrong schema or purpose"},
+		{"wrong database binding", validMaterial, RestoreVerificationTargetPurpose, recovery.TargetBindingDigests{DatabaseSHA256: strings.Repeat("3", 64), ObjectStoreSHA256: expected.ObjectStoreSHA256}, "wrong target binding"},
+		{"wrong object binding", validMaterial, RestoreVerificationTargetPurpose, recovery.TargetBindingDigests{DatabaseSHA256: expected.DatabaseSHA256, ObjectStoreSHA256: strings.Repeat("3", 64)}, "wrong target binding"},
+		{"wrong generation", TargetMarkerMaterial{MarkerBody: validMaterial.MarkerBody, GenerationBody: []byte("00000000-0000-0000-0000-000000005002\n")}, RestoreVerificationTargetPurpose, expected, "wrong target generation"},
+		{"missing generation", TargetMarkerMaterial{MarkerBody: validMaterial.MarkerBody}, RestoreVerificationTargetPurpose, expected, "generation proof is invalid"},
+		{"v1 schema", replaceMarkerMember(validMaterial, RestoreTargetMarkerSchemaID, "cartulary.restore_verification_target.v1"), RestoreVerificationTargetPurpose, expected, "wrong schema or purpose"},
+		{"v2 schema", replaceMarkerMember(validMaterial, RestoreTargetMarkerSchemaID, "cartulary.restore_target_marker.v2"), RestoreVerificationTargetPurpose, expected, "wrong schema or purpose"},
+		{"v4 schema", replaceMarkerMember(validMaterial, RestoreTargetMarkerSchemaID, "cartulary.restore_target_marker.v4"), RestoreVerificationTargetPurpose, expected, "wrong schema or purpose"},
+		{"wrong application format", replaceMarkerMember(validMaterial, recovery.ApplicationCryptoFormatID, "cartulary.application_crypto_format.v0"), RestoreVerificationTargetPurpose, expected, "wrong schema or purpose"},
+		{"wrong Reference Pack root", replaceMarkerMember(validMaterial, expected.ReferencePackStorageSHA256, strings.Repeat("4", 64)), RestoreVerificationTargetPurpose, expected, "wrong target binding"},
+		{"duplicate member", TargetMarkerMaterial{MarkerBody: bytes.Replace(validMaterial.MarkerBody, []byte(`"purpose":`), []byte(`"purpose":"restore_verification_target","purpose":`), 1), GenerationBody: validMaterial.GenerationBody}, RestoreVerificationTargetPurpose, expected, "not strict JSON"},
+		{"unknown member", TargetMarkerMaterial{MarkerBody: bytes.Replace(validMaterial.MarkerBody, []byte(`{`), []byte(`{"unknown":true,`), 1), GenerationBody: validMaterial.GenerationBody}, RestoreVerificationTargetPurpose, expected, "decode restore target marker"},
+		{"trailing data", TargetMarkerMaterial{MarkerBody: append(append([]byte(nil), validMaterial.MarkerBody...), []byte(` {}`)...), GenerationBody: validMaterial.GenerationBody}, RestoreVerificationTargetPurpose, expected, "not strict JSON"},
+		{"expired", markerMaterialForTest(t, markerWithTimes(validMarker, now.Add(-2*time.Hour), now.Add(-time.Hour)), generationID), RestoreVerificationTargetPurpose, expected, "restore target marker has expired"},
+		{"future issued", markerMaterialForTest(t, markerWithTimes(validMarker, now.Add(time.Minute), now.Add(time.Hour)), generationID), RestoreVerificationTargetPurpose, expected, "not currently valid"},
+		{"lifetime over 24 hours", markerMaterialForTest(t, markerWithTimes(validMarker, now.Add(-time.Minute), now.Add(24*time.Hour)), generationID), RestoreVerificationTargetPurpose, expected, "lifetime is invalid"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if err := ValidateRestoreTargetMarker(test.material, test.purpose, test.expected, now); err == nil {
-				t.Fatal("invalid restore target marker was admitted")
+			if err := ValidateRestoreTargetMarker(test.material, test.purpose, test.expected, now); err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("invalid restore target marker error = %v, want containing %q", err, test.want)
 			}
 		})
 	}

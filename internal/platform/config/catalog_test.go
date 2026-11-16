@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 	"testing"
 )
@@ -145,13 +146,15 @@ func TestCatalogSnapshotLifecycle_Unit(t *testing.T) {
 
 	t.Run("duplicate identity", func(t *testing.T) {
 		duplicateBuilder := &CatalogBuilder{}
-		for range 2 {
+		// Distinct namespaces and paths leave the duplicate ID as the only
+		// defect.
+		for _, namespace := range []string{"alpha", "beta"} {
 			if err := Register(duplicateBuilder, Definition[ownerSettings]{
 				Key:       keyA,
-				Namespace: "alpha",
-				Paths:     []string{"alpha.enabled"},
+				Namespace: namespace,
+				Paths:     []string{namespace + ".enabled"},
 				Decode: func(decoder NamespaceDecoder) (ownerSettings, []Diagnostic) {
-					return decodeTestNamespace[ownerSettings](decoder, "alpha")
+					return decodeTestNamespace[ownerSettings](decoder, namespace)
 				},
 				Project: func(value ownerSettings, _ NamespacePresence) (ownerSettings, []Diagnostic) { return value, nil },
 				Clone:   func(value ownerSettings) ownerSettings { return value },
@@ -159,8 +162,8 @@ func TestCatalogSnapshotLifecycle_Unit(t *testing.T) {
 				t.Fatalf("register duplicate candidate: %v", err)
 			}
 		}
-		if _, err := duplicateBuilder.Build(); err == nil {
-			t.Fatal("duplicate contribution ID was accepted")
+		if _, err := duplicateBuilder.Build(); err == nil || err.Error() != fmt.Sprintf("duplicate configuration contribution id %q", keyA.id) {
+			t.Fatalf("expected duplicate contribution ID rejection, got %v", err)
 		}
 	})
 
@@ -198,8 +201,8 @@ func TestCatalogSnapshotLifecycle_Unit(t *testing.T) {
 		}); err != nil {
 			t.Fatalf("register child: %v", err)
 		}
-		if _, err := overlapBuilder.Build(); err == nil {
-			t.Fatal("overlapping namespaces were accepted")
+		if _, err := overlapBuilder.Build(); err == nil || err.Error() != `configuration contribution namespaces "alpha" and "alpha.child" overlap` {
+			t.Fatalf("expected namespace overlap rejection, got %v", err)
 		}
 	})
 

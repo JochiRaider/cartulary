@@ -40,7 +40,7 @@ type Adapter struct {
 
 // A non-zero-sized private token distinguishes constructions even when a caller
 // overwrites an Adapter value at an existing address.
-type adapterInstance struct{ marker byte }
+type adapterInstance struct{ _ byte }
 
 func NewAdapter(options AdapterOptions) *Adapter {
 	return &Adapter{

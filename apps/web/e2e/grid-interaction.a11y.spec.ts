@@ -274,10 +274,13 @@ test("a11y.grid editing and grouped navigation preserve keyboard semantics", asy
           focusRole: focus?.getAttribute("role") ?? null,
           focusedGroupRowHtml: focusedGroupRow?.outerHTML ?? null,
           sinkHtml: sink?.outerHTML ?? null,
-          toggleCount:
-            focusedGroupRow?.querySelectorAll(
-              "button[data-cartulary-grid-group-id]",
-            ).length ?? 0,
+          // null means focus is in no group row; every group row renders
+          // its toggle button.
+          toggleCount: focusedGroupRow
+            ? focusedGroupRow.querySelectorAll(
+                "button[data-cartulary-grid-group-id]",
+              ).length
+            : null,
         };
       }),
       accessibilitySnapshot: await grid.ariaSnapshot(),
@@ -292,7 +295,7 @@ test("a11y.grid editing and grouped navigation preserve keyboard semantics", asy
     return observation;
   };
   const initialGroupFocus = await inspectGroupFocus("initial");
-  expect(initialGroupFocus.dom.toggleCount).toBe(0);
+  expect(initialGroupFocus.dom.toggleCount).toBeNull();
   await reviewedGroup.click();
   await expect(reviewedGroup).toHaveAttribute("aria-expanded", "false");
   const pointerGroupFocus = await inspectGroupFocus("pointer-collapse");
@@ -364,6 +367,10 @@ test("a11y.grid editing and grouped navigation preserve keyboard semantics", asy
   expect(restored.accessibleCells).toHaveLength(1);
   expect(moved.accessibleCells).toHaveLength(1);
   expect(grouped.accessibleCells).toHaveLength(0);
+  // Both cells stay mounted after regrouping, so the negated checks below
+  // observe real cells.
+  await expect(alphaCell).toBeAttached();
+  await expect(betaCell).toBeAttached();
   await expect(alphaCell).not.toHaveAttribute(
     "aria-description",
     new RegExp(fillLabel),

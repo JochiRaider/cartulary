@@ -1,4 +1,10 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AccountApplicationMenu } from "./AccountApplicationMenu";
@@ -199,6 +205,7 @@ describe("account application menu interaction", () => {
     await user.click(trigger());
     fireEvent.pointerDown(screen.getByText("Outside"));
     expect(trigger().getAttribute("aria-expanded")).toBe("false");
+    expect(document.activeElement).toBe(document.body);
   });
 
   it("closes stale context state without stealing destination focus", async () => {
@@ -211,13 +218,18 @@ describe("account application menu interaction", () => {
       </>,
     );
     await user.click(trigger());
-    rerender(
-      <>
-        <AccountApplicationMenu {...input} currentContext="incidents" />
-        <button type="button">Destination</button>
-      </>,
-    );
+    const destination = screen.getByRole("button", { name: "Destination" });
+    act(() => {
+      rerender(
+        <>
+          <AccountApplicationMenu {...input} currentContext="incidents" />
+          <button type="button">Destination</button>
+        </>,
+      );
+      destination.focus();
+    });
     expect(trigger().getAttribute("aria-expanded")).toBe("false");
+    expect(document.activeElement).toBe(destination);
   });
 
   it("reconciles a removed focused capability to the next available action", async () => {

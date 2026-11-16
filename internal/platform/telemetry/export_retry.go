@@ -165,12 +165,54 @@ func classifyExportRetry(err error) (RetryClassification, time.Duration) {
 	}
 	if st, ok := status.FromError(err); ok && st.Code() != codes.OK {
 		retryDelay := grpcRetryInfoDelay(st)
-		return ClassifyOTLPGRPCStatus(st.Code().String(), retryDelay > 0), retryDelay
+		return ClassifyOTLPGRPCStatus(grpcCanonicalStatusName(st.Code()), retryDelay > 0), retryDelay
 	}
 	if strings.Contains(err.Error(), "retry-able request failure") {
 		return RetryTransient, 0
 	}
 	return RetryPermanent, 0
+}
+
+// grpcCanonicalStatusName returns the canonical gRPC status name (for example
+// DEADLINE_EXCEEDED). codes.Code.String returns Go identifiers such as
+// DeadlineExceeded, which do not match the OTLP retryable-code names.
+func grpcCanonicalStatusName(code codes.Code) string {
+	switch code {
+	case codes.Canceled:
+		return "CANCELLED"
+	case codes.Unknown:
+		return "UNKNOWN"
+	case codes.InvalidArgument:
+		return "INVALID_ARGUMENT"
+	case codes.DeadlineExceeded:
+		return "DEADLINE_EXCEEDED"
+	case codes.NotFound:
+		return "NOT_FOUND"
+	case codes.AlreadyExists:
+		return "ALREADY_EXISTS"
+	case codes.PermissionDenied:
+		return "PERMISSION_DENIED"
+	case codes.ResourceExhausted:
+		return "RESOURCE_EXHAUSTED"
+	case codes.FailedPrecondition:
+		return "FAILED_PRECONDITION"
+	case codes.Aborted:
+		return "ABORTED"
+	case codes.OutOfRange:
+		return "OUT_OF_RANGE"
+	case codes.Unimplemented:
+		return "UNIMPLEMENTED"
+	case codes.Internal:
+		return "INTERNAL"
+	case codes.Unavailable:
+		return "UNAVAILABLE"
+	case codes.DataLoss:
+		return "DATA_LOSS"
+	case codes.Unauthenticated:
+		return "UNAUTHENTICATED"
+	default:
+		return "UNKNOWN"
+	}
 }
 
 func grpcRetryInfoDelay(st *status.Status) time.Duration {

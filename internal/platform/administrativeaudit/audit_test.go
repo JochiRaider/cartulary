@@ -3,6 +3,7 @@ package administrativeaudit
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -30,10 +31,21 @@ func TestAdministrativeAuditHTTPListContractIsScopeCorrectAndNormalized(t *testi
 	if queryErr != nil {
 		t.Fatalf("parse valid incident administrative-audit scope: %#v", queryErr)
 	}
-	if result.Scope["actor_user_id"] != actorID.String() ||
-		result.Scope["occurred_at_gte"] != "2035-07-25T19:30:00Z" ||
-		result.Scope["occurred_at_lt"] != "2035-07-25T19:31:00Z" {
-		t.Fatalf("administrative-audit scope is not canonically normalized: %#v", result.Scope)
+	wantScope := map[string]string{
+		"action_code":     "membership_created",
+		"actor_user_id":   "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+		"occurred_at_gte": "2035-07-25T19:30:00Z",
+		"occurred_at_lt":  "2035-07-25T19:31:00Z",
+		"target_id":       "target-1",
+		"target_kind":     "incident_membership",
+	}
+	if len(result.Scope) != len(wantScope) {
+		t.Fatalf("administrative-audit scope has unexpected members: %#v", result.Scope)
+	}
+	for key, want := range wantScope {
+		if got := fmt.Sprint(result.Scope[key]); got != want {
+			t.Fatalf("administrative-audit scope %s = %q, want %q (scope %#v)", key, got, want, result.Scope)
+		}
 	}
 	incidentID := uuid.MustParse("11111111-2222-4333-8444-555555555555")
 	filter, reasonCode := PageRequest(pagination.Binding{
@@ -130,22 +142,36 @@ func TestAdministrativeAuditValidationSortsAndRejectsUnsafeChanges(t *testing.T)
 		t.Fatalf("changes were not sorted: %v", got)
 	}
 
+	// A redacted secret-bearing field is the legal way to record a secret.
+	redacted := event
+	redacted.Changes = []Change{Redacted("password")}
+	if _, err := validateAndNormalizeEvent(redacted); err != nil {
+		t.Fatalf("redacted secret field must be accepted: %v", err)
+	}
+
 	cases := []struct {
 		name    string
 		changes []Change
+		detail  string
 	}{
-		{name: "duplicate", changes: []Change{Visible("role", nil, "admin"), Visible("role", "admin", "viewer")}},
-		{name: "secret field", changes: []Change{Visible("password_hash", nil, "hash")}},
-		{name: "secret nested key", changes: []Change{Visible("configuration", nil, map[string]any{"client_secret": "secret"})}},
-		{name: "typed secret map", changes: []Change{Visible("configuration", nil, map[string]string{"session_token": "secret"})}},
-		{name: "redacted value", changes: []Change{{FieldPath: "password", ValueState: ValueRedacted, After: "secret"}}},
+		{name: "duplicate", changes: []Change{Visible("role", nil, "admin"), Visible("role", "admin", "viewer")}, detail: `duplicate field_path "role"`},
+		{name: "secret field", changes: []Change{Visible("password_hash", nil, "hash")}, detail: `visible field "password_hash" is secret-bearing`},
+		{name: "secret nested key", changes: []Change{Visible("configuration", nil, map[string]any{"client_secret": "secret"})}, detail: `visible field "configuration" is secret-bearing`},
+		{name: "typed secret map", changes: []Change{Visible("configuration", nil, map[string]string{"session_token": "secret"})}, detail: `visible field "configuration" is secret-bearing`},
+		// The redacted cases use a non-secret name, so only the non-null value
+		// is wrong.
+		{name: "redacted after value", changes: []Change{{FieldPath: "display_name", ValueState: ValueRedacted, After: "Analyst"}}, detail: `redacted field "display_name" must contain null values`},
+		{name: "redacted before value", changes: []Change{{FieldPath: "display_name", ValueState: ValueRedacted, Before: "Analyst"}}, detail: `redacted field "display_name" must contain null values`},
+		{name: "blank field path", changes: []Change{Visible(" ", nil, "Analyst")}, detail: "field_path is required"},
+		{name: "unknown value state", changes: []Change{{FieldPath: "display_name", ValueState: "hidden"}}, detail: `unknown value_state "hidden"`},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			invalid := event
 			invalid.Changes = tc.changes
-			if _, err := validateAndNormalizeEvent(invalid); !errors.Is(err, ErrUnsafeChanges) {
-				t.Fatalf("expected ErrUnsafeChanges, got %v", err)
+			_, err := validateAndNormalizeEvent(invalid)
+			if !errors.Is(err, ErrUnsafeChanges) || !strings.Contains(err.Error(), tc.detail) {
+				t.Fatalf("expected ErrUnsafeChanges with %q, got %v", tc.detail, err)
 			}
 		})
 	}
@@ -166,10 +192,38 @@ func TestAdministrativeAuditRawProjectionPairMustMatch(t *testing.T) {
 	if err := validateRawProjectionPair(raw, event); err != nil {
 		t.Fatalf("expected matching pair: %v", err)
 	}
+	deployment := event
+	deployment.ScopeKind = ScopeDeployment
+	deployment.ScopeID = nil
+	deploymentRaw := raw
+	deploymentRaw.IncidentID = nil
+	if err := validateRawProjectionPair(deploymentRaw, deployment); err != nil {
+		t.Fatalf("expected matching deployment pair: %v", err)
+	}
+
+	otherActorID := uuid.New()
 	otherIncidentID := uuid.New()
-	raw.IncidentID = &otherIncidentID
-	if err := validateRawProjectionPair(raw, event); !errors.Is(err, ErrInvalidEvent) {
-		t.Fatalf("expected mismatched scope rejection, got %v", err)
+	cases := []struct {
+		name   string
+		raw    RawEvent
+		event  Event
+		detail string
+	}{
+		{name: "zero occurrence", raw: RawEvent{ActorUserID: &actorID, IncidentID: &incidentID}, event: event, detail: "occurrence times must match"},
+		{name: "different occurrence", raw: RawEvent{ActorUserID: &actorID, IncidentID: &incidentID, OccurredAt: now.Add(time.Second)}, event: event, detail: "occurrence times must match"},
+		{name: "different actor", raw: RawEvent{ActorUserID: &otherActorID, IncidentID: &incidentID, OccurredAt: now}, event: event, detail: "actor_user_id must match"},
+		{name: "missing raw actor", raw: RawEvent{IncidentID: &incidentID, OccurredAt: now}, event: event, detail: "actor_user_id must match"},
+		{name: "deployment with incident raw", raw: raw, event: deployment, detail: "deployment projection cannot pair with incident raw event"},
+		{name: "different incident", raw: RawEvent{ActorUserID: &actorID, IncidentID: &otherIncidentID, OccurredAt: now}, event: event, detail: "raw incident_id must match projected scope_id"},
+		{name: "missing raw incident", raw: RawEvent{ActorUserID: &actorID, OccurredAt: now}, event: event, detail: "raw incident_id must match projected scope_id"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validateRawProjectionPair(tc.raw, tc.event)
+			if !errors.Is(err, ErrInvalidEvent) || !strings.Contains(err.Error(), tc.detail) {
+				t.Fatalf("expected ErrInvalidEvent with %q, got %v", tc.detail, err)
+			}
+		})
 	}
 }
 

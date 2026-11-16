@@ -20,6 +20,7 @@ import {
   networkFlowMappingRegistry,
   networkFlowPresentationRegistry,
 } from "./network-flow.js";
+import * as viewSchemasEntrypoint from "./view-schemas.js";
 import {
   listViewSchemaRegistryEntries,
   viewSchemaRegistry,
@@ -50,9 +51,10 @@ describe("Protocol-TS authored family entrypoints", () => {
       expect(decoded.value).not.toBe(ping);
     }
 
+    // Only the family differs from the accepted ping above.
     const invalid = incidentStreamMessageDecoder.decode({
+      ...ping,
       type: "unknown",
-      payload: { secret: "must-not-leak" },
     });
     expect(invalid).toEqual(
       expect.objectContaining({
@@ -81,7 +83,10 @@ describe("Protocol-TS authored family entrypoints", () => {
       ).toBe(true);
     }
     expect(Object.isFrozen(importTargetRegistry.targets)).toBe(true);
-    expect(Object.isFrozen(importTargetRegistry.targets[0])).toBe(true);
+    // Object.isFrozen(undefined) is true, so require targets before checking each.
+    expect(importTargetRegistry.targets.length).toBeGreaterThan(0);
+    for (const target of importTargetRegistry.targets)
+      expect(Object.isFrozen(target)).toBe(true);
     expect(errorRegistry.registry_id).toBe("cartulary.errors.phase3.v1");
     expect(extensionClientSupportRegistry.schema_id).toBe(
       "cartulary.client_extension_support_registry.v1",
@@ -103,18 +108,26 @@ describe("Protocol-TS authored family entrypoints", () => {
       validateHTTPOperationResponse("uploadObjectBlobContent", undefined),
     ).toEqual({ ok: true });
 
-    const invalid = errorEnvelopeDecoder.decode({
-      error: { code: "invalid", secret: "must-not-leak" },
+    const error = {
+      code: "invalid",
+      details: { secret: "must-not-leak" },
+      message: "Invalid.",
+      request_id: "request-error",
+      retryable: false,
+      status: 400,
+    };
+    expect(errorEnvelopeDecoder.decode({ error }).ok).toBe(true);
+    const { status: _omitted, ...missingStatus } = error;
+    const invalid = errorEnvelopeDecoder.decode({ error: missingStatus });
+    expect(invalid).toEqual({
+      ok: false,
+      error: {
+        boundary: "generated_protocol",
+        instancePath: "/error/status",
+        reasonCategory: "required_member",
+        schemaId: "cartulary.core_http.ErrorEnvelope.v1",
+      },
     });
-    expect(invalid).toEqual(
-      expect.objectContaining({
-        ok: false,
-        error: expect.objectContaining({
-          boundary: "generated_protocol",
-          schemaId: "cartulary.core_http.ErrorEnvelope.v1",
-        }),
-      }),
-    );
     expect(JSON.stringify(invalid)).not.toContain("must-not-leak");
   });
 
@@ -123,8 +136,14 @@ describe("Protocol-TS authored family entrypoints", () => {
       profile_id: "network_flow_activity",
       contract_major: 10,
     });
-    expect(networkFlowMappingRegistry).toBeDefined();
-    expect(networkFlowPresentationRegistry).toBeDefined();
+    expect(networkFlowMappingRegistry).toMatchObject({
+      profile_id: networkFlowContractDescriptor.profile_id,
+      schema_id: "cartulary.network_flow.mapping_registry.v3",
+    });
+    expect(networkFlowPresentationRegistry).toMatchObject({
+      profile_id: networkFlowContractDescriptor.profile_id,
+      schema_id: "cartulary.network_flow.presentation.v3",
+    });
 
     const invalid = networkFlowDecoders.tableList.decode({
       schema_id: "cartulary.network_flow_table_list.v3",
@@ -144,6 +163,11 @@ describe("Protocol-TS authored family entrypoints", () => {
   });
 
   it("exposes only view-schema-specific registry access", () => {
+    expect(Object.keys(viewSchemasEntrypoint).sort()).toEqual([
+      "listViewSchemaRegistryEntries",
+      "viewReferenceRegistry",
+      "viewSchemaRegistry",
+    ]);
     expect(listViewSchemaRegistryEntries()).toBe(
       viewSchemaRegistry.view_schemas,
     );

@@ -27,11 +27,23 @@ func TestCompileSurfaceOwnsExecutablePlanValidation(t *testing.T) {
 		},
 		"statement separator": {
 			mutate: func(surface *Surface) { surface.WhereSQL = sqlshape.Literal("TRUE; DROP TABLE projection") },
-			want:   "forbidden SQL token",
+			want:   `where_sql contains forbidden SQL token ";"`,
 		},
 		"placeholder": {
 			mutate: func(surface *Surface) { surface.RecordExpr = sqlshape.Literal("$1") },
-			want:   "forbidden SQL token",
+			want:   `record_expr contains forbidden SQL token "$"`,
+		},
+		"empty field key": {
+			mutate: func(surface *Surface) { surface.Fields[0].Key = " " },
+			want:   "declares query field with empty key",
+		},
+		"empty field expression": {
+			mutate: func(surface *Surface) { surface.Fields[0].Expr = sqlshape.Literal("") },
+			want:   "has empty field ",
+		},
+		"forbidden sort expression token": {
+			mutate: func(surface *Surface) { surface.Fields[0].SortExpr = sqlshape.Literal("p.value;") },
+			want:   `sort_expr contains forbidden SQL token ";"`,
 		},
 		"empty fields": {
 			mutate: func(surface *Surface) { surface.Fields = nil },

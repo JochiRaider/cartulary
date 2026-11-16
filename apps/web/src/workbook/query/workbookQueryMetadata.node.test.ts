@@ -26,19 +26,50 @@ describe("Workbook canonical query metadata", () => {
         paging: { limit: 100, has_more: true, next_cursor: " opaque +/= " },
       }).paging,
     ).toEqual({ limit: 100, hasMore: true, nextCursor: " opaque +/= " });
-    for (const invalid of [
-      { ...meta, paging: undefined },
-      { ...meta, query: undefined },
-      { ...meta, query: { filters: [], sort: [] } },
-      { ...meta, paging: { limit: 99, has_more: false, next_cursor: null } },
-      { ...meta, paging: { limit: 100, has_more: true, next_cursor: null } },
-      {
-        ...meta,
-        paging: { limit: 100, has_more: false, next_cursor: "cursor" },
-      },
-      { ...meta, query: { ...meta.query, group_by: null } },
-    ])
-      expect(() => validate(invalid)).toThrow();
+    for (const [invalid, message] of [
+      [{ ...meta, paging: undefined }, "Missing query metadata"],
+      [{ ...meta, query: undefined }, "Missing query metadata"],
+      [
+        { ...meta, query: { filters: [], sort: [] } },
+        "Mismatched effective sort",
+      ],
+      [
+        { ...meta, paging: { limit: 99, has_more: false, next_cursor: null } },
+        "Invalid query metadata",
+      ],
+      [
+        { ...meta, paging: { limit: 100, has_more: true, next_cursor: null } },
+        "Invalid query metadata",
+      ],
+      [
+        {
+          ...meta,
+          paging: { limit: 100, has_more: false, next_cursor: "cursor" },
+        },
+        "Invalid query metadata",
+      ],
+      [
+        { ...meta, query: { ...meta.query, group_by: null } },
+        "Invalid query metadata",
+      ],
+      [
+        { ...meta, paging: { limit: 100, has_more: true, next_cursor: "" } },
+        "Invalid query metadata",
+      ],
+    ] as const)
+      expect(() => validate(invalid), message).toThrow(message);
+    expect(() =>
+      readWorkbookQueryMetadata(
+        contract,
+        {
+          ...meta,
+          paging: { limit: 100, has_more: true, next_cursor: "same" },
+        },
+        empty,
+        100,
+        "same",
+      ),
+    ).toThrow("Invalid query metadata");
   });
 
   it("adopts canonical filter operands without copying effective tails into saved or continuation overrides", () => {
@@ -147,7 +178,7 @@ describe("Workbook canonical query metadata", () => {
         100,
         undefined,
       ),
-    ).toThrow();
+    ).toThrow("Invalid query metadata");
     expect(() =>
       readWorkbookQueryMetadata(
         contract,
@@ -156,6 +187,6 @@ describe("Workbook canonical query metadata", () => {
         100,
         undefined,
       ),
-    ).toThrow();
+    ).toThrow("Mismatched effective sort");
   });
 });

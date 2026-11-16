@@ -254,8 +254,8 @@ func TestRestoreControlFencesAdmissionCompletionAndReset_Integration(t *testing.
 			}
 			broken := fixture.Target
 			broken.ObjectStore = resetListingFailure{Store: broken.ObjectStore}
-			if err := recovery.ResetRestoreVerificationTarget(ctx, admission, broken, identity.TargetGenerationID, identity.BindingDigests, testExtensionBackupCatalog(t), fixture.state); err == nil {
-				t.Fatal("injected reset failure ignored")
+			if err := recovery.ResetRestoreVerificationTarget(ctx, admission, broken, identity.TargetGenerationID, identity.BindingDigests, testExtensionBackupCatalog(t), fixture.state); !errors.Is(err, errInjectedResetListing) {
+				t.Fatalf("injected reset failure error = %v; want the wrapped listing failure", err)
 			}
 			resetting := read()
 			if resetting.State != recovery.TargetResetting || resetting.OperationID != nil || resetting.CompletionEvidenceSHA256 != nil {
@@ -280,5 +280,7 @@ func TestRestoreControlFencesAdmissionCompletionAndReset_Integration(t *testing.
 type resetListingFailure struct{ objectstore.Store }
 
 func (resetListingFailure) ListObjects(context.Context, string) ([]objectstore.ObjectInfo, error) {
-	return nil, errors.New("injected reset listing failure")
+	return nil, errInjectedResetListing
 }
+
+var errInjectedResetListing = errors.New("injected reset listing failure")

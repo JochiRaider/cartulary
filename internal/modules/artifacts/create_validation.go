@@ -31,7 +31,7 @@ func validateCreateParams(params createParams) error {
 	switch params.ViewSchemaID {
 	case NotesViewSchemaID:
 		if !hasText(values, "note.title") && !hasText(values, "note.body") {
-			return &ValidationError{Field: "payload", ReasonCode: "missing_minimum_create_signal"}
+			return &ValidationError{Field: "payload", ReasonCode: "minimum_create_signal_missing"}
 		}
 	case CommLogViewSchemaID:
 		for _, field := range []string{"comm_log.comm_type", "comm_log.audience", "comm_log.channel_or_meeting", "comm_log.summary"} {

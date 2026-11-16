@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -53,8 +54,12 @@ SELECT raw.created_at, projected.occurred_at, projected.changes
 	if err := json.Unmarshal(changesJSON, &changes); err != nil {
 		t.Fatalf("decode projected changes: %v", err)
 	}
-	if got := changes[0].FieldPath; got != "backup_set_id" {
-		t.Fatalf("changes were not persisted in field order: got first %q", got)
+	gotPaths := make([]string, 0, len(changes))
+	for _, change := range changes {
+		gotPaths = append(gotPaths, change.FieldPath)
+	}
+	if want := []string{"backup_set_id", "result"}; !reflect.DeepEqual(gotPaths, want) {
+		t.Fatalf("changes were not persisted whole in field order: got %v, want %v", gotPaths, want)
 	}
 
 }

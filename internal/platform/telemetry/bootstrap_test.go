@@ -2,6 +2,7 @@ package telemetry
 
 import (
 	"context"
+	"reflect"
 	"testing"
 
 	telemetryconfiguration "github.com/JochiRaider/cartulary/internal/platform/telemetry/configuration"
@@ -111,6 +112,14 @@ func TestBootstrapIgnoresHostileOTelEnvironment(t *testing.T) {
 	resource := runtime.ResourceIdentity()
 	if got := resourceAttrValue(resource, "service.name"); got != "cartulary.app" {
 		t.Fatalf("hostile OTel env changed service.name: %q", got)
+	}
+	// The whole identity must equal one bootstrapped with no environment.
+	clean, err := bootstrapFromConfig(context.Background(), cfg, map[string]string{}, WithResolvedClaimIdentity(resolvedClaimIdentity(t)))
+	if err != nil {
+		t.Fatalf("bootstrap without OTel env: %v", err)
+	}
+	if want := clean.ResourceIdentity(); !reflect.DeepEqual(resource, want) {
+		t.Fatalf("hostile OTel env changed the resource identity:\n got %#v\nwant %#v", resource, want)
 	}
 }
 

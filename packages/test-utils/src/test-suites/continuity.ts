@@ -125,7 +125,9 @@ export function registerContinuitySuite() {
         }),
       ).resolves.toBeUndefined();
 
-      expect(gridEvaluateCount).toBeGreaterThan(2);
+      // The scroll converges at the fifth evaluation and the assertion
+      // completes at the sixth: it neither stops early nor keeps polling.
+      expect(gridEvaluateCount).toBe(6);
     });
 
     it("fails when exact horizontal scroll is required and scrollLeft changed", async () => {

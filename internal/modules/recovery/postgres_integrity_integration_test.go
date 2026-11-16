@@ -124,8 +124,8 @@ func TestRestoreRejectsBypassedReferentialIntegrity_Integration(t *testing.T) {
 		}
 		return nil
 	})
-	if !errors.Is(err, recovery.ErrVNextBackup) {
-		t.Fatalf("orphan restore accepted: %v", err)
+	if !errors.Is(err, recovery.ErrVNextBackup) || !strings.Contains(err.Error(), "restored foreign key") {
+		t.Fatalf("orphan restore error = %v; want the restored foreign key rejection", err)
 	}
 	var count int
 	if err := pool.QueryRow(t.Context(), `SELECT count(*) FROM public.incidents`).Scan(&count); err != nil || count != 0 {
@@ -149,8 +149,8 @@ INSERT INTO public.indicator_state_intervals(incident_id,indicator_record_id,lif
 VALUES('18600000-0000-4000-8000-000000000001','18600000-0000-4000-8000-000000000003','active',now(),'["18600000-0000-4000-8000-000000000004"]','18600000-0000-4000-8000-000000000002');`)
 		return err
 	})
-	if !errors.Is(err, recovery.ErrVNextBackup) {
-		t.Fatalf("orphan support restore accepted: %v", err)
+	if !errors.Is(err, recovery.ErrVNextBackup) || !strings.Contains(err.Error(), "restored owner invariants") {
+		t.Fatalf("orphan support restore error = %v; want the restored owner invariant rejection", err)
 	}
 	if err := pool.QueryRow(t.Context(), `SELECT count(*) FROM public.records`).Scan(&count); err != nil || count != 0 {
 		t.Fatal("rejected support restore published rows", count, err)

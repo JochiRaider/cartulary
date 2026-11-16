@@ -47,7 +47,8 @@ INSERT INTO records (
 ) VALUES
     ($1, $3, 'artifact', $4, $5, $4, $5, 3, NULL, NULL),
     ($2, $3, 'evidence', $4, $5, $4, $5, 2, $5, $4),
-    ('20000000-0000-4000-8000-000000000004', $6, 'evidence', $4, $5, $4, $5, 2, $5, $4)
+    ('20000000-0000-4000-8000-000000000004', $6, 'evidence', $4, $5, $4, $5, 2, $5, $4),
+    ('20000000-0000-4000-8000-000000000005', $6, 'artifact', $4, $5, $4, $5, 1, NULL, NULL)
 `, activeID, deletedID, incidentID, actorID, now, foreignIncident); err != nil {
 		t.Fatalf("seed reporting envelopes: %v", err)
 	}

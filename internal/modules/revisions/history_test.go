@@ -72,9 +72,9 @@ UPDATE records
 	if len(items) != 3 {
 		t.Fatalf("expected three history items, got %#v", items)
 	}
-	assertHistoryItem(t, items[0], newerChangeSet, "hostname_update", 1, []string{})
-	assertHistoryItem(t, items[1], newerChangeSet, "envelope_update", 2, []string{})
-	assertHistoryItem(t, items[2], olderChangeSet, "field_update", 1, []string{})
+	assertHistoryItem(t, items[0], newerChangeSet, "hostname_update", []string{})
+	assertHistoryItem(t, items[1], newerChangeSet, "envelope_update", []string{})
+	assertHistoryItem(t, items[2], olderChangeSet, "field_update", []string{})
 
 	unauthenticated := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/records/"+recordID.String()+"/history", nil)
 	httptestx.RequireErrorEnvelope(t, unauthenticated, http.StatusUnauthorized, "session_required")
@@ -270,7 +270,7 @@ func collectHistoryPages(t testing.TB, baseURL string, login authcookietest.Auth
 	}
 }
 
-func assertHistoryItem(t testing.TB, raw any, changeSetID uuid.UUID, operation string, _ int, actions []string) {
+func assertHistoryItem(t testing.TB, raw any, changeSetID uuid.UUID, operation string, actions []string) {
 	t.Helper()
 	item := raw.(map[string]any)
 	if item["change_set_id"] != changeSetID.String() || item["operation"] != operation {
@@ -279,15 +279,15 @@ func assertHistoryItem(t testing.TB, raw any, changeSetID uuid.UUID, operation s
 	if ref := stringField(t, raw, "history_item_ref"); ref == "" || !strings.HasPrefix(ref, "hitem_") {
 		t.Fatalf("history item missing opaque display selector: %#v", item)
 	}
-	if item["actor_user_id"] == "" || item["committed_at"] == "" {
+	if stringField(t, raw, "actor_user_id") == "" || stringField(t, raw, "committed_at") == "" {
 		t.Fatalf("history item missing actor or timestamp: %#v", item)
 	}
 	diff := item["diff_summary"].(map[string]any)
-	if diff["summary"] == "" {
+	if stringField(t, diff, "summary") == "" {
 		t.Fatalf("history item missing diff summary: %#v", item)
 	}
 	unit := diff["units"].([]any)[0].(map[string]any)
-	if diff["schema_id"] != "cartulary.history_diff.v1" || unit["unit_ref"] == "" || unit["kind"] != "field" {
+	if diff["schema_id"] != "cartulary.history_diff.v1" || stringField(t, unit, "unit_ref") == "" || unit["kind"] != "field" {
 		t.Fatalf("missing semantic history: %#v", diff)
 	}
 	if _, exposed := unit["sequence_no"]; exposed {

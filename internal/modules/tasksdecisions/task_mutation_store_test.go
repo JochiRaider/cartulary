@@ -229,7 +229,7 @@ func TestTaskRequestLifecycleDecisionLinksAndProjection_Unit(t *testing.T) {
 	requireCellValue(t, done.Row, "task.status", "done")
 	_, err = patchRecord(owner, actor, taskID, tasksdecisions.TaskRequestsViewSchemaID, 9, "txn-workbook_interaction-task-decision-task-done-canceled",
 		valueChange("task.status", tasksdecisions.FieldValue{Text: stringPtr("canceled")}))
-	requireLifecycle(t, err)
+	requireLifecycleGuards(t, err, "illegal_status_transition", "task.status")
 
 	canceled := mustCreateTask(t, owner, actor, incident.ID, "txn-workbook_interaction-task-decision-task-canceled", map[string]tasksdecisions.FieldValue{
 		"task.title":     {Text: stringPtr("Canceled task")},
@@ -238,7 +238,7 @@ func TestTaskRequestLifecycleDecisionLinksAndProjection_Unit(t *testing.T) {
 	}, nil)
 	_, err = patchRecord(owner, actor, canceled.RecordID, tasksdecisions.TaskRequestsViewSchemaID, 1, "txn-workbook_interaction-task-decision-task-canceled-done",
 		valueChange("task.status", tasksdecisions.FieldValue{Text: stringPtr("done")}))
-	requireLifecycle(t, err)
+	requireLifecycleGuards(t, err, "illegal_status_transition", "task.status")
 
 	ownerless := mustCreateTask(t, owner, actor, incident.ID, "txn-workbook_interaction-task-decision-task-ownerless", map[string]tasksdecisions.FieldValue{
 		"task.title":     {Text: stringPtr("Owner guard")},
@@ -246,7 +246,7 @@ func TestTaskRequestLifecycleDecisionLinksAndProjection_Unit(t *testing.T) {
 	}, nil)
 	_, err = patchRecord(owner, actor, ownerless.RecordID, tasksdecisions.TaskRequestsViewSchemaID, 1, "txn-workbook_interaction-task-decision-task-ownerless-open",
 		valueChange("task.owner_user_id", tasksdecisions.FieldValue{}))
-	requireLifecycle(t, err)
+	requireLifecycleGuards(t, err, "violated_lifecycle_guards", "active_task_requires_owner")
 	t.Run("admitted source text and clear replay", func(t *testing.T) {
 		requireTaskDecisionAdmittedTextPersistence(t, harness.DB, owner, actor, incident.ID)
 	})
@@ -395,7 +395,7 @@ func TestTaskLifecycleStatusMatrixAndExactReplay_Unit(t *testing.T) {
 				}
 				result, err := patchRecord(owner, actor, task.RecordID, tasksdecisions.TaskRequestsViewSchemaID, 1, "patch-"+key, changes...)
 				if (from == "done" && to == "canceled") || (from == "canceled" && to == "done") {
-					requireLifecycle(t, err)
+					requireLifecycleGuards(t, err, "illegal_status_transition", "task.status")
 					requireTaskSnapshot(t, taskSnapshot(t, harness.DB, task.RecordID), before, key)
 					return
 				}

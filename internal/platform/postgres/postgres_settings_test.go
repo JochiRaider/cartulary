@@ -144,7 +144,7 @@ func TestPostgresFilesystemCredentialSafety(t *testing.T) {
 		}{
 			{name: "symlink", create: func(t *testing.T, path string) {
 				outside := filepath.Join(t.TempDir(), "outside")
-				if err := os.WriteFile(outside, []byte("postgres://secret"), 0o600); err != nil {
+				if err := os.WriteFile(outside, []byte(validPostgresTestDSN), 0o600); err != nil {
 					t.Fatal(err)
 				}
 				if err := os.Symlink(outside, path); err != nil {
@@ -156,13 +156,15 @@ func TestPostgresFilesystemCredentialSafety(t *testing.T) {
 					t.Fatal(err)
 				}
 			}},
+			// A valid DSN one byte over the 65,536-byte bound: only the size is
+			// wrong. The accepted 65,536-byte pair is in the grammar subtest.
 			{name: "oversized", create: func(t *testing.T, path string) {
-				if err := os.WriteFile(path, make([]byte, 65537), 0o600); err != nil {
+				if err := os.WriteFile(path, []byte(paddedPostgresTestDSN(t, 65537)), 0o600); err != nil {
 					t.Fatal(err)
 				}
 			}},
 			{name: "hard-linked", create: func(t *testing.T, path string) {
-				if err := os.WriteFile(path, []byte("postgres://secret"), 0o600); err != nil {
+				if err := os.WriteFile(path, []byte(validPostgresTestDSN), 0o600); err != nil {
 					t.Fatal(err)
 				}
 				if err := os.Link(path, path+"-second-name"); err != nil {
@@ -190,6 +192,7 @@ func TestPostgresFilesystemCredentialSafety(t *testing.T) {
 			{name: "single line", payload: []byte(validPostgresTestDSN), valid: true},
 			{name: "terminal LF", payload: []byte(validPostgresTestDSN + "\n"), valid: true},
 			{name: "terminal CRLF", payload: []byte(validPostgresTestDSN + "\r\n"), valid: true},
+			{name: "exactly 65536 bytes", payload: []byte(paddedPostgresTestDSN(t, 65536)), valid: true},
 			{name: "empty", payload: nil},
 			{name: "only LF", payload: []byte("\n")},
 			{name: "multiple LF", payload: []byte(validPostgresTestDSN + "\n\n")},
@@ -256,4 +259,16 @@ func postgresSettingsConfig(t testing.TB, databaseBindingKind string) postgres.B
 		return postgres.Binding{BindingKind: "managed_service", ServiceRef: "postgres-primary"}
 	}
 	return postgres.Binding{BindingKind: "filesystem_root", RootPath: rootPath}
+}
+
+// paddedPostgresTestDSN lengthens the valid test DSN's sslrootcert path so
+// the DSN is exactly size bytes and otherwise valid.
+func paddedPostgresTestDSN(t testing.TB, size int) string {
+	t.Helper()
+	const rootCert = "%2Ffixture%2Froot.pem"
+	pad := size - len(validPostgresTestDSN)
+	if pad < 0 || !strings.Contains(validPostgresTestDSN, rootCert) {
+		t.Fatalf("cannot pad test DSN to %d bytes", size)
+	}
+	return strings.Replace(validPostgresTestDSN, rootCert, "%2Ffixture%2F"+strings.Repeat("a", pad)+"root.pem", 1)
 }

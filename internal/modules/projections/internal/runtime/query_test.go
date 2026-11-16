@@ -99,9 +99,6 @@ func TestGenericProjectionContractQueryFieldsAreMapped(t *testing.T) {
 				}
 			}
 			for _, fieldKey := range schema.FilterFields() {
-				if fieldKey == "note.full_text" {
-					continue
-				}
 				if _, ok := surface.Field(fieldKey); !ok {
 					t.Fatalf("%s filter field %s is not mapped", viewSchemaID, fieldKey)
 				}

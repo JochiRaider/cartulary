@@ -106,7 +106,15 @@ func TestNewReturnsReadyPortsAndImmutableDescriptorSet(t *testing.T) {
 	if err != nil {
 		t.Fatalf("compose projection foundation: %v", err)
 	}
-	if ports.DescriptorSet().Len() != 10 || !ports.RecoveryPorts().Ready() ||
+	providerIDs := make([]string, 0, ports.DescriptorSet().Len())
+	for _, descriptor := range ports.DescriptorSet().All() {
+		providerIDs = append(providerIDs, descriptor.ProviderID)
+	}
+	slices.Sort(providerIDs)
+	if want := []string{"artifact", "assessment", "decision", "evidence", "host", "identity", "indicator", "party", "task_request", "timeline"}; !slices.Equal(providerIDs, want) {
+		t.Fatalf("composed projection providers = %v, want %v", providerIDs, want)
+	}
+	if !ports.RecoveryPorts().Ready() ||
 		ports.MaintenanceRebuilder() == nil ||
 		ports.Timeline().Writer == nil ||
 		ports.EntityMutationRows() == nil || ports.EntityQueryReader() == nil ||

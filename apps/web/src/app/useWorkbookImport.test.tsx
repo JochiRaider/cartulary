@@ -1,9 +1,13 @@
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { WorkbookImportPort } from "../imports/WorkbookImportController";
+import type { ImportWriteResult } from "../services/importClient";
 import { sessionResource } from "../testing/appShellTestSupport";
 import { useAppWorkflowsForTest } from "../testing/appWorkflowsTestSupport";
-import { importTestIds as ids } from "../testing/workbookImportTestSupport";
+import {
+  importTestIds as ids,
+  importTestJob,
+} from "../testing/workbookImportTestSupport";
 import { AppSessionController } from "./appSessionController";
 
 const useWorkbookImport = (
@@ -65,7 +69,7 @@ function setup() {
       currentIncidentId: () => incidentId,
     }),
   );
-  const send = vi.fn(() => new Promise<never>(() => {}));
+  const send = vi.fn<WorkbookImportPort["send"]>(() => new Promise(() => {}));
   const unavailable = async () => ({
     kind: "failed" as const,
     failure: {
@@ -159,14 +163,43 @@ describe("Workbook import application binding", () => {
     expect(h.hook.result.current.controller.getSnapshot().file).toBeNull();
   });
   it("fences incident and account replacement before a pending write can be accepted", async () => {
+    const job = importTestJob();
+    const accepted = (): ImportWriteResult => ({
+      kind: "accepted",
+      receipt: { kind: "job", job },
+    });
+    const holdUpload = (harness: ReturnType<typeof setup>) => {
+      let release!: (result: ImportWriteResult) => void;
+      harness.send.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            release = resolve;
+          }),
+      );
+      act(() => {
+        harness.hook.result.current.controller.chooseFile(
+          new File(["source"], "source.csv"),
+        );
+        void harness.hook.result.current.controller.upload();
+      });
+      return (result: ImportWriteResult) => release(result);
+    };
+
+    const control = setup();
+    await control.login();
+    const releaseControl = holdUpload(control);
+    await act(async () => {
+      releaseControl(accepted());
+      await flush();
+    });
+    expect(control.hook.result.current.controller.getSnapshot()).toMatchObject({
+      job,
+      jobPurpose: "discovery",
+    });
+
     const h = setup();
     await h.login();
-    act(() => {
-      h.hook.result.current.controller.chooseFile(
-        new File(["source"], "source.csv"),
-      );
-      void h.hook.result.current.controller.upload();
-    });
+    const release = holdUpload(h);
     expect(h.send).toHaveBeenCalledTimes(1);
     h.setIncident(ids.secondUnit);
     act(() => h.bind());
@@ -183,6 +216,15 @@ describe("Workbook import application binding", () => {
       h.bind();
     });
     expect(h.hook.result.current.controller.getSnapshot().operation).toBeNull();
+    await act(async () => {
+      release(accepted());
+      await flush();
+    });
+    expect(h.hook.result.current.controller.getSnapshot()).toMatchObject({
+      file: null,
+      job: null,
+      operation: null,
+    });
     expect(h.send).toHaveBeenCalledTimes(1);
   });
   it("distinguishes pending readiness from definitive loss and restores review without replay", async () => {

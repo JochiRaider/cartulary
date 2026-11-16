@@ -1,7 +1,9 @@
 package bootstrap
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"io/fs"
 	"testing"
@@ -111,10 +113,15 @@ func TestBootstrapManifestValidation_Unit(t *testing.T) {
 				path:    "bootstrap.first_admin_manifest.display_name",
 			},
 			{
+				// One scalar below the 12-scalar minimum.
 				name:    "password too short",
-				content: `{"bootstrap_schema_id":"cartulary.bootstrap_admin.v1","bootstrap_artifact_id":"11111111-1111-1111-1111-111111111111","email":"bootstrap-admin@example.test","display_name":"Bootstrap Admin","initial_password":"short"}`,
+				content: `{"bootstrap_schema_id":"cartulary.bootstrap_admin.v1","bootstrap_artifact_id":"11111111-1111-1111-1111-111111111111","email":"bootstrap-admin@example.test","display_name":"Bootstrap Admin","initial_password":"Bootstrap1!"}`,
 				path:    "bootstrap.first_admin_manifest.initial_password",
 			},
+		}
+
+		if _, err := parseBootstrapManifest([]byte(`{"bootstrap_schema_id":"cartulary.bootstrap_admin.v1","bootstrap_artifact_id":"11111111-1111-1111-1111-111111111111","email":"bootstrap-admin@example.test","display_name":"Bootstrap Admin","initial_password":"Bootstrap12!"}`)); err != nil {
+			t.Fatalf("12-scalar password must be accepted at the minimum: %v", err)
 		}
 
 		for _, tc := range cases {
@@ -157,7 +164,11 @@ func TestBootstrapPreflight_Unit(t *testing.T) {
 				ActiveDeploymentAdmins: 1,
 			},
 		}
-		manifestFS := &bootstrapManifestFSStub{}
+		// The configured content is stale and invalid; reading it would fail.
+		manifestFS := &bootstrapManifestFSStub{
+			statInfo: stubFileInfo{mode: 0},
+			readData: []byte(`{"bootstrap_schema_id":"cartulary.bootstrap_admin.v0","initial_password":"short"}`),
+		}
 		err := bootstrapPreflight(context.Background(), Settings{
 			ManifestPath: "/tmp/invalid-bootstrap.json",
 		}, store, manifestFS, authn.HashPassword)
@@ -290,11 +301,13 @@ func TestBootstrapPreflight_Unit(t *testing.T) {
 		if !store.created.Manifest.MFARequired {
 			t.Fatal("expected bootstrap create request to carry mfa_required=true")
 		}
-		if len(store.created.ArtifactSHA256) == 0 {
-			t.Fatal("expected manifest artifact hash")
+		wantSHA256 := sha256.Sum256(fixtures.MustRead("bootstrap-admin", "canonical.json"))
+		if !bytes.Equal(store.created.ArtifactSHA256, wantSHA256[:]) {
+			t.Fatalf("manifest artifact hash = %x, want %x", store.created.ArtifactSHA256, wantSHA256)
 		}
-		if store.created.PasswordHash == "" {
-			t.Fatal("expected persisted password hash")
+		verified, err := authn.VerifyPasswordHash(context.Background(), store.created.PasswordHash, store.created.Manifest.InitialPassword)
+		if err != nil || !verified {
+			t.Fatalf("persisted password hash must verify against the manifest password: verified=%v err=%v", verified, err)
 		}
 	})
 }
@@ -348,13 +361,15 @@ func requireBootstrapDiagnostic(t testing.TB, err error, wantPath string, wantRe
 		t.Fatalf("expected diagnostics error, got %T", err)
 	}
 
-	for _, diagnostic := range diagnosticsErr.Diagnostics {
-		if diagnostic.Path == wantPath && diagnostic.ReasonCode == wantReason {
-			return
-		}
+	// Every caller passes a single-defect body, so the expected diagnostic
+	// must be the only one.
+	if len(diagnosticsErr.Diagnostics) == 1 &&
+		diagnosticsErr.Diagnostics[0].Path == wantPath &&
+		diagnosticsErr.Diagnostics[0].ReasonCode == wantReason {
+		return
 	}
 
-	t.Fatalf("missing diagnostic path=%q reason=%q in %#v", wantPath, wantReason, diagnosticsErr.Diagnostics)
+	t.Fatalf("want only diagnostic path=%q reason=%q, got %#v", wantPath, wantReason, diagnosticsErr.Diagnostics)
 }
 
 type bootstrapManifestFSStub struct {

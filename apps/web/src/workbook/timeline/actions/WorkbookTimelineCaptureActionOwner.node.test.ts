@@ -161,7 +161,9 @@ it("Timeline authoring cancellation leaves an earlier admitted write intact", as
   expect(f.send).toHaveBeenCalledTimes(1);
   response.resolve(acknowledged(f.review));
   await vi.waitFor(() =>
-    expect(f.owner.getSnapshot().entries[0]?.receipt).not.toBeNull(),
+    expect(f.owner.getSnapshot().entries[0]?.receipt).toEqual(
+      expect.anything(),
+    ),
   );
   expect(f.owner.unsettledMutationCount).toBe(0);
 });
@@ -296,7 +298,9 @@ it("Timeline permits explicit replay while a timed out transport has not settled
 it("Timeline records acknowledgement before refresh and refresh recovery sends no mutation", async () => {
   const f = fixture();
   f.reconcile.mockImplementationOnce(async () => {
-    expect(f.owner.getSnapshot().entries[0]?.receipt).not.toBeNull();
+    expect(f.owner.getSnapshot().entries[0]?.receipt).toEqual(
+      expect.anything(),
+    );
     throw new Error("Projection missing");
   });
   f.owner.submit(f.review, f.binding);
@@ -320,7 +324,7 @@ it("Timeline conceals retained attempts during access loss and fences account re
     expect(f.accounting.accepted).toHaveBeenCalledTimes(1),
   );
   f.owner.setAuthority({ ...f.review.authority, sessionIdentity: "restored" });
-  expect(f.owner.getSnapshot().entries[0]?.receipt).not.toBeNull();
+  expect(f.owner.getSnapshot().entries[0]?.receipt).toEqual(expect.anything());
   f.owner.setAuthority({ ...f.review.authority, actorId: "another-account" });
   expect(f.owner.getSnapshot().entries).toEqual([]);
   const recovered = fixture(),

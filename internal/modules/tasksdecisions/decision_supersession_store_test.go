@@ -58,7 +58,7 @@ func TestDecisionLifecycleSupersessionAndConsistency_Unit(t *testing.T) {
 		},
 	}
 	_, err = createTaskDecision(owner, actor, incident.ID, supersededRequest, "req-workbook_interaction-task-decision-decision-create-superseded", testTime(0))
-	requireLifecycle(t, err)
+	requireLifecycleGuards(t, err, "superseded_direct_write", "decision.status")
 
 	support := mustCreateEvidence(t, harness.DB, actor, incident.ID, "txn-workbook_interaction-task-decision-decision-support", "Decision support record")
 	affectedOne := mustCreateEvidence(t, harness.DB, actor, incident.ID, "txn-workbook_interaction-task-decision-decision-affected-one", "Decision affected record one")
@@ -99,14 +99,14 @@ func TestDecisionLifecycleSupersessionAndConsistency_Unit(t *testing.T) {
 
 	_, err = patchRecord(owner, actor, target, tasksdecisions.DecisionsViewSchemaID, 1, "txn-workbook_interaction-task-decision-decision-direct-superseded",
 		valueChange("decision.status", tasksdecisions.FieldValue{Text: stringPtr("superseded")}))
-	requireLifecycle(t, err)
+	requireLifecycleGuards(t, err, "superseded_direct_write", "decision.status")
 	rejected := mustCreateDecision(t, owner, actor, incident.ID, "txn-workbook_interaction-task-decision-decision-rejected", "rejected", "Rejected decision")
 	_, err = patchRecord(owner, actor, rejected, tasksdecisions.DecisionsViewSchemaID, 1, "txn-workbook_interaction-task-decision-decision-rejected-proposed",
 		valueChange("decision.status", tasksdecisions.FieldValue{Text: stringPtr("proposed")}))
-	requireLifecycle(t, err)
+	requireLifecycleGuards(t, err, "illegal_status_transition", "decision.status")
 	_, err = patchRecord(owner, actor, executed, tasksdecisions.DecisionsViewSchemaID, 2, "txn-workbook_interaction-task-decision-decision-executed-approved",
 		valueChange("decision.status", tasksdecisions.FieldValue{Text: stringPtr("approved")}))
-	requireLifecycle(t, err)
+	requireLifecycleGuards(t, err, "illegal_status_transition", "decision.status")
 
 	request := tasksdecisions.SupersedeRequest{
 		BaseRowVersion:      1,
@@ -182,7 +182,7 @@ func TestDecisionLifecycleSupersessionAndConsistency_Unit(t *testing.T) {
 	rejectedRequest.BaseRowVersion = result.RowVersion
 	rejectedRequest.ClientTxnID = "txn-workbook_interaction-task-decision-decision-supersede-rejected"
 	_, err = supersedeDecision(ctx, owner, actor, target, rejectedRequest, "req-workbook_interaction-task-decision-decision-supersede-rejected", testTime(2*time.Hour))
-	requireLifecycle(t, err)
+	requireLifecycleGuards(t, err, "decision_supersede_not_allowed", "target_decision_must_be_proposed_approved_or_executed")
 	if got := decisionSupersessionIncidentEffects(t, harness.DB, incident.ID); got != afterSupersessionEffects {
 		t.Fatalf("rejected decision supersede changed durable effects: before=%+v after=%+v", afterSupersessionEffects, got)
 	}
@@ -215,18 +215,18 @@ INSERT INTO record_links (
 	}
 	_, err = patchRecord(owner, actor, badSource, tasksdecisions.DecisionsViewSchemaID, 1, "txn-workbook_interaction-task-decision-decision-inconsistent-fail",
 		valueChange("decision.status", tasksdecisions.FieldValue{Text: stringPtr("approved")}))
-	requireLifecycle(t, err)
+	requireLifecycleGuards(t, err, "inconsistent_decision_machine", "superseding_decision_requires_approved_or_executed")
 	beforeInconsistentVersion := recordVersion(t, harness.DB, badSource)
 	_, err = patchRecord(owner, actor, badSource, tasksdecisions.DecisionsViewSchemaID, 1, "txn-workbook_interaction-task-decision-decision-inconsistent-rationale-fail",
 		valueChange("decision.rationale", tasksdecisions.FieldValue{Text: stringPtr("Ordinary scalar edits must fail closed.")}))
-	requireLifecycle(t, err)
+	requireLifecycleGuards(t, err, "inconsistent_decision_machine", "superseding_decision_requires_approved_or_executed")
 	if got := recordVersion(t, harness.DB, badSource); got != beforeInconsistentVersion {
 		t.Fatalf("inconsistent decision scalar patch changed row version: got %d want %d", got, beforeInconsistentVersion)
 	}
 	beforeSupportLinks := countReferenceLinks(t, harness.DB, badSource, "decision.support_refs")
 	_, err = patchRecord(owner, actor, badSource, tasksdecisions.DecisionsViewSchemaID, 1, "txn-workbook_interaction-task-decision-decision-inconsistent-support-fail",
 		collectionChange("decision.support_refs", collectionActions(addOptionalSurfaceRecordRef(support))))
-	requireLifecycle(t, err)
+	requireLifecycleGuards(t, err, "inconsistent_decision_machine", "superseding_decision_requires_approved_or_executed")
 	if got := countReferenceLinks(t, harness.DB, badSource, "decision.support_refs"); got != beforeSupportLinks {
 		t.Fatalf("inconsistent decision support patch changed links: got %d want %d", got, beforeSupportLinks)
 	}
@@ -236,7 +236,7 @@ INSERT INTO record_links (
 	beforeAffectedLinks := countReferenceLinks(t, harness.DB, badSource, "decision.affected_record_ids")
 	_, err = patchRecord(owner, actor, badSource, tasksdecisions.DecisionsViewSchemaID, 1, "txn-workbook_interaction-task-decision-decision-inconsistent-affected-fail",
 		collectionChange("decision.affected_record_ids", collectionActions(addOptionalSurfaceRecordRef(affectedTwo))))
-	requireLifecycle(t, err)
+	requireLifecycleGuards(t, err, "inconsistent_decision_machine", "superseding_decision_requires_approved_or_executed")
 	if got := countReferenceLinks(t, harness.DB, badSource, "decision.affected_record_ids"); got != beforeAffectedLinks {
 		t.Fatalf("inconsistent decision affected patch changed links: got %d want %d", got, beforeAffectedLinks)
 	}

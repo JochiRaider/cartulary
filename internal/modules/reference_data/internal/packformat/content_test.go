@@ -240,6 +240,9 @@ func testCanonicalProfileBytes(t *testing.T, f contentFixture) {
 	if err := ValidateContent(context.Background(), fixtureManifest(f), contentMemory(f.Members), &rows); err != nil {
 		t.Fatal(err)
 	}
+	if len(rows) == 0 {
+		t.Fatal("empty profile fixture")
+	}
 	for _, row := range rows {
 		found := false
 		for _, body := range f.Members {

@@ -35,15 +35,30 @@ test("a11y.membership-audit exact filters inspection paging recovery and drawer 
   fixture.setPage([membershipBrowserEvent(fixture.incidentId)], "next-page");
   const panel = await openMembershipAudit(page);
   await expect(panel.getByRole("status")).toContainText("Page 1:");
+  const readsBeforeTarget = fixture.requests.length;
   await panel.getByLabel("Target ID", { exact: true }).fill("exact-target");
   await panel.getByLabel("Target ID", { exact: true }).press("Enter");
   const kind = panel.getByLabel("Target kind", { exact: true });
   await expect(kind).toBeFocused();
   await expect(kind).toHaveAccessibleDescription(/Choose/);
   await expectVisibleFocus(kind);
+  // A target ID without its kind is not submitted.
+  expect(fixture.requests.length).toBe(readsBeforeTarget);
+  await kind.selectOption("incident_membership");
+  await panel
+    .getByRole("button", { name: "Apply filters", exact: true })
+    .click();
+  await expect.poll(() => fixture.requests.length).toBe(readsBeforeTarget + 1);
+  const filtered = fixture.requests.at(-1)?.searchParams;
+  expect(filtered?.get("target_kind")).toBe("incident_membership");
+  expect(filtered?.get("target_id")).toBe("exact-target");
   await panel
     .getByRole("button", { name: "Clear filters", exact: true })
     .click();
+  await expect.poll(() => fixture.requests.length).toBe(readsBeforeTarget + 2);
+  const cleared = fixture.requests.at(-1)?.searchParams;
+  expect(cleared?.has("target_kind")).toBe(false);
+  expect(cleared?.has("target_id")).toBe(false);
   await panel.getByRole("button", { name: /^Inspect / }).focus();
   await page.keyboard.press("Enter");
   const hide = panel.getByRole("button", { name: /^Hide / });
@@ -51,6 +66,9 @@ test("a11y.membership-audit exact filters inspection paging recovery and drawer 
   await expect(
     panel.getByRole("region", { name: /^Details for / }),
   ).toContainText("Redacted");
+  await expect(
+    panel.getByRole("region", { name: /^Details for / }),
+  ).toContainText("<script>inert text</script>");
   await expect(panel.locator("script")).toHaveCount(0);
   for (const viewport of [
     { width: 1280, height: 720 },

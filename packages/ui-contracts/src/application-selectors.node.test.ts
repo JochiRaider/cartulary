@@ -279,9 +279,6 @@ describe("@cartulary/ui-contracts application selectors", () => {
     );
     expect(timelineInspectorMessageTestId()).toBe("timeline-inspector-message");
     expect(timelineInspectorTestId()).toBe("timeline-inspector");
-    expect(timelineInspectorSectionTestId("operational-text")).toBe(
-      timelineInspectorSectionTestId("operational-text"),
-    );
     expect(() => timelineInspectorSectionTestId("summary" as never)).toThrow(
       "Invalid timeline inspector section token: summary",
     );
@@ -321,14 +318,14 @@ describe("@cartulary/ui-contracts application selectors", () => {
         }[control];
         return testIdFor("user-2");
       },
-      [
-        ["row", "incident-membership-row-user-2"],
-        ["version", "incident-membership-version-user-2"],
-        ["roleInput", "incident-membership-role-input-user-2"],
-        ["patch", "incident-membership-patch-user-2"],
-        ["delete", "incident-membership-delete-user-2"],
-        ["roleDisplay", "incident-membership-role-user-2"],
-      ],
+      {
+        row: "incident-membership-row-user-2",
+        version: "incident-membership-version-user-2",
+        roleInput: "incident-membership-role-input-user-2",
+        patch: "incident-membership-patch-user-2",
+        delete: "incident-membership-delete-user-2",
+        roleDisplay: "incident-membership-role-user-2",
+      },
     );
     expect(extensionProfileRowTestId("profile:core")).toBe(
       "extension-profile%3Acore",
@@ -336,157 +333,163 @@ describe("@cartulary/ui-contracts application selectors", () => {
   });
 
   it("provides stable authentication bootstrap, landing, session, admin, and error selectors", () => {
-    expectSelectorCases(authTestId, [
-      ["shell", "auth-shell"],
-      ["shell-message", "auth-shell-message"],
-      ["feedback", "auth-feedback"],
-      ["login-username", "auth-login-username"],
-      ["login-password", "auth-login-password"],
-      ["login-totp-code", "auth-login-totp-code"],
-      ["login-submit", "auth-login-submit"],
-      ["bootstrap-setup-key", "auth-bootstrap-setup-key"],
-      ["bootstrap-begin", "auth-bootstrap-begin"],
-      ["bootstrap-complete-code", "auth-bootstrap-complete-code"],
-      ["bootstrap-complete", "auth-bootstrap-complete"],
-    ]);
+    expectSelectorCases(authTestId, {
+      shell: "auth-shell",
+      "shell-message": "auth-shell-message",
+      feedback: "auth-feedback",
+      "login-username": "auth-login-username",
+      "login-password": "auth-login-password",
+      "login-totp-code": "auth-login-totp-code",
+      "login-submit": "auth-login-submit",
+      "bootstrap-setup-key": "auth-bootstrap-setup-key",
+      "bootstrap-begin": "auth-bootstrap-begin",
+      "bootstrap-complete-code": "auth-bootstrap-complete-code",
+      "bootstrap-complete": "auth-bootstrap-complete",
+      "enterprise-provider-button": "auth-enterprise-provider-button",
+      "enterprise-provider-list": "auth-enterprise-provider-list",
+    });
 
-    expectSelectorCases(incidentImportTestId, [
-      ["form", "incident-import-form"],
-      ["file", "incident-import-file"],
-      ["admission", "incident-import-admission"],
-      ["jobs", "incident-import-jobs"],
-      ["detail", "incident-import-detail"],
-      ["progress", "incident-import-progress"],
-      ["feedback", "incident-import-feedback"],
-    ]);
+    expectSelectorCases(incidentImportTestId, {
+      form: "incident-import-form",
+      file: "incident-import-file",
+      admission: "incident-import-admission",
+      jobs: "incident-import-jobs",
+      detail: "incident-import-detail",
+      progress: "incident-import-progress",
+      feedback: "incident-import-feedback",
+    });
     expect(incidentImportJobTestId("job/one")).toBe(
       "incident-import-job-job%2Fone",
     );
-    expectSelectorCases(incidentLandingTestId, [
-      ["shell", "incident-landing"],
-      ["current-user", "landing-current-user"],
-      ["refresh", "landing-refresh"],
-      ["incident-key", "landing-incident-key"],
-      ["incident-title", "landing-incident-title"],
-      ["create-open-button", "landing-create-open-button"],
-      ["create-submit-button", "landing-create-submit-button"],
-      ["create-form", "landing-create-form"],
-      ["create-status", "landing-create-status"],
-      ["incidents-count", "landing-incidents-count"],
-      ["loading", "landing-loading"],
-      ["empty-state", "landing-empty-state"],
-      ["incident-list", "landing-incident-list"],
-      ["status", "landing-status"],
-      ["return", "landing-return"],
-    ]);
+    expectSelectorCases(incidentLandingTestId, {
+      shell: "incident-landing",
+      "current-user": "landing-current-user",
+      refresh: "landing-refresh",
+      "incident-key": "landing-incident-key",
+      "incident-title": "landing-incident-title",
+      "create-open-button": "landing-create-open-button",
+      "create-submit-button": "landing-create-submit-button",
+      "create-form": "landing-create-form",
+      "create-status": "landing-create-status",
+      "incidents-count": "landing-incidents-count",
+      loading: "landing-loading",
+      "empty-state": "landing-empty-state",
+      "incident-list": "landing-incident-list",
+      status: "landing-status",
+      return: "landing-return",
+      "create-current-phase": "landing-create-current-phase",
+      "create-description": "landing-create-description",
+      "create-external-case": "landing-create-external-case",
+      "create-severity": "landing-create-severity",
+      "create-tlp": "landing-create-tlp",
+      search: "landing-search",
+      "status-filter": "landing-status-filter",
+    });
 
-    expectSelectorCases(landingAdminShellTestId, [
-      ["heading", "landing-admin-heading"],
-      ["shell", "landing-admin-shell"],
-      ["menu", "landing-admin-menu"],
-      ["status-strip", "landing-admin-status-strip"],
-    ]);
-    expect(landingAdminMenuItemTestId("administrative-audit")).toBe(
-      "landing-admin-menu-item-administrative-audit",
-    );
-    expect(landingAdminMenuItemTestId("deployment-users")).toBe(
-      "landing-admin-menu-item-deployment-users",
-    );
-    expect(landingAdminMenuItemTestId("incident-import")).toBe(
-      "landing-admin-menu-item-incident-import",
-    );
-    expect(landingAdminMenuItemTestId("reference-packs")).toBe(
-      "landing-admin-menu-item-reference-packs",
-    );
-    expect(landingAdminPanelTestId("administrative-audit")).toBe(
-      "landing-admin-panel-administrative-audit",
-    );
-    expect(landingAdminPanelTestId("deployment-users")).toBe(
-      "landing-admin-panel-deployment-users",
-    );
-    expect(landingAdminPanelTestId("incident-import")).toBe(
-      "landing-admin-panel-incident-import",
-    );
-    expect(landingAdminPanelTestId("reference-packs")).toBe(
-      "landing-admin-panel-reference-packs",
-    );
+    expectSelectorCases(landingAdminShellTestId, {
+      heading: "landing-admin-heading",
+      shell: "landing-admin-shell",
+      menu: "landing-admin-menu",
+      "status-strip": "landing-admin-status-strip",
+    });
+    for (const panel of [
+      "incidents",
+      "account-profile",
+      "account-appearance",
+      "account-security",
+      "deployment-users",
+      "administrative-audit",
+      "reference-packs",
+      "incident-import",
+    ]) {
+      expect(landingAdminMenuItemTestId(panel)).toBe(
+        `landing-admin-menu-item-${panel}`,
+      );
+      expect(landingAdminPanelTestId(panel)).toBe(
+        `landing-admin-panel-${panel}`,
+      );
+    }
     expect(deploymentUserRowTestId("user:1")).toBe(
       "deployment-user-row-user%3A1",
     );
 
-    expectSelectorCases(appRouteTestId, [
-      ["app-shell", "app-shell"],
-      ["workbook-current-user", "workbook-current-user"],
-      ["workbook-loading", "workbook-loading"],
-    ]);
+    expectSelectorCases(appRouteTestId, {
+      "app-shell": "app-shell",
+      "workbook-current-user": "workbook-current-user",
+      "workbook-loading": "workbook-loading",
+    });
 
-    expectSelectorCases(accountTestId, [
-      ["application-menu", "account-application-menu-panel"],
-      ["refresh-state", "account-refresh-state"],
-      ["logout", "account-logout"],
-      ["session-user-id", "account-session-user-id"],
-      ["session-provider-type", "account-session-provider-type"],
-      ["session-mfa-state", "account-session-mfa-state"],
-      ["session-is-deployment-admin", "account-session-is-deployment-admin"],
-      ["session-authenticated-at", "account-session-authenticated-at"],
-      ["session-idle-expires-at", "account-session-idle-expires-at"],
-      ["session-absolute-expires-at", "account-session-absolute-expires-at"],
-      ["session-session-expires-at", "account-session-session-expires-at"],
-      ["session-memberships", "account-session-memberships"],
-      ["credential-auth-kind", "account-credential-auth-kind"],
-      ["credential-recovery-model", "account-credential-recovery-model"],
-      [
-        "credential-password-changed-at",
+    expectSelectorCases(accountTestId, {
+      "application-menu": "account-application-menu-panel",
+      "refresh-state": "account-refresh-state",
+      logout: "account-logout",
+      "session-user-id": "account-session-user-id",
+      "session-provider-type": "account-session-provider-type",
+      "session-mfa-state": "account-session-mfa-state",
+      "session-is-deployment-admin": "account-session-is-deployment-admin",
+      "session-authenticated-at": "account-session-authenticated-at",
+      "session-idle-expires-at": "account-session-idle-expires-at",
+      "session-absolute-expires-at": "account-session-absolute-expires-at",
+      "session-session-expires-at": "account-session-session-expires-at",
+      "session-memberships": "account-session-memberships",
+      "credential-auth-kind": "account-credential-auth-kind",
+      "credential-recovery-model": "account-credential-recovery-model",
+      "credential-password-changed-at":
         "account-credential-password-changed-at",
-      ],
-      ["credential-totp-state", "account-credential-totp-state"],
-      [
-        "credential-pending-expires-at",
-        "account-credential-pending-expires-at",
-      ],
-      ["password-current", "account-password-current"],
-      ["password-next", "account-password-next"],
-      ["password-factor-code", "account-password-factor-code"],
-      ["password-change", "account-password-change"],
-      ["totp-current-password", "account-totp-current-password"],
-      ["totp-current-factor", "account-totp-current-factor"],
-      ["totp-begin", "account-totp-begin"],
-      ["totp-setup-key", "account-totp-setup-key"],
-      ["totp-complete-code", "account-totp-complete-code"],
-      ["totp-complete", "account-totp-complete"],
-      ["status", "account-status"],
-    ]);
+      "credential-totp-state": "account-credential-totp-state",
+      "credential-pending-expires-at": "account-credential-pending-expires-at",
+      "password-current": "account-password-current",
+      "password-next": "account-password-next",
+      "password-factor-code": "account-password-factor-code",
+      "password-change": "account-password-change",
+      "totp-current-password": "account-totp-current-password",
+      "totp-current-factor": "account-totp-current-factor",
+      "totp-begin": "account-totp-begin",
+      "totp-setup-key": "account-totp-setup-key",
+      "totp-complete-code": "account-totp-complete-code",
+      "totp-complete": "account-totp-complete",
+      status: "account-status",
+      "appearance-density-mode": "account-appearance-density-mode",
+      "appearance-save": "account-appearance-save",
+      "profile-display-name": "account-profile-display-name",
+      "profile-email": "account-profile-email",
+      "profile-save": "account-profile-save",
+    });
 
-    expectSelectorCases(deploymentAdminTestId, [
-      ["access-note", "admin-access-note"],
-      ["create-email", "admin-create-email"],
-      ["create-display-name", "admin-create-display-name"],
-      ["create-password", "admin-create-password"],
-      ["create-mfa-required", "admin-create-mfa-required"],
-      ["create-is-deployment-admin", "admin-create-is-deployment-admin"],
-      ["create-user", "admin-create-user"],
-      ["user-filter", "admin-user-filter"],
-      ["user-list", "admin-user-list"],
-      ["load-more-users", "admin-load-more-users"],
-      ["target-user-id-input", "admin-target-user-id-input"],
-      ["load-user", "admin-load-user"],
-      ["target-user-id", "admin-target-user-id"],
-      ["target-user-version", "admin-target-user-version"],
-      ["target-is-active", "admin-target-is-active"],
-      ["target-is-deployment-admin", "admin-target-is-deployment-admin"],
-      ["patch-base-version", "admin-patch-base-version"],
-      ["patch-display-name", "admin-patch-display-name"],
-      ["patch-mfa-required", "admin-patch-mfa-required"],
-      ["patch-is-active", "admin-patch-is-active"],
-      ["patch-is-deployment-admin", "admin-patch-is-deployment-admin"],
-      ["patch-user", "admin-patch-user"],
-      ["new-password", "admin-new-password"],
-      ["reason", "admin-reason"],
-      ["password-reset", "admin-password-reset"],
-      ["totp-reset", "admin-totp-reset"],
-      ["revoke-all", "admin-revoke-all"],
-      ["status", "admin-status"],
-    ]);
+    expectSelectorCases(deploymentAdminTestId, {
+      "access-note": "admin-access-note",
+      "create-email": "admin-create-email",
+      "create-display-name": "admin-create-display-name",
+      "create-password": "admin-create-password",
+      "create-mfa-required": "admin-create-mfa-required",
+      "create-is-deployment-admin": "admin-create-is-deployment-admin",
+      "create-user": "admin-create-user",
+      "user-filter": "admin-user-filter",
+      "user-list": "admin-user-list",
+      "load-more-users": "admin-load-more-users",
+      "target-user-id-input": "admin-target-user-id-input",
+      "load-user": "admin-load-user",
+      "target-user-id": "admin-target-user-id",
+      "target-user-version": "admin-target-user-version",
+      "target-is-active": "admin-target-is-active",
+      "target-is-deployment-admin": "admin-target-is-deployment-admin",
+      "patch-base-version": "admin-patch-base-version",
+      "patch-display-name": "admin-patch-display-name",
+      "patch-mfa-required": "admin-patch-mfa-required",
+      "patch-is-active": "admin-patch-is-active",
+      "patch-is-deployment-admin": "admin-patch-is-deployment-admin",
+      "patch-user": "admin-patch-user",
+      "new-password": "admin-new-password",
+      reason: "admin-reason",
+      "password-reset": "admin-password-reset",
+      "totp-reset": "admin-totp-reset",
+      "revoke-all": "admin-revoke-all",
+      status: "admin-status",
+      "patch-email": "admin-patch-email",
+      "user-is-active-filter": "admin-user-is-active-filter",
+      "user-is-deployment-admin-filter":
+        "admin-user-is-deployment-admin-filter",
+    });
 
     expect(authTestId("feedback")).toBe("auth-feedback");
     expect(publicErrorCodeTestId("account")).toBe("account-error-code");
@@ -523,8 +526,9 @@ describe("@cartulary/ui-contracts application selectors", () => {
       { field: "login-username" as const, label: "Email address" },
     ];
 
-    expect(accountTestId(renamedSession.field)).toBe(
-      accountTestId(relabeledSession.field),
+    expect(accountTestId(renamedSession.field)).toBe("account-session-user-id");
+    expect(accountTestId(relabeledSession.field)).toBe(
+      "account-session-user-id",
     );
     expect(
       authTestId(
@@ -573,11 +577,15 @@ describe("@cartulary/ui-contracts application selectors", () => {
   });
 });
 
+/**
+ * The record must name every member of the selector vocabulary, so the
+ * compiler rejects a table that omits a production selector.
+ */
 function expectSelectorCases<T extends string>(
   testIdFor: (selector: T) => string,
-  cases: ReadonlyArray<readonly [T, string]>,
+  cases: Readonly<Record<NoInfer<T>, string>>,
 ): void {
-  for (const [selector, expected] of cases) {
-    expect(testIdFor(selector)).toBe(expected);
+  for (const [selector, expected] of Object.entries(cases) as [T, string][]) {
+    expect(testIdFor(selector), selector).toBe(expected);
   }
 }

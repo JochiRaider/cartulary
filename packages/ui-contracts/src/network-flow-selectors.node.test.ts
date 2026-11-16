@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 
 import {
   networkAnalysisColumnActionTestId,
@@ -99,6 +99,10 @@ const networkAnalysisSelectors = [
 
 describe("@cartulary/ui-contracts Network Flow selectors", () => {
   it("preserves every closed Network Analysis selector in exact order", () => {
+    // The list must be exactly the selector vocabulary.
+    expectTypeOf<(typeof networkAnalysisSelectors)[number]>().toEqualTypeOf<
+      Parameters<typeof networkAnalysisTestId>[0]
+    >();
     expect(networkAnalysisSelectors.map(networkAnalysisTestId)).toEqual(
       networkAnalysisSelectors.map(
         (selector) => `network-flow-analysis-${selector}`,
@@ -162,19 +166,22 @@ describe("@cartulary/ui-contracts Network Flow selectors", () => {
 
   it("fails closed for malformed Network Flow identity and ordinal inputs", () => {
     expect(() => networkAnalysisTableTabTestId("")).toThrow(
-      "Invalid table_id selector token: ",
+      /^Invalid table_id selector token: $/,
     );
     expect(() => networkAnalysisEdgeTestId(" ")).toThrow(
-      "Invalid edge_id selector token:  ",
+      /^Invalid edge_id selector token: {2}$/,
     );
     expect(() => networkAnalysisSavedGraphTestId("")).toThrow(
-      "Invalid graph_view_id selector token: ",
+      /^Invalid graph_view_id selector token: $/,
     );
     expect(networkAnalysisRowCellTestId("row-1", "Source address")).toBe(
       "network-flow-row-cell-row-1-Source%20address",
     );
     expect(() => networkAnalysisColumnActionTestId("", "toggle")).toThrow(
-      "Invalid field_key selector token: ",
+      /^Invalid field_key selector token: $/,
+    );
+    expect(networkAnalysisMappingColumnTestId(Number.MAX_SAFE_INTEGER)).toBe(
+      `network-flow-mapping-column-${Number.MAX_SAFE_INTEGER}`,
     );
     for (const ordinal of [0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
       expect(() => networkAnalysisMappingColumnTestId(ordinal)).toThrow(

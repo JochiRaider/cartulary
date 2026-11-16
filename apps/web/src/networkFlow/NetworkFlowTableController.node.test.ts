@@ -148,7 +148,10 @@ describe("Table lifecycle operations", () => {
     const queued = await setup(() => new Promise(() => {}));
     rename(queued.controller);
     const undispatched = queued.controller.submit();
-    await vi.advanceTimersByTimeAsync(30_001);
+    // Still pending one millisecond inside the 30-second bound.
+    await vi.advanceTimersByTimeAsync(29_999);
+    expect(queued.controller.getSnapshot().operation?.status).toBe("pending");
+    await vi.advanceTimersByTimeAsync(2);
     await undispatched;
     expect(queued.controller.getSnapshot().operation).toMatchObject({
       status: "rejected",
@@ -161,7 +164,9 @@ describe("Table lifecycle operations", () => {
     const s = await setup();
     rename(s.controller);
     const first = s.controller.submit();
-    await vi.advanceTimersByTimeAsync(30_001);
+    await vi.advanceTimersByTimeAsync(29_999);
+    expect(s.controller.getSnapshot().operation?.status).toBe("pending");
+    await vi.advanceTimersByTimeAsync(2);
     await first;
     const attempt = s.controller.getSnapshot().operation?.attempt;
     expect(s.controller.getSnapshot().operation?.status).toBe("uncertain");

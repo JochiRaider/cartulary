@@ -1094,7 +1094,8 @@ describe("workbookQuery", () => {
     for (const fieldKey of sortable) {
       state = cycleWorkbookSortField(contract, state, fieldKey, true);
     }
-    expect(state.sort).toHaveLength(Math.min(8, sortable.length));
+    expect(sortable).toHaveLength(9);
+    expect(state.sort).toHaveLength(8);
     const first = state.sort[0];
     expect(first).toBeDefined();
     if (first === undefined) return;

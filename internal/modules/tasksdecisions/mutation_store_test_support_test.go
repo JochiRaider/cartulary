@@ -398,15 +398,6 @@ func requireMutationValidation(t testing.TB, err error, field string, reason str
 	t.Fatalf("expected owner validation error, got %v", err)
 }
 
-func requireLifecycle(t testing.TB, err error) {
-	t.Helper()
-	var ownerLifecycleErr *tasksdecisions.LifecycleValidationError
-	if errors.As(err, &ownerLifecycleErr) {
-		return
-	}
-	t.Fatalf("expected lifecycle validation error, got %v", err)
-}
-
 func requireLifecycleGuards(t testing.TB, err error, reason string, guards ...string) {
 	t.Helper()
 	var lifecycle *tasksdecisions.LifecycleValidationError
@@ -530,7 +521,7 @@ func requireTaskDecisionAdmittedTextPersistence(t *testing.T, db dbport.DB, owne
 	rejected := admitPatch("task-text-blocker-reject", []map[string]any{{"field_key": "task.blocked_reason", "value": nil}})
 	before := taskSnapshot(t, db, task.RecordID)
 	_, err = patchRecord(owner, actor, task.RecordID, rejected.ViewSchemaID, rejected.BaseRowVersion, rejected.ClientTxnID, rejected.Changes...)
-	requireLifecycle(t, err)
+	requireLifecycleGuards(t, err, "violated_lifecycle_guards", "blocked_requires_reason")
 	requireTaskSnapshot(t, taskSnapshot(t, db, task.RecordID), before, "clearing required blocker")
 	if actual := readTask(); !reflect.DeepEqual(actual, expected) {
 		t.Fatal("rejected blocker clear changed source text")

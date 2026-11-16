@@ -49,6 +49,7 @@ import {
   workbookShellSlotTestId,
   workbookSortAppliedEntryTestId,
 } from "./index";
+import { systemViewSwitcherGroupTokens } from "./viewSchemaSelectors";
 
 describe("@cartulary/ui-contracts workbook shell and grid selectors", () => {
   it("distinguishes preference resources and rejects unknown control tokens", () => {
@@ -163,19 +164,6 @@ describe("@cartulary/ui-contracts workbook shell and grid selectors", () => {
     expect(rowCellTestId(originalRow.recordId, originalField.fieldKey)).toBe(
       rowCellTestId(renamedRow.recordId, renamedField.fieldKey),
     );
-    expect(
-      workbookQueryEntryTestId(
-        "cartulary.view.timeline.v2",
-        "filter",
-        "status",
-      ),
-    ).toBe(
-      workbookQueryEntryTestId(
-        "cartulary.view.timeline.v2",
-        "filter",
-        "status",
-      ),
-    );
     expect(gridFilterFieldTestId("cartulary.view.timeline.v2")).toBe(
       "cartulary.view.timeline.v2-filter-field",
     );
@@ -289,12 +277,6 @@ describe("@cartulary/ui-contracts workbook shell and grid selectors", () => {
       "inspector",
       "status-strip",
     ]);
-    const systemViewSwitcherGroupTokens = [
-      "scope-indicators",
-      "coordination",
-      "review-learning",
-      "optional-artifact-surfaces",
-    ] as const;
     expect(systemViewSwitcherGroupTokens).toEqual([
       "scope-indicators",
       "coordination",
@@ -373,34 +355,29 @@ describe("@cartulary/ui-contracts workbook shell and grid selectors", () => {
       workbookGridRowHeightPx("comfortable"),
     ]).toEqual([24, 32, 40]);
 
-    const mutableTokenVars = cartularyDesignTokenVars as unknown as Record<
-      string,
-      string
-    >;
-    const tokenName = "--ct-density-compact-rowHeight";
-    const originalValue = mutableTokenVars[tokenName];
-    expect(originalValue).toBe("24px");
-    try {
-      mutableTokenVars[tokenName] = "calc(28px)";
-      expect(() => workbookGridRowHeightPx("compact")).toThrow(
-        "Invalid fixed grid density token --ct-density-compact-rowHeight: calc(28px)",
-      );
-    } finally {
-      if (originalValue !== undefined)
-        mutableTokenVars[tokenName] = originalValue;
-    }
+    expect(cartularyDesignTokenVars["--ct-density-compact-rowHeight"]).toBe(
+      "24px",
+    );
+    withDesignTokenOverride(
+      "--ct-density-compact-rowHeight",
+      "calc(28px)",
+      () => {
+        expect(() => workbookGridRowHeightPx("compact")).toThrow(
+          "Invalid fixed grid density token --ct-density-compact-rowHeight: calc(28px)",
+        );
+      },
+    );
+    expect(workbookGridRowHeightPx("compact")).toBe(24);
 
-    const paddingTokenName = "--ct-density-compact-cellPadding";
-    const originalPadding = mutableTokenVars[paddingTokenName];
-    try {
-      mutableTokenVars[paddingTokenName] = "2px calc(5px)";
-      expect(() => workbookGridDensityMetrics("compact")).toThrow(
-        "Invalid grid density cell-padding token --ct-density-compact-cellPadding: 2px calc(5px)",
-      );
-    } finally {
-      if (originalPadding !== undefined)
-        mutableTokenVars[paddingTokenName] = originalPadding;
-    }
+    withDesignTokenOverride(
+      "--ct-density-compact-cellPadding",
+      "2px calc(5px)",
+      () => {
+        expect(() => workbookGridDensityMetrics("compact")).toThrow(
+          "Invalid grid density cell-padding token --ct-density-compact-cellPadding: 2px calc(5px)",
+        );
+      },
+    );
   });
 
   it("parses fixed and viewport-relative layout metrics from generated tokens", () => {
@@ -426,20 +403,35 @@ describe("@cartulary/ui-contracts workbook shell and grid selectors", () => {
       360,
     );
 
-    const mutableTokenVars = cartularyDesignTokenVars as unknown as Record<
-      string,
-      string
-    >;
-    const tokenName = "--ct-layout-inspectorMaxWidth";
-    const originalValue = mutableTokenVars[tokenName];
-    try {
-      mutableTokenVars[tokenName] = "min(560px,45vw)";
-      expect(() => workbookLayoutMetrics(1280)).toThrow(
-        "Invalid css_min_px_vw_v1 token --ct-layout-inspectorMaxWidth: min(560px,45vw)",
-      );
-    } finally {
-      if (originalValue !== undefined)
-        mutableTokenVars[tokenName] = originalValue;
-    }
+    withDesignTokenOverride(
+      "--ct-layout-inspectorMaxWidth",
+      "min(560px,45vw)",
+      () => {
+        expect(() => workbookLayoutMetrics(1280)).toThrow(
+          "Invalid css_min_px_vw_v1 token --ct-layout-inspectorMaxWidth: min(560px,45vw)",
+        );
+      },
+    );
   });
 });
+
+/**
+ * Overrides one shared design token for `run` and always restores it, or
+ * deletes it when it did not exist, so no override outlives its test.
+ */
+function withDesignTokenOverride(
+  tokenName: string,
+  value: string,
+  run: () => void,
+): void {
+  const tokens = cartularyDesignTokenVars as unknown as Record<string, string>;
+  const existed = Object.hasOwn(tokens, tokenName);
+  const original = tokens[tokenName];
+  tokens[tokenName] = value;
+  try {
+    run();
+  } finally {
+    if (existed && original !== undefined) tokens[tokenName] = original;
+    else delete tokens[tokenName];
+  }
+}

@@ -255,7 +255,7 @@ describe("createWorkbookClipboardPasteAdapter", () => {
         authority,
         "txn",
       ),
-    ).toThrow();
+    ).toThrow("Invalid paste plan");
     const admit = vi.fn(() => "retained");
     const paste = createWorkbookClipboardPasteAdapter({
       admit,

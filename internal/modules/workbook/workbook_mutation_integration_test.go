@@ -5,6 +5,7 @@ import (
 	"context"
 	"net/http"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -34,7 +35,7 @@ func TestPartiesSurface_Integration(t *testing.T) {
 		"client_txn_id":    "txn-entity_linking-party-invalid",
 		"party.party_kind": "organization",
 	})
-	httptestx.RequireErrorEnvelope(t, invalidParty, http.StatusBadRequest, "invalid_mutation_payload")
+	requireInvalidMutationPayload(t, invalidParty, "party.display_name", "missing_required_field")
 	if got := countIncidentRecords(t, harness, incidentID); got != beforeRecords {
 		t.Fatalf("rejected party create wrote records: got %d want %d", got, beforeRecords)
 	}
@@ -159,12 +160,12 @@ func TestWorkbook_EvidenceMutations(t *testing.T) {
 	blankEvidence := doWorkbookJSON(t, harness, adminLogin, http.MethodPost, incidentID, "cartulary.view.evidence.v1", uuid.Nil, map[string]any{
 		"client_txn_id": "txn-workbook-evidence-blank",
 	})
-	httptestx.RequireErrorEnvelope(t, blankEvidence, http.StatusBadRequest, "invalid_mutation_payload")
+	requireInvalidMutationPayload(t, blankEvidence, "payload", "minimum_create_signal_missing")
 	refOnlyEvidence := doWorkbookJSON(t, harness, adminLogin, http.MethodPost, incidentID, "cartulary.view.evidence.v1", uuid.Nil, map[string]any{
 		"client_txn_id":               "txn-workbook-evidence-ref-only",
 		"evidence.collector_party_id": partyID.String(),
 	})
-	httptestx.RequireErrorEnvelope(t, refOnlyEvidence, http.StatusBadRequest, "invalid_mutation_payload")
+	requireInvalidMutationPayload(t, refOnlyEvidence, "payload", "minimum_create_signal_missing")
 	if got := countIncidentRecords(t, harness, incidentID); got != beforeMinimumFailures {
 		t.Fatalf("rejected evidence minimum creates wrote records: got %d want %d", got, beforeMinimumFailures)
 	}
@@ -212,7 +213,7 @@ VALUES ($1, $2, 'Deleted Party', 'person')
 		},
 	} {
 		resp := doWorkbookJSON(t, harness, adminLogin, http.MethodPost, incidentID, "cartulary.view.evidence.v1", uuid.Nil, invalid.body)
-		httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_mutation_payload")
+		requireInvalidMutationPayload(t, resp, "evidence.collector_party_id", "invalid_value")
 	}
 	if got := countIncidentRecords(t, harness, incidentID); got != beforeReferenceFailures {
 		t.Fatalf("rejected evidence reference creates wrote records: got %d want %d", got, beforeReferenceFailures)
@@ -266,7 +267,7 @@ VALUES ($1, $2, 'Deleted Party', 'person')
 			{"field_key": "evidence.source_party_id", "value": foreignPartyID.String()},
 		},
 	})
-	httptestx.RequireErrorEnvelope(t, invalidForeignPatch, http.StatusBadRequest, "invalid_mutation_payload")
+	requireInvalidMutationPayload(t, invalidForeignPatch, "evidence.source_party_id", "invalid_value")
 }
 
 func TestCoordinationDefaults_Integration(t *testing.T) {
@@ -306,7 +307,7 @@ func TestCoordinationDefaults_Integration(t *testing.T) {
 		{"cartulary.view.lesson.v1", map[string]any{"client_txn_id": "txn-entity_linking-lesson-invalid"}},
 	} {
 		resp := doWorkbookJSON(t, harness, adminLogin, http.MethodPost, incidentID, invalid.viewSchemaID, uuid.Nil, invalid.body)
-		httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_mutation_payload")
+		requireInvalidMutationPayloadInNamespace(t, resp, strings.TrimSuffix(strings.TrimPrefix(invalid.viewSchemaID, "cartulary.view."), ".v1")+".", "missing_required_field")
 	}
 	if got := countIncidentRecords(t, harness, incidentID); got != beforeRecords {
 		t.Fatalf("rejected coordination creates wrote records: got %d want %d", got, beforeRecords)
@@ -335,7 +336,7 @@ func TestCoordinationDefaults_Integration(t *testing.T) {
 		"client_txn_id":    "txn-entity_linking-comm-immutable-id",
 		"changes":          []map[string]any{{"field_key": "comm_log.comm_id", "value": "client-supplied"}},
 	})
-	httptestx.RequireErrorEnvelope(t, immutableCommID, http.StatusBadRequest, "invalid_mutation_payload")
+	requireInvalidMutationPayload(t, immutableCommID, "comm_log.comm_id", "unsupported_field_key")
 	commSetNextReport := requireWorkbookPatch(t, harness, adminLogin, commID, map[string]any{
 		"view_schema_id":   "cartulary.view.comm_log.v1",
 		"base_row_version": 1,
@@ -356,7 +357,7 @@ func TestCoordinationDefaults_Integration(t *testing.T) {
 		"client_txn_id":    "txn-entity_linking-comm-null-timestamp",
 		"changes":          []map[string]any{{"field_key": "comm_log.timestamp_utc", "value": nil}},
 	})
-	httptestx.RequireErrorEnvelope(t, commNullTimestamp, http.StatusBadRequest, "invalid_mutation_payload")
+	requireInvalidMutationPayload(t, commNullTimestamp, "comm_log.timestamp_utc", "field_not_nullable")
 
 	handoffData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.handoff.v1", map[string]any{
 		"client_txn_id":                  "txn-entity_linking-handoff-defaults-create",
@@ -461,7 +462,7 @@ func TestCoordinationCollections_Integration(t *testing.T) {
 		"client_txn_id":    "txn-workbook-party-invalid",
 		"party.party_kind": "organization",
 	})
-	httptestx.RequireErrorEnvelope(t, invalidParty, http.StatusBadRequest, "invalid_mutation_payload")
+	requireInvalidMutationPayload(t, invalidParty, "party.display_name", "missing_required_field")
 	requireWorkbookStateUnchanged(t, beforeInvalidPartyState, snapshotWorkbookState(t, harness, adminLogin, incidentID, "cartulary.view.parties.v1"))
 	if got := countIncidentRecords(t, harness, incidentID); got != beforePartyFailureRecords {
 		t.Fatalf("rejected party create wrote records: got %d want %d", got, beforePartyFailureRecords)
@@ -541,7 +542,7 @@ func TestCoordinationCollections_Integration(t *testing.T) {
 			{"field_key": "comm_log.decision_ids", "action_payload": collectionActions(addRecordRef(autoRebaseDecisionID))},
 		},
 	})
-	duplicateAddBody := httptestx.RequireErrorEnvelope(t, duplicateAdd, http.StatusBadRequest, "invalid_mutation_payload")
+	duplicateAddBody := requireInvalidMutationPayload(t, duplicateAdd, "changes", "no_effective_change")
 	requireWorkbookStateUnchanged(t, beforeDuplicateAddState, snapshotWorkbookState(t, harness, adminLogin, incidentID, "cartulary.view.comm_log.v1"))
 	duplicateAddDetails := duplicateAddBody["error"].(map[string]any)["details"].(map[string]any)
 	if duplicateAddDetails["reason_code"] != "no_effective_change" {
@@ -559,7 +560,7 @@ func TestCoordinationCollections_Integration(t *testing.T) {
 			{"field_key": "comm_log.decision_ids", "value": []any{}},
 		},
 	})
-	httptestx.RequireErrorEnvelope(t, rawArrayPatch, http.StatusBadRequest, "invalid_mutation_payload")
+	requireInvalidMutationPayload(t, rawArrayPatch, "action_payload", "missing_required_field")
 	beforeRawNullPatchState := snapshotWorkbookState(t, harness, adminLogin, incidentID, "cartulary.view.comm_log.v1")
 	requireWorkbookStateUnchanged(t, beforeRawArrayPatchState, snapshotWorkbookState(t, harness, adminLogin, incidentID, "cartulary.view.comm_log.v1"))
 	rawNullPatch := doWorkbookJSON(t, harness, adminLogin, http.MethodPatch, uuid.Nil, "", commID, map[string]any{
@@ -570,7 +571,7 @@ func TestCoordinationCollections_Integration(t *testing.T) {
 			{"field_key": "comm_log.decision_ids", "value": nil},
 		},
 	})
-	httptestx.RequireErrorEnvelope(t, rawNullPatch, http.StatusBadRequest, "invalid_mutation_payload")
+	requireInvalidMutationPayload(t, rawNullPatch, "action_payload", "missing_required_field")
 	beforeWrongTargetState := snapshotWorkbookState(t, harness, adminLogin, incidentID, "cartulary.view.comm_log.v1")
 	requireWorkbookStateUnchanged(t, beforeRawNullPatchState, snapshotWorkbookState(t, harness, adminLogin, incidentID, "cartulary.view.comm_log.v1"))
 	wrongTarget := doWorkbookJSON(t, harness, adminLogin, http.MethodPatch, uuid.Nil, "", commID, map[string]any{
@@ -581,7 +582,7 @@ func TestCoordinationCollections_Integration(t *testing.T) {
 			{"field_key": "comm_log.decision_ids", "action_payload": collectionActions(addRecordRef(partyID))},
 		},
 	})
-	httptestx.RequireErrorEnvelope(t, wrongTarget, http.StatusBadRequest, "invalid_mutation_payload")
+	requireInvalidMutationPayload(t, wrongTarget, "comm_log.decision_ids", "invalid_value")
 	requireWorkbookStateUnchanged(t, beforeWrongTargetState, snapshotWorkbookState(t, harness, adminLogin, incidentID, "cartulary.view.comm_log.v1"))
 
 	otherIncident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
@@ -606,7 +607,7 @@ func TestCoordinationCollections_Integration(t *testing.T) {
 			{"field_key": "comm_log.audience_party_ids", "action_payload": collectionActions(addPartyRef(foreignPartyID))},
 		},
 	})
-	httptestx.RequireErrorEnvelope(t, foreignPartyRef, http.StatusBadRequest, "invalid_mutation_payload")
+	requireInvalidMutationPayload(t, foreignPartyRef, "comm_log.audience_party_ids", "invalid_value")
 	requireWorkbookStateUnchanged(t, beforeForeignPartyRefState, snapshotWorkbookState(t, harness, adminLogin, incidentID, "cartulary.view.comm_log.v1"))
 	requireWorkbookStateUnchanged(t, beforeForeignPartyRefStateOther, snapshotWorkbookState(t, harness, adminLogin, otherIncidentID, "cartulary.view.parties.v1"))
 
@@ -670,7 +671,7 @@ func TestCoordinationCollections_Integration(t *testing.T) {
 			{"field_key": "lesson.lesson_id", "value": "client-supplied"},
 		},
 	})
-	httptestx.RequireErrorEnvelope(t, immutableLessonID, http.StatusBadRequest, "invalid_mutation_payload")
+	requireInvalidMutationPayload(t, immutableLessonID, "lesson.lesson_id", "unsupported_field_key")
 	requireWorkbookStateUnchanged(t, beforeImmutableLessonIDState, snapshotWorkbookState(t, harness, adminLogin, incidentID, "cartulary.view.lesson.v1"))
 }
 
@@ -688,12 +689,12 @@ func TestWorkbook_NotesTasksAndDecisionsMutations(t *testing.T) {
 	blankNote := doWorkbookJSON(t, harness, adminLogin, http.MethodPost, incidentID, "cartulary.view.notes.v1", uuid.Nil, map[string]any{
 		"client_txn_id": "txn-workbook-note-blank",
 	})
-	httptestx.RequireErrorEnvelope(t, blankNote, http.StatusBadRequest, "invalid_mutation_payload")
+	requireInvalidMutationPayload(t, blankNote, "payload", "minimum_create_signal_missing")
 	tagOnlyNote := doWorkbookJSON(t, harness, adminLogin, http.MethodPost, incidentID, "cartulary.view.notes.v1", uuid.Nil, map[string]any{
 		"client_txn_id": "txn-workbook-note-tag-only",
 		"note.tags":     collectionActions(addToken("triage")),
 	})
-	httptestx.RequireErrorEnvelope(t, tagOnlyNote, http.StatusBadRequest, "invalid_mutation_payload")
+	requireInvalidMutationPayload(t, tagOnlyNote, "payload", "minimum_create_signal_missing")
 	if got := countIncidentRecords(t, harness, incidentID); got != beforeNoteFailures {
 		t.Fatalf("rejected note creates wrote records: got %d want %d", got, beforeNoteFailures)
 	}
@@ -749,7 +750,7 @@ func TestWorkbook_NotesTasksAndDecisionsMutations(t *testing.T) {
 			},
 		},
 	})
-	httptestx.RequireErrorEnvelope(t, confidenceSupportRef, http.StatusBadRequest, "invalid_mutation_payload")
+	requireInvalidMutationPayload(t, confidenceSupportRef, "decision.support_refs", "invalid_value")
 	confidenceAffectedRef := doWorkbookJSON(t, harness, adminLogin, http.MethodPost, incidentID, "cartulary.view.decisions.v1", uuid.Nil, map[string]any{
 		"client_txn_id":          "txn-workbook-decision-affected-confidence-rejected",
 		"decision.summary":       "Invalid affected confidence",
@@ -762,7 +763,7 @@ func TestWorkbook_NotesTasksAndDecisionsMutations(t *testing.T) {
 			},
 		},
 	})
-	httptestx.RequireErrorEnvelope(t, confidenceAffectedRef, http.StatusBadRequest, "invalid_mutation_payload")
+	requireInvalidMutationPayload(t, confidenceAffectedRef, "decision.affected_record_ids", "invalid_value")
 
 	beforeTaskFailure := countIncidentRecords(t, harness, incidentID)
 	invalidTask := doWorkbookJSON(t, harness, adminLogin, http.MethodPost, incidentID, "cartulary.view.task_requests.v1", uuid.Nil, map[string]any{
@@ -812,7 +813,7 @@ func TestWorkbook_NotesTasksAndDecisionsMutations(t *testing.T) {
 			},
 		},
 	})
-	httptestx.RequireErrorEnvelope(t, confidenceTaskRef, http.StatusBadRequest, "invalid_mutation_payload")
+	requireInvalidMutationPayload(t, confidenceTaskRef, "task.linked_record_ids", "invalid_value")
 
 	taskData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.task_requests.v1", map[string]any{
 		"client_txn_id":             "txn-workbook-task-create",
@@ -845,7 +846,7 @@ func TestWorkbook_NotesTasksAndDecisionsMutations(t *testing.T) {
 			}},
 		},
 	})
-	httptestx.RequireErrorEnvelope(t, taskConfidencePatch, http.StatusBadRequest, "invalid_mutation_payload")
+	requireInvalidMutationPayload(t, taskConfidencePatch, "task.linked_record_ids", "invalid_value")
 	if got := countActiveRecordLinks(t, harness, taskID, "task.linked_record_ids"); got != 1 {
 		t.Fatalf("task confidence patch changed active links: got %d want 1", got)
 	}
@@ -863,7 +864,7 @@ func TestWorkbook_NotesTasksAndDecisionsMutations(t *testing.T) {
 			}},
 		},
 	})
-	httptestx.RequireErrorEnvelope(t, decisionSupportConfidencePatch, http.StatusBadRequest, "invalid_mutation_payload")
+	requireInvalidMutationPayload(t, decisionSupportConfidencePatch, "decision.support_refs", "invalid_value")
 	if got := countActiveRecordLinks(t, harness, decisionID, "decision.support_refs"); got != 1 {
 		t.Fatalf("decision support confidence patch changed active links: got %d want 1", got)
 	}
@@ -881,7 +882,7 @@ func TestWorkbook_NotesTasksAndDecisionsMutations(t *testing.T) {
 			}},
 		},
 	})
-	httptestx.RequireErrorEnvelope(t, decisionAffectedConfidencePatch, http.StatusBadRequest, "invalid_mutation_payload")
+	requireInvalidMutationPayload(t, decisionAffectedConfidencePatch, "decision.affected_record_ids", "invalid_value")
 	if got := countActiveRecordLinks(t, harness, decisionID, "decision.affected_record_ids"); got != 1 {
 		t.Fatalf("decision affected confidence patch changed active links: got %d want 1", got)
 	}
@@ -1123,4 +1124,30 @@ func addRiskRef(text string) map[string]any {
 
 func addToken(text string) map[string]any {
 	return map[string]any{"op": "add_tag", "tag_name": text}
+}
+
+// requireInvalidMutationPayload pins Core 03's public error details for a
+// single-defect invalid mutation.
+func requireInvalidMutationPayload(t *testing.T, resp *http.Response, field, reason string) map[string]any {
+	t.Helper()
+	body := httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_mutation_payload")
+	details, _ := body["error"].(map[string]any)["details"].(map[string]any)
+	if details["field"] != field || details["reason_code"] != reason {
+		t.Fatalf("invalid mutation details = %#v, want field %q reason %q", details, field, reason)
+	}
+	return body
+}
+
+// requireInvalidMutationPayloadInNamespace pins the reason and the surface
+// namespace when a body misses several required fields with no specified
+// precedence among them.
+func requireInvalidMutationPayloadInNamespace(t *testing.T, resp *http.Response, prefix, reason string) map[string]any {
+	t.Helper()
+	body := httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_mutation_payload")
+	details, _ := body["error"].(map[string]any)["details"].(map[string]any)
+	field, _ := details["field"].(string)
+	if !strings.HasPrefix(field, prefix) || details["reason_code"] != reason {
+		t.Fatalf("invalid mutation details = %#v, want a %s* field with reason %q", details, prefix, reason)
+	}
+	return body
 }

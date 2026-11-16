@@ -67,15 +67,40 @@ describe("public error presentation", () => {
           status: 401,
         },
       },
+      // Either trigger alone presents authentication_required.
       {
-        expectedFamily: "permission_or_incident_access_loss",
+        expectedFamily: "authentication_required",
         input: {
-          code: "incident_access_lost",
+          code: "future_error",
           hasAuthorizedMaterialization: true,
           operationFamily: "surface_refresh",
-          status: 403,
+          status: 401,
         },
       },
+      {
+        expectedFamily: "authentication_required",
+        input: {
+          code: "session_required",
+          hasAuthorizedMaterialization: true,
+          operationFamily: "surface_refresh",
+          status: 400,
+        },
+      },
+      ...(
+        [
+          "authorization_denied",
+          "incident_not_found",
+          "incident_access_lost",
+        ] as const
+      ).map((code) => ({
+        expectedFamily: "permission_or_incident_access_loss" as const,
+        input: {
+          code,
+          hasAuthorizedMaterialization: true,
+          operationFamily: "surface_refresh" as const,
+          status: 403,
+        },
+      })),
       {
         expectedFamily: "extension_unavailable",
         input: {

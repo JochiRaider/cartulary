@@ -94,7 +94,7 @@ it("Canonical uncertainty replays original bytes independently of drafts panel c
 it("Canonical acceptance precedes refresh and read retry preserves newer materialization without another create", async () => {
   const t = canonicalCreateFixture();
   t.reconcile.mockImplementation(async () => {
-    expect(t.entry()?.receipt).not.toBeNull();
+    expect(t.entry()?.receipt).toEqual(expect.anything());
     throw new Error("refresh failed");
   });
   t.owner.acceptVersion(observationTargetId, 99);

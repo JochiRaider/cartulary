@@ -189,7 +189,7 @@ describe("workbook collaboration coverage", () => {
     });
     expect(
       screen.getByTestId(workbookPresenceSummaryTestId()).textContent,
-    ).not.toContain("SA");
+    ).not.toContain("SV");
     await waitFor(() => {
       expect(
         screen.getByTestId(

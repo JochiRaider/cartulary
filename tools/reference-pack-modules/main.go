@@ -176,6 +176,7 @@ func export(root, module, base, out string) (descriptor, error) {
 	for _, f := range d.Files {
 		header := &zip.FileHeader{Name: prefix + f.Path, Method: zip.Deflate}
 		header.SetMode(0644)
+		//lint:ignore SA1019 Modified would add an extended-timestamp extra field and change the deterministic archive bytes; only the legacy MS-DOS time is written.
 		header.SetModTime(time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC))
 		member, err := writer.CreateHeader(header)
 		if err != nil {
