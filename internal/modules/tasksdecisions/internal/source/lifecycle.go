@@ -51,7 +51,7 @@ func NormalizeTaskLifecycleTx(
 	if before.Status != after.Status && !policy.ValidTaskTransition(before.Status, after.Status) {
 		return false, &policy.LifecycleValidationError{
 			FromStatus: before.Status, ToStatus: after.Status,
-			ReasonCode: "illegal_status_transition", ViolatedGuards: []string{"task.status"},
+			ReasonCode: policy.ReasonTransitionNotAllowed, ViolatedGuards: []string{},
 		}
 	}
 	if before.Status != after.Status && before.Status == "blocked" && after.Status != "blocked" && after.BlockedReason.Valid {
@@ -76,7 +76,10 @@ func NormalizeTaskLifecycleTx(
 	if err != nil {
 		return false, err
 	}
-	if err := policy.ValidateTaskState(after); err != nil {
+	// REQ-02-109a: a persisted row that already violated a guard is
+	// inconsistent; a legal result is the corrective action.
+	beforeInconsistent := len(policy.TaskLifecycleViolations(before)) > 0
+	if err := policy.TaskResultError(before.Status, beforeInconsistent, after); err != nil {
 		return false, err
 	}
 	return changed, nil

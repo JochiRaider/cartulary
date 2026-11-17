@@ -156,29 +156,28 @@ func linkSeededBlobWithCanonicalStorageKey(t *testing.T, harness *appsupport.Ser
 
 func linkSeededBlobWithIDAndStorageKey(t *testing.T, harness *appsupport.ServerHarness, incidentID uuid.UUID, actorID uuid.UUID, recordID uuid.UUID, uploadState string, evidenceLifecycle string, objectBlobID uuid.UUID, storageKey string) uuid.UUID {
 	t.Helper()
-	var terminalReason any
-	var failedMarker any
-	if uploadState == "failed" {
-		terminalReason = "pending_timeout"
-		failedMarker = "failed"
-	}
+	// REQ-02-189a coherent tuple: only finalized slots carry an observation, and
+	// a failed slot carries a size-mismatch failure with cleanup due 45m later.
 	if _, err := harness.DB.ExecContext(context.Background(), `
 INSERT INTO object_blobs (
     object_blob_id, incident_id, created_by_user_id, storage_key, upload_state,
     byte_size, filename_hint, content_type_hint, observed_size, observed_content_type,
     observed_sha256_hex, target_expires_at, pending_expires_at, finalized_at,
-    terminal_reason, failed_at, created_at, updated_at
+    terminal_reason, failed_at, cleanup_due_at, created_at, updated_at
 ) VALUES (
     $1, $2, $3, $4, $5,
-    11, 'seed.txt', 'text/plain', 11, 'text/plain',
-    '0000000000000000000000000000000000000000000000000000000000000000',
+    11, 'seed.txt', 'text/plain',
+    CASE WHEN $5 IN ('available', 'quarantined') THEN 11 ELSE NULL END,
+    CASE WHEN $5 IN ('available', 'quarantined') THEN 'text/plain' ELSE NULL END,
+    CASE WHEN $5 IN ('available', 'quarantined') THEN '0000000000000000000000000000000000000000000000000000000000000000' ELSE NULL END,
     now() + interval '1 hour', now() + interval '24 hours',
     CASE WHEN $5 IN ('available', 'quarantined') THEN now() ELSE NULL END,
-    $6,
-    CASE WHEN $7::text IS NULL THEN NULL ELSE now() END,
+    CASE WHEN $5 = 'failed' THEN 'declared_size_mismatch' ELSE NULL END,
+    CASE WHEN $5 = 'failed' THEN now() ELSE NULL END,
+    CASE WHEN $5 = 'failed' THEN now() + interval '45 minutes' ELSE NULL END,
     now(), now()
 )
-`, objectBlobID, incidentID, actorID, storageKey, uploadState, terminalReason, failedMarker); err != nil {
+`, objectBlobID, incidentID, actorID, storageKey, uploadState); err != nil {
 		t.Fatalf("seed object blob: %v", err)
 	}
 	updateEvidenceBlobLink(t, harness, recordID, &objectBlobID)

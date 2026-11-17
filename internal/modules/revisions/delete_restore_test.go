@@ -489,8 +489,10 @@ func requireTaskHistoricalIntrinsicState(t *testing.T, validate revisions.Snapsh
 					value["completed_at"] = "2026-01-01T00:00:00Z"
 				}
 				check(t, value, true)
+				// REQ-02-109a: guard legality belongs to write, rollback and
+				// restore paths, so a guard-violating row is a valid snapshot.
 				value["owner_user_id"] = nil
-				check(t, value, status == "done" || status == "canceled")
+				check(t, value, true)
 			}
 		}
 	}
@@ -523,11 +525,9 @@ func requireTaskHistoricalIntrinsicState(t *testing.T, validate revisions.Snapsh
 			if status == "done" {
 				value["completed_at"] = "2026-01-01T00:00:00Z"
 			}
-			valid := blocker == nil
-			if status == "blocked" {
-				valid = blocker == "A blocker"
-			}
-			check(t, value, valid)
+			// Stored-text policy still rejects a blank blocker; the
+			// status/blocker guard is not a snapshot rule (REQ-02-109a).
+			check(t, value, blocker == nil || blocker == "A blocker")
 		}
 		for _, completed := range []any{nil, "2000-01-01T00:00:00Z", "2026-01-01T00:00:00Z", "2030-01-01T00:00:00Z"} {
 			value := maps.Clone(base)
@@ -535,11 +535,8 @@ func requireTaskHistoricalIntrinsicState(t *testing.T, validate revisions.Snapsh
 			if status == "blocked" {
 				value["blocked_reason"] = "A blocker"
 			}
-			valid := completed == nil
-			if status == "done" {
-				valid = completed == "2026-01-01T00:00:00Z" || completed == "2030-01-01T00:00:00Z"
-			}
-			check(t, value, valid)
+			// Completion guards are write-path rules (REQ-02-109a).
+			check(t, value, true)
 		}
 	}
 	// Due dates are explicit authored instants, independent of persistence clocks.
@@ -1220,15 +1217,18 @@ func requireEvidenceHistoricalLifecycle(t *testing.T, validate revisions.Snapsho
 		check(tuple{bad, "pending", false}, false)
 		check(tuple{"requested", bad, false}, false)
 	}
+	// REQ-02-196a: the retained upload_state scalar never decides custody;
+	// rollback evaluates the bridge against the linked Blob's live state. A
+	// vocabulary-legal historical tuple is therefore a valid snapshot.
 	for _, lifecycle := range []string{"available", "released"} {
-		check(tuple{lifecycle, "pending", false}, false)
-		check(tuple{lifecycle, "available", false}, false)
+		check(tuple{lifecycle, "pending", false}, true)
+		check(tuple{lifecycle, "available", false}, true)
 		for _, upload := range []string{"pending", "failed", "quarantined"} {
-			check(tuple{lifecycle, upload, true}, false)
+			check(tuple{lifecycle, upload, true}, true)
 		}
 	}
 	for _, upload := range []string{"pending", "available", "failed"} {
-		check(tuple{"quarantined", upload, true}, false)
+		check(tuple{"quarantined", upload, true}, true)
 	}
 }
 

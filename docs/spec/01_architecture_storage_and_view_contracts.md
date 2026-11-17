@@ -2136,7 +2136,7 @@ Verified by: AC-559
 | `kind` | Required | Exactly `collection_value_v1` |
 | `ordered` | Required | Boolean |
 | `items[]` | Required | Each item carries stable opaque `item_ref` suitable for later mutation targeting |
-| Serialization order | Required | When `ordered=true`, authoritative collection order; when `ordered=false`, canonical ascending `item_ref` order |
+| Serialization order | Required | When `ordered=true`, authoritative collection order; when `ordered=false`, ascending served-label order with `item_ref` as the final tiebreak (REQ-01-067) |
 
 **Table 3.3.5-G. Create and patch replay matrix**
 
@@ -2262,9 +2262,15 @@ Profiles: base
 Verified by: AC-125, AC-126, AC-181, AC-182, AC-183, AC-188, AC-189, AC-190, AC-200, AC-201, AC-202, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-209, AC-210, AC-211, AC-212, AC-213, AC-214, AC-215, AC-216, AC-217, AC-218, AC-221, AC-222, AC-223, AC-224, AC-225, AC-231
 
 **REQ-01-067**
-When `ordered=true`, the server MUST serialize `items[]` in authoritative collection order. When `ordered=false`, the server MUST serialize `items[]` in canonical ascending `item_ref` order.
+When `ordered=true`, the server MUST serialize `items[]` in authoritative collection order. When `ordered=false`, the server MUST serialize `items[]` in ascending order of three keys compared in turn:
+
+1. the label sort key: the item's served `display_text` after Unicode NFC normalization and locale-independent Unicode case folding (the REQ-01-488 comparison substrate);
+2. the served `display_text` itself;
+3. `item_ref`.
+
+Every key compares in Unicode scalar order, equivalently UTF-8 byte order, and never by locale collation. An absent `display_text` sorts as the empty string. The keys MUST use the `display_text` actually served in that payload. This rule applies to every server emission of `collection_value_v1`: query rows, mutation results, collaboration payloads, and every conflict value (`base_value`, `server_value`, `client_value`, and previews). Exact idempotent replay is the one exception; it returns the committed bytes. Item order is presentation only. It MUST NOT carry meaning for equality, idempotency, conflict detection, or history, and REQ-01-052A history ordering does not depend on it.
 Profiles: base
-Verified by: AC-125, AC-126, AC-181, AC-182, AC-183, AC-188, AC-189, AC-190, AC-200, AC-201, AC-202, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-209, AC-210, AC-211, AC-212, AC-213, AC-214, AC-215, AC-216, AC-217, AC-218, AC-221, AC-222, AC-223, AC-224, AC-225, AC-231
+Verified by: AC-125, AC-126, AC-181, AC-182, AC-183, AC-188, AC-189, AC-190, AC-200, AC-201, AC-202, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-209, AC-210, AC-211, AC-212, AC-213, AC-214, AC-215, AC-216, AC-217, AC-218, AC-221, AC-222, AC-223, AC-224, AC-225, AC-231, AC-603
 
 **REQ-01-068**
 The public mutation surface MUST be field-key-based and partial. The client MUST NOT be required to send full projection rows, full record snapshots, or raw storage-table mutations in order to edit one field.
@@ -2410,6 +2416,10 @@ owner dependency-lock contention returns retryable `record_locked`. Both respons
 identify only the Task target, never a dependency or database detail. Ordinary
 access, replay, destructive-envelope, version and tombstone gates precede this
 admission, and failed admission consumes no receipt or publication/history effect.
+Task Request restore MUST also apply the Core02 REQ-02-103 guards to the restored
+row (Core02 REQ-02-109a). A violation returns non-retryable
+`record_restore_blocked` with `reason_code=task_lifecycle_inconsistent` and only
+the Task target.
 
 Evidence restore MUST apply the current Party-reference guard owned by
 REQ-02-198 in this validation phase. A rejected reference returns
@@ -2523,7 +2533,7 @@ Profiles: base
 Verified by: AC-125, AC-126, AC-181, AC-182, AC-183, AC-188, AC-189, AC-190, AC-196, AC-200, AC-201, AC-202, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-209, AC-210, AC-211, AC-212, AC-213, AC-214, AC-215, AC-216, AC-217, AC-218, AC-221, AC-222, AC-223, AC-224, AC-225, AC-231, AC-329, AC-331
 
 **REQ-01-087**
-If the same authenticated actor replays the same normalized request with the same `(record_id, client_txn_id)`, the server MUST return `200 OK` with the originally committed result and MUST create no second lifecycle transition. For this route, normalized request comparison MUST include exact `base_row_version`, `reason` after normalization under `reason_note_v1`, and exact `replacement_record_id` when present. Reuse of the same `(record_id, client_txn_id)` with a different normalized request MUST fail with `409` and `error.code = client_txn_conflict` before stale `base_row_version` evaluation. A caller who lacks visibility to the target record MUST receive `404`. A caller who can see the record but lacks sufficient role MUST receive `403`. A stale `base_row_version` MUST fail with `409` and `error.code = row_version_conflict`. A request against an unsupported record type, a Timeline record whose current `capture_state` is already `superseded`, or a `replacement_record_id` that fails the target constraints in REQ-01-086 MUST fail with `409` and `error.code = illegal_transition`. When failure is attributable to Timeline replacement-target validation, `error.details.violated_guards[]` MUST use only `replacement_must_be_different_timeline_record`, `replacement_must_be_visible_active_same_incident_timeline_record`, `replacement_must_not_be_superseded`, and `target_must_not_have_active_replacement` as applicable. A request against a currently soft-deleted record MUST fail with `409` and `error.code = record_deleted_use_restore`.
+If the same authenticated actor replays the same normalized request with the same `(record_id, client_txn_id)`, the server MUST return `200 OK` with the originally committed result and MUST create no second lifecycle transition. For this route, normalized request comparison MUST include exact `base_row_version`, `reason` after normalization under `reason_note_v1`, and exact `replacement_record_id` when present. Reuse of the same `(record_id, client_txn_id)` with a different normalized request MUST fail with `409` and `error.code = client_txn_conflict` before stale `base_row_version` evaluation. A caller who lacks visibility to the target record MUST receive `404`. A caller who can see the record but lacks sufficient role MUST receive `403`. A stale `base_row_version` MUST fail with `409` and `error.code = row_version_conflict`. A request against an unsupported record type, a Timeline record whose current `capture_state` is already `superseded`, or a `replacement_record_id` that fails the target constraints in REQ-01-086 MUST fail with `409` and `error.code = illegal_transition`. When failure is attributable to Timeline replacement-target validation, `error.details.reason_code` MUST be `guards_not_satisfied` and `error.details.violated_guards[]` MUST use only `replacement_must_differ_from_target`, `replacement_must_be_active_in_incident`, `replacement_must_not_be_superseded`, and `target_must_not_have_active_replacement` as applicable. A request against a currently soft-deleted record MUST fail with `409` and `error.code = record_deleted_use_restore`.
 Profiles: base
 Verified by: AC-125, AC-126, AC-181, AC-182, AC-183, AC-188, AC-189, AC-190, AC-199, AC-200, AC-201, AC-202, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-209, AC-210, AC-211, AC-212, AC-213, AC-214, AC-215, AC-216, AC-217, AC-218, AC-221, AC-222, AC-223, AC-224, AC-225, AC-231, AC-329, AC-330
 
@@ -4107,9 +4117,9 @@ Profiles: base
 Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-213, AC-214, AC-218, AC-219, AC-231
 
 **REQ-01-231**
-Illegal lifecycle transitions MUST use this same error family with `error.code = illegal_transition`, `error.status = 409`, `error.details.from_status`, `error.details.to_status`, and `error.details.violated_guards[]`. `error.details.violated_guards[]` MUST be present and MAY be empty when the transition is disallowed by the legal transition matrix rather than by a failed field guard.
+Illegal lifecycle transitions MUST use this same error family with `error.code = illegal_transition`, `error.status = 409`, `error.details.from_status`, `error.details.to_status`, `error.details.violated_guards[]`, and `error.details.reason_code`. `from_status` is the persisted machine state before the request, or JSON `null` when the request would create the record or the target record type defines no machine for the requested action. `to_status` is the state the request would produce if admitted; a request that would leave the state unchanged reports `to_status` equal to `from_status`. Neither status member may be an empty string. `error.details.violated_guards[]` MUST be present and MAY be empty when the transition is disallowed by the legal transition matrix rather than by a failed guard; every listed entry MUST be a lifecycle guard identifier registered in §3.3.6.2. `error.details.reason_code` MUST be a token of the incident lifecycle family for incident actions and of the lifecycle-transition family for every other lifecycle machine (§3.3.6.2). A persisted machine state outside its closed vocabulary is a storage invariant failure under the owning machine's fail-closed declaration and MUST NOT be reported as `illegal_transition`.
 Profiles: base
-Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-213, AC-214, AC-218, AC-219, AC-231
+Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-213, AC-214, AC-218, AC-219, AC-231, AC-606
 
 **REQ-01-232**
 Clients MUST tolerate additive response members they do not use.
@@ -4242,7 +4252,7 @@ For public evidence and blob routes, `object_store_invalid_request` applies only
 **REQ-01-238**
 When the public API or collaboration stream uses a structured `reason_code` family listed below, it MUST use one of the exact tokens shown. A listed `reason_code` family MUST NOT define alternate tokens for the same meaning elsewhere in the core.
 Profiles: base
-Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-213, AC-214, AC-218, AC-219, AC-231, AC-239, AC-240, AC-252, AC-255, AC-260, AC-293, AC-321, AC-322, AC-323, AC-324, AC-325, AC-326, AC-327, AC-328, AC-341, AC-336, AC-337, AC-339, AC-375, AC-415, AC-416, AC-417, AC-418, AC-421
+Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-213, AC-214, AC-218, AC-219, AC-231, AC-239, AC-240, AC-252, AC-255, AC-260, AC-293, AC-321, AC-322, AC-323, AC-324, AC-325, AC-326, AC-327, AC-328, AC-341, AC-336, AC-337, AC-339, AC-375, AC-415, AC-416, AC-417, AC-418, AC-421, AC-606
 
 `invalid_incident_create` `error.details.reason_code` values:
 
@@ -4295,6 +4305,42 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 | --- | --- |
 | `incident_already_closed` | The caller requested `close` while the incident is already `closed`. |
 | `incident_not_closed` | The caller requested `reopen` while the incident is not `closed`. |
+
+`illegal_transition` `error.details.reason_code` values for every other normative lifecycle machine (the lifecycle-transition family):
+
+| `reason_code` | Canonical meaning |
+| --- | --- |
+| `transition_not_allowed` | The requested transition is outside the machine's legal transition matrix from the persisted state, or the target record type defines no machine for the requested lifecycle action. |
+| `guards_not_satisfied` | The transition is in the legal matrix, but one or more of the machine's guards fail for the resulting record; `violated_guards[]` names each failed guard. |
+| `inconsistent_machine_state` | The persisted inputs violate the machine's invariants, so no legal machine condition can be derived; `violated_guards[]` names each violated invariant, and only the corrective action declared by the machine may proceed. |
+
+Lifecycle guard identifiers carried in `illegal_transition` `error.details.violated_guards[]`. The machine owner cited defines each condition; this table registers the token. A machine whose rejections come only from its transition matrix (incident lifecycle, Entity mention resolution, indicator observation resolution, Blob upload) reports `violated_guards: []` for those rejections.
+
+| Guard | Machine | Condition that must hold |
+| --- | --- | --- |
+| `record_type_has_machine` | any | The target record type defines the requested lifecycle action (REQ-01-085, REQ-01-087). |
+| `replacement_must_differ_from_target` | Timeline `capture_state`, Decision `status` | The supersede replacement is a different record from the target. |
+| `replacement_must_be_active_in_incident` | Timeline `capture_state`, Decision `status` | The replacement is a visible, active record of the target's type in the target's incident. |
+| `replacement_must_not_be_superseded` | Timeline `capture_state` | The Timeline replacement is not itself `superseded`. |
+| `replacement_must_be_approved_or_executed` | Decision `status` | The superseding Decision has `status` `approved` or `executed` (Core 02 REQ-02-118). |
+| `target_must_be_proposed_approved_or_executed` | Decision `status` | The superseded Decision has `status` `proposed`, `approved`, or `executed` (Core 02 REQ-02-118). |
+| `target_must_not_have_active_replacement` | Timeline `capture_state`, Decision `status` | The target has no active incoming `supersedes` relation. |
+| `blocked_requires_reason` | Task `status` | Core 02 REQ-02-103: a `blocked` Task has a non-empty `blocked_reason`. |
+| `non_blocked_clears_reason` | Task `status` | Core 02 REQ-02-103: a Task that is not `blocked` has no `blocked_reason`. |
+| `done_requires_completed_at` | Task `status` | Core 02 REQ-02-103: a `done` Task has `completed_at`. |
+| `completed_at_not_before_created_at` | Task `status` | Core 02 REQ-02-103: `completed_at` is not earlier than `created_at`. |
+| `non_done_clears_completed_at` | Task `status` | Core 02 REQ-02-103: a Task that is not `done` has no `completed_at`. |
+| `active_requires_owner` | Task `status` | Core 02 REQ-02-103: an `open`, `in_progress`, or `blocked` Task has `owner_user_id`. |
+| `owner_required` | Decision `status` | Core 02 §10.4.2.1: the Decision has `owner_user_id`. |
+| `decided_at_required` | Decision `status` | Core 02 §10.4.2.1: the Decision has `decided_at`. |
+| `single_incoming_supersedes` | Decision `status` | The Decision has at most one active incoming `supersedes` relation. |
+| `single_outgoing_supersedes` | Decision `status` | The Decision has at most one active outgoing `supersedes` relation. |
+| `superseded_requires_incoming_supersedes` | Decision `status` | A `superseded` Decision has exactly one active incoming `supersedes` relation. |
+| `incoming_supersedes_requires_superseded_or_executed` | Decision `status` | A Decision with an incoming `supersedes` relation has `status` `superseded` or `executed`. |
+| `outgoing_supersedes_requires_approved_or_executed` | Decision `status` | A Decision with an outgoing `supersedes` relation has `status` `approved` or `executed`. |
+| `accessible_state_requires_available_blob` | Evidence `lifecycle_state` | `available` or `released` Evidence links a Blob whose current `upload_state` is `available` (Core 02 REQ-02-190). |
+| `quarantined_state_requires_quarantined_or_absent_blob` | Evidence `lifecycle_state` | `quarantined` Evidence links no Blob, or a Blob whose current `upload_state` is `quarantined` (Core 02 REQ-02-190). |
+| `mention_source_field_supported` | Entity mention `resolution_status` | The mention's `source_field_key` is `timeline.host_refs` or `timeline.identity_refs`. |
 
 `invalid_blob_create_request` `error.details.reason_code` values:
 
@@ -6371,7 +6417,7 @@ Verified by: AC-119, AC-124, AC-125, AC-184, AC-191, AC-192, AC-193, AC-194, AC-
 
 **REQ-01-322**
 - `tag_name` in `add_tag` MUST use `string_contract_id=tag_label_v1`.
-- The server MUST normalize and compare `tag_name` using `tag_label_v1`, including trimmed Unicode NFC normalization and case-insensitive dedupe canonicalization equivalent to incident-scoped `tags.name` uniqueness. Empty tag names after normalization MUST be rejected with `400 Bad Request` and `error.code = invalid_mutation_payload`. Duplicate adds MUST coalesce to one surviving active binding.
+- The server MUST normalize and compare `tag_name` using `tag_label_v1`, including trimmed Unicode NFC normalization and case-insensitive dedupe canonicalization, so that a record holds at most one active tag binding per normalized label. Empty tag names after normalization MUST be rejected with `400 Bad Request` and `error.code = invalid_mutation_payload`. Duplicate adds MUST coalesce to one surviving active binding.
 Profiles: base
 Verified by: AC-119, AC-124, AC-125, AC-184, AC-191, AC-192, AC-193, AC-194, AC-195, AC-196, AC-197, AC-198, AC-231
 
@@ -6753,7 +6799,7 @@ authorization on each page, and order by creation time descending then stable
 link identity descending. Bind opaque server cursors to actor, incident, Note,
 kind, ordering and effective limit. Return the current Note identity/version and
 items containing opaque `item_ref`, counterpart record identity, canonical
-`view_schema_id`, safe display label and direction. Related-note reads distinguish
+`view_schema_id`, safe display label (REQ-01-333a) and direction. Related-note reads distinguish
 outgoing references from incoming `Referenced by` entries. Incoming entries
 navigate to the referring Note; mutation from the current Note manages outgoing
 references only. Lists load asynchronously; inspector metadata does not wait for
@@ -6825,7 +6871,7 @@ behavior; no compatibility PATCH adapter is defined for these formerly
 unimplemented capabilities.
 
 Profiles: base
-Verified by: AC-068, AC-069, AC-070, AC-112, AC-118, AC-124, AC-125, AC-185, AC-231
+Verified by: AC-068, AC-069, AC-070, AC-112, AC-118, AC-124, AC-125, AC-185, AC-231, AC-605
 
 #### 7.4.6 `cartulary.view.indicators.v1`
 
@@ -6943,6 +6989,40 @@ Collection-review wire contract for `assessment.support_refs`:
   applying link effects.
 Profiles: base
 Verified by: AC-018, AC-080, AC-081, AC-082, AC-083, AC-084, AC-118, AC-121, AC-124, AC-231, AC-517
+
+**REQ-01-333a — Linked record summary label**
+Wherever a `record_ref` item carries `display_text: "<linked record summary>"` (REQ-01-333, REQ-01-334, and every field that reuses them), and wherever a Notes association item carries its safe display label (REQ-01-675), the server MUST derive the label from the linked record's current authoritative label field:
+
+| Linked record | Label source | Type noun |
+| --- | --- | --- |
+| `timeline_event` | `timeline.activity_synopsis_text` | Timeline record |
+| `host` | `host.display_name` | Host |
+| `identity` | `identity.display_name` | Identity |
+| `party` | `party.display_name` | Party |
+| `indicator` | `indicator.display_value` | Indicator |
+| `task_request` | `task.title` | Task |
+| `decision` | `decision.summary` | Decision |
+| `evidence` | `evidence.title` | Evidence |
+| `assessment` | `Assessment of ` followed by the subject record's label under this table, applied one level only | Assessment |
+| `artifact` `finding` | `finding.statement` | Finding |
+| `artifact` `note` | `note.title` | Note |
+| `artifact` `comm_log` | `comm_log.summary` | Communication |
+| `artifact` `lesson` | `lesson.summary` | Lesson |
+| `artifact` `handoff` | `handoff.current_state_summary` | Handoff |
+| `artifact` `status_review` | `status_review.current_state_summary` | Status review |
+| `artifact` `forensic_keyword` | `forensic_keyword.pattern` | Forensic keyword |
+| `artifact` `investigative_query` | `investigative_query.purpose` | Investigative query |
+
+The label rules are:
+
+- When the label source is null or empty after its field contract's normalization, the label MUST be `Untitled ` followed by the type noun in lower case after its first word, for example `Untitled task` or `Untitled status review`.
+- A label MUST NOT contain a `record_id`, storage key, or other technical identifier.
+- A conflict preview can name a linked record that is not live in the referring record's incident: a client addition not yet validated, or a base item whose record was deleted since. Such an item's label MUST be `Unavailable record`, which discloses neither the record's type nor its state.
+- Labels are read-time values. A change to a linked record's label MUST appear no later than the next read of the referring row, and that change alone does not require `record_changed` for the referring record.
+- Labels are display-only under REQ-01-066 and order unordered collections under REQ-01-067.
+
+Profiles: base
+Verified by: AC-605
 
 **REQ-01-334**
 - At assessment submission time, every normalized support target MUST resolve
@@ -11237,7 +11317,7 @@ recovery. Transient scan errors remain inside the live supervisor. An
 unexpected supervisor exit or panic is required publication-component loss;
 an ordinary handler failure is not. Graceful shutdown stops new claims,
 cancels handlers, conditionally releases still-owned executions, and drains
-under the application shutdown deadline. Once runner shutdown is observable,
+under the application shutdown deadline (Core 04 REQ-04-146a). Once runner shutdown is observable,
 it is authoritative over any simultaneously ready renewal tick or handler
 outcome that has not already committed a terminal transition. Such an outcome
 MUST follow conditional release and MUST NOT consume a failure. A renewal or
@@ -12778,9 +12858,10 @@ Unless a bound contract below explicitly says otherwise:
 - the base profile MUST NOT preserve the empty string as a distinct authoritative value for any field bound to a clear-to-null string contract,
 - the shared query-time text-comparison substrate used by text sorts and by case-insensitive filter semantics MUST first apply the bound field contract's authoritative normalization and MUST then apply locale-independent Unicode case folding,
 - diacritics remain significant under that substrate,
+- the same substrate, with Unicode NFC as the normalization, defines the label sort key for unordered collection items (REQ-01-067),
 - no compatibility folding, transliteration, punctuation stripping, tokenization, or extra whitespace collapse occurs beyond the bound field contract when that substrate is used.
 Profiles: base
-Verified by: AC-015, AC-068, AC-085, AC-086, AC-112, AC-118, AC-152, AC-175, AC-176, AC-181, AC-182, AC-184, AC-185, AC-186, AC-194, AC-196, AC-200, AC-202, AC-216, AC-221, AC-225, AC-231, AC-300, AC-301, AC-302, AC-303, AC-315, AC-316, AC-317, AC-318, AC-319
+Verified by: AC-015, AC-068, AC-085, AC-086, AC-112, AC-118, AC-152, AC-175, AC-176, AC-181, AC-182, AC-184, AC-185, AC-186, AC-194, AC-196, AC-200, AC-202, AC-216, AC-221, AC-225, AC-231, AC-300, AC-301, AC-302, AC-303, AC-315, AC-316, AC-317, AC-318, AC-319, AC-603
 
 **REQ-01-489**
 `display_name_line_v1` is the required single-line display-name contract.
@@ -12851,7 +12932,7 @@ Profiles: base
 Verified by: AC-015, AC-085, AC-100, AC-118, AC-231
 
 **REQ-01-494**
-`tag_label_v1` is the required incident-scoped tag-label contract.
+`tag_label_v1` is the required label contract for record tag bindings. Uniqueness is per record (REQ-01-322).
 
 - apply the same NFC, trim, and control-character rules as `display_name_line_v1`,
 - reject C0/C1 controls before trimming; Unicode format characters outside those ranges remain source data and MUST NOT be rejected merely for being format characters,

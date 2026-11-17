@@ -1,6 +1,7 @@
 package workbook_test
 
 import (
+	"cmp"
 	"fmt"
 	"net/http"
 	"reflect"
@@ -10,6 +11,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/google/uuid"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/unicode/norm"
 )
 
 func exerciseHostIdentityCollectionConflicts(t *testing.T) {
@@ -216,21 +219,25 @@ func requireEntityConflictCollection(t testing.TB, value any, alias bool, partie
 		want[name] = true
 	}
 	result := map[string]string{}
-	last := ""
-	for _, raw := range items {
+	// REQ-01-067 served order: folded label, raw label, then item_ref, all
+	// bytewise. The fold is computed here independently of production code.
+	labelKey := func(label string) string { return cases.Fold().String(norm.NFC.String(label)) }
+	var last [3]string
+	for index, raw := range items {
 		item, ok := raw.(map[string]any)
 		if !ok || len(item) != 4 {
 			t.Fatal("invalid typed collection item")
 		}
-		ref, ok := item["item_ref"].(string)
-		if !ok || ref <= last {
-			t.Fatal("collection is not in strict item_ref order")
-		}
-		last = ref
+		ref, refOK := item["item_ref"].(string)
 		name, ok := item["display_text"].(string)
-		if !ok || !want[name] || result[name] != "" {
+		if !refOK || !ok || !want[name] || result[name] != "" {
 			t.Fatalf("unexpected collection member %#v", item)
 		}
+		key := [3]string{labelKey(name), name, ref}
+		if index > 0 && cmp.Or(strings.Compare(last[0], key[0]), strings.Compare(last[1], key[1]), strings.Compare(last[2], key[2])) >= 0 {
+			t.Fatalf("collection is not in strict REQ-01-067 label order at %q", name)
+		}
+		last = key
 		if alias {
 			if item["item_kind"] != "alias" || item["alias_text"] != name || !strings.HasPrefix(ref, "entity_alias:") {
 				t.Fatal("alias kind or text changed")

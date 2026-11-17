@@ -35,12 +35,13 @@ func TestServeInheritedListenerAndGracefulCancellation(t *testing.T) {
 	done := make(chan error, 1)
 	requestStarted := make(chan struct{})
 	releaseRequest := make(chan struct{})
+	shutdownBegan := make(chan struct{})
 	go func() {
 		done <- Serve(ctx, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			close(requestStarted)
 			<-releaseRequest
 			w.WriteHeader(http.StatusNoContent)
-		}), Options{TLS: identity.TLS, InheritedFD: fileDescriptorString(listenerFile), Logger: discardLogger()})
+		}), Options{TLS: identity.TLS, InheritedFD: fileDescriptorString(listenerFile), Logger: discardLogger(), OnShutdown: func() { close(shutdownBegan) }})
 	}()
 
 	responseDone := make(chan error, 1)
@@ -57,6 +58,13 @@ func TestServeInheritedListenerAndGracefulCancellation(t *testing.T) {
 		t.Fatal("inherited listener request did not start")
 	}
 	cancel()
+	// REQ-04-146a: the shutdown hook runs while in-flight work still drains,
+	// so hijacked connections close instead of being waited on.
+	select {
+	case <-shutdownBegan:
+	case <-time.After(5 * time.Second):
+		t.Fatal("OnShutdown did not run when shutdown began")
+	}
 	select {
 	case err := <-done:
 		t.Fatalf("graceful shutdown returned before request completed: %v", err)

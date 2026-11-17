@@ -261,6 +261,9 @@ type EntityPort interface {
 type EvidencePort interface {
 	ValidateTimelineAttachmentsTx(context.Context, pgx.Tx, uuid.UUID, []uuid.UUID) error
 	RefreshTimelineAttachmentProjectionsTx(context.Context, pgx.Tx, []uuid.UUID) error
+	// TimelineAttachmentLabelsTx returns the stored REQ-01-333a label of each
+	// live Evidence in the incident; others are omitted.
+	TimelineAttachmentLabelsTx(context.Context, pgx.Tx, uuid.UUID, []uuid.UUID) (map[uuid.UUID]string, error)
 }
 
 type CollectionFactPort interface {

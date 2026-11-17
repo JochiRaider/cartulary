@@ -612,6 +612,7 @@ test("a11y.generic reference summaries keep Party and Evidence shortcuts semanti
   await expect(relationships.getByRole("term")).toHaveText([
     "Collector Party",
     "Source Party",
+    "Owner",
   ]);
   await expect(relationships).toContainText(party.record_id);
   await expectReferenceDefinitionList(
@@ -780,6 +781,7 @@ test("a11y.generic reference summary viewer actions remain disabled", async ({
     await expect(relationships.getByRole("term")).toHaveText([
       "Collector Party",
       "Source Party",
+      "Owner",
     ]);
     await expect(
       viewerPage.getByTestId(genericEditValueTestId(evidenceViewSchemaId)),

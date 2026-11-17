@@ -91,6 +91,15 @@ func (capability *CollaborationCapability) RevokeSession(sessionID uuid.UUID, re
 	capability.runtime.RevokeSession(sessionID, reasonCode)
 }
 
+// CloseSessions begins ordinary WebSocket shutdown, as the server's
+// RegisterOnShutdown hook does.
+func (capability *CollaborationCapability) CloseSessions() {
+	if capability == nil || capability.runtime == nil {
+		return
+	}
+	capability.runtime.CloseSessions()
+}
+
 func (capability *CollaborationCapability) CloseDispatcher(ctx context.Context) error {
 	if capability == nil || capability.runtime == nil {
 		return errors.New("collaboration dispatcher capability is unavailable")

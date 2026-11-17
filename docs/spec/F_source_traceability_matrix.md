@@ -233,7 +233,7 @@ No appendix text is authoritative for current-profile runtime behavior unless th
 | REQ-01-064 | Core 01 §3.3.5 Mutation contract | base | AC-125..AC-126, AC-181..AC-183, AC-188..AC-190, AC-200..AC-218, AC-221..AC-225, AC-231 |
 | REQ-01-065 | Core 01 §3.3.5 Mutation contract | base | AC-125..AC-126, AC-181..AC-183, AC-188..AC-190, AC-200..AC-218, AC-221..AC-225, AC-231 |
 | REQ-01-066 | Core 01 §3.3.5 Mutation contract | base | AC-125..AC-126, AC-181..AC-183, AC-188..AC-190, AC-200..AC-218, AC-221..AC-225, AC-231 |
-| REQ-01-067 | Core 01 §3.3.5 Mutation contract | base | AC-125..AC-126, AC-181..AC-183, AC-188..AC-190, AC-200..AC-218, AC-221..AC-225, AC-231 |
+| REQ-01-067 | Core 01 §3.3.5 Mutation contract | base | AC-125..AC-126, AC-181..AC-183, AC-188..AC-190, AC-200..AC-218, AC-221..AC-225, AC-231, AC-603 |
 | REQ-01-068 | Core 01 §3.3.5 Mutation contract | base, snapshot_reporting | AC-125..AC-126, AC-181..AC-183, AC-188..AC-190, AC-200..AC-218, AC-221..AC-225, AC-231, AC-233 |
 | REQ-01-069 | Core 01 §3.3.5 Mutation contract | base | AC-125..AC-126, AC-181..AC-183, AC-188..AC-190, AC-200..AC-218, AC-221..AC-225, AC-231, AC-299 |
 | REQ-01-070 | Core 01 §3.3.5 Mutation contract | base | AC-125..AC-126, AC-181..AC-183, AC-188..AC-190, AC-200..AC-218, AC-221..AC-225, AC-231, AC-299, AC-486 |
@@ -404,14 +404,14 @@ No appendix text is authoritative for current-profile runtime behavior unless th
 | REQ-01-228 | Core 01 §3.3.6 Success and error envelopes | base | AC-126, AC-203..AC-208, AC-211, AC-213..AC-214, AC-218..AC-219, AC-231 |
 | REQ-01-229 | Core 01 §3.3.6 Success and error envelopes | base | AC-126, AC-203..AC-208, AC-211, AC-213..AC-214, AC-218..AC-219, AC-231 |
 | REQ-01-230 | Core 01 §3.3.6 Success and error envelopes | base | AC-126, AC-203..AC-208, AC-211, AC-213..AC-214, AC-218..AC-219, AC-231 |
-| REQ-01-231 | Core 01 §3.3.6 Success and error envelopes | base | AC-126, AC-203..AC-208, AC-211, AC-213..AC-214, AC-218..AC-219, AC-231 |
+| REQ-01-231 | Core 01 §3.3.6 Success and error envelopes | base | AC-126, AC-203..AC-208, AC-211, AC-213..AC-214, AC-218..AC-219, AC-231, AC-606 |
 | REQ-01-232 | Core 01 §3.3.6 Success and error envelopes | base | AC-126, AC-203..AC-208, AC-211, AC-213..AC-214, AC-218..AC-219, AC-231 |
 | REQ-01-233 | Core 01 §3.3.6 Success and error envelopes | base | AC-126, AC-203..AC-208, AC-211, AC-213..AC-214, AC-218..AC-219, AC-231 |
 | REQ-01-234 | Core 01 §3.3.6.1 Canonical public error-code registry | base | AC-126, AC-203..AC-208, AC-211, AC-213..AC-214, AC-218..AC-219, AC-231, AC-239..AC-240, AC-245..AC-247, AC-249..AC-255, AC-260..AC-261, AC-293, AC-321, AC-323..AC-326, AC-328, AC-415..AC-418, AC-421..AC-422, AC-427, AC-438 |
 | REQ-01-235 | Core 01 §3.3.6.1 Canonical public error-code registry | base | AC-126, AC-203..AC-208, AC-211, AC-213..AC-214, AC-218..AC-219, AC-231 |
 | REQ-01-236 | Core 01 §3.3.6.1 Canonical public error-code registry | base | AC-126, AC-203..AC-208, AC-211, AC-213..AC-214, AC-218..AC-219, AC-231 |
 | REQ-01-237 | Core 01 §3.3.6.1 Canonical public error-code registry | base | AC-126, AC-187, AC-203..AC-208, AC-211, AC-213..AC-214, AC-218..AC-219, AC-231 |
-| REQ-01-238 | Core 01 §3.3.6.2 Canonical public reason-code registries | base | AC-126, AC-203..AC-208, AC-211, AC-213..AC-214, AC-218..AC-219, AC-231, AC-239..AC-240, AC-252, AC-255, AC-260, AC-293, AC-321..AC-328, AC-375, AC-415..AC-418, AC-421, AC-438 |
+| REQ-01-238 | Core 01 §3.3.6.2 Canonical public reason-code registries | base | AC-126, AC-203..AC-208, AC-211, AC-213..AC-214, AC-218..AC-219, AC-231, AC-239..AC-240, AC-252, AC-255, AC-260, AC-293, AC-321..AC-328, AC-375, AC-415..AC-418, AC-421, AC-438, AC-606 |
 | REQ-01-239 | Core 01 §3.3.6.2 Canonical public reason-code registries | base | AC-126, AC-203..AC-208, AC-211, AC-213..AC-214, AC-218..AC-219, AC-231 |
 | REQ-01-240 | Core 01 §3.3.7 Pagination and cursor contract | base | AC-116, AC-127, AC-151, AC-171, AC-175, AC-178, AC-215, AC-231, AC-238..AC-240, AC-415..AC-417, AC-438 |
 | REQ-01-241 | Core 01 §3.3.7 Pagination and cursor contract | base | AC-116, AC-127, AC-151, AC-171, AC-175, AC-178, AC-215, AC-231, AC-239, AC-416..AC-417, AC-438 |
@@ -702,7 +702,7 @@ No appendix text is authoritative for current-profile runtime behavior unless th
 | REQ-01-485 | Core 01 §17.5 Incident Portability Extension Profile public contract | incident_portability | AC-275 |
 | REQ-01-486 | Core 01 §17.5 Incident Portability Extension Profile public contract | incident_portability | AC-276, AC-327..AC-328, AC-332 |
 | REQ-01-487 | Core 01 §18 Writable-string contract registry | base | AC-015, AC-068, AC-085..AC-086, AC-112, AC-118, AC-152, AC-175..AC-176, AC-181..AC-182, AC-186, AC-194, AC-196, AC-200, AC-202, AC-216, AC-221, AC-225, AC-231, AC-300..AC-303, AC-315..AC-319 |
-| REQ-01-488 | Core 01 §18 Writable-string contract registry | base | AC-015, AC-068, AC-085..AC-086, AC-112, AC-118, AC-152, AC-175..AC-176, AC-181..AC-182, AC-184..AC-186, AC-194, AC-196, AC-200, AC-202, AC-216, AC-221, AC-225, AC-231, AC-300..AC-303, AC-315..AC-319 |
+| REQ-01-488 | Core 01 §18 Writable-string contract registry | base | AC-015, AC-068, AC-085..AC-086, AC-112, AC-118, AC-152, AC-175..AC-176, AC-181..AC-182, AC-184..AC-186, AC-194, AC-196, AC-200, AC-202, AC-216, AC-221, AC-225, AC-231, AC-300..AC-303, AC-315..AC-319, AC-603 |
 | REQ-01-489 | Core 01 §18 Writable-string contract registry | base | AC-118, AC-152, AC-175..AC-176, AC-231 |
 | REQ-01-490 | Core 01 §18 Writable-string contract registry | base | AC-015, AC-068, AC-085..AC-086, AC-112, AC-118, AC-231 |
 | REQ-01-491 | Core 01 §18 Writable-string contract registry | base | AC-068, AC-085..AC-086, AC-112, AC-118, AC-216, AC-231 |

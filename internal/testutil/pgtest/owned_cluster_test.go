@@ -21,6 +21,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"syscall"
 	"testing"
@@ -68,7 +69,17 @@ func TestOwnedPostgresAppliesContainerLabels(t *testing.T) {
 	}
 
 	var gotRequest testcontainers.ContainerRequest
+	mountedHBA := ""
 	startup.start = func(ctx context.Context, req testcontainers.GenericContainerRequest, _ testcontainersx.CreateObserver) (testcontainers.Container, error) {
+		for _, file := range req.Files {
+			if file.ContainerFilePath == postgresTLSContainerRoot+"/pg_hba.conf" {
+				content, err := os.ReadFile(file.HostFilePath)
+				if err != nil {
+					t.Fatalf("read mounted HBA file: %v", err)
+				}
+				mountedHBA = string(content)
+			}
+		}
 		deadline, bounded := ctx.Deadline()
 		if remaining := time.Until(deadline); !bounded || remaining <= 30*time.Second || remaining > 35*time.Second {
 			t.Fatalf("direct acquisition lost its attempt cap: bounded=%v remaining=%v", bounded, remaining)
@@ -100,9 +111,15 @@ func TestOwnedPostgresAppliesContainerLabels(t *testing.T) {
 		gotRequest.Env["POSTGRES_INITDB_ARGS"] != "--data-checksums --auth-host=reject" {
 		t.Fatalf("postgres initialization environment mismatch: %#v", gotRequest.Env)
 	}
-	if !strings.Contains(strings.Join(gotRequest.Cmd, " "), "ssl_min_protocol_version=TLSv1.3") ||
-		!strings.Contains(strings.Join(gotRequest.Cmd, " "), "hba_file=") {
-		t.Fatal("fixture omitted TLS and certificate-only HBA")
+	if !slices.Contains(gotRequest.Cmd, "ssl_min_protocol_version=TLSv1.3") ||
+		!slices.Contains(gotRequest.Cmd, "hba_file=/etc/cartulary-postgres-tls/pg_hba.conf") {
+		t.Fatalf("fixture omitted TLS 1.3 or the mounted HBA file: %q", gotRequest.Cmd)
+	}
+	// Certificate-only host access: TLS clients present certificates, plain
+	// TCP is rejected, and only the local socket is trusted.
+	const certificateOnlyHBA = "local all all trust\nhostssl all all 0.0.0.0/0 cert\nhostssl all all ::/0 cert\nhostnossl all all 0.0.0.0/0 reject\nhostnossl all all ::/0 reject\n"
+	if mountedHBA != certificateOnlyHBA {
+		t.Fatalf("mounted HBA policy = %q, want certificate-only", mountedHBA)
 	}
 	for _, purpose := range []postgres.Purpose{postgres.PurposeRuntime, postgres.PurposeMigration, postgres.PurposeRecovery} {
 		dsn, err := (&TestDatabase{DSN: harness.Fixture().dsnFor("fixture")}).DSNForPurpose(purpose)
@@ -318,7 +335,7 @@ func TestOwnedPostgresReadinessAndInitializationFailuresAreTerminal(t *testing.T
 						t.Fatal("logs read after termination")
 					}
 					logged = true
-					return io.NopCloser(strings.NewReader("initdb: No space left on device /private/secret-path\nsecret-password\n")), nil
+					return dockerStderrLog("initdb: No space left on device /private/secret-path\nsecret-password\n"), nil
 				},
 				terminate: func(context.Context) error { terminated = true; return nil },
 			}, nil
@@ -397,7 +414,7 @@ func TestOwnedPostgresReadinessAndInitializationFailuresAreTerminal(t *testing.T
 					return nil, errors.New("secret-inspect-failure")
 				},
 				logs: func(context.Context) (io.ReadCloser, error) {
-					return io.NopCloser(strings.NewReader(strings.Repeat("x", 65536) + "FATAL: secret\n")), nil
+					return dockerStderrLog(strings.Repeat("x", 65536) + "FATAL: secret\n"), nil
 				},
 				terminate: func(context.Context) error { return cleanupErr },
 			}, nil
@@ -748,20 +765,26 @@ func stubOwnedPostgresStartup(t testing.TB) startupOperations {
 	ops.initialize = func(context.Context, string) (string, error) { return "12345", nil }
 	ops.preflight = func(context.Context) (string, error) { return "unix:///var/run/docker.sock", nil }
 	ops.sleep = func(context.Context, time.Duration) error { return nil }
+	// Only the Docker transport is faked: the container's Docker-framed log
+	// bytes pass through the production frame parser and its bounds.
 	ops.logs = func(ctx context.Context, container testcontainers.Container) ([]postgresLogChunk, bool, error) {
 		logs, err := container.Logs(ctx)
 		if err != nil {
 			return nil, false, err
 		}
 		defer logs.Close()
-		data, err := io.ReadAll(io.LimitReader(logs, 65537))
-		truncated := len(data) > 65536
-		if truncated {
-			data = data[:65536]
-		}
-		return []postgresLogChunk{{stream: "unknown", data: data}}, truncated, err
+		return readPostgresLogStreams(logs)
 	}
 	return ops
+}
+
+// dockerStderrLog frames content as one Docker multiplexed stderr frame, the
+// wire form the production log request returns without a TTY.
+func dockerStderrLog(content string) io.ReadCloser {
+	header := make([]byte, 8)
+	header[0] = 2
+	binary.BigEndian.PutUint32(header[4:], uint32(len(content)))
+	return io.NopCloser(bytes.NewReader(append(header, content...)))
 }
 
 type fakePostgresContainer struct {

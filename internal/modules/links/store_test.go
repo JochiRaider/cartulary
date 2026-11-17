@@ -14,6 +14,7 @@ import (
 	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	linkfacts "github.com/JochiRaider/cartulary/internal/modules/links/facts"
+	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/rollbackcontract"
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
@@ -97,9 +98,7 @@ VALUES
 	if _, err := harness.DB.Exec(context.Background(), `UPDATE record_links SET deleted_at = now(), deleted_by_user_id = $2 WHERE record_link_id = $1`, deletedLinkID, actor.ID); err != nil {
 		t.Fatalf("soft-delete link fixture: %v", err)
 	}
-	if _, err := harness.DB.Exec(context.Background(), `UPDATE records SET deleted_at = now(), deleted_by_user_id = $2 WHERE record_id = $1`, deletedEndpoint, actor.ID); err != nil {
-		t.Fatalf("soft-delete link endpoint fixture: %v", err)
-	}
+	envelopetest.SoftDeleteRecord(t, harness.DB, envelopetest.Tombstone{RecordID: deletedEndpoint, DeletedBy: actor.ID})
 	if got := appsupport.QueryCount(t, harness.DB, `SELECT count(*) FROM active_record_links_v1 WHERE record_link_id IN ($1, $2)`, activeLinkID, fieldLinkID); got != 2 {
 		t.Fatalf("active_record_links_v1 did not expose active unfielded and field-key links, got %d", got)
 	}
@@ -129,9 +128,7 @@ VALUES
 	if _, err := harness.DB.Exec(context.Background(), `UPDATE record_tags SET deleted_at = now(), deleted_by_user_id = $2 WHERE record_tag_id = $1`, deletedTagID, actor.ID); err != nil {
 		t.Fatalf("soft-delete tag fixture: %v", err)
 	}
-	if _, err := harness.DB.Exec(context.Background(), `UPDATE records SET deleted_at = now(), deleted_by_user_id = $2 WHERE record_id = $1`, deletedTagEndpoint, actor.ID); err != nil {
-		t.Fatalf("soft-delete tag endpoint fixture: %v", err)
-	}
+	envelopetest.SoftDeleteRecord(t, harness.DB, envelopetest.Tombstone{RecordID: deletedTagEndpoint, DeletedBy: actor.ID})
 	if got := appsupport.QueryCount(t, harness.DB, `SELECT count(*) FROM active_record_tags_v1 WHERE record_tag_id = $1`, activeTagID); got != 1 {
 		t.Fatalf("active_record_tags_v1 did not expose active tag, got %d", got)
 	}
@@ -249,9 +246,7 @@ func TestRecordLinkOwnerValidation(t *testing.T) {
 	}); err == nil {
 		t.Fatalf("mixed-type supersedes should be rejected, got %v", err)
 	}
-	if _, err := tx.Exec(context.Background(), `UPDATE records SET deleted_at = now(), deleted_by_user_id = $2 WHERE record_id = $1`, dst, actor.ID); err != nil {
-		t.Fatalf("soft-delete validation endpoint: %v", err)
-	}
+	envelopetest.SoftDeleteRecord(t, tx, envelopetest.Tombstone{RecordID: dst, DeletedBy: actor.ID})
 	if _, err := store.UpsertLinkCommandTx(context.Background(), tx, links.UpsertLinkCommand{
 		IncidentID:  incident.ID,
 		SrcRecordID: src,
@@ -305,9 +300,7 @@ func TestRecordLinkOwnerValidation(t *testing.T) {
 		IncidentID: incident.ID, TargetKind: "record_link", TargetID: supersedesMutation.TargetID(),
 		OperationKind: "create", AfterValue: mutationMap(t, supersedesMutation.AfterValue()),
 	}
-	if _, err := tx.Exec(ctx, `UPDATE records SET deleted_at=now(), deleted_by_user_id=$2 WHERE record_id=$1`, superseded, actor.ID); err != nil {
-		t.Fatal(err)
-	}
+	envelopetest.SoftDeleteRecord(t, tx, envelopetest.Tombstone{RecordID: superseded, DeletedBy: actor.ID})
 	if descriptor, err := provider.DescribeTx(ctx, tx, rollbackcontract.DescribeRequest{Target: target}); err != nil || len(descriptor.AffectedRecordIDs) != 2 {
 		t.Fatalf("deleted retained endpoint rejected: %#v %v", descriptor, err)
 	}

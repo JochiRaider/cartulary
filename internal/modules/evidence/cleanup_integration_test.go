@@ -511,6 +511,9 @@ SELECT EXISTS (SELECT 1 FROM object_blobs WHERE object_blob_id = $1)
 	}
 }
 
+// insertFailedCleanupBlob writes a REQ-02-189a coherent failed tuple: created
+// 26h ago, failed by pending timeout at its pending expiry, cleanup due 45m
+// after failure (already due).
 func insertFailedCleanupBlob(t testing.TB, database dbport.DB, incidentID uuid.UUID, actorID uuid.UUID, objectBlobID uuid.UUID, storageKey string, now time.Time) {
 	t.Helper()
 	if _, err := database.Exec(context.Background(), `
@@ -521,11 +524,11 @@ INSERT INTO object_blobs (
     terminal_reason, failed_at, cleanup_due_at, created_at, updated_at
 ) VALUES (
     $1, $2, $3, $4, 'failed',
-    27, 'cleanup.txt', 'text/plain', 27, 'text/plain',
-    '0000000000000000000000000000000000000000000000000000000000000000',
-    $5::timestamptz - interval '3 hours', $5::timestamptz - interval '2 hours', NULL,
-    'pending_timeout', $5::timestamptz - interval '2 hours', $5::timestamptz - interval '1 hour',
-    $5::timestamptz - interval '3 hours', $5::timestamptz - interval '2 hours'
+    27, 'cleanup.txt', 'text/plain', NULL, NULL,
+    NULL,
+    $5::timestamptz - interval '25 hours', $5::timestamptz - interval '2 hours', NULL,
+    'pending_timeout', $5::timestamptz - interval '2 hours', $5::timestamptz - interval '75 minutes',
+    $5::timestamptz - interval '26 hours', $5::timestamptz - interval '2 hours'
 )
 `, objectBlobID, incidentID, actorID, storageKey, now.UTC()); err != nil {
 		t.Fatalf("insert failed cleanup blob: %v", err)
@@ -542,7 +545,7 @@ INSERT INTO object_blobs (
 ) VALUES (
     $1, $2, $3, $4, 'pending',
     10, 'expired.txt', 'text/plain',
-    $5::timestamptz - interval '2 hours', $5::timestamptz - interval '1 hour',
+    $5::timestamptz - interval '24 hours', $5::timestamptz - interval '1 hour',
     $5::timestamptz - interval '25 hours', $5::timestamptz - interval '25 hours'
 )
 `, objectBlobID, incidentID, actorID, storageKey, now.UTC()); err != nil {

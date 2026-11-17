@@ -93,7 +93,7 @@ func runBlockedGraceProcess(t *testing.T, phase string) int {
 		runtime.ActivatePublication = lifecycle.Publish
 		runtime.ShutdownDrainTimeout = time.Minute
 		if phase == "cleanup" {
-			runtime.Close = block
+			runtime.Close = func(context.Context) []string { block(); return nil }
 		}
 		if phase == "draining" {
 			runtime.ActivatePublication = func() error {

@@ -787,8 +787,16 @@
       "sha256": "603ce11173e612fdc884353fadbdd225f9d3f486242c74d323a0cbb1cb7ef128"
     },
     {
-      "path": "apps/web/e2e/visual-goldens/timeline-grid-adapter-fixtures-linux.png",
-      "sha256": "19034a334c47b9a8573a7a3823fcb5d3a0713f52b9b82e9220eafd1d87ee80b3"
+      "path": "apps/web/e2e/visual-goldens/timeline-grid-adapter-editor-linux.png",
+      "sha256": "25551393c063f06491378957885a432c6e55203c2cc88966a761b53ae66c2b67"
+    },
+    {
+      "path": "apps/web/e2e/visual-goldens/timeline-grid-adapter-fill-handle-linux.png",
+      "sha256": "a7e1c92fd3449510a8390c9ff6f3adc8a2b645dfdd64496fbbe94704018bcf0f"
+    },
+    {
+      "path": "apps/web/e2e/visual-goldens/timeline-grid-adapter-grouped-frozen-linux.png",
+      "sha256": "3269a8bf4f2952d5f919de516c34c10dfadf4ab927fbb2c587431d4c9e9f9c56"
     },
     {
       "path": "apps/web/e2e/visual-goldens/timeline-grid-conflict-strip-linux.png",

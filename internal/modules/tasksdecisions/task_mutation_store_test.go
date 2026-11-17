@@ -229,7 +229,7 @@ func TestTaskRequestLifecycleDecisionLinksAndProjection_Unit(t *testing.T) {
 	requireCellValue(t, done.Row, "task.status", "done")
 	_, err = patchRecord(owner, actor, taskID, tasksdecisions.TaskRequestsViewSchemaID, 9, "txn-workbook_interaction-task-decision-task-done-canceled",
 		valueChange("task.status", tasksdecisions.FieldValue{Text: stringPtr("canceled")}))
-	requireLifecycleGuards(t, err, "illegal_status_transition", "task.status")
+	requireLifecycleGuards(t, err, "transition_not_allowed")
 
 	canceled := mustCreateTask(t, owner, actor, incident.ID, "txn-workbook_interaction-task-decision-task-canceled", map[string]tasksdecisions.FieldValue{
 		"task.title":     {Text: stringPtr("Canceled task")},
@@ -238,7 +238,7 @@ func TestTaskRequestLifecycleDecisionLinksAndProjection_Unit(t *testing.T) {
 	}, nil)
 	_, err = patchRecord(owner, actor, canceled.RecordID, tasksdecisions.TaskRequestsViewSchemaID, 1, "txn-workbook_interaction-task-decision-task-canceled-done",
 		valueChange("task.status", tasksdecisions.FieldValue{Text: stringPtr("done")}))
-	requireLifecycleGuards(t, err, "illegal_status_transition", "task.status")
+	requireLifecycleGuards(t, err, "transition_not_allowed")
 
 	ownerless := mustCreateTask(t, owner, actor, incident.ID, "txn-workbook_interaction-task-decision-task-ownerless", map[string]tasksdecisions.FieldValue{
 		"task.title":     {Text: stringPtr("Owner guard")},
@@ -246,7 +246,7 @@ func TestTaskRequestLifecycleDecisionLinksAndProjection_Unit(t *testing.T) {
 	}, nil)
 	_, err = patchRecord(owner, actor, ownerless.RecordID, tasksdecisions.TaskRequestsViewSchemaID, 1, "txn-workbook_interaction-task-decision-task-ownerless-open",
 		valueChange("task.owner_user_id", tasksdecisions.FieldValue{}))
-	requireLifecycleGuards(t, err, "violated_lifecycle_guards", "active_task_requires_owner")
+	requireLifecycleGuards(t, err, "guards_not_satisfied", "active_requires_owner")
 	t.Run("admitted source text and clear replay", func(t *testing.T) {
 		requireTaskDecisionAdmittedTextPersistence(t, harness.DB, owner, actor, incident.ID)
 	})
@@ -290,7 +290,7 @@ func TestTaskLifecycleGuardFailures_Unit(t *testing.T) {
 			},
 		},
 		{
-			name: "done-before-created-create", guard: "completed_at_before_created_at",
+			name: "done-before-created-create", guard: "completed_at_not_before_created_at",
 			values: map[string]tasksdecisions.FieldValue{
 				"task.title":        {Text: stringPtr("Done before created")},
 				"task.task_kind":    {Text: stringPtr("request")},
@@ -306,7 +306,7 @@ func TestTaskLifecycleGuardFailures_Unit(t *testing.T) {
 			Values:       tc.values,
 		}
 		_, err := createTaskDecision(owner, actor, incident.ID, request, "req-workbook_interaction-task-decision-task-guard-"+tc.name, testTime(0))
-		requireLifecycleGuards(t, err, "violated_lifecycle_guards", tc.guard)
+		requireLifecycleGuards(t, err, "guards_not_satisfied", tc.guard)
 		if got := countRecords(t, harness.DB, incident.ID); got != beforeRecords {
 			t.Fatalf("%s wrote partial records: got %d want %d", tc.name, got, beforeRecords)
 		}
@@ -336,7 +336,7 @@ func TestTaskLifecycleGuardFailures_Unit(t *testing.T) {
 			},
 		},
 		{
-			name: "done-before-created-patch", guard: "completed_at_before_created_at",
+			name: "done-before-created-patch", guard: "completed_at_not_before_created_at",
 			changes: []tasksdecisions.PatchChange{
 				valueChange("task.status", tasksdecisions.FieldValue{Text: stringPtr("done")}),
 				valueChange("task.completed_at", tasksdecisions.FieldValue{Timestamp: &beforeCreatedAt}),
@@ -349,7 +349,7 @@ func TestTaskLifecycleGuardFailures_Unit(t *testing.T) {
 		}, nil)
 		before := taskSnapshot(t, harness.DB, task.RecordID)
 		_, err := patchRecord(owner, actor, task.RecordID, tasksdecisions.TaskRequestsViewSchemaID, before.RowVersion, "txn-workbook_interaction-task-decision-task-guard-"+tc.name, tc.changes...)
-		requireLifecycleGuards(t, err, "violated_lifecycle_guards", tc.guard)
+		requireLifecycleGuards(t, err, "guards_not_satisfied", tc.guard)
 		requireTaskSnapshot(t, taskSnapshot(t, harness.DB, task.RecordID), before, tc.name)
 		if got := countReferenceLinks(t, harness.DB, task.RecordID, "task.linked_record_ids"); got != 0 {
 			t.Fatalf("%s wrote partial task links: got %d want 0", tc.name, got)
@@ -395,7 +395,7 @@ func TestTaskLifecycleStatusMatrixAndExactReplay_Unit(t *testing.T) {
 				}
 				result, err := patchRecord(owner, actor, task.RecordID, tasksdecisions.TaskRequestsViewSchemaID, 1, "patch-"+key, changes...)
 				if (from == "done" && to == "canceled") || (from == "canceled" && to == "done") {
-					requireLifecycleGuards(t, err, "illegal_status_transition", "task.status")
+					requireLifecycleGuards(t, err, "transition_not_allowed")
 					requireTaskSnapshot(t, taskSnapshot(t, harness.DB, task.RecordID), before, key)
 					return
 				}

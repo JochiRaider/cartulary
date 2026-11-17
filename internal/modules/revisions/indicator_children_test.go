@@ -113,7 +113,10 @@ func TestIndicatorChildHistoryRollback_Integration(t *testing.T) {
 		asserttest.AwaitIncidentStreamIdle(t, asserttest.SQLDatabase(harness.DB), incidentID.String())
 		socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), "cartulary.view.timeline.v2", login.Session.Value)
 		defer socket.Close(1000, "test_complete")
-		httptestx.SetClockFixed(t, harness.Server, createdAt.Add(time.Minute))
+		// The jump stays below the 45 s socket heartbeat timeout, measured from the
+		// fixed clock the socket connected under.
+		rolledBackAt := createdAt.Add(10 * time.Second)
+		httptestx.SetClockFixed(t, harness.Server, rolledBackAt)
 		body := map[string]any{
 			"base_row_version": 2,
 			"client_txn_id":    "txn-i-7-06-observation-create-rollback",
@@ -150,7 +153,7 @@ func TestIndicatorChildHistoryRollback_Integration(t *testing.T) {
 		}
 		rollbackChangeSetID := payload["rollback_change_set_id"].(string)
 		deadHistory := maps.Clone(activeHistory)
-		deadHistory["row_version"], deadHistory["deleted_at"], deadHistory["deleted_by_user_id"] = 2, createdAt.Add(time.Minute).UTC().Format(time.RFC3339Nano), actorID.String()
+		deadHistory["row_version"], deadHistory["deleted_at"], deadHistory["deleted_by_user_id"] = 2, rolledBackAt.UTC().Format(time.RFC3339Nano), actorID.String()
 		requireObservationHistory(t, harness.DB, rollbackChangeSetID, "rollback", observation.ObservationID, activeHistory, deadHistory)
 		if countRows(t, harness.DB, `SELECT COUNT(*) FROM record_revisions WHERE change_set_id::text = $1 AND record_id IN ($2, $3)`, rollbackChangeSetID, sourceID, indicatorID) != 2 {
 			t.Fatal("observation rollback did not append every affected record revision")

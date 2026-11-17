@@ -1,5 +1,7 @@
 package timeline
 
+import "fmt"
+
 const (
 	captureStateRough      = "rough"
 	captureStateEnriched   = "enriched"
@@ -7,11 +9,18 @@ const (
 	captureStateSuperseded = "superseded"
 )
 
+// Lifecycle guard identifiers registered in Core 01 §3.3.6.2.
 const (
-	supersedeGuardReplacementDifferent                 = "replacement_must_be_different_timeline_record"
-	supersedeGuardReplacementVisibleActiveSameIncident = "replacement_must_be_visible_active_same_incident_timeline_record"
+	supersedeGuardReplacementDifferent                 = "replacement_must_differ_from_target"
+	supersedeGuardReplacementVisibleActiveSameIncident = "replacement_must_be_active_in_incident"
 	supersedeGuardReplacementNotSuperseded             = "replacement_must_not_be_superseded"
 	supersedeGuardTargetMustNotHaveActiveReplacement   = "target_must_not_have_active_replacement"
+)
+
+// Lifecycle-transition reason family (Core 01 §3.3.6.2, REQ-01-231).
+const (
+	reasonTransitionNotAllowed = "transition_not_allowed"
+	reasonGuardsNotSatisfied   = "guards_not_satisfied"
 )
 
 type IllegalTransitionError struct {
@@ -59,6 +68,11 @@ func CreateRequestHasUserValue(request CreateRequest) bool {
 		(request.AttachedEvidence != nil && len(request.AttachedEvidence.Actions) > 0)
 }
 
+// captureStateAfterMaterialPatch returns the state a capture-state-material
+// patch produces. Callers reject superseded rows first; any other state outside
+// the closed vocabulary is a storage invariant failure (REQ-03-109a): an
+// unclassified error that reaches the shared internal_error boundary, never
+// illegal_transition.
 func captureStateAfterMaterialPatch(current string) (string, error) {
 	switch current {
 	case captureStateRough, captureStateReviewed:
@@ -66,8 +80,20 @@ func captureStateAfterMaterialPatch(current string) (string, error) {
 	case captureStateEnriched:
 		return captureStateEnriched, nil
 	default:
-		return "", ErrIllegalTransition
+		return "", fmt.Errorf("timeline: invalid persisted capture state %q", current)
 	}
+}
+
+// supersededPatchTargetState is the to_status reported when an ordinary patch
+// is rejected on a superseded row (REQ-01-231): a tag-only request would leave
+// the state unchanged, while any other change is capture-state material.
+func supersededPatchTargetState(fieldKeys []string) string {
+	for _, fieldKey := range fieldKeys {
+		if fieldKey != "timeline.tags" {
+			return captureStateEnriched
+		}
+	}
+	return captureStateSuperseded
 }
 
 func captureStateAllowsMarkReviewed(current string) bool {

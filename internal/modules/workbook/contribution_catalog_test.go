@@ -662,7 +662,7 @@ func TestWorkbookContributionCatalogValidatesCreateAndPatchRequirements_Unit(t *
 			t.Fatalf("failure retained caller-owned guards: %v", got)
 		}
 		// REQ-01-231: matrix-only rejections keep a present, empty guard array.
-		unguarded := mutationFailureAPIError(IllegalTransitionFailure("superseded", "enriched", "superseded_terminal", nil))
+		unguarded := mutationFailureAPIError(IllegalTransitionFailure("superseded", "enriched", "transition_not_allowed", nil))
 		encoded, err := json.Marshal(unguarded.Details)
 		if guards, ok := unguarded.Details["violated_guards"].([]string); !ok || guards == nil || len(guards) != 0 || err != nil || !strings.Contains(string(encoded), `"violated_guards":[]`) {
 			t.Fatalf("unguarded illegal transition details = %s (%v)", encoded, err)

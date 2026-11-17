@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -25,6 +26,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
+	"github.com/JochiRaider/cartulary/internal/testutil/lifecyclecontract"
 )
 
 type taskState struct {
@@ -398,11 +400,36 @@ func requireMutationValidation(t testing.TB, err error, field string, reason str
 	t.Fatalf("expected owner validation error, got %v", err)
 }
 
+// requireLifecycleGuards asserts a registered reason (Core 01 §3.3.6.2) and the
+// exact guard list; a matrix rejection carries a present, empty list.
 func requireLifecycleGuards(t testing.TB, err error, reason string, guards ...string) {
 	t.Helper()
+	if guards == nil {
+		guards = []string{}
+	}
 	var lifecycle *tasksdecisions.LifecycleValidationError
-	if !errors.As(err, &lifecycle) || lifecycle.ReasonCode != reason || !reflect.DeepEqual(lifecycle.ViolatedGuards, guards) {
+	if !errors.As(err, &lifecycle) || lifecycle.ReasonCode != reason || lifecycle.ViolatedGuards == nil || !reflect.DeepEqual(lifecycle.ViolatedGuards, guards) {
 		t.Fatalf("lifecycle error = %#v (%v), want %s %v", lifecycle, err, reason, guards)
+	}
+	// AC-606: the emitted vocabulary is registered for this machine. The Task
+	// and Decision status vocabularies are disjoint.
+	machine := "task_request.status"
+	if slices.Contains([]string{"proposed", "approved", "rejected", "superseded", "executed"}, lifecycle.ToStatus) {
+		machine = "decision.status"
+	}
+	from := &lifecycle.FromStatus
+	if lifecycle.FromStatus == "" {
+		from = nil
+	}
+	lifecyclecontract.RequireTransition(t, machine, from, lifecycle.ToStatus, lifecycle.ReasonCode, lifecycle.ViolatedGuards)
+}
+
+// requireLifecycleStatuses asserts REQ-01-231 statuses; "" means null (create).
+func requireLifecycleStatuses(t testing.TB, err error, from, to string) {
+	t.Helper()
+	var lifecycle *tasksdecisions.LifecycleValidationError
+	if !errors.As(err, &lifecycle) || lifecycle.FromStatus != from || lifecycle.ToStatus != to || lifecycle.ToStatus == "" {
+		t.Fatalf("lifecycle statuses = %#v (%v), want %q -> %q", lifecycle, err, from, to)
 	}
 }
 
@@ -521,7 +548,7 @@ func requireTaskDecisionAdmittedTextPersistence(t *testing.T, db dbport.DB, owne
 	rejected := admitPatch("task-text-blocker-reject", []map[string]any{{"field_key": "task.blocked_reason", "value": nil}})
 	before := taskSnapshot(t, db, task.RecordID)
 	_, err = patchRecord(owner, actor, task.RecordID, rejected.ViewSchemaID, rejected.BaseRowVersion, rejected.ClientTxnID, rejected.Changes...)
-	requireLifecycleGuards(t, err, "violated_lifecycle_guards", "blocked_requires_reason")
+	requireLifecycleGuards(t, err, "guards_not_satisfied", "blocked_requires_reason")
 	requireTaskSnapshot(t, taskSnapshot(t, db, task.RecordID), before, "clearing required blocker")
 	if actual := readTask(); !reflect.DeepEqual(actual, expected) {
 		t.Fatal("rejected blocker clear changed source text")

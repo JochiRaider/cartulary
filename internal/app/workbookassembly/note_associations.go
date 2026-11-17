@@ -3,14 +3,13 @@ package workbookassembly
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
-	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
-	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	recordenvelope "github.com/JochiRaider/cartulary/internal/modules/records/enveloperead"
@@ -23,7 +22,15 @@ type NoteAssociationProjectionRows interface {
 	RefreshRowTx(context.Context, pgx.Tx, string, uuid.UUID) error
 }
 
-type noteAssociationRows struct{ projections NoteAssociationProjectionRows }
+// RecordSummaryLabels is the projections-owned REQ-01-333a label reader.
+type RecordSummaryLabels interface {
+	RecordSummaryLabelsTx(context.Context, pgx.Tx, uuid.UUID, []uuid.UUID) (map[uuid.UUID]string, error)
+}
+
+type noteAssociationRows struct {
+	projections NoteAssociationProjectionRows
+	labels      RecordSummaryLabels
+}
 
 func (a noteAssociationRows) LoadEvidenceTx(ctx context.Context, tx pgx.Tx, id uuid.UUID) (map[string]any, error) {
 	return a.projections.LoadRowTx(ctx, tx, "cartulary.view.evidence.v1", id)
@@ -31,38 +38,28 @@ func (a noteAssociationRows) LoadEvidenceTx(ctx context.Context, tx pgx.Tx, id u
 func (a noteAssociationRows) RefreshEvidenceTx(ctx context.Context, tx pgx.Tx, id uuid.UUID) error {
 	return a.projections.RefreshRowTx(ctx, tx, "cartulary.view.evidence.v1", id)
 }
+
+// LabelTx serves the REQ-01-675 safe display label, which is the REQ-01-333a
+// linked record summary. Counterparts are live and in the Note's incident.
 func (a noteAssociationRows) LabelTx(ctx context.Context, tx pgx.Tx, record recordenvelope.Envelope) (string, error) {
-	switch record.RecordType {
-	case "host", "identity":
-		return hostidentity.ReadRecordLabelTx(ctx, tx, record.RecordType, record.RecordID)
-	}
-	schema, field, fallback := "cartulary.view.notes.v1", "note.title", "Note"
-	if record.RecordType == "timeline_event" {
-		schema, field, fallback = "cartulary.view.timeline.v2", "timeline.activity_synopsis_text", "Timeline record"
-	}
-	if record.RecordType == "evidence" {
-		schema, field, fallback = "cartulary.view.evidence.v1", "evidence.title", "Evidence"
-	}
-	row, err := a.projections.LoadRowTx(ctx, tx, schema, record.RecordID)
+	labels, err := a.labels.RecordSummaryLabelsTx(ctx, tx, record.IncidentID, []uuid.UUID{record.RecordID})
 	if err != nil {
 		return "", err
 	}
-	cells, _ := row["cells"].(map[string]any)
-	cell, _ := cells[field].(map[string]any)
-	label, _ := cell["value"].(string)
-	if strings.TrimSpace(label) == "" {
-		label = fallback + " " + record.RecordID.String()
+	label, ok := labels[record.RecordID]
+	if !ok {
+		return "", fmt.Errorf("note association counterpart %s has no summary label", record.RecordID)
 	}
 	return label, nil
 }
 
 type noteAssociationProvider struct{ owner *artifacts.NoteAssociations }
 
-func NewNoteAssociationProvider(pool dbport.DB, mutations *artifacts.MutationFacade, rows NoteAssociationProjectionRows) (workbook.NoteAssociationProvider, error) {
-	if isNilDependency(pool) || isNilDependency(rows) {
+func NewNoteAssociationProvider(pool dbport.DB, mutations *artifacts.MutationFacade, rows NoteAssociationProjectionRows, labels RecordSummaryLabels) (workbook.NoteAssociationProvider, error) {
+	if isNilDependency(pool) || isNilDependency(rows) || isNilDependency(labels) {
 		return nil, errors.New("note association projection dependencies are required")
 	}
-	owner, err := artifacts.NewNoteAssociations(mutations, admission.NewChecker(pool), links.NewStore(), noteAssociationRows{projections: rows})
+	owner, err := artifacts.NewNoteAssociations(mutations, admission.NewChecker(pool), links.NewStore(), noteAssociationRows{projections: rows, labels: labels})
 	if err != nil {
 		return nil, err
 	}

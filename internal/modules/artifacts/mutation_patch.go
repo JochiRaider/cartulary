@@ -107,6 +107,9 @@ func (f *MutationFacade) patch(ctx context.Context, command PatchCommand, operat
 			if err != nil {
 				return MutationResult{}, adaptRevisionWindowError(command.RecordID, request.BaseRowVersion, meta.RowVersion, err)
 			}
+			if err := labelArtifactConflictTx(ctx, tx, f.recordLabels, meta.IncidentID, &conflictPayload); err != nil {
+				return MutationResult{}, err
+			}
 			return MutationResult{}, &SameFieldConflictError{Conflict: conflictPayload}
 		}
 		effectiveBeforeVersion = meta.RowVersion

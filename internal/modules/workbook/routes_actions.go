@@ -87,9 +87,7 @@ func (s *service) handleSupersede(w http.ResponseWriter, r *http.Request) {
 	}
 	provider, registered := s.contributions.SupersedeFor(target.RecordType)
 	if !registered {
-		writeAPIError(w, r, mutationFailureAPIError(IllegalTransitionFailure(
-			"", "", "supersede_not_allowed", []string{"unsupported_record_type"},
-		)))
+		writeAPIError(w, r, mutationFailureAPIError(UnsupportedLifecycleActionFailure("superseded")))
 		return
 	}
 	operation, failure, err := provider.DecodeSupersede(r.Body)

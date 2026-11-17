@@ -10,9 +10,8 @@ import (
 )
 
 type MutationAPIErrorContext struct {
-	ClientTxnID                 string
-	IllegalTransitionReasonCode string
-	NoEffectiveChangeField      string
+	ClientTxnID            string
+	NoEffectiveChangeField string
 }
 
 // ClassifyMutationAPIError maps Timeline mutation errors to stable API envelopes.
@@ -46,9 +45,7 @@ func ClassifyMutationAPIError(err error, context MutationAPIErrorContext) (*http
 	case errors.Is(err, timeline.ErrProfileVersionExhausted):
 		return invalidMutationPayload("base_profile_version", "invalid_value"), true
 	case errors.As(err, &transitionErr):
-		return illegalTransitionError(context.IllegalTransitionReasonCode, transitionErr), true
-	case errors.Is(err, timeline.ErrIllegalTransition):
-		return illegalTransitionError(context.IllegalTransitionReasonCode), true
+		return illegalTransitionError(transitionErr), true
 	case errors.Is(err, timeline.ErrNoEffectiveChange):
 		field := context.NoEffectiveChangeField
 		if field == "" {
@@ -122,30 +119,20 @@ func rowVersionConflictError(details ...map[string]any) *httpapi.APIError {
 	return &httpapi.APIError{Status: http.StatusConflict, Code: "row_version_conflict", Details: payload}
 }
 
-func illegalTransitionError(reasonCode string, sourceErr ...error) *httpapi.APIError {
-	details := map[string]any{}
-	var transitionErr *timeline.IllegalTransitionError
-	for _, err := range sourceErr {
-		if errors.As(err, &transitionErr) {
-			break
-		}
-	}
-	if transitionErr != nil {
-		if transitionErr.ReasonCode != "" {
-			reasonCode = transitionErr.ReasonCode
-		}
-		details["from_status"] = transitionErr.FromStatus
-		details["to_status"] = transitionErr.ToStatus
-		details["violated_guards"] = append([]string{}, transitionErr.ViolatedGuards...)
-	}
-	if reasonCode != "" {
-		details["reason_code"] = reasonCode
-	}
+// illegalTransitionError renders the complete REQ-01-231 details. Only a typed
+// transition error reaches here; an untyped invariant failure falls through to
+// internal_error (REQ-03-109a).
+func illegalTransitionError(transitionErr *timeline.IllegalTransitionError) *httpapi.APIError {
 	return &httpapi.APIError{
 		Status:  http.StatusConflict,
 		Code:    "illegal_transition",
 		Message: "illegal transition",
-		Details: details,
+		Details: map[string]any{
+			"from_status":     transitionErr.FromStatus,
+			"to_status":       transitionErr.ToStatus,
+			"violated_guards": append([]string{}, transitionErr.ViolatedGuards...),
+			"reason_code":     transitionErr.ReasonCode,
+		},
 	}
 }
 

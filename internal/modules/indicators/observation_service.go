@@ -298,7 +298,7 @@ func nextObservationTransition(current IndicatorObservationRecord, transition ob
 	switch transition {
 	case observationTransitionResolve:
 		if current.ResolutionStatus == "dismissed" || (current.ResolutionStatus == "resolved" && current.ResolvedIndicatorRecordID != nil && *current.ResolvedIndicatorRecordID == targetID) {
-			return IndicatorObservationRecord{}, ErrIllegalTransition
+			return IndicatorObservationRecord{}, newIllegalTransitionError(current.ResolutionStatus, "resolved")
 		}
 		next.ResolutionStatus = "resolved"
 		next.ResolvedIndicatorRecordID = &targetID
@@ -307,7 +307,7 @@ func nextObservationTransition(current IndicatorObservationRecord, transition ob
 		next.ResolutionMethod = &method
 	case observationTransitionDismiss:
 		if current.ResolutionStatus != "unresolved" && current.ResolutionStatus != "resolved" {
-			return IndicatorObservationRecord{}, ErrIllegalTransition
+			return IndicatorObservationRecord{}, newIllegalTransitionError(current.ResolutionStatus, "dismissed")
 		}
 		next.ResolutionStatus = "dismissed"
 		next.ResolvedIndicatorRecordID = nil
@@ -316,7 +316,7 @@ func nextObservationTransition(current IndicatorObservationRecord, transition ob
 		next.ResolutionMethod = &method
 	case observationTransitionRestore:
 		if current.ResolutionStatus != "dismissed" {
-			return IndicatorObservationRecord{}, ErrIllegalTransition
+			return IndicatorObservationRecord{}, newIllegalTransitionError(current.ResolutionStatus, "unresolved")
 		}
 		next.ResolutionStatus = "unresolved"
 		next.ResolvedIndicatorRecordID = nil
@@ -324,9 +324,23 @@ func nextObservationTransition(current IndicatorObservationRecord, transition ob
 		next.ResolvedAt = nil
 		next.ResolutionMethod = nil
 	default:
-		return IndicatorObservationRecord{}, ErrIllegalTransition
+		return IndicatorObservationRecord{}, fmt.Errorf("indicators: unsupported observation transition %q", transition)
 	}
 	return next, nil
+}
+
+// IllegalTransitionError is an observation-resolution matrix rejection with the
+// complete REQ-01-231 details. It unwraps to ErrIllegalTransition.
+type IllegalTransitionError struct {
+	FromStatus string
+	ToStatus   string
+}
+
+func (e *IllegalTransitionError) Error() string { return ErrIllegalTransition.Error() }
+func (e *IllegalTransitionError) Unwrap() error { return ErrIllegalTransition }
+
+func newIllegalTransitionError(from, to string) *IllegalTransitionError {
+	return &IllegalTransitionError{FromStatus: from, ToStatus: to}
 }
 
 func (s *Application) beforeObservationAffectedRowsTx(ctx context.Context, tx pgx.Tx, sourceRecordID uuid.UUID, sourceRow map[string]any, affectedIDs []uuid.UUID) (map[uuid.UUID]map[string]any, error) {

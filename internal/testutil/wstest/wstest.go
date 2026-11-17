@@ -23,6 +23,7 @@ const (
 	MessageText                   = websocket.MessageText
 	MessageBinary                 = websocket.MessageBinary
 	StatusNormalClosure           = websocket.StatusNormalClosure
+	StatusGoingAway               = websocket.StatusGoingAway
 	StatusUnsupportedData         = websocket.StatusUnsupportedData
 	StatusInvalidFramePayloadData = websocket.StatusInvalidFramePayloadData
 	StatusPolicyViolation         = websocket.StatusPolicyViolation

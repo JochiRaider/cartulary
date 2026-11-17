@@ -306,7 +306,7 @@ func TestTimeBucketV2DigestFixture_Unit(t *testing.T) {
 func FuzzTimeBucketArithmetic(f *testing.F) {
 	f.Add(int64(-1), int64(1), int64(60))
 	f.Add(int64(0), int64(60), int64(60))
-	f.Add(int64(-61), int64(-60), int64(60))
+	f.Add(int64(-61), int64(2), int64(60))
 	f.Fuzz(func(t *testing.T, startSeconds int64, durationSeconds int64, width int64) {
 		if startSeconds < -62_135_596_800 || startSeconds > 253_402_300_799 || durationSeconds < 1 || durationSeconds > 86_400 || !allowedGraphBucketWidth(width) {
 			t.Skip()

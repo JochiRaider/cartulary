@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"reflect"
+	"slices"
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
@@ -88,7 +89,9 @@ func TestNoteAssociationsPublicPagingAndHistory(t *testing.T) {
 	}
 	page := get("?kind=related_note&limit=1")
 	item := page["items"].([]any)[0].(map[string]any)
-	if item["view_schema_id"] != artifacts.NotesViewSchemaID || item["direction"] != "outgoing" || item["display_label"] == "" {
+	// REQ-01-675 safe display label: the REQ-01-333a summary (the Note title).
+	label, _ := item["display_label"].(string)
+	if item["view_schema_id"] != artifacts.NotesViewSchemaID || item["direction"] != "outgoing" || !slices.Contains([]string{"Related note 0", "Related note 1", "Related note 2"}, label) {
 		t.Fatalf("unsafe association item: %#v", item)
 	}
 	cursor := page["next_cursor_token"].(string)

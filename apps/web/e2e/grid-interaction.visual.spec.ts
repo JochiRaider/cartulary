@@ -1,199 +1,40 @@
 import { changeGrouping } from "@cartulary/test-utils/grid";
 import {
+  gridFillHandleSelector,
+  gridGroupRowSelector,
   gridGroupRowTestId,
+  gridScrollportSelector,
   gridShellTestId,
   timelineInspectorTestId,
   timelineRowMarkReviewedButtonTestId,
+  workbookColumnsMenuTestId,
+  workbookColumnsMenuTriggerTestId,
   workbookInspectorCloseButtonTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
-import { timelineViewSchemaId } from "@cartulary/view-contracts";
-import type { Page } from "@playwright/test";
+import {
+  requireViewContract,
+  timelineViewSchemaId,
+} from "@cartulary/view-contracts";
 import { expect } from "./fixtures";
-import { createIncident } from "./support/incidents/fixtures";
+import {
+  activateTimelineGridEditor,
+  expectVisibleSemanticGridCellFocus,
+} from "./support/accessibility/grid";
 import { navigateVisualApplication } from "./support/runtime/applicationReadiness";
 import {
   uniqueIncidentKey,
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
-import { assertVisualRegression } from "./support/visual/capture";
-import { injectDesignFixture, test } from "./support/visual/fixtures";
+import { test } from "./support/visual/fixtures";
 import { clickTimelineRowAction } from "./support/visual/rowActions";
 import {
   createRichTimelineIncident,
   createVisualTimelineRow,
+  visualTimelineRecord,
 } from "./support/visual/timelineVisualFixture";
 import { assertWorkbookGridVisualRegression } from "./support/visual/workbookCaptures";
 import { mountedGridCell } from "./support/workbook/keyboardGrid";
-import { createViewRow } from "./support/workbook/query";
-
-async function injectFeP3GridAdapterVisualFixture(page: Page) {
-  await injectDesignFixture(page, {
-    ariaLabel: "browser.grid-interaction grid adapter visual fixtures",
-    fixtureName: "grid-interaction-grid-adapter",
-    missingMainMessage:
-      "Expected workbook shell main before browser.grid-interaction fixture",
-    styleText: `
-      [data-design-fixture='grid-interaction-grid-adapter'] {
-        position: fixed;
-        inset: var(--ct-spacing-xl);
-        box-sizing: border-box;
-        display: grid;
-        grid-template-columns: minmax(0, 1fr);
-        gap: var(--ct-spacing-md);
-        overflow: hidden;
-        background: var(--ct-colors-canvas);
-        color: var(--ct-colors-ink);
-        border: var(--ct-border-strong);
-        border-radius: var(--ct-rounded-lg);
-        padding: var(--ct-spacing-lg);
-        box-shadow: var(--ct-elevation-panel);
-        font-family: var(--ct-typography-ui-fontFamily);
-        font-size: var(--ct-typography-ui-fontSize);
-        font-weight: var(--ct-typography-ui-fontWeight);
-        letter-spacing: var(--ct-typography-ui-letterSpacing);
-        line-height: var(--ct-typography-ui-lineHeight);
-        z-index: 1000;
-      }
-
-      [data-design-fixture='grid-interaction-grid-adapter'] * {
-        box-sizing: border-box;
-      }
-
-      .grid-interaction-grid-fixture-table {
-        min-width: 0;
-        overflow: hidden;
-        border: var(--ct-border-hairline);
-        border-radius: var(--ct-rounded-md);
-        background: var(--ct-colors-surface-1);
-      }
-
-      .grid-interaction-grid-fixture-row {
-        display: grid;
-        grid-template-columns: 10rem 16rem 12rem 14rem 14rem;
-        min-width: 66rem;
-      }
-
-      .grid-interaction-grid-fixture-head,
-      .grid-interaction-grid-fixture-cell {
-        position: relative;
-        min-width: 0;
-        min-height: 3.75rem;
-        display: flex;
-        align-items: center;
-        gap: var(--ct-spacing-xs);
-        overflow: hidden;
-        padding: var(--ct-density-default-cellPadding);
-        border-inline-end: var(--ct-border-hairline);
-        border-block-end: var(--ct-border-hairline);
-        background: var(--ct-colors-surface-1);
-        color: var(--ct-colors-ink);
-      }
-
-      .grid-interaction-grid-fixture-head {
-        min-height: 3rem;
-        background: var(--ct-colors-surface-2);
-        color: var(--ct-colors-ink-muted);
-        font-family: var(--ct-typography-metadata-fontFamily);
-        font-size: var(--ct-typography-metadata-fontSize);
-        font-weight: var(--ct-typography-metadata-fontWeight);
-      }
-
-      .grid-interaction-grid-fixture-frozen {
-        position: sticky;
-        left: 0;
-        z-index: 2;
-        background: var(--ct-colors-surface-2);
-        box-shadow: 0.75rem 0 1rem rgba(0, 0, 0, 0.28);
-      }
-
-      .grid-interaction-grid-fixture-resize-handle {
-        position: absolute;
-        inset-block: 0.45rem;
-        inset-inline-end: 0.2rem;
-        width: 0.25rem;
-        border-radius: var(--ct-rounded-sm);
-        background: var(--ct-colors-hairline-focus);
-      }
-
-      .grid-interaction-grid-fixture-active {
-        outline: var(--ct-component-focus-ring-border);
-        outline-offset: -0.2rem;
-        background: var(--ct-colors-surface-3);
-      }
-
-      .grid-interaction-grid-fixture-editor {
-        width: 100%;
-        min-width: 0;
-        border: var(--ct-border-strong);
-        border-radius: var(--ct-rounded-sm);
-        padding: 0.45rem 0.55rem;
-        background: var(--ct-colors-surface-1);
-        color: var(--ct-colors-ink);
-        font: inherit;
-      }
-
-      .grid-interaction-grid-fixture-fill {
-        position: absolute;
-        right: 0.2rem;
-        bottom: 0.2rem;
-        width: 0.65rem;
-        height: 0.65rem;
-        border: 0.15rem solid var(--ct-colors-hairline-focus);
-        border-radius: var(--ct-rounded-sm);
-        background: var(--ct-colors-surface-1);
-      }
-
-      .grid-interaction-grid-fixture-group {
-        grid-column: 1 / -1;
-        min-height: 3.5rem;
-        background: var(--ct-colors-surface-2);
-        color: var(--ct-colors-ink-muted);
-        font-weight: 600;
-      }
-
-      .grid-interaction-grid-fixture-tree-toggle {
-        display: inline-grid;
-        place-items: center;
-        width: 1.35rem;
-        height: 1.35rem;
-        border: var(--ct-border-hairline);
-        border-radius: var(--ct-rounded-sm);
-        background: var(--ct-colors-surface-1);
-        color: var(--ct-colors-ink);
-      }
-
-    `,
-    html: `
-      <div class="grid-interaction-grid-fixture-table" role="grid" aria-label="Adapter fixture grid">
-        <div class="grid-interaction-grid-fixture-row" role="row">
-          <div class="grid-interaction-grid-fixture-head grid-interaction-grid-fixture-frozen" role="columnheader" data-fixture-id="visual.fixture.frozen_column">Record</div>
-          <div class="grid-interaction-grid-fixture-head" role="columnheader" data-fixture-id="visual.fixture.resize_handle">Summary<span class="grid-interaction-grid-fixture-resize-handle" aria-hidden="true"></span></div>
-          <div class="grid-interaction-grid-fixture-head" role="columnheader">State</div>
-          <div class="grid-interaction-grid-fixture-head" role="columnheader">Assignee</div>
-          <div class="grid-interaction-grid-fixture-head" role="columnheader">Last edit</div>
-        </div>
-        <div class="grid-interaction-grid-fixture-row" role="row">
-          <div class="grid-interaction-grid-fixture-cell grid-interaction-grid-fixture-group" role="rowheader" data-fixture-id="visual.fixture.tree_group_row"><span class="grid-interaction-grid-fixture-tree-toggle" aria-hidden="true">v</span> reviewed group, 2 rows</div>
-        </div>
-        <div class="grid-interaction-grid-fixture-row" role="row">
-          <div class="grid-interaction-grid-fixture-cell grid-interaction-grid-fixture-frozen" role="rowheader">record-1</div>
-          <div class="grid-interaction-grid-fixture-cell grid-interaction-grid-fixture-active" role="gridcell" data-fixture-id="visual.fixture.edit_cell"><input class="grid-interaction-grid-fixture-editor" value="Edit cell adapter" aria-label="Summary editor" readonly><span class="grid-interaction-grid-fixture-fill" data-fixture-id="visual.fixture.drag_fill_handle" aria-hidden="true"></span></div>
-          <div class="grid-interaction-grid-fixture-cell" role="gridcell">reviewed</div>
-          <div class="grid-interaction-grid-fixture-cell" role="gridcell">Analyst</div>
-          <div class="grid-interaction-grid-fixture-cell" role="gridcell">saved</div>
-        </div>
-        <div class="grid-interaction-grid-fixture-row" role="row">
-          <div class="grid-interaction-grid-fixture-cell grid-interaction-grid-fixture-frozen" role="rowheader">record-2</div>
-          <div class="grid-interaction-grid-fixture-cell" role="gridcell">Frozen column remains pinned</div>
-          <div class="grid-interaction-grid-fixture-cell" role="gridcell">rough</div>
-          <div class="grid-interaction-grid-fixture-cell" role="gridcell">Unassigned</div>
-          <div class="grid-interaction-grid-fixture-cell" role="gridcell">clean</div>
-        </div>
-      </div>
-    `,
-  });
-}
 
 test("captures Timeline grouped rows and currently exposed grid chrome", async ({
   page,
@@ -282,38 +123,107 @@ test("captures Timeline grouped rows and currently exposed grid chrome", async (
 test("Capture frozen column, resize handle, fill-down handle, edit cell, and group outline row grid-adapter fixtures.", async ({
   page,
 }) => {
+  // The real grid adapter, not injected markup: each feature is asserted
+  // semantically before its capture. The adapter removes the fill handle
+  // while editing or grouped, so the features need three captures.
   await page.setViewportSize({ width: 1440, height: 900 });
-  const incidentId = await createIncident(
+  const view = timelineViewSchemaId;
+  // The first default column is frozen and its neighbour is edited, so every
+  // feature stays inside the first viewport.
+  const frozenField = "timeline.date_entered_text";
+  const cellField = "timeline.analyst_text";
+  // The shared rich investigation: 12 realistic rows across the rough,
+  // enriched, reviewed and superseded capture states.
+  const incidentId = await createRichTimelineIncident(
     page,
     uniqueIncidentKey("VISUALGRIDADAPTER"),
     "browser.grid-interaction grid adapter visual fixture",
   );
-  await createViewRow(page, incidentId, timelineViewSchemaId, {
-    client_txn_id: uniqueTxn("VISUALGRIDADAPTER-ROW"),
-    "timeline.activity_utc_text": "2026-05-31T10:00:00Z",
-    "timeline.activity_synopsis_text":
-      "browser.grid-interaction visual adapter row",
-  });
+  const row = visualTimelineRecord(incidentId, "script-execution");
 
   await navigateVisualApplication(page, `/?incident_id=${incidentId}`);
-
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
-  await injectFeP3GridAdapterVisualFixture(page);
+  const grid = page.getByTestId(gridShellTestId(view));
 
-  const fixture = page.locator(
-    "[data-design-fixture='grid-interaction-grid-adapter']",
+  // Frozen data column through the real Columns control.
+  const columns = page.getByTestId(workbookColumnsMenuTestId(view));
+  if (!(await columns.isVisible())) {
+    const trigger = page.getByTestId(workbookColumnsMenuTriggerTestId(view));
+    if (!(await trigger.isVisible()))
+      await page
+        .getByRole("button", { name: "View options controls", exact: true })
+        .click();
+    await trigger.click();
+  }
+  await columns
+    .getByRole("button", {
+      name: `Freeze through ${requireViewContract(view).fieldMap[frozenField]?.label}`,
+      exact: true,
+    })
+    .click();
+  await columns
+    .getByRole("button", { name: "Close columns", exact: true })
+    .click();
+  await expect(page.locator(gridScrollportSelector())).toHaveAttribute(
+    "data-grid-freeze-state",
+    "active",
   );
-  await expect(fixture).toBeVisible();
-  for (const fixtureId of [
-    "visual.fixture.frozen_column",
-    "visual.fixture.resize_handle",
-    "visual.fixture.drag_fill_handle",
-    "visual.fixture.edit_cell",
-    "visual.fixture.tree_group_row",
-  ]) {
+  await expect(
+    grid.locator('.cartulary-grid-frozen-boundary[role="columnheader"]'),
+  ).toHaveCount(1);
+  // Resize handles are transparent by design, so they are asserted in the DOM.
+  expect(
+    await grid.locator("[data-grid-column-resize]").count(),
+  ).toBeGreaterThan(1);
+
+  // Selected cell with the real fill handle.
+  await expectVisibleSemanticGridCellFocus(
+    await mountedGridCell(page, view, row.record_id, cellField),
+  );
+  await expect(page.locator(gridFillHandleSelector())).toHaveCount(1);
+  await assertWorkbookGridVisualRegression(
+    page,
+    "timeline-grid-adapter-fill-handle",
+    view,
+    { scroll: { top: 0, left: "left" } },
+  );
+
+  // Open in-cell editor on the selected cell; the adapter removes the fill
+  // handle while editing.
+  const editor = await activateTimelineGridEditor(
+    page,
+    row.record_id,
+    cellField,
+  );
+  await expect(grid.locator('[data-grid-editing="true"]')).toHaveCount(1);
+  await expect(page.locator(gridFillHandleSelector())).toHaveCount(0);
+  await assertWorkbookGridVisualRegression(
+    page,
+    "timeline-grid-adapter-editor",
+    view,
+    { scroll: { top: 0, left: "left" } },
+  );
+  // The capture normalizes scroll, so the editor must still be in view.
+  await expect(editor).toBeInViewport();
+  await expect(grid.locator('[data-grid-editing="true"]')).toHaveCount(1);
+  await editor.press("Escape");
+  await expect(grid.locator('[data-grid-editing="true"]')).toHaveCount(0);
+
+  // Grouped outline rows beside the frozen boundary.
+  await changeGrouping(page, view, "timeline.capture_state");
+  for (const state of ["rough", "enriched", "reviewed", "superseded"]) {
     await expect(
-      fixture.locator(`[data-fixture-id='${fixtureId}']`),
+      page.getByTestId(
+        gridGroupRowTestId(view, "timeline.capture_state", state),
+      ),
     ).toBeVisible();
   }
-  await assertVisualRegression(page, "timeline-grid-adapter-fixtures", fixture);
+  await expect(grid.locator(gridGroupRowSelector())).toHaveCount(4);
+  await expect(page.locator(gridFillHandleSelector())).toHaveCount(0);
+  await assertWorkbookGridVisualRegression(
+    page,
+    "timeline-grid-adapter-grouped-frozen",
+    view,
+    { scroll: { top: 0, left: "left" } },
+  );
 });

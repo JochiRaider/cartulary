@@ -28,7 +28,6 @@ export const declarationBindings = {
   "internal/modules/projections/internal/queryengine": {
     "TaskReader.CollectTaskDerivedFactsTx": "task_request",
     "TaskRequestPlans": "task_request",
-    "taskRecordRefCollectionExpr": "task_request",
     "IdentityReader.CollectIdentityDerivedFactsTx": "identity",
     "buildIdentityQueryPageSQL": "identity",
     "HostReader.CollectHostDerivedFactsTx": "host",
@@ -43,6 +42,9 @@ export const declarationBindings = {
     "riskRefCollectionExpr": "artifact",
     "TimelinePlans": "timeline",
     "appendTagFilter": "compiled_projection",
+    // REQ-01-333a linked record summary labels read every grid projection.
+    "recordSummaryLabelSQL": "compiled_projection",
+    "RecordSummaryLabelsTx": "compiled_projection",
     "IndicatorPlans": "indicator",
     "EvidencePlans": "evidence",
     "AssessmentPlans": "assessment",
@@ -127,6 +129,6 @@ export const foreignPackages = new Set([
  "google.golang.org/genproto/googleapis/rpc/errdetails", "google.golang.org/grpc", "google.golang.org/grpc/codes", "google.golang.org/grpc/credentials", "google.golang.org/grpc/status"
 ]);
 export const standardPackages = new Set([
- "bytes", "context", "crypto", "crypto/aes", "crypto/cipher", "crypto/ecdsa", "crypto/elliptic", "crypto/fips140", "crypto/hkdf", "crypto/hmac", "crypto/rand", "crypto/rsa", "crypto/sha256", "crypto/tls", "crypto/x509",
+ "bytes", "cmp", "context", "crypto", "crypto/aes", "crypto/cipher", "crypto/ecdsa", "crypto/elliptic", "crypto/fips140", "crypto/hkdf", "crypto/hmac", "crypto/rand", "crypto/rsa", "crypto/sha256", "crypto/tls", "crypto/x509",
  "encoding/binary", "encoding/hex", "encoding/json", "encoding/pem", "errors", "fmt", "io", "io/fs", "math", "math/big", "net", "net/http", "net/url", "os", "path", "path/filepath", "reflect", "regexp", "runtime", "runtime/debug", "slices", "sort", "strconv", "strings", "sync", "sync/atomic", "time", "unicode", "unicode/utf16", "unicode/utf8"
 ]);

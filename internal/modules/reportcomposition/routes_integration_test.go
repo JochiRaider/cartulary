@@ -134,6 +134,18 @@ func TestCompositionPublicLifecycleAndAuthority_Integration(t *testing.T) {
 	if read := data(do("viewer", http.MethodGet, resource+"/versions/v1", nil), http.StatusOK); !reflect.DeepEqual(v1, read) {
 		t.Fatal("newer draft changed immutable version")
 	}
+	// REQ-RC-024: no composition route mutates an immutable version, so every
+	// other method on its path is an ordinary unrouted 404 and changes nothing.
+	for _, method := range []string{http.MethodPatch, http.MethodPut, http.MethodDelete, http.MethodPost} {
+		response := do("editor", method, resource+"/versions/v1", map[string]any{"client_txn_id": "mutate-version-" + method, "base_draft_version": 3})
+		_ = response.Body.Close()
+		if response.StatusCode != http.StatusNotFound {
+			t.Fatalf("%s on an immutable version = %d", method, response.StatusCode)
+		}
+	}
+	if read := data(do("viewer", http.MethodGet, resource+"/versions/v1", nil), http.StatusOK); !reflect.DeepEqual(v1, read) {
+		t.Fatal("a rejected version mutation changed the immutable version")
+	}
 	v2 := data(do("editor", http.MethodPost, resource+"/versions", map[string]any{"client_txn_id": "freeze-next", "base_draft_version": 3}), http.StatusCreated)
 	if v2["composition_version"] != "v2" || v2["composition_sha256"] == v1["composition_sha256"] {
 		t.Fatal("gapless versions lost distinct canonical content")
@@ -203,6 +215,18 @@ func TestCompositionPublicLifecycleAndAuthority_Integration(t *testing.T) {
 	}
 	for _, operation := range []struct{ method, suffix string }{{http.MethodPatch, ""}, {http.MethodPost, "/versions"}, {http.MethodDelete, ""}} {
 		denied(do("editor", operation.method, resource+operation.suffix, map[string]any{"client_txn_id": "after-retire", "base_draft_version": 3}), http.StatusConflict, "conflict", "composition_resource_retired")
+	}
+	// RC-FIX-014: preview of a retired resource fails before any render state.
+	beforeRetiredPreview := retainedCounts()
+	denied(do("editor", http.MethodPost, resource+"/preview", map[string]any{
+		"client_txn_id": "preview-after-retire", "source_kind": "draft", "snapshot_id": "00000000-0000-4000-8000-000000000001",
+		"derivation_version": reporting.DerivationVersion, "template_id": reporting.DefaultTemplateID, "template_version": reporting.DefaultTemplateVersion,
+		"redaction_profile_id": "cartulary.redaction.internal", "redaction_profile_version": "5", "redaction_profile_sha256": strings.Repeat("a", 64),
+		"render_environment_profile_id": "cartulary.reporting.local.v1", "output_kind": reporting.OutputKindSlidev, "output_options": map[string]any{},
+		"recipient_partition_refs": []any{}, "graph_projection_refs": []any{},
+	}), http.StatusConflict, "conflict", "composition_resource_retired")
+	if retainedCounts() != beforeRetiredPreview {
+		t.Fatal("retired preview created render state")
 	}
 	if read := data(do("viewer", http.MethodGet, resource, nil), http.StatusOK); !reflect.DeepEqual(retired, read) {
 		t.Fatal("retired resource is not audit-readable")

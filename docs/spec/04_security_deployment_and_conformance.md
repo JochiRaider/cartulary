@@ -2258,7 +2258,7 @@ The timed or fixture-sensitive criteria below define observable implementation o
   - Verifies: REQ-01-312..REQ-01-322, REQ-03-102..REQ-03-110
 - **AC-199**: Replaying the same normalized `POST /api/v1/records/{record_id}/mark-reviewed` or `POST /api/v1/records/{record_id}/supersede` request by the same authenticated actor with the same `(record_id, client_txn_id)` returns the originally committed success and does not create a second lifecycle transition. Normalized request comparison excludes route-key dimensions, including `client_txn_id`.
   - Verifies: REQ-03-102..REQ-03-110
-- **AC-329**: A supersede request whose `replacement_record_id` equals the target row, points to a non-Timeline record, another-incident record, a soft-deleted or otherwise non-visible row, a replacement Timeline row whose current `capture_state` is `superseded`, or a target Timeline row that already has another active incoming Timeline `supersedes` link fails closed with `409`, `error.code='illegal_transition'`, and the applicable `error.details.violated_guards[]` entries drawn only from `replacement_must_be_different_timeline_record`, `replacement_must_be_visible_active_same_incident_timeline_record`, `replacement_must_not_be_superseded`, and `target_must_not_have_active_replacement`; no partial `capture_state` change or replacement link commits.
+- **AC-329**: A supersede request whose `replacement_record_id` equals the target row, points to a non-Timeline record, another-incident record, a soft-deleted or otherwise non-visible row, a replacement Timeline row whose current `capture_state` is `superseded`, or a target Timeline row that already has another active incoming Timeline `supersedes` link fails closed with `409`, `error.code='illegal_transition'`, and the applicable `error.details.violated_guards[]` entries drawn only from `replacement_must_differ_from_target`, `replacement_must_be_active_in_incident`, `replacement_must_not_be_superseded`, and `target_must_not_have_active_replacement`; no partial `capture_state` change or replacement link commits.
   - Verifies: REQ-01-086..REQ-01-087, REQ-02-168, REQ-03-106
 - **AC-330**: Exact replay of a committed supersede-with-replacement request by the same authenticated actor with the same `(record_id, client_txn_id)` returns the original committed success and does not create a second replacement link, `change_set`, or lifecycle transition; reusing that same key for a different normalized `replacement_record_id` or normalized `reason` fails with `409 error.code='client_txn_conflict'` before stale `base_row_version` evaluation; and changing only route-key dimensions such as `client_txn_id` does not change the normalized request hash used for comparison.
   - Verifies: REQ-01-087
@@ -2421,6 +2421,14 @@ These criteria provide direct runtime-family verification for substantive base-p
   - Verifies: REQ-01-001..REQ-01-003, REQ-04-145, EXT-REQ-213
 - **AC-534**: When Recovery holds the exclusive target serving lease, an application process starts no HTTP or WebSocket listener, reports `recovery_serving_lease_active`, and exits `2`; when an application process loses its shared recovery serving lease, readiness and all admission close immediately, fatal drain runs once, `recovery_serving_lease_lost` is reported, and the process exits `70`; Recovery's exclusive target-lease loss retains its existing Recovery error mapping and does not use either application failure token. Admitted failed or interrupted restores remain non-serving across operator exit, application restart and backup-root changes; exact completion/replay opens the gate only after durable proof. Disposable reset preserves the control identity, invalidates the earlier operation tuple before mutation, and cannot reopen a partially reset target with an old receipt.
   - Verifies: REQ-04-113, REQ-04-146
+- **AC-604**: A server holding an open WebSocket, an in-flight request and an active job receives an operator stop request:
+  - it closes the WebSocket with close code `1001`;
+  - it completes or cancels the in-flight work;
+  - it closes every component, and exits `0` within `timeouts.extensions.shutdown_drain_seconds`;
+  - when a component cannot close before that deadline, the process force-closes it and exits `1` with one safe diagnostic that names the component;
+  - neither case reports `published_component_lost`;
+  - a second stop request does not extend the deadline.
+  - Verifies: REQ-04-146a
 - **AC-405**: Attaching a binary evidence payload commits one evidence row whose structured incident state contains metadata and object-reference state only; preview or download of that payload succeeds only while the authoritative object-store payload remains available; loss of object-store availability after commit leaves previously committed structured incident rows intact while preview or download fails closed as unavailable; and a Postgres logical backup or logical dump of the authoritative structured data store taken after attachment exposes no inline copy of that binary evidence payload.
   - Verifies: REQ-01-002, REQ-01-278..REQ-01-280
 - **AC-406**: A row created from rough input with unresolved host or account text, unstructured `details`, or unstructured `source_text` can later be normalized, resolved, or canonically linked without overwriting the original rough input; after that later normalization, the original unresolved text, `details`, or `source_text` remains recoverable through the authoritative row, mention, or history surfaces.
@@ -3404,7 +3412,7 @@ These matrices are normative for AC-108 and AC-110. Only rows whose `profiles` a
 - **AC-111**: Replaying the same starting state and the same ordered inputs for a normative lifecycle machine produces the same final persisted state and the same documented observable signals.
   - Verifies: REQ-00-016..REQ-00-017, REQ-02-189..REQ-02-196, REQ-03-102..REQ-03-110, REQ-03-121..REQ-03-126
 - **AC-313**: For a normative lifecycle machine whose condition depends on more than one persisted source or on another lifecycle machine's result, a contradiction fixture produces the documented fail-closed outcome, leaves authoritative state unchanged except for the documented repair action, and does not allow UI-local state, background-worker-local state, or other non-contracted state to change the derived machine condition.
-  - Verifies: REQ-00-016, REQ-00-019, REQ-02-189..REQ-02-196, REQ-03-121..REQ-03-126
+  - Verifies: REQ-00-016, REQ-00-019, REQ-02-109a, REQ-02-189..REQ-02-196, REQ-02-189a, REQ-02-196a, REQ-03-109a, REQ-03-121..REQ-03-126
 - **AC-137**: A `task_request` can transition `open -> in_progress -> blocked -> in_progress -> done`; `blocked_reason` is present only while `status='blocked'`; `completed_at` is present only while `status='done'`; and each committed transition increments `row_version`, updates the task projection row, appends one `change_set` plus mutation entries, and emits `record_changed`.
   - Verifies: REQ-01-336..REQ-01-338, REQ-02-094..REQ-02-109, REQ-02-222..REQ-02-223, REQ-03-102..REQ-03-110,
     REQ-03-255..REQ-03-260
@@ -3572,7 +3580,7 @@ These matrices are normative for AC-108 and AC-110. Only rows whose `profiles` a
   - Verifies: REQ-03-220..REQ-03-222, REQ-03-300
 - **AC-486**: Browser-authored mutation identifiers are cryptographically collision-resistant across remounts and client instances, while ambiguous transport replay retains the original identifier. A definitive `client_txn_conflict` leaves no new authoritative side effect and exposes the same-surface `Retry with a new request ID` and `Discard blocked edit` actions. Retry changes only request identity, preserves FIFO intent and later work, rematerializes the latest committed row version, and routes a resulting structured `same_field_conflict` into the ordinary resolver. Discard sends no mutation, removes exactly the blocker, restores committed state plus later queued intent, and resumes FIFO work. Recovery controls and the actionable `Conflict` entry point are keyboard operable, do not steal focus on appearance, disable during transition, and disclose no raw transaction or server internals.
   - Verifies: REQ-01-070, REQ-03-301..REQ-03-302
-- **AC-200**: Patching `timeline.tags` with one `add_tag` action and one `remove_tag` action adds exactly one incident-scoped tag binding and removes exactly one binding; `add_tag.tag_name` is validated under `tag_label_v1`, duplicate adds coalesce using trimmed Unicode NFC plus case-insensitive comparison, normalized-empty values are rejected, C0/C1 control characters are rejected, and values longer than 64 Unicode scalar values fail closed.
+- **AC-200**: Patching `timeline.tags` with one `add_tag` action and one `remove_tag` action adds exactly one tag binding on that record and removes exactly one binding; `add_tag.tag_name` is validated under `tag_label_v1`, duplicate adds coalesce using trimmed Unicode NFC plus case-insensitive comparison, normalized-empty values are rejected, C0/C1 control characters are rejected, and values longer than 64 Unicode scalar values fail closed.
   - Verifies: REQ-01-057..REQ-01-088, REQ-01-487..REQ-01-488, REQ-01-494, REQ-02-202..REQ-02-204, REQ-02-208..REQ-02-209
 - **AC-188**: Patching `timeline.host_refs` or `timeline.identity_refs` with `dismiss_item` against an unresolved or resolved `entity_mention` preserves `raw_text`, leaves the same mention row and provenance intact, sets `resolution_status='dismissed'`, clears `resolved_record_id`, `resolved_by_user_id`, `resolved_at`, and `resolution_method`, removes or tombstones any corresponding active resolved link in the same `change_set`, and appends exactly one new `change_set` with mention-target mutation detail.
   - Verifies: REQ-01-057..REQ-01-088, REQ-01-196..REQ-01-227, REQ-02-026..REQ-02-036, REQ-02-039..REQ-02-044,
@@ -3606,6 +3614,27 @@ These matrices are normative for AC-108 and AC-110. Only rows whose `profiles` a
 - **AC-203**: A same-field conflict payload for a `collection_review` field returns `collection_value_v1` in `client_value`, `server_value`, and `base_value` rather than a raw string array or plain delimited text.
   - Verifies: REQ-01-057..REQ-01-088, REQ-01-228..REQ-01-239, REQ-02-202..REQ-02-204, REQ-02-208..REQ-02-209,
     REQ-03-048..REQ-03-053, REQ-03-063..REQ-03-076
+- **AC-603**: Every server emission of an `ordered=false` collection serializes its items in REQ-01-067 label order. This covers query rows, mutation results, collaboration payloads, and conflict `base_value`, `server_value` and `client_value`:
+  - labels that differ only by case order by their raw `display_text` bytes;
+  - identical labels order by `item_ref`;
+  - diacritics stay significant, and no locale collation applies;
+  - an `ordered=true` collection keeps its authoritative order;
+  - the same item set serializes identically whatever its storage or insertion order;
+  - a change in item order alone never reports a changed field.
+  - Verifies: REQ-01-067, REQ-01-488, REQ-03-248a
+- **AC-605**: For each linked record type, a `record_ref` collection item and a Notes association item display that record's REQ-01-333a label:
+  - an empty label source yields `Untitled <type noun>`;
+  - an assessment target reads `Assessment of <subject label>`;
+  - no label contains a record identifier;
+  - conflict preview items carry the same labels, and an item whose linked record is not live in the incident reads `Unavailable record`;
+  - after a linked record's label changes, the next read of the referring row returns the new label.
+  - Verifies: REQ-01-333a, REQ-01-675
+- **AC-606**: For every normative lifecycle machine, each kind of `illegal_transition` rejection carries complete REQ-01-231 details. The kinds are a matrix rejection, a guard failure, an inconsistent persisted state, and a create:
+  - `from_status` is the persisted state (`null` for a create), and `to_status` is the requested state; neither is ever an empty string;
+  - `violated_guards[]` holds only registered guard identifiers, and is empty for a matrix rejection;
+  - `reason_code` is `transition_not_allowed`, `guards_not_satisfied`, or `inconsistent_machine_state`, or an incident lifecycle token for incident actions;
+  - an out-of-vocabulary persisted state yields `internal_error`, not `illegal_transition`.
+  - Verifies: REQ-01-231, REQ-01-238, REQ-02-109a, REQ-02-189a, REQ-02-196a, REQ-03-109a
 - **AC-204**: Sending a raw string, blind full-collection replacement, unknown collection action `op`, unknown payload `kind`, or foreign `item_ref` to a `collection_review` field fails with `400` and `error.code='invalid_mutation_payload'`.
   - Verifies: REQ-01-057..REQ-01-088, REQ-01-228..REQ-01-239, REQ-02-202..REQ-02-204, REQ-02-208..REQ-02-209,
     REQ-03-048..REQ-03-053, REQ-03-063..REQ-03-076
@@ -5237,6 +5266,20 @@ Core 04's fatal lifecycle admits `published_component_lost` when a required publ
 Profiles: base
 Verified by: AC-534, EXT-AC-104, EXT-AC-151, EXT-AC-158
 
+
+**REQ-04-146a — Ordinary shutdown**
+An operator stop request (`SIGTERM` or `SIGINT`) MUST enter one ordinary shutdown lifecycle, distinct from the fatal lifecycle in REQ-04-146:
+
+- the process stops admitting new HTTP connections and WebSocket upgrades, stops common-job dequeue, and stops new dispatcher ticks and continuations;
+- every existing WebSocket is closed with close code `1001` (going away) instead of being waited on;
+- in-flight requests, handlers, publication, and every component close share one application shutdown deadline equal to `timeouts.extensions.shutdown_drain_seconds`, measured from the stop request; a component close consumes the time remaining and adds no budget of its own;
+- committed state and durable queued jobs are preserved;
+- the process exits `0` when every component has closed within the deadline; at expiry it force-closes what remains, emits one secret-safe diagnostic naming the components still open, and exits `1`.
+
+A component that stops after the stop request is part of ordinary shutdown and MUST NOT be reported as `published_component_lost`. A fatal condition detected during ordinary shutdown takes precedence and enters REQ-04-146 without restarting the deadline. A repeated stop request is idempotent and MUST NOT restart the deadline. Exit codes `0`, `1`, `2` and `70` are reserved for these lifecycles.
+Profiles: base
+Verified by: AC-604
+
 **REQ-04-154**
 When `network_flow_activity` is claimed, application assembly MUST include one
 private Network Flow projection-result cleanup dispatcher. It MUST start only
@@ -5251,7 +5294,7 @@ loss. Unexpected dispatcher loop return or panic is
 
 The dispatcher MUST expose no public route, common Job, operator command, or
 Graph Projection worker. Shutdown stops new ticks and continuations, cancels
-the active sweep, waits within the application shutdown deadline, and closes
+the active sweep, waits within the application shutdown deadline (REQ-04-146a), and closes
 the dispatcher before the dependencies it borrows. Startup failure before the
 post-readiness loop is installed leaves readiness closed. An unclaimed profile
 constructs and starts no Network Flow dispatcher.

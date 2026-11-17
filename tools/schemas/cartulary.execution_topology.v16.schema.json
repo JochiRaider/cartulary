@@ -41,6 +41,8 @@
       "required": [
         "max_attempts",
         "backend_drain_timeout_ms",
+        "backend_shutdown_drain_seconds",
+        "backend_drain_margin_ms",
         "database_reset_timeout_ms",
         "backend_readiness_timeout_ms",
         "evidence_overhead_timeout_ms"
@@ -51,6 +53,12 @@
         },
         "backend_drain_timeout_ms": {
           "const": 30000
+        },
+        "backend_shutdown_drain_seconds": {
+          "const": 10
+        },
+        "backend_drain_margin_ms": {
+          "const": 10000
         },
         "database_reset_timeout_ms": {
           "const": 30000

@@ -316,7 +316,7 @@ const value = {
     {
       "code": "illegal_transition",
       "http_status": 409,
-      "summary": "The requested Timeline lifecycle transition is not legal for the current row state."
+      "summary": "The requested lifecycle transition is not allowed for the current persisted state or guard condition."
     },
     {
       "code": "membership_not_found",
@@ -567,6 +567,172 @@ const value = {
       "code": "report_artifact_not_found",
       "http_status": 404,
       "summary": "No retained reporting artifact is visible in the authorized incident for the supplied artifact_id."
+    }
+  ],
+  "lifecycle_guards": [
+    {
+      "code": "record_type_has_machine",
+      "machines": [
+        "any"
+      ],
+      "summary": "The target record type defines the requested lifecycle action."
+    },
+    {
+      "code": "replacement_must_differ_from_target",
+      "machines": [
+        "timeline.capture_state",
+        "decision.status"
+      ],
+      "summary": "The supersede replacement is a different record from the target."
+    },
+    {
+      "code": "replacement_must_be_active_in_incident",
+      "machines": [
+        "timeline.capture_state",
+        "decision.status"
+      ],
+      "summary": "The replacement is a visible, active record of the target's type in the target's incident."
+    },
+    {
+      "code": "replacement_must_not_be_superseded",
+      "machines": [
+        "timeline.capture_state"
+      ],
+      "summary": "The Timeline replacement is not itself superseded."
+    },
+    {
+      "code": "replacement_must_be_approved_or_executed",
+      "machines": [
+        "decision.status"
+      ],
+      "summary": "The superseding Decision has status approved or executed."
+    },
+    {
+      "code": "target_must_be_proposed_approved_or_executed",
+      "machines": [
+        "decision.status"
+      ],
+      "summary": "The superseded Decision has status proposed, approved, or executed."
+    },
+    {
+      "code": "target_must_not_have_active_replacement",
+      "machines": [
+        "timeline.capture_state",
+        "decision.status"
+      ],
+      "summary": "The target has no active incoming supersedes relation."
+    },
+    {
+      "code": "blocked_requires_reason",
+      "machines": [
+        "task_request.status"
+      ],
+      "summary": "A blocked Task has a non-empty blocked_reason."
+    },
+    {
+      "code": "non_blocked_clears_reason",
+      "machines": [
+        "task_request.status"
+      ],
+      "summary": "A Task that is not blocked has no blocked_reason."
+    },
+    {
+      "code": "done_requires_completed_at",
+      "machines": [
+        "task_request.status"
+      ],
+      "summary": "A done Task has completed_at."
+    },
+    {
+      "code": "completed_at_not_before_created_at",
+      "machines": [
+        "task_request.status"
+      ],
+      "summary": "completed_at is not earlier than created_at."
+    },
+    {
+      "code": "non_done_clears_completed_at",
+      "machines": [
+        "task_request.status"
+      ],
+      "summary": "A Task that is not done has no completed_at."
+    },
+    {
+      "code": "active_requires_owner",
+      "machines": [
+        "task_request.status"
+      ],
+      "summary": "An open, in_progress, or blocked Task has owner_user_id."
+    },
+    {
+      "code": "owner_required",
+      "machines": [
+        "decision.status"
+      ],
+      "summary": "The Decision has owner_user_id."
+    },
+    {
+      "code": "decided_at_required",
+      "machines": [
+        "decision.status"
+      ],
+      "summary": "The Decision has decided_at."
+    },
+    {
+      "code": "single_incoming_supersedes",
+      "machines": [
+        "decision.status"
+      ],
+      "summary": "The Decision has at most one active incoming supersedes relation."
+    },
+    {
+      "code": "single_outgoing_supersedes",
+      "machines": [
+        "decision.status"
+      ],
+      "summary": "The Decision has at most one active outgoing supersedes relation."
+    },
+    {
+      "code": "superseded_requires_incoming_supersedes",
+      "machines": [
+        "decision.status"
+      ],
+      "summary": "A superseded Decision has exactly one active incoming supersedes relation."
+    },
+    {
+      "code": "incoming_supersedes_requires_superseded_or_executed",
+      "machines": [
+        "decision.status"
+      ],
+      "summary": "A Decision with an incoming supersedes relation has status superseded or executed."
+    },
+    {
+      "code": "outgoing_supersedes_requires_approved_or_executed",
+      "machines": [
+        "decision.status"
+      ],
+      "summary": "A Decision with an outgoing supersedes relation has status approved or executed."
+    },
+    {
+      "code": "accessible_state_requires_available_blob",
+      "machines": [
+        "evidence_records.lifecycle_state"
+      ],
+      "summary": "Available or released Evidence links a Blob whose current upload_state is available."
+    },
+    {
+      "code": "quarantined_state_requires_quarantined_or_absent_blob",
+      "machines": [
+        "evidence_records.lifecycle_state"
+      ],
+      "summary": "Quarantined Evidence links no Blob, or a Blob whose current upload_state is quarantined."
+    },
+    {
+      "code": "mention_source_field_supported",
+      "machines": [
+        "entity_mention.resolution_status"
+      ],
+      "summary": "The mention's source_field_key is timeline.host_refs or timeline.identity_refs."
     }
   ],
   "note": "Derived repo-local artifact from the owner docs chain. This file is not the behavioral authority.",
@@ -2329,6 +2495,31 @@ const value = {
         {
           "code": "verification_timeout",
           "summary": "The bounded verification attempt exceeded its total deadline."
+        }
+      ]
+    },
+    {
+      "error_code": "illegal_transition",
+      "reason_codes": [
+        {
+          "code": "incident_already_closed",
+          "summary": "The caller requested close while the incident is already closed."
+        },
+        {
+          "code": "incident_not_closed",
+          "summary": "The caller requested reopen while the incident is not closed."
+        },
+        {
+          "code": "transition_not_allowed",
+          "summary": "The requested transition is outside the machine's legal transition matrix from the persisted state, or the record type defines no machine for the requested action."
+        },
+        {
+          "code": "guards_not_satisfied",
+          "summary": "The transition is in the legal matrix, but one or more of the machine's guards fail for the resulting record."
+        },
+        {
+          "code": "inconsistent_machine_state",
+          "summary": "The persisted inputs violate the machine's invariants; only the machine's declared corrective action may proceed."
         }
       ]
     }

@@ -24,7 +24,16 @@ function runtimeSourceFiles(directory: string): string[] {
   });
 }
 
-function rawTransportReferences(source: string): boolean {
+type TransportKind = "http" | "socket";
+
+const transportGlobals = new Map<string, TransportKind>([
+  ["fetch", "http"],
+  ["XMLHttpRequest", "http"],
+  ["EventSource", "http"],
+  ["WebSocket", "socket"],
+]);
+
+function rawTransportReferences(source: string): Set<TransportKind> {
   const syntax = ts.createSourceFile(
     "subject.tsx",
     source,
@@ -71,27 +80,45 @@ function rawTransportReferences(source: string): boolean {
       browserGlobal(declaration.initializer, seen)
     );
   };
-  let found = false;
+  const navigatorReference = (value: ts.Expression): boolean =>
+    (ts.isIdentifier(value) && value.text === "navigator" && ambient(value)) ||
+    (ts.isPropertyAccessExpression(value) &&
+      value.name.text === "navigator" &&
+      browserGlobal(value.expression));
+  const typePosition = (node: ts.Node) =>
+    ts.isTypeReferenceNode(node.parent) ||
+    ts.isQualifiedName(node.parent) ||
+    ts.isExpressionWithTypeArguments(node.parent);
+  const found = new Set<TransportKind>();
   const visit = (node: ts.Node) => {
+    const identifierKind = ts.isIdentifier(node)
+      ? transportGlobals.get(node.text)
+      : undefined;
     if (
-      ts.isIdentifier(node) &&
-      node.text === "fetch" &&
+      identifierKind !== undefined &&
       !(
         ts.isPropertyAccessExpression(node.parent) && node.parent.name === node
       ) &&
-      ambient(node)
+      !typePosition(node) &&
+      ambient(node as ts.Identifier)
     )
-      found = true;
+      found.add(identifierKind);
     if (
-      (ts.isPropertyAccessExpression(node) ||
-        ts.isElementAccessExpression(node)) &&
-      (ts.isPropertyAccessExpression(node)
-        ? node.name.text === "fetch"
-        : ts.isStringLiteral(node.argumentExpression) &&
-          node.argumentExpression.text === "fetch") &&
-      browserGlobal(node.expression)
-    )
-      found = true;
+      ts.isPropertyAccessExpression(node) ||
+      ts.isElementAccessExpression(node)
+    ) {
+      const name = ts.isPropertyAccessExpression(node)
+        ? node.name.text
+        : ts.isStringLiteral(node.argumentExpression)
+          ? node.argumentExpression.text
+          : undefined;
+      const memberKind =
+        name === undefined ? undefined : transportGlobals.get(name);
+      if (memberKind !== undefined && browserGlobal(node.expression))
+        found.add(memberKind);
+      if (name === "sendBeacon" && navigatorReference(node.expression))
+        found.add("http");
+    }
     if (
       ts.isBindingElement(node) &&
       ts.isObjectBindingPattern(node.parent) &&
@@ -99,12 +126,15 @@ function rawTransportReferences(source: string): boolean {
       node.parent.parent.initializer
     ) {
       const property = node.propertyName ?? node.name;
+      const bindingKind =
+        ts.isIdentifier(property) || ts.isStringLiteral(property)
+          ? transportGlobals.get(property.text)
+          : undefined;
       if (
-        (ts.isIdentifier(property) || ts.isStringLiteral(property)) &&
-        property.text === "fetch" &&
+        bindingKind !== undefined &&
         browserGlobal(node.parent.parent.initializer)
       )
-        found = true;
+        found.add(bindingKind);
     }
     ts.forEachChild(node, visit);
   };
@@ -123,38 +153,49 @@ describe("frontend transport boundary policy", () => {
         "utf8",
       ),
     ) as { entries: { owner_id: string; paths: string[] }[] };
-    const adapters = new Set(
-      manifest.entries.find((entry) => entry.owner_id === "web.services")
-        ?.paths,
-    );
-    expect(adapters.size).toBeGreaterThan(0);
+    const ownerPaths = (ownerID: string) =>
+      new Set(
+        manifest.entries.find((entry) => entry.owner_id === ownerID)?.paths,
+      );
+    const allowed: Record<TransportKind, Set<string>> = {
+      http: ownerPaths("web.services"),
+      socket: ownerPaths("web.collaboration"),
+    };
+    expect(allowed.http.size).toBeGreaterThan(0);
+    expect(allowed.socket.size).toBeGreaterThan(0);
     for (const file of runtimeSourceFiles(webSourceDirectory)) {
-      if (rawTransportReferences(readFileSync(file, "utf8"))) {
-        expect(
-          adapters.has(
-            `apps/web/src/${path.relative(webSourceDirectory, file).split(path.sep).join("/")}`,
-          ),
-          file,
-        ).toBe(true);
-      }
+      const relative = `apps/web/src/${path.relative(webSourceDirectory, file).split(path.sep).join("/")}`;
+      for (const kind of rawTransportReferences(readFileSync(file, "utf8")))
+        expect(allowed[kind].has(relative), `${kind} ${file}`).toBe(true);
     }
+    for (const [source, kind] of [
+      ["fetch (url)", "http"],
+      ["globalThis.fetch(url)", "http"],
+      ['const send = window["fetch"]; send(url)', "http"],
+      ["const {fetch: send} = globalThis; send(url)", "http"],
+      [
+        'const renamed = globalThis; const send = renamed["fetch"]; send(url)',
+        "http",
+      ],
+      ["new XMLHttpRequest()", "http"],
+      ["new window.EventSource(url)", "http"],
+      ["const {EventSource: Stream} = globalThis; new Stream(url)", "http"],
+      ["navigator.sendBeacon(url, body)", "http"],
+      ["self.navigator.sendBeacon(url, body)", "http"],
+      ["new WebSocket(url)", "socket"],
+      ['new globalThis["WebSocket"](url)', "socket"],
+    ] as const)
+      expect([...rawTransportReferences(source)], source).toEqual([kind]);
     for (const source of [
-      "fetch (url)",
-      "globalThis.fetch(url)",
-      'const send = window["fetch"]; send(url)',
-      "const {fetch: send} = globalThis; send(url)",
-      'const renamed = globalThis; const send = renamed["fetch"]; send(url)',
-    ])
-      expect(rawTransportReferences(source), source).toBe(true);
-    expect(
-      rawTransportReferences('// fetch(url)\nconst label = "fetch(url)";'),
-    ).toBe(false);
-    for (const source of [
+      '// fetch(url)\nconst label = "fetch(url)";',
       "const view = { fetch: 'a label' }; void view.fetch;",
       "function use(fetch: () => void) { fetch(); }",
       "function use(window: {fetch: () => void}) { window.fetch(); }",
       "const holder = { fetch: () => undefined }; holder.fetch();",
+      "type Socket = WebSocket; let socket: Socket | null = null;",
+      "class WebSocket {} new WebSocket();",
+      "function use(navigator: {sendBeacon: () => void}) { navigator.sendBeacon(); }",
     ])
-      expect(rawTransportReferences(source), source).toBe(false);
+      expect([...rawTransportReferences(source)], source).toEqual([]);
   });
 });

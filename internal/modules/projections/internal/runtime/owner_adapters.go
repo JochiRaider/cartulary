@@ -218,6 +218,10 @@ func (r *ArtifactRows) LoadArtifactTx(ctx context.Context, tx pgx.Tx, viewSchema
 	return r.loadTx(ctx, tx, viewSchemaID, recordID)
 }
 
+func (r *ArtifactRows) RecordSummaryLabelsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordIDs []uuid.UUID) (map[uuid.UUID]string, error) {
+	return r.store.RecordSummaryLabelsTx(ctx, tx, incidentID, recordIDs)
+}
+
 func (r *ArtifactRows) CollectDerivedFactsTx(
 	ctx context.Context,
 	tx pgx.Tx,
@@ -316,6 +320,10 @@ func (r *TaskDecisionMutationRows) LoadTaskRequestTx(ctx context.Context, tx pgx
 
 func (r *TaskDecisionMutationRows) LoadDecisionTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (map[string]any, error) {
 	return r.loadTx(ctx, tx, decisionsViewSchemaID, recordID)
+}
+
+func (r *TaskDecisionMutationRows) RecordSummaryLabelsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordIDs []uuid.UUID) (map[uuid.UUID]string, error) {
+	return r.store.RecordSummaryLabelsTx(ctx, tx, incidentID, recordIDs)
 }
 
 var _ taskdecisionprojection.MutationRows = (*TaskDecisionMutationRows)(nil)

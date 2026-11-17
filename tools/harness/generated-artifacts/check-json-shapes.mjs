@@ -3690,6 +3690,9 @@ function validateSourceFacts(root, context) {
     if (JSON.stringify(Object.keys(fixture.capture_profiles).sort()) !== JSON.stringify([...fixture.golden_artifacts].sort())) {
       throw new Error(`visual fixture ${fixture.fixture_id} must declare exactly one profile per golden`);
     }
+    for (const artifact of fixture.golden_artifacts) {
+      if (!goldenPaths.has(artifact)) throw new Error(`visual fixture ${fixture.fixture_id} golden ${artifact} is not in the golden manifest`);
+    }
     for (const profile of Object.values(fixture.capture_profiles)) {
       if ((profile.surface_kind === "application_shell") !== (profile.density_id === null)) {
         throw new Error(`visual fixture ${fixture.fixture_id} has invalid density applicability`);

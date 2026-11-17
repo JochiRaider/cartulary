@@ -16,7 +16,7 @@ import {
 } from "./networkFlowPresentation";
 
 describe("Network Flow presentation metadata", () => {
-  it("Verify Network Analysis presentation, query, layout, lifecycle, and reconciliation units use extension-owned semantic contracts.", () => {
+  it("derives default, conversation-counter and inspector-only accepted-row columns from the extension presentation registry", () => {
     const metadata = networkFlowPresentationColumns(
       "network_flow.accepted_rows.v1",
     );

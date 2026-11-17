@@ -2,7 +2,6 @@ package queryengine
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -10,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/platform/collectionvalue"
 	"github.com/JochiRaider/cartulary/internal/platform/querypage"
 	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
@@ -508,19 +508,11 @@ func uuidValue(value any) (uuid.UUID, error) {
 func genericCellValue(field Field, value any) any {
 	if field.Kind == FieldKindCollection {
 		if value != nil {
-			if items, ok := collectionItemsFromValue(value); ok {
-				return map[string]any{
-					"kind":    "collection_value_v1",
-					"ordered": field.Ordered,
-					"items":   items,
-				}
+			if items, ok := collectionvalue.DecodeItems(value); ok {
+				return collectionvalue.New(field.Ordered, items)
 			}
 		}
-		return map[string]any{
-			"kind":    "collection_value_v1",
-			"ordered": field.Ordered,
-			"items":   []map[string]any{},
-		}
+		return collectionvalue.New(field.Ordered, nil)
 	}
 	if value == nil {
 		return nil
@@ -548,39 +540,4 @@ func genericCellValue(field Field, value any) any {
 	default:
 		return typed
 	}
-}
-
-func collectionItemsFromValue(value any) ([]map[string]any, bool) {
-	var data []byte
-	switch typed := value.(type) {
-	case []byte:
-		data = typed
-	case string:
-		data = []byte(typed)
-	case []map[string]any:
-		if typed == nil {
-			return []map[string]any{}, true
-		}
-		return typed, true
-	case []any:
-		items := make([]map[string]any, 0, len(typed))
-		for _, item := range typed {
-			mapped, ok := item.(map[string]any)
-			if !ok {
-				return nil, false
-			}
-			items = append(items, mapped)
-		}
-		return items, true
-	default:
-		return nil, false
-	}
-	var items []map[string]any
-	if err := json.Unmarshal(data, &items); err != nil {
-		return nil, false
-	}
-	if items == nil {
-		items = []map[string]any{}
-	}
-	return items, true
 }

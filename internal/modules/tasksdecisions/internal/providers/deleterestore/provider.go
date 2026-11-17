@@ -13,6 +13,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/deleterestorecontract"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/linkfacts"
+	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/policy"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/referencefacts"
 	tasksource "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/source"
 )
@@ -112,6 +113,14 @@ func (p TaskRequestSource) ValidateStateTransitionTx(ctx context.Context, tx pgx
 		if !valid {
 			return deleterestorecontract.StateTransitionPreparation{Blocked: &deleterestorecontract.StateTransitionBlock{ReasonCode: "inactive_task_reference"}}, nil
 		}
+	}
+	// REQ-02-109a: a restored Task must satisfy the REQ-02-103 guards.
+	state, err := tasksource.LoadTaskLifecycleStateTx(ctx, tx, request.RecordID)
+	if err != nil {
+		return deleterestorecontract.StateTransitionPreparation{}, err
+	}
+	if len(policy.TaskLifecycleViolations(state)) > 0 {
+		return deleterestorecontract.StateTransitionPreparation{Blocked: &deleterestorecontract.StateTransitionBlock{ReasonCode: "task_lifecycle_inconsistent"}}, nil
 	}
 	return deleterestorecontract.StateTransitionPreparation{}, nil
 }

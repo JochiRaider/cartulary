@@ -343,7 +343,11 @@ func (s *store) validateOwnerBatchTargetsTx(ctx context.Context, tx pgx.Tx, inci
 			return err
 		}
 		if current.CaptureState == captureStateSuperseded {
-			return newIllegalTransitionError("superseded_terminal", current.CaptureState, captureStateEnriched)
+			targetState := captureStateEnriched
+			if operation == OwnerBatchOperationMultiRowTagAssignmentV1 {
+				targetState = captureStateSuperseded
+			}
+			return newIllegalTransitionError(reasonTransitionNotAllowed, current.CaptureState, targetState)
 		}
 	}
 	return nil
@@ -507,8 +511,12 @@ func (s *store) applyOwnerBatchPatchTx(ctx context.Context, tx pgx.Tx, actor aut
 		}
 		acceptedCells = kept
 	}
-	if current.CaptureState == "superseded" {
-		return batchAppliedRow{}, nil, newIllegalTransitionError("superseded_terminal", current.CaptureState, captureStateEnriched)
+	if current.CaptureState == captureStateSuperseded {
+		fieldKeys := make([]string, 0, len(acceptedCells))
+		for _, cell := range acceptedCells {
+			fieldKeys = append(fieldKeys, cell.Change.FieldKey)
+		}
+		return batchAppliedRow{}, nil, newIllegalTransitionError(reasonTransitionNotAllowed, current.CaptureState, supersededPatchTargetState(fieldKeys))
 	}
 	next := current
 	for _, cell := range acceptedCells {

@@ -46,7 +46,7 @@ func newTimelineClipboardProvider(owner TimelineOperations) (workbook.ClipboardP
 				RequestHash: timelineadmission.ClipboardPasteRequestHash(request),
 				RequestID:   command.RequestID, Now: command.Now,
 			})
-			if failure, safe := timelineActionFailure(err, request.ClientTxnID, "clipboard_text", ""); safe {
+			if failure, safe := timelineActionFailure(err, request.ClientTxnID, "clipboard_text"); safe {
 				return workbook.RejectedMutation(failure), nil
 			}
 			if err != nil {
@@ -95,7 +95,7 @@ func newTimelineBulkProvider(owner TimelineOperations) (workbook.BulkProvider, e
 			default:
 				return workbook.RejectedMutation(workbook.InvalidPayloadFailure("kind", "invalid_value")), nil
 			}
-			if failure, safe := timelineActionFailure(err, request.ClientTxnID, "value", ""); safe {
+			if failure, safe := timelineActionFailure(err, request.ClientTxnID, "value"); safe {
 				return workbook.RejectedMutation(failure), nil
 			}
 			if err != nil {
@@ -153,7 +153,7 @@ func newTimelineSupersedeProvider(owner TimelineOperations) (workbook.SupersedeP
 				RequestHash: timelineadmission.ActionRequestHash(request.BaseRowVersion, request.ClientTxnID, &request.Reason, request.ReplacementRecordID),
 				RequestID:   command.RequestID, Now: command.Now,
 			})
-			if failure, safe := timelineActionFailure(err, request.ClientTxnID, "changes", "supersede_not_allowed"); safe {
+			if failure, safe := timelineActionFailure(err, request.ClientTxnID, "changes"); safe {
 				return workbook.RejectedMutation(failure), nil
 			}
 			if err != nil {
@@ -197,9 +197,7 @@ func newDecisionSupersedeProvider(owner *tasksdecisions.MutationFacade) (workboo
 }
 
 func unsupportedSupersedeOutcome() workbook.MutationOutcome {
-	return workbook.RejectedMutation(workbook.IllegalTransitionFailure(
-		"", "", "supersede_not_allowed", []string{"unsupported_record_type"},
-	))
+	return workbook.RejectedMutation(workbook.UnsupportedLifecycleActionFailure("superseded"))
 }
 
 func timelineBatchResult(result timeline.BatchMutationResult) workbook.MutationResult {
@@ -264,7 +262,7 @@ func decisionSupersedeResult(result tasksdecisions.SupersedeMutationResult) work
 	}
 }
 
-func timelineActionFailure(err error, clientTxnID string, invalidField string, transitionReason string) (*workbook.MutationFailure, bool) {
+func timelineActionFailure(err error, clientTxnID string, invalidField string) (*workbook.MutationFailure, bool) {
 	if errors.Is(err, tabularingest.ErrInvalidClipboard) {
 		return workbook.InvalidPayloadFailure("clipboard_text", "invalid_value"), true
 	}
@@ -306,16 +304,11 @@ func timelineActionFailure(err error, clientTxnID string, invalidField string, t
 		})
 		return failure, conversionErr == nil
 	}
+	// Only a typed transition error is illegal_transition; an untyped invariant
+	// failure stays unsafe and reaches internal_error (REQ-03-109a).
 	var transition *timeline.IllegalTransitionError
 	if errors.As(err, &transition) {
-		reason := transition.ReasonCode
-		if reason == "" {
-			reason = transitionReason
-		}
-		return workbook.IllegalTransitionFailure(transition.FromStatus, transition.ToStatus, reason, transition.ViolatedGuards), true
-	}
-	if errors.Is(err, timeline.ErrIllegalTransition) {
-		return workbook.IllegalTransitionFailure("", "", transitionReason, nil), true
+		return workbook.IllegalTransitionFailure(transition.FromStatus, transition.ToStatus, transition.ReasonCode, transition.ViolatedGuards), true
 	}
 	if errors.Is(err, timeline.ErrNoEffectiveChange) {
 		if invalidField == "" {
@@ -334,7 +327,7 @@ func timelineActionFailure(err error, clientTxnID string, invalidField string, t
 	var mentionTransition *mentions.MentionTransitionError
 	if errors.As(err, &mentionTransition) {
 		return workbook.IllegalTransitionFailure(
-			mentionTransition.FromStatus, mentionTransition.ToStatus, "", mentionTransition.ViolatedGuards,
+			mentionTransition.FromStatus, mentionTransition.ToStatus, mentionTransition.ReasonCode, mentionTransition.ViolatedGuards,
 		), true
 	}
 	var entityConflict *hostidentity.ExactMatchConflictError

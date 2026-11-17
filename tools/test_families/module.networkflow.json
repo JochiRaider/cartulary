@@ -1035,7 +1035,7 @@
       "selector": {
         "file": "apps/web/src/networkFlow/networkFlowPresentation.node.test.ts",
         "titles": [
-          "Verify Network Analysis presentation, query, layout, lifecycle, and reconciliation units use extension-owned semantic contracts."
+          "derives default, conversation-counter and inspector-only accepted-row columns from the extension presentation registry"
         ],
         "project_id": "node-unit"
       },

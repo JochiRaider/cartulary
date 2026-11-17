@@ -1,15 +1,17 @@
 package tasksdecisions
 
 import (
+	"context"
 	"errors"
 	"fmt"
-	"slices"
-	"strings"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
+	taskdecisionprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/projectionports"
+	"github.com/JochiRaider/cartulary/internal/platform/collectionvalue"
 )
 
 func adaptRevisionWindowError(recordID uuid.UUID, baseRowVersion int64, currentRowVersion int64, err error) error {
@@ -57,6 +59,8 @@ func buildSameFieldConflict(params sameFieldConflictParams) (SameFieldConflict, 
 	if !ok {
 		return SameFieldConflict{}, &conflicttokens.RevisionWindowError{RecordID: params.RecordID, BaseRowVersion: params.BaseRowVersion, CurrentRowVersion: params.CurrentRowVersion}
 	}
+	// Stored conflict facts may predate REQ-01-067 label order; re-serve them.
+	baseValue, serverValue = collectionvalue.Canonicalize(baseValue), collectionvalue.Canonicalize(serverValue)
 	clientValue, err := patchClientConflictValue(params.Change, baseValue)
 	if err != nil {
 		return SameFieldConflict{}, &conflicttokens.RevisionWindowError{RecordID: params.RecordID, BaseRowVersion: params.BaseRowVersion, CurrentRowVersion: params.CurrentRowVersion}
@@ -114,19 +118,14 @@ func applyCollectionConflictActions(fieldKey string, baseValue any, payload Coll
 			if action.LinkedRecordID == nil {
 				return nil, fmt.Errorf("missing linked record")
 			}
-			items = upsertCollectionConflictItem(items, newRecordRefConflictItem(fieldKey, *action.LinkedRecordID))
+			items = upsertCollectionConflictItem(items, newRecordRefConflictItem(*action.LinkedRecordID))
 		case "remove_record_ref":
 			items = removeCollectionConflictItem(items, action.ItemRef)
 		default:
 			return nil, fmt.Errorf("unsupported collection action: %s", action.Op)
 		}
 	}
-	if !ordered {
-		slices.SortFunc(items, func(left map[string]any, right map[string]any) int {
-			return strings.Compare(collectionSortKey(left), collectionSortKey(right))
-		})
-	}
-	return map[string]any{"kind": "collection_value_v1", "ordered": ordered, "items": items}, nil
+	return collectionvalue.New(ordered, items), nil
 }
 
 func cloneCollectionConflictValue(value any) (bool, []map[string]any, bool) {
@@ -158,25 +157,33 @@ func cloneCollectionConflictValue(value any) (bool, []map[string]any, bool) {
 	return ordered, items, true
 }
 
-func newRecordRefConflictItem(fieldKey string, linkedRecordID uuid.UUID) map[string]any {
-	targetType := collectionDisplayTargetType(fieldKey)
-	if targetType == "" {
-		targetType = "record"
-	}
+// newRecordRefConflictItem carries a provisional label that
+// labelConflictTx replaces with the REQ-01-333a label.
+func newRecordRefConflictItem(linkedRecordID uuid.UUID) map[string]any {
 	return map[string]any{
 		"item_ref":         links.RecordRefItemRef(linkedRecordID),
 		"item_kind":        "record_ref",
-		"display_text":     targetType + ":" + linkedRecordID.String(),
+		"display_text":     collectionvalue.UnavailableRecordLabel,
 		"linked_record_id": linkedRecordID.String(),
 	}
 }
 
-func collectionDisplayTargetType(fieldKey string) string {
-	descriptor, ok := lookupCollectionDescriptor(fieldKey)
-	if !ok {
-		return ""
+// labelConflictTx labels the record_ref items of every conflict value with
+// REQ-01-333a labels read in one lookup inside the conflict transaction.
+// Records not live in the incident read UnavailableRecordLabel.
+func labelConflictTx(ctx context.Context, tx pgx.Tx, labels taskdecisionprojection.MutationRows, incidentID uuid.UUID, conflict *SameFieldConflict) error {
+	ids := collectionvalue.LinkedRecordIDs(conflict.BaseValue.Value, conflict.ServerValue, conflict.ClientValue)
+	if len(ids) == 0 {
+		return nil
 	}
-	return descriptor.ExpectedTargetType
+	byID, err := labels.RecordSummaryLabelsTx(ctx, tx, incidentID, ids)
+	if err != nil {
+		return err
+	}
+	conflict.BaseValue.Value = collectionvalue.WithLinkedRecordLabels(conflict.BaseValue.Value, byID)
+	conflict.ServerValue = collectionvalue.WithLinkedRecordLabels(conflict.ServerValue, byID)
+	conflict.ClientValue = collectionvalue.WithLinkedRecordLabels(conflict.ClientValue, byID)
+	return nil
 }
 
 func upsertCollectionConflictItem(items []map[string]any, item map[string]any) []map[string]any {
@@ -206,16 +213,6 @@ func cloneMap(input map[string]any) map[string]any {
 		result[key] = value
 	}
 	return result
-}
-
-func collectionSortKey(item map[string]any) string {
-	if text, _ := item["display_text"].(string); text != "" {
-		return text
-	}
-	if ref, _ := item["item_ref"].(string); ref != "" {
-		return ref
-	}
-	return fmt.Sprint(item)
 }
 
 func conflictToken(routeKey string, recordID uuid.UUID, viewSchemaID string, fieldKey string, conflictClass string, baseRowVersion int64, currentRowVersion int64, requestHash []byte, codec conflicttokens.ConflictTokenCodec) (string, error) {

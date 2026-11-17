@@ -183,7 +183,6 @@
         "package": "./internal/testutil/objectstoreproxy",
         "tests": [
           "TestProxyConfigurationRejectsAmbiguousOrNonLoopbackInputs",
-          "TestProxyHelperProcess",
           "TestProxyLifecycleRefusesMutatedProofAndUnownedListener",
           "TestProxyLifecycleTreatsPreProofAttemptAsUntrusted",
           "TestProxyLifecycleUsesImmutableProofAndPidfdStop",

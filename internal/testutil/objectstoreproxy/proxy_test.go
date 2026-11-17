@@ -222,9 +222,6 @@ func TestProxyLifecycleTreatsPreProofAttemptAsUntrusted(t *testing.T) {
 }
 
 func TestProxyLifecycleUsesImmutableProofAndPidfdStop(t *testing.T) {
-	if os.Getenv("CARTULARY_S3CORSPROXY_HELPER") == "1" {
-		return
-	}
 	temp := t.TempDir()
 	listen := availableLoopbackAddress(t)
 	attemptFile := filepath.Join(temp, "attempt.json")
@@ -285,9 +282,6 @@ func TestProxyLifecycleUsesImmutableProofAndPidfdStop(t *testing.T) {
 }
 
 func TestProxyLifecycleRefusesMutatedProofAndUnownedListener(t *testing.T) {
-	if os.Getenv("CARTULARY_S3CORSPROXY_HELPER") == "1" {
-		return
-	}
 	temp := t.TempDir()
 	listen := availableLoopbackAddress(t)
 	config, err := testProxyConfig(t, listen, "https://127.0.0.1:18333", testOrigin)
@@ -424,13 +418,19 @@ func TestProxyLifecycleRefusesMutatedProofAndUnownedListener(t *testing.T) {
 	}
 }
 
-func TestProxyHelperProcess(t *testing.T) {
-	if os.Getenv("CARTULARY_S3CORSPROXY_HELPER") != "1" {
-		return
+// TestMain runs the CORS proxy helper when this binary is re-executed as the
+// helper process. The helper is process setup, not a test.
+func TestMain(m *testing.M) {
+	if os.Getenv("CARTULARY_S3CORSPROXY_HELPER") == "1" {
+		os.Exit(runProxyHelperProcess())
 	}
+	os.Exit(m.Run())
+}
+
+func runProxyHelperProcess() int {
 	var values map[string]string
 	if err := json.Unmarshal([]byte(os.Getenv("CARTULARY_S3CORSPROXY_OPTIONS")), &values); err != nil {
-		os.Exit(2)
+		return 2
 	}
 	options := commandOptions{
 		tls:         tlsBindings{Certificate: values["tls_certificate"], PrivateKey: values["tls_key"], RootCertificate: values["tls_root"]},
@@ -446,9 +446,9 @@ func TestProxyHelperProcess(t *testing.T) {
 		err = serve(options, config)
 	}
 	if err != nil {
-		os.Exit(1)
+		return 1
 	}
-	os.Exit(0)
+	return 0
 }
 
 func availableLoopbackAddress(t *testing.T) string {
@@ -484,7 +484,7 @@ func startProxyHelper(t *testing.T, options commandOptions) *exec.Cmd {
 	if err != nil {
 		t.Fatalf("serialize helper options: %v", err)
 	}
-	command := exec.Command(executable, "-test.run=^TestProxyHelperProcess$")
+	command := exec.Command(executable, "-test.run=^$")
 	command.Env = append(
 		os.Environ(),
 		"CARTULARY_S3CORSPROXY_HELPER=1",

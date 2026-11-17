@@ -34,8 +34,8 @@ func exerciseEntityCollectionIdentityOrder(t *testing.T) {
 			}
 			expected := map[string][]map[string]any{
 				family + ".aliases": {
-					{"item_ref": "entity_alias:" + low, "item_kind": "alias", "alias_text": "Zulu", "display_text": "Zulu"},
 					{"item_ref": "entity_alias:" + high, "item_kind": "alias", "alias_text": "Alpha", "display_text": "Alpha"},
+					{"item_ref": "entity_alias:" + low, "item_kind": "alias", "alias_text": "Zulu", "display_text": "Zulu"},
 				},
 			}
 			label := "Hostname"
@@ -43,20 +43,20 @@ func exerciseEntityCollectionIdentityOrder(t *testing.T) {
 				label = "Email"
 			}
 			expected[family+".reusable_identifiers"] = []map[string]any{
-				{"item_ref": "entity_preserved_identifier:" + low, "item_kind": "reusable_identifier", "identifier_class": class, "raw_value": "Zulu", "normalized_value": "zulu", "display_text": label + ": Zulu"},
 				{"item_ref": "entity_preserved_identifier:" + high, "item_kind": "reusable_identifier", "identifier_class": class, "raw_value": "Alpha", "normalized_value": "alpha", "display_text": label + ": Alpha"},
+				{"item_ref": "entity_preserved_identifier:" + low, "item_kind": "reusable_identifier", "identifier_class": class, "raw_value": "Zulu", "normalized_value": "zulu", "display_text": label + ": Zulu"},
 			}
 			for _, role := range []string{"subject", "responsible", "observer"} {
 				expected[family+"."+role+"_party_ids"] = []map[string]any{
-					{"item_ref": "party_ref:" + low, "item_kind": "party_ref", "party_id": low, "display_text": "Zulu"},
 					{"item_ref": "party_ref:" + high, "item_kind": "party_ref", "party_id": high, "display_text": "Alpha"},
+					{"item_ref": "party_ref:" + low, "item_kind": "party_ref", "party_id": low, "display_text": "Zulu"},
 				}
 			}
 			for field, items := range expected {
 				cell := row["cells"].(map[string]any)[field].(map[string]any)
 				want := map[string]any{"kind": "collection_value_v1", "ordered": false, "items": items}
 				if !reflect.DeepEqual(cell["value"], want) {
-					t.Fatalf("%s did not retain exact typed values in identity order: %#v", field, cell["value"])
+					t.Fatalf("%s did not retain exact typed values in REQ-01-067 label order: %#v", field, cell["value"])
 				}
 			}
 			if aliases[0].EntityAliasID.String() != high || refs[0].PartyID.String() != high || identifiers[0].EntityPreservedIdentifierID.String() != high {

@@ -1,9 +1,11 @@
 package timeline_test
 
 import (
+	"cmp"
 	"net/http"
 	"reflect"
-	"sort"
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
@@ -11,6 +13,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/google/uuid"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/unicode/norm"
 )
 
 func exerciseTimelineCollectionPreviews(t *testing.T) {
@@ -134,12 +138,15 @@ func exerciseTimelineCollectionPreviews(t *testing.T) {
 				if client["kind"] != "collection_value_v1" || client["ordered"] != false || len(items) != wantCount {
 					t.Fatalf("duplicate preview membership=%#v", client)
 				}
-				refs := []string{}
+				// REQ-01-067 served order: folded label, raw label, item_ref,
+				// computed here independently of production code.
+				orderKeys := [][3]string{}
 				originalSeen, newSeen := false, false
 				for _, entry := range items {
 					item := entry.(map[string]any)
 					ref := item["item_ref"].(string)
-					refs = append(refs, ref)
+					label, _ := item["display_text"].(string)
+					orderKeys = append(orderKeys, [3]string{cases.Fold().String(norm.NFC.String(label)), label, ref})
 					if tag {
 						if item["item_kind"] != "tag" {
 							t.Fatal("tag preview changed item kind")
@@ -173,15 +180,17 @@ func exerciseTimelineCollectionPreviews(t *testing.T) {
 						if item["item_kind"] != "record_ref" || ref != "record_ref:"+item["linked_record_id"].(string) {
 							t.Fatal("Evidence preview changed reference shape")
 						}
+						// REQ-01-333a: preview items read the Evidence title Timeline
+						// stores, including Evidence the client is adding.
 						switch item["linked_record_id"] {
 						case evidence["Original"]:
-							if originalSeen {
-								t.Fatal("duplicate Original Evidence")
+							if originalSeen || label != "Original" {
+								t.Fatalf("duplicate or mislabelled Original Evidence: %#v", item)
 							}
 							originalSeen = true
 						case evidence["Café"]:
-							if mode != "new" || newSeen {
-								t.Fatal("unexpected or duplicate new Evidence")
+							if mode != "new" || newSeen || label != "Café" {
+								t.Fatalf("unexpected, duplicate or mislabelled new Evidence: %#v", item)
 							}
 							newSeen = true
 						default:
@@ -189,8 +198,11 @@ func exerciseTimelineCollectionPreviews(t *testing.T) {
 						}
 					}
 				}
-				if originalSeen != (mode != "base-removed-on-server") || newSeen != (mode == "new") || !sort.StringsAreSorted(refs) {
-					t.Fatal("preview omitted membership or canonical order")
+				inOrder := slices.IsSortedFunc(orderKeys, func(left, right [3]string) int {
+					return cmp.Or(strings.Compare(left[0], right[0]), strings.Compare(left[1], right[1]), strings.Compare(left[2], right[2]))
+				})
+				if originalSeen != (mode != "base-removed-on-server") || newSeen != (mode == "new") || !inOrder {
+					t.Fatal("preview omitted membership or REQ-01-067 label order")
 				}
 				repeated := httptestx.RequireErrorEnvelope(t, send(http.MethodPatch, "/api/v1/records/"+id, request), http.StatusConflict, "same_field_conflict")["error"].(map[string]any)["conflict"].(map[string]any)
 				if len(conflict) != len(repeated) {

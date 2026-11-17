@@ -44,9 +44,9 @@ func TestDecisionTerminalTransitionMatrix_Unit(t *testing.T) {
 				continue
 			}
 			if to == "superseded" {
-				requireLifecycleGuards(t, err, "superseded_direct_write", "decision.status")
+				requireLifecycleGuards(t, err, "transition_not_allowed")
 			} else {
-				requireLifecycleGuards(t, err, "illegal_status_transition", "decision.status")
+				requireLifecycleGuards(t, err, "transition_not_allowed")
 			}
 			requireDecisionSnapshot(t, decisionSnapshot(t, harness.DB, decisionID), before, name)
 		}

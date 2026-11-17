@@ -27,3 +27,34 @@ func TestNormalizeAliasTextV1(t *testing.T) {
 		t.Fatalf("non-C0/C1 format character must not be broadened into rejection: %q ok=%v", normalized, ok)
 	}
 }
+
+// REQ-01-488 / REQ-01-067: the label sort key is NFC then locale-independent
+// case folding, and for tags it equals the stored normalized_tag_name.
+func TestTextSortKeyFoldsNFCAndMatchesTagNormalization(t *testing.T) {
+	for _, tc := range []struct{ raw, want string }{
+		{"Alpha", "alpha"},
+		{"ALPHA", "alpha"},
+		{"Straße", "strasse"},
+		{"Café", "café"},
+		{"Café", "café"},
+		{"Ω", "ω"},
+		{"", ""},
+	} {
+		if got := TextSortKey(tc.raw); got != tc.want {
+			t.Fatalf("TextSortKey(%q) = %q, want %q", tc.raw, got, tc.want)
+		}
+	}
+	// Diacritics stay significant under the key.
+	if TextSortKey("cafe") == TextSortKey("café") {
+		t.Fatal("diacritics must remain significant")
+	}
+	for _, raw := range []string{"  Evidence Follow-Up  ", "Hidden tag Ω 東京", "Straße", "Café"} {
+		label, normalized, ok := NormalizeTagLabel(raw)
+		if !ok {
+			t.Fatalf("tag %q rejected", raw)
+		}
+		if key := TextSortKey(label); key != normalized {
+			t.Fatalf("tag %q: TextSortKey(label)=%q, normalized=%q", raw, key, normalized)
+		}
+	}
+}

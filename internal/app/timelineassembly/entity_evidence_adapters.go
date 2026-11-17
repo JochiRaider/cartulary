@@ -132,3 +132,7 @@ func (a evidenceAdapter) ValidateTimelineAttachmentsTx(ctx context.Context, tx p
 func (a evidenceAdapter) RefreshTimelineAttachmentProjectionsTx(ctx context.Context, tx pgx.Tx, recordIDs []uuid.UUID) error {
 	return a.attachments.RefreshTimelineAttachmentProjectionsTx(ctx, tx, recordIDs)
 }
+
+func (a evidenceAdapter) TimelineAttachmentLabelsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordIDs []uuid.UUID) (map[uuid.UUID]string, error) {
+	return a.attachments.TimelineAttachmentLabelsTx(ctx, tx, incidentID, recordIDs)
+}

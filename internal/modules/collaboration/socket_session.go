@@ -149,6 +149,10 @@ func (s *routeService) handleIncidentSocket(w http.ResponseWriter, r *http.Reque
 		case <-ctx.Done():
 			lifecycleResult = "canceled"
 			return
+		case <-s.hub.sessionsClosed():
+			// Ordinary shutdown: the deferred close sends 1001 going away.
+			lifecycleResult = "canceled"
+			return
 		case reasonCode := <-sessionRevocations:
 			lifecycleResult = "canceled"
 			if s.writeSessionRevoked(ctx, conn, incidentID, reasonCode) {

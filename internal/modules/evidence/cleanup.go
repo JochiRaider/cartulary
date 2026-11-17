@@ -146,47 +146,31 @@ func (s *cleanupService) claimCleanupBatch(ctx context.Context, now time.Time) (
 		return nil, fmt.Errorf("begin Evidence cleanup claim transaction: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	rows, err := tx.Query(ctx, `
-SELECT b.object_blob_id, b.storage_key, COALESCE(c.attempt_count, 0)
-  FROM object_blobs b
-  LEFT JOIN evidence_blob_cleanup_claims c
-    ON c.object_blob_id = b.object_blob_id
- WHERE b.upload_state = 'failed'
-   AND b.cleaned_up_at IS NULL
-   AND b.cleanup_due_at <= $1
-   AND NOT EXISTS (
-       SELECT 1
-         FROM evidence e
-        WHERE e.object_blob_id = b.object_blob_id
-   )
-   AND (
-       c.object_blob_id IS NULL
-       OR (c.claim_state = 'retry_wait' AND c.next_attempt_at <= $1)
-       OR (c.claim_state = 'claimed' AND c.claim_expires_at <= $1)
-   )
- ORDER BY b.cleanup_due_at, b.object_blob_id
- FOR UPDATE OF b SKIP LOCKED
- LIMIT $2
-`, now, cleanupBatchSize)
-	if err != nil {
-		return nil, fmt.Errorf("select Evidence cleanup claims: %w", err)
-	}
+	// REQ-02-189a: cleanup claims only Blobs whose lifecycle tuple is coherent.
+	// A violating Blob is left unclaimed for operator recovery and stays
+	// visible as overdue in the cleanup health snapshot. The scan continues
+	// past violating rows in key order, so they never consume the batch.
 	candidates := make([]cleanupClaim, 0, cleanupBatchSize)
-	for rows.Next() {
-		var candidate cleanupClaim
-		if err := rows.Scan(&candidate.ObjectBlobID, &candidate.StorageKey, &candidate.AttemptCount); err != nil {
-			rows.Close()
-			return nil, fmt.Errorf("scan Evidence cleanup claim candidate: %w", err)
+	var after *cleanupCandidateKey
+	for len(candidates) < cleanupBatchSize {
+		page, last, err := selectCleanupCandidatesTx(ctx, tx, now, after, cleanupBatchSize-len(candidates))
+		if err != nil {
+			return nil, err
 		}
-		candidate.AttemptCount++
-		candidate.ClaimToken = uuid.New()
-		candidates = append(candidates, candidate)
+		for _, candidate := range page {
+			if err := verifyLiveBlobTupleTx(ctx, tx, candidate.ObjectBlobID); err != nil {
+				if errors.Is(err, errBlobTupleViolation) {
+					continue
+				}
+				return nil, fmt.Errorf("verify Evidence cleanup candidate: %w", err)
+			}
+			candidates = append(candidates, candidate)
+		}
+		if last == nil {
+			break
+		}
+		after = last
 	}
-	if err := rows.Err(); err != nil {
-		rows.Close()
-		return nil, fmt.Errorf("iterate Evidence cleanup claim candidates: %w", err)
-	}
-	rows.Close()
 	for _, candidate := range candidates {
 		tag, err := tx.Exec(ctx, `
 INSERT INTO evidence_blob_cleanup_claims (
@@ -382,4 +366,67 @@ SELECT b.object_blob_id
 		return 0, fmt.Errorf("commit Evidence cleanup metadata retention: %w", err)
 	}
 	return len(ids), nil
+}
+
+// cleanupCandidateKey is the (cleanup_due_at, object_blob_id) scan position.
+type cleanupCandidateKey struct {
+	CleanupDueAt time.Time
+	ObjectBlobID uuid.UUID
+}
+
+// selectCleanupCandidatesTx locks up to limit due candidates after the scan
+// position. It returns the last key only when the page was full, so the caller
+// stops once the due set is exhausted.
+func selectCleanupCandidatesTx(ctx context.Context, tx pgx.Tx, now time.Time, after *cleanupCandidateKey, limit int) ([]cleanupClaim, *cleanupCandidateKey, error) {
+	var afterDue time.Time
+	var afterID uuid.UUID
+	if after != nil {
+		afterDue, afterID = after.CleanupDueAt, after.ObjectBlobID
+	}
+	rows, err := tx.Query(ctx, `
+SELECT b.object_blob_id, b.storage_key, COALESCE(c.attempt_count, 0), b.cleanup_due_at
+  FROM object_blobs b
+  LEFT JOIN evidence_blob_cleanup_claims c
+    ON c.object_blob_id = b.object_blob_id
+ WHERE b.upload_state = 'failed'
+   AND b.cleaned_up_at IS NULL
+   AND b.cleanup_due_at <= $1
+   AND (NOT $3::boolean OR (b.cleanup_due_at, b.object_blob_id) > ($4::timestamptz, $5::uuid))
+   AND NOT EXISTS (
+       SELECT 1
+         FROM evidence e
+        WHERE e.object_blob_id = b.object_blob_id
+   )
+   AND (
+       c.object_blob_id IS NULL
+       OR (c.claim_state = 'retry_wait' AND c.next_attempt_at <= $1)
+       OR (c.claim_state = 'claimed' AND c.claim_expires_at <= $1)
+   )
+ ORDER BY b.cleanup_due_at, b.object_blob_id
+ FOR UPDATE OF b SKIP LOCKED
+ LIMIT $2
+`, now, limit, after != nil, afterDue, afterID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("select Evidence cleanup claims: %w", err)
+	}
+	defer rows.Close()
+	page := make([]cleanupClaim, 0, limit)
+	var last cleanupCandidateKey
+	for rows.Next() {
+		var candidate cleanupClaim
+		if err := rows.Scan(&candidate.ObjectBlobID, &candidate.StorageKey, &candidate.AttemptCount, &last.CleanupDueAt); err != nil {
+			return nil, nil, fmt.Errorf("scan Evidence cleanup claim candidate: %w", err)
+		}
+		last.ObjectBlobID = candidate.ObjectBlobID
+		candidate.AttemptCount++
+		candidate.ClaimToken = uuid.New()
+		page = append(page, candidate)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, nil, fmt.Errorf("iterate Evidence cleanup claim candidates: %w", err)
+	}
+	if len(page) < limit {
+		return page, nil, nil
+	}
+	return page, &last, nil
 }

@@ -78,27 +78,15 @@ func TestObjectStoreStartupMappingDeadline(t *testing.T) {
 	}
 }
 
-func TestSeaweedFSS3AllowedOriginsDefaultSupportsLoopbackBrowserPortRange(t *testing.T) {
+// TestSeaweedFSS3AllowedOriginsDefaultAdmitsNoBrowserOrigin pins that the
+// harness-owned object store admits no browser origin: browsers upload only
+// through the application's same-origin object-upload capability.
+func TestSeaweedFSS3AllowedOriginsDefaultAdmitsNoBrowserOrigin(t *testing.T) {
 	t.Setenv("OBJECT_STORE_CORS_ALLOWED_ORIGINS", "")
 	t.Setenv("OBJECT_STORE_CORS_ORIGIN", "")
 
-	got := seaweedFSS3AllowedOrigins(nil)
-	for _, want := range []string{
-		"https://localhost:5173",
-		"https://127.0.0.1:5173",
-		"https://localhost:19000",
-		"https://127.0.0.1:19000",
-		"https://localhost:19199",
-		"https://127.0.0.1:19199",
-	} {
-		if !strings.Contains(got, want) {
-			t.Fatalf("default SeaweedFS S3 allowed origins missing %q in %q", want, got)
-		}
-	}
-	for _, forbidden := range []string{"*", "http://", "https://0.0.0.0", "https://[::]"} {
-		if strings.Contains(got, forbidden) {
-			t.Fatalf("default SeaweedFS S3 allowed origins must stay exact and loopback-scoped, got %q", got)
-		}
+	if got := seaweedFSS3AllowedOrigins(nil); got != "https://browser-cors-disabled.invalid" {
+		t.Fatalf("default SeaweedFS S3 allowed origins = %q, want only the reserved no-browser origin", got)
 	}
 }
 

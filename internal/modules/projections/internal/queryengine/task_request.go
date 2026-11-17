@@ -95,29 +95,11 @@ func TaskRequestPlans() []Surface {
 			{Key: "task.completed_at", Expr: sqlshape.Literal("p.completed_at"), Kind: FieldKindTimestamp},
 			{Key: "task.external_ticket_ref", Expr: sqlshape.Literal("p.external_ticket_ref"), Kind: FieldKindText},
 			{Key: "task.closure_summary", Expr: sqlshape.Literal("p.closure_summary"), Kind: FieldKindText},
-			{Key: "task.linked_record_ids", Expr: taskRecordRefCollectionExpr("task.linked_record_ids", "references_record"), Kind: FieldKindCollection},
+			{Key: "task.linked_record_ids", Expr: recordRefCollectionExprFor("task.linked_record_ids", "references_record"), Kind: FieldKindCollection},
 			{Key: "task.decision_record_id", Expr: sqlshape.Literal("p.decision_record_id"), Kind: FieldKindText},
 			{Key: "task.linked_record_count", Expr: sqlshape.Literal("p.linked_record_count"), Kind: FieldKindNumber},
 			{Key: "task.updated_at", Expr: sqlshape.Literal("p.updated_at"), Kind: FieldKindTimestamp},
 			{Key: "task.no_owner", Expr: sqlshape.Literal("p.no_owner"), Kind: FieldKindBool},
 		},
 	}}
-}
-
-func taskRecordRefCollectionExpr(fieldKey string, linkType string) sqlshape.Fragment {
-	return sqlshape.Format(`(SELECT COALESCE(jsonb_agg(jsonb_build_object(
-        'item_ref', %s,
-        'item_kind', 'record_ref',
-        'display_text', dst.record_type || ':' || dst.record_id::text,
-        'linked_record_id', dst.record_id::text
-    ) ORDER BY dst.record_type ASC, dst.record_id ASC), '[]'::jsonb)
-      FROM active_record_links_v1 rl
-      JOIN records dst
-        ON dst.incident_id = rl.incident_id
-       AND dst.record_id = rl.dst_record_id
-       AND dst.deleted_at IS NULL
-     WHERE rl.incident_id = p.incident_id
-       AND rl.src_record_id = p.record_id
-       AND rl.link_type = %s
-       AND rl.field_key = %s)::text`, recordRefItemRefSQL(sqlshape.Literal("dst.record_id")), sqlshape.Quote(linkType), sqlshape.Quote(fieldKey))
 }

@@ -590,7 +590,7 @@ func (db rowLookupOnlyDB) Query(context.Context, string, ...any) (pgx.Rows, erro
 
 func (db rowLookupOnlyDB) QueryRow(ctx context.Context, query string, args ...any) pgx.Row {
 	if db.deleteBeforeRead && len(args) == 3 {
-		if _, err := db.DB.Exec(ctx, `UPDATE network_flow_tables SET table_status = 'soft_deleted', table_version = table_version + 1, deleted_at = now() WHERE incident_id = $1 AND network_flow_table_id = $2`, args[0], args[1]); err != nil {
+		if _, err := db.DB.Exec(ctx, `UPDATE network_flow_tables SET table_status = 'soft_deleted', table_version = table_version + 1, updated_at = GREATEST(updated_at, now()), deleted_at = GREATEST(updated_at, now()) WHERE incident_id = $1 AND network_flow_table_id = $2`, args[0], args[1]); err != nil {
 			db.t.Fatal(err)
 		}
 	}

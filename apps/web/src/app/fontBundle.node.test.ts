@@ -29,9 +29,17 @@ async function loadFontBundleModule(): Promise<FontBundleModule> {
 
 describe("vendored font bundle", () => {
   test("validates the checked-in manifest, checksums, notice, CSS, and source metadata", async () => {
-    const { checkFontBundle } = await loadFontBundleModule();
+    const { checkFontBundle, createFontBundleFixture } =
+      await loadFontBundleModule();
 
     expect(checkFontBundle(repoRoot)).toEqual([]);
+    // The unmutated fixture is the baseline every rejection case perturbs once.
+    const baseline = createFontBundleFixture();
+    try {
+      expect(checkFontBundle(baseline)).toEqual([]);
+    } finally {
+      rmSync(baseline, { force: true, recursive: true });
+    }
   });
 
   test("documents selector-active and staged font roles in the manifest", () => {
@@ -80,29 +88,49 @@ describe("vendored font bundle", () => {
   });
 
   test.each([
-    ["badHash", "sha256 mismatch"],
-    ["badBytes", "byte size mismatch"],
-    ["missingLicense", "missing LICENSE.txt or OFL.txt"],
-    ["localSource", "must not use local(...)"],
-    ["remoteFont", "must not reference a remote font CDN"],
-    ["missingActivationMetadata", "activation_status is required"],
+    ["badHash", ["sha256 mismatch"]],
+    ["badBytes", ["byte size mismatch"]],
+    ["missingLicense", ["missing LICENSE.txt or OFL.txt"]],
+    ["localSource", ["must not use local(...)"]],
+    ["remoteFont", ["must not reference a remote font CDN"]],
+    [
+      // Inter is the required default family, so dropping its activation
+      // metadata also fails its required role and status checks.
+      "missingActivationMetadata",
+      [
+        "Inter: activation_status is required",
+        "Inter: role_ids must be non-empty",
+        "Inter: activation_status must be active_default",
+        "Inter: role_ids must include ui",
+        "Inter: role_ids must include grid",
+        "Inter: role_ids must include grid-cell",
+      ],
+    ],
     [
       "missingCssFontReference",
-      "manifest font file inter/InterVariable.woff2 must be referenced",
+      ["manifest font file inter/InterVariable.woff2 must be referenced"],
     ],
-    ["deadFontVariable", "unused --font-unused"],
+    ["deadFontVariable", ["unused --font-unused"]],
     [
+      // Staging the required default family also fails its default checks.
       "undocumentedStagedFamily",
-      "staged_inactive family Inter must declare staging_reason",
+      [
+        "Inter: activation_status must be active_default",
+        "Inter: role_ids must include ui",
+        "Inter: role_ids must include grid",
+        "Inter: role_ids must include grid-cell",
+        "staged_inactive family Inter must declare staging_reason",
+      ],
     ],
-  ])("rejects %s fixture", async (option, expectedMessage) => {
+  ])("rejects %s fixture", async (option, expectedMessages) => {
     const { checkFontBundle, createFontBundleFixture } =
       await loadFontBundleModule();
     const fixtureRoot = createFontBundleFixture({ [option]: true });
     try {
-      expect(checkFontBundle(fixtureRoot).join("\n")).toContain(
-        expectedMessage,
-      );
+      const errors = checkFontBundle(fixtureRoot);
+      expect(errors, errors.join("\n")).toHaveLength(expectedMessages.length);
+      for (const [index, message] of expectedMessages.entries())
+        expect(errors[index]).toContain(message);
     } finally {
       rmSync(fixtureRoot, { force: true, recursive: true });
     }

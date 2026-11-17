@@ -9,6 +9,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
+	"github.com/JochiRaider/cartulary/internal/testutil/lifecyclecontract"
 )
 
 func exerciseTimelineMentionRestorePreview(t *testing.T) {
@@ -119,10 +120,11 @@ func exerciseTimelineMentionRestorePreview(t *testing.T) {
 					for attempt := 0; attempt < 2; attempt++ {
 						failure := httptestx.RequireErrorEnvelope(t, send(http.MethodPatch, "/api/v1/records/"+id, request), http.StatusConflict, "illegal_transition")
 						details := failure["error"].(map[string]any)["details"]
-						expected := map[string]any{"from_status": tc.from, "to_status": tc.to, "violated_guards": []any{"from_status_not_allowed"}}
+						expected := map[string]any{"from_status": tc.from, "to_status": tc.to, "violated_guards": []any{}, "reason_code": "transition_not_allowed"}
 						if !reflect.DeepEqual(details, expected) {
 							t.Fatalf("preview transition details=%#v want=%#v", details, expected)
 						}
+						lifecyclecontract.RequireDetails(t, "entity_mention.resolution_status", details.(map[string]any))
 						if after := snapshotTimelineMutationState(t, h.DB, incident, id); after != before {
 							t.Fatal("illegal preview transition wrote persisted effects")
 						}

@@ -240,6 +240,19 @@ func (ports Ports) SourceTextRows() SourceTextRows {
 	return ports.store
 }
 
+// RecordSummaryLabels reads REQ-01-333a linked record summary labels for live
+// records in one incident. Absent, deleted and foreign records are omitted.
+type RecordSummaryLabels interface {
+	RecordSummaryLabelsTx(context.Context, pgx.Tx, uuid.UUID, []uuid.UUID) (map[uuid.UUID]string, error)
+}
+
+func (ports Ports) RecordSummaryLabels() RecordSummaryLabels {
+	if ports.store == nil {
+		return nil
+	}
+	return ports.store
+}
+
 func (ports Ports) ImportRebuilder() incidentbundles.ImportProjectionRebuilder {
 	if ports.store == nil {
 		return nil

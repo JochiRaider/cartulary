@@ -1461,6 +1461,35 @@
       "postgres_isolation": "none"
     },
     {
+      "row_id": "app.server.unit.ordinary_shutdown_deadline",
+      "owner_id": "app.server",
+      "family_id": "app.server.unit",
+      "collaborator_ids": [
+        "module.extensions",
+        "platform.httpruntime"
+      ],
+      "verification_ids": [
+        "app.server.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/server",
+        "tests": [
+          "TestRuntimeShutdownReportsComponentsOpenAtTheDeadline",
+          "TestServerRunnerOrdinaryShutdownHonoursOneDeadline"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
       "row_id": "app.server.unit.post_claim_graph_activation_preserves_structural_f41e41a052",
       "owner_id": "app.server",
       "family_id": "app.server.unit",

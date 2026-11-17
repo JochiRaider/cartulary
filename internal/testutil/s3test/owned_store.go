@@ -138,12 +138,14 @@ func seaweedFSS3AllowedOrigins(inputs map[string]string) string {
 	return defaultSeaweedFSS3AllowedOrigins()
 }
 
+// noBrowserOrigin is a reserved (RFC 2606) origin that no browser serves.
+// Browsers never reach the object store: uploads use the application's
+// same-origin /api/v1/object-uploads capability. Keeping the flag explicit
+// denies every real origin instead of falling back to a permissive default.
+const noBrowserOrigin = "https://browser-cors-disabled.invalid"
+
 func defaultSeaweedFSS3AllowedOrigins() string {
-	origins := []string{"https://localhost:5173", "https://127.0.0.1:5173"}
-	for port := defaultSeaweedFSS3BrowserPortStart; port <= defaultSeaweedFSS3BrowserPortEnd; port++ {
-		origins = append(origins, fmt.Sprintf("https://localhost:%d", port), fmt.Sprintf("https://127.0.0.1:%d", port))
-	}
-	return strings.Join(origins, ",")
+	return noBrowserOrigin
 }
 
 // Only an unresolved attempt carries a partial handle. Its ordinary cleanup

@@ -694,9 +694,9 @@
       "fixture_title": "Drag-fill handle",
       "status": "current",
       "playwright_scenario_title": "Capture frozen column, resize handle, fill-down handle, edit cell, and group outline row grid-adapter fixtures.",
-      "golden_filename": "apps/web/e2e/visual-goldens/timeline-grid-adapter-fixtures-linux.png",
+      "golden_filename": "apps/web/e2e/visual-goldens/timeline-grid-adapter-fill-handle-linux.png",
       "golden_artifacts": [
-        "apps/web/e2e/visual-goldens/timeline-grid-adapter-fixtures-linux.png"
+        "apps/web/e2e/visual-goldens/timeline-grid-adapter-fill-handle-linux.png"
       ],
       "seed_id": "visual.seed.drag_fill_handle",
       "scroll_normalization": {
@@ -704,7 +704,8 @@
         "anchor": "workbook-grid"
       },
       "capture_scope": {
-        "kind": "full_viewport"
+        "kind": "selector",
+        "selector": "[data-testid='cartulary.view.timeline.v2-grid-shell']"
       },
       "focus_state": {
         "kind": "fixture_specific",
@@ -730,7 +731,7 @@
         "package.grid_adapter.visual.capture_test_only_grid_adapter_support_specimens_9c222633ba"
       ],
       "capture_profiles": {
-        "apps/web/e2e/visual-goldens/timeline-grid-adapter-fixtures-linux.png": {
+        "apps/web/e2e/visual-goldens/timeline-grid-adapter-fill-handle-linux.png": {
           "viewport_css_px": "1440x900",
           "device_scale_factor": 1,
           "browser_zoom_percent": 100,
@@ -748,7 +749,7 @@
       "golden_filename": "apps/web/e2e/visual-goldens/timeline-mutation-active-edit-cell-linux.png",
       "golden_artifacts": [
         "apps/web/e2e/visual-goldens/timeline-mutation-active-edit-cell-linux.png",
-        "apps/web/e2e/visual-goldens/timeline-grid-adapter-fixtures-linux.png",
+        "apps/web/e2e/visual-goldens/timeline-grid-adapter-editor-linux.png",
         "apps/web/e2e/visual-goldens/timeline-grid-active-edit-cell-linux.png"
       ],
       "seed_id": "visual.seed.edit_cell",
@@ -793,7 +794,7 @@
           "density_id": "compact",
           "surface_kind": "workbook_shell"
         },
-        "apps/web/e2e/visual-goldens/timeline-grid-adapter-fixtures-linux.png": {
+        "apps/web/e2e/visual-goldens/timeline-grid-adapter-editor-linux.png": {
           "viewport_css_px": "1440x900",
           "device_scale_factor": 1,
           "browser_zoom_percent": 100,
@@ -1043,9 +1044,9 @@
       "fixture_title": "Frozen column",
       "status": "current",
       "playwright_scenario_title": "Capture frozen column, resize handle, fill-down handle, edit cell, and group outline row grid-adapter fixtures.",
-      "golden_filename": "apps/web/e2e/visual-goldens/timeline-grid-adapter-fixtures-linux.png",
+      "golden_filename": "apps/web/e2e/visual-goldens/timeline-grid-adapter-grouped-frozen-linux.png",
       "golden_artifacts": [
-        "apps/web/e2e/visual-goldens/timeline-grid-adapter-fixtures-linux.png"
+        "apps/web/e2e/visual-goldens/timeline-grid-adapter-grouped-frozen-linux.png"
       ],
       "seed_id": "visual.seed.frozen_column",
       "scroll_normalization": {
@@ -1053,7 +1054,8 @@
         "anchor": "workbook-grid"
       },
       "capture_scope": {
-        "kind": "full_viewport"
+        "kind": "selector",
+        "selector": "[data-testid='cartulary.view.timeline.v2-grid-shell']"
       },
       "focus_state": {
         "kind": "fixture_specific",
@@ -1079,7 +1081,7 @@
         "package.grid_adapter.visual.capture_test_only_grid_adapter_support_specimens_9c222633ba"
       ],
       "capture_profiles": {
-        "apps/web/e2e/visual-goldens/timeline-grid-adapter-fixtures-linux.png": {
+        "apps/web/e2e/visual-goldens/timeline-grid-adapter-grouped-frozen-linux.png": {
           "viewport_css_px": "1440x900",
           "device_scale_factor": 1,
           "browser_zoom_percent": 100,
@@ -1199,9 +1201,9 @@
       "fixture_title": "Resize handle",
       "status": "current",
       "playwright_scenario_title": "Capture frozen column, resize handle, fill-down handle, edit cell, and group outline row grid-adapter fixtures.",
-      "golden_filename": "apps/web/e2e/visual-goldens/timeline-grid-adapter-fixtures-linux.png",
+      "golden_filename": "apps/web/e2e/visual-goldens/timeline-grid-adapter-grouped-frozen-linux.png",
       "golden_artifacts": [
-        "apps/web/e2e/visual-goldens/timeline-grid-adapter-fixtures-linux.png"
+        "apps/web/e2e/visual-goldens/timeline-grid-adapter-grouped-frozen-linux.png"
       ],
       "seed_id": "visual.seed.resize_handle",
       "scroll_normalization": {
@@ -1209,7 +1211,8 @@
         "anchor": "workbook-grid"
       },
       "capture_scope": {
-        "kind": "full_viewport"
+        "kind": "selector",
+        "selector": "[data-testid='cartulary.view.timeline.v2-grid-shell']"
       },
       "focus_state": {
         "kind": "fixture_specific",
@@ -1235,7 +1238,7 @@
         "package.grid_adapter.visual.capture_test_only_grid_adapter_support_specimens_9c222633ba"
       ],
       "capture_profiles": {
-        "apps/web/e2e/visual-goldens/timeline-grid-adapter-fixtures-linux.png": {
+        "apps/web/e2e/visual-goldens/timeline-grid-adapter-grouped-frozen-linux.png": {
           "viewport_css_px": "1440x900",
           "device_scale_factor": 1,
           "browser_zoom_percent": 100,
@@ -1532,9 +1535,9 @@
       "fixture_title": "Tree/group row",
       "status": "current",
       "playwright_scenario_title": "Capture frozen column, resize handle, fill-down handle, edit cell, and group outline row grid-adapter fixtures.",
-      "golden_filename": "apps/web/e2e/visual-goldens/timeline-grid-adapter-fixtures-linux.png",
+      "golden_filename": "apps/web/e2e/visual-goldens/timeline-grid-adapter-grouped-frozen-linux.png",
       "golden_artifacts": [
-        "apps/web/e2e/visual-goldens/timeline-grid-adapter-fixtures-linux.png"
+        "apps/web/e2e/visual-goldens/timeline-grid-adapter-grouped-frozen-linux.png"
       ],
       "seed_id": "visual.seed.tree_group_row",
       "scroll_normalization": {
@@ -1542,7 +1545,8 @@
         "anchor": "workbook-grid"
       },
       "capture_scope": {
-        "kind": "full_viewport"
+        "kind": "selector",
+        "selector": "[data-testid='cartulary.view.timeline.v2-grid-shell']"
       },
       "focus_state": {
         "kind": "fixture_specific",
@@ -1568,7 +1572,7 @@
         "package.grid_adapter.visual.capture_test_only_grid_adapter_support_specimens_9c222633ba"
       ],
       "capture_profiles": {
-        "apps/web/e2e/visual-goldens/timeline-grid-adapter-fixtures-linux.png": {
+        "apps/web/e2e/visual-goldens/timeline-grid-adapter-grouped-frozen-linux.png": {
           "viewport_css_px": "1440x900",
           "device_scale_factor": 1,
           "browser_zoom_percent": 100,

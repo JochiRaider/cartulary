@@ -3,6 +3,7 @@ package pgtest
 import (
 	"context"
 	"database/sql"
+	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
 	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 	"github.com/jackc/pgx/v5"
@@ -33,6 +34,18 @@ SELECT EXISTS (
 	}
 	if !exists {
 		t.Fatal("expected PrepareIsolatedDatabaseT to return a migrated database")
+	}
+	source, err := dbmigrations.Source()
+	if err != nil {
+		t.Fatalf("load canonical migration source: %v", err)
+	}
+	inspection, err := database_migrations.InspectSource(source)
+	if err != nil {
+		t.Fatalf("inspect canonical migration source: %v", err)
+	}
+	var applied int64
+	if err := db.QueryRowContext(context.Background(), `SELECT max(version_id) FROM public.goose_db_version WHERE is_applied`).Scan(&applied); err != nil || applied != inspection.MaxVersion {
+		t.Fatalf("applied migration version = %d, %v; want canonical %d", applied, err, inspection.MaxVersion)
 	}
 	var format string
 	if err := db.QueryRowContext(context.Background(), `SELECT format_id FROM public.application_crypto_format WHERE singleton`).Scan(&format); err != nil || format != database_migrations.ApplicationCryptoFormat {

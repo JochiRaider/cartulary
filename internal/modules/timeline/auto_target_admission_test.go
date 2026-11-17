@@ -92,7 +92,7 @@ func exerciseTimelineAutoTargetAdmission(t *testing.T) {
 							t.Fatal(err)
 						}
 					case "alias_removed", "replacement":
-						if _, err := holder.Exec(ctx, `UPDATE entity_aliases SET deleted_at='2026-11-14T10:00:00Z' WHERE record_id=$1`, target); err != nil {
+						if _, err := holder.Exec(ctx, `UPDATE entity_aliases SET deleted_at=created_at WHERE record_id=$1`, target); err != nil {
 							t.Fatal(err)
 						}
 					case "alias_renamed":

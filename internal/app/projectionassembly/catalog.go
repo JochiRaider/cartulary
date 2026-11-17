@@ -82,6 +82,13 @@ func (runtime *Runtime) SourceTextRows() projectionadapters.SourceTextRows {
 	return runtime.ports.SourceTextRows()
 }
 
+func (runtime *Runtime) RecordSummaryLabels() projectionadapters.RecordSummaryLabels {
+	if runtime == nil {
+		return nil
+	}
+	return runtime.ports.RecordSummaryLabels()
+}
+
 func (runtime *Runtime) ImportRebuilder() incidentbundles.ImportProjectionRebuilder {
 	if runtime == nil {
 		return nil

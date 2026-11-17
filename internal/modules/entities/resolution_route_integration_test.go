@@ -17,6 +17,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/incidentwstest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
+	"github.com/JochiRaider/cartulary/internal/testutil/lifecyclecontract"
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 	workbookscenariotest "github.com/JochiRaider/cartulary/internal/testutil/workbookscenariotest"
 )
@@ -303,9 +304,13 @@ SELECT COUNT(*)
 			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 		)
 		illegalBody := httptestx.RequireErrorEnvelope(t, illegalResp, http.StatusConflict, "illegal_transition")
-		if illegalBody["error"].(map[string]any)["details"].(map[string]any)["from_status"] != "dismissed" {
-			t.Fatalf("expected illegal transition details to report the dismissed source status, got %#v", illegalBody)
+		illegalDetails := illegalBody["error"].(map[string]any)["details"].(map[string]any)
+		if guards, ok := illegalDetails["violated_guards"].([]any); illegalDetails["from_status"] != "dismissed" || illegalDetails["to_status"] != "dismissed" ||
+			illegalDetails["reason_code"] != "transition_not_allowed" || !ok || len(guards) != 0 {
+			t.Fatalf("expected complete matrix-rejection details from dismissed, got %#v", illegalBody)
 		}
+		// AC-606: the emitted vocabulary is registered for this machine.
+		lifecyclecontract.RequireDetails(t, "entity_mention.resolution_status", illegalDetails)
 		hostRowAfterFailures := workbookscenariotest.FindRow(t, workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), viewtest.HostsViewSchemaID, adminLogin), entitytest.CanonicalHostRecordID.String())
 		if got := hostRowAfterFailures["cells"].(map[string]any)["host.linked_event_count"].(map[string]any)["value"]; got != float64(0) {
 			t.Fatalf("failed mention actions changed the projected linked-event count: %#v", hostRowAfterFailures)

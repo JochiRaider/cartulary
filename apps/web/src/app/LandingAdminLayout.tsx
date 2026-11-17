@@ -195,6 +195,7 @@ export function IncidentDirectoryShell({
         <div style={brandBlockStyle}>
           <p style={landingEyebrowStyle}>Cartulary</p>
           <h1
+            id={landingAdminShellTestId("heading")}
             data-testid={landingAdminShellTestId("heading")}
             ref={headingRef}
             tabIndex={-1}

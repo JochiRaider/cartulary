@@ -120,12 +120,26 @@ export function registerBoundariesTests() {
       ["retired-workbook-provider-callback-and-restore-aliases", "internal/modules/workbook/renamed.go", "type QueryProviderFunc func()"],
       ["retired-workbook-adapter-admission-dispatch-and-hash-override", "internal/app/workbookassembly/entity_adapters.go", "var value command.Admission"],
       ["tasks-decisions-retired-forwarders-and-dead-surfaces", "internal/modules/tasksdecisions/renamed.go", "func ValidateTaskCreateParams() {}"],
+      // REQ-01-407/AC-096: Reference Data verification constructs no outbound client.
+      ["reference-data-runtime-no-outbound-network-clients", "internal/modules/reference_data/verify.go", "var client = &http.Client{}"],
+      ["reference-data-runtime-no-outbound-network-clients", "internal/modules/reference_data/verify.go", "func fetch() { _, _ = net.Dial(\"tcp\", \"example.test:443\") }"],
     ]) {
       const rules = manifest.forbiddenSourceTokens.filter((rule) => rule.id === id);
       assert.equal(rules.length, 1);
       for (const [content, count] of [[prohibited, 1], ["func CurrentSurface() {}", 0]]) {
         assert.equal(inspect([{ relative, content: `package fixture\n${content}` }], { forbiddenSourceTokens: rules }).length, count, id);
       }
+    }
+  });
+
+  test("backend policy: Reference Data serves HTTP and test support may use a client", () => {
+    const rules = repositoryPolicy().forbiddenSourceTokens.filter((rule) => rule.id === "reference-data-runtime-no-outbound-network-clients");
+    assert.equal(rules.length, 1);
+    for (const [relative, content] of [
+      ["internal/modules/reference_data/http_adapter.go", "func handle(w http.ResponseWriter, r *http.Request) {}"],
+      ["internal/modules/reference_data/testsupport/fixturehttp/http.go", "var client = http.DefaultClient"],
+    ]) {
+      assert.equal(inspect([{ relative, content: `package fixture\n${content}` }], { forbiddenSourceTokens: rules }).length, 0, relative);
     }
   });
 

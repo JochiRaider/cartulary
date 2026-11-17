@@ -26,6 +26,7 @@ type MutationFacade struct {
 	conflictSnapshots conflicttokens.RevisionSnapshotProjector
 	keepSaved         conflicttokens.IdempotencyPort
 	publications      collaboration.RecordChangedAppender
+	recordLabels      recordSummaryLabels
 }
 
 type createRequest struct {
@@ -186,5 +187,6 @@ func NewMutationContribution(
 		conflictSnapshots: conflictSnapshots,
 		keepSaved:         dependencies.KeepSavedIdempotency,
 		publications:      dependencies.Collaboration,
+		recordLabels:      dependencies.Projections,
 	}, nil
 }

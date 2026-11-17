@@ -9,6 +9,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
+	"github.com/JochiRaider/cartulary/internal/testutil/lifecyclecontract"
 )
 
 func exerciseTimelineHiddenMentionPreview(t *testing.T) {
@@ -123,10 +124,11 @@ func exerciseTimelineHiddenMentionPreview(t *testing.T) {
 						}
 					} else if from != "" {
 						failure := httptestx.RequireErrorEnvelope(t, response, http.StatusConflict, "illegal_transition")
-						want := map[string]any{"from_status": from, "to_status": to, "violated_guards": []any{"from_status_not_allowed"}}
+						want := map[string]any{"from_status": from, "to_status": to, "violated_guards": []any{}, "reason_code": "transition_not_allowed"}
 						if !reflect.DeepEqual(failure["error"].(map[string]any)["details"], want) {
 							t.Fatal("hidden transition failure differs")
 						}
+						lifecyclecontract.RequireDetails(t, "entity_mention.resolution_status", failure["error"].(map[string]any)["details"].(map[string]any))
 					} else {
 						conflict := httptestx.RequireErrorEnvelope(t, response, http.StatusConflict, "same_field_conflict")["error"].(map[string]any)["conflict"].(map[string]any)
 						if conflict["field_key"] != field || conflict["conflict_resolution_class"] != "collection_review" || conflict["base_row_version"] != float64(2) || conflict["current_row_version"] != float64(3) || !reflect.DeepEqual(conflict["base_value"], base) || !reflect.DeepEqual(conflict["server_value"], server) {

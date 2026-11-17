@@ -19,7 +19,7 @@ import (
 func (s *store) MarkReviewed(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request ActionRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
 	return s.applyAction(ctx, actor, reviewRouteKey, recordID, request.BaseRowVersion, request.ClientTxnID, requestHash, requestID, now, request.Reason, nil, func(current sourcerepository.Snapshot) (sourcerepository.Snapshot, *string, error) {
 		if !captureStateAllowsMarkReviewed(current.CaptureState) {
-			return sourcerepository.Snapshot{}, nil, newIllegalTransitionError("mark_reviewed_not_allowed", current.CaptureState, captureStateReviewed)
+			return sourcerepository.Snapshot{}, nil, newIllegalTransitionError(reasonTransitionNotAllowed, current.CaptureState, captureStateReviewed)
 		}
 		next := current
 		next.CaptureState = captureStateReviewed
@@ -36,7 +36,7 @@ func (s *store) MarkReviewed(ctx context.Context, actor authn.UserRecord, record
 func (s *store) Supersede(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request SupersedeRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
 	return s.applyAction(ctx, actor, supersedeRouteKey, recordID, request.BaseRowVersion, request.ClientTxnID, requestHash, requestID, now, &request.Reason, request.ReplacementRecordID, func(current sourcerepository.Snapshot) (sourcerepository.Snapshot, *string, error) {
 		if !captureStateAllowsSupersede(current.CaptureState) {
-			return sourcerepository.Snapshot{}, nil, newIllegalTransitionError("supersede_not_allowed", current.CaptureState, captureStateSuperseded)
+			return sourcerepository.Snapshot{}, nil, newIllegalTransitionError(reasonTransitionNotAllowed, current.CaptureState, captureStateSuperseded)
 		}
 
 		next := current
@@ -171,7 +171,7 @@ RETURNING recorded_at
 		})
 		if err != nil {
 			if isRecordLinkConflict(err) {
-				return MutationResult{}, newIllegalTransitionError("supersede_not_allowed", current.CaptureState, captureStateSuperseded, supersedeGuardTargetMustNotHaveActiveReplacement)
+				return MutationResult{}, newIllegalTransitionError(reasonGuardsNotSatisfied, current.CaptureState, captureStateSuperseded, supersedeGuardTargetMustNotHaveActiveReplacement)
 			}
 			return MutationResult{}, err
 		}
@@ -321,7 +321,7 @@ func (s *store) validateSupersedeReplacementTx(ctx context.Context, tx pgx.Tx, c
 	}
 
 	if len(guards) > 0 {
-		return newIllegalTransitionError("supersede_not_allowed", current.CaptureState, captureStateSuperseded, guards...)
+		return newIllegalTransitionError(reasonGuardsNotSatisfied, current.CaptureState, captureStateSuperseded, guards...)
 	}
 	return nil
 }

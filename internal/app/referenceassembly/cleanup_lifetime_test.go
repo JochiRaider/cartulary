@@ -84,6 +84,7 @@ func TestImportProbeSupervisedRootedCleanup_Unit(t *testing.T) {
 	}
 	for _, mode := range []string{"success", "cancellation", "deadline", "write failure", "cancellation waiting for lease"} {
 		run := func(t *testing.T) {
+			started := time.Now()
 			temporary := t.TempDir()
 			root, err := referenceassembly.NewRootStorage(temporary, t.TempDir())
 			if err != nil {
@@ -131,6 +132,10 @@ func TestImportProbeSupervisedRootedCleanup_Unit(t *testing.T) {
 			if mode == "deadline" && (!wrote || !errors.Is(ctx.Err(), context.DeadlineExceeded)) {
 				t.Fatal("deadline must interrupt an existing workspace after a write", wrote, ctx.Err())
 			}
+			// In fake time the lease is released at 40 ms; cleanup cannot finish earlier.
+			if mode == "cancellation waiting for lease" && time.Since(started) < 40*time.Millisecond {
+				t.Fatal("cleanup completed before the parent lease was released", time.Since(started))
+			}
 			if mode == "success" {
 				if err != nil {
 					t.Fatal(err)
@@ -147,9 +152,11 @@ func TestImportProbeSupervisedRootedCleanup_Unit(t *testing.T) {
 			}
 		}
 		t.Run(mode, func(t *testing.T) {
-			if mode == "deadline" {
-				// Advance the deadline only after the write hook blocks. Host
-				// scheduling during filesystem setup cannot skip cleanup coverage.
+			if mode == "deadline" || mode == "cancellation waiting for lease" {
+				// Advance fake time only after every goroutine blocks: the
+				// deadline fires after the write hook blocks, and the lease
+				// cancellation and release land while cleanup polls for the
+				// lease. Host scheduling cannot reorder either sequence.
 				synctest.Test(t, run)
 			} else {
 				run(t)

@@ -3,6 +3,7 @@ package pgtest
 import (
 	"context"
 	"database/sql"
+	"errors"
 	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
 	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"reflect"
@@ -34,23 +35,29 @@ func TestMigrationDatabaseTargetedOperationValidation(t *testing.T) {
 	}
 	dbOps.applyThrough = operation
 	dbOps.rollbackThrough = operation
-	for _, capability := range []*MigrationDatabase{nil, {}, {db: &sql.DB{}}, {db: &sql.DB{}, identity: &migrationDatabaseIdentity{}, operations: dbOps}} {
-		if borrowed, err := capability.RuntimeDatabase(); err == nil || borrowed != nil {
-			t.Fatal("unissued capability exposed runtime database")
+	// Each unissued capability differs from a valid issued one in exactly one
+	// member, so every rejection is attributable to that member.
+	valid := MigrationDatabase{db: &sql.DB{}, identity: issuedMigrationDatabaseIdentity, operations: dbOps, database: TestDatabase{Name: "scratch", DSN: "test-only"}}
+	missingDB, foreignIdentity := valid, valid
+	missingDB.db = nil
+	foreignIdentity.identity = &migrationDatabaseIdentity{}
+	for name, capability := range map[string]*MigrationDatabase{"nil": nil, "missing db": &missingDB, "foreign identity": &foreignIdentity} {
+		if borrowed, err := capability.RuntimeDatabase(); !errors.Is(err, errMigrationCapabilityNotIssued) || borrowed != nil {
+			t.Fatalf("%s: unissued capability exposed runtime database: %v", name, err)
 		}
 		if capability.SQL() != nil {
-			t.Fatal("unissued capability exposed SQL")
+			t.Fatalf("%s: unissued capability exposed SQL", name)
 		}
-		if err := capability.ApplyThrough(t.Context(), 1); err == nil {
-			t.Fatal("unissued apply accepted")
+		if err := capability.ApplyThrough(t.Context(), 1); !errors.Is(err, errMigrationCapabilityNotIssued) {
+			t.Fatalf("%s: unissued apply accepted: %v", name, err)
 		}
-		if err := capability.RollbackThrough(t.Context(), 0); err == nil {
-			t.Fatal("unissued rollback accepted")
+		if err := capability.RollbackThrough(t.Context(), 0); !errors.Is(err, errMigrationCapabilityNotIssued) {
+			t.Fatalf("%s: unissued rollback accepted: %v", name, err)
 		}
 	}
 	issued := &MigrationDatabase{db: &sql.DB{}, identity: issuedMigrationDatabaseIdentity, operations: dbOps}
-	if _, err := issued.RuntimeDatabase(); err == nil {
-		t.Fatal("missing scratch identity exposed runtime database")
+	if _, err := issued.RuntimeDatabase(); !errors.Is(err, errMigrationScratchIdentityMissing) {
+		t.Fatal("missing scratch identity exposed runtime database", err)
 	}
 	issued.database = TestDatabase{Name: "scratch", DSN: "test-only"}
 	borrowed, err := issued.RuntimeDatabase()

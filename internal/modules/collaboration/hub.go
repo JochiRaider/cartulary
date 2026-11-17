@@ -21,6 +21,10 @@ type hub struct {
 	presences         map[uuid.UUID]map[string]protocol.PresenceRecord
 	serviceVersion    string
 	activeConnections atomic.Int64
+	// shutdown closes once on ordinary server shutdown (REQ-04-146a); every
+	// open session then closes with 1001 going away.
+	shutdown     chan struct{}
+	shutdownOnce sync.Once
 }
 
 type incidentUserKey struct {
@@ -36,9 +40,21 @@ func newHub(serviceVersion string) *hub {
 		incidentStreams:   make(map[uuid.UUID]map[chan protocol.Message]struct{}),
 		presences:         make(map[uuid.UUID]map[string]protocol.PresenceRecord),
 		serviceVersion:    serviceVersion,
+		shutdown:          make(chan struct{}),
 	}
 	liveHub.registerTelemetry()
 	return liveHub
+}
+
+// closeSessions signals every open and later session to close with 1001. It is
+// idempotent.
+func (h *hub) closeSessions() {
+	h.shutdownOnce.Do(func() { close(h.shutdown) })
+}
+
+// sessionsClosed is closed once ordinary shutdown has begun.
+func (h *hub) sessionsClosed() <-chan struct{} {
+	return h.shutdown
 }
 
 // DeliverReplayable delivers an already sequenced durable event. Collaboration

@@ -79,7 +79,9 @@ func exerciseCanonicalCollectionOrder(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			expected := []map[string]any{items[1], items[2], items[0]}
+			// REQ-01-067: label order (Alpha, Middle, Zulu), not item_ref order;
+			// the highest ref carries the first label so a ref order cannot pass.
+			expected := []map[string]any{items[0], items[2], items[1]}
 			unordered := Collection(false, items)
 			if unordered["kind"] != "collection_value_v1" || unordered["ordered"] != false || !reflect.DeepEqual(unordered["items"], expected) {
 				t.Fatalf("unordered identities/member values = %#v", unordered)

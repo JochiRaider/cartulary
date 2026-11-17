@@ -1422,6 +1422,18 @@ A successful lifecycle transition MUST be committed through the ordinary record-
 Profiles: base
 Verified by: AC-085, AC-137, AC-138, AC-139, AC-140, AC-145, AC-231
 
+**REQ-02-109a — Task-request fail-closed behaviour**
+The Task-request machine condition is `status`; `blocked_reason`, `completed_at`, `owner_user_id`, and `created_at` are its guard fields under REQ-02-103. The behaviour follows the persisted state:
+
+- A persisted `status` outside the closed vocabulary is a storage invariant failure. Any request that reads the row's machine condition or mutates the row MUST fail with `internal_error`, MUST commit nothing, and MUST NOT report `illegal_transition`.
+- A persisted row whose `status` is legal but which violates REQ-02-103 is inconsistent. Every mutation of it MUST fail with `409 illegal_transition`, `reason_code = inconsistent_machine_state`, and `violated_guards[]` naming each violated REQ-02-103 guard, and it MUST commit nothing.
+- The exception is a mutation or rollback whose resulting row satisfies every REQ-02-103 guard and whose status change, if any, is legal under this subsection. That is the explicit corrective action, and it commits through the ordinary path.
+- Restore of a Task whose restored row violates REQ-02-103 MUST be blocked with `record_restore_blocked` and `reason_code=task_lifecycle_inconsistent` (Core 01 restore admission); it commits nothing.
+- Outside that inconsistency, a write rejected by the transition matrix uses `reason_code = transition_not_allowed`, and a write whose resulting row violates a guard uses `reason_code = guards_not_satisfied`.
+
+Profiles: base
+Verified by: AC-313, AC-606
+
 #### 10.4.2 `decision` record type
 
 **REQ-02-110**
@@ -2513,6 +2525,17 @@ A direct `pending -> quarantined` transition is illegal. Any transition out of `
 
 Any attempted blob or evidence lifecycle transition outside the legal transition sets above MUST be rejected as an illegal transition. A rejected lifecycle transition MUST return the stable lifecycle-validation error defined by Core 01 §3.3.6 and MUST leave authoritative persisted state unchanged. A successful evidence lifecycle transition MUST commit through the ordinary record-mutation path or a documented bridge update, increment `row_version` on every changed evidence record, append a `change_set` and mutation entries, update derived projections, and surface the ordinary `record_changed` signal plus the corresponding evidence-access availability outcome. A successful blob lifecycle transition MUST surface through the ordinary finalization path or through the documented timeout or quarantine work, and it MUST NOT partially mutate blob state or evidence linkage.
 
+**REQ-02-189a — Blob-upload fail-closed behaviour**
+The Blob machine condition is `upload_state` alone. The dependent fields MUST satisfy the coherent lifecycle tuple above in live state as well as in retained portable state. Those fields are `terminal_reason`, `failed_at`, `target_expires_at`, `pending_expires_at`, `cleanup_due_at`, `cleaned_up_at`, the finalization clock, and the observed size, digest, and content type. The rules are:
+
+- The implementation MUST verify that tuple whenever it loads a Blob for finalization, timeout, quarantine, quarantine clear, Evidence attachment, or cleanup.
+- A loaded Blob that violates the tuple, or whose `upload_state` is outside the closed vocabulary, is a storage invariant failure. The operation MUST fail with `internal_error`, MUST commit nothing, and leaves repair to operator recovery.
+- Because the condition derives from one field, the machine defines no legal-value contradiction.
+- A rejected Blob transition uses `409 illegal_transition` with `reason_code = transition_not_allowed` and empty `violated_guards[]`.
+
+Profiles: base
+Verified by: AC-313, AC-606
+
 **REQ-02-190**
 The evidence-custody guards and blob bridge rules are:
 
@@ -2613,6 +2636,20 @@ Verified by: AC-015, AC-016, AC-053, AC-100, AC-102, AC-103, AC-107, AC-108, AC-
 If structured state violates the legal guards and bridge outcomes in this section, the implementation MUST fail closed: preview and download MUST be blocked and the record MUST surface as inconsistent until repaired by an explicit corrective action or re-finalization path. This includes, at minimum, any evidence row persisted as `available` or `released` while its linked blob is `pending`, `failed`, missing, or `quarantined`, and any evidence row persisted as `quarantined` while its linked blob is neither `quarantined` nor absent.
 Profiles: base
 Verified by: AC-015, AC-016, AC-053, AC-100, AC-102, AC-103, AC-107, AC-108, AC-109, AC-110, AC-111, AC-128, AC-154, AC-155, AC-231, AC-313
+
+**REQ-02-196a — Evidence-custody fail-closed behaviour**
+The Evidence-custody machine condition is `lifecycle_state` together with link presence and the linked Blob's actual current `upload_state` under REQ-02-190. The retained Evidence `upload_state` scalar and custody events never decide it. The behaviour follows the persisted state:
+
+- A persisted `lifecycle_state` outside the closed vocabulary is a storage invariant failure. The request MUST fail with `internal_error`, MUST commit nothing, and MUST NOT report `illegal_transition`.
+- Legal values that violate the REQ-02-190 bridge make the record inconsistent under REQ-02-196:
+  - preview and download fail with `409 evidence_access_unavailable` and `reason_code = evidence_inconsistent`;
+  - attachment fails with `409 evidence_attach_rejected` and `reason_code = evidence_inconsistent`;
+  - any other mutation fails with `409 illegal_transition`, `reason_code = inconsistent_machine_state`, and the violated bridge guard.
+- The exception is a mutation whose resulting state satisfies the bridge, or re-finalization. That is the corrective action.
+- Rollback MUST evaluate the bridge against the linked Blob's live state, and MUST NOT commit a restored lifecycle state that violates it. Such a rollback fails with `409` and `target_not_reversible`.
+
+Profiles: base
+Verified by: AC-313, AC-606
 
 **REQ-02-197**
 An evidence record or its deterministic joined projection from authoritative object metadata MUST be able to expose, at minimum:

@@ -54,11 +54,22 @@ test("frontend CLI: invalid arguments and configuration", (t) => {
     assert.equal(child.status, 1);
     assert.match(child.stderr, /usage:/);
   }
-  for (const config of ["{invalid", {}, { schema_id: "cartulary.frontend_import_boundaries.v2", scan_roots: ["src"], rules: [{}] }]) {
+  const valid = fixture.readJSON("boundaries.json");
+  const [rule] = valid.rules;
+  const { applies_to: _appliesTo, ...ruleWithoutScope } = rule;
+  const { schema_id: _schemaID, ...withoutSchema } = valid;
+  // Each configuration carries exactly one defect and reports it exactly.
+  for (const [config, message] of [
+    ["{invalid", /frontend import boundary check failed: /],
+    [[], /frontend import boundary check failed: config must be an object\n/],
+    [withoutSchema, /frontend import boundary check failed: config must declare schema_id=cartulary\.frontend_import_boundaries\.v2\n/],
+    [{ ...valid, rules: [ruleWithoutScope] }, /frontend import boundary check failed: rules\[1\]\.applies_to must be an object\n/],
+    [{ ...valid, rules: [{ ...rule, level: "fatal" }] }, /frontend import boundary check failed: rules\[1\]\.level must be error or warning\n/],
+  ]) {
     fixture.write("boundaries.json", config);
     const child = invoke(fixture);
-    assert.equal(child.status, 1);
-    assert.match(child.stderr, /frontend import boundary check failed:/);
+    assert.equal(child.status, 1, JSON.stringify(config));
+    assert.match(child.stderr, message, JSON.stringify(config));
   }
 });
 

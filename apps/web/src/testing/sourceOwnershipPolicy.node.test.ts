@@ -158,6 +158,39 @@ function commandOwnershipProblems(file: string, source: string): string[] {
   return [...problems].sort();
 }
 
+function reconciliationDependencyProblems(
+  sourcePath: string,
+  source: string,
+): string[] {
+  const syntax = ts.createSourceFile(
+    sourcePath,
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TSX,
+  );
+  const violations: string[] = [];
+  const visit = (node: ts.Node) => {
+    if (ts.isIdentifier(node) && node.text === "CollaborationSheetRef")
+      violations.push("transport identity in Workbook");
+    if (
+      ts.isStringLiteralLike(node) &&
+      node.text.includes("/api/v1/auth/session")
+    )
+      violations.push("session transport in Workbook");
+    if (
+      ts.isImportDeclaration(node) &&
+      ts.isStringLiteral(node.moduleSpecifier) &&
+      sourcePath.includes("/workbook/collaboration/") &&
+      /(?:^|\/)services\//u.test(node.moduleSpecifier.text)
+    )
+      violations.push("service import in reconciliation owner");
+    ts.forEachChild(node, visit);
+  };
+  visit(syntax);
+  return violations;
+}
+
 describe("frontend source ownership policy", () => {
   it("accounts for every live TypeScript path exactly once without Markdown input", () => {
     const manifest = JSON.parse(
@@ -314,34 +347,54 @@ describe("frontend source ownership policy", () => {
       (sourcePath) =>
         !sourcePath.endsWith(".test.ts") && !sourcePath.endsWith(".test.tsx"),
     );
-    for (const sourcePath of workbookProduction) {
-      const syntax = ts.createSourceFile(
+    for (const sourcePath of workbookProduction)
+      expect(
+        reconciliationDependencyProblems(
+          sourcePath,
+          readFileSync(path.join(repoRoot, sourcePath), "utf8"),
+        ),
         sourcePath,
-        readFileSync(path.join(repoRoot, sourcePath), "utf8"),
-        ts.ScriptTarget.Latest,
-        true,
-        ts.ScriptKind.TSX,
-      );
-      const violations: string[] = [];
-      const visit = (node: ts.Node) => {
-        if (ts.isIdentifier(node) && node.text === "CollaborationSheetRef")
-          violations.push("transport identity in Workbook");
-        if (
-          ts.isStringLiteralLike(node) &&
-          node.text.includes("/api/v1/auth/session")
-        )
-          violations.push("session transport in Workbook");
-        if (
-          ts.isImportDeclaration(node) &&
-          ts.isStringLiteral(node.moduleSpecifier) &&
-          sourcePath.includes("/workbook/collaboration/") &&
-          /(?:^|\/)services\//u.test(node.moduleSpecifier.text)
-        )
-          violations.push("service import in reconciliation owner");
-        ts.forEachChild(node, visit);
-      };
-      visit(syntax);
-      expect(violations, sourcePath).toEqual([]);
-    }
+      ).toEqual([]);
+    // Each rule fires on a synthetic Workbook source and ignores comments,
+    // string mentions of names and non-reconciliation service imports.
+    for (const [sourcePath, source, problem] of [
+      [
+        "apps/web/src/workbook/models/sheet.ts",
+        "type Ref = CollaborationSheetRef;",
+        "transport identity in Workbook",
+      ],
+      [
+        "apps/web/src/workbook/models/session.ts",
+        'const path = "/api/v1/auth/session";',
+        "session transport in Workbook",
+      ],
+      [
+        "apps/web/src/workbook/collaboration/reconcile.ts",
+        'import { requestJSON } from "../../services/httpTransport";',
+        "service import in reconciliation owner",
+      ],
+    ] as const)
+      expect(
+        reconciliationDependencyProblems(sourcePath, source),
+        source,
+      ).toEqual([problem]);
+    for (const [sourcePath, source] of [
+      [
+        "apps/web/src/workbook/models/sheet.ts",
+        "// CollaborationSheetRef /api/v1/auth/session",
+      ],
+      [
+        "apps/web/src/workbook/models/sheet.ts",
+        'const label = "CollaborationSheetRef";',
+      ],
+      [
+        "apps/web/src/workbook/features/notes/load.ts",
+        'import { requestJSON } from "../../../services/httpTransport";',
+      ],
+    ] as const)
+      expect(
+        reconciliationDependencyProblems(sourcePath, source),
+        source,
+      ).toEqual([]);
   });
 });

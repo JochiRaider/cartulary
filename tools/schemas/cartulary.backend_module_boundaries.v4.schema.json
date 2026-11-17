@@ -377,6 +377,9 @@
             "source_text",
             "go_identifier"
           ]
+        },
+        "retired_paths": {
+          "type": "boolean"
         }
       },
       "oneOf": [

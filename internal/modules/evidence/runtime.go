@@ -34,6 +34,14 @@ type TimelineAttachmentContribution interface {
 		tx pgx.Tx,
 		recordIDs []uuid.UUID,
 	) error
+	// TimelineAttachmentLabelsTx returns the REQ-01-333a label Timeline stores
+	// for each live Evidence in the incident; others are omitted.
+	TimelineAttachmentLabelsTx(
+		ctx context.Context,
+		tx pgx.Tx,
+		incidentID uuid.UUID,
+		recordIDs []uuid.UUID,
+	) (map[uuid.UUID]string, error)
 }
 
 // OwnerRuntime is the immutable application-facing Evidence capability set.

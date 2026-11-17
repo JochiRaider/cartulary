@@ -9,13 +9,13 @@ const assessmentsViewSchemaID = "cartulary.view.assessments.v1"
 func AssessmentPlans() []Surface {
 	return []Surface{{
 		ViewSchemaID: assessmentsViewSchemaID,
-		FromSQL: sqlshape.Literal(`FROM assessment_grid_projection a
+		FromSQL: sqlshape.Format(`FROM assessment_grid_projection a
 JOIN records r ON r.record_id = a.record_id
 LEFT JOIN LATERAL (
     SELECT COALESCE(jsonb_agg(jsonb_build_object(
         'item_ref', 'record_ref:' || dst.record_id::text,
         'item_kind', 'record_ref',
-        'display_text', dst.record_type || ':' || dst.record_id::text,
+        'display_text', %s,
         'linked_record_id', dst.record_id::text
     ) ORDER BY dst.record_id ASC), '[]'::jsonb) AS support_refs
       FROM active_record_links_v1 rl
@@ -30,7 +30,7 @@ LEFT JOIN LATERAL (
      WHERE rl.incident_id = a.incident_id
        AND rl.src_record_id = a.record_id
        AND rl.link_type = 'supported_by'
-) support ON true`),
+) support ON true`, recordSummaryLabelSQL(sqlshape.Literal("dst.record_id"), sqlshape.Literal("dst.record_type"))),
 		RecordExpr:   sqlshape.Literal("a.record_id"),
 		IncidentExpr: sqlshape.Literal("a.incident_id"),
 		Fields: []Field{

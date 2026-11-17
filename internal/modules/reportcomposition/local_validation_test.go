@@ -93,6 +93,26 @@ func TestCompositionLocalValidationScopeAndOrdering(t *testing.T) {
 			t.Fatalf("%s was not reported: %#v", code, summary)
 		}
 	}
+	// REQ-RC-044: anchor grammar defects, including generated-ID members and
+	// kinds, fail closed-schema validation with exactly one schema issue.
+	titleText := json.RawMessage(`[{"authored_text_id":"text","text_role":"title_override","body":"Title","disclosure_partition_ref":"internal_only"}]`)
+	titleOp := func(anchor string) json.RawMessage {
+		return json.RawMessage(`[{"op_id":"op","op_kind":"override_title","payload":{"section_anchor":` + anchor + `,"authored_text_ref":"text"}}]`)
+	}
+	if clean := validateDraft(titleOp(`{"anchor_kind":"section_anchor","template_section_decl_id":"summary","expansion_key":null}`), json.RawMessage(`[]`), titleText); clean["valid"] != true {
+		t.Fatal("valid section anchor rejected", clean)
+	}
+	for name, anchor := range map[string]string{
+		"generated section member": `{"anchor_kind":"section_anchor","template_section_decl_id":"summary","expansion_key":null,"generated_section_id":"section-3"}`,
+		"generated slide kind":     `{"anchor_kind":"generated_slide","slide_id":"slide-3"}`,
+		"generated path":           `{"anchor_kind":"section_anchor","template_section_decl_id":"slides/3","expansion_key":null}`,
+	} {
+		summary := validateDraft(titleOp(anchor), json.RawMessage(`[]`), titleText)
+		issues := summary["issues"].([]map[string]any)
+		if summary["valid"] != false || len(issues) != 1 || issues[0]["code"] != "composition_schema_invalid" {
+			t.Fatalf("%s anchor: %#v", name, summary)
+		}
+	}
 	unsafe := issue("composition_schema_invalid", map[string]any{"composition_op_id": "secret/value", "target_ref": "https://private.invalid", "unexpected": "raw payload", "field": "deck_ops"}).public()
 	if details := unsafe["safe_details"].(map[string]any); len(details) != 1 || details["field"] != "deck_ops" {
 		t.Fatal("unsafe diagnostic values escaped", unsafe)

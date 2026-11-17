@@ -227,6 +227,8 @@
   "browser_reset_policy": {
     "max_attempts": 1,
     "backend_drain_timeout_ms": 30000,
+    "backend_shutdown_drain_seconds": 10,
+    "backend_drain_margin_ms": 10000,
     "database_reset_timeout_ms": 30000,
     "backend_readiness_timeout_ms": 120000,
     "evidence_overhead_timeout_ms": 30000

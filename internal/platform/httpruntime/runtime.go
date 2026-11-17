@@ -31,6 +31,10 @@ type Options struct {
 	ShutdownTimeout   time.Duration
 	Logger            *slog.Logger
 	OnReady           func() error
+	// OnShutdown runs when ordinary shutdown begins (http.Server.Shutdown), so
+	// owners of hijacked connections such as WebSockets can close them; the
+	// server does not wait on hijacked connections.
+	OnShutdown func()
 }
 
 type StartupError struct{ Err error }
@@ -74,6 +78,9 @@ func Serve(ctx context.Context, handler http.Handler, options Options) error {
 
 // serveBoundListener owns activation and shutdown after listener admission.
 func serveBoundListener(ctx context.Context, server *http.Server, listener net.Listener, options Options) error {
+	if options.OnShutdown != nil {
+		server.RegisterOnShutdown(options.OnShutdown)
+	}
 	gate := newPublicationListener(listener)
 	defer gate.Close()
 	serveDone := make(chan error, 1)

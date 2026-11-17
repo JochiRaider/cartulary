@@ -1103,6 +1103,12 @@ func seedEvidenceRecord(t testing.TB, harness *appsupport.ServerHarness, inciden
 INSERT INTO evidence (record_id, incident_id, title, lifecycle_state, upload_state, requested_at)
 VALUES ($1, $2, $3, 'received', 'pending', '2026-04-24T10:00:00Z')
 `, recordID, incidentID, title)
+	// Like the Task and Decision seeds, write the projection row that every
+	// production source write maintains; REQ-01-333a labels read it.
+	execSeed(t, harness, `
+INSERT INTO evidence_grid_projection (record_id, incident_id, row_version, title, lifecycle_state, requested_at, upload_state, edited_at)
+VALUES ($1, $2, 1, $3, 'received', '2026-04-24T10:00:00Z', 'pending', '2026-04-24T10:00:00Z')
+`, recordID, incidentID, title)
 	return recordID
 }
 

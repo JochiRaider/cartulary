@@ -30,7 +30,7 @@ import {
   currentUnitEventSource,
   readMeasurementSchedulerEvidenceForGroups,
 } from "./frontend-measurement-evidence.mjs";
-import { promoteVisualSnapshotCandidate } from "./visual-snapshot-promotion.mjs";
+import { promoteVisualSnapshotCandidate, writeVisualManifestCandidate } from "./visual-snapshot-promotion.mjs";
 import { loadTestCatalog } from "../test-catalog/index.mjs";
 import { readBrowserUnitResult, readUnlaunchedBrowserFailures } from "./browser-target-outcomes.mjs";
 import { CommandFailure, reportCommandFailure } from "../runtime/command-failure.mjs";
@@ -329,10 +329,7 @@ async function writeTargetResult(base, options, groups, outcomes) {
         targetDirectory,
         "frontend-visual-golden-manifest.candidate.json",
       );
-      secureWriteFile(
-        candidateManifest,
-        `${JSON.stringify(candidateGoldenManifest, null, 2)}\n`,
-      );
+      writeVisualManifestCandidate(candidateManifest, candidateGoldenManifest);
       visualPromotion = {
         sourceSnapshots: path.join(root, visualSnapshotRoot),
         candidateSnapshots: snapshotDirectory,

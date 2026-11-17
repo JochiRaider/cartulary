@@ -2,14 +2,119 @@ package rootedfs_test
 
 import (
 	"go/ast"
+	"go/importer"
 	"go/parser"
 	"go/token"
+	"go/types"
 	"io/fs"
 	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
 )
+
+// osFunctionEffects classifies every exported os function: true for a
+// filesystem effect that deployment-root consumers must reach only through
+// rootedfs, false for an explicit non-effect. Classification is a policy
+// decision; TestOSFunctionEffectClassificationIsComplete_Unit makes it
+// complete, so a Go release that adds an os function forces a decision.
+var osFunctionEffects = map[string]bool{
+	"Chdir":      true,
+	"Chmod":      true,
+	"Chown":      true,
+	"Chtimes":    true,
+	"CopyFS":     true,
+	"Create":     true,
+	"CreateTemp": true,
+	"DirFS":      true,
+	"Lchown":     true,
+	"Link":       true,
+	"Lstat":      true,
+	"Mkdir":      true,
+	"MkdirAll":   true,
+	"MkdirTemp":  true,
+	"Open":       true,
+	"OpenFile":   true,
+	"OpenInRoot": true,
+	"OpenRoot":   true,
+	"ReadDir":    true,
+	"ReadFile":   true,
+	"Readlink":   true,
+	"Remove":     true,
+	"RemoveAll":  true,
+	"Rename":     true,
+	"Stat":       true,
+	"Symlink":    true,
+	"Truncate":   true,
+	"WriteFile":  true,
+
+	// Process, environment, identity, error and path computations touch no
+	// deployment root.
+	"Clearenv":        false,
+	"Environ":         false,
+	"Executable":      false,
+	"Exit":            false,
+	"Expand":          false,
+	"ExpandEnv":       false,
+	"FindProcess":     false,
+	"Getegid":         false,
+	"Getenv":          false,
+	"Geteuid":         false,
+	"Getgid":          false,
+	"Getgroups":       false,
+	"Getpagesize":     false,
+	"Getpid":          false,
+	"Getppid":         false,
+	"Getuid":          false,
+	"Getwd":           false,
+	"Hostname":        false,
+	"IsExist":         false,
+	"IsNotExist":      false,
+	"IsPathSeparator": false,
+	"IsPermission":    false,
+	"IsTimeout":       false,
+	"LookupEnv":       false,
+	"NewFile":         false,
+	"NewSyscallError": false,
+	"Pipe":            false,
+	"SameFile":        false,
+	"Setenv":          false,
+	"StartProcess":    false,
+	"TempDir":         false,
+	"Unsetenv":        false,
+	"UserCacheDir":    false,
+	"UserConfigDir":   false,
+	"UserHomeDir":     false,
+}
+
+func TestOSFunctionEffectClassificationIsComplete_Unit(t *testing.T) {
+	pkg, err := importer.ForCompiler(token.NewFileSet(), "source", nil).Import("os")
+	if err != nil {
+		t.Fatalf("load os package: %v", err)
+	}
+	exported := map[string]bool{}
+	for _, name := range pkg.Scope().Names() {
+		if _, isFunc := pkg.Scope().Lookup(name).(*types.Func); isFunc && token.IsExported(name) {
+			exported[name] = true
+		}
+	}
+	var unclassified, stale []string
+	for name := range exported {
+		if _, classified := osFunctionEffects[name]; !classified {
+			unclassified = append(unclassified, name)
+		}
+	}
+	for name := range osFunctionEffects {
+		if !exported[name] {
+			stale = append(stale, name)
+		}
+	}
+	sort.Strings(unclassified)
+	sort.Strings(stale)
+	if len(unclassified) != 0 || len(stale) != 0 {
+		t.Fatalf("os function classification is incomplete: unclassified %v, no longer exported %v", unclassified, stale)
+	}
+}
 
 func TestProductionFilesystemEffectBoundary_Unit(t *testing.T) {
 	repositoryRoot := filepath.Clean(filepath.Join("..", "..", ".."))
@@ -25,13 +130,15 @@ func TestProductionFilesystemEffectBoundary_Unit(t *testing.T) {
 		"internal/platform/objectstore",
 		"internal/platform/postgres",
 	}
-	// These are offline producer tooling and test fixture data, not deployment
-	// root consumers. Runtime packages must never import either boundary.
+	// Reference Data test support is fixture data, not a deployment root
+	// consumer; runtime packages must never import it.
 	nonRuntimeRoots := []string{
 		"internal/modules/reference_data/testsupport/",
 	}
 	allowedRawEffects := map[string]map[string]bool{
+		// Test-fixture evidence: it creates, secures and reads its own files.
 		"internal/modules/recovery/testsupport/recovery.go": {
+			"Chmod":     true,
 			"MkdirAll":  true,
 			"ReadFile":  true,
 			"WriteFile": true,
@@ -44,25 +151,6 @@ func TestProductionFilesystemEffectBoundary_Unit(t *testing.T) {
 			"OpenFile": true,
 		},
 	}
-	rawEffectCalls := map[string]bool{
-		"Create":     true,
-		"CreateTemp": true,
-		"Lstat":      true,
-		"Mkdir":      true,
-		"MkdirAll":   true,
-		"MkdirTemp":  true,
-		"Open":       true,
-		"OpenFile":   true,
-		"OpenRoot":   true,
-		"ReadDir":    true,
-		"ReadFile":   true,
-		"Remove":     true,
-		"RemoveAll":  true,
-		"Rename":     true,
-		"Stat":       true,
-		"WriteFile":  true,
-	}
-
 	violations := make([]string, 0)
 	for _, relativeRoot := range scanRoots {
 		absoluteRoot := filepath.Join(repositoryRoot, relativeRoot)
@@ -107,13 +195,11 @@ func TestProductionFilesystemEffectBoundary_Unit(t *testing.T) {
 				}
 				osAliases[alias] = true
 			}
+			// Every os.<effect> selector counts, whether called or taken as a
+			// function value.
 			ast.Inspect(file, func(node ast.Node) bool {
-				call, ok := node.(*ast.CallExpr)
-				if !ok {
-					return true
-				}
-				selector, ok := call.Fun.(*ast.SelectorExpr)
-				if !ok || !rawEffectCalls[selector.Sel.Name] {
+				selector, ok := node.(*ast.SelectorExpr)
+				if !ok || !osFunctionEffects[selector.Sel.Name] {
 					return true
 				}
 				identifier, ok := selector.X.(*ast.Ident)

@@ -2,6 +2,7 @@ package tasksdecisions
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -81,10 +82,31 @@ func syncTaskDecisionReferenceTx(
 	return result.Mutations(), nil
 }
 
-func validateDecisionMachineConsistentTx(ctx context.Context, tx pgx.Tx, linkFacts LinkFactsCapability, recordID uuid.UUID) error {
+// validateDecisionMachineConsistentTx fails closed while the persisted Decision
+// is inconsistent. requestedStatus, when known, is the status the request would
+// produce; it becomes to_status (REQ-01-231).
+func validateDecisionMachineConsistentTx(ctx context.Context, tx pgx.Tx, linkFacts LinkFactsCapability, recordID uuid.UUID, requestedStatus string) error {
 	state, err := tasksource.LoadDecisionMachineStateForUpdateTx(ctx, tx, linkFacts, recordID)
 	if err != nil {
 		return err
 	}
-	return policy.ValidateDecisionMachineState(state)
+	err = policy.ValidateDecisionMachineState(state)
+	var lifecycleErr *policy.LifecycleValidationError
+	if requestedStatus != "" && errors.As(err, &lifecycleErr) {
+		withRequested := *lifecycleErr
+		withRequested.ToStatus = requestedStatus
+		return &withRequested
+	}
+	return err
+}
+
+// requestedDecisionStatus returns the status a patch requests, or "" when the
+// patch leaves decision.status untouched.
+func requestedDecisionStatus(changes []PatchChange) string {
+	for _, change := range changes {
+		if change.FieldKey == "decision.status" && change.Value != nil && change.Value.Text != nil {
+			return *change.Value.Text
+		}
+	}
+	return ""
 }

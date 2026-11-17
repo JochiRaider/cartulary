@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
@@ -50,9 +51,13 @@ type serverRunner struct {
 }
 
 type serverRuntime struct {
-	publication          *publicationOperation
-	Handler              http.Handler
-	Close                func()
+	publication *publicationOperation
+	Handler     http.Handler
+	// Close closes owned components under ctx and returns those still open
+	// when ctx expired (REQ-04-146a).
+	Close func(context.Context) []string
+	// OnShutdown runs when HTTP shutdown begins; it closes WebSockets.
+	OnShutdown           func()
 	ActivatePublication  func() error
 	FatalEvents          <-chan processlifecycle.FatalSignal
 	Fatal                func(string) bool
@@ -96,7 +101,7 @@ func newServerRunner(stdout io.Writer, stderr io.Writer) serverRunner {
 				return serverRuntime{}, err
 			}
 			return serverRuntime{
-				Handler: runtime.HTTPHandler(), Close: runtime.Close, ActivatePublication: runtime.ActivatePublication,
+				Handler: runtime.HTTPHandler(), Close: runtime.shutdown, OnShutdown: runtime.beginShutdown, ActivatePublication: runtime.ActivatePublication,
 				publication: runtime.publicationOperation,
 				FatalEvents: runtime.fatalEvents(), Fatal: runtime.publishedComponentLost,
 				ShutdownDrainTimeout: runtime.drainTimeout(),
@@ -203,26 +208,75 @@ func (runner serverRunner) run(ctx context.Context) (exitCode int) {
 	}()
 	forceTerminating := false
 	var shutdownDeadline time.Time
+	// REQ-04-146a: one application shutdown deadline, measured from the stop
+	// request, bounds the HTTP drain, publication and every component close.
+	clock := newShutdownClock(runtime.ShutdownDrainTimeout)
+	stopLogged := make(chan struct{})
+	stopWatch := context.AfterFunc(ctx, func() {
+		defer close(stopLogged)
+		clock.start()
+		logger.Info("shutdown phase", slog.String("phase", "stop_requested"), slog.Int64("deadline_ms", clock.drain.Milliseconds()))
+	})
+	defer func() {
+		// A started stop callback always finishes logging before the run returns.
+		if !stopWatch() {
+			<-stopLogged
+		}
+	}()
+	stopRequested := false
+	var incomplete []string
+	defer func() {
+		if !stopRequested || exitCode != 0 {
+			return
+		}
+		if len(incomplete) > 0 {
+			runner.writeShutdownIncomplete(incomplete)
+			logger.Warn("shutdown phase", slog.String("phase", "incomplete"), slog.Int64("elapsed_ms", clock.elapsed().Milliseconds()), slog.Any("open_components", incomplete))
+			exitCode = 1
+			return
+		}
+		logger.Info("shutdown phase", slog.String("phase", "complete"), slog.Int64("elapsed_ms", clock.elapsed().Milliseconds()))
+	}()
 	if runtime.Close != nil {
 		defer func() {
 			if forceTerminating {
 				return
 			}
-			closed := make(chan struct{})
-			go func() { defer close(closed); runtime.Close() }()
+			ordinary := stopRequested && exitCode == 0
+			deadline := shutdownDeadline
+			if ordinary {
+				deadline = clock.deadline()
+			}
+			closeCtx, cancelClose := context.Background(), context.CancelFunc(func() {})
 			var shutdownExpired <-chan time.Time
-			if !shutdownDeadline.IsZero() {
-				timer := time.NewTimer(time.Until(shutdownDeadline))
+			if !deadline.IsZero() {
+				closeCtx, cancelClose = context.WithDeadline(closeCtx, deadline)
+				// shutdown returns at the deadline; the guard covers a close
+				// that cannot observe its context.
+				timer := time.NewTimer(time.Until(deadline) + shutdownCloseGuard)
 				defer timer.Stop()
 				shutdownExpired = timer.C
 			}
+			defer cancelClose()
+			closed := make(chan []string, 1)
+			go func() { closed <- runtime.Close(closeCtx) }()
 			select {
-			case <-closed:
+			case open := <-closed:
+				if ordinary {
+					incomplete = append(incomplete, open...)
+					logger.Info("shutdown phase", slog.String("phase", "components"), slog.Int64("elapsed_ms", clock.elapsed().Milliseconds()))
+				} else if len(open) > 0 && !shutdownDeadline.IsZero() {
+					exitCode = 70
+				}
 			case signal := <-forcedFatal:
 				writeFatal(signal)
 				exitCode = 70
 			case <-shutdownExpired:
-				exitCode = 70
+				if ordinary {
+					incomplete = append(incomplete, "runtime")
+				} else {
+					exitCode = 70
+				}
 			}
 		}()
 	}
@@ -258,6 +312,7 @@ func (runner serverRunner) run(ctx context.Context) (exitCode int) {
 			Logger:          logger,
 			ShutdownTimeout: runtime.ShutdownDrainTimeout,
 			OnReady:         runtime.ActivatePublication,
+			OnShutdown:      runtime.OnShutdown,
 		})
 	}()
 	select {
@@ -307,20 +362,44 @@ func (runner serverRunner) run(ctx context.Context) (exitCode int) {
 			}
 		}
 		if errors.Is(publicationErr, context.Canceled) && ctx.Err() != nil {
+			stopRequested = true
 			return 0
 		}
 		runner.writeStartupError(publicationErr, logger, "publish runtime")
 		return 2
 	case serveErr := <-serveDone:
+		stopRequested = ctx.Err() != nil
+		var serveStartupErr *httpruntime.StartupError
+		if stopRequested {
+			logger.Info("shutdown phase", slog.String("phase", "http_drain"), slog.Int64("elapsed_ms", clock.elapsed().Milliseconds()))
+			if serveErr != nil && !errors.As(serveErr, &serveStartupErr) {
+				// REQ-04-146a: a stop-initiated drain that misses the deadline is
+				// incomplete ordinary shutdown, never published_component_lost.
+				incomplete = append(incomplete, "http_server")
+				serveErr = nil
+			}
+		}
 		if serveErr == nil {
 			if runtime.publication != nil {
 				runtime.publication.cancel()
+				var publicationExpired <-chan time.Time
+				if stopRequested {
+					timer := time.NewTimer(time.Until(clock.deadline()))
+					defer timer.Stop()
+					publicationExpired = timer.C
+				}
 				select {
 				case signal := <-forcedFatal:
 					forceTerminating = true
 					writeFatal(signal)
 					return 70
 				case <-runtime.publication.done:
+				case <-publicationExpired:
+					incomplete = append(incomplete, "publication")
+					return 0
+				}
+				if stopRequested {
+					logger.Info("shutdown phase", slog.String("phase", "publication"), slog.Int64("elapsed_ms", clock.elapsed().Milliseconds()))
 				}
 				if publicationErr := runtime.publication.err; publicationErr != nil {
 					var fatal interface{ FatalReasonCode() string }
@@ -391,6 +470,54 @@ func (runner serverRunner) awaitDrain(serveDone <-chan error, timeout time.Durat
 	case <-timer.C:
 	}
 	return false
+}
+
+// shutdownCloseGuard bounds how long the runner waits past the deadline for a
+// component close that cannot observe its context.
+const shutdownCloseGuard = 250 * time.Millisecond
+
+// shutdownClock measures the REQ-04-146a application shutdown deadline from
+// the first stop request; later stop requests never restart it.
+type shutdownClock struct {
+	once    sync.Once
+	drain   time.Duration
+	started time.Time
+	until   time.Time
+}
+
+func newShutdownClock(drain time.Duration) *shutdownClock {
+	if drain <= 0 {
+		drain = httpruntime.DefaultShutdownTimeout
+	}
+	return &shutdownClock{drain: drain}
+}
+
+func (c *shutdownClock) start() {
+	c.once.Do(func() {
+		c.started = time.Now()
+		c.until = c.started.Add(c.drain)
+	})
+}
+
+func (c *shutdownClock) deadline() time.Time {
+	c.start()
+	return c.until
+}
+
+func (c *shutdownClock) elapsed() time.Duration {
+	c.start()
+	return time.Since(c.started)
+}
+
+// writeShutdownIncomplete emits the one secret-safe REQ-04-146a diagnostic
+// naming the components still open at the shutdown deadline.
+func (runner serverRunner) writeShutdownIncomplete(components []string) {
+	diagnostic := struct {
+		Code           string   `json:"code"`
+		OpenComponents []string `json:"open_components"`
+	}{Code: "shutdown_incomplete", OpenComponents: components}
+	encoded, _ := json.Marshal(diagnostic)
+	_, _ = runner.stderr.Write(append(encoded, '\n'))
 }
 
 func (runner serverRunner) writeFatalDiagnostic(signal processlifecycle.FatalSignal) {

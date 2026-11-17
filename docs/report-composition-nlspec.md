@@ -193,7 +193,7 @@ Every mutable draft MUST carry a server-emitted `draft_version` `positive_intege
 Creating an immutable composition version MUST copy the current draft body, materialize all defaults, compute canonical bytes, compute `composition_sha256`, assign the next `composition_version`, and persist the resulting `cartulary.report_composition.v1` document atomically.
 
 **REQ-RC-024**
-Immutable composition versions MUST NOT be modified, reserialized with different canonical bytes, deleted while release-bound, or assigned a new digest. A request that attempts to mutate an immutable version MUST fail with validation code `composition_version_immutable`.
+Immutable composition versions MUST NOT be modified, reserialized with different canonical bytes, deleted while release-bound, or assigned a new digest. Table 6-A defines no route that modifies, reserializes, or deletes an immutable version. A request with any other method on an immutable-version path is not a composition operation: it MUST be rejected without a state change, and the version MUST remain readable with the same `composition_sha256`.
 
 **REQ-RC-025**
 When a release tuple binds `composition_id`, `composition_version`, and `composition_sha256`, the referenced immutable version is release-bound. Later draft edits and later immutable versions MUST NOT change the bound version or its digest.
@@ -519,7 +519,7 @@ A server MUST verify the digest immediately after immutable version creation by 
 Composition operations MUST target only semantic anchors defined in this section. Ordinal paths, generated section IDs, generated block IDs, generated slide IDs, chunk IDs, split IDs, array indexes, visible titles, visible labels, CSS selectors, and rendered DOM selectors are invalid composition targets.
 
 **REQ-RC-044**
-Every anchor object MUST carry `anchor_kind` with the exact value shown in Table 8-A and MUST NOT contain unknown members.
+Every anchor object MUST carry `anchor_kind` with the exact value shown in Table 8-A and MUST NOT contain unknown members. An unknown `anchor_kind`, a missing required member, an unknown member, or an identifier member outside the composition identifier grammar fails with `composition_schema_invalid`. A generated identifier supplied in a semantic identifier member names no declaration or record; the anchor resolves to zero targets and follows the unresolved-anchor rules.
 
 **Table 8-A. Anchor Schemas**
 
@@ -944,14 +944,12 @@ violation.
 | `composition_not_found` | `error` | `resource_binding_validation` | Requested composition resource does not exist in the incident. |
 | `composition_version_not_found` | `error` | `resource_binding_validation` | Requested immutable version does not exist under the resource. |
 | `composition_draft_version_conflict` | `error` | `resource_binding_validation` | `base_draft_version` differs from current `draft_version`. |
-| `composition_version_immutable` | `error` | `resource_binding_validation` | Request attempts to mutate immutable version bytes. |
 | `composition_version_bound` | `error` | `resource_binding_validation` | Request attempts to delete or rewrite a release-bound version. |
 | `composition_delete_not_supported` | `error` | `resource_binding_validation` | Delete route is intentionally unsupported by the implementation. |
 | `composition_digest_mismatch` | `error` | `canonical_digest_validation` | Stored or supplied digest differs from canonical bytes. |
 | `composition_source_invalid` | `error` | `schema_validation` | Validation or preview source-kind members violate the closed source-kind matrix. |
 | `composition_validation_context_invalid` | `error` | `resource_binding_validation` | Preview render context is malformed, mismatched to the resource, or has invalid tuple ordering or duplicate graph bindings. |
 | `composition_resource_retired` | `error` | `resource_binding_validation` | Request attempts to mutate, freeze, or preview a retired composition resource. |
-| `composition_anchor_invalid` | `error` | `anchor_validation` | Anchor grammar or disallowed target kind is invalid. |
 | `composition_anchor_unresolved` | `error` | `anchor_validation` | Anchor resolves to zero targets and `on_unresolved='fail'` or release scope forbids drop. |
 | `composition_anchor_ambiguous` | `error` | `anchor_validation` | Anchor resolves to more than one target. |
 | `composition_drop_invalid_for_external_release` | `error` | `anchor_validation` | `on_unresolved='drop'` appears for an external-release validation or render. |
@@ -1034,9 +1032,9 @@ revised before that behavior is removed or moved to a future profile.
 | `RC-FIX-002` | Same composition serialized with non-canonical member ordering and with omitted defaults versus explicit defaults. | Server canonicalization produces the same digest as the canonical fixture. |
 | `RC-FIX-003` | Duplicate `op_id`, `decl_id`, and `authored_text_id` cases. | Each duplicate fails with `composition_duplicate_id`. |
 | `RC-FIX-004` | Draft update with stale `base_draft_version`. | Request fails with `composition_draft_version_conflict` and does not mutate draft state. |
-| `RC-FIX-005` | Immutable version mutation and release-bound delete attempts. | Requests fail with `composition_version_immutable` or `composition_version_bound`. |
+| `RC-FIX-005` | Immutable version mutation and release-bound delete attempts. | A non-`GET` request on an immutable-version path is rejected without a state change and the version keeps its digest; retiring a resource with a release-bound version fails with `composition_version_bound`. |
 | `RC-FIX-006` | Every `op_kind` with valid payload and one closed-schema violation. | Valid payloads pass schema validation; extra or missing payload fields fail with `composition_schema_invalid`. |
-| `RC-FIX-007` | Semantic anchors for resolved, unresolved, ambiguous, and generated-ID targets. | Generated IDs fail with `composition_anchor_invalid`; unresolved and ambiguous anchors use exact codes. |
+| `RC-FIX-007` | Semantic anchors for resolved, unresolved, ambiguous, and generated-ID targets. | Anchors carrying generated-ID members or unknown kinds fail with `composition_schema_invalid`; generated IDs in semantic identifier members resolve to zero targets; unresolved and ambiguous anchors use exact codes. |
 | `RC-FIX-008` | `on_unresolved='drop'` internal draft and external release validation. | Internal draft may drop zero-match operations; external release fails with `composition_drop_invalid_for_external_release`. |
 | `RC-FIX-009` | Authored text role, NFC normalization, control-character, LF, before/after substitution limit, partition, and placeholder cases. | Each invalid case fails with the exact authored-text validation code. |
 | `RC-FIX-010` | Diagram declarations with valid selection, raw Mermaid, arbitrary nodes, arbitrary edges, and tokenized-subject label override. | Valid declaration passes; invalid cases fail with `raw_generated_source_invalid` or `diagram_label_override_invalid`. |

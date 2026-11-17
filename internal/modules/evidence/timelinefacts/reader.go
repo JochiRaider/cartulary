@@ -19,6 +19,9 @@ type TimelineFact struct {
 
 type TimelineFactReader struct{}
 
+// LoadTx returns facts for live and deleted Evidence in the incident. Title is
+// the REQ-01-333a Evidence label: the title, or "Untitled evidence" when it is
+// empty, never a record identifier.
 func (TimelineFactReader) LoadTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordIDs []uuid.UUID) ([]TimelineFact, error) {
 	if len(recordIDs) == 0 {
 		return []TimelineFact{}, nil
@@ -26,14 +29,14 @@ func (TimelineFactReader) LoadTx(ctx context.Context, tx pgx.Tx, incidentID uuid
 	rows, err := tx.Query(ctx, `
 SELECT
     ev.record_id,
-    COALESCE(ev.title, ev.record_id::text) AS title,
+    COALESCE(NULLIF(ev.title, ''), 'Untitled evidence') AS title,
     ev.lifecycle_state,
     COALESCE(b.upload_state, ev.upload_state, 'pending') AS upload_state
   FROM evidence ev
   LEFT JOIN object_blobs b ON b.object_blob_id = ev.object_blob_id
  WHERE ev.incident_id = $1
    AND ev.record_id = ANY($2)
- ORDER BY COALESCE(ev.title, ev.record_id::text) ASC, ev.record_id ASC
+ ORDER BY COALESCE(NULLIF(ev.title, ''), 'Untitled evidence') ASC, ev.record_id ASC
 `, incidentID, recordIDs)
 	if err != nil {
 		return nil, fmt.Errorf("load timeline evidence facts: %w", err)

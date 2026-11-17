@@ -2764,6 +2764,14 @@
         "internal/modules/records/*.go",
         "internal/platform/maintenancequery/*.go"
       ],
+      "lock_allowed_paths": [
+        "internal/modules/evidence/*.go",
+        "internal/modules/evidence/internal/providers/deleterestore/*.go",
+        "internal/modules/indicators/*.go",
+        "internal/modules/parties/internal/source/*.go",
+        "internal/modules/records/*.go",
+        "internal/platform/maintenancequery/*.go"
+      ],
       "read_allowed_statements": [
         {
           "package": "internal/modules/entities",
@@ -3228,8 +3236,7 @@
         "configassembly.Admit("
       ],
       "scan_paths": [
-        "internal/**",
-        "tools/**"
+        "internal/**"
       ],
       "allowed_paths": [],
       "production_only": false,
@@ -3419,8 +3426,7 @@
         "internal/modules/collaboration/testsupport"
       ],
       "scan_paths": [
-        "internal/**",
-        "tools/**"
+        "internal/**"
       ],
       "allowed_paths": [],
       "production_only": false,
@@ -4545,7 +4551,8 @@
       ],
       "allowed_paths": [],
       "production_only": false,
-      "match_kind": "source_text"
+      "match_kind": "source_text",
+      "retired_paths": true
     },
     {
       "id": "entities-obsolete-projection-aggregate-accessors-remain-retired",
@@ -4737,7 +4744,8 @@
       ],
       "allowed_paths": [],
       "production_only": false,
-      "match_kind": "source_text"
+      "match_kind": "source_text",
+      "retired_paths": true
     },
     {
       "id": "collaboration-runtime-state-has-one-owner-definition",
@@ -4780,6 +4788,42 @@
       ],
       "allowed_paths": [],
       "production_only": false,
+      "match_kind": "source_text"
+    },
+    {
+      "id": "reference-data-runtime-no-outbound-network-clients",
+      "tokens": [
+        "http.Get(",
+        "http.Head(",
+        "http.Post(",
+        "http.PostForm(",
+        "http.NewRequest(",
+        "http.NewRequestWithContext(",
+        "http.DefaultClient",
+        "http.DefaultTransport",
+        "http.Client{",
+        "http.Transport{",
+        "net.Dial(",
+        "net.DialTimeout(",
+        "net.DialTCP(",
+        "net.DialUDP(",
+        "net.Dialer{",
+        "net.LookupHost(",
+        "net.LookupIP(",
+        "net.LookupAddr(",
+        "net.Resolver{",
+        "net.DefaultResolver",
+        "tls.Dial(",
+        "tls.DialWithDialer(",
+        "tls.Dialer{"
+      ],
+      "scan_paths": [
+        "internal/modules/reference_data/**"
+      ],
+      "allowed_paths": [
+        "internal/modules/reference_data/testsupport/**"
+      ],
+      "production_only": true,
       "match_kind": "source_text"
     }
   ],

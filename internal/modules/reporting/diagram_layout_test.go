@@ -187,8 +187,9 @@ func testCompositionDiagramOperations(t *testing.T) {
 	}
 	slides := []reportingDeckSlide{{SlideID: "base", Title: "Base", Blocks: []ReportingBlock{}, sectionOrigin: &deckSectionOrigin{DeclarationID: "base"}}}
 	insert := compositionDeckOp{OpKind: "insert_diagram_slide", Payload: compositionOpPayload{DiagramAnchor: anchor, SectionAnchor: &compositionSectionAnchor{AnchorKind: "section_anchor", DeclarationID: "base"}, Position: "before"}}
-	if err := applyCompositionToDeck(&slides, &renderComposition{DeckOps: []compositionDeckOp{insert, insert}}, contract, ReleaseScopeInternalReview, diagrams...); err == nil {
-		t.Fatal("duplicate diagram insertion admitted")
+	var duplicate *renderValidationError
+	if err := applyCompositionToDeck(&slides, &renderComposition{DeckOps: []compositionDeckOp{insert, insert}}, contract, ReleaseScopeInternalReview, diagrams...); !errors.As(err, &duplicate) || duplicate.ReasonCode != "composition_duplicate_diagram_insert" {
+		t.Fatal("duplicate diagram insertion was not rejected as a duplicate", err)
 	}
 }
 

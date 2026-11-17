@@ -47,10 +47,18 @@ func refreshEvidenceSupportProjectionsTx(
 	effects evidenceprojection.AssociationEffects,
 	incidentID uuid.UUID,
 	evidenceRecordID uuid.UUID,
+	recordTypes ...string,
 ) ([]attachRecordChange, error) {
 	subjects, err := loadEvidenceAssociationSubjectsTx(ctx, tx, incidentID, evidenceRecordID)
 	if err != nil {
 		return nil, err
+	}
+	// An optional record-type filter limits the refresh to referrers whose
+	// projections depend on the change.
+	if len(recordTypes) > 0 {
+		subjects = slices.DeleteFunc(subjects, func(subject evidenceprojection.EvidenceAssociationSubject) bool {
+			return !slices.Contains(recordTypes, subject.RecordType)
+		})
 	}
 	if len(subjects) == 0 {
 		return nil, nil

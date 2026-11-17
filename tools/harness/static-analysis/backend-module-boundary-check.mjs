@@ -125,7 +125,7 @@ export function prepareBoundaryPolicy(raw) {
     forbiddenSourceTokens: raw.forbidden_source_tokens.map((rule, index) => ({
       id: rule.id.trim(), matchKind: requireSourceTokenMatchKind(rule, `forbidden_source_tokens[${index + 1}]`),
       tokens: strings(rule.tokens), scanPaths: paths(rule.scan_paths ?? []), exactFileSetID: rule.exact_file_set_id ?? null,
-      allowedPaths: paths(rule.allowed_paths), productionOnly: rule.production_only,
+      allowedPaths: paths(rule.allowed_paths), productionOnly: rule.production_only, retiredPaths: rule.retired_paths === true,
     })),
     forbiddenTestBuildTokens: strings(raw.forbidden_test_build_tokens),
     generatedRootWrites: {
@@ -533,6 +533,46 @@ function checkSQLTableAccess(files, rules, sql, accessScope = "production", comp
   return violations;
 }
 
+// A selector targets support code when it matches Go support files and no
+// file of the rule's runtime set. Only those selectors apply to support files.
+function supportTargetedRules(rules, runtimeFiles, supportFiles) {
+  return rules.map((rule) => ({
+    ...rule,
+    scanPaths: rule.scanPaths.filter((pattern) =>
+      !runtimeFiles.some((file) => matchesPattern(file.relative, pattern)) &&
+      supportFiles.some((file) => matchesPattern(file.relative, pattern))),
+  })).filter((rule) => rule.scanPaths.length > 0);
+}
+
+// In a complete repository run every scan selector must select at least one
+// scanned file; an unmatched selector would leave its rule enforcing nothing.
+function checkUnmatchedScanPaths(manifest, { files, sqlFiles, migrationBoundaryFiles, testSupportFiles }) {
+  const families = [
+    ["forbidden_go_imports", manifest.forbiddenGoImports, files],
+    ["go_import_allowlists", manifest.goImportAllowlists, files],
+    ["source_table_access", manifest.sourceTableAccess, sqlFiles],
+    ["forbidden_source_mappings", manifest.forbiddenSourceMappings, files],
+    ["sql_table_allowlists", manifest.sqlTableAllowlists, sqlFiles],
+    ["sql_table_access", manifest.sqlTableAccess, sqlFiles],
+    // Retired-path guards name deleted files and must match nothing.
+    ["forbidden_source_tokens", manifest.forbiddenSourceTokens.filter((rule) => rule.exactFileSetID === null && !rule.retiredPaths), [...files, ...testSupportFiles]],
+    ["migration_source_boundary.restricted_imports", manifest.migrationSourceBoundary.restrictedImports, migrationBoundaryFiles],
+    ["migration_source_boundary.forbidden_declarations", manifest.migrationSourceBoundary.forbiddenDeclarations, [...migrationBoundaryFiles, ...testSupportFiles]],
+    ["migration_source_boundary.exact_calls", manifest.migrationSourceBoundary.exactCalls, migrationBoundaryFiles],
+  ];
+  const violations = [];
+  for (const [family, rules, scanned] of families) {
+    for (const rule of rules) {
+      for (const pattern of rule.scanPaths) {
+        if (!scanned.some((file) => matchesPattern(file.relative, pattern))) {
+          violations.push(violation("scan_path_unmatched", { relative: pattern }, rule.id, { rule_family: family }));
+        }
+      }
+    }
+  }
+  return violations;
+}
+
 function checkForbiddenGoCalls(files, rules) {
   const violations = [];
   const sourceFiles = files.filter(
@@ -808,6 +848,9 @@ export function evaluateBoundaryPolicy(manifest, {
     ...checkForbiddenGoCalls(files, manifest.forbiddenGoCalls),
     ...checkCommandRootShape(files, manifest.commandRootShape),
     ...checkForbiddenSourceTokens(files, manifest.forbiddenSourceTokens, exactFilesByID),
+    // Selectors that name only Go support code are enforced there; broad
+    // runtime selectors keep their runtime-only scope.
+    ...checkForbiddenSourceTokens(testSupportFiles, supportTargetedRules(manifest.forbiddenSourceTokens.filter((rule) => rule.exactFileSetID === null), files, testSupportFiles), exactFilesByID),
     ...checkForbiddenTestBuildTokens(files, manifest.forbiddenTestBuildTokens),
     ...checkGeneratedRootWrites(files, manifest.generatedRootWrites),
     ...checkForbiddenGoImports(
@@ -819,8 +862,13 @@ export function evaluateBoundaryPolicy(manifest, {
       migrationBoundaryFiles,
       manifest.migrationSourceBoundary.forbiddenDeclarations,
     ),
+    ...checkForbiddenGoDeclarations(
+      testSupportFiles,
+      supportTargetedRules(manifest.migrationSourceBoundary.forbiddenDeclarations, migrationBoundaryFiles, testSupportFiles),
+    ),
     ...checkExactGoCalls(migrationBoundaryFiles, manifest.migrationSourceBoundary.exactCalls),
     ...constructionFailures,
+    ...(completeSourceSet ? checkUnmatchedScanPaths(manifest, { files, sqlFiles, migrationBoundaryFiles, testSupportFiles }) : []),
     ...(completeSourceSet ? (manifest.sqlControlCapabilities??[]).filter(grant=>!usedControls.has(grant)).map(grant=>({code:"stale_sql_control_grant",path:grant.package,symbol_or_import:grant.declaration})) : []),
     ...(completeSourceSet ? (manifest.sqlForwardingCapabilities??[]).filter(grant=>!usedForwarders.has(grant)).map(grant=>({code:"stale_sql_forwarder",path:grant.package,symbol_or_import:grant.declaration})) : []),
   ].sort((left, right) => {

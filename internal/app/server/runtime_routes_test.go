@@ -1,9 +1,11 @@
 package server
 
 import (
+	"context"
 	"net/http"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/extensions"
@@ -153,11 +155,42 @@ func TestRuntimeCleanupIsReverseOrderedAndIdempotent(t *testing.T) {
 	t.Parallel()
 	var calls []string
 	runtime := &Runtime{}
-	runtime.own(func() { calls = append(calls, "first") })
-	runtime.own(func() { calls = append(calls, "second") })
+	runtime.own("first", func(context.Context) { calls = append(calls, "first") })
+	runtime.own("second", func(context.Context) { calls = append(calls, "second") })
 	runtime.Close()
 	runtime.Close()
 	if want := []string{"second", "first"}; !reflect.DeepEqual(calls, want) {
 		t.Fatalf("cleanup calls got %#v want %#v", calls, want)
+	}
+}
+
+// TestRuntimeShutdownReportsComponentsOpenAtTheDeadline covers REQ-04-146a:
+// every component close shares the caller's deadline, and the components not
+// closed by then are reported in closing order instead of being waited on.
+func TestRuntimeShutdownReportsComponentsOpenAtTheDeadline(t *testing.T) {
+	t.Parallel()
+	release := make(chan struct{})
+	defer close(release)
+	var calls []string
+	runtime := &Runtime{}
+	runtime.own("postgres", func(context.Context) { calls = append(calls, "postgres") })
+	runtime.own("jobs_runner", func(context.Context) { <-release })
+	runtime.own("collaboration", func(ctx context.Context) {
+		if _, ok := ctx.Deadline(); !ok {
+			t.Error("component close received no deadline")
+		}
+		calls = append(calls, "collaboration")
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	open := runtime.shutdown(ctx)
+	if want := []string{"jobs_runner", "postgres"}; !reflect.DeepEqual(open, want) {
+		t.Fatalf("open components got %#v want %#v", open, want)
+	}
+	if want := []string{"collaboration"}; !reflect.DeepEqual(calls, want) {
+		t.Fatalf("closed components got %#v want %#v", calls, want)
+	}
+	if again := runtime.shutdown(context.Background()); again != nil {
+		t.Fatalf("a repeated shutdown must be idempotent, got %#v", again)
 	}
 }

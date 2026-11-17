@@ -2,6 +2,7 @@ import {
   appRouteTestId,
   landingAdminMenuItemTestId,
   landingAdminPanelTestId,
+  landingAdminShellTestId,
 } from "@cartulary/ui-contracts";
 import {
   type CSSProperties,
@@ -1362,7 +1363,7 @@ export function App({
         >
           <section
             id={landingAdminPanelTestId("incidents")}
-            aria-labelledby={landingAdminMenuItemTestId("incidents")}
+            aria-labelledby={landingAdminShellTestId("heading")}
             data-testid={landingAdminPanelTestId("incidents")}
             style={landingAdminPanelRegionStyle}
           >

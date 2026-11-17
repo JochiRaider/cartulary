@@ -3,10 +3,11 @@ package valuecodec
 import (
 	"crypto/sha256"
 	"encoding/json"
-	"sort"
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/JochiRaider/cartulary/internal/platform/collectionvalue"
 )
 
 // OptionalString returns the canonical JSON-facing representation of a
@@ -49,22 +50,11 @@ func OptionalDate(value *time.Time) any {
 	return value.UTC().Format(time.DateOnly)
 }
 
-// Collection returns the canonical collection_value_v1 shape. Nil and empty
-// item slices intentionally have the same non-null, empty-array representation.
+// Collection returns the served collection_value_v1 shape through the platform
+// owner. Nil and empty item slices intentionally have the same non-null,
+// empty-array representation.
 func Collection(ordered bool, items []map[string]any) map[string]any {
-	items = append([]map[string]any{}, items...)
-	if !ordered {
-		sort.SliceStable(items, func(i, j int) bool {
-			left, _ := items[i]["item_ref"].(string)
-			right, _ := items[j]["item_ref"].(string)
-			return left < right
-		})
-	}
-	return map[string]any{
-		"kind":    "collection_value_v1",
-		"ordered": ordered,
-		"items":   items,
-	}
+	return collectionvalue.New(ordered, items)
 }
 
 // CanonicalJSONSHA256 hashes the encoding/json canonical representation used

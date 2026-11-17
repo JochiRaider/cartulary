@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { atomicLocalFile } from "../runtime/secure-local-files.mjs";
 
@@ -44,6 +44,15 @@ assert.equal(registry.schema_id, "cartulary.frontend_visual_fixture_registry.v6"
 assert.equal(registry.owner_id, "harness.visual");
 assert.equal(registry.verification_id, "harness.visual.verification.stable_fixture_identity");
 const fixtureIDs = registry.fixtures.map((fixture) => fixture.fixture_id);
+// Catalog routing is the authority for which rows capture each fixture.
+const familyDirectory = path.join(root, "tools/test_families");
+const catalogRows = new Map();
+for (const file of readdirSync(familyDirectory).filter((name) => name.endsWith(".json")).sort()) {
+  for (const row of JSON.parse(readFileSync(path.join(familyDirectory, file), "utf8")).rows ?? []) {
+    assert.ok(!catalogRows.has(row.row_id), `duplicate catalog row ${row.row_id}`);
+    catalogRows.set(row.row_id, row);
+  }
+}
 assert.deepEqual(fixtureIDs, expectedFixtureIDs);
 const byID = new Map(registry.fixtures.map((fixture) => [fixture.fixture_id, fixture]));
 assert.equal(byID.size, registry.fixtures.length, "fixture identities must be unique");
@@ -51,21 +60,29 @@ for (const fixture of registry.fixtures) {
   assert.equal(fixture.status, "current");
   for (const key of ["fixture_title", "playwright_scenario_title", "seed_id"]) assert.ok(fixture[key].length > 0, `${fixture.fixture_id}.${key}`);
   assert.ok(fixture.catalog_row_ids.length > 0);
+  for (const rowID of fixture.catalog_row_ids) {
+    assert.equal(catalogRows.get(rowID)?.status, "active", `${fixture.fixture_id} catalog row ${rowID} must be an active routed row`);
+  }
+  const scenarioRows = fixture.catalog_row_ids.filter((rowID) => catalogRows.get(rowID).selector?.titles?.includes(fixture.playwright_scenario_title));
+  assert.equal(scenarioRows.length, 1, `${fixture.fixture_id} scenario title must be routed by exactly one of its catalog rows`);
   assert.deepEqual(Object.keys(fixture.capture_profiles).sort(), [...fixture.golden_artifacts].sort());
   for (const profile of Object.values(fixture.capture_profiles)) {
     assert.match(profile.viewport_css_px, /^[0-9]+x[0-9]+$/u);
-    assert.ok(profile.device_scale_factor >= 1);
-    assert.ok(profile.browser_zoom_percent >= 100);
+    assert.equal(profile.device_scale_factor, 1, fixture.fixture_id);
+    assert.ok([100, 200].includes(profile.browser_zoom_percent), fixture.fixture_id);
     assert.equal(profile.theme_id, "dark_graphite");
     assert.ok(["compact", "default", "comfortable"].includes(profile.density_id));
   }
   assert.match(fixture.capture_scope.kind, /^(full_viewport|selector|region)$/u);
   assert.ok(fixture.scroll_normalization.kind.length > 0);
   assert.ok(Array.isArray(fixture.dynamic_masks));
-  if (fixture.no_dynamic_regions) assert.deepEqual(fixture.dynamic_masks, []);
+  assert.equal(fixture.no_dynamic_regions, fixture.dynamic_masks.length === 0, `${fixture.fixture_id} mask declaration`);
   assert.equal(fixture.blocked_reason, "");
   assert.equal(fixture.replacement_fixture_id, "");
-  for (const artifact of fixture.golden_artifacts) assert.ok(existsSync(path.join(root, artifact)), `${artifact} should exist`);
+  // Existence is not checked here: browser-e2e-visual-update creates newly
+  // registered goldens. Reconciliation and the golden-manifest shape check
+  // resolve committed paths.
+  for (const artifact of fixture.golden_artifacts) assert.match(artifact, /^apps\/web\/e2e\/visual-goldens\/[a-z0-9-]+-linux\.png$/u, `${fixture.fixture_id} golden path`);
   assert.ok(fixture.golden_artifacts.includes(fixture.golden_filename));
 }
 assert.deepEqual(registry.fixtures.map((fixture) => fixture.design_contract_id).filter(Boolean).sort(), expectedDesignIDs);

@@ -29,19 +29,17 @@ import (
 )
 
 const (
-	seaweedFSS3Image                   = "docker.io/chrislusf/seaweedfs:4.48@sha256:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d"
-	seaweedFSS3Port                    = "8333/tcp"
-	defaultSeaweedFSS3BrowserPortStart = 19000
-	defaultSeaweedFSS3BrowserPortEnd   = 19199
-	objectStorePortMappingTimeout      = 30 * time.Second
-	objectStoreHealthPollInterval      = 500 * time.Millisecond
-	objectStoreClientReadyTimeout      = 120 * time.Second
-	objectStoreClientAttemptTimeout    = 5 * time.Second
-	objectStoreProbeCleanupTimeout     = 5 * time.Second
-	objectStoreFixtureCleanupTimeout   = 15 * time.Second
-	objectStoreAccessKey               = "cartulary-local"
-	objectStoreSecretKey               = "cartulary-disposable-local-secret-32"
-	objectStoreProbePayload            = "cartulary-object-store-readiness"
+	seaweedFSS3Image                 = "docker.io/chrislusf/seaweedfs:4.48@sha256:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d"
+	seaweedFSS3Port                  = "8333/tcp"
+	objectStorePortMappingTimeout    = 30 * time.Second
+	objectStoreHealthPollInterval    = 500 * time.Millisecond
+	objectStoreClientReadyTimeout    = 120 * time.Second
+	objectStoreClientAttemptTimeout  = 5 * time.Second
+	objectStoreProbeCleanupTimeout   = 5 * time.Second
+	objectStoreFixtureCleanupTimeout = 15 * time.Second
+	objectStoreAccessKey             = "cartulary-local"
+	objectStoreSecretKey             = "cartulary-disposable-local-secret-32"
+	objectStoreProbePayload          = "cartulary-object-store-readiness"
 )
 
 func ContainerImage() string {

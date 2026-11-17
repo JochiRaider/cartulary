@@ -722,6 +722,35 @@ func TestValidateErrorRegistryRejectsInvalidReasonRegistries(t *testing.T) {
 	})
 }
 
+func TestValidateErrorRegistryLifecycleGuards(t *testing.T) {
+	guard := func(code string, machines ...any) map[string]any {
+		return map[string]any{"code": code, "machines": machines, "summary": "Condition."}
+	}
+	t.Run("valid", func(t *testing.T) {
+		registry := validErrorRegistry()
+		registry["lifecycle_guards"] = []any{guard("a_guard", "task_request.status"), guard("b_guard", "decision.status", "timeline.capture_state")}
+		if err := validateErrorRegistry(registry); err != nil {
+			t.Fatalf("valid lifecycle guards rejected: %v", err)
+		}
+	})
+	for name, tc := range map[string]struct {
+		guards []any
+		want   string
+	}{
+		"duplicate code":  {[]any{guard("dup", "task_request.status"), guard("dup", "decision.status")}, "duplicate lifecycle guard dup"},
+		"empty machines":  {[]any{guard("empty")}, "lifecycle_guards[1].machines must be a non-empty array"},
+		"blank machine":   {[]any{guard("blank", "")}, "lifecycle_guards[1].machines[1] must be a non-empty string"},
+		"unknown key":     {[]any{map[string]any{"code": "x", "machines": []any{"task_request.status"}, "summary": "s", "extra": true}}, "extra"},
+		"missing summary": {[]any{map[string]any{"code": "x", "machines": []any{"task_request.status"}}}, "summary"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			registry := validErrorRegistry()
+			registry["lifecycle_guards"] = tc.guards
+			requireErrorContains(t, validateErrorRegistry(registry), tc.want)
+		})
+	}
+}
+
 func TestValidateViewSchemaRejectsDuplicateFieldKeys(t *testing.T) {
 	schema := validViewSchema("cartulary.view.test.v1")
 	schema["fields"] = []any{

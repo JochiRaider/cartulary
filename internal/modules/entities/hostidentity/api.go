@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/entities/mutationadmission"
+	"github.com/JochiRaider/cartulary/internal/platform/collectionvalue"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 	"github.com/JochiRaider/cartulary/internal/platform/strictjson"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
@@ -369,19 +370,7 @@ func decodeAliasActionPayload(viewSchemaID string, fieldKey string, value json.R
 }
 
 func collectionValue(ordered bool, items []map[string]any) map[string]any {
-	if items == nil {
-		items = []map[string]any{}
-	} else if !ordered {
-		items = slices.Clone(items)
-		slices.SortFunc(items, func(a, b map[string]any) int {
-			return strings.Compare(a["item_ref"].(string), b["item_ref"].(string))
-		})
-	}
-	return map[string]any{
-		"kind":    "collection_value_v1",
-		"ordered": ordered,
-		"items":   items,
-	}
+	return collectionvalue.New(ordered, items)
 }
 
 func formatTimestamp(value time.Time) string {

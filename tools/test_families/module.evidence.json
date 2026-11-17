@@ -2711,6 +2711,7 @@
       "selector": {
         "package": "./internal/modules/evidence",
         "tests": [
+          "TestEvidenceInconsistentBridgeFailsClosedUntilCorrected_Unit",
           "TestEvidenceLifecycleSeparateFromBlob_Unit"
         ]
       },
@@ -2765,7 +2766,8 @@
       "selector": {
         "package": "./internal/modules/evidence",
         "tests": [
-          "TestAttachBlobValidation_Unit"
+          "TestAttachBlobValidation_Unit",
+          "TestLiveBlobTupleViolationFailsClosed_Unit"
         ]
       },
       "evidence_class": "integration",

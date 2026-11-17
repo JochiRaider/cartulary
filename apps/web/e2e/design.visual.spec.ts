@@ -2,6 +2,7 @@ import { applyFilterChip } from "@cartulary/test-utils/grid";
 import {
   cartularyDefaultThemeId,
   cartularyDesignPresentation,
+  cartularyDesignTokenVars,
   gridRowTestId,
   gridShellTestId,
   workbookInlineDraftRowTestId,
@@ -42,30 +43,6 @@ import {
   createVisualTimelineRow,
 } from "./support/visual/timelineVisualFixture";
 import { assertWorkbookGridVisualRegression } from "./support/visual/workbookCaptures";
-
-const exposedThemeCssVars = [
-  "--ct-colors-accent",
-  "--ct-colors-canvas",
-  "--ct-colors-surface-1",
-  "--ct-colors-surface-2",
-  "--ct-colors-ink",
-  "--ct-colors-ink-muted",
-  "--ct-colors-semantic-success",
-  "--ct-colors-semantic-caution",
-  "--ct-colors-semantic-conflict",
-  "--ct-colors-semantic-destructive",
-  "--ct-density-default-rowHeight",
-  "--ct-density-default-cellPadding",
-  "--ct-component-button-primary-backgroundColor",
-  "--ct-component-button-primary-textColor",
-  "--ct-component-button-secondary-backgroundColor",
-  "--ct-component-button-secondary-border",
-  "--ct-component-button-danger-textColor",
-  "--ct-component-text-input-backgroundColor",
-  "--ct-component-chip-backgroundColor",
-  "--ct-component-grid-cell-padding",
-  "--ct-component-focus-ring-border",
-] as const;
 
 async function failWorkbookVisualQuery(route: Route) {
   await route.abort("failed");
@@ -301,14 +278,20 @@ async function injectExposedThemeVisualFixture(page: Page) {
 }
 
 async function assertExposedThemeCssVariables(page: Page) {
-  const missingVars = await page.evaluate(
-    (varNames) => {
-      const styles = window.getComputedStyle(document.documentElement);
-      return varNames.filter((name) => !styles.getPropertyValue(name).trim());
-    },
-    [...exposedThemeCssVars],
-  );
-  expect(missingVars).toEqual([]);
+  const contractTokens = Object.entries(cartularyDesignTokenVars);
+  expect(contractTokens.length).toBeGreaterThan(0);
+  // Every contract token is exposed on the document root with its exact value.
+  const mismatches = await page.evaluate((tokens) => {
+    const styles = window.getComputedStyle(document.documentElement);
+    return tokens
+      .map(([name, value]) => [
+        name,
+        value,
+        styles.getPropertyValue(name).trim(),
+      ])
+      .filter(([, value, exposed]) => exposed !== value);
+  }, contractTokens);
+  expect(mismatches).toEqual([]);
 }
 
 test("Capture exposed dark_graphite token and theme states with deterministic density, color, component, focus, and semantic-state samples.", async ({

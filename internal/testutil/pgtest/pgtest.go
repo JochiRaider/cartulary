@@ -225,7 +225,7 @@ func (h *Harness) prepareDatabase(ctx context.Context, prefix string, reuseScope
 	template := h.templateDB
 	h.templateMu.Unlock()
 	if template == "" {
-		return nil, errors.New("postgres fixture requires an explicitly prepared sealed template")
+		return nil, ErrTemplateNotPrepared
 	}
 	name := h.nextDatabaseName(prefix)
 	if err := h.createDatabase(ctx, name, template, reuseScope, attribution); err != nil {
@@ -375,8 +375,11 @@ func (db *MigrationDatabase) SQL() *sql.DB {
 // The issuing migration fixture retains ownership; borrowers must close before
 // its cleanup. Returning a copy prevents callers from changing that identity.
 func (db *MigrationDatabase) RuntimeDatabase() (*TestDatabase, error) {
-	if !db.valid() || db.database.Name == "" || db.database.DSN == "" {
-		return nil, errors.New("migration database capability is not harness-issued")
+	if !db.valid() {
+		return nil, errMigrationCapabilityNotIssued
+	}
+	if db.database.Name == "" || db.database.DSN == "" {
+		return nil, errMigrationScratchIdentityMissing
 	}
 	copy := db.database
 	return &copy, nil
@@ -388,7 +391,7 @@ func (db *MigrationDatabase) ApplyThrough(ctx context.Context, version int64) er
 		return err
 	}
 	if !db.valid() {
-		return errors.New("migration database capability is not harness-issued")
+		return errMigrationCapabilityNotIssued
 	}
 	source, err := db.operations.source()
 	if err != nil {
@@ -404,7 +407,7 @@ func (db *MigrationDatabase) RollbackThrough(ctx context.Context, version int64)
 		return err
 	}
 	if !db.valid() {
-		return errors.New("migration database capability is not harness-issued")
+		return errMigrationCapabilityNotIssued
 	}
 	source, err := db.operations.source()
 	if err != nil {
@@ -412,6 +415,15 @@ func (db *MigrationDatabase) RollbackThrough(ctx context.Context, version int64)
 	}
 	return db.operations.rollbackThrough(ctx, db.db, source, version)
 }
+
+// ErrTemplateNotPrepared rejects ordinary fixture preparation before an
+// explicit sealed template exists; preparation never provisions one.
+var ErrTemplateNotPrepared = errors.New("postgres fixture requires an explicitly prepared sealed template")
+
+var (
+	errMigrationCapabilityNotIssued    = errors.New("migration database capability is not harness-issued")
+	errMigrationScratchIdentityMissing = errors.New("migration database capability has no scratch identity")
+)
 
 func (db *MigrationDatabase) valid() bool {
 	return db != nil && db.identity == issuedMigrationDatabaseIdentity && db.db != nil

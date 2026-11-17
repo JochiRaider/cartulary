@@ -30,7 +30,7 @@ func (s *blobLifecycleService) QuarantineBlob(ctx context.Context, actorUserID u
 		return quarantineBlobResult{}, err
 	}
 	if !evidencepolicy.LegalBlobTransition(blob.UploadState, evidencepolicy.BlobQuarantined, trigger) {
-		return quarantineBlobResult{}, errIllegalBlobTransition
+		return quarantineBlobResult{}, &blobTransitionError{fromStatus: blob.UploadState, toStatus: evidencepolicy.BlobQuarantined}
 	}
 
 	rows, err := tx.Query(ctx, `

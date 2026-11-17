@@ -14,6 +14,7 @@
       "selector": {
         "package": "./internal/platform/rootedfs",
         "tests": [
+          "TestOSFunctionEffectClassificationIsComplete_Unit",
           "TestProductionFilesystemEffectBoundary_Unit",
           "TestRootedFSAtomicLifecycleAndRootIdentity_Unit",
           "TestRootedFSDetectsComponentAndRootReplacementRaces_Unit",

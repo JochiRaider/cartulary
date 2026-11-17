@@ -89,8 +89,16 @@ test("Fallow validates only current report kinds and consumed fields", () => {
   validateFallowReport({ kind: "dead-code", unused_files: [], unused_exports: [], unused_types: [] }, "dead-code");
   validateFallowReport({ kind: "dupes", clone_groups: [], clone_families: [] }, "dupes");
   validateFallowReport({ kind: "health", findings: [], future_field: true }, "health");
-  for (const value of [null, [], {}, { kind: "dead-code" }, { kind: "health", findings: [null] }, { kind: "health", findings: [], error: true }]) {
-    assert.throws(() => validateFallowReport(value, "health"));
+  for (const [value, message] of [
+    [null, { message: "Fallow report must contain a valid health result" }],
+    [[], { message: "Fallow report must contain a valid health result" }],
+    [{}, { message: "Fallow report must contain a valid health result" }],
+    [{ kind: "dead-code" }, { message: "Fallow report must contain a valid health result" }],
+    [{ kind: "health", findings: [], error: true }, { message: "Fallow report must contain a valid health result" }],
+    [{ kind: "health", findings: [null] }, { message: "Fallow report has invalid findings" }],
+    [{ kind: "health" }, { message: "Fallow report has invalid findings" }],
+  ]) {
+    assert.throws(() => validateFallowReport(value, "health"), message, JSON.stringify(value));
   }
 });
 

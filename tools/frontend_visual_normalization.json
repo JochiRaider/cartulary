@@ -3819,7 +3819,35 @@
       }
     ],
     "incident-import-succeeded": [],
-    "timeline-grid-adapter-fixtures": [
+    "timeline-grid-adapter-fill-handle": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "timeline-grid-adapter-editor": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "timeline-grid-adapter-grouped-frozen": [
       {
         "id": "account-actor",
         "target": "[data-generated-metadata=\"account-actor\"]",
@@ -4982,9 +5010,17 @@
       "capture_id": "visual.capture.6baff6f77c17edf3aaa0",
       "golden_path": "apps/web/e2e/visual-goldens/incident-import-succeeded-linux.png"
     },
-    "timeline-grid-adapter-fixtures": {
-      "capture_id": "visual.capture.5e7cbfc5d0b4ef03c7e0",
-      "golden_path": "apps/web/e2e/visual-goldens/timeline-grid-adapter-fixtures-linux.png"
+    "timeline-grid-adapter-fill-handle": {
+      "capture_id": "visual.capture.aac1afafab2b58a5aa22",
+      "golden_path": "apps/web/e2e/visual-goldens/timeline-grid-adapter-fill-handle-linux.png"
+    },
+    "timeline-grid-adapter-editor": {
+      "capture_id": "visual.capture.c52c33d0eecd455b417e",
+      "golden_path": "apps/web/e2e/visual-goldens/timeline-grid-adapter-editor-linux.png"
+    },
+    "timeline-grid-adapter-grouped-frozen": {
+      "capture_id": "visual.capture.b3e65b362c8595300158",
+      "golden_path": "apps/web/e2e/visual-goldens/timeline-grid-adapter-grouped-frozen-linux.png"
     },
     "linked-note-authoring-narrow": {
       "capture_id": "visual.capture.a4c88a201b069940f64b",

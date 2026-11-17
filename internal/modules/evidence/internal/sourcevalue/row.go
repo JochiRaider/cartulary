@@ -79,6 +79,15 @@ func Parse(raw map[string]any) (Row, bool) {
 	return row, true
 }
 
+// VocabularyLegal checks only the closed lifecycle and upload-state
+// vocabularies. Live snapshots use it: their retained upload_state scalar never
+// decides the bridge (REQ-02-190, REQ-02-196a); patches check the live Blob.
+func (r Row) VocabularyLegal() bool {
+	return policy.ValidEvidenceLifecycle(r.LifecycleState) && policy.ValidBlobUploadState(r.UploadState)
+}
+
+// LifecycleLegal also checks the bridge against the retained scalar, which is
+// the captured Blob state in portable rows.
 func (r Row) LifecycleLegal() bool {
 	return policy.ValidEvidenceLifecycle(r.LifecycleState) && policy.ValidBlobUploadState(r.UploadState) &&
 		!policy.ViolatesEvidenceBlobBridge(r.LifecycleState, r.ObjectBlobID != nil, r.UploadState)

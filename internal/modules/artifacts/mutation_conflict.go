@@ -6,8 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"slices"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -15,6 +13,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
+	"github.com/JochiRaider/cartulary/internal/platform/collectionvalue"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
@@ -173,6 +172,8 @@ func buildArtifactSameFieldConflict(params artifactSameFieldConflictParams) (Sam
 	if !ok {
 		return SameFieldConflict{}, &conflicts.RevisionWindowError{RecordID: params.RecordID, BaseRowVersion: params.BaseRowVersion, CurrentRowVersion: params.CurrentRowVersion}
 	}
+	// Stored conflict facts may predate REQ-01-067 label order; re-serve them.
+	baseValue, serverValue = collectionvalue.Canonicalize(baseValue), collectionvalue.Canonicalize(serverValue)
 	clientValue, err := artifactPatchClientConflictValue(params.RecordID, params.Change, baseValue, params.RequestHash)
 	if err != nil {
 		return SameFieldConflict{}, &conflicts.RevisionWindowError{RecordID: params.RecordID, BaseRowVersion: params.BaseRowVersion, CurrentRowVersion: params.CurrentRowVersion}
@@ -238,12 +239,7 @@ func applyCollectionConflictActions(recordID uuid.UUID, fieldKey string, baseVal
 			return nil, fmt.Errorf("unsupported collection action: %s", action.Op)
 		}
 	}
-	if !ordered {
-		slices.SortFunc(items, func(left map[string]any, right map[string]any) int {
-			return strings.Compare(collectionSortKey(left), collectionSortKey(right))
-		})
-	}
-	return map[string]any{"kind": "collection_value_v1", "ordered": ordered, "items": items}, nil
+	return collectionvalue.New(ordered, items), nil
 }
 
 func cloneCollectionConflictValue(value any) (bool, []map[string]any, bool) {
@@ -278,15 +274,12 @@ func cloneCollectionConflictValue(value any) (bool, []map[string]any, bool) {
 func newClientCollectionItem(recordID uuid.UUID, fieldKey string, action collectionAction, requestHash []byte, actionIndex int) map[string]any {
 	switch action.Op {
 	case "add_record_ref":
+		// labelArtifactConflictTx replaces the provisional label (REQ-01-333a).
 		linkedID := action.LinkedRecordID.String()
-		targetType := expectedCollectionTargetType(fieldKey)
-		if targetType == "" {
-			targetType = "record"
-		}
 		return map[string]any{
 			"item_ref":         links.RecordRefItemRef(*action.LinkedRecordID),
 			"item_kind":        "record_ref",
-			"display_text":     targetType + ":" + linkedID,
+			"display_text":     collectionvalue.UnavailableRecordLabel,
 			"linked_record_id": linkedID,
 		}
 	case "add_party_ref":
@@ -294,7 +287,7 @@ func newClientCollectionItem(recordID uuid.UUID, fieldKey string, action collect
 		return map[string]any{
 			"item_ref":     links.PartyRefItemRef(*action.PartyID),
 			"item_kind":    "party_ref",
-			"display_text": "party:" + partyID,
+			"display_text": collectionvalue.UnavailableRecordLabel,
 			"party_id":     partyID,
 		}
 	case "add_tag":
@@ -363,21 +356,27 @@ func removeCollectionConflictItem(items []map[string]any, itemRef string) []map[
 	return filtered
 }
 
-func collectionSortKey(item map[string]any) string {
-	for _, key := range []string{"item_kind", "display_text", "item_ref"} {
-		if value, ok := item[key].(string); ok && value != "" {
-			return value
-		}
-	}
-	return ""
+// recordSummaryLabels is the projections-owned REQ-01-333a label reader.
+type recordSummaryLabels interface {
+	RecordSummaryLabelsTx(context.Context, pgx.Tx, uuid.UUID, []uuid.UUID) (map[uuid.UUID]string, error)
 }
 
-func expectedCollectionTargetType(fieldKey string) string {
-	policy, ok := lookupCollectionPolicy(fieldKey)
-	if !ok {
-		return ""
+// labelArtifactConflictTx labels the record_ref and party_ref items of every
+// conflict value with REQ-01-333a labels read in one lookup inside the conflict
+// transaction. Records not live in the incident read UnavailableRecordLabel.
+func labelArtifactConflictTx(ctx context.Context, tx pgx.Tx, labels recordSummaryLabels, incidentID uuid.UUID, conflict *SameFieldConflict) error {
+	ids := collectionvalue.LinkedRecordIDs(conflict.BaseValue.Value, conflict.ServerValue, conflict.ClientValue)
+	if len(ids) == 0 {
+		return nil
 	}
-	return policy.ExpectedTargetType
+	byID, err := labels.RecordSummaryLabelsTx(ctx, tx, incidentID, ids)
+	if err != nil {
+		return err
+	}
+	conflict.BaseValue.Value = collectionvalue.WithLinkedRecordLabels(conflict.BaseValue.Value, byID)
+	conflict.ServerValue = collectionvalue.WithLinkedRecordLabels(conflict.ServerValue, byID)
+	conflict.ClientValue = collectionvalue.WithLinkedRecordLabels(conflict.ClientValue, byID)
+	return nil
 }
 
 func artifactConflictToken(routeKey string, recordID uuid.UUID, viewSchemaID string, fieldKey string, conflictClass string, baseRowVersion int64, currentRowVersion int64, requestHash []byte, codec conflicts.ConflictTokenCodec) (string, error) {

@@ -291,3 +291,16 @@ test("browser cohorts bind exact cases and execution compatibility independently
   assert.notEqual(identity, browserCohort(partition, [{ ...paired, selector: { ...paired.selector,
     scenario_ids: [...paired.selector.scenario_ids].reverse() } }], policy).name, "scenario/title associations remain bound");
 });
+
+// Testing Harness NLSpec §12.5: the reset drain exceeds the shutdown deadline
+// configured for every started backend by the declared margin. The start
+// script reads that deadline from the same authored policy.
+test("browser reset drain keeps a declared margin above the configured backend shutdown deadline", async () => {
+  const { validateBrowserResetPolicy } = await import("../../scheduler/work-graph/browser.mjs");
+  const topology = JSON.parse(readFileSync(new URL("../../../execution_topology_manifest.json", import.meta.url), "utf8"));
+  const policy = topology.browser_reset_policy;
+  assert.equal(validateBrowserResetPolicy(policy), policy);
+  assert.ok(policy.backend_drain_timeout_ms > policy.backend_shutdown_drain_seconds * 1000 + policy.backend_drain_margin_ms);
+  assert.throws(() => validateBrowserResetPolicy({ ...policy, backend_shutdown_drain_seconds: 25 }), /configuration_error/);
+  assert.throws(() => validateBrowserResetPolicy({ ...policy, backend_drain_margin_ms: 0 }), /positive stage deadlines/);
+});

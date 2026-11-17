@@ -66,7 +66,7 @@ func newTimelineCreateProvider(owner TimelineOperations) (workbook.CreateProvide
 				RequestHash: timelineadmission.CreateRequestHash(request),
 				RequestID:   command.RequestID, Now: command.Now,
 			})
-			if failure, safe := timelineActionFailure(err, request.ClientTxnID, "", ""); safe {
+			if failure, safe := timelineActionFailure(err, request.ClientTxnID, ""); safe {
 				return workbook.RejectedMutation(failure), nil
 			}
 			if err != nil {
@@ -97,7 +97,7 @@ func newTimelinePatchProvider(owner TimelineOperations) (workbook.PatchProvider,
 				RequestHash: timelineadmission.PatchRequestHash(request),
 				RequestID:   command.RequestID, Now: command.Now,
 			})
-			if failure, safe := timelineActionFailure(err, request.ClientTxnID, "changes", "superseded_terminal"); safe {
+			if failure, safe := timelineActionFailure(err, request.ClientTxnID, "changes"); safe {
 				return workbook.RejectedMutation(failure), nil
 			}
 			if err != nil {
@@ -132,7 +132,7 @@ func newTimelineConflictProvider(owner TimelineOperations) (workbook.ConflictPro
 				RequestHash: timelineadmission.ConflictResolveRequestHash(claims, request),
 				RequestID:   command.RequestID, Now: command.Now,
 			})
-			if failure, safe := timelineActionFailure(err, request.ClientTxnID, "", ""); safe {
+			if failure, safe := timelineActionFailure(err, request.ClientTxnID, ""); safe {
 				return workbook.RejectedMutation(failure), nil
 			}
 			if err != nil {

@@ -185,8 +185,12 @@ func (s *store) applyPatchAttempt(ctx context.Context, actor authn.UserRecord, r
 			return MutationResult{}, conflict
 		}
 	}
-	if current.CaptureState == "superseded" {
-		return MutationResult{}, newIllegalTransitionError("superseded_terminal", current.CaptureState, captureStateEnriched)
+	if current.CaptureState == captureStateSuperseded {
+		fieldKeys := make([]string, 0, len(request.CanonicalChange))
+		for _, change := range request.CanonicalChange {
+			fieldKeys = append(fieldKeys, change.FieldKey)
+		}
+		return MutationResult{}, newIllegalTransitionError(reasonTransitionNotAllowed, current.CaptureState, supersededPatchTargetState(fieldKeys))
 	}
 
 	next := current

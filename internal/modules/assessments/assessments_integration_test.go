@@ -43,6 +43,11 @@ func TestAssessmentsCreateAndProjection(t *testing.T) {
 	entitytest.SeedHostRecord(t, harness.DB, incidentID, adminUserID, hostID, "Assessment host", "assess-host", "", "")
 	entitytest.SeedHostRecord(t, harness.DB, incidentID, adminUserID, supportHostID, "Assessment support host", "assess-support-host", "", "")
 	timelinetest.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, supportID)
+	// The seeds write source rows only; build their projections, as every
+	// production source write does, so support labels read the linked records.
+	if err := harness.Projections.RebuildIncident(context.Background(), incidentID); err != nil {
+		t.Fatalf("rebuild seeded projections: %v", err)
+	}
 
 	intentsBeforeCreate := collaborationsupport.CountIntents(t, harness.DB, collaborationsupport.IntentSelector{IncidentID: incidentID.String()})
 	body := map[string]any{
@@ -78,8 +83,9 @@ func TestAssessmentsCreateAndProjection(t *testing.T) {
 	wantSupport := map[string]any{
 		"kind": "collection_value_v1", "ordered": false,
 		"items": []any{
-			map[string]any{"item_ref": "record_ref:" + supportID.String(), "item_kind": "record_ref", "display_text": "timeline_event:" + supportID.String(), "linked_record_id": supportID.String()},
-			map[string]any{"item_ref": "record_ref:" + supportHostID.String(), "item_kind": "record_ref", "display_text": "host:" + supportHostID.String(), "linked_record_id": supportHostID.String()},
+			// REQ-01-333a labels in REQ-01-067 label order.
+			map[string]any{"item_ref": "record_ref:" + supportHostID.String(), "item_kind": "record_ref", "display_text": "Assessment support host", "linked_record_id": supportHostID.String()},
+			map[string]any{"item_ref": "record_ref:" + supportID.String(), "item_kind": "record_ref", "display_text": "record-support-source-row", "linked_record_id": supportID.String()},
 		},
 	}
 	requireSupport := func(observation string, observedRow map[string]any) {

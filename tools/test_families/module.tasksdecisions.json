@@ -640,6 +640,7 @@
           "TestDecisionLifecycleSupersessionAndConsistency_Unit",
           "TestDecisionTerminalTransitionMatrix_Unit",
           "TestSupersedeDecisionRejectsInconsistentSourceOrTarget_Unit",
+          "TestTaskInconsistentStateFailsClosedUntilCorrected_Unit",
           "TestTaskLifecycleGuardFailures_Unit",
           "TestTaskLifecycleStatusMatrixAndExactReplay_Unit",
           "TestTaskRequestLifecycleDecisionLinksAndProjection_Unit"

@@ -130,16 +130,39 @@ SELECT e.lifecycle_state, e.object_blob_id::text, b.upload_state
 		}
 	}
 	if !evidencepolicy.LegalEvidenceTransition(from, to) {
-		return &LifecycleValidationError{FromStatus: from, ToStatus: to, ReasonCode: "illegal_status_transition", ViolatedGuards: []string{"evidence.lifecycle_state"}}
+		return &LifecycleValidationError{FromStatus: from, ToStatus: to, ReasonCode: reasonTransitionNotAllowed, ViolatedGuards: []string{}}
 	}
+	// REQ-02-196a: the bridge uses the linked Blob's live state, never the
+	// retained scalar. A persisted state that already violated it is
+	// inconsistent; a result that satisfies it is the corrective action.
 	linkedBlobState := ""
 	if uploadState.Valid {
 		linkedBlobState = uploadState.String
 	}
 	if evidencepolicy.ViolatesEvidenceBlobBridge(to, objectBlobID.Valid, linkedBlobState) {
-		return &LifecycleValidationError{FromStatus: from, ToStatus: to, ReasonCode: "violated_lifecycle_guards", ViolatedGuards: []string{"evidence.lifecycle_state", "object_blobs.upload_state"}}
+		reason := reasonGuardsNotSatisfied
+		if evidencepolicy.ViolatesEvidenceBlobBridge(from, objectBlobID.Valid, linkedBlobState) {
+			reason = reasonInconsistentMachine
+		}
+		return &LifecycleValidationError{FromStatus: from, ToStatus: to, ReasonCode: reason, ViolatedGuards: []string{bridgeGuard(to)}}
 	}
 	return nil
+}
+
+// Lifecycle-transition reasons and Evidence bridge guards registered in Core 01
+// §3.3.6.2.
+const (
+	reasonTransitionNotAllowed = "transition_not_allowed"
+	reasonGuardsNotSatisfied   = "guards_not_satisfied"
+	reasonInconsistentMachine  = "inconsistent_machine_state"
+)
+
+// bridgeGuard names the REQ-02-190 bridge guard that a lifecycle state needs.
+func bridgeGuard(lifecycleState string) string {
+	if lifecycleState == evidencepolicy.EvidenceQuarantined {
+		return "quarantined_state_requires_quarantined_or_absent_blob"
+	}
+	return "accessible_state_requires_available_blob"
 }
 
 func (s *sourceMutationService) applyDirectChangeTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, fieldKey string, value FieldValue, now time.Time) (bool, error) {

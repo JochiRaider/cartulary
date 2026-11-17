@@ -83,8 +83,11 @@ assert_file_not_contains "$START_SCRIPT" 'rm -f \
     "${STACK_JSON_FILE}"' "immutable public session evidence is never cleared"
 # shellcheck disable=SC2016
 assert_file_contains "$START_SCRIPT" 'vite preview --host 127.0.0.1 --port "${FRONTEND_PORT}" --strictPort' "strict preview"
-assert_file_contains "$START_SCRIPT" 'TEST_SERVICE_FRONTEND_PORT_START=19000' "service-backed frontend range starts below the default ephemeral range"
-assert_file_contains "$START_SCRIPT" 'TEST_SERVICE_FRONTEND_PORT_END=19199' "service-backed frontend range ends below the default ephemeral range"
+assert_file_contains "$START_SCRIPT" 'EPHEMERAL_PORT_RANGE_FILE=/proc/sys/net/ipv4/ip_local_port_range' "admission reads the effective ephemeral range"
+# shellcheck disable=SC2016
+assert_file_contains "$START_SCRIPT" 'CARTULARY__TIMEOUTS__EXTENSIONS__SHUTDOWN_DRAIN_SECONDS="${shutdown_drain_seconds}"' "every started backend receives the reset policy shutdown deadline"
+assert_file_not_contains "$START_SCRIPT" 'TEST_SERVICE_FRONTEND_PORT_START' "fixed frontend window removed"
+assert_file_not_contains "$ROOT_DIR/tools/harness/browser/lifecycle/ports-and-token.sh" 'listen(0' "no operating-system port-0 probe"
 assert_file_not_contains "$START_SCRIPT" 'retrying with' "strict-port collision retry"
 assert_file_not_contains "$START_SCRIPT" 'dev-services.sh' "no development fallback"
 assert_file_not_contains "$START_SCRIPT" '127.0.0.1:8333' "no development proxy dependency"
@@ -103,6 +106,37 @@ if [[ "${1:-}" == --artifact-fixture ]]; then
   source "$ROOT_DIR/tools/harness/browser/tests/web-e2e-artifact-fixture.sh"
   exit 0
 fi
+
+(
+  # Browser ports come from deterministic windows wholly outside the host's
+  # effective ephemeral range; no window fitting fails admission as config.
+  EPHEMERAL_PORT_RANGE_FILE="$tmp_dir/ip_local_port_range"
+  for range_case in "32768 60999 9400" "10240 32767 9400" "1024 32767 61000"; do
+    read -r low high base <<<"$range_case"
+    printf '%s\t%s\n' "$low" "$high" >"$EPHEMERAL_PORT_RANGE_FILE"
+    CARTULARY_BROWSER_STAGE=webserver-backed
+    [[ "$(browser_port_window frontend)" == "$base $((base + 99))" ]] || fail "web-server-backed frontend window for range $low-$high"
+    [[ "$(browser_port_window backend)" == "$((base + 200)) $((base + 299))" ]] || fail "web-server-backed backend window for range $low-$high"
+    CARTULARY_BROWSER_STAGE=stateful
+    [[ "$(browser_port_window frontend)" == "$((base + 100)) $((base + 199))" ]] || fail "stateful frontend window for range $low-$high"
+    [[ "$(browser_port_window backend)" == "$((base + 300)) $((base + 399))" ]] || fail "stateful backend window for range $low-$high"
+  done
+  printf '1024\t65535\n' >"$EPHEMERAL_PORT_RANGE_FILE"
+  window_status=0
+  window_output="$(browser_port_window backend 2>&1)" || window_status=$?
+  [[ "$window_status" == 2 ]] || fail "an ephemeral range leaving no window was admitted"
+  assert_text_contains "$window_output" 'reason=configuration_error' "no-fit classification"
+  assert_text_contains "$window_output" 'net.ipv4.ip_local_port_range' "no-fit diagnostic names the host setting"
+  printf '10240\t32767\n' >"$EPHEMERAL_PORT_RANGE_FILE"
+  override_status=0
+  override_output="$(allocate_available_port override_port backend 20000 2>&1)" || override_status=$?
+  [[ "$override_status" == 2 ]] || fail "a port override inside the ephemeral range was admitted"
+  assert_text_contains "$override_output" 'reason=configuration_error' "override classification"
+  printf 'not a range\n' >"$EPHEMERAL_PORT_RANGE_FILE"
+  unreadable_status=0
+  browser_port_window frontend >/dev/null 2>&1 || unreadable_status=$?
+  [[ "$unreadable_status" == 2 ]] || fail "an unreadable ephemeral range was admitted"
+)
 
 (
   unset CARTULARY_BROWSER_ACQUISITION_FILE
@@ -129,6 +163,40 @@ fi
   browser_wait_frontend_ready || readiness_status=$?
   [[ "$readiness_status" == 1 ]] || fail "frontend bind failure was admitted"
   assert_file_contains "$tmp_dir/bind-failure" 'frontend_readiness infra resource_conflict' "bind failure with live group anchor"
+)
+
+(
+  # The backend shutdown deadline comes only from the authored reset policy.
+  [[ "$(backend_shutdown_drain_seconds)" == 10 ]] || fail "authored backend shutdown deadline was not read"
+  for invalid_policy in '{}' '{"browser_reset_policy":{}}' '{"browser_reset_policy":{"backend_shutdown_drain_seconds":0}}' '{"browser_reset_policy":{"backend_shutdown_drain_seconds":"10"}}'; do
+    printf '%s\n' "$invalid_policy" >"$tmp_dir/invalid-topology-policy.json"
+    drain_status=0
+    drain_output="$(backend_shutdown_drain_seconds "$tmp_dir/invalid-topology-policy.json" 2>&1)" || drain_status=$?
+    [[ "$drain_status" == 2 ]] || fail "invalid reset policy [$invalid_policy] was admitted"
+    assert_text_contains "$drain_output" 'reason=configuration_error' "invalid shutdown deadline classification"
+  done
+)
+
+(
+  # A backend listener reservation that lost its port is a port collision.
+  exit_for_requested_shutdown() { return 0; }
+  browser_process_group_running() { return 1; }
+  bounded_private_failure_message() { printf 'bounded backend failure\n'; }
+  write_startup_diagnostics() { printf '%s\n' "$*" >"$tmp_dir/backend-bind-failure"; }
+  sleep() { fail "backend bind failure entered readiness retry"; }
+  SERVER_LOG="$tmp_dir/backend-bind.log"
+  BACKEND_PORT=9601
+  SERVER_PGID=321
+  printf 'reserve backend listener 127.0.0.1:9601: listen tcp 127.0.0.1:9601: bind: address already in use\n' >"$SERVER_LOG"
+  backend_status=0
+  browser_wait_backend_ready >/dev/null 2>&1 || backend_status=$?
+  [[ "$backend_status" == 1 ]] || fail "backend bind failure was admitted"
+  assert_file_contains "$tmp_dir/backend-bind-failure" 'backend_readiness infra resource_conflict' "backend bind failure classification"
+  printf 'panic: unrelated startup failure\n' >"$SERVER_LOG"
+  backend_status=0
+  browser_wait_backend_ready >/dev/null 2>&1 || backend_status=$?
+  [[ "$backend_status" == 1 ]] || fail "backend start failure was admitted"
+  assert_file_contains "$tmp_dir/backend-bind-failure" 'backend_readiness infra service_start_error' "unrelated backend failure keeps its class"
 )
 
 (

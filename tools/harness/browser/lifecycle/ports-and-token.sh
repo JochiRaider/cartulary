@@ -239,34 +239,64 @@ browser_stage_name() {
   esac
 }
 
-service_frontend_port_window() {
-  local stage
-  local offset=0
-  local range_start
-  local range_end
+# effective_ephemeral_port_range prints the host's effective ephemeral port
+# range as "low high". Browser ports never come from that range.
+effective_ephemeral_port_range() {
+  local low=""
+  local high=""
 
-  stage="$(browser_stage_name)"
-  case "${stage}" in
-    stateful)
-      offset="${TEST_SERVICE_FRONTEND_STAGE_WIDTH}"
-      ;;
-    *)
-      offset=0
-      ;;
-  esac
-
-  range_start=$((TEST_SERVICE_FRONTEND_PORT_START + offset))
-  range_end=$((range_start + TEST_SERVICE_FRONTEND_STAGE_WIDTH - 1))
-  if (( range_end > TEST_SERVICE_FRONTEND_PORT_END )); then
-    range_end="${TEST_SERVICE_FRONTEND_PORT_END}"
+  if ! read -r low high <"${EPHEMERAL_PORT_RANGE_FILE}" 2>/dev/null ||
+    [[ ! "${low}" =~ ^[0-9]+$ || ! "${high}" =~ ^[0-9]+$ ]] || ((low > high)); then
+    echo "failure_class=config reason=configuration_error cannot read the host ephemeral port range from ${EPHEMERAL_PORT_RANGE_FILE} (net.ipv4.ip_local_port_range)" >&2
+    return 2
   fi
-
-  printf '%s %s\n' "${range_start}" "${range_end}"
+  printf '%s %s\n' "${low}" "${high}"
 }
 
-rotated_service_frontend_candidates() {
-  local range_start="$1"
-  local range_end="$2"
+# browser_port_block_base selects the first deterministic candidate block that
+# lies wholly outside the effective ephemeral range, or fails admission.
+browser_port_block_base() {
+  local range
+  local low
+  local high
+  local base
+  local end
+
+  range="$(effective_ephemeral_port_range)" || return $?
+  read -r low high <<<"${range}"
+  for base in ${BROWSER_PORT_BLOCK_CANDIDATES}; do
+    end=$((base + 4 * BROWSER_PORT_WINDOW_WIDTH - 1))
+    if ((end < low || base > high)); then
+      printf '%s\n' "${base}"
+      return 0
+    fi
+  done
+  echo "failure_class=config reason=configuration_error no browser port window fits outside the host ephemeral port range ${low}-${high}; adjust net.ipv4.ip_local_port_range" >&2
+  return 2
+}
+
+# browser_port_window prints the stage-owned window for one stack component.
+# The block layout is frontend web-server-backed, frontend stateful, backend
+# web-server-backed and backend stateful, so no two windows overlap.
+browser_port_window() {
+  local name="$1"
+  local base
+  local offset=0
+
+  base="$(browser_port_block_base)" || return $?
+  if [[ "$(browser_stage_name)" == "stateful" ]]; then
+    offset=$((offset + BROWSER_PORT_WINDOW_WIDTH))
+  fi
+  if [[ "${name}" == "backend" ]]; then
+    offset=$((offset + 2 * BROWSER_PORT_WINDOW_WIDTH))
+  fi
+  printf '%s %s\n' "$((base + offset))" "$((base + offset + BROWSER_PORT_WINDOW_WIDTH - 1))"
+}
+
+rotated_port_window_candidates() {
+  local name="$1"
+  local range_start="$2"
+  local range_end="$3"
   local span
   local seed_text
   local seed
@@ -279,7 +309,7 @@ rotated_service_frontend_candidates() {
     return 0
   fi
 
-  seed_text="${CARTULARY_BROWSER_SESSION_GROUP:-}:${CARTULARY_BROWSER_STAGE:-}:"
+  seed_text="${CARTULARY_BROWSER_SESSION_GROUP:-}:${CARTULARY_BROWSER_STAGE:-}:${name}:"
   seed_text+="${CARTULARY_TEST_RUN_ID:-}:${CARTULARY_TEST_TARGET:-}:$$"
   seed="$(printf '%s' "${seed_text}" | cksum | awk '{print $1}')"
   if [[ ! "${seed}" =~ ^[0-9]+$ ]]; then
@@ -346,19 +376,23 @@ allocate_available_port() {
   local name="$2"
   local configured_port="$3"
   local excluded_ports="${4:-}"
+  local range
+  local low
+  local high
+  local window
+  local range_start
+  local range_end
+  local candidate
 
   printf -v "$outvar" '%s' ""
 
   if [[ -n "${configured_port}" ]]; then
     validate_port_number "${configured_port}" "${name}" || return $?
-    if [[ "${name}" == "frontend" ]] && using_test_services_stack; then
-      local configured_range_start
-      local configured_range_end
-      read -r configured_range_start configured_range_end < <(service_frontend_port_window)
-      if (( configured_port < configured_range_start || configured_port > configured_range_end )); then
-        echo "frontend port ${configured_port} must be in service-backed browser $(browser_stage_name) CORS range ${configured_range_start}-${configured_range_end}" >&2
-        return 1
-      fi
+    range="$(effective_ephemeral_port_range)" || return $?
+    read -r low high <<<"${range}"
+    if ((configured_port >= low && configured_port <= high)); then
+      echo "failure_class=config reason=configuration_error ${name} port override ${configured_port} lies inside the host ephemeral port range ${low}-${high} (net.ipv4.ip_local_port_range)" >&2
+      return 2
     fi
     if port_is_excluded "${configured_port}" "${excluded_ports}"; then
       echo "${name} port ${configured_port} must differ from another browser e2e stack port" >&2
@@ -368,33 +402,9 @@ allocate_available_port() {
     return 0
   fi
 
-  if [[ "${name}" == "frontend" ]] && using_test_services_stack; then
-    local candidate
-    local range_start
-    local range_end
-    read -r range_start range_end < <(service_frontend_port_window)
-    for candidate in $(rotated_service_frontend_candidates "${range_start}" "${range_end}"); do
-      if port_is_excluded "${candidate}" "${excluded_ports}"; then
-        continue
-      fi
-      if claim_available_port "$outvar" "${name}" "${candidate}" "0"; then
-        return 0
-      fi
-    done
-
-    echo "failed to allocate an available frontend port in service-backed browser CORS range ${range_start}-${range_end}" >&2
-    return 1
-  fi
-
-  local node_bin="${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}"
-  if [[ ! -x "${node_bin}" ]]; then
-    node_bin="node"
-  fi
-
-  local candidate=""
-  for _ in $(seq 1 50); do
-    candidate="$("${node_bin}" -e 'const net = require("node:net"); const server = net.createServer(); server.on("error", (error) => { console.error(error.message); process.exit(1); }); server.listen(0, "127.0.0.1", () => { console.log(server.address().port); server.close(); });')"
-    validate_port_number "${candidate}" "${name}" || return $?
+  window="$(browser_port_window "${name}")" || return $?
+  read -r range_start range_end <<<"${window}"
+  for candidate in $(rotated_port_window_candidates "${name}" "${range_start}" "${range_end}"); do
     if port_is_excluded "${candidate}" "${excluded_ports}"; then
       continue
     fi
@@ -403,7 +413,7 @@ allocate_available_port() {
     fi
   done
 
-  echo "failed to allocate an available ${name} port for browser e2e" >&2
+  echo "failed to allocate an available ${name} port in browser $(browser_stage_name) window ${range_start}-${range_end}" >&2
   return 1
 }
 

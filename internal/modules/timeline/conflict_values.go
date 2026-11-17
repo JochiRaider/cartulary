@@ -13,6 +13,7 @@ import (
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/valuecodec"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
+	"github.com/JochiRaider/cartulary/internal/platform/collectionvalue"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
@@ -108,6 +109,8 @@ func (s *store) buildSameFieldConflictTx(ctx context.Context, tx pgx.Tx, recordI
 	if !ok {
 		return nil, newRowVersionConflict(recordID, baseRowVersion, current.RowVersion)
 	}
+	// Stored conflict facts may predate REQ-01-067 label order; re-serve them.
+	baseValue, serverValue = collectionvalue.Canonicalize(baseValue), collectionvalue.Canonicalize(serverValue)
 	if isTimelineAttachedEvidenceCollection(change.FieldKey) && change.ActionPayload != nil {
 		targets := make([]uuid.UUID, 0, len(change.ActionPayload.Actions))
 		for _, action := range change.ActionPayload.Actions {
@@ -186,6 +189,19 @@ func (s *store) buildSameFieldConflictTx(ctx context.Context, tx pgx.Tx, recordI
 			return nil, err
 		}
 		return nil, newRowVersionConflict(recordID, baseRowVersion, current.RowVersion)
+	}
+	if isTimelineAttachedEvidenceCollection(change.FieldKey) {
+		// Every value reads the label Timeline stores for the Evidence
+		// (REQ-01-333a); Evidence that is no longer live reads Unavailable record.
+		if ids := collectionvalue.LinkedRecordIDs(baseValue, serverValue, clientValue); len(ids) > 0 {
+			labels, labelErr := s.evidenceStore.TimelineAttachmentLabelsTx(ctx, tx, current.IncidentID, ids)
+			if labelErr != nil {
+				return nil, labelErr
+			}
+			baseValue = collectionvalue.WithLinkedRecordLabels(baseValue, labels)
+			serverValue = collectionvalue.WithLinkedRecordLabels(serverValue, labels)
+			clientValue = collectionvalue.WithLinkedRecordLabels(clientValue, labels)
+		}
 	}
 
 	field, _ := viewschema.LookupField(TimelineViewSchemaID, change.FieldKey)
@@ -355,7 +371,9 @@ func newClientCollectionItem(recordID uuid.UUID, fieldKey string, action Collect
 		if action.LinkedRecordID != nil {
 			item["item_ref"] = linkRecordRefItemRef(*action.LinkedRecordID)
 			item["linked_record_id"] = action.LinkedRecordID.String()
-			item["display_text"] = action.LinkedRecordID.String()
+			// buildSameFieldConflictTx replaces the provisional label with the
+			// stored REQ-01-333a Evidence label.
+			item["display_text"] = collectionvalue.UnavailableRecordLabel
 		}
 		return item
 	}

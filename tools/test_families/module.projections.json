@@ -380,6 +380,7 @@
         "tests": [
           "TestArtifactProjectionSurfacesUseContractFilters",
           "TestGenericProjectionCollectionAcceptsDecodedJSONB",
+          "TestGenericProjectionCollectionCanonicalOrder",
           "TestGenericProjectionContractQueryFieldsAreMapped",
           "TestGenericProjectionGroupedRowIsFullViewRow",
           "TestGenericProjectionNullAndCollectionCellShape",

@@ -110,30 +110,20 @@ func TestTimelineMutationAPIErrorClassifier_Unit(t *testing.T) {
 		{
 			name: "typed illegal transition",
 			err: &timeline.IllegalTransitionError{
-				ReasonCode:     "typed_reason",
+				ReasonCode:     "guards_not_satisfied",
 				FromStatus:     "rough",
-				ToStatus:       "reviewed",
-				ViolatedGuards: []string{"guard_a"},
+				ToStatus:       "superseded",
+				ViolatedGuards: []string{"replacement_must_differ_from_target"},
 			},
-			context: MutationAPIErrorContext{IllegalTransitionReasonCode: "fallback_reason"},
 			status:  http.StatusConflict,
 			code:    "illegal_transition",
 			message: "illegal transition",
 			details: map[string]any{
-				"reason_code":     "typed_reason",
+				"reason_code":     "guards_not_satisfied",
 				"from_status":     "rough",
-				"to_status":       "reviewed",
-				"violated_guards": []string{"guard_a"},
+				"to_status":       "superseded",
+				"violated_guards": []string{"replacement_must_differ_from_target"},
 			},
-		},
-		{
-			name:    "sentinel illegal transition",
-			err:     timeline.ErrIllegalTransition,
-			context: MutationAPIErrorContext{IllegalTransitionReasonCode: "superseded_terminal"},
-			status:  http.StatusConflict,
-			code:    "illegal_transition",
-			message: "illegal transition",
-			details: map[string]any{"reason_code": "superseded_terminal"},
 		},
 		{
 			name:    "invalid collection action",
@@ -173,7 +163,17 @@ func TestTimelineMutationAPIErrorClassifier_Unit(t *testing.T) {
 		})
 	}
 
-	if apiErr, ok := ClassifyMutationAPIError(errors.New("other"), MutationAPIErrorContext{}); ok || apiErr != nil {
-		t.Fatalf("unclassified error returned ok=%v apiErr=%#v", ok, apiErr)
+	// REQ-03-109a: only a typed transition error is illegal_transition. The bare
+	// sentinel and a storage invariant failure stay unclassified and reach the
+	// shared internal_error boundary.
+	for _, err := range []error{
+		errors.New("other"),
+		timeline.ErrIllegalTransition,
+		fmt.Errorf("wrapped: %w", timeline.ErrIllegalTransition),
+		fmt.Errorf("timeline: invalid persisted capture state %q", "bogus"),
+	} {
+		if apiErr, ok := ClassifyMutationAPIError(err, MutationAPIErrorContext{}); ok || apiErr != nil {
+			t.Fatalf("unclassified error %v returned ok=%v apiErr=%#v", err, ok, apiErr)
+		}
 	}
 }

@@ -12,9 +12,12 @@ GO_BIN="${GO:-go}"
 NODE_RUNTIME_DIR="${NODE_RUNTIME_DIR:-${ROOT_DIR}/${CARTULARY_LAYOUT_NODE_RUNTIME}}"
 SERVER_HARNESS_BIN="${CARTULARY_SERVER_HARNESS_BIN:-}"
 TEST_SERVICES_BIN="${CARTULARY_TEST_SERVICES_BIN:-}"
-TEST_SERVICE_FRONTEND_PORT_START=19000
-TEST_SERVICE_FRONTEND_PORT_END=19199
-TEST_SERVICE_FRONTEND_STAGE_WIDTH=100
+# Browser ports come from deterministic stage-owned windows wholly outside the
+# host's effective ephemeral port range (Testing Harness NLSpec, browser
+# owned-stack env). Each candidate block holds four disjoint windows.
+BROWSER_PORT_BLOCK_CANDIDATES="9400 61000"
+BROWSER_PORT_WINDOW_WIDTH=100
+EPHEMERAL_PORT_RANGE_FILE=/proc/sys/net/ipv4/ip_local_port_range
 WEB_DIST_INDEX=""
 WEB_DIST_DIR=""
 SESSION_EVIDENCE_HELPER="${ROOT_DIR}/tools/harness/browser/browser-session-evidence.mjs"
@@ -1269,6 +1272,15 @@ browser_wait_backend_ready() {
       return "$?"
     fi
     if [[ -n "${SERVER_PGID:-}" ]] && ! browser_process_group_running "${SERVER_PGID}" >/dev/null 2>&1; then
+      # A listener reservation that lost its port is a port collision, like
+      # Vite's bind failure, not a product start failure.
+      if [[ -f "${SERVER_LOG}" ]] && grep -Eq 'reserve backend listener .*address already in use' "${SERVER_LOG}"; then
+        echo "backend port ${BACKEND_PORT} became unavailable before readiness" >&2
+        write_startup_diagnostics "fail" "backend_readiness" "infra" "resource_conflict" \
+          "backend port ${BACKEND_PORT} became unavailable before readiness" || true
+        cat "${SERVER_LOG}" >&2 || true
+        return 1
+      fi
       echo "backend exited before readiness" >&2
       write_startup_diagnostics \
         "fail" \
@@ -1402,7 +1414,29 @@ browser_verify_frontend_ready() {
   return 1
 }
 
+# backend_shutdown_drain_seconds prints the application shutdown deadline the
+# harness configures for every backend it starts. It comes from the authored
+# browser_reset_policy, so every caller (scheduler, fixture layer, reset or
+# boundary test) uses one source (Testing Harness NLSpec §12.5; Core 04
+# REQ-04-146a).
+backend_shutdown_drain_seconds() {
+  local policy_file="${1:-${ROOT_DIR}/tools/execution_topology_manifest.json}"
+  local node_bin="${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}"
+  local seconds=""
+  if [[ ! -x "${node_bin}" ]]; then
+    node_bin="node"
+  fi
+  seconds="$("${node_bin}" -e 'const fs = require("node:fs"); const policy = JSON.parse(fs.readFileSync(process.argv[1], "utf8")).browser_reset_policy; const value = policy?.backend_shutdown_drain_seconds; if (!Number.isSafeInteger(value) || value < 1) process.exit(1); process.stdout.write(String(value));' "${policy_file}" 2>/dev/null)" || seconds=""
+  if [[ ! "${seconds}" =~ ^[1-9][0-9]*$ ]]; then
+    echo "failure_class=config reason=configuration_error browser reset policy declares no valid backend shutdown drain deadline" >&2
+    return 2
+  fi
+  printf '%s\n' "${seconds}"
+}
+
 start_backend_ready() {
+  local shutdown_drain_seconds=""
+  shutdown_drain_seconds="$(backend_shutdown_drain_seconds)" || return $?
   local backend_input_error=""
   backend_input_error="$(backend_start_input_failure)"
   if [[ -n "${backend_input_error}" ]]; then
@@ -1445,6 +1479,7 @@ start_backend_ready() {
     start_browser_process_group SERVER_PGID "${SERVER_LOG}" \
       env \
       CARTULARY_CONFIG_FILE="${ROOT_DIR}/configs/dev/config.toml" \
+      CARTULARY__TIMEOUTS__EXTENSIONS__SHUTDOWN_DRAIN_SECONDS="${shutdown_drain_seconds}" \
       CARTULARY__APPLICATION__PUBLIC_ORIGIN="${PUBLIC_ORIGIN}" \
       CARTULARY__APPLICATION__TLS_CERTIFICATE_PATH="${RUNTIME_ROOT_BASE}/tls/server.crt" \
       CARTULARY__APPLICATION__TLS_PRIVATE_KEY_PATH="${RUNTIME_ROOT_BASE}/tls/server.key" \

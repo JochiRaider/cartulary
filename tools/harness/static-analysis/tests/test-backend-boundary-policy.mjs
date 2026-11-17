@@ -13,6 +13,32 @@ import { prepareBoundaryPolicy } from "../backend-module-boundary-check.mjs";
 import { sqlStatements } from "../sql-relations.mjs";
 
 export function registerBoundariesTests() {
+  test("backend policy: complete runs reject scan selectors that match no file", () => {
+    const [rule] = prepareBoundaryPolicy(emptyPolicy({ forbidden_go_imports: [{
+      id: "fixture-no-pgx", match_kind: "subtree", imports: ["github.com/jackc/pgx"],
+      scan_paths: ["internal/modules/moved/**"], allowed_paths: [], production_only: false,
+    }] })).forbiddenGoImports;
+    const file = { relative: "internal/modules/present/value.go", content: "package present\n" };
+    const unmatched = (violations) => violations.filter((entry) => entry.code === "scan_path_unmatched");
+    assert.deepEqual(unmatched(inspect([file], { forbiddenGoImports: [rule] }, { completeSourceSet: true })).map(({ path, symbol_or_import, rule_family }) => ({ path, symbol_or_import, rule_family })),
+      [{ path: "internal/modules/moved/**", symbol_or_import: "fixture-no-pgx", rule_family: "forbidden_go_imports" }]);
+    const moved = { relative: "internal/modules/moved/value.go", content: "package moved\n" };
+    assert.deepEqual(unmatched(inspect([moved], { forbiddenGoImports: [rule] }, { completeSourceSet: true })), []);
+    assert.deepEqual(unmatched(inspect([file], { forbiddenGoImports: [rule] })), []);
+    const tokens = prepareBoundaryPolicy(emptyPolicy({ forbidden_source_tokens: [
+      { id: "fixture-support-token", tokens: ["forbidden.Call("], scan_paths: ["internal/testutil/**"], allowed_paths: [], production_only: false, match_kind: "source_text" },
+      { id: "fixture-retired-path", tokens: ["package "], scan_paths: ["internal/modules/gone.go"], allowed_paths: [], production_only: false, match_kind: "source_text", retired_paths: true },
+    ] })).forbiddenSourceTokens;
+    const support = { relative: "internal/testutil/helper.go", content: "package testutil\nfunc f() { forbidden.Call() }\n" };
+    const supportRun = inspect([file], { forbiddenSourceTokens: tokens }, { testSupportFiles: [support], completeSourceSet: true });
+    assert.deepEqual(supportRun.map(({ code, path, symbol_or_import }) => ({ code, path, symbol_or_import })),
+      [{ code: "forbidden_source_token", path: "internal/testutil/helper.go", symbol_or_import: "fixture-support-token:forbidden.Call(" }]);
+    // A broad runtime selector keeps its runtime-only scope.
+    const [broad] = prepareBoundaryPolicy(emptyPolicy({ forbidden_source_tokens: [
+      { id: "fixture-broad-token", tokens: ["forbidden.Call("], scan_paths: ["internal/**"], allowed_paths: [], production_only: false, match_kind: "source_text" },
+    ] })).forbiddenSourceTokens;
+    assert.deepEqual(inspect([file], { forbiddenSourceTokens: [broad] }, { testSupportFiles: [support], completeSourceSet: true }), []);
+  });
   test("backend policy: Entities portable joins require exact owner shapes", () => {
     const owner="internal/modules/entities";
     const rule=repositoryPolicy().sqlTableAccess.find((entry)=>entry.id==="records-current-envelope-access");

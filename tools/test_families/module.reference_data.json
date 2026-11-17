@@ -493,7 +493,7 @@
       "selector": {
         "package": "./internal/modules/reference_data",
         "tests": [
-          "TestFailuresRemainInactiveAndNoNetworkIsNeeded_Integration"
+          "TestFailedImportsKeepThePriorPackActive_Integration"
         ]
       },
       "evidence_class": "integration",

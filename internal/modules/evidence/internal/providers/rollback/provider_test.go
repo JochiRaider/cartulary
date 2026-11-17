@@ -84,8 +84,6 @@ func TestProviderRejectsInvalidLifecycleAndReferences(t *testing.T) {
 		{"source": map[string]any{"upload_state": "invalid"}},
 		{"source": map[string]any{"collector_party_id": "not-a-uuid"}},
 		{"source": map[string]any{"lifecycle_state": "available", "upload_state": "available", "object_blob_id": nil}},
-		{"source": map[string]any{"lifecycle_state": "released", "upload_state": "quarantined", "object_blob_id": objectBlobID.String()}},
-		{"source": map[string]any{"lifecycle_state": "quarantined", "upload_state": "available", "object_blob_id": objectBlobID.String()}},
 		{"source": map[string]any{"lifecycle_state": "received", "upload_state": "available", "object_blob_id": objectBlobID.String(), "storage_ref": mismatchedStorageRef}},
 		{"source": map[string]any{"lifecycle_state": "received", "upload_state": "available", "object_blob_id": nil, "storage_ref": storageRef}},
 		{"source": map[string]any{"lifecycle_state": "received", "upload_state": "available", "object_blob_id": nil, "storage_ref": "object://not-a-uuid"}},
@@ -100,6 +98,10 @@ func TestProviderRejectsInvalidLifecycleAndReferences(t *testing.T) {
 		{"lifecycle_state": "received", "upload_state": "available", "object_blob_id": objectBlobID.String(), "storage_ref": storageRef},
 		{"lifecycle_state": "available", "upload_state": "available", "object_blob_id": objectBlobID.String(), "storage_ref": storageRef},
 		{"lifecycle_state": "quarantined", "upload_state": "quarantined", "object_blob_id": objectBlobID.String(), "storage_ref": storageRef},
+		// REQ-02-196a: the retained upload_state scalar never decides the bridge;
+		// RestoreTx checks these against the live Blob instead.
+		{"lifecycle_state": "released", "upload_state": "quarantined", "object_blob_id": objectBlobID.String(), "storage_ref": storageRef},
+		{"lifecycle_state": "quarantined", "upload_state": "available", "object_blob_id": objectBlobID.String(), "storage_ref": storageRef},
 	} {
 		if err := provider.ValidateRollbackValue(evidenceRollbackFixture(source)); err != nil {
 			t.Errorf("ValidateRollbackValue(%#v) = %v", source, err)

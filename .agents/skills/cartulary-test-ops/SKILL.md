@@ -25,6 +25,13 @@ are options, not additional obligations. Reuse a compatible invocation already
 running for this task. Read [command recipes](references/command-recipes.md) when
 selecting, launching, or observing work.
 
+Policy dependencies count as directly affected. A change that alters an import,
+capability, allowlist, or privilege boundary also selects the rows that enforce
+that policy, such as the owner's package-local policy guards and the
+boundary-checker rows, not only the rows of the edited code. A change to a
+static-analysis or harness checker selects the row that runs the checker's
+self-test as well as the rows that apply the checker.
+
 Stop when the relevant targeted tests and checks pass and their owning commands
 finish successfully, including declared cleanup. This completes ordinary change
 verification. Add broader checks only for a concrete risk introduced by the

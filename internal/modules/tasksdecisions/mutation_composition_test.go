@@ -205,6 +205,10 @@ func (compositionOperations) LoadDecisionTx(context.Context, pgx.Tx, uuid.UUID) 
 	return map[string]any{}, nil
 }
 
+func (compositionOperations) RecordSummaryLabelsTx(context.Context, pgx.Tx, uuid.UUID, []uuid.UUID) (map[uuid.UUID]string, error) {
+	return map[uuid.UUID]string{}, nil
+}
+
 func (compositionOperations) CaptureRecordSnapshotTx(context.Context, pgx.Tx, uuid.UUID) (revisions.RecordSnapshot, error) {
 	return revisions.RecordSnapshot{}, nil
 }

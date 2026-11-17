@@ -380,6 +380,13 @@ func IllegalTransitionFailure(fromStatus string, toStatus string, reasonCode str
 	}
 }
 
+// UnsupportedLifecycleActionFailure rejects a lifecycle action on a record type
+// that defines no such machine: from_status is null, the guard is
+// record_type_has_machine (Core 01 REQ-01-231, §3.3.6.2).
+func UnsupportedLifecycleActionFailure(requestedStatus string) *MutationFailure {
+	return IllegalTransitionFailure("", requestedStatus, "transition_not_allowed", []string{"record_type_has_machine"})
+}
+
 func EntityMatchConflictFailure(entityType string, identifierClass string, candidateRecordIDs []uuid.UUID) *MutationFailure {
 	return &MutationFailure{
 		kind: MutationFailureEntityMatchConflict,
@@ -503,8 +510,16 @@ func mutationFailureAPIError(failure *MutationFailure) *httpapi.APIError {
 		if !ok {
 			return internalAPIError(nil)
 		}
+		// REQ-01-231: a status is never an empty string; an absent machine state
+		// (create, or a record type without the machine) serializes as null.
+		statusValue := func(status string) any {
+			if status == "" {
+				return nil
+			}
+			return status
+		}
 		details := map[string]any{
-			"from_status": detail.fromStatus, "to_status": detail.toStatus,
+			"from_status": statusValue(detail.fromStatus), "to_status": statusValue(detail.toStatus),
 			"violated_guards": append([]string{}, detail.violatedGuards...),
 		}
 		if detail.reasonCode != "" {

@@ -373,15 +373,19 @@ func insertRouteBlob(t testing.TB, harness *appsupport.ServerHarness, incidentID
 		t.Fatalf("evidence_lifecycle route blob storage key: %v", err)
 	}
 	now := time.Now().UTC()
-	var finalizedAt any
-	var terminalReason any
-	var failedAt any
+	// REQ-02-189a coherent tuple: only finalized slots carry an observation, and
+	// a failed slot carries a size-mismatch failure with cleanup due 45m later.
+	var finalizedAt, terminalReason, failedAt, cleanupDueAt any
+	var observedSize, observedContentType, observedSHA any
 	if uploadState == "available" || uploadState == "quarantined" {
 		finalizedAt = now
+		observedSize, observedContentType = 11, "text/plain"
+		observedSHA = "0000000000000000000000000000000000000000000000000000000000000000"
 	}
 	if uploadState == "failed" {
-		terminalReason = "pending_timeout"
+		terminalReason = "declared_size_mismatch"
 		failedAt = now
+		cleanupDueAt = now.Add(45 * time.Minute)
 	}
 	if _, err := harness.DB.ExecContext(context.Background(), `
 INSERT INTO object_blobs (
@@ -391,22 +395,16 @@ INSERT INTO object_blobs (
     terminal_reason, failed_at, cleanup_due_at, created_at, updated_at
 ) VALUES (
     $1, $2, $3, $4, $5,
-    11, 'route.txt', 'text/plain', 11, 'text/plain',
-    '0000000000000000000000000000000000000000000000000000000000000000',
-    $6, $7, $8, $9, $10, $11, $12, $12
+    11, 'route.txt', 'text/plain', $6, $7,
+    $8,
+    $9, $10, $11, $12, $13, $14, $15, $15
 )
 `, objectBlobID, incidentID, actorID, storageKey, uploadState,
-		now.Add(time.Hour), now.Add(24*time.Hour), finalizedAt, terminalReason, failedAt, nullableCleanupDue(uploadState, now), now); err != nil {
+		observedSize, observedContentType, observedSHA,
+		now.Add(time.Hour), now.Add(24*time.Hour), finalizedAt, terminalReason, failedAt, cleanupDueAt, now); err != nil {
 		t.Fatalf("insert evidence_lifecycle route blob: %v", err)
 	}
 	return objectBlobID
-}
-
-func nullableCleanupDue(uploadState string, now time.Time) any {
-	if uploadState == "failed" {
-		return now.Add(time.Hour)
-	}
-	return nil
 }
 
 func updateRecordDeletedState(t testing.TB, harness *appsupport.ServerHarness, recordID uuid.UUID, deleted bool) {

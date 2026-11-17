@@ -36,10 +36,6 @@ const networkFlowRuntimeModules = [
   "packages/protocol-ts/src/generated/network-flow-presentation.ts",
   "packages/protocol-ts/src/generated/network-flow-validators.ts",
 ];
-const requiredNetworkFlowRuntimeModules = [
-  "packages/protocol-ts/src/entrypoints/network-flow.ts",
-  "packages/protocol-ts/src/generated/network-flow-validators.ts",
-];
 
 function parseArguments(argv) {
   const result = {
@@ -169,7 +165,11 @@ async function forbiddenEvidence() {
   );
   const records = [];
   for (const family of families) {
-    for (const absolutePath of await contractFiles(family.contract_root)) {
+    const familyFiles = await contractFiles(family.contract_root);
+    if (familyFiles.length === 0) {
+      throw new Error(`protected family ${family.family_id} has no contract records under ${family.contract_root}`);
+    }
+    for (const absolutePath of familyFiles) {
       const artifactPath = path
         .relative(repositoryRoot, absolutePath)
         .split(path.sep)
@@ -259,11 +259,10 @@ async function main() {
     } catch (error) {
       throw new Error(`invalid source map ${relativePath}: ${error.message}`);
     }
-    const sources = Array.isArray(sourceMap.sources) ? sourceMap.sources : [];
-    for (const source of sources) {
-      if (typeof source !== "string") {
-        continue;
-      }
+    if (!Array.isArray(sourceMap.sources) || sourceMap.sources.some((source) => typeof source !== "string")) {
+      throw new Error(`invalid source map ${relativePath}: sources must be an array of strings`);
+    }
+    for (const source of sourceMap.sources) {
       const normalized = source.replaceAll("\\", "/");
       for (const modulePath of forbiddenModules) {
         if (normalized.endsWith(modulePath)) {
@@ -291,7 +290,7 @@ async function main() {
     }
   }
 
-  for (const modulePath of requiredNetworkFlowRuntimeModules) {
+  for (const modulePath of networkFlowRuntimeModules) {
     if (!networkFlowRuntimeModulesSeen.has(modulePath)) {
       findings.push({
         emittedPath: "frontend-production",

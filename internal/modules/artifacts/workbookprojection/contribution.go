@@ -16,6 +16,9 @@ import (
 type Rows interface {
 	RefreshArtifactTx(context.Context, pgx.Tx, uuid.UUID) error
 	LoadArtifactTx(context.Context, pgx.Tx, string, uuid.UUID) (map[string]any, error)
+	// RecordSummaryLabelsTx returns REQ-01-333a labels of live records in the
+	// incident; absent, deleted and foreign records are omitted.
+	RecordSummaryLabelsTx(context.Context, pgx.Tx, uuid.UUID, []uuid.UUID) (map[uuid.UUID]string, error)
 }
 
 type SourceReader interface {

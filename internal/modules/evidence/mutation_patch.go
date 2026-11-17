@@ -183,17 +183,16 @@ func (f *mutationFacade) Patch(ctx context.Context, command PatchCommand) (Mutat
 		return MutationResult{}, err
 	}
 	var affectedChanges []attachRecordChange
-	if slices.Contains(patchChangedFieldKeys, "evidence.lifecycle_state") {
-		affectedChanges, err = refreshEvidenceSupportProjectionsTx(
-			ctx,
-			tx,
-			f.supportEffects,
-			meta.IncidentID,
-			command.RecordID,
-		)
-		if err != nil {
-			return MutationResult{}, err
-		}
+	switch {
+	case slices.Contains(patchChangedFieldKeys, "evidence.lifecycle_state"):
+		affectedChanges, err = refreshEvidenceSupportProjectionsTx(ctx, tx, f.supportEffects, meta.IncidentID, command.RecordID)
+	case slices.Contains(patchChangedFieldKeys, "evidence.title"):
+		// REQ-01-333a: Timeline stores attached Evidence labels, so its rows
+		// refresh; Host and Identity projections store no Evidence label.
+		affectedChanges, err = refreshEvidenceSupportProjectionsTx(ctx, tx, f.supportEffects, meta.IncidentID, command.RecordID, "timeline_event")
+	}
+	if err != nil {
+		return MutationResult{}, err
 	}
 	if err := appendEvidenceRecordChangeIntentsTx(
 		ctx,

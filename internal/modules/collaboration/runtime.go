@@ -125,6 +125,16 @@ func (runtime *Runtime) Prepare(ctx context.Context, serving <-chan struct{}) er
 	return runtime.dispatcher.Prepare(ctx, serving)
 }
 
+// CloseSessions begins ordinary shutdown for WebSockets: every open session
+// closes with 1001 going away instead of being waited on (REQ-04-146a). It is
+// safe to call more than once and from http.Server.RegisterOnShutdown.
+func (runtime *Runtime) CloseSessions() {
+	if runtime == nil || runtime.hub == nil {
+		return
+	}
+	runtime.hub.closeSessions()
+}
+
 func (runtime *Runtime) Close(ctx context.Context) error {
 	if runtime == nil || runtime.dispatcher == nil {
 		return nil

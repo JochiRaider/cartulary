@@ -192,7 +192,11 @@ func TestActivationDisableReverifyAndRefreshLifecycle_Integration(t *testing.T) 
 	}
 }
 
-func TestFailuresRemainInactiveAndNoNetworkIsNeeded_Integration(t *testing.T) {
+// TestFailedImportsKeepThePriorPackActive_Integration verifies that each failed
+// import reports its verification reason and leaves the prior pack active.
+// Network independence (REQ-01-407, AC-096) is enforced statically by the
+// reference-data-runtime-no-outbound-network-clients boundary rule.
+func TestFailedImportsKeepThePriorPackActive_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	harness := startReferencePackServer(t, runtime, "extension_profile-reference-pack-failures")
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)

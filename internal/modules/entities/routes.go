@@ -325,7 +325,8 @@ func mentionIllegalTransitionError(err *mentions.MentionTransitionError) *httpap
 	if err != nil {
 		details["from_status"] = err.FromStatus
 		details["to_status"] = err.ToStatus
-		details["violated_guards"] = append([]string(nil), err.ViolatedGuards...)
+		details["violated_guards"] = append([]string{}, err.ViolatedGuards...)
+		details["reason_code"] = err.ReasonCode
 	}
 	return &httpapi.APIError{
 		Status:  http.StatusConflict,

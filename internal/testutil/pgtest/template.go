@@ -23,6 +23,14 @@ func defaultTemplateOperations() templateOperations {
 	return templateOperations{OpenPurposeDatabase, InitializeFreshDatabase, (*sql.DB).Close, SealTemplateDatabase}
 }
 
+// Template request validation runs in this order: context, owner admission,
+// then identity. Each failure is a caller error that acquires no attempt.
+var (
+	errTemplateContextRequired = errors.New("postgres template preparation requires a context")
+	errTemplateOwnerRequired   = errors.New("postgres template preparation requires an admitted physical owner")
+	errInvalidTemplateIdentity = errors.New("invalid postgres template identity")
+)
+
 type templateAttempt struct {
 	name     string
 	done     chan struct{}
@@ -36,20 +44,20 @@ type templateAttempt struct {
 // A failed attempt is terminal; recovery requires a fresh physical owner.
 func (owner *OwnedCluster) PrepareTemplate(ctx context.Context, name string) (*TestDatabase, error) {
 	if ctx == nil {
-		return nil, errors.New("postgres template preparation requires a context")
+		return nil, errTemplateContextRequired
 	}
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
 	if owner == nil || owner.Container == nil || owner.Fixture() == nil {
-		return nil, errors.New("postgres template preparation requires an admitted physical owner")
+		return nil, errTemplateOwnerRequired
 	}
 	h := owner.fixture
 	if name == "" {
 		name = templateDatabaseName(h.suiteHash, h.schemaHash)
 	}
 	if name != sanitizeIdentifier(name) || len(name) > 63 {
-		return nil, errors.New("invalid postgres template identity")
+		return nil, errInvalidTemplateIdentity
 	}
 	owner.preparationMu.Lock()
 	if attempt := owner.preparation; attempt != nil {

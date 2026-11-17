@@ -259,13 +259,15 @@ func recordRefCollectionExpr(fieldKey string) sqlshape.Fragment {
 	return recordRefCollectionExprFor(fieldKey, "references_record")
 }
 
+// recordRefCollectionExprFor serves a record-ref collection whose items carry
+// the REQ-01-333a linked record summary label.
 func recordRefCollectionExprFor(fieldKey string, linkType string) sqlshape.Fragment {
 	return sqlshape.Format(`(SELECT COALESCE(jsonb_agg(jsonb_build_object(
         'item_ref', %s,
         'item_kind', 'record_ref',
-        'display_text', dst.record_type || ':' || dst.record_id::text,
+        'display_text', %s,
         'linked_record_id', dst.record_id::text
-    ) ORDER BY dst.record_type ASC, dst.record_id ASC), '[]'::jsonb)
+    ) ORDER BY dst.record_id ASC), '[]'::jsonb)
       FROM active_record_links_v1 rl
       JOIN records dst
         ON dst.incident_id = rl.incident_id
@@ -274,7 +276,7 @@ func recordRefCollectionExprFor(fieldKey string, linkType string) sqlshape.Fragm
      WHERE rl.incident_id = p.incident_id
        AND rl.src_record_id = p.record_id
        AND rl.link_type = %s
-       AND rl.field_key = %s)::text`, recordRefItemRefSQL(sqlshape.Literal("dst.record_id")), sqlshape.Quote(linkType), sqlshape.Quote(fieldKey))
+       AND rl.field_key = %s)::text`, recordRefItemRefSQL(sqlshape.Literal("dst.record_id")), recordSummaryLabelSQL(sqlshape.Literal("dst.record_id"), sqlshape.Literal("dst.record_type")), sqlshape.Quote(linkType), sqlshape.Quote(fieldKey))
 }
 
 func tagCollectionExprFor() sqlshape.Fragment {

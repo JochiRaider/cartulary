@@ -815,10 +815,37 @@ describe("retained Evidence file recovery", () => {
     owner.discard(sourceId);
     expect(owner.getSnapshot()).toEqual([]);
     pending.resolve({ kind: "accepted" });
-    await Promise.resolve();
-    await Promise.resolve();
+    await new Promise((resolve) => setTimeout(resolve, 0));
     expect(f.transport.finalize).not.toHaveBeenCalled();
     expect(f.transport.transfer.mock.calls[0]?.[2].aborted).toBe(true);
+    // Control: without discard, the same late transfer reaches finalize
+    // within the same settle.
+    const control = fixture(),
+      controlPending =
+        deferred<Awaited<ReturnType<EvidenceFileTransport["transfer"]>>>();
+    control.transport.transfer.mockReturnValueOnce(controlPending.promise);
+    const controlOwner = new WorkbookTimelineFileOwner(
+      incidentId,
+      control.ids,
+      control.effects,
+    );
+    controlOwner.configure(
+      control.reader,
+      async () => authority,
+      control.transport,
+      createTimelineFileLinkTransport(undefined),
+    );
+    controlOwner.setAuthority(authority);
+    controlOwner.begin({ key: sourceId, recordId: sourceId, rowVersion: 1 }, [
+      control.file,
+    ]);
+    await waitFor(() =>
+      expect(control.transport.transfer).toHaveBeenCalledTimes(1),
+    );
+    controlPending.resolve({ kind: "accepted" });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(control.transport.finalize).toHaveBeenCalledTimes(1);
+    controlOwner.retire();
   });
   it("requires displayed source review after edits and never links a missing source", async () => {
     const f = fixture(),
@@ -901,6 +928,7 @@ describe("retained Evidence file recovery", () => {
   });
   it("conceals retained files and fences late creation on role loss closure and account retirement", async () => {
     for (const boundary of [
+      "none",
       "viewer",
       "closed",
       "suspend",
@@ -932,9 +960,13 @@ describe("retained Evidence file recovery", () => {
         owner.setAuthority({ ...authority, actorId: "replacement-account" });
       if (boundary === "retire") owner.retire();
       pending.resolve({ kind: "accepted", receipt: f.receipt });
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      if (boundary === "none") {
+        // Control: with no boundary the same settle reaches the link send.
+        expect(links.send).toHaveBeenCalledTimes(1);
+        owner.retire();
+        continue;
+      }
       expect(links.send).not.toHaveBeenCalled();
       if (["suspend", "account", "retire"].includes(boundary))
         expect(owner.getSnapshot()).toEqual([]);

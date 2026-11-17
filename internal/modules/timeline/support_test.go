@@ -59,8 +59,28 @@ func TestUnit_CaptureStateHelpers(t *testing.T) {
 			t.Fatalf("supersede from %s allowed=%v, want %v", state, !allowed, allowed)
 		}
 	}
-	if _, err := captureStateAfterMaterialPatch(captureStateSuperseded); !errors.Is(err, ErrIllegalTransition) {
-		t.Fatalf("expected superseded rows to reject ordinary patch semantics, got %v", err)
+	// Callers reject superseded rows with a typed transition error first. Any
+	// state that reaches this helper outside rough/enriched/reviewed is a storage
+	// invariant failure (REQ-03-109a), never an illegal transition.
+	for _, state := range []string{captureStateSuperseded, "", "bogus"} {
+		_, err := captureStateAfterMaterialPatch(state)
+		var transitionErr *IllegalTransitionError
+		if err == nil || errors.Is(err, ErrIllegalTransition) || errors.As(err, &transitionErr) {
+			t.Fatalf("state %q: want an unclassified invariant error, got %v", state, err)
+		}
+	}
+	// REQ-01-231 to_status for a rejected patch on a superseded row.
+	for _, tc := range []struct {
+		fields []string
+		want   string
+	}{
+		{[]string{"timeline.tags"}, captureStateSuperseded},
+		{[]string{"timeline.tags", "timeline.activity_synopsis_text"}, captureStateEnriched},
+		{[]string{"timeline.host_refs"}, captureStateEnriched},
+	} {
+		if got := supersededPatchTargetState(tc.fields); got != tc.want {
+			t.Fatalf("supersededPatchTargetState(%v) = %q, want %q", tc.fields, got, tc.want)
+		}
 	}
 }
 

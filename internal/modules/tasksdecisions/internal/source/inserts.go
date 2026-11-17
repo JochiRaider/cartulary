@@ -37,7 +37,7 @@ func InsertTaskRequestTx(
 	if status == "done" && completedAt == nil {
 		completedAt = now
 	}
-	if err := policy.ValidateTaskState(policy.TaskLifecycleState{
+	if err := policy.TaskResultError("", false, policy.TaskLifecycleState{
 		Status:        status.(string),
 		BlockedReason: nullableStringFromAny(nullableTextValue(params.Values, "task.blocked_reason")),
 		CompletedAt:   nullableTimeFromAny(completedAt),

@@ -136,6 +136,7 @@
           "TestLoadFamiliesRejectsUnsafeOrAmbiguousRegistry",
           "TestLoadFamiliesUsesActiveRegistryEntries",
           "TestTypeScriptProjectionSourcesAreExactAndDeeplyReadonly",
+          "TestValidateErrorRegistryLifecycleGuards",
           "TestValidateErrorRegistryRejectsDuplicateCodes",
           "TestValidateErrorRegistryRejectsInvalidReasonRegistries",
           "TestValidateExtensionBindingSourcesRejectsUnsortedContributions",
@@ -188,6 +189,31 @@
           "TestImportTargetRegistryDerivationIsDeterministicAndComplete",
           "TestImportTargetRowDigestExcludesOnlyDigestMember",
           "TestResolveImportTargetContributionRejectsMissingAndDuplicateBindings"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "harness.generated_artifacts.unit.lifecycle_contract_validator",
+      "owner_id": "harness.generated_artifacts",
+      "family_id": "harness.generated_artifacts.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.generated_artifacts.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/lifecyclecontract",
+        "tests": [
+          "TestValidatorsEnforceTheRegisteredVocabulary_Unit"
         ]
       },
       "evidence_class": "unit",

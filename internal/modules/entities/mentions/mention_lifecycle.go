@@ -41,6 +41,7 @@ func (e *invalidMutationTargetError) Error() string {
 type MentionTransitionError struct {
 	FromStatus     string
 	ToStatus       string
+	ReasonCode     string
 	ViolatedGuards []string
 }
 
@@ -732,15 +733,16 @@ func mentionLinkType(sourceFieldKey string) (string, bool) {
 func (*Store) TransitionStatus(field, from, action string) (string, error) {
 	_, supported := mentionLinkType(field)
 	to, legal := mentionActionState(action)
-	guards := make([]string, 0, 2)
+	if to == "" {
+		return "", fmt.Errorf("entities: unsupported mention action %q", action)
+	}
+	// Core 01 §3.3.6.2: an unsupported source field fails a registered guard;
+	// a status outside the action's matrix is a matrix rejection with no guard.
 	if !supported {
-		guards = append(guards, "source_field_not_supported")
+		return "", &MentionTransitionError{FromStatus: from, ToStatus: to, ReasonCode: "guards_not_satisfied", ViolatedGuards: []string{"mention_source_field_supported"}}
 	}
 	if !slices.Contains(legal, from) {
-		guards = append(guards, "from_status_not_allowed")
-	}
-	if len(guards) > 0 {
-		return "", &MentionTransitionError{FromStatus: from, ToStatus: to, ViolatedGuards: guards}
+		return "", &MentionTransitionError{FromStatus: from, ToStatus: to, ReasonCode: "transition_not_allowed", ViolatedGuards: []string{}}
 	}
 	return to, nil
 }

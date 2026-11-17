@@ -186,8 +186,8 @@ func testTemplatePreparationContract(t *testing.T) {
 	t.Run("real_transport_open_cancellation", testPurposeOpenCancellation)
 	t.Run("ordinary_fixture_requires_template", func(t *testing.T) {
 		h := &Harness{}
-		if database, err := h.PrepareDatabase(t.Context(), "missing"); err == nil || database != nil {
-			t.Fatal("ordinary preparation implicitly provisioned a template")
+		if database, err := h.PrepareDatabase(t.Context(), "missing"); !errors.Is(err, ErrTemplateNotPrepared) || database != nil {
+			t.Fatal("ordinary preparation implicitly provisioned a template", err)
 		}
 
 	})
@@ -320,15 +320,36 @@ func testTemplateAdmissionCancellation(t *testing.T) {
 }
 
 func testInvalidTemplateRequest(t *testing.T) {
-	h := &Harness{}
-	owner := &OwnedCluster{Container: fakePostgresContainer{}, fixture: h}
-	owner.ready.Store(true)
 	cancelled, cancel := context.WithCancel(t.Context())
 	cancel()
-	for _, ctx := range []context.Context{nil, cancelled, t.Context()} {
-		if _, err := owner.PrepareTemplate(ctx, "invalid/name"); err == nil || owner.preparation != nil || h.quarantined.Load() {
-			t.Fatal("caller error acquired or retired an attempt", err)
-		}
+	// Each case changes exactly one input of an otherwise valid request, so
+	// it fails only on its own validation step (context, owner, identity).
+	for _, tc := range []struct {
+		name     string
+		ctx      context.Context
+		admitted bool
+		template string
+		want     error
+	}{
+		{name: "nil context", ctx: nil, admitted: true, template: "valid_template", want: errTemplateContextRequired},
+		{name: "cancelled context", ctx: cancelled, admitted: true, template: "valid_template", want: context.Canceled},
+		{name: "unadmitted owner", ctx: t.Context(), admitted: false, template: "valid_template", want: errTemplateOwnerRequired},
+		{name: "invalid identity", ctx: t.Context(), admitted: true, template: "invalid/name", want: errInvalidTemplateIdentity},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			h := &Harness{}
+			owner := &OwnedCluster{Container: fakePostgresContainer{}, fixture: h}
+			owner.ready.Store(true)
+			if !tc.admitted {
+				owner = nil
+			}
+			if _, err := owner.PrepareTemplate(tc.ctx, tc.template); !errors.Is(err, tc.want) {
+				t.Fatalf("PrepareTemplate error = %v, want %v", err, tc.want)
+			}
+			if (owner != nil && owner.preparation != nil) || h.quarantined.Load() {
+				t.Fatal("caller error acquired or retired an attempt")
+			}
+		})
 	}
 	//lint:ignore SA1012 Verify the helper rejects a nil context before I/O.
 	if _, err := OpenPurposeDatabase(nil, "invalid", postgres.PurposeMigration); err == nil {

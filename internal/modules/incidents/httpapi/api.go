@@ -152,18 +152,20 @@ func incidentClosedError() *platformhttpapi.APIError {
 }
 
 func incidentIllegalTransitionError(action incidents.LifecycleAction) *platformhttpapi.APIError {
-	var reasonCode string
+	// REQ-01-231: a rejected action leaves the incident where it is, so the
+	// requested result equals the persisted state.
+	var reasonCode, status string
 	switch action {
 	case incidents.LifecycleActionClose:
-		reasonCode = "incident_already_closed"
+		reasonCode, status = "incident_already_closed", "closed"
 	case incidents.LifecycleActionReopen:
-		reasonCode = "incident_not_closed"
+		reasonCode, status = "incident_not_closed", "active"
 	default:
 		return internalAPIError(errors.New("incidents http: invalid lifecycle action"))
 	}
 	return &platformhttpapi.APIError{
 		Status: http.StatusConflict, Code: "illegal_transition", Message: "illegal transition",
-		Details: map[string]any{"reason_code": reasonCode},
+		Details: map[string]any{"reason_code": reasonCode, "from_status": status, "to_status": status, "violated_guards": []string{}},
 	}
 }
 

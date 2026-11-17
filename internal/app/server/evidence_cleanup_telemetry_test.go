@@ -105,8 +105,8 @@ func TestEvidenceCleanupDispatcherStartsOnlyAfterServingReadiness(t *testing.T) 
 		lifecycle:                 lifecycle,
 		evidenceCleanupDispatcher: dispatcher,
 	}
-	runtime.own(func() {
-		closeCtx, cancel := context.WithTimeout(context.Background(), time.Second)
+	runtime.own("evidence_cleanup_dispatcher", func(ctx context.Context) {
+		closeCtx, cancel := context.WithTimeout(ctx, time.Second)
 		defer cancel()
 		_ = dispatcher.Close(closeCtx)
 	})
@@ -148,9 +148,9 @@ func TestNetworkFlowCleanupDispatcherStartsAfterReadinessAndStopsInReverseOrder(
 		networkFlowCleanupDispatcher: networkFlowDispatcher,
 		graphActivation:              graphActivation,
 	}
-	runtime.own(func() { _ = evidenceDispatcher.Close(context.Background()) })
-	runtime.own(func() { _ = networkFlowDispatcher.Close(context.Background()) })
-	runtime.own(func() { _ = graphActivation.Close(context.Background()) })
+	runtime.own("evidence_cleanup_dispatcher", func(ctx context.Context) { _ = evidenceDispatcher.Close(ctx) })
+	runtime.own("network_flow_cleanup_dispatcher", func(ctx context.Context) { _ = networkFlowDispatcher.Close(ctx) })
+	runtime.own("graph_activation", func(ctx context.Context) { _ = graphActivation.Close(ctx) })
 	beginTestPublication(t, runtime)
 	if err := runtime.ActivatePublication(); err != nil {
 		t.Fatal(err)

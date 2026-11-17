@@ -33,6 +33,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/contractassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/dbassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
+	"github.com/JochiRaider/cartulary/internal/testutil/lifecyclecontract"
 	workbookscenariotest "github.com/JochiRaider/cartulary/internal/testutil/workbookscenariotest"
 )
 
@@ -1284,7 +1285,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 			httptestx.WithCookies(reviewerAuth.Session, reviewerAuth.CSRF),
 			httptestx.WithHeader(authn.CSRFHeaderName, reviewerAuth.CSRF.Value),
 		)
-		requireRejectedMutationStable(t, db, incidentID, recordID, selfBefore, selfSupersede, "enriched", "superseded", []string{"replacement_must_be_different_timeline_record"})
+		requireRejectedMutationStable(t, db, incidentID, recordID, selfBefore, selfSupersede, "enriched", "superseded", []string{"replacement_must_differ_from_target"})
 		incidentwstest.ExpectNoSocketMessage(t, socket)
 
 		crossBefore := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(db), incidentID, recordID)
@@ -1300,7 +1301,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 			httptestx.WithCookies(reviewerAuth.Session, reviewerAuth.CSRF),
 			httptestx.WithHeader(authn.CSRFHeaderName, reviewerAuth.CSRF.Value),
 		)
-		requireRejectedMutationStable(t, db, incidentID, recordID, crossBefore, crossIncidentSupersede, "enriched", "superseded", []string{"replacement_must_be_visible_active_same_incident_timeline_record"})
+		requireRejectedMutationStable(t, db, incidentID, recordID, crossBefore, crossIncidentSupersede, "enriched", "superseded", []string{"replacement_must_be_active_in_incident"})
 		incidentwstest.ExpectNoSocketMessage(t, socket)
 
 		supersededReplacementBefore := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(db), incidentID, recordID)
@@ -1333,7 +1334,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 			httptestx.WithCookies(reviewerAuth.Session, reviewerAuth.CSRF),
 			httptestx.WithHeader(authn.CSRFHeaderName, reviewerAuth.CSRF.Value),
 		)
-		requireRejectedMutationStable(t, db, incidentID, recordID, missingReplacementBefore, missingReplacementResp, "enriched", "superseded", []string{"replacement_must_be_visible_active_same_incident_timeline_record"})
+		requireRejectedMutationStable(t, db, incidentID, recordID, missingReplacementBefore, missingReplacementResp, "enriched", "superseded", []string{"replacement_must_be_active_in_incident"})
 		incidentwstest.ExpectNoSocketMessage(t, socket)
 
 		activeIncomingBefore := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(db), incidentID, activeIncomingTargetID)
@@ -1464,7 +1465,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 			httptestx.WithHeader(authn.CSRFHeaderName, reviewerAuth.CSRF.Value),
 		)
 		terminalPatch := requireRejectedMutationStable(t, db, incidentID, recordID, terminalBefore, patchAfterSupersede, "superseded", "enriched", []string{})
-		httptestx.RequireErrorDetail(t, terminalPatch, "reason_code", "superseded_terminal")
+		httptestx.RequireErrorDetail(t, terminalPatch, "reason_code", "transition_not_allowed")
 		incidentwstest.ExpectNoSocketMessage(t, socket)
 
 		illegalReview := httptestx.DoJSON(t, http.DefaultClient,
@@ -1478,7 +1479,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 			httptestx.WithHeader(authn.CSRFHeaderName, reviewerAuth.CSRF.Value),
 		)
 		terminalReview := requireRejectedMutationStable(t, db, incidentID, recordID, terminalBefore, illegalReview, "superseded", "reviewed", []string{})
-		httptestx.RequireErrorDetail(t, terminalReview, "reason_code", "mark_reviewed_not_allowed")
+		httptestx.RequireErrorDetail(t, terminalReview, "reason_code", "transition_not_allowed")
 		incidentwstest.ExpectNoSocketMessage(t, socket)
 
 		resupersede := httptestx.DoJSON(t, http.DefaultClient,
@@ -1494,7 +1495,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 			httptestx.WithHeader(authn.CSRFHeaderName, reviewerAuth.CSRF.Value),
 		)
 		terminalSupersede := requireRejectedMutationStable(t, db, incidentID, recordID, terminalBefore, resupersede, "superseded", "superseded", []string{})
-		httptestx.RequireErrorDetail(t, terminalSupersede, "reason_code", "supersede_not_allowed")
+		httptestx.RequireErrorDetail(t, terminalSupersede, "reason_code", "transition_not_allowed")
 		incidentwstest.ExpectNoSocketMessage(t, socket)
 
 		updateMembershipRole(t, server, incidentID, reviewerID, 2, "viewer", adminLogin)
@@ -1962,6 +1963,14 @@ func requireRejectedMutationStable(t testing.TB, db *sql.DB, incidentID string, 
 	httptestx.RequireErrorDetail(t, body, "from_status", wantFrom)
 	httptestx.RequireErrorDetail(t, body, "to_status", wantTo)
 	httptestx.RequireErrorDetailStrings(t, body, "violated_guards", wantGuards)
+	// Core 01 §3.3.6.2: matrix rejections carry no guards; guard failures do.
+	wantReason := "transition_not_allowed"
+	if len(wantGuards) > 0 {
+		wantReason = "guards_not_satisfied"
+	}
+	httptestx.RequireErrorDetail(t, body, "reason_code", wantReason)
+	// AC-606: the emitted vocabulary is registered for this machine.
+	lifecyclecontract.RequireDetails(t, "timeline.capture_state", body["error"].(map[string]any)["details"].(map[string]any))
 	after := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(db), incidentID, recordID)
 	if before != after {
 		t.Fatalf("rejected mutation must not write history or projection rows: before=%#v after=%#v", before, after)

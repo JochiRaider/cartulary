@@ -102,6 +102,9 @@ func (f *MutationFacade) Patch(ctx context.Context, command PatchCommand) (Mutat
 			if err != nil {
 				return MutationResult{}, adaptRevisionWindowError(command.RecordID, request.BaseRowVersion, meta.RowVersion, err)
 			}
+			if err := labelConflictTx(ctx, tx, f.projectionRows, meta.IncidentID, &conflictPayload); err != nil {
+				return MutationResult{}, err
+			}
 			return MutationResult{}, &SameFieldConflictError{Conflict: conflictPayload}
 		}
 		effectiveBeforeVersion = meta.RowVersion
@@ -251,14 +254,16 @@ func (f *MutationFacade) applyPatchTx(ctx context.Context, tx pgx.Tx, incidentID
 	var beforeTask policy.TaskLifecycleState
 	var beforeDecisionStatus string
 	var err error
-	if request.ViewSchemaID == TaskRequestsViewSchemaID && touchesAnyField(request.Changes, "task.status", "task.blocked_reason", "task.completed_at", "task.owner_user_id") {
+	// REQ-02-109a: every Task mutation is checked against the persisted
+	// lifecycle state, not only those that touch lifecycle fields.
+	if request.ViewSchemaID == TaskRequestsViewSchemaID {
 		beforeTask, err = tasksource.LoadTaskLifecycleStateTx(ctx, tx, recordID)
 		if err != nil {
 			return false, nil, err
 		}
 	}
 	if request.ViewSchemaID == DecisionsViewSchemaID {
-		if err := validateDecisionMachineConsistentTx(ctx, tx, f.linkFacts, recordID); err != nil {
+		if err := validateDecisionMachineConsistentTx(ctx, tx, f.linkFacts, recordID, requestedDecisionStatus(request.Changes)); err != nil {
 			return false, nil, err
 		}
 		if touchesField(request.Changes, "decision.status") {
@@ -293,6 +298,16 @@ func (f *MutationFacade) applyPatchTx(ctx context.Context, tx pgx.Tx, incidentID
 			return false, nil, err
 		}
 		changed = changed || applied
+	} else if request.ViewSchemaID == TaskRequestsViewSchemaID {
+		// A patch outside the lifecycle fields leaves the guards as persisted, so
+		// an inconsistent Task stays rejected until a corrective change.
+		afterTask, err := tasksource.LoadTaskLifecycleStateTx(ctx, tx, recordID)
+		if err != nil {
+			return false, nil, err
+		}
+		if err := policy.TaskResultError(beforeTask.Status, len(policy.TaskLifecycleViolations(beforeTask)) > 0, afterTask); err != nil {
+			return false, nil, err
+		}
 	}
 	if request.ViewSchemaID == DecisionsViewSchemaID && touchesField(request.Changes, "decision.status") {
 		afterDecisionStatus, err := tasksource.LoadDecisionStatusTx(ctx, tx, recordID)
@@ -302,7 +317,7 @@ func (f *MutationFacade) applyPatchTx(ctx context.Context, tx pgx.Tx, incidentID
 		if err := policy.ValidateDecisionStatusTransition(beforeDecisionStatus, afterDecisionStatus); err != nil {
 			return false, nil, err
 		}
-		if err := validateDecisionMachineConsistentTx(ctx, tx, f.linkFacts, recordID); err != nil {
+		if err := validateDecisionMachineConsistentTx(ctx, tx, f.linkFacts, recordID, afterDecisionStatus); err != nil {
 			return false, nil, err
 		}
 	}

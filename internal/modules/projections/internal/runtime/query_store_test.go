@@ -117,6 +117,12 @@ func TestProjectionStoreQueryRowsAndLoadRowTxParity(t *testing.T) {
 	supportID := uuid.New()
 	entitytest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, hostID, "Projection parity host", "projection-parity-host", "", "")
 	timelinetest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, supportID)
+	// The seeds write source rows only. Build their projections, as every
+	// production source write does, so REQ-01-333a support labels agree across
+	// create, query and rebuild.
+	if err := projectionCatalog.MaintenanceRebuilder().RebuildIncident(ctx, incident.ID); err != nil {
+		t.Fatalf("rebuild seeded projections: %v", err)
+	}
 
 	confidenceScore := 75
 	assessmentInput := assessments.CreateInput{

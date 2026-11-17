@@ -360,6 +360,108 @@ func TestGenericProjectionCollectionAcceptsDecodedJSONB(t *testing.T) {
 	}
 }
 
+// REQ-01-067: ordered=false collections serialize in label order (folded
+// label, raw label, item_ref); ordered=true collections keep authoritative
+// stored order. Core 01 declares only the Timeline host and identity references
+// ordered.
+func TestGenericProjectionCollectionCanonicalOrder(t *testing.T) {
+	recordID := uuid.MustParse("00000000-0000-0000-0000-000000000904")
+	item := func(suffix, label string) map[string]any {
+		id := "00000000-0000-0000-0000-00000000090" + suffix
+		return map[string]any{
+			"item_ref":         "record_ref:" + id,
+			"item_kind":        "record_ref",
+			"display_text":     label,
+			"linked_record_id": id,
+		}
+	}
+	refs := func(items []map[string]any) []string {
+		out := make([]string, 0, len(items))
+		for _, entry := range items {
+			ref, _ := entry["item_ref"].(string)
+			out = append(out, ref)
+		}
+		return out
+	}
+	const prefix = "record_ref:00000000-0000-0000-0000-00000000090"
+	storedOrder := []string{prefix + "c", prefix + "a", prefix + "b"}
+	// Label order: Alpha (c), Mike (b), Zulu (a).
+	canonicalOrder := []string{prefix + "c", prefix + "b", prefix + "a"}
+	forms := map[string]func(*testing.T, []map[string]any) any{
+		"json string": func(t *testing.T, items []map[string]any) any {
+			payload, err := json.Marshal(items)
+			if err != nil {
+				t.Fatalf("marshal items: %v", err)
+			}
+			return string(payload)
+		},
+		"json bytes": func(t *testing.T, items []map[string]any) any {
+			payload, err := json.Marshal(items)
+			if err != nil {
+				t.Fatalf("marshal items: %v", err)
+			}
+			return payload
+		},
+		"decoded any": func(_ *testing.T, items []map[string]any) any {
+			decoded := make([]any, 0, len(items))
+			for _, entry := range items {
+				decoded = append(decoded, entry)
+			}
+			return decoded
+		},
+		"decoded maps": func(_ *testing.T, items []map[string]any) any { return items },
+	}
+	var ordered []string
+	for viewSchemaID, surface := range querySurfacesForTest() {
+		for fieldIndex, field := range surface.Fields {
+			if field.Kind != queryengine.FieldKindCollection {
+				continue
+			}
+			if field.Ordered {
+				ordered = append(ordered, field.Key)
+			}
+			for formName, form := range forms {
+				t.Run(viewSchemaID+"/"+field.Key+"/"+formName, func(t *testing.T) {
+					// Labels run opposite to item_ref so an item_ref order cannot pass.
+					items := []map[string]any{item("c", "Alpha"), item("a", "Zulu"), item("b", "Mike")}
+					values := make([]any, 0, len(surface.Fields)+2)
+					values = append(values, recordID, int64(3))
+					for index, candidate := range surface.Fields {
+						if index == fieldIndex {
+							values = append(values, form(t, items))
+							continue
+						}
+						values = append(values, sampleProjectionValue(candidate))
+					}
+					row, err := queryengine.BuildRow(surface, values)
+					if err != nil {
+						t.Fatalf("build row: %v", err)
+					}
+					value := row["cells"].(map[string]any)[field.Key].(map[string]any)["value"].(map[string]any)
+					if value["ordered"] != field.Ordered {
+						t.Fatalf("ordered flag got %#v want %v", value["ordered"], field.Ordered)
+					}
+					want := canonicalOrder
+					if field.Ordered {
+						want = storedOrder
+					}
+					if got := refs(value["items"].([]map[string]any)); !slices.Equal(got, want) {
+						t.Fatalf("item order got %v want %v", got, want)
+					}
+					if got := refs(items); !slices.Equal(got, storedOrder) {
+						t.Fatalf("caller items reordered: %v", got)
+					}
+				})
+			}
+		}
+	}
+	slices.Sort(ordered)
+	ordered = slices.Compact(ordered)
+	if want := []string{"timeline.host_refs", "timeline.identity_refs"}; !slices.Equal(ordered, want) {
+		t.Fatalf("ordered collection fields got %v want %v", ordered, want)
+	}
+}
+
 func surfaceKeySet(surfaces map[string]queryengine.Surface) map[string]bool {
 	keys := make(map[string]bool, len(surfaces))
 	for key := range surfaces {

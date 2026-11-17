@@ -72,7 +72,8 @@ var (
 	inspectorRouteBindingKeys = stringSet("kind", "owner", "target_view_schema_id", "action_key")
 	inspectorSeedBindingKeys  = stringSet("target_field_key", "target_input_key", "source")
 	inspectorSeedSourceKeys   = stringSet("kind", "source_field_key", "value")
-	errorRegistryKeys         = stringSet("$schema", "registry_id", "note", "errors", "reason_registries")
+	errorRegistryKeys         = stringSet("$schema", "registry_id", "note", "errors", "reason_registries", "lifecycle_guards")
+	lifecycleGuardEntryKeys   = stringSet("code", "machines", "summary")
 	errorEntryKeys            = stringSet("code", "http_status", "summary")
 	reasonRegistryEntryKeys   = stringSet("error_code", "reason_codes")
 	reasonCodeEntryKeys       = stringSet("code", "summary")
@@ -1026,6 +1027,11 @@ func validateErrorRegistry(value any) error {
 			return err
 		}
 	}
+	if guardsValue, ok := object["lifecycle_guards"]; ok {
+		if err := validateLifecycleGuards(guardsValue); err != nil {
+			return err
+		}
+	}
 	reasonRegistriesValue, ok := object["reason_registries"]
 	if !ok {
 		return nil
@@ -1072,6 +1078,44 @@ func validateErrorRegistry(value any) error {
 			if _, err := requiredString(reasonEntry, "summary", reasonLabel); err != nil {
 				return err
 			}
+		}
+	}
+	return nil
+}
+
+// validateLifecycleGuards checks the registered illegal_transition guard
+// identifiers (Core 01 §3.3.6.2): unique codes, at least one machine each, and
+// a summary.
+func validateLifecycleGuards(value any) error {
+	guards, err := objectArray(value, "lifecycle_guards")
+	if err != nil {
+		return err
+	}
+	seen := map[string]struct{}{}
+	for index, entry := range guards {
+		label := fmt.Sprintf("lifecycle_guards[%d]", index+1)
+		if err := requireAllowedKeys(entry, lifecycleGuardEntryKeys, label); err != nil {
+			return err
+		}
+		code, err := requiredString(entry, "code", label)
+		if err != nil {
+			return err
+		}
+		if _, exists := seen[code]; exists {
+			return fmt.Errorf("duplicate lifecycle guard %s", code)
+		}
+		seen[code] = struct{}{}
+		machines, ok := entry["machines"].([]any)
+		if !ok || len(machines) == 0 {
+			return fmt.Errorf("%s.machines must be a non-empty array", label)
+		}
+		for machineIndex, machine := range machines {
+			if text, ok := machine.(string); !ok || text == "" {
+				return fmt.Errorf("%s.machines[%d] must be a non-empty string", label, machineIndex+1)
+			}
+		}
+		if _, err := requiredString(entry, "summary", label); err != nil {
+			return err
 		}
 	}
 	return nil

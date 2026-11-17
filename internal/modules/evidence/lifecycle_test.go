@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -16,6 +17,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
+	"github.com/JochiRaider/cartulary/internal/testutil/lifecyclecontract"
 )
 
 func TestEvidenceLifecycleSeparateFromBlob_Unit(t *testing.T) {
@@ -61,13 +63,13 @@ func TestEvidenceLifecycleSeparateFromBlob_Unit(t *testing.T) {
 		"base_row_version":3,
 		"client_txn_id":"txn-evidence_lifecycle-lifecycle-available-without-blob",
 		"changes":[{"field_key":"evidence.lifecycle_state","value":"available"}]
-	}`)
+	}`, "guards_not_satisfied", "received", "available", "accessible_state_requires_available_blob")
 	requireIllegalLifecyclePatch(t, evidenceOwner, actor, recordID, `{
 		"view_schema_id":"cartulary.view.evidence.v1",
 		"base_row_version":3,
 		"client_txn_id":"txn-evidence_lifecycle-lifecycle-released-direct",
 		"changes":[{"field_key":"evidence.lifecycle_state","value":"released"}]
-	}`)
+	}`, "transition_not_allowed", "received", "released")
 
 	t.Run("bound text persists and clears canonically", func(t *testing.T) {
 		result := createEvidenceViaOwner(t, evidenceOwner, actor, incident.ID, `{
@@ -154,7 +156,9 @@ func patchEvidenceViaOwner(t testing.TB, owner evidence.MutationContribution, ac
 	return result
 }
 
-func requireIllegalLifecyclePatch(t testing.TB, owner evidence.MutationContribution, actor authn.UserRecord, recordID uuid.UUID, body string) {
+// requireIllegalLifecyclePatch asserts complete REQ-01-231 details with a
+// registered reason (Core 01 §3.3.6.2).
+func requireIllegalLifecyclePatch(t testing.TB, owner evidence.MutationContribution, actor authn.UserRecord, recordID uuid.UUID, body string, wantReason, wantFrom, wantTo string, wantGuards ...string) {
 	t.Helper()
 	request, admissionFailure := evidence.AdmitPatchJSON(strings.NewReader(body))
 	if admissionFailure != nil {
@@ -168,6 +172,53 @@ func requireIllegalLifecyclePatch(t testing.TB, owner evidence.MutationContribut
 	if !errors.As(err, &lifecycleErr) {
 		t.Fatalf("illegal evidence lifecycle patch got %v want LifecycleValidationError", err)
 	}
+	if wantGuards == nil {
+		wantGuards = []string{}
+	}
+	if lifecycleErr.ReasonCode != wantReason || lifecycleErr.FromStatus != wantFrom || lifecycleErr.ToStatus != wantTo || lifecycleErr.ViolatedGuards == nil || !slices.Equal(lifecycleErr.ViolatedGuards, wantGuards) {
+		t.Fatalf("illegal evidence lifecycle patch details = %#v, want %s %s->%s %v", lifecycleErr, wantReason, wantFrom, wantTo, wantGuards)
+	}
+	// AC-606: the emitted vocabulary is registered for this machine.
+	from := &lifecycleErr.FromStatus
+	if lifecycleErr.FromStatus == "" {
+		from = nil
+	}
+	lifecyclecontract.RequireTransition(t, "evidence_records.lifecycle_state", from, lifecycleErr.ToStatus, lifecycleErr.ReasonCode, lifecycleErr.ViolatedGuards)
+}
+
+// REQ-02-196a: Evidence whose persisted lifecycle violates the live Blob bridge
+// is inconsistent. An uncorrected patch fails closed with
+// inconsistent_machine_state and commits nothing; a patch to a state that
+// satisfies the bridge is the corrective action.
+func TestEvidenceInconsistentBridgeFailsClosedUntilCorrected_Unit(t *testing.T) {
+	harness := appsupport.StartStore(t, "evidence_lifecycle-evidence-inconsistent")
+	evidenceOwner := appsupport.NewEvidenceMutationOwner(harness.DB, conflicttest.NewCodec("workbook"))
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "evidence-inconsistent@example.test", DisplayName: "Evidence Inconsistent"})
+	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-evidence-inconsistent-incident", "IR-EVIDENCE-INCONSISTENT", "Evidence inconsistent bridge")
+	created := createEvidenceViaOwner(t, evidenceOwner, actor, incident.ID, `{
+		"client_txn_id":"txn-evidence-inconsistent-create",
+		"evidence.title":"Inconsistent bridge",
+		"evidence.lifecycle_state":"received"
+	}`)
+	recordID := mustRowID(t, created.Row)
+	// Persist available with no linked Blob: a bridge contradiction that no
+	// legal mutation can produce.
+	if _, err := harness.DB.Exec(context.Background(), "UPDATE evidence SET lifecycle_state = 'available' WHERE record_id = $1", recordID); err != nil {
+		t.Fatal(err)
+	}
+	requireIllegalLifecyclePatch(t, evidenceOwner, actor, recordID, `{
+		"view_schema_id":"cartulary.view.evidence.v1",
+		"base_row_version":1,
+		"client_txn_id":"txn-evidence-inconsistent-uncorrected",
+		"changes":[{"field_key":"evidence.title","value":"Still inconsistent"}]
+	}`, "inconsistent_machine_state", "available", "available", "accessible_state_requires_available_blob")
+	corrected := patchEvidenceViaOwner(t, evidenceOwner, actor, recordID, `{
+		"view_schema_id":"cartulary.view.evidence.v1",
+		"base_row_version":1,
+		"client_txn_id":"txn-evidence-inconsistent-corrective",
+		"changes":[{"field_key":"evidence.lifecycle_state","value":"received"}]
+	}`)
+	requireRowCellValue(t, corrected.Row, "evidence.lifecycle_state", "received")
 }
 
 func mustRowID(t testing.TB, row map[string]any) uuid.UUID {

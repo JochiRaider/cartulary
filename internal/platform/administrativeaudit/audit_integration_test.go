@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/JochiRaider/cartulary/internal/platform/administrativeaudit"
@@ -114,6 +115,77 @@ func TestAdministrativeAuditProjectionStore_Integration(t *testing.T) {
 		t.Fatalf("invalid projection left %d raw rows", unsafeRawCount)
 	}
 
+	// REQ-02-257: a projection-insert failure after the raw insert rolls the
+	// raw event back with it.
+	countRaw := func(query func(context.Context, string, ...any) pgx.Row) int {
+		t.Helper()
+		var count int
+		if err := query(context.Background(), `SELECT count(*) FROM deployment_admin_audit_events WHERE event_kind = 'operator_recovery_succeeded'`).Scan(&count); err != nil {
+			t.Fatalf("count raw recovery events: %v", err)
+		}
+		return count
+	}
+	baseline := countRaw(db.QueryRow)
+	faultDB := &projectionFaultDB{DB: db, countRaw: countRaw, rawAtFault: -1}
+	faultTargetID := uuid.NewString()
+	_, faultErr := administrativeaudit.Append(context.Background(), faultDB, administrativeaudit.RawEvent{
+		EventSource: "operator.recovery.backup_create",
+		EventKind:   "operator_recovery_succeeded",
+		After:       map[string]any{"backup_set_id": faultTargetID},
+		OccurredAt:  now,
+	}, administrativeaudit.Event{
+		ScopeKind:  administrativeaudit.ScopeDeployment,
+		OccurredAt: now,
+		ActorKind:  administrativeaudit.ActorOperator,
+		Source:     administrativeaudit.SourceOperator,
+		ActionCode: administrativeaudit.ActionBackupCreated,
+		TargetKind: administrativeaudit.TargetBackupSet,
+		TargetID:   &faultTargetID,
+		Changes: []administrativeaudit.Change{
+			administrativeaudit.Visible("result", nil, "succeeded"),
+			administrativeaudit.Visible("backup_set_id", nil, faultTargetID),
+		},
+	})
+	if faultErr == nil || !strings.Contains(faultErr.Error(), "insert administrative audit projection") || !errors.Is(faultErr, errInjectedProjectionFault) {
+		t.Fatalf("projection fault was not returned: %v", faultErr)
+	}
+	if faultDB.rawAtFault != baseline+1 {
+		t.Fatalf("raw rows inside the transaction at the projection fault = %d, want %d", faultDB.rawAtFault, baseline+1)
+	}
+	if after := countRaw(db.QueryRow); after != baseline {
+		t.Fatalf("projection fault left %d raw rows, want %d", after, baseline)
+	}
+
+}
+
+var errInjectedProjectionFault = errors.New("injected projection fault")
+
+// projectionFaultDB fails only the projection insert, after the raw insert.
+type projectionFaultDB struct {
+	dbport.DB
+	countRaw   func(func(context.Context, string, ...any) pgx.Row) int
+	rawAtFault int
+}
+
+func (db *projectionFaultDB) BeginTx(ctx context.Context, options pgx.TxOptions) (pgx.Tx, error) {
+	tx, err := db.DB.BeginTx(ctx, options)
+	if err != nil {
+		return nil, err
+	}
+	return projectionFaultTx{Tx: tx, db: db}, nil
+}
+
+type projectionFaultTx struct {
+	pgx.Tx
+	db *projectionFaultDB
+}
+
+func (tx projectionFaultTx) Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error) {
+	if strings.Contains(sql, "INSERT INTO administrative_audit_projections") {
+		tx.db.rawAtFault = tx.db.countRaw(tx.Tx.QueryRow)
+		return pgconn.CommandTag{}, errInjectedProjectionFault
+	}
+	return tx.Tx.Exec(ctx, sql, args...)
 }
 
 func appendAuditFixture(t *testing.T, db dbport.DB) (uuid.UUID, time.Time) {

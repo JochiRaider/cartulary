@@ -19,6 +19,7 @@ var (
 	ErrIncidentMismatch       = errors.New("evidence: incident mismatch")
 	errRowVersionConflict     = errors.New("evidence: row version conflict")
 	errIllegalBlobTransition  = errors.New("evidence: illegal blob transition")
+	errBlobTupleViolation     = errors.New("evidence: blob lifecycle tuple violated")
 	ErrObjectStoreUnavailable = errors.New("evidence: object store unavailable")
 	errUploadLeaseNotFound    = errors.New("evidence: upload lease not found")
 	errUploadLeaseUnavailable = errors.New("evidence: upload lease unavailable")

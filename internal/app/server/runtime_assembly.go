@@ -140,7 +140,7 @@ type Runtime struct {
 
 	closeOnce            sync.Once
 	publicationOnce      sync.Once
-	cleanups             []func()
+	cleanups             []ownedComponent
 	stagedJanitorContext context.Context
 }
 
@@ -282,7 +282,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 		}
 		postgresAdmission = pool
 		if pool != nil {
-			runtime.own(pool.Close)
+			runtime.own("postgres", func(context.Context) { pool.Close() })
 		}
 	}
 	var postgresPool *pgxpool.Pool
@@ -340,8 +340,8 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 	}
 	runtime.processLease = lease
 	if lease != nil {
-		runtime.own(func() {
-			releaseCtx, cancel := context.WithTimeout(context.Background(), time.Duration(normalizedCfg.Timeouts.Extensions.ProcessLeaseLossDetectionSeconds)*time.Second)
+		runtime.own("process_lease", func(ctx context.Context) {
+			releaseCtx, cancel := context.WithTimeout(ctx, time.Duration(normalizedCfg.Timeouts.Extensions.ProcessLeaseLossDetectionSeconds)*time.Second)
 			defer cancel()
 			if lease.State() == processlease.StateHeld {
 				_ = lease.Release(releaseCtx)
@@ -350,7 +350,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 			}
 		})
 		monitorCtx, cancelMonitor := context.WithCancel(context.Background())
-		runtime.own(cancelMonitor)
+		runtime.own("process_lease_monitor", func(context.Context) { cancelMonitor() })
 		lease.StartMonitor(monitorCtx)
 		go runtime.watchProcessLease(monitorCtx)
 	}
@@ -373,8 +373,8 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 	}
 	runtime.servingLease = servingLease
 	if servingLease != nil {
-		runtime.own(func() {
-			releaseCtx, cancel := context.WithTimeout(context.Background(), time.Duration(normalizedCfg.Timeouts.Extensions.ProcessLeaseLossDetectionSeconds)*time.Second)
+		runtime.own("recovery_serving_lease", func(ctx context.Context) {
+			releaseCtx, cancel := context.WithTimeout(ctx, time.Duration(normalizedCfg.Timeouts.Extensions.ProcessLeaseLossDetectionSeconds)*time.Second)
 			defer cancel()
 			if servingLease.State() == processlease.StateHeld {
 				_ = servingLease.Release(releaseCtx)
@@ -383,7 +383,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 			}
 		})
 		monitorCtx, cancelMonitor := context.WithCancel(context.Background())
-		runtime.own(cancelMonitor)
+		runtime.own("recovery_serving_lease_monitor", func(context.Context) { cancelMonitor() })
 		servingLease.StartMonitor(monitorCtx)
 		go runtime.watchServingLease(monitorCtx)
 	}
@@ -410,7 +410,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 		return nil, fmt.Errorf("compose incident bundle storage: %w", storageErr)
 	}
 	var incidentBundleStorage incidentbundles.BundleStorage = rootIncidentBundleStorage
-	runtime.own(rootIncidentBundleStorage.Close)
+	runtime.own("incident_bundle_storage", func(context.Context) { rootIncidentBundleStorage.Close() })
 	rootReferencePackStorage, storageErr := referenceassembly.NewRootStorage(
 		normalizedCfg.Roots.TemporaryWork.Path,
 		normalizedCfg.Roots.ReferencePackStorage.Path,
@@ -420,7 +420,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 		return nil, fmt.Errorf("compose Reference Pack storage: %w", storageErr)
 	}
 	var referencePackStorage reference_data.ArtifactStorage = rootReferencePackStorage
-	runtime.own(rootReferencePackStorage.Close)
+	runtime.own("reference_pack_storage", func(context.Context) { rootReferencePackStorage.Close() })
 	if err := rootReferencePackStorage.ReconcileWorkspaces(ctx); err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("reconcile Reference Pack scratch: %w", err)
@@ -550,8 +550,8 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 		return nil, err
 	}
 	telemetryFlushTimeout := time.Duration(runtimeSettings.TelemetryFlushTimeoutMS) * time.Millisecond
-	runtime.own(func() {
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), telemetryFlushTimeout)
+	runtime.own("telemetry", func(ctx context.Context) {
+		shutdownCtx, cancel := context.WithTimeout(ctx, telemetryFlushTimeout)
 		defer cancel()
 		_ = telemetryRuntime.Shutdown(shutdownCtx)
 	})
@@ -650,7 +650,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 		}
 		rawObjectStore = client
 		if client != nil {
-			runtime.own(func() { _ = client.Close() })
+			runtime.own("object_store", func(context.Context) { _ = client.Close() })
 		}
 	}
 	objectStore := instrumentedObjectStore(
@@ -711,7 +711,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 		}
 		janitorCtx, cancelJanitor := context.WithCancel(context.Background())
 		runtime.stagedJanitorContext = janitorCtx
-		runtime.own(cancelJanitor)
+		runtime.own("staged_object_janitor", func(context.Context) { cancelJanitor() })
 	}
 	postgresHandle := instrumentedPostgres(
 		normalizedCfg.Telemetry.Enabled,
@@ -824,10 +824,9 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 		return nil, fmt.Errorf("compose Collaboration runtime: %w", err)
 	}
 	runtime.collaborationRuntime = collaborationRuntime
-	runtime.own(func() {
-		closeCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		_ = collaborationRuntime.Close(closeCtx)
+	runtime.own("collaboration", func(ctx context.Context) {
+		collaborationRuntime.CloseSessions()
+		_ = collaborationRuntime.Close(ctx)
 	})
 	recordChanges := collaborationRuntime.RecordChanges()
 	jobProgressIntents := newCollaborationJobProgressTranslator(collaborationRuntime.JobProgress())
@@ -891,9 +890,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 		return nil, fmt.Errorf("compose Jobs runner: %w", err)
 	}
 	jobRunner := runtime.jobRunner
-	runtime.own(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), runtime.shutdownDrainTimeout)
-		defer cancel()
+	runtime.own("jobs_runner", func(ctx context.Context) {
 		_ = jobRunner.Close(ctx)
 	})
 	if err := jobManager.ValidateStorageCatalog(ctx); err != nil {
@@ -937,10 +934,8 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 		return nil, fmt.Errorf("reconcile Reference Pack objects: %w", cleanupErr)
 	}
 	runtime.referenceCollector = collector
-	runtime.own(func() {
-		closeCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
-		_ = collector.Close(closeCtx)
+	runtime.own("reference_collector", func(ctx context.Context) {
+		_ = collector.Close(ctx)
 	})
 	var extensionJobFinalizer *extensionstore.OwnerFinalizer
 	var networkFlowJobFinalizer *extensionstore.OwnerFinalizer
@@ -1061,10 +1056,8 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 	}
 	cleanupDispatcher := evidenceOwner.CleanupDispatcher()
 	runtime.evidenceCleanupDispatcher = cleanupDispatcher
-	runtime.own(func() {
-		closeCtx, cancel := context.WithTimeout(context.Background(), time.Minute)
-		defer cancel()
-		_ = cleanupDispatcher.Close(closeCtx)
+	runtime.own("evidence_cleanup_dispatcher", func(ctx context.Context) {
+		_ = cleanupDispatcher.Close(ctx)
 	})
 	timelineBundle, err := timelineassembly.NewBundle(timelineassembly.Dependencies{
 		Postgres:            postgresHandle,
@@ -1140,10 +1133,8 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 		return nil, err
 	}
 	runtime.graphActivation = graphActivation
-	runtime.own(func() {
-		closeCtx, cancel := context.WithTimeout(context.Background(), time.Minute)
-		defer cancel()
-		_ = graphActivation.Close(closeCtx)
+	runtime.own("graph_activation", func(ctx context.Context) {
+		_ = graphActivation.Close(ctx)
 	})
 	var networkFlowModule *networkflow.Module
 	if networkFlowRouteAdmitted {
@@ -1309,10 +1300,8 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 			return nil, fmt.Errorf("compose Network Flow graph-result cleanup dispatcher: %w", cleanupErr)
 		}
 		runtime.networkFlowCleanupDispatcher = networkFlowCleanupDispatcher
-		runtime.own(func() {
-			closeCtx, cancel := context.WithTimeout(context.Background(), time.Minute)
-			defer cancel()
-			_ = networkFlowCleanupDispatcher.Close(closeCtx)
+		runtime.own("network_flow_cleanup_dispatcher", func(ctx context.Context) {
+			_ = networkFlowCleanupDispatcher.Close(ctx)
 		})
 	}
 	if _, graphViewJobsAdmitted := publicationCatalog.Job(networkflow.GraphViewMaterializationJobKind); graphViewJobsAdmitted {
@@ -1506,7 +1495,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 		runtime.Close()
 		return nil, fmt.Errorf("compose workbook artifacts mutation contribution: %w", err)
 	}
-	noteAssociationProvider, err := workbookassembly.NewNoteAssociationProvider(postgresHandle, artifactMutation, projectionRuntime.SourceTextRows())
+	noteAssociationProvider, err := workbookassembly.NewNoteAssociationProvider(postgresHandle, artifactMutation, projectionRuntime.SourceTextRows(), projectionRuntime.RecordSummaryLabels())
 	if err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("compose Note associations: %w", err)
@@ -2141,10 +2130,36 @@ func (r *Runtime) servingLeasesHeld() bool {
 	return r.processLease == nil || r.processLease.State() == processlease.StateHeld
 }
 
+// ownedComponent is a runtime-owned component closed in reverse acquisition
+// order. Its close receives the shared shutdown context and derives any budget
+// of its own from it, so it can only shorten the application deadline.
+type ownedComponent struct {
+	name  string
+	close func(context.Context)
+}
+
+// Close releases every owned component within the configured shutdown drain.
+// It serves construction failures; ordinary shutdown uses shutdown with the
+// deadline measured from the stop request.
 func (r *Runtime) Close() {
-	if r == nil {
-		return
+	ctx := context.Background()
+	if r != nil && r.shutdownDrainTimeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, r.shutdownDrainTimeout)
+		defer cancel()
 	}
+	_ = r.shutdown(ctx)
+}
+
+// shutdown closes owned components in reverse acquisition order under one
+// application shutdown deadline (REQ-04-146a). It returns, in closing order,
+// the names of components still open when ctx expired; the caller then exits
+// without waiting for them. It is idempotent; a repeated call returns nil.
+func (r *Runtime) shutdown(ctx context.Context) []string {
+	if r == nil {
+		return nil
+	}
+	var open []string
 	r.closeOnce.Do(func() {
 		if r.publicationOperation != nil {
 			r.publicationOperation.stop()
@@ -2156,17 +2171,39 @@ func (r *Runtime) Close() {
 			r.lifecycle.MarkTerminating()
 		}
 		for index := len(r.cleanups) - 1; index >= 0; index-- {
-			r.cleanups[index]()
+			component := r.cleanups[index]
+			closed := make(chan struct{})
+			go func() {
+				defer close(closed)
+				component.close(ctx)
+			}()
+			select {
+			case <-closed:
+			case <-ctx.Done():
+				for remaining := index; remaining >= 0; remaining-- {
+					open = append(open, r.cleanups[remaining].name)
+				}
+				return
+			}
 		}
 		if r.lifecycle != nil {
 			r.lifecycle.MarkExited()
 		}
 	})
+	return open
 }
 
-func (r *Runtime) own(cleanup func()) {
+// beginShutdown runs when HTTP shutdown begins: WebSockets close with 1001
+// instead of being waited on (REQ-04-146a).
+func (r *Runtime) beginShutdown() {
+	if r != nil && r.collaborationRuntime != nil {
+		r.collaborationRuntime.CloseSessions()
+	}
+}
+
+func (r *Runtime) own(name string, cleanup func(context.Context)) {
 	if r != nil && cleanup != nil {
-		r.cleanups = append(r.cleanups, cleanup)
+		r.cleanups = append(r.cleanups, ownedComponent{name: name, close: cleanup})
 	}
 }
 

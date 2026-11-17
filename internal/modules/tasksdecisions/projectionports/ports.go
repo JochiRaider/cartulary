@@ -22,6 +22,9 @@ type MutationRows interface {
 	LoadTaskRequestTx(context.Context, pgx.Tx, uuid.UUID) (map[string]any, error)
 	RefreshDecisionTx(context.Context, pgx.Tx, uuid.UUID) error
 	LoadDecisionTx(context.Context, pgx.Tx, uuid.UUID) (map[string]any, error)
+	// RecordSummaryLabelsTx returns REQ-01-333a labels of live records in the
+	// incident; absent, deleted and foreign records are omitted.
+	RecordSummaryLabelsTx(context.Context, pgx.Tx, uuid.UUID, []uuid.UUID) (map[uuid.UUID]string, error)
 }
 
 type ReportingReader interface {

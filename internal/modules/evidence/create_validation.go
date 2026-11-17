@@ -26,15 +26,15 @@ func validateCreateParams(params createParams) error {
 		return &LifecycleValidationError{
 			FromStatus:     "",
 			ToStatus:       effectiveLifecycle,
-			ReasonCode:     "violated_lifecycle_guards",
-			ViolatedGuards: []string{"evidence.lifecycle_state", "object_blobs.upload_state"},
+			ReasonCode:     reasonGuardsNotSatisfied,
+			ViolatedGuards: []string{bridgeGuard(effectiveLifecycle)},
 		}
 	case evidencepolicy.InitialLifecycleIllegalTransition:
 		return &LifecycleValidationError{
 			FromStatus:     "",
 			ToStatus:       effectiveLifecycle,
-			ReasonCode:     "illegal_status_transition",
-			ViolatedGuards: []string{"evidence.lifecycle_state"},
+			ReasonCode:     reasonTransitionNotAllowed,
+			ViolatedGuards: []string{},
 		}
 	}
 	if !hasWorkbookText(params.Values, "evidence.title") &&

@@ -9,7 +9,15 @@ import (
 )
 
 var autoResolutionCaseFolder = cases.Fold()
-var tagLabelCaseFolder = cases.Fold()
+
+// TextSortKey is the REQ-01-488 comparison substrate for labels: Unicode NFC
+// normalization followed by locale-independent Unicode case folding. Callers
+// compare keys bytewise (Unicode scalar order); no locale collation applies.
+// It allocates its own folder because a cases.Caser is not safe for
+// concurrent use.
+func TextSortKey(value string) string {
+	return cases.Fold().String(norm.NFC.String(value))
+}
 
 // NormalizeAliasText implements alias_text_v1. Alias text intentionally rejects
 // only the C0/C1 ranges owned by the public contract; other Unicode format
@@ -55,7 +63,7 @@ func NormalizeTagLabel(raw string) (string, string, bool) {
 	if label == "" || countRunes(label) > 64 {
 		return "", "", false
 	}
-	return label, tagLabelCaseFolder.String(label), true
+	return label, TextSortKey(label), true
 }
 
 func countRunes(value string) int {

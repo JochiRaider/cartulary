@@ -4,6 +4,7 @@ package policy
 
 import (
 	"database/sql"
+	"fmt"
 	"strings"
 	"time"
 
@@ -63,6 +64,13 @@ type LifecycleValidationError struct {
 }
 
 func (*LifecycleValidationError) Error() string { return "tasksdecisions: illegal transition" }
+
+// Lifecycle-transition reason family registered in Core 01 §3.3.6.2.
+const (
+	ReasonTransitionNotAllowed = "transition_not_allowed"
+	ReasonGuardsNotSatisfied   = "guards_not_satisfied"
+	ReasonInconsistentMachine  = "inconsistent_machine_state"
+)
 
 type TaskLifecycleState struct {
 	Status        string
@@ -163,40 +171,60 @@ func ValidateDecisionCreateParams(params DecisionCreateParams) error {
 			return &ValidationError{Field: "decision.status", ReasonCode: "invalid_value"}
 		}
 		if status == "superseded" {
-			return &LifecycleValidationError{ToStatus: status, ReasonCode: "superseded_direct_write", ViolatedGuards: []string{"decision.status"}}
+			return &LifecycleValidationError{ToStatus: status, ReasonCode: ReasonTransitionNotAllowed, ViolatedGuards: []string{}}
 		}
 	}
 	return nil
 }
 
+// ValidateTaskState reports whether a Task row satisfies REQ-02-103.
 func ValidateTaskState(state TaskLifecycleState) error {
 	violated := TaskLifecycleViolations(state)
 	if len(violated) == 0 {
 		return nil
 	}
-	return &LifecycleValidationError{ToStatus: state.Status, ReasonCode: "violated_lifecycle_guards", ViolatedGuards: violated}
+	return &LifecycleValidationError{FromStatus: state.Status, ToStatus: state.Status, ReasonCode: ReasonGuardsNotSatisfied, ViolatedGuards: violated}
+}
+
+// TaskResultError validates the row a Task mutation would commit. fromStatus is
+// the persisted status, or "" on create. When the persisted row already
+// violated REQ-02-103 it was inconsistent (REQ-02-109a): a still-illegal result
+// reports inconsistent_machine_state, and a legal result is the corrective
+// action that commits.
+func TaskResultError(fromStatus string, beforeInconsistent bool, after TaskLifecycleState) error {
+	violated := TaskLifecycleViolations(after)
+	if len(violated) == 0 {
+		return nil
+	}
+	reason := ReasonGuardsNotSatisfied
+	if beforeInconsistent {
+		reason = ReasonInconsistentMachine
+	}
+	return &LifecycleValidationError{FromStatus: fromStatus, ToStatus: after.Status, ReasonCode: reason, ViolatedGuards: violated}
 }
 
 func TaskLifecycleViolations(state TaskLifecycleState) []string {
 	violated := []string{}
-	if state.Status == "blocked" && !state.BlockedReason.Valid {
+	// REQ-02-103: a blank blocked_reason is absent ("absent or empty").
+	hasReason := state.BlockedReason.Valid && strings.TrimSpace(state.BlockedReason.String) != ""
+	if state.Status == "blocked" && !hasReason {
 		violated = append(violated, "blocked_requires_reason")
 	}
-	if state.Status != "blocked" && state.BlockedReason.Valid {
+	if state.Status != "blocked" && hasReason {
 		violated = append(violated, "non_blocked_clears_reason")
 	}
 	if state.Status == "done" {
 		if !state.CompletedAt.Valid {
 			violated = append(violated, "done_requires_completed_at")
 		} else if state.CompletedAt.Time.Before(state.CreatedAt) {
-			violated = append(violated, "completed_at_before_created_at")
+			violated = append(violated, "completed_at_not_before_created_at")
 		}
 	}
 	if state.Status != "done" && state.CompletedAt.Valid {
 		violated = append(violated, "non_done_clears_completed_at")
 	}
 	if (state.Status == "open" || state.Status == "in_progress" || state.Status == "blocked") && !state.OwnerUserID.Valid {
-		violated = append(violated, "active_task_requires_owner")
+		violated = append(violated, "active_requires_owner")
 	}
 	return violated
 }
@@ -220,30 +248,33 @@ func ValidateDecisionStatusTransition(from, to string) error {
 		return &ValidationError{Field: "decision.status", ReasonCode: "invalid_value"}
 	}
 	if to == "superseded" {
-		return &LifecycleValidationError{FromStatus: from, ToStatus: to, ReasonCode: "superseded_direct_write", ViolatedGuards: []string{"decision.status"}}
+		return &LifecycleValidationError{FromStatus: from, ToStatus: to, ReasonCode: ReasonTransitionNotAllowed, ViolatedGuards: []string{}}
 	}
 	if from == to || (from == "proposed" && (to == "approved" || to == "rejected" || to == "executed")) || (from == "approved" && to == "executed") {
 		return nil
 	}
-	return &LifecycleValidationError{FromStatus: from, ToStatus: to, ReasonCode: "illegal_status_transition", ViolatedGuards: []string{"decision.status"}}
+	return &LifecycleValidationError{FromStatus: from, ToStatus: to, ReasonCode: ReasonTransitionNotAllowed, ViolatedGuards: []string{}}
 }
 
+// ValidateDecisionMachineState reports a persisted Decision whose inputs do not
+// resolve to one legal machine condition (Core 02 §10.4.2.1). An out-of-
+// vocabulary status is a storage invariant failure, not an illegal transition.
 func ValidateDecisionMachineState(state DecisionMachineState) error {
-	violated := []string{}
 	if !ValidDecisionStatus(state.Status) {
-		violated = append(violated, "decision_status_invalid")
+		return fmt.Errorf("tasksdecisions: invalid persisted Decision status %q", state.Status)
 	}
+	violated := []string{}
 	if !state.OwnerUserID.Valid {
-		violated = append(violated, "decision_owner_required")
+		violated = append(violated, "owner_required")
 	}
 	if !state.DecidedAt.Valid {
-		violated = append(violated, "decision_decided_at_required")
+		violated = append(violated, "decided_at_required")
 	}
 	if state.IncomingSupersedes > 1 {
-		violated = append(violated, "decision_incoming_supersedes_ambiguous")
+		violated = append(violated, "single_incoming_supersedes")
 	}
 	if state.OutgoingSupersedes > 1 {
-		violated = append(violated, "decision_outgoing_supersedes_ambiguous")
+		violated = append(violated, "single_outgoing_supersedes")
 	}
 	if state.Status == "superseded" && state.IncomingSupersedes != 1 {
 		violated = append(violated, "superseded_requires_incoming_supersedes")
@@ -252,16 +283,18 @@ func ValidateDecisionMachineState(state DecisionMachineState) error {
 		violated = append(violated, "incoming_supersedes_requires_superseded_or_executed")
 	}
 	if state.OutgoingSupersedes > 0 && state.Status != "approved" && state.Status != "executed" {
-		violated = append(violated, "superseding_decision_requires_approved_or_executed")
+		violated = append(violated, "outgoing_supersedes_requires_approved_or_executed")
 	}
 	if len(violated) == 0 {
 		return nil
 	}
-	return &LifecycleValidationError{ToStatus: state.Status, ReasonCode: "inconsistent_decision_machine", ViolatedGuards: violated}
+	return &LifecycleValidationError{FromStatus: state.Status, ToStatus: state.Status, ReasonCode: ReasonInconsistentMachine, ViolatedGuards: violated}
 }
 
-func DecisionSupersedeValidationError(guards ...string) error {
-	return &LifecycleValidationError{ReasonCode: "decision_supersede_not_allowed", ViolatedGuards: append([]string(nil), guards...)}
+// DecisionSupersedeValidationError rejects a supersede whose guards fail;
+// fromStatus is the target Decision's persisted status.
+func DecisionSupersedeValidationError(fromStatus string, guards ...string) error {
+	return &LifecycleValidationError{FromStatus: fromStatus, ToStatus: "superseded", ReasonCode: ReasonGuardsNotSatisfied, ViolatedGuards: append([]string{}, guards...)}
 }
 
 func hasText(values map[string]FieldValue, field string) bool {

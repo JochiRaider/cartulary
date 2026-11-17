@@ -241,6 +241,11 @@ test("Timeline saved tag removal preserves capture and exact collection identity
       (item) => item.display_text === "beta Ω",
     );
     if (!target) throw new Error("Missing returned beta item_ref");
+    // REQ-01-067: unordered tags are served in label order, which fixes the
+    // displayed summary, the post-removal focus and the saved order.
+    expect(
+      collectionItems(before, "timeline.tags").map((item) => item.display_text),
+    ).toEqual(["alpha", "beta Ω", "gamma", longLabel]);
     const patches: unknown[] = [];
     page.on("request", (request) => {
       if (

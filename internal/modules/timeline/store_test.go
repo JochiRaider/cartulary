@@ -620,7 +620,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 			Reason:              "self replacement",
 			ReplacementRecordID: &row.RecordID,
 		}
-		requireSupersedeRejectedWithGuards(t, harness.DB, store, actor, incidentID, row.RecordID, self, "req-timeline_mutation-u-3-10-self", "reviewed", "superseded", []string{"replacement_must_be_different_timeline_record"}, BaseTime().Add(8*time.Minute))
+		requireSupersedeRejectedWithGuards(t, harness.DB, store, actor, incidentID, row.RecordID, self, "req-timeline_mutation-u-3-10-self", "reviewed", "superseded", []string{"replacement_must_differ_from_target"}, BaseTime().Add(8*time.Minute))
 
 		crossIncident := timeline.SupersedeRequest{
 			BaseRowVersion:      row.RowVersion,
@@ -628,7 +628,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 			Reason:              "cross incident replacement",
 			ReplacementRecordID: &crossIncidentReplacement.RecordID,
 		}
-		requireSupersedeRejectedWithGuards(t, harness.DB, store, actor, incidentID, row.RecordID, crossIncident, "req-timeline_mutation-u-3-10-cross-incident", "reviewed", "superseded", []string{"replacement_must_be_visible_active_same_incident_timeline_record"}, BaseTime().Add(9*time.Minute))
+		requireSupersedeRejectedWithGuards(t, harness.DB, store, actor, incidentID, row.RecordID, crossIncident, "req-timeline_mutation-u-3-10-cross-incident", "reviewed", "superseded", []string{"replacement_must_be_active_in_incident"}, BaseTime().Add(9*time.Minute))
 
 		alreadySuperseded := timeline.SupersedeRequest{
 			BaseRowVersion:      row.RowVersion,
@@ -645,7 +645,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 			Reason:              "replacement not visible",
 			ReplacementRecordID: &randomReplacementID,
 		}
-		requireSupersedeRejectedWithGuards(t, harness.DB, store, actor, incidentID, row.RecordID, notVisible, "req-timeline_mutation-u-3-10-not-visible", "reviewed", "superseded", []string{"replacement_must_be_visible_active_same_incident_timeline_record"}, BaseTime().Add(11*time.Minute))
+		requireSupersedeRejectedWithGuards(t, harness.DB, store, actor, incidentID, row.RecordID, notVisible, "req-timeline_mutation-u-3-10-not-visible", "reviewed", "superseded", []string{"replacement_must_be_active_in_incident"}, BaseTime().Add(11*time.Minute))
 
 		activeIncoming := timeline.SupersedeRequest{
 			BaseRowVersion:      activeTarget.RowVersion,
@@ -1038,6 +1038,9 @@ func requireSupersedeRejectedWithGuards(t testing.TB, db dbport.DB, store *event
 	}
 	if transitionErr.FromStatus != wantFrom || transitionErr.ToStatus != wantTo {
 		t.Fatalf("unexpected transition status details: got %s -> %s want %s -> %s", transitionErr.FromStatus, transitionErr.ToStatus, wantFrom, wantTo)
+	}
+	if transitionErr.ReasonCode != "guards_not_satisfied" {
+		t.Fatalf("supersede guard failure reason = %q, want guards_not_satisfied", transitionErr.ReasonCode)
 	}
 	if len(transitionErr.ViolatedGuards) != len(wantGuards) {
 		t.Fatalf("unexpected guard count: got %#v want %#v", transitionErr.ViolatedGuards, wantGuards)

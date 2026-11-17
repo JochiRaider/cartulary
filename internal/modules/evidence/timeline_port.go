@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/projectionports"
+	"github.com/JochiRaider/cartulary/internal/modules/evidence/timelinefacts"
 )
 
 type timelineAttachmentReader struct {
@@ -64,4 +65,45 @@ func (reader timelineAttachmentReader) RefreshTimelineAttachmentProjectionsTx(ct
 		}
 	}
 	return nil
+}
+
+// TimelineAttachmentLabelsTx serves the same labels Timeline stores for
+// attached Evidence (timelinefacts), limited to live Evidence in the incident.
+func (timelineAttachmentReader) TimelineAttachmentLabelsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordIDs []uuid.UUID) (map[uuid.UUID]string, error) {
+	labels := make(map[uuid.UUID]string, len(recordIDs))
+	if len(recordIDs) == 0 {
+		return labels, nil
+	}
+	rows, err := tx.Query(ctx, `
+SELECT r.record_id
+  FROM records r
+ WHERE r.incident_id = $1
+   AND r.record_id = ANY($2::uuid[])
+   AND r.record_type = 'evidence'
+   AND r.deleted_at IS NULL
+`, incidentID, recordIDs)
+	if err != nil {
+		return nil, err
+	}
+	live := make([]uuid.UUID, 0, len(recordIDs))
+	for rows.Next() {
+		var recordID uuid.UUID
+		if err := rows.Scan(&recordID); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		live = append(live, recordID)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	facts, err := timelinefacts.TimelineFactReader{}.LoadTx(ctx, tx, incidentID, live)
+	if err != nil {
+		return nil, err
+	}
+	for _, fact := range facts {
+		labels[fact.RecordID] = fact.Title
+	}
+	return labels, nil
 }

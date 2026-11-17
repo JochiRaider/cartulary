@@ -1,8 +1,11 @@
 package evidence
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -64,7 +67,59 @@ SELECT b.object_blob_id, b.incident_id, b.storage_key, b.upload_state, b.byte_si
 		}
 		return blobRecord{}, err
 	}
+	if err := verifyLiveBlobTupleTx(ctx, tx, objectBlobID); err != nil {
+		return blobRecord{}, err
+	}
 	return record, nil
+}
+
+// verifyLiveBlobTupleTx enforces REQ-02-189a: a live Blob's dependent fields
+// satisfy the same coherent lifecycle tuple as retained portable state. A
+// violation, or an upload_state outside the vocabulary, is a storage invariant
+// failure (internal_error), never a lifecycle transition.
+func verifyLiveBlobTupleTx(ctx context.Context, tx pgx.Tx, objectBlobID uuid.UUID) error {
+	var payload []byte
+	if err := tx.QueryRow(ctx, `SELECT (to_jsonb(b) - 'storage_key')::text FROM object_blobs b WHERE b.object_blob_id = $1`, objectBlobID).Scan(&payload); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrBlobNotFound
+		}
+		return err
+	}
+	// Decode numbers exactly as portable rows are decoded (json.Number).
+	var raw map[string]any
+	decoder := json.NewDecoder(bytes.NewReader(payload))
+	decoder.UseNumber()
+	if err := decoder.Decode(&raw); err != nil {
+		return fmt.Errorf("%w: %s", errBlobTupleViolation, objectBlobID)
+	}
+	row, ok := parsePortableBlobRow(raw)
+	if !ok || !row.lifecycleLegal() {
+		return fmt.Errorf("%w: %s", errBlobTupleViolation, objectBlobID)
+	}
+	return nil
+}
+
+// blobTransitionError is a rejected Blob upload-state transition. The Blob
+// machine is matrix-only (Core 01 §3.3.6.2), so it carries no guard.
+type blobTransitionError struct {
+	fromStatus string
+	toStatus   string
+}
+
+func (e *blobTransitionError) Error() string { return errIllegalBlobTransition.Error() }
+func (e *blobTransitionError) Unwrap() error { return errIllegalBlobTransition }
+
+// illegalBlobTransitionTx reports the current state of a Blob whose guarded
+// transition to toStatus matched no row.
+func illegalBlobTransitionTx(ctx context.Context, tx pgx.Tx, objectBlobID uuid.UUID, toStatus string) error {
+	var current string
+	if err := tx.QueryRow(ctx, `SELECT upload_state FROM object_blobs WHERE object_blob_id = $1`, objectBlobID).Scan(&current); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrBlobNotFound
+		}
+		return err
+	}
+	return &blobTransitionError{fromStatus: current, toStatus: toStatus}
 }
 
 func failBlobTx(ctx context.Context, tx pgx.Tx, objectBlobID uuid.UUID, reason string, now time.Time) error {
@@ -83,7 +138,7 @@ UPDATE object_blobs
 		return err
 	}
 	if tag.RowsAffected() != 1 {
-		return errIllegalBlobTransition
+		return illegalBlobTransitionTx(ctx, tx, objectBlobID, "failed")
 	}
 	return nil
 }
@@ -104,7 +159,7 @@ UPDATE object_blobs
 		return err
 	}
 	if tag.RowsAffected() != 1 {
-		return errIllegalBlobTransition
+		return illegalBlobTransitionTx(ctx, tx, objectBlobID, "available")
 	}
 	return nil
 }

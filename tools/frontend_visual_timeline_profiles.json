@@ -530,6 +530,24 @@
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
+    "timeline-grid-adapter-editor": {
+      "capture_id": "visual.capture.c52c33d0eecd455b417e",
+      "golden_path": "apps/web/e2e/visual-goldens/timeline-grid-adapter-editor-linux.png",
+      "kind": "rich",
+      "reason": "Shared investigation core under the real grid adapter: frozen boundary, selected-cell fill handle, open in-cell editor and grouped outline rows, each asserted before capture."
+    },
+    "timeline-grid-adapter-fill-handle": {
+      "capture_id": "visual.capture.aac1afafab2b58a5aa22",
+      "golden_path": "apps/web/e2e/visual-goldens/timeline-grid-adapter-fill-handle-linux.png",
+      "kind": "rich",
+      "reason": "Shared investigation core under the real grid adapter: frozen boundary, selected-cell fill handle, open in-cell editor and grouped outline rows, each asserted before capture."
+    },
+    "timeline-grid-adapter-grouped-frozen": {
+      "capture_id": "visual.capture.b3e65b362c8595300158",
+      "golden_path": "apps/web/e2e/visual-goldens/timeline-grid-adapter-grouped-frozen-linux.png",
+      "kind": "rich",
+      "reason": "Shared investigation core under the real grid adapter: frozen boundary, selected-cell fill handle, open in-cell editor and grouped outline rows, each asserted before capture."
+    },
     "timeline-grid-conflict-strip": {
       "capture_id": "visual.capture.a87ab6e1ba9981425fcd",
       "golden_path": "apps/web/e2e/visual-goldens/timeline-grid-conflict-strip-linux.png",

@@ -113,8 +113,7 @@ func (s *Service) handleMarkReviewed(w http.ResponseWriter, r *http.Request) {
 		Now:       s.now(),
 	})
 	if apiErr, ok := ClassifyMutationAPIError(err, MutationAPIErrorContext{
-		ClientTxnID:                 request.ClientTxnID,
-		IllegalTransitionReasonCode: "mark_reviewed_not_allowed",
+		ClientTxnID: request.ClientTxnID,
 	}); ok {
 		writeAPIError(w, r, apiErr)
 		return

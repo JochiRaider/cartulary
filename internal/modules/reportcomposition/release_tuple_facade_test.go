@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -209,6 +211,29 @@ func TestBindReleaseTupleTxRecordsReleaseBoundVersion(t *testing.T) {
 	}
 	if len(bound) != 1 || bound[0] != 2 {
 		t.Fatalf("bound versions = %#v want [2]", bound)
+	}
+	// REQ-RC-026/027: a resource with a release-bound version cannot be
+	// retired; the route reports composition_version_bound.
+	retire := DraftVersionRequest{ClientTxnID: "retire-bound", BaseDraftVersion: 1, Normalized: []byte(`{"base_draft_version":1,"client_txn_id":"retire-bound"}`)}
+	if _, err := NewStore(db).RetireResource(ctx, fixture.incidentID, fixture.compositionID, fixture.userID, retire, fixture.now.Add(time.Minute)); !errors.Is(err, ErrVersionBound) {
+		t.Fatalf("retiring a release-bound resource = %v, want ErrVersionBound", err)
+	}
+	var retired bool
+	if err := tx.QueryRow(ctx, `SELECT retired_at IS NOT NULL FROM report_compositions WHERE composition_id = $1`, fixture.compositionID).Scan(&retired); err != nil || retired {
+		t.Fatalf("rejected retirement changed the resource: retired=%v err=%v", retired, err)
+	}
+	recorder := httptest.NewRecorder()
+	if !(&Service{}).writeStoreError(recorder, httptest.NewRequest(http.MethodDelete, "/", nil), ErrVersionBound, "retire-bound", "composition_not_found") {
+		t.Fatal("version-bound store error was not written")
+	}
+	var envelope struct {
+		Error struct {
+			Code    string
+			Details map[string]any
+		}
+	}
+	if recorder.Code != http.StatusConflict || json.Unmarshal(recorder.Body.Bytes(), &envelope) != nil || envelope.Error.Code != "conflict" || envelope.Error.Details["validation_code"] != "composition_version_bound" {
+		t.Fatalf("version-bound response = %d %s", recorder.Code, recorder.Body.String())
 	}
 }
 

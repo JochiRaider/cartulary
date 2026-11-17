@@ -3,6 +3,7 @@ package httpapi
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -96,6 +97,15 @@ func TestValidTestRouteTokenRejectsClosedWeakAttachTokens(t *testing.T) {
 	} {
 		if ValidTestRouteToken(token) {
 			t.Fatalf("expected token %q to be invalid", token)
+		}
+	}
+	// Exact length bounds: 43..512 printable, non-repeated bytes.
+	varied := func(n int) string {
+		return strings.Repeat(testRouteGuardToken, 512/len(testRouteGuardToken)+1)[:n]
+	}
+	for n, want := range map[int]bool{42: false, 43: true, 512: true, 513: false} {
+		if got := ValidTestRouteToken(varied(n)); got != want {
+			t.Fatalf("token of %d bytes valid = %v, want %v", n, got, want)
 		}
 	}
 }

@@ -653,7 +653,7 @@ test("Timeline Find collection summaries read-only values and supported geometry
   page,
 }, info) => {
   const f = await seed(page);
-  await patchRecord(page, f.first, {
+  const tagged = await patchRecord(page, f.first, {
     view_schema_id: timelineViewSchemaId,
     base_row_version: f.rows[0]?.row_version ?? 1,
     client_txn_id: uniqueTxn("find-tags"),
@@ -670,6 +670,19 @@ test("Timeline Find collection summaries read-only values and supported geometry
       },
     ],
   });
+  // REQ-01-067: unordered tags are served in label order, so the displayed
+  // summary is the first label.
+  const tagLabels = (
+    (
+      tagged.cells["timeline.tags"]?.value as
+        | { items?: { display_text?: unknown }[] }
+        | undefined
+    )?.items ?? []
+  ).map((item) => item.display_text);
+  expect(tagLabels).toEqual([
+    "Alpha visible summary Ω",
+    "Zulu overflow exclusive",
+  ]);
   await showField(page, "Tags");
   await find(page, "Alpha visible summary Ω", 1);
   await input(page).fill("Zulu overflow exclusive");

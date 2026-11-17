@@ -201,12 +201,15 @@ func TestCollectionReviewRouteResolve_Integration(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.fieldKey, func(t *testing.T) {
 			input := tc.arrange(t)
+			// REQ-01-333a labels per linked record, across rows and previews.
+			labels := map[string]string{}
 			txn := "txn-review-" + strings.NewReplacer(".", "-", "_", "-").Replace(tc.fieldKey)
 			input.create["client_txn_id"] = txn + "-create"
 			baseRow := requireWorkbookCreate(t, harness, login, incidentID, tc.viewSchemaID, input.create)["row"].(map[string]any)
 			recordID := appsupport.MustUUID(t, baseRow["record_id"].(string))
 			baseVersion := int64(baseRow["row_version"].(float64))
 			requireCollectionReviewValue(t, cellMapValue(t, baseRow, tc.fieldKey), tc.itemKind, tc.valueKey, []string{input.baseValue})
+			requireLinkedRecordLabels(t, labels, cellMapValue(t, baseRow, tc.fieldKey))
 			requireCollectionReviewValue(t, cellMapValue(t, RequireQueriedRow(t, harness, login, incidentID, tc.viewSchemaID, recordID), tc.fieldKey), tc.itemKind, tc.valueKey, []string{input.baseValue})
 			serverRow := requireWorkbookPatch(t, harness, login, recordID, map[string]any{
 				"view_schema_id": tc.viewSchemaID, "base_row_version": baseVersion, "client_txn_id": txn + "-server",
@@ -217,6 +220,7 @@ func TestCollectionReviewRouteResolve_Integration(t *testing.T) {
 				t.Fatal("server write must advance exactly one row version")
 			}
 			requireCollectionReviewValue(t, cellMapValue(t, serverRow, tc.fieldKey), tc.itemKind, tc.valueKey, []string{input.baseValue, input.serverValue})
+			requireLinkedRecordLabels(t, labels, cellMapValue(t, serverRow, tc.fieldKey))
 			before := snapshotWorkbookState(t, harness, login, incidentID, tc.viewSchemaID)
 			response := doWorkbookJSON(t, harness, login, http.MethodPatch, uuid.Nil, "", recordID, map[string]any{
 				"view_schema_id": tc.viewSchemaID, "base_row_version": baseVersion, "client_txn_id": txn + "-client",
@@ -245,6 +249,9 @@ func TestCollectionReviewRouteResolve_Integration(t *testing.T) {
 			requireCollectionReviewValue(t, conflict["base_value"].(map[string]any), tc.itemKind, tc.valueKey, []string{input.baseValue})
 			requireCollectionReviewValue(t, conflict["server_value"].(map[string]any), tc.itemKind, tc.valueKey, []string{input.baseValue, input.serverValue})
 			requireCollectionReviewValue(t, conflict["client_value"].(map[string]any), tc.itemKind, tc.valueKey, []string{input.baseValue, input.clientValue})
+			for _, member := range []string{"base_value", "server_value", "client_value"} {
+				requireLinkedRecordLabels(t, labels, conflict[member].(map[string]any))
+			}
 			beforeResolve := snapshotWorkbookConflictSideEffects(t, harness, incidentID, recordID)
 			body := map[string]any{"conflict_token": token, "resolution_kind": "merged_value", "client_txn_id": txn + "-resolve", "resolved_value": input.clientActions}
 			resolved := ResolveConflict(t, harness, login, recordID, token, body)
@@ -254,6 +261,9 @@ func TestCollectionReviewRouteResolve_Integration(t *testing.T) {
 			}
 			want := []string{input.baseValue, input.serverValue, input.clientValue}
 			requireCollectionReviewValue(t, cellMapValue(t, row, tc.fieldKey), tc.itemKind, tc.valueKey, want)
+			// The resolved row reads every label, including the client item's,
+			// so the preview labels above must equal the read-path labels.
+			requireLinkedRecordLabels(t, labels, cellMapValue(t, row, tc.fieldKey))
 			requireCollectionReviewValue(t, cellMapValue(t, RequireQueriedRow(t, harness, login, incidentID, tc.viewSchemaID, recordID), tc.fieldKey), tc.itemKind, tc.valueKey, want)
 			afterResolve := snapshotWorkbookConflictSideEffects(t, harness, incidentID, recordID)
 			// Links and tags have their own reversible mutation in addition to the
@@ -273,6 +283,88 @@ func TestCollectionReviewRouteResolve_Integration(t *testing.T) {
 				t.Fatal("collection resolution replay changed original result")
 			}
 			requireWorkbookStateUnchanged(t, beforeReplay, snapshotWorkbookState(t, harness, login, incidentID, tc.viewSchemaID))
+		})
+	}
+}
+
+// requireLinkedRecordLabels checks the REQ-01-333a labels of record_ref and
+// party_ref items: each is free of identifiers, live targets never read
+// "Unavailable record", and a linked record reads the same label wherever it
+// appears. labels accumulates the observations of one case.
+func requireLinkedRecordLabels(t testing.TB, labels map[string]string, value map[string]any) {
+	t.Helper()
+	for _, raw := range value["items"].([]any) {
+		item := raw.(map[string]any)
+		key := ""
+		switch item["item_kind"] {
+		case "record_ref":
+			key = "linked_record_id"
+		case "party_ref":
+			key = "party_id"
+		default:
+			continue
+		}
+		id, _ := item[key].(string)
+		label, _ := item["display_text"].(string)
+		if label == "" || label == "Unavailable record" || recordLabelUUIDPattern.MatchString(label) {
+			t.Fatalf("linked record %s label %q is not its REQ-01-333a summary", id, label)
+		}
+		if previous, seen := labels[id]; seen && previous != label {
+			t.Fatalf("linked record %s label %q differs from %q served elsewhere", id, label, previous)
+		}
+		labels[id] = label
+	}
+}
+
+// TestCollectionReviewUnavailableLinkedRecordLabel_Integration covers the
+// REQ-01-333a preview rule: conflict detection precedes reference validation,
+// so a stale client addition can name a record that is not live in the
+// incident, and its preview item reads "Unavailable record".
+func TestCollectionReviewUnavailableLinkedRecordLabel_Integration(t *testing.T) {
+	harness, login, actorID, incidentID := ConflictFixture(t, "workbook-collection-unavailable-label", "IR-WORKBOOK-COLLECTION-UNAVAILABLE")
+	for _, tc := range []struct {
+		fieldKey, viewSchemaID string
+		create                 func(base uuid.UUID) map[string]any
+		seed                   func(label string) uuid.UUID
+	}{
+		{fieldKey: "task.linked_record_ids", viewSchemaID: "cartulary.view.task_requests.v1",
+			create: func(base uuid.UUID) map[string]any {
+				return map[string]any{"task.title": "Unavailable label task", "task.task_kind": "collection", "task.linked_record_ids": collectionActions(addRecordRef(base))}
+			},
+			seed: func(label string) uuid.UUID { return seedTaskRecord(t, harness, incidentID, actorID, label) }},
+		{fieldKey: "comm_log.decision_ids", viewSchemaID: "cartulary.view.comm_log.v1",
+			create: func(base uuid.UUID) map[string]any {
+				return map[string]any{"comm_log.comm_type": "briefing", "comm_log.audience": "leadership", "comm_log.channel_or_meeting": "Bridge", "comm_log.summary": "Unavailable label update", "comm_log.decision_ids": collectionActions(addRecordRef(base))}
+			},
+			seed: func(label string) uuid.UUID { return seedDecisionRecord(t, harness, incidentID, actorID, label) }},
+	} {
+		t.Run(tc.fieldKey, func(t *testing.T) {
+			base, server, absent := tc.seed("Unavailable base"), tc.seed("Unavailable server"), uuid.New()
+			txn := "txn-unavailable-" + strings.NewReplacer(".", "-", "_", "-").Replace(tc.fieldKey)
+			create := tc.create(base)
+			create["client_txn_id"] = txn + "-create"
+			baseRow := requireWorkbookCreate(t, harness, login, incidentID, tc.viewSchemaID, create)["row"].(map[string]any)
+			recordID := appsupport.MustUUID(t, baseRow["record_id"].(string))
+			baseVersion := int64(baseRow["row_version"].(float64))
+			requireWorkbookPatch(t, harness, login, recordID, map[string]any{
+				"view_schema_id": tc.viewSchemaID, "base_row_version": baseVersion, "client_txn_id": txn + "-server",
+				"changes": []map[string]any{{"field_key": tc.fieldKey, "action_payload": collectionActions(addRecordRef(server))}},
+			})
+			response := doWorkbookJSON(t, harness, login, http.MethodPatch, uuid.Nil, "", recordID, map[string]any{
+				"view_schema_id": tc.viewSchemaID, "base_row_version": baseVersion, "client_txn_id": txn + "-client",
+				"changes": []map[string]any{{"field_key": tc.fieldKey, "action_payload": collectionActions(addRecordRef(absent))}},
+			})
+			envelope := httptestx.RequireErrorEnvelope(t, response, http.StatusConflict, "same_field_conflict")
+			client := envelope["error"].(map[string]any)["conflict"].(map[string]any)["client_value"].(map[string]any)
+			got := map[string]string{}
+			for _, raw := range client["items"].([]any) {
+				item := raw.(map[string]any)
+				got[item["linked_record_id"].(string)] = item["display_text"].(string)
+			}
+			want := map[string]string{base.String(): "Unavailable base", absent.String(): "Unavailable record"}
+			if !reflect.DeepEqual(got, want) {
+				t.Fatalf("client preview labels = %v, want %v", got, want)
+			}
 		})
 	}
 }

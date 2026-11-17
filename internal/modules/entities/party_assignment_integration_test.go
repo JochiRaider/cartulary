@@ -1,15 +1,19 @@
 package entities_test
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"net/http"
 	"reflect"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/unicode/norm"
 
 	authflowtest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	linkfacts "github.com/JochiRaider/cartulary/internal/modules/links/facts"
@@ -195,8 +199,17 @@ func assertEntityPartyItems(t *testing.T, labels map[string]string, row map[stri
 		t.Fatalf("invalid assignment collection %#v", value)
 	}
 	items := value["items"].([]any)
+	// REQ-01-067: items are served in label order (folded label, raw label,
+	// item_ref), computed here independently of production code.
 	want = slices.Clone(want)
-	slices.Sort(want)
+	orderKey := func(id string) [3]string {
+		label := labels[id]
+		return [3]string{cases.Fold().String(norm.NFC.String(label)), label, "party_ref:" + id}
+	}
+	slices.SortFunc(want, func(left, right string) int {
+		l, r := orderKey(left), orderKey(right)
+		return cmp.Or(strings.Compare(l[0], r[0]), strings.Compare(l[1], r[1]), strings.Compare(l[2], r[2]))
+	})
 	if len(items) != len(want) {
 		t.Fatalf("%s count %d want %d", field, len(items), len(want))
 	}

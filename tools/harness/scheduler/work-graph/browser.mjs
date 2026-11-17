@@ -186,17 +186,28 @@ function lifecycleKey(stage, group) {
 }
 
 function resetPolicy(root) {
-  const policy = topology(root).browser_reset_policy;
+  return validateBrowserResetPolicy(topology(root).browser_reset_policy);
+}
+
+// The reset drain MUST exceed the application shutdown deadline the harness
+// configures for every backend it starts by the declared margin (Testing
+// Harness NLSpec §12.5); otherwise the policy is a configuration error.
+export function validateBrowserResetPolicy(policy) {
   if (
     policy?.max_attempts !== 1 ||
     ![
       policy.backend_drain_timeout_ms,
+      policy.backend_shutdown_drain_seconds,
+      policy.backend_drain_margin_ms,
       policy.database_reset_timeout_ms,
       policy.backend_readiness_timeout_ms,
       policy.evidence_overhead_timeout_ms,
     ].every((value) => Number.isSafeInteger(value) && value > 0)
   ) {
     throw new Error("browser reset policy must declare one attempt and positive stage deadlines");
+  }
+  if (policy.backend_drain_timeout_ms <= policy.backend_shutdown_drain_seconds * 1000 + policy.backend_drain_margin_ms) {
+    throw new Error("configuration_error: browser reset drain deadline must exceed the backend shutdown deadline plus the declared margin");
   }
   return policy;
 }

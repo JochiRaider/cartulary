@@ -737,11 +737,12 @@ behavior from visible labels or vendor grid coordinates.
 Accepted-row default presentation order is `source_row_number` as a structural
 gutter, then `network_flow.flow_start_utc`, `network_flow.flow_end_utc`,
 `network_flow.endpoint_a_ip`, `network_flow.endpoint_a_port`, `network_flow.endpoint_b_ip`,
-`network_flow.endpoint_b_port`, `network_flow.ip_protocol`,
+`network_flow.endpoint_b_port`, `network_flow.direction`, `network_flow.ip_protocol`,
 `network_flow.bytes_count`, `network_flow.packets_count`,
 `network_flow.input_interface`, and `network_flow.output_interface`.
-`network_flow.exporter_id`, `network_flow.tcp_flags`, and
-`network_flow.application_label` are hidden by default. Resource identifiers,
+`network_flow.exporter_id`, `network_flow.tcp_flags`,
+`network_flow.application_label`, `network_flow.direction_kind`, and
+`network_flow.direction_reason` are hidden by default. Resource identifiers,
 digests, mapping fingerprint, observation provenance, and `unmapped_raw` are
 inspector-only and MUST NOT become linkable, filterable, sortable, or default
 clipboard fields.

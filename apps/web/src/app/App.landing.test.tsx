@@ -1086,6 +1086,9 @@ describe("Incident landing", () => {
         .getByTestId(landingAdminPanelTestId("incidents"))
         .getAttribute("role"),
     ).toBe(null);
+    expect(screen.getByRole("region", { name: "Incidents" })).toBe(
+      screen.getByTestId(landingAdminPanelTestId("incidents")),
+    );
     expect(screen.queryByText("Open selected")).toBe(null);
     expect(
       screen.getByTestId(incidentLandingTestId("incidents-count")).textContent,

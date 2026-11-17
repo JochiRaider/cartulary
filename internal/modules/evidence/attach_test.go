@@ -243,25 +243,41 @@ func seedBlob(t testing.TB, db dbport.DB, incidentID uuid.UUID, actorID uuid.UUI
 	t.Helper()
 	blobID := uuid.New()
 	now := time.Now().UTC()
-	pendingExpiresAt := options.PendingExpiresAt
-	if pendingExpiresAt.IsZero() {
-		pendingExpiresAt = now.Add(24 * time.Hour)
+	// REQ-02-189a: seed a coherent lifecycle tuple. Expiries derive from
+	// creation, so an expired pending fixture is created in the past.
+	createdAt := now
+	if !options.PendingExpiresAt.IsZero() {
+		createdAt = options.PendingExpiresAt.Add(-24 * time.Hour)
 	}
+	pendingExpiresAt := createdAt.Add(24 * time.Hour)
 	terminalReason := any(nil)
 	failedAt := any(nil)
 	cleanupDueAt := any(nil)
 	finalizedAt := any(nil)
-	if uploadState == "failed" {
-		terminalReason = "pending_timeout"
-		failedAt = now
-		cleanupDueAt = now.Add(time.Hour)
-	}
-	if uploadState == "available" || uploadState == "quarantined" {
-		finalizedAt = now
-	}
 	byteSize := options.ByteSize
 	if byteSize == 0 && options.ObservedSize != nil {
 		byteSize = *options.ObservedSize
+	}
+	observedSize, observedSHA, observedContentType := options.ObservedSize, options.ObservedSHA, options.ObservedContentType
+	if uploadState == "failed" {
+		// A failed slot has no observation; a size mismatch has no timing rule.
+		terminalReason = "declared_size_mismatch"
+		failedAt = now
+		cleanupDueAt = now.Add(45 * time.Minute)
+		observedSize, observedSHA, observedContentType = nil, nil, nil
+	}
+	if uploadState == "available" || uploadState == "quarantined" {
+		finalizedAt = createdAt
+		if observedSize == nil {
+			observedSize = &byteSize
+		}
+		if observedSHA == nil {
+			observedSHA = options.ExpectedSHA
+		}
+		if observedSHA == nil {
+			zero := strings.Repeat("0", 64)
+			observedSHA = &zero
+		}
 	}
 	if _, err := db.Exec(context.Background(), `
 INSERT INTO object_blobs (
@@ -273,11 +289,11 @@ INSERT INTO object_blobs (
     $1, $2, $3, $4, $5,
     $6, $7, $8, $9, $10,
     $11, $12, $13,
-    $14, $15, $16, $17, $17
+    $14, $15, $16, $17, $18
 )
 `, blobID, incidentID, actorID, "evidence_lifecycle/attach/"+blobID.String(), uploadState,
-		byteSize, options.ExpectedSHA, options.ObservedSize, options.ObservedContentType, options.ObservedSHA,
-		now.Add(time.Hour), pendingExpiresAt, finalizedAt, terminalReason, failedAt, cleanupDueAt, now); err != nil {
+		byteSize, options.ExpectedSHA, observedSize, observedContentType, observedSHA,
+		createdAt.Add(time.Hour), pendingExpiresAt, finalizedAt, terminalReason, failedAt, cleanupDueAt, createdAt, now); err != nil {
 		t.Fatalf("insert object blob: %v", err)
 	}
 	if uploadState == "pending" {

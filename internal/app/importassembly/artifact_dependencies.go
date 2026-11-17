@@ -37,3 +37,7 @@ func (a artifactProjectionAdapter) RefreshArtifactTx(ctx context.Context, tx pgx
 func (a artifactProjectionAdapter) LoadArtifactTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, recordID uuid.UUID) (map[string]any, error) {
 	return a.rows.LoadArtifactTx(ctx, tx, viewSchemaID, recordID)
 }
+
+func (a artifactProjectionAdapter) RecordSummaryLabelsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordIDs []uuid.UUID) (map[uuid.UUID]string, error) {
+	return a.rows.RecordSummaryLabelsTx(ctx, tx, incidentID, recordIDs)
+}

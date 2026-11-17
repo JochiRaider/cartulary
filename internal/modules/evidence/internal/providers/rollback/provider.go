@@ -2,11 +2,13 @@ package rollback
 
 import (
 	"context"
+	"errors"
 	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/evidence/internal/policy"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/internal/sourcevalue"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/rollbackcontract"
 )
@@ -45,7 +47,26 @@ func (provider) RestoreTx(ctx context.Context, tx pgx.Tx, request rollbackcontra
 		}
 		values = append(values, value)
 	}
-	_, err := tx.Exec(ctx, `
+	// REQ-02-196a: a restored lifecycle must satisfy the bridge against the
+	// linked Blob's live state, not the retained scalar.
+	lifecycle, _ := source["lifecycle_state"].(string)
+	blobID, _, err := nullableUUID(source, "object_blob_id")
+	if err != nil {
+		return rollbackcontract.ErrTargetNotReversible
+	}
+	liveBlobState := ""
+	if blobID != nil {
+		if err := tx.QueryRow(ctx, `SELECT upload_state FROM object_blobs WHERE object_blob_id = $1`, blobID).Scan(&liveBlobState); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return rollbackcontract.ErrTargetNotReversible
+			}
+			return err
+		}
+	}
+	if policy.ViolatesEvidenceBlobBridge(lifecycle, blobID != nil, liveBlobState) {
+		return rollbackcontract.ErrTargetNotReversible
+	}
+	_, err = tx.Exec(ctx, `
 UPDATE evidence
    SET title = $2::text,
        lifecycle_state = $3::text,
@@ -71,6 +92,11 @@ func sourceForRollbackValue(value map[string]any) (map[string]any, bool) {
 	record, recordOK := objectMap(value, "record")
 	if !sourceOK || !recordOK || len(value) != 3 || value["snapshot_schema_id"] != "cartulary.revisions.snapshot.evidence.v2" ||
 		sourcevalue.ValidateSnapshotSource(record, source) != nil {
+		return nil, false
+	}
+	// Accessible states need a Blob link whatever the Blob's state; the rest of
+	// the bridge is decided against the live Blob in RestoreTx (REQ-02-196a).
+	if lifecycle, _ := source["lifecycle_state"].(string); (lifecycle == policy.EvidenceAvailable || lifecycle == policy.EvidenceReleased) && source["object_blob_id"] == nil {
 		return nil, false
 	}
 	return source, true

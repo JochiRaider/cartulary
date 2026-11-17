@@ -1,10 +1,8 @@
 package deleterestore
 
 import (
-	"database/sql"
 	"fmt"
 	"strings"
-	"time"
 
 	shape "github.com/JochiRaider/cartulary/internal/modules/revisions/deleterestorecontract"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/policy"
@@ -37,22 +35,11 @@ func ValidateTaskRequestSnapshotSource(record, source map[string]any) error {
 			return fmt.Errorf("invalid historical Task Request text")
 		}
 	}
-	created, _ := time.Parse(time.RFC3339Nano, source["created_at"].(string))
-	state := policy.TaskLifecycleState{Status: status, CreatedAt: created}
-	if owner, ok := source["owner_user_id"].(string); ok {
-		state.OwnerUserID = sql.NullString{String: owner, Valid: true}
-	}
-	if blocker, ok := source["blocked_reason"].(string); ok {
-		if status == "blocked" && strings.TrimSpace(blocker) == "" {
-			return fmt.Errorf("missing historical Task Request blocker")
-		}
-		state.BlockedReason = sql.NullString{String: blocker, Valid: blocker != ""}
-	}
-	if completed, ok := source["completed_at"].(string); ok {
-		instant, _ := time.Parse(time.RFC3339Nano, completed)
-		state.CompletedAt = sql.NullTime{Time: instant, Valid: true}
-	}
-	return policy.ValidateTaskState(state)
+	// REQ-02-109a: a snapshot is checked for shape and vocabulary only. Guard
+	// legality (REQ-02-103) belongs to each write path, so an inconsistent Task
+	// can still be captured and then corrected, while patch, create, rollback
+	// and restore each reject an illegal result.
+	return nil
 }
 
 func ValidateDecisionSnapshotSource(record, source map[string]any) error {

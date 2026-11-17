@@ -1259,8 +1259,8 @@ sequence against the simulated base state using the legal transition matrix in
 Core 01 Table 3.3.5.5-A. A dismissal hides the item but preserves its private
 simulation slot, so a later legal restore returns it to its original position.
 An illegal step MUST reject with `409 illegal_transition`, its simulated
-`from_status` and requested `to_status`, and the `from_status_not_allowed` guard,
-without persisted effects. Preview actions MUST retain factual Mention version
+`from_status` and requested `to_status`, `reason_code = transition_not_allowed`
+and empty `violated_guards[]`, without persisted effects. Preview actions MUST retain factual Mention version
 tokens; they MUST NOT invent versions for hypothetical future commits.
 A referenced Mention absent from `base_value` MAY supplement the simulation only
 when its current source state is `dismissed`. The source owner MUST then seed a
@@ -1869,6 +1869,11 @@ Verified by: AC-107, AC-108, AC-109, AC-110, AC-111, AC-137, AC-138, AC-139, AC-
 The implementation MUST NOT re-derive `capture_state` from current link counts, evidence counts, tags, or current unresolved-mention state alone. Removing all current links or evidence from an already `enriched` row MUST NOT revert it to `rough`. `timeline.has_unresolved_mentions` remains a separate derived field from current unresolved mention rows and MUST NOT override `capture_state`.
 Profiles: base
 Verified by: AC-107, AC-108, AC-109, AC-110, AC-111, AC-137, AC-138, AC-139, AC-140, AC-141, AC-142, AC-143, AC-144, AC-145, AC-191, AC-192, AC-193, AC-194, AC-195, AC-196, AC-197, AC-198, AC-199, AC-231
+
+**REQ-03-109a — Unrecognized persisted capture state**
+A persisted `capture_state` outside the closed vocabulary (`rough`, `enriched`, `reviewed`, `superseded`) is a storage invariant failure, not a lifecycle condition, and it is distinct from any transition the machine disallows. A request that would read that row's machine condition or transition it MUST fail closed with `error.code='internal_error'` under REQ-01-229, MUST commit nothing, and MUST NOT report `illegal_transition`. Only transitions from a recognized state that the machine disallows use `illegal_transition` with complete REQ-01-231 details.
+Profiles: base
+Verified by: AC-313
 
 **REQ-03-110**
 Normalization MUST add structure without erasing the original observed input.
@@ -3497,7 +3502,8 @@ Source owners MUST provide readable value fragments using the same committed
 presentation semantics as the renderer, before visual clipping. Scalar,
 timestamp, number, boolean and Evidence-summary formatting MUST agree with that
 presentation. Timeline collection search includes only the displayed summary item
-label, not overflow-only labels or overflow counts. Hosts and Identities search
+label, not overflow-only labels or overflow counts. The displayed summary item is
+the first served item (REQ-01-067). Hosts and Identities search
 each actually displayed readable collection item as an independent fragment,
 including alias chips and readable reusable-identifier labels. Entity display
 names and primary values follow their renderer’s committed fallback precedence;
@@ -3944,7 +3950,7 @@ Verified by: AC-006, AC-020, AC-023, AC-072, AC-073, AC-074, AC-075, AC-186, AC-
 **REQ-03-248a — Linked Evidence metadata window**
 The Timeline Evidence inspector MUST present the total number of live linked
 Evidence records separately from the attached-file count. It MUST preserve
-the source-backed collection order and expose a five-record window with
+the served collection order (REQ-01-067) and expose a five-record window with
 keyboard-operable Previous and Next controls when more records exist. Opening
 on a new source observation starts at the first window. Each window MUST read
 current metadata through REQ-01-328a and show the Evidence label, lifecycle,
@@ -3960,7 +3966,7 @@ attachment operations. Actual preview and download remain explicit actions
 through the existing handle admission and redemption contracts. A negative
 preview-only eligibility result MUST NOT hide an otherwise eligible download.
 Profiles: base
-Verified by: AC-045, AC-097, AC-231
+Verified by: AC-045, AC-097, AC-231, AC-603
 
 **REQ-03-284**
 When a compact Timeline relationship cell cannot show every active relationship item inline, the compact overflow indicator MUST be keyboard and pointer reachable and MUST provide a same-surface path to inspect the hidden relationship items in the row's Relationships inspector context. The compact overflow indicator MUST NOT become relationship authority; authoritative relationship and mention state remains the source-backed collection value and inspector actions defined by Core 01 and Core 02.

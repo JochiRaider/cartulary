@@ -19,6 +19,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
+	"github.com/JochiRaider/cartulary/internal/testutil/lifecyclecontract"
 )
 
 func TestIndicatorProductionChildRoutes_Integration(t *testing.T) {
@@ -120,7 +121,7 @@ func TestIndicatorProductionChildRoutes_Integration(t *testing.T) {
 	dismissDivergent["base_row_version"] = 2
 	httptestx.RequireErrorEnvelope(t, childRouteJSON(t, harness, login, http.MethodPost, dismissPath, dismissDivergent), http.StatusConflict, "client_txn_conflict")
 	illegalDismiss := map[string]any{"client_txn_id": "txn-indicator-child-routes-dismiss-again", "base_row_version": 2}
-	httptestx.RequireErrorEnvelope(t, childRouteJSON(t, harness, login, http.MethodPost, dismissPath, illegalDismiss), http.StatusConflict, "illegal_transition")
+	requireObservationTransitionDetails(t, httptestx.RequireErrorEnvelope(t, childRouteJSON(t, harness, login, http.MethodPost, dismissPath, illegalDismiss), http.StatusConflict, "illegal_transition"), "dismissed", "dismissed")
 
 	restorePath := "/api/v1/indicator-observations/" + secondID.String() + "/restore"
 	restored := httptestx.RequireSuccessEnvelope(t, childRouteJSON(t, harness, login, http.MethodPost, restorePath, map[string]any{
@@ -154,9 +155,9 @@ func TestIndicatorProductionChildRoutes_Integration(t *testing.T) {
 	resolveDivergent := cloneMap(resolveReplayBody)
 	resolveDivergent["resolved_indicator_record_id"] = uuid.New().String()
 	httptestx.RequireErrorEnvelope(t, childRouteJSON(t, harness, login, http.MethodPost, resolvePath, resolveDivergent), http.StatusConflict, "client_txn_conflict")
-	httptestx.RequireErrorEnvelope(t, childRouteJSON(t, harness, login, http.MethodPost, resolvePath, map[string]any{
+	requireObservationTransitionDetails(t, httptestx.RequireErrorEnvelope(t, childRouteJSON(t, harness, login, http.MethodPost, resolvePath, map[string]any{
 		"client_txn_id": "txn-indicator-child-routes-resolve-again", "base_row_version": 4, "resolved_indicator_record_id": indicatorID.String(),
-	}), http.StatusConflict, "illegal_transition")
+	}), http.StatusConflict, "illegal_transition"), "resolved", "resolved")
 
 	indicatorObservations := httptestx.RequireSuccessEnvelope(t, childRouteJSON(t, harness, login, http.MethodGet,
 		"/api/v1/indicators/"+indicatorID.String()+"/observations", nil), http.StatusOK)["data"].(map[string]any)["observations"].([]any)
@@ -299,4 +300,17 @@ func requireObservationSourceHistory(t testing.TB, db *sql.DB, changeSet, operat
  WHERE m.change_set_id=$1 AND m.target_kind='indicator_observation' AND m.target_id=$2::text`, changeSet, id, operation).Scan(&count, &exact); err != nil || count != 1 || !exact {
 		t.Fatalf("complete source/history %s count=%d exact=%v error=%v", operation, count, exact, err)
 	}
+}
+
+// requireObservationTransitionDetails asserts complete REQ-01-231 details for a
+// matrix-only observation rejection (Core 01 §3.3.6.2).
+func requireObservationTransitionDetails(t testing.TB, body map[string]any, from, to string) {
+	t.Helper()
+	details := body["error"].(map[string]any)["details"].(map[string]any)
+	guards, ok := details["violated_guards"].([]any)
+	if details["from_status"] != from || details["to_status"] != to || details["reason_code"] != "transition_not_allowed" || !ok || len(guards) != 0 {
+		t.Fatalf("observation transition details = %#v, want %s -> %s transition_not_allowed []", details, from, to)
+	}
+	// AC-606: the emitted vocabulary is registered for this machine.
+	lifecyclecontract.RequireDetails(t, "indicator_observation.disposition", details)
 }

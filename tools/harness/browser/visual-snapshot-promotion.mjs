@@ -1,5 +1,13 @@
 import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { secureWriteFile } from "../contract/artifact-writer.mjs";
+
+// The promoted golden manifest is a generated artifact, normalized to 0644.
+export const visualManifestMode = 0o644;
+
+export function writeVisualManifestCandidate(file, manifest) {
+  secureWriteFile(file, `${JSON.stringify(manifest, null, 2)}\n`, visualManifestMode);
+}
 
 export function stageVisualSnapshotCandidate(source, destination) {
   const validateExisting = () => {

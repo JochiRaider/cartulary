@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { chmodSync, lstatSync, existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { promoteVisualSnapshotCandidate, stageVisualSnapshotCandidate } from "../visual-snapshot-promotion.mjs";
+import { promoteVisualSnapshotCandidate, stageVisualSnapshotCandidate, writeVisualManifestCandidate } from "../visual-snapshot-promotion.mjs";
 import test from "node:test";
 const root = path.resolve(import.meta.dirname, "../../../..");
 test("visual snapshot promotion rolls back a failed manifest swap and preserves private candidates", async (t) => {
@@ -101,5 +101,35 @@ test("target publication failure cannot promote a visual candidate", () => {
     }
     finally {
         rmSync(directory, { recursive: true, force: true });
+    }
+});
+
+test("visual manifest candidates are written and promoted at the normalized generated mode", () => {
+    const promotionRoot = mkdtempSync(path.join(os.tmpdir(), "cartulary-visual-manifest-mode."));
+    try {
+        const sourceSnapshots = path.join(promotionRoot, "source-snapshots");
+        const candidateSnapshots = path.join(promotionRoot, "candidate-snapshots");
+        const sourceManifest = path.join(promotionRoot, "source-manifest.json");
+        const candidateManifest = path.join(promotionRoot, "candidate", "manifest.json");
+        mkdirSync(sourceSnapshots);
+        writeFileSync(path.join(sourceSnapshots, "fixture.png"), "old-golden");
+        stageVisualSnapshotCandidate(sourceSnapshots, candidateSnapshots);
+        writeFileSync(sourceManifest, "old-manifest", { mode: 0o644 });
+        writeVisualManifestCandidate(candidateManifest, { schema_id: "fixture", entries: [] });
+        assert.equal(lstatSync(candidateManifest).mode & 0o777, 0o644);
+        assert.equal(readFileSync(candidateManifest, "utf8"), '{\n  "schema_id": "fixture",\n  "entries": []\n}\n');
+        promoteVisualSnapshotCandidate({
+            sourceSnapshots,
+            candidateSnapshots,
+            sourceManifest,
+            candidateManifest,
+            snapshotBackup: path.join(promotionRoot, "snapshot-backup"),
+            manifestBackup: path.join(promotionRoot, "manifest-backup.json"),
+        });
+        assert.equal(lstatSync(sourceManifest).mode & 0o777, 0o644);
+        assert.equal(readFileSync(sourceManifest, "utf8"), '{\n  "schema_id": "fixture",\n  "entries": []\n}\n');
+    }
+    finally {
+        rmSync(promotionRoot, { recursive: true, force: true });
     }
 });

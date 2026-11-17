@@ -68,6 +68,12 @@ func (s *Store) queryRowsPage(ctx context.Context, reader interface {
 	return querypage.Finish(result, window.Limit), nil
 }
 
+// RecordSummaryLabelsTx returns REQ-01-333a labels for live records in the
+// incident; see queryengine.RecordSummaryLabelsTx.
+func (s *Store) RecordSummaryLabelsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordIDs []uuid.UUID) (map[uuid.UUID]string, error) {
+	return queryengine.RecordSummaryLabelsTx(ctx, tx, incidentID, recordIDs)
+}
+
 func (s *Store) LoadRowTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, recordID uuid.UUID) (map[string]any, error) {
 	registry, err := s.providerRegistry()
 	if err != nil {

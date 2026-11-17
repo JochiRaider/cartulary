@@ -490,3 +490,19 @@ SELECT last_qualifying_activity_at,
 	}
 	return timing
 }
+
+// TestIncidentSocketClosesGoingAwayOnShutdown_Unit covers REQ-04-146a: ordinary
+// shutdown closes every open WebSocket with 1001 instead of waiting on it.
+func TestIncidentSocketClosesGoingAwayOnShutdown_Unit(t *testing.T) {
+	runtime := appsupport.StartRuntime(t)
+	harness, admin, incidentID := setupSocketIncident(t, runtime, "collaboration-shutdown-going-away")
+	client := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
+		SessionToken:     admin.Session.Value,
+		ClientInstanceID: "collaboration-shutdown-going-away",
+		Presence:         timelinePresence(),
+	})
+	defer client.Close(wstest.StatusNormalClosure, "test_complete")
+
+	harness.Collaboration.CloseSessions()
+	wstest.RequireClose(t, client.AwaitClose(5*time.Second), wstest.StatusGoingAway, "")
+}

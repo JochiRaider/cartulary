@@ -15,6 +15,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/dbassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
+	"github.com/JochiRaider/cartulary/internal/testutil/lifecyclecontract"
 )
 
 func TestIncidentLifecycleCloseReopenAuthorizationReplayAndTransitions_Integration(t *testing.T) {
@@ -165,6 +166,7 @@ func TestIncidentLifecycleCloseReopenAuthorizationReplayAndTransitions_Integrati
 	}, adminLogin)
 	repeatedCloseBody := httptestx.RequireErrorEnvelope(t, repeatedClose, http.StatusConflict, "illegal_transition")
 	requireLifecycleReasonCode(t, repeatedCloseBody, "incident_already_closed")
+	requireLifecycleTransitionDetails(t, repeatedCloseBody, "closed")
 
 	staleReopen := lifecycleRequest(t, path+"/reopen", map[string]any{
 		"base_incident_version": 1,
@@ -212,6 +214,7 @@ func TestIncidentLifecycleCloseReopenAuthorizationReplayAndTransitions_Integrati
 	}, adminLogin)
 	repeatedReopenBody := httptestx.RequireErrorEnvelope(t, repeatedReopen, http.StatusConflict, "illegal_transition")
 	requireLifecycleReasonCode(t, repeatedReopenBody, "incident_not_closed")
+	requireLifecycleTransitionDetails(t, repeatedReopenBody, "active")
 
 	invalid := lifecycleRequest(t, path+"/close", map[string]any{
 		"base_incident_version": 3,
@@ -300,6 +303,19 @@ func lifecycleRequest(
 		httptestx.WithCookies(login.Session, login.CSRF),
 		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value),
 	)
+}
+
+// requireLifecycleTransitionDetails asserts REQ-01-231: a rejected action leaves
+// the incident in its persisted state and lists no guard.
+func requireLifecycleTransitionDetails(t testing.TB, body map[string]any, status string) {
+	t.Helper()
+	details := body["error"].(map[string]any)["details"].(map[string]any)
+	guards, ok := details["violated_guards"].([]any)
+	if details["from_status"] != status || details["to_status"] != status || !ok || len(guards) != 0 {
+		t.Fatalf("lifecycle transition details = %#v, want %s -> %s with []", details, status, status)
+	}
+	// AC-606: the emitted vocabulary is registered for this machine.
+	lifecyclecontract.RequireDetails(t, "incident.status", details)
 }
 
 func requireLifecycleReasonCode(t testing.TB, body map[string]any, want string) {

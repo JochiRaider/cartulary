@@ -433,6 +433,7 @@ func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *platformhttpa
 }
 
 func mutationError(err error, clientTxnID string) *platformhttpapi.APIError {
+	var transition *indicators.IllegalTransitionError
 	switch {
 	case errors.Is(err, indicators.ErrInvalidCreateRequest), errors.Is(err, indicators.ErrSourceTextUnavailable):
 		return invalidMutationPayload("", "invalid_value")
@@ -446,8 +447,12 @@ func mutationError(err error, clientTxnID string) *platformhttpapi.APIError {
 		return indicatorNotFoundError()
 	case errors.Is(err, indicators.ErrRowVersionConflict):
 		return &platformhttpapi.APIError{Status: http.StatusConflict, Code: "row_version_conflict", Details: map[string]any{}}
-	case errors.Is(err, indicators.ErrIllegalTransition):
-		return &platformhttpapi.APIError{Status: http.StatusConflict, Code: "illegal_transition", Details: map[string]any{}}
+	case errors.As(err, &transition):
+		// Core 01 §3.3.6.2: observation resolution is matrix-only.
+		return &platformhttpapi.APIError{Status: http.StatusConflict, Code: "illegal_transition", Details: map[string]any{
+			"from_status": transition.FromStatus, "to_status": transition.ToStatus,
+			"violated_guards": []string{}, "reason_code": "transition_not_allowed",
+		}}
 	case errors.Is(err, authn.ErrClientTxnConflict):
 		return platformhttpapi.ClientTxnConflictError(clientTxnID)
 	case admission.IsDenied(err, admission.DenialIncidentClosed):

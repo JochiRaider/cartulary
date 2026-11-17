@@ -2644,7 +2644,7 @@
           "TestOwnedObjectStoreDoesNotRetryAuthenticationReadinessFailure",
           "TestOwnedObjectStoreReadinessTimeoutIsTerminalForTheStartedLane",
           "TestOwnedObjectStoreRetriesOnlyPreReadinessStartupAndUsesFreshReadinessContext",
-          "TestSeaweedFSS3AllowedOriginsDefaultSupportsLoopbackBrowserPortRange",
+          "TestSeaweedFSS3AllowedOriginsDefaultAdmitsNoBrowserOrigin",
           "TestStartSharedRejectsMissingAttachment",
           "TestStartSharedUsesAttachEnvWithoutStartingOwnedHarness"
         ]

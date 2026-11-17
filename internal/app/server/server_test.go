@@ -29,8 +29,13 @@ import (
 
 func testRuntime(handler http.Handler, closeRuntime func()) serverRuntime {
 	return serverRuntime{
-		Handler:              handler,
-		Close:                closeRuntime,
+		Handler: handler,
+		Close: func(context.Context) []string {
+			if closeRuntime != nil {
+				closeRuntime()
+			}
+			return nil
+		},
 		ActivatePublication:  func() error { return nil },
 		FatalEvents:          make(chan processlifecycle.FatalSignal),
 		Fatal:                func(string) bool { return true },

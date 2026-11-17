@@ -65,19 +65,24 @@ func (f *MutationFacade) SupersedeDecision(ctx context.Context, command Supersed
 		return SupersedeMutationResult{}, &RowVersionConflictError{RecordID: command.TargetRecordID, BaseRowVersion: request.BaseRowVersion, CurrentRowVersion: targetMeta.RowVersion}
 	}
 
+	// REQ-01-231: guard failures report the target's persisted status.
+	targetPersistedStatus, err := tasksource.LoadDecisionStatusTx(ctx, tx, command.TargetRecordID)
+	if err != nil {
+		return SupersedeMutationResult{}, err
+	}
 	sourceRecordID := *request.ReplacementRecordID
 	if sourceRecordID == command.TargetRecordID {
-		return SupersedeMutationResult{}, policy.DecisionSupersedeValidationError("superseding_decision_must_be_different")
+		return SupersedeMutationResult{}, policy.DecisionSupersedeValidationError(targetPersistedStatus, "replacement_must_differ_from_target")
 	}
 	sourceMeta, err := loadSupersedeRecordMetaForUpdateTx(ctx, tx, f.recordStore, sourceRecordID)
 	if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, revisions.ErrRecordDeletedUseRestore) {
-		return SupersedeMutationResult{}, policy.DecisionSupersedeValidationError("superseding_decision_must_be_active_same_incident_decision")
+		return SupersedeMutationResult{}, policy.DecisionSupersedeValidationError(targetPersistedStatus, "replacement_must_be_active_in_incident")
 	}
 	if err != nil {
 		return SupersedeMutationResult{}, err
 	}
 	if sourceMeta.RecordType != "decision" || sourceMeta.IncidentID != targetMeta.IncidentID {
-		return SupersedeMutationResult{}, policy.DecisionSupersedeValidationError("superseding_decision_must_be_active_same_incident_decision")
+		return SupersedeMutationResult{}, policy.DecisionSupersedeValidationError(targetPersistedStatus, "replacement_must_be_active_in_incident")
 	}
 
 	targetState, err := tasksource.LoadDecisionMachineStateForUpdateTx(ctx, tx, f.linkFacts, command.TargetRecordID)
@@ -95,13 +100,13 @@ func (f *MutationFacade) SupersedeDecision(ctx context.Context, command Supersed
 		return SupersedeMutationResult{}, err
 	}
 	if sourceState.Status != "approved" && sourceState.Status != "executed" {
-		return SupersedeMutationResult{}, policy.DecisionSupersedeValidationError("superseding_decision_must_be_approved_or_executed")
+		return SupersedeMutationResult{}, policy.DecisionSupersedeValidationError(targetPersistedStatus, "replacement_must_be_approved_or_executed")
 	}
 	if targetState.Status != "proposed" && targetState.Status != "approved" && targetState.Status != "executed" {
-		return SupersedeMutationResult{}, policy.DecisionSupersedeValidationError("target_decision_must_be_proposed_approved_or_executed")
+		return SupersedeMutationResult{}, policy.DecisionSupersedeValidationError(targetPersistedStatus, "target_must_be_proposed_approved_or_executed")
 	}
 	if targetState.IncomingSupersedes > 0 {
-		return SupersedeMutationResult{}, policy.DecisionSupersedeValidationError("target_must_not_have_active_replacement")
+		return SupersedeMutationResult{}, policy.DecisionSupersedeValidationError(targetPersistedStatus, "target_must_not_have_active_replacement")
 	}
 
 	if err := f.projectionRows.RefreshDecisionTx(ctx, tx, command.TargetRecordID); err != nil {
@@ -137,7 +142,7 @@ func (f *MutationFacade) SupersedeDecision(ctx context.Context, command Supersed
 	})
 	if err != nil {
 		if tasksource.IsUniqueViolation(err) {
-			return SupersedeMutationResult{}, policy.DecisionSupersedeValidationError("target_must_not_have_active_replacement")
+			return SupersedeMutationResult{}, policy.DecisionSupersedeValidationError(targetPersistedStatus, "target_must_not_have_active_replacement")
 		}
 		return SupersedeMutationResult{}, err
 	}

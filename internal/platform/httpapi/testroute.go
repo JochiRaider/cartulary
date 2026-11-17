@@ -20,14 +20,6 @@ const (
 	TestRouteTokenHeader       = "X-Cartulary-Test-Route-Token"
 )
 
-var weakTestRouteTokens = map[string]struct{}{
-	"test":     {},
-	"token":    {},
-	"secret":   {},
-	"password": {},
-	"changeme": {},
-}
-
 type TestRouteGuard struct {
 	Token          string
 	ExpectedHost   string
@@ -122,13 +114,7 @@ func ValidTestRouteToken(token string) bool {
 			repeated = false
 		}
 	}
-	if repeated {
-		return false
-	}
-	if _, weak := weakTestRouteTokens[strings.ToLower(token)]; weak {
-		return false
-	}
-	return true
+	return !repeated
 }
 
 func NormalizeTestRouteOrigin(value string) (string, error) {
