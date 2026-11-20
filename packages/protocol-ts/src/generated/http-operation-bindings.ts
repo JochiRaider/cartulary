@@ -21,7 +21,36 @@ export const httpOperationBindings = {
       "200": "cartulary.core_http.ReferencePackActionEnvelope.v1",
       "202": "cartulary.core_http.JobEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_pagination_request",
+        "invalid_reference_pack_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied",
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "extension_profile_not_claimed",
+        "reference_pack_not_found"
+      ],
+      "409": [
+        "client_txn_conflict",
+        "credential_bootstrap_rejected",
+        "reference_pack_activation_rejected",
+        "reference_pack_operation_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "appendIndicatorStateInterval": {
     "method": "POST",
@@ -39,7 +68,35 @@ export const httpOperationBindings = {
       "200": "cartulary.core_http.IndicatorLifecycleMutationEnvelope.v1",
       "201": "cartulary.core_http.IndicatorLifecycleMutationEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_mutation_payload"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied",
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "indicator_not_found"
+      ],
+      "409": [
+        "client_txn_conflict",
+        "credential_bootstrap_rejected",
+        "incident_closed",
+        "record_deleted_use_restore",
+        "row_version_conflict"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "applyImportSession": {
     "method": "POST",
@@ -55,7 +112,37 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "202": "cartulary.core_http.JobEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_import_request",
+        "invalid_pagination_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied",
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "extension_profile_not_claimed",
+        "import_session_not_found"
+      ],
+      "409": [
+        "client_txn_conflict",
+        "credential_bootstrap_rejected",
+        "import_apply_blocked",
+        "import_state_conflict",
+        "incident_closed"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "applyWorkbookBulkMutation": {
     "method": "POST",
@@ -72,7 +159,35 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.WorkbookBatchMutationEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_mutation_payload"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied",
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "incident_not_found"
+      ],
+      "409": [
+        "client_txn_conflict",
+        "credential_bootstrap_rejected",
+        "illegal_transition",
+        "incident_closed",
+        "row_version_conflict"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "attachBlobToEvidenceRecord": {
     "method": "POST",
@@ -88,7 +203,36 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.EvidenceAttachBlobEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_mutation_payload"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied",
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "evidence_record_not_found"
+      ],
+      "409": [
+        "client_txn_conflict",
+        "credential_bootstrap_rejected",
+        "evidence_attach_rejected",
+        "incident_closed",
+        "record_deleted_use_restore",
+        "row_version_conflict"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "beginEnterpriseAuth": {
     "method": "POST",
@@ -104,7 +248,23 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.EnterpriseAuthBeginEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_enterprise_auth_request"
+      ],
+      "404": [
+        "auth_provider_disabled",
+        "auth_provider_not_found",
+        "extension_profile_not_claimed"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "beginTOTPEnrollment": {
     "method": "POST",
@@ -118,7 +278,31 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.TOTPBeginEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_auth_request"
+      ],
+      "401": [
+        "invalid_second_factor",
+        "session_required"
+      ],
+      "403": [
+        "csrf_verification_failed"
+      ],
+      "409": [
+        "client_txn_conflict",
+        "credential_bootstrap_rejected",
+        "invalid_current_password"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "authentication_capacity_exhausted",
+        "service_unavailable"
+      ]
+    }
   },
   "cancelJob": {
     "method": "POST",
@@ -134,7 +318,32 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.JobEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_mutation_payload"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "job_not_found"
+      ],
+      "409": [
+        "client_txn_conflict",
+        "credential_bootstrap_rejected",
+        "job_cancel_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "changeCurrentPassword": {
     "method": "POST",
@@ -148,7 +357,31 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.PasswordChangeEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_auth_request"
+      ],
+      "401": [
+        "invalid_second_factor",
+        "session_required"
+      ],
+      "403": [
+        "csrf_verification_failed"
+      ],
+      "409": [
+        "client_txn_conflict",
+        "credential_bootstrap_rejected",
+        "invalid_current_password"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "authentication_capacity_exhausted",
+        "service_unavailable"
+      ]
+    }
   },
   "closeIncident": {
     "method": "POST",
@@ -164,7 +397,37 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.IncidentEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_incident_lifecycle_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied",
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "incident_not_found"
+      ],
+      "409": [
+        "client_txn_conflict",
+        "credential_bootstrap_rejected",
+        "illegal_transition",
+        "incident_version_conflict"
+      ],
+      "413": [
+        "request_body_too_large"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "completeTOTPEnrollment": {
     "method": "POST",
@@ -178,7 +441,29 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.TOTPCompleteEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_auth_request"
+      ],
+      "401": [
+        "invalid_second_factor",
+        "session_required"
+      ],
+      "403": [
+        "csrf_verification_failed"
+      ],
+      "409": [
+        "credential_bootstrap_rejected",
+        "totp_setup_not_pending"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "createDeploymentUser": {
     "method": "POST",
@@ -194,7 +479,31 @@ export const httpOperationBindings = {
       "200": "cartulary.core_http.SafeUserEnvelope.v1",
       "201": "cartulary.core_http.SafeUserEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_mutation_payload"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied",
+        "csrf_verification_failed"
+      ],
+      "409": [
+        "client_txn_conflict",
+        "credential_bootstrap_rejected",
+        "user_email_conflict"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "authentication_capacity_exhausted",
+        "service_unavailable"
+      ]
+    }
   },
   "createEnterpriseAuthBinding": {
     "method": "POST",
@@ -212,7 +521,36 @@ export const httpOperationBindings = {
       "200": "cartulary.core_http.SafeUserEnvelope.v1",
       "201": "cartulary.core_http.SafeUserEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_mutation_payload"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied",
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "auth_provider_not_found",
+        "extension_profile_not_claimed",
+        "user_not_found"
+      ],
+      "409": [
+        "auth_binding_conflict",
+        "client_txn_conflict",
+        "credential_bootstrap_rejected",
+        "user_version_conflict"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "createImportSession": {
     "method": "POST",
@@ -226,7 +564,37 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "202": "cartulary.core_http.JobEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_import_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied",
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "extension_profile_not_claimed",
+        "incident_not_found"
+      ],
+      "409": [
+        "client_txn_conflict",
+        "credential_bootstrap_rejected",
+        "import_source_unsupported"
+      ],
+      "413": [
+        "import_source_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "createImportUnitRegion": {
     "method": "POST",
@@ -243,7 +611,40 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "201": "cartulary.core_http.ImportUnitEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_import_request",
+        "invalid_pagination_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied",
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "extension_profile_not_claimed",
+        "import_session_not_found",
+        "import_unit_not_found"
+      ],
+      "409": [
+        "client_txn_conflict",
+        "credential_bootstrap_rejected",
+        "import_state_conflict",
+        "incident_closed"
+      ],
+      "413": [
+        "import_source_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "createIncident": {
     "method": "POST",
@@ -259,7 +660,32 @@ export const httpOperationBindings = {
       "200": "cartulary.core_http.IncidentEnvelope.v1",
       "201": "cartulary.core_http.IncidentEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_incident_create"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "csrf_verification_failed"
+      ],
+      "409": [
+        "client_txn_conflict",
+        "credential_bootstrap_rejected",
+        "incident_key_conflict"
+      ],
+      "413": [
+        "request_body_too_large"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "createIncidentMembership": {
     "method": "POST",
@@ -277,7 +703,38 @@ export const httpOperationBindings = {
       "200": "cartulary.core_http.IncidentMembershipEnvelope.v1",
       "201": "cartulary.core_http.IncidentMembershipEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_mutation_payload"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied",
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "incident_not_found",
+        "user_not_found"
+      ],
+      "409": [
+        "client_txn_conflict",
+        "credential_bootstrap_rejected",
+        "membership_exists_use_patch",
+        "user_inactive"
+      ],
+      "413": [
+        "request_body_too_large"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "createIncidentSavedView": {
     "method": "POST",
@@ -293,7 +750,30 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "201": "cartulary.core_http.SavedViewEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_mutation_payload"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "saved_view_not_found"
+      ],
+      "409": [
+        "credential_bootstrap_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "createManualIndicatorObservation": {
     "method": "POST",
@@ -311,7 +791,36 @@ export const httpOperationBindings = {
       "200": "cartulary.core_http.IndicatorObservationMutationEnvelope.v1",
       "201": "cartulary.core_http.IndicatorObservationMutationEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_mutation_payload"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied",
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "indicator_source_record_not_found",
+        "resolved_indicator_not_found"
+      ],
+      "409": [
+        "client_txn_conflict",
+        "credential_bootstrap_rejected",
+        "incident_closed",
+        "record_deleted_use_restore",
+        "row_version_conflict"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "createObjectBlobSlot": {
     "method": "POST",
@@ -327,7 +836,36 @@ export const httpOperationBindings = {
       "200": "cartulary.core_http.ObjectBlobCreateEnvelope.v1",
       "201": "cartulary.core_http.ObjectBlobCreateEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_blob_create_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied",
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "incident_not_found"
+      ],
+      "409": [
+        "client_txn_conflict",
+        "credential_bootstrap_rejected",
+        "incident_closed"
+      ],
+      "413": [
+        "blob_create_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "createRecordLinkedNote": {
     "method": "POST",
@@ -345,7 +883,34 @@ export const httpOperationBindings = {
       "200": "cartulary.core_http.LinkedNoteMutationEnvelope.v1",
       "201": "cartulary.core_http.LinkedNoteMutationEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_mutation_payload"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied",
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "incident_not_found"
+      ],
+      "409": [
+        "client_txn_conflict",
+        "credential_bootstrap_rejected",
+        "incident_closed",
+        "record_deleted_use_restore"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "createRelease": {
     "method": "POST",
@@ -359,7 +924,34 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "202": "cartulary.core_http.JobEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_release_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied",
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "extension_profile_not_claimed",
+        "snapshot_not_found"
+      ],
+      "409": [
+        "client_txn_conflict",
+        "credential_bootstrap_rejected",
+        "required_reference_pack_unavailable"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "createSnapshot": {
     "method": "POST",
@@ -373,7 +965,35 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "202": "cartulary.core_http.JobEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_snapshot_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied",
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "extension_profile_not_claimed",
+        "incident_not_found"
+      ],
+      "409": [
+        "client_txn_conflict",
+        "credential_bootstrap_rejected",
+        "required_reference_pack_unavailable",
+        "snapshot_source_boundary_conflict"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "createViewRow": {
     "method": "POST",
@@ -392,7 +1012,37 @@ export const httpOperationBindings = {
       "200": "cartulary.core_http.CoordinationCreateMutationEnvelope.v1",
       "201": "cartulary.core_http.CoordinationCreateMutationEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_mutation_payload"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied",
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "incident_not_found"
+      ],
+      "409": [
+        "client_txn_conflict",
+        "credential_bootstrap_rejected",
+        "entity_match_conflict",
+        "evidence_attach_rejected",
+        "illegal_transition",
+        "incident_closed",
+        "party_match_conflict"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "deleteIncidentMembership": {
     "method": "DELETE",
@@ -407,7 +1057,37 @@ export const httpOperationBindings = {
     ],
     "response_schema_id": null,
     "response_schemas_by_status": {},
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_mutation_payload"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied",
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "incident_not_found",
+        "membership_not_found"
+      ],
+      "409": [
+        "credential_bootstrap_rejected",
+        "last_incident_admin",
+        "membership_version_conflict"
+      ],
+      "413": [
+        "request_body_too_large"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "deleteIncidentSavedView": {
     "method": "DELETE",
@@ -424,7 +1104,28 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.SavedViewDeleteEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied",
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "saved_view_not_found"
+      ],
+      "409": [
+        "credential_bootstrap_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "deleteRecord": {
     "method": "DELETE",
@@ -440,7 +1141,36 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.RecordDeleteRestoreEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_mutation_payload"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied",
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "incident_not_found"
+      ],
+      "409": [
+        "client_txn_conflict",
+        "credential_bootstrap_rejected",
+        "incident_closed",
+        "record_already_deleted",
+        "record_delete_blocked",
+        "row_version_conflict"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "disableReferencePackVersion": {
     "method": "POST",
@@ -459,7 +1189,35 @@ export const httpOperationBindings = {
       "200": "cartulary.core_http.ReferencePackActionEnvelope.v1",
       "202": "cartulary.core_http.JobEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_pagination_request",
+        "invalid_reference_pack_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied",
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "extension_profile_not_claimed",
+        "reference_pack_not_found"
+      ],
+      "409": [
+        "client_txn_conflict",
+        "credential_bootstrap_rejected",
+        "reference_pack_operation_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "dismissIndicatorObservation": {
     "method": "POST",
@@ -475,7 +1233,35 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.IndicatorObservationMutationEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_mutation_payload"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied",
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "indicator_observation_not_found"
+      ],
+      "409": [
+        "client_txn_conflict",
+        "credential_bootstrap_rejected",
+        "illegal_transition",
+        "incident_closed",
+        "row_version_conflict"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "getCommittedImportSource": {
     "method": "GET",
@@ -492,7 +1278,32 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.CommittedImportSourceEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_pagination_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied"
+      ],
+      "404": [
+        "committed_source_not_found",
+        "extension_profile_not_claimed",
+        "incident_not_found"
+      ],
+      "409": [
+        "credential_bootstrap_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "getCommittedImportSourceContent": {
     "method": "GET",
@@ -507,7 +1318,32 @@ export const httpOperationBindings = {
     ],
     "response_schema_id": null,
     "response_schemas_by_status": {},
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_pagination_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied"
+      ],
+      "404": [
+        "committed_source_not_found",
+        "extension_profile_not_claimed",
+        "incident_not_found"
+      ],
+      "409": [
+        "credential_bootstrap_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "getCredentialState": {
     "method": "GET",
@@ -521,7 +1357,24 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.CredentialStateEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_pagination_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "409": [
+        "credential_bootstrap_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "getCurrentAccountPreferences": {
     "method": "GET",
@@ -535,7 +1388,24 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.AccountPreferencesEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_pagination_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "409": [
+        "credential_bootstrap_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "getCurrentAccountProfile": {
     "method": "GET",
@@ -549,7 +1419,24 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.AccountProfileEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_pagination_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "409": [
+        "credential_bootstrap_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "getCurrentSession": {
     "method": "GET",
@@ -563,7 +1450,24 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.SessionEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_pagination_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "409": [
+        "credential_bootstrap_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "getCurrentUserWorkbookPreferences": {
     "method": "GET",
@@ -579,7 +1483,27 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.UserWorkbookPreferencesEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_pagination_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "404": [
+        "incident_not_found"
+      ],
+      "409": [
+        "credential_bootstrap_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "getDeploymentUser": {
     "method": "GET",
@@ -595,7 +1519,30 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.SafeUserEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_pagination_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied"
+      ],
+      "404": [
+        "user_not_found"
+      ],
+      "409": [
+        "credential_bootstrap_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "getImportSession": {
     "method": "GET",
@@ -611,7 +1558,28 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.ImportSessionEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_pagination_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "404": [
+        "extension_profile_not_claimed",
+        "import_session_not_found"
+      ],
+      "409": [
+        "credential_bootstrap_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "getImportUnit": {
     "method": "GET",
@@ -628,7 +1596,29 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.ImportUnitEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_pagination_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "404": [
+        "extension_profile_not_claimed",
+        "import_session_not_found",
+        "import_unit_not_found"
+      ],
+      "409": [
+        "credential_bootstrap_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "getImportUnitPreview": {
     "method": "GET",
@@ -645,7 +1635,30 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.ImportPreviewEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_pagination_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "404": [
+        "extension_profile_not_claimed",
+        "import_session_not_found",
+        "import_unit_not_found"
+      ],
+      "409": [
+        "credential_bootstrap_rejected",
+        "import_source_unsupported"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "getIncident": {
     "method": "GET",
@@ -661,7 +1674,27 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.IncidentEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_pagination_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "404": [
+        "incident_not_found"
+      ],
+      "409": [
+        "credential_bootstrap_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "getIncidentDefaultWorkbookPreferences": {
     "method": "GET",
@@ -677,7 +1710,27 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.DefaultWorkbookPreferencesEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_pagination_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "404": [
+        "incident_not_found"
+      ],
+      "409": [
+        "credential_bootstrap_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "getIncidentSavedView": {
     "method": "GET",
@@ -694,7 +1747,28 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.SavedViewEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_pagination_request",
+        "invalid_saved_view_read_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "404": [
+        "saved_view_not_found"
+      ],
+      "409": [
+        "credential_bootstrap_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "getIncidentWorkbookStartup": {
     "method": "GET",
@@ -714,7 +1788,27 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.WorkbookStartupEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_startup_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "404": [
+        "incident_not_found"
+      ],
+      "409": [
+        "credential_bootstrap_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "getJob": {
     "method": "GET",
@@ -730,7 +1824,27 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.JobEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_pagination_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "404": [
+        "job_not_found"
+      ],
+      "409": [
+        "credential_bootstrap_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "getRecordHistory": {
     "method": "GET",
@@ -749,7 +1863,27 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.RecordHistoryEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_pagination_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "404": [
+        "incident_not_found"
+      ],
+      "409": [
+        "credential_bootstrap_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "getReferencePackValidationSummary": {
     "method": "GET",
@@ -765,7 +1899,32 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.ReferencePackValidationSummaryEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_pagination_request",
+        "invalid_reference_pack_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied"
+      ],
+      "404": [
+        "extension_profile_not_claimed",
+        "reference_pack_not_found"
+      ],
+      "409": [
+        "credential_bootstrap_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "getReferencePackVersion": {
     "method": "GET",
@@ -782,7 +1941,32 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.ReferencePackVersionEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_pagination_request",
+        "invalid_reference_pack_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied"
+      ],
+      "404": [
+        "extension_profile_not_claimed",
+        "reference_pack_not_found"
+      ],
+      "409": [
+        "credential_bootstrap_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "getRelease": {
     "method": "GET",
@@ -798,7 +1982,28 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.ReleaseEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_pagination_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "404": [
+        "extension_profile_not_claimed",
+        "release_not_found"
+      ],
+      "409": [
+        "credential_bootstrap_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "getRetainedReportArtifacts": {
     "method": "GET",
@@ -814,7 +2019,31 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.RetainedReportArtifactsEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_pagination_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied"
+      ],
+      "404": [
+        "extension_profile_not_claimed",
+        "incident_not_found"
+      ],
+      "409": [
+        "credential_bootstrap_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "getSnapshot": {
     "method": "GET",
@@ -830,7 +2059,28 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.SnapshotEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_pagination_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "404": [
+        "extension_profile_not_claimed",
+        "snapshot_not_found"
+      ],
+      "409": [
+        "credential_bootstrap_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "getTimelineTimeConversionProfile": {
     "method": "GET",
@@ -846,7 +2096,27 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.TimelineTimeConversionProfileEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_pagination_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "404": [
+        "incident_not_found"
+      ],
+      "409": [
+        "credential_bootstrap_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "getViewSchema": {
     "method": "GET",
@@ -862,7 +2132,27 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.ViewSchemaEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_pagination_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "404": [
+        "view_schema_not_found"
+      ],
+      "409": [
+        "credential_bootstrap_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "importIncidentBundle": {
     "method": "POST",
@@ -876,7 +2166,33 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "202": "cartulary.core_http.JobEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_incident_bundle_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied",
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "extension_profile_not_claimed"
+      ],
+      "409": [
+        "client_txn_conflict",
+        "credential_bootstrap_rejected",
+        "incident_bundle_import_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "importReferencePack": {
     "method": "POST",
@@ -890,7 +2206,35 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "202": "cartulary.core_http.JobEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_pagination_request",
+        "invalid_reference_pack_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied",
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "extension_profile_not_claimed"
+      ],
+      "409": [
+        "client_txn_conflict",
+        "credential_bootstrap_rejected",
+        "reference_pack_operation_rejected",
+        "reference_pack_verification_failed"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "inspectImportUnitExtensionSource": {
     "method": "POST",
@@ -907,7 +2251,33 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.ExtensionSourceInspectionEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_import_request",
+        "invalid_pagination_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied"
+      ],
+      "404": [
+        "extension_profile_not_claimed",
+        "import_session_not_found",
+        "import_unit_not_found"
+      ],
+      "409": [
+        "credential_bootstrap_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "issueEvidenceDownloadHandle": {
     "method": "POST",
@@ -923,7 +2293,34 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.EvidenceHandleEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_evidence_handle_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "evidence_record_not_found"
+      ],
+      "409": [
+        "credential_bootstrap_rejected",
+        "evidence_access_unavailable"
+      ],
+      "500": [
+        "internal_error",
+        "object_store_invalid_request"
+      ],
+      "503": [
+        "object_store_access_rejected",
+        "object_store_unavailable",
+        "service_unavailable"
+      ]
+    }
   },
   "issueEvidencePreviewHandle": {
     "method": "POST",
@@ -939,7 +2336,34 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.EvidenceHandleEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_evidence_handle_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "evidence_record_not_found"
+      ],
+      "409": [
+        "credential_bootstrap_rejected",
+        "evidence_access_unavailable"
+      ],
+      "500": [
+        "internal_error",
+        "object_store_invalid_request"
+      ],
+      "503": [
+        "object_store_access_rejected",
+        "object_store_unavailable",
+        "service_unavailable"
+      ]
+    }
   },
   "listAdministrativeAuditEvents": {
     "method": "GET",
@@ -962,7 +2386,28 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.AdministrativeAuditEnvelope.v1"
     },
-    "response_validation_policy_id": "administrative_audit_future_vocabulary"
+    "response_validation_policy_id": "administrative_audit_future_vocabulary",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_list_query",
+        "invalid_pagination_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied"
+      ],
+      "409": [
+        "credential_bootstrap_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "listCommittedImportSources": {
     "method": "GET",
@@ -982,7 +2427,32 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.CommittedImportSourcesEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_list_query",
+        "invalid_pagination_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied"
+      ],
+      "404": [
+        "extension_profile_not_claimed",
+        "incident_not_found"
+      ],
+      "409": [
+        "credential_bootstrap_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "listDeploymentExtensions": {
     "method": "GET",
@@ -996,7 +2466,24 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.ExtensionDiscoveryEnvelope.v1"
     },
-    "response_validation_policy_id": "extension_discovery_additive_items"
+    "response_validation_policy_id": "extension_discovery_additive_items",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_pagination_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "409": [
+        "credential_bootstrap_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "listDeploymentUsers": {
     "method": "GET",
@@ -1016,7 +2503,28 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.SafeUserListEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_list_query",
+        "invalid_pagination_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied"
+      ],
+      "409": [
+        "credential_bootstrap_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "listEnterpriseAuthProviders": {
     "method": "GET",
@@ -1030,7 +2538,21 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.EnterpriseAuthProviderListEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_pagination_request"
+      ],
+      "404": [
+        "extension_profile_not_claimed"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "listEntityCandidates": {
     "method": "GET",
@@ -1051,7 +2573,28 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.EntityCandidateListEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_list_query",
+        "invalid_pagination_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "404": [
+        "incident_not_found"
+      ],
+      "409": [
+        "credential_bootstrap_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "listImportUnits": {
     "method": "GET",
@@ -1070,7 +2613,29 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.ImportUnitsEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_list_query",
+        "invalid_pagination_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "404": [
+        "extension_profile_not_claimed",
+        "import_session_not_found"
+      ],
+      "409": [
+        "credential_bootstrap_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "listIncidentMembershipAuditEvents": {
     "method": "GET",
@@ -1095,7 +2660,31 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.AdministrativeAuditEnvelope.v1"
     },
-    "response_validation_policy_id": "administrative_audit_future_vocabulary"
+    "response_validation_policy_id": "administrative_audit_future_vocabulary",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_list_query",
+        "invalid_pagination_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied"
+      ],
+      "404": [
+        "incident_not_found"
+      ],
+      "409": [
+        "credential_bootstrap_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "listIncidentMemberships": {
     "method": "GET",
@@ -1114,7 +2703,28 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.IncidentMembershipListEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_list_query",
+        "invalid_pagination_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "404": [
+        "incident_not_found"
+      ],
+      "409": [
+        "credential_bootstrap_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "listIncidentSavedViews": {
     "method": "GET",
@@ -1134,7 +2744,29 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.SavedViewListEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_list_query",
+        "invalid_pagination_request",
+        "invalid_saved_view_read_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "404": [
+        "saved_view_not_found"
+      ],
+      "409": [
+        "credential_bootstrap_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "listIndicatorObservations": {
     "method": "GET",
@@ -1153,7 +2785,27 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.IndicatorObservationListEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_pagination_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "404": [
+        "indicator_not_found"
+      ],
+      "409": [
+        "credential_bootstrap_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "listIndicatorStateIntervals": {
     "method": "GET",
@@ -1172,7 +2824,27 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.IndicatorLifecycleListEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_pagination_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "404": [
+        "indicator_not_found"
+      ],
+      "409": [
+        "credential_bootstrap_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "listNoteAssociations": {
     "method": "GET",
@@ -1192,7 +2864,28 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.NoteAssociationsEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_list_query",
+        "invalid_pagination_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "404": [
+        "incident_not_found"
+      ],
+      "409": [
+        "credential_bootstrap_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "listReferencePacks": {
     "method": "GET",
@@ -1212,7 +2905,31 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.ReferencePackListEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_list_query",
+        "invalid_pagination_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied"
+      ],
+      "404": [
+        "extension_profile_not_claimed"
+      ],
+      "409": [
+        "credential_bootstrap_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "listSourceRecordIndicatorObservations": {
     "method": "GET",
@@ -1231,7 +2948,27 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.IndicatorObservationListEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_pagination_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "404": [
+        "indicator_source_record_not_found"
+      ],
+      "409": [
+        "credential_bootstrap_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "listViewSchemas": {
     "method": "GET",
@@ -1245,7 +2982,24 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.ViewSchemaListEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_pagination_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "409": [
+        "credential_bootstrap_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "listVisibleIncidents": {
     "method": "GET",
@@ -1264,7 +3018,25 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.IncidentListEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_list_query",
+        "invalid_pagination_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "409": [
+        "credential_bootstrap_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "locateWorkbookViewRecord": {
     "method": "POST",
@@ -1281,7 +3053,27 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.WorkbookLocateEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_view_query"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "404": [
+        "incident_not_found"
+      ],
+      "409": [
+        "credential_bootstrap_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "loginLocalUser": {
     "method": "POST",
@@ -1295,7 +3087,25 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.SessionEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_auth_request"
+      ],
+      "401": [
+        "invalid_credentials",
+        "invalid_second_factor",
+        "mfa_required",
+        "mfa_setup_required"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "authentication_capacity_exhausted",
+        "service_unavailable"
+      ]
+    }
   },
   "logoutCurrentSession": {
     "method": "POST",
@@ -1309,7 +3119,24 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.LogoutEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "csrf_verification_failed"
+      ],
+      "409": [
+        "credential_bootstrap_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "markTimelineRecordReviewed": {
     "method": "POST",
@@ -1325,7 +3152,36 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.TimelineActionEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_mutation_payload"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied",
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "incident_not_found"
+      ],
+      "409": [
+        "client_txn_conflict",
+        "credential_bootstrap_rejected",
+        "illegal_transition",
+        "incident_closed",
+        "record_deleted_use_restore",
+        "row_version_conflict"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "mergeEntityRecord": {
     "method": "POST",
@@ -1341,7 +3197,36 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.RecordMergeEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_mutation_payload"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied",
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "incident_not_found"
+      ],
+      "409": [
+        "client_txn_conflict",
+        "credential_bootstrap_rejected",
+        "incident_closed",
+        "merge_precondition_failed",
+        "record_locked",
+        "row_version_conflict"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "mutateNoteAssociations": {
     "method": "POST",
@@ -1357,7 +3242,35 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.NoteAssociationMutationEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_mutation_payload"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied",
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "incident_not_found"
+      ],
+      "409": [
+        "client_txn_conflict",
+        "credential_bootstrap_rejected",
+        "incident_closed",
+        "record_deleted_use_restore",
+        "row_version_conflict"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "pasteWorkbookClipboard": {
     "method": "POST",
@@ -1374,7 +3287,36 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.WorkbookBatchMutationEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_mutation_payload"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied",
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "incident_not_found"
+      ],
+      "409": [
+        "client_txn_conflict",
+        "credential_bootstrap_rejected",
+        "entity_match_conflict",
+        "illegal_transition",
+        "incident_closed",
+        "row_version_conflict"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "patchCurrentAccountProfile": {
     "method": "PATCH",
@@ -1388,7 +3330,29 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.AccountProfileEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_mutation_payload"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "csrf_verification_failed"
+      ],
+      "409": [
+        "client_txn_conflict",
+        "credential_bootstrap_rejected",
+        "user_version_conflict"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "patchDeploymentUser": {
     "method": "PATCH",
@@ -1404,7 +3368,34 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.SafeUserEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_mutation_payload"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied",
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "user_not_found"
+      ],
+      "409": [
+        "credential_bootstrap_rejected",
+        "last_deployment_admin",
+        "user_email_conflict",
+        "user_version_conflict"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "patchIncident": {
     "method": "PATCH",
@@ -1420,7 +3411,36 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.IncidentEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_incident_patch"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied",
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "incident_not_found"
+      ],
+      "409": [
+        "credential_bootstrap_rejected",
+        "incident_closed",
+        "incident_version_conflict"
+      ],
+      "413": [
+        "request_body_too_large"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "patchIncidentMembership": {
     "method": "PATCH",
@@ -1437,7 +3457,37 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.IncidentMembershipEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_mutation_payload"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied",
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "incident_not_found",
+        "membership_not_found"
+      ],
+      "409": [
+        "credential_bootstrap_rejected",
+        "last_incident_admin",
+        "membership_version_conflict"
+      ],
+      "413": [
+        "request_body_too_large"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "patchIncidentSavedView": {
     "method": "PATCH",
@@ -1454,7 +3504,32 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.SavedViewEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_mutation_payload"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied",
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "saved_view_not_found"
+      ],
+      "409": [
+        "credential_bootstrap_rejected",
+        "saved_view_version_conflict"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "patchRecord": {
     "method": "PATCH",
@@ -1470,7 +3545,39 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.ViewMutationEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_mutation_payload"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied",
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "incident_not_found"
+      ],
+      "409": [
+        "client_txn_conflict",
+        "credential_bootstrap_rejected",
+        "entity_match_conflict",
+        "illegal_transition",
+        "incident_closed",
+        "party_match_conflict",
+        "record_deleted_use_restore",
+        "row_version_conflict",
+        "same_field_conflict"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "previewImportUnitExtensionMapping": {
     "method": "POST",
@@ -1487,7 +3594,33 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.ExtensionMappingPreviewEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_import_request",
+        "invalid_pagination_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied"
+      ],
+      "404": [
+        "extension_profile_not_claimed",
+        "import_session_not_found",
+        "import_unit_not_found"
+      ],
+      "409": [
+        "credential_bootstrap_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "putCurrentAccountPreferences": {
     "method": "PUT",
@@ -1501,7 +3634,29 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.AccountPreferencesEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_mutation_payload"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "csrf_verification_failed"
+      ],
+      "409": [
+        "client_txn_conflict",
+        "credential_bootstrap_rejected",
+        "preferences_version_conflict"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "putCurrentUserWorkbookPreferences": {
     "method": "PUT",
@@ -1517,7 +3672,30 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.UserWorkbookPreferencesEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_mutation_payload"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "incident_not_found"
+      ],
+      "409": [
+        "credential_bootstrap_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "putImportUnitMapping": {
     "method": "PUT",
@@ -1534,7 +3712,38 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.ImportUnitEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_import_request",
+        "invalid_pagination_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied",
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "extension_profile_not_claimed",
+        "import_session_not_found",
+        "import_unit_not_found"
+      ],
+      "409": [
+        "client_txn_conflict",
+        "credential_bootstrap_rejected",
+        "import_apply_blocked",
+        "import_source_unsupported",
+        "import_state_conflict"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "putIncidentDefaultWorkbookPreferences": {
     "method": "PUT",
@@ -1550,7 +3759,31 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.DefaultWorkbookPreferencesEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_mutation_payload"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied",
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "incident_not_found"
+      ],
+      "409": [
+        "credential_bootstrap_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "putTimelineTimeConversionProfile": {
     "method": "PUT",
@@ -1566,7 +3799,33 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.TimelineTimeConversionProfileEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_mutation_payload"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied",
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "incident_not_found"
+      ],
+      "409": [
+        "credential_bootstrap_rejected",
+        "incident_closed",
+        "row_version_conflict"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "queryEvidenceMetadata": {
     "method": "POST",
@@ -1582,7 +3841,31 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.EvidenceMetadataEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_evidence_metadata_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "evidence_record_not_found",
+        "incident_not_found"
+      ],
+      "409": [
+        "credential_bootstrap_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "queryWorkbookView": {
     "method": "POST",
@@ -1599,7 +3882,27 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.WorkbookQueryEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_view_query"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "404": [
+        "incident_not_found"
+      ],
+      "409": [
+        "credential_bootstrap_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "redeemEvidenceHandle": {
     "method": "GET",
@@ -1614,7 +3917,32 @@ export const httpOperationBindings = {
     ],
     "response_schema_id": null,
     "response_schemas_by_status": {},
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "401": [
+        "session_required"
+      ],
+      "404": [
+        "handle_not_found_or_revoked"
+      ],
+      "409": [
+        "credential_bootstrap_rejected",
+        "evidence_access_unavailable"
+      ],
+      "410": [
+        "handle_consumed",
+        "handle_expired"
+      ],
+      "500": [
+        "internal_error",
+        "object_store_invalid_request"
+      ],
+      "503": [
+        "object_store_access_rejected",
+        "object_store_unavailable",
+        "service_unavailable"
+      ]
+    }
   },
   "refreshReferencePacks": {
     "method": "POST",
@@ -1628,7 +3956,34 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "202": "cartulary.core_http.JobEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_pagination_request",
+        "invalid_reference_pack_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied",
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "extension_profile_not_claimed"
+      ],
+      "409": [
+        "client_txn_conflict",
+        "credential_bootstrap_rejected",
+        "reference_pack_operation_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "removeReferencePackVersion": {
     "method": "POST",
@@ -1645,7 +4000,35 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.ReferencePackActionEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_pagination_request",
+        "invalid_reference_pack_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied",
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "extension_profile_not_claimed",
+        "reference_pack_not_found"
+      ],
+      "409": [
+        "client_txn_conflict",
+        "credential_bootstrap_rejected",
+        "reference_pack_operation_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "reopenIncident": {
     "method": "POST",
@@ -1661,7 +4044,37 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.IncidentEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_incident_lifecycle_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied",
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "incident_not_found"
+      ],
+      "409": [
+        "client_txn_conflict",
+        "credential_bootstrap_rejected",
+        "illegal_transition",
+        "incident_version_conflict"
+      ],
+      "413": [
+        "request_body_too_large"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "resetDeploymentUserPassword": {
     "method": "POST",
@@ -1677,7 +4090,34 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.SafeUserEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_mutation_payload"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied",
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "user_not_found"
+      ],
+      "409": [
+        "client_txn_conflict",
+        "credential_bootstrap_rejected",
+        "user_version_conflict"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "authentication_capacity_exhausted",
+        "service_unavailable"
+      ]
+    }
   },
   "resetDeploymentUserTOTP": {
     "method": "POST",
@@ -1693,7 +4133,33 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.SafeUserEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_mutation_payload"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied",
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "user_not_found"
+      ],
+      "409": [
+        "client_txn_conflict",
+        "credential_bootstrap_rejected",
+        "user_version_conflict"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "resolveEntityMention": {
     "method": "POST",
@@ -1709,7 +4175,37 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.MentionActionEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_mutation_payload"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied",
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "entity_mention_not_found",
+        "resolved_record_not_found"
+      ],
+      "409": [
+        "client_txn_conflict",
+        "credential_bootstrap_rejected",
+        "illegal_transition",
+        "incident_closed",
+        "record_deleted_use_restore",
+        "row_version_conflict"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "resolveIndicatorObservation": {
     "method": "POST",
@@ -1725,7 +4221,36 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.IndicatorObservationMutationEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_mutation_payload"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied",
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "indicator_observation_not_found",
+        "resolved_indicator_not_found"
+      ],
+      "409": [
+        "client_txn_conflict",
+        "credential_bootstrap_rejected",
+        "illegal_transition",
+        "incident_closed",
+        "row_version_conflict"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "resolveRecordSameFieldConflict": {
     "method": "POST",
@@ -1742,7 +4267,39 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.ResolveRecordSameFieldConflictResponseBody.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_mutation_payload"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied",
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "incident_not_found"
+      ],
+      "409": [
+        "client_txn_conflict",
+        "credential_bootstrap_rejected",
+        "entity_match_conflict",
+        "illegal_transition",
+        "incident_closed",
+        "party_match_conflict",
+        "record_deleted_use_restore",
+        "row_version_conflict",
+        "same_field_conflict"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "restoreIndicatorObservation": {
     "method": "POST",
@@ -1758,7 +4315,35 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.IndicatorObservationMutationEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_mutation_payload"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied",
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "indicator_observation_not_found"
+      ],
+      "409": [
+        "client_txn_conflict",
+        "credential_bootstrap_rejected",
+        "illegal_transition",
+        "incident_closed",
+        "row_version_conflict"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "restoreRecord": {
     "method": "POST",
@@ -1774,7 +4359,37 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.RecordDeleteRestoreEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_mutation_payload"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied",
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "incident_not_found"
+      ],
+      "409": [
+        "client_txn_conflict",
+        "credential_bootstrap_rejected",
+        "incident_closed",
+        "record_locked",
+        "record_not_deleted",
+        "record_restore_blocked",
+        "row_version_conflict"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "retireEnterpriseAuthBinding": {
     "method": "DELETE",
@@ -1791,7 +4406,35 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.SafeUserEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_mutation_payload"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied",
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "auth_binding_not_found",
+        "extension_profile_not_claimed"
+      ],
+      "409": [
+        "auth_binding_conflict",
+        "client_txn_conflict",
+        "credential_bootstrap_rejected",
+        "user_version_conflict"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "reverifyReferencePackVersion": {
     "method": "POST",
@@ -1808,7 +4451,35 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "202": "cartulary.core_http.JobEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_pagination_request",
+        "invalid_reference_pack_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied",
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "extension_profile_not_claimed",
+        "reference_pack_not_found"
+      ],
+      "409": [
+        "client_txn_conflict",
+        "credential_bootstrap_rejected",
+        "reference_pack_operation_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "revokeAllDeploymentUserSessions": {
     "method": "POST",
@@ -1824,7 +4495,32 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.SessionRevocationEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_mutation_payload"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied",
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "user_not_found"
+      ],
+      "409": [
+        "client_txn_conflict",
+        "credential_bootstrap_rejected"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "rollbackRecord": {
     "method": "POST",
@@ -1840,7 +4536,38 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.RecordRollbackEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_rollback_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied",
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "incident_not_found",
+        "rollback_target_not_found"
+      ],
+      "409": [
+        "client_txn_conflict",
+        "credential_bootstrap_rejected",
+        "incident_closed",
+        "record_deleted_use_restore",
+        "record_locked",
+        "rollback_precondition_failed",
+        "row_version_conflict"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "rotateEnterpriseAuthBinding": {
     "method": "POST",
@@ -1857,7 +4584,35 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.SafeUserEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_mutation_payload"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied",
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "auth_binding_not_found",
+        "extension_profile_not_claimed"
+      ],
+      "409": [
+        "auth_binding_conflict",
+        "client_txn_conflict",
+        "credential_bootstrap_rejected",
+        "user_version_conflict"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "selectImportUnit": {
     "method": "POST",
@@ -1874,7 +4629,37 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.ImportUnitActionEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_import_request",
+        "invalid_pagination_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied",
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "extension_profile_not_claimed",
+        "import_session_not_found",
+        "import_unit_not_found"
+      ],
+      "409": [
+        "client_txn_conflict",
+        "credential_bootstrap_rejected",
+        "import_apply_blocked",
+        "import_state_conflict"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "skipImportUnit": {
     "method": "POST",
@@ -1891,7 +4676,36 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.ImportUnitActionEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_import_request",
+        "invalid_pagination_request"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied",
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "extension_profile_not_claimed",
+        "import_session_not_found",
+        "import_unit_not_found"
+      ],
+      "409": [
+        "client_txn_conflict",
+        "credential_bootstrap_rejected",
+        "import_state_conflict"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "supersedeRecord": {
     "method": "POST",
@@ -1907,7 +4721,36 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "200": "cartulary.core_http.SupersedeRecordResponseBody.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_mutation_payload"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied",
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "incident_not_found"
+      ],
+      "409": [
+        "client_txn_conflict",
+        "credential_bootstrap_rejected",
+        "illegal_transition",
+        "incident_closed",
+        "record_deleted_use_restore",
+        "row_version_conflict"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   },
   "uploadObjectBlobContent": {
     "method": "PUT",
@@ -1921,7 +4764,45 @@ export const httpOperationBindings = {
     ],
     "response_schema_id": null,
     "response_schemas_by_status": {},
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "object_upload_invalid"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied",
+        "csrf_verification_failed"
+      ],
+      "404": [
+        "object_upload_not_found_or_revoked"
+      ],
+      "409": [
+        "credential_bootstrap_rejected",
+        "incident_closed",
+        "object_upload_rejected"
+      ],
+      "410": [
+        "object_upload_expired"
+      ],
+      "411": [
+        "object_upload_length_required"
+      ],
+      "413": [
+        "request_body_too_large"
+      ],
+      "500": [
+        "internal_error",
+        "object_store_invalid_request"
+      ],
+      "503": [
+        "object_store_access_rejected",
+        "object_store_unavailable",
+        "service_unavailable"
+      ]
+    }
   },
   "verifyObjectBlob": {
     "method": "POST",
@@ -1937,11 +4818,42 @@ export const httpOperationBindings = {
     "response_schemas_by_status": {
       "202": "cartulary.core_http.JobEnvelope.v1"
     },
-    "response_validation_policy_id": "closed_schema"
+    "response_validation_policy_id": "closed_schema",
+    "error_codes_by_status": {
+      "400": [
+        "invalid_mutation_payload"
+      ],
+      "401": [
+        "session_required"
+      ],
+      "403": [
+        "authorization_denied",
+        "csrf_verification_failed"
+      ],
+      "409": [
+        "credential_bootstrap_rejected",
+        "evidence_attach_rejected",
+        "incident_closed"
+      ],
+      "500": [
+        "internal_error"
+      ],
+      "503": [
+        "service_unavailable"
+      ]
+    }
   }
 } as const;
 
 export type HTTPOperationID = keyof typeof httpOperationBindings;
+
+/** Declared `x-cartulary-error-codes` of one operation, keyed by error status. */
+export type HTTPOperationErrorCodesByStatus<OperationID extends HTTPOperationID> = (typeof httpOperationBindings)[OperationID]["error_codes_by_status"];
+type HTTPStatusKey<Key> = Key extends `${infer Status extends number}` ? Status : never;
+/** Error statuses an operation declares. */
+export type HTTPOperationErrorStatus<OperationID extends HTTPOperationID = HTTPOperationID> = OperationID extends HTTPOperationID ? HTTPStatusKey<keyof HTTPOperationErrorCodesByStatus<OperationID>> : never;
+/** Error codes an operation declares for the selected error statuses; `internal_error` is undeclared and outside this union. */
+export type HTTPOperationErrorCode<OperationID extends HTTPOperationID = HTTPOperationID, Status extends HTTPOperationErrorStatus<OperationID> = HTTPOperationErrorStatus<OperationID>> = OperationID extends HTTPOperationID ? { [Key in keyof HTTPOperationErrorCodesByStatus<OperationID>]: HTTPStatusKey<Key> extends Status ? HTTPOperationErrorCodesByStatus<OperationID>[Key] extends readonly (infer Code extends string)[] ? Code : never : never }[keyof HTTPOperationErrorCodesByStatus<OperationID>] : never;
 export type HTTPPathParameters = Readonly<Record<string, string | number>>;
 export type HTTPQueryValue = string | number | boolean | null | undefined | readonly string[];
 

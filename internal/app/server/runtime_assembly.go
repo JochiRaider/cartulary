@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
@@ -69,6 +70,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi/extensiondiscovery"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi/webassets"
+	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
@@ -111,6 +113,9 @@ type Options struct {
 	ObserveProjections        func(*projectionassembly.Runtime)
 	ObserveTimeline           func(*timelineassembly.Bundle)
 	ObserveRevisions          func(*revisionassembly.Runtime)
+	// HarnessJobs adds harness-only job kinds (TH-HARNESS-REQ-450). Only the
+	// server-harness profile sets it; production assembly passes none.
+	HarnessJobs []jobs.Contribution
 }
 
 type evidenceCleanupLifecycle interface {
@@ -134,11 +139,16 @@ type Runtime struct {
 	lifecycle                    *processlifecycle.Controller
 	publication                  *publicationController
 	publicHTTP                   httpapi.RouteDiagnostics
-	shutdownDrainTimeout         time.Duration
-	reconciliationTimeout        time.Duration
-	stagedObjectSweepPeriod      time.Duration
+	// publicRoutes is the assembled public route registry. Only the
+	// central-admission catalog test reads it.
+	publicRoutes            *httpapi.RouteRegistry
+	shutdownDrainTimeout    time.Duration
+	reconciliationTimeout   time.Duration
+	stagedObjectSweepPeriod time.Duration
 
 	closeOnce            sync.Once
+	backgroundOnce       sync.Once
+	backgroundClosing    map[int]chan error
 	publicationOnce      sync.Once
 	cleanups             []ownedComponent
 	stagedJanitorContext context.Context
@@ -275,6 +285,9 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 			runtime.Close()
 			return nil, fmt.Errorf("setup postgres: %w", settingsErr)
 		}
+		// Leases and the Collaboration replay listener hold dedicated sessions,
+		// so the pool's whole capacity is available to requests and jobs.
+		postgresSettings.MaxConnections = int32(normalizedCfg.Limits.Database.MaxRuntimePoolConnections)
 		pool, err := dependencies.setupPostgres(ctx, postgresSettings)
 		if err != nil {
 			runtime.Close()
@@ -282,7 +295,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 		}
 		postgresAdmission = pool
 		if pool != nil {
-			runtime.own("postgres", func(context.Context) { pool.Close() })
+			runtime.own("postgres", func(context.Context) error { pool.Close(); return nil })
 		}
 	}
 	var postgresPool *pgxpool.Pool
@@ -340,17 +353,17 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 	}
 	runtime.processLease = lease
 	if lease != nil {
-		runtime.own("process_lease", func(ctx context.Context) {
+		runtime.own("process_lease", func(ctx context.Context) error {
 			releaseCtx, cancel := context.WithTimeout(ctx, time.Duration(normalizedCfg.Timeouts.Extensions.ProcessLeaseLossDetectionSeconds)*time.Second)
 			defer cancel()
 			if lease.State() == processlease.StateHeld {
-				_ = lease.Release(releaseCtx)
-			} else {
-				lease.Close()
+				return lease.Release(releaseCtx)
 			}
+			lease.Close()
+			return nil
 		})
 		monitorCtx, cancelMonitor := context.WithCancel(context.Background())
-		runtime.own("process_lease_monitor", func(context.Context) { cancelMonitor() })
+		runtime.own("process_lease_monitor", func(context.Context) error { cancelMonitor(); return nil })
 		lease.StartMonitor(monitorCtx)
 		go runtime.watchProcessLease(monitorCtx)
 	}
@@ -373,17 +386,17 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 	}
 	runtime.servingLease = servingLease
 	if servingLease != nil {
-		runtime.own("recovery_serving_lease", func(ctx context.Context) {
+		runtime.own("recovery_serving_lease", func(ctx context.Context) error {
 			releaseCtx, cancel := context.WithTimeout(ctx, time.Duration(normalizedCfg.Timeouts.Extensions.ProcessLeaseLossDetectionSeconds)*time.Second)
 			defer cancel()
 			if servingLease.State() == processlease.StateHeld {
-				_ = servingLease.Release(releaseCtx)
-			} else {
-				servingLease.Close()
+				return servingLease.Release(releaseCtx)
 			}
+			servingLease.Close()
+			return nil
 		})
 		monitorCtx, cancelMonitor := context.WithCancel(context.Background())
-		runtime.own("recovery_serving_lease_monitor", func(context.Context) { cancelMonitor() })
+		runtime.own("recovery_serving_lease_monitor", func(context.Context) error { cancelMonitor(); return nil })
 		servingLease.StartMonitor(monitorCtx)
 		go runtime.watchServingLease(monitorCtx)
 	}
@@ -410,7 +423,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 		return nil, fmt.Errorf("compose incident bundle storage: %w", storageErr)
 	}
 	var incidentBundleStorage incidentbundles.BundleStorage = rootIncidentBundleStorage
-	runtime.own("incident_bundle_storage", func(context.Context) { rootIncidentBundleStorage.Close() })
+	runtime.own("incident_bundle_storage", func(context.Context) error { rootIncidentBundleStorage.Close(); return nil })
 	rootReferencePackStorage, storageErr := referenceassembly.NewRootStorage(
 		normalizedCfg.Roots.TemporaryWork.Path,
 		normalizedCfg.Roots.ReferencePackStorage.Path,
@@ -420,7 +433,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 		return nil, fmt.Errorf("compose Reference Pack storage: %w", storageErr)
 	}
 	var referencePackStorage reference_data.ArtifactStorage = rootReferencePackStorage
-	runtime.own("reference_pack_storage", func(context.Context) { rootReferencePackStorage.Close() })
+	runtime.own("reference_pack_storage", func(context.Context) error { rootReferencePackStorage.Close(); return nil })
 	if err := rootReferencePackStorage.ReconcileWorkspaces(ctx); err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("reconcile Reference Pack scratch: %w", err)
@@ -550,16 +563,19 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 		return nil, err
 	}
 	telemetryFlushTimeout := time.Duration(runtimeSettings.TelemetryFlushTimeoutMS) * time.Millisecond
-	runtime.own("telemetry", func(ctx context.Context) {
+	runtime.own("telemetry", func(ctx context.Context) error {
 		shutdownCtx, cancel := context.WithTimeout(ctx, telemetryFlushTimeout)
 		defer cancel()
-		_ = telemetryRuntime.Shutdown(shutdownCtx)
+		return telemetryRuntime.Shutdown(shutdownCtx)
 	})
 
 	recognizedJobDefinitions, err := jobassembly.RecognizedDefinitions(extensionCoordinator.JobKindContracts(), extensionCoordinator.WorkerRuntimeContracts())
 	if err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("compose recognized extension job definitions: %w", err)
+	}
+	for _, contribution := range options.HarnessJobs {
+		recognizedJobDefinitions = append(recognizedJobDefinitions, contribution.Definition)
 	}
 	var extensionStateStore *extensionstore.Store
 	if postgresPool != nil {
@@ -650,7 +666,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 		}
 		rawObjectStore = client
 		if client != nil {
-			runtime.own("object_store", func(context.Context) { _ = client.Close() })
+			runtime.own("object_store", func(context.Context) error { return client.Close() })
 		}
 	}
 	objectStore := instrumentedObjectStore(
@@ -711,7 +727,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 		}
 		janitorCtx, cancelJanitor := context.WithCancel(context.Background())
 		runtime.stagedJanitorContext = janitorCtx
-		runtime.own("staged_object_janitor", func(context.Context) { cancelJanitor() })
+		runtime.ownBackground("staged_object_janitor", func(context.Context) error { cancelJanitor(); return nil })
 	}
 	postgresHandle := instrumentedPostgres(
 		normalizedCfg.Telemetry.Enabled,
@@ -809,6 +825,11 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 		return nil, err
 	}
 	collaborationOptions := settingsProjection.Collaboration(postgresHandle, socketTransport, now)
+	// The replay listener holds its LISTEN for the process lifetime, so it gets
+	// a dedicated session outside the runtime pool, as leases do (REQ-04-145).
+	collaborationOptions.OpenListenerSession = func(ctx context.Context) (*pgx.Conn, error) {
+		return postgres.OpenDedicatedSession(ctx, postgresPool)
+	}
 	collaborationOptions.PublicationCatalog = collaborationPublicationCatalog
 	for _, workspace := range extensionPlan.Workspaces() {
 		collaborationOptions.ClaimedWorkspaces = append(collaborationOptions.ClaimedWorkspaces, collaboration.ClaimedWorkspace{
@@ -824,9 +845,9 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 		return nil, fmt.Errorf("compose Collaboration runtime: %w", err)
 	}
 	runtime.collaborationRuntime = collaborationRuntime
-	runtime.own("collaboration", func(ctx context.Context) {
+	runtime.own("collaboration", func(ctx context.Context) error {
 		collaborationRuntime.CloseSessions()
-		_ = collaborationRuntime.Close(ctx)
+		return collaborationRuntime.Close(ctx)
 	})
 	recordChanges := collaborationRuntime.RecordChanges()
 	jobProgressIntents := newCollaborationJobProgressTranslator(collaborationRuntime.JobProgress())
@@ -847,7 +868,12 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 		runtime.Close()
 		return nil, fmt.Errorf("compose Jobs worker runtime contracts: %w", err)
 	}
-	jobSelection, err := jobs.NewRuntimeSelection(jobCatalog, extensionassembly.JobKinds(extensionJobDefinitions), workerRuntimeContracts)
+	selectedJobKinds := extensionassembly.JobKinds(extensionJobDefinitions)
+	for _, contribution := range options.HarnessJobs {
+		selectedJobKinds = append(selectedJobKinds, contribution.Definition.JobKind)
+		workerRuntimeContracts = append(workerRuntimeContracts, contribution.Worker)
+	}
+	jobSelection, err := jobs.NewRuntimeSelection(jobCatalog, selectedJobKinds, workerRuntimeContracts)
 	if err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("compose Jobs runtime selection: %w", err)
@@ -890,9 +916,14 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 		return nil, fmt.Errorf("compose Jobs runner: %w", err)
 	}
 	jobRunner := runtime.jobRunner
-	runtime.own("jobs_runner", func(ctx context.Context) {
-		_ = jobRunner.Close(ctx)
-	})
+	runtime.ownBackground("jobs_runner", jobRunner.Close)
+	for _, contribution := range options.HarnessJobs {
+		handler := contribution.Bind(harnessJobPorts(postgresPool, jobTransactions, jobManager, jobRunner, contribution.Definition.JobKind, now))
+		if err := jobRunner.RegisterHandler(contribution.Worker.WorkerKind, handler); err != nil {
+			runtime.Close()
+			return nil, fmt.Errorf("register harness job handler: %w", err)
+		}
+	}
 	if err := jobManager.ValidateStorageCatalog(ctx); err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("validate Jobs storage catalog: %w", err)
@@ -908,6 +939,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 			extensions.ReconciliationOptions{Coordinator: extensionCoordinator,
 				MaxNonterminalJobs: int(normalizedCfg.Limits.Extensions.MaxNonterminalJobsPerProfile),
 				Timeout:            time.Duration(normalizedCfg.Timeouts.Extensions.ReconciliationSeconds) * time.Second,
+				CancellationGrace:  time.Duration(normalizedCfg.Timeouts.Extensions.CancellationGraceSeconds) * time.Second,
 				FatalIntegritySink: runtime.fatalIntegrity,
 			})
 		if reconciliationErr != nil {
@@ -934,9 +966,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 		return nil, fmt.Errorf("reconcile Reference Pack objects: %w", cleanupErr)
 	}
 	runtime.referenceCollector = collector
-	runtime.own("reference_collector", func(ctx context.Context) {
-		_ = collector.Close(ctx)
-	})
+	runtime.ownBackground("reference_collector", collector.Close)
 	var extensionJobFinalizer *extensionstore.OwnerFinalizer
 	var networkFlowJobFinalizer *extensionstore.OwnerFinalizer
 	var reportingJobFinalizer *extensionstore.OwnerFinalizer
@@ -1056,9 +1086,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 	}
 	cleanupDispatcher := evidenceOwner.CleanupDispatcher()
 	runtime.evidenceCleanupDispatcher = cleanupDispatcher
-	runtime.own("evidence_cleanup_dispatcher", func(ctx context.Context) {
-		_ = cleanupDispatcher.Close(ctx)
-	})
+	runtime.ownBackground("evidence_cleanup_dispatcher", cleanupDispatcher.Close)
 	timelineBundle, err := timelineassembly.NewBundle(timelineassembly.Dependencies{
 		Postgres:            postgresHandle,
 		ConflictTokens:      workbookConflictTokens,
@@ -1133,9 +1161,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 		return nil, err
 	}
 	runtime.graphActivation = graphActivation
-	runtime.own("graph_activation", func(ctx context.Context) {
-		_ = graphActivation.Close(ctx)
-	})
+	runtime.ownBackground("graph_activation", graphActivation.Close)
 	var networkFlowModule *networkflow.Module
 	if networkFlowRouteAdmitted {
 		networkFlowDependencies := networkflow.ModuleDependencies{
@@ -1300,9 +1326,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 			return nil, fmt.Errorf("compose Network Flow graph-result cleanup dispatcher: %w", cleanupErr)
 		}
 		runtime.networkFlowCleanupDispatcher = networkFlowCleanupDispatcher
-		runtime.own("network_flow_cleanup_dispatcher", func(ctx context.Context) {
-			_ = networkFlowCleanupDispatcher.Close(ctx)
-		})
+		runtime.ownBackground("network_flow_cleanup_dispatcher", networkFlowCleanupDispatcher.Close)
 	}
 	if _, graphViewJobsAdmitted := publicationCatalog.Job(networkflow.GraphViewMaterializationJobKind); graphViewJobsAdmitted {
 		if err := networkFlowModule.RegisterGraphViewWorker(); err != nil {
@@ -1562,7 +1586,12 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 				auth.EnterpriseProvidersRouteContributionID,
 				auth.EnterpriseSAMLRouteContributionID,
 			},
-			registrar: auth.RegisterEnterpriseRoutes(auth.WithPublicOrigin(normalizedCfg.Application.PublicOrigin)),
+			registrar: auth.RegisterEnterpriseRoutes(
+				auth.WithPublicOrigin(normalizedCfg.Application.PublicOrigin),
+				// Enterprise sign-in can evict the least recently used session;
+				// its sockets receive concurrency_limit (Core 04 AC-159).
+				auth.WithSessionRevocations(collaborationRuntime),
+			),
 		},
 		{
 			id:              "enterprise_authentication_user_auth_bindings",
@@ -1613,6 +1642,16 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 		ExtensionWorkspaces: publicationProjections,
 		Now:                 now,
 	}
+	// Central request admission authenticates by each operation's declared
+	// security over the same session store and clock (Core 01 REQ-01-707). A
+	// session it finds expired is published to that session's sockets as
+	// session_expired (Core 01 REQ-01-277).
+	requestAuthenticator, err := httpauth.DependencyAuthenticator(httpOptions.Dependencies, collaborationRuntime)
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("initialize request authenticator: %w", err)
+	}
+	httpOptions.Dependencies.Authenticator = requestAuthenticator
 
 	if err := runtime.beginPublication(ctx, extensionCoordinator, publicationTiming{
 		seconds: normalizedCfg.Timeouts.Extensions.PublicationSeconds,
@@ -1639,6 +1678,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 
 		runtime.handler = handler
 		runtime.publicHTTP = httpOptions.Dependencies.PublicRoutes.Diagnostics()
+		runtime.publicRoutes = httpOptions.Dependencies.PublicRoutes
 		jobActivationCtx, cancelJobActivation := context.WithTimeout(publicationCtx, runtime.reconciliationTimeout)
 		jobActivationErr := runtime.jobRunner.Activate(jobActivationCtx)
 		cancelJobActivation()
@@ -1990,11 +2030,15 @@ func (r *Runtime) activatePreparedPublication(ctx context.Context) (resultErr er
 			r.publication.abortStartup()
 		}
 	}()
-	if r.processLease != nil && r.processLease.State() != processlease.StateHeld {
-		return fmt.Errorf("extension_publication_failed")
+	// The gate opens only while every lease is held (Core 04 REQ-04-145):
+	// ownership is consulted at the publication instant itself, so a lease
+	// that becomes uncertain during preparation publishes with admission
+	// paused instead of open.
+	if r.lifecycle != nil {
+		r.lifecycle.RequireOwnership(r.leasesHeld)
 	}
-	if r.servingLease != nil && r.servingLease.State() != processlease.StateHeld {
-		return fmt.Errorf("extension_publication_failed")
+	if err := r.leasesAdmitPublication(); err != nil {
+		return err
 	}
 	if r.collaborationRuntime != nil {
 		if err := r.collaborationRuntime.Prepare(ctx, r.publication.servingReady); err != nil {
@@ -2068,6 +2112,24 @@ func (r *Runtime) publishedComponentLost(componentID string) bool {
 	return r.publication.componentLost(componentID)
 }
 
+// FatalDone and FatalReason expose the runtime's first lifecycle fatal
+// read-only, so a test server can record it as harness evidence
+// (TH-HARNESS-REQ-863). They never change the lifecycle, and production
+// composition does not use them.
+func (r *Runtime) FatalDone() <-chan struct{} {
+	if r == nil || r.lifecycle == nil {
+		return nil
+	}
+	return r.lifecycle.FatalDone()
+}
+
+func (r *Runtime) FatalReason() string {
+	if r == nil || r.lifecycle == nil {
+		return ""
+	}
+	return r.lifecycle.FatalReason()
+}
+
 func (r *Runtime) fatalEvents() <-chan processlifecycle.FatalSignal {
 	if r == nil || r.lifecycle == nil {
 		return nil
@@ -2088,7 +2150,7 @@ func (r *Runtime) watchProcessLease(ctx context.Context) {
 			case processlease.StateUncertain:
 				r.lifecycle.CloseAdmission()
 			case processlease.StateHeld:
-				if event.Previous == processlease.StateUncertain && r.servingLeasesHeld() {
+				if event.Previous == processlease.StateUncertain && r.leasesHeld() {
 					r.lifecycle.RestoreAdmission()
 				}
 			case processlease.StateLost:
@@ -2112,7 +2174,7 @@ func (r *Runtime) watchServingLease(ctx context.Context) {
 			case processlease.StateUncertain:
 				r.lifecycle.CloseAdmission()
 			case processlease.StateHeld:
-				if event.Previous == processlease.StateUncertain && r.servingLeasesHeld() {
+				if event.Previous == processlease.StateUncertain && r.leasesHeld() {
 					r.lifecycle.RestoreAdmission()
 				}
 			case processlease.StateLost:
@@ -2123,19 +2185,57 @@ func (r *Runtime) watchServingLease(ctx context.Context) {
 	}
 }
 
-func (r *Runtime) servingLeasesHeld() bool {
-	if r == nil || r.servingLease == nil || r.servingLease.State() != processlease.StateHeld {
+// leasesHeld is the live ownership proof the admission gate opens under:
+// every lease the runtime acquired is held (Core 04 REQ-04-145). The
+// lifecycle evaluates it at each opening, so it never opens over a lease that
+// became uncertain before its watcher reported it.
+func (r *Runtime) leasesHeld() bool {
+	if r == nil {
 		return false
 	}
-	return r.processLease == nil || r.processLease.State() == processlease.StateHeld
+	if r.processLease != nil && r.processLease.State() != processlease.StateHeld {
+		return false
+	}
+	return r.servingLease == nil || r.servingLease.State() == processlease.StateHeld
 }
 
-// ownedComponent is a runtime-owned component closed in reverse acquisition
-// order. Its close receives the shared shutdown context and derives any budget
-// of its own from it, so it can only shorten the application deadline.
+// leasesAdmitPublication checks the leases when publication activates.
+// Uncertain ownership does not fail publication; it leaves admission paused
+// (Core 04 REQ-04-145). Confirmed loss before the gate opens is the fatal
+// lease loss, exit 70, even before the watcher reports it (EXT-REQ-213).
+func (r *Runtime) leasesAdmitPublication() error {
+	if r.processLease != nil {
+		switch r.processLease.State() {
+		case processlease.StateHeld, processlease.StateUncertain:
+		case processlease.StateLost:
+			return processlease.ErrApplicationProcessLeaseLost
+		default:
+			return fmt.Errorf("extension_publication_failed")
+		}
+	}
+	if r.servingLease != nil {
+		switch r.servingLease.State() {
+		case processlease.StateHeld, processlease.StateUncertain:
+		case processlease.StateLost:
+			return processlease.ErrRecoveryServingLeaseLost
+		default:
+			return fmt.Errorf("extension_publication_failed")
+		}
+	}
+	return nil
+}
+
+// ownedComponent is a runtime-owned component. Its close receives the shared
+// shutdown context and derives any budget of its own from it, so it can only
+// shorten the application deadline; a close error leaves it open. A
+// background component produces work on its own (dequeue, ticks,
+// continuations), so ordinary shutdown starts closing it at the stop request,
+// alongside the HTTP drain; the rest close afterwards in reverse acquisition
+// order (REQ-04-146a).
 type ownedComponent struct {
-	name  string
-	close func(context.Context)
+	name       string
+	background bool
+	close      func(context.Context) error
 }
 
 // Close releases every owned component within the configured shutdown drain.
@@ -2170,18 +2270,23 @@ func (r *Runtime) shutdown(ctx context.Context) []string {
 		if r.lifecycle != nil {
 			r.lifecycle.MarkTerminating()
 		}
+		closing := r.startBackgroundCloses(ctx)
 		for index := len(r.cleanups) - 1; index >= 0; index-- {
-			component := r.cleanups[index]
-			closed := make(chan struct{})
-			go func() {
-				defer close(closed)
-				component.close(ctx)
-			}()
+			done, started := closing[index]
+			if !started {
+				done = make(chan error, 1)
+				go func(component ownedComponent) { done <- component.close(ctx) }(r.cleanups[index])
+			}
 			select {
-			case <-closed:
+			case err := <-done:
+				if err != nil {
+					open = append(open, r.cleanups[index].name)
+				}
 			case <-ctx.Done():
 				for remaining := index; remaining >= 0; remaining-- {
-					open = append(open, r.cleanups[remaining].name)
+					if !closedCleanly(closing, remaining, remaining == index, done) {
+						open = append(open, r.cleanups[remaining].name)
+					}
 				}
 				return
 			}
@@ -2193,17 +2298,68 @@ func (r *Runtime) shutdown(ctx context.Context) []string {
 	return open
 }
 
-// beginShutdown runs when HTTP shutdown begins: WebSockets close with 1001
-// instead of being waited on (REQ-04-146a).
-func (r *Runtime) beginShutdown() {
-	if r != nil && r.collaborationRuntime != nil {
-		r.collaborationRuntime.CloseSessions()
+// closedCleanly reports, at the deadline, whether a component's close already
+// finished without error; one finishing at the deadline counts as closed.
+func closedCleanly(closing map[int]chan error, index int, current bool, currentDone chan error) bool {
+	done, started := closing[index]
+	if current {
+		done, started = currentDone, true
+	}
+	if !started {
+		return false
+	}
+	select {
+	case err := <-done:
+		return err == nil
+	default:
+		return false
 	}
 }
 
-func (r *Runtime) own(name string, cleanup func(context.Context)) {
+// startBackgroundCloses starts closing every background component under ctx
+// once, and returns their pending results by component index.
+func (r *Runtime) startBackgroundCloses(ctx context.Context) map[int]chan error {
+	r.backgroundOnce.Do(func() {
+		r.backgroundClosing = make(map[int]chan error)
+		for index, component := range r.cleanups {
+			if !component.background {
+				continue
+			}
+			done := make(chan error, 1)
+			r.backgroundClosing[index] = done
+			go func() { done <- component.close(ctx) }()
+		}
+	})
+	return r.backgroundClosing
+}
+
+// beginShutdown runs at the stop request, when the HTTP drain begins
+// (REQ-04-146a): admission and readiness close before any drain, so newly
+// admitted work receives shutdown_in_progress; WebSockets close with 1001
+// instead of being waited on; and background components stop producing work
+// under ctx, which carries the application shutdown deadline.
+func (r *Runtime) beginShutdown(ctx context.Context) {
+	if r == nil {
+		return
+	}
+	if r.lifecycle != nil {
+		r.lifecycle.BeginStop()
+	}
+	if r.collaborationRuntime != nil {
+		r.collaborationRuntime.CloseSessions()
+	}
+	r.startBackgroundCloses(ctx)
+}
+
+func (r *Runtime) own(name string, cleanup func(context.Context) error) {
 	if r != nil && cleanup != nil {
 		r.cleanups = append(r.cleanups, ownedComponent{name: name, close: cleanup})
+	}
+}
+
+func (r *Runtime) ownBackground(name string, cleanup func(context.Context) error) {
+	if r != nil && cleanup != nil {
+		r.cleanups = append(r.cleanups, ownedComponent{name: name, background: true, close: cleanup})
 	}
 }
 

@@ -47,6 +47,7 @@ import { createTimelineFillers } from "./support/timeline/fixtures";
 import { installIncidentSocketMonitor } from "./support/transport/incidentSocket";
 import {
   awaitResponseBarrier,
+  fulfillOperationError,
   holdBrowserRequest,
   installOwnedRoute,
   removeOwnedRoute,
@@ -492,7 +493,16 @@ test("Timeline saved tag removal replays uncertainty and refreshes an acknowledg
   const queryPath = `**/views/${timelineViewSchemaId}/query`;
   await installOwnedRoute(page, queryPath, async (route) => {
     if (failRefresh && failedRefreshes++ === 0) {
-      await route.fulfill({ status: 503, body: "unavailable" });
+      await fulfillOperationError(
+        route,
+        "queryWorkbookView",
+        503,
+        "service_unavailable",
+        {
+          retryable: true,
+          details: { reason_code: "admission_paused" },
+        },
+      );
       return;
     }
     await route.continue();
@@ -501,7 +511,9 @@ test("Timeline saved tag removal replays uncertainty and refreshes an acknowledg
     if (route.request().method() !== "PATCH") return route.continue();
     bodies.push(route.request().postData() ?? "");
     if (bodies.length === 1) {
-      await route.fulfill({ status: 503, body: "unavailable" });
+      // An internal_error leaves the write's outcome unknown, so the client
+      // must replay it exactly; a 503 would be a definite rejection.
+      await fulfillOperationError(route, "patchRecord", 500, "internal_error");
       return;
     }
     const response = await route.fetch();
@@ -1964,22 +1976,13 @@ test("Timeline collection drafts survive detachment and retire with authority", 
     page,
     queryPath,
     (route) =>
-      route.fulfill({
-        status: 503,
-        contentType: "application/json",
-        body: JSON.stringify({
-          error: {
-            code: "internal_error",
-            message: "Collection refresh fixture failure",
-          },
-        }),
-      }),
+      fulfillOperationError(route, "queryWorkbookView", 500, "internal_error"),
     { times: 1 },
   );
   const failedRefresh = page.waitForResponse(
     (response) =>
       response.url().endsWith("/views/" + timelineViewSchemaId + "/query") &&
-      response.status() === 503,
+      response.status() === 500,
   );
   await refresh.click();
   await failedRefresh;

@@ -1,6 +1,18 @@
-import type { ErrorEnvelope } from "@cartulary/protocol-ts/http";
-import { publicErrorView } from "../../services/browserApi";
-import { validatedPublicErrorReason } from "../../services/publicErrorIdentity";
+import type { HTTPOperationErrorCode } from "@cartulary/protocol-ts/http";
+import {
+  type HTTPOperationError,
+  type HTTPOperationPublicError,
+  publicErrorView,
+} from "../../services/browserApi";
+import {
+  type PublicErrorReasonCode,
+  validatedPublicErrorReason,
+} from "../../services/publicErrorIdentity";
+import {
+  isTemporaryUnavailability,
+  isUnappliedRefusal,
+  temporaryUnavailabilityText,
+} from "../../shared/publicError";
 import {
   type PublicErrorOperationFamily,
   resolvePublicErrorPresentation,
@@ -9,9 +21,11 @@ import type {
   WorkbookOperationFailure,
   WorkbookOperationFieldFailure,
 } from "../mutations/workbookOperationOutcome";
-import { parseSameFieldConflict } from "../runtime/workbookConflictModel";
+import { parseSameFieldConflictPayload } from "../runtime/workbookConflictModel";
 import type { WorkbookOperationID } from "./workbookOperationContract";
-import { decodeWorkbookPublicError } from "./workbookPublicErrorDecoder";
+
+/** A decoded public error of some Workbook operation (never the contract failure). */
+type DecodedWorkbookError = HTTPOperationPublicError<WorkbookOperationID>;
 
 type FailureKind = Exclude<
   WorkbookOperationFailure["kind"],
@@ -71,7 +85,10 @@ const operationFamilyByID = {
   supersedeRecord: "field_mutation",
 } as const satisfies Record<WorkbookOperationID, PublicErrorOperationFamily>;
 
-const exactFailureKindByCode: Readonly<Record<string, FailureKind>> = {
+/** Keys must be codes some Workbook operation declares. */
+const exactFailureKindByCode: Readonly<
+  Partial<Record<HTTPOperationErrorCode<WorkbookOperationID>, FailureKind>>
+> = {
   authorization_denied: "authorization_lost",
   client_txn_conflict: "client_txn_conflict",
   illegal_transition: "stale_target",
@@ -82,7 +99,6 @@ const exactFailureKindByCode: Readonly<Record<string, FailureKind>> = {
   record_already_deleted: "stale_target",
   record_deleted_use_restore: "stale_target",
   record_not_deleted: "stale_target",
-  record_not_found: "stale_target",
   resolved_indicator_not_found: "stale_target",
   row_version_conflict: "stale_target",
 };
@@ -148,10 +164,10 @@ function mergePreconditionFailure(
 }
 
 function conflictFailure(
-  envelope: ErrorEnvelope,
+  error: DecodedWorkbookError,
   message: string,
 ): WorkbookOperationFailure {
-  const conflict = parseSameFieldConflict(envelope);
+  const conflict = parseSameFieldConflictPayload(error.conflict);
   return conflict === null
     ? {
         kind: "invalid_contract",
@@ -171,16 +187,15 @@ function retryableFailure(
 }
 
 function statusFailure(
-  envelope: ErrorEnvelope,
+  error: DecodedWorkbookError,
   message: string,
-  status: number,
 ): WorkbookOperationFailure {
-  const error = envelope.error;
+  const status = error.status;
   if (status === 401) return { kind: "authentication_required", message };
   const exactKind = exactFailureKindByCode[error.code];
   if (exactKind !== undefined) return { kind: exactKind, message };
   if (status === 403) return { kind: "authorization_lost", message };
-  if (status === 400 || status === 422) {
+  if (status === 400) {
     const fields = validationFields(error.details);
     return fields === undefined
       ? { kind: "validation", message }
@@ -190,11 +205,9 @@ function statusFailure(
 }
 
 function publicMessage(
-  envelope: ErrorEnvelope,
+  error: DecodedWorkbookError,
   operationID: WorkbookOperationID,
-  status: number,
 ): string {
-  const error = envelope.error;
   if (
     operationID === "issueEvidencePreviewHandle" ||
     operationID === "issueEvidenceDownloadHandle" ||
@@ -206,16 +219,19 @@ function publicMessage(
   }
   return error.code === "invalid_mutation_payload"
     ? error.code
-    : (publicErrorView(error, status)?.statusText ?? "Request failed.");
+    : (publicErrorView(error)?.statusText ?? "Request failed.");
 }
 
 function classifyDecodedError(
-  envelope: ErrorEnvelope,
+  error: DecodedWorkbookError,
   operationID: WorkbookOperationID,
-  status: number,
 ): WorkbookOperationFailure {
-  const error = envelope.error;
-  const message = publicMessage(envelope, operationID, status);
+  // Temporary unavailability precedes every operation-specific rule: nothing
+  // was applied and the same request remains retryable (Core 03 REQ-03-086a).
+  if (isTemporaryUnavailability(error))
+    return { kind: "retryable", message: temporaryUnavailabilityText() };
+  const status = error.status;
+  const message = publicMessage(error, operationID);
   if (
     operationID === "issueEvidencePreviewHandle" ||
     operationID === "issueEvidenceDownloadHandle"
@@ -228,21 +244,18 @@ function classifyDecodedError(
       kind: "invalid_contract",
       message: "The server returned an invalid Evidence access response.",
     };
+    // Status and code are already decoded against the operation contract;
+    // retryability and the reason remain owner-projected identity checks.
     if (error.code === "object_store_unavailable")
-      return status === 503 && error.status === 503 && error.retryable && reason
+      return error.retryable && reason
         ? { kind: "retryable", message }
         : invalid;
     if (error.code === "object_store_access_rejected")
-      return status === 503 &&
-        error.status === 503 &&
-        !error.retryable &&
-        reason
+      return !error.retryable && reason
         ? { kind: "terminal", message }
         : invalid;
     if (error.code === "evidence_access_unavailable")
-      return status === 409 &&
-        error.status === 409 &&
-        !error.retryable &&
+      return !error.retryable &&
         reason &&
         (operationID === "issueEvidencePreviewHandle" ||
           (reason !== "unsupported_preview" &&
@@ -253,7 +266,7 @@ function classifyDecodedError(
       return { kind: "terminal", message };
   }
   if (error.code === "same_field_conflict") {
-    return conflictFailure(envelope, message);
+    return conflictFailure(error, message);
   }
   if (
     operationID === "mergeEntityRecord" &&
@@ -261,30 +274,40 @@ function classifyDecodedError(
   ) {
     return mergePreconditionFailure(error.details, message);
   }
-  return statusFailure(envelope, message, status);
+  return statusFailure(error, message);
 }
 
-export function classifyWorkbookOperationFailure(
-  status: number,
-  payload: unknown,
-  operationID: WorkbookOperationID,
-): WorkbookOperationFailure {
-  const decoded = decodeWorkbookPublicError(payload);
-  const code =
-    decoded.kind === "decoded"
-      ? decoded.envelope.error.code
-      : "invalid_public_contract_response";
-  const classified =
-    decoded.kind === "decoded"
-      ? classifyDecodedError(decoded.envelope, operationID, status)
-      : { kind: decoded.kind, message: decoded.message };
-  const publicReason =
-    decoded.kind === "decoded"
-      ? validatedPublicErrorReason(
-          code,
-          decoded.envelope.error.details.reason_code,
-        )
-      : undefined;
+/**
+ * Classifies one failure already decoded by `fetchHTTPOperation` against the
+ * operation contract (Core 03 REQ-03-086a). The client contract failure never
+ * selects a feature outcome and carries no public code.
+ */
+export function classifyWorkbookOperationFailure<
+  OperationID extends WorkbookOperationID,
+>(
+  failure: HTTPOperationError<OperationID>,
+  operationID: OperationID,
+): WorkbookOperationFailure<OperationID> {
+  const error = failure as HTTPOperationError<WorkbookOperationID>;
+  const presentation = (publicReason?: PublicErrorReasonCode) =>
+    resolvePublicErrorPresentation({
+      code: error.code,
+      hasAuthorizedMaterialization: false,
+      operationFamily: operationFamilyByID[operationID],
+      reasonCode: publicReason,
+      status: error.status,
+    });
+  if (error.code === "invalid_public_contract_response")
+    return {
+      kind: "invalid_contract",
+      message: "The server returned an invalid public contract response.",
+      presentation: presentation(),
+    };
+  const classified = classifyDecodedError(error, operationID);
+  const publicReason = validatedPublicErrorReason(
+    error.code,
+    error.details.reason_code,
+  );
   const invalidEvidenceHandle =
     classified.kind === "invalid_contract" &&
     (operationID === "issueEvidencePreviewHandle" ||
@@ -294,15 +317,58 @@ export function classifyWorkbookOperationFailure(
     ...(invalidEvidenceHandle || publicReason === undefined
       ? {}
       : { publicReason }),
-    ...(decoded.kind === "decoded" && !invalidEvidenceHandle
-      ? { publicCode: code }
-      : {}),
-    presentation: resolvePublicErrorPresentation({
-      code,
-      hasAuthorizedMaterialization: false,
-      operationFamily: operationFamilyByID[operationID],
-      reasonCode: publicReason,
-      status,
-    }),
-  };
+    ...(invalidEvidenceHandle
+      ? {}
+      : {
+          publicCode:
+            error.code as WorkbookOperationFailure<OperationID>["publicCode"],
+        }),
+    presentation: presentation(publicReason),
+  } as WorkbookOperationFailure<OperationID>;
+}
+
+/**
+ * Whether a failed explicit Workbook write leaves its outcome unknown. A
+ * response the client could not decode, an unexpected status or any server
+ * fault stays uncertain and keeps exact replay. A decoded `503`
+ * `service_unavailable` was not applied, so it is a definite rejection whose
+ * retryable failure keeps the draft (Core 03 REQ-03-086a).
+ */
+export function explicitWorkbookWriteUncertain(
+  status: number | null,
+  failure: Pick<WorkbookOperationFailure, "kind" | "publicCode">,
+): boolean {
+  return (
+    status === null ||
+    status < 400 ||
+    failure.kind === "invalid_contract" ||
+    (status >= 500 &&
+      !isUnappliedRefusal(status, { code: failure.publicCode, status }))
+  );
+}
+
+/**
+ * Settles one failed explicit Workbook write from its decoded error. A
+ * response whose request identity differs from the observed one is
+ * uncertain; otherwise `explicitWorkbookWriteUncertain` decides.
+ */
+export function explicitWorkbookFailureOutcome<
+  OperationID extends WorkbookOperationID,
+>(
+  status: number | null,
+  error: HTTPOperationError<OperationID> | null | undefined,
+  operationID: OperationID,
+  requestId: string | null = null,
+):
+  | { readonly kind: "uncertain" }
+  | {
+      readonly kind: "rejected";
+      readonly failure: WorkbookOperationFailure<OperationID>;
+    } {
+  if (!error?.code || (requestId !== null && requestId !== error.request_id))
+    return { kind: "uncertain" };
+  const failure = classifyWorkbookOperationFailure(error, operationID);
+  return explicitWorkbookWriteUncertain(status, failure)
+    ? { kind: "uncertain" }
+    : { kind: "rejected", failure };
 }

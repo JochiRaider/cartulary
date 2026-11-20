@@ -18,6 +18,8 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/platform/administrativeaudit"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 )
@@ -312,7 +314,7 @@ func TestSessionInspectionRoute_Unit(t *testing.T) {
 		recorder := httptest.NewRecorder()
 		request := newJSONRequest(t, http.MethodGet, "/api/v1/auth/session", "")
 		addSessionCookiesOnly(request, keys, token)
-		service.handleSession(recorder, request)
+		serveAuth(t, service, recorder, request)
 
 		if recorder.Code != http.StatusOK {
 			t.Fatalf("unexpected session inspection status: got %d want %d", recorder.Code, http.StatusOK)
@@ -350,23 +352,40 @@ func TestSessionInspectionRoute_Unit(t *testing.T) {
 		}
 	})
 
-	t.Run("rejects pagination members on the actual route before session lookup", func(t *testing.T) {
+	t.Run("rejects pagination members after authentication", func(t *testing.T) {
+		userID := uuid.MustParse("10000000-0000-0000-0000-000000000107")
+		sessionID := uuid.MustParse("10000000-0000-0000-0000-000000000108")
+		token := "session-inspection-pagination-token"
 		sessionLookups := 0
+		slideCalls := 0
 		store := &authStoreStub{
 			getSessionByFingerprintFunc: func(context.Context, []byte) (authn.SessionRecord, authn.UserRecord, error) {
 				sessionLookups++
-				return authn.SessionRecord{}, authn.UserRecord{}, nil
+				return activeSessionRecord(sessionID, userID, now), activeUserRecord(userID, "inspection-pagination@example.test"), nil
+			},
+			slideSessionFunc: func(_ context.Context, _ uuid.UUID, timing authn.SessionTiming) (authn.SessionTiming, error) {
+				slideCalls++
+				return timing, nil
 			},
 		}
 		service := newUnitService(t, store, &hubStub{}, keys, now)
 
+		// Authentication precedes route-specific query validation (Core 01
+		// REQ-01-707 steps 2 and 5).
 		recorder := httptest.NewRecorder()
-		request := newJSONRequest(t, http.MethodGet, "/api/v1/auth/session?limit=10", "")
-		service.handleSession(recorder, request)
-
-		requireErrorEnvelope(t, recorder, http.StatusBadRequest, "invalid_pagination_request", "")
+		serveAuth(t, service, recorder, newJSONRequest(t, http.MethodGet, "/api/v1/auth/session?limit=10", ""))
+		requireErrorEnvelope(t, recorder, http.StatusUnauthorized, "session_required", "")
 		if sessionLookups != 0 {
-			t.Fatalf("session lookup must not run after pagination rejection, got %d lookups", sessionLookups)
+			t.Fatalf("a request without a credential looked up a session %d times", sessionLookups)
+		}
+
+		recorder = httptest.NewRecorder()
+		request := newJSONRequest(t, http.MethodGet, "/api/v1/auth/session?limit=10", "")
+		addSessionCookiesOnly(request, keys, token)
+		serveAuth(t, service, recorder, request)
+		requireErrorEnvelope(t, recorder, http.StatusBadRequest, "invalid_pagination_request", "")
+		if sessionLookups != 1 || slideCalls != 0 {
+			t.Fatalf("pagination rejection lookups=%d slides=%d, want one lookup and no slide", sessionLookups, slideCalls)
 		}
 	})
 }
@@ -405,7 +424,7 @@ func TestUserCreateRouteDefaults_Unit(t *testing.T) {
 			"is_active":false
 		}`)
 		addSessionAuth(request, keys, token, true)
-		service.handleUsersCollection(recorder, request)
+		serveAuth(t, service, recorder, request)
 
 		requireErrorEnvelope(t, recorder, http.StatusBadRequest, "invalid_mutation_payload", "is_active")
 		if createCalls != 0 {
@@ -442,7 +461,7 @@ func TestUserCreateRouteDefaults_Unit(t *testing.T) {
 			"initial_password":"AuthenticationInvalidAuthKindPass!"
 		}`)
 		addSessionAuth(request, keys, token, true)
-		service.handleUsersCollection(recorder, request)
+		serveAuth(t, service, recorder, request)
 
 		requireErrorEnvelope(t, recorder, http.StatusBadRequest, "invalid_mutation_payload", "auth_kind")
 		if got := decodeErrorDetails(t, recorder)["reason_code"]; got != "invalid_auth_kind" {
@@ -532,7 +551,7 @@ func TestUserCreateRouteDefaults_Unit(t *testing.T) {
 			"initial_password":"AuthenticationDefaultsPass!"
 		}`)
 		addSessionAuth(request, keys, token, true)
-		service.handleUsersCollection(recorder, request)
+		serveAuth(t, service, recorder, request)
 
 		if recorder.Code != http.StatusCreated {
 			t.Fatalf("unexpected create status: got %d want %d", recorder.Code, http.StatusCreated)
@@ -663,7 +682,7 @@ func TestCredentialStateRoute_Unit(t *testing.T) {
 				recorder := httptest.NewRecorder()
 				request := newJSONRequest(t, http.MethodGet, "/api/v1/auth/credential-state", "")
 				addSessionCookiesOnly(request, keys, token)
-				service.handleCredentialState(recorder, request)
+				serveAuth(t, service, recorder, request)
 
 				if recorder.Code != http.StatusOK {
 					t.Fatalf("unexpected credential-state status: got %d want %d", recorder.Code, http.StatusOK)
@@ -727,7 +746,7 @@ func TestCredentialStateRoute_Unit(t *testing.T) {
 		recorder := httptest.NewRecorder()
 		request := newJSONRequest(t, http.MethodGet, "/api/v1/auth/credential-state", "")
 		request.Header.Set("Authorization", "Bearer "+bootstrapToken)
-		service.handleCredentialState(recorder, request)
+		serveAuth(t, service, recorder, request)
 
 		requireErrorEnvelope(t, recorder, http.StatusConflict, "credential_bootstrap_rejected", "")
 		details := decodeErrorDetails(t, recorder)
@@ -782,7 +801,7 @@ func TestPasswordChangeRouteContracts_Unit(t *testing.T) {
 			"new_password":"Replacement passphrase 1"
 		}`)
 		addSessionAuth(request, keys, token, true)
-		service.handlePasswordChange(recorder, request)
+		serveAuth(t, service, recorder, request)
 
 		requireErrorEnvelope(t, recorder, http.StatusConflict, "invalid_current_password", "")
 		if changeCalls != 0 {
@@ -821,7 +840,7 @@ func TestPasswordChangeRouteContracts_Unit(t *testing.T) {
 			"new_password":"Replacement passphrase 1"
 		}`)
 		addSessionAuth(request, keys, token, true)
-		service.handlePasswordChange(recorder, request)
+		serveAuth(t, service, recorder, request)
 
 		requireErrorEnvelope(t, recorder, http.StatusUnauthorized, "invalid_second_factor", "")
 		if changeCalls != 0 {
@@ -887,7 +906,7 @@ func TestPasswordChangeRouteContracts_Unit(t *testing.T) {
 			"second_factor":{"kind":"totp","assertion":{"code":"`+code+`"}}
 		}`)
 		addSessionAuth(request, keys, token, true)
-		service.handlePasswordChange(recorder, request)
+		serveAuth(t, service, recorder, request)
 
 		if recorder.Code != http.StatusOK {
 			t.Fatalf("unexpected password change status: got %d want %d", recorder.Code, http.StatusOK)
@@ -999,7 +1018,7 @@ func TestPasswordChangeRouteContracts_Unit(t *testing.T) {
 			"new_password":"Replay Replacement Password!"
 		}`)
 			addSessionAuth(request, keys, token, true)
-			service.handlePasswordChange(recorder, request)
+			serveAuth(t, service, recorder, request)
 
 			if recorder.Code != http.StatusOK {
 				t.Fatalf("unexpected replay password-change status: got %d want %d", recorder.Code, http.StatusOK)
@@ -1072,7 +1091,7 @@ func TestTOTPRouteContracts_Unit(t *testing.T) {
 		request := newJSONRequest(t, http.MethodPost, "/api/v1/auth/mfa/totp/begin", `{"client_txn_id":"txn-begin-mixed"}`)
 		request.Header.Set("Authorization", "Bearer "+bootstrapToken)
 		addSessionCookiesOnly(request, keys, sessionToken)
-		service.handleTOTPBegin(recorder, request)
+		serveAuth(t, service, recorder, request)
 
 		requireErrorEnvelope(t, recorder, http.StatusBadRequest, "invalid_auth_request", "authorization")
 		if beginCalls != 0 {
@@ -1131,7 +1150,7 @@ func TestTOTPRouteContracts_Unit(t *testing.T) {
 		}`)
 		request.Header.Set("Authorization", "Bearer "+bootstrapToken)
 		addSessionCookiesOnly(request, keys, sessionToken)
-		service.handleTOTPComplete(recorder, request)
+		serveAuth(t, service, recorder, request)
 
 		requireErrorEnvelope(t, recorder, http.StatusBadRequest, "invalid_auth_request", "authorization")
 		if completeCalls != 0 {
@@ -1214,7 +1233,7 @@ func TestTOTPRouteContracts_Unit(t *testing.T) {
 		recorder := httptest.NewRecorder()
 		request := newJSONRequest(t, http.MethodPost, "/api/v1/auth/mfa/totp/begin", `{"client_txn_id":"txn-begin-bootstrap"}`)
 		request.Header.Set("Authorization", "Bearer "+bootstrapToken)
-		service.handleTOTPBegin(recorder, request)
+		serveAuth(t, service, recorder, request)
 
 		if recorder.Code != http.StatusOK {
 			t.Fatalf("unexpected bootstrap begin status: got %d want %d", recorder.Code, http.StatusOK)
@@ -1312,7 +1331,7 @@ func TestTOTPRouteContracts_Unit(t *testing.T) {
 		firstRecorder := httptest.NewRecorder()
 		firstRequest := newJSONRequest(t, http.MethodPost, "/api/v1/auth/mfa/totp/begin", `{"client_txn_id":"txn-begin-replay"}`)
 		firstRequest.Header.Set("Authorization", "Bearer "+bootstrapToken)
-		service.handleTOTPBegin(firstRecorder, firstRequest)
+		serveAuth(t, service, firstRecorder, firstRequest)
 		if firstRecorder.Code != http.StatusOK {
 			t.Fatalf("unexpected first replay-begin status: got %d want %d", firstRecorder.Code, http.StatusOK)
 		}
@@ -1322,7 +1341,7 @@ func TestTOTPRouteContracts_Unit(t *testing.T) {
 		secondRecorder := httptest.NewRecorder()
 		secondRequest := newJSONRequest(t, http.MethodPost, "/api/v1/auth/mfa/totp/begin", `{"client_txn_id":"txn-begin-replay"}`)
 		secondRequest.Header.Set("Authorization", "Bearer "+bootstrapToken)
-		service.handleTOTPBegin(secondRecorder, secondRequest)
+		serveAuth(t, service, secondRecorder, secondRequest)
 		if secondRecorder.Code != http.StatusOK {
 			t.Fatalf("unexpected second replay-begin status: got %d want %d", secondRecorder.Code, http.StatusOK)
 		}
@@ -1339,7 +1358,7 @@ func TestTOTPRouteContracts_Unit(t *testing.T) {
 		conflictRecorder := httptest.NewRecorder()
 		conflictRequest := newJSONRequest(t, http.MethodPost, "/api/v1/auth/mfa/totp/begin", `{"client_txn_id":"txn-begin-conflict"}`)
 		conflictRequest.Header.Set("Authorization", "Bearer "+bootstrapToken)
-		service.handleTOTPBegin(conflictRecorder, conflictRequest)
+		serveAuth(t, service, conflictRecorder, conflictRequest)
 		requireErrorEnvelope(t, conflictRecorder, http.StatusConflict, "client_txn_conflict", "")
 	})
 
@@ -1424,7 +1443,7 @@ func TestTOTPRouteContracts_Unit(t *testing.T) {
 			"code":"`+code+`"
 		}`)
 		request.Header.Set("Authorization", "Bearer "+bootstrapToken)
-		service.handleTOTPComplete(recorder, request)
+		serveAuth(t, service, recorder, request)
 
 		if recorder.Code != http.StatusOK {
 			t.Fatalf("unexpected bootstrap complete status: got %d want %d", recorder.Code, http.StatusOK)
@@ -1517,7 +1536,7 @@ func TestTOTPRouteContracts_Unit(t *testing.T) {
 			"code":"`+code+`"
 		}`)
 		completeRequest.Header.Set("Authorization", "Bearer "+bootstrapToken)
-		service.handleTOTPComplete(completeRecorder, completeRequest)
+		serveAuth(t, service, completeRecorder, completeRequest)
 		if completeRecorder.Code != http.StatusOK {
 			t.Fatalf("unexpected bootstrap-consumption complete status: got %d want %d", completeRecorder.Code, http.StatusOK)
 		}
@@ -1529,7 +1548,7 @@ func TestTOTPRouteContracts_Unit(t *testing.T) {
 		beginRecorder := httptest.NewRecorder()
 		beginRequest := newJSONRequest(t, http.MethodPost, "/api/v1/auth/mfa/totp/begin", `{"client_txn_id":"txn-begin-after-consume"}`)
 		beginRequest.Header.Set("Authorization", "Bearer "+bootstrapToken)
-		service.handleTOTPBegin(beginRecorder, beginRequest)
+		serveAuth(t, service, beginRecorder, beginRequest)
 
 		requireErrorEnvelope(t, beginRecorder, http.StatusConflict, "credential_bootstrap_rejected", "")
 		details := decodeErrorDetails(t, beginRecorder)
@@ -1610,7 +1629,7 @@ func TestTOTPRouteContracts_Unit(t *testing.T) {
 			"code":"`+code+`"
 		}`)
 		addSessionAuth(request, keys, token, true)
-		service.handleTOTPComplete(recorder, request)
+		serveAuth(t, service, recorder, request)
 
 		if recorder.Code != http.StatusOK {
 			t.Fatalf("unexpected replacement complete status: got %d want %d", recorder.Code, http.StatusOK)
@@ -1693,7 +1712,7 @@ func TestAdminCredentialActionGuards_Unit(t *testing.T) {
 				recorder := httptest.NewRecorder()
 				request := newJSONRequest(t, http.MethodPost, tc.path, tc.body)
 				addSessionAuth(request, keys, token, true)
-				service.handleUsersMember(recorder, request)
+				serveAuth(t, service, recorder, request)
 				requireErrorEnvelope(t, recorder, http.StatusForbidden, "authorization_denied", "")
 				if got := decodeErrorDetails(t, recorder)["required_capability"]; got != "deployment_admin" {
 					t.Fatalf("unexpected required_capability detail: got %v want deployment_admin", got)
@@ -1723,6 +1742,13 @@ func TestAdminCredentialActionGuards_Unit(t *testing.T) {
 					t.Fatal("unexpected session fingerprint for allowed admin action")
 				}
 				return session, adminUser, nil
+			},
+			// Core 01 REQ-01-118: each action first resolves the addressed user.
+			getUserByIDFunc: func(_ context.Context, gotTargetUserID uuid.UUID) (authn.UserRecord, error) {
+				if gotTargetUserID != targetUserID {
+					t.Fatalf("unexpected target user lookup: %s", gotTargetUserID)
+				}
+				return activeUserRecord(targetUserID, "target@example.test"), nil
 			},
 			adminResetPasswordFunc: func(_ context.Context, actor authn.UserRecord, gotTargetUserID uuid.UUID, baseUserVersion int64, newPasswordHash string, clientTxnID string, requestHash []byte, requestID string, changedAt time.Time) (authn.AdminPasswordResetResult, error) {
 				passwordResetCalled = true
@@ -1833,7 +1859,7 @@ func TestAdminCredentialActionGuards_Unit(t *testing.T) {
 				recorder := httptest.NewRecorder()
 				request := newJSONRequest(t, http.MethodPost, tc.path, tc.body)
 				addSessionAuth(request, keys, token, true)
-				service.handleUsersMember(recorder, request)
+				serveAuth(t, service, recorder, request)
 				if recorder.Code != http.StatusOK {
 					t.Fatalf("unexpected allowed admin action status: got %d want %d", recorder.Code, http.StatusOK)
 				}
@@ -2116,6 +2142,31 @@ func newUnitService(t testing.TB, store authStore, revocations sessionRevocation
 		publicOrigin:            "https://cartulary.example.test",
 		now:                     func() time.Time { return now },
 	}
+}
+
+// serveAuth serves request through every auth operation bound for central
+// admission as RegisterRoutes and RegisterEnterpriseRoutes bind them, with an
+// authenticator over the service's session store, keys, revocation hub and
+// clock (Core 01 REQ-01-707).
+func serveAuth(t testing.TB, service *Service, recorder http.ResponseWriter, request *http.Request) {
+	t.Helper()
+	registry, err := httpapi.NewRouteRegistry(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	deps := httpapi.DependencySet{
+		PublicRoutes:  registry,
+		Authenticator: httpauth.NewAuthenticator(httpauth.Options{Store: service.sessionStore, Keys: service.keys, Hub: service.revocations, Now: service.now}),
+	}
+	handlers := service.operationHandlers(true)
+	for operationID, handler := range service.enterpriseOperationHandlers() {
+		handlers[operationID] = handler
+	}
+	mux := http.NewServeMux()
+	if err := httpapi.BindAdmittedOwnerRoutes(mux, deps, "module.auth", handlers); err != nil {
+		t.Fatal(err)
+	}
+	registry.Handler(mux).ServeHTTP(recorder, request)
 }
 
 func loadUnitMasterKeys(t testing.TB) authn.MasterKeys {

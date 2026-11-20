@@ -1,4 +1,5 @@
 import type { Decoder } from "@cartulary/protocol-ts/http";
+import type { ClientErrorCode } from "../shared/publicError";
 
 const csrfCookieName = "cartulary_csrf";
 export const csrfHeaderName = "X-CSRF-Token";
@@ -84,7 +85,7 @@ export async function requestJSON<T>(
         status: 502,
         payload: {
           error: {
-            code: "invalid_upstream_contract",
+            code: "invalid_upstream_contract" satisfies ClientErrorCode,
             details: decoded.error,
             retryable: false,
           },

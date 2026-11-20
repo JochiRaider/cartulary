@@ -221,20 +221,6 @@ UPDATE evidence
 	}
 }
 
-func updateBlobState(t *testing.T, harness *appsupport.ServerHarness, objectBlobID uuid.UUID, uploadState string) {
-	t.Helper()
-	if _, err := harness.DB.ExecContext(context.Background(), `
-UPDATE object_blobs
-   SET upload_state = $2,
-       terminal_reason = CASE WHEN $2 = 'failed' THEN 'pending_timeout' ELSE NULL END,
-       failed_at = CASE WHEN $2 = 'failed' THEN now() ELSE NULL END,
-       updated_at = now()
- WHERE object_blob_id = $1
-`, objectBlobID, uploadState); err != nil {
-		t.Fatalf("update object blob upload_state: %v", err)
-	}
-}
-
 func updateBlobStorageKey(t *testing.T, harness *appsupport.ServerHarness, objectBlobID uuid.UUID, storageKey string) {
 	t.Helper()
 	if _, err := harness.DB.ExecContext(context.Background(), `

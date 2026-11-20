@@ -8,19 +8,15 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	platformhttpapi "github.com/JochiRaider/cartulary/internal/platform/httpapi"
-	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 )
 
 func (s *service) handleListIncidentMemberships(w http.ResponseWriter, r *http.Request) {
-	incidentID, ok := routeUUID(w, r, "incident_id")
-	if !ok {
+	principal, apiErr := admittedPrincipal(r)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
 		return
 	}
-	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: false})
+	incidentID, apiErr := admittedPathUUID(r, "incident_id")
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -56,7 +52,7 @@ func (s *service) handleListIncidentMemberships(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
@@ -78,11 +74,12 @@ func (s *service) handleListIncidentMemberships(w http.ResponseWriter, r *http.R
 }
 
 func (s *service) handleCreateIncidentMembership(w http.ResponseWriter, r *http.Request) {
-	incidentID, ok := routeUUID(w, r, "incident_id")
-	if !ok {
+	principal, apiErr := admittedPrincipal(r)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
 		return
 	}
-	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
+	incidentID, apiErr := admittedPathUUID(r, "incident_id")
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -109,7 +106,7 @@ func (s *service) handleCreateIncidentMembership(w http.ResponseWriter, r *http.
 		writeAPIError(w, r, platformhttpapi.ClientTxnConflictError(request.ClientTxnID()))
 		return
 	case admission.IsDenied(err, admission.DenialNotVisible):
-		writeAPIError(w, r, incidentNotFoundError())
+		writeAPIError(w, r, platformhttpapi.NotFound("incident_not_found"))
 		return
 	case admission.IsDenied(err, admission.DenialInsufficientRole):
 		writeAPIError(w, r, authorizationDeniedError("admin"))
@@ -121,7 +118,7 @@ func (s *service) handleCreateIncidentMembership(w http.ResponseWriter, r *http.
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
@@ -133,15 +130,17 @@ func (s *service) handleCreateIncidentMembership(w http.ResponseWriter, r *http.
 }
 
 func (s *service) handlePatchIncidentMembership(w http.ResponseWriter, r *http.Request) {
-	incidentID, ok := routeUUID(w, r, "incident_id")
-	if !ok {
+	principal, apiErr := admittedPrincipal(r)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
 		return
 	}
-	userID, ok := routeUUID(w, r, "user_id")
-	if !ok {
+	incidentID, apiErr := admittedPathUUID(r, "incident_id")
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
 		return
 	}
-	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
+	userID, apiErr := admittedPathUUID(r, "user_id")
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -158,7 +157,7 @@ func (s *service) handlePatchIncidentMembership(w http.ResponseWriter, r *http.R
 	record, _, err := s.application.UpdateMembership(r.Context(), principal.User, incidentID, userID, request, platformhttpapi.RequestIDFromContext(r.Context()))
 	switch {
 	case admission.IsDenied(err, admission.DenialNotVisible):
-		writeAPIError(w, r, incidentNotFoundError())
+		writeAPIError(w, r, platformhttpapi.NotFound("incident_not_found"))
 		return
 	case admission.IsDenied(err, admission.DenialInsufficientRole):
 		writeAPIError(w, r, authorizationDeniedError("admin"))
@@ -176,7 +175,7 @@ func (s *service) handlePatchIncidentMembership(w http.ResponseWriter, r *http.R
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
@@ -184,15 +183,17 @@ func (s *service) handlePatchIncidentMembership(w http.ResponseWriter, r *http.R
 }
 
 func (s *service) handleDeleteIncidentMembership(w http.ResponseWriter, r *http.Request) {
-	incidentID, ok := routeUUID(w, r, "incident_id")
-	if !ok {
+	principal, apiErr := admittedPrincipal(r)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
 		return
 	}
-	userID, ok := routeUUID(w, r, "user_id")
-	if !ok {
+	incidentID, apiErr := admittedPathUUID(r, "incident_id")
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
 		return
 	}
-	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
+	userID, apiErr := admittedPathUUID(r, "user_id")
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -209,7 +210,7 @@ func (s *service) handleDeleteIncidentMembership(w http.ResponseWriter, r *http.
 	if _, err := s.terminalMutations.CoordinateMembershipDeletion(r.Context(), principal.User, incidentID, userID, request, platformhttpapi.RequestIDFromContext(r.Context())); err != nil {
 		switch {
 		case admission.IsDenied(err, admission.DenialNotVisible):
-			writeAPIError(w, r, incidentNotFoundError())
+			writeAPIError(w, r, platformhttpapi.NotFound("incident_not_found"))
 			return
 		case admission.IsDenied(err, admission.DenialInsufficientRole):
 			writeAPIError(w, r, authorizationDeniedError("admin"))
@@ -228,7 +229,7 @@ func (s *service) handleDeleteIncidentMembership(w http.ResponseWriter, r *http.
 			return
 		}
 	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}

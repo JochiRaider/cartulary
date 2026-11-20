@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
@@ -135,14 +136,19 @@ func (f *OwnerFinalizer) CommitSuccessTx(ctx context.Context, tx pgx.Tx, request
 // commitWithProof is the single physical final-commit classifier for owner
 // mutations. Its caller decides how to report a proven absence or invoke the
 // fatal integrity path; it never retries a transaction.
+//
+// An issued commit is awaited, never abandoned on the caller's cancellation:
+// abandoning it would discard a determinable acknowledgement. After the
+// caller's context ends, the wait is bounded by the Jobs attempt-operation
+// timeout (jobs.AwaitCommit).
 func (f *OwnerFinalizer) commitWithProof(ctx context.Context, tx pgx.Tx, proveCommit func(context.Context) (bool, error)) (CommitOutcome, error) {
-	err := f.commit(ctx, tx)
+	err := jobs.AwaitCommit(ctx, func(commitCtx context.Context) error { return f.commit(commitCtx, tx) })
 	if err == nil {
 		return CommitProven, nil
 	}
 	proofCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
 	defer cancel()
-	if rollbackErr := tx.Rollback(proofCtx); rollbackErr == nil || provenAbsentCommitError(err) {
+	if rollbackErr := tx.Rollback(proofCtx); rollbackErr == nil || CommitAbsenceProven(proofCtx, tx, err) {
 		return CommitAbsent, err
 	}
 	committed, proofErr := proveCommit(proofCtx)
@@ -152,9 +158,57 @@ func (f *OwnerFinalizer) commitWithProof(ctx context.Context, tx pgx.Tx, proveCo
 	return CommitUnknown, errors.Join(err, proofErr)
 }
 
-func provenAbsentCommitError(err error) bool {
+// CommitAbsenceProven reports whether a failed COMMIT is proven absent
+// (EXT-REQ-215): an ERROR-severity acknowledgement or a rollback completion
+// (ProvenAbsentCommitError), or a request the driver proves it never sent
+// (pgconn.SafeToRetry). A never-sent request counts only once its session is
+// retired: the connection is closed and its cleanup has finished, so the pool
+// can never reuse it. pgx closes the connection itself when a COMMIT inside an
+// open transaction fails before sending; a session it left open is not proof.
+// ctx bounds only the wait for that cleanup.
+func CommitAbsenceProven(ctx context.Context, tx pgx.Tx, err error) bool {
+	if ProvenAbsentCommitError(err) {
+		return true
+	}
+	if err == nil || tx == nil || !pgconn.SafeToRetry(err) {
+		return false
+	}
+	connection := tx.Conn()
+	if connection == nil || !connection.IsClosed() {
+		return false
+	}
+	select {
+	case <-connection.PgConn().CleanupDone():
+		return true
+	case <-ctx.Done():
+		return false
+	}
+}
+
+// ProvenAbsentCommitError reports whether the error COMMIT returned proves
+// that the transaction did not commit. PostgreSQL acknowledges a failed commit
+// with an ERROR-severity response, or with a ROLLBACK command tag for a block
+// that had already failed, and ends the transaction without committing:
+// deferred constraint and trigger failures, serialization and deadlock aborts,
+// and query cancellation before the commit point. After the commit record is
+// durable the server reports no ERROR for that transaction. Such an
+// acknowledgement is classified, not indeterminate (EXT-REQ-219: an
+// acknowledgement received within the grace is classified under EXT-REQ-215).
+// FATAL and PANIC responses, transport failures and missing replies remain
+// undetermined.
+func ProvenAbsentCommitError(err error) bool {
 	if errors.Is(err, pgx.ErrTxCommitRollback) {
 		return true
+	}
+	var response *pgconn.PgError
+	if errors.As(err, &response) {
+		severity := response.SeverityUnlocalized
+		if severity == "" {
+			severity = response.Severity
+		}
+		if severity == "ERROR" {
+			return true
+		}
 	}
 	var state interface{ SQLState() string }
 	if errors.As(err, &state) {

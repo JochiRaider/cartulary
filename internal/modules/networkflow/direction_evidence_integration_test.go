@@ -33,7 +33,7 @@ func TestNetworkFlowDirectionEvidenceStorage_Integration(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			var valid bool
 			// Expressions are fixed test cases; the retained table binding remains a parameter.
-			err := h.DB.QueryRow(t.Context(), `SELECT public.network_flow_direction_evidence_is_valid_v1(`+tc.expression+`,direction_kind,from_endpoint,direction_reason,false) FROM network_flow_rows WHERE network_flow_table_id=$1`, table.TableID).Scan(&valid)
+			err := h.DB.QueryRow(t.Context(), `SELECT public.network_flow_direction_evidence_is_valid_v2(`+tc.expression+`,direction_kind,from_endpoint,direction_reason,false) FROM network_flow_rows WHERE network_flow_table_id=$1`, table.TableID).Scan(&valid)
 			if err != nil || valid != tc.valid {
 				t.Fatalf("closed evidence admission=%v want=%v: %v", valid, tc.valid, err)
 			}

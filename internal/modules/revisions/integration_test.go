@@ -3,6 +3,7 @@ package revisions_test
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"net/http"
 	"slices"
 	"testing"
@@ -19,6 +20,7 @@ import (
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/asserttest"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/incidentwstest"
 	collabtestprotocol "github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/protocoltest"
 	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
@@ -54,19 +56,49 @@ func TestHistoryProjectionDependencies_Integration(t *testing.T) {
 	if err := lock.Rollback(); err != nil {
 		t.Fatal(err)
 	}
+	// REQ-01-081/351: each history operation also publishes the refreshed
+	// dependent live, naming exactly the served fields that changed. The
+	// fixture's Evidence has no available upload, so evidence_count and
+	// has_evidence stay unchanged; only the attached chips change.
+	requireDependentInvalidate := func(response *http.Response, want ...string) {
+		t.Helper()
+		data := httptestx.RequireSuccessEnvelope(t, response, http.StatusOK)["data"].(map[string]any)
+		changeSetID, _ := data["change_set_id"].(string) // delete and restore
+		if rollback, ok := data["rollback_change_set_id"].(string); ok {
+			changeSetID = rollback
+		}
+		selector := collaborationsupport.IntentSelector{EventFamily: "record_changed", SourceChangeSetID: changeSetID, SourceRecordID: timelineID.String()}
+		collaborationsupport.RequireIntentCount(t, harness.DB, selector, 1)
+		var payload struct {
+			ChangedFieldKeys []string `json:"changed_field_keys"`
+			AffectedViews    []struct {
+				ViewSchemaID string `json:"view_schema_id"`
+				ChangeKind   string `json:"change_kind"`
+			} `json:"affected_views"`
+		}
+		if err := json.Unmarshal(collaborationsupport.LoadLatestIntent(t, harness.DB, selector).CanonicalPayload, &payload); err != nil {
+			t.Fatalf("decode dependent record_changed: %v", err)
+		}
+		if len(payload.AffectedViews) != 1 || payload.AffectedViews[0].ViewSchemaID != "cartulary.view.timeline.v2" || payload.AffectedViews[0].ChangeKind != "invalidate" {
+			t.Fatalf("dependent affected views = %#v, want one Timeline invalidate", payload.AffectedViews)
+		}
+		if !slices.Equal(payload.ChangedFieldKeys, want) {
+			t.Fatalf("dependent changed fields = %v, want %v", payload.ChangedFieldKeys, want)
+		}
+	}
 	response := rollbackRecord(t, harness, login, evidenceID, map[string]any{"base_row_version": version, "client_txn_id": "dependent-rollback", "target": target})
-	httptestx.RequireSuccessEnvelope(t, response, http.StatusOK)
+	requireDependentInvalidate(response, "timeline.attached_evidence_ids")
 	version++
 	if got := stringScalar(t, harness.DB, `SELECT attached_evidence_refs->0->>'display_text' FROM timeline_grid_projection WHERE record_id=$1`, timelineID); got != "Evidence projection-scope" {
 		t.Fatalf("dependent title after rollback = %q", got)
 	}
-	httptestx.RequireSuccessEnvelope(t, deleteRecord(t, harness, login, evidenceID, map[string]any{"base_row_version": version, "client_txn_id": "dependent-delete"}), http.StatusOK)
+	requireDependentInvalidate(deleteRecord(t, harness, login, evidenceID, map[string]any{"base_row_version": version, "client_txn_id": "dependent-delete"}), "timeline.attached_evidence_ids")
 	version++
 	if got := countRows(t, harness.DB, `SELECT jsonb_array_length(attached_evidence_refs) FROM timeline_grid_projection WHERE record_id=$1`, timelineID); got != 0 {
 		t.Fatalf("deleted evidence remains in dependent projection: %d", got)
 	}
 	// Discovery must use the retained relation, even with a deleted endpoint.
-	httptestx.RequireSuccessEnvelope(t, restoreRecord(t, harness, login, evidenceID, map[string]any{"base_row_version": version, "client_txn_id": "dependent-restore"}), http.StatusOK)
+	requireDependentInvalidate(restoreRecord(t, harness, login, evidenceID, map[string]any{"base_row_version": version, "client_txn_id": "dependent-restore"}), "timeline.attached_evidence_ids")
 	if got := stringScalar(t, harness.DB, `SELECT attached_evidence_refs->0->>'display_text' FROM timeline_grid_projection WHERE record_id=$1`, timelineID); got != "Evidence projection-scope" {
 		t.Fatalf("dependent title after restore = %q", got)
 	}
@@ -262,7 +294,7 @@ func TestDeleteRestoreRollbackAtomicConsequences_Integration(t *testing.T) {
 		t.Fatalf("row restore did not append row revision")
 	}
 
-	attachedCreateSrc, attachedCreateEvidence, attachedCreateLink := seedRollbackAttachedEvidenceLinkCreate(t, harness.DB, incidentID, actorID, mustUUID(t, "77777777-0000-4000-8000-000000000706"))
+	attachedCreateSrc, attachedCreateEvidence, attachedCreateLink := seedRollbackAttachedEvidenceLinkCreate(t, harness.DB, harness.Pool, incidentID, actorID, mustUUID(t, "77777777-0000-4000-8000-000000000706"))
 	attachedCreateRef := historyEntryRefForTarget(t, harness, login, attachedCreateSrc, "record_link", attachedCreateLink.String())
 	httptestx.SetClockFixed(t, harness.Server, clockBase.Add(30*time.Second))
 	attachedCreatePayload := httptestx.RequireSuccessEnvelope(t, rollbackRecord(t, harness, login, attachedCreateSrc, map[string]any{
@@ -299,7 +331,7 @@ func TestDeleteRestoreRollbackAtomicConsequences_Integration(t *testing.T) {
 		t.Fatalf("attached-evidence create rollback did not append revisions for both records")
 	}
 
-	attachedDeleteSrc, attachedDeleteEvidence, attachedDeleteLink := seedRollbackAttachedEvidenceLinkDelete(t, harness.DB, incidentID, actorID, mustUUID(t, "77777777-0000-4000-8000-000000000707"))
+	attachedDeleteSrc, attachedDeleteEvidence, attachedDeleteLink := seedRollbackAttachedEvidenceLinkDelete(t, harness.DB, harness.Pool, incidentID, actorID, mustUUID(t, "77777777-0000-4000-8000-000000000707"))
 	attachedDeleteRef := historyEntryRefForTarget(t, harness, login, attachedDeleteSrc, "record_link", attachedDeleteLink.String())
 	httptestx.SetClockFixed(t, harness.Server, clockBase.Add(35*time.Second))
 	attachedDeletePayload := httptestx.RequireSuccessEnvelope(t, rollbackRecord(t, harness, login, attachedDeleteSrc, map[string]any{

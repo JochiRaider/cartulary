@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
+	evidenceblob "github.com/JochiRaider/cartulary/internal/modules/evidence/internal/blob"
 	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/projectionports"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
@@ -19,8 +20,7 @@ var (
 	ErrIncidentMismatch       = errors.New("evidence: incident mismatch")
 	errRowVersionConflict     = errors.New("evidence: row version conflict")
 	errIllegalBlobTransition  = errors.New("evidence: illegal blob transition")
-	errBlobTupleViolation     = errors.New("evidence: blob lifecycle tuple violated")
-	ErrObjectStoreUnavailable = errors.New("evidence: object store unavailable")
+	errBlobTupleViolation     = evidenceblob.ErrTupleViolation
 	errUploadLeaseNotFound    = errors.New("evidence: upload lease not found")
 	errUploadLeaseUnavailable = errors.New("evidence: upload lease unavailable")
 )

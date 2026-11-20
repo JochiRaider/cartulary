@@ -13,11 +13,9 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	incidentadmission "github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
-	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 )
 
 type evidenceProviderSet struct {
@@ -197,11 +195,11 @@ func evidenceMutationFailure(err error, clientTxnID string) (*workbook.MutationF
 	if incidentadmission.IsDenied(err, incidentadmission.DenialIncidentClosed) {
 		return workbook.IncidentClosedFailure(), true
 	}
+	if failure, classified := recordTargetFailure(err); classified {
+		return failure, true
+	}
 	if errors.Is(err, pgx.ErrNoRows) {
 		return workbook.TargetNotFoundFailure(), true
-	}
-	if errors.Is(err, revisions.ErrRecordDeletedUseRestore) {
-		return workbook.RecordDeletedFailure(), true
 	}
 	var validation *evidence.ValidationError
 	if errors.As(err, &validation) {
@@ -248,48 +246,11 @@ func evidenceMutationFailure(err error, clientTxnID string) (*workbook.MutationF
 	if errors.Is(err, evidence.ErrBlobNotFound) || errors.Is(err, evidence.ErrIncidentMismatch) {
 		return workbook.EvidenceAttachFailure(evidence.AttachReasonBlobNotVisible), true
 	}
-	if errors.Is(err, evidence.ErrObjectStoreUnavailable) {
-		return workbook.ObjectStoreUnavailableFailure("dependency_unavailable"), true
-	}
-	if reasonCode, ok := evidence.PersistedObjectBlobStorageKeyErrorReason(err); ok {
-		return workbook.ObjectStoreInvalidFailure(reasonCode), true
-	}
-	adapterError, ok := objectstore.AsAdapterError(err)
-	if !ok {
-		return nil, false
-	}
-	switch adapterError.Code {
-	case objectstore.ErrorCodeAccessRejected:
-		return workbook.ObjectStoreAccessRejectedFailure(evidenceAccessRejectedReason(adapterError)), true
-	case objectstore.ErrorCodeUnavailable:
-		return workbook.ObjectStoreUnavailableFailure(evidenceUnavailableReason(adapterError)), true
-	case objectstore.ErrorCodeDeadlineExceeded, objectstore.ErrorCodeRetryExhausted:
-		return workbook.ObjectStoreUnavailableFailure("retry_exhausted"), true
-	default:
-		return workbook.ObjectStoreInvalidFailure("invalid_request"), true
-	}
-}
-
-func evidenceUnavailableReason(adapterError *objectstore.AdapterError) string {
-	switch adapterError.Reason {
-	case objectstore.ReasonBucketMissing:
-		return "bucket_missing"
-	case objectstore.ReasonRetryExhausted, objectstore.ReasonDeadlineExceeded:
-		return "retry_exhausted"
-	default:
-		return "endpoint_unreachable"
-	}
-}
-
-func evidenceAccessRejectedReason(adapterError *objectstore.AdapterError) string {
-	switch adapterError.Reason {
-	case objectstore.ReasonCredentialDenied:
-		return "credential_denied"
-	case objectstore.ReasonCORSRejected:
-		return "cors_rejected"
-	default:
-		return "capability_missing"
-	}
+	// Evidence create, patch and conflict resolution read retained Blob facts
+	// from the database and never reach the object store, so no object-store
+	// failure is classified here; any other error stays internal_error
+	// (Core 01 REQ-01-706).
+	return nil, false
 }
 
 func evidenceMutationResult(result evidence.MutationResult) workbook.MutationResult {

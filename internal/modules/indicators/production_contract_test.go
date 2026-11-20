@@ -27,7 +27,7 @@ func TestIndicatorTargetEnvelopeRoleClassification(t *testing.T) {
 		indicatorID: {RecordID: indicatorID, IncidentID: incidentID, RecordType: "indicator", RowVersion: 3},
 	}
 
-	if err := validateObservationSourceEnvelope(envelopes, incidentID, sourceID, 7); err != nil {
+	if err := observationSourceSteps(envelopes, incidentID, sourceID, 7); err != nil {
 		t.Fatalf("valid source envelope: %v", err)
 	}
 	if err := validateResolvedIndicatorEnvelope(envelopes, incidentID, indicatorID); err != nil {
@@ -47,16 +47,22 @@ func TestIndicatorTargetEnvelopeRoleClassification(t *testing.T) {
 		wantError error
 	}{
 		{name: "missing source", validate: func(values map[uuid.UUID]recordenvelope.Envelope) error {
-			return validateObservationSourceEnvelope(values, incidentID, uuid.New(), 1)
+			return observationSourceSteps(values, incidentID, uuid.New(), 1)
 		}, wantError: ErrIndicatorSourceNotFound},
 		{name: "foreign source", envelope: recordenvelope.Envelope{RecordID: sourceID, IncidentID: otherIncidentID, RecordType: "timeline_event", RowVersion: 7}, validate: func(values map[uuid.UUID]recordenvelope.Envelope) error {
-			return validateObservationSourceEnvelope(values, incidentID, sourceID, 7)
+			return observationSourceSteps(values, incidentID, sourceID, 7)
 		}, wantError: ErrIndicatorSourceNotFound},
 		{name: "deleted source", envelope: recordenvelope.Envelope{RecordID: sourceID, IncidentID: incidentID, RecordType: "timeline_event", RowVersion: 7, DeletedAt: &deletedAt}, validate: func(values map[uuid.UUID]recordenvelope.Envelope) error {
-			return validateObservationSourceEnvelope(values, incidentID, sourceID, 7)
-		}, wantError: ErrIndicatorSourceNotFound},
+			return observationSourceSteps(values, incidentID, sourceID, 7)
+		}, wantError: records.ErrTargetDeleted},
+		{name: "deleted addressed Indicator", envelope: recordenvelope.Envelope{RecordID: indicatorID, IncidentID: incidentID, RecordType: "indicator", RowVersion: 3, DeletedAt: &deletedAt}, validate: func(values map[uuid.UUID]recordenvelope.Envelope) error {
+			return validateAddressedIndicatorEnvelope(values, incidentID, indicatorID)
+		}, wantError: records.ErrTargetDeleted},
+		{name: "missing addressed Indicator", validate: func(values map[uuid.UUID]recordenvelope.Envelope) error {
+			return validateAddressedIndicatorEnvelope(values, incidentID, uuid.New())
+		}, wantError: ErrIndicatorNotFound},
 		{name: "stale source", envelope: envelopes[sourceID], validate: func(values map[uuid.UUID]recordenvelope.Envelope) error {
-			return validateObservationSourceEnvelope(values, incidentID, sourceID, 6)
+			return observationSourceSteps(values, incidentID, sourceID, 6)
 		}, wantError: ErrRowVersionConflict},
 		{name: "wrong resolved target type", envelope: recordenvelope.Envelope{RecordID: indicatorID, IncidentID: incidentID, RecordType: "timeline_event"}, validate: func(values map[uuid.UUID]recordenvelope.Envelope) error {
 			return validateResolvedIndicatorEnvelope(values, incidentID, indicatorID)
@@ -101,6 +107,20 @@ func TestIndicatorTargetEnvelopeRoleClassification(t *testing.T) {
 			t.Fatalf("%s prior dependency error = %v, want ErrIndicatorObservationNotFound", name, err)
 		}
 	}
+}
+
+// observationSourceSteps applies the observation-source steps in the order
+// CreateIndicatorObservation does: classification, then the base version. The
+// incident lifecycle sits between them under the same lock.
+func observationSourceSteps(envelopes map[uuid.UUID]recordenvelope.Envelope, incidentID uuid.UUID, recordID uuid.UUID, expectedVersion int64) error {
+	envelope, err := classifyObservationSourceEnvelope(envelopes, incidentID, recordID)
+	if err != nil {
+		return err
+	}
+	if envelope.RowVersion != expectedVersion {
+		return ErrRowVersionConflict
+	}
+	return nil
 }
 
 func TestIndicatorLockedEnvelopeStorageFailurePropagates(t *testing.T) {

@@ -36,7 +36,7 @@
     {
       "code": "csrf_verification_failed",
       "http_status": 403,
-      "summary": "A cookie-authenticated state-changing request failed the CSRF double-submit check."
+      "summary": "A cookie-authenticated state-changing request failed the CSRF double-submit check, or a WebSocket upgrade carried an Origin other than the configured application origin (REQ-01-708 step 2); details are empty for the Origin rejection."
     },
     {
       "code": "invalid_mutation_payload",
@@ -94,6 +94,11 @@
       "summary": "The requested Party exact-match keys are divergent or already claimed."
     },
     {
+      "code": "entity_match_conflict",
+      "http_status": 409,
+      "summary": "Submitted Host or Identity identifiers match active claims held by more than one record; nothing is mutated."
+    },
+    {
       "code": "job_cancel_rejected",
       "http_status": 409,
       "summary": "A visible job exists, but the current job state does not accept cancellation."
@@ -137,6 +142,11 @@
       "code": "last_deployment_admin",
       "http_status": 409,
       "summary": "The requested deployment-user mutation would remove the last active deployment_admin."
+    },
+    {
+      "code": "user_email_conflict",
+      "http_status": 409,
+      "summary": "A user create or patch supplied a normalized email that already belongs to another local user."
     },
     {
       "code": "invalid_pagination_request",
@@ -206,7 +216,7 @@
     {
       "code": "user_not_found",
       "http_status": 404,
-      "summary": "A membership-create request referenced a user that does not exist in deployment-local identity state."
+      "summary": "A membership-create request, or a route under /api/v1/users/{user_id}, referenced a user that does not exist in deployment-local identity state."
     },
     {
       "code": "membership_version_conflict",
@@ -239,6 +249,16 @@
       "summary": "The requested resolved Indicator target is not visible, active, and in the source incident."
     },
     {
+      "code": "entity_mention_not_found",
+      "http_status": 404,
+      "summary": "An entity-mention action targeted no visible current entity-mention row for the supplied entity_mention_id."
+    },
+    {
+      "code": "resolved_record_not_found",
+      "http_status": 404,
+      "summary": "A mention-resolve request supplied a resolved_record_id that does not identify a visible active target record."
+    },
+    {
       "code": "saved_view_not_found",
       "http_status": 404,
       "summary": "The requested saved view is not visible to the current authenticated user."
@@ -247,6 +267,11 @@
       "code": "saved_view_version_conflict",
       "http_status": 409,
       "summary": "The saved-view patch used a stale base_saved_view_version."
+    },
+    {
+      "code": "view_schema_not_found",
+      "http_status": 404,
+      "summary": "A view-schema discovery read named no standardized current-profile view_schema_id."
     },
     {
       "code": "record_deleted_use_restore",
@@ -389,6 +414,31 @@
       "summary": "The single-use evidence download handle was already consumed by a prior successful redeem."
     },
     {
+      "code": "object_upload_not_found_or_revoked",
+      "http_status": 404,
+      "summary": "The object-upload capability is malformed, unknown, revoked, wrongly bound, no longer issued, or names an incident the caller cannot see."
+    },
+    {
+      "code": "object_upload_expired",
+      "http_status": 410,
+      "summary": "The object-upload target or its pending blob slot has expired."
+    },
+    {
+      "code": "object_upload_rejected",
+      "http_status": 409,
+      "summary": "The object-upload capability's bound contract no longer matches live slot state, or the slot is no longer pending."
+    },
+    {
+      "code": "object_upload_invalid",
+      "http_status": 400,
+      "summary": "The object upload declares fewer bytes than its contract or omits or changes a required upload header."
+    },
+    {
+      "code": "object_upload_length_required",
+      "http_status": 411,
+      "summary": "The object upload carries no Content-Length."
+    },
+    {
       "code": "invalid_import_request",
       "http_status": 400,
       "summary": "The import request body or upload metadata failed route-owned validation."
@@ -474,11 +524,6 @@
       "summary": "No visible current reference-pack version exists for the supplied pack_key and pack_version."
     },
     {
-      "code": "reference_pack_state_conflict",
-      "http_status": 409,
-      "summary": "The addressed reference-pack version state does not allow the requested action."
-    },
-    {
       "code": "reference_pack_verification_failed",
       "http_status": 409,
       "summary": "Reference-pack verification failed closed before the candidate could become or remain available."
@@ -524,6 +569,26 @@
       "summary": "The server could not complete the request."
     },
     {
+      "code": "service_unavailable",
+      "http_status": 503,
+      "summary": "The process is not admitting work: startup publication has not opened admission, lease ownership is uncertain, an operator stop request started ordinary shutdown, the process is in a fatal state, or a cross-owner transaction timed out with its commit proven absent. The response is retryable, error.details.reason_code uses the service_unavailable reason registry, and every operation declares it."
+    },
+    {
+      "code": "transaction_conflict",
+      "http_status": 409,
+      "summary": "A cross-owner extension transaction aborted on a deadlock or serialization failure with its commit proven absent. The response is retryable only under the operation's idempotency contract, and error.details.reason_code uses the transaction_conflict reason registry."
+    },
+    {
+      "code": "route_not_found",
+      "http_status": 404,
+      "summary": "The request path under /api, or under /ws/v1/ (REQ-01-708 step 1), matches no public operation or socket route, including a non-canonical path. Raised before route resolution, it belongs to no operation; error.details is empty."
+    },
+    {
+      "code": "method_not_allowed",
+      "http_status": 405,
+      "summary": "The request path under /api, or under /ws/v1/ (REQ-01-708 step 1), matches a public operation or socket route only under other methods, including HEAD on a GET-only path. Raised before route resolution, it belongs to no operation; error.details.allowed_methods lists the declared methods in the order of the Allow header."
+    },
+    {
       "code": "invalid_saved_view_read_request",
       "http_status": 400,
       "summary": "A saved-view read has malformed query encoding or an undeclared singleton query member."
@@ -546,7 +611,7 @@
     {
       "code": "request_body_too_large",
       "http_status": 413,
-      "summary": "The encoded incident mutation request body exceeds 262144 bytes."
+      "summary": "A request body exceeds its byte ceiling: an incident mutation JSON body's encoded-byte ceiling, or an object upload's contracted byte_size."
     },
     {
       "code": "committed_source_not_found",
@@ -557,6 +622,21 @@
       "code": "report_artifact_not_found",
       "http_status": 404,
       "summary": "No retained reporting artifact is visible in the authorized incident for the supplied artifact_id."
+    },
+    {
+      "code": "invalid_request",
+      "http_status": 400,
+      "summary": "A report-composition request failed composition validation; error.details carries the composition validation code."
+    },
+    {
+      "code": "not_found",
+      "http_status": 404,
+      "summary": "A report-composition route resource does not exist inside the route incident; error.details carries the composition validation code."
+    },
+    {
+      "code": "conflict",
+      "http_status": 409,
+      "summary": "A report-composition request conflicts with the current draft version, a retired resource, or a release-bound version; error.details carries the composition validation code."
     }
   ],
   "reason_registries": [
@@ -1382,23 +1462,6 @@
       ]
     },
     {
-      "error_code": "reference_pack_state_conflict",
-      "reason_codes": [
-        {
-          "code": "already_disabled",
-          "summary": "The addressed version is already disabled."
-        },
-        {
-          "code": "not_disableable",
-          "summary": "The addressed version is not in a disableable condition."
-        },
-        {
-          "code": "verification_pending",
-          "summary": "The addressed version is still staged and cannot be reverified yet."
-        }
-      ]
-    },
-    {
       "error_code": "invalid_incident_bundle_request",
       "reason_codes": [
         {
@@ -1468,6 +1531,44 @@
         {
           "code": "invalid_value",
           "summary": "An incident-bundle request field has a malformed or unsupported scalar value."
+        }
+      ]
+    },
+    {
+      "error_code": "service_unavailable",
+      "reason_codes": [
+        {
+          "code": "extension_publication_pending",
+          "summary": "Startup publication has not yet opened admission."
+        },
+        {
+          "code": "admission_paused",
+          "summary": "Ownership proof of the application-process or recovery-serving lease is uncertain; admission reopens when the original session proves continuous ownership."
+        },
+        {
+          "code": "shutdown_in_progress",
+          "summary": "An operator stop request started ordinary shutdown; the process admits no new work and does not reopen admission."
+        },
+        {
+          "code": "extension_integrity_failure",
+          "summary": "The process is in a fatal state and is shutting down."
+        },
+        {
+          "code": "extension_transaction_timeout",
+          "summary": "A cross-owner transaction deadline expired with its commit proven absent."
+        }
+      ]
+    },
+    {
+      "error_code": "transaction_conflict",
+      "reason_codes": [
+        {
+          "code": "deadlock_detected",
+          "summary": "The database aborted the cross-owner transaction on a deadlock, and its commit is proven absent."
+        },
+        {
+          "code": "serialization_failure",
+          "summary": "The database aborted the cross-owner transaction on a serialization failure, and its commit is proven absent."
         }
       ]
     },
@@ -1766,6 +1867,54 @@
         {
           "code": "byte_size_exceeds_limit",
           "summary": "The declared byte_size exceeds the configured object-blob limit."
+        }
+      ]
+    },
+    {
+      "error_code": "object_upload_expired",
+      "reason_codes": [
+        {
+          "code": "target_expired",
+          "summary": "The upload target's capability expiry has passed."
+        },
+        {
+          "code": "slot_expired",
+          "summary": "The pending blob slot's expiry has passed."
+        }
+      ]
+    },
+    {
+      "error_code": "object_upload_rejected",
+      "reason_codes": [
+        {
+          "code": "upload_contract_mismatch",
+          "summary": "The capability's bound incident, storage binding, byte size, accepted contract or required headers no longer match live slot state."
+        },
+        {
+          "code": "blob_not_pending",
+          "summary": "The addressed blob slot is no longer pending."
+        }
+      ]
+    },
+    {
+      "error_code": "object_upload_invalid",
+      "reason_codes": [
+        {
+          "code": "byte_size_mismatch",
+          "summary": "The request's Content-Length is below the contracted byte_size."
+        },
+        {
+          "code": "upload_contract_mismatch",
+          "summary": "A required upload header is absent or differs from the issued value."
+        }
+      ]
+    },
+    {
+      "error_code": "object_upload_length_required",
+      "reason_codes": [
+        {
+          "code": "content_length_required",
+          "summary": "The request carries no Content-Length."
         }
       ]
     },

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
@@ -38,6 +39,8 @@ func TestCrossOwnerTransaction_Integration_CommitAndRollbackAtomicity(t *testing
 	assertAdmittedValidationPolicy(t, registry)
 	assertPhysicalCompletionRetirement(t, pool, backend, registry)
 	assertPrecommitCancellationRetirement(t, pool, backend, registry)
+	assertNeverSentCommitRetirement(t, pool, backend, registry)
+	assertDeadlineDuringPhysicalCommit(t, pool, backend, registry)
 	coordinator, err := crossownertransaction.New(crossownertransaction.Options{
 		Limits:           CrossOwnerLimits(registry),
 		ValidationPolicy: crossOwnerTestValidationPolicy{CrossOwnerValidationPolicy{Coordinator: registry}},
@@ -170,6 +173,49 @@ func assertPrecommitCancellationRetirement(t *testing.T, pool *pgxpool.Pool, bac
 		}
 		if !errors.Is(err, crossownertransaction.ErrCanceled) || fatal.Load() || pool.Stat().AcquiredConns() != 0 || countCrossOwnerRows(t, pool) != 0 {
 			t.Fatalf("precommit cancellation: err=%v fatal=%v acquired=%d", err, fatal.Load(), pool.Stat().AcquiredConns())
+		}
+	})
+}
+
+// A session that is already closed when COMMIT is due makes pgx reject the
+// request before sending any of it. The never-sent request on a retired
+// session is proven absent and classified, not fatal (EXT-REQ-215).
+func assertNeverSentCommitRetirement(t *testing.T, pool *pgxpool.Pool, backend *CrossOwnerBackend, registry *extensions.Coordinator) {
+	t.Helper()
+	t.Run("commit never sent on a closed session is proven absent", func(t *testing.T) {
+		ctx := context.Background()
+		var physical *crossOwnerTransaction
+		var fatal atomic.Bool
+		decorated := retirementTestBackend{backend: backend, configure: func(tx *crossOwnerTransaction) {
+			physical = tx
+			registerPhysicalTransactionCleanup(t, tx.tx)
+		}}
+		coordinator, err := crossownertransaction.New(crossownertransaction.Options{
+			Limits: CrossOwnerLimits(registry), ValidationPolicy: crossOwnerTestValidationPolicy{CrossOwnerValidationPolicy{Coordinator: registry}},
+			Backend: decorated, Catalog: []crossownertransaction.Descriptor{crossOwnerTestDescriptor()},
+			Timeout: time.Minute, CancellationGrace: 5 * time.Second, FatalSink: func(error) { fatal.Store(true) },
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		participant := canceledWriteParticipant{crossOwnerParticipantFake: &crossOwnerParticipantFake{value: "never-sent-commit"},
+			interrupt: func(context.Context) error {
+				// The participant reports success, but its session is gone.
+				return physical.tx.Conn().Close(ctx)
+			}}
+		_, err = coordinator.Execute(ctx, crossownertransaction.Operation{OperationID: "never-sent-commit", NormalizedRequestSHA256: strings.Repeat("8", 64), Participants: []crossownertransaction.Participant{participant}})
+		if err == nil || crossownertransaction.IsFatalIntegrity(err) || fatal.Load() {
+			t.Fatalf("never-sent commit: err=%v fatal=%v", err, fatal.Load())
+		}
+		if !physical.tx.Conn().IsClosed() {
+			t.Fatal("never-sent commit left its session open")
+		}
+		until := time.Now().Add(time.Second)
+		for pool.Stat().AcquiredConns() != 0 && time.Now().Before(until) {
+			time.Sleep(time.Millisecond)
+		}
+		if pool.Stat().AcquiredConns() != 0 || countCrossOwnerRows(t, pool) != 0 {
+			t.Fatalf("never-sent commit: acquired=%d", pool.Stat().AcquiredConns())
 		}
 	})
 }
@@ -526,4 +572,286 @@ func (crossOwnerTestValidationPolicy) AcceptInput(_ crossownertransaction.Descri
 	}
 	_, ok = object["value"].(string)
 	return ok
+}
+
+// commitWaitLockKey is the advisory lock a test-database deferred constraint
+// trigger takes while PostgreSQL executes COMMIT. Holding it keeps COMMIT in
+// pre-commit work, so the operation deadline expires with COMMIT in flight.
+const commitWaitLockKey = 1106
+
+func assertDeadlineDuringPhysicalCommit(t *testing.T, pool *pgxpool.Pool, backend *CrossOwnerBackend, registry *extensions.Coordinator) {
+	t.Helper()
+	ctx := context.Background()
+	for _, statement := range []string{
+		`CREATE FUNCTION cross_owner_commit_wait() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    PERFORM pg_advisory_xact_lock(1106);
+    IF NEW.value LIKE '%-abort' THEN
+        RAISE EXCEPTION 'injected commit-time abort' USING ERRCODE = '23514';
+    ELSIF NEW.value LIKE '%-raise' THEN
+        RAISE EXCEPTION 'injected deferred trigger failure' USING ERRCODE = 'P0001';
+    ELSIF NEW.value LIKE '%-overflow' THEN
+        RAISE EXCEPTION 'injected commit-time allocator exhaustion' USING ERRCODE = '22003';
+    END IF;
+    RETURN NULL;
+END $$`,
+		`CREATE CONSTRAINT TRIGGER cross_owner_commit_wait AFTER INSERT ON cross_owner_protocol_test
+DEFERRABLE INITIALLY DEFERRED FOR EACH ROW WHEN (NEW.value LIKE 'commit-wait-%')
+EXECUTE FUNCTION cross_owner_commit_wait()`,
+	} {
+		if _, err := pool.Exec(ctx, statement); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Cleanup(func() {
+		cleanupCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if _, err := pool.Exec(cleanupCtx, `DROP TRIGGER cross_owner_commit_wait ON cross_owner_protocol_test; DROP FUNCTION cross_owner_commit_wait()`); err != nil {
+			t.Error(err)
+		}
+	})
+	cases := []struct {
+		name             string
+		grace            time.Duration
+		success, timeout bool
+		fatalReason      string
+		rows             int
+	}{
+		{name: "ok", grace: 5 * time.Second, success: true, rows: 1},
+		{name: "abort", grace: 5 * time.Second, timeout: true},
+		// The late commit lands after grace exhaustion: the operation stays
+		// fatal, which is why a pending commit cannot report an ordinary outcome.
+		{name: "grace", grace: 200 * time.Millisecond, fatalReason: "operation_cancellation_grace_exhausted", rows: 1},
+	}
+	for _, test := range cases {
+		t.Run("deadline_during_physical_commit_"+test.name, func(t *testing.T) {
+			value := "commit-wait-" + test.name
+			t.Cleanup(func() {
+				cleanupCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				if _, err := pool.Exec(cleanupCtx, `DELETE FROM cross_owner_protocol_test WHERE value=$1`, value); err != nil {
+					t.Error(err)
+				}
+			})
+			holder, err := pool.Acquire(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			released := false
+			release := func() {
+				if released {
+					return
+				}
+				released = true
+				if _, err := holder.Exec(ctx, `SELECT pg_advisory_unlock($1)`, int64(commitWaitLockKey)); err != nil {
+					t.Error(err)
+				}
+				holder.Release()
+			}
+			defer release()
+			if _, err := holder.Exec(ctx, `SELECT pg_advisory_lock($1)`, int64(commitWaitLockKey)); err != nil {
+				t.Fatal(err)
+			}
+			fatal := make(chan error, 2)
+			decorated := retirementTestBackend{backend: backend, configure: func(tx *crossOwnerTransaction) {
+				registerPhysicalTransactionCleanup(t, tx.tx)
+			}}
+			coordinator, err := crossownertransaction.New(crossownertransaction.Options{
+				Limits: CrossOwnerLimits(registry), ValidationPolicy: crossOwnerTestValidationPolicy{CrossOwnerValidationPolicy{Coordinator: registry}},
+				Backend: decorated, Catalog: []crossownertransaction.Descriptor{crossOwnerTestDescriptor()},
+				Timeout: time.Minute, CancellationGrace: test.grace, FatalSink: func(err error) { fatal <- err },
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			parent, cancel := context.WithTimeout(ctx, 2*time.Second)
+			defer cancel()
+			done := make(chan error, 1)
+			go func() {
+				_, err := coordinator.Execute(parent, crossownertransaction.Operation{
+					OperationID: value, NormalizedRequestSHA256: strings.Repeat("f", 64),
+					Participants: []crossownertransaction.Participant{&crossOwnerParticipantFake{value: value}},
+				})
+				done <- err
+			}()
+			awaitCommitLockWait(t, pool, parent, done)
+			<-parent.Done()
+			if test.fatalReason != "" {
+				select {
+				case signal := <-fatal:
+					fatal <- signal
+				case <-time.After(5 * time.Second):
+					t.Fatal("pending commit outlived the cancellation grace without a fatal signal")
+				}
+			}
+			release()
+			var result error
+			select {
+			case result = <-done:
+			case <-time.After(10 * time.Second):
+				t.Fatal("operation did not settle after the commit lock was released")
+			}
+			var signals []error
+			for len(fatal) > 0 {
+				signals = append(signals, <-fatal)
+			}
+			switch {
+			case test.success:
+				if result != nil || len(signals) != 0 {
+					t.Fatalf("commit acknowledged after the deadline: err=%v fatal=%v", result, signals)
+				}
+			case test.timeout:
+				if !errors.Is(result, crossownertransaction.ErrTimeout) || len(signals) != 0 {
+					t.Fatalf("commit proven absent after the deadline: err=%v fatal=%v", result, signals)
+				}
+			default:
+				var failure *crossownertransaction.FatalIntegrityError
+				if !errors.As(result, &failure) || failure.FatalReasonCode() != test.fatalReason || len(signals) != 1 {
+					t.Fatalf("pending commit past grace: err=%v fatal=%v", result, signals)
+				}
+				if !errors.As(signals[0], &failure) || failure.FatalReasonCode() != test.fatalReason {
+					t.Fatalf("fatal signal = %v", signals[0])
+				}
+			}
+			var rows int
+			if err := pool.QueryRow(ctx, `SELECT count(*) FROM cross_owner_protocol_test WHERE value=$1`, value).Scan(&rows); err != nil {
+				t.Fatal(err)
+			}
+			if rows != test.rows {
+				t.Fatalf("committed rows=%d want=%d", rows, test.rows)
+			}
+			until := time.Now().Add(time.Second)
+			for pool.Stat().AcquiredConns() != 0 && time.Now().Before(until) {
+				time.Sleep(time.Millisecond)
+			}
+			if acquired := pool.Stat().AcquiredConns(); acquired != 0 {
+				t.Fatalf("transaction connection not returned: acquired=%d", acquired)
+			}
+		})
+	}
+	// A definite ERROR acknowledgement to COMMIT proves the commit absent. It is
+	// classified as the database failure, not as an indeterminate fatal.
+	for _, test := range []struct{ name, code string }{
+		{name: "raise", code: "P0001"},
+		{name: "overflow", code: "22003"},
+		{name: "cancel", code: "57014"},
+	} {
+		t.Run("definite_commit_error_"+test.code, func(t *testing.T) {
+			value := "commit-wait-error-" + test.name
+			t.Cleanup(func() {
+				cleanupCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				if _, err := pool.Exec(cleanupCtx, `DELETE FROM cross_owner_protocol_test WHERE value=$1`, value); err != nil {
+					t.Error(err)
+				}
+			})
+			var fatal atomic.Bool
+			decorated := retirementTestBackend{backend: backend, configure: func(tx *crossOwnerTransaction) {
+				registerPhysicalTransactionCleanup(t, tx.tx)
+			}}
+			coordinator, err := crossownertransaction.New(crossownertransaction.Options{
+				Limits: CrossOwnerLimits(registry), ValidationPolicy: crossOwnerTestValidationPolicy{CrossOwnerValidationPolicy{Coordinator: registry}},
+				Backend: decorated, Catalog: []crossownertransaction.Descriptor{crossOwnerTestDescriptor()},
+				Timeout: time.Minute, CancellationGrace: 5 * time.Second, FatalSink: func(error) { fatal.Store(true) },
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			operation := crossownertransaction.Operation{
+				OperationID: value, NormalizedRequestSHA256: strings.Repeat("9", 64),
+				Participants: []crossownertransaction.Participant{&crossOwnerParticipantFake{value: value}},
+			}
+			if test.code == "57014" {
+				// A query cancel reaches COMMIT while its deferred trigger waits.
+				err = cancelCommitInLockWait(t, pool, func(parent context.Context) error {
+					_, err := coordinator.Execute(parent, operation)
+					return err
+				})
+			} else {
+				_, err = coordinator.Execute(ctx, operation)
+			}
+			var response *pgconn.PgError
+			if !errors.As(err, &response) || response.Code != test.code || crossownertransaction.IsFatalIntegrity(err) || fatal.Load() {
+				t.Fatalf("definite commit error %s: err=%v fatal=%v", test.code, err, fatal.Load())
+			}
+			var rows int
+			if err := pool.QueryRow(ctx, `SELECT count(*) FROM cross_owner_protocol_test WHERE value=$1`, value).Scan(&rows); err != nil || rows != 0 {
+				t.Fatalf("absent commit left rows=%d (%v)", rows, err)
+			}
+			if acquired := pool.Stat().AcquiredConns(); acquired != 0 {
+				t.Fatalf("transaction connection not returned: acquired=%d", acquired)
+			}
+		})
+	}
+}
+
+// cancelCommitInLockWait holds the deferred trigger's lock, waits for COMMIT
+// to block on it, and sends that backend a query cancel (pg_cancel_backend).
+func cancelCommitInLockWait(t *testing.T, pool *pgxpool.Pool, execute func(context.Context) error) error {
+	t.Helper()
+	ctx := context.Background()
+	holder, err := pool.Acquire(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer holder.Release()
+	if _, err := holder.Exec(ctx, `SELECT pg_advisory_lock($1)`, int64(commitWaitLockKey)); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if _, err := holder.Exec(ctx, `SELECT pg_advisory_unlock($1)`, int64(commitWaitLockKey)); err != nil {
+			t.Error(err)
+		}
+	}()
+	parent, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	done := make(chan error, 1)
+	go func() { done <- execute(parent) }()
+	awaitCommitLockWait(t, pool, parent, done)
+	var canceled bool
+	if err := pool.QueryRow(ctx, `
+SELECT bool_and(pg_cancel_backend(pid))
+  FROM pg_locks
+ WHERE locktype = 'advisory' AND NOT granted AND classid = 0 AND objid = $1 AND objsubid = 1`, int64(commitWaitLockKey)).Scan(&canceled); err != nil || !canceled {
+		t.Fatalf("cancel waiting COMMIT: canceled=%v err=%v", canceled, err)
+	}
+	select {
+	case err := <-done:
+		return err
+	case <-time.After(10 * time.Second):
+		t.Fatal("cancelled COMMIT did not settle")
+		return nil
+	}
+}
+
+// awaitCommitLockWait observes COMMIT blocked in the deferred trigger's lock
+// wait. The deadline must not expire first, or the case would not exercise an
+// issued commit.
+func awaitCommitLockWait(t *testing.T, pool *pgxpool.Pool, parent context.Context, done <-chan error) {
+	t.Helper()
+	ticker := time.NewTicker(5 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		var waiting bool
+		if err := pool.QueryRow(context.Background(), `
+SELECT EXISTS (
+    SELECT 1
+      FROM pg_locks l
+      JOIN pg_stat_activity a ON a.pid = l.pid
+     WHERE l.locktype = 'advisory' AND NOT l.granted
+       AND l.classid = 0 AND l.objid = $1 AND l.objsubid = 1
+       AND lower(a.query) = 'commit')`, int64(commitWaitLockKey)).Scan(&waiting); err != nil {
+			t.Fatal(err)
+		}
+		if waiting {
+			return
+		}
+		select {
+		case err := <-done:
+			t.Fatalf("operation settled before COMMIT reached the lock wait: %v", err)
+		case <-parent.Done():
+			t.Fatal("deadline expired before COMMIT reached the lock wait")
+		case <-ticker.C:
+		}
+	}
 }

@@ -12,6 +12,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
+	"github.com/JochiRaider/cartulary/internal/modules/records"
 	recordenvelope "github.com/JochiRaider/cartulary/internal/modules/records/enveloperead"
 )
 
@@ -111,6 +112,24 @@ func (o *NoteAssociations) noteTx(ctx context.Context, tx pgx.Tx, incidentID, no
 		return recordenvelope.Envelope{}, err
 	}
 	if note.IncidentID != incidentID || note.RecordType != "artifact" || note.DeletedAt != nil {
+		return recordenvelope.Envelope{}, pgx.ErrNoRows
+	}
+	if err := validateArtifactViewRecordTx(ctx, tx, noteID, NotesViewSchemaID); err != nil {
+		return recordenvelope.Envelope{}, err
+	}
+	return note, nil
+}
+
+// noteMutationTargetTx classifies the addressed Note of a mutation in
+// REQ-01-705 order. Records reports a missing or deleted record; a record of
+// another incident, type or view is not found. Reads keep noteTx, where a
+// deleted Note is simply not found.
+func (o *NoteAssociations) noteMutationTargetTx(ctx context.Context, tx pgx.Tx, incidentID, noteID uuid.UUID) (recordenvelope.Envelope, error) {
+	note, err := o.mutations.recordEnvelopes.ClassifyTargetTx(ctx, tx, noteID, records.TargetLockNone)
+	if err != nil {
+		return recordenvelope.Envelope{}, err
+	}
+	if note.IncidentID != incidentID || note.RecordType != "artifact" {
 		return recordenvelope.Envelope{}, pgx.ErrNoRows
 	}
 	if err := validateArtifactViewRecordTx(ctx, tx, noteID, NotesViewSchemaID); err != nil {

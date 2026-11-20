@@ -2,9 +2,9 @@ package reporting
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
@@ -21,7 +21,6 @@ import (
 type Service struct {
 	app       *ApplicationService
 	authStore *authn.Store
-	keys      authn.MasterKeys
 	now       func() time.Time
 }
 
@@ -50,31 +49,30 @@ func WithJobs(options RouteOptions, admission reportingJobTransactions, operatio
 	return options
 }
 
+// RegisterRoutes binds the Snapshot and Reporting routes for central admission
+// (Core 01 REQ-01-707): the registry resolves each operation, authenticates by
+// its declared security and admits its path parameters before a handler runs.
 func RegisterRoutes(options RouteOptions) httpapi.RouteRegistrar {
 	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
 		service, err := newService(deps, options)
 		if err != nil {
 			return err
 		}
-		return httpapi.BindOwnerRoutes(mux, deps, "module.reporting", map[string]http.HandlerFunc{
-			"approveRelease":                   service.handleReleasesMember,
-			"createRelease":                    service.handleReleasesCollection,
-			"createSnapshot":                   service.handleSnapshotsCollection,
-			"getRelease":                       service.handleReleasesMember,
-			"getSnapshot":                      service.handleSnapshotsMember,
+		return httpapi.BindAdmittedOwnerRoutes(mux, deps, "module.reporting", map[string]http.HandlerFunc{
+			"approveRelease":                   service.handleApproveRelease,
+			"createRelease":                    service.handleCreateRelease,
+			"createSnapshot":                   service.handleCreateSnapshot,
+			"getRelease":                       service.handleGetRelease,
+			"getSnapshot":                      service.handleGetSnapshot,
 			"getRetainedReportArtifacts":       service.handleRetainedReportArtifacts,
-			"getRetainedReportArtifactContent": service.handleRetainedReportArtifacts,
-			"invalidateRelease":                service.handleReleasesMember,
-			"publishRelease":                   service.handleReleasesMember,
+			"getRetainedReportArtifactContent": service.handleRetainedReportArtifactContent,
+			"invalidateRelease":                service.handleInvalidateRelease,
+			"publishRelease":                   service.handlePublishRelease,
 		})
 	}
 }
 
 func newService(deps httpapi.DependencySet, options RouteOptions) (*Service, error) {
-	keys, err := authn.LoadMasterKeys(deps.Env)
-	if err != nil {
-		return nil, fmt.Errorf("load auth master key: %w", err)
-	}
 	now := deps.Now
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
@@ -116,17 +114,34 @@ func newService(deps httpapi.DependencySet, options RouteOptions) (*Service, err
 	return &Service{
 		app:       app,
 		authStore: authn.NewStore(deps.PostgresHandle()),
-		keys:      keys,
 		now:       now,
 	}, nil
 }
 
-func (s *Service) handleSnapshotsCollection(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
+// admittedPrincipal returns the principal central admission established; its
+// absence is a binding error.
+func admittedPrincipal(r *http.Request) (httpauth.Principal, *httpapi.APIError) {
+	principal, authenticated := httpauth.AdmittedPrincipal(r)
+	if !authenticated {
+		return httpauth.Principal{}, internalAPIError(errors.New("reporting route was not admitted centrally"))
 	}
-	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
+	return principal, nil
+}
+
+// admittedPathUUID returns a uuid path parameter central admission admitted;
+// its absence is a binding error.
+func admittedPathUUID(r *http.Request, name string) (uuid.UUID, *httpapi.APIError) {
+	value, identified := httpapi.PathUUID(r, name)
+	if !identified {
+		return uuid.UUID{}, internalAPIError(errors.New("reporting route was not admitted centrally"))
+	}
+	return value, nil
+}
+
+// handleCreateSnapshot decodes the body before visibility: its incident_id
+// addresses the incident whose visibility is decided (Core 01 §17.3).
+func (s *Service) handleCreateSnapshot(w http.ResponseWriter, r *http.Request) {
+	principal, apiErr := admittedPrincipal(r)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -141,29 +156,21 @@ func (s *Service) handleSnapshotsCollection(w http.ResponseWriter, r *http.Reque
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
 	_ = httpapi.WriteSuccess(w, r, http.StatusAccepted, job)
 }
 
-func (s *Service) handleSnapshotsMember(w http.ResponseWriter, r *http.Request) {
-	snapshotID, ok := parseCollectionMemberPath(r.URL.Path, "/api/v1/snapshots/")
-	if !ok {
-		http.NotFound(w, r)
-		return
-	}
-	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: false})
+func (s *Service) handleGetSnapshot(w http.ResponseWriter, r *http.Request) {
+	principal, apiErr := admittedPrincipal(r)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
+	snapshotID, apiErr := admittedPathUUID(r, "snapshot_id")
+	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -172,19 +179,24 @@ func (s *Service) handleSnapshotsMember(w http.ResponseWriter, r *http.Request) 
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	// REQ-01-707 step 5: the singleton-read query check is route handling,
+	// after the snapshot's visibility.
+	if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, resource)
 }
 
-func (s *Service) handleReleasesCollection(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
+// handleCreateRelease validates the body structurally before visibility,
+// because its snapshot_id addresses the snapshot whose visibility is decided;
+// selector semantics follow visibility (Core 01 §17.3, POST /api/v1/releases).
+func (s *Service) handleCreateRelease(w http.ResponseWriter, r *http.Request) {
+	principal, apiErr := admittedPrincipal(r)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -199,128 +211,83 @@ func (s *Service) handleReleasesCollection(w http.ResponseWriter, r *http.Reques
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
 	_ = httpapi.WriteSuccess(w, r, http.StatusAccepted, job)
 }
 
-func (s *Service) handleReleasesMember(w http.ResponseWriter, r *http.Request) {
-	route, ok := parseReleasePath(r.URL.Path)
-	if !ok {
-		http.NotFound(w, r)
-		return
-	}
-	stateChanging := route.Action != ""
-	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: stateChanging})
+func (s *Service) handleGetRelease(w http.ResponseWriter, r *http.Request) {
+	principal, apiErr := admittedPrincipal(r)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	switch route.Action {
-	case "":
-		if r.Method != http.MethodGet {
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			return
-		}
+	releaseID, apiErr := admittedPathUUID(r, "release_id")
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	resource, apiErr := s.app.GetRelease(r.Context(), principal.User.ID, releaseID)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	// REQ-01-707 step 5: the singleton-read query check is route handling,
+	// after the release's visibility.
+	if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	_ = httpapi.WriteSuccess(w, r, http.StatusOK, resource)
+}
+
+func (s *Service) handleApproveRelease(w http.ResponseWriter, r *http.Request) {
+	s.serveReleaseAction(w, r, s.app.ApproveRelease)
+}
+
+func (s *Service) handlePublishRelease(w http.ResponseWriter, r *http.Request) {
+	s.serveReleaseAction(w, r, s.app.PublishRelease)
+}
+
+func (s *Service) handleInvalidateRelease(w http.ResponseWriter, r *http.Request) {
+	s.serveReleaseAction(w, r, s.app.InvalidateRelease)
+}
+
+// releaseAction runs one release action. It decides the release's visibility
+// and the action's role gate before it reads the request (REQ-01-704).
+type releaseAction func(ctx context.Context, actorUserID uuid.UUID, releaseID uuid.UUID, request func() (ReleaseActionRequest, *httpapi.APIError)) (map[string]any, *httpapi.APIError)
+
+func (s *Service) serveReleaseAction(w http.ResponseWriter, r *http.Request, action releaseAction) {
+	principal, apiErr := admittedPrincipal(r)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	releaseID, apiErr := admittedPathUUID(r, "release_id")
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	// REQ-01-707 step 5: the query and body checks are route handling, after
+	// the release's visibility and role gate.
+	request := func() (ReleaseActionRequest, *httpapi.APIError) {
 		if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
-			writeAPIError(w, r, apiErr)
-			return
+			return ReleaseActionRequest{}, apiErr
 		}
-		resource, apiErr := s.app.GetRelease(r.Context(), principal.User.ID, route.ReleaseID)
-		if apiErr != nil {
-			writeAPIError(w, r, apiErr)
-			return
-		}
-		if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
-			writeAPIError(w, r, internalAPIError(err))
-			return
-		}
-		_ = httpapi.WriteSuccess(w, r, http.StatusOK, resource)
-	case "approve":
-		s.handleApproveRelease(w, r, principal, route.ReleaseID)
-	case "publish":
-		s.handlePublishRelease(w, r, principal, route.ReleaseID)
-	case "invalidate":
-		s.handleInvalidateRelease(w, r, principal, route.ReleaseID)
-	default:
-		http.NotFound(w, r)
+		return DecodeReleaseActionRequest(r.Body)
 	}
-}
-
-func (s *Service) handleApproveRelease(w http.ResponseWriter, r *http.Request, principal httpauth.Principal, releaseID uuid.UUID) {
-	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-	if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-	request, apiErr := DecodeReleaseActionRequest(r.Body)
+	payload, apiErr := action(r.Context(), principal.User.ID, releaseID, request)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	payload, apiErr := s.app.ApproveRelease(r.Context(), principal.User.ID, releaseID, request)
-	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
-		writeAPIError(w, r, internalAPIError(err))
-		return
-	}
-	_ = httpapi.WriteSuccess(w, r, http.StatusOK, payload)
-}
-
-func (s *Service) handlePublishRelease(w http.ResponseWriter, r *http.Request, principal httpauth.Principal, releaseID uuid.UUID) {
-	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-	if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-	request, apiErr := DecodeReleaseActionRequest(r.Body)
-	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-	payload, apiErr := s.app.PublishRelease(r.Context(), principal.User.ID, releaseID, request)
-	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
-		writeAPIError(w, r, internalAPIError(err))
-		return
-	}
-	_ = httpapi.WriteSuccess(w, r, http.StatusOK, payload)
-}
-
-func (s *Service) handleInvalidateRelease(w http.ResponseWriter, r *http.Request, principal httpauth.Principal, releaseID uuid.UUID) {
-	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-	if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-	request, apiErr := DecodeReleaseActionRequest(r.Body)
-	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-	payload, apiErr := s.app.InvalidateRelease(r.Context(), principal.User.ID, releaseID, request)
-	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
@@ -341,45 +308,6 @@ func releaseVisibilityError(apiErr *httpapi.APIError) *httpapi.APIError {
 	return apiErr
 }
 
-func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal, method string, path string) error {
-	return httpauth.SlideSessionIfNeeded(ctx, s.authStore, principal, method, path, s.now)
-}
-
-type releaseRoute struct {
-	ReleaseID uuid.UUID
-	Action    string
-}
-
-func parseReleasePath(path string) (releaseRoute, bool) {
-	rest := strings.TrimPrefix(path, "/api/v1/releases/")
-	if rest == path || rest == "" {
-		return releaseRoute{}, false
-	}
-	parts := strings.Split(rest, "/")
-	releaseID, err := uuid.Parse(parts[0])
-	if err != nil {
-		return releaseRoute{}, false
-	}
-	if len(parts) == 1 {
-		return releaseRoute{ReleaseID: releaseID}, true
-	}
-	if len(parts) == 2 {
-		switch parts[1] {
-		case "approve", "publish", "invalidate":
-			return releaseRoute{ReleaseID: releaseID, Action: parts[1]}, true
-		}
-	}
-	return releaseRoute{}, false
-}
-
-func parseCollectionMemberPath(path string, prefix string) (uuid.UUID, bool) {
-	rest := strings.TrimPrefix(path, prefix)
-	if rest == path || rest == "" || strings.Contains(rest, "/") {
-		return uuid.UUID{}, false
-	}
-	id, err := uuid.Parse(rest)
-	if err != nil {
-		return uuid.UUID{}, false
-	}
-	return id, true
+func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal) error {
+	return httpauth.SlideSessionIfNeeded(ctx, s.authStore, principal, s.now)
 }

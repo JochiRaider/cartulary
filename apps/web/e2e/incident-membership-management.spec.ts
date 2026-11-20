@@ -190,7 +190,7 @@ test("membership management separates confirmed refresh failure exact create rep
     .click();
   await expect(panel.getByText(/Page 1:/u)).toBeVisible();
   expect(fixture.writes).toHaveLength(1);
-  fixture.mutation(503);
+  fixture.mutation(500);
   await panel
     .getByRole("button", { name: "Add membership", exact: true })
     .click();

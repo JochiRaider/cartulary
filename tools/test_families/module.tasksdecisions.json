@@ -626,6 +626,31 @@
       "postgres_isolation": "none"
     },
     {
+      "row_id": "module.tasksdecisions.source_mutations.task_and_decision_revision_window_failures_class_4da3d4a41f",
+      "owner_id": "module.tasksdecisions",
+      "family_id": "module.tasksdecisions.source_mutations",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.tasksdecisions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/tasksdecisions",
+        "tests": [
+          "TestTaskDecisionRevisionWindowClassification_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
       "row_id": "module.tasksdecisions.source_workbook.managed_service_assertions_for_task_requests_and_9063e4f330",
       "owner_id": "module.tasksdecisions",
       "family_id": "module.tasksdecisions.source_workbook",

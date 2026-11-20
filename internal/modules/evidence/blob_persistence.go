@@ -1,22 +1,25 @@
 package evidence
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	evidenceblob "github.com/JochiRaider/cartulary/internal/modules/evidence/internal/blob"
 	evidencepolicy "github.com/JochiRaider/cartulary/internal/modules/evidence/internal/policy"
+	"github.com/JochiRaider/cartulary/internal/modules/records"
 )
 
 type evidenceMeta struct {
 	IncidentID uuid.UUID
 	RowVersion int64
+	// Deleted reports a soft-deleted Evidence record. The attach route returns
+	// an exact committed replay before it reports the deleted state
+	// (REQ-01-705).
+	Deleted bool
 }
 
 type rowVersionConflictError struct {
@@ -28,75 +31,59 @@ type rowVersionConflictError struct {
 func (e *rowVersionConflictError) Error() string { return errRowVersionConflict.Error() }
 func (e *rowVersionConflictError) Unwrap() error { return errRowVersionConflict }
 
+// loadEvidenceMetaForUpdateTx locks the Evidence envelope and subtype row,
+// including a soft-deleted record, so the caller can classify the target in
+// REQ-01-705 order: a missing Evidence record is not found, and a deleted one
+// is reported only after the exact-replay lookup.
 func loadEvidenceMetaForUpdateTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (evidenceMeta, error) {
 	var meta evidenceMeta
+	var deletedAt *time.Time
 	err := tx.QueryRow(ctx, `
-SELECT r.incident_id, r.row_version
+SELECT r.incident_id, r.row_version, r.deleted_at
   FROM records r
   JOIN evidence e ON e.record_id = r.record_id
  WHERE r.record_id = $1
    AND r.record_type = 'evidence'
-   AND r.deleted_at IS NULL
  FOR UPDATE OF r, e
-`, recordID).Scan(&meta.IncidentID, &meta.RowVersion)
+`, recordID).Scan(&meta.IncidentID, &meta.RowVersion, &deletedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return evidenceMeta{}, ErrEvidenceNotFound
 	}
-	return meta, err
+	if err != nil {
+		return evidenceMeta{}, err
+	}
+	meta.Deleted = errors.Is(records.ClassifyTargetPresence(true, deletedAt), records.ErrTargetDeleted)
+	return meta, nil
 }
 
+// loadBlobForUpdateTx locks the Blob through the single Blob authority, which
+// verifies the REQ-02-189a tuple under the lock. A violation fails as
+// errBlobTupleViolation (internal_error) before any caller decision.
 func loadBlobForUpdateTx(ctx context.Context, tx pgx.Tx, objectBlobID uuid.UUID) (blobRecord, error) {
-	row := tx.QueryRow(ctx, `
-SELECT b.object_blob_id, b.incident_id, b.storage_key, b.upload_state, b.byte_size,
-       b.filename_hint, b.content_type_hint, b.expected_sha256_hex,
-       b.observed_size, b.observed_content_type, b.observed_sha256_hex,
-       b.target_expires_at, b.pending_expires_at,
-       COALESCE(l.lease_state, '')
-  FROM object_blobs b
-  LEFT JOIN evidence_object_upload_leases l ON l.object_blob_id = b.object_blob_id
- WHERE b.object_blob_id = $1
- FOR UPDATE OF b
-`, objectBlobID)
-	var record blobRecord
-	if err := row.Scan(&record.ObjectBlobID, &record.IncidentID, &record.StorageKey, &record.UploadState, &record.ByteSize,
-		&record.FilenameHint, &record.ContentTypeHint, &record.ExpectedSHA256Hex,
-		&record.ObservedSize, &record.ObservedContentType, &record.ObservedSHA256Hex,
-		&record.TargetExpiresAt, &record.PendingExpiresAt, &record.UploadLeaseState); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return blobRecord{}, ErrBlobNotFound
-		}
+	locked, err := evidenceblob.LockTx(ctx, tx, objectBlobID, evidenceblob.UpdateWait)
+	if errors.Is(err, evidenceblob.ErrNotFound) {
+		return blobRecord{}, ErrBlobNotFound
+	}
+	if err != nil {
 		return blobRecord{}, err
 	}
-	if err := verifyLiveBlobTupleTx(ctx, tx, objectBlobID); err != nil {
+	record := blobRecord{
+		ObjectBlobID: locked.ObjectBlobID, IncidentID: locked.IncidentID, StorageKey: locked.StorageKey,
+		UploadState: locked.UploadState, ByteSize: locked.ByteSize,
+		FilenameHint: locked.FilenameHint, ContentTypeHint: locked.ContentTypeHint, ExpectedSHA256Hex: locked.ExpectedSHA256Hex,
+		ObservedSize: locked.ObservedSize, ObservedContentType: locked.ObservedContentType, ObservedSHA256Hex: locked.ObservedSHA256Hex,
+		TargetExpiresAt: locked.TargetExpiresAt, PendingExpiresAt: locked.PendingExpiresAt,
+	}
+	if err := tx.QueryRow(ctx, `
+SELECT COALESCE((
+           SELECT l.lease_state
+             FROM evidence_object_upload_leases l
+            WHERE l.object_blob_id = $1
+       ), '')
+`, objectBlobID).Scan(&record.UploadLeaseState); err != nil {
 		return blobRecord{}, err
 	}
 	return record, nil
-}
-
-// verifyLiveBlobTupleTx enforces REQ-02-189a: a live Blob's dependent fields
-// satisfy the same coherent lifecycle tuple as retained portable state. A
-// violation, or an upload_state outside the vocabulary, is a storage invariant
-// failure (internal_error), never a lifecycle transition.
-func verifyLiveBlobTupleTx(ctx context.Context, tx pgx.Tx, objectBlobID uuid.UUID) error {
-	var payload []byte
-	if err := tx.QueryRow(ctx, `SELECT (to_jsonb(b) - 'storage_key')::text FROM object_blobs b WHERE b.object_blob_id = $1`, objectBlobID).Scan(&payload); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return ErrBlobNotFound
-		}
-		return err
-	}
-	// Decode numbers exactly as portable rows are decoded (json.Number).
-	var raw map[string]any
-	decoder := json.NewDecoder(bytes.NewReader(payload))
-	decoder.UseNumber()
-	if err := decoder.Decode(&raw); err != nil {
-		return fmt.Errorf("%w: %s", errBlobTupleViolation, objectBlobID)
-	}
-	row, ok := parsePortableBlobRow(raw)
-	if !ok || !row.lifecycleLegal() {
-		return fmt.Errorf("%w: %s", errBlobTupleViolation, objectBlobID)
-	}
-	return nil
 }
 
 // blobTransitionError is a rejected Blob upload-state transition. The Blob

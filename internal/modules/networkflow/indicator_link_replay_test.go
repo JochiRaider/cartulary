@@ -339,3 +339,213 @@ func (t *linkReplayTransaction) Rollback(ctx context.Context) (crossownertransac
 	}
 	return crossownertransaction.CommitAbsent, nil
 }
+
+// AssertIndicatorLinkCommitBoundary interrupts an indicator link after the
+// coordinator has invoked commit: the request is cancelled, as when a client
+// disconnects, or its deadline expires. The physical COMMIT runs on the real
+// driver with the context the coordinator hands it, so a context that can still
+// be cancelled loses the acknowledgement exactly as in production.
+func AssertIndicatorLinkCommitBoundary(t *testing.T, store *store, incidentID, actorID uuid.UUID, seed map[string]any, configure func(*Module) crossownertransaction.Options) {
+	t.Helper()
+	for _, tc := range []struct {
+		name, interrupt   string
+		abort, clientGone bool
+	}{
+		{name: "client disconnect", interrupt: "cancel"},
+		{name: "deadline", interrupt: "deadline"},
+		{name: "deadline proven absent", interrupt: "deadline", abort: true},
+		// The client disconnects after the deadline was recorded: the outcome
+		// is still the timeout, and its replay lookup must not depend on the
+		// request context that has already ended.
+		{name: "deadline proven absent after client disconnect", interrupt: "deadline", abort: true, clientGone: true},
+		// NF NLSpec, after Table 21-A: a caller cancellation whose commit is
+		// proven absent has no route-local or EXT-REQ-219 response; the route
+		// commits nothing and answers Core 01 REQ-01-706's 500 internal_error.
+		{name: "client disconnect proven absent", interrupt: "cancel", abort: true},
+	} {
+		t.Run("commit boundary "+tc.name, func(t *testing.T) {
+			ctx := t.Context()
+			body := make(map[string]any, len(seed))
+			for key, value := range seed {
+				body[key] = value
+			}
+			clientTxnID := "commit-boundary-" + tc.interrupt
+			if tc.abort {
+				clientTxnID += "-absent"
+			}
+			if tc.clientGone {
+				clientTxnID += "-gone"
+			}
+			body["client_txn_id"] = clientTxnID
+			raw, err := json.Marshal(body)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var members map[string]json.RawMessage
+			if err := json.Unmarshal(raw, &members); err != nil {
+				t.Fatal(err)
+			}
+			request, failure := decodeIndicatorLinkObject(members, store.limits)
+			if failure != nil {
+				t.Fatal(failure)
+			}
+			hash, err := indicatorLinkRequestHash(request)
+			if err != nil {
+				t.Fatal(err)
+			}
+			// The client disconnect cancels the request context. The deadline is
+			// the coordinator's own: it expires while commit is pending and
+			// leaves the request context alive, as in production.
+			requestCtx, cancel := context.WithCancel(ctx)
+			defer cancel()
+			interrupt := func() {}
+			if tc.interrupt == "cancel" {
+				interrupt = cancel
+			}
+			backend := &linkCommitBackend{store: store, beforeCommit: func(tx *linkCommitTransaction) {
+				interrupt()
+				// The physical commit starts only after the operation context ends.
+				<-tx.workCtx.Done()
+				if tc.clientGone {
+					cancel()
+				}
+				if tc.abort {
+					// The server then acknowledges COMMIT as ROLLBACK.
+					if _, err := tx.Tx.Exec(context.Background(), `SELECT 1/0`); err == nil {
+						t.Error("abort statement succeeded")
+					}
+				}
+			}}
+			var fatal []error
+			options := configure(&Module{limits: store.limits})
+			options.Backend = backend
+			options.CancellationGrace = 5 * time.Second
+			if tc.interrupt == "deadline" {
+				// Long enough for the pre-commit work; the commit waits it out.
+				options.Timeout = 3 * time.Second
+			}
+			options.FatalSink = func(err error) { fatal = append(fatal, err) }
+			coordinator, err := crossownertransaction.New(options)
+			if err != nil {
+				t.Fatal(err)
+			}
+			app := indicatorLinkApplication{store: store, incidentAccess: admission.NewChecker(store.pool), receipts: indicatorLinkReceiptAdapter{reader: authn.NewStore(store.pool)}, transactions: coordinator, now: time.Now}
+			outcome, failure := app.execute(requestCtx, incidentID, authn.UserRecord{ID: actorID}, request, hash, "commit-boundary")
+			if len(fatal) != 0 {
+				t.Fatalf("interrupted commit made the process fatal: %v (failure %+v)", fatal, failure)
+			}
+			if backend.begins != 1 || backend.commits != 1 || backend.rollbacks != 0 {
+				t.Fatalf("transaction effects: begins=%d commits=%d rollbacks=%d", backend.begins, backend.commits, backend.rollbacks)
+			}
+			var receipts, audits int
+			if err := store.pool.QueryRow(ctx, `SELECT count(*) FROM route_idempotency WHERE actor_user_id=$1 AND client_txn_id=$2`, actorID, clientTxnID).Scan(&receipts); err != nil {
+				t.Fatal(err)
+			}
+			if err := store.pool.QueryRow(ctx, `SELECT count(*) FROM deployment_admin_audit_events WHERE incident_id=$1 AND client_txn_id=$2`, incidentID, clientTxnID).Scan(&audits); err != nil {
+				t.Fatal(err)
+			}
+			if tc.abort && tc.interrupt == "cancel" {
+				api := semanticHTTPError(failure)
+				if api == nil || api.Status != 500 || api.Code != "internal_error" || api.Retryable || !reflect.DeepEqual(outcome, indicatorLinkOutcome{}) {
+					t.Fatalf("proven absent commit after a client disconnect = %+v, failure %+v", api, failure)
+				}
+				if receipts != 0 || audits != 0 {
+					t.Fatalf("absent commit left receipts=%d audits=%d", receipts, audits)
+				}
+				return
+			}
+			if tc.abort {
+				api := semanticHTTPError(failure)
+				if api == nil || api.Status != 503 || api.Code != "service_unavailable" || !api.Retryable || api.Details["reason_code"] != "extension_transaction_timeout" || !reflect.DeepEqual(outcome, indicatorLinkOutcome{}) {
+					t.Fatalf("proven absent commit after the deadline = %+v, failure %+v", api, failure)
+				}
+				if receipts != 0 || audits != 0 {
+					t.Fatalf("absent commit left receipts=%d audits=%d", receipts, audits)
+				}
+				return
+			}
+			if failure != nil {
+				t.Fatalf("acknowledged commit after interruption failed: %+v", semanticHTTPError(failure))
+			}
+			if outcome.binding.BindingID == "" || receipts != 1 || audits != 1 {
+				t.Fatalf("acknowledged commit: binding=%q receipts=%d audits=%d", outcome.binding.BindingID, receipts, audits)
+			}
+		})
+	}
+}
+
+// linkCommitBackend opens real link transactions with the owner's logical
+// capabilities. Its commit classification follows the production adapter:
+// only a ROLLBACK acknowledgement proves absence without an owner proof.
+type linkCommitBackend struct {
+	store                      *store
+	beforeCommit               func(*linkCommitTransaction)
+	begins, commits, rollbacks int
+}
+
+func (b *linkCommitBackend) Begin(ctx context.Context, _ []crossownertransaction.Descriptor) (crossownertransaction.Transaction, error) {
+	b.begins++
+	tx, err := b.store.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return &linkCommitTransaction{Tx: tx, backend: b}, nil
+}
+
+type linkCommitTransaction struct {
+	pgx.Tx
+	backend *linkCommitBackend
+	workCtx context.Context
+}
+
+func (*linkCommitTransaction) AcquireSerializationLock(context.Context, crossownertransaction.OrderedSerializationKey) error {
+	return nil
+}
+func (t *linkCommitTransaction) ReadCapability(string) (crossownertransaction.ReadCapability, error) {
+	return &indicatorLinkReadAccess{tx: t.Tx, store: t.backend.store}, nil
+}
+func (t *linkCommitTransaction) WriteCapability(string) (crossownertransaction.WriteCapability, error) {
+	return capturingLinkWriteAccess{indicatorLinkWriteAccess: &indicatorLinkWriteAccess{tx: t.Tx, store: t.backend.store}, transaction: t}, nil
+}
+func (t *linkCommitTransaction) PreconditionCapability() (crossownertransaction.PreconditionCapability, error) {
+	return t, nil
+}
+func (*linkCommitTransaction) FinalizationCapability() (crossownertransaction.FinalizationCapability, error) {
+	return nil, crossownertransaction.ErrUnavailable
+}
+func (*linkCommitTransaction) PreconditionScope() string { return "shared.preconditions" }
+func (t *linkCommitTransaction) IndicatorLinkAdmission() (crossownertransaction.ReadCapability, error) {
+	return t.ReadCapability(IndicatorLinkParticipantID)
+}
+func (t *linkCommitTransaction) Commit(ctx context.Context) (crossownertransaction.CommitOutcome, error) {
+	t.backend.commits++
+	t.backend.beforeCommit(t)
+	err := t.Tx.Commit(ctx)
+	switch {
+	case err == nil:
+		return crossownertransaction.CommitProven, nil
+	case errors.Is(err, pgx.ErrTxCommitRollback):
+		return crossownertransaction.CommitAbsent, err
+	default:
+		return crossownertransaction.CommitUnknown, err
+	}
+}
+func (t *linkCommitTransaction) Rollback(ctx context.Context) (crossownertransaction.CommitOutcome, error) {
+	t.backend.rollbacks++
+	if err := t.Tx.Rollback(ctx); err != nil {
+		return crossownertransaction.CommitUnknown, err
+	}
+	return crossownertransaction.CommitAbsent, nil
+}
+
+// capturingLinkWriteAccess records the operation context the coordinator
+// hands the write, so the test can wait for that context to end.
+type capturingLinkWriteAccess struct {
+	*indicatorLinkWriteAccess
+	transaction *linkCommitTransaction
+}
+
+func (a capturingLinkWriteAccess) WriteIndicatorLink(ctx context.Context, mutation indicatorLinkMutation) (indicatorLinkCommitResult, error) {
+	a.transaction.workCtx = ctx
+	return a.indicatorLinkWriteAccess.WriteIndicatorLink(ctx, mutation)
+}

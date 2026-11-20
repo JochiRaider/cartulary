@@ -260,6 +260,10 @@ func (s *commandStore) applyDeleteRestore(ctx context.Context, command DeleteRes
 	if err != nil {
 		return DeleteRestoreResult{}, err
 	}
+	dependents, err := s.captureDependentsTx(ctx, tx, projectionRecords, record.RecordID)
+	if err != nil {
+		return DeleteRestoreResult{}, err
+	}
 	nextRowVersion, err := s.envelopes.SetDeleteStateTx(ctx, tx, record.RecordID, actorID, now, deleting)
 	if err != nil {
 		return DeleteRestoreResult{}, adaptEnvelopeError(err)
@@ -336,6 +340,9 @@ func (s *commandStore) applyDeleteRestore(ctx context.Context, command DeleteRes
 		return DeleteRestoreResult{}, err
 	}
 	if err := s.recordPublications.AppendRecordChangedTx(ctx, tx, publication); err != nil {
+		return DeleteRestoreResult{}, err
+	}
+	if err := s.publishDependentChangesTx(ctx, tx, changeSetID, dependents); err != nil {
 		return DeleteRestoreResult{}, err
 	}
 	current, err := s.loadDeleteRestoreRecordTx(ctx, tx, recordID, true)

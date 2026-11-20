@@ -140,3 +140,21 @@ export function planIncidentCollaborationSessionMessage(input: {
     ? { kind: "ignore", nextStreamSeq: sequence }
     : { kind: "message", message, nextStreamSeq: sequence };
 }
+
+/** REQ-03-299a reconnect backoff: 1 s base, doubling, 30 s cap. */
+export const reconnectBaseDelayMs = 1_000;
+export const reconnectMaxDelayMs = 30_000;
+
+/** Upper bound of the delay before consecutive reconnect attempt `attempt` (0-based). */
+export function reconnectDelayBoundMs(attempt: number): number {
+  const exponent = Math.min(Math.max(0, Math.trunc(attempt)), 16);
+  return Math.min(reconnectMaxDelayMs, reconnectBaseDelayMs * 2 ** exponent);
+}
+
+/** Full jitter: a delay drawn uniformly from zero to the attempt's bound. */
+export function reconnectDelayMs(
+  attempt: number,
+  random: () => number = Math.random,
+): number {
+  return Math.floor(random() * reconnectDelayBoundMs(attempt));
+}

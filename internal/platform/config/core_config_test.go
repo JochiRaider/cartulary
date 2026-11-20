@@ -137,12 +137,34 @@ func TestConfigDiscovery_Unit(t *testing.T) {
 			`public_origin = "https://localhost:5173?debug=true"`,
 			`public_origin = "https://localhost:5173#fragment"`,
 			`public_origin = "https://user@localhost:5173"`,
+			// Core 04 REQ-04-110: only the browser's ASCII Origin
+			// serialization is admitted, and it is never rewritten.
+			`public_origin = "https://LOCALHOST:5173"`,
+			`public_origin = "HTTPS://localhost:5173"`,
+			`public_origin = "https://localhost:443"`,
+			`public_origin = "https://localhost:"`,
+			`public_origin = "https://localhost:05173"`,
+			`public_origin = "https://localhost:65536"`,
+			`public_origin = "https://bücher.example"`,
+			`public_origin = "https://[::A]:5173"`,
 		}
 		for _, replacement := range cases {
 			t.Run(replacement, func(t *testing.T) {
 				content := strings.ReplaceAll(string(fixtures.MustRead("config", "valid.toml")), `public_origin = "https://localhost:5173"`, replacement)
 				err := loadInvalidConfig(t, content, nil)
 				requireDiagnostic(t, err, "application.public_origin", "invalid_origin")
+			})
+		}
+	})
+
+	t.Run("admits a canonical application public origin unchanged", func(t *testing.T) {
+		for _, origin := range []string{"https://localhost:5173", "https://xn--bcher-kva.example", "https://[::1]:5173", "https://cartulary.example.test"} {
+			t.Run(origin, func(t *testing.T) {
+				content := strings.ReplaceAll(string(fixtures.MustRead("config", "valid.toml")), `public_origin = "https://localhost:5173"`, `public_origin = "`+origin+`"`)
+				cfg := mustLoadConfig(t, content, nil)
+				if cfg.Application.PublicOrigin != origin {
+					t.Fatalf("public origin = %q, want %q", cfg.Application.PublicOrigin, origin)
+				}
 			})
 		}
 	})
@@ -746,6 +768,33 @@ func TestResourceLimits_Unit(t *testing.T) {
 				})
 				requireDiagnostic(t, err, tc.path, "unknown_key")
 			})
+		}
+	})
+
+	t.Run("bounds the runtime database pool size", func(t *testing.T) {
+		const path = "limits.database.max_runtime_pool_connections"
+		const envKey = "CARTULARY__LIMITS__DATABASE__MAX_RUNTIME_POOL_CONNECTIONS"
+		base := string(fixtures.MustRead("config", "valid.toml"))
+		if got := mustLoadConfig(t, base, nil).Limits.Database.MaxRuntimePoolConnections; got != 32 {
+			t.Fatalf("omitted %s = %d, want 32", path, got)
+		}
+		tomlValue := func(value string) string {
+			return base + "\n[limits.database]\nmax_runtime_pool_connections = " + value + "\n"
+		}
+		for _, value := range []int64{4, 1024} {
+			for _, cfg := range []document{mustLoadConfig(t, tomlValue(fmt.Sprint(value)), nil), mustLoadConfig(t, base, map[string]string{envKey: fmt.Sprint(value)})} {
+				if got := cfg.Limits.Database.MaxRuntimePoolConnections; got != value {
+					t.Fatalf("configured %s = %d, want %d", path, got, value)
+				}
+			}
+		}
+		for value, reason := range map[int64]string{3: "value_below_minimum", 1025: "value_above_maximum"} {
+			requireDiagnostic(t, loadInvalidConfig(t, tomlValue(fmt.Sprint(value)), nil), path, reason)
+			requireDiagnostic(t, loadInvalidConfig(t, base, map[string]string{envKey: fmt.Sprint(value)}), path, reason)
+		}
+		for _, raw := range []string{"0", "-1", `"32"`, "32.5", "true"} {
+			loadInvalidConfig(t, tomlValue(raw), nil)
+			loadInvalidConfig(t, base, map[string]string{envKey: raw})
 		}
 	})
 

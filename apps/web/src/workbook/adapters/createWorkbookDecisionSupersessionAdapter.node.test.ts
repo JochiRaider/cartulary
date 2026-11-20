@@ -59,9 +59,9 @@ it("Decision transport validates complete receipts and distinguishes malformed s
   const p = port(),
     attempt = p.capture(decisionReview(), "captured");
   for (const code of [
-    "row_version_conflict",
+    "illegal_transition",
     "client_txn_conflict",
-    "incident_closed",
+    "credential_bootstrap_rejected",
   ]) {
     vi.stubGlobal(
       "fetch",

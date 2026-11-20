@@ -225,22 +225,46 @@ it("Observation late settlement survives Inspector disposal but cannot complete 
 });
 
 it("Observation stale child and unavailable targets stay local while incident access loss suspends recovery", async () => {
-  for (const code of [
-    "row_version_conflict",
-    "resolved_indicator_not_found",
-    "indicator_observation_not_found",
-    "incident_not_found",
-  ]) {
+  for (const [failure, accessLost] of [
+    [
+      {
+        kind: "stale_target",
+        publicCode: "row_version_conflict",
+        message: "Review current state",
+      },
+      false,
+    ],
+    [
+      {
+        kind: "stale_target",
+        publicCode: "resolved_indicator_not_found",
+        message: "Review current state",
+      },
+      false,
+    ],
+    [
+      {
+        kind: "stale_target",
+        publicCode: "indicator_observation_not_found",
+        message: "Review current state",
+      },
+      false,
+    ],
+    [
+      {
+        kind: "authorization_lost",
+        publicCode: "authorization_denied",
+        message: "Access lost",
+      },
+      true,
+    ],
+  ] as const) {
     const t = observationOwnerFixture(),
       lost = vi.fn();
     t.owner.configure(t.reader, t.transport, lost);
     t.transport.send.mockResolvedValueOnce({
       kind: "rejected",
-      failure: {
-        kind: "stale_target",
-        publicCode: code,
-        message: "Review current state",
-      },
+      failure,
     });
     const attempt = t.admit({
       action: "resolve",
@@ -248,11 +272,8 @@ it("Observation stale child and unavailable targets stay local while incident ac
       targetId: observationTargetId,
     });
     await t.owner.execute(attempt);
-    expect(lost).toHaveBeenCalledTimes(code === "incident_not_found" ? 1 : 0);
-    expect(t.owner.getSnapshot().authority !== null).toBe(
-      code !== "incident_not_found",
-    );
-    if (code !== "incident_not_found")
-      expect(t.entry()?.phase).toBe("rejected");
+    expect(lost).toHaveBeenCalledTimes(accessLost ? 1 : 0);
+    expect(t.owner.getSnapshot().authority !== null).toBe(!accessLost);
+    if (!accessLost) expect(t.entry()?.phase).toBe("rejected");
   }
 });

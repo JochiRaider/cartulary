@@ -2,41 +2,102 @@
 
 package networkflowroutes
 
+// Route is one Network Flow operation projected from its route contract for
+// the public route registry: owner, availability, declared security and
+// path-parameter admission in template order. OwnerGate marks Network Flow's
+// own admission order (NF NLSpec Table 21-C): the owner gate runs after the
+// parameters before it and before those marked AfterOwnerGate. Error codes are
+// governed by ErrorRegistry, not by OpenAPI declarations.
 type Route struct {
 	RouteID         string
+	OwnerID         string
+	Availability    string
 	Method          string
 	Path            string
 	Pattern         string
+	StateChanging   bool
 	SuccessStatuses []int
+	Security        [][]string
+	OwnerGate       bool
+	ErrorRegistry   string
+	PathParameters  []PathParameter
+}
+
+// PathParameter is one path parameter's declared format or pattern, its
+// position relative to the owner gate, and the not-found response a malformed
+// value receives.
+type PathParameter struct {
+	Name            string
+	Format          string
+	Pattern         string
+	AfterOwnerGate  bool
+	NotFoundCode    string
+	NotFoundStatus  int
+	NotFoundDetails map[string]any
 }
 
 var catalog = []Route{
-	{RouteID: "nf.graph_views.contributors.query", Method: "POST", Path: "/api/v1/incidents/{incident_id}/network-flow/graph-views/{graph_view_id}/contributors/query", Pattern: "POST /api/v1/incidents/{incident_id}/network-flow/graph-views/{graph_view_id}/contributors/query", SuccessStatuses: []int{200}},
-	{RouteID: "nf.graph_views.create", Method: "POST", Path: "/api/v1/incidents/{incident_id}/network-flow/graph-views", Pattern: "POST /api/v1/incidents/{incident_id}/network-flow/graph-views", SuccessStatuses: []int{202}},
-	{RouteID: "nf.graph_views.delete", Method: "DELETE", Path: "/api/v1/incidents/{incident_id}/network-flow/graph-views/{graph_view_id}", Pattern: "DELETE /api/v1/incidents/{incident_id}/network-flow/graph-views/{graph_view_id}", SuccessStatuses: []int{204}},
-	{RouteID: "nf.graph_views.get", Method: "GET", Path: "/api/v1/incidents/{incident_id}/network-flow/graph-views/{graph_view_id}", Pattern: "GET /api/v1/incidents/{incident_id}/network-flow/graph-views/{graph_view_id}", SuccessStatuses: []int{200}},
-	{RouteID: "nf.graph_views.list", Method: "GET", Path: "/api/v1/incidents/{incident_id}/network-flow/graph-views", Pattern: "GET /api/v1/incidents/{incident_id}/network-flow/graph-views", SuccessStatuses: []int{200}},
-	{RouteID: "nf.graph_views.patch", Method: "PATCH", Path: "/api/v1/incidents/{incident_id}/network-flow/graph-views/{graph_view_id}", Pattern: "PATCH /api/v1/incidents/{incident_id}/network-flow/graph-views/{graph_view_id}", SuccessStatuses: []int{200}},
-	{RouteID: "nf.graph_views.refresh", Method: "POST", Path: "/api/v1/incidents/{incident_id}/network-flow/graph-views/{graph_view_id}/refresh", Pattern: "POST /api/v1/incidents/{incident_id}/network-flow/graph-views/{graph_view_id}/refresh", SuccessStatuses: []int{202}},
-	{RouteID: "nf.graph_views.result", Method: "GET", Path: "/api/v1/incidents/{incident_id}/network-flow/graph-views/{graph_view_id}/result", Pattern: "GET /api/v1/incidents/{incident_id}/network-flow/graph-views/{graph_view_id}/result", SuccessStatuses: []int{200}},
-	{RouteID: "nf.graphs.contributors.query", Method: "POST", Path: "/api/v1/incidents/{incident_id}/network-flow/graphs/contributors/query", Pattern: "POST /api/v1/incidents/{incident_id}/network-flow/graphs/contributors/query", SuccessStatuses: []int{200}},
-	{RouteID: "nf.graphs.query", Method: "POST", Path: "/api/v1/incidents/{incident_id}/network-flow/graphs/query", Pattern: "POST /api/v1/incidents/{incident_id}/network-flow/graphs/query", SuccessStatuses: []int{200}},
-	{RouteID: "nf.indicator_links.create", Method: "POST", Path: "/api/v1/incidents/{incident_id}/network-flow/indicator-links", Pattern: "POST /api/v1/incidents/{incident_id}/network-flow/indicator-links", SuccessStatuses: []int{200, 201}},
-	{RouteID: "nf.rejected_rows.query", Method: "POST", Path: "/api/v1/incidents/{incident_id}/network-flow/tables/{network_flow_table_id}/rejected-rows/query", Pattern: "POST /api/v1/incidents/{incident_id}/network-flow/tables/{network_flow_table_id}/rejected-rows/query", SuccessStatuses: []int{200}},
-	{RouteID: "nf.rows.query", Method: "POST", Path: "/api/v1/incidents/{incident_id}/network-flow/rows/query", Pattern: "POST /api/v1/incidents/{incident_id}/network-flow/rows/query", SuccessStatuses: []int{200}},
-	{RouteID: "nf.source_profiles.list", Method: "GET", Path: "/api/v1/incidents/{incident_id}/network-flow/source-profiles", Pattern: "GET /api/v1/incidents/{incident_id}/network-flow/source-profiles", SuccessStatuses: []int{200}},
-	{RouteID: "nf.tables.delete", Method: "DELETE", Path: "/api/v1/incidents/{incident_id}/network-flow/tables/{network_flow_table_id}", Pattern: "DELETE /api/v1/incidents/{incident_id}/network-flow/tables/{network_flow_table_id}", SuccessStatuses: []int{200}},
-	{RouteID: "nf.tables.get", Method: "GET", Path: "/api/v1/incidents/{incident_id}/network-flow/tables/{network_flow_table_id}", Pattern: "GET /api/v1/incidents/{incident_id}/network-flow/tables/{network_flow_table_id}", SuccessStatuses: []int{200}},
-	{RouteID: "nf.tables.list", Method: "GET", Path: "/api/v1/incidents/{incident_id}/network-flow/tables", Pattern: "GET /api/v1/incidents/{incident_id}/network-flow/tables", SuccessStatuses: []int{200}},
-	{RouteID: "nf.tables.patch", Method: "PATCH", Path: "/api/v1/incidents/{incident_id}/network-flow/tables/{network_flow_table_id}", Pattern: "PATCH /api/v1/incidents/{incident_id}/network-flow/tables/{network_flow_table_id}", SuccessStatuses: []int{200}},
-	{RouteID: "nf.tables.query", Method: "POST", Path: "/api/v1/incidents/{incident_id}/network-flow/tables/{network_flow_table_id}/query", Pattern: "POST /api/v1/incidents/{incident_id}/network-flow/tables/{network_flow_table_id}/query", SuccessStatuses: []int{200}},
+	{RouteID: "nf.graph_views.contributors.query", OwnerID: "module.networkflow", Availability: "network_flow_activity", Method: "POST", Path: "/api/v1/incidents/{incident_id}/network-flow/graph-views/{graph_view_id}/contributors/query", Pattern: "POST /api/v1/incidents/{incident_id}/network-flow/graph-views/{graph_view_id}/contributors/query", StateChanging: false, SuccessStatuses: []int{200}, Security: [][]string{[]string{"bearerSession"}, []string{"sessionCookie"}}, OwnerGate: true, ErrorRegistry: "contracts/network-flow/errors.v1.json", PathParameters: []PathParameter{{Name: "incident_id", Format: "uuid", Pattern: "", AfterOwnerGate: false, NotFoundCode: "incident_not_found", NotFoundStatus: 404, NotFoundDetails: map[string]any{}}, {Name: "graph_view_id", Format: "", Pattern: "^nfgv_[a-f0-9]{32}$", AfterOwnerGate: true, NotFoundCode: "network_flow_graph_view_not_found", NotFoundStatus: 404, NotFoundDetails: map[string]any{"field": "graph_view_id", "reason_code": "not_found", "retry_action": "refresh_resource"}}}},
+	{RouteID: "nf.graph_views.create", OwnerID: "module.networkflow", Availability: "network_flow_activity", Method: "POST", Path: "/api/v1/incidents/{incident_id}/network-flow/graph-views", Pattern: "POST /api/v1/incidents/{incident_id}/network-flow/graph-views", StateChanging: true, SuccessStatuses: []int{202}, Security: [][]string{[]string{"bearerSession"}, []string{"csrfCookie", "csrfHeader", "sessionCookie"}}, OwnerGate: true, ErrorRegistry: "contracts/network-flow/errors.v1.json", PathParameters: []PathParameter{{Name: "incident_id", Format: "uuid", Pattern: "", AfterOwnerGate: false, NotFoundCode: "incident_not_found", NotFoundStatus: 404, NotFoundDetails: map[string]any{}}}},
+	{RouteID: "nf.graph_views.delete", OwnerID: "module.networkflow", Availability: "network_flow_activity", Method: "DELETE", Path: "/api/v1/incidents/{incident_id}/network-flow/graph-views/{graph_view_id}", Pattern: "DELETE /api/v1/incidents/{incident_id}/network-flow/graph-views/{graph_view_id}", StateChanging: true, SuccessStatuses: []int{204}, Security: [][]string{[]string{"bearerSession"}, []string{"csrfCookie", "csrfHeader", "sessionCookie"}}, OwnerGate: true, ErrorRegistry: "contracts/network-flow/errors.v1.json", PathParameters: []PathParameter{{Name: "incident_id", Format: "uuid", Pattern: "", AfterOwnerGate: false, NotFoundCode: "incident_not_found", NotFoundStatus: 404, NotFoundDetails: map[string]any{}}, {Name: "graph_view_id", Format: "", Pattern: "^nfgv_[a-f0-9]{32}$", AfterOwnerGate: true, NotFoundCode: "network_flow_graph_view_not_found", NotFoundStatus: 404, NotFoundDetails: map[string]any{"field": "graph_view_id", "reason_code": "not_found", "retry_action": "refresh_resource"}}}},
+	{RouteID: "nf.graph_views.get", OwnerID: "module.networkflow", Availability: "network_flow_activity", Method: "GET", Path: "/api/v1/incidents/{incident_id}/network-flow/graph-views/{graph_view_id}", Pattern: "GET /api/v1/incidents/{incident_id}/network-flow/graph-views/{graph_view_id}", StateChanging: false, SuccessStatuses: []int{200}, Security: [][]string{[]string{"bearerSession"}, []string{"sessionCookie"}}, OwnerGate: true, ErrorRegistry: "contracts/network-flow/errors.v1.json", PathParameters: []PathParameter{{Name: "incident_id", Format: "uuid", Pattern: "", AfterOwnerGate: false, NotFoundCode: "incident_not_found", NotFoundStatus: 404, NotFoundDetails: map[string]any{}}, {Name: "graph_view_id", Format: "", Pattern: "^nfgv_[a-f0-9]{32}$", AfterOwnerGate: true, NotFoundCode: "network_flow_graph_view_not_found", NotFoundStatus: 404, NotFoundDetails: map[string]any{"field": "graph_view_id", "reason_code": "not_found", "retry_action": "refresh_resource"}}}},
+	{RouteID: "nf.graph_views.list", OwnerID: "module.networkflow", Availability: "network_flow_activity", Method: "GET", Path: "/api/v1/incidents/{incident_id}/network-flow/graph-views", Pattern: "GET /api/v1/incidents/{incident_id}/network-flow/graph-views", StateChanging: false, SuccessStatuses: []int{200}, Security: [][]string{[]string{"bearerSession"}, []string{"sessionCookie"}}, OwnerGate: true, ErrorRegistry: "contracts/network-flow/errors.v1.json", PathParameters: []PathParameter{{Name: "incident_id", Format: "uuid", Pattern: "", AfterOwnerGate: false, NotFoundCode: "incident_not_found", NotFoundStatus: 404, NotFoundDetails: map[string]any{}}}},
+	{RouteID: "nf.graph_views.patch", OwnerID: "module.networkflow", Availability: "network_flow_activity", Method: "PATCH", Path: "/api/v1/incidents/{incident_id}/network-flow/graph-views/{graph_view_id}", Pattern: "PATCH /api/v1/incidents/{incident_id}/network-flow/graph-views/{graph_view_id}", StateChanging: true, SuccessStatuses: []int{200}, Security: [][]string{[]string{"bearerSession"}, []string{"csrfCookie", "csrfHeader", "sessionCookie"}}, OwnerGate: true, ErrorRegistry: "contracts/network-flow/errors.v1.json", PathParameters: []PathParameter{{Name: "incident_id", Format: "uuid", Pattern: "", AfterOwnerGate: false, NotFoundCode: "incident_not_found", NotFoundStatus: 404, NotFoundDetails: map[string]any{}}, {Name: "graph_view_id", Format: "", Pattern: "^nfgv_[a-f0-9]{32}$", AfterOwnerGate: true, NotFoundCode: "network_flow_graph_view_not_found", NotFoundStatus: 404, NotFoundDetails: map[string]any{"field": "graph_view_id", "reason_code": "not_found", "retry_action": "refresh_resource"}}}},
+	{RouteID: "nf.graph_views.refresh", OwnerID: "module.networkflow", Availability: "network_flow_activity", Method: "POST", Path: "/api/v1/incidents/{incident_id}/network-flow/graph-views/{graph_view_id}/refresh", Pattern: "POST /api/v1/incidents/{incident_id}/network-flow/graph-views/{graph_view_id}/refresh", StateChanging: true, SuccessStatuses: []int{202}, Security: [][]string{[]string{"bearerSession"}, []string{"csrfCookie", "csrfHeader", "sessionCookie"}}, OwnerGate: true, ErrorRegistry: "contracts/network-flow/errors.v1.json", PathParameters: []PathParameter{{Name: "incident_id", Format: "uuid", Pattern: "", AfterOwnerGate: false, NotFoundCode: "incident_not_found", NotFoundStatus: 404, NotFoundDetails: map[string]any{}}, {Name: "graph_view_id", Format: "", Pattern: "^nfgv_[a-f0-9]{32}$", AfterOwnerGate: true, NotFoundCode: "network_flow_graph_view_not_found", NotFoundStatus: 404, NotFoundDetails: map[string]any{"field": "graph_view_id", "reason_code": "not_found", "retry_action": "refresh_resource"}}}},
+	{RouteID: "nf.graph_views.result", OwnerID: "module.networkflow", Availability: "network_flow_activity", Method: "GET", Path: "/api/v1/incidents/{incident_id}/network-flow/graph-views/{graph_view_id}/result", Pattern: "GET /api/v1/incidents/{incident_id}/network-flow/graph-views/{graph_view_id}/result", StateChanging: false, SuccessStatuses: []int{200}, Security: [][]string{[]string{"bearerSession"}, []string{"sessionCookie"}}, OwnerGate: true, ErrorRegistry: "contracts/network-flow/errors.v1.json", PathParameters: []PathParameter{{Name: "incident_id", Format: "uuid", Pattern: "", AfterOwnerGate: false, NotFoundCode: "incident_not_found", NotFoundStatus: 404, NotFoundDetails: map[string]any{}}, {Name: "graph_view_id", Format: "", Pattern: "^nfgv_[a-f0-9]{32}$", AfterOwnerGate: true, NotFoundCode: "network_flow_graph_view_not_found", NotFoundStatus: 404, NotFoundDetails: map[string]any{"field": "graph_view_id", "reason_code": "not_found", "retry_action": "refresh_resource"}}}},
+	{RouteID: "nf.graphs.contributors.query", OwnerID: "module.networkflow", Availability: "network_flow_activity", Method: "POST", Path: "/api/v1/incidents/{incident_id}/network-flow/graphs/contributors/query", Pattern: "POST /api/v1/incidents/{incident_id}/network-flow/graphs/contributors/query", StateChanging: false, SuccessStatuses: []int{200}, Security: [][]string{[]string{"bearerSession"}, []string{"sessionCookie"}}, OwnerGate: true, ErrorRegistry: "contracts/network-flow/errors.v1.json", PathParameters: []PathParameter{{Name: "incident_id", Format: "uuid", Pattern: "", AfterOwnerGate: false, NotFoundCode: "incident_not_found", NotFoundStatus: 404, NotFoundDetails: map[string]any{}}}},
+	{RouteID: "nf.graphs.query", OwnerID: "module.networkflow", Availability: "network_flow_activity", Method: "POST", Path: "/api/v1/incidents/{incident_id}/network-flow/graphs/query", Pattern: "POST /api/v1/incidents/{incident_id}/network-flow/graphs/query", StateChanging: false, SuccessStatuses: []int{200}, Security: [][]string{[]string{"bearerSession"}, []string{"sessionCookie"}}, OwnerGate: true, ErrorRegistry: "contracts/network-flow/errors.v1.json", PathParameters: []PathParameter{{Name: "incident_id", Format: "uuid", Pattern: "", AfterOwnerGate: false, NotFoundCode: "incident_not_found", NotFoundStatus: 404, NotFoundDetails: map[string]any{}}}},
+	{RouteID: "nf.indicator_links.create", OwnerID: "module.networkflow", Availability: "network_flow_activity", Method: "POST", Path: "/api/v1/incidents/{incident_id}/network-flow/indicator-links", Pattern: "POST /api/v1/incidents/{incident_id}/network-flow/indicator-links", StateChanging: true, SuccessStatuses: []int{200, 201}, Security: [][]string{[]string{"bearerSession"}, []string{"csrfCookie", "csrfHeader", "sessionCookie"}}, OwnerGate: true, ErrorRegistry: "contracts/network-flow/errors.v1.json", PathParameters: []PathParameter{{Name: "incident_id", Format: "uuid", Pattern: "", AfterOwnerGate: false, NotFoundCode: "incident_not_found", NotFoundStatus: 404, NotFoundDetails: map[string]any{}}}},
+	{RouteID: "nf.rejected_rows.query", OwnerID: "module.networkflow", Availability: "network_flow_activity", Method: "POST", Path: "/api/v1/incidents/{incident_id}/network-flow/tables/{network_flow_table_id}/rejected-rows/query", Pattern: "POST /api/v1/incidents/{incident_id}/network-flow/tables/{network_flow_table_id}/rejected-rows/query", StateChanging: false, SuccessStatuses: []int{200}, Security: [][]string{[]string{"bearerSession"}, []string{"sessionCookie"}}, OwnerGate: true, ErrorRegistry: "contracts/network-flow/errors.v1.json", PathParameters: []PathParameter{{Name: "incident_id", Format: "uuid", Pattern: "", AfterOwnerGate: false, NotFoundCode: "incident_not_found", NotFoundStatus: 404, NotFoundDetails: map[string]any{}}, {Name: "network_flow_table_id", Format: "", Pattern: "^nft_[a-f0-9]{32}$", AfterOwnerGate: true, NotFoundCode: "network_flow_table_not_found", NotFoundStatus: 404, NotFoundDetails: map[string]any{"allowed_states": []any{"active"}, "network_flow_table_id": nil, "reason_code": "not_found", "retry_action": "refresh_resource", "table_status": nil}}}},
+	{RouteID: "nf.rows.query", OwnerID: "module.networkflow", Availability: "network_flow_activity", Method: "POST", Path: "/api/v1/incidents/{incident_id}/network-flow/rows/query", Pattern: "POST /api/v1/incidents/{incident_id}/network-flow/rows/query", StateChanging: false, SuccessStatuses: []int{200}, Security: [][]string{[]string{"bearerSession"}, []string{"sessionCookie"}}, OwnerGate: true, ErrorRegistry: "contracts/network-flow/errors.v1.json", PathParameters: []PathParameter{{Name: "incident_id", Format: "uuid", Pattern: "", AfterOwnerGate: false, NotFoundCode: "incident_not_found", NotFoundStatus: 404, NotFoundDetails: map[string]any{}}}},
+	{RouteID: "nf.source_profiles.list", OwnerID: "module.networkflow", Availability: "network_flow_activity", Method: "GET", Path: "/api/v1/incidents/{incident_id}/network-flow/source-profiles", Pattern: "GET /api/v1/incidents/{incident_id}/network-flow/source-profiles", StateChanging: false, SuccessStatuses: []int{200}, Security: [][]string{[]string{"bearerSession"}, []string{"sessionCookie"}}, OwnerGate: true, ErrorRegistry: "contracts/network-flow/errors.v1.json", PathParameters: []PathParameter{{Name: "incident_id", Format: "uuid", Pattern: "", AfterOwnerGate: false, NotFoundCode: "incident_not_found", NotFoundStatus: 404, NotFoundDetails: map[string]any{}}}},
+	{RouteID: "nf.tables.delete", OwnerID: "module.networkflow", Availability: "network_flow_activity", Method: "DELETE", Path: "/api/v1/incidents/{incident_id}/network-flow/tables/{network_flow_table_id}", Pattern: "DELETE /api/v1/incidents/{incident_id}/network-flow/tables/{network_flow_table_id}", StateChanging: true, SuccessStatuses: []int{200}, Security: [][]string{[]string{"bearerSession"}, []string{"csrfCookie", "csrfHeader", "sessionCookie"}}, OwnerGate: true, ErrorRegistry: "contracts/network-flow/errors.v1.json", PathParameters: []PathParameter{{Name: "incident_id", Format: "uuid", Pattern: "", AfterOwnerGate: false, NotFoundCode: "incident_not_found", NotFoundStatus: 404, NotFoundDetails: map[string]any{}}, {Name: "network_flow_table_id", Format: "", Pattern: "^nft_[a-f0-9]{32}$", AfterOwnerGate: true, NotFoundCode: "network_flow_table_not_found", NotFoundStatus: 404, NotFoundDetails: map[string]any{"allowed_states": []any{"active"}, "network_flow_table_id": nil, "reason_code": "not_found", "retry_action": "refresh_resource", "table_status": nil}}}},
+	{RouteID: "nf.tables.get", OwnerID: "module.networkflow", Availability: "network_flow_activity", Method: "GET", Path: "/api/v1/incidents/{incident_id}/network-flow/tables/{network_flow_table_id}", Pattern: "GET /api/v1/incidents/{incident_id}/network-flow/tables/{network_flow_table_id}", StateChanging: false, SuccessStatuses: []int{200}, Security: [][]string{[]string{"bearerSession"}, []string{"sessionCookie"}}, OwnerGate: true, ErrorRegistry: "contracts/network-flow/errors.v1.json", PathParameters: []PathParameter{{Name: "incident_id", Format: "uuid", Pattern: "", AfterOwnerGate: false, NotFoundCode: "incident_not_found", NotFoundStatus: 404, NotFoundDetails: map[string]any{}}, {Name: "network_flow_table_id", Format: "", Pattern: "^nft_[a-f0-9]{32}$", AfterOwnerGate: true, NotFoundCode: "network_flow_table_not_found", NotFoundStatus: 404, NotFoundDetails: map[string]any{"allowed_states": []any{"active"}, "network_flow_table_id": nil, "reason_code": "not_found", "retry_action": "refresh_resource", "table_status": nil}}}},
+	{RouteID: "nf.tables.list", OwnerID: "module.networkflow", Availability: "network_flow_activity", Method: "GET", Path: "/api/v1/incidents/{incident_id}/network-flow/tables", Pattern: "GET /api/v1/incidents/{incident_id}/network-flow/tables", StateChanging: false, SuccessStatuses: []int{200}, Security: [][]string{[]string{"bearerSession"}, []string{"sessionCookie"}}, OwnerGate: true, ErrorRegistry: "contracts/network-flow/errors.v1.json", PathParameters: []PathParameter{{Name: "incident_id", Format: "uuid", Pattern: "", AfterOwnerGate: false, NotFoundCode: "incident_not_found", NotFoundStatus: 404, NotFoundDetails: map[string]any{}}}},
+	{RouteID: "nf.tables.patch", OwnerID: "module.networkflow", Availability: "network_flow_activity", Method: "PATCH", Path: "/api/v1/incidents/{incident_id}/network-flow/tables/{network_flow_table_id}", Pattern: "PATCH /api/v1/incidents/{incident_id}/network-flow/tables/{network_flow_table_id}", StateChanging: true, SuccessStatuses: []int{200}, Security: [][]string{[]string{"bearerSession"}, []string{"csrfCookie", "csrfHeader", "sessionCookie"}}, OwnerGate: true, ErrorRegistry: "contracts/network-flow/errors.v1.json", PathParameters: []PathParameter{{Name: "incident_id", Format: "uuid", Pattern: "", AfterOwnerGate: false, NotFoundCode: "incident_not_found", NotFoundStatus: 404, NotFoundDetails: map[string]any{}}, {Name: "network_flow_table_id", Format: "", Pattern: "^nft_[a-f0-9]{32}$", AfterOwnerGate: true, NotFoundCode: "network_flow_table_not_found", NotFoundStatus: 404, NotFoundDetails: map[string]any{"allowed_states": []any{"active"}, "network_flow_table_id": nil, "reason_code": "not_found", "retry_action": "refresh_resource", "table_status": nil}}}},
+	{RouteID: "nf.tables.query", OwnerID: "module.networkflow", Availability: "network_flow_activity", Method: "POST", Path: "/api/v1/incidents/{incident_id}/network-flow/tables/{network_flow_table_id}/query", Pattern: "POST /api/v1/incidents/{incident_id}/network-flow/tables/{network_flow_table_id}/query", StateChanging: false, SuccessStatuses: []int{200}, Security: [][]string{[]string{"bearerSession"}, []string{"sessionCookie"}}, OwnerGate: true, ErrorRegistry: "contracts/network-flow/errors.v1.json", PathParameters: []PathParameter{{Name: "incident_id", Format: "uuid", Pattern: "", AfterOwnerGate: false, NotFoundCode: "incident_not_found", NotFoundStatus: 404, NotFoundDetails: map[string]any{}}, {Name: "network_flow_table_id", Format: "", Pattern: "^nft_[a-f0-9]{32}$", AfterOwnerGate: true, NotFoundCode: "network_flow_table_not_found", NotFoundStatus: 404, NotFoundDetails: map[string]any{"allowed_states": []any{"active"}, "network_flow_table_id": nil, "reason_code": "not_found", "retry_action": "refresh_resource", "table_status": nil}}}},
 }
 
+// All returns a deep copy of the catalog.
 func All() []Route {
 	result := make([]Route, len(catalog))
 	copy(result, catalog)
 	for index := range result {
-		result[index].SuccessStatuses = append([]int(nil), result[index].SuccessStatuses...)
+		result[index].SuccessStatuses = append([]int(nil), catalog[index].SuccessStatuses...)
+		result[index].Security = make([][]string, len(catalog[index].Security))
+		for alternative := range catalog[index].Security {
+			result[index].Security[alternative] = append([]string(nil), catalog[index].Security[alternative]...)
+		}
+		result[index].PathParameters = append([]PathParameter(nil), catalog[index].PathParameters...)
+		for parameter := range result[index].PathParameters {
+			result[index].PathParameters[parameter].NotFoundDetails = cloneObject(catalog[index].PathParameters[parameter].NotFoundDetails)
+		}
 	}
 	return result
+}
+
+func cloneObject(object map[string]any) map[string]any {
+	if object == nil {
+		return nil
+	}
+	result := make(map[string]any, len(object))
+	for key, value := range object {
+		result[key] = cloneValue(value)
+	}
+	return result
+}
+
+func cloneValue(value any) any {
+	switch typed := value.(type) {
+	case map[string]any:
+		return cloneObject(typed)
+	case []any:
+		result := make([]any, len(typed))
+		for index := range typed {
+			result[index] = cloneValue(typed[index])
+		}
+		return result
+	default:
+		return typed
+	}
 }

@@ -34,6 +34,7 @@ import { publicHttpOperation } from "./support/transport/publicHttpOperationClie
 import { atJsonOrigin } from "./support/transport/publicJsonClient";
 import {
   awaitResponseBarrier,
+  fulfillOperationError,
   installOwnedRoute,
 } from "./support/transport/requestInterception";
 import { createViewRow } from "./support/workbook/query";
@@ -167,13 +168,12 @@ test("lifecycle confirms a real action independently of failed reads and preserv
   let failAuthorization = false;
   await installOwnedRoute(page, "**/api/v1/auth/session", async (route) => {
     if (failAuthorization)
-      await route.fulfill({
-        status: 503,
-        json: {
-          error: { code: "internal_error" },
-          meta: { request_id: "lc-auth-observation" },
-        },
-      });
+      await fulfillOperationError(
+        route,
+        "getCurrentSession",
+        500,
+        "internal_error",
+      );
     else await route.continue();
   });
   await installOwnedRoute(
@@ -202,13 +202,12 @@ test("lifecycle confirms a real action independently of failed reads and preserv
     `**/api/v1/incidents/${incidentId}`,
     async (route) => {
       if (failRead && route.request().method() === "GET")
-        await route.fulfill({
-          status: 503,
-          json: {
-            error: { code: "internal_error" },
-            meta: { request_id: "lc-read-failed" },
-          },
-        });
+        await fulfillOperationError(
+          route,
+          "getIncident",
+          500,
+          "internal_error",
+        );
       else await route.continue();
     },
   );

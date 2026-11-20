@@ -155,7 +155,9 @@ func TestNetworkFlowIncidentTransferThroughPublicOperations_Integration(t *testi
 	bundle := readPublicBundle(t, a.Server.HTTP.URL, loginA, id, "export-network-flow", "snapshots")
 	irVerifyReport(clientA, report, bundle, true)
 	job := uploadPublicSourceBundle(t, b.Server.HTTP.URL, loginB, bundle, "transfer-network-flow")
+	attempts := recordJobAttempts(t, b.DB, job["job_id"].(string))
 	terminal := waitIRApply(t, b.Server.HTTP.URL, loginB, job["job_id"].(string))
+	attempts.finish(terminal)
 	if terminal["status"] != "succeeded" {
 		t.Fatalf("Network Flow transfer failed: %#v", terminal)
 	}

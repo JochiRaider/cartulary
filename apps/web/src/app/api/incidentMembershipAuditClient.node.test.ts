@@ -28,7 +28,7 @@ const request = () => ({
 });
 afterEach(() => vi.unstubAllGlobals());
 describe("Incident membership audit typed client", () => {
-  it("maps a non-JSON failure body to an unknown public error with its status", async () => {
+  it("maps a non-JSON failure body to the client contract failure", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn<typeof globalThis.fetch>(
@@ -39,13 +39,16 @@ describe("Incident membership audit typed client", () => {
           }),
       ),
     );
-    expect(await listIncidentMembershipAuditPage(request())).toEqual({
+    expect(await listIncidentMembershipAuditPage(request())).toMatchObject({
       ok: false,
-      status: 503,
-      error: { code: "unknown_public_error" },
+      status: 502,
+      error: {
+        code: "invalid_public_contract_response",
+        details: { response_status: 503 },
+      },
     });
 
-    // Control: a JSON public error keeps its own code.
+    // Control: a decodable public error keeps its own code and status.
     vi.stubGlobal(
       "fetch",
       vi.fn<typeof globalThis.fetch>(
@@ -53,22 +56,22 @@ describe("Incident membership audit typed client", () => {
           new Response(
             JSON.stringify({
               error: {
-                code: "service_unavailable",
+                code: "internal_error",
                 details: {},
-                message: "Service unavailable.",
+                message: "internal_error",
                 request_id: "request-unavailable",
-                retryable: true,
-                status: 503,
+                retryable: false,
+                status: 500,
               },
             }),
-            { status: 503, headers: { "Content-Type": "application/json" } },
+            { status: 500, headers: { "Content-Type": "application/json" } },
           ),
       ),
     );
     expect(await listIncidentMembershipAuditPage(request())).toMatchObject({
       ok: false,
-      status: 503,
-      error: { code: "service_unavailable" },
+      status: 500,
+      error: { code: "internal_error" },
     });
   });
   it("uses the generated incident operation with only exact filters and captured cursor context", async () => {

@@ -579,6 +579,7 @@ bounded_private_failure_message() {
   CARTULARY_PRIVATE_FAILURE_DSN="${E2E_DSN:-}" \
   CARTULARY_PRIVATE_FAILURE_S3_ACCESS_KEY="${CARTULARY_S3_OBJECT_PRIMARY_ACCESS_KEY_ID:-}" \
   CARTULARY_PRIVATE_FAILURE_S3_SECRET_KEY="${CARTULARY_S3_OBJECT_PRIMARY_SECRET_ACCESS_KEY:-}" \
+  CARTULARY_PRIVATE_FAILURE_REDACTION_MANIFEST="${ROOT_DIR}/tools/harness_redaction_manifest.json" \
     "${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}" <<'EOF'
 const secrets = [
   process.env.CARTULARY_PRIVATE_FAILURE_TEST_ROUTE_TOKEN,
@@ -588,11 +589,17 @@ const secrets = [
   process.env.CARTULARY_PRIVATE_FAILURE_S3_ACCESS_KEY,
   process.env.CARTULARY_PRIVATE_FAILURE_S3_SECRET_KEY,
 ].filter((value) => typeof value === "string" && value.length >= 8);
+// The single retained marker is owned by the redaction manifest
+// (TH-HARNESS-REQ-617).
+const marker = JSON.parse(
+  require("node:fs").readFileSync(process.env.CARTULARY_PRIVATE_FAILURE_REDACTION_MANIFEST, "utf8"),
+).replacement;
+if (typeof marker !== "string" || marker === "") throw new Error("redaction manifest has no marker");
 let text = process.env.CARTULARY_PRIVATE_FAILURE_TEXT ?? "";
-for (const secret of secrets) text = text.replaceAll(secret, "[REDACTED]");
+for (const secret of secrets) text = text.replaceAll(secret, marker);
 text = text.replace(
   /\b(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis):\/\/[^\s]+/giu,
-  "[REDACTED]",
+  marker,
 );
 text = text.replace(/[\u0000-\u001f\u007f]+/gu, " ").trim();
 if (text.length > 1500) text = text.slice(-1500);
@@ -748,23 +755,20 @@ remove_private_runtime_material() {
   return "${status}"
 }
 
+# TH-HARNESS-REQ-861: the marked generation's bounded, redacted logs are
+# retained once, labelled with the generation and the cohort that ran against
+# that server. Final settlement retains the last generation through the same path.
 retain_browser_process_diagnostics() {
-  local reason="${1:-cleanup}" source_log destination temporary
-  if [[ -z "${TARGET_ARTIFACT_DIR}" || ! -d "${TARGET_ARTIFACT_DIR}" ]]; then return 0; fi
-  local diagnostic_dir
-  diagnostic_dir="${TARGET_ARTIFACT_DIR}/process-diagnostics/$(slugify_step_label "${reason}-${SERVER_PGID:-none}")" || return $?
-  step_secure_mkdir "${diagnostic_dir}" || return $?
-  for source_log in "${SERVER_LOG}" "${WEB_LOG}"; do
-    if [[ -z "${source_log}" || ! -f "${source_log}" ]]; then continue; fi
-    destination="${diagnostic_dir}/$(basename "${source_log}")"
-    if [[ -f "${destination}" ]]; then continue; fi
-    temporary="$(mktemp "${destination}.XXXXXX")" || return $?
-    if ! (set -o pipefail; tail -c 1048576 "${source_log}" | step_redact_stream >"${temporary}"); then
-      rm -f -- "${temporary}"
-      return 11
-    fi
-    mv -- "${temporary}" "${destination}" || return $?
-  done
+  if [[ -z "${TARGET_ARTIFACT_DIR}" || ! -d "${TARGET_ARTIFACT_DIR}" || -z "${SERVER_LOG}" ]]; then return 0; fi
+  "${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}" "${ROOT_DIR}/tools/harness/browser/server-log-retention.mjs" \
+    retain "$(dirname -- "${SERVER_LOG}")" || return 11
+}
+
+# Mark the backend generation whose output server.log is about to hold.
+mark_backend_generation() {
+  local generation="$1" cohort="$2"
+  "${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}" "${ROOT_DIR}/tools/harness/browser/server-log-retention.mjs" \
+    mark "$(dirname -- "${SERVER_LOG}")" "${generation}" "${cohort}" "${TARGET_ARTIFACT_DIR}" || return 11
 }
 
 cleanup() {
@@ -776,7 +780,7 @@ cleanup() {
   if [[ -n "${CARTULARY_BROWSER_ACQUISITION_FILE:-}" ]]; then
     local acquisition_status=0
     stop_owned_command "${CHILD_HANDLE:-}" || acquisition_status=$?
-    retain_browser_process_diagnostics cleanup || acquisition_status=$?
+    # Settlement stops the services before retaining the final generation's logs.
     "${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}" "${ROOT_DIR}/tools/harness/browser/browser-acquisition.mjs" \
       settle "${CARTULARY_BROWSER_ACQUISITION_FILE}" producer-active || acquisition_status=$?
     return "${acquisition_status}"
@@ -800,7 +804,7 @@ cleanup() {
   fi
   stop_owned_process_group "${VITE_PGID:-}" "${FRONTEND_PORT:-4173}" "frontend" || cleanup_status=$?
   stop_owned_process_group "${SERVER_PGID:-}" "${BACKEND_PORT:-8080}" "backend" || cleanup_status=$?
-  retain_browser_process_diagnostics cleanup || cleanup_status=$?
+  retain_browser_process_diagnostics || cleanup_status=$?
   release_port_leases || cleanup_status=$?
 
   step_end_time="$(step_now_utc)"
@@ -1649,7 +1653,7 @@ reset_backend_failure_cleanup() {
   if [[ "${status}" -ne 0 && -n "${SERVER_PGID}" ]] && browser_process_group_running "${SERVER_PGID}"; then
     stop_browser_process_group "${SERVER_PGID}" || true
   fi
-  if [[ "${status}" -ne 0 ]]; then retain_browser_process_diagnostics "failed-reset-${RESET_LABEL}" || true; fi
+  if [[ "${status}" -ne 0 ]]; then retain_browser_process_diagnostics || true; fi
   exit "${status}"
 }
 
@@ -1682,7 +1686,8 @@ reset_session_backend() {
   trap reset_backend_failure_cleanup EXIT
   previous_server_pgid="${SERVER_PGID}"
   stop_backend_for_reset || return $?
-  retain_browser_process_diagnostics "reset-${RESET_LABEL}" || return $?
+  # The replaced generation keeps its own cohort and generation label.
+  retain_browser_process_diagnostics || return $?
   reclaim_port_lease_for_replacement "${BACKEND_PORT}" "${previous_server_pgid}"
   SERVER_PGID=""
   web_e2e_reset_database \
@@ -1691,6 +1696,7 @@ reset_session_backend() {
     "${RESET_DATABASE_DIAGNOSTIC_FILE}"
   printf '%s\n' "cleared" >"${RESET_OBJECT_STORE_MARKER_FILE}"
   web_e2e_reset_clear_playwright_state "${RESET_STATE_MARKER_FILE}"
+  mark_backend_generation "${generation}" "${RESET_LABEL}" || return $?
   start_backend_ready
   printf '%s\n' "ready" >"${RESET_BACKEND_READY_MARKER_FILE}"
   transfer_port_lease_for_port "${BACKEND_PORT}" "${SERVER_PGID}"
@@ -1746,6 +1752,7 @@ main() {
   CARTULARY_STEP_TIMING_BUCKET=migration run_step_command "browser-e2e startup database" browser_prepare_database || return $?
   prepare_browser_tls || return $?
   write_backend_restart_secrets || return $?
+  mark_backend_generation 1 "${CARTULARY_BROWSER_COHORT_LABEL:-unassigned}" || return $?
   start_backend_ready || return $?
   CARTULARY_STEP_TIMING_BUCKET=frontend_startup run_step_command "browser-e2e startup frontend ready" start_frontend_preview_ready "${pnpm_bin}" || return $?
   FRONTEND_READY_AT="$(step_now_utc)"

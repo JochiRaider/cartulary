@@ -1,7 +1,6 @@
 package imports_test
 
 import (
-	"archive/zip"
 	"bytes"
 	"context"
 	"crypto/sha256"
@@ -10,9 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"mime/multipart"
 	"net/http"
-	"net/textproto"
 	"reflect"
 	"strconv"
 	"strings"
@@ -21,6 +18,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/imports"
+	importtest "github.com/JochiRaider/cartulary/internal/modules/imports/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
@@ -347,6 +345,34 @@ SELECT base_import_unit_id::text,
 		regionUnitID,
 	); count != 1 {
 		t.Fatalf("operator region must retain exactly one private source stream, got %d", count)
+	}
+
+	// Core 01 REQ-01-620e and REQ-01-706: a retained base source whose bytes no
+	// longer match its recorded digest is no typed region-creation condition.
+	// The route answers internal_error and commits nothing; it never reports
+	// the apply-time import_apply_blocked, which this operation does not
+	// declare (REQ-01-702).
+	if _, err := harness.DB.ExecContext(context.Background(), `
+UPDATE import_source_streams
+   SET source_content_sha256 = repeat('0', 64)
+ WHERE import_unit_id::text = $1
+`, baseUnitID); err != nil {
+		t.Fatalf("corrupt the base source digest: %v", err)
+	}
+	unitsBefore := dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM import_units WHERE import_session_id::text = $1`, sessionID)
+	corrupted := map[string]any{
+		"client_txn_id": "txn-imports-region-corrupted-source",
+		"source_rect": map[string]any{
+			"start_row": 1, "start_column": 1, "end_row": 2, "end_column": 1,
+		},
+	}
+	corruptedResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, regionPath, corrupted)
+	httptestx.RequireErrorEnvelope(t, corruptedResp, http.StatusInternalServerError, "internal_error")
+	if unitsAfter := dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM import_units WHERE import_session_id::text = $1`, sessionID); unitsAfter != unitsBefore {
+		t.Fatalf("region creation over a corrupted source committed units: before=%d after=%d", unitsBefore, unitsAfter)
+	}
+	if receipts := dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM route_idempotency WHERE client_txn_id = $1`, "txn-imports-region-corrupted-source"); receipts != 0 {
+		t.Fatalf("region creation over a corrupted source committed %d receipts", receipts)
 	}
 }
 
@@ -1650,6 +1676,7 @@ SELECT COUNT(*)
 			requireImportProof(t, second.DB, applyJobID, "import.apply")
 		})
 	}
+	t.Run("attempt cancellation while the unit commit is issued", assertIssuedUnitCommitSurvivesAttemptCancellation)
 }
 
 func TestTargetRegistryAndEntityOwnerFacade_Integration(t *testing.T) {
@@ -2167,6 +2194,7 @@ SELECT COUNT(*)
 	); got != 0 {
 		t.Fatalf("owner validation failure created %d Network Flow tables", got)
 	}
+	t.Run("cross_owner_timeout_before_commit_is_retryable_service_unavailable", assertCrossOwnerTimeoutBeforeCommitUnitOutcome)
 }
 
 func TestCancellationAfterCommittedUnitDerivesPartialApplication_Integration(t *testing.T) {
@@ -2736,49 +2764,7 @@ func prepareReadyTimelineImport(
 	clientPrefix string,
 ) (string, string) {
 	t.Helper()
-	sessionID, unitID := startCSVImportSession(
-		t,
-		harness.Server.HTTP.URL,
-		login,
-		incidentID,
-		"txn-"+clientPrefix+"-upload",
-		"summary\nrecover exactly once\n",
-		"recovery.csv",
-	)
-	mappingResp := doImportJSON(
-		t,
-		harness.Server.HTTP.URL,
-		login,
-		http.MethodPut,
-		"/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/mapping",
-		map[string]any{
-			"client_txn_id":         "txn-" + clientPrefix + "-mapping",
-			"target_view_schema_id": "cartulary.view.timeline.v2",
-			"header_row_ref":        1,
-			"data_start_row_ref":    2,
-			"unknown_column_policy": "preserve_raw_capture",
-			"source_columns": []map[string]any{{
-				"source_column_ordinal": 1,
-				"source_header_text":    "summary",
-				"field_key":             "timeline.activity_synopsis_text",
-				"entity_binding_mode":   nil,
-				"transform_id":          nil,
-				"transform_options":     map[string]any{},
-				"empty_value_policy":    "omit_field",
-			}},
-		},
-	)
-	httptestx.RequireSuccessEnvelope(t, mappingResp, http.StatusOK)
-	selectResp := doImportJSON(
-		t,
-		harness.Server.HTTP.URL,
-		login,
-		http.MethodPost,
-		"/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/select",
-		map[string]any{"client_txn_id": "txn-" + clientPrefix + "-select"},
-	)
-	httptestx.RequireSuccessEnvelope(t, selectResp, http.StatusOK)
-	return sessionID, unitID
+	return importtest.PrepareReadyTimelineImport(t, harness.Server.HTTP.URL, login, incidentID, clientPrefix)
 }
 
 func approveTimelineImportMapping(
@@ -2827,38 +2813,12 @@ func approveTimelineImportMapping(
 
 func startCSVImportSession(t testing.TB, serverURL string, login authcookietest.AuthCookies, incidentID string, clientTxnID string, csv string, filename string) (string, string) {
 	t.Helper()
-
-	metadata := `{"client_txn_id":"` + clientTxnID + `","incident_id":"` + incidentID + `"}`
-	uploadResp := postImportUpload(t, serverURL, login, metadata, csv, filename, false)
-	uploadJob := httptestx.RequireSuccessEnvelope(t, uploadResp, http.StatusAccepted)["data"].(map[string]any)
-	job := waitImportJobTerminal(t, serverURL, login, uploadJob["job_id"].(string))
-	if job["status"] != "succeeded" {
-		t.Fatalf("unexpected discovery job: %#v", job)
-	}
-	sessionID := job["result_summary"].(map[string]any)["resource_refs"].([]any)[0].(map[string]any)["id"].(string)
-	unitsResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, serverURL+"/api/v1/import-sessions/"+sessionID+"/units", nil, httptestx.WithCookies(login.Session))
-	units := httptestx.RequireSuccessEnvelope(t, unitsResp, http.StatusOK)["data"].(map[string]any)["import_units"].([]any)
-	if len(units) != 1 {
-		t.Fatalf("expected one import unit, got %#v", units)
-	}
-	return sessionID, units[0].(map[string]any)["import_unit_id"].(string)
+	return importtest.StartCSVSession(t, serverURL, login, incidentID, clientTxnID, csv, filename)
 }
 
 func waitImportJobTerminal(t testing.TB, serverURL string, login authcookietest.AuthCookies, jobID string) map[string]any {
 	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
-	for {
-		response := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, serverURL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(login.Session))
-		job := httptestx.RequireSuccessEnvelope(t, response, http.StatusOK)["data"].(map[string]any)
-		switch job["status"] {
-		case "succeeded", "failed", "canceled":
-			return job
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("timed out waiting for import job %s: %#v", jobID, job)
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
+	return importtest.WaitJobTerminal(t, serverURL, login, jobID)
 }
 
 func requireTimelineMentionUnresolved(t testing.TB, row map[string]any, fieldKey string, rawText string) {
@@ -3099,124 +3059,22 @@ func networkFlowMappingPreviewPayload() map[string]any {
 
 func postImportUpload(t testing.TB, serverURL string, login authcookietest.AuthCookies, metadata string, file string, filename string, fileFirst bool) *http.Response {
 	t.Helper()
-	return postImportUploadBytes(t, serverURL, login, metadata, []byte(file), filename, "text/csv", fileFirst)
+	return importtest.PostUpload(t, serverURL, login, metadata, []byte(file), filename, "text/csv", fileFirst)
 }
 
 func postImportUploadBytes(t testing.TB, serverURL string, login authcookietest.AuthCookies, metadata string, file []byte, filename string, contentType string, fileFirst bool) *http.Response {
 	t.Helper()
-
-	var body bytes.Buffer
-	writer := multipart.NewWriter(&body)
-	if fileFirst {
-		writeFilePart(t, writer, filename, contentType, file)
-		writeMetadataPart(t, writer, metadata)
-	} else {
-		writeMetadataPart(t, writer, metadata)
-		writeFilePart(t, writer, filename, contentType, file)
-	}
-	if err := writer.Close(); err != nil {
-		t.Fatalf("close multipart writer: %v", err)
-	}
-
-	req, err := http.NewRequest(http.MethodPost, serverURL+"/api/v1/import-sessions", &body)
-	if err != nil {
-		t.Fatalf("build import request: %v", err)
-	}
-	req.Header.Set("Content-Type", writer.FormDataContentType())
-	req.Header.Set(authn.CSRFHeaderName, login.CSRF.Value)
-	req.AddCookie(login.Session)
-	req.AddCookie(login.CSRF)
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatalf("post import upload: %v", err)
-	}
-	return resp
+	return importtest.PostUpload(t, serverURL, login, metadata, file, filename, contentType, fileFirst)
 }
 
 func doImportJSON(t testing.TB, serverURL string, login authcookietest.AuthCookies, method string, path string, body any) *http.Response {
 	t.Helper()
-	return httptestx.DoJSON(
-		t, http.DefaultClient,
-		method,
-		serverURL+path,
-		body,
-		httptestx.WithCookies(login.Session, login.CSRF),
-		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value),
-	)
-}
-
-func writeMetadataPart(t testing.TB, writer *multipart.Writer, metadata string) {
-	t.Helper()
-	part, err := writer.CreatePart(textproto.MIMEHeader{
-		"Content-Disposition": []string{`form-data; name="metadata"`},
-		"Content-Type":        []string{"application/json"},
-	})
-	if err != nil {
-		t.Fatalf("create metadata part: %v", err)
-	}
-	if _, err := io.WriteString(part, metadata); err != nil {
-		t.Fatalf("write metadata part: %v", err)
-	}
-}
-
-func writeFilePart(t testing.TB, writer *multipart.Writer, filename string, contentType string, file []byte) {
-	t.Helper()
-	part, err := writer.CreatePart(textproto.MIMEHeader{
-		"Content-Disposition": []string{`form-data; name="file"; filename="` + filename + `"`},
-		"Content-Type":        []string{contentType},
-	})
-	if err != nil {
-		t.Fatalf("create file part: %v", err)
-	}
-	if _, err := part.Write(file); err != nil {
-		t.Fatalf("write file part: %v", err)
-	}
+	return importtest.DoJSON(t, serverURL, login, method, path, body)
 }
 
 func multipleSheetXLSX(t testing.TB) []byte {
 	t.Helper()
-	var buffer bytes.Buffer
-	writer := zip.NewWriter(&buffer)
-	writeZipText(t, writer, "[Content_Types].xml", `<?xml version="1.0" encoding="UTF-8"?>
-<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
-  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
-  <Default Extension="xml" ContentType="application/xml"/>
-  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
-  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
-  <Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
-</Types>`)
-	writeZipText(t, writer, "xl/workbook.xml", `<?xml version="1.0" encoding="UTF-8"?>
-<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
-  <sheets>
-    <sheet name="Sheet1" sheetId="1" r:id="rId1"/>
-    <sheet name="Sheet2" sheetId="2" r:id="rId2"/>
-  </sheets>
-</workbook>`)
-	writeZipText(t, writer, "xl/_rels/workbook.xml.rels", `<?xml version="1.0" encoding="UTF-8"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
-  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/>
-</Relationships>`)
-	writeZipText(t, writer, "xl/worksheets/sheet1.xml", `<?xml version="1.0" encoding="UTF-8"?>
-<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-  <sheetData>
-    <row r="1"><c r="A1" t="inlineStr"><is><t>host</t></is></c><c r="B1" t="inlineStr"><is><t>summary</t></is></c></row>
-    <row r="2"><c r="A2" t="inlineStr"><is><t>host-1</t></is></c><c r="B2" t="inlineStr"><is><t>Alpha summary</t></is></c></row>
-    <row r="3"><c r="A3" t="inlineStr"><is><t>host-2</t></is></c><c r="B3" t="inlineStr"><is><t>Beta summary</t></is></c></row>
-  </sheetData>
-</worksheet>`)
-	writeZipText(t, writer, "xl/worksheets/sheet2.xml", `<?xml version="1.0" encoding="UTF-8"?>
-<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-  <sheetData>
-    <row r="1"><c r="A1" t="inlineStr"><is><t>indicator</t></is></c><c r="B1" t="inlineStr"><is><t>type</t></is></c></row>
-    <row r="2"><c r="A2" t="inlineStr"><is><t>203.0.113.42</t></is></c><c r="B2" t="inlineStr"><is><t>ipv4_addr</t></is></c></row>
-  </sheetData>
-</worksheet>`)
-	if err := writer.Close(); err != nil {
-		t.Fatalf("close XLSX zip: %v", err)
-	}
-	return buffer.Bytes()
+	return importtest.MultipleSheetXLSX(t)
 }
 
 func requireImportProof(t testing.TB, db *sql.DB, jobID string, operationKind string) {
@@ -3240,17 +3098,6 @@ SELECT owner_profile_id, operation_kind, final_commit_id
 			actualOperationKind,
 			finalCommitID,
 		)
-	}
-}
-
-func writeZipText(t testing.TB, writer *zip.Writer, name string, content string) {
-	t.Helper()
-	entry, err := writer.Create(name)
-	if err != nil {
-		t.Fatalf("create XLSX entry %s: %v", name, err)
-	}
-	if _, err := io.WriteString(entry, content); err != nil {
-		t.Fatalf("write XLSX entry %s: %v", name, err)
 	}
 }
 

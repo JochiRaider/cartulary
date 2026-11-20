@@ -2,10 +2,20 @@ import {
   type CartularyErrorPresentation,
   cartularyErrorPresentation,
 } from "@cartulary/ui-contracts";
+import type { HTTPOperationFailureCode } from "../services/browserApi";
 import {
   type PublicErrorReasonCode,
   validatedPublicErrorReason,
 } from "../services/publicErrorIdentity";
+import { type ClientErrorCode, isTemporaryUnavailability } from "./publicError";
+
+/**
+ * Codes the shared presentation may branch on: a code some generated
+ * operation declares or a client-originated code.
+ */
+export type PresentedPublicErrorCode =
+  | HTTPOperationFailureCode
+  | ClientErrorCode;
 
 export type PublicErrorOperationFamily =
   | "authentication"
@@ -23,7 +33,7 @@ export function resolvePublicErrorPresentation({
   reasonCode,
   status,
 }: {
-  readonly code: string;
+  readonly code: PresentedPublicErrorCode;
   readonly hasAuthorizedMaterialization: boolean;
   readonly operationFamily: PublicErrorOperationFamily;
   readonly reasonCode?: PublicErrorReasonCode | undefined;
@@ -41,12 +51,17 @@ export function resolvePublicErrorPresentation({
   if (status === 401 || code === "session_required") {
     return cartularyErrorPresentation("authentication_required");
   }
-  if (
-    code === "authorization_denied" ||
-    code === "incident_not_found" ||
-    code === "incident_access_lost"
-  ) {
+  if (code === "authorization_denied" || code === "incident_not_found") {
     return cartularyErrorPresentation("permission_or_incident_access_loss");
+  }
+  // Temporary unavailability always keeps a retry path (Core 03 REQ-03-086a):
+  // it never runs an extension's Base fallback or the actionless unknown family.
+  if (isTemporaryUnavailability({ code, status })) {
+    return cartularyErrorPresentation(
+      operationFamily === "surface_load" && !hasAuthorizedMaterialization
+        ? "initial_load_failure"
+        : "stale_refresh",
+    );
   }
   if (operationFamily === "extension") {
     return cartularyErrorPresentation("extension_unavailable");

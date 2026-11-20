@@ -90,6 +90,28 @@ func newRowVersionConflict(recordID uuid.UUID, baseRowVersion int64, currentRowV
 	}
 }
 
+// errInvalidCollectionConflictBase reports a reconstructed base value that
+// cannot carry the requested collection actions.
+var errInvalidCollectionConflictBase = errors.New("timeline: invalid collection conflict base")
+
+// adaptClientConflictValueError classifies a failure to preview the client's
+// value against the reconstructed base. An invalid collection action keeps its
+// payload rejection, and a base the window cannot support fails closed as
+// row_version_conflict. Any other failure, such as an action the admission
+// contract excludes, stays unclassified and surfaces as internal_error
+// (REQ-01-706).
+func adaptClientConflictValueError(recordID uuid.UUID, baseRowVersion int64, currentRowVersion int64, err error) error {
+	var invalid *InvalidCollectionActionError
+	switch {
+	case errors.As(err, &invalid):
+		return err
+	case errors.Is(err, errInvalidCollectionConflictBase), errors.Is(err, errInvalidMentionConflictBase):
+		return newRowVersionConflict(recordID, baseRowVersion, currentRowVersion)
+	default:
+		return fmt.Errorf("preview timeline client conflict value: %w", err)
+	}
+}
+
 func overlappingPatchChange(changes []PatchChange, changedFields map[string]patchChangedField) (PatchChange, patchChangedField, bool) {
 	for _, change := range changes {
 		changed, ok := changedFields[change.FieldKey]
@@ -184,11 +206,7 @@ func (s *store) buildSameFieldConflictTx(ctx context.Context, tx pgx.Tx, recordI
 		clientValue, err = patchClientConflictValue(recordID, change, baseValue, requestHash)
 	}
 	if err != nil {
-		var invalid *InvalidCollectionActionError
-		if errors.As(err, &invalid) {
-			return nil, err
-		}
-		return nil, newRowVersionConflict(recordID, baseRowVersion, current.RowVersion)
+		return nil, adaptClientConflictValueError(recordID, baseRowVersion, current.RowVersion, err)
 	}
 	if isTimelineAttachedEvidenceCollection(change.FieldKey) {
 		// Every value reads the label Timeline stores for the Evidence
@@ -275,7 +293,7 @@ func patchClientConflictValue(recordID uuid.UUID, change PatchChange, baseValue 
 func applyCollectionConflictActions(recordID uuid.UUID, fieldKey string, baseValue any, payload *CollectionActionPayload, requestHash []byte) (map[string]any, error) {
 	ordered, items, ok := cloneCollectionConflictValue(baseValue)
 	if !ok {
-		return nil, fmt.Errorf("invalid base collection value for %s", fieldKey)
+		return nil, fmt.Errorf("%w for %s", errInvalidCollectionConflictBase, fieldKey)
 	}
 	for index, action := range payload.Actions {
 		switch action.Op {

@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
@@ -43,63 +44,63 @@ type EnterpriseBindingRetireRequest struct {
 	Reason          *string
 }
 
-func (s *Service) handleEnterpriseProviders(w http.ResponseWriter, r *http.Request) {
-	if apiErr := s.requireEnterpriseProfileAdmitted(r.URL.Path); apiErr != nil {
+// The enterprise operations are bound only when the enterprise_authentication
+// profile is claimed. Otherwise the unclaimed reserved-family gate answers their
+// paths with extension_profile_not_claimed before route resolution.
+
+func (s *Service) handleListEnterpriseAuthProviders(w http.ResponseWriter, r *http.Request) {
+	if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-
-	if r.URL.Path == "/api/v1/auth/providers" {
-		if r.Method != http.MethodGet {
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			return
-		}
-		if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
-			writeAPIError(w, r, apiErr)
-			return
-		}
-		providers, err := s.enterpriseStore.ListEnterpriseAuthProviders(r.Context())
-		if err != nil {
-			writeAPIError(w, r, internalAPIError(err))
-			return
-		}
-		rows := make([]map[string]any, 0, len(providers))
-		for _, provider := range providers {
-			rows = append(rows, map[string]any{
-				"provider_key":  provider.ProviderKey,
-				"provider_type": provider.ProviderType,
-				"display_name":  provider.DisplayName,
-			})
-		}
-		_ = httpapi.WriteSuccess(w, r, http.StatusOK, map[string]any{"providers": rows})
+	providers, err := s.enterpriseStore.ListEnterpriseAuthProviders(r.Context())
+	if err != nil {
+		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
+	rows := make([]map[string]any, 0, len(providers))
+	for _, provider := range providers {
+		rows = append(rows, map[string]any{
+			"provider_key":  provider.ProviderKey,
+			"provider_type": provider.ProviderType,
+			"display_name":  provider.DisplayName,
+		})
+	}
+	_ = httpapi.WriteSuccess(w, r, http.StatusOK, map[string]any{"providers": rows})
+}
 
-	providerKey, ok := providerBeginKey(r.URL.Path)
+// admitEnterpriseProvider classifies the addressed provider before any body,
+// RelayState, completion or browser-binding check, so a well-formed missing
+// provider_key receives the malformed key's 404 auth_provider_not_found (Core
+// 01 REQ-01-707 step 3). A provider of another type is not found for the
+// route; a disabled one, or for begin a non-interactive one, is
+// auth_provider_disabled.
+func (s *Service) admitEnterpriseProvider(ctx context.Context, providerKey, providerType string, interactive bool) (authn.EnterpriseAuthProviderRecord, *httpapi.APIError) {
+	provider, err := s.enterpriseStore.GetEnterpriseAuthProviderByKey(ctx, providerKey)
+	switch {
+	case errors.Is(err, authn.ErrAuthProviderNotFound) || err == nil && providerType != "" && provider.ProviderType != providerType:
+		return authn.EnterpriseAuthProviderRecord{}, &httpapi.APIError{Status: http.StatusNotFound, Code: "auth_provider_not_found", Details: map[string]any{}}
+	case err != nil:
+		return authn.EnterpriseAuthProviderRecord{}, internalAPIError(err)
+	case !provider.IsEnabled || interactive && !provider.IsInteractive:
+		return authn.EnterpriseAuthProviderRecord{}, &httpapi.APIError{Status: http.StatusNotFound, Code: "auth_provider_disabled", Details: map[string]any{}}
+	}
+	return provider, nil
+}
+
+func (s *Service) handleBeginEnterpriseAuth(w http.ResponseWriter, r *http.Request) {
+	providerKey, ok := admittedProviderKey(w, r)
 	if !ok {
-		http.NotFound(w, r)
 		return
 	}
-	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
+	provider, apiErr := s.admitEnterpriseProvider(r.Context(), providerKey, "", true)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
 		return
 	}
 	request, apiErr := DecodeEnterpriseAuthBeginRequest(r.Body)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
-		return
-	}
-	provider, err := s.enterpriseStore.GetEnterpriseAuthProviderByKey(r.Context(), providerKey)
-	switch {
-	case errors.Is(err, authn.ErrAuthProviderNotFound):
-		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusNotFound, Code: "auth_provider_not_found", Details: map[string]any{}})
-		return
-	case err != nil:
-		writeAPIError(w, r, internalAPIError(err))
-		return
-	}
-	if !provider.IsEnabled || !provider.IsInteractive {
-		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusNotFound, Code: "auth_provider_disabled", Details: map[string]any{}})
 		return
 	}
 
@@ -178,30 +179,13 @@ func (s *Service) handleEnterpriseProviders(w http.ResponseWriter, r *http.Reque
 }
 
 func (s *Service) handleEnterpriseOIDC(w http.ResponseWriter, r *http.Request) {
-	if apiErr := s.requireEnterpriseProfileAdmitted(r.URL.Path); apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-	providerKey, ok := providerCallbackKey(r.URL.Path, "/api/v1/auth/oidc/", "/callback")
+	providerKey, ok := admittedProviderKey(w, r)
 	if !ok {
-		http.NotFound(w, r)
 		return
 	}
-	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-	provider, err := s.enterpriseStore.GetEnterpriseAuthProviderByKey(r.Context(), providerKey)
-	if errors.Is(err, authn.ErrAuthProviderNotFound) || (err == nil && provider.ProviderType != "oidc") {
-		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusNotFound, Code: "auth_provider_not_found", Details: map[string]any{}})
-		return
-	}
-	if err != nil {
-		writeAPIError(w, r, internalAPIError(err))
-		return
-	}
-	if !provider.IsEnabled {
-		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusNotFound, Code: "auth_provider_disabled", Details: map[string]any{}})
+	provider, apiErr := s.admitEnterpriseProvider(r.Context(), providerKey, "oidc", false)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
 		return
 	}
 	browserHash, apiErr := s.enterpriseBrowserBindingHash(r)
@@ -251,22 +235,14 @@ func (s *Service) handleEnterpriseOIDC(w http.ResponseWriter, r *http.Request) {
 	s.finishEnterpriseLogin(w, r, result, sessionToken)
 }
 
-func (s *Service) handleEnterpriseSAML(w http.ResponseWriter, r *http.Request) {
-	if apiErr := s.requireEnterpriseProfileAdmitted(r.URL.Path); apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-	if providerKey, ok := providerCallbackKey(r.URL.Path, "/api/v1/auth/saml/", "/acs/complete"); ok {
-		s.handleEnterpriseSAMLComplete(w, r, providerKey)
-		return
-	}
-	providerKey, ok := providerCallbackKey(r.URL.Path, "/api/v1/auth/saml/", "/acs")
+func (s *Service) handleEnterpriseSAMLACS(w http.ResponseWriter, r *http.Request) {
+	providerKey, ok := admittedProviderKey(w, r)
 	if !ok {
-		http.NotFound(w, r)
 		return
 	}
-	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
+	provider, apiErr := s.admitEnterpriseProvider(r.Context(), providerKey, "saml", false)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
 		return
 	}
 	if err := r.ParseForm(); err != nil {
@@ -276,19 +252,6 @@ func (s *Service) handleEnterpriseSAML(w http.ResponseWriter, r *http.Request) {
 	relayState := strings.TrimSpace(r.Form.Get("RelayState"))
 	if relayState == "" {
 		writeAPIError(w, r, enterpriseTransactionRejected("not_found"))
-		return
-	}
-	provider, err := s.enterpriseStore.GetEnterpriseAuthProviderByKey(r.Context(), providerKey)
-	if errors.Is(err, authn.ErrAuthProviderNotFound) {
-		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusNotFound, Code: "auth_provider_not_found", Details: map[string]any{}})
-		return
-	}
-	if err != nil {
-		writeAPIError(w, r, internalAPIError(err))
-		return
-	}
-	if provider.ProviderType != "saml" {
-		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusNotFound, Code: "auth_provider_not_found", Details: map[string]any{}})
 		return
 	}
 	transaction, err := s.enterpriseStore.GetSAMLEnterpriseAuthTransactionForACS(r.Context(), providerKey, relayState, s.now())
@@ -328,9 +291,14 @@ func (s *Service) handleEnterpriseSAML(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, enterpriseSAMLCompletionURL(providerKey, completionToken), http.StatusSeeOther)
 }
 
-func (s *Service) handleEnterpriseSAMLComplete(w http.ResponseWriter, r *http.Request, providerKey string) {
-	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
+func (s *Service) handleEnterpriseSAMLComplete(w http.ResponseWriter, r *http.Request) {
+	providerKey, ok := admittedProviderKey(w, r)
+	if !ok {
+		return
+	}
+	// The store rechecks the provider inside its transaction.
+	if _, apiErr := s.admitEnterpriseProvider(r.Context(), providerKey, "saml", false); apiErr != nil {
+		writeAPIError(w, r, apiErr)
 		return
 	}
 	completionToken := strings.TrimSpace(r.URL.Query().Get("completion"))
@@ -356,86 +324,101 @@ func (s *Service) handleEnterpriseSAMLComplete(w http.ResponseWriter, r *http.Re
 	s.finishEnterpriseLogin(w, r, result, sessionToken)
 }
 
-func (s *Service) handleEnterpriseAuthBindings(w http.ResponseWriter, r *http.Request, userID uuid.UUID, segments []string) bool {
-	if len(segments) < 2 || segments[1] != "auth-bindings" {
-		return false
+func (s *Service) handleCreateEnterpriseAuthBinding(w http.ResponseWriter, r *http.Request) {
+	principal, userID, ok := admittedUserTarget(w, r)
+	if !ok {
+		return
 	}
-	if apiErr := s.requireEnterpriseProfileAdmitted(r.URL.Path); apiErr != nil {
+	if apiErr := s.requireTargetUser(r.Context(), userID); apiErr != nil {
 		writeAPIError(w, r, apiErr)
-		return true
+		return
 	}
-
-	principal, apiErr := s.authenticateSessionRequest(r, true)
+	request, apiErr := DecodeEnterpriseBindingCreateRequest(r.Body)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
-		return true
+		return
 	}
-	if apiErr := httpauth.RequireDeploymentAdmin(principal.User); apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return true
-	}
+	requestHash := hashRequestPayload(map[string]any{
+		"base_user_version": request.BaseUserVersion,
+		"provider_key":      request.ProviderKey,
+		"provider_subject":  request.ProviderSubject,
+		"reason":            request.Reason,
+	})
+	result, err := s.enterpriseStore.CreateEnterpriseAuthBinding(r.Context(), principal.User, userID, request.BaseUserVersion, request.ClientTxnID, request.ProviderKey, request.ProviderSubject, request.Reason, requestHash, httpapi.RequestIDFromContext(r.Context()), s.now())
+	s.writeEnterpriseBindingResult(w, r, principal.Session.ID, request.ClientTxnID, result, err)
+}
 
-	switch {
-	case len(segments) == 2 && r.Method == http.MethodPost:
-		request, apiErr := DecodeEnterpriseBindingCreateRequest(r.Body)
-		if apiErr != nil {
-			writeAPIError(w, r, apiErr)
-			return true
-		}
-		requestHash := hashRequestPayload(map[string]any{
-			"base_user_version": request.BaseUserVersion,
-			"provider_key":      request.ProviderKey,
-			"provider_subject":  request.ProviderSubject,
-			"reason":            request.Reason,
-		})
-		result, err := s.enterpriseStore.CreateEnterpriseAuthBinding(r.Context(), principal.User, userID, request.BaseUserVersion, request.ClientTxnID, request.ProviderKey, request.ProviderSubject, request.Reason, requestHash, httpapi.RequestIDFromContext(r.Context()), s.now())
-		s.writeEnterpriseBindingResult(w, r, principal.Session.ID, request.ClientTxnID, result, err)
-		return true
-	case len(segments) == 4 && segments[3] == "rotate" && r.Method == http.MethodPost:
-		authBindingID, err := uuid.Parse(segments[2])
-		if err != nil {
-			http.NotFound(w, r)
-			return true
-		}
-		request, apiErr := DecodeEnterpriseBindingRotateRequest(r.Body)
-		if apiErr != nil {
-			writeAPIError(w, r, apiErr)
-			return true
-		}
-		requestHash := hashRequestPayload(map[string]any{
-			"base_user_version":    request.BaseUserVersion,
-			"new_provider_subject": request.NewProviderSubject,
-			"reason":               request.Reason,
-		})
-		result, err := s.enterpriseStore.RotateEnterpriseAuthBinding(r.Context(), principal.User, userID, authBindingID, request.BaseUserVersion, request.ClientTxnID, request.NewProviderSubject, request.Reason, requestHash, httpapi.RequestIDFromContext(r.Context()), s.now())
-		s.writeEnterpriseBindingResult(w, r, principal.Session.ID, request.ClientTxnID, result, err)
-		return true
-	case len(segments) == 3 && r.Method == http.MethodDelete:
-		authBindingID, err := uuid.Parse(segments[2])
-		if err != nil {
-			http.NotFound(w, r)
-			return true
-		}
-		request, apiErr := DecodeEnterpriseBindingRetireRequest(r.Body)
-		if apiErr != nil {
-			writeAPIError(w, r, apiErr)
-			return true
-		}
-		requestHash := hashRequestPayload(map[string]any{
-			"base_user_version": request.BaseUserVersion,
-			"reason":            request.Reason,
-		})
-		result, err := s.enterpriseStore.RetireEnterpriseAuthBinding(r.Context(), principal.User, userID, authBindingID, request.BaseUserVersion, request.ClientTxnID, request.Reason, requestHash, httpapi.RequestIDFromContext(r.Context()), s.now())
-		s.writeEnterpriseBindingResult(w, r, principal.Session.ID, request.ClientTxnID, result, err)
-		return true
-	default:
-		if len(segments) == 2 || len(segments) == 3 || len(segments) == 4 {
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			return true
-		}
-		http.NotFound(w, r)
-		return true
+func (s *Service) handleRotateEnterpriseAuthBinding(w http.ResponseWriter, r *http.Request) {
+	principal, userID, authBindingID, ok := admittedAuthBindingTarget(w, r)
+	if !ok {
+		return
 	}
+	request, apiErr := DecodeEnterpriseBindingRotateRequest(r.Body)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	requestHash := hashRequestPayload(map[string]any{
+		"base_user_version":    request.BaseUserVersion,
+		"new_provider_subject": request.NewProviderSubject,
+		"reason":               request.Reason,
+	})
+	result, err := s.enterpriseStore.RotateEnterpriseAuthBinding(r.Context(), principal.User, userID, authBindingID, request.BaseUserVersion, request.ClientTxnID, request.NewProviderSubject, request.Reason, requestHash, httpapi.RequestIDFromContext(r.Context()), s.now())
+	s.writeEnterpriseBindingResult(w, r, principal.Session.ID, request.ClientTxnID, result, bindingTargetError(err))
+}
+
+func (s *Service) handleRetireEnterpriseAuthBinding(w http.ResponseWriter, r *http.Request) {
+	principal, userID, authBindingID, ok := admittedAuthBindingTarget(w, r)
+	if !ok {
+		return
+	}
+	request, apiErr := DecodeEnterpriseBindingRetireRequest(r.Body)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	requestHash := hashRequestPayload(map[string]any{
+		"base_user_version": request.BaseUserVersion,
+		"reason":            request.Reason,
+	})
+	result, err := s.enterpriseStore.RetireEnterpriseAuthBinding(r.Context(), principal.User, userID, authBindingID, request.BaseUserVersion, request.ClientTxnID, request.Reason, requestHash, httpapi.RequestIDFromContext(r.Context()), s.now())
+	s.writeEnterpriseBindingResult(w, r, principal.Session.ID, request.ClientTxnID, result, bindingTargetError(err))
+}
+
+// admittedAuthBindingTarget returns the deployment administrator and the
+// addressed {user_id, auth_binding_id} pair of a binding rotate or retire.
+func admittedAuthBindingTarget(w http.ResponseWriter, r *http.Request) (httpauth.Principal, uuid.UUID, uuid.UUID, bool) {
+	principal, userID, ok := admittedUserTarget(w, r)
+	if !ok {
+		return httpauth.Principal{}, uuid.UUID{}, uuid.UUID{}, false
+	}
+	authBindingID, ok := admittedPathUUID(w, r, "auth_binding_id")
+	if !ok {
+		return httpauth.Principal{}, uuid.UUID{}, uuid.UUID{}, false
+	}
+	return principal, userID, authBindingID, true
+}
+
+// admittedProviderKey returns the centrally admitted provider_key of a public
+// enterprise sign-in operation. Its absence is a binding error.
+func admittedProviderKey(w http.ResponseWriter, r *http.Request) (string, bool) {
+	providerKey, ok := httpapi.PathString(r, "provider_key")
+	if !ok {
+		writeAPIError(w, r, internalAPIError(errors.New("enterprise operation has no admitted provider_key")))
+		return "", false
+	}
+	return providerKey, true
+}
+
+// bindingTargetError maps an absent target user on rotate or retire to the
+// absent binding target: a {user_id, auth_binding_id} pair whose user does not
+// exist identifies no current enterprise binding, which Core 01 REQ-01-539,
+// REQ-01-540 and REQ-01-541 answer with 404 auth_binding_not_found.
+func bindingTargetError(err error) error {
+	if errors.Is(err, authn.ErrNotFound) {
+		return authn.ErrAuthBindingNotFound
+	}
+	return err
 }
 
 func (s *Service) writeEnterpriseBindingResult(w http.ResponseWriter, r *http.Request, currentSessionID uuid.UUID, clientTxnID string, result authn.EnterpriseAuthBindingResult, err error) {
@@ -528,33 +511,6 @@ func (s *Service) enterpriseCompletionError(err error) *httpapi.APIError {
 		return providerIdentityRejected("inactive_user")
 	default:
 		return internalAPIError(err)
-	}
-}
-
-func (s *Service) requireEnterpriseProfileAdmitted(path string) *httpapi.APIError {
-	if s.enterpriseAdmitted {
-		return nil
-	}
-	return &httpapi.APIError{
-		Status: http.StatusNotFound,
-		Code:   "extension_profile_not_claimed",
-		Details: map[string]any{
-			"profile_id":   ProfileID,
-			"route_family": enterpriseRouteFamily(path),
-		},
-	}
-}
-
-func enterpriseRouteFamily(path string) string {
-	switch {
-	case strings.HasPrefix(path, "/api/v1/auth/providers"):
-		return "/api/v1/auth/providers"
-	case strings.HasPrefix(path, "/api/v1/auth/oidc"):
-		return "/api/v1/auth/oidc"
-	case strings.HasPrefix(path, "/api/v1/auth/saml"):
-		return "/api/v1/auth/saml"
-	default:
-		return "/api/v1/users/{user_id}/auth-bindings"
 	}
 }
 

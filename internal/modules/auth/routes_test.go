@@ -6,13 +6,14 @@ import (
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 )
 
 func TestEnterpriseRouteRegistrationRequiresExactAdmission_Unit(t *testing.T) {
 	t.Parallel()
 
 	baseMux := http.NewServeMux()
-	if err := RegisterRoutes()(baseMux, httpapi.DependencySet{}); err != nil {
+	if err := RegisterRoutes()(baseMux, routeTestDependencies()); err != nil {
 		t.Fatal(err)
 	}
 	assertRoutePattern(t, baseMux, http.MethodPost, "/api/v1/auth/login", "POST /api/v1/auth/login")
@@ -22,7 +23,7 @@ func TestEnterpriseRouteRegistrationRequiresExactAdmission_Unit(t *testing.T) {
 	assertRoutePattern(t, baseMux, http.MethodPost, "/api/v1/auth/saml/provider/acs", "")
 
 	enterpriseMux := http.NewServeMux()
-	if err := RegisterEnterpriseRoutes()(enterpriseMux, httpapi.DependencySet{}); err != nil {
+	if err := RegisterEnterpriseRoutes()(enterpriseMux, routeTestDependencies()); err != nil {
 		t.Fatal(err)
 	}
 	assertRoutePattern(t, enterpriseMux, http.MethodGet, "/api/v1/auth/providers", "GET /api/v1/auth/providers")
@@ -40,7 +41,7 @@ func TestEnterpriseAuthBindingsUseNarrowRouteAdmission_Unit(t *testing.T) {
 		t.Fatal(err)
 	}
 	baseMux := http.NewServeMux()
-	if err := RegisterRoutes()(baseMux, httpapi.DependencySet{}); err != nil {
+	if err := RegisterRoutes()(baseMux, routeTestDependencies()); err != nil {
 		t.Fatal(err)
 	}
 	baseResponse := httptest.NewRecorder()
@@ -50,7 +51,7 @@ func TestEnterpriseAuthBindingsUseNarrowRouteAdmission_Unit(t *testing.T) {
 	}
 
 	admittedMux := http.NewServeMux()
-	if err := RegisterRoutes(WithEnterpriseAuthBindings())(admittedMux, httpapi.DependencySet{}); err != nil {
+	if err := RegisterRoutes(WithEnterpriseAuthBindings())(admittedMux, routeTestDependencies()); err != nil {
 		t.Fatal(err)
 	}
 	admittedResponse := httptest.NewRecorder()
@@ -58,6 +59,12 @@ func TestEnterpriseAuthBindingsUseNarrowRouteAdmission_Unit(t *testing.T) {
 	if admittedResponse.Code != http.StatusUnauthorized {
 		t.Fatalf("admitted auth bindings status = %d; want 401", admittedResponse.Code)
 	}
+}
+
+// routeTestDependencies supplies the central authenticator the auth operations
+// are admitted with (Core 01 REQ-01-707); these tests present no credential.
+func routeTestDependencies() httpapi.DependencySet {
+	return httpapi.DependencySet{Authenticator: httpauth.NewAuthenticator(httpauth.Options{})}
 }
 
 func assertRoutePattern(t testing.TB, mux *http.ServeMux, method string, path string, want string) {

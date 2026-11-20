@@ -14,6 +14,7 @@ import (
 
 	contractsgen "github.com/JochiRaider/cartulary/internal/gen/contractextensions"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
+	"github.com/JochiRaider/cartulary/internal/platform/processlifecycle"
 	"github.com/JochiRaider/cartulary/internal/testutil/browserbuild"
 )
 
@@ -208,32 +209,59 @@ func TestNewHandler_KeepsReservedExtensionRouting(t *testing.T) {
 	}
 }
 
+// TestNewHandler_ExtensionAdmissionGateClosesRequestsAndReadiness covers the
+// admission gate's service_unavailable reasons (Core 01 §3.3.6.2, REQ-01-707,
+// Core 04 REQ-04-078, REQ-04-145, REQ-04-146a, EXT-REQ-213, AC-618) through the
+// process lifecycle that drives it. Before startup publication opens admission
+// the gate answers extension_publication_pending; while lease ownership is
+// uncertain admission_paused, including when uncertainty preceded
+// publication; after an ordinary stop shutdown_in_progress; and once the
+// process is fatal extension_integrity_failure. Each refusal is a retryable
+// 503 that also covers an /api path matching no operation, and the first of
+// integrity failure, shutdown, pause and pending wins. /readyz reports the
+// same state, and liveness stays open throughout.
 func TestNewHandler_ExtensionAdmissionGateClosesRequestsAndReadiness(t *testing.T) {
 	t.Parallel()
 
-	gate := &testAdmissionGate{}
-	handler, err := NewHandler(Options{Dependencies: testExtensionDependenciesWith(t, DependencySet{
-		Admission: gate,
-		Readiness: ReadinessCheckFunc(func(context.Context) ReadinessState { return ReadyReadinessState() }),
-	}, nil)})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	assertGate := func(wantReason string, wantReadiness string) {
+	newGate := func(t *testing.T) (*processlifecycle.Controller, http.Handler) {
 		t.Helper()
-		request := httptest.NewRequest(http.MethodGet, "/api/v1/auth/providers", nil)
-		recorder := httptest.NewRecorder()
-		handler.ServeHTTP(recorder, request)
-		if recorder.Code != http.StatusServiceUnavailable || !strings.Contains(recorder.Body.String(), `"reason_code":"`+wantReason+`"`) {
-			t.Fatalf("gated response = %d %s", recorder.Code, recorder.Body.String())
+		lifecycle := processlifecycle.New()
+		handler, err := NewHandler(Options{Dependencies: testExtensionDependenciesWith(t, DependencySet{
+			Admission: lifecycle,
+			Readiness: ReadinessCheckFunc(func(context.Context) ReadinessState { return ReadyReadinessState() }),
+		}, nil)})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return lifecycle, handler
+	}
+	assertGate := func(t *testing.T, handler http.Handler, wantReason string, wantReadiness string) {
+		t.Helper()
+		// The refusal precedes route resolution, so a path matching no
+		// operation receives it too (REQ-01-707).
+		for _, path := range []string{"/api/v1/auth/providers", "/api/v1/no-such-route"} {
+			request := httptest.NewRequest(http.MethodGet, path, nil)
+			recorder := httptest.NewRecorder()
+			handler.ServeHTTP(recorder, request)
+			var envelope ErrorEnvelope
+			if err := json.Unmarshal(recorder.Body.Bytes(), &envelope); err != nil {
+				t.Fatalf("decode gated response for %s = %d %s: %v", path, recorder.Code, recorder.Body.String(), err)
+			}
+			if recorder.Code != http.StatusServiceUnavailable || envelope.Error.Code != "service_unavailable" ||
+				envelope.Error.Status != http.StatusServiceUnavailable || !envelope.Error.Retryable ||
+				envelope.Error.Details["reason_code"] != wantReason || len(envelope.Error.Details) != 1 {
+				t.Fatalf("gated response for %s = %d %s, want retryable 503 service_unavailable with reason_code %s", path, recorder.Code, recorder.Body.String(), wantReason)
+			}
 		}
 
-		readyRequest := httptest.NewRequest(http.MethodGet, "/readyz", nil)
 		readyRecorder := httptest.NewRecorder()
-		handler.ServeHTTP(readyRecorder, readyRequest)
-		if readyRecorder.Code != http.StatusServiceUnavailable || !strings.Contains(readyRecorder.Body.String(), `"status":"`+wantReadiness+`"`) {
-			t.Fatalf("gated readiness = %d %s", readyRecorder.Code, readyRecorder.Body.String())
+		handler.ServeHTTP(readyRecorder, httptest.NewRequest(http.MethodGet, "/readyz", nil))
+		var readiness ReadinessState
+		if err := json.Unmarshal(readyRecorder.Body.Bytes(), &readiness); err != nil {
+			t.Fatalf("decode gated readiness %d %s: %v", readyRecorder.Code, readyRecorder.Body.String(), err)
+		}
+		if readyRecorder.Code != http.StatusServiceUnavailable || readiness.SchemaID != ReadinessSchemaID || readiness.Status != wantReadiness {
+			t.Fatalf("gated readiness = %d %s, want 503 with status %s", readyRecorder.Code, readyRecorder.Body.String(), wantReadiness)
 		}
 		healthRecorder := httptest.NewRecorder()
 		handler.ServeHTTP(healthRecorder, httptest.NewRequest(http.MethodGet, "/healthz", nil))
@@ -241,26 +269,86 @@ func TestNewHandler_ExtensionAdmissionGateClosesRequestsAndReadiness(t *testing.
 			t.Fatalf("liveness closed with admission: %d", healthRecorder.Code)
 		}
 	}
-
-	assertGate("extension_publication_pending", ReadinessStatusStartingDependencyProbe)
-	gate.reason = "published_component_lost"
-	assertGate("extension_integrity_failure", ReadinessStatusFatalIntegrityFailure)
-	gate.open = true
-	request := httptest.NewRequest(http.MethodGet, "/readyz", nil)
-	recorder := httptest.NewRecorder()
-	handler.ServeHTTP(recorder, request)
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("ready admission response = %d %s", recorder.Code, recorder.Body.String())
+	assertOpen := func(t *testing.T, handler http.Handler) {
+		t.Helper()
+		recorder := httptest.NewRecorder()
+		handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/readyz", nil))
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("ready admission response = %d %s", recorder.Code, recorder.Body.String())
+		}
 	}
-}
+	publish := func(t *testing.T, lifecycle *processlifecycle.Controller) {
+		t.Helper()
+		if err := lifecycle.Publish(); err != nil {
+			t.Fatal(err)
+		}
+	}
 
-type testAdmissionGate struct {
-	open   bool
-	reason string
+	t.Run("before publication the gate is pending", func(t *testing.T) {
+		t.Parallel()
+		_, handler := newGate(t)
+		assertGate(t, handler, "extension_publication_pending", "starting_dependency_probe")
+	})
+	t.Run("uncertainty before publication keeps admission paused after it", func(t *testing.T) {
+		t.Parallel()
+		lifecycle, handler := newGate(t)
+		lifecycle.CloseAdmission()
+		assertGate(t, handler, "extension_publication_pending", "starting_dependency_probe")
+		publish(t, lifecycle)
+		assertGate(t, handler, "admission_paused", "admission_paused")
+		if !lifecycle.RestoreAdmission() {
+			t.Fatal("the original lease session's proof did not open the gate")
+		}
+		assertOpen(t, handler)
+	})
+	t.Run("uncertainty after publication pauses until the original session proves ownership", func(t *testing.T) {
+		t.Parallel()
+		lifecycle, handler := newGate(t)
+		publish(t, lifecycle)
+		assertOpen(t, handler)
+		lifecycle.CloseAdmission()
+		assertGate(t, handler, "admission_paused", "admission_paused")
+		if !lifecycle.RestoreAdmission() {
+			t.Fatal("the original lease session did not restore admission")
+		}
+		assertOpen(t, handler)
+	})
+	t.Run("ordinary shutdown answers shutdown_in_progress and never reopens", func(t *testing.T) {
+		t.Parallel()
+		lifecycle, handler := newGate(t)
+		publish(t, lifecycle)
+		lifecycle.MarkTerminating()
+		assertGate(t, handler, "shutdown_in_progress", "shutdown_in_progress")
+		if lifecycle.RestoreAdmission() {
+			t.Fatal("a stopping process restored admission")
+		}
+		assertGate(t, handler, "shutdown_in_progress", "shutdown_in_progress")
+	})
+	t.Run("shutdown outranks uncertain ownership", func(t *testing.T) {
+		t.Parallel()
+		lifecycle, handler := newGate(t)
+		publish(t, lifecycle)
+		lifecycle.CloseAdmission()
+		lifecycle.MarkTerminating()
+		assertGate(t, handler, "shutdown_in_progress", "shutdown_in_progress")
+	})
+	t.Run("a fatal outranks every other state and is permanent", func(t *testing.T) {
+		t.Parallel()
+		lifecycle, handler := newGate(t)
+		publish(t, lifecycle)
+		lifecycle.CloseAdmission()
+		assertGate(t, handler, "admission_paused", "admission_paused")
+		if !lifecycle.Fatal("application_process_lease_lost") {
+			t.Fatal("lease loss did not enter the fatal lifecycle")
+		}
+		assertGate(t, handler, "extension_integrity_failure", "fatal_integrity_failure")
+		lifecycle.MarkTerminating()
+		if lifecycle.RestoreAdmission() {
+			t.Fatal("a fatal process restored admission")
+		}
+		assertGate(t, handler, "extension_integrity_failure", "fatal_integrity_failure")
+	})
 }
-
-func (g *testAdmissionGate) AdmissionOpen() bool { return g.open }
-func (g *testAdmissionGate) FatalReason() string { return g.reason }
 
 type readinessFailingStore struct {
 	err error

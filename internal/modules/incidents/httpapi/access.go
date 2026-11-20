@@ -22,7 +22,7 @@ func (s *service) requireIncidentRole(ctx context.Context, incidentID uuid.UUID,
 func incidentAdmissionResult(grant admission.Grant, err error, requiredRole string) (admission.Grant, *platformhttpapi.APIError) {
 	switch {
 	case admission.IsDenied(err, admission.DenialNotVisible):
-		return admission.Grant{}, incidentNotFoundError()
+		return admission.Grant{}, platformhttpapi.NotFound("incident_not_found")
 	case admission.IsDenied(err, admission.DenialInsufficientRole):
 		return admission.Grant{}, authorizationDeniedError(requiredRole)
 	case err != nil:
@@ -32,8 +32,8 @@ func incidentAdmissionResult(grant admission.Grant, err error, requiredRole stri
 	}
 }
 
-func (s *service) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal, method string, path string) error {
-	return httpauth.SlideSessionIfNeeded(ctx, s.authStore, principal, method, path, s.now)
+func (s *service) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal) error {
+	return httpauth.SlideSessionIfNeeded(ctx, s.authStore, principal, s.now)
 }
 
 func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *platformhttpapi.APIError) {

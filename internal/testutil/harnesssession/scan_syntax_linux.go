@@ -7,13 +7,16 @@ import (
 	"regexp/syntax"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/JochiRaider/cartulary/internal/platform/harnessredact"
 )
 
 // Expand the fixed negative-prefix predicate into a regular language. Short
-// prefixes are secrets too; only a complete, case-sensitive <redacted> prefix
-// exempts a value. The terminator is part of the syntax, never a read boundary.
+// prefixes are secrets too; only a complete, case-sensitive prefix of the
+// manifest-owned marker exempts a value (TH-HARNESS-REQ-617). The terminator
+// is part of the syntax, never a read boundary.
 func unredactedValue(excluded, terminator string) string {
-	const marker = "<redacted>"
+	const marker = harnessredact.Marker
 	parts := []string{}
 	for i := range len(marker) {
 		prefix := regexp.QuoteMeta(marker[:i])

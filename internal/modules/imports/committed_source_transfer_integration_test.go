@@ -70,16 +70,25 @@ func TestCommittedSourcesTransferThroughPublicBundleOperations_Integration(t *te
 	firstPage := httptestx.RequireSuccessEnvelope(t, doImportJSON(t, source.Server.HTTP.URL, sourceLogin, http.MethodGet, listPath+"?limit=1", nil), http.StatusOK)
 	cursor := firstPage["meta"].(map[string]any)["paging"].(map[string]any)["next_cursor"].(string)
 	recordID := irQueryAll(t, source.Server.HTTP.URL, sourceLogin, id, "cartulary.view.timeline.v2")[0]["record_id"].(string)
-	for _, query := range []string{
-		"?record_id=" + recordID + "&cursor_token=" + url.QueryEscape(cursor),
-		"?record_id=" + recordID + "&record_id=" + recordID,
-		"?record_id=invalid",
+	// Core 01 REQ-01-685 under REQ-01-583: the record_id list-query member and
+	// the common paging members, validated in the declared order.
+	for _, invalid := range []struct{ query, code, reason string }{
+		{"?record_id=" + recordID + "&cursor_token=" + url.QueryEscape(cursor), "invalid_pagination_request", "cursor_query_mismatch"},
+		{"?record_id=" + recordID + "&record_id=" + recordID, "invalid_list_query", "duplicate_query_member"},
+		{"?limit=1&limit=2", "invalid_list_query", "duplicate_query_member"},
+		{"?unknown=1&unknown=2&page=2", "invalid_list_query", "duplicate_query_member"},
+		{"?record_id=%zz", "invalid_list_query", "malformed_query"},
+		{"?page=2&unknown=1", "invalid_pagination_request", "invalid_limit"},
+		{"?unknown=1&record_id=invalid", "invalid_list_query", "unknown_query_member"},
+		{"?record_id=invalid", "invalid_list_query", "invalid_filter_value"},
+		{"?record_id=00000000-0000-0000-0000-000000000000", "invalid_list_query", "invalid_filter_value"},
+		{"?record_id=", "invalid_list_query", "invalid_filter_value"},
+		{"?limit=0", "invalid_pagination_request", "invalid_limit"},
 	} {
-		response := doImportJSON(t, source.Server.HTTP.URL, sourceLogin, http.MethodGet, listPath+query, nil)
-		if response.StatusCode != http.StatusBadRequest {
-			t.Fatalf("invalid source filter/cursor accepted: %d", response.StatusCode)
+		body := httptestx.RequireErrorEnvelope(t, doImportJSON(t, source.Server.HTTP.URL, sourceLogin, http.MethodGet, listPath+invalid.query, nil), http.StatusBadRequest, invalid.code)
+		if details := httptestx.RequireErrorDetails(t, body); !reflect.DeepEqual(details, map[string]any{"reason_code": invalid.reason}) {
+			t.Fatalf("%s details = %#v, want reason_code %s", invalid.query, details, invalid.reason)
 		}
-		_ = response.Body.Close()
 	}
 	// Source access is narrower than incident read. Recheck it for list, scoped
 	// list, metadata, bytes and an already issued continuation after revocation.
@@ -111,7 +120,31 @@ func TestCommittedSourcesTransferThroughPublicBundleOperations_Integration(t *te
 			if status != http.StatusOK && (bytes.Contains(body, []byte("original.csv")) || bytes.Contains(body, []byte(before[0]["content_sha256"].(string)))) {
 				t.Fatal("source authority rejection disclosed protected content")
 			}
+			// Core 01 REQ-01-685: the source routes require the
+			// editor/reviewer/admin mapping-approval role, and a viewer is
+			// told that role set, as on the other Imports routes.
+			if role == "viewer" {
+				var envelope struct {
+					Error struct {
+						Code    string         `json:"code"`
+						Details map[string]any `json:"details"`
+					} `json:"error"`
+				}
+				if err := json.Unmarshal(body, &envelope); err != nil || envelope.Error.Code != "authorization_denied" || !reflect.DeepEqual(envelope.Error.Details, map[string]any{"required_role": "editor|reviewer|admin"}) {
+					t.Fatalf("%s viewer rejection = %s (%v)", suffix, body, err)
+				}
+			}
 		}
+		// REQ-01-704 and REQ-01-707 step 5: an invalid list query is decided
+		// only after the incident's visibility and the source-access role.
+		queryStatus, queryCode := http.StatusBadRequest, "invalid_list_query"
+		if role == "viewer" {
+			queryStatus, queryCode = http.StatusForbidden, "authorization_denied"
+		}
+		if role == "removed" {
+			queryStatus, queryCode = http.StatusNotFound, "incident_not_found"
+		}
+		httptestx.RequireErrorEnvelope(t, doImportJSON(t, source.Server.HTTP.URL, readerLogin, http.MethodGet, listPath+"?record_id=invalid", nil), queryStatus, queryCode)
 	}
 	bundle := readPublicBundle(t, source.Server.HTTP.URL, sourceLogin, id, "export")
 	if _, err := source.DB.ExecContext(t.Context(), `DELETE FROM import_sessions WHERE incident_id=$1`, id); err != nil {

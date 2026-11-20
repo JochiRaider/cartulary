@@ -17,6 +17,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 )
 
@@ -351,11 +352,17 @@ func TestImportsModuleConstructsWithoutSideEffectsAndRegistersExactSurface(t *te
 	if err != nil {
 		t.Fatalf("construct public route registry: %v", err)
 	}
-	if err := module.RegisterRoutes()(http.NewServeMux(), httpapi.DependencySet{PublicRoutes: registry}); err != nil {
+	deps := httpapi.DependencySet{PublicRoutes: registry, Authenticator: httpauth.NewAuthenticator(httpauth.Options{Now: time.Now})}
+	if err := module.RegisterRoutes()(http.NewServeMux(), deps); err != nil {
 		t.Fatalf("register Imports routes: %v", err)
 	}
 	if operations := registry.Snapshot(); len(operations) != 15 {
 		t.Fatalf("bound Imports operations = %d, want 15", len(operations))
+	}
+	for operationID, mode := range registry.AdmissionModes() {
+		if mode != httpapi.AdmissionCentral {
+			t.Fatalf("Imports operation %q admission mode = %q, want central", operationID, mode)
+		}
 	}
 	if err := module.RegisterWorkers(); err != nil {
 		t.Fatalf("register Imports workers: %v", err)

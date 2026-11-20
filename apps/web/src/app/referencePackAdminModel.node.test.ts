@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import type { listReferencePacks } from "../services/referencePacks";
+import { describe, expect, it, vi } from "vitest";
+import { listReferencePacks } from "../services/referencePacks";
 import { deferred } from "../testing/fetchMockTestSupport";
 import { referencePackFixture } from "../testing/referencePackTestSupport";
 import {
@@ -13,6 +13,7 @@ import {
   initialReferencePackState,
   normalizeReferencePackQuery,
   referencePackEligible,
+  referencePackProblemText,
   selectionChanged,
 } from "./referencePackAdminModel";
 
@@ -63,7 +64,7 @@ describe("Reference Pack ownership", () => {
       catalogFailed(state, 2, {
         kind: "transport",
         status: 0,
-        code: "transport",
+        code: "transport_unavailable",
       }),
     ).toBe(state);
     expect(state.catalog.rows[0]?.pack_key).toBe("accepted");
@@ -95,6 +96,79 @@ describe("Reference Pack ownership", () => {
         search: "\u0085e\u0301 Host\u2003",
       }).search,
     ).toBe("é Host");
+  });
+  it("presents a declared service_unavailable catalog read as temporary unavailability and retries it", async () => {
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            error: {
+              code: "service_unavailable",
+              details: { reason_code: "extension_publication_pending" },
+              message: "service unavailable",
+              request_id: "request-unavailable",
+              retryable: true,
+              status: 503,
+            },
+          }),
+          { status: 503, headers: { "Content-Type": "application/json" } },
+        ),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    let unavailable: Awaited<ReturnType<typeof listReferencePacks>>;
+    try {
+      unavailable = await listReferencePacks({
+        query,
+        signal: new AbortController().signal,
+      });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+    expect(unavailable).toEqual({
+      kind: "failed",
+      problem: {
+        kind: "rejected",
+        status: 503,
+        code: "service_unavailable",
+        reason: "extension_publication_pending",
+      },
+    });
+    if (unavailable.kind !== "failed") throw new Error("Expected failure");
+    expect(referencePackProblemText(unavailable.problem)).toBe(
+      "Cartulary is temporarily unavailable. Try again shortly.",
+    );
+    const list = vi
+      .fn<typeof listReferencePacks>()
+      .mockResolvedValueOnce(unavailable)
+      .mockResolvedValue({
+        kind: "read",
+        value: {
+          data: { pack_versions: [pack("available")] },
+          meta: { request_id: "list", paging },
+        },
+      });
+    const controller = new ReferencePackAdminController({
+      ...referencePackTransportPorts,
+      list,
+      confirmAccess: async () => ({ kind: "authorized" }),
+      isCurrent: () => true,
+      authorizationFailed: () => {},
+      transactionId: () => "txn",
+    });
+    controller.setAuthority(authority);
+    controller.setActive(true);
+    await vi.waitFor(() =>
+      expect(controller.getSnapshot().catalog.problem).toMatchObject({
+        code: "service_unavailable",
+      }),
+    );
+    await controller.reload();
+    expect(list).toHaveBeenCalledTimes(2);
+    expect(controller.getSnapshot().catalog.problem).toBeNull();
+    expect(
+      controller.getSnapshot().catalog.rows.map((row) => row.pack_key),
+    ).toEqual(["available"]);
   });
   it("keeps query generations independent from transport cancellation and invalidation", async () => {
     const pending = deferred<Awaited<ReturnType<typeof listReferencePacks>>>();

@@ -38,15 +38,17 @@ func (s *Application) AppendIndicatorLifecycleInterval(ctx context.Context, acto
 		return IndicatorLifecycleMutationResult{}, fmt.Errorf("begin Indicator lifecycle transaction: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	if err := s.incidentState.RequireOpenTx(ctx, tx, params.IncidentID); err != nil {
-		return IndicatorLifecycleMutationResult{}, err
-	}
 	lockIDs := sortedRecordIDs(append([]uuid.UUID{params.IndicatorRecordID}, params.SupportRefs...)...)
 	envelopes, err := s.lockAffectedRecordsTx(ctx, tx, lockIDs)
 	if err != nil {
 		return IndicatorLifecycleMutationResult{}, err
 	}
+	// REQ-01-705: after the exact-replay lookup above, the locked deleted and
+	// type classification precedes the incident lifecycle and the base version.
 	if err := validateAddressedIndicatorEnvelope(envelopes, params.IncidentID, params.IndicatorRecordID); err != nil {
+		return IndicatorLifecycleMutationResult{}, err
+	}
+	if err := s.incidentState.RequireOpenTx(ctx, tx, params.IncidentID); err != nil {
 		return IndicatorLifecycleMutationResult{}, err
 	}
 	if err := validateLifecycleSupportEnvelopes(envelopes, params.IncidentID, params.SupportRefs); err != nil {

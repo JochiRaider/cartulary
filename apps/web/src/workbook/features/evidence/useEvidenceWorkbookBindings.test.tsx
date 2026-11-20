@@ -241,16 +241,13 @@ describe("Evidence workbook bindings", () => {
       .mockResolvedValueOnce({
         kind: "rejected",
         failure: classifyWorkbookOperationFailure(
-          503,
           {
-            error: {
-              code: "object_store_unavailable",
-              status: 503,
-              retryable: true,
-              request_id: "request-1",
-              message: "private",
-              details: { reason_code: "endpoint_unreachable" },
-            },
+            code: "object_store_unavailable",
+            status: 503,
+            retryable: true,
+            request_id: "request-1",
+            message: "private",
+            details: { reason_code: "endpoint_unreachable" },
           },
           "issueEvidencePreviewHandle",
         ),

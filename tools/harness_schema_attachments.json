@@ -413,6 +413,14 @@
       "foundation_runtime": true
     },
     {
+      "schema_id": "cartulary.harness_contract_evidence.v1",
+      "path": "tools/schemas/cartulary.harness_contract_evidence.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "runtime contract guards",
+      "validation": "harness.json_shape_check",
+      "foundation_runtime": true
+    },
+    {
       "schema_id": "cartulary.harness_critical_path.v3",
       "path": "tools/schemas/cartulary.harness_critical_path.v3.schema.json",
       "classification": "public_contract",
@@ -424,6 +432,14 @@
       "path": "tools/schemas/cartulary.harness_detail_authority.v2.schema.json",
       "classification": "shared_component",
       "producer": "native private detail and recovery-attempt owner",
+      "validation": "harness.json_shape_check",
+      "foundation_runtime": true
+    },
+    {
+      "schema_id": "cartulary.harness_error_code_coverage.v1",
+      "path": "tools/schemas/cartulary.harness_error_code_coverage.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "contract evidence run gate",
       "validation": "harness.json_shape_check",
       "foundation_runtime": true
     },
@@ -591,6 +607,14 @@
       "path": "tools/schemas/cartulary.harness_postgres_checkpoints.v2.schema.json",
       "classification": "public_contract",
       "producer": "native owned-service diagnostic collector",
+      "validation": "harness.json_shape_check",
+      "foundation_runtime": true
+    },
+    {
+      "schema_id": "cartulary.harness_preparation_diagnostic.v1",
+      "path": "tools/schemas/cartulary.harness_preparation_diagnostic.v1.schema.json",
+      "classification": "shared_component",
+      "producer": "source-aware graph compiler",
       "validation": "harness.json_shape_check",
       "foundation_runtime": true
     },

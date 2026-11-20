@@ -208,6 +208,59 @@ func TestManagerCancellationUsesCanonicalTransitionLockOrder_Integration(t *test
 			t.Fatalf("owner validation error = %v, want ErrCancellationRequested", err)
 		}
 	})
+
+	// Core 01 REQ-01-453: owner execution validation holds no Job-row lock
+	// that blocks lease renewal, while conditional release still validates
+	// under the transition lock and so waits for the owner's commit.
+	t.Run("lease renewal does not wait for the owner transaction", func(t *testing.T) {
+		_, execution := enqueueCancelable(t)
+		ownerTx, err := pool.Begin(ctx)
+		if err != nil {
+			t.Fatalf("begin owner transaction: %v", err)
+		}
+		defer func() { _ = ownerTx.Rollback(ctx) }()
+		if err := composition.transactions.ValidateExecutionTx(ctx, ownerTx, execution); err != nil {
+			t.Fatalf("validate owner execution: %v", err)
+		}
+		renewCtx, cancelRenew := context.WithTimeout(ctx, 2*time.Second)
+		defer cancelRenew()
+		if err := manager.RenewExecution(renewCtx, execution); err != nil {
+			t.Fatalf("renewal while the owner transaction is open: %v", err)
+		}
+		if err := ownerTx.Commit(ctx); err != nil {
+			t.Fatalf("commit owner transaction: %v", err)
+		}
+	})
+
+	t.Run("conditional release waits for the owner transaction", func(t *testing.T) {
+		_, execution := enqueueCancelable(t)
+		ownerTx, err := pool.Begin(ctx)
+		if err != nil {
+			t.Fatalf("begin owner transaction: %v", err)
+		}
+		defer func() { _ = ownerTx.Rollback(ctx) }()
+		if err := composition.transactions.ValidateExecutionTx(ctx, ownerTx, execution); err != nil {
+			t.Fatalf("validate owner execution: %v", err)
+		}
+		var ownerPID int32
+		if err := ownerTx.QueryRow(ctx, `SELECT pg_backend_pid()`).Scan(&ownerPID); err != nil {
+			t.Fatalf("load owner pid: %v", err)
+		}
+		released := make(chan error, 1)
+		go func() { released <- manager.ReleaseExecution(ctx, execution) }()
+		_ = waitForBlockedBackend(t, pool, ownerPID)
+		select {
+		case err := <-released:
+			t.Fatalf("conditional release finished during the owner transaction: %v", err)
+		default:
+		}
+		if err := ownerTx.Commit(ctx); err != nil {
+			t.Fatalf("commit owner transaction: %v", err)
+		}
+		if err := <-released; err != nil {
+			t.Fatalf("conditional release after the owner commit: %v", err)
+		}
+	})
 }
 
 func waitForBlockedBackend(t testing.TB, pool *pgxpool.Pool, blockerPID int32) int32 {

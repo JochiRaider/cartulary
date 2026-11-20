@@ -330,7 +330,7 @@ test("Keep a global FIFO blocker above concurrent local work and activate its ex
         { priority: "polite", message: "Saved" },
       ]);
     await selectSurface(page, timelineViewSchemaId);
-    patches.failNextPatch(409, "future_terminal_public_error", {
+    patches.failNextPatch(409, "illegal_transition", {
       recordId: row.record_id,
     });
     await editTimelineSummary(page, row.record_id, "Terminal blocked edit", {

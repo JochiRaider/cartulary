@@ -114,6 +114,48 @@
       "postgres_isolation": "exclusive"
     },
     {
+      "row_id": "module.imports.browser.ir_corpus_cisco_network_flow_imports_retain_the_69f408a153",
+      "owner_id": "module.imports",
+      "family_id": "module.imports.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.networkflow",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.imports.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/import-assistant.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "ir_corpus_network_flow"
+        ],
+        "titles": [
+          "IR corpus Cisco Network Flow imports retain the table list, exact source download and accessible source history"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "browser_ordinary",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "aggregate_placement": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive",
+      "fixture_input_roots": [
+        "fixtures/ir-incident/v1",
+        "fixtures/network-flow-orientation/v1"
+      ]
+    },
+    {
       "row_id": "module.imports.browser.ir_corpus_import",
       "owner_id": "module.imports",
       "family_id": "module.imports.browser",
@@ -135,7 +177,49 @@
           "ir_corpus_import"
         ],
         "titles": [
-          "IR corpus imports original Core and Cisco files and reopens exact source text"
+          "IR corpus imports the original Core CSV files through the Import Assistant with exact source text"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "browser_ordinary",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "aggregate_placement": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive",
+      "fixture_input_roots": [
+        "fixtures/ir-incident/v1",
+        "fixtures/network-flow-orientation/v1"
+      ]
+    },
+    {
+      "row_id": "module.imports.browser.ir_corpus_source_history_reopens_the_exact_commi_ad005b7ffd",
+      "owner_id": "module.imports",
+      "family_id": "module.imports.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.timeline",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.imports.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/import-assistant.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "ir_corpus_source_history"
+        ],
+        "titles": [
+          "IR corpus source history reopens the exact committed Timeline source for an API-seeded import"
         ]
       },
       "evidence_class": "browser",
@@ -811,6 +895,65 @@
       "postgres_isolation": "exclusive"
     },
     {
+      "row_id": "module.imports.integration.import_apply_unit_in_progress_does_not_block_a_t_a646d89381",
+      "owner_id": "module.imports",
+      "family_id": "module.imports.integration",
+      "collaborator_ids": [
+        "module.revisions",
+        "module.timeline"
+      ],
+      "verification_ids": [
+        "module.imports.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/imports",
+        "tests": [
+          "TestImportApplyUnitDoesNotBlockTimelinePatch_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.imports.integration.import_routes_including_every_import_unit_route_46bfb25f83",
+      "owner_id": "module.imports",
+      "family_id": "module.imports.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.imports.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/imports",
+        "tests": [
+          "TestImportRouteAdmissionOrder_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "module.imports.integration.import_upload_metadata_that_is_syntactically_val_6c1083ba3e",
       "owner_id": "module.imports",
       "family_id": "module.imports.integration",
@@ -935,7 +1078,7 @@
       "postgres_isolation": "exclusive"
     },
     {
-      "row_id": "module.imports.integration.network_flow_default_limit_100001_rows",
+      "row_id": "module.imports.integration.network_flow_public_default_limits_commit_the_ac_fc9396304e",
       "owner_id": "module.imports",
       "family_id": "module.imports.integration",
       "collaborator_ids": [
@@ -948,7 +1091,7 @@
       "selector": {
         "package": "./internal/modules/imports",
         "tests": [
-          "TestNetworkFlowPublicDefaultLimit100001Rows"
+          "TestNetworkFlowPublicDefaultLimitsCommitAcceptedRowLimit"
         ]
       },
       "evidence_class": "integration",
@@ -979,6 +1122,37 @@
         "package": "./internal/modules/imports",
         "tests": [
           "TestNetworkFlowOwnerErrorsTranslateToSafeImportsFailures_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.imports.integration.network_flow_table_import_copy_does_not_block_an_461fa6beca",
+      "owner_id": "module.imports",
+      "family_id": "module.imports.integration",
+      "collaborator_ids": [
+        "module.networkflow",
+        "module.timeline"
+      ],
+      "verification_ids": [
+        "module.imports.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/imports",
+        "tests": [
+          "TestNetworkFlowImportCopyDoesNotBlockIncidentPatch_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -1371,6 +1545,36 @@
       "postgres_isolation": "exclusive"
     },
     {
+      "row_id": "module.imports.measurement.network_flow_import_scaling_sweep_records_capaci_9f0b6b8c7e",
+      "owner_id": "module.imports",
+      "family_id": "module.imports.measurement",
+      "collaborator_ids": [
+        "module.networkflow"
+      ],
+      "verification_ids": [
+        "module.imports.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/imports",
+        "tests": [
+          "TestNetworkFlowImportScalingSweep"
+        ]
+      },
+      "evidence_class": "measurement",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "backend_capacity_isolated",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "explicit_only",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "module.imports.measurement.xlsx_apply",
       "owner_id": "module.imports",
       "family_id": "module.imports.measurement",
@@ -1518,6 +1722,31 @@
         "package": "./internal/modules/imports",
         "tests": [
           "TestCommittedSourcePortableAdmission"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.imports.unit.import_race_only_failures_use_declared_codes_1d24b7726a",
+      "owner_id": "module.imports",
+      "family_id": "module.imports.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.imports.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/imports",
+        "tests": [
+          "TestImportRaceOnlyFailuresUseDeclaredCodes_Unit"
         ]
       },
       "evidence_class": "unit",

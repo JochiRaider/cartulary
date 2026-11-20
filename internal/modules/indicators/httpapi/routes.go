@@ -14,6 +14,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
+	"github.com/JochiRaider/cartulary/internal/modules/records"
 	recordenvelope "github.com/JochiRaider/cartulary/internal/modules/records/enveloperead"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	platformhttpapi "github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -41,8 +42,9 @@ type incidentAdmission interface {
 	Check(context.Context, uuid.UUID, uuid.UUID, admission.Requirement) (admission.Grant, error)
 }
 
-type sessionStoreSlider interface {
-	httpauth.SessionStore
+// sessionSlider is the session surface Indicator transport slides against.
+// Central admission authenticates with the application's authenticator.
+type sessionSlider interface {
 	httpauth.SessionSlider
 }
 
@@ -50,32 +52,39 @@ type service struct {
 	owner       ownerApplication
 	incidents   incidentAdmission
 	records     recordEnvelopeReader
-	sessions    sessionStoreSlider
-	keys        authn.MasterKeys
+	sessions    sessionSlider
 	cursorCodec *pagination.Codec
 	now         func() time.Time
 }
 
-func RegisterRoutes(owner ownerApplication, recordEnvelopes recordEnvelopeReader, incidents incidentAdmission, sessions sessionStoreSlider) platformhttpapi.RouteRegistrar {
+// RegisterRoutes binds the Indicator routes for central admission (Core 01
+// REQ-01-707): the registry authenticates by each operation's declared
+// security and admits the path identifier before a handler runs.
+func RegisterRoutes(owner ownerApplication, recordEnvelopes recordEnvelopeReader, incidents incidentAdmission, sessions sessionSlider) platformhttpapi.RouteRegistrar {
 	return func(mux *http.ServeMux, deps platformhttpapi.DependencySet) error {
 		service, err := newService(deps, owner, recordEnvelopes, incidents, sessions)
 		if err != nil {
 			return err
 		}
-		return platformhttpapi.BindOwnerRoutes(mux, deps, "module.indicators", map[string]http.HandlerFunc{
-			"listSourceRecordIndicatorObservations": service.handleListSourceObservations,
-			"createManualIndicatorObservation":      service.handleCreateObservation,
-			"listIndicatorObservations":             service.handleListIndicatorObservations,
-			"resolveIndicatorObservation":           service.handleResolveObservation,
-			"dismissIndicatorObservation":           service.handleDismissObservation,
-			"restoreIndicatorObservation":           service.handleRestoreObservation,
-			"listIndicatorStateIntervals":           service.handleListLifecycle,
-			"appendIndicatorStateInterval":          service.handleAppendLifecycle,
-		})
+		return platformhttpapi.BindAdmittedOwnerRoutes(mux, deps, "module.indicators", service.operationHandlers())
 	}
 }
 
-func newService(deps platformhttpapi.DependencySet, owner ownerApplication, recordEnvelopes recordEnvelopeReader, incidents incidentAdmission, sessions sessionStoreSlider) (*service, error) {
+// operationHandlers maps each Indicator operation to its one handler.
+func (s *service) operationHandlers() map[string]http.HandlerFunc {
+	return map[string]http.HandlerFunc{
+		"listSourceRecordIndicatorObservations": s.handleListSourceObservations,
+		"createManualIndicatorObservation":      s.handleCreateObservation,
+		"listIndicatorObservations":             s.handleListIndicatorObservations,
+		"resolveIndicatorObservation":           s.handleResolveObservation,
+		"dismissIndicatorObservation":           s.handleDismissObservation,
+		"restoreIndicatorObservation":           s.handleRestoreObservation,
+		"listIndicatorStateIntervals":           s.handleListLifecycle,
+		"appendIndicatorStateInterval":          s.handleAppendLifecycle,
+	}
+}
+
+func newService(deps platformhttpapi.DependencySet, owner ownerApplication, recordEnvelopes recordEnvelopeReader, incidents incidentAdmission, sessions sessionSlider) (*service, error) {
 	if nilHTTPDependency(owner) {
 		return nil, errors.New("indicator routes: owner is required")
 	}
@@ -105,7 +114,7 @@ func newService(deps platformhttpapi.DependencySet, owner ownerApplication, reco
 	}
 	return &service{
 		owner: owner, incidents: incidents, records: recordEnvelopes,
-		sessions: sessions, keys: keys, cursorCodec: codec, now: deps.Now,
+		sessions: sessions, cursorCodec: codec, now: deps.Now,
 	}, nil
 }
 
@@ -131,10 +140,6 @@ func (s *service) handleListIndicatorObservations(w http.ResponseWriter, r *http
 }
 
 func (s *service) handleObservationList(w http.ResponseWriter, r *http.Request, bySource bool) {
-	principal, ok := s.authenticate(w, r, false)
-	if !ok {
-		return
-	}
 	pathKey := "indicator_id"
 	route := "indicators.observations.by_indicator"
 	expectedType := "indicator"
@@ -145,14 +150,14 @@ func (s *service) handleObservationList(w http.ResponseWriter, r *http.Request, 
 		expectedType = ""
 		notFound = indicatorSourceNotFoundError
 	}
-	recordID, valid := pathUUID(r, pathKey)
-	if !valid {
-		writeAPIError(w, r, notFound())
+	principal, recordID, apiErr := admitted(r, pathKey)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
 		return
 	}
-	envelope, apiErr := s.visibleEnvelope(r.Context(), principal.User.ID, recordID, expectedType, false)
+	envelope, apiErr := s.visibleReadEnvelope(r.Context(), principal.User.ID, recordID, expectedType, notFound)
 	if apiErr != nil {
-		writeAPIError(w, r, notFound())
+		writeAPIError(w, r, apiErr)
 		return
 	}
 	binding, cursor, reason := s.cursorCodec.ResolveListRequest(r.URL.Query(), route, principal.User.ID.String(), map[string]string{"record_id": recordID.String()})
@@ -181,7 +186,7 @@ func (s *service) handleObservationList(w http.ResponseWriter, r *http.Request, 
 		writeAPIError(w, r, internalError())
 		return
 	}
-	if err := s.slide(r.Context(), &principal, r); err != nil {
+	if err := s.slide(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, internalError())
 		return
 	}
@@ -190,16 +195,12 @@ func (s *service) handleObservationList(w http.ResponseWriter, r *http.Request, 
 }
 
 func (s *service) handleCreateObservation(w http.ResponseWriter, r *http.Request) {
-	principal, ok := s.authenticate(w, r, true)
-	if !ok {
+	principal, sourceID, apiErr := admitted(r, "source_record_id")
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
 		return
 	}
-	sourceID, valid := pathUUID(r, "source_record_id")
-	if !valid {
-		writeAPIError(w, r, indicatorSourceNotFoundError())
-		return
-	}
-	envelope, apiErr := s.visibleEnvelope(r.Context(), principal.User.ID, sourceID, "", true)
+	envelope, apiErr := s.admitMutationTarget(r.Context(), principal.User.ID, sourceID, indicatorSourceNotFoundError)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -238,21 +239,23 @@ func (s *service) handleRestoreObservation(w http.ResponseWriter, r *http.Reques
 }
 
 func (s *service) handleObservationAction(w http.ResponseWriter, r *http.Request, action string) {
-	principal, ok := s.authenticate(w, r, true)
-	if !ok {
+	principal, observationID, apiErr := admitted(r, "observation_id")
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
 		return
 	}
-	observationID, valid := pathUUID(r, "observation_id")
-	if !valid {
-		writeAPIError(w, r, observationNotFoundError())
-		return
-	}
+	// Only the typed missing observation is not-found; any other lookup
+	// failure is internal_error (REQ-01-706).
 	observation, err := s.owner.GetIndicatorObservation(r.Context(), observationID)
-	if err != nil {
+	if errors.Is(err, indicators.ErrIndicatorObservationNotFound) {
 		writeAPIError(w, r, observationNotFoundError())
 		return
 	}
-	if _, apiErr := requireIncidentAdmission(r.Context(), s.incidents, observation.IncidentID, principal.User.ID, admission.RolesEditorReviewerAdmin, "editor|reviewer|admin"); apiErr != nil {
+	if err != nil {
+		writeAPIError(w, r, internalError())
+		return
+	}
+	if _, apiErr := requireIncidentAdmission(r.Context(), s.incidents, observation.IncidentID, principal.User.ID, admission.RolesEditorReviewerAdmin, "editor|reviewer|admin", observationNotFoundError); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -296,17 +299,13 @@ func (s *service) handleObservationAction(w http.ResponseWriter, r *http.Request
 }
 
 func (s *service) handleListLifecycle(w http.ResponseWriter, r *http.Request) {
-	principal, ok := s.authenticate(w, r, false)
-	if !ok {
+	principal, indicatorID, apiErr := admitted(r, "indicator_id")
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
 		return
 	}
-	indicatorID, valid := pathUUID(r, "indicator_id")
-	if !valid {
-		writeAPIError(w, r, indicatorNotFoundError())
-		return
-	}
-	if _, apiErr := s.visibleEnvelope(r.Context(), principal.User.ID, indicatorID, "indicator", false); apiErr != nil {
-		writeAPIError(w, r, indicatorNotFoundError())
+	if _, apiErr := s.visibleReadEnvelope(r.Context(), principal.User.ID, indicatorID, "indicator", indicatorNotFoundError); apiErr != nil {
+		writeAPIError(w, r, apiErr)
 		return
 	}
 	binding, cursor, reason := s.cursorCodec.ResolveListRequest(r.URL.Query(), "indicators.lifecycle.by_indicator", principal.User.ID.String(), map[string]string{"record_id": indicatorID.String()})
@@ -329,7 +328,7 @@ func (s *service) handleListLifecycle(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, internalError())
 		return
 	}
-	if err := s.slide(r.Context(), &principal, r); err != nil {
+	if err := s.slide(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, internalError())
 		return
 	}
@@ -337,16 +336,12 @@ func (s *service) handleListLifecycle(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *service) handleAppendLifecycle(w http.ResponseWriter, r *http.Request) {
-	principal, ok := s.authenticate(w, r, true)
-	if !ok {
+	principal, indicatorID, apiErr := admitted(r, "indicator_id")
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
 		return
 	}
-	indicatorID, valid := pathUUID(r, "indicator_id")
-	if !valid {
-		writeAPIError(w, r, indicatorNotFoundError())
-		return
-	}
-	envelope, apiErr := s.visibleEnvelope(r.Context(), principal.User.ID, indicatorID, "indicator", true)
+	envelope, apiErr := s.admitMutationTarget(r.Context(), principal.User.ID, indicatorID, indicatorNotFoundError)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -377,43 +372,68 @@ func (s *service) handleAppendLifecycle(w http.ResponseWriter, r *http.Request) 
 	s.writeMutation(w, r, &principal, status, result)
 }
 
-func (s *service) authenticate(w http.ResponseWriter, r *http.Request, changing bool) (httpauth.Principal, bool) {
-	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.sessions, Keys: s.keys, Now: s.now, StateChanging: changing})
-	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return httpauth.Principal{}, false
+// admitted returns the principal and the uuid path parameter central
+// admission established (REQ-01-707 steps 2 and 3); their absence is a
+// binding error.
+func admitted(r *http.Request, name string) (httpauth.Principal, uuid.UUID, *platformhttpapi.APIError) {
+	principal, authenticated := httpauth.AdmittedPrincipal(r)
+	value, identified := platformhttpapi.PathUUID(r, name)
+	if !authenticated || !identified {
+		return httpauth.Principal{}, uuid.UUID{}, internalError()
 	}
-	return principal, true
+	return principal, value, nil
 }
 
-func (s *service) visibleEnvelope(ctx context.Context, actorID uuid.UUID, recordID uuid.UUID, expectedType string, mutation bool) (recordenvelope.Envelope, *platformhttpapi.APIError) {
+// visibleReadEnvelope admits the record a read addresses by path. A missing,
+// soft-deleted or wrongly typed record, and a record in an incident the caller
+// cannot see, all receive the route's not-found response (REQ-01-704). Any
+// other envelope read failure is internal_error (REQ-01-706).
+func (s *service) visibleReadEnvelope(ctx context.Context, actorID uuid.UUID, recordID uuid.UUID, expectedType string, notFound func() *platformhttpapi.APIError) (recordenvelope.Envelope, *platformhttpapi.APIError) {
 	envelope, err := s.records.LoadEnvelope(ctx, recordID)
-	if err != nil || envelope.DeletedAt != nil || (expectedType != "" && envelope.RecordType != expectedType) {
-		if expectedType == "indicator" {
-			return recordenvelope.Envelope{}, indicatorNotFoundError()
-		}
-		return recordenvelope.Envelope{}, indicatorSourceNotFoundError()
+	if err != nil && !errors.Is(err, recordenvelope.ErrEnvelopeNotFound) {
+		return recordenvelope.Envelope{}, internalError()
 	}
-	if mutation {
-		if _, apiErr := requireIncidentAdmission(ctx, s.incidents, envelope.IncidentID, actorID, admission.RolesEditorReviewerAdmin, "editor|reviewer|admin"); apiErr != nil {
-			return recordenvelope.Envelope{}, apiErr
-		}
-	} else if _, apiErr := requireIncidentAdmission(ctx, s.incidents, envelope.IncidentID, actorID, admission.RolesMember, "member"); apiErr != nil {
+	if records.ClassifyTargetPresence(err == nil, envelope.DeletedAt) != nil || (expectedType != "" && envelope.RecordType != expectedType) {
+		return recordenvelope.Envelope{}, notFound()
+	}
+	if _, apiErr := requireIncidentAdmission(ctx, s.incidents, envelope.IncidentID, actorID, admission.RolesMember, "member", notFound); apiErr != nil {
+		return recordenvelope.Envelope{}, apiErr
+	}
+	return envelope, nil
+}
+
+// admitMutationTarget admits the record a child mutation addresses by path
+// (REQ-01-704, REQ-01-705): a missing record is the route's not-found
+// response, a caller who cannot see the record's incident receives that same
+// response, and a visible caller without the route's role is denied. The owner
+// then decides an exact committed replay first and, under the record lock, the
+// deleted state, the record type, the incident lifecycle and the base version,
+// in that order. Any other envelope read failure is internal_error
+// (REQ-01-706).
+func (s *service) admitMutationTarget(ctx context.Context, actorID uuid.UUID, recordID uuid.UUID, notFound func() *platformhttpapi.APIError) (recordenvelope.Envelope, *platformhttpapi.APIError) {
+	envelope, err := s.records.LoadEnvelope(ctx, recordID)
+	if errors.Is(err, recordenvelope.ErrEnvelopeNotFound) {
+		return recordenvelope.Envelope{}, notFound()
+	}
+	if err != nil {
+		return recordenvelope.Envelope{}, internalError()
+	}
+	if _, apiErr := requireIncidentAdmission(ctx, s.incidents, envelope.IncidentID, actorID, admission.RolesEditorReviewerAdmin, "editor|reviewer|admin", notFound); apiErr != nil {
 		return recordenvelope.Envelope{}, apiErr
 	}
 	return envelope, nil
 }
 
 func (s *service) writeMutation(w http.ResponseWriter, r *http.Request, principal *httpauth.Principal, status int, value any) {
-	if err := s.slide(r.Context(), principal, r); err != nil {
+	if err := s.slide(r.Context(), principal); err != nil {
 		writeAPIError(w, r, internalError())
 		return
 	}
 	_ = platformhttpapi.WriteSuccess(w, r, status, value)
 }
 
-func (s *service) slide(ctx context.Context, principal *httpauth.Principal, r *http.Request) error {
-	return httpauth.SlideSessionIfNeeded(ctx, s.sessions, principal, r.Method, r.URL.Path, s.now)
+func (s *service) slide(ctx context.Context, principal *httpauth.Principal) error {
+	return httpauth.SlideSessionIfNeeded(ctx, s.sessions, principal, s.now)
 }
 
 func requireJSON(r *http.Request) *platformhttpapi.APIError {
@@ -422,10 +442,6 @@ func requireJSON(r *http.Request) *platformhttpapi.APIError {
 		return invalidMutationPayload("", "invalid_content_type")
 	}
 	return nil
-}
-
-func pathUUID(r *http.Request, key string) (uuid.UUID, bool) {
-	return parseCanonicalUUID(r.PathValue(key))
 }
 
 func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *platformhttpapi.APIError) {
@@ -445,6 +461,8 @@ func mutationError(err error, clientTxnID string) *platformhttpapi.APIError {
 		return observationNotFoundError()
 	case errors.Is(err, indicators.ErrIndicatorNotFound):
 		return indicatorNotFoundError()
+	case errors.Is(err, records.ErrTargetDeleted):
+		return recordDeletedUseRestoreError()
 	case errors.Is(err, indicators.ErrRowVersionConflict):
 		return &platformhttpapi.APIError{Status: http.StatusConflict, Code: "row_version_conflict", Details: map[string]any{}}
 	case errors.As(err, &transition):
@@ -466,6 +484,10 @@ func indicatorSourceNotFoundError() *platformhttpapi.APIError {
 	return &platformhttpapi.APIError{Status: http.StatusNotFound, Code: "indicator_source_record_not_found", Details: map[string]any{}}
 }
 
+func recordDeletedUseRestoreError() *platformhttpapi.APIError {
+	return &platformhttpapi.APIError{Status: http.StatusConflict, Code: "record_deleted_use_restore", Details: map[string]any{}}
+}
+
 func indicatorNotFoundError() *platformhttpapi.APIError {
 	return &platformhttpapi.APIError{Status: http.StatusNotFound, Code: "indicator_not_found", Details: map[string]any{}}
 }
@@ -478,11 +500,14 @@ func resolvedIndicatorNotFoundError() *platformhttpapi.APIError {
 	return &platformhttpapi.APIError{Status: http.StatusNotFound, Code: "resolved_indicator_not_found", Details: map[string]any{}}
 }
 
-func requireIncidentAdmission(ctx context.Context, checker incidentAdmission, incidentID uuid.UUID, userID uuid.UUID, roles admission.RoleSet, requiredRole string) (admission.Grant, *platformhttpapi.APIError) {
+// requireIncidentAdmission decides the caller's incident visibility and role.
+// A caller who cannot see the incident receives the route's own not-found
+// response, identical to the response for a missing resource (REQ-01-704).
+func requireIncidentAdmission(ctx context.Context, checker incidentAdmission, incidentID uuid.UUID, userID uuid.UUID, roles admission.RoleSet, requiredRole string, notFound func() *platformhttpapi.APIError) (admission.Grant, *platformhttpapi.APIError) {
 	grant, err := checker.Check(ctx, incidentID, userID, admission.Requirement{AllowedRoles: roles, Lifecycle: admission.LifecycleAny})
 	switch {
 	case admission.IsDenied(err, admission.DenialNotVisible):
-		return admission.Grant{}, &platformhttpapi.APIError{Status: http.StatusNotFound, Code: "incident_not_found", Details: map[string]any{}}
+		return admission.Grant{}, notFound()
 	case admission.IsDenied(err, admission.DenialInsufficientRole):
 		return admission.Grant{}, &platformhttpapi.APIError{Status: http.StatusForbidden, Code: "authorization_denied", Details: map[string]any{"required_role": requiredRole}}
 	case err != nil:

@@ -140,7 +140,22 @@ describe("Incident lifecycle characterization", () => {
     const { writes } = setup();
     await reason();
     close();
-    await settle(writes, json({ error: { code: "client_txn_conflict" } }, 409));
+    await settle(
+      writes,
+      json(
+        {
+          error: {
+            code: "client_txn_conflict",
+            status: 409,
+            message: "Conflict.",
+            request_id: "request-test",
+            retryable: false,
+            details: {},
+          },
+        },
+        409,
+      ),
+    );
     expect(screen.queryByText(/transaction.*conflict/i)).not.toBeNull();
     expect(
       screen.queryByText(
@@ -159,6 +174,10 @@ describe("Incident lifecycle characterization", () => {
           error: {
             code: "illegal_transition",
             details: { reason_code: "incident_already_closed" },
+            status: 409,
+            message: "Conflict.",
+            request_id: "request-test",
+            retryable: false,
           },
         },
         409,
@@ -173,7 +192,19 @@ describe("Incident lifecycle characterization", () => {
     observe(incident({ incident_version: 2 }));
     await settle(
       writes,
-      json({ error: { code: "incident_version_conflict" } }, 409),
+      json(
+        {
+          error: {
+            code: "incident_version_conflict",
+            status: 409,
+            message: "Conflict.",
+            request_id: "request-test",
+            retryable: false,
+            details: {},
+          },
+        },
+        409,
+      ),
     );
     expect(
       screen.queryByRole("button", { name: "Review current incident" }),
@@ -198,7 +229,19 @@ describe("Incident lifecycle characterization", () => {
     await act(async () => {});
     await settle(
       writes,
-      json({ error: { code: "invalid_incident_lifecycle_request" } }, 400),
+      json(
+        {
+          error: {
+            code: "invalid_incident_lifecycle_request",
+            status: 400,
+            message: "Invalid request.",
+            request_id: "request-test",
+            retryable: false,
+            details: {},
+          },
+        },
+        400,
+      ),
     );
     expect(id("lifecycle-outcome").getAttribute("role")).toBe("status");
     expect(id("lifecycle-outcome").textContent).not.toContain(

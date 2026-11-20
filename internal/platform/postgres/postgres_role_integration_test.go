@@ -52,9 +52,21 @@ func TestPostgresPurposeConnectionsEstablishExactIdentity_Integration(t *testing
 				t.Fatalf("close stdlib purpose connection: %v", err)
 			}
 
+			invalidSize := settings
+			invalidSize.MaxConnections = -1
+			var sizeErr *postgres.ConfigurationError
+			if invalid, err := postgres.Setup(ctx, invalidSize); invalid != nil || !errors.As(err, &sizeErr) || sizeErr.Reason() != postgres.ReasonBindingInvalid {
+				t.Fatalf("negative pool size = %v / %v", invalid, err)
+			}
+			// An explicit size bounds the pool; the two acquisitions below fill it.
+			settings.MaxConnections = 2
 			pool, err := postgres.Setup(ctx, settings)
 			if err != nil {
 				t.Fatalf("open pool purpose connection: %v", err)
+			}
+			if got := pool.Pool().Stat().MaxConns(); got != 2 {
+				pool.Close()
+				t.Fatalf("pool max connections = %d, want configured 2", got)
 			}
 			assertPostgresTLS(t, admin, pool.QueryRow(ctx, `SELECT pg_backend_pid()`), test.login)
 			first, err := pool.Acquire(ctx)

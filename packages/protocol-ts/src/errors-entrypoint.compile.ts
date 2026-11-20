@@ -1,3 +1,3 @@
-import { errorRegistry, type PublicError } from "@cartulary/protocol-ts/errors";
+import { errorRegistry } from "@cartulary/protocol-ts/errors";
 
-export const firstPublicError: PublicError = errorRegistry.errors[0];
+export const firstRegisteredErrorCode: string = errorRegistry.errors[0].code;

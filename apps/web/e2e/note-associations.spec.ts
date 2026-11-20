@@ -27,6 +27,7 @@ import { publicHttpOperation } from "./support/transport/publicHttpOperationClie
 import { atJsonOrigin } from "./support/transport/publicJsonClient";
 import {
   awaitResponseBarrier,
+  fulfillOperationError,
   installOwnedRoute,
   removeOwnedRoute,
 } from "./support/transport/requestInterception";
@@ -119,18 +120,12 @@ test("Notes manage existing sources evidence and directional references with ret
   await installOwnedRoute(page, routePath, async (route) => {
     if (route.request().method() === "GET") {
       if (failReads)
-        return route.fulfill({
-          status: 503,
-          json: {
-            error: {
-              code: "internal_error",
-              message: "Read unavailable",
-              request_id: "read-failure",
-              status: 503,
-              retryable: true,
-            },
-          },
-        });
+        return fulfillOperationError(
+          route,
+          "listNoteAssociations",
+          500,
+          "internal_error",
+        );
       return route.continue();
     }
     bodies.push(route.request().postData() ?? "");
@@ -239,20 +234,18 @@ test("Inspector field rejection retains raw text and caret and cannot invalidate
       if (route.request().method() !== "PATCH") return route.continue();
       reached = true;
       if (!(await awaitResponseBarrier(route, responseGate))) return;
-      await route.fulfill({
-        status: 422,
-        headers: { "X-Request-ID": "field-rejected" },
-        json: {
-          error: {
-            code: "invalid_mutation_payload",
-            status: 422,
-            message: "Field rejected",
-            request_id: "field-rejected",
-            retryable: false,
-            details: { field: "evidence.title", reason_code: "required" },
-          },
+      await fulfillOperationError(
+        route,
+        "patchRecord",
+        400,
+        "invalid_mutation_payload",
+        {
+          headers: { "X-Request-ID": "field-rejected" },
+          message: "Field rejected",
+          requestId: "field-rejected",
+          details: { field: "evidence.title", reason_code: "required" },
         },
-      });
+      );
     },
   );
   await input.fill("  exact draft Ω  ");
@@ -354,19 +347,17 @@ test("Inspector collection and reference rejections retain authored values and s
       `**/api/v1/records/${record}`,
       async (route) => {
         if (route.request().method() !== "PATCH") return route.continue();
-        await route.fulfill({
-          status: 422,
-          json: {
-            error: {
-              code: "invalid_mutation_payload",
-              status: 422,
-              message: "Field rejected",
-              request_id: "collection-rejected",
-              retryable: false,
-              details: { field, reason_code: "invalid_value" },
-            },
+        await fulfillOperationError(
+          route,
+          "patchRecord",
+          400,
+          "invalid_mutation_payload",
+          {
+            message: "Field rejected",
+            requestId: "collection-rejected",
+            details: { field, reason_code: "invalid_value" },
           },
-        });
+        );
       },
     );
     await page.getByTestId(genericEditSubmitTestId(schema)).click();

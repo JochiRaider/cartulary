@@ -12,12 +12,14 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/JochiRaider/cartulary/internal/app/server"
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
@@ -25,6 +27,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/imports"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/modules/networkflow"
+	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
@@ -128,7 +131,7 @@ func sourceAdmissionHarness(t *testing.T, overrides map[string]string) (*appsupp
 		env[k] = v
 	}
 	timing := &sourceAdmissionTiming{}
-	if t.Name() == "TestNetworkFlowPublicDefaultLimit100001Rows" {
+	if t.Name() == networkFlowDefaultLimitTestName {
 		t.Cleanup(func() {
 			root, err := fixtureartifacts.SelectedRunRoot()
 			if err != nil {
@@ -217,14 +220,29 @@ func TestNetworkFlowPublicSourceAdmission(t *testing.T) {
 	})
 }
 
-// The real default limit is intentional: a scaled fixture cannot demonstrate
-// admission beyond Workbook's former 100000-row ceiling. Its catalog row reserves
-// the backend_capacity_isolated profile; the apply observation is bounded below.
-func TestNetworkFlowPublicDefaultLimit100001Rows(t *testing.T) {
+const networkFlowDefaultLimitTestName = "TestNetworkFlowPublicDefaultLimitsCommitAcceptedRowLimit"
+
+// This is NF-REQ-171a's retained capacity evidence: with every limit and
+// timeout at its default, a unit of exactly the default accepted-row limit
+// commits within the default participant budget. The harness runs it in the
+// standard placement, alongside check's other concurrent work. 250,000 rows
+// also exceed Workbook's former 100,000-row ceiling, so the public
+// source-admission assertions stay. The poll's own deadline only bounds the
+// observation; the unit fails with a retryable timeout when it overruns the
+// participant budget.
+func TestNetworkFlowPublicDefaultLimitsCommitAcceptedRowLimit(t *testing.T) {
 	h, login, incident := sourceAdmissionHarness(t, nil)
-	content := sourceAdmissionHeader + strings.Repeat(sourceAdmissionRow, 100001)
+	limits := h.Server.Config.NetworkFlowActivity.EffectiveResourceLimits()
+	if limits.MaxAcceptedRowsPerTable != 250000 || limits.MaxRowsPerCSV != 250000 || h.Server.Config.Timeouts.Extensions.TransactionParticipantSeconds != 30 {
+		t.Fatalf("defaults are not in effect: accepted=%d rows=%d participant_seconds=%d", limits.MaxAcceptedRowsPerTable, limits.MaxRowsPerCSV, h.Server.Config.Timeouts.Extensions.TransactionParticipantSeconds)
+	}
+	rows := int(limits.MaxAcceptedRowsPerTable)
+	content := sourceAdmissionHeader + strings.Repeat(sourceAdmissionRow, rows)
+	if int64(len(content)) > h.Server.Config.Limits.Imports.MaxCSVSourceBytes {
+		t.Fatalf("default-limit source of %d bytes exceeds the default CSV source bound", len(content))
+	}
 	session, unit := startCSVImportSession(t, h.Server.HTTP.URL, login, incident, "large-source", content, "large.csv")
-	assertPublicAnalyticalSource(t, h, login, session, unit, content, true, true, 100001)
+	assertPublicAnalyticalSource(t, h, login, session, unit, content, true, true, rows)
 }
 
 func assertPublicAnalyticalSource(t *testing.T, h *appsupport.ServerHarness, login authcookietest.AuthCookies, session, unit, content string, previewOK, applyOK bool, accepted int) {
@@ -278,19 +296,11 @@ func assertPublicAnalyticalSource(t *testing.T, h *appsupport.ServerHarness, log
 	applyBody := map[string]any{"client_txn_id": "apply-" + unit}
 	resp = doImportJSON(t, h.Server.HTTP.URL, login, http.MethodPost, "/api/v1/import-sessions/"+session+"/apply", applyBody)
 	jobID := httptestx.RequireSuccessEnvelope(t, resp, http.StatusAccepted)["data"].(map[string]any)["job_id"].(string)
-	deadline := time.Now().Add(2 * time.Minute)
-	var job map[string]any
-	for {
-		resp = httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, h.Server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(login.Session))
-		job = httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
-		if job["status"] == "succeeded" || job["status"] == "failed" || job["status"] == "canceled" {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("apply observation exceeded declared large-input bound: %v", job["status"])
-		}
-		time.Sleep(50 * time.Millisecond)
-	}
+	// The declared large-input bound is the poll's own deadline; if it
+	// expires, the poll records the database's lock waits.
+	job := httptestx.PollJob(t, h.Server.HTTP.URL, jobID, httptestx.PollOptions{
+		Timeout: 2 * time.Minute, Interval: 50 * time.Millisecond, Request: []func(*http.Request){httptestx.WithCookies(login.Session)}, LockWaits: h.DB,
+	}, "succeeded", "failed", "canceled")
 	wantStatus := "failed"
 	if applyOK {
 		wantStatus = "succeeded"
@@ -396,4 +406,197 @@ func TestGenericCSVRaggedPublicLifecycle(t *testing.T) {
 		t.Fatalf("owner rows %d", got)
 	}
 	preview()
+}
+
+// crossOwnerDeadlineComposition holds the apply source read until the unit's
+// cross-owner transaction context ends. With a one-second transaction budget,
+// the owner write is interrupted before commit without depending on load.
+type crossOwnerDeadlineComposition struct{}
+
+func (crossOwnerDeadlineComposition) WrapDatabase(db dbport.DB) dbport.DB { return db }
+func (crossOwnerDeadlineComposition) ConfigureNetworkFlow(deps networkflow.ModuleDependencies) networkflow.ModuleDependencies {
+	deps.ImportSources = crossOwnerDeadlinePort{ImportSourcePort: deps.ImportSources}
+	return deps
+}
+func (crossOwnerDeadlineComposition) WrapImportFacade(f imports.ExtensionImportFacade) imports.ExtensionImportFacade {
+	return f
+}
+
+type crossOwnerDeadlinePort struct{ networkflow.ImportSourcePort }
+
+func (p crossOwnerDeadlinePort) OpenSourceStreamTx(ctx context.Context, tx pgx.Tx, ref string) (imports.ImportSourceStream, error) {
+	stream, err := p.ImportSourcePort.OpenSourceStreamTx(ctx, tx, ref)
+	if err != nil {
+		return stream, err
+	}
+	stream.Reader = &crossOwnerDeadlineReader{ReadCloser: stream.Reader, ctx: ctx}
+	return stream, nil
+}
+
+type crossOwnerDeadlineReader struct {
+	io.ReadCloser
+	ctx context.Context
+}
+
+func (r *crossOwnerDeadlineReader) Read([]byte) (int, error) {
+	<-r.ctx.Done()
+	return 0, r.ctx.Err()
+}
+
+// A unit whose cross-owner transaction times out before commit gets the Core
+// unit outcome of Core 01 REQ-01-620c, never the owner-translation fallback,
+// and leaves no unit effect.
+func assertCrossOwnerTimeoutBeforeCommitUnitOutcome(t *testing.T) {
+	runtime := appsupport.StartRuntime(t)
+	h := runtime.StartServer(t, appsupport.ServerOptions{
+		Prefix: "network-flow-import-transaction-timeout",
+		Env: map[string]string{
+			"CARTULARY__NETWORK_FLOW_ACTIVITY__CLAIMED":                        "true",
+			"CARTULARY__NETWORK_FLOW_ACTIVITY__KEY_RING_MANIFEST_PATH":         fixtures.Path("network-flow", "key-rings.json"),
+			"CARTULARY_SECRET_TEST_NETWORK_FLOW_CURSOR":                        "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+			"CARTULARY_SECRET_TEST_NETWORK_FLOW_SAFE_DIGEST":                   "AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI",
+			"CARTULARY__TIMEOUTS__EXTENSIONS__TRANSACTION_PARTICIPANT_SECONDS": "1",
+		},
+		TestRouteMode: httptestx.TestRouteModeDisabled,
+		ConfigureRuntime: func(options *server.Options) {
+			options.NetworkFlowComposition = crossOwnerDeadlineComposition{}
+		},
+	})
+	login, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, h.Server.HTTP.URL)
+	incident := scenariotest.CreateIncident(t, h.Server, login, map[string]any{
+		"client_txn_id": "txn-network-flow-import-timeout-incident", "incident_key": "IR-NF-IMPORT-TIMEOUT", "title": "Network Flow transaction timeout",
+	})
+	incidentID := incident["incident_id"].(string)
+	session, unit := startCSVImportSession(t, h.Server.HTTP.URL, login, incidentID, "txn-network-flow-import-timeout-upload", sourceAdmissionHeader+sourceAdmissionRow, "timeout.csv")
+	base := "/api/v1/import-sessions/" + session
+	httptestx.RequireSuccessEnvelope(t, doImportJSON(t, h.Server.HTTP.URL, login, http.MethodPut, base+"/units/"+unit+"/mapping", networkFlowMappingPayload("txn-network-flow-import-timeout-mapping")), http.StatusOK)
+	httptestx.RequireSuccessEnvelope(t, doImportJSON(t, h.Server.HTTP.URL, login, http.MethodPost, base+"/units/"+unit+"/select", map[string]any{"client_txn_id": "txn-network-flow-import-timeout-select"}), http.StatusOK)
+	applied := httptestx.RequireSuccessEnvelope(t, doImportJSON(t, h.Server.HTTP.URL, login, http.MethodPost, base+"/apply", map[string]any{"client_txn_id": "txn-network-flow-import-timeout-apply"}), http.StatusAccepted)["data"].(map[string]any)
+	job := waitImportJobTerminal(t, h.Server.HTTP.URL, login, applied["job_id"].(string))
+	summary, _ := job["error_summary"].(map[string]any)
+	wantDetails := map[string]any{
+		"reason_code":     "extension_transaction_timeout",
+		"operation_id":    "import-unit:" + session + ":" + unit,
+		"timeout_seconds": float64(1),
+	}
+	if job["status"] != "failed" || summary["code"] != "service_unavailable" || summary["retryable"] != true || !reflect.DeepEqual(summary["details"], wantDetails) {
+		t.Fatalf("timed-out unit job = status %v, error_summary %#v", job["status"], summary)
+	}
+	if got := dbassert.CountSQL(t, h.DB, `
+SELECT count(*) FROM import_unit_apply_outcomes
+ WHERE import_session_id::text = $1 AND import_unit_id::text = $2 AND outcome_status = 'failed'
+   AND error_code = 'service_unavailable' AND reason_code = 'extension_transaction_timeout' AND error_retryable`, session, unit); got != 1 {
+		t.Fatalf("durable timed-out unit outcome count = %d, want 1", got)
+	}
+	for query, arg := range map[string]string{
+		`SELECT count(*) FROM network_flow_tables WHERE incident_id::text = $1`:                   incidentID,
+		`SELECT count(*) FROM network_flow_rows WHERE incident_id::text = $1`:                     incidentID,
+		`SELECT count(*) FROM import_committed_sources WHERE origin_import_session_id::text = $1`: session,
+	} {
+		if got := dbassert.CountSQL(t, h.DB, query, arg); got != 0 {
+			t.Fatalf("timed-out unit left %d effects: %s", got, query)
+		}
+	}
+	// A fatal process answers every request with 503 extension_integrity_failure.
+	httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, h.Server.HTTP.URL+"/api/v1/jobs/"+applied["job_id"].(string), nil, httptestx.WithCookies(login.Session)), http.StatusOK)
+}
+
+// unitCommitHoldComposition holds a view-schema unit transaction's COMMIT
+// until the attempt context that began the transaction ends, as when the job
+// runner stops or loses the execution while the commit is issued.
+type unitCommitHoldComposition struct {
+	entered chan struct{}
+	once    *sync.Once
+}
+
+func (c unitCommitHoldComposition) WrapDatabase(db dbport.DB) dbport.DB {
+	return unitCommitHoldDB{DB: db, composition: c}
+}
+func (unitCommitHoldComposition) ConfigureNetworkFlow(deps networkflow.ModuleDependencies) networkflow.ModuleDependencies {
+	return deps
+}
+func (unitCommitHoldComposition) WrapImportFacade(f imports.ExtensionImportFacade) imports.ExtensionImportFacade {
+	return f
+}
+
+type unitCommitHoldDB struct {
+	dbport.DB
+	composition unitCommitHoldComposition
+}
+
+func (d unitCommitHoldDB) BeginTx(ctx context.Context, options pgx.TxOptions) (pgx.Tx, error) {
+	tx, err := d.DB.BeginTx(ctx, options)
+	if err != nil {
+		return tx, err
+	}
+	return &unitCommitHoldTx{Tx: tx, begun: ctx, composition: d.composition}, nil
+}
+
+type unitCommitHoldTx struct {
+	pgx.Tx
+	begun       context.Context
+	composition unitCommitHoldComposition
+	unitOutcome bool
+}
+
+func (t *unitCommitHoldTx) Exec(ctx context.Context, sql string, arguments ...any) (pgconn.CommandTag, error) {
+	if strings.Contains(sql, "INSERT INTO import_unit_apply_outcomes") {
+		t.unitOutcome = true
+	}
+	return t.Tx.Exec(ctx, sql, arguments...)
+}
+
+func (t *unitCommitHoldTx) Commit(ctx context.Context) error {
+	if t.unitOutcome {
+		t.composition.once.Do(func() { close(t.composition.entered) })
+		<-t.begun.Done()
+	}
+	return t.Tx.Commit(ctx)
+}
+
+// The job runner stops while the unit transaction's COMMIT is issued: it
+// cancels the attempt and conditionally releases the execution. The unit
+// transaction's Jobs-locked validation already decided that race, so the
+// issued commit is awaited and its applied outcome is retained (REQ-01-620c).
+func assertIssuedUnitCommitSurvivesAttemptCancellation(t *testing.T) {
+	runtime := appsupport.StartRuntime(t)
+	database := runtime.PrepareIsolatedDatabase(t, "imports-issued-unit-commit")
+	durableObjects, err := objectstore.NewFilesystemStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("create durable import object store: %v", err)
+	}
+	hold := unitCommitHoldComposition{entered: make(chan struct{}), once: &sync.Once{}}
+	h := runtime.StartServer(t, appsupport.ServerOptions{
+		Prefix: "imports-issued-unit-commit", Database: database, ObjectStore: durableObjects, TestRouteMode: httptestx.TestRouteModeDisabled,
+		ConfigureRuntime: func(options *server.Options) { options.NetworkFlowComposition = hold },
+	})
+	login, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, h.Server.HTTP.URL)
+	incident := scenariotest.CreateIncident(t, h.Server, login, map[string]any{
+		"client_txn_id": "txn-imports-issued-commit-incident", "incident_key": "IR-IMPORT-ISSUED-COMMIT", "title": "Issued unit commit",
+	})
+	sessionID, unitID := prepareReadyTimelineImport(t, h, login, incident["incident_id"].(string), "imports-issued-commit")
+	applied := httptestx.RequireSuccessEnvelope(t, doImportJSON(t, h.Server.HTTP.URL, login, http.MethodPost, "/api/v1/import-sessions/"+sessionID+"/apply", map[string]any{"client_txn_id": "txn-imports-issued-commit-apply"}), http.StatusAccepted)["data"].(map[string]any)
+	select {
+	case <-hold.entered:
+	case <-time.After(30 * time.Second):
+		t.Fatalf("apply job %v never issued its unit commit", applied["job_id"])
+	}
+	closed := make(chan struct{})
+	go func() {
+		defer close(closed)
+		h.Server.Close()
+	}()
+	select {
+	case <-closed:
+	case <-time.After(60 * time.Second):
+		t.Fatal("server did not stop after the unit commit was released")
+	}
+	if got := dbassert.CountSQL(t, h.DB, `
+SELECT count(*)
+  FROM import_unit_apply_outcomes o
+  JOIN import_units u USING (import_session_id, import_unit_id)
+ WHERE o.import_session_id::text = $1 AND o.import_unit_id::text = $2
+   AND o.outcome_status = 'applied' AND u.unit_status = 'applied'`, sessionID, unitID); got != 1 {
+		t.Fatalf("issued unit commit lost to attempt cancellation: applied outcomes = %d", got)
+	}
 }

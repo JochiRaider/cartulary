@@ -7,6 +7,7 @@ import type { WorkbookPendingMutationAccepted } from "../ports/WorkbookPendingMu
 import { acceptWorkbookRowObservation } from "../query/acceptWorkbookRowObservation";
 import type { WorkbookReadScopeSource } from "../query/WorkbookQueryRow";
 import type { WorkbookOperationExecutor } from "./workbookOperationContract";
+import { explicitWorkbookWriteUncertain } from "./workbookOperationErrorPolicy";
 import type { WorkbookProtocolPatchRecordRequest } from "./workbookProtocolTypes";
 
 export type CapturedRecordPatch = Readonly<{
@@ -120,10 +121,7 @@ export function createRecordPatchTransport(
           },
         });
         if (result.kind === "rejected")
-          return status === null ||
-            status < 400 ||
-            status >= 500 ||
-            result.failure.kind === "invalid_contract"
+          return explicitWorkbookWriteUncertain(status, result.failure)
             ? { kind: "uncertain" }
             : result;
         const receipt = acceptedRecordMutation(

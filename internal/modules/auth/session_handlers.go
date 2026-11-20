@@ -10,11 +10,6 @@ import (
 )
 
 func (s *Service) handleLogin(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-
 	request, apiErr := DecodeLoginRequest(r.Body)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
@@ -122,19 +117,14 @@ func (s *Service) handleLogin(w http.ResponseWriter, r *http.Request) {
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, resource)
 }
 
+// handleSession inspects the current session. It is not qualifying activity
+// and never slides idle expiry (Core 04 REQ-04-010).
 func (s *Service) handleSession(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
+	principal, ok := admittedPrincipal(w, r)
+	if !ok {
 		return
 	}
-
 	if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-
-	principal, apiErr := s.authenticateSessionRequest(r, false)
-	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -148,14 +138,8 @@ func (s *Service) handleSession(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) handleLogout(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-
-	principal, apiErr := s.authenticateSessionRequest(r, true)
-	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
+	principal, ok := admittedPrincipal(w, r)
+	if !ok {
 		return
 	}
 

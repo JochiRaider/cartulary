@@ -324,6 +324,12 @@ func (t *Tx) Commit(ctx context.Context) (CommitOutcome, error) {
 	}
 	t.closed = true
 	if err := t.tx.Commit(ctx); err != nil {
+		// A definite failure acknowledgement or a never-sent request on a
+		// retired session is proven absent (EXT-REQ-215); only an undetermined
+		// reply remains unknown.
+		if CommitAbsenceProven(ctx, t.tx, err) {
+			return CommitAbsent, err
+		}
 		return CommitUnknown, err
 	}
 	return CommitProven, nil

@@ -143,13 +143,21 @@ func validatePreview(parsed parsedCSV, mapping approvedMapping, fingerprint stri
 }
 
 func validateCSVRecord(record csvRecord, columns []sourceColumnDescriptor, mapping approvedMapping, fingerprint, sourceSHA string, limits EffectiveLimits, fieldMappings map[string]fieldMapping) (normalizedRow, []rejectedRowDiagnostic, error) {
+	return validateCSVRecordWith(record, columns, mapping, fingerprint, sourceSHA, limits, fieldMappings, true)
+}
+
+// validateCSVRecordWith validates one record. Without materialize it computes
+// every check, diagnostic and digest but leaves the row's JSON members
+// (direction evidence and unmapped values) unencoded, for a pass that keeps
+// only digests and counts.
+func validateCSVRecordWith(record csvRecord, columns []sourceColumnDescriptor, mapping approvedMapping, fingerprint, sourceSHA string, limits EffectiveLimits, fieldMappings map[string]fieldMapping, materialize bool) (normalizedRow, []rejectedRowDiagnostic, error) {
 	var row normalizedRow
 	var diagnostics []rejectedRowDiagnostic
 	if !record.FieldCountOK {
 		diagnostics = []rejectedRowDiagnostic{fieldCountDiagnostic(record, len(columns))}
 	} else {
 		var err error
-		row, diagnostics, err = validateRecord(record, mapping, fingerprint, fieldMappings, limits)
+		row, diagnostics, err = validateRecordWith(record, mapping, fingerprint, fieldMappings, limits, materialize)
 		if err != nil {
 			return normalizedRow{}, nil, err
 		}
@@ -162,7 +170,7 @@ func validateCSVRecord(record csvRecord, columns []sourceColumnDescriptor, mappi
 	return row, diagnostics, nil
 }
 
-func validateRecord(record csvRecord, mapping approvedMapping, mappingFingerprint string, fieldMappings map[string]fieldMapping, limits EffectiveLimits) (normalizedRow, []rejectedRowDiagnostic, error) {
+func validateRecordWith(record csvRecord, mapping approvedMapping, mappingFingerprint string, fieldMappings map[string]fieldMapping, limits EffectiveLimits, materialize bool) (normalizedRow, []rejectedRowDiagnostic, error) {
 	diagnostics := []rejectedRowDiagnostic{}
 	for index, cell := range record.Cells {
 		if !cell.OverLimit {
@@ -232,9 +240,11 @@ func validateRecord(record csvRecord, mapping approvedMapping, mappingFingerprin
 	if err != nil {
 		return normalizedRow{}, nil, err
 	}
-	evidenceJSON, err := json.Marshal(evidence)
-	if err != nil {
-		return normalizedRow{}, nil, err
+	var evidenceJSON []byte
+	if materialize {
+		if evidenceJSON, err = json.Marshal(evidence); err != nil {
+			return normalizedRow{}, nil, err
+		}
 	}
 	unmappedRaw := unmappedRawValues(record, mapping)
 	sourceRowDigest := sourceRowDigest(mapping.ParserProfileID, record.SourceRowNumber, record.Fields)
@@ -261,9 +271,11 @@ func validateRecord(record csvRecord, mapping approvedMapping, mappingFingerprin
 	if err != nil {
 		return normalizedRow{}, nil, err
 	}
-	unmappedJSON, err := json.Marshal(unmappedRaw)
-	if err != nil {
-		return normalizedRow{}, nil, err
+	var unmappedJSON []byte
+	if materialize {
+		if unmappedJSON, err = json.Marshal(unmappedRaw); err != nil {
+			return normalizedRow{}, nil, err
+		}
 	}
 	return normalizedRow{
 		Direction: endpoints.Direction, DirectionEvidence: evidenceJSON,
@@ -282,6 +294,7 @@ func validateRecord(record csvRecord, mapping approvedMapping, mappingFingerprin
 		InputInterface:            stringPtrFromAny(values[fieldInputInterface]),
 		OutputInterface:           stringPtrFromAny(values[fieldOutputInterface]),
 		UnmappedRaw:               unmappedJSON,
+		normalizedDerivationID:    mapping.EndpointDerivationID,
 	}, nil, nil
 }
 

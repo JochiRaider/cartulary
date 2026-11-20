@@ -11,16 +11,16 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	recordenvelope "github.com/JochiRaider/cartulary/internal/modules/records/enveloperead"
-	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 )
 
 type artifactRecordsCapabilitySpy struct {
-	wantTx       pgx.Tx
-	wantRecordID uuid.UUID
-	wantLock     bool
-	envelope     recordenvelope.Envelope
-	loadErr      error
-	called       bool
+	wantTx         pgx.Tx
+	wantRecordID   uuid.UUID
+	wantLock       bool
+	wantTargetLock records.TargetLock
+	envelope       recordenvelope.Envelope
+	loadErr        error
+	called         bool
 }
 
 func (*artifactRecordsCapabilitySpy) InsertTx(context.Context, pgx.Tx, records.InsertParams) (uuid.UUID, error) {
@@ -54,6 +54,25 @@ func (spy *artifactRecordsCapabilitySpy) LoadEnvelopeTx(
 	return spy.envelope, spy.loadErr
 }
 
+func (spy *artifactRecordsCapabilitySpy) ClassifyTargetTx(
+	_ context.Context,
+	tx pgx.Tx,
+	recordID uuid.UUID,
+	lock records.TargetLock,
+) (recordenvelope.Envelope, error) {
+	spy.called = true
+	if tx != spy.wantTx {
+		return recordenvelope.Envelope{}, errors.New("artifact supplied a different transaction")
+	}
+	if recordID != spy.wantRecordID {
+		return recordenvelope.Envelope{}, errors.New("artifact supplied a different record ID")
+	}
+	if lock != spy.wantTargetLock {
+		return recordenvelope.Envelope{}, errors.New("artifact target classification used the wrong lock posture")
+	}
+	return spy.envelope, spy.loadErr
+}
+
 type artifactRecordsCapabilityTx struct{ pgx.Tx }
 
 func TestArtifactCurrentEnvelopeUsesRecordsCallerTransactionCapability(t *testing.T) {
@@ -65,7 +84,7 @@ func TestArtifactCurrentEnvelopeUsesRecordsCallerTransactionCapability(t *testin
 
 	t.Run("locked envelope metadata", func(t *testing.T) {
 		spy := &artifactRecordsCapabilitySpy{
-			wantTx: tx, wantRecordID: recordID, wantLock: true,
+			wantTx: tx, wantRecordID: recordID, wantTargetLock: records.TargetLockUpdate,
 			envelope: recordenvelope.Envelope{
 				RecordID: recordID, IncidentID: incidentID,
 				RecordType: "artifact", RowVersion: 7,
@@ -83,26 +102,27 @@ func TestArtifactCurrentEnvelopeUsesRecordsCallerTransactionCapability(t *testin
 
 	t.Run("missing envelope remains concealed", func(t *testing.T) {
 		spy := &artifactRecordsCapabilitySpy{
-			wantTx: tx, wantRecordID: recordID, wantLock: true, loadErr: recordenvelope.ErrEnvelopeNotFound,
+			wantTx: tx, wantRecordID: recordID, wantTargetLock: records.TargetLockUpdate, loadErr: records.ErrTargetNotFound,
 		}
 		facade := &MutationFacade{recordEnvelopes: spy}
-		if _, err := facade.loadArtifactRecordMetaForUpdateTx(ctx, tx, recordID); !errors.Is(err, pgx.ErrNoRows) {
-			t.Fatalf("missing artifact envelope error = %v, want pgx.ErrNoRows", err)
+		if _, err := facade.loadArtifactRecordMetaForUpdateTx(ctx, tx, recordID); !errors.Is(err, records.ErrTargetNotFound) {
+			t.Fatalf("missing artifact envelope error = %v, want records.ErrTargetNotFound", err)
 		}
 	})
 
 	t.Run("deleted envelope requires restore", func(t *testing.T) {
 		deletedAt := time.Date(2026, 8, 10, 12, 0, 0, 0, time.UTC)
 		spy := &artifactRecordsCapabilitySpy{
-			wantTx: tx, wantRecordID: recordID, wantLock: true,
+			wantTx: tx, wantRecordID: recordID, wantTargetLock: records.TargetLockUpdate,
 			envelope: recordenvelope.Envelope{
 				RecordID: recordID, IncidentID: incidentID,
 				RecordType: "artifact", RowVersion: 7, DeletedAt: &deletedAt,
 			},
+			loadErr: records.ErrTargetDeleted,
 		}
 		facade := &MutationFacade{recordEnvelopes: spy}
-		if _, err := facade.loadArtifactRecordMetaForUpdateTx(ctx, tx, recordID); !errors.Is(err, revisions.ErrRecordDeletedUseRestore) {
-			t.Fatalf("deleted artifact envelope error = %v, want ErrRecordDeletedUseRestore", err)
+		if _, err := facade.loadArtifactRecordMetaForUpdateTx(ctx, tx, recordID); !errors.Is(err, records.ErrTargetDeleted) {
+			t.Fatalf("deleted artifact envelope error = %v, want records.ErrTargetDeleted", err)
 		}
 	})
 

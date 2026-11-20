@@ -14,6 +14,9 @@ import {
   validHistoryPaging,
 } from "./workbookHistoryPage";
 
+/** Record History reads use getRecordHistory only. */
+export type HistoryReadFailure = WorkbookOperationFailure<"getRecordHistory">;
+
 export type HistoryLookupState = {
   readonly phase:
     | "idle"
@@ -28,9 +31,9 @@ export type HistoryLookupState = {
   readonly pagesChecked: number;
   readonly page: HistoryPage | null;
   readonly provenance: HistoryPageProvenance | undefined;
-  readonly failure: WorkbookOperationFailure | null;
+  readonly failure: HistoryReadFailure | null;
 };
-const changed: WorkbookOperationFailure = {
+const changed: HistoryReadFailure = {
   kind: "stale_target",
   message: "The record changed. Review current history before continuing.",
 };
@@ -59,9 +62,9 @@ export class HistoryPageLookup {
       readonly viewSchemaId: string;
       readonly evaluate: (page: HistoryPage) => {
         readonly phase: "matched" | "unavailable";
-        readonly failure?: WorkbookOperationFailure;
+        readonly failure?: HistoryReadFailure;
       } | null;
-      readonly unavailable: WorkbookOperationFailure;
+      readonly unavailable: HistoryReadFailure;
       readonly maxRetainedPages?: number;
       /** Navigation publishes accepted pages through onPage, without a second payload slot. */
       readonly retainResultPage?: boolean;
@@ -76,7 +79,7 @@ export class HistoryPageLookup {
       readonly read: (
         request: HistoryPageRequest,
         signal: AbortSignal,
-      ) => Promise<WorkbookOperationOutcome<HistoryPage>>;
+      ) => Promise<WorkbookOperationOutcome<HistoryPage, "getRecordHistory">>;
     },
   ) {
     const origin = options.provenance;

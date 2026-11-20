@@ -17,11 +17,11 @@ export function createWorkbookOperationExecutor(options: {
   return {
     async execute<OperationID extends WorkbookOperationID>(
       input: WorkbookOperationExecution<OperationID>,
-    ): Promise<WorkbookOperationOutcome<HTTPOperationResponse<OperationID>>> {
+    ): Promise<
+      WorkbookOperationOutcome<HTTPOperationResponse<OperationID>, OperationID>
+    > {
       const request = input.request;
-      const result = await fetchHTTPOperation<
-        HTTPOperationResponse<OperationID>
-      >({
+      const result = await fetchHTTPOperation({
         apiBase: options.apiBase,
         operationID: input.operationID,
         ...(input.observeTransport?.onJSONParsed === undefined
@@ -46,8 +46,7 @@ export function createWorkbookOperationExecutor(options: {
         : {
             kind: "rejected",
             failure: classifyWorkbookOperationFailure(
-              result.status,
-              result.payload,
+              result.payload.error,
               input.operationID,
             ),
           };

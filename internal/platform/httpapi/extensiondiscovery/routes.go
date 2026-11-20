@@ -4,6 +4,7 @@ package extensiondiscovery
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"time"
 
@@ -14,56 +15,50 @@ import (
 
 type service struct {
 	authStore *authn.Store
-	keys      authn.MasterKeys
 	profiles  []httpapi.ExtensionProfile
 	now       func() time.Time
 }
 
+// RegisterRoutes binds the discovery singleton for central admission (Core 01
+// REQ-01-707): the registry authenticates by its declared security before the
+// handler runs.
 func RegisterRoutes() httpapi.RouteRegistrar {
 	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
 		discovery, err := newService(deps)
 		if err != nil {
 			return err
 		}
-		return httpapi.BindOwnerRoutes(mux, deps, "module.extensions", map[string]http.HandlerFunc{
+		return httpapi.BindAdmittedOwnerRoutes(mux, deps, "module.extensions", map[string]http.HandlerFunc{
 			"listDeploymentExtensions": discovery.handleCollection,
 		})
 	}
 }
 
 func newService(deps httpapi.DependencySet) (*service, error) {
-	keys, err := authn.LoadMasterKeys(deps.Env)
-	if err != nil {
-		return nil, err
-	}
 	now := deps.Now
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
 	}
 	return &service{
 		authStore: authn.NewStore(deps.PostgresHandle()),
-		keys:      keys,
 		profiles:  httpapi.ExtensionDiscoveryFromDependencies(deps),
 		now:       now,
 	}, nil
 }
 
 func (s *service) handleCollection(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
+	principal, ok := httpauth.AdmittedPrincipal(r)
+	if !ok {
+		writeAPIError(w, r, httpapi.InternalAPIError(errors.New("extension discovery was not admitted centrally")))
 		return
 	}
+	// REQ-01-707 step 5: the singleton-query check is route handling, after
+	// authentication.
 	if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-
-	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: false})
-	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-	if err := slideSessionIfNeeded(r.Context(), s.authStore, &principal, r.Method, r.URL.Path, s.now); err != nil {
+	if err := slideSessionIfNeeded(r.Context(), s.authStore, &principal, s.now); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
@@ -74,11 +69,9 @@ func slideSessionIfNeeded(
 	ctx context.Context,
 	store *authn.Store,
 	principal *httpauth.Principal,
-	method string,
-	path string,
 	now func() time.Time,
 ) error {
-	return httpauth.SlideSessionIfNeeded(ctx, store, principal, method, path, now)
+	return httpauth.SlideSessionIfNeeded(ctx, store, principal, now)
 }
 
 func buildResource(profile httpapi.ExtensionProfile) map[string]any {

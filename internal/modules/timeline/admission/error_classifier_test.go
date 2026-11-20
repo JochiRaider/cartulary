@@ -101,13 +101,6 @@ func TestTimelineMutationAPIErrorClassifier_Unit(t *testing.T) {
 			},
 		},
 		{
-			name:    "sentinel row version conflict",
-			err:     timeline.ErrRowVersionConflict,
-			status:  http.StatusConflict,
-			code:    "row_version_conflict",
-			details: map[string]any{},
-		},
-		{
 			name: "typed illegal transition",
 			err: &timeline.IllegalTransitionError{
 				ReasonCode:     "guards_not_satisfied",
@@ -165,12 +158,16 @@ func TestTimelineMutationAPIErrorClassifier_Unit(t *testing.T) {
 
 	// REQ-03-109a: only a typed transition error is illegal_transition. The bare
 	// sentinel and a storage invariant failure stay unclassified and reach the
-	// shared internal_error boundary.
+	// shared internal_error boundary. Likewise only the typed row-version
+	// conflict carries REQ-01-075's details; its bare sentinel is unclassified
+	// (REQ-01-706).
 	for _, err := range []error{
 		errors.New("other"),
 		timeline.ErrIllegalTransition,
 		fmt.Errorf("wrapped: %w", timeline.ErrIllegalTransition),
 		fmt.Errorf("timeline: invalid persisted capture state %q", "bogus"),
+		timeline.ErrRowVersionConflict,
+		fmt.Errorf("wrapped: %w", timeline.ErrRowVersionConflict),
 	} {
 		if apiErr, ok := ClassifyMutationAPIError(err, MutationAPIErrorContext{}); ok || apiErr != nil {
 			t.Fatalf("unclassified error %v returned ok=%v apiErr=%#v", err, ok, apiErr)

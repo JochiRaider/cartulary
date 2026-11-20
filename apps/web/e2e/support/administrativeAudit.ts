@@ -6,6 +6,7 @@ import type { BarrierOutcome } from "./runtime/cleanup";
 import {
   awaitResponseBarrier,
   installOwnedRoute,
+  operationErrorEnvelope,
 } from "./transport/requestInterception";
 
 export const auditBrowserPath = "/api/v1/administrative-audit-events";
@@ -119,20 +120,26 @@ export async function installAuditPresentation(page: Page) {
     gateRead(promise: Promise<BarrierOutcome>) {
       gate = promise;
     },
-    fail(code = "service_unavailable", reason?: string) {
-      status =
-        code === "invalid_pagination_request" || code === "invalid_list_query"
-          ? 400
-          : 503;
-      error = {
-        error: {
-          code,
-          message: "Server diagnostic must not be shown",
-          retryable: status === 503,
-          ...(reason ? { details: { reason_code: reason } } : {}),
-        },
-        meta: { request_id: "audit-failure" },
-      };
+    fail(
+      code:
+        | "internal_error"
+        | "invalid_list_query"
+        | "invalid_pagination_request" = "internal_error",
+      reason?: string,
+    ) {
+      status = code === "internal_error" ? 500 : 400;
+      error =
+        code === "internal_error"
+          ? operationErrorEnvelope(
+              "listAdministrativeAuditEvents",
+              500,
+              "internal_error",
+            )
+          : operationErrorEnvelope("listAdministrativeAuditEvents", 400, code, {
+              message: "Server diagnostic must not be shown",
+              requestId: "audit-failure",
+              ...(reason ? { details: { reason_code: reason } } : {}),
+            });
     },
   };
 }

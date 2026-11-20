@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"reflect"
 	"testing"
@@ -11,6 +12,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/extensions"
 	"github.com/JochiRaider/cartulary/internal/modules/networkflow"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/processlifecycle"
 )
 
 func TestRouteContributionValidation(t *testing.T) {
@@ -155,8 +157,8 @@ func TestRuntimeCleanupIsReverseOrderedAndIdempotent(t *testing.T) {
 	t.Parallel()
 	var calls []string
 	runtime := &Runtime{}
-	runtime.own("first", func(context.Context) { calls = append(calls, "first") })
-	runtime.own("second", func(context.Context) { calls = append(calls, "second") })
+	runtime.own("first", func(context.Context) error { calls = append(calls, "first"); return nil })
+	runtime.own("second", func(context.Context) error { calls = append(calls, "second"); return nil })
 	runtime.Close()
 	runtime.Close()
 	if want := []string{"second", "first"}; !reflect.DeepEqual(calls, want) {
@@ -173,13 +175,14 @@ func TestRuntimeShutdownReportsComponentsOpenAtTheDeadline(t *testing.T) {
 	defer close(release)
 	var calls []string
 	runtime := &Runtime{}
-	runtime.own("postgres", func(context.Context) { calls = append(calls, "postgres") })
-	runtime.own("jobs_runner", func(context.Context) { <-release })
-	runtime.own("collaboration", func(ctx context.Context) {
+	runtime.own("postgres", func(context.Context) error { calls = append(calls, "postgres"); return nil })
+	runtime.own("jobs_runner", func(context.Context) error { <-release; return nil })
+	runtime.own("collaboration", func(ctx context.Context) error {
 		if _, ok := ctx.Deadline(); !ok {
 			t.Error("component close received no deadline")
 		}
 		calls = append(calls, "collaboration")
+		return nil
 	})
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
@@ -193,4 +196,98 @@ func TestRuntimeShutdownReportsComponentsOpenAtTheDeadline(t *testing.T) {
 	if again := runtime.shutdown(context.Background()); again != nil {
 		t.Fatalf("a repeated shutdown must be idempotent, got %#v", again)
 	}
+}
+
+// TestRuntimeShutdownStartsBackgroundClosesAtTheStopRequest covers
+// REQ-04-146a: background components start closing when the HTTP drain begins,
+// a failed close leaves its component open, and a close already finished
+// counts as closed even when the deadline has expired.
+func TestRuntimeShutdownStartsBackgroundClosesAtTheStopRequest(t *testing.T) {
+	t.Parallel()
+	started := make(chan struct{})
+	finished := make(chan struct{})
+	runtime := &Runtime{}
+	runtime.own("postgres", func(context.Context) error { return nil })
+	runtime.own("telemetry", func(context.Context) error { return errors.New("flush failed") })
+	runtime.ownBackground("jobs_runner", func(ctx context.Context) error {
+		close(started)
+		defer close(finished)
+		if _, ok := ctx.Deadline(); !ok {
+			t.Error("background close received no application deadline")
+		}
+		return nil
+	})
+	beginCtx, cancelBegin := context.WithTimeout(context.Background(), time.Minute)
+	defer cancelBegin()
+	runtime.beginShutdown(beginCtx)
+	select {
+	case <-started:
+	case <-time.After(5 * time.Second):
+		t.Fatal("background component did not start closing at the stop request")
+	}
+	<-finished
+	// The deadline has already expired: a finished close still counts as
+	// closed, and a component that was never closed is open.
+	expired, cancel := context.WithCancel(context.Background())
+	cancel()
+	open := runtime.shutdown(expired)
+	if want := []string{"telemetry", "postgres"}; !reflect.DeepEqual(open, want) {
+		t.Fatalf("open components got %#v want %#v", open, want)
+	}
+
+	failing := &Runtime{}
+	failing.own("postgres", func(context.Context) error { return nil })
+	failing.own("telemetry", func(context.Context) error { return errors.New("flush failed") })
+	ctx, cancelCtx := context.WithTimeout(context.Background(), time.Minute)
+	defer cancelCtx()
+	if open := failing.shutdown(ctx); !reflect.DeepEqual(open, []string{"telemetry"}) {
+		t.Fatalf("a failed close must leave its component open, got %#v", open)
+	}
+}
+
+// TestRuntimeStopRequestClosesAdmission covers Core 04 REQ-04-146a and
+// EXT-REQ-193: at the stop request, before any drain, the process closes
+// admission and readiness. A serving process moves to quiescing, never
+// reopens admission and still lets a fatal take precedence without leaving
+// the drain; a process still starting goes straight to terminating and can no
+// longer publish. A repeated stop request changes nothing.
+func TestRuntimeStopRequestClosesAdmission(t *testing.T) {
+	t.Parallel()
+	stop := func(runtime *Runtime) {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		defer cancel()
+		runtime.beginShutdown(ctx)
+	}
+
+	t.Run("a serving process stops admitting at the stop request", func(t *testing.T) {
+		t.Parallel()
+		lifecycle := processlifecycle.New()
+		if err := lifecycle.Publish(); err != nil {
+			t.Fatal(err)
+		}
+		runtime := &Runtime{lifecycle: lifecycle}
+		stop(runtime)
+		if lifecycle.AdmissionOpen() || lifecycle.State() != processlifecycle.StateQuiescing {
+			t.Fatalf("after the stop request admission open=%t state=%s, want closed and quiescing", lifecycle.AdmissionOpen(), lifecycle.State())
+		}
+		stop(runtime)
+		if lifecycle.RestoreAdmission() || lifecycle.AdmissionOpen() || lifecycle.AdmissionPaused() {
+			t.Fatal("a stopping process reopened or paused admission")
+		}
+		if !lifecycle.Fatal("published_component_lost") || lifecycle.State() != processlifecycle.StateQuiescing {
+			t.Fatalf("a fatal during ordinary shutdown left state %s, want quiescing", lifecycle.State())
+		}
+	})
+	t.Run("a starting process terminates at the stop request", func(t *testing.T) {
+		t.Parallel()
+		lifecycle := processlifecycle.New()
+		runtime := &Runtime{lifecycle: lifecycle}
+		stop(runtime)
+		if lifecycle.State() != processlifecycle.StateTerminating {
+			t.Fatalf("after the stop request a starting process is %s, want terminating", lifecycle.State())
+		}
+		if err := lifecycle.Publish(); err == nil || lifecycle.AdmissionOpen() {
+			t.Fatal("publication opened admission after the stop request")
+		}
+	})
 }

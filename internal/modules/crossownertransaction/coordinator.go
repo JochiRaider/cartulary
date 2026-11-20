@@ -75,6 +75,10 @@ func New(options Options) (*Coordinator, error) {
 // Timeout exposes the effective default for owner-required public diagnostics.
 func (c *Coordinator) Timeout() time.Duration { return c.timeout }
 
+// CancellationGrace exposes how long an interrupted operation's remaining
+// work may run before its owner must give up (EXT-REQ-215).
+func (c *Coordinator) CancellationGrace() time.Duration { return c.cancellationGrace }
+
 func (c *Coordinator) Execute(ctx context.Context, operation Operation) (Result, error) {
 	if c == nil || nilCapability(c.backend) || c.clock == nil || c.fatalSink == nil {
 		return Result{}, ErrUnavailable
@@ -344,7 +348,13 @@ func (c *Coordinator) Execute(ctx context.Context, operation Operation) (Result,
 	if err := sample(); err != nil {
 		return rollback(err)
 	}
-	completion, lifetimeErr := c.completeTransaction(ctx, deadline, tx.Commit)
+	// An issued commit is awaited, never interrupted: cancelling the driver
+	// call would discard its acknowledgement and make a determinable outcome
+	// indeterminate. The completion lifetime still records the first
+	// interruption and bounds the wait by the unextended cancellation grace.
+	completion, lifetimeErr := c.completeTransaction(ctx, deadline, func(callCtx context.Context) (CommitOutcome, error) {
+		return tx.Commit(context.WithoutCancel(callCtx))
+	})
 	finalized = true
 	if lifetimeErr != nil {
 		return Result{}, lifetimeErr

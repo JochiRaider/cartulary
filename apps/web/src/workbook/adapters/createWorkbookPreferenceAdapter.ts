@@ -1,10 +1,13 @@
-import type { HTTPOperationResponse } from "@cartulary/protocol-ts/http";
-import { fetchHTTPOperation } from "../../services/browserApi";
+import {
+  fetchHTTPOperation,
+  type HTTPOperationError,
+} from "../../services/browserApi";
+import { isFailureCode, isUnappliedRefusal } from "../../shared/publicError";
 import type { SheetRef } from "../../shared/sheetRef";
 import type { WorkbookPreferencePort } from "../ports/WorkbookPreferencePort";
 import {
+  type PreferenceHTTPOperation,
   type PreferenceKind,
-  type PreferenceProblem,
   type PreferenceResources,
   type PreferenceResult,
   preferencePointer,
@@ -22,42 +25,27 @@ const operations = {
     put: "putIncidentDefaultWorkbookPreferences",
   },
 } as const;
-const knownCodes: readonly PreferenceProblem["code"][] = [
-  "invalid_mutation_payload",
-  "invalid_query_request",
-  "invalid_path_parameter",
-  "session_required",
-  "authorization_denied",
-  "csrf_verification_failed",
-  "incident_not_found",
-  "internal_error",
-  "invalid_public_contract_response",
-];
+/**
+ * Only declared rejections, and a refusal before apply, are definite; other
+ * write failures stay uncertain (Core 03 REQ-03-086a). Preference writes are
+ * never replayed.
+ */
 function failure<T>(
-  status: number,
-  code: unknown,
+  error: HTTPOperationError<PreferenceHTTPOperation>,
   write: boolean,
 ): PreferenceResult<T> {
-  const safeCode =
-    knownCodes.find((candidate) => candidate === code) ??
-    "unknown_public_error";
   const definite =
-    (status === 400 &&
-      [
-        "invalid_mutation_payload",
-        "invalid_query_request",
-        "invalid_path_parameter",
-      ].includes(safeCode)) ||
-    (status === 401 && safeCode === "session_required") ||
-    (status === 403 &&
-      ["csrf_verification_failed", "authorization_denied"].includes(
-        safeCode,
-      )) ||
-    (status === 404 && safeCode === "incident_not_found");
+    isFailureCode(error.code, [
+      "invalid_mutation_payload",
+      "session_required",
+      "csrf_verification_failed",
+      "authorization_denied",
+      "incident_not_found",
+    ]) || isUnappliedRefusal(error.status, error);
   return {
     kind: write && !definite ? "uncertain" : "rejected",
-    status,
-    problem: { code: safeCode },
+    status: error.status,
+    problem: { code: error.code },
   };
 }
 export function createWorkbookPreferenceAdapter(options: {
@@ -72,9 +60,7 @@ export function createWorkbookPreferenceAdapter(options: {
   ): Promise<PreferenceResult<PreferenceResources[K]>> {
     const operationID = request ? operations[kind].put : operations[kind].get;
     try {
-      const result = await fetchHTTPOperation<
-        HTTPOperationResponse<typeof operationID>
-      >({
+      const result = await fetchHTTPOperation({
         apiBase: options.apiBase,
         operationID,
         pathParameters: { incident_id: options.incidentId },
@@ -93,11 +79,7 @@ export function createWorkbookPreferenceAdapter(options: {
         },
       });
       if (!result.ok)
-        return failure(
-          result.status,
-          result.payload.error?.code,
-          request !== undefined,
-        );
+        return failure(result.payload.error, request !== undefined);
       const resource = result.payload.data;
       if (
         result.status !== 200 ||
@@ -105,11 +87,11 @@ export function createWorkbookPreferenceAdapter(options: {
         (request &&
           !preferencePointersEqual(preferencePointer(resource), request.target))
       )
-        return failure(
-          502,
-          "invalid_public_contract_response",
-          request !== undefined,
-        );
+        return {
+          kind: request ? "uncertain" : "rejected",
+          status: 502,
+          problem: { code: "invalid_public_contract_response" },
+        };
       const value = structuredClone(resource);
       const pointer = preferencePointer(value);
       if (pointer !== null) Object.freeze(pointer);

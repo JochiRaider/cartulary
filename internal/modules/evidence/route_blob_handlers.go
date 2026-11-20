@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
 	evidencepolicy "github.com/JochiRaider/cartulary/internal/modules/evidence/internal/policy"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -20,11 +19,14 @@ import (
 )
 
 func (s *service) handleCreateBlob(w http.ResponseWriter, r *http.Request) {
-	principal, apiErr := s.admission.authenticate(r, true)
+	principal, apiErr := admittedPrincipal(r)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
+	// The body-carried incident_id addresses the incident, so the bounded scope
+	// decode precedes visibility (Core 04 REQ-04-156, Table 2-B gate 4;
+	// REQ-01-704). The full body is validated only after the role gate.
 	body, apiErr := readBoundedBlobCreateRequest(r.Body)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
@@ -56,7 +58,7 @@ func (s *service) handleCreateBlob(w http.ResponseWriter, r *http.Request) {
 	now := s.now().UTC().Truncate(time.Microsecond)
 	objectBlobID := uuid.New()
 	leaseID := uuid.New()
-	storageKey, err := blobref.ObjectBlobStorageKey(request.IncidentID, objectBlobID, uuid.New())
+	storageKey, err := s.objectBlobStorageKey(request.IncidentID, objectBlobID)
 	if err != nil {
 		writeAPIError(w, r, internalAPIError(fmt.Errorf("build object blob storage key: %w", err)))
 		return
@@ -128,7 +130,7 @@ func (s *service) handleCreateBlob(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, clientTxnConflict(request.ClientTxnID))
 		return
 	case errors.Is(err, pgx.ErrNoRows):
-		writeAPIError(w, r, incidentNotFoundError())
+		writeAPIError(w, r, httpapi.NotFound("incident_not_found"))
 		return
 	case admission.IsDenied(err, admission.DenialIncidentClosed):
 		writeAPIError(w, r, incidentClosedError())
@@ -137,7 +139,7 @@ func (s *service) handleCreateBlob(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	if err := s.admission.slide(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.admission.slide(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
@@ -153,23 +155,29 @@ func copyUploadTargetHeaders(source map[string]string) map[string]string {
 }
 
 func (s *service) handleUploadTarget(w http.ResponseWriter, r *http.Request) {
-	principal, apiErr := s.admission.authenticate(r, true)
+	principal, apiErr := admittedPrincipal(r)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	token := r.PathValue("upload_token")
+	// Central admission checked only the token's syntax; whether it is a live
+	// capability is route handling (REQ-01-707). The request body is streamed
+	// only after every capability, role and contract check below.
+	token, apiErr := admittedPathString(r, "upload_token")
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
 	claims, err := decodeObjectUploadToken(s.keys, token)
 	if err != nil {
 		writeAPIError(w, r, objectUploadNotFoundOrRevoked())
 		return
 	}
-	incident, apiErr := s.admission.visibleIncident(r.Context(), claims.IncidentID, principal.User.ID)
+	// Only an incident the caller cannot see is concealed as a revoked
+	// capability; any other admission failure stays internal_error
+	// (REQ-01-706). One read decides visibility and then the role.
+	incident, apiErr := s.admission.concealedRole(r.Context(), claims.IncidentID, principal.User.ID, admission.RolesEditorReviewerAdmin, "editor|reviewer|admin", objectUploadNotFoundOrRevoked)
 	if apiErr != nil {
-		writeAPIError(w, r, objectUploadNotFoundOrRevoked())
-		return
-	}
-	if _, apiErr := s.admission.requireRole(r.Context(), claims.IncidentID, principal.User.ID, admission.RolesEditorReviewerAdmin, "editor|reviewer|admin"); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -203,7 +211,7 @@ func (s *service) handleUploadTarget(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if blob.IncidentID != claims.IncidentID || !hmac.Equal([]byte(storageBinding), []byte(claims.StorageKeyBinding)) || blob.ByteSize != claims.ByteSize {
-		writeAPIError(w, r, objectUploadRejected(http.StatusConflict, "upload_contract_mismatch", nil))
+		writeAPIError(w, r, objectUploadRejected("upload_contract_mismatch"))
 		return
 	}
 	acceptedContract := map[string]any{
@@ -213,12 +221,12 @@ func (s *service) handleUploadTarget(w http.ResponseWriter, r *http.Request) {
 	}
 	_, acceptedDigestHex, digestErr := objectUploadBindingDigest(acceptedContract)
 	if digestErr != nil || acceptedDigestHex != claims.AcceptedContractSHA256 {
-		writeAPIError(w, r, objectUploadRejected(http.StatusConflict, "upload_contract_mismatch", nil))
+		writeAPIError(w, r, objectUploadRejected("upload_contract_mismatch"))
 		return
 	}
 	_, headerDigestHex, digestErr := objectUploadBindingDigest(lease.RequiredHeaders)
 	if digestErr != nil || headerDigestHex != claims.RequiredHeadersSHA256 {
-		writeAPIError(w, r, objectUploadRejected(http.StatusConflict, "upload_contract_mismatch", nil))
+		writeAPIError(w, r, objectUploadRejected("upload_contract_mismatch"))
 		return
 	}
 	if err := evidencepolicy.ValidatePersistedObjectBlobStorageKey(blob.StorageKey, blob.IncidentID, blob.ObjectBlobID); err != nil {
@@ -226,7 +234,7 @@ func (s *service) handleUploadTarget(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if blob.UploadState != "pending" {
-		writeAPIError(w, r, objectUploadRejected(http.StatusConflict, "blob_not_pending", nil))
+		writeAPIError(w, r, objectUploadRejected("blob_not_pending"))
 		return
 	}
 	if !blob.TargetExpiresAt.After(now) || !blob.PendingExpiresAt.After(now) {
@@ -234,25 +242,24 @@ func (s *service) handleUploadTarget(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.ContentLength < 0 {
-		writeAPIError(w, r, objectUploadRejected(http.StatusLengthRequired, "content_length_required", nil))
+		writeAPIError(w, r, objectUploadLengthRequired())
 		return
 	}
 	if r.ContentLength != blob.ByteSize {
-		status := http.StatusBadRequest
-		reasonCode := "byte_size_mismatch"
-		if r.ContentLength > blob.ByteSize {
-			status = http.StatusRequestEntityTooLarge
-			reasonCode = "byte_size_exceeds_contract"
-		}
-		writeAPIError(w, r, objectUploadRejected(status, reasonCode, map[string]any{
+		details := map[string]any{
 			"requested_byte_size":  r.ContentLength,
 			"contracted_byte_size": blob.ByteSize,
-		}))
+		}
+		if r.ContentLength > blob.ByteSize {
+			writeAPIError(w, r, objectUploadTooLarge(details))
+		} else {
+			writeAPIError(w, r, objectUploadInvalid("byte_size_mismatch", details))
+		}
 		return
 	}
 	for name, required := range lease.RequiredHeaders {
 		if strings.TrimSpace(r.Header.Get(name)) != required {
-			writeAPIError(w, r, objectUploadRejected(http.StatusBadRequest, "upload_contract_mismatch", nil))
+			writeAPIError(w, r, objectUploadInvalid("upload_contract_mismatch", nil))
 			return
 		}
 	}
@@ -288,7 +295,7 @@ func (s *service) handleUploadTarget(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	if err := s.admission.slide(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.admission.slide(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
@@ -324,16 +331,20 @@ func digestHexEquals(digest []byte, encoded string) bool {
 }
 
 func (s *service) handleAttachBlob(w http.ResponseWriter, r *http.Request) {
-	principal, apiErr := s.admission.authenticate(r, true)
+	principal, apiErr := admittedPrincipal(r)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	recordID, ok := pathUUID(w, r, "record_id")
-	if !ok {
+	recordID, apiErr := admittedPathUUID(r, "record_id")
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
 		return
 	}
-	access, err := s.operations.LoadEvidenceAccess(r.Context(), recordID)
+	// REQ-01-704: the addressed record's incident decides visibility before its
+	// type or deleted state is classified, so the target read includes
+	// soft-deleted records of every type.
+	target, err := s.operations.LoadAttachTarget(r.Context(), recordID)
 	if errors.Is(err, ErrEvidenceNotFound) {
 		writeAPIError(w, r, evidenceRecordNotFound())
 		return
@@ -342,12 +353,10 @@ func (s *service) handleAttachBlob(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	incident, apiErr := s.admission.visibleIncident(r.Context(), access.IncidentID, principal.User.ID)
-	if apiErr != nil {
-		writeAPIError(w, r, evidenceRecordNotFound())
-		return
-	}
-	if _, apiErr := s.admission.requireRole(r.Context(), access.IncidentID, principal.User.ID, admission.RolesEditorReviewerAdmin, "editor|reviewer|admin"); apiErr != nil {
+	// Only an incident the caller cannot see is concealed as the missing
+	// record; any other admission failure stays internal_error (REQ-01-706).
+	// One read decides visibility and then the role.
+	if _, apiErr := s.admission.concealedRole(r.Context(), target.IncidentID, principal.User.ID, admission.RolesEditorReviewerAdmin, "editor|reviewer|admin", evidenceRecordNotFound); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -356,8 +365,17 @@ func (s *service) handleAttachBlob(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if incident.IncidentStatus == admission.IncidentStatusClosed {
-		writeAPIError(w, r, incidentClosedError())
+	// REQ-01-705: a record of another type can hold no attach receipt, so it is
+	// classified here, deleted before type. Under an Evidence record's lock an
+	// exact committed replay returns its original receipt before the deleted
+	// state, incident lifecycle, Blob eligibility and base version, which a
+	// fresh request meets in that order (REQ-01-245).
+	if target.RecordType != "evidence" {
+		if target.Deleted {
+			writeAPIError(w, r, recordDeletedUseRestore())
+			return
+		}
+		writeAPIError(w, r, evidenceRecordNotFound())
 		return
 	}
 	now := s.now().UTC()
@@ -368,7 +386,7 @@ func (s *service) handleAttachBlob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if preflight.Replay != nil {
-		if err := s.admission.slide(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+		if err := s.admission.slide(r.Context(), &principal); err != nil {
 			writeAPIError(w, r, internalAPIError(err))
 			return
 		}
@@ -381,7 +399,7 @@ func (s *service) handleAttachBlob(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if err := s.admission.slide(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.admission.slide(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}

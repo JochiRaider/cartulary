@@ -64,6 +64,7 @@ SELECT change_set_id, incident_id, actor_user_id, source, reason,
 	for rows.Next() {
 		var row portableChangeSet
 		var reason, clientTxnID, requestID pgtype.Text
+		var historyOrder pgtype.Int8
 		var contexts []byte
 		if err := rows.Scan(
 			&row.ChangeSetID,
@@ -75,11 +76,14 @@ SELECT change_set_id, incident_id, actor_user_id, source, reason,
 			&requestID,
 			&row.CreatedAt,
 			&contexts,
-			&row.HistoryOrder,
+			&historyOrder,
 		); err != nil {
 			return nil, err
 		}
-		if row.HistoryOrder <= 0 || row.ChangeSetID == uuid.Nil || row.IncidentID != exportContext.IncidentID ||
+		if row.HistoryOrder, err = committedHistoryOrder(historyOrder); err != nil {
+			return nil, err
+		}
+		if row.ChangeSetID == uuid.Nil || row.IncidentID != exportContext.IncidentID ||
 			row.RuntimeActorID == uuid.Nil || !validRequiredPortableString(row.Source) {
 			return nil, errors.New("revisions export change set is invalid")
 		}

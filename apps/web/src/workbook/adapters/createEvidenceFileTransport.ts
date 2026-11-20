@@ -1,12 +1,16 @@
 import {
-  type AttachBlobToEvidenceRecordResponse,
   buildHTTPOperationPath,
-  type CreateObjectBlobSlotResponse,
   type GetJobResponse,
 } from "@cartulary/protocol-ts/http";
 import { evidenceViewSchemaId } from "@cartulary/view-contracts";
-import { fetchHTTPOperation } from "../../services/browserApi";
-import { validCommonJob } from "../../services/commonJobContract";
+import {
+  fetchHTTPOperation,
+  type HTTPOperationError,
+} from "../../services/browserApi";
+import {
+  jobResultSummaryCode,
+  validCommonJob,
+} from "../../services/commonJobContract";
 import {
   uploadEvidenceObjectBlobTarget,
   validEvidenceObjectUploadTarget,
@@ -18,7 +22,7 @@ import type {
 import type { WorkbookReadScopeSource } from "../query/WorkbookQueryRow";
 import { freezeWorkbookValue } from "../utils/freezeWorkbookValue";
 import { sendWorkbookRecordMutation } from "./sendWorkbookRecordMutation";
-import { classifyWorkbookOperationFailure } from "./workbookOperationErrorPolicy";
+import { explicitWorkbookFailureOutcome } from "./workbookOperationErrorPolicy";
 import { acceptedRecordMutation } from "./workbookRecordPatchTransport";
 
 export function createEvidenceFileTransport(
@@ -45,7 +49,10 @@ export function createEvidenceFileTransport(
     let status: number | null = null,
       requestId: string | null = null;
     try {
-      const result = await fetchHTTPOperation<GetJobResponse>({
+      const result = await fetchHTTPOperation<
+        GetJobResponse,
+        "verifyObjectBlob" | "getJob" | "cancelJob"
+      >({
         apiBase: attempt.apiBase,
         operationID,
         pathParameters:
@@ -72,9 +79,8 @@ export function createEvidenceFileTransport(
       });
       if (!result.ok)
         return rejectedOrUncertain(
-          status,
           requestId,
-          result.payload,
+          result.payload.error,
           operationID,
         );
       if (
@@ -83,7 +89,7 @@ export function createEvidenceFileTransport(
           : status !== 200 && status !== 202) ||
         !validRequestId(result.payload.meta.request_id, requestId) ||
         (result.payload.data.status === "succeeded" &&
-          result.payload.data.result_summary?.code !==
+          jobResultSummaryCode(result.payload.data) !==
             "evidence_blob_verified") ||
         !validCommonJob(
           result.payload.data,
@@ -172,7 +178,7 @@ export function createEvidenceFileTransport(
           attempt.path !== buildHTTPOperationPath("createObjectBlobSlot")
         )
           return { kind: "uncertain" };
-        const result = await fetchHTTPOperation<CreateObjectBlobSlotResponse>({
+        const result = await fetchHTTPOperation({
           apiBase: attempt.apiBase,
           operationID: "createObjectBlobSlot",
           init: { method: "POST", body: attempt.body, signal },
@@ -183,9 +189,8 @@ export function createEvidenceFileTransport(
         });
         if (!result.ok)
           return rejectedOrUncertain(
-            status,
             requestId,
-            result.payload,
+            result.payload.error,
             "createObjectBlobSlot",
           );
         const receipt = result.payload,
@@ -258,22 +263,20 @@ export function createEvidenceFileTransport(
             })
         )
           return { kind: "uncertain" };
-        const result =
-          await fetchHTTPOperation<AttachBlobToEvidenceRecordResponse>({
-            apiBase: attempt.apiBase,
-            operationID: "attachBlobToEvidenceRecord",
-            pathParameters: { record_id: attempt.recordId },
-            init: { method: "POST", body: attempt.body, signal },
-            onResponse: (response) => {
-              status = response.status;
-              requestId = response.headers.get("X-Request-ID");
-            },
-          });
+        const result = await fetchHTTPOperation({
+          apiBase: attempt.apiBase,
+          operationID: "attachBlobToEvidenceRecord",
+          pathParameters: { record_id: attempt.recordId },
+          init: { method: "POST", body: attempt.body, signal },
+          onResponse: (response) => {
+            status = response.status;
+            requestId = response.headers.get("X-Request-ID");
+          },
+        });
         if (!result.ok)
           return rejectedOrUncertain(
-            status,
             requestId,
-            result.payload,
+            result.payload.error,
             "attachBlobToEvidenceRecord",
           );
         const receipt = result.payload;
@@ -324,36 +327,26 @@ function validRequestId(actual: unknown, header: string | null) {
     (header === null || header === actual)
   );
 }
+type EvidenceFileOperation =
+  | "createObjectBlobSlot"
+  | "attachBlobToEvidenceRecord"
+  | "verifyObjectBlob"
+  | "getJob"
+  | "cancelJob";
+/**
+ * Only a decoded rejection echoing the observed request identity is
+ * definitive; contract failures and server faults other than a decoded `503`
+ * `service_unavailable` stay uncertain.
+ */
 function rejectedOrUncertain(
-  status: number | null,
   requestId: string | null,
-  payload: Parameters<typeof classifyWorkbookOperationFailure>[1],
-  operation:
-    | "createObjectBlobSlot"
-    | "attachBlobToEvidenceRecord"
-    | "verifyObjectBlob"
-    | "getJob"
-    | "cancelJob",
+  error: HTTPOperationError<EvidenceFileOperation>,
+  operation: EvidenceFileOperation,
 ) {
-  const error =
-    payload && typeof payload === "object" && "error" in payload
-      ? payload.error
-      : null;
-  if (
-    status === null ||
-    status < 400 ||
-    status >= 500 ||
-    !error ||
-    typeof error !== "object" ||
-    !("code" in error) ||
-    typeof error.code !== "string" ||
-    !error.code ||
-    (requestId !== null &&
-      (!("request_id" in error) || requestId !== error.request_id))
-  )
-    return { kind: "uncertain" as const };
-  const failure = classifyWorkbookOperationFailure(status, payload, operation);
-  return failure.kind === "invalid_contract"
-    ? { kind: "uncertain" as const }
-    : { kind: "rejected" as const, failure };
+  return explicitWorkbookFailureOutcome(
+    error.status,
+    error,
+    operation,
+    requestId,
+  );
 }

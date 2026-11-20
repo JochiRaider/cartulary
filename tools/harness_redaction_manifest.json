@@ -1,14 +1,6 @@
 {
   "schema_id": "cartulary.harness_redaction_manifest.v1",
-  "replacement": "[REDACTED]",
-  "redaction_tokens": {
-    "password": "[REDACTED:password]",
-    "token": "[REDACTED:token]",
-    "key": "[REDACTED:key]",
-    "dsn": "[REDACTED:dsn]",
-    "object_store_credential": "[REDACTED:object-store-credential]",
-    "private_key": "[REDACTED:private-key]"
-  },
+  "replacement": "<redacted>",
   "sensitive_key_patterns": [
     "^(?:authorization|cookie|set-cookie|x-cartulary-test-route-token)$",
     "^(?:password|pass|pwd|token|jwt|bearer|api[_-]?key|access[_-]?key|secret[_-]?key)$",
@@ -19,67 +11,67 @@
     {
       "name": "bearer_token",
       "pattern": "(?i)\\bBearer\\s+[-._~+/A-Za-z0-9]+=*",
-      "replacement": "Bearer [REDACTED:token]"
+      "replacement": "Bearer <redacted>"
     },
     {
       "name": "basic_auth",
       "pattern": "(?i)\\bBasic\\s+[-._~+/A-Za-z0-9]+=*",
-      "replacement": "Basic [REDACTED:token]"
+      "replacement": "Basic <redacted>"
     },
     {
       "name": "authorization_header",
       "pattern": "(?i)\\b(Authorization\\s*:\\s*)([^\\r\\n]+)",
-      "replacement": "$1[REDACTED:token]"
+      "replacement": "$1<redacted>"
     },
     {
       "name": "cookie_header",
       "pattern": "(?i)\\b((?:Cookie|Set-Cookie|X-Cartulary-Test-Route-Token)\\s*:\\s*)([^\\r\\n]+)",
-      "replacement": "$1[REDACTED:token]"
+      "replacement": "$1<redacted>"
     },
     {
       "name": "jwt",
       "pattern": "\\beyJ[-_A-Za-z0-9]+\\.[-_A-Za-z0-9]+\\.[-_A-Za-z0-9]+\\b",
-      "replacement": "[REDACTED:token]"
+      "replacement": "<redacted>"
     },
     {
       "name": "postgres_password_assignment",
       "pattern": "(?i)\\b(password\\s*=\\s*)([^\\s&;]+)",
-      "replacement": "$1[REDACTED:dsn]"
+      "replacement": "$1<redacted>"
     },
     {
       "name": "generic_url_userinfo",
       "pattern": "(?i)\\b([a-z][a-z0-9+.-]*://)([^/?#\\s@]+)@",
-      "replacement": "$1[REDACTED:dsn]@"
+      "replacement": "$1<redacted>@"
     },
     {
       "name": "cli_secret_argument_equals",
       "pattern": "(?i)(--(?:password|passwd|pwd|secret|token|jwt|api[_-]?key|access[_-]?key|secret[_-]?key|private[_-]?key|client[_-]?secret|dsn)\\s*=\\s*)((?:\\\\.|[^\\s])+)",
-      "replacement": "$1[REDACTED]"
+      "replacement": "$1<redacted>"
     },
     {
       "name": "cli_secret_argument_space",
       "pattern": "(?i)(--(?:password|passwd|pwd|secret|token|jwt|api[_-]?key|access[_-]?key|secret[_-]?key|private[_-]?key|client[_-]?secret|dsn)\\s+)((?:\\\\.|[^\\s])+)",
-      "replacement": "$1[REDACTED]"
+      "replacement": "$1<redacted>"
     },
     {
       "name": "generic_password_assignment",
       "pattern": "(?i)\\b(password|passwd|pwd|secret|token|jwt|api[_-]?key|access[_-]?key|secret[_-]?key|private[_-]?key|client[_-]?secret|dsn)\\s*=\\s*([^\\s&]+)",
-      "replacement": "$1=[REDACTED]"
+      "replacement": "$1=<redacted>"
     },
     {
       "name": "object_store_credential_assignment",
       "pattern": "(?i)\\b((?:minio|s3|aws)?[_-]?(?:access[_-]?key|secret[_-]?key|access[_-]?key[_-]?id|secret[_-]?access[_-]?key)\\s*=\\s*)([^\\s&]+)",
-      "replacement": "$1[REDACTED:object-store-credential]"
+      "replacement": "$1<redacted>"
     },
     {
       "name": "json_like_secret_assignment",
       "pattern": "(?i)(\"(?:authorization|cookie|set-cookie|x-cartulary-test-route-token|password|passwd|pwd|secret|token|jwt|api[_-]?key|access[_-]?key|secret[_-]?key|private[_-]?key|client[_-]?secret|dsn)\"\\s*:\\s*\")([^\"]+)(\")",
-      "replacement": "$1[REDACTED]$3"
+      "replacement": "$1<redacted>$3"
     },
     {
       "name": "private_key_block",
       "pattern": "-----BEGIN [A-Z ]*PRIVATE KEY-----[\\s\\S]*?-----END [A-Z ]*PRIVATE KEY-----",
-      "replacement": "[REDACTED:private-key]"
+      "replacement": "<redacted>"
     }
   ]
 }

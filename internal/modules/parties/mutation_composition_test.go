@@ -238,6 +238,9 @@ func (compositionOperations) AdvanceVersionTx(context.Context, pgx.Tx, uuid.UUID
 func (compositionOperations) LoadEnvelope(context.Context, uuid.UUID) (recordenvelope.Envelope, error) {
 	return recordenvelope.Envelope{}, nil
 }
+func (compositionOperations) ClassifyTargetTx(context.Context, pgx.Tx, uuid.UUID, records.TargetLock) (recordenvelope.Envelope, error) {
+	return recordenvelope.Envelope{}, nil
+}
 func (compositionOperations) RefreshPartyTx(context.Context, pgx.Tx, uuid.UUID) error { return nil }
 func (compositionOperations) LoadPartyTx(context.Context, pgx.Tx, uuid.UUID) (map[string]any, error) {
 	return map[string]any{}, nil

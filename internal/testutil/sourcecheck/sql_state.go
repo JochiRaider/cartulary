@@ -139,11 +139,11 @@ func (a *sqlAnalyzer) restoreLocal(binding string, outer sqlState) {
 
 func (a *sqlAnalyzer) collectionValue(expression ast.Expr) sqlCollection {
 	if id, ok := unparenSQL(expression).(*ast.Ident); ok {
-		facts := a.bindings[sqlBinding(id)]
+		facts := a.bindings[sqlBinding(a.binder, id)]
 		if facts == nil || facts.externallyMutable() || facts.collectionEscaped {
 			return sqlCollection{}
 		}
-		return a.collections[sqlBinding(id)]
+		return a.collections[sqlBinding(a.binder, id)]
 	}
 	literal, ok := unparenSQL(expression).(*ast.CompositeLit)
 	if !ok || len(literal.Elts) > 64 {

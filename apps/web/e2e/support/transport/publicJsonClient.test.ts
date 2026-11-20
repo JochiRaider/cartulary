@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  publicHttpMultipartOperation,
   publicHttpOperation,
   publicHttpOperationFailure,
   publicHttpOperationObserved,
@@ -256,6 +257,109 @@ describe("public HTTP operation client", () => {
       status: 502,
     });
     expect("response" in malformed).toBe(false);
+  });
+
+  it("sends typed multipart uploads with JSON metadata and validates their response", async () => {
+    const jobId = "10000000-0000-4000-8000-000000000003";
+    const queued = {
+      data: {
+        cancelable: true,
+        error_summary: null,
+        finished_at: null,
+        job_id: jobId,
+        progress: { completed: 0, total: null },
+        result_summary: null,
+        retained_until: null,
+        scope: {
+          kind: "incident",
+          incident_id: "10000000-0000-4000-8000-000000000001",
+        },
+        started_at: null,
+        status: "queued",
+        status_route: `/api/v1/jobs/${jobId}`,
+        submitted_at: "2026-11-19T00:00:00Z",
+        submitted_by_user_id: "10000000-0000-4000-8000-000000000002",
+        updated_at: "2026-11-19T00:00:00Z",
+      },
+      meta: { request_id: "request-upload" },
+    };
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce({
+        headers: () => ({}),
+        json: async () => queued,
+        ok: () => true,
+        status: () => 202,
+      })
+      .mockResolvedValueOnce({
+        headers: () => ({}),
+        json: async () => queued,
+        ok: () => true,
+        status: () => 200,
+      });
+    const metadata = {
+      assistant_profile: "workbook_import_v1" as const,
+      client_txn_id: "txn-upload",
+      incident_id: "10000000-0000-4000-8000-000000000001",
+    };
+    const file = {
+      buffer: Buffer.from("summary\nexact text\n", "utf8"),
+      mimeType: "text/csv",
+      name: "timeline.csv",
+    };
+
+    await expect(
+      publicHttpMultipartOperation({
+        file,
+        headers: { "X-CSRF-Token": "csrf" },
+        metadata,
+        operationID: "createImportSession",
+        request: { fetch },
+      }),
+    ).resolves.toEqual({ ok: true, payload: queued, status: 202 });
+    expect(fetch).toHaveBeenNthCalledWith(1, "/api/v1/import-sessions", {
+      headers: { "X-CSRF-Token": "csrf" },
+      method: "POST",
+      multipart: {
+        file,
+        metadata: {
+          buffer: Buffer.from(JSON.stringify(metadata), "utf8"),
+          mimeType: "application/json",
+          name: "metadata.json",
+        },
+      },
+    });
+    const call = fetch.mock.calls[0]?.[1] as Record<string, unknown>;
+    expect("data" in call).toBe(false);
+
+    const unexpectedStatus = await publicHttpMultipartOperation({
+      file,
+      metadata,
+      operationID: "createImportSession",
+      request: { fetch },
+    });
+    expect(unexpectedStatus).toEqual({
+      ok: false,
+      payload: {
+        error: expect.objectContaining({
+          code: "invalid_public_contract_response",
+          details: expect.objectContaining({
+            operation_id: "createImportSession",
+            received_status: 200,
+          }),
+        }),
+      },
+      status: 502,
+    });
+    await expect(
+      requestPublicJsonObserved({
+        body: {},
+        method: "POST",
+        multipart: { file },
+        path: "/api/v1/import-sessions",
+        request: { fetch },
+      }),
+    ).rejects.toThrow("either a JSON body or multipart");
   });
 });
 

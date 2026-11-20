@@ -15,7 +15,8 @@
             "schema": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "x-cartulary-not-found-code": "job_not_found"
           }
         ],
         "responses": {
@@ -29,6 +30,32 @@
               }
             }
           },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "invalid_pagination_request"
+            ]
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "session_required"
+            ]
+          },
           "404": {
             "description": "Job is not visible to the caller",
             "content": {
@@ -37,7 +64,29 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "job_not_found"
+            ]
+          },
+          "409": {
+            "description": "Request conflicts with current state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "credential_bootstrap_rejected"
+            ]
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [
@@ -66,7 +115,8 @@
             "schema": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "x-cartulary-not-found-code": "job_not_found"
           }
         ],
         "requestBody": {
@@ -90,6 +140,45 @@
               }
             }
           },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "invalid_mutation_payload"
+            ]
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "session_required"
+            ]
+          },
+          "403": {
+            "description": "CSRF verification failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "csrf_verification_failed"
+            ]
+          },
           "404": {
             "description": "Job is not visible to the caller",
             "content": {
@@ -98,7 +187,10 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "job_not_found"
+            ]
           },
           "409": {
             "description": "Job is not cancelable or the idempotency key conflicts",
@@ -108,7 +200,18 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "client_txn_conflict",
+              "credential_bootstrap_rejected",
+              "job_cancel_rejected"
+            ]
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [

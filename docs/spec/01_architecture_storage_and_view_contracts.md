@@ -333,7 +333,11 @@ Recovery MUST explicitly scan restored foreign-key relationships after bypass
 loading and before committing database restore, using each key's comparison and
 null semantics. It MUST validate entity source/envelope, normalization, mention
 and claim correspondence, Party claims, Indicator claims and JSON support
-references. Catalog validation flags or re-enabling triggers alone are not proof
+references. It MUST also validate Revisions committed chronology under Core 02
+REQ-02-213: every restored change set has a `history_order`, and each
+incident's restored `revision_history_orders` allocator is present with
+`last_order` at least that incident's greatest restored `history_order`.
+Catalog validation flags or re-enabling triggers alone are not proof
 about restored rows. Failure aborts publication; restoration never repairs source
 facts to satisfy constraints. Existing owner validation and readiness gates for
 immutable bytes, reference packs, extensions and projections remain required.
@@ -1896,7 +1900,7 @@ Verified by: AC-596
 #### 3.3.5.0A Timeline time-conversion profile
 
 **REQ-01-611**
-`GET /api/v1/incidents/{incident_id}/timeline-time-conversion-profile` MUST return one `timeline_time_conversion_profile` resource for the addressed incident. If no durable row exists, the resource MUST be materialized as `enabled=false`, `local_offset_minutes=null`, `local_label=null`, and `profile_version=1`. The resource shape is exactly `incident_id`, `enabled`, `local_offset_minutes`, `local_label`, `profile_version`, `updated_at`, and `updated_by_user_id`.
+`GET /api/v1/incidents/{incident_id}/timeline-time-conversion-profile` MUST return one `timeline_time_conversion_profile` resource for the addressed incident. If no durable row exists, the resource MUST be materialized as `enabled=false`, `local_offset_minutes=null`, `local_label=null`, and `profile_version=1`. The resource shape is exactly `incident_id`, `enabled`, `local_offset_minutes`, `local_label`, `profile_version`, `updated_at`, and `updated_by_user_id`. Because this route is singleton, it MUST reject `limit`, `cursor_token`, and pagination aliases with `400`, `error.code=invalid_pagination_request`, and `error.details.reason_code=pagination_not_supported`, after the incident visibility gate (REQ-01-704, REQ-01-707 step 5).
 Profiles: base
 Verified by: AC-444, AC-449, AC-451
 
@@ -1927,10 +1931,10 @@ Contract tables. The tables in §3.3.5 through §3.3.5.5 are the compact owner-l
 | `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/rows` | View-scoped row create | JSON object with required `client_txn_id` and zero or more create-time `field_key` members allowed by the addressed view | Keyed by `(actor_user_id, incident_id, view_schema_id, client_txn_id)` | First success `201 Created`; replay returns the original committed row refresh | `invalid_mutation_payload`, `client_txn_conflict` |
 | `POST /api/v1/incidents/{incident_id}/evidence-metadata` | Explicit Evidence metadata window | Closed `record_ids` array; REQ-01-328a | Read-only; no idempotency receipt or handle issuance | Ordered current metadata and preview eligibility for every requested record | `invalid_evidence_metadata_request`, `evidence_record_not_found`, ordinary authorization failures |
 | `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/clipboard-paste` | View-scoped clipboard batch | Required `view_schema_id`, `client_txn_id`, `clipboard_text`, `start_field_key`, `columns[]`, and `targets[]`; `record` targets MUST identify active same-incident records for the addressed view; optional `format` | Keyed by `(actor_user_id, incident_id, view_schema_id, client_txn_id)` | `200 OK` with batch result containing `view_schema_id`, optional `change_set_id`, `rows[]`, and ordered `conflicts[]` | `invalid_mutation_payload`, `client_txn_conflict`, `row_version_conflict`, entity-match conflicts where applicable |
-| `GET /api/v1/incidents/{incident_id}/timeline-time-conversion-profile` | Incident-scoped Timeline settings read | Singleton read; no body members | Read route | Returns the incident's `timeline_time_conversion_profile` resource, materialized with disabled defaults when absent | Ordinary authorization failures |
+| `GET /api/v1/incidents/{incident_id}/timeline-time-conversion-profile` | Incident-scoped Timeline settings read | Singleton read; no body members; pagination members are rejected with `invalid_pagination_request` and `reason_code=pagination_not_supported` | Read route | Returns the incident's `timeline_time_conversion_profile` resource, materialized with disabled defaults when absent | Ordinary authentication failures and `incident_not_found` for a non-member; `invalid_pagination_request`. Any incident member may read; no `authorization_denied`. |
 | `PUT /api/v1/incidents/{incident_id}/timeline-time-conversion-profile` | Incident-scoped Timeline settings mutation | Required `base_profile_version`, `enabled`, `local_offset_minutes`, and `local_label` | Ordinary optimistic concurrency through `base_profile_version`; no route idempotency key | Returns the committed `timeline_time_conversion_profile` resource | `invalid_mutation_payload`, `row_version_conflict` |
 | `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/bulk-mutations` | View-scoped explicit bulk mutation batch | Required `view_schema_id`, `client_txn_id`, `kind`, and stable `targets[]`; record targets MUST identify active same-incident records for the addressed view; command-specific fields are owned by Core 03 §13.3 | Keyed by `(actor_user_id, incident_id, view_schema_id, client_txn_id)` | `200 OK` with batch result containing `view_schema_id`, optional `change_set_id`, `rows[]`, and ordered `conflicts[]` | `invalid_mutation_payload`, `client_txn_conflict`, `row_version_conflict` |
-| `GET /api/v1/records/{note_record_id}/note-associations` | Notes association collection | Required `kind`; common pagination; REQ-01-675 | Read route; actor/incident/Note/kind-bound cursor | Current Note version and directional safe association items | `invalid_pagination_request`, `invalid_list_query`, ordinary authorization and record-not-found failures |
+| `GET /api/v1/records/{note_record_id}/note-associations` | Notes association collection | Required `kind`; common pagination; REQ-01-675 | Read route; actor/incident/Note/kind-bound cursor | Current Note version and directional safe association items | `invalid_pagination_request`, `invalid_list_query`, ordinary authentication failures, and `incident_not_found` for a missing Note or a non-member. Any incident member may read; no `authorization_denied`. |
 | `POST /api/v1/records/{note_record_id}/note-associations` | Notes association mutation | Required `kind`, `base_row_version`, `client_txn_id`, 1–64 ordered actions; REQ-01-675 | Keyed by route, actor, Note and transaction identity; exact receipt replay precedes version checks | `200 OK` retained Note row and optional change set, including no-op receipts | `invalid_mutation_payload`, `client_txn_conflict`, `row_version_conflict`, ordinary authorization failures |
 | `PATCH /api/v1/records/{record_id}` | Record-scoped partial field mutation | Required `view_schema_id`, `base_row_version`, `client_txn_id`, and non-empty `changes[]` | Keyed by `(actor_user_id, record_id, client_txn_id)`; exact replay wins before fresh optimistic-concurrency evaluation | `200 OK` with original committed row refresh on success or exact replay | `invalid_mutation_payload`, `client_txn_conflict`, `row_version_conflict`, `same_field_conflict` |
 | `POST /api/v1/records/{record_id}/mark-reviewed` | Timeline capture-state action | Required `base_row_version`, `client_txn_id`; optional `reason` | Keyed by `(actor_user_id, record_id, client_txn_id)` | `200 OK` with updated lifecycle state summary | `client_txn_conflict`, `row_version_conflict`, `illegal_transition`, `record_deleted_use_restore` |
@@ -2786,6 +2790,8 @@ Verified by: AC-127, AC-175, AC-176, AC-177, AC-178, AC-179, AC-180, AC-231, AC-
 
 **REQ-01-118**
 `GET /api/v1/users/{user_id}` MUST return the common success envelope with `data` equal to the requested safe user resource. Because this route is singleton, it MUST reject `limit`, `cursor_token`, and pagination aliases with `400`, `error.code=invalid_pagination_request`, and `error.details.reason_code=pagination_not_supported`.
+
+Every route under `/api/v1/users/{user_id}` whose `user_id` names no user in deployment-local identity state MUST fail with `404`, `error.code=user_not_found` and empty `error.details`. This check follows the deployment-administration authorization check and precedes any idempotency, mutation, session or audit effect. Enterprise binding rotate and retire are the exception: REQ-01-539 and REQ-01-540 give them `auth_binding_not_found`.
 Profiles: base
 Verified by: AC-127, AC-175, AC-176, AC-177, AC-178, AC-179, AC-180, AC-231
 
@@ -2862,12 +2868,12 @@ Profiles: base
 Verified by: AC-175, AC-176, AC-177, AC-178, AC-179, AC-180, AC-231, AC-312
 
 **REQ-01-123**
-A first-time successful `POST /api/v1/users` call MUST return `201 Created` and the common success envelope with `data` equal to the created safe user resource.
+A first-time successful `POST /api/v1/users` call MUST return `201 Created` and the common success envelope with `data` equal to the created safe user resource. A create whose normalized `email` already belongs to another local user MUST fail with `409`, `error.code = user_email_conflict` and `error.details = {"field": "email"}`, and MUST create no user.
 Profiles: base
 Verified by: AC-175, AC-176, AC-177, AC-178, AC-179, AC-180, AC-231
 
 **REQ-01-124**
-`PATCH /api/v1/users/{user_id}` MUST require the same deployment-scoped account-administration capability. The route MUST accept `base_user_version` plus changed mutable fields only. In the base profile, mutable fields are `email`, `display_name`, `is_active`, `mfa_required`, and `is_deployment_admin`. Password reset, TOTP reset, and session revoke-all are route-owned actions and MUST NOT be expressed through this patch route. When supplied, `email` MUST satisfy `email_address_v1`, and deployment uniqueness for local users MUST continue to be enforced on the deterministic comparison form produced by that contract. When supplied, `display_name` MUST satisfy `display_name_line_v1`. The route MUST reject attempted mutation of `user_id`, `created_at`, `last_login_at`, or `auth_bindings[]`. For a local account, a successful committed change to `email` MUST change the authoritative local login identifier atomically in the same commit. After that commit, authentication MUST succeed with the new email-form `username` and MUST fail with the prior email-form `username`, unless a later profile explicitly defines login aliases. The base profile defines no such aliases and no second persisted local username namespace. If the current `user_version` differs from `base_user_version`, the server MUST fail with `409` and `error.code = user_version_conflict`.
+`PATCH /api/v1/users/{user_id}` MUST require the same deployment-scoped account-administration capability. The route MUST accept `base_user_version` plus changed mutable fields only. In the base profile, mutable fields are `email`, `display_name`, `is_active`, `mfa_required`, and `is_deployment_admin`. Password reset, TOTP reset, and session revoke-all are route-owned actions and MUST NOT be expressed through this patch route. When supplied, `email` MUST satisfy `email_address_v1`, and deployment uniqueness for local users MUST continue to be enforced on the deterministic comparison form produced by that contract. When supplied, `display_name` MUST satisfy `display_name_line_v1`. The route MUST reject attempted mutation of `user_id`, `created_at`, `last_login_at`, or `auth_bindings[]`. For a local account, a successful committed change to `email` MUST change the authoritative local login identifier atomically in the same commit. After that commit, authentication MUST succeed with the new email-form `username` and MUST fail with the prior email-form `username`, unless a later profile explicitly defines login aliases. The base profile defines no such aliases and no second persisted local username namespace. If the current `user_version` differs from `base_user_version`, the server MUST fail with `409` and `error.code = user_version_conflict`. A patch whose normalized `email` already belongs to another local user MUST fail with `409`, `error.code = user_email_conflict` and `error.details = {"field": "email"}`, and MUST commit no change.
 Profiles: base
 Verified by: AC-175, AC-176, AC-177, AC-178, AC-179, AC-180, AC-231, AC-312
 
@@ -3232,7 +3238,7 @@ Verified by: AC-151A
 **REQ-01-144B**
 `GET /api/v1/incidents/{incident_id}/saved-views/{saved_view_id}` MUST independently authorize and return the addressed currently visible saved-view resource in `data` using the same success envelope and resource as saved-view create/update. It MUST use ordinary UUID path validation and the source-owned private/shared/system visibility rules. A missing or concealed resource, foreign-incident resource, or incident unavailable to the caller MUST return the same `404 saved_view_not_found` envelope without distinguishing names, ownership, existence or deletion. Ordinary authentication failures remain authentication failures.
 
-The singleton defines no query members. After malformed-query validation under REQ-01-144A, any occurrence of `limit`, `cursor_token`, `page`, `offset`, `page_size` or `block_size` MUST fail with `400 invalid_pagination_request` and `reason_code=pagination_not_supported`; any other query member MUST fail with `400 invalid_saved_view_read_request` and `reason_code=unknown_query_member`. Both saved-view read routes MUST use `Cache-Control: no-store` and MUST NOT use ETag or return HTTP 304. They MUST NOT lock the resource for mutation, repair workbook preferences, apply working configuration or start a mutation. Normal session-read mechanics remain unchanged.
+The singleton defines no query members. After malformed-query validation under REQ-01-144A, any occurrence of `limit`, `cursor_token`, `page`, `offset`, `page_size` or `block_size` MUST fail with `400 invalid_pagination_request` and `reason_code=pagination_not_supported`; any other query member MUST fail with `400 invalid_saved_view_read_request` and `reason_code=unknown_query_member`. Every response to a request that resolves to either saved-view read route MUST carry `Cache-Control: no-store`, including its authentication, path-parameter, visibility and query failures; neither route uses ETag or returns HTTP 304. Route resolution's `405` and the admission gate's `503` precede resolution and belong to no operation (REQ-01-707), so this requirement does not apply to them. They MUST NOT lock the resource for mutation, repair workbook preferences, apply working configuration or start a mutation. Normal session-read mechanics remain unchanged.
 Profiles: base
 Verified by: AC-151A
 
@@ -3277,7 +3283,7 @@ Profiles: base
 Verified by: AC-146, AC-147, AC-148, AC-149, AC-150, AC-151, AC-152, AC-153, AC-231
 
 **REQ-01-151.1**
-`GET /api/v1/incidents/{incident_id}/workbook-startup` MUST expose workbook startup selection using the ordered fallback owned by Core 03 §2.4. An explicit launch pointer MUST use `sheet_ref_kind=view_schema|saved_view|extension_workspace&sheet_ref_id=<id>`; for `extension_workspace`, `sheet_ref_id` carries `workspace_key` and the query MUST also include `extension_profile_id=<extension_profile_id>`. The route MUST NOT accept `view_schema_id` as a query parameter; any occurrence, including an empty value or use alongside canonical selector members, MUST fail with `400`, `error.code = invalid_startup_request`, `error.details.field = view_schema_id`, and `error.details.reason_code = unknown_field`. A successful response MUST include `incident_id`, `selected_sheet_ref`, `selected_view_schema_id`, `selected_saved_view`, `source`, `cleared_pointers[]`, `home_sheet_ref`, `default_sheet_ref`, and `extension_workspace_availability`. `extension_workspace_availability` MUST contain exactly `schema_id='cartulary.extension_workspace_availability.v1'`, the addressed `incident_id`, and `workspaces[]`; each row contains exactly `extension_profile_id` and `workspace_key`, rows are unique and sorted by profile then workspace key, and a row is present only for a claimed profile workspace the current caller is authorized to open for that incident at response construction. The route MUST use `Cache-Control: no-store`; ETag reuse and HTTP `304` are forbidden. Error responses omit the member. `selected_view_schema_id` is the base schema used by workbook query routes for `view_schema` and `saved_view` selections; it MUST be JSON `null` when the selected sheet is an `extension_workspace`. `selected_sheet_ref` is the selected startup identity and MAY be a distinct `saved_view` reference or a claimed extension-workspace reference. The route MUST NOT treat an empty saved-view list as absence of any pack-independent base-profile surface identified by `view_schema`.
+`GET /api/v1/incidents/{incident_id}/workbook-startup` MUST expose workbook startup selection using the ordered fallback owned by Core 03 §2.4. An explicit launch pointer MUST use `sheet_ref_kind=view_schema|saved_view|extension_workspace&sheet_ref_id=<id>`; for `extension_workspace`, `sheet_ref_id` carries `workspace_key` and the query MUST also include `extension_profile_id=<extension_profile_id>`. The route MUST NOT accept `view_schema_id` as a query parameter; any occurrence, including an empty value or use alongside canonical selector members, MUST fail with `400`, `error.code = invalid_startup_request`, `error.details.field = view_schema_id`, and `error.details.reason_code = unknown_field`. A successful response MUST include `incident_id`, `selected_sheet_ref`, `selected_view_schema_id`, `selected_saved_view`, `source`, `cleared_pointers[]`, `home_sheet_ref`, `default_sheet_ref`, and `extension_workspace_availability`. `extension_workspace_availability` MUST contain exactly `schema_id='cartulary.extension_workspace_availability.v1'`, the addressed `incident_id`, and `workspaces[]`; each row contains exactly `extension_profile_id` and `workspace_key`, rows are unique and sorted by profile then workspace key, and a row is present only for a claimed profile workspace the current caller is authorized to open for that incident at response construction. Every response to a request that resolves to the route MUST use `Cache-Control: no-store`, including its authentication, path-parameter and visibility failures; ETag reuse and HTTP `304` are forbidden. Route resolution's `405` and the admission gate's `503` precede resolution and belong to no operation (REQ-01-707). Error responses omit the member. `selected_view_schema_id` is the base schema used by workbook query routes for `view_schema` and `saved_view` selections; it MUST be JSON `null` when the selected sheet is an `extension_workspace`. `selected_sheet_ref` is the selected startup identity and MAY be a distinct `saved_view` reference or a claimed extension-workspace reference. The route MUST NOT treat an empty saved-view list as absence of any pack-independent base-profile surface identified by `view_schema`.
 
 Automatic pointer repair performed by this route MUST use the conditional clear, no-clobber, timestamp, and incident-default attribution rules in Core 03 REQ-03-031. The comparison input MUST be the exact persisted pointer already proven unusable. A comparison miss MUST preserve the concurrent replacement and cause startup selection to restart from current state rather than continuing with a stale candidate snapshot.
 
@@ -3579,12 +3585,12 @@ When an incident is `closed`, current-profile operation families MUST behave as 
 
 This matrix constrains authoritative incident source-state mutation only. Authorized reads and derived reporting operations continue to work according to their ordinary route and extension-profile requirements.
 Profiles: base, import, snapshot_reporting, incident_portability
-Verified by: AC-422, AC-424
+Verified by: AC-422, AC-424, AC-616
 
 **REQ-01-591**
 Every route, background job, or worker path that commits authoritative incident source state MUST re-read the addressed incident lifecycle state inside the same per-incident serialization boundary used for that source-state commit. After a `close` action commits, no fresh non-replay source-state mutation may commit until a successful `reopen` action commits. Therefore, for any race between closure and a source-state mutation, exactly one of these outcomes is valid: the source-state mutation commits before closure and the later close observes that committed state, or closure commits first and the source-state mutation fails with `incident_closed` or reaches a terminal failed job state whose public error summary uses `incident_closed`. A committed idempotent replay may return its original prior source-mutation success after closure, but it MUST NOT create a new mutation, change set, row revision, authoritative blob/evidence attachment, import apply result, or collaboration event.
 Profiles: base, import
-Verified by: AC-421, AC-422, AC-423
+Verified by: AC-421, AC-422, AC-423, AC-616
 
 #### 3.3.5.4 Entity-merge contract
 
@@ -4148,7 +4154,7 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 | `invalid_evidence_handle_request` | `400` | `false` | A preview-handle or download-handle issuance request is malformed, uses a non-object JSON body, omits the required JSON object wrapper, or includes an unknown top-level member. |  |  |  |
 | `invalid_blob_create_request` | `400` | `false` | A blob-slot create request is malformed, omits required members, violates create-time field validation, attempts to set server-managed state, or includes an unknown top-level member. |  |  |  |
 | `blob_create_rejected` | `413` | `false` | A blob-slot create request is structurally valid but exceeds the configured declared-size ceiling for `POST /api/v1/object-blobs`. `error.details.reason_code` MUST use the `blob_create_rejected` registry in §3.3.6.2. |  |  |  |
-| `request_body_too_large` | `413` | `false` | An incident mutation JSON body exceeds its encoded-byte ceiling; details contain only `limit_bytes`. | REQ-01-166b | base | AC-170, AC-175, AC-178, AC-231 |
+| `request_body_too_large` | `413` | `false` | A request body exceeds its byte ceiling. For an incident mutation JSON body, the encoded-byte ceiling applies and details contain only `limit_bytes`; for an object upload, the contracted `byte_size` applies and details are those of REQ-01-246. | REQ-01-166b, REQ-01-246 | base | AC-170, AC-175, AC-178, AC-231 |
 | `invalid_incident_create` | `400` | `false` | An incident-create request is malformed, omits required members, includes an unknown top-level member, violates create-time field validation, attempts to set server-managed state, or includes a rejected collaborator-seeding payload. |  |  |  |
 | `invalid_incident_patch` | `400` | `false` | An incident-metadata patch request is malformed, omits or malforms required `base_incident_version`, violates mutable-field validation, attempts to mutate an immutable or server-managed incident field, or includes unknown top-level members. |  |  |  |
 | `invalid_incident_lifecycle_request` | `400` | `false` | An incident lifecycle action request is malformed, omits a required member, supplies `null` for a required member, violates required reason validation, includes unknown top-level members, or malforms `base_incident_version` or `client_txn_id`. | REQ-01-586 | base | AC-418, AC-421 |
@@ -4157,6 +4163,10 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 | `invalid_enterprise_auth_request` | `400` | `false` | An enterprise-auth discovery or initiation request is malformed, omits a required member, includes an unknown or forbidden member, supplies `null` where forbidden, or uses a `return_to` value not allowed by the current profile. |  |  |  |
 | `extension_profile_not_claimed` | `404` | `false` | The request path matches a reserved extension route family for a profile the deployment does not currently claim. `error.details` MUST include `profile_id` and `route_family`. |  |  |  |
 | `internal_error` | `500` | `false` | An internal failure could not complete the request; the shared boundary emits only the fixed safe envelope in REQ-01-229. | REQ-01-229 | base | AC-231 |
+| `service_unavailable` | `503` | `true` | The process is not admitting work: startup publication has not opened admission, lease ownership is uncertain, an operator stop request started ordinary shutdown, the process is in a fatal state, or a cross-owner transaction timed out with its commit proven absent. `error.details.reason_code` MUST use the `service_unavailable` registry in §3.3.6.2. Every operation declares it (REQ-01-702). | REQ-01-702 | base | AC-618 |
+| `transaction_conflict` | `409` | `true` | A cross-owner extension transaction aborted on a deadlock or serialization failure with its commit proven absent (Extensions EXT-REQ-219). `error.details.reason_code` MUST use the `transaction_conflict` registry in §3.3.6.2. A caller retries only under the operation's idempotency contract. | REQ-01-702 | network_flow_activity |  |
+| `route_not_found` | `404` | `false` | The request path, under `/api` or under `/ws/v1/` (REQ-01-708 step 1), matches no public operation or socket route. Raised before route resolution; it belongs to no operation. `error.details` is empty. | REQ-01-707, REQ-01-708 | base | AC-617, AC-131 |
+| `method_not_allowed` | `405` | `false` | The request path, under `/api` or under `/ws/v1/` (REQ-01-708 step 1), matches a public operation or socket route only under other methods, including `HEAD` on a `GET`-only path. Raised before route resolution; it belongs to no operation. `error.details.allowed_methods` lists the declared methods, matching the `Allow` header. | REQ-01-707, REQ-01-708 | base | AC-617, AC-131 |
 | `extension_capability_not_supported` | `409` | `false` | A request, bundle, descriptor, browser action, or internal activation attempts a nonempty extension capability in contract major `1`; no capability behavior executes. |  |  |  |
 | `authorization_denied` | `403` | `false` | The request is authenticated, the route or operation is currently matched, and the authenticated caller lacks the current authorization required by that route or operation. | REQ-01-234 | base | AC-427 |
 | `auth_provider_not_found` | `404` | `false` | The addressed enterprise-auth `provider_key` does not identify a configured enterprise-auth provider allowed by the active route. |  |  |  |
@@ -4187,12 +4197,18 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 | `record_locked` | `409` | `true` | An overlapping in-flight destructive operation already holds one or more required protected-set locks for the requested restore, rollback, or merge. |  |  |  |
 | `evidence_attach_rejected` | `409` | `false` | An Evidence initial-blob create or existing-record attach cannot commit because the supplied blob is not visible or attachable, is already associated, the target Evidence row is quarantined or inconsistent, or observed upload bytes violate the accepted blob contract. `error.details.reason_code` MUST use the `evidence_attach_rejected` registry in §3.3.6.2. |  |  |  |
 | `evidence_access_unavailable` | `409` | `false` | Preview or download cannot currently proceed because the visible evidence or linked blob is unavailable, pending, failed, missing, quarantined, inconsistent, or not previewable for the requested preview contract or preview-size ceiling. |  |  |  |
+| `object_upload_not_found_or_revoked` | `404` | `false` | An object-upload capability is malformed, unknown, revoked, wrongly bound, no longer issued, or names an incident the caller cannot see; details are empty. | REQ-01-246 | base |  |
+| `object_upload_expired` | `410` | `false` | An object-upload capability's target or pending slot has expired; `error.details.reason_code` is `target_expired` or `slot_expired`. | REQ-01-246 | base |  |
+| `object_upload_rejected` | `409` | `false` | An object-upload capability's bound contract no longer matches live slot state, or the slot is no longer pending; `error.details.reason_code` is `upload_contract_mismatch` or `blob_not_pending`. | REQ-01-246 | base |  |
+| `object_upload_invalid` | `400` | `false` | An object upload declares fewer bytes than its contract or omits or changes a required upload header; `error.details.reason_code` is `byte_size_mismatch` or `upload_contract_mismatch`. | REQ-01-246 | base |  |
+| `object_upload_length_required` | `411` | `false` | An object upload carries no `Content-Length`; `error.details.reason_code` is `content_length_required`. | REQ-01-246 | base |  |
 | `object_store_unavailable` | `503` | `true` | An object-store-backed route reached the object-store dependency and the dependency cannot currently be reached or used, including unreachable endpoint, missing bucket, or exhausted retry budget. `error.details.reason_code` MUST use the `object_store_unavailable` registry in §3.3.6.2. |  |  |  |
 | `object_store_access_rejected` | `503` | `false` | An object-store-backed route reached the object-store dependency, but credentials, policy, required capability, or browser-upload CORS behavior rejected the required operation. `error.details.reason_code` MUST use the `object_store_access_rejected` registry in §3.3.6.2. |  |  |  |
 | `object_store_invalid_request` | `500` | `false` | A server-side object-store-backed route reached persisted object-store metadata that violates the Core-owned server-managed physical-key contract before a backend request was allowed. `error.details.reason_code` MUST use the `object_store_invalid_request` registry in §3.3.6.2. The response MUST NOT include raw endpoint hosts, bucket names, object keys, storage refs, credentials, or backend URLs. |  |  |  |
 | `incident_not_found` | `404` | `false` | An incident-scoped route addressed no incident visible to the caller, including a record-scoped route whose malformed, missing, or hidden record identity cannot expose an incident authorization context. | REQ-01-186 | base | AC-187, AC-479 |
 | `entity_mention_not_found` | `404` | `false` | An entity-mention action route targeted no visible current entity-mention row for the supplied `entity_mention_id`. |  |  |  |
 | `resolved_record_not_found` | `404` | `false` | A mention-resolve request supplied `resolved_record_id` that does not identify a visible active target record. |  |  |  |
+| `entity_match_conflict` | `409` | `false` | Submitted Host or Identity identifiers match active claims held by more than one record; nothing is mutated. | REQ-02-270 | base |  |
 | `indicator_source_record_not_found` | `404` | `false` | An Indicator observation route targeted no visible active source record for the supplied `source_record_id`. | REQ-01-652, REQ-04-150 | base | AC-532 |
 | `indicator_not_found` | `404` | `false` | An Indicator observation or lifecycle route targeted no visible active Indicator for the supplied `indicator_id`. | REQ-01-652, REQ-04-150 | base | AC-532 |
 | `indicator_observation_not_found` | `404` | `false` | An Indicator observation action targeted no visible active observation for the supplied `observation_id`. | REQ-01-652, REQ-04-150 | base | AC-532 |
@@ -4201,6 +4217,7 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 | `evidence_record_not_found` | `404` | `false` | A preview-handle or download-handle issuance request targeted no visible current evidence record for the supplied `record_id`. |  |  |  |
 | `handle_not_found_or_revoked` | `404` | `false` | A handle-redeem request targeted no current opaque handle token because the token is unknown, revoked, or no longer available for redeem. |  |  |  |
 | `job_not_found` | `404` | `false` | No current visible job resource exists for the supplied `job_id`, including when the job has expired from retention or is outside the caller's current authorization scope. |  |  |  |
+| `view_schema_not_found` | `404` | `false` | A view-schema discovery read named no standardized current-profile `view_schema_id`; details are empty. | REQ-01-032 | base | AC-116 |
 | `handle_expired` | `410` | `false` | A previously issued handle token is well-formed but no longer redeemable because its expiry time has passed. |  |  |  |
 | `handle_consumed` | `410` | `false` | A single-use handle was already consumed by a prior successful redeem and cannot be redeemed again. |  |  |  |
 | `rollback_precondition_failed` | `409` | `false` | A rollback target exists but cannot be safely reversed against current authoritative state; `error.details.reason_code` MUST use the rollback-precondition registry in §3.3.6.2. | REQ-01-236 | base | AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-213, AC-214, AC-218, AC-219, AC-231 |
@@ -4209,7 +4226,8 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 | `auth_binding_conflict` | `409` | `false` | A create, rotate, or retire request against an enterprise-auth binding cannot commit because current active binding state conflicts. `error.details.reason_code` MUST use the `auth_binding_conflict` registry in §3.3.6.2. |  |  |  |
 | `auth_binding_not_found` | `404` | `false` | A binding-management route targeted no current enterprise-auth binding for the supplied `{user_id, auth_binding_id}` pair. |  |  |  |
 | `last_deployment_admin` | `409` | `false` | The requested user mutation would leave the deployment with no active `is_deployment_admin=true` user. |  |  |  |
-| `user_not_found` | `404` | `false` | A membership-create request referenced a user that does not exist in deployment-local identity state. |  |  |  |
+| `user_email_conflict` | `409` | `false` | A user create or patch supplied a normalized `email` that already belongs to another local user; details are `{"field": "email"}`. | REQ-01-123, REQ-01-124 | base |  |
+| `user_not_found` | `404` | `false` | A membership-create request, or a route under `/api/v1/users/{user_id}`, referenced a user that does not exist in deployment-local identity state. | REQ-01-118 | base |  |
 | `user_inactive` | `409` | `false` | A membership-create request referenced a deployment-local user whose `is_active=false`. |  |  |  |
 | `membership_exists_use_patch` | `409` | `false` | A membership-create request conflicts with an existing membership for the same `(incident_id, user_id)` and must be expressed as a patch instead. |  |  |  |
 | `membership_version_conflict` | `409` | `false` | The supplied `base_membership_version` is stale. |  |  |  |
@@ -4360,6 +4378,33 @@ Lifecycle guard identifiers carried in `illegal_transition` `error.details.viola
 | `reason_code` | Canonical meaning |
 | --- | --- |
 | `byte_size_exceeds_limit` | The declared `byte_size` exceeds `limits.object_blobs.max_declared_byte_size` for the current deployment. |
+
+`object_upload_expired` `error.details.reason_code` values:
+
+| `reason_code` | Canonical meaning |
+| --- | --- |
+| `target_expired` | The upload target's capability expiry has passed. |
+| `slot_expired` | The pending blob slot's expiry has passed. |
+
+`object_upload_rejected` `error.details.reason_code` values:
+
+| `reason_code` | Canonical meaning |
+| --- | --- |
+| `upload_contract_mismatch` | The capability's bound incident, storage binding, byte size, accepted contract or required headers no longer match live slot state. |
+| `blob_not_pending` | The addressed blob slot is no longer `pending`. |
+
+`object_upload_invalid` `error.details.reason_code` values:
+
+| `reason_code` | Canonical meaning |
+| --- | --- |
+| `byte_size_mismatch` | The request's `Content-Length` is below the contracted `byte_size`. |
+| `upload_contract_mismatch` | A required upload header is absent or differs from the issued value. |
+
+`object_upload_length_required` `error.details.reason_code` values:
+
+| `reason_code` | Canonical meaning |
+| --- | --- |
+| `content_length_required` | The request carries no `Content-Length`. |
 
 `object_store_unavailable` `error.details.reason_code` values:
 
@@ -4738,6 +4783,27 @@ Reference Pack request, operation and activation reason registries are defined e
 | `history_mode_not_supported` | The request attempted to set `history_mode` to anything other than the fixed current-profile `full` behavior. |
 | `blob_mode_not_supported` | The request attempted to set `blob_mode` to anything other than the fixed current-profile `full` behavior. |
 
+`service_unavailable` `error.details.reason_code` values:
+
+| `reason_code` | Canonical meaning |
+| --- | --- |
+| `extension_publication_pending` | Startup publication has not yet opened admission. |
+| `admission_paused` | Ownership proof of the application-process or recovery-serving lease is uncertain (Core 04 REQ-04-145). Admission reopens when the original session proves continuous ownership. |
+| `shutdown_in_progress` | An operator stop request started ordinary shutdown, and the process admits no new work (Core 04 REQ-04-146a). Admission does not reopen in this process. |
+| `extension_integrity_failure` | The process is in a fatal state and is shutting down (Extensions EXT-REQ-193). |
+| `extension_transaction_timeout` | A cross-owner transaction deadline expired with its commit proven absent (Extensions Table 26-B). |
+
+When more than one applies, the admission gate reports the first of
+`extension_integrity_failure`, `shutdown_in_progress`, `admission_paused` and
+`extension_publication_pending`.
+
+`transaction_conflict` `error.details.reason_code` values:
+
+| `reason_code` | Canonical meaning |
+| --- | --- |
+| `deadlock_detected` | The database aborted the cross-owner transaction on a deadlock, and its commit is proven absent. |
+| `serialization_failure` | The database aborted the cross-owner transaction on a serialization failure, and its commit is proven absent. |
+
 `incident_bundle_export_rejected` `error.details.reason_code` values:
 
 | `reason_code` | Canonical meaning |
@@ -4935,7 +5001,34 @@ Profiles: base
 Verified by: AC-015, AC-016, AC-102, AC-103, AC-128, AC-154, AC-155, AC-231, AC-321
 
 **REQ-01-246**
-In the base profile, the upload target MUST expire 60 minutes after issuance and the pending blob slot MUST expire 24 hours after blob-slot creation. These timers MUST remain separate: target expiry governs upload-target use, while pending-slot expiry governs later finalization eligibility and cleanup. `PUT /api/v1/object-uploads/{upload_token}` MUST stream the request body through the application to object storage, enforce the upload-token expiry and pending blob-slot state, require the upload byte count to match the accepted create contract, and return `204 No Content` on success without finalizing evidence attachment. The base profile MUST treat a pending blob slot as a single-upload lease bound to one accepted create contract. If the upload target expires before successful upload, or if idempotent replay returns an already expired slot, obtaining a fresh target MUST use a fresh `POST /api/v1/object-blobs` call with a new `client_txn_id`. Idempotent replay of an expired slot MUST return that same expired slot rather than refreshing the original target. The base profile MUST NOT require same-slot upload-target refresh, same-slot lease renewal, or resumable upload semantics.
+In the base profile, the upload target MUST expire 60 minutes after issuance and the pending blob slot MUST expire 24 hours after blob-slot creation. These timers MUST remain separate: target expiry governs upload-target use, while pending-slot expiry governs later finalization eligibility and cleanup. `PUT /api/v1/object-uploads/{upload_token}` is an authenticated, state-changing request: besides the capability, it MUST present the issuing session, either as the session cookie with the CSRF double-submit token or as the issuing bearer session (REQ-01-703). It MUST stream the request body through the application to object storage, enforce the upload-token expiry and pending blob-slot state, require the upload byte count to match the accepted create contract, and return `204 No Content` on success without finalizing evidence attachment. The base profile MUST treat a pending blob slot as a single-upload lease bound to one accepted create contract. If the upload target expires before successful upload, or if idempotent replay returns an already expired slot, obtaining a fresh target MUST use a fresh `POST /api/v1/object-blobs` call with a new `client_txn_id`. Idempotent replay of an expired slot MUST return that same expired slot rather than refreshing the original target. The base profile MUST NOT require same-slot upload-target refresh, same-slot lease renewal, or resumable upload semantics.
+
+A rejected `PUT /api/v1/object-uploads/{upload_token}` MUST use exactly one
+`error.code` per HTTP status. Authentication and authorization failures keep
+their Core 04 codes, and object-store failures keep the codes defined after the
+§3.3.6.1 registry.
+
+- `404` `object_upload_not_found_or_revoked`, with empty `error.details`: the
+  concealed rejection for a malformed, unknown, revoked, previous-version,
+  wrongly bound or no-longer-issued capability, or an incident the caller
+  cannot see.
+- `410` `object_upload_expired`: the upload target expired
+  (`reason_code=target_expired`) or the pending slot expired
+  (`reason_code=slot_expired`).
+- `409` `object_upload_rejected`: the capability's bound contract no longer
+  matches live slot state (`reason_code=upload_contract_mismatch`), or the slot
+  is no longer pending (`reason_code=blob_not_pending`).
+- `411` `object_upload_length_required`: the request carries no
+  `Content-Length` (`reason_code=content_length_required`).
+- `400` `object_upload_invalid`: the declared length is below the contracted
+  `byte_size` (`reason_code=byte_size_mismatch`), or a required upload header
+  is absent or different (`reason_code=upload_contract_mismatch`).
+- `413` `request_body_too_large`: the declared length exceeds the contracted
+  `byte_size` (`reason_code=byte_size_exceeds_contract`).
+
+Both length outcomes also include `requested_byte_size` and
+`contracted_byte_size`. Every rejection leaves the slot to ordinary timeout and
+cleanup.
 Profiles: base
 Verified by: AC-015, AC-016, AC-102, AC-103, AC-128, AC-154, AC-155, AC-231
 
@@ -5067,6 +5160,33 @@ Verified by: AC-129, AC-131, AC-132, AC-133, AC-134, AC-135, AC-136, AC-156, AC-
 The WebSocket stream MUST authenticate with the same server-managed session contract as the HTTP surface. It MUST NOT broadcast unresolved same-field local drafts, transient pending patches, expand or collapse state for grouped rows, or other client-local UI state as authoritative collaboration events.
 Profiles: base
 Verified by: AC-129, AC-131, AC-132, AC-133, AC-134, AC-135, AC-136, AC-156, AC-157, AC-158, AC-159, AC-160, AC-161, AC-162, AC-163, AC-231
+
+**REQ-01-708 — WebSocket upgrade admission**
+Before the upgrade, a request to a path under `/ws/v1/` MUST be admitted in
+this order:
+
+1. route resolution: a path other than `/ws/v1/incidents/{incident_id}` MUST
+   fail with `404` `route_not_found`, and that path under any method other
+   than `GET`, including `HEAD`, MUST fail with `405` `method_not_allowed`, an
+   `Allow: GET` header and `error.details.allowed_methods` equal to
+   `["GET"]`, as in REQ-01-707 step 1;
+2. the `Origin` check of REQ-01-277: a request carrying an `Origin` header
+   other than the configured application origin MUST fail with `403`
+   `csrf_verification_failed` and empty `error.details`, whether or not it
+   carries a session cookie;
+3. session authentication under REQ-01-253, without CSRF; a credential
+   bootstrap token is rejected as REQ-01-522 requires;
+4. `incident_id`, in REQ-01-707's `uuid` form;
+5. incident authorization under REQ-01-277.
+
+A malformed `incident_id` MUST receive the same `404` `incident_not_found` as
+an incident the caller cannot see (REQ-01-704). Every rejection at steps 1–5
+uses the common error envelope; a `HEAD` response carries its headers and no
+body. A request admitted through step 5 that is not a valid WebSocket opening
+handshake (RFC 6455 §4.2.1) is rejected by the WebSocket transport outside
+this contract.
+Profiles: base
+Verified by: AC-131
 
 ##### 3.3.10.1 v1 collaboration wire contract
 
@@ -5452,7 +5572,7 @@ Profiles: base
 Verified by: AC-116, AC-117, AC-118, AC-119, AC-120, AC-124, AC-125, AC-231
 
 **REQ-01-288**
-A base-profile implementation MUST expose the structured base-profile view-schema registry for conformance inspection through stored `view_schema` rows, the public discovery routes named in REQ-01-032, or an equivalent structured export. `GET /api/v1/view-schemas` MUST return the common success envelope with `data.view_schemas[]` plus `meta.paging`, MUST order results by `view_schema_id asc`, and MUST accept only `limit` and `cursor_token` under §3.3.7. `GET /api/v1/view-schemas/{view_schema_id}` MUST return one structured `view_schema_resource_v2` and MUST reject pagination members with `400`, `error.code=invalid_pagination_request`, and `error.details.reason_code=pagination_not_supported`. Conformance MUST NOT depend on scraping visible tab labels, column labels, or interactive UI behavior alone.
+A base-profile implementation MUST expose the structured base-profile view-schema registry for conformance inspection through stored `view_schema` rows, the public discovery routes named in REQ-01-032, or an equivalent structured export. `GET /api/v1/view-schemas` MUST return the common success envelope with `data.view_schemas[]` plus `meta.paging`, MUST order results by `view_schema_id asc`, and MUST accept only `limit` and `cursor_token` under §3.3.7. `GET /api/v1/view-schemas/{view_schema_id}` MUST return one structured `view_schema_resource_v2` and MUST reject pagination members with `400`, `error.code=invalid_pagination_request`, and `error.details.reason_code=pagination_not_supported`. A `view_schema_id` that names no standardized current-profile view schema MUST fail with `404`, `error.code=view_schema_not_found`, and empty `error.details`. Conformance MUST NOT depend on scraping visible tab labels, column labels, or interactive UI behavior alone.
 
 For public discovery, `view_schema_resource_v2` MUST expose the semantic workbook contract and MUST NOT require clients to infer structure from prose. The required members are:
 
@@ -11183,8 +11303,12 @@ incident bypass.
 
 Admission atomically retains a queued incident-scoped Common Job and the route
 idempotency result, returns `202`, and reads no object bytes. The route identity
-is `(actor_user_id, object_blob_id, client_txn_id)`; exact replay returns the
-original Job, and divergent request bytes reject. The Base Profile job kind is
+is `(actor_user_id, object_blob_id, client_txn_id)`. The closed request body
+carries only `client_txn_id`, which that identity already binds, so every
+request with the same identity is the same normalized request: a replay returns
+the original Job, and the route never returns `client_txn_conflict`. A retained
+result inconsistent with its identity is an integrity failure under
+REQ-01-229. The Base Profile job kind is
 `evidence.verify_blob_v1`, progress unit `evidence.verify_blob.bytes.v1`, and
 worker kind `evidence.blob_verification_worker_v1`. The generated worker contract
 has profile `base` and maximum eight active attempts per process, subject also
@@ -11254,9 +11378,11 @@ inactive-owner reconciliation MUST use the complete catalog.
 A queued durable-job claim MUST atomically commit `running`, `started_at`, a
 unique opaque execution identity, and lease expiry before invoking the
 handler. Handler payload reads, execution observation, progress changes,
-owner-transaction finalization, terminal completion, lease renewal, and
-conditional release MUST validate that same live unexpired execution identity
-under the Jobs transition lock. An expired or superseded execution MUST be
+owner-transaction finalization, terminal completion, and conditional release
+MUST validate that same live unexpired execution identity under the Jobs
+transition lock. Lease renewal MUST validate it atomically in its single
+conditional update of the Job row and MUST NOT take the transition lock, which
+an attempt's own owner transaction holds until it commits. An expired or superseded execution MUST be
 unable to read handler payload or mutate Jobs, owner, or Collaboration state,
 even when its handler ignores context cancellation. Lease and execution
 bookkeeping alone MUST NOT change public `updated_at` or publish a public
@@ -11268,7 +11394,10 @@ cadence 5 seconds, recovery batch 100 rows, global handler concurrency 8,
 maximum failures 3, retry delays 5 seconds and then 30 seconds, expiry sweep
 cadence 5 minutes, and expiry batch 1,000 rows. The attempt-operation timeout
 is independent of lease-renewal cadence and bounds attempt persistence and
-observation operations. Tests MAY inject shorter values through harness-owned
+observation operations, lease renewal included. Execution validation inside an
+owner transaction serializes Job transitions through the Job's transition lock
+and MUST NOT hold a Job-row lock that blocks lease renewal, so an attempt's own
+transaction never delays or starves its lease. Tests MAY inject shorter values through harness-owned
 composition; deployment configuration MUST NOT redefine these values in the
 current profile.
 
@@ -11322,7 +11451,16 @@ it is authoritative over any simultaneously ready renewal tick or handler
 outcome that has not already committed a terminal transition. Such an outcome
 MUST follow conditional release and MUST NOT consume a failure. A renewal or
 handler error observed without runner shutdown retains its ordinary failure or
-execution-loss semantics. A successful runner close MUST mean that supervised
+execution-loss semantics. Execution loss means that the execution expired or was
+superseded. A renewal whose result shows, or after whose failure for another
+reason the runner establishes, that the Job is terminal while the lease most
+recently granted to that execution is unexpired observes the execution's own
+committed terminal transition, not execution loss or an attempt failure: the
+runner MUST stop renewing, MUST NOT cancel the handler on that account, and MUST
+NOT record an attempt failure. The handler still drains before both
+reservations are released, and runner shutdown still cancels it. A renewal that
+cannot establish both facts retains its execution-loss or ordinary failure
+semantics. A successful runner close MUST mean that supervised
 handler goroutines have drained; deadline expiry remains an unsuccessful
 close. Graceful conditional releases MUST remain concurrent and MUST NOT exceed
 global handler concurrency. Each release is bounded by the attempt-operation
@@ -11519,7 +11657,7 @@ Example download-handle success payload:
 ```
 
 **REQ-01-463**
-Every redeem of `GET /api/v1/evidence-handles/{handle_token}` MUST re-check current session validity, current incident membership, current evidence or blob accessibility state, and handle freshness at redeem time. A handle MUST be bound, at minimum, to the issuing session, incident, `record_id`, `object_blob_id`, `handle_kind`, resolved `filename`, and `disposition`; preview handles MUST also bind `preview_kind`. A handle issued before logout, session expiry, incident-membership loss, blob detach or replacement, evidence delete or restore, quarantine, pending or failed blob transition, or detected evidence/blob inconsistency MUST fail closed when redeemed later.
+Every redeem of `GET /api/v1/evidence-handles/{handle_token}` is an authenticated navigation read: it MUST present the issuing session, as the session cookie or the issuing bearer session, and does not require CSRF because it consumes a single-use capability bound to that session (REQ-01-703). Every redeem MUST re-check current session validity, current incident membership, current evidence or blob accessibility state, and handle freshness at redeem time. A handle MUST be bound, at minimum, to the issuing session, incident, `record_id`, `object_blob_id`, `handle_kind`, resolved `filename`, and `disposition`; preview handles MUST also bind `preview_kind`. A handle issued before logout, session expiry, incident-membership loss, blob detach or replacement, evidence delete or restore, quarantine, pending or failed blob transition, or detected evidence/blob inconsistency MUST fail closed when redeemed later.
 
 Redeem-time role evaluation, closed-incident behavior, failure precedence, and
 concealment MUST follow Core 04 §2.0A. The binding and invalidation behavior in
@@ -11593,6 +11731,202 @@ distinction applies structurally to the four OpenAPI 3.1 OAuth flow kinds, not
 by the spelling of a scheme or scope name. Non-string replacements and changes
 to security requirements, flow configuration or scheme identity MUST NOT receive
 the description-only classification.
+
+**REQ-01-702 — Declared error codes**
+Every authored public OpenAPI operation response whose status is `400` or
+higher, declared directly or through a referenced component response, MUST
+carry `x-cartulary-error-codes`: a non-empty array of `error.code` values in
+ascending order without duplicates. Each value MUST be registered in the
+canonical error registry (REQ-01-233) with exactly that response's HTTP status.
+Assembly MUST reject an absent, empty, unsorted, duplicated, unregistered or
+status-mismatched declaration, and the generated operation catalog MUST project
+the declared codes by operation and status. Every response an operation can
+produce MUST be declared on that operation: once a request resolves to an
+operation, the server MUST emit only error codes that operation declares for the
+emitted status. Only REQ-01-707's pre-resolution responses, `route_not_found`,
+`method_not_allowed` and the admission gate's `service_unavailable`, are emitted
+before an operation is resolved; the gate's refusal is nevertheless declared on
+every operation, as below. Adding a declared code is an
+additive compatibility change; removing or moving one is breaking.
+
+Declarations MUST also follow two structural rules:
+
+- A component error response MAY be shared only by operations that can each
+  emit every code it declares. Otherwise each operation declares its own
+  response.
+- Declared security implies three declarations, which assembly MUST enforce in
+  both directions:
+  - the `401` response declares `session_required` exactly when the operation
+    declares a security requirement;
+  - the `403` response declares `csrf_verification_failed` exactly when an
+    alternative includes `csrfHeader`;
+  - the `409` response declares `credential_bootstrap_rejected` exactly when
+    an alternative includes `bearerSession` or `credentialBootstrapBearer`.
+- Every operation also implies these declarations, which assembly MUST
+  enforce in both directions:
+  - a `500` response that declares `internal_error` (REQ-01-229);
+  - a `503` response that declares `service_unavailable`, the admission
+    gate's response;
+  - a `404` response that declares `extension_profile_not_claimed` exactly
+    when the operation belongs to a route family reserved for an extension
+    profile.
+Profiles: base
+Verified by: AC-608, AC-618
+
+**REQ-01-703 — Declared security is authoritative**
+Each public operation's OpenAPI `security` MUST state exactly how its handler
+authenticates:
+
+- an operation that declares no requirement MUST NOT authenticate a session
+  or bearer session; it relies only on its own capability or credential
+  exchange, such as login;
+- an operation that declares requirements MUST authenticate a principal
+  through one declared alternative before it returns a success status;
+- an alternative that pairs `sessionCookie` with `csrfCookie` and
+  `csrfHeader` MUST verify CSRF for cookie-authenticated requests, and an
+  alternative with `sessionCookie` alone MUST NOT require CSRF.
+
+Changing an operation's security is a security-sensitive compatibility change.
+Profiles: base
+Verified by: AC-610
+
+**REQ-01-704 — Visibility precedes resource state**
+For every public operation that addresses a resource inside an incident,
+the caller's visibility of that incident MUST be decided immediately after
+authentication and CSRF validation. It MUST be decided before any
+classification of the addressed resource's existence, deleted or lifecycle
+state, record type, version, idempotency replay, or request body.
+
+A caller who cannot see the incident MUST receive the resource's ordinary
+not-found response, for example `incident_not_found` for a record,
+`import_session_not_found` for an import session, or `job_not_found` for a job.
+That response MUST be identical in status, `error.code` and `error.details`
+to the response for a resource that does not exist. It MUST commit no
+idempotency, source, history, projection or Collaboration effect.
+
+Route-specific classification orders, such as the deleted-state, lifecycle
+and version checks of the record actions, apply only after this gate. A
+caller who can see the incident but lacks the route's role receives that
+route's authorization failure.
+Profiles: base
+Verified by: AC-612, AC-616
+
+**REQ-01-705 — Record target classification order**
+After the REQ-01-704 gate and the route's role gate, a mutation that addresses
+a record MUST classify its target in this order, returning the first outcome
+that applies:
+
+1. A record that does not exist receives the route's not-found response.
+2. A currently soft-deleted record receives `409` `record_deleted_use_restore`,
+   unless the route operates on deleted records, as restore and rollback do.
+   A soft-delete of a soft-deleted record instead receives `409`
+   `record_already_deleted` (REQ-01-076). This step includes the source record
+   of a mention action (REQ-01-211).
+3. A record whose type the route does not handle receives the route's
+   not-found response, except that a lifecycle action receives `409`
+   `illegal_transition` (REQ-01-085).
+4. A record in a closed incident receives `409` `incident_closed`
+   (REQ-01-590).
+5. A stale base version receives `409` `row_version_conflict`.
+
+This order governs routes that address one record through a path identifier,
+including routes that create something under that record, and the source
+record of a mention action. Batch routes, such as clipboard paste and bulk
+mutation, keep the whole-request and per-row outcomes their own requirements
+define. A path that addresses a child object, such as an Indicator
+observation, addresses no record. A route that only reads a record or issues a
+handle to it, such as Evidence preview and download handle issuance, is not a
+mutation under this requirement.
+
+The destructive-operation family of REQ-01-104 (restore, rollback and merge)
+evaluates eligibility only after acquiring its protected set. Merge therefore
+reports a deleted survivor or loser as `merge_precondition_failed`, with
+`survivor_not_mergeable` or `loser_not_mergeable`.
+
+An exact committed replay returns its original receipt before steps 2 to 5,
+as REQ-01-590 allows after closure. A request that reuses a committed
+transaction identity with a different normalized request receives `409`
+`client_txn_conflict` at the same position. Request-body validation keeps the position
+its route requirement gives it. Every owner of a mutable record type MUST
+apply this order, whichever route admits the mutation.
+Profiles: base
+Verified by: AC-614, AC-616
+
+**REQ-01-706 — Unclassified failures are internal errors**
+A failure that the route's typed conditions do not identify, including a
+database, storage, configuration or other infrastructure failure, MUST fail
+with `500` `internal_error` (REQ-01-229). It MUST NOT be reported as a
+not-found, conflict, validation or authorization code, and a client MUST be
+able to treat every such domain code as a statement about the request or the
+resource, never about the server's health.
+Profiles: base
+Verified by: AC-614
+
+**REQ-01-707 — Request admission order**
+Every request to the public HTTP surface MUST be admitted in this order:
+
+1. **Route resolution.** The method and path select one operation. A path
+   that matches no operation MUST fail with `404` `route_not_found`. A path
+   that matches an operation under another method, including `HEAD` on a
+   path that declares only `GET`, MUST fail with `405` `method_not_allowed`,
+   an `Allow` header naming the declared methods, and
+   `error.details.allowed_methods` listing them in the same order. These two
+   responses precede resolution and belong to no operation.
+2. **Authentication** and state-changing cookie CSRF validation, exactly as
+   the operation's declared security requires (REQ-01-703).
+3. **Path parameters.** Each value is the percent-decoded content of its own
+   matched path segment. An encoded separator inside a segment is part of
+   that value and MUST NOT be reinterpreted as path structure or select
+   another operation. A value that violates the parameter's declared format
+   MUST receive the parameter's declared not-found response, identical to the
+   response for a well-formed identifier of a missing resource.
+4. **Visibility** of the addressed incident (REQ-01-704).
+5. **Route-specific handling**, including body decoding, idempotency and the
+   classification orders of the route's own requirements.
+
+The process admission gate (Core 04 REQ-04-145, REQ-04-146 and REQ-04-146a)
+precedes this order. While it is closed, every request on the public HTTP
+surface defined below, including one whose path matches no operation or whose method is not declared, receives the gate's
+`503` `service_unavailable` before route resolution. That refusal is
+process-level: it is the `503` every operation declares under REQ-01-702, and
+it is attributed to no operation.
+
+The public HTTP surface here is every path under `/api`. The web
+application's pages and assets and the health and readiness endpoints are
+outside it. A non-canonical `/api` path, such as one with an empty, `.` or
+`..` segment, matches no operation: it MUST receive `route_not_found` and MUST
+NOT be redirected. A request the HTTP server cannot parse, such as one with an
+invalid percent-escape, is rejected before admission. A `HEAD` request's `405`
+carries the `Allow` header and no body.
+
+A reserved route family whose owner defines its own admission order keeps
+that order. The reference-pack family's order is in §17.4, and the Network
+Flow Activity family's is in Table 21-C of its adopted NLSpec. Its
+unknown-path and wrong-method rejections still use the two codes of step 1 and
+the common envelope.
+
+Path-parameter validation precedes the visibility and role gates. A malformed
+value therefore receives the response that a caller who passes those gates
+receives for a missing resource, even when the caller would fail them. This
+reveals only the value's syntax. "Identical" means the same status,
+`error.code` and `error.details` as the not-found response the route gives a
+well-formed identifier when it classifies that resource as missing. Route
+handling that precedes that classification, such as query, body or
+protocol-parameter validation, MAY answer a request with a well-formed
+identifier first; that difference also reveals only the identifier's syntax.
+A `uuid` parameter accepts only the hyphenated
+36-character form, in either case. A parameter whose value is a capability or
+selector, such as a handle, upload or conflict token, declares a syntactic
+format only; its semantic checks stay in route handling.
+
+The OpenAPI document MUST declare each path parameter's format and, through
+`x-cartulary-not-found-code`, the code its not-found response uses. Where that
+response is not a `404` or carries fixed details, as `blob_not_visible` does
+for Blob verification, the document also declares the details through
+`x-cartulary-not-found-details`. Route-specific requirements that restate part
+of this order, such as REQ-01-074 and REQ-01-186, remain consistent with it.
+Profiles: base
+Verified by: AC-614, AC-617
 
 **REQ-01-466**
 If an implementation claims the Import Extension Profile, Snapshot and Reporting Extension Profile, Reference Pack Extension Profile, Incident Portability Extension Profile, or a later adopted Network Flow Activity Extension Profile, it MUST implement that family's public route contract exactly as defined in this section in addition to the underlying model and lifecycle requirements defined elsewhere in the core.
@@ -11707,23 +12041,35 @@ Verified by: AC-262, AC-263, AC-264, AC-264B
 
 **Table 17.2-A. Import route inventory**
 
-| Route | OpenAPI operation ID | Semantic class | Request contract summary | Success resource or body | Long-running | Primary family errors |
+| Route | OpenAPI operation ID | Semantic class | Request contract summary | Success resource or body | Long-running | Declared route errors |
 | --- | --- | --- | --- | --- | --- | --- |
-| `POST /api/v1/import-sessions` | `createImportSession` | State-changing | Shared upload envelope with metadata `incident_id`, `client_txn_id`, and optional `assistant_profile` defaulting to `workbook_import_v1` | Common job resource; terminal success emits one `import_session` ref | Yes | `invalid_import_request`, `import_source_unsupported`, `import_source_rejected` |
-| `GET /api/v1/import-sessions/{import_session_id}` | `getImportSession` | Read-only | Singleton read | `import_session` workflow resource | No | `import_session_not_found`, `invalid_pagination_request` |
-| `GET /api/v1/import-sessions/{import_session_id}/units` | `listImportUnits` | Read-only | List read under common paging | `{ import_units[] }` plus `meta.paging` | No | `import_session_not_found` |
-| `GET /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}` | `getImportUnit` | Read-only | Singleton read | `import_unit` resource | No | `import_session_not_found`, `import_unit_not_found` |
-| `GET /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/preview` | `getImportUnitPreview` | Read-only | Singleton read | `import_preview` resource | No | `import_session_not_found`, `import_unit_not_found` |
-| `POST /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/mapping-preview` | `previewImportUnitExtensionMapping` | Read-only owner preview | Closed analytical-extension target and owner-mapping candidate; server derives source capabilities and descriptors | `extension_mapping_preview` wrapper containing a schema-validated owner result | No | `invalid_import_request`, `import_session_not_found`, `import_unit_not_found` |
-| `POST /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/source-inspection` | `inspectImportUnitExtensionSource` | Read-only owner inspection | Closed analytical target and extension profile; server derives authorized source identity | `extension_source_inspection` wrapper containing a schema-validated owner result | No | `invalid_import_request`, `import_session_not_found`, `import_unit_not_found` |
-| `PUT /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/mapping` | `putImportUnitMapping` | State-changing | JSON object with required `client_txn_id`, target mapping metadata, and exhaustive `source_columns[]` | `import_unit` resource | No | `invalid_import_request`, `import_state_conflict` |
-| `POST /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/select` | `selectImportUnit` | State-changing | JSON object with required `client_txn_id` | `{ import_session_id, session_status, selected_unit_ids[], unit }` | No | `import_state_conflict` |
-| `POST /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/skip` | `skipImportUnit` | State-changing | JSON object with required `client_txn_id`; optional `reason` | `{ import_session_id, session_status, selected_unit_ids[], unit }` | No | `import_state_conflict` |
-| `POST /api/v1/import-sessions/{import_session_id}/units/{base_unit_id}/regions` | `createImportUnitRegion` | State-changing | Closed object with required `client_txn_id` and one-based inclusive `source_rect={start_row,start_column,end_row,end_column}` | Created or exactly replayed `import_unit` with `locator_kind='operator_region'` | No | `invalid_import_request`, `import_session_not_found`, `import_unit_not_found`, `import_state_conflict` |
-| `POST /api/v1/import-sessions/{import_session_id}/apply` | `applyImportSession` | State-changing | JSON object with required `client_txn_id` and optional `selected_unit_ids[]`; omitted `selected_unit_ids[]` means the session's persisted `selected_unit_ids[]` | Common job resource; terminal success emits one `import_session` ref plus owner-produced analytical extension resource refs when applicable | Yes | `invalid_import_request`, `import_apply_blocked`, `import_state_conflict` |
-| `GET /api/v1/incidents/{incident_id}/committed-sources` | `listCommittedImportSources` | Read-only | Incident-scoped opaque keyset cursor, ordered by committed-source UUID | `{ committed_sources[] }` plus `meta.paging` | No | `invalid_list_query`, `invalid_pagination_request` |
-| `GET /api/v1/incidents/{incident_id}/committed-sources/{committed_source_id}` | `getCommittedImportSource` | Read-only | Incident-scoped singleton read; editor/reviewer/admin | Immutable `cartulary.imports.committed_source.v1` metadata | No | `committed_source_not_found`, `invalid_pagination_request` |
-| `GET /api/v1/incidents/{incident_id}/committed-sources/{committed_source_id}/content` | `getCommittedImportSourceContent` | Read-only | Incident-scoped singleton read; editor/reviewer/admin | Exact original bytes as a streamed attachment, `no-store` and `nosniff` | No | `committed_source_not_found`, `invalid_pagination_request` |
+| `POST /api/v1/import-sessions` | `createImportSession` | State-changing | Shared upload envelope with metadata `incident_id`, `client_txn_id`, and optional `assistant_profile` defaulting to `workbook_import_v1` | Common job resource; terminal success emits one `import_session` ref | Yes | `invalid_import_request`, `authorization_denied`, `incident_not_found`, `client_txn_conflict`, `import_source_unsupported`, `import_source_rejected` |
+| `GET /api/v1/import-sessions/{import_session_id}` | `getImportSession` | Read-only | Singleton read | `import_session` workflow resource | No | `invalid_pagination_request`, `import_session_not_found` |
+| `GET /api/v1/import-sessions/{import_session_id}/units` | `listImportUnits` | Read-only | List read under common paging; no list-query members | `{ import_units[] }` plus `meta.paging` | No | `invalid_list_query`, `invalid_pagination_request`, `import_session_not_found` |
+| `GET /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}` | `getImportUnit` | Read-only | Singleton read | `import_unit` resource | No | `invalid_pagination_request`, `import_session_not_found`, `import_unit_not_found` |
+| `GET /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/preview` | `getImportUnitPreview` | Read-only | Singleton read | `import_preview` resource | No | `invalid_pagination_request`, `import_session_not_found`, `import_unit_not_found`, `import_source_unsupported` |
+| `POST /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/mapping-preview` | `previewImportUnitExtensionMapping` | Read-only owner preview | Closed analytical-extension target and owner-mapping candidate; server derives source capabilities and descriptors | `extension_mapping_preview` wrapper containing a schema-validated owner result | No | `invalid_import_request`, `invalid_pagination_request`, `authorization_denied`, `import_session_not_found`, `import_unit_not_found` |
+| `POST /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/source-inspection` | `inspectImportUnitExtensionSource` | Read-only owner inspection | Closed analytical target and extension profile; server derives authorized source identity | `extension_source_inspection` wrapper containing a schema-validated owner result | No | `invalid_import_request`, `invalid_pagination_request`, `authorization_denied`, `import_session_not_found`, `import_unit_not_found` |
+| `PUT /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/mapping` | `putImportUnitMapping` | State-changing | JSON object with required `client_txn_id`, target mapping metadata, and exhaustive `source_columns[]` | `import_unit` resource | No | `invalid_import_request`, `invalid_pagination_request`, `authorization_denied`, `import_session_not_found`, `import_unit_not_found`, `client_txn_conflict`, `import_apply_blocked`, `import_source_unsupported`, `import_state_conflict` |
+| `POST /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/select` | `selectImportUnit` | State-changing | JSON object with required `client_txn_id` | `{ import_session_id, session_status, selected_unit_ids[], unit }` | No | `invalid_import_request`, `invalid_pagination_request`, `authorization_denied`, `import_session_not_found`, `import_unit_not_found`, `client_txn_conflict`, `import_apply_blocked`, `import_state_conflict` |
+| `POST /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/skip` | `skipImportUnit` | State-changing | JSON object with required `client_txn_id`; optional `reason` | `{ import_session_id, session_status, selected_unit_ids[], unit }` | No | `invalid_import_request`, `invalid_pagination_request`, `authorization_denied`, `import_session_not_found`, `import_unit_not_found`, `client_txn_conflict`, `import_state_conflict` |
+| `POST /api/v1/import-sessions/{import_session_id}/units/{base_unit_id}/regions` | `createImportUnitRegion` | State-changing | Closed object with required `client_txn_id` and one-based inclusive `source_rect={start_row,start_column,end_row,end_column}` | Created or exactly replayed `import_unit` with `locator_kind='operator_region'` | No | `invalid_import_request`, `invalid_pagination_request`, `authorization_denied`, `import_session_not_found`, `import_unit_not_found`, `client_txn_conflict`, `import_state_conflict`, `incident_closed`, `import_source_rejected` |
+| `POST /api/v1/import-sessions/{import_session_id}/apply` | `applyImportSession` | State-changing | JSON object with required `client_txn_id` and optional `selected_unit_ids[]`; omitted `selected_unit_ids[]` means the session's persisted `selected_unit_ids[]` | Common job resource; terminal success emits one `import_session` ref plus owner-produced analytical extension resource refs when applicable | Yes | `invalid_import_request`, `invalid_pagination_request`, `authorization_denied`, `import_session_not_found`, `client_txn_conflict`, `import_apply_blocked`, `import_state_conflict`, `incident_closed` |
+| `GET /api/v1/incidents/{incident_id}/committed-sources` | `listCommittedImportSources` | Read-only | Incident-scoped opaque keyset cursor, ordered by committed-source UUID | `{ committed_sources[] }` plus `meta.paging` | No | `invalid_list_query`, `invalid_pagination_request`, `authorization_denied`, `incident_not_found` |
+| `GET /api/v1/incidents/{incident_id}/committed-sources/{committed_source_id}` | `getCommittedImportSource` | Read-only | Incident-scoped singleton read; editor/reviewer/admin | Immutable `cartulary.imports.committed_source.v1` metadata | No | `invalid_pagination_request`, `authorization_denied`, `incident_not_found`, `committed_source_not_found` |
+| `GET /api/v1/incidents/{incident_id}/committed-sources/{committed_source_id}/content` | `getCommittedImportSourceContent` | Read-only | Incident-scoped singleton read; editor/reviewer/admin | Exact original bytes as a streamed attachment, `no-store` and `nosniff` | No | `invalid_pagination_request`, `authorization_denied`, `incident_not_found`, `committed_source_not_found` |
+
+The last column of Table 17.2-A lists every error code the operation declares
+other than those REQ-01-702 implies.
+
+`listImportUnits` declares no list-query members. After the session's
+visibility, its raw query accepts only singleton `limit` and `cursor_token`
+under REQ-01-583, checked in this order: a query that cannot be parsed or is
+not valid UTF-8 fails with `invalid_list_query` and `malformed_query`; a
+repeated member with `duplicate_query_member`; a pagination alias with
+`invalid_pagination_request` and `invalid_limit`; any other member with
+`invalid_list_query` and `unknown_query_member`; an empty `limit` or
+`cursor_token` with the pagination reasons of §3.3.6.2.
 
 Table 17.2-A is exhaustive for Imports route mutation classification. The six
 state-changing operations require CSRF when the effective authentication mode
@@ -11875,7 +12221,12 @@ loss is observed; observation failure never grants commit authority. The final
 Jobs-locked validation still decides a cancellation/commit race. An aborted
 unit rolls back with an independently bounded cleanup context even when its
 work context is canceled. A precommit failure or cancellation leaves no
-authoritative unit effect. A crash
+authoritative unit effect. When a unit's cross-owner transaction ends with its
+commit proven absent by timeout or by database conflict, the unit outcome uses
+`error_code='service_unavailable'` with `reason_code='extension_transaction_timeout'`,
+or `error_code='transaction_conflict'` with `deadlock_detected` or
+`serialization_failure`, and `retryable=true` (Extensions EXT-REQ-219). The
+owner-translation fallback MUST NOT be used for these outcomes. A crash
 after unit commit recovers the committed outcome without repeating owner mutation. Earlier
 committed units remain applied when a later unit fails or is canceled, and finalization derives
 `partially_applied` when applicable.
@@ -11898,7 +12249,8 @@ requested region. The request MUST create or exactly replay one durable
 content digest, and monotonically assigned session-local operator-region sequence. It MUST NOT
 approve a mapping, select the unit, mutate an owner resource, or reinterpret worksheet
 presentation metadata. Invalid base-kind, containment, coordinate, or configured-limit input MUST
-fail with `invalid_import_request` and `reason_code='invalid_source_rect'`.
+fail with `invalid_import_request` and `reason_code='invalid_source_rect'`. An admitted base source
+that exceeds the current archive limits fails with `413` `import_source_rejected`.
 Profiles: import
 Verified by: AC-264B
 
@@ -12339,9 +12691,12 @@ Profiles: import
 Verified by: AC-263, AC-264, AC-264B, AC-324, AC-325
 
 **REQ-01-475**
-The import route family MUST use only `invalid_import_request`, `import_session_not_found`,
-`import_unit_not_found`, `import_state_conflict`, `import_source_unsupported`,
-`import_source_rejected`, `import_apply_blocked`, and `incident_closed`.
+Besides the Core-owned authentication, authorization, concealment, pagination, list-query and
+idempotency codes, the import route family MUST use only `invalid_import_request`,
+`import_session_not_found`, `import_unit_not_found`, `import_state_conflict`,
+`import_source_unsupported`, `import_source_rejected`, `import_apply_blocked`, and
+`incident_closed`; the committed-source reads of REQ-01-685 additionally use
+`committed_source_not_found`.
 
 `invalid_import_request` MUST use only the shared upload-envelope reasons from REQ-01-553 plus:
 
@@ -12754,7 +13109,7 @@ Verified by: AC-273, AC-274, AC-275
 
 | Route | Request contract summary | Success resource or body | Long-running | Primary family errors |
 | --- | --- | --- | --- | --- |
-| `POST /api/v1/incident-bundles/export` | JSON object with required `incident_id` and `client_txn_id`; optional `reference_pack_mode`, `optional_sections[]`, and `required_capabilities[]`; `history_mode` and `blob_mode` are forbidden user inputs | Common job resource; terminal success emits one `incident_bundle` ref | Yes | `invalid_incident_bundle_request`, `extension_capability_not_supported`, `incident_bundle_export_rejected` |
+| `POST /api/v1/incident-bundles/export` | JSON object with required `incident_id` and `client_txn_id`; optional `reference_pack_mode`, `optional_sections[]`, and `required_capabilities[]`; `history_mode` and `blob_mode` are forbidden user inputs | Common job resource; terminal success emits one `incident_bundle` ref; a terminal failure reports `incident_bundle_export_rejected` | Yes | `invalid_incident_bundle_request`, `extension_capability_not_supported`; `incident_bundle_not_found` when the body `incident_id` is missing or not visible (REQ-01-704) |
 | `GET /api/v1/incident-bundles/{bundle_id}` | Singleton read | Durable export descriptor | No | `incident_bundle_not_found`, `invalid_pagination_request` |
 | `GET /api/v1/incident-bundles/{bundle_id}/content` | Singleton authenticated read under the descriptor's current authorization | Exact retained ZIP bytes, streamed with private/no-store caching and nosniff | No | `incident_bundle_not_found`, `invalid_pagination_request` |
 | `POST /api/v1/incident-bundles/import` | Shared upload envelope with required `client_txn_id` in metadata | Common job resource; terminal success emits one imported `incident` ref | Yes | `invalid_incident_bundle_request`, `extension_capability_not_supported`, `incident_bundle_import_rejected` |
@@ -12807,6 +13162,8 @@ only the shared upload-envelope reasons from REQ-01-553 plus
 `unknown_field`, `invalid_reference_pack_mode`, `invalid_optional_sections`,
 `invalid_required_capabilities`, `history_mode_not_supported`,
 `blob_mode_not_supported`, and `invalid_value`.
+`incident_bundle_export_rejected` is reported only as the export job's terminal
+`error_summary.code`; the export route itself MUST NOT return it.
 `incident_bundle_export_rejected` MUST use only `missing_required_file`,
 `missing_required_blob`, and `extension_state_not_portable`. The latter MUST
 include exactly `reason_code='extension_state_not_portable'` and the selected
@@ -12836,7 +13193,7 @@ success publication and MUST remove any physical bundle object written before
 the final decision; no public or durable reference to that object may remain.
 Profiles: incident_portability
 Verified by: AC-276, AC-327, AC-328, AC-332, AC-442, AC-490, AC-497,
- AC-502, AC-544
+ AC-502, AC-544, AC-618
 
 ## 18. Writable-string contract registry
 
@@ -13655,7 +14012,7 @@ Verified by: AC-348, AC-352
 
 
 **REQ-01-538**
-`POST /api/v1/users/{user_id}/auth-bindings` binds one enterprise-auth provider subject to the existing local user addressed by `user_id`. The route MUST accept only a JSON object with required `base_user_version`, required `client_txn_id`, required `provider_key`, required `provider_subject`, and optional `reason`. `reason`, when present, MUST be a JSON string or JSON `null` and MUST normalize under `string_contract_id=reason_note_v1`. Unknown top-level members, a non-object body, a missing required member, or `null` for a non-nullable member MUST fail with `400` and `error.code = invalid_mutation_payload`. `provider_key` MUST identify a configured enterprise-auth provider of `provider_type='oidc'` or `provider_type='saml'`; a configured provider remains eligible for this route even when it is currently disabled for interactive sign-in. `provider_subject` MUST be a non-null JSON string. A first-time successful create MUST return `201 Created` with `data` equal to the resulting safe user resource. Route-scoped idempotency MUST be keyed by `(actor_user_id, user_id, client_txn_id)` and MUST compare exact `base_user_version`, exact `provider_key`, exact `provider_subject`, and normalized `reason`, with omitted `reason`, explicit JSON `null`, and any `reason` value that normalizes to empty under `reason_note_v1` comparing equal. Exact replay of a previously committed success MUST return `200 OK` with the original committed result before fresh `user_version_conflict` or binding-state evaluation. Reuse of the same key with a different normalized request MUST fail with `409` and `error.code = client_txn_conflict`. If no prior committed idempotency hit exists and the current `user_version` differs from `base_user_version`, the route MUST fail with `409` and `error.code = user_version_conflict`. If no configured enterprise provider matches `provider_key`, or the matched provider is not of type `oidc` or `saml`, the route MUST fail with `404` and `error.code = auth_provider_not_found`. If another active binding already uses the same `(provider_id, provider_subject)`, the route MUST fail with `409`, `error.code = auth_binding_conflict`, and `error.details.reason_code = provider_subject_in_use`. If the addressed user already has one active binding for that same provider, the route MUST fail with `409`, `error.code = auth_binding_conflict`, and `error.details.reason_code = provider_already_linked_for_user`. This route MUST NOT create a local user, mutate incident membership, or mutate local credential state.
+`POST /api/v1/users/{user_id}/auth-bindings` binds one enterprise-auth provider subject to the existing local user addressed by `user_id`; a `user_id` naming no user fails with `404` `user_not_found` under REQ-01-118. The route MUST accept only a JSON object with required `base_user_version`, required `client_txn_id`, required `provider_key`, required `provider_subject`, and optional `reason`. `reason`, when present, MUST be a JSON string or JSON `null` and MUST normalize under `string_contract_id=reason_note_v1`. Unknown top-level members, a non-object body, a missing required member, or `null` for a non-nullable member MUST fail with `400` and `error.code = invalid_mutation_payload`. `provider_key` MUST identify a configured enterprise-auth provider of `provider_type='oidc'` or `provider_type='saml'`; a configured provider remains eligible for this route even when it is currently disabled for interactive sign-in. `provider_subject` MUST be a non-null JSON string. A first-time successful create MUST return `201 Created` with `data` equal to the resulting safe user resource. Route-scoped idempotency MUST be keyed by `(actor_user_id, user_id, client_txn_id)` and MUST compare exact `base_user_version`, exact `provider_key`, exact `provider_subject`, and normalized `reason`, with omitted `reason`, explicit JSON `null`, and any `reason` value that normalizes to empty under `reason_note_v1` comparing equal. Exact replay of a previously committed success MUST return `200 OK` with the original committed result before fresh `user_version_conflict` or binding-state evaluation. Reuse of the same key with a different normalized request MUST fail with `409` and `error.code = client_txn_conflict`. If no prior committed idempotency hit exists and the current `user_version` differs from `base_user_version`, the route MUST fail with `409` and `error.code = user_version_conflict`. If no configured enterprise provider matches `provider_key`, or the matched provider is not of type `oidc` or `saml`, the route MUST fail with `404` and `error.code = auth_provider_not_found`. If another active binding already uses the same `(provider_id, provider_subject)`, the route MUST fail with `409`, `error.code = auth_binding_conflict`, and `error.details.reason_code = provider_subject_in_use`. If the addressed user already has one active binding for that same provider, the route MUST fail with `409`, `error.code = auth_binding_conflict`, and `error.details.reason_code = provider_already_linked_for_user`. This route MUST NOT create a local user, mutate incident membership, or mutate local credential state.
 Profiles: enterprise_authentication
 Verified by: AC-348, AC-349
 
@@ -13851,7 +14208,20 @@ incident returns `committed_source_not_found` (404) with empty details. The
 collection, metadata and content routes are read-only and never create jobs.
 
 The optional collection filter `record_id` MUST be one non-nil UUID, with no
-repeated value. Its value is bound into the opaque cursor scope. The filtered
+repeated value. The route declares the list-query member `record_id` under
+REQ-01-583:
+
+- a repeated member fails with `invalid_list_query` and
+  `duplicate_query_member`;
+- a member outside `limit`, `cursor_token` and `record_id` fails with
+  `unknown_query_member`;
+- a `record_id` that is not one non-nil UUID fails with
+  `invalid_filter_value`;
+- a raw query that cannot be parsed fails with `malformed_query`;
+- pagination aliases fail with `invalid_pagination_request` and
+  `invalid_limit`.
+
+Its value is bound into the opaque cursor scope. The filtered
 collection returns only sources associated with that record in the addressed
 incident; unknown and other-incident records produce an empty collection. The
 filter does not grant metadata or raw-source access to ordinary incident readers.

@@ -18,6 +18,7 @@ import {
 import { uniqueTxn } from "../support/runtime/fixtureIdentity";
 import { activateCommittedGridCell } from "../support/workbook/rowMutations";
 import { expect, test } from "./fixtures";
+import { installBlankRowDiagnostics } from "./mainThreadDiagnostics";
 import {
   ac043FixtureDigest,
   attachMeasurementObservation,
@@ -361,6 +362,9 @@ test("measures paint-qualified Timeline blank-row creation within AC-043", async
   const fixtureDigest = ac043FixtureDigest();
   let attached = false;
   let traffic: Ac043TrafficDriver | null = null;
+  // Passive, non-gating main-thread evidence; installed before navigation.
+  const diagnostics = await installBlankRowDiagnostics(page);
+  let diagnosticsAttached = false;
   try {
     const prepared =
       await test.step("validate the sealed supported-envelope snapshot", () =>
@@ -384,10 +388,19 @@ test("measures paint-qualified Timeline blank-row creation within AC-043", async
       sampleIndex += 1
     ) {
       const summary = `AC-043 blank sample ${sampleIndex} ${uniqueTxn("blank-row")}`;
+      await diagnostics.beforeSample();
       const sample = await measureBlankRowCreate(page, summary);
       expect(sample.status).toBe(201);
       samples.push({ stagesMs: sample.stagesMs, totalMs: sample.totalMs });
+      await diagnostics.recordSample({
+        sampleIndex,
+        warmup: sampleIndex < interactiveMeasurementSamplePolicy.warmupPasses,
+        totalMs: sample.totalMs,
+        window: sample.window,
+      });
     }
+    diagnosticsAttached = true;
+    await diagnostics.attach(testInfo);
     await traffic.stop();
     traffic = null;
     const summary = await attachObservation(testInfo, {
@@ -398,6 +411,10 @@ test("measures paint-qualified Timeline blank-row creation within AC-043", async
     attached = true;
     assertObservation(summary, "perf.timeline_blank_row_create.v1");
   } catch (error) {
+    if (!diagnosticsAttached) {
+      diagnosticsAttached = true;
+      await diagnostics.attach(testInfo);
+    }
     if (!attached) {
       await attachMeasurementObservation(testInfo, {
         failureReason: error instanceof Error ? error.message : String(error),

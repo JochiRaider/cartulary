@@ -11,7 +11,7 @@ import type {
   WorkbookEntityMergePort,
 } from "../features/entities/entityMergeOperation";
 import { entityMergeIdentifierFields } from "../models/entityIdentifierClasses";
-import { classifyWorkbookOperationFailure } from "./workbookOperationErrorPolicy";
+import { explicitWorkbookFailureOutcome } from "./workbookOperationErrorPolicy";
 
 const operationID = "mergeEntityRecord";
 function capturedPath(apiBase: string | undefined, survivorId: string): string {
@@ -51,7 +51,7 @@ export function createWorkbookEntityMergeAdapter(options: {
         return { kind: "uncertain" };
       let responseStatus: number | null = null;
       try {
-        const result = await fetchHTTPOperation<MergeEntityRecordResponse>({
+        const result = await fetchHTTPOperation({
           apiBase: attempt.apiBase,
           operationID,
           pathParameters: {
@@ -67,21 +67,11 @@ export function createWorkbookEntityMergeAdapter(options: {
           },
         });
         if (!result.ok) {
-          if (
-            responseStatus === null ||
-            responseStatus < 400 ||
-            responseStatus >= 500 ||
-            !result.payload.error?.code
-          )
-            return { kind: "uncertain" };
-          const failure = classifyWorkbookOperationFailure(
-            result.status,
-            result.payload,
+          return explicitWorkbookFailureOutcome(
+            responseStatus,
+            result.payload.error,
             operationID,
           );
-          return failure.kind === "invalid_contract"
-            ? { kind: "uncertain" }
-            : { kind: "rejected", failure };
         }
         const receipt = validatedEntityMergeReceipt(
           attempt,

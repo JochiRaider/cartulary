@@ -81,6 +81,7 @@ func TestCoordinator_Unit_RejectsLimitsAndMalformedKeysBeforeTransaction(t *test
 func TestCoordinator_Unit_CancellationValidationAndRollbackBoundaries(t *testing.T) {
 	assertParticipantLifetime(t)
 	assertParticipantPrecedence(t)
+	assertDeadlineBeforeCommit(t)
 	t.Run("canceled before begin", func(t *testing.T) {
 		backend := &backendFake{tx: &transactionFake{}}
 		coordinator := newTestCoordinator(t, []Descriptor{descriptor("a")}, backend, nil, nil)
@@ -121,6 +122,7 @@ func TestCoordinator_Unit_CancellationValidationAndRollbackBoundaries(t *testing
 
 func TestCoordinator_Unit_ClosedCommitOutcomesAndNoRetry(t *testing.T) {
 	assertTransactionCompletionLifetime(t)
+	assertDeadlineDuringIssuedCommit(t)
 	t.Run("proven serialization absence is conflict", func(t *testing.T) {
 		tx := &transactionFake{commitOutcome: CommitAbsent, commitErr: sqlStateError("40001")}
 		backend := &backendFake{tx: tx}
@@ -853,4 +855,128 @@ func assertTransactionCompletionLifetime(t *testing.T) {
 			}
 		})
 	}
+}
+
+// driverModelTransaction models a database driver whose in-flight COMMIT loses
+// its acknowledgement when the context it was handed is cancelled, as pgx does
+// by abandoning the connection. A commit given a non-cancellable context is
+// acknowledged only after the operation deadline has expired.
+type driverModelTransaction struct {
+	*transactionFake
+	entered chan struct{}
+	expired <-chan struct{}
+}
+
+func (t *driverModelTransaction) Commit(ctx context.Context) (CommitOutcome, error) {
+	t.commitCalls++
+	close(t.entered)
+	if done := ctx.Done(); done != nil {
+		<-done
+		return CommitUnknown, fmt.Errorf("commit acknowledgement lost: %w", context.Cause(ctx))
+	}
+	<-t.expired
+	return t.commitOutcome, t.commitErr
+}
+
+type driverModelBackend struct {
+	tx         *driverModelTransaction
+	beginCalls int
+}
+
+func (b *driverModelBackend) Begin(context.Context, []Descriptor) (Transaction, error) {
+	b.beginCalls++
+	return b.tx, nil
+}
+
+// An issued commit is awaited, never interrupted (EXT-REQ-219). The deadline
+// expires while the commit is in flight; a determinable acknowledgement keeps
+// its outcome and only a genuinely unknown one is fatal.
+func assertDeadlineDuringIssuedCommit(t *testing.T) {
+	t.Helper()
+	for _, tc := range []struct {
+		name    string
+		outcome CommitOutcome
+		err     error
+	}{
+		{name: "committed", outcome: CommitProven},
+		{name: "absent", outcome: CommitAbsent, err: sqlStateError("40001")},
+		{name: "unknown", outcome: CommitUnknown, err: errors.New("connection lost")},
+	} {
+		t.Run("deadline_during_issued_commit_"+tc.name, func(t *testing.T) {
+			parent, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+			defer cancel()
+			tx := &driverModelTransaction{
+				transactionFake: &transactionFake{commitOutcome: tc.outcome, commitErr: tc.err},
+				entered:         make(chan struct{}), expired: parent.Done(),
+			}
+			backend := &driverModelBackend{tx: tx}
+			var fatal []error
+			c := newTestCoordinator(t, []Descriptor{descriptor("a")}, backend, nil, func(err error) { fatal = append(fatal, err) })
+			c.cancellationGrace = 5 * time.Second
+			result, err := c.Execute(parent, operation(&participantFake{id: "a"}))
+			select {
+			case <-tx.entered:
+			default:
+				t.Fatalf("commit was not invoked before the deadline: %v", err)
+			}
+			if parent.Err() == nil {
+				t.Fatal("operation returned before its deadline expired")
+			}
+			switch tc.outcome {
+			case CommitProven:
+				if err != nil || len(fatal) != 0 || result.ParticipantValues["a"] != "value:a" {
+					t.Fatalf("proven commit after the deadline = %v, fatal=%v, values=%v", err, fatal, result.ParticipantValues)
+				}
+			case CommitAbsent:
+				if !errors.Is(err, ErrTimeout) || len(fatal) != 0 || !reflect.DeepEqual(result, Result{}) {
+					t.Fatalf("proven absent commit after the deadline = %v, fatal=%v", err, fatal)
+				}
+			case CommitUnknown:
+				var failure *FatalIntegrityError
+				if !errors.As(err, &failure) || failure.FatalReasonCode() != "indeterminate_database_commit" || len(fatal) != 1 {
+					t.Fatalf("unknown commit = %v, fatal=%v", err, fatal)
+				}
+			}
+			if backend.beginCalls != 1 || tx.commitCalls != 1 || tx.rollbackCalls.Load() != 0 {
+				t.Fatalf("begins=%d commits=%d rollbacks=%d", backend.beginCalls, tx.commitCalls, tx.rollbackCalls.Load())
+			}
+		})
+	}
+}
+
+// A deadline that expires before the commit is invoked rolls back, reports
+// the timeout, and never commits.
+func assertDeadlineBeforeCommit(t *testing.T) {
+	t.Helper()
+	t.Run("deadline_crossed_by_finalizer_rolls_back_before_commit", func(t *testing.T) {
+		var now atomic.Int64
+		now.Store(1)
+		tx := &transactionFake{commitOutcome: CommitProven}
+		backend := &backendFake{tx: tx}
+		c := newTestCoordinator(t, []Descriptor{descriptor("a")}, backend, now.Load, nil)
+		op := operation(&participantFake{id: "a"})
+		op.Timeout = time.Minute
+		op.Finalizer = finalizerFake{block: func(context.Context, string) { now.Store(1 + int64(time.Minute)) }}
+		_, err := c.Execute(context.Background(), op)
+		if !errors.Is(err, ErrTimeout) || tx.commitCalls != 0 || tx.rollbackCalls.Load() != 1 || backend.beginCalls != 1 {
+			t.Fatalf("Execute() = %v commits=%d rollbacks=%d begins=%d", err, tx.commitCalls, tx.rollbackCalls.Load(), backend.beginCalls)
+		}
+	})
+	t.Run("slow_participant_past_deadline_rolls_back_before_commit", func(t *testing.T) {
+		parent, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+		defer cancel()
+		tx := &transactionFake{commitOutcome: CommitProven}
+		backend := &backendFake{tx: tx}
+		c := newTestCoordinator(t, []Descriptor{descriptor("a")}, backend, nil, nil)
+		c.cancellationGrace = 5 * time.Second
+		participant := &participantFake{id: "a", block: func(_ context.Context, phase string) {
+			if phase == "write" {
+				<-parent.Done()
+			}
+		}}
+		result, err := c.Execute(parent, operation(participant))
+		if !errors.Is(err, ErrTimeout) || !reflect.DeepEqual(result, Result{}) || tx.commitCalls != 0 || tx.rollbackCalls.Load() != 1 {
+			t.Fatalf("Execute() = %v result=%v commits=%d rollbacks=%d", err, result, tx.commitCalls, tx.rollbackCalls.Load())
+		}
+	})
 }

@@ -62,6 +62,9 @@ describe("ordinary shell support", () => {
                 details: {
                   reason_code: "no_session",
                 },
+                message: "Authentication required.",
+                request_id: "request-test",
+                retryable: false,
               },
             },
             401,
@@ -590,6 +593,9 @@ function installAnonymousSessionRequiredFetch(
               details: {
                 reason_code: "no_session",
               },
+              message: "Authentication required.",
+              request_id: "request-test",
+              retryable: false,
             },
           },
           401,

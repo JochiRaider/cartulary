@@ -157,6 +157,39 @@
       "postgres_isolation": "exclusive"
     },
     {
+      "row_id": "app.server.integration.every_bound_public_operation_is_admitted_central_80ea383736",
+      "owner_id": "app.server",
+      "family_id": "app.server.integration",
+      "collaborator_ids": [
+        "module.extensions",
+        "module.networkflow",
+        "platform.httpruntime",
+        "platform.objectstore",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "app.server.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/server",
+        "tests": [
+          "TestEveryBoundPublicOperationIsAdmittedCentrally_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "app.server.integration.existing_active_admins_skip_stale_or_invalid_man_c8b4b869ec",
       "owner_id": "app.server",
       "family_id": "app.server.integration",
@@ -292,7 +325,9 @@
         "package": "./internal/testutil/httptestx",
         "tests": [
           "TestHarnessBootsServerAndAssertsEnvelopes",
-          "TestStartServerHonorsTestRouteMode"
+          "TestLockWaitSnapshotNamesBlockedAndBlockingSessions",
+          "TestStartServerHonorsTestRouteMode",
+          "TestStartServerRecordsLifecycleFatal"
         ]
       },
       "evidence_class": "integration",
@@ -327,6 +362,158 @@
         "package": "./internal/app/server",
         "tests": [
           "TestIncompleteRecoveryTargetRejectsStartup_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "app.server.integration.lease_sessions_use_dedicated_connections_outside_d16b0c12b4",
+      "owner_id": "app.server",
+      "family_id": "app.server.integration",
+      "collaborator_ids": [
+        "module.extensions",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "app.server.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/processlease",
+        "tests": [
+          "TestPostgresLeaseSessionsUseDedicatedConnections_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "app.server.integration.non_members_receive_the_missing_resource_respons_4fbc2a81d1",
+      "owner_id": "app.server",
+      "family_id": "app.server.integration",
+      "collaborator_ids": [
+        "module.assessments",
+        "module.entities",
+        "module.evidence",
+        "module.imports",
+        "module.incidentbundles",
+        "module.incidents",
+        "module.indicators",
+        "module.jobapi",
+        "module.reportcomposition",
+        "module.reporting",
+        "module.revisions",
+        "module.savedviews",
+        "module.timeline",
+        "module.workbook",
+        "platform.openapi"
+      ],
+      "verification_ids": [
+        "app.server.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/serverprocess",
+        "tests": [
+          "TestNonMemberConcealmentConformance"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "app.server.integration.operations_declaring_incident_closed_reject_a_cl_bdbacbfa00",
+      "owner_id": "app.server",
+      "family_id": "app.server.integration",
+      "collaborator_ids": [
+        "module.assessments",
+        "module.entities",
+        "module.evidence",
+        "module.imports",
+        "module.incidents",
+        "module.indicators",
+        "module.revisions",
+        "module.timeline",
+        "module.workbook",
+        "platform.openapi"
+      ],
+      "verification_ids": [
+        "app.server.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/serverprocess",
+        "tests": [
+          "TestIncidentClosedConformance"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "app.server.integration.record_addressed_mutations_reject_a_soft_deleted_f8ed4d749a",
+      "owner_id": "app.server",
+      "family_id": "app.server.integration",
+      "collaborator_ids": [
+        "module.assessments",
+        "module.entities",
+        "module.evidence",
+        "module.imports",
+        "module.incidents",
+        "module.indicators",
+        "module.revisions",
+        "module.timeline",
+        "module.workbook",
+        "platform.openapi"
+      ],
+      "verification_ids": [
+        "app.server.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/serverprocess",
+        "tests": [
+          "TestDeletedRecordConformance"
         ]
       },
       "evidence_class": "integration",
@@ -719,6 +906,37 @@
         "package": "./internal/app/serverprocess",
         "tests": [
           "TestInvalidConfigDiagnostics_Process"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive",
+      "runtime_binary_ids": [
+        "server-harness"
+      ]
+    },
+    {
+      "row_id": "app.server.process.ordinary_shutdown_ac604",
+      "owner_id": "app.server",
+      "family_id": "app.server.process",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "app.server.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/serverprocess",
+        "tests": [
+          "TestOrdinaryShutdownAC604_Process"
         ]
       },
       "evidence_class": "integration",
@@ -1186,6 +1404,7 @@
         "package": "./internal/app/server",
         "tests": [
           "TestEvidenceCleanupDispatcherStartsOnlyAfterServingReadiness",
+          "TestEvidenceCleanupTelemetryRecordsInvariantViolationSweeps",
           "TestEvidenceCleanupTelemetryUsesClosedMetricsAndLogFields",
           "TestNetworkFlowCleanupDispatcherStartsAfterReadinessAndStopsInReverseOrder",
           "TestNetworkFlowTelemetryNoSDKAndInvalidProgressAreNonDisruptive_Unit",
@@ -1245,7 +1464,7 @@
       "selector": {
         "package": "./internal/platform/httpapi/extensiondiscovery",
         "tests": [
-          "TestExtensionDiscoveryRejectsSingletonQueryBeforeAuthentication_Unit",
+          "TestExtensionDiscoveryAuthenticatesBeforeSingletonQuery_Unit",
           "TestExtensionDiscoveryRequiresAuthentication_Unit",
           "TestExtensionDiscoveryResponseShapeAndOrder_Unit",
           "TestOpenAPIExtensionDiscoveryExposesClosedContract_Unit"
@@ -1311,12 +1530,14 @@
         "package": "./internal/app/server",
         "tests": [
           "TestRuntimeApplicationProcessLeaseClosesAndRestoresAdmissionForOriginalSessionOnly",
+          "TestRuntimePublicationHonoursLeaseOwnership",
           "TestRuntimeRecoveryServingLeaseHasDistinctFatalOutcome",
           "TestServerRunnerFatalLossClosesAdmissionDrainsAndExitsSeventy",
           "TestServerRunnerMapsListenerStartupFailureToExitTwo",
           "TestServerRunnerMapsTypedApplicationLeaseLossesToExitSeventy",
           "TestServerRunnerMapsTypedLeaseAdmissionFailuresToExitTwo",
-          "TestServerRunnerPublicationActivationFailureIsStartupFailure"
+          "TestServerRunnerPublicationActivationFailureIsStartupFailure",
+          "TestServerRunnerRecordsFatalEvidenceOnlyInTheHarnessProfile"
         ]
       },
       "evidence_class": "unit",
@@ -1476,7 +1697,10 @@
         "package": "./internal/app/server",
         "tests": [
           "TestRuntimeShutdownReportsComponentsOpenAtTheDeadline",
-          "TestServerRunnerOrdinaryShutdownHonoursOneDeadline"
+          "TestRuntimeShutdownStartsBackgroundClosesAtTheStopRequest",
+          "TestRuntimeStopRequestClosesAdmission",
+          "TestServerRunnerOrdinaryShutdownHonoursOneDeadline",
+          "TestShutdownClockNeverRestartsAndReservesCloseTime"
         ]
       },
       "evidence_class": "unit",
@@ -1537,6 +1761,35 @@
         "package": "./internal/platform/processlease",
         "tests": [
           "TestLeaseAcquisitionDeadlineClassification"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "app.server.unit.process_lease_events_deliver_the_latest_transiti_f20a07dbed",
+      "owner_id": "app.server",
+      "family_id": "app.server.unit",
+      "collaborator_ids": [
+        "module.extensions",
+        "module.recovery",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "app.server.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/processlease",
+        "tests": [
+          "TestLeaseEventsDeliverTheLatestTransition"
         ]
       },
       "evidence_class": "unit",

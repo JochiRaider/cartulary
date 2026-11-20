@@ -491,9 +491,11 @@ export class ReferencePackAdminController {
                 referencePackEligible(observed.value.value, command.kind)
               ? null
               : ({
+                  // Client-detected ineligibility: no request is sent, so the
+                  // problem carries a client-local code, never a server code.
                   kind: "state_conflict",
                   status: 409,
-                  code: "reference_pack_state_conflict",
+                  code: "request_rejected",
                 } as const);
       if (problem) {
         this.publish({
@@ -842,7 +844,7 @@ export class ReferencePackAdminController {
       cancellation: { request, phase: "submitting", problem: null },
     }));
     const outcome = await this.bounded(
-      (signal) => this.ports.cancel(id, request, signal),
+      (signal) => this.ports.cancel(id, request, signal, replay),
       referencePackTiming.read,
     );
     if (!current()) return;

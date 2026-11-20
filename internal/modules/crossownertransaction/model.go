@@ -160,6 +160,13 @@ type Transaction interface {
 	WriteCapability(string) (WriteCapability, error)
 	PreconditionCapability() (PreconditionCapability, error)
 	FinalizationCapability() (FinalizationCapability, error)
+	// Commit receives a context that carries neither the operation's
+	// cancellation nor its deadline. Once invoked, the commit request MUST be
+	// awaited until its acknowledgement or proven absence: an implementation
+	// MUST NOT add a cancellation that abandons the request or closes its
+	// session first. The coordinator's completion lifetime bounds the wait by
+	// the cancellation grace and classifies a still-pending commit as
+	// operation_cancellation_grace_exhausted (EXT-REQ-219).
 	Commit(context.Context) (CommitOutcome, error)
 	Rollback(context.Context) (CommitOutcome, error)
 }

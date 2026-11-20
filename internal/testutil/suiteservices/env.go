@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/JochiRaider/cartulary/internal/platform/harnessruntime/runevidence"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 	"os"
 	"path/filepath"
@@ -94,61 +95,42 @@ func ShortHash(value string, length int) string {
 	return encoded[:length]
 }
 
+// The result-parent rule belongs to the platform run-evidence owner, which the
+// server-harness build shares; these wrappers keep the map-based test API.
 func RelativeResultsRoot(env map[string]string) string {
-	value := strings.TrimSpace(LookupEnvValue(env, testResultsDirEnv))
-	if value != "" {
-		return value
-	}
-	return filepath.Join(".cartulary", "test-results")
+	return runevidence.ConfiguredResultsRoot(lookupFunc(env))
 }
 
+// ResolveResultsRoot resolves the shared result parent and, as the test-support
+// owner of the results root, narrows an existing default (repository-relative)
+// parent to owner-only access.
 func ResolveResultsRoot(env map[string]string) (string, error) {
-	configured := RelativeResultsRoot(env)
-	if filepath.IsAbs(configured) {
-		if err := validateResultsRootSecurity(configured, true); err != nil {
-			return "", err
-		}
-		return configured, nil
-	}
-
-	repoRoot, err := FindRepoRoot()
-	if err != nil {
-		return "", err
-	}
-	resolved := filepath.Join(repoRoot, configured)
-	if err := validateResultsRootSecurity(resolved, false); err != nil {
-		return "", err
-	}
-	return resolved, nil
+	return resolveAndNarrowResultsRoot(lookupFunc(env))
 }
 
-func validateResultsRootSecurity(resolved string, custom bool) error {
-	existing := resolved
-	if _, err := os.Stat(existing); err != nil {
-		if !os.IsNotExist(err) {
-			return fmt.Errorf("stat result root %s: %w", resolved, err)
-		}
-		existing = filepath.Dir(resolved)
-	}
-	info, err := os.Stat(existing)
+// SelectedResultsRoot is ResolveResultsRoot over the process environment.
+func SelectedResultsRoot() (string, error) {
+	return resolveAndNarrowResultsRoot(os.LookupEnv)
+}
+
+func resolveAndNarrowResultsRoot(lookup func(string) (string, bool)) (string, error) {
+	root, err := runevidence.ResultsRoot(lookup)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
-		return fmt.Errorf("stat result root parent %s: %w", existing, err)
+		return "", err
 	}
-	if !info.IsDir() {
-		return fmt.Errorf("result root parent %s is not a directory", existing)
+	if filepath.IsAbs(runevidence.ConfiguredResultsRoot(lookup)) {
+		return root, nil
 	}
-	if custom && info.Mode().Perm()&0o002 != 0 && info.Mode()&os.ModeSticky == 0 {
-		return fmt.Errorf("result root %s must not be world-writable without sticky bit", existing)
-	}
-	if existing == resolved && !custom {
-		if err := os.Chmod(resolved, 0o700); err != nil {
-			return fmt.Errorf("narrow result root permissions for %s: %w", resolved, err)
+	if info, err := os.Stat(root); err == nil && info.IsDir() {
+		if err := os.Chmod(root, 0o700); err != nil {
+			return "", fmt.Errorf("narrow result root permissions for %s: %w", root, err)
 		}
 	}
-	return nil
+	return root, nil
+}
+
+func lookupFunc(env map[string]string) func(string) (string, bool) {
+	return func(key string) (string, bool) { return LookupEnv(env, key) }
 }
 
 func ResolveRunID(env map[string]string) string {
@@ -306,20 +288,7 @@ func resultsRootSubdir(resultsRoot string, parts ...string) (string, error) {
 }
 
 func FindRepoRoot() (string, error) {
-	wd, err := os.Getwd()
-	if err != nil {
-		return "", fmt.Errorf("resolve working directory: %w", err)
-	}
-
-	for current := wd; ; current = filepath.Dir(current) {
-		if _, err := os.Stat(filepath.Join(current, "go.mod")); err == nil {
-			return current, nil
-		}
-		parent := filepath.Dir(current)
-		if parent == current {
-			return "", fmt.Errorf("resolve repo root from %s: go.mod not found", wd)
-		}
-	}
+	return runevidence.RepositoryRoot()
 }
 
 func ParseBool(value string) (bool, error) {

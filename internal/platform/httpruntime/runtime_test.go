@@ -225,7 +225,22 @@ func TestServeCancelledBeforeListenDoesNotBind(t *testing.T) {
 	_ = rebound.Close()
 }
 
+// TestServeForcesCloseAfterShutdownTimeout covers both drain bounds: a
+// relative timeout and the application's absolute drain deadline
+// (REQ-04-146a). Reaching either cancels the in-flight handler and reports
+// DrainDeadlineError.
 func TestServeForcesCloseAfterShutdownTimeout(t *testing.T) {
+	for name, bound := range map[string]func(*Options){
+		"timeout": func(options *Options) { options.ShutdownTimeout = 10 * time.Millisecond },
+		"deadline": func(options *Options) {
+			options.ShutdownDeadline = func() time.Time { return time.Now().Add(10 * time.Millisecond) }
+		},
+	} {
+		t.Run(name, func(t *testing.T) { exerciseForcedDrainClose(t, bound) })
+	}
+}
+
+func exerciseForcedDrainClose(t *testing.T, bound func(*Options)) {
 	identity := tlstest.NewServer(t, "127.0.0.1")
 	ctx, cancel := context.WithCancel(context.Background())
 	requestStarted := make(chan struct{})
@@ -249,13 +264,9 @@ func TestServeForcesCloseAfterShutdownTimeout(t *testing.T) {
 	_ = listener.Close()
 
 	done := make(chan error, 1)
-	go func() {
-		done <- Serve(ctx, handler, Options{TLS: identity.TLS,
-			InheritedFD:     fileDescriptorString(listenerFile),
-			ShutdownTimeout: 10 * time.Millisecond,
-			Logger:          discardLogger(),
-		})
-	}()
+	options := Options{TLS: identity.TLS, InheritedFD: fileDescriptorString(listenerFile), ShutdownTimeout: time.Minute, Logger: discardLogger()}
+	bound(&options)
+	go func() { done <- Serve(ctx, handler, options) }()
 
 	responseDone := make(chan error, 1)
 	go func() {
@@ -272,8 +283,9 @@ func TestServeForcesCloseAfterShutdownTimeout(t *testing.T) {
 	}
 	cancel()
 	serveErr := waitServe(t, done)
-	if serveErr == nil || !errors.Is(serveErr, context.DeadlineExceeded) {
-		t.Fatalf("forced shutdown error got %v", serveErr)
+	var drainCut *DrainDeadlineError
+	if !errors.As(serveErr, &drainCut) || !errors.Is(serveErr, context.DeadlineExceeded) {
+		t.Fatalf("forced shutdown error got %v, want DrainDeadlineError", serveErr)
 	}
 	select {
 	case <-handlerExited:

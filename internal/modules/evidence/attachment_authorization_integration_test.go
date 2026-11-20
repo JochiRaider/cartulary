@@ -122,6 +122,29 @@ SELECT lease_state
 		unknown := slot{href: "/api/v1/object-uploads/not-a-token", headers: map[string]string{"Content-Type": "text/plain"}}
 		httptestx.RequireErrorEnvelope(t, put(t, unknown, &issuingLogin, "", false), http.StatusForbidden, "csrf_verification_failed")
 	})
+	// REQ-01-246 and REQ-01-703: upload declares the session cookie with CSRF
+	// or the issuing bearer session; the declared-security guard of the test
+	// server fails any other authentication.
+	t.Run("cookie upload without CSRF leaves a live capability unused", func(t *testing.T) {
+		candidate := createSlot(t, "cookie-without-csrf", issuingLogin)
+		httptestx.RequireErrorEnvelope(t, put(t, candidate, &issuingLogin, "", false), http.StatusForbidden, "csrf_verification_failed")
+		requireLeaseState(t, candidate.blobID, "issued")
+		requireObjectCount(t, candidate, 0)
+	})
+	t.Run("issuing bearer session uploads without CSRF", func(t *testing.T) {
+		candidate := createSlot(t, "bearer-session", issuingLogin)
+		request, err := http.NewRequest(http.MethodPut, harness.Server.HTTP.URL+candidate.href, strings.NewReader("hello"))
+		if err != nil {
+			t.Fatalf("create AC-543 bearer upload request: %v", err)
+		}
+		for name, value := range candidate.headers {
+			request.Header.Set(name, value)
+		}
+		request.Header.Set("Authorization", "Bearer "+issuingLogin.Session.Value)
+		httptestx.RequireNoContent(t, httptestx.Do(t, http.DefaultClient, request))
+		requireLeaseState(t, candidate.blobID, "completed")
+		requireObjectCount(t, candidate, 1)
+	})
 	t.Run("current role denial leaves lease and object untouched", func(t *testing.T) {
 		candidate := createSlot(t, "role-denied", issuingLogin)
 		setRole(t, "viewer")
@@ -138,7 +161,7 @@ SELECT lease_state
 	})
 	t.Run("required-header mismatch precedes claim and storage", func(t *testing.T) {
 		candidate := createSlot(t, "header-mismatch", issuingLogin)
-		body := httptestx.RequireErrorEnvelope(t, put(t, candidate, &issuingLogin, "application/json", true), http.StatusBadRequest, "object_upload_rejected")
+		body := httptestx.RequireErrorEnvelope(t, put(t, candidate, &issuingLogin, "application/json", true), http.StatusBadRequest, "object_upload_invalid")
 		httptestx.RequireErrorDetail(t, body, "reason_code", "upload_contract_mismatch")
 		requireLeaseState(t, candidate.blobID, "issued")
 		requireObjectCount(t, candidate, 0)
@@ -212,6 +235,80 @@ UPDATE incidents
 		}
 		requireLeaseState(t, candidate.blobID, "completed")
 		requireObjectCount(t, candidate, 1)
+	})
+	t.Run("a corrupted verification receipt is internal_error without effects", func(t *testing.T) {
+		// The receipt's request hash covers only the object_blob_id that its
+		// identity already binds, so a replay can never diverge; a stored hash
+		// that differs is corrupt state, not client_txn_conflict (REQ-01-706).
+		candidate := createSlot(t, "verification-receipt", issuingLogin)
+		httptestx.RequireNoContent(t, put(t, candidate, &issuingLogin, "", true))
+		const transactionID = "verify-corrupt-receipt"
+		admitted := verifyUploadedBlob(t, harness, issuingLogin, candidate.blobID.String(), transactionID, "succeeded")
+		corrupted := []byte("corrupted request hash")
+		if result, err := harness.DB.ExecContext(context.Background(), `
+UPDATE route_idempotency
+   SET request_hash = $1
+ WHERE route_key = 'evidence.blobs.verify'
+   AND scope_key = $2
+   AND client_txn_id = $3
+`, corrupted, candidate.blobID.String(), transactionID); err != nil {
+			t.Fatalf("corrupt verification receipt: %v", err)
+		} else if rows, err := result.RowsAffected(); err != nil || rows != 1 {
+			t.Fatalf("corrupt verification receipt affected %d rows: %v", rows, err)
+		}
+		receipts := func() (int, string) {
+			t.Helper()
+			var count int
+			var response string
+			if err := harness.DB.QueryRowContext(context.Background(), `
+SELECT count(*), COALESCE(min(response_json::text), '')
+  FROM route_idempotency
+ WHERE route_key = 'evidence.blobs.verify'
+   AND scope_key = $1
+`, candidate.blobID.String()).Scan(&count, &response); err != nil {
+				t.Fatalf("read verification receipts: %v", err)
+			}
+			return count, response
+		}
+		jobs := func() int {
+			t.Helper()
+			var count int
+			if err := harness.DB.QueryRowContext(context.Background(), `
+SELECT count(*)
+  FROM jobs
+ WHERE job_kind = 'evidence.verify_blob_v1'
+   AND handler_payload_json->>'object_blob_id' = $1
+`, candidate.blobID.String()).Scan(&count); err != nil {
+				t.Fatalf("count verification Jobs: %v", err)
+			}
+			return count
+		}
+		beforeReceipts, beforeResponse := receipts()
+		beforeJobs := jobs()
+		route := harness.Server.HTTP.URL + "/api/v1/object-blobs/" + candidate.blobID.String() + "/verify"
+		body := httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, route, map[string]any{"client_txn_id": transactionID}, authOptions(issuingLogin)...), http.StatusInternalServerError, "internal_error")
+		if details := body["error"].(map[string]any)["details"].(map[string]any); len(details) != 0 {
+			t.Fatalf("internal_error details = %#v, want empty", details)
+		}
+		if afterReceipts, afterResponse := receipts(); afterReceipts != beforeReceipts || afterResponse != beforeResponse {
+			t.Fatalf("verification receipts changed: before %d %s, after %d %s", beforeReceipts, beforeResponse, afterReceipts, afterResponse)
+		}
+		if afterJobs := jobs(); afterJobs != beforeJobs || beforeJobs != 1 {
+			t.Fatalf("verification Jobs before %d, after %d, want one Job %v", beforeJobs, afterJobs, admitted["job_id"])
+		}
+		var stored []byte
+		if err := harness.DB.QueryRowContext(context.Background(), `
+SELECT request_hash
+  FROM route_idempotency
+ WHERE route_key = 'evidence.blobs.verify'
+   AND scope_key = $1
+   AND client_txn_id = $2
+`, candidate.blobID.String(), transactionID).Scan(&stored); err != nil {
+			t.Fatalf("read corrupted receipt: %v", err)
+		}
+		if string(stored) != string(corrupted) {
+			t.Fatalf("corrupted receipt hash was rewritten to %x", stored)
+		}
 	})
 	for _, role := range []string{"editor", "reviewer", "admin"} {
 		t.Run(role+" may use one capability exactly once", func(t *testing.T) {

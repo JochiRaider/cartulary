@@ -333,13 +333,13 @@ describe("Incident metadata ownership", () => {
     expect(controller.getSnapshot().fieldErrors).toEqual({});
   });
   it("classifies malformed and unknown mutation outcomes as uncertain without raw diagnostics", async () => {
-    for (const code of [
-      "invalid_public_contract_response",
-      "unknown_public_error",
+    for (const [code, status] of [
+      ["invalid_public_contract_response", 502],
+      ["internal_error", 500],
     ] as const) {
       const { controller, patch } = setup();
       await settle();
-      patch.mockResolvedValue({ ok: false, status: 502, problem: { code } });
+      patch.mockResolvedValue({ ok: false, status, problem: { code } });
       controller.change("severity", "critical");
       controller.save();
       await settle();

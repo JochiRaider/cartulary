@@ -12,6 +12,7 @@ import {
 
 import type {
   JsonRequestContextLike,
+  MultipartRequestPart,
   RepeatedHeaderJsonResponse,
 } from "./publicJsonClient";
 import { requestPublicJsonObserved } from "./rawPublicJson";
@@ -88,6 +89,60 @@ export async function publicHttpOperation<OperationID extends HTTPOperationID>(
   return (await executePublicHttpOperation(options)).result;
 }
 
+/** Operations whose generated request is a JSON `metadata` part plus a `file` part. */
+export type PublicHttpMultipartOperationID = {
+  [OperationID in HTTPOperationID]: HTTPOperationRequest<OperationID> extends {
+    readonly file: string;
+    readonly metadata: object;
+  }
+    ? OperationID
+    : never;
+}[HTTPOperationID];
+
+export type PublicHttpMultipartFile = {
+  readonly buffer: Buffer;
+  readonly mimeType: string;
+  readonly name: string;
+};
+
+type PublicHttpMultipartOperationOptions<
+  OperationID extends PublicHttpMultipartOperationID,
+> = {
+  readonly file: PublicHttpMultipartFile;
+  readonly headers?: Record<string, string>;
+  readonly metadata: HTTPOperationRequest<OperationID>["metadata"];
+  readonly operationID: OperationID;
+  readonly pathParameters?: Readonly<Record<string, string | number>>;
+  readonly query?: Readonly<Record<string, HTTPQueryValue>>;
+  readonly request: JsonRequestContextLike;
+};
+
+/**
+ * Sends an upload operation as `multipart/form-data`: typed JSON metadata in an
+ * `application/json` part and the source bytes in a `file` part. The response
+ * is validated exactly as for `publicHttpOperation`.
+ */
+export async function publicHttpMultipartOperation<
+  OperationID extends PublicHttpMultipartOperationID,
+>(
+  options: PublicHttpMultipartOperationOptions<OperationID>,
+): Promise<PublicHttpOperationResult<OperationID>> {
+  const { file, metadata, ...operation } = options;
+  return (
+    await executePublicHttpOperation(
+      operation as PublicHttpOperationOptions<OperationID>,
+      {
+        metadata: {
+          buffer: Buffer.from(JSON.stringify(metadata), "utf8"),
+          mimeType: "application/json",
+          name: "metadata.json",
+        },
+        file,
+      },
+    )
+  ).result;
+}
+
 export async function publicHttpOperationObserved<
   OperationID extends HTTPOperationID,
 >(
@@ -114,6 +169,7 @@ export async function publicHttpOperationObserved<
 
 async function executePublicHttpOperation<OperationID extends HTTPOperationID>(
   options: PublicHttpOperationOptions<OperationID>,
+  multipart?: Readonly<Record<string, MultipartRequestPart>>,
 ) {
   const binding = httpOperationBindings[options.operationID];
   const path =
@@ -122,6 +178,7 @@ async function executePublicHttpOperation<OperationID extends HTTPOperationID>(
   const observation = await requestPublicJsonObserved({
     ...("body" in options ? { body: options.body } : {}),
     ...(options.headers === undefined ? {} : { headers: options.headers }),
+    ...(multipart === undefined ? {} : { multipart }),
     method: binding.method,
     path,
     request: options.request,

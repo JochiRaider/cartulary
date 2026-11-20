@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/sourcerepository"
@@ -74,6 +75,9 @@ type RecordPort interface {
 	LoadEnvelopeTx(context.Context, pgx.Tx, uuid.UUID, bool) (sourcerepository.Envelope, error)
 	LoadEnvelopesTx(context.Context, pgx.Tx, []uuid.UUID, bool) (map[uuid.UUID]sourcerepository.Envelope, error)
 	LoadEnvelopesForNoKeyUpdateTx(context.Context, pgx.Tx, []uuid.UUID) (map[uuid.UUID]sourcerepository.Envelope, error)
+	// ClassifyTargetTx is the Records target classifier (REQ-01-705). It
+	// returns records.ErrTargetNotFound or records.ErrTargetDeleted unchanged.
+	ClassifyTargetTx(context.Context, pgx.Tx, uuid.UUID, records.TargetLock) (sourcerepository.Envelope, error)
 	ResolveIncident(context.Context, uuid.UUID) (uuid.UUID, error)
 }
 

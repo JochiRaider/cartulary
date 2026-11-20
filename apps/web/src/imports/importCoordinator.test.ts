@@ -276,7 +276,7 @@ describe("extension import coordinator stages", () => {
   });
   it("preserves public preview errors and creates no durable mapping", async () => {
     const fetch = vi.fn().mockResolvedValue(
-      errorResponse("invalid_import_mapping", 422, {
+      errorResponse("invalid_import_request", 400, {
         reason_code: "required_field_missing",
       }),
     );
@@ -289,9 +289,9 @@ describe("extension import coordinator stages", () => {
     expect(result).toMatchObject({
       kind: "failed",
       failure: {
-        code: "invalid_import_mapping",
+        code: "invalid_import_request",
         reason: "required_field_missing",
-        status: 422,
+        status: 400,
       },
     });
     expect(fetch).toHaveBeenCalledTimes(1);

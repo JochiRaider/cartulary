@@ -46,6 +46,7 @@ import {
 } from "./support/runtime/fixtureIdentity";
 import {
   awaitResponseBarrier,
+  fulfillOperationError,
   installOwnedRoute,
   removeOwnedRoute,
 } from "./support/transport/requestInterception";
@@ -237,18 +238,17 @@ test("a11y.design-readiness.row-01 Verify global accessibility matrix for keyboa
   const failQuery = async (
     route: Parameters<Parameters<typeof installOwnedRoute>[2]>[0],
   ) => {
-    await route.fulfill({
-      status: 503,
-      json: {
-        error: {
-          code: "service_unavailable",
-          details: {},
-          message: "Service unavailable.",
-          request_id: "a11y-design-readiness",
-          retryable: true,
-        },
+    await fulfillOperationError(
+      route,
+      "queryWorkbookView",
+      503,
+      "service_unavailable",
+      {
+        retryable: true,
+        requestId: "a11y-design-readiness",
+        details: { reason_code: "admission_paused" },
       },
-    });
+    );
   };
   // Error: a failed refresh keeps the loaded rows and says so in text.
   const taskQuery = `**/api/v1/incidents/${incidentId}/views/${taskRequestsViewSchemaId}/query`;
@@ -259,7 +259,7 @@ test("a11y.design-readiness.row-01 Verify global accessibility matrix for keyboa
   const errorState = page.locator('[data-grid-data-state="stale_error"]');
   await expect(errorState).toHaveAttribute("data-grid-blocking", "false");
   await expect(errorState.getByRole("alert")).toHaveText(
-    "Workbook view load failed. Previously loaded rows may be stale.",
+    "Cartulary is temporarily unavailable. Try again shortly. Previously loaded rows may be stale.",
   );
   await removeOwnedRoute(page, taskQuery);
   await errorState.getByRole("button", { name: "Retry", exact: true }).click();

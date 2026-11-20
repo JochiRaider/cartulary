@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
+	"github.com/JochiRaider/cartulary/internal/modules/evidence/testsupport/blobfixture"
 
 	"github.com/JochiRaider/cartulary/internal/app/workbookassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
@@ -311,15 +312,13 @@ VALUES ($1, $2, 'evidence', $3, $4, $3, $4, 1)
 `, recordID, incidentID, actorID, now); err != nil {
 		t.Fatalf("insert evidence envelope: %v", err)
 	}
-	if _, err := harness.DB.Exec(context.Background(), `
-INSERT INTO object_blobs (
-    object_blob_id, incident_id, created_by_user_id, storage_key, upload_state,
-    byte_size, filename_hint, content_type_hint, observed_size, observed_content_type,
-    target_expires_at, pending_expires_at, finalized_at, created_at, updated_at
-) VALUES ($1, $2, $3, $4, $5, 8, 'screenshot.txt', 'text/plain', 8, 'text/plain', $6, $6, $7, $7, $7)
-`, blobID, incidentID, actorID, "evidence_lifecycle/"+blobID.String(), uploadState, now.Add(time.Hour), now); err != nil {
-		t.Fatalf("insert object blob: %v", err)
-	}
+	// REQ-02-189a: the shared Evidence fixture writes only coherent Blob tuples.
+	blobfixture.Seed(t, harness.DB, blobfixture.Spec{
+		ObjectBlobID: blobID, IncidentID: incidentID, CreatedByUserID: actorID, State: uploadState,
+		StorageKey: "evidence_lifecycle/" + blobID.String(), ByteSize: 8,
+		FilenameHint: stringPtr("screenshot.txt"), ContentTypeHint: stringPtr("text/plain"), ObservedContentType: stringPtr("text/plain"),
+		CreatedAt: now,
+	})
 	if _, err := harness.DB.Exec(context.Background(), `
 INSERT INTO evidence (record_id, incident_id, title, lifecycle_state, upload_state, object_blob_id, requested_at, created_at, updated_at)
 VALUES ($1, $2, $3, 'available', $4, $5, $6, $6, $6)

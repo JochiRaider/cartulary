@@ -20,18 +20,17 @@ func TestCookieMutationCSRF_Unit(t *testing.T) {
 	const target = "/api/v1/users/10000000-0000-0000-0000-000000000126"
 	for _, operation := range []struct {
 		name, method, path, body string
-		handler                  func(*Service, http.ResponseWriter, *http.Request)
 		malformedBody            bool
 	}{
-		{"logout", http.MethodPost, "/api/v1/auth/logout", `{}`, (*Service).handleLogout, false},
-		{"password change", http.MethodPost, "/api/v1/auth/password/change", `{"client_txn_id":"csrf-password","current_password":"CurrentPassword1!","new_password":"ChangedPassword1!"}`, (*Service).handlePasswordChange, true},
-		{"totp begin", http.MethodPost, "/api/v1/auth/mfa/totp/begin", `{"client_txn_id":"csrf-begin"}`, (*Service).handleTOTPBegin, true},
-		{"totp complete", http.MethodPost, "/api/v1/auth/mfa/totp/complete", `{"client_txn_id":"csrf-complete","enrollment_id":"10000000-0000-0000-0000-000000000127","code":"123456"}`, (*Service).handleTOTPComplete, true},
-		{"user create", http.MethodPost, "/api/v1/users", `{"client_txn_id":"csrf-create","auth_kind":"local","email":"csrf@example.test","display_name":"CSRF User","initial_password":"InitialPassword1!"}`, (*Service).handleUsersCollection, false},
-		{"user patch", http.MethodPatch, target, `{"base_user_version":1,"display_name":"Changed User"}`, (*Service).handleUsersMember, false},
-		{"password reset", http.MethodPost, target + "/password/reset", `{"base_user_version":1,"client_txn_id":"csrf-reset-password","new_password":"ResetPassword1!"}`, (*Service).handleUsersMember, false},
-		{"totp reset", http.MethodPost, target + "/mfa/totp/reset", `{"base_user_version":1,"client_txn_id":"csrf-reset-totp"}`, (*Service).handleUsersMember, false},
-		{"revoke all", http.MethodPost, target + "/sessions/revoke-all", `{"client_txn_id":"csrf-revoke","reason":"revoke sessions"}`, (*Service).handleUsersMember, false},
+		{"logout", http.MethodPost, "/api/v1/auth/logout", `{}`, false},
+		{"password change", http.MethodPost, "/api/v1/auth/password/change", `{"client_txn_id":"csrf-password","current_password":"CurrentPassword1!","new_password":"ChangedPassword1!"}`, true},
+		{"totp begin", http.MethodPost, "/api/v1/auth/mfa/totp/begin", `{"client_txn_id":"csrf-begin"}`, true},
+		{"totp complete", http.MethodPost, "/api/v1/auth/mfa/totp/complete", `{"client_txn_id":"csrf-complete","enrollment_id":"10000000-0000-0000-0000-000000000127","code":"123456"}`, true},
+		{"user create", http.MethodPost, "/api/v1/users", `{"client_txn_id":"csrf-create","auth_kind":"local","email":"csrf@example.test","display_name":"CSRF User","initial_password":"InitialPassword1!"}`, false},
+		{"user patch", http.MethodPatch, target, `{"base_user_version":1,"display_name":"Changed User"}`, false},
+		{"password reset", http.MethodPost, target + "/password/reset", `{"base_user_version":1,"client_txn_id":"csrf-reset-password","new_password":"ResetPassword1!"}`, false},
+		{"totp reset", http.MethodPost, target + "/mfa/totp/reset", `{"base_user_version":1,"client_txn_id":"csrf-reset-totp"}`, false},
+		{"revoke all", http.MethodPost, target + "/sessions/revoke-all", `{"client_txn_id":"csrf-revoke","reason":"revoke sessions"}`, false},
 	} {
 		t.Run(operation.name, func(t *testing.T) {
 			cases := []struct{ name, header, body string }{
@@ -93,7 +92,7 @@ func TestCookieMutationCSRF_Unit(t *testing.T) {
 						request.Header.Set(authn.CSRFHeaderName, requestCase.header)
 					}
 					recorder := httptest.NewRecorder()
-					operation.handler(service, recorder, request)
+					serveAuth(t, service, recorder, request)
 					requireErrorEnvelope(t, recorder, http.StatusForbidden, "csrf_verification_failed", "")
 					if len(hub.revocations) != 0 {
 						t.Fatal("CSRF rejection must not publish revocations")

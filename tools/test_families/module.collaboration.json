@@ -677,6 +677,7 @@
       "selector": {
         "file": "apps/web/src/collaboration/IncidentCollaborationSession.test.tsx",
         "titles": [
+          "backs off server-initiated reconnects with full jitter and resets after hello (REQ-03-299a)",
           "builds hello and resume session messages from socket resume state",
           "ignores duplicate stream sequences and refreshes on sequence gaps",
           "keeps replayable events unsynchronized until the owner completes reset",
@@ -875,6 +876,64 @@
       "postgres_isolation": "exclusive"
     },
     {
+      "row_id": "module.collaboration.integration.the_replay_listener_holds_a_dedicated_session_ou_209421a144",
+      "owner_id": "module.collaboration",
+      "family_id": "module.collaboration.integration",
+      "collaborator_ids": [
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/collaboration",
+        "tests": [
+          "TestReplayListenerHoldsNoRuntimePoolConnection_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.collaboration.integration.the_socket_upgrade_authenticates_before_its_inci_040e743559",
+      "owner_id": "module.collaboration",
+      "family_id": "module.collaboration.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/collaboration",
+        "tests": [
+          "TestIncidentSocketUpgradeAdmissionOrder_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "module.collaboration.integration.two_real_clients_connect_to_the_same_incident_so_257bcc588c",
       "owner_id": "module.collaboration",
       "family_id": "module.collaboration.integration",
@@ -1031,7 +1090,8 @@
       "selector": {
         "package": "./internal/modules/collaboration",
         "tests": [
-          "TestIncidentSocketClosesGoingAwayOnShutdown_Unit"
+          "TestIncidentSocketClosesGoingAwayOnShutdown_Unit",
+          "TestIncidentSocketInHandshakeClosesGoingAwayOnShutdown_Unit"
         ]
       },
       "evidence_class": "integration",
@@ -1119,6 +1179,34 @@
         "package": "./internal/modules/collaboration",
         "tests": [
           "TestIncidentSocketHandshakeResume_Unit"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.collaboration.store.the_socket_keeps_a_session_extended_over_http_pa_3755d35cd2",
+      "owner_id": "module.collaboration",
+      "family_id": "module.collaboration.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/collaboration",
+        "tests": [
+          "TestIncidentSocketRereadsSessionExpiryBeforeRevoking_Integration"
         ]
       },
       "evidence_class": "integration",

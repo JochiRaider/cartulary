@@ -181,7 +181,28 @@ func TestSavedViewCreateDefaults_Unit(t *testing.T) {
 		nil,
 		httptestx.WithCookies(viewerLogin.Session),
 	)
-	httptestx.RequireErrorEnvelope(t, replayDifferentIncident, http.StatusBadRequest, "invalid_pagination_request")
+	// REQ-01-704 / REQ-01-707: an incident the caller cannot see conceals the
+	// replay before the cursor is read; a visible incident classifies the
+	// foreign cursor binding (AC-151).
+	httptestx.RequireErrorEnvelope(t, replayDifferentIncident, http.StatusNotFound, "saved_view_not_found")
+	otherIncidentID := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		"client_txn_id": "txn-saved_view_query-u-8-02-other-incident",
+		"incident_key":  "IR-U802-OTHER",
+		"title":         "Workbook query saved views other",
+	})["incident_id"].(string)
+	scenariotest.CreateMembership(t, harness.Server, adminLogin, otherIncidentID, map[string]any{
+		"client_txn_id": "txn-saved_view_query-u-8-02-other-viewer-membership",
+		"user_id":       viewerID,
+		"role":          "viewer",
+	})
+	replayVisibleIncident := httptestx.DoJSON(
+		t, http.DefaultClient,
+		http.MethodGet,
+		harness.Server.HTTP.URL+"/api/v1/incidents/"+otherIncidentID+"/saved-views?cursor_token="+url.QueryEscape(cursor),
+		nil,
+		httptestx.WithCookies(viewerLogin.Session),
+	)
+	httptestx.RequireErrorEnvelope(t, replayVisibleIncident, http.StatusBadRequest, "invalid_pagination_request")
 
 	emptyDefaultsResp := httptestx.DoJSON(
 		t, http.DefaultClient,
@@ -448,6 +469,17 @@ func TestSavedViewSystemFixtureRoute_Unit(t *testing.T) {
 
 	missingTokenResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, route, fixtureBody)
 	httptestx.RequireErrorEnvelope(t, missingTokenResp, http.StatusForbidden, "test_route_forbidden")
+
+	// The guard still decides first; then a malformed incident identifier
+	// receives the enveloped incident_not_found, never a plain-text 404, and
+	// creates no row (Core 01 AC-617).
+	malformedRoute := harness.Server.HTTP.URL + "/api/v1/test/incidents/not-a-uuid/saved-views/system"
+	httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, malformedRoute, fixtureBody), http.StatusForbidden, "test_route_forbidden")
+	malformed := httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, malformedRoute, fixtureBody,
+		httptestx.WithHeader(httpapi.TestRouteTokenHeader, httptestx.TestRouteToken)), http.StatusNotFound, "incident_not_found")
+	if details := malformed["error"].(map[string]any)["details"].(map[string]any); len(details) != 0 {
+		t.Fatalf("malformed incident details = %v", details)
+	}
 
 	createResp := httptestx.DoJSON(
 		t, http.DefaultClient,

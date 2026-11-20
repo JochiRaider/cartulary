@@ -2,12 +2,14 @@ package networkflow_test
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"strings"
 	"testing"
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/gen/contractnetworkflow"
 	"github.com/JochiRaider/cartulary/internal/gen/networkflowroutes"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
@@ -25,6 +27,24 @@ func assertMajor7AdmissionMatrix(t *testing.T, base string, db dbport.DB, incide
 		return base + strings.NewReplacer("{incident_id}", incidentID, "{network_flow_table_id}", tableID, "{graph_view_id}", graphID).Replace(path)
 	}
 	table, graph := "nft_"+strings.Repeat("a", 32), "nfgv_"+strings.Repeat("b", 32)
+	var contract struct {
+		Routes []struct {
+			RouteID         string  `json:"route_id"`
+			RequestSchemaID *string `json:"request_schema_id"`
+		} `json:"routes"`
+	}
+	if err := json.Unmarshal([]byte(contractnetworkflow.Index["contracts/network-flow/routes.v1.json"].JSON), &contract); err != nil {
+		t.Fatal(err)
+	}
+	bodyless := map[string]bool{}
+	for _, route := range contract.Routes {
+		if route.RequestSchemaID == nil {
+			bodyless[route.RouteID] = true
+		}
+	}
+	if len(bodyless) == 0 {
+		t.Fatal("the route contract declares no bodyless operation")
+	}
 	for _, route := range routes {
 		t.Run(route.RouteID, func(t *testing.T) {
 			mutation := strings.HasSuffix(route.RouteID, ".create") || strings.HasSuffix(route.RouteID, ".patch") || strings.HasSuffix(route.RouteID, ".delete") || strings.HasSuffix(route.RouteID, ".refresh")
@@ -44,7 +64,9 @@ func assertMajor7AdmissionMatrix(t *testing.T, base string, db dbport.DB, incide
 			if envelope["error"].(map[string]any)["details"].(map[string]any)["field"] != "query" {
 				t.Fatal("query framing precedence")
 			}
-			if route.Method == http.MethodGet {
+			// Table 21-C level 4: a bodyless operation, one whose route contract
+			// declares no request schema, rejects any request body.
+			if bodyless[route.RouteID] {
 				envelope = httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, route.Method, valid, map[string]any{}, options...), 400, "network_flow_invalid_request")
 				if envelope["error"].(map[string]any)["details"].(map[string]any)["field"] != "body" {
 					t.Fatal("bodyless framing precedence")

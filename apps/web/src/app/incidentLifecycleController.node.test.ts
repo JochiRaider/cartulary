@@ -348,6 +348,35 @@ describe("Incident lifecycle ownership", () => {
       problem: { code: "authorization_denied" },
     });
   });
+  it("rejects a 503 refusal as not applied and keeps a refused replay uncertain", async () => {
+    // Core 03 REQ-03-086a: a decoded 503 service_unavailable was not applied.
+    const refusal = {
+      ok: false as const,
+      status: 503,
+      problem: { code: "service_unavailable" as const },
+    };
+    const first = setup();
+    await flush();
+    first.mutate.mockResolvedValueOnce(refusal);
+    close(first.controller);
+    await flush();
+    expect(first.controller.getSnapshot().operation).toMatchObject({
+      kind: "rejected",
+      problem: { code: "service_unavailable" },
+    });
+    const replayed = setup();
+    await flush();
+    replayed.mutate.mockRejectedValueOnce(new Error("lost"));
+    close(replayed.controller);
+    await flush();
+    replayed.mutate.mockResolvedValue(refusal);
+    replayed.controller.replay();
+    await flush();
+    expect(replayed.controller.getSnapshot().operation).toMatchObject({
+      kind: "uncertain",
+      problem: { code: "service_unavailable" },
+    });
+  });
   it("invalidates preflight on a current role change despite obsolete administrator recovery", async () => {
     const { controller, recover, mutate } = setup();
     await flush();

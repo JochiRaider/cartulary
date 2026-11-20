@@ -23,7 +23,6 @@ type Service struct {
 	jobs           jobReadCanceler
 	authStore      *authn.Store
 	incidentAccess *admission.Checker
-	keys           authn.MasterKeys
 	now            func() time.Time
 }
 
@@ -37,15 +36,18 @@ type cancelRequest struct {
 	Reason      *string
 }
 
+// RegisterRoutes binds the job routes for central admission (Core 01
+// REQ-01-707): the registry authenticates by each operation's declared
+// security and admits job_id before a handler runs.
 func RegisterRoutes(jobService jobReadCanceler) httpapi.RouteRegistrar {
 	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
 		service, err := newService(deps, jobService)
 		if err != nil {
 			return err
 		}
-		return httpapi.BindOwnerRoutes(mux, deps, "module.jobapi", map[string]http.HandlerFunc{
-			"cancelJob": service.handleJobsMember,
-			"getJob":    service.handleJobsMember,
+		return httpapi.BindAdmittedOwnerRoutes(mux, deps, "module.jobapi", map[string]http.HandlerFunc{
+			"cancelJob": service.handleCancelJob,
+			"getJob":    service.handleGetJob,
 		})
 	}
 }
@@ -53,10 +55,6 @@ func RegisterRoutes(jobService jobReadCanceler) httpapi.RouteRegistrar {
 func newService(deps httpapi.DependencySet, jobService jobReadCanceler) (*Service, error) {
 	if jobService == nil {
 		return nil, fmt.Errorf("job API requires read/cancel capability")
-	}
-	keys, err := authn.LoadMasterKeys(deps.Env)
-	if err != nil {
-		return nil, fmt.Errorf("load auth master key: %w", err)
 	}
 	now := deps.Now
 	if now == nil {
@@ -66,33 +64,23 @@ func newService(deps httpapi.DependencySet, jobService jobReadCanceler) (*Servic
 		jobs:           jobService,
 		authStore:      authn.NewStore(deps.PostgresHandle()),
 		incidentAccess: admission.NewChecker(deps.PostgresHandle()),
-		keys:           keys,
 		now:            now,
 	}, nil
 }
 
-func (s *Service) handleJobsMember(w http.ResponseWriter, r *http.Request) {
-	jobID, action, ok := parseJobPath(r.URL.Path)
-	if !ok {
-		http.NotFound(w, r)
-		return
+// admitted returns the principal and job_id that central admission
+// established; their absence is a binding error.
+func admitted(r *http.Request) (httpauth.Principal, uuid.UUID, *httpapi.APIError) {
+	principal, authenticated := httpauth.AdmittedPrincipal(r)
+	jobID, identified := httpapi.PathUUID(r, "job_id")
+	if !authenticated || !identified {
+		return httpauth.Principal{}, uuid.UUID{}, internalAPIError(errors.New("job route was not admitted centrally"))
 	}
-	switch {
-	case r.Method == http.MethodGet && action == "":
-		s.handleGetJob(w, r, jobID)
-	case r.Method == http.MethodPost && action == "cancel":
-		s.handleCancelJob(w, r, jobID)
-	default:
-		w.WriteHeader(http.StatusMethodNotAllowed)
-	}
+	return principal, jobID, nil
 }
 
-func (s *Service) handleGetJob(w http.ResponseWriter, r *http.Request, jobID uuid.UUID) {
-	if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: false})
+func (s *Service) handleGetJob(w http.ResponseWriter, r *http.Request) {
+	principal, jobID, apiErr := admitted(r)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -110,24 +98,27 @@ func (s *Service) handleGetJob(w http.ResponseWriter, r *http.Request, jobID uui
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	// REQ-01-707 step 5: the singleton-query check is route handling, after
+	// the job's visibility.
+	if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, resource)
 }
 
-func (s *Service) handleCancelJob(w http.ResponseWriter, r *http.Request, jobID uuid.UUID) {
-	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
+func (s *Service) handleCancelJob(w http.ResponseWriter, r *http.Request) {
+	principal, jobID, apiErr := admitted(r)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	request, normalized, apiErr := decodeCancelRequest(r)
-	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
+	// REQ-01-704: the job's visibility, including the cancel relationship, is
+	// decided before the request body is classified.
 	resource, err := s.jobs.Get(r.Context(), jobID)
 	if errors.Is(err, jobs.ErrNotFound) {
 		writeAPIError(w, r, jobNotFoundError())
@@ -138,6 +129,11 @@ func (s *Service) handleCancelJob(w http.ResponseWriter, r *http.Request, jobID 
 		return
 	}
 	if apiErr := s.authorizeJob(r.Context(), resource, principal, true); apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	request, normalized, apiErr := decodeCancelRequest(r)
+	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -161,7 +157,7 @@ func (s *Service) handleCancelJob(w http.ResponseWriter, r *http.Request, jobID 
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
@@ -209,39 +205,20 @@ func (s *Service) authorizeJob(ctx context.Context, resource jobs.Resource, prin
 		default:
 			return jobNotFoundError()
 		}
+		// Core 01 §3.3.9.1: a member who neither submitted the job nor
+		// administers its incident cannot cancel it, and learns only that no
+		// such job exists.
 		if !cancel || submittedByCurrentUser || grant.Role == admission.RoleAdmin {
 			return nil
 		}
-		return &httpapi.APIError{Status: http.StatusForbidden, Code: "authorization_denied", Details: map[string]any{"required_role": "submitted_by|admin"}}
+		return jobNotFoundError()
 	default:
 		return jobNotFoundError()
 	}
 }
 
-func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal, method string, path string) error {
-	return httpauth.SlideSessionIfNeeded(ctx, s.authStore, principal, method, path, s.now)
-}
-
-func parseJobPath(path string) (uuid.UUID, string, bool) {
-	rest := strings.TrimPrefix(path, "/api/v1/jobs/")
-	if rest == path || rest == "" {
-		return uuid.UUID{}, "", false
-	}
-	parts := strings.Split(rest, "/")
-	if len(parts) > 2 || parts[0] == "" {
-		return uuid.UUID{}, "", false
-	}
-	jobID, err := uuid.Parse(parts[0])
-	if err != nil {
-		return uuid.UUID{}, "", false
-	}
-	if len(parts) == 1 {
-		return jobID, "", true
-	}
-	if parts[1] == "cancel" {
-		return jobID, "cancel", true
-	}
-	return uuid.UUID{}, "", false
+func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal) error {
+	return httpauth.SlideSessionIfNeeded(ctx, s.authStore, principal, s.now)
 }
 
 func decodeCancelRequest(r *http.Request) (cancelRequest, []byte, *httpapi.APIError) {
@@ -295,7 +272,7 @@ func invalidMutationPayload(field string, reasonCode string) *httpapi.APIError {
 }
 
 func jobNotFoundError() *httpapi.APIError {
-	return &httpapi.APIError{Status: http.StatusNotFound, Code: "job_not_found", Details: map[string]any{}}
+	return httpapi.NotFound("job_not_found")
 }
 
 func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *httpapi.APIError) {

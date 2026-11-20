@@ -37,6 +37,93 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "invalid_blob_create_request"
+            ]
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "session_required"
+            ]
+          },
+          "403": {
+            "description": "Authenticated caller lacks the required authorization or CSRF verification failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "authorization_denied",
+              "csrf_verification_failed"
+            ]
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "incident_not_found"
+            ]
+          },
+          "409": {
+            "description": "Request conflicts with current state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "client_txn_conflict",
+              "credential_bootstrap_rejected",
+              "incident_closed"
+            ]
+          },
+          "413": {
+            "description": "Request body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "blob_create_rejected"
+            ]
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [
@@ -65,8 +152,12 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
-            }
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._~-]+$",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "x-cartulary-not-found-code": "object_upload_not_found_or_revoked"
           }
         ],
         "requestBody": {
@@ -92,7 +183,37 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "object_upload_invalid"
+            ]
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "session_required"
+            ]
+          },
+          "403": {
+            "description": "Authenticated caller lacks the required authorization or CSRF verification failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "authorization_denied",
+              "csrf_verification_failed"
+            ]
           },
           "404": {
             "description": "Unknown or revoked upload capability",
@@ -102,7 +223,10 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "object_upload_not_found_or_revoked"
+            ]
           },
           "409": {
             "description": "Upload capability conflicts with the current blob slot state",
@@ -112,7 +236,12 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "credential_bootstrap_rejected",
+              "incident_closed",
+              "object_upload_rejected"
+            ]
           },
           "410": {
             "description": "Expired upload capability",
@@ -122,7 +251,10 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "object_upload_expired"
+            ]
           },
           "411": {
             "description": "Content-Length required",
@@ -132,7 +264,10 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "object_upload_length_required"
+            ]
           },
           "413": {
             "description": "Declared upload body exceeds the blob slot contract",
@@ -142,7 +277,24 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "request_body_too_large"
+            ]
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "internal_error",
+              "object_store_invalid_request"
+            ]
           },
           "503": {
             "description": "Object-store dependency unavailable",
@@ -152,17 +304,31 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "object_store_access_rejected",
+              "object_store_unavailable",
+              "service_unavailable"
+            ]
           }
         },
-        "security": [],
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ],
         "x-cartulary-state-changing": true
       }
     },
     "/api/v1/evidence-records/{record_id}/attach-blob": {
       "parameters": [
         {
-          "$ref": "#/components/parameters/RecordIDPathParameter"
+          "$ref": "#/components/parameters/EvidenceRecordIDPathParameter"
         }
       ],
       "post": {
@@ -191,6 +357,83 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "invalid_mutation_payload"
+            ]
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "session_required"
+            ]
+          },
+          "403": {
+            "description": "Authenticated caller lacks the required authorization or CSRF verification failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "authorization_denied",
+              "csrf_verification_failed"
+            ]
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "evidence_record_not_found"
+            ]
+          },
+          "409": {
+            "description": "Request conflicts with current state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "client_txn_conflict",
+              "credential_bootstrap_rejected",
+              "evidence_attach_rejected",
+              "incident_closed",
+              "record_deleted_use_restore",
+              "row_version_conflict"
+            ]
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [
@@ -209,7 +452,7 @@
     "/api/v1/evidence-records/{record_id}/preview-handle": {
       "parameters": [
         {
-          "$ref": "#/components/parameters/RecordIDPathParameter"
+          "$ref": "#/components/parameters/EvidenceRecordIDPathParameter"
         }
       ],
       "post": {
@@ -238,6 +481,101 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "invalid_evidence_handle_request"
+            ]
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "session_required"
+            ]
+          },
+          "403": {
+            "description": "Authenticated caller lacks the required authorization or CSRF verification failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "csrf_verification_failed"
+            ]
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "evidence_record_not_found"
+            ]
+          },
+          "409": {
+            "description": "Request conflicts with current state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "credential_bootstrap_rejected",
+              "evidence_access_unavailable"
+            ]
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "internal_error",
+              "object_store_invalid_request"
+            ]
+          },
+          "503": {
+            "description": "Dependency unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "object_store_access_rejected",
+              "object_store_unavailable",
+              "service_unavailable"
+            ]
           }
         },
         "security": [
@@ -256,7 +594,7 @@
     "/api/v1/evidence-records/{record_id}/download-handle": {
       "parameters": [
         {
-          "$ref": "#/components/parameters/RecordIDPathParameter"
+          "$ref": "#/components/parameters/EvidenceRecordIDPathParameter"
         }
       ],
       "post": {
@@ -285,6 +623,101 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "invalid_evidence_handle_request"
+            ]
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "session_required"
+            ]
+          },
+          "403": {
+            "description": "Authenticated caller lacks the required authorization or CSRF verification failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "csrf_verification_failed"
+            ]
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "evidence_record_not_found"
+            ]
+          },
+          "409": {
+            "description": "Request conflicts with current state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "credential_bootstrap_rejected",
+              "evidence_access_unavailable"
+            ]
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "internal_error",
+              "object_store_invalid_request"
+            ]
+          },
+          "503": {
+            "description": "Dependency unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "object_store_access_rejected",
+              "object_store_unavailable",
+              "service_unavailable"
+            ]
           }
         },
         "security": [
@@ -318,9 +751,99 @@
           },
           "206": {
             "description": "Evidence byte range"
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "session_required"
+            ]
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "handle_not_found_or_revoked"
+            ]
+          },
+          "409": {
+            "description": "Request conflicts with current state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "credential_bootstrap_rejected",
+              "evidence_access_unavailable"
+            ]
+          },
+          "410": {
+            "description": "Resource no longer available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "handle_consumed",
+              "handle_expired"
+            ]
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "internal_error",
+              "object_store_invalid_request"
+            ]
+          },
+          "503": {
+            "description": "Dependency unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "object_store_access_rejected",
+              "object_store_unavailable",
+              "service_unavailable"
+            ]
           }
         },
-        "security": [],
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ],
         "x-cartulary-state-changing": true
       }
     },
@@ -339,7 +862,8 @@
             "schema": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "x-cartulary-not-found-code": "incident_not_found"
           }
         ],
         "requestBody": {
@@ -362,6 +886,78 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "invalid_evidence_metadata_request"
+            ]
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "session_required"
+            ]
+          },
+          "403": {
+            "description": "Authenticated caller lacks the required authorization or CSRF verification failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "csrf_verification_failed"
+            ]
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "evidence_record_not_found",
+              "incident_not_found"
+            ]
+          },
+          "409": {
+            "description": "Request conflicts with current state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "credential_bootstrap_rejected"
+            ]
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [
@@ -392,6 +988,10 @@
             "schema": {
               "type": "string",
               "format": "uuid"
+            },
+            "x-cartulary-not-found-code": "evidence_attach_rejected",
+            "x-cartulary-not-found-details": {
+              "reason_code": "blob_not_visible"
             }
           }
         ],
@@ -416,6 +1016,46 @@
               }
             }
           },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "invalid_mutation_payload"
+            ]
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "session_required"
+            ]
+          },
+          "403": {
+            "description": "Authenticated caller lacks the required authorization or CSRF verification failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "authorization_denied",
+              "csrf_verification_failed"
+            ]
+          },
           "409": {
             "description": "Blob state or transaction conflict",
             "content": {
@@ -424,7 +1064,18 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "credential_bootstrap_rejected",
+              "evidence_attach_rejected",
+              "incident_closed"
+            ]
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [
@@ -937,6 +1588,18 @@
         "required": [
           "client_txn_id"
         ]
+      }
+    },
+    "parameters": {
+      "EvidenceRecordIDPathParameter": {
+        "name": "record_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "x-cartulary-not-found-code": "evidence_record_not_found"
       }
     }
   }

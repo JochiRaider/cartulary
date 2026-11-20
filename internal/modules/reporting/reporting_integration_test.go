@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/google/uuid"
+	"io"
 	"net/http"
 	"reflect"
 	"sort"
@@ -22,6 +23,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/dbassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
@@ -1925,30 +1927,10 @@ func requireJobStatus(t testing.TB, harness *appsupport.ServerHarness, actor aut
 }
 func requireJobStatusWithin(t testing.TB, harness *appsupport.ServerHarness, actor authcookietest.AuthCookies, jobID string, wantStatus string, budget time.Duration) map[string]any {
 	t.Helper()
-	deadline := time.Now().Add(budget)
-	var last map[string]any
-	for time.Now().Before(deadline) {
-		resp := httptestx.DoJSON(
-			t, http.DefaultClient,
-			http.MethodGet,
-			harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID,
-			nil,
-			httptestx.WithCookies(actor.Session),
-		)
-		last = httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
-		switch last["status"] {
-		case "queued", "running", "cancel_requested":
-			time.Sleep(25 * time.Millisecond)
-			continue
-		default:
-			if last["status"] != wantStatus {
-				t.Fatalf("job %s terminal status = %#v want %q: %#v", jobID, last["status"], wantStatus, last)
-			}
-			return last
-		}
-	}
-	t.Fatalf("timed out waiting for job %s status %q after %#v", jobID, wantStatus, last)
-	return nil
+	return httptestx.PollJob(t, harness.Server.HTTP.URL, jobID, httptestx.PollOptions{
+		Timeout: budget,
+		Request: []func(*http.Request){httptestx.WithCookies(actor.Session)},
+	}, wantStatus)
 }
 
 func requireSnapshot(t testing.TB, harness *appsupport.ServerHarness, actor authcookietest.AuthCookies, snapshotID string) map[string]any {
@@ -2424,4 +2406,182 @@ func requirePreparedRenderProfile(t testing.TB, harness *appsupport.ServerHarnes
 		t.Fatal(err)
 	}
 	return profile
+}
+
+// TestReportingRouteAdmissionOrder_Integration covers Core 01 REQ-01-707 and
+// AC-617 for the Snapshot and Reporting routes: route resolution rejects
+// undeclared methods and HEAD with registered envelopes; authentication and
+// CSRF precede path parameters; a malformed or encoded-slash identifier
+// receives its declared not-found response, identical to a missing resource's,
+// and never reaches another operation; and visibility precedes the role gate,
+// the query check and the request body (REQ-01-704).
+func TestReportingRouteAdmissionOrder_Integration(t *testing.T) {
+	harness := appsupport.StartRuntime(t).StartServer(t, appsupport.ServerOptions{Prefix: "reporting-admission-order", TestRouteMode: httptestx.TestRouteModeDisabled})
+	base := harness.Server.HTTP.URL
+	admin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, base)
+	flowtest.SeedLocalUserFlags(t, harness.DB, "reporting-admission-outsider@example.test", "Reporting Admission Outsider", "ReportingAdmissionOutsider1!", false, true, true)
+	outsider := flowtest.LoginLocalUser(t, http.DefaultClient, base, "reporting-admission-outsider@example.test", "ReportingAdmissionOutsider1!", nil)
+	viewerID := flowtest.SeedLocalUserFlags(t, harness.DB, "reporting-admission-viewer@example.test", "Reporting Admission Viewer", "ReportingAdmissionViewer1!", false, false, true)
+	viewer := flowtest.LoginLocalUser(t, http.DefaultClient, base, "reporting-admission-viewer@example.test", "ReportingAdmissionViewer1!", nil)
+	incidentID := scenariotest.CreateIncident(t, harness.Server, admin, map[string]any{
+		"client_txn_id": "txn-reporting-admission-order-incident",
+		"incident_key":  "IR-REPORTING-ADMISSION-ORDER",
+		"title":         "Reporting route admission order",
+	})["incident_id"].(string)
+	scenariotest.CreateMembership(t, harness.Server, admin, incidentID, map[string]any{
+		"client_txn_id": "txn-reporting-admission-order-viewer", "user_id": viewerID, "role": "viewer",
+	})
+	// A redirect is never followed, so a 3xx would surface as itself.
+	client := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	get := func(url string, login authcookietest.AuthCookies) *http.Response {
+		t.Helper()
+		return httptestx.DoJSON(t, client, http.MethodGet, url, nil, httptestx.WithCookies(login.Session))
+	}
+	send := func(method string, url string, login authcookietest.AuthCookies, body any) *http.Response {
+		t.Helper()
+		return httptestx.DoJSON(t, client, method, url, body, httptestx.WithCookies(login.Session, login.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value))
+	}
+	snapshotID := requireSucceededJobResourceID(t, harness, admin, httptestx.RequireSuccessEnvelope(t, send(http.MethodPost, base+"/api/v1/snapshots", admin, map[string]any{
+		"incident_id": incidentID, "client_txn_id": "txn-reporting-admission-order-snapshot",
+	}), http.StatusAccepted)["data"].(map[string]any), "snapshot")
+	releaseID := requireSucceededJobResourceID(t, harness, admin, httptestx.RequireSuccessEnvelope(t, send(http.MethodPost, base+"/api/v1/releases", admin, map[string]any{
+		"snapshot_id":               snapshotID,
+		"client_txn_id":             "txn-reporting-admission-order-release",
+		"template_id":               reporting.DefaultTemplateID,
+		"template_version":          reporting.DefaultTemplateVersion,
+		"redaction_profile_id":      reporting.InternalRedactionProfileID,
+		"redaction_profile_version": "5",
+		"output_kind":               reporting.OutputKindSlidev,
+	}), http.StatusAccepted)["data"].(map[string]any), "release")
+	snapshotURL := base + "/api/v1/snapshots/" + snapshotID
+	missingSnapshotURL := base + "/api/v1/snapshots/" + uuid.NewString()
+	releaseURL := base + "/api/v1/releases/" + releaseID
+	missingReleaseURL := base + "/api/v1/releases/" + uuid.NewString()
+	retainedURL := base + "/api/v1/incidents/" + incidentID + "/retained-report-artifacts"
+	missingRetainedURL := base + "/api/v1/incidents/" + uuid.NewString() + "/retained-report-artifacts"
+	artifact := "/" + strings.Repeat("a", 64) + "/content"
+	actionBody := func(action string) map[string]any {
+		return map[string]any{"client_txn_id": "txn-reporting-admission-order-" + action}
+	}
+	requireMethodNotAllowed := func(response *http.Response, allow string) {
+		t.Helper()
+		if response.Header.Get("Allow") != allow {
+			t.Fatalf("Allow = %q, want %q", response.Header.Get("Allow"), allow)
+		}
+		body := httptestx.RequireErrorEnvelope(t, response, http.StatusMethodNotAllowed, "method_not_allowed")
+		if details := httptestx.RequireErrorDetails(t, body); !reflect.DeepEqual(details, map[string]any{"allowed_methods": []any{allow}}) {
+			t.Fatalf("details = %#v, want allowed_methods [%s]", details, allow)
+		}
+	}
+	httptestx.RequireSuccessEnvelope(t, get(base+"/api/v1/releases/"+strings.ToUpper(releaseID), admin), http.StatusOK)
+	httptestx.RequireSuccessEnvelope(t, get(base+"/api/v1/incidents/"+strings.ToUpper(incidentID)+"/retained-report-artifacts", admin), http.StatusOK)
+	before := reportingRouteEffects(t, harness, releaseID)
+
+	t.Run("authentication and CSRF precede path parameters", func(t *testing.T) {
+		for _, url := range []string{
+			base + "/api/v1/snapshots/not-a-snapshot-id",
+			base + "/api/v1/releases/not-a-release-id",
+			base + "/api/v1/incidents/not-an-incident-id/retained-report-artifacts",
+			retainedURL + "/NOT-AN-ARTIFACT/content",
+		} {
+			httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, client, http.MethodGet, url, nil), http.StatusUnauthorized, "session_required")
+		}
+		httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, client, http.MethodPost, base+"/api/v1/releases/not-a-release-id/approve", actionBody("anonymous")), http.StatusUnauthorized, "session_required")
+		withoutCSRF := httptestx.DoJSON(t, client, http.MethodPost, base+"/api/v1/releases/not-a-release-id/publish", actionBody("without-csrf"), httptestx.WithCookies(admin.Session))
+		httptestx.RequireErrorEnvelope(t, withoutCSRF, http.StatusForbidden, "csrf_verification_failed")
+	})
+	t.Run("a malformed identifier is a missing resource", func(t *testing.T) {
+		for _, malformed := range []string{"not-an-id", strings.ReplaceAll(snapshotID, "-", ""), "%7B" + snapshotID + "%7D"} {
+			requireReportingResponsesAlike(t, "snapshot_not_found", get(base+"/api/v1/snapshots/"+malformed, admin), get(missingSnapshotURL, admin))
+			requireReportingResponsesAlike(t, "release_not_found", get(base+"/api/v1/releases/"+malformed, admin), get(missingReleaseURL, admin))
+			requireReportingResponsesAlike(t, "incident_not_found", get(base+"/api/v1/incidents/"+malformed+"/retained-report-artifacts", admin), get(missingRetainedURL, admin))
+			requireReportingResponsesAlike(t, "incident_not_found", get(base+"/api/v1/incidents/"+malformed+"/retained-report-artifacts"+artifact, admin), get(missingRetainedURL+artifact, admin))
+		}
+		for _, action := range []string{"approve", "publish", "invalidate"} {
+			requireReportingResponsesAlike(t, "release_not_found",
+				send(http.MethodPost, base+"/api/v1/releases/not-a-release-id/"+action, admin, actionBody("malformed-"+action)),
+				send(http.MethodPost, missingReleaseURL+"/"+action, admin, actionBody("missing-"+action)))
+		}
+		for _, malformed := range []string{strings.Repeat("A", 64), strings.Repeat("a", 63), "not-an-artifact-id"} {
+			requireReportingResponsesAlike(t, "report_artifact_not_found", get(retainedURL+"/"+malformed+"/content", admin), get(retainedURL+artifact, admin))
+		}
+	})
+	t.Run("an encoded slash stays inside the identifier", func(t *testing.T) {
+		requireReportingResponsesAlike(t, "release_not_found", get(releaseURL+"%2Fapprove", admin), get(missingReleaseURL, admin))
+		requireReportingResponsesAlike(t, "release_not_found", send(http.MethodPost, releaseURL+"%2Fx/approve", admin, actionBody("encoded-approve")), send(http.MethodPost, missingReleaseURL+"/approve", admin, actionBody("missing-approve")))
+		requireReportingResponsesAlike(t, "snapshot_not_found", get(snapshotURL+"%2Fx", admin), get(missingSnapshotURL, admin))
+		requireReportingResponsesAlike(t, "incident_not_found", get(base+"/api/v1/incidents/"+incidentID+"%2Fretained-report-artifacts/retained-report-artifacts", admin), get(missingRetainedURL, admin))
+		requireReportingResponsesAlike(t, "report_artifact_not_found", get(retainedURL+"/"+strings.Repeat("a", 64)+"%2Fcontent/content", admin), get(retainedURL+artifact, admin))
+		// POST on the read template: the encoded slash never selects approve.
+		requireMethodNotAllowed(send(http.MethodPost, releaseURL+"%2Fapprove", admin, actionBody("encoded-read-approve")), http.MethodGet)
+	})
+	t.Run("route resolution rejections are enveloped", func(t *testing.T) {
+		for _, url := range []string{snapshotURL, releaseURL, retainedURL, retainedURL + artifact} {
+			head := httptestx.DoJSON(t, client, http.MethodHead, url, nil, httptestx.WithCookies(admin.Session))
+			body, err := io.ReadAll(head.Body)
+			_ = head.Body.Close()
+			if err != nil || head.StatusCode != http.StatusMethodNotAllowed || head.Header.Get("Allow") != http.MethodGet || len(body) != 0 {
+				t.Fatalf("HEAD %s = %d Allow=%q body=%q err=%v, want 405 Allow GET without a body", url, head.StatusCode, head.Header.Get("Allow"), body, err)
+			}
+		}
+		requireMethodNotAllowed(send(http.MethodDelete, releaseURL, admin, nil), http.MethodGet)
+		requireMethodNotAllowed(send(http.MethodPut, snapshotURL, admin, nil), http.MethodGet)
+		requireMethodNotAllowed(send(http.MethodPost, retainedURL, admin, nil), http.MethodGet)
+		requireMethodNotAllowed(get(releaseURL+"/approve", admin), http.MethodPost)
+		requireMethodNotAllowed(get(base+"/api/v1/releases", admin), http.MethodPost)
+		requireMethodNotAllowed(get(base+"/api/v1/snapshots", admin), http.MethodPost)
+		httptestx.RequireErrorEnvelope(t, get(releaseURL+"/unknown", admin), http.StatusNotFound, "route_not_found")
+	})
+	t.Run("visibility precedes the role gate and route handling", func(t *testing.T) {
+		requireReportingResponsesAlike(t, "snapshot_not_found", get(snapshotURL+"?limit=1", outsider), get(missingSnapshotURL+"?limit=1", outsider))
+		requireReportingResponsesAlike(t, "release_not_found", get(releaseURL+"?limit=1", outsider), get(missingReleaseURL+"?limit=1", outsider))
+		requireReportingResponsesAlike(t, "incident_not_found", get(retainedURL+"?limit=1", outsider), get(missingRetainedURL+"?limit=1", outsider))
+		requireReportingResponsesAlike(t, "incident_not_found", get(retainedURL+artifact+"?limit=1", outsider), get(missingRetainedURL+artifact+"?limit=1", outsider))
+		for _, action := range []string{"approve", "publish", "invalidate"} {
+			requireReportingResponsesAlike(t, "release_not_found",
+				send(http.MethodPost, releaseURL+"/"+action+"?limit=1", outsider, []any{1}),
+				send(http.MethodPost, missingReleaseURL+"/"+action+"?limit=1", outsider, []any{1}))
+		}
+		for _, action := range []string{"publish", "invalidate"} {
+			httptestx.RequireErrorEnvelope(t, send(http.MethodPost, releaseURL+"/"+action+"?limit=1", viewer, []any{1}), http.StatusForbidden, "authorization_denied")
+		}
+		httptestx.RequireErrorEnvelope(t, get(retainedURL+"?limit=1", viewer), http.StatusForbidden, "authorization_denied")
+		httptestx.RequireErrorEnvelope(t, send(http.MethodPost, releaseURL+"/approve?limit=1", admin, actionBody("paginated-approve")), http.StatusBadRequest, "invalid_pagination_request")
+		httptestx.RequireErrorEnvelope(t, send(http.MethodPost, releaseURL+"/invalidate", admin, []any{1}), http.StatusBadRequest, "invalid_release_request")
+		httptestx.RequireErrorEnvelope(t, get(snapshotURL+"?limit=1", admin), http.StatusBadRequest, "invalid_pagination_request")
+	})
+	if after := reportingRouteEffects(t, harness, releaseID); after != before {
+		t.Fatalf("rejected requests committed an effect: before=%s after=%s", before, after)
+	}
+}
+
+// requireReportingResponsesAlike requires a response to match a missing
+// resource's in everything but its request identity (REQ-01-704, REQ-01-707).
+func requireReportingResponsesAlike(t testing.TB, code string, existing, missing *http.Response) {
+	t.Helper()
+	bodies := make([]map[string]any, 0, 2)
+	for _, response := range []*http.Response{existing, missing} {
+		body := httptestx.RequireErrorEnvelope(t, response, http.StatusNotFound, code)
+		delete(body["error"].(map[string]any), "request_id")
+		bodies = append(bodies, body)
+	}
+	if !reflect.DeepEqual(bodies[0], bodies[1]) {
+		t.Fatalf("response %v differs from the missing resource's %v", bodies[0], bodies[1])
+	}
+}
+
+// reportingRouteEffects renders the release, its approvals, the Reporting jobs
+// and idempotency receipts, and the Collaboration intents a route could commit.
+func reportingRouteEffects(t testing.TB, harness *appsupport.ServerHarness, releaseID string) string {
+	t.Helper()
+	var effects string
+	if err := harness.DB.QueryRowContext(context.Background(), `SELECT jsonb_build_object(
+ 'release',(SELECT to_jsonb(r) FROM reporting_releases r WHERE release_id=$1::uuid),
+ 'approvals',(SELECT count(*) FROM reporting_release_approvals WHERE release_id=$1::uuid),
+ 'jobs',(SELECT count(*) FROM jobs WHERE job_kind LIKE 'snapshot_reporting.%'),
+ 'receipts',(SELECT count(*) FROM route_idempotency WHERE route_key LIKE 'releases.%' OR route_key LIKE 'snapshots.%')
+ )::text`, releaseID).Scan(&effects); err != nil {
+		t.Fatal(err)
+	}
+	return effects + fmt.Sprintf(" collaboration_intents=%d", collaborationsupport.CountIntents(t, harness.DB, collaborationsupport.IntentSelector{}))
 }

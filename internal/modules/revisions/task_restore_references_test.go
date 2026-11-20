@@ -127,3 +127,63 @@ FROM task_requests t JOIN records r USING(record_id) JOIN task_request_grid_proj
 		})
 	}
 }
+
+// requireTaskRestoreLifecycleBlock covers REQ-02-109a and AC-606: restoring a
+// Task whose row violates a REQ-02-103 guard is blocked with
+// record_restore_blocked / task_lifecycle_inconsistent and commits nothing.
+// Each case breaks exactly one guard; once repaired, the restore succeeds.
+func requireTaskRestoreLifecycleBlock(t *testing.T, h *appsupport.ServerHarness, login authcookietest.AuthCookies, incident, actor uuid.UUID) {
+	for _, guard := range []struct {
+		name   string
+		breaks string
+	}{
+		{"blocked_requires_reason", `UPDATE task_requests SET status='blocked', blocked_reason=NULL WHERE record_id=$1`},
+		{"blocked_requires_reason_blank", `UPDATE task_requests SET status='blocked', blocked_reason='   ' WHERE record_id=$1`},
+		{"non_blocked_clears_reason", `UPDATE task_requests SET blocked_reason='Waiting on vendor' WHERE record_id=$1`},
+		{"done_requires_completed_at", `UPDATE task_requests SET status='done', completed_at=NULL WHERE record_id=$1`},
+		{"completed_at_not_before_created_at", `UPDATE task_requests SET status='done', completed_at=created_at - interval '1 day' WHERE record_id=$1`},
+		{"non_done_clears_completed_at", `UPDATE task_requests SET completed_at=created_at WHERE record_id=$1`},
+		{"active_requires_owner", `UPDATE task_requests SET owner_user_id=NULL WHERE record_id=$1`},
+	} {
+		t.Run("Task restore lifecycle block/"+guard.name, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
+			defer cancel()
+			task := uuid.New()
+			envelopetest.SeedRecordEnvelope(t, h.DB, incident, actor, task, "task_request")
+			mustExec(t, h.DB, `INSERT INTO task_requests(record_id,incident_id,title,status,owner_user_id,priority,task_kind) VALUES($1,$2,'Lifecycle restore fixture','open',$3,'normal','collection')`, task, incident, actor)
+			httptestx.RequireSuccessEnvelope(t, deleteRecord(t, h, login, task, map[string]any{"base_row_version": 1, "client_txn_id": "task-lifecycle-delete-" + guard.name}), http.StatusOK)
+			mustExec(t, h.DB, guard.breaks, task)
+			state := func() string {
+				t.Helper()
+				values := map[string]any{"publication": collaborationsupport.SnapshotIntentContent(t, h.DB, incident)}
+				for _, table := range []string{"records", "task_requests", "task_request_grid_projection", "change_sets", "change_set_mutations", "record_revisions", "route_idempotency"} {
+					var value string
+					if err := h.DB.QueryRowContext(ctx, "SELECT coalesce(jsonb_agg(to_jsonb(t) ORDER BY to_jsonb(t)::text),'[]'::jsonb)::text FROM "+table+" t").Scan(&value); err != nil {
+						t.Fatal(err)
+					}
+					values[table] = value
+				}
+				encoded, err := json.Marshal(values)
+				if err != nil {
+					t.Fatal(err)
+				}
+				return string(encoded)
+			}
+			body := map[string]any{"base_row_version": 2, "client_txn_id": "task-lifecycle-restore-" + guard.name}
+			before := state()
+			blocked := httptestx.RequireErrorEnvelope(t, restoreRecord(t, h, login, task, body), http.StatusConflict, "record_restore_blocked")["error"].(map[string]any)
+			details := blocked["details"].(map[string]any)
+			if blocked["retryable"] != false || len(details) != 2 || details["record_id"] != task.String() || details["reason_code"] != "task_lifecycle_inconsistent" {
+				t.Fatalf("Task lifecycle blocker=%#v", blocked)
+			}
+			if state() != before {
+				t.Fatal("blocked Task restore changed source, history, projection or publication state")
+			}
+			mustExec(t, h.DB, `UPDATE task_requests SET status='open', blocked_reason=NULL, completed_at=NULL, owner_user_id=$2 WHERE record_id=$1`, task, actor)
+			restored := httptestx.RequireSuccessEnvelope(t, restoreRecord(t, h, login, task, body), http.StatusOK)["data"].(map[string]any)
+			if restored["row_version"] != float64(3) || restored["deleted"] != false {
+				t.Fatalf("repaired Task restore=%#v", restored)
+			}
+		})
+	}
+}

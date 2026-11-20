@@ -15,6 +15,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
@@ -143,6 +144,12 @@ func testIncidentSuppliedDependencies(t *testing.T) {
 	}
 }
 
+// testRegisteredIncidentRoutes binds the incident routes for central admission
+// (Core 01 REQ-01-707) behind the registry's route resolution. Without a
+// session every operation fails authentication before its path parameters or
+// query are read, so a malformed or encoded-separator identifier and an
+// invalid query also receive session_required; undeclared methods and unknown
+// descendants receive the registered envelopes.
 func testRegisteredIncidentRoutes(t *testing.T) {
 	deps, owner := incidentRouteTestDependencies()
 	registry, err := httpapi.NewRouteRegistry(nil)
@@ -150,6 +157,11 @@ func testRegisteredIncidentRoutes(t *testing.T) {
 		t.Fatal(err)
 	}
 	deps.PublicRoutes = registry
+	authenticator, err := httpauth.DependencyAuthenticator(deps, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	deps.Authenticator = authenticator
 	mux := http.NewServeMux()
 	if err := RegisterRoutes(owner)(mux, deps); err != nil {
 		t.Fatal(err)
@@ -157,6 +169,12 @@ func testRegisteredIncidentRoutes(t *testing.T) {
 	if got := len(registry.Snapshot()); got != 11 {
 		t.Fatalf("registered operations = %d, want 11", got)
 	}
+	for operationID, mode := range registry.AdmissionModes() {
+		if mode != httpapi.AdmissionCentral {
+			t.Fatalf("%s admission mode = %s, want central", operationID, mode)
+		}
+	}
+	handler := registry.Handler(mux)
 	const id = "00000000-0000-0000-0000-000000000701"
 	const user = "00000000-0000-0000-0000-000000000702"
 	const root = "/api/v1/incidents"
@@ -172,55 +190,65 @@ func testRegisteredIncidentRoutes(t *testing.T) {
 	check := func(t *testing.T, method, path string, status int, code string) {
 		t.Helper()
 		response := httptest.NewRecorder()
-		mux.ServeHTTP(response, httptest.NewRequest(method, path, strings.NewReader("{")))
+		handler.ServeHTTP(response, httptest.NewRequest(method, path, strings.NewReader("{")))
 		if response.Code != status {
 			t.Fatalf("%s %s: status=%d body=%s, want %d", method, path, response.Code, response.Body, status)
 		}
-		if code != "" {
-			var body struct {
-				Error struct {
-					Code string `json:"code"`
-				} `json:"error"`
+		if method == http.MethodHead {
+			if response.Body.Len() != 0 {
+				t.Fatalf("%s %s carried a body: %s", method, path, response.Body)
 			}
-			if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
-				t.Fatal(err)
-			}
-			if body.Error.Code != code {
-				t.Fatalf("code=%s, want %s", body.Error.Code, code)
-			}
+			return
+		}
+		var body struct {
+			Error struct {
+				Code string `json:"code"`
+			} `json:"error"`
+		}
+		if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+			t.Fatalf("%s %s: body is not an envelope: %s", method, path, response.Body)
+		}
+		if body.Error.Code != code {
+			t.Fatalf("%s %s: code=%s, want %s", method, path, body.Error.Code, code)
 		}
 	}
 	for _, operation := range operations {
 		t.Run(operation.id, func(t *testing.T) {
 			check(t, operation.method, operation.path, http.StatusUnauthorized, "session_required")
-			check(t, "PUT", operation.path, http.StatusMethodNotAllowed, "")
+			check(t, "PUT", operation.path, http.StatusMethodNotAllowed, "method_not_allowed")
 			if operation.method == "GET" {
 				check(t, "HEAD", operation.path, http.StatusMethodNotAllowed, "")
 			}
 			if strings.Contains(operation.path, id) {
-				check(t, operation.method, strings.Replace(operation.path, id, "invalid", 1), http.StatusNotFound, "")
-				check(t, operation.method, strings.Replace(operation.path, id, id+"%2Fextra", 1), http.StatusNotFound, "")
+				check(t, operation.method, strings.Replace(operation.path, id, "invalid", 1), http.StatusUnauthorized, "session_required")
+				check(t, operation.method, strings.Replace(operation.path, id, id+"%2Fextra", 1), http.StatusUnauthorized, "session_required")
 			}
 			if strings.Contains(operation.path, user) {
-				check(t, operation.method, strings.Replace(operation.path, user, "invalid", 1), http.StatusNotFound, "")
+				check(t, operation.method, strings.Replace(operation.path, user, "invalid", 1), http.StatusUnauthorized, "session_required")
 			}
-			check(t, operation.method, operation.path+"/", http.StatusNotFound, "")
-			extraStatus := http.StatusNotFound
-			if operation.id == "createIncident" || operation.id == "listIncidentMemberships" || operation.id == "createIncidentMembership" {
-				extraStatus = http.StatusMethodNotAllowed
+			check(t, operation.method, operation.path+"/", http.StatusNotFound, "route_not_found")
+			extraStatus, extraCode := http.StatusNotFound, "route_not_found"
+			switch operation.id {
+			case "listVisibleIncidents":
+				// GET /incidents/extra selects getIncident with a malformed
+				// incident_id, which authentication precedes.
+				extraStatus, extraCode = http.StatusUnauthorized, "session_required"
+			case "createIncident", "listIncidentMemberships", "createIncidentMembership":
+				extraStatus, extraCode = http.StatusMethodNotAllowed, "method_not_allowed"
 			}
-			check(t, operation.method, operation.path+"/extra", extraStatus, "")
+			check(t, operation.method, operation.path+"/extra", extraStatus, extraCode)
 		})
 	}
-	t.Run("query precedence", func(t *testing.T) {
+	t.Run("authentication precedes the query", func(t *testing.T) {
 		check(t, "GET", root+"?limit=bad", http.StatusUnauthorized, "session_required")
 		check(t, "GET", member+"/memberships?limit=bad", http.StatusUnauthorized, "session_required")
 		check(t, "GET", member+"/membership-audit-events?limit=bad", http.StatusUnauthorized, "session_required")
-		check(t, "GET", member+"?limit=1", http.StatusBadRequest, "invalid_pagination_request")
+		check(t, "GET", member+"?limit=1", http.StatusUnauthorized, "session_required")
 	})
 	t.Run("encoded separators cannot select another operation", func(t *testing.T) {
-		check(t, "GET", member+"%2Fmemberships", http.StatusNotFound, "")
-		check(t, "GET", member+"%2Fmembership-audit-events", http.StatusNotFound, "")
-		check(t, "PATCH", member+"%2Fmemberships%2F"+user, http.StatusNotFound, "")
+		check(t, "GET", member+"%2Fmemberships", http.StatusUnauthorized, "session_required")
+		check(t, "GET", member+"%2Fmembership-audit-events", http.StatusUnauthorized, "session_required")
+		check(t, "PATCH", member+"%2Fmemberships%2F"+user, http.StatusUnauthorized, "session_required")
+		check(t, "POST", member+"%2Fclose", http.StatusMethodNotAllowed, "method_not_allowed")
 	})
 }

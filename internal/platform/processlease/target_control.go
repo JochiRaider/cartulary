@@ -48,7 +48,7 @@ func (a *RecoveryTargetAdmission) WithControlTransaction(ctx context.Context, ru
 		return ErrRecoveryTargetLeaseLost
 	}
 	defer func() {
-		if session.connection.Conn().IsClosed() {
+		if session.connection.IsClosed() {
 			a.lease.transition(StateHeld, StateUncertain, "ownership_proof_lost")
 			a.lease.transition(StateUncertain, StateLost, "session_loss_confirmed")
 			a.cancel(ErrRecoveryTargetLeaseLost)

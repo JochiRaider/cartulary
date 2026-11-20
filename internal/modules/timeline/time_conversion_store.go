@@ -61,7 +61,7 @@ func (s *store) PutTimeConversionProfile(ctx context.Context, actor authn.UserRe
 		return TimeConversionProfile{}, err
 	}
 
-	current, err := getTimeConversionProfileTx(ctx, tx, incidentID, now)
+	current, err := lockTimeConversionProfileForWriteTx(ctx, tx, incidentID, now)
 	if err != nil {
 		return TimeConversionProfile{}, err
 	}
@@ -103,7 +103,7 @@ WHERE timeline_time_conversion_profiles.profile_version = $8
 RETURNING incident_id, enabled, local_offset_minutes, local_label, profile_version, updated_at, updated_by_user_id
 `, incidentID, request.Enabled, request.LocalOffsetMinutes, request.LocalLabel, nextVersion, now.UTC(), actor.ID, request.BaseProfileVersion).Scan(&profile.IncidentID, &profile.Enabled, &offset, &label, &profile.ProfileVersion, &profile.UpdatedAt, &updatedBy)
 	if errors.Is(err, pgx.ErrNoRows) {
-		current, err := getTimeConversionProfileTx(ctx, tx, incidentID, now)
+		current, err := lockTimeConversionProfileForWriteTx(ctx, tx, incidentID, now)
 		if err != nil {
 			return TimeConversionProfile{}, err
 		}
@@ -125,19 +125,37 @@ RETURNING incident_id, enabled, local_offset_minutes, local_label, profile_versi
 	return profile, nil
 }
 
+// getTimeConversionProfileTx is the reader used by record creation and patch,
+// including every row of an import apply unit. FOR SHARE keeps the profile
+// stable until the reader commits without serializing concurrent readers, so
+// an in-progress bulk transaction never blocks ordinary editing (REQ-03-168).
 func getTimeConversionProfileTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, now time.Time) (TimeConversionProfile, error) {
+	return scanTimeConversionProfileTx(tx.QueryRow(ctx, `
+SELECT incident_id, enabled, local_offset_minutes, local_label, profile_version, updated_at, updated_by_user_id
+  FROM timeline_time_conversion_profiles
+ WHERE incident_id = $1
+ FOR SHARE
+`, incidentID), incidentID, now)
+}
+
+// lockTimeConversionProfileForWriteTx is used only by the profile writer.
+func lockTimeConversionProfileForWriteTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, now time.Time) (TimeConversionProfile, error) {
+	return scanTimeConversionProfileTx(tx.QueryRow(ctx, `
+SELECT incident_id, enabled, local_offset_minutes, local_label, profile_version, updated_at, updated_by_user_id
+  FROM timeline_time_conversion_profiles
+ WHERE incident_id = $1
+ FOR UPDATE
+`, incidentID), incidentID, now)
+}
+
+func scanTimeConversionProfileTx(row pgx.Row, incidentID uuid.UUID, now time.Time) (TimeConversionProfile, error) {
 	var (
 		profile   TimeConversionProfile
 		offset    pgtype.Int4
 		label     pgtype.Text
 		updatedBy pgtype.UUID
 	)
-	err := tx.QueryRow(ctx, `
-SELECT incident_id, enabled, local_offset_minutes, local_label, profile_version, updated_at, updated_by_user_id
-  FROM timeline_time_conversion_profiles
- WHERE incident_id = $1
- FOR UPDATE
-`, incidentID).Scan(&profile.IncidentID, &profile.Enabled, &offset, &label, &profile.ProfileVersion, &profile.UpdatedAt, &updatedBy)
+	err := row.Scan(&profile.IncidentID, &profile.Enabled, &offset, &label, &profile.ProfileVersion, &profile.UpdatedAt, &updatedBy)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return TimeConversionProfile{
 			IncidentID:     incidentID,

@@ -141,7 +141,10 @@ describe("Incident lifecycle transport", () => {
             {
               error: {
                 code,
+                status,
                 message: "private",
+                request_id: "request-test",
+                retryable: false,
                 details: validation
                   ? {
                       field: "reason",

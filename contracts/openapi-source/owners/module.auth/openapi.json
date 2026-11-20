@@ -60,6 +60,9 @@
           },
           "500": {
             "$ref": "#/components/responses/AuthInternalErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [
@@ -98,6 +101,9 @@
           },
           "500": {
             "$ref": "#/components/responses/AuthInternalErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [
@@ -131,6 +137,9 @@
           },
           "500": {
             "$ref": "#/components/responses/AuthInternalErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [],
@@ -162,6 +171,9 @@
           },
           "500": {
             "$ref": "#/components/responses/AuthInternalErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [],
@@ -203,6 +215,9 @@
           },
           "500": {
             "$ref": "#/components/responses/AuthInternalErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [],
@@ -234,6 +249,9 @@
           },
           "500": {
             "$ref": "#/components/responses/AuthInternalErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [],
@@ -261,10 +279,13 @@
             "$ref": "#/components/responses/EnterpriseProviderNotFoundResponse"
           },
           "409": {
-            "$ref": "#/components/responses/EnterpriseSAMLCompletionConflictResponse"
+            "$ref": "#/components/responses/EnterpriseSAMLFinishConflictResponse"
           },
           "500": {
             "$ref": "#/components/responses/AuthInternalErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [],
@@ -293,6 +314,9 @@
           },
           "500": {
             "$ref": "#/components/responses/AuthInternalErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [
@@ -440,6 +464,9 @@
           },
           "500": {
             "$ref": "#/components/responses/AuthInternalErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [
@@ -497,6 +524,9 @@
           },
           "500": {
             "$ref": "#/components/responses/AuthInternalErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [
@@ -550,6 +580,9 @@
           },
           "500": {
             "$ref": "#/components/responses/AuthInternalErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [
@@ -594,6 +627,9 @@
           },
           "500": {
             "$ref": "#/components/responses/AuthInternalErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [
@@ -647,6 +683,9 @@
           },
           "500": {
             "$ref": "#/components/responses/AuthInternalErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [
@@ -875,6 +914,9 @@
                 }
               }
             }
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [
@@ -971,6 +1013,9 @@
           },
           "500": {
             "$ref": "#/components/responses/AuthInternalErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [
@@ -1071,6 +1116,9 @@
           },
           "500": {
             "$ref": "#/components/responses/AuthInternalErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [
@@ -1112,11 +1160,17 @@
           "403": {
             "$ref": "#/components/responses/AuthDeploymentAdminForbiddenResponse"
           },
+          "404": {
+            "$ref": "#/components/responses/AuthUserNotFoundResponse"
+          },
           "409": {
             "$ref": "#/components/responses/AuthUserPatchConflictResponse"
           },
           "500": {
             "$ref": "#/components/responses/AuthInternalErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [
@@ -1166,6 +1220,9 @@
           },
           "403": {
             "$ref": "#/components/responses/AuthDeploymentAdminForbiddenResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/AuthUserNotFoundResponse"
           },
           "409": {
             "$ref": "#/components/responses/AuthUserVersionConflictResponse"
@@ -1225,11 +1282,17 @@
           "403": {
             "$ref": "#/components/responses/AuthDeploymentAdminForbiddenResponse"
           },
+          "404": {
+            "$ref": "#/components/responses/AuthUserNotFoundResponse"
+          },
           "409": {
             "$ref": "#/components/responses/AuthUserVersionConflictResponse"
           },
           "500": {
             "$ref": "#/components/responses/AuthInternalErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [
@@ -1280,11 +1343,17 @@
           "403": {
             "$ref": "#/components/responses/AuthDeploymentAdminForbiddenResponse"
           },
+          "404": {
+            "$ref": "#/components/responses/AuthUserNotFoundResponse"
+          },
           "409": {
             "$ref": "#/components/responses/AuthSessionRevocationConflictResponse"
           },
           "500": {
             "$ref": "#/components/responses/AuthInternalErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [
@@ -1321,7 +1390,7 @@
             "$ref": "#/components/responses/AuthSafeUserCreatedResponse"
           },
           "400": {
-            "$ref": "#/components/responses/EnterpriseAuthInvalidRequestResponse"
+            "$ref": "#/components/responses/AuthMutationInvalidRequestResponse"
           },
           "401": {
             "$ref": "#/components/responses/AuthSessionRequiredResponse"
@@ -1330,13 +1399,16 @@
             "$ref": "#/components/responses/AuthDeploymentAdminForbiddenResponse"
           },
           "404": {
-            "$ref": "#/components/responses/EnterpriseBindingNotFoundResponse"
+            "$ref": "#/components/responses/EnterpriseBindingProviderNotFoundResponse"
           },
           "409": {
             "$ref": "#/components/responses/EnterpriseBindingConflictResponse"
           },
           "500": {
             "$ref": "#/components/responses/AuthInternalErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [
@@ -1365,7 +1437,7 @@
     "/api/v1/users/{user_id}/auth-bindings/{auth_binding_id}/rotate": {
       "parameters": [
         {
-          "$ref": "#/components/parameters/UserIDPathParameter"
+          "$ref": "#/components/parameters/EnterpriseBindingUserIDPathParameter"
         },
         {
           "$ref": "#/components/parameters/AuthBindingIDPathParameter"
@@ -1383,7 +1455,7 @@
             "$ref": "#/components/responses/AuthSafeUserSuccessResponse"
           },
           "400": {
-            "$ref": "#/components/responses/EnterpriseAuthInvalidRequestResponse"
+            "$ref": "#/components/responses/AuthMutationInvalidRequestResponse"
           },
           "401": {
             "$ref": "#/components/responses/AuthSessionRequiredResponse"
@@ -1399,6 +1471,9 @@
           },
           "500": {
             "$ref": "#/components/responses/AuthInternalErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [
@@ -1427,7 +1502,7 @@
     "/api/v1/users/{user_id}/auth-bindings/{auth_binding_id}": {
       "parameters": [
         {
-          "$ref": "#/components/parameters/UserIDPathParameter"
+          "$ref": "#/components/parameters/EnterpriseBindingUserIDPathParameter"
         },
         {
           "$ref": "#/components/parameters/AuthBindingIDPathParameter"
@@ -1445,7 +1520,7 @@
             "$ref": "#/components/responses/AuthSafeUserSuccessResponse"
           },
           "400": {
-            "$ref": "#/components/responses/EnterpriseAuthInvalidRequestResponse"
+            "$ref": "#/components/responses/AuthMutationInvalidRequestResponse"
           },
           "401": {
             "$ref": "#/components/responses/AuthSessionRequiredResponse"
@@ -1461,6 +1536,9 @@
           },
           "500": {
             "$ref": "#/components/responses/AuthInternalErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [
@@ -2957,7 +3035,7 @@
       "AuthSingletonReadInvalidRequestResponse": {
         "description": "Singleton query contains unsupported list or pagination members",
         "x-cartulary-error-codes": [
-          "invalid_list_query"
+          "invalid_pagination_request"
         ],
         "content": {
           "application/json": {
@@ -2995,7 +3073,7 @@
         }
       },
       "EnterpriseAuthInvalidRequestResponse": {
-        "description": "Enterprise authentication or binding request is invalid",
+        "description": "Enterprise authentication begin request is invalid",
         "x-cartulary-error-codes": [
           "invalid_enterprise_auth_request"
         ],
@@ -3132,11 +3210,25 @@
         }
       },
       "EnterpriseBindingNotFoundResponse": {
-        "description": "Enterprise profile, provider, or authentication binding is absent",
+        "description": "Enterprise profile or authentication binding is absent",
         "x-cartulary-error-codes": [
           "auth_binding_not_found",
-          "auth_provider_not_found",
           "extension_profile_not_claimed"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "EnterpriseBindingProviderNotFoundResponse": {
+        "description": "Enterprise profile, binding provider, or target user is absent",
+        "x-cartulary-error-codes": [
+          "auth_provider_not_found",
+          "extension_profile_not_claimed",
+          "user_not_found"
         ],
         "content": {
           "application/json": {
@@ -3238,7 +3330,7 @@
         "x-cartulary-error-codes": [
           "client_txn_conflict",
           "credential_bootstrap_rejected",
-          "invalid_mutation_payload"
+          "user_email_conflict"
         ],
         "content": {
           "application/json": {
@@ -3252,8 +3344,8 @@
         "description": "User version, last-admin invariant, unique email, or credential mode conflicts",
         "x-cartulary-error-codes": [
           "credential_bootstrap_rejected",
-          "invalid_mutation_payload",
           "last_deployment_admin",
+          "user_email_conflict",
           "user_version_conflict"
         ],
         "content": {
@@ -3312,7 +3404,22 @@
         "description": "Enterprise transaction or SAML provider response was rejected",
         "x-cartulary-error-codes": [
           "enterprise_auth_transaction_rejected",
+          "provider_identity_rejected",
           "provider_response_rejected"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "EnterpriseSAMLFinishConflictResponse": {
+        "description": "Enterprise transaction or linked SAML identity was rejected",
+        "x-cartulary-error-codes": [
+          "enterprise_auth_transaction_rejected",
+          "provider_identity_rejected"
         ],
         "content": {
           "application/json": {
@@ -3354,7 +3461,8 @@
       "AuthCapacityExhaustedResponse": {
         "description": "Credential workflow capacity exhausted. No credential, session or durable idempotency effect; retry after one second.",
         "x-cartulary-error-codes": [
-          "authentication_capacity_exhausted"
+          "authentication_capacity_exhausted",
+          "service_unavailable"
         ],
         "headers": {
           "Retry-After": {
@@ -3372,6 +3480,18 @@
             }
           }
         }
+      }
+    },
+    "parameters": {
+      "EnterpriseBindingUserIDPathParameter": {
+        "name": "user_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "x-cartulary-not-found-code": "auth_binding_not_found"
       }
     }
   }

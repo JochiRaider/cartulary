@@ -33,6 +33,7 @@ func verifyTestCanonicalContainer(ctx context.Context, storage VerificationStora
 func TestVerificationLifetimeCleanup_Unit(t *testing.T) {
 	t.Run("portable operation completion", testPortableExecutionCompletion)
 	t.Run("portable fatal precedence", testPortableFatalPrecedence)
+	t.Run("own terminal job is not cancellation", testPortableOwnTerminalObservation)
 	for _, mode := range []string{"canceled", "deadline", "live"} {
 		t.Run(mode, func(t *testing.T) {
 			type key struct{}

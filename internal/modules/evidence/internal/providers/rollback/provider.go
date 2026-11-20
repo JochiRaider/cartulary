@@ -7,9 +7,12 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 
+	evidenceblob "github.com/JochiRaider/cartulary/internal/modules/evidence/internal/blob"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/internal/policy"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/internal/sourcevalue"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/rollbackcontract"
 )
 
@@ -54,16 +57,28 @@ func (provider) RestoreTx(ctx context.Context, tx pgx.Tx, request rollbackcontra
 	if err != nil {
 		return rollbackcontract.ErrTargetNotReversible
 	}
-	liveBlobState := ""
-	if blobID != nil {
-		if err := tx.QueryRow(ctx, `SELECT upload_state FROM object_blobs WHERE object_blob_id = $1`, blobID).Scan(&liveBlobState); err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				return rollbackcontract.ErrTargetNotReversible
-			}
-			return err
-		}
+	var incidentID uuid.UUID
+	if err := tx.QueryRow(ctx, `SELECT incident_id FROM evidence WHERE record_id = $1`, request.RecordID).Scan(&incidentID); err != nil {
+		return err
 	}
-	if policy.ViolatesEvidenceBlobBridge(lifecycle, blobID != nil, liveBlobState) {
+	var linkedBlob *uuid.UUID
+	if id, ok := blobID.(uuid.UUID); ok {
+		linkedBlob = &id
+	}
+	// REQ-02-190 and REQ-02-196a: a re-linked Blob must be same-incident,
+	// finalized, unassociated and unclaimed, and the restored lifecycle must
+	// satisfy the bridge against its live state, decided before any write.
+	admission, err := evidenceblob.AdmitLinkTx(ctx, tx, evidenceblob.LinkRequest{
+		EvidenceID: request.RecordID, IncidentID: incidentID, Lifecycle: lifecycle, BlobID: linkedBlob, Mode: evidenceblob.ShareNoWait,
+	})
+	if err != nil {
+		return err
+	}
+	switch admission.Outcome {
+	case evidenceblob.Admitted:
+	case evidenceblob.Contended:
+		return &revisions.RecordLockedError{RecordID: request.RecordID}
+	default:
 		return rollbackcontract.ErrTargetNotReversible
 	}
 	_, err = tx.Exec(ctx, `
@@ -84,7 +99,31 @@ UPDATE evidence
        updated_at = $15
  WHERE record_id = $1
 `, append([]any{request.RecordID}, append(values, request.Now.UTC())...)...)
+	if associationGuardRejected(err) {
+		return rollbackcontract.ErrTargetNotReversible
+	}
 	return err
+}
+
+// associationGuardRejected recognizes the database guards that remain the
+// final concurrent-write defence behind the admission above: the at-most-one
+// association index, the same-incident Blob reference, and the durable
+// cleanup-claim association trigger.
+func associationGuardRejected(err error) bool {
+	var postgresError *pgconn.PgError
+	if !errors.As(err, &postgresError) {
+		return false
+	}
+	switch postgresError.Code {
+	case "23505":
+		return postgresError.ConstraintName == "evidence_object_blob_unique_idx"
+	case "23503":
+		return postgresError.ConstraintName == "evidence_object_blob_fkey"
+	case "55000":
+		return postgresError.Message == "object blob has an active durable cleanup claim"
+	default:
+		return false
+	}
 }
 
 func sourceForRollbackValue(value map[string]any) (map[string]any, bool) {

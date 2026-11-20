@@ -102,6 +102,9 @@ describe("Incident metadata transport", () => {
                 reason_code: "forbidden_field",
                 secret: "private",
               },
+              status: 400,
+              request_id: "request-test",
+              retryable: false,
             },
           },
           400,
@@ -132,9 +135,13 @@ describe("Incident metadata transport", () => {
         ),
       ),
     );
+    // An undeclared code is the client contract failure, not a public error.
     expect(
       await readIncidentMetadata({ authority, signal: signal() }),
-    ).toMatchObject({ problem: { code: "unknown_public_error" } });
+    ).toMatchObject({
+      status: 502,
+      problem: { code: "invalid_public_contract_response" },
+    });
     vi.stubGlobal(
       "fetch",
       vi.fn(async () =>
@@ -143,6 +150,10 @@ describe("Incident metadata transport", () => {
             error: {
               code: "csrf_verification_failed",
               message: "private",
+              status: 403,
+              request_id: "request-test",
+              retryable: false,
+              details: {},
             },
           },
           403,

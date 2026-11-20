@@ -9,6 +9,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import type { IncidentResource } from "../shared/incidentResource";
+import { stillUnconfirmedText } from "../shared/publicError";
 import { useWorkflowAttachment } from "../shared/useWorkflowAttachment";
 import type {
   WorkbookDensityMode,
@@ -379,8 +380,9 @@ export function IncidentLifecyclePanel({
         <>
           {problem ? (
             <p style={muted}>
-              {lifecycleProblemMessage(problem)} The earlier action remains
-              unconfirmed.
+              {problem.code === "service_unavailable"
+                ? stillUnconfirmedText()
+                : `${lifecycleProblemMessage(problem)} The earlier action remains unconfirmed.`}
             </p>
           ) : null}
           <p style={muted}>

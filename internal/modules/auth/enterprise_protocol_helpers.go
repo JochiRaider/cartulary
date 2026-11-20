@@ -68,28 +68,3 @@ func enterpriseSAMLCompletionURL(providerKey string, completionToken string) str
 	query.Set("completion", completionToken)
 	return "/api/v1/auth/saml/" + url.PathEscape(providerKey) + "/acs/complete?" + query.Encode()
 }
-
-func providerBeginKey(path string) (string, bool) {
-	trimmed := strings.TrimPrefix(path, "/api/v1/auth/providers/")
-	if trimmed == path {
-		return "", false
-	}
-	segments := strings.Split(strings.Trim(trimmed, "/"), "/")
-	if len(segments) != 2 || segments[1] != "begin" || segments[0] == "" {
-		return "", false
-	}
-	return segments[0], true
-}
-
-func providerCallbackKey(path string, prefix string, suffix string) (string, bool) {
-	trimmed := strings.TrimPrefix(path, prefix)
-	if trimmed == path || !strings.HasSuffix(trimmed, suffix) {
-		return "", false
-	}
-	key := strings.TrimSuffix(trimmed, suffix)
-	key = strings.Trim(key, "/")
-	if key == "" || strings.Contains(key, "/") {
-		return "", false
-	}
-	return key, true
-}

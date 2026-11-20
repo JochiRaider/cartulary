@@ -82,6 +82,9 @@ func appendCanonical(out *bytes.Buffer, value reflect.Value, active map[canonica
 	if value.Kind() == reflect.Pointer {
 		return appendCanonical(out, value.Elem(), active)
 	}
+	if done, err := appendCanonicalPlain(out, value, active); done {
+		return err
+	}
 	write := func(v any) error { return appendCanonical(out, reflect.ValueOf(v), active) }
 	if value.CanInterface() {
 		switch v := value.Interface().(type) {
@@ -236,6 +239,75 @@ func appendCanonical(out *bytes.Buffer, value reflect.Value, active map[canonica
 	return nil
 }
 
+var (
+	canonicalStringType = reflect.TypeFor[string]()
+	canonicalIntType    = reflect.TypeFor[int]()
+	canonicalInt32Type  = reflect.TypeFor[int32]()
+	canonicalInt64Type  = reflect.TypeFor[int64]()
+	canonicalMapType    = reflect.TypeFor[map[string]any]()
+	canonicalSliceType  = reflect.TypeFor[[]any]()
+)
+
+// appendCanonicalPlain encodes the unnamed types row normalization builds
+// without the reflective marshaler checks. These types have no methods, so
+// the general path would reach the same Kind branches and write the same
+// bytes; any other type is left to it.
+func appendCanonicalPlain(out *bytes.Buffer, value reflect.Value, active map[canonicalVisit]bool) (bool, error) {
+	if !value.CanInterface() {
+		return false, nil
+	}
+	switch value.Type() {
+	case canonicalStringType:
+		return true, appendCanonicalString(out, value.String())
+	case canonicalIntType, canonicalInt32Type, canonicalInt64Type:
+		out.WriteString(strconv.FormatInt(value.Int(), 10))
+		return true, nil
+	case canonicalMapType:
+		if value.IsNil() {
+			out.WriteString("null")
+			return true, nil
+		}
+		members := value.Interface().(map[string]any)
+		keys := make([]string, 0, len(members))
+		for key := range members {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+		out.WriteByte('{')
+		for i, key := range keys {
+			if i > 0 {
+				out.WriteByte(',')
+			}
+			if err := appendCanonicalString(out, key); err != nil {
+				return true, err
+			}
+			out.WriteByte(':')
+			if err := appendCanonical(out, reflect.ValueOf(members[key]), active); err != nil {
+				return true, err
+			}
+		}
+		out.WriteByte('}')
+		return true, nil
+	case canonicalSliceType:
+		if value.IsNil() {
+			out.WriteString("null")
+			return true, nil
+		}
+		out.WriteByte('[')
+		for i, item := range value.Interface().([]any) {
+			if i > 0 {
+				out.WriteByte(',')
+			}
+			if err := appendCanonical(out, reflect.ValueOf(item), active); err != nil {
+				return true, err
+			}
+		}
+		out.WriteByte(']')
+		return true, nil
+	}
+	return false, nil
+}
+
 func canonicalEmpty(value reflect.Value) bool {
 	switch value.Kind() {
 	case reflect.Array, reflect.Map, reflect.Slice, reflect.String:
@@ -270,6 +342,13 @@ func appendCanonicalString(out *bytes.Buffer, value string) error {
 		return errCanonicalValue
 	}
 	out.WriteByte('"')
+	// A valid string with no quote, backslash or control byte encodes as its
+	// own bytes; the rune loop below would write exactly the same bytes.
+	if !canonicalStringNeedsEscape(value) {
+		out.WriteString(value)
+		out.WriteByte('"')
+		return nil
+	}
 	for _, r := range value {
 		switch r {
 		case '"', '\\':
@@ -297,6 +376,15 @@ func appendCanonicalString(out *bytes.Buffer, value string) error {
 	}
 	out.WriteByte('"')
 	return nil
+}
+
+func canonicalStringNeedsEscape(value string) bool {
+	for i := 0; i < len(value); i++ {
+		if c := value[i]; c < 0x20 || c == '"' || c == '\\' {
+			return true
+		}
+	}
+	return false
 }
 
 func (profile timestampProfile) canonicalObject() canonicalObject {

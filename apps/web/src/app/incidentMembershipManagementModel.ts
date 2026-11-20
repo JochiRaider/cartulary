@@ -1,3 +1,5 @@
+import type { HTTPOperationFailureCode } from "../services/browserApi";
+import { type ClientErrorCode, notAppliedText } from "../shared/publicError";
 import type { WorkbookIncidentRole } from "../shared/workbookShellContracts";
 import type {
   CreateIncidentMembershipRequest,
@@ -72,29 +74,18 @@ export type MembershipAttempt = {
   readonly base: Membership | null;
   readonly label: string;
 };
-export const membershipProblemCodes = [
-  "user_not_found",
-  "user_inactive",
-  "membership_exists_use_patch",
-  "last_incident_admin",
-  "membership_not_found",
-  "membership_version_conflict",
-  "client_txn_conflict",
-  "authorization_denied",
-  "invalid_mutation_payload",
-  "csrf_verification_failed",
-  "session_required",
-  "incident_not_found",
-  "invalid_pagination_request",
-  "service_unavailable",
-  "internal_error",
-  "invalid_public_contract_response",
-  "transport_uncertain",
-  "access_unavailable",
-  "unknown_public_error",
-] as const;
+/** Operations whose failures membership management decodes and presents. */
+export type MembershipHTTPOperation =
+  | "listIncidentMemberships"
+  | "createIncidentMembership"
+  | "patchIncidentMembership"
+  | "deleteIncidentMembership";
+/** Declared operation codes plus the client-originated write outcomes. */
+export type MembershipProblemCode =
+  | HTTPOperationFailureCode<MembershipHTTPOperation>
+  | Extract<ClientErrorCode, "transport_uncertain" | "access_unavailable">;
 export type MembershipProblem = {
-  readonly code: (typeof membershipProblemCodes)[number];
+  readonly code: MembershipProblemCode;
   readonly field?: string | undefined;
 };
 export type MembershipRefresh = "idle" | "pending" | "failed" | "done";
@@ -198,6 +189,8 @@ export function membershipProblemText(problem: MembershipProblem): string {
       return "The request was rejected. Check current access before trying again.";
     case "access_unavailable":
       return "Current access could not be checked. No write was sent. Check access before trying again.";
+    case "service_unavailable":
+      return notAppliedText();
     default:
       return "The operation outcome is unavailable. Review its recovery options.";
   }

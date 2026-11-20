@@ -143,8 +143,26 @@ func (c *Coordinator) ValidateTransactionFinding(profile, algorithm string, find
 	return false
 }
 
+// Registered migration-step conditions. Both report extension_migration_failed;
+// the condition records whether an algorithm or the step's commit failed.
+const (
+	migrationValidationInvocationCondition = "extension_migration_validation_invocation_failure"
+	migrationCommitAbsentCondition         = "extension_migration_commit_absent"
+)
+
 func (c *Coordinator) migrationValidationFailure(profile, migration string, from, to int) StartupFinding {
-	return c.registeredResultFinding("extension_migration_validation_invocation_failure", StartupFinding{Path: "$", ReasonCode: "extension_migration_failed", Message: "Extension state migration failed.", Details: map[string]any{"profile_id": profile, "migration_id": migration, "from_state_version": from, "to_state_version": to}})
+	return c.migrationStepFailure(migrationValidationInvocationCondition, profile, migration, from, to)
+}
+
+// migrationCommitFailure is a step whose commit is proven absent (EXT-REQ-215)
+// for a reason other than its deadline: nothing committed, and the step fails
+// with extension_migration_failed under the commit_absent condition class.
+func (c *Coordinator) migrationCommitFailure(profile, migration string, from, to int) StartupFinding {
+	return c.migrationStepFailure(migrationCommitAbsentCondition, profile, migration, from, to)
+}
+
+func (c *Coordinator) migrationStepFailure(conditionID, profile, migration string, from, to int) StartupFinding {
+	return c.registeredResultFinding(conditionID, StartupFinding{Path: "$", ReasonCode: "extension_migration_failed", Message: "Extension state migration failed.", Details: map[string]any{"profile_id": profile, "migration_id": migration, "from_state_version": from, "to_state_version": to}})
 }
 
 func compareStartupFinding(a, b StartupFinding) int {

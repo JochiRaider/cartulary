@@ -20,7 +20,6 @@ type Service struct {
 	store          *Store
 	incidentAccess *admission.Checker
 	authStore      *authn.Store
-	keys           authn.MasterKeys
 	cursorCodec    *pagination.Codec
 	now            func() time.Time
 	previewJobs    PreviewJobPort
@@ -30,21 +29,26 @@ type RouteOptions struct {
 	PreviewJobs PreviewJobPort
 }
 
+// RegisterRoutes binds the composition routes for central admission (Core 01
+// REQ-01-707): the registry authenticates by each operation's declared
+// security and admits incident_id, composition_id and composition_version
+// before a handler runs. A malformed value receives the parameter's declared
+// not-found response, which carries its validation_code.
 func RegisterRoutes(options RouteOptions) httpapi.RouteRegistrar {
 	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
 		service, err := newService(deps, options)
 		if err != nil {
 			return err
 		}
-		return httpapi.BindOwnerRoutes(mux, deps, "module.reportcomposition", map[string]http.HandlerFunc{
-			"createReportComposition":        service.handleCollection,
-			"freezeReportCompositionVersion": service.handleVersions,
-			"getReportComposition":           service.handleResource,
+		return httpapi.BindAdmittedOwnerRoutes(mux, deps, "module.reportcomposition", map[string]http.HandlerFunc{
+			"createReportComposition":        service.handleCreate,
+			"freezeReportCompositionVersion": service.handleFreeze,
+			"getReportComposition":           service.handleGet,
 			"getReportCompositionVersion":    service.handleVersion,
-			"listReportCompositions":         service.handleCollection,
+			"listReportCompositions":         service.handleList,
 			"previewReportComposition":       service.handlePreview,
-			"retireReportComposition":        service.handleResource,
-			"updateReportCompositionDraft":   service.handleResource,
+			"retireReportComposition":        service.handleRetire,
+			"updateReportCompositionDraft":   service.handleUpdate,
 			"validateReportComposition":      service.handleValidate,
 		})
 	}
@@ -74,154 +78,178 @@ func newService(deps httpapi.DependencySet, options RouteOptions) (*Service, err
 		store:          NewStore(deps.PostgresHandle()),
 		incidentAccess: admission.NewChecker(deps.PostgresHandle()),
 		authStore:      authn.NewStore(deps.PostgresHandle()),
-		keys:           keys,
 		cursorCodec:    cursorCodec,
 		now:            now,
 		previewJobs:    options.PreviewJobs,
 	}, nil
 }
 
-func (s *Service) handleCollection(w http.ResponseWriter, r *http.Request) {
-	incidentID, ok := parsePathUUID(w, r, "incident_id")
-	if !ok {
-		return
+// admittedIncident returns the principal and incident_id central admission
+// established (REQ-01-707 steps 2 and 3); their absence is a binding error.
+func admittedIncident(r *http.Request) (httpauth.Principal, uuid.UUID, *httpapi.APIError) {
+	principal, authenticated := httpauth.AdmittedPrincipal(r)
+	incidentID, identified := httpapi.PathUUID(r, "incident_id")
+	if !authenticated || !identified {
+		return httpauth.Principal{}, uuid.UUID{}, httpapi.InternalAPIError(errors.New("report composition route was not admitted centrally"))
 	}
-	stateChanging := r.Method == http.MethodPost
-	principal, apiErr := s.authenticate(r, stateChanging)
+	return principal, incidentID, nil
+}
+
+// admittedComposition additionally returns the admitted composition_id.
+func admittedComposition(r *http.Request) (httpauth.Principal, uuid.UUID, uuid.UUID, *httpapi.APIError) {
+	principal, incidentID, apiErr := admittedIncident(r)
+	if apiErr != nil {
+		return httpauth.Principal{}, uuid.UUID{}, uuid.UUID{}, apiErr
+	}
+	compositionID, ok := httpapi.PathUUID(r, "composition_id")
+	if !ok {
+		return httpauth.Principal{}, uuid.UUID{}, uuid.UUID{}, httpapi.InternalAPIError(errors.New("report composition route did not admit composition_id"))
+	}
+	return principal, incidentID, compositionID, nil
+}
+
+func (s *Service) handleList(w http.ResponseWriter, r *http.Request) {
+	principal, incidentID, apiErr := admittedIncident(r)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	switch r.Method {
-	case http.MethodGet:
-		if apiErr := validateCompositionListQuery(r); apiErr != nil {
-			writeAPIError(w, r, apiErr)
-			return
-		}
-		if _, apiErr := s.requireIncidentMembership(r, incidentID, principal.User.ID); apiErr != nil {
-			writeAPIError(w, r, apiErr)
-			return
-		}
-		resources, err := s.store.ListResources(r.Context(), incidentID)
-		if err != nil {
-			writeAPIError(w, r, internalAPIError(err))
-			return
-		}
-		binding, cursor, reason := s.cursorCodec.ResolveListRequest(r.URL.Query(), "report_compositions.list", principal.User.ID.String(), map[string]string{"incident_id": incidentID.String()})
-		if reason != "" {
-			writeAPIError(w, r, invalidPaginationRequest(reason))
-			return
-		}
-		rows, nextCursor, err := pagination.PageResources(binding, cursor, resources)
-		if errors.Is(err, pagination.ErrInvalidCursorToken) {
-			writeAPIError(w, r, invalidPaginationRequest(pagination.ReasonInvalidCursorToken))
-			return
-		}
-		if err != nil {
-			writeAPIError(w, r, internalAPIError(err))
-			return
-		}
-		var nextToken *string
-		if nextCursor != nil {
-			token, err := s.cursorCodec.Encode(*nextCursor)
-			if err != nil {
-				writeAPIError(w, r, internalAPIError(err))
-				return
-			}
-			nextToken = &token
-		}
-		if err := s.slideSessionIfNeeded(r, &principal); err != nil {
-			writeAPIError(w, r, internalAPIError(err))
-			return
-		}
-		_ = httpapi.WriteSuccessWithPaging(w, r, http.StatusOK, map[string]any{"composition_resources": rows}, httpapi.PagingMeta{
-			Limit:      binding.Limit,
-			HasMore:    nextToken != nil,
-			NextCursor: nextToken,
-		})
-	case http.MethodPost:
-		if _, apiErr := s.requireIncidentRole(r, incidentID, principal.User.ID, admission.RolesEditorAdmin, "editor|admin"); apiErr != nil {
-			writeAPIError(w, r, apiErr)
-			return
-		}
-		request, apiErr := DecodeCreateDraftRequest(r.Body)
-		if apiErr != nil {
-			writeAPIError(w, r, apiErr)
-			return
-		}
-		result, err := s.store.CreateDraft(r.Context(), incidentID, principal.User.ID, request, s.now())
-		s.writeMutationResult(w, r, &principal, request.ClientTxnID, result, err, "composition_not_found")
-	default:
-		w.WriteHeader(http.StatusMethodNotAllowed)
-	}
-}
-
-func (s *Service) handleResource(w http.ResponseWriter, r *http.Request) {
-	incidentID, compositionID, ok := parseIncidentCompositionPath(w, r)
-	if !ok {
+	if _, apiErr := s.requireIncidentMembership(r, incidentID, principal.User.ID); apiErr != nil {
+		writeAPIError(w, r, apiErr)
 		return
 	}
-	stateChanging := r.Method == http.MethodPatch || r.Method == http.MethodDelete
-	principal, apiErr := s.authenticate(r, stateChanging)
+	// REQ-01-704 and REQ-01-707 step 5: the query is route handling, decided
+	// after the incident's visibility.
+	if apiErr := validateCompositionListQuery(r); apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	resources, err := s.store.ListResources(r.Context(), incidentID)
+	if err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	binding, cursor, reason := s.cursorCodec.ResolveListRequest(r.URL.Query(), "report_compositions.list", principal.User.ID.String(), map[string]string{"incident_id": incidentID.String()})
+	if reason != "" {
+		writeAPIError(w, r, invalidPaginationRequest(reason))
+		return
+	}
+	rows, nextCursor, err := pagination.PageResources(binding, cursor, resources)
+	if errors.Is(err, pagination.ErrInvalidCursorToken) {
+		writeAPIError(w, r, invalidPaginationRequest(pagination.ReasonInvalidCursorToken))
+		return
+	}
+	if err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	var nextToken *string
+	if nextCursor != nil {
+		token, err := s.cursorCodec.Encode(*nextCursor)
+		if err != nil {
+			writeAPIError(w, r, internalAPIError(err))
+			return
+		}
+		nextToken = &token
+	}
+	if err := s.slideSessionIfNeeded(r, &principal); err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	_ = httpapi.WriteSuccessWithPaging(w, r, http.StatusOK, map[string]any{"composition_resources": rows}, httpapi.PagingMeta{
+		Limit:      binding.Limit,
+		HasMore:    nextToken != nil,
+		NextCursor: nextToken,
+	})
+}
+
+func (s *Service) handleCreate(w http.ResponseWriter, r *http.Request) {
+	principal, incidentID, apiErr := admittedIncident(r)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	switch r.Method {
-	case http.MethodGet:
-		if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
-			writeAPIError(w, r, apiErr)
-			return
-		}
-		if _, apiErr := s.requireIncidentMembership(r, incidentID, principal.User.ID); apiErr != nil {
-			writeAPIError(w, r, apiErr)
-			return
-		}
-		_, payload, err := s.store.GetResource(r.Context(), incidentID, compositionID)
-		if err != nil {
-			s.writeReadError(w, r, err, "composition_not_found")
-			return
-		}
-		if err := s.slideSessionIfNeeded(r, &principal); err != nil {
-			writeAPIError(w, r, internalAPIError(err))
-			return
-		}
-		_ = httpapi.WriteSuccess(w, r, http.StatusOK, payload)
-	case http.MethodPatch:
-		if _, apiErr := s.requireIncidentRole(r, incidentID, principal.User.ID, admission.RolesEditorAdmin, "editor|admin"); apiErr != nil {
-			writeAPIError(w, r, apiErr)
-			return
-		}
-		request, apiErr := DecodeUpdateDraftRequest(r.Body)
-		if apiErr != nil {
-			writeAPIError(w, r, apiErr)
-			return
-		}
-		result, err := s.store.UpdateDraft(r.Context(), incidentID, compositionID, principal.User.ID, request, s.now())
-		s.writeMutationResult(w, r, &principal, request.ClientTxnID, result, err, "composition_not_found")
-	case http.MethodDelete:
-		if _, apiErr := s.requireIncidentRole(r, incidentID, principal.User.ID, admission.RolesEditorAdmin, "editor|admin"); apiErr != nil {
-			writeAPIError(w, r, apiErr)
-			return
-		}
-		request, apiErr := DecodeDraftVersionRequest(r.Body)
-		if apiErr != nil {
-			writeAPIError(w, r, apiErr)
-			return
-		}
-		result, err := s.store.RetireResource(r.Context(), incidentID, compositionID, principal.User.ID, request, s.now())
-		s.writeMutationResult(w, r, &principal, request.ClientTxnID, result, err, "composition_not_found")
-	default:
-		w.WriteHeader(http.StatusMethodNotAllowed)
-	}
-}
-
-func (s *Service) handleVersions(w http.ResponseWriter, r *http.Request) {
-	incidentID, compositionID, ok := parseIncidentCompositionPath(w, r)
-	if !ok {
+	if _, apiErr := s.requireIncidentRole(r, incidentID, principal.User.ID, admission.RolesEditorAdmin, "editor|admin"); apiErr != nil {
+		writeAPIError(w, r, apiErr)
 		return
 	}
-	principal, apiErr := s.authenticate(r, true)
+	request, apiErr := DecodeCreateDraftRequest(r.Body)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	result, err := s.store.CreateDraft(r.Context(), incidentID, principal.User.ID, request, s.now())
+	s.writeMutationResult(w, r, &principal, request.ClientTxnID, result, err, "composition_not_found")
+}
+
+func (s *Service) handleGet(w http.ResponseWriter, r *http.Request) {
+	principal, incidentID, compositionID, apiErr := admittedComposition(r)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	if _, apiErr := s.requireIncidentMembership(r, incidentID, principal.User.ID); apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	// REQ-01-704 and REQ-01-707 step 5: the singleton-query check is route
+	// handling, decided after the incident's visibility (REQ-RC-031a).
+	if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	_, payload, err := s.store.GetResource(r.Context(), incidentID, compositionID)
+	if err != nil {
+		s.writeReadError(w, r, err, "composition_not_found")
+		return
+	}
+	if err := s.slideSessionIfNeeded(r, &principal); err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	_ = httpapi.WriteSuccess(w, r, http.StatusOK, payload)
+}
+
+func (s *Service) handleUpdate(w http.ResponseWriter, r *http.Request) {
+	principal, incidentID, compositionID, apiErr := admittedComposition(r)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	if _, apiErr := s.requireIncidentRole(r, incidentID, principal.User.ID, admission.RolesEditorAdmin, "editor|admin"); apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	request, apiErr := DecodeUpdateDraftRequest(r.Body)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	result, err := s.store.UpdateDraft(r.Context(), incidentID, compositionID, principal.User.ID, request, s.now())
+	s.writeMutationResult(w, r, &principal, request.ClientTxnID, result, err, "composition_not_found")
+}
+
+func (s *Service) handleRetire(w http.ResponseWriter, r *http.Request) {
+	principal, incidentID, compositionID, apiErr := admittedComposition(r)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	if _, apiErr := s.requireIncidentRole(r, incidentID, principal.User.ID, admission.RolesEditorAdmin, "editor|admin"); apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	request, apiErr := DecodeDraftVersionRequest(r.Body)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	result, err := s.store.RetireResource(r.Context(), incidentID, compositionID, principal.User.ID, request, s.now())
+	s.writeMutationResult(w, r, &principal, request.ClientTxnID, result, err, "composition_not_found")
+}
+
+func (s *Service) handleFreeze(w http.ResponseWriter, r *http.Request) {
+	principal, incidentID, compositionID, apiErr := admittedComposition(r)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -240,25 +268,31 @@ func (s *Service) handleVersions(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) handleVersion(w http.ResponseWriter, r *http.Request) {
-	incidentID, compositionID, ok := parseIncidentCompositionPath(w, r)
-	if !ok {
-		return
-	}
-	version, ok := parsePathCompositionVersion(w, r)
-	if !ok {
-		return
-	}
-	principal, apiErr := s.authenticate(r, false)
+	principal, incidentID, compositionID, apiErr := admittedComposition(r)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
-		writeAPIError(w, r, apiErr)
+	versionText, ok := httpapi.PathString(r, "composition_version")
+	if !ok {
+		writeAPIError(w, r, httpapi.InternalAPIError(errors.New("report composition route did not admit composition_version")))
 		return
 	}
 	if _, apiErr := s.requireIncidentMembership(r, incidentID, principal.User.ID); apiErr != nil {
 		writeAPIError(w, r, apiErr)
+		return
+	}
+	// REQ-01-704 and REQ-01-707 step 5: the singleton-query check is route
+	// handling, decided after the incident's visibility (REQ-RC-031a).
+	if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	// Central admission checked the declared syntax; a version beyond the
+	// representable range names no version, so it is the missing version.
+	version, ok := parseCompositionVersion(versionText)
+	if !ok {
+		writeAPIError(w, r, validationCodeError(http.StatusNotFound, "not_found", "composition_version_not_found"))
 		return
 	}
 	_, payload, err := s.store.GetVersion(r.Context(), incidentID, compositionID, version)
@@ -274,11 +308,7 @@ func (s *Service) handleVersion(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) handleValidate(w http.ResponseWriter, r *http.Request) {
-	incidentID, compositionID, ok := parseIncidentCompositionPath(w, r)
-	if !ok {
-		return
-	}
-	principal, apiErr := s.authenticate(r, false)
+	principal, incidentID, compositionID, apiErr := admittedComposition(r)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -322,11 +352,7 @@ func (s *Service) handleValidate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) handlePreview(w http.ResponseWriter, r *http.Request) {
-	incidentID, compositionID, ok := parseIncidentCompositionPath(w, r)
-	if !ok {
-		return
-	}
-	principal, apiErr := s.authenticate(r, true)
+	principal, incidentID, compositionID, apiErr := admittedComposition(r)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -349,10 +375,6 @@ func (s *Service) handlePreview(w http.ResponseWriter, r *http.Request) {
 	s.writePreviewResult(w, r, &principal, request.ClientTxnID, result, err)
 }
 
-func (s *Service) authenticate(r *http.Request, stateChanging bool) (httpauth.Principal, *httpapi.APIError) {
-	return httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: stateChanging})
-}
-
 func (s *Service) requireIncidentMembership(r *http.Request, incidentID uuid.UUID, userID uuid.UUID) (admission.Grant, *httpapi.APIError) {
 	grant, err := s.incidentAccess.Check(r.Context(), incidentID, userID, admission.Requirement{
 		AllowedRoles: admission.RolesMember,
@@ -372,7 +394,7 @@ func (s *Service) requireIncidentRole(r *http.Request, incidentID uuid.UUID, use
 func reportCompositionAdmissionResult(grant admission.Grant, err error, requiredRole string) (admission.Grant, *httpapi.APIError) {
 	switch {
 	case admission.IsDenied(err, admission.DenialNotVisible):
-		return admission.Grant{}, &httpapi.APIError{Status: http.StatusNotFound, Code: "incident_not_found", Details: map[string]any{}}
+		return admission.Grant{}, httpapi.NotFound("incident_not_found")
 	case admission.IsDenied(err, admission.DenialInsufficientRole):
 		return admission.Grant{}, &httpapi.APIError{Status: http.StatusForbidden, Code: "authorization_denied", Details: map[string]any{"required_role": requiredRole}}
 	case err != nil:
@@ -383,7 +405,7 @@ func reportCompositionAdmissionResult(grant admission.Grant, err error, required
 }
 
 func (s *Service) slideSessionIfNeeded(r *http.Request, principal *httpauth.Principal) error {
-	return httpauth.SlideSessionIfNeeded(r.Context(), s.authStore, principal, r.Method, r.URL.Path, s.now)
+	return httpauth.SlideSessionIfNeeded(r.Context(), s.authStore, principal, s.now)
 }
 
 func (s *Service) writeMutationResult(w http.ResponseWriter, r *http.Request, principal *httpauth.Principal, clientTxnID string, result MutationResult, err error, notFoundCode string) {
@@ -455,36 +477,6 @@ func (s *Service) writeStoreError(w http.ResponseWriter, r *http.Request, err er
 	}
 	writeAPIError(w, r, internalAPIError(err))
 	return true
-}
-
-func parsePathUUID(w http.ResponseWriter, r *http.Request, name string) (uuid.UUID, bool) {
-	value, err := uuid.Parse(r.PathValue(name))
-	if err != nil {
-		writeAPIError(w, r, schemaFieldError(name, "invalid_value"))
-		return uuid.UUID{}, false
-	}
-	return value, true
-}
-
-func parseIncidentCompositionPath(w http.ResponseWriter, r *http.Request) (uuid.UUID, uuid.UUID, bool) {
-	incidentID, ok := parsePathUUID(w, r, "incident_id")
-	if !ok {
-		return uuid.UUID{}, uuid.UUID{}, false
-	}
-	compositionID, ok := parsePathUUID(w, r, "composition_id")
-	if !ok {
-		return uuid.UUID{}, uuid.UUID{}, false
-	}
-	return incidentID, compositionID, true
-}
-
-func parsePathCompositionVersion(w http.ResponseWriter, r *http.Request) (int64, bool) {
-	version, ok := parseCompositionVersion(r.PathValue("composition_version"))
-	if !ok {
-		writeAPIError(w, r, schemaFieldError("composition_version", "invalid_value"))
-		return 0, false
-	}
-	return version, true
 }
 
 func validateInlineComposition(record ResourceRecord, raw json.RawMessage) map[string]any {

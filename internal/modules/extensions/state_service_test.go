@@ -642,6 +642,25 @@ func TestStateRuntimeAdmit_ServiceBacked_CancellationDeadlineTie(t *testing.T) {
 }
 
 func TestStateRuntimeAdmit_ServiceBacked_CommitOutcomeCommitted(t *testing.T) {
+	t.Run("caller cancellation while commit is issued", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		faults := &stateTestFaults{commitModes: []string{"caller_canceled"}, beforeCommit: cancel}
+		fixture := newSyntheticStateFixture(t, faults)
+		plan := syntheticStatePlan(1)
+		var fatalCalls atomic.Int32
+		runtime := newSyntheticStateRuntime(t, fixture.store, stateRuntimeTestOptions{
+			fatalSink: func(error) { fatalCalls.Add(1) },
+		})
+		err := runtime.Admit(ctx, plan)
+		var fatalErr *FatalStateIntegrityError
+		if errors.As(err, &fatalErr) || fatalCalls.Load() != 0 {
+			t.Fatalf("issued commit lost to caller cancellation: %v fatal_calls=%d", err, fatalCalls.Load())
+		}
+		if ctx.Err() == nil || readStateMetadata(t, fixture.pool, plan.ProfileID).StateVersion != 1 {
+			t.Fatalf("committed initialization not retained: err=%v", err)
+		}
+	})
 	faults := &stateTestFaults{commitModes: []string{"committed_with_error"}}
 	fixture := newSyntheticStateFixture(t, faults)
 	plan := syntheticStatePlan(1)
@@ -655,6 +674,41 @@ func TestStateRuntimeAdmit_ServiceBacked_CommitOutcomeCommitted(t *testing.T) {
 }
 
 func TestStateRuntimeAdmit_ServiceBacked_CommitOutcomeAbsent(t *testing.T) {
+	t.Run("deferred constraint failure at a migration commit", func(t *testing.T) {
+		faults := &stateTestFaults{commitModes: []string{"deferred_fk_violation"}}
+		fixture := newSyntheticStateFixture(t, faults)
+		seedSyntheticMetadata(t, fixture.pool, syntheticMetadata("test_profile.state_v1", 1, 1, nil))
+		plan := syntheticStatePlan(2)
+		var fatalCalls atomic.Int32
+		runtime := newSyntheticStateRuntime(t, fixture.store, stateRuntimeTestOptions{
+			migrations:        standardSyntheticMigrations(t, nil),
+			pendingValidators: standardSyntheticPendingValidators(),
+			fatalSink:         func(error) { fatalCalls.Add(1) },
+		})
+		err := runtime.Admit(context.Background(), plan)
+		var failure *StartupValidationError
+		var fatalErr *FatalStateIntegrityError
+		if errors.As(err, &fatalErr) || fatalCalls.Load() != 0 || !errors.As(err, &failure) || len(failure.Findings) != 1 {
+			t.Fatalf("definite migration commit failure = %v fatal_calls=%d", err, fatalCalls.Load())
+		}
+		finding := failure.Findings[0]
+		if finding.ReasonCode != "extension_migration_failed" || finding.Details["migration_id"] != "test_profile.migrate_1_2_v1" ||
+			finding.Details["from_state_version"] != 1 || finding.Details["to_state_version"] != 2 {
+			t.Fatalf("migration failure finding = %#v", finding)
+		}
+		// The refused commit has its own registered condition, not the
+		// algorithm-result condition of a failed apply or validation.
+		condition, registered := runtime.coordinator.ValidationCondition(failure.conditionID)
+		if failure.conditionID != "extension_migration_commit_absent" || !registered ||
+			condition.ConditionClass != "commit_absent" || condition.Phase != "migration_validation" ||
+			condition.ReasonCode != "extension_migration_failed" || condition.Multiplicity != "one_per_occurrence" ||
+			condition.SecretPolicy != "redacted" {
+			t.Fatalf("migration commit condition = %q %#v registered=%v", failure.conditionID, condition, registered)
+		}
+		if readStateMetadata(t, fixture.pool, plan.ProfileID).StateVersion != 1 || ledgerCount(t, fixture.pool, plan.ProfileID) != 0 || syntheticMemberCount(t, fixture.pool) != 0 {
+			t.Fatal("rolled-back migration step left durable effects")
+		}
+	})
 	faults := &stateTestFaults{commitModes: []string{"absent"}}
 	fixture := newSyntheticStateFixture(t, faults)
 	plan := syntheticStatePlan(1)

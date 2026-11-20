@@ -281,7 +281,7 @@ it("Mention replay rejection preserves original uncertainty and local target err
     kind: "rejected",
     failure: {
       kind: "stale_target",
-      publicCode: "record_not_found",
+      publicCode: "resolved_record_not_found",
       message: "Target no longer available",
     },
   });

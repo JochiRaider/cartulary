@@ -105,10 +105,10 @@ func TestEvidenceCleanupDispatcherStartsOnlyAfterServingReadiness(t *testing.T) 
 		lifecycle:                 lifecycle,
 		evidenceCleanupDispatcher: dispatcher,
 	}
-	runtime.own("evidence_cleanup_dispatcher", func(ctx context.Context) {
+	runtime.own("evidence_cleanup_dispatcher", func(ctx context.Context) error {
 		closeCtx, cancel := context.WithTimeout(ctx, time.Second)
 		defer cancel()
-		_ = dispatcher.Close(closeCtx)
+		return dispatcher.Close(closeCtx)
 	})
 	t.Cleanup(runtime.Close)
 	select {
@@ -148,9 +148,9 @@ func TestNetworkFlowCleanupDispatcherStartsAfterReadinessAndStopsInReverseOrder(
 		networkFlowCleanupDispatcher: networkFlowDispatcher,
 		graphActivation:              graphActivation,
 	}
-	runtime.own("evidence_cleanup_dispatcher", func(ctx context.Context) { _ = evidenceDispatcher.Close(ctx) })
-	runtime.own("network_flow_cleanup_dispatcher", func(ctx context.Context) { _ = networkFlowDispatcher.Close(ctx) })
-	runtime.own("graph_activation", func(ctx context.Context) { _ = graphActivation.Close(ctx) })
+	runtime.ownBackground("evidence_cleanup_dispatcher", evidenceDispatcher.Close)
+	runtime.ownBackground("network_flow_cleanup_dispatcher", networkFlowDispatcher.Close)
+	runtime.ownBackground("graph_activation", graphActivation.Close)
 	beginTestPublication(t, runtime)
 	if err := runtime.ActivatePublication(); err != nil {
 		t.Fatal(err)
@@ -168,14 +168,18 @@ func TestNetworkFlowCleanupDispatcherStartsAfterReadinessAndStopsInReverseOrder(
 		}
 	}
 	runtime.Close()
-	for _, want := range []string{"close:network_flow", "close:evidence"} {
+	// Background dispatchers close concurrently at shutdown (REQ-04-146a), so
+	// both closes are required in any order.
+	closing := map[string]bool{"close:network_flow": true, "close:evidence": true}
+	for range 2 {
 		select {
 		case got := <-events:
-			if got != want {
-				t.Fatalf("cleanup shutdown event=%q want=%q", got, want)
+			if !closing[got] {
+				t.Fatalf("unexpected cleanup shutdown event=%q", got)
 			}
+			delete(closing, got)
 		case <-time.After(time.Second):
-			t.Fatalf("cleanup shutdown omitted %q", want)
+			t.Fatalf("cleanup shutdown omitted %v", closing)
 		}
 	}
 }
@@ -231,4 +235,84 @@ func (lifecycle *serverCleanupLifecycle) Close(context.Context) error {
 		lifecycle.events <- "close:" + lifecycle.name
 	}
 	return nil
+}
+
+// TestEvidenceCleanupTelemetryRecordsInvariantViolationSweeps proves the
+// cleanup operation signals for REQ-02-189a sweeps: a sweep observed as
+// failed with invariant_violation keeps that closed error class on
+// cartulary.evidence.cleanup.operations and ...sweep.duration (never coerced to
+// internal_error), and a clean sweep records success without an error class.
+func TestEvidenceCleanupTelemetryRecordsInvariantViolationSweeps(t *testing.T) {
+	ctx := context.Background()
+	capture := telemetrytest.StartCapture()
+	t.Cleanup(func() { capture.Close(context.Background()) })
+	logs := logcapture.Start()
+	t.Cleanup(func() {
+		if err := logs.Close(context.Background()); err != nil {
+			t.Errorf("close log capture: %v", err)
+		}
+	})
+	observer, err := newEvidenceCleanupTelemetryObserver("1.2.3")
+	if err != nil {
+		t.Fatal(err)
+	}
+	observer.ObserveCleanupSweep(ctx, evidence.CleanupSweepObservation{
+		Operation: "cleanup_sweep", Result: "failed", ErrorClass: "invariant_violation", Duration: time.Second, HealthSnapshotValid: true,
+	})
+	observer.ObserveCleanupSweep(ctx, evidence.CleanupSweepObservation{
+		Operation: "cleanup_sweep", Result: "success", Duration: time.Second, HealthSnapshotValid: true,
+	})
+
+	points, err := capture.MetricPoints(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]bool{
+		"cartulary.operation=cleanup_sweep|cartulary.result=failed|cartulary.error_class=invariant_violation": false,
+		"cartulary.operation=cleanup_sweep|cartulary.result=success|cartulary.error_class=":                   false,
+	}
+	for _, name := range []string{telemetry.EvidenceCleanupOperationsMetricName, telemetry.EvidenceCleanupSweepDurationMetricName} {
+		seen := map[string]bool{}
+		for _, point := range points {
+			if point.Name != name {
+				continue
+			}
+			class, hasClass := point.Attributes["cartulary.error_class"]
+			if point.Attributes["cartulary.result"] == "success" && hasClass {
+				t.Fatalf("%s success point carries an error class: %#v", name, point.Attributes)
+			}
+			key := fmt.Sprintf("cartulary.operation=%s|cartulary.result=%s|cartulary.error_class=%s",
+				point.Attributes["cartulary.operation"], point.Attributes["cartulary.result"], class)
+			if _, expected := want[key]; !expected {
+				t.Fatalf("%s recorded unexpected attributes %#v", name, point.Attributes)
+			}
+			seen[key] = true
+		}
+		for key := range want {
+			if !seen[key] {
+				t.Fatalf("%s omitted the %s point: %#v", name, key, points)
+			}
+		}
+	}
+
+	wantLogs := []logcapture.Record{
+		{
+			Body: "Evidence cleanup sweep completed.", Scope: "cartulary.evidence", Version: "1.2.3",
+			SeverityNumber: 13, SeverityText: "WARN",
+			Attributes: map[string]string{
+				"cartulary.module": "evidence", "cartulary.operation": "cleanup_sweep",
+				"cartulary.result": "failed", "cartulary.error_class": "invariant_violation",
+			},
+		},
+		{
+			Body: "Evidence cleanup sweep completed.", Scope: "cartulary.evidence", Version: "1.2.3",
+			SeverityNumber: 9, SeverityText: "INFO",
+			Attributes: map[string]string{
+				"cartulary.module": "evidence", "cartulary.operation": "cleanup_sweep", "cartulary.result": "success",
+			},
+		},
+	}
+	if got := logs.Records(); !reflect.DeepEqual(got, wantLogs) {
+		t.Fatalf("emitted cleanup logs = %#v, want %#v", got, wantLogs)
+	}
 }

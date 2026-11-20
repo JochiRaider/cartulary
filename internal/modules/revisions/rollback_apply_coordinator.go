@@ -69,6 +69,10 @@ func (a rollbackTransactionalApplier) applyChangeSetRollbackPlanTx(ctx context.C
 	if err != nil {
 		return nil, err
 	}
+	dependents, err := a.captureDependentsTx(ctx, tx, plan.ProjectionRecords, plan.Affected...)
+	if err != nil {
+		return nil, err
+	}
 	nextVersions := make(map[uuid.UUID]int64, len(plan.Affected))
 	for _, recordID := range plan.Affected {
 		nextRowVersion, err := a.envelopes.AdvanceVersionTx(ctx, tx, recordID, actor.UUID(), now)
@@ -113,6 +117,9 @@ func (a rollbackTransactionalApplier) applyChangeSetRollbackPlanTx(ctx context.C
 			return nil, err
 		}
 		changes = append(changes, change)
+	}
+	if err := a.publishDependentChangesTx(ctx, tx, changeSetID, dependents); err != nil {
+		return nil, err
 	}
 	return changes, nil
 }

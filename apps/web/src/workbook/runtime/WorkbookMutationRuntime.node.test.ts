@@ -492,6 +492,56 @@ describe("WorkbookMutationRuntime", () => {
       "  Replacement draft  ",
     );
   });
+
+  it("advances the authorization epoch on resume only after a recovery pause or changed authority", () => {
+    const runtime = createWorkbookMutationRuntime(
+      { clientInstanceId: "client-1", incidentId },
+      transactionIds,
+      createWorkbookPendingMutationAdapter({ apiBase: undefined, incidentId }),
+    );
+    const editor = {
+      actorId: "user-1",
+      sessionIdentity: "session-1",
+      incidentId,
+      role: "editor" as const,
+      closed: false,
+    };
+    runtime.setAuthority(editor);
+    const established = runtime.authorizationEpoch;
+
+    // Every stream (re)establishment resumes; with no pause and the same
+    // accepted authority it is the same authority lifetime.
+    runtime.applyAuthorizationRecoveryState("resumed");
+    runtime.applyAuthorizationRecoveryState("resumed");
+    expect(runtime.authorizationEpoch).toBe(established);
+
+    // Ending a real recovery pause starts a new lifetime exactly once.
+    runtime.applyAuthorizationRecoveryState("paused", false);
+    const paused = runtime.authorizationEpoch;
+    expect(paused).toBeGreaterThan(established);
+    runtime.applyAuthorizationRecoveryState("resumed");
+    expect(runtime.authorizationEpoch).toBe(paused + 1);
+    runtime.applyAuthorizationRecoveryState("resumed");
+    expect(runtime.authorizationEpoch).toBe(paused + 1);
+
+    // A role changed while disconnected arrives through an authoritative read,
+    // which accepts the new authority; the following resume adds nothing.
+    runtime.setAuthority({ ...editor, role: "viewer" });
+    const downgraded = runtime.authorizationEpoch;
+    expect(downgraded).toBe(paused + 2);
+    expect(runtime.recordReadScope?.actorId).toBe("user-1");
+    runtime.applyAuthorizationRecoveryState("resumed");
+    expect(runtime.authorizationEpoch).toBe(downgraded);
+
+    // Accepted authority that differs from the epoch's authority advances it on
+    // resume even without a pause; closure changes authority without one.
+    runtime.invalidate({ kind: "incident_closed" });
+    expect(runtime.authorizationEpoch).toBe(downgraded);
+    runtime.applyAuthorizationRecoveryState("resumed");
+    expect(runtime.authorizationEpoch).toBe(downgraded + 1);
+    runtime.applyAuthorizationRecoveryState("resumed");
+    expect(runtime.authorizationEpoch).toBe(downgraded + 1);
+  });
 });
 
 function registryRuntime(

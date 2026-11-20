@@ -55,7 +55,7 @@ export interface ReportingClient {
 export function createReportingClient(apiBase?: string): ReportingClient {
   return {
     retainedArtifacts: (incidentId, signal) =>
-      fetchHTTPOperation<GetRetainedReportArtifactsResponse>({
+      fetchHTTPOperation({
         apiBase,
         operationID: "getRetainedReportArtifacts",
         pathParameters: { incident_id: incidentId },
@@ -67,28 +67,28 @@ export function createReportingClient(apiBase?: string): ReportingClient {
         `/api/v1/incidents/${encodeURIComponent(incidentId)}/retained-report-artifacts/${encodeURIComponent(artifactId)}/content`,
       ),
     submit: (attempt, signal) =>
-      fetchHTTPOperation<GetJobResponse>({
+      fetchHTTPOperation({
         apiBase,
         operationID:
           attempt.kind === "snapshot" ? "createSnapshot" : "createRelease",
         init: { method: "POST", body: JSON.stringify(attempt.request), signal },
       }),
     read: (jobId, signal) =>
-      fetchHTTPOperation<GetJobResponse>({
+      fetchHTTPOperation({
         apiBase,
         operationID: "getJob",
         pathParameters: { job_id: jobId },
         init: { signal, cache: "no-store" },
       }),
     cancel: (jobId, request, signal) =>
-      fetchHTTPOperation<GetJobResponse>({
+      fetchHTTPOperation({
         apiBase,
         operationID: "cancelJob",
         pathParameters: { job_id: jobId },
         init: { method: "POST", body: JSON.stringify(request), signal },
       }),
     snapshot: (snapshotId, signal) =>
-      fetchHTTPOperation<GetSnapshotResponse>({
+      fetchHTTPOperation({
         apiBase,
         operationID: "getSnapshot",
         pathParameters: { snapshot_id: snapshotId },

@@ -41,7 +41,10 @@ function page(
       : { limit: 100, has_more: false, next_cursor: null },
   };
 }
-const failure = (status: number, code: string): MembershipAuditResult => ({
+const failure = (
+  status: number,
+  code: Extract<MembershipAuditResult, { ok: false }>["error"]["code"],
+): MembershipAuditResult => ({
   ok: false,
   status,
   error: { code },
@@ -231,7 +234,7 @@ describe("Incident membership audit read ownership", () => {
     for (const completion of [
       page("late"),
       failure(401, "session_required"),
-      failure(503, "service_unavailable"),
+      failure(500, "internal_error"),
     ]) {
       const { controller: c, reads, lost } = setup();
       await settle();

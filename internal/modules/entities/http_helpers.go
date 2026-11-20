@@ -52,10 +52,6 @@ func mutationAdmissionAPIError(failure *mutationadmission.Failure) *httpapi.APIE
 	}
 }
 
-func incidentNotFoundError() *httpapi.APIError {
-	return &httpapi.APIError{Status: http.StatusNotFound, Code: "incident_not_found", Details: map[string]any{}}
-}
-
 func authorizationDeniedError(requiredRole string) *httpapi.APIError {
 	details := map[string]any{}
 	if requiredRole != "" {

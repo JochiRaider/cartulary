@@ -7,8 +7,7 @@ import (
 )
 
 func (s *routeService) handleGraphQuery(w http.ResponseWriter, r *http.Request) {
-	routeID := "nf.graphs.query"
-	admitted, apiErr := s.admitOperation(r, routeID)
+	admitted, apiErr := admittedOperation(r)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -25,7 +24,7 @@ func (s *routeService) handleGraphQuery(w http.ResponseWriter, r *http.Request) 
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, httpapi.InternalAPIError(err))
 		return
 	}
@@ -33,8 +32,7 @@ func (s *routeService) handleGraphQuery(w http.ResponseWriter, r *http.Request) 
 }
 
 func (s *routeService) handleGraphContributorsQuery(w http.ResponseWriter, r *http.Request) {
-	routeID := "nf.graphs.contributors.query"
-	admitted, apiErr := s.admitOperation(r, routeID)
+	admitted, apiErr := admittedOperation(r)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -52,7 +50,7 @@ func (s *routeService) handleGraphContributorsQuery(w http.ResponseWriter, r *ht
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, httpapi.InternalAPIError(err))
 		return
 	}

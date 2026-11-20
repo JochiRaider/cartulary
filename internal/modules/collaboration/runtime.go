@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	privatestream "github.com/JochiRaider/cartulary/internal/modules/collaboration/internal/stream"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
@@ -19,9 +20,13 @@ import (
 // Collaboration runtime. The runtime owns its private process components, but
 // it never closes the supplied database or transport.
 type Options struct {
-	Postgres                   dbport.DB
+	Postgres dbport.DB
+	// OpenListenerSession opens the replay listener's dedicated database
+	// session outside the runtime pool, admitted like a pooled connection. The
+	// runtime owns and closes each session it opens.
+	OpenListenerSession        func(context.Context) (*pgx.Conn, error)
 	AcceptSocket               protocol.AcceptSocket
-	CheckBrowserOrigin         protocol.CheckBrowserOrigin
+	CheckOrigin                protocol.CheckOrigin
 	ServiceVersion             string
 	Now                        func() time.Time
 	PublicationCatalog         *PublicationCatalog
@@ -31,7 +36,7 @@ type Options struct {
 
 type routeDependencies struct {
 	acceptSocket   protocol.AcceptSocket
-	checkOrigin    protocol.CheckBrowserOrigin
+	checkOrigin    protocol.CheckOrigin
 	serviceVersion string
 	workspaces     claimedWorkspaces
 }
@@ -54,10 +59,13 @@ func NewRuntime(options Options) (*Runtime, error) {
 	if options.Postgres == nil {
 		return nil, errors.New("collaboration PostgreSQL dependency is required")
 	}
+	if options.OpenListenerSession == nil {
+		return nil, errors.New("collaboration replay listener session dependency is required")
+	}
 	if options.AcceptSocket == nil {
 		return nil, errors.New("collaboration WebSocket accept dependency is required")
 	}
-	if options.CheckBrowserOrigin == nil {
+	if options.CheckOrigin == nil {
 		return nil, errors.New("collaboration WebSocket Origin dependency is required")
 	}
 	if options.OnUnexpectedDispatcherLoss == nil {
@@ -92,13 +100,14 @@ func NewRuntime(options Options) (*Runtime, error) {
 		onUnexpectedDispatcherLoss: options.OnUnexpectedDispatcherLoss,
 		routes: routeDependencies{
 			acceptSocket:   options.AcceptSocket,
-			checkOrigin:    options.CheckBrowserOrigin,
+			checkOrigin:    options.CheckOrigin,
 			serviceVersion: serviceVersion,
 			workspaces:     workspaces,
 		},
 	}
 	runtime.dispatcher, err = privatestream.NewDispatcher(
 		store,
+		options.OpenListenerSession,
 		liveHub,
 		options.Now,
 		serviceVersion,

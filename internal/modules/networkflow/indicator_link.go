@@ -137,7 +137,15 @@ func (s *indicatorLinkApplication) execute(ctx context.Context, incidentID uuid.
 		if errors.As(err, &denied) {
 			return indicatorLinkOutcome{}, applicationAdmissionFailure(err, "editor|admin")
 		}
-		if outcome, replayed, replayErr := s.replay(ctx, idempotencyKey, requestHash, incidentID); replayed || replayErr != nil {
+		// The request context may already be done, for example when the client
+		// disconnected after the deadline was recorded. Classifying the
+		// coordinator outcome must not fail for that reason, so the replay
+		// lookup runs detached, bounded by the cancellation grace once the
+		// request context ends (EXT-REQ-215).
+		replayCtx, stopReplay := s.afterInterruption(ctx)
+		outcome, replayed, replayErr := s.replay(replayCtx, idempotencyKey, requestHash, incidentID)
+		stopReplay()
+		if replayed || replayErr != nil {
 			return outcome, replayErr
 		}
 		if authn.IsUniqueViolation(err) {
@@ -174,6 +182,26 @@ func (s *indicatorLinkApplication) execute(ctx context.Context, incidentID uuid.
 		return indicatorLinkOutcome{}, internalSemanticFailure(resultErr)
 	}
 	return indicatorLinkOutcome{binding: committed.Binding, duplicate: committed.Duplicate}, nil
+}
+
+// afterInterruption returns a context that ignores the request context's
+// cancellation until the coordinator's cancellation grace after it ends.
+func (s *indicatorLinkApplication) afterInterruption(ctx context.Context) (context.Context, func()) {
+	detached, cancel := context.WithCancel(context.WithoutCancel(ctx))
+	grace := s.transactions.CancellationGrace()
+	stop := context.AfterFunc(ctx, func() {
+		timer := time.NewTimer(grace)
+		defer timer.Stop()
+		select {
+		case <-timer.C:
+			cancel()
+		case <-detached.Done():
+		}
+	})
+	return detached, func() {
+		stop()
+		cancel()
+	}
 }
 
 // replay admits a found receipt through current owner policy before exposing

@@ -29,7 +29,12 @@ export type TimelineCaptureAttempt = Readonly<{
 export type TimelineCaptureOutcome =
   | { readonly kind: "acknowledged"; readonly receipt: TimelineCaptureReceipt }
   | { readonly kind: "uncertain" }
-  | { readonly kind: "rejected"; readonly failure: WorkbookOperationFailure };
+  | {
+      readonly kind: "rejected";
+      readonly failure: WorkbookOperationFailure<
+        "markTimelineRecordReviewed" | "supersedeRecord"
+      >;
+    };
 export interface TimelineRecordActionPort {
   capture(review: TimelineCaptureReview, id: string): TimelineCaptureAttempt;
   send(

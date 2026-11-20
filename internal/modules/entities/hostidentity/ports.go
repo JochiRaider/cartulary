@@ -22,6 +22,7 @@ type entityStorePorts struct {
 
 type entityRecordPort interface {
 	LoadEnvelopeTx(context.Context, pgx.Tx, uuid.UUID, bool) (enveloperead.Envelope, error)
+	ClassifyTargetTx(context.Context, pgx.Tx, uuid.UUID, records.TargetLock) (enveloperead.Envelope, error)
 	InsertTx(context.Context, pgx.Tx, entityRecordInsertParams) (uuid.UUID, error)
 	AdvanceVersionTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, time.Time) (int64, error)
 	LoadRowVersionTx(context.Context, pgx.Tx, uuid.UUID) (int64, error)
@@ -99,6 +100,10 @@ func (a entityRecordAdapter) LoadRowVersionTx(ctx context.Context, tx pgx.Tx, re
 
 func (a entityRecordAdapter) LoadEnvelopeTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, lock bool) (enveloperead.Envelope, error) {
 	return a.store.LoadEnvelopeTx(ctx, tx, recordID, lock)
+}
+
+func (a entityRecordAdapter) ClassifyTargetTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, lock records.TargetLock) (enveloperead.Envelope, error) {
+	return a.store.ClassifyTargetTx(ctx, tx, recordID, lock)
 }
 
 type entityRevisionAdapter struct {

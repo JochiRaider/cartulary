@@ -38,9 +38,12 @@ type DependencySet struct {
 	Readiness           ReadinessChecker
 	Admission           AdmissionGate
 	PublicRoutes        *RouteRegistry
-	TestResetBootstrap  func(context.Context, pgx.Tx) error
-	ModuleOverrides     map[string]any
-	Now                 func() time.Time
+	// Authenticator authenticates centrally admitted operations by their
+	// declared security (Core 01 REQ-01-707 step 2).
+	Authenticator      Authenticator
+	TestResetBootstrap func(context.Context, pgx.Tx) error
+	ModuleOverrides    map[string]any
+	Now                func() time.Time
 }
 
 type TelemetrySettings struct {
@@ -62,6 +65,34 @@ type Options struct {
 	AdditionalRoutes     []RouteRegistrar
 	RequestIDSequence    func() string
 	ValidatePublicRoutes bool
+	// ErrorCodeGuard enforces Core 01 REQ-01-702 for resolved operations
+	// (TH-HARNESS-REQ-858). Only harness builds and test servers set it.
+	ErrorCodeGuard *ErrorCodeGuard
+	// SecurityGuard enforces Core 01 REQ-01-703 for resolved operations
+	// (TH-HARNESS-REQ-859). Only harness builds and test servers set it.
+	SecurityGuard *SecurityGuard
+}
+
+// ErrorCodeGuard checks that a resolved operation writes only declared error
+// codes. Report observes each violation; Enforce replaces the response with
+// 500 internal_error. Observe sees every error a resolved operation writes,
+// declared or not, with the code the operation wrote and the status it is
+// emitted with, before any enforcement replaces it (TH-HARNESS-REQ-862).
+type ErrorCodeGuard struct {
+	Enforce bool
+	Report  func(operationID string, status int, code string)
+	Observe func(operationID string, status int, code string)
+}
+
+type errorCodeGuardContextKey struct{}
+
+func withErrorCodeGuard(next http.Handler, guard *ErrorCodeGuard) http.Handler {
+	if guard == nil {
+		return next
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), errorCodeGuardContextKey{}, guard)))
+	})
 }
 
 type EnvelopeMeta struct {
@@ -95,9 +126,54 @@ type ErrorPayload struct {
 	Conflict  any            `json:"conflict,omitempty"`
 }
 
+// AdmissionGate is the process lifecycle's admission state. AdmissionState
+// returns one consistent snapshot: AdmissionStateOpen, or the closed state
+// that selects the gate's reason and the /readyz status.
 type AdmissionGate interface {
-	AdmissionOpen() bool
-	FatalReason() string
+	AdmissionState() string
+}
+
+// Admission states reported by an AdmissionGate. They match the process
+// lifecycle's states.
+const (
+	AdmissionStateOpen     = "open"
+	AdmissionStatePending  = "pending"
+	AdmissionStatePaused   = "paused"
+	AdmissionStateStopping = "stopping"
+	AdmissionStateFatal    = "fatal"
+)
+
+// admissionRefusal is a closed gate's service_unavailable reason (Core 01
+// §3.3.6.2) and the /readyz status for the same state (Core 04 REQ-04-078).
+type admissionRefusal struct {
+	reasonCode string
+	readiness  string
+}
+
+// admissionRefusals maps each closed state; the lifecycle's snapshot already
+// applies the precedence integrity failure, shutdown, pause, pending.
+var admissionRefusals = map[string]admissionRefusal{
+	AdmissionStatePending:  {reasonCode: "extension_publication_pending", readiness: ReadinessStatusStartingDependencyProbe},
+	AdmissionStatePaused:   {reasonCode: "admission_paused", readiness: ReadinessStatusAdmissionPaused},
+	AdmissionStateStopping: {reasonCode: "shutdown_in_progress", readiness: ReadinessStatusShutdownInProgress},
+	AdmissionStateFatal:    {reasonCode: "extension_integrity_failure", readiness: ReadinessStatusFatalIntegrityFailure},
+}
+
+// closedAdmission reports whether the gate refuses work, and why. An
+// unrecognized state fails closed as pending.
+func closedAdmission(admission AdmissionGate) (admissionRefusal, bool) {
+	if admission == nil {
+		return admissionRefusal{}, false
+	}
+	state := admission.AdmissionState()
+	if state == AdmissionStateOpen {
+		return admissionRefusal{}, false
+	}
+	refusal, known := admissionRefusals[state]
+	if !known {
+		refusal = admissionRefusals[AdmissionStatePending]
+	}
+	return refusal, true
 }
 
 type requestIDContextKey struct{}
@@ -153,12 +229,10 @@ func NewHandler(options ...Options) (http.Handler, error) {
 		_, _ = fmt.Fprintln(w, "ok")
 	})
 	mux.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
-		if admission := option.Dependencies.Admission; admission != nil && !admission.AdmissionOpen() {
-			status := ReadinessStatusStartingDependencyProbe
-			if admission.FatalReason() != "" {
-				status = ReadinessStatusFatalIntegrityFailure
-			}
-			_ = writeJSON(w, http.StatusServiceUnavailable, ReadinessState{SchemaID: ReadinessSchemaID, Status: status})
+		// A closed gate reports its own state instead of probing dependencies
+		// (Core 04 REQ-04-078).
+		if refusal, closed := closedAdmission(option.Dependencies.Admission); closed {
+			_ = writeJSON(w, http.StatusServiceUnavailable, ReadinessState{SchemaID: ReadinessSchemaID, Status: refusal.readiness})
 			return
 		}
 		state := readiness.CheckReadiness(r.Context())
@@ -182,7 +256,12 @@ func NewHandler(options ...Options) (http.Handler, error) {
 		}
 	}
 
-	handler, err := option.Dependencies.PublicRoutes.withOwnerFamilies(mux, extensionRoutesFromDependencies(option.Dependencies))
+	// Route resolution (REQ-01-707 step 1) for /api paths runs after the
+	// reserved and claimed families, which keep their own order (REQ-01-548).
+	handler, err := option.Dependencies.PublicRoutes.withOwnerFamilies(
+		option.Dependencies.PublicRoutes.Handler(mux),
+		extensionRoutesFromDependencies(option.Dependencies),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -192,24 +271,33 @@ func NewHandler(options ...Options) (http.Handler, error) {
 	}
 	handler = withAdmissionGate(handler, option.Dependencies.Admission)
 
-	return withRequestID(handler, option.RequestIDSequence), nil
+	return withRequestID(withErrorCodeGuard(withSecurityGuard(handler, option.SecurityGuard), option.ErrorCodeGuard), option.RequestIDSequence), nil
 }
 
+// withAdmissionGate answers retryable 503 service_unavailable while the
+// process admits no work, before route resolution (Core 01 REQ-01-707), with
+// the Core 01 service_unavailable reason for its state:
+// extension_integrity_failure once it is fatal (EXT-REQ-193),
+// shutdown_in_progress after an ordinary stop request (Core 04 REQ-04-146a),
+// admission_paused while lease ownership is uncertain (Core 04 REQ-04-145,
+// EXT-REQ-213), and extension_publication_pending before startup publication
+// opens admission.
 func withAdmissionGate(next http.Handler, admission AdmissionGate) http.Handler {
 	if admission == nil {
 		return next
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if admission.AdmissionOpen() || r.URL.Path == "/healthz" || r.URL.Path == "/readyz" {
+		if r.URL.Path == "/healthz" || r.URL.Path == "/readyz" {
 			next.ServeHTTP(w, r)
 			return
 		}
-		reasonCode := "extension_publication_pending"
-		if admission.FatalReason() != "" {
-			reasonCode = "extension_integrity_failure"
+		refusal, closed := closedAdmission(admission)
+		if !closed {
+			next.ServeHTTP(w, r)
+			return
 		}
 		_ = WriteErrorWithOptions(w, r, http.StatusServiceUnavailable, "service_unavailable", "service unavailable", map[string]any{
-			"reason_code": reasonCode,
+			"reason_code": refusal.reasonCode,
 		}, ErrorOptions{Retryable: true})
 	})
 }
@@ -319,6 +407,29 @@ type ErrorOptions struct {
 }
 
 func WriteErrorWithOptions(w http.ResponseWriter, r *http.Request, status int, code string, message string, details map[string]any, options ErrorOptions) error {
+	if guard, guarded := r.Context().Value(errorCodeGuardContextKey{}).(*ErrorCodeGuard); guarded {
+		// An operation whose codes an owner registry governs instead of Core 01
+		// REQ-01-702 declarations is outside the guard and its coverage.
+		if metadata, resolved := OperationMetadataFromContext(r.Context()); resolved && metadata.GovernedByDeclaredErrorCodes() {
+			// internal_error is always emitted as 500, whatever status the
+			// caller passed, so it is observed and checked at 500.
+			emitted := status
+			if code == "internal_error" {
+				emitted = http.StatusInternalServerError
+			}
+			if guard.Observe != nil {
+				guard.Observe(metadata.OperationID, emitted, code)
+			}
+			if !metadata.DeclaresErrorCode(emitted, code) {
+				if guard.Report != nil {
+					guard.Report(metadata.OperationID, emitted, code)
+				}
+				if guard.Enforce {
+					code = "internal_error"
+				}
+			}
+		}
+	}
 	if code == "internal_error" {
 		status = http.StatusInternalServerError
 		message = "internal_error"

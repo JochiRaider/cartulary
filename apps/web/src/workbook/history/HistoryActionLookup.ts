@@ -1,4 +1,4 @@
-import type { WorkbookOperationFailure } from "../mutations/workbookOperationOutcome";
+import type { WorkbookClientFailure } from "../mutations/workbookOperationOutcome";
 import { HistoryPageLookup } from "./HistoryPageLookup";
 import {
   buildRecordRollbackTargetFromHistoryAction,
@@ -6,7 +6,7 @@ import {
   type WorkbookRecordHistoryPendingAction,
 } from "./workbookHistoryItem";
 
-const unavailable: WorkbookOperationFailure = {
+const unavailable: WorkbookClientFailure = {
   kind: "stale_target",
   message: "This action is no longer available in current history.",
 };

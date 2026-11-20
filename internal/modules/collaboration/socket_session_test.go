@@ -276,6 +276,55 @@ func TestIncidentSocketHeartbeatIdleExpiry_Unit(t *testing.T) {
 	}
 }
 
+// TestIncidentSocketRereadsSessionExpiryBeforeRevoking_Integration covers Core
+// 01 REQ-01-277 and Core 04 REQ-04-009 and AC-136: qualifying HTTP activity
+// slides the session a socket holds, so the socket keeps that session past the
+// expiry it saw when it connected; once the session really expires, the socket
+// sends session_revoked with session_expired and the session is revoked.
+func TestIncidentSocketRereadsSessionExpiryBeforeRevoking_Integration(t *testing.T) {
+	runtime := appsupport.StartRuntime(t)
+	harness, admin, adminID, incidentID := setupSocketIncidentWithAdminID(t, runtime, "collaboration-socket-session-reread")
+	sessionID := sessionIDForCookie(t, harness, adminID.String())
+	connectExpiry := querySessionTiming(t, harness, sessionID).SessionExpiresAt
+	// Connect 30 seconds before the session would expire, on a fixed clock.
+	connectedAt := httptestx.SetClockFixed(t, harness.Server, connectExpiry.Add(-30*time.Second))
+	client := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
+		SessionToken:     admin.Session.Value,
+		ClientInstanceID: "collaboration-socket-session-reread",
+		Presence:         timelinePresence(),
+	})
+	defer client.Close(wstest.StatusNormalClosure, "test_complete")
+
+	// Qualifying HTTP activity on the same session slides its idle expiry.
+	response := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID, nil, httptestx.WithCookies(admin.Session))
+	httptestx.RequireSuccessEnvelope(t, response, http.StatusOK)
+	extended := querySessionTiming(t, harness, sessionID)
+	if want := connectedAt.Add(30 * time.Minute); !extended.SessionExpiresAt.Equal(want) || extended.RevokeReasonCode != "" {
+		t.Fatalf("HTTP activity left session_expires_at=%s revoke_reason_code=%q; want %s and live", extended.SessionExpiresAt, extended.RevokeReasonCode, want)
+	}
+
+	// Past the expiry it saw at connect time, the socket re-reads the session,
+	// finds it live and keeps serving: its next message is the heartbeat ping.
+	httptestx.AdvanceClock(t, harness.Server, 31*time.Second)
+	message, err := client.AwaitNextMessage(5 * time.Second)
+	if err != nil {
+		t.Fatalf("socket ended after its connect-time expiry %s although HTTP activity extended the session to %s: %v", connectExpiry, extended.SessionExpiresAt, err)
+	}
+	if message.Type != "ping" {
+		t.Fatalf("socket sent %q %s after its connect-time expiry %s although HTTP activity extended the session to %s; want ping", message.Type, message.Payload, connectExpiry, extended.SessionExpiresAt)
+	}
+	if live := querySessionTiming(t, harness, sessionID); live.RevokeReasonCode != "" || !live.SessionExpiresAt.Equal(extended.SessionExpiresAt) {
+		t.Fatalf("socket changed a live session: revoke_reason_code=%q session_expires_at=%s want %s", live.RevokeReasonCode, live.SessionExpiresAt, extended.SessionExpiresAt)
+	}
+
+	// Once the extended session really expires, the socket revokes it.
+	httptestx.AdvanceClock(t, harness.Server, 30*time.Minute)
+	incidentwstest.ExpectSessionRevoked(t, client, "session_expired")
+	if expired := querySessionTiming(t, harness, sessionID); expired.RevokeReasonCode != "session_expired" {
+		t.Fatalf("really expired session revoke_reason_code = %q want session_expired", expired.RevokeReasonCode)
+	}
+}
+
 func TestIncidentSocketPresenceScopeEphemeral_Unit(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	harness, admin, _, incidentA := setupSocketIncidentWithAdminID(t, runtime, "collaboration-u-6-08-presence-scope-a")
@@ -505,4 +554,30 @@ func TestIncidentSocketClosesGoingAwayOnShutdown_Unit(t *testing.T) {
 
 	harness.Collaboration.CloseSessions()
 	wstest.RequireClose(t, client.AwaitClose(5*time.Second), wstest.StatusGoingAway, "")
+}
+
+// TestIncidentSocketInHandshakeClosesGoingAwayOnShutdown_Unit covers the
+// amended REQ-04-146a: a socket that has upgraded but not yet sent its first
+// message is closed with 1001 at shutdown, well before its first-message
+// timeout, and receives no terminal message.
+func TestIncidentSocketInHandshakeClosesGoingAwayOnShutdown_Unit(t *testing.T) {
+	runtime := appsupport.StartRuntime(t)
+	harness, admin, incidentID := setupSocketIncident(t, runtime, "collaboration-shutdown-handshake")
+	raw, _, err := incidentwstest.TryConnect(harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
+		SessionToken:     admin.Session.Value,
+		ClientInstanceID: "collaboration-shutdown-handshake",
+	})
+	if err != nil {
+		t.Fatalf("upgrade: %v", err)
+	}
+	defer raw.Close(wstest.StatusNormalClosure, "test_complete")
+
+	harness.Collaboration.CloseSessions()
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	_, payload, err := raw.Read(ctx)
+	if err == nil {
+		t.Fatalf("handshake-phase socket received a message at shutdown: %s", payload)
+	}
+	wstest.RequireClose(t, err, wstest.StatusGoingAway, "")
 }

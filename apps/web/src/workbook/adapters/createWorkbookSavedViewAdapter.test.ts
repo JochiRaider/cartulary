@@ -406,13 +406,8 @@ describe("Workbook saved-view adapter", () => {
         "rejected",
         "validation",
       ],
-      [
-        "authentication_required",
-        401,
-        {},
-        "rejected",
-        "authentication_required",
-      ],
+      // Undeclared for the operation: a contract failure, not an auth outcome.
+      ["authentication_required", 401, {}, "uncertain", "invalid_contract"],
       ["session_required", 401, {}, "rejected", "authentication_required"],
       ["csrf_verification_failed", 403, {}, "rejected", "authorization_denied"],
       ["authorization_denied", 403, {}, "rejected", "authorization_denied"],

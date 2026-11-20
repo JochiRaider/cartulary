@@ -85,5 +85,7 @@ export type WorkbookOperationExecution<
 export interface WorkbookOperationExecutor {
   execute<OperationID extends WorkbookOperationID>(
     input: WorkbookOperationExecution<OperationID>,
-  ): Promise<WorkbookOperationOutcome<HTTPOperationResponse<OperationID>>>;
+  ): Promise<
+    WorkbookOperationOutcome<HTTPOperationResponse<OperationID>, OperationID>
+  >;
 }

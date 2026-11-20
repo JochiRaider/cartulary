@@ -111,8 +111,7 @@ func RegisterNetworkFlowFaultRoutes(faults *NetworkFlowFaultRegistry) httpapi.Ro
 			guard:  guard,
 			faults: faults,
 		}
-		mux.HandleFunc("POST /api/v1/test/runtime/network-flow-faults", service.handleArm)
-		return nil
+		return httpapi.BindTestRoute(mux, deps, guard, http.MethodPost, "/api/v1/test/runtime/network-flow-faults", service.handleArm)
 	}
 }
 

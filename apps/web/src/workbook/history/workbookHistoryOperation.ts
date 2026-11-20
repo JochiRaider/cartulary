@@ -54,16 +54,24 @@ export type HistoryReceipt = {
       readonly affectedRecordIds: readonly string[];
     }
 );
+/** Record History actions; each declares 409 incident_closed. */
+export type HistoryActionOperation =
+  | "deleteRecord"
+  | "restoreRecord"
+  | "rollbackRecord";
 type HistoryTransportOutcome =
   | { readonly kind: "acknowledged"; readonly receipt: HistoryReceipt }
-  | { readonly kind: "rejected"; readonly failure: WorkbookOperationFailure }
+  | {
+      readonly kind: "rejected";
+      readonly failure: WorkbookOperationFailure<HistoryActionOperation>;
+    }
   | { readonly kind: "uncertain" };
 export type WorkbookRecordHistoryPort = {
   readonly load: (
     recordId: string,
     signal: AbortSignal,
     request?: HistoryPageRequest,
-  ) => Promise<WorkbookOperationOutcome<HistoryPage>>;
+  ) => Promise<WorkbookOperationOutcome<HistoryPage, "getRecordHistory">>;
   readonly send: (
     attempt: HistoryAttempt,
     signal: AbortSignal,

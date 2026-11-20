@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	collabprotocol "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 	collabtestprotocol "github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/protocoltest"
 )
@@ -21,7 +22,15 @@ func TestPresenceReplayRevocationTransport(t *testing.T) {
 			t.Run(cause, func(t *testing.T) {
 				now := time.Date(2026, 9, 5, 0, 0, 0, 0, time.UTC)
 				sessions, memberships, terminals := make(chan string, 1), make(chan string, 1), make(chan string, 1)
-				authority := &socketAuthority{sessionRevocations: sessions, incidentRevocations: memberships, incidentTerminals: terminals, sessionExpiresAt: now.Add(time.Second), now: func() time.Time { return now }}
+				rereads := 0
+				authority := &socketAuthority{sessionRevocations: sessions, incidentRevocations: memberships, incidentTerminals: terminals, sessionExpiresAt: now.Add(time.Second), now: func() time.Time { return now },
+					rereadSession: func() (time.Time, *httpapi.APIError) {
+						// The authenticator finds the session expired, revokes it and
+						// publishes session_expired to its sockets.
+						rereads++
+						sessions <- "session_expired"
+						return time.Time{}, httpapi.SessionRequiredError()
+					}}
 				writes := 0
 				socket := establishmentSocket{Socket: establishmentTestSocket{write: func(context.Context, collabprotocol.MessageKind, []byte) error { writes++; return nil }}, authority: authority}
 				if err := socket.Write(context.Background(), collabprotocol.MessageText, []byte("first")); err != nil {
@@ -48,6 +57,56 @@ func TestPresenceReplayRevocationTransport(t *testing.T) {
 					if !errors.As(err, &terminal) || terminal.reasonCode != wantReason || terminal.incidentClosed != (cause == "incident") || writes != 1 {
 						t.Fatalf("authority %s leaked a write or lost reason: %d / %v", cause, writes, err)
 					}
+				}
+				if wantRereads := map[bool]int{true: 1, false: 0}[cause == "expiry"]; rereads != wantRereads {
+					t.Fatalf("authority %s re-read the session %d times, want %d", cause, rereads, wantRereads)
+				}
+			})
+		}
+	})
+	t.Run("the session is re-read at its expiry and ends only when it really ended", func(t *testing.T) {
+		now := time.Date(2026, 9, 5, 0, 0, 0, 0, time.UTC)
+		for _, reread := range []string{"extended", "expired", "refused", "unreadable"} {
+			t.Run(reread, func(t *testing.T) {
+				sessions := make(chan string, 1)
+				rereads := 0
+				authority := &socketAuthority{sessionRevocations: sessions, sessionExpiresAt: now, now: func() time.Time { return now },
+					rereadSession: func() (time.Time, *httpapi.APIError) {
+						rereads++
+						switch reread {
+						case "extended":
+							return now.Add(30 * time.Minute), nil
+						case "expired":
+							sessions <- "session_expired"
+							return time.Time{}, httpapi.SessionRequiredError()
+						case "refused":
+							return time.Time{}, httpapi.SessionRequiredError()
+						default:
+							return time.Time{}, httpapi.InternalAPIError(errors.New("session lookup failed"))
+						}
+					}}
+				for range 2 {
+					err := authority.check()
+					var terminal *socketTermination
+					switch reread {
+					case "extended":
+						if err != nil || !authority.sessionExpiresAt.Equal(now.Add(30*time.Minute)) {
+							t.Fatalf("extended session ended the socket or kept its old expiry: %v / %s", err, authority.sessionExpiresAt)
+						}
+					case "expired", "refused":
+						want := map[string]string{"expired": "session_expired", "refused": "session_revoked"}[reread]
+						if !errors.As(err, &terminal) || terminal.reasonCode != want || terminal.incidentClosed {
+							t.Fatalf("%s session ended with %v, want %s", reread, err, want)
+						}
+					default:
+						if !errors.Is(err, errSessionUnverified) || errors.As(err, &terminal) {
+							t.Fatalf("unreadable session ended with %v, want an unverified session and no revocation", err)
+						}
+					}
+				}
+				// A live or ended session is re-read once; an unreadable one each time.
+				if wantRereads := map[bool]int{true: 2, false: 1}[reread == "unreadable"]; rereads != wantRereads {
+					t.Fatalf("%s session was re-read %d times, want %d", reread, rereads, wantRereads)
 				}
 			})
 		}

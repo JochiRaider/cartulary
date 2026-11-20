@@ -7,25 +7,31 @@ import type { WorkbookOperationFailure } from "../mutations/workbookOperationOut
 import { acceptWorkbookRowObservation } from "../query/acceptWorkbookRowObservation";
 import type { WorkbookReadScope } from "../query/WorkbookQueryRow";
 import { freezeWorkbookValue } from "../utils/freezeWorkbookValue";
-import { classifyWorkbookOperationFailure } from "./workbookOperationErrorPolicy";
+import { explicitWorkbookFailureOutcome } from "./workbookOperationErrorPolicy";
 import { acceptedRecordMutation } from "./workbookRecordPatchTransport";
 
-type Outcome =
+type RecordMutationOperation =
+  | "createViewRow"
+  | "createRecordLinkedNote"
+  | "patchRecord";
+type Outcome<OperationID extends RecordMutationOperation> =
   | {
       readonly kind: "accepted";
       readonly receipt: CreateViewRowResponse;
       readonly status: number;
     }
-  | { readonly kind: "rejected"; readonly failure: WorkbookOperationFailure }
+  | {
+      readonly kind: "rejected";
+      readonly failure: WorkbookOperationFailure<OperationID>;
+    }
   | { readonly kind: "uncertain" };
 
 /** A complete correlated envelope is the write checkpoint, independent of any query. */
-export async function sendWorkbookRecordMutation(
+export async function sendWorkbookRecordMutation<
+  OperationID extends RecordMutationOperation,
+>(
   input: {
-    readonly operationID:
-      | "createViewRow"
-      | "createRecordLinkedNote"
-      | "patchRecord";
+    readonly operationID: OperationID;
     readonly apiBase: string | undefined;
     readonly path: string;
     readonly pathParameters: Readonly<Record<string, string>>;
@@ -37,7 +43,7 @@ export async function sendWorkbookRecordMutation(
   },
   signal: AbortSignal,
   scope: WorkbookReadScope | null = null,
-): Promise<Outcome> {
+): Promise<Outcome<OperationID>> {
   let status: number | null = null,
     requestId: string | null = null;
   try {
@@ -47,38 +53,29 @@ export async function sendWorkbookRecordMutation(
       JSON.parse(input.body).client_txn_id !== input.clientTxnId
     )
       return { kind: "uncertain" };
-    const result = await fetchHTTPOperation<CreateViewRowResponse>({
-      apiBase: input.apiBase,
-      operationID: input.operationID,
-      pathParameters: input.pathParameters,
-      init: {
-        method: input.operationID === "patchRecord" ? "PATCH" : "POST",
-        body: input.body,
-        signal,
+    const result = await fetchHTTPOperation<CreateViewRowResponse, OperationID>(
+      {
+        apiBase: input.apiBase,
+        operationID: input.operationID,
+        pathParameters: input.pathParameters,
+        init: {
+          method: input.operationID === "patchRecord" ? "PATCH" : "POST",
+          body: input.body,
+          signal,
+        },
+        onResponse: (response) => {
+          status = response.status;
+          requestId = response.headers.get("X-Request-ID");
+        },
       },
-      onResponse: (response) => {
-        status = response.status;
-        requestId = response.headers.get("X-Request-ID");
-      },
-    });
-    if (!result.ok) {
-      if (
-        status === null ||
-        status < 400 ||
-        status >= 500 ||
-        !result.payload.error?.code ||
-        (requestId !== null && requestId !== result.payload.error.request_id)
-      )
-        return { kind: "uncertain" };
-      const failure = classifyWorkbookOperationFailure(
-        result.status,
-        result.payload,
+    );
+    if (!result.ok)
+      return explicitWorkbookFailureOutcome(
+        status,
+        result.payload.error,
         input.operationID,
+        requestId,
       );
-      return failure.kind === "invalid_contract"
-        ? { kind: "uncertain" }
-        : { kind: "rejected", failure };
-    }
     const receipt = result.payload;
     if (
       (status !== 200 && status !== 201) ||

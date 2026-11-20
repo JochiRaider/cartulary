@@ -80,16 +80,49 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "invalid_list_query",
+              "invalid_pagination_request"
+            ]
           },
           "401": {
             "$ref": "#/components/responses/UnauthorizedErrorResponse"
           },
           "403": {
-            "$ref": "#/components/responses/ForbiddenErrorResponse"
+            "description": "Authenticated caller lacks the required authorization or CSRF verification failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "authorization_denied"
+            ]
           },
           "404": {
             "$ref": "#/components/responses/NotFoundErrorResponse"
+          },
+          "409": {
+            "description": "Request conflicts with current state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "credential_bootstrap_rejected"
+            ]
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [
@@ -118,16 +151,22 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
-            }
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,31}(\\.[a-z][a-z0-9_]{0,31}){1,7}$",
+              "minLength": 3,
+              "maxLength": 128
+            },
+            "x-cartulary-not-found-code": "reference_pack_not_found"
           },
           {
             "name": "pack_version",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
-            }
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$"
+            },
+            "x-cartulary-not-found-code": "reference_pack_not_found"
           }
         ],
         "responses": {
@@ -149,7 +188,27 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "invalid_pagination_request",
+              "invalid_reference_pack_request"
+            ]
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedErrorResponse"
+          },
+          "403": {
+            "description": "Authenticated caller lacks the required authorization or CSRF verification failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "authorization_denied"
+            ]
           },
           "404": {
             "description": "Reference-pack version not found",
@@ -159,13 +218,30 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "extension_profile_not_claimed",
+              "reference_pack_not_found"
+            ]
           },
-          "401": {
-            "$ref": "#/components/responses/UnauthorizedErrorResponse"
+          "409": {
+            "description": "Request conflicts with current state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "credential_bootstrap_rejected"
+            ]
           },
-          "403": {
-            "$ref": "#/components/responses/ForbiddenErrorResponse"
+          "500": {
+            "$ref": "#/components/responses/InternalServerErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [
@@ -217,17 +293,11 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
-          },
-          "409": {
-            "description": "Reference-pack rejection or replay conflict. A streamed container exceeding max_container_bytes is rejected before Job admission with reason_code container_bytes_exceeded, check_id container_bytes and one inline validation_summary; no durable admission is created.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ReferencePackImportConflictEnvelope"
-                }
-              }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "invalid_pagination_request",
+              "invalid_reference_pack_request"
+            ]
           },
           "401": {
             "$ref": "#/components/responses/UnauthorizedErrorResponse"
@@ -237,6 +307,28 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFoundErrorResponse"
+          },
+          "409": {
+            "description": "Reference-pack rejection or replay conflict. A streamed container exceeding max_container_bytes is rejected before Job admission with reason_code container_bytes_exceeded, check_id container_bytes and one inline validation_summary; no durable admission is created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReferencePackImportConflictEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "client_txn_conflict",
+              "credential_bootstrap_rejected",
+              "reference_pack_operation_rejected",
+              "reference_pack_verification_failed"
+            ]
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [
@@ -267,16 +359,22 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
-            }
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,31}(\\.[a-z][a-z0-9_]{0,31}){1,7}$",
+              "minLength": 3,
+              "maxLength": 128
+            },
+            "x-cartulary-not-found-code": "reference_pack_not_found"
           },
           {
             "name": "pack_version",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
-            }
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$"
+            },
+            "x-cartulary-not-found-code": "reference_pack_not_found"
           }
         ],
         "requestBody": {
@@ -318,7 +416,17 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "invalid_pagination_request",
+              "invalid_reference_pack_request"
+            ]
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenErrorResponse"
           },
           "404": {
             "description": "Reference-pack version not found",
@@ -328,7 +436,11 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "extension_profile_not_claimed",
+              "reference_pack_not_found"
+            ]
           },
           "409": {
             "description": "Activation rejected or replay conflict",
@@ -338,13 +450,19 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "client_txn_conflict",
+              "credential_bootstrap_rejected",
+              "reference_pack_activation_rejected",
+              "reference_pack_operation_rejected"
+            ]
           },
-          "401": {
-            "$ref": "#/components/responses/UnauthorizedErrorResponse"
+          "500": {
+            "$ref": "#/components/responses/InternalServerErrorResponse"
           },
-          "403": {
-            "$ref": "#/components/responses/ForbiddenErrorResponse"
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [
@@ -375,16 +493,22 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
-            }
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,31}(\\.[a-z][a-z0-9_]{0,31}){1,7}$",
+              "minLength": 3,
+              "maxLength": 128
+            },
+            "x-cartulary-not-found-code": "reference_pack_not_found"
           },
           {
             "name": "pack_version",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
-            }
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$"
+            },
+            "x-cartulary-not-found-code": "reference_pack_not_found"
           }
         ],
         "requestBody": {
@@ -426,7 +550,17 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "invalid_pagination_request",
+              "invalid_reference_pack_request"
+            ]
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenErrorResponse"
           },
           "404": {
             "description": "Reference-pack version not found",
@@ -436,7 +570,11 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "extension_profile_not_claimed",
+              "reference_pack_not_found"
+            ]
           },
           "409": {
             "description": "State conflict or replay conflict",
@@ -446,13 +584,18 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "client_txn_conflict",
+              "credential_bootstrap_rejected",
+              "reference_pack_operation_rejected"
+            ]
           },
-          "401": {
-            "$ref": "#/components/responses/UnauthorizedErrorResponse"
+          "500": {
+            "$ref": "#/components/responses/InternalServerErrorResponse"
           },
-          "403": {
-            "$ref": "#/components/responses/ForbiddenErrorResponse"
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [
@@ -483,16 +626,22 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
-            }
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,31}(\\.[a-z][a-z0-9_]{0,31}){1,7}$",
+              "minLength": 3,
+              "maxLength": 128
+            },
+            "x-cartulary-not-found-code": "reference_pack_not_found"
           },
           {
             "name": "pack_version",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
-            }
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$"
+            },
+            "x-cartulary-not-found-code": "reference_pack_not_found"
           }
         ],
         "requestBody": {
@@ -524,7 +673,17 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "invalid_pagination_request",
+              "invalid_reference_pack_request"
+            ]
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenErrorResponse"
           },
           "404": {
             "description": "Reference-pack version not found",
@@ -534,7 +693,11 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "extension_profile_not_claimed",
+              "reference_pack_not_found"
+            ]
           },
           "409": {
             "description": "State conflict or replay conflict",
@@ -544,13 +707,18 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "client_txn_conflict",
+              "credential_bootstrap_rejected",
+              "reference_pack_operation_rejected"
+            ]
           },
-          "401": {
-            "$ref": "#/components/responses/UnauthorizedErrorResponse"
+          "500": {
+            "$ref": "#/components/responses/InternalServerErrorResponse"
           },
-          "403": {
-            "$ref": "#/components/responses/ForbiddenErrorResponse"
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [
@@ -604,17 +772,11 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
-          },
-          "409": {
-            "description": "Reference-pack verification failure or replay conflict",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "invalid_pagination_request",
+              "invalid_reference_pack_request"
+            ]
           },
           "401": {
             "$ref": "#/components/responses/UnauthorizedErrorResponse"
@@ -624,6 +786,27 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFoundErrorResponse"
+          },
+          "409": {
+            "description": "Reference-pack verification failure or replay conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "client_txn_conflict",
+              "credential_bootstrap_rejected",
+              "reference_pack_operation_rejected"
+            ]
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [
@@ -654,16 +837,22 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
-            }
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,31}(\\.[a-z][a-z0-9_]{0,31}){1,7}$",
+              "minLength": 3,
+              "maxLength": 128
+            },
+            "x-cartulary-not-found-code": "reference_pack_not_found"
           },
           {
             "name": "pack_version",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
-            }
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$"
+            },
+            "x-cartulary-not-found-code": "reference_pack_not_found"
           }
         ],
         "requestBody": {
@@ -695,7 +884,17 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "invalid_pagination_request",
+              "invalid_reference_pack_request"
+            ]
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenErrorResponse"
           },
           "404": {
             "description": "Reference-pack version not found",
@@ -705,7 +904,11 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "extension_profile_not_claimed",
+              "reference_pack_not_found"
+            ]
           },
           "409": {
             "description": "State conflict or replay conflict",
@@ -715,13 +918,18 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "client_txn_conflict",
+              "credential_bootstrap_rejected",
+              "reference_pack_operation_rejected"
+            ]
           },
-          "401": {
-            "$ref": "#/components/responses/UnauthorizedErrorResponse"
+          "500": {
+            "$ref": "#/components/responses/InternalServerErrorResponse"
           },
-          "403": {
-            "$ref": "#/components/responses/ForbiddenErrorResponse"
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [
@@ -754,7 +962,8 @@
             "schema": {
               "type": "string",
               "pattern": "^rpvs_[0-9a-f]{64}$"
-            }
+            },
+            "x-cartulary-not-found-code": "reference_pack_not_found"
           }
         ],
         "responses": {
@@ -776,7 +985,27 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "invalid_pagination_request",
+              "invalid_reference_pack_request"
+            ]
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedErrorResponse"
+          },
+          "403": {
+            "description": "Authenticated caller lacks the required authorization or CSRF verification failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "authorization_denied"
+            ]
           },
           "404": {
             "description": "Reference-pack version not found",
@@ -786,13 +1015,30 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "extension_profile_not_claimed",
+              "reference_pack_not_found"
+            ]
           },
-          "401": {
-            "$ref": "#/components/responses/UnauthorizedErrorResponse"
+          "409": {
+            "description": "Request conflicts with current state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "credential_bootstrap_rejected"
+            ]
           },
-          "403": {
-            "$ref": "#/components/responses/ForbiddenErrorResponse"
+          "500": {
+            "$ref": "#/components/responses/InternalServerErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [

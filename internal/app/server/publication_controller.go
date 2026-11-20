@@ -29,16 +29,24 @@ type publicationController struct {
 	installedPlan *extensions.PublicationPlan
 	expected      map[string]string
 	acknowledged  map[string]struct{}
-	servingReady  chan struct{}
+	// servingReady closes at the admission gate's first opening, the public
+	// publication instant (EXT-REQ-214). Publication over an uncertain lease
+	// completes first and leaves it open until ownership is proved (Core 04
+	// REQ-04-145), so serving-gated components never start over uncertainty.
+	servingReady <-chan struct{}
 }
 
 func newPublicationController(lifecycle *processlifecycle.Controller) *publicationController {
+	servingReady := lifecycle.Opened()
+	if servingReady == nil {
+		servingReady = make(chan struct{})
+	}
 	return &publicationController{
 		lifecycle:    lifecycle,
 		state:        publicationUnpublished,
 		expected:     map[string]string{},
 		acknowledged: map[string]struct{}{},
-		servingReady: make(chan struct{}),
+		servingReady: servingReady,
 	}
 }
 
@@ -186,7 +194,6 @@ func (c *publicationController) serve() error {
 	if c.operation != nil {
 		c.operation.timer.Stop()
 	}
-	close(c.servingReady)
 	return nil
 }
 

@@ -1,8 +1,10 @@
 import {
   type APIError,
   clientTxnID,
+  type HTTPOperationID,
   type HTTPOperationResult,
 } from "../services/browserApi";
+import { isUnappliedRefusal, notAppliedText } from "../shared/publicError";
 import { validateProvisioningPassword } from "./accountInputValidation";
 import {
   accountOperationError,
@@ -296,9 +298,11 @@ export class AccountSecurityController {
           "Current security state reviewed. Enter fresh credentials for a new action.",
       });
   };
-  private async execute<T>(
+  private async execute<T, OperationID extends HTTPOperationID>(
     action: Action,
-    request: (signal: AbortSignal) => Promise<HTTPOperationResult<T>>,
+    request: (
+      signal: AbortSignal,
+    ) => Promise<HTTPOperationResult<T, OperationID>>,
     confirmed: (
       data: T,
       formCurrent: () => boolean,
@@ -375,11 +379,18 @@ export class AccountSecurityController {
     try {
       const outcome = await observation.result;
       if (!current()) return;
+      // A decoded 503 was refused before it was applied, so it settles as an
+      // ordinary rejection; credential actions are never replayed (Core 03
+      // REQ-03-086a).
+      const refused =
+        outcome.kind === "completed" &&
+        !outcome.value.ok &&
+        isUnappliedRefusal(outcome.value.status, outcome.value.payload.error);
       if (
         outcome.kind !== "completed" ||
         (!outcome.value.ok &&
-          (outcome.value.status >= 500 ||
-            outcome.value.payload.error?.code ===
+          ((outcome.value.status >= 500 && !refused) ||
+            outcome.value.payload.error.code ===
               "invalid_public_contract_response"))
       ) {
         this.publish({
@@ -397,8 +408,9 @@ export class AccountSecurityController {
         this.publish({
           operation: { kind: "rejected", action },
           error: accountOperationError(result.payload.error),
-          statusText:
-            action === "password"
+          statusText: refused
+            ? notAppliedText()
+            : action === "password"
               ? "Password change failed"
               : action === "begin"
                 ? "TOTP begin failed"
@@ -406,7 +418,7 @@ export class AccountSecurityController {
                   ? "TOTP complete failed"
                   : "Sign out failed",
         });
-        if (result.payload.error?.code === "session_required" && formCurrent())
+        if (result.payload.error.code === "session_required" && formCurrent())
           await this.propagate(
             effects,
             {

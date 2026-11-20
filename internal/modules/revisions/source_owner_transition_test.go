@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/evidence/testsupport/blobfixture"
 	envelopetest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
@@ -37,7 +38,10 @@ func requireEvidenceRestoreBlobBridge(t *testing.T, harness *appsupport.ServerHa
 					copiedState = "quarantined"
 				}
 				digest := strings.Repeat("a", 64)
-				mustExec(t, harness.DB, `INSERT INTO object_blobs(object_blob_id,incident_id,created_by_user_id,storage_key,upload_state,byte_size,observed_size,observed_content_type,observed_sha256_hex,target_expires_at,pending_expires_at,finalized_at) VALUES($1,$2,$3,$4,$5,0,0,'text/plain',$6,now()+interval '1 hour',now()+interval '24 hours',now())`, blob, incident, actor, "restore-blob/"+blob.String(), copiedState, digest)
+				blobfixture.Seed(t, harness.Pool, blobfixture.Spec{
+					ObjectBlobID: blob, IncidentID: incident, CreatedByUserID: actor, State: copiedState,
+					StorageKey: "restore-blob/" + blob.String(), ExpectedSHA256Hex: &digest, ObservedContentType: stringPtr("text/plain"),
+				})
 				envelopetest.SeedRecordEnvelope(t, harness.DB, incident, actor, evidence, "evidence")
 				mustExec(t, harness.DB, `INSERT INTO evidence(record_id,incident_id,title,lifecycle_state,object_blob_id,upload_state,blob_hash) VALUES($1,$2,'Blob restore fixture',$3,$4,$5,$6)`, evidence, incident, test.lifecycle, blob, copiedState, digest)
 				httptestx.RequireSuccessEnvelope(t, deleteRecord(t, harness, login, evidence, map[string]any{"base_row_version": 1, "client_txn_id": "blob-bridge-delete"}), http.StatusOK)
@@ -72,7 +76,7 @@ func requireEvidenceRestoreBlobBridge(t *testing.T, harness *appsupport.ServerHa
 					mustExec(t, harness.DB, `UPDATE evidence SET object_blob_id=NULL WHERE record_id=$1`, evidence)
 				} else {
 					associated = &blob
-					mustExec(t, harness.DB, `UPDATE object_blobs SET upload_state=$2, terminal_reason=CASE WHEN $2='failed' THEN 'pending_timeout' END, failed_at=CASE WHEN $2='failed' THEN now() END WHERE object_blob_id=$1`, blob, blobState)
+					blobfixture.Move(t, harness.Pool, blob, blobState)
 				}
 				assertSource := func() {
 					t.Helper()
@@ -90,7 +94,7 @@ func requireEvidenceRestoreBlobBridge(t *testing.T, harness *appsupport.ServerHa
 					assertSource()
 					associated = &blob
 					mustExec(t, harness.DB, `UPDATE evidence SET object_blob_id=$2 WHERE record_id=$1`, evidence, blob)
-					mustExec(t, harness.DB, `UPDATE object_blobs SET upload_state=$2,terminal_reason=NULL,failed_at=NULL WHERE object_blob_id=$1`, blob, copiedState)
+					blobfixture.Move(t, harness.Pool, blob, copiedState)
 				}
 				restored := httptestx.RequireSuccessEnvelope(t, restoreRecord(t, harness, login, evidence, body), http.StatusOK)["data"].(map[string]any)
 				if restored["row_version"] != float64(3) || restored["deleted"] != false || restored["deleted_at"] != nil || restored["deleted_by_user_id"] != nil || countRecordMutations(t, harness.DB, evidence, "restore") != 1 || countRecordRevisions(t, harness.DB, evidence) != 2 || countRows(t, harness.DB, `SELECT count(*) FROM evidence_grid_projection WHERE record_id=$1`, evidence) != 1 {
@@ -100,6 +104,93 @@ func requireEvidenceRestoreBlobBridge(t *testing.T, harness *appsupport.ServerHa
 				requireSingleRecordChangeIntent(t, harness.DB, restored["change_set_id"].(string), evidence, "invalidate")
 			})
 		}
+	}
+}
+
+// requireEvidenceRollbackBlobBridge covers REQ-02-196a and AC-606: a rollback
+// that would restore an Evidence lifecycle violating the bridge against the
+// linked Blob's live state, or linking another incident's Blob, fails with
+// target_not_reversible and changes nothing. Blob contention is record_locked.
+func requireEvidenceRollbackBlobBridge(t *testing.T, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, incident, actor uuid.UUID) {
+	t.Helper()
+	foreign := uuid.MustParse(appsupport.CreateIncident(t, harness.Server, login, map[string]any{
+		"client_txn_id": "rollback-bridge-foreign", "incident_key": "IR-ROLLBACK-BRIDGE-FOREIGN", "title": "Foreign Blob owner",
+	})["incident_id"].(string))
+	cases := []struct {
+		name, retained, live     string
+		foreign, locked, allowed bool
+	}{
+		{name: "available-quarantined", retained: "available", live: "quarantined"},
+		{name: "available-pending", retained: "available", live: "pending"},
+		{name: "available-failed", retained: "available", live: "failed"},
+		{name: "released-quarantined", retained: "released", live: "quarantined"},
+		{name: "released-pending", retained: "released", live: "pending"},
+		{name: "released-failed", retained: "released", live: "failed"},
+		{name: "quarantined-available", retained: "quarantined", live: "available"},
+		{name: "available-foreign-incident", retained: "available", live: "available", foreign: true},
+		{name: "available-locked", retained: "available", live: "available", locked: true},
+		{name: "available-available", retained: "available", live: "available", allowed: true},
+	}
+	for _, test := range cases {
+		t.Run("Evidence rollback Blob/"+test.name, func(t *testing.T) {
+			evidence, blob, changeSet := uuid.New(), uuid.New(), uuid.New()
+			blobIncident := incident
+			if test.foreign {
+				blobIncident = foreign
+			}
+			retainedUpload := "available"
+			if test.retained == "quarantined" {
+				retainedUpload = "quarantined"
+			}
+			digest := strings.Repeat("b", 64)
+			blobfixture.Seed(t, harness.Pool, blobfixture.Spec{
+				ObjectBlobID: blob, IncidentID: blobIncident, CreatedByUserID: actor, State: retainedUpload,
+				StorageKey: "rollback-blob/" + blob.String(), ExpectedSHA256Hex: &digest, ObservedContentType: stringPtr("text/plain"),
+			})
+			envelopetest.SeedRecordEnvelope(t, harness.DB, incident, actor, evidence, "evidence")
+			mustExec(t, harness.DB, `INSERT INTO evidence(record_id,incident_id,title,lifecycle_state,upload_state) VALUES($1,$2,'Bridge after','requested','pending')`, evidence, incident)
+			advanceRecordFixture(t, harness.DB, evidence, 2)
+			before := canonicalRowSnapshot(evidence, incident, actor, "evidence", "cartulary.revisions.snapshot.evidence.v2", 1, map[string]any{
+				"title": "Bridge before", "lifecycle_state": test.retained, "upload_state": retainedUpload,
+				"object_blob_id": blob.String(), "storage_ref": "object://" + blob.String(), "blob_hash": digest,
+			})
+			after := canonicalRowSnapshot(evidence, incident, actor, "evidence", "cartulary.revisions.snapshot.evidence.v2", 2, map[string]any{
+				"title": "Bridge after", "lifecycle_state": "requested", "upload_state": "pending",
+			})
+			seedRollbackMutationWithRef(t, harness.DB, incident, actor, evidence, changeSet, 1, "record", evidence.String(), "patch", before, after, "href-rollback-bridge-"+test.name)
+			blobfixture.Move(t, harness.Pool, blob, test.live)
+			body := map[string]any{"base_row_version": 2, "client_txn_id": "rollback-bridge-" + test.name, "target": map[string]any{"kind": "change_set", "change_set_id": changeSet.String()}}
+			requireUnchanged := func() {
+				t.Helper()
+				if countRows(t, harness.DB, `SELECT count(*) FROM evidence e JOIN records r USING(record_id) WHERE e.record_id=$1 AND e.title='Bridge after' AND e.lifecycle_state='requested' AND e.object_blob_id IS NULL AND r.row_version=2`, evidence) != 1 || countRecordMutations(t, harness.DB, evidence, "rollback") != 0 {
+					t.Fatal("refused Evidence rollback changed the source, envelope or history")
+				}
+			}
+			switch {
+			case test.locked:
+				lock, err := harness.Pool.Begin(t.Context())
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer lock.Rollback(context.Background())
+				if _, err := lock.Exec(t.Context(), `SELECT object_blob_id FROM object_blobs WHERE object_blob_id=$1 FOR UPDATE`, blob); err != nil {
+					t.Fatal(err)
+				}
+				locked := httptestx.RequireErrorEnvelope(t, rollbackRecord(t, harness, login, evidence, body), http.StatusConflict, "record_locked")["error"].(map[string]any)
+				if locked["retryable"] != true {
+					t.Fatalf("Blob contention error=%#v", locked)
+				}
+				requireUnchanged()
+			case test.allowed:
+				httptestx.RequireSuccessEnvelope(t, rollbackRecord(t, harness, login, evidence, body), http.StatusOK)
+				if countRows(t, harness.DB, `SELECT count(*) FROM evidence WHERE record_id=$1 AND title='Bridge before' AND lifecycle_state='available' AND object_blob_id=$2`, evidence, blob) != 1 {
+					t.Fatal("admitted Evidence rollback did not restore the linked available state")
+				}
+			default:
+				requireRollbackReasonCode(t, rollbackRecord(t, harness, login, evidence, body), "target_not_reversible")
+				requireUnchanged()
+			}
+		})
 	}
 }
 

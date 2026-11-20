@@ -4,8 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
 
 	extensiondeadline "github.com/JochiRaider/cartulary/internal/modules/extensions/deadline"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
@@ -277,5 +281,82 @@ func testPortableFatalPrecedence(t *testing.T) {
 				t.Fatal(err)
 			}
 		})
+	}
+}
+
+// terminalAfterCommitJobs reports a running execution until the parent's final
+// transaction makes the Job terminal. Jobs then finds no live execution for
+// the attempt and reads the Job as succeeded.
+type terminalAfterCommitJobs struct {
+	committed atomic.Bool
+	lost      chan struct{}
+	lostOnce  sync.Once
+}
+
+func (f *terminalAfterCommitJobs) ObserveExecution(context.Context, jobs.Execution) (jobs.Resource, error) {
+	if f.committed.Load() {
+		f.lostOnce.Do(func() { close(f.lost) })
+		return jobs.Resource{}, jobs.ErrExecutionLost
+	}
+	return jobs.Resource{Status: jobs.StatusRunning}, nil
+}
+
+func (f *terminalAfterCommitJobs) Get(context.Context, uuid.UUID) (jobs.Resource, error) {
+	if f.committed.Load() {
+		return jobs.Resource{Status: jobs.StatusSucceeded}, nil
+	}
+	return jobs.Resource{Status: jobs.StatusRunning}, nil
+}
+
+func (f *terminalAfterCommitJobs) UpdateProgress(context.Context, jobs.Execution, jobs.Progress, *string) (jobs.Resource, error) {
+	return jobs.Resource{}, errors.New("unexpected progress update")
+}
+
+func (f *terminalAfterCommitJobs) CompleteFailed(context.Context, jobs.Execution, jobs.FailureCompletion) (jobs.Resource, error) {
+	return jobs.Resource{}, errors.New("unexpected failure completion")
+}
+
+func (f *terminalAfterCommitJobs) CompleteCanceled(context.Context, jobs.Execution, jobs.CancellationCompletion) (jobs.Resource, error) {
+	return jobs.Resource{}, errors.New("unexpected cancellation completion")
+}
+
+// testPortableOwnTerminalObservation drives the real execution observer past
+// the parent's proven commit. The attempt's own terminal Job is neither
+// cancellation nor a lost lease, so completion after it, here a cleanup that
+// outlasts the grace, never starts the cancellation grace (EXT-REQ-215,
+// Reference Pack §23.2).
+func testPortableOwnTerminalObservation(t *testing.T) {
+	const grace = 100 * time.Millisecond
+	fatal := make(chan error, 1)
+	lifetime, err := NewVerificationLifetime(grace, func(err error) { fatal <- err })
+	if err != nil {
+		t.Fatal(err)
+	}
+	operations := &terminalAfterCommitJobs{lost: make(chan struct{})}
+	owner := &incidentReferences{verifier: &verificationService{referenceDependencies: &referenceDependencies{lifetime: lifetime}, operations: operations}}
+	ctx, cancel := context.WithCancelCause(lifetime.track(t.Context()))
+	scope := &IncidentReferenceExecution{owner: owner, ctx: ctx, cancel: cancel, started: time.Now()}
+	err = scope.run(func(_ context.Context, e *IncidentReferenceExecution) error {
+		if err := e.activate(60); err != nil {
+			return err
+		}
+		operations.committed.Store(true)
+		return e.CompleteCleanup(func(context.Context) error {
+			select {
+			case <-operations.lost:
+			case <-time.After(5 * time.Second):
+				t.Error("the observer never observed the terminal Job")
+			}
+			time.Sleep(3 * grace)
+			return nil
+		})
+	})
+	select {
+	case got := <-fatal:
+		t.Fatalf("observing the attempt's own terminal Job was fatal: %v", got)
+	default:
+	}
+	if err != nil {
+		t.Fatalf("completion after the attempt's own terminal Job failed: %v", err)
 	}
 }

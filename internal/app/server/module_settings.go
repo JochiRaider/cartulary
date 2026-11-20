@@ -31,11 +31,11 @@ func (projection applicationSettingsProjection) Collaboration(
 ) collaboration.Options {
 	cfg := projection.deployment
 	return collaboration.Options{
-		Postgres:           db,
-		AcceptSocket:       transport.Accept,
-		CheckBrowserOrigin: transport.CheckBrowserOrigin,
-		ServiceVersion:     cfg.Telemetry.Resource.ServiceVersion,
-		Now:                now,
+		Postgres:       db,
+		AcceptSocket:   transport.Accept,
+		CheckOrigin:    transport.CheckOrigin,
+		ServiceVersion: cfg.Telemetry.Resource.ServiceVersion,
+		Now:            now,
 	}
 }
 

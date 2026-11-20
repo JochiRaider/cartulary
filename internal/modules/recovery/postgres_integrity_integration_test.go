@@ -78,7 +78,7 @@ func TestRestoreRejectsBypassedReferentialIntegrity_Integration(t *testing.T) {
 						t.Fatal("canonical inactive restore", err)
 					}
 					var valid bool
-					if err := pool.QueryRow(t.Context(), `SELECT public.network_flow_orientation_state_is_valid_v1() AND (SELECT endpoint_a_ip='2001:db8::1' AND bytes_count='42' AND packets_count='2' FROM network_flow_rows)`).Scan(&valid); err != nil || !valid {
+					if err := pool.QueryRow(t.Context(), `SELECT public.network_flow_orientation_state_is_valid_v2() AND (SELECT endpoint_a_ip='2001:db8::1' AND bytes_count='42' AND packets_count='2' FROM network_flow_rows)`).Scan(&valid); err != nil || !valid {
 						t.Fatal("restored canonical evidence changed", err)
 					}
 					// Claim admission applies these owner validators after structural
@@ -156,4 +156,56 @@ VALUES('18600000-0000-4000-8000-000000000001','18600000-0000-4000-8000-000000000
 		t.Fatal("rejected support restore published rows", count, err)
 	}
 
+	// Change sets load with triggers disabled, so the commit-time allocator never
+	// runs for them; Recovery must prove the restored chronology itself
+	// (REQ-01-661, Core 02 REQ-02-213).
+	const historyIncident = "18600000-0000-4000-8000-000000000001"
+	for _, tc := range []struct {
+		name, changeSets string
+		valid            bool
+	}{
+		{"ordered with covering allocator", `
+INSERT INTO public.change_sets(change_set_id,incident_id,actor_user_id,source,history_order) VALUES
+('18600000-0000-4000-8000-000000000005','18600000-0000-4000-8000-000000000001','18600000-0000-4000-8000-000000000002','restore.fixture',1),
+('18600000-0000-4000-8000-000000000006','18600000-0000-4000-8000-000000000001','18600000-0000-4000-8000-000000000002','restore.fixture',2);
+INSERT INTO public.revision_history_orders(incident_id,last_order) VALUES('18600000-0000-4000-8000-000000000001',2);`, true},
+		{"missing history order", `
+INSERT INTO public.change_sets(change_set_id,incident_id,actor_user_id,source) VALUES
+('18600000-0000-4000-8000-000000000005','18600000-0000-4000-8000-000000000001','18600000-0000-4000-8000-000000000002','restore.fixture');`, false},
+		{"allocator below greatest order", `
+INSERT INTO public.change_sets(change_set_id,incident_id,actor_user_id,source,history_order) VALUES
+('18600000-0000-4000-8000-000000000005','18600000-0000-4000-8000-000000000001','18600000-0000-4000-8000-000000000002','restore.fixture',2);
+INSERT INTO public.revision_history_orders(incident_id,last_order) VALUES('18600000-0000-4000-8000-000000000001',1);`, false},
+		{"missing allocator", `
+INSERT INTO public.change_sets(change_set_id,incident_id,actor_user_id,source,history_order) VALUES
+('18600000-0000-4000-8000-000000000005','18600000-0000-4000-8000-000000000001','18600000-0000-4000-8000-000000000002','restore.fixture',1);`, false},
+	} {
+		t.Run("history order "+tc.name, func(t *testing.T) {
+			target, pool := newTarget(t, "history-order-"+strings.ReplaceAll(tc.name, " ", "-"))
+			err := target.WithAtomicRestore(t.Context(), nil, func(m recovery.VNextRestoreMutation) error {
+				_, err := recovery.RestoreMutationTransactionForTest(m).Exec(t.Context(), `
+INSERT INTO public.users(id,email,display_name,password_hash) VALUES('18600000-0000-4000-8000-000000000002','restore@example.test','Restore','unused');
+INSERT INTO public.incidents(id,incident_key,incident_key_canonical,title,status,created_by_user_id,updated_by_user_id)
+VALUES('18600000-0000-4000-8000-000000000001','RESTORE','restore','Restore','active','18600000-0000-4000-8000-000000000002','18600000-0000-4000-8000-000000000002');`+tc.changeSets)
+				return err
+			})
+			if tc.valid {
+				if err != nil {
+					t.Fatal("ordered chronology restore", err)
+				}
+				var orders, highWater int64
+				if err := pool.QueryRow(t.Context(), `SELECT (SELECT sum(history_order)::bigint FROM public.change_sets),(SELECT last_order FROM public.revision_history_orders WHERE incident_id=$1)`, historyIncident).Scan(&orders, &highWater); err != nil || orders != 3 || highWater != 2 {
+					t.Fatalf("restored chronology changed: orders=%d high water=%d err=%v", orders, highWater, err)
+				}
+				return
+			}
+			if !errors.Is(err, recovery.ErrVNextBackup) || !strings.Contains(err.Error(), "restored revision history order") {
+				t.Fatalf("restore admitted an incoherent chronology: %v; want the restored revision history order rejection", err)
+			}
+			var changeSets, incidents int
+			if err := pool.QueryRow(t.Context(), `SELECT (SELECT count(*) FROM public.change_sets),(SELECT count(*) FROM public.incidents)`).Scan(&changeSets, &incidents); err != nil || changeSets != 0 || incidents != 0 {
+				t.Fatalf("rejected chronology restore published rows: change_sets=%d incidents=%d err=%v", changeSets, incidents, err)
+			}
+		})
+	}
 }

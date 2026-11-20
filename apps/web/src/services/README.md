@@ -13,7 +13,7 @@ availability live in [extensions](../extensions/README.md).
 | File | Responsibility |
 | --- | --- |
 | [asyncObservation.ts](asyncObservation.ts) | Abortable bounded reads, operation observation, and delays over an injectable clock. |
-| [browserApi.ts](browserApi.ts) | Owner-neutral browser JSON, multipart, and generated-operation transport with path/query derivation, response validation, CSRF, and public-error extraction. |
+| [browserApi.ts](browserApi.ts) | Owner-neutral browser JSON, multipart, and generated-operation transport with path/query derivation, response validation, operation-declared public-error decoding, CSRF, and public-error extraction. |
 | [clientTransactionId.ts](clientTransactionId.ts) | Secure prefixed client transaction ID generation using Web Crypto UUIDs or RFC 4122 v4 fallback formatting. |
 | [commonJobContract.ts](commonJobContract.ts) | Shared common-job validation, terminal-state classification, and non-regression checks. |
 | [httpTransport.ts](httpTransport.ts) | Same-origin JSON and multipart transport mechanics for credentials, CSRF, cancellation, parsing, optional runtime decoding, and sanitized contract failures. |
@@ -31,7 +31,7 @@ availability live in [extensions](../extensions/README.md).
 
 | File | Responsibility |
 | --- | --- |
-| [browserApi.test.ts](browserApi.test.ts) | Tests for browser API base/path helpers. |
+| [browserApi.test.ts](browserApi.test.ts) | Tests for browser API base/path helpers and operation-contract public-error decoding. |
 | [clientTransactionId.node.test.ts](clientTransactionId.node.test.ts) | Tests for platform UUID use, secure-random fallback formatting, prefixes, and unavailable-crypto failure. |
 | [clientTransactionIdPolicy.test.ts](clientTransactionIdPolicy.test.ts) | Static policy test excluding counters, clocks, and insecure randomness from browser mutation IDs. |
 | [importClient.test.ts](importClient.test.ts) | Tests exact workbook upload replay, acceptance/resource separation, and selection receipts. |

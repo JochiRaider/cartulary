@@ -22,7 +22,7 @@ import {
   parseSameFieldConflictPayload,
   type WorkbookSameFieldConflictPayload,
 } from "../runtime/workbookConflictModel";
-import { classifyWorkbookOperationFailure } from "./workbookOperationErrorPolicy";
+import { explicitWorkbookFailureOutcome } from "./workbookOperationErrorPolicy";
 
 function pathFor(
   attempt: Pick<WorkbookBatchAttempt, "apiBase" | "authority" | "plan">,
@@ -87,7 +87,10 @@ export function createWorkbookBatchTransport(options: {
         return { kind: "uncertain" };
       let status: number | null = null;
       try {
-        const result = await fetchHTTPOperation<{ data: unknown }>({
+        const result = await fetchHTTPOperation<
+          { data: unknown },
+          (typeof attempt.plan)["operation"]
+        >({
           apiBase: attempt.apiBase,
           operationID: attempt.plan.operation,
           pathParameters: {
@@ -104,21 +107,11 @@ export function createWorkbookBatchTransport(options: {
           },
         });
         if (!result.ok) {
-          if (
-            status === null ||
-            status < 400 ||
-            status >= 500 ||
-            !result.payload.error?.code
-          )
-            return { kind: "uncertain" };
-          const failure = classifyWorkbookOperationFailure(
-            result.status,
-            result.payload,
+          return explicitWorkbookFailureOutcome(
+            status,
+            result.payload.error,
             attempt.plan.operation,
           );
-          return failure.kind === "invalid_contract"
-            ? { kind: "uncertain" }
-            : { kind: "rejected", failure };
         }
         const receipt = validateWorkbookBatchReceipt(
           attempt,

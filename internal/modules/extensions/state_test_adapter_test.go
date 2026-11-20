@@ -17,6 +17,7 @@ const testStateFamilyID = "test_profile.members"
 
 type stateTestFaults struct {
 	onCommit      func()
+	beforeCommit  func()
 	rollbackError error
 	onRollback    func()
 	rollbackCalls atomic.Int64
@@ -310,6 +311,23 @@ func (t *liveStateTestTransaction) Commit(ctx context.Context) (CommitOutcome, e
 	case "indeterminate":
 		_, _ = t.tx.Commit(ctx)
 		return CommitIndeterminate, errors.New("commit acknowledgment and proof unavailable")
+	case "deferred_fk_violation":
+		// Removing the profile's metadata row leaves this step's ledger row
+		// violating the deferred extension_migration_ledger_metadata_fk, so
+		// COMMIT itself fails with an ERROR acknowledgement (23503).
+		if err := t.tx.Exec(ctx, `DELETE FROM extension_state_metadata WHERE profile_id = $1`, t.profileID); err != nil {
+			return CommitIndeterminate, err
+		}
+		outcome, err := t.tx.Commit(ctx)
+		return mapTestCommitOutcome(outcome), err
+	case "caller_canceled":
+		// The step's caller is cancelled once commit is invoked; the physical
+		// commit then runs on whatever context the runtime handed it.
+		if t.faults.beforeCommit != nil {
+			t.faults.beforeCommit()
+		}
+		outcome, err := t.tx.Commit(ctx)
+		return mapTestCommitOutcome(outcome), err
 	default:
 		outcome, err := t.tx.Commit(ctx)
 		return mapTestCommitOutcome(outcome), err

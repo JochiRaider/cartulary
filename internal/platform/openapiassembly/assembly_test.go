@@ -47,11 +47,15 @@ func TestProductionCompletenessFoundation(t *testing.T) {
 	requireBearerScheme(t, schemes, "credentialBootstrapBearer")
 
 	parameters := fixtureObject(t, components["parameters"], "components.parameters")
+	// S-1089 splits the record, user and view-schema identifiers by owner,
+	// because their not-found responses differ (Core 01 REQ-01-707).
 	expectedParameters := []string{
-		"AuthBindingIDPathParameter", "ConflictTokenPathParameter", "EvidenceHandleTokenPathParameter",
+		"AuthBindingIDPathParameter", "ConflictTokenPathParameter", "EnterpriseBindingUserIDPathParameter",
+		"EvidenceHandleTokenPathParameter", "EvidenceRecordIDPathParameter",
 		"IncidentIDPathParameter", "IndicatorIDPath", "IndicatorListCursor", "IndicatorListLimit",
-		"IndicatorObservationIDPath", "ProviderKeyPathParameter", "RecordIDPathParameter",
-		"UserIDPathParameter", "ViewSchemaIDPathParameter",
+		"IndicatorObservationIDPath", "MembershipUserIDPathParameter", "ProviderKeyPathParameter",
+		"RecordIDPathParameter", "UserIDPathParameter", "ViewSchemaDiscoveryIDPathParameter",
+		"ViewSchemaIDPathParameter",
 	}
 	if strings.Join(sortedMapKeysForTest(parameters), "\x00") != strings.Join(expectedParameters, "\x00") {
 		t.Fatalf("shared parameter inventory changed: %#v", sortedMapKeysForTest(parameters))
@@ -67,6 +71,9 @@ func TestProductionCompletenessFoundation(t *testing.T) {
 		if parameter["in"] != "path" || parameter["required"] != true {
 			t.Fatalf("%s must be a required path parameter, got %#v", name, parameter)
 		}
+		if code, _ := parameter[notFoundCodeMember].(string); code == "" {
+			t.Fatalf("%s must declare %s", name, notFoundCodeMember)
+		}
 	}
 
 	responses := fixtureObject(t, components["responses"], "components.responses")
@@ -76,8 +83,23 @@ func TestProductionCompletenessFoundation(t *testing.T) {
 		"ForbiddenErrorResponse",
 		"InternalServerErrorResponse",
 		"NotFoundErrorResponse",
+		"ServiceUnavailableErrorResponse",
 		"TooManyRequestsErrorResponse",
 		"UnauthorizedErrorResponse",
+	}
+	// The shared responses for the declarations every operation, or every
+	// operation of a reserved extension route family, implies (Core 01
+	// REQ-01-702) declare only the implied code, so any such operation may
+	// share them.
+	for name, code := range map[string]string{
+		"InternalServerErrorResponse":     "internal_error",
+		"ServiceUnavailableErrorResponse": "service_unavailable",
+		"NotFoundErrorResponse":           "extension_profile_not_claimed",
+	} {
+		response := fixtureObject(t, responses[name], "components.responses."+name)
+		if codes, _ := response[errorCodesMember].([]any); len(codes) != 1 || codes[0] != code {
+			t.Fatalf("%s must declare exactly %s, got %#v", name, code, response[errorCodesMember])
+		}
 	}
 	for _, name := range expectedResponses {
 		raw, ok := responses[name]
@@ -546,10 +568,12 @@ func completeFixtureOperations(t *testing.T, document *orderedValue) {
 				}
 				method.value.object = append(method.value.object, orderedMember{name: "responses", value: responses})
 			}
+			completeFixtureOperationImpliedResponses(t, method.value)
 			if _, ok := objectMember(method.value, "security"); !ok {
 				rawSecurity := `[]`
 				if firstOperation {
 					rawSecurity = `[{"bearerSession":[],"credentialBootstrapBearer":[],"csrfCookie":[],"csrfHeader":[],"sessionCookie":[]}]`
+					completeFixtureImpliedResponses(t, method.value)
 				}
 				security, err := parseOrderedJSON([]byte(rawSecurity), 128)
 				if err != nil {
@@ -558,6 +582,64 @@ func completeFixtureOperations(t *testing.T, document *orderedValue) {
 				method.value.object = append(method.value.object, orderedMember{name: "security", value: security})
 			}
 			firstOperation = false
+		}
+	}
+}
+
+// fixtureImpliedResponses are the security-implied error responses (Core 01
+// REQ-01-702) of the default fixture security, which names every scheme.
+const fixtureImpliedResponses = `{"401":{"description":"session","x-cartulary-error-codes":["session_required"]},` +
+	`"403":{"description":"csrf","x-cartulary-error-codes":["csrf_verification_failed"]},` +
+	`"409":{"description":"bootstrap","x-cartulary-error-codes":["credential_bootstrap_rejected"]}}`
+
+// fixtureOperationImpliedResponses are the error responses every operation
+// implies (Core 01 REQ-01-702): 500 internal_error and 503 service_unavailable.
+const fixtureOperationImpliedResponses = `{"500":{"description":"internal","x-cartulary-error-codes":["internal_error"]},` +
+	`"503":{"description":"unavailable","x-cartulary-error-codes":["service_unavailable"]}}`
+
+// fixtureImpliedRegistryEntries registers the codes every operation implies;
+// a fixture that writes its own registry includes them.
+const fixtureImpliedRegistryEntries = `{"code":"internal_error","http_status":500},{"code":"service_unavailable","http_status":503}`
+
+// fixtureErrorRegistry registers the security-implied and operation-implied
+// codes; a fixture that declares other codes writes its own registry.
+const fixtureErrorRegistry = `{"errors":[{"code":"credential_bootstrap_rejected","http_status":409},` +
+	`{"code":"csrf_verification_failed","http_status":403},{"code":"session_required","http_status":401},` + fixtureImpliedRegistryEntries + `]}`
+
+// completeFixtureOperationImpliedResponses adds each operation-implied error
+// response the operation does not already declare for that status.
+func completeFixtureOperationImpliedResponses(t *testing.T, operation *orderedValue) {
+	t.Helper()
+	responses, ok := objectMember(operation, "responses")
+	if !ok || responses.kind != objectKind {
+		return
+	}
+	implied, err := parseOrderedJSON([]byte(fixtureOperationImpliedResponses), 128)
+	if err != nil {
+		t.Fatalf("parse fixture operation-implied responses: %v", err)
+	}
+	for _, response := range implied.object {
+		if _, declared := objectMember(responses, response.name); !declared {
+			responses.object = append(responses.object, response)
+		}
+	}
+}
+
+// completeFixtureImpliedResponses adds each security-implied error response
+// the operation does not already declare for that status.
+func completeFixtureImpliedResponses(t *testing.T, operation *orderedValue) {
+	t.Helper()
+	responses, ok := objectMember(operation, "responses")
+	if !ok || responses.kind != objectKind {
+		return
+	}
+	implied, err := parseOrderedJSON([]byte(fixtureImpliedResponses), 128)
+	if err != nil {
+		t.Fatalf("parse fixture implied responses: %v", err)
+	}
+	for _, response := range implied.object {
+		if _, declared := objectMember(responses, response.name); !declared {
+			responses.object = append(responses.object, response)
 		}
 	}
 }
@@ -608,6 +690,9 @@ func newAssemblyFixture(
 	preparedContents := prepareFixtureContents(t, units, contents)
 	for path, content := range preparedContents {
 		writeFixtureFile(t, root, path, content)
+	}
+	if _, provided := preparedContents[errorRegistryPath]; !provided {
+		writeFixtureFile(t, root, errorRegistryPath, fixtureErrorRegistry)
 	}
 	writeFixtureFile(t, root, "contracts/openapi/cartulary.openapi.yaml", "target sentinel\n")
 	fixture := &assemblyFixture{
@@ -699,7 +784,9 @@ func TestExplicitMutationClassificationAdmission(t *testing.T) {
 			if value != "missing" {
 				declaration = `,"x-cartulary-state-changing":` + value
 			}
-			document := `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{"/a":{"post":{"operationId":"a","responses":{"200":{"description":"ok"}},"security":[{"bearerSession":[],"credentialBootstrapBearer":[],"csrfCookie":[],"csrfHeader":[],"sessionCookie":[]}]` + declaration + `}}}}`
+			responses := strings.Replace(fixtureImpliedResponses, `{`, `{"200":{"description":"ok"},`, 1)
+			responses = strings.TrimSuffix(responses, `}`) + `,` + strings.TrimPrefix(fixtureOperationImpliedResponses, `{`)
+			document := `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{"/a":{"post":{"operationId":"a","responses":` + responses + `,"security":[{"bearerSession":[],"credentialBootstrapBearer":[],"csrfCookie":[],"csrfHeader":[],"sessionCookie":[]}]` + declaration + `}}}}`
 			fixture := newAssemblyFixture(t, rootOnlyUnits(), map[string]string{rootUnitPath(): document})
 			writeFixtureFile(t, fixture.root, rootUnitPath(), fixtureDocument(t, document, true, false))
 			target := filepath.Join(fixture.root, "contracts", "openapi", "cartulary.openapi.yaml")

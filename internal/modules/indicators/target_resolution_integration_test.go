@@ -11,6 +11,7 @@ import (
 
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
+	"github.com/JochiRaider/cartulary/internal/modules/records"
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
@@ -75,14 +76,19 @@ func TestIndicatorTargetRoleFailuresAreAtomic_Integration(t *testing.T) {
 		}
 	}
 
-	for name, sourceID := range map[string]uuid.UUID{
-		"missing source": uuid.New(),
-		"deleted source": deletedSource,
-		"foreign source": foreignSource,
+	// REQ-01-705: a soft-deleted addressed record must be restored first; a
+	// missing or foreign one keeps the route's not-found classification.
+	for name, source := range map[string]struct {
+		id   uuid.UUID
+		want error
+	}{
+		"missing source": {uuid.New(), indicators.ErrIndicatorSourceNotFound},
+		"deleted source": {deletedSource, records.ErrTargetDeleted},
+		"foreign source": {foreignSource, indicators.ErrIndicatorSourceNotFound},
 	} {
-		name, sourceID := name, sourceID
+		name, sourceID := name, source.id
 		suffix := strings.ReplaceAll(name, " ", "-")
-		assertFailure(name, indicators.ErrIndicatorSourceNotFound, func() error {
+		assertFailure(name, source.want, func() error {
 			_, callErr := application.CreateIndicatorObservation(ctx, actor.ID, manualObservationParams(incident.ID, sourceID, timelinetest.FieldSourceText, nil, "txn-target-role-"+suffix))
 			return callErr
 		})
@@ -110,15 +116,18 @@ func TestIndicatorTargetRoleFailuresAreAtomic_Integration(t *testing.T) {
 		})
 	}
 
-	for name, targetID := range map[string]uuid.UUID{
-		"missing addressed Indicator":    uuid.New(),
-		"wrong-type addressed Indicator": wrongTypeTarget,
-		"deleted addressed Indicator":    deletedIndicator,
-		"foreign addressed Indicator":    foreignIndicator,
+	for name, target := range map[string]struct {
+		id   uuid.UUID
+		want error
+	}{
+		"missing addressed Indicator":    {uuid.New(), indicators.ErrIndicatorNotFound},
+		"wrong-type addressed Indicator": {wrongTypeTarget, indicators.ErrIndicatorNotFound},
+		"deleted addressed Indicator":    {deletedIndicator, records.ErrTargetDeleted},
+		"foreign addressed Indicator":    {foreignIndicator, indicators.ErrIndicatorNotFound},
 	} {
-		name, targetID := name, targetID
+		name, targetID := name, target.id
 		suffix := strings.ReplaceAll(name, " ", "-")
-		assertFailure(name, indicators.ErrIndicatorNotFound, func() error {
+		assertFailure(name, target.want, func() error {
 			params := lifecycleAppendParams(incident.ID, targetID, 1, now.Add(time.Hour), "txn-target-role-"+suffix)
 			_, callErr := application.AppendIndicatorLifecycleInterval(ctx, actor.ID, params)
 			return callErr

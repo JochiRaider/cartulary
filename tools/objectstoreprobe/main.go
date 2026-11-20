@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"encoding/base64"
+	"github.com/JochiRaider/cartulary/internal/platform/harnessredact"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore/s3transport"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -1381,14 +1382,16 @@ func classifyReason(err error) (string, bool) {
 }
 
 func sanitizeMessage(cfg config, message string) string {
+	// One retained marker, owned by the harness redaction manifest
+	// (TH-HARNESS-REQ-617).
 	replacer := strings.NewReplacer(
-		cfg.AccessKeyID, "[REDACTED:object-store-credential]",
-		cfg.SecretAccessKey, "[REDACTED:object-store-credential]",
-		cfg.Bucket, "[REDACTED:object-store-bucket]",
+		cfg.AccessKeyID, harnessredact.Marker,
+		cfg.SecretAccessKey, harnessredact.Marker,
+		cfg.Bucket, harnessredact.Marker,
 	)
 	message = replacer.Replace(message)
 	if idx := strings.Index(message, ".cartulary/probes/startup/"); idx >= 0 {
-		message = message[:idx] + "[REDACTED:object-store-key]"
+		message = message[:idx] + harnessredact.Marker
 	}
 	return message
 }

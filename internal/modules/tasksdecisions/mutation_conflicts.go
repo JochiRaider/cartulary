@@ -14,6 +14,16 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/collectionvalue"
 )
 
+// errInvalidCollectionConflictBase reports a reconstructed base value that
+// cannot carry the requested collection actions. Like an unavailable window it
+// fails closed as row_version_conflict; an action the admission contract
+// excludes is an invariant failure instead.
+var errInvalidCollectionConflictBase = errors.New("invalid base collection value")
+
+// adaptRevisionWindowError classifies only the typed unavailable-window
+// condition, which fails closed as row_version_conflict. Every other failure,
+// including a database, field-catalog or conflict-token error, stays
+// unclassified and surfaces as internal_error (REQ-01-706).
 func adaptRevisionWindowError(recordID uuid.UUID, baseRowVersion int64, currentRowVersion int64, err error) error {
 	if err == nil {
 		return nil
@@ -22,7 +32,7 @@ func adaptRevisionWindowError(recordID uuid.UUID, baseRowVersion int64, currentR
 	if errors.As(err, &windowErr) {
 		return &RowVersionConflictError{RecordID: windowErr.RecordID, BaseRowVersion: windowErr.BaseRowVersion, CurrentRowVersion: windowErr.CurrentRowVersion}
 	}
-	return &RowVersionConflictError{RecordID: recordID, BaseRowVersion: baseRowVersion, CurrentRowVersion: currentRowVersion}
+	return fmt.Errorf("record %s revision window %d..%d: %w", recordID, baseRowVersion, currentRowVersion, err)
 }
 
 type sameFieldConflictParams struct {
@@ -62,8 +72,11 @@ func buildSameFieldConflict(params sameFieldConflictParams) (SameFieldConflict, 
 	// Stored conflict facts may predate REQ-01-067 label order; re-serve them.
 	baseValue, serverValue = collectionvalue.Canonicalize(baseValue), collectionvalue.Canonicalize(serverValue)
 	clientValue, err := patchClientConflictValue(params.Change, baseValue)
-	if err != nil {
+	if errors.Is(err, errInvalidCollectionConflictBase) {
 		return SameFieldConflict{}, &conflicttokens.RevisionWindowError{RecordID: params.RecordID, BaseRowVersion: params.BaseRowVersion, CurrentRowVersion: params.CurrentRowVersion}
+	}
+	if err != nil {
+		return SameFieldConflict{}, err
 	}
 	conflictClass := params.FieldDescriptors.ConflictResolutionClass(params.Change.FieldKey)
 	if conflictClass == "" {
@@ -110,7 +123,7 @@ func patchClientConflictValue(change PatchChange, baseValue any) (any, error) {
 func applyCollectionConflictActions(fieldKey string, baseValue any, payload CollectionActionPayload) (map[string]any, error) {
 	ordered, items, ok := cloneCollectionConflictValue(baseValue)
 	if !ok {
-		return nil, fmt.Errorf("invalid base collection value for %s", fieldKey)
+		return nil, fmt.Errorf("%w for %s", errInvalidCollectionConflictBase, fieldKey)
 	}
 	for _, action := range payload.Actions {
 		switch action.Op {

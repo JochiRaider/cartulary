@@ -447,7 +447,7 @@ describe("useEntitySurfaceQuery", () => {
         ),
       );
       await act(async () => {
-        departed.resolve(errorResponse("authorization_denied", 403));
+        departed.resolve(errorResponse("incident_not_found", 404));
       });
       expect(screen.getByLabelText("entity-index").textContent).toBe(
         isHost ? identityCurrentId : hostCurrentId,
@@ -473,7 +473,7 @@ describe("useEntitySurfaceQuery", () => {
         "fetch",
         vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
           if (denied)
-            return Promise.resolve(errorResponse("authorization_denied", 403));
+            return Promise.resolve(errorResponse("incident_not_found", 404));
           if (init?.signal) signals.push(init.signal);
           if (held) return pending.promise;
           return Promise.resolve(
@@ -552,7 +552,7 @@ describe("useEntitySurfaceQuery", () => {
           : query.result.current.identityRows,
       ).toHaveLength(1);
       fetch.mockImplementation(() =>
-        Promise.resolve(errorResponse("authorization_denied", 403)),
+        Promise.resolve(errorResponse("incident_not_found", 404)),
       );
       await act(async () => {
         const refused = query.result.current.refresh({

@@ -5,9 +5,12 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"io"
 	"math"
 	"net/http"
+	"reflect"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -18,6 +21,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	incidentscenariotest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
+	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	timelineadmission "github.com/JochiRaider/cartulary/internal/modules/timeline/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/asserttest"
@@ -1076,6 +1080,53 @@ func TestProjectionQueryUsesDeterministicRebuild_Integration(t *testing.T) {
 func TestAuthorizationLifecycleAndSupersedeTransitions_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 
+	// REQ-01-085: mark-reviewed classifies its target before the Timeline row.
+	// Another record type defines no capture-state machine (409
+	// illegal_transition, null from_status); a soft-deleted Timeline record
+	// must be restored first (409 record_deleted_use_restore); an absent record
+	// is not found (404). None of them writes anything.
+	t.Run("mark-reviewed resolves its target in REQ-01-085 order", func(t *testing.T) {
+		server, db, _ := startServer(t, runtime, "timeline_mutation-i-3-03-target")
+		defer db.Close()
+		adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, server.HTTP.URL)
+		incidentID := createIncident(t, server, adminLogin, map[string]any{
+			"client_txn_id": "txn-i-3-03-target-incident",
+			"incident_key":  "IR-I303T",
+			"title":         "Lifecycle targets",
+		})["incident_id"].(string)
+		auth := []func(*http.Request){httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value)}
+		hostResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/cartulary.view.hosts.v1/rows", map[string]any{
+			"client_txn_id": "txn-i-3-03-target-host", "host.hostname": "target-host.example.test", "host.display_name": "Target host",
+		}, auth...)
+		hostID := httptestx.RequireSuccessData(t, hostResp, http.StatusCreated)["row"].(map[string]any)["record_id"].(string)
+		deletedID := createTimelineRow(t, server, incidentID, adminLogin, map[string]any{
+			"client_txn_id":                   "txn-i-3-03-target-deleted",
+			"timeline.activity_synopsis_text": "Deleted target",
+		})["row"].(map[string]any)["record_id"].(string)
+		envelopetest.SoftDeleteRecord(t, db, envelopetest.Tombstone{RecordID: mustUUID(t, deletedID), DeletedBy: adminID, AtLastUpdate: true})
+		markReviewed := func(recordID, txn string) *http.Response {
+			return httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/records/"+recordID+"/mark-reviewed",
+				map[string]any{"base_row_version": 1, "client_txn_id": txn}, auth...)
+		}
+
+		before := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(db), incidentID, hostID)
+		body := httptestx.RequireErrorEnvelope(t, markReviewed(hostID, "txn-i-3-03-target-host-review"), http.StatusConflict, "illegal_transition")
+		details := body["error"].(map[string]any)["details"].(map[string]any)
+		if from, present := details["from_status"]; !present || from != nil {
+			t.Fatalf("host target from_status = %#v, want null", details["from_status"])
+		}
+		httptestx.RequireErrorDetail(t, body, "to_status", "reviewed")
+		httptestx.RequireErrorDetail(t, body, "reason_code", "transition_not_allowed")
+		httptestx.RequireErrorDetailStrings(t, body, "violated_guards", []string{"record_type_has_machine"})
+		lifecyclecontract.RequireDetails(t, "host", details)
+		if after := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(db), incidentID, hostID); before != after {
+			t.Fatalf("rejected host target wrote rows: before=%#v after=%#v", before, after)
+		}
+
+		httptestx.RequireErrorEnvelope(t, markReviewed(deletedID, "txn-i-3-03-target-deleted-review"), http.StatusConflict, "record_deleted_use_restore")
+		httptestx.RequireErrorEnvelope(t, markReviewed(uuid.NewString(), "txn-i-3-03-target-missing-review"), http.StatusNotFound, "incident_not_found")
+	})
+
 	t.Run("authorization re-derives, reasons normalize, and supersede guards hold", func(t *testing.T) {
 		server, db, _ := startServer(t, runtime, "timeline_mutation-i-3-03")
 		defer db.Close()
@@ -2006,4 +2057,161 @@ func queryCount(t testing.TB, db *sql.DB, query string, args ...any) int {
 	t.Helper()
 
 	return dbassert.CountSQL(t, db, query, args...)
+}
+
+// TestTimelineRouteAdmissionOrder_Integration covers Core 01 REQ-01-707 and
+// AC-617 for the Timeline routes: route resolution rejects undeclared methods
+// and HEAD with registered envelopes; authentication and CSRF precede path
+// parameters; a malformed or encoded-slash incident_id or record_id receives
+// the declared incident_not_found, identical to a missing resource's, and
+// never reaches another operation; and visibility precedes the role gate and
+// the request body (REQ-01-704), with no committed effect.
+func TestTimelineRouteAdmissionOrder_Integration(t *testing.T) {
+	runtime := appsupport.StartRuntime(t)
+	server, db, _ := startServer(t, runtime, "timeline-admission-order")
+	base := server.HTTP.URL
+	admin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, base)
+	incidentID := createIncident(t, server, admin, map[string]any{
+		"client_txn_id": "txn-timeline-admission-order-incident",
+		"incident_key":  "IR-TIMELINE-ADMISSION-ORDER",
+		"title":         "Timeline route admission order",
+	})["incident_id"].(string)
+	recordID := createTimelineRow(t, server, incidentID, admin, map[string]any{
+		"client_txn_id":                   "txn-timeline-admission-order-row",
+		"timeline.activity_synopsis_text": "Admission order row",
+	})["row"].(map[string]any)["record_id"].(string)
+	editorID := seedLocalUserFlags(t, db, "timeline-admission-editor@example.test", "Timeline Admission Editor", "TimelineAdmissionEditor1!", false, false, true)
+	createMembership(t, server, incidentID, editorID, "timeline-admission-editor@example.test", "editor", admin)
+	editorLogin := flowtest.LoginLocalUser(t, http.DefaultClient, base, "timeline-admission-editor@example.test", "TimelineAdmissionEditor1!", nil)
+	seedLocalUserFlags(t, db, "timeline-admission-outsider@example.test", "Timeline Admission Outsider", "TimelineAdmissionOutsider1!", false, false, true)
+	outsiderLogin := flowtest.LoginLocalUser(t, http.DefaultClient, base, "timeline-admission-outsider@example.test", "TimelineAdmissionOutsider1!", nil)
+	// A redirect is never followed, so a 3xx would surface as itself.
+	client := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	send := func(method string, path string, login authcookietest.AuthCookies, body any) *http.Response {
+		t.Helper()
+		return httptestx.DoJSON(t, client, method, base+path, body, httptestx.WithCookies(login.Session, login.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value))
+	}
+	requireAlike := func(t testing.TB, existing, missing *http.Response) {
+		t.Helper()
+		bodies := make([]map[string]any, 0, 2)
+		for _, response := range []*http.Response{existing, missing} {
+			body := httptestx.RequireErrorEnvelope(t, response, http.StatusNotFound, "incident_not_found")
+			delete(body["error"].(map[string]any), "request_id")
+			bodies = append(bodies, body)
+		}
+		if !reflect.DeepEqual(bodies[0], bodies[1]) {
+			t.Fatalf("existing-resource response %v differs from missing-resource response %v", bodies[0], bodies[1])
+		}
+	}
+	requireMethodNotAllowed := func(t testing.TB, response *http.Response, allow ...string) {
+		t.Helper()
+		if got := response.Header.Get("Allow"); got != strings.Join(allow, ", ") {
+			t.Fatalf("Allow = %q, want %q", got, strings.Join(allow, ", "))
+		}
+		body := httptestx.RequireErrorEnvelope(t, response, http.StatusMethodNotAllowed, "method_not_allowed")
+		want := make([]any, 0, len(allow))
+		for _, method := range allow {
+			want = append(want, method)
+		}
+		if details := httptestx.RequireErrorDetails(t, body); !reflect.DeepEqual(details, map[string]any{"allowed_methods": want}) {
+			t.Fatalf("details = %#v, want allowed_methods %v", details, allow)
+		}
+	}
+	profileFor := func(id string) string { return "/api/v1/incidents/" + id + "/timeline-time-conversion-profile" }
+	reviewFor := func(id string) string { return "/api/v1/records/" + id + "/mark-reviewed" }
+	routes := []struct {
+		name, method, id string
+		path             func(string) string
+		csrf, gated      bool
+	}{
+		{name: "getTimelineTimeConversionProfile", method: http.MethodGet, id: incidentID, path: profileFor},
+		{name: "putTimelineTimeConversionProfile", method: http.MethodPut, id: incidentID, path: profileFor, csrf: true, gated: true},
+		{name: "markTimelineRecordReviewed", method: http.MethodPost, id: recordID, path: reviewFor, csrf: true, gated: true},
+	}
+	invalid := func(method string) any {
+		if method == http.MethodGet {
+			return nil
+		}
+		return []any{1}
+	}
+	httptestx.RequireSuccessEnvelope(t, send(http.MethodGet, profileFor(strings.ToUpper(incidentID)), admin, nil), http.StatusOK)
+	before := timelineAdmissionEffects(t, db)
+
+	t.Run("authentication and CSRF precede path parameters", func(t *testing.T) {
+		for _, r := range routes {
+			path := r.path("not-an-id")
+			httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, client, r.method, base+path, invalid(r.method)), http.StatusUnauthorized, "session_required")
+			if r.csrf {
+				withoutCSRF := httptestx.DoJSON(t, client, r.method, base+path, invalid(r.method), httptestx.WithCookies(admin.Session))
+				httptestx.RequireErrorEnvelope(t, withoutCSRF, http.StatusForbidden, "csrf_verification_failed")
+			}
+		}
+	})
+	t.Run("a malformed identifier is a missing resource", func(t *testing.T) {
+		for _, r := range routes {
+			for _, malformed := range []string{"not-an-id", strings.ReplaceAll(r.id, "-", ""), "%7B" + r.id + "%7D"} {
+				requireAlike(t, send(r.method, r.path(malformed), admin, invalid(r.method)), send(r.method, r.path(uuid.NewString()), admin, invalid(r.method)))
+			}
+		}
+	})
+	t.Run("an encoded slash stays inside the identifier", func(t *testing.T) {
+		requireAlike(t, send(http.MethodGet, "/api/v1/incidents/"+incidentID+"%2Ftimeline-time-conversion-profile", admin, nil), send(http.MethodGet, "/api/v1/incidents/"+uuid.NewString(), admin, nil))
+		requireAlike(t, send(http.MethodPut, profileFor(incidentID+"%2Fx"), admin, map[string]any{}), send(http.MethodPut, profileFor(uuid.NewString()), admin, map[string]any{}))
+		requireAlike(t, send(http.MethodPost, reviewFor(recordID+"%2Fx"), admin, map[string]any{}), send(http.MethodPost, reviewFor(uuid.NewString()), admin, map[string]any{}))
+		requireAlike(t, send(http.MethodPatch, "/api/v1/records/"+recordID+"%2Fmark-reviewed", admin, map[string]any{}), send(http.MethodPatch, "/api/v1/records/"+uuid.NewString(), admin, map[string]any{}))
+		// POST on the record template: the encoded slash never selects mark-reviewed.
+		requireMethodNotAllowed(t, send(http.MethodPost, "/api/v1/records/"+recordID+"%2Fmark-reviewed", admin, map[string]any{}), http.MethodDelete, http.MethodPatch)
+	})
+	t.Run("route resolution rejections are enveloped", func(t *testing.T) {
+		head := httptestx.DoJSON(t, client, http.MethodHead, base+profileFor(incidentID), nil, httptestx.WithCookies(admin.Session))
+		body, err := io.ReadAll(head.Body)
+		_ = head.Body.Close()
+		if err != nil || head.StatusCode != http.StatusMethodNotAllowed || head.Header.Get("Allow") != "GET, PUT" || len(body) != 0 {
+			t.Fatalf("HEAD = %d Allow=%q body=%q err=%v, want 405 Allow GET, PUT without a body", head.StatusCode, head.Header.Get("Allow"), body, err)
+		}
+		requireMethodNotAllowed(t, send(http.MethodDelete, profileFor(incidentID), admin, nil), http.MethodGet, http.MethodPut)
+		requireMethodNotAllowed(t, send(http.MethodGet, reviewFor(recordID), admin, nil), http.MethodPost)
+		httptestx.RequireErrorEnvelope(t, send(http.MethodGet, profileFor(incidentID)+"/unknown", admin, nil), http.StatusNotFound, "route_not_found")
+	})
+	t.Run("visibility precedes the role gate and route handling", func(t *testing.T) {
+		for _, r := range routes {
+			requireAlike(t, send(r.method, r.path(r.id)+"?limit=1", outsiderLogin, invalid(r.method)), send(r.method, r.path(uuid.NewString())+"?limit=1", outsiderLogin, invalid(r.method)))
+			if r.gated {
+				httptestx.RequireErrorEnvelope(t, send(r.method, r.path(r.id), editorLogin, invalid(r.method)), http.StatusForbidden, "authorization_denied")
+				httptestx.RequireErrorEnvelope(t, send(r.method, r.path(r.id), admin, invalid(r.method)), http.StatusBadRequest, "invalid_mutation_payload")
+			}
+		}
+	})
+	// REQ-01-611 and AC-451: any member reads the profile, and the singleton
+	// read rejects pagination members only after the visibility gate above.
+	t.Run("the profile read admits any member and rejects pagination members", func(t *testing.T) {
+		httptestx.RequireSuccessEnvelope(t, send(http.MethodGet, profileFor(incidentID), editorLogin, nil), http.StatusOK)
+		for _, query := range []string{"?limit=1", "?cursor_token=opaque", "?page=2", "?offset=0", "?page_size=5", "?block_size=5"} {
+			for _, login := range []authcookietest.AuthCookies{editorLogin, admin} {
+				body := httptestx.RequireErrorEnvelope(t, send(http.MethodGet, profileFor(incidentID)+query, login, nil), http.StatusBadRequest, "invalid_pagination_request")
+				if details := httptestx.RequireErrorDetails(t, body); !reflect.DeepEqual(details, map[string]any{"reason_code": "pagination_not_supported"}) {
+					t.Fatalf("%s details = %#v, want reason_code pagination_not_supported", query, details)
+				}
+			}
+		}
+	})
+	if after := timelineAdmissionEffects(t, db); after != before {
+		t.Fatalf("rejected Timeline admission requests committed an effect: before=%s after=%s", before, after)
+	}
+}
+
+// timelineAdmissionEffects renders the record, profile, receipt and
+// Collaboration state a rejected Timeline request could commit.
+func timelineAdmissionEffects(t testing.TB, db *sql.DB) string {
+	t.Helper()
+	var effects string
+	if err := db.QueryRowContext(context.Background(), `SELECT jsonb_build_object(
+ 'records',(SELECT coalesce(jsonb_agg(jsonb_build_array(record_id,row_version,updated_at,deleted_at) ORDER BY record_id),'[]') FROM records),
+ 'profiles',(SELECT coalesce(jsonb_agg(jsonb_build_array(incident_id,enabled,profile_version,updated_at) ORDER BY incident_id),'[]') FROM timeline_time_conversion_profiles),
+ 'receipts',(SELECT count(*) FROM route_idempotency),
+ 'change_sets',(SELECT count(*) FROM change_sets)
+ )::text`).Scan(&effects); err != nil {
+		t.Fatal(err)
+	}
+	return effects + " collaboration_intents=" + strconv.Itoa(collaborationsupport.CountIntents(t, db, collaborationsupport.IntentSelector{}))
 }

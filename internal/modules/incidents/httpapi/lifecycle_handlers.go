@@ -8,7 +8,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	platformhttpapi "github.com/JochiRaider/cartulary/internal/platform/httpapi"
-	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 )
 
 func (s *service) handleCloseIncident(w http.ResponseWriter, r *http.Request) {
@@ -24,11 +23,12 @@ func (s *service) handleIncidentLifecycle(
 	r *http.Request,
 	action incidents.LifecycleAction,
 ) {
-	incidentID, ok := routeUUID(w, r, "incident_id")
-	if !ok {
+	principal, apiErr := admittedPrincipal(r)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
 		return
 	}
-	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
+	incidentID, apiErr := admittedPathUUID(r, "incident_id")
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -55,13 +55,13 @@ func (s *service) handleIncidentLifecycle(
 		writeAPIError(w, r, platformhttpapi.ClientTxnConflictError(request.ClientTxnID()))
 		return
 	case admission.IsDenied(err, admission.DenialNotVisible):
-		writeAPIError(w, r, incidentNotFoundError())
+		writeAPIError(w, r, platformhttpapi.NotFound("incident_not_found"))
 		return
 	case admission.IsDenied(err, admission.DenialInsufficientRole):
 		writeAPIError(w, r, authorizationDeniedError("admin"))
 		return
 	case errors.Is(err, incidents.ErrIncidentNotFound):
-		writeAPIError(w, r, incidentNotFoundError())
+		writeAPIError(w, r, platformhttpapi.NotFound("incident_not_found"))
 		return
 	case errors.As(err, &versionConflict):
 		writeAPIError(w, r, incidentVersionConflictError(versionConflict))
@@ -73,7 +73,7 @@ func (s *service) handleIncidentLifecycle(
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}

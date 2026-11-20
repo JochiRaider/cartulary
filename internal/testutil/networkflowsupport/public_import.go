@@ -64,22 +64,10 @@ func ImportCSV(t testing.TB, client *http.Client, origin string, login authcooki
 		t.Helper()
 		return httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, client, method, origin+path, body, options...), status)["data"].(map[string]any)
 	}
+	// The workflow keeps its existing bound: the test's own context.
 	await := func(id string) map[string]any {
 		t.Helper()
-		for {
-			job := call(http.MethodGet, "/api/v1/jobs/"+id, nil, http.StatusOK)
-			switch job["status"] {
-			case "succeeded":
-				return job
-			case "failed", "canceled":
-				t.Fatalf("Network Flow fixture workflow ended as %v", job["status"])
-			}
-			select {
-			case <-t.Context().Done():
-				t.Fatal("Network Flow fixture workflow did not complete")
-			case <-time.After(50 * time.Millisecond):
-			}
-		}
+		return httptestx.PollJob(t, origin, id, httptestx.PollOptions{Interval: 50 * time.Millisecond, Client: client, Request: options}, "succeeded")
 	}
 	var upload bytes.Buffer
 	writer := multipart.NewWriter(&upload)

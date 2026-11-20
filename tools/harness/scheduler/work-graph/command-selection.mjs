@@ -3,7 +3,7 @@ import { HarnessConfigError, resolveCommandInputs } from "../../contract/index.m
 import { attachedSelectionAllowed } from "../../services/local-session.mjs";
 
 const compare = (left, right) => left < right ? -1 : left > right ? 1 : 0;
-const usage = (message) => new HarnessConfigError(message, { reason: "usage_error" });
+const usage = (message) => new HarnessConfigError(message, { reason: "usage_error", diagnosticCause: "command_selection" });
 
 export function admitCommandSelection(compiler, target, validatedInputs) {
   // Source restrictions were already enforced by the public input resolver.

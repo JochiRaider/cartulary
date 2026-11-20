@@ -52,6 +52,7 @@ import { publicHttpOperation } from "./support/transport/publicHttpOperationClie
 import { atJsonOrigin } from "./support/transport/publicJsonClient";
 import {
   awaitResponseBarrier,
+  fulfillOperationError,
   installOwnedRoute,
   installPublicErrorResponse,
   removeOwnedRoute,
@@ -149,10 +150,16 @@ test("signs in as a local user and inspects the ordinary session surface", async
   await installOwnedRoute(page, "**/api/v1/auth/session", async (route) => {
     ++inspections;
     if (inspections === 1)
-      await route.fulfill({
-        status: 503,
-        json: { error: { code: "unavailable" } },
-      });
+      await fulfillOperationError(
+        route,
+        "getCurrentSession",
+        503,
+        "service_unavailable",
+        {
+          retryable: true,
+          details: { reason_code: "extension_publication_pending" },
+        },
+      );
     else await route.continue();
   });
   await new AuthGateway(page).login(email, password);
@@ -1032,13 +1039,14 @@ test("replays a committed incident after transport loss without duplicate dispat
   await installOwnedRoute(page, "**/api/v1/auth/session", async (route) => {
     if (!failMembershipRefresh) return route.continue();
     failMembershipRefresh = false;
-    await route.fulfill({
-      status: 502,
-      contentType: "application/json",
-      body: JSON.stringify({
-        error: { code: "service_unavailable", status: 502, retryable: true },
-      }),
-    });
+    // A declared 503 fails the membership refresh once.
+    await fulfillOperationError(
+      route,
+      "getCurrentSession",
+      503,
+      "service_unavailable",
+      { retryable: true, details: { reason_code: "admission_paused" } },
+    );
   });
   await page.keyboard.press("Enter");
   await expect(

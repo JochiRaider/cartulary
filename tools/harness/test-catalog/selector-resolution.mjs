@@ -1,6 +1,7 @@
 import { createRequire } from "node:module";
 import { lstatSync, readFileSync, readdirSync, realpathSync } from "node:fs";
 import path from "node:path";
+import { HarnessConfigError } from "../contract/index.mjs";
 import { readExecutableRepositoryJSON } from "./restricted-input-boundary.mjs";
 import { goRunnerBuildContext } from "./go-build-context.mjs";
 import { discoverRunnerSources, excludedSourcePath, frontendSourceProject, sourceExclusionPolicy } from "./source-discovery.mjs";
@@ -767,7 +768,13 @@ export function createRowSelectorResolver(root) {
         }
       }
     }
-    if (missing.length) throw new Error(`${missing.length} source tests are not cataloged exactly once:\n${missing.sort(asciiCompare).join("\n")}`);
+    if (missing.length) {
+      missing.sort(asciiCompare);
+      throw new HarnessConfigError(`${missing.length} source tests are not cataloged exactly once:\n${missing.join("\n")}`, {
+        diagnosticCause: "catalog_coverage",
+        subjects: missing,
+      });
+    }
   };
   return resolve;
 }

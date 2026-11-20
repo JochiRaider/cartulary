@@ -2,7 +2,12 @@ import { act, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { HTTPOperationResult } from "../services/browserApi";
 import { incidentResource } from "../testing/appShellTestSupport";
-import { deferred, jsonResponse } from "../testing/fetchMockTestSupport";
+import {
+  deferred,
+  jsonResponse,
+  operationContractFailure,
+  operationRejection,
+} from "../testing/fetchMockTestSupport";
 import type {
   IncidentDirectoryPaging,
   IncidentDirectoryResource,
@@ -38,7 +43,10 @@ const continuing: IncidentDirectoryPaging = {
 const success = (
   incidents: IncidentDirectoryResource[] = [alpha],
   paging: IncidentDirectoryPaging = terminal,
-): HTTPOperationResult<ListVisibleIncidentsResponse> => ({
+): HTTPOperationResult<
+  ListVisibleIncidentsResponse,
+  "listVisibleIncidents"
+> => ({
   ok: true,
   status: 200,
   payload: {
@@ -46,24 +54,23 @@ const success = (
     meta: { request_id: "request-directory", paging },
   },
 });
-const failure = (
-  status: number,
-  code: string,
-): HTTPOperationResult<ListVisibleIncidentsResponse> => ({
-  ok: false,
-  status,
-  payload: { error: { code, status } },
-});
 const controllers: IncidentDirectoryController[] = [];
 function setup() {
   vi.useFakeTimers();
   const pending: ReturnType<
-    typeof deferred<HTTPOperationResult<ListVisibleIncidentsResponse>>
+    typeof deferred<
+      HTTPOperationResult<ListVisibleIncidentsResponse, "listVisibleIncidents">
+    >
   >[] = [];
   const ports = {
     list: vi.fn<IncidentDirectoryPorts["list"]>().mockImplementation(() => {
       const next =
-        deferred<HTTPOperationResult<ListVisibleIncidentsResponse>>();
+        deferred<
+          HTTPOperationResult<
+            ListVisibleIncidentsResponse,
+            "listVisibleIncidents"
+          >
+        >();
       pending.push(next);
       return next.promise;
     }),
@@ -145,7 +152,9 @@ describe("incident directory operation", () => {
       acceptedQuery: { search: "" },
       phase: "refreshing",
     });
-    pending[1]?.resolve(failure(500, "internal_error"));
+    pending[1]?.resolve(
+      operationRejection({ code: "internal_error", status: 500 }),
+    );
     await settle();
     expect(controller.getSnapshot()).toMatchObject({
       incidents: [alpha],
@@ -226,7 +235,9 @@ describe("incident directory operation", () => {
     pending[0]?.resolve(success([alpha], continuing));
     await settle();
     controller.loadMore();
-    pending[1]?.resolve(failure(400, "invalid_pagination_request"));
+    pending[1]?.resolve(
+      operationRejection({ code: "invalid_pagination_request", status: 400 }),
+    );
     await settle();
     expect(directoryCanLoadMore(controller.getSnapshot())).toBe(false);
     expect(controller.getSnapshot()).toMatchObject({
@@ -264,7 +275,9 @@ describe("incident directory operation", () => {
     pending[2]?.resolve(success([beta]));
     await settle();
     pending[0]?.resolve(success());
-    pending[1]?.resolve(failure(401, "session_required"));
+    pending[1]?.resolve(
+      operationRejection({ code: "session_required", status: 401 }),
+    );
     await settle();
     expect(controller.getSnapshot().incidents).toEqual([beta]);
     expect(ports.sessionLost).not.toHaveBeenCalled();
@@ -304,7 +317,9 @@ describe("incident directory operation", () => {
     });
     controller.setActive(true);
     pending[0]?.resolve(success());
-    pending[1]?.resolve(failure(401, "session_required"));
+    pending[1]?.resolve(
+      operationRejection({ code: "session_required", status: 401 }),
+    );
     await settle();
     expect(ports.sessionLost).not.toHaveBeenCalled();
     expect(controller.getSnapshot().incidents).toEqual([]);
@@ -312,18 +327,24 @@ describe("incident directory operation", () => {
     await settle();
     expect(controller.getSnapshot().incidents).toEqual([beta]);
   });
-  it("clears protected rows on denial without terminating authentication", async () => {
+  it("fails an undeclared denial as a contract failure without terminating authentication", async () => {
+    // listVisibleIncidents declares no 403, so a denial envelope decodes as
+    // the client contract failure; there is no directory access-denied state.
     const { controller, ports, pending } = setup();
     pending[0]?.resolve(success([alpha], continuing));
     await settle();
     controller.loadMore();
-    pending[1]?.resolve(failure(403, "authorization_denied"));
+    pending[1]?.resolve(operationContractFailure("listVisibleIncidents", 403));
     await settle();
     expect(controller.getSnapshot()).toMatchObject({
-      incidents: [],
-      paging: null,
-      acceptedQuery: null,
-      phase: "forbidden",
+      incidents: [alpha],
+      paging: continuing,
+      phase: "failed",
+      failure: {
+        error: { code: "invalid_public_contract_response", status: 502 },
+        scope: "page",
+        restart: false,
+      },
     });
     expect(ports.sessionLost).not.toHaveBeenCalled();
     controller.retry();
@@ -343,7 +364,9 @@ describe("incident directory operation", () => {
         failure: null,
       }),
     );
-    pending[1]?.resolve(failure(401, "session_required"));
+    pending[1]?.resolve(
+      operationRejection({ code: "session_required", status: 401 }),
+    );
     await settle();
     expect(ports.sessionLost).toHaveBeenCalledOnce();
     pending[0]?.resolve(success());

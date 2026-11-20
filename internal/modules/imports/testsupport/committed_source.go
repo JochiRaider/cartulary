@@ -1,5 +1,7 @@
 // Package testsupport supplies Imports-owned seeds for focused collaborator
-// storage tests. End-to-end import tests must use the public import lifecycle.
+// storage tests and public-lifecycle drivers for application tests. End-to-end
+// import tests must use the public import lifecycle; the drivers in
+// public_lifecycle.go do exactly that against an already running server.
 package testsupport
 
 import (

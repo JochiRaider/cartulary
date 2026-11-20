@@ -9,8 +9,7 @@ import (
 )
 
 func (s *routeService) handleIndicatorLinks(w http.ResponseWriter, r *http.Request) {
-	routeID := "nf.indicator_links.create"
-	admitted, apiErr := s.admitOperation(r, routeID)
+	admitted, apiErr := admittedOperation(r)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -38,7 +37,7 @@ func (s *routeService) handleIndicatorLinks(w http.ResponseWriter, r *http.Reque
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, httpapi.InternalAPIError(err))
 		return
 	}

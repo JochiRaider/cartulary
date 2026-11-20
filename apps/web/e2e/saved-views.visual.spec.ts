@@ -51,6 +51,7 @@ import {
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
 import {
+  fulfillOperationError,
   installOwnedRoute,
   removeOwnedRoute,
 } from "./support/transport/requestInterception";
@@ -611,13 +612,13 @@ test("Capture workbook preferences inspection uncertainty confirmation responsiv
         expect(response.status()).toBe(200);
         await route.abort("failed");
       } else if (failRead)
-        await route.fulfill({
-          status: 503,
-          json: {
-            error: { code: "internal_error" },
-            meta: { request_id: "preference-read" },
-          },
-        });
+        await fulfillOperationError(
+          route,
+          "getCurrentUserWorkbookPreferences",
+          500,
+          "internal_error",
+          { requestId: "preference-read" },
+        );
       else await route.continue();
     },
   );
@@ -646,13 +647,13 @@ test("Capture workbook preferences inspection uncertainty confirmation responsiv
         failRead = true;
         await route.fulfill({ response });
       } else if (failRead)
-        await route.fulfill({
-          status: 503,
-          json: {
-            error: { code: "internal_error" },
-            meta: { request_id: "preference-read" },
-          },
-        });
+        await fulfillOperationError(
+          route,
+          "getCurrentUserWorkbookPreferences",
+          500,
+          "internal_error",
+          { requestId: "preference-read" },
+        );
       else await route.continue();
     },
   );

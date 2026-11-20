@@ -74,7 +74,7 @@ func TestStreamingImportApply(t *testing.T) {
 		if err != nil || prepared.params.RowCountAccepted != 1 || prepared.params.RowCountRejected != 2 || len(prepared.params.Diagnostics) != 18 {
 			t.Fatalf("row and diagnostic counts conflated: %v", err)
 		}
-		if err := prepared.params.VisitRows(func(normalizedRow) error { return nil }); err != nil {
+		if err := prepared.params.VisitRows(nil, func(normalizedRow) error { return nil }); err != nil {
 			t.Fatal(err)
 		}
 	})
@@ -101,7 +101,7 @@ func TestStreamingImportApply(t *testing.T) {
 				}
 			}
 			visited := 0
-			if err := prepared.params.VisitRows(func(row normalizedRow) error {
+			if err := prepared.params.VisitRows(nil, func(row normalizedRow) error {
 				visited++
 				if row.SourceRowNumber != 4 {
 					t.Fatal("accepted source locator changed")
@@ -150,7 +150,7 @@ func TestStreamingImportApply(t *testing.T) {
 				t.Fatal("first pass did not retain the bounded validation summary")
 			}
 			count := 0
-			err = prepared.params.VisitRows(func(row normalizedRow) error {
+			err = prepared.params.VisitRows(nil, func(row normalizedRow) error {
 				if row.SourceRowNumber != int64(count*2+2) {
 					t.Fatal("insertion lost source order")
 				}
@@ -210,7 +210,7 @@ func TestStreamingImportApply(t *testing.T) {
 				f.limits.MaxRawCellScalarLength = 1
 			}
 			inserted := 0
-			err = prepared.params.VisitRows(func(normalizedRow) error {
+			err = prepared.params.VisitRows(nil, func(normalizedRow) error {
 				inserted++
 				if failure == "insert" {
 					return injected

@@ -8,6 +8,7 @@ import { fetchHTTPOperation } from "../services/browserApi";
 import {
   type CommonJobResource,
   commonJobDoesNotRegress,
+  jobResultSummaryCode,
   terminalCommonJob,
   validCommonJob,
 } from "../services/commonJobContract";
@@ -48,7 +49,7 @@ export function validSavedGraphJob(
   if (job.status !== "succeeded") return true;
   const refs = job.result_summary?.resource_refs ?? [];
   return (
-    job.result_summary?.code === "network_flow_graph_view_materialized" &&
+    jobResultSummaryCode(job) === "network_flow_graph_view_materialized" &&
     refs.length === 1 &&
     refs[0]?.kind === "network_flow_graph_view" &&
     refs[0].id === target.graphId &&

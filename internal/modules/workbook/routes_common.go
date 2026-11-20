@@ -19,7 +19,7 @@ func (s *service) requireIncidentRole(ctx context.Context, incidentID uuid.UUID,
 	grant, err := s.incidentAccess.Check(ctx, incidentID, userID, admission.Requirement{AllowedRoles: roles, Lifecycle: admission.LifecycleAny})
 	switch {
 	case admission.IsDenied(err, admission.DenialNotVisible):
-		return admission.Grant{}, incidentNotFoundError()
+		return admission.Grant{}, httpapi.NotFound("incident_not_found")
 	case admission.IsDenied(err, admission.DenialInsufficientRole):
 		return admission.Grant{}, &httpapi.APIError{Status: http.StatusForbidden, Code: "authorization_denied", Message: "authorization denied", Details: map[string]any{"required_role": requiredRole}}
 	case err != nil:
@@ -29,8 +29,8 @@ func (s *service) requireIncidentRole(ctx context.Context, incidentID uuid.UUID,
 	}
 }
 
-func (s *service) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal, method string, path string) error {
-	return httpauth.SlideSessionIfPersistenceDue(ctx, s.authStore, principal, method, path, s.now)
+func (s *service) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal) error {
+	return httpauth.SlideSessionIfPersistenceDue(ctx, s.authStore, principal, s.now)
 }
 
 func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *httpapi.APIError) {
@@ -43,14 +43,35 @@ func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *httpapi.APIEr
 	})
 }
 
-func pathUUID(w http.ResponseWriter, r *http.Request, key string) (uuid.UUID, bool) {
-	raw := r.PathValue(key)
-	value, err := uuid.Parse(raw)
-	if err != nil {
-		http.NotFound(w, r)
-		return uuid.UUID{}, false
+// admittedPrincipal returns the principal central admission established
+// (Core 01 REQ-01-707 step 2); its absence is a binding error.
+func admittedPrincipal(r *http.Request) (httpauth.Principal, *httpapi.APIError) {
+	principal, ok := httpauth.AdmittedPrincipal(r)
+	if !ok {
+		return httpauth.Principal{}, internalAPIError(errors.New("workbook route was not admitted centrally"))
 	}
-	return value, true
+	return principal, nil
+}
+
+// admittedPathUUID returns a uuid path parameter central admission admitted
+// (REQ-01-707 step 3); its absence is a binding error.
+func admittedPathUUID(r *http.Request, name string) (uuid.UUID, *httpapi.APIError) {
+	value, ok := httpapi.PathUUID(r, name)
+	if !ok {
+		return uuid.UUID{}, internalAPIError(errors.New("workbook route did not admit " + name))
+	}
+	return value, nil
+}
+
+// admittedPathString returns a pattern path parameter central admission
+// admitted. Its syntax is checked; whether a view schema or conflict token
+// is known stays route handling (REQ-01-707).
+func admittedPathString(r *http.Request, name string) (string, *httpapi.APIError) {
+	value, ok := httpapi.PathString(r, name)
+	if !ok {
+		return "", internalAPIError(errors.New("workbook route did not admit " + name))
+	}
+	return value, nil
 }
 
 func internalAPIError(err error) *httpapi.APIError {
@@ -61,10 +82,6 @@ func internalAPIError(err error) *httpapi.APIError {
 		Message: "internal_error",
 		Details: map[string]any{},
 	}
-}
-
-func incidentNotFoundError() *httpapi.APIError {
-	return &httpapi.APIError{Status: http.StatusNotFound, Code: "incident_not_found", Details: map[string]any{}}
 }
 
 func isRecordTargetNotFound(err error) bool {
@@ -113,7 +130,7 @@ func writeResolvedMutationResult(
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if err := s.slideSessionIfNeeded(r.Context(), principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), principal); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}

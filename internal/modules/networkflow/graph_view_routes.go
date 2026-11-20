@@ -14,121 +14,131 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
-func (s *routeService) handleGraphViewsCollection(w http.ResponseWriter, r *http.Request) {
-	routeID := map[string]string{"GET": "nf.graph_views.list", "POST": "nf.graph_views.create"}[r.Method]
-	admitted, apiErr := s.admitOperation(r, routeID)
+func (s *routeService) handleGraphViewList(w http.ResponseWriter, r *http.Request) {
+	admitted, apiErr := admittedOperation(r)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	principal, incidentID := admitted.principal, admitted.incidentID
-	switch r.Method {
-	case http.MethodGet:
-		declarations, failure := s.savedGraphReads.list(r.Context(), admitted.identity())
-		if failure != nil {
-			writeAPIError(w, r, semanticHTTPError(failure))
-			return
-		}
-		resources := make([]any, 0, len(declarations))
-		for _, declaration := range declarations {
-			resources = append(resources, graphViewResource(declaration))
-		}
-		if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
-			writeAPIError(w, r, httpapi.InternalAPIError(err))
-			return
-		}
-		_ = httpapi.WriteSuccess(w, r, http.StatusOK, map[string]any{
-			"schema_id": "cartulary.network_flow.graph_view_list.v6", "graph_views": resources,
-		})
-	case http.MethodPost:
-		request, apiErr := decodeGraphViewCreateRequest(r, s.limits)
-		if apiErr != nil {
-			writeAPIError(w, r, apiErr)
-			return
-		}
-		outcome, commandErr := s.savedGraphs.commitGraphViewCreate(
-			r.Context(), incidentID, principal.User.ID, request,
-			httpapi.RequestIDFromContext(r.Context()),
-		)
-		if commandErr != nil {
-			writeAPIError(w, r, graphViewMutationAPIError(commandErr, request.ClientTxnID))
-			return
-		}
-		if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
-			writeAPIError(w, r, httpapi.InternalAPIError(err))
-			return
-		}
-		_ = httpapi.WriteSuccess(w, r, savedGraphOutcomeStatus(outcome.kind), savedGraphOutcomePayload(outcome))
-	default:
-		w.WriteHeader(http.StatusMethodNotAllowed)
+	principal := admitted.principal
+	declarations, failure := s.savedGraphReads.list(r.Context(), admitted.identity())
+	if failure != nil {
+		writeAPIError(w, r, semanticHTTPError(failure))
+		return
 	}
+	resources := make([]any, 0, len(declarations))
+	for _, declaration := range declarations {
+		resources = append(resources, graphViewResource(declaration))
+	}
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
+		writeAPIError(w, r, httpapi.InternalAPIError(err))
+		return
+	}
+	_ = httpapi.WriteSuccess(w, r, http.StatusOK, map[string]any{
+		"schema_id": "cartulary.network_flow.graph_view_list.v6", "graph_views": resources,
+	})
 }
 
-func (s *routeService) handleGraphViewResource(w http.ResponseWriter, r *http.Request) {
-	routeID := map[string]string{"GET": "nf.graph_views.get", "PATCH": "nf.graph_views.patch", "DELETE": "nf.graph_views.delete"}[r.Method]
-	admitted, apiErr := s.admitOperation(r, routeID)
+func (s *routeService) handleGraphViewCreate(w http.ResponseWriter, r *http.Request) {
+	admitted, apiErr := admittedOperation(r)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
 	principal, incidentID := admitted.principal, admitted.incidentID
-	graphViewID := admitted.graphViewID
-	switch r.Method {
-	case http.MethodGet:
-		declaration, failure := s.savedGraphReads.get(r.Context(), admitted.identity(), graphViewID)
-		apiErr = semanticHTTPError(failure)
-		if apiErr != nil {
-			writeAPIError(w, r, apiErr)
-			return
-		}
-		if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
-			writeAPIError(w, r, httpapi.InternalAPIError(err))
-			return
-		}
-		_ = httpapi.WriteSuccess(w, r, http.StatusOK, map[string]any{
-			"schema_id":  "cartulary.network_flow.graph_view_get.v6",
-			"graph_view": graphViewResource(declaration),
-		})
-	case http.MethodPatch:
-		request, apiErr := decodeGraphViewRenameRequest(r)
-		if apiErr != nil {
-			writeAPIError(w, r, apiErr)
-			return
-		}
-		outcome, commandErr := s.savedGraphs.commitGraphViewRename(r.Context(), incidentID, graphViewID, principal.User.ID, request, httpapi.RequestIDFromContext(r.Context()))
-		if commandErr != nil {
-			writeAPIError(w, r, graphViewMutationAPIError(commandErr, request.ClientTxnID))
-			return
-		}
-		if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
-			writeAPIError(w, r, httpapi.InternalAPIError(err))
-			return
-		}
-		_ = httpapi.WriteSuccess(w, r, savedGraphOutcomeStatus(outcome.kind), savedGraphOutcomePayload(outcome))
-	case http.MethodDelete:
-		request, apiErr := decodeGraphViewVersionRequest(r, "cartulary.network_flow.graph_view_retire_request.v1")
-		if apiErr != nil {
-			writeAPIError(w, r, apiErr)
-			return
-		}
-		outcome, commandErr := s.savedGraphs.commitGraphViewRetire(r.Context(), incidentID, graphViewID, principal.User.ID, request, httpapi.RequestIDFromContext(r.Context()))
-		if commandErr != nil {
-			writeAPIError(w, r, graphViewMutationAPIError(commandErr, request.ClientTxnID))
-			return
-		}
-		if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
-			writeAPIError(w, r, httpapi.InternalAPIError(err))
-			return
-		}
-		w.WriteHeader(savedGraphOutcomeStatus(outcome.kind))
-	default:
-		w.WriteHeader(http.StatusMethodNotAllowed)
+	request, apiErr := decodeGraphViewCreateRequest(r, s.limits)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
 	}
+	outcome, commandErr := s.savedGraphs.commitGraphViewCreate(
+		r.Context(), incidentID, principal.User.ID, request,
+		httpapi.RequestIDFromContext(r.Context()),
+	)
+	if commandErr != nil {
+		writeAPIError(w, r, graphViewMutationAPIError(commandErr, request.ClientTxnID))
+		return
+	}
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
+		writeAPIError(w, r, httpapi.InternalAPIError(err))
+		return
+	}
+	_ = httpapi.WriteSuccess(w, r, savedGraphOutcomeStatus(outcome.kind), savedGraphOutcomePayload(outcome))
+}
+
+func (s *routeService) handleGraphViewGet(w http.ResponseWriter, r *http.Request) {
+	admitted, apiErr := admittedOperation(r)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	principal := admitted.principal
+	declaration, failure := s.savedGraphReads.get(r.Context(), admitted.identity(), admitted.graphViewID)
+	apiErr = semanticHTTPError(failure)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
+		writeAPIError(w, r, httpapi.InternalAPIError(err))
+		return
+	}
+	_ = httpapi.WriteSuccess(w, r, http.StatusOK, map[string]any{
+		"schema_id":  "cartulary.network_flow.graph_view_get.v6",
+		"graph_view": graphViewResource(declaration),
+	})
+}
+
+func (s *routeService) handleGraphViewPatch(w http.ResponseWriter, r *http.Request) {
+	admitted, apiErr := admittedOperation(r)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	principal, incidentID, graphViewID := admitted.principal, admitted.incidentID, admitted.graphViewID
+	request, apiErr := decodeGraphViewRenameRequest(r)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	outcome, commandErr := s.savedGraphs.commitGraphViewRename(r.Context(), incidentID, graphViewID, principal.User.ID, request, httpapi.RequestIDFromContext(r.Context()))
+	if commandErr != nil {
+		writeAPIError(w, r, graphViewMutationAPIError(commandErr, request.ClientTxnID))
+		return
+	}
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
+		writeAPIError(w, r, httpapi.InternalAPIError(err))
+		return
+	}
+	_ = httpapi.WriteSuccess(w, r, savedGraphOutcomeStatus(outcome.kind), savedGraphOutcomePayload(outcome))
+}
+
+func (s *routeService) handleGraphViewDelete(w http.ResponseWriter, r *http.Request) {
+	admitted, apiErr := admittedOperation(r)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	principal, incidentID, graphViewID := admitted.principal, admitted.incidentID, admitted.graphViewID
+	request, apiErr := decodeGraphViewVersionRequest(r, "cartulary.network_flow.graph_view_retire_request.v1")
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	outcome, commandErr := s.savedGraphs.commitGraphViewRetire(r.Context(), incidentID, graphViewID, principal.User.ID, request, httpapi.RequestIDFromContext(r.Context()))
+	if commandErr != nil {
+		writeAPIError(w, r, graphViewMutationAPIError(commandErr, request.ClientTxnID))
+		return
+	}
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
+		writeAPIError(w, r, httpapi.InternalAPIError(err))
+		return
+	}
+	w.WriteHeader(savedGraphOutcomeStatus(outcome.kind))
 }
 
 func (s *routeService) handleGraphViewRefresh(w http.ResponseWriter, r *http.Request) {
-	routeID := "nf.graph_views.refresh"
-	admitted, apiErr := s.admitOperation(r, routeID)
+	admitted, apiErr := admittedOperation(r)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -145,7 +155,7 @@ func (s *routeService) handleGraphViewRefresh(w http.ResponseWriter, r *http.Req
 		writeAPIError(w, r, graphViewMutationAPIError(commandErr, request.ClientTxnID))
 		return
 	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, httpapi.InternalAPIError(err))
 		return
 	}
@@ -153,8 +163,7 @@ func (s *routeService) handleGraphViewRefresh(w http.ResponseWriter, r *http.Req
 }
 
 func (s *routeService) handleGraphViewResult(w http.ResponseWriter, r *http.Request) {
-	routeID := "nf.graph_views.result"
-	admitted, apiErr := s.admitOperation(r, routeID)
+	admitted, apiErr := admittedOperation(r)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -166,7 +175,7 @@ func (s *routeService) handleGraphViewResult(w http.ResponseWriter, r *http.Requ
 		writeAPIError(w, r, semanticHTTPError(failure))
 		return
 	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, httpapi.InternalAPIError(err))
 		return
 	}
@@ -177,8 +186,7 @@ func (s *routeService) handleGraphViewResult(w http.ResponseWriter, r *http.Requ
 }
 
 func (s *routeService) handleGraphViewContributorsQuery(w http.ResponseWriter, r *http.Request) {
-	routeID := "nf.graph_views.contributors.query"
-	admitted, apiErr := s.admitOperation(r, routeID)
+	admitted, apiErr := admittedOperation(r)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -196,7 +204,7 @@ func (s *routeService) handleGraphViewContributorsQuery(w http.ResponseWriter, r
 		return
 	}
 	result := savedGraphContributorsResource(outcome)
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, httpapi.InternalAPIError(err))
 		return
 	}
@@ -314,7 +322,15 @@ func graphViewMutationError(err error) *httpapi.APIError {
 	case admission.IsDenied(err, admission.DenialNotVisible), admission.IsDenied(err, admission.DenialInsufficientRole), admission.IsDenied(err, admission.DenialIncidentClosed):
 		return savedGraphAdmissionError(err, "")
 	case errors.As(err, &displayName):
-		return networkFlowAPIError(http.StatusBadRequest, "network_flow_invalid_display_name", "display_name", displayName.ReasonCode)
+		// NF NLSpec Table 21-B: the saved declaration's name is bounded at 64
+		// bytes; a name rejected for a control character has no normalized
+		// length.
+		apiErr := networkFlowAPIError(http.StatusBadRequest, "network_flow_invalid_display_name", "display_name", displayName.ReasonCode)
+		apiErr.Details["max_length"], apiErr.Details["normalized_length"] = 64, any(displayName.NormalizedLength)
+		if displayName.ReasonCode == "forbidden_control" {
+			apiErr.Details["normalized_length"] = nil
+		}
+		return apiErr
 	case errors.As(err, &version):
 		return networkFlowAPIError(http.StatusConflict, "network_flow_graph_view_version_conflict", "base_graph_view_version", "stale_version")
 	case errors.Is(err, errGraphViewDeclarationNotFound):

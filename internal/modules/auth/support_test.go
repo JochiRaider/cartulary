@@ -3,7 +3,9 @@ package auth
 import (
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -25,12 +27,45 @@ func TestSessionInspectionHelpers(t *testing.T) {
 		t.Fatalf("unexpected pagination reason_code: got %v", got)
 	}
 
-	if httpauth.ShouldSlideIdleExpiry(http.MethodGet, "/api/v1/auth/session") {
+	// Qualifying activity is decided by the resolved operation (Core 04
+	// REQ-04-010): session inspection never slides idle expiry.
+	if qualifiesForIdleSlideAt(t, "getCurrentSession") {
 		t.Fatal("session inspection must not extend idle expiry")
 	}
-	if !httpauth.ShouldSlideIdleExpiry(http.MethodPost, "/api/v1/auth/logout") {
-		t.Fatal("other authenticated API routes should qualify for idle sliding")
+	if !qualifiesForIdleSlideAt(t, "logoutCurrentSession") || !qualifiesForIdleSlideAt(t, "getCredentialState") {
+		t.Fatal("other authenticated API operations should qualify for idle sliding")
 	}
+}
+
+// qualifiesForIdleSlideAt resolves a request to the auth operation and reports
+// httpauth.QualifiesForIdleSlide for its request context.
+func qualifiesForIdleSlideAt(t *testing.T, operationID string) bool {
+	t.Helper()
+	registry, err := httpapi.NewRouteRegistry(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var operation httpapi.ContractOperation
+	for _, candidate := range httpapi.ContractOperationsForOwner("module.auth") {
+		if candidate.OperationID == operationID {
+			operation = candidate
+		}
+	}
+	if operation.OperationID == "" {
+		t.Fatalf("no auth operation %q", operationID)
+	}
+	qualifies, resolved := false, false
+	mux := http.NewServeMux()
+	if err := registry.Bind(mux, "module.auth", operationID, func(_ http.ResponseWriter, r *http.Request) {
+		resolved, qualifies = true, httpauth.QualifiesForIdleSlide(r.Context())
+	}); err != nil {
+		t.Fatal(err)
+	}
+	registry.Handler(mux).ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(operation.Method, operation.PathTemplate, nil))
+	if !resolved {
+		t.Fatalf("%s did not resolve", operationID)
+	}
+	return qualifies
 }
 
 func TestAdminListQueriesUseCoreListQueryErrors(t *testing.T) {
@@ -307,17 +342,22 @@ func requireAPIErrorReason(t testing.TB, apiErr *httpapi.APIError, wantStatus in
 }
 
 func TestTOTPBootstrapHelpers(t *testing.T) {
-	if !AllowsBootstrapTokenRoute("/api/v1/auth/mfa/totp/begin") {
-		t.Fatal("totp/begin must accept bootstrap_token")
+	// The bootstrap allowlist is the declared security: central admission
+	// admits a bootstrap token exactly where an operation declares
+	// credentialBootstrapBearer, which Core 01 REQ-01-522 limits to TOTP begin
+	// and complete. /ws/v1/* is not a public operation and never admits one.
+	var bootstrapOperations []string
+	for _, operation := range httpapi.ContractOperations() {
+		for _, alternative := range operation.Security {
+			if slices.Contains(alternative, "credentialBootstrapBearer") {
+				bootstrapOperations = append(bootstrapOperations, operation.OperationID)
+				break
+			}
+		}
 	}
-	if !AllowsBootstrapTokenRoute("/api/v1/auth/mfa/totp/complete") {
-		t.Fatal("totp/complete must accept bootstrap_token")
-	}
-	if AllowsBootstrapTokenRoute("/api/v1/auth/credential-state") {
-		t.Fatal("credential-state must reject bootstrap_token")
-	}
-	if AllowsBootstrapTokenRoute("/ws/v1/incidents/10000000-0000-0000-0000-000000000001") {
-		t.Fatal("/ws/v1/* must reject bootstrap_token")
+	slices.Sort(bootstrapOperations)
+	if want := []string{"beginTOTPEnrollment", "completeTOTPEnrollment"}; !slices.Equal(bootstrapOperations, want) {
+		t.Fatalf("operations admitting a bootstrap token = %v, want %v", bootstrapOperations, want)
 	}
 
 	setup := BuildTOTPSetup("RPS5CE6AQ4OODIJC22FH374UBK33BGWY37H5TKC2UXA2ZQBGE6PA", "analyst@example.test")

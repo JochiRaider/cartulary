@@ -326,6 +326,34 @@
       "postgres_isolation": "none"
     },
     {
+      "row_id": "harness.evidence_accounting.unit.contract_evidence_writer",
+      "owner_id": "harness.evidence_accounting",
+      "family_id": "harness.evidence_accounting.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.evidence_accounting.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/harnessruntime/runevidence",
+        "tests": [
+          "TestContractEvidenceDeduplicatesEmissionsPerProcess",
+          "TestContractEvidenceNeverWritesOutsideRunRoot",
+          "TestContractEvidenceRecordsOwnerOnlySchemaLines",
+          "TestContractEvidenceRunRootResolution"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "full",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
       "row_id": "harness.evidence_accounting.unit.string_uses_shared_harness_rules_7f2757c83f",
       "owner_id": "harness.evidence_accounting",
       "family_id": "harness.evidence_accounting.unit",

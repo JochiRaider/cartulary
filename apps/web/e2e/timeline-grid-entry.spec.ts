@@ -50,6 +50,7 @@ import { createTimelineFillers } from "./support/timeline/fixtures";
 import { installIncidentSocketMonitor } from "./support/transport/incidentSocket";
 import {
   awaitResponseBarrier,
+  fulfillOperationError,
   holdBrowserRequest,
   installOwnedRoute,
   removeOwnedRoute,
@@ -1122,21 +1123,12 @@ test("Timeline active drafts survive in-app refresh and stale refresh failure", 
     page,
     `**${queryPath}`,
     async (route) =>
-      route.fulfill({
-        status: 503,
-        contentType: "application/json",
-        body: JSON.stringify({
-          error: {
-            code: "internal_error",
-            message: "Temporary refresh failure",
-          },
-        }),
-      }),
+      fulfillOperationError(route, "queryWorkbookView", 500, "internal_error"),
     { times: 1 },
   );
   const failedRefresh = page.waitForResponse(
     (response) =>
-      response.url().endsWith(queryPath) && response.status() === 503,
+      response.url().endsWith(queryPath) && response.status() === 500,
   );
   await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("live-create-failure"),
@@ -1578,13 +1570,12 @@ test("Timeline paste retains committed creates through lost response navigation 
   const gate = gateBarrier.promise;
   await installOwnedRoute(page, `**${queryPath}`, async (route) => {
     if (failReads) {
-      await route.fulfill({
-        status: 503,
-        contentType: "application/json",
-        body: JSON.stringify({
-          error: { code: "internal_error", message: "Temporary read failure" },
-        }),
-      });
+      await fulfillOperationError(
+        route,
+        "queryWorkbookView",
+        500,
+        "internal_error",
+      );
       return;
     }
     if (holdRefresh) {
@@ -1775,13 +1766,12 @@ test("Timeline batch recovery honors newer scroll and pointer intent during held
   const refreshGate = refreshGateBarrier.promise;
   await installOwnedRoute(page, `**${queryPath}`, async (route) => {
     if (failReads) {
-      await route.fulfill({
-        status: 503,
-        contentType: "application/json",
-        body: JSON.stringify({
-          error: { code: "internal_error", message: "Temporary read failure" },
-        }),
-      });
+      await fulfillOperationError(
+        route,
+        "queryWorkbookView",
+        500,
+        "internal_error",
+      );
       return;
     }
     if (holdRefresh) {
@@ -2319,13 +2309,12 @@ test("Timeline clear retries exact lost receipts and recovers acknowledged reads
       await route.continue();
       return;
     }
-    await route.fulfill({
-      status: 503,
-      contentType: "application/json",
-      body: JSON.stringify({
-        error: { code: "internal_error", message: "Temporary read failure" },
-      }),
-    });
+    await fulfillOperationError(
+      route,
+      "queryWorkbookView",
+      500,
+      "internal_error",
+    );
   });
   await installOwnedRoute(page, `**${path}`, async (route) => {
     attempts.push(required(route.request().postData()));

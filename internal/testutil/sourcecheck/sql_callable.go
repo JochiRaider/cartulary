@@ -70,7 +70,7 @@ func (types sqlTypes) callable(ref sqlTypeRef, seen map[string]bool) (nativeSQLM
 		seen[key] = true
 		return types.callable(ref.with(local.Type), seen)
 	}
-	key := ref.key()
+	key := types.key(ref)
 	if key == "" {
 		return nativeSQLMethod{}, false
 	}
@@ -78,7 +78,7 @@ func (types sqlTypes) callable(ref sqlTypeRef, seen map[string]bool) (nativeSQLM
 		return nativeSQLMethod{kind: "reject"}, true
 	}
 	seen[key] = true
-	if definition := types[key]; definition != nil {
+	if definition := types.declared[key]; definition != nil {
 		var candidates []nativeSQLMethod
 		nonCallable := false
 		for _, alternative := range definition.definitions {
@@ -197,7 +197,8 @@ func (a *sqlAnalyzer) declaredFunction(expr ast.Expr) bool {
 	case *ast.IndexListExpr:
 		return a.declaredFunction(e.X)
 	case *ast.Ident:
-		return (e.Obj == nil || e.Obj.Kind == ast.Fun) && a.types[a.scope+".$function."+e.Name] != nil
+		callee := a.binder.bind(e)
+		return !callee.bound() && a.types.declared[a.scope+".$function."+e.Name] != nil
 	case *ast.SelectorExpr:
 		return a.knownFunction(e)
 	}

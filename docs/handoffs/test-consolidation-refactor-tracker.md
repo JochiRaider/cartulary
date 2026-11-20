@@ -3,7 +3,7 @@
 Version: 1.15.0
 Date: 2026-11-15
 Target: Cartulary testing ecosystem  
-Authoring status: S-064 DONE (E-843), corrected by E-845; all 66 owner workstreams complete; R-04 fixture-legality workstream DONE (E-845, S-798–S-827); R-05 assertion-strength workstream DONE with R-03 folded in (E-876, S-828–S-854); R-05 phase 2 verified-deferred repairs DONE (E-904, S-855–S-900); R-05 phase 3 DONE (E-951, S-901–S-957); `make check` repairs DONE (S-958–S-963); residual closure workstream DONE (E-1015, S-964–S-995); gap remediation workstream DONE except G16 deferred (E-1048, S-996–S-1033)
+Authoring status: S-064 DONE (E-843), corrected by E-845; all 66 owner workstreams complete; R-04 fixture-legality workstream DONE (E-845, S-798–S-827); R-05 assertion-strength workstream DONE with R-03 folded in (E-876, S-828–S-854); R-05 phase 2 verified-deferred repairs DONE (E-904, S-855–S-900); R-05 phase 3 DONE (E-951, S-901–S-957); `make check` repairs DONE (S-958–S-963); residual closure workstream DONE (E-1015, S-964–S-995); gap remediation workstream DONE except G16 deferred (E-1048, S-996–S-1033); open-residual closure workstream DONE (E-1087, S-1034–S-1053); residual remediation workstream DONE (E-1127, S-1054–S-1071)
 Artifact mode: normal; S-065 → S-059–S-063 → S-066–S-073 → all owner audits → S-064; S-001–S-058 remain completed history
 
 Current execution point: complete. Start with the [residual closure workstream closure](#e-1015--residual-closure-workstream-closure-2026-11-16): its open items are the current backlog. Then read the [R-05 phase 2 handoff](#r-05-phase-2-handoff-2026-11-15), then the [R-04 handoff](#r-04-and-s-064-correction-handoff-2026-11-15) and then the [final S-064 handoff](#final-s-064-handoff-2026-11-15). Its residual register (E-843) is the follow-up backlog. The [S-641](#maintainer-requested-pause-after-s-641-2026-11-14) and [S-342](#maintainer-requested-pause-after-s-342-2026-11-11) pause checkpoints remain historical evidence.
@@ -78597,13 +78597,8890 @@ three goldens, followed by a review.
     grid shell. Viewport, zoom, theme, density and masks are unchanged.
   - **Reviewer outcome:** the maintainer requested richer data and received
     the rich-data images. Final image acceptance rests with the maintainer.
-- **Lessons.**
+- **Lessons (S-1030 to S-1033).**
   - A static pre-check must not require outputs of the maintenance target it
     gates. Path resolution belongs to the layer that sees candidates.
   - Review every candidate image before promotion. The editor defect was
     visible only in pixels, because the scroll normalization moved the
     asserted editor out of the capture.
 - Nothing is staged or committed.
+
+### Open-residual closure workstream — entry (E-1087 reserved), 2026-11-17
+
+Maintainer request: "Plan the closure of the open items, starting with item
+nine… Prioritize forward-looking, end-to-end solutions that minimize coupling
+and make the project easier to understand, reason about, maintain, and
+extend." The plan was approved the same day. E-1087 is reserved for the
+closure, and slices start at S-1034/F-1019/E-1088. All identities were
+verified unused.
+
+**Scope.** The open E-1048 residuals:
+
+- item 9, the bare `runtime_plan` diagnostic;
+- G16;
+- items 1 and 5, the shutdown close reserve and the AC-604 process test;
+- item 3b, `server_shutdown`;
+- items 6 and 7, the AC-606 gaps and live dependent publication;
+- items 2 and 3a, Party labels and the mark-reviewed target;
+- item 8, OpenAPI error codes;
+- the Core 02 typos.
+
+Out of scope: the DDL-consolidation inputs, and the items retained with
+recorded reasons.
+
+**Research corrections.**
+
+- **Item 7.** Revisions already refreshes dependents in storage. Only the
+  live `invalidate` is missing.
+- **Item 8.** `x-cartulary-error-codes` exists on 92 responses, but it is
+  unspecified and unvalidated.
+- **Items 2 and 3a.** Core already decides both.
+- **Shutdown.** It has six further REQ-04-146a defects beyond the reserve:
+  - the HTTP drain is not anchored to the stop request;
+  - dequeue and dispatcher ticks continue through the drain;
+  - close errors are dropped;
+  - a fatal error restarts the deadline;
+  - the `select` outcome at the deadline is random;
+  - handshake-phase sockets ignore shutdown.
+
+**Maintainer decisions.**
+
+1. Close reserve: `min(25% of shutdown_drain_seconds, 5 s)` with no new key.
+   Drain-cut requests count as cancelled.
+2. Close code 1001 with no terminal event for ordinary and fatal shutdown;
+   `server_shutdown` is dropped, and the client backs off with jitter.
+3. The full OpenAPI error-code contract, with a harness-build runtime guard.
+4. A harness-only hold-job control for AC-604.
+
+**Order:**
+
+1. W1 (item 9) and W7 (typos);
+2. W5 (items 2 and 3a);
+3. W4 (items 7 and 6);
+4. W3 (shutdown);
+5. W6 (OpenAPI);
+6. W2 (G16);
+7. the E-1087 closure.
+
+The standing constraints apply: no DDL; a recorded slice before each edit;
+owner spec first; red successors; exact rows; no golden updates without
+approval; nothing staged or committed.
+
+### S-1034 / F-1019 / E-1088 — W1: a failed graph preparation names its cause (harness)
+
+Recorded before editing; identities verified unused. DONE (2026-11-17).
+
+**Defect.** An unrouted Go test makes every graph-backed Make target fail
+with only
+`[GRAPH-FAIL] failure_class=config failure_reason=configuration_error failure_stage=runtime_plan`.
+That includes `test-slice` and `source-check CHECK=catalog`.
+`assertSourceCoverage` (`test-catalog/selector-resolution.mjs:770`) builds a
+message that names each missing `go:<pkg>:<Test>`, but two sites drop it:
+
+- `work-graph/prepare-cli.mjs:15-17` swallows the error;
+- `harnessruntime/prepare_linux.go:62-63,158-159` discards compiler output
+  and returns a generic error.
+
+`run_linux.go:106` then forces `configuration_error`, so a
+command-selection `usage_error` is misclassified too (TH-HARNESS-REQ-305).
+AC-062, AC-063 and AC-064 require a bounded diagnostic.
+
+**Change.**
+
+- **NLSpec first.** TH-HARNESS-REQ-854: descriptor 3 carries either the plan
+  or one `cartulary.harness_preparation_diagnostic.v1`. TH-HARNESS-REQ-856:
+  the native terminal output prints the validated diagnostic before
+  `[GRAPH-FAIL]`, the stage stays closed and code-attributed, and the
+  diagnostic's `failure_reason` is preserved.
+- **Diagnostic:**
+  - `failure_reason` is `configuration_error` or `usage_error`;
+  - a closed `cause`;
+  - up to 20 `subjects`, each 1–256 UTF-8 bytes with no control characters,
+    plus `omitted_subject_count`;
+  - at most 4,096 bytes;
+  - never exception text.
+- **JS.** `HarnessConfigError` gains an optional `cause` and `subjects`.
+  `assertSourceCoverage` throws it with the missing selector keys.
+  `prepare-cli.mjs` writes the diagnostic to descriptor 3; an unknown error
+  becomes `unclassified` with no subjects.
+- **Go.**
+  - `receiveCompiler` decodes the descriptor payload by `schema_id`;
+  - the diagnostic is validated with schema-mirrored bounds, and a parity
+    test reads the schema;
+  - a malformed diagnostic fails closed as a plain `configuration_error`;
+  - `run_linux.go` keeps the diagnostic's reason;
+  - `tools/harnessruntime/main.go` prints one `[GRAPH-PREPARE]` line, then
+    one line per subject.
+
+**Outcome (2026-11-17): DONE.**
+
+- **Catalog choke points.** `test-catalog.mjs` gains `attributed(cause,
+  subjects, op)`. It wraps the per-owner manifest loop (`catalog_shape`,
+  subject = manifest path) and per-row selector resolution
+  (`selector_resolution`, subject = row ID). Selector overlaps and
+  `assertSourceCoverage` throw typed `catalog_coverage` with selector keys.
+  Command-selection usage errors carry `command_selection`. The other ~180
+  untyped throw sites stay `unclassified`. Echoing their text is unsafe,
+  because some come from filesystem calls with absolute paths.
+- **Bounds.** The schema owns the bounds: 20 subjects, 256 characters each,
+  with a literal control-character class, because the validator generator's
+  regex projection rejects `\x` escapes. Go validates the record with the
+  generated `harnessschema.Validate`, so no mirrored constants are needed.
+- **`catalog-check-cli.mjs` is unchanged.** It only reaches its error path
+  when invoked directly. Through Make, `runtime_plan` now reports the same
+  failure first.
+- **Finding.** `test-slice` already printed the full coverage message through
+  its owner/row public preflight. The bare failure hit targets without that
+  preflight: `source-check`, `lint`, `format`, `harness-contract` and
+  others. `make generate` also refuses an unrouted test, at its topology
+  render step, but its step log names the test.
+
+**Evidence.**
+
+- **End-to-end probe** (new test still unrouted):
+  - `tcr-s1034-probe02` (`make source-check CHECK=catalog`, exit 2) printed
+    `[GRAPH-PREPARE] failure_reason=configuration_error cause=catalog_coverage subjects=1 omitted=0`,
+    then `[GRAPH-PREPARE] subject=go:./internal/testutil/harnessruntime:TestRuntimePreparationDiagnostic`,
+    then the `[GRAPH-FAIL] … failure_stage=runtime_plan` line;
+  - **red** `tcr-s1034-red01`: with the HEAD `prepare-cli.mjs`, the same
+    probe prints only the bare `[GRAPH-FAIL]` line. The file was restored,
+    and `cmp` confirmed it.
+- **Generation:**
+  - `tcr-s1034-generate01` failed, because the regex escape was unsupported;
+  - `-generate02` failed, because the topology render refused the then
+    unrouted probe test;
+  - `-generate03` exited 0 after routing.
+- `tcr-s1034-format01` exited 0.
+- **Native runtime row:**
+  - `tcr-s1034-row01`: `harness.command_surface.unit.native_runtime` passed
+    with `TestRuntimePreparationDiagnostic` routed;
+  - **red** `tcr-s1034-red02`: `runtimePlanFailure` forcing
+    `configuration_error` fails with
+    `want config/usage_error at runtime_plan`.
+- **Evidence row:**
+  - `tcr-s1034-evidence01`: `harness.evidence_accounting.behavior.current_epoch_evidence`
+    passed, including the typed coverage assertion and
+    `preparation_diagnostic_bounds`;
+  - **red** `tcr-s1034-red03`: a subject cap of 19 fails
+    `preparation_diagnostic_bounds`. Restored, and `cmp` confirmed it.
+- **Lints and source checks:** `tcr-s1034-lint-go-01`, `-lint-scripts-01`,
+  `-source-generated-01`, `-source-schema-01` and `-source-catalog-01`
+  exited 0.
+
+### S-1035 / F-1020 / E-1089 — W7: Core 02 §13.2 run-together words (documentation)
+
+Recorded before editing; identities verified unused. DONE (2026-11-17); the
+three phrases were corrected in place.
+
+`docs/spec/02_domain_model_schema_and_history.md:2511,2515` read
+`plus60minutes`, `plus24hours` and `exactly45minutes`. These become
+`plus 60 minutes`, `plus 24 hours` and `exactly 45 minutes`. The change is
+documentation only, checked with `make lint-markdown`.
+
+### S-1036 / F-1021 / E-1090 — W5a: every Party reference applies the REQ-01-333a label rule (backend)
+
+Recorded before editing; identities verified unused. DONE (2026-11-17). There is
+no spec change: REQ-02-225 makes `party.display_name` required, and
+REQ-01-333a gives the null-or-empty fallback "Untitled party".
+
+**Defect.** Two `party_ref` read paths serve the raw column:
+
+- the Artifact `audience_party_ids` and `attendee_party_ids` query
+  (`queryengine/artifact.go` `partyRefCollectionExpr`) serves `null` or
+  `""`;
+- `parties/references.LoadLabels`, which feeds the Entities Host/Identity
+  party assignments and their conflict preview, scans a NULL name into a Go
+  `string`. The whole Host/Identity read fails.
+
+The record-ref and Artifact/Tasks conflict paths already apply the rule
+through `recordSummaryLabelSQL` and `RecordSummaryLabelsTx`.
+
+**Change.**
+
+- `partyRefCollectionExpr` labels through `recordSummaryLabelSQL` with a
+  literal `'party'` type, like every other record reference.
+- `LoadLabels` applies `COALESCE(NULLIF(display_name, ''), 'Untitled party')`.
+
+**Design note.** The plan considered routing Entities through the
+projections `RecordSummaryLabels` port. Entities hydration feeds the
+Host/Identity rows that projections serve, so the port would add a wiring
+cycle and thread a dependency through package-level hydration. The
+Parties-owned reader is already an Entities dependency, and it applies the
+same rule to the source table. One integration test pins both readers to the
+same text.
+
+**Test.** The AC-605 integration test gains an invariant-breach case. It
+sets the Party name to NULL and then to `''`, directly in `parties` and
+`party_grid_projection`. Each of these must then serve "Untitled party":
+
+- an Artifact `comm_log.audience_party_ids` row;
+- a Host `host.responsible_party_ids` row, whose read must succeed;
+- a Task `task.linked_record_ids` row.
+
+**Evidence.**
+
+- `tcr-s1036-format01` exited 0.
+- **Green:** `tcr-s1036-row01` passed
+  `module.workbook.integration.record_ref_summary_labels`.
+- **Red, both readers at HEAD** (`tcr-s1036-red01`, exit 2):
+  `comm_log.audience_party_ids item = map[display_text:<nil> …]`.
+- **Red, `LoadLabels` alone at HEAD** (`tcr-s1036-red02`, exit 2): the Host
+  read fails with `unexpected HTTP status: got 500 want 200`.
+- Both files were restored, and `cmp` confirmed them.
+- `tcr-s1036-lint-go-01` and `-lint-backend-boundary-01` exited 0. No other
+  test pins the old SQL or the raw labels.
+
+### S-1037 / F-1022 / E-1091 — W5b: mark-reviewed resolves its target like every lifecycle action (backend)
+
+Recorded before editing; identities verified unused. DONE (2026-11-17). Spec:
+REQ-01-085 already requires this; there is no spec change.
+
+**Defect.** `POST …/mark-reviewed` (`timeline/lifecycle_store.go` `applyAction`
+→ `loadSourceRecordTx`) treats a wrong record type and a soft-deleted
+Timeline record both as not found, so both return 404 `incident_not_found`.
+REQ-01-085 requires:
+
+- a non-Timeline record: 409 `illegal_transition`, with
+  `transition_not_allowed`, `[record_type_has_machine]` and a null
+  `from_status`;
+- a soft-deleted record: 409 `record_deleted_use_restore`.
+
+Timeline's `illegalTransitionError` writes an empty `from_status` as `""`,
+which AC-606 forbids.
+
+**Change.** Workbook supersede already resolves its target in the right
+order (visibility, deleted state, type support). That resolution becomes
+one shared helper. Timeline mark-reviewed uses it inside its transaction,
+and the Timeline writer emits `null` for an empty `from_status`.
+
+**Test.** A Host target, a deleted Timeline target and a missing record,
+checked with `lifecyclecontract.RequireDetails`.
+
+**Outcome.**
+
+- **The change.** `timeline/lifecycle_store.go` `applyAction` calls
+  `resolveActionTargetTx` inside the transaction, after the idempotent-replay
+  lookup, so exact replay is unchanged, and before the source read. It loads
+  the record envelope through the existing `RecordPort.LoadEnvelopeTx`,
+  without a lock (`AdvanceVersionTx` keeps the existing lock order), and
+  returns:
+  - `ErrRecordNotFound` (404) for a missing record;
+  - `ErrRecordDeleted` (409 `record_deleted_use_restore`, already mapped,
+    previously unreachable) for a soft-deleted one;
+  - a typed `illegal_transition` with `transition_not_allowed`,
+    `[record_type_has_machine]` and an empty from-state for any other type.
+  The requested state is `reviewed` or `superseded` by route key.
+- **The writer.** `admission/api_errors.go` emits `from_status: null` for
+  an empty from-state.
+- **Design note.** The plan proposed one shared records-level helper. The
+  shared part is three ordered conditions, and each module maps them to its
+  own error vocabulary: workbook `MutationFailure` versus Timeline sentinel
+  errors. A helper would couple workbook and Timeline through a trivial
+  function. Each module keeps the REQ-01-085 order, and each order is pinned
+  by tests: Timeline here, workbook supersede in its existing route tests.
+
+**Evidence.**
+
+- `tcr-s1037-format01` exited 0.
+- **Green:** `tcr-s1037-row01`
+  (`module.timeline.integration.incident_role_authorization_review_and_supersede_62f3d384f6`)
+  passed. Its new subtest covers:
+  - the Host target: 409, null `from_status`, `to_status=reviewed`,
+    `transition_not_allowed`, `[record_type_has_machine]`,
+    `lifecyclecontract.RequireDetails`, and no counter change;
+  - the deleted Timeline target: 409 `record_deleted_use_restore`;
+  - a missing record: 404 `incident_not_found`.
+- **Red** (`tcr-s1037-red01`, both files at HEAD, exit 2):
+  `timeline_event_integration_test.go:1110: unexpected HTTP status: got 404 want 409`.
+  The files were restored, and `cmp` confirmed them.
+- **Regression sweep.** Every row whose tests call mark-reviewed or supersede
+  passed:
+  - `tcr-s1037-sweep01`: incidentbundles, 2 rows;
+  - `-sweep02`: incidents, 2 rows;
+  - `-sweep03`: timeline, 21 rows;
+  - `-sweep04`: workbook, 6 rows.
+- `tcr-s1037-lint-go-01` and `-lint-backend-boundary-01` exited 0.
+- **Wire change, for release notes:** mark-reviewed on a non-Timeline record
+  returns 409 `illegal_transition`, and on a soft-deleted record 409
+  `record_deleted_use_restore`. Both were 404 before.
+
+### S-1038 / F-1023 / E-1092 — W4a: history operations publish their refreshed dependents live (backend)
+
+Recorded before editing; identities verified unused. DONE (2026-11-17). Spec:
+REQ-01-081 and REQ-01-351 already require it; there is no spec change.
+
+**Defect.** Revisions rollback, row restore, soft-delete and restore all
+refresh their dependents in storage (`projection_scope.go`
+`refreshProjectionsTx`). They publish `record_changed` only for the changed
+record itself. A Timeline row whose attached-Evidence chips, count or
+`has_evidence` change because of an Evidence delete or restore therefore
+gets no live update, which violates REQ-01-081. Evidence patch already
+publishes these dependents (`evidence/collaboration_intents.go`).
+
+**Change** (`internal/modules/revisions`, owner-agnostic):
+
+- `captureDependentsTx` loads the served rows of the scope's live
+  dependents (scope minus primary records) before the operation mutates
+  anything. Some served cells are computed live from links, so a read taken
+  after the mutation would miss the change.
+- `publishDependentChangesTx` runs after the primary publication. For each
+  dependent it reloads the row, computes the changed field keys
+  (`rollbackChangedFieldKeys`), and publishes one `invalidate` at the
+  dependent's current row version. Ordinals continue after the change set's
+  highest mutation sequence, as the patch path numbers its dependents after
+  the primary record.
+- Wired into all five paths: change-set rollback, single row-entry rollback,
+  non-row rollback, row restore, and delete/restore.
+
+**Test.** `TestHistoryProjectionDependencies_Integration` asserts one
+`invalidate` for the referring Timeline row in each change set:
+
+- each operation names exactly `timeline.attached_evidence_ids`.
+
+The first draft also expected `evidence_count` and `has_evidence`, copied
+from the patch path. The fixture's Evidence has no `available` upload, and
+`collection_facts.go` counts only available uploads, so neither value
+changes. The served-cell diff is therefore exact, and the assertion compares
+the key list for equality.
+
+**Evidence.**
+
+- `tcr-s1038-format01` exited 0.
+- Test-side fixes:
+  - `tcr-s1038-row01`: rollback reports `rollback_change_set_id`, not
+    `change_set_id`;
+  - `tcr-s1038-row02`: the over-broad expected keys described above.
+- **Green:** `tcr-s1038-row03` passed
+  `module.revisions.integration.projection_dependencies`.
+- **Red** (`tcr-s1038-red01`, publication short-circuited, exit 2):
+  `Collaboration intent count = 0, want 1`. Restored, and `cmp` confirmed
+  it.
+- **Regression.** All 59 active Go rows of `module.revisions` passed, split
+  under the 4,096-character `ROWS` bound: `tcr-s1038-revisions02` and `-03`.
+  No test outside Revisions both runs a Revisions operation and counts
+  intents; the two candidates use their own restore and delete routes.
+- `tcr-s1038-lint-go-01` and `-lint-backend-boundary-01` exited 0.
+
+### S-1039 / F-1024 / E-1093 — W4b: AC-606 direct tests for the Task restore block and lifecycle rollback (tests)
+
+Recorded before editing; identities verified unused. DONE (2026-11-17). Specs:
+REQ-02-109a and REQ-02-103, verified by AC-606. Tests only; there is no
+production change.
+
+**Gap.** Two Task paths have no direct test:
+
+- **Restore block.** Restore of a Task that violates REQ-02-103 must be
+  blocked with 409 `record_restore_blocked` / `task_lifecycle_inconsistent`
+  and commit nothing
+  (`tasksdecisions/internal/providers/deleterestore/provider.go`). No test
+  uses `task_lifecycle_inconsistent`.
+- **Lifecycle rollback.** A Task rollback to a guard-violating retained
+  snapshot must fail with `target_not_reversible`
+  (`providers/rollback/task_provider.go`). Only reference-validity cases are
+  tested.
+
+**Change.**
+
+- `requireTaskRestoreLifecycleBlock`, called from
+  `TestSourceOwnerTransitionValidation_Integration` beside the reference
+  cases, covers one case per `TaskLifecycleViolations` guard:
+  - blocked with no reason;
+  - blocked with a blank reason;
+  - non-blocked with a reason;
+  - done with no `completed_at`;
+  - `completed_at` before `created_at`;
+  - non-done with `completed_at`;
+  - active with no owner.
+
+  Each case deletes a valid Task and breaks the guard directly in the row.
+  It then asserts 409 `record_restore_blocked` (retryable `false`, details
+  exactly `record_id` and `reason_code=task_lifecycle_inconsistent`) and
+  unchanged source, history, projection and publication state. Finally it
+  repairs the row and restores successfully.
+- `exerciseTaskInverseReference` gains a `lifecycle violation` target state.
+  The retained Task is `blocked` with no reason, and the current one is
+  `open`. Both the `row_restore` and `change_set` rollbacks must return
+  `target_not_reversible` with nothing changed.
+
+**Evidence.**
+
+- `tcr-s1039-format01` exited 0.
+- **Green:** `tcr-s1039-rows01` passed
+  `module.revisions.integration.source_owner_transition_validation` (7
+  guard cases) and
+  `module.revisions.store.rollback_projection_and_publication_participants_f7381e09d3`
+  (the new state, for both reference types and both kinds).
+- **Red** (`tcr-s1039-red01`, exit 2), with both production guards
+  short-circuited:
+  - the restore block returned 200, or 500 for some guards, instead of 409
+    (`task_restore_references_test.go:174`);
+  - the lifecycle rollback returned no error and changed state
+    (`rollback_task_references_test.go:152,155`).
+
+  Both files were restored, and `cmp` confirmed them.
+- `tcr-s1039-lint-go-01` exited 0.
+
+### S-1040 / F-1025 / E-1094 — W4c: restore and rollback share one Evidence Blob admission; AC-606 bridge tests (backend)
+
+Recorded before editing; identities verified unused. DONE (2026-11-17). Spec:
+REQ-02-196a, verified by AC-606. There is no spec change.
+
+**Defect.** Evidence restore admits its linked Blob with `FOR UPDATE
+NOWAIT`, a same-incident check and the REQ-02-196a bridge
+(`providers/deleterestore`). Evidence rollback (`providers/rollback`
+`RestoreTx`) reads the Blob without a lock and checks only the bridge. A
+concurrent Blob state change can therefore slip between check and commit,
+and a retained link to another incident's Blob is never rejected. No test
+rolls back into a bridge-violating state.
+
+**Change.**
+
+- New `evidence/internal/blobbridge.AdmitTx` is the destructive-history
+  admission. It locks the linked Blob without waiting, requires the
+  Evidence's incident, and evaluates the bridge for the resulting
+  lifecycle.
+- **Restore** uses it, and keeps its restore-only rule that a linked Blob is
+  `available` or `quarantined`.
+- **Rollback** uses it: lock contention maps to `revisions.RecordLockedError`
+  (409 `record_locked`), and any other refusal maps to
+  `target_not_reversible`.
+- **Patch is unchanged.** It is not a history operation, and it reads the
+  Blob under the Evidence row lock.
+
+**Residuals (recorded).**
+
+- The REQ-02-189a live-tuple check is not added to these admissions. Blob
+  reads are already tuple-gated in `blob_persistence.go`, and the existing
+  restore fixtures move Blob state with incoherent tuples.
+- Patch-path Blob locking is not addressed.
+
+**Test.** A rollback bridge matrix through the public rollback route:
+
+- negative cases (`target_not_reversible`, nothing changed):
+  - retained `available` or `released` against a live `quarantined`,
+    `pending` or `failed` Blob;
+  - retained `quarantined` against an `available` Blob;
+  - a Blob from another incident;
+- a positive control: retained `available` against an `available` Blob;
+- Blob lock contention: 409 `record_locked`.
+
+**Evidence.**
+
+- `tcr-s1040-format01` exited 0.
+- **Compile fix** (`tcr-s1040-row01`): `nullableUUID` returns `any`, so the
+  retained Blob ID is converted before admission.
+- **Green:** `tcr-s1040-row02`
+  (`module.revisions.integration.source_owner_transition_validation`)
+  passed. Every restore-side Blob case is unchanged under the shared
+  admission, and every rollback-side case passes.
+- **Red, HEAD rollback provider** (`tcr-s1040-red01`, exit 2):
+  - the foreign-incident case returns 500 instead of 409 (the
+    incident-qualified foreign key rejects the update late);
+  - the contention case blocks on the foreign-key lock behind the test's
+    Blob `FOR UPDATE`, until the row times out (`timing/timeout_failure`,
+    613 s).
+
+  The bridge cases pass at HEAD: the check existed and only lacked direct
+  tests. The provider was restored, and `cmp` confirmed it.
+- **Regression:** all passed.
+  - `tcr-s1040-evidence01`:
+    `module.evidence.unit.evidence_rollback_validates_shared_lifecycle_bri_5be78560c9`;
+  - `tcr-s1040-revisions01`: the rollback route admission and
+    delete/restore/single-entry rows.
+- `tcr-s1040-lint-go-01` and `-lint-backend-boundary-01` exited 0.
+
+### S-1041 / F-1026 / E-1095 — W3a: one shutdown lifecycle, specified end to end (documentation; owners first)
+
+Recorded before editing; identities verified unused. DONE (2026-11-17). Maintainer
+decisions 1, 2 and 4 of the E-1087 entry.
+
+**Change.**
+
+- **Core 04 REQ-04-146a:**
+  - the stop request closes HTTP, WebSocket, job-dequeue and
+    dispatcher-tick admission before the drain;
+  - existing sockets, including those still in the handshake or first
+    message, close with 1001 and no terminal event;
+  - in-flight HTTP work drains until the deadline minus a close reserve of
+    `min(25% of shutdown_drain_seconds, 5 s)`. Work still running then is
+    cancelled, and that alone does not make shutdown incomplete;
+  - a component whose close fails, or does not finish by the deadline, is
+    open.
+- **Core 04 REQ-04-146:** the fatal lifecycle closes WebSockets the same way
+  and never restarts a deadline already started.
+- **AC-604:** cancellation at the reserve boundary; no terminal event.
+- **Core 03 REQ-03-299a (new):** after a server-initiated close (1001, 1006
+  or 1011) without a terminal message, the client reconnects with
+  exponential backoff (1 s base, doubling, 30 s cap, full jitter), reset
+  after an accepted `hello`. Terminal outcomes and REQ-03-299 suppression
+  are unchanged.
+- **Extension NLSpec EXT-REQ-193.** Step 6 points to the Core rule.
+  `server_shutdown`, 1011 and the dangling `fatal_integrity_shutdown_v1`
+  name are replaced by the adopted Core 04 REQ-04-146/146a lifecycle.
+  EXT-AC-090 and EXT-GATE-006 follow.
+- **Testing Harness NLSpec TH-HARNESS-REQ-450.** The hold-job test control,
+  `POST /api/v1/test/runtime/hold-jobs`: harness build, test routes
+  enabled, modes `respect_cancellation` and
+  `ignore_cancellation_until_released`, with enqueue, release and status
+  operations.
+
+**Outcome.**
+
+- **Core 04:** REQ-04-146a bullets amended as above; REQ-04-146 gains the
+  WebSocket rule, the reserve and the no-restart rule; AC-604 is updated;
+  new AC-607 verifies REQ-03-299a.
+- **Core 03:** REQ-03-299a added after REQ-03-299.
+- **Extension NLSpec:** EXT-REQ-193 imports REQ-04-146/146a; step 6 closes
+  with 1001 and no event; EXT-AC-090 and EXT-GATE-006 are aligned. No
+  `server_shutdown` or `fatal_integrity_shutdown_v1` reference remains in
+  the corpus.
+- **Testing Harness NLSpec TH-HARNESS-REQ-450:** the hold-job route, and
+  one harness-only job definition, `harness.hold_job_v1`, never part of a
+  production catalog. A closed `cartulary.test.hold_job_control.v1` body.
+  The control is process-scoped, with no reset state.
+- **Decision (maintainer, 2026-11-17).** Building the hold job needs a
+  harness-build-only job-definition seam in jobs assembly. Confirmed:
+  "Build the catalog seam".
+- **Not added:** REQ-03-299 and REQ-04-146/146a have no matrix F rows, so
+  none are added.
+- `tcr-s1041-md01` exited 0, and `git diff --check` passed.
+
+### S-1042 / F-1027 / E-1096 — W3b: the server honours the amended REQ-04-146a end to end (backend)
+
+Recorded before editing; identities verified unused. DONE (2026-11-17).
+
+**Defects** (research of 2026-11-17):
+
+- the HTTP drain gets its own full timeout from its own start;
+- dequeue and dispatcher ticks run through the drain;
+- close errors are discarded (`ownedComponent.close` returns nothing);
+- a fatal error during ordinary shutdown restarts the deadline;
+- when a close and the deadline finish together, the `select` outcome is
+  random;
+- there is no protected close time.
+
+**Change.**
+
+- `httpruntime.Options.ShutdownDeadline` takes an absolute drain deadline.
+  A drain that reaches it returns `*httpruntime.DrainDeadlineError` after
+  force-closing connections.
+- The server clock gains `httpDrainDeadline()`, the deadline minus
+  `min(25%, 5 s)`. A `DrainDeadlineError` after a stop request means the
+  in-flight work was cancelled, not that shutdown is incomplete. Any other
+  drain error leaves `http_server` open.
+- `serverRuntime.BeginShutdown(ctx)` replaces `OnShutdown` and carries the
+  application deadline. Sockets close with 1001.
+- Background components start closing at the stop request, concurrently
+  with the drain: `jobs_runner`, `reference_collector`,
+  `evidence_cleanup_dispatcher`, `graph_activation`,
+  `network_flow_cleanup_dispatcher` and `staged_object_janitor`.
+  `Runtime.shutdown` waits for them, then closes the foundation components
+  in reverse order.
+- `ownedComponent.close` returns an error, and a failed close is open. A
+  close that finishes at the deadline counts as closed.
+- The fatal branches take `clock.deadline()`, so a deadline already started
+  by a stop is never restarted.
+
+**Evidence.**
+
+- **The W1 diagnostic in practice.** `tcr-s1042-format01` stopped with
+  `[GRAPH-PREPARE] … cause=catalog_coverage` and named the two new unrouted
+  tests. They were routed into `app.server.unit.ordinary_shutdown_deadline`,
+  and `tcr-s1042-generate01` and `-format02` exited 0.
+- **`tcr-s1042-rows01`:** `ordinary_shutdown_deadline` and
+  `extension_publication_epoch_characterization` passed;
+  `evidence_cleanup_activation_and_telemetry` failed. Its test pinned a
+  sequential close order between two dispatchers, and background components
+  now close concurrently. The assertion now requires both closes in any
+  order, and `tcr-s1042-rows02` passed.
+- `tcr-s1042-httpruntime01` passed: the forced-close test runs under both a
+  relative and an absolute drain bound, and asserts `DrainDeadlineError`.
+- **Red** (`tcr-s1042-red01`, three mutations: a cut treated as incomplete,
+  no background start, a zero reserve):
+  - `close reserve = 0s, want 2s`;
+  - `exit=1` for the reserve-boundary cancellation;
+  - `40 s deadline reserve = 0s`;
+  - `background component did not start closing at the stop request`.
+
+  Both files were restored, and `cmp` confirmed them.
+- **Regression:** all 51 active `app.server` Go rows passed
+  (`tcr-s1042-appserver01`, 27 units), including the real-binary
+  `serverprocess` rows.
+- `tcr-s1042-lint-go-01`, `-lint-backend-boundary-01` and
+  `-source-generated01` exited 0.
+
+### S-1043 / F-1028 / E-1097 — W3c: handshake-phase sockets close at shutdown; the client backs off (backend, frontend)
+
+Recorded before editing; identities verified unused. DONE (2026-11-17). Specs:
+REQ-04-146a (amended) and REQ-03-299a, verified by AC-604 and AC-607.
+
+**Defects.**
+
+- **Handshake-phase sockets.** A socket still in `readFirstMessage` (10 s
+  timeout) or `establishSession` ignores the hub's shutdown
+  (`collaboration/socket_session.go`). At shutdown it is neither closed nor
+  waited on, until its own timeout. A context cancelled during the session
+  refresh could also be misreported as `session_revoked`.
+- **Client.** `IncidentCollaborationSession.tsx` reconnects after a 1001,
+  1006 or 1011 close on a fixed 1,000 ms timer with no backoff.
+
+**Change.**
+
+- **Server.** The per-socket context is cancelled when the hub's sessions
+  close. Any failure observed after shutdown has begun returns through the
+  deferred 1001 close, with no terminal message and no decode or revocation
+  outcome.
+- **Client.** Reconnect follows REQ-03-299a: 1 s base, doubling, 30 s cap,
+  full jitter, reset after an accepted `hello`, with terminal and
+  authorization suppression unchanged.
+
+**Tests.**
+
+- A socket that upgraded but sent no `hello` gets 1001 promptly at
+  `CloseSessions`.
+- Vitest covers the backoff bounds and their reset, and reconnect after
+  1001.
+
+**Outcome.**
+
+- **Server.** A watcher goroutine closes the socket with 1001 when the
+  hub's sessions close. The first draft cancelled the per-socket context
+  instead. In this WebSocket library, cancelling a blocked read aborts the
+  connection with no close frame, and the client saw status -1
+  (`tcr-s1043-collab01`). Every handshake failure observed after shutdown
+  has begun returns without a terminal message, and the deferred second
+  close is harmless.
+- **Client.** `incidentCollaborationSessionPlan.ts` owns
+  `reconnectDelayBoundMs` and `reconnectDelayMs`. The session counts
+  consecutive attempts and resets the count in `applyEstablishmentPlan`
+  (hello or resume ack). The session suite pins `Math.random` to 0 in a
+  `beforeEach`, so existing timing assertions stay deterministic.
+- **Routing.** The W1 diagnostic named the three new Vitest titles. They
+  were routed into
+  `module.collaboration.frontend_unit.verify_web_socket_collaboration_message_helpers_39079d3c85`
+  (leaf title) and `web.collaboration.regression.incident_collaboration_session_plan_lr07`
+  (full titles). The new Go test was routed into
+  `module.collaboration.store.ordinary_shutdown_closes_sockets_going_away`.
+
+**Evidence.**
+
+- `tcr-s1043-generate01` and `-format02` exited 0.
+- **Green:**
+  - `tcr-s1043-collab02`: the shutdown socket and first-message rows passed;
+  - `tcr-s1043-collab01`: the frontend helper row passed;
+  - `tcr-s1043-webcollab01`: both web collaboration rows passed.
+- **Red** (`tcr-s1043-red01`, server watcher disabled and the client back
+  to a fixed 1,000 ms):
+  - the handshake test fails with `got -1 want 1001`;
+  - the Vitest backoff test fails.
+
+  Both files were restored, and `cmp` confirmed them.
+- `tcr-s1043-lint-types-01` and `-lint-go-01` exited 0.
+
+### S-1044 / F-1029 / E-1098 — W3d: the hold-job test control and the AC-604 process test (harness, tests)
+
+Recorded before editing; identities verified unused. DONE (2026-11-17). This
+closes W3 (S-1041 to S-1044). Specs:
+TH-HARNESS-REQ-450 (amended in S-1041) and Core 04 AC-604. Maintainer
+decision: "Build the catalog seam".
+
+**Change.**
+
+- **`jobs.Contribution` (`internal/platform/jobs`).** A production-neutral
+  seam: one extra job definition, its worker contract, and a `Bind`
+  function that receives enqueue and payload ports and returns the
+  handler. The runtime assembles any `Options.HarnessJobs` into the
+  recognized catalog, the worker contracts and the runtime selection, and
+  registers their handlers. Only the harness profile sets them; production
+  passes none.
+- **Hold-job control (`internal/app/server/holdjob`).** A new package,
+  imported only by the harness-tagged server profile, so production binaries
+  never link it.
+  - The job kind is `harness.hold_job_v1`, with worker
+    `harness.hold_job_worker_v1` and deployment scope.
+  - The route `POST /api/v1/test/runtime/hold-jobs` is test-route guarded
+    and takes a closed `cartulary.test.hold_job_control.v1` body, decoded
+    strictly in Go. Its operations are `enqueue` (with `mode` and
+    `submitted_by_user_id`), `release` and `status`.
+  - The handler holds until its context is cancelled
+    (`respect_cancellation`) or until released
+    (`ignore_cancellation_until_released`).
+- **`processtest`.** It gains `Signal` and a stdout accessor. The AC-604
+  test runs the server-harness binary with a short
+  `shutdown_drain_seconds`.
+- **AC-604 process test (`internal/app/serverprocess`, new routed row).** It
+  holds an open WebSocket, a request whose body stays open, and a hold job.
+  - `respect_cancellation`: the socket gets 1001, the request ends, the
+    process exits 0 within the deadline, and the phases are logged.
+  - `ignore_cancellation_until_released`: exit 1 naming `jobs_runner`.
+  - A second SIGTERM does not extend the deadline.
+  - Neither case reports `published_component_lost`.
+
+**Outcome so far.**
+
+- **The seam.** `jobs.Contribution` and `ContributionPorts`
+  (`internal/platform/jobs/contribution.go`), assembled by
+  `runtime_assembly.go` into the recognized definitions, the worker
+  contracts, the selected kinds and handler registration. The ports live in
+  `harness_jobs.go`: a deployment-scoped `CreateQueuedTx` commit with
+  `runner.Notify`, plus `Manager.HandlerPayload`.
+- **The control.** `internal/app/server/holdjob` is registered only by
+  `server_profile_harness.go` (build tag `cartulary_harness`), as a
+  `harnessruntime.ControlContribution`. Errors use the JSON error envelope.
+- **`processtest.Server`** gains `Signal`, `Stdout` and `Stderr`.
+- **The test.** `TestOrdinaryShutdownAC604_Process`, in new row
+  `app.server.process.ordinary_shutdown_ac604`, uses the template of the
+  harness runtime-routes process row (`server-harness`, `postgres_dedicated`,
+  object store). The user ID comes from `GET /api/v1/auth/session`.
+- **A test-side fix.** The test's own client stayed blocked reading the
+  never-finished request body after the server closed the connection
+  (`tcr-s1044-row01`). The test closes the pipe after exit, and asserts the
+  server-side cancellation through the `cancelled_in_flight=true` drain log.
+
+**Evidence.**
+
+- `tcr-s1044-generate01` and `-format01` exited 0.
+- **Green:** `tcr-s1044-row02` passed both modes on the real binary. Each
+  run checks the 1001 close, an elapsed time within 2 s plus slack, exit
+  0 or 1, the logged phases and drain cancellation, no
+  `published_component_lost`, and that the diagnostic names `jobs_runner`
+  in the exit-1 case.
+- **Red** (`tcr-s1044-red01`, zero close reserve, exit 2): the
+  cancellation-honouring case exits 1, because the drain consumes the
+  deadline and the components are left open. Restored, and `cmp`
+  confirmed it.
+- **Regression:** all 51 `app.server` Go rows passed
+  (`tcr-s1044-appserver01`).
+- `tcr-s1044-lint-go-01` and `-lint-backend-boundary-01` exited 0.
+- **Browser reset evidence** (`tcr-s1044-functional01`, `make browser-e2e
+  SUITE=functional`, exit 0, 14.2 min): 31 of 31 units, 401 rows.
+  - All 8 backend shutdowns logged through browser resets completed (`phase=complete`
+    1–5 ms after the stop request) with `cancelled_in_flight=false`.
+  - None was incomplete.
+
+### S-1045 / F-1030 / E-1099 — W6a: error codes become a declared, validated and enforced contract (documentation; owners first)
+
+Recorded before editing; identities verified unused. DONE (2026-11-17). Maintainer
+decision 3 of the E-1087 entry ("Full contract + guard").
+
+**Gap.** Research found `x-cartulary-error-codes` on 92 responses, but no
+spec defines it and nothing validates or projects it. At HEAD, 239 of 448
+error responses (status 400 or higher) across 136 operations declare no
+codes. Most emitters of `illegal_transition` are undeclared, and three
+owners hand-copy expected codes in tests.
+
+**Change (specs).**
+
+- **Core 01 REQ-01-702 (new, §17.1).**
+  - Every public operation response with status 400 or higher, direct or
+    through a component, declares a non-empty, sorted, duplicate-free
+    `x-cartulary-error-codes`.
+  - Each code is registered with exactly that status (REQ-01-233).
+  - Assembly rejects violations.
+  - The generated operation catalog projects the codes.
+  - A resolved operation emits only declared codes.
+  - Adding a code is additive; removing one is breaking.
+- **Core 04 AC-608 (new):** verifies REQ-01-702.
+- **Testing Harness NLSpec TH-HARNESS-REQ-858 (new).** Harness builds and
+  in-process test servers enforce REQ-01-702 at runtime: an undeclared code
+  becomes 500 `internal_error`, with one structured `undeclared_error_code`
+  log line. Production behaviour is unchanged.
+
+**Outcome.** REQ-01-702 sits in §17.1 after the OAuth-scope paragraph, AC-608
+follows AC-607, and TH-HARNESS-REQ-858 precedes TH-HARNESS-REQ-450.
+`tcr-s1045-md01` exited 0.
+
+**Sequencing for W6.** Mandatory assembly validation would fail until the
+239 missing declarations exist. The registry holds 20 codes for 400, 24 for
+404 and 50 for 409, so most declarations are route-specific. The
+implementation therefore proceeds in four steps:
+
+1. The catalog projection, plus the guard in an observe-only mode that logs
+   without changing responses.
+2. The Go integration and browser suites collect the real emissions.
+3. Declarations are authored from those observations, plus the Core route
+   tables for paths no test exercises.
+4. Assembler enforcement and the guard's enforce mode are switched on, then
+   verified.
+
+Amendment (2026-11-17, S-1046): REQ-01-702 exempts `internal_error`. Every
+operation may emit it without declaring it; otherwise every operation would
+need to declare 500.
+
+### S-1046 / F-1031 / E-1100 — W6b: project declared codes and observe undeclared emissions (generator, platform, test support)
+
+Recorded before editing; identities verified unused. DONE (2026-11-17). Closed
+by S-1050, which turns on the enforcement this slice prepared.
+
+**Change.**
+
+- **`tools/openapi-operation-catalog`** projects
+  `ErrorCodes map[int][]string` per operation. It resolves component
+  `$ref`s across all owner units, which requires a merged component-response
+  map.
+- **`internal/platform/httpapi`:**
+  - `ContractOperation` and `OperationMetadata` carry the declared codes;
+  - `Options.ErrorCodeGuard` puts a guard in each request's context;
+  - `WriteErrorWithOptions`, the only error-envelope writer, checks a
+    resolved operation's code and status. A violation is reported, and in
+    enforce mode it is replaced by 500 `internal_error`;
+  - `internal_error` and unresolved requests are exempt.
+- **In-process test servers** (`httptestx.StartServer`) install the guard in
+  observe mode and report each server's distinct violations in one
+  `t.Errorf` at cleanup.
+- **The harness profile** installs it in observe mode with one structured
+  log line per violation, `event=undeclared_error_code`.
+- Collecting emissions is expected to fail tests until S-1047 declares the
+  codes.
+
+**Progress.**
+
+- **Generator.** It loads every unit, merges component responses, and
+  renders a deterministic `ErrorCodes` literal sorted by status.
+  `tcr-s1046-generate01` and `-02` exited 0, and all 136 operations carry
+  the field.
+- **`httpapi`:**
+  - `OperationMetadata.DeclaresErrorCode` permits `internal_error`;
+  - `withErrorCodeGuard` wraps the handler inside `withRequestID`;
+  - `WriteErrorWithOptions` reports violations, and in enforce mode
+    rewrites the code to `internal_error`, which the existing branch
+    normalizes to 500.
+- **In-process test servers.** `httptestx.newErrorCodeGuard` sets
+  `enforceErrorCodes = false` during collection.
+- **Harness profile.** The guard logs to stdout through its own text logger.
+  The default `slog` logger writes to stderr, which carries only the
+  lifecycle diagnostic that process tests parse.
+- **Test.** `TestErrorCodeGuardHonoursDeclarations` is routed into
+  `platform.openapi.unit.runtime_profile_catalog`.
+  - Green: `tcr-s1046-row01`, together with the runtime contract parity
+    row.
+  - Red (`tcr-s1046-red01`, check disabled): `reported []` and
+    `got 404 user_not_found`. Restored, and `cmp` confirmed it.
+- `tcr-s1046-format01` and `-02`, and `tcr-s1046-lint-go-01`, exited 0.
+- **Collection 1** (`tcr-s1046-collect01`, `make check`, exit 2): 127 rows
+  failed on guard reports, giving 299 distinct emissions. Retained Go unit
+  stderr keeps only its last 64 KiB, so most reports were truncated away.
+  Every non-guard failure line was informational `t.Logf` output.
+- **Persistence.** The guard now also appends each violation to
+  `<run root>/error-code-observations/<pid>.jsonl`
+  (`fixtureartifacts.SelectedRunRoot`).
+- **Collection 2** (`tcr-s1046-collect02`, exit 2, 17.1 min): 337 distinct
+  (operation, status, code) emissions, retained under that run root.
+  - 199 fall on a status the operation already declares.
+  - 111 operation–status pairs emit a status the operation does not declare
+    at all, for example `createViewRow` 401, 403, 404 and 409.
+- **Registry gaps.** Eleven emitted codes are not in
+  `contracts/errors/index.json`. Some are specified but not projected:
+  - Core 01: `entity_mention_not_found` and `resolved_record_not_found`;
+  - Core 02: `entity_match_conflict`;
+  - Report Composition NLSpec: `invalid_request` (400).
+
+  Others appear in no spec: `object_upload_expired` (410),
+  `object_upload_not_found_or_revoked` (404), `object_upload_rejected`
+  (400, 409 and 413), `view_schema_not_found` (404), and the report routes'
+  `conflict` (409). These need a maintainer decision before declarations
+  can be complete.
+- **Observe mode.** The guard now fails tests only under enforcement, so the
+  tree stays green while declarations are authored. Observations persist
+  either way: `tcr-s1046-green01` passed
+  `module.auth.integration.current_account_contracts`, which had failed in
+  collection.
+
+### S-1047 / F-1032 / E-1101 — W6c: every emitted code is registered, and the upload route uses one code per status (documentation, contracts, backend)
+
+Recorded before editing; identities verified unused. DONE (2026-11-17).
+Maintainer decisions (2026-11-17): "Register all; specify the gaps" and "Split
+by status".
+
+**Gap.** REQ-01-702 requires every declared code to be registered with
+exactly the response's status, but 12 public codes that resolved operations
+emit are missing from `contracts/errors/index.json`.
+
+- **Collected in S-1046:**
+  - `entity_mention_not_found` and `resolved_record_not_found` (404), which
+    have Core 01 rows;
+  - `entity_match_conflict` (409), defined in Core 02 §13 claim matching;
+  - `invalid_request` (400), defined in the Report Composition NLSpec;
+  - the composition routes' `conflict` (409), which no owner names;
+  - `object_upload_not_found_or_revoked` (404), `object_upload_expired`
+    (410) and `object_upload_rejected`, which no spec names;
+  - `view_schema_not_found` (404), which no spec names.
+- **Corrections to the S-1046 note.**
+  - `object_upload_rejected` is emitted at 400, 409, 411 and 413, not only
+    400, 409 and 413.
+  - A static scan of the Go emitters adds the composition routes' `not_found`
+    (404, REQ-RC-033), which no test exercises.
+  - Network Flow codes sit in their own registry
+    (`contracts/network-flow/errors.v1.json`). Network Flow has no authored
+    OpenAPI owner, so REQ-01-702 does not reach it yet.
+  - The admission gate's 503 `service_unavailable`, the test-route codes and
+    the harness controls' codes all reject before an operation resolves.
+- **Status conflict.** `object_upload_rejected` cannot be registered as it
+  stands: REQ-01-234 gives each code one required status.
+
+**Change.**
+
+- **Core 01 REQ-01-246:** names the upload route's outcomes, one code per
+  status.
+  - 404 `object_upload_not_found_or_revoked`, with empty details, for the
+    concealed rejection.
+  - 410 `object_upload_expired`, with `reason_code` `target_expired` or
+    `slot_expired`.
+  - 409 `object_upload_rejected`, with `upload_contract_mismatch` or
+    `blob_not_pending`.
+  - 411 `object_upload_length_required`, with `content_length_required`.
+  - 400 `object_upload_invalid`, with `byte_size_mismatch` or
+    `upload_contract_mismatch`.
+  - 413 `request_body_too_large`, with `byte_size_exceeds_contract`. Its
+    registry meaning widens to cover an upload body beyond the contracted
+    size. REQ-01-234 forbids a second token for the same condition.
+- **Core 01 REQ-01-032 discovery read:** an unknown or non-current
+  `view_schema_id` returns 404 `view_schema_not_found`.
+- **Core 01 §3.3.6.1:** new rows for `entity_match_conflict`,
+  `view_schema_not_found` and the five upload codes.
+- **Report Composition NLSpec:** the route error codes become `invalid_request`
+  (400), `not_found` (404) and `conflict` (409). `conflict` replaces "Core
+  conflict envelope" for the draft-version, retired-resource and bound-version
+  rejections.
+- **Registry:** `contracts/errors/index.json` gains the 12 codes.
+- **Evidence:** the upload emitters and
+  `upload_lifecycle_integration_test.go` follow the split.
+- **Wire change, for the release notes:** the upload route's 400, 411 and 413
+  responses change `error.code`. Statuses and `reason_code` values are
+  unchanged.
+
+**Outcome.**
+
+- **Specs.**
+  - REQ-01-246 lists the six upload outcomes.
+  - §3.3.6.1 gains seven rows and widens `request_body_too_large`.
+  - §3.3.6.2 gains four upload reason registries.
+  - The view-schema read names `view_schema_not_found`.
+  - REQ-RC-026, REQ-RC-027a, REQ-RC-033a and Table 6-A2 name the
+    composition codes.
+- **Registry.** It holds 123 codes and 50 reason registries.
+  - `tcr-s1047-generate01` exited 0. It changed only
+    `internal/gen/contracterrors/artifacts_gen.go` and the protocol-ts
+    `error-registry.ts`.
+  - `tcr-s1047-srcgen01` exited 0.
+- **Evidence.**
+  - One constructor per status.
+  - The capability-route test asserts the new codes, the length details, and
+    a new chunked (no `Content-Length`) 411 case.
+  - Green: `tcr-s1047-row01`, 6 Evidence rows.
+  - Red, run as diagnostic mutations, restored and confirmed with `cmp`:
+    - `tcr-s1047-red01` restored the old 411 and 413 codes and failed with
+      `got object_upload_rejected want request_body_too_large`;
+    - `tcr-s1047-red02` restored only the old 411 code and failed with
+      `want object_upload_length_required`.
+- **Checks.** `tcr-s1047-format01`, `tcr-s1047-lint-go01` and
+  `tcr-s1047-md01` exited 0, and `git diff --check` passed.
+
+### S-1048 / F-1033 / E-1102 — W6d: a duplicate user email gets its own 409 code (documentation, contracts, backend)
+
+Recorded before editing; identities verified unused. DONE (2026-11-17). This
+applies the S-1047 rule, one registered code per status, which the maintainer chose
+for the upload route.
+
+**Gap.** A check of the existing declarations against the registry found two
+status mismatches:
+
+- `AuthUserCreateConflictResponse` and `AuthUserPatchConflictResponse`
+  declare `invalid_mutation_payload` at 409;
+- the registry, and REQ-01-234, fix that code at 400.
+
+A static scan of all Go emitters found only the matching two sites:
+`internal/modules/auth/user_admin_handlers.go:173,291`. A create or patch
+whose normalized email already belongs to another local user returns 409
+`invalid_mutation_payload` with `{field: email}`.
+
+Core 01 requires deployment-wide email uniqueness, but no spec names the
+rejection, and no test covers it.
+
+**Change.**
+
+- **Core 01 user create and patch:** the uniqueness rejection is 409
+  `user_email_conflict`, with details `{field: "email"}`. This follows the
+  `incident_key_conflict` precedent.
+- **§3.3.6.1:** a new row.
+- **Registry:** a new entry.
+- **Auth:** both emitters change.
+- **Test:** an integration test covers both create and patch.
+- **Wire change, for the release notes:** the duplicate-email 409 changes its
+  `error.code` from `invalid_mutation_payload` to `user_email_conflict`.
+
+**Outcome.**
+
+- REQ-01-123, REQ-01-124 and §3.3.6.1 name `user_email_conflict`. The
+  registry holds 124 codes.
+- The two Auth OpenAPI conflict components declare `user_email_conflict` in
+  place of `invalid_mutation_payload`.
+- **Change set.** The first `tcr-s1048-generate01` failed at the
+  compatibility gate ("covers 656 of 658"). The two breaking fingerprints
+  (`8ba6f2ef…`, `f674f3ae…`), taken from the `tcr-s1048-compat01` report, now
+  have entries. `tcr-s1048-generate02` exited 0.
+- **Test.** `TestUserAdminLifecycle_Integration` rejects a duplicate email on
+  create and on patch, with `field=email`, and commits nothing.
+  - Green: `tcr-s1048-row01`.
+  - Red (`tcr-s1048-red01`, emitter restored to the old code): `got
+    invalid_mutation_payload want user_email_conflict`. Restored, and `cmp`
+    confirmed it.
+- **Checks.** `tcr-s1048-format01`, `tcr-s1048-lint-go01`,
+  `tcr-s1048-srcgen01` and `tcr-s1048-md01` exited 0, and `git diff --check`
+  passed.
+
+### S-1049 / F-1034 / E-1103 — W6e: every error response declares its codes (contracts, compatibility policy)
+
+Recorded before editing; identities verified unused. DONE (2026-11-17). This is
+step 3 of the S-1045 sequence.
+
+**Gap.**
+
+- 559 operation–status error rows exist across 136 operations, counting the
+  statuses operations emit but do not declare. Of these:
+  - 209 declare codes;
+  - 238 declare none;
+  - 111 are absent from the contract, although `tcr-s1046-collect02` saw them
+    emitted, for example `createViewRow` 401, 403, 404 and 409.
+- **Compatibility policy.** `openapicompat` classifies every array change as
+  breaking. REQ-01-702 says adding a declared code is additive and removing
+  one is breaking.
+
+**Change.**
+
+- **`openapicompat`:** an `x-cartulary-error-codes` change is classified
+  like `enum`. A superset is additive, and a lost code is breaking. A unit
+  test covers both.
+- **Declarations.** In the owner fragments, each error row's final set is
+  the union of:
+  - its existing declaration;
+  - the codes `tcr-s1046-collect02` observed;
+  - for rows with neither, the codes traced statically to the handler's
+    emitters.
+- **Missing statuses** become inline `ErrorEnvelope` responses that carry
+  their codes.
+- **Shared components** declare the union of what their users emit. Two
+  existing declarations are sorted.
+- **Change set.** Fingerprints come from the failing
+  `openapi-compatibility-check` report.
+  - A stale entry whose pointer, kind and classification still match carries
+    its rationale forward.
+  - A new declaration gets a REQ-01-702 rationale.
+  - Anything else is reviewed by hand.
+- **Parity test.** `TestGeneratedRuntimeOpenAPIContractParity` checks every
+  operation:
+  - each error response resolves to a non-empty, sorted, duplicate-free list;
+  - each code is registered with that status;
+  - the generated catalog projects exactly those lists.
+
+  The hand-copied code tables in the incidents tests stay as owner checks.
+  Only one of them changes: its close 409 list is now sorted.
+
+**Static inventory.** A read-only agent traced the 61 rows that had neither a
+declaration nor an observation to the literal codes their handlers write. It
+found no unregistered code and no status mismatch.
+
+- **A fourth source of codes.** `AuthenticateRequest` rejects a Bearer
+  bootstrap token on any route with 409 `credential_bootstrap_rejected`. The
+  incidents GETs already declared this.
+- **Unreachable responses.**
+  - The three Indicator list GETs declare a 403 that is never written: their
+    admission failures surface as 404.
+  - The 404s of `importReferencePack`, `refreshReferencePacks` and
+  `listReferencePacks` are written only by the family guard, as
+  `extension_profile_not_claimed`, before routing.
+- **The Reference Pack guard** writes `authorization_denied` before routing.
+  Every non-list operation rejects a query string with
+  `invalid_pagination_request` or `invalid_reference_pack_request`.
+- **A stale declaration.** `AuthSingletonReadInvalidRequestResponse` declared
+  `invalid_list_query`. All six of its singleton reads emit only
+  `invalid_pagination_request`, through `ValidateSingletonReadQuery`.
+
+**Outcome.**
+
+- **Declarations.** All 641 error responses now declare codes.
+  - 196 statuses were added as inline responses. These are the 111 collected
+    pairs plus the 401, 403 and 409 statuses the security rules imply.
+  - Three unreachable Indicator 403s were removed.
+  - The three Reference Pack guard-only 404s declare
+    `extension_profile_not_claimed`.
+  - Three statuses moved from shared components into their own read-only
+    responses: the Reference Pack GETs' 403 and the Indicator list GETs' 400
+    and 404. This keeps a read from declaring `csrf_verification_failed` or
+    `invalid_mutation_payload`.
+  - The singleton-read component declares only `invalid_pagination_request`.
+  - The scripts that produced this are not committed. Their rules are recorded
+    here.
+- **Change set.** It covers 956 changes.
+  - From the `tcr-s1049-compat01` report, 46 stale entries carried their
+    rationale forward and 298 new entries were added.
+  - The singleton-read correction is the only new breaking change, and it has
+    its own rationale.
+  - `IncidentMembershipListInvalidResponse` is reclassified from breaking to
+    additive under the set rule.
+  - `tcr-s1049-generate01` failed at the gate as expected.
+    `tcr-s1049-generate02` exited 0.
+- **Tests.** The 28 rows that read the contract passed across
+  `tcr-s1049-row01` to `-row15`.
+  - `module.incidents` first failed (`tcr-s1049-row07`), because its
+    hand-copied close 409 list was unsorted. After the fix,
+    `tcr-s1049-row16` passed.
+  - Red checks, run as diagnostic mutations, restored and confirmed with
+    `cmp`:
+    - `tcr-s1049-red01` reverted the classifier to `enum` only. It failed
+      with `add a code: classified breaking, want additive`, and with the
+      production gate's stale fingerprint.
+    - `tcr-s1049-red02` skipped `$ref` resolution in the parity test. It
+      failed with `getCurrentAccountPreferences 409 declares []`.
+- **Checks.** These exited 0: `tcr-s1049-format01`, `-lint-go01`,
+  `-lint-types01`, `-srcgen01`, `-srcschema01`, `-srccat01` and `-md01`.
+  `git diff --check` passed.
+
+**Residuals.**
+
+- **Wider unions.** Three shared state-changing components declare the union
+  of their users: `IndicatorMutationConflict`, `IndicatorResourceNotFound` and
+  `EnterpriseAuthInvalidRequestResponse`. Some users therefore declare a code
+  they may not reach.
+- **Codes declared only where a response already documents them.** These are
+  pre-routing guard codes, such as `extension_profile_not_claimed` for an
+  unclaimed extension family. No operation was given a new status for them.
+- **The upload route's security.** `PUT /api/v1/object-uploads/{upload_token}`
+  declares `security: []`, but the handler requires a session and checks
+  CSRF. Its 401, 403 and 409 now declare what the handler writes. Correcting
+  `security` is a security-sensitive contract change, left for review.
+
+### S-1050 / F-1035 / E-1104 — W6f: assembly and the runtime guard enforce REQ-01-702 (platform, test support, harness)
+
+Recorded before editing; identities verified unused. DONE (2026-11-17). This is
+step 4 of the S-1045 sequence. It also closes S-1046, whose projection and
+observe-mode collection are complete.
+
+**Gap.** Declarations are now complete (S-1049), but nothing rejects a
+missing or invalid declaration at assembly. The runtime guard still only
+observes.
+
+**Change.**
+
+- **`openapiassembly`.** After aggregate validation, every operation
+  response with status 400 or higher is checked, resolving a component
+  `$ref`. Its `x-cartulary-error-codes` must be:
+  - present, non-empty and strictly ascending (which also rules out
+    duplicates);
+  - made of codes that `contracts/errors/index.json` assigns that exact
+    status.
+
+  The assembler reads the registry from that fixed repository path only when
+  the document has an error response, as the compatibility gate does for its
+  release files. The manifest schema is unchanged.
+- **Unit tests.** A missing, empty, unsorted, duplicated, unregistered or
+  status-mismatched declaration is rejected, including one reached through a
+  component `$ref`. A valid component-declared case is the positive control.
+- **Enforce mode.**
+  - `httptestx` sets `enforceErrorCodes = true`.
+  - The harness profile's guard sets `Enforce: true`.
+  - A violation then becomes 500 `internal_error`, fails in-process tests at
+    cleanup, and is still persisted to the run root.
+- **Broad validation.** `make check`, plus the functional and stateful
+  browser suites. The guard reaches every exercised route, and targeted rows
+  cannot cover that.
+
+**Outcome.**
+
+- **Assembly.**
+  - `validateDeclaredErrorCodes`, in
+    `internal/platform/openapiassembly/error_codes.go`, runs after aggregate
+    validation.
+  - `tcr-s1050-generate01` exited 0 with no output change, so the production
+    contract satisfies the rule.
+  - `TestAssemblyEnforcesDeclaredErrorCodes`, routed in
+    `platform.openapi.unit.contract_integrity`, has two positive controls and
+    eight rejection cases.
+  - Green: `tcr-s1050-row01`, five `platform.openapi` rows.
+  - Red: `tcr-s1050-red01` bypassed the validation and failed with
+    `assemble error = <nil>, want substring …`. Restored, and `cmp`
+    confirmed it.
+- **Enforce mode.**
+  - `httptestx` drops its observe-only switch.
+  - The harness profile guard sets `Enforce: true`.
+- **`make check`** (`tcr-s1050-check01`, exit 2, 15.4 min): 353 of 354 units
+  passed, including the Go format, vet and staticcheck lint units.
+  - The one failure was OTel conformance, which S-1051 corrects.
+  - No `error-code-observations` directory was written, so no Go test server
+    emitted an undeclared code.
+- **Functional browser suite** (`tcr-s1050-functional01`, exit 0, 14.2 min):
+  31 of 31 units.
+  - The 8 harness server logs each cover a whole process, from the admitted
+    contract to `phase=complete`.
+  - None contains `undeclared_error_code`.
+- **Stateful browser suite** (`tcr-s1050-stateful01`, exit 0, 4.0 min): 22 of
+  22 units.
+  - This suite retains no server stdout. Absence of violations is therefore
+    shown only by the passing units: an undeclared code would now be a 500.
+
+**Residuals.**
+
+- **Stateful browser server logs are not retained.** Persisting the harness
+  guard's violations to the run root, as the in-process guard does, would make
+  every browser suite's absence of violations directly observable.
+- **The protocol-ts operation bindings do not project declared codes.** No
+  client code consumes per-operation codes yet. The generated Go catalog is
+  the projection REQ-01-702 requires.
+
+### S-1051 / F-1036 / E-1105 — W6g: the new error codes get telemetry error classes (documentation, contracts)
+
+Recorded before editing; identities verified unused. DONE (2026-11-17). This
+corrects S-1047 and S-1048.
+
+**Gap.** `tcr-s1050-check01` (`make check`, exit 2) passed 353 of 354 units.
+The one failure is `operation:harness.otel_conformance`, with
+`errors.mapping_complete` and `errors.registry_mapping_complete`.
+OTEL-REQ-142 maps every public error code to exactly one
+`cartulary.error_class`. The 13 codes registered by S-1047 and S-1048 have no
+class in the NLSpec table or in `contracts/otel/error_class_registry.json`.
+
+The run also left no `error-code-observations` directory, so the enforcing
+guard recorded no undeclared emission anywhere in `make check`.
+
+**Change** (owner first: the OpenTelemetry Instrumentation NLSpec, then the
+registry).
+
+| Class | Codes | Reason |
+| --- | --- | --- |
+| `request_invalid` | `object_upload_invalid`, `object_upload_length_required`, `invalid_request` | |
+| `concurrency_conflict` | `entity_match_conflict`, `user_email_conflict` | Like `party_match_conflict` and `incident_key_conflict`. |
+| `lifecycle_conflict` | the composition `conflict` | It covers a stale draft version and two lifecycle states: retired and release-bound. One code takes one class, and lifecycle states are two of its three conditions. |
+| `not_found` | `entity_mention_not_found`, `resolved_record_not_found`, `view_schema_not_found`, `object_upload_not_found_or_revoked`, the composition `not_found` | The JSON lacked the first two even though the table listed them. |
+| `expired_or_consumed` | `object_upload_expired` | |
+| `policy_rejected` | `object_upload_rejected` | Like `evidence_attach_rejected`, which also covers contract and state mismatches. |
+
+**Outcome.**
+
+- **OTEL-REQ-142 table.** It gains 11 codes. The other two,
+  `entity_mention_not_found` and `resolved_record_not_found`, were already in
+  the table.
+- **Registry.** It gains all 13 codes. Every one of the 124 registered codes
+  now maps to exactly one class, with no duplicates and no extras.
+- **Generation.** `tcr-s1051-generate01` exited 0 and produced no output
+  change.
+- **Red and green.**
+  - Red: `tcr-s1050-check01`, the failure recorded above.
+  - Green: `tcr-s1051-otel01` (`make otel-conformance`, 6 of 6 units).
+- **No full rerun.** The repair recheck is that target alone. The other 353
+  units of `tcr-s1050-check01` already passed with the enforcing guard.
+- **Checks.** `tcr-s1051-md01` exited 0, and `git diff --check` passed.
+
+### S-1052 / F-1037 / E-1106 — W2a: `sourcecheck` asks one binder about identifier bindings (test support, no behaviour change)
+
+Recorded before editing; identities verified unused. DONE (2026-11-17). This is
+the first G16 step of the E-1087 plan.
+
+**Gap.**
+
+- The SQL analyzer reads the deprecated `ast.Object` directly at 40 sites in
+  7 files: `sql.go`, `sql_types.go`, `sql_resolution.go`, `sql_native.go`,
+  `sql_capture.go`, `sql_assignment.go` and `sql_callable.go`. Two
+  `//lint:ignore SA1019` suppressions cover these reads.
+- The sites ask three things about an identifier:
+  - is it bound by a declaration the resolver saw (`Obj == nil`)?
+  - what kind of binding is it (`Fun`, `Typ`, `Con`)?
+  - what is the declaring node, used for identity or shape (`Obj.Decl`)?
+- Some sites sit outside the analyzer:
+  - the free helpers `sqlBinding`, `sqlExpressionBinding`,
+    `sqlBindingInventory` and `sqlAssignedBindings`;
+  - `sqlTypeRef.key`;
+  - the `sqlTypes` methods `rawProtocolType`, `localType`, `typeIdentity` and
+    `typeParameter`.
+
+**Change.**
+
+- **The seam.** A `binding` value (kind, a comparable identity and the
+  declaring node) comes from one per-batch `binder`. The binder is threaded
+  explicitly through the analyzer, the free helpers, `sqlTypes` and
+  `sqlTypeRef`, with no global state, because batches may run in parallel.
+- **`parserBinder`.** It reproduces today's `ast.Object` answers exactly and is
+  the only remaining `ast.Object` reader. It keeps a single SA1019
+  suppression.
+- **Out of scope.** No analysis behaviour changes. `go/types` is the next
+  slice.
+
+**Verification.**
+
+- `harness.command_surface.unit.go_import_inspection_distinguishes_declarations_8c659e57a3`,
+  the `sourcecheck` self-tests;
+- `module.projections.architecture.sql_declaration_ownership`, the corpus SQL
+  check;
+- `make lint CHECK=backend-boundary`;
+- `make lint CHECK=go`.
+
+Because nothing changes behaviour, the red evidence is the parity of corpus
+results: the unchanged self-tests and the corpus check pass.
+
+**Outcome** (implemented by a scoped agent and reviewed here).
+
+- **`binding.go`.** It holds `bindingKind`, `binding{kind, identity, decl}`
+  with `bound`, `is` and `declaredBy`, the `binder` interface, and
+  `parserBinder`. `parserBinder.fromObject` is the only `ast.Object` reader
+  and carries the one remaining SA1019 suppression. staticcheck flags only the
+  type name, so the directive sits on that function.
+- **`sqlTypes`.** It becomes `{declared, binder}`, and `ref.key()` becomes
+  `types.key(ref)`. Every `key` call was already inside a `sqlTypes` method.
+  Carrying the binder in `sqlTypeRef` would have needed a silent nil fallback
+  for synthetic refs.
+- **Threading.** `AnalyzeSQL` creates one binder per call and gives it to
+  `sqlTypes`, the three analyzer constructions and the four free helpers.
+  There is no global state. `packageConstantBindings` is keyed by
+  `binding.identity`.
+- **Review.** The `observe()` function-value condition became an explicit
+  flag equivalent to `!declared || Obj != nil && Kind != Fun`. Every other
+  site is a direct substitution.
+- **Grep.** Every `Obj`, `ast.Object` or `ast.Fun|Var|Con|Typ` reference and
+  the one SA1019 directive are in `binding.go`.
+- **Verification.** These exited 0, run one at a time:
+  `tcr-s1052-format01` and `-02`, `tcr-s1052-selftest01` (the self-test row),
+  `tcr-s1052-corpus01` (the corpus SQL row, with the rebuilt `sourcecheck`
+  binary), `tcr-s1052-lintbb01` (5 of 5 units) and `tcr-s1052-lintgo01` (6 of
+  6 units, no stray SA1019).
+
+### S-1053 / F-1038 / E-1107 — W2b: `sourcecheck` binds identifiers with `go/types` and drops `ast.Object` (test support)
+
+Recorded before editing; identities verified unused. DONE (2026-11-17). This
+merges the plan's G16 steps 2 and 3. Once a `go/types` binder is selected,
+`parserBinder` is unused, and staticcheck would reject it, so the switch and
+the removal land together.
+
+**Change.**
+
+- **`typesBinder`.**
+  - It groups each batch's files by directory and package clause, then
+    checks each package with a tolerant `go/types` configuration: errors are
+    collected rather than fatal, and imports are not loaded.
+  - It maps `Defs` and `Uses` to bindings.
+  - The identity is the `types.Object`.
+  - A pre-pass over each file records the declaring node of every defining
+    identifier: `ValueSpec`, `AssignStmt`, `Field`, `TypeSpec`, `FuncDecl` and
+    the range and type-switch forms.
+- **Binding semantics.** Per the plan, "bound" means declared in a local
+  (function) scope. Package-level names resolve through the analyzer's
+  package maps, whichever file declares them. This removes the parser's
+  same-file quirk instead of emulating it.
+- **Differential.** A temporary differential compares both binders'
+  `AnalyzeSQL` results over the corpus that the projection SQL check feeds,
+  plus the self-test fixtures.
+  - Every difference is reviewed and recorded here.
+  - It is a development aid, run directly, and deleted before any Make
+    target. It is not verification.
+- **Removal.** `parserBinder`, the last `ast.Object` reader and its SA1019
+  suppression are removed.
+
+**Verification.** The S-1052 set: the self-test row, the corpus SQL row,
+`make lint CHECK=backend-boundary` and `make lint CHECK=go`, which must show
+no SA1019 suppression.
+
+**Outcome** (implemented by a scoped agent and reviewed here, with one
+follow-up cleanup).
+
+- **`types_binder.go`.**
+  - Files are grouped by the analyzer's own package key, so external `_test`
+    packages are separate.
+  - Each group is checked with `types.Config{Error: ignore,
+    DisableUnusedImportCheck: true}` into one `types.Info` (Defs, Uses,
+    Implicits, Scopes).
+  - `unloadedImporter` returns `types.NewPackage` plus an error, so go/types
+    marks the package fake and still declares its name. The name comes from
+    the package clause for a repository package in the batch, otherwise from
+    path convention. Every package-qualifier identifier resolves: 4,576 in the
+    projection corpus and 68,617 in the backend corpus.
+  - A declaration pre-pass maps each defining identifier to the node the
+    parser used, including the type-switch assignment. Range declarations map
+    to their `RangeStmt`; the parser used a synthetic assignment, and the
+    results show no difference.
+- **Two go/types gaps were handled.**
+  - References go/types never records, such as range variables over an
+    unresolved operand and keys of unloaded composite literals, are recovered
+    by lexical lookup. Two fixtures fail without this.
+  - A map-literal value whose key is invalid is never checked, which would
+    leak block locals. Each such value is re-checked in place with
+    `types.CheckExpr`; one case occurs in the corpora.
+- **Parsing** uses `parser.SkipObjectResolution`, so `ast.Object` is no longer
+  populated at all.
+- **Analyzer sites adjusted** for unbound package-level names:
+  - `value()` constants reduce to `!bound()`, so `packageConstantBindings` is
+    removed;
+  - `observe()` rejects any non-function SQL callee via `declaredFunction`.
+    Previously a package variable holding a SQL function was caught only in
+    its own file.
+  - a `typeName` helper serves `expressionType` and `typeExpression`.
+- **Cleanup here.** go/types functions are never local, so `functionBinding`
+  could never be produced. It is removed, along with the unread `identity`
+  field and three dead `|| is(functionBinding)` conditions.
+- **Differential** (`s1053-differential.txt` in the session scratchpad; a
+  development aid, deleted before any Make target). It compared 735 inputs
+  against the S-1052 parser-binder analyzer:
+  - every `TestAnalyzeSQL` and `TestSQLImportedDatabaseTypes` call;
+  - 25 probes;
+  - the projection corpus (160 files);
+  - the backend-boundary corpus (2,062 files, 19,799 declarations).
+
+  Fixtures and both corpora are byte-identical. The five differences are all
+  cross-file probes, and each now equals the old same-file result, which was
+  the quirk to remove. No test expectation changed.
+- **Cost.** The binder takes about 31 ms on the projection corpus and about
+  1.0 s on the backend corpus. End to end, these were about 0.18 s and 4.3 s
+  before `SkipObjectResolution`, against the `sourcecheck` 30 s timeout.
+- **Verification.** All exited 0:
+  - before the cleanup: `tcr-s1053-format01`, `-selftest01`, `-corpus01`,
+    `-lintbb01` and `-lintgo01`;
+  - after it: `tcr-s1053-format02`, `-selftest02`, `-corpus02`, `-lintbb02`
+    and `-lintgo02`.
+
+  `go vet` and staticcheck are silent. A grep finds no `.Obj`, `ast.Object`,
+  `ast.(Fun|Var|Con|Typ)` or `SA1019` in the package, tests included.
+- **Remaining limits.**
+  - `make` and `new` are still recognised by `!bound()`. A package-level
+    function with either name would now be treated as the builtin in every
+    file; neither corpus has one.
+  - `CheckExpr` stops at a re-checked literal's first error.
+
+### Open-residual closure workstream — closure (E-1087), 2026-11-17
+
+Status: DONE. Every in-scope E-1048 residual is closed by S-1034 to S-1053,
+F-1019 to F-1038 and E-1088 to E-1107. Each slice was recorded before its
+edit, with the owner spec first. Each reproducible defect has red evidence,
+restored and confirmed with `cmp`, and its exact rows are green. Nothing was
+staged or committed. No DDL, migration or golden changed.
+
+**Outcomes by workstream.**
+
+| Workstream | Item | Slices | Outcome |
+| --- | --- | --- | --- |
+| W1 | 9 | S-1034 | A failed graph preparation prints a typed `cartulary.harness_preparation_diagnostic.v1`. It names the cause (`catalog_coverage`, `selector_resolution`, `catalog_shape`, `command_selection` or `unclassified`) and up to 20 subjects. Usage errors keep `usage_error`. |
+| W7 | typos | S-1035 | The Core 02 §13.2 run-together words are corrected. |
+| W5 | 2 | S-1036 | Every `party_ref` read applies the REQ-01-333a label rule ("Untitled party"). A NULL name no longer breaks the Host or Identity read. |
+| W5 | 3a | S-1037 | Mark-reviewed resolves its target like every lifecycle action (REQ-01-085). |
+| W4 | 7 | S-1038 | Revisions rollback, restore and delete publish an exact live `invalidate` for refreshed dependents (REQ-01-081). |
+| W4 | 6 | S-1039 | AC-606 now has direct tests: seven Task-restore guard cases and lifecycle rollback. |
+| W4 | 6 | S-1040 | Restore and rollback share one Evidence Blob admission: lock, same-incident check and the REQ-02-196a bridge. A 10-case matrix covers it. |
+| W3 | 1, 3b, 5 | S-1041 to S-1044 | One shutdown lifecycle. The HTTP drain is anchored to the stop request and ends at the close reserve, `min(25%, 5 s)`. Background admission closes at the stop request. Close errors count as open components, and the deadline never restarts. Sockets, including those still in the handshake, close with 1001 and no terminal event, and the client backs off (REQ-03-299a). The harness hold-job control drives the real-binary AC-604 process test, which passes in both modes. |
+| W6 | 8 | S-1045 to S-1051 | Error codes are a validated, projected and enforced contract (REQ-01-702, AC-608, TH-HARNESS-REQ-858). All 124 public codes are registered with one status and one telemetry class, and all 641 error responses declare their codes. Assembly rejects invalid declarations, the change set covers 956 changes, and the runtime guard enforces in test servers and the harness binary. |
+| W2 | G16 | S-1052, S-1053 | `sourcecheck` resolves identifiers through one binder backed by `go/types`. `ast.Object` and every SA1019 suppression are gone, and the corpus results are byte-identical. |
+
+**Wire changes for the release notes.**
+
+- **Mark-reviewed.**
+  - A non-Timeline target now returns 409 `illegal_transition`, with
+    `transition_not_allowed`, `[record_type_has_machine]` and a null
+    `from_status`. It returned 404 `incident_not_found`.
+  - A soft-deleted target returns 409 `record_deleted_use_restore`. It
+    returned 404.
+- **Party labels.** A Party reference with an empty or NULL name renders
+  "Untitled party".
+- **Collaboration stream.** Rollback, restore and delete now also emit a live
+  `invalidate` for refreshed dependent rows. For example, a Timeline row's
+  `attached_evidence_ids` changes when its Evidence is deleted.
+- **Evidence rollback.** It locks the Blob. Contention returns 409
+  `record_locked` (retryable), and a cross-incident or non-admitted Blob
+  returns `target_not_reversible`.
+- **Shutdown.**
+  - A WebSocket closes with 1001 and no terminal event on both ordinary and
+    fatal shutdown. `server_shutdown` is withdrawn.
+  - The client reconnects with backoff: 1 s base, 30 s cap, full jitter.
+  - A request cut at the close reserve counts as cancelled.
+  - A component still open at the deadline gives exit 1 with
+    `shutdown_incomplete`.
+- **Object upload** (`PUT /api/v1/object-uploads/{upload_token}`). Statuses
+  and reason codes are unchanged; three codes change:
+  - 400 is now `object_upload_invalid`;
+  - 411 is now `object_upload_length_required`;
+  - 413 is now `request_body_too_large`.
+- **User create and patch.** A duplicate email returns 409
+  `user_email_conflict`. It returned `invalid_mutation_payload`.
+- **OpenAPI 2.0.0.**
+  - 196 error statuses are newly documented, and every error response
+    declares `x-cartulary-error-codes`.
+  - The three Indicator list GETs no longer document an unreachable 403.
+  - The singleton-read 400 declares `invalid_pagination_request` only.
+- **Registry.** It adds `entity_match_conflict`, `entity_mention_not_found`,
+  `resolved_record_not_found`, `view_schema_not_found`, the five
+  `object_upload_*` codes, `user_email_conflict`, and the Report Composition
+  codes `invalid_request`, `not_found` and `conflict`.
+
+**Residuals** (recorded in their slices; none blocks closure).
+
+- **S-1040.**
+  - The REQ-02-189a live-tuple check is not added to the Evidence admissions.
+  - Patch-path Blob locking is not addressed.
+- **S-1049.**
+  - Three shared state-changing components declare the union of their
+    users.
+  - Pre-routing codes are declared only where a response already documents
+    them.
+  - The upload route declares `security: []` although its handler requires a
+    session and CSRF. That is a security-sensitive correction, left for
+    review.
+- **S-1050.**
+  - Stateful browser runs retain no server stdout. Persisting harness guard
+    violations to the run root would make their absence directly observable.
+  - The protocol-ts bindings carry no declared codes, because no client
+    consumes them yet.
+- **S-1053.**
+  - `make` and `new` are recognised as builtins whenever unbound.
+  - `CheckExpr` stops a re-checked literal at its first error.
+- **Unchanged.** The DDL-consolidation items: the failed Blob with a NULL
+  `cleanup_due_at`, and the Core 01 append-only migration wording.
+
+**Closure gate.** `tcr-e1087-check01` (`make check`, exit 0, 16.9 min) passed 354 of 354 units.
+No `error-code-observations` directory was written, so the enforcing guard saw
+no undeclared code. The browser suites last ran in S-1050:
+`tcr-s1050-functional01` passed 31 of 31 units and `tcr-s1050-stateful01`
+passed 22 of 22.
+
+### Residual remediation workstream — entry (E-1108 reserved), 2026-11-17
+
+Maintainer request: a complete remediation plan for the E-1087 residuals,
+biased toward clean, durable, forward-compatible fixes. The plan was approved
+the same day. E-1108 is reserved for this entry. Slices start at
+S-1054/F-1039/E-1109, and the closure takes the last E. All identities were
+verified unused.
+
+**Scope.**
+
+- G1: Evidence tuple check and patch-path Blob locking.
+- G2: three over-declaring shared error components.
+- G3: the stateful browser suite keeps no server logs.
+- G4: the TypeScript bindings carry no declared codes.
+- G5: the upload route's security declaration, which the maintainer approved
+  correcting to session plus CSRF.
+
+**Research corrections.**
+
+- **G1.**
+  - `AdmitTx` applies no tuple check. The predicate sits in the root
+    `evidence` package, which `blobbridge` cannot import.
+  - Patch reads the Blob unlocked, so quarantine can leave `available`
+    Evidence over a quarantined Blob.
+  - Attach (Evidence → Blob) and quarantine (Blob → Evidence) can deadlock.
+  - Rollback can re-link a pending or failed Blob, and its association and
+    cleanup-claim conflicts surface as unmapped database errors.
+  - Timeout and cleanup completion skip the tuple check.
+  - Five fixture helpers build incoherent tuples.
+- **G3.** Browser harnesses retain `server.log` only at a reset, and the last
+  server generation of each allocation is deleted unread. The S-1050
+  functional evidence therefore covered 8 of 19 server processes.
+- **G2.** Enterprise begin and the binding operations use different decoders.
+  All Indicator mutations share one error classifier.
+- **G4.** The client makes 289 literal code comparisons across 73 files, all
+  typed as `string`. Several test codes the server never sends.
+- **G5.** `redeemEvidenceHandle` has the same drift: it declares
+  `security: []` but authenticates the session.
+
+**Maintainer decisions.**
+
+1. One lock order: Evidence before Blob. Quarantine is re-ordered.
+2. The sharing rule, a security-implied consistency check, and a
+   declared-versus-exercised coverage report. The report is evidence, not a
+   gate.
+3. The client fails closed on an undeclared code, and codes become
+   per-operation typed unions.
+4. Upload and redeem declare their real security, and a runtime
+   security-honouring guard is added.
+
+**Order:**
+
+1. WA, Evidence Blob integrity (G1);
+2. WB, the contract-evidence sink and run gate (G3);
+3. WC, declared security is authoritative (G5);
+4. WD, error-declaration precision (G2);
+5. WE, the client consumes declared codes (G4);
+6. WF, the closure.
+
+The standing constraints apply.
+
+### S-1054 / F-1039 / E-1109 — WA1: one Evidence/Blob lock order and complete live-tuple verification (documentation; owner first)
+
+Recorded before editing; identities verified unused. DONE (2026-11-17). This is
+maintainer decision 1 of the E-1108 entry.
+
+**Gap.** In Core 02 §13:
+
+- REQ-02-189a lists finalization, timeout, quarantine, quarantine clear,
+  attachment and cleanup as the Blob loads that verify the tuple. Restore,
+  rollback and patch also load a Blob to decide a bridge, and the list omits
+  them.
+- No requirement states a lock order between Evidence and Blob. REQ-02-190
+  justifies restore's non-waiting Blob lock by "quarantine's Blob-before-Evidence
+  lock order", which attach (Evidence → Blob, waiting) contradicts.
+- REQ-02-190's association rule names create and attach, but not rollback
+  re-linking.
+- REQ-02-196a does not say that a patch's bridge decision must hold through
+  commit.
+
+**Change.**
+
+- **REQ-02-189a.** The verification list covers every Blob load that changes
+  Blob state, links a Blob or evaluates a bridge. Evidence create, patch,
+  restore and rollback, plus cleanup completion, are added.
+- **New REQ-02-190a, the Evidence/Blob lock order.**
+  - Every path locks the Evidence envelope(s) in ascending `record_id`, then
+    the incident (shared), then the Blob.
+  - Quarantine locks the linked Evidence, whatever its lifecycle, before the
+    Blob, and rechecks the link under the Blob lock.
+  - A write that decides a bridge holds the Blob lock through commit.
+  - Destructive operations lock non-waitingly under REQ-01-104; ordinary
+    writes wait.
+- **REQ-02-190.**
+  - Rollback joins create and attach in the association rule: a locked,
+    finalized, same-incident, unassociated, unclaimed Blob.
+  - Restore's lock sentence points at REQ-02-190a, and the inversion
+    rationale is removed.
+- **REQ-02-196a.** Rollback re-links satisfy the association rule, or fail
+  with `target_not_reversible`. A mutation decides the bridge against the
+  Blob held under the REQ-02-190a lock.
+- **Core 04, new AC-609.** It verifies the race and deadlock outcomes, the
+  rollback re-link rejections, and tuple violations on restore, rollback and
+  patch.
+
+**Outcome.**
+
+- **Core 02.**
+  - REQ-02-189a's verification list is complete.
+  - REQ-02-190a (the lock order) follows REQ-02-190.
+  - REQ-02-190's association rule covers rollback and points restore at
+    REQ-02-190a.
+  - REQ-02-196a gains the rollback association bullet and the lock-held
+    bridge bullet.
+  - AC-609 is added to the affected Verified-by lines.
+- **Core 04.** AC-609 follows AC-608.
+- **Checks.** `tcr-s1054-md01` exited 0, and `git diff --check` passed.
+
+### S-1055 / F-1040 / E-1110 — WA2: one Evidence Blob authority with complete tuple verification and link admission (backend, tests)
+
+Recorded before editing; identities verified unused. DONE (2026-11-17).
+Implements S-1054's REQ-02-189a and REQ-02-190 changes. The lock-order change is S-1056.
+
+**Gap.**
+
+- **Two copies of Blob logic.**
+  - `blobbridge.AdmitTx` (`evidence/internal/blobbridge/admission.go:27-43`)
+    locks the Blob NOWAIT but applies no tuple check.
+  - The tuple predicate lives in the root `evidence` package
+    (`blob_persistence.go:80`, `incident_bundle_blob_row.go`). The root
+    imports the providers, so `blobbridge` cannot import it.
+- **Rollback link admission is incomplete.**
+  - It admits a linked `pending` or `failed` Blob for early lifecycles.
+  - It does not check the current association, so it fails on 23505.
+  - It does not check cleanup claims, so it fails on 55000.
+  - Unknown Evidence lifecycles pass the restore bridge.
+- **Tuple checks are missing elsewhere.** Timeout (`markExpiredPending`) and
+  cleanup completion skip the tuple check.
+- **Incoherent fixtures.**
+  - `requireEvidenceRestoreBlobBridge` and `requireEvidenceRollbackBlobBridge`
+    (`revisions/source_owner_transition_test.go`);
+  - `updateBlobState` (`evidence/routes_integration_test.go:224`);
+  - `seedRollbackEvidencePatch` and `seedRollbackTimelineEvidencePair`
+    (`revisions/rollback_test.go`).
+
+  These build tuples that REQ-02-189a forbids.
+
+**Change.**
+
+- **The `internal/modules/evidence/internal/blob` package.** It absorbs
+  `blobbridge` and owns:
+  - the tuple predicate;
+  - `LockTx`: a waiting or non-waiting lock with tuple and vocabulary
+    verification;
+  - `AdmitLinkTx`: a finalized, same-incident, unassociated and unclaimed
+    Blob, plus the REQ-02-196a bridge and the lifecycle vocabulary.
+- **Every Blob-locking path calls it.**
+  - Restore and rollback use the non-waiting form.
+  - Rollback maps admission failures to `target_not_reversible`.
+  - A tuple or vocabulary violation is `internal_error`, with nothing
+    committed.
+  - Timeout and cleanup completion verify the tuple.
+- **One coherent Blob fixture builder** in an Evidence test-support package,
+  self-checked against the production predicate, replaces the incoherent
+  helpers.
+
+**Review correction** (recorded before the repair). The first implementation
+treated an incoherent Blob three different ways:
+
+- timeout and cleanup claim skipped it silently, so `Violating` was dropped;
+- cleanup completion aborted the whole sweep.
+
+REQ-02-189a leaves repair to operator recovery, so a silent skip hides the
+failure from operators, and one bad Blob must not stop cleanup.
+
+- **Specs, owner first.**
+  - Core 02 REQ-02-189a gains a background-sweep bullet: leave the Blob
+    unchanged, continue, and report the sweep failed with the
+    invariant-violation class.
+  - The OpenTelemetry NLSpec `cartulary.evidence.cleanup.operations` row names
+    the existing closed values `failed` and `invariant_violation`.
+- **Implementation.** All three paths skip and count, and the sweep result
+  carries the count to the existing cleanup observer.
+
+**Outcome** (implemented by a scoped agent and reviewed here).
+
+- **`evidence/internal/blob`.** It replaces `blobbridge`, which is deleted.
+  It imports only `policy`, so neither the root package nor the providers
+  form a cycle.
+  - **Tuple predicate:** `Row`, `ParseRow`, `Coherent` and `Finalized`. The
+    portable-bundle prepare, apply and observation code reuse it.
+  - **Locks:**
+    - `LockTx(Wait|NoWait)` locks and verifies the tuple in one statement, and
+      returns `ErrTupleViolation`, `ErrNotFound` or `ErrContended`;
+    - `LockExpiredPendingTx` and `LockCleanupCandidatesTx` (`SKIP LOCKED`)
+      return coherent and violating rows separately.
+  - **`AdmitLinkTx`** checks, in order: lifecycle vocabulary, lock and tuple,
+    same incident, finalized, not associated, unclaimed, then the bridge. It
+    returns `Admitted`, `Rejected(reason)` or `Contended`.
+- **Paths.** `loadBlobForUpdateTx` delegates to `LockTx`, which covers upload
+  claim, verification, quarantine, attach and create. Cleanup claim and
+  completion, timeout and bundle association are rewired too. A grep finds no
+  `object_blobs` row lock outside the package.
+- **Restore and rollback** use `AdmitLinkTx(NoWait)`:
+  - restore: `Rejected` gives `record_restore_blocked` /
+    `evidence_blob_state_conflict`;
+  - rollback: `Rejected` gives `target_not_reversible` before any write, and
+    the remaining database guards are mapped the same way;
+  - both: `Contended` gives `record_locked`, and a tuple or vocabulary
+    violation gives `internal_error`.
+- **Review correction.**
+  - Timeout, claim and completion skip and count an incoherent Blob.
+  - `cleanupSweepResult.InvariantViolationCount` feeds the dispatcher, which
+    records `failed`/`invariant_violation`. A real sweep error keeps its own
+    class.
+  - The app observer accepts `invariant_violation` rather than rewriting it.
+- **Fixtures.** `evidence/testsupport/blobfixture` provides `Seed`, `Move`,
+  `RequireCoherent`, `ClaimForCleanup` and `BreachTupleInvariant`; the last
+  is the only incoherent writer. It replaces the five incoherent helpers.
+  - One expectation changed: the rollback projection now carries the coherent
+    Blob's digest as `blob_hash`.
+  - `seedTimelineEvidence` (`timeline/unit_test.go`) still builds an
+    incoherent tuple. It touches no changed path and is carried into S-1056.
+- **Tests.**
+  - `TestEvidenceBlobLinkAdmission_Integration`, in the new row
+    `module.revisions.integration.evidence_blob_link_admission`. Rollback
+    re-links to pending, failed, foreign, associated and claimed Blobs, and
+    tuple violations on restore and rollback, each assert nothing changed.
+  - `TestBlobLinkAdmissionDecidesAgainstLockedBlob_Unit`.
+  - `TestBlobTimeoutAndCleanupCompletionFailClosed_Unit`, with three
+    skip-and-count subtests.
+  - `TestEvidenceCleanupDispatcherReportsInvariantViolationSweepsAsFailed`.
+  - `TestEvidenceCleanupTelemetryRecordsInvariantViolationSweeps`.
+- **Red evidence.** Each was a diagnostic mutation, restored and confirmed
+  with `cmp`.
+  - `tcr-s1055-redA01` reverted the providers. Pending and failed re-links
+    gave `got 200 want 409`; associated and claimed gave `got 500 want 409`;
+    tuple violations gave `got 200 want 500`.
+  - `tcr-s1055-redB01` reverted admission, timeout and completion, and the
+    unit tests named each missing check.
+  - `tcr-s1055-redC01` covered the four sweep and dispatcher breaks.
+  - `tcr-s1055-redD01` covered the observer rewrite.
+- **Unknown lifecycle on restore.** It already returned 500 later in the
+  transaction, so its red check is the unit-level one.
+- **Verification.** These exited 0, reviewed against the run roots:
+  - `tcr-s1055-format02` and `-03`;
+  - `tcr-s1055-generate01` and `-02`; only the render index changed;
+  - `tcr-s1055-catalog01` and `-02`;
+  - `tcr-s1055-evidence01` (21 rows) and `-evidence02`;
+  - `tcr-s1055-revisions02`;
+  - `tcr-s1055-appserver01`;
+  - `tcr-s1055-lintgo01` and `-02`, and `tcr-s1055-boundary01` and `-02`;
+  - `tcr-s1055-md01`.
+
+  `tcr-s1055-revisions01` failed only on the `blob_hash` fixture fallout
+  described above.
+
+### S-1056 / F-1041 / E-1111 — WA3: every Evidence/Blob path follows REQ-02-190a (backend, tests)
+
+Recorded before editing; identities verified unused. DONE (2026-11-17). This
+completes WA (AC-609).
+
+**Gap.**
+
+- **Quarantine** locks the Blob, then the Evidence rows filtered by lifecycle
+  (`blob_quarantine.go:25,36-45`). That is Blob → Evidence, and it skips
+  Evidence a patch is about to make `available`.
+- **Patch** decides the bridge from an unlocked Blob read
+  (`source_mutation_operations.go:117-123`).
+- **Attach** (Evidence → incident → Blob, waiting) can deadlock against
+  quarantine.
+- **Lock strength.** Every `LockTx` caller takes `FOR UPDATE`, even when it
+  only decides a bridge.
+- **One remaining incoherent seeder:** `seedTimelineEvidence`
+  (`timeline/unit_test.go`).
+
+**Change.**
+
+- **Quarantine** follows Evidence → incident → Blob.
+  - It looks up the linked Evidence, then locks its envelope and row
+    whatever the lifecycle.
+  - It locks the Blob and rechecks the link, repeating a bounded number of
+    times when the link changed.
+- **`blob.LockTx`** gains a shared mode. Bridge deciders that do not change
+  the Blob (patch, restore, rollback) take it.
+- **Patch** locks the linked Blob (shared, waiting) after its records lock and
+  decides the bridge against that row. A tuple violation is `internal_error`.
+- **Attach and create** are confirmed to follow the order.
+- **AC-609 interleaving tests** (two connections with explicit barriers):
+  - patch against quarantine;
+  - attach replay against quarantine;
+  - restore and rollback against quarantine;
+  - patch over a tuple-violating Blob.
+- **`seedTimelineEvidence`** moves to `blobfixture`.
+
+**Outcome** (implemented by a scoped agent and reviewed here).
+
+- **`blob.LockTx` modes.** It has `UpdateWait`, `UpdateNoWait`, `ShareWait`
+  and `ShareNoWait`, each verifying the tuple under the lock.
+  - Restore and rollback admit with `ShareNoWait`.
+  - Writers (`loadBlobForUpdateTx`, cleanup completion, bundle association)
+    use `UpdateWait`.
+- **Quarantine.** Each attempt runs in its own transaction:
+  1. an unlocked link lookup;
+  2. the linked Evidence record and row, whatever their lifecycle or
+     deletion;
+  3. the incident (shared);
+  4. the Blob (update);
+  5. a link recheck.
+
+  It retries at most 3 times, then fails closed. It still moves only live
+  `available`/`released` Evidence to `quarantined`, and now reports a closed
+  incident before Blob errors.
+- **Patch.** After its record and incident locks, it locks the linked Blob
+  with `ShareWait` and decides the bridge from that row. A tuple violation is
+  `internal_error`.
+- **Attach and create.** Attach already followed the order, and create locks
+  incident → Blob before inserting the new Evidence.
+- **Grep.** No Blob row lock exists outside `evidence/internal/blob`, and no
+  path locks a Blob before an Evidence envelope.
+- **Tests.** `TestEvidenceBlobLockOrder_Integration` runs in the new row
+  `module.evidence.integration.evidence_blob_lock_order`. Its barriers wait
+  for `pg_blocking_pids`, with no sleeps.
+  - **Patch against quarantine:** both orders, plus a test-held Blob writer,
+    never yield `available` over a quarantined Blob.
+  - **Attach replay against quarantine:** no deadlock; the replay gets 409
+    `evidence_attach_rejected`.
+  - **Restore and rollback against quarantine:** `record_locked`, and the
+    retry succeeds coherently.
+  - **Patch over a broken tuple:** 500, with nothing changed.
+  - **`seedTimelineEvidence`** now uses `blobfixture.Seed`.
+- **Red evidence.** Each was a diagnostic mutation, restored and confirmed
+  with `cmp`.
+  - `tcr-s1056-redI01` made quarantine Blob-first. The attach replay returned
+    500 after 1.06 s; the deadlock is inferred from PostgreSQL's 1 s deadlock
+    timeout, since the body hides the database code. Restore and rollback
+    returned 200 instead of `record_locked`.
+  - `tcr-s1056-redII01` left the patch's Blob read unlocked:
+    `Evidence committed available over a quarantined Blob`. Because the
+    production race is now serialised by the Evidence lock, this is shown
+    with the test-held writer.
+  - `tcr-s1056-redIII01` dropped patch's tuple verification:
+    `response status = 200, want 500`.
+- **Verification.** These exited 0, reviewed against the run roots:
+  `tcr-s1056-format01`, `-generate01` (render index only), `-catalog01`,
+  `-lockorder01`, `-evidence01` (25 rows), `-revisions01` (5 rows),
+  `-lintgo01` and `-boundary01`.
+- **Residuals.**
+  - Two recovery seeders write `target_expires_at = pending_expires_at`:
+    `recovery/backup_metadata_integration_test.go:189` and
+    `recovery/operatortest/operator_process_test.go:1361`. Neither passes
+    through a Blob-locking path, and the first pins exact output with fixed
+    timestamps.
+  - Exhausting quarantine's retries has no direct test; it fails closed.
+
+**WA exit.** All met:
+
+- AC-609 tests are green, with a red check for each fix;
+- the Evidence and Revisions rows pass, with Go and backend-boundary lint;
+- no Blob row lock exists outside the authority.
+
+### S-1057 / F-1042 / E-1112 — WB1: one contract-evidence stream and run gate; every browser server keeps its log (documentation; owner first)
+
+Recorded before editing; identities verified unused. DONE (2026-11-17). This
+implements WB of the E-1108 plan.
+
+**Gap.**
+
+- **Logs.** Browser harnesses retain `server.log` only at an allocation reset,
+  and the final generation of every allocation is deleted unread. In S-1050,
+  functional kept 8 of 19 server logs and stateful kept 0 of 11.
+- **Labels.** The retained folder is named after the cohort that replaced
+  the server, not the one that ran against it.
+- **Violations.** The REQ-01-702 guard's violations become hidden 500s. The
+  in-process `error-code-observations/` files are read by nothing, and no
+  violation can fail a run.
+
+**Change (Testing Harness NLSpec).**
+
+- **TH-HARNESS-REQ-858** also writes each violation as a contract-evidence
+  record.
+- **New TH-HARNESS-REQ-860, the contract-evidence stream.**
+  - Schema `cartulary.harness_contract_evidence.v1`, written by in-process
+    servers and the server-harness build under
+    `<run root>/contract-evidence/`.
+  - Kinds `undeclared_error_code`, `security_mismatch` and `error_emission`.
+    The last is a coverage record, not a violation.
+  - At finalization, a malformed record fails with `artifact`; any violation
+    fails with `product`/`contract_violation`, listed in the summary.
+- **New TH-HARNESS-REQ-861.** Every browser server generation keeps its
+  redacted, bounded log, labelled with its own cohort and generation.
+- **TH-HARNESS-AC-154 and -155**, plus a range-index row.
+
+**Correction.** The S-1050 functional evidence ("no `undeclared_error_code`")
+covered 8 of 19 server processes, not all of them.
+
+**Outcome.**
+
+- TH-HARNESS-REQ-858 is amended, and TH-HARNESS-REQ-860 and -861 follow it.
+- `security_mismatch` names the declared-security guard; WC links it to its
+  requirement number.
+- TH-HARNESS-AC-154 and -155 follow AC-153, and the range index gains
+  `TH-HARNESS-REQ-858..861`.
+- **Checks.** `tcr-s1057-md01` exited 0, and `git diff --check` passed.
+
+### S-1058 / F-1043 / E-1113 — WB2: the contract-evidence writer, run gate and complete browser server logs (harness, test support)
+
+Recorded before editing; identities verified unused. DONE (2026-11-17). This
+implements TH-HARNESS-REQ-858, -860 and -861 (S-1057).
+
+**Change.**
+
+- **Schema.** `tools/schemas/cartulary.harness_contract_evidence.v1.schema.json`,
+  attached through the harness schema attachments; validators are
+  regenerated.
+- **One writer** in `internal/platform/harnessruntime`, an import already
+  allowed for the harness profile.
+  - It resolves the run root by the shared rule that
+    `fixtureartifacts.SelectedRunRoot` uses, without copying it.
+  - Files are owner-only, one per process.
+  - `httptestx.recordErrorCodeObservation` and the harness profile's guard
+    both use it.
+- **Run gate.** The Go harness runtime's finalization validates the records:
+  - a malformed record is an `artifact` failure;
+  - a violation is `product`/`contract_violation`;
+  - the run summary gains a bounded `contract_evidence` section, with a
+    schema version bump per the harness schema policy.
+- **Browser.**
+  - The final server generation of each allocation is retained at
+    settlement, through the existing `retain_browser_process_diagnostics`.
+  - Retained folders are labelled with the cohort and generation that ran
+    against the server.
+
+**Review correction** (recorded before the repair). The implementation added
+`contract_evidence` to `cartulary.harness_run_summary.v1` as a required
+member. That gives v1 two incompatible shapes under one `schema_id`: historical
+v1 summaries would fail validation under v1.
+
+One rule applies instead:
+
+- additive, backward-compatible changes stay within a version, like the new
+  `contract_violation` failure-reason value;
+- incompatible changes bump the version.
+
+So the section is optional in v1. The publisher always writes it, and the gate
+tests assert it is present.
+
+**Outcome** (implemented by a scoped agent and reviewed here, with the
+correction above).
+
+- **Schema.** `cartulary.harness_contract_evidence.v1` is closed: error kinds
+  carry `code`, and `security_mismatch` carries `security{declared,observed}`.
+  It is attached as a `foundation_runtime` contract and validators are
+  regenerated.
+  - `contract_violation` (`product`, exit 10) is an additive enum value in the
+    failure taxonomy and its schemas.
+  - The run summary v1 gains an optional, always-written `contract_evidence`
+    section: counts, malformed count, at most 32 distinct violations, and an
+    omitted count.
+- **Writer.** `internal/platform/harnessruntime/runevidence` uses the standard
+  library only. It is owner-only, single-link, no-follow and confined by
+  `os.OpenRoot`, and validates shape before writing.
+  - `fixtureartifacts.SelectedRunRoot` and the `suiteservices` results-root
+    helpers delegate to it, so one rule remains.
+  - `httptestx` replaced `error-code-observations`.
+  - The harness profile records as `server_harness` and keeps the log line.
+- **Gate.** `internal/testutil/harnessruntime/contract_evidence_linux.go` runs
+  in `engine.finish()` before the primary failure is decided.
+  - A violation is `product`/`contract_violation`.
+  - A malformed record (or an unsafe, oversized or unexpected entry) is
+    `artifact`.
+  - An absent stream, an empty stream, or emissions alone pass.
+  - `harnessruntime` and `explain-run` print `[CONTRACT-VIOLATION]` lines.
+- **Browser.** `tools/harness/browser/server-log-retention.mjs` is the single
+  retention path.
+  - It marks before each spawn, and retains a redacted 1 MiB tail per
+    generation into `process-diagnostics/generation-NNN-<cohort>/`, never
+    overwriting.
+  - `settle()` retains the final generation.
+  - Labels come from `CARTULARY_BROWSER_COHORT_LABEL` (generation 1) and each
+    reset's own label.
+- **Tests.**
+  - The new row `harness.evidence_accounting.unit.contract_evidence_writer`.
+  - `TestRuntimeContractEvidenceGate` in `native_runtime`: 11 cases, a bound,
+    an unsafe directory, and an end-to-end failing summary.
+  - A retention scenario in `test-browser-preparation.sh`.
+- **Red evidence.** `tcr-s1058-red-m1-01` to `-m4-01` mutated the gate so that
+  a violation does not fail, a malformed record is accepted, an absent stream
+  fails, and emissions count as violations. Each failed on its assertion, and
+  each file was restored and confirmed with `cmp`.
+- **Verification.** These exited 0, reviewed against the run roots:
+  - `tcr-s1058-generate01` and `-02`;
+  - `tcr-s1058-format02`;
+  - `-src-generated-01`, `-src-schema-01`, `-src-catalog-01`, `-srcgen02` and
+    `-srcschema02`;
+  - `-slice-ea01` and `-ea02`, `-slice-cs01` and `-cs02`, `-slice-hb01`,
+    `-slice-rel01` and `-slice-auth01` (whose summary carries the section,
+    with zero records);
+  - `-lint-go-01`, `-lint-scripts-01` and `-lint-backend-boundary-01`.
+- **Browser runs.**
+  - `tcr-s1058-be-stateful01`: 22 of 22 units; 11 of 11 server generations
+    retained.
+  - `tcr-s1058-be-functional01`: 31 of 31 units; 19 of 19 generations (11
+    allocations and 8 resets).
+  - Every label matches its own cohort, and the secret scans pass (566 and
+    1,229 files).
+  - Both have zero contract evidence records.
+- **Residuals.**
+  - The harness redaction manifest replaces secrets with `[REDACTED…]`, but
+    the Go retained-secret scan exempts only `<redacted>`. A redacted
+    credential in a retained log would fail the scan as an artifact error. It
+    fails closed and was not observed; it predates this slice.
+  - Only the gate's own tests produce `security_mismatch` and `error_emission`
+    records; WC and WD add their producers.
+
+**Post-closure correction** (found by `tcr-s1060-check01`; recorded before the
+repair). gosec G302 flags `os.Chmod(resolved, 0o700)` in
+`internal/platform/harnessruntime/runevidence/runevidence.go:159`.
+
+- The cause: the results-root narrowing side effect moved, with the shared
+  resolution rule, out of test support and into production platform code,
+  where the targeted runtime rules apply.
+- The fix is a separation of concerns, not a suppression:
+  - `runevidence` resolves and validates without side effects;
+  - test support (`suiteservices`), which owns the results root's lifecycle,
+    narrows an existing default root to owner-only access, as before.
+  - `fixtureartifacts.SelectedRunRoot` narrows through the same test-support
+    helper.
+- **Outcome.**
+  - `runevidence.validateResultsRoot` has no side effect, and its doc comment
+    names the owner.
+  - `suiteservices.ResolveResultsRoot` and the new `SelectedResultsRoot`
+    narrow an existing default root.
+  - `fixtureartifacts.SelectedRunRoot` calls `SelectedResultsRoot` before
+    resolving the run root.
+  - The results root stays at mode 700.
+  - Red: the G302 failure in `tcr-s1060-check01`.
+  - Green, all exit 0: `tcr-s1058c-format01`, `-gosec01`, `-lintgo01`,
+    `-lintbb01`, `-ea01` (writer and local migration rows), `-cs01` (native
+    runtime) and `-auth01`.
+
+**WB exit.** All met:
+
+- the collation tests are green, with red checks;
+- both browser suites retain every generation's log and pass the gate;
+- the summary section is present with zero violations.
+
+### S-1059 / F-1044 / E-1114 — WC1: declared security is authoritative (documentation; owner first)
+
+Recorded before editing; identities verified unused. DONE (2026-11-17). This is
+maintainer decision 4 of the E-1108 entry, plus the upload approval.
+
+**Gap.** Two operations declare `security: []` while their handlers
+authenticate:
+
+- `uploadObjectBlobContent` authenticates with a session and CSRF;
+  REQ-01-244 binds the capability to the issuing session;
+- `redeemEvidenceHandle` authenticates with a session and no CSRF;
+  REQ-01-463 re-checks session validity.
+
+No requirement ties an operation's declared security to what its handler does.
+
+**Change.**
+
+- **New Core 01 REQ-01-703, declared security is authoritative.** It sits in
+  §17.1 after REQ-01-702.
+  - No declared requirement means the handler does not authenticate a
+    session.
+  - Declared requirements mean a principal is authenticated before success.
+  - CSRF is verified exactly for alternatives that pair the session cookie
+    with CSRF.
+  - Changing security is a security-sensitive compatibility change.
+- **REQ-01-246 (upload).** It is an authenticated, state-changing request: the
+  issuing session cookie with the CSRF token, or the issuing bearer session.
+- **REQ-01-463 (redeem).** It is an authenticated navigation read: the issuing
+  session cookie or the issuing bearer session, with no CSRF.
+- **Core 04 AC-610.**
+- **Testing Harness NLSpec, new TH-HARNESS-REQ-859.** A runtime guard in test
+  servers and the server-harness build: a mismatch becomes 500 and a
+  `security_mismatch` contract-evidence record. TH-HARNESS-REQ-860's
+  `security_mismatch` kind links to it. AC-156 is added.
+
+**Outcome.**
+
+- REQ-01-703 follows REQ-01-702.
+- REQ-01-246 and REQ-01-463 state the upload and redeem authentication.
+- AC-610 follows AC-609.
+- TH-HARNESS-REQ-859 precedes REQ-860, which now links it.
+- TH-HARNESS-AC-156 follows AC-155, and the range index lists it.
+- **Checks.** `tcr-s1059-md01` exited 0, and `git diff --check` passed.
+
+### S-1060 / F-1045 / E-1115 — WC2: upload and redeem declare their security; the declared-security guard (contracts, platform, test support)
+
+Recorded before editing; identities verified unused. DONE (2026-11-17). This
+implements REQ-01-703, REQ-01-246, REQ-01-463 and TH-HARNESS-REQ-859
+(S-1059).
+
+**Change.**
+
+- **The Evidence OpenAPI fragment.**
+  - `uploadObjectBlobContent` declares `[{bearerSession},
+    {csrfCookie, csrfHeader, sessionCookie}]`.
+  - `redeemEvidenceHandle` declares `[{bearerSession}, {sessionCookie}]`.
+  - Both changes get security-sensitive entries in the 2.0.0 change set.
+- **The guard.**
+  - The `httpapi` route wrapper attaches a per-request authentication
+    record. `httpauth` marks it when a principal is established and whether
+    CSRF was verified.
+  - Mismatches are detected when authentication is attempted, and when a
+    success response starts.
+  - A mismatch becomes 500 `internal_error` and a `security_mismatch` record
+    through `runevidence`, enforced in test servers and the harness profile.
+- **Tests.** Unit tests in both directions and for CSRF pairing, plus an
+  Evidence cookie upload without CSRF (403). A red check is run for each.
+- **Broad validation.** `make check`. The guard reaches every exercised
+  route; any further drift is corrected in its owner, with a record here.
+
+**Outcome** (implemented by a scoped agent and reviewed here).
+
+- **Contract.**
+  - Upload declares the cookie-with-CSRF and bearer alternatives.
+  - Redeem declares the cookie and bearer alternatives.
+  - The change set has two `security_sensitive` entries:
+    - `79f36f4e…` (upload, REQ-01-246 and REQ-01-703);
+    - `0fcf8b13…` (redeem, REQ-01-463 and REQ-01-703).
+
+    The gate accounts for 958 of 958 changes.
+- **Guard** (`internal/platform/httpapi/security_guard.go`).
+  - `Options.SecurityGuard` is the outermost wrapper and creates a per-request
+    record only when a guard is set. It therefore sees family policies that
+    authenticate before the operation is known.
+  - `withOperationMetadata` attaches the declared alternatives and wraps the
+    writer.
+  - `httpauth` and the auth module record authentication attempts, principals
+    with their source (cookie, bearer or bootstrap) and CSRF checks.
+  - Rules are evaluated once, when the response starts, over every recorded
+    fact. A mismatch becomes 500 through `WriteErrorWithOptions`, with the
+    original headers restored, and is reported once.
+  - Without a guard, the writer is untouched.
+  - It is installed in `httptestx` (a cleanup failure plus a `runevidence`
+    record) and in the harness profile (enforce, plus an
+    `event=security_mismatch` log line and a record).
+- **Schema** (additive). `session_csrf` joins the security class, in both the
+  evidence schema and the run summary v1.
+- **Tests.**
+  - Four `security_guard_test.go` tests in
+    `platform.openapi.unit.runtime_profile_catalog`: every mismatch kind and
+    correct case in enforce and observe modes, a single report, a late
+    finding, header restore, the production path, and catalog wiring.
+  - Evidence tests: a cookie upload without CSRF returns 403 with the lease
+    still issued; an issuing-bearer upload returns 204; cookie and bearer
+    redeems succeed.
+- **Red evidence.**
+  - `tcr-s1060-evidencered01` made the guard see `[]` for upload and redeem.
+    The gate failed the run as `product/contract_violation` with 12 records,
+    for example `uploadObjectBlobContent 204 declared=public
+    observed=session_csrf`.
+  - `-evidencered02` did the same for redeem alone.
+  - The unit reds `k1` to `k6` each failed on their mismatch kind,
+    enforcement or single report. Every file was restored and confirmed with
+    `cmp`.
+- **Verification.** These exited 0, reviewed against the run roots:
+  - `tcr-s1060-format02`, `-gen03` and `-compat02`;
+  - `-src-generated`, `-src-schema` and `-src-catalog`;
+  - `-openapi02`, `-evidence01`, `-httpruntime01`, `-appserver01`,
+    `-runevidence01` and `-httptestx01`;
+  - `-lint-go` and `-lint-backend-boundary`.
+- **Broad validation** (`tcr-s1060-check01`, `make check`, exit 2): all 354
+  units ran with no contract evidence, so the guard found no other drift. Two
+  units failed, neither caused by this slice:
+  - gosec G302 in the S-1058 writer, corrected above;
+  - `module.imports.integration.network_flow_default_limit_100001_rows`, a
+    `crossownertransaction` timeout under load (the second source pass took
+    26 s against 4 s). It passed alone in `tcr-s1060-nf01`, with zero
+    contract evidence, and every earlier retained check passed it. It is
+    recorded as a load-sensitive timeout.
+
+**WC exit.** All met:
+
+- the guard and Evidence tests are green, with red checks;
+- the compatibility gate and generation pass;
+- `make check` shows zero security violations;
+- the one product gosec finding it surfaced is fixed (`tcr-s1058c-gosec01`).
+
+### S-1061 / F-1046 / E-1116 — WD1: shared components and security-implied codes; coverage evidence (documentation; owner first)
+
+Recorded before editing; identities verified unused. DONE (2026-11-17). This is
+maintainer decision 2 of the E-1108 entry.
+
+**Gap.**
+
+- REQ-01-702 lets a shared component declare codes that some of its users
+  cannot emit. Examples are `EnterpriseAuthInvalidRequestResponse` (begin vs
+  the binding operations) and the Indicator mutation components.
+- Nothing ties the codes implied by declared security to the declarations.
+  A check of the current contract finds one gap, created by S-1060:
+  `redeemEvidenceHandle` now offers `bearerSession` but its 409 omits
+  `credential_bootstrap_rejected`.
+- Over-declaration is invisible, because the guard sees only undeclared
+  emissions.
+
+**Change.**
+
+- **REQ-01-702** gains two structural rules:
+  - a component error response is shared only by operations that can each
+    emit every code it declares;
+  - declared security implies declarations, enforced at assembly in both
+    directions:
+    - 401 declares `session_required` exactly when the operation declares
+      security;
+    - 403 declares `csrf_verification_failed` exactly when an alternative
+      includes `csrfHeader`;
+    - 409 declares `credential_bootstrap_rejected` exactly when an
+      alternative includes `bearerSession` or `credentialBootstrapBearer`.
+- **AC-608** gains the assembly bullet.
+- **New TH-HARNESS-REQ-862, the declared-versus-exercised coverage report.**
+  - The REQ-01-702 guard records distinct emissions as `error_emission`
+    records.
+  - The run gate publishes `error-code-coverage.json` with summary totals.
+  - It is evidence, never a failure.
+- **TH-HARNESS-AC-157.**
+
+**Outcome.**
+
+- The two REQ-01-702 rules follow its compatibility sentence, and AC-608 has
+  the assembly bullet.
+- TH-HARNESS-REQ-862 follows REQ-861, AC-157 follows AC-156, and the range
+  index covers `858..862`.
+- The rule was checked against the current contract before adoption. Every
+  operation satisfies it except `redeemEvidenceHandle`'s 409, which S-1062
+  corrects.
+- **Checks.** `tcr-s1061-md01` exited 0, and `git diff --check` passed.
+
+### S-1062 / F-1047 / E-1117 — WD2: precise shared components, the security-implied assembly check and the coverage report (contracts, platform, harness)
+
+Recorded before editing; identities verified unused. DONE (2026-11-17). This
+implements the S-1061 rules.
+
+**Change.**
+
+- **Split `EnterpriseAuthInvalidRequestResponse`.**
+  - Begin keeps `invalid_enterprise_auth_request`.
+  - A new `EnterpriseBindingInvalidRequestResponse` with
+    `invalid_mutation_payload` serves the binding create, rotate and retire
+    operations, whose decoders use `decodeMutationObject`.
+- **Indicator mutations.** The 404 and 409 sets are traced per operation from
+  the sentinels each service method can return, and each operation declares
+  its own. `IndicatorMutationConflict` and `IndicatorResourceNotFound` remain
+  only where every user's set is identical.
+- **`redeemEvidenceHandle`.** Its 409 gains `credential_bootstrap_rejected`,
+  which its `bearerSession` alternative implies.
+- **`openapiassembly`.** The security-implied check runs in both directions,
+  with unit tests and a red check.
+- **Coverage.**
+  - The REQ-01-702 guard records distinct emissions as `error_emission`
+    records.
+  - The run gate publishes `error-code-coverage.json`, built from the
+    generated catalog, with run-summary totals added as an optional,
+    additive field.
+- **Change set.** It is reconciled from the compatibility report.
+- **Broad validation.** `make check`. Narrowed declarations must still cover
+  every emission under the REQ-01-702 guard.
+
+**Outcome** (implemented by a scoped agent and reviewed here).
+
+- **Auth.**
+  - `EnterpriseAuthInvalidRequestResponse` is back to its 1.0.0 value
+    `[invalid_enterprise_auth_request]`, with begin as its only user.
+  - The three binding operations' 400 now references
+    `AuthMutationInvalidRequestResponse`.
+- **Indicators.**
+  - `IndicatorMutationConflict`, with 5 codes, now serves dismiss, resolve and
+    restore, each of which can emit all 5.
+  - `IndicatorResourceNotFound` narrows to
+    `[incident_not_found, indicator_observation_not_found]`, for dismiss and
+    restore.
+  - Resolve, create and append declare their own 404s.
+  - Create and append declare 409 `[client_txn_conflict,
+    credential_bootstrap_rejected, incident_closed, row_version_conflict]`;
+    neither can raise `IllegalTransitionError`.
+- **Evidence.** Redeem's 409 adds `credential_bootstrap_rejected`.
+- **Change set.** It has 961 entries.
+  - One stale entry is dropped, because the value equals the 1.0.0 baseline.
+  - Five carry their rationale forward.
+  - New entries: one non-behavioural, plus three breaking `$ref` entries for
+    the binding operations, each with its rationale.
+- **Assembler.** `validateSecurityImpliedErrorCodes` enforces both directions
+  and resolves component references. `TestAssemblyEnforcesSecurityImpliedErrorCodes`
+  has 5 controls and 9 violations. The fixture helpers declare the implied
+  responses.
+- **Coverage.**
+  - `ErrorCodeGuard.Observe` records every code a resolved operation writes
+    before enforcement. `internal_error` is included, normalized to 500.
+  - `runevidence` writes one `error_emission` per process and key, marked
+    only after a successful write.
+  - The gate publishes the schema-validated
+    `cartulary.harness_error_code_coverage.v1` as `error-code-coverage.json`:
+    declared, exercised, unexercised and undeclared-exercised codes per
+    operation and status.
+  - The run summary gains optional `error_code_coverage` totals.
+  - Coverage never fails a run.
+- **Red evidence.** Each was a diagnostic mutation, restored and confirmed
+  with `cmp`.
+  - `tcr-s1062-red01` disabled the check and the observe hook. It failed with
+    nine "must be declared" cases and `observed []`.
+  - `-red02` disabled dedupe: `client_txn_conflict:3, want 1`.
+  - `-red03` disabled publication: `no such file`. A panicking subtest made
+    that run a preflight error; the assertions were made checked before the
+    green run.
+- **Verification.** These exited 0, reviewed against the run roots:
+  - `tcr-s1062-generate02`, `-compat02`, `-srcgen01`, `-srcschema01` and
+    `-srccat01`;
+  - `-openapi01`, `-evacct01`, `-cmdsurf01`, `-auth01`, `-indicators01`,
+    `-evidence01`, `-httptestx01` and `-appserver01`;
+  - `-lintgo01` and `-lintbb01`.
+- **`make check`** (`tcr-s1062-check01`, exit 0): 354 of 354 units.
+  - Zero `undeclared_error_code`, zero `security_mismatch`, zero malformed.
+  - 614 `error_emission` records: 609 in-process and 5 from the server
+    harness.
+  - **Coverage:** 650 operation-statuses, 929 declared codes, 487 exercised,
+    442 unexercised, 0 undeclared-exercised. 123 of 136 operations exercised
+    at least one code.
+  - Nine operations emitted an exempt `internal_error` 500 without declaring
+    a 500 response: `getIncidentSavedView`, `getIncidentWorkbookStartup`,
+    `listIncidentSavedViews`, `mergeEntityRecord`, `patchIncidentSavedView`,
+    `patchRecord`, `putImportUnitMapping`, `restoreRecord` and
+    `rollbackRecord`. These are recorded for review.
+- **Found during review and carried into S-1063.**
+  - Seven shared multi-code components still need a per-user reachability
+    audit under rule (a). `EnterpriseBindingNotFoundResponse` is known to
+    violate it: create cannot emit `auth_binding_not_found`, and rotate and
+    retire cannot emit `auth_provider_not_found`.
+  - `writeEnterpriseBindingResult` does not map `authn.ErrNotFound` (a
+    missing target user), so that case returns `internal_error`.
+
+### S-1063 / F-1048 / E-1118 — WD3: every shared multi-code error component passes the sharing rule (contracts, backend)
+
+Recorded before editing; identities verified unused. DONE (2026-11-17). This
+completes REQ-01-702 rule (a).
+
+**Gap.** Seven shared components with two or more users and route-specific
+codes have no per-user reachability evidence:
+
+- `AuthUserVersionConflictResponse`
+- `EnterpriseBindingConflictResponse`
+- `EnterpriseBindingNotFoundResponse` (known violation)
+- `EnterpriseProviderNotFoundResponse`
+- `EnterpriseSAMLCompletionConflictResponse`
+- `IncidentMembershipMutationConflictResponse`
+- `IncidentMembershipNotFoundResponse`
+
+The binding routes also leave a missing target user unmapped.
+
+**Change.**
+
+- Trace each user's emissions for those codes, and split every component
+  whose users differ.
+- Map a missing target user on the binding routes to the code the owner spec
+  defines. If the spec defines none, stop and record the decision needed.
+- Reconcile the change set, run the affected rows, and run the assembler and
+  parity tests.
+
+**Outcome** (implemented by a scoped agent and reviewed here).
+
+- **Kept, with per-user evidence:**
+  - `AuthUserVersionConflictResponse` (TOTP reset and password reset both
+    raise both sentinels);
+  - `EnterpriseBindingConflictResponse` (create, rotate and retire all reach
+    the idempotency, version and binding conflicts);
+  - `EnterpriseProviderNotFoundResponse` (all four flows admit the profile
+    and resolve the provider);
+  - `IncidentMembershipMutationConflictResponse` and
+    `IncidentMembershipNotFoundResponse` (patch and delete share the paths).
+- **Split.**
+  - `EnterpriseBindingNotFoundResponse` becomes
+    `[auth_binding_not_found, extension_profile_not_claimed]` for rotate and
+    retire. The new `EnterpriseBindingProviderNotFoundResponse`,
+    `[auth_provider_not_found, extension_profile_not_claimed]`, serves
+    create.
+  - The new `EnterpriseSAMLFinishConflictResponse` serves
+    `finishEnterpriseSAML`. It omits `provider_response_rejected`, which
+    occurs only on the ACS post.
+- **Change set.** It has 966 entries: one carried forward, plus new
+  non-behavioural, additive and two breaking entries, each citing rule (a)
+  and its evidence.
+- **Missing target user.** Rotate and retire now map `authn.ErrNotFound` to
+  `auth_binding_not_found`, as REQ-01-539/540 require.
+  - Tests: a foreign binding and an absent user each return 404.
+  - Red: `tcr-s1063-red01` gave `got 500 want 404`. Restored, and `cmp`
+    confirmed it.
+- **Spec gap, carried into S-1064.** For binding create, PATCH user, password
+  reset and TOTP reset (and possibly revoke-all), a non-existent `user_id`
+  falls through to 500 `internal_error`, because no requirement names the
+  outcome.
+- **Verification.** These exited 0, reviewed against the run roots:
+  `tcr-s1063-format01`, `-generate02`, `-compat02`, `-srcgen01`,
+  `-openapi01`, `-auth01` (zero violations) and `-lintgo01`.
+
+### S-1064 / F-1049 / E-1119 — WD4: a non-existent `user_id` is 404 `user_not_found` on every deployment-user route (documentation, contracts, backend)
+
+Recorded before editing; identities verified unused. DONE (2026-11-17).
+
+**Gap.**
+
+- `GET /api/v1/users/{user_id}` returns 404 `user_not_found`, but no
+  requirement says so.
+- The other routes under `/api/v1/users/{user_id}` return 500
+  `internal_error` for a user that does not exist. These are PATCH, password
+  reset, TOTP reset, auth-binding create and (to be confirmed) revoke-all.
+  That reports a client error as a server failure.
+- The registry meaning of `user_not_found` covers membership create only.
+
+**Decision.** Reuse the registered `user_not_found` (404). It is already
+emitted for `GET`, and inventing a second token for the same condition would
+breach REQ-01-234. Binding rotate and retire keep their more specific
+`auth_binding_not_found` (REQ-01-539/540).
+
+**Change.**
+
+- **Core 01 REQ-01-118** names the rule for every route under
+  `/api/v1/users/{user_id}`: after deployment-administration authorization,
+  and before any idempotency or mutation effect, with empty details.
+- **REQ-01-538** points binding create at it.
+- **§3.3.6.1 and the registry** widen the meaning of `user_not_found`.
+- **Implementation.** Declarations on the affected 404s, handler mappings,
+  and tests with red checks.
+
+**Outcome** (implemented by a scoped agent and reviewed here).
+
+- **Handlers.** `(*Service).requireTargetUser` runs after
+  `RequireDeploymentAdmin` and before body decoding.
+  - It covers PATCH, password reset, TOTP reset, revoke-all and binding
+    create. All five previously returned 500. Revoke-all failed on the
+    `route_idempotency` foreign key and rolled back.
+  - It runs ahead of every replay lookup and store transaction.
+  - GET already conformed.
+- **Declarations.**
+  - `AuthUserNotFoundResponse` (`[user_not_found]`) serves GET plus the four
+    new 404s.
+  - `EnterpriseBindingProviderNotFoundResponse` gains `user_not_found`; create
+    is its only user.
+  - Registry projections are regenerated.
+- **Change set.** It has 970 entries: one carried forward and four new, all
+  additive, each citing REQ-01-118.
+- **Tests.**
+  - The new `absent user/{get, patch, password reset, totp reset, revoke all}`
+    subtests and binding create each assert 404 `user_not_found`, empty
+    details, and an unchanged user-administration observation.
+  - A unit stub gained the target-user lookup; no assertion was relaxed.
+- **Red.** `tcr-s1064-red01` returned `got 500 want 404` on all five routes;
+  GET passed, confirming it already conformed. Restored, and `cmp` confirmed
+  it.
+- **Verification.** These exited 0, reviewed against the run roots:
+  `tcr-s1064-format01`, `-generate02`, `-compat02`, `-srcgen01`, `-auth01`
+  (9 rows, zero violations, `user_not_found` exercised on all six 404s),
+  `-openapi01` and `-lintgo01`.
+
+**WD exit.** All met:
+
+- the security-implied assembly check and the parity tests pass;
+- every shared multi-code component passes the sharing rule;
+- `make check` produced `error-code-coverage.json` with zero violations
+  (`tcr-s1062-check01`);
+- the user-route gap found in review is closed.
+
+### S-1065 / F-1050 / E-1120 — WE1: the client validates and types public errors against each operation's declared codes (documentation; owner first)
+
+Recorded before editing; identities verified unused. DONE (2026-11-17). This is
+maintainer decision 3 of the E-1108 entry.
+
+**Gap.**
+
+- The web client passes error envelopes through unvalidated
+  (`browserApi.ts:114-120`).
+- It makes 289 literal code comparisons across 73 files, all typed as
+  `string`. Some compare against codes the server never sends:
+  `auth_required`, `csrf_failed`, `record_not_found`, and a saved-view 404
+  checked against `incident_not_found`.
+- Four hand-written code lists have drifted from the declarations.
+- No requirement says what a client does with an undeclared code.
+
+**Change.**
+
+- **New Core 03 REQ-03-086a, client public-error decoding** (§3.4).
+  - The client validates every error envelope: its shape, `error.status`
+    against the HTTP status, and a code that the operation declares for that
+    status (REQ-01-702) or `internal_error`.
+  - An undeclared code is a client contract failure, handled like an invalid
+    success response.
+  - Client-originated failure codes form one closed client-local set and are
+    never mixed with server codes.
+- **New Core 04 AC-611.**
+
+**Outcome.**
+
+- REQ-03-086a follows REQ-03-086, and AC-611 follows AC-610.
+- **Checks.** `tcr-s1065-md01` exited 0, and `git diff --check` passed.
+
+### S-1066 / F-1051 / E-1121 — WE2: generated declared-code bindings and central error validation (generator, protocol-ts, client core)
+
+Recorded before editing; identities verified unused. DONE (2026-11-18). This
+implements REQ-03-086a's core; S-1068 migrates the feature sites. (S-1067
+became the Evidence contract slice.)
+
+**Change.**
+
+- **Generator.** `generate-protocol-types.mjs` emits `error_codes_by_status`
+  per binding, resolving component references as the success path does, plus
+  the `HTTPOperationErrorCode<Op, Status?>` types.
+- **One closed `ClientErrorCode` union.** It covers
+  `invalid_public_contract_response`, `unknown_public_error`, the transport
+  and timeout codes, and the other client-originated codes. A test checks it
+  is disjoint from the registry.
+- **`browserApi.validateHTTPOperationResult`** validates the error branch:
+  the envelope decoder, a status match, and a declared code or
+  `internal_error`. Anything else becomes the client contract failure. It
+  returns a typed `PublicAPIError<Op>`.
+- **Tests.** protocol-ts node tests, `browserApi` tests and red checks.
+
+**Interim review** (2026-11-18; the slice stays open).
+
+- **Core landed and is type-clean.**
+  - `error_codes_by_status` and the `HTTPOperationErrorCode` types are
+    generated.
+  - A 20-code `ClientErrorCode` set lives in `shared/publicError.ts`, with a
+    disjointness test.
+  - `decodeHTTPOperationError` checks the envelope, status equality, and a
+    declared code or `internal_error`. It also validates the success status.
+  - Red checks: `tcr-s1066-red01`, `-red02`, `-redtypes01` and
+    `-redproto01`. Each mutation was restored and confirmed with `cmp`.
+- **Not yet green.**
+  - The full frontend-unit suite was last run as `tcr-s1066-fu02`, with one
+    failure; that fix was verified only by its own row.
+  - `tcr-s1066-e2efunc01` failed 11 Playwright tests. Every failure is a
+    synthetic `page.route` fixture that breaks the contract (wrong status,
+    incomplete envelope, or a code the operation does not declare). The real
+    server made 67 error emissions, none undeclared.
+  - `make lint CHECK=protocol` reports three unused protocol-ts exports. The
+    agent judged this pre-existing; it is to be confirmed at closure.
+- **Review decisions.**
+  1. **Read operations that declare no 403.** Lost access is concealed as 404
+     `incident_not_found`, so this is correct. The client's 403 branches for
+     those reads are dead and are removed in S-1068.
+  2. **`issueEvidencePreviewHandle` and `issueEvidenceDownloadHandle`.** Both
+     reach `verifyEvidenceObjectAvailable` → `objectStoreDependencyAPIError`,
+     so both can emit 503 `object_store_unavailable` and
+     `object_store_access_rejected` and 500 `object_store_invalid_request`.
+     Preview declares only the first 503, and download declares no 5xx. This
+     is a contract gap, fixed in S-1067, so the client "Retry Preview" path is
+     legitimate.
+  3. **`reference_pack_state_conflict`.** Core 01 retires it ("invalid in
+     profile major 2"), but the error registry and both OTel artifacts still
+     carry it. S-1067 removes those projections.
+  4. **`internal_error`** is accepted only at 500. REQ-03-086a now says so,
+     following REQ-01-229, and the decoder is tightened.
+- **Remaining for this slice:** the tightening in point 4, migration of the
+  browser route fixtures to valid envelopes and declared codes (after S-1067),
+  and green frontend-unit, `lint CHECK=types` and functional-suite runs.
+
+**Completion.**
+
+- **`internal_error` only at 500.** The decoder type carries `status: 500`,
+  and a new `browserApi` case covers it.
+  - Red: `tcr-s1066-red03` failed with "503 surfaced instead of 502".
+    `-redtypes02` failed on the 409 narrowing assertion; the harness classes
+    a type-check failure as a configuration error.
+- **Typed Playwright error helper.** `operationErrorEnvelope`,
+  `fulfillOperationError` and `checkedOperationErrorEnvelope`, in
+  `apps/web/e2e/support/transport/requestInterception.ts`.
+  - The code is typed from the generated declared codes, and an undeclared
+    one throws at runtime.
+  - `internal_error` always carries the fixed REQ-01-229 envelope.
+  - `failNextPatch` is typed against `patchRecord`.
+- **Fixtures migrated.**
+  - The 11 original failures are fixed. Wrong statuses (422, 503) become
+    declared ones, envelopes are completed, and invented codes are replaced.
+    The Evidence issuance 503s are legitimate after S-1067.
+  - Fixing those let previously skipped tests run, which exposed more drift
+    in the audit, metadata, account and import support files and 15 specs.
+    All of it is migrated.
+- **Scenario decisions.**
+  1. The workbook terminal halt uses the declared 409 `illegal_transition`.
+  2. The public-route "unknown public error" step now expects the client
+     contract failure: an invented 418 code can never be declared.
+  3. Deliberate non-JSON 503 bodies stay, to exercise the contract-failure
+     path.
+- **Verification.**
+  - Green: `tcr-s1066-fu03` (frontend-unit, 748 rows, 14 of 14 units),
+    `-types10`, `-lintfrontend03`, `-lintfrontendboundary03` and
+    `-srcgen03`.
+  - `tcr-s1066-e2efunc03`: 31 of 31 units, 460 tests. The real server made
+    101 error emissions, with 0 undeclared and 0 security mismatches.
+  - `tcr-s1066-e2estate03`: 22 of 22 units, with 0 undeclared.
+- **Pending into WF.** `incident-administration.visual.spec.ts` changes
+  `mutation(503)` to `mutation(500)` in two "pending uncertainty" captures.
+  The rendered state may change, so the visual suite must run without
+  updating at closure, and any golden difference goes to the maintainer.
+  The a11y specs were edited but not run.
+- **Pre-existing.** `make lint CHECK=protocol` (`tcr-s1066-lintprotocol03`)
+  flags `extensionProfileRegistry`, `PublicError` and `ExtensionProfile` as
+  unused protocol-ts exports. Their last consumers were removed in
+  `0a4708625` (2026-11-10), and the checker and its inputs are unchanged.
+
+### S-1068 / F-1053 / E-1123 — WE3: feature code branches only on declared, typed codes (client)
+
+Recorded before editing; identities verified unused. DONE (2026-11-18), with
+one premise corrected by S-1069 (below). This completes REQ-03-086a and
+AC-611.
+
+**Change.**
+
+- **The 289 code comparisons in 73 `apps/web` files.** Each is typed against
+  its operation's declared codes (or `ClientErrorCode`), so a drifted literal
+  fails to compile.
+- **Dead branches are removed or corrected**, each reviewed as a behaviour
+  fix:
+  - `auth_required`, `csrf_failed`, `session_revoked`,
+    `authentication_required`, `invalid_path_parameter`,
+    `invalid_query_request`, `incident_access_lost`, `record_not_found`,
+    `service_unavailable`, `extension_workspace_unavailable`, and the retired
+    `reference_pack_state_conflict`;
+  - 403 branches on reads that conceal lost access as 404;
+  - the saved-view 404 checked against `incident_not_found`.
+- **The four hand-written code lists** become generated unions.
+- **Duplicate client parsing** goes: `workbookPublicErrorDecoder`, the
+  saved-view status checks, and the manual parsing in `referencePacks.ts` and
+  `workbookPendingQueue.ts`.
+- **`transport`, `transport_failure` and `transport_unavailable`** are merged
+  where they mean the same thing.
+- **Clients that classify by HTTP status after a contract failure** stop
+  doing so.
+- **Out of scope:** Network Flow (its own registry) and WebSocket reasons.
+
+**Outcome** (implemented by a scoped agent and reviewed here).
+
+- **Shared pieces.**
+  - `APIError<Code>` carries a narrowed code type.
+  - `HTTPOperationFailureCode<Op>` is the operation's declared codes plus
+    `internal_error` and the contract-failure code.
+  - `isFailureCode(code, [...])` in `shared/publicError.ts` rejects, at
+    compile time, a listed code outside the code's type.
+  - `browserApi` re-exports `HTTPOperationID` and `HTTPOperationErrorCode`,
+    so models and ports keep out of the protocol package
+    (`lint CHECK=frontend-boundary`).
+  - The test helper `operationRejection<Op>` infers its operation from the
+    call site, so tests can build only declared rejections.
+  - Every client call except Network Flow infers or names its operation.
+- **Per cluster.** Auth, session, account and deployment users type their
+  failures by operation. The metadata, lifecycle, membership and preference
+  hand lists become generated unions; membership keeps only the client codes
+  it uses (`transport_uncertain`, `access_unavailable`). Reference packs,
+  Workbook Import and incident-bundle import classify only the decoded result.
+  Workbook failure, outcome and port types take an operation parameter, and
+  the error policy classifies the already-decoded error.
+- **Behaviour fixes** (old → new).
+  - The incident directory's "forbidden" state is gone: `listVisibleIncidents`
+    declares no 403, so a 403 is a contract failure with retry.
+    `IncidentAdminPanel` requests access recovery only on 404
+    `incident_not_found`.
+  - Removed branches on codes no operation sends: `auth_required`,
+    `authorization_denied` in the account editors, the envelope-less 401 in
+    the session controller, membership `service_unavailable`,
+    `incident_access_lost`, preference `invalid_query_request` and
+    `invalid_path_parameter`, saved-view `invalid_path_parameter`,
+    `authentication_required` and `csrf_failed`, workbook `record_not_found`
+    and its 422 branch, and the retired `reference_pack_state_conflict`.
+  - Codes that collapsed to `unknown_public_error` in the hand lists
+    (`credential_bootstrap_rejected`, `request_body_too_large`,
+    `invalid_pagination_request`) keep their real code; text and outcome are
+    unchanged.
+  - Saved views: the 404 checked against `incident_not_found` now checks
+    `saved_view_not_found`, the only 404 these operations declare (to be
+    confirmed against the handlers in S-1069).
+  - Reference packs and incident-bundle import: a contract failure or
+    unreadable body is no longer classed by raw HTTP status ("access failed",
+    "rejected"); reads report failure and writes uncertainty. The client's
+    own ineligibility check reports the client code `request_rejected`.
+  - Workbook Import: a contract failure no longer keeps its raw status (a
+    malformed 403 had triggered access recovery); unavailable import routes
+    report the client code `access_unavailable` instead of inventing the
+    server code `extension_profile_not_claimed`. `NetworkFlowImportController`
+    gained a two-line compatibility edit and behaves as before.
+  - Record History: a missing record arrives as 404 `incident_not_found`,
+    which hides the history and requests access recovery.
+  - Pending queue: auth pause follows the 401/403 settlement status rather
+    than three code names; the row-version anchor rule now reads the typed
+    server code, so a halted edit after a row-version conflict anchors to the
+    record (it was unreachable before).
+  - **Corrected premise.** The `incident_closed` branches in merge,
+    supersede, mark-reviewed, mention resolution, record-history actions and
+    the Workbook Import controller were removed because those operations do
+    not declare the code. Core 01 REQ-01-590 requires them to reject with 409
+    `incident_closed`, and the server does, so the declarations are wrong,
+    not the branches. S-1069 repairs the contract and restores the handling.
+- **Duplicate parsing removed.** `workbookPublicErrorDecoder.ts` is deleted
+  (ownership manifest and adapters README updated), with the saved-view
+  status re-check, `referencePacks` `problem()` and raw-status `receive`,
+  `parsePendingReplayPublicError`, `incidentImportClient` `errorCode()` and
+  the Evidence transport's hand parsing.
+- **Transport codes are not merged.** `transport_unavailable` means no
+  response arrived; `transport` (preferences) and `transport_failure` (pending
+  queue) catch any thrown request. Merging would blur that and change
+  nothing.
+- **Static policy.** `apps/web/src/testing/publicErrorCodeBranchPolicy.node.test.ts`
+  (row `web.architecture.boundary_support.public_error_code_branch_policy`)
+  parses the client and fails on a comparison, `case`, `isFailureCode` list
+  or `[...].includes` against `code`/`publicCode` whose literal no operation
+  declares, other than `internal_error` and the client codes. Network Flow,
+  collaboration and job-summary codes are excluded. It has a self-test.
+- **Red.**
+  - `tcr-s1068-red01`: restoring the queue's old row-version check fails
+    "pending queue unit model halts non-retryable public failures with Table
+    G anchors…".
+  - `tcr-s1068-typesred02`: dropping `illegal_transition` from the lifecycle
+    code type gives four type errors.
+  - `tcr-s1068-red04`: adding `failure.code === "session_revoked"` to
+    `importClient.ts` fails the policy row. The first attempt (`-red03`)
+    passed and exposed a scanner bug (`.ts` parsed as TSX hid comparisons
+    after generic arrows), now fixed.
+  - Each mutation was restored and confirmed with `cmp`.
+- **Verification** (reviewed against the run roots).
+  - Green: `tcr-s1068-format04`, `-types32`, `-lintfe03`, `-lintfb03`
+    (`-lintfb01` had failed on protocol imports in models and ports),
+    `-policy02`, and `-unit-full03` (frontend-unit, 14 of 14 units).
+  - `tcr-s1068-e2e-stateful01`: 22 of 22 units; 40 error emissions, 0
+    undeclared.
+  - `tcr-s1068-e2e-func01`: exit 2, 29 of 31 units.
+    `module.imports.browser.ir_corpus_import` hit its 60 s limit after its
+    data assertions passed, and four Network Flow rows were stopped unrun.
+    `-e2e-irimport01` (12 units) and `-e2e-nf01` (13 units) pass alone. 99
+    emissions, 0 undeclared.
+  - `tcr-s1068-e2e-a11y02`: exit 2, `product/contract_violation`. All 17
+    units and 57 rows pass; the gate reports 404 `incident_not_found` from
+    `getIncidentWorkbookStartup`, which declares no 404 (S-1069). `-a11y01`
+    also failed the forbidden-state test that S-1066 left stale; the spec
+    now expects the contract-failure announcement, and its generic case uses
+    `internal_error` at 500.
+  - The format, types, lint and accessibility runs used the final source; the
+    unit, functional and stateful runs preceded the last accessibility-spec
+    edit. WF reruns all of them.
+- **Left.** The pending queue's settlement code, `importFailureMessage` (which
+  also serves Network Flow), and job summary codes still compare plain
+  strings; only the static policy covers them. Network Flow, collaboration
+  and WebSocket reasons are out of scope.
+
+### S-1069 / F-1054 / E-1124 — WE4: every error code the server sends is declared, and the client handles the restored codes (contracts, server, client)
+
+Recorded before editing; identities verified unused. DONE (below). Found by
+S-1068: the WB gate failed `tcr-s1068-e2e-a11y02`, and code reading showed
+more.
+
+**Gap.** REQ-01-702 requires every emitted code to be declared, but the
+runtime guard sees only exercised paths. Since S-1066 the client turns an
+undeclared code into a contract failure, so each under-declaration is a
+user-visible defect.
+
+- `getIncidentWorkbookStartup` sends 404 `incident_not_found` from its
+  membership check and declares no 404.
+- REQ-01-590 requires 409 `incident_closed` from delete, restore, rollback,
+  merge, supersede, conflict resolution, mention resolution, row creation,
+  record mutation actions and import apply. The server sends it from
+  `mergeEntityRecord`, `resolveEntityMention`, `deleteRecord`,
+  `restoreRecord`, `rollbackRecord`, `markTimelineRecordReviewed` and the
+  import-session store writes (which also send `import_state_conflict`,
+  REQ-01-475), and none of those declare it.
+
+**Change.**
+
+- **Audit.** A read-only trace of all 136 operations' handlers lists every
+  sent code missing from the declaration, with file:line evidence and
+  reachability. Its findings fix the rest of this slice's scope.
+- **Contract.** Each confirmed code is declared (owner fragment, then `make
+  generate`), with additive change-set entries citing REQ-01-702 and the
+  owning requirement. A defensive emission that should be `internal_error`
+  is fixed in the handler instead.
+- **Client.** The `incident_closed` handling S-1068 removed returns, typed,
+  where the operation now declares it.
+- **Tests.** The first exercise of each newly declared code where a test is
+  cheap, so the runtime guard checks the declaration from then on.
+
+**Audit result and fixed scope** (2026-11-18; three read-only traces over
+groups of owners, each claim with a file:line chain; the files are in the
+session scratchpad, `audit-group-{a,b,c}.json`).
+
+- **Found:** 116 confirmed, 3 plausible and 19 defensive under-declarations.
+  - Group A (auth, incidents, jobs, view schemas, extensions) is 1
+    realistic plus 6 reachable only through an encoded slash in
+    `{user_id}`.
+  - Group B (workbook, imports, timeline, entities, revisions, saved views)
+    is 68 confirmed.
+  - Group C (reference data, reporting, report composition, indicators,
+    Evidence, incident bundles) is 41 confirmed. Report composition's 20
+    are codes REQ-RC-033 requires and the fragment omits.
+- **One existing test was already red.**
+  `module.entities.support_integration.active_identifier_claims_8f302d2a40`
+  fails today, as `tcr-s1069-entclaims01`: `product/contract_violation`,
+  undeclared `patchRecord` 409 `entity_match_conflict`. The row is not in
+  `make check`, so no earlier gate ran it.
+- **Declared here:** 113 codes on 56 operations, being the confirmed and
+  plausible findings except the encoded-slash six. By code:
+  - 16 `client_txn_conflict`;
+  - 14 each of `invalid_pagination_request` and `incident_not_found`;
+  - 13 each of `authorization_denied` and `incident_closed`;
+  - 7 `not_found`;
+  - 5 each of `import_state_conflict` and `row_version_conflict`;
+  - 4 `invalid_request`;
+  - 21 others.
+
+  Each goes in the owner fragment. A modified shared component is
+  inlined, under REQ-01-702 rule (a). Then `make generate` and additive
+  change-set entries.
+- **Not declared, and recorded for the closure's residuals.**
+  - The 19 defensive emissions: dead Evidence adapter mappings and
+    invariant-break paths.
+  - The encoded-slash user routes: `handleUsersMember` splits the decoded
+    path instead of using `r.PathValue`.
+  - Behaviour defects the traces found, which are outside this
+    declaration slice:
+    - Assessments row creation and Timeline `keep_saved` resolution succeed
+      on a closed incident (REQ-01-590);
+    - Timeline supersede returns 500 on a stale row version;
+    - `supersedeRecord` reports `record_deleted_use_restore` to a
+      non-member;
+    - mention resolution on a soft-deleted Timeline record returns 500;
+    - patch and resolve on a soft-deleted Timeline record return 404
+      instead of 409;
+    - adapters turn database errors into `row_version_conflict`;
+    - import-unit routes disclose that a session exists;
+    - `cancelJob` returns 403 where Core 01 says 404;
+    - an invalid reference-pack key returns 500;
+    - plain-text 404s for malformed path UUIDs, and bare 405s on HEAD;
+    - the pre-routing 503 `service_unavailable` is unregistered;
+    - the unclaimed-profile 404 is exempt pre-resolution, but the client
+      reads it as a contract failure.
+- **Client.** S-1068's removed `incident_closed` branches return for
+  merge, supersede, mark-reviewed, mention resolution, delete, restore,
+  rollback and import apply.
+- **Tests.** `TestWorkbookClosedIncidentWrites_Integration` gains
+  closed-incident delete, restore, rollback and paste. The affected owners'
+  full integration rows then run under the gate, not only `make check`.
+
+**Outcome.** DONE (2026-11-18).
+
+- **Contract.** The 113 declarations go in 11 owner fragments: entities,
+  Evidence, imports, incident bundles, job API, reference data, report
+  composition, reporting, revisions, Timeline and workbook. `make generate`
+  refreshes the assembled document, the operation catalog, the contract
+  error tables and the TypeScript bindings.
+  - None of the responses changed was a component `$ref`, so no shared
+    component was inlined.
+  - A response the operation lacked is added inline, with the default
+    description for its status and the `ErrorEnvelope` schema.
+- **Change set.** `2.0.0.change-set.json` now has 995 entries. Its
+  fingerprints come from the failing compatibility report
+  (`tcr-s1069-compat01`).
+  - 60 existing entries whose fingerprint the declarations changed are
+    replaced in place. Each keeps its rationale and adds the S-1069 codes,
+    each with the condition under which its handler sends it.
+  - 22 entries for newly declared statuses are appended.
+  - One owner is corrected: the `patchRecord` 409 entry is attributed to
+    `module.workbook`, which owns the route, not `module.revisions`. The
+    checker validates that an owner is present, not that it is right.
+- **Client.** The `incident_closed` handling S-1068 removed is restored,
+  typed against the new declarations:
+  - entity merge, decision supersession, Timeline capture actions (mark
+    reviewed, supersede), mention resolution and record history (delete,
+    restore, rollback);
+  - import apply. `ImportFailureCode` now includes `applyImportSession` and
+    `createImportUnitRegion`.
+
+  `getIncidentWorkbookStartup`'s 404 `incident_not_found` is handled as loss
+  of incident access. A merge read-only test and a startup-adapter test are
+  added, with their titles in `tools/test_families/web.workbook.json`.
+- **Server test.** `TestWorkbookClosedIncidentWrites_Integration` now also
+  sends delete, restore, rollback and clipboard paste to a closed incident.
+  Each returns 409 `incident_closed` and leaves the workbook unchanged.
+- **Red evidence.**
+  - Contract: the extended closed-incident row against the pre-S-1069
+    fragments (`tcr-s1069-redgen01`, then `tcr-s1069-red01`) fails
+    `product/contract_violation` on the undeclared `deleteRecord` 409
+    `incident_closed`. The new fragments were restored and confirmed with
+    `cmp` before `tcr-s1069-gen03`.
+  - Client: the merge read-only test fails without the restored branch
+    (`tcr-s1069-c-red01`) and passes with it (`tcr-s1069-c-green01`).
+- **Verification.**
+  - `tcr-s1069-gen03` (`make generate`) and `tcr-s1069-srcgen01`
+    (`source-check CHECK=generated`) exit 0.
+  - Go `tcr-s1069-format01` and `tcr-s1069-lintgo01`; client
+    `tcr-s1069-c-format01`, `-c-types01`, `-c-lintfe01` and `-c-lintfb01`.
+    All exit 0.
+  - `tcr-s1069-c-unit01`: 14 of 14 client rows.
+  - `tcr-s1069-closed01`: the closed-incident row, with 7 error emissions
+    and 0 undeclared.
+  - The full row sets of the 12 affected owners, each with 0 undeclared
+    emissions: workbook (34 of 34), Timeline (65), entities (34), revisions
+    (37), report composition (6), reporting (34), incident bundles (14),
+    reference data (48), Evidence (40), job API (4) and saved views (23).
+  - The entity claims row that was red before this slice passes in
+    `tcr-s1069-own-entities`.
+  - Imports, `tcr-s1069-own-imports`: 33 of 37 units, with 0 undeclared
+    emissions. Two rows timed out under the full set's load:
+    - `module.imports.browser.ir_corpus_import` (61.4 s against 60 s; the
+      known residual);
+    - `module.imports.measurement.csv_apply`: a background Timeline PATCH
+      sent as the CSV apply began got no answer within the 10 s request
+      timeout.
+
+    Both pass when run together on the same source digest
+    (`tcr-s1069-imp-iso01`, 48.0 s and 22.9 s, in line with earlier runs).
+    Neither touches a changed path. The PATCH stall goes to the closure's
+    residuals: the server log has no request-level record to say what it
+    waited on.
+
+### S-1070 / F-1055 / E-1125 — WF-a: visual-suite error fixtures send declared envelopes (browser specs)
+
+Recorded before editing; identities verified unused. DONE (below). Found by
+`tcr-wf-visual01` (exit 2): the auth gateway capture failed before any
+screenshot ("Session unavailable" instead of the anonymous gateway). Nine
+rows in the same cohort were not run (`scheduler_accounting_error`), and no
+golden differed.
+
+**Gap.** S-1066 migrated the functional, stateful and accessibility
+fixtures, but not the visual specs. Those still hand-build envelopes:
+
+- some lack `retryable` and `request_id`;
+- some use undeclared codes (`service_unavailable` on session and login);
+- some use undeclared statuses (502, and 503 where the operation declares
+  none).
+
+The client now rejects each of these as a contract failure.
+
+**Change.** `auth.visual`, `incident-administration.visual` (lifecycle read),
+`incident-creation.visual`, `incident-import.visual` and `saved-views.visual`
+use `fulfillOperationError` with declared codes:
+
+- 401 `session_required` and the declared login 401s;
+- the login's declared 503 `authentication_capacity_exhausted`, which
+  renders the same "temporarily unavailable" banner;
+- `internal_error` at 500 for the read and session failures.
+
+**Goldens are not updated.** Any capture that renders differently goes to
+the maintainer.
+
+**Outcome.** DONE (2026-11-18).
+
+- **Fixtures.** The five specs use `fulfillOperationError`. The auth spec's
+  hand-built `fulfillAuthVisualError` is gone. The `incident-creation` 502
+  and `incident-import` 503 session fixtures become `getCurrentSession` 500
+  `internal_error`. Each of these had passed or failed only through the
+  contract-failure path.
+- **Verification.**
+  - `tcr-s1070-format01`, `-types01` and `-lintfe01` exit 0.
+  - `tcr-s1070-visual01`: 20 of 20 units. Every golden matches and no golden
+    file changed, including the S-1066 `mutation(500)` captures. 16 error
+    emissions, 0 undeclared.
+- **Red.** `tcr-wf-visual01` against the unmigrated fixtures, recorded above.
+
+### S-1071 / F-1056 / E-1126 — WF-b: the auth OpenAPI status test expects S-1064's 404s (test)
+
+Recorded before editing; identities verified unused. DONE (below). Found by the
+closure `make check` (`tcr-wf-check01`, exit 2), in row
+`module.auth.unit.auth_openapi_responses_and_security_match_runtime_7f0e6a2c91`:
+`patchDeploymentUser response statuses changed: got [200 400 401 403 404 409
+500] want [200 400 401 403 409 500]`.
+
+**Gap.** S-1064 declared 404 `user_not_found` on PATCH user, password reset,
+TOTP reset and revoke-all, as REQ-01-118 requires. The test's hand-written
+status map was not updated, and S-1064's auth rows did not include this
+unit row. The assembled document differs from the map in exactly those four
+operations. The test stops at the first.
+
+**Change.** `expectedStatuses` in
+`internal/modules/auth/openapi_contract_test.go` gains `404` for
+`patchDeploymentUser`, `resetDeploymentUserPassword`,
+`resetDeploymentUserTOTP` and `revokeAllDeploymentUserSessions`. The spec and
+contract are already right, so nothing else changes.
+
+**Red.** `tcr-wf-check01`, recorded above.
+
+**Outcome.** DONE (2026-11-18). The four entries gain `404`.
+`tcr-s1071-auth01` (the row) and `tcr-s1071-lintgo01` exit 0. Following the
+repository procedure, the full `make check` is not repeated for a one-row
+repair.
+
+### S-1067 / F-1052 / E-1122 — WE-a: Evidence object-store dependency codes are declared wherever reachable; the retired reference-pack code leaves the registries (contracts, documentation)
+
+Recorded before editing; identities verified unused. DONE (2026-11-18). These
+are contract gaps found by S-1066.
+
+**Change.**
+
+- **Audit.** Every Evidence route that reaches `objectStoreDependencyAPIError`:
+  handle issuance (preview and download), redeem, upload, and any slot or
+  attach path. Each declares the mapper's full set: 500
+  `object_store_invalid_request`, plus 503 `object_store_access_rejected` and
+  `object_store_unavailable`. Missing 500 and 503 responses are added.
+- **Registries.** `reference_pack_state_conflict` is removed from
+  `contracts/errors/index.json` and `contracts/otel/error_class_registry.json`,
+  and from the OpenTelemetry NLSpec OTEL-REQ-142 table. Core 01 already
+  retires it.
+- **Change set** reconciled. Then generation, the parity and assembler rows,
+  OTel conformance, and the Evidence rows.
+
+**Outcome** (implemented by a scoped agent and reviewed here).
+
+- **Trace.**
+  - **Handle issuance (preview and download)** goes through
+    `verifyEvidenceObjectAvailable`. A malformed persisted key gives 500; a
+    `Head` failure gives either 503.
+  - **Redeem** (`Get` and first-byte `Peek`) was already complete.
+  - **Upload** (key validation, then `Put`) reaches all three codes.
+  - **Cannot reach the mapper:** slot create, attach, verify (whose object
+    reads happen in the job worker and are reported in its summary) and the
+    metadata query.
+- **Declarations.** All are inline, per rule (a).
+  - Preview 503 adds `object_store_unavailable`.
+  - Download gains 500 `object_store_invalid_request` and 503
+    `[object_store_access_rejected, object_store_unavailable]`.
+  - Upload gains 500 `object_store_invalid_request` and 503
+    `object_store_access_rejected`.
+- **Registries.** `reference_pack_state_conflict` and its reason registry
+  (`already_disabled`, `not_disableable`, `verification_pending`) leave
+  `contracts/errors/index.json`, which now has 123 codes and 49 reason
+  registries. The code also leaves the OTel `lifecycle_conflict` class.
+  - No OpenAPI declaration and no Go emitter referred to it.
+  - Three client sites still compare against it:
+    `services/referencePacks.ts:172`,
+    `app/referencePackAdminController.ts:496` and
+    `referencePacks.test.ts:245-251`. S-1068 removes them.
+- **Change set.** Two entries carry their rationale forward and three are new
+  additive entries, each citing REQ-01-702 and the mapper.
+- **Tests.** In `objectstore_dependency_test.go` (row `…7567e19cd9`), the
+  fault double gains `setFaults`.
+  - Issuance: both kinds, both 503s, and a malformed key giving 500 with no
+    backend call and no handle written.
+  - Upload: an access rejection gives 503.
+  - The 500 for upload is not tested; reaching it needs a forged capability.
+- **Red.** `tcr-s1067-evred03`, against the old contract, failed as
+  `product/contract_violation`, with "undeclared error codes" for exactly the
+  new cases. The final contract was regenerated, and `cmp` confirmed it.
+- **Verification.** These exited 0, reviewed against the run roots:
+  `tcr-s1067-gen02` and `-gen03`, `-compat02` and `-compat03`, `-srcgen01`
+  and `-srcgen02`, `-otel01`, `-oapi01`, `-ev01`, `-ev02` (7 rows, zero
+  undeclared), `-lintgo01` and `-rpfe01`.
+- **Process note.** The agent also ran one direct `go vet` with
+  `GOFLAGS=-mod=mod`. It failed to fetch a module and changed nothing:
+  `go.mod` and `go.sum` are confirmed unmodified.
+
+### Residual remediation workstream — closure (E-1127), 2026-11-18
+
+Status: DONE. The E-1108 plan's five gaps are closed by S-1054 to S-1071,
+F-1039 to F-1056 and E-1109 to E-1126. Each slice was recorded before its
+edit, with the owner spec first. Each reproducible defect has red evidence,
+restored and confirmed with `cmp`, and its exact rows are green. Nothing was
+staged or committed. No DDL, migration or golden changed.
+
+**Outcomes by workstream.**
+
+| Workstream | Gap | Slices | Outcome |
+| --- | --- | --- | --- |
+| WA | G1 | S-1054 to S-1056 | One Blob authority, `evidence/internal/blob`, replaces `blobbridge`. Every Blob path locks and verifies the live tuple through it, in one order: Evidence, then the incident, then the Blob (REQ-02-190a, AC-609). Rollback admits a Blob only when it is finalized, same-incident, unassociated and unclaimed. Patch holds the Blob under a shared lock through commit. One coherent fixture builder replaces the five incoherent helpers. |
+| WB | G3 | S-1057, S-1058 | One contract-evidence stream, `cartulary.harness_contract_evidence.v1`, written under the run root by every runtime guard. The run gate fails a run on a violation (`product/contract_violation`) or a malformed record (`artifact`), and the run summary lists them. Every browser server generation keeps a redacted log, including the final one. |
+| WC | G5 | S-1059, S-1060 | Declared security is authoritative (REQ-01-703, AC-610). Upload declares a session with CSRF, or the bearer session; redeem declares a session. The declared-security guard checks every response against the declaration in both directions, and reports through WB. |
+| WD | G2 | S-1061 to S-1064 | REQ-01-702 gains the sharing rule and security-implied codes, both enforced at assembly. Every shared multi-code component passes the rule. Each `make check` publishes `error-code-coverage.json`, as evidence rather than a gate. A non-existent `user_id` is 404 `user_not_found` on every deployment-user route. |
+| WE | G4 | S-1065 to S-1069 | The bindings carry each operation's declared codes, and the client validates every error envelope against them (REQ-03-086a, AC-611). An undeclared code, a status mismatch or a malformed envelope is a client contract failure. Feature code branches only on typed, declared codes, and a static policy row enforces it. The Evidence object-store codes and 113 codes the audit found the server sending are now declared. |
+| WF | — | S-1070, S-1071 and this entry | The visual fixtures send declared envelopes, and the auth status test expects S-1064's 404s. The closure gate is below. |
+
+**Wire changes for the release notes.**
+
+- **Evidence Blob integrity (WA).**
+  - Rollback that would re-link a pending, failed, foreign-incident,
+    associated or cleanup-claimed Blob returns 409 `target_not_reversible`
+    before any write. Pending and failed re-links succeeded; associated and
+    claimed ones returned 500.
+  - A corrupted live Blob tuple on restore, rollback or patch returns 500
+    `internal_error`, and nothing is committed.
+  - Restore and rollback that meet a locked Blob return 409 `record_locked`
+    (retryable).
+  - Evidence patch may wait briefly on a Blob lock.
+  - An attach replay racing quarantine returns 409 `evidence_attach_rejected`
+    instead of a deadlock 500.
+  - Quarantine reports a closed incident before Blob errors.
+  - A cleanup sweep that meets an incoherent Blob skips and counts it, and
+    reports `failed`/`invariant_violation`.
+- **Security declarations (WC).** OpenAPI only; both handlers already
+  authenticated.
+  - `uploadObjectBlobContent` declares the bearer session, or the session
+    cookie with CSRF.
+  - `redeemEvidenceHandle` declares the bearer session or the session
+    cookie.
+- **Error declarations (WD, WE).**
+  - Enterprise begin's 400 is `[invalid_enterprise_auth_request]` again.
+    Binding create, rotate and retire declare 400 `invalid_mutation_payload`.
+  - Binding not-found is split: rotate and retire declare
+    `auth_binding_not_found`, and create declares `auth_provider_not_found`
+    and `user_not_found`. `finishEnterpriseSAML` gets its own 409.
+  - Indicator mutations declare their own 404 and 409 sets. Create and
+    append no longer document `illegal_transition`.
+  - Redeem's 409 adds `credential_bootstrap_rejected`.
+  - Evidence: preview's 503 adds `object_store_unavailable`; download and
+    upload gain 500 `object_store_invalid_request` and the 503 object-store
+    codes they reach.
+  - 113 codes on 56 operations that the server already sent are declared
+    (S-1069), including REQ-01-590's 409 `incident_closed` on 13 operations
+    and REQ-RC-033's Report Composition codes.
+  - `reference_pack_state_conflict` leaves the error registry and the OTel
+    classes. The registry has 123 codes and 49 reason registries.
+  - The 2.0.0 change set has 995 entries.
+- **Server behaviour (WD).**
+  - Rotate and retire for a missing target user return 404
+    `auth_binding_not_found`. They returned 500.
+  - PATCH user, password reset, TOTP reset, revoke-all and binding create for
+    a non-existent `user_id` return 404 `user_not_found`. They returned 500.
+- **Client (WE).**
+  - An error response with an undeclared code, a status that differs from
+    `error.status`, a malformed envelope, or `internal_error` at any status
+    other than 500, shows the contract-failure state.
+  - Declared conditions get their intended handling where client branches
+    had drifted: saved-view 404 is `saved_view_not_found`; the incident
+    directory has no "forbidden" state; Record History treats a missing
+    record as lost access; Workbook Import's unavailable routes report
+    `access_unavailable`.
+  - Closed-incident rejections from merge, supersede, mark-reviewed, mention
+    resolution, delete, restore, rollback and import apply show the
+    closed-incident handling. The workbook startup 404 is lost incident
+    access.
+- **Harness (WB).** Run summaries gain `contract_evidence` and
+  `error_code_coverage`. A run with a contract violation fails as
+  `product/contract_violation`; it used to pass with a hidden 500.
+
+**S-1050 evidence correction.** S-1050 reported no guard violations in the
+functional suite. That evidence covered 8 of its 19 server processes, and
+the stateful suite retained none of its 11, because only reset generations
+kept their logs. WB replaced log scraping with the structured stream and
+retains every generation (`tcr-s1058-be-functional01`, 19 of 19;
+`tcr-s1058-be-stateful01`, 11 of 11). The closure browser runs below are the
+complete evidence.
+
+**Error-code coverage, first closure figures** (`tcr-wf-check01`,
+`error-code-coverage.json`; evidence, not a gate).
+
+- 684 operation-statuses declare 1,049 codes. 504 are exercised and 545 are
+  not; no exercised code is undeclared. At S-1062 the figures were 650,
+  929, 487 and 442.
+- 123 of 136 operations exercise at least one code.
+- Of S-1069's 113 new declarations, 6 are exercised across `make check`, the
+  owner runs and the closed-incident row. Among the 13 new `incident_closed`
+  declarations, delete, restore, rollback and paste are exercised. Merge,
+  mention resolution, mark-reviewed, supersede, conflict resolution, import
+  apply, unit-region creation, Blob slot creation and attach are not.
+- Nine operations still emit the exempt `internal_error` 500 without
+  declaring a 500: `getIncidentSavedView`, `getIncidentWorkbookStartup`,
+  `listIncidentSavedViews`, `mergeEntityRecord`, `patchIncidentSavedView`,
+  `patchRecord`, `putImportUnitMapping`, `restoreRecord` and
+  `rollbackRecord`. These are the same nine as at S-1062.
+
+**Residuals** (recorded in their slices; none blocks closure).
+
+- **Declarations and server behaviour (S-1069 audit).**
+  - The 19 defensive emissions (dead Evidence adapter mappings and
+    invariant-break paths) are not declared.
+  - The encoded-slash user routes: `handleUsersMember` splits the decoded
+    path instead of using `r.PathValue`, so an encoded slash in `{user_id}`
+    reaches six undeclared codes.
+  - REQ-01-590 gaps: Assessments row creation and Timeline `keep_saved`
+    resolution succeed on a closed incident.
+  - Wrong or leaky mappings:
+    - Timeline supersede returns 500 on a stale row version;
+    - `supersedeRecord` reports `record_deleted_use_restore` to a
+      non-member;
+    - mention resolution on a soft-deleted Timeline record returns 500;
+    - patch and resolve on a soft-deleted Timeline record return 404
+      instead of 409;
+    - adapters turn database errors into `row_version_conflict`;
+    - import-unit routes disclose that a session exists;
+    - `cancelJob` returns 403 where Core 01 says 404 `job_not_found`;
+    - an invalid reference-pack key returns 500.
+  - Responses outside the envelope or registry:
+    - plain-text 404s for malformed path UUIDs, and bare 405s on HEAD;
+    - the pre-routing 503 `service_unavailable` is unregistered, and its
+      lease-uncertainty case reports reason `extension_publication_pending`;
+    - the unclaimed-profile 404 is exempt pre-resolution, but the client
+      reads it as a contract failure.
+  - Over-declarations the audit found: `exportIncidentBundle`'s 409
+    `incident_bundle_export_rejected`, and the 403s of
+    `getTimelineTimeConversionProfile` and `listNoteAssociations`.
+- **Evidence (S-1056).** Two recovery seeders write
+  `target_expires_at = pending_expires_at`, and exhausting quarantine's
+  retries has no direct test (it fails closed).
+- **Evidence (S-1067).** The upload 500 `object_store_invalid_request` is
+  untested; reaching it needs a forged capability.
+- **Harness (S-1058).** The redaction manifest writes `[REDACTED…]`, but the
+  retained-secret scan exempts only `<redacted>`. It fails closed and has
+  not been observed.
+- **Protocol (S-1066).** `make lint CHECK=protocol` flags three unused
+  protocol-ts exports, unchanged since `0a4708625`.
+- **Client (S-1068).** The pending queue's settlement code,
+  `importFailureMessage` and job summary codes still compare plain strings,
+  covered only by the static policy. Network Flow, collaboration and
+  WebSocket reasons are out of scope.
+- **Load-sensitive tests.** Each passes when run alone on the same source,
+  and none touches a path changed here.
+  - `module.imports.integration.network_flow_default_limit_100001_rows`
+    (S-1060).
+  - `module.imports.browser.ir_corpus_import`, close to its 60 s limit:
+    48 s alone, and 54–61 s in suite runs.
+  - `module.imports.measurement.csv_apply`: a background Timeline PATCH sent
+    as the CSV apply began got no answer within 10 s (S-1069). The cause is
+    undetermined; the server log has no request-level record.
+  - `module.incidentbundles.integration.entra_bundle_round_trip` in
+    `tcr-wf-check01`: a job poll got the admission gate's retryable 503,
+    which the runtime returns while a process or serving lease is uncertain,
+    and the poll helper does not retry it. It passed alone
+    (`tcr-wf-entra01`, 6.4 s).
+- **Unchanged.** The DDL-consolidation items: the failed Blob with a NULL
+  `cleanup_due_at`, and the Core 01 append-only migration wording.
+
+**Closure gate.**
+
+- **`make check`** (`tcr-wf-check01`, exit 2, 17.6 min): 352 of 354 units.
+  - Contract evidence: 631 error emissions, 0 undeclared codes, 0 security
+    mismatches, 0 malformed records.
+  - Its Go lint, type-check, backend-boundary, generated-source, catalog and
+    JSON-shape units all pass.
+  - `module.auth.unit.auth_openapi_responses_and_security_match_runtime_7f0e6a2c91`
+    failed on S-1064's 404s and is repaired by S-1071 (`tcr-s1071-auth01`,
+    `tcr-s1071-lintgo01`).
+  - `module.incidentbundles.integration.entra_bundle_round_trip` hit the
+    lease-uncertainty 503 under load. It passed alone (`tcr-wf-entra01`).
+  - Following the repository procedure, the full suite is not repeated after
+    the one-row repair.
+- **Source checks.** `tcr-wf-src-schema-01` (3 of 3) and
+  `tcr-wf-src-catalog-01` (2 of 2) exit 0, and `tcr-s1069-srcgen01` covers
+  the last generation.
+- **Browser suites.** Each has 0 undeclared codes, 0 security mismatches and
+  a passing retained-secret scan.
+
+  | Suite | Run | Units | Error emissions | Server logs retained |
+  | --- | --- | --- | --- | --- |
+  | Functional | `tcr-wf-e2e-functional-01` | 31 of 31 | 100 | 19 of 19 generations |
+  | Stateful | `tcr-wf-e2e-stateful-01` | 22 of 22 | 39 | 11 of 11 generations |
+  | Accessibility | `tcr-wf-e2e-accessibility-01` | 17 of 17 | 20 | 6 |
+  | Visual | `tcr-wf-e2e-visual-01` | 20 of 20 | 16 | 6 |
+
+  Every visual golden matches, including the S-1066 `mutation(500)`
+  captures, and no golden file changed.
+- **Owner rows.** S-1069's 12 owner runs, recorded there.
+- **Documentation.** `make lint-markdown` and `git diff --check` pass.
+
+### Post-closure remediation workstream — entry (E-1128 reserved), 2026-11-18
+
+Maintainer request: a complete remediation plan for the gaps the E-1127
+closure reported, biased toward clean, durable, forward-compatible fixes. The
+plan was approved the same day. E-1128 is reserved for this entry. Slices
+start at S-1072/F-1057/E-1129, and the closure takes the last E. All
+identities were verified unused.
+
+**Scope.**
+
+- The failures under load: the Entra round trip, the IR corpus import and the
+  CSV-apply measurement.
+- Error-code coverage: 6 of S-1069's 113 new declarations are exercised.
+- The nine server defects E-1127 lists.
+- The smaller residuals: undeclared 500s, responses outside the envelope,
+  and untested gaps.
+
+**Research corrections** (three read-only traces with file:line evidence).
+
+- **The CSV-apply stall is a product defect.** Import apply inserts its
+  change set first, so the `revision_history_orders` allocator row lock
+  (REQ-02-213) is held while the unit writes up to 20,000 rows, and every
+  Timeline patch in the incident waits at its own change-set insert. That
+  breaks REQ-03-168. Row creation and patch also read the time-conversion
+  profile `FOR UPDATE`, and Network Flow `CreateTableTx` holds the incident
+  row `FOR NO KEY UPDATE` across its bulk copy.
+- **The Entra 503's cause is unknown.** Lease uncertainty is unlikely. A
+  fatal cancellation-grace exhaustion is likelier. Tests discard the 503
+  body, and in-process servers never read fatal events.
+- **The IR corpus timeouts are a hang.** The inspector menu did not open after
+  grid page fetches, and no action timeout bounded the wait.
+- **Concealment.** All nine import member-route kinds look up the session
+  before authorization, supersede classifies the deleted state before
+  membership, and 15 copies of the not-visible mapping exist.
+- **Targets.** Five owners have private target loaders, Timeline folds the
+  deleted state into not-found, and four helpers coerce database errors into
+  `row_version_conflict`.
+- **Routing.** Sixteen handlers parse the decoded path. Malformed identifiers
+  get plain-text 404s, often before authentication.
+- **Declarations.** 89 of 136 operations declare no 500, and three
+  over-declarations are confirmed.
+
+**Maintainer decisions.**
+
+1. History order is allocated at commit: a migration replaces the BEFORE
+   INSERT allocator with a deferred constraint trigger. DDL is authorized for
+   this migration only.
+2. Codes any operation can send are assembler-implied declarations, so
+   REQ-01-702 keeps no exemptions.
+3. Request admission moves into a central route pipeline in `httpapi.Bind`,
+   migrated owner by owner.
+
+**Order:**
+
+1. WG, diagnostics and test infrastructure;
+2. WJ, visibility before resource state;
+3. WH, background work never blocks editing;
+4. WK, one target classification and error fidelity;
+5. WL, closed-incident completeness and conformance matrices;
+6. WI, the central request admission pipeline;
+7. WM, declarations tell the whole truth;
+8. WN, load-sensitive tests;
+9. WO, remaining residuals;
+10. WP, the closure.
+
+The standing constraints apply.
+
+### S-1072 / F-1057 / E-1129 — WG1: test servers report fatals, polls keep their evidence, browser actions are bounded (documentation; owner first)
+
+Recorded before editing; identities verified unused. DONE (2026-11-18).
+
+**Gap.** Three load failures went undiagnosed because their evidence was
+discarded:
+
+- A test server that goes fatal answers every request with 503 and nobody
+  reads the fatal reason.
+- `httptestx` drops the body of a response whose status is wrong.
+- Nine package-local job-poll loops fail on the first non-200, even when
+  the response is marked retryable.
+- No browser action timeout exists, so one missed menu consumed a whole 60 s
+  test budget.
+
+**Change** (Testing Harness NLSpec).
+
+- **TH-HARNESS-REQ-860** gains the `server_fatal` kind.
+- **New TH-HARNESS-REQ-863.** A lifecycle fatal in an in-process test server
+  or the server-harness build writes a `server_fatal` record with its reason
+  code, and the gate fails the run as `product/server_fatal`.
+- **New TH-HARNESS-REQ-864.**
+  - A failed status assertion keeps the bounded, redacted response body.
+  - Test polling may wait through `retryable: true` responses until its
+    deadline and reports the last response; this is not a retry of a product
+    test.
+  - Browser actions have a bounded timeout below the test budget.
+  - A timed-out database-backed request can record a lock-wait snapshot.
+- **ACs.** TH-HARNESS-AC-158 and -159 follow AC-157, and the range index
+  covers `858..864`.
+
+**Outcome.** As above. REQ-860's gate also lists a `server_fatal` record and
+fails the run as `product/server_fatal`. `tcr-s1072-md01` exited 0, and
+`git diff --check` passed.
+
+### S-1073 / F-1058 / E-1130 — WG2: the fatal record, the shared poll helper, kept bodies, bounded browser actions (harness, test support, browser config)
+
+Recorded before editing; identities verified unused. DONE (below). This
+implements S-1072.
+
+**Change.**
+
+- **Schema.**
+  - `cartulary.harness_contract_evidence.v1` gains the `server_fatal` kind,
+    which carries `reason_code`.
+  - The failure taxonomy gains `server_fatal`, an additive `product` reason.
+- **Writer and gate.**
+  - `runevidence` writes the record.
+  - The gate (`contract_evidence_linux.go`) fails the run as
+    `product/server_fatal` and lists the record.
+- **Fatal observers.**
+  - `httptestx.StartServer` and `appsupport.ServerHarness` watch
+    `processlifecycle.FatalDone()`.
+  - The server-harness profile records its own fatal.
+- **`httptestx`.**
+  - A status mismatch keeps the bounded, redacted body.
+  - New `Poll` and `PollJob` helpers wait through retryable envelopes and
+    report the last response. The package-local job-poll loops move to them.
+  - A lock-wait snapshot helper writes blocked and blocking sessions, with no
+    statement text, into the run root when a poll times out.
+- **Playwright.** `actionTimeout` and `expect` timeouts in
+  `apps/web/playwright.shared.config.ts`, and explicit budgets for the long
+  waits that pass `info.timeout`.
+
+**Red.** One diagnostic mutation per behaviour, each restored and confirmed
+with `cmp`:
+
+- the gate ignores `server_fatal`;
+- the poll fails on a retryable response;
+- the body is dropped.
+
+**Spec corrections found during implementation** (owner spec first, recorded
+before the outcome).
+
+- **REQ-863.**
+  - `server_fatal` takes precedence over contract violations.
+  - A test that forces a fatal on purpose directs that server's evidence to a
+    test-owned run root and asserts it there. The existing
+    `TestExtensionsLeaseLifecycle_Process` forces a lease-loss fatal and would
+    otherwise fail every run.
+- **REQ-864.**
+  - Polling stops on the fatal server's `503` (`extension_integrity_failure`),
+    although it says retryable.
+  - A poll's deadline is its own, or the test's when it has none.
+
+**Outcome** (implemented by a scoped agent and reviewed here).
+
+- **Schemas.**
+  - The contract-evidence record gains kind `server_fatal`, carrying
+    `reason_code` and no operation, status, code or security fields.
+  - The run summary gains an optional `record_counts.server_fatal`, so older
+    retained summaries stay valid.
+  - `server_fatal` (product, exit 10) joins the failure taxonomy in all six
+    schemas and `failure-taxonomy.mjs`.
+  - `explain-run` and `harnessruntime` print `[SERVER-FATAL]` lines.
+- **Gate.** A `server_fatal` record fails the run as `product/server_fatal`,
+  is listed first, and is never dropped by the 32-entry bound. A failed test
+  keeps its own failure reason.
+- **Fatal observers.**
+  - `Runtime.FatalDone()` and `FatalReason()` are read-only accessors.
+  - `httptestx.StartServer` records an in-process fatal exactly once, even
+    when it races `Close`. `appsupport.ServerHarness` wraps `StartServer`, so
+    it is covered without a duplicate observer.
+  - The server-harness profile records its own fatal through an optional
+    recorder in `writeFatal`. Production records nothing, and a test checks
+    that.
+- **`httptestx`.**
+  - Status and code mismatches report the body, redacted with
+    `harnessredact` and bounded to 4 KiB.
+  - `Poll` and `PollJob` (`poll.go`).
+  - `SnapshotLockWaits` / `RecordLockWaits` (`lockwait.go`): at most 64
+    sessions, statement kind from a closed list, no statement text,
+    parameters, database or role names. Snapshots are written owner-only
+    under `<run root>/lock-waits/`.
+- **Loops moved to `PollJob`.** All of them: incident bundles (three helpers),
+  imports, source admission (with a lock-wait snapshot), Network Flow, the
+  Evidence flow test, `networkflowsupport` and the reference-data fixture
+  importer. A Network Flow job that reaches an unwanted terminal status now
+  fails at once instead of at its deadline.
+- **Playwright.** The shared configuration sets `actionTimeout` to 15 s,
+  `navigationTimeout` to 30 s, and `expect` to 10 s. The import assistant's
+  two whole-budget waits use 30 s, about twice a normal apply.
+- **Red evidence.** Each was a diagnostic mutation, restored and confirmed
+  with `cmp`:
+  - `tcr-s1073-redgate01` (the gate ignores the record):
+    `gate = <nil>, want product/server_fatal`;
+  - `tcr-s1073-redpoll01` (the poll stops on a retryable response):
+    `stopped on a non-retryable response: status 503`;
+  - `tcr-s1073-redbody01` (the body is dropped): the failure message lacks
+    `service_unavailable`.
+- **Verification.** These exited 0, reviewed against the run roots:
+  - `tcr-s1073-generate01`, `-format02`, `-lintgo02`, `-linttypes01`,
+    `-lintbound01` and `-lintscripts01`;
+  - `tcr-s1073-src` (generated), `-srcschema01` and `-srccatalog01`;
+  - `-writer01`, `-gate01`, `-httpx02` and `-srvunit01`;
+  - `-httpxint02`, the forced in-process fatal and the lock-wait snapshot;
+  - `-leaseproc01`, where the server-harness binary writes exactly one
+    `server_harness` record;
+  - `-bundles01`, `-imports01` and `-netflow01`, rows using the moved loops.
+- **Review correction** (found by `tcr-wg-check01`; recorded before the
+  repair). `TestEvidenceComposition_ServerOwnsNarrowRuntime` pins the server
+  `Runtime` to three exported lifecycle methods, and the new `FatalDone` and
+  `FatalReason` made five. Both are read-only lifecycle views with no storage
+  or construction capability, which is what the test guards. So the test's
+  allowed set gains them, and the narrowing intent is unchanged.
+  `tcr-s1073-narrow01` passes.
+- **Review correction: remaining job-poll loops** (found by the WG exit grep;
+  recorded before the repair). Four package-local HTTP job polls were outside
+  the agent's list and now use `PollJob`, each keeping its semantics:
+  - the imports Network Flow fault test, with 12 s and a terminal status;
+  - reporting `requireJobStatusWithin`, used by `requireJobStatus` across the
+    reporting rows;
+  - the Network Flow fixture runtime's `waitJob`. Its durable handler-state
+    diagnostic now logs from a cleanup when the job never settles;
+  - recovery's snapshot pin, 120 s.
+
+  The same test's earlier loop reads `jobs` from the database, not the HTTP
+  resource, so it stays.
+
+  These exited 0: `tcr-s1073-loopfmt01`, `-looplint01`, `-loopnf01`
+  (Network Flow fixtures), `-looprec01` (recovery), `-loopimp01` (the
+  imports fault test) and `-looprep01` (all 34 reporting units).
+- **Not covered by a test yet:**
+  - AC-159's browser action whose target never appears;
+  - the `[SERVER-FATAL]` explain-run line;
+  - `recoverybrowsertest`, which builds its own runtimes without guards, as
+    before.
+
+**WG gate.**
+
+- `tcr-wg-check01` (`make check`, exit 2): 352 of 354 units.
+  - One failure is the narrow-runtime test, corrected above.
+  - The other is `module.imports.integration.network_flow_default_limit_100001_rows`.
+    Its evidence is the first `server_fatal` record:
+    `indeterminate_database_commit` from that row's in-process server.
+- **That record settles the cause** WN was to find:
+  - under load, the import's second source pass took 26.5 s (3.3 s for the
+    first);
+  - the 30 s cross-owner transaction budget then expired around commit;
+  - the commit outcome became unknown, and the server went fatal;
+  - the poll now reports the 503 body (`extension_integrity_failure`)
+    instead of a bare status.
+
+  A deadline expiring at commit should not leave the outcome unknown, so this
+  is a product defect, carried into WN.
+- Browser suites, run under the new timeouts:
+  - `tcr-wg-e2e-functional-01`: 31 of 31 units, 97 emissions, 0 violations;
+  - `tcr-wg-e2e-stateful-01`: 22 of 22 units, 0 violations.
+
+**WG exit.** All met:
+
+- the helper and gate tests are green, with red checks;
+- no package-local HTTP job poll remains;
+- `make check` shows the new evidence kind, and its one record is a real
+  product finding.
+
+### S-1074 / F-1059 / E-1131 — WJ1: visibility precedes resource state (documentation; owner first)
+
+Recorded before editing; identities verified unused. DONE (2026-11-18).
+
+**Gap.** Core 01 restates concealment route by route (REQ-01-074, -085,
+-087, -186, the history route and saved views), and no requirement fixes its
+order against resource-state classification. The implementation follows that
+drift:
+
+- `supersedeRecord` reports `record_deleted_use_restore` before checking
+  membership (`workbook/routes_actions.go:69-87`);
+- all nine import member-route kinds look up the session before checking
+  authorization (`imports/http_handlers.go:162-520`), so a non-member can
+  tell an existing session from a missing one;
+- an unauthorized `cancelJob` returns 403 (`jobapi/routes.go:212-215`),
+  where §3.3.9.1 requires 404 `job_not_found`.
+
+**Change.**
+
+- **Core 01 REQ-01-704, new.** After authentication, and before any
+  classification of the addressed resource's existence, deleted or lifecycle
+  state, type, version or request body, a caller who cannot see the
+  resource's incident gets that resource's not-found code. A missing resource
+  and an invisible one are indistinguishable in status, code and details.
+  Route-specific orders apply only after this gate.
+- **Core 04 AC-612, new**, verifying REQ-01-704 for the record actions,
+  the import member routes and job cancel.
+
+**Outcome.** REQ-01-704 follows REQ-01-703, and AC-612 follows AC-611.
+`tcr-s1073-md01` (which covered these files) exited 0, and `git diff --check`
+passed.
+
+### S-1075 / F-1060 / E-1132 — WJ2: supersede, import routes and job cancel decide visibility first; one not-found constructor (backend, contracts, tests)
+
+Recorded before editing; identities verified unused. DONE (below). This implements
+REQ-01-704.
+
+**Change.**
+
+- **Supersede.** `workbook/routes_actions.go` runs `requireIncidentRole`
+  before the deleted-state branch. The Decision facade's own order is left,
+  since the handler gates it.
+- **Import member routes.** `imports/http_handlers.go` authenticates and
+  decides visibility of the session's incident before returning any session
+  or unit not-found.
+  - A missing session and an invisible one both give
+    `import_session_not_found`, with identical details.
+  - A missing unit in a visible session gives `import_unit_not_found`.
+  - `store.getUnit` stops reporting a missing session as a missing unit.
+- **Job cancel.** `jobapi/routes.go` answers an unauthorized cancel with 404
+  `job_not_found`, as for a missing job. The 403 declaration leaves
+  `module.jobapi`'s fragment, with a breaking change-set entry citing
+  §3.3.9.1, then `make generate`.
+- **One constructor.** `httpapi.NotFound(code)` builds the concealment
+  response: status 404, the given code, empty details. It replaces the
+  module-local `incidentNotFoundError` functions and the inline copies.
+- **Tests.** For each case, a non-member and a missing resource give
+  byte-identical status, code and details, and nothing is committed.
+- **Red.** Restore the old order in each handler: the test reports the
+  distinguishing response.
+
+**Outcome** (implemented by a scoped agent and reviewed here).
+
+- **Supersede.** The order is now:
+  1. authentication and CSRF;
+  2. target resolution: a missing target gives 404 `incident_not_found`;
+  3. `requireIncidentRole`: a non-member gets 404, and a member without the
+     role gets 403 with `reviewer|admin`;
+  4. the deleted check, 409 `record_deleted_use_restore`.
+- **Import member routes** (all 11 kinds).
+  - A new `admitImportSession` gate runs straight after authentication. It
+    reads only the session's incident, then admits the caller.
+  - A missing session and an invisible one both give 404
+    `import_session_not_found`, with empty details.
+  - A missing unit in a visible session gives `import_unit_not_found`.
+  - The store's new `errSessionNotFound` separates a missing session from a
+    missing unit.
+- **Job cancel.** A member who neither submitted the job nor administers its
+  incident gets 404 `job_not_found`. Lookup and authorization run before the
+  body is decoded.
+- **Effects of "immediately after authentication"** (REQ-01-704):
+  - a malformed query on a missing or invisible session is now 404, not 400;
+  - a malformed cancel body for an invisible job is now 404, not 400.
+- **Constructor.** `httpapi.NotFound(code)` returns 404, the code, an empty
+  message and empty details, so the wire bytes are unchanged. It replaces the
+  six module-local `incidentNotFoundError` functions (17 calling files), the
+  nine inline copies, and the job and import not-found builders. A subtest
+  pins its envelope.
+- **Contract.**
+  - `cancelJob`'s 403 keeps only the implied `csrf_verification_failed`.
+  - The seven unit routes declare 404 `import_session_not_found`.
+  - All 11 import member routes drop 404 `incident_not_found`, which no
+    member route can now emit. Accepted here as REQ-01-704's direct
+    consequence.
+  - 12 change-set entries are replaced in place, citing S-1075 and
+    REQ-01-704 (and §3.3.9.1 for cancel). The checker computes them as
+    additive against the 1.0.0 baseline, where these responses did not
+    exist, and that classification is kept.
+  - The web client needed no change.
+- **Tests.**
+  - Workbook: a non-member's supersede of a deleted record and of a missing
+    record match exactly, a demoted viewer gets 403, an admin gets 409, and
+    nothing changes.
+  - Imports: 11 `concealed-<kind>` subtests and 8 `missing-unit-<kind>`
+    subtests.
+  - Job API: existing and missing jobs match, with valid and malformed
+    bodies, and with no effect.
+  - The incident-bundle member-viewer cancel now expects 404.
+- **Red evidence.** Each was the old order restored, then restored again and
+  confirmed with `cmp`:
+  - `tcr-s1075-workbook-red01`: `got 409 want 404`, with
+    `record_deleted_use_restore` in the body.
+  - `tcr-s1075-imports-red01`: all 11 `concealed-*` subtests gave
+    `got 500 want 404`. The guard named the leak as the undeclared 404
+    `incident_not_found` on every route, and the store defect showed as
+    `got import_unit_not_found want import_session_not_found`.
+  - `tcr-s1075-jobapi-red01`: `got 500 want 404`, with the guard reporting
+    `cancelJob 403 authorization_denied`.
+- **Verification.** These exited 0, with no undeclared codes:
+  - `tcr-s1075-generate02`, `-format02`, `-lintgo02`, `-lintboundary03`,
+    `-linttypes01` and `-sourcegenerated01`;
+  - owner runs `-jobapi-owner01` (4 of 4), `-imports-owner01` (37 of 37) and
+    `-workbook-owner01` (34 of 34);
+  - the rows of every module the constructor touched.
+
+  `-generate01` hit the expected stale-fingerprint gate. `-lintboundary01`
+  caught raw Collaboration SQL in a test, replaced by
+  `collaborationsupport.CountIntents`. One blank line in `imports/store.go`
+  came after `-imports-owner01`; it is covered by format and lint.
+- **Carried to WI.** Some routes validate the query before visibility or
+  even before authentication, as `getJob` does. That ordering belongs to the
+  central admission pipeline.
+
+**WJ exit.** All met:
+
+- the indistinguishability tests are green, with red checks;
+- no module-local `incidentNotFoundError` remains;
+- `make generate` and the compatibility gate pass.
+
+### S-1076 / F-1061 / E-1133 — WH1: history order is allocated at commit; background work never blocks editing (documentation; owner first)
+
+Recorded before editing; identities verified unused. DONE (2026-11-18). This is
+maintainer decision 1 of the E-1128 entry.
+
+**Gap.** REQ-02-213 requires the per-incident history-order allocator to hold
+its serialization lock "through commit or rollback", and the implementation
+takes it at the first `change_sets` insert. A transaction that inserts its
+change set early holds the lock for all its remaining work.
+
+- Import apply writes up to 20,000 rows after its change-set insert, so every
+  ordinary edit in that incident waits. That contradicts REQ-03-168 ("Apply
+  … MUST NOT block ordinary workbook editing").
+- Network Flow table import holds the incident row exclusively across its
+  bulk copy, with the same effect on every editor's shared incident lock.
+- Row creation and patch read the Timeline time-conversion profile
+  `FOR UPDATE`, so they serialize with each other.
+
+**Change.**
+
+- **Core 02 REQ-02-213.** Native history order is allocated when the
+  transaction commits:
+  - the allocator takes its serialization lock at commit and holds it through
+    commit, so order equals commit order;
+  - before commit a native change set has no order, and nothing in the
+    writing transaction may depend on one;
+  - imported orders are preserved and advance the allocator at commit;
+  - exhaustion fails the commit atomically.
+- **Core 03 REQ-03-168.** Background owner work holds incident-scoped
+  exclusive locks only while it publishes, never across bulk work, and
+  ordinary reads of incident configuration take shared locks.
+- **Core 04 AC-613, new.** While an import apply unit or a Network Flow table
+  copy is in progress in an incident, an ordinary patch in that incident
+  commits. History orders follow commit order, imported orders are preserved
+  and followed, and no committed change set lacks an order.
+- **REQ-01-661 is unchanged.** It names only versions 30 and 35. The machine
+  allocation of later versions lives in `tools/migration_history_manifest.json`,
+  which the migration slice extends.
+- **Recovery.** The Core 04 recovery generation binds the
+  `revision_history_orders` allocator state. Its catalog records tables by
+  state class, not columns or triggers, so no generation bump is expected.
+  The migration slice verifies this before relying on it.
+
+**Outcome.**
+
+- REQ-02-213's allocation paragraph is replaced, and its Verified-by line
+  gains AC-613.
+- REQ-03-168 gains the lock clause and AC-613.
+- AC-613 follows AC-612.
+- `tcr-wj-md01` exited 0, and `git diff --check` passed.
+
+### S-1077 / F-1062 / E-1134 — WH2: migration 59 allocates history order at commit (DDL, backend, tests)
+
+Recorded before editing; identities verified unused. DONE (below). This implements
+REQ-02-213 as amended by S-1076.
+
+**Change.**
+
+- **Migration `00059`** (Revisions-owned). It replaces the BEFORE INSERT
+  trigger `change_sets_assign_history_order` and
+  `revisions_assign_history_order_v1()`:
+  - a new `revisions_allocate_history_order_v2()` runs as a
+    `CONSTRAINT TRIGGER … AFTER INSERT … DEFERRABLE INITIALLY DEFERRED FOR
+    EACH ROW`;
+  - for a native change set (`history_order IS NULL`) it upserts the
+    allocator and sets the order;
+  - for an imported one it raises the allocator's high-water mark with
+    `GREATEST`.
+
+  `history_order` drops `NOT NULL`, which PostgreSQL cannot defer. Its
+  positive check and the `(incident_id, history_order)` unique key stay,
+  since NULLs never collide. The trigger raises if it cannot allocate.
+  There is no data transformation: no NULLs exist.
+- **Machine contracts**, regenerated through `make generate` where they are
+  generated:
+  - the migration history manifest;
+  - the schema-object ownership manifest;
+  - sqlc and catalog projections.
+- **Revisions readers** (rollback currentness, bundle export and validation,
+  recovery state) treat a committed NULL as an invariant break, which is
+  `internal_error`.
+- **Recovery.** Confirm the recovery catalog and generation fingerprint no
+  columns or triggers, so no generation bump is needed.
+- **Tests** (deterministic; `pg_blocking_pids` barriers):
+  - concurrent commits get orders in commit order;
+  - a rollback leaves no gap;
+  - imported orders are preserved and followed;
+  - no committed NULL remains;
+  - an allocation failure rolls back;
+  - recovery round-trip.
+
+  An import apply unit held mid-transaction no longer blocks a Timeline patch
+  through the allocator. That patch may still wait on the profile lock until
+  S-1078.
+- **Red.** Restore the BEFORE trigger: the commit-order and non-blocking
+  tests fail.
+
+**Outcome** (implemented by a scoped agent and reviewed here).
+
+- **Migration `00059_revision_history_order_at_commit.sql`.**
+  - It drops the BEFORE INSERT trigger and its v1 function, and drops
+    `NOT NULL` from `history_order`. The check and the unique key stay, and
+    no data changes.
+  - It creates `revisions_allocate_history_order_v2()` and a constraint
+    trigger, `AFTER INSERT … DEFERRABLE INITIALLY DEFERRED FOR EACH ROW`.
+  - At commit the trigger rereads the row:
+    - a row deleted in the same transaction allocates nothing;
+    - an explicit order raises the high-water mark with `GREATEST`;
+    - a native row upserts `last_order + 1`, guarded below the bigint
+      maximum, and sets the order;
+    - exhaustion raises SQLSTATE 22003, so the commit fails.
+  - The runtime role's existing grants suffice; a test runs the allocation
+    as `cartulary_runtime`.
+  - `Down` raises, as in 00058.
+- **Machine contracts.**
+  - Authored input: `owner-allocation.mjs` gains `[59, "revisions"]`.
+  - `make generate` refreshed the migration history manifest, the ownership
+    manifest, `internal/gen/sql` (`ChangeSet.HistoryOrder` becomes
+    `pgtype.Int8`, which has no callers) and the render index.
+  - The ownership manifest describes only the current head, so the retired v1
+    routine and trigger leave it, and the v2 routine, trigger and constraint
+    enter it.
+- **Readers.**
+  - `ErrHistoryOrderMissing` (`history_order.go`): rollback currentness and
+    bundle export treat a committed NULL as `internal_error`.
+  - The import-transaction validators map a NULL, which can only be a native
+    change set added inside the import transaction, to their existing
+    `source_state_exact` and `history_reconstruction` failures.
+  - The only native writer already omitted the column. No production code
+    reads an order inside its own transaction.
+- **Recovery: no generation bump.** Generation identity covers the catalog
+  digest (tables, state class, inclusion, action, codec), the codec registry
+  and the graph registries, but not columns, nullability, triggers or
+  routines. Restore discovers columns at runtime and inserts in replica mode,
+  where neither trigger fires.
+- **Tests.**
+  - `TestRevisionsHistoryOrderCommitAllocation_Integration`, in the new row
+    `module.revisions.integration.history_order_commit_allocation_9b18017cd9`.
+    Its waits use `pg_blocking_pids` checks, not sleeps. Subtests:
+    - commit order, against timestamps;
+    - no order before commit;
+    - a held writer does not block;
+    - the lock is taken at commit;
+    - a rollback leaves no gap;
+    - explicit orders are preserved and followed;
+    - exhaustion rolls everything back;
+    - the runtime role allocates;
+    - a real bundle import round-trips, and a committed NULL fails export.
+  - The old insert-time subtest's coverage moved into this test.
+  - `TestRollbackSelectorUnion_Unit` adds a NULL-order case: 500, and no
+    change set.
+  - Two shared-transaction fixture tests now force the allocation at
+    statement end, because a `postgres_transaction` fixture never commits.
+- **Red evidence.** `tcr-s1077-red01` ran the old BEFORE trigger with only
+  `NOT NULL` dropped. It failed with:
+  - `uncommitted native change set already has history_order=2`;
+  - `change-set writer waited on in-progress backends [86]`;
+  - an insert-time exhaustion.
+
+  The green file was restored and confirmed with `cmp`, then `-alloc02`
+  passed.
+- **Verification.** These exited 0:
+  - `tcr-s1077-generate01`, `-format02`, `-lintgo02` and `-lintbb01`;
+  - `-srcchk-{generated,schema,catalog,migration-input}-01` and
+    `-srcchk-generated-02`;
+  - `-migdrift01` (8 of 8);
+  - `-alloc02`;
+  - `-revisions02`: the full Revisions owner, 37 of 37 units;
+  - `-imports01`, `-bundles01`, `-recovery01` (including the packaged-server
+    restore round trip), `-records01`, `-graph01` and `-pgacl01`.
+
+  `-revisions01` failed only on the shared-fixture issue, repaired above.
+- **Carried.**
+  - **To WO.** A restored snapshot is no longer checked for a NULL order,
+    because restore runs in replica mode and the column is nullable. Readers
+    fail closed. A post-restore check is the Recovery owner's to add.
+  - **Note for test authors.** A `postgres_transaction` fixture never
+    commits, so history order is not assigned in it. Tests that need it force
+    the allocation or use a dedicated fixture.
+  - **To S-1078.** AC-613's real apply-versus-patch case and its Network Flow
+    case.
+
+### S-1078 / F-1063 / E-1135 — WH3: no incident-scoped exclusive lock spans bulk work; leases get their own connections (backend, config, tests)
+
+Recorded before editing; identities verified unused. DONE (below). This implements
+REQ-03-168 as amended by S-1076.
+
+**Change.**
+
+- **Timeline.** Row creation and patch read the time-conversion profile
+  `FOR SHARE`. Only the profile writer takes `FOR UPDATE`.
+- **Network Flow `CreateTableTx`.** Copy the rows first, under the
+  unpublished table, then take the incident lock to check limits and
+  lifecycle and publish. The other `lockIncidentTx` callers are audited for
+  holds that span bulk work.
+- **Leases.** They acquire their connections from the request pool. They get
+  dedicated connections, and pool sizing becomes explicit configuration with
+  documented headroom.
+- **Tests.**
+  - An import apply unit held mid-transaction, with a time-conversion
+    profile present: a Timeline patch commits.
+  - A Network Flow copy held mid-transaction: a patch commits.
+  - Lease connections leave the request pool's capacity untouched.
+- **Red.** Restore the profile `FOR UPDATE` or the lock-first ordering: the
+  matching test fails.
+
+**Spec correction** (recorded before the spec edit). The implementation added
+the configuration key `limits.database.max_runtime_pool_connections` and
+dedicated lease sessions before any owner text existed, which inverts the
+owner-first rule. The spec catches up now:
+
+- **Core 04.**
+  - The REQ-04-079 table gains the key, with default `32`.
+  - REQ-04-081 bounds it to `4..1024`.
+  - REQ-04-145 requires each lease to hold its lock on a dedicated, equally
+    admitted session outside the runtime pool.
+  - A new AC-615 verifies both.
+- **Core 03 REQ-03-168** gains two clarifications, from waits the
+  implementation found:
+  - Serialization between background jobs of one owner is permitted when it
+    blocks no ordinary editing. Network Flow imports in one incident
+    serialize on their participant's advisory key.
+  - Operations that change the incident row itself, or take its exclusive
+    publication lock, may wait for an in-progress apply unit's shared
+    admission. Examples are lifecycle and metadata edits, Network Flow
+    rename, delete and saved-graph changes, and bundle export publication.
+
+**Outcome** (implemented by a scoped agent and reviewed here).
+
+- **Profile.** `getTimeConversionProfileTx` reads `FOR SHARE` and serves
+  every reader: create, patch and the batch paths.
+  `lockTimeConversionProfileForWriteTx` takes `FOR UPDATE` for the PUT path
+  alone.
+- **Network Flow `CreateTableTx`.** The order is now:
+  1. validate;
+  2. an unlocked precheck of limits and name, so failures still come before
+     the copy;
+  3. insert the table under a provisional display name equal to its own
+     generated ID, which is unique by construction and invisible until
+     commit;
+  4. copy the rows and diagnostics;
+  5. take the incident lock;
+  6. the authoritative limit and name check against committed state,
+     excluding the table itself;
+  7. publish the display name;
+  8. the audit event.
+
+  Limits, name uniqueness ("flows (2)"), error order and the ID-collision
+  retry are unchanged. Imports admission holds the incident `FOR SHARE` for
+  the unit, so the incident cannot close mid-import. No other
+  `lockIncidentTx` caller holds the lock across bulk work.
+- **Leases.** `PostgresBackend.Open` opens a dedicated `pgx.Conn` from the
+  pool's configuration, running the pool's `BeforeConnect` and `AfterConnect`
+  admission hooks, so the session gets the same DSN, TLS, role and admission
+  but uses no pool capacity. The Recovery target lease follows.
+- **Pool size.** `postgres.Settings.MaxConnections` comes from
+  `limits.database.max_runtime_pool_connections` (default 32, range
+  4..1024). It replaces the host-dependent `max(4, NumCPU)`, leaving room
+  for 8 job handlers, two connections per import apply and the Collaboration
+  listener.
+- **Tests.** Three new rows, each observing waits through `pg_blocking_pids`:
+  - `module.imports.integration.import_apply_unit_in_progress_does_not_block_a_t_a646d89381`:
+    a real Timeline apply is held at its second row with a profile present.
+    A patch of another record returns 200, reads the profile, and precedes
+    the apply in history order.
+  - `module.imports.integration.network_flow_table_import_copy_does_not_block_an_461fa6beca`:
+    a real 300-row import is held at row 200. A patch commits, the table
+    stays invisible, and it then publishes as "flows" with 300 rows.
+  - `app.server.integration.lease_sessions_use_dedicated_connections_outside_d16b0c12b4`:
+    with both leases held, the pool shows 0 acquired and serves its full
+    capacity.
+
+  The config, startup and role tests also check the key.
+- **Red evidence.** Each was a diagnostic mutation, restored and confirmed
+  with `cmp`:
+  - `tcr-s1078-red-profile01`: `ordinary edit waited on the in-progress
+    import apply backend … wait=Lock/transactionid` on the profile read;
+  - `-red-nfcopy01`: the same wait, on the incident `FOR SHARE` admission;
+  - `-red-lease01`: `held leases drew from the request pool: acquired=2
+    total=2 max=2`.
+- **Verification.** These exited 0:
+  - `tcr-s1078-format01`, `-lintgo01`, `-lintbb01` and `-srcchk-catalog01`;
+  - `-newrows01`, `-lease01`, `-timeline01` (12 rows) and
+    `-workbookclear01`;
+  - `-networkflow01`: the full Network Flow owner, 152 rows;
+  - `-imports01`: 13 rows, including the 100,001-row and atomic-unit rows;
+  - `-extensions01`, `-recovery01`, `-appserver01`, `-pgpool01` and
+    `-config01`;
+  - **`-csvapply01`: `module.imports.measurement.csv_apply` passes.**
+- **Carried.** The Collaboration replay listener holds one pool connection
+  for the process lifetime. Its own dedicated session belongs to the
+  Collaboration owner, so it goes to WO.
+
+**WH exit.** All met:
+
+- the AC-613 tests are green with the real apply and Network Flow paths,
+  with red checks;
+- migration drift, generation and the source checks pass;
+- the measurement row that stalled passes.
+
+### S-1079 / F-1064 / E-1136 — WK1: one record-target classification order; unclassified errors are internal_error (documentation; owner first)
+
+Recorded before editing; identities verified unused. DONE (2026-11-18).
+
+**Gap.** Core 01 lists the outcomes of each record action, but no
+requirement fixes the order in which a record-addressed mutation classifies
+its target. No rule forbids turning an unclassified failure into a domain
+code either. The implementation diverges:
+
+- Five owners have their own target loaders.
+- Timeline folds the deleted state into not-found for patch, conflict and
+  batch, so a deleted Timeline record gives 404 where other owners give 409
+  `record_deleted_use_restore`.
+- Mention resolution never classifies its source record. A deleted source
+  gives 500, although REQ-01-211 requires 409.
+- Four `adaptRevisionWindowError` helpers turn database failures into 409
+  `row_version_conflict`.
+- Timeline `RecordIncident` turns database failures into 404.
+- Timeline supersede returns a bare sentinel that its adapter cannot match,
+  so a stale version gives 500.
+- A malformed reference-pack key gives 500.
+
+**Change.**
+
+- **Core 01 REQ-01-705, new: record target classification order.** After
+  the REQ-01-704 visibility gate, a mutation addressing a record classifies
+  it in this order:
+  1. a missing record is its not-found response;
+  2. a soft-deleted record is 409 `record_deleted_use_restore`, unless the
+     route operates on deleted records (restore, rollback);
+  3. a record type the route does not handle is its not-found response, or
+     409 `illegal_transition` for a lifecycle action;
+  4. a closed incident is 409 `incident_closed` (REQ-01-590);
+  5. a stale version is 409 `row_version_conflict`.
+
+  This matches the majority owner pattern. REQ-01-085, -087 and -211 keep
+  their route outcomes under this order.
+- **Core 01 REQ-01-706, new: unclassified failures.** A failure that no
+  typed condition of the route identifies, including a database or
+  infrastructure failure, MUST be `500` `internal_error`. It MUST NOT be
+  reported as a not-found, conflict or validation code.
+- **Core 04 AC-614, new**, verifying both.
+
+**Outcome.** REQ-01-705 and REQ-01-706 follow REQ-01-704, and AC-614 follows
+AC-613. `tcr-s1077-md01`, which covered these files, exited 0, and
+`git diff --check` passed.
+
+A later clarification, recorded here before the edit: REQ-01-705 governs
+routes that address one record by path identifier, plus a mention's source
+record. Batch routes keep their own whole-request and per-row outcomes.
+
+### S-1080 / F-1065 / E-1137 — WK2: one record-target classifier for every owner (backend, contracts, tests)
+
+Recorded before editing; identities verified unused. DONE (2026-11-18). This
+implements REQ-01-705.
+
+**Change.**
+
+- **`records.ClassifyTargetTx(ctx, tx, recordID, lock)`** returns the
+  envelope or typed `ErrTargetNotFound` / `ErrTargetDeleted`. It replaces:
+  - the private loaders in artifacts, Evidence, hostidentity, tasksdecisions
+    and parties;
+  - Timeline's folding of the deleted state into not-found for patch and
+    conflict resolution, including `keep_saved`'s load;
+  - the unclassified source path of mention actions;
+  - the indicator and note-association folding, where it governs a
+    single-record route.
+
+  `RouteTargetResolver` delegates to it.
+- **Mention actions** classify their source record before the mention
+  version check. `resolveEntityMention` declares 409
+  `record_deleted_use_restore` (REQ-01-211), with a change-set entry and
+  `make generate`. Any other route that newly emits the code declares it the
+  same way.
+- **Tests.**
+  - A classifier unit matrix.
+  - For each owner: patch, conflict resolution and lifecycle on a deleted
+    target give 409 `record_deleted_use_restore`, and on a missing target the
+    not-found response.
+  - Mention resolution on a deleted source gives 409.
+- **Red.** Restore Timeline's folding, and the mention path without
+  classification: the tests report 404 and 500.
+
+**Outcome.**
+
+- **Classifier.** `internal/modules/records/target_classification.go` adds:
+  - `ClassifyTargetTx` (package function and `*Store` method), with four
+    lock modes: `TargetLockNone`, `TargetLockShare`, `TargetLockNoKeyUpdate`
+    and `TargetLockUpdate`. An unknown mode is rejected before the read;
+  - `ClassifyTargetPresence`, for an envelope already read under a canonical
+    multi-record lock.
+
+  `ErrTargetNotFound` also matches `enveloperead.ErrEnvelopeNotFound`. With
+  `ErrTargetDeleted` the envelope is still returned, so the route can decide
+  visibility first. Any other database error is wrapped and never
+  classified. `RouteTargetResolver` delegates to it.
+- **Owner loaders replaced.**
+  - Artifacts, Evidence, hostidentity, tasksdecisions and parties call the
+    injected classifier.
+  - The raw-SQL `parties/internal/source/facts.go` is deleted.
+  - The supersede replacement guard tests the Records errors.
+  - The remaining `deleted_at` reads outside Records are incident-bundle
+    validation and link queries, not route targets.
+- **Timeline.**
+  - `prepareReferencesTx` takes a scope. Patch and value conflict resolution
+    classify the addressed record before and after the canonical lock.
+  - Create, paste, bulk and the performance fixture keep the batch folding.
+  - `keep_saved` classifies first.
+- **Mentions.** The source is classified from the canonical lock map before
+  `RequireOpenTx` and the mention version check. A deleted source gives
+  `ErrRecordDeletedUseRestore` (409). Replay still comes first.
+- **Indicators.** A deleted Indicator or observation source gives 409 on
+  mutations, after visibility and role and before the type check. Reads
+  still fold the deleted state into not-found.
+- **Note associations.** The mutation target is classified before the
+  incident-open check.
+- **Workbook PATCH.** A deleted record of a type with no patch owner gives
+  409, not 404.
+- **Adapter.** `recordTargetFailure` in `workbookassembly/route_ports.go`
+  serves the artifact, Evidence, entity, task/decision, party and
+  note-association maps. The dead `revisions.ErrRecordDeletedUseRestore`
+  cases are removed.
+- **Contract.**
+  - `resolveEntityMention`, `appendIndicatorStateInterval`,
+    `createManualIndicatorObservation` and `mutateNoteAssociations` declare
+    409 `record_deleted_use_restore`.
+  - Four `2.0.0.change-set.json` entries are replaced in place. All stay
+    `additive` (`tcr-s1080-compat01`).
+  - New fingerprints: `e3f77f75…`, `43b46351…`, `f7fb9167…` and `7eb74ad4…`.
+  - `make generate` refreshed the OpenAPI document, `internal/gen`, the
+    protocol bindings and the render index.
+- **New rows.**
+  - `module.records.envelope.record_target_classification_reports_missing_the_cf5d1f1803`:
+    - each lock mode against a missing, deleted and live target;
+    - `NOWAIT` probes proving each lock is held;
+    - an unknown mode is rejected;
+    - an aborted transaction is never reported as a classification.
+  - `module.workbook.integration.single_record_mutations_report_a_deleted_target_6e77d86c30`:
+    - covers nine owners;
+    - patch, `keep_saved`, `use_unsaved`, mark-reviewed, supersede and note
+      associations on a deleted target give 409, with no change set, receipt
+      or version change;
+    - a missing target gives 404;
+    - a closed incident with a stale base version still gives 409.
+  - `module.indicators.integration.indicator_child_mutations_report_a_deleted_path_261fd8cc7e`.
+  - The mention subtest "deleted source record must be restored first" of
+    `TestResolveRoute_Integration`.
+- **Red.** Each mutation was restored and confirmed with `cmp`:
+  - `tcr-s1080-timeline-red01`: patch got 404, want 409;
+  - `tcr-s1080-timeline-red02`: `keep_saved` got 404, want 409;
+  - `tcr-s1080-mention-red01`: got 500 `internal_error`, want 409.
+- **Green.**
+  - Generation and format:
+    - `tcr-s1080-generate01` stopped at the expected stale-fingerprint gate;
+    - `-generate02` and `-generate03` passed;
+    - `-format01..03` passed.
+  - Source checks:
+    - `-catalog01..02` passed;
+    - `-sourcegenerated01` failed on render-index drift, which
+      `-generate03` repaired;
+    - `-sourcegenerated02..03` passed.
+  - Lint: `-lintgo01..03`, `-linttypes01`, and `-lintboundary02..03`.
+    `-lintboundary01` rejected a method-call SQL builder, since replaced
+    by a plain helper.
+  - Row runs: `-records-rows01`, `-workbook-row01`, `-entities-row01` and
+    `-indicators-rows01`.
+  - Owner runs:
+
+    | Owner | Run | Passed |
+    | --- | --- | --- |
+    | records | `-records-owner01` | 12/12 |
+    | entities | `-entities-owner01` | 34/34 |
+    | artifacts | `-artifacts-owner01` | 9/9 |
+    | Evidence | `-evidence-owner01` | 40/40 |
+    | tasksdecisions | `-tasksdecisions-owner01` | 26/26 |
+    | parties | `-parties-owner01` | 23/23 |
+    | workbook | `-workbook-owner01` | 34/34 |
+    | indicators | `-indicators-owner02` | 19/19 |
+
+    `-indicators-owner01` failed one stale expectation in
+    `TestIndicatorTargetRoleFailuresAreAtomic_Integration`, which still
+    expected not-found for a deleted target. It now expects the deleted
+    outcome.
+- **Timeline owner run (`-timeline-owner01`, 63/65).** The two failures
+  are both the browser measurement
+  `module.timeline.measurement.timeline_blank_row_creation_satisfies_the_paint_afddd2ce13`,
+  whose p95 sat just over its 150 ms threshold:
+
+  | Run | Sources | p95 |
+  | --- | --- | --- |
+  | `-timeline-owner01` | S-1080 | 150.9 ms |
+  | `-timeline-measure01` | S-1080 | 154.3 ms |
+  | `-timeline-measure-base02` | Baseline, with the S-1080 Go and catalog changes swapped out and later restored with `cmp` | 159.6 ms |
+
+  The create path gains no query, and the baseline fails the same way. The
+  measurement is therefore unrelated to this slice and is carried to WN.
+- **Carried forward.**
+  - **To S-1086:** REQ-01-705 scope and replay position; linked-note and
+    attach-blob deleted sources; Indicator replay order, concealment codes
+    and open-check order.
+  - **To S-1083:** Timeline `keep_saved` still never checks
+    `incident_closed`.
+  - **To S-1081:** Indicator `visibleEnvelope` maps database errors to
+    not-found.
+  - **Unchanged:**
+    - Merge keeps `merge_precondition_failed` with
+      `survivor_not_mergeable` / `loser_not_mergeable` under REQ-01-104.
+    - Indicator-observation actions keep `indicator_observation_not_found`,
+      because their path addresses an observation, not a record.
+
+### S-1081 / F-1066 / E-1138 — WK3: unclassified failures are internal_error; supersede and pack-key mappings (backend, tests)
+
+Recorded before editing; identities verified unused. DONE (2026-11-18). This
+implements REQ-01-706.
+
+**Change.**
+
+- **Revision-window helpers.** The four `adaptRevisionWindowError` helpers
+  (artifacts, Evidence, parties, tasksdecisions) and Timeline's window-build
+  mappings pass unknown errors through.
+- **Entities.** `RevisionWindowError` is mapped like the other owners.
+- **Timeline.**
+  - `RecordIncident` stops turning database errors into not-found.
+  - Supersede returns `newRowVersionConflict`.
+  - Mark-reviewed's `row_version_conflict` carries full details.
+- **Reference packs.** `*ConsumerError` maps to 400
+  `invalid_reference_pack_request` with reason `invalid_pack_keys`, and the
+  `pack_key` path parameter gains its pattern.
+- **Race-only mappings.** `inspectImportUnitExtensionSource` and the
+  region-creation denials map to their declared codes.
+- **Tests.**
+  - Each helper turns an injected database error into `internal_error`.
+  - Supersede with a stale version gives 409.
+  - A malformed pack key gives 400.
+- **Red.** Restore one coercing helper and the sentinel: the tests report
+  409 and 500.
+
+**Outcome.**
+
+- **Revision-window helpers.** The four `adaptRevisionWindowError` helpers
+  map only `RevisionWindowError`. Any other error is wrapped and becomes
+  500. The Artifacts and tasksdecisions same-field builders no longer turn
+  every preview error into a window error. tasksdecisions'
+  `ErrInvalidSnapshotProjector`, a configuration fault, is now 500.
+- **Timeline.**
+  - `adaptPatchConflictWindowError` (`store_patch.go`) and
+    `adaptClientConflictValueError` (`conflict_values.go`) map only typed
+    conditions. `InvalidCollectionActionError` stays 400, and the typed
+    invalid-base errors stay 409.
+  - A collection preview action the admission contract excludes is now
+    500, as an invariant break.
+  - `getRecordIncident` reports not-found only for `records.ErrTargetNotFound`.
+  - Supersede and mark-reviewed share `applyAction`, which returns
+    `newRowVersionConflict` with `record_id`, `base_row_version` and
+    `current_row_version` (REQ-01-075).
+  - The admission classifier no longer maps the bare sentinel to 409.
+- **Entities.** `hostidentity` maps `RevisionWindowError` to 409
+  `row_version_conflict`; before, it gave 500.
+- **Reference packs.**
+  - A malformed key in a refresh body is 400 `invalid_reference_pack_request`
+    / `invalid_pack_keys`.
+  - The `pack_key` path parameter of get, activate, disable, reverify and
+    remove declares `packformat`'s pattern, length 3–128. A malformed path
+    key is 404 `reference_pack_not_found`, identical to a missing pack, as
+    REQ-01-707 step 3 requires.
+  - There is no blanket `*ConsumerError` → 400 mapping, because internal
+    invariant `ConsumerError`s stay 500.
+- **Imports.**
+  - `unitSourceAPIError` maps a race-lost unit to 404
+    `import_unit_not_found` for source inspection and mapping preview.
+  - `regionAdmissionAPIError` maps a lost-visibility recheck to 404
+    `import_session_not_found`, and a lost role to 403
+    `authorization_denied`. `createImportUnitRegion` declares both.
+- **Indicators.** `visibleEnvelope` and the three read routes keep 500 for any
+  envelope read error other than `ErrEnvelopeNotFound`.
+- **Spec correction, recorded before the edit.** AC-614's pack-key bullet
+  now distinguishes a refresh body's `pack_keys[]` (400) from a `pack_key`
+  path parameter (404, under REQ-01-707). AC-614 now verifies REQ-01-707,
+  and REQ-01-707 cites AC-614. `tcr-s1081-md01` exited 0, and
+  `git diff --check` passed.
+- **Contract.** `tcr-s1081-compat01` passed:
+  - **Breaking (narrowed inputs within the unreleased 2.0.0):** four new
+    `pack_key` pattern entries for get, activate, disable and reverify
+    (`1e1a275c…`, `642c0287…`, `06a56e1d…`, `697d2801…`).
+  - **Additive:** the remove-path entry was replaced in place
+    (`7fe05b2b…` → `4c715b79…`).
+  - `tcr-s1081-generate01` stopped at the expected fingerprint gate, and
+    `-generate02` passed.
+- **New rows.**
+  - `module.artifacts.source_mutations.artifact_revision_window_failures_classify_only_5bab57001b`
+  - `module.evidence.unit.evidence_revision_window_failures_classify_only_8b5dfd9a66`
+  - `module.parties.unit.party_revision_window_failures_classify_only_the_551d8403de`
+  - `module.tasksdecisions.source_mutations.task_and_decision_revision_window_failures_class_4da3d4a41f`
+  - `module.entities.unit.entity_unusable_revision_window_fails_closed_as_994c1bee09`
+  - `module.timeline.unit.timeline_unclassified_failures_stay_internal_err_239d9a95b4`
+  - `module.imports.unit.import_race_only_failures_use_declared_codes_1d24b7726a`
+  - `module.indicators.target_resolution.indicator_envelope_read_failures_are_internal_er_dfc139792b`
+  - `module.reference_data.integration.malformed_reference_pack_keys_are_request_or_not_7af1b12f62`
+  - `module.workbook.integration.row_version_conflicts_name_the_record_and_both_v_3ed88f6dc7`.
+    Supersede and mark-reviewed with a stale base give 409 with full
+    details. Eight owners' stale patches over an unusable history give 409
+    with full details and commit nothing.
+
+  The only changed existing test is
+  `module.timeline.unit.timeline_admission_maps_public_errors_c11874aa1a`.
+- **Red.** Each run was restored with `cp` and confirmed with `cmp`:
+  - `tcr-s1081-artifacts-red01`: the coerced row version conflict was
+    reported;
+  - `tcr-s1081-supersede-red01`: 500, want 409;
+  - `tcr-s1081-supersede-red02`: mark-reviewed details were empty;
+  - `tcr-s1081-packkey-red01`: 500, want 400 or 404;
+  - `tcr-s1081-entities-red01`: 500, want 409;
+  - `tcr-s1081-indicators-red01`: 404, want 500.
+- **Green.**
+  - Checks: `format01`, `lintgo01`, `linttypes01`, `lintboundary01`,
+    `catalog01`, `sourcegenerated01` and `compat01`.
+  - Every new row passed in its owner's row run.
+  - Owner runs, all units passing:
+
+    | Owner | Units |
+    | --- | --- |
+    | artifacts | 9/9 |
+    | parties | 23/23 |
+    | tasksdecisions | 26/26 |
+    | Evidence | 40/40 |
+    | entities | 34/34 |
+    | imports | 37/37 |
+    | indicators | 19/19 |
+    | reference_data | 48/48 |
+    | workbook | 34/34 |
+    | timeline | 65/65 |
+
+    The Timeline paint measurement passed in this run.
+  - `make author-test-row-id` rejects machine output mode, so the row-ID
+    runs `rowid02..11` ran without it.
+- **Carried to WM.**
+  - Region creation's `getRegionBase` can emit 409 `import_apply_blocked`
+    (`source_changed`), which `createImportUnitRegion` does not declare.
+  - `tasksdecisions/mutation_conflict_resolution.go:68` maps a field-catalog
+    lookup on server-issued claims to not-found. This was reviewed and left
+    unchanged, because it is not an infrastructure failure.
+
+### S-1082 / F-1067 / E-1139 — WL1: requirement-family conformance is verified by catalog-driven matrices (documentation; owner first)
+
+Recorded before editing; identities verified unused. DONE (2026-11-18).
+
+**Gap.** REQ-01-590's closed-incident rule, REQ-01-705's deleted-record order
+and REQ-01-704's concealment are cross-cutting. Each owner tested its own
+routes, two owners missed REQ-01-590 (assessment creation and Timeline
+`keep_saved`), and only 6 of S-1069's 113 new declarations are exercised. No
+acceptance criterion requires a family to be verified across every operation
+the contract lists.
+
+**Change.**
+
+- **Core 04 AC-616, new.** Three matrices, each derived from the generated
+  operation catalog, so an operation without a case fails the matrix:
+  - every operation that declares 409 `incident_closed` rejects with it on a
+    closed incident and commits nothing (REQ-01-590, REQ-01-591);
+  - every single-record operation that declares 409
+    `record_deleted_use_restore` returns it for a soft-deleted target and
+    commits nothing (REQ-01-705);
+  - every incident-scoped operation returns its resource's not-found to a
+    non-member, identical to a missing resource, and commits nothing
+    (REQ-01-704).
+- REQ-01-590 and REQ-01-591 add AC-616 to their Verified-by lines.
+
+**Outcome.** AC-616 follows AC-615 in Core 04. REQ-01-590, REQ-01-591,
+REQ-01-704 and REQ-01-705 cite it. S-1086 later rekeyed the deleted-record
+bullet to path-addressed mutations. `tcr-s1086-md01` exited 0 (126 files, no
+fixes), and `git diff --check` passed.
+
+### S-1083 / F-1068 / E-1140 — WL2: assessments and Timeline `keep_saved` honour closed incidents; three conformance matrices (backend, test support, tests)
+
+Recorded before editing; identities verified unused. DONE (2026-11-18). This
+implements AC-616.
+
+**Change.**
+
+- **Assessments.**
+  - `RequireOpenTx` runs after the replay branch of `assessments.Facade.Create`
+    (`facade.go`), so a replay after closure still returns its original
+    result.
+  - The incident port goes in `FacadeDependencies`.
+  - `assessmentCreateFailure` maps `DenialIncidentClosed`.
+- **Timeline `keep_saved`.** `clearConflict` calls `RequireOpenTx` inside its
+  transaction.
+- **Fixtures.**
+  - The private import helpers move to `imports/testsupport`.
+  - The workbook observation snapshots extend to entity mentions, object
+    Blobs, upload leases, import tables and jobs.
+- **Matrices.** Each fixture table's key set must equal the catalog-derived
+  set from `httpapi.ContractOperations()`, and every case asserts the
+  status, the code and that nothing changed:
+  - `TestIncidentClosedConformance`: every operation declaring 409
+    `incident_closed` (27 at S-1088).
+  - `TestDeletedRecordConformance`, following AC-616 as amended by S-1086
+    and S-1087. The key set is every state-changing operation whose path
+    names a record, plus `resolveEntityMention`'s source record, minus
+    these exclusions, each stated with its reason in the test:
+    - soft-delete, which is expected to return `record_already_deleted`;
+    - restore, rollback and merge;
+    - handle issuance.
+
+    S-1086's enumeration is the expected set. Every member must also
+    declare the code.
+  - `TestNonMemberConcealmentConformance`. Its table classifies every
+    catalog operation:
+    - incident-scoped, with a case;
+    - or not incident-scoped, with a reason.
+
+    A new operation without a classification fails the check.
+- **Phases.**
+  - Phase A: the Assessments and `keep_saved` fixes, the fixtures, and the
+    first two matrices.
+  - Phase B: the concealment matrix.
+- **Red.**
+  - Remove `RequireOpenTx` from a covered owner: its case fails.
+  - Add a catalog operation without a case: the key-set check fails.
+
+**Phase A outcome (2026-11-18).**
+
+- **Assessments.**
+  - `facade.go` gains `FacadeDependencies.Incidents`
+    (`IncidentLifecyclePort`), and `NewFacade` rejects nil and typed nil.
+  - `Create` calls `RequireOpenTx` after the replay branch and before
+    reference admission.
+  - The port is wired as `incidentadmission.NewChecker(pool)`.
+  - `assessment_adapter.go` maps `DenialIncidentClosed`.
+  - `createViewRow` already declared the 409, so the contract is unchanged.
+- **`keep_saved`.** `clearConflict` calls `RequireOpenTx` after the type
+  check. `keep_saved` has no version check, and replay stays first.
+- **Fixtures.**
+  - The new `internal/modules/imports/testsupport/public_lifecycle.go` holds
+    the moved helpers, and the old private helpers delegate to it. The
+    unit-route builder avoids the backend-boundary SQL-keyword inference.
+    The test-support inventory rationale is updated.
+  - The new `internal/testutil/workbookscenariotest/incident_effects.go`
+    snapshot extends `MutationEffects`. It adds record source, the incident
+    row and memberships, the time-conversion profile, mentions, the
+    Indicator children, links and tags, every projection, every receipt,
+    Blob and upload state, the import tables, and incident Jobs.
+- **Matrices.** These are in `internal/app/serverprocess`, driving the
+  assembled server through `appsupport`:
+  - `TestIncidentClosedConformance`: 27 operations. `createViewRow` runs
+    once per create-capable view schema, which is checked as its own key
+    set. Conflict resolution runs both `keep_saved` and `use_unsaved`.
+  - `TestDeletedRecordConformance`: the key set is derived by rule from the
+    path parameters, adds `resolveEntityMention`, and states six
+    exclusions. It equals S-1086's ten operations, each of which must
+    declare the code. `deleteRecord` has its own `record_already_deleted`
+    subtest.
+  - `requireCaseKeySet` names missing and extra operation IDs before the
+    server starts.
+  - Fixtures use public routes only. Each request asserts its exact status
+    and code and an unchanged snapshot. A non-vacuity check requires the
+    snapshot to observe the closure and the soft-delete themselves.
+  - New rows:
+    - `app.server.integration.operations_declaring_incident_closed_reject_a_cl_bdbacbfa00`
+    - `app.server.integration.record_addressed_mutations_reject_a_soft_deleted_f8ed4d749a`
+- **Defects found.** None beyond the two named gaps.
+- **Red.** Each was restored with `cp` and confirmed with `cmp`:
+  - `tcr-s1083-assessments-red01`: 201, want 409;
+  - `tcr-s1083-keepsaved-red01`: 200, want 409;
+  - `tcr-s1083-keyset-red01`: the two key sets lack
+    `uploadObjectBlobContent` and `createRecordLinkedNote`.
+- **Green.**
+  - Checks: `format01..03`, `lintgo01..03`, `linttypes01`,
+    `lintboundary02..03`, `generate01..02`, `sourcegenerated01..02`,
+    `sourcecatalog01..02` and `sourceschema01`.
+  - Row runs: `matrix-rows04`, `assessments-rows01`, `imports-rows01` and
+    `workbook-rows01`.
+  - Owner runs:
+
+    | Owner | Units | Rows |
+    | --- | --- | --- |
+    | assessments | 28/28 | 27/27 |
+    | timeline | 65/65 | 212/212 |
+    | imports | 37/37 | 60/60 |
+    | workbook | 34/34 | 288/288 |
+    | app.server | 31/31 | 56/56 |
+  - Two failures were fixed along the way:
+    - `lintboundary01`: the SQL-keyword inference on a route string;
+    - `matrix-rows02`: a test defect in the first non-vacuity class.
+
+**Phase B outcome (2026-11-18).**
+
+- **`TestNonMemberConcealmentConformance`** is in `internal/app/serverprocess`
+  and classifies all 136 operations.
+  - **94 are incident-scoped, each with a case.**
+    - 68 are forced by the contract: an `{incident_id}` or record path
+      parameter, or a declared `incident_not_found`.
+    - 26 are declared by hand: Jobs, import sessions and units, mention
+      resolution, Blob verification and upload, handle redemption,
+      snapshots, releases and incident bundles.
+  - **42 are not incident-scoped, each with a reason:**
+
+    | Group | Count |
+    | --- | --- |
+    | Own account and session | 11 |
+    | Enterprise authentication | 5 |
+    | Deployment administration | 12 |
+    | Reference packs | 9 |
+    | View schemas | 2 |
+    | Incident directory | 1 |
+    | Incident creation and bundle import | 2 |
+
+    A contract-forced operation cannot be given a reason instead of a
+    case.
+- **Each case.**
+  - The non-member is a non-admin deployment user with no membership.
+  - The missing side is the admin member with the addressed identifier
+    replaced: a path ID, a token, or a body `incident_id` or
+    `snapshot_id`.
+  - Status, code and details must be identical, ignoring `request_id`, and
+    the snapshot must be unchanged.
+  - The snapshot gained the `Workspace` and `Reporting` classes.
+  - `getRetainedReportArtifactContent` addresses an unretained artifact in
+    the live incident, because retained artifacts exist only on imported
+    incidents.
+- **Defect found and fixed: incident-bundle concealment.**
+  `exportIncidentBundle`, `getIncidentBundleDescriptor` and
+  `getIncidentBundleContent` checked `deployment_admin` before the bundle's
+  incident visibility. A non-member got 403 `authorization_denied` where a
+  missing bundle gets 404 `incident_bundle_not_found` (`tcr-s1083b-row01`).
+  - `incidentbundles/routes.go` now authenticates, resolves the bundle or
+    decodes the body, checks visibility, and only then requires
+    `deployment_admin` (REQ-01-704, REQ-01-608).
+  - Import keeps its admin-first order, because it addresses no existing
+    incident.
+  - The contract is unchanged.
+- **Row.** `app.server.integration.non_members_receive_the_missing_resource_respons_4fbc2a81d1`.
+- **Red.** Each was restored with `cp` and confirmed with `cmp`:
+  - `tcr-s1083b-indicator-red01`: the S-1086 Indicator concealment
+    reverted. The non-member got `incident_not_found` where a missing
+    record gets `indicator_not_found`, and a read got 500 from the
+    undeclared-code guard.
+  - `tcr-s1083b-classification-red01`: an operation without a case
+    (`getJob`).
+  - `tcr-s1083b-derivation-red02`: `getIncident` given a reason, although
+    its path addresses an incident.
+  - `-derivation-red01` did not apply its edit, ran green, and is not
+    evidence.
+- **Green.**
+  - Checks: `generate01`, `format02..03`, `lintgo01..03`, `linttypes01`,
+    `lintboundary01`, `sourcegenerated01` and `sourcecatalog01`.
+    `format01` refused the uncatalogued test before the row was authored.
+  - Row runs: `row02`, and `rows01` (all three matrices on the final
+    source).
+  - Owner runs: `incidentbundles-owner01` (14/14 units, 40/40 rows) and
+    `appserver-owner01` (31/31, 57/57), with the secret scan passing.
+- **WL exit.**
+  - The three matrices are green, with red evidence.
+  - Every operation that declares `incident_closed` or
+    `record_deleted_use_restore` now has a case. WP's `make check` coverage
+    report confirms that.
+
+### S-1084 / F-1069 / E-1141 — WI1: one request admission order; pre-resolution responses are registered and enveloped (documentation; owner first)
+
+Recorded before editing; identities verified unused. DONE (2026-11-18). This
+is maintainer decision 3 of the E-1128 entry.
+
+**Gap.** Sixteen handlers authenticate, parse paths and check methods by
+themselves:
+
+- Several split the decoded `r.URL.Path`, so an encoded slash routes a
+  request into another operation's code path.
+- Malformed identifiers get a plain-text 404, often before authentication.
+  REQ-01-074 and REQ-01-186 require authentication first and an enveloped
+  404.
+- HEAD on a GET route gets a bare 405 with no body.
+- Unknown routes and undeclared methods get plain-text responses with no
+  registered code.
+
+REQ-01-074 and REQ-01-186 state the order for their own routes; no
+requirement states it for every operation.
+
+**Change.**
+
+- **Core 01 REQ-01-707, new: request admission.** Every request is admitted
+  in this order:
+  1. route resolution;
+  2. authentication and CSRF by the declared security (REQ-01-703);
+  3. path parameters, which come from the matched segments, where encoded
+     separators never become path structure. A value that violates the
+     parameter's declared format gets the parameter's declared not-found
+     response, identical to a missing resource;
+  4. the REQ-01-704 visibility gate;
+  5. route-specific handling.
+- **Unknown routes and methods.** An unknown path gets 404
+  `route_not_found`. A known path with an undeclared method, HEAD included,
+  gets 405 `method_not_allowed`, with an `Allow` header and
+  `details.allowed_methods`. Both are enveloped, registered, and belong to
+  no operation.
+- **Registry.** Core 01 §3.3.6.1 gains both codes.
+- **OpenAPI.** Each path parameter declares its format and its
+  `x-cartulary-not-found-code`.
+- **Core 04 AC-617, new.**
+
+**Outcome.**
+
+- REQ-01-707 follows REQ-01-706 and cites AC-617.
+- `route_not_found` and `method_not_allowed` join the §3.3.6.1 registry
+  after `service_unavailable`.
+- The OpenAPI `x-cartulary-not-found-code` projection is WI2 implementation
+  and is not part of this slice.
+- `tcr-s1086-md01` exited 0, and `git diff --check` passed.
+
+### S-1085 / F-1070 / E-1142 — WM1: every resolved response is declared; the admission gate's 503 is registered (documentation; owner first)
+
+Recorded before editing; identities verified unused. DONE (2026-11-18). This
+is maintainer decision 2 of the E-1128 entry.
+
+**Gap.**
+
+- REQ-01-702 exempts `internal_error` and pre-resolution rejections, but
+  REQ-03-086a gives the client no matching exemption. A legitimate 503 from
+  the admission gate therefore shows as a contract failure.
+- `service_unavailable` is used by the Extension NLSpec and sent by the
+  gate, but it is absent from Core 01's registry.
+- Lease uncertainty reuses `extension_publication_pending`.
+- 89 of 136 operations declare no 500.
+- `exportIncidentBundle` declares 409 `incident_bundle_export_rejected`,
+  which only its job ever reports.
+
+**Change.**
+
+- **Core 01 REQ-01-702.** The exemptions are replaced. Only REQ-01-707's two
+  pre-resolution codes belong to no operation. Assembly implies, and checks
+  in both directions:
+  - 500 `internal_error` on every operation;
+  - 503 `service_unavailable` on every operation;
+  - 404 `extension_profile_not_claimed` exactly on operations in a reserved
+    extension route family.
+- **Registry.** `service_unavailable` (503, retryable) is registered, with
+  the reason registry:
+  - `extension_publication_pending`: startup publication has not opened
+    admission;
+  - `admission_paused`: lease ownership is uncertain;
+  - `extension_integrity_failure`: fatal;
+  - `extension_transaction_timeout`: the Extension NLSpec's proven-absent
+    timeout.
+- **Extension NLSpec and Core 04 REQ-04-145.** While a lease is uncertain,
+  the gate answers `admission_paused`.
+- **REQ-03-086a.** A `503` `service_unavailable` is shown as temporary
+  unavailability with retry, never as a contract failure.
+- **REQ-01-486 and Table 17.5-A.** `incident_bundle_export_rejected` is the
+  export job's terminal code only; the route never returns it.
+- **AC-608** gains the implied declarations. A new **AC-618** covers the
+  gate's reasons and the client's transient state.
+
+**Outcome.**
+
+- Core 01: the REQ-01-702 rewrite; `service_unavailable` in the registry,
+  with its reason table including `admission_paused`; REQ-01-486, which now
+  cites AC-618.
+- Core 03: REQ-03-086a cites AC-618.
+- Core 04: REQ-04-145 sends `admission_paused`; AC-608 is amended; AC-618 is
+  added.
+- Extension NLSpec: EXT-REQ-213 sends `admission_paused`.
+- `tcr-s1086-md01` exited 0, and `git diff --check` passed.
+
+### S-1086 / F-1071 / E-1143 — WK4: REQ-01-705 scope, replay position, and the routes S-1080 left (documentation owner first; backend, contracts, tests)
+
+Recorded before editing; identities verified unused. DONE (2026-11-18). These
+are the S-1080 hand-back items.
+
+**Gap.**
+
+- REQ-01-705 says every owner applies its order "whichever route admits the
+  mutation". It does not say which other requirements keep their own order:
+  - The destructive-operation family (REQ-01-104) must evaluate eligibility
+    only after acquiring its protected set. Merge reports a deleted survivor
+    or loser as `merge_precondition_failed`.
+  - A path that addresses a child object, such as an Indicator observation,
+    addresses no record.
+- REQ-01-705 leaves replay at "the position its route gives it". The
+  Indicator rows say only that "exact replay wins before concurrency".
+  REQ-01-590 lets a committed replay return its original success after
+  closure. Patch and mention replays come before the deleted check, but
+  Indicator replays come after it: a replay after the Indicator is deleted
+  gets 409, not its receipt.
+- `createRecordLinkedNote` and `attachBlobToEvidenceRecord` address one
+  record by path, but a deleted target gives 404.
+- **Concealment.** A non-member gets `incident_not_found` on Indicator
+  routes, but a missing record gets `indicator_not_found` or
+  `indicator_source_record_not_found`. That distinguishes an invisible
+  record from a missing one, contrary to REQ-01-704.
+- **Ordering.** The Indicator service checks `incident_closed` before its
+  locked classification. A delete racing a close can therefore report
+  `incident_closed` first.
+- AC-616's deleted-record matrix is keyed on operations that declare the
+  code. An operation that omits both the behaviour and the declaration
+  escapes it.
+
+**Change.**
+
+- **Core 01 REQ-01-705.**
+  - The order also governs routes that create something under a record
+    addressed by path.
+  - An exact committed replay returns its original receipt before steps 2–5.
+  - The REQ-01-104 destructive family keeps its own eligibility order after
+    acquiring its locks, and merge's deleted survivor or loser stays
+    `merge_precondition_failed`.
+  - A path that addresses a child object is not a record target.
+- **Core 04 AC-616.** The deleted-record matrix is keyed on every mutation
+  that addresses one record by path, outside the destructive family. Each
+  must declare 409 `record_deleted_use_restore` and return it.
+- **Implementation.**
+  - `createRecordLinkedNote` and `attachBlobToEvidenceRecord` classify their
+    path record and declare the 409, with change-set entries and
+    `make generate`.
+  - Indicator routes:
+    - replay is checked before the deleted check;
+    - a non-member gets the route's own not-found code;
+    - the locked classification comes before `RequireOpenTx`.
+  - `contextual_note_lock_test.go` and any other test that pins the old
+    outcomes are updated.
+- **Tests.**
+  - A deleted target gives 409 on both new routes.
+  - An Indicator replay after deletion returns its receipt.
+  - On every Indicator route, a non-member and a missing record get
+    identical responses.
+- **Red.** Restore each old ordering: the tests report 404, 409 and
+  `incident_not_found`.
+
+**Progress.** The spec part is done. REQ-01-705 now has three new
+paragraphs: path-addressed creation, child objects, and the destructive
+family with replay before steps 2 to 5. The AC-616 deleted-record bullet is
+rekeyed. `tcr-s1086-md01` exited 0, and `git diff --check` passed. The
+implementation follows S-1081.
+
+**Outcome.**
+
+- **Linked notes.**
+  - `artifacts/contextual_notes.go` `contextIncidentTx` classifies the
+    source under `TargetLockUpdate`. The order is replay (before the
+    transaction), then the locked classification, then `RequireOpenTx`.
+  - The workbook route gives 409 for a soft-deleted record of a type that
+    cannot hold linked notes, and keeps 404 for a live one.
+  - `contextual_note_lock_test.go` expects `records.ErrTargetDeleted`.
+- **Attach-blob.**
+  - The handler's `LoadAttachTarget` decides visibility (concealed as
+    `evidence_record_not_found`) and role before classifying the target.
+    The handler's early `incident_closed` check is removed.
+  - The service's locked read includes deleted Evidence. A deleted record
+    returns an exact committed receipt if one exists; otherwise it returns
+    `errAttachTargetDeleted`, an Evidence-local sentinel wrapping
+    `records.ErrTargetDeleted`. The boundary rule forbids the Evidence
+    route files from importing Records.
+- **Contract.** Both operations declare 409 `record_deleted_use_restore`.
+  Two `2.0.0.change-set.json` entries were replaced in place, both
+  `additive`:
+  - `b4701410…` → `4359a6c9…`;
+  - `b5a48003…` → `b03b3e5e…`.
+- **Indicators.**
+  - `admitMutationTarget` checks only that the record exists, then
+    visibility, then role. Replay, then the deleted and type checks, then
+    `RequireOpenTx` follow in the services under the record lock.
+  - `requireIncidentAdmission` takes the route's not-found constructor, so
+    all eight routes conceal an invisible incident as `indicator_not_found`,
+    `indicator_source_record_not_found` or `indicator_observation_not_found`.
+  - Because role now precedes type, a viewer addressing a wrong-type record
+    on state-intervals gets 403, and an invalid body on a wrong-type record
+    gets 400.
+- **Enumeration for AC-616.** The path-addressed record mutations that
+  declare and return 409 are:
+  - patch, conflict resolution, mark-reviewed, supersede, note
+    associations, mention resolution (its source record), state intervals,
+    manual observations, linked notes and attach-blob.
+
+  These were excluded:
+
+  | Operation | Reason |
+  | --- | --- |
+  | `deleteRecord` | `record_already_deleted` under REQ-01-076 (S-1087) |
+  | Evidence preview and download handles | Read-like, and allowed on closed incidents (S-1087) |
+  | restore, rollback, merge | REQ-01-104 |
+  | Observation actions | They address a child object |
+- **New rows.**
+  - `module.workbook.integration.linked_note_creation_returns_a_committed_replay_0c82b66329`
+  - `module.evidence.integration.evidence_attach_returns_a_committed_replay_first_39748fa299`
+  - `module.indicators.integration.indicator_routes_conceal_invisible_incidents_wit_5ce9ae62df`
+
+  They cover:
+  - replay after deletion, and after closure, returns the identical receipt
+    and commits nothing;
+  - a fresh request on a deleted record gets 409 and commits nothing;
+  - a missing record gets the route's not-found;
+  - a non-member's response is identical to a missing record's;
+  - on all eight Indicator routes, a non-member gets the same response as a
+    missing record.
+- **Red.** Each run was restored with `cp` and confirmed with `cmp`:
+  - `tcr-s1086-linkednote-red01`: 404 `incident_not_found`, want 409;
+  - `tcr-s1086-indicator-red01`: 409, want 200 replay;
+  - `tcr-s1086-concealment-red01` and `-red02`: 500 on a read, then
+    `incident_not_found`, want `indicator_source_record_not_found`;
+  - `tcr-s1086-ordering-red01`: with `RequireOpenTx` moved first, the
+    S-1080 row reports `incident_closed`, want 409.
+- **Green.**
+  - Checks: `generate02`, `format01..02`, `lintgo01..02`, `linttypes01`,
+    `lintboundary02`, `sourcegenerated01`, `catalog01` and `compat01`.
+  - Row runs: `indicators-rows01`, `workbook-rows01`, `evidence-rows01` and
+    `artifacts-rows01`.
+  - Owner runs:
+
+    | Owner | Units | Rows |
+    | --- | --- | --- |
+    | indicators | 19/19 | 43/43 |
+    | Evidence | 40/40 | 107/107 |
+    | artifacts | 9/9 | 22/22 |
+    | workbook | 34/34 | 288/288 |
+  - `generate01` stopped at the expected fingerprint gate.
+    `lintboundary01` rejected a Records import from the Evidence route
+    files; the Evidence-local sentinel replaced it.
+- **Carried to WM.** `incident_not_found` is now dead on
+  `appendIndicatorStateInterval`, `createManualIndicatorObservation` and the
+  three observation actions.
+- **Carried to S-1087.**
+  - AC-616 must say how it treats delete and handle issuance.
+  - An attach-blob replay still checks Blob eligibility and the incident's
+    lifecycle before returning its receipt, against REQ-01-245 and
+    REQ-01-705.
+  - Two REQ-01-706 mappings remain in Indicator observation lookups and the
+    attach-blob visibility check.
+
+### S-1087 / F-1072 / E-1144 — WK5: delete and handle issuance in REQ-01-705; attach replay first; two REQ-01-706 mappings (documentation owner first; backend, tests)
+
+Recorded before editing; identities verified unused. DONE (2026-11-18).
+
+**Gap.**
+
+- **Delete conflicts with AC-616.** REQ-01-076 requires `DELETE` of a
+  soft-deleted record to fail with `record_already_deleted`. AC-616, as
+  rekeyed by S-1086, requires every path-addressed mutation outside the
+  REQ-01-104 family to return `record_deleted_use_restore`.
+- **Handle issuance.** Evidence preview and download handle issuance address
+  a record by path but do not mutate it. REQ-01-590 allows them on a closed
+  incident. REQ-01-705 does not say whether they are mutations.
+- **Attach replay.** REQ-01-245 requires an exact attach replay to return
+  the original committed result, and enforces Blob eligibility only on fresh
+  requests. REQ-01-705 places replay before steps 2 to 5. The
+  implementation instead:
+  - checks Blob eligibility before replay, which `attach_test.go` pins with
+    "a committed receipt cannot bypass current blob eligibility";
+  - answers a replay for a live record after closure with `incident_closed`.
+- **REQ-01-706.** Two mappings still classify unknown failures:
+  - Indicator observation actions turn every `GetIndicatorObservation`
+    error into 404;
+  - the attach-blob handler turns every visibility-check error into
+    `evidence_record_not_found`.
+
+**Change.**
+
+- **Core 01 REQ-01-705.**
+  - Step 2 names soft-delete: a soft-delete of a soft-deleted record gets
+    `record_already_deleted` (REQ-01-076).
+  - A route that only reads a record or issues a handle to it is not a
+    mutation under this requirement.
+- **Core 04 AC-616.** The deleted-record bullet excludes soft-delete and adds
+  a check that it returns `record_already_deleted`.
+- **Implementation.**
+  - An exact committed attach replay returns its receipt before Blob
+    eligibility and before the deleted, lifecycle and version checks.
+    Fresh requests keep every check. The `attach_test.go` pin is updated to
+    REQ-01-245.
+  - The two mappings return 500 for any error other than their typed
+    not-found or not-visible denial.
+- **Tests.**
+  - A replay after quarantine, and one after closure of a live record,
+    returns the original receipt and commits nothing.
+  - An injected lookup failure gives 500 on each mapping.
+- **Red.** Restore the old order and each mapping.
+
+**Progress.** The spec part is done: REQ-01-705 step 2 and its scope
+paragraph, and the AC-616 bullet. `tcr-s1087-md01` exited 0, and
+`git diff --check` passed.
+
+**Outcome.**
+
+- **Attach order.** `blob_attachment.go` `committedAttachReplayTx` runs
+  immediately after the Evidence row lock in both `PreflightAttachBlob` and
+  `AttachBlob`. The route order is:
+  1. authentication;
+  2. target read, visibility and role;
+  3. body;
+  4. a non-Evidence target: deleted gives 409, live gives 404;
+  5. the Evidence lock;
+  6. exact replay (200, original receipt) or `client_txn_conflict`;
+  7. deleted;
+  8. `RequireOpenTx`;
+  9. Evidence quarantine;
+  10. the Blob lock and eligibility;
+  11. association and version.
+
+  `AttachBlob` repeats the replay check under its own lock, which catches a
+  competing exact commit after preflight. Fresh requests keep their checks.
+- **Quarantine race.** A replay takes only the Evidence lock, the first lock
+  in quarantine's Evidence → incident → Blob order (REQ-02-190a), and only
+  reads. It cannot deadlock or leave the Evidence and the Blob
+  inconsistent. `blob_lock_order_integration_test.go` now requires 200 for a
+  replay that races a quarantine; before, it also accepted 409.
+- **REQ-01-706.**
+  - Indicator `handleObservationAction` maps only
+    `ErrIndicatorObservationNotFound` to 404.
+  - Evidence `route_admission.go` `concealedIncident` maps only
+    `DenialNotVisible` to the route's not-found, and `handleAttachBlob` uses
+    it.
+  - `routeAdmission.auth` is now an interface, so handler tests can use
+    fakes.
+- **Tests.** Existing rows were extended; no row was added:
+  - `module.evidence.store.post_api_v1_evidence_records_record_id_attach_bl_14293e0ccf`:
+    - the "receipt cannot bypass eligibility" pin is replaced by the
+      REQ-01-245 rule: preflight and attach both return the original receipt
+      after quarantine and change no counts, while a fresh key still gets
+      `blob_quarantined`;
+    - an injected visibility read failure gives 500.
+  - `module.evidence.integration.evidence_attach_returns_a_committed_replay_first_39748fa299`:
+    - a real quarantine, then a replay, returns the identical receipt;
+    - a fresh request is rejected;
+    - a divergent request gets `client_txn_conflict`;
+    - after closure, a replay on a live record returns the identical receipt.
+  - `module.evidence.integration.evidence_blob_lock_order`: the tightened
+    race.
+  - `module.indicators.target_resolution.indicator_envelope_read_failures_are_internal_er_dfc139792b`:
+    resolve, dismiss and restore with an injected lookup failure give 500.
+- **Red.** Each file was restored with `cp` and confirmed with `cmp`:
+  - `tcr-s1087-attachorder-red01`: three rows fail with
+    `blob_quarantined` / `evidence_quarantined`, want 200;
+  - `tcr-s1087-closurereplay-red01`: `incident_closed`, want 200;
+  - `tcr-s1087-attachvisibility-red01`: 404, want 500;
+  - `tcr-s1087-observationlookup-red01`: 404, want 500 on all three
+    actions.
+- **Green.**
+  - Checks: `format01`, `lintgo01`, `linttypes01`, `lintboundary01` and
+    `sourcegenerated01`. No catalog input changed.
+  - Row runs: `evidence-rows01` (5/5) and `indicators-rows01` (1/1).
+  - Owner runs: `evidence-owner01` (40/40 units, 107/107 rows) and
+    `indicators-owner01` (19/19, 43/43).
+- **Carried to S-1088.**
+  - Four more Evidence handlers turn every visibility-check error into a
+    not-found code.
+  - No requirement says where a divergent same-key request is rejected
+    relative to steps 2 to 5.
+
+### S-1088 / F-1073 / E-1145 — WK6: a divergent same-key request is rejected at the replay position; the last Evidence REQ-01-706 mappings (documentation owner first; backend, tests)
+
+Recorded before editing; identities verified unused. DONE (2026-11-18).
+
+**Gap.**
+
+- **Ordering of a divergent request.** REQ-01-705 places an exact replay
+  before steps 2 to 5, but says nothing about a request that reuses the key
+  with a different body. The implementations reject it at the replay
+  position, but nothing states that.
+- **REQ-01-706.** These Evidence handlers turn every visibility-check error,
+  including a database failure, into a not-found code:
+
+  | Handler | Code returned |
+  | --- | --- |
+  | `handleUploadTarget` | `object_upload_not_found_or_revoked` |
+  | Preview and download handle issuance (`route_handle_handlers.go`) | `evidence_record_not_found` |
+  | Handle redemption | `handle_not_found_or_revoked` |
+  | Verification (`route_verification_handler.go`) | `evidence_attach_rejected` / `blob_not_visible` |
+
+**Change.**
+
+- **Core 01 REQ-01-705.** A request that reuses a committed transaction
+  identity with a different normalized request receives
+  `client_txn_conflict` at the same position.
+- **Implementation.** Each handler uses `concealedIncident`, so only
+  `DenialNotVisible` conceals.
+- **Tests.** An injected visibility-read failure gives 500 on each handler,
+  and a non-visible incident keeps its concealed code.
+- **Red.** Restore one coercing mapping.
+
+**Outcome.**
+
+- **Spec.** REQ-01-705's replay paragraph adds the divergent-request
+  sentence. `tcr-s1088-md01` exited 0, and `git diff --check` passed.
+- **Handlers.** Upload target, preview and download handle issuance,
+  redemption and verification use `concealedIncident`. Their concealed
+  responses are unchanged:
+  - 404 `object_upload_not_found_or_revoked`;
+  - 404 `evidence_record_not_found`;
+  - 404 `handle_not_found_or_revoked`;
+  - 409 `evidence_attach_rejected` / `blob_not_visible`.
+
+  Any other visibility-read failure, including an unrecognised stored role
+  or status on the handle routes, is 500 `internal_error` with empty
+  details.
+- **Test.** The new `TestEvidenceRouteVisibilityFailuresAreInternal_Unit`
+  joins the selector of
+  `module.evidence.unit.evidence_create_attach_preview_issuance_and_rede_cef38b411a`.
+  For all five routes, a non-visible incident keeps its exact concealed
+  response, and an injected failure gives 500 with no leaked diagnostic.
+- **Red.**
+  - `tcr-s1088-verifyvisibility-red01`: verification gives 409
+    `blob_not_visible`, want 500.
+  - `tcr-s1088-othervisibility-red01`: the other four routes give their
+    404, want 500.
+
+  Each was restored with `cp` and confirmed with `cmp`.
+- **Green.** These passed: `format01`, `sourcecatalog01`, `generate01`,
+  `sourcegenerated02`, `lintgo01`, `linttypes01`, `lintbackend01`,
+  `evidence-rows01`, and `evidence-owner01` (40/40 units, 107/107 rows).
+  `sourcegenerated01` had reported render-index drift from the selector
+  change; `generate01` refreshed the index.
+- **WK exit.**
+  - The S-1080 to S-1088 rows are green, each with red evidence.
+  - No private route-target loader remains outside Records.
+  - Every touched owner's full run passes.
+
+### S-1089 / F-1074 / E-1146 — WI2: the admission pipeline foundation: path-parameter projection, enveloped route and method rejections, and one pilot owner (contracts, generator, platform, backend, tests)
+
+Recorded before editing; identities verified unused. DONE (2026-11-18), for
+the contract side only, as the split below records. This implements
+REQ-01-707 and AC-617 (S-1084) for the platform and one pilot owner.
+Further owners migrate in later WI slices, and the static policy test is
+enabled last.
+
+**Gap.** `httpapi.RouteRegistry.Bind` registers each operation's `ServeMux`
+pattern with the metadata and the security guard, but admission is left to
+each handler:
+
+- `ServeMux` answers an unknown path with a plain-text 404, and a known path
+  with an undeclared method with a plain-text 405. A `GET` pattern also
+  admits `HEAD`.
+- The catalog carries no path parameters, so nothing central can validate an
+  identifier or name its not-found code.
+- Handlers authenticate, parse paths (some by splitting the decoded
+  `r.URL.Path`) and check methods on their own.
+
+**Change.**
+
+- **Design first.** The agent writes a design note to the scratchpad and
+  stops for review before editing. The note covers:
+  - how the pipeline authenticates by the declared security, given each
+    owner's existing authentication store;
+  - how typed parameters reach handlers;
+  - how `family_routes.go` and the security guard fit in;
+  - the per-owner migration and the order of the remaining owners.
+- **Contracts.**
+  - Each OpenAPI path parameter declares its format or pattern and its
+    `x-cartulary-not-found-code`, and assembly validates both.
+  - The catalog generator projects them into the operation catalog.
+  - `route_not_found` and `method_not_allowed` are added to
+    `contracts/errors/index.json`, with change-set entries if they apply,
+    and `make generate`.
+- **Platform.**
+  - An unknown path gets the enveloped 404 `route_not_found`.
+  - An undeclared method gets the enveloped 405 `method_not_allowed`, with
+    `Allow` and `details.allowed_methods`. `HEAD` on a `GET` path counts as
+    undeclared.
+  - Bound operations are admitted in REQ-01-707 order: authentication,
+    then path parameters from `r.PathValue`, where a malformed value gets
+    the declared not-found response.
+- **Pilot.** One owner with decoded-path splitting (`jobapi`'s
+  `parseJobPath` is the candidate) migrates fully.
+- **Tests.**
+  - Pipeline unit tests cover the order, every security alternative, a
+    malformed identifier before and after authentication, an encoded slash,
+    `HEAD`, and an unknown path.
+  - The pilot owner's routes are covered as well.
+- **Red.**
+  - Reorder authentication after the parameters.
+  - Route by the decoded path in the pilot.
+
+**Design review (2026-11-18).** The design note is in the session
+scratchpad as `s1089-design.md`. The agent made no repository edits while
+writing it.
+
+- **Findings it rests on** (pinned Go 1.27.4):
+  - The method-less `/` root answers an undeclared method with a plain 404,
+    not a 405.
+  - `HEAD` resolves to the `GET` pattern.
+  - A non-canonical `/api` path gets a 307 with an HTML body.
+  - `%2F` stays inside one segment, which `parseJobPath(r.URL.Path)` then
+    splits.
+- **Decisions.**
+  1. **Path parameters.** Every owner's path parameters are declared in
+     this slice, and assembly requires the declaration everywhere. Runtime
+     enforcement migrates owner by owner. Shared components whose not-found
+     code differs between operations are split: `RecordIDPathParameter`,
+     `UserIDPathParameter` and `ViewSchemaIDPathParameter`.
+  2. **Non-404 not-found responses.** A response that is not a 404, or that
+     carries fixed details, is declared through
+     `x-cartulary-not-found-details` at the code's registered status. Two
+     examples: `verifyObjectBlob`'s 409 `evidence_attach_rejected` with
+     `blob_not_visible`, and the report-composition `validation_code`.
+  3. **Capability and selector parameters.** `conflict_token`,
+     `handle_token`, `upload_token`, workbook's `view_schema_id` and
+     `pack_version` declare a syntactic format only. Their semantic checks
+     stay in route handling. `pack_version` follows Reference Data's opaque
+     version syntax if it defines one, and otherwise the bounded RFC 3986
+     unreserved set.
+  4. **UUID form.** `uuid` accepts only the hyphenated 36-character form, in
+     either case.
+  5. **Compatibility checker.** `openapicompat` is taught that adding
+     `pattern`, `format`, `minLength` or `maxLength` to a parameter schema
+     narrows input, so it is breaking. Entries already classified otherwise
+     are replaced.
+  6. **Scope.** Only `/api` paths are enveloped. Web application, asset and
+     health paths keep their behaviour.
+  7. **Non-canonical paths.** A non-canonical `/api` path gets
+     `route_not_found` and is never redirected.
+  8. **Reference-pack family.** It keeps its §17.4 order, and only its
+     rejections become enveloped and registered.
+  9. **Session sliding and the socket-revocation `Hub`.** Deferred to the
+     auth slice.
+  10. **`getJob`.** The singleton-query check moves after visibility.
+  11. **Route resolution for every owner.** `HEAD` and undeclared methods
+      get the enveloped 405 everywhere in this work.
+  12. **Malformed identifiers and role gates.** A malformed identifier gets
+      the not-found response before visibility and role gates. This matches
+      what a caller who passes those gates receives for a missing resource,
+      and reveals syntax only.
+- **Spec correction, recorded before the edit.** REQ-01-707 gains the
+  scope, non-canonical, family, gate, details, selector, UUID and `HEAD`
+  sentences from decisions 2–4 and 6–8, and decision 12. AC-617's last
+  bullet exempts `HEAD`, which has no body.
+- **Split.**
+  - S-1089 keeps the contract side: declarations and component splits,
+    assembly validation, the generator projection, the two registry codes
+    and their OpenTelemetry error classes, and the classifier change.
+  - S-1090 takes the platform pipeline and the `jobapi` pilot.
+
+**Outcome (contract side).** No runtime behaviour changed: `httpapi`
+routing is untouched and no owner migrated.
+
+- **OpenAPI sources.**
+  - 145 placeholders across 108 of the 136 operations declare `format: uuid`
+    or an anchored pattern.
+  - 101 `x-cartulary-not-found-code` declarations were added, 87 inline and
+    14 on components.
+  - 9 declarations carry `x-cartulary-not-found-details`: the
+    report-composition `not_found` / `validation_code` ones, and
+    `verifyObjectBlob`'s 409 `blob_not_visible`.
+  - 11 patterns were added:
+    - `pack_version` follows RP-REQ-023;
+    - `provider_key` and `view_schema_id` have their own patterns;
+    - the tokens use the RFC 3986 unreserved set, length 1–4096, with the
+      bound in `min/maxLength` because Go caps repeat counts at 1000.
+- **Component splits.**
+  - `EvidenceRecordIDPathParameter` splits from `RecordIDPathParameter`.
+  - `EnterpriseBindingUserIDPathParameter` and
+    `MembershipUserIDPathParameter` split from `UserIDPathParameter`.
+  - `ViewSchemaDiscoveryIDPathParameter` splits from
+    `ViewSchemaIDPathParameter`.
+- **Assembly.** The new `openapiassembly/path_parameters.go` requires:
+  - every placeholder to be declared;
+  - each code to be registered, not a pre-resolution code, and declared at
+    its registered status, including through components;
+  - details on every non-404;
+  - a closed string schema with exactly one of `uuid` or an anchored,
+    compiling pattern, and sane bounds.
+
+  `error_codes.go` rejects any operation that declares `route_not_found` or
+  `method_not_allowed`.
+- **Catalog.**
+  - The generator projects `PathParameters` in template order, and
+    `ContractOperation` mirrors them.
+  - `TestGeneratedRuntimeOpenAPIContractParity` compares the parameters
+    with the assembled document.
+- **Registry.** `route_not_found` (404) and `method_not_allowed` (405) are
+  added to `contracts/errors/index.json`, mapped in
+  `contracts/otel/error_class_registry.json` to `not_found` and
+  `request_invalid`.
+- **Compatibility checker.** `openapicompat` classifies adding `pattern`,
+  `format`, `minLength` or `maxLength` to a component parameter's schema as
+  breaking. No earlier entry was reclassified.
+- **Change set.** It went from 999 to 1065 entries:
+  - 66 new: 54 breaking and 12 additive;
+  - 24 replaced, including S-1081's four `pack_key` arrays and its remove
+    path;
+  - 24 stale entries dropped.
+
+  The release counts are now 163 breaking (was 109) and 671 additive (was
+  659).
+- **Generated** by `make generate` and reviewed: the OpenAPI document, the
+  `openapioperations` catalog (`CanonicalSHA256` `d33b007c…`),
+  `contractopenapi`, `contracterrors`, the protocol error registry and the
+  topology hashes.
+- **New rows.**
+  - `platform.openapi.unit.assembly_requires_every_path_parameter_to_declar_8c6a339d8d`
+  - `platform.openapi.unit.release_compatibility_classifies_narrowing_a_par_17a765936a`
+  - `platform.openapi.unit.operation_catalog_projects_path_parameter_format_15d2cbb590`
+
+  The extended existing tests are `TestAssemblyEnforcesDeclaredErrorCodes`
+  (pre-resolution codes) and `TestProductionCompletenessFoundation`
+  (component inventory).
+- **Red.** Each was restored with `cp` and confirmed with `cmp`:
+  - `tcr-s1089-red01`: without `getJob`'s code, assembly reports that
+    `job_id` requires `x-cartulary-not-found-code`;
+  - `tcr-s1089-red02`: without the classifier rule, an added pattern,
+    format, length bound or nested constraint is classified additive.
+- **Green.**
+  - Generation and checks: `generate03`, `format01`, `lint-go-01`,
+    `lint-types-01`, `lint-backend-boundary-01`, `source-generated-01`,
+    `source-catalog-01` and `source-schema-01`.
+  - Contract gates: `compat02` (1065 reviewed) and `otel01` (6/6).
+  - Owner runs: `openapi-owner01` (9/9 rows) and `viewschema-owner01`
+    (6/6).
+  - Contract rows that read the changed declarations, `contracts02..10`:
+    workbook, incidents, revisions, Evidence, reference_data, entities,
+    auth, protocol bindings and the web error registry.
+
+  No full owner run of other owners was needed, because behaviour did not
+  change.
+- **Failures.**
+  - `lint-protocol-01` failed only on the three unused exports carried to
+    WO.
+  - `generate01` stopped at the fingerprint gate and `generate02` at the
+    uncatalogued tests; both were expected intermediate stops.
+  - `contracts01` was a usage error.
+- **For S-1090.**
+  - The pipeline writes `NotFoundStatus` and `NotFoundDetails`, not a fixed
+    404.
+  - Workbook's `view_schema_id` and `conflict_token` syntax failures are
+    `incident_not_found`.
+  - The `/api/v1/records/{record_id}` path-item component reaches
+    revisions' `DELETE`, which overrides it.
+  - `MaxLength` 0 means unbounded, and lengths count runes.
+  - `service_unavailable` still waits on S-1085's implementation in WM.
+
+### S-1090 / F-1075 / E-1147 — WI3: the admission pipeline: route and method rejections, central authentication and path parameters, and the `jobapi` pilot (platform, backend, tests)
+
+Recorded before editing; identities verified unused. DONE (2026-11-18). It
+follows S-1089 and implements the platform half of the design S-1089
+reviewed.
+
+**Change.**
+
+- **Route resolution, for every owner.**
+  - `Bind`'s wrapper rejects a method other than the operation's own; in
+    practice that is only `HEAD` on a `GET` pattern.
+  - `RouteRegistry.Handler(mux)` registers the `/api` catch-alls, which
+    answer `method_not_allowed` (with `Allow` and
+    `details.allowed_methods`) or `route_not_found`.
+  - A canonical-path guard catches non-canonical `/api` paths.
+  - `family_routes.go` envelopes its unknown, non-canonical and wrong-method
+    responses.
+- **Central admission (opt-in).**
+  - `BindAdmittedOwnerRoutes` admits a bound operation in order: method,
+    metadata, the security guard, the injected `httpapi.Authenticator` (by
+    declared security), then path parameters from `r.PathValue`, with the
+    declared not-found response for an invalid value.
+  - Handlers read `httpauth.AdmittedPrincipal`, `httpapi.PathUUID` and
+    `httpapi.PathString`.
+  - The registry records each operation's admission mode for the final
+    catalog test.
+- **Pilot.**
+  - `jobapi` binds `getJob` and `cancelJob` separately and deletes
+    `parseJobPath`.
+  - `getJob`'s query check moves after visibility.
+  - `TestJobHandlersConcealInternalDatabaseFailure` is reworked.
+- **Tests.**
+  - Platform unit tests cover:
+    - order;
+    - every security shape;
+    - a malformed value, before and after authentication;
+    - `%2F`;
+    - `HEAD`;
+    - unknown and non-canonical paths;
+    - family envelopes;
+    - the guard interplay.
+  - A new `jobapi` admission row.
+- **Red.**
+  - Swap authentication and parameters: an unauthenticated malformed
+    request gets 404 instead of 401.
+  - Route the pilot by the decoded path: `%2F` reaches the wrong code path.
+- **Remaining owners** (from the design):
+
+  | Slice | Owners |
+  | --- | --- |
+  | WI4 | incidentbundles, reporting |
+  | WI5 | imports |
+  | WI6 | incidents, savedviews |
+  | WI7 | workbook, timeline |
+  | WI8 | Evidence |
+  | WI9 | reportcomposition, revisions, entities |
+  | WI10 | indicators, viewschema, extensions |
+  | WI11 | auth: principal unification, bootstrap, `Hub`, sliding by operation ID |
+  | WI12 | the reference-pack family variant |
+  | WI13 | Network Flow and the collaboration WebSocket, then the final static policy and the central-admission catalog test |
+
+**Outcome.**
+
+- **Route resolution, every owner.** The new
+  `internal/platform/httpapi/route_resolution.go` adds:
+  - **Catch-alls.** `RouteRegistry.Handler(mux)` registers the `/api/` and
+    `/api` catch-alls. A path matched only under other methods gets 405
+    `method_not_allowed`, with an alphabetical `Allow` header and
+    `details.allowed_methods`; anything else gets 404 `route_not_found`.
+  - **Method index.** It decodes each escaped segment once, so `%2F` stays
+    inside its segment.
+  - **Canonical-path guard.** Non-canonical `/api` paths get
+    `route_not_found` and are never redirected.
+  - **`Bind`.** Its wrapper rejects any method other than the operation's
+    own; a `HEAD` rejection carries headers only.
+  - **Placement.** All of this sits after the family handlers. Non-API paths
+    are unchanged.
+- **Families.** `family_routes.go` envelopes non-canonical paths, unknown
+  descendants and the wrong-method 405. The family policy still runs
+  first.
+- **Central admission.** The new `admission.go` adds:
+  - **Types.** `SecurityRequirement`, `Authenticator` (injected through
+    `DependencySet.Authenticator`), and `BindAdmitted` /
+    `BindAdmittedOwnerRoutes`.
+  - **Order.** Method, metadata, the security guard, authentication (skipped
+    for public operations), then path parameters in template order:
+    - a `uuid` must be strict, in either case;
+    - patterns are compiled at bind time;
+    - lengths count runes;
+    - invalid UTF-8 is rejected.
+  - **Rejection.** The first invalid value gets the projected status, code
+    and details, with the code as the message.
+  - **Handler access.** `PathUUID` / `PathString` give handlers typed
+    values, and `AdmissionModes()` reports each operation's mode.
+  - **Bind errors.** Bootstrap operations, a missing authenticator, and a bad
+    pattern each fail the bind.
+  - **httpauth.** `Authenticator` wraps the unchanged `AuthenticateRequest`;
+    `DependencyAuthenticator` and `AdmittedPrincipal` complete it, and
+    `runtime_assembly.go` injects it.
+- **Pilot.**
+  - `getJob` and `cancelJob` are admitted centrally.
+  - `parseJobPath`, `handleJobsMember` and the `keys` field are deleted.
+  - The `getJob` query check runs after visibility.
+- **New rows.**
+  - `platform.httpruntime.unit.route_resolution_envelopes_unknown_paths_and_und_a05e163d44`
+  - `platform.httpruntime.unit.central_admission_authenticates_before_admitting_96ab64b661`
+  - `module.jobapi.integration.job_routes_are_admitted_centrally_in_the_request_254d23ce91`
+
+  The undeclared-code guard test now covers a resolved operation that writes
+  a pre-resolution code.
+- **Updated tests.**
+  - `TestRouteRegistryBindsGeneratedPatternAndMetadata` checks the envelopes.
+  - `TestJobHandlersConcealInternalDatabaseFailure` goes through the
+    registry binding.
+  - Report composition's immutable-version wrong methods expect 405 with
+    `Allow: GET`. REQ-RC-024 requires only rejection without a state
+    change.
+  - No test expected a plain-text body or a 307.
+- **Red.** Each was restored with `cp` and confirmed with `cmp`:
+  - `tcr-s1090-red01`: authentication after parameters gives 404, want 401;
+  - `-red02`: owner mode behind a decoded-path dispatcher reaches cancel
+    through `%2F` (500), and the guards report the mismatch;
+  - `-red03`: without the catch-alls, the response is plain text with no
+    `Allow`.
+- **Green.**
+  - Checks: `generate01`, `format01`, `lint-go-01`, `lint-types-01`,
+    `lint-backend-boundary-01`, `source-generated-01` and
+    `source-catalog-01`.
+  - Owner runs:
+
+    | Owner | Result |
+    | --- | --- |
+    | httpruntime | 10/10 |
+    | openapi | 9/9 |
+    | jobapi | 6/6 |
+    | reference_data | 100/100 |
+    | app.server | 57/57, with no undeclared exercised code and all three matrices passing |
+  - Changed rows: `reportcomposition01` and `incidents02`.
+  - `browser-functional01` (`make browser-e2e SUITE=functional`): 401/401
+    rows, no security mismatches, no undeclared codes, and no visual
+    difference.
+  - `incidents01` was a usage error and ran no tests.
+- **Recipe for WI4 onward.**
+  - Bind with `BindAdmittedOwnerRoutes`, one handler per operation.
+  - Read `AdmittedPrincipal` and `PathUUID` / `PathString`.
+  - Keep `authStore` only for sliding, and drop the master keys.
+  - Move query and body validation after visibility.
+  - Missing-resource responses use `httpapi.NotFound` or the projection's
+    response, so they match the pipeline's not-found except for
+    `request_id`, with the code as the message.
+  - Unit tests bind through the registry, with
+    `httpauth.NewAuthenticator` / `DependencyAuthenticator`.
+  - Tests that expect 404 for a wrong method now expect 405.
+- **Still open.**
+  - Network Flow routes stay outside the method index until WI13.
+  - Sliding still reads `r.URL.Path` until WI11.
+  - The `%2F` protection holds only for centrally bound operations, so the
+    final static policy is the guard against regression.
+
+### S-1091 / F-1076 / E-1148 — WI4: incident bundles and reporting are admitted centrally (backend, tests)
+
+Recorded before editing; identities verified unused. DONE (2026-11-18).
+
+- **Change.** Follow the S-1090 recipe for `module.incidentbundles` (4
+  operations) and reporting (9). Delete the decoded-path splitting
+  (`TrimPrefix` on `r.URL.Path`, `parseReleasePath`).
+- **Tests.** Per owner:
+  - a malformed identifier without a session gets 401, and with one gets
+    the declared not-found, identical to a missing identifier;
+  - `%2F`, `HEAD` and an undeclared method.
+- **Red.** Restore one decoded-path split.
+
+**Outcome.**
+
+- **Incident bundles.**
+  - All four operations are bound centrally.
+  - Deleted: `serveBundle`'s `TrimPrefix(r.URL.Path…)` split and plain
+    `http.NotFound`, the member dispatchers, the bespoke authentication
+    helpers, the bare 405s and `keys`.
+  - Import keeps its deployment-admin gate before the envelope.
+- **Reporting.**
+  - All nine operations are bound centrally.
+  - Deleted: `parseReleasePath`, `parseCollectionMemberPath` and the member
+    dispatchers.
+  - Retained artifacts are split into list and content handlers.
+  - Release approve, publish and invalidate read the request only after
+    visibility and role, through a request-reader callback.
+- **Validation after visibility and role** (REQ-01-704, REQ-01-707 step 5).
+  - Moved after: the bundle descriptor and content queries, the snapshot,
+    release and retained-artifact queries, and the release action bodies.
+  - Kept before, because the body addresses the resource:
+    - `createRelease`'s structural decode (Core 01 §17.3);
+    - `createSnapshot`'s and export's `incident_id` (REQ-01-484).
+- **Rows.**
+  - `module.incidentbundles.integration.incident_bundle_routes_are_admitted_centrally_in_62352fa895`
+  - `module.reporting.integration.snapshot_and_reporting_routes_are_admitted_centr_b26499a8d3`
+- **Red.** `tcr-s1091-red01` bound the descriptor in owner mode behind a
+  `TrimPrefix` split. `<bundle>%2Fcontent` served the ZIP (200, want 404),
+  and the hyphenless and braced identifiers were accepted. The file was
+  restored with `cp` and confirmed with `cmp`.
+- **Green.**
+  - Checks: format, generate, lint go/types/backend-boundary,
+    source-check generated/catalog.
+  - Owner runs: `bundles-owner01` (41/41) and `reporting-owner01` (51/51).
+  - No security mismatch and no undeclared code.
+
+### S-1092 / F-1077 / E-1149 — WI5: imports is admitted centrally (backend, tests)
+
+Recorded before editing; identities verified unused. DONE (2026-11-18).
+
+- **Change.** Follow the recipe for `module.imports` (15 operations). Delete
+  `parseImportSessionPath` and the route-descriptor dispatch, and bind one
+  handler per operation.
+- **Tests.** As in S-1091, plus the import unit-route kinds.
+- **Red.** Restore one decoded-path split.
+
+**Outcome.**
+
+- **Binding.**
+  - All 15 operations are bound centrally, one handler each.
+  - `admitSessionRoute` reads the principal, `import_session_id` and the
+    unit parameter, then calls `admitImportSession`.
+  - Committed source is split into metadata and content handlers.
+- **Deleted.**
+  - `parseImportSessionPath`, the route catalog and descriptor types, and
+    the kind dispatch.
+  - The bare 405s and plain 404s.
+  - The pre-admission `invalid_import_request` for a malformed
+    `incident_id` or `committed_source_id`.
+- **Order.**
+  - The committed-source query check now runs after visibility and role.
+  - `createImportSession` still parses its envelope first, because its
+    metadata addresses the incident (Table 17.2-A).
+- **Tests rewritten against the registry.**
+  - `TestImportSessionMemberRouteContract`: every operation has a handler
+    and is bound centrally, and CSRF is paired exactly on the
+    state-changing operations.
+  - `TestImportRouteBindingsFailClosed`.
+  - The module-composition test asserts central mode.
+- **Policy input.** `tools/backend_module_boundaries.json` discovered the
+  transport-bindings file by the token `httpapi.BindOwnerRoutes(`. It now
+  uses `httpapi.BindAdmittedOwnerRoutes(`, which resolves to the same file.
+- **Row.**
+  `module.imports.integration.import_routes_including_every_import_unit_route_46bfb25f83`
+  covers all eight unit-route kinds, three session routes and three
+  committed-source routes.
+- **Red.** `tcr-s1092-red01` bound `getImportUnit` in owner mode behind a
+  decoded-path split. `…/units/<u>%2Fpreview` gave 200, want 404. The file
+  was restored with `cp` and confirmed with `cmp`.
+- **Green.**
+  - Checks: format, generate, lint go/types, `source-generated-01..02`,
+    `source-catalog-01` and `lint-backend-boundary-02`.
+    `lint-backend-boundary-01` failed on the stale discovery token, now
+    fixed.
+  - Owner runs: `imports-owner01` (61/61) and `appserver-owner01` (57/57),
+    with all three matrices passing, no undeclared code and no security
+    mismatch.
+- **Recipe additions.**
+  - Check the boundary policy's discovery tokens before migrating.
+  - Body-addressed creates decode their addressing member before
+    visibility.
+  - A visible caller without the role gets 403 even when the query or body
+    is also invalid.
+  - The red pattern: owner mode, authenticate through `deps.Authenticator`,
+    then split `r.URL.Path`.
+- **Carried to WM.** `getCommittedImportSource` and its content operation
+  still declare the now-unreachable 400 `invalid_import_request`.
+
+### S-1093 / F-1078 / E-1150 — WI6: incidents and saved views are admitted centrally (backend, tests)
+
+Recorded before editing; identities verified unused. DONE (2026-11-18).
+
+- **Change.** Follow the recipe for incidents (11 operations) and saved
+  views (5).
+  - Delete the plain 404s and the pre-authentication path checks.
+  - Move query validation after visibility.
+  - The incidents tests that expect pre-authentication 404s or 400s become
+    401s.
+- **Tests and red.** As in S-1091.
+
+**Outcome.**
+
+- **Incidents** (11 operations).
+  - Bound centrally, using `admittedPrincipal` and `admittedPathUUID`.
+  - Deleted: `routeUUID` with its plain `http.NotFound`, the four bare 405s,
+    and `keys`.
+- **Saved views** (5 operations).
+  - One handler per operation.
+  - Deleted: the `handleCollection` and `handleItem` dispatchers, and
+    `keys`.
+  - The harness-only test route keeps `uuid.Parse` and `http.NotFound`.
+    S-1100's policy must exempt or convert it.
+- **Validation after visibility.** These checks now run after the
+  visibility check (REQ-01-704, REQ-01-707 step 5):
+  - `getIncident`'s query check;
+  - the saved-view list read and page;
+  - the saved-view detail query.
+- **Updated tests.**
+  - `module.incidents.unit.incidents_http_dependencies_i2` binds through the
+    registry. Its expectations change as follows:
+    - a malformed or `%2F` identifier, and `?limit=1`, give 401 instead of
+      a pre-authentication 404 or 400;
+    - `PUT` and `HEAD` give the enveloped 405;
+    - unknown descendants give `route_not_found`.
+  - `TestSavedViewCreateDefaults_Unit`: a cursor replayed against a missing
+    incident gets the concealed 404. A replay against a second visible
+    incident keeps the 400 binding check (AC-151).
+- **Rows.**
+  - `module.incidents.integration.incident_and_membership_routes_are_admitted_cent_2383b11870`
+  - `module.savedviews.integration.saved_view_routes_are_admitted_centrally_in_the_2ddb91363b`
+- **Red.** `tcr-s1093-red01` bound `getIncidentSavedView` in owner mode
+  behind a split:
+  - a hyphenless identifier and `<view>%2Fx` got 200, want 404;
+  - the query check was skipped.
+
+  The file was restored with `cp` and confirmed with `cmp`.
+- **Green.**
+  - Checks: format, generate, lint go/types,
+    `lint-backend-boundary-02`, source-check generated/catalog.
+  - Owner runs: `incidents-owner01` (86/86) and `savedviews-owner01`
+    (26/27).
+  - The one saved-view failure was the cursor expectation above. It passed
+    in `savedviews-rows02`.
+  - `lint-backend-boundary-01` rejected a test's `to_jsonb(i)`, which the
+    incidents source-codec policy forbids; the test now uses explicit
+    columns.
+- **Note.** On the saved-view reads, the 401, 404 and 405 written by the
+  pipeline carry no `Cache-Control: no-store`. The owner's 401 used to.
+  Core 01 requires no-store on saved-view read responses, so this is
+  recorded for review in WO.
+
+### S-1094 / F-1079 / E-1151 — WI7: workbook and Timeline are admitted centrally (backend, tests)
+
+Recorded before editing; identities verified unused. DONE (2026-11-18).
+
+- **Change.** Follow the recipe for workbook (16 operations) and Timeline
+  (3).
+  - Delete the pre-authentication `pathUUID` checks.
+  - A syntactically invalid `view_schema_id` or `conflict_token` gets
+    `incident_not_found`.
+  - A well-formed unknown value keeps its route-handling 400.
+- **Tests and red.** As in S-1091.
+
+**Outcome.**
+
+- **Workbook** (16 operations).
+  - Bound centrally, using `admittedPrincipal`, `admittedPathUUID` and
+    `admittedPathString`.
+  - Deleted: `pathUUID` with its plain `http.NotFound`, the note-association
+    method dispatch, the preference and startup method switches with their
+    bare 405s, and `keys`.
+- **Timeline** (3 operations). Bound centrally; `pathUUID` and `keys` are
+  deleted.
+- **Order.**
+  - The workbook preference reads' query check runs after membership.
+  - A syntactically invalid `view_schema_id` or `conflict_token` gets
+    `incident_not_found`.
+  - A well-formed unknown value keeps its 400: `unsupported_view_schema`,
+    `unknown_view_schema`, or `field=conflict_token` after the role gate.
+  - Record routes keep the REQ-01-074 and REQ-01-186 order.
+- **Updated test.** In
+  `module.workbook.integration.note_associations_public_contract`, an
+  unauthenticated `not-a-uuid` gets 401 instead of a plain 404.
+- **Rows.**
+  - `module.workbook.integration.workbook_routes_are_admitted_centrally_in_the_re_415ec25e0a`
+    covers all 16 operations.
+  - `module.timeline.integration.timeline_routes_are_admitted_centrally_in_the_re_57b21a95bf`
+- **Red.** `tcr-s1094-red02` bound `patchRecord` in owner mode behind a
+  split:
+  - CSRF was bypassed (404, want 403);
+  - a hyphenless identifier reached the body check;
+  - `<record>%2Fsupersede` reached patch.
+
+  The file was restored with `cp` and confirmed with `cmp`. In `red01` a
+  subtest helper captured the parent `t`, so the `%2F` case did not run;
+  the helper was fixed before `red02`.
+- **Green.**
+  - Checks: format, generate, lint go/types/backend-boundary,
+    source-check generated/catalog.
+  - Row runs: `workbook-rows01` (8/8), `timeline-rows01` (3/3) and
+    `incidents-rows01..02`.
+  - Owner runs:
+
+    | Owner | Result |
+    | --- | --- |
+    | workbook | 289/289 |
+    | timeline | 213/213; the paint flake did not occur |
+    | app.server | 57/57, all three matrices passing, no undeclared code, no mismatch |
+  - The explicit-only visual rows are outside owner scope and did not
+    run.
+- **For WM.**
+  - No declaration became unreachable.
+  - Pre-existing: saved-view operations declare no 500, and
+    `getTimelineTimeConversionProfile` declares no singleton-query check.
+- **Recipe additions.**
+  - Subtest helpers must take the subtest's `t`. The jobapi and imports
+    admission tests close over the parent `t`; S-1095 fixes them.
+  - An encoded slash in a parent segment resolves to the parent's
+    operation.
+  - Hidden-incident replays now conceal, so binding checks replay against
+    a visible incident.
+  - `test-slice` takes one owner per run.
+
+### S-1095 / F-1080 / E-1152 — WI8: Evidence is admitted centrally (backend, tests)
+
+Recorded before editing; identities verified unused. DONE (2026-11-19).
+
+- **Change.** Follow the recipe for Evidence (8 operations).
+  - Handle and upload tokens are validated syntactically.
+  - `verifyObjectBlob`'s malformed identifier gets the declared 409
+    `evidence_attach_rejected` / `blob_not_visible`.
+  - Upload streaming is unchanged.
+- **Tests and red.** As in S-1091.
+
+**Outcome.**
+
+- **Binding.**
+  - `route_registration.go` binds the eight operations centrally through
+    `operationHandlers()`.
+  - `route_admission.go` drops `authenticate` and `keys`, and keeps only a
+    `SessionSlider`.
+  - The service keeps `keys` for upload-token capabilities.
+  - Deleted: `pathUUID` with its plain `http.NotFound`, and every owner
+    `AuthenticateRequest` call.
+- **Tokens and Blob verification.**
+  - Tokens are checked for syntax only, and `concealedIncident` is kept.
+  - A malformed `object_blob_id` on `verifyObjectBlob` gets the projected
+    409 `evidence_attach_rejected` / `blob_not_visible`.
+- **Order.** `createObjectBlobSlot` still decodes its body's `incident_id`
+  first (REQ-04-156 gate 4, REQ-01-704).
+- **Tests.**
+  - The attach and visibility tests bind through the registry
+    (`serveAdmittedEvidenceRoutes`).
+  - The jobapi and imports admission tests' request and assertion helpers
+    now take the subtest's `t`. They were rerun as
+    `tcr-s1095-jobapi-rows01` and `-imports-rows01`.
+- **Row.** `module.evidence.integration.evidence_routes_are_admitted_centrally_in_the_re_a3781e1958`.
+- **Red.** `tcr-s1095-red01` bound preview-handle issuance in owner mode
+  behind a split:
+  - CSRF was bypassed (404, want 403);
+  - a hyphenless identifier was accepted;
+  - `<record>%2Fx` reached body validation.
+
+  The files were restored with `cp` and confirmed with `cmp`.
+- **Green.**
+  - Checks: `format01`, `generate01`, lint go/types/backend-boundary,
+    source-check generated/catalog.
+  - Row run: `evidence-rows02` (3/3).
+  - Owner run: `evidence-owner01` (108/108 rows, 40/40 units).
+  - `evidence-rows01` was a usage error: `ROWS` takes commas.
+
+### S-1096 / F-1081 / E-1153 — WI9: report composition, revisions and entities are admitted centrally (backend, tests)
+
+Recorded before editing; identities verified unused. DONE (2026-11-19).
+
+- **Change.** Follow the recipe for report composition (9 operations),
+  revisions (4) and entities (3).
+  - A malformed path identifier, which today gets a 400 schema error,
+    gets the declared not-found.
+  - Report composition's not-found carries `validation_code`.
+- **Tests and red.** As in S-1091.
+
+**Outcome.**
+
+- **Report composition.**
+  - One handler per operation. Deleted: `parsePathUUID`, the path parsers,
+    the method-switch dispatchers, the bare 405s and `keys`.
+  - A malformed identifier gets the projected `not_found` with its
+    `validation_code`.
+  - A version that matches the pattern but overflows `int64` gets
+    `composition_version_not_found` from the handler.
+  - The list and singleton query checks run after visibility
+    (REQ-RC-031a).
+- **Revisions.** `pathUUID` and `keys` are deleted, and `admittedRecord` is
+  added.
+- **Entities.**
+  - `parsePathUUID` and `keys` are deleted.
+  - `entityMentionNotFoundError` uses `httpapi.NotFound`, so its message
+    matches the pipeline's.
+- **Rows.**
+  - `module.reportcomposition.integration.report_composition_routes_are_admitted_centrally_b9ea3d8762`
+  - `module.revisions.integration.record_revision_routes_are_admitted_centrally_in_66ad087438`
+  - `module.entities.integration.entity_routes_are_admitted_centrally_in_the_requ_bc10c1d5f1`
+- **Red.** `tcr-s1096-red01` bound `restoreRecord` in owner mode behind a
+  split:
+  - CSRF was bypassed;
+  - a hyphenless identifier was accepted;
+  - `%2F` reached the body.
+
+  The file was restored with `cp` and confirmed with `cmp`.
+- **Green.**
+  - Checks: format, generate, lint go/types/backend-boundary,
+    source-check generated/catalog.
+  - Row runs passed, then the owner runs:
+
+    | Owner | Rows | Units |
+    | --- | --- | --- |
+    | reportcomposition | 5/5 | 6/6 |
+    | revisions | 87/87 | 37/37 |
+    | entities | 50/50 | 34/34 |
+- **Carried to WM.** `getReportComposition` and
+  `getReportCompositionVersion` still declare 400 `invalid_request`, which
+  only a malformed path parameter used to produce.
+
+### S-1097 / F-1082 / E-1154 — WI10: Indicators, view schemas and extensions are admitted centrally (backend, tests)
+
+Recorded before editing; identities verified unused. DONE (2026-11-19).
+
+- **Change.** Follow the recipe for Indicators (8 operations), view schemas
+  (2) and extensions (1). These owners already use `PathValue`, so the
+  change mainly deletes owner authentication code.
+- **Tests and red.** As in S-1091.
+
+**Outcome.**
+
+- **Indicators.**
+  - Bound centrally. `authenticate`, `pathUUID` and `keys` are deleted, and
+    only `sessionSlider` remains.
+  - Upper-case UUIDs are now admitted (REQ-01-707). Before, they were
+    treated as not found.
+- **View schemas.**
+  - Bound centrally, with owner authentication and `keys` deleted.
+  - `view_schema_id` is read through `PathString`, and the unknown-schema
+    response uses `httpapi.NotFound`.
+- **Extension discovery.**
+  - Bound centrally. The method switch and its bare 405, owner
+    authentication, and key loading are deleted.
+  - The singleton query checks of `getViewSchema` and
+    `listDeploymentExtensions` now run after authentication.
+  - `TestExtensionDiscoveryAuthenticatesBeforeSingletonQuery_Unit` is
+    renamed, with its row selector updated.
+- **Rows.**
+  - `module.indicators.integration.indicator_routes_are_admitted_centrally_in_the_r_8eeffa9767`
+  - `platform.viewschema.integration.view_schema_and_extension_discovery_routes_are_a_d61075d869`
+- **Red.** `tcr-s1097-red01` bound `dismissIndicatorObservation` in owner
+  mode behind a split:
+  - CSRF was bypassed;
+  - `<obs>%2Fx/dismiss` reached the body.
+
+  The file was restored with `cp` and confirmed with `cmp`.
+- **Green.**
+  - Checks: format, generate, lint go/types/backend-boundary,
+    source-check generated/catalog.
+  - Row runs: `indicators-rows01` (3/3), `viewschema-rows01` and
+    `appserver-rows01`.
+  - Owner runs:
+
+    | Owner | Rows | Units |
+    | --- | --- | --- |
+    | indicators | 44/44 | 19/19 |
+    | viewschema | 7/7 | 4/4 |
+    | extensions | 44/44 | 27/27 |
+    | app.server | 57/57 | 31/31 |
+
+    The app.server run passes all three matrices, with no undeclared code
+    and no security mismatch.
+- **Recipe additions.**
+  - Request helpers in subtests take the subtest's `t`, too.
+  - Unit tests that use `SetPathValue` bind through the registry instead.
+  - Not-found helpers use the code as their message.
+  - A value the pattern admits but the handler cannot parse gets the
+    declared not-found.
+  - An owner without incident visibility moves its query checks after
+    authentication.
+  - `ROWS` takes commas.
+
+### S-1098 / F-1083 / E-1155 — WI11: auth is admitted centrally; sliding by operation (backend, platform, tests)
+
+Recorded before editing; identities verified unused. DONE (2026-11-19).
+
+- **Change.** Follow the recipe for `module.auth` (27 operations).
+  - Unify auth's `SessionPrincipal` with the admitted principal.
+  - Admit the `credentialBootstrapBearer` alternative centrally, with the
+    bootstrap route allowlist keyed by operation ID.
+  - Decide whether every owner publishes socket revocation on expiry
+    (`Hub`).
+  - Session sliding moves to an admitted-session helper, with the
+    `GET /auth/session` exclusion keyed by operation ID, so no module
+    reads `r.URL.Path`.
+  - The plain 404s for a malformed `user_id` or `provider_key` become the
+    declared not-found.
+- **Tests and red.** As in S-1091, plus the bootstrap alternative.
+
+**Design review (2026-11-19).** The design note is in the session scratchpad
+as `s1098-design.md`. The agent made no repository edits while writing it.
+
+- **Principal.** `SessionPrincipal` is already an alias of
+  `httpauth.Principal`. Auth deletes its own authentication path, the
+  bootstrap file, the alias and `CredentialAuthContext`, and handlers read
+  `httpauth.AdmittedPrincipal`. A branch-by-branch comparison found
+  identical statuses, codes and details.
+- **Bootstrap.**
+  - A new `httpauth.BootstrapCredential` with its own accessor.
+  - Bootstrap tokens are admitted where the declared security includes
+    `credentialBootstrapBearer`, and a contract test pins that set to the
+    two TOTP operations. `AllowsBootstrapTokenRoute(r.URL.Path)` and the
+    `Bootstrap` bind refusal are deleted.
+  - Today's precedence is kept:
+    1. a bearer header is tried first as a session;
+    2. then as a bootstrap token: validity, then operation, then a
+       conflicting cookie (400 `invalid_auth_request`);
+    3. otherwise the cookie session, with CSRF before the lookup.
+- **Decisions.**
+  1. Auth's cookie-CSRF 403 now uses the shared message. Only
+     `error.message` changes.
+  2. The central authenticator carries the Collaboration hub, so every owner
+     publishes `session_expired` on expiry (REQ-01-277, AC-136, AC-157).
+     Already-revoked sessions are not republished.
+  3. **Defect fixed in this slice.** The enterprise route registrar has no
+     revocation publisher (`runtime_assembly.go`), so a session evicted by
+     an enterprise login keeps its sockets (AC-159).
+  4. **Sliding cadence.** Workbook keeps sliding only when persistence is
+     due; other owners always slide. REQ-04-011 permits sliding without
+     setting a write cadence. This is recorded for WP review against
+     REQ-04-009.
+  5. **Sliding stays in handlers.** After the response is sent, a slide
+     failure could only be logged, and revoking operations would slide.
+     Revisit after S-1100.
+  6. **One slide helper keyed by operation ID** replaces
+     `ShouldSlideIdleExpiry(method, path)`. All call sites convert now,
+     including Network Flow and reference_data, and the path-based API is
+     deleted. Only `getCurrentSession` is excluded (REQ-04-010).
+  7. `getDeploymentUser`'s query check runs after the admin gate and before
+     the user lookup.
+  8. The unreachable `requireEnterpriseProfileAdmitted` is deleted, with a
+     test that the profile gate covers the case.
+  9. **Bootstrap allowlist.** It comes from the declared security plus the
+     contract pin, with no second hard-coded list.
+  10. **Runs.** Stage 2 runs these owners: `module.auth`,
+      `platform.httpruntime` and `app.server`. It then runs the functional
+      browser suite once.
+- **Found while reading, carried to WO as a defect.** A collaboration socket
+  keeps the session expiry it saw at connect time and never refreshes it.
+  When that time passes it revokes the session, even if HTTP activity
+  extended it. That ends live sessions.
+
+**Outcome.**
+
+- **Platform authentication (`httpauth`).**
+  - One private `authenticate` applies the precedence above.
+    `AuthenticateRequest` never admits a bootstrap token. The central
+    `Authenticator` admits one only when the operation's declared security
+    includes the bootstrap alternative.
+  - A new `BootstrapCredential` with the `AdmittedBootstrapCredential`
+    accessor. `AdmittedPrincipal` stays session-only.
+  - A token presented together with a session cookie gets 400
+    `invalid_auth_request` with `{field: authorization}`.
+  - `DependencyAuthenticator(deps, hub)`: the runtime passes the
+    Collaboration runtime as the hub (decision 2).
+  - `QualifiesForIdleSlide(ctx)` replaces `ShouldSlideIdleExpiry`. Both
+    slide helpers take `(ctx, store, principal, now)`. Both cadences are
+    kept, and about 110 call sites in 19 packages are converted
+    (decision 6).
+  - `operation_catalog.go` no longer refuses to bind bootstrap operations.
+- **Auth module.**
+  - Bound through `BindAdmittedOwnerRoutes`, with one handler per
+    operation. The users, account, enterprise-binding, provider and SAML
+    dispatchers are split.
+  - Deleted:
+    - `bootstrap_auth.go` and `AllowsBootstrapTokenRoute`;
+    - auth's own session and token authentication;
+    - the `SessionPrincipal` alias and `CredentialAuthContext`;
+    - the five path dispatchers and the provider-key path parsers;
+    - `requireEnterpriseProfileAdmitted` (decision 8);
+    - every bare 405 and `http.NotFound`, except the harness touch route's
+      405, which S-1100 exempts.
+  - **Defect fixed (decision 3).** The enterprise route registrar gets
+    `WithSessionRevocations`, so a session evicted by an enterprise login
+    loses its sockets (AC-159).
+- **Wire-order changes.**
+  - Authentication and cookie CSRF precede path parameters. A malformed
+    `user_id`, `auth_binding_id` or `provider_key` gets the declared
+    not-found, enveloped, after authentication.
+  - The singleton query check moves after authentication on
+    `getCurrentSession`, `getCredentialState`, `getCurrentAccountProfile`
+    and `getCurrentAccountPreferences`. On `getDeploymentUser` it runs
+    after the admin gate and before the lookup (decision 7).
+  - The cookie-CSRF 403 uses the shared message (decision 1).
+- **Tests.**
+  - Auth unit tests bind through the registry with a `serveAuth` helper.
+  - The bootstrap allowlist is pinned to `beginTOTPEnrollment` and
+    `completeTOTPEnrollment` (decision 9).
+  - A new socket-revocation subtest covers enterprise eviction.
+- **Rows.**
+  - `module.auth.integration.auth_routes_are_admitted_centrally_in_the_reques_33e5fc43ec`
+    (it also checks that all 8 enterprise operations get
+    `extension_profile_not_claimed` without the claim);
+  - `platform.httpruntime.unit.the_central_authenticator_applies_the_credential_3cce8332fd`.
+- **Red.** Each file was restored with `cp` and confirmed with `cmp`.
+
+  | Run | Mutation | Failure |
+  | --- | --- | --- |
+  | `tcr-s1098-red01` | owner-mode bind behind a path split | plain-text 404, and an encoded slash reached the handler |
+  | `tcr-s1098-red02` | cookie tried before the bearer | three precedence subtests |
+  | `tcr-s1098-red03` | `QualifiesForIdleSlide` always true | session inspection slid under both cadences |
+  | `tcr-s1098-red04` | enterprise registrar without revocations | the evicted session's socket got no `session_revoked` |
+
+- **Green.**
+  - Checks: format, generate, lint go/types/backend-boundary,
+    source-check generated/catalog.
+  - Row runs: `httpruntime-rows01` (2/2) and `auth-rows01` (8/8).
+  - Owner runs, all green with no security mismatch or undeclared code:
+
+    | Owner | Rows | Owner | Rows |
+    | --- | --- | --- | --- |
+    | auth | 74/74 | networkflow | 152/152 |
+    | httpruntime | 11/11 | reference_data | 100/100 |
+    | app.server | 57/57 | reportcomposition | 5/5 |
+    | entities | 50/50 | reporting | 51/51 |
+    | evidence | 108/108 | revisions | 87/87 |
+    | extensions | 44/44 | savedviews | 27/27 |
+    | imports | 61/61 | timeline | 213/213 |
+    | incidentbundles | 41/41 | viewschema | 7/7 |
+    | incidents | 86/86 | workbook | 289/289 |
+    | indicators | 44/44 | jobapi | 6/6 |
+
+  - `browser-functional01`: 401/401.
+- **Carried forward.**
+  - **S-1099 and S-1100.** The reference-pack family gate
+    (`reference_data/http_adapter.go`), Network Flow (`routes.go`) and the
+    socket upgrade's first authentication (`socket_session.go`) still call
+    `AuthenticateRequest` without the hub. An expiry found there revokes
+    the session but doesn't notify its sockets.
+  - **WO.** On `completeEnterpriseSAML` and `finishEnterpriseSAML`, a
+    malformed `provider_key` gets 404 `auth_provider_not_found`, but a
+    well-formed missing key gets a 409 from the RelayState or completion
+    check, which runs before the provider lookup. REQ-01-707 asks for
+    identical responses, so the ordering or the spec needs a decision.
+  - **WO.** The socket connect-time-expiry defect above.
+
+### S-1099 / F-1084 / E-1156 — WI12: the reference-pack family is admitted centrally in its §17.4 order (platform, backend, tests)
+
+Recorded before editing; identities verified unused. DONE (2026-11-19).
+
+- **Change.** `BindAdmittedOwnerFamilyRoutes` gives the platform the
+  family's session authentication as the gate's first step. The owner
+  policy keeps the deployment-admin check. Each operation's CSRF check
+  runs on the gate's principal, then path parameters.
+- **Tests.** The §17.4 order holds, and the rejections are enveloped.
+- **Red.** Swap the gate's authentication and the canonicality check.
+- **From S-1098.** The gate authenticates through the central
+  authenticator, so a session found expired is published to its sockets.
+  Family handlers already carry operation metadata, so the sliding
+  exclusion applies. A bootstrap token gets 409 `not_allowed_for_route`,
+  because no family operation declares the bootstrap alternative.
+
+**Outcome.**
+
+- **Platform.**
+  - `BindAdmittedOwnerFamilyRoutes(deps, OwnerFamily{…})` replaces
+    `BindOwnerFamilyRoutes`.
+  - The gate authenticates through `deps.Authenticator` with no CSRF and no
+    bootstrap alternative. It then runs the owner's `Authorize`, the
+    canonicality check and the family router, which handles unknown
+    descendants, undeclared methods with `Allow`, and HEAD without a body.
+  - Per operation: cookie CSRF through the new `Authenticator.VerifyCSRF`,
+    checked on the admitted principal with no second session lookup. Then
+    the owner's `AdmitQuery` hook, then path parameters (the shared
+    `admitPathParameters`), then the handler.
+  - Binding refuses an operation with an anonymous or bootstrap
+    alternative. Family operations record `AdmissionCentral`, so the
+    catalog test needs no family allowlist.
+  - `ValidatePrincipalCSRF` is unexported, since its only outside caller is
+    gone.
+- **Reference data.**
+  - It authorizes from `httpauth.AdmittedPrincipal`, and its handlers read
+    `PathString`.
+  - Deleted: `authorizeOperation`, the principal context key, the
+    `AuthenticateRequest` call, and the `authStore` and `keys` fields.
+- **Wire changes.**
+  - An expired session found at the gate is published as
+    `session_expired`.
+  - A malformed `pack_key` or `pack_version` on an action with an invalid
+    body gets 404 `reference_pack_not_found` instead of the body's 400,
+    following §17.4's query → path → body order.
+  - Every other status, code and envelope is unchanged.
+- **Row.**
+  `module.reference_data.integration.reference_pack_family_routes_are_admitted_centra_95b24e76d2`.
+  It covers:
+  - unauthenticated, and a bootstrap token;
+  - a non-admin without CSRF on every structural case, with no slide;
+  - an admin on each structural rejection, then CSRF before the query, then
+    the query before a malformed key;
+  - a malformed key identical to a missing one;
+  - an expired session's socket revocation. The session is expired in SQL
+    only, so the socket's own connect-time expiry cannot fire.
+- **Red.** Each file was restored with `cp` and confirmed with `cmp`.
+  - `tcr-s1099-red01` (canonicality before authentication): got 404 instead
+    of 401, 409 and 403.
+  - `tcr-s1099-red02` (CSRF at the gate): `csrf_verification_failed`
+    instead of `authorization_denied`.
+- **Green.**
+  - Checks: format, generate (no output change), lint go/types/
+    backend-boundary, source-check generated/catalog.
+  - Rows: `refdata-rows01` (6/6), `httpruntime-rows01` (4/4),
+    `openapi-rows01` (1/1).
+  - Owner runs, with no security mismatch or undeclared code:
+    reference_data 101/101, httpruntime 11/11, app.server 57/57.
+- **For S-1100.**
+  - Network Flow binds from its own `networkflowroutes.All()` contract and
+    has no `openapioperations` entries. Several handlers serve more than
+    one method, with bare 405s at `graph_view_routes.go:63`, `:125` and
+    `routes.go:175`.
+  - Remaining production hits for the static policy, besides those 405s:
+    - the saved-views harness route (`http.NotFound`);
+    - auth's harness touch route (405);
+    - `collaboration/routes.go:79`, an `http.NotFound` in the socket
+      route's `pathUUID`. It is not exempt, so the socket review decides
+      its response.
+
+    No `.URL.Path`, `.URL.RawPath` or `EscapedPath()` read remains in
+    module production code.
+  - `forbidden_source_tokens` already exists in the boundary schema, so the
+    policy is one new entry.
+
+### S-1100 / F-1085 / E-1157 — WI13: Network Flow and the collaboration WebSocket; the final static policy and the central-admission catalog test (backend, tooling, tests)
+
+Recorded before editing; identities verified unused. DONE (2026-11-19). This
+closes WI.
+
+- **Change.**
+  - Network Flow's routes are bound through the registry, so they get route
+    resolution and the 405 index. Its own contract is projected the same
+    way, or its routes are classified explicitly.
+  - The collaboration WebSocket upgrade is reviewed against REQ-01-707's
+    scope.
+  - `tools/backend_module_boundaries.json` gains `forbidden_source_tokens`
+    for `internal/modules/**` (production only): `http.NotFound(`,
+    `StatusMethodNotAllowed`, `.URL.Path`, `.URL.RawPath` and
+    `EscapedPath(`.
+  - An `internal/app/server` test asserts that every active operation is
+    admitted centrally, with no allowlist left.
+- **From S-1098.**
+  - The exemptions are the saved-views test route and auth's harness touch
+    route (its 405).
+  - Network Flow and the socket upgrade's first authentication get the
+    revocation hub, or central admission.
+- **Red.**
+  - Add `r.URL.Path` to one module: the policy fails.
+  - Bind one operation owner-mode: the catalog test fails.
+
+**Design review (2026-11-19).** The design note is in the session scratchpad
+as `s1100-design.md`. The agent made no repository edits while writing it.
+
+- **Findings.**
+  - REQ-01-707 governs Network Flow's routes, which are under `/api`. Network
+    Flow's Table 21-C defines its own order: incident visibility, role and
+    lifecycle come before the table or graph-view identifier's syntax.
+    Today's code and the `table_lifecycle_admission_replay` row follow it.
+    Core's family clause says "owner section", and its only example is
+    inside Core.
+  - Network Flow binds its 19 routes on the raw mux. A wrong method gets
+    404 instead of 405, HEAD runs the GET handler or hits a bare 405, and it
+    authenticates without the revocation hub.
+  - The socket upgrade sits at `/ws/v1/`, outside REQ-01-707. It answers a
+    malformed incident ID with a plain-text 404 before authentication. Core
+    doesn't state the upgrade's failure responses.
+- **Owner-spec edits, made before stage 2.**
+  - Core 01 REQ-01-707: the family clause names Network Flow's adopted
+    NLSpec (Table 21-C) as an owner order alongside §17.4.
+  - Core 01: a new REQ-01-708 gives the socket upgrade's admission order:
+    1. Origin;
+    2. session authentication without CSRF;
+    3. a strict `uuid` `incident_id`;
+    4. incident authorization.
+
+    A malformed ID gets the same enveloped `404` `incident_not_found` as a
+    hidden incident.
+  - Core 04 AC-131 verifies it.
+- **Decisions.**
+  1. Network Flow keeps its Table 21-C order. Central admission gains a
+     declared owner gate between `incident_id` and the table or graph-view
+     identifier.
+  2. The new contract facts are added to `routes.v1.json` in place: per-route
+     `security`, and a `path_parameters` map with each parameter's format,
+     admission stage and not-found response. Digests are regenerated.
+     **Stop if** a hand-authored release or claim manifest pins the file's
+     digest.
+  3. The registry loads Network Flow's generated operations directly.
+     `ContractOperations()` stays OpenAPI-only, so the parity test and the
+     AC-616 matrices are unchanged.
+  4. Network Flow operations are exempt from the undeclared-code guard and
+     the coverage report, because REQ-01-702 governs OpenAPI operations. The
+     security guard stays on.
+  5. The socket authenticates through the central authenticator, for both
+     the first authentication and the refresh, then parses the ID strictly.
+  6. Both harness routes are converted, so the policy has no exemption.
+     The touch route gets `TestRouteGuard.ProtectMethod`.
+  7. The policy is exactly the five tokens, with no exemptions.
+  8. The catalog test reads an unexported runtime field. It requires every
+     bound operation to be central, and active to equal supported.
+  9. The caller-less `BindOwner` and `BindOwnerRoutes` are deleted. `Bind`
+     stays for tests and the red check.
+  10. **Runs.** The affected owners: networkflow, collaboration, app.server,
+      platform.httpruntime, platform.openapi, savedviews, auth and the
+      boundary lint. Then the functional and stateful browser suites, once
+      each. All-owner coverage comes from S-1098's 20 owner runs and WP's
+      `make check`.
+- **Carried forward.**
+  - **WM.** Network Flow sends `transaction_conflict` and
+    `service_unavailable`, which no registry lists.
+  - **WO.**
+    - Network Flow's graph-view not-found lacks `retry_action`
+      (NF-REQ-175).
+    - A malformed Network Flow table ID's not-found carries
+      `network_flow_table_id: null`, while a missing one echoes the ID.
+      REQ-01-707 asks for identical responses, so the owner spec decides.
+    - The platform answers a socket Origin rejection, and other methods on
+      `/ws`, in plain text.
+- **WI exit.**
+  - Pipeline, policy and catalog tests are green, with red evidence.
+  - All owner rows pass, and the functional and stateful browser suites
+    pass.
+
+**Outcome.**
+
+- **Contract and generator.**
+  - `contracts/network-flow/routes.v1.json` gains per-route `security` and a
+    top-level `path_parameters` map. Each parameter has its format or
+    schema reference, its admission stage, and its not-found response.
+  - No version bump. Network Flow's Table 1-A versions public behaviour,
+    and these members restate it. Only the generated
+    `contractnetworkflow` artifact pins the file's digest.
+  - `check-json-shapes.mjs` pins the new members.
+  - The catalog generator projects Network Flow into
+    `internal/gen/networkflowroutes`, cross-checked against the operation
+    policy, the schema definitions and both error registries.
+- **Platform.**
+  - The registry loads the OpenAPI and Network Flow operations.
+    `ContractOperations()` stays OpenAPI-only.
+  - A declared owner gate, through `BindAdmittedOwnerOrderRoutes`, runs in
+    this order:
+    1. authentication;
+    2. the parameters before the gate;
+    3. the gate;
+    4. the parameters after it.
+  - Not-found details hold JSON values.
+  - Operations under an owner error registry skip the undeclared-code guard
+    and the coverage records, but keep the security guard.
+  - New helpers: `ParseUUIDPathValue` and `TestRouteGuard.ProtectMethod`.
+  - `BindOwner` and `BindOwnerRoutes` are deleted.
+- **Network Flow.**
+  - Bound centrally, with `admitIncident` as its gate.
+  - The three multi-method dispatchers are split, one handler per
+    operation.
+  - Its own authentication, keys and admission are deleted.
+- **Collaboration socket.** The order is Origin, then the central
+  authenticator (for the first authentication and the refresh), then the
+  strict ID, then membership, as REQ-01-708 requires. `pathUUID` and `keys`
+  are deleted.
+- **Harness routes.** The saved-views fixture's malformed ID gets an
+  enveloped `incident_not_found`. The touch route uses `ProtectMethod`.
+  Both keep the token and origin guard first.
+- **Policy.** `modules-admit-requests-only-through-central-admission`
+  forbids the five tokens in `internal/modules/**` production code, with no
+  allowed paths. The policy self-test has a permanent case for it. A grep
+  finds no hit.
+- **Catalog test.** It builds a runtime with all six profiles claimed and
+  reads the unexported `Runtime.publicRoutes`. It asserts that active
+  equals supported, every mode is central, and Network Flow's 19
+  operations are present.
+- **Wire changes.**
+
+  | Request | Before | After |
+  | --- | --- | --- |
+  | Network Flow, undeclared method | 404 `route_not_found` | 405 with `Allow`, before authentication |
+  | Network Flow, HEAD | 200, or a bare 405 after authentication | headers-only 405 with `Allow`, before authentication |
+  | Network Flow, non-hyphenated `incident_id` | accepted | 404 `incident_not_found` |
+  | Expired session on Network Flow or a socket upgrade | revoked only | also published as `session_expired` |
+  | Socket, malformed ID | plain-text 404 before authentication | 401 without a session; otherwise the enveloped 404 of a hidden incident |
+  | Harness routes | plain-text 404 or a bare 405 | enveloped |
+
+  Network Flow's Table 21-C order, codes and details are unchanged.
+- **Rows.**
+  - `platform.httpruntime.unit.central_admission_runs_an_owner_s_declared_gate_210ffd2098`
+  - `platform.openapi.unit.operation_catalog_projects_the_network_flow_rout_4bc09eb694`
+  - `module.networkflow.integration.network_flow_routes_are_admitted_centrally_in_th_5d1262574e`
+  - `module.collaboration.integration.the_socket_upgrade_authenticates_before_its_inci_040e743559`
+  - `app.server.integration.every_bound_public_operation_is_admitted_central_80ea383736`
+- **Red.** Each file was restored with `cp` and confirmed with `cmp`.
+
+  | Run | Mutation | Failure |
+  | --- | --- | --- |
+  | `red01` | `r.URL.Path` in `jobapi` | `forbidden_source_token … .URL.Path` |
+  | `red02` | `getJob` bound in owner mode | `operations not admitted centrally (REQ-01-707): getJob: owner` |
+  | `red04` | gate after all parameters | 11 matrix subtests got the table or graph-view not-found, want `incident_not_found` |
+  | `red05` | a Network Flow route on the raw mux | startup failed with `extension_publication_failed` |
+  | `red06` | socket authentication without the hub | no `session_revoked` |
+  | `red07` | socket ID parsed before authentication | got 404, want 401 |
+
+  `red03` was discarded: its mutation also broke later requests, so it was
+  redone cleanly as `red04`.
+- **Green.**
+  - Checks:
+    - `format01` and `generate02` (no OpenAPI output change);
+    - lint go, types and backend-boundary;
+    - source-check generated, catalog and schema.
+  - Row runs: httpruntime 4/4, openapi 5/5, networkflow 7/7,
+    collaboration 5/5, app.server 2/2, boundary 1/1, incidents 1/1.
+  - Owner runs, all with no security mismatch, undeclared code or contract
+    violation:
+
+    | Owner | Rows |
+    | --- | --- |
+    | networkflow | 153/153 |
+    | collaboration | 48/48 |
+    | app.server | 58/58 |
+    | httpruntime | 12/12 |
+    | openapi | 10/10 |
+    | savedviews | 27/27 |
+    | auth | 74/74 |
+
+  - `browser-functional01` 401/401; `browser-stateful01` 59/59. No golden
+    was involved.
+- **Failures.**
+  - `generate01`: the generator could not decode a `type` array in
+    `schemas.v5.json`. Fixed.
+  - `lintgo01`: one test still built the old details type. Fixed.
+- **Carried to WO.**
+  - `red05` reports only `extension_publication_failed`. The route-parity
+    cause is not surfaced.
+  - The platform test clock still writes bare 405s.
+  - Other methods on `/ws` get the plain-text 404 fallback.
+  - Raw module registrations are invisible to the catalog test: the
+    socket, Network Flow's four harness-control routes, and the two
+    harness registrars.
+  - Network Flow's GET-body check is the last module read of `r.Method`.
+
+**WI exit.**
+
+- The pipeline, policy and catalog tests are green, each with red
+  evidence.
+- Owner rows:
+  - S-1098 ran all 20 migrated owners;
+  - S-1099 and S-1100 reran every owner they touched;
+  - WP's `make check` is the full gate.
+- The functional and stateful browser suites passed.
+
+### S-1101 / F-1086 / E-1158 — WM2: implied declarations, the registered `service_unavailable`, and `admission_paused` (contracts, assembler, platform, tests)
+
+Recorded before editing; identities verified unused. DONE (2026-11-19). This implements
+S-1085's spec: Core 01 REQ-01-702 and the `service_unavailable` reason
+registry, Core 04 REQ-04-145, EXT-REQ-213, AC-608 and AC-618.
+
+- **Change.**
+  - **Assembler.** `openapiassembly/error_codes.go` generalizes
+    `securityImpliedErrorCodes` to implied codes, checked in both directions
+    like the security rules:
+    - 500 `internal_error` on every operation;
+    - 503 `service_unavailable` on every operation;
+    - 404 `extension_profile_not_claimed` exactly on operations in a
+      reserved extension route family.
+  - **Registries.** `service_unavailable` (503, retryable) and its reasons
+    go in `contracts/errors/index.json` and the OTel error-class registry.
+  - **Runtime guard.** The `internal_error` exemption in
+    `operation_catalog.go` is removed, since the code is now declared. Only
+    `route_not_found` and `method_not_allowed` belong to no operation.
+  - **Admission gate** (`httpapi.go`). While a lease is uncertain it sends
+    `admission_paused`, not `extension_publication_pending`.
+  - Additive change-set entries, `make generate`, and the compatibility
+    gate.
+- **Tests.**
+  - Each assembler rule, in both directions.
+  - Runtime and OpenAPI parity.
+  - The gate's reasons: pending, paused and integrity failure.
+  - The guard accepts the implied codes and still rejects an undeclared
+    one.
+- **Red.**
+  - Drop one implied rule: the assembler or parity test fails.
+  - Send `extension_publication_pending` under uncertainty: the reason test
+    fails.
+
+**Outcome.**
+
+- **Assembler.**
+  - `impliedErrorCodes` generalizes the security rules and is enforced in
+    both directions.
+  - 500 `internal_error` and 503 `service_unavailable` are required on
+    every operation.
+  - 404 `extension_profile_not_claimed` is required exactly when the
+    operation declares `x-cartulary-availability`. The parity test checks
+    that availability against the generated extension route families, and
+    all 54 operations match.
+  - A code under the wrong status is already rejected by the registry
+    status check.
+- **Contracts.**
+  - `platform.openapi`'s shared 500 now declares `internal_error`, and a new
+    shared 503 declares `service_unavailable`. They are referenced by 89
+    and 127 operations.
+  - Responses that already had other codes gained the implied code in
+    sorted order. Owner `internal_error` components were kept, because
+    replacing them would be breaking against 1.0.0.
+  - 18 fragments edited. All 136 operations changed, with 272 implied
+    declarations plus 43 reserved-family 404s.
+  - Change set: 1065 → 1234 entries. 169 are new and 64 were replaced in
+    place, all `additive`.
+- **Registries.** `service_unavailable` (503) is registered with the
+  `extension_publication_pending`, `admission_paused`,
+  `extension_integrity_failure` and `extension_transaction_timeout`
+  reasons. Its OTel class is `dependency_unavailable`.
+- **OTel NLSpec OTEL-REQ-142.** The table had drifted from the registry.
+  Sixteen registered codes were missing from it, including S-1089's two
+  route codes and `service_unavailable`. They are added with their
+  registry classes, and `internal_error` gets its own row. Spec and
+  registry now agree exactly. This was a spec catch-up after the
+  implementation, recorded here.
+- **Runtime.**
+  - The undeclared-code guard and the harness coverage report no longer
+    exempt `internal_error`. The guard checks it at 500.
+  - The admission gate answers in this order:
+    1. `extension_integrity_failure` when fatal;
+    2. `admission_paused` when uncertain lease ownership has closed
+       admission after publication;
+    3. `extension_publication_pending` otherwise.
+  - The `processlifecycle` controller tracks the pause.
+- **Wire change.** A 503 sent while lease ownership is uncertain carries
+  `admission_paused`.
+- **Row.**
+  `platform.openapi.unit.assembly_requires_every_operation_s_implied_500_1bdbfe2faf`.
+- **Red.** Each file was restored with `cp` and confirmed with `cmp`.
+  - `red01`: the assembler without the 503 rule. The test reported that
+    `service_unavailable must be declared`.
+  - `red02`: pending sent while paused. The reason test failed.
+  - `red03`: `service_unavailable` removed from one authored 503. Assembly
+    of the production manifest failed.
+- **Green.**
+  - Checks:
+    - `format02` and `generate02`;
+    - `compat01` (1234 reviewed);
+    - lint go, types and backend-boundary;
+    - source-check generated and catalog.
+  - Row runs: openapi 7/7, server 2/2, httpruntime 1/1, incidents 3/3,
+    auth 2/2, harness 1/1, protocol 2/2.
+  - Web rows that decode 503 responses all passed: webapp 5/5,
+    webworkbook 5/5, webarch 1/1, incidents-web 1/1.
+  - Owner runs:
+
+    | Owner | Rows |
+    | --- | --- |
+    | openapi | 11/11 |
+    | httpruntime | 12/12 |
+    | app.server | 58/58, with 0 undeclared codes exercised |
+    | extensions | 44/44, including the lease process row |
+    | protocol | 8/8 |
+
+- **Failures.**
+  - `generate01` stopped at the expected stale change-set fingerprints.
+  - `incidents-rows01` and `linttypes01` were test expectations, fixed.
+  - `lintprotocol01` fails on the three unused exports already carried to
+    WO.
+- **For S-1104.**
+  - `browserApi.ts` still has an `internal_error`/500 exemption.
+  - `publicErrorCodeBranchPolicy.node.test.ts` still seeds
+    `internal_error`.
+  - A well-formed 503 `service_unavailable` now decodes as a declared
+    public error.
+- **For S-1102.** `exportIncidentBundle`'s 404 `incident_bundle_not_found`
+  looks unreachable.
+- **For S-1105.** Network Flow's timeout can use `service_unavailable` with
+  `extension_transaction_timeout`. `transaction_conflict` is still
+  unregistered.
+- **Carried to WO (spec decisions).**
+  - Ordinary shutdown with admission closed answers
+    `extension_publication_pending`. No registered reason covers
+    shutdown.
+  - The lease watchers start before `Publish`, which opens admission even
+    if a lease became uncertain first. That conflicts with REQ-04-145.
+  - `/readyz` reports `starting_dependency_probe` while admission is
+    paused.
+  - The gate's 503 comes before route resolution, so the coverage report
+    never records it.
+
+### S-1102 / F-1087 / E-1159 — WM3: declarations made unreachable or left missing by WI, WK and the audit (contracts, backend, tests)
+
+Recorded before editing; identities verified unused. DONE (2026-11-19).
+
+- **Remove.** Each is a narrowing, with a breaking change-set entry within
+  the unreleased 2.0.0.
+  - 403 on `getTimelineTimeConversionProfile` and `listNoteAssociations`,
+    and the dead branch in `workbookassembly/note_associations.go`.
+  - 409 `incident_bundle_export_rejected` on `exportIncidentBundle`
+    (REQ-01-486, as S-1085 amended it).
+  - `incident_not_found` on `appendIndicatorStateInterval`,
+    `createManualIndicatorObservation` and the three observation actions
+    (S-1086).
+  - 400 `invalid_import_request` on `getCommittedImportSource` and its
+    content operation (S-1092).
+  - 400 `invalid_request` on `getReportComposition` and
+    `getReportCompositionVersion` (S-1096).
+- **Add or correct.**
+  - 409 `import_apply_blocked` on `createImportUnitRegion` (S-1081).
+  - `getTimelineTimeConversionProfile`'s singleton-query check, declared
+    where its owner requirement states it (S-1094).
+  - `listCommittedImportSources` query failures use `invalid_list_query`,
+    as Table 17.2-A says.
+  - Table 17.2-A is reconciled row by row against the emitted codes. Where
+    the table is wrong, the owner spec is fixed first.
+- **Proof before removal.** Each removed code is shown unreachable by the
+  code path and the coverage report, and no client branch depends on it.
+- **Tests and red.** Each newly declared code is exercised once. The
+  coverage report shows no removed code emitted.
+
+**Design review (2026-11-19).** The audit note is in the session scratchpad
+as `s1102-design.md`. The agent made no repository edits while writing it.
+
+- **Method.**
+  - The generated catalog gives 983 declared (operation, status, code)
+    triples, not counting the three implied codes.
+  - The 101 retained runs from S-1098 to S-1101 prove 721 of them
+    reachable, and 133 more are security-implied.
+  - The remaining 129 were traced through their handlers.
+- **Unreachable, to remove (12, plus one after the item 8 fix).**
+  - 403 on `getTimelineTimeConversionProfile` and `listNoteAssociations`:
+    both admit any member, and stored roles are limited to the four member
+    roles.
+  - 409 `incident_bundle_export_rejected` on `exportIncidentBundle`. Its
+    404 `incident_bundle_not_found` is reachable for an invisible body
+    `incident_id`, so it stays.
+  - `incident_not_found` on the five Indicator mutations.
+  - 400 `invalid_import_request` on the two committed-source reads.
+  - 400 `invalid_request` on the two report-composition reads.
+  - After item 8, `invalid_import_request` on `listCommittedImportSources`.
+- **Code defects.**
+  - `getTimelineTimeConversionProfile` accepts pagination members, against
+    REQ-01-240. It gains the singleton check after the membership gate.
+  - `listCommittedImportSources` sends `invalid_import_request` for a bad
+    `record_id`, accepts unknown and duplicate members, and answers aliases
+    with `pagination_not_supported`. It gains a route-local decoder under
+    REQ-01-583.
+- **Owner-spec edits, made before stage 2.**
+  - **REQ-01-611 and AC-451.** The profile GET rejects pagination members
+    after the visibility gate. The §3.3.5 route rows for the profile GET
+    and the note-association list now say any member may read, with no
+    `authorization_denied`.
+  - **Table 17.2-A.** The last column becomes "Declared route errors". Each
+    row lists every declared code except those REQ-01-702 implies, and a
+    sentence after the table says so.
+  - **REQ-01-620e.** An admitted base source over the archive limits gets
+    413 `import_source_rejected`.
+  - **REQ-01-685.** The `record_id` list-query failures are named.
+  - **REQ-01-475 and AC-265.** The family's "only" list excludes the
+    Core-owned codes and adds `committed_source_not_found`.
+  - **Table 17.5-A.** The export row lists `incident_bundle_not_found` for
+    an invisible or missing body `incident_id`.
+- **Decisions.**
+  1. **Region creation (item 6): option B.** Every `source_changed` trigger
+     on that path is a data-integrity break. It is classified as
+     `internal_error` (REQ-01-706), and nothing new is declared. A test
+     corrupts the stored digest.
+  2. **Table 17.2-A convention: T2,** with the complete declared list. The
+     spec governs, and the contract projects it.
+  3. **Dead branches.** Those inside the classifiers this slice changes
+     are folded in: `List`'s note-association classifier and the region
+     failure classifier, including region's integrity-only
+     `import_source_unsupported`. The others go to S-1103, including
+     `getImportUnitPreview`'s integrity-only 400.
+  4. **Change-set classification follows the compatibility gate.** Removals
+     of declarations new in 2.0.0 re-fingerprint their additive entries in
+     place. Only the profile 403, which 1.0.0 declared, is `breaking`. The
+     prediction is 11 entries replaced in place, 1 dropped and 2 added:
+     1234 entries become 1235, and breaking entries go from 163 to 164.
+- **Carried to S-1104 or WO.** `WorkbookObservationOwner.node.test.ts`
+  mocks `incident_not_found` on an observation action, which is now stale.
+
+**Outcome.**
+
+- **Contract.** 13 declarations were removed and 2 added:
+  - **Removed:**
+    - the profile GET's and `listNoteAssociations`' 403;
+    - export's 409 `incident_bundle_export_rejected`;
+    - `incident_not_found` on the five Indicator mutations (one of them
+      through the shared `IndicatorResourceNotFound` component);
+    - `invalid_import_request` on the three committed-source reads;
+    - `invalid_request` on the two report-composition reads.
+  - **Added:** the profile GET's 400 `invalid_pagination_request`, and
+    `listCommittedImportSources`' 400 `invalid_list_query`.
+  - Each Imports operation's declarations, minus the implied codes, equal
+    its Table 17.2-A row.
+- **Change set.** 1234 → 1236 entries: 11 replaced in place, 1 dropped and
+  3 new. The profile 403 removal is the one new `breaking` entry (163 →
+  164), plus one `non_behavioral` description entry. Each touched rationale
+  cites REQ-01-702.
+- **Backend.**
+  - The profile GET runs `ValidateSingletonReadQuery` after the membership
+    gate.
+  - `listCommittedImportSources` uses a route-local REQ-01-583 decoder, after
+    visibility and role. Its checks run in this order: malformed, duplicate,
+    pagination alias (`invalid_limit`), unknown member, then
+    `invalid_filter_value`.
+  - Region creation (option B):
+    - an untyped `getRegionBase` failure is `internal_error`;
+    - `regionSourceAPIError` keeps 413 `import_source_rejected` and sends
+      anything else to 500.
+  - `listNoteAssociations` uses `noteAssociationReadFailure`. Only
+    not-visible and not-found map to not-found; everything else is 500.
+    `Apply` keeps its classifier.
+- **Wire changes.**
+
+  | Request | Before | After |
+  | --- | --- | --- |
+  | Profile GET with a pagination member | 200 | 400 `pagination_not_supported` |
+  | Committed-source list, bad `record_id` | `invalid_import_request` | `invalid_list_query` / `invalid_filter_value` |
+  | Committed-source list, unknown or repeated member | 200 | `unknown_query_member` or `duplicate_query_member` |
+  | Committed-source list, malformed escape | 200, pair dropped | `malformed_query` |
+  | Committed-source list, pagination alias | `pagination_not_supported` | `invalid_limit` |
+  | Region creation over a corrupted retained source | 409 | 500 |
+
+- **Tests.** Existing rows were extended, with no new row IDs:
+  - Timeline admission order: profile pagination;
+  - committed-source transfer: 11 bad-query cases across the roles;
+  - the region exact-replay row: a corrupted digest gets 500, with no units
+    and no receipt;
+  - the race-only failures unit test: `regionSourceAPIError`.
+- **Red.** Each file was restored with `cp` and confirmed with `cmp`.
+
+  | Run | Mutation | Failure |
+  | --- | --- | --- |
+  | `red01` | singleton check removed | 200, want 400 |
+  | `red02` | old `record_id` handling | 500, want 400, and the guard reports `listCommittedImportSources 400 invalid_import_request` |
+  | `red03` | old region pass-through | the guard reports `createImportUnitRegion 409 import_apply_blocked` |
+
+- **Green.**
+  - Checks:
+    - `format01` and `generate02` (`generate01` stopped at the expected
+      fingerprint gate);
+    - `compat01` (1236 reviewed);
+    - lint go and backend-boundary;
+    - source-check generated and catalog.
+  - Row runs: imports 4/4 units, timeline 3/3 units.
+  - Owner runs, each with 0 undeclared codes and none of the 13 removed
+    codes emitted:
+
+    | Owner | Rows |
+    | --- | --- |
+    | imports | 61 |
+    | timeline | 213 |
+    | workbook | 289 |
+    | indicators | 44 |
+    | reportcomposition | 5 |
+    | incidentbundles | 41 |
+    | app.server | 58 |
+
+- **Failure and repair.**
+  - `linttypes01` failed. `WorkbookObservationOwner.node.test.ts` fed
+    `incident_not_found` to an observation action, which no longer declares
+    it.
+  - The fixture now models access loss as `authorization_lost` with
+    `authorization_denied`, the declared 403 that reaches observation
+    actions after S-1086.
+  - `tcr-s1102-format02`, `linttypes02` and the
+    `web.workbook.regression.indicator_observations_owner` row
+    (`webworkbook-rows01`, 2/2) passed.
+- **For S-1103.** `getImportUnitPreview`'s integrity-only undeclared 400
+  (`generic_projection.go`). Also, `openGenericCSV` sends a unit lost to a
+  race to 500, unlike `unitSourceAPIError`.
+- **Carried to WO.**
+  - The committed-source `required_role: "editor"` detail.
+  - Singleton import reads and `listImportUnits` silently accept unknown
+    query members.
+  - `noteAssociationReadFailure` has no direct unit test.
+
+### S-1103 / F-1088 / E-1160 — WM4: defensive emissions become `internal_error` or are deleted (backend, tests)
+
+Recorded before editing; identities verified unused. DONE (2026-11-19).
+
+- **Gap.** The S-1069 audit found 19 emissions of undeclared codes on paths
+  that cannot occur: dead Evidence adapter mappings and invariant-break
+  paths. Its scratchpad files no longer exist, so the list is re-derived.
+- **Change.**
+  - Every emission of a code that its operation does not declare is
+    traced.
+  - Dead mappings are deleted.
+  - Invariant breaks return `internal_error`, which S-1101 makes implied.
+  - A reachable emission is a declaration finding, handled as in S-1102.
+- **Exit.** The coverage report shows zero exercised codes at undeclared
+  statuses.
+
+**Outcome.**
+
+- **Method.** A static analysis over the server's SSA and VTA call graph.
+  - **Roots:** each operation handler, plus the central admission paths.
+  - **Reachability:** closures and interface targets are followed only
+    where they were created in code the operation reaches.
+  - **Code flow:** a backward data-flow from the error writer's code argument
+    to the registered code constants.
+  - **Comparison:** against the catalog's declared (status, code) pairs.
+  - **Soundness check:** every code exercised in the 122 retained runs from
+    S-1098 to S-1102 is reached statically.
+  - The scripts and results are in the session scratchpad under `s1103/`.
+- **Findings.** 193 undeclared (operation, status, code) candidates:
+
+  | Class | Count | Action |
+  | --- | --- | --- |
+  | Dead (DL) | 31 | removed |
+  | Invariant breaks (IB) | 3 | now `internal_error` |
+  | Race (R) | 3 | fixed |
+  | Dead for the operation in a shared classifier (DS) | 118 | left in place |
+  | Role branches behind `RolesMember` gates (DS-role) | 28 | left in place |
+  | Analysis false positives (FP) | 10 | left in place |
+
+  The DS, DS-role and FP branches cannot emit for these operations. Code
+  deletion would mean splitting each shared classifier.
+- **Removed (dead).**
+  - The workbook mutation contract's three object-store failure kinds, and
+    their Evidence adapter mappings, on 9 operations (27 pairs). This is the
+    "dead Evidence adapter mappings" of S-1069. Evidence create, patch and
+    conflict never touch the object store, and `ErrObjectStoreUnavailable`
+    had no producer.
+  - verify's admission-only mappings. Verify now has its own classifier,
+    `translateVerifyError`.
+  - attach's `blobTransitionError` → `illegal_transition` branch.
+  - The unused exported storage-key reason wrapper.
+- **Invariant breaks, now `internal_error`.**
+  - verify: a replay whose stored request hash differs (was 409
+    `client_txn_conflict`). The hash covers only `object_blob_id`, which
+    the identity already binds.
+  - attach: a Blob transition that matches no row (was 409
+    `illegal_transition`). The Blob is locked and classified first.
+  - The generic-CSV preview and mapping: a stream or capability mismatch
+    (was 400 `invalid_import_request`).
+- **Race fixed (REQ-01-704).** Attach, upload and verify read admission
+  twice, once for visibility and once for role. A membership removed
+  between the two reads got an undeclared 404 `incident_not_found`.
+  `concealedRole` now makes one admission read for both. A non-visible
+  caller gets the operation's concealed not-found, and a visible one
+  without the role gets 403.
+- **Tests.** No new row IDs.
+  - The verify request-hash row gains a subtest: corrupting the stored hash
+    makes a replay get 500, with nothing changed.
+  - `TestEvidenceRouteVisibilityFailuresAreInternal_Unit` gains three
+    membership-loss subtests, using a scripted admission DB, that check
+    exactly one admission read.
+- **Red.** Each file was restored with `cp` and confirmed with `cmp`.
+  - `red01` (old verify classifier): the guard reported
+    `verifyObjectBlob 409 client_txn_conflict`.
+  - `red02` (old double admission): all three subtests reported
+    `404 incident_not_found after 2 admission reads`.
+- **Green.**
+  - `format01` and `format02`.
+  - Lint go and backend-boundary (twice each); lint types.
+  - Row runs: evidence (4/4 units, twice) and workbook (1/1).
+  - Owner runs, all with 0 undeclared codes:
+
+    | Owner | Units | Rows |
+    | --- | --- | --- |
+    | evidence | 40/40 | 108 (run twice) |
+    | workbook | 34/34 | 289 |
+    | imports | 37/37 | 61 |
+    | app.server | 32/32 | 58, `undeclared_exercised_codes: 0` |
+
+- **Carried to WO.**
+  - REQ-01-452a says verify rejects divergent request bytes. Its body is
+    exactly `client_txn_id`, which is part of the route identity, so no
+    divergent request can exist. The wording needs a clarification.
+  - `blobTransitionError`'s from and to fields are now unread.
+  - The analysis could become a harness check for reachable undeclared
+    codes, because the runtime guard sees only exercised codes.
+  - The shared-classifier splits that would delete the DS branches:
+    `listNoteAssociations` → `mutationFailureAPIError`;
+    `importLookupAPIError`; and Evidence's `visibleIncident`.
+
+### S-1104 / F-1089 / E-1161 — WM5: the client shows `503` `service_unavailable` as temporary unavailability (web client, tests)
+
+Recorded before editing; identities verified unused. DONE (2026-11-19). REQ-03-086a,
+AC-618.
+
+- **Change.**
+  - The client decodes the now-declared 503 into a transient-unavailable
+    state with retry, never a contract failure.
+  - Browser fixtures that hand-build a 503 use `fulfillOperationError`.
+- **Tests.** Client unit tests for the state and its retry. The functional
+  suite runs once as the WM exit.
+- **Owner-spec edit, made before implementation.** REQ-03-086a no longer
+  states a separate `internal_error` exemption. Every operation declares
+  `500` `internal_error` and `503` `service_unavailable` (S-1101), so the
+  single rule "a code the operation declares for that status" covers both.
+  The client drops its `internal_error`/500 special case in
+  `browserApi.ts`.
+
+**Outcome.**
+
+- **Decoding.** `browserApi.ts` applies the single REQ-03-086a rule, and
+  the `internal_error`/500 special case is gone from the types, the
+  runtime check and the e2e fixture helpers. A well-formed 503
+  `service_unavailable` decodes as a declared error.
+- **Central classification.**
+  - `shared/publicError.ts` adds `isTemporaryUnavailability` and one
+    authored copy: "Cartulary is temporarily unavailable. Try again
+    shortly."
+  - Error views drop a 503's `reason_code`.
+  - The presentation families pick `initial_load_failure` or
+    `stale_refresh`, the design's families with Retry.
+  - Workbook: `workbookFailureLifecycle` gains `temporarily_unavailable`,
+    and the operation error policy classifies a 503 as `retryable` before
+    the operation-specific rules.
+- **Pending mutations.** A 503 is retryable before admission (REQ-03-099,
+  -100, -089 and -301). The unit stays queued with its captured request,
+  `client_txn_id` and base. Save state stays `Syncing`, the replay is
+  scheduled, and the unit is never halted or marked as a conflict.
+- **What users see.**
+
+  | Surface | Before | After |
+  | --- | --- | --- |
+  | Evidence Preview and Download | terminal, disabled, no retry | stays enabled, with Retry Preview or Retry Download |
+  | Shared error summaries | server message plus the raw reason | shared copy, no reason, same Retry |
+  | Reference Pack catalog read | "The request was rejected…" | shared copy plus Retry |
+  | Workbook autosave and grid reads | same behaviour | made explicit by code, shared copy |
+
+- **Browser fixtures.** Hand-built 503s now use `fulfillOperationError` with
+  a declared `service_unavailable`, in `design.a11y`,
+  `indicator-lifecycle`, `decisions.recovery`, `history-recovery`,
+  `timeline-collection-input` and the session check in
+  `auth-and-incident-directory`.
+- **Tests.** No new row IDs; titles were added to seven existing rows.
+- **Red.** Each file was restored with `cp` and confirmed with `cmp`.
+  - `red01`–`red03`: the shared check made to return false. The workbook
+    policy, publicError, presentation and Reference Pack tests failed.
+  - `red04`: the Workbook check made to return false. The policy and
+    Evidence presentation tests failed.
+  - The autosave 503 test passes under both reverts. The queue already
+    retried any 5xx, so it guards against regression.
+- **Green.**
+  - Checks:
+    - `format02` and `format03`;
+    - `linttypes03` (covers e2e) and `lintboundary01`;
+    - `generate01` (only the render index changed);
+    - source-check generated and catalog.
+  - Row runs: app 40, architecture 1, workbook 23, reference data 6.
+  - Owner runs: web.application 428, web.workbook 1462, web.architecture 8
+    and web.networkflow 218, all passing.
+- **Failures.**
+  - `format01`: a row title failed to resolve because Vitest truncates
+    long `it.each` labels. Fixed.
+  - `linttypes01` and `linttypes02`: a test that relied on the removed
+    exemption. Fixed.
+  - `lintprotocol01` fails only on the three dead exports carried to WO.
+- **Carried to WO.**
+  - Explicit mutations and app controllers treat any 5xx as uncertain and
+    offer exact replay. That is safe, but the copy says "unconfirmed" for
+    a 503, which is known not to have been applied.
+  - The design projection has no temporary-unavailability family.
+    Changing that is a `docs/design.md` decision.
+  - Malformed `service_unavailable` fixtures test contract failure under
+    a misleading code: `App.landing.test.tsx` (502),
+    `IncidentMembershipAuditPanel.test.tsx`, and
+    `auth-and-incident-directory.spec.ts:1039` (502).
+- **For S-1105.** Network Flow's messages use the shared view, so a
+  Network Flow 503 shows the shared copy. Its proven-timeout
+  classification still reads the raw `reason_code`.
+- **For the WM exit.** The functional suite confirms the converted browser
+  fixtures. `design.a11y` is in the accessibility suite, which WP runs.
+
+### S-1105 / F-1090 / E-1162 — WM6: Network Flow's unregistered codes (Network Flow NLSpec owner first; backend, tests)
+
+Recorded before editing; identities verified unused. DONE (2026-11-19). Found in the
+S-1100 design.
+
+- **Gap.** Network Flow sends `transaction_conflict` (409) and
+  `service_unavailable` (503) at `semantic_failure.go`. Neither appears in
+  Network Flow's Table 21-A or `contracts/network-flow/errors.v1.json`.
+- **Change.** The owner spec decides, per code, whether to register it in
+  Table 21-A and the errors contract or map it to a registered code. The
+  implementation and contract follow.
+- **Tests and red.** Each path asserts its registered code.
+- **Finding (2026-11-19).** The Extension NLSpec defines both responses for
+  a cross-owner transaction whose commit is proven absent (EXT-REQ-219):
+  - `409` `transaction_conflict` with `deadlock_detected` or
+    `serialization_failure`;
+  - `503` `service_unavailable` with `extension_transaction_timeout`.
+
+  S-1101 registered the second. Core 01's registry lacks the first.
+- **Owner-spec edits, made before implementation.**
+  - Core 01 §3.3.6.1 registers `transaction_conflict` (409, retryable),
+    with its reason table in §3.3.6.2.
+  - OTEL-REQ-142 maps it to `concurrency_conflict`.
+  - The Network Flow NLSpec, after Table 21-A, says that Core-registered
+    codes are not route-local, and that the indicator-link action returns
+    EXT-REQ-219's two responses.
+- **Implementation.** `transaction_conflict` and its reasons go into
+  `contracts/errors/index.json` and the OTel error-class registry. Then
+  `make generate`. Network Flow's code paths already send both responses.
+
+**Outcome.**
+
+- **Registries.**
+  - `contracts/errors/index.json` registers `transaction_conflict` (409)
+    after `service_unavailable`, with its reason registry
+    (`deadlock_detected`, `serialization_failure`).
+  - `contracts/otel/error_class_registry.json` maps it to
+    `concurrency_conflict`.
+  - Both files keep their exact formatting.
+- **Generation.** `tcr-s1105-generate01` passed. The registry projections
+  and protocol-ts `error-registry.ts` were regenerated.
+- **Code.** No change. Network Flow's indicator-link path already sends
+  409 `transaction_conflict` and 503 `service_unavailable` /
+  `extension_transaction_timeout`, both retryable.
+  `bounded_graph_contributor_pipeline` asserts both verdicts.
+- **Red.** `tcr-s1105-red01`: with the OTel mapping removed,
+  `make otel-conformance` failed with "missing transaction_conflict" in
+  both mapping checks. The file was restored with `cp` and confirmed with
+  `cmp`.
+- **Green.**
+  - `otel01` (6/6), `linttypes01`, `lintgo01` (6/6), `srcgen01` (5/5) and
+    `srccat01` (2/2).
+  - `nf-rows01`: `module.networkflow.integration.bounded_graph_contributor_pipeline`,
+    3/3 units, 0 undeclared codes.
+  - `protocol-owner01` (`package.protocol_ts`), 5/5.
+
+**WM exit.**
+
+- `make generate`, the compatibility gate and parity pass.
+- The coverage report shows zero undeclared-status emissions.
+- The functional browser suite passes.
+
+**WM exit result (2026-11-19).** All criteria are met.
+
+- Generation, the compatibility gate (1236 reviewed changes) and parity
+  passed in S-1101, S-1102 and S-1105.
+- Every app.server owner run from S-1101 to S-1103 shows 0 undeclared
+  codes exercised.
+- S-1103's static analysis leaves no reachable undeclared emission.
+- `tcr-wm-functional01` (`make browser-e2e SUITE=functional`) passed:
+  - 31 of 31 units;
+  - 99 error emissions, 0 undeclared codes, 0 security mismatches, 0 server
+    fatals;
+  - the browser fixtures converted in S-1104 included.
+
+### S-1106 / F-1091 / E-1163 — WN1: a cross-owner transaction deadline never leaves its commit outcome unknown (Extension NLSpec owner check; platform, tests)
+
+Recorded before editing; identities verified unused. DONE (2026-11-19).
+
+- **Gap.** WG's gate (`tcr-wg-check01`) recorded the first `server_fatal`.
+  - Under load, the 100,001-row Network Flow import's second source pass
+    took 26.5 s.
+  - The 30 s cross-owner transaction budget expired around commit, the
+    commit outcome became unknown, and the process went fatal with
+    `indeterminate_database_commit`.
+  - EXT-REQ-219 wants a timeout with its commit proven absent to return 503
+    `service_unavailable` / `extension_transaction_timeout`.
+  - A deadline that cancels an issued `COMMIT` makes the outcome unknowable,
+    so it turns an ordinary timeout into a fatal.
+- **Change, owner spec first.**
+  - Check the Extension NLSpec's deadline, commit and cancellation-grace
+    rules (EXT-REQ-219, Table 9-C, `operation_cancellation_grace_exhausted`).
+  - Expected design: the coordinator checks the deadline before it issues
+    `COMMIT`. If the deadline has passed, it rolls back and returns the
+    proven-absent timeout. Once `COMMIT` is issued, its outcome is awaited
+    without the deadline's cancellation.
+  - If the spec says otherwise, amend it first.
+- **Tests.** Deterministic cases with an injected slow participant and an
+  injected slow commit:
+  - a deadline before commit gives 503 with nothing committed and no
+    fatal;
+  - a deadline during commit still yields a known outcome.
+- **Red.** Restore the deadline-bound commit: the slow-commit test reports
+  the indeterminate fatal.
+
+**Design review (2026-11-19).** The design note is in the session scratchpad
+as `s1106-design.md`. The agent made no repository edits while writing it.
+
+- **Mechanism.**
+  - The coordinator already samples the deadline before `COMMIT` and rolls
+    back on expiry.
+  - The defect is that `COMMIT` runs on the deadline-bound context
+    (`crossownertransaction/coordinator.go`), unlike the rollback, which is
+    detached. When that context fires, pgx closes the connection and drops
+    the commit reply, so the adapter reports `CommitUnknown` and the
+    coordinator goes fatal.
+  - The retained run fits: the 503 came 144 ms after the second pass ended.
+  - The fake transaction in the tests ignored its context, so no test saw
+    this.
+- **Wider effect.** Network Flow's indicator link passes the request
+  context and has no commit proof. **A client disconnecting during `COMMIT`
+  can force a fatal shutdown.** Incident Bundles import shares the path.
+- **What the spec says.** The deadline covers `COMMIT`, and an issued
+  `COMMIT` is awaited no longer than the cancellation grace (EXT-REQ-215).
+  A commit still pending after the grace is
+  `operation_cancellation_grace_exhausted` (EXT-REQ-134). The fix is
+  compliant as written.
+- **Owner-spec edits, made before stage 2.**
+  - **Extension NLSpec EXT-REQ-219:**
+    - after the final-commit boundary, a proven-absent timeout is allowed
+      too (G1, which fixes a contradiction with EXT-REQ-215);
+    - an issued commit must not be abandoned, and it is awaited within the
+      grace (G2);
+    - the first interruption takes precedence over a commit-path conflict
+      (G3).
+  - **Core 01 REQ-01-620c (G4).** A unit whose cross-owner transaction ends
+    with its commit proven absent, by timeout or conflict, gets
+    `service_unavailable` / `extension_transaction_timeout` or
+    `transaction_conflict`, retryable. The owner-translation fallback, which
+    reported a non-retryable `owner_apply_validation_failed`, is not used.
+- **Decisions.**
+  1. The fix lives in the coordinator, using a local closure, and the
+     `Transaction.Commit` port contract is documented.
+  2. The commit wait is bounded by the cancellation grace, with no new
+     setting. Sending PostgreSQL a cancel request at expiry is deferred.
+  3. G4's Imports and Network Flow translation is part of this slice, so
+     the 100,001-row row reports a retryable timeout rather than a
+     validation failure.
+  4. The tests are subtests of the existing crossownertransaction unit and
+     integration rows:
+     - T1: a fake commit that loses its reply;
+     - T2: guards;
+     - T3: real PostgreSQL, with `COMMIT` blocked on an advisory lock;
+     - T4: an indicator-link slow commit at the owner level, included
+       because of the disconnect fatal.
+  5. **New slice S-1110.** The sibling deadline-bound commits and the
+     adapter hardening:
+     - an ERROR SQLSTATE at `COMMIT`, or a commit never sent, is proven
+       absent;
+     - a deferred-trigger error at `COMMIT` is fatal today.
+- **For S-1109 (WN4).** The second pass is always slow: 18.6–26.5 s across
+  34 runs, about 160 µs per inserted row. That is linear, with no lock
+  waits. At the default 250,000-row limit it would exceed 30 s even
+  unloaded. S-1109 runs a 25k/50k/100k/250k sweep before choosing between a
+  CPU claim, insert performance work, or a limit or budget decision.
+
+**Outcome.**
+
+- **Coordinator.**
+  - `completeTransaction` commits with
+    `tx.Commit(context.WithoutCancel(callCtx))`, as the rollback already
+    did. The completion lifetime still records the first interruption and
+    bounds the wait by the cancellation grace.
+  - `model.go` documents the `Transaction.Commit` port contract.
+- **G4 in Imports.** `translateExtensionOwnerFailure` checks the cross-owner
+  outcome first:
+  - a timeout gets `service_unavailable` / `extension_transaction_timeout`,
+    retryable, with `operation_id` and `timeout_seconds` details as in
+    Table 26-B;
+  - a conflict gets `transaction_conflict` with its reason, retryable;
+  - neither reaches the owner translation or its fallback.
+- **Network Flow.** `TranslateImportUnitError` declines `ErrTimeout` and
+  `ConflictError`, because its type can only produce `import_apply_blocked`.
+  Core Imports produces the G4 outcome, which matches REQ-01-620c.
+- **Before and after.**
+
+  | Case | Before | After |
+  | --- | --- | --- |
+  | Deadline during `COMMIT`, commit lands | fatal `indeterminate_database_commit` | success |
+  | Deadline during `COMMIT`, commit absent | fatal | 503 `extension_transaction_timeout` |
+  | Client disconnects during an indicator-link `COMMIT` | **process fatal** | committed success |
+  | `COMMIT` pending past the grace | `indeterminate_database_commit` | `operation_cancellation_grace_exhausted` |
+  | Import unit times out before commit | non-retryable `owner_apply_validation_failed` | retryable `extension_transaction_timeout`, no effects |
+
+- **Tests.** All are subtests of existing tests, so there is no routing
+  change:
+  - T1: a fake driver that loses its reply under a cancellable context;
+  - T2: guards;
+  - T3: real PostgreSQL, with `COMMIT` held on an advisory lock by a
+    test-only deferred trigger. Its `ok`, `abort` (23514) and `grace`
+    cases cover success, `ErrTimeout`, and the grace-exhausted fatal (with
+    the late commit landing).
+  - T4: indicator-link commits under a client disconnect and under the
+    coordinator deadline;
+  - G4 unit and end-to-end tests, using a source reader that blocks until
+    the transaction context ends;
+  - five Network Flow decline cases.
+- **Red.** The old files were copied in, then the new ones restored with
+  `cp` and confirmed with `cmp` (14 files).
+  - `redcommit01`: T1 and T3 reported `indeterminate_database_commit`, and
+    a commit reported indeterminate landed after the test had moved on.
+  - `redlink01`: all three indicator-link cases, client disconnect
+    included, made the process fatal.
+  - `redg4imp01`: got non-retryable `import_apply_blocked` /
+    `owner_apply_validation_failed`.
+  - `redg4nf01`: the owner claimed timeout and conflict as its own
+    failure.
+- **Green.** Every run had no `server_fatal` and no undeclared codes.
+  - Checks: format (twice, the second with no changes), lint go (twice) and
+    lint backend-boundary.
+  - Rows: crossownertransaction (both rows), Imports translation (2),
+    Network Flow translation and pipeline (2).
+  - Owner runs:
+
+    | Owner | Rows |
+    | --- | --- |
+    | crossownertransaction | 2 |
+    | networkflow | 121 Go rows, in three runs because of the `ROWS` length cap |
+    | imports | 39 Go rows, including the 100,001-row row (second pass 18.4 s) |
+    | incidentbundles | 41 |
+
+  - Generate and source-check were not needed: no contract or schema input
+    changed. The unit-outcome constraint requires only
+    `details.reason_code = reason_code`.
+- **Failure.** `nfrows01`: the first T4 version expired the request
+  context instead of the coordinator's deadline, so the route's replay
+  lookup failed with 500. Production has no request deadline. T4 now uses
+  the coordinator's timeout.
+- **For S-1110.** The indicator-link route's replay lookup runs on the
+  request context before it maps a timeout or cancellation. A client
+  disconnect followed by a proven-absent commit therefore answers 500. The
+  client is gone, so the impact is low.
+- T3 and T4 add about 6 s to each of their rows.
+
+### S-1110 / F-1095 / E-1167 — WN5: sibling deadline-bound commits and commit-error classification (backend, tests)
+
+Recorded before editing; identities verified unused. DONE (2026-11-19). Found in the
+S-1106 design.
+
+- **Gap.**
+  - These still commit on a deadline- or cancellation-bound context:
+    - `extensions/state.go` `StateRuntime.commit`;
+    - inactive-job reconciliation;
+    - the Imports view-schema `tx.Commit(ctx)` in `apply_coordination.go`;
+    - `OwnerFinalizer.FinalizeSuccess`.
+  - Separately, the cross-owner adapter reports an ERROR-level SQLSTATE
+    from `COMMIT`, such as a deferred-trigger `P0001` or `57014`, as an
+    unknown outcome, which is fatal. So is a `COMMIT` that was never sent.
+- **Change.**
+  - Each sibling awaits its issued commit, as EXT-REQ-219 now says, or its
+    owner's equivalent rule.
+  - The adapter classifies a definite commit error, and a never-sent
+    commit, as proven absent.
+- **Tests and red.** For each changed path, a commit that loses its reply
+  under cancellation keeps its outcome, and a definite commit error is
+  classified, not fatal.
+- **Also (from S-1106).** The indicator-link route's replay lookup should not
+  depend on a request context that is already done when it maps a
+  coordinator timeout or cancellation.
+
+**Progress (2026-11-19, first pass).**
+
+- **Siblings.** All four could be cancelled mid-commit. Once the caller's
+  context was cancelled, pgx never sent `COMMIT` ("context already done"),
+  and the outcome was recorded as unknown. Each now commits on a context
+  that cancellation cannot reach, and awaits the reply:
+
+  | Sibling | Bound | Rule |
+  | --- | --- | --- |
+  | `StateRuntime.commit` | the cancellation grace | EXT-REQ-215, Tables 9-C and 9-E |
+  | inactive-job reconciliation (store and lifetime) | the cancellation grace, through a new wired `ReconciliationOptions.CancellationGrace` | EXT-REQ-131, Table 9-E, EXT-REQ-215 |
+  | the Imports view-schema unit commit | the Jobs attempt-operation timeout, through a new `jobs.AwaitCommit` | REQ-01-620c, Core 01 Jobs execution policy, REQ-04-146a |
+  | `OwnerFinalizer` (the shared `commitWithProof`) | the same Jobs bound | as above |
+
+  `commitWithProof` also covers the Failure, Timeout and Cancellation
+  finalizers and Reference Pack's `CommitOwnerMutation`.
+- **Commit classification.** The shared
+  `extensionstore.ProvenAbsentCommitError` treats any ERROR-severity reply
+  to `COMMIT` as proven absent; before, it was unknown and therefore fatal.
+  A FATAL or PANIC reply, transport loss and a lost reply stay unknown.
+- **Replay lookup.** The indicator link's lookup after a coordinator error
+  runs on a detached context, bounded by the cancellation grace.
+- **Red.** Eight runs reproduced the failure on the old code: adapter,
+  finalizer (two), state runtime, reconciliation store and lifetime,
+  Imports commit, and replay lookup.
+- **Green.**
+  - Format, lint go and backend-boundary.
+  - Rows: crossownertransaction, jobs, extensions, imports and Network
+    Flow.
+  - Owner runs:
+
+    | Owner | Rows |
+    | --- | --- |
+    | crossownertransaction | 2 |
+    | platform.jobs | 19 |
+    | extensions | 42 |
+    | imports | 39 |
+    | networkflow | 121 |
+    | app.server | 57 |
+
+- **Owner-spec edit, made after the first pass (EXT-REQ-215).**
+  - Every Table 9-E operation whose deadline ends when the commit or
+    reconciliation outcome is known awaits an issued commit within the
+    grace.
+  - A commit acknowledged by an ERROR reply, or by a rollback completion, is
+    proven absent; a FATAL or PANIC reply, transport loss or a missing reply
+    is not an acknowledgement.
+  - A commit the runtime proves it never transmitted is proven absent,
+    after the session is retired.
+- **Decisions.**
+  1. Definite ERROR replies are proven absent, now stated in EXT-REQ-215.
+  2. The Jobs attempt-operation timeout bounds the Imports and finalizer
+     commit waits. Core 01 says it bounds attempt persistence.
+  3. Reference Pack Base mutations share that bound.
+  4. **Second pass:**
+     - the never-sent `COMMIT` rule;
+     - the shared classifier applied to `extensionstore.Tx.Commit` and the
+       reconciliation commit. A deferred FK violation at a migration commit
+       is fatal today, and should be a migration failure.
+- **Carried to WO.** An indicator-link client disconnect followed by a
+  proven-absent commit still answers 500, because no declared mapping
+  covers it. The client is gone.
+
+**Outcome (second pass).**
+
+- **`extensionstore.CommitAbsenceProven`.** A failed `COMMIT` is proven
+  absent when it got an ERROR reply or a rollback completion. It is also
+  proven absent when pgx reports that nothing was sent and the session is
+  already closed and cleaned up. A session left open is not proof. Used by:
+  - the cross-owner adapter;
+  - `commitWithProof`;
+  - `extensionstore.Tx.Commit`;
+  - the reconciliation commit.
+- **Migration step.** A proven-absent commit is now the migration failure
+  `extension_migration_failed` (EXT-REQ-125 steps 5–7, EXT-REQ-126,
+  Table 26-B), through the existing validation-invocation condition. This
+  includes the real deferred `extension_migration_ledger_metadata_fk`
+  violation, which was a fatal `extension_state_commit_indeterminate`. An
+  expired step deadline is still `extension_migration_timeout`.
+- **Reconciliation.** A proven-absent commit is the ordinary
+  `extension_unclaim_reconciliation_failed` (EXT-REQ-131 item 7).
+- **Tests.**
+  - A never-sent `COMMIT` on a self-closed session: classified, not fatal,
+    the pool clean.
+  - A migration deferred-FK failure: one finding, no fatal, nothing
+    advanced.
+  - A reconciliation deferred-trigger failure: the job is still queued.
+- **Red.** Each file was restored with `cp` and confirmed with `cmp`.
+  - `rednever01`: the never-sent commit was fatal on the old code.
+  - `redmigfk01` and `redmigfk02`: the migration step was fatal on the old
+    code, and a storage failure without the mapping.
+  - `redrecfail01`: the reconciliation commit was indeterminate.
+- **Green.**
+  - Format, lint go and backend-boundary.
+  - Rows: crossownertransaction (1) and extensions (3).
+  - Owner runs: crossownertransaction 2, extensions 42, imports 39,
+    app.server 57.
+- **Carried to WO.**
+  - A proven-absent fresh-state initialization commit ends startup as an
+    ordinary storage failure. EXT-REQ-234 has no finding for it, which is
+    a spec decision.
+  - The migration finding reuses the validation-invocation predicate. A
+    dedicated commit predicate would mean editing
+    `contracts/extensions/validation/surfaces.json`.
+
+### S-1107 / F-1092 / E-1164 — WN2: the Entra round trip's 503 under load is root-caused (tests; product fix if proven)
+
+Recorded before editing; identities verified unused. DONE (2026-11-19).
+
+- **Gap.** E-1127 recorded a 503 from the incident-bundles Entra round trip
+  under a loaded `make check`. Its cause was unknown because the body was
+  discarded. WG now keeps the body and records server fatals.
+- **Change.**
+  - Run the incident-bundles rows under load, after S-1106, and read the
+    503 body or the `server_fatal` record.
+  - If the cause is S-1106's indeterminate commit, record that and close.
+  - If it is cancellation-grace exhaustion in another participant, fix that
+    participant, with an injected slow-participant test.
+  - If it is `admission_paused`, the shared poller already waits through
+    it; record the evidence.
+- **Exit.** The cause is recorded with its evidence, and any fix has a red
+  check.
+
+**Analysis (2026-11-19).** Read-only; the note is in the session scratchpad
+as `s1107-design.md`.
+
+- **Evidence.** `tcr-wf-check01` is the only failure of this row in 38
+  retained runs.
+  - The import job had been seen `succeeded` (line 133). The export was
+    accepted with 202. The next poll got 503 (line 134), about 19 s into
+    the test.
+  - The unit's contract evidence has no 503 record, so the admission gate
+    sent it before route resolution.
+  - The 30 s commit deadline could not have expired by then, so S-1106's
+    mechanism does not fit. An Incident Bundles commit that lands is also
+    proven by a read-back.
+- **Most likely cause, a product defect.**
+  1. The Reference Pack execution observer
+     (`reference_data/coordinator_observation.go`) ticks every second and
+     cancels on any `ObserveExecution` error.
+  2. Once the import job is `succeeded`, that query returns
+     `ErrExecutionLost`. The success path, unlike the failure path, never
+     stops the observer before the final commit.
+  3. The observer therefore cancels the finished import. The post-commit
+     cleanup, one autocommit `UPDATE` per staged member, then runs under
+     the 2 s cancellation grace and overruns it under I/O load.
+  4. The result is `operation_cancellation_grace_exhausted`: fatal, then
+     503 `extension_integrity_failure` on every request.
+
+  Only imports that verify an embedded pack are exposed: the Entra,
+  ATTACK-production, VERIS-allowed and Windows round trips.
+- **Second trigger.** A Jobs lease renewal of an already-finished job also
+  returns `ErrExecutionLost`, and the runner cancels the handler
+  (`jobs/runner.go`). This affects every bundle import, every 10 s.
+- **Rule.** Core 01's Jobs execution policy says bounded observation
+  interrupts **uncommitted** work, and observation failure never grants
+  commit authority. Committed work must not be cancelled by observing its
+  own completion.
+- **Change.**
+  - The observer stops before the final commit on the success path, as it
+    does on the failure path. Alternatively, on `ErrExecutionLost` it
+    re-reads the job, and does not cancel when this attempt finished it.
+  - The runner does not cancel a handler whose job it has already finished.
+- **Tests and red.**
+  - A `TestVerificationLifetimeCleanup_Unit` subtest: a 100 ms grace, and a
+    job port that turns `ErrExecutionLost` after commit. Today the fatal
+    sink fires with `ErrGraceExhausted`.
+  - A runner test: a renewal tick after the handler has finished the job.
+- **What to look for in WP's `make check`.** A `server_fatal` with
+  `operation_cancellation_grace_exhausted` would confirm the mechanism. A
+  passing run proves nothing, because the race appeared once in about 20
+  loaded runs.
+
+**Spec finding and owner-spec edits (2026-11-19, before implementation).**
+
+- **The rule quoted above is Imports-only.** It comes from REQ-01-620c. The
+  general Jobs policy, REQ-01-453, lacks it.
+- Read together, these clauses allowed today's fatal chain:
+  - REQ-01-453: "a renewal or handler error … retains its … execution-loss
+    semantics";
+  - REQ-01-448: cleanup after the handler context is cancelled;
+  - RP-REQ-238: cleanup under the remaining grace.
+- **Edits.**
+  - **Extension NLSpec EXT-REQ-215.** Observing the effects of an
+    operation's own proven commit, including the terminal Job state it
+    published, is not a cancellation signal. It neither starts the grace
+    nor interrupts completion that follows the commit.
+  - **Core 01 REQ-01-453.** Execution loss means expired or superseded. A
+    renewal that finds the Job terminal while this execution's lease is
+    unexpired observes its own committed transition: the runner stops
+    renewing and does not cancel the handler. Runner shutdown still cancels
+    it.
+  - **Reference Pack NLSpec §23.2.** A parent Job observed terminal ends
+    observation without interrupting the scope. Cleanup runs under the
+    remaining grace only when an interruption was sampled first, or by the
+    budget, a parent deadline or process shutdown.
+- **Design.**
+  - **Observer:** on `ErrExecutionLost`, re-read the job, and stop observing
+    without cancelling when it is terminal.
+  - **Runner:** track `leaseHeldUntil`. On a renewal `ErrExecutionLost`
+    within the lease, with the job terminal, stop renewing without
+    cancelling. A replacement attempt can claim the job only after the
+    lease expires on the same clock.
+  - **Batched staged-member abandon:** recorded, not done. It needs
+    set-based methods across four interfaces.
+
+**Outcome.**
+
+- **Reference Pack observer** (`coordinator_observation.go`). On
+  `ErrExecutionLost` it re-reads the job with `Get`. A `succeeded`,
+  `failed` or `canceled` job ends observation without cancelling; a failed
+  read or a running job cancels as before. This also covers the moment
+  between the database commit and the coordinator returning.
+- **Jobs runner** (`runner.go`). It records `leaseHeldUntil` from the
+  manager clock before the claim and before each renewal. A renewal that
+  reports loss within that lease, for a terminal job, stops renewing and
+  waits for the handler or shutdown. It no longer releases the slot while
+  the handler is still running, which matches REQ-01-453's drained-close
+  rule.
+- **Tests.**
+  - `TestVerificationLifetimeCleanup_Unit`, "own terminal job is not
+    cancellation": a 100 ms grace and a 300 ms cleanup.
+  - `TestSupervisedRunnerContract_Integration`: a renewal after the
+    attempt's own terminal transition leaves the handler running.
+- **Red.** The old files were restored with `cp` and confirmed with `cmp`.
+  - `redobs01`: "observing the attempt's own terminal Job was fatal:
+    extension cancellation grace exhausted".
+  - `redrun01`: "renewal of the attempt's own terminal Job canceled its
+    handler".
+- **Green.**
+  - Format (no changes), lint go and backend-boundary.
+  - Both rows.
+  - Owner runs:
+
+    | Owner | Units | Rows |
+    | --- | --- | --- |
+    | platform.jobs | 9/9 | — |
+    | reference_data | 48/48 | 101 |
+    | incidentbundles | 14/14 | 41 |
+    | imports | — | 39 Go rows (100,001-row row 23.4 s) |
+
+- **WP check.** `make check` should show no
+  `operation_cancellation_grace_exhausted` from the incident-bundles rows.
+- **Carried to S-1112.** A renewal error other than loss, such as a transient
+  database error, still cancels a handler after its own terminal commit.
+  That can interrupt post-commit cleanup under load.
+
+### S-1108 / F-1093 / E-1165 — WN3: the IR corpus browser test neither hangs nor depends on load (browser specs; product fix if proven)
+
+Recorded before editing; identities verified unused. DONE (2026-11-19).
+
+- **Gap.** In both E-1127 traces, Shift+F10 opened no row-action menu right
+  after grid page fetches. The click then waited out its whole budget.
+  `actionTimeout` (WG) now bounds the wait, but the cause is open.
+- **Change.**
+  - Extract the retained traces' screenshots to see whether a page fetch
+    replaces the focused cell and drops the menu.
+  - If it does, that is a product defect: fix focus retention under Core
+    03's focus rules, with a deterministic test.
+  - Otherwise, the test waits for the grid to settle.
+  - Split the spec into three tests:
+    1. core CSV imports through the UI, with exact-text checks;
+    2. source history over an API-seeded import;
+    3. the Cisco Network Flow imports, table list, download and axe.
+
+    Seeding uses `publicHttpOperation`.
+- **Red.** For a product fix, the deterministic test fails against the old
+  focus handling.
+
+**Design review (2026-11-19).** The note is in the session scratchpad as
+`s1108-design.md`. The extracted traces are under `trace-s1068/` and
+`trace-s1069/`. The agent made no repository edits.
+
+- **Correction to the premise.** Shift+F10 is not lost.
+  - The menu opens; the frames at 37808 (s1068) and 35736 (s1069) show it
+    with Inspect focused.
+  - It closes 20–60 ms later with no user input, and focus moves to the
+    grid root.
+  - No fetch replaced the focused row.
+- **Root cause, a product defect.**
+  1. After a 1,500-row import, the change events overflow the socket's
+     32-message buffer. The server answers `resume_ack reset_required` and
+     closes with 1013, as specified. The client refreshes and reconnects.
+  2. Every `hello_ack`, and every completed reset, calls
+     `applyAuthorizationRecoveryState("resumed")`. That increments
+     `currentAuthorizationEpoch` even when nothing was paused
+     (`WorkbookMutationRuntime.ts`).
+  3. The row-action menu's scope key includes that epoch, so the menu's
+     validate step closes it and restores focus to the grid root.
+  4. Under load the backlog is still draining when the menu opens.
+- **Same cause elsewhere.** On every reconnect the epoch also resets
+  Timeline viewport continuity, the linked-evidence review, and in-flight
+  mutation checks.
+- **Requirements violated.**
+  - Core 03 §2: a late completion must not take focus from newer work.
+  - REQ-03-299a: a transient close keeps the presentation.
+  - REQ-03-220: an open menu keeps keyboard ownership.
+  - Core 03 §14.9 and design §8.4.
+- **Decisions.**
+  1. **Option A.** "Resumed" advances the authorization epoch only when it
+     ends a real pause, or when the authority the server reports differs
+     from the client's current authority. The second condition stops a role
+     change during a disconnect from being missed: REQ-01-277 re-derives
+     authorization on connect. Stage 2 verifies what `hello_ack` carries
+     and cites the Core 03 authority-recovery rules. The one save-status
+     assertion that encodes the old behaviour changes.
+  2. **Red test.** A component test in
+     `WorkbookShell.collaboration.test.tsx`: the menu is open, the socket
+     closes and reconnects with `hello_ack`, and the same menu must still
+     be open with Inspect focused. It gets a new `web.workbook.regression`
+     row, plus a runtime node test for the epoch rule.
+  3. **Spec split.**
+     - Test 1 keeps `module.imports.browser.ir_corpus_import`, with its
+       title changed and the corpus counts added.
+     - Tests 2 and 3 get new rows. Test 3 is owned by Imports, with Network
+       Flow as a collaborator.
+     - The release qualification's `imports.provenance` points to tests 2
+       and 3.
+  4. **Seeding** uses a typed multipart variant of `publicHttpOperation`,
+     with a case in the public client's boundary-support row. The shared
+     row-menu helper is unchanged.
+  5. **Runs.**
+     - The targeted unit, browser and harness rows;
+     - the runtime, coordinator, mutation-driver, file-draft, bulk-tag and
+       save-status rows;
+     - one `module.imports` owner run.
+
+     The loaded run is S-1109's.
+  6. Stage 2 starts after S-1106 finishes, so no two Make runs overlap.
+
+**Outcome.**
+
+- **Epoch rule** (`WorkbookMutationRuntime.applyAuthorizationRecoveryState`).
+  A `"resumed"` advances the authorization epoch only when it ends a real
+  recovery pause (a new private flag) or when the accepted authority differs
+  from the authority the epoch began under (`epochAuthorityKey`). Pause,
+  drain and emit are unchanged.
+- **Role changes during a disconnect.** `hello_ack` and `resume_ack` carry no
+  authority. A changed role is discovered when a write after reconnect gets
+  a 401 or 403. That triggers the authoritative read (REQ-03-100) and
+  `setAuthority`, which advances the epoch and raises
+  `incident_role_changed`.
+  - The old unconditional bump hurt this path. After a plain reconnect,
+    that 403 went to the "epoch changed" branch, which settles without
+    requesting recovery.
+  - A coordinator test now covers the detection.
+- **Spec relied on:** REQ-03-299a, REQ-03-100, REQ-03-299 and REQ-01-277.
+  The save-status assertion that expected a bare resume to publish a new
+  snapshot now pauses first.
+- **Test split** (`import-assistant.spec.ts`).
+
+  | Test | Row | What it covers | Time |
+  | --- | --- | --- | --- |
+  | 1 | `module.imports.browser.ir_corpus_import`, retitled | The Core CSV imports through the Import Assistant, with exact text, every mapping value, and corpus counts over the 1,500 Timeline rows | 26.4 s |
+  | 2 | `module.imports.browser.ir_corpus_source_history_reopens_the_exact_commi_ad005b7ffd` | An API-seeded import, with exact source-history detail and focus return | 19.1 s |
+  | 3 | `module.imports.browser.ir_corpus_cisco_network_flow_imports_retain_the_69f408a153` | Network Flow as collaborator; "Back to sources" lists exactly the three Cisco files | 24.0 s |
+
+  The old single test took 48–61 s.
+- **Seeding.** The new `publicHttpMultipartOperation` is typed by the
+  generated request types, with a case in the public client's
+  boundary-support row. `workbookImportSeed.ts` derives the mapping from
+  the import-target registry.
+- **New unit rows.**
+  - `web.workbook.regression.timeline_row_actions_keep_the_open_menu_and_focu_a43731973f`
+    (component);
+  - `web.workbook.regression.authorization_epoch_advances_on_resume_only_afte_b4bd1bcfc7`
+    (runtime).
+
+  The coordinator's role-change test was added to the existing collaboration
+  coordinator row.
+- **Release qualification.** `imports.provenance` points to tests 2 and 3.
+  The browser batch manifest was regenerated.
+- **Red.** The original runtime was restored with `cp` and confirmed with
+  `cmp`, then the fix the same way.
+  - `red01`: the component test lost the menu after the second
+    `hello_ack`, and the runtime test got epoch 3, want 1.
+  - `red02`: the coordinator test got 3, want 1.
+- **Green.**
+
+  | Run | Owner | Result |
+  | --- | --- | --- |
+  | `green01` | web.workbook | 22 rows, 77 tests |
+  | `green02` | web.collaboration | 28 tests |
+  | `green03` | module.collaboration | 8 tests |
+  | `green04` | module.workbook | 6 tests |
+  | `green05` | module.timeline | 19 tests |
+  | `green06` | module.evidence | 3 tests |
+  | `green07` | harness.browser | 7 tests |
+  | `imports-owner01` | module.imports | 63/63 rows, 0 undeclared codes |
+
+  - Generate ran twice; source-check generated and catalog passed.
+  - Format, and lint types, frontend and frontend-boundary passed.
+- **Carried to WO.**
+  - When the menu's scope legitimately changes, focus still returns to the
+    grid root rather than the invoking cell (design §8.4).
+  - The last socket in both traces lived about 16 s, of unknown cause. It
+    is harmless now.
+
+### S-1109 / F-1094 / E-1166 — WN4: load-sensitive measurement rows (harness, tests)
+
+Recorded before editing; identities verified unused. DONE (2026-11-19).
+
+- **Gap.**
+  - The 100,001-row Network Flow import shares CPU with other rows. Its
+    30 s participant budget is a product limit.
+  - The Timeline blank-row paint measurement's p95 sat just over 150 ms
+    (150.9, 154.3 and a baseline 159.6 ms; S-1080).
+  - CSV apply's responsiveness was proven deterministically by WH, but not
+    yet in a loaded imports owner run.
+- **Change.**
+  - The Network Flow row declares an exclusive CPU resource claim, as the
+    Testing Harness NLSpec allows, so the scheduler stops co-scheduling it.
+    The measured timings stay recorded.
+  - The paint measurement is root-caused before anything changes: either
+    the threshold is wrong for its measured path, or the path regressed.
+    No threshold changes without evidence.
+  - One loaded imports owner run proves `module.imports.measurement.csv_apply`.
+- **Exit.** The three rows pass in full owner runs, and in WP's
+  `make check`.
+
+**Investigation (2026-11-19).** The note is in the session scratchpad as
+`s1109-design.md`.
+
+- **Network Flow throughput.**
+  - Unloaded, 100,001 rows take 20.5 s in total, and the second pass
+    17.7 s. In 38 retained runs the second pass took 18.4–26.5 s, and the
+    worst total was 29.84 s.
+  - Linear scaling puts 250,000 rows at about 51 s unloaded and up to about
+    75 s under load. **The default 250,000-row limit (NF Table 20-A) cannot
+    commit within the default 30 s participant budget (Extensions Table
+    9-C).** The two specs' defaults are not jointly satisfiable.
+  - **Time split.** Go takes about 8 s of the second pass, at GOMAXPROCS 1
+    under the harness claim. PostgreSQL takes about 12 s.
+    `insertRetainedRowsTx` waits on each 128-row `CopyFrom`, so the two
+    sides alternate instead of overlapping.
+  - **Unmeasured PostgreSQL costs per row:**
+    - four PL/pgSQL CHECK calls, each setting `search_path`;
+    - nine regex or cast CHECKs;
+    - three foreign-key checks;
+    - seven btree inserts, including a random 68-character text primary key
+      and a redundant `(incident_id, table_id)` index;
+    - about 1.3 KB of jsonb;
+    - about 6 KB of WAL.
+- **Timeline paint (AC-043, REQ-04-158).** No regression; the threshold is
+  scoped correctly.
+  - p95 ranges from 126.8 to 159.6 ms, and 4 of 14 runs exceeded 150 ms.
+  - `response_decode` is bimodal: background collaboration updates take
+    about 60 ms of main-thread time each and land on the paint path.
+  - This is a product performance finding.
+- **CSV apply.** The row is placed in `release`, so `make check` never runs
+  it. It passed in 8 consecutive full imports owner runs (185–299 ms
+  against 1,000 ms).
+- **Exclusive CPU claim.** The harness cannot express one for a Go row today
+  without a Testing Harness NLSpec amendment. It would hide the 250k gap.
+- **Runs.** `nf100k01` and `nf100k02`, and `paint01`–`paint03` (`paint02`
+  failed at 151.3 ms on unchanged source).
+
+**Decisions (2026-11-19).**
+
+- **The user authorized DDL for Network Flow import performance.** Keep both
+  defaults: 250,000 rows and 30 s. Make the import fast enough, under load,
+  through code and schema changes:
+  - **Code:**
+    - pipelined COPY (the second pass feeds a pull-based
+      `CopyFromSource`, so Go and PostgreSQL overlap);
+    - a single source pass if it is clean;
+    - less `persistedRow` work;
+    - larger batches.
+  - **Schema (one migration):**
+    - cheaper or inlinable CHECK predicates;
+    - drop the per-row foreign key to `incidents`, which the cascading
+      composite foreign key through `network_flow_tables` already implies;
+    - drop the redundant index;
+    - a primary-key change only if measurement shows the need.
+  - **Procedure:** WH's migration procedure (S-1077): a machine-allocated
+    version, the ownership manifest, generated projections, migration
+    drift, and the recovery-generation check.
+- **Spec.** The Network Flow NLSpec gains a rule that its Table 20-A
+  defaults and the Extensions Table 9-C defaults are jointly satisfiable. A
+  default-configured import at the row limit commits within the participant
+  budget, backed by retained capacity evidence.
+- **Evidence.** A test-only scaling sweep (25k, 50k, 100,001 and 250k,
+  `explicit_only`) measures before and after. If 250k still cannot commit
+  under load within 30 s after the code and schema work, stop and report
+  before changing any default.
+- **No exclusive CPU claim.**
+- **CSV apply** closes with one fresh full imports owner run on the final
+  source, in WP.
+- **Timeline paint** is fixed in this remediation, in the new S-1117.
+- **Exit wording.** The paint and CSV-apply rows are placed in `release`, so
+  they are proven in owner runs, not `make check`.
+
+**Stage 2 outcome (2026-11-19).** The note is in the session scratchpad as
+`s1109-stage2.md`.
+
+- **Result.** A 250,000-row import at the default 30 s budget used to fail
+  at 29.98 s with a retryable 503 and no table (`tcr-s1109-sweep-base01`).
+  It now commits in 24.83 s alone (`sweep-final-01`) and in 25.64 s inside a
+  full imports owner run (`loaded-02`, 64/64). The margin is 4.4 s (15%).
+  Both defaults are unchanged.
+- **Sweep row.** `TestNetworkFlowImportScalingSweep` is placed in
+  `explicit_only`. It records 25k, 50k, 100,001 and 250k rows at a 300 s
+  budget, and 250k at the default budget. Per-row cost fell from about
+  210 µs to about 100 µs, and scaling stays linear.
+
+  | Step | 250k, 300 s budget | 250k at the default 30 s |
+  | --- | --: | --- |
+  | Baseline (`sweep-base01`) | 52.52 s | fails at 29.98 s |
+  | Pipelined COPY (`sweep-g1-01`) | 44.15 s | fails |
+  | 1 MiB read-ahead (`sweep-g4-02`) | 35.92 s | fails |
+  | Cheaper `persistedRow` (`sweep-g3-01`) | 36.09 s | fails |
+  | Migration 60 (`sweep-ddl-01`) | 29.71 s | fails at 29.99 s |
+  | Final code (`sweep-final-01`) | 24.13 s | commits in 24.83 s |
+  | Final code, full imports owner run (`loaded-02`) | 26.16 s | commits in 25.64 s |
+
+- **Code.**
+  - **Pipelined COPY** (`row_copy_pipeline.go`). The second pass produces rows
+    on its own goroutine while COPY consumes them, so Go and PostgreSQL
+    overlap. A gate gives the producer the connection for its source reads
+    between COPY statements. Producer errors keep their classification,
+    COPY errors stop the producer, and cancellation cannot deadlock.
+  - **Cheaper per-row work.**
+    - Provenance is encoded from a struct, with the same bytes as before.
+    - Empty unmapped values are not decoded.
+    - Evidence that the in-package normalizer just built is checked against
+      the profile's derivation instead of being decoded again. The row CHECK
+      still validates the stored evidence.
+  - **Canonical JSON.** A fast path for strings that need no escaping, with
+    identical bytes.
+  - **Single pass rejected.** NF §9.2 allocates no table before validation
+    succeeds, and NF-REQ-062a verifies insertion against the validation
+    summary.
+- **Migration 60** (`00060_network_flow_row_check_cost.sql`, allocated to
+  `networkflow`; its Down restores everything exactly).
+  - Each `{64}` pattern becomes an exact `char_length` test plus the same
+    character class with `+`. That accepts the same values, NULL included.
+  - The direction-evidence predicate moves to `_v2`, which differs from v1
+    only in its two hash tests. Recovery's orientation check moves to `_v2`
+    with it, and both v1 routines are dropped.
+  - The per-row foreign key to `incidents` is dropped. The composite foreign
+    key through `network_flow_tables` implies it.
+  - The `(incident_id, network_flow_table_id)` index is dropped.
+    `direction_idx` now covers the composite key and the affected query
+    plans.
+  - The primary key is unchanged.
+  - **No recovery-generation bump.** The recovery catalog covers tables and
+    object families, not routines, constraints or indexes.
+  - Per-row CHECK cost, before and after:
+    - direction evidence: 42.4 to 22.4 µs;
+    - `sha_ck`: 18.8 to 0.7 µs;
+    - `id_ck`: 3.8 to 0.3 µs.
+- **Constraint equivalence.**
+  `TestNetworkFlowRowCheckPredicateEquivalence_Integration` compares each
+  rewritten CHECK with its original pattern on 18 boundary values and
+  inserts violating rows. The original patterns are the reference.
+  - Reds: `red-sha-01`, `red-id-01` and `red-evidence-01` each restored a
+    variant without the length test. All three exited 2. Each was restored
+    with `cp` and confirmed with `cmp`.
+- **Runs.**
+  - Owner runs:
+    - `nf-owner01`: module.networkflow, 155/155;
+    - `loaded-02`: imports and the sweep, 64/64, with `csv_apply` at
+      224.9 ms;
+    - `pgowner01`: 6/6;
+    - `dbmigowner01`: 19/19;
+    - `recowner01`: 50/50.
+  - Checks: `migdrift01` (8/8), the migration-input, schema, generated and
+    catalog source checks, `generate05`, `format08`, `lintgo10` and
+    `lintbb04`.
+  - Failures the agent caused and fixed:
+    - `generate02`: the fixture approval was missing.
+    - `generate04`: the DDL policy rejected replacement DDL. `generate05`
+      regenerated the sqlc outputs that the failed run had removed.
+    - `lintgo03`: a staticcheck finding.
+    - `lintbb01`: a SQL-forwarding wrapper, replaced by the gate.
+  - Profiling was outside Make: a CPU profile and SELECT-only benchmarks in a
+    throwaway container, now stopped. Neither counts as verification.
+- **Open: no evidence yet under `check` load.** The 100,001-row row sets the
+  precedent: `standard` placement with `backend_capacity_isolated`, so
+  `check` runs it. Check load has added about 18% over imports owner runs,
+  which puts 250k at about 30 s.
+
+**Stage 3 decision (2026-11-19).**
+
+- **Evidence.** NF-REQ-171a names its evidence: an asserting row that
+  `check` runs. A 250,000-row default-budget row replaces the 100,001-row
+  row. 250,000 rows also exceed the former 100,000-row ceiling that the old
+  row was there to prove.
+- **Margin.** Reduce the time further, to at most 20 s inside a full imports
+  owner run, so a check-level uplift stays under about 24 s. The sources
+  are:
+  - the evidence predicate's remaining PL/pgSQL cost, by amending the
+    uncommitted migration 60;
+  - first-pass Go work;
+  - second-pass producer work.
+- **Stop.** Stop and report before any primary-key change, any DDL outside
+  this authorization, or any change to a default.
+
+**Stage 3 outcome (2026-11-19): stopped at the target.** The note is in the
+session scratchpad as `s1109-stage3.md`.
+
+- **Result.** Inside a full imports owner run, a 250k default-budget import
+  now commits in 24.43 s (`loaded-03`, 64/64), against 25.64 s before. The
+  first pass fell from 6.53 s to 4.97 s, and the second pass stayed at about
+  18.8 s. Alone, the sweep took 22.93 s (`sweep-s3b-01`). The 250k row was
+  not landed, and the 100,001-row test is unchanged (restored with `cp` and
+  confirmed with `cmp`).
+- **Code (no DDL).**
+  - The canonical-JSON fast path now also covers integers, maps and arrays,
+    with identical bytes.
+  - The counting-only first pass no longer encodes the evidence and
+    unmapped-value JSON. No Table 20-A limit depends on the encoded JSON, so
+    every check, diagnostic and digest is unchanged.
+  - Migration 60 is byte-identical to stage 2.
+- **The second pass is bound by PostgreSQL:** one backend at about one full
+  core, about 72 µs per row. Insert cost per row, measured on 100,001 rows:
+
+  | Item | µs per row |
+  | --- | --: |
+  | Direction-evidence CHECK | 28.3 |
+  | Endpoints CHECK | 4.5 |
+  | All CHECKs | 33.7 |
+  | Foreign key to `users` | 10.0 |
+  | Foreign key to `network_flow_tables` | 9.4 |
+  | Four secondary indexes | about 8 |
+  | Heap, WAL, primary and unique keys, executor | about 16 |
+
+- **Evidence predicate.** v2 in PL/pgSQL is the cheapest form the DDL
+  policy allows.
+  - A SQL-language body must carry `SET search_path`, so it cannot be
+    inlined, and it measured about 113 µs.
+  - An inline `CASE` measured about 26 µs.
+  - **Anomaly.** The same function costs 10.5 µs in a scratch database on
+    the same image and 22–28 µs in the harness database.
+- **Runs.**
+  - `loaded-03`: 64/64, with `csv_apply` at 160.9 ms.
+  - `nf-owner02`: 155/155.
+  - Format and lint: `format09`–`11`, `lintgo12`–`13` and `lintbb05`.
+  - `lintgo11` exited 2 on a now-unused function, which the agent removed.
+- **Remaining levers.**
+  - Within the authorization: the anomaly.
+  - Needing fresh authorization:
+    - the `users` foreign key;
+    - test-cluster PostgreSQL configuration;
+    - secondary indexes and the primary key.
+
+**Stage 4 decision (2026-11-19).**
+
+- **Why.** At 24.43 s inside an owner run, a check-level uplift could reach
+  about 29 s, which is too close for a `standard` row.
+- **Next.** Find the cause of the anomaly first. A product fix within the
+  S-1109 authorization may land, with equivalence tests and a red check. A
+  harness or cluster configuration change, or anything else outside the
+  authorization, stops at a report.
+- **Cleanup.** The rolled-back ALTER/DROP insert profile leaves the retained
+  sweep test. A retained test does not run schema DDL against product
+  tables. The read-only CHECK costing stays.
+- **Then.** The user decides on the remaining levers if the margin is still
+  short.
+
+**Stage 4 outcome (2026-11-19): the anomaly is a measurement artifact.** The
+note is `s1109-stage3.md`, in its stage-4 section.
+
+- **Cause.**
+  - The import does not pay this cost. COPY evaluates CHECKs before the row
+    is compressed, and the evidence CHECK costs about 11 µs per row in both
+    databases.
+  - Stored harness rows are about 2.2 KB, so `direction_evidence` is stored
+    pglz-compressed. PL/pgSQL decompresses a compressed argument again on
+    each jsonb access, about 15 times per call.
+  - The stage-3 breakdown measured an `INSERT … SELECT` over stored rows,
+    which is why it showed 22–28 µs.
+- **Evidence.** All from `tcr-s1109-sweep-env-01`:
+  - On stored values the function took 22.6 µs, and on a copy decompressed
+    once 11.0 µs.
+  - Settings, preload libraries, statistics tracking, role settings, locale
+    and version match the scratch database, and the repo's cluster
+    provisioning sets no GUCs beyond TLS.
+  - A throwaway container reproduced it: 21.3 µs per row on full-width
+    compressed rows, against 10.5 µs on narrow ones.
+- **What the import does pay.** pglz compression, about 3–4 µs per row, or
+  0.8–1.0 s per 250k. lz4 would remove most of it.
+- **Corrected second-pass breakdown, about 70 µs per row.**
+
+  | Item | µs per row |
+  | --- | --: |
+  | CHECKs | about 16 |
+  | Two foreign-key checks | about 19 |
+  | Secondary indexes | about 8 |
+  | pglz compression | 3–4 |
+  | jsonb parsing | about 3.5 |
+  | Heap, WAL, primary and unique keys, COPY input | about 20 |
+
+- **Cleanup.** The ALTER/DROP insert profile has left the sweep test. A
+  read-only environment and storage probe replaced it. `format12`,
+  `lintgo14` and `sweep-env-01` passed, and the 250k default-budget unit
+  committed in 22.30 s with the sweep alone.
+- **Still short of 20 s.** The levers left need fresh authorization:
+  - the per-row `users` foreign key (about 10 µs);
+  - lz4 compression for the two jsonb columns (about 3–4 µs);
+  - test-cluster PostgreSQL settings;
+  - secondary indexes.
+
+  Decompressing the evidence once at function entry would save about 11 µs
+  per stored row on later re-checks, such as Recovery's orientation check.
+  It does not help the import.
+
+**Stage 5 decision (2026-11-19).** The user authorized two more changes,
+both in the uncommitted migration 60.
+
+- **Creator key.** The per-row `created_by_user_id` foreign key to `users`
+  folds into the composite foreign key to `network_flow_tables`, through a
+  three-column unique key on the table. A row's creator then must equal its
+  table's creator, and the table's own `users` key implies the rest.
+  - This applies only if the Network Flow NLSpec and the portability rules
+    confirm that the two creators always match. If they don't, this change
+    is dropped.
+  - Equivalence and red checks as before.
+- **lz4.** `direction_evidence` and `observation_source_ref` use lz4
+  compression.
+- **Decompress once.** The v2 evidence predicate decompresses its argument
+  once at entry. This is within the original authorization, and it benefits
+  Recovery's orientation check.
+- **Then.**
+  - The asserting 250,000-row default-budget row replaces the 100,001-row
+    row in `standard`.
+  - The final `make check` in WP is the proof under load.
+- **Sequencing.** S-1117 has the Make lane. S-1109 verifies the creator
+  invariant read-only and drafts the migration outside the repository, then
+  applies it once the lane is free.
+
+**Stage 5 phase A outcome (2026-11-19, read-only).** The plan is
+`s1109/phaseA-plan.txt` in the session scratchpad.
+
+- **The creator invariant holds.**
+  - NF NLSpec: the table creator is the import actor and is immutable, and
+    the row creator is the importing actor. NF-REQ-059 and NF-REQ-062a
+    insert a table and all its rows in one unit of work, and NF-REQ-067
+    makes rows immutable.
+  - Portability binds user references to the importing actor
+    (Core 01 and Core 02).
+  - In code, both creators come from the same actor in the same
+    transaction, on the import and the portability paths alike. No update
+    path changes either one.
+- **Delete semantics are unchanged.**
+  - User deletion is still blocked, now through the table's own `users`
+    key.
+  - Table and incident deletes still cascade.
+  - Updating a table's creator while it has rows is newly rejected. No code
+    does that.
+- **Draft for migration 60.**
+  - Add a unique key on `network_flow_tables (incident_id,
+    network_flow_table_id, created_by_user_id)`.
+  - Replace the rows' `users` foreign key and the two-column table key with
+    one three-column composite key.
+  - Swap the `created_by_user_id` index, which served only the removed
+    foreign key, for a three-column index. The foreign-key coverage policy
+    requires that index, so the number of row indexes stays the same.
+  - lz4 on both jsonb columns.
+  - The v2 evidence predicate decompresses its argument once.
+  - The Down is exact. A read-only preflight runs the DDL policy and the
+    coverage collector against the draft.
+- **Projection.** About 21 s inside the owner run and about 19 s alone,
+  still above the 20 s target.
+- **Metadata gap from stage 2.** The generator's migration-to-profile map
+  has no entry for version 60, so the objects that migration 60 creates have
+  a null `extension_profile_id`. That includes three CHECKs that were
+  `network_flow_activity`.
+- **Process note.** A direct `go vet` outside Make made the go command query
+  the public module proxy with the project's module path. It failed, the
+  repository was unchanged, and later type checks run only under Make.
+
+**Phase A decisions (2026-11-19).**
+
+- **The creator key goes ahead,** including the index swap that the
+  coverage policy requires.
+- **Map version 60 to `network_flow_activity`** in the generator's authored
+  map, then regenerate.
+- **lz4 is a deployment prerequisite.** REQ-04-153 now requires a server
+  build with lz4 TOAST compression. Migration 60 fails closed on a server
+  without it.
+- **Phase B** starts once S-1117 releases the Make lane.
+
+**Outcome (2026-11-19). DONE.** Scratch copies are in `s1109/` in the
+session scratchpad.
+
+- **Final migration 60, on top of stage 2.**
+  - The v2 evidence predicate decompresses its argument once
+    (`e := e #> '{}'`) after its early return for NULL and non-object
+    input.
+  - **Creator key.**
+    - Adds `network_flow_tables_creator_identity_key`.
+    - Replaces `network_flow_rows_created_by_user_id_fkey` and
+      `network_flow_rows_table_id_fkey` with
+      `network_flow_rows_table_creator_fkey`, a three-column key with ON
+      DELETE CASCADE.
+    - Swaps `network_flow_rows_created_by_user_id_fk_idx` for
+      `network_flow_rows_table_creator_scope_idx`.
+  - `SET COMPRESSION lz4` on `direction_evidence` and
+    `observation_source_ref`.
+  - The Down restores everything exactly.
+  - `generate-catalog-projections.mjs` maps version 60 to
+    `network_flow_activity`.
+  - Generation changed only the predicted outputs:
+    - the migration hash;
+    - three ownership objects removed and four added;
+    - version 60 objects tagged with the profile again.
+- **Equivalence, red and green.**
+  - The equivalence row passed before and after the reds (`b-eq-green01`
+    and `b-eq-green02`).
+  - Reds, each restored with `cp` and confirmed with `cmp`:
+    - `b-red-creator01`: a two-column key accepted a different creator.
+    - `b-red-lz4-01`: the values were stored with pglz.
+    - `b-red-readonce01`: the mutated body accepted an extra member.
+  - Deleting a user who owns a table is still rejected, and deleting the
+    table cascades to its rows.
+- **Timing, 250,000 rows at the default 30 s budget.**
+
+  | Run | Total | First pass | Second pass |
+  | --- | --: | --: | --: |
+  | Baseline, alone (`sweep-base01`) | fails at 29.98 s | 6.87 s | 23.10 s |
+  | Stage 4, alone (`sweep-env-01`) | 22.30 s | 4.13 s | 17.54 s |
+  | Final, alone (`b-sweep01`) | 19.73 s | 4.33 s | 14.87 s |
+  | Final row alone (`b-nf250k01`) | about 19.6 s | 4.36 s | 15.26 s |
+  | Final row, full imports owner run (`b-imports-owner01`) | about 20.9 s | 4.78 s | 16.07 s |
+
+  The owner-run margin is about 9 s (30%), about 0.9 s above the 20 s
+  target. WP's `make check` is the proof under load.
+- **The asserting row.**
+  `module.imports.integration.network_flow_public_default_limits_commit_the_ac_fc9396304e`
+  (`TestNetworkFlowPublicDefaultLimitsCommitAcceptedRowLimit`) uses
+  `standard`, `backend_capacity_isolated` and `network_flow_claimed`.
+  - It asserts the 250,000-row limit, the 30 s budget and the default
+    source limit, keeps the old source-admission assertions, and commits.
+  - `module.imports.integration.network_flow_default_limit_100001_rows`
+    is retired in `tools/test_catalog_row_migrations.json`.
+- **lz4 prerequisite.** Migration 60 fails closed without lz4, which
+  satisfies REQ-04-153.
+  - Connection admission in `internal/platform/postgres/postgres.go` could
+    probe for lz4. Its failure reasons are a closed set under Core 04, so
+    that would need a spec amendment.
+  - Three provisioning scripts could probe earlier.
+  - None was added. That is recorded as a residual.
+- **Runs.** All passed, apart from the three intended reds.
+  - `b-generate01`/`02`, `b-format01`/`02` (no changes), `b-lintgo01`/`02`
+    and `b-lintbb01`.
+  - `b-migdrift01`, plus the migration-input, schema, generated and catalog
+    source checks.
+  - Owner runs:
+    - `b-recowner-01`: 27/27;
+    - `b-dbmigowner-01`: 14/14;
+    - `b-pgowner-01`: 6/6;
+    - `b-imports-owner01`: 63 rows, including the new row and `csv_apply`;
+    - `b-nf-owner01`: 155 rows.
+  - The phase made no direct tool invocations outside Make.
+
+### S-1117 / F-1102 / E-1174 — WN6: background collaboration updates stay off the blank-row paint path (web client, tests)
+
+Recorded before editing; identities verified unused. DONE. The user approved
+fixing this in the remediation (2026-11-19).
+
+- **Gap.** AC-043 and REQ-04-158 set the blank-row paint at 150 ms p95. It
+  passes in about 3 runs out of 4. Background collaboration updates cost
+  about 60 ms of main-thread time each on the 20,000-row grid, and in about
+  27% of samples they delay the response decode.
+- **Change.**
+  1. Add a test-only diagnostic: long tasks, background-apply durations and
+     server duration per sample.
+  2. Then client work, so background updates are applied without blocking
+     the interaction paint. Examples are batching, deferring off the frame
+     that follows a local commit, or cheaper apply.
+  3. No threshold change.
+- **Exit.** The paint row passes repeatedly in owner runs with margin, with
+  the diagnostic evidence recorded before and after.
+
+**Investigation (2026-11-19, read-only).** The note is in the session
+scratchpad as `s1117-design.md`. Nothing was run.
+
+- **Likely cause: an HTTP refresh for every background update.**
+  - The client holds a 100-row window, the 100 lowest `record_id`s under the
+    default sort. The fixture's `record_id`s are random, and the background
+    pool is 24 rows chosen by synopsis text. So the patched rows are almost
+    never loaded.
+  - A patch to a row outside the window returns `refresh_required`
+    (`useTimelineCollaborationBindings.ts:156-158`). The coordinator then
+    runs a full window reconcile (`WorkbookCollaborationCoordinator.ts:1017-1020`),
+    about 4.8 times a second.
+  - Each reconcile costs:
+    - one view query;
+    - two `refreshing`/`ready` flips, each announcing "Refreshing";
+    - two store publishes;
+    - two normalization passes;
+    - `replaceRows` and epoch-fence retries.
+
+    No Timeline or grid-adapter component is memoized, so each reconcile is
+    about three or four full-surface renders.
+  - The measured `client_apply` of about 20 ms is two such renders, so the
+    inferred cost per update is about 40–60 ms. That matches the occupancy
+    estimate.
+- **Not the cause.** The client never holds the 20,000 rows, so no client
+  pass touches more than about 100.
+- **Floor.** `apply_to_visible_paint` is mostly the two-frame stop rule
+  (about 16.7 ms).
+
+**Decisions (2026-11-19).**
+
+- **Diagnostic first, test-only.** Record long tasks, long animation frames,
+  `record_changed` frame counts, Timeline query counts and the create
+  request's time to first byte. The output goes in a separate non-gating
+  attachment. The gated stages, the p95 assertion and the 150 ms threshold
+  are unchanged.
+  - The deciding check: about one Timeline query per `record_changed` before
+    the fix. If not, the in-window patch path is the cost, and render
+    narrowing moves up.
+- **Fix 1.** A placement-neutral `patch` to a record outside the window
+  returns `applied` with no refresh, when all of these hold:
+  - a query that started after the record was first seen has been accepted.
+    That ledger lives in `WorkbookQueryBrowser`, and `invalidate` and
+    `detach` clear it.
+  - no sort, filter or group field changed, and no full-text filter is
+    active.
+  - the record is not the inspector subject and has no local pending or
+    conflict work.
+
+  These keep today's refresh:
+  - first sightings, which include remote creates;
+  - `invalidate`, `remove`, malformed patches, gaps and resets.
+
+  Version acceptance is unchanged, so REQ-03-096 and REQ-03-097 hold.
+- **Red checks, deterministic.**
+  - A binding test: an out-of-window placement-neutral patch neither
+    refreshes nor replaces rows.
+  - Guard cases for each kept refresh.
+  - A query-browser ledger test.
+  - A `WorkbookShell` test that counts Timeline query fetches: one for a
+    first sighting, and none for later placement-neutral patches.
+
+  All of them fail on unmodified code before the fix.
+- **Escalation.** If fix 1 misses the margin, add the no-op reconcile skip,
+  then the scoped epoch fence, then scheduling reconciles off the
+  interaction path. Narrowing re-renders needs a further decision.
+- **Margin (an evidence criterion, not a spec threshold).**
+  - The gated row reaches p95 of at most 135 ms in 3 of 3 owner runs.
+  - Decode spikes stay under 5% of samples.
+  - The diagnostic shows almost no Timeline queries per placement-neutral
+    update.
+- **Sequencing.** Implementation starts after S-1109's Make work finishes,
+  because Make never runs concurrently.
+
+**Outcome (2026-11-19). DONE.** The patch is `s1117/s1117-changes.diff` in
+the session scratchpad.
+
+- **Margin met with fix 1 alone.** Fixes 2–5 were not needed.
+  - The gated row's p95 was 128.5, 127.7 and 123.5 ms
+    (`tcr-s1117-diag-after01`–`03`). The threshold stays at 150 ms.
+  - Decode spikes were 4%, 3% and 4%.
+  - Timeline queries per foreign update were 0.027, 0.013 and 0.
+- **The mechanism was corrected.** Before the fix there were no long tasks
+  of 50 ms or more, so the main thread was not blocked.
+  - The decode spikes were the create response's body arriving 40–48 ms
+    after its headers. That happened when the client had its own Timeline
+    reconcile query in flight:
+    - with a query in flight, 65% of samples spiked and p95 was 140.1 ms;
+    - with none, 5% spiked and p95 was 121.9 ms (`diag-before02`).
+  - The S-1109 estimate of about 60 ms of main-thread time per update is
+    withdrawn.
+  - The cause is still the per-update reconcile: 1.43 Timeline queries per
+    foreign update before the fix, including epoch-fence retries.
+- **Before the fix** (`diag-before02`): p95 140.1 ms with 34% decode
+  spikes. `diag-before01` ran with a first diagnostic version that counted
+  the client's own echoes.
+- **Changes.**
+  - **Test-only diagnostic.** `mainThreadDiagnostics.ts` and its aggregator
+    test, under a new `module.timeline` frontend row. The output is a
+    non-gating attachment. The blank-row test only gained lines, and its
+    stages, p95 assertion and threshold are unchanged.
+  - **`WorkbookQueryBrowser`.** A placement ledger: a record counts as
+    reconciled once every page of the accepted window was read after its
+    first sighting. `invalidate` and `detach` clear it, and it is capped at
+    10,000 records.
+  - **Timeline collaboration bindings.** A patch outside the window returns
+    `applied` without a refresh when three things hold:
+    - the record is reconciled;
+    - no sort, filter or group key is touched, and no full-text filter is
+      active;
+    - the record is not retained. Retained means the inspector subject, or
+      a record with conflict or pending-queue work.
+
+    Everything else still refreshes, and stale checks and version acceptance
+    are unchanged.
+- **Red then green.**
+  - Reds on unmodified product code: `red-workbook01`, `red-collab01` and
+    `red-workbook02`. Only the RED titles failed. `red-workbook02` re-ran
+    the red with the original file restored by `cp` and confirmed by `cmp`.
+  - Greens: `green-workbook02`/`03`, `green-collab01`/`02`,
+    `green-workbookmod01`, `green-collabmod01` and `green-timeline01`.
+- **Guards and checks.** All passed:
+  - `ac047-01` (the first-sighting refresh), `anchor-support01` and
+    `collab-browser01`;
+  - format, `lint CHECK=types`, `lint CHECK=frontend-boundary` and
+    `lint CHECK=frontend`;
+  - `generate01` and `source-check CHECK=generated`.
+- **Failures the agent caused and fixed.**
+  - The first diagnostic version mislabelled the client's own echoes.
+  - `green-workbook01` had a test-ordering fault, and the red was
+    re-established afterwards.
+  - `lint-frontend-01` hit a biome `useOptionalChain` warning.
+- **Residuals.**
+  - `client_apply` p50 rose from 20.5 to about 23 ms, and
+    `apply_to_visible_paint` from about 20 to 24 ms. Background refreshes no
+    longer prune locally created rows, so the grid holds more rows by the
+    end of the run. That is the state a session without background traffic
+    already reaches.
+  - Long-animation-frame `promise_resolution` time inside sample windows
+    rose and is unexplained.
+  - Where the create response body is held while a query is in flight is
+    untested: the preview proxy, the server or the connection pool. The
+    40–48 ms delay is close to Linux's 40 ms delayed-ACK floor, which is an
+    inference.
+
+**WN exit.**
+
+- Each root cause is recorded with its evidence.
+- Each fix has a red check where the failure reproduces.
+- Rows placed in `fast` or `standard` pass in full owner runs and in
+  `make check`. This includes the 250,000-row Network Flow row.
+- Rows placed in `release` pass in full owner runs: CSV apply and the
+  blank-row paint.
+
+**WN exit result (2026-11-19).** The criteria are met, except the
+`make check` proof, which WP's gate provides.
+
+- **Root causes recorded with evidence.**
+  - **Entra 503.**
+    - A deadline-bound COMMIT left the outcome unknown and made the process
+      fatal (S-1106; siblings in S-1110).
+    - The Reference Pack observer and the Jobs runner cancelled after their
+      own job's commit, which exhausted the grace (S-1107).
+  - **IR corpus hang.** The authorization epoch advanced on every
+    reconnect, which closed the row menu (S-1108).
+  - **Network Flow capacity.** The defaults were not jointly satisfiable.
+    Go and PostgreSQL work alternated, and per-row CHECK and foreign-key
+    work was costly (S-1109).
+  - **CSV apply stall.** Incident-scoped lock holds spanned bulk work (WH).
+  - **Paint tail.** Each out-of-window background update triggered an HTTP
+    refresh (S-1117).
+- **Red checks.** Each fix has one where the failure reproduces, as
+  recorded in its slice.
+- **Rows.**
+  - The 250,000-row Network Flow row (`standard`) passes in
+    `b-imports-owner01`.
+  - `csv_apply` (`release`) passes in the same fresh full imports owner run
+    on current source.
+  - The blank-row paint (`release`) passes 3 of 3 in owner runs, with
+    margin.
+  - The Entra and IR corpus rows pass in their slices' owner runs.
+- **Carried to WP.** `make check` and the full owner runs on final source.
+
+### S-1111 / F-1096 / E-1168 — WO1: the collaboration socket keeps live sessions and its own database session (backend, tests)
+
+Recorded before editing; identities verified unused. DONE (2026-11-19).
+
+- **Gap.**
+  - **Defect (S-1098).** A socket keeps the session expiry it saw at
+    connect time and never refreshes it. When that time passes, it revokes
+    the session even if HTTP activity extended it, which ends live
+    sessions (REQ-01-277, REQ-04-009).
+  - **WH.** The Collaboration replay listener holds a request-pool
+    connection for the whole process lifetime. Its dedicated session is
+    the Collaboration owner's to provide.
+  - **S-1100, S-1101.** The platform answers a socket `Origin` rejection,
+    and other methods on `/ws`, in plain text. REQ-01-708 leaves the
+    Origin rejection's form open.
+- **Change, owner spec first where needed.**
+  - At its expiry point, the socket re-reads the current session expiry
+    and revokes only a session that has really expired.
+  - The listener gets its own session, outside the request pool.
+  - Decide in the spec whether the `Origin` rejection and other `/ws`
+    methods use the common envelope, then implement that.
+- **Tests and red.** A session extended over HTTP keeps its socket past the
+  original expiry; red on the old code. The listener holds no pool
+  connection.
+
+**Stage 1 outcome (2026-11-19): gaps 1 and 2 are done.** The note is in the
+session scratchpad as `s1111-design.md`.
+
+- **Socket expiry.** At its last known expiry, the socket re-reads the
+  session through the central authenticator, which never slides it.
+  - A live session re-arms with its current expiry.
+  - A refused session ends with `session_revoked`, carrying the reason the
+    authenticator published.
+  - An unreadable session closes the connection with `1001` and does not
+    revoke it.
+
+  The socket no longer revokes sessions itself. It still never slides the
+  session, as before.
+- **The listener never ran.** With telemetry on, which is the default, the
+  instrumented DB had no `Acquire`. So the listener never started and the
+  dispatcher polled every 100 ms. With telemetry off, it held a pool
+  connection.
+  - Now it runs on a dedicated session opened by
+    `postgres.OpenDedicatedSession`. That is the lease helper, moved to the
+    platform package unchanged.
+  - The dispatcher requires a listener-session opener.
+- **Rows.** Two new rows:
+  - `module.collaboration.store.the_socket_keeps_a_session_extended_over_http_pa_3755d35cd2`;
+  - `module.collaboration.integration.the_replay_listener_holds_a_dedicated_session_ou_209421a144`.
+- **Red and green.**
+  - `tcr-s1111-red01` failed both rows on unmodified product code.
+  - `red02`: a pool-drawing mutation of the opener exhausted the pool. The
+    file was restored with `cp` and confirmed with `cmp`.
+  - Green:
+    - `rows01`: 7/7;
+    - `collab01`: owner, 50/50;
+    - `pgpool01`: 6/6;
+    - `lease01`: 5/5;
+    - `appserver01`: 3/3.
+  - Also passed: `format01`, `lintgo01`, `lintbb01` and `generate01`.
+- **`/ws` responses today (gap 3).**
+  - The cookie `Origin` rejection is a plain-text 403 before
+    authentication.
+  - The WebSocket library performs a second `Origin` check after admission,
+    also plain text.
+  - Other methods and unknown `/ws` paths fall through to a plain
+    `404 page not found`.
+  - `HEAD` runs full admission and then gets the library's 426 or 405.
+
+**Decisions (2026-11-19).**
+
+- **The listener's session.** It is outside the runtime pool, like the
+  lease sessions. REQ-04-079, REQ-04-145 and AC-615 say so.
+- **Gap 3 uses the common envelope.** REQ-01-708 gains route resolution as
+  step 1, and that step answers before authentication:
+  - an unknown `/ws/v1/` path is `route_not_found`;
+  - any method other than `GET`, including `HEAD`, is `method_not_allowed`
+    with `Allow: GET`.
+- **`Origin` (step 2).** Every upgrade request whose `Origin` is not the
+  configured application origin gets an enveloped `403`
+  `csrf_verification_failed`.
+  - Step 2 covers every such request, cookie or not, so no request gets
+    weaker protection than today.
+  - The library check stays configured as a backstop that step 2 makes
+    unreachable.
+  - A request without `Origin` passes this step.
+- **Out of contract.** An admitted request that is not a valid opening
+  handshake is rejected by the WebSocket transport.
+- **REQ-04-010.** WebSocket application messages are not qualifying
+  activity. That is today's behaviour, now stated.
+
+**Outcome (2026-11-19). DONE.**
+
+- **`/ws/v1/` admission now follows REQ-01-708.**
+  - `httpapi.BindSocketRoute` and the `/ws/v1` catch-alls answer before the
+    socket handler runs:
+    - an unknown or non-canonical path gets `404`, with no redirect;
+    - any method other than `GET`, including `HEAD`, gets `405` with
+      `Allow: GET`;
+    - a `HEAD` response has no body.
+  - `ws.OriginAllowed` is now a predicate. A rejected `Origin` gets the
+    shared envelope's `403` `csrf_verification_failed`, cookie or not.
+    - A present but empty `Origin` is rejected, and so is a repeated one.
+    - A request with no `Origin` passes.
+  - The library's `OriginPatterns` check stays as a backstop.
+- **Registry.** The `contracts/errors/index.json` summaries for
+  `csrf_verification_failed`, `route_not_found` and `method_not_allowed` now
+  cover `/ws/v1/`, and `make generate` updated their projections.
+- **No runtime 500.** Config validation rejects a malformed
+  `application.public_origin`, so `ws.go`'s plain 500 is unreachable.
+- **Red and green.**
+  - `tcr-s1111-red03` failed on the code before gap 3, with a plain 404 for
+    `POST` and a 401 where a 403 was due.
+  - `red04`: a mutation that removed the `HEAD` guard. It was restored with
+    `cp` and confirmed with `cmp`.
+  - Green:
+    - `rows02`: 3/3;
+    - `httpruntime01`: 5/5;
+    - `ws01`: 1/1;
+    - `appserver02`: 1/1;
+    - `collab02`: owner, 50/50, with no violations.
+  - Also passed:
+    - `generate02` and `srcgen01`;
+    - `format02` and `format03`;
+    - `lintgo02` and `lintgo03`;
+    - `lintbb02`.
+- **Residual.** The `Origin` comparison is exact. Config normalization
+  neither lowercases the host nor drops a default port, so a configured
+  `https://Example.com` or `:443` would match no browser's `Origin`. This
+  moves to S-1113.
+
+### S-1112 / F-1097 / E-1169 — WO2: admission, shutdown and readiness states agree with REQ-04-145 (platform, spec, tests)
+
+Recorded before editing; identities verified unused. DONE (2026-11-19). Found in S-1101.
+
+- **Gap.**
+  - The lease watchers start before `Publish`, and `Publish` opens
+    admission even when a lease became uncertain first. That conflicts with
+    REQ-04-145.
+  - An ordinary shutdown with admission closed answers
+    `extension_publication_pending`; no registered reason covers shutdown.
+  - `/readyz` reports `starting_dependency_probe` while admission is paused.
+  - The gate's 503 comes before route resolution, so the coverage report
+    never records it.
+- **Change, owner spec first.**
+  - `Publish` must not open admission over an uncertain lease.
+  - Shutdown and readiness get their spec-defined reasons. If a reason is
+    missing, the spec gains one first.
+  - Decide whether gate 503s are recorded as process-level contract
+    evidence.
+- **From S-1107.** A Jobs renewal error other than loss, after the attempt's
+  own terminal commit, still cancels the handler. REQ-01-453 should say
+  whether it may.
+- **Tests and red.** One per state, each with a red on the old order.
+
+**Investigation (2026-11-19, read-only).** The note is in the session
+scratchpad as `s1112-design.md`. All five gaps are confirmed in code.
+
+- **Publication over an uncertain lease.** `Publish` opens admission
+  without checking the pause flag (`processlifecycle/lifecycle.go:40-53`).
+  The only lease check runs before five component `Prepare` calls
+  (`runtime_assembly.go:2027-2032`). An existing test asserts the defective
+  behaviour (`httpapi_test.go:269-274`).
+  - A watcher can reopen admission while the other lease is still
+    uncertain.
+  - A lease lost before activation can exit `2` instead of `70`.
+- **Shutdown.** Admission closes only at `MarkTerminating`, after the HTTP
+  drain, and the gate falls back to `extension_publication_pending`.
+- **`/readyz`.** It reports `starting_dependency_probe` for every closed
+  state except fatal. The gate and readiness read three separately locked
+  fields.
+- **Gate refusals as evidence.** The guard records emissions only for a
+  resolved operation.
+- **Runner.**
+  - Only `ErrExecutionLost` is exempt after the terminal commit
+    (`jobs/runner.go:478`).
+  - The renewal call has no attempt-operation timeout.
+  - The renewal-error path releases the worker without draining the
+    handler, which REQ-01-453 already forbids.
+- **Lease events.** The event buffer can drop a `lost` event
+  (`processlease/lease.go:296-299`), which leaves the process paused
+  instead of fatal.
+
+**Decisions (2026-11-19).**
+
+- **D1, publication over an uncertain lease.** Publication completes and
+  admission stays paused. The gate opens at the original session's first
+  proof of continuous ownership. Confirmed loss before that exits `70`. This
+  goes in REQ-04-145, with a cross-reference in EXT-REQ-214.
+- **D2, a shutdown reason.** `service_unavailable` gains
+  `shutdown_in_progress`. Admission and readiness close at the stop request,
+  before any drain. This touches:
+  - Core 01's reason table and code row;
+  - REQ-04-146a;
+  - AC-618;
+  - TH-HARNESS-REQ-864, so polling stops on it;
+  - `contracts/errors/index.json`.
+- **D3, readiness states.** REQ-04-078 adds `admission_paused`,
+  `shutdown_in_progress` and `fatal_integrity_failure`; EXT-REQ-193 already
+  uses the last. `/readyz` follows the gate's precedence.
+- **D4, no new evidence kind.** Gate refusals are not recorded as contract
+  evidence. TH-HARNESS-REQ-862 states that the gate's refusal is not an
+  emission. Retained response bodies and `server_fatal` records already make
+  a refusal diagnosable, and a process-level record would cover no
+  operation.
+- **D5, renewal errors after the terminal commit.** When the runner
+  establishes that the Job is terminal within the unexpired lease, it stops
+  renewing, does not cancel the handler, and records no failure (REQ-01-453).
+  The renewal timeout and the drain on the error path are fixed in the same
+  slice, because REQ-01-453 already requires the drain.
+- **D6, reason precedence.** `extension_integrity_failure`, then
+  `shutdown_in_progress`, then `admission_paused`, then
+  `extension_publication_pending`.
+- **Route resolution.** REQ-01-707 places the process gate before route
+  resolution. REQ-01-702 names the gate's refusal as a pre-resolution
+  response that every operation still declares.
+- **In scope.** The dropped `lost` lease event, because REQ-04-145 requires
+  confirmed loss to be fatal.
+
+**Outcome (2026-11-19). DONE.**
+
+- **Lifecycle (`processlifecycle`).**
+  - `Publish` and `RestoreAdmission` open the gate only while every lease is
+    held, checked under the controller lock. Publication over an uncertain
+    lease completes with admission paused.
+  - `Opened()` signals the first opening.
+  - `BeginStop()` runs at the stop request: a serving process quiesces and a
+    starting one terminates.
+  - `AdmissionState()` is one snapshot, in the order fatal, stopping,
+    paused, pending.
+  - A fatal during an ordinary drain keeps draining under the same deadline
+    and still exits `70`.
+- **Gate and readiness (`httpapi`).** One table maps each state to its gate
+  reason and its `/readyz` status.
+- **Activation.**
+  - A lease lost before activation now exits `70`.
+  - The watchers cannot reopen admission over another uncertain lease.
+  - `beginShutdown` closes admission first.
+  - `servingReady` follows the first opening.
+- **Jobs runner.**
+  - Renewal is bounded by the attempt-operation timeout.
+  - A renewal error of any kind, after the attempt's own terminal commit,
+    neither cancels the handler nor records a failure.
+  - The error path drains the handler before releasing the worker.
+- **Lease events.** A lagging consumer loses the oldest events, so `lost`
+  always arrives.
+- **Polling.** The shared poll helper stops on `shutdown_in_progress`.
+- **Registry.** `shutdown_in_progress` is added and regenerated.
+- **D4.** No harness change. No test or report counts gate refusals.
+- **Prepare exit paths.** Every `Prepare(ctx, serving)` selects on its own
+  stop context, so no fix was needed.
+- **Rows.**
+  - `TestRuntimePublicationHonoursLeaseOwnership` and
+    `TestRuntimeStopRequestClosesAdmission` are appended to existing
+    `app.server` rows.
+  - New row `app.server.unit.process_lease_events_deliver_the_latest_transiti_f20a07dbed`.
+- **Red, on unmodified product code.**
+  - `tcr-s1112-red01`, `app.server`, failed on:
+    - publication over an uncertain lease;
+    - the exit code;
+    - a stale restore;
+    - a stop that left admission open;
+    - the dropped `lost` event;
+    - the gate and readiness states.
+  - `red02`, `platform.jobs`, failed on:
+    - cancellation after the attempt's own commit;
+    - a hung renewal;
+    - a close that did not drain.
+  - `red03`, harness polling, failed to stop on `shutdown_in_progress`.
+- **Green.**
+  - `green01`–`green06`.
+  - Owner runs: `owner-appserver01` (59/59, no undeclared codes, security
+    mismatches or server fatals) and `owner-jobs01` (19/19).
+  - Also passed:
+    - `generate01` and `generate02`;
+    - `format01`;
+    - `lintgo01` and `linttypes01`;
+    - `srcgen02` and `srccatalog01`.
+  - `srcgen01` failed on render-index drift: a row file was edited after
+    `generate01`. The fix was `generate02`.
+- **Residual.** The Jobs test harness injects a 250 ms attempt-operation
+  timeout, which now also bounds renewal. A renewal slower than that under
+  heavy load cancels the handler and records one failure. Claims and reads
+  were already bounded the same way. Watch this in WP's `make check`.
+
+### S-1113 / F-1098 / E-1170 — WO3: route-level residuals in auth, Network Flow, saved views and the platform (spec where needed; backend, tests)
+
+Recorded before editing; identities verified unused. DONE (2026-11-19).
+
+- **Auth (S-1098).** For `completeEnterpriseSAML` and
+  `finishEnterpriseSAML`, a malformed `provider_key` gets 404, but a
+  well-formed missing one gets a 409 from the RelayState or completion
+  check first. REQ-01-707 asks for identical responses: fix the order, or
+  record an owner exception in the spec.
+- **Network Flow.**
+  - The graph-view not-found lacks `retry_action` (NF-REQ-175).
+  - A malformed table ID's not-found has `network_flow_table_id: null`, but
+    a missing one echoes the ID. The owner spec decides.
+  - A client disconnect followed by a proven-absent indicator-link commit
+    answers 500.
+  - The GET-body check is the last module read of `r.Method`.
+- **Saved views (S-1093).** The pipeline's 401, 404 and 405 on saved-view
+  reads carry no `Cache-Control: no-store`, which Core 01 requires.
+- **Platform.**
+  - A startup route-parity failure reports only
+    `extension_publication_failed`, not its cause.
+  - The test clock writes bare 405s.
+  - Raw module registrations are invisible to the catalog test: the socket,
+    Network Flow's harness-control routes and the harness registrars.
+  - **From S-1111.** `application.public_origin` is compared exactly, but
+    config normalization neither lowercases the host nor drops a default
+    port. The Core 04 config rules decide which fix applies: reject the
+    non-canonical form, or canonicalize it.
+- **Imports (S-1102).**
+  - Singleton import reads and `listImportUnits` silently accept unknown
+    query members.
+  - The committed-source `required_role: "editor"` detail.
+- **Tests and red.** One per defect fixed.
+
+**Investigation (2026-11-19, read-only).** The note is in the session
+scratchpad as `s1113-design.md`.
+
+**Decisions (2026-11-19).**
+
+- **D1, identical responses.** REQ-01-707's "identical" compares status,
+  `error.code` and `error.details` with the route's response for a
+  well-formed missing identifier. Route handling that precedes
+  classification, such as query, body or protocol validation, may answer a
+  well-formed identifier first. Enterprise begin, ACS and finish look the
+  provider up before the body, RelayState or completion checks.
+- **D2, `network_flow_table_not_found` details.** For a table addressed by
+  the path, `network_flow_table_id` is `null`. A table addressed in the body
+  is echoed. This goes in NF Table 21-B.
+- **D3 and D3b, `retry_action`.** NF Table 21-B1:
+  - `refresh_resource` covers a missing or inactive table or saved graph;
+  - `retry_with_backoff` covers a graph result not yet materialized and an
+    incident at its graph-job quota, matching the registry.
+
+  `retry_action` is filled from the registry at one point for every Network
+  Flow error. Other Table 21-B members that are mandatory for the codes this
+  touches are filled too, and the rest is reported.
+- **D4, a client disconnect with the commit proven absent.** The status quo
+  is recorded: no binding or audit is committed, and the route answers
+  `500` `internal_error`. An indeterminate outcome stays fatal. A Core rule
+  for gone clients is out of scope.
+- **D5, the GET-body check.** It stays in Network Flow, with "bodyless" taken
+  from the route contract through the admitted operation. `r.Method` joins
+  the module boundary's forbidden tokens if no other module needs it.
+- **D6, `no-store` on errors.** Every resolved response of both saved-view
+  reads and of workbook startup carries `no-store`, failures included. That
+  touches REQ-01-144B, AC-151A and REQ-01-151.1. The 405 and the gate's 503
+  precede resolution. The header is set centrally, keyed by operation.
+- **D7, the route-parity diagnostic.** No spec change. The catalog test
+  prints the retained cause.
+- **D8, test-route methods.** TH-HARNESS-REQ-450: after the harness guard
+  admits a request, a wrong method gets an enveloped `405` with `Allow`.
+- **D9, raw registrations.** A `BindTestRoute` helper is added, and
+  `BindSocketRoute` records into the route registry. The module boundary
+  forbids raw `.HandleFunc(` and `.Handle("`. The catalog test asserts the
+  exact set.
+- **D10, `application.public_origin`.** REQ-04-110: the value must already
+  be the browser's ASCII serialization. Configuration admission rejects any
+  other spelling with `invalid_origin` and never rewrites the value,
+  because identity providers compare the derived URLs exactly.
+- **D11, `listImportUnits` queries.** It rejects unknown members. Table
+  17.2-A gains `invalid_list_query` and a query-order paragraph, and the
+  OpenAPI declaration is additive.
+- **D12, singleton query members.** No change.
+- **D13, `required_role`.** Committed sources report
+  `editor|reviewer|admin`, as the other Imports routes do.
+- **Also in scope.** `pagination.ParseQuery` treats an empty `limit` or
+  `cursor_token` as absent on every route, which contradicts the
+  §3.3.6.2 `invalid_limit` and `invalid_cursor_token` meanings. It is fixed
+  last, after checking that no client sends empty members.
+
+**Outcome (2026-11-19). DONE.** Run outputs are in `s1113/` in the session
+scratchpad.
+
+- **D1.** `admitEnterpriseProvider` runs before the body, RelayState,
+  completion or binding checks in begin, ACS and finish. The OIDC callback
+  uses it too, with no behaviour change.
+- **D2 and D3.** Every Network Flow route error now passes through one
+  completion point (`route_error_details.go`):
+  - `retry_action` comes from the packaged registry;
+  - missing Table 21-B members are JSON `null`;
+  - a path-addressed table not-found carries `network_flow_table_id: null`;
+  - the saved-graph name error carries its length members.
+- **Found and fixed.** Network Flow's writer dropped `Retryable`, so
+  `transaction_conflict` and `extension_transaction_timeout` went out with
+  `retryable: false`, against EXT-REQ-219 (`red-nf01`).
+- **D4.** Pinned: a client disconnect with the commit proven absent gives
+  `500`, with no receipt, audit or fatal.
+- **D5.** "Bodyless" comes from the route contract. `r.Method` joins the
+  module's forbidden tokens.
+- **D6.** `httpapi.NoStore` is a bind option. It covers every resolved
+  response of the saved-view reads and workbook startup.
+- **D7.** The catalog test prints the retained publication cause.
+- **D8 and D9.**
+  - `httpapi.BindTestRoute` runs the guard, then answers a wrong method with
+    an enveloped `405`.
+  - `BindSocketRoute` records its route.
+  - Eleven test routes and the socket now go through the helpers.
+  - The boundary policy forbids raw registration in modules, app and
+    platform.
+  - The catalog test asserts the exact supplementary set.
+- **D10.** A non-canonical `application.public_origin` is rejected, and the
+  rewrite is gone.
+- **D11.** `decodeImportListQuery` serves `listImportUnits`. `invalid_list_query`
+  is declared on it, and the change-set entry is re-fingerprinted, still
+  additive.
+- **D13.** `required_role` reports `editor|reviewer|admin`. The client only
+  displays it.
+- **`ParseQuery`.** An empty `limit` or `cursor_token` is rejected product
+  wide. No client sends one.
+- **Red.**
+  - On unmodified product code: `red-auth01`, `red-nf01`, `red-sv01`,
+    `red-wb01`, `red-im01`, `red-cfg01`, `red-pl01`, `red-pol01` and
+    `red-pg01`.
+  - Mutations, each restored with `cp` and confirmed with `cmp`:
+    `red-nf02`, `red-pl03`, `red-app01` and `red-app02`.
+- **Green.** All passed:
+  - row runs: `green-*`, plus 35 pagination rows across eight owners
+    (`pg-*`);
+  - checks: `generate02`/`03`, `format01`/`02`, `compat01`,
+    `lintgo02`/`03`, `lintbb01`/`02`, `linttypes01`, `srcgen01`,
+    `srccat01` and `srcschema01`;
+  - owner runs:
+    - httpruntime: 12/12;
+    - config: 17/17;
+    - pagination: 2/2;
+    - saved views: 27/27;
+    - imports: 63/63;
+    - auth: 74/74;
+    - server: 59/59;
+    - workbook: 289/289;
+    - Network Flow: 155/155.
+
+    All had zero undeclared codes, security mismatches and `server_fatal`
+    records.
+- **Failures the agent caused.**
+  - `lintgo01` hit an import cycle in the new catalog test, now fixed.
+  - `red-pl02` was a mutation that did not compile. It was redone as
+    `red-pl03`.
+- **Residuals.**
+  - Some Table 21-B members are present but always `null` where the emitter
+    could supply a value:
+    - `invalid_sort`: field, direction and index;
+    - `invalid_limit` and `invalid_limit_override`: the limit key and bounds;
+    - `invalid_request` outside indicator links: the expected contract and
+      the actual kind;
+    - indicator-link members outside link context.
+  - Network Flow codes translated through Imports, and graph-job terminal
+    errors, were not audited.
+
+### S-1114 / F-1099 / E-1171 — WO4: recovery and Evidence test residuals (tests; backend if a check is added)
+
+Recorded before editing; identities verified unused. DONE (2026-11-19).
+
+- **Recovery seeders.** `backup_metadata_integration_test.go` and
+  `operator_process_test.go` write `target_expires_at = pending_expires_at`.
+  They should use `blobfixture` and build coherent tuples.
+- **Post-restore history order (WH).** A restored snapshot is not checked
+  for a NULL `history_order`, because restore runs in replica mode and the
+  column is nullable. Recovery adds the check.
+- **Evidence.**
+  - Quarantine retry exhaustion gets a direct test: injected link churn
+    until it fails closed.
+  - The upload 500 `object_store_invalid_request` gets a test through the
+    fault double, with a seeded malformed key and no forged capability.
+- **Red** where a check is added.
+
+**Investigation (2026-11-19, read-only).** The note is in the session
+scratchpad as `s1114-design.md`.
+
+- **Seeders.** Both seeders set the pending expiry wrongly; it should be
+  creation plus 24 hours. Nothing catches it, because no timer CHECK exists
+  and neither backup capture nor Recovery applies the Blob tuple check.
+- **History order after restore.** Restore loads rows in replica mode, so
+  the deferred allocator trigger never fires. `validateRestoredPostgresRows`
+  checks foreign keys and four owner routines, but not history order.
+  REQ-01-661 lists the restored-row validations, and history order is
+  missing from it.
+  - No generation bump is needed. The generation identity is the
+    state-catalog and codec digests, and `recovery.revision_history_order.v5`
+    already binds the chronology.
+- **Quarantine.** It makes three attempts, then returns
+  `errQuarantineAssociationUnstable` having committed nothing. It has no
+  public route.
+- **Upload 500.** The premise does not hold. The capability HMAC-binds the
+  storage key, so a key seeded malformed after issuance gets `409`
+  `object_upload_rejected` (`upload_contract_mismatch`) under REQ-01-246. The
+  `500` `object_store_invalid_request` is reachable only through a malformed
+  key that the server itself generated.
+
+**Decisions (2026-11-19).**
+
+- **D1, seeders.** Both move to `blobfixture` with coherent tuples. After
+  restore, the target row must be coherent and byte-equal to the source.
+- **D2, migration 61.** The user authorized it: one read-only
+  Revisions-owned validation function, which Recovery calls with the other
+  four owner checks, under REQ-01-647. It changes no table or data, and
+  follows WH's migration procedure.
+- **D3, what the function checks.**
+  - Every change set has a `history_order`.
+  - Each incident's allocator is present, with `last_order` at least its
+    greatest restored order.
+- **D4, spec text.** REQ-01-661 gains the validation, and AC-542 gains the
+  rejection clause.
+- **D5.** No generation bump.
+- **D6, quarantine outcome.** REQ-02-190a: after the last bounded attempt,
+  quarantine fails closed and commits nothing. AC-609 gains a bullet.
+- **D7.** The quarantine churn is injected through a test-only database
+  wrapper.
+- **D8, upload tests.**
+  - A `409` companion test through the fault double. Its red: move key
+    validation above the binding check.
+  - An unexported key-generator field on the route service, nil in
+    production, with an in-package unit test. It proves the `500`, no Put
+    call, and no forged capability.
+- **D9, recorded only.** Upload key validation runs before Table 2-B gates
+  8–9. That is an inference, and it is reachable only through a generator
+  defect.
+
+**Outcome (2026-11-19). DONE.**
+
+- **Migration 61** (`00061_revision_history_order_restore_validation.sql`,
+  allocated to revisions) adds `public.revisions_history_order_is_valid_v1()`.
+  - It is read-only SQL with `SET search_path`, executable only by
+    `cartulary_recovery`, like the other restore validators. Its Down is an
+    exact `DROP FUNCTION`.
+  - No table, data or recovery-generation change. The catalog and codec
+    digests are unchanged.
+- **Recovery.** `validateRestoredPostgresRows` calls the function after the
+  four owner checks. A failure is `restore_failed`
+  (`postgres_restore_failed`), exit `4`.
+- **Seeders.** They use `blobfixture.Seed`. After restore, the target Blob
+  row is coherent and byte-equal to its source.
+- **Quarantine.** A test-only database wrapper commits a competing link
+  toggle after each attempt's lookup.
+  - Churn before every attempt: quarantine fails closed after three
+    attempts.
+  - Churn that settles within the bound: the Blob is quarantined.
+- **Upload.**
+  - A genuine capability with a key made malformed after issuance gets
+    `409` `upload_contract_mismatch`, with no Put.
+  - An unexported key-generator field (nil in production) lets an
+    in-package unit test reach `500` `object_store_invalid_request`, with
+    no Put, no lease claim and no forged capability.
+- **Red, by mutation,** each restored with `cp` and confirmed with `cmp`:
+  - `redH01`: history order;
+  - `redS01`: the seeders;
+  - `redQa01`, `redQc01` and `redQd01`: quarantine;
+  - `redU409-01`: the upload `409`;
+  - `redU500-03`: the upload `500`.
+- **Green.** `greenH01`/`02`, `greenS01`, `greenQ01` and `greenU01`.
+- **Checks.** All passed:
+  - `generate01`–`03`;
+  - the migration-input, schema, generated and catalog source checks;
+  - `migdrift01` and `migdrift02`;
+  - `format01`, `lintgo01` and `lintbb01`.
+- **Owner runs.**
+  - recovery: 27/27, twice;
+  - Evidence: 40/40;
+  - revisions: 37/37;
+  - database migrations: 14/14, twice;
+  - platform.postgres: 6/6.
+- **Correction.** The first build granted the function to the runtime as
+  well, following a wrong brief. It is now recovery-only (`generate03`).
+- **Failures the agent caused.**
+  - `redU500-01` did not compile and was redone.
+  - `srcchk-generated-02` hit render-index drift after a row edit; the fix
+    was `generate02`.
+
+### S-1115 / F-1100 / E-1172 — WO5: client and protocol residuals (web client, protocol-ts, tests)
+
+Recorded before editing; identities verified unused. DONE (2026-11-19).
+
+- **Protocol.** Remove the three unused protocol-ts exports
+  (`extensionProfileRegistry`, `PublicError`, `ExtensionProfile`), so
+  `make lint CHECK=protocol` passes.
+- **Registry typing.** The pending queue's settlement code,
+  `importFailureMessage` and job summary codes become registry-typed, and
+  the static policy shrinks to match.
+- **503 copy (S-1104).** Explicit mutations and app controllers show a 503
+  as "unconfirmed" with exact replay. A 503 is known not to have been
+  applied, so the copy says so. The design projection gains a temporary
+  unavailability family only if `docs/design.md` adopts one.
+- **Fixtures (S-1104).** Malformed `service_unavailable` fixtures test
+  contract failure under a misleading code: `App.landing.test.tsx`,
+  `IncidentMembershipAuditPanel.test.tsx` and
+  `auth-and-incident-directory.spec.ts`.
+- **Focus (S-1108).** On a legitimate scope change, the row-action menu
+  returns focus to the grid root, not the invoking cell (design §8.4).
+
+**Investigation (2026-11-19, read-only).** The note is in the session
+scratchpad as `s1115-s1116-design.md`.
+
+- **Protocol exports.** `extensionProfileRegistry` re-exports a generated
+  projection whose only importer is that entrypoint.
+- **No coverage.** Job summary codes are excluded from the static policy
+  (`publicErrorCodeBranchPolicy.node.test.ts:63`), so nothing checks them.
+- **Two 503 surfaces S-1104 missed.**
+  - The import client classifies a 503 as uncertain.
+  - `importFailureMessage` shows "rejected" copy for it.
+- **Focus.** `useTimelineRowActionMenu.ts:318-320` passes `null` on a scope
+  change, which always sends focus to the grid root.
+
+**Decisions (2026-11-19).**
+
+- **D1, protocol exports.** Remove the three exports, and also remove the
+  orphaned profile-registry projection through its generator inputs:
+  - `contracts/index.json`;
+  - the frontend entrypoints file;
+  - `tools/frontend_import_boundaries.json`.
+
+  Then `make generate`.
+- **D2, `design.md`.** No change. REQ-03-086a already requires temporary
+  unavailability.
+- **D3, 503 handling.** A decoded `503` `service_unavailable` on a first
+  attempt is a definite rejection: the draft is kept, and a resubmission
+  gets a new `client_txn_id`, as with `409` `transaction_conflict`. On a
+  replay the outcome stays uncertain.
+  - One shared helper per layer, workbook transports and app/service
+    classifiers. The import client and `importFailureMessage` are included.
+- **D4, job summary codes.** A closed client union of the 13 success codes
+  and `job_canceled`, with a test that checks it against the contract files.
+- **D5, the static policy.** Delete its job-summary carve-out and ban
+  array-literal `.includes(code)`.
+- **D6.** Delete `PublicError`.
+- **Fixtures.** The fixtures use well-formed envelopes through a typed
+  builder. The App.landing uncertain-replay test uses a `500`, and a new
+  `503` companion test is added.
+- **Focus.** On a scope change, focus returns to the invoking cell, per
+  design §8.4.
+- **Comment.** The stale comment at `importClient.ts:59-61` is corrected.
+
+**Outcome (2026-11-19). DONE.**
+
+- **Protocol.**
+  - The three exports are gone.
+  - Changing the generator inputs (`contracts/index.json`, the frontend
+    entrypoints file and the import boundaries) let `make generate` delete
+    the orphaned `extension-profile-registry.ts`.
+  - `make lint CHECK=protocol` passes (`lintprotocol02`), after failing on
+    exactly the three findings (`lintprotocol-red01`).
+- **503 handling.**
+  - Shared helpers: `isUnappliedRefusal`, `notAppliedText` and
+    `stillUnconfirmedText` in `publicError.ts`, plus
+    `explicitWorkbookFailureOutcome` in the workbook policy.
+  - All 16 explicit workbook transports and the app and service classifiers
+    use them, including the import client and `importFailureMessage`.
+  - A 503 on a first attempt is a rejection that keeps the draft. On a
+    replay it stays uncertain. Preference and saved-view writes are never
+    replayed, so a 503 there is always a rejection.
+- **Typing.**
+  - `PendingReplaySettlementCode` is closed.
+  - `jobResultSummaryCodes` (13 codes plus `job_canceled`) is checked
+    against `contracts/jobs/base.v2.json` and the extension fragments.
+  - The policy lost its job-summary carve-out and bans array-literal
+    `.includes(code)`.
+- **Fixtures.** They use well-formed envelopes through
+  `operationErrorResponse`. App.landing has a `500` uncertain-replay test
+  and a `503` companion.
+- **Focus.** It returns to the invoking cell after a scope change.
+- **The `importClient.ts` comment is accurate.** tsc showed Network Flow
+  builds an `ImportFailure` from its own route codes, so the default stays
+  open.
+- **Red,** each mutation restored with `cp` and confirmed with `cmp`:
+  - `red-shared01` and `red-shared02`;
+  - `red-workbook01`;
+  - `red-focus01`;
+  - `red-types01`;
+  - `red-policy01`.
+- **Green.**
+  - `frontendunit01`: 753 of 753 rows. It covers every Vitest row of
+    web.workbook, web.application and web.collaboration.
+  - `owner-protocol01`: 8 rows.
+  - `browser01`: the incident-creation uncertain-replay browser row, with
+    the retained-secret scan passing.
+  - Lints: types, frontend, frontend-boundary and protocol.
+  - Source checks: generated, schema and catalog.
+- **Failures the agent caused.**
+  - `linttypes01`: a closed `ImportFailure` default broke Network Flow. It
+    was reverted.
+  - `lintfrontendboundary01` and `lintprotocol01`: a settlement-type
+    import crossed a boundary. It now goes through `services/browserApi`.
+- **Residuals.**
+  - Core 01 defines long-running `reference_pack_activated` and
+    `reference_pack_disabled`, but no Job-kind contract declares them, and
+    `reference_pack_removed` is in no spec. This is an owner decision.
+  - Incident-import admission and cancel replays read as generic
+    "unconfirmed".
+  - The `service_unavailable` mode in `auth.visual.spec.ts` sends
+    `authentication_capacity_exhausted`.
+
+### S-1116 / F-1101 / E-1173 — WO6: harness redaction markers and documentation-only residuals (harness; documentation)
+
+Recorded before editing; identities verified unused. DONE (2026-11-19).
+
+- **Redaction markers (S-1058).** The redaction manifest writes
+  `[REDACTED…]`, but the retained-secret scan exempts only `<redacted>`.
+  One marker vocabulary is shared by both.
+- **Spec wording.**
+  - REQ-01-452a's "divergent request bytes" for verify (S-1103).
+  - EXT-REQ-234 has no finding for a proven-absent initialization commit
+    (S-1110).
+  - Whether the migration commit failure needs its own validation
+    predicate (S-1110).
+- **Recorded, not changed.**
+  - The DDL-consolidation items: a failed Blob with a NULL
+    `cleanup_due_at`, and the append-only migration wording.
+  - Network Flow and WebSocket codes keep their own registries.
+  - A static "no reachable undeclared code" harness check (S-1103) and the
+    shared-classifier splits are possible future work.
+
+**Decisions (2026-11-19).**
+
+- **D7, one marker.** The authored redaction manifest owns the single marker
+  `<redacted>`. The redactors emit only that marker, with no typed suffixes,
+  and the retained-secret scan stays unchanged, keeping its policy identity
+  and frozen digest.
+  - This becomes the new TH-HARNESS-REQ-617, verified by TH-HARNESS-AC-160.
+  - Today's outputs fail the scan for a redacted DSN, a secret-keyed JSON
+    value and an uppercase assignment.
+  - Reporting's product masking is out of scope.
+- **D8, EXT-REQ-234.** An initialization commit proven absent is a
+  state-storage startup failure: no Table 26-A finding, and exit code `2`.
+  The implementation pass confirms the exit code.
+- **D9, migration step commits.** A step commit proven absent, other than
+  by deadline, fails with `extension_migration_failed`. The sentence goes in
+  the migration-lock block.
+  - Table 26-C gains a `commit_absent` class.
+  - `contracts/extensions/validation/surfaces.json` gains a condition,
+    `extension_migration_commit_absent`, which replaces the misdescribing
+    `algorithm_result_invalid` condition. Its code and contract work lands
+    in this slice.
+- **D10, REQ-01-452a.** Verify's body carries only `client_txn_id`, which
+  the identity already binds. So a replay returns the original Job, the
+  route never returns `client_txn_conflict`, and an inconsistent retained
+  result is an integrity failure.
+
+**Outcome (2026-11-19). DONE.**
+
+- **D7, one marker.**
+  - The manifest holds only `<redacted>`, and `redaction_tokens` is gone.
+  - The generator validates the marker and emits `Marker`.
+  - `harnessredact.JSON` encodes without HTML escaping, because Go's escaped
+    form of the marker would fail the scan.
+  - The scan reads `harnessredact.Marker`. Its identity text is
+    byte-identical, and the frozen digest is unchanged.
+  - Every consumer uses the marker. Reporting's `DefaultMaskText` is
+    untouched.
+  - Red: `scan-red01`, where JSON, assignment, object-store and structured
+    outputs failed the scan.
+- **D8 is confirmed.** A proven-absent initialization commit becomes a
+  state-access error with no fatal reason, and `server.go` returns `2`.
+  `TestStateRuntimeAdmit_ServiceBacked_CommitOutcomeAbsent` covers it.
+- **D9.**
+  - `surfaces.json` gains `extension_migration_commit_absent`, and the
+    three class enums gain `commit_absent`.
+  - `migrationCommitFailure` replaces the old mapping. The condition is
+    carried through `stateDiagnostic`.
+  - Red: `red-migcond01` reported the old condition.
+- **D10.** Wording only.
+- **Green.**
+  - Owner runs: `owner-evidenceaccounting01` (15 rows) and
+    `owner-extensions01` (44 rows, zero undeclared codes and zero fatal).
+  - Lints: go, backend-boundary and scripts.
+  - `harnesscontract01`: 12 of 13. `harness_evidence_contract` passed.
+- **Pre-existing race.** `dev_services_lifecycle` failed inside the
+  contract suite and passed alone (`devservices01`). In unchanged code,
+  `dev-services.sh:271-279` can see the test double write `bound` and exit
+  between its status check and `kill -0`, and then leaves the loop without
+  checking the status again. This is recorded as a residual. A fix belongs
+  in the test double or the script, under the tooling guidance.
+- **Residual (inference).** The structured redactor does not treat bare
+  `SECRET` keys or `COOKIE=` assignments as secret, though the scan flags
+  them.
+
+**WO exit.**
+
+- Each item's row is green, with a red check where it reproduces.
+- `make lint CHECK=protocol` passes.
+
+**WO exit result (2026-11-19).** Both criteria are met.
+
+- S-1111 to S-1116 are done. Each item's row is green, and each has a red
+  check where the failure reproduces.
+- `make lint CHECK=protocol` passes (`tcr-s1115-lintprotocol02`).
+- Migration 61 was the only DDL. The user authorized it.
 
 ### Historical document-update handoff: S-059–S-064 plan, 2026-11-10
 
@@ -81351,3 +90228,396 @@ contents and file identities match. HEAD and the index digest remain unchanged:
 There are still 524 tracked changes and 44 untracked files, nothing staged.
 Ignored harness artifacts follow the Make lifecycle and are excluded from source
 preservation counts. No staging, commit, merge or deployment was performed.
+
+### S-1118 / F-1103 / E-1175 — WP: closure gate and handoff (verification; tracker)
+
+Recorded before running; identities verified unused. DONE (2026-11-20).
+
+- **Scope.** The plan's WP gate, run on the final source, one Make target at
+  a time:
+  - one `make check`, with no `operation_cancellation_grace_exhausted` or
+    `indeterminate_database_commit` in its evidence;
+  - the four browser suites in turn: functional, stateful, accessibility,
+    then visual without updating goldens;
+  - owner runs for touched owners whose last owner run predates later
+    changes;
+  - `make migration-drift` and the generated, schema, catalog and
+    migration-input source checks;
+  - lint: go, types, backend-boundary, frontend-boundary and protocol;
+  - a review of the workbook sliding cadence against REQ-04-009.
+- **Rules.**
+  - A failure is investigated before any rerun.
+  - If a golden differs, stop and ask the user.
+
+**Sliding cadence review (2026-11-19).**
+
+- **Behaviour.** Workbook routes persist an idle slide at most once per
+  `SessionSlideWriteInterval`, one minute, through
+  `httpauth.SlideSessionIfPersistenceDue` in `workbook/routes_common.go`.
+  Every other owner persists a slide on each qualifying request.
+- **Conformance.**
+  - REQ-04-009 holds on the stored fields: `authn.SessionTiming.Slide` sets
+    `idle_expires_at` to `last_qualifying_activity_at + 30 minutes`.
+  - REQ-04-011 makes sliding optional (MAY) and forbids moving backward. The
+    write interval satisfies both.
+  - The effective idle expiry lags the latest workbook action by under one
+    minute, so it is earlier and never later, which errs toward security.
+- **Decision.** No code change. REQ-04-011 now states the permitted
+  one-minute write interval, removing the ambiguity S-1098 recorded.
+
+**`make check` (`tcr-wp-check01`): fail, 355 of 356 units.**
+
+- **Contract evidence is clean.**
+  - 0 undeclared codes, 0 security mismatches and 0 `server_fatal`
+    records;
+  - 731 of 1,312 declared codes exercised.
+- **The failing row.** `module.incidentbundles.integration.network_flow_portability`
+  (`TestNetworkFlowIncidentTransferThroughPublicOperations_Integration`).
+  The destination's bundle-import job ended `job_handler_attempts_exhausted`
+  after 161 s, which fits three failed attempts with the 5 s and 30 s retry
+  delays.
+- **Likely cause: an S-1112 regression.** This is inferred from the code and
+  the timing; the run kept no server log.
+  - `ValidateExecutionTx` locks the Job row `FOR UPDATE` when a cross-owner
+    job transaction starts, and holds it until commit.
+  - `RenewExecution` is an `UPDATE` of the same row, so it waits behind the
+    attempt's own transaction.
+  - S-1112 bounded renewal by the 10 s attempt-operation timeout. A renewal
+    that waits longer now fails while the Job is not yet terminal, so the
+    runner cancels its own handler.
+  - Every long job transaction is exposed under load: bundle import, CSV
+    apply and Network Flow import.
+- **Decision.** Renewal is not bounded by the attempt-operation timeout, and
+  runner shutdown still interrupts it. Core 01 now states that exception.
+  The rest of S-1112's runner work stays: no cancellation after the
+  attempt's own terminal commit, and the drain on the error path.
+  - Red first: a deterministic `platform.jobs` test in which the handler's
+    own transaction holds the Job row past the attempt-operation timeout and
+    then commits must fail on the current code.
+  - The "hung renewal" subtest changes to assert that runner shutdown
+    interrupts a hung renewal.
+
+**Renewal regression fixed (2026-11-19).**
+
+- **Red.**
+  - `tcr-wp-jobs-red01`, on the code as it stood: only the new subtest
+    failed, with "a renewal waiting behind the attempt's own job transaction
+    canceled its handler". That confirms the mechanism.
+  - `red02`: a mutation detached renewal from runner shutdown. It was
+    restored with `cp` and confirmed with `cmp`.
+- **Fix.** `Runner.renew` is bounded only by runner shutdown. The other
+  S-1112 runner changes stay.
+- **Tests.**
+  - New: the handler's own transaction holds the Job row past three times
+    the attempt-operation timeout while a renewal waits, then commits. The
+    Job succeeds with no cancellation or failure.
+  - Replaced: the hung-renewal subtest now asserts that runner shutdown
+    interrupts the renewal and the handler drains.
+- **Green.**
+  - `green01`;
+  - `owner01`: `platform.jobs`, 19/19;
+  - `bundles01`: the previously failing row, passed in 197 s;
+  - `format01` and `lintgo01`.
+- **Residuals.** Two callers bounded by the attempt-operation timeout can
+  wait behind the handler's open transaction. Both are left as they are.
+  - **Shutdown release** runs between cancel and drain, as REQ-01-453
+    orders. A handler transaction that outlasts it makes ordinary shutdown
+    unsuccessful (exit `1`), with no failure counted.
+  - **Recording a renewal-error failure** happens before the drain. If it
+    times out, lease expiry consumes the failure at the next claim, so
+    accounting is delayed, not lost.
+  - Not audited: whether any handler calls `UpdateProgress` while holding
+    its own owner transaction.
+
+**`make check` (`tcr-wp-check02`): fail, 355 of 356 units, the same row.**
+
+- **Result.** The renewal fix is in, yet the destination's bundle-import job
+  again ended `job_handler_attempts_exhausted`, this time after 196 s. The
+  row passed when run alone (`tcr-wp-jobs-bundles01`).
+- **Evidence.**
+  - Contract evidence is clean again: 0 undeclared codes, 0 security
+    mismatches and 0 `server_fatal` records.
+  - No `operation_cancellation_grace_exhausted` or
+    `indeterminate_database_commit` appears in the run root.
+- **A second cause under load.** The renewal timeout was real, proven by
+  `tcr-wp-jobs-red01`, but it was not the only cause.
+- **Gap.** No reason is retained for each attempt's failure, so the next
+  step is to retain it, per TH-HARNESS-REQ-864, and then find the cause
+  under load.
+
+**Root cause of the second failure (2026-11-20).**
+
+- **Mechanism.** The import's own transaction starves its lease. This is
+  long-standing, not introduced in this remediation.
+  - `ValidateExecutionTx` takes the transition advisory lock and
+    `SELECT … FOR UPDATE` on the Job row, and holds both until commit.
+  - Renewal (`UPDATE jobs …`) waits behind that row lock, so the lease
+    expires 30 s after the last renewal that got through.
+  - The execution observer's `ObserveExecution`, polled every second, then
+    gets `ErrExecutionLost` and cancels the scope mid-write.
+  - `ClassifyAbsent` treats that as recoverable, so the attempt records
+    `job_handler_incomplete`. The third such attempt is
+    `job_handler_attempts_exhausted`.
+- **Evidence.** Two runs, with the per-attempt recorder added under
+  TH-HARNESS-REQ-864.
+  - `tcr-wp-nf-bundles-owner01` reproduced it, 13/14:
+    - each attempt spent about 27.5 s preparing and about 23 s in the
+      transaction;
+    - each was cut 0.45–1.75 s after its lease expired;
+    - commit was never reached.
+  - `tcr-wp-nf-alone01` passed on its second attempt: the transaction ran
+    22.9 s against about 22.5 s of lease. Only about 7 s of that
+    transaction is database work.
+- **Hypotheses ruled out.**
+  - The deferred history-order allocator: commit took under 0.1 s.
+  - The Network Flow write path under migration 60: about 2.5 s of copy, not
+    causal.
+  - The 30 s transaction budget is not the trigger, but it is the next
+    ceiling.
+- **Decision.** Core 01 REQ-01-453 is amended again, replacing the
+  exception added the day before.
+  - Renewal is bounded by the attempt-operation timeout again.
+  - Execution validation inside an owner transaction keeps the transition
+    lock, and its row lock must not block renewal. The implementation takes
+    `FOR KEY SHARE` instead of `FOR UPDATE`.
+  - Every Jobs validation lock held from the start of an owner transaction
+    is audited. Cancellation precedence is preserved.
+  - Red first: a short-lease Jobs test whose handler transaction outlives
+    the lease must fail on the current code.
+- **Recorded.** `waitIRApply` still polls with its own loop, which breaks
+  the shared-poll rule of TH-HARNESS-REQ-864. It moves to the shared helper.
+- **Residual.** `timeouts.extensions.portability_participant_seconds` (300 s,
+  Table 9-C) is configured but read nowhere. It bounds export and import
+  preparation, not the final cross-owner transaction, which keeps the 30 s
+  budget.
+- **Next.** After the fix, measure the import transaction under load against
+  the 30 s `transaction_participant_seconds` budget. If it does not fit,
+  the budget question goes to the user.
+
+**Lease starvation fixed (2026-11-20).**
+
+- **Red.**
+  - `tcr-wp-jobs2-red01`, on the code as it stood: no renewal got through,
+    the observer reported lost ownership, and the commit failed, which is
+    the production mechanism.
+  - `red02`: a mutation with `FOR UPDATE` plus the renewal timeout
+    reproduced the `check01` mechanism.
+  - `red03`: release without the transition lock was not blocked.
+  - Each mutation was restored with `cp` and confirmed with `cmp`.
+- **Fix.**
+  - Validation inside owner transactions keeps the transition lock but
+    locks the row `FOR KEY SHARE`. This covers `ValidateExecutionTx`, the
+    cancellation and extension-finalization contexts, and the validation in
+    `Complete*Tx`. Terminal transitions keep `FOR UPDATE`.
+  - Renewal is a single conditional `UPDATE`, so it no longer conflicts. It
+    is bounded by the attempt-operation timeout again.
+  - `ReleaseExecution` now takes the transition lock. It had relied on the
+    old row lock, so `FOR KEY SHARE` would otherwise have let it clear an
+    attempt during an open owner transaction.
+  - Cancellation precedence is unchanged: `Manager.Cancel`, claim and
+    expiry classification already took the transition lock first.
+- **Spec.** REQ-01-453 no longer lists renewal among the operations that
+  validate under the transition lock. Renewal validates atomically on the
+  row.
+- **Green.**
+  - `green01`;
+  - `owner-jobs01`: 19/19;
+  - `bundles01`: the transfer row passed on attempt 1;
+  - `owner-bundles01`: 41/41;
+  - `owner-imports01`: 63/63;
+  - `format01` and `lintgo01`.
+  - `waitIRApply` now uses `httptestx.PollJob`.
+- **Budget margin.** The bundle-import transaction took 23.0 s alone and
+  23.4 s under owner-run load, against the 30 s
+  `transaction_participant_seconds` budget. That leaves 6.6 s of headroom,
+  with no lock wait. The next `make check` is the proof under load.
+
+**`make check` (`tcr-wp-check03`): pass, 356 of 356 units.**
+
+- **Contract evidence.**
+  - 0 undeclared codes, 0 security mismatches and 0 `server_fatal`
+    records;
+  - 983 emission records;
+  - 731 of 1,312 declared codes exercised.
+  - No `operation_cancellation_grace_exhausted` or
+    `indeterminate_database_commit` appears in the run root.
+- **The transfer row passed on attempt 1 under full load.**
+  - Five renewals, with a largest gap of 10.0 s.
+  - The transaction ran 23.6 s against the 30 s budget, with no lock wait.
+    About 17 s of it is application work between statements while the
+    transaction is open.
+- **Residual.** That budget margin, about 6.4 s, is thin. The durable
+  remedy is to do the import's application work before `Begin`, keeping the
+  30 s Extensions budget. Changing that budget is an owner decision.
+
+**Functional browser suite (`tcr-wp-func01`): fail, 29 of 31 units.**
+
+- **The failure.** One test failed:
+  `module.timeline.browser.saved_timeline_tag_removal_preserves_exact_ident_42963ccf0e`
+  (`timeline-collection-input.spec.ts:533`). It waits for "Retry original
+  change" after the first PATCH gets a well-formed `503`
+  `service_unavailable`.
+  - Under S-1115 D3, a first-attempt `503` is a definite rejection, so the
+    client correctly offers no exact replay.
+  - The fixture had been a malformed plain-text `503`. The fixture cleanup
+    made it well formed, which changed what it means.
+- **Fallout.** The failed browser group left 36 other rows of its cohort
+  unaccounted (`scheduler_accounting_error`).
+- **Fix (test only).** The first PATCH now gets a well-formed `500`
+  `internal_error`, whose outcome is unknown, so the test still exercises an
+  exact replay. The read-refresh `503` stays.
+- **Other e2e `503` fixtures** are on reads or handle issuance:
+  `decisions.recovery`, `indicator-lifecycle`, `history-recovery` and
+  `evidence.access`. They are unaffected.
+- **Rerun.** `tcr-wp-format01` passed. The whole functional suite reruns as
+  `tcr-wp-func02`, because 36 rows were never verified.
+- **Functional rerun (`tcr-wp-func02`): pass.** 31 of 31 units and all 403
+  rows passed. Contract evidence is clean: 0 undeclared codes, 0 security
+  mismatches and 0 `server_fatal` records.
+- **Stateful suite (`tcr-wp-stateful01`): pass.** 22 of 22 units and 59
+  rows passed. Contract evidence is clean.
+- **Accessibility suite (`tcr-wp-a11y01`): pass.** 17 of 17 units and 57
+  rows passed. Contract evidence is clean.
+- **Visual suite (`tcr-wp-visual01`): pass.** 20 of 20 units and 48 rows
+  passed, with no golden changed or updated.
+- **Owner runs selected for WP.** These owners' last full run predates a
+  later change that reaches them:
+  - workbook;
+  - timeline;
+  - entities;
+  - evidence;
+  - assessments;
+  - reference data;
+  - Network Flow;
+  - reporting;
+  - extensions.
+
+  Most predate the Jobs `FOR KEY SHARE` change or the S-1115 client
+  changes.
+- **Reused, because they ran on the code as it stands for their owner.**
+  - `platform.jobs`, imports and incident bundles (`tcr-wp-jobs2-*`);
+  - recovery and revisions (S-1114);
+  - collaboration (S-1111);
+  - saved views and auth (S-1113);
+  - `app.server` (S-1112).
+
+  `make check` covers every owner's fast and standard rows on the final
+  source.
+- **Owner runs: all pass,** each with 0 `server_fatal` records, 0
+  undeclared codes and 0 security mismatches.
+
+  | Owner | Run | Units | Rows |
+  | --- | --- | --: | --: |
+  | Workbook | `tcr-wp-own-workbook01` | 34 | 289 |
+  | Timeline | `tcr-wp-own-timeline01` | 65 | 214 |
+  | Entities | `tcr-wp-own-entities01` | 34 | 50 |
+  | Evidence | `tcr-wp-own-evidence01` | 40 | 108 |
+  | Assessments | `tcr-wp-own-assessments01` | 28 | 27 |
+  | Reference data | `tcr-wp-own-reference-data01` | 48 | 101 |
+  | Network Flow | `tcr-wp-own-networkflow01` | 43 | 155 |
+  | Reporting | `tcr-wp-own-reporting01` | 34 | 51 |
+  | Extensions | `tcr-wp-own-extensions01` | 27 | 44 |
+
+  - The Timeline run includes the release-placed blank-row paint test: p95
+    130.7 ms against the 150 ms threshold, inside S-1117's 135 ms target,
+    after the S-1115 client changes.
+- **Static gates: all pass.**
+  - `tcr-wp-migdrift01`.
+  - The generated, schema, catalog and migration-input source checks.
+  - Lints: go, types, backend-boundary, frontend-boundary and protocol.
+- **NF-REQ-171a under `check` load.** The `standard` 250,000-row row passed
+  in `tcr-wp-check03`. Its two source passes took 5.26 s and 18.80 s, about
+  24.1 s against the 30 s budget.
+
+**WP closure (E-1175, 2026-11-20). DONE.** E-1128 through E-1175 close the
+remediation.
+
+- **Outcomes by workstream.**
+  - **WG.** Failures keep their evidence:
+    - status mismatches retain bodies;
+    - one shared poll helper;
+    - `server_fatal` contract evidence;
+    - lock-wait snapshots;
+    - bounded browser actions.
+  - **WJ.** Visibility precedes resource state. Non-members get not-found,
+    import routes conceal sessions, and `cancelJob` returns `404`.
+  - **WH.** Background work never blocks editing.
+    - Migration 59 allocates history order at commit.
+    - Profile reads use `FOR SHARE`.
+    - The Network Flow table is copied before the incident lock.
+  - **WK.** One target classifier. Unknown errors are `internal_error`,
+    never a coerced conflict.
+  - **WL.** Closed-incident, deleted-record and non-member conformance
+    matrices are keyed to the catalog.
+  - **WI.** One central request-admission pipeline. A static policy forbids
+    module-local routing, `http.NotFound` and method guards.
+  - **WM.** Implied `500`, `503` and `extension_profile_not_claimed`
+    declarations, with `service_unavailable` reasons registered.
+  - **WN.** Load-sensitive failures were root-caused and fixed:
+    - the Entra `503`;
+    - the IR corpus hang;
+    - Network Flow capacity, with migration 60;
+    - the CSV-apply stall;
+    - the paint tail.
+  - **WO.** Session expiry on sockets, the dedicated listener session,
+    `/ws` envelopes, admission and shutdown states, route residuals,
+    recovery checks (migration 61), client 503 semantics, one redaction
+    marker.
+  - **WP.** The gate below, plus two Jobs defects found by it:
+    - S-1112 bounded renewal behind the attempt's own transaction;
+    - a long-standing lease starvation, where owner-transaction validation
+      held the Job row `FOR UPDATE`.
+- **Migrations** (DDL authorized by the user for each):
+  - 59: history order allocated at commit;
+  - 60: Network Flow row CHECK cost, creator key, lz4, scope index;
+  - 61: the read-only Revisions restore validator, Recovery-only.
+- **Contract coverage after.**
+  - `make check` exercised 731 of 1,312 declared codes, with 0 undeclared.
+  - The browser suites recorded 0 undeclared codes, 0 security mismatches
+    and 0 `server_fatal` records.
+  - Before, E-1127 exercised 6 of 113 new declarations.
+- **Final gate evidence.**
+  - `tcr-wp-check03`: 356 of 356.
+  - Browser suites:
+    - functional (`tcr-wp-func02`): 31 of 31 units, 403 rows;
+    - stateful: 22 of 22, 59 rows;
+    - accessibility: 17 of 17, 57 rows;
+    - visual: 20 of 20, 48 rows, with no golden changed.
+  - Nine owner runs: all pass.
+  - Jobs, imports and incident bundles (`tcr-wp-jobs2-*`): all pass.
+  - Static gates: all pass.
+- **Residuals carried forward.** None blocks the gate.
+  1. **Bundle-import budget.** The bundle-import transaction took 23.6 s of
+     its 30 s budget under `check` load. About 17 s of that is application
+     work while the transaction is open. Moving it before `Begin` is the
+     durable remedy.
+  2. **Unread portability budget.**
+     `timeouts.extensions.portability_participant_seconds` is configured
+     but read nowhere.
+  3. **Jobs waits.** Shutdown release and the failure record after a
+     renewal error can wait behind an open handler transaction. Whether
+     any handler calls `UpdateProgress` while holding its own owner
+     transaction was not audited.
+  4. **Network Flow details.**
+     - Table 21-B members are `null` where the emitter could know them.
+     - Network Flow codes translated through Imports, and graph-job terminal
+       errors, were not audited.
+  5. **Reference Pack job kinds.** Core 01 defines activate and disable
+     jobs, but no contract declares them. `reference_pack_removed` is in no
+     spec.
+  6. **Redaction.** The structured redactor does not treat bare `SECRET`
+     keys or `COOKIE=` assignments as secret, though the scan flags them.
+  7. **Harness race.** `dev-services.sh` can see the test double exit
+     between its status check and its liveness check. It is intermittent
+     and outside `check`.
+  8. **lz4 probe.** Connection admission does not probe for lz4. Migration
+     60 fails closed instead.
+  9. **Paint.** `client_apply` rose about 3 ms. The long-animation-frame
+     growth is unexplained. Where the create body is delayed is unknown.
+  10. **Upload key validation.** It runs before Table 2-B gates 8–9. This
+      is an inference, reachable only through a generator defect.
+  11. **Copy.**
+      - A replayed incident-import admission or cancel reads as generic
+        "unconfirmed".
+      - The `service_unavailable` mode in `auth.visual.spec.ts` sends
+        another code.

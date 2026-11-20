@@ -39,6 +39,7 @@ import { rejectUnexpectedPageErrors } from "./support/runtime/observations";
 import { createTimelineFillers } from "./support/timeline/fixtures";
 import {
   awaitResponseBarrier,
+  fulfillOperationError,
   holdBrowserRequest,
   installOwnedRoute,
   removeOwnedRoute,
@@ -1125,12 +1126,12 @@ test("Timeline tag assignment replays the captured attempt and recovers accepted
   let failReads = false;
   await installOwnedRoute(page, `**${queryPath}`, async (route) => {
     if (failReads)
-      await route.fulfill({
-        status: 503,
-        json: {
-          error: { code: "internal_error", message: "Temporary read failure" },
-        },
-      });
+      await fulfillOperationError(
+        route,
+        "queryWorkbookView",
+        500,
+        "internal_error",
+      );
     else await route.continue();
   });
   await installOwnedRoute(page, `**${path}`, async (route) => {

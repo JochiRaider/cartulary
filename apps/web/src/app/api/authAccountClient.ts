@@ -1,25 +1,11 @@
 import type {
   BeginEnterpriseAuthRequest,
-  BeginEnterpriseAuthResponse,
   BeginTOTPEnrollmentRequest,
-  BeginTOTPEnrollmentResponse,
   ChangeCurrentPasswordRequest,
-  ChangeCurrentPasswordResponse,
   CompleteTOTPEnrollmentRequest,
-  CompleteTOTPEnrollmentResponse,
-  GetCredentialStateResponse,
-  GetCurrentAccountPreferencesResponse,
-  GetCurrentAccountProfileResponse,
-  GetCurrentSessionResponse,
-  ListDeploymentExtensionsResponse,
-  ListEnterpriseAuthProvidersResponse,
   LoginLocalUserRequest,
-  LoginLocalUserResponse,
-  LogoutCurrentSessionResponse,
   PatchCurrentAccountProfileRequest,
-  PatchCurrentAccountProfileResponse,
   PutCurrentAccountPreferencesRequest,
-  PutCurrentAccountPreferencesResponse,
 } from "@cartulary/protocol-ts/http";
 import { validateHTTPOperationResponse } from "@cartulary/protocol-ts/http";
 import { fetchHTTPOperation } from "../../services/browserApi";
@@ -71,7 +57,7 @@ function totpEnrollmentRequestInit(
 }
 
 export function loadSession(options: ShellGetOptions = {}) {
-  return fetchHTTPOperation<GetCurrentSessionResponse>({
+  return fetchHTTPOperation({
     apiBase: options.apiBase,
     operationID: "getCurrentSession",
     init: options.signal === undefined ? undefined : { signal: options.signal },
@@ -79,7 +65,7 @@ export function loadSession(options: ShellGetOptions = {}) {
 }
 
 export function loadCredentialState(options: ShellGetOptions = {}) {
-  return fetchHTTPOperation<GetCredentialStateResponse>({
+  return fetchHTTPOperation({
     apiBase: options.apiBase,
     operationID: "getCredentialState",
     init: options.signal === undefined ? undefined : { signal: options.signal },
@@ -87,7 +73,7 @@ export function loadCredentialState(options: ShellGetOptions = {}) {
 }
 
 export function loadAccountProfile(options?: ShellGetOptions) {
-  return fetchHTTPOperation<GetCurrentAccountProfileResponse>({
+  return fetchHTTPOperation({
     apiBase: options?.apiBase,
     init:
       typeof options?.signal === "undefined"
@@ -111,7 +97,7 @@ export function patchAccountProfile(options: {
     client_txn_id: options.clientTxnId,
     display_name: options.displayName,
   } satisfies PatchCurrentAccountProfileRequest;
-  return fetchHTTPOperation<PatchCurrentAccountProfileResponse>({
+  return fetchHTTPOperation({
     apiBase: options.apiBase,
     init: {
       method: "PATCH",
@@ -123,7 +109,7 @@ export function patchAccountProfile(options: {
 }
 
 export function loadAccountPreferences(options?: ShellGetOptions) {
-  return fetchHTTPOperation<GetCurrentAccountPreferencesResponse>({
+  return fetchHTTPOperation({
     apiBase: options?.apiBase,
     init:
       typeof options?.signal === "undefined"
@@ -147,7 +133,7 @@ export function putAccountPreferences(options: {
     client_txn_id: options.clientTxnId,
     density_mode: options.densityMode,
   } satisfies PutCurrentAccountPreferencesRequest;
-  return fetchHTTPOperation<PutCurrentAccountPreferencesResponse>({
+  return fetchHTTPOperation({
     apiBase: options.apiBase,
     init: {
       method: "PUT",
@@ -159,7 +145,7 @@ export function putAccountPreferences(options: {
 }
 
 export function loadExtensions(options?: ShellGetOptions) {
-  return fetchHTTPOperation<ListDeploymentExtensionsResponse>({
+  return fetchHTTPOperation({
     apiBase: options?.apiBase,
     init:
       typeof options?.signal === "undefined"
@@ -179,7 +165,7 @@ export function loginLocal(options: {
   username: string;
 }) {
   const secondFactor = secondFactorPayload(options.secondFactorCode ?? "");
-  return fetchHTTPOperation<LoginLocalUserResponse>({
+  return fetchHTTPOperation({
     apiBase: options.apiBase,
     operationID: "loginLocalUser",
     init: {
@@ -199,7 +185,7 @@ export function loginLocal(options: {
 }
 
 export function listEnterpriseAuthProviders(options: ShellGetOptions = {}) {
-  return fetchHTTPOperation<ListEnterpriseAuthProvidersResponse>({
+  return fetchHTTPOperation({
     apiBase: options.apiBase,
     operationID: "listEnterpriseAuthProviders",
     init: options.signal === undefined ? undefined : { signal: options.signal },
@@ -212,7 +198,7 @@ export function beginEnterpriseAuth(options: {
   providerKey: string;
   returnTo?: string | undefined;
 }) {
-  return fetchHTTPOperation<BeginEnterpriseAuthResponse>({
+  return fetchHTTPOperation({
     apiBase: options.apiBase,
     operationID: "beginEnterpriseAuth",
     pathParameters: { provider_key: options.providerKey },
@@ -227,7 +213,7 @@ export function beginEnterpriseAuth(options: {
 }
 
 export function logoutCurrentSession(options: ShellGetOptions = {}) {
-  return fetchHTTPOperation<LogoutCurrentSessionResponse>({
+  return fetchHTTPOperation({
     apiBase: options.apiBase,
     operationID: "logoutCurrentSession",
     init: {
@@ -269,7 +255,7 @@ export function beginTotpEnrollment(
         : {}),
     } satisfies BeginTOTPEnrollmentRequest,
   });
-  return fetchHTTPOperation<BeginTOTPEnrollmentResponse>({
+  return fetchHTTPOperation({
     apiBase: options.apiBase,
     operationID: "beginTOTPEnrollment",
     init: requestInit,
@@ -288,7 +274,7 @@ export function completeTotpEnrollment(
       code: options.code,
     } satisfies CompleteTOTPEnrollmentRequest,
   });
-  return fetchHTTPOperation<CompleteTOTPEnrollmentResponse>({
+  return fetchHTTPOperation({
     apiBase: options.apiBase,
     operationID: "completeTOTPEnrollment",
     init: requestInit,
@@ -304,7 +290,7 @@ export function changePassword(options: {
   secondFactorCode?: string;
 }) {
   const secondFactor = secondFactorPayload(options.secondFactorCode ?? "");
-  return fetchHTTPOperation<ChangeCurrentPasswordResponse>({
+  return fetchHTTPOperation({
     apiBase: options.apiBase,
     operationID: "changeCurrentPassword",
     init: {

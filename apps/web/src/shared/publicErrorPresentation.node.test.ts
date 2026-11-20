@@ -71,7 +71,7 @@ describe("public error presentation", () => {
       {
         expectedFamily: "authentication_required",
         input: {
-          code: "future_error",
+          code: "invalid_credentials",
           hasAuthorizedMaterialization: true,
           operationFamily: "surface_refresh",
           status: 401,
@@ -86,25 +86,21 @@ describe("public error presentation", () => {
           status: 400,
         },
       },
-      ...(
-        [
-          "authorization_denied",
-          "incident_not_found",
-          "incident_access_lost",
-        ] as const
-      ).map((code) => ({
-        expectedFamily: "permission_or_incident_access_loss" as const,
-        input: {
-          code,
-          hasAuthorizedMaterialization: true,
-          operationFamily: "surface_refresh" as const,
-          status: 403,
-        },
-      })),
+      ...(["authorization_denied", "incident_not_found"] as const).map(
+        (code) => ({
+          expectedFamily: "permission_or_incident_access_loss" as const,
+          input: {
+            code,
+            hasAuthorizedMaterialization: true,
+            operationFamily: "surface_refresh" as const,
+            status: 403,
+          },
+        }),
+      ),
       {
         expectedFamily: "extension_unavailable",
         input: {
-          code: "future_extension_failure",
+          code: "internal_error",
           hasAuthorizedMaterialization: true,
           operationFamily: "extension",
           status: 503,
@@ -123,7 +119,7 @@ describe("public error presentation", () => {
       {
         expectedFamily: "unknown_future_error",
         input: {
-          code: "future_operation_failure",
+          code: "internal_error",
           hasAuthorizedMaterialization: true,
           operationFamily: "field_mutation",
           status: 500,
@@ -137,7 +133,7 @@ describe("public error presentation", () => {
     ] as const) {
       expect(
         resolvePublicErrorPresentation({
-          code: "future_preview_failure",
+          code: "object_store_unavailable",
           hasAuthorizedMaterialization: true,
           operationFamily,
           status: 503,
@@ -155,10 +151,42 @@ describe("public error presentation", () => {
     }
   });
 
+  it("selects a retry family for service_unavailable in every operation family", () => {
+    const families = [
+      "authentication",
+      "evidence_preview",
+      "evidence_download",
+      "extension",
+      "field_mutation",
+      "surface_load",
+      "surface_refresh",
+    ] as const;
+    for (const operationFamily of families)
+      for (const hasAuthorizedMaterialization of [false, true]) {
+        const presentation = resolvePublicErrorPresentation({
+          code: "service_unavailable",
+          hasAuthorizedMaterialization,
+          operationFamily,
+          reasonCode: "admission_paused",
+          status: 503,
+        });
+        expect(presentation.family).toBe(
+          operationFamily === "surface_load" && !hasAuthorizedMaterialization
+            ? "initial_load_failure"
+            : "stale_refresh",
+        );
+        expect(presentation.actions).toEqual([
+          presentation.family === "initial_load_failure"
+            ? "retry_after_failure"
+            : "retry",
+        ]);
+      }
+  });
+
   it("falls back without accepting or inspecting human message text", () => {
     expect(
       resolvePublicErrorPresentation({
-        code: "future_error",
+        code: "internal_error",
         hasAuthorizedMaterialization: false,
         operationFamily: "field_mutation",
         status: 500,

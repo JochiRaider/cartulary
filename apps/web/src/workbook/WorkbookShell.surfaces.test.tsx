@@ -1464,7 +1464,7 @@ describe("WorkbookShell surface selection", () => {
       ).toBe("Loading incident"),
     );
     await act(async () =>
-      identity.resolve(errorEnvelope("identity_unavailable", 503)),
+      identity.resolve(errorEnvelope("internal_error", 500)),
     );
     await waitFor(() =>
       expect(
@@ -1475,7 +1475,7 @@ describe("WorkbookShell surface selection", () => {
     );
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
     expect(screen.getByRole("heading", { level: 1 }).textContent).toContain(
-      "identity_unavailable",
+      "internal_error",
     );
   });
 
@@ -3820,7 +3820,7 @@ describe("WorkbookShell surface selection", () => {
     scenario.queryResponseOverride = (viewSchemaId, init) => {
       if (viewSchemaId !== evidenceViewSchemaId) return null;
       return stringFilterValue(parseRequestBody(init)) === "failure"
-        ? errorEnvelope("projection_failed", 500)
+        ? errorEnvelope("internal_error", 500)
         : null;
     };
 
@@ -3836,7 +3836,7 @@ describe("WorkbookShell surface selection", () => {
 
     expect(
       await screen.findByText(
-        "projection_failed Previously loaded rows may be stale.",
+        "internal_error Previously loaded rows may be stale.",
       ),
     ).toBeTruthy();
     expect(currentRecordIds(evidenceViewSchemaId)).toEqual([
@@ -3858,7 +3858,7 @@ describe("WorkbookShell surface selection", () => {
     scenario.queryResponseOverride = (viewSchemaId, init) =>
       viewSchemaId === evidenceViewSchemaId &&
       stringFilterValue(parseRequestBody(init)) === "denied"
-        ? errorEnvelope("authorization_denied", 403)
+        ? errorEnvelope("incident_not_found", 404)
         : null;
 
     render(
@@ -3880,7 +3880,7 @@ describe("WorkbookShell surface selection", () => {
         ).length,
       ).toBeGreaterThan(1);
     });
-    expect(await screen.findByText("authorization_denied")).toBeTruthy();
+    expect(await screen.findByText("incident_not_found")).toBeTruthy();
     expect(onIncidentAccessLost).not.toHaveBeenCalled();
     expect(currentRecordIds(evidenceViewSchemaId)).toEqual([]);
   });
@@ -3895,7 +3895,7 @@ describe("WorkbookShell surface selection", () => {
     };
     scenario.queryResponseOverride = (viewSchemaId) =>
       viewSchemaId === hostsViewSchemaId
-        ? errorEnvelope("authorization_denied", 403)
+        ? errorEnvelope("incident_not_found", 404)
         : null;
 
     render(
@@ -3912,7 +3912,7 @@ describe("WorkbookShell surface selection", () => {
         ).length,
       ).toBeGreaterThan(1);
     });
-    expect(await screen.findByText("authorization_denied")).toBeTruthy();
+    expect(await screen.findByText("incident_not_found")).toBeTruthy();
     expect(onIncidentAccessLost).not.toHaveBeenCalled();
   });
 
@@ -3926,7 +3926,7 @@ describe("WorkbookShell surface selection", () => {
     };
     scenario.queryResponseOverride = (viewSchemaId) =>
       viewSchemaId === assessmentsViewSchemaId
-        ? errorEnvelope("authorization_denied", 403)
+        ? errorEnvelope("incident_not_found", 404)
         : null;
 
     render(
@@ -3943,7 +3943,7 @@ describe("WorkbookShell surface selection", () => {
         ).length,
       ).toBeGreaterThan(1);
     });
-    expect(await screen.findByText("authorization_denied")).toBeTruthy();
+    expect(await screen.findByText("incident_not_found")).toBeTruthy();
     expect(onIncidentAccessLost).not.toHaveBeenCalled();
   });
 
@@ -4827,7 +4827,7 @@ describe("WorkbookShell surface selection", () => {
     scenario.handleErrorByRecordID["00000000-0000-4000-8000-000000004015"] =
       rawStorageErrorEnvelope();
     scenario.attachErrorByRecordID["00000000-0000-4000-8000-000000004015"] =
-      rawStorageErrorEnvelope();
+      rawStorageErrorEnvelope("evidence_attach_rejected");
     const anchorClick = vi
       .spyOn(HTMLAnchorElement.prototype, "click")
       .mockImplementation(() => undefined);
@@ -5358,12 +5358,12 @@ const rawStorageLeakSentinels = [
   "object-store implementation",
 ] as const;
 
-function rawStorageErrorEnvelope(): Response {
+function rawStorageErrorEnvelope(code = "object_store_unavailable"): Response {
   return new Response(
     JSON.stringify({
       error: {
         status: 409,
-        code: "object_store_unavailable",
+        code,
         message:
           "https://minio.internal/cartulary-evidence-bucket object_blob_storage_key_v1 /var/lib/cartulary/object-blobs seaweedfs s3_backend object-store implementation",
         request_id: "req-raw-storage",

@@ -38,7 +38,7 @@ Source accounting and policy checks consume machine-readable inputs, not READMEs
 | File | Responsibility |
 | --- | --- |
 | [extensionAvailabilityTestSupport.ts](extensionAvailabilityTestSupport.ts) | Deterministic ready extension-availability controller fixture for workbook and feature tests. |
-| [fetchMockTestSupport.ts](fetchMockTestSupport.ts) | Fetch mock helpers for unit and integration-style frontend tests. |
+| [fetchMockTestSupport.ts](fetchMockTestSupport.ts) | Fetch mock helpers and decoded operation-failure fixtures for unit and integration-style frontend tests. |
 | [taskWorkbookTestSupport.ts](taskWorkbookTestSupport.ts) | Task lifecycle authority, record, intent, and receipt fixtures. |
 | [timelineCaptureActionTestSupport.ts](timelineCaptureActionTestSupport.ts) | Reviewed Timeline capture-action fixture construction. |
 | [timelineMentionTestSupport.ts](timelineMentionTestSupport.ts) | Timeline mention review, receipt, workbook row, inspector, and entity-creation fixtures. |
@@ -73,6 +73,7 @@ even when DOM input and retained React state temporarily differ.
 
 | File | Responsibility |
 | --- | --- |
+| [publicErrorCodeBranchPolicy.node.test.ts](publicErrorCodeBranchPolicy.node.test.ts) | Static public-error branch policy; code comparisons outside Network Flow and collaboration name only declared operation codes or client-local codes. |
 | [sourceOwnershipPolicy.node.test.ts](sourceOwnershipPolicy.node.test.ts) | Exact non-Markdown frontend source-ownership parity and manifest-shape policy. |
 | [testSetup.dom.ts](testSetup.dom.ts) | DOM-specific Vitest setup. |
 | [testSetup.ts](testSetup.ts) | Common Vitest setup for frontend tests. |

@@ -60,7 +60,7 @@ func (s *store) createPerformanceFixtureRows(ctx context.Context, command Perfor
 		referenceRows = append(referenceRows, preparedRow)
 	}
 	preparation := &referencePreparation{}
-	if err := s.prepareReferencesTx(ctx, tx, command.IncidentID, referenceRows, true, preparation); err != nil {
+	if err := s.prepareReferencesTx(ctx, tx, command.IncidentID, referenceRows, referenceScopeBatch, true, preparation); err != nil {
 		return PerformanceFixtureResult{}, err
 	}
 

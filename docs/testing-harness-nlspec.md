@@ -7317,6 +7317,14 @@ failure. Stage attribution SHALL NOT be inferred from duration or error text.
 
 Only the closed stage value SHALL be exposed; private errors, filesystem paths,
 environment values, owner capabilities and credentials SHALL NOT be included.
+The one exception is a validated preparation diagnostic (TH-HARNESS-REQ-854).
+Before the `runtime_plan` failure line, the runtime SHALL print one
+`[GRAPH-PREPARE] failure_reason=<reason> cause=<cause> subjects=<n> omitted=<m>`
+line and then one `[GRAPH-PREPARE] subject=<subject>` line per subject. The
+failure line SHALL carry that diagnostic's `failure_reason`. Exit status `2`
+and the closed stage are unchanged. This satisfies the bounded configuration,
+selector and usage diagnostics of TH-HARNESS-AC-062, TH-HARNESS-AC-063 and
+TH-HARNESS-AC-064 for graph-backed targets.
 Stage reporting SHALL NOT alter admission, retries, outcomes or cleanup authority.
 Tests SHALL reject unknown stage values and verify classification and exit-status
 preservation, including wrapped errors and cancellation during preparation.
@@ -7718,6 +7726,35 @@ exhaustion before workload launch. No source object graph, callable behavior or
 credentials may be retained as plan facts. The public surface MUST NOT accept
 arbitrary executable plans or command strings. Runtime credentials remain under
 existing private ownership and redaction boundaries.
+
+A compiler that rejects preparation MUST instead publish exactly one
+`cartulary.harness_preparation_diagnostic.v1` record over the same descriptor
+and exit `2`. The record contains `schema_id`, `failure_reason`, `cause`,
+`subjects` and `omitted_subject_count`, and nothing else:
+
+- `failure_reason` is `configuration_error` or `usage_error`, and preserves a
+  usage rejection (TH-HARNESS-REQ-305);
+- `cause` is one of:
+  - `catalog_shape`: an owner-family manifest is invalid; the subject is its
+    repository path;
+  - `selector_resolution`: a row selector does not resolve; the subject is
+    the row ID;
+  - `catalog_coverage`: a source test is uncataloged, cataloged more than
+    once, or overlapped; the subjects are its selector keys;
+  - `command_selection`: a public selection input is rejected, with no
+    subject;
+  - `unclassified`;
+- `subjects[]` holds at most 20 unique repository-relative paths, row IDs or
+  selector keys, each 1 to 256 characters with no control character. Subjects
+  beyond the bound, or not representable within it, are counted in
+  `omitted_subject_count`;
+- the encoded record is at most 4,096 bytes.
+
+The record MUST NOT carry exception text, filesystem paths outside the
+repository, environment values or credentials. An error without a typed cause
+publishes `cause=unclassified` with no subjects. The runtime validates the
+record before use. A malformed, oversized, unknown or missing record fails
+closed as `configuration_error` with no subjects.
 
 The plan projects the task-surface owner's typed input forwarding into a bounded
 private environment policy. Before unit dispatch, runtime clears all registered
@@ -8984,10 +9021,158 @@ Verified by: TH-HARNESS-AC-109, TH-HARNESS-AC-113, TH-HARNESS-AC-129, TH-HARNESS
 
 ## 12. Test-Only Harness Routes
 
+**TH-HARNESS-REQ-858**
+The server-harness build and every in-process test server MUST enforce Core 01
+REQ-01-702 at runtime. When a resolved operation writes an error whose code it
+does not declare for the emitted status, the server MUST instead respond `500`
+`internal_error` and log one structured line with `event=undeclared_error_code`
+naming the operation ID, status and code. Each violation is also written as one
+contract-evidence record (TH-HARNESS-REQ-860), and the run gate there makes it
+fail the run. Production builds keep their response unchanged. The guard is
+evidence that exercised routes honour their declarations; it makes no claim
+about routes no test exercises.
+Verified by: TH-HARNESS-AC-008, TH-HARNESS-AC-154
+
+**TH-HARNESS-REQ-859 — Declared-security guard**
+The server-harness build and every in-process test server MUST enforce Core 01
+REQ-01-703 at runtime for every resolved operation:
+
+- authenticating a session or bearer session for an operation that declares no
+  requirement is a mismatch;
+- verifying CSRF for an alternative that does not declare it, or not verifying
+  it for a cookie request whose alternative declares it, is a mismatch;
+- starting a success response (status below 400) without an authenticated
+  principal for an operation that declares requirements is a mismatch.
+
+On a mismatch the server MUST respond `500` `internal_error` instead, when no
+response byte has been written, and MUST write one `security_mismatch`
+contract-evidence record (TH-HARNESS-REQ-860) naming the operation and the
+declared and observed security. Production builds keep their behaviour
+unchanged.
+Verified by: TH-HARNESS-AC-156
+
+**TH-HARNESS-REQ-860 — Contract evidence stream and run gate**
+Every runtime contract guard in an in-process test server or the server-harness
+build MUST write each finding as one JSON line conforming to
+`cartulary.harness_contract_evidence.v1` under `<run root>/contract-evidence/`,
+in one owner-only file per process. A record carries:
+
+- `kind`: `undeclared_error_code` (TH-HARNESS-REQ-858), `security_mismatch`
+  (TH-HARNESS-REQ-859), `server_fatal` (TH-HARNESS-REQ-863) or
+  `error_emission`, a coverage record that is not a violation;
+- the operation ID, the HTTP status, and the error code or security fact;
+- the process kind (`in_process` or `server_harness`), the work unit when
+  known, and the process ID.
+
+A record MUST NOT contain request data, fixture identifiers or secrets. The
+writer resolves the run root by the same rule as the harness fixture artifacts
+and MUST NOT write outside it.
+
+At run finalization the harness MUST validate every record:
+
+- a malformed record fails the run with `failure_class=artifact`;
+- any violation record fails the run with `failure_class=product` and
+  `failure_reason=contract_violation`, and the run summary lists the distinct
+  violations, bounded;
+- a `server_fatal` record fails the run with `failure_class=product` and
+  `failure_reason=server_fatal`, and the run summary lists it the same way;
+- a run with no violation record passes this check, whether or not the
+  directory exists.
+
+The structured log line of TH-HARNESS-REQ-858 remains for live diagnosis.
+Verified by: TH-HARNESS-AC-154
+
+**TH-HARNESS-REQ-861 — Every browser server generation keeps its log**
+A browser suite MUST retain the redacted, bounded log of every server-harness
+generation it starts, including the final generation of every allocation at
+settlement, under TH-HARNESS-REQ-600 and TH-HARNESS-REQ-601. The retained
+folder MUST name the cohort and generation that ran against that server, not
+the cohort that replaced it.
+Verified by: TH-HARNESS-AC-155
+
+**TH-HARNESS-REQ-862 — Declared-versus-exercised error-code coverage**
+The TH-HARNESS-REQ-858 guard MUST also record each distinct operation, status
+and code a process emits, declared or not, as one `error_emission`
+contract-evidence record, deduplicated within the process.
+
+The admission gate answers before route resolution (Core 01 REQ-01-707) and
+belongs to no operation. Its refusal is not an emission; the report's `503`
+`service_unavailable` entries count only refusals an operation itself sends.
+
+Whenever a run's contract evidence includes emissions, the run gate MUST publish
+`error-code-coverage.json` in the run root. For each operation and error status
+of the generated operation catalog, it lists:
+
+- the declared codes;
+- the codes the run exercised;
+- the declared codes it did not exercise.
+
+The run summary carries the totals. The report is evidence about test coverage
+of declared error paths, and it describes only the selected run. An unexercised
+declaration MUST NOT fail a run.
+Verified by: TH-HARNESS-AC-157
+
+**TH-HARNESS-REQ-863 — A test server's fatal is evidence**
+When an in-process test server or the server-harness build enters a lifecycle
+fatal state (Extension Subsystem EXT-REQ-193), it MUST write one `server_fatal`
+contract-evidence record (TH-HARNESS-REQ-860) carrying the fatal reason code,
+the process kind, the work unit when known, and the process ID. The run gate
+fails the run with `failure_class=product` and `failure_reason=server_fatal`.
+A test that already failed keeps its own failure; the record adds the cause
+behind any `503` `service_unavailable` the server sent afterwards. When a run
+has both a `server_fatal` record and contract violations, the run fails as
+`server_fatal`, because a fatal server's later responses are consequences;
+every record stays listed.
+
+A test that deliberately drives a server into a fatal state, to verify fatal
+handling itself, MUST direct that server's contract evidence to a test-owned
+run root and assert the `server_fatal` record there. That evidence does not
+enter the selected run's stream. Production builds are unchanged.
+Verified by: TH-HARNESS-AC-158
+
+**TH-HARNESS-REQ-864 — Test failures keep their evidence**
+Test support MUST preserve the evidence a load-dependent failure needs:
+
+- A failed HTTP status assertion MUST report the response body, bounded and
+  redacted under TH-HARNESS-REQ-600 and TH-HARNESS-REQ-601.
+- Test polling of a job or other eventually-consistent resource MUST use the
+  shared poll helper. It MAY keep polling through a response whose error
+  envelope says `retryable: true`, until its deadline (its own, or the test's
+  when it has none), and on failure MUST report the last response it
+  received. A `503` `service_unavailable` with reason
+  `extension_integrity_failure` or `shutdown_in_progress` is a closing
+  server's permanent refusal, so polling stops on it. Waiting through a retryable response is part of one
+  test's execution; it is not a retry of a product test, which remains
+  forbidden.
+- Browser tests MUST bound each action and each expectation by a timeout below
+  the test budget, so one missed element fails at that step rather than
+  consuming the whole budget.
+- When a database-backed test request times out, test support MAY record a
+  bounded snapshot of the database's lock waits (blocked and blocking
+  sessions, their wait events and statement kinds, with no statement text or
+  parameters) in the run root.
+Verified by: TH-HARNESS-AC-159
+
 **TH-HARNESS-REQ-450**
-Test-only harness routes are harness routes. Runtime-control routes include `GET /api/v1/test/runtime/identity`, `POST /api/v1/test/clock/set`, `POST /api/v1/test/clock/reset`, `GET /api/v1/test/clock/state`, `POST /api/v1/test/runtime/network-flow-faults`, `POST /api/v1/test/runtime/network-flow-randomness`, `POST /api/v1/test/runtime/network-flow-auth-transitions`, and `POST /api/v1/test/runtime/network-flow-audit-assertions`. Fixture routes include `POST /api/v1/test/incidents/{incident_id}/saved-views/system`. Any future `/api/v1/test/*` or `/ws/v1/test/*` route that observes or mutates harness runtime state or fixture state is also a test-only harness route. These routes MUST be unavailable unless every enablement predicate below is satisfied. They MUST NOT be documented as production API behavior.
+Test-only harness routes are harness routes. Runtime-control routes include `GET /api/v1/test/runtime/identity`, `POST /api/v1/test/clock/set`, `POST /api/v1/test/clock/reset`, `GET /api/v1/test/clock/state`, `POST /api/v1/test/runtime/network-flow-faults`, `POST /api/v1/test/runtime/network-flow-randomness`, `POST /api/v1/test/runtime/network-flow-auth-transitions`, `POST /api/v1/test/runtime/network-flow-audit-assertions`, and `POST /api/v1/test/runtime/hold-jobs`. Fixture routes include `POST /api/v1/test/incidents/{incident_id}/saved-views/system`. Any future `/api/v1/test/*` or `/ws/v1/test/*` route that observes or mutates harness runtime state or fixture state is also a test-only harness route. These routes MUST be unavailable unless every enablement predicate below is satisfied. They MUST NOT be documented as production API behavior. Each test-only harness route serves exactly one method. After the §12.2 and TH-HARNESS-REQ-451 checks admit a request, any other method, `HEAD` included, receives `405` with `error.code=method_not_allowed`, an `Allow` header naming the route's method and `error.details.allowed_methods`, in the common error envelope; a `HEAD` response has no body. The token, host and origin checks therefore precede any disclosure of the route's method.
 
 Runtime-linked implementations of Section 12 routes that are registered by application binaries are owned by the platform harness runtime adapter boundary. Private implementation package paths are not public route contracts. Non-test runtime code MUST NOT import broad test-helper packages to register or execute Section 12 routes once a platform harness runtime adapter exists for that route family.
+The hold-job control exists only in the server-harness build with test routes
+enabled. It supplies the active job that Core 04 AC-604 requires at process
+level through one harness-only job definition, `harness.hold_job_v1`, whose
+handler belongs to the harness worker. It is never part of a production job
+catalog. A request body is a closed `cartulary.test.hold_job_control.v1` object.
+`operation=enqueue` queues one held job in a closed `mode`:
+
+- `respect_cancellation` holds until its handler context is cancelled, then
+  returns;
+- `ignore_cancellation_until_released` holds until `operation=release`,
+  whatever its context.
+
+`operation=status` reports how many held handlers are running. The control is
+process-scoped: it retains no state across processes, and stopping the process
+ends every hold.
+
 Verified by: TH-HARNESS-AC-008, TH-HARNESS-AC-013
 
 ### 12.1 Enablement
@@ -10169,6 +10354,19 @@ Structured secret-key matching is closed. Before comparing a structured key name
 Raw-text redaction MUST apply after structured redaction to these closed families: URL userinfo (`scheme://userinfo@host`), PostgreSQL-style DSN password segments (`password=` or `:password@` credential forms), bearer authorization headers, JWT-like three-part base64url tokens, PEM private-key blocks, and S3-compatible access-key or secret-key assignments. Structured redaction MUST preserve object and array shapes and preserve numeric, boolean, and null scalar types unless that scalar value itself is secret. A redaction write or validation failure maps to `failure_class=artifact`, `failure_reason=artifact_error`, and public exit `11` unless Section 9.1 preserves an earlier primary failure.
 Verified by: TH-HARNESS-AC-011, TH-HARNESS-AC-036
 
+**TH-HARNESS-REQ-617 — One retained redaction marker**
+Every harness redactor MUST replace a redacted secret with the single marker
+`<redacted>`, and the retained-secret scan of TH-HARNESS-REQ-600 MUST exempt
+exactly a value that begins with that marker. A redactor MUST NOT emit another
+marker form, such as a bracketed or typed token, and the scan MUST NOT exempt
+one. Every redaction rule MUST leave output that the scan accepts in each
+syntactic context it checks: a secret-named JSON member value, an uppercase
+secret assignment, and URL userinfo or a DSN password. The authored redaction
+manifest is the single machine owner of the marker; the native redactor and the
+scan consume it and do not restate it. The scan's policy identity is unchanged.
+Product-owned masking, such as Reporting redaction, is outside this requirement.
+Verified by: TH-HARNESS-AC-011, TH-HARNESS-AC-160
+
 **TH-HARNESS-REQ-605**
 Runtime and support security scans MUST derive their default support-root
 exclusions and support package patterns from the schema-validated test-support
@@ -11041,6 +11239,13 @@ expected behavior. Failure codes below are normalized wrapper codes.
 | TH-HARNESS-AC-149 | REQ-851 | Command/import closure, retired attachments and completion reporting | Experimental collection and qualification validation retired; historical evidence unchanged | Active retired probes, qualification commands or historical relabelling fails. |
 | TH-HARNESS-AC-152 | REQ-856 | Fresh hierarchy, short-lived descendants, nested Make including independently cleared environment, exact container placement, incompatible hosts, cancellation, orphan work, OOM, counter faults, publication faults and hostile retained records | Complete charged resource accounting, precise scope, inherited measurement policy after kernel/owner proof, validated source/run binding and full queue/cleanup aggregates | Partial sampling presented as total cost, sum of memory peaks, unproved service membership, lost cleanup authority, changed scheduling, false success or changed-source equivalent admission fails. |
 | TH-HARNESS-AC-153 | REQ-857/835/844/803 | Host decision/phase paging, nested deficits/ancestors and independent blockers, opaque references, coalescing/limits/missing coverage; paths longer than 20 units, target ties/filter/empty/byte-bound pages, queue reconciliation and overlaps; all retirement reasons, absent triggers, repeated/conflicting identities, failed settlement and limit exhaustion | Complete ordered pagination, independent path totals, explicit coverage/uncovered time, actual retirement attribution and human/JSON parity | Missing/duplicate records, concealed omissions, host/graph wait conflation, unsafe evidence, mutation during reading or diagnostic changes to cleanup authority fail. |
+| TH-HARNESS-AC-154 | REQ-858/860 | One violation record, a malformed record, an absent or empty stream, in-process and server-harness writers, a record outside the run root | The violation fails the run as `contract_violation` and is listed; the malformed record fails as `artifact`; an absent or empty stream passes; both writers emit the same schema | A violation that does not fail the run, a silently accepted malformed record, or a record carrying request data fails. |
+| TH-HARNESS-AC-155 | REQ-861 | Functional and stateful browser runs, with and without allocation resets | Every server generation, including each allocation's final one, has a retained, redacted log labelled with its own cohort and generation | A missing final-generation log, an unredacted log, or a label naming the replacing cohort fails. |
+| TH-HARNESS-AC-156 | REQ-859 | An operation without declared security that authenticates; a declared operation that succeeds unauthenticated; CSRF verified where undeclared and skipped where declared; a correct operation of each kind | Each mismatch becomes `500` `internal_error` with one `security_mismatch` record that fails the run; correct operations are unchanged | A mismatch that keeps its original response, writes no record, or flags a correctly declared operation fails. |
+| TH-HARNESS-AC-157 | REQ-862 | Repeated and distinct emissions in one process and across processes, an emission of an undeclared code, a run with no emissions | One `error_emission` record per distinct emission per process; `error-code-coverage.json` lists declared, exercised and unexercised codes per operation and status, with summary totals; a run without emissions publishes no report; unexercised declarations never fail the run | A duplicate record, a missing operation or status, or a run failed for coverage fails. |
+| TH-HARNESS-AC-158 | REQ-860/863 | An in-process test server and a server-harness process each forced into a lifecycle fatal; a test that fails on the resulting `503`; a run with no fatal | Each fatal writes one `server_fatal` record with its reason code and fails the run as `server_fatal`, listed in the summary; the failing test keeps its own failure; a run without a fatal is unaffected | A fatal with no record, a record without its reason, a run that passes after a fatal, or a production build that writes evidence fails. |
+| TH-HARNESS-AC-159 | REQ-864 | A status assertion on a wrong status; a poll that meets a retryable `503`, a non-retryable error, and its deadline; a browser action whose target never appears; a request that times out behind a lock | The failure message carries the redacted body; the poll waits through the retryable response, stops on the non-retryable one, and reports the last response at its deadline; the action fails at its own timeout; the lock-wait snapshot names blocked and blocking sessions without statement text | A discarded body, a poll that fails on a retryable response or retries a product test, an action that consumes the whole test budget, or a snapshot carrying statement text or parameters fails. |
+| TH-HARNESS-AC-160 | REQ-617 | Each manifest rule and each structured-key redaction applied to a fixture secret in a JSON member, an uppercase assignment, URL userinfo and a DSN password; a bracketed or typed marker | Every redacted output passes the retained-secret scan and contains only the marker; the scan's policy digest is unchanged | A redacted output that fails the scan, a second marker form, or a scan exemption for any other marker fails. |
 
 The numerical image cases MUST include transparent pixels, alpha-only differences,
 one-pixel boundaries, and zero/full changed area. Interface fixtures MUST include
@@ -11107,11 +11312,12 @@ retained evidence keep their separate owner-only permission contract.
 | `TH-HARNESS-REQ-450..499` | Test controls and browser reset lifecycle | TH-HARNESS-AC-008, TH-HARNESS-AC-034, TH-HARNESS-AC-035, TH-HARNESS-AC-050, TH-HARNESS-AC-051, TH-HARNESS-AC-052, TH-HARNESS-AC-053, TH-HARNESS-AC-054, TH-HARNESS-AC-056 |
 | `TH-HARNESS-REQ-500..549` | Cleanup                            | TH-HARNESS-AC-009, TH-HARNESS-AC-010, TH-HARNESS-AC-028, TH-HARNESS-AC-036, TH-HARNESS-AC-092 |
 | `TH-HARNESS-REQ-550..599` | Platform                           | TH-HARNESS-AC-012, TH-HARNESS-AC-092                    |
-| `TH-HARNESS-REQ-600..649` | Security and redaction             | TH-HARNESS-AC-003, TH-HARNESS-AC-011, TH-HARNESS-AC-015, TH-HARNESS-AC-036, TH-HARNESS-AC-056, TH-HARNESS-AC-067, TH-HARNESS-AC-075, TH-HARNESS-AC-076 |
+| `TH-HARNESS-REQ-600..649` | Security and redaction             | TH-HARNESS-AC-003, TH-HARNESS-AC-011, TH-HARNESS-AC-015, TH-HARNESS-AC-036, TH-HARNESS-AC-056, TH-HARNESS-AC-067, TH-HARNESS-AC-075, TH-HARNESS-AC-076, TH-HARNESS-AC-160 |
 | `TH-HARNESS-REQ-650..699` | Product integration                | TH-HARNESS-AC-013, TH-HARNESS-AC-016, TH-HARNESS-AC-026, TH-HARNESS-AC-039, TH-HARNESS-AC-043, TH-HARNESS-AC-044, TH-HARNESS-AC-047, TH-HARNESS-AC-049, TH-HARNESS-AC-050, TH-HARNESS-AC-051, TH-HARNESS-AC-052, TH-HARNESS-AC-053, TH-HARNESS-AC-054, TH-HARNESS-AC-055, TH-HARNESS-AC-056, TH-HARNESS-AC-062, TH-HARNESS-AC-066, TH-HARNESS-AC-068, TH-HARNESS-AC-069, TH-HARNESS-AC-070, TH-HARNESS-AC-071, TH-HARNESS-AC-080, TH-HARNESS-AC-081, TH-HARNESS-AC-082 |
 | `TH-HARNESS-REQ-800..817` | V3 execution control               | TH-HARNESS-AC-082, TH-HARNESS-AC-083, TH-HARNESS-AC-084, TH-HARNESS-AC-085, TH-HARNESS-AC-086, TH-HARNESS-AC-087, TH-HARNESS-AC-088, TH-HARNESS-AC-089, TH-HARNESS-AC-090, TH-HARNESS-AC-091, TH-HARNESS-AC-094, TH-HARNESS-AC-095, TH-HARNESS-AC-096, TH-HARNESS-AC-097, TH-HARNESS-AC-098, TH-HARNESS-AC-099, TH-HARNESS-AC-100, TH-HARNESS-AC-101 |
 | `TH-HARNESS-REQ-830..851` | Instrumentation and retained diagnostic integrity | TH-HARNESS-AC-137 through TH-HARNESS-AC-144, TH-HARNESS-AC-146, TH-HARNESS-AC-149; individual Verified by clauses give exact mapping. |
 | `TH-HARNESS-REQ-852..855` | Native graph and shared fixture ownership | TH-HARNESS-AC-147, TH-HARNESS-AC-148, TH-HARNESS-AC-149 |
+| `TH-HARNESS-REQ-858..864` | Runtime contract guards and evidence | TH-HARNESS-AC-008, TH-HARNESS-AC-154, TH-HARNESS-AC-155, TH-HARNESS-AC-156, TH-HARNESS-AC-157, TH-HARNESS-AC-158, TH-HARNESS-AC-159 |
 
 
 | UI review requirements: 022, 081, 104, 159, 203, 284–288, 311, 381, 415–417, 502, 552, 616, 679 | UI review amendment in Sections 1–16 | TH-HARNESS-AC-102 through TH-HARNESS-AC-129; individual Verified by clauses and Section 17.0 provide exact mapping. |

@@ -1,7 +1,4 @@
-import {
-  buildHTTPOperationPath,
-  type HTTPOperationID,
-} from "@cartulary/protocol-ts/http";
+import { buildHTTPOperationPath } from "@cartulary/protocol-ts/http";
 import type { ExtensionAvailabilityController } from "../extensions/extensionAvailability";
 import {
   importProfileId,
@@ -12,10 +9,19 @@ import {
   immutableImportValue,
 } from "../imports/importRequests";
 import {
+  type ClientErrorCode,
+  isTemporaryUnavailability,
+  isUnappliedRefusal,
+  notAppliedText,
+  stillUnconfirmedText,
+  temporaryUnavailabilityText,
+} from "../shared/publicError";
+import {
   apiPath,
   fetchHTTPOperation,
   fetchMultipartHTTPOperation,
-  type HTTPOperationResult,
+  type HTTPOperationError,
+  type HTTPOperationFailureCode,
   publicErrorView,
 } from "./browserApi";
 import { equalJSONResource } from "./commonJobContract";
@@ -34,11 +40,38 @@ import type {
   ListImportUnitsResponse,
 } from "./importContractAdapter";
 import { validWorkbookImportJob } from "./importJobContract";
+import type { PublicErrorReasonCode } from "./publicErrorIdentity";
 
-export type ImportFailure = {
+/** Operations the Workbook Import client sends. */
+type ImportHTTPOperation =
+  | "createImportSession"
+  | "cancelJob"
+  | "applyImportSession"
+  | "createImportUnitRegion"
+  | "putImportUnitMapping"
+  | "selectImportUnit"
+  | "skipImportUnit"
+  | "listCommittedImportSources"
+  | "getCommittedImportSource"
+  | "getJob"
+  | "getImportSession"
+  | "listImportUnits"
+  | "getImportUnitPreview"
+  | "inspectImportUnitExtensionSource"
+  | "previewImportUnitExtensionMapping";
+/** Declared import operation codes plus client-originated interruption and unavailability. */
+export type ImportFailureCode =
+  | HTTPOperationFailureCode<ImportHTTPOperation>
+  | Extract<ClientErrorCode, "observation_interrupted" | "access_unavailable">;
+/**
+ * An import failure. The core import client produces `ImportFailureCode`
+ * members; Network Flow import surfaces reuse this shape for failures of its
+ * own routes, which are outside the generated operation bindings.
+ */
+export type ImportFailure<Code extends string = string> = {
   readonly kind: "public" | "transport" | "contract" | "authority";
   readonly status: number;
-  readonly code: string;
+  readonly code: Code;
   readonly reason: string | null;
   readonly field: string | null;
   readonly retryable: boolean;
@@ -57,7 +90,7 @@ export type ImportWriteResult =
       readonly failure: ImportFailure;
     };
 
-export const importContractFailure = (): ImportFailure => ({
+export const importContractFailure = (): ImportFailure<ImportFailureCode> => ({
   kind: "contract",
   status: 0,
   code: "invalid_public_contract_response",
@@ -65,15 +98,18 @@ export const importContractFailure = (): ImportFailure => ({
   field: null,
   retryable: true,
 });
-export const importInterruptedFailure = (): ImportFailure => ({
-  kind: "transport",
-  status: 0,
-  code: "observation_interrupted",
-  reason: null,
-  field: null,
-  retryable: true,
-});
-const failed = <T>(failure: ImportFailure): ImportReadResult<T> => ({
+export const importInterruptedFailure =
+  (): ImportFailure<ImportFailureCode> => ({
+    kind: "transport",
+    status: 0,
+    code: "observation_interrupted",
+    reason: null,
+    field: null,
+    retryable: true,
+  });
+const failed = <T>(
+  failure: ImportFailure<ImportFailureCode>,
+): ImportReadResult<T> => ({
   kind: "failed",
   failure,
 });
@@ -82,12 +118,33 @@ const received = <T>(value: T): ImportReadResult<T> => ({
   value: immutableImportValue(value),
 });
 
-export function importFailureMessage(failure: ImportFailure): string {
+/**
+ * Presents an import failure. `outcome` names a write's settlement: a decoded
+ * `503` `service_unavailable` on a rejected write was not applied, while on an
+ * uncertain replay the earlier outcome stays unconfirmed (Core 03
+ * REQ-03-086a). Reads omit it.
+ */
+export function importFailureMessage(
+  failure: ImportFailure,
+  outcome?: "rejected" | "uncertain",
+): string {
+  if (isTemporaryUnavailability(failure))
+    return outcome === "rejected"
+      ? notAppliedText()
+      : outcome === "uncertain"
+        ? stillUnconfirmedText()
+        : temporaryUnavailabilityText();
   if (failure.status === 401)
     return "Your session needs to be confirmed. Sign in again if requested.";
   if (failure.status === 403)
     return "This action is not currently authorized. Refresh access before continuing.";
-  if (failure.code === "incident_closed")
+  // Branches compare only declared import operation codes. A Network Flow
+  // route failure carries its own registry's code, which no branch below
+  // matches except the shared closure code.
+  const code = failure.code as ImportFailureCode;
+  // Import apply and region creation declare 409 incident_closed; Network
+  // Flow route failures share this presentation.
+  if (code === "incident_closed")
     return "Closed, read-only. Your local mapping is retained; no source changes can be submitted.";
   if (failure.kind === "authority")
     return "Import access changed. Refresh access before continuing.";
@@ -95,7 +152,7 @@ export function importFailureMessage(failure: ImportFailure): string {
     return "The server response could not be validated. Refresh the known resource or retry the exact unresolved request.";
   if (failure.kind === "transport")
     return "The response could not be confirmed. Server work may continue; use the recovery action below.";
-  const reasons: Record<string, string> = {
+  const reasons = {
     duplicate_target_field: "Each target field can be mapped only once.",
     overlapping_units:
       "Selected units overlap. Skip an overlapping unit before applying.",
@@ -123,16 +180,16 @@ export function importFailureMessage(failure: ImportFailure): string {
       "Enter a whole-number rectangle inside the worksheet preview.",
     formula_cached_value_missing:
       "A formula has no cached value. Exclude or remap the affected column.",
-  };
-  if (failure.reason !== null && reasons[failure.reason])
-    return reasons[failure.reason] as string;
+  } as const satisfies Partial<Record<PublicErrorReasonCode, string>>;
+  if (failure.reason !== null && Object.hasOwn(reasons, failure.reason))
+    return reasons[failure.reason as keyof typeof reasons];
   if (failure.status === 404)
     return "This resource is unavailable or no longer visible. Committed work is not necessarily removed.";
-  if (failure.code === "client_txn_conflict")
+  if (code === "client_txn_conflict")
     return "This request identity conflicts with a previous request. Refresh before starting a new action.";
-  if (failure.code === "import_source_rejected")
+  if (code === "import_source_rejected")
     return "The source exceeds the permitted import or archive limits.";
-  if (failure.code === "import_source_unsupported")
+  if (code === "import_source_unsupported")
     return "This source cannot be imported. Review workbook format, encryption, and formula warnings.";
   return "The request was rejected. Review the affected mapping or refresh its current state.";
 }
@@ -165,7 +222,7 @@ export class ImportClient {
   ) {}
 
   private async request<T>(
-    operationID: HTTPOperationID,
+    operationID: ImportHTTPOperation,
     signal: AbortSignal,
     request: {
       readonly paths?: Record<string, string>;
@@ -191,7 +248,7 @@ export class ImportClient {
             };
             const operation =
               request.form === undefined
-                ? fetchHTTPOperation<T>({
+                ? fetchHTTPOperation<T, ImportHTTPOperation>({
                     operationID,
                     apiBase: this.options.apiBase,
                     pathParameters: request.paths,
@@ -206,7 +263,7 @@ export class ImportClient {
                     },
                     onResponse,
                   })
-                : fetchMultipartHTTPOperation<T>({
+                : fetchMultipartHTTPOperation<T, ImportHTTPOperation>({
                     operationID,
                     apiBase: this.options.apiBase,
                     body: request.form,
@@ -228,54 +285,53 @@ export class ImportClient {
             : operationID === "createImportUnitRegion"
               ? [200, 201]
               : [200];
-        return statuses.includes(status || result.status)
+        return statuses.includes(result.status)
           ? received(result.payload)
           : failed(importContractFailure());
       }
-      return failed(this.failure(result, status));
+      return failed(this.failure(result.payload.error));
     } catch {
-      if (status >= 400 && status < 500 && status !== 408)
-        return failed({
-          kind: "public",
-          status,
-          code: "request_rejected",
-          reason: null,
-          field: null,
-          retryable: false,
-        });
       if (
         !this.options.availability.isRouteAvailable(
           importProfileId,
           importRouteFamily,
         )
       )
+        // The client found the import route family unavailable; this is a
+        // client-originated failure, never a server code.
         return failed({
           kind: "authority",
-          status,
-          code: "extension_profile_not_claimed",
+          status: 0,
+          code: "access_unavailable",
           reason: null,
           field: null,
           retryable: false,
         });
-      return failed(importInterruptedFailure());
+      // A received but unreadable body fails the contract whatever its raw
+      // status; only a missing response is interruption.
+      return failed(
+        status !== 0 && !signal.aborted
+          ? importContractFailure()
+          : importInterruptedFailure(),
+      );
     }
   }
 
+  /** Classifies only the decoded result; a contract failure never carries its raw HTTP status. */
   private failure(
-    result: Extract<HTTPOperationResult<unknown>, { ok: false }>,
-    status: number,
-  ): ImportFailure {
-    const view = publicErrorView(result.payload.error, status || result.status);
-    const contract =
-      result.payload.error?.code === "invalid_public_contract_response";
+    error: HTTPOperationError<ImportHTTPOperation>,
+  ): ImportFailure<ImportFailureCode> {
+    if (error.code === "invalid_public_contract_response")
+      return importContractFailure();
+    const view = publicErrorView(error, error.status);
     return {
-      kind: contract ? "contract" : "public",
-      status: status || result.status,
-      code: view?.code ?? "request_rejected",
+      kind: "public",
+      status: error.status,
+      code: error.code,
       reason:
         view?.details.find((item) => item.key === "reason_code")?.value ?? null,
       field: view?.details.find((item) => item.key === "field")?.value ?? null,
-      retryable: result.payload.error?.retryable === true,
+      retryable: error.retryable,
     };
   }
 
@@ -286,7 +342,7 @@ export class ImportClient {
   ): Promise<ImportWriteResult> {
     if (attempt.scope.incidentId !== this.options.incidentId)
       return { kind: "rejected", failure: importContractFailure() };
-    let operationID: HTTPOperationID;
+    let operationID: ImportHTTPOperation;
     let method: string;
     let paths: Record<string, string> = {};
     let form: FormData | undefined;
@@ -334,13 +390,18 @@ export class ImportClient {
         ? { form }
         : { body: "body" in attempt ? attempt.body : undefined }),
     });
+    // A decoded 503 was refused before it was applied: a definite rejection on
+    // a first attempt, while a refused replay stays uncertain (Core 03
+    // REQ-03-086a).
     if (result.kind === "failed")
       return {
         kind:
           result.failure.kind === "public" &&
-          result.failure.status >= 400 &&
-          result.failure.status < 500 &&
-          result.failure.status !== 408
+          ((result.failure.status >= 400 &&
+            result.failure.status < 500 &&
+            result.failure.status !== 408) ||
+            (!replay &&
+              isUnappliedRefusal(result.failure.status, result.failure)))
             ? "rejected"
             : "uncertain",
         failure: result.failure,

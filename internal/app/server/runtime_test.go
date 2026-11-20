@@ -140,6 +140,12 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 		objectStoreCalls = 0
 		wsHubCalls = 0
 		handlerCalls = 0
+		var poolSettings postgres.Settings
+		testDependencies.setupPostgres = func(ctx context.Context, settings postgres.Settings) (postgres.AdmittedPool, error) {
+			postgresCalls++
+			poolSettings = settings
+			return nil, nil
+		}
 		var bootstrapCalls int
 		testDependencies.runBootstrap = func(context.Context, bootstrap.Settings, *pgxpool.Pool) error {
 			bootstrapCalls++
@@ -171,6 +177,9 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 		}
 		if postgresCalls != 1 {
 			t.Fatalf("expected startup to reach postgres setup before schema readiness failure, got postgres=%d", postgresCalls)
+		}
+		if poolSettings.Purpose != postgres.PurposeRuntime || poolSettings.MaxConnections != 32 {
+			t.Fatalf("runtime pool settings purpose=%v max_connections=%d; want the configured default 32", poolSettings.Purpose, poolSettings.MaxConnections)
 		}
 		if objectStoreCalls != 0 || bootstrapCalls != 0 || jobsCalls != 0 || wsHubCalls != 0 || handlerCalls != 0 {
 			t.Fatalf("expected schema readiness failure to stop before object store/listener construction, got object_store=%d bootstrap=%d jobs=%d websocket=%d handler=%d", objectStoreCalls, bootstrapCalls, jobsCalls, wsHubCalls, handlerCalls)

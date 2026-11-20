@@ -64,6 +64,34 @@
       "postgres_isolation": "exclusive"
     },
     {
+      "row_id": "module.reportcomposition.integration.report_composition_routes_are_admitted_centrally_b9ea3d8762",
+      "owner_id": "module.reportcomposition",
+      "family_id": "module.reportcomposition.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reportcomposition.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reportcomposition",
+        "tests": [
+          "TestReportCompositionRouteAdmissionOrder_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "module.reportcomposition.integration.resolve_release_tuple_tx_reason_matrix_ad31a02455",
       "owner_id": "module.reportcomposition",
       "family_id": "module.reportcomposition.integration",

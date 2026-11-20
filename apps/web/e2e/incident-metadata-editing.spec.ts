@@ -210,7 +210,7 @@ test("metadata retains newer input and distinguishes confirmed failed reads from
     panel.getByText("Incident controls synced.", { exact: true }),
   ).toBeVisible();
   expect(fixture.writes).toHaveLength(1);
-  fixture.mutation(503);
+  fixture.mutation(500);
   await panel
     .getByRole("button", { name: "Save promoted fields", exact: true })
     .click();

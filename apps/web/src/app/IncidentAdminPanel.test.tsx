@@ -411,13 +411,18 @@ function jsonResponse(payload: unknown, status = 200) {
 }
 
 function errorResponse(code: string, status: number) {
-  return jsonResponse(
-    {
+  return new Response(
+    JSON.stringify({
       error: {
         code,
+        details: {},
+        message: code,
+        request_id: "request-test",
+        retryable: false,
+        status,
       },
-    },
-    status,
+    }),
+    { status, headers: { "Content-Type": "application/json" } },
   );
 }
 

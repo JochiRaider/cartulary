@@ -1,0 +1,48 @@
+package evidence
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"testing"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+
+	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
+)
+
+// TestEvidenceRevisionWindowClassification_Unit verifies REQ-01-706 at the
+// Evidence conflict-window boundary: only the typed unavailable-window
+// condition fails closed as row_version_conflict; a database, field-catalog or
+// token failure passes through unclassified and reaches internal_error.
+func TestEvidenceRevisionWindowClassification_Unit(t *testing.T) {
+	recordID := uuid.MustParse("3e8d6c4b-1a2f-4c3d-9e5f-6a7b8c9d0e01")
+	windowRecordID := uuid.MustParse("3e8d6c4b-1a2f-4c3d-9e5f-6a7b8c9d0e02")
+
+	window := &conflicttokens.RevisionWindowError{RecordID: windowRecordID, BaseRowVersion: 2, CurrentRowVersion: 5}
+	var conflict *RowVersionConflictError
+	if err := adaptRevisionWindowError(recordID, 3, 6, fmt.Errorf("wrapped: %w", window)); !errors.As(err, &conflict) {
+		t.Fatalf("adapted window error = %v, want RowVersionConflictError", err)
+	}
+	if want := (RowVersionConflictError{RecordID: windowRecordID, BaseRowVersion: 2, CurrentRowVersion: 5}); *conflict != want {
+		t.Fatalf("row version conflict = %+v, want %+v", *conflict, want)
+	}
+	if err := adaptRevisionWindowError(recordID, 3, 6, nil); err != nil {
+		t.Fatalf("adapted nil error = %v", err)
+	}
+	for _, injected := range []error{
+		errors.New("injected revision window database failure"),
+		pgx.ErrTxClosed,
+		context.Canceled,
+		&pgconn.PgError{Code: "40P01", Message: "deadlock detected"},
+		fmt.Errorf("issue conflict token: %w", errors.New("injected token failure")),
+	} {
+		err := adaptRevisionWindowError(recordID, 3, 6, injected)
+		var unexpected *RowVersionConflictError
+		if errors.As(err, &unexpected) || !errors.Is(err, injected) {
+			t.Fatalf("adapted %v = %v, want the unclassified failure", injected, err)
+		}
+	}
+}

@@ -3,6 +3,7 @@ package openapicompat
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -124,6 +125,91 @@ func TestMutationClassificationIsSecuritySensitive(t *testing.T) {
 	for _, kind := range []string{"add", "remove", "change"} {
 		if got := classify(kind, "/paths/~1a/post/x-cartulary-state-changing", false, true); got != SecuritySensitive {
 			t.Fatalf("%s classified %s", kind, got)
+		}
+	}
+}
+
+// TestErrorCodeDeclarationsCompareAsSets covers REQ-01-702: declaring another
+// code is additive, and losing a declared code is breaking.
+// TestParameterSchemaNarrowingIsBreaking covers the S-1089 classifier rule:
+// adding pattern, format, minLength or maxLength to a component parameter's
+// schema narrows the values a request may carry, so it is breaking, while
+// declaring other parameter metadata stays additive. Inline parameter arrays
+// are compared whole and are breaking whenever they change.
+func TestParameterSchemaNarrowingIsBreaking(t *testing.T) {
+	const parameter = "/components/parameters/ProviderKeyPathParameter"
+	for _, tc := range []struct {
+		name, kind, pointer string
+		before, after       any
+		want                Classification
+	}{
+		{"add pattern", "add", parameter + "/schema/pattern", nil, "^[a-z]+$", Breaking},
+		{"add format", "add", parameter + "/schema/format", nil, "uuid", Breaking},
+		{"add minLength", "add", parameter + "/schema/minLength", nil, 1, Breaking},
+		{"add maxLength", "add", parameter + "/schema/maxLength", nil, 64, Breaking},
+		{"add nested item pattern", "add", parameter + "/schema/items/pattern", nil, "^[a-z]+$", Breaking},
+		{"change pattern", "change", parameter + "/schema/pattern", "^[a-z]+$", "^[a-z0-9]+$", Breaking},
+		{"add not-found code", "add", parameter + "/x-cartulary-not-found-code", nil, "auth_provider_not_found", Additive},
+		{"add parameter component", "add", "/components/parameters/NewPathParameter", nil, map[string]any{"name": "x"}, Additive},
+		{"add schema pattern outside parameters", "add", "/components/schemas/Thing/pattern", nil, "^[a-z]+$", Additive},
+		{"inline parameter array change", "change", "/paths/~1a~1{id}/get/parameters", []any{map[string]any{"name": "id"}}, []any{map[string]any{"name": "id", "x-cartulary-not-found-code": "thing_not_found"}}, Breaking},
+	} {
+		if got := classify(tc.kind, tc.pointer, tc.before, tc.after); got != tc.want {
+			t.Errorf("%s: classified %s, want %s", tc.name, got, tc.want)
+		}
+	}
+	before := map[string]any{"openapi": "3.1.0", "info": map[string]any{"version": "1.0.0"}, "components": map[string]any{"parameters": map[string]any{
+		"ProviderKeyPathParameter": map[string]any{"name": "provider_key", "in": "path", "required": true, "schema": map[string]any{"type": "string"}},
+	}}}
+	after := map[string]any{"openapi": "3.1.0", "info": map[string]any{"version": "2.0.0"}, "components": map[string]any{"parameters": map[string]any{
+		"ProviderKeyPathParameter": map[string]any{"name": "provider_key", "in": "path", "required": true, "schema": map[string]any{"type": "string", "pattern": "^[a-z]+$"}, "x-cartulary-not-found-code": "auth_provider_not_found"},
+	}}}
+	beforeBytes, err := json.Marshal(before)
+	if err != nil {
+		t.Fatal(err)
+	}
+	afterBytes, err := json.Marshal(after)
+	if err != nil {
+		t.Fatal(err)
+	}
+	report, err := Compare(beforeBytes, afterBytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]Classification{}
+	for _, change := range report.Changes {
+		got[change.Pointer] = change.Classification
+	}
+	want := map[string]Classification{
+		parameter + "/schema/pattern":             Breaking,
+		parameter + "/x-cartulary-not-found-code": Additive,
+	}
+	if len(got) != len(want) {
+		t.Fatalf("changes = %#v, want %#v", got, want)
+	}
+	for pointer, classification := range want {
+		if got[pointer] != classification {
+			t.Fatalf("%s classified %s, want %s", pointer, got[pointer], classification)
+		}
+	}
+}
+
+func TestErrorCodeDeclarationsCompareAsSets(t *testing.T) {
+	const pointer = "/paths/~1a/post/responses/409/x-cartulary-error-codes"
+	for _, tc := range []struct {
+		name          string
+		kind          string
+		before, after any
+		want          Classification
+	}{
+		{"declare", "add", nil, []any{"client_txn_conflict"}, Additive},
+		{"add a code", "change", []any{"client_txn_conflict"}, []any{"client_txn_conflict", "illegal_transition"}, Additive},
+		{"lose a code", "change", []any{"client_txn_conflict", "illegal_transition"}, []any{"illegal_transition"}, Breaking},
+		{"replace a code", "change", []any{"invalid_mutation_payload"}, []any{"user_email_conflict"}, Breaking},
+		{"drop the declaration", "remove", []any{"client_txn_conflict"}, nil, Breaking},
+	} {
+		if got := classify(tc.kind, pointer, tc.before, tc.after); got != tc.want {
+			t.Errorf("%s: classified %s, want %s", tc.name, got, tc.want)
 		}
 	}
 }

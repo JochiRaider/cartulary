@@ -2508,11 +2508,11 @@ A write that leaves `upload_state` unchanged is a legal idempotent in-state writ
 
 Retained portable blob state MUST preserve a coherent lifecycle tuple. Creation
 and update clocks are ordered. Because the single-upload lease cannot be renewed,
-target expiry is creation plus60minutes and pending expiry is creation plus24hours.
+target expiry is creation plus 60 minutes and pending expiry is creation plus 24 hours.
 A pending slot has no finalized observation, finalization clock, terminal reason,
 failure clock or cleanup clocks. A failed slot has no finalized observation or
 finalization clock; it has exactly one closed terminal reason and a failure clock
-at or after creation, cleanup due exactly45minutes later, and an optional cleanup
+at or after creation, cleanup due exactly 45 minutes later, and an optional cleanup
 completion at or after that due time. A pending-timeout failure cannot predate
 pending expiry. Available and quarantined slots have a finalization clock between
 creation (inclusive) and pending expiry (exclusive), observed size/digest matching
@@ -2528,13 +2528,14 @@ Any attempted blob or evidence lifecycle transition outside the legal transition
 **REQ-02-189a — Blob-upload fail-closed behaviour**
 The Blob machine condition is `upload_state` alone. The dependent fields MUST satisfy the coherent lifecycle tuple above in live state as well as in retained portable state. Those fields are `terminal_reason`, `failed_at`, `target_expires_at`, `pending_expires_at`, `cleanup_due_at`, `cleaned_up_at`, the finalization clock, and the observed size, digest, and content type. The rules are:
 
-- The implementation MUST verify that tuple whenever it loads a Blob for finalization, timeout, quarantine, quarantine clear, Evidence attachment, or cleanup.
+- The implementation MUST verify that tuple whenever it loads a Blob to change its state, to link it, or to decide an Evidence bridge against it. That covers finalization, timeout, quarantine, quarantine clear, Evidence create with an initial Blob, attachment, patch, restore and rollback, and cleanup claim and completion.
 - A loaded Blob that violates the tuple, or whose `upload_state` is outside the closed vocabulary, is a storage invariant failure. The operation MUST fail with `internal_error`, MUST commit nothing, and leaves repair to operator recovery.
+- A background sweep (timeout, cleanup claim, cleanup completion) that loads such a Blob MUST leave it unchanged, continue with the other Blobs, and report the sweep as failed with the invariant-violation error class (OpenTelemetry NLSpec `cartulary.evidence.cleanup.operations`). It MUST NOT skip the Blob silently, and MUST NOT let one Blob stop the sweep.
 - Because the condition derives from one field, the machine defines no legal-value contradiction.
 - A rejected Blob transition uses `409 illegal_transition` with `reason_code = transition_not_allowed` and empty `violated_guards[]`.
 
 Profiles: base
-Verified by: AC-313, AC-606
+Verified by: AC-313, AC-606, AC-609
 
 **REQ-02-190**
 The evidence-custody guards and blob bridge rules are:
@@ -2549,10 +2550,12 @@ The evidence-custody guards and blob bridge rules are:
 
 One `object_blob_id` MUST be associated with at most one Evidence row. This is
 an authoritative persistence invariant, not an application-only precheck.
-Every create or existing-record attach that associates a blob MUST lock the
-blob's authoritative row, recheck incident ownership, upload state, and current
-association in the caller transaction, and rely on a database uniqueness
-constraint as the final concurrent-write guard. Competing association or
+Every create, existing-record attach, or rollback that associates a blob MUST
+lock the blob's authoritative row under REQ-02-190a and recheck, in the caller
+transaction, that the blob is same-incident, finalized (`available` or
+`quarantined`), not associated with another Evidence row, and not claimed for
+cleanup. A database uniqueness constraint remains the final concurrent-write
+guard. Competing association or
 uniqueness failure MUST leave the losing transaction with no partial Evidence
 row, custody, history, projection, collaboration, or idempotency effect.
 Portable current state MUST preserve a same-incident finalized Blob association:
@@ -2572,12 +2575,34 @@ bridge above MUST hold. A violated guard returns `record_restore_blocked` with
 `reason_code=evidence_blob_state_conflict`, without partial envelope, source,
 history, projection, Collaboration or receipt changes. This validation follows
 the Party-reference admission in REQ-02-198. After protecting the Evidence
-envelope, restore MUST lock its Blob non-waitingly through commit; waiting would
-invert quarantine's Blob-before-Evidence lock order. Contention returns retryable
-`record_locked` for the Evidence target without exposing the Blob identity or
-database text. Repairing the dependency permits retry of the same failed request.
+envelope, restore MUST lock its Blob non-waitingly through commit under
+REQ-02-190a. Contention returns retryable `record_locked` for the Evidence
+target without exposing the Blob identity or database text. Repairing the dependency permits retry of the same failed request.
 Profiles: base
-Verified by: AC-015, AC-016, AC-053, AC-100, AC-102, AC-103, AC-107, AC-108, AC-109, AC-110, AC-111, AC-128, AC-154, AC-155, AC-231, AC-313, AC-522, AC-523
+Verified by: AC-015, AC-016, AC-053, AC-100, AC-102, AC-103, AC-107, AC-108, AC-109, AC-110, AC-111, AC-128, AC-154, AC-155, AC-231, AC-313, AC-522, AC-523, AC-609
+
+**REQ-02-190a — Evidence and Blob lock order**
+Every write that locks an Evidence record and its Blob MUST lock in one order:
+the Evidence record envelope or envelopes in ascending `record_id`, then the
+incident (shared), then the Blob.
+
+- The order covers Evidence create with an initial Blob (which has no prior
+  envelope), attachment, patch, restore, rollback and quarantine.
+- Quarantine locks the Evidence row linked to the Blob, whatever its
+  lifecycle, before it locks the Blob. It then rechecks the association under
+  the Blob lock. Associations change only under the Blob lock, so a changed
+  link means a competing association committed first; quarantine repeats the
+  lookup a bounded number of times. If the association still changes on the
+  last attempt, quarantine fails closed: it commits nothing and leaves the
+  Blob and every linked Evidence row unchanged.
+- A write that decides a REQ-02-190 bridge against a linked Blob holds a lock
+  on that Blob (shared suffices) through commit.
+- Destructive operations take these locks non-waitingly under REQ-01-104 and
+  return retryable `record_locked` on contention. Ordinary writes wait.
+- Paths that touch only an unassociated Blob (upload, verification, timeout
+  and cleanup) lock only the Blob.
+Profiles: base
+Verified by: AC-609
 
 **REQ-02-191**
 Abandoned pending uploads MUST fail closed. A blob slot left in `pending` without successful finalization MUST NOT create or imply an attached evidence record, MUST NOT increment visible evidence counts, and MUST remain eligible only for retry, timeout handling, or administrative cleanup.
@@ -2646,10 +2671,11 @@ The Evidence-custody machine condition is `lifecycle_state` together with link p
   - attachment fails with `409 evidence_attach_rejected` and `reason_code = evidence_inconsistent`;
   - any other mutation fails with `409 illegal_transition`, `reason_code = inconsistent_machine_state`, and the violated bridge guard.
 - The exception is a mutation whose resulting state satisfies the bridge, or re-finalization. That is the corrective action.
-- Rollback MUST evaluate the bridge against the linked Blob's live state, and MUST NOT commit a restored lifecycle state that violates it. Such a rollback fails with `409` and `target_not_reversible`.
+- Rollback MUST evaluate the bridge against the linked Blob's live state, and MUST NOT commit a restored lifecycle state that violates it. A rollback that re-links a Blob MUST also satisfy the REQ-02-190 association rule. Either violation fails with `409` and `target_not_reversible`.
+- Every mutation decides the bridge against the linked Blob held under the REQ-02-190a lock through commit.
 
 Profiles: base
-Verified by: AC-313, AC-606
+Verified by: AC-313, AC-606, AC-609
 
 **REQ-02-197**
 An evidence record or its deterministic joined projection from authoritative object metadata MUST be able to expose, at minimum:
@@ -2953,16 +2979,20 @@ A `change_set` MUST record, at minimum:
 - optional reason,
 - optional client transaction identifier.
 Profiles: base
-Verified by: AC-215, AC-216, AC-217, AC-231, AC-412
+Verified by: AC-215, AC-216, AC-217, AC-231, AC-412, AC-613
 
 Revisions MUST assign native `history_order` values transactionally in serialized
-incident action order, independently of timestamps and UUIDs. Values MUST be
+incident commit order, independently of timestamps and UUIDs. Values MUST be
 unique within the incident and representable as positive signed 64-bit integers.
-A Revisions-owned per-incident allocator MUST hold its serialization lock through
-commit or rollback. Aborted allocations MUST roll back. Imported values MUST be
-preserved exactly, and imported maxima MUST advance that allocator so subsequent
-native actions follow all imported history. Exhaustion MUST fail atomically;
-values MUST NOT wrap or be reused for committed actions. The allocator is derived
+A Revisions-owned per-incident allocator MUST assign them when the writing
+transaction commits: it takes its serialization lock at commit and holds it
+through commit or rollback, and a transaction MUST NOT hold it while doing owner
+work. Before commit a native change set has no `history_order`, and nothing in
+the writing transaction may depend on one. Aborted allocations MUST roll back.
+Imported values MUST be preserved exactly, and imported maxima MUST advance that
+allocator at commit so subsequent native actions follow all imported history.
+Exhaustion MUST fail the commit atomically; values MUST NOT wrap or be reused for
+committed actions. No committed change set may lack a `history_order`. The allocator is derived
 operational state, reconstructed by admitted import inserts, not portable source
 history. Full deployment recovery MUST preserve it with the history substrate.
 Rollback currentness MUST use `(history_order, mutation sequence)` within the

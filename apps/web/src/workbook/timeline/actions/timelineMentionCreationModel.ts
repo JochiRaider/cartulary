@@ -30,7 +30,10 @@ export type MentionCreationAttempt = Readonly<{
 export type MentionCreationOutcome =
   | Readonly<{ kind: "accepted"; receipt: MentionCreationReceipt }>
   | Readonly<{ kind: "uncertain" }>
-  | Readonly<{ kind: "rejected"; failure: WorkbookOperationFailure }>;
+  | Readonly<{
+      kind: "rejected";
+      failure: WorkbookOperationFailure<"createViewRow">;
+    }>;
 export type MentionCreationOperation = Readonly<{
   key: number;
   attempt: MentionCreationAttempt;

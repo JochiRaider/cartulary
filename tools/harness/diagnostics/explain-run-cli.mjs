@@ -410,6 +410,7 @@ function writeRunSummary(runDir, runSummary) {
     if (runSummary.failure_class) {
       process.stdout.write(`[FAILURE] ${runSummary.target} ${runSummary.failure_class} reason=${runSummary.failure_reason}\n`);
     }
+    writeContractViolations(runSummary.contract_evidence);
     return;
   }
   const c = counts(runSummary);
@@ -429,6 +430,20 @@ function writeRunSummary(runDir, runSummary) {
   if (missing.length > 0) {
     process.stdout.write(`[RUN-MISSING] ${missing.join(",")}\n`);
   }
+}
+
+// The run summary already bounds and de-duplicates contract violations. A
+// server fatal names its reason code and process kind, not an operation.
+function writeContractViolations(evidence) {
+  for (const v of evidence?.violations ?? []) {
+    if (v.kind === "server_fatal") {
+      process.stdout.write(`[SERVER-FATAL] reason_code=${v.reason_code} process_kind=${v.process_kind} occurrences=${v.occurrences}\n`);
+      continue;
+    }
+    const fact = v.kind === "security_mismatch" ? `declared=${v.security.declared} observed=${v.security.observed}` : `code=${v.code}`;
+    process.stdout.write(`[CONTRACT-VIOLATION] ${v.kind} operation=${v.operation_id} status=${v.status} ${fact} occurrences=${v.occurrences}\n`);
+  }
+  if (evidence?.omitted_violation_count > 0) process.stdout.write(`[CONTRACT-VIOLATION] omitted=${evidence.omitted_violation_count}\n`);
 }
 
 function writeToolSummary(runDir, target, toolSummary) {

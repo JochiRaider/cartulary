@@ -39,11 +39,10 @@ type sqlValue struct {
 }
 type sqlEnv map[string][]sqlValue
 type sqlAnalyzer struct {
-	//lint:ignore SA1019 The analyzer resolves identifiers syntactically, without type information; ast.Object is the parser's binding record for that.
-	packageConstantBindings map[*ast.Object]bool
-	bindings                map[string]*sqlBindingFacts
-	packageConstants        map[string]map[string]ast.Expr
-	constantImports         map[ast.Expr]map[string]string
+	binder           binder
+	bindings         map[string]*sqlBindingFacts
+	packageConstants map[string]map[string]ast.Expr
+	constantImports  map[ast.Expr]map[string]string
 
 	functions       map[string]*ast.FuncDecl
 	functionImports map[*ast.FuncDecl]map[string]string
@@ -123,12 +122,10 @@ func AnalyzeSQL(sources map[string]string) (map[string][]SQLDeclaration, error) 
 	fset := token.NewFileSet()
 	importsByFile := map[string]map[string]string{}
 	functionImports := map[*ast.FuncDecl]map[string]string{}
-	types := sqlTypes{}
+	types := sqlTypes{declared: map[string]*sqlTypeDefinition{}}
 	constants := map[string]map[string]ast.Expr{}
 	packageConstants := map[string]map[string]ast.Expr{}
 	constantImports := map[ast.Expr]map[string]string{}
-	//lint:ignore SA1019 Syntactic identifier resolution without type information; see sqlAnalyzer.packageConstantBindings.
-	constantBindings := map[*ast.Object]bool{}
 	functions := map[string]map[string]*ast.FuncDecl{}
 	names := []string{}
 	for name := range sources {
@@ -136,7 +133,7 @@ func AnalyzeSQL(sources map[string]string) (map[string][]SQLDeclaration, error) 
 	}
 	sort.Strings(names)
 	for _, name := range names {
-		file, err := parser.ParseFile(fset, name, sources[name], 0)
+		file, err := parser.ParseFile(fset, name, sources[name], parser.SkipObjectResolution)
 		if err != nil {
 			return nil, fmt.Errorf("parse SQL %s: %w", name, err)
 		}
@@ -198,9 +195,6 @@ func AnalyzeSQL(sources map[string]string) (map[string][]SQLDeclaration, error) 
 					}
 					previous = values
 					for i, n := range v.Names {
-						if n.Obj != nil {
-							constantBindings[n.Obj] = true
-						}
 						if i < len(values) {
 							if _, duplicate := constants[pkg][n.Name]; duplicate {
 								constants[pkg][n.Name] = &ast.BadExpr{}
@@ -214,6 +208,10 @@ func AnalyzeSQL(sources map[string]string) (map[string][]SQLDeclaration, error) 
 			}
 		}
 	}
+	// One binder per call, built from every parsed file; the type index and
+	// every analyzer share it.
+	var batchBinder binder = newTypesBinder(fset, files)
+	types.binder = batchBinder
 	globals := map[string]map[string]sqlTypeRef{}
 	for _, name := range names {
 		scope := "github.com/JochiRaider/cartulary/" + path.Dir(name)
@@ -231,7 +229,7 @@ func AnalyzeSQL(sources map[string]string) (map[string][]SQLDeclaration, error) 
 								ref = sqlTypeRef{expr: &ast.BadExpr{}}
 							}
 							globals[scope][id.Name] = ref
-							globals[scope][sqlBinding(id)] = ref
+							globals[scope][sqlBinding(batchBinder, id)] = ref
 						}
 					}
 				}
@@ -244,7 +242,7 @@ func AnalyzeSQL(sources map[string]string) (map[string][]SQLDeclaration, error) 
 		changed := false
 		for _, name := range names {
 			scope := "github.com/JochiRaider/cartulary/" + path.Dir(name)
-			resolver := &sqlAnalyzer{types: types, scope: scope, imports: importsByFile[name], variableTypes: globals[scope]}
+			resolver := &sqlAnalyzer{binder: batchBinder, types: types, scope: scope, imports: importsByFile[name], variableTypes: globals[scope]}
 			for _, decl := range files[name].Decls {
 				if gen, ok := decl.(*ast.GenDecl); ok && gen.Tok == token.VAR {
 					for _, spec := range gen.Specs {
@@ -262,7 +260,7 @@ func AnalyzeSQL(sources map[string]string) (map[string][]SQLDeclaration, error) 
 							ref.qualified = false // package state is not local preparation or batch provenance
 							if ref.expr != nil && globals[scope][id.Name].expr == nil {
 								globals[scope][id.Name] = ref
-								globals[scope][sqlBinding(id)] = ref
+								globals[scope][sqlBinding(batchBinder, id)] = ref
 								changed = true
 							}
 						}
@@ -299,7 +297,7 @@ func AnalyzeSQL(sources map[string]string) (map[string][]SQLDeclaration, error) 
 				return true
 			}
 			id, ok := selector.X.(*ast.Ident)
-			if !ok || id.Obj != nil {
+			if !ok || batchBinder.bind(id).bound() {
 				return true
 			}
 			if imports[id.Name] == "github.com/JochiRaider/cartulary/internal/platform/sqlshape" && (selector.Sel.Name == "Literal" || selector.Sel.Name == "Format" || selector.Sel.Name == "Command") && !direct[selector] {
@@ -312,7 +310,7 @@ func AnalyzeSQL(sources map[string]string) (map[string][]SQLDeclaration, error) 
 		}
 		out[name] = []SQLDeclaration{}
 		for _, decl := range file.Decls {
-			a := &sqlAnalyzer{packageConstantBindings: constantBindings, bindings: sqlBindingInventory(decl), fset: fset, current: decl, observed: map[ast.Expr]bool{}, directCalls: direct, packageConstants: packageConstants, constantImports: constantImports, types: types, scope: "github.com/JochiRaider/cartulary/" + path.Dir(name), variableTypes: map[string]sqlTypeRef{}, functionImports: functionImports, functions: functions[path.Dir(name)+"/"+file.Name.Name], collections: map[string]sqlCollection{}, calls: map[string]bool{}, imports: imports, constants: constants[path.Dir(name)+"/"+file.Name.Name], env: sqlEnv{}, seen: map[string]bool{}, results: []SQLExpression{}}
+			a := &sqlAnalyzer{binder: batchBinder, bindings: sqlBindingInventory(batchBinder, decl), fset: fset, current: decl, observed: map[ast.Expr]bool{}, directCalls: direct, packageConstants: packageConstants, constantImports: constantImports, types: types, scope: "github.com/JochiRaider/cartulary/" + path.Dir(name), variableTypes: map[string]sqlTypeRef{}, functionImports: functionImports, functions: functions[path.Dir(name)+"/"+file.Name.Name], collections: map[string]sqlCollection{}, calls: map[string]bool{}, imports: imports, constants: constants[path.Dir(name)+"/"+file.Name.Name], env: sqlEnv{}, seen: map[string]bool{}, results: []SQLExpression{}}
 			for key, ref := range globals[a.scope] {
 				a.variableTypes[key] = ref
 			}
@@ -322,7 +320,7 @@ func AnalyzeSQL(sources map[string]string) (map[string][]SQLDeclaration, error) 
 				if d.Recv != nil {
 					for _, field := range d.Recv.List {
 						for _, name := range field.Names {
-							a.variableTypes[sqlBinding(name)] = a.typeRef(field.Type)
+							a.variableTypes[sqlBinding(a.binder, name)] = a.typeRef(field.Type)
 						}
 					}
 					var receiver func(ast.Expr) string
@@ -344,10 +342,10 @@ func AnalyzeSQL(sources map[string]string) (map[string][]SQLDeclaration, error) 
 				if d.Type.Params != nil {
 					for _, f := range d.Type.Params.List {
 						for _, n := range f.Names {
-							a.variableTypes[sqlBinding(n)] = a.typeRef(f.Type)
-							a.env[sqlBinding(n)] = unknownSQL("parameter " + n.Name)
+							a.variableTypes[sqlBinding(a.binder, n)] = a.typeRef(f.Type)
+							a.env[sqlBinding(a.binder, n)] = unknownSQL("parameter " + n.Name)
 							if a.databaseType(f.Type) {
-								a.env[sqlBinding(n)] = []sqlValue{{"\x00database", nil}}
+								a.env[sqlBinding(a.binder, n)] = []sqlValue{{"\x00database", nil}}
 							}
 
 						}
@@ -359,8 +357,8 @@ func AnalyzeSQL(sources map[string]string) (map[string][]SQLDeclaration, error) 
 					if d.Type.Results != nil {
 						for _, field := range d.Type.Results.List {
 							for _, name := range field.Names {
-								a.variableTypes[sqlBinding(name)] = a.typeRef(field.Type)
-								a.env[sqlBinding(name)] = unknownSQL("named result " + name.Name)
+								a.variableTypes[sqlBinding(a.binder, name)] = a.typeRef(field.Type)
+								a.env[sqlBinding(a.binder, name)] = unknownSQL("named result " + name.Name)
 							}
 						}
 					}
@@ -418,13 +416,14 @@ func (a *sqlAnalyzer) value(expr ast.Expr, visiting map[string]bool) []sqlValue 
 	case *ast.ParenExpr:
 		return a.value(e.X, visiting)
 	case *ast.Ident:
-		if value, ok := a.env[sqlBinding(e)]; ok {
-			if a.bindings[sqlBinding(e)].externallyMutable() && !preservedSQLValue(value) {
+		if value, ok := a.env[sqlBinding(a.binder, e)]; ok {
+			if a.bindings[sqlBinding(a.binder, e)].externallyMutable() && !preservedSQLValue(value) {
 				return unknownSQL("SQL binding has a nested writer or address escape: " + e.Name)
 			}
 			return value
 		}
-		if definition, ok := a.constants[e.Name]; ok && !visiting[e.Name] && (e.Obj == nil || a.packageConstantBindings[e.Obj]) {
+		// A local declaration shadows the package constant of the same name.
+		if definition, ok := a.constants[e.Name]; ok && !visiting[e.Name] && !a.binder.bind(e).bound() {
 			next := map[string]bool{}
 			for k, v := range visiting {
 				next[k] = v
@@ -458,13 +457,14 @@ func (a *sqlAnalyzer) value(expr ast.Expr, visiting map[string]bool) []sqlValue 
 			}
 		}
 		if id, ok := e.Fun.(*ast.Ident); ok {
-			if fn := a.functions[id.Name]; fn != nil && fn.Body != nil && !a.calls[id.Name] && (id.Obj == nil || id.Obj.Kind == ast.Fun) {
+			callee := a.binder.bind(id)
+			if fn := a.functions[id.Name]; fn != nil && fn.Body != nil && !a.calls[id.Name] && !callee.bound() {
 				return a.helperValue(fn, e.Args, visiting)
 			}
 		}
 		return unknownSQL("call " + sqlExprName(e.Fun))
 	case *ast.SelectorExpr:
-		if id, ok := e.X.(*ast.Ident); ok && id.Obj == nil {
+		if id, ok := e.X.(*ast.Ident); ok && !a.binder.bind(id).bound() {
 			imported := a.imports[id.Name]
 			if definition := a.packageConstants[imported][e.Sel.Name]; definition != nil {
 				key := imported + "." + e.Sel.Name
@@ -486,8 +486,8 @@ func (a *sqlAnalyzer) value(expr ast.Expr, visiting map[string]bool) []sqlValue 
 		if a.databaseField(e) {
 			return []sqlValue{{"\x00database", nil}}
 		}
-		if value, ok := a.env[sqlExpressionBinding(e)]; ok {
-			if root := sqlRootBinding(e); root != nil && a.bindings[sqlBinding(root)].externallyMutable() {
+		if value, ok := a.env[sqlExpressionBinding(a.binder, e)]; ok {
+			if root := sqlRootBinding(e); root != nil && a.bindings[sqlBinding(a.binder, root)].externallyMutable() {
 				return unknownSQL("mutable field state cannot supply inferred SQL")
 			}
 			return value
@@ -597,20 +597,21 @@ func (a *sqlAnalyzer) emit(values []sqlValue, sink bool) {
 	}
 }
 
-func sqlExpressionBinding(expr ast.Expr) string {
+func sqlExpressionBinding(b binder, expr ast.Expr) string {
 	switch e := expr.(type) {
 	case *ast.Ident:
-		return sqlBinding(e)
+		return sqlBinding(b, e)
 	case *ast.SelectorExpr:
-		return sqlExpressionBinding(e.X) + "." + e.Sel.Name
+		return sqlExpressionBinding(b, e.X) + "." + e.Sel.Name
 	}
 	return ""
 }
-func sqlBinding(id *ast.Ident) string {
-	if id.Obj != nil {
-		if node, ok := id.Obj.Decl.(ast.Node); ok {
-			return fmt.Sprintf("%s@%d", id.Name, node.Pos())
-		}
+
+// sqlBinding keys lexical state by name and declaring position; a use without a
+// known declaration keeps its bare name.
+func sqlBinding(b binder, id *ast.Ident) string {
+	if decl := b.bind(id).decl; decl != nil {
+		return fmt.Sprintf("%s@%d", id.Name, decl.Pos())
 	}
 	return id.Name
 }
@@ -630,7 +631,7 @@ func sqlTypeName(expr ast.Expr) string {
 	return ""
 }
 func (a *sqlAnalyzer) imported(id *ast.Ident, imported string) bool {
-	return id.Obj == nil && a.imports[id.Name] == imported
+	return !a.binder.bind(id).bound() && a.imports[id.Name] == imported
 }
 func (a *sqlAnalyzer) template(expr ast.Expr, kind string, format bool, count int, variadic bool) {
 	for _, value := range a.value(expr, map[string]bool{}) {
@@ -731,7 +732,9 @@ func (a *sqlAnalyzer) observe(expr ast.Expr) {
 		fun := unparenSQL(e.Fun)
 		if _, selector := fun.(*ast.SelectorExpr); !selector {
 			if boundary, known := a.callableBoundary(fun); known && boundary.kind != "none" {
-				if id, declared := fun.(*ast.Ident); !declared || id.Obj != nil && id.Obj.Kind != ast.Fun {
+				// Only a declared function name is a direct call; variables and
+				// conversions of any scope are function values.
+				if id, named := fun.(*ast.Ident); !named || !a.declaredFunction(id) {
 					a.results = append(a.results, a.result("execution", "", []string{"SQL execution function values are unsupported; use a direct call or narrow interface port"}))
 				}
 			}
@@ -835,9 +838,9 @@ func (a *sqlAnalyzer) observe(expr ast.Expr) {
 			}
 			if pointer, ok := arg.(*ast.UnaryExpr); ok && pointer.Op == token.AND {
 				if id, ok := pointer.X.(*ast.Ident); ok {
-					for _, v := range a.env[sqlBinding(id)] {
+					for _, v := range a.env[sqlBinding(a.binder, id)] {
 						if sqlStart.MatchString(v.text) {
-							a.env[sqlBinding(id)] = unknownSQL("escaped SQL binding " + id.Name)
+							a.env[sqlBinding(a.binder, id)] = unknownSQL("escaped SQL binding " + id.Name)
 							break
 						}
 					}
@@ -985,7 +988,7 @@ func (a *sqlAnalyzer) block(statements []ast.Stmt, scoped bool) bool {
 			}
 			a.observe(s.Tag)
 			if hasSQLFallthrough(s.Body) {
-				a.invalidate(sqlAssignedBindings(s.Body), "SQL switch fallthrough is unsupported")
+				a.invalidate(sqlAssignedBindings(a.binder, s.Body), "SQL switch fallthrough is unsupported")
 			}
 			savedBreaks := a.breaks
 			a.breaks = nil
@@ -1049,7 +1052,7 @@ func (a *sqlAnalyzer) block(statements []ast.Stmt, scoped bool) bool {
 					for _, item := range s.Body.List {
 						c := item.(*ast.CaseClause)
 						if len(c.List) == 1 {
-							a.caseTypes[c] = map[string]sqlTypeRef{sqlBinding(id): a.typeRef(c.List[0])}
+							a.caseTypes[c] = map[string]sqlTypeRef{sqlBinding(a.binder, id): a.typeRef(c.List[0])}
 						}
 					}
 				}
@@ -1067,7 +1070,7 @@ func (a *sqlAnalyzer) block(statements []ast.Stmt, scoped bool) bool {
 			}
 		case *ast.SelectStmt, *ast.LabeledStmt:
 			// Taint before discovering any boundary, including calls preceding a write.
-			a.invalidate(sqlAssignedBindings(statement), "unsupported SQL control flow")
+			a.invalidate(sqlAssignedBindings(a.binder, statement), "unsupported SQL control flow")
 			ast.Inspect(statement, func(node ast.Node) bool {
 				if call, ok := node.(*ast.CallExpr); ok {
 					a.observe(call)

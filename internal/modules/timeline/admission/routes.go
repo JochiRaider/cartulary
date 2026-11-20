@@ -20,7 +20,6 @@ type Service struct {
 	owner          RouteOwner
 	incidentAccess incidentAdmissionChecker
 	authStore      *authn.Store
-	keys           authn.MasterKeys
 	now            func() time.Time
 }
 
@@ -44,13 +43,16 @@ type RouteOptions struct {
 	Owner RouteOwner
 }
 
+// RegisterRoutes binds the Timeline routes for central admission (Core 01
+// REQ-01-707): the registry authenticates by each operation's declared
+// security and admits incident_id or record_id before a handler runs.
 func RegisterRoutes(options RouteOptions) httpapi.RouteRegistrar {
 	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
 		service, err := newService(deps, options.Owner)
 		if err != nil {
 			return err
 		}
-		return httpapi.BindOwnerRoutes(mux, deps, "module.timeline", map[string]http.HandlerFunc{
+		return httpapi.BindAdmittedOwnerRoutes(mux, deps, "module.timeline", map[string]http.HandlerFunc{
 			"getTimelineTimeConversionProfile": service.handleGetTimeConversionProfile,
 			"markTimelineRecordReviewed":       service.handleMarkReviewed,
 			"putTimelineTimeConversionProfile": service.handlePutTimeConversionProfile,
@@ -59,10 +61,6 @@ func RegisterRoutes(options RouteOptions) httpapi.RouteRegistrar {
 }
 
 func newService(deps httpapi.DependencySet, owner RouteOwner) (*Service, error) {
-	keys, err := authn.LoadMasterKeys(deps.Env)
-	if err != nil {
-		return nil, fmt.Errorf("load auth master key: %w", err)
-	}
 	now := deps.Now
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
@@ -74,17 +72,17 @@ func newService(deps httpapi.DependencySet, owner RouteOwner) (*Service, error) 
 		owner:          owner,
 		incidentAccess: admission.NewChecker(deps.PostgresHandle()),
 		authStore:      authn.NewStore(deps.PostgresHandle()),
-		keys:           keys,
 		now:            now,
 	}, nil
 }
 
 func (s *Service) handleMarkReviewed(w http.ResponseWriter, r *http.Request) {
-	recordID, ok := pathUUID(w, r, "record_id")
-	if !ok {
+	principal, apiErr := admittedPrincipal(r)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
 		return
 	}
-	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
+	recordID, apiErr := admittedPathUUID(r, "record_id")
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -123,7 +121,7 @@ func (s *Service) handleMarkReviewed(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
@@ -131,11 +129,12 @@ func (s *Service) handleMarkReviewed(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) handleGetTimeConversionProfile(w http.ResponseWriter, r *http.Request) {
-	incidentID, ok := pathUUID(w, r, "incident_id")
-	if !ok {
+	principal, apiErr := admittedPrincipal(r)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
 		return
 	}
-	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: false})
+	incidentID, apiErr := admittedPathUUID(r, "incident_id")
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -144,12 +143,18 @@ func (s *Service) handleGetTimeConversionProfile(w http.ResponseWriter, r *http.
 		writeAPIError(w, r, apiErr)
 		return
 	}
+	// REQ-01-611 and REQ-01-707 step 5: the singleton-read query check is
+	// route handling, decided after the incident's visibility.
+	if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
 	profile, err := s.owner.GetTimeConversionProfile(r.Context(), incidentID, s.now())
 	if err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
@@ -157,11 +162,12 @@ func (s *Service) handleGetTimeConversionProfile(w http.ResponseWriter, r *http.
 }
 
 func (s *Service) handlePutTimeConversionProfile(w http.ResponseWriter, r *http.Request) {
-	incidentID, ok := pathUUID(w, r, "incident_id")
-	if !ok {
+	principal, apiErr := admittedPrincipal(r)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
 		return
 	}
-	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
+	incidentID, apiErr := admittedPathUUID(r, "incident_id")
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -184,7 +190,7 @@ func (s *Service) handlePutTimeConversionProfile(w http.ResponseWriter, r *http.
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
@@ -218,7 +224,7 @@ func (s *Service) requireIncidentRole(ctx context.Context, incidentID uuid.UUID,
 	grant, err := s.incidentAccess.Check(ctx, incidentID, userID, admission.Requirement{AllowedRoles: roles, Lifecycle: admission.LifecycleAny})
 	switch {
 	case admission.IsDenied(err, admission.DenialNotVisible):
-		return admission.Grant{}, incidentNotFoundError()
+		return admission.Grant{}, httpapi.NotFound("incident_not_found")
 	case admission.IsDenied(err, admission.DenialInsufficientRole):
 		return admission.Grant{}, &httpapi.APIError{Status: http.StatusForbidden, Code: "authorization_denied", Message: "authorization denied", Details: map[string]any{"required_role": requiredRole}}
 	case err != nil:
@@ -231,7 +237,7 @@ func (s *Service) requireIncidentRole(ctx context.Context, incidentID uuid.UUID,
 func (s *Service) requireTimelineRole(ctx context.Context, recordID uuid.UUID, userID uuid.UUID, roles admission.RoleSet, requiredRole string) (uuid.UUID, *httpapi.APIError) {
 	incidentID, err := s.owner.RecordIncident(ctx, recordID)
 	if errors.Is(err, timeline.ErrRecordNotFound) {
-		return uuid.UUID{}, incidentNotFoundError()
+		return uuid.UUID{}, httpapi.NotFound("incident_not_found")
 	}
 	if err != nil {
 		return uuid.UUID{}, internalAPIError(err)
@@ -242,8 +248,8 @@ func (s *Service) requireTimelineRole(ctx context.Context, recordID uuid.UUID, u
 	return incidentID, nil
 }
 
-func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal, method string, path string) error {
-	return httpauth.SlideSessionIfNeeded(ctx, s.authStore, principal, method, path, s.now)
+func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal) error {
+	return httpauth.SlideSessionIfNeeded(ctx, s.authStore, principal, s.now)
 }
 
 func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *httpapi.APIError) {
@@ -254,12 +260,22 @@ func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *httpapi.APIEr
 	_ = httpapi.WriteErrorWithConflict(w, r, apiErr.Status, apiErr.Code, message, apiErr.Details, apiErr.Conflict)
 }
 
-func pathUUID(w http.ResponseWriter, r *http.Request, key string) (uuid.UUID, bool) {
-	raw := r.PathValue(key)
-	value, err := uuid.Parse(raw)
-	if err != nil {
-		http.NotFound(w, r)
-		return uuid.UUID{}, false
+// admittedPrincipal returns the principal central admission established
+// (Core 01 REQ-01-707 step 2); its absence is a binding error.
+func admittedPrincipal(r *http.Request) (httpauth.Principal, *httpapi.APIError) {
+	principal, ok := httpauth.AdmittedPrincipal(r)
+	if !ok {
+		return httpauth.Principal{}, internalAPIError(errors.New("timeline route was not admitted centrally"))
 	}
-	return value, true
+	return principal, nil
+}
+
+// admittedPathUUID returns a uuid path parameter central admission admitted
+// (REQ-01-707 step 3); its absence is a binding error.
+func admittedPathUUID(r *http.Request, name string) (uuid.UUID, *httpapi.APIError) {
+	value, ok := httpapi.PathUUID(r, name)
+	if !ok {
+		return uuid.UUID{}, internalAPIError(fmt.Errorf("timeline route did not admit %s", name))
+	}
+	return value, nil
 }

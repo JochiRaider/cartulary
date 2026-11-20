@@ -1,4 +1,7 @@
-import type { ListIncidentMembershipsResponse } from "@cartulary/protocol-ts/http";
+import type {
+  HTTPOperationErrorCode,
+  ListIncidentMembershipsResponse,
+} from "@cartulary/protocol-ts/http";
 import { expect, type Locator, type Page } from "@playwright/test";
 import { openIncidentControls } from "../pages/deploymentAdministration";
 import { openIncidentFromLanding } from "../pages/incidentDirectory";
@@ -8,11 +11,29 @@ import type { BarrierOutcome } from "./runtime/cleanup";
 import { uniqueIncidentKey } from "./runtime/fixtureIdentity";
 import {
   awaitResponseBarrier,
+  checkedOperationErrorEnvelope,
+  fulfillOperationError,
   installOwnedRoute,
+  operationErrorEnvelope,
 } from "./transport/requestInterception";
 
 type Member = ListIncidentMembershipsResponse["data"]["memberships"][number];
 const membershipRegion = "Incident memberships";
+type MembershipWriteOperation =
+  | "createIncidentMembership"
+  | "deleteIncidentMembership"
+  | "patchIncidentMembership";
+type MembershipWriteErrorCode =
+  | HTTPOperationErrorCode<MembershipWriteOperation>
+  | "internal_error";
+
+function membershipWriteOperation(method: string): MembershipWriteOperation {
+  if (method === "POST") return "createIncidentMembership";
+  if (method === "PATCH") return "patchIncidentMembership";
+  if (method === "DELETE") return "deleteIncidentMembership";
+  throw new Error(`Unexpected membership write method ${method}`);
+}
+
 export function membershipBrowserMember(
   incidentId: string,
   overrides: Partial<Member> = {},
@@ -49,17 +70,22 @@ export async function installMembershipManagementPresentation(
   let access: "admin" | "viewer" | "hidden" | "session" | "unavailable" =
     "admin";
   await installOwnedRoute(page, "**/api/v1/auth/session", async (route) => {
-    if (access === "session" || access === "unavailable") {
-      await route.fulfill({
-        status: access === "session" ? 401 : 503,
-        json: {
-          error: {
-            code:
-              access === "session" ? "session_required" : "service_unavailable",
-          },
-          meta: { request_id: "membership-access" },
-        },
-      });
+    if (access === "session") {
+      await fulfillOperationError(
+        route,
+        "getCurrentSession",
+        401,
+        "session_required",
+      );
+      return;
+    }
+    if (access === "unavailable") {
+      await fulfillOperationError(
+        route,
+        "getCurrentSession",
+        500,
+        "internal_error",
+      );
       return;
     }
     const requestAccess = access;
@@ -81,6 +107,7 @@ export async function installMembershipManagementPresentation(
   let writeGate: Promise<BarrierOutcome> | null = null;
   let writeStatus = 200;
   let writeBody: unknown;
+  let writeError: MembershipWriteErrorCode | null = null;
   const reads: URL[] = [];
   const writes: { method: string; body: Record<string, unknown> }[] = [];
   const setPage = (rows: Member[], next: string | null = null) => {
@@ -121,6 +148,7 @@ export async function installMembershipManagementPresentation(
       const captured = {
         body: writeBody,
         status: writeStatus,
+        error: writeError,
         gate: writeGate,
       };
       writeGate = null;
@@ -128,7 +156,21 @@ export async function installMembershipManagementPresentation(
       await route.fulfill(
         captured.status === 204
           ? { status: 204, body: "" }
-          : { status: captured.status, json: captured.body },
+          : {
+              status: captured.status,
+              json:
+                captured.error === null
+                  ? captured.body
+                  : checkedOperationErrorEnvelope(
+                      membershipWriteOperation(method),
+                      captured.status,
+                      captured.error,
+                      {
+                        message: "Private diagnostic",
+                        requestId: "membership-error",
+                      },
+                    ),
+            },
       );
     },
   );
@@ -147,25 +189,32 @@ export async function installMembershipManagementPresentation(
     gateWrite(value: Promise<BarrierOutcome>) {
       writeGate = value;
     },
-    failRead(code = "service_unavailable") {
-      status = code === "invalid_pagination_request" ? 400 : 503;
-      body = {
-        error: { code, message: "Private diagnostic" },
-        meta: { request_id: "failed-list" },
-      };
+    failRead(
+      code:
+        | "internal_error"
+        | "invalid_list_query"
+        | "invalid_pagination_request" = "internal_error",
+    ) {
+      status = code === "internal_error" ? 500 : 400;
+      body =
+        code === "internal_error"
+          ? operationErrorEnvelope("listIncidentMemberships", 500, code)
+          : operationErrorEnvelope("listIncidentMemberships", 400, code, {
+              message: "Private diagnostic",
+              requestId: "failed-list",
+            });
     },
+    /** A success resource, or an error code the write operation declares. */
     mutation(
       nextStatus: number,
       resource: Member | null = null,
-      code = "service_unavailable",
+      code: MembershipWriteErrorCode = "internal_error",
     ) {
       writeStatus = nextStatus;
+      writeError = resource || nextStatus < 400 ? null : code;
       writeBody = resource
         ? { data: resource, meta: { request_id: "membership-write" } }
-        : {
-            error: { code, message: "Private diagnostic" },
-            meta: { request_id: "membership-error" },
-          };
+        : null;
     },
   };
 }

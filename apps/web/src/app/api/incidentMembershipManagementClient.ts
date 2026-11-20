@@ -1,21 +1,18 @@
-import type {
-  CreateIncidentMembershipResponse,
-  ListIncidentMembershipsResponse,
-  PatchIncidentMembershipResponse,
-} from "@cartulary/protocol-ts/http";
-import { fetchHTTPOperation } from "../../services/browserApi";
+import type { HTTPOperationResponse } from "@cartulary/protocol-ts/http";
+import {
+  fetchHTTPOperation,
+  type HTTPOperationError,
+} from "../../services/browserApi";
 import { normalizeAuditInstant } from "../../shared/auditReadValues";
 import type {
   Membership,
   MembershipAuthority,
+  MembershipHTTPOperation,
   MembershipInput,
   MembershipPaging,
   MembershipProblem,
 } from "../incidentMembershipManagementModel";
-import {
-  membershipPageLimit,
-  membershipProblemCodes,
-} from "../incidentMembershipManagementModel";
+import { membershipPageLimit } from "../incidentMembershipManagementModel";
 
 export type MembershipFailure = {
   readonly ok: false;
@@ -43,17 +40,15 @@ const invalid = (): MembershipFailure => ({
 });
 function failure(
   status: number,
-  error?: { code?: string; details?: Record<string, unknown> },
+  error: HTTPOperationError<MembershipHTTPOperation>,
 ): MembershipFailure {
   return {
     ok: false,
     status,
     problem: {
-      code:
-        membershipProblemCodes.find((code) => code === error?.code) ??
-        "unknown_public_error",
+      code: error.code,
       field: ["email", "role", "base_membership_version"].find(
-        (field) => field === error?.details?.field,
+        (field) => field === error.details.field,
       ),
     },
   };
@@ -63,7 +58,7 @@ export async function listIncidentMembershipPage(request: {
   readonly cursor: string | null;
   readonly signal: AbortSignal;
 }): Promise<MembershipListResult> {
-  const result = await fetchHTTPOperation<ListIncidentMembershipsResponse>({
+  const result = await fetchHTTPOperation({
     operationID: "listIncidentMemberships",
     apiBase: request.authority.apiBase,
     pathParameters: { incident_id: request.authority.incidentId },
@@ -124,9 +119,7 @@ export async function mutateIncidentMembership(request: {
       : input.kind === "role"
         ? "patchIncidentMembership"
         : "deleteIncidentMembership";
-  const result = await fetchHTTPOperation<
-    CreateIncidentMembershipResponse | PatchIncidentMembershipResponse
-  >({
+  const result = await fetchHTTPOperation({
     operationID,
     apiBase: authority.apiBase,
     pathParameters: {
@@ -146,8 +139,7 @@ export async function mutateIncidentMembership(request: {
   });
   if (!result.ok) {
     const rejected = failure(result.status, result.payload.error);
-    return rejected.problem.code === "unknown_public_error" ||
-      rejected.problem.code === "invalid_public_contract_response"
+    return rejected.problem.code === "invalid_public_contract_response"
       ? invalid()
       : rejected;
   }
@@ -161,7 +153,12 @@ export async function mutateIncidentMembership(request: {
       : result.status !== 200
   )
     return invalid();
-  const resource = result.payload.data;
+  // Removal returned above; add and role changes answer a membership envelope.
+  const resource = (
+    result.payload as HTTPOperationResponse<
+      "createIncidentMembership" | "patchIncidentMembership"
+    >
+  ).data;
   if (
     resource.incident_id !== authority.incidentId ||
     !Number.isSafeInteger(resource.membership_version) ||

@@ -58,7 +58,7 @@ func savedGraphAdmissionError(err error, requiredRole string) *httpapi.APIError 
 	case err == nil:
 		return nil
 	case admission.IsDenied(err, admission.DenialNotVisible):
-		return &httpapi.APIError{Status: http.StatusNotFound, Code: "incident_not_found", Details: map[string]any{}}
+		return httpapi.NotFound("incident_not_found")
 	case admission.IsDenied(err, admission.DenialInsufficientRole):
 		return &httpapi.APIError{Status: http.StatusForbidden, Code: "authorization_denied", Message: "authorization denied", Details: map[string]any{"required_role": requiredRole}}
 	case admission.IsDenied(err, admission.DenialIncidentClosed):

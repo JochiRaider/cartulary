@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
+	"github.com/JochiRaider/cartulary/internal/modules/records"
 )
 
 func TestIndicatorMutationErrorRoleAndStorageMapping(t *testing.T) {
@@ -20,6 +21,7 @@ func TestIndicatorMutationErrorRoleAndStorageMapping(t *testing.T) {
 		{name: "source", err: indicators.ErrIndicatorSourceNotFound, wantStatus: http.StatusNotFound, wantCode: "indicator_source_record_not_found"},
 		{name: "requested resolved Indicator", err: indicators.ErrResolvedIndicatorNotFound, wantStatus: http.StatusNotFound, wantCode: "resolved_indicator_not_found"},
 		{name: "addressed Indicator", err: indicators.ErrIndicatorNotFound, wantStatus: http.StatusNotFound, wantCode: "indicator_not_found"},
+		{name: "deleted addressed record", err: records.ErrTargetDeleted, wantStatus: http.StatusConflict, wantCode: "record_deleted_use_restore"},
 		{name: "prior observation dependency", err: indicators.ErrIndicatorObservationNotFound, wantStatus: http.StatusNotFound, wantCode: "indicator_observation_not_found"},
 		{name: "support reference", err: indicators.ErrInvalidCreateRequest, wantStatus: http.StatusBadRequest, wantCode: "invalid_mutation_payload"},
 		{name: "storage", err: errors.New("secret relation records constraint records_pkey"), wantStatus: http.StatusInternalServerError, wantCode: "internal_error"},

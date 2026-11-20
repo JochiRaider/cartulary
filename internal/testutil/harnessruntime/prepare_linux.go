@@ -155,6 +155,14 @@ receive:
 	if ctx.Err() != nil {
 		return nil, ctx.Err()
 	}
+	// A rejected preparation exits 2 with one closed diagnostic instead of a
+	// plan (TH-HARNESS-REQ-854). Any other outcome stays a generic failure.
+	var exit *exec.ExitError
+	if errors.As(err, &exit) && exit.ExitCode() == 2 && terminalErr == nil && received.err == nil {
+		if diagnostic, ok := decodePreparationDiagnostic(received.data); ok {
+			return nil, preparationFailure(diagnostic)
+		}
+	}
 	if err != nil || terminalErr != nil || ctx.Err() != nil || received.err != nil || len(received.data) > maximumPlanBytes {
 		return nil, errors.New("graph preparation failed")
 	}

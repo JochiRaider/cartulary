@@ -11,6 +11,8 @@ import (
 
 // LoadLabels reads only live Parties in the caller's incident and selected set.
 // Mutation callers pass their transaction to preserve the admitted source view.
+// Each label follows the REQ-01-333a Party rule: an absent or empty name reads
+// "Untitled party", as in the projections record-summary label.
 func LoadLabels(ctx context.Context, query interface {
 	Query(context.Context, string, ...any) (pgx.Rows, error)
 }, incidentID uuid.UUID, partyIDs []uuid.UUID) (map[uuid.UUID]string, error) {
@@ -18,7 +20,7 @@ func LoadLabels(ctx context.Context, query interface {
 	if len(partyIDs) == 0 {
 		return labels, nil
 	}
-	rows, err := query.Query(ctx, `SELECT p.record_id, p.display_name FROM parties p
+	rows, err := query.Query(ctx, `SELECT p.record_id, COALESCE(NULLIF(p.display_name, ''), 'Untitled party') FROM parties p
 JOIN records r ON r.record_id=p.record_id AND r.incident_id=p.incident_id
 WHERE p.incident_id=$1 AND p.record_id=ANY($2::uuid[]) AND r.deleted_at IS NULL`, incidentID, partyIDs)
 	if err != nil {

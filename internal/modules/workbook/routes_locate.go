@@ -7,7 +7,6 @@ import (
 	"net/http"
 
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
-	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 	"github.com/JochiRaider/cartulary/internal/platform/strictjson"
 	"github.com/JochiRaider/cartulary/internal/platform/viewquery"
@@ -55,11 +54,12 @@ func decodeLocatorRequest(r *http.Request, schema string) (uuid.UUID, viewquery.
 }
 
 func (s *service) handleLocate(w http.ResponseWriter, r *http.Request) {
-	incidentID, ok := pathUUID(w, r, "incident_id")
-	if !ok {
+	principal, apiErr := admittedPrincipal(r)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
 		return
 	}
-	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: false})
+	incidentID, apiErr := admittedPathUUID(r, "incident_id")
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -68,7 +68,11 @@ func (s *service) handleLocate(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	schema := r.PathValue("view_schema_id")
+	schema, apiErr := admittedPathString(r, "view_schema_id")
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
 	provider, ok := s.contributions.QueryFor(schema)
 	if !ok {
 		writeAPIError(w, r, invalidViewQuery("view_schema_id", "unknown_view_schema"))
@@ -148,7 +152,7 @@ func (s *service) handleLocate(w http.ResponseWriter, r *http.Request) {
 		fail(fmt.Errorf("unknown locator provider outcome"))
 		return
 	}
-	if err := s.slideSessionIfNeeded(ctx, &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(ctx, &principal); err != nil {
 		fail(err)
 		return
 	}

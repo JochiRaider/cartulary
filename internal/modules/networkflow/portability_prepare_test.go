@@ -85,7 +85,7 @@ func portableAdmissionFixture(t *testing.T) (incidentbundles.ImportInvocation, p
 	}
 	table := tableRecord{TableID: "nft_" + strings.Repeat("a", 32), IncidentID: request.IncidentID, DisplayName: "Original flow source", TableVersion: 1, TableStatus: tableStatusActive, CommittedSourceID: params.CommittedSourceID, SourceInterpretationSHA256: params.SourceInterpretationSHA256, SourceRawCellScalarLimit: params.SourceRawCellScalarLimit, SourceContentSHA256: params.SourceContentSHA256, SourceFilenameDisplay: "source.csv", MappingFingerprint: params.MappingFingerprint, SourceProfileID: params.SourceProfileID, ParserProfileID: params.ParserProfileID, RowCountAccepted: 2, CreatedByUserID: request.ActorUserID, CreatedAt: params.Now, UpdatedAt: params.Now}
 	var rows []flowRow
-	if err := params.VisitRows(func(row normalizedRow) error {
+	if err := params.VisitRows(nil, func(row normalizedRow) error {
 		retained, err := rowContext.persistedRow(table.TableID, row)
 		rows = append(rows, retained)
 		return err

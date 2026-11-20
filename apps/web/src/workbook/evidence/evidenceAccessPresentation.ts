@@ -1,11 +1,13 @@
 import { cartularyErrorPresentation } from "@cartulary/ui-contracts";
 import type { EvidenceAccessReasonCode } from "../../services/publicErrorIdentity";
+import { temporaryUnavailabilityText } from "../../shared/publicError";
 import type {
   EvidenceLifecycleViewModel,
   EvidenceRecordLifecycleState,
 } from "../models/evidenceLifecycleViewModel";
 import { buildEvidenceLifecycleViewModel } from "../models/evidenceLifecycleViewModel";
 import type { WorkbookOperationFailure } from "../mutations/workbookOperationOutcome";
+import { isWorkbookTemporaryUnavailability } from "../ports/WorkbookPortResult";
 import type { EvidenceMetadata } from "./WorkbookEvidenceMetadataPort";
 
 export type EvidenceOperationKind = "preview" | "download" | "attach";
@@ -124,7 +126,9 @@ function operationBlocker(
     : blocked;
 }
 
-function transientAccessFailure(failure: WorkbookOperationFailure): boolean {
+function transientObjectStoreFailure(
+  failure: WorkbookOperationFailure,
+): boolean {
   return (
     failure.kind === "retryable" &&
     failure.publicCode === "object_store_unavailable" &&
@@ -132,6 +136,13 @@ function transientAccessFailure(failure: WorkbookOperationFailure): boolean {
     ["endpoint_unreachable", "bucket_missing", "retry_exhausted"].includes(
       failure.publicReason,
     )
+  );
+}
+
+function transientAccessFailure(failure: WorkbookOperationFailure): boolean {
+  return (
+    transientObjectStoreFailure(failure) ||
+    isWorkbookTemporaryUnavailability(failure)
   );
 }
 
@@ -245,7 +256,9 @@ export function evidenceOperationFeedback(
       state.operation === "preview" ? "Retry Preview" : "Retry Download";
     return {
       label,
-      message: `Object storage is temporarily unavailable. Choose ${label} to try again.`,
+      message: transientObjectStoreFailure(failure)
+        ? `Object storage is temporarily unavailable. Choose ${label} to try again.`
+        : temporaryUnavailabilityText(label),
       tone: "warning",
       announcement: "assertive",
     };

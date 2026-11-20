@@ -53,39 +53,46 @@ type NoteAssociationProvider interface {
 	Apply(context.Context, NoteAssociationCommand, io.Reader) (MutationOutcome, error)
 }
 
-func (s *service) handleNoteAssociations(w http.ResponseWriter, r *http.Request) {
-	noteID, ok := pathUUID(w, r, "note_record_id")
-	if !ok {
-		return
-	}
-	mutating := r.Method == http.MethodPost
-	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: mutating})
+// admittedNoteTarget resolves the admitted note_record_id to its record target
+// and applies the incident's visibility and the route's role gate
+// (REQ-01-704), before any query or body is read.
+func (s *service) admittedNoteTarget(r *http.Request, roles admission.RoleSet, requiredRole string) (httpauth.Principal, RecordTarget, *httpapi.APIError) {
+	principal, apiErr := admittedPrincipal(r)
 	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
+		return httpauth.Principal{}, RecordTarget{}, apiErr
+	}
+	noteID, apiErr := admittedPathUUID(r, "note_record_id")
+	if apiErr != nil {
+		return httpauth.Principal{}, RecordTarget{}, apiErr
 	}
 	target, err := s.recordTargets.ResolveRecordTarget(r.Context(), noteID)
 	if isRecordTargetNotFound(err) {
-		writeAPIError(w, r, incidentNotFoundError())
-		return
+		return httpauth.Principal{}, RecordTarget{}, httpapi.NotFound("incident_not_found")
 	}
 	if err != nil {
-		writeAPIError(w, r, internalAPIError(err))
-		return
+		return httpauth.Principal{}, RecordTarget{}, internalAPIError(err)
 	}
-	if mutating {
-		_, apiErr = s.requireIncidentRole(r.Context(), target.IncidentID, principal.User.ID, admission.RolesEditorReviewerAdmin, "editor|reviewer|admin")
-	} else {
-		_, apiErr = s.requireIncidentMembership(r.Context(), target.IncidentID, principal.User.ID)
+	if _, apiErr := s.requireIncidentRole(r.Context(), target.IncidentID, principal.User.ID, roles, requiredRole); apiErr != nil {
+		return httpauth.Principal{}, RecordTarget{}, apiErr
 	}
+	return principal, target, nil
+}
+
+func (s *service) handleMutateNoteAssociations(w http.ResponseWriter, r *http.Request) {
+	principal, target, apiErr := s.admittedNoteTarget(r, admission.RolesEditorReviewerAdmin, "editor|reviewer|admin")
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if mutating {
-		outcome, err := s.noteAssociations.Apply(r.Context(), NoteAssociationCommand{Actor: principal.User, Target: target, RequestID: httpapi.RequestIDFromContext(r.Context()), Now: s.now()}, r.Body)
-		result, outcomeErr := resolveMutationOutcome(outcome, err)
-		writeResolvedMutationResult(w, r, s, &principal, result, outcomeErr)
+	outcome, err := s.noteAssociations.Apply(r.Context(), NoteAssociationCommand{Actor: principal.User, Target: target, RequestID: httpapi.RequestIDFromContext(r.Context()), Now: s.now()}, r.Body)
+	result, outcomeErr := resolveMutationOutcome(outcome, err)
+	writeResolvedMutationResult(w, r, s, &principal, result, outcomeErr)
+}
+
+func (s *service) handleListNoteAssociations(w http.ResponseWriter, r *http.Request) {
+	principal, target, apiErr := s.admittedNoteTarget(r, admission.RolesMember, "")
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
 		return
 	}
 	request, apiErr := decodeNoteAssociationListRequest(r.URL.RawQuery, principal.User.ID, target, s.cursorCodec)
@@ -112,7 +119,7 @@ func (s *service) handleNoteAssociations(w http.ResponseWriter, r *http.Request)
 		}
 		next = &token
 	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}

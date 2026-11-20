@@ -80,10 +80,7 @@ export function IncidentAdminPanel({
         setSurfaceLoadState("unavailable");
         setSurfaceStatusText("Incident controls unavailable.");
         setError({ code: result.code });
-        if (
-          result.code === "incident_not_found" ||
-          result.code === "authorization_denied"
-        )
+        if (result.code === "incident_not_found")
           void accessCheckRef.current?.();
         return;
       }

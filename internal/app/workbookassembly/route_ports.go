@@ -38,6 +38,20 @@ func (adapter recordTargetAdapter) ResolveRecordTarget(ctx context.Context, reco
 	}, nil
 }
 
+// recordTargetFailure maps the Records target classification (REQ-01-705)
+// the same way for every owner: a missing record is not found, and a
+// soft-deleted record must be restored first (409 record_deleted_use_restore).
+func recordTargetFailure(err error) (*workbook.MutationFailure, bool) {
+	switch {
+	case errors.Is(err, records.ErrTargetDeleted):
+		return workbook.RecordDeletedFailure(), true
+	case errors.Is(err, records.ErrTargetNotFound):
+		return workbook.TargetNotFoundFailure(), true
+	default:
+		return nil, false
+	}
+}
+
 type conflictTokenAdapter struct {
 	owner conflicttokens.ConflictTokenCodec
 }

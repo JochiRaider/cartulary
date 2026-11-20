@@ -27,7 +27,11 @@ type Socket interface {
 }
 
 type AcceptSocket func(http.ResponseWriter, *http.Request) (Socket, error)
-type CheckBrowserOrigin func(http.ResponseWriter, *http.Request) bool
+
+// CheckOrigin reports whether an upgrade request may pass the Origin check of
+// Core 01 REQ-01-708 step 2: it carries no Origin header or exactly the
+// configured application origin. It writes nothing.
+type CheckOrigin func(*http.Request) bool
 
 var ErrMessageTooLarge = errors.New("collaboration websocket message too large")
 

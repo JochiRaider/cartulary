@@ -394,8 +394,63 @@ SELECT response_json->>'status'
 			}
 		})
 	}
+	// The caller's cancellation reaches the issued commit (shutdown or execution
+	// loss). The commit is awaited on a detached context, so its outcome stands.
+	for _, status := range []string{jobs.StatusSucceeded, jobs.StatusFailed, "timeout", jobs.StatusCanceled} {
+		t.Run("caller cancellation while commit is issued "+status, func(t *testing.T) {
+			id := enqueueExtensionFinalizerTestJob(t, pool, now, "issued-"+status)
+			execution, claimed, err := manager.Claim(context.Background(), id)
+			if err != nil || !claimed {
+				t.Fatal("claim issued-commit fixture", err)
+			}
+			if status == jobs.StatusCanceled {
+				var actor uuid.UUID
+				if err := pool.QueryRow(context.Background(), `SELECT submitted_by_user_id FROM jobs WHERE job_id=$1`, id).Scan(&actor); err != nil {
+					t.Fatal(err)
+				}
+				if _, err := manager.Cancel(context.Background(), jobs.CancelParams{JobID: id, ActorUserID: actor, ClientTxnID: "issued-cancel", NormalizedRequest: []byte(`{"client_txn_id":"issued-cancel"}`)}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			before := fatalCount
+			finalizer.commit = func(commitCtx context.Context, tx pgx.Tx) error {
+				cancel()
+				return tx.Commit(commitCtx)
+			}
+			var result jobs.Resource
+			failure := JobFailureFinalizationRequest{Execution: execution, Completion: jobs.FailureCompletion{Progress: jobs.Progress{Completed: 0, Total: intPointer(1)}, ErrorSummary: jobs.ErrorSummary{Code: "reference_pack_verification_failed", Message: "Verification failed."}}}
+			switch status {
+			case jobs.StatusSucceeded:
+				result, err = finalizer.FinalizeSuccess(ctx, JobFinalizationRequest{Execution: execution, Completion: jobs.SuccessCompletion{Progress: jobs.Progress{Completed: 1, Total: intPointer(1)}, ResultSummary: jobs.ResultSummary{Code: "done", Message: "Done."}}, FinalCommitID: "commit:issued-success"})
+			case jobs.StatusFailed:
+				result, err = finalizer.FinalizeFailure(ctx, failure)
+			case "timeout":
+				result, err = finalizer.FinalizeTimeout(ctx, failure)
+			case jobs.StatusCanceled:
+				result, err = finalizer.FinalizeCancellation(ctx, JobCancellationFinalizationRequest{Execution: execution, Completion: jobs.CancellationCompletion{Progress: jobs.Progress{Completed: 0, Total: intPointer(1)}}})
+			}
+			expectedStatus := status
+			if status == "timeout" {
+				expectedStatus = jobs.StatusFailed
+			}
+			if ctx.Err() == nil || err != nil || result.Status != expectedStatus || fatalCount != before {
+				t.Fatalf("issued commit lost to caller cancellation: %s/%s/%v fatal=%d", status, result.Status, err, fatalCount-before)
+			}
+			retained, err := manager.Get(context.Background(), id)
+			if err != nil || retained.Status != expectedStatus {
+				t.Fatal("terminal outcome not retained", err)
+			}
+		})
+	}
 	t.Run("revoked publication before commit", func(t *testing.T) { checkRevokedTerminalPublication(t, pool, manager, finalizer, now) })
-	for _, code := range []string{"40001", "40P01", "23505", "23503", "23514"} {
+	// A definite ERROR acknowledgement ends the block without committing.
+	definite := []*pgconn.PgError{{Code: "40001"}, {Code: "40P01"}, {Code: "23505"}, {Code: "23503"}, {Code: "23514"},
+		{Code: "P0001", Severity: "ERROR", SeverityUnlocalized: "ERROR"}, {Code: "57014", Severity: "ERROR", SeverityUnlocalized: "ERROR"},
+		{Code: "22003", Severity: "ERROR", SeverityUnlocalized: "ERROR"}}
+	for _, response := range definite {
+		code := response.Code
 		tx, err := pool.Begin(context.Background())
 		if err != nil {
 			t.Fatal(err)
@@ -404,7 +459,7 @@ SELECT response_json->>'status'
 			if err := tx.Rollback(ctx); err != nil {
 				return err
 			}
-			return &pgconn.PgError{Code: code}
+			return response
 		}
 		err = baseFinalizer.CommitOwnerMutation(context.Background(), tx, func(context.Context) (bool, error) {
 			t.Fatal("proven server rollback attempted a proof read")

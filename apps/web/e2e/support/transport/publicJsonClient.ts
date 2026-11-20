@@ -17,6 +17,13 @@ export type RepeatedHeaderJsonResponse = JsonResponseLike & {
   headersArray: () => readonly JsonResponseHeader[];
 };
 
+/** One multipart part with an explicit media type, as Playwright sends it. */
+export type MultipartRequestPart = {
+  readonly buffer: Buffer;
+  readonly mimeType: string;
+  readonly name: string;
+};
+
 export type JsonRequestContextLike = {
   fetch: (
     path: string,
@@ -24,6 +31,7 @@ export type JsonRequestContextLike = {
       data?: unknown;
       headers?: Record<string, string>;
       method: JsonRequestMethod;
+      multipart?: Readonly<Record<string, MultipartRequestPart>>;
     },
   ) => Promise<JsonResponseLike>;
 };

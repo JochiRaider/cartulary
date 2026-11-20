@@ -1,15 +1,20 @@
 package serverprocess
 
 import (
+	"bytes"
 	"database/sql"
 	"errors"
+	"maps"
 	"net/http"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnessschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/processtest"
 )
@@ -40,11 +45,26 @@ func TestExtensionsLeaseLifecycle_Process(t *testing.T) {
 			"CARTULARY__TIMEOUTS__EXTENSIONS__PROCESS_LEASE_LOSS_DETECTION_SECONDS": "1",
 		},
 	})
-	start := func() *processtest.Server {
+	startWith := func(env map[string]string) *processtest.Server {
 		child := processtest.StartServer(t, processtest.ServerOptions{Env: env})
 		t.Cleanup(func() { child.Stop(t) })
 		return child
 	}
+	start := func() *processtest.Server { return startWith(env) }
+	// The first process is forced into a lifecycle fatal deliberately. Its
+	// contract evidence goes to a private run root, where its one server_fatal
+	// record is asserted (TH-HARNESS-REQ-863), so this expected fatal does not
+	// fail the enclosing run. Any guard violation it records fails this test.
+	evidenceResults := t.TempDir()
+	if err := os.Chmod(evidenceResults, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(filepath.Join(evidenceResults, "run"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	firstEnv := maps.Clone(env)
+	firstEnv["CARTULARY_TEST_RESULTS_DIR"] = evidenceResults
+	firstEnv["CARTULARY_TEST_RUN_ID"] = "run"
 	requireExit := func(child *processtest.Server, code int) {
 		t.Helper()
 		var exit *exec.ExitError
@@ -67,7 +87,7 @@ FROM extension_state_metadata s`).Scan(&identity); err != nil {
 		return identity
 	}
 
-	first := start()
+	first := startWith(firstEnv)
 	first.WaitForReady(t)
 	before := stateIdentity()
 	if before == "[]" {
@@ -111,6 +131,36 @@ WHERE l.locktype='advisory' AND l.mode='ExclusiveLock' AND l.granted
 	requireExit(first, 70)
 	if stateIdentity() != before {
 		t.Fatal("lease loss changed committed extension state")
+	}
+	fatals := 0
+	streams, err := filepath.Glob(filepath.Join(evidenceResults, "run", "contract-evidence", "*.jsonl"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, stream := range streams {
+		data, err := os.ReadFile(stream)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, line := range bytes.Split(bytes.TrimSuffix(data, []byte("\n")), []byte("\n")) {
+			value, err := harnessschema.Decode(line)
+			if err != nil || harnessschema.Validate("cartulary.harness_contract_evidence.v1", value) != nil {
+				t.Fatalf("invalid contract evidence: %s", line)
+			}
+			switch record := value.(map[string]any); record["kind"] {
+			case "server_fatal":
+				fatals++
+				if record["reason_code"] != "application_process_lease_lost" || record["process_kind"] != "server_harness" {
+					t.Fatalf("server fatal record = %s", line)
+				}
+			case "error_emission":
+			default:
+				t.Errorf("lease process recorded a contract violation: %s", line)
+			}
+		}
+	}
+	if fatals != 1 {
+		t.Fatalf("server-harness fatal wrote %d server_fatal records, want 1", fatals)
 	}
 
 	replacement := start()

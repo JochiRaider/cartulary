@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 
+	evidenceblob "github.com/JochiRaider/cartulary/internal/modules/evidence/internal/blob"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/internal/policy"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/internal/sourcevalue"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -15,16 +15,17 @@ func (p preparedEvidenceImport) validateBlobAssociation(ctx context.Context, tx 
 	if row.ObjectBlobID == nil {
 		return nil
 	}
-	var incident uuid.UUID
-	var state string
-	err := tx.QueryRow(ctx, `SELECT incident_id,upload_state FROM object_blobs WHERE object_blob_id=$1 FOR UPDATE`, row.ObjectBlobID).Scan(&incident, &state)
-	if errors.Is(err, pgx.ErrNoRows) {
+	// The association locks and verifies the Blob through the single Blob
+	// authority; a tuple violation is an invariant failure, not a declared one.
+	locked, err := evidenceblob.LockTx(ctx, tx, *row.ObjectBlobID, evidenceblob.UpdateWait)
+	if errors.Is(err, evidenceblob.ErrNotFound) {
 		return d.DeclaredFailure("evidence.object_metadata_agree")
 	}
 	if err != nil {
 		return err
 	}
-	if incident != p.incidentID {
+	state := locked.UploadState
+	if locked.IncidentID != p.incidentID {
 		return d.DeclaredFailure("evidence.object_metadata_agree")
 	}
 	var associated bool

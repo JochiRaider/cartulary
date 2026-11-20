@@ -71,7 +71,7 @@ func (s *store) CreateTable(ctx context.Context, fixture createTableFixtureParam
 		DiagnosticsTruncated:      fixture.DiagnosticsTruncated,
 		Now:                       fixture.Now,
 		RowCountAccepted:          int64(len(ordered)),
-		VisitRows: func(visit func(normalizedRow) error) error {
+		VisitRows: func(_ rowSourceGate, visit func(normalizedRow) error) error {
 			for _, row := range ordered {
 				if err := visit(row); err != nil {
 					return err
@@ -123,5 +123,5 @@ func (s *store) SoftDeleteTable(ctx context.Context, params softDeleteTableParam
 }
 
 func (s *store) RetainedCounts(ctx context.Context, incidentID uuid.UUID) (retainedCounts, error) {
-	return retainedCountsTx(ctx, s.pool, incidentID)
+	return retainedCountsTx(ctx, s.pool, incidentID, "")
 }

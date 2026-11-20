@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"testing"
 	"time"
+
+	extensiondeadline "github.com/JochiRaider/cartulary/internal/modules/extensions/deadline"
 )
 
 func TestReconcileInactiveExtensionJobs_Unit(t *testing.T) {
@@ -189,6 +191,50 @@ func TestReconcileInactiveExtensionJobsFailsBeforeMutation_Unit(t *testing.T) {
 			t.Fatalf("indeterminate err=%v fatal=%d apply_calls=%d", err, fatal, store.applyCalls)
 		}
 	})
+	// The reconciliation transaction is interrupted after its commit was
+	// issued. A commit acknowledged within the cancellation grace keeps its
+	// outcome; one still pending after the grace is the grace-exhaustion
+	// fatal, not an unbounded wait (EXT-REQ-131, EXT-REQ-215).
+	t.Run("interruption while commit is issued, acknowledged within grace", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		store := &fakeInactiveJobStore{rows: []InactiveJob{base}, onApply: cancel}
+		fatal := 0
+		options := testReconciliationOptions(t, 1, func(error) { fatal++ })
+		options.CancellationGrace = 5 * time.Second
+		if err := ReconcileInactiveExtensionJobs(ctx, store, []string{"test_profile"}, []JobKindContract{contract}, options); err != nil || fatal != 0 || store.applyCalls != 1 {
+			t.Fatalf("committed reconciliation after interruption: err=%v fatal=%d apply_calls=%d", err, fatal, store.applyCalls)
+		}
+	})
+	t.Run("interruption while commit is issued, pending past grace", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		release := make(chan struct{})
+		store := &fakeInactiveJobStore{rows: []InactiveJob{base}, onApply: cancel, release: release}
+		signals := make(chan error, 2)
+		options := testReconciliationOptions(t, 1, func(err error) { signals <- err })
+		options.CancellationGrace = 20 * time.Millisecond
+		done := make(chan error, 1)
+		go func() {
+			done <- ReconcileInactiveExtensionJobs(ctx, store, []string{"test_profile"}, []JobKindContract{contract}, options)
+		}()
+		select {
+		case signal := <-signals:
+			if !errors.Is(signal, extensiondeadline.ErrGraceExhausted) {
+				t.Errorf("fatal signal = %v", signal)
+			}
+		case <-time.After(2 * time.Second):
+			close(release)
+			<-done
+			t.Fatal("issued reconciliation commit outlived the cancellation grace without a fatal signal")
+		}
+		close(release)
+		err := <-done
+		var failure *FatalStateIntegrityError
+		if !errors.As(err, &failure) || failure.FatalReasonCode() != "operation_cancellation_grace_exhausted" {
+			t.Fatalf("pending reconciliation commit past grace = %v", err)
+		}
+	})
 }
 
 func testInactiveJobIdentity() json.RawMessage {
@@ -200,6 +246,11 @@ type fakeInactiveJobStore struct {
 	outcomes   []InactiveJobTerminalOutcome
 	applyCalls int
 	commit     ReconciliationCommitOutcome
+	// onApply runs once the store has issued its commit; release, when set,
+	// holds the acknowledgement. Both model a commit the store awaits on a
+	// detached context.
+	onApply func()
+	release <-chan struct{}
 }
 
 func (s *fakeInactiveJobStore) LoadInactiveJobs(context.Context, string, int) ([]InactiveJob, error) {
@@ -209,6 +260,12 @@ func (s *fakeInactiveJobStore) LoadInactiveJobs(context.Context, string, int) ([
 func (s *fakeInactiveJobStore) ApplyInactiveJobOutcomes(_ context.Context, _ string, outcomes []InactiveJobTerminalOutcome) (ReconciliationCommitOutcome, error) {
 	s.applyCalls++
 	s.outcomes = append([]InactiveJobTerminalOutcome(nil), outcomes...)
+	if s.onApply != nil {
+		s.onApply()
+	}
+	if s.release != nil {
+		<-s.release
+	}
 	if s.commit == "" {
 		return ReconciliationCommitted, nil
 	}

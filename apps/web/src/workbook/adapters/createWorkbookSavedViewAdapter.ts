@@ -1,11 +1,19 @@
 import type {
-  HTTPOperationID,
   HTTPOperationRequest,
   HTTPOperationResponse,
 } from "@cartulary/protocol-ts/http";
-import { fetchHTTPOperation } from "../../services/browserApi";
+import {
+  fetchHTTPOperation,
+  type HTTPOperationError,
+} from "../../services/browserApi";
 import { validatedPublicErrorReason } from "../../services/publicErrorIdentity";
 import { validateDisplayName } from "../../shared/displayName";
+import {
+  isFailureCode,
+  isUnappliedRefusal,
+  notAppliedText,
+  temporaryUnavailabilityText,
+} from "../../shared/publicError";
 import { normalizeWorkbookSavedViewPage } from "../models/workbookSavedViewPaginationMachine";
 import {
   normalizeSavedViewResource,
@@ -13,12 +21,12 @@ import {
   savedViewJSONEqual,
 } from "../models/workbookSavedViews";
 import type {
+  SavedViewHTTPOperation,
   SavedViewProblem,
   SavedViewResult,
   WorkbookSavedViewChanges,
   WorkbookSavedViewPort,
 } from "../ports/WorkbookSavedViewPort";
-import { decodeWorkbookPublicError } from "./workbookPublicErrorDecoder";
 
 function problem<T>(
   kind: SavedViewProblem["kind"],
@@ -72,23 +80,24 @@ function persistenceFields(changes: WorkbookSavedViewChanges) {
   };
 }
 
+/**
+ * Classifies a saved-view failure already decoded against its operation
+ * contract (Core 03 REQ-03-086a); each branch names only declared codes.
+ */
 function failure<T>(
-  status: number,
-  payload: unknown,
+  error: HTTPOperationError<SavedViewHTTPOperation>,
   write: boolean,
   base?: SavedViewResource,
 ): SavedViewResult<T> {
-  const decoded = decodeWorkbookPublicError(payload);
-  if (decoded.kind !== "decoded" || decoded.envelope.error.status !== status) {
+  if (error.code === "invalid_public_contract_response") {
     return problem(
       "invalid_contract",
       "The server returned an invalid saved-view response.",
       write,
     );
   }
-  const error = decoded.envelope.error;
   const common = { publicCode: error.code };
-  if (status === 409 && error.code === "saved_view_version_conflict") {
+  if (error.code === "saved_view_version_conflict") {
     const details = error.details;
     if (
       !base ||
@@ -120,14 +129,12 @@ function failure<T>(
     };
   }
   if (
-    status === 400 &&
-    [
+    isFailureCode(error.code, [
       "invalid_mutation_payload",
       "invalid_pagination_request",
       "invalid_list_query",
       "invalid_saved_view_read_request",
-      "invalid_path_parameter",
-    ].includes(error.code)
+    ])
   ) {
     const field = error.details.field;
     const reason = validatedPublicErrorReason(
@@ -147,10 +154,7 @@ function failure<T>(
       },
     };
   }
-  if (
-    status === 401 &&
-    ["session_required", "authentication_required"].includes(error.code)
-  ) {
+  if (error.code === "session_required") {
     return {
       kind: "rejected",
       failure: {
@@ -161,12 +165,10 @@ function failure<T>(
     };
   }
   if (
-    status === 403 &&
-    [
+    isFailureCode(error.code, [
       "authorization_denied",
       "csrf_verification_failed",
-      "csrf_failed",
-    ].includes(error.code)
+    ])
   ) {
     return {
       kind: "rejected",
@@ -178,10 +180,8 @@ function failure<T>(
       },
     };
   }
-  if (
-    status === 404 &&
-    ["saved_view_not_found", "incident_not_found"].includes(error.code)
-  ) {
+  // Saved-view operations declare only saved_view_not_found at 404.
+  if (error.code === "saved_view_not_found") {
     return {
       kind: "rejected",
       failure: {
@@ -189,6 +189,18 @@ function failure<T>(
         kind: "unavailable_target",
         message:
           "This saved view is unavailable. Check current access and retry the resource read.",
+      },
+    };
+  }
+  // Saved-view writes are never replayed, so a refusal before apply is a
+  // definite rejection that keeps the draft (Core 03 REQ-03-086a).
+  if (isUnappliedRefusal(error.status, error)) {
+    return {
+      kind: "rejected",
+      failure: {
+        ...common,
+        kind: "terminal",
+        message: write ? notAppliedText() : temporaryUnavailabilityText(),
       },
     };
   }
@@ -247,7 +259,7 @@ export function createWorkbookSavedViewAdapter(options: {
   readonly apiBase: string | undefined;
   readonly incidentId: string;
 }): WorkbookSavedViewPort {
-  async function execute<I extends HTTPOperationID>(
+  async function execute<I extends SavedViewHTTPOperation>(
     operationID: I,
     signal: AbortSignal,
     write: boolean,
@@ -256,7 +268,7 @@ export function createWorkbookSavedViewAdapter(options: {
     savedViewId?: string,
   ) {
     try {
-      const result = await fetchHTTPOperation<HTTPOperationResponse<I>>({
+      const result = await fetchHTTPOperation({
         apiBase: options.apiBase,
         operationID,
         pathParameters: {
@@ -278,8 +290,7 @@ export function createWorkbookSavedViewAdapter(options: {
       });
       if (!result.ok)
         return failure<HTTPOperationResponse<I>>(
-          result.status,
-          result.payload,
+          result.payload.error as HTTPOperationError<SavedViewHTTPOperation>,
           write,
           base,
         );
@@ -330,9 +341,7 @@ export function createWorkbookSavedViewAdapter(options: {
     },
     async listPage(input) {
       try {
-        const result = await fetchHTTPOperation<
-          HTTPOperationResponse<"listIncidentSavedViews">
-        >({
+        const result = await fetchHTTPOperation({
           apiBase: options.apiBase,
           operationID: "listIncidentSavedViews",
           pathParameters: { incident_id: options.incidentId },
@@ -347,7 +356,7 @@ export function createWorkbookSavedViewAdapter(options: {
           },
           init: { method: "GET", signal: input.signal },
         });
-        if (!result.ok) return failure(result.status, result.payload, false);
+        if (!result.ok) return failure(result.payload.error, false);
         const page =
           result.status === 200
             ? normalizeWorkbookSavedViewPage({

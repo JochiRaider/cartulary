@@ -162,6 +162,7 @@ import {
   findFetchCalls,
   findFetchCallsByPath,
   jsonResponse,
+  operationErrorResponse,
 } from "../testing/fetchMockTestSupport";
 import { AccountApplicationMenu } from "./AccountApplicationMenu";
 import { AppRoot } from "./AppRoot";
@@ -228,7 +229,16 @@ describe("Incident landing", () => {
           authenticated
             ? session
             : jsonResponse(
-                { error: { code: "session_required", status: 401 } },
+                {
+                  error: {
+                    code: "session_required",
+                    status: 401,
+                    message: "Authentication required.",
+                    request_id: "request-test",
+                    retryable: false,
+                    details: {},
+                  },
+                },
                 401,
               ),
         extraRoutes: [
@@ -375,7 +385,8 @@ describe("Incident landing", () => {
     });
 
     it("keeps malformed and transport directory failures local and never presents successful empty results", async () => {
-      let outcome: "malformed" | "transport" | "valid" | "denied" = "malformed";
+      let outcome: "malformed" | "transport" | "valid" | "undeclared" =
+        "malformed";
       installLandingShellFetch(fetchMock, {
         session: sessionResource(),
         incidents: () => {
@@ -386,9 +397,18 @@ describe("Incident landing", () => {
             });
           if (outcome === "transport")
             return Promise.reject(new TypeError("Network failed"));
-          if (outcome === "denied")
+          if (outcome === "undeclared")
             return jsonResponse(
-              { error: { code: "authorization_denied", status: 403 } },
+              {
+                error: {
+                  code: "authorization_denied",
+                  status: 403,
+                  message: "Access denied.",
+                  request_id: "request-test",
+                  retryable: false,
+                  details: {},
+                },
+              },
               403,
             );
           return [alpha];
@@ -420,12 +440,25 @@ describe("Incident landing", () => {
         screen.getByRole("button", { name: "Retry loading incidents" }),
       );
       await screen.findByTestId(landingIncidentCardTestId(alpha.incident_id));
-      outcome = "denied";
+      // listVisibleIncidents declares no 403: the code is a contract failure
+      // and must not drive the forbidden directory presentation.
+      outcome = "undeclared";
       fireEvent.click(screen.getByTestId(incidentLandingTestId("refresh")));
-      await screen.findByRole("button", { name: "Refresh first page" });
+      await waitFor(() =>
+        expect(
+          screen
+            .getByTestId(incidentLandingTestId("shell"))
+            .getAttribute("data-directory-state"),
+        ).toBe("failed"),
+      );
       expect(
-        screen.queryByTestId(landingIncidentCardTestId(alpha.incident_id)),
-      ).toBeNull();
+        screen
+          .getByTestId(incidentLandingTestId("shell"))
+          .getAttribute("data-bootstrap-state"),
+      ).toBe("authenticated");
+      expect(document.body.textContent).toContain(
+        "invalid_public_contract_response",
+      );
       expect(
         screen.queryByTestId(incidentLandingTestId("empty-state")),
       ).toBeNull();
@@ -465,7 +498,16 @@ describe("Incident landing", () => {
       await act(async () =>
         pending.resolve(
           jsonResponse(
-            { error: { code: "session_required", status: 401 } },
+            {
+              error: {
+                code: "session_required",
+                status: 401,
+                message: "Authentication required.",
+                request_id: "request-test",
+                retryable: false,
+                details: {},
+              },
+            },
             401,
           ),
         ),
@@ -766,19 +808,14 @@ describe("Incident landing", () => {
     });
 
     it("replays an uncertain response with the same captured payload", async () => {
+      // A declared 500 leaves the creation outcome unknown.
       installLandingShellFetch(fetchMock, {
         session: sessionResource(),
         onCreateIncident: () =>
-          jsonResponse(
-            {
-              error: {
-                code: "service_unavailable",
-                status: 502,
-                retryable: true,
-              },
-            },
-            502,
-          ),
+          operationErrorResponse("createIncident", {
+            code: "internal_error",
+            status: 500,
+          }),
       });
       renderApp();
       await openCreation();
@@ -797,6 +834,56 @@ describe("Incident landing", () => {
       );
       const requests = findFetchCalls(fetchMock, "/api/v1/incidents", "POST");
       expect(requests[1]?.[1]?.body).toBe(requests[0]?.[1]?.body);
+    });
+
+    it("shows a 503 refusal as not applied and resubmits as a new request", async () => {
+      // Core 03 REQ-03-086a: a declared 503 service_unavailable was not
+      // applied, so the draft stays editable and a resubmission is a new
+      // logical action with a new client_txn_id.
+      let refused = true;
+      installLandingShellFetch(fetchMock, {
+        session: sessionResource(),
+        onCreateIncident: () => {
+          if (!refused) return new Promise<Response>(() => {});
+          refused = false;
+          return operationErrorResponse(
+            "createIncident",
+            { code: "service_unavailable", status: 503 },
+            { details: { reason_code: "admission_paused" } },
+          );
+        },
+      });
+      renderApp();
+      await openCreation();
+      fireEvent.click(screen.getByRole("button", { name: "Create and open" }));
+      await screen.findByText(
+        "Cartulary is temporarily unavailable. This action was not applied; try again shortly.",
+      );
+      expect(
+        screen.queryByRole("button", { name: "Retry creation" }),
+      ).toBeNull();
+      expect(
+        (screen.getByLabelText("Title") as HTMLInputElement).readOnly,
+      ).toBe(false);
+      fireEvent.click(screen.getByRole("button", { name: "Create and open" }));
+      await waitFor(() =>
+        expect(
+          findFetchCalls(fetchMock, "/api/v1/incidents", "POST"),
+        ).toHaveLength(2),
+      );
+      const [first, second] = findFetchCalls(
+        fetchMock,
+        "/api/v1/incidents",
+        "POST",
+      ).map(
+        (call) =>
+          JSON.parse(String(call[1]?.body ?? "{}")) as Record<string, unknown>,
+      );
+      expect(second?.client_txn_id).not.toBe(first?.client_txn_id);
+      expect({ ...second, client_txn_id: null }).toEqual({
+        ...first,
+        client_txn_id: null,
+      });
     });
 
     it("keeps a draft through keyboard dismissal and explicit reopening", async () => {
@@ -830,6 +917,9 @@ describe("Incident landing", () => {
                 code: "invalid_incident_create",
                 status: 400,
                 details: { field: "severity", reason_code: "field_too_long" },
+                message: "Invalid request.",
+                request_id: "request-test",
+                retryable: false,
               },
             },
             400,
@@ -859,9 +949,10 @@ describe("Incident landing", () => {
       installLandingShellFetch(fetchMock, {
         session: () =>
           created && failRefresh
-            ? jsonResponse(
-                { error: { code: "service_unavailable", status: 502 } },
-                502,
+            ? operationErrorResponse(
+                "getCurrentSession",
+                { code: "service_unavailable", status: 503 },
+                { details: { reason_code: "admission_paused" } },
               )
             : sessionResource({
                 memberships: created
@@ -2839,7 +2930,16 @@ describe("Incident landing", () => {
         else if (outcome === "session_lost")
           late.resolve(
             jsonResponse(
-              { error: { code: "session_required", status: 401 } },
+              {
+                error: {
+                  code: "session_required",
+                  status: 401,
+                  message: "Authentication required.",
+                  request_id: "request-test",
+                  retryable: false,
+                  details: {},
+                },
+              },
               401,
             ),
           );

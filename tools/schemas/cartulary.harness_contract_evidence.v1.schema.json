@@ -1,0 +1,187 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_contract_evidence.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "kind",
+    "process_kind",
+    "work_unit_id",
+    "pid"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.harness_contract_evidence.v1"
+    },
+    "kind": {
+      "enum": [
+        "undeclared_error_code",
+        "security_mismatch",
+        "server_fatal",
+        "error_emission"
+      ]
+    },
+    "operation_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z][A-Za-z0-9_.-]*$"
+    },
+    "status": {
+      "type": "integer",
+      "minimum": 100,
+      "maximum": 599
+    },
+    "code": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "security": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "declared",
+        "observed"
+      ],
+      "properties": {
+        "declared": {
+          "$ref": "#/$defs/security_class"
+        },
+        "observed": {
+          "$ref": "#/$defs/security_class"
+        }
+      }
+    },
+    "reason_code": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "process_kind": {
+      "enum": [
+        "in_process",
+        "server_harness"
+      ]
+    },
+    "work_unit_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1,
+      "maxLength": 255,
+      "pattern": "^[ -~]+$"
+    },
+    "pid": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 4194304
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "server_fatal"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "reason_code"
+        ],
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "operation_id"
+              ]
+            },
+            {
+              "required": [
+                "status"
+              ]
+            },
+            {
+              "required": [
+                "code"
+              ]
+            },
+            {
+              "required": [
+                "security"
+              ]
+            }
+          ]
+        }
+      },
+      "else": {
+        "required": [
+          "operation_id",
+          "status"
+        ],
+        "not": {
+          "required": [
+            "reason_code"
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "security_mismatch"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "security"
+        ],
+        "not": {
+          "required": [
+            "code"
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "enum": [
+              "undeclared_error_code",
+              "error_emission"
+            ]
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "code"
+        ],
+        "not": {
+          "required": [
+            "security"
+          ]
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "security_class": {
+      "enum": [
+        "public",
+        "session",
+        "session_csrf",
+        "credential_bootstrap"
+      ]
+    }
+  }
+}

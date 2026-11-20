@@ -85,9 +85,7 @@ export function IncidentLanding({
 
   return (
     <section
-      data-bootstrap-state={
-        state.phase === "forbidden" ? "forbidden" : "authenticated"
-      }
+      data-bootstrap-state="authenticated"
       data-directory-state={state.phase}
       data-testid={incidentLandingTestId("shell")}
       style={surfacePanelStyle}

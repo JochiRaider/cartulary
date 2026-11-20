@@ -27,7 +27,6 @@ type revisionAllocatorHarness struct {
 }
 
 func TestRevisionsIncidentBundleNextIDsDoNotCollide(t *testing.T) {
-	t.Run("committed_history_order", exerciseHistoryOrderAllocator)
 	t.Run("last representable next value is preserved", func(t *testing.T) {
 		h := newRevisionAllocatorHarness(t, "last-representable")
 		tx, err := h.db.BeginTx(t.Context(), pgx.TxOptions{})

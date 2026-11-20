@@ -216,6 +216,11 @@ func (s *TransactionService) validateExecutionTx(
 	if s == nil || tx == nil || !execution.valid() {
 		return ErrNotConfigured
 	}
+	// Owner transactions serialize Job transitions through the transition
+	// lock. The row is held only FOR KEY SHARE, which lease renewal's update
+	// does not conflict with, so the attempt's own transaction never delays or
+	// starves its lease (Core 01 REQ-01-453). Terminal transitions still take
+	// the row FOR UPDATE when they change it.
 	if err := lockTransitionTx(ctx, tx, execution.jobID); err != nil {
 		return err
 	}
@@ -227,7 +232,7 @@ SELECT status
    AND handler_attempt_id = $2
    AND handler_lease_expires_at > clock_timestamp()
    AND status IN ('running', 'cancel_requested')
- FOR UPDATE
+ FOR KEY SHARE
 `, execution.jobID, execution.attemptID).Scan(&status)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrExecutionLost
@@ -277,7 +282,7 @@ SELECT extension_owner_profile_id, job_kind, handler_name,
 	AND handler_attempt_id = $2
 	AND handler_lease_expires_at > now()
 	AND (status = 'running' OR ($3 AND status = 'cancel_requested'))
- FOR UPDATE
+ FOR KEY SHARE
 `, execution.jobID, execution.attemptID, allowCancellation).Scan(
 		&ownerProfileID,
 		&jobKind,

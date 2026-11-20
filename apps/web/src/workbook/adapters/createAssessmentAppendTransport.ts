@@ -1,7 +1,4 @@
-import {
-  buildHTTPOperationPath,
-  type CreateViewRowResponse,
-} from "@cartulary/protocol-ts/http";
+import { buildHTTPOperationPath } from "@cartulary/protocol-ts/http";
 import { assessmentsViewSchemaId } from "@cartulary/view-contracts";
 import { fetchHTTPOperation } from "../../services/browserApi";
 import {
@@ -11,7 +8,7 @@ import {
 import { buildAssessmentCreatePayload } from "../models/assessmentWorkbookModel";
 import { acceptWorkbookRowObservation } from "../query/acceptWorkbookRowObservation";
 import type { WorkbookReadScopeSource } from "../query/WorkbookQueryRow";
-import { classifyWorkbookOperationFailure } from "./workbookOperationErrorPolicy";
+import { explicitWorkbookFailureOutcome } from "./workbookOperationErrorPolicy";
 import { acceptedRecordMutation } from "./workbookRecordPatchTransport";
 
 export function createAssessmentAppendTransport(
@@ -50,7 +47,7 @@ export function createAssessmentAppendTransport(
           buildHTTPOperationPath("createViewRow", pathParameters)
         )
           return { kind: "uncertain" };
-        const result = await fetchHTTPOperation<CreateViewRowResponse>({
+        const result = await fetchHTTPOperation({
           apiBase: attempt.apiBase,
           operationID: "createViewRow",
           pathParameters,
@@ -60,21 +57,11 @@ export function createAssessmentAppendTransport(
           },
         });
         if (!result.ok) {
-          if (
-            status === null ||
-            status < 400 ||
-            status >= 500 ||
-            !result.payload.error?.code
-          )
-            return { kind: "uncertain" };
-          const failure = classifyWorkbookOperationFailure(
-            result.status,
-            result.payload,
+          return explicitWorkbookFailureOutcome(
+            status,
+            result.payload.error,
             "createViewRow",
           );
-          return failure.kind === "invalid_contract"
-            ? { kind: "uncertain" }
-            : { kind: "rejected", failure };
         }
         return acceptedRecordMutation(
           result.payload.data,

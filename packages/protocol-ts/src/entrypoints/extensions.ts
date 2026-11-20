@@ -1,5 +1,4 @@
 import { extensionClientSupportRegistry as generatedExtensionClientSupportRegistry } from "../generated/extension-client-support-registry.js";
-import { extensionProfileRegistry } from "../generated/extension-profile-registry.js";
 
 type ExtensionClientSupportProfile = {
   readonly capability_ids: readonly string[];
@@ -15,10 +14,5 @@ export type ExtensionClientSupportRegistry = {
   readonly profiles: readonly ExtensionClientSupportProfile[];
   readonly schema_id: "cartulary.client_extension_support_registry.v1";
 };
-export type ExtensionProfile =
-  (typeof extensionProfileRegistry)["profiles"][number];
-
 export const extensionClientSupportRegistry: ExtensionClientSupportRegistry =
   generatedExtensionClientSupportRegistry;
-
-export { extensionProfileRegistry };

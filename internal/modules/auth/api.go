@@ -144,15 +144,6 @@ func DecodeLoginRequest(reader io.Reader) (LoginRequest, *httpapi.APIError) {
 	return request, nil
 }
 
-func AllowsBootstrapTokenRoute(path string) bool {
-	switch path {
-	case "/api/v1/auth/mfa/totp/begin", "/api/v1/auth/mfa/totp/complete":
-		return true
-	default:
-		return false
-	}
-}
-
 func BuildCredentialStateResource(user authn.UserRecord, pendingExpiresAt *time.Time) map[string]any {
 	totpState := "not_enrolled"
 	if pendingExpiresAt != nil {

@@ -4,6 +4,7 @@ import { responseBarrier } from "../runtime/cleanup";
 import { apiBase } from "../runtime/configuration";
 import {
   awaitResponseBarrier,
+  fulfillOperationError,
   installOwnedRoute,
 } from "../transport/requestInterception";
 import {
@@ -141,21 +142,24 @@ export async function installAccountEditingFixture(
             };
           else preferences.select("default");
         }
-        await route.fulfill({
-          status: 409,
-          json: {
-            error: {
-              code:
-                fault === "transaction"
-                  ? "client_txn_conflict"
-                  : kind === "profile"
-                    ? "user_version_conflict"
-                    : "preferences_version_conflict",
-              status: 409,
-              retryable: false,
-            },
-          },
-        });
+        if (kind === "profile")
+          await fulfillOperationError(
+            route,
+            "patchCurrentAccountProfile",
+            409,
+            fault === "transaction"
+              ? "client_txn_conflict"
+              : "user_version_conflict",
+          );
+        else
+          await fulfillOperationError(
+            route,
+            "putCurrentAccountPreferences",
+            409,
+            fault === "transaction"
+              ? "client_txn_conflict"
+              : "preferences_version_conflict",
+          );
         return;
       }
       if (kind === "profile")

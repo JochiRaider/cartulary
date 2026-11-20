@@ -34,6 +34,7 @@ function fixture(t, mode = "machine") {
     unit_counts: { total: 1, passed: 1, failed: 0, skipped: 0, cancelled: 0 },
     wall_duration_ms: 1, critical_path: [], actual_dependency_critical_path_ms: 0,
     timing_accounting: timing, resource_pressure: {}, cache: {}, artifact_refs: [],
+    contract_evidence: { schema_id: "cartulary.harness_contract_evidence.v1", record_counts: { undeclared_error_code: 0, security_mismatch: 0, error_emission: 0 }, malformed_record_count: 0, violations: [], omitted_violation_count: 0 },
   };
   const target = {
     schema_id: "cartulary.harness_target_summary.v1", target: "source-check",

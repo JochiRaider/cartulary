@@ -350,6 +350,24 @@
       "filename": "00058_revision_history_order.sql",
       "sha256": "bb4e632b691bbdcdf0896b73c4c0221682b878caf675957cb559189c040cd478",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 59,
+      "filename": "00059_revision_history_order_at_commit.sql",
+      "sha256": "01f5aa8339c75c5cbd9afeb52fb0f108bbdde56c10e94b6fc78a97e24b5556dc",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 60,
+      "filename": "00060_network_flow_row_check_cost.sql",
+      "sha256": "078f484a00d9a9ec0ba432314d1a210cf9ac21182cb75b5c26b2004e1e31a5a4",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 61,
+      "filename": "00061_revision_history_order_restore_validation.sql",
+      "sha256": "6a135baf390766cb1254e9ea393e4e45e78305ba845140a1bfaaeaa06a22e92d",
+      "historical_phase_shaped": false
     }
   ]
 }

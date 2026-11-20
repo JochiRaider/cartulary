@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	partysource "github.com/JochiRaider/cartulary/internal/modules/parties/internal/source"
+	"github.com/JochiRaider/cartulary/internal/modules/records"
 	conflictresolution "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
@@ -94,12 +94,29 @@ func (f *MutationFacade) ResolveConflict(
 	}, nil
 }
 
+type partyRecordMeta struct {
+	IncidentID uuid.UUID
+	RecordType string
+	RowVersion int64
+}
+
+// loadPartyRecordMetaForUpdateTx classifies the addressed record through
+// Records (REQ-01-705: missing, then deleted) under FOR UPDATE. Callers apply
+// the type, incident-lifecycle and version steps in that order.
+func (f *MutationFacade) loadPartyRecordMetaForUpdateTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (partyRecordMeta, error) {
+	envelope, err := f.recordStore.ClassifyTargetTx(ctx, tx, recordID, records.TargetLockUpdate)
+	if err != nil {
+		return partyRecordMeta{}, err
+	}
+	return partyRecordMeta{IncidentID: envelope.IncidentID, RecordType: envelope.RecordType, RowVersion: envelope.RowVersion}, nil
+}
+
 func (f *MutationFacade) loadConflictTarget(
 	ctx context.Context,
 	tx pgx.Tx,
 	command conflictresolution.Command,
 ) (conflictresolution.Target, error) {
-	meta, err := partysource.LoadRecordMetaForUpdateTx(ctx, tx, command.RecordID)
+	meta, err := f.loadPartyRecordMetaForUpdateTx(ctx, tx, command.RecordID)
 	if err != nil {
 		return conflictresolution.Target{}, err
 	}

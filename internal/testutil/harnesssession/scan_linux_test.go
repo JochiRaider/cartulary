@@ -10,6 +10,8 @@ import (
 	"strings"
 	"syscall"
 	"testing"
+
+	"github.com/JochiRaider/cartulary/internal/platform/harnessredact"
 )
 
 func TestSessionScan(t *testing.T) {
@@ -143,6 +145,46 @@ func TestSessionScan(t *testing.T) {
 					t.Fatal("scan result differs from frozen independent expectations", ours)
 				}
 			})
+		}
+	})
+	// TH-HARNESS-REQ-617: every manifest rule and every structured-key
+	// redaction leaves only the single marker, and the retained-secret scan
+	// accepts the result in each syntactic context it checks.
+	t.Run("manifest_redaction_output_passes_retained_scan", func(t *testing.T) {
+		secrets := []string{"pw-secret-1234", "tok-secret-1234", "s3-secret-1234", "key-secret-1234", "cookie-secret-1234", "jwtsignaturesecret"}
+		raw := map[string]string{
+			"bearer_token":                       "Bearer tok-secret-1234",
+			"basic_auth":                         "Basic tok-secret-1234",
+			"authorization_header":               "Authorization: tok-secret-1234",
+			"cookie_header":                      "Cookie: session=cookie-secret-1234",
+			"jwt":                                "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.jwtsignaturesecret",
+			"postgres_password_assignment":       "host=db password=pw-secret-1234 dbname=cartulary",
+			"generic_url_userinfo":               "postgresql://cartulary:pw-secret-1234@127.0.0.1:5432/postgres",
+			"cli_secret_argument_equals":         "--password=pw-secret-1234",
+			"cli_secret_argument_space":          "--token tok-secret-1234",
+			"generic_password_assignment":        "PASSWORD=pw-secret-1234 TOKEN=tok-secret-1234 DSN=pw-secret-1234",
+			"object_store_credential_assignment": "AWS_SECRET_ACCESS_KEY=s3-secret-1234",
+			"json_like_secret_assignment":        `{"password":"pw-secret-1234","token": "tok-secret-1234"}`,
+			"private_key_block":                  "-----BEGIN PRIVATE KEY-----\nkey-secret-1234\n-----END PRIVATE KEY-----",
+		}
+		outputs := map[string]string{}
+		for name, input := range raw {
+			outputs["raw/"+name] = harnessredact.String(input)
+		}
+		outputs["structured/json_members"] = harnessredact.StructuredString(`{"password":"pw-secret-1234","session_token":"tok-secret-1234","Authorization":"Bearer tok-secret-1234","nested":{"api_key":"key-secret-1234","SECRET_KEY":"s3-secret-1234"},"args":["--token","tok-secret-1234"]}`)
+		outputs["structured/pretty_json_member"] = harnessredact.StructuredString("{\n  \"password\": \"pw-secret-1234\"\n}")
+		for name, output := range outputs {
+			for _, secret := range secrets {
+				if strings.Contains(output, secret) {
+					t.Errorf("%s retained a secret: %q", name, output)
+				}
+			}
+			if strings.Contains(output, "REDACTED") || !strings.Contains(output, "<redacted>") {
+				t.Errorf("%s used a marker other than <redacted>: %q", name, output)
+			}
+			if err := scanContent(strings.NewReader(output), secrets); err != nil {
+				t.Errorf("%s failed the retained-secret scan: %q: %v", name, output, err)
+			}
 		}
 	})
 	t.Run("scan_rejects_unsafe_entries", func(t *testing.T) {

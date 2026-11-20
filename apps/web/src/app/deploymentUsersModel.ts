@@ -1,8 +1,14 @@
 import {
   type APIError,
   clientTxnID,
+  type HTTPOperationFailureCode,
   type HTTPOperationResult,
 } from "../services/browserApi";
+import {
+  isUnappliedRefusal,
+  notAppliedText,
+  stillUnconfirmedText,
+} from "../shared/publicError";
 import {
   validateAccountDisplayName,
   validateAccountEmail,
@@ -113,9 +119,24 @@ type Operation =
       intent: Intent;
       propagation: "pending" | "ready" | "failed";
     };
+/** Deployment user administration operations this controller sends. */
+type DeploymentUserOperation =
+  | "listDeploymentUsers"
+  | "getDeploymentUser"
+  | "createDeploymentUser"
+  | "patchDeploymentUser"
+  | "resetDeploymentUserPassword"
+  | "resetDeploymentUserTOTP"
+  | "revokeAllDeploymentUserSessions"
+  | "createEnterpriseAuthBinding"
+  | "rotateEnterpriseAuthBinding"
+  | "retireEnterpriseAuthBinding";
+type DeploymentUserError = APIError<
+  HTTPOperationFailureCode<DeploymentUserOperation>
+>;
 type MutationReply =
   | { ok: true; userId: string; user: UserResource | null }
-  | { ok: false; status: number; error: APIError | null };
+  | { ok: false; status: number; error: DeploymentUserError | null };
 type CreateDraft = {
   email: string;
   displayName: string;
@@ -281,7 +302,7 @@ const labels: Record<Action, [string, string, string]> = {
   ],
 };
 function resourceReply(
-  result: HTTPOperationResult<{ data: UserResource }>,
+  result: HTTPOperationResult<{ data: UserResource }, DeploymentUserOperation>,
 ): MutationReply {
   return result.ok
     ? {
@@ -651,7 +672,10 @@ export class DeploymentUsersController {
       });
     return user;
   }
-  private deny = async (error: APIError | null, current: () => boolean) => {
+  private deny = async (
+    error: DeploymentUserError | null,
+    current: () => boolean,
+  ) => {
     if (!current() || !this.identity) return;
     const identity = this.identity;
     if (error?.code === "session_required") {
@@ -1140,13 +1164,24 @@ export class DeploymentUsersController {
     try {
       const outcome = await observation.result;
       if (!current()) return false;
+      // A decoded 503 was refused before it was applied: a definite
+      // rejection on a first attempt, while a refused replay leaves the
+      // earlier outcome uncertain (Core 03 REQ-03-086a).
+      const refused =
+        outcome.kind === "completed" &&
+        !outcome.value.ok &&
+        isUnappliedRefusal(outcome.value.status, outcome.value.error);
       if (
         outcome.kind !== "completed" ||
-        (!outcome.value.ok && outcome.value.status >= 500)
+        (!outcome.value.ok &&
+          outcome.value.status >= 500 &&
+          (replay || !refused))
       ) {
         this.publish({
           operation: { kind: "uncertain", intent, recovery },
-          statusText: `${labels[intent.action][0]}: outcome uncertain for ${intent.target ?? intent.label}. ${recovery.kind === "exact_replay" ? "Replay the exact action to check the original request." : "Refresh current state and explicitly review a new action. Matching state is not a receipt."}`,
+          statusText: refused
+            ? stillUnconfirmedText()
+            : `${labels[intent.action][0]}: outcome uncertain for ${intent.target ?? intent.label}. ${recovery.kind === "exact_replay" ? "Replay the exact action to check the original request." : "Refresh current state and explicitly review a new action. Matching state is not a receipt."}`,
         });
         return false;
       }
@@ -1158,7 +1193,7 @@ export class DeploymentUsersController {
         this.publish({
           operation: { kind: "rejected", intent, review },
           error: accountOperationError(result.error),
-          statusText: labels[intent.action][2],
+          statusText: refused ? notAppliedText() : labels[intent.action][2],
         });
         await this.deny(
           result.error && { ...result.error, status: result.status },

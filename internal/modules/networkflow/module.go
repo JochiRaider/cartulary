@@ -11,7 +11,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/gen/networkflowroutes"
 	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
 	"github.com/JochiRaider/cartulary/internal/modules/imports"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
@@ -189,11 +188,16 @@ func (m *Module) RegisterRoutes() httpapi.RouteRegistrar {
 		if m.transactions == nil {
 			return errors.New("network flow cross-owner transaction coordinator unavailable")
 		}
-		service, err := newRouteService(deps, m)
+		service, err := newRouteService(m)
 		if err != nil {
 			return err
 		}
-		return registerNetworkFlowRoutes(mux, service)
+		// Central admission in Network Flow's own order (NF NLSpec Table 21-C,
+		// Core 01 REQ-01-707 family clause): the incident gate runs between the
+		// incident identifier and the table or graph-view identifier.
+		return httpapi.BindAdmittedOwnerOrderRoutes(mux, deps, httpapi.OwnerOrder{
+			OwnerID: routeOwnerID, Gate: service.admitIncident, Handlers: service.operationHandlers(),
+		})
 	}
 }
 
@@ -216,44 +220,4 @@ func (m *Module) TransactionCapabilities(participantID string, tx pgx.Tx) (cross
 	default:
 		return nil, nil, fmt.Errorf("%w: %s", crossownertransaction.ErrParticipantSet, participantID)
 	}
-}
-
-func registerNetworkFlowRoutes(mux *http.ServeMux, service *routeService) error {
-	handlers := map[string]http.HandlerFunc{
-		"nf.graphs.contributors.query":      service.handleGraphContributorsQuery,
-		"nf.graphs.query":                   service.handleGraphQuery,
-		"nf.graph_views.list":               service.handleGraphViewsCollection,
-		"nf.graph_views.create":             service.handleGraphViewsCollection,
-		"nf.graph_views.get":                service.handleGraphViewResource,
-		"nf.graph_views.patch":              service.handleGraphViewResource,
-		"nf.graph_views.delete":             service.handleGraphViewResource,
-		"nf.graph_views.refresh":            service.handleGraphViewRefresh,
-		"nf.graph_views.result":             service.handleGraphViewResult,
-		"nf.graph_views.contributors.query": service.handleGraphViewContributorsQuery,
-		"nf.indicator_links.create":         service.handleIndicatorLinks,
-		"nf.rejected_rows.query":            service.handleRejectedRowsQuery,
-		"nf.rows.query":                     service.handleRowsQuery,
-		"nf.source_profiles.list":           service.handleSourceProfiles,
-		"nf.tables.delete":                  service.handleTableResource,
-		"nf.tables.get":                     service.handleTableResource,
-		"nf.tables.list":                    service.handleTablesCollection,
-		"nf.tables.patch":                   service.handleTableResource,
-		"nf.tables.query":                   service.handleTableRowsQuery,
-	}
-	routes := networkflowroutes.All()
-	if len(routes) != len(handlers) {
-		return fmt.Errorf("network flow route parity failed: contract=%d handlers=%d", len(routes), len(handlers))
-	}
-	for _, route := range routes {
-		handler, ok := handlers[route.RouteID]
-		if !ok {
-			return fmt.Errorf("network flow route %q has no handler", route.RouteID)
-		}
-		mux.HandleFunc(route.Pattern, handler)
-		delete(handlers, route.RouteID)
-	}
-	if len(handlers) != 0 {
-		return fmt.Errorf("network flow has handlers outside its route contract")
-	}
-	return nil
 }

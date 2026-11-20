@@ -130,8 +130,8 @@ func (d *CleanupDispatcher) runOnce(ctx context.Context) (cleanupSweepResult, er
 	result, err := d.sweeper.SweepFailedUnattachedBlobs(ctx, d.deleter, d.now().UTC())
 	observation := CleanupSweepObservation{
 		Operation:             "cleanup_sweep",
-		Result:                cleanupObservationResult(ctx, err),
-		ErrorClass:            cleanupObservationErrorClass(ctx, err),
+		Result:                cleanupObservationResult(ctx, result, err),
+		ErrorClass:            cleanupObservationErrorClass(ctx, result, err),
 		Duration:              time.Since(started),
 		HealthSnapshotValid:   result.HealthSnapshotValid,
 		OverdueBlobCount:      result.OverdueBlobCount,
@@ -164,8 +164,13 @@ func (d *CleanupDispatcher) run(ctx context.Context, done chan<- struct{}, servi
 	}
 }
 
-func cleanupObservationResult(ctx context.Context, err error) string {
+// A sweep that met a REQ-02-189a tuple violation committed its coherent work
+// but reports itself failed with the invariant_violation error class.
+func cleanupObservationResult(ctx context.Context, result cleanupSweepResult, err error) string {
 	if err == nil {
+		if result.InvariantViolationCount > 0 {
+			return "failed"
+		}
 		return "success"
 	}
 	if errors.Is(err, context.Canceled) || errors.Is(ctx.Err(), context.Canceled) {
@@ -177,8 +182,11 @@ func cleanupObservationResult(ctx context.Context, err error) string {
 	return "failed"
 }
 
-func cleanupObservationErrorClass(ctx context.Context, err error) string {
+func cleanupObservationErrorClass(ctx context.Context, result cleanupSweepResult, err error) string {
 	if err == nil {
+		if result.InvariantViolationCount > 0 {
+			return "invariant_violation"
+		}
 		return ""
 	}
 	if errors.Is(err, context.DeadlineExceeded) || errors.Is(ctx.Err(), context.DeadlineExceeded) {

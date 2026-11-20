@@ -14,8 +14,8 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
+	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
-	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
@@ -170,8 +170,8 @@ AND m.before_value=r.before_json AND m.after_value=r.after_json`, result.ChangeS
 	t.Run("deleted record requires restore", func(t *testing.T) {
 		created := create(t, "deleted")
 		envelopetest.SoftDeleteRecord(t, harness.DB, envelopetest.Tombstone{RecordID: created.RecordID, DeletedBy: actor.ID, At: now.Add(30 * time.Second)})
-		if _, err := patch(created.RecordID, 1, "deleted"); !errors.Is(err, revisions.ErrRecordDeletedUseRestore) {
-			t.Fatalf("deleted artifact patch error = %v, want ErrRecordDeletedUseRestore", err)
+		if _, err := patch(created.RecordID, 1, "deleted"); !errors.Is(err, records.ErrTargetDeleted) {
+			t.Fatalf("deleted artifact patch error = %v, want records.ErrTargetDeleted", err)
 		}
 		requireCount(t, harness, `SELECT count(*) FROM record_revisions WHERE record_id = $1`, created.RecordID, 1)
 		requireCount(t, harness, `SELECT count(*) FROM change_sets WHERE incident_id = $1 AND request_id = $2`, incident.ID, "req-artifacts-envelope-patch-deleted", 0)

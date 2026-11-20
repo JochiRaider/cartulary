@@ -17,7 +17,7 @@ navigation uses semantic element refs without timers.
 | [authorizationRecovery.ts](authorizationRecovery.ts) | Semantic authorization-recovery capability and outcomes shared by app and workbook owners. |
 | [displayName.ts](displayName.ts) | Shared display-name validation. |
 | [incidentResource.ts](incidentResource.ts) | Incident-resource validation and ordering of authoritative observations. |
-| [publicError.ts](publicError.ts) | Shared public-error normalization helpers. |
+| [publicError.ts](publicError.ts) | Shared public-error normalization helpers and the closed client-local error-code set. |
 | [publicErrorPresentation.ts](publicErrorPresentation.ts) | Maps structured public errors and operation families to safe presentation. |
 | [sheetRef.ts](sheetRef.ts) | Workbook sheet-reference validation, stable keys, and semantic equality. |
 | [useRegisteredOverlayNavigation.ts](useRegisteredOverlayNavigation.ts) | Overlay keyboard navigation and focus restoration through registered semantic element refs. |
@@ -28,7 +28,7 @@ navigation uses semantic element refs without timers.
 
 | File | Responsibility |
 | --- | --- |
-| [publicError.node.test.ts](publicError.node.test.ts) | Direct tests for allowlisted public detail projection and unsafe-message sanitization. |
+| [publicError.node.test.ts](publicError.node.test.ts) | Direct tests for allowlisted public detail projection, unsafe-message sanitization, and client code disjointness from registered server codes. |
 | [publicErrorPresentation.node.test.ts](publicErrorPresentation.node.test.ts) | Tests structured error presentation by operation context without inspecting human messages. |
 | [useRegisteredOverlayNavigation.test.tsx](useRegisteredOverlayNavigation.test.tsx) | Tests registered overlay focus reconciliation, restoration cancellation, and removed items. |
 | [useTransientMessageController.test.tsx](useTransientMessageController.test.tsx) | Tests visible-time dismissal, hover/focus pausing, and transient-message lifetime. |

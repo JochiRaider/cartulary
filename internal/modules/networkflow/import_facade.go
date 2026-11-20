@@ -256,8 +256,8 @@ func (f *importFacade) prepareImportApply(ctx context.Context, tx pgx.Tx, reques
 		DiagnosticsTruncated:       first.DiagnosticCount > int64(len(first.Diagnostics)),
 		Now:                        now,
 	}
-	params.VisitRows = func(visit func(normalizedRow) error) error {
-		second, err := f.validateImportPass(ctx, tx, request, mapping, false, visit)
+	params.VisitRows = func(gate rowSourceGate, visit func(normalizedRow) error) error {
+		second, err := f.validateImportPassGated(ctx, tx, request, mapping, false, visit, gate)
 		if err != nil {
 			return err
 		}

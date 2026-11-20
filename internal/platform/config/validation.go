@@ -6,7 +6,9 @@ import (
 	"os"
 	pathpkg "path"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"golang.org/x/sys/unix"
 )
@@ -124,7 +126,42 @@ func validateApplication(application *ApplicationConfig, diagnostics *[]Diagnost
 		})
 		return
 	}
-	application.PublicOrigin = parsed.Scheme + "://" + parsed.Host
+	// Core 04 REQ-04-110: the configured text must already be the browser's
+	// ASCII Origin serialization, and it is never rewritten, so the WebSocket
+	// Origin comparison and the derived OIDC redirect and SAML ACS URLs use
+	// exactly the configured text.
+	if serialized, ok := browserOriginSerialization(parsed); !ok || serialized != application.PublicOrigin {
+		*diagnostics = append(*diagnostics, Diagnostic{
+			Path:       "application.public_origin",
+			ReasonCode: "invalid_origin",
+			Message:    "application public origin must be written as a browser sends it in Origin",
+		})
+	}
+}
+
+// browserOriginSerialization returns the ASCII serialization of an https
+// origin (RFC 6454 §6.2): the lowercase scheme and host, an ASCII host (an
+// internationalized name in its A-label form), and the port only when it is
+// not the default 443, in decimal without leading zeros.
+func browserOriginSerialization(parsed *url.URL) (string, bool) {
+	host := parsed.Hostname()
+	for index := 0; index < len(host); index++ {
+		if character := host[index]; character >= utf8.RuneSelf || 'A' <= character && character <= 'Z' {
+			return "", false
+		}
+	}
+	if strings.Contains(host, ":") {
+		host = "[" + host + "]"
+	}
+	serialized := "https://" + host
+	if port := parsed.Port(); port != "" || strings.HasSuffix(parsed.Host, ":") {
+		number, err := strconv.Atoi(port)
+		if err != nil || number < 1 || number > 65535 || strconv.Itoa(number) != port || number == 443 {
+			return "", false
+		}
+		serialized += ":" + port
+	}
+	return serialized, true
 }
 
 func validateStartupFilesystemRoots(bindings RootBindings) []Diagnostic {
@@ -310,6 +347,7 @@ func applyDefaultLimitValues(cfg *document, presence configPresence) {
 	applyDefaultInt64(&cfg.Limits.IncidentBundles.MaxExtractedBytes, defaultIncidentBundleMaxExtractedBytes, presence, "limits", "incident_bundles", "max_extracted_bytes")
 	applyDefaultInt64(&cfg.Limits.Previews.MaxPreviewablePayloadBytes, defaultPreviewMaxPreviewablePayloadBytes, presence, "limits", "previews", "max_previewable_payload_bytes")
 	applyDefaultInt64(&cfg.Limits.Previews.MaxTextInlineBytes, defaultPreviewMaxTextInlineBytes, presence, "limits", "previews", "max_text_inline_bytes")
+	applyDefaultInt64(&cfg.Limits.Database.MaxRuntimePoolConnections, defaultDatabaseMaxRuntimePoolConnections, presence, "limits", "database", "max_runtime_pool_connections")
 }
 
 // extensionRuntimeSetting binds one admitted configuration field to its complete
@@ -378,6 +416,7 @@ func validateLimitRegistry(limits LimitConfig, diagnostics *[]Diagnostic) {
 	validateLimitValue(limits.IncidentBundles.MaxExtractedBytes, "limits.incident_bundles.max_extracted_bytes", 1, limitRegistryMaxInt64, diagnostics)
 	validateLimitValue(limits.Previews.MaxPreviewablePayloadBytes, "limits.previews.max_previewable_payload_bytes", 1, limitRegistryMaxInt64, diagnostics)
 	validateLimitValue(limits.Previews.MaxTextInlineBytes, "limits.previews.max_text_inline_bytes", 1, limitRegistryMaxInt64, diagnostics)
+	validateLimitValue(limits.Database.MaxRuntimePoolConnections, "limits.database.max_runtime_pool_connections", minimumDatabaseMaxRuntimePoolConnections, maximumDatabaseMaxRuntimePoolConnections, diagnostics)
 }
 
 func validateLimitValue(value int64, path string, min int64, max int64, diagnostics *[]Diagnostic) {

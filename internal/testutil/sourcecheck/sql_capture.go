@@ -26,12 +26,12 @@ func (f *sqlBindingFacts) externallyMutable() bool {
 	return f != nil && (f.nestedWriter || f.addressEscaped || f.aggregateMutated || f.jumpMutable)
 }
 
-func sqlBindingInventory(root ast.Node) map[string]*sqlBindingFacts {
+func sqlBindingInventory(b binder, root ast.Node) map[string]*sqlBindingFacts {
 	facts := map[string]*sqlBindingFacts{}
 	add := func(id *ast.Ident, owner ast.Node, initialized bool) {
-		key := sqlBinding(id)
+		key := sqlBinding(b, id)
 		if facts[key] == nil {
-			facts[key] = &sqlBindingFacts{owner: owner, initialized: initialized, constant: id.Obj != nil && id.Obj.Kind == ast.Con}
+			facts[key] = &sqlBindingFacts{owner: owner, initialized: initialized, constant: b.bind(id).is(constantBinding)}
 		}
 	}
 	fields := func(list *ast.FieldList, owner ast.Node) {
@@ -46,7 +46,7 @@ func sqlBindingInventory(root ast.Node) map[string]*sqlBindingFacts {
 	var walk func(ast.Node, ast.Node)
 	write := func(expr ast.Expr, owner ast.Node) {
 		if id := sqlRootBinding(expr); id != nil {
-			if f := facts[sqlBinding(id)]; f != nil {
+			if f := facts[sqlBinding(b, id)]; f != nil {
 				f.writes++
 				f.nestedWriter = f.nestedWriter || f.owner != owner
 				_, simple := unparenSQL(expr).(*ast.Ident)
@@ -68,7 +68,7 @@ func sqlBindingInventory(root ast.Node) map[string]*sqlBindingFacts {
 				}
 			case *ast.AssignStmt:
 				for _, left := range e.Lhs {
-					if id, ok := left.(*ast.Ident); ok && e.Tok == token.DEFINE && id.Obj != nil && id.Obj.Decl == e {
+					if id, ok := left.(*ast.Ident); ok && e.Tok == token.DEFINE && b.bind(id).declaredBy(e) {
 						add(id, owner, true)
 					} else {
 						write(left, owner)
@@ -90,7 +90,7 @@ func sqlBindingInventory(root ast.Node) map[string]*sqlBindingFacts {
 			case *ast.UnaryExpr:
 				if e.Op == token.AND {
 					if id := sqlRootBinding(e.X); id != nil {
-						if f := facts[sqlBinding(id)]; f != nil {
+						if f := facts[sqlBinding(b, id)]; f != nil {
 							f.addressEscaped = true
 						}
 					}
@@ -141,7 +141,7 @@ func sqlBindingInventory(root ast.Node) map[string]*sqlBindingFacts {
 	})
 	ast.Inspect(root, func(node ast.Node) bool {
 		if id, ok := node.(*ast.Ident); ok && !admitted[id] {
-			if f := facts[sqlBinding(id)]; f != nil {
+			if f := facts[sqlBinding(b, id)]; f != nil {
 				f.collectionEscaped = true
 			}
 		}
@@ -212,10 +212,10 @@ func (a *sqlAnalyzer) observeClosure(fn *ast.FuncLit) {
 		}
 		for _, field := range fields.List {
 			for _, name := range field.Names {
-				a.variableTypes[sqlBinding(name)] = a.typeRef(field.Type)
-				a.env[sqlBinding(name)] = unknownSQL("callback parameter " + name.Name)
+				a.variableTypes[sqlBinding(a.binder, name)] = a.typeRef(field.Type)
+				a.env[sqlBinding(a.binder, name)] = unknownSQL("callback parameter " + name.Name)
 				if a.databaseType(field.Type) {
-					a.env[sqlBinding(name)] = []sqlValue{{"\x00database", nil}}
+					a.env[sqlBinding(a.binder, name)] = []sqlValue{{"\x00database", nil}}
 				}
 			}
 		}

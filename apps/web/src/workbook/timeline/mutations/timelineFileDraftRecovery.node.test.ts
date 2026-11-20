@@ -419,7 +419,7 @@ it("settles terminal validation immediately while preserving retryable transacti
     kind: "rejected",
     failure: {
       kind: "validation",
-      publicCode: "invalid_request",
+      publicCode: "invalid_mutation_payload",
       message: "Correct the original edit",
     },
   });
@@ -577,7 +577,7 @@ it("retains newer authoring and blocks orphan successors after creation discard"
     kind: "rejected",
     failure: {
       kind: "validation",
-      publicCode: "invalid_request",
+      publicCode: "invalid_mutation_payload",
       message: "Invalid creation",
     },
   });

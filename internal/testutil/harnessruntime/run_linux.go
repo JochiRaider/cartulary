@@ -103,7 +103,7 @@ func Run(ctx context.Context, root, binary string, args, environment []string) (
 		if errors.Is(err, context.DeadlineExceeded) {
 			return nil, 13, entryFailureAt("runtime_plan", err)
 		}
-		return nil, 2, entryFailureAt("runtime_plan", errors.Join(failed("config", "configuration_error"), err))
+		return nil, 2, runtimePlanFailure(err)
 	}
 	// This is an externally measured preparation interval in the graph clock.
 	// Compiler subphases have a different clock and are never fabricated as
@@ -334,7 +334,8 @@ func Run(ctx context.Context, root, binary string, args, environment []string) (
 			err := closeRuntime(unresolved)
 			finalized = true
 			return err
-		}, Pause: diagnostics.pause, Resume: diagnostics.resume, Observe: diagnostics.live.update,
+		}, ContractEvidence: func() (map[string]any, *failure) { return collateContractEvidence(runRoot) },
+		Pause: diagnostics.pause, Resume: diagnostics.resume, Observe: diagnostics.live.update,
 		Event: func(event map[string]any) error {
 			if seq, ok := event["seq"].(int64); ok {
 				diagnostics.live.transition(seq)

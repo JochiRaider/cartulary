@@ -16,6 +16,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/JochiRaider/cartulary/internal/platform/harnessredact"
 	"github.com/JochiRaider/cartulary/internal/testutil/postgrescleanup"
 )
 
@@ -332,10 +333,13 @@ func RecordEvent(env map[string]string, event Event) error {
 		journalState.sequences[journalPath] = last
 	}
 	event.Sequence = journalState.sequences[journalPath] + 1
-	payload, err := json.Marshal(event)
+	// Keep the redaction marker literal for the retained-secret scan
+	// (TH-HARNESS-REQ-617); encoding/json would escape it.
+	payload, err := harnessredact.JSON(event)
 	if err != nil {
 		return fmt.Errorf("encode suite-service event: %w", err)
 	}
+	payload = bytes.TrimSuffix(payload, []byte("\n"))
 	if len(payload) > 64*1024 {
 		return fmt.Errorf("encode suite-service event: record exceeds 65536-byte bound")
 	}

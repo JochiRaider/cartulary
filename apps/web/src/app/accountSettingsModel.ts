@@ -1,4 +1,9 @@
-import { clientTxnID, type HTTPOperationResult } from "../services/browserApi";
+import {
+  clientTxnID,
+  type HTTPOperationFailureCode,
+  type HTTPOperationResult,
+} from "../services/browserApi";
+import { isUnappliedRefusal } from "../shared/publicError";
 import { validateAccountDisplayName } from "./accountInputValidation";
 import {
   isAccountPreferencesResource,
@@ -12,7 +17,10 @@ import type {
   AccountProfileResource,
   DensityMode,
 } from "./api/publicHttpTypes";
-import type { AccountSettingsSessionPort } from "./appSessionController";
+import type {
+  AccountSettingsSessionPort,
+  SessionResourceErrorCode,
+} from "./appSessionController";
 
 export type AccountResourceKind = "profile" | "appearance";
 type Failure =
@@ -20,7 +28,8 @@ type Failure =
   | "timeout"
   | "contract"
   | "authorization"
-  | "unavailable";
+  | "unavailable"
+  | "temporarily_unavailable";
 type Attempt<V> = Readonly<{
   actor: string;
   lifetime: string;
@@ -36,7 +45,12 @@ type Operation<V> =
   | { kind: "uncertain"; attempt: Attempt<V>; reason: Failure }
   | {
       kind: "rejected";
-      reason: "validation" | "transaction" | "authorization" | "preparation";
+      reason:
+        | "validation"
+        | "transaction"
+        | "authorization"
+        | "preparation"
+        | "not_applied";
     }
   | {
       kind: "conflict";
@@ -90,12 +104,24 @@ type Observation<T> =
   | { kind: "cancelled" | "timeout" | "transport" };
 const unresolved = (operation: { kind: string }) =>
   operation.kind === "saving" || operation.kind === "uncertain";
-const failure = (code?: string, status?: number): Failure =>
+/** Account editor operations; none declares `authorization_denied`, and 403 is CSRF verification. */
+type AccountEditorOperation =
+  | "getCurrentAccountProfile"
+  | "patchCurrentAccountProfile"
+  | "putCurrentAccountPreferences";
+const failure = (
+  code?:
+    | HTTPOperationFailureCode<AccountEditorOperation>
+    | SessionResourceErrorCode,
+  status?: number,
+): Failure =>
   code === "invalid_public_contract_response"
     ? "contract"
-    : status === 403 || code === "authorization_denied"
+    : status === 403
       ? "authorization"
-      : "unavailable";
+      : status === 503 && code === "service_unavailable"
+        ? "temporarily_unavailable"
+        : "unavailable";
 export const accountSavedValue = (state: AccountEditState) =>
   state.kind === "profile"
     ? state.saved?.display_name
@@ -177,7 +203,10 @@ class AccountEditor<R extends ResourceIdentity, V> {
         attempt: Attempt<V>,
         signal: AbortSignal,
       ) => Promise<
-        HTTPOperationResult<{ data: R; meta: { request_id: string } }>
+        HTTPOperationResult<
+          { data: R; meta: { request_id: string } },
+          "patchCurrentAccountProfile" | "putCurrentAccountPreferences"
+        >
       >;
       newTransactionId: () => string;
       refresh: () => Promise<void>;
@@ -427,6 +456,10 @@ class AccountEditor<R extends ResourceIdentity, V> {
         operation: { kind: "rejected", reason: "authorization" },
         readFailure: "authorization",
       });
+    // Refused before it was applied: the draft stays and a new save is a new
+    // request. A refused replay stays uncertain (Core 03 REQ-03-086a).
+    else if (isUnappliedRefusal(result.status, error) && !replay)
+      this.update({ operation: { kind: "rejected", reason: "not_applied" } });
     else uncertain(failure(error?.code, result.status));
   }
   cancel(key: string) {

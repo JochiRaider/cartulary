@@ -372,7 +372,7 @@ describe("useGenericSurfaceQuery", () => {
     let pendingSignal: AbortSignal | null | undefined;
     const fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
       if (responseKind === "denied") {
-        return Promise.resolve(errorResponse("authorization_denied", 403));
+        return Promise.resolve(errorResponse("incident_not_found", 404));
       }
       if (responseKind === "pending") {
         pendingSignal = init?.signal;
@@ -404,6 +404,7 @@ describe("useGenericSurfaceQuery", () => {
     );
     expect(onAuthorityUncertain).toHaveBeenCalledOnce();
     expect(screen.getByLabelText("generic-rows").textContent).toBe("");
+    const settledCalls = fetchMock.mock.calls.length;
 
     rendered.rerender(
       <GenericQueryHarness
@@ -412,14 +413,16 @@ describe("useGenericSurfaceQuery", () => {
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: "refresh" }));
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(settledCalls);
 
     responseKind = "pending";
     rendered.rerender(
       <GenericQueryHarness onAuthorityUncertain={onAuthorityUncertain} />,
     );
     fireEvent.click(screen.getByRole("button", { name: "refresh" }));
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledTimes(settledCalls + 1),
+    );
     rendered.unmount();
     expect(pendingSignal?.aborted).toBe(true);
   });

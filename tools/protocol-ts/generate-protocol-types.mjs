@@ -664,6 +664,18 @@ function localComponentName(reference, componentKind) {
   return reference.slice(prefix.length);
 }
 
+function resolveOperationResponse(openAPI, operationID, status, rawResponse) {
+  const response = requireObject(rawResponse, `${operationID} ${status}`);
+  const responseComponent = localComponentName(response.$ref, "responses");
+  if (!responseComponent) {
+    return response;
+  }
+  return requireObject(
+    openAPI.components?.responses?.[responseComponent],
+    `OpenAPI response ${responseComponent}`,
+  );
+}
+
 function operationBindings(openAPI, selection, definitions) {
   const selectedIDs = requireSortedUniqueStrings(
     selection.operation_ids,
@@ -733,20 +745,41 @@ function operationBindings(openAPI, selection, definitions) {
         }
       }
       const responses = requireObject(operation.responses, `${operation.operationId} responses`);
+      for (const status of Object.keys(responses)) {
+        if (!/^[2-5][0-9][0-9]$/u.test(status)) {
+          throw new Error(`${operation.operationId} declares unsupported response status ${status}`);
+        }
+      }
       const successStatuses = Object.keys(responses)
         .filter((status) => /^[23][0-9][0-9]$/u.test(status))
         .sort();
+      const errorCodesByStatus = Object.fromEntries(
+        Object.keys(responses)
+          .filter((status) => /^[45][0-9][0-9]$/u.test(status))
+          .sort()
+          .map((status) => {
+            const label = `${operation.operationId} ${status} x-cartulary-error-codes`;
+            const codes = requireSortedUniqueStrings(
+              resolveOperationResponse(openAPI, operation.operationId, status, responses[status])[
+                "x-cartulary-error-codes"
+              ],
+              label,
+            );
+            if (codes.length === 0) {
+              throw new Error(`${label} must not be empty`);
+            }
+            return [status, codes];
+          }),
+      );
       let responseType;
       const responseTypesByStatus = {};
       for (const status of successStatuses) {
-        let response = requireObject(responses[status], `${operation.operationId} ${status}`);
-        const responseComponent = localComponentName(response.$ref, "responses");
-        if (responseComponent) {
-          response = requireObject(
-            openAPI.components?.responses?.[responseComponent],
-            `OpenAPI response ${responseComponent}`,
-          );
-        }
+        const response = resolveOperationResponse(
+          openAPI,
+          operation.operationId,
+          status,
+          responses[status],
+        );
         const responseSchema = response.content?.["application/json"]?.schema;
         if (!responseSchema) {
           continue;
@@ -797,6 +830,7 @@ function operationBindings(openAPI, selection, definitions) {
         responseType,
         responseTypesByStatus,
         successStatuses,
+        errorCodesByStatus,
         responseValidationPolicyID:
           responseValidationPolicies.get(operation.operationId) ??
           defaultResponseValidationPolicyID,
@@ -847,6 +881,7 @@ function httpOperationBindingSource(operations, forbiddenAuditVisibleFieldTokens
             ),
             response_validation_policy_id:
               operation.responseValidationPolicyID,
+            error_codes_by_status: operation.errorCodesByStatus,
           },
         ]),
       ),
@@ -855,6 +890,14 @@ function httpOperationBindingSource(operations, forbiddenAuditVisibleFieldTokens
     )} as const;`,
     "",
     "export type HTTPOperationID = keyof typeof httpOperationBindings;",
+    "",
+    "/** Declared `x-cartulary-error-codes` of one operation, keyed by error status. */",
+    "export type HTTPOperationErrorCodesByStatus<OperationID extends HTTPOperationID> = (typeof httpOperationBindings)[OperationID][\"error_codes_by_status\"];",
+    "type HTTPStatusKey<Key> = Key extends `${infer Status extends number}` ? Status : never;",
+    "/** Error statuses an operation declares. */",
+    "export type HTTPOperationErrorStatus<OperationID extends HTTPOperationID = HTTPOperationID> = OperationID extends HTTPOperationID ? HTTPStatusKey<keyof HTTPOperationErrorCodesByStatus<OperationID>> : never;",
+    "/** Error codes an operation declares for the selected error statuses; `internal_error` is undeclared and outside this union. */",
+    "export type HTTPOperationErrorCode<OperationID extends HTTPOperationID = HTTPOperationID, Status extends HTTPOperationErrorStatus<OperationID> = HTTPOperationErrorStatus<OperationID>> = OperationID extends HTTPOperationID ? { [Key in keyof HTTPOperationErrorCodesByStatus<OperationID>]: HTTPStatusKey<Key> extends Status ? HTTPOperationErrorCodesByStatus<OperationID>[Key] extends readonly (infer Code extends string)[] ? Code : never : never }[keyof HTTPOperationErrorCodesByStatus<OperationID>] : never;",
     "export type HTTPPathParameters = Readonly<Record<string, string | number>>;",
     "export type HTTPQueryValue = string | number | boolean | null | undefined | readonly string[];",
     "",

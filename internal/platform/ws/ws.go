@@ -51,19 +51,17 @@ func Accept(w http.ResponseWriter, r *http.Request, publicOrigin string) (*Conne
 	return &Connection{conn: conn}, nil
 }
 
-func RejectUntrustedBrowserOrigin(w http.ResponseWriter, r *http.Request, publicOrigin string) bool {
-	if _, err := r.Cookie("cartulary_session"); err != nil {
-		return false
-	}
-	origin := r.Header.Get("Origin")
-	if origin == "" {
-		return false
-	}
-	if origin != publicOrigin {
-		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+// OriginAllowed reports whether r may proceed past the Origin check: a request
+// without an Origin header, or one whose Origin is exactly the configured
+// public application origin. Any other Origin, including the opaque "null",
+// is not allowed, whether or not the request carries a session cookie. The
+// caller writes the rejection.
+func OriginAllowed(r *http.Request, publicOrigin string) bool {
+	origins := r.Header.Values("Origin")
+	if len(origins) == 0 {
 		return true
 	}
-	return false
+	return len(origins) == 1 && origins[0] == publicOrigin
 }
 
 func (c *Connection) SetReadLimit(limit int64) {

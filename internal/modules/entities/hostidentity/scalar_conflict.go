@@ -2,6 +2,7 @@ package hostidentity
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -50,6 +51,19 @@ func newEntityConflictSnapshotProjectors() (map[string]conflicts.RevisionSnapsho
 		result[entry.view] = projector
 	}
 	return result, nil
+}
+
+// adaptRevisionWindowError classifies the typed unavailable-window condition
+// as row_version_conflict, as every other record owner does: missing or
+// unusable history fails closed (REQ-01-070). Every other failure passes
+// through unchanged, keeping its own classification or surfacing as
+// internal_error (REQ-01-706).
+func adaptRevisionWindowError(err error) error {
+	var windowErr *conflicts.RevisionWindowError
+	if errors.As(err, &windowErr) {
+		return &RowVersionConflictError{RecordID: windowErr.RecordID, BaseRowVersion: windowErr.BaseRowVersion, CurrentRowVersion: windowErr.CurrentRowVersion}
+	}
+	return err
 }
 
 func (s *Store) admitPatchRebaseTx(ctx context.Context, tx pgx.Tx, id uuid.UUID, meta entityRecordMeta, request PatchRequest, requestHash []byte) error {

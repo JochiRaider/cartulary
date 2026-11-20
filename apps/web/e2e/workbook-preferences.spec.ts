@@ -37,6 +37,7 @@ import {
 } from "./support/runtime/fixtureIdentity";
 import {
   awaitResponseBarrier,
+  fulfillOperationError,
   installOwnedRoute,
 } from "./support/transport/requestInterception";
 import {
@@ -228,13 +229,12 @@ test("preferences retain uncertain committed writes until explicit observed-valu
         await route.fulfill({ response });
       }
     } else if (failRead)
-      await route.fulfill({
-        status: 503,
-        json: {
-          error: { code: "internal_error" },
-          meta: { request_id: "read-failure" },
-        },
-      });
+      await fulfillOperationError(
+        route,
+        "getCurrentUserWorkbookPreferences",
+        500,
+        "internal_error",
+      );
     else await route.continue();
   });
   await page.getByTestId(workbookPreferenceTestId("home", "set")).click();

@@ -1,3 +1,9 @@
+import {
+  type HTTPOperationErrorCode,
+  type HTTPOperationErrorStatus,
+  type HTTPOperationID,
+  httpOperationBindings,
+} from "@cartulary/protocol-ts/http";
 import type { Page, Request, Route } from "@playwright/test";
 import { type BarrierOutcome, browserScopeFor } from "../runtime/cleanup";
 
@@ -192,6 +198,90 @@ export async function installPublicErrorResponse(
     },
   );
   return { dispose: route.dispose, hitCount: () => hits };
+}
+
+/**
+ * Codes an operation declares for one status. Every operation declares `500`
+ * `internal_error` and `503` `service_unavailable` (Core 01 REQ-01-702).
+ */
+export type OperationFixtureErrorCode<
+  OperationID extends HTTPOperationID,
+  Status extends number,
+> =
+  Status extends HTTPOperationErrorStatus<OperationID>
+    ? HTTPOperationErrorCode<OperationID, Status>
+    : never;
+
+export type OperationErrorFixture = {
+  readonly details?: Record<string, unknown>;
+  readonly message?: string;
+  readonly requestId?: string;
+  readonly retryable?: boolean;
+};
+
+/**
+ * A complete public error envelope that the mocked operation declares for the
+ * status (Core 03 REQ-03-086a). Route fixtures use it so they cannot drift
+ * from the operation contract the client decodes against.
+ */
+export function operationErrorEnvelope<
+  OperationID extends HTTPOperationID,
+  Status extends HTTPOperationErrorStatus<OperationID>,
+>(
+  operationID: OperationID,
+  status: Status,
+  code: OperationFixtureErrorCode<OperationID, Status>,
+  fixture: OperationErrorFixture = {},
+) {
+  return checkedOperationErrorEnvelope(operationID, status, code, fixture);
+}
+
+/**
+ * The runtime-checked form for fixtures that select the operation from the
+ * intercepted request; an undeclared code fails the route handler.
+ */
+export function checkedOperationErrorEnvelope(
+  operationID: HTTPOperationID,
+  status: number,
+  code: string,
+  fixture: OperationErrorFixture = {},
+) {
+  const declared: Readonly<Record<string, readonly string[]>> =
+    httpOperationBindings[operationID as HTTPOperationID].error_codes_by_status;
+  if (!(declared[String(status)] ?? []).includes(code))
+    throw new Error(`${operationID} does not declare ${code} for ${status}`);
+  // Core 01 REQ-01-229 fixes the internal_error envelope.
+  const internal = code === "internal_error";
+  return {
+    error: {
+      code,
+      status,
+      message: internal ? "internal_error" : (fixture.message ?? code),
+      request_id: fixture.requestId ?? "browser-fixture-error",
+      retryable: internal ? false : (fixture.retryable ?? false),
+      details: internal ? {} : (fixture.details ?? {}),
+    },
+  };
+}
+
+/** Fulfill one intercepted operation request with a declared public error. */
+export async function fulfillOperationError<
+  OperationID extends HTTPOperationID,
+  Status extends HTTPOperationErrorStatus<OperationID>,
+>(
+  route: Route,
+  operationID: OperationID,
+  status: Status,
+  code: OperationFixtureErrorCode<OperationID, Status>,
+  fixture: OperationErrorFixture & {
+    readonly headers?: Record<string, string>;
+  } = {},
+) {
+  await route.fulfill({
+    status,
+    ...(fixture.headers === undefined ? {} : { headers: fixture.headers }),
+    json: operationErrorEnvelope(operationID, status, code, fixture),
+  });
 }
 
 /** Selective removal drains every matching registered handler before detaching it. */

@@ -110,7 +110,7 @@ func (s *store) applyOwnerBatchAttempt(ctx context.Context, actor authn.UserReco
 			referenceRows[index].changes = append(referenceRows[index].changes, cell.Change)
 		}
 	}
-	if err := s.prepareReferencesTx(ctx, tx, incidentID, referenceRows, true, preparation); err != nil {
+	if err := s.prepareReferencesTx(ctx, tx, incidentID, referenceRows, referenceScopeBatch, true, preparation); err != nil {
 		return BatchMutationResult{}, err
 	}
 	if err := s.validateOwnerBatchTargetsTx(ctx, tx, incidentID, request.Operation, request.Targets); err != nil {

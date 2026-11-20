@@ -12,8 +12,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/records"
 	recordenvelope "github.com/JochiRaider/cartulary/internal/modules/records/enveloperead"
-	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 )
 
@@ -144,16 +144,13 @@ type evidenceRecordMeta struct {
 	RowVersion int64
 }
 
+// loadEvidenceRecordMetaForUpdateTx classifies the addressed record through
+// Records (REQ-01-705: missing, then deleted) under FOR UPDATE. Callers apply
+// the type, incident-lifecycle and version steps in that order.
 func (f *mutationFacade) loadEvidenceRecordMetaForUpdateTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (evidenceRecordMeta, error) {
-	envelope, err := f.recordEnvelopes.LoadEnvelopeTx(ctx, tx, recordID, true)
-	if errors.Is(err, recordenvelope.ErrEnvelopeNotFound) {
-		return evidenceRecordMeta{}, pgx.ErrNoRows
-	}
+	envelope, err := f.recordEnvelopes.ClassifyTargetTx(ctx, tx, recordID, records.TargetLockUpdate)
 	if err != nil {
 		return evidenceRecordMeta{}, err
-	}
-	if envelope.DeletedAt != nil {
-		return evidenceRecordMeta{}, revisions.ErrRecordDeletedUseRestore
 	}
 	return evidenceRecordMeta{IncidentID: envelope.IncidentID, RecordType: envelope.RecordType, RowVersion: envelope.RowVersion}, nil
 }
@@ -208,6 +205,10 @@ func workbookVersionID(recordID uuid.UUID, rowVersion int64) string {
 	return fmt.Sprintf("record:%s:%d", recordID.String(), rowVersion)
 }
 
+// adaptRevisionWindowError classifies only the typed unavailable-window
+// condition, which fails closed as row_version_conflict. Every other failure,
+// including a database, field-catalog or conflict-token error, stays
+// unclassified and surfaces as internal_error (REQ-01-706).
 func adaptRevisionWindowError(recordID uuid.UUID, baseRowVersion int64, currentRowVersion int64, err error) error {
 	if err == nil {
 		return nil
@@ -216,7 +217,7 @@ func adaptRevisionWindowError(recordID uuid.UUID, baseRowVersion int64, currentR
 	if errors.As(err, &windowErr) {
 		return &RowVersionConflictError{RecordID: windowErr.RecordID, BaseRowVersion: windowErr.BaseRowVersion, CurrentRowVersion: windowErr.CurrentRowVersion}
 	}
-	return &RowVersionConflictError{RecordID: recordID, BaseRowVersion: baseRowVersion, CurrentRowVersion: currentRowVersion}
+	return fmt.Errorf("record %s revision window %d..%d: %w", recordID, baseRowVersion, currentRowVersion, err)
 }
 
 type evidenceSameFieldConflictParams struct {

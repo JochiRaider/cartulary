@@ -3,6 +3,60 @@
   "owner_id": "platform.openapi",
   "rows": [
     {
+      "row_id": "platform.openapi.unit.assembly_requires_every_operation_s_implied_500_1bdbfe2faf",
+      "owner_id": "platform.openapi",
+      "family_id": "platform.openapi.unit",
+      "collaborator_ids": [
+        "harness.generated_artifacts"
+      ],
+      "verification_ids": [
+        "platform.openapi.verification.contract_integrity"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/openapiassembly",
+        "tests": [
+          "TestAssemblyEnforcesOperationImpliedErrorCodes"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "platform.openapi.unit.assembly_requires_every_path_parameter_to_declar_8c6a339d8d",
+      "owner_id": "platform.openapi",
+      "family_id": "platform.openapi.unit",
+      "collaborator_ids": [
+        "harness.generated_artifacts"
+      ],
+      "verification_ids": [
+        "platform.openapi.verification.contract_integrity"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/openapiassembly",
+        "tests": [
+          "TestAssemblyEnforcesPathParameterDeclarations"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
       "row_id": "platform.openapi.unit.contract_integrity",
       "owner_id": "platform.openapi",
       "family_id": "platform.openapi.unit",
@@ -16,6 +70,8 @@
       "selector": {
         "package": "./internal/platform/openapiassembly",
         "tests": [
+          "TestAssemblyEnforcesDeclaredErrorCodes",
+          "TestAssemblyEnforcesSecurityImpliedErrorCodes",
           "TestCompletenessFoundationRejectsIncompleteOrMalformedOperations",
           "TestExplicitMutationClassificationAdmission",
           "TestProductionCompletenessFoundation"
@@ -91,6 +147,60 @@
       "postgres_isolation": "none"
     },
     {
+      "row_id": "platform.openapi.unit.operation_catalog_projects_path_parameter_format_15d2cbb590",
+      "owner_id": "platform.openapi",
+      "family_id": "platform.openapi.unit",
+      "collaborator_ids": [
+        "harness.generated_artifacts"
+      ],
+      "verification_ids": [
+        "platform.openapi.verification.contract_integrity"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./tools/openapi-operation-catalog",
+        "tests": [
+          "TestPathParameterProjection"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "platform.openapi.unit.operation_catalog_projects_the_network_flow_rout_4bc09eb694",
+      "owner_id": "platform.openapi",
+      "family_id": "platform.openapi.unit",
+      "collaborator_ids": [
+        "harness.generated_artifacts"
+      ],
+      "verification_ids": [
+        "platform.openapi.verification.contract_integrity"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./tools/openapi-operation-catalog",
+        "tests": [
+          "TestNetworkFlowRouteProjection"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
       "row_id": "platform.openapi.unit.release_compatibility",
       "owner_id": "platform.openapi",
       "family_id": "platform.openapi.unit",
@@ -113,9 +223,37 @@
           "TestCompareSecurityLeavesAndFalsePositives",
           "TestCompatibilityClassificationAndVersionPolicy",
           "TestCompatibilityRejectsBreakingChangeWithoutMajorVersion",
+          "TestErrorCodeDeclarationsCompareAsSets",
           "TestMutationClassificationIsSecuritySensitive",
           "TestProductionContractPassesReleaseCompatibilityGate",
           "TestReleaseRegistryRejectsModifiedSnapshot"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "platform.openapi.unit.release_compatibility_classifies_narrowing_a_par_17a765936a",
+      "owner_id": "platform.openapi",
+      "family_id": "platform.openapi.unit",
+      "collaborator_ids": [
+        "harness.generated_artifacts"
+      ],
+      "verification_ids": [
+        "platform.openapi.verification.release_compatibility"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/openapicompat",
+        "tests": [
+          "TestParameterSchemaNarrowingIsBreaking"
         ]
       },
       "evidence_class": "unit",
@@ -184,10 +322,15 @@
       "selector": {
         "package": "./internal/platform/httpapi",
         "tests": [
+          "TestErrorCodeGuardHonoursDeclarations",
           "TestExplicitGeneratedMutationSemantics",
           "TestGeneratedContractOperationCatalogIsClosed",
           "TestRouteRegistryBindsGeneratedPatternAndMetadata",
-          "TestRouteRegistryRejectsUnknownOwnerDuplicateAndProfileMismatch"
+          "TestRouteRegistryRejectsUnknownOwnerDuplicateAndProfileMismatch",
+          "TestSecurityGuardAbsentLeavesRequestsUnchanged",
+          "TestSecurityGuardHonoursDeclarations",
+          "TestSecurityGuardOptionGuardsBoundOperations",
+          "TestSecurityGuardReportsOnceAndReplacesWholeResponse"
         ]
       },
       "evidence_class": "unit",

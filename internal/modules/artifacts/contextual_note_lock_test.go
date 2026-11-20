@@ -16,6 +16,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
+	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
@@ -106,7 +107,9 @@ func exerciseContextualNoteSourceLock(t *testing.T) {
 	case <-ctx.Done():
 		t.Fatal(ctx.Err())
 	}
-	if !errors.Is(attempted.err, pgx.ErrNoRows) || attempted.result.RecordID != uuid.Nil {
+	// REQ-01-705: the source deleted while the request waited for its lock is
+	// classified as deleted (409 record_deleted_use_restore), not as missing.
+	if !errors.Is(attempted.err, records.ErrTargetDeleted) || attempted.result.RecordID != uuid.Nil {
 		t.Fatalf("contextual Note accepted a source deleted during admission: result=%#v error=%v", attempted.result, attempted.err)
 	}
 	// Undo only the barrier's synthetic tombstone before checking all durable effects.

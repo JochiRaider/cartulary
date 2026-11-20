@@ -20,6 +20,7 @@ import {
 } from "@cartulary/ui-contracts";
 import { timelineViewSchemaId } from "@cartulary/view-contracts";
 import type { Page, TestInfo } from "@playwright/test";
+import type { BlankRowSampleWindow } from "./mainThreadDiagnostics";
 
 export const interactiveMeasurementSamplePolicy =
   cartularyInteractiveP95MeasurementPolicy;
@@ -139,7 +140,9 @@ export async function measureTypingAck(
 export async function measureBlankRowCreate(
   page: Page,
   expectedSummary: string,
-): Promise<MeasurementSample & { status: number }> {
+): Promise<
+  MeasurementSample & { status: number; window: BlankRowSampleWindow }
+> {
   const predicate = performancePredicate("perf.timeline_blank_row_create.v1");
   const draftSummary = page.getByTestId(draftCellTestId(predicate.fieldKey));
   await draftSummary.focus({ timeout: 5_000 });
@@ -162,6 +165,12 @@ export async function measureBlankRowCreate(
   return {
     ...sampleFromCompletion(visible, driverDispatchAt, events),
     status,
+    // Diagnostic-only window; the gated stages and total come from above.
+    window: {
+      acceptedAt: visible.acceptedAt,
+      stoppedAt: visible.stoppedAt,
+      marks: Object.fromEntries(events.map((event) => [event.name, event.at])),
+    },
   };
 }
 

@@ -49,6 +49,24 @@ func TestResolveRequestReusesCursorBoundLimitAndValidatesBindings(t *testing.T) 
 		t.Fatalf("expected invalid cursor for mismatched explicit limit, got %q", reason)
 	}
 
+	// Core 01 §3.3.6.2: a present but empty limit is invalid_limit and a
+	// present but empty cursor_token is invalid_cursor_token; neither is
+	// treated as absent, on either resolver.
+	for _, resolve := range []func(url.Values, string, string, map[string]string) (Binding, *Cursor, string){codec.ResolveRequest, codec.ResolveListRequest} {
+		for _, tc := range []struct {
+			values url.Values
+			want   string
+		}{
+			{url.Values{"limit": []string{""}}, ReasonInvalidLimit},
+			{url.Values{"cursor_token": []string{""}}, ReasonInvalidCursorToken},
+			{url.Values{"limit": []string{""}, "cursor_token": []string{cursorToken}}, ReasonInvalidLimit},
+		} {
+			if _, _, reason := resolve(tc.values, "incidents.list", "user-1", map[string]string{"incident_id": "incident-1"}); reason != tc.want {
+				t.Fatalf("resolve %v reason = %q, want %q", tc.values, reason, tc.want)
+			}
+		}
+	}
+
 	_, _, reason = codec.ResolveRequest(url.Values{
 		"cursor_token": []string{cursorToken},
 	}, "incidents.list", "user-2", map[string]string{"incident_id": "incident-1"})

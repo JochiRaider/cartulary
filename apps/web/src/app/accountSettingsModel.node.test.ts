@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { sessionResource } from "../testing/appShellTestSupport";
-import { deferred } from "../testing/fetchMockTestSupport";
+import { deferred, operationRejection } from "../testing/fetchMockTestSupport";
 import { validateAccountDisplayName } from "./accountInputValidation";
 import {
   AccountSettingsController,
@@ -39,11 +39,6 @@ const success = <T>(data: T) => ({
   ok: true as const,
   status: 200,
   payload: { data, meta: { request_id: "settings-model" } },
-});
-const rejection = (code: string, status = 409) => ({
-  ok: false as const,
-  status,
-  payload: { error: { code } },
 });
 const disposals: (() => void)[] = [];
 afterEach(() => {
@@ -129,7 +124,9 @@ describe("account edit lifecycle", () => {
       saved: preferences(),
       read: "ready",
     });
-    read.mockResolvedValueOnce(rejection("unavailable", 503));
+    read.mockResolvedValueOnce(
+      operationRejection({ code: "internal_error", status: 500 }),
+    );
     await controller.refresh("profile");
     expect(controller.getSnapshot().profile).toMatchObject({
       saved: null,
@@ -213,10 +210,17 @@ describe("account edit lifecycle", () => {
     for (const kind of ["profile", "appearance"] as const) {
       const { controller, patch, put, read, preferencesRead } = await setup();
       if (kind === "profile") {
-        patch.mockResolvedValueOnce(rejection("user_version_conflict"));
+        patch.mockResolvedValueOnce(
+          operationRejection({ code: "user_version_conflict", status: 409 }),
+        );
         read.mockResolvedValue(success(profile("External", 2)));
       } else {
-        put.mockResolvedValueOnce(rejection("preferences_version_conflict"));
+        put.mockResolvedValueOnce(
+          operationRejection({
+            code: "preferences_version_conflict",
+            status: 409,
+          }),
+        );
         preferencesRead.mockResolvedValue(success(preferences("compact", 2)));
       }
       const value = kind === "profile" ? "Local" : "comfortable";
@@ -242,7 +246,9 @@ describe("account edit lifecycle", () => {
   });
   it("keeps transaction conflict distinct from version conflict", async () => {
     const { controller, patch } = await setup();
-    patch.mockResolvedValueOnce(rejection("client_txn_conflict"));
+    patch.mockResolvedValueOnce(
+      operationRejection({ code: "client_txn_conflict", status: 409 }),
+    );
     controller.change("profile", "Local");
     controller.submit("profile");
     await flush();
@@ -469,7 +475,9 @@ describe("account edit lifecycle", () => {
       fieldError: "Enter a display name.",
     });
     expect(patch).not.toHaveBeenCalled();
-    patch.mockResolvedValueOnce(rejection("invalid_mutation_payload", 400));
+    patch.mockResolvedValueOnce(
+      operationRejection({ code: "invalid_mutation_payload", status: 400 }),
+    );
     controller.change("profile", "Valid name");
     controller.submit("profile");
     await flush();
@@ -537,7 +545,9 @@ describe("account edit lifecycle", () => {
   });
   it("distinguishes authorization denial from session loss and preserves uncertainty on replay denial", async () => {
     const { controller, session, patch } = await setup();
-    patch.mockResolvedValueOnce(rejection("authorization_denied", 403));
+    patch.mockResolvedValueOnce(
+      operationRejection({ code: "csrf_verification_failed", status: 403 }),
+    );
     controller.change("profile", "Local");
     controller.submit("profile");
     await flush();
@@ -551,14 +561,18 @@ describe("account edit lifecycle", () => {
     patch.mockRejectedValueOnce(new TypeError("lost"));
     controller.submit("profile");
     await flush();
-    patch.mockResolvedValueOnce(rejection("authorization_denied", 403));
+    patch.mockResolvedValueOnce(
+      operationRejection({ code: "csrf_verification_failed", status: 403 }),
+    );
     controller.replay("profile");
     await flush();
     expect(controller.getSnapshot().profile.operation).toMatchObject({
       kind: "uncertain",
       reason: "authorization",
     });
-    patch.mockResolvedValueOnce(rejection("session_required", 401));
+    patch.mockResolvedValueOnce(
+      operationRejection({ code: "session_required", status: 401 }),
+    );
     controller.replay("profile");
     await flush();
     expect(session.getSnapshot().state).toBe("anonymous");

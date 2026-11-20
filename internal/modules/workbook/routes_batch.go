@@ -5,18 +5,20 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
-	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 )
 
 func (s *service) handleBulkMutations(w http.ResponseWriter, r *http.Request) {
-	viewSchemaID := r.PathValue("view_schema_id")
-	incidentID, ok := pathUUID(w, r, "incident_id")
-	if !ok {
+	principal, apiErr := admittedPrincipal(r)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
 		return
 	}
-	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{
-		Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true,
-	})
+	incidentID, apiErr := admittedPathUUID(r, "incident_id")
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	viewSchemaID, apiErr := admittedPathString(r, "view_schema_id")
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -47,14 +49,17 @@ func (s *service) handleBulkMutations(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *service) handleClipboardPaste(w http.ResponseWriter, r *http.Request) {
-	viewSchemaID := r.PathValue("view_schema_id")
-	incidentID, ok := pathUUID(w, r, "incident_id")
-	if !ok {
+	principal, apiErr := admittedPrincipal(r)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
 		return
 	}
-	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{
-		Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true,
-	})
+	incidentID, apiErr := admittedPathUUID(r, "incident_id")
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	viewSchemaID, apiErr := admittedPathString(r, "view_schema_id")
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return

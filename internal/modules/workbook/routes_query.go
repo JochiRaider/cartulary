@@ -7,7 +7,6 @@ import (
 	"net/http"
 
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
-	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 	"github.com/JochiRaider/cartulary/internal/platform/querypage"
 	"github.com/JochiRaider/cartulary/internal/platform/viewquery"
@@ -16,13 +15,17 @@ import (
 )
 
 func (s *service) handleQuery(w http.ResponseWriter, r *http.Request) {
-	viewSchemaID := r.PathValue("view_schema_id")
-	incidentID, ok := pathUUID(w, r, "incident_id")
-	if !ok {
+	principal, apiErr := admittedPrincipal(r)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
 		return
 	}
-
-	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: false})
+	incidentID, apiErr := admittedPathUUID(r, "incident_id")
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	viewSchemaID, apiErr := admittedPathString(r, "view_schema_id")
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -107,7 +110,7 @@ func (s *service) handleQuery(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		apiErr := internalAPIError(err)
 		telemetryResult, telemetryErrorCode = workbookAPIErrorTelemetry(apiErr)
 		writeAPIError(w, r, apiErr)

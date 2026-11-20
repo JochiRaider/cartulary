@@ -1490,6 +1490,17 @@
         "titles": [
           "apiPath joins a trimmed base with the path",
           "apiPath returns the path unchanged when the base is empty",
+          "fetchHTTPOperation public error decoding decodes a 503 service_unavailable as a declared public error, never a contract failure",
+          "fetchHTTPOperation public error decoding decodes multipart operation errors against the same contract",
+          "fetchHTTPOperation public error decoding decodes the declared 500 internal_error",
+          "fetchHTTPOperation public error decoding surfaces a declared code typed by the operation and status",
+          "fetchHTTPOperation public error decoding turns 'a mismatched envelope status' into the client contract failure",
+          "fetchHTTPOperation public error decoding turns 'a service_unavailable at status 500' into the client contract failure",
+          "fetchHTTPOperation public error decoding turns 'an internal_error outside status 500' into the client contract failure",
+          "fetchHTTPOperation public error decoding turns 'an invalid error envelope' into the client contract failure",
+          "fetchHTTPOperation public error decoding turns 'an undeclared code' into the client contract failure",
+          "fetchHTTPOperation public error decoding turns a non-JSON error body into the client contract failure",
+          "fetchHTTPOperation public error decoding validates success payloads against the received success status",
           "fetchJSON adds JSON content type and CSRF header for mutating requests with included credentials",
           "fetchJSON does not expose a private timing request protocol",
           "fetchJSON leaves GET requests without JSON content type or CSRF header",
@@ -1685,8 +1696,8 @@
           "incident directory operation clears account state before late responses from replaced authentication",
           "incident directory operation clears all directory state before notifying current session loss",
           "incident directory operation clears materialization on departure and refreshes the retained query on return",
-          "incident directory operation clears protected rows on denial without terminating authentication",
           "incident directory operation coalesces rapid edits and Enter without a second debounce request",
+          "incident directory operation fails an undeclared denial as a contract failure without terminating authentication",
           "incident directory operation invalidates disposal and independently checks the current authentication port",
           "incident directory operation locks same-tick pagination and uses accepted query cursor and limit",
           "incident directory operation preserves typing during initial load and rejects its obsolete response",
@@ -1778,7 +1789,7 @@
       "selector": {
         "file": "apps/web/src/app/incidentImportHardening.node.test.ts",
         "titles": [
-          "normalizes malformed admission bodies without losing received rejection or authorization status",
+          "normalizes malformed admission bodies to an uncertain contract outcome whatever their received status",
           "settles malformed read and cancellation bodies with operation-specific outcomes"
         ],
         "project_id": "node-unit"
@@ -2063,7 +2074,7 @@
         "file": "apps/web/src/app/api/incidentMembershipAuditClient.node.test.ts",
         "titles": [
           "Incident membership audit typed client accepts additive read vocabulary and safe redaction without weakening response validation",
-          "Incident membership audit typed client maps a non-JSON failure body to an unknown public error with its status",
+          "Incident membership audit typed client maps a non-JSON failure body to the client contract failure",
           "Incident membership audit typed client rejects malformed wrong scope unordered duplicate and inconsistent paging responses",
           "Incident membership audit typed client uses the generated incident operation with only exact filters and captured cursor context"
         ],
@@ -2212,6 +2223,7 @@
           "Incident lifecycle ownership never publishes a replay receipt as current even without a newer local version",
           "Incident lifecycle ownership preserves newer reason input after delayed confirmation",
           "Incident lifecycle ownership rechecks current admin authority before dispatch without treating preflight failure as a sent action",
+          "Incident lifecycle ownership rejects a 503 refusal as not applied and keeps a refused replay uncertain",
           "Incident lifecycle ownership rejects invalid resource state and conflicting same-version publication",
           "Incident lifecycle ownership replays the exact route actor lifetime key version and raw payload despite newer form input",
           "Incident lifecycle ownership requires current reviewed intent and version for a fresh action",
@@ -2594,6 +2606,7 @@
         "file": "apps/web/src/shared/publicErrorPresentation.node.test.ts",
         "titles": [
           "public error presentation falls back without accepting or inspecting human message text",
+          "public error presentation selects a retry family for service_unavailable in every operation family",
           "public error presentation uses structured code and operation context for every current locus"
         ],
         "project_id": "node-unit"
@@ -2693,8 +2706,11 @@
       "selector": {
         "file": "apps/web/src/shared/publicError.node.test.ts",
         "titles": [
+          "client-local public error codes form one closed sorted set disjoint from every registered server error code",
+          "publicError normalization presents a declared service_unavailable as temporary unavailability without echoing its reason",
           "publicError normalization replaces unsafe messages and details with status-safe presentation",
-          "publicError normalization retains structured codes, safe messages, and allowlisted details"
+          "publicError normalization retains structured codes, safe messages, and allowlisted details",
+          "unapplied refusal is exactly a decoded 503 service_unavailable and has not-applied and still-unconfirmed copy"
         ],
         "project_id": "node-unit"
       },

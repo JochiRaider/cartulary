@@ -190,7 +190,7 @@ func extensionFacadeAPIError(
 	facade ExtensionImportFacade,
 	err error,
 ) *httpapi.APIError {
-	failure := translateExtensionOwnerFailure(target, facade, err)
+	failure := translateExtensionOwnerFailure(target, facade, crossOwnerUnitTransaction{}, err)
 	field := "owner_mapping"
 	if ownerError, ok := failure.Details["owner_error"].(map[string]any); ok {
 		return invalidImportRequestWithOwner(

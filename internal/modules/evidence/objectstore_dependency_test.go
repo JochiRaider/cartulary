@@ -16,6 +16,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
@@ -55,29 +56,7 @@ func requireObjectStoreDependencyErrorsUseOwnerPublicMapping(
 		})
 		incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 
-		createResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{
-			"incident_id":       incidentID.String(),
-			"client_txn_id":     "txn-object-store-upload-blob",
-			"byte_size":         4,
-			"filename_hint":     "outage.txt",
-			"content_type_hint": "text/plain",
-		}, authOptions(login)...)
-		createData := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusCreated)["data"].(map[string]any)
-		uploadTarget := createData["upload_target"].(map[string]any)
-		href, ok := uploadTarget["href"].(string)
-		if !ok || !strings.HasPrefix(href, "/api/v1/object-uploads/upl_") || strings.Contains(href, "://") {
-			t.Fatalf("blob create returned non-opaque upload target: %#v", uploadTarget)
-		}
-
-		req, err := http.NewRequest(http.MethodPut, harness.Server.HTTP.URL+href, strings.NewReader("fail"))
-		if err != nil {
-			t.Fatalf("create object upload request: %v", err)
-		}
-		req.Header.Set("Content-Type", "text/plain")
-		for _, option := range authOptions(login) {
-			option(req)
-		}
-		resp := httptestx.Do(t, http.DefaultClient, req)
+		resp := uploadThroughFreshBlobSlot(t, harness, login, incidentID, "txn-object-store-upload-blob")
 		body := httptestx.RequireErrorEnvelope(t, resp, http.StatusServiceUnavailable, "object_store_unavailable")
 		errorValue := body["error"].(map[string]any)
 		if retryable, ok := errorValue["retryable"].(bool); !ok || !retryable {
@@ -93,6 +72,176 @@ func requireObjectStoreDependencyErrorsUseOwnerPublicMapping(
 		})
 		if got := countObjectBlobs(t, harness, incidentID); got != 1 {
 			t.Fatalf("app-mediated upload outage should retain the pending blob slot: got %d want 1", got)
+		}
+	})
+
+	t.Run("object upload maps access rejection without exposing storage target", func(t *testing.T) {
+		baseStore, err := objectstore.NewFilesystemStore(t.TempDir())
+		if err != nil {
+			t.Fatalf("create filesystem object store: %v", err)
+		}
+		failingStore := &overrideObjectStore{
+			Store: baseStore,
+			putErr: &objectstore.AdapterError{
+				Code:      objectstore.ErrorCodeAccessRejected,
+				Reason:    objectstore.ReasonCredentialDenied,
+				Operation: objectstore.OperationPutObject,
+				Retryable: false,
+				Message:   "credential denied source.internal private-bucket incidents/raw/key CARTULARY_S3_SECRET_KEY=secret",
+			},
+		}
+
+		harness := startServer(t, "object-store-upload-access", failingStore)
+		login := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, admin.email, admin.password, nil)
+		incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
+			"client_txn_id": "txn-object-store-upload-access-incident",
+			"incident_key":  "object-store-upload-access",
+			"title":         "Object-store upload access rejection",
+		})
+		incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
+
+		resp := uploadThroughFreshBlobSlot(t, harness, login, incidentID, "txn-object-store-upload-access-blob")
+		body := httptestx.RequireErrorEnvelope(t, resp, http.StatusServiceUnavailable, "object_store_access_rejected")
+		httptestx.RequireErrorDetail(t, body, "reason_code", "credential_denied")
+		errorValue := body["error"].(map[string]any)
+		if retryable, ok := errorValue["retryable"].(bool); !ok || retryable {
+			t.Fatalf("object_store_access_rejected retryable got %#v want false", errorValue["retryable"])
+		}
+		requireNoPublicEvidenceLeak(t, "object upload access rejection", body, []string{
+			"source.internal",
+			"private-bucket",
+			"incidents/raw/key",
+			"CARTULARY_S3_SECRET_KEY",
+			"secret",
+		})
+		if got := countObjectBlobs(t, harness, incidentID); got != 1 {
+			t.Fatalf("app-mediated upload access rejection should retain the pending blob slot: got %d want 1", got)
+		}
+	})
+
+	t.Run("malformed persisted key after issuance fails the capability binding before backend", func(t *testing.T) {
+		baseStore, err := objectstore.NewFilesystemStore(t.TempDir())
+		if err != nil {
+			t.Fatalf("create filesystem object store: %v", err)
+		}
+		recordingStore := &overrideObjectStore{Store: baseStore}
+		harness := startServer(t, "object-key-upload-binding", recordingStore)
+		login := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, admin.email, admin.password, nil)
+		incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
+			"client_txn_id": "txn-object-key-upload-binding-incident",
+			"incident_key":  "object-key-upload-binding",
+			"title":         "Object key upload binding",
+		})
+		incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
+		// The server issues a genuine capability bound to the key it generated.
+		// A key that changed afterwards no longer matches that binding, so Core 04
+		// Table 2-B gate 7 rejects the upload before any object-store work.
+		objectBlobID, href := createFreshBlobSlot(t, harness, login, incidentID, "txn-object-key-upload-binding-blob")
+		malformedKey := "objects/not-canonical-upload"
+		updateBlobStorageKey(t, harness, objectBlobID, malformedKey)
+		recordingStore.resetCounts()
+
+		resp := putThroughUploadTarget(t, harness, login, href)
+		body := httptestx.RequireErrorEnvelope(t, resp, http.StatusConflict, "object_upload_rejected")
+		httptestx.RequireErrorDetail(t, body, "reason_code", "upload_contract_mismatch")
+		requireNoPublicEvidenceLeak(t, "upload with a key changed after issuance", body, []string{malformedKey})
+		if puts := recordingStore.putCount(); puts != 0 {
+			t.Fatalf("upload with a key changed after issuance reached the backend: put=%d", puts)
+		}
+		var uploadState, leaseState string
+		if err := harness.DB.QueryRowContext(context.Background(), `
+SELECT b.upload_state, l.lease_state
+  FROM object_blobs b
+  JOIN evidence_object_upload_leases l ON l.object_blob_id = b.object_blob_id
+ WHERE b.object_blob_id = $1
+`, objectBlobID).Scan(&uploadState, &leaseState); err != nil {
+			t.Fatalf("load rejected upload slot: %v", err)
+		}
+		if uploadState != "pending" || leaseState != "issued" {
+			t.Fatalf("rejected upload changed the slot: upload_state=%s lease_state=%s, want pending/issued", uploadState, leaseState)
+		}
+	})
+
+	t.Run("handle issuance maps every object-store failure class for both handle kinds", func(t *testing.T) {
+		baseStore, err := objectstore.NewFilesystemStore(t.TempDir())
+		if err != nil {
+			t.Fatalf("create filesystem object store: %v", err)
+		}
+		faultStore := &overrideObjectStore{Store: baseStore}
+		harness := startServer(t, "object-store-issue-failures", faultStore)
+		login := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, admin.email, admin.password, nil)
+		incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
+			"client_txn_id": "txn-object-store-issue-failures-incident",
+			"incident_key":  "object-store-issue-failures",
+			"title":         "Object-store handle issuance failures",
+		})
+		incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
+		recordID := uuid.New()
+		seedEvidenceRecord(t, harness, incidentID, admin.userID, recordID)
+		objectBlobID := linkSeededBlobWithCanonicalStorageKey(t, harness, incidentID, admin.userID, recordID, "available", "available")
+		leaked := []string{"target.internal", "private-bucket", "incidents/raw/key", "AWS_SECRET_ACCESS_KEY", "secret"}
+		beforeHandles := countAccessHandles(t, harness, incidentID)
+
+		failures := []struct {
+			name      string
+			fault     *objectstore.AdapterError
+			code      string
+			reason    string
+			retryable bool
+		}{
+			{
+				name: "endpoint outage",
+				fault: &objectstore.AdapterError{
+					Code:      objectstore.ErrorCodeUnavailable,
+					Reason:    objectstore.ReasonEndpointUnreachable,
+					Operation: objectstore.OperationHeadObject,
+					Retryable: true,
+					Message:   "endpoint unreachable target.internal private-bucket incidents/raw/key AWS_SECRET_ACCESS_KEY=secret",
+				},
+				code: "object_store_unavailable", reason: "endpoint_unreachable", retryable: true,
+			},
+			{
+				name: "credential denial",
+				fault: &objectstore.AdapterError{
+					Code:      objectstore.ErrorCodeAccessRejected,
+					Reason:    objectstore.ReasonCredentialDenied,
+					Operation: objectstore.OperationHeadObject,
+					Message:   "credential denied target.internal private-bucket incidents/raw/key AWS_SECRET_ACCESS_KEY=secret",
+				},
+				code: "object_store_access_rejected", reason: "credential_denied", retryable: false,
+			},
+		}
+		for _, failure := range failures {
+			faultStore.setFaults(failure.fault, nil)
+			for _, endpoint := range []string{"preview-handle", "download-handle"} {
+				t.Run(failure.name+" "+endpoint, func(t *testing.T) {
+					resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/"+endpoint, map[string]any{}, authOptions(login)...)
+					body := httptestx.RequireErrorEnvelope(t, resp, http.StatusServiceUnavailable, failure.code)
+					httptestx.RequireErrorDetail(t, body, "reason_code", failure.reason)
+					errorValue := body["error"].(map[string]any)
+					if retryable, ok := errorValue["retryable"].(bool); !ok || retryable != failure.retryable {
+						t.Fatalf("%s retryable got %#v want %t", failure.code, errorValue["retryable"], failure.retryable)
+					}
+					requireNoPublicEvidenceLeak(t, endpoint+" "+failure.name, body, leaked)
+				})
+			}
+		}
+
+		t.Run("malformed persisted key download-handle", func(t *testing.T) {
+			faultStore.setFaults(nil, nil)
+			// object_blobs.storage_key is unique across the shared database.
+			malformedKey := "objects/not-canonical-download-issuance"
+			updateBlobStorageKey(t, harness, objectBlobID, malformedKey)
+			faultStore.resetCounts()
+			resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/download-handle", map[string]any{}, authOptions(login)...)
+			body := requireObjectStoreInvalidRequestReason(t, resp, "object_blob_storage_key_malformed")
+			requireNoPublicEvidenceLeak(t, "download issuance malformed persisted key", body, []string{malformedKey})
+			if statCalls, readCalls := faultStore.counts(); statCalls != 0 || readCalls != 0 {
+				t.Fatalf("malformed storage key reached backend on download issuance: stat=%d read=%d", statCalls, readCalls)
+			}
+		})
+		if got := countAccessHandles(t, harness, incidentID); got != beforeHandles {
+			t.Fatalf("failed issuance wrote evidence_access_handles: got %d want %d", got, beforeHandles)
 		}
 	})
 
@@ -269,6 +418,48 @@ func TestPublicEvidenceResponsesDoNotLeakObjectStoreIdentifiers(t *testing.T) {
 	}
 }
 
+// uploadThroughFreshBlobSlot creates a four-byte pending blob slot, checks
+// that its upload target stays opaque, and PUTs the bytes through it.
+func uploadThroughFreshBlobSlot(t *testing.T, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, incidentID uuid.UUID, clientTxnID string) *http.Response {
+	t.Helper()
+	_, href := createFreshBlobSlot(t, harness, login, incidentID, clientTxnID)
+	return putThroughUploadTarget(t, harness, login, href)
+}
+
+// createFreshBlobSlot creates a four-byte pending blob slot through the public
+// route and returns its identity and opaque upload target.
+func createFreshBlobSlot(t *testing.T, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, incidentID uuid.UUID, clientTxnID string) (uuid.UUID, string) {
+	t.Helper()
+	createResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{
+		"incident_id":       incidentID.String(),
+		"client_txn_id":     clientTxnID,
+		"byte_size":         4,
+		"filename_hint":     "outage.txt",
+		"content_type_hint": "text/plain",
+	}, authOptions(login)...)
+	createData := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusCreated)["data"].(map[string]any)
+	uploadTarget := createData["upload_target"].(map[string]any)
+	href, ok := uploadTarget["href"].(string)
+	if !ok || !strings.HasPrefix(href, "/api/v1/object-uploads/upl_") || strings.Contains(href, "://") {
+		t.Fatalf("blob create returned non-opaque upload target: %#v", uploadTarget)
+	}
+	return appsupport.MustUUID(t, createData["object_blob_id"].(string)), href
+}
+
+// putThroughUploadTarget PUTs four text bytes through an issued upload target.
+func putThroughUploadTarget(t *testing.T, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, href string) *http.Response {
+	t.Helper()
+	req, err := http.NewRequest(http.MethodPut, harness.Server.HTTP.URL+href, strings.NewReader("fail"))
+	if err != nil {
+		t.Fatalf("create object upload request: %v", err)
+	}
+	req.Header.Set("Content-Type", "text/plain")
+	for _, option := range authOptions(login) {
+		option(req)
+	}
+	return httptestx.Do(t, http.DefaultClient, req)
+}
+
 func requireNoPublicEvidenceLeak(t testing.TB, label string, value any, forbidden []string) {
 	t.Helper()
 	data, err := json.Marshal(value)
@@ -292,6 +483,7 @@ type overrideObjectStore struct {
 	mu              sync.Mutex
 	statCalls       int
 	readCalls       int
+	putCalls        int
 }
 
 var _ objectstore.Store = (*overrideObjectStore)(nil)
@@ -305,8 +497,8 @@ func (s *overrideObjectStore) UploadTarget(ctx context.Context, key string, expi
 }
 
 func (s *overrideObjectStore) PutObject(ctx context.Context, key string, body io.Reader, size int64, contentType string) error {
-	if s.putErr != nil {
-		return s.putErr
+	if putErr := s.putFault(); putErr != nil {
+		return putErr
 	}
 	return s.Store.PutObject(ctx, key, body, size, contentType)
 }
@@ -314,9 +506,10 @@ func (s *overrideObjectStore) PutObject(ctx context.Context, key string, body io
 func (s *overrideObjectStore) StatObject(ctx context.Context, key string) (objectstore.ObjectInfo, error) {
 	s.mu.Lock()
 	s.statCalls++
+	statErr := s.statErr
 	s.mu.Unlock()
-	if s.statErr != nil {
-		return objectstore.ObjectInfo{}, s.statErr
+	if statErr != nil {
+		return objectstore.ObjectInfo{}, statErr
 	}
 	return s.Store.StatObject(ctx, key)
 }
@@ -342,8 +535,8 @@ func (s *overrideObjectStore) CreateUploadTarget(ctx context.Context, request ob
 }
 
 func (s *overrideObjectStore) Put(ctx context.Context, request objectstore.PutObjectRequest) (objectstore.PutObjectResult, error) {
-	if s.putErr != nil {
-		return objectstore.PutObjectResult{}, s.putErr
+	if putErr := s.putFault(); putErr != nil {
+		return objectstore.PutObjectResult{}, putErr
 	}
 	if typed, ok := s.Store.(objectstore.TypedStore); ok {
 		return typed.Put(ctx, request)
@@ -357,9 +550,10 @@ func (s *overrideObjectStore) Put(ctx context.Context, request objectstore.PutOb
 func (s *overrideObjectStore) Head(ctx context.Context, request objectstore.HeadObjectRequest) (objectstore.ObjectInfo, error) {
 	s.mu.Lock()
 	s.statCalls++
+	statErr := s.statErr
 	s.mu.Unlock()
-	if s.statErr != nil {
-		return objectstore.ObjectInfo{}, s.statErr
+	if statErr != nil {
+		return objectstore.ObjectInfo{}, statErr
 	}
 	if typed, ok := s.Store.(objectstore.TypedStore); ok {
 		return typed.Head(ctx, request)
@@ -410,11 +604,35 @@ func (s *overrideObjectStore) EnsureBucketForDevTest(ctx context.Context, reques
 	}
 }
 
+// setFaults replaces the injected Head/Stat and Put failures while a server
+// holds the store; nil restores the wrapped behavior.
+func (s *overrideObjectStore) setFaults(statErr, putErr error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.statErr = statErr
+	s.putErr = putErr
+}
+
+// putFault counts one backend write and returns the injected Put failure.
+func (s *overrideObjectStore) putFault() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.putCalls++
+	return s.putErr
+}
+
 func (s *overrideObjectStore) resetCounts() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.statCalls = 0
 	s.readCalls = 0
+	s.putCalls = 0
+}
+
+func (s *overrideObjectStore) putCount() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.putCalls
 }
 
 func (s *overrideObjectStore) counts() (int, int) {

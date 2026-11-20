@@ -41,6 +41,14 @@ type serverProfile interface {
 	serve(context.Context, http.Handler, httpruntime.Options) error
 }
 
+// fatalRecorder is implemented only by the server-harness profile, which
+// records its own lifecycle fatal as harness evidence (TH-HARNESS-REQ-863).
+// The production profile does not implement it, so production builds are
+// unchanged.
+type fatalRecorder interface {
+	recordFatal(lookup func(string) (string, bool), reasonCode string)
+}
+
 type serverRunner struct {
 	stdout       io.Writer
 	stderr       io.Writer
@@ -56,8 +64,9 @@ type serverRuntime struct {
 	// Close closes owned components under ctx and returns those still open
 	// when ctx expired (REQ-04-146a).
 	Close func(context.Context) []string
-	// OnShutdown runs when HTTP shutdown begins; it closes WebSockets.
-	OnShutdown           func()
+	// BeginShutdown runs when HTTP shutdown begins, with the application
+	// shutdown deadline: it closes WebSockets and starts background closes.
+	BeginShutdown        func(context.Context)
 	ActivatePublication  func() error
 	FatalEvents          <-chan processlifecycle.FatalSignal
 	Fatal                func(string) bool
@@ -101,7 +110,7 @@ func newServerRunner(stdout io.Writer, stderr io.Writer) serverRunner {
 				return serverRuntime{}, err
 			}
 			return serverRuntime{
-				Handler: runtime.HTTPHandler(), Close: runtime.shutdown, OnShutdown: runtime.beginShutdown, ActivatePublication: runtime.ActivatePublication,
+				Handler: runtime.HTTPHandler(), Close: runtime.shutdown, BeginShutdown: runtime.beginShutdown, ActivatePublication: runtime.ActivatePublication,
 				publication: runtime.publicationOperation,
 				FatalEvents: runtime.fatalEvents(), Fatal: runtime.publishedComponentLost,
 				ShutdownDrainTimeout: runtime.drainTimeout(),
@@ -118,6 +127,9 @@ func (runner serverRunner) run(ctx context.Context) (exitCode int) {
 	writeFatal := func(signal processlifecycle.FatalSignal) {
 		if !fatalReported {
 			runner.writeFatalDiagnostic(signal)
+			if recorder, ok := runner.profile.(fatalRecorder); ok {
+				recorder.recordFatal(runner.lookupEnv, signal.ReasonCode)
+			}
 			fatalReported = true
 		}
 	}
@@ -223,6 +235,16 @@ func (runner serverRunner) run(ctx context.Context) (exitCode int) {
 			<-stopLogged
 		}
 	}()
+	beginCtx, cancelBegin := context.WithCancel(context.Background())
+	defer cancelBegin()
+	beginShutdown := func() {
+		if runtime.BeginShutdown == nil {
+			return
+		}
+		deadlineCtx, cancelDeadline := context.WithDeadline(beginCtx, clock.deadline())
+		context.AfterFunc(beginCtx, cancelDeadline)
+		runtime.BeginShutdown(deadlineCtx)
+	}
 	stopRequested := false
 	var incomplete []string
 	defer func() {
@@ -306,13 +328,14 @@ func (runner serverRunner) run(ctx context.Context) (exitCode int) {
 	}
 	go func() {
 		serveDone <- runner.profile.serve(serveCtx, runtime.Handler, httpruntime.Options{
-			TLS:             tlsIdentity,
-			Address:         address,
-			InheritedFD:     runner.profile.inheritedListenerFD(runner.lookupEnv),
-			Logger:          logger,
-			ShutdownTimeout: runtime.ShutdownDrainTimeout,
-			OnReady:         runtime.ActivatePublication,
-			OnShutdown:      runtime.OnShutdown,
+			TLS:              tlsIdentity,
+			Address:          address,
+			InheritedFD:      runner.profile.inheritedListenerFD(runner.lookupEnv),
+			Logger:           logger,
+			ShutdownTimeout:  runtime.ShutdownDrainTimeout,
+			ShutdownDeadline: clock.httpDrainDeadline,
+			OnReady:          runtime.ActivatePublication,
+			OnShutdown:       beginShutdown,
 		})
 	}()
 	select {
@@ -326,12 +349,10 @@ func (runner serverRunner) run(ctx context.Context) (exitCode int) {
 		if fatal.ReasonCode == "operation_cancellation_grace_exhausted" {
 			forceTerminating = true
 		} else {
-			timeout := runtime.ShutdownDrainTimeout
-			if timeout <= 0 {
-				timeout = time.Second
-			}
-			shutdownDeadline = time.Now().Add(timeout)
-			forceTerminating = runner.awaitDrain(serveDone, timeout, forcedFatal)
+			// One deadline: a stop request that already started it is never
+			// restarted by the fatal lifecycle (REQ-04-146, REQ-04-146a).
+			shutdownDeadline = clock.deadline()
+			forceTerminating = runner.awaitDrain(serveDone, time.Until(shutdownDeadline), forcedFatal)
 		}
 		writeFatal(fatal)
 		return 70
@@ -341,8 +362,8 @@ func (runner serverRunner) run(ctx context.Context) (exitCode int) {
 		if errors.As(publicationErr, &fatal) {
 			forceTerminating = fatal.FatalReasonCode() == "operation_cancellation_grace_exhausted"
 			if !forceTerminating {
-				shutdownDeadline = time.Now().Add(runtime.ShutdownDrainTimeout)
-				forceTerminating = runner.awaitDrain(serveDone, runtime.ShutdownDrainTimeout, forcedFatal)
+				shutdownDeadline = clock.deadline()
+				forceTerminating = runner.awaitDrain(serveDone, time.Until(shutdownDeadline), forcedFatal)
 			}
 			writeFatal(processlifecycle.FatalSignal{ReasonCode: fatal.FatalReasonCode(), ExitCode: 70})
 			return 70
@@ -371,10 +392,17 @@ func (runner serverRunner) run(ctx context.Context) (exitCode int) {
 		stopRequested = ctx.Err() != nil
 		var serveStartupErr *httpruntime.StartupError
 		if stopRequested {
-			logger.Info("shutdown phase", slog.String("phase", "http_drain"), slog.Int64("elapsed_ms", clock.elapsed().Milliseconds()))
-			if serveErr != nil && !errors.As(serveErr, &serveStartupErr) {
-				// REQ-04-146a: a stop-initiated drain that misses the deadline is
-				// incomplete ordinary shutdown, never published_component_lost.
+			var drainCut *httpruntime.DrainDeadlineError
+			cut := errors.As(serveErr, &drainCut)
+			logger.Info("shutdown phase", slog.String("phase", "http_drain"), slog.Bool("cancelled_in_flight", cut), slog.Int64("elapsed_ms", clock.elapsed().Milliseconds()))
+			switch {
+			case cut:
+				// REQ-04-146a: work still running at the close reserve boundary
+				// is cancelled; that completes the HTTP phase.
+				serveErr = nil
+			case serveErr != nil && !errors.As(serveErr, &serveStartupErr):
+				// Any other stop-initiated drain failure is incomplete ordinary
+				// shutdown, never published_component_lost.
 				incomplete = append(incomplete, "http_server")
 				serveErr = nil
 			}
@@ -490,6 +518,18 @@ func newShutdownClock(drain time.Duration) *shutdownClock {
 		drain = httpruntime.DefaultShutdownTimeout
 	}
 	return &shutdownClock{drain: drain}
+}
+
+// shutdownCloseReserve is the part of the deadline kept for component closes:
+// min(25% of the deadline, 5 s) (REQ-04-146a).
+func shutdownCloseReserve(drain time.Duration) time.Duration {
+	return min(drain/4, 5*time.Second)
+}
+
+// httpDrainDeadline ends the HTTP drain early enough to leave the close
+// reserve for component closes.
+func (c *shutdownClock) httpDrainDeadline() time.Time {
+	return c.deadline().Add(-shutdownCloseReserve(c.drain))
 }
 
 func (c *shutdownClock) start() {

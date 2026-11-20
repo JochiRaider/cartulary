@@ -659,7 +659,9 @@ func TestSourceOwnerTransitionValidation_Integration(t *testing.T) {
 		})
 	}
 	requireEvidenceRestoreBlobBridge(t, harness, login, incident, actor)
+	requireEvidenceRollbackBlobBridge(t, harness, login, incident, actor)
 	requireTaskRestoreReferences(t, harness, login, incident, actor)
+	requireTaskRestoreLifecycleBlock(t, harness, login, incident, actor)
 	requireDecisionDeleteTaskReferences(t, harness, login, incident, actor)
 	requireDecisionDeleteSupersession(t, harness, login, incident, actor)
 	requireDecisionRestoreSupersession(t, harness, login, incident, actor)

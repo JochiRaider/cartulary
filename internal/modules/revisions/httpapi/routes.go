@@ -30,18 +30,21 @@ type Service struct {
 	incidentAccess *admission.Checker
 	records        revisions.RecordEnvelopeReader
 	authStore      *authn.Store
-	keys           authn.MasterKeys
 	cursorCodec    *pagination.Codec
 	now            func() time.Time
 }
 
+// RegisterRoutes binds the record history, delete, restore and rollback routes
+// for central admission (Core 01 REQ-01-707): the registry authenticates by
+// each operation's declared security and admits record_id before a handler
+// runs.
 func RegisterRoutes(commands commandApplication, records revisions.RecordEnvelopeReader) platformhttpapi.RouteRegistrar {
 	return func(mux *http.ServeMux, deps platformhttpapi.DependencySet) error {
 		service, err := newService(deps, commands, records)
 		if err != nil {
 			return err
 		}
-		return platformhttpapi.BindOwnerRoutes(mux, deps, "module.revisions", map[string]http.HandlerFunc{
+		return platformhttpapi.BindAdmittedOwnerRoutes(mux, deps, "module.revisions", map[string]http.HandlerFunc{
 			"deleteRecord":     service.handleRecordDelete,
 			"getRecordHistory": service.handleRecordHistory,
 			"restoreRecord":    service.handleRecordRestore,
@@ -78,26 +81,32 @@ func newService(deps platformhttpapi.DependencySet, commands commandApplication,
 		incidentAccess: admission.NewChecker(deps.PostgresHandle()),
 		records:        records,
 		authStore:      authn.NewStore(deps.PostgresHandle()),
-		keys:           keys,
 		cursorCodec:    cursorCodec,
 		now:            now,
 	}, nil
 }
 
+// admittedRecord returns the principal and record_id central admission
+// established (REQ-01-707 steps 2 and 3); their absence is a binding error.
+func admittedRecord(r *http.Request) (httpauth.Principal, uuid.UUID, *platformhttpapi.APIError) {
+	principal, authenticated := httpauth.AdmittedPrincipal(r)
+	recordID, identified := platformhttpapi.PathUUID(r, "record_id")
+	if !authenticated || !identified {
+		return httpauth.Principal{}, uuid.UUID{}, platformhttpapi.InternalAPIError(errors.New("revisions route was not admitted centrally"))
+	}
+	return principal, recordID, nil
+}
+
 func (s *Service) handleRecordHistory(w http.ResponseWriter, r *http.Request) {
-	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: false})
+	principal, recordID, apiErr := admittedRecord(r)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
-		return
-	}
-	recordID, ok := pathUUID(w, r, "record_id")
-	if !ok {
 		return
 	}
 
 	envelope, err := s.records.LoadEnvelope(r.Context(), recordID)
 	if errors.Is(err, revisions.ErrEnvelopeNotFound) {
-		writeAPIError(w, r, incidentNotFoundError())
+		writeAPIError(w, r, platformhttpapi.NotFound("incident_not_found"))
 		return
 	}
 	if err != nil {
@@ -124,7 +133,7 @@ func (s *Service) handleRecordHistory(w http.ResponseWriter, r *http.Request) {
 	}
 	history, err := s.commands.GetHistory(r.Context(), revisions.HistoryQuery{RecordID: recordID, Limit: binding.Limit, After: position})
 	if errors.Is(err, revisions.ErrRecordNotFound) {
-		writeAPIError(w, r, incidentNotFoundError())
+		writeAPIError(w, r, platformhttpapi.NotFound("incident_not_found"))
 		return
 	}
 	if err != nil {
@@ -135,7 +144,7 @@ func (s *Service) handleRecordHistory(w http.ResponseWriter, r *http.Request) {
 	rows := historyResources(history.Items)
 	nextCursor := historyCursor(binding, history.Next)
 
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
@@ -171,18 +180,14 @@ func (s *Service) handleRecordRestore(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) handleRecordRollback(w http.ResponseWriter, r *http.Request) {
-	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
+	principal, recordID, apiErr := admittedRecord(r)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	recordID, ok := pathUUID(w, r, "record_id")
-	if !ok {
-		return
-	}
 	record, err := s.records.LoadEnvelope(r.Context(), recordID)
 	if errors.Is(err, revisions.ErrEnvelopeNotFound) {
-		writeAPIError(w, r, incidentNotFoundError())
+		writeAPIError(w, r, platformhttpapi.NotFound("incident_not_found"))
 		return
 	}
 	if err != nil {
@@ -217,7 +222,7 @@ func (s *Service) handleRecordRollback(w http.ResponseWriter, r *http.Request) {
 	})
 	switch {
 	case errors.Is(err, revisions.ErrRecordNotFound), errors.Is(err, revisions.ErrCommandTargetNotFound):
-		writeAPIError(w, r, incidentNotFoundError())
+		writeAPIError(w, r, platformhttpapi.NotFound("incident_not_found"))
 		return
 	case errors.Is(err, revisions.ErrClientTxnConflict):
 		writeAPIError(w, r, clientTxnConflictError(request.ClientTxnID))
@@ -262,7 +267,7 @@ func (s *Service) handleRecordRollback(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
@@ -270,18 +275,14 @@ func (s *Service) handleRecordRollback(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) handleDeleteRestore(w http.ResponseWriter, r *http.Request, deleting bool) {
-	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
+	principal, recordID, apiErr := admittedRecord(r)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	recordID, ok := pathUUID(w, r, "record_id")
-	if !ok {
-		return
-	}
 	record, err := s.records.LoadEnvelope(r.Context(), recordID)
 	if errors.Is(err, revisions.ErrEnvelopeNotFound) {
-		writeAPIError(w, r, incidentNotFoundError())
+		writeAPIError(w, r, platformhttpapi.NotFound("incident_not_found"))
 		return
 	}
 	if err != nil {
@@ -327,7 +328,7 @@ func (s *Service) handleDeleteRestore(w http.ResponseWriter, r *http.Request, de
 	}
 	switch {
 	case errors.Is(err, revisions.ErrRecordNotFound), errors.Is(err, revisions.ErrCommandTargetNotFound):
-		writeAPIError(w, r, incidentNotFoundError())
+		writeAPIError(w, r, platformhttpapi.NotFound("incident_not_found"))
 		return
 	case errors.Is(err, revisions.ErrClientTxnConflict):
 		writeAPIError(w, r, clientTxnConflictError(request.ClientTxnID))
@@ -384,7 +385,7 @@ func (s *Service) handleDeleteRestore(w http.ResponseWriter, r *http.Request, de
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
@@ -398,7 +399,7 @@ func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid
 	})
 	switch {
 	case admission.IsDenied(err, admission.DenialNotVisible):
-		return admission.Grant{}, incidentNotFoundError()
+		return admission.Grant{}, platformhttpapi.NotFound("incident_not_found")
 	case err != nil:
 		return admission.Grant{}, internalAPIError(err)
 	default:
@@ -423,8 +424,8 @@ func requireJSONContentType(r *http.Request, failure func(string, string) *platf
 	return nil
 }
 
-func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal, method string, path string) error {
-	return httpauth.SlideSessionIfNeeded(ctx, s.authStore, principal, method, path, s.now)
+func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal) error {
+	return httpauth.SlideSessionIfNeeded(ctx, s.authStore, principal, s.now)
 }
 
 func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *platformhttpapi.APIError) {
@@ -433,16 +434,6 @@ func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *platformhttpa
 		message = apiErr.Code
 	}
 	_ = platformhttpapi.WriteErrorWithConflict(w, r, apiErr.Status, apiErr.Code, message, apiErr.Details, apiErr.Conflict)
-}
-
-func pathUUID(w http.ResponseWriter, r *http.Request, key string) (uuid.UUID, bool) {
-	raw := r.PathValue(key)
-	value, err := uuid.Parse(raw)
-	if err != nil {
-		writeAPIError(w, r, incidentNotFoundError())
-		return uuid.UUID{}, false
-	}
-	return value, true
 }
 
 func invalidPaginationRequest(reasonCode string) *platformhttpapi.APIError {
@@ -454,10 +445,6 @@ func invalidPaginationRequest(reasonCode string) *platformhttpapi.APIError {
 			"reason_code": reasonCode,
 		},
 	}
-}
-
-func incidentNotFoundError() *platformhttpapi.APIError {
-	return &platformhttpapi.APIError{Status: http.StatusNotFound, Code: "incident_not_found", Details: map[string]any{}}
 }
 
 func incidentClosedError() *platformhttpapi.APIError {

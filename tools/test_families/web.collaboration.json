@@ -17,7 +17,9 @@
         "file": "apps/web/src/collaboration/incidentCollaborationSessionPlan.node.test.ts",
         "titles": [
           "incident collaboration session plan classifies handshake, heartbeat, and terminal messages exactly",
-          "incident collaboration session plan deduplicates, detects gaps, and suppresses replay while resetting"
+          "incident collaboration session plan deduplicates, detects gaps, and suppresses replay while resetting",
+          "reconnect backoff (REQ-03-299a) doubles from 1 s to a 30 s cap",
+          "reconnect backoff (REQ-03-299a) draws each delay uniformly from zero to its bound"
         ],
         "project_id": "node-unit"
       },
@@ -138,7 +140,9 @@
       "selector": {
         "file": "apps/web/src/workbook/timeline/collaboration/useTimelineCollaborationBindings.test.tsx",
         "titles": [
+          "useTimelineCollaborationBindings applies a placement-neutral patch for a reconciled out-of-window record without refresh or row replacement",
           "useTimelineCollaborationBindings fails closed to refresh for malformed or target-inconsistent sparse patches",
+          "useTimelineCollaborationBindings keeps refresh for out-of-window placement changes, retained records, invalidation, and lost placement evidence",
           "useTimelineCollaborationBindings owns Timeline live admission, gap refresh, access invalidation, surface switches, and teardown"
         ],
         "project_id": "browser-unit"
@@ -211,6 +215,7 @@
           "WorkbookCollaborationCoordinator invalidates editing cleanup across cell and sheet changes",
           "WorkbookCollaborationCoordinator keeps base and saved-view presence exact, keyed, sorted, and self-free",
           "WorkbookCollaborationCoordinator keeps record unavailability and operation denial local during surface confirmation",
+          "WorkbookCollaborationCoordinator keeps the authorization epoch across stream re-establishment and advances it for a role change found by an authoritative read",
           "WorkbookCollaborationCoordinator prompts authentication immediately for revocation while preserving pending work",
           "WorkbookCollaborationCoordinator recovers authorization through the injected port and keeps role downgrades read-only",
           "WorkbookCollaborationCoordinator refreshes invalidations and resets before releasing replay",

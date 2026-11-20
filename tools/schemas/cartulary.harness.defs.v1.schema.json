@@ -20,6 +20,8 @@
         "fixture_error",
         "resource_conflict",
         "test_assertion_failure",
+        "contract_violation",
+        "server_fatal",
         "security_finding",
         "child_target_failure",
         "tool_diagnostic_failure",

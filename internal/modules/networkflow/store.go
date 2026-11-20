@@ -149,11 +149,15 @@ type createTableParams struct {
 	ParserProfileID            string
 	DisplayNameOverride        *string
 	RowCountAccepted           int64
-	VisitRows                  func(func(normalizedRow) error) error
-	RowCountRejected           int64
-	Diagnostics                []rejectedRowDiagnostic
-	DiagnosticsTruncated       bool
-	Now                        time.Time
+	// VisitRows produces the accepted rows in source order while COPY consumes
+	// earlier ones. Any statement it needs runs through gate, which hands it the
+	// borrowed connection between COPY statements. Callers outside the import
+	// copy may pass a nil gate.
+	VisitRows            func(gate rowSourceGate, visit func(normalizedRow) error) error
+	RowCountRejected     int64
+	Diagnostics          []rejectedRowDiagnostic
+	DiagnosticsTruncated bool
+	Now                  time.Time
 }
 
 type renameTableParams struct {
@@ -196,6 +200,14 @@ func newStore(pool dbport.DB, limits EffectiveLimits, options ...storeOption) *s
 	return store
 }
 
+// CreateTableTx copies an import's accepted rows before it takes the incident
+// lock (REQ-03-168). Until commit, the new table and its rows are invisible to
+// every other transaction, and the provisional display name equal to the
+// table's own unique ID contends on no active name. Publication then takes the
+// incident lock, which serializes it with every other incident-scoped Network
+// Flow mutation, to recheck the retained-table limits against committed state,
+// allocate the final display name, and append the audit event. The unlocked
+// prechecks only fail fast; the locked checks are authoritative.
 func (s *store) CreateTableTx(ctx context.Context, tx pgx.Tx, params createTableParams) (tableRecord, error) {
 	if params.RowCountAccepted <= 0 || params.VisitRows == nil {
 		return tableRecord{}, errNoAcceptedRows
@@ -205,32 +217,13 @@ func (s *store) CreateTableTx(ctx context.Context, tx pgx.Tx, params createTable
 		return tableRecord{}, err
 	}
 	now := rowContext.createdAt
-	if err := s.lockIncidentTx(ctx, tx, params.IncidentID); err != nil {
-		return tableRecord{}, err
-	}
-	counts, err := retainedCountsTx(ctx, tx, params.IncidentID)
-	if err != nil {
-		return tableRecord{}, err
-	}
-	if counts.Active >= s.limits.MaxActiveTablesPerIncident {
-		return tableRecord{}, &tableLimitError{IncidentID: params.IncidentID, LimitName: "network_flow.max_active_tables_per_incident", Limit: s.limits.MaxActiveTablesPerIncident, Current: counts.Active}
-	}
-	if counts.Retained >= s.limits.MaxRetainedTablesPerIncident {
-		return tableRecord{}, &tableLimitError{IncidentID: params.IncidentID, LimitName: "network_flow.max_retained_tables_per_incident", Limit: s.limits.MaxRetainedTablesPerIncident, Current: counts.Retained}
-	}
-	existingNames, err := activeDisplayNamesTx(ctx, tx, params.IncidentID, "")
-	if err != nil {
-		return tableRecord{}, err
-	}
-	displayName, err := finalDisplayName(params, existingNames)
-	if err != nil {
+	if _, err := s.publicationDisplayNameTx(ctx, tx, params, ""); err != nil {
 		return tableRecord{}, err
 	}
 	parserProfileID := rowContext.parserProfile
 	sourceFilenameDisplay := sanitizeSourceFilenameDisplay(params.OriginalFilename)
-	tableID, table, err := s.insertTableWithGeneratedID(ctx, tx, insertTableParams{
+	tableID, err := s.insertUnpublishedTableTx(ctx, tx, insertTableParams{
 		IncidentID:                 params.IncidentID,
-		DisplayName:                displayName,
 		CommittedSourceID:          params.CommittedSourceID,
 		SourceInterpretationSHA256: params.SourceInterpretationSHA256,
 		SourceRawCellScalarLimit:   params.SourceRawCellScalarLimit,
@@ -254,6 +247,17 @@ func (s *store) CreateTableTx(ctx context.Context, tx pgx.Tx, params createTable
 		return tableRecord{}, err
 	}
 	if err := insertDiagnosticsTx(ctx, tx, tableID, params, now); err != nil {
+		return tableRecord{}, err
+	}
+	if err := s.lockIncidentTx(ctx, tx, params.IncidentID); err != nil {
+		return tableRecord{}, err
+	}
+	displayName, err := s.publicationDisplayNameTx(ctx, tx, params, tableID)
+	if err != nil {
+		return tableRecord{}, err
+	}
+	table, err := publishTableDisplayNameTx(ctx, tx, params.IncidentID, tableID, displayName)
+	if err != nil {
 		return tableRecord{}, err
 	}
 	if params.ClientTxnID != "" && params.ActorUserID != uuid.Nil {
@@ -481,22 +485,63 @@ type insertTableParams struct {
 	CreatedAt                  time.Time
 }
 
-func (s *store) insertTableWithGeneratedID(ctx context.Context, tx pgx.Tx, params insertTableParams) (string, tableRecord, error) {
+// publicationDisplayNameTx checks the retained-table limits and allocates the
+// display name against active tables other than excludedTableID. Only a caller
+// holding the incident lock observes a result that publication may rely on.
+func (s *store) publicationDisplayNameTx(ctx context.Context, tx pgx.Tx, params createTableParams, excludedTableID string) (string, error) {
+	counts, err := retainedCountsTx(ctx, tx, params.IncidentID, excludedTableID)
+	if err != nil {
+		return "", err
+	}
+	if counts.Active >= s.limits.MaxActiveTablesPerIncident {
+		return "", &tableLimitError{IncidentID: params.IncidentID, LimitName: "network_flow.max_active_tables_per_incident", Limit: s.limits.MaxActiveTablesPerIncident, Current: counts.Active}
+	}
+	if counts.Retained >= s.limits.MaxRetainedTablesPerIncident {
+		return "", &tableLimitError{IncidentID: params.IncidentID, LimitName: "network_flow.max_retained_tables_per_incident", Limit: s.limits.MaxRetainedTablesPerIncident, Current: counts.Retained}
+	}
+	existingNames, err := activeDisplayNamesTx(ctx, tx, params.IncidentID, excludedTableID)
+	if err != nil {
+		return "", err
+	}
+	return finalDisplayName(params, existingNames)
+}
+
+// insertUnpublishedTableTx inserts a table whose provisional display name is
+// its own generated ID, unique by construction among active names.
+func (s *store) insertUnpublishedTableTx(ctx context.Context, tx pgx.Tx, params insertTableParams) (string, error) {
 	for attempt := 0; attempt < 8; attempt++ {
 		tableID, err := newTableID(s.tableIDEntropy)
 		if err != nil {
-			return "", tableRecord{}, err
+			return "", err
 		}
-		table, err := insertTableTx(ctx, tx, tableID, params)
+		params.DisplayName = tableID
+		_, err = insertTableTx(ctx, tx, tableID, params)
 		if errors.Is(err, pgx.ErrNoRows) {
 			continue
 		}
 		if err != nil {
-			return "", tableRecord{}, err
+			return "", err
 		}
-		return tableID, table, nil
+		return tableID, nil
 	}
-	return "", tableRecord{}, errIDGenerationFailed
+	return "", errIDGenerationFailed
+}
+
+// publishTableDisplayNameTx assigns the final name of a table created in this
+// transaction. It is part of creation, so the version and timestamps stay.
+func publishTableDisplayNameTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, tableID string, displayName string) (tableRecord, error) {
+	table, err := scanTable(tx.QueryRow(ctx, `
+UPDATE network_flow_tables
+   SET display_name = $3
+ WHERE incident_id = $1
+   AND network_flow_table_id = $2
+   AND table_version = 1
+   AND table_status = 'active'
+RETURNING `+tableColumnList(), incidentID, tableID, displayName))
+	if err != nil {
+		return tableRecord{}, fmt.Errorf("publish network flow table: %w", err)
+	}
+	return table, nil
 }
 
 func insertTableTx(ctx context.Context, tx pgx.Tx, tableID string, params insertTableParams) (tableRecord, error) {
@@ -559,20 +604,28 @@ RETURNING `+tableColumnList(), incidentID, tableID, now)
 	return s.resolveTableAuthor(ctx, tx, table)
 }
 
+// insertRowsTx streams the accepted rows into COPY while the second validation
+// pass is still producing them (rowCopyPipeline), so row production and
+// PostgreSQL's insert work overlap instead of alternating per batch.
 func insertRowsTx(ctx context.Context, tx pgx.Tx, tableID string, params createTableParams, rowContext rowImportContext) error {
 	var count, lastRow int64
-	err := insertRetainedRowsTx(ctx, tx, func(visit func(flowRow) error) error {
-		return params.VisitRows(func(source normalizedRow) error {
-			if source.SourceRowNumber <= lastRow || count >= params.RowCountAccepted {
+	pipeline := newRowCopyPipeline()
+	err := pipeline.run(ctx, tx, retainedFlowRowColumns, func(gate rowSourceGate) error {
+		return params.VisitRows(gate, func(normalized normalizedRow) error {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			if normalized.SourceRowNumber <= lastRow || count >= params.RowCountAccepted {
 				return errSourceChanged
 			}
-			lastRow = source.SourceRowNumber
+			lastRow = normalized.SourceRowNumber
 			count++
-			row, err := rowContext.persistedRow(tableID, source)
+			row, err := rowContext.persistedRow(tableID, normalized)
 			if err != nil {
 				return err
 			}
-			return visit(row)
+			arguments := retainedFlowRowValues(row)
+			return pipeline.push(arguments, retainedFlowRowSize(arguments))
 		})
 	})
 	if err != nil {
@@ -595,6 +648,22 @@ var retainedFlowRowColumns = []string{
 
 func retainedFlowRowValues(row flowRow) []any {
 	return []any{row.RowID, row.NetworkFlowTableID, row.IncidentID, row.SourceRowNumber, row.SourceRowDigestSHA256, row.NormalizedRowDigestSHA256, row.MappingFingerprint, row.FlowStartUTC, row.FlowEndUTC, row.EndpointAIP, row.EndpointBIP, nullableInt32(row.EndpointAPort), nullableInt32(row.EndpointBPort), row.IPProtocol, row.BytesCount, row.PacketsCount, row.ExporterID, row.InputInterface, row.OutputInterface, nullableInt32(row.TCPFlags), row.ApplicationLabel, string(row.UnmappedRaw), string(row.ObservationSourceRef), row.CreatedAt, row.CreatedByUserID, row.Direction.Kind, row.Direction.FromEndpoint, row.Direction.Reason, string(row.DirectionEvidence)}
+}
+
+// retainedFlowRowSize estimates one row's encoded size for batch and queue bounds.
+func retainedFlowRowSize(arguments []any) int {
+	size := len(arguments) * 128
+	for _, argument := range arguments {
+		switch value := argument.(type) {
+		case string:
+			size += len(value)
+		case *string:
+			if value != nil {
+				size += len(*value)
+			}
+		}
+	}
+	return size
 }
 
 func insertRetainedRowsTx(ctx context.Context, tx pgx.Tx, visit func(func(flowRow) error) error) error {
@@ -622,17 +691,7 @@ func insertRetainedRowsTx(ctx context.Context, tx pgx.Tx, visit func(func(flowRo
 		arguments := retainedFlowRowValues(row)
 		// Bound retained rows and variable-sized values independently. A single
 		// admitted row may exceed the byte target; it is flushed on its own.
-		rowBytes := len(arguments) * 128
-		for _, argument := range arguments {
-			switch value := argument.(type) {
-			case string:
-				rowBytes += len(value)
-			case *string:
-				if value != nil {
-					rowBytes += len(*value)
-				}
-			}
-		}
+		rowBytes := retainedFlowRowSize(arguments)
 		if len(batch) > 0 && (len(batch) >= 128 || batchBytes+rowBytes > 1<<20) {
 			if err := flush(); err != nil {
 				return err
@@ -758,14 +817,15 @@ SELECT display_name
 	return names, nil
 }
 
-func retainedCountsTx(ctx context.Context, querier retainedCountQuerier, incidentID uuid.UUID) (retainedCounts, error) {
+func retainedCountsTx(ctx context.Context, querier retainedCountQuerier, incidentID uuid.UUID, excludedTableID string) (retainedCounts, error) {
 	var counts retainedCounts
 	err := querier.QueryRow(ctx, `
 SELECT COUNT(*) FILTER (WHERE table_status = 'active') AS active_count,
        COUNT(*) FILTER (WHERE table_status IN ('active', 'soft_deleted')) AS retained_count
   FROM network_flow_tables
  WHERE incident_id = $1
-`, incidentID).Scan(&counts.Active, &counts.Retained)
+   AND ($2 = '' OR network_flow_table_id <> $2)
+`, incidentID, excludedTableID).Scan(&counts.Active, &counts.Retained)
 	if err != nil {
 		return retainedCounts{}, fmt.Errorf("count network flow retained tables: %w", err)
 	}

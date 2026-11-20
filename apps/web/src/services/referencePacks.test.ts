@@ -84,6 +84,36 @@ describe("Reference Pack transport", () => {
         { status: 403, headers: { "content-type": "application/json" } },
       ),
     );
+    // An invalid error envelope is the client contract failure: its raw 403
+    // status must not select the access-failure outcome.
+    expect(
+      await readReferencePackValidationSummary(
+        referencePackTestValidationRef,
+        signal(),
+      ),
+    ).toEqual({
+      kind: "failed",
+      problem: {
+        kind: "contract",
+        status: 403,
+        code: "invalid_public_contract_response",
+      },
+    });
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          error: {
+            code: "authorization_denied",
+            status: 403,
+            message: "Denied",
+            request_id: "request-test",
+            retryable: false,
+            details: {},
+          },
+        }),
+        { status: 403, headers: { "content-type": "application/json" } },
+      ),
+    );
     expect(
       await readReferencePackValidationSummary(
         referencePackTestValidationRef,
@@ -201,28 +231,70 @@ describe("Reference Pack transport", () => {
       { kind: "refresh_all" },
       "txn-outcomes",
     );
-    for (const [code, kind] of [
-      ["reference_pack_state_conflict", "state_conflict"],
-      ["reference_pack_activation_rejected", "activation_rejected"],
-      ["reference_pack_verification_failed", "verification_failed"],
-      ["client_txn_conflict", "transaction_conflict"],
-    ]) {
+    // Each conflict code is sent by an operation that declares it for 409.
+    const activation = captureReferencePackAttempt(
+      {
+        kind: "activate",
+        target: { pack_key: "type_registry.host", pack_version: "1" },
+      },
+      "txn-activation-outcomes",
+    );
+    const upload = captureReferencePackAttempt(
+      { kind: "import", filename: "pack.zip" },
+      "txn-upload-outcomes",
+      new File(["pack"], "pack.zip", { type: "application/zip" }),
+    );
+    for (const [submitted, code, kind] of [
+      [attempt, "reference_pack_operation_rejected", "operation_rejected"],
+      [activation, "reference_pack_activation_rejected", "activation_rejected"],
+      [upload, "reference_pack_verification_failed", "verification_failed"],
+      [upload, "client_txn_conflict", "transaction_conflict"],
+    ] as const) {
       fetchMock.mockResolvedValueOnce(
         new Response(
           JSON.stringify({
             error: {
               code,
+              status: 409,
               message: "unsafe wire message",
+              request_id: "request-test",
+              retryable: false,
               details: { reason_code: "unsafe reason" },
             },
           }),
           { status: 409, headers: { "content-type": "application/json" } },
         ),
       );
-      expect(await submitReferencePackAttempt(attempt, signal())).toMatchObject(
-        { kind: "rejected", problem: { kind, status: 409, code } },
-      );
+      expect(
+        await submitReferencePackAttempt(submitted, signal()),
+      ).toMatchObject({
+        kind: "rejected",
+        problem: { kind, status: 409, code },
+      });
     }
+    // No operation declares reference_pack_state_conflict: it is a client
+    // contract failure and never selects the state-conflict outcome.
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          error: {
+            code: "reference_pack_state_conflict",
+            status: 409,
+            message: "unsafe wire message",
+            request_id: "request-test",
+            retryable: false,
+            details: {},
+          },
+        }),
+        { status: 409, headers: { "content-type": "application/json" } },
+      ),
+    );
+    const undeclared = await submitReferencePackAttempt(attempt, signal());
+    expect(undeclared).toMatchObject({
+      problem: { code: "invalid_public_contract_response" },
+    });
+    if ("problem" in undeclared)
+      expect(undeclared.problem.kind).not.toBe("state_conflict");
     for (const status of [400, 401, 403, 409, 500, 202]) {
       fetchMock.mockResolvedValueOnce(
         new Response("{malformed", {
@@ -230,16 +302,17 @@ describe("Reference Pack transport", () => {
           headers: { "content-type": "application/json" },
         }),
       );
+      // A malformed body is the client contract failure whatever its raw
+      // status, handled exactly like an invalid success response.
       const outcome = await submitReferencePackAttempt(attempt, signal());
-      expect(outcome.kind).toBe(
-        [401, 403].includes(status)
-          ? "access_failed"
-          : status < 500 && status >= 400
-            ? "rejected"
-            : "uncertain",
-      );
-      if ("problem" in outcome) expect(outcome.problem.status).toBe(status);
-      else expect(outcome).toEqual({ kind: "access_failed", status });
+      expect(outcome).toMatchObject({
+        kind: "uncertain",
+        problem: {
+          kind: "contract",
+          status,
+          code: "invalid_public_contract_response",
+        },
+      });
     }
     fetchMock.mockRejectedValueOnce(new TypeError("network"));
     expect(await submitReferencePackAttempt(attempt, signal())).toMatchObject({

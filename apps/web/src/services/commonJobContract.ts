@@ -1,6 +1,42 @@
 import type { GetJobResponse } from "@cartulary/protocol-ts/http";
 export type CommonJobResource = GetJobResponse["data"];
 
+/**
+ * The terminal `result_summary.code` values the client recognizes: every Job
+ * kind's declared success code and the common `job_canceled` (Core 01
+ * §3.3.9.1). The list is closed, so a comparison with any other literal is a
+ * type error; a test checks it against the Job-kind contracts.
+ */
+export const jobResultSummaryCodes = [
+  "composition_preview_rendered",
+  "evidence_blob_verified",
+  "import_session_applied",
+  "import_session_discovered",
+  "import_session_partially_applied",
+  "incident_bundle_exported",
+  "incident_bundle_imported",
+  "job_canceled",
+  "network_flow_graph_view_materialized",
+  "reference_pack_imported",
+  "reference_pack_reverified",
+  "reference_packs_refreshed",
+  "release_created",
+  "snapshot_created",
+] as const;
+
+export type JobResultSummaryCode = (typeof jobResultSummaryCodes)[number];
+
+/** A job's terminal result code, or null when it has none or an unrecognized one. */
+export function jobResultSummaryCode(job: {
+  readonly result_summary: { readonly code: string } | null;
+}): JobResultSummaryCode | null {
+  const code = job.result_summary?.code;
+  return code !== undefined &&
+    (jobResultSummaryCodes as readonly string[]).includes(code)
+    ? (code as JobResultSummaryCode)
+    : null;
+}
+
 export const terminalCommonJob = (job: CommonJobResource) =>
   job.status === "succeeded" ||
   job.status === "failed" ||
@@ -104,7 +140,7 @@ export function validCommonJob(
     (job.result_summary === null || job.error_summary !== null)
   )
     return false;
-  if (job.status === "canceled" && job.result_summary?.code !== "job_canceled")
+  if (job.status === "canceled" && jobResultSummaryCode(job) !== "job_canceled")
     return false;
   const refs = job.result_summary?.resource_refs ?? [];
   return (

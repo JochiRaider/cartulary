@@ -119,6 +119,7 @@ type RecordEnvelopeCapability interface {
 	InsertTx(context.Context, pgx.Tx, records.InsertParams) (uuid.UUID, error)
 	AdvanceVersionTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, time.Time) (int64, error)
 	LoadEnvelopeTx(context.Context, pgx.Tx, uuid.UUID, bool) (recordenvelope.Envelope, error)
+	ClassifyTargetTx(context.Context, pgx.Tx, uuid.UUID, records.TargetLock) (recordenvelope.Envelope, error)
 }
 
 // LinkCapability groups only the fixed link operations consumed by

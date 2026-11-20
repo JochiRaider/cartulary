@@ -17,6 +17,7 @@ import { responseBarrier } from "./support/runtime/cleanup";
 import { uniqueTxn } from "./support/runtime/fixtureIdentity";
 import {
   awaitResponseBarrier,
+  fulfillOperationError,
   installOwnedRoute,
 } from "./support/transport/requestInterception";
 import {
@@ -92,19 +93,17 @@ test("Indicator intervals recover a response lost after commit with the original
     async (route) => {
       if (!failRefresh) return route.continue();
       failRefresh = false;
-      await route.fulfill({
-        status: 503,
-        contentType: "application/json",
-        body: JSON.stringify({
-          error: {
-            code: "service_unavailable",
-            status: 503,
-            retryable: true,
-            message: "Refresh unavailable",
-            request_id: "refresh-failure",
-          },
-        }),
-      });
+      await fulfillOperationError(
+        route,
+        "queryWorkbookView",
+        503,
+        "service_unavailable",
+        {
+          retryable: true,
+          requestId: "refresh-failure",
+          details: { reason_code: "admission_paused" },
+        },
+      );
     },
   );
   await openRecoveryItem(page, /^Indicator interval ·/);

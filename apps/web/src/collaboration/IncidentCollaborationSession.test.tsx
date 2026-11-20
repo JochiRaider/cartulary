@@ -6,7 +6,7 @@ import {
   screen,
 } from "@testing-library/react";
 import { useEffect, useRef } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   type IncidentCollaborationEvent,
   IncidentCollaborationSession,
@@ -119,12 +119,90 @@ function ResetProbe({
 }
 
 describe("IncidentCollaborationSession", () => {
+  // Reconnect delays use full jitter (REQ-03-299a); pin the draw so timing
+  // assertions are deterministic. Tests that exercise jitter override it.
+  beforeEach(() => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+  });
   afterEach(() => {
     cleanup();
     FakeWebSocket.instances = [];
     serverEventOrdinal = 0;
     vi.useRealTimers();
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("backs off server-initiated reconnects with full jitter and resets after hello (REQ-03-299a)", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-13T12:00:00Z"));
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+    vi.spyOn(Math, "random").mockReturnValue(0.999);
+    render(
+      <IncidentCollaborationSession
+        incidentId="incident-1"
+        initialPresence={{
+          sheet_ref: { kind: "view_schema", id: "timeline" },
+          mode: "viewing",
+        }}
+      >
+        <Consumer onEvent={vi.fn()} sheetId="timeline" />
+      </IncidentCollaborationSession>,
+    );
+    const open = (index: number) => {
+      const socket = FakeWebSocket.instances[index];
+      act(() => {
+        if (socket) socket.readyState = FakeWebSocket.OPEN;
+        socket?.onopen?.();
+      });
+      return socket;
+    };
+    const closeGoingAway = (index: number) =>
+      act(() =>
+        FakeWebSocket.instances[index]?.onclose?.({ code: 1001, reason: "" }),
+      );
+    const advance = (ms: number) => act(() => vi.advanceTimersByTime(ms));
+
+    // First server-initiated close: the delay is drawn below the 1 s bound.
+    open(0);
+    closeGoingAway(0);
+    advance(998);
+    expect(FakeWebSocket.instances).toHaveLength(1);
+    advance(1);
+    expect(FakeWebSocket.instances).toHaveLength(2);
+
+    // A second consecutive failure doubles the bound to 2 s.
+    open(1);
+    closeGoingAway(1);
+    advance(1_997);
+    expect(FakeWebSocket.instances).toHaveLength(2);
+    advance(1);
+    expect(FakeWebSocket.instances).toHaveLength(3);
+
+    // An accepted hello resets the backoff to the 1 s bound.
+    const third = open(2);
+    act(() => {
+      third?.onmessage?.({
+        data: JSON.stringify(
+          serverMessage({
+            type: "hello_ack",
+            payload: {
+              connection_id: "connection-3",
+              resume_token: "resume-3",
+              server_time: "2026-07-13T12:00:03Z",
+              heartbeat_interval_ms: 15_000,
+              presence_ttl_ms: 45_000,
+              resume_window_ms: 300_000,
+            },
+          }),
+        ),
+      });
+    });
+    closeGoingAway(2);
+    advance(998);
+    expect(FakeWebSocket.instances).toHaveLength(3);
+    advance(1);
+    expect(FakeWebSocket.instances).toHaveLength(4);
   });
 
   it("ignores duplicate stream sequences and refreshes on sequence gaps", () => {

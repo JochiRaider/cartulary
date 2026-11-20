@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/jackc/pgx/v5"
@@ -75,6 +76,9 @@ type Settings struct {
 	ServiceRef   string
 	Purpose      Purpose
 	ExpectedRole string
+	// MaxConnections bounds the admitted pool when positive. Zero keeps the
+	// driver default for purposes without an explicit deployment setting.
+	MaxConnections int32
 }
 
 type Binding struct {
@@ -263,6 +267,12 @@ func Setup(ctx context.Context, settings Settings) (AdmittedPool, error) {
 	poolConfig.ConnConfig.TLSConfig = tlsConfig
 	poolConfig.ConnConfig.Fallbacks = nil
 	poolConfig.AfterConnect = connectionInitializer(settings, poolConfig.ConnConfig.User)
+	if settings.MaxConnections < 0 {
+		return nil, configurationError(ReasonBindingInvalid)
+	}
+	if settings.MaxConnections > 0 {
+		poolConfig.MaxConns = settings.MaxConnections
+	}
 	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
 	if err != nil {
 		return nil, admittedConnectionError(err)
@@ -274,6 +284,38 @@ func Setup(ctx context.Context, settings Settings) (AdmittedPool, error) {
 	}
 	connection.Release()
 	return &admittedPool{pool: pool}, nil
+}
+
+// OpenDedicatedSession opens one session outside pool for a holder that keeps
+// it for the process lifetime, such as a lease (Core 04 REQ-04-145) or the
+// Collaboration replay listener, so the holder never consumes pool capacity.
+// It applies the pool's own connection configuration and admission hooks, so
+// the session has the same DSN, TLS, credentials, effective role and admission
+// checks as a pooled connection. The caller owns and closes the session.
+func OpenDedicatedSession(ctx context.Context, pool *pgxpool.Pool) (*pgx.Conn, error) {
+	if pool == nil {
+		return nil, errors.New("dedicated session requires a postgres pool")
+	}
+	config := pool.Config()
+	connConfig := config.ConnConfig
+	if config.BeforeConnect != nil {
+		if err := config.BeforeConnect(ctx, connConfig); err != nil {
+			return nil, err
+		}
+	}
+	connection, err := pgx.ConnectConfig(ctx, connConfig)
+	if err != nil {
+		return nil, err
+	}
+	if config.AfterConnect != nil {
+		if err := config.AfterConnect(ctx, connection); err != nil {
+			closeContext, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
+			_ = connection.Close(closeContext)
+			return nil, err
+		}
+	}
+	return connection, nil
 }
 
 func OpenSQL(ctx context.Context, settings Settings) (*sql.DB, error) {

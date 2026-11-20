@@ -82,8 +82,7 @@
       "output_order": 4,
       "generated_outputs": [
         "internal/gen/contractextensions/artifacts_gen.go",
-        "packages/protocol-ts/src/generated/extension-client-support-registry.ts",
-        "packages/protocol-ts/src/generated/extension-profile-registry.ts"
+        "packages/protocol-ts/src/generated/extension-client-support-registry.ts"
       ],
       "typescript_projections": [
         {
@@ -91,12 +90,6 @@
           "output_path": "packages/protocol-ts/src/generated/extension-client-support-registry.ts",
           "identifier": "extensionClientSupportRegistry",
           "artifact_path": "contracts/extensions/generated/client-support-registry.json"
-        },
-        {
-          "projection_kind": "json_value",
-          "output_path": "packages/protocol-ts/src/generated/extension-profile-registry.ts",
-          "identifier": "extensionProfileRegistry",
-          "artifact_path": "contracts/extensions/generated/profile-registry.json"
         }
       ],
       "activation_dependency_ids": [],

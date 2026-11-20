@@ -39,7 +39,10 @@ export type LifecycleOutcome =
       readonly receipt: IndicatorLifecycleReceipt;
     }
   | { readonly kind: "uncertain" }
-  | { readonly kind: "rejected"; readonly failure: WorkbookOperationFailure };
+  | {
+      readonly kind: "rejected";
+      readonly failure: WorkbookOperationFailure<"appendIndicatorStateInterval">;
+    };
 export type LifecycleOperation = Readonly<{
   attempt: LifecycleAttempt;
   phase: "preparing" | "submitting" | "uncertain" | "rejected" | "acknowledged";

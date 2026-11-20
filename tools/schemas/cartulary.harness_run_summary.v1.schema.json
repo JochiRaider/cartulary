@@ -13,9 +13,61 @@
     "actual_dependency_critical_path_ms": { "type": "integer", "minimum": 0 },
     "timing_accounting": { "$ref": "#/$defs/timing_accounting" },
     "resource_pressure": { "type": "object" }, "cache": { "type": "object" },
+    "contract_evidence": { "$ref": "#/$defs/contract_evidence" },
     "artifact_refs": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 512 } }
   },
   "$defs": {
+    "contract_evidence": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_id", "record_counts", "malformed_record_count", "violations", "omitted_violation_count"],
+      "properties": {
+        "schema_id": { "const": "cartulary.harness_contract_evidence.v1" },
+        "record_counts": {
+          "type": "object", "additionalProperties": false, "required": ["undeclared_error_code", "security_mismatch", "error_emission"],
+          "properties": { "undeclared_error_code": { "type": "integer", "minimum": 0 }, "security_mismatch": { "type": "integer", "minimum": 0 }, "server_fatal": { "type": "integer", "minimum": 0 }, "error_emission": { "type": "integer", "minimum": 0 } }
+        },
+        "malformed_record_count": { "type": "integer", "minimum": 0 },
+        "violations": { "type": "array", "maxItems": 32, "uniqueItems": true, "items": { "$ref": "#/$defs/contract_violation" } },
+        "omitted_violation_count": { "type": "integer", "minimum": 0 },
+        "error_code_coverage": { "$ref": "#/$defs/error_code_coverage" }
+      }
+    },
+    "error_code_coverage": {
+      "type": "object", "additionalProperties": false,
+      "required": ["report", "operation_statuses", "declared_codes", "exercised_declared_codes", "unexercised_codes", "undeclared_exercised_codes"],
+      "properties": {
+        "report": { "enum": ["error-code-coverage.json", null] },
+        "operation_statuses": { "type": "integer", "minimum": 0 }, "declared_codes": { "type": "integer", "minimum": 0 },
+        "exercised_declared_codes": { "type": "integer", "minimum": 0 }, "unexercised_codes": { "type": "integer", "minimum": 0 },
+        "undeclared_exercised_codes": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "contract_violation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "occurrences"],
+      "properties": {
+        "kind": { "enum": ["undeclared_error_code", "security_mismatch", "server_fatal"] },
+        "operation_id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z][A-Za-z0-9_.-]*$" },
+        "status": { "type": "integer", "minimum": 100, "maximum": 599 },
+        "code": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-z][a-z0-9_]*$" },
+        "security": {
+          "type": "object", "additionalProperties": false, "required": ["declared", "observed"],
+          "properties": { "declared": { "enum": ["public", "session", "session_csrf", "credential_bootstrap"] }, "observed": { "enum": ["public", "session", "session_csrf", "credential_bootstrap"] } }
+        },
+        "reason_code": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-z][a-z0-9_]*$" },
+        "process_kind": { "enum": ["in_process", "server_harness"] },
+        "occurrences": { "type": "integer", "minimum": 1 }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "kind": { "const": "server_fatal" } } },
+          "then": { "required": ["reason_code", "process_kind"], "not": { "anyOf": [{ "required": ["operation_id"] }, { "required": ["status"] }, { "required": ["code"] }, { "required": ["security"] }] } },
+          "else": { "required": ["operation_id", "status"], "not": { "anyOf": [{ "required": ["reason_code"] }, { "required": ["process_kind"] }] } }
+        },
+        { "if": { "properties": { "kind": { "const": "security_mismatch" } } }, "then": { "required": ["security"], "not": { "required": ["code"] } } },
+        { "if": { "properties": { "kind": { "const": "undeclared_error_code" } } }, "then": { "required": ["code"], "not": { "required": ["security"] } } }
+      ]
+    },
     "counts": { "type": "object", "additionalProperties": false, "required": ["total", "passed", "failed", "skipped", "cancelled"], "properties": { "total": { "type": "integer", "minimum": 0 }, "passed": { "type": "integer", "minimum": 0 }, "failed": { "type": "integer", "minimum": 0 }, "skipped": { "type": "integer", "minimum": 0 }, "cancelled": { "type": "integer", "minimum": 0 } } },
     "timing_accounting": {
       "type": "object", "additionalProperties": false,

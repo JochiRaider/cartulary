@@ -27,6 +27,23 @@ import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
 import { createWorkbookMutationRuntime } from "../runtime/createWorkbookMutationRuntime";
 import { WorkbookActiveSurfaceFrame } from "./WorkbookActiveSurfaceFrame";
 
+/** A declared, non-retryable resolution rejection whose public message is `message`. */
+function refusal(message: string) {
+  return new Response(
+    JSON.stringify({
+      error: {
+        status: 409,
+        code: "credential_bootstrap_rejected",
+        message,
+        request_id: "req-error",
+        retryable: false,
+        details: {},
+      },
+    }),
+    { status: 409, headers: { "Content-Type": "application/json" } },
+  );
+}
+
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
@@ -324,7 +341,7 @@ it.each([
       else
         release(
           settlement === "failed"
-            ? errorEnvelope("resolution_refused", 409)
+            ? refusal("resolution_refused")
             : settlement === "refreshed"
               ? errorEnvelope("same_field_conflict", 409, {
                   ...first.conflict,
@@ -383,9 +400,7 @@ it.each([
           .getByTestId(workbookConflictControlTestId("use-merged"))
           .getAttribute("aria-busy"),
       ).toBe("true");
-      await act(async () =>
-        releaseSecond(errorEnvelope("second_refused", 409)),
-      );
+      await act(async () => releaseSecond(refusal("second_refused")));
       expect(screen.getByText("second_refused")).toBeTruthy();
       expect(
         screen.getByTestId(workbookConflictControlTestId("merged-value")),
@@ -400,9 +415,7 @@ it.each([
           .getByTestId(workbookConflictControlTestId("use-merged"))
           .getAttribute("aria-busy"),
       ).toBe("true");
-      await act(async () =>
-        releaseSecond(errorEnvelope("replacement_refused", 409)),
-      );
+      await act(async () => releaseSecond(refusal("replacement_refused")));
       expect(screen.getByText("replacement_refused")).toBeTruthy();
     }
     if (settlement === "refreshed") {

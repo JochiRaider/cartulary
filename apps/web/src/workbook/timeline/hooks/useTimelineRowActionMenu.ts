@@ -314,10 +314,10 @@ export function useTimelineRowActionMenu({
         cancelFocus();
         const restore = ownsFocus();
         close();
-        if (restore)
-          void restoreFocus(
-            scopeKey === invocation.scopeKey ? invocation : null,
-          );
+        // Dismissal without selection returns focus to the invoking cell, or
+        // the grid when that cell is gone (design §8.4). The request is issued
+        // under the current scope, so it is not an obsolete one.
+        if (restore) void restoreFocus({ ...invocation, scopeKey });
       }
     };
     validate();

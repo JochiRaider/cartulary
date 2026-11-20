@@ -20,8 +20,8 @@ func TestStringUsesSharedHarnessRules(t *testing.T) {
 			t.Fatalf("redacted output still contains %q: %s", secret, got)
 		}
 	}
-	if !strings.Contains(got, "[REDACTED") {
-		t.Fatalf("redacted output must contain replacement marker: %s", got)
+	if !strings.Contains(got, Marker) || strings.Contains(got, "REDACTED") {
+		t.Fatalf("redacted output must contain only the replacement marker: %s", got)
 	}
 }
 
@@ -87,7 +87,7 @@ func TestStructuredStringDecodesJSONBeforeRedaction(t *testing.T) {
 	if err := json.Unmarshal([]byte(got), &decoded); err != nil {
 		t.Fatalf("decode structured redaction output: %v", err)
 	}
-	if decoded["Authorization"] != "[REDACTED]" {
+	if decoded["Authorization"] != Marker || !strings.Contains(got, `"Authorization":"`+Marker+`"`) {
 		t.Fatalf("authorization was not redacted: %s", got)
 	}
 	sessions, ok := decoded["service_sessions"].([]any)
@@ -107,11 +107,11 @@ func TestStructuredStringDecodesJSONBeforeRedaction(t *testing.T) {
 
 func TestStringRedactsClosedRawFamilies(t *testing.T) {
 	for _, tc := range []struct{ input, want string }{
-		{"https://PrivateFixtureAlpha@example.test/path", "https://[REDACTED:dsn]@example.test/path"},
-		{"https://PrivateUser:PrivatePassword@example.test:443/path?q=1", "https://[REDACTED:dsn]@example.test:443/path?q=1"},
-		{"https://PrivateUser:@example.test", "https://[REDACTED:dsn]@example.test"},
-		{"https://Private%3AToken@example.test", "https://[REDACTED:dsn]@example.test"},
-		{"postgresql://PrivateUser:PrivatePassword@localhost/db", "postgresql://[REDACTED:dsn]@localhost/db"},
+		{"https://PrivateFixtureAlpha@example.test/path", "https://<redacted>@example.test/path"},
+		{"https://PrivateUser:PrivatePassword@example.test:443/path?q=1", "https://<redacted>@example.test:443/path?q=1"},
+		{"https://PrivateUser:@example.test", "https://<redacted>@example.test"},
+		{"https://Private%3AToken@example.test", "https://<redacted>@example.test"},
+		{"postgresql://PrivateUser:PrivatePassword@localhost/db", "postgresql://<redacted>@localhost/db"},
 		{"https://example.test/path@item?q=a@b#c@d", "https://example.test/path@item?q=a@b#c@d"},
 		{"https://example.test?q=a@b", "https://example.test?q=a@b"},
 		{"https://example.test#c@d", "https://example.test#c@d"},
@@ -132,7 +132,7 @@ func TestStringRedactsClosedRawFamilies(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			for _, got := range []string{String(tc.input), StructuredString(tc.input)} {
-				if strings.Contains(got, tc.secret) || !strings.Contains(got, "[REDACTED") {
+				if strings.Contains(got, tc.secret) || !strings.Contains(got, Marker) || strings.Contains(got, "REDACTED") {
 					t.Fatal("required raw credential family was not redacted")
 				}
 			}

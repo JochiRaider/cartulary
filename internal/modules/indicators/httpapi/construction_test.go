@@ -38,7 +38,7 @@ func testIndicatorHTTPCompositionRejectsMissingDependencies(t *testing.T) {
 		owner     ownerApplication
 		records   recordEnvelopeReader
 		incidents incidentAdmission
-		sessions  sessionStoreSlider
+		sessions  sessionSlider
 		want      string
 	}{
 		{name: "nil owner", deps: complete, records: recordEnvelopes, incidents: incidents, sessions: sessions, want: "owner is required"},

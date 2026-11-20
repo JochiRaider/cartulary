@@ -15,7 +15,8 @@
             "schema": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "x-cartulary-not-found-code": "incident_not_found"
           }
         ],
         "responses": {
@@ -29,6 +30,19 @@
               }
             }
           },
+          "400": {
+            "description": "Pagination members are not supported on this singleton read",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "invalid_pagination_request"
+            ]
+          },
           "401": {
             "description": "Session required",
             "content": {
@@ -37,17 +51,10 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
-          },
-          "403": {
-            "description": "Incident membership required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "session_required"
+            ]
           },
           "404": {
             "description": "Incident not found or not visible",
@@ -57,7 +64,29 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "incident_not_found"
+            ]
+          },
+          "409": {
+            "description": "Request conflicts with current state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "credential_bootstrap_rejected"
+            ]
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [
@@ -84,7 +113,8 @@
             "schema": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "x-cartulary-not-found-code": "incident_not_found"
           }
         ],
         "requestBody": {
@@ -116,7 +146,10 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "invalid_mutation_payload"
+            ]
           },
           "401": {
             "description": "Session required",
@@ -126,7 +159,10 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "session_required"
+            ]
           },
           "403": {
             "description": "Incident admin role required",
@@ -136,7 +172,11 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "authorization_denied",
+              "csrf_verification_failed"
+            ]
           },
           "404": {
             "description": "Incident not found or not visible",
@@ -146,7 +186,10 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "incident_not_found"
+            ]
           },
           "409": {
             "description": "Profile version conflict",
@@ -156,7 +199,18 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "credential_bootstrap_rejected",
+              "incident_closed",
+              "row_version_conflict"
+            ]
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [
@@ -204,6 +258,83 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "invalid_mutation_payload"
+            ]
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "session_required"
+            ]
+          },
+          "403": {
+            "description": "Authenticated caller lacks the required authorization or CSRF verification failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "authorization_denied",
+              "csrf_verification_failed"
+            ]
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "incident_not_found"
+            ]
+          },
+          "409": {
+            "description": "Request conflicts with current state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "client_txn_conflict",
+              "credential_bootstrap_rejected",
+              "illegal_transition",
+              "incident_closed",
+              "record_deleted_use_restore",
+              "row_version_conflict"
+            ]
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [

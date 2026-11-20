@@ -67,6 +67,9 @@
           },
           "500": {
             "$ref": "#/components/responses/IncidentInternalErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [
@@ -114,9 +117,6 @@
           "409": {
             "$ref": "#/components/responses/IncidentCreateConflictResponse"
           },
-          "500": {
-            "$ref": "#/components/responses/IncidentInternalErrorResponse"
-          },
           "413": {
             "description": "Encoded request body exceeds 262144 bytes. Authentication and scoped visibility precede body admission.",
             "x-cartulary-error-codes": [
@@ -129,6 +129,12 @@
                 }
               }
             }
+          },
+          "500": {
+            "$ref": "#/components/responses/IncidentInternalErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [
@@ -174,6 +180,9 @@
           },
           "500": {
             "$ref": "#/components/responses/IncidentInternalErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [
@@ -211,9 +220,6 @@
           "409": {
             "$ref": "#/components/responses/IncidentPatchConflictResponse"
           },
-          "500": {
-            "$ref": "#/components/responses/IncidentInternalErrorResponse"
-          },
           "413": {
             "description": "Encoded request body exceeds 262144 bytes. Authentication and scoped visibility precede body admission.",
             "x-cartulary-error-codes": [
@@ -226,6 +232,12 @@
                 }
               }
             }
+          },
+          "500": {
+            "$ref": "#/components/responses/IncidentInternalErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [
@@ -360,8 +372,21 @@
             "x-cartulary-error-codes": [
               "client_txn_conflict",
               "credential_bootstrap_rejected",
-              "incident_version_conflict",
-              "illegal_transition"
+              "illegal_transition",
+              "incident_version_conflict"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Encoded request body exceeds 262144 bytes. Authentication and scoped visibility precede body admission.",
+            "x-cartulary-error-codes": [
+              "request_body_too_large"
             ],
             "content": {
               "application/json": {
@@ -384,18 +409,8 @@
               }
             }
           },
-          "413": {
-            "description": "Encoded request body exceeds 262144 bytes. Authentication and scoped visibility precede body admission.",
-            "x-cartulary-error-codes": [
-              "request_body_too_large"
-            ],
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [
@@ -509,8 +524,21 @@
             "x-cartulary-error-codes": [
               "client_txn_conflict",
               "credential_bootstrap_rejected",
-              "incident_version_conflict",
-              "illegal_transition"
+              "illegal_transition",
+              "incident_version_conflict"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Encoded request body exceeds 262144 bytes. Authentication and scoped visibility precede body admission.",
+            "x-cartulary-error-codes": [
+              "request_body_too_large"
             ],
             "content": {
               "application/json": {
@@ -533,18 +561,8 @@
               }
             }
           },
-          "413": {
-            "description": "Encoded request body exceeds 262144 bytes. Authentication and scoped visibility precede body admission.",
-            "x-cartulary-error-codes": [
-              "request_body_too_large"
-            ],
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [
@@ -755,6 +773,9 @@
                 }
               }
             }
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [
@@ -798,6 +819,9 @@
           },
           "500": {
             "$ref": "#/components/responses/IncidentInternalErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [
@@ -871,9 +895,6 @@
           "409": {
             "$ref": "#/components/responses/IncidentMembershipCreateConflictResponse"
           },
-          "500": {
-            "$ref": "#/components/responses/IncidentInternalErrorResponse"
-          },
           "413": {
             "description": "Encoded request body exceeds 262144 bytes. Authentication and scoped visibility precede body admission.",
             "x-cartulary-error-codes": [
@@ -886,6 +907,12 @@
                 }
               }
             }
+          },
+          "500": {
+            "$ref": "#/components/responses/IncidentInternalErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [
@@ -907,7 +934,7 @@
           "$ref": "#/components/parameters/IncidentIDPathParameter"
         },
         {
-          "$ref": "#/components/parameters/UserIDPathParameter"
+          "$ref": "#/components/parameters/MembershipUserIDPathParameter"
         }
       ],
       "patch": {
@@ -935,9 +962,6 @@
           "409": {
             "$ref": "#/components/responses/IncidentMembershipMutationConflictResponse"
           },
-          "500": {
-            "$ref": "#/components/responses/IncidentInternalErrorResponse"
-          },
           "413": {
             "description": "Encoded request body exceeds 262144 bytes. Authentication and scoped visibility precede body admission.",
             "x-cartulary-error-codes": [
@@ -950,6 +974,12 @@
                 }
               }
             }
+          },
+          "500": {
+            "$ref": "#/components/responses/IncidentInternalErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [
@@ -999,9 +1029,6 @@
           "409": {
             "$ref": "#/components/responses/IncidentMembershipMutationConflictResponse"
           },
-          "500": {
-            "$ref": "#/components/responses/IncidentInternalErrorResponse"
-          },
           "413": {
             "description": "Encoded request body exceeds 262144 bytes. Authentication and scoped visibility precede body admission.",
             "x-cartulary-error-codes": [
@@ -1014,6 +1041,12 @@
                 }
               }
             }
+          },
+          "500": {
+            "$ref": "#/components/responses/IncidentInternalErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [
@@ -1691,8 +1724,8 @@
       "IncidentMembershipListInvalidResponse": {
         "description": "Incident membership raw query, page size, or cursor is invalid",
         "x-cartulary-error-codes": [
-          "invalid_pagination_request",
-          "invalid_list_query"
+          "invalid_list_query",
+          "invalid_pagination_request"
         ],
         "content": {
           "application/json": {
@@ -1882,6 +1915,18 @@
             }
           }
         }
+      }
+    },
+    "parameters": {
+      "MembershipUserIDPathParameter": {
+        "name": "user_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "x-cartulary-not-found-code": "membership_not_found"
       }
     }
   }

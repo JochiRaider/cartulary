@@ -1035,7 +1035,15 @@ function HistoryTestSubject(
                   paging: { limit: 100, has_more: false, next_cursor: null },
                 },
               }
-            : outcome;
+            : // The command fixture answers for getRecordHistory only.
+              (outcome as Extract<
+                Awaited<
+                  ReturnType<
+                    import("../history/workbookHistoryOperation").WorkbookRecordHistoryPort["load"]
+                  >
+                >,
+                { kind: "rejected" }
+              >);
         },
         send: async (attempt) => {
           const request = JSON.parse(attempt.body);
@@ -1053,7 +1061,16 @@ function HistoryTestSubject(
                   baseRowVersion: request.base_row_version,
                   reason: request.reason,
                 });
-          if (outcome.kind === "rejected") return outcome;
+          if (outcome.kind === "rejected")
+            // The command fixture answers for the History actions only.
+            return outcome as Extract<
+              Awaited<
+                ReturnType<
+                  import("../history/workbookHistoryOperation").WorkbookRecordHistoryPort["send"]
+                >
+              >,
+              { kind: "rejected" }
+            >;
           accepted = {
             ...outcome.value,
             incidentId: history.incidentId,

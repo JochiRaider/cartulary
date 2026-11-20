@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import type { HTTPOperationPublicError } from "../../services/browserApi";
+import { operationContractFailure } from "../../testing/fetchMockTestSupport";
 import { classifyWorkbookOperationFailure } from "../adapters/workbookOperationErrorPolicy";
 import { buildEvidenceLifecycleViewModel } from "../models/evidenceLifecycleViewModel";
 import {
@@ -10,43 +12,51 @@ const lifecycle = buildEvidenceLifecycleViewModel({
   evidenceLifecycleState: "available",
   objectBlobUploadState: "available",
 });
+type HandleOperation =
+  | "issueEvidencePreviewHandle"
+  | "issueEvidenceDownloadHandle";
+/** A decoded handle failure; `contract` is an undeclared response the client decodes as a contract failure. */
 function failure(
   reason: unknown,
   operation: "preview" | "download" = "preview",
-  code = "evidence_access_unavailable",
+  code:
+    | "evidence_access_unavailable"
+    | "object_store_unavailable"
+    | "contract" = "evidence_access_unavailable",
   message = "Untrusted private token",
 ) {
-  return classifyWorkbookOperationFailure(
-    409,
-    {
-      error: {
-        code,
-        status: 409,
-        retryable: false,
-        request_id: "request-1",
-        message,
-        details: { reason_code: reason },
-      },
-    },
+  const operationID: HandleOperation =
     operation === "preview"
       ? "issueEvidencePreviewHandle"
-      : "issueEvidenceDownloadHandle",
+      : "issueEvidenceDownloadHandle";
+  if (code === "contract")
+    return classifyWorkbookOperationFailure(
+      operationContractFailure(operationID, 409).payload.error,
+      operationID,
+    );
+  return classifyWorkbookOperationFailure(
+    {
+      code,
+      status: code === "object_store_unavailable" ? 503 : 409,
+      retryable: false,
+      request_id: "request-1",
+      message,
+      details: { reason_code: reason },
+    } as HTTPOperationPublicError<HandleOperation>,
+    operationID,
   );
 }
 
 describe("evidenceAccessPresentation", () => {
   it("keeps transient recovery separate from lifecycle and action blockers", () => {
     const transient = classifyWorkbookOperationFailure(
-      503,
       {
-        error: {
-          code: "object_store_unavailable",
-          status: 503,
-          retryable: true,
-          request_id: "request-2",
-          message: "private",
-          details: { reason_code: "endpoint_unreachable" },
-        },
+        code: "object_store_unavailable",
+        status: 503,
+        retryable: true,
+        request_id: "request-2",
+        message: "private",
+        details: { reason_code: "endpoint_unreachable" },
       },
       "issueEvidencePreviewHandle",
     );
@@ -90,16 +100,13 @@ describe("evidenceAccessPresentation", () => {
       }),
     ).toMatchObject({ canPreview: false, canDownload: false, retryKind: null });
     const unknown = classifyWorkbookOperationFailure(
-      503,
       {
-        error: {
-          code: "future_error",
-          status: 503,
-          retryable: true,
-          request_id: "request-3",
-          message: "private",
-          details: {},
-        },
+        code: "internal_error",
+        status: 500,
+        retryable: true,
+        request_id: "request-3",
+        message: "private",
+        details: {},
       },
       "issueEvidencePreviewHandle",
     );
@@ -110,6 +117,45 @@ describe("evidenceAccessPresentation", () => {
         failure: unknown,
       }),
     ).toMatchObject({ canPreview: false, canDownload: true, retryKind: null });
+  });
+
+  it("keeps Preview and Download retryable when the server is temporarily unavailable", () => {
+    for (const [operation, operationID, label] of [
+      ["preview", "issueEvidencePreviewHandle", "Retry Preview"],
+      ["download", "issueEvidenceDownloadHandle", "Retry Download"],
+    ] as const) {
+      const unavailable = classifyWorkbookOperationFailure(
+        {
+          code: "service_unavailable",
+          status: 503,
+          retryable: true,
+          request_id: "request-unavailable",
+          message: "service unavailable",
+          details: { reason_code: "admission_paused" },
+        },
+        operationID,
+      );
+      const state = {
+        kind: "rejected",
+        operation,
+        failure: unavailable,
+      } as const;
+      expect(buildEvidenceAccessPresentation(lifecycle, state)).toMatchObject({
+        stateKey: "available",
+        canPreview: true,
+        canDownload: true,
+        retryKind: operation,
+        busyKind: null,
+      });
+      const feedback = evidenceOperationFeedback(state);
+      expect(feedback).toEqual({
+        label,
+        message: `Cartulary is temporarily unavailable. Choose ${label} to try again.`,
+        tone: "warning",
+        announcement: "assertive",
+      });
+      expect(JSON.stringify(feedback)).not.toContain("admission_paused");
+    }
   });
 
   it("derives polite preview blockers and distinct operation announcements from typed outcomes", () => {
@@ -179,12 +225,7 @@ describe("evidenceAccessPresentation", () => {
       "SELECT secret FROM storage",
       "",
     ]) {
-      const unknown = failure(
-        "future_reason",
-        "preview",
-        "future_code",
-        message,
-      );
+      const unknown = failure("future_reason", "preview", "contract", message);
       expect(unknown.publicReason).toBeUndefined();
       expect(unknown.presentation).toMatchObject({
         family: "unknown_future_error",

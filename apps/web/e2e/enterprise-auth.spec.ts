@@ -17,7 +17,10 @@ import {
   uniqueEmail,
   uniqueIncidentKey,
 } from "./support/runtime/fixtureIdentity";
-import { installOwnedRoute } from "./support/transport/requestInterception";
+import {
+  fulfillOperationError,
+  installOwnedRoute,
+} from "./support/transport/requestInterception";
 
 test("shows enterprise providers and begins provider sign-in from the anonymous shell", async ({
   browserScope,
@@ -27,19 +30,14 @@ test("shows enterprise providers and begins provider sign-in from the anonymous 
   let beginBody: unknown = null;
 
   {
-    await installOwnedRoute(page, "**/api/v1/auth/session", async (route) => {
-      await route.fulfill({
-        status: 401,
-        contentType: "application/json",
-        body: JSON.stringify({
-          error: {
-            code: "session_required",
-            status: 401,
-            details: {},
-          },
-        }),
-      });
-    });
+    await installOwnedRoute(page, "**/api/v1/auth/session", (route) =>
+      fulfillOperationError(
+        route,
+        "getCurrentSession",
+        401,
+        "session_required",
+      ),
+    );
     await installOwnedRoute(page, "**/api/v1/auth/providers", async (route) => {
       expect(route.request().method()).toBe("GET");
       await route.fulfill({

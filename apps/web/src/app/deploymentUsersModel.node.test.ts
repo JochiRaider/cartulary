@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { operationRejection } from "../testing/fetchMockTestSupport";
 import { listEnterpriseAuthProviders } from "./api/authAccountClient";
 import * as api from "./api/deploymentUserClient";
 import type { UserResource } from "./api/publicHttpTypes";
@@ -26,11 +27,6 @@ const success = <T>(data: T) => ({
   ok: true as const,
   status: 200,
   payload: { data, meta: { request_id: "test" } },
-});
-const failure = (code: string, status = 409) => ({
-  ok: false as const,
-  status,
-  payload: { error: { code, status } },
 });
 const page = (users = [user()], next: string | null = null) => ({
   ...success({ users }),
@@ -167,7 +163,7 @@ describe("deployment user operation ownership", () => {
     const oldRead = deferred<Awaited<ReturnType<typeof api.loadUser>>>();
     ports.loadUser.mockReturnValueOnce(oldRead.promise);
     const refreshing = model.refreshTarget();
-    write.resolve(failure("unavailable", 503));
+    write.resolve(operationRejection({ code: "internal_error", status: 500 }));
     await saving;
     oldRead.resolve(success(user()));
     await refreshing;
@@ -177,7 +173,9 @@ describe("deployment user operation ownership", () => {
     });
     model.review();
     expect(model.getSnapshot().operation.kind).toBe("uncertain");
-    ports.loadUser.mockResolvedValueOnce(failure("unavailable", 503));
+    ports.loadUser.mockResolvedValueOnce(
+      operationRejection({ code: "internal_error", status: 500 }),
+    );
     await model.refreshTarget();
     expect(model.getSnapshot().operation).toMatchObject({
       recovery: { observation: "failed" },
@@ -205,7 +203,9 @@ describe("deployment user operation ownership", () => {
     expect(ports.listUsers).toHaveBeenCalledTimes(2);
     model.changeQuery({ search: "new" });
     expect(model.canPage()).toBe(false);
-    ports.listUsers.mockResolvedValueOnce(failure("unavailable", 503));
+    ports.listUsers.mockResolvedValueOnce(
+      operationRejection({ code: "internal_error", status: 500 }),
+    );
     await model.refreshUsers();
     expect(model.getSnapshot().users).toEqual([user()]);
     expect(model.getSnapshot().acceptedQuery?.search).toBe("");
@@ -215,7 +215,7 @@ describe("deployment user operation ownership", () => {
     ports.listUsers.mockResolvedValueOnce(page([user()], "fresh"));
     await model.refreshUsers();
     ports.listUsers.mockResolvedValueOnce(
-      failure("invalid_pagination_request", 400),
+      operationRejection({ code: "invalid_pagination_request", status: 400 }),
     );
     await model.loadMore();
     expect(model.canPage()).toBe(false);
@@ -386,7 +386,20 @@ describe("deployment user operation ownership", () => {
               : action === "bindingRotate"
                 ? ports.rotateEnterpriseAuthBinding
                 : ports.retireEnterpriseAuthBinding;
-      route.mockResolvedValueOnce(failure("unavailable", 503));
+      // Every route declares 500 internal_error (Core 01 REQ-01-702).
+      const internal = {
+        code: "internal_error",
+        details: {},
+        message: "internal_error",
+        request_id: "request-test",
+        retryable: false,
+        status: 500,
+      } as const;
+      route.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        payload: { error: internal },
+      });
       model.safeAction(action);
       await flush();
       expect(model.getSnapshot().operation.kind).toBe("uncertain");
@@ -444,14 +457,14 @@ describe("deployment user operation ownership", () => {
         model.changeCreate("displayName", "Created");
         model.changeCreate("password", "  Exact Password!  ");
         ports.createLocalUser.mockResolvedValueOnce(
-          failure("unavailable", 503),
+          operationRejection({ code: "internal_error", status: 500 }),
         );
         model.create();
       } else {
         model.credentialDialog("password");
         model.changePassword("  Exact Password!  ");
         ports.adminResetPassword.mockResolvedValueOnce(
-          failure("unavailable", 503),
+          operationRejection({ code: "internal_error", status: 500 }),
         );
         model.resetPassword();
       }
@@ -478,8 +491,14 @@ describe("deployment user operation ownership", () => {
   it("makes obsolete success and authorization failures inert after capability loss and identical-account reauthentication", async () => {
     for (const result of [
       success(user(2, "Saved")),
-      failure("session_required", 401),
-      failure("authorization_denied", 403),
+      operationRejection<"patchDeploymentUser">({
+        code: "session_required",
+        status: 401,
+      }),
+      operationRejection<"patchDeploymentUser">({
+        code: "authorization_denied",
+        status: 403,
+      }),
     ]) {
       const { model, ports, refresh, lost, revoked, replace } = fixture();
       await model.select(user().user_id);
@@ -521,7 +540,7 @@ describe("deployment user operation ownership", () => {
     const other = fixture();
     await other.model.select(user().user_id);
     other.ports.adminResetTotp.mockResolvedValueOnce(
-      failure("client_txn_conflict"),
+      operationRejection({ code: "client_txn_conflict", status: 409 }),
     );
     other.model.safeAction("totp");
     await flush();

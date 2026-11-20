@@ -233,6 +233,23 @@ func Assemble(manifestPath string) ([]byte, string, error) {
 	if err := validateAggregate(aggregate, policy.Limits); err != nil {
 		return nil, "", err
 	}
+	var errorRegistry map[string]int
+	loadRegistry := func() (map[string]int, error) {
+		if errorRegistry == nil {
+			loaded, err := loadErrorRegistry(repositoryFiles)
+			if err != nil {
+				return nil, err
+			}
+			errorRegistry = loaded
+		}
+		return errorRegistry, nil
+	}
+	if err := validateDeclaredErrorCodes(aggregate, loadRegistry); err != nil {
+		return nil, "", err
+	}
+	if err := validatePathParameterDeclarations(aggregate, loadRegistry); err != nil {
+		return nil, "", err
+	}
 	sortCanonicalObjectMembers(aggregate, true)
 	var output bytes.Buffer
 	writeOrderedJSON(&output, aggregate, policy.Indent, 0)

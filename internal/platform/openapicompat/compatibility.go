@@ -293,7 +293,7 @@ func classify(kind, pointer string, before, after any) Classification {
 	if strings.HasSuffix(pointer, "/required") {
 		return Breaking
 	}
-	if strings.HasSuffix(pointer, "/enum") {
+	if isSetValuedPointer(pointer) {
 		beforeValues := scalarSet(before)
 		afterValues := scalarSet(after)
 		for value := range beforeValues {
@@ -306,10 +306,39 @@ func classify(kind, pointer string, before, after any) Classification {
 	if kind == "remove" {
 		return Breaking
 	}
+	if kind == "add" && isParameterSchemaConstraint(pointer) {
+		return Breaking
+	}
 	if kind == "add" {
 		return Additive
 	}
 	return Breaking
+}
+
+// parameterSchemaConstraints are the schema keywords whose addition narrows
+// the values a request parameter admits.
+var parameterSchemaConstraints = map[string]struct{}{
+	"format": {}, "maxLength": {}, "minLength": {}, "pattern": {},
+}
+
+// isParameterSchemaConstraint reports whether pointer adds a narrowing
+// keyword to a component parameter's schema. Inline parameters live in arrays,
+// which are compared whole and are already breaking when they change (Core 01
+// REQ-01-707: a value outside the declared format is rejected).
+func isParameterSchemaConstraint(pointer string) bool {
+	segments := strings.Split(pointer, "/")
+	if len(segments) < 6 || segments[0] != "" || segments[1] != "components" || segments[2] != "parameters" || segments[4] != "schema" {
+		return false
+	}
+	_, constraint := parameterSchemaConstraints[segments[len(segments)-1]]
+	return constraint
+}
+
+// isSetValuedPointer names arrays compared as sets: a superset is additive and
+// a lost value is breaking. That covers an `enum` and a declared error-code
+// list (REQ-01-702).
+func isSetValuedPointer(pointer string) bool {
+	return strings.HasSuffix(pointer, "/enum") || strings.HasSuffix(pointer, "/x-cartulary-error-codes")
 }
 
 func isNonBehavioralPointer(pointer string) bool {

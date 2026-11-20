@@ -83,15 +83,21 @@ func ParseQuery(values url.Values) (Query, string) {
 		}
 	}
 
+	// Core 01 §3.3.6.2: a present member is validated even when empty; an
+	// empty limit is invalid_limit and an empty cursor is invalid_cursor_token.
 	var query Query
-	if value := values.Get("limit"); value != "" {
-		parsed, err := strconv.Atoi(value)
+	if _, present := values["limit"]; present {
+		parsed, err := strconv.Atoi(values.Get("limit"))
 		if err != nil || parsed < 1 || parsed > MaxLimit {
 			return Query{}, ReasonInvalidLimit
 		}
 		query.Limit = &parsed
 	}
-	if value := values.Get("cursor_token"); value != "" {
+	if _, present := values["cursor_token"]; present {
+		value := values.Get("cursor_token")
+		if value == "" {
+			return Query{}, ReasonInvalidCursorToken
+		}
 		query.CursorToken = &value
 	}
 	return query, ""

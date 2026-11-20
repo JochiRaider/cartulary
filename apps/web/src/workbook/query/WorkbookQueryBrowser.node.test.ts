@@ -501,6 +501,61 @@ describe("Workbook query browsing", () => {
     expect(browser.hasUnapplied(replacement)).toBe(true);
   });
 
+  it("reconciles live placement only from an accepted window read after the sighting", async () => {
+    const { browser, query, read } = fixture();
+    const outside = "00000000-0000-4000-8000-000000009001";
+    const later = "00000000-0000-4000-8000-000000009002";
+    const appended = "00000000-0000-4000-8000-000000009003";
+    await read();
+    // A first sighting is never placement-known; the accepted window predates it.
+    expect(browser.observeLivePlacement(outside)).toBe(false);
+    expect(browser.observeLivePlacement(outside)).toBe(false);
+
+    // A read started before a sighting cannot place that record.
+    const implementation = query.getMockImplementation();
+    if (!implementation) throw new Error("Missing fixture");
+    const held = deferred<WorkbookViewQueryResult>();
+    query.mockImplementationOnce(() => held.promise);
+    const earlier = browser.query(input());
+    expect(browser.observeLivePlacement(later)).toBe(false);
+    const heldRequest = query.mock.calls.at(-1)?.[0];
+    if (!heldRequest) throw new Error("Missing held read");
+    held.resolve(await implementation(heldRequest));
+    const earlierResult = await earlier;
+    if (earlierResult.kind !== "accepted") throw new Error("Expected window");
+    expect(browser.accept(earlierResult.value)).toBe(true);
+    expect(browser.observeLivePlacement(outside)).toBe(true);
+    expect(browser.observeLivePlacement(later)).toBe(false);
+
+    // A rejected read does not place the record; a later accepted read does.
+    const rejected = await browser.query(input());
+    if (rejected.kind !== "accepted") throw new Error("Expected window");
+    browser.reject(rejected.value, { kind: "stale_target", message: "Stale" });
+    expect(browser.observeLivePlacement(later)).toBe(false);
+    await read();
+    expect(browser.observeLivePlacement(later)).toBe(true);
+
+    // An appended page leaves an older page in the window until all are re-read.
+    expect(browser.observeLivePlacement(appended)).toBe(false);
+    await browser.activate("more", read);
+    expect(browser.getSnapshot().pageCount).toBe(2);
+    expect(browser.observeLivePlacement(appended)).toBe(false);
+    await browser.reconcile(read);
+    expect(browser.observeLivePlacement(appended)).toBe(true);
+
+    // Newer committed row evidence keeps the window's read evidence.
+    browser.observeRows([row(1, 2)]);
+    expect(browser.observeLivePlacement(appended)).toBe(true);
+
+    // Authority invalidation and detachment forget placement evidence.
+    browser.invalidate();
+    expect(browser.observeLivePlacement(outside)).toBe(false);
+    await read();
+    expect(browser.observeLivePlacement(outside)).toBe(true);
+    browser.detach();
+    expect(browser.observeLivePlacement(outside)).toBe(false);
+  });
+
   it("retains an accepted empty result after refresh failure and trusts short-page continuation", async () => {
     const { browser, query, read } = fixture(0);
     await read();

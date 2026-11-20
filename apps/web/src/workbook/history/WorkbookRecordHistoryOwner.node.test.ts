@@ -142,9 +142,9 @@ describe("Workbook history operation owner", () => {
       .fn<WorkbookRecordHistoryPort["load"]>()
       .mockResolvedValueOnce({
         kind: "rejected",
+        // Client-observed unavailability carries no public code.
         failure: {
           kind: "terminal",
-          publicCode: "record_not_found",
           message: "Unavailable record",
         },
       })
@@ -152,7 +152,6 @@ describe("Workbook history operation owner", () => {
         kind: "rejected",
         failure: {
           kind: "stale_target",
-          publicCode: "record_not_found",
           message: "Unavailable record",
         },
       })
@@ -325,16 +324,17 @@ describe("Workbook history operation owner", () => {
 
     const t = held();
     t.owner.closeIncident();
+    // Client-observed closure sends nothing, so it carries no public code.
     const closedFailure = {
       kind: "terminal",
       message: "Closed, read-only",
-      publicCode: "incident_closed",
     };
     expect(t.owner.getSnapshot()[0]).toMatchObject({
       dispatched: false,
       failure: closedFailure,
       phase: "rejected",
     });
+    expect(t.owner.getSnapshot()[0]?.failure).not.toHaveProperty("publicCode");
     t.owner.setAuthority(authority);
     t.release(4);
     await t.completion;

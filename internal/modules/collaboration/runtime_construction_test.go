@@ -46,10 +46,13 @@ func runtimeConstructionOptions(t testing.TB, db dbport.DB, onLoss func()) Optio
 	t.Helper()
 	return Options{
 		Postgres: db,
+		OpenListenerSession: func(context.Context) (*pgx.Conn, error) {
+			return nil, errors.New("unused test listener session")
+		},
 		AcceptSocket: func(http.ResponseWriter, *http.Request) (protocol.Socket, error) {
 			return nil, errors.New("unused test socket")
 		},
-		CheckBrowserOrigin:         func(http.ResponseWriter, *http.Request) bool { return true },
+		CheckOrigin:                func(*http.Request) bool { return true },
 		ServiceVersion:             "1.2.3-test",
 		Now:                        func() time.Time { return time.Date(2026, 8, 28, 19, 0, 0, 0, time.UTC) },
 		PublicationCatalog:         runtimeConstructionCatalog(t),
@@ -64,8 +67,9 @@ func TestRuntimeConstructionRejectsEveryMissingDependency_Unit(t *testing.T) {
 		want string
 	}{
 		{name: "Postgres", edit: func(options *Options) { options.Postgres = nil }, want: "PostgreSQL"},
+		{name: "replay listener session", edit: func(options *Options) { options.OpenListenerSession = nil }, want: "listener session"},
 		{name: "socket accept", edit: func(options *Options) { options.AcceptSocket = nil }, want: "accept"},
-		{name: "Origin check", edit: func(options *Options) { options.CheckBrowserOrigin = nil }, want: "Origin"},
+		{name: "Origin check", edit: func(options *Options) { options.CheckOrigin = nil }, want: "Origin"},
 		{name: "publication catalog", edit: func(options *Options) { options.PublicationCatalog = nil }, want: "catalog"},
 		{name: "dispatcher loss", edit: func(options *Options) { options.OnUnexpectedDispatcherLoss = nil }, want: "loss callback"},
 	}

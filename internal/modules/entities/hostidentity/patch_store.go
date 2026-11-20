@@ -12,7 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/entities/entitycontract"
-	"github.com/JochiRaider/cartulary/internal/modules/records/enveloperead"
+	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
@@ -149,7 +149,7 @@ func (s *Store) patchEntityRowAttempt(ctx context.Context, actor authn.UserRecor
 	meta = lockedMeta
 	if meta.RowVersion > request.BaseRowVersion {
 		if err := s.admitPatchRebaseTx(ctx, tx, recordID, meta, request, requestHash); err != nil {
-			return PatchMutationResult{}, err
+			return PatchMutationResult{}, adaptRevisionWindowError(err)
 		}
 	}
 	if err := prepareIdentifierMutationTx(ctx, tx, meta.IncidentID, meta.RecordType, recordID, identifierTuples); err != nil {
@@ -353,16 +353,17 @@ type entityRecordMeta struct {
 	RowVersion int64
 }
 
+// loadEntityRecordMetaTx classifies the addressed record through Records
+// (REQ-01-705: missing, then deleted). Callers apply the type,
+// incident-lifecycle and version steps in that order.
 func (s *Store) loadEntityRecordMetaTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, lock bool) (entityRecordMeta, error) {
-	envelope, err := s.ports.records.LoadEnvelopeTx(ctx, tx, recordID, lock)
-	if errors.Is(err, enveloperead.ErrEnvelopeNotFound) {
-		return entityRecordMeta{}, pgx.ErrNoRows
+	mode := records.TargetLockNone
+	if lock {
+		mode = records.TargetLockUpdate
 	}
+	envelope, err := s.ports.records.ClassifyTargetTx(ctx, tx, recordID, mode)
 	if err != nil {
 		return entityRecordMeta{}, err
-	}
-	if envelope.DeletedAt != nil {
-		return entityRecordMeta{}, revisions.ErrRecordDeletedUseRestore
 	}
 	return entityRecordMeta{IncidentID: envelope.IncidentID, RecordType: envelope.RecordType, RowVersion: envelope.RowVersion}, nil
 }

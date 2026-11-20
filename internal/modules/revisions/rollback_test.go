@@ -14,6 +14,7 @@ import (
 
 	authflowtest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
+	"github.com/JochiRaider/cartulary/internal/modules/evidence/testsupport/blobfixture"
 	envelopetest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -453,7 +454,7 @@ VALUES ($1, $2, 'Party Rollback Blocker', 'person', 'party-rollback-old@example.
 			{
 				name: "evidence record patch",
 				seed: func() (uuid.UUID, string, int64, func(map[string]any)) {
-					recordID, blobID := seedRollbackEvidencePatch(t, harness.DB, incidentID, actorID, mustUUID(t, "77777777-0000-4000-8000-000000000523"))
+					recordID, blobID := seedRollbackEvidencePatch(t, harness.DB, harness.Pool, incidentID, actorID, mustUUID(t, "77777777-0000-4000-8000-000000000523"))
 					if got := countRows(t, harness.DB, `SELECT count(*) FROM evidence e JOIN object_blobs b ON b.object_blob_id=e.object_blob_id AND b.incident_id=e.incident_id
 WHERE e.record_id=$1 AND b.object_blob_id=$2 AND e.title='Evidence after' AND e.lifecycle_state='available' AND e.upload_state='available'
 AND e.storage_ref='object://' || $2::text AND e.blob_hash='2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881'
@@ -754,6 +755,29 @@ SELECT COUNT(*)
 		rollbackChangeSetID := mustUUID(t, "77777777-0000-4000-8000-000000000533")
 		seedRollbackHostPatchWithSource(t, harness.DB, incidentID, staleRecordID, actorID, rollbackChangeSetID, clockBase.Add(6*time.Minute), "stale after", "stale before", "rollback")
 		requireRollbackReasonCode(t, rollbackRecord(t, harness, login, staleRecordID, map[string]any{"base_row_version": 2, "client_txn_id": "txn-reason-stale", "target": map[string]any{"kind": "history_entry", "history_entry_ref": staleRef}}), "stale_target")
+	})
+	t.Run("committed change set without history order fails closed", func(t *testing.T) {
+		unorderedRecordID := uuid.New()
+		entitytest.SeedHostRecord(t, harness.DB, incidentID, actorID, unorderedRecordID, "Unordered Host", "unordered-host", "", "")
+		unorderedChangeSetID := uuid.New()
+		seedRollbackHostPatch(t, harness.DB, incidentID, unorderedRecordID, actorID, unorderedChangeSetID, clockBase.Add(7*time.Minute), "unordered before", "unordered after")
+		unorderedRef := historyEntryRefForTarget(t, harness, login, unorderedRecordID, "host", unorderedRecordID.String())
+		order := stringScalar(t, harness.DB, `SELECT history_order::text FROM change_sets WHERE change_set_id = $1`, unorderedChangeSetID)
+		// No committed change set may lack an order; currentness must report the
+		// broken invariant instead of treating the missing order as earliest.
+		if _, err := harness.DB.Exec(`UPDATE change_sets SET history_order = NULL WHERE change_set_id = $1`, unorderedChangeSetID); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() {
+			if _, err := harness.DB.Exec(`UPDATE change_sets SET history_order = $2::bigint WHERE change_set_id = $1`, unorderedChangeSetID, order); err != nil {
+				t.Errorf("restore history order: %v", err)
+			}
+		})
+		changeSets := countRows(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE incident_id = $1`, incidentID)
+		httptestx.RequireErrorEnvelope(t, rollbackRecord(t, harness, login, unorderedRecordID, map[string]any{"base_row_version": 2, "client_txn_id": "txn-unordered-history", "target": map[string]any{"kind": "history_entry", "history_entry_ref": unorderedRef}}), http.StatusInternalServerError, "internal_error")
+		if got := countRows(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE incident_id = $1`, incidentID); got != changeSets {
+			t.Fatalf("failed rollback appended history: %d -> %d", changeSets, got)
+		}
 	})
 	t.Run("committed order survives clock ties and reversal", func(t *testing.T) { exerciseAliasCommittedOrder(t, harness, login, incidentID, actorID, clockBase) })
 	t.Run("complete Alias writer lifecycle", func(t *testing.T) { exerciseAliasWriterLifecycle(t, harness, login, incidentID, actorID, clockBase) })
@@ -1166,16 +1190,18 @@ VALUES ($1, $2, $3, 'details', 'source', 'rough', 2, $4, $4, $5, $5)
 	return recordID
 }
 
-func seedRollbackEvidencePatch(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorID uuid.UUID, changeSetID uuid.UUID) (uuid.UUID, uuid.UUID) {
+func seedRollbackEvidencePatch(t testing.TB, db *sql.DB, blobs blobfixture.DB, incidentID uuid.UUID, actorID uuid.UUID, changeSetID uuid.UUID) (uuid.UUID, uuid.UUID) {
 	t.Helper()
 	recordID, blobID := uuid.New(), uuid.New()
-	const digest = "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881"
+	digest := "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881"
 	storageRef := "object://" + blobID.String()
 	storageKey := "incidents/" + incidentID.String() + "/object-blobs/" + blobID.String() + "/objects/" + uuid.NewString()
 	now := time.Now().UTC().Truncate(time.Microsecond)
 	envelopetest.SeedRecordEnvelope(t, db, incidentID, actorID, recordID, "evidence")
-	mustExec(t, db, `INSERT INTO object_blobs (object_blob_id, incident_id, created_by_user_id, storage_key, upload_state, byte_size, observed_size, observed_sha256_hex, observed_content_type, target_expires_at, pending_expires_at, finalized_at, created_at, updated_at)
-VALUES ($1,$2,$3,$4,'available',1,1,$5,'text/plain',$6,$6,$7,$7,$7)`, blobID, incidentID, actorID, storageKey, digest, now.Add(time.Hour), now)
+	blobfixture.Seed(t, blobs, blobfixture.Spec{
+		ObjectBlobID: blobID, IncidentID: incidentID, CreatedByUserID: actorID, State: blobfixture.Available, StorageKey: storageKey,
+		ByteSize: 1, ObservedSHA256Hex: &digest, ObservedContentType: stringPtr("text/plain"), CreatedAt: now,
+	})
 	mustExec(t, db, `INSERT INTO evidence (record_id, incident_id, title, lifecycle_state, upload_state, object_blob_id, storage_ref, blob_hash, updated_at) VALUES ($1, $2, 'Evidence after', 'available', 'available', $3, $4, $5, $6)`, recordID, incidentID, blobID, storageRef, digest, now)
 	advanceRecordFixture(t, db, recordID, 2)
 	before := canonicalRowSnapshot(recordID, incidentID, actorID, "evidence", "cartulary.revisions.snapshot.evidence.v2", 1, map[string]any{"title": "Evidence before", "lifecycle_state": "requested", "upload_state": "pending"})
@@ -1240,9 +1266,9 @@ VALUES ($1, $2, $3, $4, 'observed_on_host', 'auto_match', 100, $5, $6, $7, $8)
 	return src, dst, linkID, creator.ID, createdAt
 }
 
-func seedRollbackAttachedEvidenceLinkCreate(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorID uuid.UUID, changeSetID uuid.UUID) (uuid.UUID, uuid.UUID, uuid.UUID) {
+func seedRollbackAttachedEvidenceLinkCreate(t testing.TB, db *sql.DB, blobs blobfixture.DB, incidentID uuid.UUID, actorID uuid.UUID, changeSetID uuid.UUID) (uuid.UUID, uuid.UUID, uuid.UUID) {
 	t.Helper()
-	src, dst := seedRollbackTimelineEvidencePair(t, db, incidentID, actorID, "Attached Evidence Create", 1)
+	src, dst := seedRollbackTimelineEvidencePair(t, db, blobs, incidentID, actorID, "Attached Evidence Create", 1)
 	linkID := uuid.New()
 	now := time.Date(2026, 5, 10, 12, 10, 0, 0, time.UTC)
 	mustExec(t, db, `
@@ -1255,9 +1281,9 @@ VALUES ($1, $2, $3, $4, 'attached_evidence', 'timeline.attached_evidence_ids', '
 	return src, dst, linkID
 }
 
-func seedRollbackAttachedEvidenceLinkDelete(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorID uuid.UUID, changeSetID uuid.UUID) (uuid.UUID, uuid.UUID, uuid.UUID) {
+func seedRollbackAttachedEvidenceLinkDelete(t testing.TB, db *sql.DB, blobs blobfixture.DB, incidentID uuid.UUID, actorID uuid.UUID, changeSetID uuid.UUID) (uuid.UUID, uuid.UUID, uuid.UUID) {
 	t.Helper()
-	src, dst := seedRollbackTimelineEvidencePair(t, db, incidentID, actorID, "Attached Evidence Delete", 0)
+	src, dst := seedRollbackTimelineEvidencePair(t, db, blobs, incidentID, actorID, "Attached Evidence Delete", 0)
 	linkID := uuid.New()
 	now := time.Date(2026, 5, 10, 12, 11, 0, 0, time.UTC)
 	deletedAt := now.Add(time.Minute)
@@ -1272,7 +1298,7 @@ VALUES ($1, $2, $3, $4, 'attached_evidence', 'timeline.attached_evidence_ids', '
 	return src, dst, linkID
 }
 
-func seedRollbackTimelineEvidencePair(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorID uuid.UUID, label string, evidenceCount int) (uuid.UUID, uuid.UUID) {
+func seedRollbackTimelineEvidencePair(t testing.TB, db *sql.DB, blobs blobfixture.DB, incidentID uuid.UUID, actorID uuid.UUID, label string, evidenceCount int) (uuid.UUID, uuid.UUID) {
 	t.Helper()
 	now := time.Date(2026, 5, 10, 12, 20, 0, 0, time.UTC)
 	timelineID := uuid.New()
@@ -1291,12 +1317,13 @@ INSERT INTO timeline_grid_projection (
 	evidenceID := uuid.New()
 	blobID := uuid.New()
 	envelopetest.SeedRecordEnvelope(t, db, incidentID, actorID, evidenceID, "evidence")
-	mustExec(t, db, `
-INSERT INTO object_blobs (
-    object_blob_id, incident_id, created_by_user_id, storage_key, upload_state,
-    byte_size, target_expires_at, pending_expires_at, finalized_at, created_at, updated_at
-) VALUES ($1, $2, $3, $4, 'available', 1, $5, $5, $6, $6, $6)
-`, blobID, incidentID, actorID, "history_revision/rollback/"+blobID.String(), now.Add(time.Hour), now)
+	// A coherent available Blob carries its finalized digest, which the joined
+	// Evidence projection exposes as blob_hash.
+	digest := strings.Repeat("e", 64)
+	blobfixture.Seed(t, blobs, blobfixture.Spec{
+		ObjectBlobID: blobID, IncidentID: incidentID, CreatedByUserID: actorID, State: blobfixture.Available,
+		StorageKey: "history_revision/rollback/" + blobID.String(), ByteSize: 1, ObservedSHA256Hex: &digest, CreatedAt: now,
+	})
 	mustExec(t, db, `
 INSERT INTO evidence (record_id, incident_id, title, lifecycle_state, upload_state, object_blob_id, requested_at, received_at, created_at, updated_at)
 VALUES ($1, $2, $3, 'available', 'available', $4, $5, $5, $5, $5)
@@ -1305,8 +1332,8 @@ VALUES ($1, $2, $3, 'available', 'available', $4, $5, $5, $5, $5)
 INSERT INTO evidence_grid_projection (
     record_id, incident_id, row_version, title, lifecycle_state, requested_at, received_at,
     blob_hash, upload_state, linked_record_count, edited_at
-) VALUES ($1, $2, 1, $3, 'available', $4, $4, NULL, 'available', $5, $4)
-`, evidenceID, incidentID, label+" Evidence", now, evidenceCount)
+) VALUES ($1, $2, 1, $3, 'available', $4, $4, $6, 'available', $5, $4)
+`, evidenceID, incidentID, label+" Evidence", now, evidenceCount, digest)
 	if evidenceCount > 0 {
 		mustExec(t, db, `
 UPDATE timeline_grid_projection

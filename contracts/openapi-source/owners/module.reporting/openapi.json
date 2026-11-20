@@ -36,7 +36,51 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "invalid_snapshot_request"
+            ]
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "session_required"
+            ]
+          },
+          "403": {
+            "description": "Authenticated caller lacks the required authorization or CSRF verification failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "authorization_denied",
+              "csrf_verification_failed"
+            ]
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "extension_profile_not_claimed",
+              "incident_not_found"
+            ]
           },
           "409": {
             "description": "Snapshot source boundary or idempotency conflict",
@@ -46,7 +90,19 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "client_txn_conflict",
+              "credential_bootstrap_rejected",
+              "required_reference_pack_unavailable",
+              "snapshot_source_boundary_conflict"
+            ]
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [
@@ -78,7 +134,8 @@
             "schema": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "x-cartulary-not-found-code": "snapshot_not_found"
           }
         ],
         "responses": {
@@ -100,7 +157,23 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "invalid_pagination_request"
+            ]
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "session_required"
+            ]
           },
           "404": {
             "description": "Snapshot is not visible to the caller",
@@ -110,7 +183,30 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "extension_profile_not_claimed",
+              "snapshot_not_found"
+            ]
+          },
+          "409": {
+            "description": "Request conflicts with current state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "credential_bootstrap_rejected"
+            ]
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [
@@ -161,7 +257,51 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "invalid_release_request"
+            ]
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "session_required"
+            ]
+          },
+          "403": {
+            "description": "Authenticated caller lacks the required authorization or CSRF verification failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "authorization_denied",
+              "csrf_verification_failed"
+            ]
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "extension_profile_not_claimed",
+              "snapshot_not_found"
+            ]
           },
           "409": {
             "description": "Release admission conflict or required_reference_pack_unavailable for the exact snapshot binding",
@@ -171,7 +311,18 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "client_txn_conflict",
+              "credential_bootstrap_rejected",
+              "required_reference_pack_unavailable"
+            ]
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [
@@ -203,7 +354,8 @@
             "schema": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "x-cartulary-not-found-code": "release_not_found"
           }
         ],
         "responses": {
@@ -225,7 +377,23 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "invalid_pagination_request"
+            ]
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "session_required"
+            ]
           },
           "404": {
             "description": "Release is not visible to the caller",
@@ -235,7 +403,30 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "extension_profile_not_claimed",
+              "release_not_found"
+            ]
+          },
+          "409": {
+            "description": "Request conflicts with current state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "credential_bootstrap_rejected"
+            ]
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [
@@ -265,7 +456,8 @@
             "schema": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "x-cartulary-not-found-code": "release_not_found"
           }
         ],
         "requestBody": {
@@ -297,7 +489,37 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "invalid_pagination_request",
+              "invalid_release_request"
+            ]
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "session_required"
+            ]
+          },
+          "403": {
+            "description": "Authenticated caller lacks the required authorization or CSRF verification failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "csrf_verification_failed"
+            ]
           },
           "404": {
             "description": "Release not found",
@@ -307,7 +529,11 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "extension_profile_not_claimed",
+              "release_not_found"
+            ]
           },
           "409": {
             "description": "Approval rejected, state conflict, or idempotency conflict",
@@ -317,7 +543,19 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "client_txn_conflict",
+              "credential_bootstrap_rejected",
+              "release_approval_rejected",
+              "release_state_conflict"
+            ]
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [
@@ -349,7 +587,8 @@
             "schema": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "x-cartulary-not-found-code": "release_not_found"
           }
         ],
         "requestBody": {
@@ -381,7 +620,38 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "invalid_pagination_request",
+              "invalid_release_request"
+            ]
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "session_required"
+            ]
+          },
+          "403": {
+            "description": "Authenticated caller lacks the required authorization or CSRF verification failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "authorization_denied",
+              "csrf_verification_failed"
+            ]
           },
           "404": {
             "description": "Release not found",
@@ -391,7 +661,11 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "extension_profile_not_claimed",
+              "release_not_found"
+            ]
           },
           "409": {
             "description": "State conflict or idempotency conflict",
@@ -401,7 +675,18 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "client_txn_conflict",
+              "credential_bootstrap_rejected",
+              "release_state_conflict"
+            ]
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [
@@ -433,7 +718,8 @@
             "schema": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "x-cartulary-not-found-code": "release_not_found"
           }
         ],
         "requestBody": {
@@ -465,7 +751,38 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "invalid_pagination_request",
+              "invalid_release_request"
+            ]
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "session_required"
+            ]
+          },
+          "403": {
+            "description": "Authenticated caller lacks the required authorization or CSRF verification failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "authorization_denied",
+              "csrf_verification_failed"
+            ]
           },
           "404": {
             "description": "Release not found",
@@ -475,7 +792,11 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "extension_profile_not_claimed",
+              "release_not_found"
+            ]
           },
           "409": {
             "description": "State conflict or idempotency conflict",
@@ -485,7 +806,18 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "client_txn_conflict",
+              "credential_bootstrap_rejected",
+              "release_state_conflict"
+            ]
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [
@@ -517,7 +849,8 @@
             "schema": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "x-cartulary-not-found-code": "incident_not_found"
           }
         ],
         "responses": {
@@ -539,17 +872,23 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "invalid_pagination_request"
+            ]
           },
-          "404": {
-            "description": "Incident or retained artifact is not visible",
+          "401": {
+            "description": "Authentication required",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "session_required"
+            ]
           },
           "403": {
             "description": "Current incident role does not permit source capture inspection",
@@ -559,7 +898,43 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "authorization_denied"
+            ]
+          },
+          "404": {
+            "description": "Incident or retained artifact is not visible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "extension_profile_not_claimed",
+              "incident_not_found"
+            ]
+          },
+          "409": {
+            "description": "Request conflicts with current state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "credential_bootstrap_rejected"
+            ]
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [
@@ -589,7 +964,8 @@
             "schema": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "x-cartulary-not-found-code": "incident_not_found"
           },
           {
             "name": "artifact_id",
@@ -598,7 +974,8 @@
             "schema": {
               "type": "string",
               "pattern": "^[0-9a-f]{64}$"
-            }
+            },
+            "x-cartulary-not-found-code": "report_artifact_not_found"
           }
         ],
         "responses": {
@@ -621,17 +998,23 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "invalid_pagination_request"
+            ]
           },
-          "404": {
-            "description": "Incident or retained artifact is not visible",
+          "401": {
+            "description": "Authentication required",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "session_required"
+            ]
           },
           "403": {
             "description": "Current incident role does not permit source capture inspection",
@@ -641,7 +1024,44 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "authorization_denied"
+            ]
+          },
+          "404": {
+            "description": "Incident or retained artifact is not visible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "extension_profile_not_claimed",
+              "incident_not_found",
+              "report_artifact_not_found"
+            ]
+          },
+          "409": {
+            "description": "Request conflicts with current state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "credential_bootstrap_rejected"
+            ]
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [

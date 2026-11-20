@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -16,13 +15,11 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 )
 
+// handleTouch is the harness-only session touch route. It is not a public
+// operation, so it authenticates itself and always slides idle expiry. Its
+// registration admits only GET (TestRouteGuard.ProtectMethod).
 func (s *Service) handleTouch(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-
-	principal, apiErr := s.authenticateSessionRequest(r, false)
+	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.sessionStore, Keys: s.keys, Hub: s.revocations, Now: s.now})
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -52,107 +49,76 @@ func (s *Service) handleTouch(w http.ResponseWriter, r *http.Request) {
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, resource)
 }
 
-func (s *Service) authenticateSessionRequest(r *http.Request, stateChanging bool) (SessionPrincipal, *httpapi.APIError) {
-	context, apiErr := s.authenticateAuthRequest(r, stateChanging, false)
-	if apiErr != nil {
-		return SessionPrincipal{}, apiErr
+// admittedPrincipal returns the session principal central admission
+// established (Core 01 REQ-01-707 step 2). Its absence is a binding error.
+func admittedPrincipal(w http.ResponseWriter, r *http.Request) (httpauth.Principal, bool) {
+	principal, ok := httpauth.AdmittedPrincipal(r)
+	if !ok {
+		writeAPIError(w, r, internalAPIError(errors.New("auth operation has no admitted principal")))
+		return httpauth.Principal{}, false
 	}
-	if context.Principal == nil {
-		return SessionPrincipal{}, &httpapi.APIError{Status: http.StatusUnauthorized, Code: unauthorizedCode, Details: map[string]any{}}
-	}
-	return *context.Principal, nil
+	return principal, true
 }
 
-func (s *Service) authenticateAuthRequest(r *http.Request, stateChanging bool, allowBootstrap bool) (CredentialAuthContext, *httpapi.APIError) {
-	header := r.Header.Get("Authorization")
-	if strings.HasPrefix(header, "Bearer ") {
-		token := strings.TrimSpace(strings.TrimPrefix(header, "Bearer "))
-		if token == "" {
-			return CredentialAuthContext{}, &httpapi.APIError{Status: http.StatusUnauthorized, Code: unauthorizedCode, Details: map[string]any{}}
-		}
-		if principal, apiErr := s.authenticateSessionToken(r, httpauth.AuthSourceBearer, token, false); apiErr == nil {
-			return CredentialAuthContext{Principal: &principal, User: principal.User}, nil
-		} else if apiErr.Code != unauthorizedCode {
-			return CredentialAuthContext{}, apiErr
-		}
-
-		bootstrap, matched, apiErr := s.bootstrapCredentialAuthenticator().Authenticate(r, token, allowBootstrap)
-		if apiErr != nil {
-			return CredentialAuthContext{}, apiErr
-		}
-		if matched {
-			return CredentialAuthContext{
-				BootstrapToken:     &bootstrap.Token,
-				BootstrapTokenText: bootstrap.TokenText,
-				User:               bootstrap.User,
-			}, nil
-		}
-		return CredentialAuthContext{}, &httpapi.APIError{Status: http.StatusUnauthorized, Code: unauthorizedCode, Details: map[string]any{}}
+// admittedDeploymentAdmin returns the admitted principal after the
+// deployment-administration gate.
+func admittedDeploymentAdmin(w http.ResponseWriter, r *http.Request) (httpauth.Principal, bool) {
+	principal, ok := admittedPrincipal(w, r)
+	if !ok {
+		return httpauth.Principal{}, false
 	}
-
-	cookie, err := r.Cookie(authn.SessionCookieName)
-	if errors.Is(err, authn.ErrNotFound) {
-		return CredentialAuthContext{}, &httpapi.APIError{Status: http.StatusUnauthorized, Code: unauthorizedCode, Details: map[string]any{}}
+	if apiErr := httpauth.RequireDeploymentAdmin(principal.User); apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return httpauth.Principal{}, false
 	}
-	if err != nil {
-		if errors.Is(err, http.ErrNoCookie) {
-			return CredentialAuthContext{}, &httpapi.APIError{Status: http.StatusUnauthorized, Code: unauthorizedCode, Details: map[string]any{}}
-		}
-		return CredentialAuthContext{}, internalAPIError(err)
-	}
-	principal, apiErr := s.authenticateSessionToken(r, httpauth.AuthSourceCookie, cookie.Value, stateChanging)
-	if apiErr != nil {
-		return CredentialAuthContext{}, apiErr
-	}
-	return CredentialAuthContext{Principal: &principal, User: principal.User}, nil
+	return principal, true
 }
 
-func (s *Service) bootstrapCredentialAuthenticator() bootstrapCredentialAuthenticator {
-	return bootstrapCredentialAuthenticator{
-		store: s.sessionStore,
-		keys:  s.keys,
-		now:   s.now,
+// admittedPathUUID returns a centrally admitted uuid path parameter. Its
+// absence is a binding error.
+func admittedPathUUID(w http.ResponseWriter, r *http.Request, name string) (uuid.UUID, bool) {
+	value, ok := httpapi.PathUUID(r, name)
+	if !ok {
+		writeAPIError(w, r, internalAPIError(errors.New("auth operation has no admitted path parameter "+name)))
+		return uuid.UUID{}, false
 	}
+	return value, true
 }
 
-func (s *Service) authenticateSessionToken(r *http.Request, authSource httpauth.AuthSource, sessionToken string, stateChanging bool) (SessionPrincipal, *httpapi.APIError) {
-	if stateChanging && authSource == httpauth.AuthSourceCookie {
-		csrfCookie, _ := r.Cookie(authn.CSRFCookieName)
-		if csrfCookie == nil || csrfCookie.Value != authn.CSRFTokenForSessionToken(s.keys, sessionToken) {
-			return SessionPrincipal{}, &httpapi.APIError{Status: http.StatusForbidden, Code: "csrf_verification_failed", Details: map[string]any{}}
-		}
-		if apiErr := httpauth.ValidateCSRF(r.Method, authSource, csrfCookie.Value, r.Header.Get(authn.CSRFHeaderName)); apiErr != nil {
-			return SessionPrincipal{}, apiErr
-		}
+// admittedUserTarget returns the deployment administrator and the addressed
+// user_id of a /api/v1/users/{user_id} operation. The identifier's syntax was
+// admitted before the gate (REQ-01-707 step 3); its existence is decided after
+// it (REQ-01-118).
+func admittedUserTarget(w http.ResponseWriter, r *http.Request) (httpauth.Principal, uuid.UUID, bool) {
+	principal, ok := admittedDeploymentAdmin(w, r)
+	if !ok {
+		return httpauth.Principal{}, uuid.UUID{}, false
 	}
+	userID, ok := admittedPathUUID(w, r, "user_id")
+	if !ok {
+		return httpauth.Principal{}, uuid.UUID{}, false
+	}
+	return principal, userID, true
+}
 
-	session, user, err := s.sessionStore.GetSessionByFingerprint(r.Context(), authn.FingerprintToken(s.keys, sessionToken))
-	if errors.Is(err, authn.ErrNotFound) {
-		return SessionPrincipal{}, &httpapi.APIError{Status: http.StatusUnauthorized, Code: unauthorizedCode, Details: map[string]any{}}
-	}
-	if err != nil {
-		return SessionPrincipal{}, internalAPIError(err)
-	}
-	if !user.IsActive {
-		return SessionPrincipal{}, &httpapi.APIError{Status: http.StatusUnauthorized, Code: unauthorizedCode, Details: map[string]any{}}
-	}
-	if session.RevokedAt != nil {
-		return SessionPrincipal{}, &httpapi.APIError{Status: http.StatusUnauthorized, Code: unauthorizedCode, Details: map[string]any{}}
-	}
+// totpCredential is the credential a TOTP setup operation was admitted with:
+// exactly one of the current session or a bootstrap token (Core 01 Table
+// 3.3.2.2-D).
+type totpCredential struct {
+	session   *httpauth.Principal
+	bootstrap *httpauth.BootstrapCredential
+	user      authn.UserRecord
+}
 
-	now := s.now()
-	if !session.SessionExpiresAt.After(now) {
-		_ = s.sessionStore.RevokeSession(context.Background(), session.ID, sessionExpiredReasonCode, now)
-		s.publishSessionRevocation(session.ID, sessionExpiredReasonCode)
-		return SessionPrincipal{}, &httpapi.APIError{Status: http.StatusUnauthorized, Code: unauthorizedCode, Details: map[string]any{}}
+func admittedTOTPCredential(w http.ResponseWriter, r *http.Request) (totpCredential, bool) {
+	if principal, ok := httpauth.AdmittedPrincipal(r); ok {
+		return totpCredential{session: &principal, user: principal.User}, true
 	}
-
-	return SessionPrincipal{
-		AuthSource:   authSource,
-		SessionToken: sessionToken,
-		Session:      session,
-		User:         user,
-	}, nil
+	if bootstrap, ok := httpauth.AdmittedBootstrapCredential(r); ok {
+		return totpCredential{bootstrap: &bootstrap, user: bootstrap.User}, true
+	}
+	writeAPIError(w, r, internalAPIError(errors.New("TOTP operation has no admitted credential")))
+	return totpCredential{}, false
 }
 
 func (s *Service) issueBootstrapToken(ctx context.Context, user authn.UserRecord) (string, time.Time, error) {
@@ -256,8 +222,8 @@ func (s *Service) buildSafeUserResource(ctx context.Context, user authn.UserReco
 	return BuildSafeUserResourceWithEnterpriseBindings(user, bindings), nil
 }
 
-func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *SessionPrincipal, method string, path string) error {
-	return httpauth.SlideSessionIfNeeded(ctx, s.sessionStore, principal, method, path, s.now)
+func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal) error {
+	return httpauth.SlideSessionIfNeeded(ctx, s.sessionStore, principal, s.now)
 }
 
 func (s *Service) publishSessionRevocations(sessionIDs []uuid.UUID, reasonCode string) {

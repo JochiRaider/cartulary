@@ -213,7 +213,8 @@ it("restores import access only after a new confirmed session observation", asyn
     .mockResolvedValue({ kind: "authorized", authority });
   const fetch = vi
     .fn()
-    .mockResolvedValueOnce(errorResponse("authorization_denied", 403))
+    // importIncidentBundle declares only csrf_verification_failed at 403.
+    .mockResolvedValueOnce(errorResponse("csrf_verification_failed", 403))
     .mockImplementation(async (path: string) =>
       jsonResponse(jobEnvelope(), path.endsWith("/import") ? 202 : 200),
     );

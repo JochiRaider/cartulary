@@ -1,3 +1,4 @@
+import type { HTTPOperationFailureCode } from "../services/browserApi";
 import type { WorkbookIncidentRole } from "../shared/workbookShellContracts";
 import type {
   IncidentMetadataResource,
@@ -103,20 +104,10 @@ export function buildIncidentMetadataPatch(
       : {}),
   });
 }
-export const metadataProblemCodes = [
-  "invalid_incident_patch",
-  "incident_version_conflict",
-  "incident_closed",
-  "incident_not_found",
-  "authorization_denied",
-  "session_required",
-  "csrf_verification_failed",
-  "internal_error",
-  "invalid_public_contract_response",
-  "unknown_public_error",
-] as const;
+/** Operations whose failures the metadata editor decodes and presents. */
+export type MetadataHTTPOperation = "getIncident" | "patchIncident";
 export type MetadataProblem = Readonly<{
-  code: (typeof metadataProblemCodes)[number];
+  code: HTTPOperationFailureCode<MetadataHTTPOperation>;
   field?: IncidentMetadataField | undefined;
   reason?:
     | "field_too_long"

@@ -77,7 +77,7 @@ function setup(xlsx = false, selectionFailure = false) {
             kind: "rejected",
             failure: {
               kind: "public",
-              code: "invalid_import_state",
+              code: "import_apply_blocked",
               reason: "unit_not_ready",
               field: null,
               status: 409,

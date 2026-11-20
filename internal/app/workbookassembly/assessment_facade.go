@@ -16,6 +16,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	collabprotocol "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
+	incidentadmission "github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -175,6 +176,7 @@ func NewAssessmentMutationContribution(
 	}
 	return assessments.NewFacade(pool, assessments.FacadeDependencies{
 		Idempotency:  assessmentIdempotencyAdapter{},
+		Incidents:    incidentadmission.NewChecker(pool),
 		References:   references,
 		Assessors:    assessors,
 		Records:      recordEnvelopes,

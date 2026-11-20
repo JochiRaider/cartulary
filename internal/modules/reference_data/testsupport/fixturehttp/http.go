@@ -48,17 +48,7 @@ func ImportPackFixture(t testing.TB, server *httptestx.Server, login authcookiet
 	request.AddCookie(login.Session)
 	request.AddCookie(login.CSRF)
 	job := httptestx.RequireSuccessEnvelope(t, httptestx.Do(t, http.DefaultClient, request), http.StatusAccepted)["data"].(map[string]any)
-	deadline := time.Now().Add(120 * time.Second)
-	for time.Now().Before(deadline) {
-		response := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/jobs/"+job["job_id"].(string), nil, httptestx.WithCookies(login.Session))
-		state := httptestx.RequireSuccessEnvelope(t, response, http.StatusOK)["data"].(map[string]any)
-		switch state["status"] {
-		case "succeeded":
-			return
-		case "failed", "canceled":
-			t.Fatalf("fixture import failed: %v", state["error_summary"])
-		}
-		time.Sleep(25 * time.Millisecond)
-	}
-	t.Fatal("fixture import did not finish within its observation budget")
+	httptestx.PollJob(t, server.HTTP.URL, job["job_id"].(string), httptestx.PollOptions{
+		Timeout: 120 * time.Second, Interval: 25 * time.Millisecond, Request: []func(*http.Request){httptestx.WithCookies(login.Session)},
+	}, "succeeded")
 }

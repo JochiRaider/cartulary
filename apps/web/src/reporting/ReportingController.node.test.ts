@@ -4,6 +4,7 @@ import type {
   ReportingJob,
   ReportingReceipt,
 } from "../services/reportingClient";
+import { operationRejection } from "../testing/fetchMockTestSupport";
 import {
   type ReportingBinding,
   ReportingController,
@@ -204,7 +205,7 @@ it("retains exact uncertain reporting commands and prevents duplicate admission"
   await controller.createSnapshot();
   expect(client.submit).toHaveBeenCalledTimes(1);
   const original = vi.mocked(client.submit).mock.calls[0]?.[0];
-  settle({ ok: false, status: 503, payload: {} });
+  settle(operationRejection({ code: "internal_error", status: 500 }));
   await submitting;
   await controller.createSnapshot();
   expect(client.submit).toHaveBeenCalledTimes(1);

@@ -8,6 +8,7 @@ import (
 	"reflect"
 
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
+	evidenceblob "github.com/JochiRaider/cartulary/internal/modules/evidence/internal/blob"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/google/uuid"
@@ -25,9 +26,9 @@ func (p preparedEvidenceImport) blobRaw(ctx context.Context, d sourceport.Descri
 	}
 	return err
 }
-func (p preparedEvidenceImport) blobs(ctx context.Context, d sourceport.Descriptor, visit func(portableBlobRow) error) error {
+func (p preparedEvidenceImport) blobs(ctx context.Context, d sourceport.Descriptor, visit func(evidenceblob.Row) error) error {
 	return p.blobRaw(ctx, d, func(raw map[string]any) error {
-		row, ok := parsePortableBlobRow(raw)
+		row, ok := evidenceblob.ParseRow(raw)
 		if !ok {
 			return d.DeclaredFailure("evidence.row_shape_exact")
 		}
@@ -63,14 +64,14 @@ func (p preparedEvidenceImport) prepareBlobs(ctx context.Context, bundle sourcep
 	}
 	for _, phase := range []struct {
 		invariant string
-		valid     func(portableBlobRow) bool
+		valid     func(evidenceblob.Row) bool
 	}{
-		{"row_shape_exact", func(portableBlobRow) bool { return true }},
-		{"envelope_type_scope", func(r portableBlobRow) bool { return r.IncidentID == p.incidentID }},
-		{"lifecycle_legal", func(r portableBlobRow) bool { return r.lifecycleLegal() }},
-		{"attribution_exact", func(r portableBlobRow) bool { _, ok := input.Actors.Lookup(r.CreatedByUserID.String()); return ok }},
+		{"row_shape_exact", func(evidenceblob.Row) bool { return true }},
+		{"envelope_type_scope", func(r evidenceblob.Row) bool { return r.IncidentID == p.incidentID }},
+		{"lifecycle_legal", func(r evidenceblob.Row) bool { return r.Coherent() }},
+		{"attribution_exact", func(r evidenceblob.Row) bool { _, ok := input.Actors.Lookup(r.CreatedByUserID.String()); return ok }},
 	} {
-		if err := p.blobs(ctx, d, func(row portableBlobRow) error {
+		if err := p.blobs(ctx, d, func(row evidenceblob.Row) error {
 			if !phase.valid(row) {
 				return d.DeclaredFailure("evidence." + phase.invariant)
 			}
@@ -84,17 +85,17 @@ func (p preparedEvidenceImport) prepareBlobs(ctx context.Context, bundle sourcep
 
 // Pull only one prepared source row alongside each rewritten row. The iterator
 // is always stopped, including on rejection, so both verified readers close.
-func (p preparedEvidenceImport) rewrittenBlobs(ctx context.Context, rewritten incidentportability.MemberReader, d sourceport.Descriptor, visit func(portableBlobRow, string) error) error {
+func (p preparedEvidenceImport) rewrittenBlobs(ctx context.Context, rewritten incidentportability.MemberReader, d sourceport.Descriptor, visit func(evidenceblob.Row, string) error) error {
 	stopped := errors.New("blob comparison stopped")
-	next, stop := iter.Pull2(func(yield func(portableBlobRow, error) bool) {
-		err := p.blobs(ctx, d, func(row portableBlobRow) error {
+	next, stop := iter.Pull2(func(yield func(evidenceblob.Row, error) bool) {
+		err := p.blobs(ctx, d, func(row evidenceblob.Row) error {
 			if !yield(row, nil) {
 				return stopped
 			}
 			return nil
 		})
 		if err != nil && !errors.Is(err, stopped) {
-			yield(portableBlobRow{}, err)
+			yield(evidenceblob.Row{}, err)
 		}
 	})
 	defer stop()
@@ -113,7 +114,7 @@ func (p preparedEvidenceImport) rewrittenBlobs(ctx context.Context, rewritten in
 		}
 		source := maps.Clone(raw)
 		delete(source, "storage_key")
-		actual, ok := parsePortableBlobRow(source)
+		actual, ok := evidenceblob.ParseRow(source)
 		if !ok || !reflect.DeepEqual(actual, expected) {
 			return d.DeclaredFailure("evidence.source_state_exact")
 		}
@@ -147,7 +148,7 @@ func (p preparedEvidenceImport) bindBlobRewrite(ctx context.Context, input sourc
 	if p.blobRewrite.members != nil && !reflect.DeepEqual(p.blobRewrite.members.Members(), bound.Members()) {
 		return sourceport.ErrPreparedBinding
 	}
-	if err := p.rewrittenBlobs(ctx, bound, d, func(portableBlobRow, string) error { return nil }); err != nil {
+	if err := p.rewrittenBlobs(ctx, bound, d, func(evidenceblob.Row, string) error { return nil }); err != nil {
 		return err
 	}
 	if p.blobRewrite.members == nil {

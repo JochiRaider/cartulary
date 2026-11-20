@@ -1,6 +1,7 @@
 package harnessredact
 
 import (
+	"bytes"
 	"encoding/json"
 	"regexp"
 	"strings"
@@ -48,11 +49,24 @@ func StructuredString(value string) string {
 	if err := json.Unmarshal([]byte(value), &decoded); err != nil {
 		return String(value)
 	}
-	payload, err := json.Marshal(Value(decoded, ""))
+	payload, err := JSON(Value(decoded, ""))
 	if err != nil {
 		return String(value)
 	}
-	return string(payload) + "\n"
+	return string(payload)
+}
+
+// JSON encodes redacted values as one line without HTML escaping, so Marker
+// stays literal and the retained-secret scan can recognize it
+// (TH-HARNESS-REQ-617). encoding/json would otherwise write \u003c and \u003e.
+func JSON(value any) ([]byte, error) {
+	var buffer bytes.Buffer
+	encoder := json.NewEncoder(&buffer)
+	encoder.SetEscapeHTML(false)
+	if err := encoder.Encode(value); err != nil {
+		return nil, err
+	}
+	return buffer.Bytes(), nil
 }
 
 func Value(value any, key string) any {

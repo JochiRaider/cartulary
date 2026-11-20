@@ -1220,7 +1220,7 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
       ["row_version_conflict", 409],
       ["authorization_denied", 403],
       ["invalid_rollback_request", 400],
-      ["record_not_found", 404],
+      ["credential_bootstrap_rejected", 409],
       ["rollback_target_not_found", 404],
       ["rollback_precondition_failed", 409],
     ] as const) {
@@ -1244,8 +1244,8 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
             (!init?.method || init.method === "GET")
           ) {
             return Promise.resolve(
-              errorCode === "record_not_found"
-                ? errorEnvelope(errorCode, 404)
+              errorCode === "credential_bootstrap_rejected"
+                ? errorEnvelope(errorCode, 409)
                 : historyEnvelope({ rowVersion: 4 }),
             );
           }
@@ -1281,7 +1281,7 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
         ),
       );
 
-      if (errorCode === "record_not_found") {
+      if (errorCode === "credential_bootstrap_rejected") {
         expect(
           (await screen.findByTestId(rowHistoryMessageTestId())).textContent,
         ).toContain(errorCode);

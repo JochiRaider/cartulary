@@ -6,6 +6,8 @@ import { rewriteSessionPresentation } from "../auth/sessionPresentation";
 import type { BarrierOutcome } from "../runtime/cleanup";
 import {
   awaitResponseBarrier,
+  checkedOperationErrorEnvelope,
+  fulfillOperationError,
   installOwnedRoute,
 } from "../transport/requestInterception";
 
@@ -151,33 +153,30 @@ export async function installImportObservationFixture(
       json:
         readStatus === 200
           ? jobEnvelope(captured)
-          : {
-              error: {
-                code: "job_not_found",
+          : checkedOperationErrorEnvelope(
+              "getJob",
+              readStatus,
+              "job_not_found",
+              {
                 message: "Unavailable",
-                status: readStatus,
-                retryable: false,
-                details: {},
               },
-            },
+            ),
     });
   });
   await installOwnedRoute(page, "**/api/v1/jobs/*/cancel", async (route) => {
     cancellationBodies.push(route.request().postData() ?? "");
     if (cancellation === "lost") return route.abort("failed");
     if (cancellation === "rejected")
-      return route.fulfill({
-        status: 409,
-        json: {
-          error: {
-            code: "job_cancel_rejected",
-            message: "Rejected",
-            status: 409,
-            retryable: false,
-            details: { reason: "not_cancelable" },
-          },
+      return fulfillOperationError(
+        route,
+        "cancelJob",
+        409,
+        "job_cancel_rejected",
+        {
+          message: "Rejected",
+          details: { reason: "not_cancelable" },
         },
-      });
+      );
     job = importJob(
       cancellation === "succeeded" ? "succeeded" : "cancel_requested",
       { progress: job.progress },
@@ -189,6 +188,7 @@ export async function installImportObservationFixture(
       job = next;
     },
     readCount: () => readCount,
+    /** A job read status; errors must be declared by getJob (404 job_not_found). */
     readStatus: (value: number) => {
       readStatus = value;
     },

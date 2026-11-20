@@ -3,9 +3,11 @@ package imports
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
 )
@@ -113,6 +115,7 @@ func (f ownerErrorTestFacade) ValidateImportUnitError(ExtensionImportOwnerError)
 
 func TestOwnerErrorTranslationFailsClosedAndPreservesOnlyRegisteredSafeDetail(t *testing.T) {
 	t.Parallel()
+	assertCrossOwnerOutcomesUseCoreUnitOutcome(t)
 
 	target := importTarget{
 		ErrorSchemaID:      "owner.error.v1",
@@ -132,6 +135,7 @@ func TestOwnerErrorTranslationFailsClosedAndPreservesOnlyRegisteredSafeDetail(t 
 	failure := translateExtensionOwnerFailure(
 		target,
 		ownerErrorTestFacade{translation: registered, translated: true},
+		crossOwnerUnitTransaction{},
 		errors.New("raw owner stack and source value"),
 	)
 	wantOwner := map[string]any{
@@ -171,6 +175,7 @@ func TestOwnerErrorTranslationFailsClosedAndPreservesOnlyRegisteredSafeDetail(t 
 			got := translateExtensionOwnerFailure(
 				target,
 				facade,
+				crossOwnerUnitTransaction{},
 				errors.New("secret=/tmp/source.csv token=unknown_owner_token"),
 			)
 			if got.ErrorCode != "import_apply_blocked" ||
@@ -179,6 +184,60 @@ func TestOwnerErrorTranslationFailsClosedAndPreservesOnlyRegisteredSafeDetail(t 
 				len(got.Details) != 1 ||
 				got.Details["reason_code"] != "owner_apply_validation_failed" {
 				t.Fatalf("closed fallback = %#v", got)
+			}
+		})
+	}
+}
+
+// A cross-owner transaction that ends with its commit proven absent by
+// timeout or database conflict has the Core unit outcome of REQ-01-620c. The
+// owner translation and its fallback are not consulted, even when the owner
+// would claim the error.
+func assertCrossOwnerOutcomesUseCoreUnitOutcome(t *testing.T) {
+	t.Helper()
+	target := importTarget{ErrorSchemaID: "owner.error.v1", ErrorTranslationID: "owner.translation.v1"}
+	claiming := ownerErrorTestFacade{translated: true, translation: ExtensionImportErrorTranslation{
+		ErrorSchemaID: target.ErrorSchemaID, ErrorTranslationID: target.ErrorTranslationID,
+		CoreReasonCode: "owner_apply_validation_failed",
+		OwnerError:     ExtensionImportOwnerError{SchemaID: target.ErrorSchemaID, OwnerCode: "owner_claims_everything", SafeDetails: map[string]any{}},
+	}}
+	transaction := crossOwnerUnitTransaction{OperationID: "import-unit:operation", Timeout: 30 * time.Second}
+	for _, tc := range []struct {
+		name string
+		err  error
+		want importUnitFailureDetail
+	}{
+		{
+			name: "timeout",
+			err:  crossownertransaction.ErrTimeout,
+			want: importUnitFailureDetail{ErrorCode: "service_unavailable", ReasonCode: "extension_transaction_timeout", Retryable: true,
+				Details: map[string]any{"reason_code": "extension_transaction_timeout", "operation_id": "import-unit:operation", "timeout_seconds": int64(30)}},
+		},
+		{
+			name: "wrapped timeout",
+			err:  fmt.Errorf("unit apply: %w", crossownertransaction.ErrTimeout),
+			want: importUnitFailureDetail{ErrorCode: "service_unavailable", ReasonCode: "extension_transaction_timeout", Retryable: true,
+				Details: map[string]any{"reason_code": "extension_transaction_timeout", "operation_id": "import-unit:operation", "timeout_seconds": int64(30)}},
+		},
+		{
+			name: "deadlock",
+			err:  &crossownertransaction.ConflictError{ReasonCode: "deadlock_detected", Cause: errors.New("SQLSTATE 40P01")},
+			want: importUnitFailureDetail{ErrorCode: "transaction_conflict", ReasonCode: "deadlock_detected", Retryable: true,
+				Details: map[string]any{"reason_code": "deadlock_detected"}},
+		},
+		{
+			name: "serialization failure",
+			err:  &crossownertransaction.ConflictError{ReasonCode: "serialization_failure", Cause: errors.New("SQLSTATE 40001")},
+			want: importUnitFailureDetail{ErrorCode: "transaction_conflict", ReasonCode: "serialization_failure", Retryable: true,
+				Details: map[string]any{"reason_code": "serialization_failure"}},
+		},
+	} {
+		t.Run("cross_owner_"+tc.name, func(t *testing.T) {
+			t.Parallel()
+			for name, facade := range map[string]ExtensionImportFacade{"claiming owner": claiming, "declining owner": ownerErrorTestFacade{}, "no owner": nil} {
+				if got := translateExtensionOwnerFailure(target, facade, transaction, tc.err); !reflect.DeepEqual(got, tc.want) {
+					t.Fatalf("%s: unit outcome = %#v, want %#v", name, got, tc.want)
+				}
 			}
 		})
 	}

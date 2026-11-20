@@ -59,7 +59,7 @@ func (a *sqlAnalyzer) assign(left, right []ast.Expr, op token.Token, declaredTyp
 		if !ok || id.Name == "_" {
 			continue
 		}
-		key := sqlBinding(id)
+		key := sqlBinding(a.binder, id)
 		value := evaluated[i]
 		previous, previouslyBound := a.variableTypes[key]
 		if value.typ.expr == nil || previouslyBound {
@@ -82,7 +82,7 @@ func (a *sqlAnalyzer) assign(left, right []ast.Expr, op token.Token, declaredTyp
 		// Preserve SQL-producing compound assignments even when a loop exit
 		// discards their values and no execution call consumes the binding.
 		a.emit(value.values, false)
-		if id.Obj != nil && id.Obj.Decl == declaration && (op == token.DEFINE || op == token.VAR || op == token.CONST) {
+		if a.binder.bind(id).declaredBy(declaration) && (op == token.DEFINE || op == token.VAR || op == token.CONST) {
 			locals[key] = true
 		}
 	}

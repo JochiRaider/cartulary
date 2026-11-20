@@ -85,11 +85,20 @@ func validateRestoredPostgresRows(ctx context.Context, tx pgx.Tx) error {
  public.entities_active_identifier_claims_are_valid_v1()
  AND public.parties_active_key_claims_are_valid_v1()
  AND public.indicator_active_identities_are_valid()
- AND public.network_flow_orientation_state_is_valid_v1()`).Scan(&valid); err != nil {
+ AND public.network_flow_orientation_state_is_valid_v2()`).Scan(&valid); err != nil {
 		return fmt.Errorf("validate restored owner invariants: %w", err)
 	}
 	if !valid {
 		return fmt.Errorf("%w: restored owner invariants", ErrVNextBackup)
+	}
+	// Revisions allocates history order when a writing transaction commits, so
+	// change sets loaded with triggers disabled were never allocated. The owner
+	// predicate proves each has an order its incident's allocator covers.
+	if err := tx.QueryRow(ctx, `SELECT public.revisions_history_order_is_valid_v1()`).Scan(&valid); err != nil {
+		return fmt.Errorf("validate restored revision history order: %w", err)
+	}
+	if !valid {
+		return fmt.Errorf("%w: restored revision history order", ErrVNextBackup)
 	}
 	return nil
 }

@@ -12,6 +12,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	indicatortest "github.com/JochiRaider/cartulary/internal/modules/indicators/testsupport"
+	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	viewtest "github.com/JochiRaider/cartulary/internal/platform/viewschema/testsupport"
@@ -20,6 +21,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/lifecyclecontract"
+	workbookscenariotest "github.com/JochiRaider/cartulary/internal/testutil/workbookscenariotest"
 )
 
 func TestIndicatorProductionChildRoutes_Integration(t *testing.T) {
@@ -248,6 +250,108 @@ func TestIndicatorProductionChildRoutes_Integration(t *testing.T) {
 			t.Fatalf("interval publication count=%d", got)
 		}
 	}
+}
+
+// TestIndicatorChildRoutesClassifyDeletedTargets_Integration verifies REQ-01-705
+// for the Indicator child mutations that address a record by path: after
+// incident visibility and role, a soft-deleted Indicator or observation source
+// is 409 record_deleted_use_restore with no effect, before its type and the
+// incident lifecycle; a missing record keeps the route's not-found code.
+func TestIndicatorChildRoutesClassifyDeletedTargets_Integration(t *testing.T) {
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "indicator-child-deleted-targets", TestRouteMode: httptestx.TestRouteModeDisabled})
+	login, actorID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
+	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
+		"client_txn_id": "txn-indicator-deleted-targets-incident",
+		"incident_key":  "IR-IND-DELETED-TARGETS",
+		"title":         "Indicator deleted target classification",
+	})
+	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
+	createIndicator := func(txn, domain string) uuid.UUID {
+		t.Helper()
+		row := httptestx.RequireSuccessEnvelope(t, childRouteJSON(t, harness, login, http.MethodPost,
+			"/api/v1/incidents/"+incidentID.String()+"/views/"+viewtest.IndicatorsViewSchemaID+"/rows",
+			map[string]any{
+				"client_txn_id":            txn,
+				"indicator.indicator_type": "domain_name",
+				"indicator.value_kind":     "atomic",
+				"indicator.display_value":  domain,
+			},
+		), http.StatusCreated)["data"].(map[string]any)["row"].(map[string]any)
+		return appsupport.MustUUID(t, row["record_id"].(string))
+	}
+	liveIndicatorID := createIndicator("txn-indicator-deleted-targets-live", "live-target.example.test")
+	deletedIndicatorID := createIndicator("txn-indicator-deleted-targets-deleted", "deleted-target.example.test")
+	httptestx.RequireSuccessEnvelope(t, childRouteJSON(t, harness, login, http.MethodDelete, "/api/v1/records/"+deletedIndicatorID.String(), map[string]any{
+		"base_row_version": 1, "client_txn_id": "txn-indicator-deleted-targets-delete",
+	}), http.StatusOK)
+	sourceText := "deleted-source.example"
+	liveSourceID, deletedSourceID := uuid.New(), uuid.New()
+	timelinetest.SeedTimelineRecordWithSourceText(t, harness.DB, incidentID, actorID, liveSourceID, sourceText)
+	timelinetest.SeedTimelineRecordWithSourceText(t, harness.DB, incidentID, actorID, deletedSourceID, sourceText)
+	envelopetest.SoftDeleteRecord(t, harness.DB, envelopetest.Tombstone{RecordID: deletedSourceID, DeletedBy: actorID, AtLastUpdate: true})
+
+	lifecycleBody := func(txn string, base int) map[string]any {
+		return map[string]any{
+			"client_txn_id": txn, "base_row_version": base,
+			"lifecycle_state": "false_positive", "valid_from": "2026-11-18T10:00:00Z",
+			"valid_to": nil, "confidence": 70, "rationale": "deleted target fixture", "support_refs": []any{}, "assessor": "reviewer",
+		}
+	}
+	observationBody := func(txn string, base int) map[string]any {
+		return map[string]any{
+			"client_txn_id": txn, "base_row_version": base, "source_field_key": timelinetest.FieldSourceText,
+			"span_start_byte": 0, "span_end_byte": len(sourceText),
+		}
+	}
+	lifecyclePath := func(id uuid.UUID) string { return "/api/v1/indicators/" + id.String() + "/state-intervals" }
+	observationPath := func(id uuid.UUID) string { return "/api/v1/records/" + id.String() + "/indicator-observations" }
+	requireRejected := func(name string, login authcookietest.AuthCookies, path string, body map[string]any, status int, code string) {
+		t.Helper()
+		before := workbookscenariotest.SnapshotIncidentMutationEffects(t, harness.DB, incidentID.String())
+		response := childRouteJSON(t, harness, login, http.MethodPost, path, body)
+		if response.StatusCode != status {
+			t.Fatalf("%s: status %d, want %d %s; body=%#v", name, response.StatusCode, status, code, httptestx.ReadJSONBody(t, response))
+		}
+		if code != "" {
+			httptestx.RequireErrorEnvelope(t, response, status, code)
+		}
+		if after := workbookscenariotest.SnapshotIncidentMutationEffects(t, harness.DB, incidentID.String()); after != before {
+			t.Fatalf("%s committed effects: %+v -> %+v", name, before, after)
+		}
+	}
+
+	requireRejected("deleted Indicator lifecycle append", login, lifecyclePath(deletedIndicatorID), lifecycleBody("txn-deleted-indicator-append", 2), http.StatusConflict, "record_deleted_use_restore")
+	requireRejected("missing Indicator lifecycle append", login, lifecyclePath(uuid.New()), lifecycleBody("txn-missing-indicator-append", 1), http.StatusNotFound, "indicator_not_found")
+	// The deleted state precedes the record type: a deleted Timeline record
+	// addressed as an Indicator still has to be restored first.
+	requireRejected("deleted non-Indicator lifecycle append", login, lifecyclePath(deletedSourceID), lifecycleBody("txn-deleted-wrong-type-append", 1), http.StatusConflict, "record_deleted_use_restore")
+	requireRejected("live non-Indicator lifecycle append", login, lifecyclePath(liveSourceID), lifecycleBody("txn-live-wrong-type-append", 1), http.StatusNotFound, "indicator_not_found")
+	requireRejected("deleted source observation capture", login, observationPath(deletedSourceID), observationBody("txn-deleted-source-capture", 2), http.StatusConflict, "record_deleted_use_restore")
+	requireRejected("missing source observation capture", login, observationPath(uuid.New()), observationBody("txn-missing-source-capture", 1), http.StatusNotFound, "indicator_source_record_not_found")
+
+	// Visibility precedes the deleted state (REQ-01-704): a non-member receives
+	// exactly what it receives for a live record.
+	outsider := flowtest.SeedLocalUserRecord(t, harness.DB, "indicator-deleted-outsider@example.test", "Outsider", "OutsiderPass1!", false, false, true)
+	outsiderLogin := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, outsider.Email, "OutsiderPass1!", nil)
+	for _, pair := range []struct{ name, deleted, live string }{
+		{"lifecycle append", lifecyclePath(deletedIndicatorID), lifecyclePath(liveIndicatorID)},
+		{"observation capture", observationPath(deletedSourceID), observationPath(liveSourceID)},
+	} {
+		deleted := httptestx.ReadJSONBody(t, childRouteJSON(t, harness, outsiderLogin, http.MethodPost, pair.deleted, lifecycleBody("txn-outsider-deleted", 1)))
+		live := httptestx.ReadJSONBody(t, childRouteJSON(t, harness, outsiderLogin, http.MethodPost, pair.live, lifecycleBody("txn-outsider-live", 1)))
+		deletedError, _ := deleted["error"].(map[string]any)
+		liveError, _ := live["error"].(map[string]any)
+		if deletedError == nil || liveError == nil || deletedError["code"] != liveError["code"] || fmt.Sprint(deletedError["details"]) != fmt.Sprint(liveError["details"]) {
+			t.Fatalf("non-member %s distinguishes a deleted record: deleted=%#v live=%#v", pair.name, deleted, live)
+		}
+	}
+
+	if _, err := harness.DB.ExecContext(context.Background(), `UPDATE incidents SET status = 'closed', closed_at = now() WHERE id = $1`, incidentID); err != nil {
+		t.Fatalf("close incident: %v", err)
+	}
+	requireRejected("live Indicator append after close", login, lifecyclePath(liveIndicatorID), lifecycleBody("txn-closed-live-append", 1), http.StatusConflict, "incident_closed")
+	requireRejected("deleted Indicator stale append after close", login, lifecyclePath(deletedIndicatorID), lifecycleBody("txn-closed-deleted-append", 1), http.StatusConflict, "record_deleted_use_restore")
+	requireRejected("deleted source stale capture after close", login, observationPath(deletedSourceID), observationBody("txn-closed-deleted-capture", 1), http.StatusConflict, "record_deleted_use_restore")
 }
 
 func childRouteJSON(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, method string, path string, body any) *http.Response {

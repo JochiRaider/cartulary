@@ -8,6 +8,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"reflect"
 	"regexp"
 	"sort"
 	"strconv"
@@ -42,6 +43,13 @@ func sourceRowDigest(parserProfileID string, sourceRowNumber int64, decodedField
 
 func normalizedRowDigest(mappingFingerprint string, values map[string]any, unmappedRaw retainedRawValues) (string, error) {
 	var b bytes.Buffer
+	b.Grow(2048)
+	// Values are appended in place: on success the bytes equal writeCanonical's
+	// and on failure the partial digest input is discarded with the error.
+	active := map[canonicalVisit]bool{}
+	appendValue := func(out *bytes.Buffer, value any) error {
+		return appendCanonical(out, reflect.ValueOf(value), active)
+	}
 	writeDigestPart(&b, "cartulary.network_flow.normalized_row_digest.v2")
 	writeDigestPart(&b, mappingFingerprint)
 	for _, fieldKey := range registeredRowFieldKeys() {
@@ -53,13 +61,13 @@ func normalizedRowDigest(mappingFingerprint string, values map[string]any, unmap
 			continue
 		}
 		writeDigestPart(&b, "p")
-		if err := writeCanonical(&b, value); err != nil {
+		if err := appendValue(&b, value); err != nil {
 			return "", err
 		}
 		b.WriteByte(0)
 	}
 	writeDigestPart(&b, "unmapped_raw")
-	if err := writeCanonical(&b, unmappedRaw); err != nil {
+	if err := appendValue(&b, unmappedRaw); err != nil {
 		return "", err
 	}
 	b.WriteByte(0)

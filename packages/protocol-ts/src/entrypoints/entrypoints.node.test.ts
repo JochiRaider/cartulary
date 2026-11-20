@@ -2,10 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { incidentStreamMessageDecoder } from "./collaboration.js";
 import { errorRegistry } from "./errors.js";
-import {
-  extensionClientSupportRegistry,
-  extensionProfileRegistry,
-} from "./extensions.js";
+import { extensionClientSupportRegistry } from "./extensions.js";
 import {
   buildHTTPOperationPath,
   errorEnvelopeDecoder,
@@ -72,7 +69,6 @@ describe("Protocol-TS authored family entrypoints", () => {
     for (const registry of [
       errorRegistry,
       extensionClientSupportRegistry,
-      extensionProfileRegistry,
       importTargetRegistry,
       networkFlowErrorRegistry,
       viewSchemaRegistry,
@@ -90,9 +86,6 @@ describe("Protocol-TS authored family entrypoints", () => {
     expect(errorRegistry.registry_id).toBe("cartulary.errors.phase3.v1");
     expect(extensionClientSupportRegistry.schema_id).toBe(
       "cartulary.client_extension_support_registry.v1",
-    );
-    expect(extensionProfileRegistry.schema_id).toBe(
-      "cartulary.extension_profile_registry.v1",
     );
     expect(importTargetRegistry.schema_id).toBe(
       "cartulary.import_target_frontend_projection.v1",

@@ -2,7 +2,6 @@ package artifacts
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"slices"
 	"time"
@@ -10,7 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	recordenvelope "github.com/JochiRaider/cartulary/internal/modules/records/enveloperead"
+	"github.com/JochiRaider/cartulary/internal/modules/records"
 )
 
 type ContextualNoteCreateCommand struct {
@@ -42,19 +41,21 @@ func (f *MutationFacade) CreateContextualNote(
 	}, &command.SourceRecordID)
 }
 
+// contextIncidentTx classifies the linked-note source record through Records
+// under FOR UPDATE (REQ-01-705): a missing record reports
+// records.ErrTargetNotFound and a soft-deleted one records.ErrTargetDeleted,
+// before its type and the incident lifecycle. The caller's exact-replay lookup
+// precedes this classification.
 func (f *MutationFacade) contextIncidentTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	sourceRecordID uuid.UUID,
 ) (uuid.UUID, error) {
-	envelope, err := f.recordEnvelopes.LoadEnvelopeTx(ctx, tx, sourceRecordID, true)
-	if errors.Is(err, recordenvelope.ErrEnvelopeNotFound) {
-		return uuid.UUID{}, pgx.ErrNoRows
-	}
+	envelope, err := f.recordEnvelopes.ClassifyTargetTx(ctx, tx, sourceRecordID, records.TargetLockUpdate)
 	if err != nil {
 		return uuid.UUID{}, err
 	}
-	if envelope.DeletedAt != nil || !slices.Contains(
+	if !slices.Contains(
 		[]string{"timeline_event", "host", "identity", "evidence"},
 		envelope.RecordType,
 	) {

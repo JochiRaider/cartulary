@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"testing"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
+	"github.com/JochiRaider/cartulary/internal/modules/evidence/testsupport/blobfixture"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
@@ -291,9 +293,11 @@ func TestObjectUploadCapabilityRoute_Integration(t *testing.T) {
 		}
 		return data
 	}
-	putUpload := func(t *testing.T, href string, payload string) *http.Response {
+	// putUploadBody sends a body of unknown length (chunked, no
+	// Content-Length) unless body is a *strings.Reader.
+	putUploadBody := func(t *testing.T, href string, body io.Reader) *http.Response {
 		t.Helper()
-		req, err := http.NewRequest(http.MethodPut, harness.Server.HTTP.URL+href, strings.NewReader(payload))
+		req, err := http.NewRequest(http.MethodPut, harness.Server.HTTP.URL+href, body)
 		if err != nil {
 			t.Fatalf("create upload request: %v", err)
 		}
@@ -303,6 +307,10 @@ func TestObjectUploadCapabilityRoute_Integration(t *testing.T) {
 		}
 		return httptestx.Do(t, http.DefaultClient, req)
 	}
+	putUpload := func(t *testing.T, href string, payload string) *http.Response {
+		t.Helper()
+		return putUploadBody(t, href, strings.NewReader(payload))
+	}
 
 	malformed := putUpload(t, "/api/v1/object-uploads/not-a-token", "hello")
 	httptestx.RequireErrorEnvelope(t, malformed, http.StatusNotFound, "object_upload_not_found_or_revoked")
@@ -310,18 +318,28 @@ func TestObjectUploadCapabilityRoute_Integration(t *testing.T) {
 	undersizeData := createSlot(t, "txn-evidence_lifecycle-upload-capability-undersize")
 	undersizeTarget := undersizeData["upload_target"].(map[string]any)
 	undersizeResp := putUpload(t, undersizeTarget["href"].(string), "hell")
-	undersizeBody := httptestx.RequireErrorEnvelope(t, undersizeResp, http.StatusBadRequest, "object_upload_rejected")
+	undersizeBody := httptestx.RequireErrorEnvelope(t, undersizeResp, http.StatusBadRequest, "object_upload_invalid")
 	httptestx.RequireErrorDetail(t, undersizeBody, "reason_code", "byte_size_mismatch")
+	httptestx.RequireErrorDetail(t, undersizeBody, "requested_byte_size", float64(4))
+	httptestx.RequireErrorDetail(t, undersizeBody, "contracted_byte_size", float64(5))
 
 	oversizeData := createSlot(t, "txn-evidence_lifecycle-upload-capability-oversize")
 	oversizeTarget := oversizeData["upload_target"].(map[string]any)
 	oversizeResp := putUpload(t, oversizeTarget["href"].(string), "helloo")
-	oversizeBody := httptestx.RequireErrorEnvelope(t, oversizeResp, http.StatusRequestEntityTooLarge, "object_upload_rejected")
+	oversizeBody := httptestx.RequireErrorEnvelope(t, oversizeResp, http.StatusRequestEntityTooLarge, "request_body_too_large")
 	httptestx.RequireErrorDetail(t, oversizeBody, "reason_code", "byte_size_exceeds_contract")
+	httptestx.RequireErrorDetail(t, oversizeBody, "requested_byte_size", float64(6))
+	httptestx.RequireErrorDetail(t, oversizeBody, "contracted_byte_size", float64(5))
+
+	lengthlessData := createSlot(t, "txn-evidence_lifecycle-upload-capability-lengthless")
+	lengthlessTarget := lengthlessData["upload_target"].(map[string]any)
+	lengthlessResp := putUploadBody(t, lengthlessTarget["href"].(string), io.MultiReader(strings.NewReader("hello")))
+	lengthlessBody := httptestx.RequireErrorEnvelope(t, lengthlessResp, http.StatusLengthRequired, "object_upload_length_required")
+	httptestx.RequireErrorDetail(t, lengthlessBody, "reason_code", "content_length_required")
 
 	wrongStateData := createSlot(t, "txn-evidence_lifecycle-upload-capability-wrong-state")
 	wrongStateBlobID := appsupport.MustUUID(t, wrongStateData["object_blob_id"].(string))
-	updateBlobState(t, harness, wrongStateBlobID, "available")
+	blobfixture.Move(t, harness.Pool, wrongStateBlobID, "available")
 	wrongStateTarget := wrongStateData["upload_target"].(map[string]any)
 	wrongStateResp := putUpload(t, wrongStateTarget["href"].(string), "hello")
 	wrongStateBody := httptestx.RequireErrorEnvelope(t, wrongStateResp, http.StatusConflict, "object_upload_rejected")

@@ -9,111 +9,56 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
-	"github.com/google/uuid"
+	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 )
 
+// TestImportSessionMemberRouteContract requires one handler for each of the 15
+// generated Imports operations, each bound for central admission (Core 01
+// REQ-01-707). Route resolution, the declared security and the path
+// parameters are therefore admitted from the generated catalog, and the six
+// state-changing operations of Table 17.2-A are exactly those whose cookie
+// alternative pairs CSRF.
 func TestImportSessionMemberRouteContract(t *testing.T) {
 	t.Parallel()
 
-	sessionID := uuid.MustParse("11111111-1111-4111-8111-111111111111")
-	unitID := uuid.MustParse("22222222-2222-4222-8222-222222222222")
-	base := "/api/v1/import-sessions/" + sessionID.String()
-	cases := []struct {
-		path          string
-		kind          string
-		method        string
-		operationID   string
-		stateChanging bool
-		unitID        uuid.UUID
-	}{
-		{path: base, kind: "session", method: http.MethodGet, operationID: "getImportSession"},
-		{path: base + "/units", kind: "units", method: http.MethodGet, operationID: "listImportUnits"},
-		{path: base + "/units/" + unitID.String(), kind: "unit", method: http.MethodGet, operationID: "getImportUnit", unitID: unitID},
-		{path: base + "/units/" + unitID.String() + "/preview", kind: "preview", method: http.MethodGet, operationID: "getImportUnitPreview", unitID: unitID},
-		{path: base + "/units/" + unitID.String() + "/source-inspection", kind: "source_inspection", method: http.MethodPost, operationID: "inspectImportUnitExtensionSource", unitID: unitID},
-		{path: base + "/units/" + unitID.String() + "/mapping-preview", kind: "mapping_preview", method: http.MethodPost, operationID: "previewImportUnitExtensionMapping", unitID: unitID},
-		{path: base + "/units/" + unitID.String() + "/mapping", kind: "mapping", method: http.MethodPut, operationID: "putImportUnitMapping", stateChanging: true, unitID: unitID},
-		{path: base + "/units/" + unitID.String() + "/select", kind: "select", method: http.MethodPost, operationID: "selectImportUnit", stateChanging: true, unitID: unitID},
-		{path: base + "/units/" + unitID.String() + "/skip", kind: "skip", method: http.MethodPost, operationID: "skipImportUnit", stateChanging: true, unitID: unitID},
-		{path: base + "/units/" + unitID.String() + "/regions", kind: "regions", method: http.MethodPost, operationID: "createImportUnitRegion", stateChanging: true, unitID: unitID},
-		{path: base + "/apply", kind: "apply", method: http.MethodPost, operationID: "applyImportSession", stateChanging: true},
+	operations := httpapi.ContractOperationsForOwner("module.imports")
+	handlers := (&service{}).importOperationHandlers()
+	if len(operations) != 15 || len(handlers) != 15 {
+		t.Fatalf("Imports operation count changed: contracts=%d handlers=%d", len(operations), len(handlers))
 	}
-	expectedByOperationID := map[string]importRouteDescriptor{
-		"listCommittedImportSources":      {Kind: "committed_sources", Method: http.MethodGet, OperationID: "listCommittedImportSources"},
-		"getCommittedImportSource":        {Kind: "committed_source", Method: http.MethodGet, OperationID: "getCommittedImportSource"},
-		"getCommittedImportSourceContent": {Kind: "committed_source_content", Method: http.MethodGet, OperationID: "getCommittedImportSourceContent"},
-		"createImportSession": {
-			Kind:          "create_session",
-			Method:        http.MethodPost,
-			OperationID:   "createImportSession",
-			StateChanging: true,
-			Collection:    true,
-		},
-	}
-	for _, testCase := range cases {
-		t.Run(testCase.kind, func(t *testing.T) {
-			route, ok := parseImportSessionPath(testCase.path)
-			if !ok {
-				t.Fatalf("expected current route %q to parse", testCase.path)
-			}
-			if route.Kind != testCase.kind || route.SessionID != sessionID || route.UnitID != testCase.unitID {
-				t.Fatalf("unexpected route: got %#v", route)
-			}
-			descriptor, ok := importRouteByKind(route.Kind)
-			if !ok {
-				t.Fatalf("route kind %q is absent from the closed catalog", route.Kind)
-			}
-			if descriptor.Method != testCase.method ||
-				descriptor.OperationID != testCase.operationID ||
-				descriptor.StateChanging != testCase.stateChanging ||
-				descriptor.Collection {
-				t.Fatalf("unexpected route descriptor: got %#v", descriptor)
-			}
-		})
-		expectedByOperationID[testCase.operationID] = importRouteDescriptor{
-			Kind:          testCase.kind,
-			Method:        testCase.method,
-			OperationID:   testCase.operationID,
-			StateChanging: testCase.stateChanging,
+	stateChanging := 0
+	for _, operation := range operations {
+		if handlers[operation.OperationID] == nil {
+			t.Fatalf("generated Imports operation %q has no handler", operation.OperationID)
+		}
+		if operation.StateChanging != operationRequiresCookieCSRF(operation.Security) {
+			t.Fatalf("generated operation %q state-changing=%t disagrees with its declared security %v", operation.OperationID, operation.StateChanging, operation.Security)
+		}
+		if operation.StateChanging {
+			stateChanging++
 		}
 	}
-
-	if len(importRouteCatalog) != 15 || len(expectedByOperationID) != 15 {
-		t.Fatalf("Imports route catalog count changed: catalog=%d expected=%d", len(importRouteCatalog), len(expectedByOperationID))
+	if stateChanging != 6 {
+		t.Fatalf("state-changing Imports operations = %d, want 6", stateChanging)
 	}
-	boundHandlers := (&service{}).importOperationHandlers()
-	contractOperations := httpapi.ContractOperationsForOwner("module.imports")
-	if len(boundHandlers) != 15 || len(contractOperations) != 15 {
-		t.Fatalf("Imports bound operation count changed: handlers=%d contracts=%d", len(boundHandlers), len(contractOperations))
+	registry, err := httpapi.NewRouteRegistry(nil)
+	if err != nil {
+		t.Fatal(err)
 	}
-	for _, descriptor := range importRouteCatalog {
-		expected, ok := expectedByOperationID[descriptor.OperationID]
-		if !ok || descriptor != expected {
-			t.Fatalf("unexpected catalog descriptor %q: got %#v want %#v", descriptor.OperationID, descriptor, expected)
-		}
-		if boundHandlers[descriptor.OperationID] == nil {
-			t.Fatalf("catalog operation %q has no bound handler", descriptor.OperationID)
-		}
+	deps := httpapi.DependencySet{PublicRoutes: registry, Authenticator: httpauth.NewAuthenticator(httpauth.Options{Now: time.Now})}
+	if err := bindRoutes(http.NewServeMux(), deps, &service{}); err != nil {
+		t.Fatalf("bind Imports routes: %v", err)
 	}
-	for _, operation := range contractOperations {
-		descriptor, ok := expectedByOperationID[operation.OperationID]
-		if !ok {
-			t.Fatalf("generated Imports operation %q is absent from the route catalog", operation.OperationID)
-		}
-		if descriptor.Method != operation.Method || descriptor.StateChanging != operation.StateChanging || descriptor.StateChanging != operationRequiresCookieCSRF(operation.Security) {
-			t.Fatalf("catalog/generated operation mismatch for %q: descriptor=%#v generated=%#v", operation.OperationID, descriptor, operation)
-		}
+	modes := registry.AdmissionModes()
+	if len(modes) != 15 {
+		t.Fatalf("bound Imports operations = %d, want 15", len(modes))
 	}
-
-	for _, path := range []string{
-		"/api/v1/import-sessions/",
-		base + "/unknown",
-		base + "/units/not-a-uuid",
-	} {
-		if route, ok := parseImportSessionPath(path); ok {
-			t.Fatalf("expected current unsupported path %q to fail, got %#v", path, route)
+	for operationID, mode := range modes {
+		if mode != httpapi.AdmissionCentral {
+			t.Fatalf("Imports operation %q admission mode = %q, want central", operationID, mode)
 		}
 	}
 }
@@ -298,24 +243,42 @@ func writeContractZipText(t testing.TB, writer *zip.Writer, name string, content
 	}
 }
 
+// TestImportRouteBindingsFailClosed requires the registry binding of the
+// Imports handlers to fail closed: an unknown operation, an operation bound
+// under another owner and a duplicate binding are bind errors, and an
+// operation left unbound is reported missing by route parity.
 func TestImportRouteBindingsFailClosed(t *testing.T) {
-	operations := httpapi.ContractOperationsForOwner("module.imports")
 	for _, scenario := range []string{"missing", "duplicate", "unknown", "wrong_owner"} {
 		t.Run(scenario, func(t *testing.T) {
-			candidate := append([]httpapi.ContractOperation(nil), operations...)
+			registry, err := httpapi.NewRouteRegistry([]httpapi.ExtensionClaim{{ProfileID: "import", Claimed: true}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			deps := httpapi.DependencySet{PublicRoutes: registry, Authenticator: httpauth.NewAuthenticator(httpauth.Options{Now: time.Now})}
+			handlers := (&service{}).importOperationHandlers()
+			owner := "module.imports"
 			switch scenario {
 			case "missing":
-				candidate = candidate[1:]
-			case "duplicate":
-				candidate = append(candidate, candidate[0])
+				delete(handlers, "getImportUnitPreview")
 			case "unknown":
-				unknown := candidate[0]
-				unknown.OperationID = "unknownImportOperation"
-				candidate = append(candidate, unknown)
+				handlers["unknownImportOperation"] = handlers["getImportUnit"]
 			case "wrong_owner":
-				candidate[0].OwnerID = "module.workbook"
+				owner = "module.workbook"
 			}
-			if _, err := resolveImportRouteCatalog(candidate); err == nil {
+			bindErr := httpapi.BindAdmittedOwnerRoutes(http.NewServeMux(), deps, owner, handlers)
+			if scenario == "duplicate" && bindErr == nil {
+				bindErr = httpapi.BindAdmittedOwnerRoutes(http.NewServeMux(), deps, owner, handlers)
+			}
+			if scenario == "missing" {
+				if bindErr != nil {
+					t.Fatalf("bind remaining Imports operations: %v", bindErr)
+				}
+				if err := registry.ValidateActive(); err == nil || !strings.Contains(err.Error(), "[getImportUnitPreview]") {
+					t.Fatalf("route parity did not report the unbound operation: %v", err)
+				}
+				return
+			}
+			if bindErr == nil {
 				t.Fatal("invalid binding admitted")
 			}
 		})

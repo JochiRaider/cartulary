@@ -359,7 +359,7 @@ describe("Batch History review", () => {
       cleanup();
     }
   });
-  it("uses current deletion metadata and keeps record absence separate from incident authority", async () => {
+  it("uses current deletion metadata and conceals history when record absence is reported as incident_not_found", async () => {
     const t = fixture();
     t.load.mockResolvedValue({
       kind: "accepted",
@@ -371,18 +371,22 @@ describe("Batch History review", () => {
     expect(
       screen.getByRole("button", { name: "Restore deleted row" }),
     ).not.toBeNull();
+    // getRecordHistory declares no record-level not-found code: the server
+    // reports an absent record as 404 incident_not_found, which conceals the
+    // history and suspends it until incident authority is re-established.
     t.load.mockResolvedValue({
       kind: "rejected",
       failure: {
-        kind: "terminal",
-        publicCode: "record_not_found",
+        kind: "stale_target",
+        publicCode: "incident_not_found",
         message: "Record unavailable",
       },
     });
     fireEvent.click(screen.getByRole("button", { name: "Refresh history" }));
-    await screen.findAllByText("Record unavailable");
-    expect(screen.queryByText("Requested change")).toBeNull();
-    expect(t.runtime.history.readable).toBe(true);
+    await waitFor(() =>
+      expect(screen.queryByText("Requested change")).toBeNull(),
+    );
+    expect(t.runtime.history.readable).toBe(false);
     expect(
       t.runtime.batches.getSnapshot().entries[0]?.receipt?.changeSetId,
     ).toBe("batch-change");

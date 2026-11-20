@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { ownedProcess, stopOwnedProcess } from "../runtime/owned-process.mjs";
 import { randomUUID } from "node:crypto";
 import { StringDecoder } from "node:string_decoder";
-import { redactString, redactValue, resolveMachineStatePaths, validateSchemaSync } from "../contract/index.mjs";
+import { redactionMarker, redactString, redactValue, resolveMachineStatePaths, validateSchemaSync } from "../contract/index.mjs";
 import { goRunnerBuildContext } from "../test-catalog/index.mjs";
 
 export { fixtureLifecycleAttachment } from "../contract/browser-fixture-diagnostic.mjs";
@@ -53,7 +53,7 @@ export function createBrowserFixtureProcess({ command, args, cwd, env = process.
   const sanitize = (text) => {
     let value = String(text);
     for (const secret of [...secrets].sort((a, b) => b.length - a.length))
-      value = value.replaceAll(secret, "[REDACTED]");
+      value = value.replaceAll(secret, redactionMarker());
     return redactString(value);
   };
   let stderr = "", line = "", stdout = "", droppingLine = false;

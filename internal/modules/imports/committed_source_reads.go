@@ -6,15 +6,17 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/url"
+	"slices"
 	"strconv"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
-	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 )
 
@@ -58,35 +60,30 @@ type committedSourceSummary struct {
 }
 
 func (s *service) handleCommittedSources(w http.ResponseWriter, r *http.Request) {
-	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now})
+	principal, apiErr := admittedPrincipal(r)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	incidentID, err := uuid.Parse(r.PathValue("incident_id"))
-	if err != nil {
-		writeAPIError(w, r, invalidImportRequest("incident_id", "invalid_value"))
-		return
-	}
-	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, admission.RolesEditorReviewerAdmin, "editor"); apiErr != nil {
+	incidentID, apiErr := admittedPathUUID(r, "incident_id")
+	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	query := r.URL.Query()
-	recordID := uuid.Nil
-	if values, present := query["record_id"]; present {
-		if len(values) != 1 {
-			writeAPIError(w, r, invalidImportRequest("record_id", "invalid_value"))
-			return
-		}
-		recordID, err = uuid.Parse(values[0])
-		if err != nil || recordID == uuid.Nil {
-			writeAPIError(w, r, invalidImportRequest("record_id", "invalid_value"))
-			return
-		}
-		query.Del("record_id")
+	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, admission.RolesEditorReviewerAdmin, importEditingRoles); apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
 	}
-	binding, cursor, reason := s.cursorCodec.ResolveListRequest(query, "imports.committed_sources.list", principal.User.ID.String(), map[string]string{"incident_id": incidentID.String(), "record_id": recordID.String()})
+	// REQ-01-707 step 5: the list query is route handling, decided after the
+	// incident's visibility and the source-access role.
+	query, apiErr := decodeCommittedSourceListQuery(r.URL.RawQuery)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	var err error
+	recordID := query.recordID
+	binding, cursor, reason := s.cursorCodec.ResolveListRequest(query.paging, "imports.committed_sources.list", principal.User.ID.String(), map[string]string{"incident_id": incidentID.String(), "record_id": recordID.String()})
 	if reason != "" {
 		writeAPIError(w, r, invalidPaginationRequest(reason))
 		return
@@ -132,11 +129,91 @@ ORDER BY committed_source_id LIMIT $3`, incidentID, after, binding.Limit+1, reco
 		}
 		next = &token
 	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
 	_ = httpapi.WriteSuccessWithPaging(w, r, http.StatusOK, map[string]any{"committed_sources": values}, httpapi.PagingMeta{Limit: binding.Limit, HasMore: next != nil, NextCursor: next})
+}
+
+// committedSourceListQuery is the admitted query of the committed-source
+// collection: the optional record_id filter and the common paging members.
+type committedSourceListQuery struct {
+	recordID uuid.UUID
+	paging   url.Values
+}
+
+// decodeImportListQuery admits an Imports GET collection's raw query under
+// Core 01 REQ-01-583 in this order: raw-query integrity, duplicate member
+// names, pagination aliases, members outside limit, cursor_token and the
+// route's declared list-query members, then an empty limit or cursor_token
+// (§3.3.6.2). Paging values are otherwise left to the cursor codec.
+func decodeImportListQuery(raw string, declared ...string) (url.Values, *httpapi.APIError) {
+	values, err := url.ParseQuery(raw)
+	if err != nil {
+		return nil, invalidListQuery("malformed_query")
+	}
+	for key, entries := range values {
+		if !utf8.ValidString(key) {
+			return nil, invalidListQuery("malformed_query")
+		}
+		for _, value := range entries {
+			if !utf8.ValidString(value) {
+				return nil, invalidListQuery("malformed_query")
+			}
+		}
+	}
+	for _, entries := range values {
+		if len(entries) != 1 {
+			return nil, invalidListQuery("duplicate_query_member")
+		}
+	}
+	for _, alias := range []string{"page", "offset", "page_size", "block_size"} {
+		if values.Has(alias) {
+			return nil, invalidPaginationRequest(pagination.ReasonInvalidLimit)
+		}
+	}
+	for key := range values {
+		if key != "limit" && key != "cursor_token" && !slices.Contains(declared, key) {
+			return nil, invalidListQuery("unknown_query_member")
+		}
+	}
+	if values.Has("limit") && values.Get("limit") == "" {
+		return nil, invalidPaginationRequest(pagination.ReasonInvalidLimit)
+	}
+	if values.Has("cursor_token") && values.Get("cursor_token") == "" {
+		return nil, invalidPaginationRequest(pagination.ReasonInvalidCursorToken)
+	}
+	return values, nil
+}
+
+// decodeCommittedSourceListQuery admits the collection's list-query contract
+// (Core 01 REQ-01-685 under REQ-01-583): the common list-query checks with
+// record_id declared, then the record_id value.
+func decodeCommittedSourceListQuery(raw string) (committedSourceListQuery, *httpapi.APIError) {
+	values, apiErr := decodeImportListQuery(raw, "record_id")
+	if apiErr != nil {
+		return committedSourceListQuery{}, apiErr
+	}
+	query := committedSourceListQuery{recordID: uuid.Nil, paging: values}
+	if values.Has("record_id") {
+		recordID, err := uuid.Parse(values.Get("record_id"))
+		if err != nil || recordID == uuid.Nil {
+			return committedSourceListQuery{}, invalidListQuery("invalid_filter_value")
+		}
+		query.recordID = recordID
+		values.Del("record_id")
+	}
+	return query, nil
+}
+
+func invalidListQuery(reasonCode string) *httpapi.APIError {
+	return &httpapi.APIError{
+		Status:  http.StatusBadRequest,
+		Code:    "invalid_list_query",
+		Message: "invalid list query",
+		Details: map[string]any{"reason_code": reasonCode},
+	}
 }
 
 // CommittedSourceRead is the read-only physical adapter admitted by Imports.
@@ -187,23 +264,40 @@ func newCommittedBlobReader(ctx context.Context, tx CommittedSourceRead, digest 
 const committedBlobChunkQuery = `SELECT COALESCE((SELECT substring(source_bytes FROM (($2::bigint-1)%65536+1)::integer FOR $3)
 FROM import_committed_source_chunks WHERE content_sha256=$1 AND chunk_ordinal=($2::bigint-1)/65536),'\x'::bytea)`
 
-func (s *service) handleCommittedSource(w http.ResponseWriter, r *http.Request) {
-	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now})
+func (s *service) handleGetCommittedSource(w http.ResponseWriter, r *http.Request) {
+	s.serveCommittedSource(w, r, false)
+}
+
+func (s *service) handleGetCommittedSourceContent(w http.ResponseWriter, r *http.Request) {
+	s.serveCommittedSource(w, r, true)
+}
+
+// serveCommittedSource reads one committed source's metadata, or streams its
+// exact bytes. Central admission has authenticated the caller and admitted
+// incident_id and committed_source_id (Core 01 REQ-01-707).
+func (s *service) serveCommittedSource(w http.ResponseWriter, r *http.Request, content bool) {
+	principal, apiErr := admittedPrincipal(r)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
+	incidentID, apiErr := admittedPathUUID(r, "incident_id")
+	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	incidentID, incidentErr := uuid.Parse(r.PathValue("incident_id"))
-	sourceID, sourceErr := uuid.Parse(r.PathValue("committed_source_id"))
-	if incidentErr != nil || sourceErr != nil {
-		writeAPIError(w, r, invalidImportRequest("committed_source_id", "invalid_value"))
+	sourceID, apiErr := admittedPathUUID(r, "committed_source_id")
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
 		return
 	}
-	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, admission.RolesEditorReviewerAdmin, "editor"); apiErr != nil {
+	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, admission.RolesEditorReviewerAdmin, importEditingRoles); apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	// REQ-01-707 step 5: the singleton-read query check is route handling,
+	// after the incident's visibility and role gate.
+	if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -215,7 +309,7 @@ func (s *service) handleCommittedSource(w http.ResponseWriter, r *http.Request) 
 	defer tx.Rollback(context.WithoutCancel(r.Context()))
 	value, reader, err := OpenCommittedSourceTx(r.Context(), tx, incidentID, sourceID)
 	if errors.Is(err, pgx.ErrNoRows) {
-		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusNotFound, Code: "committed_source_not_found", Details: map[string]any{}})
+		writeAPIError(w, r, httpapi.NotFound("committed_source_not_found"))
 		return
 	}
 	if err != nil {
@@ -223,11 +317,11 @@ func (s *service) handleCommittedSource(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	defer reader.Close()
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	if r.Pattern == "GET /api/v1/incidents/{incident_id}/committed-sources/{committed_source_id}/content" {
+	if content {
 		w.Header().Set("Content-Type", value.SourceMediaType)
 		w.Header().Set("Content-Length", strconv.FormatInt(value.ByteSize, 10))
 		w.Header().Set("Content-Disposition", `attachment; filename="source.`+value.SourceFileKind+`"`)

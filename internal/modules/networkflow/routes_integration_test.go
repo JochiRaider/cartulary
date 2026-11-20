@@ -1201,6 +1201,9 @@ SELECT COUNT(*) FROM deployment_admin_audit_events
 		AssertIndicatorLinkReplayAdmission(t, store, incidentID, adminID, body, expected, status, func(module *Module) crossownertransaction.Options {
 			return appsupport.CrossOwnerTransactionOptions(t, module)
 		})
+		AssertIndicatorLinkCommitBoundary(t, store, incidentID, adminID, body, func(module *Module) crossownertransaction.Options {
+			return appsupport.CrossOwnerTransactionOptions(t, module)
+		})
 	})
 	if err := ValidateRetainedExtensionState(context.Background(), harness.Pool); err != nil {
 		t.Fatalf("current link receipts fail read-only admission: %v", err)
@@ -2085,21 +2088,9 @@ UPDATE jobs
 
 func waitForNetworkFlowJob(t testing.TB, serverURL string, login authcookietest.AuthCookies, jobID string, wantStatus string) {
 	t.Helper()
-	deadline := time.Now().Add(10 * time.Second)
-	var last map[string]any
-	for time.Now().Before(deadline) {
-		resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, serverURL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(login.Session))
-		data := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
-		last = data
-		if data["status"] == wantStatus {
-			return
-		}
-		if data["status"] == "failed" || data["status"] == "canceled" {
-			t.Fatalf("job %s reached terminal status %#v", jobID, data)
-		}
-		time.Sleep(25 * time.Millisecond)
-	}
-	t.Fatalf("job %s did not reach %s; last=%#v", jobID, wantStatus, last)
+	httptestx.PollJob(t, serverURL, jobID, httptestx.PollOptions{
+		Timeout: 10 * time.Second, Interval: 25 * time.Millisecond, Request: []func(*http.Request){httptestx.WithCookies(login.Session)},
+	}, wantStatus)
 }
 
 const (

@@ -109,6 +109,47 @@ func TestRecordRefLabelsServeLinkedRecordSummary_Integration(t *testing.T) {
 	httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 	holderRow := queryWorkbookRow(t, harness, login, uuid.MustParse(incidentID), "cartulary.view.timeline.v2", uuid.MustParse(id(holder)))
 	requireRecordRefLabels(t, holderRow, "timeline.attached_evidence_ids", map[string]string{id(evidence): "Relabelled evidence", id(untitledEvidence): "Untitled evidence"})
+
+	// REQ-02-225 requires a Party name, so a missing one is an invariant
+	// breach. Every Party reference path still serves the REQ-01-333a
+	// fallback, and the Host read that hydrates party assignments succeeds.
+	nameless := create("parties", map[string]any{"party.party_kind": "person", "party.display_name": "Soon nameless"})
+	patchCollection := func(row map[string]any, view, field string) map[string]any {
+		t.Helper()
+		resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPatch, harness.Server.HTTP.URL+"/api/v1/records/"+id(row), map[string]any{
+			"view_schema_id": view, "base_row_version": row["row_version"], "client_txn_id": "record-ref-labels-" + field,
+			"changes": []map[string]any{{"field_key": field, "action_payload": map[string]any{
+				"kind": "collection_actions_v1", "actions": []map[string]any{{"op": "add_party_ref", "party_id": id(nameless)}},
+			}}},
+		}, authOptions...)
+		return httptestx.RequireSuccessData(t, resp, http.StatusOK)["row"].(map[string]any)
+	}
+	comm := patchCollection(create("comm_log", map[string]any{"comm_log.comm_type": "briefing", "comm_log.audience": "Operations", "comm_log.channel_or_meeting": "Bridge", "comm_log.summary": "Nameless audience"}), "cartulary.view.comm_log.v1", "comm_log.audience_party_ids")
+	assigned := patchCollection(create("hosts", map[string]any{"host.hostname": "nameless-owner.example.test", "host.display_name": "Nameless owner host"}), "cartulary.view.hosts.v1", "host.responsible_party_ids")
+	referrerOfNameless := create("task_requests", map[string]any{"task.task_kind": "question", "task.title": "Nameless referrer", "task.linked_record_ids": recordRefActions(id(nameless))})
+	for _, name := range []any{nil, ""} {
+		if _, err := harness.DB.ExecContext(t.Context(), "UPDATE parties SET display_name = $1 WHERE record_id = $2", name, id(nameless)); err != nil {
+			t.Fatalf("clear Party source name: %v", err)
+		}
+		if _, err := harness.DB.ExecContext(t.Context(), "UPDATE party_grid_projection SET display_name = $1 WHERE record_id = $2", name, id(nameless)); err != nil {
+			t.Fatalf("clear Party projection name: %v", err)
+		}
+		requirePartyRefLabel(t, queryWorkbookRow(t, harness, login, uuid.MustParse(incidentID), "cartulary.view.comm_log.v1", uuid.MustParse(id(comm))), "comm_log.audience_party_ids", id(nameless), "Untitled party")
+		requirePartyRefLabel(t, queryWorkbookRow(t, harness, login, uuid.MustParse(incidentID), "cartulary.view.hosts.v1", uuid.MustParse(id(assigned))), "host.responsible_party_ids", id(nameless), "Untitled party")
+		requireRecordRefLabels(t, queryWorkbookRow(t, harness, login, uuid.MustParse(incidentID), "cartulary.view.task_requests.v1", uuid.MustParse(id(referrerOfNameless))), "task.linked_record_ids", map[string]string{id(nameless): "Untitled party"})
+	}
+}
+
+func requirePartyRefLabel(t testing.TB, row map[string]any, fieldKey, partyID, want string) {
+	t.Helper()
+	items := row["cells"].(map[string]any)[fieldKey].(map[string]any)["value"].(map[string]any)["items"].([]any)
+	if len(items) != 1 {
+		t.Fatalf("%s items = %v, want one Party reference", fieldKey, items)
+	}
+	item := items[0].(map[string]any)
+	if item["party_id"] != partyID || item["display_text"] != want {
+		t.Fatalf("%s item = %v, want Party %s labelled %q", fieldKey, item, partyID, want)
+	}
 }
 
 func recordRefActions(recordIDs ...string) map[string]any {

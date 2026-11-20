@@ -25,6 +25,7 @@ import {
 import { responseBarrier } from "./support/runtime/cleanup";
 import {
   awaitResponseBarrier,
+  fulfillOperationError,
   installOwnedRoute,
 } from "./support/transport/requestInterception";
 import { settledRequestMatching } from "./support/transport/settledRequest";
@@ -393,26 +394,24 @@ test("shows Reference Pack progress and cancel controls without blocking landing
         staleErrorRequested.release();
         if (!(await awaitResponseBarrier(route, staleErrorGate.promise)))
           return;
-        await route.fulfill({
-          status: 500,
-          contentType: "application/json",
-          body: JSON.stringify({
-            error: { code: "stale_reference_pack_error" },
-          }),
-        });
+        await fulfillOperationError(
+          route,
+          "listReferencePacks",
+          500,
+          "internal_error",
+        );
         return;
       }
       if (search === "latest-error") {
         latestErrorRequested.release();
         if (!(await awaitResponseBarrier(route, latestErrorGate.promise)))
           return;
-        await route.fulfill({
-          status: 500,
-          contentType: "application/json",
-          body: JSON.stringify({
-            error: { code: "latest_reference_pack_error" },
-          }),
-        });
+        await fulfillOperationError(
+          route,
+          "listReferencePacks",
+          500,
+          "internal_error",
+        );
         return;
       }
       await fulfillPackList(route, [packResource("type_registry.host")], {

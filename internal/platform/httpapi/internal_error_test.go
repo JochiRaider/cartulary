@@ -61,6 +61,14 @@ func TestInternalErrorBoundaryPreservesTypedPublicErrors(t *testing.T) {
 			requireErrorBoundaryEnvelope(t, response, body, true, tc.payload)
 		})
 	}
+	// The concealment constructor (REQ-01-704) keeps the bytes of the
+	// module-local constructors it replaced: the code doubles as the message.
+	t.Run("not-found-constructor", func(t *testing.T) {
+		response, body := readErrorBoundaryResponse(t, true, func(w http.ResponseWriter, r *http.Request) {
+			WriteAPIError(w, r, NotFound("incident_not_found"))
+		})
+		requireErrorBoundaryEnvelope(t, response, body, true, ErrorPayload{Status: 404, Code: "incident_not_found", Message: "incident_not_found", Details: map[string]any{}})
+	})
 }
 
 // Exercise the production handler and request-ID middleware, not an injected envelope.

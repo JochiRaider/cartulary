@@ -25,6 +25,7 @@ import { uniqueTxn } from "./support/runtime/fixtureIdentity";
 import { installIncidentSocketMonitor } from "./support/transport/incidentSocket";
 import {
   awaitResponseBarrier,
+  fulfillOperationError,
   installOwnedRoute,
   removeOwnedRoute,
 } from "./support/transport/requestInterception";
@@ -607,18 +608,16 @@ test("Network Analysis recovers discovery selection exact apply and published ta
     async (route) => {
       selections.push(route.request().postDataJSON());
       if (selections.length === 1)
-        await route.fulfill({
-          status: 409,
-          contentType: "application/json",
-          body: JSON.stringify({
-            error: {
-              code: "import_apply_blocked",
-              message: "Selection must be retried.",
-              retryable: false,
-              details: { reason_code: "unit_not_ready" },
-            },
-          }),
-        });
+        await fulfillOperationError(
+          route,
+          "selectImportUnit",
+          409,
+          "import_apply_blocked",
+          {
+            message: "Selection must be retried.",
+            details: { reason_code: "unit_not_ready" },
+          },
+        );
       else await route.continue();
     },
   );

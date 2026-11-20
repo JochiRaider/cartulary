@@ -135,13 +135,14 @@ func TestCompositionPublicLifecycleAndAuthority_Integration(t *testing.T) {
 		t.Fatal("newer draft changed immutable version")
 	}
 	// REQ-RC-024: no composition route mutates an immutable version, so every
-	// other method on its path is an ordinary unrouted 404 and changes nothing.
+	// other method on its path is rejected by route resolution (Core 01
+	// REQ-01-707: 405 method_not_allowed naming GET) and changes nothing.
 	for _, method := range []string{http.MethodPatch, http.MethodPut, http.MethodDelete, http.MethodPost} {
 		response := do("editor", method, resource+"/versions/v1", map[string]any{"client_txn_id": "mutate-version-" + method, "base_draft_version": 3})
-		_ = response.Body.Close()
-		if response.StatusCode != http.StatusNotFound {
-			t.Fatalf("%s on an immutable version = %d", method, response.StatusCode)
+		if allow := response.Header.Get("Allow"); allow != http.MethodGet {
+			t.Fatalf("%s on an immutable version: Allow = %q", method, allow)
 		}
+		httptestx.RequireErrorEnvelope(t, response, http.StatusMethodNotAllowed, "method_not_allowed")
 	}
 	if read := data(do("viewer", http.MethodGet, resource+"/versions/v1", nil), http.StatusOK); !reflect.DeepEqual(v1, read) {
 		t.Fatal("a rejected version mutation changed the immutable version")

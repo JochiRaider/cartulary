@@ -64,28 +64,31 @@ func TestRouteRegistryBindsGeneratedPatternAndMetadata(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("bind route: %v", err)
 	}
+	// Route resolution answers through the registry's handler (Core 01
+	// REQ-01-707): an undeclared method, including HEAD on the GET pattern,
+	// and an unknown descendant receive registered envelopes.
+	handler := withRequestID(registry.Handler(mux), nil)
 	request := httptest.NewRequest(http.MethodGet, "/api/v1/fixtures/example", nil)
 	response := httptest.NewRecorder()
-	mux.ServeHTTP(response, request)
+	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", response.Code, http.StatusOK)
 	}
-	wrongMethod := httptest.NewRecorder()
-	mux.ServeHTTP(
-		wrongMethod,
-		httptest.NewRequest(http.MethodPost, "/api/v1/fixtures/example", nil),
-	)
-	if wrongMethod.Code != http.StatusMethodNotAllowed {
-		t.Fatalf("wrong-method status = %d, want %d", wrongMethod.Code, http.StatusMethodNotAllowed)
+	for _, method := range []string{http.MethodPost, http.MethodHead} {
+		wrongMethod := httptest.NewRecorder()
+		handler.ServeHTTP(wrongMethod, httptest.NewRequest(method, "/api/v1/fixtures/example", nil))
+		if wrongMethod.Code != http.StatusMethodNotAllowed || wrongMethod.Header().Get("Allow") != http.MethodGet {
+			t.Fatalf("%s status = %d Allow=%q, want %d GET", method, wrongMethod.Code, wrongMethod.Header().Get("Allow"), http.StatusMethodNotAllowed)
+		}
+		if method == http.MethodPost {
+			requireMethodNotAllowedEnvelope(t, wrongMethod, http.MethodGet)
+		} else if wrongMethod.Body.Len() != 0 {
+			t.Fatalf("HEAD rejection carries a body: %q", wrongMethod.Body)
+		}
 	}
 	unknownDescendant := httptest.NewRecorder()
-	mux.ServeHTTP(
-		unknownDescendant,
-		httptest.NewRequest(http.MethodGet, "/api/v1/fixtures/example/unknown", nil),
-	)
-	if unknownDescendant.Code != http.StatusNotFound {
-		t.Fatalf("unknown-descendant status = %d, want %d", unknownDescendant.Code, http.StatusNotFound)
-	}
+	handler.ServeHTTP(unknownDescendant, httptest.NewRequest(http.MethodGet, "/api/v1/fixtures/example/unknown", nil))
+	requireAdmissionError(t, unknownDescendant, http.StatusNotFound, "route_not_found", map[string]any{})
 	if err := registry.ValidateActive(); err != nil {
 		t.Fatalf("validate active routes: %v", err)
 	}

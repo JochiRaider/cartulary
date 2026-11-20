@@ -3,6 +3,8 @@ import {
   gridRowTestId,
   gridRowVersionAttribute,
   gridShellTestId,
+  rowCellTestId,
+  rowInspectButtonTestId,
   saveStateActionButtonTestId,
   saveStateTestId,
   timelineScalarEditorTestId,
@@ -15,8 +17,10 @@ import {
   workbookEditRecoveryRetryButtonTestId,
   workbookEditRecoveryTestId,
   workbookPresenceSummaryTestId,
+  workbookRowContextMenuTestId,
 } from "@cartulary/ui-contracts";
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -216,6 +220,96 @@ describe("workbook collaboration coverage", () => {
     });
   });
 
+  it("keeps Timeline row actions and their focus across a collaboration re-establishment without an authority change", async () => {
+    const recordId = "20000000-0000-4000-8000-000000000001";
+    const helloAck = (connectionId: string) => ({
+      type: "hello_ack",
+      payload: {
+        connection_id: connectionId,
+        resume_token: `resume-${connectionId}`,
+        server_time: "2026-07-13T12:00:00Z",
+        heartbeat_interval_ms: 15_000,
+        presence_ttl_ms: 45_000,
+        resume_window_ms: 300_000,
+      },
+    });
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "10000000-0000-4000-8000-000000000001",
+        view_schema_id: timelineViewSchemaId,
+        rows: [
+          timelineRow({
+            recordId,
+            rowVersion: 1,
+            summary: "Reconnect base",
+            captureState: "rough",
+          }),
+        ],
+      }),
+    );
+    render(
+      <TimelineWorkbookRuntimeFixture
+        incidentId="10000000-0000-4000-8000-000000000001"
+        currentIncidentRole="admin"
+      />,
+    );
+    const summaryCell = await screen.findByTestId(
+      rowCellTestId(recordId, "timeline.activity_synopsis_text"),
+    );
+    await waitFor(() => {
+      expect(latestTimelineWebSocket()?.sentMessages.length).toBeGreaterThan(0);
+    });
+    const first = latestTimelineWebSocket();
+    act(() => first?.emit(helloAck("first-connection")));
+
+    summaryCell.focus();
+    fireEvent.keyDown(summaryCell, { key: "F10", shiftKey: true });
+    const menu = await screen.findByTestId(
+      workbookRowContextMenuTestId(timelineViewSchemaId, recordId),
+    );
+    const inspect = screen.getByTestId(rowInspectButtonTestId(recordId));
+    expect(document.activeElement).toBe(inspect);
+
+    // A transient close (for example a slow-consumer reset) reconnects at
+    // once; the server re-derives authorization but reports no new authority.
+    const random = vi.spyOn(Math, "random").mockReturnValue(0);
+    try {
+      act(() => first?.close());
+      await waitFor(() => {
+        const next = latestTimelineWebSocket();
+        expect(next).not.toBe(first);
+        expect(next?.sentMessages.length).toBeGreaterThan(0);
+      });
+    } finally {
+      random.mockRestore();
+    }
+    expect(
+      screen.getByTestId(
+        workbookRowContextMenuTestId(timelineViewSchemaId, recordId),
+      ),
+    ).toBe(menu);
+    act(() => latestTimelineWebSocket()?.emit(helloAck("second-connection")));
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(
+      screen.getByTestId(
+        workbookRowContextMenuTestId(timelineViewSchemaId, recordId),
+      ),
+    ).toBe(menu);
+    expect(document.activeElement).toBe(inspect);
+    fireEvent.keyDown(inspect, { key: "Escape" });
+    await waitFor(() => {
+      expect(
+        screen.queryByTestId(
+          workbookRowContextMenuTestId(timelineViewSchemaId, recordId),
+        ),
+      ).toBeNull();
+    });
+    expect(document.activeElement?.contains(summaryCell)).toBe(true);
+  });
+
   it("applies sparse live patches by record_id without moving an active cell draft", async () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
@@ -283,6 +377,95 @@ describe("workbook collaboration coverage", () => {
     expect(input.value).toBe("Unsaved local");
     expect(document.activeElement).toBe(input);
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("refreshes once for a first out-of-window Timeline sighting and not for later placement-neutral patches", async () => {
+    const incidentId = "10000000-0000-4000-8000-000000000001";
+    const visibleRecordId = "20000000-0000-4000-8000-000000000001";
+    const outsideRecordId = "20000000-0000-4000-8000-000000000099";
+    fetchMock.mockImplementation(async () =>
+      successEnvelope({
+        incident_id: incidentId,
+        view_schema_id: timelineViewSchemaId,
+        rows: [
+          timelineRow({
+            recordId: visibleRecordId,
+            rowVersion: 1,
+            summary: "Visible base",
+            captureState: "rough",
+          }),
+        ],
+      }),
+    );
+    const timelineQueries = () =>
+      fetchMock.mock.calls.filter(([input]) =>
+        (input instanceof Request ? input.url : String(input)).endsWith(
+          `/views/${timelineViewSchemaId}/query`,
+        ),
+      ).length;
+    const emitOutsidePatch = (rowVersion: number, streamSeq: number) =>
+      latestTimelineWebSocket()?.emit({
+        type: "record_changed",
+        stream_seq: streamSeq,
+        payload: buildRecordChangedPayload({
+          recordId: outsideRecordId,
+          rowVersion,
+          clientTxnId: `remote-outside-${rowVersion}`,
+          changedFieldKeys: ["timeline.data_source_text"],
+          affectedViews: [
+            {
+              view_schema_id: timelineViewSchemaId,
+              change_kind: "patch",
+              patch_cells: {
+                record_id: outsideRecordId,
+                row_version: rowVersion,
+                cells: {
+                  "timeline.data_source_text": {
+                    value: `Remote ${rowVersion}`,
+                  },
+                },
+              },
+            },
+          ],
+        }),
+      });
+    const settle = (ms: number) =>
+      act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, ms));
+      });
+
+    render(<TimelineWorkbookRuntimeFixture incidentId={incidentId} />);
+    await findWorkbookCell(
+      document.body,
+      timelineViewSchemaId,
+      visibleRecordId,
+      "timeline.activity_synopsis_text",
+    );
+    expect(timelineQueries()).toBe(1);
+
+    // A first sighting may be a remote create, so the window is reconciled once.
+    act(() => {
+      emitOutsidePatch(2, 1);
+    });
+    await waitFor(() => expect(timelineQueries()).toBe(2));
+    await settle(20);
+
+    act(() => {
+      emitOutsidePatch(3, 2);
+      emitOutsidePatch(4, 3);
+    });
+    await settle(50);
+    expect(timelineQueries()).toBe(2);
+    expect(
+      screen.queryByTestId(
+        gridRowTestId(timelineViewSchemaId, outsideRecordId),
+      ),
+    ).toBeNull();
+    expect(
+      screen
+        .getByTestId(gridRowTestId(timelineViewSchemaId, visibleRecordId))
+        .getAttribute(gridRowVersionAttribute),
+    ).toBe("1");
   });
 
   it("keeps the grid visible, conflict unresolved, and focus bound to the same cell", async () => {
@@ -1081,9 +1264,9 @@ describe("workbook collaboration coverage", () => {
         JSON.stringify({
           error: {
             status: 409,
-            code: "future_terminal_public_error",
+            code: "illegal_transition",
             message:
-              "future_terminal_public_error txn=raw-transaction-id unit=raw-unit-id route=/api/v1/private token=secret-token payload={unsafe:true} stack=/srv/private/handler.go:42",
+              "illegal_transition txn=raw-transaction-id unit=raw-unit-id route=/api/v1/private token=secret-token payload={unsafe:true} stack=/srv/private/handler.go:42",
             request_id: "raw-request-id",
             retryable: false,
             details: {
@@ -1120,9 +1303,7 @@ describe("workbook collaboration coverage", () => {
     expect(recoveryPanel.textContent).toContain(
       "A queued edit could not be completed safely. Discard the blocked edit to continue with later queued edits.",
     );
-    expect(recoveryPanel.textContent).not.toContain(
-      "future_terminal_public_error",
-    );
+    expect(recoveryPanel.textContent).not.toContain("illegal_transition");
     expect(document.body.textContent).not.toMatch(
       /raw-transaction-id|raw-unit-id|\/api\/v1\/private|secret-token|unsafe:true|handler\.go/u,
     );

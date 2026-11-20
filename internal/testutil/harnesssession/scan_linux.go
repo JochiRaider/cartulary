@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"slices"
 
+	"github.com/JochiRaider/cartulary/internal/platform/harnessredact"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
 	"golang.org/x/sys/unix"
 )
@@ -27,9 +28,12 @@ const scanNames = `/^(?:stack|suite|test-services).*\.env$/iu
 /^stack\.lease$/u
 /^test-route-token$/u
 /key[-_.]?ring/iu`
-const scanSyntax = `/"[^"]*(?:password|secret|token(?!s)|cookie|dsn|access_key|private_key)[^"]*"\s*:\s*"(?!<redacted>)[^"]+"/iu
-/(?:PASSWORD|SECRET|TOKEN(?!S)|COOKIE|DSN|ACCESS_KEY|PRIVATE_KEY)=(?!<redacted>)[^\s]+/u
-/(?:postgres|postgresql):\/\/[^\s/:]+:(?!<redacted>)[^\s/@]+@/iu`
+
+// The exemption is the manifest-owned marker (TH-HARNESS-REQ-617), so the
+// identity text, and therefore the policy digest, is unchanged.
+const scanSyntax = `/"[^"]*(?:password|secret|token(?!s)|cookie|dsn|access_key|private_key)[^"]*"\s*:\s*"(?!` + harnessredact.Marker + `)[^"]+"/iu
+/(?:PASSWORD|SECRET|TOKEN(?!S)|COOKIE|DSN|ACCESS_KEY|PRIVATE_KEY)=(?!` + harnessredact.Marker + `)[^\s]+/u
+/(?:postgres|postgresql):\/\/[^\s/:]+:(?!` + harnessredact.Marker + `)[^\s/@]+@/iu`
 
 var forbiddenName = regexp.MustCompile(`(?i:^(?:stack|suite|test-services).*\.env$)|^postgres\.recovery\.dsn$|^performance-fixture-runtime\.json$|^suite-environment\.json$|^suite-lease\.json$|^stack\.lease$|^test-route-token$|(?i:key[-_.]?ring)`)
 

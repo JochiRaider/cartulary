@@ -1,7 +1,6 @@
 import {
   coreIndicatorTypes,
   type QueryWorkbookViewRequest,
-  type QueryWorkbookViewResponse,
 } from "@cartulary/protocol-ts/http";
 import {
   indicatorsViewSchemaId,
@@ -130,7 +129,7 @@ export async function queryCompatibleIndicatorTargets(
         }
       : { limit: 100, cursor_token: query.cursor };
   signal.throwIfAborted();
-  const result = await fetchHTTPOperation<QueryWorkbookViewResponse>({
+  const result = await fetchHTTPOperation({
     apiBase,
     operationID: "queryWorkbookView",
     pathParameters: {

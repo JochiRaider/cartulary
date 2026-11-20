@@ -12,7 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/links"
-	recordenvelope "github.com/JochiRaider/cartulary/internal/modules/records/enveloperead"
+	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/policy"
 	tasksource "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/source"
@@ -75,7 +75,7 @@ func (f *MutationFacade) SupersedeDecision(ctx context.Context, command Supersed
 		return SupersedeMutationResult{}, policy.DecisionSupersedeValidationError(targetPersistedStatus, "replacement_must_differ_from_target")
 	}
 	sourceMeta, err := loadSupersedeRecordMetaForUpdateTx(ctx, tx, f.recordStore, sourceRecordID)
-	if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, revisions.ErrRecordDeletedUseRestore) {
+	if errors.Is(err, records.ErrTargetNotFound) || errors.Is(err, records.ErrTargetDeleted) {
 		return SupersedeMutationResult{}, policy.DecisionSupersedeValidationError(targetPersistedStatus, "replacement_must_be_active_in_incident")
 	}
 	if err != nil {
@@ -329,21 +329,18 @@ type supersedeRecordMeta struct {
 	RowVersion int64
 }
 
+// loadSupersedeRecordMetaForUpdateTx classifies a record through Records
+// (REQ-01-705: missing, then deleted) under FOR UPDATE. Callers apply the type,
+// incident-lifecycle and version steps in that order.
 func loadSupersedeRecordMetaForUpdateTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	envelopes RecordEnvelopeCapability,
 	recordID uuid.UUID,
 ) (supersedeRecordMeta, error) {
-	envelope, err := envelopes.LoadEnvelopeTx(ctx, tx, recordID, true)
-	if errors.Is(err, recordenvelope.ErrEnvelopeNotFound) {
-		return supersedeRecordMeta{}, pgx.ErrNoRows
-	}
+	envelope, err := envelopes.ClassifyTargetTx(ctx, tx, recordID, records.TargetLockUpdate)
 	if err != nil {
 		return supersedeRecordMeta{}, err
-	}
-	if envelope.DeletedAt != nil {
-		return supersedeRecordMeta{}, revisions.ErrRecordDeletedUseRestore
 	}
 	return supersedeRecordMeta{
 		IncidentID: envelope.IncidentID,

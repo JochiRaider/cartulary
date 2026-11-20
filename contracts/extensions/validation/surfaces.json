@@ -189,6 +189,11 @@
               "condition_id": "extension_migration_validation_invocation_failure"
             },
             {
+              "predicate": "migration_commit_absent",
+              "outcome": "extension_migration_failed",
+              "condition_id": "extension_migration_commit_absent"
+            },
+            {
               "predicate": "registry_collision",
               "outcome": "extension_registry_conflict",
               "condition_id": "extension_registry_collision"
@@ -457,6 +462,17 @@
             {
               "condition_id": "extension_migration_validation_invocation_failure",
               "condition_class": "algorithm_result_invalid",
+              "phase": "migration_validation",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
+              "reason_code": "extension_migration_failed",
+              "expected_formatter_id": "diagnostic_exact_token_v1",
+              "actual_formatter_id": "diagnostic_redacted_v1",
+              "multiplicity": "one_per_occurrence",
+              "secret_policy": "redacted"
+            },
+            {
+              "condition_id": "extension_migration_commit_absent",
+              "condition_class": "commit_absent",
               "phase": "migration_validation",
               "path_algorithm_id": "extension_diagnostic_path_v1",
               "reason_code": "extension_migration_failed",

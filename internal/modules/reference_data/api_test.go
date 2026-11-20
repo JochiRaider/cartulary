@@ -11,7 +11,7 @@ import (
 )
 
 func TestRequestValidationNormalizationAndClosedRegistries_Unit(t *testing.T) {
-	t.Run("family denial has no operation effects", testFamilyDenialEffects)
+	t.Run("family admission order has no rejected-operation effects", testFamilyAdmissionEffects)
 	t.Run("non-list empty query contract", func(t *testing.T) {
 		for _, raw := range []string{"", "&", "&&"} {
 			if err := validateEmptyAdministrativeQuery(raw); err != nil {

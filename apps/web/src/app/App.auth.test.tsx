@@ -418,6 +418,7 @@ describe("ordinary app shell", () => {
                     stack:
                       "Error: private stack at /var/lib/cartulary/auth.go:12",
                   },
+                  retryable: false,
                 },
               },
               401,
@@ -962,6 +963,7 @@ describe("ordinary app shell", () => {
                     stack:
                       "Error: private stack at /var/lib/cartulary/auth.go:12",
                   },
+                  retryable: false,
                 },
               },
               401,
@@ -1178,8 +1180,8 @@ describe("ordinary app shell", () => {
         jsonResponse(
           {
             error: {
-              code: "authorization_denied",
-              status: 403,
+              code: "invalid_list_query",
+              status: 400,
               message: "Membership required.",
               request_id: "req-private-landing",
               details: {
@@ -1190,9 +1192,10 @@ describe("ordinary app shell", () => {
                 sql: "select * from sessions",
                 bootstrap_token: "forbidden-bootstrap-token",
               },
+              retryable: false,
             },
           },
-          403,
+          400,
         ),
       extraRoutes: [
         {
@@ -1259,13 +1262,13 @@ describe("ordinary app shell", () => {
     await waitFor(() => {
       expect(
         screen.getByTestId(publicErrorCodeTestId("landing")).textContent,
-      ).toBe("authorization_denied");
+      ).toBe("invalid_list_query");
     });
     expect(
       screen
         .getByTestId(incidentLandingTestId("shell"))
-        .getAttribute("data-bootstrap-state"),
-    ).toBe("forbidden");
+        .getAttribute("data-directory-state"),
+    ).toBe("failed");
     expect(
       screen.getByTestId(publicErrorSummaryTestIds("landing").message)
         .textContent,
@@ -1630,7 +1633,7 @@ describe("ordinary app shell", () => {
           method: "POST",
           url: "/api/v1/users",
           handler: () =>
-            publicErrorResponse("invalid_user_create", 400, {
+            publicErrorResponse("invalid_mutation_payload", 400, {
               message: "User create request is invalid.",
               publicDetails: {
                 reason_code: "email_not_allowed",
@@ -1662,7 +1665,7 @@ describe("ordinary app shell", () => {
           method: "PATCH",
           url: "/api/v1/users/00000000-0000-4000-8000-000000000002",
           handler: () =>
-            publicErrorResponse("invalid_user_patch", 400, {
+            publicErrorResponse("invalid_mutation_payload", 400, {
               message: "User patch request is invalid.",
               publicDetails: {
                 reason_code: "display_name_invalid",
@@ -1739,7 +1742,7 @@ describe("ordinary app shell", () => {
     await waitFor(() => {
       expect(
         screen.getByTestId(publicErrorCodeTestId("admin")).textContent,
-      ).toBe("invalid_user_create");
+      ).toBe("invalid_mutation_payload");
     });
     expect(
       screen.getByTestId(publicErrorSummaryTestIds("admin").message)
@@ -1813,7 +1816,7 @@ describe("ordinary app shell", () => {
     await waitFor(() => {
       expect(
         screen.getByTestId(publicErrorCodeTestId("admin")).textContent,
-      ).toBe("invalid_user_patch");
+      ).toBe("invalid_mutation_payload");
     });
     expect(
       screen.getByTestId(publicErrorSummaryTestIds("admin").message)
@@ -1993,6 +1996,7 @@ describe("ordinary app shell", () => {
                   "Error: private stack at /var/lib/cartulary/incidents.go:14",
                 unknown_private_detail: "private-create-detail",
               },
+              retryable: false,
             },
           },
           400,
@@ -2187,6 +2191,7 @@ function publicErrorResponse(
         status,
         message: options.message,
         request_id: "req-private-envelope",
+        retryable: false,
         details: {
           ...options.publicDetails,
           ...privateErrorProbeDetails,

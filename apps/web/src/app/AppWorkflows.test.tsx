@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { useWorkflowAttachment } from "../shared/useWorkflowAttachment";
 import type { WorkbookIncidentControlsRendererProps } from "../shared/workbookShellContracts";
 import { sessionResource } from "../testing/appShellTestSupport";
+import { operationRejection } from "../testing/fetchMockTestSupport";
 import {
   metadataActorId,
   metadataIncident,
@@ -35,7 +36,8 @@ function setup() {
         }),
       },
     }),
-    preferences: async () => ({ ok: false, status: 503, payload: {} }),
+    preferences: async () =>
+      operationRejection({ code: "internal_error", status: 500 }),
     extensions: async () => ({
       ok: true,
       status: 200,

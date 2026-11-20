@@ -17,6 +17,7 @@ import {
   type IncidentAuthorizationRevocation,
   type IncidentCollaborationSessionMessagePlan,
   planIncidentCollaborationSessionMessage,
+  reconnectDelayMs,
 } from "./incidentCollaborationSessionPlan";
 
 export type CollaborationPresence = {
@@ -128,6 +129,7 @@ export function IncidentCollaborationSession({
   const lastSeenStreamSeqRef = useRef(0);
   const resetGenerationRef = useRef(0);
   const reconnectSuppressedRef = useRef(false);
+  const reconnectAttemptRef = useRef(0);
   const [connectionId, setConnectionId] = useState<string | null>(null);
   const [status, setStatus] =
     useState<IncidentCollaborationStatus>("disconnected");
@@ -247,10 +249,14 @@ export function IncidentCollaborationSession({
       ) {
         return;
       }
+      // REQ-03-299a: exponential backoff with full jitter, reset by an
+      // accepted hello or resume.
+      const delay = reconnectDelayMs(reconnectAttemptRef.current);
+      reconnectAttemptRef.current += 1;
       reconnectTimer = window.setTimeout(() => {
         reconnectTimer = null;
         connectRef.current();
-      }, 1000);
+      }, delay);
     };
 
     const terminate = (
@@ -299,6 +305,7 @@ export function IncidentCollaborationSession({
       { readonly kind: "established" }
     >;
     const applyEstablishmentPlan = (plan: EstablishmentPlan) => {
+      reconnectAttemptRef.current = 0;
       resumeTokenRef.current = plan.resumeToken;
       if (plan.connectionId !== null) setConnectionId(plan.connectionId);
       updateStatus(plan.resetRequired ? "resetting" : "connected");

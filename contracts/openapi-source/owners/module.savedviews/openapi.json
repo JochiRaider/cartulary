@@ -15,7 +15,8 @@
             "schema": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "x-cartulary-not-found-code": "saved_view_not_found"
           },
           {
             "name": "limit",
@@ -65,7 +66,12 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "invalid_list_query",
+              "invalid_pagination_request",
+              "invalid_saved_view_read_request"
+            ]
           },
           "401": {
             "description": "Session required",
@@ -75,7 +81,10 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "session_required"
+            ]
           },
           "404": {
             "description": "Incident not found or not visible",
@@ -85,7 +94,29 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "saved_view_not_found"
+            ]
+          },
+          "409": {
+            "description": "Request conflicts with current state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "credential_bootstrap_rejected"
+            ]
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [
@@ -112,7 +143,8 @@
             "schema": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "x-cartulary-not-found-code": "saved_view_not_found"
           }
         ],
         "requestBody": {
@@ -144,7 +176,10 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "invalid_mutation_payload"
+            ]
           },
           "401": {
             "description": "Session required",
@@ -154,7 +189,10 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "session_required"
+            ]
           },
           "403": {
             "description": "CSRF verification failed",
@@ -164,7 +202,10 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "csrf_verification_failed"
+            ]
           },
           "404": {
             "description": "Incident not found or not visible",
@@ -174,7 +215,29 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "saved_view_not_found"
+            ]
+          },
+          "409": {
+            "description": "Request conflicts with current state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "credential_bootstrap_rejected"
+            ]
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [
@@ -205,7 +268,8 @@
             "schema": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "x-cartulary-not-found-code": "saved_view_not_found"
           },
           {
             "name": "saved_view_id",
@@ -214,7 +278,8 @@
             "schema": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "x-cartulary-not-found-code": "saved_view_not_found"
           }
         ],
         "requestBody": {
@@ -246,7 +311,10 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "invalid_mutation_payload"
+            ]
           },
           "401": {
             "description": "Session required",
@@ -256,7 +324,10 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "session_required"
+            ]
           },
           "403": {
             "description": "CSRF verification failed or saved-view mutation denied",
@@ -266,7 +337,11 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "authorization_denied",
+              "csrf_verification_failed"
+            ]
           },
           "404": {
             "description": "Incident or saved view not found or not visible",
@@ -276,7 +351,10 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "saved_view_not_found"
+            ]
           },
           "409": {
             "description": "Saved-view version conflict",
@@ -286,7 +364,17 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "credential_bootstrap_rejected",
+              "saved_view_version_conflict"
+            ]
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [
@@ -315,7 +403,8 @@
             "schema": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "x-cartulary-not-found-code": "saved_view_not_found"
           },
           {
             "name": "saved_view_id",
@@ -324,7 +413,8 @@
             "schema": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "x-cartulary-not-found-code": "saved_view_not_found"
           }
         ],
         "responses": {
@@ -346,7 +436,10 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "session_required"
+            ]
           },
           "403": {
             "description": "CSRF verification failed or saved-view mutation denied",
@@ -356,7 +449,11 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "authorization_denied",
+              "csrf_verification_failed"
+            ]
           },
           "404": {
             "description": "Incident or saved view not found or not visible",
@@ -366,7 +463,29 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "saved_view_not_found"
+            ]
+          },
+          "409": {
+            "description": "Request conflicts with current state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "credential_bootstrap_rejected"
+            ]
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [
@@ -395,7 +514,8 @@
             "schema": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "x-cartulary-not-found-code": "saved_view_not_found"
           },
           {
             "name": "saved_view_id",
@@ -404,7 +524,8 @@
             "schema": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "x-cartulary-not-found-code": "saved_view_not_found"
           }
         ],
         "responses": {
@@ -426,7 +547,11 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "invalid_pagination_request",
+              "invalid_saved_view_read_request"
+            ]
           },
           "401": {
             "description": "Session required",
@@ -436,7 +561,10 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "session_required"
+            ]
           },
           "404": {
             "description": "Saved view not found or not visible",
@@ -446,7 +574,29 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "saved_view_not_found"
+            ]
+          },
+          "409": {
+            "description": "Request conflicts with current state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-cartulary-error-codes": [
+              "credential_bootstrap_rejected"
+            ]
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [

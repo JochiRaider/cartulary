@@ -86,7 +86,7 @@ func normalizeGraphViewDisplayName(value string) (string, error) {
 	case normalized == "":
 		return "", &invalidDisplayNameError{ReasonCode: "empty_display_name"}
 	case len(normalized) > 64:
-		return "", &invalidDisplayNameError{ReasonCode: "display_name_too_long"}
+		return "", &invalidDisplayNameError{ReasonCode: "display_name_too_long", NormalizedLength: len(normalized)}
 	default:
 		return normalized, nil
 	}

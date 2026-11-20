@@ -4,7 +4,11 @@ import {
   captureWorkbookUpload,
 } from "../imports/importRequests";
 import { readyExtensionAvailability } from "../testing/extensionAvailabilityTestSupport";
-import { jsonResponse } from "../testing/fetchMockTestSupport";
+import {
+  errorResponse,
+  jsonResponse,
+  operationErrorResponse,
+} from "../testing/fetchMockTestSupport";
 import {
   importTestIds as ids,
   importTestApprovedUnit,
@@ -161,6 +165,8 @@ describe("Workbook import typed transport", () => {
               field: "source_columns",
               reason_code: "duplicate_target_field",
             },
+            request_id: "request-test",
+            retryable: false,
           },
         },
         400,
@@ -175,16 +181,68 @@ describe("Workbook import typed transport", () => {
       expect(importFailureMessage(result.failure)).toBe(
         "Each target field can be mapped only once.",
       );
+    // A declared 503 was not applied: rejected on a first attempt, while a
+    // refused replay stays uncertain (Core 03 REQ-03-086a).
+    fetch.mockImplementation(async () =>
+      operationErrorResponse(
+        "createImportSession",
+        { code: "service_unavailable", status: 503 },
+        { details: { reason_code: "admission_paused" } },
+      ),
+    );
+    const refused = await service.send(attempt, signal());
+    expect(refused.kind).toBe("rejected");
+    const refusedReplay = await service.send(attempt, signal(), true);
+    expect(refusedReplay.kind).toBe("uncertain");
+    if (refused.kind !== "accepted" && refusedReplay.kind !== "accepted") {
+      expect(importFailureMessage(refused.failure, refused.kind)).toBe(
+        "Cartulary is temporarily unavailable. This action was not applied; try again shortly.",
+      );
+      expect(importFailureMessage(refusedReplay.failure, "uncertain")).toBe(
+        "Cartulary is temporarily unavailable. The earlier outcome is still unconfirmed; try recovery again shortly.",
+      );
+      expect(importFailureMessage(refused.failure)).toBe(
+        "Cartulary is temporarily unavailable. Try again shortly.",
+      );
+    }
   });
 
   it("preserves authentication authorization conflict and resource denial without private exceptions", async () => {
     const fetch = vi.fn();
     vi.stubGlobal("fetch", fetch);
     const service = client();
+    // Declared envelopes keep their decoded status and code.
+    for (const [status, code] of [
+      [401, "session_required"],
+      [404, "job_not_found"],
+      [409, "credential_bootstrap_rejected"],
+    ] as const) {
+      fetch.mockResolvedValue(errorResponse(code, status));
+      const result = await service.readJob(ids.job, signal());
+      expect(result).toMatchObject({
+        kind: "failed",
+        failure: { kind: "public", status, code },
+      });
+    }
+    fetch.mockResolvedValue(errorResponse("authorization_denied", 403));
+    expect(
+      await service.listCommittedSources(undefined, signal()),
+    ).toMatchObject({
+      kind: "failed",
+      failure: { kind: "public", status: 403, code: "authorization_denied" },
+    });
+    // A body that fails the contract never keeps its raw HTTP status.
     for (const status of [401, 403, 404, 409]) {
       fetch.mockResolvedValue(new Response("not JSON", { status }));
       const result = await service.readJob(ids.job, signal());
-      expect(result).toMatchObject({ kind: "failed", failure: { status } });
+      expect(result).toMatchObject({
+        kind: "failed",
+        failure: {
+          kind: "contract",
+          status: 0,
+          code: "invalid_public_contract_response",
+        },
+      });
     }
     fetch.mockRejectedValue(new Error("stack trace /home/private/secret"));
     const result = await service.readJob(ids.job, signal());

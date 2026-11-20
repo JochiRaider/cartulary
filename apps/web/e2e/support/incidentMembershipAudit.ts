@@ -1,4 +1,7 @@
-import type { ListIncidentMembershipAuditEventsResponse } from "@cartulary/protocol-ts/http";
+import type {
+  HTTPOperationErrorCode,
+  ListIncidentMembershipAuditEventsResponse,
+} from "@cartulary/protocol-ts/http";
 import { expect, type Locator, type Page } from "@playwright/test";
 import { openIncidentControls } from "../pages/deploymentAdministration";
 import { openIncidentFromLanding } from "../pages/incidentDirectory";
@@ -9,8 +12,26 @@ import type { BarrierOutcome } from "./runtime/cleanup";
 import { uniqueIncidentKey } from "./runtime/fixtureIdentity";
 import {
   awaitResponseBarrier,
+  checkedOperationErrorEnvelope,
+  fulfillOperationError,
   installOwnedRoute,
 } from "./transport/requestInterception";
+
+const membershipAuditFailureStatus = {
+  internal_error: 500,
+  invalid_list_query: 400,
+  invalid_pagination_request: 400,
+  session_required: 401,
+  authorization_denied: 403,
+  incident_not_found: 404,
+} as const satisfies Partial<
+  Record<
+    | HTTPOperationErrorCode<"listIncidentMembershipAuditEvents">
+    | "internal_error",
+    number
+  >
+>;
+type MembershipAuditFailureCode = keyof typeof membershipAuditFailureStatus;
 
 const membershipAuditRegion = "Incident membership audit browser";
 type Event =
@@ -48,19 +69,23 @@ export async function installMembershipAuditPresentation(
   let accessReads = 0;
   await installOwnedRoute(page, "**/api/v1/auth/session", async (route) => {
     ++accessReads;
-    if (access === "session" || access === "unavailable") {
-      await route.fulfill({
-        status: access === "session" ? 401 : 503,
-        json: {
-          error: {
-            code:
-              access === "session" ? "session_required" : "service_unavailable",
-            message: "Not displayed",
-            retryable: access === "unavailable",
-          },
-          meta: { request_id: "membership-access" },
-        },
-      });
+    if (access === "session") {
+      await fulfillOperationError(
+        route,
+        "getCurrentSession",
+        401,
+        "session_required",
+        { message: "Not displayed", requestId: "membership-access" },
+      );
+      return;
+    }
+    if (access === "unavailable") {
+      await fulfillOperationError(
+        route,
+        "getCurrentSession",
+        500,
+        "internal_error",
+      );
       return;
     }
     const requestAccess = access;
@@ -128,26 +153,19 @@ export async function installMembershipAuditPresentation(
       status = 200;
       body = value;
     },
-    fail(code = "service_unavailable", reason?: string) {
-      status =
-        code === "invalid_pagination_request" || code === "invalid_list_query"
-          ? 400
-          : code === "authorization_denied"
-            ? 403
-            : code === "incident_not_found"
-              ? 404
-              : code === "session_required"
-                ? 401
-                : 503;
-      body = {
-        error: {
-          code,
+    /** A failure listIncidentMembershipAuditEvents declares; internal_error by default. */
+    fail(code: MembershipAuditFailureCode = "internal_error", reason?: string) {
+      status = membershipAuditFailureStatus[code];
+      body = checkedOperationErrorEnvelope(
+        "listIncidentMembershipAuditEvents",
+        status,
+        code,
+        {
           message: "Private diagnostic must remain hidden",
-          retryable: status === 503,
+          requestId: "membership-failure",
           ...(reason ? { details: { reason_code: reason } } : {}),
         },
-        meta: { request_id: "membership-failure" },
-      };
+      );
     },
   };
 }

@@ -11,6 +11,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
 	assessmentadmission "github.com/JochiRaider/cartulary/internal/modules/assessments/admission"
+	incidentadmission "github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 )
 
@@ -61,6 +62,9 @@ func assessmentCreateFailure(err error, clientTxnID string) (*workbook.MutationF
 	}
 	if errors.Is(err, assessments.ErrClientTxnConflict) {
 		return workbook.ClientTxnConflictFailure(clientTxnID), true
+	}
+	if incidentadmission.IsDenied(err, incidentadmission.DenialIncidentClosed) {
+		return workbook.IncidentClosedFailure(), true
 	}
 	var validation *assessments.CreateValidationError
 	if errors.As(err, &validation) {

@@ -30,6 +30,11 @@ func TestRuntimeCompilerProcessHelper(t *testing.T) {
 	if f == nil {
 		os.Exit(2)
 	}
+	if diagnostic, ok := preparationDiagnosticFixtures[mode]; ok {
+		_, _ = f.Write([]byte(diagnostic))
+		_ = f.Close()
+		os.Exit(2)
+	}
 	if mode == "oversized" {
 		for i := 0; i < 33; i++ {
 			_, _ = f.Write([]byte(strings.Repeat(" ", 1024*1024)))

@@ -128,6 +128,7 @@ function packet({ criterion = "AC-043", mutate = {} } = {}) {
     unit_counts: { total: refs.length, passed: refs.length, failed: 0, skipped: 0, cancelled: 0 }, wall_duration_ms: 1000, critical_path: [], actual_dependency_critical_path_ms: 1000,
     timing_accounting: { setup_ms: 0, fixture_ms: 0, execution_ms: 1000, collation_ms: 0, wrapper_ms: 0, unattributed_ms: 0, resource_blocking_ms: 0, process_count: 1 },
     resource_pressure: {}, cache: { bypass: refs.length, hit: 0, miss: 0 }, artifact_refs: [],
+    contract_evidence: { schema_id: "cartulary.harness_contract_evidence.v1", record_counts: { undeclared_error_code: 0, security_mismatch: 0, error_emission: 0 }, malformed_record_count: 0, violations: [], omitted_violation_count: 0 },
   });
   const bundle = change("bundle", { schema_id: "cartulary.benchmark_evidence_bundle.v1", runs: [{ root: "run", manifest: write("run-manifest.json", runManifest), summary: write("run-summary.json", runSummary), measurements: refs }] });
   const bundleBytes = json(bundle);

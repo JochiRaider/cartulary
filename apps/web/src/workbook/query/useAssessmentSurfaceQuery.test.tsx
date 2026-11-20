@@ -241,10 +241,10 @@ describe("useAssessmentSurfaceQuery", () => {
       "fetch",
       vi.fn(() => {
         if (responseKind === "error") {
-          return Promise.resolve(errorResponse("query_failed", 500));
+          return Promise.resolve(errorResponse("internal_error", 500));
         }
         if (responseKind === "denied") {
-          return Promise.resolve(errorResponse("authorization_denied", 403));
+          return Promise.resolve(errorResponse("incident_not_found", 404));
         }
         return Promise.resolve(
           queryResponse([

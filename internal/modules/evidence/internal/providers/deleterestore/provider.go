@@ -9,7 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/JochiRaider/cartulary/internal/modules/evidence/internal/policy"
+	evidenceblob "github.com/JochiRaider/cartulary/internal/modules/evidence/internal/blob"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/deleterestorecontract"
 )
@@ -57,25 +57,23 @@ func (source) ValidateStateTransitionTx(ctx context.Context, tx pgx.Tx, request 
 	if err != nil || partyResult.Blocked != nil {
 		return partyResult, err
 	}
-	blocked := deleterestorecontract.StateTransitionPreparation{Blocked: &deleterestorecontract.StateTransitionBlock{ReasonCode: "evidence_blob_state_conflict"}}
-	blobState := ""
-	if blob != nil {
-		var incident uuid.UUID
-		err := tx.QueryRow(ctx, `SELECT incident_id,upload_state FROM object_blobs WHERE object_blob_id=$1 FOR UPDATE NOWAIT`, *blob).Scan(&incident, &blobState)
-		if errors.Is(err, pgx.ErrNoRows) {
-			return blocked, nil
-		}
-		if err != nil {
-			return deleterestorecontract.StateTransitionPreparation{}, restoreDependencyError(err, request.RecordID)
-		}
-		if incident != request.IncidentID || (blobState != policy.BlobAvailable && blobState != policy.BlobQuarantined) {
-			return blocked, nil
-		}
+	// REQ-02-190: the prospective live state links a same-incident finalized
+	// Blob, verified and locked non-waitingly through commit, and satisfies the
+	// bridge. A tuple or lifecycle-vocabulary violation fails as internal_error.
+	admission, err := evidenceblob.AdmitLinkTx(ctx, tx, evidenceblob.LinkRequest{
+		EvidenceID: request.RecordID, IncidentID: request.IncidentID, Lifecycle: lifecycle, BlobID: blob, Mode: evidenceblob.ShareNoWait,
+	})
+	if err != nil {
+		return deleterestorecontract.StateTransitionPreparation{}, restoreDependencyError(err, request.RecordID)
 	}
-	if policy.ViolatesEvidenceBlobBridge(lifecycle, blob != nil, blobState) {
-		return blocked, nil
+	switch admission.Outcome {
+	case evidenceblob.Admitted:
+		return deleterestorecontract.StateTransitionPreparation{}, nil
+	case evidenceblob.Contended:
+		return deleterestorecontract.StateTransitionPreparation{}, &revisions.RecordLockedError{RecordID: request.RecordID}
+	default:
+		return deleterestorecontract.StateTransitionPreparation{Blocked: &deleterestorecontract.StateTransitionBlock{ReasonCode: "evidence_blob_state_conflict"}}, nil
 	}
-	return deleterestorecontract.StateTransitionPreparation{}, nil
 }
 
 func validateRestorePartiesTx(ctx context.Context, tx pgx.Tx, request deleterestorecontract.StateTransitionRequest, collector, origin *uuid.UUID) (deleterestorecontract.StateTransitionPreparation, error) {

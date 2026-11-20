@@ -890,7 +890,7 @@ test("Timeline range rejection and accepted query replacement preserve authorita
   await reveal(page, first);
   await cell(page, first).click();
   await editor(page, first).fill("  exact rejected Ω draft  ");
-  rejected.failNextPatch(422, "invalid_request", { recordId: first });
+  rejected.failNextPatch(400, "invalid_mutation_payload", { recordId: first });
   await drag(page, cell(page, second), cell(page, third), true, false);
   await expect(editor(page, first)).toBeFocused();
   await expect(editor(page, first)).toHaveValue("  exact rejected Ω draft  ");
@@ -1242,7 +1242,7 @@ test("Timeline retained range editing gates rejection latest keys and newer focu
   await page.keyboard.press("F2");
   await editor(page, a).fill(" rejected exact Ω ");
   const patches = await installPatchController(page);
-  patches.failNextPatch(422, "invalid_request", { recordId: a });
+  patches.failNextPatch(400, "invalid_mutation_payload", { recordId: a });
   await page.keyboard.press("Tab");
   await expect(editor(page, a)).toBeFocused();
   await expect(editor(page, a)).toHaveValue(" rejected exact Ω ");

@@ -137,7 +137,9 @@ func (s *ApplicationService) GetRelease(ctx context.Context, actorUserID uuid.UU
 	return resource, nil
 }
 
-func (s *ApplicationService) ApproveRelease(ctx context.Context, actorUserID uuid.UUID, releaseID uuid.UUID, request ReleaseActionRequest) (map[string]any, *httpapi.APIError) {
+// ApproveRelease decides the release's visibility before it reads the request
+// (Core 01 REQ-01-704); the approval policy is route handling.
+func (s *ApplicationService) ApproveRelease(ctx context.Context, actorUserID uuid.UUID, releaseID uuid.UUID, readRequest func() (ReleaseActionRequest, *httpapi.APIError)) (map[string]any, *httpapi.APIError) {
 	_, incidentID, err := s.store.GetRelease(ctx, releaseID)
 	if errors.Is(err, ErrNotFound) {
 		return nil, &httpapi.APIError{Status: http.StatusNotFound, Code: "release_not_found", Details: map[string]any{}}
@@ -149,6 +151,10 @@ func (s *ApplicationService) ApproveRelease(ctx context.Context, actorUserID uui
 	if apiErr != nil {
 		return nil, releaseVisibilityError(apiErr)
 	}
+	request, apiErr := readRequest()
+	if apiErr != nil {
+		return nil, apiErr
+	}
 	result, err := s.store.ApproveRelease(ctx, ApproveReleaseParams{
 		ActorUserID:       actorUserID,
 		ActorIncidentRole: membership.Role.String(),
@@ -159,15 +165,17 @@ func (s *ApplicationService) ApproveRelease(ctx context.Context, actorUserID uui
 	return s.releaseActionPayload(request.ClientTxnID, result, err)
 }
 
-func (s *ApplicationService) PublishRelease(ctx context.Context, actorUserID uuid.UUID, releaseID uuid.UUID, request ReleaseActionRequest) (map[string]any, *httpapi.APIError) {
-	return s.adminReleaseAction(ctx, actorUserID, releaseID, request, s.store.PublishRelease)
+func (s *ApplicationService) PublishRelease(ctx context.Context, actorUserID uuid.UUID, releaseID uuid.UUID, readRequest func() (ReleaseActionRequest, *httpapi.APIError)) (map[string]any, *httpapi.APIError) {
+	return s.adminReleaseAction(ctx, actorUserID, releaseID, readRequest, s.store.PublishRelease)
 }
 
-func (s *ApplicationService) InvalidateRelease(ctx context.Context, actorUserID uuid.UUID, releaseID uuid.UUID, request ReleaseActionRequest) (map[string]any, *httpapi.APIError) {
-	return s.adminReleaseAction(ctx, actorUserID, releaseID, request, s.store.InvalidateRelease)
+func (s *ApplicationService) InvalidateRelease(ctx context.Context, actorUserID uuid.UUID, releaseID uuid.UUID, readRequest func() (ReleaseActionRequest, *httpapi.APIError)) (map[string]any, *httpapi.APIError) {
+	return s.adminReleaseAction(ctx, actorUserID, releaseID, readRequest, s.store.InvalidateRelease)
 }
 
-func (s *ApplicationService) adminReleaseAction(ctx context.Context, actorUserID uuid.UUID, releaseID uuid.UUID, request ReleaseActionRequest, action func(context.Context, ReleaseActionParams) (ReleaseActionResult, error)) (map[string]any, *httpapi.APIError) {
+// adminReleaseAction decides the release's visibility and the incident admin
+// role before it reads the request (Core 01 REQ-01-704).
+func (s *ApplicationService) adminReleaseAction(ctx context.Context, actorUserID uuid.UUID, releaseID uuid.UUID, readRequest func() (ReleaseActionRequest, *httpapi.APIError), action func(context.Context, ReleaseActionParams) (ReleaseActionResult, error)) (map[string]any, *httpapi.APIError) {
 	_, incidentID, err := s.store.GetRelease(ctx, releaseID)
 	if errors.Is(err, ErrNotFound) {
 		return nil, &httpapi.APIError{Status: http.StatusNotFound, Code: "release_not_found", Details: map[string]any{}}
@@ -177,6 +185,10 @@ func (s *ApplicationService) adminReleaseAction(ctx context.Context, actorUserID
 	}
 	if _, apiErr := s.requireIncidentRole(ctx, incidentID, actorUserID, admission.RolesAdmin, "admin"); apiErr != nil {
 		return nil, releaseVisibilityError(apiErr)
+	}
+	request, apiErr := readRequest()
+	if apiErr != nil {
+		return nil, apiErr
 	}
 	result, err := action(ctx, ReleaseActionParams{
 		ActorUserID: actorUserID,
@@ -230,7 +242,7 @@ func (s *ApplicationService) requireIncidentRole(ctx context.Context, incidentID
 func reportingAdmissionResult(grant admission.Grant, err error, requiredRole string) (admission.Grant, *httpapi.APIError) {
 	switch {
 	case admission.IsDenied(err, admission.DenialNotVisible):
-		return admission.Grant{}, &httpapi.APIError{Status: http.StatusNotFound, Code: "incident_not_found", Details: map[string]any{}}
+		return admission.Grant{}, httpapi.NotFound("incident_not_found")
 	case admission.IsDenied(err, admission.DenialInsufficientRole):
 		return admission.Grant{}, &httpapi.APIError{Status: http.StatusForbidden, Code: "authorization_denied", Details: map[string]any{"required_role": requiredRole}}
 	case err != nil:

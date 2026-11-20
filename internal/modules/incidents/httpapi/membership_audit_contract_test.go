@@ -68,7 +68,7 @@ func TestOpenAPIIncidentMembershipAuditOperationIsCompleteAndExact_Unit(t *testi
 		responseStatuses = append(responseStatuses, status)
 	}
 	sort.Strings(responseStatuses)
-	if want := []string{"200", "400", "401", "403", "404", "409", "500"}; !equalStringSlices(responseStatuses, want) {
+	if want := []string{"200", "400", "401", "403", "404", "409", "500", "503"}; !equalStringSlices(responseStatuses, want) {
 		t.Fatalf("membership audit response statuses got %v want %v", responseStatuses, want)
 	}
 	successMedia := openAPIObjectAt(
@@ -86,9 +86,11 @@ func TestOpenAPIIncidentMembershipAuditOperationIsCompleteAndExact_Unit(t *testi
 		"404": {"incident_not_found"},
 		"409": {"credential_bootstrap_rejected"},
 		"500": {"internal_error"},
+		"503": {"service_unavailable"},
 	}
 	for status, wantCodes := range wantErrorCodes {
-		response := openAPIObjectAt(t, responses, status)
+		// The implied 503 shares the platform component response.
+		response := incidentOpenAPIResolvedResponse(t, openAPIObjectAt(t, document, "components"), responses[status])
 		if got := toStrings(t, response["x-cartulary-error-codes"]); !equalStringSlices(got, wantCodes) {
 			t.Fatalf("membership audit %s error codes got %v want %v", status, got, wantCodes)
 		}

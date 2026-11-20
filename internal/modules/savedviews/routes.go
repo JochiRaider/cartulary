@@ -20,24 +20,28 @@ type service struct {
 	application    *savedViewApplication
 	incidentAccess *admission.Checker
 	authStore      *authn.Store
-	keys           authn.MasterKeys
 	cursorCodec    *pagination.Codec
 	now            func() time.Time
 }
 
+// RegisterRoutes binds the saved-view routes for central admission (Core 01
+// REQ-01-707): the registry authenticates by each operation's declared
+// security and admits incident_id and saved_view_id before a handler runs.
+// Every resolved response of the two reads, failures included, carries
+// Cache-Control: no-store (REQ-01-144B).
 func RegisterRoutes() httpapi.RouteRegistrar {
 	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
 		service, err := newService(deps)
 		if err != nil {
 			return err
 		}
-		return httpapi.BindOwnerRoutes(mux, deps, "module.savedviews", map[string]http.HandlerFunc{
-			"createIncidentSavedView": service.handleCollection,
-			"deleteIncidentSavedView": service.handleItem,
-			"listIncidentSavedViews":  service.handleCollection,
-			"getIncidentSavedView":    service.handleItem,
-			"patchIncidentSavedView":  service.handleItem,
-		})
+		return httpapi.BindAdmittedOwnerRoutes(mux, deps, "module.savedviews", map[string]http.HandlerFunc{
+			"createIncidentSavedView": service.handleCreate,
+			"deleteIncidentSavedView": service.handleDelete,
+			"getIncidentSavedView":    service.handleGet,
+			"listIncidentSavedViews":  service.handleList,
+			"patchIncidentSavedView":  service.handlePatch,
+		}, httpapi.NoStore("getIncidentSavedView", "listIncidentSavedViews"))
 	}
 }
 
@@ -54,22 +58,21 @@ func RegisterTestRoutes() httpapi.RouteRegistrar {
 		if err != nil {
 			return err
 		}
-		mux.HandleFunc("POST /api/v1/test/incidents/{incident_id}/saved-views/system", guard.Protect(service.handleTestSystemCreate))
-		return nil
+		return httpapi.BindTestRoute(mux, deps, guard, http.MethodPost, "/api/v1/test/incidents/{incident_id}/saved-views/system", service.handleTestSystemCreate)
 	}
 }
 
 func newService(deps httpapi.DependencySet) (*service, error) {
-	keys, err := authn.LoadMasterKeys(deps.Env)
-	if err != nil {
-		return nil, err
-	}
 	now := deps.Now
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
 	}
 	cursorCodec := deps.CursorCodec
 	if cursorCodec == nil {
+		keys, err := authn.LoadMasterKeys(deps.Env)
+		if err != nil {
+			return nil, err
+		}
 		cursorKey, err := authn.DerivePurposeKey(keys, "pagination-cursor-v2")
 		if err != nil {
 			return nil, err
@@ -80,55 +83,15 @@ func newService(deps httpapi.DependencySet) (*service, error) {
 		application:    newSavedViewApplication(newPostgresSavedViewRepository(deps.PostgresHandle())),
 		incidentAccess: admission.NewChecker(deps.PostgresHandle()),
 		authStore:      authn.NewStore(deps.PostgresHandle()),
-		keys:           keys,
 		cursorCodec:    cursorCodec,
 		now:            now,
 	}, nil
 }
 
-func (s *service) handleCollection(w http.ResponseWriter, r *http.Request) {
-	incidentID, err := uuid.Parse(r.PathValue("incident_id"))
-	if err != nil {
-		http.NotFound(w, r)
-		return
-	}
-	switch r.Method {
-	case http.MethodGet:
-		s.handleList(w, r, incidentID)
-	case http.MethodPost:
-		s.handleCreate(w, r, incidentID)
-	default:
-		w.WriteHeader(http.StatusMethodNotAllowed)
-	}
-}
-
-func (s *service) handleItem(w http.ResponseWriter, r *http.Request) {
-	incidentID, err := uuid.Parse(r.PathValue("incident_id"))
-	if err != nil {
-		http.NotFound(w, r)
-		return
-	}
-	savedViewID, err := uuid.Parse(r.PathValue("saved_view_id"))
-	if err != nil {
-		http.NotFound(w, r)
-		return
-	}
-	switch r.Method {
-	case http.MethodGet:
-		s.handleGet(w, r, incidentID, savedViewID)
-	case http.MethodPatch:
-		s.handlePatch(w, r, incidentID, savedViewID)
-	case http.MethodDelete:
-		s.handleDelete(w, r, incidentID, savedViewID)
-	default:
-		w.WriteHeader(http.StatusMethodNotAllowed)
-	}
-}
-
 func (s *service) handleTestSystemCreate(w http.ResponseWriter, r *http.Request) {
 	incidentID, err := uuid.Parse(r.PathValue("incident_id"))
 	if err != nil {
-		http.NotFound(w, r)
+		writeAPIError(w, r, httpapi.NotFound("incident_not_found"))
 		return
 	}
 	request, apiErr := decodeSystemFixtureRequest(r.Body)
@@ -144,13 +107,18 @@ func (s *service) handleTestSystemCreate(w http.ResponseWriter, r *http.Request)
 	_ = httpapi.WriteSuccess(w, r, http.StatusCreated, buildResource(record))
 }
 
-func (s *service) handleList(w http.ResponseWriter, r *http.Request, incidentID uuid.UUID) {
-	w.Header().Set("Cache-Control", "no-store")
-	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: false})
+func (s *service) handleList(w http.ResponseWriter, r *http.Request) {
+	principal, incidentID, apiErr := admittedIncidentRoute(r)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
+	if _, apiErr := s.requireIncidentMembership(r.Context(), incidentID, principal.User.ID); apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	// REQ-01-707 step 5: the list query and cursor are route handling, after
+	// the incident's visibility (REQ-01-704).
 	binding, cursor, apiErr := resolveSavedViewListRead(s.cursorCodec, r.URL.RawQuery, principal.User.ID.String(), incidentID.String())
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
@@ -159,10 +127,6 @@ func (s *service) handleList(w http.ResponseWriter, r *http.Request, incidentID 
 	pageRequest, reasonCode := savedViewListPageRequest(binding, cursor)
 	if reasonCode != "" {
 		writeAPIError(w, r, invalidPaginationRequest(reasonCode))
-		return
-	}
-	if _, apiErr := s.requireIncidentMembership(r.Context(), incidentID, principal.User.ID); apiErr != nil {
-		writeAPIError(w, r, apiErr)
 		return
 	}
 	pageRequest.ViewSchemaID = binding.Scope["view_schema_id"]
@@ -182,7 +146,7 @@ func (s *service) handleList(w http.ResponseWriter, r *http.Request, incidentID 
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
@@ -195,7 +159,6 @@ func (s *service) handleList(w http.ResponseWriter, r *http.Request, incidentID 
 		}
 		nextToken = &token
 	}
-	w.Header().Set("Cache-Control", "no-store")
 	_ = httpapi.WriteSuccessWithPaging(w, r, http.StatusOK, map[string]any{"saved_views": rows}, httpapi.PagingMeta{
 		Limit:      binding.Limit,
 		HasMore:    nextToken != nil,
@@ -203,18 +166,19 @@ func (s *service) handleList(w http.ResponseWriter, r *http.Request, incidentID 
 	})
 }
 
-func (s *service) handleGet(w http.ResponseWriter, r *http.Request, incidentID, savedViewID uuid.UUID) {
-	w.Header().Set("Cache-Control", "no-store")
-	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: false})
+func (s *service) handleGet(w http.ResponseWriter, r *http.Request) {
+	principal, incidentID, savedViewID, apiErr := admittedSavedViewRoute(r)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if apiErr := validateSavedViewDetailQuery(r.URL.RawQuery); apiErr != nil {
+	if _, apiErr := s.requireIncidentMembership(r.Context(), incidentID, principal.User.ID); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if _, apiErr := s.requireIncidentMembership(r.Context(), incidentID, principal.User.ID); apiErr != nil {
+	// REQ-01-707 step 5: the singleton query is route handling, after the
+	// incident's visibility (REQ-01-704).
+	if apiErr := validateSavedViewDetailQuery(r.URL.RawQuery); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -223,16 +187,15 @@ func (s *service) handleGet(w http.ResponseWriter, r *http.Request, incidentID, 
 		writeAPIError(w, r, savedViewError(err))
 		return
 	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	w.Header().Set("Cache-Control", "no-store")
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, buildResource(record))
 }
 
-func (s *service) handleCreate(w http.ResponseWriter, r *http.Request, incidentID uuid.UUID) {
-	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
+func (s *service) handleCreate(w http.ResponseWriter, r *http.Request) {
+	principal, incidentID, apiErr := admittedIncidentRoute(r)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -251,15 +214,15 @@ func (s *service) handleCreate(w http.ResponseWriter, r *http.Request, incidentI
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
 	_ = httpapi.WriteSuccess(w, r, http.StatusCreated, buildResource(record))
 }
 
-func (s *service) handlePatch(w http.ResponseWriter, r *http.Request, incidentID uuid.UUID, savedViewID uuid.UUID) {
-	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
+func (s *service) handlePatch(w http.ResponseWriter, r *http.Request) {
+	principal, incidentID, savedViewID, apiErr := admittedSavedViewRoute(r)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -284,15 +247,15 @@ func (s *service) handlePatch(w http.ResponseWriter, r *http.Request, incidentID
 		writeAPIError(w, r, savedViewError(err))
 		return
 	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, buildResource(record))
 }
 
-func (s *service) handleDelete(w http.ResponseWriter, r *http.Request, incidentID uuid.UUID, savedViewID uuid.UUID) {
-	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
+func (s *service) handleDelete(w http.ResponseWriter, r *http.Request) {
+	principal, incidentID, savedViewID, apiErr := admittedSavedViewRoute(r)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -306,7 +269,7 @@ func (s *service) handleDelete(w http.ResponseWriter, r *http.Request, incidentI
 		writeAPIError(w, r, savedViewError(err))
 		return
 	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
@@ -406,8 +369,33 @@ func (s *service) requireIncidentMembership(ctx context.Context, incidentID uuid
 	}
 }
 
-func (s *service) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal, method string, path string) error {
-	return httpauth.SlideSessionIfNeeded(ctx, s.authStore, principal, method, path, s.now)
+// admittedIncidentRoute returns the principal and incident_id that central
+// admission established (REQ-01-707 steps 2 and 3); their absence is a
+// binding error.
+func admittedIncidentRoute(r *http.Request) (httpauth.Principal, uuid.UUID, *httpapi.APIError) {
+	principal, authenticated := httpauth.AdmittedPrincipal(r)
+	incidentID, identified := httpapi.PathUUID(r, "incident_id")
+	if !authenticated || !identified {
+		return httpauth.Principal{}, uuid.Nil, internalAPIError(errors.New("saved-view route was not admitted centrally"))
+	}
+	return principal, incidentID, nil
+}
+
+// admittedSavedViewRoute also returns the admitted saved_view_id.
+func admittedSavedViewRoute(r *http.Request) (httpauth.Principal, uuid.UUID, uuid.UUID, *httpapi.APIError) {
+	principal, incidentID, apiErr := admittedIncidentRoute(r)
+	if apiErr != nil {
+		return httpauth.Principal{}, uuid.Nil, uuid.Nil, apiErr
+	}
+	savedViewID, identified := httpapi.PathUUID(r, "saved_view_id")
+	if !identified {
+		return httpauth.Principal{}, uuid.Nil, uuid.Nil, internalAPIError(errors.New("saved-view route was not admitted centrally"))
+	}
+	return principal, incidentID, savedViewID, nil
+}
+
+func (s *service) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal) error {
+	return httpauth.SlideSessionIfNeeded(ctx, s.authStore, principal, s.now)
 }
 
 func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *httpapi.APIError) {

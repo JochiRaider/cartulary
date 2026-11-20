@@ -26,7 +26,6 @@ type service struct {
 	mentionStore    *mentions.Store
 	incidentAccess  incidentAdmissionChecker
 	authStore       *authn.Store
-	keys            authn.MasterKeys
 	now             func() time.Time
 }
 
@@ -40,13 +39,16 @@ type RouteOptions struct {
 	MentionStore    *mentions.Store
 }
 
+// RegisterRoutes binds the entity routes for central admission (Core 01
+// REQ-01-707): the registry authenticates by each operation's declared
+// security and admits the path identifier before a handler runs.
 func RegisterRoutes(options RouteOptions) httpapi.RouteRegistrar {
 	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
 		service, err := newService(deps, options)
 		if err != nil {
 			return err
 		}
-		return httpapi.BindOwnerRoutes(mux, deps, "module.entities", map[string]http.HandlerFunc{
+		return httpapi.BindAdmittedOwnerRoutes(mux, deps, "module.entities", map[string]http.HandlerFunc{
 			"listEntityCandidates": service.handleCandidates,
 			"mergeEntityRecord":    service.handleMerge,
 			"resolveEntityMention": service.handleMentionAction,
@@ -87,26 +89,20 @@ func newService(deps httpapi.DependencySet, options RouteOptions) (*service, err
 		mentionStore:    options.MentionStore,
 		incidentAccess:  admission.NewChecker(deps.PostgresHandle()),
 		authStore:       authn.NewStore(deps.PostgresHandle()),
-		keys:            keys,
 		now:             now,
 	}, nil
 }
 
 func (s *service) handleMerge(w http.ResponseWriter, r *http.Request) {
-	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
+	principal, survivorRecordID, apiErr := admittedPath(r, "survivor_record_id")
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
-		return
-	}
-	survivorRecordID, err := parsePathUUID(r, "survivor_record_id")
-	if err != nil {
-		writeAPIError(w, r, incidentNotFoundError())
 		return
 	}
 
 	incidentID, err := s.mergeStore.GetMergeRouteIncident(r.Context(), survivorRecordID)
 	if errors.Is(err, merge.ErrMergeTargetNotFound) {
-		writeAPIError(w, r, incidentNotFoundError())
+		writeAPIError(w, r, httpapi.NotFound("incident_not_found"))
 		return
 	}
 	if err != nil {
@@ -121,7 +117,7 @@ func (s *service) handleMerge(w http.ResponseWriter, r *http.Request) {
 	request, failure := merge.DecodeMergeRequest(r.Body)
 	if failure != nil {
 		if mutationAdmissionFailureField(failure, "loser_record_id", mutationadmission.ReasonInvalidValue) {
-			writeAPIError(w, r, incidentNotFoundError())
+			writeAPIError(w, r, httpapi.NotFound("incident_not_found"))
 			return
 		}
 		writeAPIError(w, r, mutationAdmissionAPIError(failure))
@@ -142,7 +138,7 @@ func (s *service) handleMerge(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, incidentClosedError())
 		return
 	case errors.Is(err, merge.ErrMergeTargetNotFound):
-		writeAPIError(w, r, incidentNotFoundError())
+		writeAPIError(w, r, httpapi.NotFound("incident_not_found"))
 		return
 	case errors.As(err, &preconditionErr):
 		writeAPIError(w, r, mergePreconditionFailedError(preconditionErr))
@@ -158,7 +154,7 @@ func (s *service) handleMerge(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
@@ -166,14 +162,9 @@ func (s *service) handleMerge(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *service) handleMentionAction(w http.ResponseWriter, r *http.Request) {
-	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
+	principal, mentionID, apiErr := admittedPath(r, "entity_mention_id")
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
-		return
-	}
-	mentionID, err := parsePathUUID(r, "entity_mention_id")
-	if err != nil {
-		writeAPIError(w, r, entityMentionNotFoundError())
 		return
 	}
 
@@ -233,7 +224,7 @@ func (s *service) handleMentionAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
@@ -244,7 +235,7 @@ func (s *service) requireIncidentRole(ctx context.Context, incidentID uuid.UUID,
 	grant, err := s.incidentAccess.Check(ctx, incidentID, userID, admission.Requirement{AllowedRoles: roles, Lifecycle: admission.LifecycleAny})
 	switch {
 	case admission.IsDenied(err, admission.DenialNotVisible):
-		return admission.Grant{}, incidentNotFoundError()
+		return admission.Grant{}, httpapi.NotFound("incident_not_found")
 	case admission.IsDenied(err, admission.DenialInsufficientRole):
 		return admission.Grant{}, authorizationDeniedError(requiredRole)
 	case err != nil:
@@ -254,8 +245,8 @@ func (s *service) requireIncidentRole(ctx context.Context, incidentID uuid.UUID,
 	}
 }
 
-func (s *service) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal, method string, path string) error {
-	return httpauth.SlideSessionIfNeeded(ctx, s.authStore, principal, method, path, s.now)
+func (s *service) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal) error {
+	return httpauth.SlideSessionIfNeeded(ctx, s.authStore, principal, s.now)
 }
 
 func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *httpapi.APIError) {
@@ -266,8 +257,16 @@ func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *httpapi.APIEr
 	_ = httpapi.WriteError(w, r, apiErr.Status, apiErr.Code, message, apiErr.Details)
 }
 
-func parsePathUUID(r *http.Request, key string) (uuid.UUID, error) {
-	return uuid.Parse(r.PathValue(key))
+// admittedPath returns the principal and the uuid path parameter central
+// admission established (REQ-01-707 steps 2 and 3); their absence is a
+// binding error.
+func admittedPath(r *http.Request, name string) (httpauth.Principal, uuid.UUID, *httpapi.APIError) {
+	principal, authenticated := httpauth.AdmittedPrincipal(r)
+	value, identified := httpapi.PathUUID(r, name)
+	if !authenticated || !identified {
+		return httpauth.Principal{}, uuid.UUID{}, httpapi.InternalAPIError(errors.New("entity route was not admitted centrally"))
+	}
+	return principal, value, nil
 }
 
 func mutationAdmissionFailureField(
@@ -286,13 +285,11 @@ func incidentClosedError() *httpapi.APIError {
 	return &httpapi.APIError{Status: http.StatusConflict, Code: "incident_closed", Message: "incident closed", Details: map[string]any{}}
 }
 
+// entityMentionNotFoundError is the mention action's not-found response,
+// identical to the one central admission writes for a malformed
+// entity_mention_id (REQ-01-707).
 func entityMentionNotFoundError() *httpapi.APIError {
-	return &httpapi.APIError{
-		Status:  http.StatusNotFound,
-		Code:    "entity_mention_not_found",
-		Message: "entity mention not found",
-		Details: map[string]any{},
-	}
+	return httpapi.NotFound("entity_mention_not_found")
 }
 
 func resolvedRecordNotFoundError() *httpapi.APIError {

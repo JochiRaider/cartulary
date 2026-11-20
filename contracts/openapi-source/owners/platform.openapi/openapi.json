@@ -174,23 +174,32 @@
         "schema": {
           "type": "string",
           "format": "uuid"
-        }
+        },
+        "x-cartulary-not-found-code": "auth_binding_not_found"
       },
       "ConflictTokenPathParameter": {
         "name": "conflict_token",
         "in": "path",
         "required": true,
         "schema": {
-          "type": "string"
-        }
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._~-]+$",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "x-cartulary-not-found-code": "incident_not_found"
       },
       "EvidenceHandleTokenPathParameter": {
         "name": "handle_token",
         "in": "path",
         "required": true,
         "schema": {
-          "type": "string"
-        }
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._~-]+$",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "x-cartulary-not-found-code": "handle_not_found_or_revoked"
       },
       "IncidentIDPathParameter": {
         "name": "incident_id",
@@ -199,15 +208,18 @@
         "schema": {
           "type": "string",
           "format": "uuid"
-        }
+        },
+        "x-cartulary-not-found-code": "incident_not_found"
       },
       "ProviderKeyPathParameter": {
         "name": "provider_key",
         "in": "path",
         "required": true,
         "schema": {
-          "type": "string"
-        }
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+        },
+        "x-cartulary-not-found-code": "auth_provider_not_found"
       },
       "RecordIDPathParameter": {
         "name": "record_id",
@@ -216,7 +228,8 @@
         "schema": {
           "type": "string",
           "format": "uuid"
-        }
+        },
+        "x-cartulary-not-found-code": "incident_not_found"
       },
       "UserIDPathParameter": {
         "name": "user_id",
@@ -225,15 +238,19 @@
         "schema": {
           "type": "string",
           "format": "uuid"
-        }
+        },
+        "x-cartulary-not-found-code": "user_not_found"
       },
       "ViewSchemaIDPathParameter": {
         "name": "view_schema_id",
         "in": "path",
         "required": true,
         "schema": {
-          "type": "string"
-        }
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*\\.v[1-9][0-9]*$",
+          "maxLength": 128
+        },
+        "x-cartulary-not-found-code": "incident_not_found"
       }
     },
     "responses": {
@@ -265,7 +282,11 @@
               "$ref": "#/components/schemas/ErrorEnvelope"
             }
           }
-        }
+        },
+        "x-cartulary-error-codes": [
+          "authorization_denied",
+          "csrf_verification_failed"
+        ]
       },
       "InternalServerErrorResponse": {
         "description": "Unexpected server failure",
@@ -275,7 +296,10 @@
               "$ref": "#/components/schemas/ErrorEnvelope"
             }
           }
-        }
+        },
+        "x-cartulary-error-codes": [
+          "internal_error"
+        ]
       },
       "NotFoundErrorResponse": {
         "description": "Resource is absent or intentionally hidden from the caller",
@@ -285,7 +309,23 @@
               "$ref": "#/components/schemas/ErrorEnvelope"
             }
           }
-        }
+        },
+        "x-cartulary-error-codes": [
+          "extension_profile_not_claimed"
+        ]
+      },
+      "ServiceUnavailableErrorResponse": {
+        "description": "The process is not admitting work; the request may be retried",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        },
+        "x-cartulary-error-codes": [
+          "service_unavailable"
+        ]
       },
       "TooManyRequestsErrorResponse": {
         "description": "Request rate limit exceeded",
@@ -305,7 +345,10 @@
               "$ref": "#/components/schemas/ErrorEnvelope"
             }
           }
-        }
+        },
+        "x-cartulary-error-codes": [
+          "session_required"
+        ]
       }
     }
   }

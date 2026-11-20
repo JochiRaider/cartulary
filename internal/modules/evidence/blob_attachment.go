@@ -12,13 +12,50 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
 	evidencepolicy "github.com/JochiRaider/cartulary/internal/modules/evidence/internal/policy"
+	"github.com/JochiRaider/cartulary/internal/modules/records"
+	recordenvelope "github.com/JochiRaider/cartulary/internal/modules/records/enveloperead"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
-// PreflightAttachBlob evaluates every durable authorization, lifecycle,
-// contract, version, and idempotency gate that must precede object-store
-// observation. AttachBlob repeats these checks inside its mutation transaction.
+// errAttachTargetDeleted reports a soft-deleted attach target, which must be
+// restored first (REQ-01-705 step 2). It matches records.ErrTargetDeleted, so
+// the route can map it without depending on Records.
+var errAttachTargetDeleted = fmt.Errorf("evidence: attach target is deleted: %w", records.ErrTargetDeleted)
+
+// evidenceAttachTarget is the unlocked envelope of the record an attach request
+// addresses. Its incident decides visibility before anything else about the
+// record is classified (REQ-01-704), so it includes soft-deleted records and
+// records of every type.
+type evidenceAttachTarget struct {
+	IncidentID uuid.UUID
+	RecordType string
+	Deleted    bool
+}
+
+// LoadAttachTarget reads the addressed record envelope through Records. A
+// missing record is ErrEvidenceNotFound; any other read failure is returned
+// unclassified (REQ-01-706).
+func (s *blobLifecycleService) LoadAttachTarget(ctx context.Context, recordID uuid.UUID) (evidenceAttachTarget, error) {
+	envelope, err := recordenvelope.ScanRow(s.pool.QueryRow(ctx, recordenvelope.SelectSQL+"\n WHERE record_id = $1", recordID))
+	if errors.Is(err, recordenvelope.ErrEnvelopeNotFound) {
+		return evidenceAttachTarget{}, ErrEvidenceNotFound
+	}
+	if err != nil {
+		return evidenceAttachTarget{}, err
+	}
+	return evidenceAttachTarget{
+		IncidentID: envelope.IncidentID,
+		RecordType: envelope.RecordType,
+		Deleted:    errors.Is(records.ClassifyTargetPresence(true, envelope.DeletedAt), records.ErrTargetDeleted),
+	}, nil
+}
+
+// PreflightAttachBlob classifies an attach under the Evidence row lock before
+// any object-store observation. An exact committed replay returns its original
+// receipt first (REQ-01-245, REQ-01-705). A fresh request then passes the
+// deleted, incident-lifecycle, Evidence, Blob-eligibility and version gates,
+// which AttachBlob repeats inside its mutation transaction.
 func (s *blobLifecycleService) PreflightAttachBlob(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request attachBlobRequest, requestHash []byte, now time.Time) (attachBlobPreflightResult, error) {
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
@@ -26,9 +63,26 @@ func (s *blobLifecycleService) PreflightAttachBlob(ctx context.Context, actor au
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
+	key := LifecycleIdempotencyKey{
+		OperationID: LifecycleOperationBlobAttach, ActorUserID: actor.ID,
+		ScopeKey: recordID.String(), ClientTxnID: request.ClientTxnID,
+	}
 	meta, err := s.evidenceRows.loadForUpdateTx(ctx, tx, recordID)
 	if err != nil {
 		return attachBlobPreflightResult{}, err
+	}
+	replay, err := s.committedAttachReplayTx(ctx, tx, key, requestHash, recordID)
+	if err != nil {
+		return attachBlobPreflightResult{}, err
+	}
+	if replay != nil {
+		if err := tx.Commit(ctx); err != nil {
+			return attachBlobPreflightResult{}, err
+		}
+		return attachBlobPreflightResult{Replay: replay}, nil
+	}
+	if meta.Deleted {
+		return attachBlobPreflightResult{}, errAttachTargetDeleted
 	}
 	if err := s.incidentAccess.RequireOpenTx(ctx, tx, meta.IncidentID); err != nil {
 		return attachBlobPreflightResult{}, err
@@ -73,19 +127,6 @@ SELECT record_id
 	case evidencepolicy.AssociationBlobInconsistent:
 		return attachBlobPreflightResult{}, AttachRejectedError{ReasonCode: attachReasonEvidenceInconsistent, Cause: errBlobNotAttachable}
 	}
-	key := LifecycleIdempotencyKey{
-		OperationID: LifecycleOperationBlobAttach, ActorUserID: actor.ID,
-		ScopeKey: recordID.String(), ClientTxnID: request.ClientTxnID,
-	}
-	if payload, found, err := s.idempotency.GetTx(ctx, tx, key, requestHash); err != nil {
-		return attachBlobPreflightResult{}, err
-	} else if found {
-		replay := attachBlobResult{Payload: payload, StatusCode: http.StatusOK, Replayed: true, RecordID: recordID, ClientTxnID: request.ClientTxnID}
-		if err := tx.Commit(ctx); err != nil {
-			return attachBlobPreflightResult{}, err
-		}
-		return attachBlobPreflightResult{Blob: blob, Replay: &replay}, nil
-	}
 	if associated {
 		return attachBlobPreflightResult{}, AttachRejectedError{ReasonCode: AttachReasonBlobNotVisible, Cause: errBlobNotAttachable}
 	}
@@ -96,6 +137,26 @@ SELECT record_id
 		return attachBlobPreflightResult{}, err
 	}
 	return attachBlobPreflightResult{Blob: blob}, nil
+}
+
+// committedAttachReplayTx returns the original committed attach result for an
+// exact replay of key, or nil when no receipt exists (REQ-01-245). It runs
+// first under the Evidence row lock, before the deleted, incident-lifecycle,
+// Blob-eligibility and version gates (REQ-01-705), and the same request under a
+// divergent hash fails with ErrClientTxnConflict.
+//
+// Every attach commits its receipt while holding this Evidence row lock, so
+// the lookup also sees a competing exact request that committed while this
+// one waited. A replay only reads: it takes no incident or Blob lock, so it
+// cannot wait behind or deadlock with a quarantine, which locks the Evidence
+// before the Blob (REQ-02-190a), and it commits no attach, change set, custody
+// event or Collaboration publication.
+func (s *blobLifecycleService) committedAttachReplayTx(ctx context.Context, tx pgx.Tx, key LifecycleIdempotencyKey, requestHash []byte, recordID uuid.UUID) (*attachBlobResult, error) {
+	payload, found, err := s.idempotency.GetTx(ctx, tx, key, requestHash)
+	if err != nil || !found {
+		return nil, err
+	}
+	return &attachBlobResult{Payload: payload, StatusCode: http.StatusOK, Replayed: true, RecordID: recordID, ClientTxnID: key.ClientTxnID}, nil
 }
 
 func (s *blobLifecycleService) AttachBlob(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request attachBlobRequest, requestHash []byte, requestID string, now time.Time) (attachBlobResult, error) {
@@ -113,6 +174,18 @@ func (s *blobLifecycleService) AttachBlob(ctx context.Context, actor authn.UserR
 	meta, err := s.evidenceRows.loadForUpdateTx(ctx, tx, recordID)
 	if err != nil {
 		return attachBlobResult{}, err
+	}
+	// A competing exact request may have committed between preflight and this
+	// lock; its receipt still precedes every other gate.
+	replay, err := s.committedAttachReplayTx(ctx, tx, key, requestHash, recordID)
+	if err != nil {
+		return attachBlobResult{}, err
+	}
+	if replay != nil {
+		return *replay, nil
+	}
+	if meta.Deleted {
+		return attachBlobResult{}, errAttachTargetDeleted
 	}
 	if err := s.incidentAccess.RequireOpenTx(ctx, tx, meta.IncidentID); err != nil {
 		return attachBlobResult{}, err
@@ -144,7 +217,7 @@ func (s *blobLifecycleService) AttachBlob(ctx context.Context, actor authn.UserR
 	if associated && associatedRecordID != recordID {
 		return attachBlobResult{}, AttachRejectedError{ReasonCode: AttachReasonBlobNotVisible, Cause: errBlobNotAttachable}
 	}
-	// Repeat current eligibility before replay: observation may have taken time.
+	// Repeat current eligibility: observation may have taken time.
 	switch evidencepolicy.ClassifyBlobForAssociation(blob.UploadState, blob.PendingExpiresAt, now) {
 	case evidencepolicy.AssociationBlobNeedsFinalization:
 		if blob.UploadLeaseState != "completed" {
@@ -156,13 +229,6 @@ func (s *blobLifecycleService) AttachBlob(ctx context.Context, actor authn.UserR
 		return attachBlobResult{}, AttachRejectedError{ReasonCode: attachReasonBlobQuarantined, Cause: errBlobNotAttachable}
 	case evidencepolicy.AssociationBlobInconsistent:
 		return attachBlobResult{}, AttachRejectedError{ReasonCode: attachReasonEvidenceInconsistent, Cause: errBlobNotAttachable}
-	}
-	// A competing exact request may have committed while this request waited
-	// for the Evidence row lock. Reconcile that receipt before version checks.
-	if payload, found, err := s.idempotency.GetTx(ctx, tx, key, requestHash); err != nil {
-		return attachBlobResult{}, err
-	} else if found {
-		return attachBlobResult{Payload: payload, StatusCode: http.StatusOK, Replayed: true, RecordID: recordID, ClientTxnID: request.ClientTxnID}, nil
 	}
 	if meta.RowVersion != request.BaseRowVersion {
 		return attachBlobResult{}, &rowVersionConflictError{RecordID: recordID, BaseRowVersion: request.BaseRowVersion, CurrentRowVersion: meta.RowVersion}

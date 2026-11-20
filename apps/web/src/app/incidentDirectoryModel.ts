@@ -1,7 +1,7 @@
-import {
-  type APIError,
-  extractError,
-  type HTTPOperationResult,
+import type {
+  APIError,
+  HTTPOperationFailureCode,
+  HTTPOperationResult,
 } from "../services/browserApi";
 import type {
   IncidentDirectoryPaging,
@@ -13,8 +13,12 @@ export type IncidentDirectoryQuery = Readonly<{
   search: string;
   statusFilter: "all" | IncidentDirectoryResource["status"];
 }>;
+/** listVisibleIncidents declares no 403; there is no directory access-denied state. */
+export type IncidentDirectoryError = APIError<
+  HTTPOperationFailureCode<"listVisibleIncidents">
+>;
 export type IncidentDirectoryFailure = Readonly<{
-  error: APIError | null;
+  error: IncidentDirectoryError | null;
   message: string;
   scope: "replace" | "page";
   restart: boolean;
@@ -31,8 +35,7 @@ export type IncidentDirectoryState = Readonly<{
     | "refreshing"
     | "paging"
     | "ready"
-    | "failed"
-    | "forbidden";
+    | "failed";
   failure: IncidentDirectoryFailure | null;
 }>;
 export type IncidentDirectoryPorts = {
@@ -41,7 +44,9 @@ export type IncidentDirectoryPorts = {
     limit: number;
     cursorToken: string | null;
     signal: AbortSignal;
-  }) => Promise<HTTPOperationResult<ListVisibleIncidentsResponse>>;
+  }) => Promise<
+    HTTPOperationResult<ListVisibleIncidentsResponse, "listVisibleIncidents">
+  >;
   isCurrentSession: (identity: string) => boolean;
   sessionLost: () => void;
 };
@@ -271,7 +276,7 @@ export class IncidentDirectoryController {
   }
   private fail(
     request: Request,
-    error: APIError | null,
+    error: IncidentDirectoryError | null,
     message: string,
     restart = false,
   ) {
@@ -305,26 +310,10 @@ export class IncidentDirectoryController {
       if (!this.current(request)) return;
       this.request = null;
       if (!result.ok) {
-        const error = extractError(result.payload);
+        const error = result.payload.error;
         if (result.status === 401) {
           this.setSession(null);
           this.ports.sessionLost();
-        } else if (
-          result.status === 403 ||
-          error?.code === "authorization_denied"
-        ) {
-          this.completedCursors.clear();
-          this.publish({
-            ...initialState(this.state.query),
-            phase: "forbidden",
-            failure: {
-              error,
-              message:
-                "The incident directory is unavailable for this session.",
-              scope: "replace",
-              restart: true,
-            },
-          });
         } else {
           this.fail(
             request,
@@ -332,7 +321,7 @@ export class IncidentDirectoryController {
             request.scope === "page"
               ? "Failed to load more incidents."
               : "Failed to load incidents.",
-            error?.code === "invalid_pagination_request",
+            error.code === "invalid_pagination_request",
           );
         }
         return;

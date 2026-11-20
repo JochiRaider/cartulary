@@ -2,11 +2,8 @@ package evidence
 
 import (
 	"context"
-	"encoding/hex"
-	"encoding/json"
-	"strconv"
-	"strings"
 
+	evidenceblob "github.com/JochiRaider/cartulary/internal/modules/evidence/internal/blob"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 )
@@ -18,15 +15,15 @@ func validateIncidentBundleBlobObservations(ctx context.Context, rows, bundle in
 		if row["upload_state"] != "available" && row["upload_state"] != "quarantined" {
 			return nil
 		}
-		size, sizeOK := portableBlobSize(row["byte_size"])
-		observedSize, observedSizeOK := portableBlobSize(row["observed_size"])
-		digest, digestOK := portableBlobDigest(row["observed_sha256_hex"])
+		size, sizeOK := evidenceblob.ParseSize(row["byte_size"])
+		observedSize, observedSizeOK := evidenceblob.ParseSize(row["observed_size"])
+		digest, digestOK := evidenceblob.ParseDigest(row["observed_sha256_hex"])
 		expected, expectedPresent := row["expected_sha256_hex"]
 		if !sizeOK || !observedSizeOK || size != observedSize || !digestOK || !expectedPresent {
 			return descriptor.DeclaredFailure("evidence.byte_size_digest_agree")
 		}
 		if expected != nil {
-			value, valid := portableBlobDigest(expected)
+			value, valid := evidenceblob.ParseDigest(expected)
 			if !valid || value != digest {
 				return descriptor.DeclaredFailure("evidence.byte_size_digest_agree")
 			}
@@ -44,22 +41,4 @@ func validateIncidentBundleBlobObservations(ctx context.Context, rows, bundle in
 		}
 		return nil
 	})
-}
-
-func portableBlobSize(raw any) (int64, bool) {
-	number, ok := raw.(json.Number)
-	if !ok {
-		return 0, false
-	}
-	value, err := number.Int64()
-	return value, err == nil && value >= 0 && strconv.FormatInt(value, 10) == number.String()
-}
-
-func portableBlobDigest(raw any) (string, bool) {
-	value, ok := raw.(string)
-	if !ok || len(value) != 64 || strings.ToLower(value) != value {
-		return "", false
-	}
-	_, err := hex.DecodeString(value)
-	return value, err == nil
 }

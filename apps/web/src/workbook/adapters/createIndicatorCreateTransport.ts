@@ -23,7 +23,7 @@ import { normalizeWorkbookViewRows } from "../models/workbookContractRows";
 import { decodeCreateViewRowRequest } from "../models/workbookRequestDecoders";
 import { acceptWorkbookRowObservation } from "../query/acceptWorkbookRowObservation";
 import type { WorkbookReadScopeSource } from "../query/WorkbookQueryRow";
-import { classifyWorkbookOperationFailure } from "./workbookOperationErrorPolicy";
+import { explicitWorkbookFailureOutcome } from "./workbookOperationErrorPolicy";
 
 const parameters = (attempt: Pick<IndicatorCreateAttempt, "authority">) => ({
   incident_id: attempt.authority.incidentId,
@@ -75,7 +75,7 @@ export function createIndicatorCreateTransport(options: {
         return { kind: "uncertain" };
       let status: number | null = null;
       try {
-        const response = await fetchHTTPOperation<CreateViewRowResponse>({
+        const response = await fetchHTTPOperation({
           apiBase: attempt.apiBase,
           operationID: "createViewRow",
           pathParameters: parameters(attempt),
@@ -89,21 +89,11 @@ export function createIndicatorCreateTransport(options: {
           },
         });
         if (!response.ok) {
-          if (
-            status === null ||
-            status < 400 ||
-            status >= 500 ||
-            !response.payload.error?.code
-          )
-            return { kind: "uncertain" };
-          const failure = classifyWorkbookOperationFailure(
-            response.status,
-            response.payload,
+          return explicitWorkbookFailureOutcome(
+            status,
+            response.payload.error,
             "createViewRow",
           );
-          return failure.kind === "invalid_contract"
-            ? { kind: "uncertain" }
-            : { kind: "rejected", failure };
         }
         const receipt = validateIndicatorCreateReceipt(
           attempt,

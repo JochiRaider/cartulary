@@ -109,13 +109,15 @@ export function beginHistoryRead(
 export function rejectHistoryRead(
   state: HistoryBrowsingState,
   request: HistoryBrowseRequest,
-  error: WorkbookOperationFailure,
+  error: WorkbookOperationFailure<"getRecordHistory">,
 ): HistoryBrowsingState {
   if (state.pending !== request) return state;
+  // getRecordHistory declares no 403 and no record-level not-found code:
+  // lost incident access is 404 incident_not_found. authorization_lost here
+  // is the owner's client-observed access loss, not a server response.
   const concealed =
     error.kind === "authorization_lost" ||
     error.kind === "authentication_required" ||
-    error.publicCode === "record_not_found" ||
     error.publicCode === "incident_not_found";
   const restart =
     error.publicCode === "invalid_pagination_request" ||
@@ -130,7 +132,7 @@ export function rejectHistoryRead(
   };
 }
 
-const invalidPage: WorkbookOperationFailure = {
+const invalidPage: WorkbookOperationFailure<"getRecordHistory"> = {
   kind: "invalid_contract",
   message:
     "History continuation could not be verified. Start fresh history to continue.",

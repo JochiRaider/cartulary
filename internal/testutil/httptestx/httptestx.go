@@ -5,6 +5,10 @@ import (
 	"errors"
 	"fmt"
 	stdhttptest "net/http/httptest"
+	"os"
+	"sort"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -21,6 +25,7 @@ import (
 	projectiontestsupport "github.com/JochiRaider/cartulary/internal/modules/projections/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
+	"github.com/JochiRaider/cartulary/internal/platform/harnessruntime/runevidence"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
@@ -37,6 +42,7 @@ type Server struct {
 	Clock  *httpapi.TestClock
 
 	runtime       *server.Runtime
+	stopFatal     func()
 	jobs          *JobsCapability
 	collaboration *CollaborationCapability
 	revisions     *RevisionsCapability
@@ -186,6 +192,10 @@ type ServerOptions struct {
 	Postgres         postgres.AdmittedPool
 	ObjectStore      objectstore.Store
 	TestRouteMode    TestRouteMode
+
+	// evidenceLookup redirects the server's fatal record for a test that
+	// forces a fatal deliberately; nil uses the process environment.
+	evidenceLookup func(string) (string, bool)
 }
 
 const TestRouteToken = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFG"
@@ -260,6 +270,8 @@ func StartServer(t testing.TB, options ServerOptions) *Server {
 		HTTP: httpapi.Options{
 			Dependencies:     options.Dependencies,
 			AdditionalRoutes: routes,
+			ErrorCodeGuard:   newErrorCodeGuard(t),
+			SecurityGuard:    newSecurityGuard(t),
 		},
 	}
 	if options.ConfigureRuntime != nil {
@@ -274,11 +286,16 @@ func StartServer(t testing.TB, options ServerOptions) *Server {
 		t.Fatalf("activate app runtime publication: %v", err)
 	}
 
+	evidenceLookup := options.evidenceLookup
+	if evidenceLookup == nil {
+		evidenceLookup = os.LookupEnv
+	}
 	server := &Server{
 		Config:        cfg,
 		HTTP:          stdhttptest.NewServer(runtime.HTTPHandler()),
 		Clock:         clock,
 		runtime:       runtime,
+		stopFatal:     watchServerFatal(runtime, evidenceLookup),
 		jobs:          jobsCapability,
 		collaboration: collaborationCapability,
 		revisions:     revisionsCapability,
@@ -326,6 +343,10 @@ func (s *Server) Close() {
 	}
 	if s.runtime != nil {
 		s.runtime.Close()
+	}
+	// A fatal reached while closing is still recorded.
+	if s.stopFatal != nil {
+		s.stopFatal()
 	}
 }
 
@@ -385,5 +406,83 @@ func RequireErrorDetailStrings(t testing.TB, body map[string]any, key string, wa
 		if value != want[index] {
 			t.Fatalf("unexpected error.details.%s[%d]: got %#v want %#v in %#v", key, index, value, want[index], raw)
 		}
+	}
+}
+
+// newErrorCodeGuard enforces TH-HARNESS-REQ-858 for in-process test servers: a
+// resolved operation's undeclared error code (Core 01 REQ-01-702) becomes 500
+// internal_error, is written to the run's contract evidence stream
+// (TH-HARNESS-REQ-860), and the distinct violations fail the test as one error
+// at cleanup. Every error a resolved operation writes is also an
+// error_emission coverage record, written once per process
+// (TH-HARNESS-REQ-862).
+func newErrorCodeGuard(t testing.TB) *httpapi.ErrorCodeGuard {
+	var mu sync.Mutex
+	violations := map[string]struct{}{}
+	t.Cleanup(func() {
+		mu.Lock()
+		defer mu.Unlock()
+		if len(violations) == 0 {
+			return
+		}
+		list := make([]string, 0, len(violations))
+		for violation := range violations {
+			list = append(list, violation)
+		}
+		sort.Strings(list)
+		t.Errorf("undeclared error codes (Core 01 REQ-01-702): %s", strings.Join(list, "; "))
+	})
+	return &httpapi.ErrorCodeGuard{
+		Enforce: true,
+		Report: func(operationID string, status int, code string) {
+			mu.Lock()
+			defer mu.Unlock()
+			violations[fmt.Sprintf("%s %d %s", operationID, status, code)] = struct{}{}
+			// Best effort: a run without an explicit identity has no stream,
+			// and the cleanup error above still fails the test.
+			_ = runevidence.Record(runevidence.Evidence{Kind: runevidence.UndeclaredErrorCode, OperationID: operationID, Status: status, Code: code, Process: runevidence.InProcess})
+		},
+		Observe: func(operationID string, status int, code string) {
+			// Best effort and deduplicated by the writer; coverage never
+			// fails a test.
+			_ = runevidence.Record(runevidence.Evidence{Kind: runevidence.ErrorEmission, OperationID: operationID, Status: status, Code: code, Process: runevidence.InProcess})
+		},
+	}
+}
+
+// newSecurityGuard enforces TH-HARNESS-REQ-859 for in-process test servers: a
+// resolved operation that authenticates other than its declared security
+// (Core 01 REQ-01-703) answers 500 internal_error when nothing was written
+// yet, writes one security_mismatch record to the run's contract evidence
+// stream (TH-HARNESS-REQ-860), and the distinct mismatches fail the test as
+// one error at cleanup.
+func newSecurityGuard(t testing.TB) *httpapi.SecurityGuard {
+	var mu sync.Mutex
+	mismatches := map[string]struct{}{}
+	t.Cleanup(func() {
+		mu.Lock()
+		defer mu.Unlock()
+		if len(mismatches) == 0 {
+			return
+		}
+		list := make([]string, 0, len(mismatches))
+		for mismatch := range mismatches {
+			list = append(list, mismatch)
+		}
+		sort.Strings(list)
+		t.Errorf("declared security mismatches (Core 01 REQ-01-703): %s", strings.Join(list, "; "))
+	})
+	return &httpapi.SecurityGuard{
+		Enforce: true,
+		Report: func(mismatch httpapi.SecurityMismatch) {
+			mu.Lock()
+			defer mu.Unlock()
+			mismatches[fmt.Sprintf("%s %d declared=%s observed=%s", mismatch.OperationID, mismatch.Status, mismatch.Declared, mismatch.Observed)] = struct{}{}
+			// Best effort, as for undeclared error codes.
+			_ = runevidence.Record(runevidence.Evidence{
+				Kind: runevidence.SecurityMismatch, OperationID: mismatch.OperationID, Status: mismatch.Status,
+				Security: &runevidence.SecurityFact{Declared: mismatch.Declared, Observed: mismatch.Observed}, Process: runevidence.InProcess,
+			})
+		},
 	}
 }

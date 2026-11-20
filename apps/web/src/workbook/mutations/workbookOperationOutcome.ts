@@ -1,4 +1,8 @@
 import type { CartularyErrorPresentation } from "@cartulary/ui-contracts";
+import type {
+  HTTPOperationErrorCode,
+  HTTPOperationID,
+} from "../../services/browserApi";
 import type { PublicErrorReasonCode } from "../../services/publicErrorIdentity";
 import type { EvidenceUploadFailure } from "../../services/workbookEvidence";
 import type { WorkbookSameFieldConflictPayload } from "../runtime/workbookConflictModel";
@@ -8,7 +12,14 @@ export type WorkbookOperationFieldFailure = {
   readonly message: string;
 };
 
-export type WorkbookOperationFailure = (
+/**
+ * A classified Workbook operation failure. `publicCode` is the decoded server
+ * code, typed from the generated bindings of the operations that produced
+ * it; client-originated and contract failures carry none.
+ */
+export type WorkbookOperationFailure<
+  OperationID extends HTTPOperationID = HTTPOperationID,
+> = (
   | {
       readonly kind: "validation";
       readonly message: string;
@@ -28,11 +39,20 @@ export type WorkbookOperationFailure = (
   | { readonly kind: "terminal"; readonly message: string }
 ) & {
   readonly presentation?: CartularyErrorPresentation | undefined;
-  readonly publicCode?: string | undefined;
+  readonly publicCode?: HTTPOperationErrorCode<OperationID> | undefined;
   readonly publicReason?: PublicErrorReasonCode | undefined;
   readonly uploadFailure?: EvidenceUploadFailure | undefined;
 };
 
-export type WorkbookOperationOutcome<Accepted> =
+/** A client-originated Workbook failure: no request decided it, so it carries no public code. */
+export type WorkbookClientFailure = WorkbookOperationFailure<never>;
+
+export type WorkbookOperationOutcome<
+  Accepted,
+  OperationID extends HTTPOperationID = HTTPOperationID,
+> =
   | { readonly kind: "accepted"; readonly value: Accepted }
-  | { readonly kind: "rejected"; readonly failure: WorkbookOperationFailure };
+  | {
+      readonly kind: "rejected";
+      readonly failure: WorkbookOperationFailure<OperationID>;
+    };

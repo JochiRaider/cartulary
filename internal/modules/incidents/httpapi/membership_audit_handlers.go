@@ -8,7 +8,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/platform/administrativeaudit"
 	platformhttpapi "github.com/JochiRaider/cartulary/internal/platform/httpapi"
-	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 	"github.com/JochiRaider/cartulary/internal/platform/listquery"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
@@ -43,21 +42,12 @@ func parseMembershipAuditScope(rawQuery string) (listquery.Result, *platformhttp
 }
 
 func (s *service) handleMembershipAuditEvents(w http.ResponseWriter, r *http.Request) {
-	incidentID, ok := routeUUID(w, r, "incident_id")
-	if !ok {
+	principal, apiErr := admittedPrincipal(r)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
 		return
 	}
-
-	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{
-		Store:         s.authStore,
-		Keys:          s.keys,
-		Now:           s.now,
-		StateChanging: false,
-	})
+	incidentID, apiErr := admittedPathUUID(r, "incident_id")
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -102,7 +92,7 @@ func (s *service) handleMembershipAuditEvents(w http.ResponseWriter, r *http.Req
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}

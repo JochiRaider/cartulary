@@ -2,7 +2,6 @@ package artifacts
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"reflect"
 	"slices"
@@ -33,6 +32,7 @@ type RecordEnvelopeCapability interface {
 	AdvanceVersionTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, time.Time) (int64, error)
 	LoadEnvelopeTx(context.Context, pgx.Tx, uuid.UUID, bool) (recordenvelope.Envelope, error)
 	LoadEnvelopeForShareTx(context.Context, pgx.Tx, uuid.UUID) (recordenvelope.Envelope, error)
+	ClassifyTargetTx(context.Context, pgx.Tx, uuid.UUID, records.TargetLock) (recordenvelope.Envelope, error)
 }
 
 type LinkCapability interface {
@@ -182,20 +182,17 @@ type artifactRecordMeta struct {
 	RowVersion int64
 }
 
+// loadArtifactRecordMetaForUpdateTx classifies the addressed record through
+// Records (REQ-01-705: missing, then deleted) under FOR UPDATE. Callers apply
+// the type, incident-lifecycle and version steps in that order.
 func (f *MutationFacade) loadArtifactRecordMetaForUpdateTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	recordID uuid.UUID,
 ) (artifactRecordMeta, error) {
-	envelope, err := f.recordEnvelopes.LoadEnvelopeTx(ctx, tx, recordID, true)
-	if errors.Is(err, recordenvelope.ErrEnvelopeNotFound) {
-		return artifactRecordMeta{}, pgx.ErrNoRows
-	}
+	envelope, err := f.recordEnvelopes.ClassifyTargetTx(ctx, tx, recordID, records.TargetLockUpdate)
 	if err != nil {
 		return artifactRecordMeta{}, err
-	}
-	if envelope.DeletedAt != nil {
-		return artifactRecordMeta{}, revisions.ErrRecordDeletedUseRestore
 	}
 	return artifactRecordMeta{
 		IncidentID: envelope.IncidentID,

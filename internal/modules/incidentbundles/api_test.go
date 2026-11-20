@@ -42,6 +42,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/stagedobjects"
 	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/JochiRaider/cartulary/internal/testutil/httpapiextensions"
 )
@@ -1192,7 +1193,9 @@ func TestIncidentBundlePortabilityFailuresUseClosedRedactedDetails_Unit(t *testi
 
 func TestAdmittedRouteSetupRequiresImportFinalizer_Unit(t *testing.T) {
 	projections := httpapiextensions.New(t, []httpapi.ExtensionProfile{{ProfileID: ProfileID, Claimed: true}})
-	deps := projections.Dependencies(httpapi.DependencySet{})
+	// The routes bind for central admission (Core 01 REQ-01-707), which needs
+	// the injected authenticator.
+	deps := projections.Dependencies(httpapi.DependencySet{Authenticator: httpauth.NewAuthenticator(httpauth.Options{Now: time.Now})})
 	module, err := NewModule(moduleTestDependencies())
 	if err != nil {
 		t.Fatalf("construct complete module: %v", err)

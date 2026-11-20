@@ -1,6 +1,5 @@
 import type {
   CreateIncidentRequest,
-  CreateIncidentResponse,
   ListVisibleIncidentsResponse,
 } from "@cartulary/protocol-ts/http";
 import { fetchHTTPOperation } from "../../services/browserApi";
@@ -17,7 +16,7 @@ export function listVisibleIncidents(
     signal?: AbortSignal | undefined;
   } = {},
 ) {
-  return fetchHTTPOperation<ListVisibleIncidentsResponse>({
+  return fetchHTTPOperation({
     apiBase: options.apiBase,
     operationID: "listVisibleIncidents",
     init: options.signal === undefined ? undefined : { signal: options.signal },
@@ -60,7 +59,8 @@ export async function createIncident(options: {
       ? {}
       : { primary_external_case_ref }),
   } satisfies CreateIncidentRequest;
-  const result = await fetchHTTPOperation<CreateIncidentResponse>({
+  // Undeclared success statuses already fail the central operation decoding.
+  return fetchHTTPOperation({
     operationID: "createIncident",
     init: {
       method: "POST",
@@ -68,18 +68,4 @@ export async function createIncident(options: {
       signal: options.signal,
     },
   });
-  if (result.ok && result.status !== 200 && result.status !== 201) {
-    return {
-      ok: false as const,
-      status: 502,
-      payload: {
-        error: {
-          code: "invalid_public_contract_response",
-          status: 502,
-          retryable: true,
-        },
-      },
-    };
-  }
-  return result;
 }

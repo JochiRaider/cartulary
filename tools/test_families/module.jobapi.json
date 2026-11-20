@@ -89,6 +89,36 @@
       "postgres_isolation": "exclusive"
     },
     {
+      "row_id": "module.jobapi.integration.job_routes_are_admitted_centrally_in_the_request_254d23ce91",
+      "owner_id": "module.jobapi",
+      "family_id": "module.jobapi.integration",
+      "collaborator_ids": [
+        "platform.jobs"
+      ],
+      "verification_ids": [
+        "module.jobapi.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/jobapi",
+        "tests": [
+          "TestJobRouteAdmissionOrder_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "module.jobapi.integration.the_reusable_deployment_admin_incident_membershi_b1cbd96a5a",
       "owner_id": "module.jobapi",
       "family_id": "module.jobapi.integration",

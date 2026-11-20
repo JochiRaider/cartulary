@@ -40,7 +40,7 @@ func TestModuleSettingsProjection_Unit(t *testing.T) {
 
 	collaborationConfig := projection.Collaboration(nil, newCollaborationSocketTransport(cfg.Application.PublicOrigin), nil)
 	if collaborationConfig.AcceptSocket == nil ||
-		collaborationConfig.CheckBrowserOrigin == nil ||
+		collaborationConfig.CheckOrigin == nil ||
 		collaborationConfig.ServiceVersion != "2026.7.25" {
 		t.Fatalf("collaboration settings = %#v", collaborationConfig)
 	}

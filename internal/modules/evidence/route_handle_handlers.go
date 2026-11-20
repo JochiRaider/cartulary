@@ -12,7 +12,6 @@ import (
 	"time"
 
 	evidencepolicy "github.com/JochiRaider/cartulary/internal/modules/evidence/internal/policy"
-	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 )
@@ -26,13 +25,14 @@ func (s *service) handleDownloadHandle(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *service) handleIssueHandle(w http.ResponseWriter, r *http.Request, kind string) {
-	principal, apiErr := s.admission.authenticate(r, true)
+	principal, apiErr := admittedPrincipal(r)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	recordID, ok := pathUUID(w, r, "record_id")
-	if !ok {
+	recordID, apiErr := admittedPathUUID(r, "record_id")
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
 		return
 	}
 	access, err := s.operations.LoadEvidenceAccess(r.Context(), recordID)
@@ -44,8 +44,10 @@ func (s *service) handleIssueHandle(w http.ResponseWriter, r *http.Request, kind
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	if _, apiErr := s.admission.requireRole(r.Context(), access.IncidentID, principal.User.ID, admission.RolesMember, "member"); apiErr != nil {
-		writeAPIError(w, r, evidenceRecordNotFound())
+	// Only an incident the caller cannot see is concealed as the missing
+	// record; any other admission failure stays internal_error (REQ-01-706).
+	if _, apiErr := s.admission.concealedIncident(r.Context(), access.IncidentID, principal.User.ID, evidenceRecordNotFound); apiErr != nil {
+		writeAPIError(w, r, apiErr)
 		return
 	}
 	if apiErr := decodeHandleIssueRequest(r.Body); apiErr != nil {
@@ -113,7 +115,7 @@ func (s *service) handleIssueHandle(w http.ResponseWriter, r *http.Request, kind
 	if kind == "preview" {
 		payload["preview_kind"] = previewKind
 	}
-	if err := s.admission.slide(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.admission.slide(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
@@ -121,12 +123,18 @@ func (s *service) handleIssueHandle(w http.ResponseWriter, r *http.Request, kind
 }
 
 func (s *service) handleRedeemHandle(w http.ResponseWriter, r *http.Request) {
-	principal, apiErr := s.admission.authenticate(r, false)
+	principal, apiErr := admittedPrincipal(r)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	token := r.PathValue("handle_token")
+	// Central admission checked only the token's syntax; whether it is a live
+	// handle is route handling (REQ-01-707).
+	token, apiErr := admittedPathString(r, "handle_token")
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
 	handle, err := s.operations.LoadHandle(r.Context(), token)
 	if errors.Is(err, ErrBlobNotFound) {
 		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusNotFound, Code: "handle_not_found_or_revoked", Details: map[string]any{}})
@@ -140,8 +148,10 @@ func (s *service) handleRedeemHandle(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, handleNotFoundOrRevoked())
 		return
 	}
-	if _, apiErr := s.admission.requireRole(r.Context(), handle.IncidentID, principal.User.ID, admission.RolesMember, "member"); apiErr != nil {
-		writeAPIError(w, r, handleNotFoundOrRevoked())
+	// Only an incident the caller cannot see is concealed as a revoked
+	// handle; any other admission failure stays internal_error (REQ-01-706).
+	if _, apiErr := s.admission.concealedIncident(r.Context(), handle.IncidentID, principal.User.ID, handleNotFoundOrRevoked); apiErr != nil {
+		writeAPIError(w, r, apiErr)
 		return
 	}
 	now := s.now().UTC()

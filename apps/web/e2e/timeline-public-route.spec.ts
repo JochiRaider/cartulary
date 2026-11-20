@@ -948,7 +948,10 @@ test(exactScenarioTitle, async ({ browserScope, page }) => {
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
   });
 
-  await test.step("unknown public error presentation uses an exact local response", async () => {
+  // Core 03 REQ-03-086a: a code the operation does not declare is a client
+  // contract failure. It is retried as an uncertain outcome and never selects
+  // the terminal-halt presentation or exposes the rejected payload.
+  await test.step("an undeclared public error is a retried contract failure without private presentation", async () => {
     const faultPath = `/api/v1/records/${alpha.record_id}`;
     const publicError = await installPublicErrorResponse(page, {
       method: "PATCH",
@@ -999,30 +1002,28 @@ test(exactScenarioTitle, async ({ browserScope, page }) => {
     expect(unknownEnvelope.error.retryable).toBe(false);
     expect(publicError.hitCount()).toBe(1);
     await publicError.dispose();
-    await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
-    await openRecoveryItem(page, /^Queued edit recovery ·/);
-    const recoveryPanel = page.getByTestId(workbookEditRecoveryTestId());
-    await expect(recoveryPanel).toBeVisible();
-    await expect(recoveryPanel).toContainText(
-      "A queued edit could not be completed safely. Discard the blocked edit to continue with later queued edits.",
-    );
-    await expect(recoveryPanel).not.toContainText("/home/cartulary");
-    await expect(recoveryPanel).not.toContainText("stack trace");
-    await expect(recoveryPanel).not.toContainText("private.go");
-    await expect(recoveryPanel).not.toContainText(
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+    for (const privateText of [
+      "/home/cartulary",
+      "stack trace",
+      "private.go",
       "future_private_public_error",
-    );
-    await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
-    await expect(alphaSummaryEditor).toHaveValue(
-      "end-to-end.mutation-lifecycle.row-01 unknown fallback local",
-    );
-
-    page.once("dialog", async (dialog) => {
-      await dialog.accept();
-    });
+    ])
+      await expect(page.locator("body")).not.toContainText(privateText);
     await page.reload();
     await openTimelineIncident(page, incidentId);
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+    await scrollGridCellIntoView({
+      cellKey: "timeline.activity_synopsis_text",
+      page,
+      recordId: alpha.record_id,
+      surface: timelineViewSchemaId,
+    });
+    await expect(
+      page.getByTestId(
+        rowCellTestId(alpha.record_id, "timeline.activity_synopsis_text"),
+      ),
+    ).toContainText("unknown fallback local");
   });
 });
 

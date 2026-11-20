@@ -12,7 +12,6 @@ import (
 
 	incidentadmission "github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
-	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 )
@@ -172,11 +171,11 @@ func partyMutationFailure(err error, clientTxnID string) (*workbook.MutationFail
 	if incidentadmission.IsDenied(err, incidentadmission.DenialIncidentClosed) {
 		return workbook.IncidentClosedFailure(), true
 	}
+	if failure, classified := recordTargetFailure(err); classified {
+		return failure, true
+	}
 	if errors.Is(err, pgx.ErrNoRows) {
 		return workbook.TargetNotFoundFailure(), true
-	}
-	if errors.Is(err, revisions.ErrRecordDeletedUseRestore) {
-		return workbook.RecordDeletedFailure(), true
 	}
 	var validation *parties.ValidationError
 	if errors.As(err, &validation) {

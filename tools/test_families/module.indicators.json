@@ -238,6 +238,37 @@
       "postgres_isolation": "exclusive"
     },
     {
+      "row_id": "module.indicators.integration.indicator_child_mutations_report_a_deleted_path_261fd8cc7e",
+      "owner_id": "module.indicators",
+      "family_id": "module.indicators.integration",
+      "collaborator_ids": [
+        "module.timeline",
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "module.indicators.verification.production_child_workflows"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/indicators",
+        "tests": [
+          "TestIndicatorChildRoutesClassifyDeletedTargets_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "module.indicators.integration.indicator_create_and_query_routes_persist_canoni_e3a29b7aaf",
       "owner_id": "module.indicators",
       "family_id": "module.indicators.integration",
@@ -255,6 +286,65 @@
         "package": "./internal/modules/indicators",
         "tests": [
           "TestIndicatorsRoute_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.indicators.integration.indicator_routes_are_admitted_centrally_in_the_r_8eeffa9767",
+      "owner_id": "module.indicators",
+      "family_id": "module.indicators.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.indicators.verification.route_integration"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/indicators",
+        "tests": [
+          "TestIndicatorRouteAdmissionOrder_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.indicators.integration.indicator_routes_conceal_invisible_incidents_wit_5ce9ae62df",
+      "owner_id": "module.indicators",
+      "family_id": "module.indicators.integration",
+      "collaborator_ids": [
+        "module.timeline",
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "module.indicators.verification.production_child_workflows"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/indicators",
+        "tests": [
+          "TestIndicatorRoutesReplayFirstAndConcealVisibility_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -852,6 +942,31 @@
           "TestIndicatorProviderImplementationsAreInternal",
           "TestIndicatorsDoNotUseEntitiesSourcePrefixes",
           "TestIndicatorsProductionImportBoundaries"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.indicators.target_resolution.indicator_envelope_read_failures_are_internal_er_dfc139792b",
+      "owner_id": "module.indicators",
+      "family_id": "module.indicators.target_resolution",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.indicators.verification.target_role_resolution"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/indicators/httpapi",
+        "tests": [
+          "TestIndicatorEnvelopeReadFailuresAreInternal_Unit"
         ]
       },
       "evidence_class": "unit",

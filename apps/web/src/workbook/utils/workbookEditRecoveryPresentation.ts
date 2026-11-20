@@ -1,4 +1,20 @@
-import { resolvePublicErrorPresentation } from "../../shared/publicErrorPresentation";
+import type { HTTPOperationErrorCode } from "../../services/browserApi";
+import type { ClientErrorCode } from "../../shared/publicError";
+import type { WorkbookOperationFailure } from "../mutations/workbookOperationOutcome";
+
+/**
+ * The pending queue's settlement classification of a replay failure: the
+ * Workbook failure kind a mutation driver reports, the queue's own closure
+ * halt, or a client-originated dispatch failure. It is closed, so comparing it
+ * with any other literal is a type error (Core 03 REQ-03-086a).
+ */
+export type PendingReplaySettlementCode =
+  | WorkbookOperationFailure["kind"]
+  | Extract<HTTPOperationErrorCode, "incident_closed">
+  | Extract<
+      ClientErrorCode,
+      "pending_runtime_metadata_missing" | "transport_failure"
+    >;
 
 const clientTransactionRecoveryMessage =
   "A queued edit could not be replayed safely. Retry it with a new request ID, or discard the blocked edit to continue.";
@@ -18,20 +34,18 @@ export type WorkbookEditRecoveryPresentation =
       readonly retryAllowed: false;
     };
 
+/**
+ * Presents a pending replay halt. `errorCode` is the queue's settlement
+ * classification, not a decoded server code; only a transaction conflict
+ * admits retry with a new request identity.
+ */
 export function workbookEditRecoveryPresentation({
   errorCode,
-  status = 409,
 }: {
-  readonly errorCode: string;
+  readonly errorCode: PendingReplaySettlementCode;
   readonly status?: number | undefined;
 }): WorkbookEditRecoveryPresentation {
-  const family = resolvePublicErrorPresentation({
-    code: errorCode,
-    hasAuthorizedMaterialization: true,
-    operationFamily: "field_mutation",
-    status,
-  }).family;
-  if (family === "client_txn_conflict") {
+  if (errorCode === "client_txn_conflict") {
     return {
       kind: "client_txn_conflict",
       message: clientTransactionRecoveryMessage,

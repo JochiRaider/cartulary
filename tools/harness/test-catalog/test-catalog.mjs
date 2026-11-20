@@ -4,6 +4,7 @@ import path from "node:path";
 import {
   canonicalJSONString,
   assertMachineEvidencePath,
+  HarnessConfigError,
   semanticJSONDigest,
   validateSchemaSync,
 } from "../contract/index.mjs";
@@ -406,6 +407,22 @@ function validateRowSemantics({
   validateFixtureProfile({ row, fixtureProfiles, label });
 }
 
+// Attributes an untyped rejection to a repository subject for the closed
+// preparation diagnostic (TH-HARNESS-REQ-854). The message stays for direct
+// human output; a typed inner rejection keeps its own cause and subjects.
+function attributed(cause, subjects, operation) {
+  try {
+    return operation();
+  } catch (error) {
+    if (error instanceof HarnessConfigError && error.diagnostic_cause !== "unclassified") throw error;
+    throw new HarnessConfigError(error instanceof Error ? error.message : String(error), {
+      reason: error?.failure_reason === "usage_error" ? "usage_error" : "configuration_error",
+      diagnosticCause: cause,
+      subjects,
+    });
+  }
+}
+
 // Metadata closure is shared by full preflight and private row execution. It
 // makes no claim about source-selector resolution or complete catalog success.
 function readCatalogDefinition(root) {
@@ -428,7 +445,7 @@ function readCatalogDefinition(root) {
   const rows = [];
   const rowIDs = new Set();
 
-  for (const owner of registry.owners) {
+  for (const owner of registry.owners) attributed("catalog_shape", [owner.manifest_path], () => {
     if (owner.manifest_path !== `tools/test_families/${owner.owner_id}.json`) {
       throw new Error(`${registryPath}:${owner.owner_id}.manifest_path must match its owner ID`);
     }
@@ -471,7 +488,7 @@ function readCatalogDefinition(root) {
       rows.push(row);
     }
     manifests.push(manifest);
-  }
+  });
 
   const familyRoot = path.join(root, "tools/test_families");
   const registeredBasenames = new Set(manifestPaths.map((entry) => path.basename(entry)));
@@ -568,13 +585,23 @@ function resolveSelectors(root, rows, { runners, operationIDs }, complete = fals
   const resolveSelector = createRowSelectorResolver(root);
   const selectors = new Set();
   const overlaps = [];
+  const overlapping = [];
   for (const row of rows) {
-    for (const selector of resolveSelector({ row, runner: runners.get(row.runner), operationIDs })) {
-      if (selectors.has(selector)) overlaps.push(`${row.row_id}.selector overlaps ${selector}`);
+    const resolved = attributed("selector_resolution", [row.row_id], () => resolveSelector({ row, runner: runners.get(row.runner), operationIDs }));
+    for (const selector of resolved) {
+      if (selectors.has(selector)) {
+        overlaps.push(`${row.row_id}.selector overlaps ${selector}`);
+        overlapping.push(selector);
+      }
       selectors.add(selector);
     }
   }
-  if (overlaps.length) throw new Error(`${overlaps.length} overlapping catalog selections: ${overlaps.slice(0, 20).join("; ")}`);
+  if (overlaps.length) {
+    throw new HarnessConfigError(`${overlaps.length} overlapping catalog selections: ${overlaps.slice(0, 20).join("; ")}`, {
+      diagnosticCause: "catalog_coverage",
+      subjects: overlapping.sort(asciiCompare),
+    });
+  }
   if (complete) resolveSelector.assertSourceCoverage(runners, selectors);
   return [...selectors].filter((selector) => !selector.startsWith("playwright-source:")).length;
 }

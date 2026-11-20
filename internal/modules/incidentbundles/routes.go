@@ -7,14 +7,12 @@ import (
 	"io"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
-	"github.com/google/uuid"
 )
 
 type service struct {
@@ -23,37 +21,35 @@ type service struct {
 	incidentAccess *admission.Checker
 	storage        BundleStorage
 	worker         *incidentBundleWorker
-	keys           authn.MasterKeys
 	now            func() time.Time
 }
 
 // RegisterRoutes returns the Incident Bundles registrar only after the module
-// facade has completed its coordinator and worker lifecycle.
+// facade has completed its coordinator and worker lifecycle. Each operation is
+// bound for central admission (Core 01 REQ-01-707): the registry resolves the
+// route, authenticates by the declared security and admits bundle_id before a
+// handler runs.
 func (m *Module) RegisterRoutes() httpapi.RouteRegistrar {
 	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
 		if err := m.routeDependenciesReady(); err != nil {
 			return err
 		}
-		service, err := newService(deps, m)
+		service, err := newService(m)
 		if err != nil {
 			return err
 		}
-		return httpapi.BindOwnerRoutes(mux, deps, "module.incidentbundles", map[string]http.HandlerFunc{
+		return httpapi.BindAdmittedOwnerRoutes(mux, deps, "module.incidentbundles", map[string]http.HandlerFunc{
 			"exportIncidentBundle":        service.handleExport,
-			"getIncidentBundleDescriptor": service.handleBundleMember,
-			"getIncidentBundleContent":    service.handleBundleContent,
+			"getIncidentBundleDescriptor": service.handleGetDescriptor,
+			"getIncidentBundleContent":    service.handleGetContent,
 			"importIncidentBundle":        service.handleImport,
 		})
 	}
 }
 
-func newService(deps httpapi.DependencySet, module *Module) (*service, error) {
+func newService(module *Module) (*service, error) {
 	if module == nil || module.pool == nil || module.store == nil || module.worker == nil || module.storage == nil || module.now == nil {
 		return nil, fmt.Errorf("incident bundle module is incomplete")
-	}
-	keys, err := authn.LoadMasterKeys(deps.Env)
-	if err != nil {
-		return nil, fmt.Errorf("load auth master key: %w", err)
 	}
 	return &service{
 		store:          module.store,
@@ -61,42 +57,27 @@ func newService(deps httpapi.DependencySet, module *Module) (*service, error) {
 		incidentAccess: admission.NewChecker(module.pool),
 		storage:        module.storage,
 		worker:         module.worker,
-		keys:           keys,
 		now:            module.now,
 	}, nil
 }
 
-func (s *service) handleBundleMember(w http.ResponseWriter, r *http.Request) {
+func (s *service) handleGetDescriptor(w http.ResponseWriter, r *http.Request) {
 	s.serveBundle(w, r, false)
 }
-func (s *service) handleBundleContent(w http.ResponseWriter, r *http.Request) {
+
+func (s *service) handleGetContent(w http.ResponseWriter, r *http.Request) {
 	s.serveBundle(w, r, true)
 }
+
 func (s *service) serveBundle(w http.ResponseWriter, r *http.Request, content bool) {
-	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-	bundleIDText := strings.TrimPrefix(r.URL.Path, "/api/v1/incident-bundles/")
-	if content {
-		bundleIDText = strings.TrimSuffix(bundleIDText, "/content")
-	}
-	if bundleIDText == "" || strings.Contains(bundleIDText, "/") {
-		http.NotFound(w, r)
-		return
-	}
-	bundleID, err := uuid.Parse(bundleIDText)
-	if err != nil {
-		writeAPIError(w, r, incidentBundleNotFound())
-		return
-	}
-	if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-	principal, apiErr := s.requireDeploymentAdmin(r, false)
+	principal, apiErr := admittedPrincipal(r)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
+		return
+	}
+	bundleID, identified := httpapi.PathUUID(r, "bundle_id")
+	if !identified {
+		writeAPIError(w, r, internalAPIError())
 		return
 	}
 	record, err := s.store.getDescriptor(r.Context(), bundleID)
@@ -115,7 +96,19 @@ func (s *service) serveBundle(w http.ResponseWriter, r *http.Request, content bo
 		writeAPIError(w, r, internalAPIError())
 		return
 	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	// REQ-01-704: the deployment role is decided only for a caller who can
+	// see the bundle's incident; anyone else gets the missing bundle's response.
+	if apiErr := httpauth.RequireDeploymentAdmin(principal.User); apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	// REQ-01-707 step 5: the singleton-read query check is route handling,
+	// after the bundle's visibility and role gate.
+	if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, internalAPIError())
 		return
 	}
@@ -145,15 +138,13 @@ func (s *service) serveBundle(w http.ResponseWriter, r *http.Request, content bo
 }
 
 func (s *service) handleExport(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-	principal, apiErr := s.requireDeploymentAdmin(r, true)
+	principal, apiErr := admittedPrincipal(r)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
+	// The body's incident_id addresses the exported incident (REQ-01-484), so
+	// the body is decoded before that incident's visibility can be decided.
 	request, apiErr := decodeExportRequest(r.Body)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
@@ -164,6 +155,13 @@ func (s *service) handleExport(w http.ResponseWriter, r *http.Request) {
 		return
 	} else if err != nil {
 		writeAPIError(w, r, internalAPIError())
+		return
+	}
+	// Export is an incident-context operation that needs both current
+	// membership and deployment_admin (REQ-01-608); the role is decided only
+	// after visibility (REQ-01-704).
+	if apiErr := httpauth.RequireDeploymentAdmin(principal.User); apiErr != nil {
+		writeAPIError(w, r, apiErr)
 		return
 	}
 	if request.CapabilityActivationRequested {
@@ -187,7 +185,7 @@ func (s *service) handleExport(w http.ResponseWriter, r *http.Request) {
 	if !result.Replayed {
 		_ = s.worker.dispatch(result.Job.JobID)
 	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, internalAPIError())
 		return
 	}
@@ -195,12 +193,12 @@ func (s *service) handleExport(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *service) handleImport(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
+	principal, apiErr := admittedPrincipal(r)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
 		return
 	}
-	principal, apiErr := s.requireDeploymentAdmin(r, true)
-	if apiErr != nil {
+	if apiErr := httpauth.RequireDeploymentAdmin(principal.User); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -259,24 +257,23 @@ func (s *service) handleImport(w http.ResponseWriter, r *http.Request) {
 		accepted = true
 		_ = s.worker.dispatch(result.Job.JobID)
 	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, internalAPIError())
 		return
 	}
 	_ = httpapi.WriteSuccess(w, r, http.StatusAccepted, result.Job)
 }
 
-func (s *service) requireDeploymentAdmin(r *http.Request, stateChanging bool) (httpauth.Principal, *httpapi.APIError) {
-	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: stateChanging})
-	if apiErr != nil {
-		return httpauth.Principal{}, apiErr
-	}
-	if apiErr := httpauth.RequireDeploymentAdmin(principal.User); apiErr != nil {
-		return httpauth.Principal{}, apiErr
+// admittedPrincipal returns the principal central admission established; its
+// absence is a binding error.
+func admittedPrincipal(r *http.Request) (httpauth.Principal, *httpapi.APIError) {
+	principal, authenticated := httpauth.AdmittedPrincipal(r)
+	if !authenticated {
+		return httpauth.Principal{}, internalAPIError()
 	}
 	return principal, nil
 }
 
-func (s *service) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal, method string, path string) error {
-	return httpauth.SlideSessionIfNeeded(ctx, s.authStore, principal, method, path, s.now)
+func (s *service) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal) error {
+	return httpauth.SlideSessionIfNeeded(ctx, s.authStore, principal, s.now)
 }

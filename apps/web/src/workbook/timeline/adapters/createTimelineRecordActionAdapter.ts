@@ -7,7 +7,7 @@ import {
   type SupersedeRecordResponse,
 } from "@cartulary/protocol-ts/http";
 import { apiPath, fetchHTTPOperation } from "../../../services/browserApi";
-import { classifyWorkbookOperationFailure } from "../../adapters/workbookOperationErrorPolicy";
+import { explicitWorkbookFailureOutcome } from "../../adapters/workbookOperationErrorPolicy";
 import { acceptWorkbookRowObservation } from "../../query/acceptWorkbookRowObservation";
 import type { WorkbookReadScopeSource } from "../../query/WorkbookQueryRow";
 import { timelineCaptureReviewValid } from "../actions/timelineCaptureActionModel";
@@ -79,7 +79,8 @@ export function createTimelineRecordActionAdapter(options: {
       let status: number | null = null;
       try {
         const result = await fetchHTTPOperation<
-          MarkTimelineRecordReviewedResponse | SupersedeRecordResponse
+          MarkTimelineRecordReviewedResponse | SupersedeRecordResponse,
+          typeof operationID
         >({
           apiBase: attempt.apiBase,
           operationID,
@@ -90,21 +91,11 @@ export function createTimelineRecordActionAdapter(options: {
           },
         });
         if (!result.ok) {
-          if (
-            status === null ||
-            status < 400 ||
-            status >= 500 ||
-            !result.payload.error?.code
-          )
-            return { kind: "uncertain" };
-          const failure = classifyWorkbookOperationFailure(
-            result.status,
-            result.payload,
+          return explicitWorkbookFailureOutcome(
+            status,
+            result.payload.error,
             operationID,
           );
-          return failure.kind === "invalid_contract"
-            ? { kind: "uncertain" }
-            : { kind: "rejected", failure };
         }
         const receipt = validateTimelineCaptureReceipt(
           attempt,

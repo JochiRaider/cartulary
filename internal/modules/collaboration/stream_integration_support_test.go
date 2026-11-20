@@ -213,7 +213,11 @@ func newDispatcherForTest(
 	if err != nil {
 		panic(err)
 	}
-	dispatcher, err := privatestream.NewDispatcher(store, broadcaster, now, "0.0.0+unknown", func() {})
+	// These dispatchers run single passes; none starts the replay listener.
+	unusedListener := func(context.Context) (*pgx.Conn, error) {
+		return nil, errors.New("unused test listener session")
+	}
+	dispatcher, err := privatestream.NewDispatcher(store, unusedListener, broadcaster, now, "0.0.0+unknown", func() {})
 	if err != nil {
 		panic(err)
 	}

@@ -1,5 +1,5 @@
 import path from "node:path";
-import { parseStrictJSON, resolveCommandInputs } from "../contract/index.mjs";
+import { parseStrictJSON, redactionMarker, resolveCommandInputs } from "../contract/index.mjs";
 import { WorkGraphCompiler, buildWorkGraph, selectionFor, replayInputs, captureCapabilitySnapshot, availableGoWorkerBudget } from "../scheduler/work-graph/index.mjs";
 import { readLocalFile } from "../runtime/secure-local-files.mjs";
 
@@ -41,7 +41,7 @@ export function buildTargetPlan(root, target, suppliedInputs = {}, compiler = ne
     schema_id: "cartulary.harness_target_plan.v7",
     target, command_id: entry.command_id,
     inputs: Object.fromEntries(Object.entries(inputs).map(([key, value]) => [key,
-      entry.input_contract.inputs.find((input) => input.name === key).summary_emission === "redacted_value" ? "<redacted>" : value])),
+      entry.input_contract.inputs.find((input) => input.name === key).summary_emission === "redacted_value" ? redactionMarker() : value])),
     capability_snapshot: snapshot, go_worker_budget: compiler.availableGoLanes,
     graph_digest: compiled.graph.graph_digest,
     projections: compiled.projections ?? { [target]: compiled.graph.units.map((unit) => unit.unit_id) },

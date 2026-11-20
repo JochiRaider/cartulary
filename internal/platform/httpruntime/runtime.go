@@ -29,8 +29,13 @@ type Options struct {
 	InheritedFD       string
 	ReadHeaderTimeout time.Duration
 	ShutdownTimeout   time.Duration
-	Logger            *slog.Logger
-	OnReady           func() error
+	// ShutdownDeadline, when set, bounds the drain by an absolute deadline
+	// evaluated when shutdown begins, instead of ShutdownTimeout measured from
+	// that moment. The application owns one shutdown deadline and reserves
+	// part of it for component closes (Core 04 REQ-04-146a).
+	ShutdownDeadline func() time.Time
+	Logger           *slog.Logger
+	OnReady          func() error
 	// OnShutdown runs when ordinary shutdown begins (http.Server.Shutdown), so
 	// owners of hijacked connections such as WebSockets can close them; the
 	// server does not wait on hijacked connections.
@@ -41,6 +46,13 @@ type StartupError struct{ Err error }
 
 func (e *StartupError) Error() string { return "http listener startup failed" }
 func (e *StartupError) Unwrap() error { return e.Err }
+
+// DrainDeadlineError reports that the drain reached its deadline: the server
+// force-closed the remaining connections, cancelling their in-flight work.
+type DrainDeadlineError struct{ Err error }
+
+func (e *DrainDeadlineError) Error() string { return "http drain reached its deadline" }
+func (e *DrainDeadlineError) Unwrap() error { return e.Err }
 
 type ComponentLossError struct{ Err error }
 
@@ -128,6 +140,10 @@ func serveBoundListener(ctx context.Context, server *http.Server, listener net.L
 		return &ComponentLossError{Err: serveErr}
 	case <-ctx.Done():
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), options.ShutdownTimeout)
+		if options.ShutdownDeadline != nil {
+			cancel()
+			shutdownCtx, cancel = context.WithDeadline(context.Background(), options.ShutdownDeadline())
+		}
 		shutdownErr := server.Shutdown(shutdownCtx)
 		cancel()
 		if shutdownErr != nil {
@@ -135,6 +151,9 @@ func serveBoundListener(ctx context.Context, server *http.Server, listener net.L
 		}
 
 		serveErr := <-serveDone
+		if errors.Is(shutdownErr, context.DeadlineExceeded) {
+			return &DrainDeadlineError{Err: shutdownErr}
+		}
 		if shutdownErr != nil {
 			return fmt.Errorf("shutdown http server: %w", shutdownErr)
 		}

@@ -32,7 +32,7 @@ export type IndicatorCreateReceipt = Readonly<{
 }>;
 export type IndicatorCreateOutcome =
   | { kind: "accepted"; receipt: IndicatorCreateReceipt }
-  | { kind: "rejected"; failure: WorkbookOperationFailure }
+  | { kind: "rejected"; failure: WorkbookOperationFailure<"createViewRow"> }
   | { kind: "uncertain" };
 export type IndicatorCreateOperation = Readonly<{
   attempt: IndicatorCreateAttempt;

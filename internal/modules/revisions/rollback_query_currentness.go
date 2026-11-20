@@ -86,8 +86,10 @@ func (r rollbackQueryRepository) ensureNoLaterRollbackTargetMutationTx(ctx conte
 		}
 		targetKinds = r.store.targetSemantics.rowTargetKinds(envelope.RecordType)
 	}
+	// Currentness reads committed history before this transaction appends its
+	// own change set. A missing order is selected first and fails closed.
 	rows, err := tx.Query(ctx, `
-SELECT cs.source
+SELECT cs.source, cs.history_order IS NULL OR selected.history_order IS NULL AS unordered
   FROM change_sets cs
   JOIN change_sets selected ON selected.change_set_id = $3
     AND selected.incident_id = cs.incident_id
@@ -96,11 +98,13 @@ SELECT cs.source
  WHERE csm.target_kind = ANY($1::text[])
    AND csm.target_id = $2
    AND (
-       cs.history_order > selected.history_order
+       cs.history_order IS NULL
+       OR selected.history_order IS NULL
+       OR cs.history_order > selected.history_order
        OR (cs.history_order = selected.history_order AND csm.change_set_id = $3 AND csm.sequence_no > $4)
    )
    AND ($5::boolean = false OR csm.change_set_id <> $3)
- ORDER BY cs.history_order DESC, csm.sequence_no DESC
+ ORDER BY unordered DESC, cs.history_order DESC, csm.sequence_no DESC
  LIMIT 1
 `, targetKinds, target.TargetID, target.ChangeSetID, target.SequenceNo, ignoreSameChangeSet)
 	if err != nil {
@@ -111,8 +115,12 @@ SELECT cs.source
 		return rows.Err()
 	}
 	var source string
-	if err := rows.Scan(&source); err != nil {
+	var unordered bool
+	if err := rows.Scan(&source, &unordered); err != nil {
 		return err
+	}
+	if unordered {
+		return ErrHistoryOrderMissing
 	}
 	if source == "rollback" {
 		return &RollbackPreconditionError{ReasonCode: "stale_target"}

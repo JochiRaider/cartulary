@@ -52,6 +52,33 @@
       "postgres_isolation": "exclusive"
     },
     {
+      "row_id": "module.records.envelope.record_target_classification_reports_missing_the_cf5d1f1803",
+      "owner_id": "module.records",
+      "family_id": "module.records.envelope",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.records.verification.route_target"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/records",
+        "tests": [
+          "TestRecordTargetClassification_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "module.records.envelope.route_target",
       "owner_id": "module.records",
       "family_id": "module.records.envelope",

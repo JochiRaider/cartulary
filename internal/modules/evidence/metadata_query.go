@@ -60,15 +60,17 @@ func (s *service) previewMetadataBlocker(access evidenceAccessRecord) string {
 }
 
 func (s *service) handleMetadataQuery(w http.ResponseWriter, r *http.Request) {
-	principal, apiErr := s.admission.authenticate(r, true)
+	principal, apiErr := admittedPrincipal(r)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	incidentID, ok := pathUUID(w, r, "incident_id")
-	if !ok {
+	incidentID, apiErr := admittedPathUUID(r, "incident_id")
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
 		return
 	}
+	// REQ-01-704: visibility precedes the request body (REQ-01-328a).
 	if _, apiErr := s.admission.visibleIncident(r.Context(), incidentID, principal.User.ID); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -104,7 +106,7 @@ func (s *service) handleMetadataQuery(w http.ResponseWriter, r *http.Request) {
 			"preview_eligibility": map[string]any{"eligible": reason == "", "reason_code": reasonCode},
 		}
 	}
-	if err := s.admission.slide(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.admission.slide(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}

@@ -16,7 +16,10 @@ import { apiBase } from "./support/runtime/configuration";
 import { uniqueTxn } from "./support/runtime/fixtureIdentity";
 import { publicHttpOperation } from "./support/transport/publicHttpOperationClient";
 import { atJsonOrigin } from "./support/transport/publicJsonClient";
-import { installOwnedRoute } from "./support/transport/requestInterception";
+import {
+  fulfillOperationError,
+  installOwnedRoute,
+} from "./support/transport/requestInterception";
 import {
   fetchFullRecordHistory,
   openHistoryEventDetails,
@@ -92,20 +95,12 @@ test("Indicator observations replay source capture and every transition after co
     `**/views/${timelineViewSchemaId}/query`,
     async (route) => {
       if (!failRefresh) return route.continue();
-      await route.fulfill({
-        status: 503,
-        contentType: "application/json",
-        body: JSON.stringify({
-          error: {
-            code: "service_unavailable",
-            details: {},
-            status: 503,
-            retryable: true,
-            message: "Refresh unavailable",
-            request_id: "refresh-failure",
-          },
-        }),
-      });
+      await fulfillOperationError(
+        route,
+        "queryWorkbookView",
+        500,
+        "internal_error",
+      );
     },
   );
   await openRecoveryItem(page, /^Indicator observation ·/);
@@ -354,20 +349,12 @@ test("Indicator observation browsing retains failed pages and independent target
       failedBodies.push(route.request().postData() ?? "");
       if (!failCandidate) return route.continue();
       failCandidate = false;
-      await route.fulfill({
-        status: 503,
-        contentType: "application/json",
-        body: JSON.stringify({
-          error: {
-            code: "service_unavailable",
-            details: {},
-            status: 503,
-            retryable: true,
-            message: "Page unavailable",
-            request_id: "candidate-page",
-          },
-        }),
-      });
+      await fulfillOperationError(
+        route,
+        "queryWorkbookView",
+        500,
+        "internal_error",
+      );
     },
   );
   await editor
@@ -463,20 +450,12 @@ test("Indicator observation browsing retains failed pages and independent target
       cursors.push(cursor);
       if (!failPage) return route.continue();
       failPage = false;
-      await route.fulfill({
-        status: 503,
-        contentType: "application/json",
-        body: JSON.stringify({
-          error: {
-            code: "service_unavailable",
-            details: {},
-            status: 503,
-            retryable: true,
-            message: "Page unavailable",
-            request_id: "observation-page",
-          },
-        }),
-      });
+      await fulfillOperationError(
+        route,
+        "listSourceRecordIndicatorObservations",
+        500,
+        "internal_error",
+      );
     },
   );
   await editor

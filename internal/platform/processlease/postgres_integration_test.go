@@ -3,7 +3,6 @@ package processlease
 import (
 	"context"
 	"errors"
-	"fmt"
 	"testing"
 	"time"
 
@@ -20,17 +19,15 @@ func TestPostgresApplicationProcessLease_Integration(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(pool.Close)
-	warmCtx, cancelWarm := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancelWarm()
-	if err := warmPostgresLeaseSessions(warmCtx, pool, 2); err != nil {
-		t.Fatalf("warm postgres process lease sessions: %v", err)
-	}
-	first, err := AcquireApplicationProcess(context.Background(), pool, 100*time.Millisecond, 40*time.Millisecond)
+	// Every lease opens its own dedicated session, so an acquisition that must
+	// succeed allows for connection establishment. A contender's bound still
+	// covers its session plus repeated lock attempts before it reports activity.
+	first, err := AcquireApplicationProcess(context.Background(), pool, 5*time.Second, 40*time.Millisecond)
 	if err != nil {
 		t.Fatalf("acquire first process lease: %v", err)
 	}
 	t.Cleanup(first.Close)
-	contender, err := AcquireApplicationProcess(context.Background(), pool, 20*time.Millisecond, 40*time.Millisecond)
+	contender, err := AcquireApplicationProcess(context.Background(), pool, 500*time.Millisecond, 40*time.Millisecond)
 	if contender != nil {
 		t.Cleanup(contender.Close)
 	}
@@ -41,13 +38,13 @@ func TestPostgresApplicationProcessLease_Integration(t *testing.T) {
 		t.Fatalf("release first process lease: %v", err)
 	}
 
-	crashed, err := AcquireApplicationProcess(context.Background(), pool, 100*time.Millisecond, 40*time.Millisecond)
+	crashed, err := AcquireApplicationProcess(context.Background(), pool, 5*time.Second, 40*time.Millisecond)
 	if err != nil {
 		t.Fatalf("acquire crash lease: %v", err)
 	}
 	t.Cleanup(crashed.Close)
 	crashed.Close()
-	afterCrash, err := AcquireApplicationProcess(context.Background(), pool, 100*time.Millisecond, 40*time.Millisecond)
+	afterCrash, err := AcquireApplicationProcess(context.Background(), pool, 5*time.Second, 40*time.Millisecond)
 	if err != nil {
 		t.Fatalf("database session close did not release crash lease: %v", err)
 	}
@@ -56,7 +53,7 @@ func TestPostgresApplicationProcessLease_Integration(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	lost, err := AcquireApplicationProcess(context.Background(), pool, 100*time.Millisecond, 20*time.Millisecond)
+	lost, err := AcquireApplicationProcess(context.Background(), pool, 5*time.Second, 20*time.Millisecond)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -65,7 +62,7 @@ func TestPostgresApplicationProcessLease_Integration(t *testing.T) {
 	defer cancel()
 	lost.StartMonitor(monitorCtx)
 	session := lost.Lease.session.(*postgresSession)
-	if err := session.connection.Conn().Close(context.Background()); err != nil {
+	if err := session.connection.Close(context.Background()); err != nil {
 		t.Fatalf("close lease backend session: %v", err)
 	}
 	waitForPostgresLeaseState(t, lost.Lease, StateLost)
@@ -114,7 +111,7 @@ func TestPostgresServingLeaseSharedExclusive_Integration(t *testing.T) {
 	if err := secondShared.Release(context.Background()); err != nil {
 		t.Fatalf("release second shared serving lease: %v", err)
 	}
-	contendingRestore, err := AcquireRecoveryTargetLease(context.Background(), pool, 20*time.Millisecond, 40*time.Millisecond)
+	contendingRestore, err := AcquireRecoveryTargetLease(context.Background(), pool, 500*time.Millisecond, 40*time.Millisecond)
 	if contendingRestore != nil {
 		t.Cleanup(contendingRestore.Close)
 	}
@@ -134,7 +131,7 @@ func TestPostgresServingLeaseSharedExclusive_Integration(t *testing.T) {
 		t.Fatalf("active restore escaped stopped preflight: %v", err)
 	}
 
-	contendingServer, err := AcquireApplicationRecoveryServing(context.Background(), pool, 20*time.Millisecond, 40*time.Millisecond)
+	contendingServer, err := AcquireApplicationRecoveryServing(context.Background(), pool, 500*time.Millisecond, 40*time.Millisecond)
 	if contendingServer != nil {
 		t.Cleanup(contendingServer.Close)
 	}
@@ -155,24 +152,6 @@ func TestPostgresServingLeaseSharedExclusive_Integration(t *testing.T) {
 	if err := admission.Release(bounded); !errors.Is(err, ErrInvalidTransition) && !errors.Is(err, ErrRecoveryTargetLeaseLost) {
 		t.Fatalf("lost admission release reported success: %v", err)
 	}
-}
-
-func warmPostgresLeaseSessions(ctx context.Context, pool *pgxpool.Pool, count int) error {
-	connections := make([]*pgxpool.Conn, 0, count)
-	defer func() {
-		for _, connection := range connections {
-			connection.Release()
-		}
-	}()
-
-	for index := 0; index < count; index++ {
-		connection, err := pool.Acquire(ctx)
-		if err != nil {
-			return fmt.Errorf("acquire session %d of %d: %w", index+1, count, err)
-		}
-		connections = append(connections, connection)
-	}
-	return nil
 }
 
 func waitForPostgresLeaseState(t *testing.T, lease *Lease, want State) {

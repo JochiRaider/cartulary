@@ -26,8 +26,27 @@ func (s importValidationSummary) agrees(other importValidationSummary) bool {
 // validateImportPass retains no accepted rows. The second pass inserts each
 // accepted row only after its source query has released the shared connection.
 func (f *importFacade) validateImportPass(ctx context.Context, tx pgx.Tx, request imports.ExtensionImportApplyRequest, mapping approvedMapping, retain bool, visit func(normalizedRow) error) (importValidationSummary, error) {
+	return f.validateImportPassGated(ctx, tx, request, mapping, retain, visit, nil)
+}
+
+// validateImportPassGated runs one source pass. With a gate, the pass shares
+// the borrowed connection with a pipelined COPY: it opens and reads the source
+// only while the gate holds the connection, reading ahead so each hand-off
+// covers a larger source range.
+func (f *importFacade) validateImportPassGated(ctx context.Context, tx pgx.Tx, request imports.ExtensionImportApplyRequest, mapping approvedMapping, retain bool, visit func(normalizedRow) error, gate rowSourceGate) (importValidationSummary, error) {
 	var summary importValidationSummary
-	stream, err := f.sourceStore.OpenSourceStreamTx(ctx, tx, request.SourceCapability.SourceStreamRef)
+	var stream imports.ImportSourceStream
+	open := func() error {
+		var err error
+		stream, err = f.sourceStore.OpenSourceStreamTx(ctx, tx, request.SourceCapability.SourceStreamRef)
+		return err
+	}
+	var err error
+	if gate != nil {
+		err = gate.withConnection(open)
+	} else {
+		err = open()
+	}
 	if err != nil {
 		return summary, err
 	}
@@ -35,7 +54,11 @@ func (f *importFacade) validateImportPass(ctx context.Context, tx pgx.Tx, reques
 	if stream.ImportSourceCapability != request.SourceCapability {
 		return summary, importOwnerError("network_flow_source_changed", nil)
 	}
-	d, err := newCSVDecoder(stream.Reader, request.ExpectedSourceContentSHA256, f.limits, parseModeApply)
+	var reader io.Reader = stream.Reader
+	if gate != nil {
+		reader = gate.readAhead(stream.Reader, pipelinedSourceReadAhead)
+	}
+	d, err := newCSVDecoder(reader, request.ExpectedSourceContentSHA256, f.limits, parseModeApply)
 	if err != nil {
 		return summary, facadeError(err)
 	}
@@ -61,7 +84,8 @@ func (f *importFacade) validateImportPass(ctx context.Context, tx pgx.Tx, reques
 		if err != nil {
 			return summary, facadeError(err)
 		}
-		row, diagnostics, err := validateCSVRecord(record, d.Columns, mapping, request.MappingFingerprint, request.ExpectedSourceContentSHA256, f.limits, fields)
+		// A pass without a visitor keeps only counts and digests.
+		row, diagnostics, err := validateCSVRecordWith(record, d.Columns, mapping, request.MappingFingerprint, request.ExpectedSourceContentSHA256, f.limits, fields, visit != nil)
 		if err != nil {
 			return summary, err
 		}

@@ -14,7 +14,7 @@ import type {
   ObservationReceipt,
   ObservationTransportPort,
 } from "../features/indicators/observationOperation";
-import { classifyWorkbookOperationFailure } from "./workbookOperationErrorPolicy";
+import { explicitWorkbookFailureOutcome } from "./workbookOperationErrorPolicy";
 
 const operations = {
   create: "createManualIndicatorObservation",
@@ -86,36 +86,28 @@ export function createObservationTransport(options: {
         return { kind: "uncertain" };
       let status: number | null = null;
       try {
-        const response =
-          await fetchHTTPOperation<CreateManualIndicatorObservationResponse>({
-            apiBase: attempt.apiBase,
-            operationID,
-            pathParameters: parameters(attempt),
-            init: {
-              method: httpOperationBindings[operationID].method,
-              body: attempt.body,
-              signal,
-            },
-            onResponse: (value) => {
-              status = value.status;
-            },
-          });
+        const response = await fetchHTTPOperation<
+          CreateManualIndicatorObservationResponse,
+          typeof operationID
+        >({
+          apiBase: attempt.apiBase,
+          operationID,
+          pathParameters: parameters(attempt),
+          init: {
+            method: httpOperationBindings[operationID].method,
+            body: attempt.body,
+            signal,
+          },
+          onResponse: (value) => {
+            status = value.status;
+          },
+        });
         if (!response.ok) {
-          if (
-            status === null ||
-            status < 400 ||
-            status >= 500 ||
-            !response.payload.error?.code
-          )
-            return { kind: "uncertain" };
-          const failure = classifyWorkbookOperationFailure(
-            response.status,
-            response.payload,
+          return explicitWorkbookFailureOutcome(
+            status,
+            response.payload.error,
             operationID,
           );
-          return failure.kind === "invalid_contract"
-            ? { kind: "uncertain" }
-            : { kind: "rejected", failure };
         }
         const receipt = validateObservationReceipt(
           attempt,

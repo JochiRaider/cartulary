@@ -129,8 +129,7 @@ func RegisterNetworkFlowAuthTransitionRoutes(transitions *NetworkFlowAuthTransit
 			guard:       guard,
 			transitions: transitions,
 		}
-		mux.HandleFunc("POST /api/v1/test/runtime/network-flow-auth-transitions", service.handleArm)
-		return nil
+		return httpapi.BindTestRoute(mux, deps, guard, http.MethodPost, "/api/v1/test/runtime/network-flow-auth-transitions", service.handleArm)
 	}
 }
 

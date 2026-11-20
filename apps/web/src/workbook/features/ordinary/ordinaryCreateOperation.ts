@@ -26,7 +26,10 @@ export type OrdinaryCreateOutcome =
       readonly receipt: OrdinaryCreateReceipt;
       readonly status: number;
     }
-  | { readonly kind: "rejected"; readonly failure: WorkbookOperationFailure }
+  | {
+      readonly kind: "rejected";
+      readonly failure: WorkbookOperationFailure<"createViewRow">;
+    }
   | { readonly kind: "uncertain" };
 export interface OrdinaryCreateTransport {
   capture(

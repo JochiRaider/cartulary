@@ -207,3 +207,47 @@ func TestErrorEnvelopeContract(t *testing.T) {
 		})
 	}
 }
+
+// TestStatusMismatchKeepsRedactedBody covers TH-HARNESS-REQ-864 and AC-159: a
+// failed status assertion reports the response body, redacted by the shared
+// harness rules and bounded, and never forges extra output lines.
+func TestStatusMismatchKeepsRedactedBody(t *testing.T) {
+	envelope := `{"error":{"code":"service_unavailable","message":"service unavailable","status":503,"request_id":"request-1","retryable":true,"details":{"reason_code":"extension_integrity_failure","session_token":"sentinel-session-token"}}}`
+	resp, _ := responseFixture(503, envelope)
+	_, err := readResponseBody(resp, 200)
+	if err == nil {
+		t.Fatal("wrong status accepted")
+	}
+	for _, text := range []string{"got 503 want 200", "service_unavailable", "extension_integrity_failure", "session_token"} {
+		if !strings.Contains(err.Error(), text) {
+			t.Fatalf("status failure %q does not report %q", err, text)
+		}
+	}
+	if strings.Contains(err.Error(), "sentinel-session-token") {
+		t.Fatalf("status failure leaks a secret: %q", err)
+	}
+	resp, _ = responseFixture(400, `{"error":{"code":"other_code","message":"m","status":400,"request_id":"request-1","retryable":false,"details":{"field":"name"}}}`)
+	if _, err := readErrorEnvelope(resp, 400, "invalid_request"); err == nil || !strings.Contains(err.Error(), `\"field\":\"name\"`) {
+		t.Fatalf("error code failure lost the body: %v", err)
+	}
+	t.Run("plain text is redacted and quoted", func(t *testing.T) {
+		resp, _ := responseFixture(500, "Authorization: Bearer sentinel.bearer\nforged line\x00")
+		_, err := readResponseBody(resp, 200)
+		if err == nil || strings.Contains(err.Error(), "sentinel.bearer") || strings.Contains(err.Error(), "\n") || !strings.Contains(err.Error(), `forged line\x00`) {
+			t.Fatalf("plain body failure = %q", err)
+		}
+	})
+	t.Run("a large body is bounded", func(t *testing.T) {
+		resp, _ := responseFixture(502, strings.Repeat("é", 3*reportedBodyLimit))
+		_, err := readResponseBody(resp, 200)
+		if err == nil || len(err.Error()) > reportedBodyLimit+256 || !strings.Contains(err.Error(), "more bytes]") {
+			t.Fatalf("large body failure has %d bytes", len(err.Error()))
+		}
+	})
+	t.Run("an empty body reports nothing more", func(t *testing.T) {
+		resp, _ := responseFixture(404, "")
+		if _, err := readResponseBody(resp, 200); err == nil || !strings.HasSuffix(err.Error(), `body: ""`) {
+			t.Fatalf("empty body failure = %v", err)
+		}
+	})
+}

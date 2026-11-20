@@ -566,8 +566,16 @@ func (r *StateRuntime) migrateStep(ctx context.Context, session ProfileSession, 
 		if resultErr == nil || errors.As(resultErr, &diagnosed) || errors.As(resultErr, &fatal) || errors.As(resultErr, &expired) {
 			return
 		}
-		if errors.Is(resultErr, ErrStateValidationFailed) {
-			resultErr = startupFailure(resultErr, r.coordinator.migrationValidationFailure(plan.ProfileID, definition.MigrationID, definition.FromVersion, definition.ToVersion))
+		// A step whose commit is proven absent was rolled back, wrote no ledger
+		// row and did not advance metadata: it is the step's migration failure
+		// under the commit_absent condition (EXT-REQ-125, EXT-REQ-126, Table
+		// 26-C), not an indeterminate commit (EXT-REQ-215). A failed apply or
+		// validation keeps the invocation condition.
+		switch {
+		case errors.Is(resultErr, ErrStateCommitAbsent):
+			resultErr = conditionFailure(resultErr, migrationCommitAbsentCondition, r.coordinator.migrationCommitFailure(plan.ProfileID, definition.MigrationID, definition.FromVersion, definition.ToVersion))
+		case errors.Is(resultErr, ErrStateValidationFailed):
+			resultErr = conditionFailure(resultErr, migrationValidationInvocationCondition, r.coordinator.migrationValidationFailure(plan.ProfileID, definition.MigrationID, definition.FromVersion, definition.ToVersion))
 		}
 
 	}()
@@ -741,7 +749,13 @@ func (r *StateRuntime) invokeFinalValidator(ctx context.Context, deadlinePolicy 
 }
 
 func (r *StateRuntime) commit(ctx context.Context, tx StateTransaction, bound stateBudget) error {
-	completion, lifetimeErr := extensiondeadline.Complete(ctx, r.invocationPolicy(bound.Deadline), tx.Commit)
+	// An issued commit is awaited, never abandoned on the step deadline or
+	// cancellation: abandoning it would discard a determinable acknowledgement.
+	// The completion lifetime still records the first interruption and bounds
+	// the wait by the cancellation grace (EXT-REQ-215, Table 9-E).
+	completion, lifetimeErr := extensiondeadline.Complete(ctx, r.invocationPolicy(bound.Deadline), func(callCtx context.Context) (CommitOutcome, error) {
+		return tx.Commit(context.WithoutCancel(callCtx))
+	})
 	if lifetimeErr != nil {
 		return &FatalStateIntegrityError{Cause: lifetimeErr}
 	}

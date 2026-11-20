@@ -192,6 +192,40 @@ describe("Timeline row menu lifetime", () => {
     }
   });
 
+  it("returns menu-owned focus to the invoking cell when its scope changes", async () => {
+    // A legitimate scope change closes the menu without a selection; focus
+    // returns to the invoking cell while it is presented (design §8.4).
+    const h = harness();
+    h.open();
+    h.focusMenu();
+    h.requestFocus.mockClear();
+    h.rerender({ ...h.initialProps, scopeKey: "new authority" });
+    expect(h.result.current.menu).toBeNull();
+    expect(h.requestFocus).toHaveBeenCalledTimes(1);
+    expect(h.requestFocus).toHaveBeenLastCalledWith(
+      {
+        kind: "cell",
+        anchor: expect.objectContaining({
+          fieldKey: "summary",
+          rowIdentity: { kind: "core_record", recordId: "saved" },
+        }),
+      },
+      expect.objectContaining({ preserveSelection: true }),
+    );
+    await act(async () => {});
+    // Without the invoking row, the same return falls back to the grid.
+    h.open();
+    h.focusMenu();
+    h.requestFocus.mockClear();
+    h.rerender({ ...h.initialProps, scopeKey: "newer authority", rows: [] });
+    expect(h.result.current.menu).toBeNull();
+    expect(h.requestFocus).toHaveBeenLastCalledWith(
+      { kind: "root" },
+      expect.anything(),
+    );
+    await act(async () => {});
+  });
+
   it("uses current semantic row then root fallbacks when the invoking field or row disappears", async () => {
     const h = harness();
     h.open();

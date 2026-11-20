@@ -111,6 +111,20 @@ func TestReservedExtensionDispatchHonorsBaseRoutesClaimedFamiliesAndOutsideFallb
 
 type dispatchBodyProbe struct{ reads int }
 
+// rejectingAuthenticator fails every family gate authentication and counts
+// the attempts.
+type rejectingAuthenticator struct{ calls int }
+
+func (gate *rejectingAuthenticator) Authenticate(r *http.Request, _ httpapi.SecurityRequirement) (*http.Request, *httpapi.APIError) {
+	gate.calls++
+	return r, httpapi.SessionRequiredError()
+}
+
+func (gate *rejectingAuthenticator) VerifyCSRF(*http.Request) *httpapi.APIError {
+	gate.calls++
+	return httpapi.CSRFVerificationFailedError()
+}
+
 func (body *dispatchBodyProbe) Read([]byte) (int, error) {
 	body.reads++
 	return 0, io.EOF
@@ -126,9 +140,10 @@ func testCrossFamilyInactivePrecedence(t *testing.T) {
 			claimedRoot := extensionContract(t, claimedID).RouteFamilies[0]
 			inactiveRoot := extensionContract(t, inactiveID).RouteFamilies[0]
 			projections := httpapiextensions.FromGeneratedRegistry(t, claimedID)
+			gate := &rejectingAuthenticator{}
 			policyCalls, operationCalls := 0, 0
 			handler, err := httpapi.NewHandler(httpapi.Options{
-				Dependencies: projections.Dependencies(httpapi.DependencySet{}),
+				Dependencies: projections.Dependencies(httpapi.DependencySet{Authenticator: gate}),
 				AdditionalRoutes: []httpapi.RouteRegistrar{func(_ *http.ServeMux, deps httpapi.DependencySet) error {
 					owner := ""
 					handlers := map[string]http.HandlerFunc{}
@@ -141,24 +156,22 @@ func testCrossFamilyInactivePrecedence(t *testing.T) {
 							}
 						}
 					}
-					policy := func(http.Handler) http.Handler {
-						return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-							policyCalls++
-							w.WriteHeader(http.StatusUnauthorized)
-						})
+					policy := func(*http.Request) *httpapi.APIError {
+						policyCalls++
+						return nil
 					}
-					return httpapi.BindOwnerFamilyRoutes(deps, owner, claimedID, claimedRoot, policy, handlers)
+					return httpapi.BindAdmittedOwnerFamilyRoutes(deps, httpapi.OwnerFamily{OwnerID: owner, ProfileID: claimedID, Root: claimedRoot, Authorize: policy, Handlers: handlers})
 				}},
 			})
 			if err != nil {
 				t.Fatal(err)
 			}
-			// Positive controls establish the claimed policy and direct Base route.
-			if response := performRequest(t, handler, "GET", claimedRoot, nil); response.Code != http.StatusUnauthorized || policyCalls != 1 {
-				t.Fatal("claimed family policy was not installed")
+			// Positive controls establish the claimed family gate and direct Base route.
+			if response := performRequest(t, handler, "GET", claimedRoot, nil); response.Code != http.StatusUnauthorized || gate.calls != 1 || policyCalls != 0 {
+				t.Fatal("claimed family gate was not installed")
 			}
-			policyCalls = 0
-			if response := performRequest(t, handler, "GET", "/readyz", nil); response.Code != http.StatusOK || policyCalls != 0 {
+			gate.calls = 0
+			if response := performRequest(t, handler, "GET", "/readyz", nil); response.Code != http.StatusOK || gate.calls != 0 {
 				t.Fatal("direct Base route lost precedence")
 			}
 			for _, path := range []string{
@@ -177,8 +190,8 @@ func testCrossFamilyInactivePrecedence(t *testing.T) {
 					if payload["code"] != "extension_profile_not_claimed" || payload["retryable"] != false || details["profile_id"] != inactiveID || details["route_family"] != inactiveRoot {
 						t.Fatalf("wrong inactive family for %s %s: %#v", method, path, payload)
 					}
-					if policyCalls != 0 || operationCalls != 0 || body.reads != 0 {
-						t.Fatalf("inactive traversal reached policy=%d operation=%d body reads=%d", policyCalls, operationCalls, body.reads)
+					if gate.calls != 0 || policyCalls != 0 || operationCalls != 0 || body.reads != 0 {
+						t.Fatalf("inactive traversal reached gate=%d policy=%d operation=%d body reads=%d", gate.calls, policyCalls, operationCalls, body.reads)
 					}
 				}
 			}

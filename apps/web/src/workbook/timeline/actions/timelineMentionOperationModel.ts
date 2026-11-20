@@ -52,7 +52,10 @@ export type MentionAttempt = Readonly<{
 export type MentionOutcome =
   | Readonly<{ kind: "accepted"; receipt: MentionReceipt }>
   | Readonly<{ kind: "uncertain" }>
-  | Readonly<{ kind: "rejected"; failure: WorkbookOperationFailure }>;
+  | Readonly<{
+      kind: "rejected";
+      failure: WorkbookOperationFailure<"resolveEntityMention">;
+    }>;
 export type MentionBinding = Readonly<{
   isCurrent: () => boolean;
   prepare: (signal: AbortSignal) => Promise<MentionSubject | null>;

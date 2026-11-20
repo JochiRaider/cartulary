@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
 	"github.com/JochiRaider/cartulary/internal/modules/imports"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -100,6 +101,20 @@ func TestImportOwnerErrorTranslationUsesClosedRegisteredUnion(t *testing.T) {
 		})
 	}
 
+	for name, err := range map[string]error{
+		"timeout":                   crossownertransaction.ErrTimeout,
+		"deadlock":                  &crossownertransaction.ConflictError{ReasonCode: "deadlock_detected", Cause: errors.New("SQLSTATE 40P01")},
+		"serialization failure":     &crossownertransaction.ConflictError{ReasonCode: "serialization_failure", Cause: errors.New("SQLSTATE 40001")},
+		"owner error with timeout":  errors.Join(importOwnerError("network_flow_internal_failure", nil), crossownertransaction.ErrTimeout),
+		"owner error with conflict": errors.Join(importOwnerError("network_flow_internal_failure", nil), &crossownertransaction.ConflictError{ReasonCode: "deadlock_detected"}),
+	} {
+		t.Run("cross_owner_outcome_not_claimed_"+name, func(t *testing.T) {
+			t.Parallel()
+			if translation, ok := facade.TranslateImportUnitError(err); ok {
+				t.Fatalf("owner claimed a Core cross-owner outcome: %#v", translation)
+			}
+		})
+	}
 	for reason, length := range map[string]int{"empty_display_name": 0, "forbidden_control": 12, "display_name_too_long": 65, "duplicate_display_name": 5} {
 		t.Run("display_name_"+reason, func(t *testing.T) {
 			original := &invalidDisplayNameError{ReasonCode: reason, NormalizedLength: length}
@@ -455,7 +470,7 @@ func AssertImportRuntime(t *testing.T) {
 		t.Fatal(err)
 	}
 	accepted := []normalizedRow{}
-	if err := prepared.params.VisitRows(func(row normalizedRow) error { accepted = append(accepted, row); return nil }); err != nil {
+	if err := prepared.params.VisitRows(nil, func(row normalizedRow) error { accepted = append(accepted, row); return nil }); err != nil {
 		t.Fatal(err)
 	}
 	if len(accepted) != 1 || prepared.params.RowCountAccepted != 1 || prepared.params.RowCountRejected != 1 || len(prepared.params.Diagnostics) != 1 || prepared.params.DiagnosticsTruncated {

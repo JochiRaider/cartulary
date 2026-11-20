@@ -104,12 +104,12 @@ Profiles: base
 Verified by: AC-123, AC-131, AC-136, AC-156, AC-157, AC-158, AC-159, AC-160, AC-161, AC-162, AC-163, AC-231
 
 **REQ-04-010**
-Qualifying activity MUST include successful authenticated user-initiated workbook or API activity. Qualifying activity MUST NOT include WebSocket `ping` or `pong`, passive server push, automatic reconnect or replay, or `GET /api/v1/auth/session`.
+Qualifying activity MUST include successful authenticated user-initiated workbook or API activity. Qualifying activity MUST NOT include WebSocket `ping` or `pong`, passive server push, automatic reconnect or replay, or `GET /api/v1/auth/session`. WebSocket application messages, including `hello`, `resume` and `presence_update`, are not qualifying activity.
 Profiles: base
 Verified by: AC-123, AC-131, AC-136, AC-156, AC-157, AC-158, AC-159, AC-160, AC-161, AC-162, AC-163, AC-231
 
 **REQ-04-011**
-Qualifying activity MAY slide `idle_expires_at`, but MUST NOT extend the session beyond `absolute_expires_at`. A qualifying-activity update MUST NOT move `last_qualifying_activity_at`, `idle_expires_at`, or `session_expires_at` backward.
+Qualifying activity MAY slide `idle_expires_at`, but MUST NOT extend the session beyond `absolute_expires_at`. A qualifying-activity update MUST NOT move `last_qualifying_activity_at`, `idle_expires_at`, or `session_expires_at` backward. A route MAY skip persisting a slide while the stored `last_qualifying_activity_at` is less than one minute old; `last_qualifying_activity_at` then records the last persisted slide, so the effective idle expiry lags the latest qualifying activity by less than one minute and never exceeds it.
 Profiles: base
 Verified by: AC-123, AC-131, AC-136, AC-156, AC-157, AC-158, AC-159, AC-160, AC-161, AC-162, AC-163, AC-231
 
@@ -2422,8 +2422,8 @@ These criteria provide direct runtime-family verification for substantive base-p
 - **AC-534**: When Recovery holds the exclusive target serving lease, an application process starts no HTTP or WebSocket listener, reports `recovery_serving_lease_active`, and exits `2`; when an application process loses its shared recovery serving lease, readiness and all admission close immediately, fatal drain runs once, `recovery_serving_lease_lost` is reported, and the process exits `70`; Recovery's exclusive target-lease loss retains its existing Recovery error mapping and does not use either application failure token. Admitted failed or interrupted restores remain non-serving across operator exit, application restart and backup-root changes; exact completion/replay opens the gate only after durable proof. Disposable reset preserves the control identity, invalidates the earlier operation tuple before mutation, and cannot reopen a partially reset target with an old receipt.
   - Verifies: REQ-04-113, REQ-04-146
 - **AC-604**: A server holding an open WebSocket, an in-flight request and an active job receives an operator stop request:
-  - it closes the WebSocket with close code `1001`;
-  - it completes or cancels the in-flight work;
+  - it closes the WebSocket with close code `1001` and no terminal event;
+  - it completes the in-flight work, or cancels it at the component close reserve boundary, which alone does not prevent exit `0`;
   - it closes every component, and exits `0` within `timeouts.extensions.shutdown_drain_seconds`;
   - when a component cannot close before that deadline, the process force-closes it and exits `1` with one safe diagnostic that names the component;
   - neither case reports `published_component_lost`;
@@ -2520,7 +2520,9 @@ These criteria provide direct runtime-family verification for substantive base-p
   remains v1, and public product behavior and SQLC have no unexplained delta.
   Behavioral evidence proves incident isolation, null-safe active-link identity,
   complete composition tuples, and rejection and rollback of bypass-loaded
-  orphans even when catalog constraints remain marked valid.
+  orphans, of change sets without `history_order`, and of incidents whose
+  history-order allocator is absent or below their greatest restored order,
+  even when catalog constraints remain marked valid.
   - Verifies: REQ-01-661, REQ-04-153, TH-HARNESS-REQ-811
 
 - **AC-545**: Timeline policy evidence proves that direct writable field
@@ -3085,7 +3087,7 @@ guarantees.
   - Verifies: REQ-01-472, REQ-01-474, REQ-01-620e, REQ-03-181a
 - **AC-264C**: The pure tabular mapping kernel accepts only immutable parser-neutral values and returns no partial applicable plan on cancellation or any invalid target fact, source ordinal, row width, cell classification, registry token, transform option, unknown-value policy, writeability combination, or clearability combination. Golden coverage includes every closed transform and delimiter, omitted and explicit split booleans, both empty-value dispositions, all three unknown-column policies, Unicode, JSON-sensitive scalar text, empty values, non-entity and both entity-binding modes, hostile CSV/TSV and XLSX adapter inputs, and deterministic row, field, unknown-value, warning, and common-provenance ordering. Analytical extension mappings bypass this kernel and remain Network Flow target-owned.
   - Verifies: REQ-01-474, REQ-03-156, REQ-03-188..REQ-03-190
-- **AC-265**: Import-family routes use only `invalid_import_request`, `import_session_not_found`, `import_unit_not_found`, `import_state_conflict`, `import_source_unsupported`, `import_source_rejected`, `import_apply_blocked`, and `incident_closed`; `invalid_import_request` uses the exact REQ-01-475 registry, including analytical target/preview reasons and `invalid_source_rect`; multipart part-related failures populate the required safe part details; `import_state_conflict`, source-unsupported, and source-rejected failures use only their exact Core registries; blocked apply uses only `overlapping_units`, `duplicate_apply_blocked`, `unit_not_ready`, `target_view_schema_not_importable`, `target_kind_not_importable`, `owner_create_contract_unavailable`, `owner_apply_contract_unavailable`, `owner_create_validation_failed`, `owner_apply_validation_failed`, or `source_changed`; registered owner errors appear only as schema-validated safe nested detail; and unknown owner tokens, capabilities, paths, raw source values, package names, and stack text are never echoed.
+- **AC-265**: Besides the Core-owned authentication, authorization, concealment, pagination, list-query and idempotency codes, import-family routes use only `invalid_import_request`, `import_session_not_found`, `import_unit_not_found`, `import_state_conflict`, `import_source_unsupported`, `import_source_rejected`, `import_apply_blocked`, and `incident_closed`, and the committed-source reads additionally use `committed_source_not_found`; `invalid_import_request` uses the exact REQ-01-475 registry, including analytical target/preview reasons and `invalid_source_rect`; multipart part-related failures populate the required safe part details; `import_state_conflict`, source-unsupported, and source-rejected failures use only their exact Core registries; blocked apply uses only `overlapping_units`, `duplicate_apply_blocked`, `unit_not_ready`, `target_view_schema_not_importable`, `target_kind_not_importable`, `owner_create_contract_unavailable`, `owner_apply_contract_unavailable`, `owner_create_validation_failed`, `owner_apply_validation_failed`, or `source_changed`; registered owner errors appear only as schema-validated safe nested detail; and unknown owner tokens, capabilities, paths, raw source values, package names, and stack text are never echoed.
   - Verifies: REQ-01-471, REQ-01-475, REQ-01-553
 - **AC-463**: Import parser isolation is binary: no package outside `internal/modules/imports` imports XLSX/OpenXML parser packages, workbook-shape parser DTOs, or parser-specific source heuristics; owner modules may consume only stable tabular-ingest value types and owner facade requests.
   - Verifies: REQ-01-618, REQ-02-259, REQ-03-293
@@ -3209,7 +3211,7 @@ guarantees.
   - Verifies: REQ-01-312, REQ-01-611..REQ-01-614, REQ-03-236..REQ-03-241
 - **AC-450**: Non-members, viewers without write permission, and deployment administrators without ordinary incident membership cannot create, patch, paste into, import into, delete, restore, or otherwise mutate Timeline v2 rows; authorization failure happens before row existence, validation-detail, or incident data disclosure beyond the ordinary hidden-incident contract.
   - Verifies: REQ-01-057..REQ-01-080, REQ-04-021..REQ-04-030
-- **AC-451**: `GET /api/v1/incidents/{incident_id}/timeline-time-conversion-profile` requires ordinary incident membership; `PUT /api/v1/incidents/{incident_id}/timeline-time-conversion-profile` requires current incident role `admin`; non-members, non-admin members, and deployment administrators without ordinary incident membership cannot read or mutate the resource.
+- **AC-451**: `GET /api/v1/incidents/{incident_id}/timeline-time-conversion-profile` requires ordinary incident membership; `PUT /api/v1/incidents/{incident_id}/timeline-time-conversion-profile` requires current incident role `admin`; non-members, non-admin members, and deployment administrators without ordinary incident membership cannot read or mutate the resource. A member's `GET` with `limit`, `cursor_token` or a pagination alias fails with `400` `invalid_pagination_request`; a non-member receives `404` `incident_not_found` first.
   - Verifies: REQ-01-611..REQ-01-613, REQ-04-021..REQ-04-030
 - **AC-452**: Current Timeline tests, fixtures, visual baselines, generated contracts, and generated client artifacts contain no active Timeline v1 assumption that lets a visible Timeline v2 cell return or accept timestamp objects, collections, MITRE/entity/indicator objects, chips, formulas, or formula results.
   - Verifies: REQ-00-014, REQ-01-312, REQ-01-614, REQ-03-236..REQ-03-241
@@ -3535,7 +3537,7 @@ These matrices are normative for AC-108 and AC-110. Only rows whose `profiles` a
     REQ-01-307..REQ-01-330, REQ-01-349..REQ-01-350, REQ-02-208..REQ-02-209, REQ-03-086, REQ-03-111..REQ-03-115, REQ-03-236..REQ-03-241
 - **AC-151**: `GET /api/v1/incidents/{incident_id}/saved-views` returns only saved views visible to the caller, and each returned resource includes `saved_view_id`, `incident_id`, `view_schema_id`, `scope`, `display_name`, `query_json`, `layout_json`, `owner_user_id`, timestamps, and `saved_view_version`; `query_json` uses stable `field_key` and grouping identifiers rather than visible labels, uses only top-level members `sort`, `filters`, and optional `group_by`, persists `sort=[]` and `filters=[]` as the canonical empty states, omits `group_by` when grouping is inactive, and never stores `record_id` or `row_version`. `layout_json` is the canonical `cartulary.layout.v2` object with required members `layout_schema_id`, `column_order`, `hidden_field_keys`, `column_widths`, and nullable `frozen_through_field_key`; persisted `layout_json` never remains `{}`; `column_order` is a full permutation of the active schema's non-technical field keys; `hidden_field_keys` is a unique sorted subset; and `column_widths` is a unique `field_key`-sorted list. The route orders results by `updated_at desc, saved_view_id asc`; omitting `limit` yields `meta.paging.limit=100`; terminal pages use `meta.paging.has_more=false` and `meta.paging.next_cursor=null`; invalid `limit` values or aliases such as `page`, `offset`, `page_size`, and `block_size` fail closed with `400 error.code='invalid_pagination_request'`; and cursor replay against a different bound contract fails closed. Absence of `cartulary.view.task_requests.v1` or `cartulary.view.decisions.v1` from this route does not imply that the required base surfaces are unavailable, because those surfaces remain discoverable through the authoritative `view_schema` registry and directly addressable by `sheet_ref.kind='view_schema'`.
   - Verifies: REQ-01-138..REQ-01-151, REQ-01-240..REQ-01-242, REQ-02-147..REQ-02-157, REQ-03-012..REQ-03-021
-- **AC-151A**: Saved-view collection schema filtering occurs before paging and returns matching resources beyond the unfiltered first page; ordering, limits, validation precedence, legacy unfiltered cursors and schema/actor/incident/limit cursor bindings match REQ-01-144A. Detail GET returns the same canonical resource as create/update, independently enforces private/shared/system visibility for owner/admin/other members, and conceals missing, foreign and inaccessible resources identically. Both reads are no-store, work under ordinary authorization on closed incidents, and neither lock for mutation nor repair preferences. Continuation rechecks live authorization; hidden resources affect no candidates, counts or paging metadata.
+- **AC-151A**: Saved-view collection schema filtering occurs before paging and returns matching resources beyond the unfiltered first page; ordering, limits, validation precedence, legacy unfiltered cursors and schema/actor/incident/limit cursor bindings match REQ-01-144A. Detail GET returns the same canonical resource as create/update, independently enforces private/shared/system visibility for owner/admin/other members, and conceals missing, foreign and inaccessible resources identically. Both reads are no-store on every resolved response, errors included, work under ordinary authorization on closed incidents, and neither lock for mutation nor repair preferences. Continuation rechecks live authorization; hidden resources affect no candidates, counts or paging metadata.
   - Verifies: REQ-01-144A..REQ-01-144B, REQ-03-018..REQ-03-022A, REQ-04-025..REQ-04-026
 - **AC-480A**: The production saved-view browser publishes usable first-page results while later reads are delayed, retains accepted results on continuation failure, retries locally and bounds candidates/checkpoints through repeated forward/backward browsing. Startup-selected and write-confirmed resources survive discovery absence, eviction and refresh. Explicit activation resolves by ID and applies query/layout/identity only while current; browsing and late responses cannot change selection, overwrite working edits or resurrect confirmed deletion. All five actions, preference targets and recovery remain independent of unrelated discovery failure. Genuine unavailability follows existing base/startup/preference rules; role/session/incident/account replacement and disposal preserve concealment. Duplicate copies the saved source even when working layout differs. Keyboard browsing, focus return, compact scope labels, long names, density, narrow layouts, zoom/text spacing, announcements and existing Timeline editing/capture/clipboard behaviors pass.
   - Verifies: REQ-03-022A, REQ-03-026, REQ-03-295, REQ-03-298..REQ-03-299
@@ -3635,6 +3637,83 @@ These matrices are normative for AC-108 and AC-110. Only rows whose `profiles` a
   - `reason_code` is `transition_not_allowed`, `guards_not_satisfied`, or `inconsistent_machine_state`, or an incident lifecycle token for incident actions;
   - an out-of-vocabulary persisted state yields `internal_error`, not `illegal_transition`.
   - Verifies: REQ-01-231, REQ-01-238, REQ-02-109a, REQ-02-189a, REQ-02-196a, REQ-03-109a
+- **AC-607**: A workbook client whose collaboration socket the server closes with `1001`, `1006` or `1011` and no terminal message keeps the incident's protected presentation, shows the disconnected state, and reconnects with `resume`:
+  - consecutive attempts wait a uniformly random delay up to 1 s, 2 s, 4 s and so on, capped at 30 s;
+  - an accepted `hello` resets the delay to the 1 s bound;
+  - a terminal outcome, or a REQ-03-299 authorization suspension, still suppresses reconnect.
+  - Verifies: REQ-03-299a
+- **AC-608**: The public OpenAPI document declares error codes completely and truthfully:
+  - every operation response with status `400` or higher, directly or through a component, declares a sorted, duplicate-free `x-cartulary-error-codes` list of codes registered with that status;
+  - assembly rejects an absent, empty, unsorted, duplicated, unregistered or status-mismatched declaration;
+  - assembly rejects a security-implied declaration (`session_required`, `csrf_verification_failed`, `credential_bootstrap_rejected`) that is missing where the operation's security implies it, or present where it does not;
+  - the generated operation catalog carries the declared codes by operation and status;
+  - under the harness runtime guard, every exercised operation emits only codes it declares for the emitted status;
+  - assembly rejects an operation without a `500` `internal_error` or `503` `service_unavailable` declaration, and an operation whose `extension_profile_not_claimed` declaration does not match its membership of a reserved extension route family.
+  - Verifies: REQ-01-702
+- **AC-609**: Evidence and Blob writes follow one lock order and decide against live, coherent Blob state:
+  - a patch that races a quarantine of its linked Blob never commits `available` or `released` Evidence over a quarantined Blob;
+  - an attachment replay that races a quarantine neither deadlocks nor leaves the Evidence and Blob inconsistent;
+  - a restore or rollback that races a quarantine returns retryable `record_locked` or a result that satisfies the bridge;
+  - a rollback that would re-link a pending, failed, foreign, associated or cleanup-claimed Blob fails with `409` `target_not_reversible` and commits nothing;
+  - a Blob that violates the REQ-02-189a tuple, loaded by restore, rollback or patch, fails the request with `internal_error` and commits nothing;
+  - a quarantine whose Blob association changes before every bounded attempt commits nothing, and one whose association settles within the bound quarantines the Blob.
+  - Verifies: REQ-02-189a, REQ-02-190, REQ-02-190a, REQ-02-196a
+- **AC-610**: Every exercised operation authenticates exactly as its OpenAPI `security` declares:
+  - no operation without a declared requirement authenticates a session;
+  - every operation with declared requirements authenticates a principal before it returns a success status;
+  - CSRF is verified exactly for alternatives that pair the session cookie with CSRF;
+  - `PUT /api/v1/object-uploads/{upload_token}` declares the bearer-session alternative and the session-cookie-with-CSRF alternative, and `GET /api/v1/evidence-handles/{handle_token}` declares the bearer-session and session-cookie alternatives without CSRF.
+  - Verifies: REQ-01-703, REQ-01-246, REQ-01-463
+- **AC-611**: The web client decodes public errors against each operation's declared codes:
+  - an error response with a declared code is surfaced to feature code typed as one of that operation's codes for that status;
+  - an invalid envelope, an `error.status` that differs from the HTTP status, or an undeclared code becomes the client contract failure, never feature behaviour;
+  - client-originated failures use only the closed client-local code set, which overlaps no registered server code;
+  - no feature branch compares against a code that the operation it handles does not declare.
+  - Verifies: REQ-03-086a, REQ-01-702
+- **AC-612**: A caller who cannot see an incident learns nothing about its resources:
+  - a non-member's supersede of a soft-deleted record and of a missing record both return `404` `incident_not_found`, with identical details;
+  - every import-session member route returns the same `404` `import_session_not_found` to a non-member for an existing session and for a missing one;
+  - an incident member who neither submitted a job nor administers its incident receives `404` `job_not_found` when cancelling it, as for a missing job;
+  - none of these requests commits an idempotency, source, history, projection or Collaboration effect.
+  - Verifies: REQ-01-704
+- **AC-613**: Background owner work never blocks ordinary editing, and history order follows commit order:
+  - while an import apply unit transaction is in progress in an incident, an ordinary patch of another record in that incident commits before the apply does;
+  - while a Network Flow table import copies its rows in an incident, an ordinary patch in that incident commits;
+  - concurrent native commits in one incident receive `history_order` values in commit order, with no gap left by a rolled-back transaction;
+  - imported change sets keep their orders exactly, and the next native commit follows the imported maximum;
+  - no committed change set lacks a `history_order`, and an allocation failure rolls the whole transaction back.
+  - Verifies: REQ-02-213, REQ-03-168
+- **AC-614**: Record mutations classify their targets in one order and never disguise server failures:
+  - for every mutable record type, a patch, conflict resolution or lifecycle action on a soft-deleted record returns `409` `record_deleted_use_restore`, and on a missing record the route's not-found response;
+  - a mention action whose source record is soft-deleted returns `409` `record_deleted_use_restore`;
+  - a Timeline supersede with a stale base version returns `409` `row_version_conflict`;
+  - a database failure injected into each owner's revision-window, target-resolution or record-incident lookup returns `500` `internal_error`, never `row_version_conflict` or a not-found code;
+  - a syntactically invalid reference-pack key in a refresh request's `pack_keys[]` returns `400` `invalid_reference_pack_request` with reason `invalid_pack_keys`, and one in a `pack_key` path parameter returns `404` `reference_pack_not_found`, identical to a missing pack.
+  - Verifies: REQ-01-705, REQ-01-706, REQ-01-211, REQ-01-707
+- **AC-615**: Lease sessions never consume runtime capacity, and the runtime pool size is bounded configuration:
+  - with the application-process and recovery-serving leases held, the runtime pool reports no lease connections and serves its full configured capacity;
+  - each lease session is a distinct backend that passed the same admission as pooled connections and holds exactly its own lock;
+  - with the server published, the replay listener's session is a distinct admitted backend outside the runtime pool, and the pool serves its full configured capacity;
+  - `limits.database.max_runtime_pool_connections` resolves to `32` when omitted, and `3` or `1025` fail with `invalid_deployment_config` and `value_below_minimum` or `value_above_maximum`.
+  - Verifies: REQ-04-079, REQ-04-081, REQ-04-145
+- **AC-616**: Cross-cutting rejection families hold for every operation the contract lists, verified by matrices derived from the generated operation catalog, so that an operation without a case fails its matrix:
+  - every operation declaring `409` `incident_closed` returns it when its incident is closed, and commits no source, history, projection, idempotency, object, job or Collaboration effect;
+  - every mutation that addresses one record by path, other than soft-delete and the REQ-01-104 destructive-operation family, declares `409` `record_deleted_use_restore` and returns it for a soft-deleted target, and soft-delete of a soft-deleted record returns `409` `record_already_deleted`; each commits no effect;
+  - every incident-scoped operation answers a caller without visibility of the incident with its resource's not-found response, identical in status, code and details to the response for a missing resource, and commits no effect.
+  - Verifies: REQ-01-590, REQ-01-591, REQ-01-704, REQ-01-705
+- **AC-617**: Every request is admitted in one order and every rejection is enveloped:
+  - an unknown path returns enveloped `404` `route_not_found`, and an undeclared method on a known path, including `HEAD` on a `GET` path, returns enveloped `405` `method_not_allowed` with a matching `Allow` header;
+  - an unauthenticated request with a malformed path identifier returns `session_required`, and an authenticated one returns the parameter's declared not-found response, identical to that for a missing resource;
+  - a path identifier containing an encoded `/` is treated as one malformed value and never selects or reaches another operation;
+  - no public response under `/api` is plain text or an empty error body, except that a `HEAD` response carries headers only.
+  - Verifies: REQ-01-707, REQ-01-703, REQ-01-704
+- **AC-618**: The admission gate's refusals are registered, distinguishable and handled as temporary:
+  - before publication the gate answers `503` `service_unavailable` with `extension_publication_pending`, while a lease is uncertain with `admission_paused`, after an operator stop request with `shutdown_in_progress`, and after a fatal with `extension_integrity_failure`, each `retryable=true`; when several apply, the first of `extension_integrity_failure`, `shutdown_in_progress`, `admission_paused` and `extension_publication_pending` wins;
+  - `/readyz` answers `503` with status `starting_dependency_probe`, `admission_paused`, `shutdown_in_progress` or `fatal_integrity_failure` in the same states and with the same precedence;
+  - publication that completes while a lease is uncertain leaves admission paused until the original session proves ownership;
+  - the web client shows each as temporary unavailability with a retry path, not as a contract failure;
+  - `POST /api/v1/incident-bundles/export` never returns `incident_bundle_export_rejected`; a failed export job reports it as its terminal error.
+  - Verifies: REQ-01-702, REQ-03-086a, REQ-04-145, REQ-01-486, REQ-04-146a, REQ-04-078
 - **AC-204**: Sending a raw string, blind full-collection replacement, unknown collection action `op`, unknown payload `kind`, or foreign `item_ref` to a `collection_review` field fails with `400` and `error.code='invalid_mutation_payload'`.
   - Verifies: REQ-01-057..REQ-01-088, REQ-01-228..REQ-01-239, REQ-02-202..REQ-02-204, REQ-02-208..REQ-02-209,
     REQ-03-048..REQ-03-053, REQ-03-063..REQ-03-076
@@ -3742,7 +3821,7 @@ These matrices are normative for AC-108 and AC-110. Only rows whose `profiles` a
   - Verifies: REQ-01-234, REQ-01-249, REQ-04-023, REQ-04-029
 - **AC-130**: A cookie-authenticated state-changing request with missing or invalid CSRF proof fails closed, and the same request succeeds when a valid CSRF proof accompanies an otherwise authorized session.
   - Verifies: REQ-01-023..REQ-01-031, REQ-01-154, REQ-04-001..REQ-04-004, REQ-04-052..REQ-04-053
-- **AC-131**: On `GET /ws/v1/incidents/{incident_id}`, an authorized same-origin client that sends `hello` as its first application message receives `hello_ack` containing `connection_id`, `resume_token`, `server_time`, `heartbeat_interval_ms=15000`, `presence_ttl_ms=45000`, and `resume_window_ms>=300000`, followed by `presence_snapshot` whose `presences[]` member is always present, may be empty, excludes expired presence records, contains no duplicate `connection_id`, and serializes remaining entries in canonical ascending `connection_id` order; a cookie-authenticated browser connection from an untrusted `Origin` is rejected before `hello_ack` or `presence_snapshot`, and an otherwise idle accepted connection receives application-level `ping` within 15 seconds and is closed after 45 seconds without any inbound frame or timely `pong`. Client application messages are text-frame-only UTF-8 JSON objects bounded to `32768` reassembled bytes, binary application messages close as `1003/binary_message_unsupported`, oversized messages close as `1009/message_too_large`, malformed JSON closes as `1007/invalid_json`, duplicate JSON members are rejected, invalid first semantic messages receive `invalid_websocket_handshake` before `1008/invalid_first_message`, invalid later semantic messages receive `invalid_websocket_message` before `1008/invalid_message`, and valid server messages use one text frame without an encoder-added trailing line feed. A Base claim is non-conformant if `GET /ws/v1/incidents/{incident_id}` is absent or if the implementation treats any different v1 public subscription route as equivalent to that canonical route.
+- **AC-131**: On `GET /ws/v1/incidents/{incident_id}`, an authorized same-origin client that sends `hello` as its first application message receives `hello_ack` containing `connection_id`, `resume_token`, `server_time`, `heartbeat_interval_ms=15000`, `presence_ttl_ms=45000`, and `resume_window_ms>=300000`, followed by `presence_snapshot` whose `presences[]` member is always present, may be empty, excludes expired presence records, contains no duplicate `connection_id`, and serializes remaining entries in canonical ascending `connection_id` order; before the upgrade and before authentication, a request carrying an untrusted `Origin` receives the enveloped `403` `csrf_verification_failed`, a non-`GET` method on the route, including `HEAD`, receives `405` `method_not_allowed` with `Allow: GET`, and an unknown `/ws/v1/` path receives `404` `route_not_found`; before the upgrade, a request without a session receives `401` `session_required`, and a malformed `incident_id` receives the same enveloped `404` `incident_not_found` as an incident the caller cannot see; and an otherwise idle accepted connection receives application-level `ping` within 15 seconds and is closed after 45 seconds without any inbound frame or timely `pong`. Client application messages are text-frame-only UTF-8 JSON objects bounded to `32768` reassembled bytes, binary application messages close as `1003/binary_message_unsupported`, oversized messages close as `1009/message_too_large`, malformed JSON closes as `1007/invalid_json`, duplicate JSON members are rejected, invalid first semantic messages receive `invalid_websocket_handshake` before `1008/invalid_first_message`, invalid later semantic messages receive `invalid_websocket_message` before `1008/invalid_message`, and valid server messages use one text frame without an encoder-added trailing line feed. A Base claim is non-conformant if `GET /ws/v1/incidents/{incident_id}` is absent or if the implementation treats any different v1 public subscription route as equivalent to that canonical route.
   - Verifies: REQ-01-019..REQ-01-022, REQ-01-250..REQ-01-277A, REQ-03-092..REQ-03-098, REQ-04-005..REQ-04-017,
     REQ-04-052..REQ-04-053
 - **AC-132**: When analyst A changes workbook surface, focused row, or same-cell edit state on an incident, analyst B subscribed to the same incident receives the corresponding `presence_delta` within 1 second, and the UI renders workbook-header, row-gutter, and same-cell indicators from matching `sheet_ref`, `record_id`, and `field_key` rather than visible labels or row numbers. Presence for direct opening of any pack-independent base-profile surface from `REQ-01-307`, including `cartulary.view.task_requests.v1`, `cartulary.view.decisions.v1`, `cartulary.view.comm_log.v1`, `cartulary.view.handoff.v1`, `cartulary.view.status_review.v1`, and `cartulary.view.lesson.v1`, uses `sheet_ref.kind='view_schema'` with the standardized `view_schema_id`; presence for a distinct saved view over the same schema uses `sheet_ref.kind='saved_view'` with that saved view's `saved_view_id`.
@@ -4512,7 +4591,7 @@ Verified by: AC-294
 #### Application public origin
 
 **REQ-04-110**
-The stable deployment-configuration key for the browser application origin MUST be `application.public_origin`. It MUST be an absolute `https` origin and MUST NOT include userinfo, path, query, or fragment. The public WebSocket implementation MUST validate cookie-authenticated browser `Origin` values against this configured origin before joining an incident-scoped stream.
+The stable deployment-configuration key for the browser application origin MUST be `application.public_origin`. It MUST be an absolute `https` origin and MUST NOT include userinfo, path, query, or fragment. It MUST equal its ASCII serialization as a browser sends it in `Origin` (RFC 6454 §6.2): lowercase scheme and host, an internationalized host in its A-label form, no port when the port is the default `443`, and otherwise a decimal port without leading zeros. Configuration admission MUST reject any other spelling with `invalid_deployment_config` and `reason_code='invalid_origin'` at `application.public_origin`, and MUST NOT rewrite the value, so the WebSocket `Origin` comparison and the OIDC redirect URI and SAML ACS URL derived from it use the configured text. The public WebSocket implementation MUST validate cookie-authenticated browser `Origin` values against this configured origin before joining an incident-scoped stream.
 Profiles: base
 Verified by: AC-131, AC-294, AC-298
 
@@ -4693,7 +4772,7 @@ Verified by: AC-477
 **REQ-04-079**
 The stable deployment-configuration keys for the resource-limit registry MUST be the following, and omitted keys MUST resolve to exactly the declared defaults.
 Profiles: base
-Verified by: AC-320, AC-321, AC-322, AC-323, AC-324, AC-325, AC-326, AC-327, AC-328
+Verified by: AC-320, AC-321, AC-322, AC-323, AC-324, AC-325, AC-326, AC-327, AC-328, AC-615
 
 | Key | Default | Applies to |
 | --- | --- | --- |
@@ -4712,6 +4791,7 @@ Verified by: AC-320, AC-321, AC-322, AC-323, AC-324, AC-325, AC-326, AC-327, AC-
 | `limits.incident_bundles.max_extracted_bytes` | `68719476736` | Extracted-bytes ceiling for whole-incident bundle import. |
 | `limits.previews.max_previewable_payload_bytes` | `33554432` | Maximum payload size eligible for any ordinary inline preview issuance. |
 | `limits.previews.max_text_inline_bytes` | `1048576` | Maximum payload size eligible for `text_inline` preview issuance. |
+| `limits.database.max_runtime_pool_connections` | `32` | Maximum concurrently open PostgreSQL connections in the application server's runtime pool, which serves HTTP requests and background-job handlers. Lease sessions under REQ-04-145 and the Collaboration replay listener's session are outside this pool. |
 
 **REQ-04-080**
 All resource-limit keys above MUST use integer values only. Human-readable unit strings such as `32MB` or `2GiB` are invalid. For this registry:
@@ -4729,9 +4809,9 @@ Profiles: base
 Verified by: AC-320, AC-322, AC-323, AC-324, AC-325, AC-326, AC-327, AC-328
 
 **REQ-04-081**
-Every resource-limit key above MUST be present in the effective configuration either explicitly or by omitted-key default resolution. Each configured value MUST be an integer within the closed deployment-configuration domain for that key family: byte-count and count limits MUST be in `1..9223372036854775807`, and `limits.archives.max_compression_ratio` MUST be in `1..1000`. Values below the minimum MUST fail with `invalid_deployment_config` and `reason_code='value_below_minimum'`. Values above the maximum MUST fail with `invalid_deployment_config` and `reason_code='value_above_maximum'`.
+Every resource-limit key above MUST be present in the effective configuration either explicitly or by omitted-key default resolution. Each configured value MUST be an integer within the closed deployment-configuration domain for that key family: byte-count and count limits MUST be in `1..9223372036854775807`, `limits.archives.max_compression_ratio` MUST be in `1..1000`, and `limits.database.max_runtime_pool_connections` MUST be in `4..1024`. Values below the minimum MUST fail with `invalid_deployment_config` and `reason_code='value_below_minimum'`. Values above the maximum MUST fail with `invalid_deployment_config` and `reason_code='value_above_maximum'`.
 Profiles: base
-Verified by: AC-320
+Verified by: AC-320, AC-615
 
 **REQ-04-071**
 The required stable deployment-configuration keys for runtime roots MUST be:
@@ -4940,7 +5020,9 @@ manifest-matching grants. Existing ACLs are not inferred from defaults.
 
 Every environment's administrator or harness provisioning MUST create a fresh
 exact PostgreSQL 18.6 cluster with `server_version_num=180006`, data checksums
-enabled, application host authentication restricted to verified TLS client
+enabled, a server build that supports `lz4` TOAST compression (Network Flow
+row storage uses it, and migration fails closed without it), application host
+authentication restricted to verified TLS client
 certificates under this section, and a parent volume
 mounted at `/var/lib/postgresql` with
 `PGDATA=/var/lib/postgresql/18/docker`. It MUST create the roles and login
@@ -5197,7 +5279,7 @@ Verified by: AC-294, AC-295, AC-296, AC-298, AC-320, AC-433, AC-434, AC-435, AC-
 **REQ-04-078**
 Validation of the effective deployment configuration MUST complete before any HTTP listener, WebSocket listener, or background-job runner starts. Invalid deployment configuration MUST cause non-zero process exit. The implementation MUST NOT partially start and then discover deployment-configuration invalidity later during analyst workflow.
 
-Application liveness and readiness MUST distinguish process health from active dependency readiness. `/healthz` is a process-liveness surface and MUST NOT become unhealthy solely because Postgres or the object store is unreachable after the process is running. `/readyz` is the public readiness surface and MUST emit a structured state with `status` equal to one of `starting_dependency_probe`, `ready`, `degraded_dependency`, or `recovering_dependency` when Postgres or object storage participates in the active deployment. `/readyz` MUST return HTTP `200` only when `status='ready'`; it MUST return HTTP `503` for startup dependency probing, post-ready dependency degradation, and recovery probing until the required probes pass. Readiness diagnostics MUST use redacted reason data and MUST NOT expose raw endpoint hosts, database names, bucket names, access keys, secret keys, object keys, storage refs, DSNs, or backend URLs.
+Application liveness and readiness MUST distinguish process health from active dependency readiness. `/healthz` is a process-liveness surface and MUST NOT become unhealthy solely because Postgres or the object store is unreachable after the process is running. `/readyz` is the public readiness surface and MUST emit a structured state with `status` equal to one of `starting_dependency_probe`, `ready`, `degraded_dependency`, `recovering_dependency`, `admission_paused`, `shutdown_in_progress`, or `fatal_integrity_failure` when Postgres or object storage participates in the active deployment. `/readyz` MUST return HTTP `200` only when `status='ready'`; it MUST return HTTP `503` for startup dependency probing, post-ready dependency degradation, and recovery probing until the required probes pass. While the process admission gate is closed, `/readyz` reports the gate's state instead of probing dependencies, with the precedence of the gate's `service_unavailable` reasons: `fatal_integrity_failure` in the fatal lifecycle (Extensions EXT-REQ-193), `shutdown_in_progress` after an operator stop request (REQ-04-146a), `admission_paused` while lease ownership is uncertain (REQ-04-145), and otherwise `starting_dependency_probe` before startup publication opens admission. Readiness diagnostics MUST use redacted reason data and MUST NOT expose raw endpoint hosts, database names, bucket names, access keys, secret keys, object keys, storage refs, DSNs, or backend URLs.
 Profiles: base
 Verified by: AC-298, AC-433, AC-434, AC-435, AC-526
 
@@ -5247,13 +5329,13 @@ Profiles: base
 Verified by: EXT-AC-143, EXT-AC-147, EXT-AC-152
 
 **REQ-04-145**
-Before extension claim resolution, the process MUST acquire one crash-released, deployment-global, exclusive application-process lease through exactly `unacquired -> acquiring -> held`; orderly shutdown may release from `held`. The lease permits exactly one active application process for the deployment even when infrastructure has provisioned multiple stopped, starting, or standby instances. Loss of ownership proof transitions immediately `held -> uncertain`, closes readiness and all admission, and permits `uncertain -> held` only when the original underlying session proves continuous ownership. Confirmed loss or detection-deadline expiry transitions to irreversible `lost`; in-process reacquisition is forbidden. Initial acquisition timeout mutates no profile state, starts no listener or dequeuer, emits `extension_application_process_active`, and exits `2`. Confirmed loss invokes fatal `application_process_lease_lost` and exits `70`. The storage mechanism is non-normative but must preserve session identity. This lease is distinct from the shared recovery serving lease in REQ-04-113; typed wrappers MAY share owner-neutral mechanics but MUST retain distinct lock identifiers, modes, owners, and failure vocabularies.
+Each application-process, application recovery-serving and Recovery target lease MUST hold its lock on a dedicated database session outside the runtime pool, admitted with the same purpose binding, TLS and effective-role checks as pooled connections; a held lease MUST NOT reduce the capacity available to request or job work. The Collaboration replay listener, which holds its `LISTEN` for the process lifetime, MUST likewise use one dedicated session outside the runtime pool, admitted like pooled connections. Before extension claim resolution, the process MUST acquire one crash-released, deployment-global, exclusive application-process lease through exactly `unacquired -> acquiring -> held`; orderly shutdown may release from `held`. The lease permits exactly one active application process for the deployment even when infrastructure has provisioned multiple stopped, starting, or standby instances. Loss of ownership proof transitions immediately `held -> uncertain`, closes readiness and all admission (newly admitted HTTP work receives `503` `service_unavailable` with `reason_code='admission_paused'` and `retryable=true`), and permits `uncertain -> held` only when the original underlying session proves continuous ownership. Confirmed loss or detection-deadline expiry transitions to irreversible `lost`; in-process reacquisition is forbidden. Initial acquisition timeout mutates no profile state, starts no listener or dequeuer, emits `extension_application_process_active`, and exits `2`. Confirmed loss invokes fatal `application_process_lease_lost` and exits `70`. The storage mechanism is non-normative but must preserve session identity. This lease is distinct from the shared recovery serving lease in REQ-04-113; typed wrappers MAY share owner-neutral mechanics but MUST retain distinct lock identifiers, modes, owners, and failure vocabularies.
 
-Stage 6 installs one immutable six-stage publication plan while admission remains closed and opens HTTP, WebSocket, job dequeue, readiness, discovery claim state, and workspace availability through one atomic gate only after every mandatory component acknowledges readiness.
+Stage 6 installs one immutable six-stage publication plan while admission remains closed and opens HTTP, WebSocket, job dequeue, readiness, discovery claim state, and workspace availability through one atomic gate only after every mandatory component acknowledges readiness. The gate also opens only while every lease above is `held`. If ownership proof is `uncertain` when the last acknowledgment arrives, publication still completes, admission stays paused under the uncertainty rule above, and the atomic gate opens at the original session's first proof of continuous ownership. Uncertainty alone is not a publication failure; confirmed loss before the gate opens is the fatal lease loss above and exits `70`.
 
 The Jobs supervisor MUST validate its immutable dependencies and exact catalog-backed handler registration before the Stage 6 job-dequeue acknowledgment. Publication activation MUST run one synchronous initial recovery scan before HTTP or readiness can be externally observed. Failure of that initial scan is a startup publication failure: no listener may become externally available and the process exits under the existing startup-failure contract. After publication, transient recovery-scan errors remain inside the live supervisor with bounded safe diagnostics, while an unexpected supervisor panic or loop exit is loss of the required `job_dequeue` component.
 Profiles: base
-Verified by: EXT-AC-151, EXT-AC-158
+Verified by: EXT-AC-151, EXT-AC-158, AC-615, AC-618
 
 **REQ-04-146**
 An ordinary component preparation/activation operation returning failure before
@@ -5262,7 +5344,7 @@ termination after that component has become prepared is the fatal component-loss
 case below, even before bind or serving. Neither category may be inferred only
 from whether a public listener has already bound.
 
-Core 04's fatal lifecycle admits `published_component_lost` when a required publication listener, WebSocket gate, job-dequeue gate, job-dequeue supervisor, or worker terminates unexpectedly before bind, between bind and serving, or while serving. It also admits `application_process_lease_lost` and `recovery_serving_lease_lost` for confirmed loss of their distinct application-owned leases while starting or serving. A handled request, handler failure, retryable recovery-scan error, or lease-renewal failure isolated to one job is not component loss. Fatal detection closes readiness and admission, rejects new work, drains no longer than the configured shutdown deadline, preserves committed state and durable queued jobs, emits one secret-safe diagnostic, and exits `70`; it MUST NOT restart the component, reacquire a lost lease, rebuild the plan, or return to serving. Startup admission failures, including `extension_application_process_active` and `recovery_serving_lease_active`, start no listener and exit `2`. Lease loss, component loss, registry/state integrity contradictions, and indeterminate commits use the same idempotent fatal lifecycle; ordinary isolated operation failure does not. Recovery's exclusive target-lease loss remains governed by REQ-04-113 and the Recovery owner mapping rather than `recovery_serving_lease_lost`.
+Core 04's fatal lifecycle admits `published_component_lost` when a required publication listener, WebSocket gate, job-dequeue gate, job-dequeue supervisor, or worker terminates unexpectedly before bind, between bind and serving, or while serving. It also admits `application_process_lease_lost` and `recovery_serving_lease_lost` for confirmed loss of their distinct application-owned leases while starting or serving. A handled request, handler failure, retryable recovery-scan error, or lease-renewal failure isolated to one job is not component loss. Fatal detection closes readiness and admission, rejects new work, closes every existing WebSocket with close code `1001` and no terminal event as in REQ-04-146a, drains no longer than the configured shutdown deadline with the same component close reserve, never restarts a deadline that an ordinary stop request already started, preserves committed state and durable queued jobs, emits one secret-safe diagnostic, and exits `70`; it MUST NOT restart the component, reacquire a lost lease, rebuild the plan, or return to serving. Startup admission failures, including `extension_application_process_active` and `recovery_serving_lease_active`, start no listener and exit `2`. Lease loss, component loss, registry/state integrity contradictions, and indeterminate commits use the same idempotent fatal lifecycle; ordinary isolated operation failure does not. Recovery's exclusive target-lease loss remains governed by REQ-04-113 and the Recovery owner mapping rather than `recovery_serving_lease_lost`.
 Profiles: base
 Verified by: AC-534, EXT-AC-104, EXT-AC-151, EXT-AC-158
 
@@ -5270,11 +5352,11 @@ Verified by: AC-534, EXT-AC-104, EXT-AC-151, EXT-AC-158
 **REQ-04-146a — Ordinary shutdown**
 An operator stop request (`SIGTERM` or `SIGINT`) MUST enter one ordinary shutdown lifecycle, distinct from the fatal lifecycle in REQ-04-146:
 
-- the process stops admitting new HTTP connections and WebSocket upgrades, stops common-job dequeue, and stops new dispatcher ticks and continuations;
-- every existing WebSocket is closed with close code `1001` (going away) instead of being waited on;
-- in-flight requests, handlers, publication, and every component close share one application shutdown deadline equal to `timeouts.extensions.shutdown_drain_seconds`, measured from the stop request; a component close consumes the time remaining and adds no budget of its own;
+- at the stop request, before any drain, the process stops admitting new HTTP connections and WebSocket upgrades, closes readiness and admission (newly admitted HTTP work receives `503` `service_unavailable` with `reason_code='shutdown_in_progress'` and `retryable=true`), stops common-job dequeue, and stops new dispatcher ticks and continuations;
+- every existing WebSocket, including one still completing its handshake or first message, is closed with close code `1001` (going away) and no terminal event, instead of being waited on;
+- in-flight requests, handlers, publication, and every component close share one application shutdown deadline equal to `timeouts.extensions.shutdown_drain_seconds`, measured from the stop request. In-flight HTTP work drains until that deadline minus a component close reserve of `min(25% of the deadline, 5 s)`; work still running then is cancelled, which completes the HTTP phase and does not by itself make shutdown incomplete. Component closes consume the remaining time and add no budget of their own;
 - committed state and durable queued jobs are preserved;
-- the process exits `0` when every component has closed within the deadline; at expiry it force-closes what remains, emits one secret-safe diagnostic naming the components still open, and exits `1`.
+- the process exits `0` when every component has closed successfully within the deadline. A component whose close fails, or has not finished at the deadline, is open: at expiry the process force-closes what remains, emits one secret-safe diagnostic naming the components still open, and exits `1`.
 
 A component that stops after the stop request is part of ordinary shutdown and MUST NOT be reported as `published_component_lost`. A fatal condition detected during ordinary shutdown takes precedence and enters REQ-04-146 without restarting the deadline. A repeated stop request is idempotent and MUST NOT restart the deadline. Exit codes `0`, `1`, `2` and `70` are reserved for these lifecycles.
 Profiles: base

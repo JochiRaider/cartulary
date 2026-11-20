@@ -1,3 +1,8 @@
+import type { HTTPOperationFailureCode } from "../../services/browserApi";
+import {
+  type ClientErrorCode,
+  temporaryUnavailabilityText,
+} from "../../shared/publicError";
 import { isSheetRef, type SheetRef } from "../../shared/sheetRef";
 import type { WorkbookIncidentRole } from "../../shared/workbookShellContracts";
 
@@ -22,21 +27,16 @@ export type PreferenceResources = {
   home: HomePreference;
   default: DefaultPreference;
 };
+/** Workbook preference operations whose decoded failures the preference editor presents. */
+export type PreferenceHTTPOperation =
+  | "getCurrentUserWorkbookPreferences"
+  | "putCurrentUserWorkbookPreferences"
+  | "getIncidentDefaultWorkbookPreferences"
+  | "putIncidentDefaultWorkbookPreferences";
 export type PreferenceProblem = Readonly<{
   code:
-    | "invalid_mutation_payload"
-    | "invalid_query_request"
-    | "invalid_path_parameter"
-    | "session_required"
-    | "authorization_denied"
-    | "csrf_verification_failed"
-    | "incident_not_found"
-    | "internal_error"
-    | "invalid_public_contract_response"
-    | "transport"
-    | "timeout"
-    | "access_unavailable"
-    | "unknown_public_error";
+    | HTTPOperationFailureCode<PreferenceHTTPOperation>
+    | Extract<ClientErrorCode, "transport" | "timeout" | "access_unavailable">;
 }>;
 export type PreferenceResult<T> =
   | { readonly kind: "accepted"; readonly value: T }
@@ -168,6 +168,8 @@ export function preferenceProblemText(problem: PreferenceProblem): string {
       return "Current access could not be checked. Local recovery is retained.";
     case "invalid_public_contract_response":
       return "The server response could not be validated.";
+    case "service_unavailable":
+      return temporaryUnavailabilityText();
     default:
       return "The preference request could not be completed. Refresh the current value.";
   }

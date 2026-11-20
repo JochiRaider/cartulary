@@ -62,8 +62,7 @@
       "specifier": "@cartulary/protocol-ts/extensions",
       "authored_path": "packages/protocol-ts/src/entrypoints/extensions.ts",
       "generated_module_allowlist": [
-        "packages/protocol-ts/src/generated/extension-client-support-registry.ts",
-        "packages/protocol-ts/src/generated/extension-profile-registry.ts"
+        "packages/protocol-ts/src/generated/extension-client-support-registry.ts"
       ]
     },
     {

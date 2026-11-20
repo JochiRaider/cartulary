@@ -11,7 +11,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	incidentadmission "github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
-	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -213,11 +212,11 @@ func artifactMutationFailure(err error, clientTxnID string) (*workbook.MutationF
 	if incidentadmission.IsDenied(err, incidentadmission.DenialIncidentClosed) {
 		return workbook.IncidentClosedFailure(), true
 	}
+	if failure, classified := recordTargetFailure(err); classified {
+		return failure, true
+	}
 	if errors.Is(err, pgx.ErrNoRows) {
 		return workbook.TargetNotFoundFailure(), true
-	}
-	if errors.Is(err, revisions.ErrRecordDeletedUseRestore) {
-		return workbook.RecordDeletedFailure(), true
 	}
 	var validation *artifacts.ValidationError
 	if errors.As(err, &validation) {

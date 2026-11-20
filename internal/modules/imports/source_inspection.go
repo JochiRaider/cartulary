@@ -2,6 +2,7 @@ package imports
 
 import (
 	"context"
+	"errors"
 	"io"
 
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -48,7 +49,7 @@ func (s *service) applicationInspectSource(ctx context.Context, actorID, inciden
 	}
 	source, err := s.store.sourceCapabilityForUnit(ctx, route.SessionID, route.UnitID)
 	if err != nil {
-		return extensionImportReadResource{}, internalAPIError(err)
+		return extensionImportReadResource{}, unitSourceAPIError(err)
 	}
 	result, err := facade.InspectImportUnitSource(ctx, ExtensionImportSourceRequest{
 		IncidentID: incidentID, ActorUserID: actorID, TargetKind: request.TargetKind, ExtensionProfileID: request.ExtensionProfileID,
@@ -64,4 +65,14 @@ func (s *service) applicationInspectSource(ctx context.Context, actorID, inciden
 		SchemaID: "cartulary.imports.extension_source_inspection_result.v1", ImportSessionID: route.SessionID.String(), ImportUnitID: route.UnitID.String(),
 		TargetKind: request.TargetKind, ExtensionProfileID: request.ExtensionProfileID, OwnerResultSchemaID: result.OwnerResultSchemaID, OwnerResult: result.OwnerResult,
 	}, nil
+}
+
+// unitSourceAPIError classifies the unit source read that follows a route's
+// unit lookup. A unit removed after that lookup is the route's
+// import_unit_not_found; any other failure is internal_error (REQ-01-706).
+func unitSourceAPIError(err error) *httpapi.APIError {
+	if errors.Is(err, errNotFound) {
+		return httpapi.NotFound("import_unit_not_found")
+	}
+	return internalAPIError(err)
 }

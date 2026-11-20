@@ -152,7 +152,7 @@ it("Lifecycle replay uses current authority and access rejection cannot erase un
     failure: {
       kind: "authorization_lost",
       message: "Lost access",
-      publicCode: "forbidden",
+      publicCode: "authorization_denied",
     },
   });
   await t.owner.replay(a.id);

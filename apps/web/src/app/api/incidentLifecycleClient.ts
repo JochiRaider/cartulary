@@ -1,8 +1,7 @@
-import type {
-  CloseIncidentResponse,
-  GetIncidentResponse,
-} from "@cartulary/protocol-ts/http";
-import { type APIError, fetchHTTPOperation } from "../../services/browserApi";
+import {
+  fetchHTTPOperation,
+  type HTTPOperationError,
+} from "../../services/browserApi";
 import {
   type IncidentResource,
   validIncidentResource,
@@ -10,8 +9,8 @@ import {
 import {
   type LifecycleAttempt,
   type LifecycleAuthority,
+  type LifecycleHTTPOperation,
   type LifecycleProblem,
-  lifecycleProblemCodes,
   lifecycleReasons,
 } from "../incidentLifecycleModel";
 
@@ -27,19 +26,20 @@ const invalid = (): LifecycleResult => ({
   status: 502,
   problem: { code: "invalid_public_contract_response" },
 });
-function failure(status: number, error?: APIError): LifecycleResult {
+function failure(
+  status: number,
+  error: HTTPOperationError<LifecycleHTTPOperation>,
+): LifecycleResult {
   return {
     ok: false,
     status,
     problem: {
-      code:
-        lifecycleProblemCodes.find((code) => code === error?.code) ??
-        "unknown_public_error",
+      code: error.code,
       field: (
         ["reason", "base_incident_version", "client_txn_id"] as const
-      ).find((field) => field === error?.details?.field),
+      ).find((field) => field === error.details.field),
       reason: lifecycleReasons.find(
-        (reason) => reason === error?.details?.reason_code,
+        (reason) => reason === error.details.reason_code,
       ),
     },
   };
@@ -48,7 +48,7 @@ export async function readLifecycleIncident(options: {
   authority: LifecycleAuthority;
   signal: AbortSignal;
 }): Promise<LifecycleResult> {
-  const result = await fetchHTTPOperation<GetIncidentResponse>({
+  const result = await fetchHTTPOperation({
     apiBase: options.authority.apiBase,
     operationID: "getIncident",
     pathParameters: { incident_id: options.authority.incidentId },
@@ -66,7 +66,7 @@ export async function mutateIncidentLifecycle(options: {
 }): Promise<LifecycleResult> {
   const { attempt } = options;
   const { base_incident_version, client_txn_id, reason } = attempt.payload;
-  const result = await fetchHTTPOperation<CloseIncidentResponse>({
+  const result = await fetchHTTPOperation({
     apiBase: attempt.authority.apiBase,
     operationID:
       attempt.action === "close" ? "closeIncident" : "reopenIncident",

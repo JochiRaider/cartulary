@@ -124,3 +124,81 @@ func TestLeaseMonitorShutdownPreservesProofDeadline(t *testing.T) {
 		t.Fatal("failed ownership proof was reported as successful release")
 	}
 }
+
+// scriptedProofSession answers each ownership proof with the next scripted
+// result, so a monitor walks a fixed sequence of transitions whatever its
+// timing.
+type scriptedProofSession struct {
+	mu     sync.Mutex
+	proofs []Proof
+}
+
+func (s *scriptedProofSession) Identity() string                         { return "owned-session" }
+func (s *scriptedProofSession) TryAcquire(context.Context) (bool, error) { return true, nil }
+func (s *scriptedProofSession) Prove(context.Context) Proof {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if len(s.proofs) == 0 {
+		return ProofLost
+	}
+	proof := s.proofs[0]
+	s.proofs = s.proofs[1:]
+	return proof
+}
+func (s *scriptedProofSession) Release(context.Context) error { return nil }
+func (s *scriptedProofSession) Close()                        {}
+
+type scriptedProofBackend struct{ session *scriptedProofSession }
+
+func (b scriptedProofBackend) Open(context.Context) (Session, error) { return b.session, nil }
+
+// TestLeaseEventsDeliverTheLatestTransition covers Core 04 REQ-04-145 and
+// EXT-REQ-213: confirmed loss must reach the fatal lifecycle, so a consumer
+// that fell behind a burst of ownership transitions still receives the
+// lease's latest transition, lost in particular, after earlier transitions
+// overflowed the event buffer. Delivered events keep their order.
+func TestLeaseEventsDeliverTheLatestTransition(t *testing.T) {
+	var script []Proof
+	for range 8 {
+		script = append(script, ProofUncertain, ProofContinuous)
+	}
+	script = append(script, ProofLost)
+	// Each uncertain proof follows a held state and is answered by the next
+	// tick, so the detection deadline never expires; only the scripted proof
+	// confirms loss.
+	lease, err := Acquire(context.Background(), scriptedProofBackend{&scriptedProofSession{proofs: script}}, time.Second, 20*time.Millisecond)
+	if err != nil {
+		t.Fatal(err)
+	}
+	monitorCtx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(func() { cancel(); lease.Close() })
+	lease.StartMonitor(monitorCtx)
+	lease.mu.RLock()
+	monitorDone := lease.monitorDone
+	lease.mu.RUnlock()
+	select {
+	case <-monitorDone:
+	case <-time.After(10 * time.Second):
+		t.Fatalf("the monitor did not reach loss: state %s", lease.State())
+	}
+	if lease.State() != StateLost {
+		t.Fatalf("state = %s; want lost", lease.State())
+	}
+	var events []Event
+	for drained := false; !drained; {
+		select {
+		case event := <-lease.Events():
+			events = append(events, event)
+		default:
+			drained = true
+		}
+	}
+	if len(events) == 0 || events[len(events)-1].State != StateLost || events[len(events)-1].Previous != StateUncertain {
+		t.Fatalf("delivered events %v; the latest transition must be uncertain -> lost", events)
+	}
+	for index := 1; index < len(events); index++ {
+		if events[index].Previous != events[index-1].State {
+			t.Fatalf("delivered events %v are out of order at %d", events, index)
+		}
+	}
+}

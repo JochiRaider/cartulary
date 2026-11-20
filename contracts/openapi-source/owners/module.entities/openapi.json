@@ -15,7 +15,8 @@
             "schema": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "x-cartulary-not-found-code": "incident_not_found"
           }
         ],
         "requestBody": {
@@ -47,7 +48,10 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "invalid_mutation_payload"
+            ]
           },
           "401": {
             "description": "Authentication required",
@@ -57,7 +61,10 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "session_required"
+            ]
           },
           "403": {
             "description": "CSRF verification or authorization failed",
@@ -67,7 +74,11 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "authorization_denied",
+              "csrf_verification_failed"
+            ]
           },
           "404": {
             "description": "Merge records are not visible",
@@ -77,7 +88,10 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "incident_not_found"
+            ]
           },
           "409": {
             "description": "Merge conflict, precondition failure, or incident state conflict",
@@ -87,7 +101,21 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "client_txn_conflict",
+              "credential_bootstrap_rejected",
+              "incident_closed",
+              "merge_precondition_failed",
+              "record_locked",
+              "row_version_conflict"
+            ]
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [
@@ -118,7 +146,8 @@
             "schema": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "x-cartulary-not-found-code": "entity_mention_not_found"
           }
         ],
         "requestBody": {
@@ -150,7 +179,10 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "invalid_mutation_payload"
+            ]
           },
           "401": {
             "description": "Authentication required",
@@ -160,7 +192,10 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "session_required"
+            ]
           },
           "403": {
             "description": "CSRF verification or authorization failed",
@@ -170,7 +205,11 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "authorization_denied",
+              "csrf_verification_failed"
+            ]
           },
           "404": {
             "description": "Mention or resolved target is not visible",
@@ -180,7 +219,11 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "entity_mention_not_found",
+              "resolved_record_not_found"
+            ]
           },
           "409": {
             "description": "Mention state, row version, idempotency, or incident conflict",
@@ -190,7 +233,21 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "client_txn_conflict",
+              "credential_bootstrap_rejected",
+              "illegal_transition",
+              "incident_closed",
+              "record_deleted_use_restore",
+              "row_version_conflict"
+            ]
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [
@@ -221,7 +278,8 @@
             "schema": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "x-cartulary-not-found-code": "incident_not_found"
           },
           {
             "name": "entity_type",
@@ -341,6 +399,9 @@
             "x-cartulary-error-codes": [
               "internal_error"
             ]
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailableErrorResponse"
           }
         },
         "security": [

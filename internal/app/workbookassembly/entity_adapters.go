@@ -14,7 +14,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/mutationadmission"
 	incidentadmission "github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
-	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/modules/tabularingest"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
@@ -293,11 +292,11 @@ func entityMutationFailure(err error, clientTxnID string) (*workbook.MutationFai
 	if incidentadmission.IsDenied(err, incidentadmission.DenialIncidentClosed) {
 		return workbook.IncidentClosedFailure(), true
 	}
+	if failure, classified := recordTargetFailure(err); classified {
+		return failure, true
+	}
 	if errors.Is(err, pgx.ErrNoRows) {
 		return workbook.TargetNotFoundFailure(), true
-	}
-	if errors.Is(err, revisions.ErrRecordDeletedUseRestore) {
-		return workbook.RecordDeletedFailure(), true
 	}
 	if errors.Is(err, hostidentity.ErrInvalidCreateRequest) {
 		return workbook.InvalidPayloadFailure("payload", "at_least_one_value_required"), true

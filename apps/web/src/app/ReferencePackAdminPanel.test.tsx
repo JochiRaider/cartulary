@@ -698,7 +698,7 @@ describe("ReferencePackAdminPanel", () => {
       ).toBe(true),
     );
 
-    searchResponse.resolve(errorResponse("reference_pack_search_failed", 500));
+    searchResponse.resolve(errorResponse("internal_error", 500));
     await waitFor(() => {
       expect(
         screen.getByTestId(referencePackErrorTestId()).textContent,

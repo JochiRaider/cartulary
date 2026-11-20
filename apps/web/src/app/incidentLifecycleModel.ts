@@ -1,4 +1,6 @@
+import type { HTTPOperationFailureCode } from "../services/browserApi";
 import type { IncidentResource } from "../shared/incidentResource";
+import { notAppliedText } from "../shared/publicError";
 import type { WorkbookIncidentRole } from "../shared/workbookShellContracts";
 import type { CloseIncidentRequest } from "./api/publicHttpTypes";
 
@@ -31,20 +33,11 @@ export type LifecycleAttempt = Readonly<{
   revision: number;
   payload: Readonly<CloseIncidentRequest>;
 }>;
-export const lifecycleProblemCodes = [
-  "invalid_incident_lifecycle_request",
-  "incident_version_conflict",
-  "illegal_transition",
-  "client_txn_conflict",
-  "session_required",
-  "authorization_denied",
-  "csrf_verification_failed",
-  "incident_not_found",
-  "credential_bootstrap_rejected",
-  "internal_error",
-  "invalid_public_contract_response",
-  "unknown_public_error",
-] as const;
+/** Operations whose failures the lifecycle editor decodes and presents. */
+export type LifecycleHTTPOperation =
+  | "getIncident"
+  | "closeIncident"
+  | "reopenIncident";
 export const lifecycleReasons = [
   "request_not_object",
   "missing_required_field",
@@ -60,7 +53,7 @@ export const lifecycleReasons = [
   "incident_not_closed",
 ] as const;
 export type LifecycleProblem = Readonly<{
-  code: (typeof lifecycleProblemCodes)[number];
+  code: HTTPOperationFailureCode<LifecycleHTTPOperation>;
   field?: "reason" | "base_incident_version" | "client_txn_id" | undefined;
   reason?: (typeof lifecycleReasons)[number] | undefined;
 }>;
@@ -154,6 +147,8 @@ export function lifecycleProblemMessage(problem: LifecycleProblem): string {
       return "Session verification failed. Check current access before another action.";
     case "credential_bootstrap_rejected":
       return "A full authenticated session is required for this action.";
+    case "service_unavailable":
+      return notAppliedText();
     default:
       return "The action result could not be confirmed. Keep its recovery record and check current access.";
   }

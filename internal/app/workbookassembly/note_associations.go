@@ -69,10 +69,12 @@ func NewNoteAssociationProvider(pool dbport.DB, mutations *artifacts.MutationFac
 func (p *noteAssociationProvider) List(ctx context.Context, q workbook.NoteAssociationQuery) (workbook.NoteAssociationPage, *workbook.MutationFailure, error) {
 	kind, valid := artifacts.ParseNoteAssociationKind(q.Kind)
 	if !valid {
-		return workbook.NoteAssociationPage{}, workbook.InvalidPayloadFailure("kind", "invalid_value"), nil
+		// The Workbook decoder admits only the three public kind tokens
+		// (REQ-01-675), so another kind here is an invariant break.
+		return workbook.NoteAssociationPage{}, nil, fmt.Errorf("note association list admitted unknown kind %q", q.Kind)
 	}
 	result, err := p.owner.List(ctx, artifacts.NoteAssociationRead{ActorUserID: q.ActorID, IncidentID: q.Target.IncidentID, NoteID: q.Target.RecordID, Kind: kind, Limit: q.Limit, BeforeTime: q.BeforeTime, BeforeID: q.BeforeID})
-	if failure, safe := noteAssociationFailure(err, ""); safe {
+	if failure, safe := noteAssociationReadFailure(err); safe {
 		return workbook.NoteAssociationPage{}, failure, nil
 	}
 	if err != nil {
@@ -98,6 +100,21 @@ func (p *noteAssociationProvider) Apply(ctx context.Context, c workbook.NoteAsso
 		return workbook.MutationOutcome{}, applyErr
 	}
 	return workbook.SuccessfulRowMutation(artifactMutationResult(result)), nil
+}
+
+// noteAssociationReadFailure classifies a Note association read. Any incident
+// member may read (REQ-01-675), so the only typed outcome is the Note's
+// not-found: a caller who lost visibility, or a Note that is missing, deleted
+// or of another type. Every other failure, including an insufficient role or a
+// kind or limit the Workbook decoder already admitted, is internal_error
+// (REQ-01-706).
+func noteAssociationReadFailure(err error) (*workbook.MutationFailure, bool) {
+	if admission.IsDenied(err, admission.DenialNotVisible) ||
+		errors.Is(err, pgx.ErrNoRows) ||
+		errors.Is(err, recordenvelope.ErrEnvelopeNotFound) {
+		return workbook.TargetNotFoundFailure(), true
+	}
+	return nil, false
 }
 
 func noteAssociationFailure(err error, txn string) (*workbook.MutationFailure, bool) {

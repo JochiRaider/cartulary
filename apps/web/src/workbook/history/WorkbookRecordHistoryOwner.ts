@@ -6,7 +6,7 @@ import {
 } from "../inspector/workbookInspectorErrorModel";
 import type { SecureTransactionIdPort } from "../mutations/secureTransactionId";
 import type {
-  WorkbookOperationFailure,
+  WorkbookClientFailure,
   WorkbookOperationOutcome,
 } from "../mutations/workbookOperationOutcome";
 import { workbookFailureLifecycle } from "../ports/WorkbookPortResult";
@@ -31,12 +31,12 @@ import type {
   HistoryReadScope,
 } from "./workbookHistoryPage";
 
-const reviewRequired: WorkbookOperationFailure = {
+const reviewRequired: WorkbookClientFailure = {
   kind: "stale_target",
   message:
     "The record changed. Review current history and confirm the action again.",
 };
-const accessRequired: WorkbookOperationFailure = {
+const accessRequired: WorkbookClientFailure = {
   kind: "authorization_lost",
   message: "Current access does not permit this history action.",
 };
@@ -255,9 +255,9 @@ export class WorkbookRecordHistoryOwner {
       if (!entry.dispatched && entry.phase === "preparing")
         this.update(entry.attempt.id, {
           phase: "rejected",
+          // Client-observed closure: no request was sent, so no public code.
           failure: {
             kind: "terminal",
-            publicCode: "incident_closed",
             message: "Closed, read-only",
           },
         });
@@ -348,20 +348,20 @@ export class WorkbookRecordHistoryOwner {
     recordId: string,
     signal?: AbortSignal,
     request: HistoryPageRequest = {},
-  ): Promise<WorkbookOperationOutcome<HistoryPage>> {
+  ): Promise<WorkbookOperationOutcome<HistoryPage, "getRecordHistory">> {
     return this.read(recordId, signal, request);
   }
   /** Related projections may disappear without invalidating incident-wide history access. */
   loadProjection(
     recordId: string,
-  ): Promise<WorkbookOperationOutcome<HistoryPage>> {
+  ): Promise<WorkbookOperationOutcome<HistoryPage, "getRecordHistory">> {
     return this.read(recordId, undefined, {});
   }
   private async read(
     recordId: string,
     signal: AbortSignal | undefined,
     request: HistoryPageRequest,
-  ): Promise<WorkbookOperationOutcome<HistoryPage>> {
+  ): Promise<WorkbookOperationOutcome<HistoryPage, "getRecordHistory">> {
     const authority = this.authority;
     const epoch = this.epoch;
     const port = this.port;

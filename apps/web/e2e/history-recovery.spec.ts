@@ -31,7 +31,10 @@ import {
 } from "./support/runtime/fixtureIdentity";
 import { publicHttpOperation } from "./support/transport/publicHttpOperationClient";
 import { atJsonOrigin } from "./support/transport/publicJsonClient";
-import { installOwnedRoute } from "./support/transport/requestInterception";
+import {
+  fulfillOperationError,
+  installOwnedRoute,
+} from "./support/transport/requestInterception";
 import { fetchFullRecordHistory } from "./support/workbook/history";
 import { createViewRow, patchRecord } from "./support/workbook/query";
 import { openRecoveryItem, recoveryEntry } from "./support/workbook/recovery";
@@ -353,11 +356,16 @@ test("Timeline acknowledged delete survives a failed history refresh", async ({
     `**/api/v1/records/${row.record_id}/history`,
     async (route) => {
       if (acknowledged && failRefresh) {
-        await route.fulfill({
-          status: 503,
-          contentType: "application/json",
-          body: JSON.stringify({ unavailable: true }),
-        });
+        await fulfillOperationError(
+          route,
+          "getRecordHistory",
+          503,
+          "service_unavailable",
+          {
+            retryable: true,
+            details: { reason_code: "admission_paused" },
+          },
+        );
         return;
       }
       await route.continue();

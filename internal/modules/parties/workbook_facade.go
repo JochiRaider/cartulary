@@ -363,7 +363,7 @@ func (f *MutationFacade) Patch(ctx context.Context, command PatchCommand) (Mutat
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	meta, err := partysource.LoadRecordMetaForUpdateTx(ctx, tx, command.RecordID)
+	meta, err := f.loadPartyRecordMetaForUpdateTx(ctx, tx, command.RecordID)
 	if err != nil {
 		return MutationResult{}, err
 	}
@@ -558,6 +558,10 @@ func sourcePatchChanges(changes []patchChange) []partysource.PatchChange {
 	return result
 }
 
+// adaptRevisionWindowError classifies only the typed unavailable-window
+// condition, which fails closed as row_version_conflict. Every other failure,
+// including a database, field-catalog or conflict-token error, stays
+// unclassified and surfaces as internal_error (REQ-01-706).
 func adaptRevisionWindowError(recordID uuid.UUID, baseRowVersion int64, currentRowVersion int64, err error) error {
 	if err == nil {
 		return nil
@@ -566,7 +570,7 @@ func adaptRevisionWindowError(recordID uuid.UUID, baseRowVersion int64, currentR
 	if errors.As(err, &windowErr) {
 		return &RowVersionConflictError{RecordID: windowErr.RecordID, BaseRowVersion: windowErr.BaseRowVersion, CurrentRowVersion: windowErr.CurrentRowVersion}
 	}
-	return &RowVersionConflictError{RecordID: recordID, BaseRowVersion: baseRowVersion, CurrentRowVersion: currentRowVersion}
+	return fmt.Errorf("record %s revision window %d..%d: %w", recordID, baseRowVersion, currentRowVersion, err)
 }
 
 type partySameFieldConflictParams struct {

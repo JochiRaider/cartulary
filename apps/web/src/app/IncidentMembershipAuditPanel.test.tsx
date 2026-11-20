@@ -11,6 +11,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { operationErrorResponse } from "../testing/fetchMockTestSupport";
 import { MembershipAuditTestSurface } from "../testing/incidentMembershipAuditTestSupport";
 
 const jsonResponse = (payload: unknown) =>
@@ -178,19 +179,15 @@ describe("Incident membership audit presentation", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
   it("distinguishes unavailable initial reads from stale refresh and explicit retry", async () => {
+    // A declared, well-formed 503 is the temporarily unavailable read.
     let mode: "failed" | "ready" = "failed";
     fetchMock.mockImplementation(() =>
       mode === "failed"
         ? Promise.resolve(
-            new Response(
-              JSON.stringify({
-                error: {
-                  code: "service_unavailable",
-                  status: 503,
-                  retryable: true,
-                },
-              }),
-              { status: 503, headers: { "Content-Type": "application/json" } },
+            operationErrorResponse(
+              "listIncidentMembershipAuditEvents",
+              { code: "service_unavailable", status: 503 },
+              { details: { reason_code: "admission_paused" } },
             ),
           )
         : Promise.resolve(

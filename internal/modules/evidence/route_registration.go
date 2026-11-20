@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
@@ -24,6 +25,18 @@ type service struct {
 	maxBlobBytes   int64
 	previewMax     int64
 	textPreviewMax int64
+	// storageKeys generates a new slot's physical key. Nil selects the
+	// production object_blob_storage_key_v2 generator; tests substitute a
+	// defective generator to exercise the server-generated-key contract.
+	storageKeys func(incidentID, objectBlobID uuid.UUID) (string, error)
+}
+
+// objectBlobStorageKey generates the physical key for a new blob slot.
+func (s *service) objectBlobStorageKey(incidentID, objectBlobID uuid.UUID) (string, error) {
+	if s.storageKeys != nil {
+		return s.storageKeys(incidentID, objectBlobID)
+	}
+	return blobref.ObjectBlobStorageKey(incidentID, objectBlobID, uuid.New())
 }
 
 type Settings struct {
@@ -46,6 +59,7 @@ type routeService interface {
 	GetUploadLease(context.Context, uuid.UUID) (uploadLeaseRecord, error)
 	ClaimUploadLease(context.Context, uuid.UUID, []byte, time.Time) error
 	CompleteUploadLease(context.Context, uuid.UUID, time.Time) error
+	LoadAttachTarget(context.Context, uuid.UUID) (evidenceAttachTarget, error)
 	PreflightAttachBlob(context.Context, authn.UserRecord, uuid.UUID, attachBlobRequest, []byte, time.Time) (attachBlobPreflightResult, error)
 	AttachBlob(context.Context, authn.UserRecord, uuid.UUID, attachBlobRequest, []byte, string, time.Time) (attachBlobResult, error)
 	LoadEvidenceAccess(context.Context, uuid.UUID) (evidenceAccessRecord, error)
@@ -58,22 +72,32 @@ type routeService interface {
 
 var _ routeService = (*routeOperations)(nil)
 
+// registerRoutes binds the Evidence routes for central admission (Core 01
+// REQ-01-707): the registry authenticates by each operation's declared
+// security and admits its path parameters before a handler runs. Handle and
+// upload tokens are admitted by syntax only; their capability checks stay in
+// route handling.
 func registerRoutes(settings Settings, captured routeDependencies) httpapi.RouteRegistrar {
 	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
 		service, err := newService(deps.Env, settings, captured)
 		if err != nil {
 			return err
 		}
-		return httpapi.BindOwnerRoutes(mux, deps, "module.evidence", map[string]http.HandlerFunc{
-			"attachBlobToEvidenceRecord":  service.handleAttachBlob,
-			"createObjectBlobSlot":        service.handleCreateBlob,
-			"verifyObjectBlob":            service.handleVerifyBlob,
-			"issueEvidenceDownloadHandle": service.handleDownloadHandle,
-			"issueEvidencePreviewHandle":  service.handlePreviewHandle,
-			"queryEvidenceMetadata":       service.handleMetadataQuery,
-			"redeemEvidenceHandle":        service.handleRedeemHandle,
-			"uploadObjectBlobContent":     service.handleUploadTarget,
-		})
+		return httpapi.BindAdmittedOwnerRoutes(mux, deps, "module.evidence", service.operationHandlers())
+	}
+}
+
+// operationHandlers maps each Evidence operation to its one handler.
+func (s *service) operationHandlers() map[string]http.HandlerFunc {
+	return map[string]http.HandlerFunc{
+		"attachBlobToEvidenceRecord":  s.handleAttachBlob,
+		"createObjectBlobSlot":        s.handleCreateBlob,
+		"verifyObjectBlob":            s.handleVerifyBlob,
+		"issueEvidenceDownloadHandle": s.handleDownloadHandle,
+		"issueEvidencePreviewHandle":  s.handlePreviewHandle,
+		"queryEvidenceMetadata":       s.handleMetadataQuery,
+		"redeemEvidenceHandle":        s.handleRedeemHandle,
+		"uploadObjectBlobContent":     s.handleUploadTarget,
 	}
 }
 
@@ -94,15 +118,13 @@ func newService(env map[string]string, settings Settings, dependencies routeDepe
 	if isNilCapability(dependencies.operations) {
 		return nil, fmt.Errorf("compose Evidence routes: operations are required")
 	}
-	if dependencies.admission.incidents == nil || dependencies.admission.auth == nil {
+	if dependencies.admission.incidents == nil || isNilCapability(dependencies.admission.auth) {
 		return nil, fmt.Errorf("compose Evidence routes: admission is required")
 	}
-	admission := dependencies.admission
-	admission.keys = keys
 	return &service{
 		operations:     dependencies.operations,
 		verification:   dependencies.verification,
-		admission:      admission,
+		admission:      dependencies.admission,
 		objects:        routeObjectStoreAdapter{store: dependencies.objectStore},
 		uploads:        uploadCapabilityService{keys: keys},
 		keys:           keys,

@@ -314,10 +314,7 @@ export class WorkbookImportController {
       binding?.accessFailure(401);
       return;
     }
-    if (
-      failure.kind === "authority" ||
-      failure.code === "extension_profile_not_claimed"
-    ) {
+    if (failure.kind === "authority") {
       this.retire();
       return;
     }
@@ -667,7 +664,7 @@ export class WorkbookImportController {
     if (outcome.kind !== "accepted") {
       this.publish({
         operation: { attempt, phase: outcome.kind, failure: outcome.failure },
-        message: importFailureMessage(outcome.failure),
+        message: importFailureMessage(outcome.failure, outcome.kind),
       });
       if ("unitId" in attempt)
         this.changeUnit(attempt.unitId, (u) => ({

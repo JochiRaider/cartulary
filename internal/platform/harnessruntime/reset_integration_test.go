@@ -89,7 +89,7 @@ func TestTestRuntimeIdentityRouteRejectsNonHarnessOriginAndHost(t *testing.T) {
 				req.Header.Set("Origin", tc.origin)
 			}
 			recorder := httptest.NewRecorder()
-			handleTestRuntimeIdentity(recorder, req, guard)
+			guard.ProtectMethod(http.MethodGet, handleTestRuntimeIdentity)(recorder, req)
 			requireTestRuntimeResetErrorEnvelope(t, recorder.Result(), http.StatusForbidden, "test_route_forbidden")
 		})
 	}
@@ -98,7 +98,7 @@ func TestTestRuntimeIdentityRouteRejectsNonHarnessOriginAndHost(t *testing.T) {
 	allowed.Host = "127.0.0.1:8080"
 	allowed.Header.Set("Origin", "http://127.0.0.1:4173")
 	recorder := httptest.NewRecorder()
-	handleTestRuntimeIdentity(recorder, allowed, guard)
+	guard.ProtectMethod(http.MethodGet, handleTestRuntimeIdentity)(recorder, allowed)
 	resp := recorder.Result()
 	requireTestRuntimeResetStatus(t, resp, http.StatusOK)
 	requireNoPermissiveTestRuntimeCORS(t, resp)

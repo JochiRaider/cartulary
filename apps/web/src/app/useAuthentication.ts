@@ -7,6 +7,7 @@ import {
 } from "react";
 import type { APIError } from "../services/browserApi";
 import {
+  type AuthBannerErrorCode,
   type AuthenticationController,
   authBannerForError,
 } from "./authenticationModel";
@@ -21,7 +22,7 @@ type AuthGatewayProps = {
   controller: AuthenticationController;
   bootstrapState: AuthSurfaceBootstrapState;
   message: string;
-  publicError?: APIError | null;
+  publicError?: APIError<AuthBannerErrorCode> | null;
   readingProfile?: "default" | "hyperlegible" | undefined;
 };
 export function normalizeTotpCode(value: string) {

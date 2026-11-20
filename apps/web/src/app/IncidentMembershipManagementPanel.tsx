@@ -19,6 +19,7 @@ import {
   useRef,
   useSyncExternalStore,
 } from "react";
+import { stillUnconfirmedText } from "../shared/publicError";
 import { useWorkflowAttachment } from "../shared/useWorkflowAttachment";
 import type {
   WorkbookDensityMode,
@@ -682,9 +683,9 @@ function MembershipOperationFeedback({
       ) : null}
       {op.kind === "uncertain" ? (
         <p role="alert" style={text}>
-          The membership action has an uncertain outcome. A timeout, matching
-          current state, or missing row does not confirm whether this attempt
-          succeeded.
+          {op.problem.code === "service_unavailable"
+            ? stillUnconfirmedText()
+            : "The membership action has an uncertain outcome. A timeout, matching current state, or missing row does not confirm whether this attempt succeeded."}
         </p>
       ) : null}
       {op.kind === "uncertain" || op.kind === "conflicted" ? (

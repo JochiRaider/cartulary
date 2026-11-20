@@ -22,6 +22,11 @@ import (
 )
 
 var errNotFound = errors.New("imports: not found")
+
+// errSessionNotFound reports a missing import session. It wraps errNotFound,
+// but a route never reports it as a missing unit.
+var errSessionNotFound = fmt.Errorf("%w: import session", errNotFound)
+
 var errStateConflict = errors.New("imports: state conflict")
 var errApplyBlocked = errors.New("imports: apply blocked")
 
@@ -347,6 +352,21 @@ UPDATE import_sessions
 	return nil
 }
 
+// getSessionIncident returns the incident that owns an import session, so a
+// route can decide visibility before it classifies session or unit state.
+func (s *store) getSessionIncident(ctx context.Context, sessionID uuid.UUID) (uuid.UUID, error) {
+	var incidentID uuid.UUID
+	err := s.db.QueryRow(ctx, `
+SELECT incident_id
+  FROM import_sessions
+ WHERE import_session_id = $1
+`, sessionID).Scan(&incidentID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return uuid.UUID{}, errSessionNotFound
+	}
+	return incidentID, err
+}
+
 func (s *store) getSession(ctx context.Context, sessionID uuid.UUID) (map[string]any, uuid.UUID, error) {
 	row := s.db.QueryRow(ctx, `
 SELECT import_session_id, incident_id, created_by_user_id, client_txn_id, assistant_profile,
@@ -358,7 +378,7 @@ SELECT import_session_id, incident_id, created_by_user_id, client_txn_id, assist
 `, sessionID)
 	resource, incidentID, err := scanSessionResource(row)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, uuid.UUID{}, errNotFound
+		return nil, uuid.UUID{}, errSessionNotFound
 	}
 	return resource, incidentID, err
 }
@@ -975,7 +995,7 @@ SELECT session_status, incident_id
  FOR UPDATE
 `, sessionID).Scan(&status, &incidentID); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return "", uuid.UUID{}, errNotFound
+			return "", uuid.UUID{}, errSessionNotFound
 		}
 		return "", uuid.UUID{}, err
 	}
@@ -1052,7 +1072,7 @@ SELECT incident_id, to_jsonb(selected_unit_ids)
  WHERE import_session_id = $1
 `, sessionID).Scan(&incidentID, &selectedJSON); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return uuid.UUID{}, nil, errNotFound
+			return uuid.UUID{}, nil, errSessionNotFound
 		}
 		return uuid.UUID{}, nil, err
 	}

@@ -80,17 +80,13 @@ func RegisterTestRuntimeIdentityRoute() httpapi.RouteRegistrar {
 		if err != nil {
 			return fmt.Errorf("register test runtime identity route: %w", err)
 		}
-		mux.HandleFunc("GET /api/v1/test/runtime/identity", func(w http.ResponseWriter, r *http.Request) {
-			handleTestRuntimeIdentity(w, r, guard)
-		})
-		return nil
+		// BindTestRoute applies the guard, then the enveloped 405 for any
+		// other method, HEAD included (TH-HARNESS-REQ-450).
+		return httpapi.BindTestRoute(mux, deps, guard, http.MethodGet, "/api/v1/test/runtime/identity", handleTestRuntimeIdentity)
 	}
 }
 
-func handleTestRuntimeIdentity(w http.ResponseWriter, r *http.Request, guard httpapi.TestRouteGuard) {
-	if !guard.Authorize(w, r) {
-		return
-	}
+func handleTestRuntimeIdentity(w http.ResponseWriter, r *http.Request) {
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, testRuntimeIdentityResult{
 		SchemaID:      testRuntimeIdentitySchemaID,
 		RuntimeMarker: testRuntimeMarkerValue,

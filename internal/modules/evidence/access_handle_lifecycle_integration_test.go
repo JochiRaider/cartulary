@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	authflowtest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
+	"github.com/JochiRaider/cartulary/internal/modules/evidence/testsupport/blobfixture"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
@@ -75,13 +76,13 @@ DELETE FROM incident_memberships
 			updateRecordDeletedState(t, harness, recordID, false)
 		}},
 		{name: "quarantine", reasonCode: "evidence_quarantined", mutate: func(recordID uuid.UUID, objectBlobID uuid.UUID) {
-			updateBlobState(t, harness, objectBlobID, "quarantined")
+			blobfixture.Move(t, harness.Pool, objectBlobID, "quarantined")
 		}},
 		{name: "pending transition", reasonCode: "blob_pending", mutate: func(recordID uuid.UUID, objectBlobID uuid.UUID) {
-			updateBlobState(t, harness, objectBlobID, "pending")
+			blobfixture.Move(t, harness.Pool, objectBlobID, "pending")
 		}},
 		{name: "failed transition", reasonCode: "blob_failed", mutate: func(recordID uuid.UUID, objectBlobID uuid.UUID) {
-			updateBlobState(t, harness, objectBlobID, "failed")
+			blobfixture.Move(t, harness.Pool, objectBlobID, "failed")
 		}},
 		{name: "object missing", reasonCode: "blob_missing", mutate: func(recordID uuid.UUID, objectBlobID uuid.UUID) {
 			deleteBlobObject(t, harness, blobStorageKey(t, harness, objectBlobID))

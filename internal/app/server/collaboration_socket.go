@@ -30,8 +30,11 @@ func (transport collaborationSocketTransport) Accept(w http.ResponseWriter, r *h
 	return &collaborationSocket{connection: connection}, nil
 }
 
-func (transport collaborationSocketTransport) CheckBrowserOrigin(w http.ResponseWriter, r *http.Request) bool {
-	return platformws.RejectUntrustedBrowserOrigin(w, r, transport.publicOrigin)
+// CheckOrigin admits a request without Origin or with exactly the configured
+// public origin (Core 01 REQ-01-708 step 2). Accept keeps the library's own
+// Origin check as a backstop that this check makes unreachable.
+func (transport collaborationSocketTransport) CheckOrigin(r *http.Request) bool {
+	return platformws.OriginAllowed(r, transport.publicOrigin)
 }
 
 func (s *collaborationSocket) Read(ctx context.Context) (protocol.MessageKind, []byte, error) {

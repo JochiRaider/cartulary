@@ -126,10 +126,6 @@ func invalidListQuery(reasonCode string) *platformhttpapi.APIError {
 	}
 }
 
-func incidentNotFoundError() *platformhttpapi.APIError {
-	return &platformhttpapi.APIError{Status: http.StatusNotFound, Code: "incident_not_found", Details: map[string]any{}}
-}
-
 func userNotFoundError() *platformhttpapi.APIError {
 	return &platformhttpapi.APIError{Status: http.StatusNotFound, Code: "user_not_found", Details: map[string]any{}}
 }

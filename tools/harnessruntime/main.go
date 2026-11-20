@@ -74,6 +74,9 @@ func run() int {
 			fmt.Fprintln(os.Stderr, report.CleanupDiagnostic)
 		}
 		if err != nil {
+			for _, line := range harnessruntime.PreparationDiagnosticLines(err) {
+				fmt.Fprintln(os.Stderr, line)
+			}
 			class, reason := harnessruntime.PublicFailure(err)
 			fmt.Fprintf(os.Stderr, "[GRAPH-FAIL] failure_class=%s failure_reason=%s failure_stage=%s\n", class, reason, harnessruntime.PublicFailureStage(err))
 			return code
@@ -92,6 +95,27 @@ func run() int {
 					results = ".cartulary/test-results"
 				}
 				fmt.Fprintf(out, "[GRAPH] target=%v status=%v duration_ms=%v run_root=%s\n", summary["target"], summary["status"], summary["wall_duration_ms"], filepath.Join(results, fmt.Sprint(summary["run_id"])))
+				// TH-HARNESS-REQ-860: the bounded distinct violation list is part
+				// of the summary; repeat it beside the failing status line. A
+				// server fatal (TH-HARNESS-REQ-863) names its reason instead of
+				// an operation.
+				if contract, ok := summary["contract_evidence"].(map[string]any); ok {
+					if violations, ok := contract["violations"].([]any); ok {
+						for _, entry := range violations {
+							if v, ok := entry.(map[string]any); ok {
+								if v["kind"] == "server_fatal" {
+									fmt.Fprintf(out, "[SERVER-FATAL] reason_code=%v process_kind=%v occurrences=%v\n", v["reason_code"], v["process_kind"], v["occurrences"])
+									continue
+								}
+								fact := fmt.Sprintf("code=%v", v["code"])
+								if security, ok := v["security"].(map[string]any); ok {
+									fact = fmt.Sprintf("declared=%v observed=%v", security["declared"], security["observed"])
+								}
+								fmt.Fprintf(out, "[CONTRACT-VIOLATION] %v operation=%v status=%v %s occurrences=%v\n", v["kind"], v["operation_id"], v["status"], fact, v["occurrences"])
+							}
+						}
+					}
+				}
 			}
 		}
 		return code
@@ -121,6 +145,9 @@ func run() int {
 		}
 		plan, err := harnessruntime.Prepare(ctx, root, os.Args[2:], os.Environ())
 		if err != nil {
+			for _, line := range harnessruntime.PreparationDiagnosticLines(err) {
+				fmt.Fprintln(os.Stderr, line)
+			}
 			fmt.Fprintln(os.Stderr, "graph preparation failed")
 			return 2
 		}

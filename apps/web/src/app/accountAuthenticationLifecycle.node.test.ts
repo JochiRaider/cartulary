@@ -1,9 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { APIError } from "../services/browserApi";
 import {
   credentialStateResource,
   sessionResource,
 } from "../testing/appShellTestSupport";
+import {
+  operationContractFailure,
+  operationRejection,
+} from "../testing/fetchMockTestSupport";
 import {
   validateAccountEmail,
   validateProvisioningPassword,
@@ -21,15 +24,6 @@ const success = <T>(data: T) => ({
   ok: true as const,
   status: 200,
   payload: { data, meta: { request_id: "test" } },
-});
-const failure = (
-  code: string,
-  status = 401,
-  details?: APIError["details"],
-) => ({
-  ok: false as const,
-  status,
-  payload: { error: { code, status, ...(details ? { details } : {}) } },
 });
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -76,7 +70,9 @@ function auth(gate?: AppSessionController) {
   const assign = vi.fn();
   const loginLocal = vi
     .fn<typeof api.loginLocal>()
-    .mockResolvedValue(failure("invalid_credentials"));
+    .mockResolvedValue(
+      operationRejection({ code: "invalid_credentials", status: 401 }),
+    );
   const beginEnterpriseAuth = vi
     .fn<typeof api.beginEnterpriseAuth>()
     .mockResolvedValue(
@@ -253,7 +249,9 @@ describe("authentication and Security operation lifetime", () => {
   it("accepts a manually observed session while retaining admission for an outstanding login", async () => {
     const read = vi
       .fn<typeof api.loadSession>()
-      .mockResolvedValue(failure("session_required"));
+      .mockResolvedValue(
+        operationRejection({ code: "session_required", status: 401 }),
+      );
     const gate = new AppSessionController({
       session: (signal) => read({ signal }),
     });
@@ -401,8 +399,12 @@ describe("authentication and Security operation lifetime", () => {
   it("bounds MFA password retention from initial dispatch and clears submitted factor codes", async () => {
     const s = auth();
     s.loginLocal
-      .mockResolvedValueOnce(failure("mfa_required"))
-      .mockResolvedValueOnce(failure("invalid_second_factor"));
+      .mockResolvedValueOnce(
+        operationRejection({ code: "mfa_required", status: 401 }),
+      )
+      .mockResolvedValueOnce(
+        operationRejection({ code: "invalid_second_factor", status: 401 }),
+      );
     s.controller.login();
     await flush();
     expect(s.controller.getSnapshot().flow.kind).toBe("mfa");
@@ -512,10 +514,13 @@ describe("authentication and Security operation lifetime", () => {
   it("retains only active bootstrap material and never signs in from enrollment completion", async () => {
     const s = auth();
     s.loginLocal.mockResolvedValue(
-      failure("mfa_setup_required", 401, {
-        bootstrap_token: "PRIVATE-TOKEN",
-        bootstrap_expires_at: new Date(Date.now() + 120_000).toISOString(),
-      }),
+      operationRejection(
+        { code: "mfa_setup_required", status: 401 },
+        {
+          bootstrap_token: "PRIVATE-TOKEN",
+          bootstrap_expires_at: new Date(Date.now() + 120_000).toISOString(),
+        },
+      ),
     );
     s.controller.login();
     await flush();
@@ -556,10 +561,13 @@ describe("authentication and Security operation lifetime", () => {
   it("expires enrollment material and excludes obsolete enrollment success", async () => {
     const s = auth();
     s.loginLocal.mockResolvedValue(
-      failure("mfa_setup_required", 401, {
-        bootstrap_token: "PRIVATE",
-        bootstrap_expires_at: new Date(Date.now() + 45_000).toISOString(),
-      }),
+      operationRejection(
+        { code: "mfa_setup_required", status: 401 },
+        {
+          bootstrap_token: "PRIVATE",
+          bootstrap_expires_at: new Date(Date.now() + 45_000).toISOString(),
+        },
+      ),
     );
     s.controller.login();
     await flush();
@@ -571,10 +579,13 @@ describe("authentication and Security operation lifetime", () => {
     });
     s.credentials();
     s.loginLocal.mockResolvedValue(
-      failure("mfa_setup_required", 401, {
-        bootstrap_token: "NEW",
-        bootstrap_expires_at: new Date(Date.now() + 60_000).toISOString(),
-      }),
+      operationRejection(
+        { code: "mfa_setup_required", status: 401 },
+        {
+          bootstrap_token: "NEW",
+          bootstrap_expires_at: new Date(Date.now() + 60_000).toISOString(),
+        },
+      ),
     );
     s.controller.login();
     await flush();
@@ -595,7 +606,10 @@ describe("authentication and Security operation lifetime", () => {
     await a.controller.discover();
     expect(a.controller.getSnapshot().providersStatus).toBe("failed");
     a.listEnterpriseAuthProviders.mockResolvedValueOnce(
-      failure("extension_profile_not_claimed", 404),
+      operationRejection({
+        code: "extension_profile_not_claimed",
+        status: 404,
+      }),
     );
     await a.controller.discover();
     expect(a.controller.getSnapshot()).toMatchObject({
@@ -636,7 +650,7 @@ describe("authentication and Security operation lifetime", () => {
     ).toEqual({ code: "invalid_credentials", details: {} });
     const s = auth();
     s.loginLocal.mockResolvedValueOnce(
-      failure("invalid_public_contract_response", 502),
+      operationContractFailure("loginLocalUser"),
     );
     s.controller.login();
     await flush();
@@ -795,7 +809,9 @@ describe("authentication and Security operation lifetime", () => {
     s.loadCredentialState.mockReturnValue(pending.promise);
     void s.controller.refreshCredentialState();
     s.controller.retire();
-    pending.resolve(failure("session_required"));
+    pending.resolve(
+      operationRejection({ code: "session_required", status: 401 }),
+    );
     await flush();
     expect(s.event).not.toHaveBeenCalled();
     expect(s.controller.getSnapshot().credentialState).toBeNull();

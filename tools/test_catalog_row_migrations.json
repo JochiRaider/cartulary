@@ -166,6 +166,13 @@
       "reason": "The mixed selection is split into exact service-free and managed-service assertions; every original symbol and assurance tier remains selected without acquiring unused infrastructure."
     },
     {
+      "retired_row_id": "module.imports.integration.network_flow_default_limit_100001_rows",
+      "replacement_row_ids": [
+        "module.imports.integration.network_flow_public_default_limits_commit_the_ac_fc9396304e"
+      ],
+      "reason": "NF-REQ-171a retained capacity evidence moves from 100,001 rows to the default 250,000-row accepted-row limit under the default participant budget; the replacement keeps the public source-admission assertions, placement, and resource profile."
+    },
+    {
       "retired_row_id": "module.incidents.browser_support.supports_reserved_family_dispatch_precedence_pro_d831d613fa",
       "replacement_row_ids": [
         "app.server.browser_support.zero_membership_landing",

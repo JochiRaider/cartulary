@@ -131,6 +131,7 @@
           "Reference Pack ownership gates catalog success and failure by the newest admitted generation",
           "Reference Pack ownership keeps query generations independent from transport cancellation and invalidation",
           "Reference Pack ownership normalizes Unicode input while retaining server search semantics",
+          "Reference Pack ownership presents a declared service_unavailable catalog read as temporary unavailability and retries it",
           "Reference Pack ownership uses server pin and selected-key work projections for action eligibility"
         ],
         "project_id": "node-unit"
@@ -962,6 +963,34 @@
       "postgres_isolation": "exclusive"
     },
     {
+      "row_id": "module.reference_data.integration.malformed_reference_pack_keys_are_request_or_not_7af1b12f62",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data",
+        "tests": [
+          "TestReferencePackMalformedPackKeys_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "module.reference_data.integration.omitted_reference_pack_refresh_selectors_replay_a29a9f95dc",
       "owner_id": "module.reference_data",
       "family_id": "module.reference_data.integration",
@@ -1069,6 +1098,34 @@
         "package": "./internal/modules/reference_data",
         "tests": [
           "TestReferencePackFamilyAuthorization_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.reference_data.integration.reference_pack_family_routes_are_admitted_centra_95b24e76d2",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data",
+        "tests": [
+          "TestReferencePackFamilyAdmissionOrder_Integration"
         ]
       },
       "evidence_class": "integration",

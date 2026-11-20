@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/JochiRaider/cartulary/internal/modules/records"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/sourcelocking"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/sourcerepository"
@@ -120,10 +121,17 @@ func newStore(pool dbport.DB, collaborators Collaborators, conflictTokens confli
 	}
 }
 
+// getRecordIncident resolves the incident a record-addressed route admits.
+// Only a record that does not exist is not found; any other failure, such as a
+// database error, stays unclassified and surfaces as internal_error
+// (REQ-01-706).
 func (s *store) getRecordIncident(ctx context.Context, recordID uuid.UUID) (uuid.UUID, error) {
 	incidentID, err := s.recordStore.ResolveIncident(ctx, recordID)
-	if err != nil {
+	if errors.Is(err, records.ErrTargetNotFound) {
 		return uuid.UUID{}, ErrRecordNotFound
+	}
+	if err != nil {
+		return uuid.UUID{}, fmt.Errorf("resolve timeline record incident: %w", err)
 	}
 	return incidentID, nil
 }

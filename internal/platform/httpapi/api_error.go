@@ -34,6 +34,13 @@ func InternalAPIError(_ error) *APIError {
 	}
 }
 
+// NotFound is the concealment response (Core 01 REQ-01-704): status 404, the
+// resource's not-found code and empty details. A caller who cannot see an
+// incident receives it exactly as for a resource that does not exist.
+func NotFound(code string) *APIError {
+	return &APIError{Status: http.StatusNotFound, Code: code, Details: map[string]any{}}
+}
+
 func SessionRequiredError() *APIError {
 	return &APIError{Status: http.StatusUnauthorized, Code: "session_required", Details: map[string]any{}}
 }

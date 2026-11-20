@@ -3,7 +3,9 @@ package imports
 import (
 	"encoding/json"
 	"errors"
+	"time"
 
+	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
 )
 
@@ -63,11 +65,55 @@ func genericOwnerApplyFailure() importUnitFailureDetail {
 	}
 }
 
+// crossOwnerUnitTransaction identifies a unit's cross-owner transaction for
+// its Core timeout outcome. It is zero where no transaction was attempted.
+type crossOwnerUnitTransaction struct {
+	OperationID string
+	Timeout     time.Duration
+}
+
+// crossOwnerTransactionFailure gives a cross-owner transaction that ended with
+// its commit proven absent, by timeout or by database conflict, its Core unit
+// outcome (Core 01 REQ-01-620c, Extensions EXT-REQ-219). It precedes owner
+// translation: an owner never classifies these outcomes, and the owner
+// fallback is never used for them.
+func crossOwnerTransactionFailure(transaction crossOwnerUnitTransaction, err error) (importUnitFailureDetail, bool) {
+	if errors.Is(err, crossownertransaction.ErrTimeout) {
+		return importUnitFailureDetail{
+			ErrorCode:  "service_unavailable",
+			ReasonCode: "extension_transaction_timeout",
+			Retryable:  true,
+			Details: map[string]any{
+				"reason_code":     "extension_transaction_timeout",
+				"operation_id":    transaction.OperationID,
+				"timeout_seconds": int64(transaction.Timeout / time.Second),
+			},
+		}, true
+	}
+	var conflict *crossownertransaction.ConflictError
+	if errors.As(err, &conflict) {
+		switch conflict.ReasonCode {
+		case "deadlock_detected", "serialization_failure":
+			return importUnitFailureDetail{
+				ErrorCode:  "transaction_conflict",
+				ReasonCode: conflict.ReasonCode,
+				Retryable:  true,
+				Details:    map[string]any{"reason_code": conflict.ReasonCode},
+			}, true
+		}
+	}
+	return importUnitFailureDetail{}, false
+}
+
 func translateExtensionOwnerFailure(
 	target importTarget,
 	facade ExtensionImportFacade,
+	transaction crossOwnerUnitTransaction,
 	err error,
 ) importUnitFailureDetail {
+	if failure, ok := crossOwnerTransactionFailure(transaction, err); ok {
+		return failure
+	}
 	if common, ok := commonImportApplyFailure(err); ok {
 		return common
 	}

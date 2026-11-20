@@ -13,6 +13,12 @@ func startupFailure(cause error, finding StartupFinding) error {
 	return &StartupValidationError{Findings: []StartupFinding{finding}, cause: cause}
 }
 
+// conditionFailure is startupFailure for a finding mapped from one registered
+// validation condition, keeping that condition's identity.
+func conditionFailure(cause error, conditionID string, finding StartupFinding) error {
+	return &StartupValidationError{Findings: []StartupFinding{finding}, cause: cause, conditionID: conditionID}
+}
+
 func (r *StateRuntime) stateDiagnostic(plan StatePlan, snapshot StateSnapshot, err error) error {
 	if err == nil {
 		return nil
@@ -29,7 +35,7 @@ func (r *StateRuntime) stateDiagnostic(plan StatePlan, snapshot StateSnapshot, e
 	}
 	if errors.As(err, &diagnosed) {
 		// Keep secondary storage causes internal, even when they wrap a finding.
-		return &StartupValidationError{Findings: diagnosed.Findings, cause: err}
+		return &StartupValidationError{Findings: diagnosed.Findings, cause: err, conditionID: diagnosed.conditionID}
 	}
 	if errors.As(err, &storage) {
 		return &stateAccessError{cause: err}

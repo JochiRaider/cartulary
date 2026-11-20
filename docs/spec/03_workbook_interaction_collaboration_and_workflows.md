@@ -568,6 +568,19 @@ until applicable authorization and refresh requirements are satisfied.
 Profiles: base
 Verified by: AC-598, AC-484
 
+**REQ-03-299a**
+A server-initiated close without an accepted terminal message, with close code
+`1001` (going away), `1006` (abnormal) or `1011` (server error), is transient.
+The client MUST keep the incident's protected presentation, show the
+disconnected state, and reconnect and `resume` with exponential backoff: a
+1 s base delay that doubles per consecutive failed attempt up to a 30 s cap,
+each delay drawn uniformly from zero to its bound (full jitter). An accepted
+`hello` resets the backoff. This clause does not change terminal outcomes or
+the REQ-03-299 suppression of reconnect pending authorization recovery, and it
+defines no server shutdown event (Core 04 REQ-04-146a).
+Profiles: base
+Verified by: AC-607
+
 ### 2.4 Startup and default surface selection
 
 **REQ-03-027**
@@ -1392,6 +1405,27 @@ The client MUST NOT address or mutate a row by:
 - displayed cell values.
 Profiles: base
 Verified by: AC-013, AC-047, AC-125, AC-231
+
+**REQ-03-086a — Client public-error decoding**
+The client MUST decode every public HTTP error response against the
+operation's contract (Core 01 REQ-01-702):
+
+- the body MUST be a valid error envelope;
+- `error.status` MUST equal the HTTP status;
+- `error.code` MUST be a code the operation declares for that status. Every
+  operation declares `500` `internal_error` (Core 01 REQ-01-229) and `503`
+  `service_unavailable` (Core 01 REQ-01-702).
+
+A response that fails any check is a client contract failure, handled exactly
+like an invalid success response; its code MUST NOT drive feature behaviour.
+A `503` `service_unavailable`, which every operation declares, MUST be shown as
+temporary unavailability with a retry path, never as a contract failure.
+Feature code MUST branch only on the operation's declared codes, typed from the
+generated operation bindings. Failures the client originates itself, such as
+transport loss, timeouts and contract failures, use one closed client-local
+code set that MUST NOT overlap the registered server codes.
+Profiles: base
+Verified by: AC-611, AC-618
 
 ## 4. Save behavior and presence
 
@@ -2684,9 +2718,9 @@ Profiles: import
 Verified by: AC-027, AC-063, AC-064, AC-232
 
 **REQ-03-168**
-Discovery and preview MUST be read-only against incident state. Preview MUST expose inert display data only and MUST NOT advance lifecycle state by itself. Apply MUST execute as a background job and MUST NOT block ordinary workbook editing.
+Discovery and preview MUST be read-only against incident state. Preview MUST expose inert display data only and MUST NOT advance lifecycle state by itself. Apply MUST execute as a background job and MUST NOT block ordinary workbook editing. Background owner work, including import apply and Network Flow table import, MUST hold incident-scoped exclusive locks only while it publishes its result, never across its bulk work, and ordinary reads of incident configuration, such as the Timeline time-conversion profile, MUST take shared locks. History-order allocation follows Core 02 REQ-02-213 and does not serialize a transaction's owner work. Background jobs of one owner MAY serialize with each other in an incident, as Network Flow imports do on their participant's serialization key, when that serialization blocks no ordinary editing. An operation that changes the incident row itself, such as a lifecycle or metadata edit, or that takes the incident's exclusive publication lock, MAY wait for an in-progress apply unit's shared incident admission.
 Profiles: import
-Verified by: AC-027, AC-063, AC-064, AC-232
+Verified by: AC-027, AC-063, AC-064, AC-232, AC-613
 
 #### 11.2.3 `import_unit`
 

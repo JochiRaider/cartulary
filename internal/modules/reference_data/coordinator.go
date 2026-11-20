@@ -259,6 +259,19 @@ func (c *importAdmission) VerifyRetained(ctx context.Context, request Verificati
 	return result, err
 }
 
+// malformedPackKeyRejection classifies a pack key that violates the canonical
+// key syntax. A refresh selector member is request data and fails with
+// invalid_reference_pack_request/invalid_pack_keys (AC-369, AC-614). A reverify
+// key is the pack_key path parameter, whose declared pattern makes a malformed
+// value the route's not-found response, identical to a well-formed key that
+// names no pack (REQ-01-707).
+func malformedPackKeyRejection(kind string) error {
+	if kind == "refresh" {
+		return &RequestRejection{Field: "pack_keys", Reason: "invalid_pack_keys"}
+	}
+	return ErrNotFound
+}
+
 func (c *importAdmission) accept(ctx context.Context, request VerificationRequest, a operationAdmission) (JobAcceptedResult, bool, error) {
 	local := request.OperatorOperationID != uuid.Nil
 	if request.ClientTxnID == "" || (local && (request.Kind != "import" || request.ActorUserID != uuid.Nil || request.ClientTxnID != request.OperatorOperationID.String() || a.ID != request.OperatorOperationID || a.ActorKind != "local_operator" || a.Actor != nil)) || (!local && request.ActorUserID == uuid.Nil) {
@@ -275,7 +288,7 @@ func (c *importAdmission) accept(ctx context.Context, request VerificationReques
 	}
 	for _, key := range keys {
 		if !validConsumerKey(key) {
-			return JobAcceptedResult{}, false, consumerError("invalid_pack_request")
+			return JobAcceptedResult{}, false, malformedPackKeyRejection(request.Kind)
 		}
 	}
 	var selector any

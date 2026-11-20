@@ -9,6 +9,7 @@ import {
 import { responseBarrier } from "./support/runtime/cleanup";
 import {
   awaitResponseBarrier,
+  fulfillOperationError,
   installOwnedRoute,
 } from "./support/transport/requestInterception";
 import { assertViewportVisualRegression } from "./support/visual/capture";
@@ -36,50 +37,56 @@ async function assertAuthGatewayVisual(page: Page, name: string) {
 
 async function fulfillAuthVisualLogin(route: Route, mode: AuthVisualLoginMode) {
   if (mode === "mfa_required") {
-    await fulfillAuthVisualError(route, {
-      code: "mfa_required",
-      details: {
-        required_second_factor_kinds: ["totp"],
-      },
+    await fulfillOperationError(route, "loginLocalUser", 401, "mfa_required", {
+      details: { required_second_factor_kinds: ["totp"] },
       message: "MFA is required.",
-      status: 401,
     });
     return;
   }
   if (mode === "mfa_setup_required") {
-    await fulfillAuthVisualError(route, {
-      code: "mfa_setup_required",
-      details: {
-        bootstrap_token: "visual-bootstrap-token",
-        bootstrap_expires_at: new Date(Date.now() + 300_000).toISOString(),
-        required_setup_kinds: ["totp"],
+    await fulfillOperationError(
+      route,
+      "loginLocalUser",
+      401,
+      "mfa_setup_required",
+      {
+        details: {
+          bootstrap_token: "visual-bootstrap-token",
+          bootstrap_expires_at: new Date(Date.now() + 300_000).toISOString(),
+          required_setup_kinds: ["totp"],
+        },
+        message: "Authenticator setup is required.",
       },
-      message: "Authenticator setup is required.",
-      status: 401,
-    });
+    );
     return;
   }
   if (mode === "invalid_mfa") {
-    await fulfillAuthVisualError(route, {
-      code: "invalid_second_factor",
-      message: "Invalid second factor.",
-      status: 401,
-    });
+    await fulfillOperationError(
+      route,
+      "loginLocalUser",
+      401,
+      "invalid_second_factor",
+      { message: "Invalid second factor." },
+    );
     return;
   }
   if (mode === "service_unavailable") {
-    await fulfillAuthVisualError(route, {
-      code: "service_unavailable",
-      message: "Authentication service unavailable.",
-      status: 503,
-    });
+    await fulfillOperationError(
+      route,
+      "loginLocalUser",
+      503,
+      "authentication_capacity_exhausted",
+      { message: "Authentication service unavailable.", retryable: true },
+    );
     return;
   }
-  await fulfillAuthVisualError(route, {
-    code: "invalid_credentials",
-    message: "Invalid credentials.",
-    status: 401,
-  });
+  await fulfillOperationError(
+    route,
+    "loginLocalUser",
+    401,
+    "invalid_credentials",
+    { message: "Invalid credentials." },
+  );
 }
 
 async function fulfillAuthVisualJSON(
@@ -92,29 +99,6 @@ async function fulfillAuthVisualJSON(
     status,
     body: JSON.stringify(body),
   });
-}
-
-async function fulfillAuthVisualError(
-  route: Route,
-  options: {
-    code: string;
-    details?: Record<string, unknown>;
-    message: string;
-    status: number;
-  },
-) {
-  await fulfillAuthVisualJSON(
-    route,
-    {
-      error: {
-        code: options.code,
-        status: options.status,
-        message: options.message,
-        details: options.details ?? {},
-      },
-    },
-    options.status,
-  );
 }
 
 type AuthVisualLoginMode =
@@ -143,11 +127,13 @@ test("Capture auth gateway initial, focused, loading, invalid credentials, MFA r
       releaseSession = heldResponse.release;
       if (!(await awaitResponseBarrier(route, heldResponse.promise))) return;
     }
-    await fulfillAuthVisualError(route, {
-      code: "session_required",
-      message: "Session required.",
-      status: 401,
-    });
+    await fulfillOperationError(
+      route,
+      "getCurrentSession",
+      401,
+      "session_required",
+      { message: "Session required." },
+    );
   });
   await installOwnedRoute(page, "**/api/v1/auth/providers", async (route) => {
     await fulfillAuthVisualJSON(route, {

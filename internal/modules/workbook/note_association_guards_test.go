@@ -84,15 +84,9 @@ func TestNoteAssociationHTTPGuardsAndEffects(t *testing.T) {
 	malformed := map[string]any{"kind": "unknown", "actions": "invalid"}
 	for _, method := range []string{http.MethodGet, http.MethodPost} {
 		reject("HC01/"+method, method, route+"?kind=bad&limit=0", malformed, 401, "session_required", empty)
-		t.Run("HC17/"+method, func(t *testing.T) {
-			before := snapshotNoteAssociationEffects(t, h, incidentID)
-			resp := send(method, h.Server.HTTP.URL+"/api/v1/records/not-a-uuid/note-associations?kind=bad", malformed)
-			defer resp.Body.Close()
-			if resp.StatusCode != 404 {
-				t.Fatalf("malformed path status=%d", resp.StatusCode)
-			}
-			requireNoteAssociationEffects(t, before, snapshotNoteAssociationEffects(t, h, incidentID))
-		})
+		// REQ-01-707: authentication precedes the path parameter, so an
+		// unauthenticated malformed path is session_required.
+		reject("HC17/"+method, method, h.Server.HTTP.URL+"/api/v1/records/not-a-uuid/note-associations?kind=bad", malformed, 401, "session_required", empty)
 	}
 	type actor struct {
 		id    uuid.UUID

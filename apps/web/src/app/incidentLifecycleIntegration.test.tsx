@@ -11,6 +11,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { useWorkflowAttachment } from "../shared/useWorkflowAttachment";
 import { sessionResource } from "../testing/appShellTestSupport";
 import { useAppWorkflowsForTest } from "../testing/appWorkflowsTestSupport";
+import { operationRejection } from "../testing/fetchMockTestSupport";
 import {
   metadataActorId as actorId,
   metadataDeferred as deferred,
@@ -47,7 +48,8 @@ async function setup() {
       status: 200,
       payload: { data: identity, meta: { request_id: "session" } },
     }),
-    preferences: async () => ({ ok: false, status: 503, payload: {} }),
+    preferences: async () =>
+      operationRejection({ code: "internal_error", status: 500 }),
     extensions: async () => ({
       ok: true,
       status: 200,

@@ -246,7 +246,16 @@ describe("account settings editing", () => {
     await act(async () => {
       preferenceWrite.resolve(
         jsonResponse(
-          { error: { code: "preferences_version_conflict", retryable: false } },
+          {
+            error: {
+              code: "preferences_version_conflict",
+              retryable: false,
+              status: 409,
+              message: "Conflict.",
+              request_id: "request-test",
+              details: {},
+            },
+          },
           409,
         ),
       );

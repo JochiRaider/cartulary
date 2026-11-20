@@ -1,5 +1,6 @@
 import { clientTxnID } from "../services/browserApi";
 import type { AuthorizationRecoveryResult } from "../shared/authorizationRecovery";
+import { isUnappliedRefusal } from "../shared/publicError";
 import { validateAccountEmail } from "./accountInputValidation";
 import { observeAccountOperation } from "./accountOperation";
 import type {
@@ -15,6 +16,7 @@ import {
   type MembershipInput,
   type MembershipManagementState,
   type MembershipPosition,
+  type MembershipProblemCode,
   type MembershipRefresh,
   type MembershipRole,
   membershipBinding,
@@ -352,7 +354,7 @@ export class IncidentMembershipManagementController {
   }
   private handleDenial(
     status: number,
-    code: string,
+    code: MembershipProblemCode,
     authority: MembershipAuthority,
   ) {
     if (
@@ -554,9 +556,9 @@ export class IncidentMembershipManagementController {
       op.kind === "uncertain" &&
       op.attempt.input.kind === "add"
     )
-      this.dispatch(op.attempt);
+      this.dispatch(op.attempt, true);
   };
-  private dispatch(attempt: MembershipAttempt) {
+  private dispatch(attempt: MembershipAttempt, replay = false) {
     if (
       !this.editorAllowed() ||
       this.write ||
@@ -634,8 +636,13 @@ export class IncidentMembershipManagementController {
       if (!result.ok) {
         this.publish({
           operation: {
+            // A decoded 503 was refused before it was applied; only a
+            // refused replay leaves the earlier outcome uncertain.
             kind:
-              result.status >= 500 || result.status === 0
+              (result.status >= 500 &&
+                (replay ||
+                  !isUnappliedRefusal(result.status, result.problem))) ||
+              result.status === 0
                 ? "uncertain"
                 : result.problem.code === "membership_version_conflict" ||
                     result.problem.code === "client_txn_conflict"

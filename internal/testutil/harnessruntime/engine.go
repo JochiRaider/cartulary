@@ -115,6 +115,9 @@ type graphResult struct {
 	Admissions        []string
 	Events            []map[string]any
 	Cleanup           []cleanupRecord
+	// ContractEvidence is the bounded run-summary section of the contract
+	// evidence gate (TH-HARNESS-REQ-860); nil when no gate was configured.
+	ContractEvidence map[string]any
 }
 type enginePorts struct {
 	ConsumerTerminal func(string, string) error
@@ -129,6 +132,9 @@ type enginePorts struct {
 	Terminal         func(unit, *unitResult) error
 	CleanupServices  func(context.Context) error
 	Finalize         func(context.Context, bool, []cleanupRecord) error
+	// ContractEvidence collates the settled run's contract evidence stream
+	// after every server owner has finalized (TH-HARNESS-REQ-860).
+	ContractEvidence func() (map[string]any, *failure)
 	Pause            func(context.Context) error
 	Resume           func()
 	Observe          func(engineSnapshot)
@@ -827,6 +833,15 @@ func (e *graphEngine) finish() {
 		r := e.result.Units[u.ID]
 		if r.Failure != nil {
 			failures = append(failures, r.Failure)
+		}
+	}
+	// Writers are in-process test servers and fixture-owned server processes;
+	// both have settled once services and the runtime are closed.
+	if e.ports.ContractEvidence != nil {
+		section, gate := e.ports.ContractEvidence()
+		e.result.ContractEvidence = section
+		if gate != nil {
+			failures = append(failures, gate)
 		}
 	}
 	cleanupFailures := finalizationFailures

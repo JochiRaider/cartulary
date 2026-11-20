@@ -77,11 +77,21 @@ describe("incident directory HTTP adapter", () => {
   it("preserves public failures and propagates cancellation to the caller", async () => {
     vi.stubGlobal(
       "fetch",
-      vi
-        .fn()
-        .mockResolvedValue(
-          jsonResponse({ error: { code: "session_required" } }, 401),
+      vi.fn().mockResolvedValue(
+        jsonResponse(
+          {
+            error: {
+              code: "session_required",
+              status: 401,
+              message: "Authentication required.",
+              request_id: "request-test",
+              retryable: false,
+              details: {},
+            },
+          },
+          401,
         ),
+      ),
     );
     expect(await listVisibleIncidents()).toMatchObject({
       ok: false,

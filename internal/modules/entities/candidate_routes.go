@@ -6,21 +6,15 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/entities/candidates"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
-	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 	"github.com/JochiRaider/cartulary/internal/platform/listquery"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 	"github.com/google/uuid"
 )
 
 func (s *service) handleCandidates(w http.ResponseWriter, r *http.Request) {
-	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: false})
+	principal, incidentID, apiErr := admittedPath(r, "incident_id")
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
-		return
-	}
-	incidentID, err := parsePathUUID(r, "incident_id")
-	if err != nil {
-		writeAPIError(w, r, incidentNotFoundError())
 		return
 	}
 	if _, apiErr = s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, admission.RolesMember, ""); apiErr != nil {
@@ -72,7 +66,7 @@ func (s *service) handleCandidates(w http.ResponseWriter, r *http.Request) {
 		}
 		next = &token
 	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		candidateReadFailure(w, r)
 		return
 	}

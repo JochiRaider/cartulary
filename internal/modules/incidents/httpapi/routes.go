@@ -11,6 +11,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	platformhttpapi "github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 	"github.com/google/uuid"
 )
@@ -46,18 +47,20 @@ type service struct {
 	terminalMutations TerminalMutationCoordinator
 	incidentAdmission AdmissionChecker
 	authStore         *authn.Store
-	keys              authn.MasterKeys
 	cursorCodec       *pagination.Codec
 	now               func() time.Time
 }
 
+// RegisterRoutes binds the incident routes for central admission (Core 01
+// REQ-01-707): the registry authenticates by each operation's declared
+// security and admits incident_id and user_id before a handler runs.
 func RegisterRoutes(dependencies Dependencies) platformhttpapi.RouteRegistrar {
 	return func(mux *http.ServeMux, deps platformhttpapi.DependencySet) error {
 		service, err := newService(deps, dependencies)
 		if err != nil {
 			return err
 		}
-		return platformhttpapi.BindOwnerRoutes(mux, deps, "module.incidents", map[string]http.HandlerFunc{
+		return platformhttpapi.BindAdmittedOwnerRoutes(mux, deps, "module.incidents", map[string]http.HandlerFunc{
 			"closeIncident":                     service.handleCloseIncident,
 			"createIncident":                    service.handleCreateIncident,
 			"createIncidentMembership":          service.handleCreateIncidentMembership,
@@ -93,17 +96,12 @@ func newService(deps platformhttpapi.DependencySet, dependencies Dependencies) (
 	if deps.CursorCodec == nil {
 		return nil, errors.New("incidents: cursor codec is required for route registration")
 	}
-	keys, err := authn.LoadMasterKeys(deps.Env)
-	if err != nil {
-		return nil, err
-	}
 	return &service{
 		application:       dependencies.Application,
 		membershipAudit:   membershipAudit,
 		terminalMutations: dependencies.TerminalMutationCoordinator,
 		incidentAdmission: dependencies.AdmissionChecker,
 		authStore:         authn.NewStore(deps.PostgresHandle()),
-		keys:              keys,
 		cursorCodec:       deps.CursorCodec,
 		now:               deps.Now,
 	}, nil
@@ -122,13 +120,22 @@ func isNilRouteDependency(dependency any) bool {
 	}
 }
 
-// routeUUID validates the identifier selected by the registered operation.
-// Decoded separators must never be reinterpreted as another operation's path.
-func routeUUID(w http.ResponseWriter, r *http.Request, name string) (uuid.UUID, bool) {
-	id, err := uuid.Parse(r.PathValue(name))
-	if err != nil {
-		http.NotFound(w, r)
-		return uuid.Nil, false
+// admittedPrincipal returns the principal central admission established; its
+// absence is a binding error.
+func admittedPrincipal(r *http.Request) (httpauth.Principal, *platformhttpapi.APIError) {
+	principal, ok := httpauth.AdmittedPrincipal(r)
+	if !ok {
+		return httpauth.Principal{}, internalAPIError(errors.New("incident route was not admitted centrally"))
 	}
-	return id, true
+	return principal, nil
+}
+
+// admittedPathUUID returns a uuid path parameter central admission
+// established (REQ-01-707 step 3); its absence is a binding error.
+func admittedPathUUID(r *http.Request, name string) (uuid.UUID, *platformhttpapi.APIError) {
+	id, ok := platformhttpapi.PathUUID(r, name)
+	if !ok {
+		return uuid.Nil, internalAPIError(errors.New("incident route did not admit " + name))
+	}
+	return id, nil
 }

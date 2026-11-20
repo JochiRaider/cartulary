@@ -14,6 +14,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
@@ -137,13 +138,19 @@ func TestGraphQueryCompletion_Unit(t *testing.T) {
 			store := &store{pool: &queryCompletionDB{probe: probe}, limits: defaultEffectiveLimits(), auditAppender: probe}
 			app := &graphQueryApplication{store: store, incidentAccess: probe, composer: probe, safeDigester: probe}
 			service := &routeService{limits: store.limits, incidentAccess: probe, authStore: probe, now: time.Now, graphQueries: app}
+			// The handler runs behind central admission, as the runtime binds it.
+			mux := http.NewServeMux()
+			if err := httpapi.BindAdmittedOwnerOrderRoutes(mux, httpapi.DependencySet{Authenticator: httpauth.NewAuthenticator(httpauth.Options{Store: probe, Now: time.Now})}, httpapi.OwnerOrder{
+				OwnerID: routeOwnerID, Gate: service.admitIncident, Handlers: map[string]http.HandlerFunc{"nf.graphs.query": service.handleGraphQuery},
+			}); err != nil {
+				t.Fatal(err)
+			}
 			attempts := 1
 			if name == "success retry" {
 				attempts = 2
 			}
 			for i := 0; i < attempts; i++ {
 				r := httptest.NewRequest(http.MethodPost, "/api/v1/incidents/11111111-1111-4111-8111-111111111111/network-flow/graphs/query", strings.NewReader(`{"schema_id":"cartulary.network_flow.graph_query_request.v3","table_scope":{"mode":"all_active_tables"},"aggregation":{"mode":"default_flow_edge_v1"}}`)).WithContext(ctx)
-				r.SetPathValue("incident_id", "11111111-1111-4111-8111-111111111111")
 				r.AddCookie(&http.Cookie{Name: authn.SessionCookieName, Value: "session"})
 				recorder := httptest.NewRecorder()
 				var writer http.ResponseWriter = recorder
@@ -151,7 +158,7 @@ func TestGraphQueryCompletion_Unit(t *testing.T) {
 				if name == "response delivery" {
 					writer = broken
 				}
-				service.handleGraphQuery(writer, r)
+				mux.ServeHTTP(writer, r)
 				if recorder.Code != status || strings.Contains(recorder.Body.String(), "SENTINEL") {
 					t.Fatalf("response %d %s", recorder.Code, recorder.Body)
 				}

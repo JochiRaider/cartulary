@@ -145,12 +145,12 @@ describe("Workbook entity merge ownership", () => {
         },
         {
           kind: "stale_target" as const,
-          publicCode: "row_version_conflict",
+          publicCode: "row_version_conflict" as const,
           message: "Version changed",
         },
         {
           kind: "retryable" as const,
-          publicCode: "record_locked",
+          publicCode: "record_locked" as const,
           message: "Locked",
         },
       ]) {
@@ -167,6 +167,33 @@ describe("Workbook entity merge ownership", () => {
         expect(t.owner.blocksRecord(mergeLoserId)).toBe(true);
         expect(t.ids.create).toHaveBeenCalledTimes(1);
       }
+  });
+  it("turns read-only when a merge is rejected with the declared incident_closed", async () => {
+    for (const [failure, closes] of [
+      [
+        {
+          kind: "terminal" as const,
+          publicCode: "incident_closed" as const,
+          message: "Closed, read-only",
+        },
+        true,
+      ],
+      [
+        {
+          kind: "stale_target" as const,
+          publicCode: "row_version_conflict" as const,
+          message: "Version changed",
+        },
+        false,
+      ],
+    ] as const) {
+      const t = setup();
+      t.send.mockResolvedValueOnce({ kind: "rejected", failure });
+      expect(t.owner.canSubmit()).toBe(true);
+      await t.owner.execute(t.admit());
+      expect(t.entry()).toMatchObject({ phase: "rejected", failure });
+      expect(t.owner.canSubmit()).toBe(!closes);
+    }
   });
   it("separates timeout from transport settlement and retains late acknowledgement", async () => {
     vi.useFakeTimers();

@@ -1,6 +1,7 @@
 package networkflow
 
 import (
+	"bytes"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -34,6 +35,13 @@ type normalizedRow struct {
 	TCPFlags                  *int32
 	ApplicationLabel          *string
 	UnmappedRaw               json.RawMessage
+	// normalizedDerivationID is set only by validateRecord, which derives
+	// Direction and DirectionEvidence together from the same endpoints with
+	// this derivation. persistedRow then checks the derivation against the
+	// table's profile instead of re-decoding evidence it already built; the
+	// row CHECK still validates the stored evidence. Rows from any other
+	// producer leave it empty and are fully re-validated.
+	normalizedDerivationID string
 }
 
 var errInvalidImportContext = errors.New("invalid network flow import context")
@@ -41,8 +49,32 @@ var errInvalidNormalizedRow = errors.New("invalid normalized network flow row")
 
 type rowImportContext struct {
 	incidentID, actorUserID, committedSourceID           uuid.UUID
+	committedSourceText                                  string
 	sourceSHA, fingerprint, sourceProfile, parserProfile string
 	createdAt                                            time.Time
+}
+
+var emptyUnmappedRaw = []byte(`{}`)
+
+// committedSourceString reuses the text form validatedRowImportContext caches;
+// contexts built elsewhere format it on demand.
+func (context rowImportContext) committedSourceString() string {
+	if context.committedSourceText != "" {
+		return context.committedSourceText
+	}
+	return context.committedSourceID.String()
+}
+
+// observationProvenance encodes each row's observation source reference. Its
+// members are in key order, so the bytes equal the former map encoding.
+type observationProvenance struct {
+	CommittedSourceID     string `json:"committed_source_id"`
+	MappingFingerprint    string `json:"mapping_fingerprint"`
+	ParserProfileID       string `json:"parser_profile_id"`
+	SourceContentSHA256   string `json:"source_content_sha256"`
+	SourceProfileID       string `json:"source_profile_id"`
+	SourceRowDigestSHA256 string `json:"source_row_digest_sha256"`
+	SourceRowNumber       int64  `json:"source_row_number"`
 }
 
 // Validate before any table write. Only Imports supplies this context in product
@@ -60,8 +92,8 @@ func validatedRowImportContext(params createTableParams) (rowImportContext, erro
 	}
 	return rowImportContext{
 		incidentID: params.IncidentID, actorUserID: params.ActorUserID,
-		committedSourceID: params.CommittedSourceID,
-		sourceSHA:         params.SourceContentSHA256, fingerprint: params.MappingFingerprint,
+		committedSourceID: params.CommittedSourceID, committedSourceText: params.CommittedSourceID.String(),
+		sourceSHA: params.SourceContentSHA256, fingerprint: params.MappingFingerprint,
 		sourceProfile: params.SourceProfileID, parserProfile: params.ParserProfileID,
 		createdAt: now,
 	}, nil
@@ -77,21 +109,30 @@ func (context rowImportContext) persistedRow(tableID string, source normalizedRo
 	if source.SourceRowNumber < 1 || !validLowerSHA256(source.SourceRowDigestSHA256) || !validLowerSHA256(source.NormalizedRowDigestSHA256) {
 		return flowRow{}, errInvalidNormalizedRow
 	}
-	if err := validateObservationDirection(flowEndpoint{source.EndpointAIP, source.EndpointAPort}, flowEndpoint{source.EndpointBIP, source.EndpointBPort}, source.Direction, source.DirectionEvidence, context.sourceProfile); err != nil {
+	a, b := flowEndpoint{source.EndpointAIP, source.EndpointAPort}, flowEndpoint{source.EndpointBIP, source.EndpointBPort}
+	if source.normalizedDerivationID != "" {
+		profile, ok := mappingSourceProfile(context.sourceProfile)
+		if !ok || profile.EndpointDerivationID != source.normalizedDerivationID || !canonicalEndpointsValid(a, b) || !source.Direction.valid() {
+			return flowRow{}, errInvalidNormalizedRow
+		}
+	} else if err := validateObservationDirection(a, b, source.Direction, source.DirectionEvidence, context.sourceProfile); err != nil {
 		return flowRow{}, err
 	}
-	var retained retainedRawValues
-	if err := json.Unmarshal(source.UnmappedRaw, &retained); err != nil {
-		return flowRow{}, fmt.Errorf("%w: unmapped values: %w", errInvalidNormalizedRow, err)
+	// An empty object is the common case and needs no decode to be admitted.
+	if !bytes.Equal(source.UnmappedRaw, emptyUnmappedRaw) {
+		var retained retainedRawValues
+		if err := json.Unmarshal(source.UnmappedRaw, &retained); err != nil {
+			return flowRow{}, fmt.Errorf("%w: unmapped values: %w", errInvalidNormalizedRow, err)
+		}
 	}
-	provenance, err := json.Marshal(map[string]any{
-		"committed_source_id":      context.committedSourceID.String(),
-		"source_content_sha256":    context.sourceSHA,
-		"source_profile_id":        context.sourceProfile,
-		"parser_profile_id":        context.parserProfile,
-		"mapping_fingerprint":      context.fingerprint,
-		"source_row_number":        source.SourceRowNumber,
-		"source_row_digest_sha256": source.SourceRowDigestSHA256,
+	provenance, err := json.Marshal(observationProvenance{
+		CommittedSourceID:     context.committedSourceString(),
+		MappingFingerprint:    context.fingerprint,
+		ParserProfileID:       context.parserProfile,
+		SourceContentSHA256:   context.sourceSHA,
+		SourceProfileID:       context.sourceProfile,
+		SourceRowDigestSHA256: source.SourceRowDigestSHA256,
+		SourceRowNumber:       source.SourceRowNumber,
 	})
 	if err != nil {
 		return flowRow{}, fmt.Errorf("encode network flow observation provenance: %w", err)

@@ -1,4 +1,5 @@
 import { clientTxnID } from "../services/browserApi";
+import { notAppliedText } from "../shared/publicError";
 import {
   captureImport,
   type ImportAdmissionOutcome,
@@ -55,6 +56,7 @@ export type IncidentImportPorts = {
     id: string,
     attempt: ImportCancelAttempt,
     signal: AbortSignal,
+    replay: boolean,
   ) => Promise<ImportCancellationOutcome>;
   readonly isCurrent: (authority: ImportAuthority) => boolean;
   readonly authorizationFailed: (status: number) => void;
@@ -241,7 +243,10 @@ export class IncidentImportController {
       this.announce(
         admission.kind === "uncertain"
           ? "Import admission is unconfirmed. Retry the same upload to recover."
-          : "Import admission was rejected. Review the bundle before submitting again.",
+          : admission.kind === "rejected" &&
+              admission.problem === "temporarily_unavailable"
+            ? notAppliedText()
+            : "Import admission was rejected. Review the bundle before submitting again.",
         "assertive",
       );
   }
@@ -377,12 +382,13 @@ export class IncidentImportController {
       if (entry?.observation.kind === "ready" && this.actionCurrent(action)) {
         const target = openableImport(entry);
         if (action.action === "cancel" && cancelableImport(entry)) {
+          const replay = entry.cancellation.kind === "uncertain";
           const attempt =
             entry.cancellation.kind === "uncertain"
               ? entry.cancellation.attempt
               : Object.freeze({ client_txn_id: this.transactionId() });
           this.stopAction();
-          void this.cancelAttempt(id, attempt);
+          void this.cancelAttempt(id, attempt, replay);
         } else if (action.action === "open" && target) {
           this.stopAction();
           void this.openTarget(id, target);
@@ -451,13 +457,17 @@ export class IncidentImportController {
       "assertive",
     );
   }
-  private async cancelAttempt(id: string, attempt: ImportCancelAttempt) {
+  private async cancelAttempt(
+    id: string,
+    attempt: ImportCancelAttempt,
+    replay: boolean,
+  ) {
     const epoch = this.epoch;
     if (this.readId === id) this.stopReads();
     this.dispatch({ type: "cancel_started", id, attempt });
     this.announce("Requesting cancellation.");
     const result = await this.wait(
-      (signal) => this.ports.cancel(id, attempt, signal),
+      (signal) => this.ports.cancel(id, attempt, signal, replay),
       30_000,
     );
     if (!this.current(epoch)) return;

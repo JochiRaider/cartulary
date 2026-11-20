@@ -16,7 +16,10 @@ export type EntityMergeReceipt = Immutable<WorkbookProtocolMergeReceipt>;
 export type EntityMergeTransportOutcome =
   | { readonly kind: "acknowledged"; readonly receipt: EntityMergeReceipt }
   | { readonly kind: "uncertain" }
-  | { readonly kind: "rejected"; readonly failure: WorkbookOperationFailure };
+  | {
+      readonly kind: "rejected";
+      readonly failure: WorkbookOperationFailure<"mergeEntityRecord">;
+    };
 export interface WorkbookEntityMergePort {
   capture(review: EntityMergeReview, transactionId: string): EntityMergeAttempt;
   send(

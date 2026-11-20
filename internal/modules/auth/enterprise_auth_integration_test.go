@@ -787,6 +787,52 @@ func TestEnterpriseAuthBindingLifecycle_Integration(t *testing.T) {
 	}, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
 	requireErrorReason(t, retireAlreadyInactive, http.StatusConflict, "auth_binding_conflict", "binding_not_active")
 
+	// Core 01 REQ-01-539..541: a {user_id, auth_binding_id} pair that identifies
+	// no current binding target, whether the binding belongs to another user or
+	// the user does not exist, fails rotate and retire with 404
+	// auth_binding_not_found.
+	const absentUserID = "6f1c2d3e-0000-4000-8000-000000000404"
+	for _, target := range []struct {
+		name, userID string
+		baseVersion  any
+	}{
+		{"foreign binding", otherID, queryUserVersion(t, db, otherID)},
+		{"absent user", absentUserID, 1},
+	} {
+		for _, action := range []struct {
+			name, method, path string
+			body               map[string]any
+		}{
+			{"rotate", http.MethodPost, "/auth-bindings/" + authBindingID + "/rotate", map[string]any{"new_provider_subject": "AbsentTargetSubject"}},
+			{"retire", http.MethodDelete, "/auth-bindings/" + newAuthBindingID, map[string]any{}},
+		} {
+			body := map[string]any{"base_user_version": target.baseVersion, "client_txn_id": "txn-binding-target-" + action.name + "-" + strings.ReplaceAll(target.name, " ", "-")}
+			for key, value := range action.body {
+				body[key] = value
+			}
+			response := httptestx.DoJSON(t, http.DefaultClient, action.method, server.HTTP.URL+"/api/v1/users/"+target.userID+action.path, body,
+				httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
+			httptestx.RequireErrorEnvelope(t, response, http.StatusNotFound, "auth_binding_not_found")
+		}
+	}
+	// Core 01 REQ-01-118 and REQ-01-538: binding create for a user_id naming no
+	// user fails with 404 user_not_found and empty details before any receipt,
+	// binding, session or audit effect.
+	beforeAbsentCreate := observeUserAdministration(t, db, absentUserID, adminID)
+	absentCreate := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+absentUserID+"/auth-bindings", map[string]any{
+		"base_user_version": 1,
+		"client_txn_id":     "txn-create-binding-absent-user",
+		"provider_key":      "corp-bind",
+		"provider_subject":  "AbsentUserSubject",
+	}, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
+	if details := httptestx.RequireErrorDetails(t, httptestx.RequireErrorEnvelope(t, absentCreate, http.StatusNotFound, "user_not_found")); len(details) != 0 {
+		t.Fatalf("user_not_found details = %#v, want empty", details)
+	}
+	beforeAbsentCreate.requireUnchanged(t, observeUserAdministration(t, db, absentUserID, adminID))
+	if got := queryCount(t, db, `SELECT COUNT(*) FROM enterprise_auth_bindings WHERE user_id::text = $1`, absentUserID); got != 0 {
+		t.Fatalf("binding create for an absent user wrote %d bindings", got)
+	}
+
 	if got := queryUserPasswordHash(t, db, targetID); got != targetPasswordHashBeforeRetire {
 		t.Fatalf("retire must not mutate local credential hash")
 	}

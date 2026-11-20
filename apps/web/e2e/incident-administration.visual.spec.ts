@@ -30,6 +30,7 @@ import { responseBarrier } from "./support/runtime/cleanup";
 import { uniqueIncidentKey } from "./support/runtime/fixtureIdentity";
 import {
   awaitResponseBarrier,
+  fulfillOperationError,
   installOwnedRoute,
 } from "./support/transport/requestInterception";
 import { assertViewportVisualRegression } from "./support/visual/capture";
@@ -216,7 +217,7 @@ test("Capture Membership management drafts pending uncertainty confirmed recover
   });
   const pending = responseBarrier(page);
   fixture.gateWrite(pending.promise);
-  fixture.mutation(503);
+  fixture.mutation(500);
   await panel.getByRole("button", { name: "Save role", exact: true }).click();
   await expect(
     panel.getByText(/Saving the reviewed membership action/u),
@@ -369,7 +370,7 @@ test("Capture Metadata editing loading dirty conflict uncertainty confirmation r
   });
   const pending = responseBarrier(page);
   fixture.gateWrite(pending.promise);
-  fixture.mutation(503);
+  fixture.mutation(500);
   await panel
     .getByRole("button", { name: "Save promoted fields", exact: true })
     .click();
@@ -589,13 +590,15 @@ test("Capture Lifecycle review pending exact recovery confirmation responsive an
     `**/api/v1/incidents/${incidentId}`,
     async (route) => {
       if (failedReads && route.request().method() === "GET")
-        await route.fulfill({
-          status: 503,
-          json: {
-            error: { code: "internal_error" },
-            meta: { request_id: "lc-visual-read-failure" },
+        await fulfillOperationError(
+          route,
+          "getIncident",
+          500,
+          "internal_error",
+          {
+            requestId: "lc-visual-read-failure",
           },
-        });
+        );
       else await route.continue();
     },
   );

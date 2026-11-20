@@ -22,11 +22,11 @@ import { activityTiming, beginActivity } from "../../runtime/local-activity.mjs"
 
 test("URL redaction removes complete userinfo and preserves unrelated URL components", () => {
   for (const [input, expected] of [
-    ["https://PrivateFixtureAlpha@example.test/path", "https://[REDACTED:dsn]@example.test/path"],
-    ["https://PrivateUser:PrivatePassword@example.test:443/path?q=1", "https://[REDACTED:dsn]@example.test:443/path?q=1"],
-    ["https://PrivateUser:@example.test", "https://[REDACTED:dsn]@example.test"],
-    ["https://Private%3AToken@example.test", "https://[REDACTED:dsn]@example.test"],
-    ["postgresql://PrivateUser:PrivatePassword@localhost/db", "postgresql://[REDACTED:dsn]@localhost/db"],
+    ["https://PrivateFixtureAlpha@example.test/path", "https://<redacted>@example.test/path"],
+    ["https://PrivateUser:PrivatePassword@example.test:443/path?q=1", "https://<redacted>@example.test:443/path?q=1"],
+    ["https://PrivateUser:@example.test", "https://<redacted>@example.test"],
+    ["https://Private%3AToken@example.test", "https://<redacted>@example.test"],
+    ["postgresql://PrivateUser:PrivatePassword@localhost/db", "postgresql://<redacted>@localhost/db"],
     ["https://example.test/path@item?q=a@b#c@d", "https://example.test/path@item?q=a@b#c@d"],
     ["https://example.test?q=a@b", "https://example.test?q=a@b"],
     ["https://example.test#c@d", "https://example.test#c@d"],
@@ -234,9 +234,13 @@ test("generated definitions preserve acceptance and admit isolated ordinary exte
 });
 
 test("native redaction generation rejects unavailable, partial and ambiguous policy", () => {
-  const policy = { schema_id: "cartulary.harness_redaction_manifest.v1", replacement: "[REDACTED]",
-    value_patterns: [{ name: "fixture", pattern: "(?i)fixture-secret", replacement: "[REDACTED]" }] };
-  assert.match(renderNativeRedactionPolicy(policy), /regexp\.MustCompile\("\(\?i\)fixture-secret"\)/u);
+  const policy = { schema_id: "cartulary.harness_redaction_manifest.v1", replacement: "<redacted>",
+    value_patterns: [{ name: "fixture", pattern: "(?i)(secret=)fixture-secret", replacement: "$1<redacted>" }] };
+  const rendered = renderNativeRedactionPolicy(policy);
+  assert.match(rendered, /regexp\.MustCompile\("\(\?i\)\(secret=\)fixture-secret"\)/u);
+  // The manifest owns the single marker; the native policy exports it (TH-HARNESS-REQ-617).
+  assert.match(rendered, /^const Marker = "<redacted>"$/mu);
+  assert.match(rendered, /replacement: Marker,/u);
   for (const mutate of [
     () => null,
     (p) => ({ ...p, schema_id: "foreign" }),
@@ -245,6 +249,11 @@ test("native redaction generation rejects unavailable, partial and ambiguous pol
     (p) => ({ ...p, value_patterns: [...p.value_patterns, p.value_patterns[0]] }),
     (p) => { delete p.value_patterns[0].replacement; return p; },
     (p) => { p.value_patterns[0].pattern = "["; return p; },
+    // A rule must emit the marker, and only the marker: no second or typed form.
+    (p) => { p.value_patterns[0].replacement = "$1"; return p; },
+    (p) => { p.value_patterns[0].replacement = "$1[REDACTED]"; return p; },
+    (p) => { p.value_patterns[0].replacement = "$1<redacted>:dsn"; return p; },
+    (p) => { p.value_patterns[0].replacement = "$1<redacted> [REDACTED:token]"; return p; },
   ]) assert.throws(() => renderNativeRedactionPolicy(mutate(structuredClone(policy))));
 });
 

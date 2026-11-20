@@ -1,5 +1,6 @@
 import { accountTestId } from "@cartulary/ui-contracts";
 import { useEffect, useMemo } from "react";
+import { notAppliedText, stillUnconfirmedText } from "../shared/publicError";
 import {
   type AccountEditState,
   type AccountResourceKind,
@@ -342,7 +343,10 @@ function AccountEditFeedback({
       ? "Checking the previous save. You can keep editing."
       : `Saving ${kind}. You can keep editing.`;
   else if (operation.kind === "uncertain")
-    message = `We could not confirm whether your ${kind} was saved. Retry save to check the same request.${operation.reason === "authorization" ? " Access is currently denied." : ""} Discard edits does not cancel that request.`;
+    message =
+      operation.reason === "temporarily_unavailable"
+        ? `${stillUnconfirmedText()} Discard edits does not cancel that request.`
+        : `We could not confirm whether your ${kind} was saved. Retry save to check the same request.${operation.reason === "authorization" ? " Access is currently denied." : ""} Discard edits does not cancel that request.`;
   else if (operation.kind === "conflict") {
     message = `${kind === "profile" ? "Display name" : "Density"} changed elsewhere. Your edit is retained. Review the saved value before saving again.`;
     alert = true;
@@ -354,7 +358,9 @@ function AccountEditFeedback({
           ? "Saving is currently denied. Refresh this resource, then review your edit before trying again."
           : operation.reason === "preparation"
             ? "The save could not be prepared. Try again."
-            : "The edit was not accepted. Check the field and try again.";
+            : operation.reason === "not_applied"
+              ? notAppliedText()
+              : "The edit was not accepted. Check the field and try again.";
     alert = operation.reason !== "transaction";
   } else if (operation.kind === "confirmed") {
     message = `${title} saved.${accountDraftDirty(state) ? " You have unsaved edits." : ""}`;

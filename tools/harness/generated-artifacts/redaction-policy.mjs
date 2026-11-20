@@ -6,12 +6,20 @@ export function renderNativeRedactionPolicy(manifest) {
       !Array.isArray(manifest.value_patterns) || !manifest.value_patterns.length) {
     throw new Error("invalid native redaction policy");
   }
+  // The manifest's replacement is the single retained marker
+  // (TH-HARNESS-REQ-617). Every rule emits it, with no second or typed form.
+  const marker = manifest.replacement;
   const names = new Set();
   const rules = manifest.value_patterns.map((rule) => {
     if (!rule || typeof rule.name !== "string" || !rule.name || names.has(rule.name) ||
         typeof rule.pattern !== "string" || !rule.pattern ||
         typeof rule.replacement !== "string" || !rule.replacement) {
       throw new Error("invalid or duplicate native redaction rule");
+    }
+    if (!rule.replacement.includes(marker) ||
+        rule.replacement.includes(`${marker}:`) ||
+        /redact/iu.test(rule.replacement.split(marker).join(""))) {
+      throw new Error(`native redaction rule ${rule.name} must emit only the marker ${marker}`);
     }
     names.add(rule.name);
     // Validate the shared consumer syntax before the publication transaction.
@@ -24,8 +32,12 @@ package harnessredact
 
 import "regexp"
 
+// Marker is the single retained redaction marker owned by
+// tools/harness_redaction_manifest.json (TH-HARNESS-REQ-617).
+const Marker = ${JSON.stringify(marker)}
+
 var rules = compiledManifest{
-\treplacement: ${JSON.stringify(manifest.replacement)},
+\treplacement: Marker,
 \tvalueRules: []compiledRule{
 ${rules.join("\n")}
 \t},

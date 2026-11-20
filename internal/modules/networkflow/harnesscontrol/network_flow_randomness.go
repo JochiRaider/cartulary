@@ -104,8 +104,7 @@ func RegisterNetworkFlowRandomnessRoutes(random *NetworkFlowRandomnessRegistry) 
 			guard:  guard,
 			random: random,
 		}
-		mux.HandleFunc("POST /api/v1/test/runtime/network-flow-randomness", service.handleArm)
-		return nil
+		return httpapi.BindTestRoute(mux, deps, guard, http.MethodPost, "/api/v1/test/runtime/network-flow-randomness", service.handleArm)
 	}
 }
 

@@ -226,7 +226,10 @@ func (t *crossOwnerTransaction) Commit(ctx context.Context) (outcome crossownert
 	if err == nil {
 		return crossownertransaction.CommitProven, nil
 	}
-	if errors.Is(err, pgx.ErrTxCommitRollback) || provenAbsentSQLState(err) {
+	// A definite ERROR acknowledgement, or a request never sent on a session
+	// that pgx has retired, proves the commit absent (EXT-REQ-215); only an
+	// undetermined reply leaves the outcome to the owner's commit proof.
+	if extensionstore.CommitAbsenceProven(ctx, t.tx, err) {
 		return crossownertransaction.CommitAbsent, err
 	}
 	return crossownertransaction.CommitUnknown, err
@@ -265,17 +268,3 @@ type crossOwnerFinalization struct {
 }
 
 func (crossOwnerFinalization) FinalizationScope() string { return "shared.finalization" }
-
-func provenAbsentSQLState(err error) bool {
-	type sqlState interface{ SQLState() string }
-	var state sqlState
-	if !errors.As(err, &state) {
-		return false
-	}
-	switch state.SQLState() {
-	case "40001", "40P01", "23505", "23503", "23514":
-		return true
-	default:
-		return false
-	}
-}

@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	evidenceblob "github.com/JochiRaider/cartulary/internal/modules/evidence/internal/blob"
 	evidencepolicy "github.com/JochiRaider/cartulary/internal/modules/evidence/internal/policy"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
@@ -256,23 +257,48 @@ func (blobLifecycleRepository) markAvailableTx(
 	return markBlobAvailableTx(ctx, tx, objectBlobID, observed, now)
 }
 
+// markExpiredPending applies the pending-timeout transition to every expired
+// pending Blob. Each row is locked and its REQ-02-189a tuple verified under
+// the lock. A violating row fails closed: it is left unchanged and counted,
+// and the coherent rows of the same sweep still time out.
 func (repository blobLifecycleRepository) markExpiredPending(
 	ctx context.Context,
 	now time.Time,
-) (int, error) {
+) (expired int, violations int, err error) {
+	tx, err := repository.db.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return 0, 0, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	locked, err := evidenceblob.LockExpiredPendingTx(ctx, tx, now)
+	if err != nil {
+		return 0, 0, err
+	}
+	violations = len(locked.Violating)
+	if len(locked.Coherent) == 0 {
+		return 0, violations, tx.Commit(ctx)
+	}
+	ids := make([]uuid.UUID, 0, len(locked.Coherent))
+	for _, row := range locked.Coherent {
+		ids = append(ids, row.ObjectBlobID)
+	}
 	schedule := evidencepolicy.ScheduleFailure(now)
-	tag, err := repository.db.Exec(ctx, `
+	tag, err := tx.Exec(ctx, `
 UPDATE object_blobs
    SET upload_state = 'failed',
        terminal_reason = 'pending_timeout',
        failed_at = $1,
        cleanup_due_at = $2,
        updated_at = $1
- WHERE upload_state = 'pending'
+ WHERE object_blob_id = ANY($3::uuid[])
+   AND upload_state = 'pending'
    AND pending_expires_at <= $1
-`, schedule.FailedAt, schedule.CleanupDueAt)
+`, schedule.FailedAt, schedule.CleanupDueAt, ids)
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
-	return int(tag.RowsAffected()), nil
+	if err := tx.Commit(ctx); err != nil {
+		return 0, 0, err
+	}
+	return int(tag.RowsAffected()), violations, nil
 }

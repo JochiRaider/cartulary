@@ -84,8 +84,8 @@ describe("Incident membership management ownership", () => {
     const secondPosition = controller.getSnapshot().page?.position;
     list.mockResolvedValueOnce({
       ok: false,
-      status: 503,
-      problem: { code: "service_unavailable" },
+      status: 500,
+      problem: { code: "internal_error" },
     });
     controller.next();
     await settle();
@@ -130,8 +130,8 @@ describe("Incident membership management ownership", () => {
     expect(controller.getSnapshot().read.kind).toBe("cursor_rejected");
     list.mockResolvedValue({
       ok: false,
-      status: 503,
-      problem: { code: "service_unavailable" },
+      status: 500,
+      problem: { code: "internal_error" },
     });
     controller.refresh();
     await settle();
@@ -204,8 +204,8 @@ describe("Incident membership management ownership", () => {
     controller.editEmail(" analyst@example.test ");
     mutate.mockResolvedValueOnce({
       ok: false,
-      status: 503,
-      problem: { code: "service_unavailable" },
+      status: 500,
+      problem: { code: "internal_error" },
     });
     controller.submit();
     await settle();
@@ -239,8 +239,8 @@ describe("Incident membership management ownership", () => {
       .mockResolvedValue({ kind: "unavailable", failure: "transient" });
     list.mockResolvedValue({
       ok: false,
-      status: 503,
-      problem: { code: "service_unavailable" },
+      status: 500,
+      problem: { code: "internal_error" },
     });
     controller.submit();
     await settle();

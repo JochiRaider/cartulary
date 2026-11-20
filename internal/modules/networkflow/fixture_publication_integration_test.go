@@ -259,18 +259,20 @@ func (r *publicationFixtureRuntime) interruptedAttempt(jobID string) map[string]
 
 func (r *publicationFixtureRuntime) waitJob(id string) map[string]any {
 	r.t.Helper()
-	deadline := time.Now().Add(15 * time.Second)
-	for time.Now().Before(deadline) {
-		response := httptestx.RequireSuccessEnvelope(r.t, httptestx.DoJSON(r.t, http.DefaultClient, http.MethodGet, r.h.Server.HTTP.URL+"/api/v1/jobs/"+id, nil, r.requestOptions...), http.StatusOK)
-		job := response["data"].(map[string]any)
-		if job["status"] == "succeeded" || job["status"] == "failed" || job["status"] == "canceled" {
-			return job
+	// A job that never settles is diagnosed from its durable handler state.
+	settled := false
+	r.t.Cleanup(func() {
+		if !settled {
+			state := r.jsonQuery(`SELECT jsonb_build_object('status',status,'failure_count',handler_failure_count,'last_error',handler_last_error,'last_attempt',handler_last_attempted_at,'next_attempt',handler_next_attempt_at) FROM jobs WHERE job_id=$1`, id)
+			r.t.Logf("fixture apply job did not reach a terminal state: %v", state)
 		}
-		time.Sleep(25 * time.Millisecond)
-	}
-	state := r.jsonQuery(`SELECT jsonb_build_object('status',status,'failure_count',handler_failure_count,'last_error',handler_last_error,'last_attempt',handler_last_attempted_at,'next_attempt',handler_next_attempt_at) FROM jobs WHERE job_id=$1`, id)
-	r.t.Fatalf("fixture apply job did not reach a terminal state: %v", state)
-	return nil
+	})
+	job := httptestx.PollJob(r.t, r.h.Server.HTTP.URL, id, httptestx.PollOptions{
+		Timeout: 15 * time.Second,
+		Request: r.requestOptions,
+	}, "succeeded", "failed", "canceled")
+	settled = true
+	return job
 }
 
 func publicationFixtureOutcomes(t *testing.T, bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {

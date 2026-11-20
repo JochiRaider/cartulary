@@ -3,6 +3,7 @@ import {
   incidentImportTestId,
 } from "@cartulary/ui-contracts";
 import { useId } from "react";
+import { notAppliedText } from "../shared/publicError";
 import {
   importedIncidentTarget,
   terminalImportJob,
@@ -201,7 +202,9 @@ export function IncidentImportPanel({
           <p style={errorTextStyle}>
             {admission.problem === "conflict"
               ? "This request conflicts with a previous admission. No new import was confirmed."
-              : "Import admission was rejected. Review the selected bundle before submitting again."}
+              : admission.problem === "temporarily_unavailable"
+                ? notAppliedText()
+                : "Import admission was rejected. Review the selected bundle before submitting again."}
           </p>
         ) : null}
         {admission.kind === "accepted" ? (

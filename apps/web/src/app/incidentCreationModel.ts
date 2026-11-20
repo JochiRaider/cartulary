@@ -1,8 +1,15 @@
 import {
   type APIError,
   clientTxnID,
+  type HTTPOperationFailureCode,
   type HTTPOperationResult,
 } from "../services/browserApi";
+import {
+  isFailureCode,
+  isUnappliedRefusal,
+  notAppliedText,
+  stillUnconfirmedText,
+} from "../shared/publicError";
 import type {
   CreateIncidentRequest,
   CreateIncidentResponse,
@@ -55,7 +62,7 @@ export type IncidentCreationPorts = {
   create: (
     request: Attempt,
     signal: AbortSignal,
-  ) => Promise<HTTPOperationResult<CreateIncidentResponse>>;
+  ) => Promise<HTTPOperationResult<CreateIncidentResponse, "createIncident">>;
   newTransactionId?: () => string;
   isCurrentSession: (identity: string) => boolean;
   sessionLost: () => void;
@@ -105,7 +112,9 @@ function buildIncidentCreationRequest(
   });
 }
 
-function fieldError(error: APIError): IncidentCreationErrors {
+function fieldError(
+  error: APIError<HTTPOperationFailureCode<"createIncident">>,
+): IncidentCreationErrors {
   if (error.code === "incident_key_conflict")
     return {
       incident_key: "This incident key is already in use. Choose another key.",
@@ -338,14 +347,31 @@ export class IncidentCreationController {
         this.ports.sessionLost();
         return;
       }
+      // A refusal before apply leaves nothing created: the draft stays
+      // editable and a resubmission is a new attempt. A refused replay proves
+      // only that the replay was not applied (Core 03 REQ-03-086a).
+      if (isUnappliedRefusal(result.status, error)) {
+        if (replay) {
+          uncertain(stillUnconfirmedText());
+          return;
+        }
+        this.publish({
+          ...this.state,
+          errors: {},
+          operation: { kind: "rejected", transactionConflict: false },
+          message: notAppliedText(),
+          announcement: "assertive",
+        });
+        return;
+      }
       const definitive =
-        error !== undefined &&
-        ((result.status === 400 && error.code === "invalid_incident_create") ||
-          (result.status === 409 &&
-            ["incident_key_conflict", "client_txn_conflict"].includes(
-              error.code,
-            )) ||
-          result.status === 403);
+        (result.status === 400 && error.code === "invalid_incident_create") ||
+        (result.status === 409 &&
+          isFailureCode(error.code, [
+            "incident_key_conflict",
+            "client_txn_conflict",
+          ])) ||
+        result.status === 403;
       if (!definitive || replay) {
         uncertain(
           result.status === 403

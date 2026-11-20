@@ -1,6 +1,5 @@
 import {
   type AppendIndicatorStateIntervalRequest,
-  type AppendIndicatorStateIntervalResponse,
   buildHTTPOperationPath,
   httpOperationBindings,
 } from "@cartulary/protocol-ts/http";
@@ -16,7 +15,7 @@ import type {
 import type { WorkbookReadScopeSource } from "../query/WorkbookQueryRow";
 import { createIndicatorLifecycleReader } from "./createIndicatorLifecycleReader";
 import type { IndicatorLifecycleReceipt } from "./indicatorLifecycleProtocol";
-import { classifyWorkbookOperationFailure } from "./workbookOperationErrorPolicy";
+import { explicitWorkbookFailureOutcome } from "./workbookOperationErrorPolicy";
 
 const operationID = "appendIndicatorStateInterval";
 const route = (base: string | undefined, recordId: string) =>
@@ -57,36 +56,25 @@ export function createIndicatorLifecycleAdapter(options: {
         return { kind: "uncertain" };
       let status: number | null = null;
       try {
-        const response =
-          await fetchHTTPOperation<AppendIndicatorStateIntervalResponse>({
-            apiBase: attempt.apiBase,
-            operationID,
-            pathParameters: { indicator_id: attempt.draft.recordId },
-            init: {
-              method: httpOperationBindings[operationID].method,
-              body: attempt.body,
-              signal,
-            },
-            onResponse: (value) => {
-              status = value.status;
-            },
-          });
+        const response = await fetchHTTPOperation({
+          apiBase: attempt.apiBase,
+          operationID,
+          pathParameters: { indicator_id: attempt.draft.recordId },
+          init: {
+            method: httpOperationBindings[operationID].method,
+            body: attempt.body,
+            signal,
+          },
+          onResponse: (value) => {
+            status = value.status;
+          },
+        });
         if (!response.ok) {
-          if (
-            status === null ||
-            status < 400 ||
-            status >= 500 ||
-            !response.payload.error?.code
-          )
-            return { kind: "uncertain" };
-          const failure = classifyWorkbookOperationFailure(
-            response.status,
-            response.payload,
+          return explicitWorkbookFailureOutcome(
+            status,
+            response.payload.error,
             operationID,
           );
-          return failure.kind === "invalid_contract"
-            ? { kind: "uncertain" }
-            : { kind: "rejected", failure };
         }
         const receipt = validatedLifecycleReceipt(
           attempt,

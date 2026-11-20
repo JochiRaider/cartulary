@@ -8,6 +8,7 @@ import path from "node:path";
 import { createRowSelectorResolver, discoverRunnerSources, validatePostgresFixturePolicy } from "../../test-support/owner-fixtures.mjs";
 import { groupRowsByPerformanceFixture, postgresMigrationDigest, snapshotKey } from "../../performance-fixture/index.mjs";
 import { buildSourceSnapshot, loadSelectedTestRows, loadTestCatalog } from "../index.mjs";
+import { HarnessConfigError, preparationDiagnostic } from "../../contract/index.mjs";
 export function assertSourceSnapshotIdentity() {
   const root = mkdtempSync(path.join(tmpdir(), "cartulary-source-identity."));
   const hash = (bytes) => `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
@@ -344,7 +345,13 @@ function assertSourceDiscoveryBoundary() {
     const resolver = createRowSelectorResolver(root);
     const keys = resolver(selection);
     assert.deepEqual(keys, ["vitest:browser-unit:apps/web/src/fixture.test.ts:suite row alpha", "vitest:browser-unit:apps/web/src/fixture.test.ts:suite row beta"]);
-    assert.throws(() => resolver.assertSourceCoverage(runners, new Set(keys)), /go:.\/internal\/fixture:TestNew/u);
+    assert.throws(() => resolver.assertSourceCoverage(runners, new Set(keys)), (error) => {
+      assert.match(error.message, /go:.\/internal\/fixture:TestNew/u);
+      assert.ok(error instanceof HarnessConfigError);
+      assert.equal(error.diagnostic_cause, "catalog_coverage");
+      assert.deepEqual(error.diagnostic_subjects, ["go:./internal/fixture:TestNew"]);
+      return true;
+    });
     const selected = new Set([...keys, "go:./internal/fixture:TestNew"]);
     resolver.assertSourceCoverage(runners, selected);
     write("internal/fixture/unicode_test.go", "package fixture\nfunc Test界() {}\n");
@@ -539,4 +546,27 @@ export function assertFixtureBuilderClosure(context) {
   assert.ok(unprofiled);
   const plain = context.compiler.compile({ kind: "rows", row_ids: [unprofiled.row_id] });
   assert.equal(plain.units.some((unit) => unit.kind === "fixture_builder"), false);
+}
+
+// TH-HARNESS-REQ-854: the diagnostic keeps only closed reasons and causes and
+// bounded subjects; it never carries the error message.
+export function assertPreparationDiagnosticBounds() {
+  const subjects = Array.from({ length: 25 }, (_, index) => `go:./internal/probe:TestProbe${String(index).padStart(2, "0")}`);
+  const coverage = preparationDiagnostic(new HarnessConfigError("private message", { diagnosticCause: "catalog_coverage", subjects: [...subjects, subjects[0], "bad\nsubject", "x".repeat(257)] }));
+  assert.deepEqual(coverage, {
+    schema_id: "cartulary.harness_preparation_diagnostic.v1",
+    failure_reason: "configuration_error",
+    cause: "catalog_coverage",
+    subjects: subjects.slice(0, 20),
+    omitted_subject_count: 7,
+  });
+  assert.ok(!JSON.stringify(coverage).includes("private message"));
+  const usage = preparationDiagnostic(new HarnessConfigError("unknown owner secret", { reason: "usage_error", diagnosticCause: "command_selection" }));
+  assert.deepEqual([usage.failure_reason, usage.cause, usage.subjects, usage.omitted_subject_count], ["usage_error", "command_selection", [], 0]);
+  const untyped = preparationDiagnostic(Object.assign(new Error("/home/private/path"), { failure_reason: "security_finding", diagnostic_cause: "private", diagnostic_subjects: ["leak"] }));
+  assert.deepEqual([untyped.failure_reason, untyped.cause, untyped.subjects], ["configuration_error", "unclassified", []]);
+  const wide = preparationDiagnostic(new HarnessConfigError("wide", { diagnosticCause: "catalog_coverage", subjects: Array.from({ length: 20 }, (_, index) => `${index}`.padEnd(256, "y")) }));
+  assert.ok(Buffer.byteLength(JSON.stringify(wide)) <= 4096);
+  assert.equal(wide.subjects.length + wide.omitted_subject_count, 20);
+  assert.ok(wide.omitted_subject_count > 0);
 }

@@ -135,8 +135,7 @@ func RegisterNetworkFlowAuditAssertionRoutes(assertions *NetworkFlowAuditAsserti
 			guard:      guard,
 			assertions: assertions,
 		}
-		mux.HandleFunc("POST /api/v1/test/runtime/network-flow-audit-assertions", service.handleArm)
-		return nil
+		return httpapi.BindTestRoute(mux, deps, guard, http.MethodPost, "/api/v1/test/runtime/network-flow-audit-assertions", service.handleArm)
 	}
 }
 

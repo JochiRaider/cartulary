@@ -177,6 +177,11 @@ export class WorkbookMutationRuntime {
     "setAuthority" | "suspend" | "closeIncident" | "retire"
   > | null = null;
   private currentAuthorizationEpoch = 0;
+  // The accepted authority under which the current epoch began, and whether an
+  // authorization-recovery pause is still open. Re-establishing the stream
+  // without either change keeps the same authority lifetime.
+  private epochAuthorityKey = "null";
+  private authorizationRecoveryPaused = false;
   private acceptedAuthority: WorkbookMutationAuthority | null = null;
   private accountActor: string | null = null;
   private transitioningAuthority = false;
@@ -1499,6 +1504,7 @@ export class WorkbookMutationRuntime {
       this.surfaces.invalidateAuthority();
     }
     this.acceptedAuthority = authority ? Object.freeze({ ...authority }) : null;
+    this.epochAuthorityKey = JSON.stringify(this.acceptedAuthority);
     if (authority) this.accountActor = authority.actorId;
     this.transitioningAuthority = true;
     try {
@@ -1514,14 +1520,16 @@ export class WorkbookMutationRuntime {
     readAuthorityRevoked = true,
   ): void {
     if (this.retired) return;
-    this.currentAuthorizationEpoch++;
     if (state === "paused") {
+      this.currentAuthorizationEpoch++;
+      this.authorizationRecoveryPaused = true;
       this.authoritySuspended = true;
       if (readAuthorityRevoked) {
         this.readAuthorityEpoch++;
         this.surfaces.invalidateAuthority();
         this.acceptedAuthority = null;
       }
+      this.epochAuthorityKey = JSON.stringify(this.acceptedAuthority);
       this.transitioningAuthority = true;
       try {
         this.featureLifecycle.suspend();
@@ -1532,6 +1540,21 @@ export class WorkbookMutationRuntime {
       this.emit();
       return;
     }
+    // REQ-03-299a: a transient reconnect keeps the incident's presentation, so
+    // re-establishing the stream is not a new authority lifetime. hello_ack and
+    // resume_ack carry no authority; a changed role arrives through an
+    // authoritative read (REQ-03-100), which calls setAuthority. A resume
+    // advances the epoch only when it ends a recovery pause or finds accepted
+    // authority different from the authority the current epoch began under.
+    const authorityKey = JSON.stringify(this.acceptedAuthority);
+    if (
+      this.authorizationRecoveryPaused ||
+      authorityKey !== this.epochAuthorityKey
+    ) {
+      this.currentAuthorizationEpoch++;
+      this.epochAuthorityKey = authorityKey;
+    }
+    this.authorizationRecoveryPaused = false;
     this.pendingRuntime.model.resumeAfterAuthRecovery();
     this.emit();
     this.requestDrain();

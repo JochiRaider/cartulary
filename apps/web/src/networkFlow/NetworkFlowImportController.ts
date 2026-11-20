@@ -443,7 +443,12 @@ export class NetworkFlowImportController {
       binding?.accessFailure(failure);
       return;
     }
-    if (failure.code === "extension_profile_not_claimed") {
+    // The core import client reports its own route-family loss as an
+    // authority failure with a client-local code.
+    if (
+      failure.kind === "authority" ||
+      failure.code === "extension_profile_not_claimed"
+    ) {
       this.retire();
       return;
     }
@@ -453,7 +458,7 @@ export class NetworkFlowImportController {
       binding?.accessFailure(failure);
       return;
     }
-    if (failure.status === 403 || failure.kind === "authority") {
+    if (failure.status === 403) {
       this.fence();
       this.publish({ canWrite: false, message: importFailureMessage(failure) });
       this.binding?.accessFailure(failure);
@@ -555,7 +560,7 @@ export class NetworkFlowImportController {
           failure: result.failure,
           receipt: null,
         },
-        message: importFailureMessage(result.failure),
+        message: importFailureMessage(result.failure, result.kind),
       });
       this.failure(result.failure, "unitId" in request ? "unit" : "session");
       return false;
@@ -1411,7 +1416,7 @@ export class NetworkFlowImportController {
           receipt: null,
           failure: result.failure,
         },
-        message: importFailureMessage(result.failure),
+        message: importFailureMessage(result.failure, result.kind),
       });
       this.failure(result.failure, "job");
       if (result.failure.code === "job_cancel_rejected")

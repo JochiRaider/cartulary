@@ -63,6 +63,56 @@
       "postgres_isolation": "none"
     },
     {
+      "row_id": "platform.httpruntime.unit.central_admission_authenticates_before_admitting_96ab64b661",
+      "owner_id": "platform.httpruntime",
+      "family_id": "platform.httpruntime.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "platform.httpruntime.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/httpapi",
+        "tests": [
+          "TestCentralAdmissionOrderAndPathParameters"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "platform.httpruntime.unit.central_admission_runs_an_owner_s_declared_gate_210ffd2098",
+      "owner_id": "platform.httpruntime",
+      "family_id": "platform.httpruntime.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "platform.httpruntime.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/httpapi",
+        "tests": [
+          "TestCentralAdmissionOwnerGateOrder"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
       "row_id": "platform.httpruntime.unit.new_handler_serves_embedded_root_and_assets_41dd7a2589",
       "owner_id": "platform.httpruntime",
       "family_id": "platform.httpruntime.unit",
@@ -107,6 +157,7 @@
         "tests": [
           "TestNewTestRouteGuardRequiresHarnessOwnedRuntime",
           "TestTestRouteGuardAuthorization",
+          "TestTestRouteGuardProtectMethod",
           "TestTestRouteGuardProtectWritesForbiddenWithoutCORS",
           "TestValidTestRouteTokenRejectsClosedWeakAttachTokens"
         ]
@@ -172,6 +223,31 @@
       "postgres_isolation": "none"
     },
     {
+      "row_id": "platform.httpruntime.unit.route_resolution_envelopes_unknown_paths_and_und_a05e163d44",
+      "owner_id": "platform.httpruntime",
+      "family_id": "platform.httpruntime.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "platform.httpruntime.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/httpapi",
+        "tests": [
+          "TestRouteResolutionRejectionsAreEnveloped"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
       "row_id": "platform.httpruntime.unit.test_clock_fixed_time_and_advance_85620b92a3",
       "owner_id": "platform.httpruntime",
       "family_id": "platform.httpruntime.unit",
@@ -195,6 +271,33 @@
           "TestTestClockFixedTimeAndAdvance",
           "TestTestClockResetClearsFixedAndOffset",
           "TestTestClockSetOffsetClearsFixedTime"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "platform.httpruntime.unit.the_central_authenticator_applies_the_credential_3cce8332fd",
+      "owner_id": "platform.httpruntime",
+      "family_id": "platform.httpruntime.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "platform.httpruntime.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/httpauth",
+        "tests": [
+          "TestCentralAuthenticatorCredentialPrecedence",
+          "TestCentralAuthenticatorPublishesSessionExpiry",
+          "TestSessionSlidingIsKeyedByOperation"
         ]
       },
       "evidence_class": "unit",

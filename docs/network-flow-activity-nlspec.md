@@ -3346,6 +3346,16 @@ receives one immutable complete effective value and performs no defaulting.
 | `network_flow.max_time_buckets_per_graph` | 1 | 256 | 1,024 | Temporal admission; graph-limit failure runs no source scan. |
 | `network_flow.graph_materialization_timeout_seconds` | 30 | 300 | 3,600 | Saved-handler deadline; terminal timeout preserves the prior selected result. |
 
+**NF-REQ-171a**
+The Table 20-A defaults and the Extensions Table 9-C defaults MUST be jointly
+satisfiable. With every limit and timeout at its default, an import unit of
+`network_flow.max_accepted_rows_per_table` accepted rows MUST commit within
+`timeouts.extensions.transaction_participant_seconds` on the reference test
+environment. The retained capacity evidence MUST be an asserting row in the
+Testing Harness `standard` placement, so that `check` runs it alongside its
+other concurrent work. A deployment that raises a row limit MUST select a
+participant budget covered by the same kind of evidence.
+
 **NF-REQ-172**
 Every limit-exceeded error MUST include `limit_key`, `limit`, `actual`, and `phase` in `error.details`. Count-based streaming enforcement MUST stop after proving one excess item and set `actual=limit+1`; it MUST NOT scan further merely to disclose a total. Scalar-length and aggregate-digit errors MUST report the exact observed scalar or digit length. These values are available only on incident-authorized routes; logs and telemetry MUST omit `actual` unless Core policy permits it.
 
@@ -3510,6 +3520,8 @@ Network Flow errors MUST use Table 21-A where route-local errors are required.
 
 No code omitted from Table 21-A is a current Network Flow route-local error. Row-diagnostic entries MUST NOT be emitted as top-level route errors except when another Table 21-A import-unit error, including `network_flow_all_rows_rejected`, carries them as bounded diagnostic data.
 
+Core-registered codes are not route-local. When the cross-owner transaction of an indicator-link action aborts with its commit proven absent, the route returns Extensions EXT-REQ-219's response: `409` `transaction_conflict` with `reason_code` `deadlock_detected` or `serialization_failure`, or `503` `service_unavailable` with `reason_code='extension_transaction_timeout'`. Both are retryable only under the action's idempotency contract. A caller cancellation of an indicator-link action, such as a client disconnect, whose commit is proven absent has no route-local or EXT-REQ-219 public response: the route commits no binding, idempotency outcome or audit, and answers Core 01 REQ-01-706's `500` `internal_error`. A cancellation whose commit outcome is indeterminate remains fatal under EXT-REQ-219.
+
 **Table 21-A1. Exhaustive reason-code registry**
 
 | Error code or family | Permitted `reason_code` values |
@@ -3582,7 +3594,7 @@ Route-local errors MUST include details according to Table 21-B. A detail member
 | `network_flow_all_rows_rejected` | `row_count_rejected`, `diagnostics_truncated`, `diagnostics_sample[]`. |
 | Limit failures: `network_flow_table_limit_exceeded`, `network_flow_resource_limit_exceeded`, `network_flow_graph_limit_exceeded`, `network_flow_counter_sum_limit_exceeded` | `limit_key`, `limit`, `actual`, `phase`. |
 | `network_flow_table_name_exhausted` | `reason_code`, `base_display_name_digest`, `base_display_name_digest_key_id`, `attempted_suffix_min`, `attempted_suffix_max`. |
-| Table lookup/state failures: `network_flow_table_not_found`, `network_flow_table_not_active` | `network_flow_table_id`, `table_status`, `allowed_states[]`. Hidden resources MUST use Core hidden-resource details instead when Core requires non-disclosure. |
+| Table lookup/state failures: `network_flow_table_not_found`, `network_flow_table_not_active` | `network_flow_table_id`, `table_status`, `allowed_states[]`. Hidden resources MUST use Core hidden-resource details instead when Core requires non-disclosure. For `network_flow_table_not_found` on the table the request path addresses, `network_flow_table_id` is JSON `null`, so a malformed identifier and a well-formed missing one receive identical responses (Core 01 REQ-01-707 step 3). A table addressed in the request body is echoed. |
 | `network_flow_table_version_conflict` | `network_flow_table_id`, `base_table_version`, `current_table_version`. |
 | `network_flow_invalid_display_name` | `field`, `reason_code`, `max_length`, `normalized_length`. |
 | `network_flow_invalid_table_scope` | `reason_code`, `mode`, `table_ids[]`, `limit_key`. |
@@ -3605,10 +3617,10 @@ Every route-local error MUST include `retry_action` at the top level of `error.d
 | `retry_action` | Required use |
 | --- | --- |
 | `correct_request` | Schema, mapping, parser, filter, sort, limit, selector, target, or semantic validation failures. |
-| `refresh_resource` | Table-version conflict, non-active resource, source changed, or graph/query stale. |
+| `refresh_resource` | Table or saved-graph version conflict, a table or saved graph that is not found or not active, source changed, or graph/query stale. |
 | `restart_query` | Invalid, expired, or authorization-stale cursor. |
 | `reduce_scope_or_limits` | Table, graph, counter, or request resource limit exceeded. |
-| `retry_with_backoff` | Only `projection_timeout` or `projection_unavailable` when Core classifies the cause transient. |
+| `retry_with_backoff` | `projection_timeout` or `projection_unavailable` when Core classifies the cause transient; a saved graph whose selected result is not yet materialized; or an incident at its nonterminal graph-job quota. |
 | `do_not_retry` | Forbidden operation, hidden/authorization failure, ID collision exhaustion, or a non-transient projection contract failure. |
 
 **NF-REQ-176**

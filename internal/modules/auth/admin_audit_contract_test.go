@@ -59,7 +59,7 @@ func TestDeploymentAdministrativeAuditOpenAPIContract_Unit(t *testing.T) {
 		responseStatuses = append(responseStatuses, status)
 	}
 	sort.Strings(responseStatuses)
-	if want := []string{"200", "400", "401", "403", "409", "500"}; !reflect.DeepEqual(responseStatuses, want) {
+	if want := []string{"200", "400", "401", "403", "409", "500", "503"}; !reflect.DeepEqual(responseStatuses, want) {
 		t.Fatalf("unexpected administrative-audit responses: got %v want %v", responseStatuses, want)
 	}
 	successSchema := administrativeAuditOpenAPIObjectAt(

@@ -7,7 +7,10 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
 const (
@@ -149,13 +152,15 @@ func (b PostgresBackend) Open(ctx context.Context) (Session, error) {
 	if mode != LockExclusive && mode != LockShared {
 		return nil, fmt.Errorf("%s lease has unsupported lock mode %q", b.purpose(), mode)
 	}
-	connection, err := b.Pool.Acquire(ctx)
+	// A lease is held for the process lifetime, so its session is opened outside
+	// the request pool with the pool's own admission (REQ-04-145).
+	connection, err := postgres.OpenDedicatedSession(ctx, b.Pool)
 	if err != nil {
 		return nil, fmt.Errorf("open %s lease session: %w", b.purpose(), err)
 	}
 	var backendPID int64
 	if err := connection.QueryRow(ctx, "SELECT pg_backend_pid()").Scan(&backendPID); err != nil {
-		connection.Release()
+		closeDedicatedSession(connection)
 		return nil, fmt.Errorf("identify %s lease session: %w", b.purpose(), err)
 	}
 	return &postgresSession{
@@ -166,6 +171,23 @@ func (b PostgresBackend) Open(ctx context.Context) (Session, error) {
 		purpose:     b.purpose(),
 		mode:        mode,
 	}, nil
+}
+
+// closeDedicatedSession closes a session that holds no advisory lock. The
+// terminate message is a single bounded write on a healthy transport.
+func closeDedicatedSession(connection *pgx.Conn) {
+	closeContext, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	_ = connection.Close(closeContext)
+}
+
+// abandonDedicatedSession closes the transport of a session that may still
+// hold its advisory lock without extending the caller's already bounded
+// settlement budget. PostgreSQL releases session advisory locks with it.
+func abandonDedicatedSession(connection *pgx.Conn) {
+	closeContext, cancel := context.WithCancel(context.Background())
+	cancel()
+	_ = connection.Close(closeContext)
 }
 
 func (b PostgresBackend) advisoryKey() int64 {
@@ -191,7 +213,7 @@ func (b PostgresBackend) mode() LockMode {
 
 type postgresSession struct {
 	operations  chan struct{}
-	connection  *pgxpool.Conn
+	connection  *pgx.Conn
 	identity    string
 	advisoryKey int64
 	purpose     string
@@ -246,12 +268,12 @@ func (s *postgresSession) Prove(ctx context.Context) Proof {
 }
 
 func (s *postgresSession) proveLocked(ctx context.Context) Proof {
-	if s == nil || s.connection == nil || s.closed || !s.acquired || s.connection.Conn().IsClosed() {
+	if s == nil || s.connection == nil || s.closed || !s.acquired || s.connection.IsClosed() {
 		return ProofLost
 	}
 	var backendPID int64
 	if err := s.connection.QueryRow(ctx, "SELECT pg_backend_pid()").Scan(&backendPID); err != nil {
-		if s.connection.Conn().IsClosed() {
+		if s.connection.IsClosed() {
 			return ProofLost
 		}
 		return ProofUncertain
@@ -298,15 +320,11 @@ func (s *postgresSession) Close() {
 	}
 	s.closed = true
 	if s.connection != nil {
+		// The dedicated session never returns to a pool, held or released.
 		if s.acquired {
-			connection := s.connection.Hijack()
-			// An unreleased session cannot return to the pool. Close its transport
-			// without extending the caller's already bounded settlement budget.
-			closeContext, cancel := context.WithCancel(context.Background())
-			cancel()
-			_ = connection.Close(closeContext)
+			abandonDedicatedSession(s.connection)
 		} else {
-			s.connection.Release()
+			closeDedicatedSession(s.connection)
 		}
 	}
 }

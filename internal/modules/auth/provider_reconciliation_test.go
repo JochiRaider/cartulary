@@ -81,9 +81,8 @@ VALUES ($1, $2, 'z-removed', 'oidc', 'retained-subject', $1)
 					t.Fatalf("provider %s identity, admission or timestamp changed incorrectly", original.ProviderKey)
 				}
 			}
-			fixture.service.enterpriseAdmitted = true
 			discovery := httptest.NewRecorder()
-			fixture.service.handleEnterpriseProviders(discovery, httptest.NewRequest(http.MethodGet, "/api/v1/auth/providers", nil))
+			serveAuth(t, fixture.service, discovery, httptest.NewRequest(http.MethodGet, "/api/v1/auth/providers", nil))
 			if discovery.Code != http.StatusOK {
 				t.Fatalf("discovery status = %d", discovery.Code)
 			}
@@ -100,7 +99,7 @@ VALUES ($1, $2, 'z-removed', 'oidc', 'retained-subject', $1)
 				}
 			}
 			begin := httptest.NewRecorder()
-			fixture.service.handleEnterpriseProviders(begin, newJSONRequest(t, http.MethodPost, "/api/v1/auth/providers/z-removed/begin", `{}`))
+			serveAuth(t, fixture.service, begin, newJSONRequest(t, http.MethodPost, "/api/v1/auth/providers/z-removed/begin", `{}`))
 			requireErrorEnvelope(t, begin, http.StatusNotFound, "auth_provider_disabled", "")
 			if bindingSnapshot() != originalBinding {
 				t.Fatal("provider reconciliation changed binding identity or lineage")

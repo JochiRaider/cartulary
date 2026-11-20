@@ -216,12 +216,16 @@ const makeInputSourceCache = new WeakMap();
 let schedulerResourceRegistry = null;
 
 export class HarnessConfigError extends Error {
-  constructor(message, { reason = "configuration_error", exitCode = 2 } = {}) {
+  // diagnosticCause and subjects feed the closed preparation diagnostic
+  // (TH-HARNESS-REQ-854); the message stays for direct human output only.
+  constructor(message, { reason = "configuration_error", exitCode = 2, diagnosticCause = "unclassified", subjects = [] } = {}) {
     super(message);
     this.name = "HarnessConfigError";
     this.failure_class = "config";
     this.failure_reason = reason;
     this.exit_code = exitCode;
+    this.diagnostic_cause = diagnosticCause;
+    this.diagnostic_subjects = subjects;
   }
 }
 
@@ -805,7 +809,7 @@ function validateServiceAttachGroups(env) {
     resolved[group.label] = Object.fromEntries(
       Object.entries(values).map(([name, value]) => [
         name,
-        /SECRET|KEY|DSN/u.test(name) ? "[REDACTED]" : value,
+        /SECRET|KEY|DSN/u.test(name) ? redactionMarker() : value,
       ]),
     );
   }
@@ -1355,11 +1359,13 @@ function compiledRedactionRules() {
     return redactionRules;
   }
   const manifest = loadRedactionManifest();
-  const replacement = manifest.replacement || "[REDACTED]";
-  const tokens = manifest.redaction_tokens ?? {};
+  // The manifest owns the single retained marker (TH-HARNESS-REQ-617).
+  const replacement = manifest.replacement;
+  if (typeof replacement !== "string" || replacement === "") {
+    throw new Error("redaction manifest has no marker");
+  }
   redactionRules = {
     replacement,
-    tokens,
     valuePatterns: (manifest.value_patterns ?? []).map((rule) => ({
       name: rule.name,
       regex: new RegExp(String(rule.pattern).replace(/^\(\?i\)/u, ""), "giu"),
@@ -1396,6 +1402,11 @@ function isStructuredSecretKey(key) {
     }
   }
   return false;
+}
+
+/** The single retained redaction marker, owned by the redaction manifest. */
+export function redactionMarker() {
+  return compiledRedactionRules().replacement;
 }
 
 export function redactString(value) {

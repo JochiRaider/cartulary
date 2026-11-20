@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/JochiRaider/cartulary/internal/platform/harnessredact"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
@@ -199,11 +200,11 @@ func redactDiagnostic(bytes []byte, forbidden []string) []byte {
 	text := string(bytes)
 	for _, secret := range forbidden {
 		if len(secret) >= 8 {
-			text = strings.ReplaceAll(text, secret, "<redacted>")
+			text = strings.ReplaceAll(text, secret, harnessredact.Marker)
 		}
 	}
-	text = secretAssignment.ReplaceAllString(text, "${1}<redacted>")
-	text = secretPostgres.ReplaceAllString(text, "${1}<redacted>${2}")
+	text = secretAssignment.ReplaceAllString(text, "${1}"+harnessredact.Marker)
+	text = secretPostgres.ReplaceAllString(text, "${1}"+harnessredact.Marker+"${2}")
 	return []byte(text)
 }
 func nullableString(value string) any {
@@ -502,7 +503,11 @@ func (p *graphPublication) Finish(result graphResult) (map[string]any, error) {
 	if counts["cancelled"] > 0 {
 		status = "cancelled"
 	}
-	summary := map[string]any{"schema_id": "cartulary.harness_run_summary.v1", "run_id": p.plan.facts.Manifest["run_id"], "target": p.plan.facts.Manifest["target"], "status": status, "failure_class": class, "failure_reason": reason, "unit_counts": counts, "wall_duration_ms": result.DurationMS, "critical_path": critical, "actual_dependency_critical_path_ms": duration, "timing_accounting": timing, "resource_pressure": p.facts.pressure(), "cache": p.facts.cache, "artifact_refs": refs}
+	contract := result.ContractEvidence
+	if contract == nil {
+		contract, _ = collateContractEvidence(p.root)
+	}
+	summary := map[string]any{"schema_id": "cartulary.harness_run_summary.v1", "run_id": p.plan.facts.Manifest["run_id"], "target": p.plan.facts.Manifest["target"], "status": status, "failure_class": class, "failure_reason": reason, "unit_counts": counts, "wall_duration_ms": result.DurationMS, "critical_path": critical, "actual_dependency_critical_path_ms": duration, "timing_accounting": timing, "resource_pressure": p.facts.pressure(), "cache": p.facts.cache, "contract_evidence": contract, "artifact_refs": refs}
 	if err := writeEvidence(p.root, "run-summary.json", "cartulary.harness_run_summary.v1", summary, false); err != nil {
 		return nil, err
 	}

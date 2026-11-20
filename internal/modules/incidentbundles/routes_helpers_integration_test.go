@@ -702,86 +702,25 @@ func postImport(t testing.TB, server *httptestx.Server, login authcookietest.Aut
 	return httptestx.Do(t, http.DefaultClient, req)
 }
 
-func observeIncidentBundleJob(t testing.TB, ctx context.Context, server *httptestx.Server, login authcookietest.AuthCookies, jobID string) map[string]any {
-	t.Helper()
-	request := httptestx.NewJSONRequest(t, http.MethodGet, server.HTTP.URL+"/api/v1/jobs/"+jobID, nil).WithContext(ctx)
-	httptestx.WithCookies(login.Session)(request)
-	response := httptestx.Do(t, http.DefaultClient, request)
-	return httptestx.RequireSuccessEnvelope(t, response, http.StatusOK)["data"].(map[string]any)
+// incidentBundleJobPoll observes a job through the shared poll helper
+// (TH-HARNESS-REQ-864) with the submitter's session and the caller's deadline.
+func incidentBundleJobPoll(login authcookietest.AuthCookies, timeout time.Duration) httptestx.PollOptions {
+	return httptestx.PollOptions{Timeout: timeout, Interval: 25 * time.Millisecond, Request: []func(*http.Request){httptestx.WithCookies(login.Session)}}
 }
 
 func waitJob(t testing.TB, server *httptestx.Server, login authcookietest.AuthCookies, jobID string) map[string]any {
 	t.Helper()
-	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
-	defer cancel()
-	var lastJob map[string]any
-	for ctx.Err() == nil {
-		job := observeIncidentBundleJob(t, ctx, server, login, jobID)
-		lastJob = job
-		status := job["status"].(string)
-		switch status {
-		case "succeeded":
-			return job
-		case "failed", "canceled":
-			encoded, _ := json.MarshalIndent(job, "", "  ")
-			t.Fatalf("job reached terminal non-success state: %s", encoded)
-		}
-		select {
-		case <-ctx.Done():
-		case <-time.After(25 * time.Millisecond):
-		}
-	}
-	t.Fatalf("job %s did not finish: %#v", jobID, lastJob)
-	return nil
+	return httptestx.PollJob(t, server.HTTP.URL, jobID, incidentBundleJobPoll(login, 30*time.Second), "succeeded")
 }
 
 func waitJobWithStatus(t testing.TB, server *httptestx.Server, login authcookietest.AuthCookies, jobID string, wantStatus string) map[string]any {
 	t.Helper()
-	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
-	defer cancel()
-	for ctx.Err() == nil {
-		job := observeIncidentBundleJob(t, ctx, server, login, jobID)
-		status := job["status"].(string)
-		if status == wantStatus {
-			return job
-		}
-		switch status {
-		case "succeeded", "failed", "canceled":
-			encoded, _ := json.MarshalIndent(job, "", "  ")
-			t.Fatalf("job reached terminal status %q while waiting for %q: %s", status, wantStatus, encoded)
-		}
-		select {
-		case <-ctx.Done():
-		case <-time.After(25 * time.Millisecond):
-		}
-	}
-	t.Fatalf("job %s did not reach status %q", jobID, wantStatus)
-	return nil
+	return httptestx.PollJob(t, server.HTTP.URL, jobID, incidentBundleJobPoll(login, 10*time.Second), wantStatus)
 }
 
 func waitFailedJob(t testing.TB, server *httptestx.Server, login authcookietest.AuthCookies, jobID string) map[string]any {
 	t.Helper()
-	ctx, cancel := context.WithTimeout(t.Context(), 40*time.Second)
-	defer cancel()
-	var lastJob map[string]any
-	for ctx.Err() == nil {
-		job := observeIncidentBundleJob(t, ctx, server, login, jobID)
-		lastJob = job
-		status := job["status"].(string)
-		switch status {
-		case "failed":
-			return job
-		case "succeeded", "canceled":
-			encoded, _ := json.MarshalIndent(job, "", "  ")
-			t.Fatalf("job reached unexpected terminal state: %s", encoded)
-		}
-		select {
-		case <-ctx.Done():
-		case <-time.After(25 * time.Millisecond):
-		}
-	}
-	t.Fatalf("job %s did not fail; last observed state: %#v", jobID, lastJob)
-	return nil
+	return httptestx.PollJob(t, server.HTTP.URL, jobID, incidentBundleJobPoll(login, 40*time.Second), "failed")
 }
 
 func corruptZipMember(t testing.TB, bundle []byte, memberPath string) []byte {

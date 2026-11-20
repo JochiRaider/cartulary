@@ -1,9 +1,6 @@
-import {
-  buildHTTPOperationPath,
-  type CreateViewRowResponse,
-} from "@cartulary/protocol-ts/http";
+import { buildHTTPOperationPath } from "@cartulary/protocol-ts/http";
 import { apiPath, fetchHTTPOperation } from "../../../services/browserApi";
-import { classifyWorkbookOperationFailure } from "../../adapters/workbookOperationErrorPolicy";
+import { explicitWorkbookFailureOutcome } from "../../adapters/workbookOperationErrorPolicy";
 import { normalizeWorkbookViewRows } from "../../models/workbookContractRows";
 import { acceptWorkbookRowObservation } from "../../query/acceptWorkbookRowObservation";
 import type { WorkbookReadScopeSource } from "../../query/WorkbookQueryRow";
@@ -59,7 +56,7 @@ export function createTimelineMentionEntityCreationAdapter(options: {
         return { kind: "uncertain" };
       let status: number | null = null;
       try {
-        const result = await fetchHTTPOperation<CreateViewRowResponse>({
+        const result = await fetchHTTPOperation({
           apiBase: attempt.apiBase,
           operationID: "createViewRow",
           pathParameters: {
@@ -72,21 +69,11 @@ export function createTimelineMentionEntityCreationAdapter(options: {
           },
         });
         if (!result.ok) {
-          if (
-            status === null ||
-            status < 400 ||
-            status >= 500 ||
-            !result.payload.error?.code
-          )
-            return { kind: "uncertain" };
-          const failure = classifyWorkbookOperationFailure(
-            result.status,
-            result.payload,
+          return explicitWorkbookFailureOutcome(
+            status,
+            result.payload.error,
             "createViewRow",
           );
-          return failure.kind === "invalid_contract"
-            ? { kind: "uncertain" }
-            : { kind: "rejected", failure };
         }
         const { data } = result.payload;
         if (data.view_schema_id !== attempt.viewSchemaId || !data.change_set_id)

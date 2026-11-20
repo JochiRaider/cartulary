@@ -4,6 +4,7 @@ import {
   type IncidentResource,
   incidentResourceOrder,
 } from "../shared/incidentResource";
+import { isFailureCode, isUnappliedRefusal } from "../shared/publicError";
 import { observeAccountOperation } from "./accountOperation";
 import type {
   LifecycleResult,
@@ -488,16 +489,19 @@ export class IncidentLifecycleController {
         (result.status === 400 &&
           problem.code === "invalid_incident_lifecycle_request") ||
         (result.status === 409 &&
-          [
+          isFailureCode(problem.code, [
             "incident_version_conflict",
             "illegal_transition",
             "client_txn_conflict",
             "credential_bootstrap_rejected",
-          ].includes(problem.code)) ||
+          ])) ||
         (result.status === 403 &&
-          ["authorization_denied", "csrf_verification_failed"].includes(
-            problem.code,
-          ));
+          isFailureCode(problem.code, [
+            "authorization_denied",
+            "csrf_verification_failed",
+          ])) ||
+        // Refused before it was applied; a refused replay stays uncertain.
+        isUnappliedRefusal(result.status, problem);
       this.publish({
         operation: {
           kind: !replay && definite ? "rejected" : "uncertain",

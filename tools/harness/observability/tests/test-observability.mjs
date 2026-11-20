@@ -72,6 +72,7 @@ test("canonical summary schema admits a representative record and rejects negati
     },
     resource_pressure: { wait_events: 0 },
     cache: { hit: 0, miss: 2, bypass: 0 },
+    contract_evidence: { schema_id: "cartulary.harness_contract_evidence.v1", record_counts: { undeclared_error_code: 0, security_mismatch: 0, error_emission: 0 }, malformed_record_count: 0, violations: [], omitted_violation_count: 0 },
     artifact_refs: ["run-manifest.json", "unit-events.ndjson", "target-summaries/check.json"],
   };
   validateSchemaSync(summary.schema_id, summary);

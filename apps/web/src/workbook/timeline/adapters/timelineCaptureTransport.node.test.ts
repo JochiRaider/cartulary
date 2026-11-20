@@ -92,13 +92,13 @@ it("Timeline candidates use independent bounded query pages and reject inconsist
     ).resolves.toMatchObject({ kind: "rejected" });
   }
   fetchMock.mockImplementation(async () =>
-    errorEnvelope("authorization_denied", 403),
+    errorEnvelope("incident_not_found", 404),
   );
   await expect(
     reader.page(null, new AbortController().signal),
   ).resolves.toMatchObject({
     kind: "rejected",
-    failure: { publicCode: "authorization_denied" },
+    failure: { publicCode: "incident_not_found" },
   });
   const cancelled = new AbortController();
   cancelled.abort();
@@ -223,12 +223,12 @@ it("Timeline transport distinguishes definitive rejection from exceptions ambigu
   }
   vi.stubGlobal(
     "fetch",
-    vi.fn(async () => errorEnvelope("incident_closed", 409)),
+    vi.fn(async () => errorEnvelope("illegal_transition", 409)),
   );
   await expect(
     adapter.send(attempt, new AbortController().signal),
   ).resolves.toMatchObject({
     kind: "rejected",
-    failure: { publicCode: "incident_closed" },
+    failure: { publicCode: "illegal_transition" },
   });
 });

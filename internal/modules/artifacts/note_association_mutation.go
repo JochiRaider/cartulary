@@ -52,11 +52,13 @@ func (o *NoteAssociations) Apply(ctx context.Context, command NoteAssociationCom
 	if found {
 		return MutationResult{Row: stored.Row, Outcome: MutationOutcomeReplayed, IncidentID: stored.IncidentID, RecordID: stored.RecordID, RowVersion: stored.RowVersion, ChangeSetID: stored.ChangeSetID, ViewSchemaID: stored.ViewSchemaID, ClientTxnID: a.clientTxnID}, nil
 	}
-	if _, err := o.access.CheckTx(ctx, tx, command.IncidentID, command.ActorUserID, admission.Requirement{AllowedRoles: admission.RolesEditorReviewerAdmin, Lifecycle: admission.LifecycleOpen}); err != nil {
+	// REQ-01-705: the addressed Note is classified (missing, deleted, type)
+	// before the incident-lifecycle gate and the version check.
+	note, err := o.noteMutationTargetTx(ctx, tx, command.IncidentID, command.NoteID)
+	if err != nil {
 		return MutationResult{}, err
 	}
-	note, err := o.noteTx(ctx, tx, command.IncidentID, command.NoteID)
-	if err != nil {
+	if _, err := o.access.CheckTx(ctx, tx, command.IncidentID, command.ActorUserID, admission.Requirement{AllowedRoles: admission.RolesEditorReviewerAdmin, Lifecycle: admission.LifecycleOpen}); err != nil {
 		return MutationResult{}, err
 	}
 	linkType, _ := associationSemantics(a.kind)
@@ -95,7 +97,7 @@ func (o *NoteAssociations) Apply(ctx context.Context, command NoteAssociationCom
 		}
 		envelopes[id] = envelope
 	}
-	note, err = o.noteTx(ctx, tx, command.IncidentID, command.NoteID)
+	note, err = o.noteMutationTargetTx(ctx, tx, command.IncidentID, command.NoteID)
 	if err != nil {
 		return MutationResult{}, err
 	}

@@ -3,8 +3,11 @@ package httpapi
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -85,6 +88,91 @@ func TestRegisterTestClockRoutesRejectsUnauthenticatedMutation(t *testing.T) {
 	if got := errorPayload["code"]; got != "test_route_forbidden" {
 		t.Fatalf("unexpected wrong-token error code: got %v", got)
 	}
+
+	// TH-HARNESS-REQ-450: each test clock route serves one method. After the
+	// guard admits a request, any other method, HEAD included, receives the
+	// enveloped 405 with Allow; the guard answers first.
+	t.Run("another method gets the enveloped 405 after the guard", func(t *testing.T) {
+		before := clockModeAndOffset(t, server.URL)
+		do := func(t *testing.T, method, path, token string) *http.Response {
+			t.Helper()
+			req, err := http.NewRequest(method, server.URL+path, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if token != "" {
+				req.Header.Set(TestRouteTokenHeader, token)
+			}
+			resp, err := http.DefaultClient.Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { _ = resp.Body.Close() })
+			return resp
+		}
+		if resp := do(t, http.MethodGet, "/api/v1/test/clock/set", ""); resp.StatusCode != http.StatusForbidden {
+			t.Fatalf("GET set without token = %d, want 403 before the method check", resp.StatusCode)
+		}
+		for _, tc := range []struct{ method, path, allow string }{
+			{http.MethodGet, "/api/v1/test/clock/set", http.MethodPost},
+			{http.MethodPut, "/api/v1/test/clock/reset", http.MethodPost},
+			{http.MethodPost, "/api/v1/test/clock/state", http.MethodGet},
+			{http.MethodHead, "/api/v1/test/clock/state", http.MethodGet},
+		} {
+			resp := do(t, tc.method, tc.path, testClockRouteToken)
+			raw, err := io.ReadAll(resp.Body)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if resp.StatusCode != http.StatusMethodNotAllowed || resp.Header.Get("Allow") != tc.allow {
+				t.Fatalf("%s %s = %d Allow %q, want 405 Allow %s", tc.method, tc.path, resp.StatusCode, resp.Header.Get("Allow"), tc.allow)
+			}
+			if tc.method == http.MethodHead {
+				if len(raw) != 0 {
+					t.Fatalf("HEAD %s body = %q", tc.path, raw)
+				}
+				continue
+			}
+			var envelope struct {
+				Error struct {
+					Code    string         `json:"code"`
+					Details map[string]any `json:"details"`
+				} `json:"error"`
+			}
+			if err := json.Unmarshal(raw, &envelope); err != nil || envelope.Error.Code != "method_not_allowed" || !reflect.DeepEqual(envelope.Error.Details, map[string]any{"allowed_methods": []any{tc.allow}}) {
+				t.Fatalf("%s %s envelope = %s (%v)", tc.method, tc.path, raw, err)
+			}
+		}
+		if after := clockModeAndOffset(t, server.URL); after != before {
+			t.Fatalf("rejected methods changed the clock: before %s after %s", before, after)
+		}
+	})
+}
+
+// clockModeAndOffset reads the test clock's mode and offset through its state
+// route.
+func clockModeAndOffset(t *testing.T, baseURL string) string {
+	t.Helper()
+	req, err := http.NewRequest(http.MethodGet, baseURL+"/api/v1/test/clock/state", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set(TestRouteTokenHeader, testClockRouteToken)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	var body struct {
+		Data struct {
+			Mode          string  `json:"mode"`
+			OffsetSeconds float64 `json:"offset_seconds"`
+		} `json:"data"`
+	}
+	if resp.StatusCode != http.StatusOK || json.NewDecoder(resp.Body).Decode(&body) != nil {
+		t.Fatalf("clock state = %d", resp.StatusCode)
+	}
+	return fmt.Sprintf("%s/%v", body.Data.Mode, body.Data.OffsetSeconds)
 }
 
 func TestRegisterTestClockRoutesRequiresHarnessOwnedRuntime(t *testing.T) {

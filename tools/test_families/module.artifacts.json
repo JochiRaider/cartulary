@@ -364,6 +364,31 @@
       "postgres_isolation": "none"
     },
     {
+      "row_id": "module.artifacts.source_mutations.artifact_revision_window_failures_classify_only_5bab57001b",
+      "owner_id": "module.artifacts",
+      "family_id": "module.artifacts.source_mutations",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.artifacts.verification.source_mutations"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/artifacts",
+        "tests": [
+          "TestArtifactRevisionWindowClassification_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
       "row_id": "module.artifacts.source_mutations.coordination_source_atomic_creation",
       "owner_id": "module.artifacts",
       "family_id": "module.artifacts.source_mutations",

@@ -34,9 +34,13 @@ func TestEvidenceComposition_ServerOwnsNarrowRuntime(t *testing.T) {
 			t.Fatal("prohibited runtime capability escaped", reflect.TypeOf(candidate))
 		}
 	}
+	// FatalDone and FatalReason are read-only lifecycle views that test
+	// servers use to record a fatal (TH-HARNESS-REQ-863).
 	wantMethods := map[string]struct{}{
 		"ActivatePublication": {},
 		"Close":               {},
+		"FatalDone":           {},
+		"FatalReason":         {},
 		"HTTPHandler":         {},
 	}
 	pointerType := reflect.TypeOf((*Runtime)(nil))

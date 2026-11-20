@@ -71,7 +71,9 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-it("normalizes malformed admission bodies without losing received rejection or authorization status", async () => {
+it("normalizes malformed admission bodies to an uncertain contract outcome whatever their received status", async () => {
+  // A malformed body is the client contract failure (Core 03 REQ-03-086a);
+  // its raw HTTP status never selects rejection or access failure.
   for (const status of [400, 401, 403, 409, 413, 429]) {
     for (const body of [
       "null",
@@ -91,10 +93,9 @@ it("normalizes malformed admission bodies without losing received rejection or a
           }),
         ),
       );
-      await expect(
-        importIncidentBundle(attempt(), signal()),
-      ).resolves.toMatchObject({
-        kind: status === 401 || status === 403 ? "access_failed" : "rejected",
+      await expect(importIncidentBundle(attempt(), signal())).resolves.toEqual({
+        kind: "uncertain",
+        problem: "contract",
       });
     }
   }
@@ -121,25 +122,15 @@ it("settles malformed read and cancellation bodies with operation-specific outco
             }),
         ),
       );
-      const access = status === 401 || status === 403;
+      // Malformed bodies are contract failures whatever their raw status.
       const read = await readImportJob(importJobID, signal());
-      expect(read.kind).toBe(
-        access ? "access_failed" : status === 404 ? "unavailable" : "failed",
-      );
+      expect(read).toEqual({ kind: "failed", problem: "contract" });
       const cancel = await cancelImportJob(
         importJobID,
         { client_txn_id: "cancel" },
         signal(),
       );
-      expect(cancel.kind).toBe(
-        access
-          ? "access_failed"
-          : status === 404
-            ? "unavailable"
-            : status === 408 || status >= 500
-              ? "uncertain"
-              : "rejected",
-      );
+      expect(cancel).toEqual({ kind: "uncertain", problem: "contract" });
       expect(JSON.stringify([read, cancel])).not.toContain("private");
     }
   }

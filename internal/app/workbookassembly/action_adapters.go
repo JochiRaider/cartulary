@@ -12,7 +12,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/entities/mentions"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
-	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/tabularingest"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
@@ -352,8 +351,8 @@ func taskDecisionActionFailure(err error, clientTxnID string) (*workbook.Mutatio
 	if admission.IsDenied(err, admission.DenialIncidentClosed) {
 		return workbook.IncidentClosedFailure(), true
 	}
-	if errors.Is(err, revisions.ErrRecordDeletedUseRestore) {
-		return workbook.RecordDeletedFailure(), true
+	if failure, classified := recordTargetFailure(err); classified {
+		return failure, true
 	}
 	var rowConflict *tasksdecisions.RowVersionConflictError
 	if errors.As(err, &rowConflict) {

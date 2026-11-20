@@ -1,3 +1,4 @@
+import type { HTTPOperationErrorStatus } from "@cartulary/protocol-ts/http";
 import { scrollGridCellIntoView } from "@cartulary/test-utils/grid";
 import {
   authTestId,
@@ -43,7 +44,9 @@ import {
 } from "../transport/incidentSocket";
 import {
   awaitResponseBarrier,
+  checkedOperationErrorEnvelope,
   installOwnedRoute,
+  type OperationFixtureErrorCode,
 } from "../transport/requestInterception";
 import {
   createViewRow,
@@ -82,11 +85,17 @@ type PatchBehavior =
       type: "hold";
     }
   | {
-      code: string;
+      code: PatchErrorCode;
       recordId?: string;
-      status: number;
+      status: PatchErrorStatus;
       type: "error";
     };
+
+type PatchErrorStatus = HTTPOperationErrorStatus<"patchRecord">;
+type PatchErrorCode = OperationFixtureErrorCode<
+  "patchRecord",
+  PatchErrorStatus
+>;
 
 type PatchBehaviorOptions = {
   recordId?: string;
@@ -920,7 +929,15 @@ export async function installPatchController(page: Page) {
     if (behavior?.type === "error") {
       call.status = behavior.status;
       calls.push(call);
-      await fulfillJSONError(route, behavior.status, behavior.code);
+      await route.fulfill({
+        status: behavior.status,
+        json: checkedOperationErrorEnvelope(
+          "patchRecord",
+          behavior.status,
+          behavior.code,
+          { requestId: `collaboration-e2e-${behavior.code}` },
+        ),
+      });
       return;
     }
 
@@ -960,9 +977,10 @@ export async function installPatchController(page: Page) {
     attempts,
     calls,
     dispose: ownedRoute.dispose,
-    failNextPatch: (
-      status: number,
-      code: string,
+    /** Reject the next PATCH with an error code patchRecord declares for the status. */
+    failNextPatch: <Status extends PatchErrorStatus>(
+      status: Status,
+      code: OperationFixtureErrorCode<"patchRecord", Status>,
       options: PatchBehaviorOptions = {},
     ) => {
       behaviors.push({
@@ -1139,23 +1157,6 @@ function recordIdFromURL(url: string) {
     throw new Error(`unexpected record patch URL: ${url}`);
   }
   return parsed.pathname.slice(prefix.length);
-}
-
-async function fulfillJSONError(route: Route, status: number, code: string) {
-  await route.fulfill({
-    body: JSON.stringify({
-      error: {
-        code,
-        details: {},
-        message: code,
-        request_id: `collaboration-e2e-${code}`,
-        retryable: false,
-        status,
-      },
-    }),
-    contentType: "application/json",
-    status,
-  });
 }
 
 function readTimelineSummary(row: Record<string, unknown>) {

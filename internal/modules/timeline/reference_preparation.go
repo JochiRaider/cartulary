@@ -6,6 +6,9 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	"github.com/JochiRaider/cartulary/internal/modules/records"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/sourcerepository"
 )
 
 var errReferencePreparationChanged = errors.New("timeline: reference preparation changed")
@@ -23,15 +26,46 @@ func (s *store) prepareCreateReferencesTx(ctx context.Context, tx pgx.Tx, incide
 		{FieldKey: "timeline.attached_evidence_ids", ActionPayload: request.AttachedEvidence},
 	}}}
 	plan := &referencePreparation{}
-	if err := s.prepareReferencesTx(ctx, tx, incidentID, rows, auto, plan); err != nil {
+	if err := s.prepareReferencesTx(ctx, tx, incidentID, rows, referenceScopeBatch, auto, plan); err != nil {
 		return nil, err
 	}
 	return plan.auto, nil
 }
 
+// referenceScope says how a preparation classifies its source rows.
+type referenceScope uint8
+
+const (
+	// referenceScopeBatch keeps the whole-request contract of create, clipboard
+	// paste and bulk mutation: every ineligible target is not found.
+	referenceScopeBatch referenceScope = iota
+	// referenceScopeAddressed classifies the one record a PATCH or conflict
+	// resolution addresses in REQ-01-705 order, through the Records classifier:
+	// missing is not found, soft-deleted must be restored, any other type or
+	// incident is not found.
+	referenceScopeAddressed
+)
+
+func classifyReferenceSource(envelope sourcerepository.Envelope, present bool, scope referenceScope) error {
+	if scope == referenceScopeAddressed {
+		switch err := records.ClassifyTargetPresence(present, envelope.DeletedAt); {
+		case errors.Is(err, records.ErrTargetNotFound):
+			return ErrRecordNotFound
+		case errors.Is(err, records.ErrTargetDeleted):
+			return ErrRecordDeleted
+		}
+	} else if !present || envelope.DeletedAt != nil {
+		return ErrRecordNotFound
+	}
+	if envelope.RecordType != "timeline_event" {
+		return ErrRecordNotFound
+	}
+	return nil
+}
+
 // Discovery is provisional until all source envelopes have been protected and
 // their versions still match. The caller rolls back an obsolete attempt in full.
-func (s *store) prepareReferencesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, rows []referenceRow, auto bool, plan *referencePreparation) error {
+func (s *store) prepareReferencesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, rows []referenceRow, scope referenceScope, auto bool, plan *referencePreparation) error {
 	sourceIDs := make([]uuid.UUID, 0, len(rows))
 	for _, row := range rows {
 		if row.recordID != uuid.Nil {
@@ -44,8 +78,8 @@ func (s *store) prepareReferencesTx(ctx context.Context, tx pgx.Tx, incidentID u
 	}
 	for _, id := range sourceIDs {
 		envelope, present := before[id]
-		if !present || envelope.RecordType != "timeline_event" || envelope.DeletedAt != nil {
-			return ErrRecordNotFound
+		if err := classifyReferenceSource(envelope, present, scope); err != nil {
+			return err
 		}
 		if incidentID == uuid.Nil {
 			incidentID = envelope.IncidentID
@@ -131,7 +165,10 @@ func (s *store) prepareReferencesTx(ctx context.Context, tx pgx.Tx, incidentID u
 	}
 	for _, id := range sourceIDs {
 		current, present := protected[id]
-		if !present || current.RecordType != "timeline_event" || current.IncidentID != incidentID || current.DeletedAt != nil {
+		if err := classifyReferenceSource(current, present, scope); err != nil {
+			return err
+		}
+		if current.IncidentID != incidentID {
 			return ErrRecordNotFound
 		}
 		if current.RowVersion != before[id].RowVersion {

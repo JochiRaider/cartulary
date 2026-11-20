@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 func validatePreparedRevisionsSourceStateTx(ctx context.Context, tx pgx.Tx, prepared preparedRevisionsImport, validation *incidentBundleValidationCatalog) error {
@@ -34,10 +35,17 @@ FROM change_sets WHERE incident_id=$1 ORDER BY change_set_id
 		}
 		var actual portableChangeSet
 		var contexts []byte
+		var historyOrder pgtype.Int8
 		if err := rows.Scan(&actual.ChangeSetID, &actual.IncidentID, &actual.RuntimeActorID, &actual.Source,
-			&actual.Reason, &actual.ClientTxnID, &actual.RequestID, &actual.CreatedAt, &contexts, &actual.HistoryOrder); err != nil {
+			&actual.Reason, &actual.ClientTxnID, &actual.RequestID, &actual.CreatedAt, &contexts, &historyOrder); err != nil {
 			return err
 		}
+		// Imported rows carry explicit orders. A row without one was appended
+		// natively inside this import transaction and is not bundle source state.
+		if !historyOrder.Valid {
+			return revisionsFailure(revisionsSourceStateInvariant)
+		}
+		actual.HistoryOrder = historyOrder.Int64
 		actual.ActorImportContexts, err = decodeRevisionActorContexts(contexts)
 		if err != nil {
 			return revisionsFailure(revisionsSourceStateInvariant)

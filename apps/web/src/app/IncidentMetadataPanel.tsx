@@ -13,6 +13,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import { notAppliedText } from "../shared/publicError";
 import { useWorkflowAttachment } from "../shared/useWorkflowAttachment";
 import type {
   WorkbookDensityMode,
@@ -171,7 +172,9 @@ export function IncidentMetadataPanel({
                 : operation.problem.code === "authorization_denied" ||
                     operation.problem.code === "csrf_verification_failed"
                   ? "The save was rejected. Current incident access must be checked."
-                  : "The submitted changes were rejected. Review the affected input before saving again."
+                  : operation.problem.code === "service_unavailable"
+                    ? notAppliedText()
+                    : "The submitted changes were rejected. Review the affected input before saving again."
               : state.reviewNotice ||
                 (metadataDirty(draft) ? "Unsaved changes." : "");
   const assertion =

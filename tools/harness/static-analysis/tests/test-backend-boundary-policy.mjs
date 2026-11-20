@@ -472,6 +472,59 @@ export function registerBoundariesTests() {
     assert.deepEqual(evaluate("internal/modules/reporting/renamed.go","SELECT 'FROM records' /* JOIN timeline_events */ FROM reporting_snapshots"),[]);
   });
 
+  test("backend policy: module production code admits requests only through central admission", () => {
+    // Core 01 REQ-01-707: route resolution, method rejection and path
+    // parameters belong to the public route registry, never to a module.
+    const rules = repositoryPolicy().forbiddenSourceTokens.filter((rule) =>
+      rule.id === "modules-admit-requests-only-through-central-admission");
+    assert.equal(rules.length, 1);
+    assert.deepEqual(rules[0].allowedPaths, []);
+    const violations = (relative, content) => checkForbiddenSourceTokens([{ relative, content: `package fixture\n${content}` }], rules)
+      .map((entry) => entry.symbol_or_import);
+    for (const [content, token] of [
+      ["func split(r *http.Request) []string { return strings.Split(r.URL.Path, \"/\") }", ".URL.Path"],
+      ["func raw(r *http.Request) string { return r.URL.RawPath }", ".URL.RawPath"],
+      ["func escaped(r *http.Request) string { return r.URL.EscapedPath() }", "EscapedPath("],
+      ["func missing(w http.ResponseWriter, r *http.Request) { http.NotFound(w, r) }", "http.NotFound("],
+      ["func method(w http.ResponseWriter) { w.WriteHeader(http.StatusMethodNotAllowed) }", "StatusMethodNotAllowed"],
+      // A raw registration is invisible to the route registry and its catalog
+      // test; test routes bind through httpapi.BindTestRoute and sockets
+      // through httpapi.BindSocketRoute.
+      ["func bind(mux *http.ServeMux) { mux.HandleFunc(\"POST /api/v1/test/x\", nil) }", ".HandleFunc("],
+      ["func bind(mux *http.ServeMux) { mux.Handle(\"/api/v1/test/x\", nil) }", ".Handle(\""],
+      // Bodyless and method rules come from the admitted operation's contract.
+      ["func get(r *http.Request) bool { return r.Method == http.MethodGet }", "r.Method"],
+    ]) {
+      for (const relative of ["internal/modules/jobapi/routes.go", "internal/modules/networkflow/harnesscontrol/route.go"]) {
+        assert.deepEqual(violations(relative, content), [`modules-admit-requests-only-through-central-admission:${token}`], `${relative}: ${content}`);
+      }
+      assert.deepEqual(violations("internal/modules/jobapi/routes_test.go", content), [], content);
+      assert.deepEqual(violations("internal/platform/httpapi/route_resolution.go", content), [], content);
+    }
+    assert.deepEqual(violations("internal/modules/savedviews/routes.go", "func query(r *http.Request) string { return r.URL.RawQuery }"), []);
+    assert.deepEqual(violations("internal/modules/evidence/routes.go", "func target(t blobTarget) string { return t.Method }"), []);
+  });
+  test("backend policy: harness routes bind through the recording helpers", () => {
+    // TH-HARNESS-REQ-450 test routes and Core 01 REQ-01-708 sockets are
+    // recorded in the route registry; only the platform helpers register them.
+    const rules = repositoryPolicy().forbiddenSourceTokens.filter((rule) =>
+      rule.id === "harness-routes-bind-through-the-recording-helpers");
+    assert.equal(rules.length, 1);
+    assert.deepEqual(rules[0].allowedPaths, ["internal/platform/httpapi/**"]);
+    const violations = (relative, content) => checkForbiddenSourceTokens([{ relative, content: `package fixture\n${content}` }], rules)
+      .map((entry) => entry.symbol_or_import);
+    for (const [content, token] of [
+      ["func bind(mux *http.ServeMux) { mux.HandleFunc(\"GET /api/v1/test/runtime/identity\", nil) }", ".HandleFunc("],
+      ["func bind(mux *http.ServeMux) { mux.Handle(\"/api/v1/test/x\", nil) }", ".Handle(\""],
+    ]) {
+      for (const relative of ["internal/app/server/holdjob/holdjob.go", "internal/platform/harnessruntime/reset.go"]) {
+        assert.deepEqual(violations(relative, content), [`harness-routes-bind-through-the-recording-helpers:${token}`], `${relative}: ${content}`);
+      }
+      assert.deepEqual(violations("internal/platform/httpapi/testclock.go", content), [], content);
+      assert.deepEqual(violations("internal/app/server/holdjob/holdjob_test.go", content), [], content);
+    }
+    assert.deepEqual(violations("internal/platform/telemetry/log.go", "func (h handler) log(ctx context.Context, r slog.Record) error { return h.next.Handle(ctx, r) }"), []);
+  });
   test("backend policy: retired Collaboration lifecycle names use identifier semantics", () => {
     const rules = repositoryPolicy().forbiddenSourceTokens.filter((rule) =>
       rule.id === "collaboration-no-retired-mutable-runtime-lifecycle-state");

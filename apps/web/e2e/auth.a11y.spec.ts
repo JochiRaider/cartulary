@@ -71,9 +71,10 @@ async function fulfillPublicError(
     body: JSON.stringify({
       error: {
         code: options.code,
-        message: options.message,
+        message: options.message ?? "Request failed.",
         status: options.status,
         request_id: "raw-request-id-must-not-render",
+        retryable: false,
         details: {
           reason_code: "safe_reason",
           ...(options.details ?? {}),
@@ -619,13 +620,19 @@ test("a11y.incident-selection.row-01 forbidden access-denied public envelope is 
   await installOwnedRoute(page, routePattern, routeHandler);
   await page.goto("/");
   await expect(page.getByTestId(incidentLandingTestId("shell"))).toBeVisible();
+  // listVisibleIncidents declares no 403 (Core 03 REQ-03-086a): the denial
+  // envelope is announced as the client contract failure, never as a
+  // directory access-denied state, and keeps keyboard recovery.
   await expect(
     page.getByTestId(incidentLandingTestId("shell")),
-  ).toHaveAttribute("data-bootstrap-state", "forbidden");
+  ).toHaveAttribute("data-bootstrap-state", "authenticated");
+  await expect(
+    page.getByTestId(incidentLandingTestId("shell")),
+  ).toHaveAttribute("data-directory-state", "failed");
   await expectStatusRole(page.getByTestId(incidentLandingTestId("status")));
   await expectAlertRole(page.getByTestId(publicErrorCodeTestId("landing")));
   await expect(page.getByTestId(publicErrorCodeTestId("landing"))).toHaveText(
-    "authorization_denied",
+    "invalid_public_contract_response",
   );
   await expectNoPrivateDiagnostics(
     page.getByTestId(publicErrorSummaryTestIds("landing").container),
@@ -719,8 +726,9 @@ test("a11y.incident-selection.row-01 generic public error envelope renders safe 
 }) => {
   const routePattern = "**/api/v1/auth/credential-state";
   const routeHandler = async (route: Route) => {
+    // getCredentialState declares 500 internal_error, as every operation does.
     await fulfillPublicError(route, {
-      code: "credential_state_unavailable",
+      code: "internal_error",
       details: {
         field: "credential_state",
         reason_code: "temporary_failure",
@@ -736,7 +744,7 @@ test("a11y.incident-selection.row-01 generic public error envelope renders safe 
   await page.getByTestId(accountTestId("refresh-state")).focus();
   await expectVisibleFocus(page.getByTestId(accountTestId("refresh-state")));
   await expect(page.getByTestId(publicErrorCodeTestId("account"))).toHaveText(
-    "credential_state_unavailable",
+    "internal_error",
   );
   await expectAlertRole(
     page.getByTestId(publicErrorSummaryTestIds("account").message),

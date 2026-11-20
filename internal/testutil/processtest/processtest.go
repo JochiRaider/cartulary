@@ -236,6 +236,22 @@ func (s *Server) terminalResult() error {
 	return s.waitErr
 }
 
+// Signal sends one signal to the server's process group without waiting, so
+// a test can observe the lifecycle it starts (for example a repeated stop
+// request, Core 04 AC-604).
+func (s *Server) Signal(t testing.TB, signal syscall.Signal) {
+	t.Helper()
+	if err := s.group.signal(signal); err != nil {
+		t.Fatalf("signal process group %v: %v", signal, err)
+	}
+}
+
+// Stdout returns the server's standard output so far.
+func (s *Server) Stdout() string { return s.stdout.String() }
+
+// Stderr returns the server's standard error so far.
+func (s *Server) Stderr() string { return s.stderr.String() }
+
 func (s *Server) Stop(t testing.TB) {
 	t.Helper()
 

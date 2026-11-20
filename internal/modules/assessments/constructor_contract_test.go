@@ -30,6 +30,17 @@ func TestAssessmentFacadeConstructionRejectsNilAndTypedNilDependencies(t *testin
 			},
 		},
 		{
+			name: "incidents", wantError: "construct assessment facade: incident lifecycle port is required",
+			clear: func(dependencies *assessments.FacadeDependencies, typed bool) {
+				if typed {
+					var value *typedNilIncidentLifecycle
+					dependencies.Incidents = value
+				} else {
+					dependencies.Incidents = nil
+				}
+			},
+		},
+		{
 			name: "references", wantError: "construct assessment facade: reference admission is required",
 			clear: func(dependencies *assessments.FacadeDependencies, typed bool) {
 				if typed {
@@ -279,6 +290,7 @@ func validAssessmentFacadeDependencies() assessments.FacadeDependencies {
 	ports := &assessmentFacadePorts{}
 	return assessments.FacadeDependencies{
 		Idempotency:  ports,
+		Incidents:    ports,
 		References:   ports,
 		Assessors:    ports,
 		Records:      ports,
@@ -311,6 +323,9 @@ type assessmentConstructorPublications struct {
 type typedNilDatabase struct{ dbport.DB }
 type typedNilCreateIdempotency struct {
 	assessments.CreateIdempotencyPort
+}
+type typedNilIncidentLifecycle struct {
+	assessments.IncidentLifecyclePort
 }
 type typedNilReferenceAdmission struct{ assessments.ReferenceAdmission }
 type typedNilAssessorValidator struct{ assessments.AssessorValidator }

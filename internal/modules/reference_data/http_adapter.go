@@ -18,43 +18,61 @@ import (
 	"github.com/google/uuid"
 )
 
+// packsRouteFamily is the claimed Reference Pack family root (Core 01 §17.4).
+const packsRouteFamily = "/api/v1/reference-packs"
+
+// listOperationID is the collection list, the one family operation whose query
+// is not the empty administrative query contract.
+const listOperationID = "listReferencePacks"
+
 type httpAdapter struct {
 	coordinator AdministrativeApplication
-	authStore   administrativeSessionStore
+	sessions    httpauth.SessionSlider
 	jobRunner   jobNotifier
-	keys        authn.MasterKeys
 	cursorCodec *pagination.Codec
 	now         func() time.Time
 }
 
 type jobNotifier interface{ Notify(uuid.UUID) }
 
-type administrativeSessionStore interface {
-	httpauth.SessionStore
-	httpauth.SessionSlider
-}
-
+// RegisterRoutes binds the Reference Pack family for central admission in its
+// own order (Core 01 §17.4, REQ-01-707): the platform gate authenticates the
+// session through the application's authenticator, then the family policy
+// requires current deployment_admin; each selected operation then verifies its
+// declared cookie CSRF, its query and its path parameters before its handler.
 func RegisterRoutes(application AdministrativeApplication, notifier jobNotifier) httpapi.RouteRegistrar {
 	return func(_ *http.ServeMux, deps httpapi.DependencySet) error {
 		service, err := newHTTPAdapter(deps, application, notifier)
 		if err != nil {
 			return err
 		}
-		handlers := map[string]http.HandlerFunc{
-			"activateReferencePackVersion":      service.handleActivate,
-			"disableReferencePackVersion":       service.handleDisable,
-			"getReferencePackVersion":           service.handleRead,
-			"getReferencePackValidationSummary": service.handleValidationSummary,
-			"importReferencePack":               service.handleImport,
-			"listReferencePacks":                service.handleCollection,
-			"refreshReferencePacks":             service.handleRefresh,
-			"reverifyReferencePackVersion":      service.handleReverify,
-			"removeReferencePackVersion":        service.handleRemove,
-		}
-		for id, handler := range handlers {
-			handlers[id] = service.authorizeOperation(handler)
-		}
-		return httpapi.BindOwnerFamilyRoutes(deps, "module.reference_data", ProfileID, "/api/v1/reference-packs", service.authorizeFamily, handlers)
+		return service.bindFamily(deps)
+	}
+}
+
+func (s *httpAdapter) bindFamily(deps httpapi.DependencySet) error {
+	return httpapi.BindAdmittedOwnerFamilyRoutes(deps, httpapi.OwnerFamily{
+		OwnerID:    "module.reference_data",
+		ProfileID:  ProfileID,
+		Root:       packsRouteFamily,
+		Authorize:  authorizeFamily,
+		AdmitQuery: admitOperationQuery,
+		Handlers:   s.operationHandlers(),
+	})
+}
+
+// operationHandlers maps each Reference Pack operation to its one handler.
+func (s *httpAdapter) operationHandlers() map[string]http.HandlerFunc {
+	return map[string]http.HandlerFunc{
+		"activateReferencePackVersion":      s.handleActivate,
+		"disableReferencePackVersion":       s.handleDisable,
+		"getReferencePackVersion":           s.handleRead,
+		"getReferencePackValidationSummary": s.handleValidationSummary,
+		"importReferencePack":               s.handleImport,
+		listOperationID:                     s.handleCollection,
+		"refreshReferencePacks":             s.handleRefresh,
+		"reverifyReferencePackVersion":      s.handleReverify,
+		"removeReferencePackVersion":        s.handleRemove,
 	}
 }
 
@@ -78,7 +96,7 @@ func newHTTPAdapter(deps httpapi.DependencySet, application AdministrativeApplic
 	if application == nil || notifier == nil {
 		return nil, errors.New("reference pack: routes require a complete application and Jobs notifier")
 	}
-	return &httpAdapter{coordinator: application, authStore: authn.NewStore(deps.PostgresHandle()), jobRunner: notifier, keys: keys, cursorCodec: cursorCodec, now: now}, nil
+	return &httpAdapter{coordinator: application, sessions: authn.NewStore(deps.PostgresHandle()), jobRunner: notifier, cursorCodec: cursorCodec, now: now}, nil
 }
 
 func (s *httpAdapter) handleCollection(w http.ResponseWriter, r *http.Request) {
@@ -116,7 +134,7 @@ func (s *httpAdapter) handleCollection(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
@@ -161,7 +179,11 @@ func searchableOptionalString(value *string) string {
 }
 
 func (s *httpAdapter) handleRead(w http.ResponseWriter, r *http.Request) {
-	packKey, packVersion := r.PathValue("pack_key"), r.PathValue("pack_version")
+	packKey, packVersion, apiErr := admittedPackVersion(r)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
 	principal, apiErr := s.authorizedPrincipal(r)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
@@ -176,7 +198,7 @@ func (s *httpAdapter) handleRead(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
@@ -189,7 +211,12 @@ func (s *httpAdapter) handleValidationSummary(w http.ResponseWriter, r *http.Req
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	summary, err := s.coordinator.GetValidationSummary(r.Context(), r.PathValue("summary_id"))
+	summaryID, ok := httpapi.PathString(r, "summary_id")
+	if !ok {
+		writeAPIError(w, r, internalAPIError(errors.New("reference pack: missing path admission")))
+		return
+	}
+	summary, err := s.coordinator.GetValidationSummary(r.Context(), summaryID)
 	if errors.Is(err, ErrNotFound) {
 		writeAPIError(w, r, referencePackNotFound())
 		return
@@ -198,7 +225,7 @@ func (s *httpAdapter) handleValidationSummary(w http.ResponseWriter, r *http.Req
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
@@ -254,7 +281,7 @@ func (s *httpAdapter) handleImport(w http.ResponseWriter, r *http.Request) {
 	if !result.Replayed {
 		s.dispatchReferencePackJob(result.Job.JobID)
 	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
@@ -262,8 +289,7 @@ func (s *httpAdapter) handleImport(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *httpAdapter) handleActivate(w http.ResponseWriter, r *http.Request) {
-	packKey, packVersion := r.PathValue("pack_key"), r.PathValue("pack_version")
-	principal, request, ok := s.decodeAdminAction(w, r, false)
+	packKey, packVersion, principal, request, ok := s.decodeAdminAction(w, r, false)
 	if !ok {
 		return
 	}
@@ -278,8 +304,7 @@ func (s *httpAdapter) handleActivate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *httpAdapter) handleDisable(w http.ResponseWriter, r *http.Request) {
-	packKey, packVersion := r.PathValue("pack_key"), r.PathValue("pack_version")
-	principal, request, ok := s.decodeAdminAction(w, r, false)
+	packKey, packVersion, principal, request, ok := s.decodeAdminAction(w, r, false)
 	if !ok {
 		return
 	}
@@ -294,8 +319,7 @@ func (s *httpAdapter) handleDisable(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *httpAdapter) handleRemove(w http.ResponseWriter, r *http.Request) {
-	key, version := r.PathValue("pack_key"), r.PathValue("pack_version")
-	principal, request, ok := s.decodeAdminAction(w, r, true)
+	key, version, principal, request, ok := s.decodeAdminAction(w, r, true)
 	if !ok {
 		return
 	}
@@ -304,8 +328,7 @@ func (s *httpAdapter) handleRemove(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *httpAdapter) handleReverify(w http.ResponseWriter, r *http.Request) {
-	packKey, packVersion := r.PathValue("pack_key"), r.PathValue("pack_version")
-	principal, request, ok := s.decodeAdminAction(w, r, false)
+	packKey, packVersion, principal, request, ok := s.decodeAdminAction(w, r, false)
 	if !ok {
 		return
 	}
@@ -325,7 +348,7 @@ func (s *httpAdapter) handleReverify(w http.ResponseWriter, r *http.Request) {
 	if !result.Replayed {
 		s.dispatchReferencePackJob(result.Job.JobID)
 	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, coordinatorAPIError(err))
 		return
 	}
@@ -355,25 +378,32 @@ func (s *httpAdapter) handleRefresh(w http.ResponseWriter, r *http.Request) {
 	if !result.Replayed {
 		s.dispatchReferencePackJob(result.Job.JobID)
 	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, coordinatorAPIError(err))
 		return
 	}
 	_ = httpapi.WriteSuccess(w, r, http.StatusAccepted, result.Job)
 }
 
-func (s *httpAdapter) decodeAdminAction(w http.ResponseWriter, r *http.Request, removal bool) (httpauth.Principal, ActionRequest, bool) {
+// decodeAdminAction reads the admitted pack version and principal, then
+// decodes the action body.
+func (s *httpAdapter) decodeAdminAction(w http.ResponseWriter, r *http.Request, removal bool) (string, string, httpauth.Principal, ActionRequest, bool) {
+	packKey, packVersion, apiErr := admittedPackVersion(r)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return "", "", httpauth.Principal{}, ActionRequest{}, false
+	}
 	principal, apiErr := s.authorizedPrincipal(r)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
-		return httpauth.Principal{}, ActionRequest{}, false
+		return "", "", httpauth.Principal{}, ActionRequest{}, false
 	}
 	request, apiErr := decodeActionRequest(r.Body, removal)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
-		return httpauth.Principal{}, ActionRequest{}, false
+		return "", "", httpauth.Principal{}, ActionRequest{}, false
 	}
-	return principal, request, true
+	return packKey, packVersion, principal, request, true
 }
 
 func (s *httpAdapter) writeActionResult(w http.ResponseWriter, r *http.Request, principal *httpauth.Principal, clientTxnID string, result ActionResult, err error) {
@@ -389,7 +419,7 @@ func (s *httpAdapter) writeActionResult(w http.ResponseWriter, r *http.Request, 
 		writeAPIError(w, r, coordinatorAPIError(err))
 		return
 	}
-	if err := s.slideSessionIfNeeded(r.Context(), principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), principal); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
@@ -407,62 +437,49 @@ func (s *httpAdapter) dispatchReferencePackJob(jobID string) {
 	s.jobRunner.Notify(parsed)
 }
 
-type administrativePrincipalContextKey struct{}
+// authorizeFamily is the family policy (Core 01 §17.4): after the gate's
+// session authentication, every family route requires current
+// deployment_admin, before canonicality, method handling and every
+// route-specific check. A denial never slides the session.
+func authorizeFamily(r *http.Request) *httpapi.APIError {
+	principal, ok := httpauth.AdmittedPrincipal(r)
+	if !ok {
+		return internalAPIError(errors.New("reference pack: missing family authentication"))
+	}
+	return httpauth.RequireDeploymentAdmin(principal.User)
+}
 
-func (s *httpAdapter) authorizeFamily(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now})
-		if apiErr != nil {
-			writeAPIError(w, r, apiErr)
-			return
-		}
-		if apiErr := httpauth.RequireDeploymentAdmin(principal.User); apiErr != nil {
-			writeAPIError(w, r, apiErr)
-			return
-		}
-		ctx := context.WithValue(r.Context(), administrativePrincipalContextKey{}, principal)
-		next.ServeHTTP(w, r.WithContext(ctx))
-	})
+// admitOperationQuery applies the empty administrative query contract to every
+// operation except the collection list, after the operation's cookie CSRF and
+// before its path parameters (Core 01 §17.4).
+func admitOperationQuery(r *http.Request, operationID string) *httpapi.APIError {
+	if operationID == listOperationID {
+		return nil
+	}
+	return validateEmptyAdministrativeQuery(r.URL.RawQuery)
 }
 
 func (s *httpAdapter) authorizedPrincipal(r *http.Request) (httpauth.Principal, *httpapi.APIError) {
-	principal, ok := r.Context().Value(administrativePrincipalContextKey{}).(httpauth.Principal)
+	principal, ok := httpauth.AdmittedPrincipal(r)
 	if !ok || !principal.User.IsDeploymentAdmin {
 		return httpauth.Principal{}, internalAPIError(errors.New("reference pack: missing family admission"))
 	}
 	return principal, nil
 }
 
-func (s *httpAdapter) authorizeOperation(next http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		principal, apiErr := s.authorizedPrincipal(r)
-		if apiErr != nil {
-			writeAPIError(w, r, apiErr)
-			return
-		}
-		operation, ok := httpapi.OperationMetadataFromContext(r.Context())
-		if !ok || operation.OwnerID != "module.reference_data" || operation.Availability != ProfileID {
-			writeAPIError(w, r, internalAPIError(errors.New("reference pack: missing operation admission")))
-			return
-		}
-		if operation.CookieCSRFRequired {
-			if apiErr := httpauth.ValidatePrincipalCSRF(r, principal, s.keys); apiErr != nil {
-				writeAPIError(w, r, apiErr)
-				return
-			}
-		}
-		if operation.OperationID != "listReferencePacks" {
-			if apiErr := validateEmptyAdministrativeQuery(r.URL.RawQuery); apiErr != nil {
-				writeAPIError(w, r, apiErr)
-				return
-			}
-		}
-		next(w, r)
+// admittedPackVersion returns the centrally admitted pack_key and
+// pack_version path parameters.
+func admittedPackVersion(r *http.Request) (string, string, *httpapi.APIError) {
+	packKey, keyAdmitted := httpapi.PathString(r, "pack_key")
+	packVersion, versionAdmitted := httpapi.PathString(r, "pack_version")
+	if !keyAdmitted || !versionAdmitted {
+		return "", "", internalAPIError(errors.New("reference pack: missing path admission"))
 	}
+	return packKey, packVersion, nil
 }
 
-func (s *httpAdapter) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal, method string, path string) error {
-	return httpauth.SlideSessionIfNeeded(ctx, s.authStore, principal, method, path, s.now)
+func (s *httpAdapter) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal) error {
+	return httpauth.SlideSessionIfNeeded(ctx, s.sessions, principal, s.now)
 }
 
 func (v AdministrativeVersion) Resource() map[string]any {

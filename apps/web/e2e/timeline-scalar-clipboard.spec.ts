@@ -576,7 +576,7 @@ test("Timeline scalar native paste joins rapid departure and retains rejected dr
     const { recordId } = await seed(page);
     const input = await activate(page, recordId, synopsis, surface);
     const patches = await installPatchController(page);
-    patches.failNextPatch(422, "invalid_request", { recordId });
+    patches.failNextPatch(400, "invalid_mutation_payload", { recordId });
     await selection(input, 0, originalText.length);
     await paste(page, "  exact rejected Ω\t\n  ");
     await input.press(surface === "grid" ? "Tab" : "Control+Enter");

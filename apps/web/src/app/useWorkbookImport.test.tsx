@@ -4,6 +4,7 @@ import type { WorkbookImportPort } from "../imports/WorkbookImportController";
 import type { ImportWriteResult } from "../services/importClient";
 import { sessionResource } from "../testing/appShellTestSupport";
 import { useAppWorkflowsForTest } from "../testing/appWorkflowsTestSupport";
+import { operationRejection } from "../testing/fetchMockTestSupport";
 import {
   importTestIds as ids,
   importTestJob,
@@ -36,11 +37,8 @@ function setup() {
       status: 200,
       payload: { meta: { request_id: "test" }, data: session },
     }),
-    preferences: async () => ({
-      ok: false,
-      status: 503,
-      payload: { error: { code: "service_unavailable" } },
-    }),
+    preferences: async () =>
+      operationRejection({ code: "internal_error", status: 500 }),
     extensions: async () => ({
       ok: true,
       status: 200,

@@ -1,3 +1,4 @@
+import type { HTTPOperationErrorCode } from "../../services/browserApi";
 import type {
   WorkbookSavedViewLayoutJson,
   WorkbookSavedViewQueryJson,
@@ -15,6 +16,14 @@ export type SavedViewObserver = <T>(
   readonly cancel: () => void;
 };
 
+/** Saved-view operations whose decoded failures the saved-view port reports. */
+export type SavedViewHTTPOperation =
+  | "listIncidentSavedViews"
+  | "getIncidentSavedView"
+  | "createIncidentSavedView"
+  | "patchIncidentSavedView"
+  | "deleteIncidentSavedView";
+
 export type SavedViewProblem = {
   readonly kind:
     | "validation"
@@ -26,7 +35,7 @@ export type SavedViewProblem = {
     | "invalid_contract"
     | "terminal";
   readonly message: string;
-  readonly publicCode?: string;
+  readonly publicCode?: HTTPOperationErrorCode<SavedViewHTTPOperation>;
   readonly field?: string;
   readonly reason?: string;
   readonly conflict?: {

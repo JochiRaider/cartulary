@@ -9,6 +9,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	evidenceblob "github.com/JochiRaider/cartulary/internal/modules/evidence/internal/blob"
+	evidencepolicy "github.com/JochiRaider/cartulary/internal/modules/evidence/internal/policy"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 )
 
@@ -36,6 +38,11 @@ type cleanupSweepResult struct {
 	HealthSnapshotValid  bool
 	OverdueBlobCount     int64
 	OldestEligibleAge    time.Duration
+	// InvariantViolationCount counts Blobs this sweep loaded with a
+	// REQ-02-189a tuple violation (timeout, claim or completion). Each was left
+	// unchanged while the sweep continued; a positive count reports the sweep
+	// as failed with the invariant_violation error class.
+	InvariantViolationCount int
 }
 
 type cleanupClaim struct {
@@ -57,18 +64,19 @@ func (s *cleanupService) SweepFailedUnattachedBlobs(
 		return cleanupSweepResult{}, errors.New("sweep Evidence cleanup: object deleter is required")
 	}
 	now = now.UTC()
-	expired, err := s.blobLifecycle.markExpiredPending(ctx, now)
+	expired, expiryViolations, err := s.blobLifecycle.markExpiredPending(ctx, now)
 	if err != nil {
 		return cleanupSweepResult{}, fmt.Errorf("expire pending Evidence blobs: %w", err)
 	}
-	claims, err := s.claimCleanupBatch(ctx, now)
+	claims, claimViolations, err := s.claimCleanupBatch(ctx, now)
 	if err != nil {
 		return cleanupSweepResult{}, err
 	}
 	result := cleanupSweepResult{
-		ExpiredPendingCount: expired,
-		ClaimedBlobCount:    len(claims),
-		HasMore:             len(claims) == cleanupBatchSize,
+		ExpiredPendingCount:     expired,
+		ClaimedBlobCount:        len(claims),
+		HasMore:                 len(claims) == cleanupBatchSize,
+		InvariantViolationCount: expiryViolations + claimViolations,
 	}
 	for _, claim := range claims {
 		deleteCtx, cancel := context.WithTimeout(ctx, cleanupDeleteTimeout)
@@ -87,6 +95,13 @@ func (s *cleanupService) SweepFailedUnattachedBlobs(
 			continue
 		}
 		completed, err := s.completeCleanupClaim(ctx, claim, now)
+		if errors.Is(err, errBlobTupleViolation) {
+			// REQ-02-189a: completion committed nothing for this Blob. Its
+			// claim stays as written, exactly as a re-claim leaves a violating
+			// candidate, and the sweep continues with the other Blobs.
+			result.InvariantViolationCount++
+			continue
+		}
 		if err != nil {
 			return result, err
 		}
@@ -140,31 +155,38 @@ SELECT COUNT(*) FILTER (
 	return overdue, time.Duration(oldestSeconds * float64(time.Second)), nil
 }
 
-func (s *cleanupService) claimCleanupBatch(ctx context.Context, now time.Time) ([]cleanupClaim, error) {
+// claimCleanupBatch also returns the number of violating candidates it left
+// unclaimed in this sweep.
+func (s *cleanupService) claimCleanupBatch(ctx context.Context, now time.Time) ([]cleanupClaim, int, error) {
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("begin Evidence cleanup claim transaction: %w", err)
+		return nil, 0, fmt.Errorf("begin Evidence cleanup claim transaction: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	// REQ-02-189a: cleanup claims only Blobs whose lifecycle tuple is coherent.
-	// A violating Blob is left unclaimed for operator recovery and stays
-	// visible as overdue in the cleanup health snapshot. The scan continues
-	// past violating rows in key order, so they never consume the batch.
+	// A violating Blob is left unclaimed and unchanged for operator recovery,
+	// counted as an invariant violation of this sweep, and stays visible as
+	// overdue in the cleanup health snapshot. The scan continues past
+	// violating rows in key order, so they never consume the batch.
 	candidates := make([]cleanupClaim, 0, cleanupBatchSize)
-	var after *cleanupCandidateKey
+	violations := 0
+	var after *evidenceblob.CleanupKey
 	for len(candidates) < cleanupBatchSize {
-		page, last, err := selectCleanupCandidatesTx(ctx, tx, now, after, cleanupBatchSize-len(candidates))
+		page, last, err := evidenceblob.LockCleanupCandidatesTx(ctx, tx, now, after, cleanupBatchSize-len(candidates))
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		for _, candidate := range page {
-			if err := verifyLiveBlobTupleTx(ctx, tx, candidate.ObjectBlobID); err != nil {
-				if errors.Is(err, errBlobTupleViolation) {
-					continue
-				}
-				return nil, fmt.Errorf("verify Evidence cleanup candidate: %w", err)
+			if !candidate.Coherent {
+				violations++
+				continue
 			}
-			candidates = append(candidates, candidate)
+			candidates = append(candidates, cleanupClaim{
+				ObjectBlobID: candidate.ObjectBlobID,
+				StorageKey:   candidate.StorageKey,
+				ClaimToken:   uuid.New(),
+				AttemptCount: candidate.AttemptCount + 1,
+			})
 		}
 		if last == nil {
 			break
@@ -194,16 +216,16 @@ ON CONFLICT (object_blob_id) DO UPDATE
             AND evidence_blob_cleanup_claims.claim_expires_at <= EXCLUDED.claimed_at)
 `, candidate.ObjectBlobID, candidate.ClaimToken, candidate.AttemptCount, now, now.Add(cleanupClaimLease))
 		if err != nil {
-			return nil, fmt.Errorf("acquire Evidence cleanup claim: %w", err)
+			return nil, 0, fmt.Errorf("acquire Evidence cleanup claim: %w", err)
 		}
 		if tag.RowsAffected() != 1 {
-			return nil, errors.New("acquire Evidence cleanup claim: candidate became unavailable")
+			return nil, 0, errors.New("acquire Evidence cleanup claim: candidate became unavailable")
 		}
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return nil, fmt.Errorf("commit Evidence cleanup claims: %w", err)
+		return nil, 0, fmt.Errorf("commit Evidence cleanup claims: %w", err)
 	}
-	return candidates, nil
+	return candidates, violations, nil
 }
 
 func (s *cleanupService) scheduleCleanupRetry(
@@ -255,24 +277,27 @@ func (s *cleanupService) completeCleanupClaim(
 		return false, fmt.Errorf("begin Evidence cleanup completion: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	var eligible bool
-	if err := tx.QueryRow(ctx, `
-SELECT b.upload_state = 'failed'
-       AND b.cleaned_up_at IS NULL
-       AND NOT EXISTS (
-           SELECT 1
-             FROM evidence e
-            WHERE e.object_blob_id = b.object_blob_id
-       )
-  FROM object_blobs b
- WHERE b.object_blob_id = $1
- FOR UPDATE
-`, claim.ObjectBlobID).Scan(&eligible); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return false, nil
-		}
+	// REQ-02-189a: completion verifies the tuple under the Blob lock. A
+	// violation returns errBlobTupleViolation and commits nothing; the sweep
+	// counts it and continues, leaving repair to operator recovery.
+	locked, err := evidenceblob.LockTx(ctx, tx, claim.ObjectBlobID, evidenceblob.UpdateWait)
+	if errors.Is(err, evidenceblob.ErrNotFound) {
+		return false, nil
+	}
+	if err != nil {
 		return false, fmt.Errorf("lock Evidence cleanup blob: %w", err)
 	}
+	var associated bool
+	if err := tx.QueryRow(ctx, `
+SELECT EXISTS (
+    SELECT 1
+      FROM evidence e
+     WHERE e.object_blob_id = $1
+)
+`, claim.ObjectBlobID).Scan(&associated); err != nil {
+		return false, fmt.Errorf("check Evidence cleanup blob association: %w", err)
+	}
+	eligible := locked.UploadState == evidencepolicy.BlobFailed && locked.CleanedUpAt == nil && !associated
 	var owned bool
 	if err := tx.QueryRow(ctx, `
 SELECT claim_token = $2 AND claim_state = 'claimed'
@@ -322,41 +347,10 @@ func (s *cleanupService) deleteExpiredCleanupMetadata(ctx context.Context, now t
 		return 0, fmt.Errorf("begin Evidence cleanup metadata retention: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	rows, err := tx.Query(ctx, `
-SELECT b.object_blob_id
-  FROM object_blobs b
-  JOIN evidence_blob_cleanup_claims c
-    ON c.object_blob_id = b.object_blob_id
- WHERE b.upload_state = 'failed'
-   AND b.cleaned_up_at <= $1
-   AND c.claim_state = 'completed'
-   AND c.completed_at <= $1
-   AND NOT EXISTS (
-       SELECT 1
-         FROM evidence e
-        WHERE e.object_blob_id = b.object_blob_id
-   )
- ORDER BY b.cleaned_up_at, b.object_blob_id
- FOR UPDATE OF b SKIP LOCKED
- LIMIT $2
-`, now.Add(-cleanupMetadataRetention), cleanupBatchSize)
+	ids, err := evidenceblob.LockExpiredCleanupMetadataTx(ctx, tx, now.Add(-cleanupMetadataRetention), cleanupBatchSize)
 	if err != nil {
-		return 0, fmt.Errorf("select expired Evidence cleanup metadata: %w", err)
+		return 0, err
 	}
-	ids := make([]uuid.UUID, 0, cleanupBatchSize)
-	for rows.Next() {
-		var id uuid.UUID
-		if err := rows.Scan(&id); err != nil {
-			rows.Close()
-			return 0, fmt.Errorf("scan expired Evidence cleanup metadata: %w", err)
-		}
-		ids = append(ids, id)
-	}
-	if err := rows.Err(); err != nil {
-		rows.Close()
-		return 0, fmt.Errorf("iterate expired Evidence cleanup metadata: %w", err)
-	}
-	rows.Close()
 	for _, id := range ids {
 		if _, err := tx.Exec(ctx, `DELETE FROM object_blobs WHERE object_blob_id = $1`, id); err != nil {
 			return 0, fmt.Errorf("delete expired Evidence cleanup metadata: %w", err)
@@ -366,67 +360,4 @@ SELECT b.object_blob_id
 		return 0, fmt.Errorf("commit Evidence cleanup metadata retention: %w", err)
 	}
 	return len(ids), nil
-}
-
-// cleanupCandidateKey is the (cleanup_due_at, object_blob_id) scan position.
-type cleanupCandidateKey struct {
-	CleanupDueAt time.Time
-	ObjectBlobID uuid.UUID
-}
-
-// selectCleanupCandidatesTx locks up to limit due candidates after the scan
-// position. It returns the last key only when the page was full, so the caller
-// stops once the due set is exhausted.
-func selectCleanupCandidatesTx(ctx context.Context, tx pgx.Tx, now time.Time, after *cleanupCandidateKey, limit int) ([]cleanupClaim, *cleanupCandidateKey, error) {
-	var afterDue time.Time
-	var afterID uuid.UUID
-	if after != nil {
-		afterDue, afterID = after.CleanupDueAt, after.ObjectBlobID
-	}
-	rows, err := tx.Query(ctx, `
-SELECT b.object_blob_id, b.storage_key, COALESCE(c.attempt_count, 0), b.cleanup_due_at
-  FROM object_blobs b
-  LEFT JOIN evidence_blob_cleanup_claims c
-    ON c.object_blob_id = b.object_blob_id
- WHERE b.upload_state = 'failed'
-   AND b.cleaned_up_at IS NULL
-   AND b.cleanup_due_at <= $1
-   AND (NOT $3::boolean OR (b.cleanup_due_at, b.object_blob_id) > ($4::timestamptz, $5::uuid))
-   AND NOT EXISTS (
-       SELECT 1
-         FROM evidence e
-        WHERE e.object_blob_id = b.object_blob_id
-   )
-   AND (
-       c.object_blob_id IS NULL
-       OR (c.claim_state = 'retry_wait' AND c.next_attempt_at <= $1)
-       OR (c.claim_state = 'claimed' AND c.claim_expires_at <= $1)
-   )
- ORDER BY b.cleanup_due_at, b.object_blob_id
- FOR UPDATE OF b SKIP LOCKED
- LIMIT $2
-`, now, limit, after != nil, afterDue, afterID)
-	if err != nil {
-		return nil, nil, fmt.Errorf("select Evidence cleanup claims: %w", err)
-	}
-	defer rows.Close()
-	page := make([]cleanupClaim, 0, limit)
-	var last cleanupCandidateKey
-	for rows.Next() {
-		var candidate cleanupClaim
-		if err := rows.Scan(&candidate.ObjectBlobID, &candidate.StorageKey, &candidate.AttemptCount, &last.CleanupDueAt); err != nil {
-			return nil, nil, fmt.Errorf("scan Evidence cleanup claim candidate: %w", err)
-		}
-		last.ObjectBlobID = candidate.ObjectBlobID
-		candidate.AttemptCount++
-		candidate.ClaimToken = uuid.New()
-		page = append(page, candidate)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, nil, fmt.Errorf("iterate Evidence cleanup claim candidates: %w", err)
-	}
-	if len(page) < limit {
-		return page, nil, nil
-	}
-	return page, &last, nil
 }

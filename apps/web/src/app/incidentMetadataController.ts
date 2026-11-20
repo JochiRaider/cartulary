@@ -1,4 +1,5 @@
 import type { AuthorizationRecoveryResult } from "../shared/authorizationRecovery";
+import { isUnappliedRefusal } from "../shared/publicError";
 import { observeAccountOperation } from "./accountOperation";
 import type {
   MetadataResult,
@@ -402,7 +403,9 @@ export class IncidentMetadataController {
         (result.status === 409 && result.problem.code === "incident_closed") ||
         (result.status === 403 &&
           (result.problem.code === "authorization_denied" ||
-            result.problem.code === "csrf_verification_failed"))
+            result.problem.code === "csrf_verification_failed")) ||
+        // Refused before it was applied; the exact draft stays editable.
+        isUnappliedRefusal(result.status, result.problem)
       ) {
         const field = result.problem.field;
         const draft = this.state.draft;

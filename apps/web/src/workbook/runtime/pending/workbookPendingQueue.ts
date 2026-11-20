@@ -1,9 +1,10 @@
-import {
-  publicErrorCode,
-  publicErrorStatusText,
-} from "../../../shared/publicError";
+import { isFailureCode } from "../../../shared/publicError";
 import type { SheetRef } from "../../../shared/sheetRef";
-import { workbookEditRecoveryPresentation } from "../../utils/workbookEditRecoveryPresentation";
+import type { WorkbookOperationFailure } from "../../mutations/workbookOperationOutcome";
+import {
+  type PendingReplaySettlementCode,
+  workbookEditRecoveryPresentation,
+} from "../../utils/workbookEditRecoveryPresentation";
 import {
   parseSameFieldConflictFields,
   type SameFieldConflictFields,
@@ -108,8 +109,14 @@ export type PendingReplayUnitState = PendingReplayUnitBase & {
   identity: PendingReplayMutationIdentity;
 };
 
+/**
+ * A settled replay failure. `code` is the queue's settlement classification;
+ * `publicCode` is the decoded server code, when one exists, typed from the
+ * generated operation bindings.
+ */
 export type PendingReplayPublicError = {
-  code: string;
+  code: PendingReplaySettlementCode;
+  publicCode?: WorkbookOperationFailure["publicCode"];
   message?: string;
   retryable?: boolean;
   conflict?: PendingReplayPublicSameFieldConflict;
@@ -207,7 +214,7 @@ export type WorkbookSaveStatePresentation = {
 
 export type PendingReplayHalt = {
   unit_id: string;
-  error_code: string;
+  error_code: PendingReplaySettlementCode;
   message: string;
   anchor: PendingReplayPublicAnchor;
 };
@@ -364,100 +371,6 @@ type PendingReplayDiscardRecoveryResult =
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
-}
-
-function errorCodeWithReason(
-  error: Readonly<Record<string, unknown>>,
-): string | null {
-  const code = error.code;
-  if (typeof code !== "string" || code.trim() === "") return null;
-  const details = error.details;
-  if (!isRecord(details)) return code;
-  const reason = details.reason_code;
-  return typeof reason === "string" && reason.trim() !== ""
-    ? `${code}: ${reason}`
-    : code;
-}
-
-function publicErrorMessageFromPayload(payload: unknown): string {
-  if (!isRecord(payload) || !isRecord(payload.error)) {
-    return "Request failed.";
-  }
-  const error = payload.error;
-  const status = typeof error.status === "number" ? error.status : null;
-  const message = publicErrorStatusText(
-    {
-      code: typeof error.code === "string" ? error.code : undefined,
-      details: isRecord(error.details) ? error.details : undefined,
-      message: typeof error.message === "string" ? error.message : undefined,
-      status: status ?? undefined,
-    },
-    status,
-  );
-  if (message !== "Request failed.") {
-    return message;
-  }
-  return errorCodeWithReason(error) ?? "Request failed.";
-}
-
-function parsePendingReplayPublicConflict(
-  value: unknown,
-): PendingReplayPublicSameFieldConflict | undefined {
-  const conflict = parseSameFieldConflictFields(value);
-  if (conflict === null) {
-    return undefined;
-  }
-  return {
-    ...conflict,
-    conflict_token: conflict.conflict_token,
-    record_id: conflict.record_id,
-    field_key: conflict.field_key,
-    conflict_resolution_class: conflict.conflict_resolution_class,
-    base_row_version: conflict.base_row_version,
-    current_row_version: conflict.current_row_version,
-  };
-}
-
-export function parsePendingReplayPublicError(
-  payload: unknown,
-): PendingReplayPublicError {
-  if (!isRecord(payload) || !isRecord(payload.error)) {
-    return {
-      code: "public_error",
-      message: publicErrorMessageFromPayload(payload),
-    };
-  }
-
-  const error = payload.error;
-  const status = typeof error.status === "number" ? error.status : null;
-  const details = isRecord(error.details) ? error.details : undefined;
-  const parsed: PendingReplayPublicError = {
-    code: publicErrorCode({
-      code: typeof error.code === "string" ? error.code : undefined,
-    }),
-  };
-  if (typeof error.message === "string" && error.message.trim() !== "") {
-    parsed.message = publicErrorStatusText(
-      {
-        code: parsed.code,
-        details,
-        message: error.message,
-        status: status ?? undefined,
-      },
-      status,
-    );
-  }
-  if (typeof error.retryable === "boolean") {
-    parsed.retryable = error.retryable;
-  }
-  if (details !== undefined) {
-    parsed.details = details;
-  }
-  const conflict = parsePendingReplayPublicConflict(error.conflict);
-  if (conflict !== undefined) {
-    parsed.conflict = conflict;
-  }
-  return parsed;
 }
 
 function stableJSONValue(value: unknown): unknown {
@@ -1004,7 +917,7 @@ function failureAnchor(
       field_key: fieldKey,
     };
   }
-  if (error.code === "row_version_conflict") {
+  if (error.publicCode === "row_version_conflict") {
     return {
       kind: "record",
       record_id: recordId,
@@ -1043,14 +956,9 @@ function isRetryableStatus(status: number): boolean {
   return status === 0 || status === 408 || status === 425 || status >= 500;
 }
 
-function isAuthFailure(status: number, code: string): boolean {
-  return (
-    status === 401 ||
-    status === 403 ||
-    code === "auth_required" ||
-    code === "session_required" ||
-    code === "session_revoked"
-  );
+/** Drivers report authentication and access loss with their 401/403 settlement statuses. */
+function isAuthFailure(status: number): boolean {
+  return status === 401 || status === 403;
 }
 
 function shouldRetryPendingFailure(
@@ -1062,12 +970,12 @@ function shouldRetryPendingFailure(
   }
   return (
     error.retryable === true &&
-    ![
-      "client_txn_conflict",
+    error.code !== "client_txn_conflict" &&
+    error.code !== "same_field_conflict" &&
+    !isFailureCode(error.publicCode, [
       "invalid_mutation_payload",
       "row_version_conflict",
-      "same_field_conflict",
-    ].includes(error.code)
+    ])
   );
 }
 
@@ -1518,7 +1426,7 @@ class WorkbookPendingQueueState {
     }
 
     unit.status = "queued";
-    if (isAuthFailure(result.status, result.error.code)) {
+    if (isAuthFailure(result.status)) {
       this.authPaused = true;
       this.halted = null;
       return {

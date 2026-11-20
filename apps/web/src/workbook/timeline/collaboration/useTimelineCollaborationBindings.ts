@@ -8,9 +8,13 @@ import type {
 import type { WorkbookPresenceDraft } from "../../collaboration/workbookCollaborationMessages";
 import type { WorkbookActiveSurfacePort } from "../../collaboration/workbookSurfacePort";
 import type { WorkbookQueryInvalidationReason } from "../../lifecycle/workbookInvalidation";
+import type { WorkbookQueryState } from "../../models/workbookQuery";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import { useWorkbookBrowsingRegistry } from "../../query/WorkbookQueryBrowsingContext";
-import type { WorkbookViewQueryPort } from "../../query/WorkbookViewQueryPort";
+import type {
+  WorkbookCanonicalQuery,
+  WorkbookViewQueryPort,
+} from "../../query/WorkbookViewQueryPort";
 import { acceptTimelineLivePatchObservation } from "../adapters/acceptTimelineLivePatchObservation";
 import type { TimelineRowStoreCommands } from "../models/timelineControllerPorts";
 import {
@@ -45,6 +49,35 @@ type TimelineRowAdmission = {
   ) => boolean;
 };
 
+/**
+ * Whether a live patch can change the record's placement under the accepted
+ * or requested query. Unknown placement fails closed to a refresh.
+ */
+function livePatchCanMovePlacement(
+  query: {
+    readonly canonicalQuery: WorkbookCanonicalQuery | null;
+    readonly requested: WorkbookQueryState | null;
+  },
+  changedFieldKeys: readonly string[],
+  patch: TimelinePatchCells,
+): boolean {
+  if (query.canonicalQuery === null) return true;
+  const keys = new Set([
+    ...changedFieldKeys,
+    ...Object.keys(patch.cells),
+    ...Object.keys(patch.group_values ?? {}),
+  ]);
+  return [query.canonicalQuery, query.requested].some(
+    (candidate) =>
+      candidate !== null &&
+      (candidate.filters.some(
+        (filter) => filter.op === "full_text" || keys.has(filter.fieldKey),
+      ) ||
+        candidate.sort.some((entry) => keys.has(entry.fieldKey)) ||
+        (typeof candidate.groupBy === "string" && keys.has(candidate.groupBy))),
+  );
+}
+
 type TimelineCollaborationBinding = {
   readonly commands: {
     readonly publishPresence: (presence: WorkbookPresenceDraft) => void;
@@ -67,6 +100,7 @@ export function useTimelineCollaborationBindings({
   readScope,
   refreshRows,
   resolveClientTxn,
+  retainsLivePlacementRecord,
   rowsRef,
   rowStoreCommands,
 }: {
@@ -82,6 +116,8 @@ export function useTimelineCollaborationBindings({
   readonly resolveClientTxn: (
     clientTxnId: string | null | undefined,
   ) => boolean;
+  /** Records whose client-local work keeps every live change on the refresh path. */
+  readonly retainsLivePlacementRecord?: (recordId: string) => boolean;
   readonly rowsRef: { current: WorkbookRow[] };
   readonly rowStoreCommands: TimelineRowStoreCommands;
 }): TimelineCollaborationBinding {
@@ -154,7 +190,19 @@ export function useTimelineCollaborationBindings({
         };
       });
       if (!patched) {
-        return { kind: "refresh_required" };
+        // REQ-03-097 has no cells to patch outside the materialized window. A
+        // known record whose placement cannot change stays outside it; anything
+        // else reconciles the window through the HTTP view query.
+        const browser = browsing.find(timelineViewSchemaId);
+        return browser?.observeLivePlacement(patch.record_id) === true &&
+          !livePatchCanMovePlacement(
+            browser.getSnapshot(),
+            payload.changed_field_keys,
+            patch,
+          ) &&
+          retainsLivePlacementRecord?.(patch.record_id) !== true
+          ? { kind: "applied" }
+          : { kind: "refresh_required" };
       }
       rowsRef.current = nextRows;
       replaceRows(nextRows);
@@ -174,7 +222,14 @@ export function useTimelineCollaborationBindings({
         ? { kind: "refresh_required" }
         : { kind: "applied" };
     },
-    [admission, browsing, readScope, replaceRows, rowsRef],
+    [
+      admission,
+      browsing,
+      readScope,
+      replaceRows,
+      retainsLivePlacementRecord,
+      rowsRef,
+    ],
   );
 
   const activeSurface = useMemo<WorkbookActiveSurfacePort>(

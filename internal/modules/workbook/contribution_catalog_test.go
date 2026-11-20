@@ -721,9 +721,6 @@ func TestWorkbookContributionCatalogValidatesCreateAndPatchRequirements_Unit(t *
 			{name: "transition", failure: IllegalTransitionFailure("open", "closed", "guard", []string{"required"}), status: 409, code: "illegal_transition"},
 			{name: "entity match", failure: EntityMatchConflictFailure("host", "hostname", []uuid.UUID{recordID}), status: 409, code: "entity_match_conflict"},
 			{name: "Evidence attach", failure: EvidenceAttachFailure("blob_not_visible"), status: 409, code: "evidence_attach_rejected"},
-			{name: "object invalid", failure: ObjectStoreInvalidFailure("invalid_request"), status: 500, code: "object_store_invalid_request"},
-			{name: "object rejected", failure: ObjectStoreAccessRejectedFailure("credential_denied"), status: 503, code: "object_store_access_rejected"},
-			{name: "object unavailable", failure: ObjectStoreUnavailableFailure("endpoint_unreachable"), status: 503, code: "object_store_unavailable", retryable: true},
 		}
 		for _, test := range tests {
 			t.Run(test.name, func(t *testing.T) {

@@ -4,10 +4,7 @@ import {
   incidentStreamMessageDecoder,
 } from "./entrypoints/collaboration.js";
 import { errorRegistry } from "./entrypoints/errors.js";
-import {
-  extensionClientSupportRegistry,
-  extensionProfileRegistry,
-} from "./entrypoints/extensions.js";
+import { extensionClientSupportRegistry } from "./entrypoints/extensions.js";
 import {
   type ApplyImportSessionRequest,
   type AttachBlobToEvidenceRecordRequest,
@@ -28,6 +25,8 @@ import {
   type GetCurrentAccountProfileResponse,
   type GetDeploymentUserResponse,
   type GetRecordHistoryResponse,
+  type HTTPOperationErrorCode,
+  type HTTPOperationErrorStatus,
   type HTTPOperationRequest,
   type HTTPOperationResponse,
   httpOperationBindings,
@@ -109,7 +108,6 @@ describe("@cartulary/protocol-ts family conformance", () => {
     for (const registry of [
       errorRegistry,
       extensionClientSupportRegistry,
-      extensionProfileRegistry,
       importTargetRegistry,
       networkFlowErrorRegistry,
       timezoneNameRegistry,
@@ -119,9 +117,6 @@ describe("@cartulary/protocol-ts family conformance", () => {
       expectDeepFrozen(registry);
     }
     expect(errorRegistry.registry_id).toBe("cartulary.errors.phase3.v1");
-    expect(extensionProfileRegistry.schema_id).toBe(
-      "cartulary.extension_profile_registry.v1",
-    );
     expect(networkFlowErrorRegistry.schema_id).toBe(
       "cartulary.network_flow_error_contracts.v1",
     );
@@ -168,6 +163,85 @@ describe("@cartulary/protocol-ts family conformance", () => {
           `${operation}: ${JSON.stringify(paging)}`,
         ).toBe(false);
     }
+  });
+
+  it("projects declared error codes by operation and status", () => {
+    // createIncident references component error responses and declares 413 inline.
+    expect(httpOperationBindings.createIncident.error_codes_by_status).toEqual({
+      "400": ["invalid_incident_create"],
+      "401": ["session_required"],
+      "403": ["csrf_verification_failed"],
+      "409": [
+        "client_txn_conflict",
+        "credential_bootstrap_rejected",
+        "incident_key_conflict",
+      ],
+      "413": ["request_body_too_large"],
+      "500": ["internal_error"],
+      "503": ["service_unavailable"],
+    });
+    // Every operation declares 500 internal_error and 503
+    // service_unavailable, and an operation in a reserved extension route
+    // family declares 404 extension_profile_not_claimed (REQ-01-702).
+    expect(
+      Object.keys(
+        httpOperationBindings.activateReferencePackVersion
+          .error_codes_by_status,
+      ),
+    ).toEqual(["400", "401", "403", "404", "409", "500", "503"]);
+    expect(
+      httpOperationBindings.activateReferencePackVersion.error_codes_by_status[
+        "404"
+      ],
+    ).toContain("extension_profile_not_claimed");
+    for (const [operationID, binding] of Object.entries(
+      httpOperationBindings,
+    )) {
+      const table: Readonly<Record<string, readonly string[]>> =
+        binding.error_codes_by_status;
+      expect(table["500"], operationID).toContain("internal_error");
+      expect(table["503"], operationID).toContain("service_unavailable");
+    }
+    const registeredStatus = new Map<string, number>(
+      errorRegistry.errors.map((entry) => [entry.code, entry.http_status]),
+    );
+    for (const [operationID, binding] of Object.entries(
+      httpOperationBindings,
+    )) {
+      const table: Readonly<Record<string, readonly string[]>> =
+        binding.error_codes_by_status;
+      expect(Object.keys(table).length, operationID).toBeGreaterThan(0);
+      for (const [status, codes] of Object.entries(table)) {
+        expect(Number(status), operationID).toBeGreaterThanOrEqual(400);
+        expect(codes.length, `${operationID} ${status}`).toBeGreaterThan(0);
+        expect([...new Set(codes)].sort(), `${operationID} ${status}`).toEqual(
+          codes,
+        );
+        for (const code of codes)
+          expect(
+            registeredStatus.get(code),
+            `${operationID} ${status} ${code}`,
+          ).toBe(Number(status));
+      }
+    }
+    expectTypeOf<HTTPOperationErrorStatus<"createIncident">>().toEqualTypeOf<
+      400 | 401 | 403 | 409 | 413 | 500 | 503
+    >();
+    expectTypeOf<HTTPOperationErrorCode<"createIncident", 409>>().toEqualTypeOf<
+      | "client_txn_conflict"
+      | "credential_bootstrap_rejected"
+      | "incident_key_conflict"
+    >();
+    expectTypeOf<
+      HTTPOperationErrorCode<"createIncident", 401 | 413>
+    >().toEqualTypeOf<"request_body_too_large" | "session_required">();
+    // The implied declarations are part of every operation's error codes.
+    expectTypeOf<
+      "extension_profile_not_claimed" | "internal_error" | "service_unavailable"
+    >().toMatchTypeOf<HTTPOperationErrorCode<"activateReferencePackVersion">>();
+    expectTypeOf<
+      HTTPOperationErrorCode<"activateReferencePackVersion", 503>
+    >().toEqualTypeOf<"service_unavailable">();
   });
 
   it("exposes deterministic generated HTTP operation bindings without payload leakage", () => {
@@ -905,29 +979,6 @@ describe("@cartulary/protocol-ts family conformance", () => {
     expect(
       startupReasonCodes.map((reason) => String(reason.code)),
     ).not.toContain("ambiguous_explicit_sheet_ref");
-  });
-
-  it("exposes typed extension registry profiles", () => {
-    expect(
-      extensionProfileRegistry.profiles.map((profile) => profile.profile_id),
-    ).toEqual([
-      "enterprise_authentication",
-      "import",
-      "incident_portability",
-      "network_flow_activity",
-      "reference_pack",
-      "snapshot_reporting",
-    ]);
-    expect(
-      extensionProfileRegistry.profiles.find(
-        (profile) => profile.profile_id === "reference_pack",
-      )?.route_families,
-    ).toContain("/api/v1/reference-packs");
-    expect(
-      extensionProfileRegistry.profiles.find(
-        (profile) => String(profile.profile_id) === "missing_profile",
-      ),
-    ).toBeUndefined();
   });
 
   it("implements extension discovery tolerance through the HTTP owner policy", () => {

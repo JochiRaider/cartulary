@@ -26,7 +26,11 @@
         "invalid_release_request",
         "invalid_reference_pack_request",
         "invalid_incident_bundle_request",
-        "invalid_startup_request"
+        "invalid_startup_request",
+        "object_upload_invalid",
+        "object_upload_length_required",
+        "invalid_request",
+        "method_not_allowed"
       ]
     },
     {
@@ -81,7 +85,10 @@
         "membership_version_conflict",
         "auth_binding_conflict",
         "saved_view_version_conflict",
-        "snapshot_source_boundary_conflict"
+        "snapshot_source_boundary_conflict",
+        "entity_match_conflict",
+        "user_email_conflict",
+        "transaction_conflict"
       ]
     },
     {
@@ -106,9 +113,9 @@
         "import_apply_blocked",
         "release_state_conflict",
         "release_approval_rejected",
-        "reference_pack_state_conflict",
         "reference_pack_activation_rejected",
-        "reference_pack_operation_rejected"
+        "reference_pack_operation_rejected",
+        "conflict"
       ]
     },
     {
@@ -134,14 +141,21 @@
         "reference_pack_not_found",
         "incident_bundle_not_found",
         "committed_source_not_found",
-        "report_artifact_not_found"
+        "report_artifact_not_found",
+        "entity_mention_not_found",
+        "resolved_record_not_found",
+        "view_schema_not_found",
+        "object_upload_not_found_or_revoked",
+        "not_found",
+        "route_not_found"
       ]
     },
     {
       "error_class": "expired_or_consumed",
       "error_codes": [
         "handle_expired",
-        "handle_consumed"
+        "handle_consumed",
+        "object_upload_expired"
       ]
     },
     {
@@ -155,7 +169,8 @@
         "reference_pack_verification_failed",
         "evidence_blob_verification_failed",
         "incident_bundle_export_rejected",
-        "incident_bundle_import_rejected"
+        "incident_bundle_import_rejected",
+        "object_upload_rejected"
       ]
     },
     {
@@ -164,7 +179,8 @@
         "evidence_access_unavailable",
         "object_store_unavailable",
         "object_store_access_rejected",
-        "required_reference_pack_unavailable"
+        "required_reference_pack_unavailable",
+        "service_unavailable"
       ]
     },
     {

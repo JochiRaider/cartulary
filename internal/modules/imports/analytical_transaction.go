@@ -59,7 +59,7 @@ func (s *service) applyAnalyticalUnit(ctx context.Context, execution jobs.Execut
 	request := extensionApplyRequest(actor, start, unit, target)
 	participant, err := facade.ImportTransaction(request)
 	if err != nil {
-		return unitApplyOutcome{}, &translatedImportUnitError{failure: translateExtensionOwnerFailure(target, facade, err), cause: err}
+		return unitApplyOutcome{}, &translatedImportUnitError{failure: translateExtensionOwnerFailure(target, facade, crossOwnerUnitTransaction{}, err), cause: err}
 	}
 	if participant == nil {
 		return unitApplyOutcome{}, crossownertransaction.ErrParticipantSet
@@ -75,8 +75,9 @@ func (s *service) applyAnalyticalUnit(ctx context.Context, execution jobs.Execut
 	commit := &AnalyticalUnitCommit{service: s, execution: execution, actor: actor, start: start,
 		unit: unit, target: target, request: request, requestHash: append([]byte(nil), record.RequestHash...),
 		participantID: participant.ID(), stopObservation: stopObservation}
+	transaction := crossOwnerUnitTransaction{OperationID: unitCommitID(start.ImportSessionID, unitID), Timeout: s.analyticalTransactions.Timeout()}
 	_, err = s.analyticalTransactions.Execute(ctx, crossownertransaction.Operation{
-		OperationID: unitCommitID(start.ImportSessionID, unitID), NormalizedRequestSHA256: hex.EncodeToString(record.RequestHash),
+		OperationID: transaction.OperationID, NormalizedRequestSHA256: hex.EncodeToString(record.RequestHash),
 		Participants: []crossownertransaction.Participant{participant}, Preconditions: commit, Finalizer: commit,
 	})
 	if err != nil {
@@ -89,7 +90,7 @@ func (s *service) applyAnalyticalUnit(ctx context.Context, execution jobs.Execut
 		if commit.coreFailure != nil && errors.Is(err, commit.coreFailure) {
 			return unitApplyOutcome{}, err
 		}
-		return unitApplyOutcome{}, &translatedImportUnitError{failure: translateExtensionOwnerFailure(target, facade, err), cause: err}
+		return unitApplyOutcome{}, &translatedImportUnitError{failure: translateExtensionOwnerFailure(target, facade, transaction, err), cause: err}
 	}
 	return commit.outcome, nil
 }

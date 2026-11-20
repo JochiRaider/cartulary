@@ -291,13 +291,16 @@ func tagCollectionExprFor() sqlshape.Fragment {
        AND rt.record_id = p.record_id)::text`, recordTagItemRefSQL(sqlshape.Literal("rt.record_id"), sqlshape.Literal("rt.record_tag_id")))
 }
 
+// partyRefCollectionExpr labels each Party with its REQ-01-333a linked record
+// summary, like every other record reference; served order comes from
+// collectionvalue (REQ-01-067).
 func partyRefCollectionExpr(fieldKey string) sqlshape.Fragment {
 	return sqlshape.Format(`(SELECT COALESCE(jsonb_agg(jsonb_build_object(
         'item_ref', %s,
         'item_kind', 'party_ref',
-        'display_text', party.display_name,
+        'display_text', %s,
         'party_id', party.record_id::text
-    ) ORDER BY party.display_name ASC, party.record_id ASC), '[]'::jsonb)
+    ) ORDER BY party.record_id ASC), '[]'::jsonb)
       FROM active_record_links_v1 rl
       JOIN parties party
         ON party.incident_id = rl.incident_id
@@ -309,7 +312,7 @@ func partyRefCollectionExpr(fieldKey string) sqlshape.Fragment {
      WHERE rl.incident_id = p.incident_id
        AND rl.src_record_id = p.record_id
        AND rl.link_type = 'references_record'
-       AND rl.field_key = %s)::text`, partyRefItemRefSQL(sqlshape.Literal("party.record_id")), sqlshape.Quote(fieldKey))
+       AND rl.field_key = %s)::text`, partyRefItemRefSQL(sqlshape.Literal("party.record_id")), recordSummaryLabelSQL(sqlshape.Literal("party.record_id"), sqlshape.Literal("'party'")), sqlshape.Quote(fieldKey))
 }
 
 func riskRefCollectionExpr() sqlshape.Fragment {

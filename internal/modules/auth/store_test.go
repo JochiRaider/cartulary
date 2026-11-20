@@ -181,7 +181,7 @@ func TestRouteRevocationConsequences_Unit(t *testing.T) {
 				recorder := httptest.NewRecorder()
 				request := newJSONRequest(t, http.MethodPost, "/api/v1/auth/logout", `{}`)
 				addSessionAuth(request, fixture.keys, "authentication-u-1-06-logout-current", true)
-				fixture.service.handleLogout(recorder, request)
+				serveAuth(t, fixture.service, recorder, request)
 
 				if recorder.Code != http.StatusOK {
 					t.Fatalf("unexpected logout status: got %d want %d", recorder.Code, http.StatusOK)
@@ -225,7 +225,7 @@ func TestRouteRevocationConsequences_Unit(t *testing.T) {
 					"second_factor":{"kind":"totp","assertion":{"code":"`+code+`"}}
 				}`)
 				addSessionAuth(request, fixture.keys, "authentication-u-1-06-password-current", true)
-				fixture.service.handlePasswordChange(recorder, request)
+				serveAuth(t, fixture.service, recorder, request)
 
 				if recorder.Code != http.StatusOK {
 					t.Fatalf("unexpected password-change status: got %d want %d", recorder.Code, http.StatusOK)
@@ -281,7 +281,7 @@ func TestRouteRevocationConsequences_Unit(t *testing.T) {
 					"code":"`+code+`"
 				}`)
 				addSessionAuth(request, fixture.keys, "authentication-u-1-06-totp-current", true)
-				fixture.service.handleTOTPComplete(recorder, request)
+				serveAuth(t, fixture.service, recorder, request)
 
 				if recorder.Code != http.StatusOK {
 					t.Fatalf("unexpected totp-complete status: got %d want %d", recorder.Code, http.StatusOK)
@@ -313,7 +313,7 @@ func TestRouteRevocationConsequences_Unit(t *testing.T) {
 					"is_active":false
 				}`)
 				addSessionAuth(request, fixture.keys, "authentication-u-1-06-disable-current", true)
-				fixture.service.handleUsersMember(recorder, request)
+				serveAuth(t, fixture.service, recorder, request)
 
 				if recorder.Code != http.StatusOK {
 					t.Fatalf("unexpected disablement status: got %d want %d", recorder.Code, http.StatusOK)
@@ -356,7 +356,7 @@ func TestRouteRevocationConsequences_Unit(t *testing.T) {
 					"new_password":"AuthenticationResetTargetChanged!"
 				}`)
 				addSessionAuth(request, fixture.keys, "authentication-u-1-06-reset-admin", true)
-				fixture.service.handleUsersMember(recorder, request)
+				serveAuth(t, fixture.service, recorder, request)
 
 				if recorder.Code != http.StatusOK {
 					t.Fatalf("unexpected admin password-reset status: got %d want %d", recorder.Code, http.StatusOK)
@@ -399,7 +399,7 @@ func TestRouteRevocationConsequences_Unit(t *testing.T) {
 					"client_txn_id":"txn-authentication-u-1-06-totp-reset"
 				}`)
 				addSessionAuth(request, fixture.keys, "authentication-u-1-06-totp-reset-admin", true)
-				fixture.service.handleUsersMember(recorder, request)
+				serveAuth(t, fixture.service, recorder, request)
 
 				if recorder.Code != http.StatusOK {
 					t.Fatalf("unexpected admin totp-reset status: got %d want %d", recorder.Code, http.StatusOK)
@@ -432,7 +432,7 @@ func TestRouteRevocationConsequences_Unit(t *testing.T) {
 					"reason":"incident response"
 				}`)
 				addSessionAuth(request, fixture.keys, "authentication-u-1-06-revoke-all-admin", true)
-				fixture.service.handleUsersMember(recorder, request)
+				serveAuth(t, fixture.service, recorder, request)
 
 				if recorder.Code != http.StatusOK {
 					t.Fatalf("unexpected revoke-all status: got %d want %d", recorder.Code, http.StatusOK)
@@ -471,7 +471,7 @@ func TestUserPatchAndLastAdminGuard_Unit(t *testing.T) {
 			"display_name":"Missing Version"
 		}`)
 		addSessionAuth(request, fixture.keys, "authentication-u-1-08-missing-version-admin", true)
-		fixture.service.handleUsersMember(recorder, request)
+		serveAuth(t, fixture.service, recorder, request)
 
 		requireErrorEnvelope(t, recorder, http.StatusBadRequest, "invalid_mutation_payload", "base_user_version")
 		if len(fixture.hub.revocations) != 0 {
@@ -497,7 +497,7 @@ func TestUserPatchAndLastAdminGuard_Unit(t *testing.T) {
 			"is_deployment_admin":false
 		}`)
 		addSessionAuth(request, fixture.keys, "authentication-u-1-08-normalized-admin", true)
-		fixture.service.handleUsersMember(recorder, request)
+		serveAuth(t, fixture.service, recorder, request)
 
 		if recorder.Code != http.StatusOK {
 			t.Fatalf("unexpected patch status: got %d want %d", recorder.Code, http.StatusOK)
@@ -531,7 +531,7 @@ func TestUserPatchAndLastAdminGuard_Unit(t *testing.T) {
 			"display_name":" Authentication Stale "
 		}`)
 		addSessionAuth(request, fixture.keys, "authentication-u-1-08-stale-admin", true)
-		fixture.service.handleUsersMember(recorder, request)
+		serveAuth(t, fixture.service, recorder, request)
 
 		requireErrorEnvelope(t, recorder, http.StatusConflict, "user_version_conflict", "")
 		if len(fixture.hub.revocations) != 0 {
@@ -555,7 +555,7 @@ func TestUserPatchAndLastAdminGuard_Unit(t *testing.T) {
 			"is_deployment_admin":false
 		}`)
 		addSessionAuth(request, fixture.keys, "authentication-u-1-08-last-admin-demotion", true)
-		fixture.service.handleUsersMember(recorder, request)
+		serveAuth(t, fixture.service, recorder, request)
 
 		requireErrorEnvelope(t, recorder, http.StatusConflict, "last_deployment_admin", "")
 		if len(fixture.hub.revocations) != 0 {
@@ -579,7 +579,7 @@ func TestUserPatchAndLastAdminGuard_Unit(t *testing.T) {
 			"is_active":false
 		}`)
 		addSessionAuth(request, fixture.keys, "authentication-u-1-08-last-admin-disable", true)
-		fixture.service.handleUsersMember(recorder, request)
+		serveAuth(t, fixture.service, recorder, request)
 
 		requireErrorEnvelope(t, recorder, http.StatusConflict, "last_deployment_admin", "")
 		if len(fixture.hub.revocations) != 0 {

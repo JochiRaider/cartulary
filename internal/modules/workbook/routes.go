@@ -22,7 +22,6 @@ type service struct {
 	startupStore     *workbookstartup.Store
 	authStore        *authn.Store
 	cursorCodec      *pagination.Codec
-	keys             authn.MasterKeys
 	now              func() time.Time
 	serviceVersion   string
 }
@@ -37,6 +36,10 @@ type RouteDependencies struct {
 	StartupStoreFactory StartupStoreFactory
 }
 
+// RegisterRoutes binds the workbook routes for central admission (Core 01
+// REQ-01-707): the registry authenticates by each operation's declared
+// security and admits the incident, record, view-schema and conflict-token
+// path parameters before a handler runs.
 func RegisterRoutes(routeDependencies RouteDependencies) httpapi.RouteRegistrar {
 	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
 		if routeDependencies.StartupStoreFactory == nil {
@@ -60,24 +63,26 @@ func RegisterRoutes(routeDependencies RouteDependencies) httpapi.RouteRegistrar 
 		if err != nil {
 			return err
 		}
-		return httpapi.BindOwnerRoutes(mux, deps, "module.workbook", map[string]http.HandlerFunc{
-			"listNoteAssociations":                  service.handleNoteAssociations,
-			"mutateNoteAssociations":                service.handleNoteAssociations,
+		return httpapi.BindAdmittedOwnerRoutes(mux, deps, "module.workbook", map[string]http.HandlerFunc{
 			"applyWorkbookBulkMutation":             service.handleBulkMutations,
 			"createRecordLinkedNote":                service.handleLinkedNoteCreate,
 			"createViewRow":                         service.handleCreate,
-			"getCurrentUserWorkbookPreferences":     service.handleWorkbookPreferencesMe,
-			"getIncidentDefaultWorkbookPreferences": service.handleWorkbookPreferencesDefault,
+			"getCurrentUserWorkbookPreferences":     service.handleGetUserWorkbookPreferences,
+			"getIncidentDefaultWorkbookPreferences": service.handleGetDefaultWorkbookPreferences,
 			"getIncidentWorkbookStartup":            service.handleWorkbookStartup,
+			"listNoteAssociations":                  service.handleListNoteAssociations,
+			"locateWorkbookViewRecord":              service.handleLocate,
+			"mutateNoteAssociations":                service.handleMutateNoteAssociations,
 			"patchRecord":                           service.handlePatch,
 			"pasteWorkbookClipboard":                service.handleClipboardPaste,
-			"putCurrentUserWorkbookPreferences":     service.handleWorkbookPreferencesMe,
-			"putIncidentDefaultWorkbookPreferences": service.handleWorkbookPreferencesDefault,
+			"putCurrentUserWorkbookPreferences":     service.handlePutUserWorkbookPreferences,
+			"putIncidentDefaultWorkbookPreferences": service.handlePutDefaultWorkbookPreferences,
 			"queryWorkbookView":                     service.handleQuery,
-			"locateWorkbookViewRecord":              service.handleLocate,
 			"resolveRecordSameFieldConflict":        service.handleConflictResolve,
 			"supersedeRecord":                       service.handleSupersede,
-		})
+			// Every resolved startup response, failures included, carries
+			// Cache-Control: no-store (Core 01 REQ-01-151.1).
+		}, httpapi.NoStore("getIncidentWorkbookStartup"))
 	}
 }
 
@@ -86,16 +91,16 @@ func newService(
 	routeDependencies RouteDependencies,
 	startupStore *workbookstartup.Store,
 ) (*service, error) {
-	keys, err := authn.LoadMasterKeys(deps.Env)
-	if err != nil {
-		return nil, err
-	}
 	now := deps.Now
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
 	}
 	cursorCodec := deps.CursorCodec
 	if cursorCodec == nil {
+		keys, err := authn.LoadMasterKeys(deps.Env)
+		if err != nil {
+			return nil, err
+		}
 		cursorKey, err := authn.DerivePurposeKey(keys, "pagination-cursor-v2")
 		if err != nil {
 			return nil, err
@@ -123,7 +128,6 @@ func newService(
 		startupStore:     startupStore,
 		authStore:        authn.NewStore(deps.PostgresHandle()),
 		cursorCodec:      cursorCodec,
-		keys:             keys,
 		now:              now,
 		serviceVersion:   deps.Telemetry.ServiceVersion,
 	}, nil

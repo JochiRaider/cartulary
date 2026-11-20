@@ -25,6 +25,7 @@ func exerciseRowTargetCurrentness(t *testing.T) {
 			t.Run(kinds[0]+" then "+kinds[1]+"/"+later, func(t *testing.T) {
 				ctx := context.Background()
 				h := appsupport.StartStore(t, "row-target-currentness")
+				allocateHistoryOrderAtStatementEnd(t, h.DB)
 				actor := authstoretest.SeedActor(t, h.DB, authstoretest.ActorAttributes{Email: "row-currentness@example.test", DisplayName: "Row currentness"})
 				incident := appsupport.CreateIncidentInStore(t, h.DB, actor, "row-currentness-incident", "IR-ROW-CURRENTNESS", "Row currentness")
 				id := uuid.New()

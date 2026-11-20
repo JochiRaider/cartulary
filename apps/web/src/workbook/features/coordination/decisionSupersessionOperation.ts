@@ -29,7 +29,10 @@ export type DecisionSupersessionOutcome =
       readonly receipt: DecisionSupersessionReceipt;
     }
   | { readonly kind: "uncertain" }
-  | { readonly kind: "rejected"; readonly failure: WorkbookOperationFailure };
+  | {
+      readonly kind: "rejected";
+      readonly failure: WorkbookOperationFailure<"supersedeRecord">;
+    };
 export type DecisionCandidatePage = Readonly<{
   rows: readonly WorkbookQueryRow[];
   nextCursor: string | null;

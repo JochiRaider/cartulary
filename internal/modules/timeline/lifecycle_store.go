@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/sourcerepository"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/versionid"
@@ -102,6 +103,13 @@ func (s *store) applyAction(
 			return MutationResult{}, fmt.Errorf("protect timeline supersession endpoints: %w", err)
 		}
 	}
+	requestedState := captureStateReviewed
+	if routeKey == supersedeRouteKey {
+		requestedState = captureStateSuperseded
+	}
+	if err := s.resolveActionTargetTx(ctx, tx, recordID, requestedState); err != nil {
+		return MutationResult{}, err
+	}
 	current, err := s.loadSourceRecordTx(ctx, tx, recordID)
 	if err != nil {
 		return MutationResult{}, err
@@ -110,7 +118,7 @@ func (s *store) applyAction(
 		return MutationResult{}, err
 	}
 	if current.RowVersion != baseRowVersion {
-		return MutationResult{}, ErrRowVersionConflict
+		return MutationResult{}, newRowVersionConflict(recordID, baseRowVersion, current.RowVersion)
 	}
 
 	next, effectiveReason, err := prepare(current)
@@ -324,4 +332,37 @@ func (s *store) validateSupersedeReplacementTx(ctx context.Context, tx pgx.Tx, c
 		return newIllegalTransitionError(reasonGuardsNotSatisfied, current.CaptureState, captureStateSuperseded, guards...)
 	}
 	return nil
+}
+
+// resolveActionTargetTx classifies a lifecycle action target from its record
+// envelope before the Timeline source row is read, in REQ-01-085 and
+// REQ-01-705 order: an absent record is not found, a soft-deleted record must
+// be restored first, and any other record type defines no Timeline
+// capture-state machine.
+func (s *store) resolveActionTargetTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, requestedState string) error {
+	envelope, err := s.classifyAddressedRecordTx(ctx, tx, recordID)
+	if err != nil {
+		return err
+	}
+	if envelope.RecordType != "timeline_event" {
+		return newIllegalTransitionError(reasonTransitionNotAllowed, "", requestedState, "record_type_has_machine")
+	}
+	return nil
+}
+
+// classifyAddressedRecordTx applies the first two REQ-01-705 steps to the
+// record a single-record route addresses, through the Records classifier: a
+// missing record is not found and a soft-deleted one must be restored. The
+// route applies its own type, incident-lifecycle and version steps next.
+func (s *store) classifyAddressedRecordTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (sourcerepository.Envelope, error) {
+	envelope, err := s.recordStore.ClassifyTargetTx(ctx, tx, recordID, records.TargetLockNone)
+	switch {
+	case errors.Is(err, records.ErrTargetNotFound):
+		return sourcerepository.Envelope{}, ErrRecordNotFound
+	case errors.Is(err, records.ErrTargetDeleted):
+		return sourcerepository.Envelope{}, ErrRecordDeleted
+	case err != nil:
+		return sourcerepository.Envelope{}, fmt.Errorf("classify timeline record target: %w", err)
+	}
+	return envelope, nil
 }

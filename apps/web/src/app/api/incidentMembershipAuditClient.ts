@@ -1,4 +1,8 @@
-import { type APIError, fetchHTTPOperation } from "../../services/browserApi";
+import {
+  type APIError,
+  fetchHTTPOperation,
+  type HTTPOperationFailureCode,
+} from "../../services/browserApi";
 import {
   auditFilterFields,
   normalizeAuditInstant,
@@ -9,7 +13,6 @@ import type {
   MembershipAuditPaging,
   MembershipAuditQuery,
 } from "../incidentMembershipAuditModel";
-import type { ListIncidentMembershipAuditEventsResponse } from "./publicHttpTypes";
 
 export type MembershipAuditResult =
   | {
@@ -17,7 +20,13 @@ export type MembershipAuditResult =
       readonly rows: readonly MembershipAuditEvent[];
       readonly paging: MembershipAuditPaging;
     }
-  | { readonly ok: false; readonly status: number; readonly error: APIError };
+  | {
+      readonly ok: false;
+      readonly status: number;
+      readonly error: APIError<
+        HTTPOperationFailureCode<"listIncidentMembershipAuditEvents">
+      >;
+    };
 export async function listIncidentMembershipAuditPage(request: {
   readonly authority: MembershipAuditAuthority;
   readonly query: MembershipAuditQuery;
@@ -29,19 +38,18 @@ export async function listIncidentMembershipAuditPage(request: {
   for (const field of auditFilterFields)
     if (request.query[field] !== "") query[field] = request.query[field];
   if (request.cursor !== null) query.cursor_token = request.cursor;
-  const result =
-    await fetchHTTPOperation<ListIncidentMembershipAuditEventsResponse>({
-      operationID: "listIncidentMembershipAuditEvents",
-      apiBase: request.authority.apiBase,
-      pathParameters: { incident_id: request.authority.incidentId },
-      query,
-      init: { signal: request.signal },
-    });
+  const result = await fetchHTTPOperation({
+    operationID: "listIncidentMembershipAuditEvents",
+    apiBase: request.authority.apiBase,
+    pathParameters: { incident_id: request.authority.incidentId },
+    query,
+    init: { signal: request.signal },
+  });
   if (!result.ok)
     return {
       ok: false,
       status: result.status,
-      error: result.payload.error ?? { code: "unknown_public_error" },
+      error: result.payload.error,
     };
   const rows = result.payload.data.audit_events;
   const paging = result.payload.meta.paging;

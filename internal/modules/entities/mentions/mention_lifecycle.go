@@ -16,6 +16,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/entities/entitycontract"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/mentions/historyvalue"
+	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/mentioneffects"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -585,8 +586,19 @@ func (s *Store) prepareMentionActionRecordTx(ctx context.Context, tx pgx.Tx, men
 	if target != nil {
 		ids = append(ids, *target)
 	}
-	if _, err := s.ports.records.LoadEnvelopesForNoKeyUpdateTx(ctx, tx, ids); err != nil {
+	envelopes, err := s.ports.records.LoadEnvelopesForNoKeyUpdateTx(ctx, tx, ids)
+	if err != nil {
 		return mentionActionRecord{}, err
+	}
+	// REQ-01-211, REQ-01-705: the locked source record is classified before the
+	// incident-lifecycle and mention-version checks. A soft-deleted source must
+	// be restored first; a mention never outlives its source envelope.
+	source, found := envelopes[before.SourceRecordID]
+	switch err := records.ClassifyTargetPresence(found, source.DeletedAt); {
+	case errors.Is(err, records.ErrTargetNotFound):
+		return mentionActionRecord{}, ErrEntityMentionNotFound
+	case errors.Is(err, records.ErrTargetDeleted):
+		return mentionActionRecord{}, ErrRecordDeletedUseRestore
 	}
 	current, err := readMentionActionRecordTx(ctx, tx, mentionID, true)
 	if err != nil {

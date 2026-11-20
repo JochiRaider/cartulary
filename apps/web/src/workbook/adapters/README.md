@@ -89,10 +89,9 @@ capabilities live in [ports](../ports/README.md).
 | [workbookAdapterResult.ts](workbookAdapterResult.ts) | Normalizes operation outcomes into shared semantic port results. |
 | [workbookHistoryResponse.ts](workbookHistoryResponse.ts) | Private record History response types and paging adaptation. |
 | [workbookOperationContract.ts](workbookOperationContract.ts) | Closed workbook operation IDs and typed executor request/response contracts. |
-| [workbookOperationErrorPolicy.node.test.ts](workbookOperationErrorPolicy.node.test.ts) | Tests malformed-envelope rejection and exact conflict, authorization, and stale-target classification. |
-| [workbookOperationErrorPolicy.ts](workbookOperationErrorPolicy.ts) | Classifies decoded workbook operation failures into semantic owner outcomes. |
+| [workbookOperationErrorPolicy.node.test.ts](workbookOperationErrorPolicy.node.test.ts) | Tests contract-failure and malformed-conflict rejection and exact conflict, authorization, and stale-target classification. |
+| [workbookOperationErrorPolicy.ts](workbookOperationErrorPolicy.ts) | Classifies failures already decoded by the central operation client into semantic owner outcomes; it never re-parses error payloads. |
 | [workbookProtocolTypes.ts](workbookProtocolTypes.ts) | Private type-only projection of the exact generated Workbook request vocabulary; prevents protocol imports from leaking into owner models, controllers, or runtime code. |
-| [workbookPublicErrorDecoder.ts](workbookPublicErrorDecoder.ts) | Decodes and sanitizes public workbook errors at the adapter boundary. |
 
 ## Ordinary creation seam
 

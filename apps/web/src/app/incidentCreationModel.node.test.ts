@@ -1,6 +1,10 @@
 import type { CreateIncidentResponse } from "@cartulary/protocol-ts/http";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { deferred, jsonResponse } from "../testing/fetchMockTestSupport";
+import {
+  deferred,
+  jsonResponse,
+  operationRejection,
+} from "../testing/fetchMockTestSupport";
 import { createIncident } from "./api/incidentClient";
 import {
   IncidentCreationController,
@@ -29,11 +33,6 @@ const success = {
   status: 201,
   payload: { data: incident, meta: { request_id: "request-test" } },
 };
-const rejection = (code: string, status = 400, details = {}) => ({
-  ok: false as const,
-  status,
-  payload: { error: { code, status, details } },
-});
 const controllers: IncidentCreationController[] = [];
 function setup(overrides: Partial<IncidentCreationPorts> = {}) {
   const ports = {
@@ -139,10 +138,13 @@ describe("incident creation operation", () => {
     const create = vi
       .fn<IncidentCreationPorts["create"]>()
       .mockResolvedValueOnce(
-        rejection("invalid_incident_create", 400, {
-          field: "severity",
-          reason_code: "field_too_long",
-        }),
+        operationRejection(
+          { code: "invalid_incident_create", status: 400 },
+          {
+            field: "severity",
+            reason_code: "field_too_long",
+          },
+        ),
       )
       .mockResolvedValue(success);
     const { controller } = setup({ create });
@@ -164,7 +166,9 @@ describe("incident creation operation", () => {
   it("requires explicit replacement after a transaction conflict", async () => {
     const create = vi
       .fn<IncidentCreationPorts["create"]>()
-      .mockResolvedValue(rejection("client_txn_conflict", 409));
+      .mockResolvedValue(
+        operationRejection({ code: "client_txn_conflict", status: 409 }),
+      );
     const { controller } = setup({ create });
     controller.submit();
     await settle();
@@ -180,7 +184,9 @@ describe("incident creation operation", () => {
     const create = vi
       .fn<IncidentCreationPorts["create"]>()
       .mockRejectedValueOnce(new TypeError("lost response"))
-      .mockResolvedValue(rejection("authorization_denied", 403));
+      .mockResolvedValue(
+        operationRejection({ code: "csrf_verification_failed", status: 403 }),
+      );
     const { controller } = setup({ create });
     controller.submit();
     await settle();
@@ -286,8 +292,12 @@ describe("incident creation operation", () => {
     const { controller, ports } = setup({
       create: vi
         .fn()
-        .mockResolvedValueOnce(rejection("csrf_verification_failed", 403))
-        .mockResolvedValue(rejection("session_required", 401)),
+        .mockResolvedValueOnce(
+          operationRejection({ code: "csrf_verification_failed", status: 403 }),
+        )
+        .mockResolvedValue(
+          operationRejection({ code: "session_required", status: 401 }),
+        ),
     });
     controller.submit();
     await settle();

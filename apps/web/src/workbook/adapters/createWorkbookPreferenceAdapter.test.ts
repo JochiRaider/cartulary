@@ -185,15 +185,66 @@ describe("Workbook preference transport", () => {
   });
   it("separates known rejection from uncertain server transport and invalid success outcomes", async () => {
     const port = create();
-    for (const [status, code, kind, problemCode] of [
-      [400, "invalid_mutation_payload", "rejected", "invalid_mutation_payload"],
-      [401, "session_required", "rejected", "session_required"],
-      [403, "csrf_verification_failed", "rejected", "csrf_verification_failed"],
-      [403, "authorization_denied", "rejected", "authorization_denied"],
-      [404, "incident_not_found", "rejected", "incident_not_found"],
-      [500, "internal_error", "uncertain", "internal_error"],
-      [502, "internal_error", "uncertain", "internal_error"],
-      [400, "secret_error_value", "uncertain", "unknown_public_error"],
+    // An undeclared code is a client contract failure (HTTP 502 locally).
+    for (const [write, status, code, kind, resultStatus, problemCode] of [
+      [
+        "home",
+        400,
+        "invalid_mutation_payload",
+        "rejected",
+        400,
+        "invalid_mutation_payload",
+      ],
+      ["home", 401, "session_required", "rejected", 401, "session_required"],
+      [
+        "home",
+        403,
+        "csrf_verification_failed",
+        "rejected",
+        403,
+        "csrf_verification_failed",
+      ],
+      [
+        "default",
+        403,
+        "authorization_denied",
+        "rejected",
+        403,
+        "authorization_denied",
+      ],
+      [
+        "home",
+        403,
+        "authorization_denied",
+        "uncertain",
+        502,
+        "invalid_public_contract_response",
+      ],
+      [
+        "home",
+        404,
+        "incident_not_found",
+        "rejected",
+        404,
+        "incident_not_found",
+      ],
+      ["home", 500, "internal_error", "uncertain", 500, "internal_error"],
+      [
+        "home",
+        503,
+        "internal_error",
+        "uncertain",
+        502,
+        "invalid_public_contract_response",
+      ],
+      [
+        "home",
+        400,
+        "secret_error_value",
+        "uncertain",
+        502,
+        "invalid_public_contract_response",
+      ],
     ] as const) {
       vi.stubGlobal(
         "fetch",
@@ -202,7 +253,10 @@ describe("Workbook preference transport", () => {
             {
               error: {
                 code,
+                status,
                 message: "sensitive server detail",
+                request_id: "request-test",
+                retryable: false,
                 details: { raw: "sensitive" },
               },
             },
@@ -210,11 +264,14 @@ describe("Workbook preference transport", () => {
           ),
         ),
       );
-      const result = await port.setHomeSheet({
-        signal: signal(),
-        sheetRef: null,
+      const result = await (write === "home"
+        ? port.setHomeSheet({ signal: signal(), sheetRef: null })
+        : port.setDefaultSheet({ signal: signal(), sheetRef: null }));
+      expect(result).toEqual({
+        kind,
+        status: resultStatus,
+        problem: { code: problemCode },
       });
-      expect(result).toEqual({ kind, status, problem: { code: problemCode } });
       expect(JSON.stringify(result)).not.toContain("sensitive");
       expect(JSON.stringify(result)).not.toContain("secret_error_value");
     }

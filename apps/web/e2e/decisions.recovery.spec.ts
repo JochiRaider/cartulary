@@ -18,7 +18,10 @@ import {
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
 
-import { installOwnedRoute } from "./support/transport/requestInterception";
+import {
+  fulfillOperationError,
+  installOwnedRoute,
+} from "./support/transport/requestInterception";
 import { disableWorkbookSockets } from "./support/transport/socketIsolation";
 import {
   activateSemanticGridCell,
@@ -143,19 +146,17 @@ async function exerciseDecisionRecovery(
     async (route) => {
       if (!failRefresh) return route.continue();
       failRefresh = false;
-      await route.fulfill({
-        status: 503,
-        contentType: "application/json",
-        body: JSON.stringify({
-          error: {
-            code: "service_unavailable",
-            status: 503,
-            retryable: true,
-            message: "Refresh unavailable",
-            request_id: "refresh-failure",
-          },
-        }),
-      });
+      await fulfillOperationError(
+        route,
+        "queryWorkbookView",
+        503,
+        "service_unavailable",
+        {
+          retryable: true,
+          requestId: "refresh-failure",
+          details: { reason_code: "admission_paused" },
+        },
+      );
     },
   );
   await openRecoveryItem(page, /^Decision supersession ·/);

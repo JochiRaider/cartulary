@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_error_code_coverage.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "catalog_sha256",
+    "document_version",
+    "responses",
+    "totals"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.harness_error_code_coverage.v1"
+    },
+    "catalog_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "document_version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "responses": {
+      "type": "array",
+      "maxItems": 65536,
+      "items": {
+        "$ref": "#/$defs/response"
+      }
+    },
+    "totals": {
+      "$ref": "#/$defs/totals"
+    }
+  },
+  "$defs": {
+    "code": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "codes": {
+      "type": "array",
+      "maxItems": 256,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/code"
+      }
+    },
+    "response": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation_id",
+        "status",
+        "declared",
+        "exercised",
+        "unexercised",
+        "undeclared_exercised"
+      ],
+      "properties": {
+        "operation_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z][A-Za-z0-9_.-]*$"
+        },
+        "status": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 599
+        },
+        "declared": {
+          "$ref": "#/$defs/codes"
+        },
+        "exercised": {
+          "$ref": "#/$defs/codes"
+        },
+        "unexercised": {
+          "$ref": "#/$defs/codes"
+        },
+        "undeclared_exercised": {
+          "$ref": "#/$defs/codes"
+        }
+      }
+    },
+    "totals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation_statuses",
+        "declared_codes",
+        "exercised_declared_codes",
+        "unexercised_codes",
+        "undeclared_exercised_codes"
+      ],
+      "properties": {
+        "operation_statuses": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "declared_codes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "exercised_declared_codes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unexercised_codes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "undeclared_exercised_codes": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}

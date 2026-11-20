@@ -13,6 +13,10 @@ import {
 } from "@cartulary/ui-contracts";
 import { type CSSProperties, useState } from "react";
 import {
+  type JobResultSummaryCode,
+  jobResultSummaryCode,
+} from "../services/commonJobContract";
+import {
   type ReferencePackCommand,
   type ReferencePackVersion,
   referencePackJobProblem,
@@ -955,6 +959,16 @@ const jobStatusLabels = {
   failed: "Failed",
   canceled: "Canceled",
 };
+// Only commands with a declared Job kind complete through a job; the others
+// settle inline (Core 01 §3.3.9.1).
+const referencePackJobSuccessCodes: Partial<
+  Record<ReferencePackCommand["kind"], JobResultSummaryCode>
+> = {
+  import: "reference_pack_imported",
+  reverify: "reference_pack_reverified",
+  refresh_all: "reference_packs_refreshed",
+  refresh_selected: "reference_packs_refreshed",
+};
 function jobResultText(job: ReferencePackKnownJob) {
   if (job.snapshot.status === "failed") {
     const problem = referencePackJobProblem(job.snapshot);
@@ -964,18 +978,10 @@ function jobResultText(job: ReferencePackKnownJob) {
   }
   if (job.snapshot.status === "canceled")
     return "The server confirmed cancellation. This does not imply rollback of earlier effects.";
-  const expected = {
-    import: "reference_pack_imported",
-    activate: "reference_pack_activated",
-    disable: "reference_pack_disabled",
-    remove: "reference_pack_removed",
-    reverify: "reference_pack_reverified",
-    refresh_all: "reference_packs_refreshed",
-    refresh_selected: "reference_packs_refreshed",
-  }[job.command.kind];
-  if (job.snapshot.result_summary?.code !== expected)
+  const expected = referencePackJobSuccessCodes[job.command.kind];
+  if (expected === undefined || jobResultSummaryCode(job.snapshot) !== expected)
     return "The operation succeeded with a result this client cannot interpret. Reload the catalog to review current state.";
-  const refs = (job.snapshot.result_summary.resource_refs ?? []).filter(
+  const refs = (job.snapshot.result_summary?.resource_refs ?? []).filter(
     (ref) => ref.kind === "reference_pack_version",
   );
   if (

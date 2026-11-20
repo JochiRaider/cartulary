@@ -11,21 +11,25 @@ import {
   incidentControlsPanelTestId,
   incidentControlsTriggerTestId,
   networkAnalysisTestId,
+  rowInspectButtonTestId,
   surfaceTabTestId,
+  timelineInspectorTestId,
   workbookActiveSurfaceFocusTargetTestId,
   workbookImportAssistantTestId,
+  workbookRowContextMenuTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
 import {
   hostsViewSchemaId,
   timelineViewSchemaId,
 } from "@cartulary/view-contracts";
-import type { Page } from "@playwright/test";
+import type { Page, TestInfo } from "@playwright/test";
 import { admitIRCorpus } from "../../../tools/harness/fixtures/ir-incident.mjs";
 import { expect, test } from "./fixtures";
 import { csrfHeaders } from "./support/auth/browserSession";
 import { authHeadersForStorageState } from "./support/auth/storageState";
 import { createIncident } from "./support/incidents/fixtures";
+import { seedWorkbookImport } from "./support/incidents/workbookImportSeed";
 import { apiBase } from "./support/runtime/configuration";
 import {
   uniqueIncidentKey,
@@ -33,21 +37,100 @@ import {
 } from "./support/runtime/fixtureIdentity";
 import { publicHttpOperation } from "./support/transport/publicHttpOperationClient";
 import { atJsonOrigin } from "./support/transport/publicJsonClient";
-import { installOwnedRoute } from "./support/transport/requestInterception";
+import {
+  fulfillOperationError,
+  installOwnedRoute,
+} from "./support/transport/requestInterception";
 import { queryViewRows } from "./support/workbook/query";
-import { openTimelineInspector } from "./support/workbook/rowMutations";
+import { openTimelineRowActions } from "./support/workbook/rowMutations";
 
-test("IR corpus imports original Core and Cisco files and reopens exact source text", async ({
+// TH-HARNESS-REQ-864: an import job's settlement wait has its own bound,
+// about twice a normal apply, instead of the whole test budget.
+const importSettlementTimeoutMs = 30_000;
+
+type IRCorpus = Awaited<ReturnType<typeof admitIRCorpus>>;
+
+function irSource(corpus: IRCorpus, name: string) {
+  const source = corpus.manifest.source_files.find(
+    (candidate) => candidate.logical_path === name,
+  );
+  if (!source) throw new Error(`Missing admitted IR source ${name}`);
+  return source;
+}
+
+async function queryIRCorpusView(
+  page: Page,
+  incidentId: string,
+  view: string,
+): Promise<ViewRow[]> {
+  const rows: ViewRow[] = [];
+  let body: QueryWorkbookViewRequest = { limit: 200 };
+  for (let pageNumber = 0; pageNumber < 20; pageNumber++) {
+    const response = await publicHttpOperation({
+      operationID: "queryWorkbookView",
+      body,
+      headers: authHeadersForStorageState(await page.context().storageState()),
+      pathParameters: { incident_id: incidentId, view_schema_id: view },
+      request: atJsonOrigin(page.request, apiBase),
+    });
+    if (!response.ok)
+      throw new Error(`IR corpus query failed: ${response.status}`);
+    rows.push(...response.payload.data.rows);
+    const paging = response.payload.meta.paging;
+    if (!paging) throw new Error("Missing corpus query paging");
+    if (!paging.has_more) {
+      expect(new Set(rows.map((row) => row.record_id)).size).toBe(rows.length);
+      return rows;
+    }
+    if (!paging.next_cursor) throw new Error("Missing corpus continuation");
+    body = { cursor_token: paging.next_cursor };
+  }
+  throw new Error("Unbounded corpus query");
+}
+
+async function attachIRFixtureAdmission(info: TestInfo, corpus: IRCorpus) {
+  await info.attach("ir-fixture-admission", {
+    body: JSON.stringify({
+      fixture_id: corpus.manifest.fixture_id,
+      revision: corpus.manifest.revision,
+      manifest_sha256: corpus.manifestSHA256,
+    }),
+    contentType: "application/json",
+  });
+}
+
+type IRExpectations = {
+  readonly records: Readonly<Record<string, number>>;
+  readonly time_pairs: number;
+  readonly empty_times: number;
+  readonly multiline_raw: number;
+  readonly multiline_synopsis: number;
+  readonly tabbed_raw: number;
+  readonly tabbed_synopsis: number;
+  readonly timeline_cases: readonly {
+    readonly source_record: number;
+    readonly source_identity: string;
+    readonly cells: readonly string[];
+  }[];
+};
+
+const cellText = (row: ViewRow, field: string) =>
+  String(row.cells[field]?.value ?? "");
+
+test("IR corpus imports the original Core CSV files through the Import Assistant with exact source text", async ({
   page,
 }, info) => {
   const corpus = await admitIRCorpus(info.outputPath("ir-inputs"));
+  const expected = JSON.parse(
+    corpus.read("ir-incident/v1/expected.json").toString(),
+  ) as IRExpectations;
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("IR-CORPUS"),
     "Supplied incident documentation",
   );
   const sources = [
-    { name: "hosts.csv", view: "cartulary.view.hosts.v1", title: "Hosts" },
+    { name: "hosts.csv", view: hostsViewSchemaId, title: "Hosts" },
     {
       name: "identities.csv",
       view: "cartulary.view.identities.v1",
@@ -55,40 +138,8 @@ test("IR corpus imports original Core and Cisco files and reopens exact source t
     },
     { name: "timeline.csv", view: timelineViewSchemaId, title: "Timeline" },
   ];
-  const queryAll = async (view: string): Promise<ViewRow[]> => {
-    const rows: ViewRow[] = [];
-    let body: QueryWorkbookViewRequest = { limit: 200 };
-    for (let pageNumber = 0; pageNumber < 20; pageNumber++) {
-      const response = await publicHttpOperation({
-        operationID: "queryWorkbookView",
-        body,
-        headers: authHeadersForStorageState(
-          await page.context().storageState(),
-        ),
-        pathParameters: { incident_id: incidentId, view_schema_id: view },
-        request: atJsonOrigin(page.request, apiBase),
-      });
-      if (!response.ok)
-        throw new Error(`IR corpus query failed: ${response.status}`);
-      rows.push(...response.payload.data.rows);
-      const paging = response.payload.meta.paging;
-      if (!paging) throw new Error("Missing corpus query paging");
-      if (!paging.has_more) {
-        expect(new Set(rows.map((row) => row.record_id)).size).toBe(
-          rows.length,
-        );
-        return rows;
-      }
-      if (!paging.next_cursor) throw new Error("Missing corpus continuation");
-      body = { cursor_token: paging.next_cursor };
-    }
-    throw new Error("Unbounded corpus query");
-  };
   for (const selected of sources) {
-    const source = corpus.manifest.source_files.find(
-      (source) => source.logical_path === selected.name,
-    );
-    if (!source) throw new Error("Missing admitted import source");
+    const source = irSource(corpus, selected.name);
     await page.goto(`/?incident_id=${incidentId}`);
     await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
     const assistant = await openAssistant(page);
@@ -107,9 +158,12 @@ test("IR corpus imports original Core and Cisco files and reopens exact source t
     for (const [i, header] of source.columns.entries()) {
       const field = source.field_keys[i];
       if (!field) throw new Error("Missing admitted source mapping");
-      await assistant
-        .getByRole("combobox", { name: header, exact: true })
-        .selectOption(field);
+      const mapping = assistant.getByRole("combobox", {
+        name: header,
+        exact: true,
+      });
+      await mapping.selectOption(field);
+      await expect(mapping).toHaveValue(field);
     }
     await assistant
       .getByRole("button", { name: "Approve mapping and select" })
@@ -118,35 +172,32 @@ test("IR corpus imports original Core and Cisco files and reopens exact source t
     await assistant
       .getByRole("button", { name: "Apply 1 selected unit" })
       .click();
+    // A normal apply settles in about 15 s; this bound leaves the rest of
+    // the test budget to report a stalled job at this step.
     await expect(assistant.getByRole("status")).toContainText(
       "Import completed",
-      { timeout: info.timeout },
+      { timeout: importSettlementTimeoutMs },
     );
     await assistant
       .getByRole("button", { name: "Open " + selected.title, exact: true })
       .click();
-    expect(await queryAll(selected.view)).toHaveLength(source.records);
+    await expect(
+      page.getByTestId(surfaceTabTestId(selected.view)),
+    ).toHaveAttribute("aria-selected", "true");
+    const rows = await queryIRCorpusView(page, incidentId, selected.view);
+    expect(rows).toHaveLength(source.records);
+    expect(rows).toHaveLength(expected.records[selected.name] ?? -1);
   }
-  await page.reload();
-  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
-  const timeline = await queryAll(timelineViewSchemaId);
-  expect(timeline).toHaveLength(1500);
-  const expected = JSON.parse(
-    corpus.read("ir-incident/v1/expected.json").toString(),
-  ) as {
-    timeline_cases: {
-      source_record: number;
-      source_identity: string;
-      cells: string[];
-    }[];
-  };
-  const columns = corpus.manifest.source_files.find(
-    (source) => source.logical_path === "timeline.csv",
-  )?.field_keys;
-  if (!columns) throw new Error("Missing Timeline mapping");
+
+  const timeline = await queryIRCorpusView(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+  );
+  const columns = irSource(corpus, "timeline.csv").field_keys;
   for (const selected of expected.timeline_cases) {
     const matches = timeline.filter((row) =>
-      String(row.cells["timeline.raw_activity_text"]?.value ?? "").includes(
+      cellText(row, "timeline.raw_activity_text").includes(
         `evidence_ref="${selected.source_identity}"`,
       ),
     );
@@ -154,25 +205,122 @@ test("IR corpus imports original Core and Cisco files and reopens exact source t
     const row = matches[0];
     if (!row) throw new Error("Missing source record");
     for (const [i, field] of columns.entries())
-      expect(row.cells[field]?.value ?? "").toBe(selected.cells[i]);
+      expect(cellText(row, field)).toBe(selected.cells[i]);
   }
+  // Corpus-wide text shape: exact line breaks, tabs, and paired or empty times.
+  const count = (predicate: (row: ViewRow) => boolean) =>
+    timeline.filter(predicate).length;
+  const raw = (row: ViewRow) => cellText(row, "timeline.raw_activity_text");
+  const synopsis = (row: ViewRow) =>
+    cellText(row, "timeline.activity_synopsis_text");
+  const utc = (row: ViewRow) => cellText(row, "timeline.activity_utc_text");
+  const local = (row: ViewRow) => cellText(row, "timeline.activity_local_text");
+  expect({
+    multiline_raw: count((row) => raw(row).includes("\n")),
+    multiline_synopsis: count((row) => synopsis(row).includes("\n")),
+    tabbed_raw: count((row) => raw(row).includes("\t")),
+    tabbed_synopsis: count((row) => synopsis(row).includes("\t")),
+    empty_times: count((row) => utc(row) === "" && local(row) === ""),
+    time_pairs: count((row) => utc(row) !== "" && local(row) !== ""),
+  }).toEqual({
+    multiline_raw: expected.multiline_raw,
+    multiline_synopsis: expected.multiline_synopsis,
+    tabbed_raw: expected.tabbed_raw,
+    tabbed_synopsis: expected.tabbed_synopsis,
+    empty_times: expected.empty_times,
+    time_pairs: expected.time_pairs,
+  });
+  const identities = timeline.map(
+    (row) => /evidence_ref="([^"]+)"/u.exec(raw(row))?.[1],
+  );
+  expect(identities.every((identity) => identity !== undefined)).toBe(true);
+  expect(new Set(identities).size).toBe(timeline.length);
+  await attachIRFixtureAdmission(info, corpus);
+});
 
+test("IR corpus source history reopens the exact committed Timeline source for an API-seeded import", async ({
+  page,
+}, info) => {
+  const corpus = await admitIRCorpus(info.outputPath("ir-inputs"));
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("IR-SOURCES"),
+    "Supplied incident documentation",
+  );
+  const source = irSource(corpus, "timeline.csv");
+  const seeded = await seedWorkbookImport(page, {
+    incidentId,
+    targetViewSchemaId: timelineViewSchemaId,
+    fieldKeys: source.field_keys,
+    file: {
+      name: "timeline.csv",
+      mimeType: "text/csv",
+      buffer: corpus.read("ir-incident/v1/timeline.csv"),
+    },
+    settlementTimeoutMs: importSettlementTimeoutMs,
+  });
+  const timeline = await queryIRCorpusView(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+  );
+  expect(timeline).toHaveLength(source.records);
   const firstRecord = timeline[0];
   if (!firstRecord) throw new Error("Missing imported Timeline record");
-  await openTimelineInspector(page, firstRecord.record_id);
-  const recordSourceTrigger = page.getByRole("button", {
-    name: "Find original import sources",
-  });
-  await recordSourceTrigger.click();
+
+  await page.goto(`/?incident_id=${incidentId}`);
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+  await openTimelineRowActions(page, firstRecord.record_id);
+  await expect(
+    page.getByTestId(
+      workbookRowContextMenuTestId(timelineViewSchemaId, firstRecord.record_id),
+    ),
+  ).toBeVisible();
+  const inspect = page.getByTestId(
+    rowInspectButtonTestId(firstRecord.record_id),
+  );
+  await expect(inspect).toBeFocused();
+  await inspect.click();
+  await expect(page.getByTestId(timelineInspectorTestId())).toBeVisible();
+
+  await page
+    .getByRole("button", { name: "Find original import sources" })
+    .click();
   const sourceHistory = page.getByRole("region", { name: "Source history" });
   await expect(
     sourceHistory.getByText("Showing sources that produced this record."),
   ).toBeVisible();
+  await expect(sourceHistory.getByRole("listitem")).toHaveCount(1);
   await sourceHistory
     .getByRole("button", { name: "timeline.csv", exact: true })
     .click();
   await expect(
     sourceHistory.getByRole("heading", { name: "timeline.csv", exact: true }),
+  ).toBeVisible();
+  const detail = (label: string) =>
+    sourceHistory
+      .locator("dl > div")
+      .filter({
+        has: page.getByRole("term").filter({
+          hasText: new RegExp(
+            `^${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`,
+          ),
+        }),
+      })
+      .getByRole("definition");
+  await expect(detail("Source parser")).toHaveText(
+    "cartulary.import.workbook.v2",
+  );
+  await expect(detail("Applied target")).toHaveText(timelineViewSchemaId);
+  await expect(detail("Original import session")).toHaveText(
+    seeded.importSessionId,
+  );
+  await expect(detail("Original import unit")).toHaveText(seeded.importUnitId);
+  await expect(detail("Size in bytes")).toHaveText(String(source.size_bytes));
+  await expect(detail("SHA-256")).toHaveText(source.sha256);
+  await sourceHistory.getByRole("button", { name: "Back to sources" }).click();
+  await expect(
+    sourceHistory.getByRole("button", { name: "timeline.csv", exact: true }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Close incident controls" }).click();
   // The shell admits one secondary panel at a time. Source inspection replaces
@@ -180,7 +328,20 @@ test("IR corpus imports original Core and Cisco files and reopens exact source t
   await expect(
     page.getByTestId(workbookActiveSurfaceFocusTargetTestId()),
   ).toBeFocused();
+  await attachIRFixtureAdmission(info, corpus);
+});
 
+test("IR corpus Cisco Network Flow imports retain the table list, exact source download and accessible source history", async ({
+  page,
+}, info) => {
+  const corpus = await admitIRCorpus(info.outputPath("ir-inputs"));
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("IR-FLOWS"),
+    "Supplied incident documentation",
+  );
+  await page.goto(`/?incident_id=${incidentId}`);
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
   await page.getByRole("button", { name: "More views", exact: true }).click();
   await page.getByTestId(networkAnalysisTestId("tab")).click();
   const mappings = [
@@ -196,7 +357,8 @@ test("IR corpus imports original Core and Cisco files and reopens exact source t
     ["searchSubject.orientation", "input_first_orientation"],
     ["peer.orientation", "input_second_orientation"],
   ] as const;
-  for (const name of ["day1", "day2", "overlap"]) {
+  const names = ["day1", "day2", "overlap"];
+  for (const name of names) {
     await page
       .getByTestId(networkAnalysisTestId("import-input"))
       .setInputFiles({
@@ -226,11 +388,11 @@ test("IR corpus imports original Core and Cisco files and reopens exact source t
     ).toBeVisible();
     await dialog.getByTestId(networkAnalysisTestId("mapping-apply")).click();
     // Approval, selection, apply, and the workspace handoff are one async
-    // workflow. Observe its published table within the existing journey budget
-    // before asserting the mapping panel's terminal presentation.
+    // workflow. Observe its published table within its own bound, below the
+    // test budget, before asserting the mapping panel's terminal presentation.
     await expect(
       page.getByRole("tab", { name: new RegExp(`IR ${name}`) }),
-    ).toBeVisible({ timeout: info.timeout });
+    ).toBeVisible({ timeout: importSettlementTimeoutMs });
     await expect(dialog).toHaveCount(0);
   }
   await page.reload();
@@ -289,21 +451,13 @@ test("IR corpus imports original Core and Cisco files and reopens exact source t
     corpus.read("network-flow-orientation/v1/overlap.csv"),
   );
   await page.getByRole("button", { name: "Back to sources" }).click();
-  await page.getByRole("button", { name: "timeline.csv", exact: true }).click();
-  await expect(
-    page.getByRole("heading", { name: "timeline.csv", exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByText("cartulary.import.workbook.v2", { exact: true }),
-  ).toBeVisible();
-  await info.attach("ir-fixture-admission", {
-    body: JSON.stringify({
-      fixture_id: corpus.manifest.fixture_id,
-      revision: corpus.manifest.revision,
-      manifest_sha256: corpus.manifestSHA256,
-    }),
-    contentType: "application/json",
-  });
+  const sourceHistory = page.getByRole("region", { name: "Source history" });
+  const listed = sourceHistory.getByRole("listitem").getByRole("button");
+  await expect(listed).toHaveCount(names.length);
+  expect((await listed.allTextContents()).sort()).toEqual(
+    names.map((name) => `${name}.csv`),
+  );
+  await attachIRFixtureAdmission(info, corpus);
 });
 
 test("Workbook Import Assistant discovers, maps, selects, applies, and navigates from the claimed production surface", async ({
@@ -511,12 +665,7 @@ test("Workbook Import Assistant resumes its known job and recovers only selectio
     observedJobs.push(route.request().url());
     if (failJob) {
       failJob = false;
-      await route.fulfill({
-        status: 503,
-        json: {
-          error: { code: "service_unavailable", status: 503, retryable: true },
-        },
-      });
+      await fulfillOperationError(route, "getJob", 500, "internal_error");
     } else await route.continue();
   });
   await installOwnedRoute(
@@ -525,16 +674,13 @@ test("Workbook Import Assistant resumes its known job and recovers only selectio
     async (route) => {
       selections++;
       if (selections === 1)
-        await route.fulfill({
-          status: 409,
-          json: {
-            error: {
-              code: "invalid_import_state",
-              status: 409,
-              details: { reason_code: "unit_not_ready" },
-            },
-          },
-        });
+        await fulfillOperationError(
+          route,
+          "selectImportUnit",
+          409,
+          "import_apply_blocked",
+          { details: { reason_code: "unit_not_ready" } },
+        );
       else await route.continue();
     },
   );

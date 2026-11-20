@@ -4,7 +4,7 @@ import { StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { HTTPOperationResult } from "../services/browserApi";
 import { sessionResource } from "../testing/appShellTestSupport";
-import { deferred } from "../testing/fetchMockTestSupport";
+import { deferred, operationRejection } from "../testing/fetchMockTestSupport";
 import { useWorkbookAuthorizationState } from "../workbook/hooks/useWorkbookAuthorizationState";
 import { AppSessionController } from "./appSessionController";
 import { useAppSession } from "./useAppSession";
@@ -13,7 +13,10 @@ const accountA = "00000000-0000-4000-8000-000000000001";
 const accountB = "00000000-0000-4000-8000-000000000002";
 const incident = "00000000-0000-4000-8000-000000000003";
 const timestamp = "2026-09-05T12:00:00Z";
-type SessionResult = HTTPOperationResult<GetCurrentSessionResponse>;
+type SessionResult = HTTPOperationResult<
+  GetCurrentSessionResponse,
+  "getCurrentSession"
+>;
 const controllers: AppSessionController[] = [];
 function success(userId = accountA): SessionResult {
   return {
@@ -97,11 +100,9 @@ describe("application session lifecycle", () => {
       ).toBe(true);
       const accepted = controller.getSnapshot().lifetime;
       const retirements = retireLifetime.mock.calls.length;
-      old.resolve({
-        ok: false,
-        status: 401,
-        payload: { error: { code: "session_required" } },
-      });
+      old.resolve(
+        operationRejection({ code: "session_required", status: 401 }),
+      );
       expect(await observation).toEqual({ kind: "cancelled" });
       controller.sessionLost(lifetime);
       expect(controller.getSnapshot().lifetime).toBe(accepted);
@@ -110,11 +111,10 @@ describe("application session lifecycle", () => {
     }
   });
   it("keeps anonymous authentication confirmation inside its current flow and fences replacement", async () => {
-    const anonymous: SessionResult = {
-      ok: false,
+    const anonymous: SessionResult = operationRejection({
+      code: "session_required",
       status: 401,
-      payload: { error: { code: "session_required" } },
-    };
+    });
     const session = vi.fn().mockResolvedValue(anonymous);
     const { controller, retireLifetime } = setup({ session });
     await controller.refreshSession();

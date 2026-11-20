@@ -62,6 +62,41 @@ func (g TestRouteGuard) Protect(handler http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+// ProtectMethod is Protect for a test-only harness route that serves one
+// method: after the guard admits the request, any other method, HEAD
+// included, receives the enveloped 405 method_not_allowed with an Allow
+// header naming method (headers only for HEAD) and never reaches the handler.
+func (g TestRouteGuard) ProtectMethod(method string, handler http.HandlerFunc) http.HandlerFunc {
+	return g.Protect(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != method {
+			writeMethodNotAllowed(w, r, []string{method})
+			return
+		}
+		handler(w, r)
+	})
+}
+
+// BindTestRoute binds a test-only harness route (Testing Harness NLSpec
+// TH-HARNESS-REQ-450) that serves exactly method at path, under /api/v1/test/
+// or /ws/v1/test/. The guard answers first, with 403 test_route_forbidden; then
+// any other method, HEAD included, receives the enveloped 405 with Allow. The
+// route is recorded in deps' route registry, so the catalog test sees it.
+func BindTestRoute(mux *http.ServeMux, deps DependencySet, guard TestRouteGuard, method, path string, handler http.HandlerFunc) error {
+	if mux == nil || handler == nil || method == "" || strings.ContainsAny(method, " \t/") || strings.ContainsAny(path, " \t") ||
+		!strings.HasPrefix(path, "/api/v1/test/") && !strings.HasPrefix(path, socketRouteRoot+"/test/") {
+		return fmt.Errorf("invalid test route %s %q", method, path)
+	}
+	registry, err := dependencyRouteRegistry(deps)
+	if err != nil {
+		return err
+	}
+	if err := registry.recordSupplementary(SupplementaryRoute{Kind: SupplementaryTestRoute, Method: method, Path: path}); err != nil {
+		return err
+	}
+	mux.HandleFunc(path, guard.ProtectMethod(method, handler))
+	return nil
+}
+
 func (g TestRouteGuard) Authorize(w http.ResponseWriter, r *http.Request) bool {
 	if !g.AllowedRequestBoundary(r) {
 		_ = WriteError(w, r, http.StatusForbidden, "test_route_forbidden", "test route origin is forbidden", map[string]any{})

@@ -108,9 +108,12 @@ func (s *service) openGenericCSV(ctx context.Context, sessionID, unitID uuid.UUI
 	if err != nil {
 		return ImportSourceStream{}, internalAPIError(err)
 	}
+	// The capability and the opened stream are two reads of one immutable
+	// source-stream row, so a difference is corrupt or changed retained state,
+	// never a request condition: internal_error (Core 01 REQ-01-706).
 	if stream.ImportSourceCapability != capability {
 		_ = stream.Reader.Close()
-		return ImportSourceStream{}, invalidImportRequest("source", "owner_preview_validation_failed")
+		return ImportSourceStream{}, internalAPIError(errors.New("imports: generic source stream differs from its unit capability"))
 	}
 	return stream, nil
 }

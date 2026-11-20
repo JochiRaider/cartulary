@@ -1,7 +1,7 @@
-import {
-  type APIError,
-  extractError,
-  type HTTPOperationResult,
+import type {
+  APIError,
+  HTTPOperationFailureCode,
+  HTTPOperationResult,
 } from "../services/browserApi";
 import type {
   AuthorizationRecoveryPort,
@@ -19,17 +19,28 @@ import type {
   SessionData,
 } from "./api/publicHttpTypes";
 
+/** Failure codes of the account session read. */
+export type SessionErrorCode =
+  | HTTPOperationFailureCode<"getCurrentSession">
+  | "session_observation_unavailable";
+/** Failure codes of the session-scoped account preference and extension reads. */
+export type SessionResourceErrorCode =
+  | HTTPOperationFailureCode<
+      "getCurrentAccountPreferences" | "listDeploymentExtensions"
+    >
+  | "session_observation_unavailable";
+
 export type SessionResourceState<T> =
   | { readonly kind: "unresolved" | "loading" }
   | {
       readonly kind: "ready";
       readonly value: T;
       readonly refreshing?: boolean;
-      readonly refreshError?: APIError;
+      readonly refreshError?: APIError<SessionResourceErrorCode>;
     }
   | {
       readonly kind: "failed";
-      readonly error: APIError;
+      readonly error: APIError<SessionResourceErrorCode>;
       readonly failure: "transient" | "contract";
     };
 
@@ -40,7 +51,7 @@ export type AppSessionSnapshot = {
   readonly revision: number;
   readonly observing: boolean;
   readonly authenticationTransportPending: boolean;
-  readonly error: APIError | null;
+  readonly error: APIError<SessionErrorCode> | null;
   readonly ended: boolean;
   readonly preferences: SessionResourceState<AccountPreferencesResource>;
   readonly extensions: SessionResourceState<
@@ -70,7 +81,7 @@ export type SessionObservation =
       { kind: "authorized" | "access_lost" }
     >;
 const observationTimeoutMs = 30_000;
-const unavailableError: APIError = {
+const unavailableError: APIError<"session_observation_unavailable"> = {
   code: "session_observation_unavailable",
   status: 503,
   retryable: true,
@@ -79,7 +90,9 @@ const unavailableError: APIError = {
 function identity(session: SessionData) {
   return `${session.user_id}:${session.authenticated_at}:${session.provider_type}`;
 }
-function failure(error: APIError | null): "transient" | "contract" {
+function failure(
+  error: APIError<SessionErrorCode | SessionResourceErrorCode> | null,
+): "transient" | "contract" {
   return error?.code === "invalid_public_contract_response"
     ? "contract"
     : "transient";
@@ -451,14 +464,8 @@ export class AppSessionController {
       this.accept(result.payload.data, reauthenticated);
       return { kind: "accepted", session: result.payload.data };
     }
-    const error =
-      result === null
-        ? unavailableError
-        : (extractError(result.payload) ?? unavailableError);
-    if (
-      result?.status === 401 &&
-      (error.code === "session_required" || result.payload.error === undefined)
-    ) {
+    const error = result === null ? unavailableError : result.payload.error;
+    if (result?.status === 401 && error.code === "session_required") {
       // An anonymous confirmation read is discovery within the active login flow,
       // not a new retirement; its owner must retain the uncertain outcome.
       if (reporting === "authentication" && this.snapshot.session === null) {
@@ -478,9 +485,17 @@ export class AppSessionController {
       });
     return { kind: "unavailable", failure: failure(error) };
   }
-  private async observeResource<K extends "preferences" | "extensions", T>(
+  private async observeResource<
+    K extends "preferences" | "extensions",
+    T,
+    OperationID extends
+      | "getCurrentAccountPreferences"
+      | "listDeploymentExtensions",
+  >(
     key: K,
-    request: (signal: AbortSignal) => Promise<HTTPOperationResult<T>>,
+    request: (
+      signal: AbortSignal,
+    ) => Promise<HTTPOperationResult<T, OperationID>>,
     select: (
       payload: T,
     ) => K extends "preferences"
@@ -521,7 +536,7 @@ export class AppSessionController {
           return;
         }
         const error = {
-          code: "invalid_public_contract_response",
+          code: "invalid_public_contract_response" as const,
           retryable: true,
         };
         this.publish({
@@ -535,10 +550,7 @@ export class AppSessionController {
       this.publish({ [key]: { kind: "ready", value: select(result.payload) } });
       return;
     }
-    const error =
-      result === null
-        ? unavailableError
-        : (extractError(result.payload) ?? unavailableError);
+    const error = result === null ? unavailableError : result.payload.error;
     if (result?.status === 401 && error.code === "session_required") {
       this.sessionLost();
       return;

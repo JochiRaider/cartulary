@@ -1,4 +1,10 @@
+import type { HTTPOperationID } from "@cartulary/protocol-ts/http";
 import { expect, vi } from "vitest";
+import type {
+  HTTPOperationContractFailure,
+  HTTPOperationError,
+  HTTPOperationPublicError,
+} from "../services/browserApi";
 
 type FetchMock = {
   mock: {
@@ -172,6 +178,92 @@ export function errorResponse(
     },
     status,
   );
+}
+
+type OperationErrorIdentity<OperationID extends HTTPOperationID> =
+  HTTPOperationPublicError<OperationID> extends infer Error
+    ? Error extends HTTPOperationPublicError<OperationID>
+      ? Pick<Error, "code" | "status">
+      : never
+    : never;
+
+/**
+ * A failed operation result as `fetchHTTPOperation` surfaces a decoded public
+ * error. The operation is inferred from the receiving result type, so the
+ * code must be one that operation declares for the status.
+ */
+export function operationRejection<
+  OperationID extends HTTPOperationID = HTTPOperationID,
+>(
+  identity: OperationErrorIdentity<NoInfer<OperationID>>,
+  details: Record<string, unknown> = {},
+): {
+  readonly ok: false;
+  readonly status: number;
+  readonly payload: { readonly error: HTTPOperationError<OperationID> };
+} {
+  const error = {
+    ...identity,
+    details,
+    message: identity.code,
+    request_id: "request-test",
+    retryable: false,
+  } as HTTPOperationPublicError<OperationID>;
+  return { ok: false as const, status: identity.status, payload: { error } };
+}
+
+/**
+ * A well-formed error response for one operation. The code must be one the
+ * operation declares for the status. `internal_error` carries no details and
+ * is not retryable; `service_unavailable` is retryable (Core 01 §3.3.6.1).
+ */
+export function operationErrorResponse<OperationID extends HTTPOperationID>(
+  _operationID: OperationID,
+  identity: OperationErrorIdentity<NoInfer<OperationID>>,
+  fixture: {
+    readonly details?: Record<string, unknown>;
+    readonly message?: string;
+    readonly retryable?: boolean;
+  } = {},
+): Response {
+  const internal = identity.code === "internal_error";
+  return jsonResponse(
+    {
+      error: {
+        code: identity.code,
+        status: identity.status,
+        message: internal
+          ? "internal_error"
+          : (fixture.message ?? identity.code),
+        request_id: "request-test",
+        retryable: internal
+          ? false
+          : (fixture.retryable ?? identity.code === "service_unavailable"),
+        details: internal ? {} : (fixture.details ?? {}),
+      },
+    },
+    identity.status,
+  );
+}
+
+/** A failed operation result as `fetchHTTPOperation` surfaces a client contract failure. */
+export function operationContractFailure(
+  operationID: HTTPOperationID,
+  responseStatus = 200,
+) {
+  const error: HTTPOperationContractFailure = {
+    code: "invalid_public_contract_response",
+    details: {
+      instance_path: "",
+      operation_id: operationID,
+      response_status: responseStatus,
+      schema_id: `test.${operationID}`,
+    },
+    message: "The server returned an invalid public contract response.",
+    retryable: true,
+    status: 502,
+  };
+  return { ok: false as const, status: 502 as const, payload: { error } };
 }
 
 export function deferred<T>() {

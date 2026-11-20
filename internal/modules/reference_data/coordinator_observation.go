@@ -2,6 +2,7 @@ package reference_data
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 
@@ -37,6 +38,20 @@ func (c *verificationService) observeDuringPreparation(ctx context.Context, exec
 			if watchCtx.Err() != nil {
 				return
 			}
+			if errors.Is(err, jobs.ErrExecutionLost) {
+				// A terminal parent Job ends observation without interrupting
+				// the scope: it is neither cancellation nor a lost lease, so a
+				// proven commit's remaining completion receives no grace from it
+				// (EXT-REQ-215, Reference Pack §23.2). Loss of a still-running
+				// execution remains the Jobs runtime's to signal (REQ-01-453).
+				current, getErr := c.operations.Get(watchCtx, execution.JobID())
+				if watchCtx.Err() != nil {
+					return
+				}
+				if getErr == nil && terminalJobStatus(current.Status) {
+					return
+				}
+			}
 			var sample *int64
 			if err == nil && job.Status == jobs.StatusCancelRequested {
 				value := time.Since(started).Nanoseconds()
@@ -55,6 +70,14 @@ func (c *verificationService) observeDuringPreparation(ctx context.Context, exec
 	}()
 	return o
 }
+func terminalJobStatus(status string) bool {
+	switch status {
+	case jobs.StatusSucceeded, jobs.StatusFailed, jobs.StatusCanceled:
+		return true
+	}
+	return false
+}
+
 func (o *executionObservation) finish() (*int64, error) {
 	o.stop()
 	<-o.done

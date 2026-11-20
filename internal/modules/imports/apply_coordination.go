@@ -83,7 +83,11 @@ WHERE import_session_id=$1 AND import_unit_id=$2 AND apply_job_id=$3`, start.Imp
 	if err != nil {
 		return unitApplyOutcome{}, err
 	}
-	if err := tx.Commit(ctx); err != nil {
+	// An issued unit commit is awaited, never abandoned when the attempt is
+	// cancelled (shutdown or execution loss): the transaction's Jobs-locked
+	// validation already decided the cancellation/commit race (REQ-01-620c).
+	// After cancellation the wait is bounded by the attempt-operation timeout.
+	if err := jobs.AwaitCommit(ctx, tx.Commit); err != nil {
 		if recovered, findErr := s.store.getUnitOutcome(
 			context.WithoutCancel(ctx),
 			start.ImportSessionID,

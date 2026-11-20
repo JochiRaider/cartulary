@@ -11,6 +11,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { WorkbookIncidentRole } from "../shared/workbookShellContracts";
 import { sessionResource } from "../testing/appShellTestSupport";
 import { useAppWorkflowsForTest } from "../testing/appWorkflowsTestSupport";
+import { operationRejection } from "../testing/fetchMockTestSupport";
 import {
   membershipEnvelope,
   membershipFixture,
@@ -49,11 +50,8 @@ async function setup() {
       status: 200,
       payload: { data: currentSession, meta: { request_id: "session" } },
     }),
-    preferences: async () => ({
-      ok: false,
-      status: 503,
-      payload: { error: { code: "service_unavailable" } },
-    }),
+    preferences: async () =>
+      operationRejection({ code: "internal_error", status: 500 }),
     extensions: async () => ({
       ok: true,
       status: 200,

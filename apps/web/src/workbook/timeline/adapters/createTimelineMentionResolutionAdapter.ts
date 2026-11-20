@@ -4,7 +4,7 @@ import {
   type ResolveEntityMentionResponse,
 } from "@cartulary/protocol-ts/http";
 import { apiPath, fetchHTTPOperation } from "../../../services/browserApi";
-import { classifyWorkbookOperationFailure } from "../../adapters/workbookOperationErrorPolicy";
+import { explicitWorkbookFailureOutcome } from "../../adapters/workbookOperationErrorPolicy";
 import { mentionReviewValid } from "../actions/timelineMentionOperationModel";
 import type { TimelineMentionResolutionPort } from "../ports/TimelineMentionPort";
 import { validateMentionReceipt } from "./timelineMentionProtocol";
@@ -54,7 +54,10 @@ export function createTimelineMentionResolutionAdapter(options: {
         return { kind: "uncertain" };
       let status: number | null = null;
       try {
-        const result = await fetchHTTPOperation<ResolveEntityMentionResponse>({
+        const result = await fetchHTTPOperation<
+          ResolveEntityMentionResponse,
+          "resolveEntityMention"
+        >({
           apiBase: attempt.apiBase,
           operationID: attempt.operationID,
           pathParameters: {
@@ -66,21 +69,11 @@ export function createTimelineMentionResolutionAdapter(options: {
           },
         });
         if (!result.ok) {
-          if (
-            status === null ||
-            status < 400 ||
-            status >= 500 ||
-            !result.payload.error?.code
-          )
-            return { kind: "uncertain" };
-          const failure = classifyWorkbookOperationFailure(
-            result.status,
-            result.payload,
+          return explicitWorkbookFailureOutcome(
+            status,
+            result.payload.error,
             attempt.operationID,
           );
-          return failure.kind === "invalid_contract"
-            ? { kind: "uncertain" }
-            : { kind: "rejected", failure };
         }
         const receipt = validateMentionReceipt(attempt, result.payload.data);
         return receipt ? { kind: "accepted", receipt } : { kind: "uncertain" };

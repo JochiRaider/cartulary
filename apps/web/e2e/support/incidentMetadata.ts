@@ -1,4 +1,7 @@
-import type { GetIncidentResponse } from "@cartulary/protocol-ts/http";
+import type {
+  GetIncidentResponse,
+  HTTPOperationErrorCode,
+} from "@cartulary/protocol-ts/http";
 import { expect, type Locator, type Page } from "@playwright/test";
 import { openIncidentControls } from "../pages/deploymentAdministration";
 import { openIncidentFromLanding } from "../pages/incidentDirectory";
@@ -11,7 +14,10 @@ import { publicHttpOperation } from "./transport/publicHttpOperationClient";
 import { atJsonOrigin } from "./transport/publicJsonClient";
 import {
   awaitResponseBarrier,
+  checkedOperationErrorEnvelope,
+  fulfillOperationError,
   installOwnedRoute,
+  operationErrorEnvelope,
 } from "./transport/requestInterception";
 export async function openMetadata(page: Page) {
   await openIncidentControls(page, "incident-fields");
@@ -50,7 +56,8 @@ export async function installMetadataPresentation(
   };
   let readStatus = 200;
   let writeStatus = 200;
-  let writeCode = "service_unavailable";
+  let writeCode: HTTPOperationErrorCode<"patchIncident"> | "internal_error" =
+    "internal_error";
   let writeResource: GetIncidentResponse["data"] = {
     ...resource,
     severity: "critical",
@@ -69,17 +76,23 @@ export async function installMetadataPresentation(
   const writes: Record<string, unknown>[] = [];
   const reads: string[] = [];
   await installOwnedRoute(page, "**/api/v1/auth/session", async (route) => {
-    if (access === "session" || access === "unavailable") {
-      await route.fulfill({
-        status: access === "session" ? 401 : 503,
-        json: {
-          error: {
-            code:
-              access === "session" ? "session_required" : "service_unavailable",
-          },
-          meta: { request_id: "metadata-access" },
-        },
-      });
+    if (access === "session") {
+      await fulfillOperationError(
+        route,
+        "getCurrentSession",
+        401,
+        "session_required",
+        { requestId: "metadata-access" },
+      );
+      return;
+    }
+    if (access === "unavailable") {
+      await fulfillOperationError(
+        route,
+        "getCurrentSession",
+        500,
+        "internal_error",
+      );
       return;
     }
     const requestAccess = access;
@@ -112,10 +125,7 @@ export async function installMetadataPresentation(
                   data: captured.resource,
                   meta: { request_id: "metadata-read" },
                 }
-              : {
-                  error: { code: "service_unavailable" },
-                  meta: { request_id: "metadata-read-failed" },
-                },
+              : operationErrorEnvelope("getIncident", 500, "internal_error"),
         });
         return;
       }
@@ -140,13 +150,15 @@ export async function installMetadataPresentation(
                 data: captured.resource,
                 meta: { request_id: "metadata-write" },
               }
-            : {
-                error: {
-                  code: captured.code,
+            : checkedOperationErrorEnvelope(
+                "patchIncident",
+                captured.status,
+                captured.code,
+                {
                   message: "Private diagnostic must not appear",
+                  requestId: "metadata-rejection",
                 },
-                meta: { request_id: "metadata-rejection" },
-              },
+              ),
       });
     },
   );
@@ -160,13 +172,17 @@ export async function installMetadataPresentation(
       resource = { ...resource, ...next };
       readStatus = 200;
     },
+    /** A getIncident read failure: internal_error at 500. */
     failRead: () => {
-      readStatus = 503;
+      readStatus = 500;
     },
+    /** A patchIncident outcome; errors use a code the operation declares. */
     mutation: (
       status: number,
       next: Partial<typeof resource> = {},
-      code = "service_unavailable",
+      code:
+        | HTTPOperationErrorCode<"patchIncident">
+        | "internal_error" = "internal_error",
     ) => {
       writeStatus = status;
       writeResource = { ...resource, ...next };

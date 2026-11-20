@@ -383,6 +383,9 @@ describe("Workbook save status", () => {
     await first();
     expect(runtime.getSnapshot().primaryLabel).toBe("Saved");
     const beforeAuthority = runtime.getSnapshot();
+    // A resume that ends no recovery pause keeps the authority lifetime; an
+    // authority transition is a pause followed by its resume.
+    runtime.applyAuthorizationRecoveryState("paused", false);
     runtime.applyAuthorizationRecoveryState("resumed");
     expect(runtime.getSnapshot()).not.toBe(beforeAuthority);
     expect(published.mock.calls.length).toBeGreaterThan(5);

@@ -46,6 +46,7 @@ import { publicHttpOperation } from "./support/transport/publicHttpOperationClie
 import { atJsonOrigin } from "./support/transport/publicJsonClient";
 import {
   awaitResponseBarrier,
+  fulfillOperationError,
   holdBrowserRequest,
   installOwnedRoute,
 } from "./support/transport/requestInterception";
@@ -279,20 +280,13 @@ async function holdRejectedPatch(page: Page, recordId: string) {
     hitCount += 1;
     signalHit();
     if (!(await awaitResponseBarrier(route, hold))) return;
-    await route.fulfill({
-      status: 422,
-      contentType: "application/json",
-      body: JSON.stringify({
-        error: {
-          code: "invalid_request",
-          details: {},
-          message: "invalid_request",
-          request_id: "timeline-find-rejection",
-          retryable: false,
-          status: 422,
-        },
-      }),
-    });
+    await fulfillOperationError(
+      route,
+      "patchRecord",
+      400,
+      "invalid_mutation_payload",
+      { requestId: "timeline-find-rejection" },
+    );
   };
   const ownedRoute = await installOwnedRoute(page, pattern, handler, () => {
     holdBarrier.cancel();
@@ -478,7 +472,9 @@ test("Timeline Find opening preserves exact scalar drafts and explicit navigatio
   await cell(page, f.first).click();
   await editor(page, f.first).fill("rejected exact draft");
   const rejected = await installPatchController(page);
-  rejected.failNextPatch(422, "invalid_request", { recordId: f.first });
+  rejected.failNextPatch(400, "invalid_mutation_payload", {
+    recordId: f.first,
+  });
   await find(page, "0002 needle", 1);
   await input(page).press("Enter");
   await expect(editor(page, f.first)).toHaveValue("rejected exact draft");

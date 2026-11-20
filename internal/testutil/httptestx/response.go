@@ -8,9 +8,53 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
+	"github.com/JochiRaider/cartulary/internal/platform/harnessredact"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
+
+// A failed status assertion reports the response body (TH-HARNESS-REQ-864),
+// redacted by the shared harness rules (TH-HARNESS-REQ-600, REQ-601) and
+// bounded. Redaction reads at most redactionInputLimit bytes; the report keeps
+// at most reportedBodyLimit bytes of the redacted text.
+const (
+	reportedBodyLimit   = 4 << 10
+	redactionInputLimit = 64 << 10
+)
+
+// reportedValue renders a decoded response object like reportedBody.
+func reportedValue(value map[string]any) string {
+	payload, err := json.Marshal(value)
+	if err != nil {
+		return ""
+	}
+	return reportedBody(payload)
+}
+
+// reportedBody renders response bytes for a failure message. A JSON body is
+// redacted structurally, so secret-named members such as tokens never appear;
+// other text uses the shared value rules. The result is quoted by callers, so
+// control bytes cannot forge further output lines.
+func reportedBody(body []byte) string {
+	if len(body) == 0 {
+		return ""
+	}
+	var text string
+	if len(body) <= redactionInputLimit && utf8.Valid(body) {
+		text = strings.TrimSuffix(harnessredact.StructuredString(string(body)), "\n")
+	} else {
+		text = harnessredact.String(strings.ToValidUTF8(string(body[:min(len(body), redactionInputLimit)]), "\uFFFD"))
+	}
+	if len(text) <= reportedBodyLimit {
+		return text
+	}
+	cut := reportedBodyLimit
+	for cut > 0 && !utf8.RuneStart(text[cut]) {
+		cut--
+	}
+	return fmt.Sprintf("%s...[%d more bytes]", text[:cut], len(text)-cut)
+}
 
 // ReadResponseBody consumes and closes resp.Body, then checks the transport status.
 // Headers remain available. The caller must not read or close the body again.
@@ -28,7 +72,7 @@ func readResponseBody(resp *http.Response, wantStatus int) ([]byte, error) {
 	closeErr := resp.Body.Close()
 	var statusErr error
 	if resp.StatusCode != wantStatus {
-		statusErr = fmt.Errorf("unexpected HTTP status: got %d want %d", resp.StatusCode, wantStatus)
+		statusErr = fmt.Errorf("unexpected HTTP status: got %d want %d; body: %q", resp.StatusCode, wantStatus, reportedBody(body))
 	}
 	if readErr != nil {
 		readErr = fmt.Errorf("read response body: %w", readErr)
@@ -174,7 +218,7 @@ func readErrorEnvelope(resp *http.Response, wantStatus int, wantCode string) (ma
 		return nil, errors.New("error.request_id does not match header")
 	}
 	if value["code"] != wantCode {
-		return nil, fmt.Errorf("unexpected error code: got %v want %s", value["code"], wantCode)
+		return nil, fmt.Errorf("unexpected error code: got %v want %s; body: %q", value["code"], wantCode, reportedValue(body))
 	}
 	if message, ok := value["message"].(string); !ok || strings.TrimSpace(message) == "" {
 		return nil, errors.New("expected nonempty error.message string")

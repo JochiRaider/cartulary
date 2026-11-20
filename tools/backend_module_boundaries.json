@@ -21,7 +21,7 @@
           "internal/modules/imports"
         ],
         "tokens": [
-          "httpapi.BindOwnerRoutes("
+          "httpapi.BindAdmittedOwnerRoutes("
         ],
         "production_only": true
       }
@@ -4822,6 +4822,41 @@
       ],
       "allowed_paths": [
         "internal/modules/reference_data/testsupport/**"
+      ],
+      "production_only": true,
+      "match_kind": "source_text"
+    },
+    {
+      "id": "modules-admit-requests-only-through-central-admission",
+      "tokens": [
+        "http.NotFound(",
+        "StatusMethodNotAllowed",
+        ".URL.Path",
+        ".URL.RawPath",
+        "EscapedPath(",
+        ".HandleFunc(",
+        ".Handle(\"",
+        "r.Method"
+      ],
+      "scan_paths": [
+        "internal/modules/**"
+      ],
+      "allowed_paths": [],
+      "production_only": true,
+      "match_kind": "source_text"
+    },
+    {
+      "id": "harness-routes-bind-through-the-recording-helpers",
+      "tokens": [
+        ".HandleFunc(",
+        ".Handle(\""
+      ],
+      "scan_paths": [
+        "internal/app/**",
+        "internal/platform/**"
+      ],
+      "allowed_paths": [
+        "internal/platform/httpapi/**"
       ],
       "production_only": true,
       "match_kind": "source_text"

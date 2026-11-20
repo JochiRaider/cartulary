@@ -2,11 +2,14 @@ package extensionassembly_test
 
 import (
 	"context"
+	"errors"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs/jobcontract"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
@@ -131,6 +134,102 @@ func TestInactiveExtensionJobReconciliation_ServiceBacked(t *testing.T) {
 	}
 	assertJobStatus(t, pool, raceFirst, jobs.StatusQueued)
 	assertJobStatus(t, pool, raceSecond, jobs.StatusCancelRequested)
+
+	// The reconciliation deadline or a stop request arrives once every terminal
+	// update is written and commit is next. The issued commit is awaited, so
+	// its outcome is retained instead of becoming indeterminate (EXT-REQ-131).
+	t.Run("interruption at commit keeps the committed outcome", func(t *testing.T) {
+		lateJob, _ := enqueueInactiveJob(t, pool, jobTransactions, now.Add(8*time.Second), "late-ack")
+		records, err := store.LoadInactiveJobRecords(ctx, "test_profile", 4)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var submittedAt time.Time
+		for _, record := range records {
+			if record.JobID == lateJob {
+				submittedAt = record.SubmittedAt
+			}
+		}
+		if submittedAt.IsZero() {
+			t.Fatal("late job not loaded")
+		}
+		interrupted, cancel := context.WithCancel(ctx)
+		defer cancel()
+		outcome, err := store.ApplyInactiveJobOutcomeRecords(interrupted, interruptingTerminalWriter{InactiveJobTerminalWriter: jobTransactions, interrupt: cancel}, "test_profile", []extensionstore.InactiveJobOutcomeRecord{{
+			JobID: lateJob, SubmittedAt: submittedAt, Status: jobs.StatusFailed,
+			TerminalResult: []byte(`{"code":"extension_profile_unclaimed","message":"Extension profile is not claimed.","retryable":false,"details":{}}`),
+			EvidenceKind:   "absence",
+		}}, now.Add(9*time.Second))
+		if interrupted.Err() == nil || err != nil || outcome != extensionstore.CommitProven {
+			t.Fatalf("interrupted reconciliation commit = %s/%v", outcome, err)
+		}
+		assertJobTerminalState(t, pool, lateJob, jobs.StatusFailed, "extension_profile_unclaimed")
+	})
+	t.Run("definite commit failure is proven absent", func(t *testing.T) {
+		assertDefiniteReconciliationCommitFailure(t, pool, store, jobTransactions, now)
+	})
+}
+
+// A deferred trigger fails COMMIT with an ERROR acknowledgement. The
+// reconciliation transaction is proven absent and is an ordinary
+// reconciliation failure, not an indeterminate commit (EXT-REQ-131, EXT-REQ-215).
+func assertDefiniteReconciliationCommitFailure(t *testing.T, pool *pgxpool.Pool, store *extensionstore.Store, jobTransactions *jobs.TransactionService, now time.Time) {
+	t.Helper()
+	ctx := context.Background()
+	failingJob, _ := enqueueInactiveJob(t, pool, jobTransactions, now.Add(10*time.Second), "commit-failure")
+	for _, statement := range []string{
+		`CREATE FUNCTION reconciliation_commit_failure() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    RAISE EXCEPTION 'injected deferred reconciliation failure' USING ERRCODE = 'P0001';
+END $$`,
+		`CREATE CONSTRAINT TRIGGER reconciliation_commit_failure AFTER UPDATE ON jobs
+DEFERRABLE INITIALLY DEFERRED FOR EACH ROW WHEN (NEW.job_id = '` + failingJob.String() + `'::uuid)
+EXECUTE FUNCTION reconciliation_commit_failure()`,
+	} {
+		if _, err := pool.Exec(ctx, statement); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Cleanup(func() {
+		if _, err := pool.Exec(context.Background(), `DROP TRIGGER reconciliation_commit_failure ON jobs; DROP FUNCTION reconciliation_commit_failure()`); err != nil {
+			t.Error(err)
+		}
+	})
+	records, err := store.LoadInactiveJobRecords(ctx, "test_profile", 8)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var submittedAt time.Time
+	for _, record := range records {
+		if record.JobID == failingJob {
+			submittedAt = record.SubmittedAt
+		}
+	}
+	outcome, err := store.ApplyInactiveJobOutcomeRecords(ctx, jobTransactions, "test_profile", []extensionstore.InactiveJobOutcomeRecord{{
+		JobID: failingJob, SubmittedAt: submittedAt, Status: jobs.StatusFailed,
+		TerminalResult: []byte(`{"code":"extension_profile_unclaimed","message":"Extension profile is not claimed.","retryable":false,"details":{}}`),
+		EvidenceKind:   "absence",
+	}}, now.Add(11*time.Second))
+	var response *pgconn.PgError
+	if outcome != extensionstore.CommitAbsent || !errors.As(err, &response) || response.Code != "P0001" {
+		t.Fatalf("definite reconciliation commit failure = %s/%v", outcome, err)
+	}
+	assertJobStatus(t, pool, failingJob, jobs.StatusQueued)
+}
+
+// interruptingTerminalWriter cancels the reconciliation context after the
+// last terminal update, so the store's commit is the next database action.
+type interruptingTerminalWriter struct {
+	extensionstore.InactiveJobTerminalWriter
+	interrupt context.CancelFunc
+}
+
+func (w interruptingTerminalWriter) CompleteInactiveJobTx(ctx context.Context, tx pgx.Tx, grant jobs.InactiveJobGrant, outcome jobs.InactiveTerminalOutcome, now time.Time) error {
+	if err := w.InactiveJobTerminalWriter.CompleteInactiveJobTx(ctx, tx, grant, outcome, now); err != nil {
+		return err
+	}
+	w.interrupt()
+	return nil
 }
 
 func cancelInactiveJob(t *testing.T, pool *pgxpool.Pool, manager *jobs.Manager, jobID uuid.UUID, clientTxnID string) {

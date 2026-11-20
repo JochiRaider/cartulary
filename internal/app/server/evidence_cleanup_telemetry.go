@@ -125,7 +125,7 @@ func closedEvidenceCleanupTelemetry(observation evidence.CleanupSweepObservation
 	}
 	errorClass := observation.ErrorClass
 	switch errorClass {
-	case "", "dependency_unavailable", "timeout", "internal_error":
+	case "", "dependency_unavailable", "invariant_violation", "timeout", "internal_error":
 	default:
 		errorClass = "internal_error"
 	}

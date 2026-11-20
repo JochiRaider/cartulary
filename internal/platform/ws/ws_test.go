@@ -96,31 +96,34 @@ func TestConnectionFrameIOAndOrigin(t *testing.T) {
 		}
 	})
 
-	t.Run("cookie browser Origin check fails before upgrade", func(t *testing.T) {
-		request := httptest.NewRequest(http.MethodGet, "http://cartulary.test/ws", nil)
-		request.AddCookie(&http.Cookie{Name: "cartulary_session", Value: "session"})
-		request.Header.Set("Origin", "https://untrusted.example")
-		recorder := httptest.NewRecorder()
-		if !RejectUntrustedBrowserOrigin(recorder, request, "https://cartulary.example") {
-			t.Fatal("expected untrusted cookie-browser Origin rejection")
-		}
-		if recorder.Code != http.StatusForbidden {
-			t.Fatalf("Origin response = %d want %d", recorder.Code, http.StatusForbidden)
-		}
-
-		// Controls: the configured origin and a cookie-less request pass through.
-		trusted := httptest.NewRequest(http.MethodGet, "http://cartulary.test/ws", nil)
-		trusted.AddCookie(&http.Cookie{Name: "cartulary_session", Value: "session"})
-		trusted.Header.Set("Origin", "https://cartulary.example")
-		cookieless := httptest.NewRequest(http.MethodGet, "http://cartulary.test/ws", nil)
-		cookieless.Header.Set("Origin", "https://untrusted.example")
-		for name, candidate := range map[string]*http.Request{"configured origin": trusted, "no session cookie": cookieless} {
-			passed := httptest.NewRecorder()
-			if RejectUntrustedBrowserOrigin(passed, candidate, "https://cartulary.example") {
-				t.Fatalf("%s was rejected", name)
+	t.Run("only a missing or configured Origin passes the Origin check", func(t *testing.T) {
+		const configured = "https://cartulary.example"
+		for _, tc := range []struct {
+			name    string
+			origins []string
+			cookie  bool
+			allowed bool
+		}{
+			{name: "no Origin", allowed: true},
+			{name: "no Origin with a session cookie", cookie: true, allowed: true},
+			{name: "configured origin", origins: []string{configured}, allowed: true},
+			{name: "configured origin with a session cookie", origins: []string{configured}, cookie: true, allowed: true},
+			{name: "untrusted origin with a session cookie", origins: []string{"https://untrusted.example"}, cookie: true},
+			{name: "untrusted origin without a session cookie", origins: []string{"https://untrusted.example"}},
+			{name: "configured host on another scheme", origins: []string{"http://cartulary.example"}},
+			{name: "opaque origin", origins: []string{"null"}},
+			{name: "empty Origin header", origins: []string{""}},
+			{name: "repeated Origin headers", origins: []string{configured, configured}},
+		} {
+			request := httptest.NewRequest(http.MethodGet, "http://cartulary.test/ws", nil)
+			for _, origin := range tc.origins {
+				request.Header.Add("Origin", origin)
 			}
-			if passed.Code != http.StatusOK || passed.Body.Len() != 0 {
-				t.Fatalf("%s wrote a response: %d %q", name, passed.Code, passed.Body.String())
+			if tc.cookie {
+				request.AddCookie(&http.Cookie{Name: "cartulary_session", Value: "session"})
+			}
+			if got := OriginAllowed(request, configured); got != tc.allowed {
+				t.Fatalf("%s: OriginAllowed = %t, want %t", tc.name, got, tc.allowed)
 			}
 		}
 	})

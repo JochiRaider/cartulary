@@ -8424,7 +8424,8 @@
                   "algorithm_result_invalid",
                   "timeout",
                   "dependency_unavailable",
-                  "commit_indeterminate"
+                  "commit_indeterminate",
+                  "commit_absent"
                 ]
               },
               "path_algorithm_id": {
@@ -8608,7 +8609,8 @@
                               "algorithm_result_invalid",
                               "timeout",
                               "dependency_unavailable",
-                              "commit_indeterminate"
+                              "commit_indeterminate",
+                              "commit_absent"
                             ]
                           },
                           "path_algorithm_id": {
@@ -8776,7 +8778,8 @@
                               "algorithm_result_invalid",
                               "timeout",
                               "dependency_unavailable",
-                              "commit_indeterminate"
+                              "commit_indeterminate",
+                              "commit_absent"
                             ]
                           },
                           "path_algorithm_id": {

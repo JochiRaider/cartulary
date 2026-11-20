@@ -2,17 +2,25 @@ package savedviews_test
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"reflect"
+	"strconv"
+	"strings"
 	"testing"
+
+	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
@@ -277,4 +285,197 @@ func TestSavedViewTimestampCompatibility_Integration(t *testing.T) {
 	if !reflect.DeepEqual(created["query_json"], expected) {
 		t.Fatal("create lost instant meaning", created)
 	}
+}
+
+// TestSavedViewRouteAdmissionOrder_Integration covers Core 01 REQ-01-707 and
+// AC-617 for the saved-view routes: route resolution rejects undeclared
+// methods and HEAD with registered envelopes; authentication and CSRF precede
+// path parameters; a malformed or encoded-slash incident_id or saved_view_id
+// receives the declared saved_view_not_found, identical to a missing
+// resource's, and never reaches another operation; and the incident's
+// visibility precedes the query and the request body (REQ-01-704), with no
+// committed effect. The saved-view routes declare no incident role gate.
+func TestSavedViewRouteAdmissionOrder_Integration(t *testing.T) {
+	harness := appsupport.StartRuntime(t).StartServer(t, appsupport.ServerOptions{Prefix: "saved-view-admission-order", TestRouteMode: httptestx.TestRouteModeDisabled})
+	base := harness.Server.HTTP.URL
+	admin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, base)
+	incidentID := scenariotest.CreateIncident(t, harness.Server, admin, map[string]any{
+		"client_txn_id": "txn-saved-view-admission-order-incident",
+		"incident_key":  "IR-SAVED-VIEW-ADMISSION-ORDER",
+		"title":         "Saved-view route admission order",
+	})["incident_id"].(string)
+	outsiderPassword := "SavedViewAdmissionOutsider1!"
+	flowtest.SeedLocalUserFlags(t, harness.DB, "saved-view-admission-outsider@example.test", "Saved View Admission Outsider", outsiderPassword, false, false, true)
+	outsiderLogin := flowtest.LoginLocalUser(t, http.DefaultClient, base, "saved-view-admission-outsider@example.test", outsiderPassword, nil)
+	// A redirect is never followed, so a 3xx would surface as itself.
+	client := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	send := func(method string, path string, login authcookietest.AuthCookies, body any) *http.Response {
+		t.Helper()
+		return httptestx.DoJSON(t, client, method, base+path, body, httptestx.WithCookies(login.Session, login.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value))
+	}
+	requireMethodNotAllowed := func(t testing.TB, response *http.Response, allow ...string) {
+		t.Helper()
+		if got := response.Header.Get("Allow"); got != strings.Join(allow, ", ") {
+			t.Fatalf("Allow = %q, want %q", got, strings.Join(allow, ", "))
+		}
+		body := httptestx.RequireErrorEnvelope(t, response, http.StatusMethodNotAllowed, "method_not_allowed")
+		want := make([]any, 0, len(allow))
+		for _, method := range allow {
+			want = append(want, method)
+		}
+		if details := httptestx.RequireErrorDetails(t, body); !reflect.DeepEqual(details, map[string]any{"allowed_methods": want}) {
+			t.Fatalf("details = %#v, want allowed_methods %v", details, allow)
+		}
+	}
+	incidentPath := "/api/v1/incidents/" + incidentID
+	collection := incidentPath + "/saved-views"
+	created := httptestx.RequireSuccessEnvelope(t, send(http.MethodPost, collection, admin, map[string]any{
+		"display_name": "Admission order", "view_schema_id": "cartulary.view.timeline.v2", "query_json": map[string]any{}, "scope": "shared",
+	}), http.StatusCreated)["data"].(map[string]any)
+	savedViewID := created["saved_view_id"].(string)
+	item := collection + "/" + savedViewID
+	missingItem := collection + "/" + uuid.NewString()
+	patchBody := map[string]any{"base_saved_view_version": created["saved_view_version"], "display_name": "Admission order revised"}
+	// Every route, with a body its handler accepts up to the addressed
+	// resource's classification.
+	routes := []struct {
+		name, method string
+		item         bool
+		body         any
+	}{
+		{name: "list", method: http.MethodGet},
+		{name: "create", method: http.MethodPost, body: map[string]any{}},
+		{name: "get", method: http.MethodGet, item: true},
+		{name: "patch", method: http.MethodPatch, item: true, body: patchBody},
+		{name: "delete", method: http.MethodDelete, item: true},
+	}
+	pathFor := func(incident string, savedView string, itemRoute bool) string {
+		path := "/api/v1/incidents/" + incident + "/saved-views"
+		if itemRoute {
+			path += "/" + savedView
+		}
+		return path
+	}
+	httptestx.RequireSuccessEnvelope(t, send(http.MethodGet, pathFor(strings.ToUpper(incidentID), strings.ToUpper(savedViewID), true), admin, nil), http.StatusOK)
+	before := savedViewAdmissionEffects(t, harness.DB)
+
+	t.Run("authentication and CSRF precede path parameters", func(t *testing.T) {
+		for _, route := range routes {
+			for _, path := range []string{pathFor("not-an-incident-id", savedViewID, route.item), pathFor(incidentID, "not-a-saved-view-id", route.item)} {
+				httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, client, route.method, base+path, route.body), http.StatusUnauthorized, "session_required")
+				if route.method != http.MethodGet {
+					withoutCSRF := httptestx.DoJSON(t, client, route.method, base+path, route.body, httptestx.WithCookies(admin.Session))
+					httptestx.RequireErrorEnvelope(t, withoutCSRF, http.StatusForbidden, "csrf_verification_failed")
+				}
+			}
+		}
+	})
+	t.Run("a malformed identifier is a missing resource", func(t *testing.T) {
+		for _, malformed := range []string{"not-an-id", strings.ReplaceAll(savedViewID, "-", ""), "%7B" + savedViewID + "%7D"} {
+			for _, route := range routes {
+				requireSavedViewResponsesAlike(t,
+					send(route.method, pathFor(malformed, savedViewID, route.item), admin, route.body),
+					send(route.method, pathFor(uuid.NewString(), savedViewID, route.item), admin, route.body))
+				if route.item {
+					requireSavedViewResponsesAlike(t,
+						send(route.method, pathFor(incidentID, malformed, true), admin, route.body),
+						send(route.method, missingItem, admin, route.body))
+				}
+			}
+		}
+	})
+	t.Run("an encoded slash stays inside the identifier", func(t *testing.T) {
+		requireSavedViewResponsesAlike(t, send(http.MethodGet, item+"%2Fx", admin, nil), send(http.MethodGet, missingItem, admin, nil))
+		requireSavedViewResponsesAlike(t, send(http.MethodPatch, item+"%2Fx", admin, patchBody), send(http.MethodPatch, missingItem, admin, patchBody))
+		requireSavedViewResponsesAlike(t, send(http.MethodDelete, item+"%2Fx", admin, nil), send(http.MethodDelete, missingItem, admin, nil))
+		// The incident read template: the encoded slash never selects the saved-view list.
+		httptestx.RequireErrorEnvelope(t, send(http.MethodGet, incidentPath+"%2Fsaved-views", admin, nil), http.StatusNotFound, "incident_not_found")
+		requireMethodNotAllowed(t, send(http.MethodPost, incidentPath+"%2Fsaved-views", admin, map[string]any{}), http.MethodGet, http.MethodPatch)
+		httptestx.RequireErrorEnvelope(t, send(http.MethodGet, incidentPath+"/saved-views%2F"+savedViewID, admin, nil), http.StatusNotFound, "route_not_found")
+	})
+	t.Run("route resolution rejections are enveloped", func(t *testing.T) {
+		for path, allow := range map[string]string{collection: "GET, POST", item: "DELETE, GET, PATCH"} {
+			head := httptestx.DoJSON(t, client, http.MethodHead, base+path, nil, httptestx.WithCookies(admin.Session))
+			body, err := io.ReadAll(head.Body)
+			_ = head.Body.Close()
+			if err != nil || head.StatusCode != http.StatusMethodNotAllowed || head.Header.Get("Allow") != allow || len(body) != 0 {
+				t.Fatalf("HEAD %s = %d Allow=%q body=%q err=%v, want 405 Allow %s without a body", path, head.StatusCode, head.Header.Get("Allow"), body, err, allow)
+			}
+		}
+		requireMethodNotAllowed(t, send(http.MethodPut, collection, admin, map[string]any{}), http.MethodGet, http.MethodPost)
+		requireMethodNotAllowed(t, send(http.MethodPost, item, admin, map[string]any{}), http.MethodDelete, http.MethodGet, http.MethodPatch)
+		httptestx.RequireErrorEnvelope(t, send(http.MethodGet, item+"/unknown", admin, nil), http.StatusNotFound, "route_not_found")
+	})
+	t.Run("every resolved read response is no-store", func(t *testing.T) {
+		// Core 01 REQ-01-144B: authentication, path-parameter, visibility and
+		// query failures carry no-store like the success; the mutations do not.
+		requireNoStore := func(t testing.TB, response *http.Response, want string) {
+			t.Helper()
+			defer response.Body.Close()
+			if got := response.Header.Get("Cache-Control"); got != want {
+				t.Fatalf("%s %s Cache-Control = %q, want %q", response.Request.Method, response.Request.URL.Path, got, want)
+			}
+		}
+		for _, path := range []string{collection, item} {
+			requireNoStore(t, httptestx.DoJSON(t, client, http.MethodGet, base+path, nil), "no-store")
+			requireNoStore(t, send(http.MethodGet, path, admin, nil), "no-store")
+			requireNoStore(t, send(http.MethodGet, path+"?limit=0&page=1", admin, nil), "no-store")
+			requireNoStore(t, send(http.MethodGet, path, outsiderLogin, nil), "no-store")
+		}
+		requireNoStore(t, send(http.MethodGet, pathFor("not-an-incident", savedViewID, false), admin, nil), "no-store")
+		requireNoStore(t, send(http.MethodGet, pathFor(incidentID, "not-a-saved-view", true), admin, nil), "no-store")
+		requireNoStore(t, send(http.MethodGet, missingItem, admin, nil), "no-store")
+		requireNoStore(t, send(http.MethodPatch, missingItem, admin, patchBody), "")
+	})
+	t.Run("visibility precedes route handling", func(t *testing.T) {
+		for _, route := range routes {
+			body := any([]any{1})
+			if route.method == http.MethodGet || route.method == http.MethodDelete {
+				body = nil
+			}
+			requireSavedViewResponsesAlike(t,
+				send(route.method, pathFor(incidentID, savedViewID, route.item)+"?limit=0&view_schema_id=%FF", outsiderLogin, body),
+				send(route.method, pathFor(uuid.NewString(), savedViewID, route.item)+"?limit=0&view_schema_id=%FF", outsiderLogin, body))
+		}
+		httptestx.RequireErrorEnvelope(t, send(http.MethodGet, collection+"?limit=0", admin, nil), http.StatusBadRequest, "invalid_pagination_request")
+		httptestx.RequireErrorEnvelope(t, send(http.MethodGet, item+"?limit=1", admin, nil), http.StatusBadRequest, "invalid_pagination_request")
+		httptestx.RequireErrorEnvelope(t, send(http.MethodPost, collection, admin, []any{1}), http.StatusBadRequest, "invalid_mutation_payload")
+	})
+	if after := savedViewAdmissionEffects(t, harness.DB); after != before {
+		t.Fatalf("rejected saved-view admission requests committed an effect: before=%s after=%s", before, after)
+	}
+}
+
+// requireSavedViewResponsesAlike requires the response for an existing
+// resource to match the response for a missing one in everything but its
+// request identity: the 404 saved_view_not_found envelope (REQ-01-704).
+func requireSavedViewResponsesAlike(t testing.TB, existing, missing *http.Response) {
+	t.Helper()
+	bodies := make([]map[string]any, 0, 2)
+	for _, response := range []*http.Response{existing, missing} {
+		body := httptestx.RequireErrorEnvelope(t, response, http.StatusNotFound, "saved_view_not_found")
+		delete(body["error"].(map[string]any), "request_id")
+		bodies = append(bodies, body)
+	}
+	if !reflect.DeepEqual(bodies[0], bodies[1]) {
+		t.Fatalf("existing-resource response %v differs from missing-resource response %v", bodies[0], bodies[1])
+	}
+	if got, want := existing.Header.Get("Cache-Control"), missing.Header.Get("Cache-Control"); got != want {
+		t.Fatalf("existing-resource Cache-Control %q differs from missing-resource Cache-Control %q", got, want)
+	}
+}
+
+// savedViewAdmissionEffects renders the saved-view, preference, receipt and
+// Collaboration state a rejected saved-view request could commit.
+func savedViewAdmissionEffects(t testing.TB, db *sql.DB) string {
+	t.Helper()
+	var effects string
+	if err := db.QueryRowContext(context.Background(), `SELECT jsonb_build_object(
+ 'saved_views',(SELECT coalesce(jsonb_agg(to_jsonb(v) ORDER BY saved_view_id),'[]') FROM saved_views v),
+ 'user_preferences',(SELECT coalesce(jsonb_agg(to_jsonb(p) ORDER BY incident_id,user_id),'[]') FROM user_workbook_preferences p),
+ 'receipts',(SELECT count(*) FROM route_idempotency)
+ )::text`).Scan(&effects); err != nil {
+		t.Fatal(err)
+	}
+	return effects + " collaboration_intents=" + strconv.Itoa(collaborationsupport.CountIntents(t, db, collaborationsupport.IntentSelector{}))
 }

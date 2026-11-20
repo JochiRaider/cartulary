@@ -2,6 +2,7 @@ package evidence
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -122,6 +123,52 @@ func TestEvidenceCleanupDispatcherRejectsIncompleteDependencies(t *testing.T) {
 	}
 	if value, err := newCleanupDispatcher(sweeper, dispatcherTestDeleter{}, observer, nil); err != nil || value == nil || value.now == nil {
 		t.Fatal("valid cleanup dependencies with the default clock were rejected", err)
+	}
+}
+
+// TestEvidenceCleanupDispatcherReportsInvariantViolationSweepsAsFailed proves
+// the REQ-02-189a sweep outcome: a sweep that left tuple-violating Blobs
+// unchanged while committing its coherent work is observed as failed with the
+// invariant_violation error class; an ordinary sweep error keeps its class and
+// a clean sweep is a success.
+func TestEvidenceCleanupDispatcherReportsInvariantViolationSweepsAsFailed(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		result     cleanupSweepResult
+		err        error
+		wantResult string
+		wantClass  string
+	}{
+		{name: "clean sweep", result: cleanupSweepResult{CleanedBlobCount: 2, HealthSnapshotValid: true}, wantResult: "success"},
+		{name: "invariant violations", result: cleanupSweepResult{ExpiredPendingCount: 1, CleanedBlobCount: 2, InvariantViolationCount: 3, HealthSnapshotValid: true}, wantResult: "failed", wantClass: "invariant_violation"},
+		{name: "sweep error wins", result: cleanupSweepResult{InvariantViolationCount: 1}, err: errors.New("database unavailable"), wantResult: "failed", wantClass: "internal_error"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			sweeper := &dispatcherTestSweeper{
+				calls: make(chan struct{}, 1),
+				run:   func(context.Context) (cleanupSweepResult, error) { return tc.result, tc.err },
+			}
+			observer := &dispatcherTestObserver{observations: make(chan CleanupSweepObservation, 1)}
+			dispatcher, err := newCleanupDispatcher(sweeper, dispatcherTestDeleter{}, observer, time.Now)
+			if err != nil {
+				t.Fatal(err)
+			}
+			result, err := dispatcher.runOnce(context.Background())
+			if !errors.Is(err, tc.err) || result.InvariantViolationCount != tc.result.InvariantViolationCount {
+				t.Fatalf("runOnce = (%#v, %v), want the sweep result and error unchanged", result, err)
+			}
+			select {
+			case observation := <-observer.observations:
+				if observation.Operation != "cleanup_sweep" || observation.Result != tc.wantResult || observation.ErrorClass != tc.wantClass {
+					t.Fatalf("observation = %#v, want result %q error class %q", observation, tc.wantResult, tc.wantClass)
+				}
+				if observation.HealthSnapshotValid != tc.result.HealthSnapshotValid {
+					t.Fatalf("observation dropped the committed sweep health: %#v", observation)
+				}
+			default:
+				t.Fatal("cleanup dispatcher omitted the sweep observation")
+			}
+		})
 	}
 }
 

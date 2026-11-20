@@ -2,6 +2,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import {
   errorResponse,
   jsonResponse,
+  operationErrorResponse,
 } from "../../testing/fetchMockTestSupport";
 import {
   canonicalCreateContract,
@@ -137,6 +138,24 @@ it("Canonical transport rejects invalid receipt bindings and classifies malforme
   expect((await port().send(attempt, new AbortController().signal)).kind).toBe(
     "rejected",
   );
+  // A declared 503 was not applied: a retryable rejection, not uncertainty.
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () =>
+      operationErrorResponse(
+        "createViewRow",
+        { code: "service_unavailable", status: 503 },
+        { details: { reason_code: "admission_paused" } },
+      ),
+    ),
+  );
+  expect(await port().send(attempt, new AbortController().signal)).toEqual({
+    kind: "rejected",
+    failure: expect.objectContaining({
+      kind: "retryable",
+      publicCode: "service_unavailable",
+    }),
+  });
 });
 
 it("Indicator canonical request constraints preserve exact vocabularies identity and omission semantics", () => {

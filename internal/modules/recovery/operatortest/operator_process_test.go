@@ -29,6 +29,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/referenceassembly"
 	collabprotocol "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
+	"github.com/JochiRaider/cartulary/internal/modules/evidence/testsupport/blobfixture"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/application"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
@@ -1357,15 +1358,12 @@ VALUES ($1, $2, 'evidence', $3, $4, $3, $4, 1)
 `, recordID, incidentID, actorID, now); err != nil {
 		t.Fatalf("insert operator object record: %v", err)
 	}
-	if _, err := db.ExecContext(context.Background(), `
-INSERT INTO object_blobs (
-    object_blob_id, incident_id, created_by_user_id, storage_key, upload_state,
-    byte_size, observed_size, observed_content_type, observed_sha256_hex,
-    target_expires_at, pending_expires_at, finalized_at, created_at, updated_at
-) VALUES ($1, $2, $3, $4, 'available', $5, $5, 'application/octet-stream', $6, $7, $7, $8, $8, $8)
-`, blobID, incidentID, actorID, storageKey, int64(len(body)), sha, now.Add(time.Hour), now); err != nil {
-		t.Fatalf("insert operator object blob: %v", err)
-	}
+	contentType := "application/octet-stream"
+	blobfixture.Seed(t, mustOpenOperatorPool(t, dsn), blobfixture.Spec{
+		ObjectBlobID: blobID, IncidentID: incidentID, CreatedByUserID: actorID,
+		State: blobfixture.Available, StorageKey: storageKey, ByteSize: int64(len(body)),
+		ObservedSHA256Hex: &sha, ObservedContentType: &contentType, CreatedAt: now,
+	})
 	if _, err := db.ExecContext(context.Background(), `
 INSERT INTO evidence (
     record_id, incident_id, title, lifecycle_state, upload_state,

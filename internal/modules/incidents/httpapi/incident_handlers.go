@@ -8,16 +8,11 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	platformhttpapi "github.com/JochiRaider/cartulary/internal/platform/httpapi"
-	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 	"github.com/google/uuid"
 )
 
 func (s *service) handleListVisibleIncidents(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: false})
+	principal, apiErr := admittedPrincipal(r)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -59,7 +54,7 @@ func (s *service) handleListVisibleIncidents(w http.ResponseWriter, r *http.Requ
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
@@ -81,7 +76,7 @@ func (s *service) handleListVisibleIncidents(w http.ResponseWriter, r *http.Requ
 }
 
 func (s *service) handleCreateIncident(w http.ResponseWriter, r *http.Request) {
-	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
+	principal, apiErr := admittedPrincipal(r)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -110,7 +105,7 @@ func (s *service) handleCreateIncident(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
@@ -123,33 +118,32 @@ func (s *service) handleCreateIncident(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *service) handleGetIncident(w http.ResponseWriter, r *http.Request) {
-	incidentID, ok := routeUUID(w, r, "incident_id")
-	if !ok {
-		return
-	}
-	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-	if apiErr := platformhttpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
+	principal, apiErr := admittedPrincipal(r)
+	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: false})
+	incidentID, apiErr := admittedPathUUID(r, "incident_id")
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
 	record, err := s.application.GetVisibleIncident(r.Context(), incidentID, principal.User.ID)
 	if errors.Is(err, incidents.ErrIncidentNotFound) {
-		writeAPIError(w, r, incidentNotFoundError())
+		writeAPIError(w, r, platformhttpapi.NotFound("incident_not_found"))
 		return
 	}
 	if err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	// REQ-01-707 step 5: the singleton-query check is route handling, after the
+	// incident's visibility (REQ-01-704).
+	if apiErr := platformhttpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
@@ -157,11 +151,12 @@ func (s *service) handleGetIncident(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *service) handlePatchIncident(w http.ResponseWriter, r *http.Request) {
-	incidentID, ok := routeUUID(w, r, "incident_id")
-	if !ok {
+	principal, apiErr := admittedPrincipal(r)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
 		return
 	}
-	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
+	incidentID, apiErr := admittedPathUUID(r, "incident_id")
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -181,7 +176,7 @@ func (s *service) handlePatchIncident(w http.ResponseWriter, r *http.Request) {
 	var versionConflict *incidents.IncidentVersionConflictError
 	switch {
 	case admission.IsDenied(err, admission.DenialNotVisible):
-		writeAPIError(w, r, incidentNotFoundError())
+		writeAPIError(w, r, platformhttpapi.NotFound("incident_not_found"))
 		return
 	case admission.IsDenied(err, admission.DenialInsufficientRole):
 		writeAPIError(w, r, authorizationDeniedError("reviewer|admin"))
@@ -190,7 +185,7 @@ func (s *service) handlePatchIncident(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, incidentClosedError())
 		return
 	case errors.Is(err, incidents.ErrIncidentNotFound):
-		writeAPIError(w, r, incidentNotFoundError())
+		writeAPIError(w, r, platformhttpapi.NotFound("incident_not_found"))
 		return
 	case errors.As(err, &versionConflict):
 		writeAPIError(w, r, incidentVersionConflictError(versionConflict))
@@ -199,7 +194,7 @@ func (s *service) handlePatchIncident(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}

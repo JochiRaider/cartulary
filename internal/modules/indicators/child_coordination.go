@@ -16,6 +16,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	collabprotocol "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
+	"github.com/JochiRaider/cartulary/internal/modules/records"
 	recordenvelope "github.com/JochiRaider/cartulary/internal/modules/records/enveloperead"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -117,15 +118,32 @@ func activeIncidentEnvelope(envelopes map[uuid.UUID]recordenvelope.Envelope, inc
 	return envelope, true
 }
 
-func validateObservationSourceEnvelope(envelopes map[uuid.UUID]recordenvelope.Envelope, incidentID uuid.UUID, recordID uuid.UUID, expectedVersion int64) error {
-	envelope, available := activeIncidentEnvelope(envelopes, incidentID, recordID)
+// classifyAddressedEnvelope applies the Records classification (REQ-01-705) to
+// the record a child route addresses by path, after the canonical lock. A
+// soft-deleted record reports records.ErrTargetDeleted; a missing or foreign
+// record reports ok=false for the route's own not-found code.
+func classifyAddressedEnvelope(envelopes map[uuid.UUID]recordenvelope.Envelope, incidentID uuid.UUID, recordID uuid.UUID) (recordenvelope.Envelope, bool, error) {
+	envelope, found := envelopes[recordID]
+	if err := records.ClassifyTargetPresence(found, envelope.DeletedAt); errors.Is(err, records.ErrTargetDeleted) {
+		return recordenvelope.Envelope{}, false, err
+	} else if err != nil || envelope.IncidentID != incidentID {
+		return recordenvelope.Envelope{}, false, nil
+	}
+	return envelope, true, nil
+}
+
+// classifyObservationSourceEnvelope applies the existence and deleted steps of
+// REQ-01-705 to the locked observation source. The caller checks the incident
+// lifecycle and then the source's base version.
+func classifyObservationSourceEnvelope(envelopes map[uuid.UUID]recordenvelope.Envelope, incidentID uuid.UUID, recordID uuid.UUID) (recordenvelope.Envelope, error) {
+	envelope, available, err := classifyAddressedEnvelope(envelopes, incidentID, recordID)
+	if err != nil {
+		return recordenvelope.Envelope{}, err
+	}
 	if !available {
-		return ErrIndicatorSourceNotFound
+		return recordenvelope.Envelope{}, ErrIndicatorSourceNotFound
 	}
-	if envelope.RowVersion != expectedVersion {
-		return ErrRowVersionConflict
-	}
-	return nil
+	return envelope, nil
 }
 
 func validateResolvedIndicatorEnvelope(envelopes map[uuid.UUID]recordenvelope.Envelope, incidentID uuid.UUID, recordID uuid.UUID) error {
@@ -137,7 +155,10 @@ func validateResolvedIndicatorEnvelope(envelopes map[uuid.UUID]recordenvelope.En
 }
 
 func validateAddressedIndicatorEnvelope(envelopes map[uuid.UUID]recordenvelope.Envelope, incidentID uuid.UUID, recordID uuid.UUID) error {
-	envelope, available := activeIncidentEnvelope(envelopes, incidentID, recordID)
+	envelope, available, err := classifyAddressedEnvelope(envelopes, incidentID, recordID)
+	if err != nil {
+		return err
+	}
 	if !available || envelope.RecordType != "indicator" {
 		return ErrIndicatorNotFound
 	}

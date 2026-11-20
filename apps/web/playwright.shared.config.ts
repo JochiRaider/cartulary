@@ -12,6 +12,16 @@ export const publicOrigin = process.env.CARTULARY_WEB_E2E_PUBLIC_ORIGIN ?? "";
 export const apiOrigin = process.env.CARTULARY_WEB_E2E_API_ORIGIN ?? "";
 
 export const configuredWorkers = 1;
+
+// TH-HARNESS-REQ-864: every action, navigation and expectation has its own
+// bound below the 60 s test budget, so one missed element fails at that step.
+// A step that legitimately waits longer, such as a job, passes an explicit
+// timeout sized to that work.
+const testTimeoutMs = 60_000;
+const actionTimeoutMs = 15_000;
+const navigationTimeoutMs = 30_000;
+const expectTimeoutMs = 10_000;
+
 if (
   process.env.CARTULARY_PLAYWRIGHT_WORKER_COUNT !== "1" ||
   process.env.CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET !== "0"
@@ -71,7 +81,7 @@ export function webE2EBaseConfig(
   }
   if (overrides.workers !== undefined && overrides.workers !== 1)
     throw new Error("browser groups require exactly one worker");
-  const { retries: _retries, use, ...rest } = overrides;
+  const { retries: _retries, use, expect, ...rest } = overrides;
 
   return {
     testDir: "./e2e",
@@ -79,11 +89,14 @@ export function webE2EBaseConfig(
     globalSetup: path.resolve(currentDirectory, "e2e", "global-setup.ts"),
     retries: 0,
     workers: configuredWorkers,
-    timeout: 60_000,
+    timeout: testTimeoutMs,
     updateSnapshots: "none",
+    expect: { timeout: expectTimeoutMs, ...expect },
     use: {
       baseURL: publicOrigin,
       trace: "retain-on-failure",
+      actionTimeout: actionTimeoutMs,
+      navigationTimeout: navigationTimeoutMs,
       ...visualRendererUse(),
       ...use,
     },

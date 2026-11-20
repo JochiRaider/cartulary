@@ -353,6 +353,7 @@ func (r *Runner) execute(candidate runnerCandidate, attemptSlot int) {
 	if ready, err := r.candidateReady(r.ctx, candidate); err != nil || !ready {
 		return
 	}
+	claimStarted := r.manager.now()
 	execution, handlerName, jobKind, claimed, err := r.manager.claimForRunnerSelection(r.ctx, candidate.JobID, r.selection)
 	if err != nil || !claimed {
 		return
@@ -374,7 +375,48 @@ func (r *Runner) execute(candidate runnerCandidate, attemptSlot int) {
 		})
 		return
 	}
-	r.runExecution(execution, handler, jobKind, attemptSlot)
+	r.runExecution(execution, handler, jobKind, attemptSlot, r.leaseGrantedFrom(claimStarted))
+}
+
+// leaseGrantedFrom bounds the lease a successful claim or renewal grants: the
+// manager stamps it from its own clock, read no earlier than start.
+func (r *Runner) leaseGrantedFrom(start time.Time) time.Time {
+	return start.Add(r.manager.policy.HandlerLease)
+}
+
+// finishedByAttempt reports whether a renewal that failed, by finding no live
+// execution or for another reason, follows this attempt's own committed
+// terminal transition rather than execution loss or an attempt failure (Core
+// 01 REQ-01-453). It cannot establish that after a failed read or once the
+// lease has expired. Another attempt can claim the Job only
+// after this attempt's lease has expired by the manager's clock
+// (claimExecution), so a terminal Job observed while the lease this attempt
+// last held is unexpired was finished by this attempt.
+func (r *Runner) finishedByAttempt(execution Execution, leaseHeldUntil time.Time) bool {
+	if !r.manager.now().Before(leaseHeldUntil) {
+		return false
+	}
+	ctx, cancel := context.WithTimeout(r.ctx, r.policy.AttemptOperationTimeout)
+	defer cancel()
+	resource, err := r.manager.Get(ctx, execution.JobID())
+	if err != nil {
+		return false
+	}
+	switch resource.Status {
+	case StatusSucceeded, StatusFailed, StatusCanceled:
+		return true
+	}
+	return false
+}
+
+// renew extends the attempt's lease, bounded by the attempt-operation timeout
+// like every attempt persistence operation, and interrupted by runner
+// shutdown (Core 01 REQ-01-453). Owner execution validation holds no Job-row
+// lock that blocks it, so the attempt's own transaction never delays it.
+func (r *Runner) renew(execution Execution) error {
+	ctx, cancel := context.WithTimeout(r.ctx, r.policy.AttemptOperationTimeout)
+	defer cancel()
+	return r.renewExecution(ctx, execution)
 }
 
 type handlerResult struct {
@@ -397,7 +439,7 @@ func (outcome attemptTelemetryOutcome) telemetryError() error {
 	return nil
 }
 
-func (r *Runner) runExecution(execution Execution, handler HandlerFunc, jobKind string, attemptSlot int) {
+func (r *Runner) runExecution(execution Execution, handler HandlerFunc, jobKind string, attemptSlot int, leaseHeldUntil time.Time) {
 	attemptCtx, span := r.manager.startJobSpan(r.ctx, "cartulary.jobs.run", jobKind, "run")
 	attemptOutcome := attemptTelemetryOutcome{result: "failed", failed: true}
 	defer func() {
@@ -439,25 +481,47 @@ func (r *Runner) runExecution(execution Execution, handler HandlerFunc, jobKind 
 				attemptOutcome = r.releaseForShutdown(execution, jobKind, attemptSlot, cancelHandler, result, false)
 				return
 			}
-			if err := r.renewExecution(r.ctx, execution); err != nil {
+			renewalStarted := r.manager.now()
+			if err := r.renew(execution); err != nil {
 				if r.ctx.Err() != nil {
 					attemptOutcome = r.releaseForShutdown(execution, jobKind, attemptSlot, cancelHandler, result, false)
 					return
 				}
-				result := "failed"
-				if errors.Is(err, ErrExecutionLost) {
-					result = "conflict"
+				lost := errors.Is(err, ErrExecutionLost)
+				if r.finishedByAttempt(execution, leaseHeldUntil) {
+					// The handler committed this Job's terminal transition and
+					// is still completing after it. A renewal that finds that
+					// commit, or that fails while the runner can still prove it,
+					// is neither execution loss nor an attempt failure: stop
+					// renewing and keep waiting for the handler or runner
+					// shutdown without canceling it (Core 01 REQ-01-453). An
+					// operational failure is still a failed renewal.
+					if !lost {
+						r.manager.recordLeaseRenewalFailure(attemptCtx, jobKind, "failed")
+					}
+					stopRenewal()
+					renewal = nil
+					continue
 				}
-				r.manager.recordLeaseRenewalFailure(attemptCtx, jobKind, result)
+				renewalResult := "failed"
+				if lost {
+					renewalResult = "conflict"
+				}
+				r.manager.recordLeaseRenewalFailure(attemptCtx, jobKind, renewalResult)
 				cancelHandler()
-				if !errors.Is(err, ErrExecutionLost) {
+				if !lost {
 					r.withAttemptTimeout(func(ctx context.Context) {
 						_ = r.manager.RecordExecutionFailure(ctx, execution, false)
 					})
 				}
-				attemptOutcome = r.classifyAttempt(execution.JobID(), result)
+				// The handler drains before both reservations are released,
+				// so a successful runner close means it has returned (Core 01
+				// REQ-01-453).
+				<-result
+				attemptOutcome = r.classifyAttempt(execution.JobID(), renewalResult)
 				return
 			}
+			leaseHeldUntil = r.leaseGrantedFrom(renewalStarted)
 		case handlerOutcome := <-result:
 			if r.ctx.Err() != nil {
 				attemptOutcome = r.releaseForShutdown(execution, jobKind, attemptSlot, cancelHandler, result, true)

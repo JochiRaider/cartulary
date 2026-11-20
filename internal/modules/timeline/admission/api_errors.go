@@ -33,15 +33,15 @@ func ClassifyMutationAPIError(err error, context MutationAPIErrorContext) (*http
 	case errors.Is(err, timeline.ErrIncidentClosed):
 		return incidentClosedError(), true
 	case errors.Is(err, timeline.ErrRecordNotFound):
-		return incidentNotFoundError(), true
+		return httpapi.NotFound("incident_not_found"), true
 	case errors.Is(err, timeline.ErrRecordDeleted):
 		return recordDeletedUseRestoreError(), true
 	case errors.As(err, &sameFieldConflict):
 		return sameFieldConflictAPIError(sameFieldConflict), true
 	case errors.As(err, &rowConflict):
+		// Only the typed conflict carries the record and both versions
+		// REQ-01-075 requires; a bare sentinel is never a classification.
 		return rowVersionConflictError(rowConflict.Details()), true
-	case errors.Is(err, timeline.ErrRowVersionConflict):
-		return rowVersionConflictError(map[string]any{}), true
 	case errors.Is(err, timeline.ErrProfileVersionExhausted):
 		return invalidMutationPayload("base_profile_version", "invalid_value"), true
 	case errors.As(err, &transitionErr):
@@ -103,10 +103,6 @@ func invalidMutationPayloadWithDetails(field string, reasonCode string, extra ma
 	}
 }
 
-func incidentNotFoundError() *httpapi.APIError {
-	return &httpapi.APIError{Status: http.StatusNotFound, Code: "incident_not_found", Details: map[string]any{}}
-}
-
 func incidentClosedError() *httpapi.APIError {
 	return &httpapi.APIError{Status: http.StatusConflict, Code: "incident_closed", Message: "incident closed", Details: map[string]any{}}
 }
@@ -123,12 +119,17 @@ func rowVersionConflictError(details ...map[string]any) *httpapi.APIError {
 // transition error reaches here; an untyped invariant failure falls through to
 // internal_error (REQ-03-109a).
 func illegalTransitionError(transitionErr *timeline.IllegalTransitionError) *httpapi.APIError {
+	// A record type without the machine has no persisted state: null, never "".
+	var fromStatus any
+	if transitionErr.FromStatus != "" {
+		fromStatus = transitionErr.FromStatus
+	}
 	return &httpapi.APIError{
 		Status:  http.StatusConflict,
 		Code:    "illegal_transition",
 		Message: "illegal transition",
 		Details: map[string]any{
-			"from_status":     transitionErr.FromStatus,
+			"from_status":     fromStatus,
 			"to_status":       transitionErr.ToStatus,
 			"violated_guards": append([]string{}, transitionErr.ViolatedGuards...),
 			"reason_code":     transitionErr.ReasonCode,

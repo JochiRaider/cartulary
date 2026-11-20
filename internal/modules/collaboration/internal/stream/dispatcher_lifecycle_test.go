@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
@@ -21,29 +23,34 @@ func TestPostgresStreamAndDispatcherRejectIncompleteConstruction_Unit(t *testing
 		t.Fatal(err)
 	}
 	broadcaster := replayBroadcasterFunc(func(protocol.Message) error { return nil })
+	listener := ListenerSessionOpener(func(context.Context) (*pgx.Conn, error) {
+		return nil, errors.New("unused test listener session")
+	})
 	tests := []struct {
 		name      string
 		store     *PostgresStream
+		listener  ListenerSessionOpener
 		broadcast replayBroadcaster
 		now       func() time.Time
 		version   string
 		onLoss    func()
 	}{
-		{name: "stream", broadcast: broadcaster, now: time.Now, version: "test", onLoss: func() {}},
-		{name: "broadcaster", store: stream, now: time.Now, version: "test", onLoss: func() {}},
-		{name: "clock", store: stream, broadcast: broadcaster, version: "test", onLoss: func() {}},
-		{name: "service version", store: stream, broadcast: broadcaster, now: time.Now, onLoss: func() {}},
-		{name: "loss callback", store: stream, broadcast: broadcaster, now: time.Now, version: "test"},
+		{name: "stream", listener: listener, broadcast: broadcaster, now: time.Now, version: "test", onLoss: func() {}},
+		{name: "listener session", store: stream, broadcast: broadcaster, now: time.Now, version: "test", onLoss: func() {}},
+		{name: "broadcaster", store: stream, listener: listener, now: time.Now, version: "test", onLoss: func() {}},
+		{name: "clock", store: stream, listener: listener, broadcast: broadcaster, version: "test", onLoss: func() {}},
+		{name: "service version", store: stream, listener: listener, broadcast: broadcaster, now: time.Now, onLoss: func() {}},
+		{name: "loss callback", store: stream, listener: listener, broadcast: broadcaster, now: time.Now, version: "test"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			dispatcher, err := NewDispatcher(test.store, test.broadcast, test.now, test.version, test.onLoss)
+			dispatcher, err := NewDispatcher(test.store, test.listener, test.broadcast, test.now, test.version, test.onLoss)
 			if err == nil || dispatcher != nil {
 				t.Fatalf("Dispatcher = %#v, error = %v; want incomplete construction rejection", dispatcher, err)
 			}
 		})
 	}
-	dispatcher, err := NewDispatcher(stream, broadcaster, time.Now, "1.2.3-test", func() {})
+	dispatcher, err := NewDispatcher(stream, listener, broadcaster, time.Now, "1.2.3-test", func() {})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -535,6 +535,34 @@
       "postgres_isolation": "none"
     },
     {
+      "row_id": "web.workbook.regression.authorization_epoch_advances_on_resume_only_afte_b4bd1bcfc7",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "web.collaboration"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/runtime/WorkbookMutationRuntime.node.test.ts",
+        "titles": [
+          "WorkbookMutationRuntime advances the authorization epoch on resume only after a recovery pause or changed authority"
+        ],
+        "project_id": "node-unit"
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
       "row_id": "web.workbook.regression.batch_history_review",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -557,7 +585,7 @@
           "Batch History review pauses bounded lookup and retries expired and failed pages without claiming absence",
           "Batch History review reads only the explicitly chosen off-window record and marks multiple later-page entries without writing",
           "Batch History review reviews partial success while preserving the existing unresolved-conflict action gate",
-          "Batch History review uses current deletion metadata and keeps record absence separate from incident authority"
+          "Batch History review uses current deletion metadata and conceals history when record absence is reported as incident_not_found"
         ],
         "project_id": "browser-unit"
       },
@@ -888,6 +916,7 @@
           "Committed grid autosave does not regress a newer authoring baseline when an older predecessor receipt arrives",
           "Committed grid autosave does not report queue admission as authoritative editor acceptance",
           "Committed grid autosave keeps a newer same-field edit when its predecessor is acknowledged",
+          "Committed grid autosave keeps a unit refused with 503 service_unavailable queued and replays its captured request",
           "Committed grid autosave keeps acceptance and newer text when refresh fails and recovers by reads after remount",
           "Committed grid autosave prepares an undispatched dependent edit from the accepted predecessor version",
           "Committed grid autosave prepares unrelated collaboration changes but halts changed dependencies for review",
@@ -1542,7 +1571,8 @@
           "Workbook entity merge ownership records the complete receipt before refresh and retries only reconciliation without regressing newer versions",
           "Workbook entity merge ownership reserves both records synchronously and requires the reviewed versions after coordination",
           "Workbook entity merge ownership retains exact replay after uncertainty without requiring the loser or a current presentation",
-          "Workbook entity merge ownership separates timeout from transport settlement and retains late acknowledgement"
+          "Workbook entity merge ownership separates timeout from transport settlement and retains late acknowledgement",
+          "Workbook entity merge ownership turns read-only when a merge is rejected with the declared incident_closed"
         ],
         "project_id": "node-unit"
       },
@@ -1792,10 +1822,12 @@
         "file": "apps/web/src/workbook/adapters/workbookOperationErrorPolicy.node.test.ts",
         "titles": [
           "Workbook operation error policy accepts only canonical transient Evidence handle error identity",
+          "Workbook operation error policy classifies a declared service_unavailable as retryable temporary unavailability before operation rules",
           "Workbook operation error policy classifies exact conflicts, authentication, authorization, and stale targets",
           "Workbook operation error policy classifies validation, merge preconditions, and retryability exactly",
           "Workbook operation error policy fails malformed success, error, and conflict envelopes closed",
-          "Workbook operation error policy projects Evidence access reasons without exposing server prose"
+          "Workbook operation error policy projects Evidence access reasons without exposing server prose",
+          "Workbook operation error policy rejects a decoded 503 explicit write as not applied and keeps other server failures uncertain"
         ],
         "project_id": "node-unit"
       },
@@ -1824,6 +1856,7 @@
         "file": "apps/web/src/workbook/evidence/evidenceAccessPresentation.node.test.ts",
         "titles": [
           "evidenceAccessPresentation derives polite preview blockers and distinct operation announcements from typed outcomes",
+          "evidenceAccessPresentation keeps Preview and Download retryable when the server is temporarily unavailable",
           "evidenceAccessPresentation keeps transient recovery separate from lifecycle and action blockers"
         ],
         "project_id": "node-unit"
@@ -4990,6 +5023,7 @@
           "Workbook query browsing keeps accepted grouping through superseded failure and retries the current None request",
           "Workbook query browsing labels replacement Retry by its initiating action and fences superseded recovery",
           "Workbook query browsing re-fetches a detached position and keeps canonical presentation separate from unapplied intent",
+          "Workbook query browsing reconciles live placement only from an accepted window read after the sighting",
           "Workbook query browsing rejects a producing-request mismatch and follows authoritative continuation on short and empty pages",
           "Workbook query browsing replays a located window through its ordinary cursor and refreshes from the beginning",
           "Workbook query browsing retains an accepted empty result after refresh failure and trusts short-page continuation",
@@ -6698,6 +6732,35 @@
       "postgres_isolation": "none"
     },
     {
+      "row_id": "web.workbook.regression.timeline_refreshes_once_for_a_first_out_of_windo_16912cd68c",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.timeline",
+        "web.collaboration"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.collaboration.test.tsx",
+        "titles": [
+          "workbook collaboration coverage refreshes once for a first out-of-window Timeline sighting and not for later placement-neutral patches"
+        ],
+        "project_id": "browser-unit"
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
       "row_id": "web.workbook.regression.timeline_related_evidence_authoring",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -6832,6 +6895,35 @@
       "postgres_isolation": "none"
     },
     {
+      "row_id": "web.workbook.regression.timeline_row_actions_keep_the_open_menu_and_focu_a43731973f",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.timeline",
+        "web.collaboration"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.collaboration.test.tsx",
+        "titles": [
+          "workbook collaboration coverage keeps Timeline row actions and their focus across a collaboration re-establishment without an authority change"
+        ],
+        "project_id": "browser-unit"
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
       "row_id": "web.workbook.regression.timeline_row_menu_lifetime",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -6848,6 +6940,7 @@
         "titles": [
           "Timeline row menu lifetime cancels the entire semantic fallback chain for newer input focus and scope",
           "Timeline row menu lifetime keeps compatible refresh and invalidates hidden anchors and authority without stealing outside focus",
+          "Timeline row menu lifetime returns menu-owned focus to the invoking cell when its scope changes",
           "Timeline row menu lifetime uses current semantic row then root fallbacks when the invoking field or row disappears"
         ],
         "project_id": "browser-unit"
@@ -7999,6 +8092,7 @@
           "Workbook incident adapter fails closed on malformed or cross-incident resources and classifies access loss",
           "Workbook incident adapter preserves member paging identity typed authority failures and cancellation",
           "Workbook incident adapter uses projected routes and returns only correlated semantic identity and members",
+          "Workbook startup adapter classifies a declared startup incident_not_found as incident access loss",
           "Workbook startup adapter derives the exact projected query and accepts correlated availability",
           "Workbook startup adapter rejects malformed and mismatched startup resources and contains aborts"
         ],

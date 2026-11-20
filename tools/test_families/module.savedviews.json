@@ -561,6 +561,34 @@
       "postgres_isolation": "shared"
     },
     {
+      "row_id": "module.savedviews.integration.saved_view_routes_are_admitted_centrally_in_the_2ddb91363b",
+      "owner_id": "module.savedviews",
+      "family_id": "module.savedviews.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.savedviews.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/savedviews",
+        "tests": [
+          "TestSavedViewRouteAdmissionOrder_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "module.savedviews.integration.saved_views_storage_hardening_rejects_invalid_le_debf877cb1",
       "owner_id": "module.savedviews",
       "family_id": "module.savedviews.integration",

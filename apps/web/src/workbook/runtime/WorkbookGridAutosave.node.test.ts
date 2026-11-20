@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { timelineRow } from "../../testing/workbookFixtureData";
+import { classifyWorkbookOperationFailure } from "../adapters/workbookOperationErrorPolicy";
 import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
+import type { WorkbookOperationFailure } from "../mutations/workbookOperationOutcome";
 import type { WorkbookPendingMutationPort } from "../ports/WorkbookPendingMutationPort";
 import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
 import { createWorkbookMutationRuntime } from "./createWorkbookMutationRuntime";
@@ -100,11 +102,9 @@ function fixture() {
   const reject = (
     index: number,
     kind: "retryable" | "validation" | "authorization_lost",
-  ) =>
-    replies[index]?.({
-      kind: "rejected",
-      failure: { kind, message: "Test rejection" },
-    });
+  ) => refuse(index, { kind, message: "Test rejection" });
+  const refuse = (index: number, failure: WorkbookOperationFailure) =>
+    replies[index]?.({ kind: "rejected", failure });
   return {
     runtime,
     execute,
@@ -116,6 +116,7 @@ function fixture() {
     pause,
     resume,
     reject,
+    refuse,
     initial,
   };
 }
@@ -269,6 +270,51 @@ describe("Committed grid autosave", () => {
       expect(f.runtime.pendingQueue().model.snapshot().units).toHaveLength(0),
     );
     expect(f.runtime.explicitPatches.latestRow(recordId)?.row_version).toBe(9);
+    f.runtime.invalidate({ kind: "runtime_disposed" });
+  });
+
+  it("keeps a unit refused with 503 service_unavailable queued and replays its captured request", async () => {
+    const f = fixture();
+    const ticket = f.edit("A");
+    if (ticket.kind !== "admitted") throw new Error("Expected admission");
+    let settled = false;
+    void ticket.completion.then(() => {
+      settled = true;
+    });
+    await vi.waitFor(() => expect(f.execute).toHaveBeenCalledTimes(1));
+    const captured = structuredClone(f.execute.mock.calls[0]?.[0]);
+    f.refuse(
+      0,
+      classifyWorkbookOperationFailure(
+        {
+          code: "service_unavailable",
+          status: 503,
+          retryable: true,
+          request_id: "request-unavailable",
+          message: "service unavailable",
+          details: { reason_code: "admission_paused" },
+        },
+        "patchRecord",
+      ),
+    );
+    await vi.waitFor(() =>
+      expect(f.runtime.pendingQueue().model.snapshot().inFlightCount).toBe(0),
+    );
+    // Refused before admission: not applied, not failed, still queued.
+    const queue = f.runtime.pendingQueue().model.snapshot();
+    expect(queue.halted).toBeNull();
+    expect(queue.units.map((unit) => unit.status)).toEqual(["queued"]);
+    expect(f.runtime.getSnapshot().primaryLabel).toBe("Syncing");
+    expect(f.runtime.gridDrafts.read(f.identity())?.value).toBe("A");
+    expect(settled).toBe(false);
+    // The scheduled replay resends the captured request and transaction ID.
+    await vi.waitFor(() => expect(f.execute).toHaveBeenCalledTimes(2), {
+      timeout: 3_000,
+    });
+    expect(f.execute.mock.calls[1]?.[0]).toEqual(captured);
+    f.accept(1, 2);
+    expect(await ticket.completion).toEqual({ kind: "accepted" });
+    expect(f.runtime.pendingQueue().model.snapshot().units).toHaveLength(0);
     f.runtime.invalidate({ kind: "runtime_disposed" });
   });
 

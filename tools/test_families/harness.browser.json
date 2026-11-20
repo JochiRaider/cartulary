@@ -923,6 +923,7 @@
         "titles": [
           "public HTTP operation client accepts valid success envelopes and rejects malformed success responses",
           "public HTTP operation client derives methods, paths, and encoded queries from generated bindings",
+          "public HTTP operation client sends typed multipart uploads with JSON metadata and validates their response",
           "public JSON transport binds relative paths to an explicitly approved request origin",
           "public JSON transport preserves body omission and rejects absolute or protocol-relative paths",
           "public JSON transport preserves non-2xx JSON envelopes, status, and headers"
@@ -2495,6 +2496,7 @@
           "TestJSONResponseFraming",
           "TestNoContentResponse",
           "TestResponseBodyOwnership",
+          "TestStatusMismatchKeepsRedactedBody",
           "TestSuccessEnvelopeContract"
         ]
       },
@@ -2520,7 +2522,9 @@
       "selector": {
         "package": "./internal/testutil/httptestx",
         "tests": [
-          "TestApplyTestRouteModeRejectsMissingAndUnknownModes"
+          "TestApplyTestRouteModeRejectsMissingAndUnknownModes",
+          "TestPollKeepsEvidence",
+          "TestServerFatalObserverWritesOneRecord"
         ]
       },
       "evidence_class": "unit",

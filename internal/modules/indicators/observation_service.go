@@ -43,9 +43,6 @@ func (s *Application) CreateIndicatorObservation(ctx context.Context, actorUserI
 	if err != nil {
 		return IndicatorObservationMutationResult{}, err
 	}
-	if err := s.incidentState.RequireOpenTx(ctx, tx, params.IncidentID); err != nil {
-		return IndicatorObservationMutationResult{}, err
-	}
 
 	evaluate, err := identity.FromConsumer(ctx, assignment)
 	if err != nil {
@@ -60,8 +57,17 @@ func (s *Application) CreateIndicatorObservation(ctx context.Context, actorUserI
 	if err != nil {
 		return IndicatorObservationMutationResult{}, err
 	}
-	if err := validateObservationSourceEnvelope(envelopes, params.IncidentID, params.SourceRecordID, params.BaseRowVersion); err != nil {
+	// REQ-01-705: after the exact-replay lookup above, the locked source
+	// classification precedes the incident lifecycle and the base version.
+	sourceEnvelope, err := classifyObservationSourceEnvelope(envelopes, params.IncidentID, params.SourceRecordID)
+	if err != nil {
 		return IndicatorObservationMutationResult{}, err
+	}
+	if err := s.incidentState.RequireOpenTx(ctx, tx, params.IncidentID); err != nil {
+		return IndicatorObservationMutationResult{}, err
+	}
+	if sourceEnvelope.RowVersion != params.BaseRowVersion {
+		return IndicatorObservationMutationResult{}, ErrRowVersionConflict
 	}
 	if params.ResolvedIndicatorRecordID != nil {
 		if err := validateResolvedIndicatorEnvelope(envelopes, params.IncidentID, *params.ResolvedIndicatorRecordID); err != nil {

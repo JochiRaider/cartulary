@@ -28,32 +28,51 @@ type routeService struct {
 		httpauth.SessionStore
 		httpauth.SessionSlider
 	}
-	keys        authn.MasterKeys
 	now         func() time.Time
 	tables      *tableApplication
 	links       *indicatorLinkApplication
 	savedGraphs *savedGraphApplication
 }
 
-func newRouteService(deps httpapi.DependencySet, module *Module) (*routeService, error) {
-	keys, err := authn.LoadMasterKeys(deps.Env)
-	if err != nil {
-		return nil, fmt.Errorf("load auth master key: %w", err)
-	}
+func newRouteService(module *Module) (*routeService, error) {
 	if err := module.prepareActiveApplications(); err != nil {
 		return nil, err
 	}
 	return &routeService{
 		savedGraphReads: module.active.savedGraphReads, graphQueries: module.active.graphQueries, tableQueries: module.active.tableQueries, tables: module.active.tables, links: module.active.links, savedGraphs: module.active.savedGraphs,
 		limits: module.limits, incidentAccess: module.incidentAccess, authStore: module.authStore,
-		keys: keys,
-		now:  module.now,
+		now: module.now,
 	}, nil
 }
 
+// operationHandlers is one handler per Network Flow route (NF NLSpec Table
+// 17-A and §19.1), bound in the public route registry.
+func (s *routeService) operationHandlers() map[string]http.HandlerFunc {
+	return map[string]http.HandlerFunc{
+		"nf.graphs.contributors.query":      s.handleGraphContributorsQuery,
+		"nf.graphs.query":                   s.handleGraphQuery,
+		"nf.graph_views.list":               s.handleGraphViewList,
+		"nf.graph_views.create":             s.handleGraphViewCreate,
+		"nf.graph_views.get":                s.handleGraphViewGet,
+		"nf.graph_views.patch":              s.handleGraphViewPatch,
+		"nf.graph_views.delete":             s.handleGraphViewDelete,
+		"nf.graph_views.refresh":            s.handleGraphViewRefresh,
+		"nf.graph_views.result":             s.handleGraphViewResult,
+		"nf.graph_views.contributors.query": s.handleGraphViewContributorsQuery,
+		"nf.indicator_links.create":         s.handleIndicatorLinks,
+		"nf.rejected_rows.query":            s.handleRejectedRowsQuery,
+		"nf.rows.query":                     s.handleRowsQuery,
+		"nf.source_profiles.list":           s.handleSourceProfiles,
+		"nf.tables.delete":                  s.handleTableDelete,
+		"nf.tables.get":                     s.handleTableGet,
+		"nf.tables.list":                    s.handleTablesCollection,
+		"nf.tables.patch":                   s.handleTablePatch,
+		"nf.tables.query":                   s.handleTableRowsQuery,
+	}
+}
+
 func (s *routeService) handleSourceProfiles(w http.ResponseWriter, r *http.Request) {
-	routeID := "nf.source_profiles.list"
-	admitted, apiErr := s.admitOperation(r, routeID)
+	admitted, apiErr := admittedOperation(r)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -64,7 +83,7 @@ func (s *routeService) handleSourceProfiles(w http.ResponseWriter, r *http.Reque
 		writeAPIError(w, r, semanticHTTPError(failure))
 		return
 	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, httpapi.InternalAPIError(err))
 		return
 	}
@@ -78,8 +97,7 @@ func (s *routeService) handleSourceProfiles(w http.ResponseWriter, r *http.Reque
 }
 
 func (s *routeService) handleTablesCollection(w http.ResponseWriter, r *http.Request) {
-	routeID := "nf.tables.list"
-	admitted, apiErr := s.admitOperation(r, routeID)
+	admitted, apiErr := admittedOperation(r)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -94,7 +112,7 @@ func (s *routeService) handleTablesCollection(w http.ResponseWriter, r *http.Req
 	for _, table := range tables {
 		resources = append(resources, tableResource(table))
 	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, httpapi.InternalAPIError(err))
 		return
 	}
@@ -105,80 +123,88 @@ func (s *routeService) handleTablesCollection(w http.ResponseWriter, r *http.Req
 	})
 }
 
-func (s *routeService) handleTableResource(w http.ResponseWriter, r *http.Request) {
-	routeID := map[string]string{"GET": "nf.tables.get", "PATCH": "nf.tables.patch", "DELETE": "nf.tables.delete"}[r.Method]
-	admitted, apiErr := s.admitOperation(r, routeID)
+func (s *routeService) handleTableGet(w http.ResponseWriter, r *http.Request) {
+	admitted, apiErr := admittedOperation(r)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	principal, incidentID := admitted.principal, admitted.incidentID
-	tableID := admitted.tableID
-	switch r.Method {
-	case http.MethodGet:
-		table, failure := s.tableQueries.get(r.Context(), admitted.identity(), tableID)
-		if failure != nil {
-			writeAPIError(w, r, semanticHTTPError(failure))
-			return
-		}
-		if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
-			writeAPIError(w, r, httpapi.InternalAPIError(err))
-			return
-		}
-		_ = httpapi.WriteSuccess(w, r, http.StatusOK, map[string]any{
-			"schema_id": "cartulary.network_flow_table_get.v3",
-			"table":     tableResource(table),
-		})
-	case http.MethodPatch:
-		request, apiErr := decodeRenameRequest(r)
-		if apiErr != nil {
-			writeAPIError(w, r, apiErr)
-			return
-		}
-		hash, err := tableRenameRequestHash(tableID, request)
-		if err != nil {
-			writeAPIError(w, r, httpapi.InternalAPIError(err))
-			return
-		}
-		payload, status, apiErr := s.commitTableRenameRoute(r.Context(), incidentID, tableID, principal.User.ID, request, hash, httpapi.RequestIDFromContext(r.Context()))
-		if apiErr != nil {
-			writeAPIError(w, r, apiErr)
-			return
-		}
-		if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
-			writeAPIError(w, r, httpapi.InternalAPIError(err))
-			return
-		}
-		_ = httpapi.WriteSuccess(w, r, status, payload)
-	case http.MethodDelete:
-		request, apiErr := decodeSoftDeleteRequest(r)
-		if apiErr != nil {
-			writeAPIError(w, r, apiErr)
-			return
-		}
-		hash, err := tableSoftDeleteRequestHash(tableID, request)
-		if err != nil {
-			writeAPIError(w, r, httpapi.InternalAPIError(err))
-			return
-		}
-		payload, status, apiErr := s.commitTableSoftDeleteRoute(r.Context(), incidentID, tableID, principal.User.ID, request, hash, httpapi.RequestIDFromContext(r.Context()))
-		if apiErr != nil {
-			writeAPIError(w, r, apiErr)
-			return
-		}
-		if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
-			writeAPIError(w, r, httpapi.InternalAPIError(err))
-			return
-		}
-		_ = httpapi.WriteSuccess(w, r, status, payload)
-	default:
-		w.WriteHeader(http.StatusMethodNotAllowed)
+	principal := admitted.principal
+	table, failure := s.tableQueries.get(r.Context(), admitted.identity(), admitted.tableID)
+	if failure != nil {
+		writeAPIError(w, r, pathTableNotFound(semanticHTTPError(failure)))
+		return
 	}
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
+		writeAPIError(w, r, httpapi.InternalAPIError(err))
+		return
+	}
+	_ = httpapi.WriteSuccess(w, r, http.StatusOK, map[string]any{
+		"schema_id": "cartulary.network_flow_table_get.v3",
+		"table":     tableResource(table),
+	})
+}
+
+func (s *routeService) handleTablePatch(w http.ResponseWriter, r *http.Request) {
+	admitted, apiErr := admittedOperation(r)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	principal, incidentID, tableID := admitted.principal, admitted.incidentID, admitted.tableID
+	request, apiErr := decodeRenameRequest(r)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	hash, err := tableRenameRequestHash(tableID, request)
+	if err != nil {
+		writeAPIError(w, r, httpapi.InternalAPIError(err))
+		return
+	}
+	payload, status, apiErr := s.commitTableRenameRoute(r.Context(), incidentID, tableID, principal.User.ID, request, hash, httpapi.RequestIDFromContext(r.Context()))
+	if apiErr != nil {
+		writeAPIError(w, r, pathTableNotFound(apiErr))
+		return
+	}
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
+		writeAPIError(w, r, httpapi.InternalAPIError(err))
+		return
+	}
+	_ = httpapi.WriteSuccess(w, r, status, payload)
+}
+
+func (s *routeService) handleTableDelete(w http.ResponseWriter, r *http.Request) {
+	admitted, apiErr := admittedOperation(r)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	principal, incidentID, tableID := admitted.principal, admitted.incidentID, admitted.tableID
+	request, apiErr := decodeSoftDeleteRequest(r)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	hash, err := tableSoftDeleteRequestHash(tableID, request)
+	if err != nil {
+		writeAPIError(w, r, httpapi.InternalAPIError(err))
+		return
+	}
+	payload, status, apiErr := s.commitTableSoftDeleteRoute(r.Context(), incidentID, tableID, principal.User.ID, request, hash, httpapi.RequestIDFromContext(r.Context()))
+	if apiErr != nil {
+		writeAPIError(w, r, pathTableNotFound(apiErr))
+		return
+	}
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
+		writeAPIError(w, r, httpapi.InternalAPIError(err))
+		return
+	}
+	_ = httpapi.WriteSuccess(w, r, status, payload)
 }
 
 func (s *routeService) handleTableRowsQuery(w http.ResponseWriter, r *http.Request) {
-	routeID := "nf.tables.query"
-	admitted, apiErr := s.admitOperation(r, routeID)
+	admitted, apiErr := admittedOperation(r)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -191,13 +217,13 @@ func (s *routeService) handleTableRowsQuery(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	outcome, failure := s.tableQueries.rows(r.Context(), admitted.identity(), tableID, request)
-	apiErr = semanticHTTPError(failure)
+	apiErr = pathTableNotFound(semanticHTTPError(failure))
 	result := acceptedRowsResource(outcome)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, httpapi.InternalAPIError(err))
 		return
 	}
@@ -208,8 +234,7 @@ func (s *routeService) handleTableRowsQuery(w http.ResponseWriter, r *http.Reque
 }
 
 func (s *routeService) handleRowsQuery(w http.ResponseWriter, r *http.Request) {
-	routeID := "nf.rows.query"
-	admitted, apiErr := s.admitOperation(r, routeID)
+	admitted, apiErr := admittedOperation(r)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -227,7 +252,7 @@ func (s *routeService) handleRowsQuery(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, httpapi.InternalAPIError(err))
 		return
 	}
@@ -236,8 +261,7 @@ func (s *routeService) handleRowsQuery(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *routeService) handleRejectedRowsQuery(w http.ResponseWriter, r *http.Request) {
-	routeID := "nf.rejected_rows.query"
-	admitted, apiErr := s.admitOperation(r, routeID)
+	admitted, apiErr := admittedOperation(r)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -250,13 +274,13 @@ func (s *routeService) handleRejectedRowsQuery(w http.ResponseWriter, r *http.Re
 		return
 	}
 	outcome, failure := s.tableQueries.diagnostics(r.Context(), admitted.identity(), tableID, request)
-	apiErr = semanticHTTPError(failure)
+	apiErr = pathTableNotFound(semanticHTTPError(failure))
 	result := diagnosticsResource(tableID, outcome)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, httpapi.InternalAPIError(err))
 		return
 	}
@@ -319,15 +343,11 @@ func decodeStoredNetworkFlowResponse(data []byte) (map[string]any, error) {
 	return payload, nil
 }
 
-func (s *routeService) authenticate(r *http.Request, stateChanging bool) (httpauth.Principal, *httpapi.APIError) {
-	return httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: stateChanging})
-}
-
 func (s *routeService) requireIncidentRole(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID, roles admission.RoleSet, requiredRole string) (admission.Grant, *httpapi.APIError) {
 	grant, err := s.incidentAccess.Check(ctx, incidentID, userID, admission.Requirement{AllowedRoles: roles, Lifecycle: admission.LifecycleOpen})
 	switch {
 	case admission.IsDenied(err, admission.DenialNotVisible):
-		return admission.Grant{}, &httpapi.APIError{Status: http.StatusNotFound, Code: "incident_not_found", Details: map[string]any{}}
+		return admission.Grant{}, httpapi.NotFound("incident_not_found")
 	case admission.IsDenied(err, admission.DenialIncidentClosed):
 		return admission.Grant{}, &httpapi.APIError{Status: http.StatusConflict, Code: "incident_closed", Message: "incident closed", Details: map[string]any{}}
 	case admission.IsDenied(err, admission.DenialInsufficientRole):
@@ -339,8 +359,8 @@ func (s *routeService) requireIncidentRole(ctx context.Context, incidentID uuid.
 	}
 }
 
-func (s *routeService) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal, method string, path string) error {
-	return httpauth.SlideSessionIfNeeded(ctx, s.authStore, principal, method, path, s.now)
+func (s *routeService) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal) error {
+	return httpauth.SlideSessionIfNeeded(ctx, s.authStore, principal, s.now)
 }
 
 func tableMutationError(err error, tableID string) *httpapi.APIError {
@@ -372,8 +392,4 @@ func tableMutationAPIError(err error, clientTxnID, tableID string) *httpapi.APIE
 		return httpapi.ClientTxnConflictError(clientTxnID)
 	}
 	return tableMutationError(err, tableID)
-}
-
-func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *httpapi.APIError) {
-	httpapi.WriteAPIError(w, r, apiErr)
 }

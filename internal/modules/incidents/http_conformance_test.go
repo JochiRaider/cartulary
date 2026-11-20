@@ -1,9 +1,16 @@
 package incidents_test
 
 import (
+	"context"
+	"database/sql"
+	"io"
 	"net/http"
 	"reflect"
+	"strconv"
+	"strings"
 	"testing"
+
+	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
@@ -11,6 +18,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/dbassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
@@ -602,4 +611,193 @@ func requireWorkbookSheetRef(t testing.TB, value any, wantID string) {
 	if ref["kind"] != "view_schema" || ref["id"] != wantID {
 		t.Fatalf("unexpected sheet_ref: got %#v want view_schema %q", ref, wantID)
 	}
+}
+
+// TestIncidentRouteAdmissionOrder_Integration covers Core 01 REQ-01-707 and
+// AC-617 for the incident and membership routes: route resolution rejects
+// undeclared methods and HEAD with registered envelopes; authentication and
+// CSRF precede path parameters; a malformed or encoded-slash incident_id or
+// user_id receives its declared not-found response, identical to a missing
+// resource's, and never reaches another operation; and visibility precedes the
+// role gate, the query check and the request body (REQ-01-704), with no
+// committed effect.
+func TestIncidentRouteAdmissionOrder_Integration(t *testing.T) {
+	harness := appsupport.StartRuntime(t).StartServer(t, appsupport.ServerOptions{Prefix: "incidents-admission-order", TestRouteMode: httptestx.TestRouteModeDisabled})
+	base := harness.Server.HTTP.URL
+	admin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, base)
+	incidentID := scenariotest.CreateIncident(t, harness.Server, admin, map[string]any{
+		"client_txn_id": "txn-incidents-admission-order-incident",
+		"incident_key":  "IR-INCIDENTS-ADMISSION-ORDER",
+		"title":         "Incident route admission order",
+	})["incident_id"].(string)
+	outsiderPassword := "IncidentsAdmissionOutsider1!"
+	outsider := flowtest.SeedLocalUserRecord(t, harness.DB, "incidents-admission-outsider@example.test", "Incidents Admission Outsider", outsiderPassword, false, false, true)
+	outsiderLogin := flowtest.LoginLocalUser(t, http.DefaultClient, base, outsider.Email, outsiderPassword, nil)
+	viewerPassword := "IncidentsAdmissionViewer1!"
+	viewer := flowtest.SeedLocalUserRecord(t, harness.DB, "incidents-admission-viewer@example.test", "Incidents Admission Viewer", viewerPassword, false, false, true)
+	scenariotest.CreateMembership(t, harness.Server, admin, incidentID, map[string]any{
+		"client_txn_id": "txn-incidents-admission-order-viewer", "user_id": viewer.ID.String(), "role": "viewer",
+	})
+	viewerLogin := flowtest.LoginLocalUser(t, http.DefaultClient, base, viewer.Email, viewerPassword, nil)
+	// A redirect is never followed, so a 3xx would surface as itself.
+	client := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	send := func(method string, path string, login authcookietest.AuthCookies, body any) *http.Response {
+		t.Helper()
+		return httptestx.DoJSON(t, client, method, base+path, body, httptestx.WithCookies(login.Session, login.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value))
+	}
+	requireMethodNotAllowed := func(t testing.TB, response *http.Response, allow ...string) {
+		t.Helper()
+		if got := response.Header.Get("Allow"); got != strings.Join(allow, ", ") {
+			t.Fatalf("Allow = %q, want %q", got, strings.Join(allow, ", "))
+		}
+		body := httptestx.RequireErrorEnvelope(t, response, http.StatusMethodNotAllowed, "method_not_allowed")
+		want := make([]any, 0, len(allow))
+		for _, method := range allow {
+			want = append(want, method)
+		}
+		if details := httptestx.RequireErrorDetails(t, body); !reflect.DeepEqual(details, map[string]any{"allowed_methods": want}) {
+			t.Fatalf("details = %#v, want allowed_methods %v", details, allow)
+		}
+	}
+	memberPath := "/api/v1/incidents/" + incidentID
+	missingPath := "/api/v1/incidents/" + uuid.NewString()
+	viewerMembership := "/memberships/" + viewer.ID.String()
+	missingMembership := "/memberships/" + uuid.NewString()
+	membershipPatch := map[string]any{"base_membership_version": 1, "role": "viewer"}
+	membershipDelete := map[string]any{"base_membership_version": 1}
+	// Every incident_id route, with a body its handler accepts up to the
+	// incident's visibility.
+	incidentRoutes := []struct {
+		name, method, suffix string
+		body                 any
+	}{
+		{name: "get", method: http.MethodGet},
+		{name: "patch", method: http.MethodPatch, body: map[string]any{}},
+		{name: "close", method: http.MethodPost, suffix: "/close", body: map[string]any{}},
+		{name: "reopen", method: http.MethodPost, suffix: "/reopen", body: map[string]any{}},
+		{name: "memberships", method: http.MethodGet, suffix: "/memberships"},
+		{name: "create membership", method: http.MethodPost, suffix: "/memberships", body: map[string]any{}},
+		{name: "patch membership", method: http.MethodPatch, suffix: viewerMembership, body: membershipPatch},
+		{name: "delete membership", method: http.MethodDelete, suffix: viewerMembership, body: membershipDelete},
+		{name: "audit events", method: http.MethodGet, suffix: "/membership-audit-events"},
+	}
+	httptestx.RequireSuccessEnvelope(t, send(http.MethodGet, "/api/v1/incidents/"+strings.ToUpper(incidentID), admin, nil), http.StatusOK)
+	before := incidentAdmissionEffects(t, harness.DB)
+
+	t.Run("authentication and CSRF precede path parameters", func(t *testing.T) {
+		for _, route := range incidentRoutes {
+			for _, path := range []string{"/api/v1/incidents/not-an-incident-id" + route.suffix, strings.Replace(memberPath+route.suffix, viewer.ID.String(), "not-a-user-id", 1)} {
+				httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, client, route.method, base+path, route.body), http.StatusUnauthorized, "session_required")
+				if route.method != http.MethodGet {
+					withoutCSRF := httptestx.DoJSON(t, client, route.method, base+path, route.body, httptestx.WithCookies(admin.Session))
+					httptestx.RequireErrorEnvelope(t, withoutCSRF, http.StatusForbidden, "csrf_verification_failed")
+				}
+			}
+		}
+	})
+	t.Run("a malformed identifier is a missing resource", func(t *testing.T) {
+		for _, malformed := range []string{"not-an-id", strings.ReplaceAll(incidentID, "-", ""), "%7B" + incidentID + "%7D"} {
+			for _, route := range incidentRoutes {
+				requireIncidentRouteResponsesAlike(t,
+					send(route.method, "/api/v1/incidents/"+malformed+route.suffix, admin, route.body),
+					send(route.method, missingPath+route.suffix, admin, route.body), http.StatusNotFound, "incident_not_found")
+			}
+			requireIncidentRouteResponsesAlike(t,
+				send(http.MethodPatch, memberPath+"/memberships/"+malformed, admin, membershipPatch),
+				send(http.MethodPatch, memberPath+missingMembership, admin, membershipPatch), http.StatusNotFound, "membership_not_found")
+			requireIncidentRouteResponsesAlike(t,
+				send(http.MethodDelete, memberPath+"/memberships/"+malformed, admin, membershipDelete),
+				send(http.MethodDelete, memberPath+missingMembership, admin, membershipDelete), http.StatusNotFound, "membership_not_found")
+		}
+	})
+	t.Run("an encoded slash stays inside the identifier", func(t *testing.T) {
+		requireIncidentRouteResponsesAlike(t, send(http.MethodGet, memberPath+"%2Fmemberships", admin, nil), send(http.MethodGet, missingPath, admin, nil), http.StatusNotFound, "incident_not_found")
+		requireIncidentRouteResponsesAlike(t, send(http.MethodGet, memberPath+"%2Fmembership-audit-events", admin, nil), send(http.MethodGet, missingPath, admin, nil), http.StatusNotFound, "incident_not_found")
+		requireIncidentRouteResponsesAlike(t, send(http.MethodPatch, memberPath+"%2Fmemberships%2F"+viewer.ID.String(), admin, membershipPatch), send(http.MethodPatch, missingPath, admin, membershipPatch), http.StatusNotFound, "incident_not_found")
+		requireIncidentRouteResponsesAlike(t, send(http.MethodPost, memberPath+"%2Fx/close", admin, map[string]any{}), send(http.MethodPost, missingPath+"/close", admin, map[string]any{}), http.StatusNotFound, "incident_not_found")
+		requireIncidentRouteResponsesAlike(t, send(http.MethodPatch, memberPath+viewerMembership+"%2Fx", admin, membershipPatch), send(http.MethodPatch, memberPath+missingMembership, admin, membershipPatch), http.StatusNotFound, "membership_not_found")
+		// POST on the incident read template: the encoded slash never selects close.
+		requireMethodNotAllowed(t, send(http.MethodPost, memberPath+"%2Fclose", admin, map[string]any{}), http.MethodGet, http.MethodPatch)
+	})
+	t.Run("route resolution rejections are enveloped", func(t *testing.T) {
+		for path, allow := range map[string]string{
+			"/api/v1/incidents":                     "GET, POST",
+			memberPath:                              "GET, PATCH",
+			memberPath + "/memberships":             "GET, POST",
+			memberPath + "/membership-audit-events": "GET",
+		} {
+			head := httptestx.DoJSON(t, client, http.MethodHead, base+path, nil, httptestx.WithCookies(admin.Session))
+			body, err := io.ReadAll(head.Body)
+			_ = head.Body.Close()
+			if err != nil || head.StatusCode != http.StatusMethodNotAllowed || head.Header.Get("Allow") != allow || len(body) != 0 {
+				t.Fatalf("HEAD %s = %d Allow=%q body=%q err=%v, want 405 Allow %s without a body", path, head.StatusCode, head.Header.Get("Allow"), body, err, allow)
+			}
+		}
+		requireMethodNotAllowed(t, send(http.MethodPut, "/api/v1/incidents", admin, map[string]any{}), http.MethodGet, http.MethodPost)
+		requireMethodNotAllowed(t, send(http.MethodDelete, memberPath, admin, nil), http.MethodGet, http.MethodPatch)
+		requireMethodNotAllowed(t, send(http.MethodGet, memberPath+"/close", admin, nil), http.MethodPost)
+		requireMethodNotAllowed(t, send(http.MethodPut, memberPath+viewerMembership, admin, map[string]any{}), http.MethodDelete, http.MethodPatch)
+		requireMethodNotAllowed(t, send(http.MethodPost, memberPath+"/membership-audit-events", admin, map[string]any{}), http.MethodGet)
+		httptestx.RequireErrorEnvelope(t, send(http.MethodGet, memberPath+"/unknown", admin, nil), http.StatusNotFound, "route_not_found")
+	})
+	t.Run("visibility precedes the role gate and route handling", func(t *testing.T) {
+		for _, route := range incidentRoutes {
+			suffix, body := route.suffix+"?limit=bad", any([]any{1})
+			if route.method == http.MethodGet {
+				body = nil
+			}
+			requireIncidentRouteResponsesAlike(t, send(route.method, memberPath+suffix, outsiderLogin, body), send(route.method, missingPath+suffix, outsiderLogin, body), http.StatusNotFound, "incident_not_found")
+		}
+		for _, route := range incidentRoutes {
+			if route.name == "get" || route.name == "memberships" {
+				continue // Any member reads the incident and its memberships.
+			}
+			body := any([]any{1})
+			if route.method == http.MethodGet {
+				body = nil
+			}
+			httptestx.RequireErrorEnvelope(t, send(route.method, memberPath+route.suffix+"?limit=bad", viewerLogin, body), http.StatusForbidden, "authorization_denied")
+		}
+		httptestx.RequireErrorEnvelope(t, send(http.MethodGet, memberPath+"?limit=1", viewerLogin, nil), http.StatusBadRequest, "invalid_pagination_request")
+		httptestx.RequireErrorEnvelope(t, send(http.MethodGet, memberPath+"?limit=1", admin, nil), http.StatusBadRequest, "invalid_pagination_request")
+		httptestx.RequireErrorEnvelope(t, send(http.MethodGet, memberPath+"/membership-audit-events?limit=bad", admin, nil), http.StatusBadRequest, "invalid_pagination_request")
+	})
+	if after := incidentAdmissionEffects(t, harness.DB); after != before {
+		t.Fatalf("rejected incident admission requests committed an effect: before=%s after=%s", before, after)
+	}
+}
+
+// requireIncidentRouteResponsesAlike requires the response for an existing
+// resource to match the response for a missing one in everything but its
+// request identity: status, code, message, details and retryability
+// (REQ-01-704).
+func requireIncidentRouteResponsesAlike(t testing.TB, existing, missing *http.Response, status int, code string) {
+	t.Helper()
+	bodies := make([]map[string]any, 0, 2)
+	for _, response := range []*http.Response{existing, missing} {
+		body := httptestx.RequireErrorEnvelope(t, response, status, code)
+		delete(body["error"].(map[string]any), "request_id")
+		bodies = append(bodies, body)
+	}
+	if !reflect.DeepEqual(bodies[0], bodies[1]) {
+		t.Fatalf("existing-resource response %v differs from missing-resource response %v", bodies[0], bodies[1])
+	}
+}
+
+// incidentAdmissionEffects renders the incident, membership, receipt, audit
+// and Collaboration state a rejected incident request could commit.
+func incidentAdmissionEffects(t testing.TB, db *sql.DB) string {
+	t.Helper()
+	var effects string
+	if err := db.QueryRowContext(context.Background(), `SELECT jsonb_build_object(
+ 'incidents',(SELECT coalesce(jsonb_agg(jsonb_build_array(id,status,incident_version,updated_at,closed_at) ORDER BY id),'[]') FROM incidents),
+ 'memberships',(SELECT coalesce(jsonb_agg(jsonb_build_array(incident_id,user_id,role,membership_version,updated_at) ORDER BY incident_id,user_id),'[]') FROM incident_memberships),
+ 'membership_versions',(SELECT count(*) FROM incident_membership_versions),
+ 'receipts',(SELECT count(*) FROM route_idempotency),
+ 'change_sets',(SELECT count(*) FROM change_sets),
+ 'audit',(SELECT count(*) FROM administrative_audit_projections)
+ )::text`).Scan(&effects); err != nil {
+		t.Fatal(err)
+	}
+	return effects + " collaboration_intents=" + strconv.Itoa(collaborationsupport.CountIntents(t, db, collaborationsupport.IntentSelector{}))
 }

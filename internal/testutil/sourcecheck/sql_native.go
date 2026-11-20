@@ -197,7 +197,7 @@ func (types sqlTypes) boundary(ref sqlTypeRef, method string, seen map[string]bo
 		}
 		return mergeSQLBoundaries(candidates)
 	}
-	key := ref.key()
+	key := types.key(ref)
 	if strings.HasPrefix(key, "database/sql/driver.") || strings.HasPrefix(key, pgxPackage+"/pgproto3.") {
 		return nativeSQLMethod{kind: "reject"}, true
 	}
@@ -211,7 +211,7 @@ func (types sqlTypes) boundary(ref sqlTypeRef, method string, seen map[string]bo
 		return nativeSQLMethod{}, false
 	}
 	seen[key] = true
-	if definition := types[key]; definition != nil {
+	if definition := types.declared[key]; definition != nil {
 		if declarations, ok := definition.methods[method]; ok {
 			candidates := []nativeSQLMethod{}
 			nonSQL := false
@@ -275,7 +275,7 @@ func (types sqlTypes) nativeIdentity(ref sqlTypeRef, seen map[string]bool) strin
 	if star, ok := ref.expr.(*ast.StarExpr); ok {
 		return types.nativeIdentity(ref.with(star.X), seen)
 	}
-	key := ref.key()
+	key := types.key(ref)
 	if _, ok := nativeSQL[key]; ok {
 		return key
 	}
@@ -359,7 +359,7 @@ func (types sqlTypes) portBoundary(ref sqlTypeRef, method string) (nativeSQLMeth
 // an unqualified result type could hide Send/Flush behind an unknown handle.
 func (a *sqlAnalyzer) rejectedNativeValue(selector *ast.SelectorExpr) bool {
 	id, ok := selector.X.(*ast.Ident)
-	if !ok || id.Obj != nil {
+	if !ok || a.binder.bind(id).bound() {
 		return false
 	}
 	imported := a.imports[id.Name]
@@ -372,18 +372,16 @@ func (types sqlTypes) rawProtocolType(ref sqlTypeRef, seen map[string]bool) bool
 	case *ast.ParenExpr:
 		return types.rawProtocolType(ref.with(e.X), seen)
 	case *ast.Ident:
-		if e.Obj != nil {
-			if declaration, ok := e.Obj.Decl.(*ast.TypeSpec); ok {
-				key := fmt.Sprintf("raw:%d", declaration.Pos())
-				if seen[key] {
-					return false
-				}
-				seen[key] = true
-				return types.rawProtocolType(ref.with(declaration.Type), seen)
+		if declaration, ok := types.binder.bind(e).decl.(*ast.TypeSpec); ok {
+			key := fmt.Sprintf("raw:%d", declaration.Pos())
+			if seen[key] {
+				return false
 			}
+			seen[key] = true
+			return types.rawProtocolType(ref.with(declaration.Type), seen)
 		}
 	}
-	key := ref.key()
+	key := types.key(ref)
 	if strings.HasPrefix(key, pgxPackage+"/pgproto3.") {
 		return true
 	}
@@ -391,7 +389,7 @@ func (types sqlTypes) rawProtocolType(ref sqlTypeRef, seen map[string]bool) bool
 		return false
 	}
 	seen[key] = true
-	if definition := types[key]; definition != nil {
+	if definition := types.declared[key]; definition != nil {
 		for _, candidate := range definition.definitions {
 			if types.rawProtocolType(candidate, cloneSQLSeen(seen)) {
 				return true

@@ -1176,7 +1176,7 @@ held -> released
 
 Acquisition begins only from `unacquired`; explicit release is permitted only from `held` during orderly process shutdown. Any loss of proof by the underlying lease session transitions immediately from `held` to `uncertain`, closes readiness and every admission gate, and starts the loss-detection deadline. Only the original underlying session may prove continuous ownership and return `uncertain -> held`; a different or recreated session cannot prove recovery. Confirmed session loss or expiry of the detection deadline without continuous-owner proof transitions to `lost`. `lost` is irreversible in that process: reacquisition and return to serving are forbidden.
 
-The runtime MUST detect confirmed lease loss within `timeouts.extensions.process_lease_loss_detection_seconds`. Lease loss while starting or serving is fatal condition `application_process_lease_lost`; it MUST close readiness, stop admitting HTTP, WebSocket, and job work, and execute EXT-REQ-193 with exit code `70`. Release or process crash MUST release the underlying lease. Browser sessions, incident roles, `deployment_admin`, and profile claim state MUST NOT authorize or replace the lease. A PostgreSQL advisory lease MAY implement this contract but is not normative and MUST preserve the exact session identity and transitions above.
+The runtime MUST detect confirmed lease loss within `timeouts.extensions.process_lease_loss_detection_seconds`. While ownership proof is uncertain, newly admitted HTTP work receives `503` `service_unavailable` with `reason_code='admission_paused'` and `retryable=true` (Core 04 REQ-04-145). Lease loss while starting or serving is fatal condition `application_process_lease_lost`; it MUST close readiness, stop admitting HTTP, WebSocket, and job work, and execute EXT-REQ-193 with exit code `70`. Release or process crash MUST release the underlying lease. Browser sessions, incident roles, `deployment_admin`, and profile claim state MUST NOT authorize or replace the lease. A PostgreSQL advisory lease MAY implement this contract but is not normative and MUST preserve the exact session identity and transitions above.
 
 Before listener startup, the process MUST also acquire the application side of Core 04's recovery serving lease. Active Recovery exclusivity MUST keep listener startup closed, report `recovery_serving_lease_active`, and exit `2`. Confirmed loss of the application's recovery serving lease while starting or serving is fatal condition `recovery_serving_lease_lost`; readiness and every admission gate MUST close immediately, EXT-REQ-193 MUST run, and the process MUST exit `70` without in-process reacquisition. The application-process lease and recovery serving lease retain distinct typed identities, lock identifiers, modes, owners, and failure vocabularies even when typed wrappers reuse owner-neutral lease mechanics. Recovery's exclusive target-lease loss retains the Recovery owner mapping and MUST NOT use either application failure token.
 
@@ -1234,7 +1234,7 @@ The plan is process-local and ephemeral. Every mandatory component MUST be initi
 
 The `prepared -> committed` transition MUST atomically install the immutable plan as the active process-local extension epoch while the external admission gate remains closed. The `committed -> serving` transition MUST occur only after every mandatory listener and worker acknowledges activation. A listener acknowledges activation only after its event loop is ready to accept immediately when the gate opens while still accepting nothing before that point. A worker acknowledges activation only after its dependencies and claimed-profile state are validated, its run loop is ready, and it is blocked from dequeue by the same gate. A duplicate acknowledgment, acknowledgment for an identity absent from the listener or worker plan, acknowledgment before `committed`, or failure acknowledgment is `extension_publication_failed`. Acknowledgments are process-local synchronization events and MUST NOT be persisted or exposed as public state.
 
-One atomic admission-gate transition is the public publication instant for HTTP acceptance, WebSocket upgrades, job dequeue, readiness success, discovery claim state, and workspace availability.
+One atomic admission-gate transition is the public publication instant for HTTP acceptance, WebSocket upgrades, job dequeue, readiness success, discovery claim state, and workspace availability. Core 04 REQ-04-145 decides when that transition may occur while lease ownership is uncertain.
 
 If component preparation or activation fails before `serving`, the runtime MUST keep the admission gate closed, stop every prepared component, discard the process-local plan, emit no successful extension response, fail with `extension_publication_failed`, and exit with code `2`, unless a fatal condition in EXT-REQ-134 is detected. Unexpected termination of a component after it has become prepared is `published_component_lost` and exits `70` even before bind or serving; it is distinct from a preparation/activation operation returning failure. Confirmed lease loss and other admitted fatal conditions also retain exit `70`. The complete publication operation MUST finish within `timeouts.extensions.publication_seconds`.
 
@@ -1269,7 +1269,7 @@ The deadline boundaries in Table 9-E are exhaustive.
 
 On expiry, the runtime MUST issue cancellation, reject and discard any later normal result, roll back an active transaction where one exists, retain required locks until rollback or process termination is proven, and wait no longer than `timeouts.extensions.cancellation_grace_seconds`. A non-cooperative operation remaining active after grace MUST cause process termination; it MUST NOT continue in the background after a timeout result is reported.
 
-Cancellation, timeout, and commit classification MUST use this precedence: a proven successful commit returns committed success or replay regardless of an earlier or simultaneous cancellation signal; a proven absent commit returns cancellation when cancellation was sampled before expiry, otherwise timeout when expiry was sampled first or at the same monotonic instant; an unknown commit or mutation outcome is fatal. An equal cancellation/deadline observation is timeout. `timeouts.extensions.cancellation_grace_seconds=0` means the process-isolation or termination consequence begins immediately after cancellation is issued; it does not move the semantic deadline or permit a late normal result.
+Cancellation, timeout, and commit classification MUST use this precedence: a proven successful commit returns committed success or replay regardless of an earlier or simultaneous cancellation signal; a proven absent commit returns cancellation when cancellation was sampled before expiry, otherwise timeout when expiry was sampled first or at the same monotonic instant; an unknown commit or mutation outcome is fatal. Observing the effects of an operation's own proven commit, including the terminal Job state that commit published, is not a cancellation signal: it neither starts the cancellation grace nor interrupts completion that follows the commit. An equal cancellation/deadline observation is timeout. `timeouts.extensions.cancellation_grace_seconds=0` means the process-isolation or termination consequence begins immediately after cancellation is issued; it does not move the semantic deadline or permit a late normal result.
 
 Outcome classification MUST use Table 9-F.
 
@@ -1281,6 +1281,8 @@ Outcome classification MUST use Table 9-F.
 | Durable commit proven successful | Return or replay the committed success. |
 | Durable commit proven absent | Return timeout, cancellation, or conflict as the owning operation specifies. |
 | Commit or mutation outcome indeterminate | Enter fatal integrity shutdown with `indeterminate_database_commit`. |
+
+For every Table 9-E operation whose deadline ends when "Commit or rollback outcome is known" or "Reconciliation transaction outcome is known", cancellation or expiry after the commit is invoked MUST NOT abandon the commit. The commit is awaited within the cancellation grace, and a commit still pending after the grace is `operation_cancellation_grace_exhausted`. A commit acknowledged by an ERROR-severity response, or by a rollback completion, is proven absent. A FATAL or PANIC response, a transport failure or a missing reply is not an acknowledgement. A commit request that the runtime proves it never transmitted to the database, because its session was already closed or the request was rejected before any of it was sent, is proven absent; the session is retired before absence is reported.
 
 No cancellation mechanism is required by name. Any selected cooperative-cancellation, subprocess-isolation, transaction-cancellation, or process-supervision mechanism MUST satisfy every observable result above. For the cross-owner transaction protocol, queueing, participant input construction, prepare, lock acquisition, validation, write, and commit time are included. For other operations, queueing time and lock-wait time are included only where the start boundary table says they are included.
 
@@ -2610,7 +2612,9 @@ After rollback proves absence, the shared coordinator MUST classify raw or wrapp
 
 The EXT-REQ-215 deadline interval includes establishing the rollback outcome. A completion lifetime failure or unproven absence MUST remain fatal. Once rollback proves absence, the coordinator MUST preserve an already selected fatal, cancellation or timeout outcome; otherwise it MUST apply the first operation interruption recorded through rollback completion before returning any ordinary owner failure, registered validation failure or database conflict. An already classified database conflict has the same precedence as a raw database conflict. The recorded first interruption MUST determine cancellation versus timeout; a later observation MUST NOT replace it. Without an applicable interruption, the existing owner-error, validation-result and database-conflict classifications remain unchanged.
 
-Cancellation or timeout before step 7 MUST cancel without opening a database transaction. During steps 7 through 13, it MUST request rollback and MUST report cancellation or timeout only after rollback or other absence of commit is proven. The final-commit boundary begins when step 14 invokes database commit. From that point, the operation MUST return only committed success, committed replay, proven absent-commit cancellation or conflict, or fatal indeterminate outcome. It MUST NOT report ordinary cancellation, timeout, or conflict while commit outcome is unknown.
+Cancellation or timeout before step 7 MUST cancel without opening a database transaction. During steps 7 through 13, it MUST request rollback and MUST report cancellation or timeout only after rollback or other absence of commit is proven. The final-commit boundary begins when step 14 invokes database commit. From that point, the operation MUST return only committed success, committed replay, a proven absent-commit cancellation, timeout or conflict classified by EXT-REQ-215 and the precedence below, or the fatal outcome for an indeterminate commit or an exhausted cancellation grace. It MUST NOT report ordinary cancellation, timeout, or conflict while commit outcome is unknown.
+
+Cancellation or deadline expiry after step 14 has invoked database commit MUST NOT abandon the commit request or close its database session before the commit's acknowledgement or proven absence is received. The coordinator MUST await that acknowledgement for no longer than the cancellation grace that began at the first recorded interruption. An acknowledgement received within the grace is classified under EXT-REQ-215. A commit still unacknowledged when the grace is exhausted is `operation_cancellation_grace_exhausted`. When commit is proven absent, the first interruption recorded through commit completion determines cancellation versus timeout and takes precedence over a database conflict or other commit failure, as it does after rollback.
 
 Profiles: base
 Verified by: EXT-AC-111, EXT-AC-130, EXT-AC-153
@@ -2852,7 +2856,12 @@ sampled cancellation and commit proof, and EXT-REQ-193 continues to govern
 fatal outcomes. A proven successful commit is not reclassified as an
 initialization timeout; unknown mutation outcome remains fatal. Every
 noncommitted initialization failure rolls back pending state and metadata,
-writes no migration ledger row, and prevents claim publication.
+writes no migration ledger row, and prevents claim publication. An
+initialization commit proven absent under EXT-REQ-215 commits no state or
+metadata and blocks claim publication. It is a state-storage startup failure,
+not an initializer outcome: it produces no Table 26-A finding and ends startup
+with exit code `2`. An indeterminate initialization commit outcome invokes the
+fatal integrity-shutdown contract.
 
 Profiles: base
 Verified by: EXT-AC-132, EXT-AC-133, EXT-AC-142
@@ -3039,7 +3048,7 @@ The lock MUST remain held through the Stage 3 final local state validation and M
 - one migration ledger entry;
 - the resulting state metadata version and `last_migration_id`.
 
-A step is limited by `timeouts.extensions.migration_step_seconds`; the complete profile sequence is limited by `timeouts.extensions.profile_migration_seconds`. A later step MUST NOT begin after the profile deadline. A timed-out active step with a determinate uncommitted outcome MUST roll back and fail with `extension_migration_timeout`. An indeterminate commit outcome MUST invoke the fatal integrity-shutdown contract. Migrations MUST make no third-party request.
+A step is limited by `timeouts.extensions.migration_step_seconds`; the complete profile sequence is limited by `timeouts.extensions.profile_migration_seconds`. A later step MUST NOT begin after the profile deadline. A timed-out active step with a determinate uncommitted outcome MUST roll back and fail with `extension_migration_timeout`. An indeterminate commit outcome MUST invoke the fatal integrity-shutdown contract. A step whose commit is proven absent under EXT-REQ-215 for any reason other than its deadline commits nothing, writes no ledger entry and fails with `extension_migration_failed` under condition class `commit_absent`. Migrations MUST make no third-party request.
 
 Profiles: base
 Verified by: EXT-AC-086
@@ -3314,23 +3323,23 @@ Profiles: base
 Verified by: EXT-AC-054, EXT-AC-090, EXT-AC-104, EXT-AC-112
 
 **EXT-REQ-193**
-Core 04 is the sole lifecycle and process-exit owner. Before coordinated adoption, Core 04 MUST publish `fatal_integrity_shutdown_v1`; this subsystem MUST import that exact contract and MUST NOT define an independent lifecycle. The imported contract MUST admit exactly these transitions:
+Core 04 is the sole lifecycle and process-exit owner. This subsystem imports the adopted Core 04 fatal and ordinary lifecycles (REQ-04-146 and REQ-04-146a) and MUST NOT define an independent lifecycle. The imported lifecycle MUST admit exactly these transitions:
 
 ```text
 starting -> terminating -> exited
 running  -> quiescing -> terminating -> exited
 ```
 
-For fatal detection while `starting`, the imported contract MUST close the admission gate, cancel or roll back every precommit operation, close any prepared or bound listener without admitting a public socket, preserve committed state and durable queued jobs, emit exactly one safe fatal diagnostic, and exit with code `70`. It MUST emit no WebSocket terminal event when no public WebSocket was admitted.
+For fatal detection while `starting`, the imported lifecycle MUST close the admission gate, cancel or roll back every precommit operation, close any prepared or bound listener without admitting a public socket, preserve committed state and durable queued jobs, emit exactly one safe fatal diagnostic, and exit with code `70`. It MUST emit no WebSocket terminal event when no public WebSocket was admitted.
 
-For fatal detection while `running`, the imported contract MUST:
+For fatal detection while `running`, the imported lifecycle MUST:
 
 1. transition atomically from `running` to `quiescing`; a repeated fatal signal MUST NOT restart the drain deadline;
 2. set `/readyz` to HTTP `503` with safe status token `fatal_integrity_failure`;
 3. keep `/healthz` at HTTP `200` only while the process remains alive;
 4. reject newly admitted HTTP work with HTTP `503`, `error.code='service_unavailable'`, `reason_code='extension_integrity_failure'`, and `retryable=true`;
 5. reject new WebSocket upgrades and stop common-job dequeue;
-6. send every existing WebSocket the Core terminal error event with `code='server_shutdown'` and `reason_code='extension_integrity_failure'`, then close it with WebSocket code `1011`;
+6. close every existing WebSocket with close code `1001` and no terminal event, as Core 04 REQ-04-146a defines for both lifecycles;
 7. cancel work that has not crossed its final-commit boundary;
 8. allow work whose final commit is already in progress or committed to complete only the publication required to make that committed outcome recoverable;
 9. preserve queued durable jobs and committed state;
@@ -3338,7 +3347,7 @@ For fatal detection while `running`, the imported contract MUST:
 11. transition to `terminating`, force-close remaining connections and workers, and emit one safe fatal diagnostic;
 12. exit with process exit code `70`.
 
-A repeated signal for the same or another fatal condition MUST be idempotent: it MUST NOT reopen admission, duplicate the safe diagnostic, duplicate a WebSocket terminal event, restart a timeout, or change the selected exit code. A startup configuration or ordinary admission failure MUST start no public listener and exit with code `2`; it MUST NOT use fatal shutdown. Core 04 MUST reserve these exact exit codes and readiness/health behaviors before coordinated adoption. A fatal diagnostic MUST NOT contain a secret, incident value, storage identifier, SQL, or raw cryptographic detail.
+A repeated signal for the same or another fatal condition MUST be idempotent: it MUST NOT reopen admission, duplicate the safe diagnostic, restart a timeout, or change the selected exit code. A startup configuration or ordinary admission failure MUST start no public listener and exit with code `2`; it MUST NOT use fatal shutdown. Core 04 MUST reserve these exact exit codes and readiness/health behaviors before coordinated adoption. A fatal diagnostic MUST NOT contain a secret, incident value, storage identifier, SQL, or raw cryptographic detail.
 
 For `published_component_lost`, the same lifecycle MUST close readiness and admission immediately, drain under the existing deadline, preserve every committed state and queued durable job, and exit `70`. The process MUST NOT return to `running`, rebuild the publication plan, or restart the listener, dequeue gate, or worker in-process; recovery belongs to the external supervisor starting a new process.
 
@@ -4168,6 +4177,7 @@ Verified by: EXT-AC-119, EXT-AC-126, EXT-AC-147
 | `timeout` | A declared deadline expires. |
 | `dependency_unavailable` | A required scoped storage or authorization dependency cannot be used. |
 | `commit_indeterminate` | A durable mutation or commit outcome cannot be proven. |
+| `commit_absent` | A durable commit failed and its absence is proven under EXT-REQ-215. |
 
 **Table 26-D. Closed diagnostic formatter outputs**
 
@@ -4316,7 +4326,7 @@ The implementation and coordinated specification set are conformant only when ev
 | `EXT-AC-087` | Unclaimed and recognized-unclaimable profiles satisfy every Table 21-B row; syntax-only values remain inert, local availability checks never run, and generic job reconciliation remains shared-owner behavior. |
 | `EXT-AC-088` | Valid commit proof takes precedence over cancellation, the exact stored original success is replayed once, absent proof fails or cancels as specified, and contradictory proof blocks startup. |
 | `EXT-AC-089` | Authoritative non-database bytes are durable before database publication, become queryable exactly at final database commit, reject different-byte replay, and orphan within the required interval. |
-| `EXT-AC-090` | Every closed fatal condition, including both application-owned lease-loss tokens, imports Core 04 `fatal_integrity_shutdown_v1`, preserves committed state and durable jobs, is idempotent under repeated signals, emits no unadmitted WebSocket event, and exits `70`; ordinary admission failure exits `2`. |
+| `EXT-AC-090` | Every closed fatal condition, including both application-owned lease-loss tokens, follows the Core 04 REQ-04-146 lifecycle, preserves committed state and durable jobs, is idempotent under repeated signals, closes WebSockets with `1001` and no terminal event, and exits `70`; ordinary admission failure exits `2`. |
 | `EXT-AC-091` | Current discovery producers emit no extra member; compatible consumers ignore additive unknown members but reject malformed known members and never execute unknown data. |
 | `EXT-AC-092` | Discovery retains the existing three Core fields, adds exactly the four generic fields, and no Network Flow profile-local discovery item remains normative or emitted. |
 | `EXT-AC-093` | Every compatibility-matrix row causes the required document, contract, state, schema, or algorithm action; unsupported majors and unknown values follow their exact client outcomes. |
@@ -4405,7 +4415,7 @@ Verified by: EXT-AC-001, EXT-AC-072, EXT-AC-075, EXT-AC-128
 | `EXT-GATE-003` | Core 01 adopts the bounded transaction protocol and errors, staged-object access/cleanup and errors, backup codec selection/error, job proof/reconciliation, typed portability/reporting/backup participation, final-commit boundary, and recovery. |
 | `EXT-GATE-004` | Core 02 adopts or confirms the generic extension-resource boundary, authoritative/derived logical state-family ownership boundary, state-presence exclusion rules, and cross-owner authoritative-write prohibition. |
 | `EXT-GATE-005` | Core 03 adopts availability epoch/generation, stable `client_instance_id` and WebSocket identity, exact discovery/support/authorization intersection, lazy loading, unsupported-major behavior, Base fallback, authorization-loss disposal, and Base cache/request/queue/draft preservation. |
-| `EXT-GATE-006` | Core 04 adopts forbidden/syntax-only inactive processing, every timeout, process lease, single-active-process rule, Stage 6 publication, readiness including cleanup dependency degradation, `fatal_integrity_shutdown_v1`, and exit codes `2` and `70`. |
+| `EXT-GATE-006` | Core 04 adopts forbidden/syntax-only inactive processing, every timeout, process lease, single-active-process rule, Stage 6 publication, readiness including cleanup dependency degradation, the REQ-04-146 and REQ-04-146a lifecycles, and exit codes `2` and `70`. |
 | `EXT-GATE-007` | Network Flow Activity publishes its typed owner fragments through generic discovery, adopts current major 10/state 7/minimum 7/configuration major 2, and declares Import dependency, empty initialization, no executable prior-state migration, inert historical ledger facts, state-7 final claim validation including diagnostics, shared structural restore validation, state presence/bindings/logical codecs, saved-graph job/worker/resource, generated graph-worker capacity `1`, Reporting participant, current-only Graph rebuild v5 after claim, and member-stream incident portability participation. |
 | `EXT-GATE-008` | Reporting and Report Composition import descriptors, claims, compatibility, typed source contracts and lifecycle rules without transferring model admission, reporting or composition ownership. |
 | `EXT-GATE-009` | The Testing Harness remains adopted/current; every Extensions verification routes to a real test or public target; runner and execution profiles validate; and no compatibility reader or historical run can close adoption. |

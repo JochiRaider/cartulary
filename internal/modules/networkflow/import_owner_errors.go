@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
 	"github.com/JochiRaider/cartulary/internal/modules/imports"
 )
 
@@ -37,6 +38,13 @@ func importOwnerError(ownerCode string, safeDetails map[string]any) error {
 func (f *importFacade) TranslateImportUnitError(
 	err error,
 ) (imports.ExtensionImportErrorTranslation, bool) {
+	// A cross-owner timeout or conflict with its commit proven absent has a
+	// Core unit outcome (Core 01 REQ-01-620c). The owner never claims it, even
+	// when an owner error shares the chain.
+	var conflict *crossownertransaction.ConflictError
+	if errors.Is(err, crossownertransaction.ErrTimeout) || errors.As(err, &conflict) {
+		return imports.ExtensionImportErrorTranslation{}, false
+	}
 	var ownerErr *networkFlowImportOwnerError
 	if !errors.As(err, &ownerErr) {
 		return imports.ExtensionImportErrorTranslation{}, false

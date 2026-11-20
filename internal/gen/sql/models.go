@@ -270,7 +270,7 @@ type ChangeSet struct {
 	RequestID           pgtype.Text        `json:"request_id"`
 	CreatedAt           pgtype.Timestamptz `json:"created_at"`
 	ActorImportContexts []byte             `json:"actor_import_contexts"`
-	HistoryOrder        int64              `json:"history_order"`
+	HistoryOrder        pgtype.Int8        `json:"history_order"`
 }
 
 type ChangeSetMutation struct {

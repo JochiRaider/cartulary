@@ -41,7 +41,7 @@ func (a *sqlAnalyzer) helperValue(fn *ast.FuncDecl, args []ast.Expr, visiting ma
 	if len(field.Names) == 1 {
 		summary.binding = field.Names[0]
 	}
-	child := &sqlAnalyzer{packageConstantBindings: a.packageConstantBindings, bindings: sqlBindingInventory(fn), fset: a.fset, current: fn, observed: map[ast.Expr]bool{}, directCalls: a.directCalls, packageConstants: a.packageConstants, constantImports: a.constantImports, types: a.types, scope: a.scope, variableTypes: map[string]sqlTypeRef{}, constants: a.constants, functions: a.functions, functionImports: a.functionImports, imports: a.functionImports[fn], collections: map[string]sqlCollection{}, calls: map[string]bool{}, env: sqlEnv{}, seen: map[string]bool{}, returnSummary: summary}
+	child := &sqlAnalyzer{binder: a.binder, bindings: sqlBindingInventory(a.binder, fn), fset: a.fset, current: fn, observed: map[ast.Expr]bool{}, directCalls: a.directCalls, packageConstants: a.packageConstants, constantImports: a.constantImports, types: a.types, scope: a.scope, variableTypes: map[string]sqlTypeRef{}, constants: a.constants, functions: a.functions, functionImports: a.functionImports, imports: a.functionImports[fn], collections: map[string]sqlCollection{}, calls: map[string]bool{}, env: sqlEnv{}, seen: map[string]bool{}, returnSummary: summary}
 	for key, val := range a.calls {
 		child.calls[key] = val
 	}
@@ -49,16 +49,16 @@ func (a *sqlAnalyzer) helperValue(fn *ast.FuncDecl, args []ast.Expr, visiting ma
 	argument := 0
 	for _, field := range fn.Type.Params.List {
 		for _, name := range field.Names {
-			child.variableTypes[sqlBinding(name)] = child.typeRef(field.Type)
-			child.env[sqlBinding(name)] = unknownSQL("missing argument " + name.Name)
+			child.variableTypes[sqlBinding(child.binder, name)] = child.typeRef(field.Type)
+			child.env[sqlBinding(child.binder, name)] = unknownSQL("missing argument " + name.Name)
 			if argument < len(args) {
-				child.env[sqlBinding(name)] = a.value(args[argument], visiting)
+				child.env[sqlBinding(child.binder, name)] = a.value(args[argument], visiting)
 			}
 			argument++
 		}
 	}
 	if summary.binding != nil {
-		key := sqlBinding(summary.binding)
+		key := sqlBinding(child.binder, summary.binding)
 		child.variableTypes[key] = child.typeRef(field.Type)
 		child.env[key] = []sqlValue{{"", nil}}
 		// Explicit returns assign the named destination before deferred calls.

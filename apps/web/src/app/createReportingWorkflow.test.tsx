@@ -2,6 +2,7 @@ import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { ReportingFeature } from "../reporting/ReportingPanel";
 import { sessionResource } from "../testing/appShellTestSupport";
+import { operationRejection } from "../testing/fetchMockTestSupport";
 import { AppSessionController } from "./appSessionController";
 import { createReportingWorkflow } from "./createReportingWorkflow";
 
@@ -32,7 +33,8 @@ function setup() {
         }),
       },
     }),
-    preferences: async () => ({ ok: false, status: 503, payload: {} }),
+    preferences: async () =>
+      operationRejection({ code: "internal_error", status: 500 }),
     extensions: async () => ({
       ok: true,
       status: 200,

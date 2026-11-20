@@ -3,21 +3,25 @@ package harnessredact
 
 import "regexp"
 
+// Marker is the single retained redaction marker owned by
+// tools/harness_redaction_manifest.json (TH-HARNESS-REQ-617).
+const Marker = "<redacted>"
+
 var rules = compiledManifest{
-	replacement: "[REDACTED]",
+	replacement: Marker,
 	valueRules: []compiledRule{
-		{pattern: regexp.MustCompile("(?i)\\bBearer\\s+[-._~+/A-Za-z0-9]+=*"), replacement: "Bearer [REDACTED:token]"},
-		{pattern: regexp.MustCompile("(?i)\\bBasic\\s+[-._~+/A-Za-z0-9]+=*"), replacement: "Basic [REDACTED:token]"},
-		{pattern: regexp.MustCompile("(?i)\\b(Authorization\\s*:\\s*)([^\\r\\n]+)"), replacement: "$1[REDACTED:token]"},
-		{pattern: regexp.MustCompile("(?i)\\b((?:Cookie|Set-Cookie|X-Cartulary-Test-Route-Token)\\s*:\\s*)([^\\r\\n]+)"), replacement: "$1[REDACTED:token]"},
-		{pattern: regexp.MustCompile("\\beyJ[-_A-Za-z0-9]+\\.[-_A-Za-z0-9]+\\.[-_A-Za-z0-9]+\\b"), replacement: "[REDACTED:token]"},
-		{pattern: regexp.MustCompile("(?i)\\b(password\\s*=\\s*)([^\\s&;]+)"), replacement: "$1[REDACTED:dsn]"},
-		{pattern: regexp.MustCompile("(?i)\\b([a-z][a-z0-9+.-]*://)([^/?#\\s@]+)@"), replacement: "$1[REDACTED:dsn]@"},
-		{pattern: regexp.MustCompile("(?i)(--(?:password|passwd|pwd|secret|token|jwt|api[_-]?key|access[_-]?key|secret[_-]?key|private[_-]?key|client[_-]?secret|dsn)\\s*=\\s*)((?:\\\\.|[^\\s])+)"), replacement: "$1[REDACTED]"},
-		{pattern: regexp.MustCompile("(?i)(--(?:password|passwd|pwd|secret|token|jwt|api[_-]?key|access[_-]?key|secret[_-]?key|private[_-]?key|client[_-]?secret|dsn)\\s+)((?:\\\\.|[^\\s])+)"), replacement: "$1[REDACTED]"},
-		{pattern: regexp.MustCompile("(?i)\\b(password|passwd|pwd|secret|token|jwt|api[_-]?key|access[_-]?key|secret[_-]?key|private[_-]?key|client[_-]?secret|dsn)\\s*=\\s*([^\\s&]+)"), replacement: "$1=[REDACTED]"},
-		{pattern: regexp.MustCompile("(?i)\\b((?:minio|s3|aws)?[_-]?(?:access[_-]?key|secret[_-]?key|access[_-]?key[_-]?id|secret[_-]?access[_-]?key)\\s*=\\s*)([^\\s&]+)"), replacement: "$1[REDACTED:object-store-credential]"},
-		{pattern: regexp.MustCompile("(?i)(\"(?:authorization|cookie|set-cookie|x-cartulary-test-route-token|password|passwd|pwd|secret|token|jwt|api[_-]?key|access[_-]?key|secret[_-]?key|private[_-]?key|client[_-]?secret|dsn)\"\\s*:\\s*\")([^\"]+)(\")"), replacement: "$1[REDACTED]$3"},
-		{pattern: regexp.MustCompile("-----BEGIN [A-Z ]*PRIVATE KEY-----[\\s\\S]*?-----END [A-Z ]*PRIVATE KEY-----"), replacement: "[REDACTED:private-key]"},
+		{pattern: regexp.MustCompile("(?i)\\bBearer\\s+[-._~+/A-Za-z0-9]+=*"), replacement: "Bearer <redacted>"},
+		{pattern: regexp.MustCompile("(?i)\\bBasic\\s+[-._~+/A-Za-z0-9]+=*"), replacement: "Basic <redacted>"},
+		{pattern: regexp.MustCompile("(?i)\\b(Authorization\\s*:\\s*)([^\\r\\n]+)"), replacement: "$1<redacted>"},
+		{pattern: regexp.MustCompile("(?i)\\b((?:Cookie|Set-Cookie|X-Cartulary-Test-Route-Token)\\s*:\\s*)([^\\r\\n]+)"), replacement: "$1<redacted>"},
+		{pattern: regexp.MustCompile("\\beyJ[-_A-Za-z0-9]+\\.[-_A-Za-z0-9]+\\.[-_A-Za-z0-9]+\\b"), replacement: "<redacted>"},
+		{pattern: regexp.MustCompile("(?i)\\b(password\\s*=\\s*)([^\\s&;]+)"), replacement: "$1<redacted>"},
+		{pattern: regexp.MustCompile("(?i)\\b([a-z][a-z0-9+.-]*://)([^/?#\\s@]+)@"), replacement: "$1<redacted>@"},
+		{pattern: regexp.MustCompile("(?i)(--(?:password|passwd|pwd|secret|token|jwt|api[_-]?key|access[_-]?key|secret[_-]?key|private[_-]?key|client[_-]?secret|dsn)\\s*=\\s*)((?:\\\\.|[^\\s])+)"), replacement: "$1<redacted>"},
+		{pattern: regexp.MustCompile("(?i)(--(?:password|passwd|pwd|secret|token|jwt|api[_-]?key|access[_-]?key|secret[_-]?key|private[_-]?key|client[_-]?secret|dsn)\\s+)((?:\\\\.|[^\\s])+)"), replacement: "$1<redacted>"},
+		{pattern: regexp.MustCompile("(?i)\\b(password|passwd|pwd|secret|token|jwt|api[_-]?key|access[_-]?key|secret[_-]?key|private[_-]?key|client[_-]?secret|dsn)\\s*=\\s*([^\\s&]+)"), replacement: "$1=<redacted>"},
+		{pattern: regexp.MustCompile("(?i)\\b((?:minio|s3|aws)?[_-]?(?:access[_-]?key|secret[_-]?key|access[_-]?key[_-]?id|secret[_-]?access[_-]?key)\\s*=\\s*)([^\\s&]+)"), replacement: "$1<redacted>"},
+		{pattern: regexp.MustCompile("(?i)(\"(?:authorization|cookie|set-cookie|x-cartulary-test-route-token|password|passwd|pwd|secret|token|jwt|api[_-]?key|access[_-]?key|secret[_-]?key|private[_-]?key|client[_-]?secret|dsn)\"\\s*:\\s*\")([^\"]+)(\")"), replacement: "$1<redacted>$3"},
+		{pattern: regexp.MustCompile("-----BEGIN [A-Z ]*PRIVATE KEY-----[\\s\\S]*?-----END [A-Z ]*PRIVATE KEY-----"), replacement: "<redacted>"},
 	},
 }

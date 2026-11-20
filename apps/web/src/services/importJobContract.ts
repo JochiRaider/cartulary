@@ -1,4 +1,5 @@
-import { validCommonJob } from "./commonJobContract";
+import { isFailureCode } from "../shared/publicError";
+import { jobResultSummaryCode, validCommonJob } from "./commonJobContract";
 import type { ImportJobResource } from "./importContractAdapter";
 
 /** Cross-resource rules supplement generated envelope validation. */
@@ -21,13 +22,14 @@ export function validWorkbookImportJob(
     )
   )
     return false;
+  const code = jobResultSummaryCode(job);
   if (
     job.status === "succeeded" &&
-    (![
+    (!isFailureCode(code, [
       "import_session_discovered",
       "import_session_applied",
       "import_session_partially_applied",
-    ].includes(job.result_summary?.code ?? "") ||
+    ]) ||
       sessions.length !== 1)
   )
     return false;
@@ -35,9 +37,8 @@ export function validWorkbookImportJob(
     job.status === "succeeded" &&
     purpose !== undefined &&
     (purpose === "discovery"
-      ? job.result_summary?.code !== "import_session_discovered" ||
-        refs.length !== 1
-      : job.result_summary?.code === "import_session_discovered")
+      ? code !== "import_session_discovered" || refs.length !== 1
+      : code === "import_session_discovered")
   )
     return false;
   const seen = new Set<string>();

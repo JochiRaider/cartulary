@@ -65,7 +65,15 @@ export type ObservationPage<T> = Readonly<{
 export type ObservationOutcome =
   | { kind: "acknowledged"; receipt: ObservationReceipt }
   | { kind: "uncertain" }
-  | { kind: "rejected"; failure: WorkbookOperationFailure };
+  | {
+      kind: "rejected";
+      failure: WorkbookOperationFailure<
+        | "createManualIndicatorObservation"
+        | "resolveIndicatorObservation"
+        | "dismissIndicatorObservation"
+        | "restoreIndicatorObservation"
+      >;
+    };
 export type ObservationScope = Readonly<{
   signal: AbortSignal;
   isCurrent: () => boolean;

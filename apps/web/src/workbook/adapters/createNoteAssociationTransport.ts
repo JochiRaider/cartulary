@@ -7,7 +7,10 @@ import {
 import { acceptWorkbookRowObservation } from "../query/acceptWorkbookRowObservation";
 import type { WorkbookReadScopeSource } from "../query/WorkbookQueryRow";
 import { freezeWorkbookValue } from "../utils/freezeWorkbookValue";
-import { classifyWorkbookOperationFailure } from "./workbookOperationErrorPolicy";
+import {
+  classifyWorkbookOperationFailure,
+  explicitWorkbookFailureOutcome,
+} from "./workbookOperationErrorPolicy";
 import type {
   WorkbookProtocolNoteAssociationsPage,
   WorkbookProtocolNoteAssociationsReceipt,
@@ -54,35 +57,26 @@ export function createNoteAssociationTransport(
             buildHTTPOperationPath("mutateNoteAssociations", pathParameters)
         )
           return { kind: "uncertain" };
-        const result =
-          await fetchHTTPOperation<WorkbookProtocolNoteAssociationsReceipt>({
-            apiBase: attempt.apiBase,
-            operationID: "mutateNoteAssociations",
-            pathParameters,
-            init: { method: "POST", body: attempt.body, signal },
-            onResponse: (response) => {
-              status = response.status;
-              responseId = response.headers.get("X-Request-ID");
-            },
-          });
+        const result = await fetchHTTPOperation<
+          WorkbookProtocolNoteAssociationsReceipt,
+          "mutateNoteAssociations"
+        >({
+          apiBase: attempt.apiBase,
+          operationID: "mutateNoteAssociations",
+          pathParameters,
+          init: { method: "POST", body: attempt.body, signal },
+          onResponse: (response) => {
+            status = response.status;
+            responseId = response.headers.get("X-Request-ID");
+          },
+        });
         if (!result.ok) {
-          if (
-            status === null ||
-            status < 400 ||
-            status >= 500 ||
-            !result.payload.error?.code ||
-            (responseId !== null &&
-              responseId !== result.payload.error.request_id)
-          )
-            return { kind: "uncertain" };
-          const failure = classifyWorkbookOperationFailure(
-            result.status,
-            result.payload,
+          return explicitWorkbookFailureOutcome(
+            status,
+            result.payload.error,
             "mutateNoteAssociations",
+            responseId,
           );
-          return failure.kind === "invalid_contract"
-            ? { kind: "uncertain" }
-            : { kind: "rejected", failure };
         }
         const receipt = result.payload,
           row = normalizeRecordMutationRow(
@@ -121,24 +115,25 @@ export function createNoteAssociationTransport(
     },
     async list(noteId, kind, cursor, signal) {
       try {
-        const result =
-          await fetchHTTPOperation<WorkbookProtocolNoteAssociationsPage>({
-            apiBase,
-            operationID: "listNoteAssociations",
-            pathParameters: { note_record_id: noteId },
-            query: {
-              kind,
-              limit: 100,
-              ...(cursor ? { cursor_token: cursor } : {}),
-            },
-            init: { method: "GET", signal },
-          });
+        const result = await fetchHTTPOperation<
+          WorkbookProtocolNoteAssociationsPage,
+          "listNoteAssociations"
+        >({
+          apiBase,
+          operationID: "listNoteAssociations",
+          pathParameters: { note_record_id: noteId },
+          query: {
+            kind,
+            limit: 100,
+            ...(cursor ? { cursor_token: cursor } : {}),
+          },
+          init: { method: "GET", signal },
+        });
         if (!result.ok)
           return {
             kind: "rejected",
             failure: classifyWorkbookOperationFailure(
-              result.status,
-              result.payload,
+              result.payload.error,
               "listNoteAssociations",
             ),
           };

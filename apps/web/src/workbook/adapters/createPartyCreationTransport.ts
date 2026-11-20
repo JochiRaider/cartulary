@@ -12,7 +12,7 @@ import {
 import type { WorkbookOperationFailure } from "../mutations/workbookOperationOutcome";
 import { acceptWorkbookRowObservation } from "../query/acceptWorkbookRowObservation";
 import type { WorkbookReadScopeSource } from "../query/WorkbookQueryRow";
-import { classifyWorkbookOperationFailure } from "./workbookOperationErrorPolicy";
+import { explicitWorkbookFailureOutcome } from "./workbookOperationErrorPolicy";
 import { acceptedRecordMutation } from "./workbookRecordPatchTransport";
 
 export type PartyCreationReceipt = Readonly<CreateViewRowResponse>;
@@ -76,7 +76,7 @@ export function createPartyCreationTransport(
           buildHTTPOperationPath("createViewRow", pathParameters)
         )
           return { kind: "uncertain" };
-        const result = await fetchHTTPOperation<CreateViewRowResponse>({
+        const result = await fetchHTTPOperation({
           apiBase: attempt.apiBase,
           operationID: "createViewRow",
           pathParameters,
@@ -86,21 +86,11 @@ export function createPartyCreationTransport(
           },
         });
         if (!result.ok) {
-          if (
-            status === null ||
-            status < 400 ||
-            status >= 500 ||
-            !result.payload.error?.code
-          )
-            return { kind: "uncertain" };
-          const failure = classifyWorkbookOperationFailure(
-            result.status,
-            result.payload,
+          return explicitWorkbookFailureOutcome(
+            status,
+            result.payload.error,
             "createViewRow",
           );
-          return failure.kind === "invalid_contract"
-            ? { kind: "uncertain" }
-            : { kind: "rejected", failure };
         }
         return acceptedRecordMutation(result.payload.data, partyViewId)
           ? {

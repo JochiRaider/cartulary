@@ -73,6 +73,21 @@ func (s *store) clearConflict(ctx context.Context, actor authn.UserRecord, recor
 		_ = tx.Rollback(ctx)
 	}()
 
+	// REQ-01-705: keep_saved classifies its target like every other
+	// single-record mutation; a soft-deleted record must be restored first.
+	target, err := s.classifyAddressedRecordTx(ctx, tx, recordID)
+	if err != nil {
+		return MutationResult{}, err
+	}
+	if target.RecordType != "timeline_event" {
+		return MutationResult{}, ErrRecordNotFound
+	}
+	// REQ-01-590, REQ-01-705 step 4: keep_saved commits a receipt, so after the
+	// record classification it re-reads the incident lifecycle in this
+	// transaction. A committed replay returned above, before the transaction.
+	if err := s.incidentAccess.RequireOpenTx(ctx, tx, target.IncidentID); err != nil {
+		return MutationResult{}, err
+	}
 	current, err := s.loadSourceRecordTx(ctx, tx, recordID)
 	if err != nil {
 		return MutationResult{}, err
@@ -151,7 +166,7 @@ func (s *store) applyPatchAttempt(ctx context.Context, actor authn.UserRecord, r
 		_ = tx.Rollback(ctx)
 	}()
 
-	if err := s.prepareReferencesTx(ctx, tx, uuid.Nil, []referenceRow{{recordID: recordID, changes: request.CanonicalChange}}, true, preparation); err != nil {
+	if err := s.prepareReferencesTx(ctx, tx, uuid.Nil, []referenceRow{{recordID: recordID, changes: request.CanonicalChange}}, referenceScopeAddressed, true, preparation); err != nil {
 		return MutationResult{}, err
 	}
 	current, err := s.loadSourceRecordTx(ctx, tx, recordID)
@@ -428,6 +443,17 @@ RETURNING recorded_at
 	}, nil
 }
 
+// adaptPatchConflictWindowError classifies only the typed unavailable-window
+// condition, which fails closed as row_version_conflict. Any other failure
+// stays unclassified and surfaces as internal_error (REQ-01-706).
+func adaptPatchConflictWindowError(err error) error {
+	var windowErr *conflicttokens.RevisionWindowError
+	if errors.As(err, &windowErr) {
+		return newRowVersionConflict(windowErr.RecordID, windowErr.BaseRowVersion, windowErr.CurrentRowVersion)
+	}
+	return fmt.Errorf("build timeline patch conflict window: %w", err)
+}
+
 func (s *store) loadPatchConflictWindowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, baseRowVersion int64, currentRowVersion int64) (patchConflictWindow, error) {
 	rows, err := s.revisionsStore.ListRecordRevisionWindowTx(ctx, tx, recordID, baseRowVersion, currentRowVersion)
 	if err != nil {
@@ -442,7 +468,7 @@ func (s *store) loadPatchConflictWindowTx(ctx context.Context, tx pgx.Tx, record
 		s.conflictSnapshots,
 	)
 	if err != nil {
-		return patchConflictWindow{}, newRowVersionConflict(recordID, baseRowVersion, currentRowVersion)
+		return patchConflictWindow{}, adaptPatchConflictWindowError(err)
 	}
 	ensureEmptyTimelineCollectionCells(generic.BaseRow)
 	window := patchConflictWindow{

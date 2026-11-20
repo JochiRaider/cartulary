@@ -9,6 +9,10 @@ import type {
   ReferencePackValidationSummary,
   ReferencePackVersion,
 } from "../services/referencePacks";
+import {
+  isTemporaryUnavailability,
+  temporaryUnavailabilityText,
+} from "../shared/publicError";
 import { resolvePublicErrorPresentation } from "../shared/publicErrorPresentation";
 
 export type ReferencePackAuthority = {
@@ -228,6 +232,7 @@ export function referencePackCommandLabel(command: ReferencePackCommand) {
   }
 }
 export function referencePackProblemText(problem: ReferencePackProblem) {
+  if (isTemporaryUnavailability(problem)) return temporaryUnavailabilityText();
   switch (problem.kind) {
     case "operation_rejected":
       return (

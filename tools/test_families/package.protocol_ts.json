@@ -122,8 +122,7 @@
           "@cartulary/protocol-ts family conformance checks account preference values through generated types",
           "@cartulary/protocol-ts family conformance emits owner-selected registries as deeply readonly stable values",
           "@cartulary/protocol-ts family conformance exposes stable current-profile view schema identifiers",
-          "@cartulary/protocol-ts family conformance exposes the typed error and reason-code registry",
-          "@cartulary/protocol-ts family conformance exposes typed extension registry profiles"
+          "@cartulary/protocol-ts family conformance exposes the typed error and reason-code registry"
         ],
         "project_id": "node-unit"
       },
@@ -150,6 +149,7 @@
         "file": "packages/protocol-ts/src/index.node.test.ts",
         "titles": [
           "@cartulary/protocol-ts family conformance exposes deterministic generated HTTP operation bindings without payload leakage",
+          "@cartulary/protocol-ts family conformance projects declared error codes by operation and status",
           "@cartulary/protocol-ts family conformance requires complete collection paging and consistent continuation metadata"
         ],
         "project_id": "node-unit"

@@ -37,6 +37,15 @@ const (
 	defaultPreviewMaxTextInlineBytes             int64 = 1048576
 	defaultExtensionStagedObjectCleanupBatch     int64 = 1000
 	defaultExtensionMaxNonterminalJobsPerProfile int64 = 100000
+
+	// The runtime pool serves requests, job handlers (eight concurrent attempts
+	// by default, each of which may use a second connection for observation),
+	// and the Collaboration replay listener. Process and serving leases use
+	// dedicated sessions outside it. 32 leaves request headroom above that
+	// worst case and replaces the driver's host-dependent max(4, NumCPU).
+	defaultDatabaseMaxRuntimePoolConnections int64 = 32
+	minimumDatabaseMaxRuntimePoolConnections int64 = 4
+	maximumDatabaseMaxRuntimePoolConnections int64 = 1024
 )
 
 type LoadOptions struct {
@@ -139,6 +148,7 @@ type LimitConfig struct {
 	ReferencePacks  ReferencePackLimits  `toml:"reference_packs"`
 	IncidentBundles IncidentBundleLimits `toml:"incident_bundles"`
 	Previews        PreviewLimits        `toml:"previews"`
+	Database        DatabaseLimits       `toml:"database"`
 	Extensions      ExtensionLimits      `toml:"extensions"`
 }
 
@@ -173,6 +183,13 @@ type IncidentBundleLimits struct {
 type PreviewLimits struct {
 	MaxPreviewablePayloadBytes int64 `toml:"max_previewable_payload_bytes"`
 	MaxTextInlineBytes         int64 `toml:"max_text_inline_bytes"`
+}
+
+// DatabaseLimits bounds the server's runtime PostgreSQL connection pool. The
+// application-process and recovery-serving leases each hold one additional
+// dedicated session that this limit does not count.
+type DatabaseLimits struct {
+	MaxRuntimePoolConnections int64 `toml:"max_runtime_pool_connections"`
 }
 
 type ExtensionLimits struct {

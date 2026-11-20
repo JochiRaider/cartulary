@@ -33,4 +33,7 @@ export const ownersByVersion = new Map([
  [56, "indicators"],
  [57, "revisions"],
  [58, "revisions"],
+ [59, "revisions"],
+ [60, "networkflow"],
+ [61, "revisions"],
 ]);

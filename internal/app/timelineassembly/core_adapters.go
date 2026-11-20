@@ -109,6 +109,13 @@ func (a recordAdapter) LoadEnvelopeTx(ctx context.Context, tx pgx.Tx, recordID u
 	return timelineEnvelope(envelope), err
 }
 
+// ClassifyTargetTx returns the Records classification unchanged; on
+// records.ErrTargetDeleted the envelope is still converted.
+func (a recordAdapter) ClassifyTargetTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, lock records.TargetLock) (sourcerepository.Envelope, error) {
+	envelope, err := a.store.ClassifyTargetTx(ctx, tx, recordID, lock)
+	return timelineEnvelope(envelope), err
+}
+
 func (a recordAdapter) LoadEnvelopesTx(ctx context.Context, tx pgx.Tx, recordIDs []uuid.UUID, lock bool) (map[uuid.UUID]sourcerepository.Envelope, error) {
 	envelopes, err := a.store.LoadEnvelopesTx(ctx, tx, recordIDs, lock)
 	if err != nil {

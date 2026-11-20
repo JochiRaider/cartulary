@@ -1,6 +1,6 @@
 import type { GridCellStateInput } from "@cartulary/grid-adapter";
 import { requireViewContract } from "@cartulary/view-contracts";
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { type SheetRef, sheetRefKey } from "../../../shared/sheetRef";
 import type { WorkbookCollaborationCoordinator } from "../../collaboration/WorkbookCollaborationCoordinator";
 import type { WorkbookQueryState } from "../../models/workbookQuery";
@@ -250,6 +250,22 @@ export function useTimelineMutationComposition({
       loadRows({ showLoading: false, ...options }),
     [loadRows],
   );
+  const inspectedRecordIdRef = useRef(inspector.selectedRowId);
+  inspectedRecordIdRef.current = inspector.selectedRowId;
+  // The inspector subject and records with pending or conflicted local work
+  // keep every live change on the reconciliation path.
+  const retainsLivePlacementRecord = useCallback(
+    (recordId: string) =>
+      recordId === inspectedRecordIdRef.current ||
+      mutationRuntime
+        .getSnapshot()
+        .conflicts.some((entry) => entry.conflict.record_id === recordId) ||
+      mutationRuntime
+        .pendingQueue()
+        .model.snapshot()
+        .units.some((unit) => unit.recordId === recordId),
+    [mutationRuntime],
+  );
   const collaboration = useTimelineCollaborationBindings({
     activeSheetRef,
     admission: rowMutations.ports.collaborationAdmission,
@@ -259,6 +275,7 @@ export function useTimelineMutationComposition({
     readScope: query.viewQuery.readScope,
     refreshRows: refreshRowsForCollaboration,
     resolveClientTxn: rowMutations.commands.resolvePendingSocketTxn,
+    retainsLivePlacementRecord,
     rowsRef: foundation.rowsRef,
     rowStoreCommands: foundation.rowStoreCommands,
   });

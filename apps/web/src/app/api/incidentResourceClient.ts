@@ -1,4 +1,3 @@
-import type { GetIncidentResponse } from "@cartulary/protocol-ts/http";
 import { fetchHTTPOperation } from "../../services/browserApi";
 import { validIncidentResource } from "../../shared/incidentResource";
 /** module.incidents retrieval; acceptance belongs to the neutral incident resource owner. */
@@ -7,7 +6,7 @@ export async function readIncidentSummary(
   apiBase: string | undefined,
   signal: AbortSignal,
 ) {
-  const result = await fetchHTTPOperation<GetIncidentResponse>({
+  const result = await fetchHTTPOperation({
     operationID: "getIncident",
     apiBase,
     pathParameters: { incident_id: incidentId },
@@ -17,12 +16,11 @@ export async function readIncidentSummary(
     return {
       ok: false as const,
       status: result.status,
+      // getIncident declares no 403: lost access is 404 incident_not_found.
       code:
-        result.payload.error?.code === "incident_not_found"
-          ? "incident_not_found"
-          : result.payload.error?.code === "authorization_denied"
-            ? "authorization_denied"
-            : "incident_summary_unavailable",
+        result.payload.error.code === "incident_not_found"
+          ? ("incident_not_found" as const)
+          : ("incident_summary_unavailable" as const),
     };
   return result.status === 200 &&
     validIncidentResource(result.payload.data, incidentId)
@@ -30,6 +28,6 @@ export async function readIncidentSummary(
     : {
         ok: false as const,
         status: 502,
-        code: "invalid_public_contract_response",
+        code: "invalid_public_contract_response" as const,
       };
 }

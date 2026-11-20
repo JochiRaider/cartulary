@@ -18,6 +18,8 @@ export const workbookBrowsingBounds = Object.freeze({
   checkpoints: 20,
   recoveryAttempts: 2,
 });
+/** Forgetting live placement evidence only costs a later reconciliation read. */
+const livePlacementSightingLimit = 10_000;
 export type WorkbookBrowseAction =
   | "more"
   | "earlier"
@@ -115,6 +117,11 @@ export class WorkbookQueryBrowser {
   private reconciliationEpoch = 0;
   private reconciliation: Promise<void> | null = null;
   private pendingReconciliation: (() => Promise<void>) | null = null;
+  // Live placement evidence: one ordering clock for sightings and window reads.
+  private liveClock = 0;
+  private readonly pageReadStamps = new WeakMap<Page, number>();
+  private windowReadFloor = 0;
+  private readonly liveSightings = new Map<string, number>();
   recoveryAttemptsUsed() {
     return this.recoveryDepth;
   }
@@ -251,11 +258,32 @@ export class WorkbookQueryBrowser {
     };
     const rows = accepted.rows.map(newer);
     if (!rows.some((row, index) => row !== accepted.rows[index])) return;
-    this.pages = this.pages.map((page) => ({
-      ...page,
-      rows: page.rows.map(newer),
-    }));
+    this.pages = this.pages.map((page) => {
+      const next = { ...page, rows: page.rows.map(newer) };
+      // Row versions advance in place; the page's read time is unchanged.
+      this.pageReadStamps.set(next, this.pageReadStamps.get(page) ?? 0);
+      return next;
+    });
     this.publish({ accepted: { ...accepted, rows } });
+  }
+  /**
+   * Records live evidence for a record outside the materialized window. It
+   * reports true only when every page of the accepted window was read after
+   * that record's first sighting, so a placement-neutral change cannot move it
+   * into the window. A first sighting, which may be a remote create, is never
+   * placement-known.
+   */
+  observeLivePlacement(recordId: string): boolean {
+    const sighted = this.liveSightings.get(recordId);
+    if (sighted !== undefined) return sighted < this.windowReadFloor;
+    if (this.liveSightings.size >= livePlacementSightingLimit)
+      this.liveSightings.clear();
+    this.liveSightings.set(recordId, ++this.liveClock);
+    return false;
+  }
+  private forgetLivePlacement() {
+    this.liveSightings.clear();
+    this.windowReadFloor = 0;
   }
   /** Guard before React has a chance to paint disabled controls. */
   async activate(action: WorkbookBrowseAction, read: () => Promise<void>) {
@@ -282,6 +310,7 @@ export class WorkbookQueryBrowser {
     if (recordId !== null) this.anchorRecordId = recordId;
   }
   detach(anchorRecordId: string | null = this.anchorRecordId) {
+    this.forgetLivePlacement();
     this.focusEpoch += 1;
     this.reconciliationEpoch += 1;
     this.pendingReconciliation = null;
@@ -326,6 +355,7 @@ export class WorkbookQueryBrowser {
     });
   }
   invalidate() {
+    this.forgetLivePlacement();
     this.focusEpoch += 1;
     this.reconciliationEpoch += 1;
     this.pendingReconciliation = null;
@@ -412,6 +442,7 @@ export class WorkbookQueryBrowser {
     this.queuedAction = null;
     this.cancel();
     const generation = this.generation;
+    const readStamp = ++this.liveClock;
     const controller = new AbortController();
     this.controller = controller;
     const abort = () => controller.abort();
@@ -533,6 +564,10 @@ export class WorkbookQueryBrowser {
           return result;
         }
         const incoming = result.pages;
+        // A staged navigation page was read before this query; it proves nothing
+        // about records sighted since.
+        for (const page of incoming)
+          this.pageReadStamps.set(page, page === staged ? 0 : readStamp);
         let pages =
           destination.kind === "more" ? [...this.pages, ...incoming] : incoming;
         let checkpoints =
@@ -712,6 +747,12 @@ export class WorkbookQueryBrowser {
     )
       return false;
     this.pages = candidate.plan.pages;
+    this.windowReadFloor =
+      this.pages.length === 0
+        ? 0
+        : Math.min(
+            ...this.pages.map((page) => this.pageReadStamps.get(page) ?? 0),
+          );
     this.chainInvalidated = false;
     this.checkpoints = candidate.plan.checkpoints;
     this.resume = null;

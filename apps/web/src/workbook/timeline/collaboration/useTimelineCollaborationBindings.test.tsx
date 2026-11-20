@@ -1,13 +1,22 @@
 import { requireViewContract } from "@cartulary/view-contracts";
 import { act } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { fullWorkbookViewRow } from "../../../testing/workbookFixtureData";
+import {
+  acceptedQueryMetadata,
+  fullWorkbookViewRow,
+} from "../../../testing/workbookFixtureData";
 import { renderHookWithWorkbookQueryBrowsing as renderHook } from "../../../testing/workbookQueryTestSupport";
 import type { RecordChangedPayload } from "../../collaboration/workbookCollaborationMessages";
 import { emptyWorkbookPresence } from "../../collaboration/workbookPresencePresentation";
 import type { WorkbookActiveSurfacePort } from "../../collaboration/workbookSurfacePort";
+import {
+  emptyWorkbookQueryState,
+  type WorkbookQueryState,
+} from "../../models/workbookQuery";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
+import { useWorkbookQueryBrowser } from "../../query/WorkbookQueryBrowsingContext";
 import type { WorkbookReadScope } from "../../query/WorkbookQueryRow";
+import type { WorkbookViewQueryPort } from "../../query/WorkbookViewQueryPort";
 import { workbookRowIsAdmissible } from "../../query/workbookRowObservation";
 import {
   createDraftRow,
@@ -88,6 +97,133 @@ function projectionFixture() {
     publishPresence,
     requestAuthorizationRecovery,
     resolverReleases,
+  };
+}
+
+const outsideRecordId = "record-9";
+
+function outsidePatch(
+  rowVersion: number,
+  cells: Record<string, { value: unknown }> = {
+    "timeline.data_source_text": { value: `Remote source ${rowVersion}` },
+  },
+  options: {
+    readonly changeKind?: "patch" | "invalidate";
+    readonly groupValues?: Record<string, unknown>;
+  } = {},
+): RecordChangedPayload {
+  return {
+    record_id: outsideRecordId,
+    row_version: rowVersion,
+    change_set_id: `change-outside-${rowVersion}`,
+    client_txn_id: `remote-outside-${rowVersion}`,
+    actor_user_id: "user-2",
+    changed_field_keys: Object.keys(cells).sort(),
+    affected_views: [
+      options.changeKind === "invalidate"
+        ? { view_schema_id: timelineViewSchemaId, change_kind: "invalidate" }
+        : {
+            view_schema_id: timelineViewSchemaId,
+            change_kind: "patch",
+            patch_cells: {
+              record_id: outsideRecordId,
+              row_version: rowVersion,
+              cells,
+              ...(options.groupValues === undefined
+                ? {}
+                : { group_values: options.groupValues }),
+            },
+          },
+    ],
+  };
+}
+
+/** One accepted Timeline window that materializes only record-1. */
+function liveWindowFixture(
+  retainsLivePlacementRecord: (recordId: string) => boolean = () => false,
+) {
+  const fixture = projectionFixture();
+  const draft = createDraftRow(1);
+  const rowsRef = {
+    current: [committedRow("record-1", 1, "Visible"), draft],
+  };
+  const replaceRows = vi.fn();
+  const known = new Map<string, number>();
+  const acceptRecordVersion = vi.fn((recordId: string, rowVersion: number) => {
+    known.set(recordId, Math.max(known.get(recordId) ?? 0, rowVersion));
+  });
+  const port: WorkbookViewQueryPort = {
+    query: vi.fn<WorkbookViewQueryPort["query"]>(async (request) => ({
+      kind: "accepted",
+      value: {
+        incidentId: "incident-1",
+        viewSchemaId: timelineViewSchemaId,
+        rows: [
+          fullWorkbookViewRow(timelineContract, "record-1", 1, {
+            "timeline.activity_synopsis_text": "Visible",
+          }),
+        ],
+        ...acceptedQueryMetadata(timelineViewSchemaId, request.queryState),
+      },
+    })),
+  };
+  const rendered = renderHook(() => ({
+    browsing: useWorkbookQueryBrowser(port, timelineViewSchemaId),
+    binding: useTimelineCollaborationBindings({
+      clearCommittedRows: () => {},
+      activeSheetRef: { kind: "view_schema", id: timelineViewSchemaId },
+      admission: {
+        acceptCommittedRow: (row) => ({ row }),
+        acceptRecordVersion,
+        isStaleRecordVersion: (recordId, rowVersion) =>
+          rowVersion < (known.get(recordId) ?? 0),
+      },
+      beginRowsLoad: () => undefined,
+      collaborationProjection: fixture.projection,
+      readScope: () => acceptedScope,
+      refreshRows: async () => undefined,
+      resolveClientTxn: () => false,
+      retainsLivePlacementRecord,
+      rowsRef,
+      rowStoreCommands: { replaceRows, updateRows: vi.fn() },
+    }),
+  }));
+  const read = async (
+    queryState: WorkbookQueryState = emptyWorkbookQueryState(),
+  ) => {
+    await act(async () => {
+      const browser = rendered.result.current.browsing.browser;
+      if (!browser) throw new Error("Missing Timeline query browser");
+      const result = await browser.query({
+        contract: timelineContract,
+        queryState,
+        signal: new AbortController().signal,
+      });
+      if (result.kind !== "accepted")
+        throw new Error("Expected an accepted Timeline window");
+      browser.accept(result.value);
+    });
+  };
+  const apply = (payload: RecordChangedPayload) => {
+    const surface = fixture.activeSurface();
+    if (!surface) throw new Error("Missing active Timeline surface");
+    let result: ReturnType<WorkbookActiveSurfacePort["applyRecordChanged"]> = {
+      kind: "stale",
+    };
+    act(() => {
+      result = surface.applyRecordChanged(payload);
+    });
+    return result;
+  };
+  return {
+    acceptRecordVersion,
+    apply,
+    browsing: () => rendered.result.current.browsing.browser,
+    fixture,
+    read,
+    rendered,
+    replaceRows,
+    rowsRef,
   };
 }
 
@@ -353,5 +489,107 @@ describe("useTimelineCollaborationBindings", () => {
       expect(rowsRef.current[0]?.values.activitySynopsisText).toBe("Before");
     }
     unmount();
+  });
+  it("applies a placement-neutral patch for a reconciled out-of-window record without refresh or row replacement", async () => {
+    const live = liveWindowFixture();
+    await live.read();
+    // A first sighting may be a remote create, so it still reconciles the window.
+    expect(live.apply(outsidePatch(2))).toEqual({ kind: "refresh_required" });
+    await live.read();
+    live.replaceRows.mockClear();
+    const rows = live.rowsRef.current;
+
+    expect(live.apply(outsidePatch(3))).toEqual({ kind: "applied" });
+    expect(live.apply(outsidePatch(4))).toEqual({ kind: "applied" });
+    expect(live.replaceRows).not.toHaveBeenCalled();
+    expect(live.rowsRef.current).toBe(rows);
+    expect(live.acceptRecordVersion).toHaveBeenCalledWith(outsideRecordId, 4);
+    expect(live.apply(outsidePatch(3))).toEqual({ kind: "stale" });
+    live.rendered.unmount();
+  });
+
+  it("keeps refresh for out-of-window placement changes, retained records, invalidation, and lost placement evidence", async () => {
+    const neutral = liveWindowFixture();
+    await neutral.read();
+    neutral.apply(outsidePatch(2));
+    await neutral.read();
+    // A read whose query sorts by the changed field can move the record.
+    await neutral.read({
+      ...emptyWorkbookQueryState(),
+      sort: [{ fieldKey: "timeline.data_source_text", direction: "asc" }],
+    });
+    expect(neutral.apply(outsidePatch(3))).toEqual({
+      kind: "refresh_required",
+    });
+    await neutral.read({
+      ...emptyWorkbookQueryState(),
+      filters: [
+        {
+          fieldKey: "timeline.capture_state",
+          op: "eq",
+          arg: { value: "rough" },
+        },
+      ],
+    });
+    expect(
+      neutral.apply(
+        outsidePatch(4, { "timeline.capture_state": { value: "rough" } }),
+      ),
+    ).toEqual({ kind: "refresh_required" });
+    await neutral.read({
+      ...emptyWorkbookQueryState(),
+      filters: [
+        {
+          fieldKey: "timeline.full_text",
+          op: "full_text",
+          arg: { query: "remote" },
+        },
+      ],
+    });
+    expect(neutral.apply(outsidePatch(5))).toEqual({
+      kind: "refresh_required",
+    });
+    await neutral.read({
+      ...emptyWorkbookQueryState(),
+      groupBy: "timeline.capture_state",
+    });
+    expect(
+      neutral.apply(
+        outsidePatch(
+          6,
+          { "timeline.capture_state": { value: "rough" } },
+          { groupValues: { "timeline.capture_state": "rough" } },
+        ),
+      ),
+    ).toEqual({ kind: "refresh_required" });
+    await neutral.read();
+    expect(
+      neutral.apply(outsidePatch(7, {}, { changeKind: "invalidate" })),
+    ).toEqual({ kind: "refresh_required" });
+    // Access loss forgets placement evidence with the protected rows.
+    neutral.fixture
+      .activeSurface()
+      ?.invalidate({ kind: "incident_access_lost" });
+    await neutral.read();
+    expect(neutral.apply(outsidePatch(8))).toEqual({
+      kind: "refresh_required",
+    });
+    expect(neutral.replaceRows).not.toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({ recordId: outsideRecordId }),
+      ]),
+    );
+    neutral.rendered.unmount();
+
+    const retained = liveWindowFixture(
+      (recordId) => recordId === outsideRecordId,
+    );
+    await retained.read();
+    retained.apply(outsidePatch(2));
+    await retained.read();
+    expect(retained.apply(outsidePatch(3))).toEqual({
+      kind: "refresh_required",
+    });
+    retained.rendered.unmount();
   });
 });

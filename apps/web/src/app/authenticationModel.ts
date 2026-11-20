@@ -1,8 +1,11 @@
 import {
   type APIError,
   clientTxnID,
+  type HTTPOperationFailureCode,
+  type HTTPOperationID,
   type HTTPOperationResult,
 } from "../services/browserApi";
+import { isFailureCode, isUnappliedRefusal } from "../shared/publicError";
 import { validateAccountEmail } from "./accountInputValidation";
 import {
   accountOperationError,
@@ -19,7 +22,10 @@ import type {
   EnterpriseAuthProvider,
   SessionData,
 } from "./api/publicHttpTypes";
-import type { SessionObservation } from "./appSessionController";
+import type {
+  SessionErrorCode,
+  SessionObservation,
+} from "./appSessionController";
 
 export type EnterpriseAuthNavigation = {
   assign: (url: string) => void;
@@ -316,11 +322,13 @@ export class AuthenticationController {
     }
     this.publish({ providersStatus: "failed" });
   };
-  private async execute<T>(
+  private async execute<T, OperationID extends HTTPOperationID>(
     action: Action,
-    request: (signal: AbortSignal) => Promise<HTTPOperationResult<T>>,
+    request: (
+      signal: AbortSignal,
+    ) => Promise<HTTPOperationResult<T, OperationID>>,
     completed: (
-      result: HTTPOperationResult<T>,
+      result: HTTPOperationResult<T, OperationID>,
       effects: AuthEffects,
       current: () => boolean,
     ) => Promise<void> | void,
@@ -368,10 +376,16 @@ export class AuthenticationController {
     try {
       const outcome = await observation.result;
       if (!current()) return;
+      // A decoded 503 was refused before it was applied, so it settles as an
+      // ordinary rejection (Core 03 REQ-03-086a).
       if (
         outcome.kind !== "completed" ||
         (!outcome.value.ok &&
-          (outcome.value.status >= 500 ||
+          ((outcome.value.status >= 500 &&
+            !isUnappliedRefusal(
+              outcome.value.status,
+              outcome.value.payload.error,
+            )) ||
             outcome.value.payload.error?.code ===
               "invalid_public_contract_response"))
       ) {
@@ -575,7 +589,7 @@ export class AuthenticationController {
         this.clearSecrets();
         this.publish({
           error: accountOperationError(error),
-          banner: authBannerForError(error ?? null),
+          banner: authBannerForError(error),
         });
       },
     );
@@ -635,7 +649,7 @@ export class AuthenticationController {
           this.clearSecrets();
           this.publish({
             error: accountOperationError(result.payload.error),
-            banner: authBannerForError(result.payload.error ?? null),
+            banner: authBannerForError(result.payload.error),
           });
           return;
         }
@@ -698,7 +712,7 @@ export class AuthenticationController {
           this.clearSecrets();
           this.publish({
             error: accountOperationError(result.payload.error),
-            banner: authBannerForError(result.payload.error ?? null),
+            banner: authBannerForError(result.payload.error),
           });
           return;
         }
@@ -713,7 +727,16 @@ export class AuthenticationController {
     );
   };
 }
-export function authBannerForError(error: APIError | null): AuthBanner {
+/** Failure codes of the sign-in operations and the session read the gateway presents. */
+export type AuthBannerErrorCode =
+  | HTTPOperationFailureCode<
+      "loginLocalUser" | "beginTOTPEnrollment" | "completeTOTPEnrollment"
+    >
+  | SessionErrorCode;
+
+export function authBannerForError(
+  error: Pick<APIError<AuthBannerErrorCode>, "code"> | null,
+): AuthBanner {
   return {
     tone: "error",
     message:
@@ -721,11 +744,10 @@ export function authBannerForError(error: APIError | null): AuthBanner {
         ? "Email or password is incorrect."
         : error?.code === "invalid_auth_request"
           ? "Sign-in request could not be completed."
-          : [
+          : isFailureCode(error?.code, [
                 "session_required",
-                "auth_required",
                 "credential_bootstrap_rejected",
-              ].includes(error?.code ?? "")
+              ])
             ? "Sign in again to continue."
             : "Authentication is temporarily unavailable. Try again.",
   };

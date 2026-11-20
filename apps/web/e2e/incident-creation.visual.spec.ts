@@ -7,6 +7,7 @@ import {
   openCreationPresentation,
 } from "./support/incidents/creation";
 import {
+  fulfillOperationError,
   installOwnedRoute,
   removeOwnedRoute,
 } from "./support/transport/requestInterception";
@@ -83,13 +84,7 @@ test("Capture incident creation form validation pending recovery and confirmed h
   );
   await removeOwnedRoute(page, "**/api/v1/incidents");
   await installOwnedRoute(page, "**/api/v1/auth/session", async (route) =>
-    route.fulfill({
-      status: 502,
-      contentType: "application/json",
-      body: JSON.stringify({
-        error: { code: "service_unavailable", status: 502, retryable: true },
-      }),
-    }),
+    fulfillOperationError(route, "getCurrentSession", 500, "internal_error"),
   );
   // This request was blocked before reaching the server; replay is still exact.
   await retry.click();

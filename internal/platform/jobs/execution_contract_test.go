@@ -2,12 +2,15 @@ package jobs
 
 import (
 	"context"
+	"errors"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 )
 
 func TestTypedExecutionContract_Unit(t *testing.T) {
+	t.Run("issued owner commit outlives attempt cancellation within the bound", assertAwaitCommit)
 	t.Run("fixed cancellation code", func(t *testing.T) {
 		for _, code := range []string{"job_canceled", "done", "owner_canceled"} {
 			result := ResultSummary{Code: code, Message: "Canceled."}
@@ -44,4 +47,52 @@ func TestTypedExecutionContract_Unit(t *testing.T) {
 	_ = SuccessCompletion{Progress: Progress{Completed: 1}, ResultSummary: ResultSummary{Code: "done", Message: "Done."}}
 	_ = FailureCompletion{Progress: Progress{Completed: 0}, ErrorSummary: ErrorSummary{Code: "failed", Message: "Failed."}}
 	_ = CancellationCompletion{Progress: Progress{Completed: 0}}
+}
+
+// assertAwaitCommit pins AwaitCommit's contract: the commit never sees the
+// attempt's cancellation directly, and is cancelled only once the bound after
+// that cancellation has elapsed. The commit model loses its acknowledgement
+// whenever its own context ends, as the PostgreSQL driver does.
+func assertAwaitCommit(t *testing.T) {
+	if got := ProductionRuntimePolicy().AttemptOperationTimeout; got != 10*time.Second {
+		t.Fatalf("attempt-operation timeout = %s", got)
+	}
+	t.Run("acknowledged after cancellation", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		err := awaitCommit(ctx, 5*time.Second, func(commitCtx context.Context) error {
+			cancel()
+			if commitCtx.Err() != nil {
+				return errors.New("acknowledgement lost to attempt cancellation")
+			}
+			return nil
+		})
+		if err != nil {
+			t.Fatalf("issued commit = %v", err)
+		}
+	})
+	t.Run("pending past the bound", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		started := time.Now()
+		err := awaitCommit(ctx, 20*time.Millisecond, func(commitCtx context.Context) error {
+			cancel()
+			<-commitCtx.Done()
+			return commitCtx.Err()
+		})
+		if !errors.Is(err, context.Canceled) || time.Since(started) < 20*time.Millisecond {
+			t.Fatalf("pending commit past the bound = %v after %s", err, time.Since(started))
+		}
+	})
+	t.Run("detached caller keeps its own bound", func(t *testing.T) {
+		err := AwaitCommit(context.WithoutCancel(context.Background()), func(commitCtx context.Context) error {
+			if commitCtx.Err() != nil {
+				return commitCtx.Err()
+			}
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
 }

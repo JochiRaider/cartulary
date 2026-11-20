@@ -2,13 +2,14 @@ import type {
   CancelJobRequest,
   GetJobResponse,
   ImportIncidentBundleRequest,
-  ImportIncidentBundleResponse,
 } from "@cartulary/protocol-ts/http";
 import {
   fetchHTTPOperation,
   fetchMultipartHTTPOperation,
   type HTTPOperationResult,
 } from "../../services/browserApi";
+import { jobResultSummaryCode } from "../../services/commonJobContract";
+import { isUnappliedRefusal } from "../../shared/publicError";
 
 export type IncidentImportJob = GetJobResponse["data"];
 export type ImportAttempt = {
@@ -22,7 +23,8 @@ export type ImportProblem =
   | "contract"
   | "rejected"
   | "conflict"
-  | "unavailable";
+  | "unavailable"
+  | "temporarily_unavailable";
 type AccessFailure = {
   readonly kind: "access_failed";
   readonly status: 401 | 403;
@@ -91,7 +93,7 @@ export async function importIncidentBundle(
         }),
       );
       body.append("file", attempt.file, attempt.filename);
-      return fetchMultipartHTTPOperation<ImportIncidentBundleResponse>({
+      return fetchMultipartHTTPOperation({
         operationID: "importIncidentBundle",
         body,
         init: { signal },
@@ -106,7 +108,7 @@ export async function importIncidentBundle(
   if (result.status === 401 || result.status === 403)
     return { kind: "access_failed", status: result.status };
   return {
-    kind: definitiveRejection(result.status) ? "rejected" : "uncertain",
+    kind: writeSettlement(result, replay),
     problem: result.problem,
   };
 }
@@ -116,7 +118,7 @@ export async function readImportJob(
 ): Promise<ImportObservationOutcome> {
   const result = await receiveJob(
     (onResponse) =>
-      fetchHTTPOperation<GetJobResponse>({
+      fetchHTTPOperation({
         operationID: "getJob",
         pathParameters: { job_id: jobId },
         init: { signal, cache: "no-store" },
@@ -135,10 +137,11 @@ export async function cancelImportJob(
   jobId: string,
   attempt: ImportCancelAttempt,
   signal: AbortSignal,
+  replay = false,
 ): Promise<ImportCancellationOutcome> {
   const result = await receiveJob(
     (onResponse) =>
-      fetchHTTPOperation<GetJobResponse>({
+      fetchHTTPOperation({
         operationID: "cancelJob",
         pathParameters: { job_id: jobId },
         init: { method: "POST", body: JSON.stringify(attempt), signal },
@@ -152,69 +155,85 @@ export async function cancelImportJob(
     return { kind: "access_failed", status: result.status };
   if (result.status === 404) return { kind: "unavailable" };
   return {
-    kind: definitiveRejection(result.status) ? "rejected" : "uncertain",
+    kind: writeSettlement(result, replay),
     problem: result.problem,
   };
 }
 const definitiveRejection = (status: number) =>
   status >= 400 && status < 500 && status !== 408;
-function errorCode(payload: unknown): string | null {
-  if (typeof payload !== "object" || payload === null || !("error" in payload))
-    return null;
-  const error = payload.error;
-  return typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    typeof error.code === "string"
-    ? error.code
-    : null;
-}
-/** Capture HTTP status before parsing; untrusted error payloads never enter workflow state. */
+/**
+ * A decoded `503` `service_unavailable` was refused before it was applied: a
+ * definite rejection on a first attempt, while a refused replay leaves the
+ * earlier outcome uncertain (Core 03 REQ-03-086a).
+ */
+const writeSettlement = (
+  failure: { readonly status: number; readonly problem: ImportProblem },
+  replay: boolean,
+): "rejected" | "uncertain" =>
+  definitiveRejection(failure.status) ||
+  (!replay && failure.problem === "temporarily_unavailable")
+    ? "rejected"
+    : "uncertain";
+/** Operations whose decoded results drive incident bundle import. */
+type IncidentImportHTTPOperation =
+  | "importIncidentBundle"
+  | "getJob"
+  | "cancelJob";
+/**
+ * Classifies one job operation from its decoded contract outcome. A contract
+ * failure or an unreadable received body never selects an outcome by its raw
+ * HTTP status (Core 03 REQ-03-086a).
+ */
 async function receiveJob(
   run: (
     onResponse: (response: Response) => void,
-  ) => Promise<HTTPOperationResult<GetJobResponse>>,
+  ) => Promise<
+    HTTPOperationResult<GetJobResponse, IncidentImportHTTPOperation>
+  >,
   expectedStatus: number,
   jobId?: string,
   replay = false,
 ): Promise<JobReceipt> {
-  let status = 0;
-  let code: string | null = null;
+  let received = 0;
   try {
     const result = await run((response) => {
-      status = response.status;
+      received = response.status;
     });
-    if (status === 0) status = result.status;
     if (result.ok) {
       if (
-        status === expectedStatus &&
+        result.status === expectedStatus &&
         validImportJob(result.payload.data, jobId) &&
         (expectedStatus !== 202 ||
           replay ||
           ["queued", "running"].includes(result.payload.data.status))
       )
         return { kind: "job", job: result.payload.data };
-      return { kind: "failure", status, problem: "contract" };
+      return { kind: "failure", status: 502, problem: "contract" };
     }
-    code = errorCode(result.payload);
-  } catch {
-    // A received rejection remains definitive even when JSON parsing failed.
-  }
-  return {
-    kind: "failure",
-    status,
-    problem:
-      code === "client_txn_conflict"
-        ? "conflict"
-        : code === "invalid_public_contract_response" ||
-            (status >= 200 && status < 400)
-          ? "contract"
-          : status === 404
+    const error = result.payload.error;
+    if (error.code === "invalid_public_contract_response")
+      return { kind: "failure", status: error.status, problem: "contract" };
+    return {
+      kind: "failure",
+      status: error.status,
+      problem:
+        error.code === "client_txn_conflict"
+          ? "conflict"
+          : error.status === 404
             ? "unavailable"
-            : definitiveRejection(status)
+            : definitiveRejection(error.status)
               ? "rejected"
-              : "transport",
-  };
+              : isUnappliedRefusal(error.status, error)
+                ? "temporarily_unavailable"
+                : "transport",
+    };
+  } catch {
+    // A received but unreadable body fails the contract; only a missing
+    // response is transport loss.
+    return received === 0
+      ? { kind: "failure", status: 0, problem: "transport" }
+      : { kind: "failure", status: 502, problem: "contract" };
+  }
 }
 /** Cross-field owner rules supplement the generated closed envelope validator. */
 function validImportJob(job: IncidentImportJob, expectedId?: string): boolean {
@@ -270,7 +289,7 @@ function validImportJob(job: IncidentImportJob, expectedId?: string): boolean {
     return job.error_summary !== null && job.result_summary === null;
   if (job.error_summary !== null || job.result_summary === null) return false;
   if (job.status === "canceled")
-    return job.result_summary.code === "job_canceled";
+    return jobResultSummaryCode(job) === "job_canceled";
   return total === null || completed === total;
 }
 export function importJobAdvances(
@@ -320,7 +339,8 @@ const supportedKinds = new Set([
 export function importedIncidentTarget(job: IncidentImportJob): string | null {
   if (
     job.status !== "succeeded" ||
-    job.result_summary?.code !== "incident_bundle_imported"
+    jobResultSummaryCode(job) !== "incident_bundle_imported" ||
+    job.result_summary === null
   )
     return null;
   const refs =

@@ -134,6 +134,11 @@ func (b *browserProvider) Acquire(ctx context.Context, request Request) (allocat
 	for key, value := range map[string]string{"CARTULARY_WORK_UNIT_ID": request.UnitID, "CARTULARY_BROWSER_STAGE": request.BrowserStage, "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": profile, "CARTULARY_BROWSER_SERVICE_REQUIREMENT": "test-services", "CARTULARY_BROWSER_SESSION_GROUP": session, "CARTULARY_WEB_E2E_PRIVATE_SESSION_ROOT": root, "CARTULARY_HARNESS_ALLOCATION_REF": request.AllocationRef} {
 		environment[key] = value
 	}
+	// The creating cohort runs against the allocation's first server generation;
+	// its retained log is labelled with that cohort (TH-HARNESS-REQ-861).
+	if request.Preparation != nil && request.Preparation.Label != "" {
+		environment["CARTULARY_BROWSER_COHORT_LABEL"] = request.Preparation.Label
+	}
 	if profiled {
 		for key, value := range map[string]string{"CARTULARY_FIXTURE_PROFILE_ID": request.FixtureProfile, "CARTULARY_FIXTURE_SNAPSHOT_KEY": request.SnapshotKey, "CARTULARY_FIXTURE_SNAPSHOT_BUILDER_UNIT_ID": request.BuilderUnit, "CARTULARY_FIXTURE_ROW_ID": request.RowID, "CARTULARY_FIXTURE_PREDICATE_ID": request.PredicateID, "CARTULARY_FIXTURE_CLONE_LEASE_ID": request.LeaseID, "CARTULARY_FIXTURE_CLONE_ORDINAL": fmt.Sprint(clone)} {
 			environment[key] = value

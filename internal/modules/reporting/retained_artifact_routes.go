@@ -3,6 +3,7 @@ package reporting
 import (
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"io"
 	"mime"
@@ -14,7 +15,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
-	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
@@ -75,17 +75,29 @@ func (s *ApplicationService) beginRetainedArtifactRead(ctx context.Context, inci
 }
 
 func (s *Service) handleRetainedReportArtifacts(w http.ResponseWriter, r *http.Request) {
-	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: false})
+	s.serveRetainedReportArtifacts(w, r, "")
+}
+
+func (s *Service) handleRetainedReportArtifactContent(w http.ResponseWriter, r *http.Request) {
+	artifactID, identified := httpapi.PathString(r, "artifact_id")
+	if !identified {
+		writeAPIError(w, r, internalAPIError(errors.New("reporting route was not admitted centrally")))
+		return
+	}
+	s.serveRetainedReportArtifacts(w, r, artifactID)
+}
+
+// serveRetainedReportArtifacts lists the incident's retained artifacts, or
+// streams the requested one. Central admission has authenticated the caller
+// and admitted incident_id and artifact_id (Core 01 REQ-01-707).
+func (s *Service) serveRetainedReportArtifacts(w http.ResponseWriter, r *http.Request, requested string) {
+	principal, apiErr := admittedPrincipal(r)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	incident, err := uuid.Parse(r.PathValue("incident_id"))
-	if err != nil || incident == uuid.Nil || incident.String() != r.PathValue("incident_id") {
-		writeAPIError(w, r, &httpapi.APIError{Status: 404, Code: "incident_not_found", Details: map[string]any{}})
-		return
-	}
-	if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
+	incident, apiErr := admittedPathUUID(r, "incident_id")
+	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -95,7 +107,12 @@ func (s *Service) handleRetainedReportArtifacts(w http.ResponseWriter, r *http.R
 		return
 	}
 	defer rollbackSnapshotTx(tx)
-	requested := r.PathValue("artifact_id")
+	// REQ-01-707 step 5: the singleton-read query check is route handling,
+	// after the incident's visibility and role gate.
+	if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
 	artifacts := []retainedReportArtifact{}
 	for _, member := range members.Members() {
 		resource, err := retainedArtifactResource(incident, member)
@@ -116,7 +133,7 @@ func (s *Service) handleRetainedReportArtifacts(w http.ResponseWriter, r *http.R
 			return
 		}
 		defer reader.Close()
-		if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+		if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 			writeAPIError(w, r, internalAPIError(err))
 			return
 		}
@@ -131,14 +148,14 @@ func (s *Service) handleRetainedReportArtifacts(w http.ResponseWriter, r *http.R
 		return
 	}
 	if requested != "" {
-		writeAPIError(w, r, &httpapi.APIError{Status: 404, Code: "report_artifact_not_found", Details: map[string]any{}})
+		writeAPIError(w, r, httpapi.NotFound("report_artifact_not_found"))
 		return
 	}
 	if err := tx.Commit(r.Context()); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}

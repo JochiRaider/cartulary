@@ -7,6 +7,8 @@ import {
 import { createClientTransactionId } from "../services/clientTransactionId";
 import {
   commonJobDoesNotRegress,
+  type JobResultSummaryCode,
+  jobResultSummaryCode,
   terminalCommonJob,
   validCommonJob,
 } from "../services/commonJobContract";
@@ -66,6 +68,10 @@ const initial = (): ReportingState => ({
   problem: null,
 });
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const reportingSuccessCodes = {
+  snapshot: "snapshot_created",
+  release: "release_created",
+} as const satisfies Record<"snapshot" | "release", JobResultSummaryCode>;
 const canWrite = (role: string | null) =>
   ["editor", "reviewer", "admin"].includes(role ?? "");
 
@@ -460,7 +466,7 @@ export class ReportingController {
       const kind = this.state.kind === "snapshot" ? "snapshot" : "release";
       const refs = job.result_summary?.resource_refs ?? [];
       if (
-        job.result_summary?.code !== `${kind}_created` ||
+        jobResultSummaryCode(job) !== reportingSuccessCodes[kind] ||
         refs.length !== 1 ||
         refs[0]?.kind !== kind ||
         !uuid.test(refs[0].id) ||

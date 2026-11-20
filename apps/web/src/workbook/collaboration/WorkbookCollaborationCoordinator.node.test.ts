@@ -1283,6 +1283,93 @@ describe("WorkbookCollaborationCoordinator", () => {
     expect(fixture.projection.getReadAuthorization()).toBe(false);
   });
 
+  it("keeps the authorization epoch across stream re-establishment and advances it for a role change found by an authoritative read", async () => {
+    const fixture = projectionFixture(
+      { kind: "view_schema", id: "cartulary.view.timeline.v2" },
+      {
+        recover: async () => ({
+          kind: "authorized",
+          role: "viewer",
+          userId: "user-1",
+        }),
+      },
+    );
+    const refresh = vi.fn(async () => undefined);
+    fixture.projection.registerActiveSurface({
+      identity: {
+        sheetRef: {
+          kind: "view_schema",
+          id: "cartulary.view.timeline.v2",
+        },
+        viewSchemaId: "cartulary.view.timeline.v2",
+      },
+      applyRecordChanged: () => ({ kind: "applied" }),
+      invalidate: vi.fn(),
+      refresh,
+    });
+    const editor = {
+      actorId: "user-1",
+      sessionIdentity: "session-1",
+      incidentId: "incident-1",
+      role: "editor" as const,
+      closed: false,
+    };
+    fixture.mutationRuntime.setAuthority(editor);
+    const established = fixture.mutationRuntime.authorizationEpoch;
+
+    // hello_ack and resume_ack carry no authority; re-establishing the stream
+    // keeps the authority lifetime even though writes may resume.
+    fixture.emit({
+      kind: "established",
+      messageType: "hello_ack",
+      payload: { connection_id: "first-connection" },
+    });
+    fixture.emit({
+      kind: "established",
+      messageType: "resume_ack",
+      payload: { status: "replayed" },
+    });
+    expect(fixture.mutationRuntime.authorizationEpoch).toBe(established);
+    expect(fixture.mutationRuntime.getSnapshot().authPaused).toBe(false);
+
+    // The role was reduced while the socket was away. The server admits the
+    // reconnect, so the change surfaces when an operation denial requests an
+    // authoritative read.
+    fixture.projection.requestAuthorizationRecovery();
+    expect(fixture.mutationRuntime.authorizationEpoch).toBeGreaterThan(
+      established,
+    );
+    expect(fixture.mutationRuntime.getSnapshot().authPaused).toBe(true);
+    await fixture.timing.advanceBy(1_000);
+    await vi.waitFor(() =>
+      expect(fixture.session.reconnect).toHaveBeenCalledOnce(),
+    );
+    expect(fixture.onAuthorizationRecovered).toHaveBeenCalledWith({
+      kind: "authorized",
+      role: "viewer",
+      userId: "user-1",
+    });
+    expect(fixture.inspectorInvalidation).toHaveBeenCalledWith({
+      kind: "incident_role_changed",
+      role: "viewer",
+    });
+    const recovered = fixture.mutationRuntime.authorizationEpoch;
+    fixture.mutationRuntime.setAuthority({ ...editor, role: "viewer" });
+    const downgraded = fixture.mutationRuntime.authorizationEpoch;
+    expect(downgraded).toBeGreaterThan(recovered);
+
+    // The read-only role keeps writes paused; its own reconnect adds nothing.
+    fixture.emit({
+      kind: "established",
+      messageType: "hello_ack",
+      payload: { connection_id: "second-connection" },
+    });
+    expect(fixture.mutationRuntime.authorizationEpoch).toBe(downgraded);
+    expect(fixture.mutationRuntime.getSnapshot().authPaused).toBe(true);
+    expect(fixture.projection.getReadAuthorization()).toBe(true);
+    fixture.projection.dispose();
+  });
+
   it("disposes shell projections without disposing the borrowed mutation runtime", () => {
     const fixture = projectionFixture();
     fixture.projection.dispose();

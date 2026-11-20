@@ -62,7 +62,7 @@
       "runtime_scan": "excluded",
       "support_scan": "included",
       "service_starting": false,
-      "rationale": "Imports-owned committed-source seeds for focused collaborator persistence checks without service-starting entrypoints."
+      "rationale": "Imports-owned committed-source seeds for focused collaborator persistence checks, and public import-lifecycle HTTP drivers for application tests against an already running server, without service-starting entrypoints."
     },
     {
       "path": "internal/modules/incidents/testsupport",

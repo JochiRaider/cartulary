@@ -147,15 +147,16 @@ func TestOpenAPIIncidentLifecycleOperationsAreCompleteAndExact_Unit(t *testing.T
 		map[string]any{"sessionCookie": []any{}, "csrfCookie": []any{}, "csrfHeader": []any{}},
 		map[string]any{"bearerSession": []any{}},
 	}
-	wantResponses := []string{"200", "400", "401", "403", "404", "409", "413", "500"}
+	wantResponses := []string{"200", "400", "401", "403", "404", "409", "413", "500", "503"}
 	wantErrorCodes := map[string][]string{
 		"413": {"request_body_too_large"},
 		"400": {"invalid_incident_lifecycle_request"},
 		"401": {"session_required"},
 		"403": {"authorization_denied", "csrf_verification_failed"},
 		"404": {"incident_not_found"},
-		"409": {"client_txn_conflict", "credential_bootstrap_rejected", "incident_version_conflict", "illegal_transition"},
+		"409": {"client_txn_conflict", "credential_bootstrap_rejected", "illegal_transition", "incident_version_conflict"},
 		"500": {"internal_error"},
+		"503": {"service_unavailable"},
 	}
 	for _, action := range []string{"close", "reopen"} {
 		operation := openAPIObjectAt(
@@ -192,7 +193,8 @@ func TestOpenAPIIncidentLifecycleOperationsAreCompleteAndExact_Unit(t *testing.T
 			t.Fatalf("%s success schema is not IncidentEnvelope", action)
 		}
 		for status, codes := range wantErrorCodes {
-			response := openAPIObjectAt(t, responses, status)
+			// The implied 503 shares the platform component response.
+			response := incidentOpenAPIResolvedResponse(t, openAPIObjectAt(t, document, "components"), responses[status])
 			if got := toStrings(t, response["x-cartulary-error-codes"]); !equalStringSlices(got, codes) {
 				t.Fatalf("%s %s error codes got %v want %v", action, status, got, codes)
 			}

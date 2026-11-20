@@ -293,11 +293,26 @@ func (l *Lease) transition(from State, to State, reason string) bool {
 	}
 	l.state = to
 	l.mu.Unlock()
-	select {
-	case l.events <- Event{Previous: from, State: to, Reason: reason}:
-	default:
-	}
+	l.publish(Event{Previous: from, State: to, Reason: reason})
 	return true
+}
+
+// publish delivers a transition without blocking the monitor. A consumer that
+// fell behind loses the oldest undelivered transitions, never the newest, so
+// confirmed loss always reaches it (Core 04 REQ-04-145). Transitions come from
+// one goroutine at a time, so delivered events keep their order.
+func (l *Lease) publish(event Event) {
+	for {
+		select {
+		case l.events <- event:
+			return
+		default:
+		}
+		select {
+		case <-l.events:
+		default:
+		}
+	}
 }
 
 func minDuration(left time.Duration, right time.Duration) time.Duration {

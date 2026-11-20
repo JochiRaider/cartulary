@@ -1,22 +1,12 @@
 import type {
   CreateDeploymentUserRequest,
-  CreateDeploymentUserResponse,
   CreateEnterpriseAuthBindingRequest,
-  CreateEnterpriseAuthBindingResponse,
-  GetDeploymentUserResponse,
-  ListDeploymentUsersResponse,
   PatchDeploymentUserRequest,
-  PatchDeploymentUserResponse,
   ResetDeploymentUserPasswordRequest,
-  ResetDeploymentUserPasswordResponse,
   ResetDeploymentUserTOTPRequest,
-  ResetDeploymentUserTOTPResponse,
   RetireEnterpriseAuthBindingRequest,
-  RetireEnterpriseAuthBindingResponse,
   RevokeAllDeploymentUserSessionsRequest,
-  RevokeAllDeploymentUserSessionsResponse,
   RotateEnterpriseAuthBindingRequest,
-  RotateEnterpriseAuthBindingResponse,
 } from "@cartulary/protocol-ts/http";
 import { fetchHTTPOperation } from "../../services/browserApi";
 
@@ -39,7 +29,7 @@ export function createLocalUser(options: {
     mfa_required: options.mfaRequired,
     is_deployment_admin: options.isDeploymentAdmin,
   } satisfies CreateDeploymentUserRequest;
-  return fetchHTTPOperation<CreateDeploymentUserResponse>({
+  return fetchHTTPOperation({
     apiBase: options.apiBase,
     init: {
       method: "POST",
@@ -82,7 +72,7 @@ export function listUsers(options?: {
       : {
           signal: options.signal,
         };
-  return fetchHTTPOperation<ListDeploymentUsersResponse>({
+  return fetchHTTPOperation({
     apiBase: options?.apiBase,
     init: requestInit,
     operationID: "listDeploymentUsers",
@@ -95,7 +85,7 @@ export function loadUser(options: {
   signal?: AbortSignal;
   userId: string;
 }) {
-  return fetchHTTPOperation<GetDeploymentUserResponse>({
+  return fetchHTTPOperation({
     apiBase: options.apiBase,
     operationID: "getDeploymentUser",
     init: options.signal === undefined ? undefined : { signal: options.signal },
@@ -124,7 +114,7 @@ export function patchLocalUser(options: {
     base_user_version: options.baseUserVersion,
     ...options.changes,
   } satisfies PatchDeploymentUserRequest;
-  return fetchHTTPOperation<PatchDeploymentUserResponse>({
+  return fetchHTTPOperation({
     apiBase: options.apiBase,
     init: {
       method: "PATCH",
@@ -153,7 +143,7 @@ export function createEnterpriseAuthBinding(options: {
     provider_subject: options.providerSubject,
     reason: options.reason,
   } satisfies CreateEnterpriseAuthBindingRequest;
-  return fetchHTTPOperation<CreateEnterpriseAuthBindingResponse>({
+  return fetchHTTPOperation({
     apiBase: options.apiBase,
     operationID: "createEnterpriseAuthBinding",
     pathParameters: { user_id: options.userId },
@@ -181,7 +171,7 @@ export function rotateEnterpriseAuthBinding(options: {
     new_provider_subject: options.newProviderSubject,
     reason: options.reason,
   } satisfies RotateEnterpriseAuthBindingRequest;
-  return fetchHTTPOperation<RotateEnterpriseAuthBindingResponse>({
+  return fetchHTTPOperation({
     apiBase: options.apiBase,
     operationID: "rotateEnterpriseAuthBinding",
     pathParameters: {
@@ -210,7 +200,7 @@ export function retireEnterpriseAuthBinding(options: {
     client_txn_id: options.clientTxnId,
     reason: options.reason,
   } satisfies RetireEnterpriseAuthBindingRequest;
-  return fetchHTTPOperation<RetireEnterpriseAuthBindingResponse>({
+  return fetchHTTPOperation({
     apiBase: options.apiBase,
     operationID: "retireEnterpriseAuthBinding",
     pathParameters: {
@@ -240,7 +230,7 @@ export function adminResetPassword(options: {
     new_password: options.newPassword,
     reason: options.reason,
   } satisfies ResetDeploymentUserPasswordRequest;
-  return fetchHTTPOperation<ResetDeploymentUserPasswordResponse>({
+  return fetchHTTPOperation({
     apiBase: options.apiBase,
     init: {
       method: "POST",
@@ -265,7 +255,7 @@ export function adminResetTotp(options: {
     client_txn_id: options.clientTxnId,
     reason: options.reason,
   } satisfies ResetDeploymentUserTOTPRequest;
-  return fetchHTTPOperation<ResetDeploymentUserTOTPResponse>({
+  return fetchHTTPOperation({
     apiBase: options.apiBase,
     init: {
       method: "POST",
@@ -288,7 +278,7 @@ export function adminRevokeAllSessions(options: {
     client_txn_id: options.clientTxnId,
     reason: options.reason,
   } satisfies RevokeAllDeploymentUserSessionsRequest;
-  return fetchHTTPOperation<RevokeAllDeploymentUserSessionsResponse>({
+  return fetchHTTPOperation({
     apiBase: options.apiBase,
     init: {
       method: "POST",

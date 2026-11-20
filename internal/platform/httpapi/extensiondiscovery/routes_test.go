@@ -1,14 +1,20 @@
 package extensiondiscovery
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"reflect"
 	"testing"
+	"time"
 
+	"github.com/google/uuid"
+
+	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 	"github.com/JochiRaider/cartulary/internal/testutil/httpapiextensions"
 )
 
@@ -34,13 +40,64 @@ func TestExtensionDiscoveryResponseShapeAndOrder_Unit(t *testing.T) {
 	}
 }
 
-func TestExtensionDiscoveryRejectsSingletonQueryBeforeAuthentication_Unit(t *testing.T) {
-	discovery := &service{}
-	request := httptest.NewRequest(http.MethodGet, "/api/v1/extensions?cursor_token=opaque", nil)
+// serveDiscovery binds the discovery singleton for central admission behind
+// the registry's route resolution, as production does (Core 01 REQ-01-707),
+// with an authenticator over sessions.
+func serveDiscovery(t *testing.T, sessions httpauth.SessionStore) http.Handler {
+	t.Helper()
+	registry, err := httpapi.NewRouteRegistry(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	deps := httpapi.DependencySet{PublicRoutes: registry, Authenticator: httpauth.NewAuthenticator(httpauth.Options{Store: sessions, Now: time.Now})}
+	mux := http.NewServeMux()
+	if err := RegisterRoutes()(mux, deps); err != nil {
+		t.Fatal(err)
+	}
+	if mode := registry.AdmissionModes()["listDeploymentExtensions"]; mode != httpapi.AdmissionCentral {
+		t.Fatalf("listDeploymentExtensions admission mode = %q, want central", mode)
+	}
+	return registry.Handler(mux)
+}
+
+// activeSessions authenticates any bearer token as one active session.
+type activeSessions struct{}
+
+func (activeSessions) GetSessionByFingerprint(context.Context, []byte) (authn.SessionRecord, authn.UserRecord, error) {
+	now := time.Now().UTC()
+	user := authn.UserRecord{ID: uuid.MustParse("7e1a2b3c-4d5e-4f60-8a71-b2c3d4e5f601"), IsActive: true}
+	return authn.SessionRecord{
+		ID: uuid.MustParse("7e1a2b3c-4d5e-4f60-8a71-b2c3d4e5f602"), UserID: user.ID,
+		AuthenticatedAt: now, LastQualifyingActivityAt: now,
+		IdleExpiresAt: now.Add(time.Hour), AbsoluteExpiresAt: now.Add(time.Hour), SessionExpiresAt: now.Add(time.Hour),
+	}, user, nil
+}
+
+func (activeSessions) GetBootstrapTokenByFingerprint(context.Context, []byte) (authn.BootstrapTokenRecord, authn.UserRecord, error) {
+	return authn.BootstrapTokenRecord{}, authn.UserRecord{}, authn.ErrNotFound
+}
+
+func (activeSessions) RevokeSession(context.Context, uuid.UUID, string, time.Time) error {
+	return nil
+}
+
+// TestExtensionDiscoveryAuthenticatesBeforeSingletonQuery_Unit: central
+// admission authenticates first (Core 01 REQ-01-707 step 2), so an
+// unauthenticated singleton query is session_required, and only an
+// authenticated one meets the singleton-query check (step 5).
+func TestExtensionDiscoveryAuthenticatesBeforeSingletonQuery_Unit(t *testing.T) {
+	handler := serveDiscovery(t, activeSessions{})
 	response := httptest.NewRecorder()
-	discovery.handleCollection(response, request)
+	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/v1/extensions?cursor_token=opaque", nil))
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("unauthenticated status = %d, want %d; body=%s", response.Code, http.StatusUnauthorized, response.Body)
+	}
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/extensions?cursor_token=opaque", nil)
+	request.Header.Set("Authorization", "Bearer extension-discovery-query")
+	response = httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusBadRequest {
-		t.Fatalf("status = %d, want %d", response.Code, http.StatusBadRequest)
+		t.Fatalf("authenticated status = %d, want %d; body=%s", response.Code, http.StatusBadRequest, response.Body)
 	}
 	if apiErr := httpapi.ValidateSingletonReadQuery(url.Values{"cursor_token": {"opaque"}}); apiErr == nil || apiErr.Code != "invalid_pagination_request" {
 		t.Fatalf("singleton query error = %#v", apiErr)
@@ -48,10 +105,8 @@ func TestExtensionDiscoveryRejectsSingletonQueryBeforeAuthentication_Unit(t *tes
 }
 
 func TestExtensionDiscoveryRequiresAuthentication_Unit(t *testing.T) {
-	discovery := &service{}
-	request := httptest.NewRequest(http.MethodGet, "/api/v1/extensions", nil)
 	response := httptest.NewRecorder()
-	discovery.handleCollection(response, request)
+	serveDiscovery(t, nil).ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/v1/extensions", nil))
 	if response.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d, want %d", response.Code, http.StatusUnauthorized)
 	}

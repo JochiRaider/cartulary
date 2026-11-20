@@ -10,6 +10,7 @@ import { drainOwnedProcess, inspectOwnedProcess, ownedProcess, stopOwnedProcess 
 import { parseCleanupDiagnostic, withCleanupDiagnostic } from "../runtime/cleanup-diagnostic.mjs";
 import { atomicLocalFile, privateDirectory, readLocalFile, removePrivateFile, removePrivateTree } from "../runtime/secure-local-files.mjs";
 import { borrowRuntime } from "../runtime/session-client.mjs";
+import { retainServerGeneration } from "./server-log-retention.mjs";
 
 const schemaID = "cartulary.browser_acquisition.v2";
 const bytes = (value) => `${JSON.stringify(value)}\n`;
@@ -347,6 +348,15 @@ async function settle({ file, runtime, root, environment = {}, producerActive = 
     writeResource(file, "stopping.json", {}, { duringStop: true, environment });
     stage = "process_settlement";
     await stopAcquisitionProcesses(file, { producerActive, stop, environment });
+    // TH-HARNESS-REQ-861: once its services have settled, the allocation's
+    // final server generation keeps its redacted log like every replaced one.
+    // Recovery never backfills the original run. A retention failure fails
+    // closed after the remaining owned resources are released.
+    let retentionFailure;
+    if (!recovery) {
+      try { retainServerGeneration(path.join(owner.session_root, "logs"), { runRoot: suite.run_root }); }
+      catch (cause) { retentionFailure = new CommandFailure("browser server log retention failed", { failure_class: "artifact", failure_reason: "artifact_error" }, { cause }); }
+    }
     stage = "browser_ports";
     releaseAcquisitionPorts(file, environment);
     if (existsSync(metadata)) {
@@ -394,6 +404,10 @@ async function settle({ file, runtime, root, environment = {}, producerActive = 
     }
     stage = "detail_remove";
     removePrivateTree(path.join(owner.session_root, "runtime-root"));
+    if (retentionFailure) {
+      stage = "browser_settlement";
+      throw retentionFailure;
+    }
     // An exit trap can release services but cannot prove its own producer has
     // exited. Only the external owner may publish terminal settlement after reaping.
     if (producerActive) return { state: "recovery_required", acquisition_file: file };

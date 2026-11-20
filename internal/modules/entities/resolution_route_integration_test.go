@@ -80,6 +80,75 @@ func TestResolveRoute_Integration(t *testing.T) {
 		})
 	}
 
+	// REQ-01-211, REQ-01-705 / AC-614: a soft-deleted source record is
+	// classified after its lock, before the incident lifecycle and the mention
+	// version. Committed replay still precedes it (REQ-01-212).
+	t.Run("deleted source record must be restored first", func(t *testing.T) {
+		harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity-resolve-deleted-source", TestRouteMode: httptestx.TestRouteModeDisabled})
+		login, actorID := authflowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
+		incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
+			"client_txn_id": "txn-deleted-source-incident",
+			"incident_key":  "IR-DELETED-SOURCE",
+			"title":         "Deleted mention source classification",
+		})
+		incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
+		timelinetest.SeedTimelineRecord(t, harness.DB, incidentID, actorID, timelinetest.RecordID)
+		entitytest.SeedHostRecord(t, harness.DB, incidentID, actorID, entitytest.CanonicalHostRecordID, "WS-031", "WS-031", "", "")
+		entitytest.SeedMention(t, harness.DB, actorID, entitytest.HostMentionID, timelinetest.RecordID, timelinetest.FieldHostRefs, "host", "WS-031", "unresolved", nil, nil)
+		do := func(payload map[string]any) *http.Response {
+			return httptestx.DoJSON(t, http.DefaultClient, http.MethodPost,
+				harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+entitytest.HostMentionID.String()+"/resolve", payload,
+				httptestx.WithCookies(login.Session, login.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value))
+		}
+		committed := entitytest.MentionResolveRoutePayload(1, "txn-deleted-source-committed", entitytest.MentionActionResolve, &entitytest.CanonicalHostRecordID, nil)
+		first := httptestx.RequireSuccessData(t, do(committed), http.StatusOK)
+		envelopetest.SoftDeleteRecord(t, harness.DB, envelopetest.Tombstone{RecordID: timelinetest.RecordID, DeletedBy: actorID, AtLastUpdate: true})
+
+		before := workbookscenariotest.SnapshotIncidentMutationEffects(t, harness.DB, incidentID.String())
+		beforeMention := entitytest.LookupMention(t, harness.DB, entitytest.HostMentionID)
+		receipts := func() int {
+			return appsupport.QueryCount(t, harness.DB, `SELECT count(*) FROM route_idempotency WHERE scope_key = $1`, entitytest.HostMentionID.String())
+		}
+		beforeReceipts := receipts()
+		requireUnchanged := func(name string) {
+			t.Helper()
+			if got := workbookscenariotest.SnapshotIncidentMutationEffects(t, harness.DB, incidentID.String()); got != before {
+				t.Fatalf("%s changed source/history/publication: %+v -> %+v", name, before, got)
+			}
+			if got := entitytest.LookupMention(t, harness.DB, entitytest.HostMentionID); !reflect.DeepEqual(got, beforeMention) {
+				t.Fatalf("%s changed the mention: %#v -> %#v", name, beforeMention, got)
+			}
+			if got := receipts(); got != beforeReceipts {
+				t.Fatalf("%s consumed a mention receipt: %d -> %d", name, beforeReceipts, got)
+			}
+		}
+
+		replay := httptestx.RequireSuccessData(t, do(committed), http.StatusOK)
+		if replay["change_set_id"] != first["change_set_id"] {
+			t.Fatalf("replay after source deletion changed the committed result: %#v -> %#v", first, replay)
+		}
+		requireUnchanged("replay")
+
+		current := entitytest.MentionResolveRoutePayload(2, "txn-deleted-source-current", "revert_to_unresolved", nil, nil)
+		httptestx.RequireErrorEnvelope(t, do(current), http.StatusConflict, "record_deleted_use_restore")
+		requireUnchanged("current-version action")
+
+		if _, err := harness.DB.ExecContext(context.Background(), `UPDATE incidents SET status = 'closed', closed_at = now() WHERE id = $1`, incidentID); err != nil {
+			t.Fatal(err)
+		}
+		before = workbookscenariotest.SnapshotIncidentMutationEffects(t, harness.DB, incidentID.String())
+		stale := entitytest.MentionResolveRoutePayload(1, "txn-deleted-source-stale-closed", "revert_to_unresolved", nil, nil)
+		httptestx.RequireErrorEnvelope(t, do(stale), http.StatusConflict, "record_deleted_use_restore")
+		requireUnchanged("stale action in a closed incident")
+
+		// Once restored, the same request reaches the lifecycle step; the
+		// rejection consumed no transaction identity.
+		if _, err := harness.DB.ExecContext(context.Background(), `UPDATE records SET deleted_at = NULL, deleted_by_user_id = NULL WHERE record_id = $1`, timelinetest.RecordID); err != nil {
+			t.Fatal(err)
+		}
+		httptestx.RequireErrorEnvelope(t, do(stale), http.StatusConflict, "incident_closed")
+	})
+
 	t.Run("resolve_item uses authoritative route replay and history conformance", func(t *testing.T) {
 		harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-i-4-01-resolve-conformance", TestRouteMode: httptestx.TestRouteModeDisabled})
 		adminLogin, adminUserID := authflowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)

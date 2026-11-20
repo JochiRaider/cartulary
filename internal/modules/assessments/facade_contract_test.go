@@ -63,7 +63,7 @@ func TestAssessmentFacadeParticipantFailuresRollbackAndReplayBypassesParticipant
 			if !errors.As(err, &invalid) || invalid.Field != tc.field || invalid.ReasonCode != "invalid_value" {
 				t.Fatalf("reference failure=%v, want %s invalid_value", err, tc.field)
 			}
-			if fmt.Sprint(ports.calls) != "[idempotency_lookup references]" {
+			if fmt.Sprint(ports.calls) != "[idempotency_lookup incident_lifecycle references]" {
 				t.Fatalf("failed admission called downstream participants: %v", ports.calls)
 			}
 			got := ports.admittedReferences
@@ -78,6 +78,7 @@ func TestAssessmentFacadeParticipantFailuresRollbackAndReplayBypassesParticipant
 
 	for _, failure := range []string{
 		"idempotency_lookup",
+		"incident_lifecycle",
 		"references",
 		"assessor",
 		"records",
@@ -259,6 +260,7 @@ func TestAssessmentFacadeCreateParticipantOrder(t *testing.T) {
 	}
 	want := []string{
 		"idempotency_lookup",
+		"incident_lifecycle",
 		"references",
 		"assessor",
 		"records",
@@ -332,6 +334,15 @@ func (p *assessmentFacadePorts) AdmitAssessmentReferencesTx(
 		return *p.referenceResult, nil
 	}
 	return assessments.ReferenceAdmissionResult{SubjectValid: true, SupportValid: true}, nil
+}
+
+// RequireOpenTx stands in for the incident lifecycle port. A committed replay
+// must return before it (REQ-01-590), and a fresh create must reach it before
+// any reference admission or write (REQ-01-591).
+func (p *assessmentFacadePorts) RequireOpenTx(_ context.Context, _ pgx.Tx, _ uuid.UUID) error {
+	p.call("incident_lifecycle")
+	p.participantCalls++
+	return p.inject("incident_lifecycle")
 }
 
 func (p *assessmentFacadePorts) ValidateAssessmentAssessorTx(
@@ -439,6 +450,7 @@ func newAssessmentFacadeForTest(
 	t.Helper()
 	facade, err := assessments.NewFacade(database, assessments.FacadeDependencies{
 		Idempotency:  ports,
+		Incidents:    ports,
 		References:   ports,
 		Assessors:    ports,
 		Records:      ports,

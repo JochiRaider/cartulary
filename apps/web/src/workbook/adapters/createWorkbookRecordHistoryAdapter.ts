@@ -1,6 +1,5 @@
 import {
   type DeleteRecordResponse,
-  type GetRecordHistoryResponse,
   httpOperationBindings,
   type RollbackRecordResponse,
 } from "@cartulary/protocol-ts/http";
@@ -15,7 +14,10 @@ import type {
   WorkbookRecordHistoryPort,
 } from "../history/workbookHistoryOperation";
 import { validHistoryPaging } from "../history/workbookHistoryPage";
-import { classifyWorkbookOperationFailure } from "./workbookOperationErrorPolicy";
+import {
+  classifyWorkbookOperationFailure,
+  explicitWorkbookFailureOutcome,
+} from "./workbookOperationErrorPolicy";
 
 const invalid = {
   kind: "invalid_contract" as const,
@@ -29,7 +31,7 @@ export function createWorkbookRecordHistoryAdapter(options: {
   return {
     async load(recordId, signal, request = {}) {
       try {
-        const result = await fetchHTTPOperation<GetRecordHistoryResponse>({
+        const result = await fetchHTTPOperation({
           apiBase: options.apiBase,
           operationID: "getRecordHistory",
           query: {
@@ -43,8 +45,7 @@ export function createWorkbookRecordHistoryAdapter(options: {
         });
         if (!result.ok) {
           const failure = classifyWorkbookOperationFailure(
-            result.status,
-            result.payload,
+            result.payload.error,
             "getRecordHistory",
           );
           return {
@@ -92,7 +93,8 @@ export function createWorkbookRecordHistoryAdapter(options: {
       let responseStatus: number | null = null;
       try {
         const result = await fetchHTTPOperation<
-          DeleteRecordResponse | RollbackRecordResponse
+          DeleteRecordResponse | RollbackRecordResponse,
+          typeof operationID
         >({
           apiBase: options.apiBase,
           operationID,
@@ -107,21 +109,11 @@ export function createWorkbookRecordHistoryAdapter(options: {
           },
         });
         if (!result.ok) {
-          if (
-            responseStatus === null ||
-            responseStatus < 400 ||
-            responseStatus >= 500 ||
-            !result.payload.error?.code
-          )
-            return { kind: "uncertain" };
-          const failure = classifyWorkbookOperationFailure(
-            result.status,
-            result.payload,
+          return explicitWorkbookFailureOutcome(
+            responseStatus,
+            result.payload.error,
             operationID,
           );
-          return failure.kind === "invalid_contract"
-            ? { kind: "uncertain" }
-            : { kind: "rejected", failure };
         }
         const receipt = historyReceipt(attempt, result.payload);
         return receipt === null

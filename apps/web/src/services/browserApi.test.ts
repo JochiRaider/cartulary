@@ -1,6 +1,26 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  type HTTPOperationErrorCode,
+  httpOperationBindings,
+} from "@cartulary/protocol-ts/http";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  expectTypeOf,
+  it,
+  vi,
+} from "vitest";
 
-import { apiPath, csrfHeaderName, fetchJSON, readCookie } from "./browserApi";
+import { incidentResource } from "../testing/appShellTestSupport";
+import {
+  apiPath,
+  csrfHeaderName,
+  fetchHTTPOperation,
+  fetchJSON,
+  fetchMultipartHTTPOperation,
+  readCookie,
+} from "./browserApi";
 
 describe("fetchJSON", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
@@ -160,6 +180,250 @@ describe("fetchJSON", () => {
   });
 });
 
+describe("fetchHTTPOperation public error decoding", () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  const createIncident = () =>
+    fetchHTTPOperation({
+      operationID: "createIncident",
+      init: { method: "POST", body: "{}" },
+    });
+
+  it("surfaces a declared code typed by the operation and status", async () => {
+    const error = publicError("incident_key_conflict", 409);
+    fetchMock.mockResolvedValue(jsonResponse({ error }, 409));
+
+    const result = await createIncident();
+
+    expect(result).toEqual({ ok: false, status: 409, payload: { error } });
+    if (result.ok) return;
+    expectTypeOf(result.payload.error.code).toEqualTypeOf<
+      | HTTPOperationErrorCode<"createIncident">
+      | "invalid_public_contract_response"
+    >();
+    if (result.payload.error.status === 409) {
+      expectTypeOf(result.payload.error.code).toEqualTypeOf<
+        | "client_txn_conflict"
+        | "credential_bootstrap_rejected"
+        | "incident_key_conflict"
+      >();
+    }
+    if (result.payload.error.status === 500) {
+      expectTypeOf(result.payload.error.code).toEqualTypeOf<"internal_error">();
+    }
+    if (result.payload.error.status === 503) {
+      expectTypeOf(
+        result.payload.error.code,
+      ).toEqualTypeOf<"service_unavailable">();
+    }
+  });
+
+  it("decodes the declared 500 internal_error", async () => {
+    const error = publicError("internal_error", 500);
+    fetchMock.mockResolvedValue(jsonResponse({ error }, 500));
+
+    const result = await fetchHTTPOperation({
+      operationID: "activateReferencePackVersion",
+      pathParameters: { pack_key: "type_registry.host", pack_version: "1" },
+      init: { method: "POST", body: "{}" },
+    });
+
+    expect(result).toEqual({ ok: false, status: 500, payload: { error } });
+  });
+
+  it("decodes a 503 service_unavailable as a declared public error, never a contract failure", async () => {
+    // The single REQ-03-086a rule needs both codes declared everywhere.
+    for (const binding of Object.values(httpOperationBindings)) {
+      const declared: Readonly<Record<string, readonly string[]>> =
+        binding.error_codes_by_status;
+      expect(declared["500"]).toContain("internal_error");
+      expect(declared["503"]).toContain("service_unavailable");
+    }
+    const error = {
+      ...publicError("service_unavailable", 503),
+      details: { reason_code: "admission_paused" },
+      retryable: true,
+    };
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(jsonResponse({ error }, 503)),
+    );
+
+    const results = [
+      await createIncident(),
+      await fetchHTTPOperation({ operationID: "listVisibleIncidents" }),
+      await fetchHTTPOperation({ operationID: "getCurrentSession" }),
+      await fetchMultipartHTTPOperation({
+        operationID: "importIncidentBundle",
+        body: new FormData(),
+      }),
+    ];
+
+    for (const result of results)
+      expect(result).toEqual({ ok: false, status: 503, payload: { error } });
+    expect(JSON.stringify(results)).not.toContain(
+      "invalid_public_contract_response",
+    );
+  });
+
+  it.each([
+    {
+      body: { error: publicError("authorization_denied", 403) },
+      instancePath: "/error/code",
+      label: "an undeclared code",
+      status: 403,
+    },
+    {
+      body: { error: publicError("client_txn_conflict", 400) },
+      instancePath: "/error/status",
+      label: "a mismatched envelope status",
+      status: 409,
+    },
+    {
+      body: { error: publicError("internal_error", 503) },
+      instancePath: "/error/code",
+      label: "an internal_error outside status 500",
+      status: 503,
+    },
+    {
+      body: { error: publicError("service_unavailable", 500) },
+      instancePath: "/error/code",
+      label: "a service_unavailable at status 500",
+      status: 500,
+    },
+    {
+      body: { error: { code: "incident_key_conflict", status: 409 } },
+      instancePath: "/error/message",
+      label: "an invalid error envelope",
+      status: 409,
+    },
+  ])(
+    "turns $label into the client contract failure",
+    async ({ body, instancePath, status }) => {
+      fetchMock.mockResolvedValue(jsonResponse(body, status));
+
+      const result = await createIncident();
+
+      expect(result).toEqual({
+        ok: false,
+        status: 502,
+        payload: {
+          error: {
+            code: "invalid_public_contract_response",
+            details: {
+              instance_path: instancePath,
+              operation_id: "createIncident",
+              response_status: status,
+              schema_id: "cartulary.core_http.ErrorEnvelope.v1",
+            },
+            message: "The server returned an invalid public contract response.",
+            retryable: true,
+            status: 502,
+          },
+        },
+      });
+      expect(JSON.stringify(result)).not.toContain(body.error.code);
+    },
+  );
+
+  it("turns a non-JSON error body into the client contract failure", async () => {
+    fetchMock.mockResolvedValue(
+      new Response("<html>Bad gateway</html>", {
+        status: 502,
+        headers: { "Content-Type": "text/html" },
+      }),
+    );
+
+    const result = await createIncident();
+
+    expect(result).toMatchObject({
+      ok: false,
+      status: 502,
+      payload: {
+        error: {
+          code: "invalid_public_contract_response",
+          details: { operation_id: "createIncident", response_status: 502 },
+        },
+      },
+    });
+  });
+
+  it("validates success payloads against the received success status", async () => {
+    const envelope = {
+      data: incidentResource(
+        "00000000-0000-4000-8000-000000004101",
+        "IR-A",
+        "Alpha",
+      ),
+      meta: { request_id: "request-test" },
+    };
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(envelope, 201))
+      .mockResolvedValueOnce(jsonResponse(envelope, 202));
+
+    expect(await createIncident()).toEqual({
+      ok: true,
+      status: 201,
+      payload: envelope,
+    });
+    const result = await createIncident();
+
+    expect(result).toMatchObject({
+      ok: false,
+      status: 502,
+      payload: {
+        error: {
+          code: "invalid_public_contract_response",
+          details: { operation_id: "createIncident", response_status: 202 },
+        },
+      },
+    });
+  });
+
+  it("decodes multipart operation errors against the same contract", async () => {
+    const declared = publicError("incident_bundle_import_rejected", 409);
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ error: declared }, 409))
+      .mockResolvedValueOnce(
+        jsonResponse({ error: publicError("incident_key_conflict", 409) }, 409),
+      );
+    const send = () =>
+      fetchMultipartHTTPOperation({
+        operationID: "importIncidentBundle",
+        body: new FormData(),
+      });
+
+    expect(await send()).toEqual({
+      ok: false,
+      status: 409,
+      payload: { error: declared },
+    });
+    expect(await send()).toMatchObject({
+      ok: false,
+      status: 502,
+      payload: {
+        error: {
+          code: "invalid_public_contract_response",
+          details: {
+            instance_path: "/error/code",
+            operation_id: "importIncidentBundle",
+            response_status: 409,
+          },
+        },
+      },
+    });
+  });
+});
+
 describe("readCookie", () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -208,6 +472,17 @@ function capturedRequest(fetchMock: ReturnType<typeof vi.fn>) {
 
 function requestAt(fetchMock: ReturnType<typeof vi.fn>, index: number) {
   return new Request("http://localhost/api", fetchMock.mock.calls[index]?.[1]);
+}
+
+function publicError(code: string, status: number) {
+  return {
+    code,
+    details: {},
+    message: "Request failed.",
+    request_id: "request-test",
+    retryable: false,
+    status,
+  };
 }
 
 function jsonResponse(payload: unknown, status = 200) {

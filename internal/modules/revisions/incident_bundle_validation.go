@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
@@ -442,11 +443,18 @@ func validateImportedRevisionChainsTx(ctx context.Context, tx pgx.Tx, incidentID
 	var previousPath []revisionActorImportContext
 	for rows.Next() {
 		var recordID uuid.UUID
-		var version, historyOrder int64
+		var version int64
+		var storedOrder pgtype.Int8
 		var beforeRaw, afterRaw, contextsRaw []byte
-		if err := rows.Scan(&recordID, &version, &beforeRaw, &afterRaw, &contextsRaw, &historyOrder); err != nil {
+		if err := rows.Scan(&recordID, &version, &beforeRaw, &afterRaw, &contextsRaw, &storedOrder); err != nil {
 			return err
 		}
+		// Imported history has explicit orders; native history appended inside
+		// the import transaction has none and cannot reconstruct the bundle.
+		if !storedOrder.Valid {
+			return revisionsFailure(revisionsHistoryInvariant)
+		}
+		historyOrder := storedOrder.Int64
 		before, err := decodeDatabaseJSONObject(beforeRaw)
 		if err != nil {
 			return err

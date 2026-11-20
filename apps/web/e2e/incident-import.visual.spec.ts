@@ -8,7 +8,10 @@ import {
   openImportPresentation,
 } from "./support/incidents/import";
 import { responseBarrier } from "./support/runtime/cleanup";
-import { installOwnedRoute } from "./support/transport/requestInterception";
+import {
+  fulfillOperationError,
+  installOwnedRoute,
+} from "./support/transport/requestInterception";
 import { assertViewportVisualRegression } from "./support/visual/capture";
 import { test } from "./support/visual/fixtures";
 
@@ -161,12 +164,7 @@ test("Capture incident import admission observation cancellation and result reco
     await assertViewportVisualRegression(page, `incident-import-${status}`);
   }
   await installOwnedRoute(page, "**/api/v1/auth/session", (route) =>
-    route.fulfill({
-      status: 503,
-      json: {
-        error: { code: "service_unavailable", status: 503, retryable: true },
-      },
-    }),
+    fulfillOperationError(route, "getCurrentSession", 500, "internal_error"),
   );
   await page
     .getByRole("button", { name: "Open imported incident", exact: true })

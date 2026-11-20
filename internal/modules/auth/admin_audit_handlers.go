@@ -6,7 +6,6 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/platform/administrativeaudit"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
-	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 	"github.com/JochiRaider/cartulary/internal/platform/listquery"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 )
@@ -42,17 +41,8 @@ func buildAdministrativeAuditPage(
 }
 
 func (s *Service) handleAdministrativeAuditEvents(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-	principal, apiErr := s.authenticateSessionRequest(r, false)
-	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-	if apiErr := httpauth.RequireDeploymentAdmin(principal.User); apiErr != nil {
-		writeAPIError(w, r, apiErr)
+	principal, ok := admittedDeploymentAdmin(w, r)
+	if !ok {
 		return
 	}
 	listScope, apiErr := parseAdministrativeAuditScope(r.URL.RawQuery)
@@ -85,7 +75,7 @@ func (s *Service) handleAdministrativeAuditEvents(w http.ResponseWriter, r *http
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}

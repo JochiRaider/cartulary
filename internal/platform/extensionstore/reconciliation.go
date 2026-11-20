@@ -186,7 +186,14 @@ SELECT (SELECT p.terminal_result_sha256
 		previousSubmittedAt = outcome.SubmittedAt
 		previousJobID = outcome.JobID
 	}
-	if err := tx.Commit(ctx); err != nil {
+	// An issued commit is awaited, never abandoned on the reconciliation
+	// deadline: the caller's completion lifetime bounds the wait by the
+	// cancellation grace (EXT-REQ-131, EXT-REQ-215).
+	commitCtx := context.WithoutCancel(ctx)
+	if err := tx.Commit(commitCtx); err != nil {
+		if CommitAbsenceProven(commitCtx, tx, err) {
+			return CommitAbsent, err
+		}
 		return CommitUnknown, err
 	}
 	return CommitProven, nil

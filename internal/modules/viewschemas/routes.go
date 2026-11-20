@@ -15,11 +15,14 @@ import (
 
 type Service struct {
 	authStore   *authn.Store
-	keys        authn.MasterKeys
 	cursorCodec *pagination.Codec
 	now         func() time.Time
 }
 
+// RegisterRoutes binds the view-schema discovery routes for central admission
+// (Core 01 REQ-01-707): the registry authenticates by each operation's
+// declared security and admits view_schema_id by its declared syntax before a
+// handler runs.
 func RegisterRoutes() httpapi.RouteRegistrar {
 	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
 		service, err := newService(deps)
@@ -27,7 +30,7 @@ func RegisterRoutes() httpapi.RouteRegistrar {
 			return err
 		}
 
-		return httpapi.BindOwnerRoutes(mux, deps, "platform.viewschema", map[string]http.HandlerFunc{
+		return httpapi.BindAdmittedOwnerRoutes(mux, deps, "platform.viewschema", map[string]http.HandlerFunc{
 			"getViewSchema":   service.handleViewSchemaMember,
 			"listViewSchemas": service.handleViewSchemasCollection,
 		})
@@ -53,14 +56,23 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 	}
 	return &Service{
 		authStore:   authn.NewStore(deps.PostgresHandle()),
-		keys:        keys,
 		cursorCodec: cursorCodec,
 		now:         now,
 	}, nil
 }
 
+// admittedPrincipal returns the principal central admission established
+// (REQ-01-707 step 2); its absence is a binding error.
+func admittedPrincipal(r *http.Request) (httpauth.Principal, *httpapi.APIError) {
+	principal, ok := httpauth.AdmittedPrincipal(r)
+	if !ok {
+		return httpauth.Principal{}, httpapi.InternalAPIError(errors.New("view schema route was not admitted centrally"))
+	}
+	return principal, nil
+}
+
 func (s *Service) handleViewSchemasCollection(w http.ResponseWriter, r *http.Request) {
-	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: false})
+	principal, apiErr := admittedPrincipal(r)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -95,7 +107,7 @@ func (s *Service) handleViewSchemasCollection(w http.ResponseWriter, r *http.Req
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
@@ -117,30 +129,38 @@ func (s *Service) handleViewSchemasCollection(w http.ResponseWriter, r *http.Req
 }
 
 func (s *Service) handleViewSchemaMember(w http.ResponseWriter, r *http.Request) {
-	if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: false})
+	principal, apiErr := admittedPrincipal(r)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-
-	resource, ok := viewschema.LookupPublicResource(r.PathValue("view_schema_id"))
+	viewSchemaID, ok := httpapi.PathString(r, "view_schema_id")
 	if !ok {
-		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusNotFound, Code: "view_schema_not_found", Details: map[string]any{}})
+		writeAPIError(w, r, httpapi.InternalAPIError(errors.New("view schema route did not admit view_schema_id")))
 		return
 	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	// REQ-01-707 step 5: the singleton-query check is route handling, after
+	// authentication and path-parameter admission.
+	if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	// Central admission checked only the identifier's syntax; whether a
+	// well-formed identifier names a public view schema is route handling.
+	resource, ok := viewschema.LookupPublicResource(viewSchemaID)
+	if !ok {
+		writeAPIError(w, r, httpapi.NotFound("view_schema_not_found"))
+		return
+	}
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, resource)
 }
 
-func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal, method string, path string) error {
-	return httpauth.SlideSessionIfNeeded(ctx, s.authStore, principal, method, path, s.now)
+func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal) error {
+	return httpauth.SlideSessionIfNeeded(ctx, s.authStore, principal, s.now)
 }
 
 func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *httpapi.APIError) {

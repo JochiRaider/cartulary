@@ -98,16 +98,16 @@ describe("semantic mutation command ports", () => {
         new Response(
           JSON.stringify({
             error: {
-              code: "authorization_denied",
+              code: "incident_not_found",
               conflict: undefined,
-              details: { reason_code: "incident_access_lost" },
-              message: "Access denied.",
+              details: {},
+              message: "Not found.",
               request_id: "request-denied",
               retryable: false,
-              status: 403,
+              status: 404,
             },
           }),
-          { status: 403, headers: { "content-type": "application/json" } },
+          { status: 404, headers: { "content-type": "application/json" } },
         ),
       )
       .mockResolvedValueOnce(
@@ -172,9 +172,9 @@ describe("semantic mutation command ports", () => {
     await expect(operations.execute(queryInput)).resolves.toMatchObject({
       kind: "rejected",
       failure: {
-        kind: "authorization_lost",
-        message: "Access denied.",
-        publicCode: "authorization_denied",
+        kind: "stale_target",
+        message: "Not found.",
+        publicCode: "incident_not_found",
         presentation: { family: "permission_or_incident_access_loss" },
       },
     });
@@ -182,7 +182,7 @@ describe("semantic mutation command ports", () => {
       kind: "rejected",
       failure: {
         kind: "invalid_contract",
-        message: "The server returned an invalid public error response.",
+        message: "The server returned an invalid public contract response.",
         presentation: { family: "initial_load_failure" },
       },
     });
@@ -204,7 +204,20 @@ describe("semantic mutation command ports", () => {
         presentation: { family: "evidence_preview_blocked" },
       },
     });
-    await expect(operations.execute(queryInput)).resolves.toMatchObject({
+    await expect(
+      operations.execute({
+        operationID: "patchRecord",
+        pathParameters: { record_id: "00000000-0000-4000-8000-000000000010" },
+        request: {
+          base_row_version: 1,
+          changes: [
+            { field_key: "timeline.activity_synopsis_text", value: "x" },
+          ],
+          client_txn_id: "txn-row-version-conflict",
+          view_schema_id: "cartulary.view.timeline.v2",
+        },
+      }),
+    ).resolves.toMatchObject({
       kind: "rejected",
       failure: {
         kind: "stale_target",

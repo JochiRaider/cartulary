@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
+	"github.com/JochiRaider/cartulary/internal/modules/evidence/testsupport/blobfixture"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
@@ -146,6 +147,16 @@ func TestEvidenceHandles_Integration(t *testing.T) {
 	if afterIssuedHandles != beforeInvalidHandles+2 {
 		t.Fatalf("expected exactly two successful handle rows, got %d want %d", afterIssuedHandles, beforeInvalidHandles+2)
 	}
+	// REQ-01-463 and REQ-01-703: redeem presents the issuing session as the
+	// session cookie without CSRF or as the issuing bearer session; the
+	// declared-security guard of the test server fails any other authentication.
+	if body := redeemHandle(t, harness.Server.HTTP.URL+previewData["href"].(string), login); string(body) != string(payload) {
+		t.Fatalf("cookie preview redeem body = %q", body)
+	}
+	bearerRedeem := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+downloadData["href"].(string), nil, httptestx.WithHeader("Authorization", "Bearer "+login.Session.Value))
+	if body := httptestx.ReadResponseBody(t, bearerRedeem, http.StatusOK); string(body) != string(payload) {
+		t.Fatalf("bearer download redeem body = %q", body)
+	}
 
 	if _, err := harness.DB.ExecContext(context.Background(), `
 DELETE FROM incident_memberships
@@ -268,14 +279,14 @@ func TestEvidenceHandleRedemptionReportsRegisteredUnavailableReasons(t *testing.
 			name:       "pending blob",
 			reasonCode: "blob_pending",
 			mutate: func(t *testing.T, recordID uuid.UUID, objectBlobID uuid.UUID) {
-				updateBlobState(t, harness, objectBlobID, "pending")
+				blobfixture.Move(t, harness.Pool, objectBlobID, "pending")
 			},
 		},
 		{
 			name:       "failed blob",
 			reasonCode: "blob_failed",
 			mutate: func(t *testing.T, recordID uuid.UUID, objectBlobID uuid.UUID) {
-				updateBlobState(t, harness, objectBlobID, "failed")
+				blobfixture.Move(t, harness.Pool, objectBlobID, "failed")
 			},
 		},
 		{
@@ -289,7 +300,7 @@ func TestEvidenceHandleRedemptionReportsRegisteredUnavailableReasons(t *testing.
 			name:       "quarantined blob",
 			reasonCode: "evidence_quarantined",
 			mutate: func(t *testing.T, recordID uuid.UUID, objectBlobID uuid.UUID) {
-				updateBlobState(t, harness, objectBlobID, "quarantined")
+				blobfixture.Move(t, harness.Pool, objectBlobID, "quarantined")
 			},
 		},
 		{

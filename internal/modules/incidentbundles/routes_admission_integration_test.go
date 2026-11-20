@@ -352,7 +352,9 @@ func TestExportJobAuthorizationReDerivesIncidentMembership_Integration(t *testin
 	memberViewerCancel := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID+"/cancel", map[string]any{
 		"client_txn_id": "txn-export-auth-member-viewer-cancel",
 	}, httptestx.WithCookies(memberAdminAuth.Session, memberAdminAuth.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, memberAdminAuth.CSRF.Value))
-	httptestx.RequireErrorEnvelope(t, memberViewerCancel, http.StatusForbidden, "authorization_denied")
+	// Core 01 §3.3.9.1 / REQ-01-704: a member who neither submitted the job
+	// nor administers its incident receives the missing job's response.
+	httptestx.RequireErrorEnvelope(t, memberViewerCancel, http.StatusNotFound, "job_not_found")
 
 	scenariotest.PatchMembership(t, harness.Server, admin, incidentID, memberAdminUser.ID.String(), map[string]any{
 		"base_membership_version": memberAdminMembership["membership_version"],
@@ -766,4 +768,159 @@ UPDATE jobs SET submitted_at = now() - interval '8 days',
 		t.Fatalf("Job expiry changed commit proof identity: got=%q want=%q", retainedCommitID, importCommitID)
 	}
 	exerciseMutatedImportedHistoryRoundTrip(t, runtime, targetHarness, targetAdmin, incidentID, seededState.HistoryHostRecordID)
+}
+
+// TestIncidentBundleRouteAdmissionOrder_Integration covers Core 01 REQ-01-707
+// and AC-617 for the Incident Portability routes: route resolution rejects
+// undeclared methods and HEAD with registered envelopes; authentication
+// precedes path parameters; a malformed or encoded-slash bundle_id receives
+// the missing bundle's response and never reaches another operation; and a
+// caller who cannot see the bundle's incident still receives that response
+// before the role gate and the singleton-query check (REQ-01-704).
+func TestIncidentBundleRouteAdmissionOrder_Integration(t *testing.T) {
+	harness := appsupport.StartRuntime(t).StartServer(t, appsupport.ServerOptions{Prefix: "incident-bundle-admission-order", TestRouteMode: httptestx.TestRouteModeDisabled})
+	base := harness.Server.HTTP.URL
+	admin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, base)
+	incident := scenariotest.CreateIncident(t, harness.Server, admin, map[string]any{
+		"client_txn_id": "txn-incident-bundle-admission-order",
+		"incident_key":  "BUNDLE-ADMISSION-ORDER",
+		"title":         "Incident bundle admission order",
+	})
+	incidentID := incident["incident_id"].(string)
+	outsiderPassword := "BundleAdmissionOutsider11!"
+	outsider := flowtest.SeedLocalUserRecord(t, harness.DB, "incident-bundle-admission-outsider@example.test", "Bundle Admission Outsider", outsiderPassword, false, true, true)
+	outsiderLogin := flowtest.LoginLocalUser(t, http.DefaultClient, base, outsider.Email, outsiderPassword, nil)
+	memberPassword := "BundleAdmissionMember11!"
+	member := flowtest.SeedLocalUserRecord(t, harness.DB, "incident-bundle-admission-member@example.test", "Bundle Admission Member", memberPassword, false, false, true)
+	memberLogin := flowtest.LoginLocalUser(t, http.DefaultClient, base, member.Email, memberPassword, nil)
+	scenariotest.CreateMembership(t, harness.Server, admin, incidentID, map[string]any{
+		"client_txn_id": "txn-incident-bundle-admission-member",
+		"user_id":       member.ID.String(),
+		"role":          "admin",
+	})
+	job := httptestx.RequireSuccessEnvelope(t, postExport(t, harness.Server, admin, map[string]any{
+		"incident_id":   incidentID,
+		"client_txn_id": "txn-incident-bundle-admission-export",
+	}), http.StatusAccepted)["data"].(map[string]any)
+	bundleID := waitJob(t, harness.Server, admin, job["job_id"].(string))["result_summary"].(map[string]any)["resource_refs"].([]any)[0].(map[string]any)["id"].(string)
+	bundleURL := base + "/api/v1/incident-bundles/" + bundleID
+	missingURL := base + "/api/v1/incident-bundles/" + uuid.NewString()
+	malformedURL := base + "/api/v1/incident-bundles/not-a-bundle-id"
+	// A redirect is never followed, so a 3xx would surface as itself.
+	client := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	get := func(url string, login authcookietest.AuthCookies) *http.Response {
+		t.Helper()
+		return httptestx.DoJSON(t, client, http.MethodGet, url, nil, httptestx.WithCookies(login.Session))
+	}
+	send := func(method string, url string, login authcookietest.AuthCookies, body any) *http.Response {
+		t.Helper()
+		return httptestx.DoJSON(t, client, method, url, body, httptestx.WithCookies(login.Session, login.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value))
+	}
+	requireMethodNotAllowed := func(response *http.Response, allow ...string) {
+		t.Helper()
+		if got, want := response.Header.Get("Allow"), strings.Join(allow, ", "); got != want {
+			t.Fatalf("Allow = %q, want %q", got, want)
+		}
+		methods := make([]any, 0, len(allow))
+		for _, method := range allow {
+			methods = append(methods, method)
+		}
+		body := httptestx.RequireErrorEnvelope(t, response, http.StatusMethodNotAllowed, "method_not_allowed")
+		if details := httptestx.RequireErrorDetails(t, body); !reflect.DeepEqual(details, map[string]any{"allowed_methods": methods}) {
+			t.Fatalf("details = %#v, want allowed_methods %v", details, allow)
+		}
+	}
+	httptestx.RequireSuccessEnvelope(t, get(bundleURL, admin), http.StatusOK)
+	httptestx.RequireSuccessEnvelope(t, get(base+"/api/v1/incident-bundles/"+strings.ToUpper(bundleID), admin), http.StatusOK)
+	before := incidentBundleRouteEffects(t, harness)
+
+	t.Run("authentication precedes path parameters", func(t *testing.T) {
+		for _, url := range []string{malformedURL, malformedURL + "/content", bundleURL + "%2Fcontent"} {
+			httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, client, http.MethodGet, url, nil), http.StatusUnauthorized, "session_required")
+		}
+		httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, client, http.MethodPost, base+"/api/v1/incident-bundles/export", map[string]any{
+			"incident_id": incidentID, "client_txn_id": "txn-incident-bundle-admission-anonymous",
+		}), http.StatusUnauthorized, "session_required")
+		withoutCSRF := httptestx.DoJSON(t, client, http.MethodPost, base+"/api/v1/incident-bundles/export", map[string]any{
+			"incident_id": incidentID, "client_txn_id": "txn-incident-bundle-admission-without-csrf",
+		}, httptestx.WithCookies(admin.Session))
+		httptestx.RequireErrorEnvelope(t, withoutCSRF, http.StatusForbidden, "csrf_verification_failed")
+	})
+	t.Run("a malformed bundle_id is a missing bundle", func(t *testing.T) {
+		// GET /incident-bundles/export resolves to the descriptor template, whose
+		// bundle_id is then malformed.
+		for _, malformed := range []string{
+			malformedURL,
+			base + "/api/v1/incident-bundles/" + strings.ReplaceAll(bundleID, "-", ""),
+			base + "/api/v1/incident-bundles/%7B" + bundleID + "%7D",
+			base + "/api/v1/incident-bundles/export",
+		} {
+			requireIncidentBundleResponsesAlike(t, get(malformed, admin), get(missingURL, admin))
+			requireIncidentBundleResponsesAlike(t, get(malformed+"/content", admin), get(missingURL+"/content", admin))
+		}
+	})
+	t.Run("an encoded slash stays inside bundle_id", func(t *testing.T) {
+		requireIncidentBundleResponsesAlike(t, get(bundleURL+"%2Fcontent", admin), get(missingURL, admin))
+		requireIncidentBundleResponsesAlike(t, get(bundleURL+"%2Fx/content", admin), get(missingURL+"/content", admin))
+		// POST on the descriptor template: the encoded slash never selects export.
+		requireMethodNotAllowed(send(http.MethodPost, base+"/api/v1/incident-bundles/"+bundleID+"%2Fexport", admin, map[string]any{
+			"incident_id": incidentID, "client_txn_id": "txn-incident-bundle-admission-encoded-export",
+		}), http.MethodGet)
+	})
+	t.Run("route resolution rejections are enveloped", func(t *testing.T) {
+		for _, url := range []string{bundleURL, bundleURL + "/content"} {
+			head := httptestx.DoJSON(t, client, http.MethodHead, url, nil, httptestx.WithCookies(admin.Session))
+			body, err := io.ReadAll(head.Body)
+			_ = head.Body.Close()
+			if err != nil || head.StatusCode != http.StatusMethodNotAllowed || head.Header.Get("Allow") != http.MethodGet || len(body) != 0 {
+				t.Fatalf("HEAD %s = %d Allow=%q body=%q err=%v, want 405 Allow GET without a body", url, head.StatusCode, head.Header.Get("Allow"), body, err)
+			}
+		}
+		requireMethodNotAllowed(send(http.MethodDelete, bundleURL, admin, nil), http.MethodGet)
+		requireMethodNotAllowed(send(http.MethodPut, bundleURL+"/content", admin, nil), http.MethodGet)
+		requireMethodNotAllowed(send(http.MethodPatch, base+"/api/v1/incident-bundles/export", admin, map[string]any{}), http.MethodGet, http.MethodPost)
+		httptestx.RequireErrorEnvelope(t, get(bundleURL+"/unknown", admin), http.StatusNotFound, "route_not_found")
+	})
+	t.Run("visibility precedes the role gate and route handling", func(t *testing.T) {
+		for _, suffix := range []string{"", "?limit=1"} {
+			requireIncidentBundleResponsesAlike(t, get(bundleURL+suffix, outsiderLogin), get(missingURL+suffix, outsiderLogin))
+			requireIncidentBundleResponsesAlike(t, get(bundleURL+"/content"+suffix, outsiderLogin), get(missingURL+"/content"+suffix, outsiderLogin))
+		}
+		httptestx.RequireErrorEnvelope(t, get(bundleURL+"?limit=1", memberLogin), http.StatusForbidden, "authorization_denied")
+		httptestx.RequireErrorEnvelope(t, get(bundleURL+"/content?limit=1", admin), http.StatusBadRequest, "invalid_pagination_request")
+	})
+	if after := incidentBundleRouteEffects(t, harness); after != before {
+		t.Fatalf("rejected requests committed an effect: before=%s after=%s", before, after)
+	}
+}
+
+// requireIncidentBundleResponsesAlike requires a response to match a missing
+// bundle's in everything but its request identity (REQ-01-704, REQ-01-707).
+func requireIncidentBundleResponsesAlike(t testing.TB, existing, missing *http.Response) {
+	t.Helper()
+	bodies := make([]map[string]any, 0, 2)
+	for _, response := range []*http.Response{existing, missing} {
+		body := httptestx.RequireErrorEnvelope(t, response, http.StatusNotFound, "incident_bundle_not_found")
+		delete(body["error"].(map[string]any), "request_id")
+		bodies = append(bodies, body)
+	}
+	if !reflect.DeepEqual(bodies[0], bodies[1]) {
+		t.Fatalf("response %v differs from the missing bundle's %v", bodies[0], bodies[1])
+	}
+}
+
+// incidentBundleRouteEffects renders the jobs, export descriptors, payloads,
+// idempotency receipts and Collaboration intents a bundle route could commit.
+func incidentBundleRouteEffects(t testing.TB, harness *appsupport.ServerHarness) string {
+	t.Helper()
+	var effects string
+	if err := harness.DB.QueryRowContext(context.Background(), `SELECT jsonb_build_object(
+ 'jobs',(SELECT count(*) FROM jobs WHERE job_kind LIKE 'incident_portability.%'),
+ 'exports',(SELECT count(*) FROM incident_bundle_exports),
+ 'payloads',(SELECT count(*) FROM incident_bundle_job_payloads),
+ 'receipts',(SELECT count(*) FROM route_idempotency WHERE route_key LIKE 'incident_bundles.%')
+ )::text`).Scan(&effects); err != nil {
+		t.Fatal(err)
+	}
+	return effects + fmt.Sprintf(" collaboration_intents=%d", collaborationsupport.CountIntents(t, harness.DB, collaborationsupport.IntentSelector{}))
 }

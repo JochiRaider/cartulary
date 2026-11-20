@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { classifyWorkbookOperationFailure } from "../../adapters/workbookOperationErrorPolicy";
+import { workbookPendingMutationFailureResult } from "../workbookPendingMutationSettlement";
 import {
   createWorkbookPendingQueueModel,
   deriveWorkbookSaveState,
@@ -9,7 +11,6 @@ import {
   type PendingReplayUnitInput,
   type PendingReplayUnitState,
   type PendingReplayVisibleEdit,
-  parsePendingReplayPublicError,
   pendingReplayCapacity,
   sameFieldConflictQueueKey,
   workbookSaveStateConflictAnchorIdentity,
@@ -89,7 +90,7 @@ it("retires verified unchanged work only at an authorized never-dispatched FIFO 
     ok: false,
     status: 503,
     error: {
-      code: "unavailable",
+      code: "retryable",
       message: "Uncertain",
       retryable: true,
       details: {},
@@ -258,7 +259,7 @@ function sameFieldConflictError(options: {
   readonly currentRowVersion?: number;
 }) {
   return {
-    code: "same_field_conflict",
+    code: "same_field_conflict" as const,
     message: "Public same-field conflict",
     conflict: {
       conflict_token: options.conflictToken,
@@ -352,12 +353,12 @@ describe("pending queue unit model", () => {
       {
         ok: false,
         status: 422,
-        error: { code: "validation_failed", message: "Rejected" },
+        error: { code: "validation", message: "Rejected" },
       },
       {
         ok: false,
         status: 401,
-        error: { code: "session_revoked", message: "Reauthenticate" },
+        error: { code: "authentication_required", message: "Reauthenticate" },
       },
     ] as const;
     for (const result of results) {
@@ -1077,7 +1078,7 @@ describe("pending queue unit model", () => {
       ok: false,
       status: 503,
       error: {
-        code: "temporary_unavailable",
+        code: "retryable",
         message: "Temporary public failure",
       },
     });
@@ -1099,35 +1100,6 @@ describe("pending queue unit model", () => {
     );
 
     const unknownRetryableQueue = createQueue();
-    const parsedUnknownRetryable = parsePendingReplayPublicError({
-      error: {
-        code: "future_public_error",
-        message: "Future public error",
-        retryable: true,
-      },
-    });
-    expect(parsedUnknownRetryable).toEqual({
-      code: "future_public_error",
-      message: "Future public error",
-      retryable: true,
-    });
-    const parsedUnsafeUnknownRetryable = parsePendingReplayPublicError({
-      error: {
-        code: "future_public_error",
-        message: "stack trace at handler (/home/cartulary/internal.go:42)",
-        retryable: true,
-        status: 409,
-        details: {
-          private_path: "/home/cartulary/internal.go",
-          reason_code: "future_public_error",
-        },
-      },
-    });
-    expect(parsedUnsafeUnknownRetryable).toMatchObject({
-      code: "future_public_error",
-      message: "Conflict.",
-      retryable: true,
-    });
     expectAccepted(
       unknownRetryableQueue.admit(
         patchUnit({
@@ -1153,7 +1125,7 @@ describe("pending queue unit model", () => {
       ok: false,
       status: 409,
       error: {
-        code: "future_public_error",
+        code: "retryable",
         message: "Future public error",
         retryable: true,
       },
@@ -1181,7 +1153,7 @@ describe("pending queue unit model", () => {
       ok: false,
       status: 401,
       error: {
-        code: "session_revoked",
+        code: "authentication_required",
         message: "Session revoked",
       },
     });
@@ -1279,7 +1251,7 @@ describe("pending queue unit model", () => {
       ok: false,
       status: 503,
       error: {
-        code: "internal_error",
+        code: "retryable",
         message: "Transport unavailable",
         retryable: true,
       },
@@ -1324,7 +1296,8 @@ describe("pending queue unit model", () => {
       ok: false,
       status: 400,
       error: {
-        code: "invalid_mutation_payload",
+        code: "validation",
+        publicCode: "invalid_mutation_payload",
         message: "Summary is required",
         details: {
           record_id: "record-invalid",
@@ -1338,7 +1311,7 @@ describe("pending queue unit model", () => {
     }
     expect(validationResult.halt).toMatchObject({
       unit_id: "unit-txn-invalid",
-      error_code: "invalid_mutation_payload",
+      error_code: "validation",
       message:
         "A queued edit could not be completed safely. Discard the blocked edit to continue with later queued edits.",
       anchor: {
@@ -1368,7 +1341,11 @@ describe("pending queue unit model", () => {
     validationQueue.settleDispatched({
       ok: false,
       status: 400,
-      error: { code: "invalid_mutation_payload", message: "Second rejection" },
+      error: {
+        code: "validation",
+        publicCode: "invalid_mutation_payload",
+        message: "Second rejection",
+      },
     });
     expect(validationQueue.snapshot().primarySaveStateInput).toBe("Conflict");
     expect(validationQueue.statusFacts()).not.toBe(blocked);
@@ -1404,7 +1381,7 @@ describe("pending queue unit model", () => {
       ok: false,
       status: 409,
       error: {
-        code: "future_terminal_public_error",
+        code: "terminal",
         message: "Future terminal public error",
       },
     });
@@ -1416,9 +1393,7 @@ describe("pending queue unit model", () => {
       unknownTerminalResult.snapshot.units.map((unit) => unit.clientTxnId),
     ).toEqual(["txn-unknown-terminal", "txn-behind-unknown-terminal"]);
     expect(unknownTerminalQueue.dispatchNext()).toBeNull();
-    expect(unknownTerminalResult.halt.error_code).toBe(
-      "future_terminal_public_error",
-    );
+    expect(unknownTerminalResult.halt.error_code).toBe("terminal");
     expect(unknownTerminalResult.halt.message).toBe(
       "A queued edit could not be completed safely. Discard the blocked edit to continue with later queued edits.",
     );
@@ -1439,7 +1414,7 @@ describe("pending queue unit model", () => {
         ok: false,
         status: 418,
         error: {
-          code: "future_terminal_public_error",
+          code: "terminal",
           message:
             "stack trace at handler (/home/cartulary/internal/private.go:42)",
           details: {
@@ -1452,26 +1427,13 @@ describe("pending queue unit model", () => {
     if (unsafeUnknownTerminalResult.outcome !== "halted") {
       throw new Error("expected unsafe unknown terminal public error halt");
     }
-    expect(unsafeUnknownTerminalResult.halt.error_code).toBe(
-      "future_terminal_public_error",
-    );
+    expect(unsafeUnknownTerminalResult.halt.error_code).toBe("terminal");
     expect(unsafeUnknownTerminalResult.halt.message).toBe(
       "A queued edit could not be completed safely. Discard the blocked edit to continue with later queued edits.",
     );
     expect(JSON.stringify(unsafeUnknownTerminalResult.halt)).not.toContain(
       "/home/cartulary",
     );
-
-    const missingCodeMessage = parsePendingReplayPublicError({
-      error: {
-        status: 500,
-        details: {
-          private_path: "/home/cartulary/internal/private.go",
-        },
-      },
-    });
-    expect(missingCodeMessage.code).toBe("unknown_public_error");
-    expect(missingCodeMessage.message).toBeUndefined();
 
     const clientTxnConflictQueue = createQueue();
     expectAccepted(
@@ -1509,13 +1471,23 @@ describe("pending queue unit model", () => {
       ),
     );
     rowVersionConflictQueue.dispatchNext();
+    // Settle exactly as the mutation drivers do: the decoded patchRecord
+    // error is classified, then reported with its kind and public code.
     const rowVersionConflict = rowVersionConflictQueue.settleDispatched({
       ok: false,
-      status: 409,
-      error: {
-        code: "row_version_conflict",
-        details: { record_id: "record-row-version" },
-      },
+      ...workbookPendingMutationFailureResult(
+        classifyWorkbookOperationFailure(
+          {
+            code: "row_version_conflict",
+            status: 409,
+            details: {},
+            message: "Row changed",
+            request_id: "request-row-version",
+            retryable: false,
+          },
+          "patchRecord",
+        ),
+      ),
     });
     expect(rowVersionConflict.outcome).toBe("halted");
     if (rowVersionConflict.outcome !== "halted") {
@@ -1698,7 +1670,7 @@ describe("pending queue unit model", () => {
     queue.settleDispatched({
       ok: false,
       status: 400,
-      error: { code: "invalid_mutation_payload" },
+      error: { code: "validation", publicCode: "invalid_mutation_payload" },
     });
     expect(
       queue.retryHaltedWithNewClientTxnId(blocker.id, "txn-replacement"),
@@ -1765,7 +1737,7 @@ describe("pending queue unit model", () => {
     queue.settleDispatched({
       ok: false,
       status: 400,
-      error: { code: "invalid_mutation_payload" },
+      error: { code: "validation", publicCode: "invalid_mutation_payload" },
     });
 
     expect(queue.discardHaltedUnit("stale-unit")).toMatchObject({
@@ -1870,7 +1842,7 @@ describe("save-state unit model", () => {
     } as const;
     const halted = {
       unit_id: "unit-halted",
-      error_code: "invalid_mutation_payload",
+      error_code: "validation",
       message: "Summary is required",
       anchor: {
         kind: "cell",
@@ -1993,7 +1965,7 @@ describe("save-state unit model", () => {
       inFlightCount: 0,
       halted: {
         unit_id: "unit-validation",
-        error_code: "invalid_mutation_payload",
+        error_code: "validation",
         message: "Summary is required",
         anchor: {
           kind: "cell",
@@ -2011,7 +1983,7 @@ describe("save-state unit model", () => {
       inFlightCount: 0,
       halted: {
         unit_id: "unit-failure",
-        error_code: "future_terminal_public_error",
+        error_code: "terminal",
         message: "Future terminal public error",
         anchor: {
           kind: "mutation",
@@ -2411,7 +2383,7 @@ it("normalizes only authorized never-dispatched head creates without changing re
   queue.settleDispatched({
     ok: false,
     status: 503,
-    error: { code: "unavailable", message: "Uncertain", retryable: true },
+    error: { code: "retryable", message: "Uncertain", retryable: true },
   });
   expect(queue.prepareUnsentCreate(first.id, {})).toBe(false);
   expect(queue.markDispatched(first.id)?.identity).toEqual(captured?.identity);

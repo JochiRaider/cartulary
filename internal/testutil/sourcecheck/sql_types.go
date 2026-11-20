@@ -19,15 +19,21 @@ type sqlTypeDefinition struct {
 	definitions []sqlTypeRef
 	methods     map[string][]sqlTypeRef
 }
-type sqlTypes map[string]*sqlTypeDefinition
+
+// sqlTypes indexes declarations by scope-qualified key. Its binder is the
+// batch binder that every analyzer over this index also uses.
+type sqlTypes struct {
+	declared map[string]*sqlTypeDefinition
+	binder   binder
+}
 
 func (types sqlTypes) collect(decl ast.Decl, scope string, imports map[string]string) {
 	add := func(name string) *sqlTypeDefinition {
 		key := scope + "." + name
-		if types[key] == nil {
-			types[key] = &sqlTypeDefinition{}
+		if types.declared[key] == nil {
+			types.declared[key] = &sqlTypeDefinition{}
 		}
-		return types[key]
+		return types.declared[key]
 	}
 	if gen, ok := decl.(*ast.GenDecl); ok && gen.Tok == token.TYPE {
 		for _, spec := range gen.Specs {
@@ -53,12 +59,12 @@ func (a *sqlAnalyzer) typeRef(expr ast.Expr) sqlTypeRef {
 	return sqlTypeRef{expr: expr, scope: a.scope, imports: a.imports}
 }
 func (ref sqlTypeRef) with(expr ast.Expr) sqlTypeRef { ref.expr = expr; return ref }
-func (ref sqlTypeRef) key() string {
+func (types sqlTypes) key(ref sqlTypeRef) string {
 	switch e := ref.expr.(type) {
 	case *ast.Ident:
 		return ref.scope + "." + e.Name
 	case *ast.SelectorExpr:
-		if id, ok := e.X.(*ast.Ident); ok && id.Obj == nil {
+		if id, ok := e.X.(*ast.Ident); ok && !types.binder.bind(id).bound() {
 			return ref.imports[id.Name] + "." + e.Sel.Name
 		}
 	}
@@ -99,15 +105,15 @@ func (types sqlTypes) field(ref sqlTypeRef, name string, seen map[string]bool) s
 			}
 		}
 	}
-	if ref.key() == "net/http.Request" && name == "URL" {
+	if types.key(ref) == "net/http.Request" && name == "URL" {
 		return qualifiedSQLType("net/url", "URL")
 	}
-	key := ref.key()
+	key := types.key(ref)
 	if key == "" || seen[key] {
 		return sqlTypeRef{}
 	}
 	seen[key] = true
-	if definition := types[key]; definition != nil {
+	if definition := types.declared[key]; definition != nil {
 		// Conflicting build variants cannot silently select a field type.
 		if len(definition.definitions) == 1 {
 			return types.field(definition.definitions[0], name, seen)
@@ -130,17 +136,18 @@ func (types sqlTypes) field(ref sqlTypeRef, name string, seen map[string]bool) s
 func (a *sqlAnalyzer) expressionType(expr ast.Expr) sqlTypeRef {
 	switch e := expr.(type) {
 	case *ast.Ident:
-		if e.Obj != nil && e.Obj.Kind == ast.Typ {
+		if a.typeName(e) {
 			return a.typeRef(e)
 		}
-		if ref := a.variableTypes[sqlBinding(e)]; ref.expr != nil {
-			if facts := a.bindings[sqlBinding(e)]; facts != nil && facts.nestedWriter {
+		resolved := a.binder.bind(e)
+		if ref := a.variableTypes[sqlBinding(a.binder, e)]; ref.expr != nil {
+			if facts := a.bindings[sqlBinding(a.binder, e)]; facts != nil && facts.nestedWriter {
 				ref.qualified = false
 			}
 			return ref
 		}
-		if e.Obj == nil || e.Obj.Kind == ast.Fun {
-			if def := a.types[a.scope+".$function."+e.Name]; def != nil && len(def.definitions) == 1 {
+		if !resolved.bound() {
+			if def := a.types.declared[a.scope+".$function."+e.Name]; def != nil && len(def.definitions) == 1 {
 				return def.definitions[0]
 			}
 		}
@@ -157,8 +164,8 @@ func (a *sqlAnalyzer) expressionType(expr ast.Expr) sqlTypeRef {
 		}
 		return sqlTypeRef{}
 	case *ast.SelectorExpr:
-		if id, ok := e.X.(*ast.Ident); ok && id.Obj == nil && a.imports[id.Name] != "" {
-			if def := a.types[a.imports[id.Name]+".$function."+e.Sel.Name]; def != nil && len(def.definitions) == 1 {
+		if id, ok := e.X.(*ast.Ident); ok && !a.binder.bind(id).bound() && a.imports[id.Name] != "" {
+			if def := a.types.declared[a.imports[id.Name]+".$function."+e.Sel.Name]; def != nil && len(def.definitions) == 1 {
 				return def.definitions[0]
 			}
 			if _, native := nativeSQL[a.imports[id.Name]+"."+e.Sel.Name]; native {
@@ -197,22 +204,23 @@ func (a *sqlAnalyzer) expressionType(expr ast.Expr) sqlTypeRef {
 			}
 		}
 		if id, ok := fun.(*ast.Ident); ok {
-			if id.Name == "make" && id.Obj == nil && len(e.Args) > 0 {
+			callee := a.binder.bind(id)
+			if id.Name == "make" && !callee.bound() && len(e.Args) > 0 {
 				return a.typeRef(e.Args[0])
 			}
-			if id.Name == "new" && id.Obj == nil && len(e.Args) == 1 {
+			if id.Name == "new" && !callee.bound() && len(e.Args) == 1 {
 				ref := a.typeRef(e.Args[0])
 				ref.qualified = a.types.isBatch(ref)
 				return ref
 			}
-			if definition := a.types[a.scope+".$function."+id.Name]; definition != nil && len(definition.definitions) == 1 && (id.Obj == nil || id.Obj.Kind == ast.Fun) {
+			if definition := a.types.declared[a.scope+".$function."+id.Name]; definition != nil && len(definition.definitions) == 1 && !callee.bound() {
 				return sqlResultType(definition.definitions[0])
 			}
 		}
 		if sel, ok := fun.(*ast.SelectorExpr); ok {
-			if id, ok := sel.X.(*ast.Ident); ok && id.Obj == nil && a.imports[id.Name] != "" {
+			if id, ok := sel.X.(*ast.Ident); ok && !a.binder.bind(id).bound() && a.imports[id.Name] != "" {
 				scope := a.imports[id.Name]
-				if definition := a.types[scope+".$function."+sel.Sel.Name]; definition != nil && len(definition.definitions) == 1 {
+				if definition := a.types.declared[scope+".$function."+sel.Sel.Name]; definition != nil && len(definition.definitions) == 1 {
 					return sqlResultType(definition.definitions[0])
 				}
 				switch scope + "." + sel.Sel.Name {
@@ -295,12 +303,12 @@ func (types sqlTypes) methodResultAt(ref sqlTypeRef, name string, index int, see
 			}
 		}
 	}
-	key := ref.key()
+	key := types.key(ref)
 	if key == "" || seen[key] {
 		return sqlTypeRef{}
 	}
 	seen[key] = true
-	if definition := types[key]; definition != nil {
+	if definition := types.declared[key]; definition != nil {
 		if methods, ok := definition.methods[name]; ok {
 			var result sqlTypeRef
 			for i, method := range methods {
@@ -340,12 +348,19 @@ func (a *sqlAnalyzer) typeExpression(expr ast.Expr) bool {
 	case *ast.StarExpr:
 		return a.typeExpression(e.X)
 	case *ast.Ident:
-		return e.Obj != nil && e.Obj.Kind == ast.Typ
+		return a.typeName(e)
 	case *ast.SelectorExpr:
 		id, ok := e.X.(*ast.Ident)
-		return ok && id.Obj == nil && a.imports[id.Name] != ""
+		return ok && !a.binder.bind(id).bound() && a.imports[id.Name] != ""
 	}
 	return false
+}
+
+// typeName reports an identifier denoting a local or package-level type. The
+// binder leaves package-level names unbound; the package type map decides them.
+func (a *sqlAnalyzer) typeName(id *ast.Ident) bool {
+	resolved := a.binder.bind(id)
+	return resolved.is(typeBinding) || !resolved.bound() && a.types.declared[a.scope+"."+id.Name] != nil
 }
 
 func (a *sqlAnalyzer) expressionResult(expr ast.Expr, index int) sqlTypeRef {
@@ -380,19 +395,19 @@ func (types sqlTypes) element(ref sqlTypeRef, seen map[string]bool) sqlTypeRef {
 	case *ast.ChanType:
 		return ref.with(e.Value)
 	}
-	key := ref.key()
+	key := types.key(ref)
 	if key == "" || seen[key] {
 		return sqlTypeRef{}
 	}
 	seen[key] = true
-	if definition := types[key]; definition != nil && len(definition.definitions) == 1 {
+	if definition := types.declared[key]; definition != nil && len(definition.definitions) == 1 {
 		return types.element(definition.definitions[0], seen)
 	}
 	return sqlTypeRef{}
 }
 func (a *sqlAnalyzer) knownFunction(selector *ast.SelectorExpr) bool {
 	id, ok := selector.X.(*ast.Ident)
-	if !ok || id.Obj != nil {
+	if !ok || a.binder.bind(id).bound() {
 		return false
 	}
 	imported := a.imports[id.Name]
@@ -402,14 +417,14 @@ func (a *sqlAnalyzer) knownFunction(selector *ast.SelectorExpr) bool {
 	if imported == "golang.org/x/sys/unix" && selector.Sel.Name == "Exec" {
 		return true
 	}
-	return a.types[imported+".$function."+selector.Sel.Name] != nil
+	return a.types.declared[imported+".$function."+selector.Sel.Name] != nil
 }
 
 // A parsed type reference is not an escaped execution method, even when the
 // imported type happens to be named Query or Exec.
 func (a *sqlAnalyzer) knownType(selector *ast.SelectorExpr) bool {
 	id, ok := selector.X.(*ast.Ident)
-	return ok && id.Obj == nil && a.imports[id.Name] != "" && a.types[a.imports[id.Name]+"."+selector.Sel.Name] != nil
+	return ok && !a.binder.bind(id).bound() && a.imports[id.Name] != "" && a.types.declared[a.imports[id.Name]+"."+selector.Sel.Name] != nil
 }
 
 // A package selector may be a function, not a conversion. Only a declared type
@@ -421,7 +436,7 @@ func (a *sqlAnalyzer) declaredTypeExpression(expr ast.Expr) bool {
 	case *ast.IndexListExpr:
 		return a.declaredTypeExpression(e.X)
 	case *ast.Ident:
-		return e.Obj != nil && e.Obj.Kind == ast.Typ || a.types[a.scope+"."+e.Name] != nil
+		return a.binder.bind(e).is(typeBinding) || a.types.declared[a.scope+"."+e.Name] != nil
 	case *ast.SelectorExpr:
 		return a.knownType(e)
 	}

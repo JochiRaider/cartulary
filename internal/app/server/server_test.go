@@ -9,6 +9,8 @@ import (
 	extensiondeadline "github.com/JochiRaider/cartulary/internal/modules/extensions/deadline"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -422,6 +424,62 @@ func TestServerRunnerMapsFatalRuntimeSetupFailureToExitSeventy(t *testing.T) {
 	if got := stderr.String(); got != "{\"code\":\"extension_integrity_failure\",\"reason_code\":\"staged_object_publication_mismatch\"}\n" {
 		t.Fatalf("fatal startup diagnostic = %q", got)
 	}
+}
+
+type recordingServerProfile struct {
+	productionServerProfile
+	reasons *[]string
+}
+
+func (p recordingServerProfile) recordFatal(_ func(string) (string, bool), reasonCode string) {
+	*p.reasons = append(*p.reasons, reasonCode)
+}
+
+// TestServerRunnerRecordsFatalEvidenceOnlyInTheHarnessProfile covers
+// TH-HARNESS-REQ-863 and AC-158: the runner hands its one lifecycle fatal to a
+// profile that records fatal evidence, and the production profile records
+// none, even with a run identity in its environment.
+func TestServerRunnerRecordsFatalEvidenceOnlyInTheHarnessProfile(t *testing.T) {
+	fatalSetup := func(context.Context, configassembly.Loaded, Options) (serverRuntime, error) {
+		return serverRuntime{}, processlease.ErrApplicationProcessLeaseLost
+	}
+	t.Run("a recording profile receives the fatal once", func(t *testing.T) {
+		reasons := []string{}
+		runner := newServerRunner(io.Discard, io.Discard)
+		runner.profile = recordingServerProfile{reasons: &reasons}
+		runner.loadConfig = serverTestConfiguration(t)
+		runner.buildRuntime = fatalSetup
+		if exitCode := runner.run(context.Background()); exitCode != 70 || len(reasons) != 1 || reasons[0] != "application_process_lease_lost" {
+			t.Fatalf("exit=%d recorded=%v", exitCode, reasons)
+		}
+	})
+	t.Run("the production profile writes no evidence", func(t *testing.T) {
+		if _, records := newServerProfile().(fatalRecorder); records {
+			t.Fatal("production profile records fatal evidence")
+		}
+		results := t.TempDir()
+		if err := os.Mkdir(filepath.Join(results, "run"), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		runner := newServerRunner(io.Discard, io.Discard)
+		runner.lookupEnv = func(key string) (string, bool) {
+			switch key {
+			case "CARTULARY_TEST_RESULTS_DIR":
+				return results, true
+			case "CARTULARY_TEST_RUN_ID":
+				return "run", true
+			}
+			return "", false
+		}
+		runner.loadConfig = serverTestConfiguration(t)
+		runner.buildRuntime = fatalSetup
+		if exitCode := runner.run(context.Background()); exitCode != 70 {
+			t.Fatalf("exit code got %d want 70", exitCode)
+		}
+		if entries, err := os.ReadDir(filepath.Join(results, "run")); err != nil || len(entries) != 0 {
+			t.Fatalf("production build wrote evidence: %v %v", entries, err)
+		}
+	})
 }
 
 func TestServerRunnerMapsTypedApplicationLeaseLossesToExitSeventy(t *testing.T) {

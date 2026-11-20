@@ -60,6 +60,7 @@ const profileByVersion = new Map([
   [34, "network_flow_activity"],
   [38, "network_flow_activity"],
   [40, "network_flow_activity"],
+  [60, "network_flow_activity"],
   [23, "snapshot_reporting"],
   [37, "snapshot_reporting"],
   [24, "snapshot_reporting"],
@@ -403,10 +404,10 @@ function toManifestEntry(object) {
     "entities_source_codepoints_admitted_v1",
     "entities_trim_unicode_space_v1",
     "indicator_support_refs_are_valid",
-    "network_flow_direction_evidence_is_valid_v1",
+    "network_flow_direction_evidence_is_valid_v2",
     "network_flow_endpoints_are_valid_v1",
     "network_flow_ip_literal_is_canonical_v1",
-    "network_flow_orientation_state_is_valid_v1",
+    "network_flow_orientation_state_is_valid_v2",
     "network_flow_reject_immutable_update",
     "reject_administrative_audit_mutation",
     "revisions_incident_bundle_sequence_begin_v1",
@@ -433,6 +434,7 @@ function toManifestEntry(object) {
     "parties_rebuild_active_key_claims_v1",
     "parties_trim_unicode_space_v1",
     "rebuild_indicator_active_identities",
+    "revisions_history_order_is_valid_v1",
   ]);
   const runtimeClass = {
     table: ["schema_migration_lineage", "application_crypto_format"].includes(bareName)

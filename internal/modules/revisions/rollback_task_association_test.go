@@ -24,6 +24,7 @@ func exerciseTaskInverseAssociation(t *testing.T) {
 		t.Run(scenario, func(t *testing.T) {
 			ctx := context.Background()
 			h := appsupport.StartStore(t, "task-inverse-association")
+			allocateHistoryOrderAtStatementEnd(t, h.DB)
 			actor := authstoretest.SeedActor(t, h.DB, authstoretest.ActorAttributes{Email: "task-association@example.test", DisplayName: "Task association"})
 			incident := appsupport.CreateIncidentInStore(t, h.DB, actor, "task-association-incident", "IR-TASK-ASSOCIATION", "Task association")
 			owner := appsupport.NewTaskDecisionOwner(h.DB, conflicttest.NewCodec("task-association"))

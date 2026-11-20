@@ -21,22 +21,19 @@ import (
 type MutationFailureKind string
 
 const (
-	MutationFailureInvalidPayload            MutationFailureKind = "invalid_payload"
-	MutationFailureClientTxnConflict         MutationFailureKind = "client_txn_conflict"
-	MutationFailureIncidentClosed            MutationFailureKind = "incident_closed"
-	MutationFailureTargetNotFound            MutationFailureKind = "target_not_found"
-	MutationFailureAuthorizationDenied       MutationFailureKind = "authorization_denied"
-	MutationFailureRecordDeleted             MutationFailureKind = "record_deleted"
-	MutationFailureRowVersionConflict        MutationFailureKind = "row_version_conflict"
-	MutationFailureSameFieldConflict         MutationFailureKind = "same_field_conflict"
-	MutationFailureNoEffectiveChange         MutationFailureKind = "no_effective_change"
-	MutationFailureIllegalTransition         MutationFailureKind = "illegal_transition"
-	MutationFailureEntityMatchConflict       MutationFailureKind = "entity_match_conflict"
-	MutationFailurePartyMatchConflict        MutationFailureKind = "party_match_conflict"
-	MutationFailureEvidenceAttach            MutationFailureKind = "evidence_attach_rejected"
-	MutationFailureObjectStoreInvalid        MutationFailureKind = "object_store_invalid"
-	MutationFailureObjectStoreAccessRejected MutationFailureKind = "object_store_access_rejected"
-	MutationFailureObjectStoreUnavailable    MutationFailureKind = "object_store_unavailable"
+	MutationFailureInvalidPayload      MutationFailureKind = "invalid_payload"
+	MutationFailureClientTxnConflict   MutationFailureKind = "client_txn_conflict"
+	MutationFailureIncidentClosed      MutationFailureKind = "incident_closed"
+	MutationFailureTargetNotFound      MutationFailureKind = "target_not_found"
+	MutationFailureAuthorizationDenied MutationFailureKind = "authorization_denied"
+	MutationFailureRecordDeleted       MutationFailureKind = "record_deleted"
+	MutationFailureRowVersionConflict  MutationFailureKind = "row_version_conflict"
+	MutationFailureSameFieldConflict   MutationFailureKind = "same_field_conflict"
+	MutationFailureNoEffectiveChange   MutationFailureKind = "no_effective_change"
+	MutationFailureIllegalTransition   MutationFailureKind = "illegal_transition"
+	MutationFailureEntityMatchConflict MutationFailureKind = "entity_match_conflict"
+	MutationFailurePartyMatchConflict  MutationFailureKind = "party_match_conflict"
+	MutationFailureEvidenceAttach      MutationFailureKind = "evidence_attach_rejected"
 )
 
 type mutationFailureDetail interface{ mutationFailureDetail() }
@@ -401,18 +398,6 @@ func EvidenceAttachFailure(reasonCode string) *MutationFailure {
 	return &MutationFailure{kind: MutationFailureEvidenceAttach, detail: reasonFailureDetail{reasonCode: reasonCode}}
 }
 
-func ObjectStoreInvalidFailure(reasonCode string) *MutationFailure {
-	return &MutationFailure{kind: MutationFailureObjectStoreInvalid, detail: reasonFailureDetail{reasonCode: reasonCode}}
-}
-
-func ObjectStoreAccessRejectedFailure(reasonCode string) *MutationFailure {
-	return &MutationFailure{kind: MutationFailureObjectStoreAccessRejected, detail: reasonFailureDetail{reasonCode: reasonCode}}
-}
-
-func ObjectStoreUnavailableFailure(reasonCode string) *MutationFailure {
-	return &MutationFailure{kind: MutationFailureObjectStoreUnavailable, detail: reasonFailureDetail{reasonCode: reasonCode}}
-}
-
 func mutationFailureAPIError(failure *MutationFailure) *httpapi.APIError {
 	if failure == nil {
 		return internalAPIError(nil)
@@ -443,7 +428,7 @@ func mutationFailureAPIError(failure *MutationFailure) *httpapi.APIError {
 	case MutationFailureIncidentClosed:
 		return incidentClosedError()
 	case MutationFailureTargetNotFound:
-		return incidentNotFoundError()
+		return httpapi.NotFound("incident_not_found")
 	case MutationFailureAuthorizationDenied:
 		return &httpapi.APIError{Status: http.StatusForbidden, Code: "authorization_denied", Message: "authorization denied", Details: map[string]any{"required_role": "editor|reviewer|admin"}}
 	case MutationFailureRecordDeleted:
@@ -554,33 +539,6 @@ func mutationFailureAPIError(failure *MutationFailure) *httpapi.APIError {
 		}
 		return &httpapi.APIError{
 			Status: http.StatusConflict, Code: "evidence_attach_rejected", Message: "evidence attach rejected",
-			Details: map[string]any{"reason_code": detail.reasonCode},
-		}
-	case MutationFailureObjectStoreInvalid:
-		detail, ok := failure.detail.(reasonFailureDetail)
-		if !ok {
-			return internalAPIError(nil)
-		}
-		return &httpapi.APIError{
-			Status: http.StatusInternalServerError, Code: "object_store_invalid_request",
-			Details: map[string]any{"reason_code": detail.reasonCode},
-		}
-	case MutationFailureObjectStoreAccessRejected:
-		detail, ok := failure.detail.(reasonFailureDetail)
-		if !ok {
-			return internalAPIError(nil)
-		}
-		return &httpapi.APIError{
-			Status: http.StatusServiceUnavailable, Code: "object_store_access_rejected", Retryable: false,
-			Details: map[string]any{"reason_code": detail.reasonCode},
-		}
-	case MutationFailureObjectStoreUnavailable:
-		detail, ok := failure.detail.(reasonFailureDetail)
-		if !ok {
-			return internalAPIError(nil)
-		}
-		return &httpapi.APIError{
-			Status: http.StatusServiceUnavailable, Code: "object_store_unavailable", Retryable: true,
 			Details: map[string]any{"reason_code": detail.reasonCode},
 		}
 	default:

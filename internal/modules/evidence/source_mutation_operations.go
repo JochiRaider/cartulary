@@ -4,13 +4,14 @@ package evidence
 
 import (
 	"context"
-	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	evidenceblob "github.com/JochiRaider/cartulary/internal/modules/evidence/internal/blob"
 	evidencepolicy "github.com/JochiRaider/cartulary/internal/modules/evidence/internal/policy"
 )
 
@@ -111,17 +112,32 @@ INSERT INTO evidence (
 	return nil
 }
 
+// validateLifecyclePatchTx decides the patch's lifecycle transition and the
+// REQ-02-190 bridge. The caller already holds the Evidence envelope and the
+// shared incident lock; the linked Blob is locked last, shared and waiting,
+// through commit (REQ-02-190a), and its tuple is verified under that lock. A
+// violation is a storage invariant failure (internal_error).
 func (s *sourceMutationService) validateLifecyclePatchTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, changes []lifecyclePatchChange) error {
 	var from string
-	var objectBlobID sql.NullString
-	var uploadState sql.NullString
+	var objectBlobID *uuid.UUID
 	if err := tx.QueryRow(ctx, `
-SELECT e.lifecycle_state, e.object_blob_id::text, b.upload_state
+SELECT e.lifecycle_state, e.object_blob_id
   FROM evidence e
-  LEFT JOIN object_blobs b ON b.object_blob_id = e.object_blob_id
  WHERE e.record_id = $1
-`, recordID).Scan(&from, &objectBlobID, &uploadState); err != nil {
+`, recordID).Scan(&from, &objectBlobID); err != nil {
 		return err
+	}
+	linkedBlobState := ""
+	if objectBlobID != nil {
+		locked, err := evidenceblob.LockTx(ctx, tx, *objectBlobID, evidenceblob.ShareWait)
+		switch {
+		case errors.Is(err, evidenceblob.ErrNotFound):
+			// A missing linked Blob violates the accessible-state bridge.
+		case err != nil:
+			return err
+		default:
+			linkedBlobState = locked.UploadState
+		}
 	}
 	to := from
 	for _, change := range changes {
@@ -132,16 +148,13 @@ SELECT e.lifecycle_state, e.object_blob_id::text, b.upload_state
 	if !evidencepolicy.LegalEvidenceTransition(from, to) {
 		return &LifecycleValidationError{FromStatus: from, ToStatus: to, ReasonCode: reasonTransitionNotAllowed, ViolatedGuards: []string{}}
 	}
-	// REQ-02-196a: the bridge uses the linked Blob's live state, never the
-	// retained scalar. A persisted state that already violated it is
-	// inconsistent; a result that satisfies it is the corrective action.
-	linkedBlobState := ""
-	if uploadState.Valid {
-		linkedBlobState = uploadState.String
-	}
-	if evidencepolicy.ViolatesEvidenceBlobBridge(to, objectBlobID.Valid, linkedBlobState) {
+	// REQ-02-196a: the bridge uses the linked Blob's live state, held under
+	// the lock above, never the retained scalar. A persisted state that already
+	// violated it is inconsistent; a result that satisfies it is the corrective
+	// action.
+	if evidencepolicy.ViolatesEvidenceBlobBridge(to, objectBlobID != nil, linkedBlobState) {
 		reason := reasonGuardsNotSatisfied
-		if evidencepolicy.ViolatesEvidenceBlobBridge(from, objectBlobID.Valid, linkedBlobState) {
+		if evidencepolicy.ViolatesEvidenceBlobBridge(from, objectBlobID != nil, linkedBlobState) {
 			reason = reasonInconsistentMachine
 		}
 		return &LifecycleValidationError{FromStatus: from, ToStatus: to, ReasonCode: reason, ViolatedGuards: []string{bridgeGuard(to)}}

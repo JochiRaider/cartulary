@@ -2,6 +2,7 @@ package records
 
 import (
 	"context"
+	"errors"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -26,11 +27,10 @@ func NewRouteTargetResolver(db dbport.DB) *RouteTargetResolver {
 }
 
 func (r *RouteTargetResolver) Resolve(ctx context.Context, recordID uuid.UUID) (RouteTarget, error) {
-	envelope, err := NewStore(r.db).LoadEnvelope(ctx, recordID)
-	if err != nil {
-		return RouteTarget{}, err
+	if r == nil || r.db == nil {
+		return RouteTarget{}, errors.New("records: route target resolver database is required")
 	}
-	return routeTargetFromEnvelope(envelope), nil
+	return routeTargetFromClassification(classifyTarget(ctx, r.db, recordID, TargetLockNone))
 }
 
 func (r *RouteTargetResolver) ResolveIncident(ctx context.Context, recordID uuid.UUID) (uuid.UUID, error) {
@@ -42,18 +42,20 @@ func (r *RouteTargetResolver) ResolveIncident(ctx context.Context, recordID uuid
 }
 
 func (r *RouteTargetResolver) ResolveTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (RouteTarget, error) {
-	envelope, err := NewStore().LoadEnvelopeTx(ctx, tx, recordID, false)
-	if err != nil {
-		return RouteTarget{}, err
-	}
-	return routeTargetFromEnvelope(envelope), nil
+	return routeTargetFromClassification(ClassifyTargetTx(ctx, tx, recordID, TargetLockNone))
 }
 
-func routeTargetFromEnvelope(envelope recordenvelope.Envelope) RouteTarget {
+// A deleted target still resolves, marked Deleted: the route decides incident
+// visibility (REQ-01-704) before it reports the deleted state (REQ-01-705).
+func routeTargetFromClassification(envelope recordenvelope.Envelope, err error) (RouteTarget, error) {
+	deleted := errors.Is(err, ErrTargetDeleted)
+	if err != nil && !deleted {
+		return RouteTarget{}, err
+	}
 	return RouteTarget{
 		IncidentID: envelope.IncidentID,
 		RecordType: envelope.RecordType,
-		Deleted:    envelope.DeletedAt != nil,
+		Deleted:    deleted,
 		RowVersion: envelope.RowVersion,
-	}
+	}, nil
 }

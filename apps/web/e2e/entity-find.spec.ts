@@ -506,7 +506,9 @@ test("Entity Find borrows exact grid work and gates rejected accepted and supers
     await cell(page, f.first, field).click();
     await raw.fill("  rejected raw work  ");
     const rejected = await installPatchController(page);
-    rejected.failNextPatch(422, "invalid_request", { recordId: f.first });
+    rejected.failNextPatch(400, "invalid_mutation_payload", {
+      recordId: f.first,
+    });
     await find(page, "0002 needle", 1);
     await input(page).press("Enter");
     await expect(raw).toHaveValue("  rejected raw work  ");

@@ -5,16 +5,20 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
-	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 )
 
 func (s *service) handleCreate(w http.ResponseWriter, r *http.Request) {
-	viewSchemaID := r.PathValue("view_schema_id")
-	incidentID, ok := pathUUID(w, r, "incident_id")
-	if !ok {
+	principal, apiErr := admittedPrincipal(r)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
 		return
 	}
-	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
+	incidentID, apiErr := admittedPathUUID(r, "incident_id")
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	viewSchemaID, apiErr := admittedPathString(r, "view_schema_id")
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -48,11 +52,12 @@ func (s *service) handleCreate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *service) handlePatch(w http.ResponseWriter, r *http.Request) {
-	recordID, ok := pathUUID(w, r, "record_id")
-	if !ok {
+	principal, apiErr := admittedPrincipal(r)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
 		return
 	}
-	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
+	recordID, apiErr := admittedPathUUID(r, "record_id")
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -60,7 +65,7 @@ func (s *service) handlePatch(w http.ResponseWriter, r *http.Request) {
 	target, err := s.recordTargets.ResolveRecordTarget(r.Context(), recordID)
 	switch {
 	case isRecordTargetNotFound(err):
-		writeAPIError(w, r, incidentNotFoundError())
+		writeAPIError(w, r, httpapi.NotFound("incident_not_found"))
 		return
 	case err != nil:
 		writeAPIError(w, r, internalAPIError(err))
@@ -72,7 +77,13 @@ func (s *service) handlePatch(w http.ResponseWriter, r *http.Request) {
 	}
 	provider, registered := s.contributions.PatchFor(target.RecordType)
 	if !registered {
-		writeAPIError(w, r, incidentNotFoundError())
+		// REQ-01-705: a soft-deleted record is classified before its type, so a
+		// deleted record of a type without a patch owner must be restored first.
+		if target.LifecycleState == RecordLifecycleDeleted {
+			writeAPIError(w, r, mutationFailureAPIError(RecordDeletedFailure()))
+			return
+		}
+		writeAPIError(w, r, httpapi.NotFound("incident_not_found"))
 		return
 	}
 	operation, failure, err := provider.DecodePatch(r.Body)
@@ -95,19 +106,20 @@ func (s *service) handlePatch(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *service) handleConflictResolve(w http.ResponseWriter, r *http.Request) {
-	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
+	principal, apiErr := admittedPrincipal(r)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	recordID, ok := pathUUID(w, r, "record_id")
-	if !ok {
+	recordID, apiErr := admittedPathUUID(r, "record_id")
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
 		return
 	}
 	target, err := s.recordTargets.ResolveRecordTarget(r.Context(), recordID)
 	switch {
 	case isRecordTargetNotFound(err):
-		writeAPIError(w, r, incidentNotFoundError())
+		writeAPIError(w, r, httpapi.NotFound("incident_not_found"))
 		return
 	case err != nil:
 		writeAPIError(w, r, internalAPIError(err))
@@ -117,7 +129,13 @@ func (s *service) handleConflictResolve(w http.ResponseWriter, r *http.Request) 
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	token := r.PathValue("conflict_token")
+	// REQ-01-707: admission checked the token's syntax only; whether it
+	// names this record's conflict is route handling, after the role gate.
+	token, apiErr := admittedPathString(r, "conflict_token")
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
 	claims, valid := s.conflictTokens.DecodeConflictToken(token)
 	if !valid || claims.RecordID != recordID {
 		writeAPIError(w, r, invalidMutationPayload("conflict_token", "invalid_value"))

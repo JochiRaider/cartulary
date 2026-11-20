@@ -3,16 +3,23 @@ package evidence
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"net/http"
+	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
+	"github.com/JochiRaider/cartulary/internal/modules/evidence/testsupport/blobfixture"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
+	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
@@ -35,6 +42,58 @@ func TestAttachBlobValidation_Unit(t *testing.T) {
 				_, apiErr := decodeAttachBlobRequest(strings.NewReader(tc.body))
 				if apiErr == nil || apiErr.Status != http.StatusBadRequest || apiErr.Code != "invalid_mutation_payload" {
 					t.Fatalf("expected invalid_mutation_payload, got %#v", apiErr)
+				}
+			})
+		}
+	})
+
+	// REQ-01-704 and REQ-01-706: the route conceals only an incident the caller
+	// cannot see as the missing record. A failed visibility read is
+	// internal_error, never evidence_record_not_found, and stops the request
+	// before any attach classification. The request goes through the registry
+	// binding, so central admission authenticates first (REQ-01-707).
+	t.Run("visibility read failure is internal_error", func(t *testing.T) {
+		now := time.Date(2026, 11, 18, 9, 30, 0, 0, time.UTC)
+		recordID := uuid.MustParse("5a6b7c8d-9e0f-4a1b-8c2d-3e4f5a6b7c01")
+		for _, tc := range []struct {
+			name   string
+			err    error
+			status int
+			code   string
+		}{
+			{name: "incident not visible", err: pgx.ErrNoRows, status: http.StatusNotFound, code: "evidence_record_not_found"},
+			{name: "visibility read failure", err: errors.New("injected incident admission database failure"), status: http.StatusInternalServerError, code: "internal_error"},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				sessions := activeBearerSessions{now: now}
+				s := &service{
+					operations: attachTargetOnlyOperations{t: t, target: evidenceAttachTarget{IncidentID: uuid.MustParse("5a6b7c8d-9e0f-4a1b-8c2d-3e4f5a6b7c02"), RecordType: "evidence"}},
+					admission: routeAdmission{
+						incidents: admission.NewChecker(failingAdmissionDB{err: tc.err}),
+						auth:      sessions,
+						now:       func() time.Time { return now },
+					},
+					now: func() time.Time { return now },
+				}
+				body := `{"object_blob_id":"` + uuid.NewString() + `","base_row_version":1,"client_txn_id":"txn-visibility"}`
+				request := httptest.NewRequest(http.MethodPost, "/api/v1/evidence-records/"+recordID.String()+"/attach-blob", strings.NewReader(body))
+				request.Header.Set("Authorization", "Bearer evidence-attach-visibility")
+				request.Header.Set("Content-Type", "application/json")
+				recorder := httptest.NewRecorder()
+				serveAdmittedEvidenceRoutes(t, s, sessions, now).ServeHTTP(recorder, request)
+				var envelope struct {
+					Error struct {
+						Code string `json:"code"`
+					} `json:"error"`
+				}
+				if err := json.Unmarshal(recorder.Body.Bytes(), &envelope); err != nil {
+					t.Fatalf("decode error envelope %q: %v", recorder.Body.String(), err)
+				}
+				if recorder.Code != tc.status || envelope.Error.Code != tc.code {
+					t.Fatalf("response = %d %s, want %d %s; body=%s", recorder.Code, envelope.Error.Code, tc.status, tc.code, recorder.Body.String())
+				}
+				if strings.Contains(recorder.Body.String(), "injected") {
+					t.Fatalf("response leaks the storage diagnostic: %s", recorder.Body.String())
 				}
 			})
 		}
@@ -70,16 +129,30 @@ func TestAttachBlobValidation_Unit(t *testing.T) {
 			t.Fatalf("replay did not return original payload: %#v want change_set_id %#v", replay, changeSet)
 		}
 		requireChangeSetCount(t, harness, recordID, 1)
-		// A committed receipt cannot bypass current blob eligibility after preflight.
+		// REQ-01-245: Blob eligibility binds fresh requests only. An exact
+		// committed replay returns its original result over a quarantined Blob,
+		// at preflight and in the mutation transaction alike, and commits
+		// nothing; a fresh request still meets the eligibility gate.
 		if _, err := harness.Exec(context.Background(), `UPDATE object_blobs SET upload_state = 'quarantined' WHERE object_blob_id = $1`, blobID); err != nil {
 			t.Fatal(err)
 		}
-		_, err = store.AttachBlob(context.Background(), actor, recordID, request, attachBlobRequestHash(request), "req-replay-quarantined", time.Now().UTC())
-		var rejected AttachRejectedError
-		if !errors.As(err, &rejected) || rejected.ReasonCode != attachReasonBlobQuarantined {
-			t.Fatalf("replay current eligibility = %v", err)
+		before := DurableAttachCounts(t, harness, recordID)
+		preflight, err := store.PreflightAttachBlob(context.Background(), actor, recordID, request, attachBlobRequestHash(request), time.Now().UTC())
+		if err != nil || preflight.Replay == nil || !preflight.Replay.Replayed || !reflect.DeepEqual(preflight.Replay.Payload, replay.Payload) {
+			t.Fatalf("preflight replay over a quarantined Blob = %#v, %v; want the original receipt %#v", preflight.Replay, err, replay.Payload)
 		}
+		quarantinedReplay, err := store.AttachBlob(context.Background(), actor, recordID, request, attachBlobRequestHash(request), "req-replay-quarantined", time.Now().UTC())
+		if err != nil || !quarantinedReplay.Replayed || quarantinedReplay.StatusCode != http.StatusOK || !reflect.DeepEqual(quarantinedReplay.Payload, replay.Payload) {
+			t.Fatalf("replay over a quarantined Blob = %#v, %v; want the original receipt %#v", quarantinedReplay, err, replay.Payload)
+		}
+		if after := DurableAttachCounts(t, harness, recordID); after != before {
+			t.Fatalf("replay over a quarantined Blob committed effects: before=%+v after=%+v", before, after)
+		}
+		fresh := attachBlobRequest{ObjectBlobID: blobID, BaseRowVersion: 2, ClientTxnID: "txn-attach-success-fresh"}
+		_, err = store.AttachBlob(context.Background(), actor, recordID, fresh, attachBlobRequestHash(fresh), "req-fresh-quarantined", time.Now().UTC())
+		requireAttachRejectedReason(t, err, attachReasonBlobQuarantined)
 		requireChangeSetCount(t, harness, recordID, 1)
+		requireEvidenceState(t, harness, recordID, "received", "available", blobID)
 	})
 
 	t.Run("divergent replay is rejected without durable side effects", func(t *testing.T) {
@@ -241,61 +314,24 @@ VALUES ($1, $2, 'Evidence evidence', $3, 'pending', $4, $4, $4)
 
 func seedBlob(t testing.TB, db dbport.DB, incidentID uuid.UUID, actorID uuid.UUID, uploadState string, options BlobOptions) uuid.UUID {
 	t.Helper()
-	blobID := uuid.New()
 	now := time.Now().UTC()
-	// REQ-02-189a: seed a coherent lifecycle tuple. Expiries derive from
-	// creation, so an expired pending fixture is created in the past.
+	// REQ-02-189a: the shared fixture writes only coherent tuples. Expiries
+	// derive from creation, so an expired pending fixture is created in the past.
 	createdAt := now
 	if !options.PendingExpiresAt.IsZero() {
 		createdAt = options.PendingExpiresAt.Add(-24 * time.Hour)
 	}
-	pendingExpiresAt := createdAt.Add(24 * time.Hour)
-	terminalReason := any(nil)
-	failedAt := any(nil)
-	cleanupDueAt := any(nil)
-	finalizedAt := any(nil)
 	byteSize := options.ByteSize
 	if byteSize == 0 && options.ObservedSize != nil {
 		byteSize = *options.ObservedSize
 	}
-	observedSize, observedSHA, observedContentType := options.ObservedSize, options.ObservedSHA, options.ObservedContentType
-	if uploadState == "failed" {
-		// A failed slot has no observation; a size mismatch has no timing rule.
-		terminalReason = "declared_size_mismatch"
-		failedAt = now
-		cleanupDueAt = now.Add(45 * time.Minute)
-		observedSize, observedSHA, observedContentType = nil, nil, nil
-	}
-	if uploadState == "available" || uploadState == "quarantined" {
-		finalizedAt = createdAt
-		if observedSize == nil {
-			observedSize = &byteSize
-		}
-		if observedSHA == nil {
-			observedSHA = options.ExpectedSHA
-		}
-		if observedSHA == nil {
-			zero := strings.Repeat("0", 64)
-			observedSHA = &zero
-		}
-	}
-	if _, err := db.Exec(context.Background(), `
-INSERT INTO object_blobs (
-    object_blob_id, incident_id, created_by_user_id, storage_key, upload_state,
-    byte_size, expected_sha256_hex, observed_size, observed_content_type, observed_sha256_hex,
-    target_expires_at, pending_expires_at, finalized_at, terminal_reason, failed_at,
-    cleanup_due_at, created_at, updated_at
-) VALUES (
-    $1, $2, $3, $4, $5,
-    $6, $7, $8, $9, $10,
-    $11, $12, $13,
-    $14, $15, $16, $17, $18
-)
-`, blobID, incidentID, actorID, "evidence_lifecycle/attach/"+blobID.String(), uploadState,
-		byteSize, options.ExpectedSHA, observedSize, observedContentType, observedSHA,
-		createdAt.Add(time.Hour), pendingExpiresAt, finalizedAt, terminalReason, failedAt, cleanupDueAt, createdAt, now); err != nil {
-		t.Fatalf("insert object blob: %v", err)
-	}
+	blobID := uuid.New()
+	blobfixture.Seed(t, db, blobfixture.Spec{
+		ObjectBlobID: blobID, IncidentID: incidentID, CreatedByUserID: actorID, State: uploadState,
+		StorageKey: "evidence_lifecycle/attach/" + blobID.String(), ByteSize: byteSize,
+		ExpectedSHA256Hex: options.ExpectedSHA, ObservedSHA256Hex: options.ObservedSHA,
+		ObservedContentType: options.ObservedContentType, CreatedAt: createdAt,
+	})
 	if uploadState == "pending" {
 		sessionID := uuid.New()
 		fingerprint := sha256.Sum256([]byte(sessionID.String()))
@@ -542,3 +578,60 @@ SELECT
 func ptrString(value string) *string { return &value }
 
 func ptrInt64(value int64) *int64 { return &value }
+
+// attachTargetOnlyOperations answers the attach route's unlocked target read.
+// The visibility cases stop before any attach classification, so every other
+// operation is unreached.
+type attachTargetOnlyOperations struct {
+	routeService
+	t      *testing.T
+	target evidenceAttachTarget
+}
+
+func (o attachTargetOnlyOperations) LoadAttachTarget(context.Context, uuid.UUID) (evidenceAttachTarget, error) {
+	return o.target, nil
+}
+
+func (o attachTargetOnlyOperations) PreflightAttachBlob(context.Context, authn.UserRecord, uuid.UUID, attachBlobRequest, []byte, time.Time) (attachBlobPreflightResult, error) {
+	o.t.Helper()
+	o.t.Error("attach classification ran after a failed visibility decision")
+	return attachBlobPreflightResult{}, errors.New("unreached")
+}
+
+// failingAdmissionDB answers every incident admission read with err.
+type failingAdmissionDB struct {
+	dbport.DB
+	err error
+}
+
+func (db failingAdmissionDB) QueryRow(context.Context, string, ...any) pgx.Row {
+	return failingAdmissionRow{err: db.err}
+}
+
+type failingAdmissionRow struct{ err error }
+
+func (row failingAdmissionRow) Scan(...any) error { return row.err }
+
+// activeBearerSessions authenticates any bearer token as one active session.
+type activeBearerSessions struct{ now time.Time }
+
+func (s activeBearerSessions) GetSessionByFingerprint(context.Context, []byte) (authn.SessionRecord, authn.UserRecord, error) {
+	user := authn.UserRecord{ID: uuid.MustParse("5a6b7c8d-9e0f-4a1b-8c2d-3e4f5a6b7c03"), IsActive: true}
+	return authn.SessionRecord{
+		ID: uuid.MustParse("5a6b7c8d-9e0f-4a1b-8c2d-3e4f5a6b7c04"), UserID: user.ID,
+		AuthenticatedAt: s.now, LastQualifyingActivityAt: s.now,
+		IdleExpiresAt: s.now.Add(time.Hour), AbsoluteExpiresAt: s.now.Add(time.Hour), SessionExpiresAt: s.now.Add(time.Hour),
+	}, user, nil
+}
+
+func (activeBearerSessions) GetBootstrapTokenByFingerprint(context.Context, []byte) (authn.BootstrapTokenRecord, authn.UserRecord, error) {
+	return authn.BootstrapTokenRecord{}, authn.UserRecord{}, authn.ErrNotFound
+}
+
+func (activeBearerSessions) RevokeSession(context.Context, uuid.UUID, string, time.Time) error {
+	return nil
+}
+
+func (activeBearerSessions) SlideSession(_ context.Context, _ uuid.UUID, timing authn.SessionTiming) (authn.SessionTiming, error) {
+	return timing, nil
+}

@@ -144,12 +144,9 @@ func RegisterTestClockRoutes(clock *TestClock) RouteRegistrar {
 			return err
 		}
 
-		mux.HandleFunc("/api/v1/test/clock/set", guard.Protect(func(w http.ResponseWriter, r *http.Request) {
-			if r.Method != http.MethodPost {
-				w.WriteHeader(http.StatusMethodNotAllowed)
-				return
-			}
-
+		// TH-HARNESS-REQ-450: each route serves one method; BindTestRoute
+		// applies the guard, then the enveloped 405 for any other method.
+		if err := BindTestRoute(mux, deps, guard, http.MethodPost, "/api/v1/test/clock/set", func(w http.ResponseWriter, r *http.Request) {
 			request, err := decodeTestClockSetRequest(r)
 			if err != nil {
 				writeInvalidClockSetPayload(w, r, "clock")
@@ -171,12 +168,10 @@ func RegisterTestClockRoutes(clock *TestClock) RouteRegistrar {
 			snapshot := clock.Snapshot()
 			snapshot.Now = next
 			_ = WriteSuccess(w, r, http.StatusOK, testClockControlResponse(snapshot))
-		}))
-		mux.HandleFunc("/api/v1/test/clock/reset", guard.Protect(func(w http.ResponseWriter, r *http.Request) {
-			if r.Method != http.MethodPost {
-				w.WriteHeader(http.StatusMethodNotAllowed)
-				return
-			}
+		}); err != nil {
+			return err
+		}
+		if err := BindTestRoute(mux, deps, guard, http.MethodPost, "/api/v1/test/clock/reset", func(w http.ResponseWriter, r *http.Request) {
 			if err := validateTestClockResetBody(r); err != nil {
 				writeInvalidClockSetPayload(w, r, "clock")
 				return
@@ -187,15 +182,12 @@ func RegisterTestClockRoutes(clock *TestClock) RouteRegistrar {
 				Now:           next,
 				OffsetSeconds: 0,
 			}))
-		}))
-		mux.HandleFunc("/api/v1/test/clock/state", guard.Protect(func(w http.ResponseWriter, r *http.Request) {
-			if r.Method != http.MethodGet {
-				w.WriteHeader(http.StatusMethodNotAllowed)
-				return
-			}
+		}); err != nil {
+			return err
+		}
+		return BindTestRoute(mux, deps, guard, http.MethodGet, "/api/v1/test/clock/state", func(w http.ResponseWriter, r *http.Request) {
 			_ = WriteSuccess(w, r, http.StatusOK, testClockControlResponse(clock.Snapshot()))
-		}))
-		return nil
+		})
 	}
 }
 

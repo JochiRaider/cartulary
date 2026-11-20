@@ -1,6 +1,10 @@
 import type { IncidentStreamMessage } from "@cartulary/protocol-ts/collaboration";
 import { describe, expect, it } from "vitest";
-import { planIncidentCollaborationSessionMessage } from "./incidentCollaborationSessionPlan";
+import {
+  planIncidentCollaborationSessionMessage,
+  reconnectDelayBoundMs,
+  reconnectDelayMs,
+} from "./incidentCollaborationSessionPlan";
 
 function replayable(streamSeq: number): IncidentStreamMessage {
   return {
@@ -122,5 +126,20 @@ describe("incident collaboration session plan", () => {
         resetting: false,
       }),
     ).toMatchObject({ kind: "message", nextStreamSeq: 7 });
+  });
+});
+
+describe("reconnect backoff (REQ-03-299a)", () => {
+  it("doubles from 1 s to a 30 s cap", () => {
+    expect([0, 1, 2, 3, 4, 5, 6, 40].map(reconnectDelayBoundMs)).toEqual([
+      1_000, 2_000, 4_000, 8_000, 16_000, 30_000, 30_000, 30_000,
+    ]);
+  });
+
+  it("draws each delay uniformly from zero to its bound", () => {
+    expect(reconnectDelayMs(3, () => 0)).toBe(0);
+    expect(reconnectDelayMs(3, () => 0.5)).toBe(4_000);
+    expect(reconnectDelayMs(3, () => 0.999_999)).toBeLessThan(8_000);
+    expect(reconnectDelayMs(10, () => 0.999_999)).toBeLessThan(30_000);
   });
 });

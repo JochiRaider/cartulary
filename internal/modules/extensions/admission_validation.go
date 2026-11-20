@@ -66,6 +66,9 @@ type StartupValidationError struct {
 	Findings     []StartupFinding
 	cause        error
 	envelopeCode string
+	// conditionID names the registered condition behind a single mapped
+	// finding. It is internal accounting and never part of the finding.
+	conditionID string
 }
 
 func (e *StartupValidationError) StartupCode() string {

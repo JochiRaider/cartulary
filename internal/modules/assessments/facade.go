@@ -136,8 +136,16 @@ type AssessmentProjectionPort interface {
 	RefreshAndLoadAssessmentRowTx(context.Context, pgx.Tx, uuid.UUID) (map[string]any, error)
 }
 
+// IncidentLifecyclePort re-reads the addressed incident's lifecycle inside the
+// create transaction (REQ-01-590, REQ-01-591). A closed incident is reported
+// as the port's typed denial, which the route adapter maps to incident_closed.
+type IncidentLifecyclePort interface {
+	RequireOpenTx(context.Context, pgx.Tx, uuid.UUID) error
+}
+
 type FacadeDependencies struct {
 	Idempotency  CreateIdempotencyPort
+	Incidents    IncidentLifecyclePort
 	References   ReferenceAdmission
 	Assessors    AssessorValidator
 	Records      RecordEnvelopeCreator
@@ -149,6 +157,7 @@ type FacadeDependencies struct {
 type Facade struct {
 	pool         dbport.DB
 	idempotency  CreateIdempotencyPort
+	incidents    IncidentLifecyclePort
 	supportLinks InitialSupportLinkApplier
 	revisions    CreateRevisionAppender
 	creator      assessmentCreateService
@@ -160,6 +169,8 @@ func NewFacade(pool dbport.DB, dependencies FacadeDependencies) (*Facade, error)
 		return nil, errors.New("construct assessment facade: database is required")
 	case isNilDependency(dependencies.Idempotency):
 		return nil, errors.New("construct assessment facade: idempotency port is required")
+	case isNilDependency(dependencies.Incidents):
+		return nil, errors.New("construct assessment facade: incident lifecycle port is required")
 	case isNilDependency(dependencies.References):
 		return nil, errors.New("construct assessment facade: reference admission is required")
 	case isNilDependency(dependencies.Assessors):
@@ -176,6 +187,7 @@ func NewFacade(pool dbport.DB, dependencies FacadeDependencies) (*Facade, error)
 	return &Facade{
 		pool:         pool,
 		idempotency:  dependencies.Idempotency,
+		incidents:    dependencies.Incidents,
 		supportLinks: dependencies.SupportLinks,
 		revisions:    dependencies.Revisions,
 		creator: newAssessmentCreateService(
@@ -223,6 +235,12 @@ func (f *Facade) Create(ctx context.Context, command CreateCommand) (CreateResul
 		result := existing.Result
 		result.Outcome = CreateOutcomeReplayed
 		return result, nil
+	}
+	// A committed replay above returns its original result after closure; a
+	// fresh create re-reads the incident lifecycle in this transaction before
+	// any reference admission or write (REQ-01-590, REQ-01-591).
+	if err := f.incidents.RequireOpenTx(ctx, tx, command.IncidentID); err != nil {
+		return CreateResult{}, err
 	}
 
 	input := command.Input

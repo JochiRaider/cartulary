@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_preparation_diagnostic.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "failure_reason",
+    "cause",
+    "subjects",
+    "omitted_subject_count"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.harness_preparation_diagnostic.v1"
+    },
+    "failure_reason": {
+      "enum": [
+        "configuration_error",
+        "usage_error"
+      ]
+    },
+    "cause": {
+      "enum": [
+        "catalog_shape",
+        "selector_resolution",
+        "catalog_coverage",
+        "command_selection",
+        "unclassified"
+      ]
+    },
+    "subjects": {
+      "type": "array",
+      "maxItems": 20,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256,
+        "pattern": "^[^\u0000-\u001f\u007f]+$"
+      }
+    },
+    "omitted_subject_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1048576
+    }
+  }
+}

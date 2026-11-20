@@ -208,13 +208,13 @@ retained version through the Composition owner. Validation MUST NOT recreate
 missing pins, select a later version or use the mutable draft as historical input.
 
 **REQ-RC-026**
-A release-bound composition version MUST NOT be deleted or rewritten. A request that attempts to delete or rewrite a release-bound version MUST fail with validation code `composition_version_bound`.
+A release-bound composition version MUST NOT be deleted or rewritten. A request that attempts to delete or rewrite a release-bound version MUST fail with `409`, `error.code='conflict'` and validation code `composition_version_bound`.
 
 **REQ-RC-027**
 Retiring a composition resource is permitted only when no immutable version under that resource is release-bound. Retirement MUST preserve immutable versions for audit and digest validation. A retired resource MUST remain readable through `GET /report-compositions/{composition_id}` and immutable-version reads. Omission behavior: if retirement is not implemented, all delete requests MUST fail with validation code `composition_delete_not_supported`.
 
 **REQ-RC-027a**
-When a resource is retired, `retired_at` MUST be the route-time timestamp assigned by the server and MUST remain immutable. A retired resource MUST reject draft update, version freeze, and preview with validation code `composition_resource_retired`. Repeating the same successful retire request through Core 01 idempotency MUST return the same logical retired resource view and MUST NOT change `retired_at`.
+When a resource is retired, `retired_at` MUST be the route-time timestamp assigned by the server and MUST remain immutable. A retired resource MUST reject draft update, version freeze, and preview with `409`, `error.code='conflict'` and validation code `composition_resource_retired`. Repeating the same successful retire request through Core 01 idempotency MUST return the same logical retired resource view and MUST NOT change `retired_at`.
 
 **REQ-RC-028**
 The nullable `authored_against_snapshot_id` is advisory authoring context only. It MUST NOT bind the composition to a snapshot, MUST NOT replace release tuple snapshot binding, and MUST NOT make a composition valid for a different `template_id` or `template_version`.
@@ -276,14 +276,20 @@ A route path `composition_id` MUST identify a composition resource inside the ro
 **REQ-RC-033a**
 Composition routes MUST use Core 01 route-envelope, authorization, idempotency, and normalized-request comparison semantics. This NLSpec defines only route-specific validation codes and response bodies. The observable route outcomes MUST follow Table 6-A2.
 
+A rejection owned by this NLSpec MUST use exactly one of three `error.code`
+values, chosen by status: `invalid_request` (`400`), `not_found` (`404`) or
+`conflict` (`409`). The composition validation code identifies the condition.
+Core-owned rejections, such as authentication, authorization,
+`client_txn_conflict` and `internal_error`, keep their Core codes.
+
 **Table 6-A2. Route outcome and idempotency matrix**
 
 | Condition | HTTP status / Core error | Composition validation code | Side effect rule |
 | --- | --- | --- | --- |
-| Structurally invalid JSON, duplicate object member, unknown member, invalid null, invalid scalar, or closed-token violation | Core invalid-payload status and envelope | `composition_schema_invalid` when attributable | No state mutation, no idempotency success record, no Reporting invocation. |
+| Structurally invalid JSON, duplicate object member, unknown member, invalid null, invalid scalar, or closed-token violation | `400` / `invalid_request` | `composition_schema_invalid` when attributable | No state mutation, no idempotency success record, no Reporting invocation. |
 | Authenticated actor lacks the minimum Table 6-A role, including deployment-admin-only access | Core authorization envelope | None required | No state mutation and no existence leak beyond Core 04 rules. |
-| Route resource not found inside the incident | Core `not_found` envelope | `composition_not_found` | No state mutation. |
-| `base_draft_version` differs from current server `draft_version` and no prior exact idempotency hit exists | `409` / Core conflict envelope | `composition_draft_version_conflict` | No state mutation. |
+| Route resource not found inside the incident | `404` / `not_found` | `composition_not_found` | No state mutation. |
+| `base_draft_version` differs from current server `draft_version` and no prior exact idempotency hit exists | `409` / `conflict` | `composition_draft_version_conflict` | No state mutation. |
 | Exact replay of a previously committed mutating request with the same route idempotency scope and normalized body | Core idempotent replay success status | Original validation result when one was present | Return the original committed logical response before fresh validation or conflict checks; do not mutate again. |
 | Same route idempotency scope and `client_txn_id` reused with a different normalized body | `409` / `client_txn_conflict` | None required | No state mutation; this is a Core idempotency failure, not a composition validation failure. |
 | Preview selects an unavailable incident-scoped snapshot or an unsupported template/profile/environment/output/Graph input | `400` / `invalid_request` | `composition_preview_input_invalid` | No Job, preview source or success receipt commits. Do not distinguish another incident's snapshot from an unavailable input. Operational storage failures remain internal errors. |

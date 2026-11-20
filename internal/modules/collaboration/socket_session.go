@@ -29,17 +29,26 @@ func (s *routeService) handleIncidentSocket(w http.ResponseWriter, r *http.Reque
 		finishLifecycle(lifecycleResult, lifecycleErrorCode)
 	}()
 
-	if s.checkOrigin(w, r) {
-		lifecycleResult = "rejected"
+	// Core 01 REQ-01-708, after the platform's route resolution (step 1): the
+	// Origin check, then session authentication without CSRF, then the
+	// incident identifier in REQ-01-707's uuid form, then incident
+	// authorization. A malformed identifier receives the same response as an
+	// incident the caller cannot see. Every rejection is enveloped.
+	if !s.checkOrigin(r) {
+		apiErr := originRejectedError()
+		lifecycleResult, lifecycleErrorCode = webSocketLifecycleResultForAPIError(apiErr)
+		writeAPIError(w, r, apiErr)
 		return
 	}
-	incidentID, ok := pathUUID(w, r, "incident_id")
-	if !ok {
-		lifecycleResult = "rejected"
-		return
-	}
-	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: false})
+	principal, apiErr := s.authenticate(r)
 	if apiErr != nil {
+		lifecycleResult, lifecycleErrorCode = webSocketLifecycleResultForAPIError(apiErr)
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	incidentID, ok := httpapi.ParseUUIDPathValue(r.PathValue("incident_id"))
+	if !ok {
+		apiErr := httpapi.NotFound("incident_not_found")
 		lifecycleResult, lifecycleErrorCode = webSocketLifecycleResultForAPIError(apiErr)
 		writeAPIError(w, r, apiErr)
 		return
@@ -71,12 +80,35 @@ func (s *routeService) handleIncidentSocket(w http.ResponseWriter, r *http.Reque
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+	// REQ-04-146a: ordinary shutdown also closes sockets still in the
+	// handshake. Closing the socket with 1001 here unblocks every phase;
+	// cancelling a blocked read would instead abort without a close frame.
+	go func() {
+		select {
+		case <-s.hub.sessionsClosed():
+			_ = conn.Close(1001, "")
+		case <-ctx.Done():
+		}
+	}()
+	shuttingDown := func() bool {
+		select {
+		case <-s.hub.sessionsClosed():
+			return true
+		default:
+			return false
+		}
+	}
 
 	connectionID := uuid.New()
 	messages, unsubscribe := s.hub.SubscribeIncident(incidentID, defaultSocketBuffer)
 	defer unsubscribe()
 	first, err := s.readFirstMessage(ctx, conn, incidentID)
 	if err != nil {
+		if shuttingDown() {
+			// The deferred close sends 1001 going away, with no terminal message.
+			lifecycleResult = "canceled"
+			return
+		}
 		if errors.Is(err, context.DeadlineExceeded) {
 			lifecycleResult = "timeout"
 			_ = conn.Close(1008, invalidFirstMessage)
@@ -93,11 +125,15 @@ func (s *routeService) handleIncidentSocket(w http.ResponseWriter, r *http.Reque
 	authority := &socketAuthority{
 		sessionRevocations: sessionRevocations, incidentRevocations: incidentRevocations,
 		incidentTerminals: incidentTerminals, sessionExpiresAt: principal.Session.SessionExpiresAt, now: s.now,
+		rereadSession: func() (time.Time, *httpapi.APIError) {
+			current, apiErr := s.authenticate(r.WithContext(ctx))
+			return current.Session.SessionExpiresAt, apiErr
+		},
 	}
 	var handshake establishedSession
 	// The upgrade may precede the first application frame by seconds. Resolve
 	// current session state again without sliding its idle expiry.
-	fresh, authenticationError := httpauth.AuthenticateRequest(r.WithContext(ctx), httpauth.Options{Store: s.authStore, Keys: s.keys, Hub: s.hub, Now: s.now})
+	fresh, authenticationError := s.authenticate(r.WithContext(ctx))
 	if authenticationError != nil {
 		err = authority.check()
 		if err == nil {
@@ -111,6 +147,12 @@ func (s *routeService) handleIncidentSocket(w http.ResponseWriter, r *http.Reque
 		}
 	}
 	if err != nil {
+		if shuttingDown() {
+			// A failure observed after shutdown began is shutdown, never a
+			// revocation or handshake rejection: close with 1001.
+			lifecycleResult = "canceled"
+			return
+		}
 		var terminal *socketTermination
 		if errors.As(err, &terminal) {
 			lifecycleResult = "canceled"
@@ -119,6 +161,12 @@ func (s *routeService) handleIncidentSocket(w http.ResponseWriter, r *http.Reque
 			} else {
 				closed = s.writeSessionRevoked(ctx, conn, incidentID, terminal.reasonCode)
 			}
+			return
+		}
+		if errors.Is(err, errSessionUnverified) {
+			// No proof the session ended: the deferred close ends the
+			// connection without a revocation.
+			lifecycleResult = "failed"
 			return
 		}
 		lifecycleResult = "rejected"
@@ -206,14 +254,11 @@ func (s *routeService) handleIncidentSocket(w http.ResponseWriter, r *http.Reque
 				return
 			}
 		case message := <-incoming:
-			now := s.now()
-			if !principal.Session.SessionExpiresAt.After(now) {
-				lifecycleResult = "canceled"
-				_ = s.authStore.RevokeSession(context.Background(), principal.Session.ID, "session_expired", now)
-				s.hub.RevokeSession(principal.Session.ID, "session_expired")
-				closed = s.writeSessionRevoked(ctx, conn, incidentID, "session_expired")
+			if err := authority.checkSessionExpiry(); err != nil {
+				lifecycleResult, closed = s.endAtSessionExpiry(ctx, conn, incidentID, err)
 				return
 			}
+			now := s.now()
 			if now.Sub(lastInbound) >= protocol.HeartbeatTimeout {
 				lifecycleResult = "timeout"
 				_ = conn.Close(1008, heartbeatCloseReason)
@@ -241,16 +286,11 @@ func (s *routeService) handleIncidentSocket(w http.ResponseWriter, r *http.Reque
 			closed = true
 			return
 		case <-ticker.C:
-			now := s.now()
-			if !principal.Session.SessionExpiresAt.After(now) {
-				lifecycleResult = "canceled"
-				_ = s.authStore.RevokeSession(context.Background(), principal.Session.ID, "session_expired", now)
-				s.hub.RevokeSession(principal.Session.ID, "session_expired")
-				if s.writeSessionRevoked(ctx, conn, incidentID, "session_expired") {
-					closed = true
-				}
+			if err := authority.checkSessionExpiry(); err != nil {
+				lifecycleResult, closed = s.endAtSessionExpiry(ctx, conn, incidentID, err)
 				return
 			}
+			now := s.now()
 			if now.Sub(lastInbound) >= protocol.HeartbeatTimeout {
 				lifecycleResult = "timeout"
 				_ = conn.Close(1008, heartbeatCloseReason)
@@ -266,6 +306,17 @@ func (s *routeService) handleIncidentSocket(w http.ResponseWriter, r *http.Reque
 			}
 		}
 	}
+}
+
+// endAtSessionExpiry ends the live socket at its session's expiry point. A
+// session that really ended receives session_revoked with its reason; one that
+// could not be re-read closes without a revocation (errSessionUnverified).
+func (s *routeService) endAtSessionExpiry(ctx context.Context, conn protocol.Socket, incidentID uuid.UUID, err error) (lifecycleResult string, closed bool) {
+	var terminal *socketTermination
+	if errors.As(err, &terminal) {
+		return "canceled", s.writeSessionRevoked(ctx, conn, incidentID, terminal.reasonCode)
+	}
+	return "failed", false
 }
 
 type establishedSession struct {
@@ -426,6 +477,34 @@ func (s *routeService) incidentClosed(ctx context.Context, incidentID uuid.UUID,
 	return grant.IncidentStatus == admission.IncidentStatusClosed, nil
 }
 
+// originRejectedError is REQ-01-708 step 2's rejection of a request carrying an
+// Origin other than the configured application origin, with or without a
+// session cookie.
+func originRejectedError() *httpapi.APIError {
+	return &httpapi.APIError{
+		Status:  http.StatusForbidden,
+		Code:    "csrf_verification_failed",
+		Message: "websocket origin is not the application origin",
+		Details: map[string]any{},
+	}
+}
+
+// authenticate establishes the socket's session principal through the central
+// authenticator: a session or bearer session without CSRF, never a credential
+// bootstrap token (Core 01 REQ-01-708 step 3). A session found expired is
+// published to its sockets through the authenticator's revocation hub.
+func (s *routeService) authenticate(r *http.Request) (httpauth.Principal, *httpapi.APIError) {
+	admitted, apiErr := s.authenticator.Authenticate(r, httpapi.SecurityRequirement{})
+	if apiErr != nil {
+		return httpauth.Principal{}, apiErr
+	}
+	principal, ok := httpauth.AdmittedPrincipal(admitted)
+	if !ok {
+		return httpauth.Principal{}, httpapi.InternalAPIError(errors.New("socket authentication admitted no session"))
+	}
+	return principal, nil
+}
+
 func (s *routeService) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (admission.Grant, *httpapi.APIError) {
 	grant, err := s.incidentAccess.Check(ctx, incidentID, userID, admission.Requirement{
 		AllowedRoles: admission.RolesMember,
@@ -433,7 +512,7 @@ func (s *routeService) requireIncidentMembership(ctx context.Context, incidentID
 	})
 	switch {
 	case admission.IsDenied(err, admission.DenialNotVisible):
-		return admission.Grant{}, &httpapi.APIError{Status: http.StatusNotFound, Code: "incident_not_found", Details: map[string]any{}}
+		return admission.Grant{}, httpapi.NotFound("incident_not_found")
 	case err != nil:
 		return admission.Grant{}, httpapi.InternalAPIError(err)
 	default:

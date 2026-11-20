@@ -138,6 +138,10 @@ UPDATE jobs
 	return nil
 }
 
+// ReleaseExecution conditionally releases a still-owned execution under the
+// Jobs transition lock (Core 01 REQ-01-453), so it serializes with an open
+// owner transaction of the same execution: owner validation holds the row only
+// FOR KEY SHARE, which a bare update would not wait for.
 func (m *Manager) ReleaseExecution(ctx context.Context, execution Execution) error {
 	if err := m.ensureConfigured(); err != nil {
 		return err
@@ -145,7 +149,15 @@ func (m *Manager) ReleaseExecution(ctx context.Context, execution Execution) err
 	if !execution.valid() {
 		return ErrExecutionLost
 	}
-	result, err := m.db.Exec(ctx, `
+	tx, err := m.db.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if err := lockTransitionTx(ctx, tx, execution.jobID); err != nil {
+		return err
+	}
+	result, err := tx.Exec(ctx, `
 UPDATE jobs
    SET handler_attempt_id = NULL,
        handler_lease_expires_at = NULL
@@ -160,7 +172,7 @@ UPDATE jobs
 	if result.RowsAffected() != 1 {
 		return ErrExecutionLost
 	}
-	return nil
+	return tx.Commit(ctx)
 }
 
 type candidateReadiness func(context.Context, runnerCandidate) (bool, error)

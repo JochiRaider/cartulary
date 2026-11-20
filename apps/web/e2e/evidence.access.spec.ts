@@ -19,7 +19,7 @@ import {
   evidenceViewSchemaId,
   timelineViewSchemaId,
 } from "@cartulary/view-contracts";
-import type { Locator } from "@playwright/test";
+import type { Locator, Route } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import {
   expectRevealedInInspectorBody,
@@ -41,6 +41,7 @@ import {
 } from "./support/runtime/observations";
 import {
   awaitResponseBarrier,
+  fulfillOperationError,
   installOwnedRoute,
   removeOwnedRoute,
 } from "./support/transport/requestInterception";
@@ -58,17 +59,23 @@ async function focusTimelineGridCell(cell: Locator) {
   ).toBeFocused();
 }
 
-function evidenceTransientResponse() {
-  return JSON.stringify({
-    error: {
-      code: "object_store_unavailable",
-      status: 503,
+/** A transient object-store failure, declared by both handle issuance operations. */
+function fulfillEvidenceTransient(
+  route: Route,
+  operationID: "issueEvidenceDownloadHandle" | "issueEvidencePreviewHandle",
+) {
+  return fulfillOperationError(
+    route,
+    operationID,
+    503,
+    "object_store_unavailable",
+    {
       retryable: true,
-      request_id: "request-object-store",
+      requestId: "request-object-store",
       message: "private",
       details: { reason_code: "endpoint_unreachable" },
     },
-  });
+  );
 }
 
 test.beforeEach(({ page }) => {
@@ -432,11 +439,7 @@ test("recovers linked Preview after transient storage failure without submitting
   await installOwnedRoute(page, path, async (route) => {
     bodies.push(route.request().postData() ?? "");
     if (attempts++ === 0)
-      await route.fulfill({
-        status: 503,
-        contentType: "application/json",
-        body: evidenceTransientResponse(),
-      });
+      await fulfillEvidenceTransient(route, "issueEvidencePreviewHandle");
     else await route.continue();
   });
   await openTimelineSurface(page, incidentId);
@@ -637,11 +640,12 @@ test("recovers Evidence sheet Preview and Download with fresh handle requests", 
       async (route) => {
         bodies.push(route.request().postData() ?? "");
         if (attempts[kind]++ === 0)
-          await route.fulfill({
-            status: 503,
-            contentType: "application/json",
-            body: evidenceTransientResponse(),
-          });
+          await fulfillEvidenceTransient(
+            route,
+            kind === "preview"
+              ? "issueEvidencePreviewHandle"
+              : "issueEvidenceDownloadHandle",
+          );
         else await route.continue();
       },
     );

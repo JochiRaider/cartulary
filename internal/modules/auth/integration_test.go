@@ -90,6 +90,18 @@ func TestLoginSessionLifecycle_Integration(t *testing.T) {
 		httptestx.SetClockAfter(t, server, afterInspect.lastQualifyingActivityAt, time.Second)
 		missingTokenTouchResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/test/auth/touch", nil, httptestx.WithCookies(login.Session))
 		httptestx.RequireErrorEnvelope(t, missingTokenTouchResp, http.StatusForbidden, "test_route_forbidden")
+		// The touch route serves GET only: after the guard, another method
+		// receives the enveloped 405 with Allow and never slides the session.
+		for _, method := range []string{http.MethodPost, http.MethodPut} {
+			wrongMethodResp := httptestx.DoJSON(t, http.DefaultClient, method, server.HTTP.URL+"/api/v1/test/auth/touch", nil, httptestx.WithCookies(login.Session), flowtest.WithTestRouteToken())
+			if allow := wrongMethodResp.Header.Get("Allow"); allow != http.MethodGet {
+				t.Fatalf("%s touch Allow = %q, want GET", method, allow)
+			}
+			httptestx.RequireErrorEnvelope(t, wrongMethodResp, http.StatusMethodNotAllowed, "method_not_allowed")
+		}
+		if afterRejected := querySessionByID(t, db, stored.sessionID); !afterRejected.lastQualifyingActivityAt.Equal(afterInspect.lastQualifyingActivityAt) {
+			t.Fatalf("a rejected touch method slid the session: before=%s after=%s", afterInspect.lastQualifyingActivityAt, afterRejected.lastQualifyingActivityAt)
+		}
 		touchResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/test/auth/touch", nil, httptestx.WithCookies(login.Session), flowtest.WithTestRouteToken())
 		httptestx.RequireSuccessEnvelope(t, touchResp, http.StatusOK)
 
@@ -261,6 +273,47 @@ func TestSessionRevocationClosesAttachedSocket_Integration(t *testing.T) {
 
 		activeSession := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/auth/session", nil, httptestx.WithCookies(activeLogin.Session))
 		httptestx.RequireSuccessEnvelope(t, activeSession, http.StatusOK)
+	})
+
+	// Core 04 AC-159: an enterprise sign-in that exceeds the session cap evicts
+	// the least recently used session, and its sockets receive
+	// session_revoked with reason_code concurrency_limit.
+	t.Run("enterprise sign-in concurrency limit revokes attached least recently used session socket", func(t *testing.T) {
+		server, db := startEnterpriseServer(t, runtime, "authentication-i-1-02-enterprise-concurrency-socket")
+		defer db.Close()
+
+		userID := seedLocalUser(t, db, "socket-enterprise@example.test", "Socket Enterprise", "SocketEnterprisePass1!", false)
+		incidentID := incidentstoretest.SeedIncidentMembershipSQL(t, db, userID, "authentication-i-1-02-enterprise-concurrency")
+		loginBase := time.Date(2026, time.April, 29, 19, 0, 0, 0, time.UTC)
+		httptestx.SetClockFixed(t, server, loginBase)
+		login := flowtest.LoginLocalUser(t, server.HTTP.Client(), server.HTTP.URL, "socket-enterprise@example.test", "SocketEnterprisePass1!", nil)
+		firstSessionID := queryLeastRecentlyUsedSessionRow(t, db, userID).sessionID
+		socket := incidentwstest.ConnectAndHello(t, server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{SessionToken: login.Session.Value})
+		defer socket.Close(websocket.StatusNormalClosure, "integration_cleanup")
+		for i := 0; i < 4; i++ {
+			httptestx.SetClockFixed(t, server, loginBase.Add(time.Duration(i+1)*time.Second))
+			flowtest.LoginLocalUser(t, server.HTTP.Client(), server.HTTP.URL, "socket-enterprise@example.test", "SocketEnterprisePass1!", nil)
+		}
+
+		httptestx.SetClockFixed(t, server, loginBase.Add(5*time.Second))
+		providerID := seedEnterpriseProvider(t, db, enterpriseProviderSeed{Key: "socket-eviction", Type: "oidc", Name: "Socket Eviction", Enabled: true, Interactive: true, Issuer: "https://idp.example.test", Audience: "cartulary-sp"})
+		seedEnterpriseBinding(t, db, userID, providerID, "socket-eviction-subject", userID)
+		begin := beginEnterpriseAuth(t, server, "socket-eviction")
+		redirect := parseEnterpriseRedirect(t, begin.redirectURL)
+		callback := oidcCallbackURL(server, "socket-eviction", redirect.Query().Get("state"), redirect.Query().Get("nonce"), "valid-code", "socket-eviction-subject")
+		if completed := doNoRedirect(t, http.MethodGet, callback, nil, httptestx.WithCookies(begin.cookie)); completed.StatusCode != http.StatusSeeOther {
+			t.Fatalf("enterprise completion status = %d", completed.StatusCode)
+		}
+		if activeCount := queryCount(t, db, `SELECT COUNT(*) FROM user_sessions WHERE user_id = $1 AND revoked_at IS NULL`, userID); activeCount != 5 {
+			t.Fatalf("expected five active sessions after the enterprise sign-in, got %d; sessions=%s", activeCount, flowtest.FormatUserSessions(t, db, userID))
+		}
+		if err := incidentwstest.AwaitSessionRevoked(socket, authn.ConcurrencyLimitReasonCode); err != nil {
+			firstSession := querySessionByID(t, db, firstSessionID)
+			t.Fatalf("await session_revoked for evicted session %s: %v (revoked_at_valid=%t revoke_reason_code=%q)", firstSessionID, err, firstSession.revokedAt.Valid, firstSession.revokeReasonCode.String)
+		}
+		if evicted := querySessionByID(t, db, firstSessionID); !evicted.revokedAt.Valid || evicted.revokeReasonCode.String != authn.ConcurrencyLimitReasonCode {
+			t.Fatalf("enterprise sign-in evicted the wrong session: revoked=%t reason=%q", evicted.revokedAt.Valid, evicted.revokeReasonCode.String)
+		}
 	})
 }
 
@@ -599,6 +652,28 @@ func TestUserAdminLifecycle_Integration(t *testing.T) {
 	httptestx.RequireErrorEnvelope(t, stalePatch, http.StatusConflict, "user_version_conflict")
 	beforeStale.requireUnchanged(t, observeUserAdministration(t, db, createdUserID, adminID))
 
+	// An email that already belongs to another local user is rejected on create
+	// and on patch, and nothing commits (REQ-01-123, REQ-01-124).
+	usersBeforeDuplicate := queryCount(t, db, `SELECT COUNT(*) FROM users`)
+	beforeDuplicate := observeUserAdministration(t, db, createdUserID, adminID)
+	duplicateCreate := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/users", map[string]any{
+		"client_txn_id":    "txn-user-create-duplicate-email",
+		"auth_kind":        "local",
+		"email":            "  admin-users@example.test  ",
+		"display_name":     "Duplicate Email",
+		"initial_password": "DuplicatePass123!",
+	}, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
+	httptestx.RequireErrorDetail(t, httptestx.RequireErrorEnvelope(t, duplicateCreate, http.StatusConflict, "user_email_conflict"), "field", "email")
+	duplicatePatch := httptestx.DoJSON(t, http.DefaultClient, http.MethodPatch, server.HTTP.URL+"/api/v1/users/"+createdUserID, map[string]any{
+		"base_user_version": patchBody["user_version"],
+		"email":             "admin-users@example.test",
+	}, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
+	httptestx.RequireErrorDetail(t, httptestx.RequireErrorEnvelope(t, duplicatePatch, http.StatusConflict, "user_email_conflict"), "field", "email")
+	beforeDuplicate.requireUnchanged(t, observeUserAdministration(t, db, createdUserID, adminID))
+	if queryCount(t, db, `SELECT COUNT(*) FROM users`) != usersBeforeDuplicate {
+		t.Fatal("a duplicate-email create committed a user")
+	}
+
 	var bootstrapAdminID string
 	if err := db.QueryRowContext(context.Background(), `SELECT id::text FROM users WHERE email = $1`, "bootstrap-admin@example.test").Scan(&bootstrapAdminID); err != nil {
 		t.Fatalf("lookup bootstrap admin user: %v", err)
@@ -662,6 +737,35 @@ SELECT COUNT(*)
 `, createdUserID, actionCode); got != want {
 			t.Fatalf("unexpected %s projection count: got %d want %d", actionCode, got, want)
 		}
+	}
+
+	// Core 01 REQ-01-118: a user_id naming no user fails every user route with
+	// 404 user_not_found and empty details, after the deployment-admin check
+	// and before any receipt, mutation, session or audit effect.
+	const absentUserID = "6f1c2d3e-0000-4000-8000-000000000118"
+	for _, route := range []struct {
+		name, method, path string
+		body               map[string]any
+	}{
+		{"get", http.MethodGet, "", nil},
+		{"patch", http.MethodPatch, "", map[string]any{"base_user_version": 1, "display_name": "Absent User"}},
+		{"password reset", http.MethodPost, "/password/reset", map[string]any{"base_user_version": 1, "client_txn_id": "txn-absent-password-reset", "new_password": "AbsentPassword123!"}},
+		{"totp reset", http.MethodPost, "/mfa/totp/reset", map[string]any{"base_user_version": 1, "client_txn_id": "txn-absent-totp-reset"}},
+		{"revoke all", http.MethodPost, "/sessions/revoke-all", map[string]any{"client_txn_id": "txn-absent-revoke-all"}},
+	} {
+		t.Run("absent user/"+route.name, func(t *testing.T) {
+			before := observeUserAdministration(t, db, absentUserID, adminID)
+			var body any
+			if route.body != nil {
+				body = route.body
+			}
+			response := httptestx.DoJSON(t, http.DefaultClient, route.method, server.HTTP.URL+"/api/v1/users/"+absentUserID+route.path, body,
+				httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
+			if details := httptestx.RequireErrorDetails(t, httptestx.RequireErrorEnvelope(t, response, http.StatusNotFound, "user_not_found")); len(details) != 0 {
+				t.Fatalf("user_not_found details = %#v, want empty", details)
+			}
+			before.requireUnchanged(t, observeUserAdministration(t, db, absentUserID, adminID))
+		})
 	}
 	assertConcurrentLastAdminGuard(t, runtime)
 

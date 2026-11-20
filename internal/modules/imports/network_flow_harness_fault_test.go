@@ -89,15 +89,10 @@ func assertNetworkFlowImportFaultConsumers(t *testing.T) {
 				}
 				// The protocol closes this attempt. A committed reply loss is proved
 				// from the durable unit outcome; an absent attempt is never retried.
-				var job map[string]any
-				deadline = time.Now().Add(12 * time.Second)
-				for time.Now().Before(deadline) {
-					job = httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, h.Server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(login.Session)), http.StatusOK)["data"].(map[string]any)
-					if job["status"] == "failed" || job["status"] == "succeeded" {
-						break
-					}
-					time.Sleep(25 * time.Millisecond)
-				}
+				job := httptestx.PollJob(t, h.Server.HTTP.URL, jobID, httptestx.PollOptions{
+					Timeout: 12 * time.Second,
+					Request: []func(*http.Request){httptestx.WithCookies(login.Session)},
+				}, "failed", "succeeded")
 				if _, pending := controls.Faults.ConsumeNetworkFlowFaultFor(boundary, unit); pending {
 					t.Fatal("real import failed to consume its fault")
 				}

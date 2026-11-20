@@ -3,6 +3,33 @@
   "owner_id": "web.architecture",
   "rows": [
     {
+      "row_id": "web.architecture.boundary_support.public_error_code_branch_policy",
+      "owner_id": "web.architecture",
+      "family_id": "web.architecture.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.architecture.verification.test_boundaries"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/testing/publicErrorCodeBranchPolicy.node.test.ts",
+        "titles": [
+          "public error code branch policy compares public error codes only against declared operation codes or client-local codes",
+          "public error code branch policy recognizes exactly the job result codes the Job-kind contracts declare"
+        ],
+        "project_id": "node-unit"
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "standard",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
       "row_id": "web.architecture.boundary_support.source_ownership_policy_suite_80cf87ef19",
       "owner_id": "web.architecture",
       "family_id": "web.architecture.boundary_support",

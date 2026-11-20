@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { hostsViewSchemaId } from "../models/workbookSurfaceRegistry";
+import { workbookFailureLifecycle } from "../ports/WorkbookPortResult";
 import { createWorkbookIncidentAdapter } from "./createWorkbookIncidentAdapter";
 import { createWorkbookReferenceMemberReader } from "./createWorkbookReferenceMemberReader";
 import { createWorkbookStartupAdapter } from "./createWorkbookStartupAdapter";
@@ -77,19 +78,20 @@ function startupResource(id = incidentId) {
   };
 }
 
-function authorizationDenied(): Response {
+/** getIncident, listIncidentMemberships and getIncidentWorkbookStartup declare lost access as incident_not_found. */
+function incidentAccessLost(): Response {
   return response(
     {
       error: {
-        code: "authorization_denied",
+        code: "incident_not_found",
         details: {},
-        message: "Access denied.",
+        message: "Not found.",
         request_id: "req-denied",
         retryable: false,
-        status: 403,
+        status: 404,
       },
     },
-    403,
+    404,
   );
 }
 
@@ -160,7 +162,7 @@ describe("Workbook incident adapter", () => {
           envelope({ memberships: [membershipResource(otherIncidentId)] }),
         ),
       )
-      .mockResolvedValueOnce(authorizationDenied());
+      .mockResolvedValueOnce(incidentAccessLost());
     vi.stubGlobal("fetch", fetchMock);
     const incident = createWorkbookIncidentAdapter({
       apiBase: undefined,
@@ -185,7 +187,7 @@ describe("Workbook incident adapter", () => {
       incident.getIdentity({ signal: new AbortController().signal }),
     ).resolves.toMatchObject({
       kind: "rejected",
-      failure: { kind: "authorization_lost" },
+      failure: { kind: "stale_target", publicCode: "incident_not_found" },
     });
   });
   it("preserves member paging identity typed authority failures and cancellation", async () => {
@@ -237,15 +239,12 @@ describe("Workbook incident adapter", () => {
         failure: { kind: "invalid_contract" },
       });
     }
-    fetchMock.mockResolvedValueOnce(authorizationDenied());
+    fetchMock.mockResolvedValueOnce(incidentAccessLost());
     await expect(
       read(undefined, new AbortController().signal),
     ).resolves.toMatchObject({
       kind: "rejected",
-      failure: {
-        kind: "authorization_lost",
-        publicCode: "authorization_denied",
-      },
+      failure: { kind: "stale_target", publicCode: "incident_not_found" },
     });
     const controller = new AbortController();
     fetchMock.mockImplementationOnce(async () => {
@@ -300,6 +299,22 @@ describe("Workbook startup adapter", () => {
     );
   });
 
+  it("classifies a declared startup incident_not_found as incident access loss", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(incidentAccessLost()));
+    const result = await createWorkbookStartupAdapter({
+      apiBase: undefined,
+      incidentId,
+    }).load({ query: {}, signal: new AbortController().signal });
+    expect(result).toMatchObject({
+      kind: "rejected",
+      failure: { kind: "stale_target", publicCode: "incident_not_found" },
+    });
+    if (result.kind !== "rejected") throw new Error("expected rejection");
+    expect(workbookFailureLifecycle(result.failure)).toMatchObject({
+      kind: "authority_unavailable",
+      scope: "incident",
+    });
+  });
   it("rejects malformed and mismatched startup resources and contains aborts", async () => {
     const fetchMock = vi
       .fn()

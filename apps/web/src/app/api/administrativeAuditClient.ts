@@ -1,4 +1,8 @@
-import { type APIError, fetchHTTPOperation } from "../../services/browserApi";
+import {
+  type APIError,
+  fetchHTTPOperation,
+  type HTTPOperationFailureCode,
+} from "../../services/browserApi";
 import { validatedPublicErrorReason } from "../../services/publicErrorIdentity";
 import { resolvePublicErrorPresentation } from "../../shared/publicErrorPresentation";
 import {
@@ -7,7 +11,6 @@ import {
   auditFilterFields,
   normalizeAuditInstant,
 } from "../administrativeAuditModel";
-import type { ListAdministrativeAuditEventsResponse } from "./publicHttpTypes";
 
 export type AuditReadResult =
   | {
@@ -15,7 +18,12 @@ export type AuditReadResult =
       readonly rows: AuditPage["rows"];
       readonly paging: AuditPage["paging"];
     }
-  | { readonly ok: false; readonly status: number; readonly error: APIError };
+  | { readonly ok: false; readonly status: number; readonly error: AuditError };
+
+/** Failures of the administrative audit read, decoded against its contract. */
+export type AuditError = APIError<
+  HTTPOperationFailureCode<"listAdministrativeAuditEvents">
+>;
 
 export async function listAdministrativeAuditPage(request: {
   readonly query: AuditQuery;
@@ -27,17 +35,16 @@ export async function listAdministrativeAuditPage(request: {
   for (const field of auditFilterFields)
     if (request.query[field] !== "") query[field] = request.query[field];
   if (request.cursor !== null) query.cursor_token = request.cursor;
-  const result =
-    await fetchHTTPOperation<ListAdministrativeAuditEventsResponse>({
-      operationID: "listAdministrativeAuditEvents",
-      query,
-      init: { signal: request.signal },
-    });
+  const result = await fetchHTTPOperation({
+    operationID: "listAdministrativeAuditEvents",
+    query,
+    init: { signal: request.signal },
+  });
   if (!result.ok)
     return {
       ok: false,
       status: result.status,
-      error: result.payload.error ?? { code: "unknown_public_error" },
+      error: result.payload.error,
     };
   const { audit_events: rows } = result.payload.data;
   const paging = result.payload.meta.paging;
@@ -87,7 +94,7 @@ export async function listAdministrativeAuditPage(request: {
 }
 
 export function auditFailureMessage(
-  error: APIError,
+  error: AuditError,
   status: number,
   retained: boolean,
   paging = false,

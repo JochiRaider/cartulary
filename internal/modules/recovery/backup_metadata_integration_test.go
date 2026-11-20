@@ -26,6 +26,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/referenceassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
+	"github.com/JochiRaider/cartulary/internal/modules/evidence/testsupport/blobfixture"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/modules/networkflow"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
@@ -120,23 +121,10 @@ func runBackingStorageMetadataRestore(t *testing.T, pack *recoveryPackFixture, h
 		response := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/snapshots", map[string]any{"incident_id": incidentID.String(), "client_txn_id": "restore-historical-pin"}, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader("X-CSRF-Token", adminLogin.CSRF.Value))
 		job := httptestx.RequireSuccessEnvelope(t, response, http.StatusAccepted)["data"].(map[string]any)
 		snapshotJobID = job["job_id"].(string)
-		finished := false
-		deadline := time.Now().Add(120 * time.Second)
-		for time.Now().Before(deadline) {
-			response := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+snapshotJobID, nil, httptestx.WithCookies(adminLogin.Session))
-			state := httptestx.RequireSuccessEnvelope(t, response, http.StatusOK)["data"].(map[string]any)
-			if state["status"] == "succeeded" {
-				finished = true
-				break
-			}
-			if state["status"] == "failed" || state["status"] == "canceled" {
-				t.Fatal("snapshot pin", state["error_summary"])
-			}
-			time.Sleep(25 * time.Millisecond)
-		}
-		if !finished {
-			t.Fatal("snapshot pin did not finish")
-		}
+		httptestx.PollJob(t, harness.Server.HTTP.URL, snapshotJobID, httptestx.PollOptions{
+			Timeout: 120 * time.Second,
+			Request: []func(*http.Request){httptestx.WithCookies(adminLogin.Session)},
+		}, "succeeded")
 		if err := harness.DB.QueryRow(`SELECT (snapshot_admission_json->'reference_packs')::text FROM reporting_job_payloads WHERE job_id=$1`, snapshotJobID).Scan(&sourceReferenceBinding); err != nil {
 			t.Fatal(err)
 		}
@@ -185,19 +173,13 @@ VALUES ('network_flow_activity','network_flow_activity.state_v1',7,1,now(),now()
 	}
 	objectSHA := SHA256Hex(objectPayload)
 	objectBlobID := uuid.MustParse("00000000-0000-0000-0000-000000101003")
-	if _, err := harness.Pool.Exec(ctx, `
-INSERT INTO object_blobs (
-    object_blob_id, incident_id, created_by_user_id, storage_key, upload_state,
-    byte_size, expected_sha256_hex, observed_size, observed_content_type, observed_sha256_hex,
-    target_expires_at, pending_expires_at, finalized_at, created_at, updated_at
-) VALUES (
-    $1, $2, $3, $4, 'available',
-    $5, $6, $5, 'text/plain', $6,
-    $7, $7, $8, $8, $8
-)
-`, objectBlobID, incidentID, adminUserID, objectKey, int64(len(objectPayload)), objectSHA, asTime(t, "2026-05-22T13:00:00Z"), asTime(t, "2026-05-22T12:00:00Z")); err != nil {
-		t.Fatalf("insert source durable object blob row: %v", err)
-	}
+	textPlain := "text/plain"
+	blobfixture.Seed(t, harness.Pool, blobfixture.Spec{
+		ObjectBlobID: objectBlobID, IncidentID: incidentID, CreatedByUserID: adminUserID,
+		State: blobfixture.Available, StorageKey: objectKey, ByteSize: int64(len(objectPayload)),
+		ExpectedSHA256Hex: &objectSHA, ObservedContentType: &textPlain,
+		CreatedAt: asTime(t, "2026-05-22T12:00:00Z"),
+	})
 	stateCatalog, err := recoveryassembly.CurrentRecoveryStateCatalog()
 	if err != nil {
 		t.Fatal(err)
@@ -493,6 +475,19 @@ SELECT count(*)
 	}
 	if restoredBlobCount != 1 {
 		t.Fatalf("restored object blob lifecycle row count got %d want 1", restoredBlobCount)
+	}
+	// Recovery restores the exact coherent lifecycle tuple (REQ-01-571).
+	blobfixture.RequireCoherent(t, targetPool, objectBlobID)
+	const blobRow = `SELECT to_jsonb(b)::text FROM object_blobs b WHERE b.object_blob_id = $1`
+	var sourceBlob, restoredBlob string
+	if err := harness.Pool.QueryRow(ctx, blobRow, objectBlobID).Scan(&sourceBlob); err != nil {
+		t.Fatalf("read source object blob row: %v", err)
+	}
+	if err := targetPool.QueryRow(ctx, blobRow, objectBlobID).Scan(&restoredBlob); err != nil {
+		t.Fatalf("read restored object blob row: %v", err)
+	}
+	if restoredBlob != sourceBlob {
+		t.Fatalf("restored object blob row differs from source:\nsource   %s\nrestored %s", sourceBlob, restoredBlob)
 	}
 
 	reloaded, err := reopenedStore.GetBackupSet(ctx, latestID)

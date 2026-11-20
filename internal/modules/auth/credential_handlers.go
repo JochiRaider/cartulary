@@ -13,21 +13,15 @@ import (
 )
 
 func (s *Service) handleCredentialState(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
+	principal, ok := admittedPrincipal(w, r)
+	if !ok {
 		return
 	}
 	if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-
-	principal, apiErr := s.authenticateSessionRequest(r, false)
-	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), &principal); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
@@ -46,14 +40,8 @@ func (s *Service) handleCredentialState(w http.ResponseWriter, r *http.Request) 
 }
 
 func (s *Service) handlePasswordChange(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-
-	principal, apiErr := s.authenticateSessionRequest(r, true)
-	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
+	principal, ok := admittedPrincipal(w, r)
+	if !ok {
 		return
 	}
 
@@ -144,14 +132,8 @@ func (s *Service) handlePasswordChange(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) handleTOTPBegin(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-
-	authContext, apiErr := s.authenticateAuthRequest(r, true, true)
-	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
+	authContext, ok := admittedTOTPCredential(w, r)
+	if !ok {
 		return
 	}
 
@@ -160,21 +142,21 @@ func (s *Service) handleTOTPBegin(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	pending, err := s.credentialStore.GetPendingTOTPEnrollmentForUser(r.Context(), authContext.User.ID, s.now())
+	pending, err := s.credentialStore.GetPendingTOTPEnrollmentForUser(r.Context(), authContext.user.ID, s.now())
 	if err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	input := authn.TOTPBeginInput{User: authContext.User, ClientTxnID: request.ClientTxnID, AuthScopeKind: "bootstrap_token"}
-	if authContext.Principal != nil {
-		input.AuthScopeKind, input.SessionID = "session", &authContext.Principal.Session.ID
-	} else if authContext.BootstrapToken != nil {
-		input.BootstrapTokenID = &authContext.BootstrapToken.ID
+	input := authn.TOTPBeginInput{User: authContext.user, ClientTxnID: request.ClientTxnID, AuthScopeKind: "bootstrap_token"}
+	if authContext.session != nil {
+		input.AuthScopeKind, input.SessionID = "session", &authContext.session.Session.ID
+	} else if authContext.bootstrap != nil {
+		input.BootstrapTokenID = &authContext.bootstrap.Token.ID
 	}
 	if pending == nil {
 
-		replacesActive := authContext.User.TOTPEnrolledAt != nil && len(authContext.User.TOTPSecretEnvelope) > 0
-		if authContext.Principal != nil && replacesActive {
+		replacesActive := authContext.user.TOTPEnrolledAt != nil && len(authContext.user.TOTPSecretEnvelope) > 0
+		if authContext.session != nil && replacesActive {
 			if request.CurrentPassword == nil {
 				writeAPIError(w, r, invalidAuthRequest("current_password", "current_password is required for totp replacement"))
 				return
@@ -184,7 +166,7 @@ func (s *Service) handleTOTPBegin(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			defer workflow.Close()
-			ok, err := workflow.Verify(authContext.User.PasswordHash, *request.CurrentPassword)
+			ok, err := workflow.Verify(authContext.user.PasswordHash, *request.CurrentPassword)
 			if err != nil {
 				writeAPIError(w, r, internalAPIError(err))
 				return
@@ -193,7 +175,7 @@ func (s *Service) handleTOTPBegin(w http.ResponseWriter, r *http.Request) {
 				writeAPIError(w, r, &httpapi.APIError{Status: http.StatusConflict, Code: "invalid_current_password", Details: map[string]any{}})
 				return
 			}
-			if apiErr := s.validateActiveTOTP(authContext.User, request.SecondFactor); apiErr != nil {
+			if apiErr := s.validateActiveTOTP(authContext.user, request.SecondFactor); apiErr != nil {
 				writeAPIError(w, r, apiErr)
 				return
 			}
@@ -205,7 +187,7 @@ func (s *Service) handleTOTPBegin(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		enrollmentID := uuid.New()
-		envelope, err := authn.SealSecret(s.keys, authn.SecretBinding{Purpose: authn.PendingTOTPSecret, RecordID: enrollmentID, SubjectID: authContext.User.ID}, clearSecret)
+		envelope, err := authn.SealSecret(s.keys, authn.SecretBinding{Purpose: authn.PendingTOTPSecret, RecordID: enrollmentID, SubjectID: authContext.user.ID}, clearSecret)
 		if err != nil {
 			writeAPIError(w, r, internalAPIError(err))
 			return
@@ -244,9 +226,9 @@ func (s *Service) handleTOTPBegin(w http.ResponseWriter, r *http.Request) {
 	s.writeTOTPBeginResponse(w, r, authContext, admitted, authn.EncodeSecretBase32(clearSecret))
 }
 
-func (s *Service) writeTOTPBeginResponse(w http.ResponseWriter, r *http.Request, authContext CredentialAuthContext, pending authn.PendingTOTPEnrollmentRecord, secretBase32 string) {
-	if authContext.Principal != nil {
-		if err := s.slideSessionIfNeeded(r.Context(), authContext.Principal, r.Method, r.URL.Path); err != nil {
+func (s *Service) writeTOTPBeginResponse(w http.ResponseWriter, r *http.Request, authContext totpCredential, pending authn.PendingTOTPEnrollmentRecord, secretBase32 string) {
+	if authContext.session != nil {
+		if err := s.slideSessionIfNeeded(r.Context(), authContext.session); err != nil {
 			writeAPIError(w, r, internalAPIError(err))
 			return
 		}
@@ -255,19 +237,13 @@ func (s *Service) writeTOTPBeginResponse(w http.ResponseWriter, r *http.Request,
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, map[string]any{
 		"enrollment_id": pending.ID,
 		"expires_at":    pending.ExpiresAt,
-		"totp_setup":    BuildTOTPSetup(secretBase32, authContext.User.Email),
+		"totp_setup":    BuildTOTPSetup(secretBase32, authContext.user.Email),
 	})
 }
 
 func (s *Service) handleTOTPComplete(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-
-	authContext, apiErr := s.authenticateAuthRequest(r, true, true)
-	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
+	authContext, ok := admittedTOTPCredential(w, r)
+	if !ok {
 		return
 	}
 
@@ -293,8 +269,8 @@ func (s *Service) handleTOTPComplete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if pending.UserID != authContext.User.ID {
-		if authContext.BootstrapToken != nil {
+	if pending.UserID != authContext.user.ID {
+		if authContext.bootstrap != nil {
 			writeAPIError(w, r, httpauth.BootstrapRejectedError("subject_mismatch"))
 		} else {
 			writeAPIError(w, r, TOTPSetupNotPendingError("not_found"))
@@ -322,21 +298,21 @@ func (s *Service) handleTOTPComplete(w http.ResponseWriter, r *http.Request) {
 	var sessionID *uuid.UUID
 	var bootstrapTokenID *uuid.UUID
 	authScopeKind := "bootstrap_token"
-	if authContext.Principal != nil {
-		sessionID = &authContext.Principal.Session.ID
+	if authContext.session != nil {
+		sessionID = &authContext.session.Session.ID
 		authScopeKind = "session"
-	} else if authContext.BootstrapToken != nil {
-		bootstrapTokenID = &authContext.BootstrapToken.ID
+	} else if authContext.bootstrap != nil {
+		bootstrapTokenID = &authContext.bootstrap.Token.ID
 	}
 
-	activeEnvelope, err := authn.SealSecret(s.keys, authn.SecretBinding{Purpose: authn.ActiveTOTPSecret, RecordID: authContext.User.ID, SubjectID: authContext.User.ID}, clearSecret)
+	activeEnvelope, err := authn.SealSecret(s.keys, authn.SecretBinding{Purpose: authn.ActiveTOTPSecret, RecordID: authContext.user.ID, SubjectID: authContext.user.ID}, clearSecret)
 	if err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
 	result, err := s.credentialStore.ActivateTOTPEnrollment(
 		r.Context(),
-		authContext.User,
+		authContext.user,
 		enrollmentID,
 		authScopeKind,
 		sessionID,
@@ -364,7 +340,7 @@ func (s *Service) handleTOTPComplete(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, TOTPSetupNotPendingError("consumed"))
 		return
 	case errors.Is(err, authn.ErrSubjectMismatch):
-		if authContext.BootstrapToken != nil {
+		if authContext.bootstrap != nil {
 			writeAPIError(w, r, httpauth.BootstrapRejectedError("subject_mismatch"))
 		} else {
 			writeAPIError(w, r, TOTPSetupNotPendingError("not_found"))
@@ -381,7 +357,7 @@ func (s *Service) handleTOTPComplete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, map[string]any{
-		"user_id":          authContext.User.ID,
+		"user_id":          authContext.user.ID,
 		"totp":             map[string]any{"enrolled_at": result.EnrolledAt},
 		"sessions_revoked": result.SessionsRevoked,
 	})

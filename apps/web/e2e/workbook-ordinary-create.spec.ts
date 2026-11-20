@@ -29,6 +29,7 @@ import { expect, test } from "./fixtures";
 import { responseBarrier } from "./support/runtime/cleanup";
 import {
   awaitResponseBarrier,
+  fulfillOperationError,
   installOwnedRoute,
   removeOwnedRoute,
 } from "./support/transport/requestInterception";
@@ -304,13 +305,7 @@ test("Ordinary accepted results survive detached completion and recover failed r
   ).toBeVisible();
   const queryPattern = `**/incidents/${incident}/views/${evidence}/query`;
   await installOwnedRoute(page, queryPattern, (route) =>
-    route.fulfill({
-      status: 500,
-      contentType: "application/json",
-      body: JSON.stringify({
-        error: { code: "projection_failed", request_id: "failed-read" },
-      }),
-    }),
+    fulfillOperationError(route, "queryWorkbookView", 500, "internal_error"),
   );
   await switchOrdinarySheet(page, evidence);
   const refresh = page.getByRole("button", {

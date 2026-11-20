@@ -2,17 +2,15 @@ package networkflow
 
 import (
 	"net/http"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
-	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
-	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 )
 
 // Nil embedded ports panic on any I/O: construction must only retain them.
@@ -72,10 +70,8 @@ func assertModuleComposition(t *testing.T) {
 	if _, err := NewGraphRestoreSourceRegistration(ports); err != nil {
 		t.Fatal(err)
 	}
-	// Valid master keys make route construction reach the dependency checks.
-	routeDependencies := httpapi.DependencySet{Env: map[string]string{
-		authn.AuthMasterKeyEnv: strings.TrimSpace(string(fixtures.MustRead("auth", "master-key.base64"))),
-	}}
+	// A central authenticator makes route binding reach the dependency checks.
+	routeDependencies := httpapi.DependencySet{Authenticator: httpauth.NewAuthenticator(httpauth.Options{})}
 	for name, remove := range map[string]func(*Module){
 		"coordinator":      func(m *Module) { m.transactions = nil },
 		"persistence":      func(m *Module) { m.store = nil },

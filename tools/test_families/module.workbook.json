@@ -8937,6 +8937,34 @@
       "postgres_isolation": "exclusive"
     },
     {
+      "row_id": "module.workbook.integration.linked_note_creation_returns_a_committed_replay_0c82b66329",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestLinkedNoteCreationClassifiesItsSourceRecord_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "module.workbook.integration.note_associations_public_contract",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.integration",
@@ -9144,6 +9172,34 @@
       "postgres_isolation": "shared"
     },
     {
+      "row_id": "module.workbook.integration.row_version_conflicts_name_the_record_and_both_v_3ed88f6dc7",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestWorkbookRowVersionConflictDetails_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "module.workbook.integration.shared_ingest_workbook_clipboard_paste_persists_5ae6dc0770",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.integration",
@@ -9161,6 +9217,34 @@
           "TestTimelineClipboardPastePersistsOrderedMutationsAndConflicts_Integration",
           "TestWorkbookBatchAdmissionHasNoPartialEffects_Integration",
           "TestWorkbookClipboardFidelityAndLegacyReceipt_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.workbook.integration.single_record_mutations_report_a_deleted_target_6e77d86c30",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestWorkbookRecordTargetClassification_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -9418,6 +9502,34 @@
         "package": "./internal/modules/workbook",
         "tests": [
           "TestWorkbookPatchReplay_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.workbook.integration.workbook_routes_are_admitted_centrally_in_the_re_415ec25e0a",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.route_security"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestWorkbookRouteAdmissionOrder_Integration"
         ]
       },
       "evidence_class": "integration",

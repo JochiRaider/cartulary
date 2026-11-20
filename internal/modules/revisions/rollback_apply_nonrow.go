@@ -64,6 +64,10 @@ func (a rollbackTransactionalApplier) applyNonRowRollbackTx(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
+	dependents, err := a.captureDependentsTx(ctx, tx, plan.ProjectionRecords, plan.Affected...)
+	if err != nil {
+		return nil, err
+	}
 	targets := append([]rollbackMutationTarget{plan.Target}, plan.Companion...)
 	results := make([]rollbackcontract.ApplyInverseResult, 0, len(targets))
 	for index, target := range targets {
@@ -98,6 +102,9 @@ func (a rollbackTransactionalApplier) applyNonRowRollbackTx(ctx context.Context,
 			return nil, err
 		}
 		changes = append(changes, change)
+	}
+	if err := a.publishDependentChangesTx(ctx, tx, changeSetID, dependents); err != nil {
+		return nil, err
 	}
 	return changes, nil
 }

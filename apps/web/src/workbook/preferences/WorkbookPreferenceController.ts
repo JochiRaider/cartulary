@@ -1,4 +1,5 @@
 import type { AuthorizationRecoveryResult } from "../../shared/authorizationRecovery";
+import { isFailureCode } from "../../shared/publicError";
 import type { SheetRef } from "../../shared/sheetRef";
 import type { WorkbookPreferencePort } from "../ports/WorkbookPreferencePort";
 import {
@@ -262,12 +263,12 @@ export class WorkbookPreferenceController {
       if (
         this.state.access !== "ready" ||
         (op.kind === "rejected" &&
-          [
+          isFailureCode(op.problem.code, [
             "session_required",
             "authorization_denied",
             "incident_not_found",
             "csrf_verification_failed",
-          ].includes(op.problem.code))
+          ]))
       ) {
         const access = await this.ports.recover(authority, signal, current);
         if (!current() || !this.acceptAccess(access, authority) || !current()) {

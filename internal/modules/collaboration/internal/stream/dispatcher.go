@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 )
@@ -23,20 +23,20 @@ type replayBroadcaster interface {
 	DeliverReplayable(protocol.Message) error
 }
 
-type notificationConnectionAcquirer interface {
-	Acquire(context.Context) (*pgxpool.Conn, error)
-}
+// ListenerSessionOpener opens the replay listener's dedicated database session
+// outside the runtime pool. The listener owns and closes each session it opens.
+type ListenerSessionOpener func(context.Context) (*pgx.Conn, error)
 
 // Dispatcher owns bounded process orchestration. All durable reads and writes
 // are delegated to PostgresStream.
 type Dispatcher struct {
-	store            *PostgresStream
-	acquirer         notificationConnectionAcquirer
-	broadcaster      replayBroadcaster
-	now              func() time.Time
-	serviceVersion   string
-	onUnexpectedLoss func()
-	interval         time.Duration
+	store               *PostgresStream
+	openListenerSession ListenerSessionOpener
+	broadcaster         replayBroadcaster
+	now                 func() time.Time
+	serviceVersion      string
+	onUnexpectedLoss    func()
+	interval            time.Duration
 
 	mu              sync.Mutex
 	runMu           sync.Mutex
@@ -49,6 +49,7 @@ type Dispatcher struct {
 
 func NewDispatcher(
 	store *PostgresStream,
+	openListenerSession ListenerSessionOpener,
 	broadcaster replayBroadcaster,
 	now func() time.Time,
 	serviceVersion string,
@@ -56,6 +57,9 @@ func NewDispatcher(
 ) (*Dispatcher, error) {
 	if store == nil || store.db == nil {
 		return nil, errors.New("collaboration dispatcher stream is required")
+	}
+	if openListenerSession == nil {
+		return nil, errors.New("collaboration dispatcher listener session is required")
 	}
 	if broadcaster == nil {
 		return nil, errors.New("collaboration dispatcher broadcaster is required")
@@ -69,17 +73,16 @@ func NewDispatcher(
 	if onUnexpectedLoss == nil {
 		return nil, errors.New("collaboration dispatcher loss callback is required")
 	}
-	dispatcher := &Dispatcher{
-		store:            store,
-		broadcaster:      broadcaster,
-		now:              now,
-		serviceVersion:   serviceVersion,
-		onUnexpectedLoss: onUnexpectedLoss,
-		interval:         dispatchInterval,
-		tailCursor:       make(map[uuid.UUID]int64),
-	}
-	dispatcher.acquirer, _ = store.db.(notificationConnectionAcquirer)
-	return dispatcher, nil
+	return &Dispatcher{
+		store:               store,
+		openListenerSession: openListenerSession,
+		broadcaster:         broadcaster,
+		now:                 now,
+		serviceVersion:      serviceVersion,
+		onUnexpectedLoss:    onUnexpectedLoss,
+		interval:            dispatchInterval,
+		tailCursor:          make(map[uuid.UUID]int64),
+	}, nil
 }
 
 func (dispatcher *Dispatcher) Prepare(parent context.Context, serving <-chan struct{}) error {
@@ -178,11 +181,7 @@ func (dispatcher *Dispatcher) run(parent context.Context) {
 	ctx, cancel := context.WithCancel(parent)
 	notifications := make(chan struct{}, 1)
 	listenerDone := make(chan struct{})
-	if dispatcher.acquirer != nil {
-		go dispatcher.listenReplayNotifications(ctx, dispatcher.acquirer, notifications, listenerDone)
-	} else {
-		close(listenerDone)
-	}
+	go dispatcher.listenReplayNotifications(ctx, notifications, listenerDone)
 	defer func() {
 		cancel()
 		<-listenerDone
@@ -212,23 +211,30 @@ func (dispatcher *Dispatcher) run(parent context.Context) {
 	}
 }
 
+// listenReplayNotifications wakes the dispatcher when replay events are
+// committed. The LISTEN lasts for the process lifetime, so, like the leases of
+// Core 04 REQ-04-145, it runs on its own dedicated session outside the runtime
+// pool and never reduces the capacity available to request or job work. If the
+// listener fails, the dispatcher keeps polling.
 func (dispatcher *Dispatcher) listenReplayNotifications(
 	ctx context.Context,
-	acquirer notificationConnectionAcquirer,
 	notifications chan<- struct{},
 	done chan<- struct{},
 ) {
 	defer close(done)
-	connection, err := acquirer.Acquire(ctx)
+	if dispatcher.openListenerSession == nil {
+		return
+	}
+	connection, err := dispatcher.openListenerSession(ctx)
 	if err != nil {
 		return
 	}
-	defer connection.Release()
+	defer closeListenerSession(connection)
 	if _, err := connection.Exec(ctx, `LISTEN cartulary_collaboration_replay`); err != nil {
 		return
 	}
 	for {
-		if _, err := connection.Conn().WaitForNotification(ctx); err != nil {
+		if _, err := connection.WaitForNotification(ctx); err != nil {
 			return
 		}
 		select {
@@ -236,6 +242,14 @@ func (dispatcher *Dispatcher) listenReplayNotifications(
 		default:
 		}
 	}
+}
+
+// closeListenerSession closes the listener's session with one bounded
+// terminate write, even after the dispatcher's context has ended.
+func closeListenerSession(connection *pgx.Conn) {
+	closeContext, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	_ = connection.Close(closeContext)
 }
 
 func (dispatcher *Dispatcher) RunOnce(ctx context.Context) (processed int, runErr error) {

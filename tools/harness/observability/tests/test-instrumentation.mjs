@@ -251,7 +251,7 @@ test("retained validation reconstructs path and target fields and rejects tamper
       requested_capacity: { browser_stack: 0, cpu: 1, io: 0, memory_mb: 0, object_store: 0, port_lane: 0, postgres: 0, process: 1, service_stack: 0, volume: 0 },
       resolved_capacity: { browser_stack: 1, cpu: 2, io: 1, memory_mb: 1, object_store: 1, port_lane: 1, postgres: 1, process: 2, service_stack: 1, volume: 1 },
       peak_use: { cpu: 1, process: 1 }, saturation_ms: {}, wait_events: 1, blocked_units: [], resource_holders: [],
-    }, cache: {}, artifact_refs: ["target-summaries/test-slice.json"] };
+    }, cache: {}, contract_evidence: { schema_id: "cartulary.harness_contract_evidence.v1", record_counts: { undeclared_error_code: 0, security_mismatch: 0, error_emission: 0 }, malformed_record_count: 0, violations: [], omitted_violation_count: 0 }, artifact_refs: ["target-summaries/test-slice.json"] };
   const target = { schema_id: "cartulary.harness_target_summary.v1", target: "test-slice", command_id: manifest.command_id,
     status: "pass", failure_class: null, failure_reason: null, workload_digest: digest, unit_ids: ["a"],
     inclusive_wall_ms: 7, exclusive_wall_ms: 7, actual_dependency_critical_path_ms: 9,

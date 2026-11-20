@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"net/http"
 	"strings"
 
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -55,6 +54,10 @@ func (s *service) applicationCreateSession(
 	return result, err, nil
 }
 
+func (s *service) applicationSessionIncident(ctx context.Context, sessionID uuid.UUID) (uuid.UUID, error) {
+	return s.store.getSessionIncident(ctx, sessionID)
+}
+
 func (s *service) applicationGetSession(ctx context.Context, sessionID uuid.UUID) (importScopedValue[map[string]any], error) {
 	value, incidentID, err := s.store.getSession(ctx, sessionID)
 	return importScopedValue[map[string]any]{Value: value, IncidentID: incidentID}, err
@@ -98,11 +101,8 @@ func (s *service) applicationPrepareMappingPreview(
 		return extensionImportReadResource{}, invalidImportRequest("target_kind", "owner_preview_contract_unavailable")
 	}
 	sourceCapability, err := s.store.sourceCapabilityForUnit(ctx, route.SessionID, route.UnitID)
-	if errors.Is(err, errNotFound) {
-		return extensionImportReadResource{}, &httpapi.APIError{Status: http.StatusNotFound, Code: "import_unit_not_found", Details: map[string]any{}}
-	}
 	if err != nil {
-		return extensionImportReadResource{}, internalAPIError(err)
+		return extensionImportReadResource{}, unitSourceAPIError(err)
 	}
 	result, err := facade.PrepareImportUnitMapping(ctx, ExtensionImportMappingRequest{
 		IncidentID:           incidentID,
@@ -180,14 +180,21 @@ func (s *service) applicationCreateOperatorRegion(
 	request regionRequest,
 ) (createOperatorRegionResult, error, *httpapi.APIError) {
 	base, err := s.store.getRegionBase(ctx, route.SessionID, route.UnitID)
+	if errors.Is(err, errSessionNotFound) {
+		return createOperatorRegionResult{}, nil, httpapi.NotFound("import_session_not_found")
+	}
 	if errors.Is(err, errNotFound) {
-		return createOperatorRegionResult{}, nil, &httpapi.APIError{Status: http.StatusNotFound, Code: "import_unit_not_found", Details: map[string]any{}}
+		return createOperatorRegionResult{}, nil, httpapi.NotFound("import_unit_not_found")
 	}
 	if errors.Is(err, errInvalidSourceRect) {
 		return createOperatorRegionResult{}, nil, invalidImportRequest("source_rect", "invalid_source_rect")
 	}
 	if err != nil {
-		return createOperatorRegionResult{}, err, nil
+		// A retained base source whose bytes no longer match its recorded
+		// identity or digest is no typed region-creation condition
+		// (REQ-01-620e); like any other base-source failure it is
+		// internal_error (REQ-01-706), never import_apply_blocked.
+		return createOperatorRegionResult{}, nil, internalAPIError(err)
 	}
 	requested := request.SourceRect.sourceRectangle()
 	baseRect, rectErr := parseSourceRectangle(base.Unit["source_rect_a1"].(string))
@@ -205,12 +212,12 @@ func (s *service) applicationCreateOperatorRegion(
 	}
 	workbook, apiErr := indexXLSXWorkbook(base.SourceBytes, s.limits, s.archiveLimits)
 	if apiErr != nil {
-		return createOperatorRegionResult{}, nil, apiErr
+		return createOperatorRegionResult{}, nil, regionSourceAPIError(apiErr)
 	}
 	sheet := workbook.sheetsByName[sheetName]
 	decoded, apiErr := workbook.decodeRectangle(sheet, requested, s.limits)
 	if apiErr != nil {
-		return createOperatorRegionResult{}, nil, apiErr
+		return createOperatorRegionResult{}, nil, regionSourceAPIError(apiErr)
 	}
 	locatorJSON, err := json.Marshal(map[string]any{
 		"sheet_name": sheetName,
@@ -228,7 +235,7 @@ func (s *service) applicationCreateOperatorRegion(
 		decoded.blockingColumnOrdinals,
 	)
 	if apiErr != nil {
-		return createOperatorRegionResult{}, nil, apiErr
+		return createOperatorRegionResult{}, nil, regionSourceAPIError(apiErr)
 	}
 	result, err := s.store.createOperatorRegion(ctx, createOperatorRegionParams{
 		ActorUserID:                 actorUserID,
@@ -242,5 +249,21 @@ func (s *service) applicationCreateOperatorRegion(
 	if errors.Is(err, errInvalidSourceRect) {
 		return createOperatorRegionResult{}, nil, invalidImportRequest("source_rect", "invalid_source_rect")
 	}
+	if apiErr := regionAdmissionAPIError(err); apiErr != nil {
+		return createOperatorRegionResult{}, nil, apiErr
+	}
 	return result, err, nil
+}
+
+// regionSourceAPIError classifies a failure to re-read the base unit's admitted
+// source during region creation. The current archive and tabular limits still
+// apply, so a limit failure keeps its 413 import_source_rejected (REQ-01-620e).
+// Discovery already parsed the same bytes and decoded the whole base range, so
+// any other failure, such as an unparseable workbook or cell, is an invariant
+// break and internal_error (REQ-01-706).
+func regionSourceAPIError(apiErr *httpapi.APIError) *httpapi.APIError {
+	if apiErr != nil && apiErr.Code == "import_source_rejected" {
+		return apiErr
+	}
+	return internalAPIError(errors.New("imports: region base source could not be re-read"))
 }

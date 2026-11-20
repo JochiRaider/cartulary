@@ -291,6 +291,578 @@ UPDATE jobs
 		waitSupervisedAttemptState(t, pool, jobID, 0, false)
 	})
 
+	t.Run("renewal after the attempt's own terminal transition leaves its handler running", func(t *testing.T) {
+		// A long lease keeps the manually ticked renewal inside the lease the
+		// claim granted, so the runner can attribute the terminal Job to this
+		// attempt (Core 01 REQ-01-453).
+		manager, actorID, incidentID, _, catalog, policy := newSupervisedJobsHarness(t, "jobs-supervisor-own-terminal", func(policy *jobs.RuntimePolicy) {
+			policy.HandlerLease = 30 * time.Second
+			policy.LeaseRenewal = 10 * time.Second
+		})
+		jobID := createSupervisedJob(t, manager, actorID, incidentID)
+		gate := &dequeueGate{}
+		gate.open.Store(true)
+		runner, err := jobs.NewRunner(jobs.RunnerOptions{
+			Manager: manager, Catalog: catalog, Policy: policy, DequeueGate: gate,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		renewalTicks := make(chan time.Time, 1)
+		renewalAttempted := make(chan error, 1)
+		var renewed atomic.Bool
+		waitingAfterRenewal := make(chan struct{})
+		var waitingOnce sync.Once
+		jobs.ConfigureRunnerSynchronizationForTest(runner, renewalTicks, func() {
+			if renewed.Load() {
+				waitingOnce.Do(func() { close(waitingAfterRenewal) })
+			}
+		}, func(ctx context.Context, execution jobs.Execution) error {
+			err := manager.RenewExecution(ctx, execution)
+			renewed.Store(true)
+			renewalAttempted <- err
+			return err
+		})
+		completed := make(chan struct{})
+		canceled := make(chan struct{})
+		release := make(chan struct{})
+		if err := runner.RegisterHandler(supervisedHandlerName, func(ctx context.Context, execution jobs.Execution) error {
+			total := 1
+			if _, err := manager.CompleteSucceeded(ctx, execution, jobs.SuccessCompletion{
+				Progress:      jobs.Progress{Completed: 1, Total: &total},
+				ResultSummary: jobs.ResultSummary{Code: "supervised", Message: "Supervised."},
+			}); err != nil {
+				return err
+			}
+			close(completed)
+			// Work after the terminal commit, such as owner cleanup, must not
+			// be interrupted by renewal observing that commit.
+			select {
+			case <-release:
+				return nil
+			case <-ctx.Done():
+				close(canceled)
+				<-release
+				return ctx.Err()
+			}
+		}); err != nil {
+			t.Fatal(err)
+		}
+		if err := runner.Activate(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+		select {
+		case <-completed:
+		case <-time.After(5 * time.Second):
+			t.Fatal("timed out waiting for the handler's terminal transition")
+		}
+		gate.open.Store(false)
+		renewalTicks <- time.Now().UTC()
+		select {
+		case err := <-renewalAttempted:
+			if !errors.Is(err, jobs.ErrExecutionLost) {
+				t.Fatalf("renewal of the attempt's own terminal Job = %v, want ErrExecutionLost", err)
+			}
+		case <-time.After(5 * time.Second):
+			t.Fatal("timed out waiting for the renewal")
+		}
+		select {
+		case <-waitingAfterRenewal:
+		case <-canceled:
+			close(release)
+			t.Fatal("renewal of the attempt's own terminal Job canceled its handler")
+		case <-time.After(5 * time.Second):
+			close(release)
+			t.Fatal("timed out waiting for the runner to resume waiting after renewal")
+		}
+		select {
+		case <-canceled:
+			close(release)
+			t.Fatal("renewal of the attempt's own terminal Job canceled its handler")
+		default:
+		}
+		close(release)
+		if got := waitSupervisedJobStatus(t, manager, jobID, jobs.StatusSucceeded); got.Status != jobs.StatusSucceeded {
+			t.Fatalf("own-terminal job = %#v", got)
+		}
+		closeRunner(t, runner)
+	})
+
+	t.Run("an operational renewal error after the attempt's own terminal transition leaves its handler running", func(t *testing.T) {
+		// Core 01 REQ-01-453: a renewal that fails for a reason other than
+		// execution loss, after which the runner establishes that the Job is
+		// terminal within the unexpired lease, observes the attempt's own
+		// commit. It neither cancels the handler nor records a failure.
+		manager, actorID, incidentID, _, catalog, policy := newSupervisedJobsHarness(t, "jobs-supervisor-own-terminal-operational", func(policy *jobs.RuntimePolicy) {
+			policy.HandlerLease = 30 * time.Second
+			policy.LeaseRenewal = 10 * time.Second
+		})
+		jobID := createSupervisedJob(t, manager, actorID, incidentID)
+		gate := &dequeueGate{}
+		gate.open.Store(true)
+		runner, err := jobs.NewRunner(jobs.RunnerOptions{
+			Manager: manager, Catalog: catalog, Policy: policy, DequeueGate: gate,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		renewalTicks := make(chan time.Time, 1)
+		renewalAttempted := make(chan struct{})
+		var renewed atomic.Bool
+		waitingAfterRenewal := make(chan struct{})
+		var waitingOnce sync.Once
+		jobs.ConfigureRunnerSynchronizationForTest(runner, renewalTicks, func() {
+			if renewed.Load() {
+				waitingOnce.Do(func() { close(waitingAfterRenewal) })
+			}
+		}, func(context.Context, jobs.Execution) error {
+			renewed.Store(true)
+			close(renewalAttempted)
+			return errors.New("forced operational renewal failure")
+		})
+		completed := make(chan struct{})
+		canceled := make(chan struct{})
+		release := make(chan struct{})
+		if err := runner.RegisterHandler(supervisedHandlerName, func(ctx context.Context, execution jobs.Execution) error {
+			total := 1
+			if _, err := manager.CompleteSucceeded(ctx, execution, jobs.SuccessCompletion{
+				Progress:      jobs.Progress{Completed: 1, Total: &total},
+				ResultSummary: jobs.ResultSummary{Code: "supervised", Message: "Supervised."},
+			}); err != nil {
+				return err
+			}
+			close(completed)
+			select {
+			case <-release:
+				return nil
+			case <-ctx.Done():
+				close(canceled)
+				<-release
+				return ctx.Err()
+			}
+		}); err != nil {
+			t.Fatal(err)
+		}
+		if err := runner.Activate(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+		select {
+		case <-completed:
+		case <-time.After(5 * time.Second):
+			t.Fatal("timed out waiting for the handler's terminal transition")
+		}
+		gate.open.Store(false)
+		renewalTicks <- time.Now().UTC()
+		select {
+		case <-renewalAttempted:
+		case <-time.After(5 * time.Second):
+			t.Fatal("timed out waiting for the operational renewal failure")
+		}
+		select {
+		case <-waitingAfterRenewal:
+		case <-canceled:
+			close(release)
+			t.Fatal("an operational renewal error after the attempt's own terminal transition canceled its handler")
+		case <-time.After(5 * time.Second):
+			close(release)
+			t.Fatal("timed out waiting for the runner to resume waiting after renewal")
+		}
+		select {
+		case <-canceled:
+			close(release)
+			t.Fatal("an operational renewal error after the attempt's own terminal transition canceled its handler")
+		default:
+		}
+		close(release)
+		if got := waitSupervisedJobStatus(t, manager, jobID, jobs.StatusSucceeded); got.Status != jobs.StatusSucceeded {
+			t.Fatalf("own-terminal job = %#v", got)
+		}
+		closeRunner(t, runner)
+	})
+
+	t.Run("renewals keep the lease while the attempt's own job transaction is open", func(t *testing.T) {
+		// Core 01 REQ-01-453: execution validation inside an owner transaction
+		// serializes through the transition lock and holds no Job-row lock that
+		// blocks lease renewal, so the attempt's own transaction never delays
+		// or starves its lease. The handler holds its validated transaction
+		// past the lease, through several renewal ticks, while observing its
+		// execution, then completes and commits on its first attempt.
+		manager, actorID, incidentID, pool, catalog, policy := newSupervisedJobsHarness(t, "jobs-supervisor-renewal-own-transaction", func(policy *jobs.RuntimePolicy) {
+			policy.HandlerLease = 2 * time.Second
+			policy.LeaseRenewal = 500 * time.Millisecond
+			policy.AttemptOperationTimeout = 250 * time.Millisecond
+		})
+		compositionValue, present := testJobCompositions.Load(manager)
+		if !present {
+			t.Fatal("test Jobs composition is unavailable")
+		}
+		composition := compositionValue.(testJobComposition)
+		jobID := createSupervisedJob(t, manager, actorID, incidentID)
+		gate := &dequeueGate{}
+		gate.open.Store(true)
+		runner, err := jobs.NewRunner(jobs.RunnerOptions{
+			Manager: manager, Catalog: catalog, Policy: policy, DequeueGate: gate,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		ticker := time.NewTicker(policy.LeaseRenewal)
+		defer ticker.Stop()
+		var holding atomic.Bool
+		var renewedWhileHolding atomic.Int32
+		renewalFailures := make(chan error, 16)
+		jobs.ConfigureRunnerSynchronizationForTest(runner, ticker.C, nil, func(ctx context.Context, execution jobs.Execution) error {
+			err := manager.RenewExecution(ctx, execution)
+			if holding.Load() {
+				if err == nil {
+					renewedWhileHolding.Add(1)
+				} else {
+					select {
+					case renewalFailures <- err:
+					default:
+					}
+				}
+			}
+			return err
+		})
+		var invocations atomic.Int32
+		observedLoss := make(chan error, 1)
+		handlerDone := make(chan error, 1)
+		if err := runner.RegisterHandler(supervisedHandlerName, func(ctx context.Context, execution jobs.Execution) error {
+			invocations.Add(1)
+			err := func() error {
+				tx, err := pool.Begin(ctx)
+				if err != nil {
+					return err
+				}
+				defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+				if err := composition.transactions.ValidateExecutionTx(ctx, tx, execution); err != nil {
+					return err
+				}
+				holding.Store(true)
+				defer holding.Store(false)
+				// Hold the validated transaction past the lease, observing the
+				// execution as the owners' observers do.
+				holdUntil := time.Now().Add(2*policy.HandlerLease + policy.LeaseRenewal)
+				observe := time.NewTicker(200 * time.Millisecond)
+				defer observe.Stop()
+				for time.Now().Before(holdUntil) {
+					select {
+					case <-ctx.Done():
+						return ctx.Err()
+					case <-observe.C:
+					}
+					observeCtx, cancelObserve := context.WithTimeout(ctx, policy.AttemptOperationTimeout)
+					_, err := manager.ObserveExecution(observeCtx, execution)
+					cancelObserve()
+					if err != nil {
+						observedLoss <- err
+						break
+					}
+				}
+				holding.Store(false)
+				total := 1
+				if _, err := composition.transactions.CompleteSucceededTx(ctx, tx, execution, jobs.SuccessCompletion{
+					Progress:      jobs.Progress{Completed: 1, Total: &total},
+					ResultSummary: jobs.ResultSummary{Code: "supervised", Message: "Supervised."},
+				}, time.Now().UTC()); err != nil {
+					return err
+				}
+				return tx.Commit(ctx)
+			}()
+			select {
+			case handlerDone <- err:
+			default:
+			}
+			return err
+		}); err != nil {
+			t.Fatal(err)
+		}
+		if err := runner.Activate(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+		var handlerErr error
+		select {
+		case handlerErr = <-handlerDone:
+		case <-time.After(20 * time.Second):
+			t.Fatal("timed out waiting for the handler's job transaction")
+		}
+		gate.open.Store(false)
+		select {
+		case err := <-observedLoss:
+			t.Errorf("the execution observer reported loss while the attempt's own transaction was open: %v", err)
+		default:
+		}
+		select {
+		case err := <-renewalFailures:
+			t.Errorf("a renewal failed while the attempt's own transaction was open: %v", err)
+		default:
+		}
+		if renewed := renewedWhileHolding.Load(); renewed < 3 {
+			t.Errorf("%d renewals succeeded while the attempt's own transaction was open, want at least 3", renewed)
+		}
+		if handlerErr != nil {
+			t.Fatalf("the handler's job transaction failed: %v", handlerErr)
+		}
+		if got := waitSupervisedJobStatus(t, manager, jobID, jobs.StatusSucceeded); got.Status != jobs.StatusSucceeded {
+			t.Fatalf("job = %#v", got)
+		}
+		var failureCount int
+		if err := pool.QueryRow(context.Background(), `SELECT handler_failure_count FROM jobs WHERE job_id = $1`, jobID).Scan(&failureCount); err != nil {
+			t.Fatal(err)
+		}
+		if failureCount != 0 || invocations.Load() != 1 {
+			t.Fatalf("handler failures = %d, invocations = %d; want success on the first attempt", failureCount, invocations.Load())
+		}
+		closeRunner(t, runner)
+	})
+
+	t.Run("a hung renewal is bounded by the attempt-operation timeout", func(t *testing.T) {
+		// Core 01 REQ-01-453: the attempt-operation timeout bounds attempt
+		// persistence, lease renewal included, so a renewal that never answers
+		// ends as an ordinary renewal failure: the handler is canceled and one
+		// failure recorded.
+		manager, actorID, incidentID, pool, catalog, policy := newSupervisedJobsHarness(t, "jobs-supervisor-renewal-timeout", func(policy *jobs.RuntimePolicy) {
+			// A long lease keeps the manually ticked attempt live, so its
+			// renewal failure is recorded against an unexpired execution.
+			policy.HandlerLease = 30 * time.Second
+			policy.LeaseRenewal = 10 * time.Second
+		})
+		jobID := createSupervisedJob(t, manager, actorID, incidentID)
+		gate := &dequeueGate{}
+		gate.open.Store(true)
+		runner, err := jobs.NewRunner(jobs.RunnerOptions{
+			Manager: manager, Catalog: catalog, Policy: policy, DequeueGate: gate,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		renewalTicks := make(chan time.Time, 1)
+		renewalBounded := make(chan bool, 1)
+		jobs.ConfigureRunnerSynchronizationForTest(runner, renewalTicks, nil, func(ctx context.Context, _ jobs.Execution) error {
+			deadline, bounded := ctx.Deadline()
+			renewalBounded <- bounded && !deadline.After(time.Now().Add(policy.AttemptOperationTimeout))
+			<-ctx.Done()
+			return ctx.Err()
+		})
+		handlerEntered := make(chan struct{})
+		handlerExited := make(chan struct{})
+		if err := runner.RegisterHandler(supervisedHandlerName, func(ctx context.Context, _ jobs.Execution) error {
+			close(handlerEntered)
+			<-ctx.Done()
+			close(handlerExited)
+			return ctx.Err()
+		}); err != nil {
+			t.Fatal(err)
+		}
+		if err := runner.Activate(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+		select {
+		case <-handlerEntered:
+		case <-time.After(5 * time.Second):
+			t.Fatal("timed out waiting for the renewal-timeout handler")
+		}
+		gate.open.Store(false)
+		renewalTicks <- time.Now().UTC()
+		select {
+		case bounded := <-renewalBounded:
+			if !bounded {
+				t.Error("renewal ran without the attempt-operation timeout")
+			}
+		case <-time.After(5 * time.Second):
+			t.Fatal("timed out waiting for the renewal")
+		}
+		select {
+		case <-handlerExited:
+		case <-time.After(5 * time.Second):
+			t.Fatal("a hung renewal never ended as a renewal failure")
+		}
+		waitSupervisedAttemptState(t, pool, jobID, 1, true)
+		closeRunner(t, runner)
+	})
+
+	t.Run("runner shutdown interrupts a hung renewal and drains its handler", func(t *testing.T) {
+		// Core 01 REQ-01-453: runner shutdown interrupts a renewal that has not
+		// answered, without waiting for the attempt-operation timeout. The
+		// attempt is then released neutrally, and a close succeeds only once
+		// the handler has drained.
+		manager, actorID, incidentID, pool, catalog, policy := newSupervisedJobsHarness(t, "jobs-supervisor-renewal-shutdown", func(policy *jobs.RuntimePolicy) {
+			// A long lease keeps the manually ticked attempt live for its
+			// neutral release, and a long attempt-operation timeout leaves
+			// only shutdown to end the renewal.
+			policy.HandlerLease = 30 * time.Second
+			policy.LeaseRenewal = 10 * time.Second
+			policy.AttemptOperationTimeout = 30 * time.Second
+		})
+		jobID := createSupervisedJob(t, manager, actorID, incidentID)
+		gate := &dequeueGate{}
+		gate.open.Store(true)
+		runner, err := jobs.NewRunner(jobs.RunnerOptions{
+			Manager: manager, Catalog: catalog, Policy: policy, DequeueGate: gate,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		renewalTicks := make(chan time.Time, 1)
+		renewalStarted := make(chan struct{})
+		renewalEnded := make(chan error, 1)
+		jobs.ConfigureRunnerSynchronizationForTest(runner, renewalTicks, nil, func(ctx context.Context, _ jobs.Execution) error {
+			close(renewalStarted)
+			<-ctx.Done()
+			renewalEnded <- ctx.Err()
+			return ctx.Err()
+		})
+		handlerEntered := make(chan struct{})
+		handlerCanceled := make(chan struct{})
+		handlerExited := make(chan struct{})
+		release := make(chan struct{})
+		if err := runner.RegisterHandler(supervisedHandlerName, func(ctx context.Context, _ jobs.Execution) error {
+			close(handlerEntered)
+			<-ctx.Done()
+			close(handlerCanceled)
+			// The handler ignores cancellation until the test releases it.
+			<-release
+			close(handlerExited)
+			return ctx.Err()
+		}); err != nil {
+			t.Fatal(err)
+		}
+		if err := runner.Activate(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+		select {
+		case <-handlerEntered:
+		case <-time.After(5 * time.Second):
+			t.Fatal("timed out waiting for the hung-renewal handler")
+		}
+		gate.open.Store(false)
+		renewalTicks <- time.Now().UTC()
+		select {
+		case <-renewalStarted:
+		case <-time.After(5 * time.Second):
+			t.Fatal("timed out waiting for the renewal")
+		}
+		// The renewal stays pending until runner shutdown.
+		select {
+		case err := <-renewalEnded:
+			t.Fatalf("a renewal ended without runner shutdown: %v", err)
+		case <-handlerCanceled:
+			t.Fatal("a pending renewal canceled its handler without runner shutdown")
+		case <-time.After(500 * time.Millisecond):
+		}
+		closeCtx, cancelClose := context.WithTimeout(context.Background(), 300*time.Millisecond)
+		closeErr := runner.Close(closeCtx)
+		cancelClose()
+		select {
+		case err := <-renewalEnded:
+			if !errors.Is(err, context.Canceled) {
+				t.Fatalf("runner shutdown ended the renewal with %v, want context.Canceled", err)
+			}
+		case <-time.After(5 * time.Second):
+			t.Fatal("runner shutdown did not interrupt the hung renewal")
+		}
+		select {
+		case <-handlerCanceled:
+		case <-time.After(5 * time.Second):
+			t.Fatal("runner shutdown did not cancel the handler")
+		}
+		if closeErr == nil {
+			close(release)
+			t.Fatal("runner close succeeded while the handler was still running")
+		}
+		close(release)
+		select {
+		case <-handlerExited:
+		case <-time.After(5 * time.Second):
+			t.Fatal("the released handler did not exit")
+		}
+		closeRunner(t, runner)
+		assertNeutralAttemptState(t, pool, jobID, false)
+	})
+
+	t.Run("a renewal failure drains its handler before releasing the attempt", func(t *testing.T) {
+		// Core 01 REQ-01-453: the handler drains before both reservations are
+		// released, so a successful runner close means it has returned.
+		manager, actorID, incidentID, pool, catalog, policy := newSupervisedJobsHarness(t, "jobs-supervisor-renewal-drain", func(policy *jobs.RuntimePolicy) {
+			// A long lease keeps the manually ticked attempt live, so its
+			// renewal failure is recorded against an unexpired execution.
+			policy.HandlerLease = 30 * time.Second
+			policy.LeaseRenewal = 10 * time.Second
+		})
+		jobID := createSupervisedJob(t, manager, actorID, incidentID)
+		gate := &dequeueGate{}
+		gate.open.Store(true)
+		runner, err := jobs.NewRunner(jobs.RunnerOptions{
+			Manager: manager, Catalog: catalog, Policy: policy, DequeueGate: gate,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		renewalTicks := make(chan time.Time, 1)
+		renewalAttempted := make(chan struct{})
+		jobs.ConfigureRunnerSynchronizationForTest(runner, renewalTicks, nil, func(context.Context, jobs.Execution) error {
+			close(renewalAttempted)
+			return errors.New("forced operational renewal failure")
+		})
+		handlerEntered := make(chan struct{})
+		handlerCanceled := make(chan struct{})
+		handlerExited := make(chan struct{})
+		release := make(chan struct{})
+		if err := runner.RegisterHandler(supervisedHandlerName, func(ctx context.Context, _ jobs.Execution) error {
+			close(handlerEntered)
+			<-ctx.Done()
+			close(handlerCanceled)
+			// The handler ignores cancellation until the test releases it.
+			<-release
+			close(handlerExited)
+			return ctx.Err()
+		}); err != nil {
+			t.Fatal(err)
+		}
+		if err := runner.Activate(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+		select {
+		case <-handlerEntered:
+		case <-time.After(5 * time.Second):
+			t.Fatal("timed out waiting for the renewal-drain handler")
+		}
+		gate.open.Store(false)
+		renewalTicks <- time.Now().UTC()
+		select {
+		case <-renewalAttempted:
+		case <-time.After(5 * time.Second):
+			t.Fatal("timed out waiting for the forced renewal failure")
+		}
+		select {
+		case <-handlerCanceled:
+		case <-time.After(5 * time.Second):
+			close(release)
+			t.Fatal("renewal failure did not cancel the handler")
+		}
+		waitSupervisedAttemptState(t, pool, jobID, 1, true)
+		closeCtx, cancelClose := context.WithTimeout(context.Background(), 300*time.Millisecond)
+		closeErr := runner.Close(closeCtx)
+		cancelClose()
+		select {
+		case <-handlerExited:
+			t.Fatal("the handler exited before the test released it")
+		default:
+		}
+		if closeErr == nil {
+			close(release)
+			t.Fatal("runner close succeeded while a renewal-failed handler was still running")
+		}
+		close(release)
+		select {
+		case <-handlerExited:
+		case <-time.After(5 * time.Second):
+			t.Fatal("the released handler did not exit")
+		}
+		closeRunner(t, runner)
+	})
+
 	t.Run("continuous scan retries without restart and recovers a dropped hint", func(t *testing.T) {
 		manager, actorID, incidentID, pool, catalog, policy := newSupervisedJobsHarness(t, "jobs-supervisor-retry")
 		gate := &dequeueGate{}
@@ -1019,14 +1591,16 @@ func TestRunnerWorkerCapacityAndMixedKindFairness_Integration(t *testing.T) {
 func newSupervisedJobsHarness(
 	t testing.TB,
 	name string,
+	adjust ...func(*jobs.RuntimePolicy),
 ) (*jobs.Manager, uuid.UUID, uuid.UUID, *pgxpool.Pool, *jobs.Catalog, jobs.RuntimePolicy) {
-	return newSupervisedJobsHarnessWithClock(t, name, func() time.Time { return time.Now().UTC() })
+	return newSupervisedJobsHarnessWithClock(t, name, func() time.Time { return time.Now().UTC() }, adjust...)
 }
 
 func newSupervisedJobsHarnessWithClock(
 	t testing.TB,
 	name string,
 	now func() time.Time,
+	adjust ...func(*jobs.RuntimePolicy),
 ) (*jobs.Manager, uuid.UUID, uuid.UUID, *pgxpool.Pool, *jobs.Catalog, jobs.RuntimePolicy) {
 	t.Helper()
 	_, actorID, incidentID, pool := newJobsHarnessWithPool(t, name, now)
@@ -1047,6 +1621,9 @@ func newSupervisedJobsHarnessWithClock(
 	policy.AttemptOperationTimeout = 250 * time.Millisecond
 	policy.RecoveryScan = 20 * time.Millisecond
 	policy.RetryDelays = []time.Duration{20 * time.Millisecond, 40 * time.Millisecond}
+	for _, change := range adjust {
+		change(&policy)
+	}
 	manager, err := jobs.NewManager(jobs.ManagerOptions{
 		Postgres: pool, Transactions: transactions, Catalog: catalog,
 		Policy: policy, Now: now,

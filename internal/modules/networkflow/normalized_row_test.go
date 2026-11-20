@@ -25,7 +25,10 @@ func assertCanonicalRowConstruction(t *testing.T) {
 		SourceFilenameDigest: strings.Repeat("5", 64), SourceFilenameDigestKeyID: "constructor-test",
 		SourceProfileID: sourceProfileCiscoSNANetFlowCSV, ParserProfileID: parserProfileRFC4180HeaderedCSV,
 		RowCountAccepted: 1, Now: time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC),
-		VisitRows: func(func(normalizedRow) error) error { t.Fatal("invalid context invoked row visitor"); return nil },
+		VisitRows: func(rowSourceGate, func(normalizedRow) error) error {
+			t.Fatal("invalid context invoked row visitor")
+			return nil
+		},
 	}
 	t.Run("invalid context rejected before transaction access", func(t *testing.T) {
 		cases := map[string]func(*createTableParams){

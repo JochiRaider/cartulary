@@ -26,7 +26,7 @@ func exerciseTaskInverseReferences(t *testing.T) {
 
 func exerciseTaskInverseReference(t *testing.T, referenceType string) {
 	for _, kind := range []string{"row_restore", "change_set"} {
-		for _, targetState := range []string{"active", "deleted", "missing source", "foreign", "wrong type", "null"} {
+		for _, targetState := range []string{"active", "deleted", "missing source", "foreign", "wrong type", "null", "lifecycle violation"} {
 			t.Run(kind+"/"+targetState, func(t *testing.T) {
 				ctx := context.Background()
 				h := appsupport.StartStore(t, "task-inverse-reference")
@@ -81,8 +81,14 @@ VALUES($1,$2,'task_request',$3,$3,$4,$4)`, id, incident.ID, actor.ID, now)
 				} else {
 					decisionValue = retainedReference
 				}
+				// "lifecycle violation" retains a blocked Task with no reason, so a
+				// restore of that snapshot violates REQ-02-103 (REQ-02-109a).
+				retainedStatus := "open"
+				if targetState == "lifecycle violation" {
+					retainedStatus = "blocked"
+				}
 				seed(`INSERT INTO task_requests(record_id,incident_id,title,status,owner_user_id,priority,task_kind,requester_party_id,decision_record_id,requester_party_text,created_at,updated_at)
-VALUES($1,$2,'Restored title','open',$3,'normal','collection',$4,$5,'Original requester wording',$6,$6)`, id, incident.ID, actor.ID, partyValue, decisionValue, now)
+VALUES($1,$2,'Restored title',$7,$3,'normal','collection',$4,$5,'Original requester wording',$6,$6)`, id, incident.ID, actor.ID, partyValue, decisionValue, now, retainedStatus)
 				before, err := appender.CaptureRecordSnapshotTx(ctx, tx, id)
 				if err != nil {
 					t.Fatal(err)
@@ -99,7 +105,7 @@ VALUES($1,$2,'Restored title','open',$3,'normal','collection',$4,$5,'Original re
 					t.Fatal(err)
 				}
 				seed(`UPDATE records SET row_version=2 WHERE record_id=$1`, id)
-				seed(`UPDATE task_requests SET title='Current title',decision_record_id=NULL,requester_party_id=NULL WHERE record_id=$1`, id)
+				seed(`UPDATE task_requests SET title='Current title',status='open',decision_record_id=NULL,requester_party_id=NULL WHERE record_id=$1`, id)
 				after, err := appender.CaptureRecordSnapshotTx(ctx, tx, id)
 				if err != nil {
 					t.Fatal(err)

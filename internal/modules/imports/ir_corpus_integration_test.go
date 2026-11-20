@@ -345,29 +345,24 @@ func irVerifyCommittedSource(t *testing.T, baseURL string, login authcookietest.
 
 // Full-corpus apply is governed by the selected harness test's deadline. The
 // five-second helper for tiny import examples is not a corpus performance SLA.
+// waitIRApply polls an apply job until it is terminal and returns it, through
+// the shared poll helper (TH-HARNESS-REQ-864): it waits through retryable
+// refusals, stops on a closing server's permanent one, and is bounded by the
+// test's own deadline.
 func waitIRApply(t *testing.T, url string, login authcookietest.AuthCookies, jobID string) map[string]any {
 	t.Helper()
 	deadline, ok := t.Deadline()
 	if !ok {
 		t.Fatal("full-corpus apply requires a harness deadline")
 	}
-	ctx, cancel := context.WithDeadline(t.Context(), deadline)
-	defer cancel()
-	ticker := time.NewTicker(100 * time.Millisecond)
-	defer ticker.Stop()
-	for {
-		response := pollImportJSON(t, ctx, url, login, "/api/v1/jobs/"+jobID)
-		job := httptestx.RequireSuccessEnvelope(t, response, http.StatusOK)["data"].(map[string]any)
-		switch job["status"] {
-		case "succeeded", "failed", "canceled":
-			return job
-		}
-		select {
-		case <-ctx.Done():
-			t.Fatalf("corpus apply did not terminate: %v", ctx.Err())
-		case <-ticker.C:
-		}
-	}
+	return httptestx.PollJob(t, url, jobID, httptestx.PollOptions{
+		Timeout:  time.Until(deadline),
+		Interval: 100 * time.Millisecond,
+		Request: []func(*http.Request){
+			httptestx.WithCookies(login.Session, login.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value),
+		},
+	}, "succeeded", "failed", "canceled")
 }
 
 func pollImportJSON(t *testing.T, ctx context.Context, baseURL string, login authcookietest.AuthCookies, path string) *http.Response {

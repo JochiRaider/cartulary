@@ -30,7 +30,6 @@ type service struct {
 	authStore                *authn.Store
 	jobManager               importJobOperations
 	jobRunner                importJobRunner
-	keys                     authn.MasterKeys
 	cursorCodec              *pagination.Codec
 	limits                   Limits
 	archiveLimits            ArchiveLimits
@@ -162,7 +161,6 @@ func NewModule(dependencies ModuleDependencies) (*Module, error) {
 		authStore:                authn.NewStore(dependencies.Postgres),
 		jobManager:               dependencies.JobOperations,
 		jobRunner:                dependencies.JobRunner,
-		keys:                     keys,
 		cursorCodec:              cursorCodec,
 		limits:                   dependencies.Limits,
 		archiveLimits:            dependencies.ArchiveLimits,
@@ -180,7 +178,7 @@ func (m *Module) RegisterRoutes() httpapi.RouteRegistrar {
 		if m == nil || m.service == nil {
 			return fmt.Errorf("imports module unavailable")
 		}
-		return bindOwnerRoutes(mux, deps, m.service)
+		return bindRoutes(mux, deps, m.service)
 	}
 }
 

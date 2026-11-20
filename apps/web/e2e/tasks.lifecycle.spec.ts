@@ -18,7 +18,10 @@ import {
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
 
-import { installOwnedRoute } from "./support/transport/requestInterception";
+import {
+  fulfillOperationError,
+  installOwnedRoute,
+} from "./support/transport/requestInterception";
 import { disableWorkbookSockets } from "./support/transport/socketIsolation";
 import {
   activateSemanticGridCell,
@@ -94,19 +97,12 @@ async function exerciseTaskPatchRecovery(
     async (route) => {
       if (!failRefresh) return route.continue();
       failRefresh = false;
-      return route.fulfill({
-        status: 503,
-        contentType: "application/json",
-        body: JSON.stringify({
-          error: {
-            code: "service_unavailable",
-            status: 503,
-            retryable: true,
-            message: "Refresh unavailable",
-            request_id: "task-refresh-failure",
-          },
-        }),
-      });
+      return fulfillOperationError(
+        route,
+        "queryWorkbookView",
+        500,
+        "internal_error",
+      );
     },
   );
   await openGenericSurface(page, incidentId, taskRequestsViewSchemaId);

@@ -1,7 +1,7 @@
 import { loadExecutionTopology } from "../../generated-artifacts/execution-topology.mjs";
 import path from "node:path";
 import { createHash } from "node:crypto";
-import { resolveDeclaredTargetInputs } from "../../contract/index.mjs";
+import { redactionMarker, resolveDeclaredTargetInputs } from "../../contract/index.mjs";
 import { workspaceLayout } from "../../../workspace_layout.generated.mjs";
 import { resolveGraphNodeBinary, assertGraphNodeLaunch } from "./launch-binding.mjs";
 const root = path.resolve(import.meta.dirname, "../../../..");
@@ -66,7 +66,7 @@ export function commandInputContext(entry, selected = {}, { environment: parent 
     [...sources, ...Object.keys(selected).map((name) => `${name}=cli`)].join(" ") };
   const resolved = resolveDeclaredTargetInputs(entry.name, entry, surface, environment);
   const inputs = Object.fromEntries(Object.entries(resolved).sort(([a], [b]) => a.localeCompare(b))
-    .map(([name, input]) => [name, input.summary_emission === "redacted_value" ? "<redacted>" : input.value]));
+    .map(([name, input]) => [name, input.summary_emission === "redacted_value" ? redactionMarker() : input.value]));
   // Public controls are consumed by selection or explicit private arguments.
   // Clear the complete authored input set, including inputs of other commands,
   // then forward only this command's admitted runtime values. The native owner

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	extensiondeadline "github.com/JochiRaider/cartulary/internal/modules/extensions/deadline"
 	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs/jobcontract"
 	"github.com/google/uuid"
@@ -76,11 +77,14 @@ type ReconciliationOptions struct {
 	Coordinator        *Coordinator
 	MaxNonterminalJobs int
 	Timeout            time.Duration
+	// CancellationGrace bounds how long an interrupted reconciliation
+	// transaction, including an issued commit, may remain active (EXT-REQ-215).
+	CancellationGrace  time.Duration
 	FatalIntegritySink func(error)
 }
 
 func ReconcileInactiveExtensionJobs(ctx context.Context, store InactiveJobStore, inactiveProfileIDs []string, contracts []JobKindContract, options ReconciliationOptions) error {
-	if store == nil || options.Coordinator == nil || options.MaxNonterminalJobs < 1 || options.Timeout <= 0 {
+	if store == nil || options.Coordinator == nil || options.MaxNonterminalJobs < 1 || options.Timeout <= 0 || options.CancellationGrace < 0 {
 		return startupFailure(ErrUnclaimReconciliationFailed, registryArtifactFinding("job_reconciliation"))
 	}
 	if options.FatalIntegritySink == nil {
@@ -169,7 +173,20 @@ func reconcileInactiveExtensionProfile(ctx context.Context, store InactiveJobSto
 		return err
 	}
 	jobID = nil
-	commitOutcome, err := store.ApplyInactiveJobOutcomes(ctx, profileID, outcomes)
+	// The store awaits an issued commit instead of abandoning it on the
+	// reconciliation deadline. This completion lifetime records the first
+	// interruption and bounds the whole transaction, including that commit, by
+	// the cancellation grace; a transaction still active after the grace is
+	// operation_cancellation_grace_exhausted (EXT-REQ-131, EXT-REQ-215).
+	completion, lifetimeErr := extensiondeadline.Complete(ctx, extensiondeadline.InvocationPolicy{
+		Grace: options.CancellationGrace, Exhausted: options.FatalIntegritySink,
+	}, func(callCtx context.Context) (ReconciliationCommitOutcome, error) {
+		return store.ApplyInactiveJobOutcomes(callCtx, profileID, outcomes)
+	})
+	if lifetimeErr != nil {
+		return &FatalStateIntegrityError{Cause: lifetimeErr}
+	}
+	commitOutcome, err := completion.Value, completion.Err
 	if commitOutcome == ReconciliationIndeterminate {
 		cause := errors.New("indeterminate_database_commit")
 		options.FatalIntegritySink(cause)

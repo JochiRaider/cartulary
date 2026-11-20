@@ -36,8 +36,8 @@ func (types sqlTypes) resolveAliases(ref sqlTypeRef, seen map[string]bool) sqlTy
 			return types.resolveAliases(ref.with(declaration.Type), seen)
 		}
 	}
-	key := ref.key()
-	definition := types[key]
+	key := types.key(ref)
+	definition := types.declared[key]
 	if definition == nil {
 		return ref
 	}
@@ -71,14 +71,14 @@ func (types sqlTypes) resolveAliases(ref sqlTypeRef, seen map[string]bool) sqlTy
 
 func (types sqlTypes) localType(ref sqlTypeRef) *ast.TypeSpec {
 	id, ok := ref.expr.(*ast.Ident)
-	if !ok || id.Obj == nil {
-		return nil
-	}
-	decl, ok := id.Obj.Decl.(*ast.TypeSpec)
 	if !ok {
 		return nil
 	}
-	if definition := types[ref.key()]; definition != nil {
+	decl, ok := types.binder.bind(id).decl.(*ast.TypeSpec)
+	if !ok {
+		return nil
+	}
+	if definition := types.declared[types.key(ref)]; definition != nil {
 		for _, candidate := range definition.definitions {
 			if candidate.expr == decl.Type {
 				return nil
@@ -102,12 +102,13 @@ func (types sqlTypes) typeIdentity(ref sqlTypeRef, seen map[string]bool) (string
 		if declaration := types.localType(ref); declaration != nil {
 			return fmt.Sprintf("local:%d", declaration.Pos()), true
 		}
-		if e.Obj != nil && e.Obj.Kind == ast.Typ {
-			if declaration, ok := e.Obj.Decl.(*ast.Field); ok {
+		resolved := types.binder.bind(e)
+		if resolved.is(typeBinding) {
+			if declaration, ok := resolved.decl.(*ast.Field); ok {
 				return fmt.Sprintf("parameter:%d", declaration.Pos()), true
 			}
 		}
-		if types[ref.key()] == nil && e.Obj == nil {
+		if types.declared[types.key(ref)] == nil && !resolved.bound() {
 			switch e.Name {
 			case "any", "comparable", "bool", "byte", "complex64", "complex128", "error", "float32", "float64", "int", "int8", "int16", "int32", "int64", "rune", "string", "uint", "uint8", "uint16", "uint32", "uint64", "uintptr":
 				return "builtin." + e.Name, true
@@ -140,11 +141,11 @@ func (types sqlTypes) typeIdentity(ref sqlTypeRef, seen map[string]bool) (string
 		key, known := types.fieldIdentity(ref, e.Fields, true, false, seen)
 		return "struct{" + key + "}", known
 	}
-	key := ref.key()
+	key := types.key(ref)
 	if key == "" {
 		return "", false
 	}
-	if types[key] != nil {
+	if types.declared[key] != nil {
 		return key, true
 	}
 	return key, !repositorySQLType(key) && strings.Contains(key, ".")
@@ -199,12 +200,12 @@ func (types sqlTypes) structural(ref sqlTypeRef, seen map[string]bool) sqlTypeRe
 	case *ast.IndexListExpr:
 		return types.structural(ref.with(ref.expr.(*ast.IndexListExpr).X), seen)
 	}
-	key := ref.key()
+	key := types.key(ref)
 	if key == "" || seen[key] {
 		return sqlTypeRef{}
 	}
 	seen[key] = true
-	if definition := types[key]; definition != nil && len(definition.definitions) == 1 {
+	if definition := types.declared[key]; definition != nil && len(definition.definitions) == 1 {
 		return types.structural(definition.definitions[0], seen)
 	}
 	return sqlTypeRef{}
@@ -243,7 +244,7 @@ func (types sqlTypes) derivedSQLResult(ref sqlTypeRef, seen map[string]bool) boo
 			}
 		}
 	}
-	key := ref.key()
+	key := types.key(ref)
 	if key == "" {
 		return false
 	}
@@ -251,7 +252,7 @@ func (types sqlTypes) derivedSQLResult(ref sqlTypeRef, seen map[string]bool) boo
 		return true
 	}
 	seen[key] = true
-	if definition := types[key]; definition != nil {
+	if definition := types.declared[key]; definition != nil {
 		for _, candidate := range definition.definitions {
 			if types.derivedSQLResult(candidate, cloneSQLSeen(seen)) {
 				return true
@@ -294,9 +295,11 @@ func (types sqlTypes) portResult(ref sqlTypeRef) string {
 
 func (types sqlTypes) typeParameter(ref sqlTypeRef) *ast.Field {
 	ref = types.resolveAliases(ref, map[string]bool{})
-	if id, ok := ref.expr.(*ast.Ident); ok && id.Obj != nil && id.Obj.Kind == ast.Typ {
-		if field, ok := id.Obj.Decl.(*ast.Field); ok {
-			return field
+	if id, ok := ref.expr.(*ast.Ident); ok {
+		if resolved := types.binder.bind(id); resolved.is(typeBinding) {
+			if field, ok := resolved.decl.(*ast.Field); ok {
+				return field
+			}
 		}
 	}
 	return nil

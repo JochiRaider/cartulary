@@ -219,9 +219,52 @@ const networkFlowRouteContractKeys = new Set([
   "profile_id",
   "contract_major",
   "route_root",
+  "path_parameters",
   "import_integration",
   "routes",
 ]);
+const networkFlowPathParameterKeys = new Set(["format", "schema_def", "admission_stage", "not_found"]);
+const networkFlowNotFoundKeys = new Set(["code", "http_status", "details"]);
+// The admission projection of NF NLSpec Table 6-B and Table 21-C (Core 01
+// REQ-01-707): each path placeholder's format, admission stage and the
+// not-found response a malformed value receives.
+const expectedNetworkFlowPathParameters = {
+  graph_view_id: {
+    schema_def: "GraphViewID",
+    admission_stage: "resource_path",
+    not_found: {
+      code: "network_flow_graph_view_not_found",
+      http_status: 404,
+      details: { field: "graph_view_id", reason_code: "not_found", retry_action: "refresh_resource" },
+    },
+  },
+  incident_id: {
+    format: "uuid",
+    admission_stage: "incident_visibility_role_lifecycle",
+    not_found: { code: "incident_not_found", http_status: 404, details: {} },
+  },
+  network_flow_table_id: {
+    schema_def: "TableID",
+    admission_stage: "resource_path",
+    not_found: {
+      code: "network_flow_table_not_found",
+      http_status: 404,
+      details: {
+        allowed_states: ["active"],
+        network_flow_table_id: null,
+        reason_code: "not_found",
+        retry_action: "refresh_resource",
+        table_status: null,
+      },
+    },
+  },
+};
+// Declared security by idempotency class: every Network Flow operation
+// requires a session, and a cookie session pairs CSRF on mutating routes.
+const expectedNetworkFlowRouteSecurity = {
+  read_route: [["bearerSession"], ["sessionCookie"]],
+  client_txn_id_required: [["bearerSession"], ["csrfCookie", "csrfHeader", "sessionCookie"]],
+};
 const networkFlowImportIntegrationKeys = new Set([
   "target_kind",
   "target_table_schema_id",
@@ -244,6 +287,7 @@ const networkFlowRouteEntryKeys = new Set([
   "method",
   "path",
   "auth_context",
+  "security",
   "request_schema_id",
   "continuation_schema_id",
   "success_schema_id",
@@ -528,6 +572,8 @@ const toolRunFailureReasons = new Set([
   "fixture_error",
   "resource_conflict",
   "test_assertion_failure",
+  "contract_violation",
+  "server_fatal",
   "security_finding",
   "child_target_failure",
   "tool_diagnostic_failure",
@@ -1505,6 +1551,21 @@ function validateNetworkFlowRouteContractsShape(file, publicSchemaIDs, contractM
     "/api/v1/incidents/{incident_id}/network-flow",
     `${file}.route_root`,
   );
+  const pathParameters = requireObject(routeContracts.path_parameters, `${file}.path_parameters`);
+  assertObjectKeys(pathParameters, new Set(Object.keys(expectedNetworkFlowPathParameters)), `${file}.path_parameters`);
+  assertRequiredKeys(pathParameters, new Set(Object.keys(expectedNetworkFlowPathParameters)), `${file}.path_parameters`);
+  for (const [name, expected] of Object.entries(expectedNetworkFlowPathParameters)) {
+    const label = `${file}.path_parameters.${name}`;
+    const parameter = requireObject(pathParameters[name], label);
+    assertObjectKeys(parameter, networkFlowPathParameterKeys, label);
+    const notFound = requireObject(parameter.not_found, `${label}.not_found`);
+    assertObjectKeys(notFound, networkFlowNotFoundKeys, `${label}.not_found`);
+    assertRequiredKeys(notFound, networkFlowNotFoundKeys, `${label}.not_found`);
+    requireObject(notFound.details, `${label}.not_found.details`);
+    if (JSON.stringify(parameter) !== JSON.stringify(expected)) {
+      throw new Error(`${label} must be ${JSON.stringify(expected)}`);
+    }
+  }
 
   const integration = requireObject(routeContracts.import_integration, `${file}.import_integration`);
   assertObjectKeys(integration, networkFlowImportIntegrationKeys, `${file}.import_integration`);
@@ -1905,6 +1966,16 @@ function validateNetworkFlowRouteContractsShape(file, publicSchemaIDs, contractM
     const label = `${file}.routes[${index + 1}]`;
     for (const key of ["route_id", "method", "path", "auth_context", "idempotency", "audit_event"]) {
       requireExact(route[key], expected[key], `${label}.${key}`);
+    }
+    const expectedSecurity = expectedNetworkFlowRouteSecurity[expected.idempotency];
+    const security = requireArray(route.security, `${label}.security`, { nonEmpty: true });
+    requireExactArrayLength(security, expectedSecurity.length, `${label}.security`);
+    for (const [alternative, schemes] of expectedSecurity.entries()) {
+      requireExactArray(
+        requireStringArray(security[alternative], `${label}.security[${alternative + 1}]`, { nonEmpty: true }),
+        schemes,
+        `${label}.security[${alternative + 1}]`,
+      );
     }
     requireNullOrPublicSchemaID(route.request_schema_id, publicSchemaIDs, `${label}.request_schema_id`);
     requireExact(route.request_schema_id, expected.request_schema_id, `${label}.request_schema_id`);

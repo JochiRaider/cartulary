@@ -1044,10 +1044,6 @@
         },
         {
           "kind": "path_prefix",
-          "path": "packages/protocol-ts/src/generated/extension-profile-registry"
-        },
-        {
-          "kind": "path_prefix",
           "path": "packages/protocol-ts/src/generated/network-flow-error-registry"
         },
         {

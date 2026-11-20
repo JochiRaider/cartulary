@@ -1,15 +1,14 @@
-import type {
-  GetIncidentResponse,
-  PatchIncidentRequest,
-  PatchIncidentResponse,
-} from "@cartulary/protocol-ts/http";
-import { type APIError, fetchHTTPOperation } from "../../services/browserApi";
+import type { PatchIncidentRequest } from "@cartulary/protocol-ts/http";
+import {
+  fetchHTTPOperation,
+  type HTTPOperationError,
+} from "../../services/browserApi";
 import {
   type IncidentMetadataResource,
   type MetadataAuthority,
+  type MetadataHTTPOperation,
   type MetadataProblem,
   metadataFields,
-  metadataProblemCodes,
 } from "../incidentMetadataModel";
 
 export type MetadataResult =
@@ -24,22 +23,23 @@ const invalid = (): MetadataResult => ({
   status: 502,
   problem: { code: "invalid_public_contract_response" },
 });
-function failure(status: number, error?: APIError): MetadataResult {
+function failure(
+  status: number,
+  error: HTTPOperationError<MetadataHTTPOperation>,
+): MetadataResult {
   return {
     ok: false,
     status,
     problem: {
-      code:
-        metadataProblemCodes.find((code) => code === error?.code) ??
-        "unknown_public_error",
-      field: metadataFields.find((field) => field === error?.details?.field),
+      code: error.code,
+      field: metadataFields.find((field) => field === error.details.field),
       reason: (
         [
           "field_too_long",
           "control_character_not_allowed",
           "invalid_value",
         ] as const
-      ).find((reason) => reason === error?.details?.reason_code),
+      ).find((reason) => reason === error.details.reason_code),
     },
   };
 }
@@ -47,7 +47,7 @@ export async function readIncidentMetadata(options: {
   authority: MetadataAuthority;
   signal: AbortSignal;
 }): Promise<MetadataResult> {
-  const result = await fetchHTTPOperation<GetIncidentResponse>({
+  const result = await fetchHTTPOperation({
     apiBase: options.authority.apiBase,
     operationID: "getIncident",
     pathParameters: { incident_id: options.authority.incidentId },
@@ -85,7 +85,7 @@ export async function patchIncidentMetadata(options: {
       ? {}
       : { primary_external_case_ref }),
   } satisfies PatchIncidentRequest;
-  const result = await fetchHTTPOperation<PatchIncidentResponse>({
+  const result = await fetchHTTPOperation({
     apiBase: options.authority.apiBase,
     operationID: "patchIncident",
     pathParameters: { incident_id: options.authority.incidentId },

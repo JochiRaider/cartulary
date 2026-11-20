@@ -12,7 +12,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/enterpriseauth"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
-	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 )
 
@@ -61,7 +60,6 @@ type Service struct {
 	env                     map[string]string
 	publicOrigin            string
 	now                     func() time.Time
-	enterpriseAdmitted      bool
 	oidcVerifier            enterpriseOIDCVerifier
 	samlVerifier            enterpriseSAMLVerifier
 	beginRedirect           enterpriseBeginRedirectBuilder
@@ -145,15 +143,6 @@ type sessionRevocationPublisher interface {
 	RevokeSession(uuid.UUID, string)
 }
 
-type SessionPrincipal = httpauth.Principal
-
-type CredentialAuthContext struct {
-	Principal          *SessionPrincipal
-	BootstrapToken     *authn.BootstrapTokenRecord
-	BootstrapTokenText string
-	User               authn.UserRecord
-}
-
 type RouteOption func(*routeOptions)
 
 type routeOptions struct {
@@ -192,33 +181,51 @@ func RegisterRoutes(options ...RouteOption) httpapi.RouteRegistrar {
 		if err != nil {
 			return err
 		}
-		handlers := map[string]http.HandlerFunc{
-			"beginTOTPEnrollment":             service.handleTOTPBegin,
-			"changeCurrentPassword":           service.handlePasswordChange,
-			"completeTOTPEnrollment":          service.handleTOTPComplete,
-			"createDeploymentUser":            service.handleUsersCollection,
-			"getCredentialState":              service.handleCredentialState,
-			"getCurrentAccountPreferences":    service.handleAccountPreferences,
-			"getCurrentAccountProfile":        service.handleAccountProfile,
-			"getCurrentSession":               service.handleSession,
-			"getDeploymentUser":               service.handleUsersMember,
-			"listAdministrativeAuditEvents":   service.handleAdministrativeAuditEvents,
-			"listDeploymentUsers":             service.handleUsersCollection,
-			"loginLocalUser":                  service.handleLogin,
-			"logoutCurrentSession":            service.handleLogout,
-			"patchCurrentAccountProfile":      service.handleAccountProfile,
-			"patchDeploymentUser":             service.handleUsersMember,
-			"putCurrentAccountPreferences":    service.handleAccountPreferences,
-			"resetDeploymentUserPassword":     service.handleUsersMember,
-			"resetDeploymentUserTOTP":         service.handleUsersMember,
-			"revokeAllDeploymentUserSessions": service.handleUsersMember,
-		}
-		if settings.enterpriseAuthBindings {
-			handlers["createEnterpriseAuthBinding"] = service.handleUsersMember
-			handlers["retireEnterpriseAuthBinding"] = service.handleUsersMember
-			handlers["rotateEnterpriseAuthBinding"] = service.handleUsersMember
-		}
-		return httpapi.BindOwnerRoutes(mux, deps, "module.auth", handlers)
+		return httpapi.BindAdmittedOwnerRoutes(mux, deps, "module.auth", service.operationHandlers(settings.enterpriseAuthBindings))
+	}
+}
+
+// operationHandlers binds one handler per base auth operation, plus the
+// enterprise binding operations when that route contribution is admitted. Each
+// is admitted centrally (Core 01 REQ-01-707).
+func (s *Service) operationHandlers(enterpriseAuthBindings bool) map[string]http.HandlerFunc {
+	handlers := map[string]http.HandlerFunc{
+		"beginTOTPEnrollment":             s.handleTOTPBegin,
+		"changeCurrentPassword":           s.handlePasswordChange,
+		"completeTOTPEnrollment":          s.handleTOTPComplete,
+		"createDeploymentUser":            s.handleCreateUser,
+		"getCredentialState":              s.handleCredentialState,
+		"getCurrentAccountPreferences":    s.handleGetAccountPreferences,
+		"getCurrentAccountProfile":        s.handleGetAccountProfile,
+		"getCurrentSession":               s.handleSession,
+		"getDeploymentUser":               s.handleGetUser,
+		"listAdministrativeAuditEvents":   s.handleAdministrativeAuditEvents,
+		"listDeploymentUsers":             s.handleListUsers,
+		"loginLocalUser":                  s.handleLogin,
+		"logoutCurrentSession":            s.handleLogout,
+		"patchCurrentAccountProfile":      s.handlePatchAccountProfile,
+		"patchDeploymentUser":             s.handlePatchUser,
+		"putCurrentAccountPreferences":    s.handlePutAccountPreferences,
+		"resetDeploymentUserPassword":     s.handleResetUserPassword,
+		"resetDeploymentUserTOTP":         s.handleResetUserTOTP,
+		"revokeAllDeploymentUserSessions": s.handleRevokeAllUserSessions,
+	}
+	if enterpriseAuthBindings {
+		handlers["createEnterpriseAuthBinding"] = s.handleCreateEnterpriseAuthBinding
+		handlers["retireEnterpriseAuthBinding"] = s.handleRetireEnterpriseAuthBinding
+		handlers["rotateEnterpriseAuthBinding"] = s.handleRotateEnterpriseAuthBinding
+	}
+	return handlers
+}
+
+// enterpriseOperationHandlers binds the public enterprise sign-in operations.
+func (s *Service) enterpriseOperationHandlers() map[string]http.HandlerFunc {
+	return map[string]http.HandlerFunc{
+		"beginEnterpriseAuth":         s.handleBeginEnterpriseAuth,
+		"completeEnterpriseOIDC":      s.handleEnterpriseOIDC,
+		"completeEnterpriseSAML":      s.handleEnterpriseSAMLACS,
+		"finishEnterpriseSAML":        s.handleEnterpriseSAMLComplete,
+		"listEnterpriseAuthProviders": s.handleListEnterpriseAuthProviders,
 	}
 }
 
@@ -234,13 +241,7 @@ func RegisterEnterpriseRoutes(options ...RouteOption) httpapi.RouteRegistrar {
 		if err != nil {
 			return err
 		}
-		return httpapi.BindOwnerRoutes(mux, deps, "module.auth", map[string]http.HandlerFunc{
-			"beginEnterpriseAuth":         service.handleEnterpriseProviders,
-			"completeEnterpriseOIDC":      service.handleEnterpriseOIDC,
-			"completeEnterpriseSAML":      service.handleEnterpriseSAML,
-			"finishEnterpriseSAML":        service.handleEnterpriseSAML,
-			"listEnterpriseAuthProviders": service.handleEnterpriseProviders,
-		})
+		return httpapi.BindAdmittedOwnerRoutes(mux, deps, "module.auth", service.enterpriseOperationHandlers())
 	}
 }
 
@@ -264,8 +265,7 @@ func RegisterTestRoutes(options ...RouteOption) httpapi.RouteRegistrar {
 			return err
 		}
 
-		mux.HandleFunc("/api/v1/test/auth/touch", guard.Protect(service.handleTouch))
-		return nil
+		return httpapi.BindTestRoute(mux, deps, guard, http.MethodGet, "/api/v1/test/auth/touch", service.handleTouch)
 	}
 }
 
@@ -329,7 +329,6 @@ func newService(deps httpapi.DependencySet, enterpriseAdmitted bool, publicOrigi
 		env:                     deps.Env,
 		publicOrigin:            publicOrigin,
 		now:                     now,
-		enterpriseAdmitted:      enterpriseAdmitted,
 		oidcVerifier:            oidcVerifier,
 		samlVerifier:            samlVerifier,
 		beginRedirect:           beginRedirect,

@@ -31,6 +31,10 @@ func (a rollbackTransactionalApplier) applyRowRestorePlanTx(ctx context.Context,
 	if err != nil {
 		return rollbackApplyResult{}, err
 	}
+	dependents, err := a.captureDependentsTx(ctx, tx, plan.ProjectionRecords, record.RecordID)
+	if err != nil {
+		return rollbackApplyResult{}, err
+	}
 	nextRowVersion, err := a.envelopes.AdvanceVersionTx(ctx, tx, record.RecordID, actor.UUID(), now)
 	if err != nil {
 		return rollbackApplyResult{}, adaptEnvelopeError(err)
@@ -100,6 +104,9 @@ func (a rollbackTransactionalApplier) applyRowRestorePlanTx(ctx context.Context,
 		return rollbackApplyResult{}, err
 	}
 	if err := a.publication.appendRecordChangedTx(ctx, tx, publication); err != nil {
+		return rollbackApplyResult{}, err
+	}
+	if err := a.publishDependentChangesTx(ctx, tx, changeSetID, dependents); err != nil {
 		return rollbackApplyResult{}, err
 	}
 	change := RollbackRecordChange{
@@ -192,6 +199,10 @@ func (a rollbackTransactionalApplier) applyRowBackedRollbackTx(ctx context.Conte
 	if err != nil {
 		return RollbackRecordChange{}, err
 	}
+	dependents, err := a.captureDependentsTx(ctx, tx, plan.ProjectionRecords, targetRecordID)
+	if err != nil {
+		return RollbackRecordChange{}, err
+	}
 	nextRowVersion, err := a.envelopes.AdvanceVersionTx(ctx, tx, targetRecordID, actor.UUID(), now)
 	if err != nil {
 		return RollbackRecordChange{}, adaptEnvelopeError(err)
@@ -246,6 +257,9 @@ func (a rollbackTransactionalApplier) applyRowBackedRollbackTx(ctx context.Conte
 		return RollbackRecordChange{}, err
 	}
 	if err := a.publication.appendRecordChangedTx(ctx, tx, publication); err != nil {
+		return RollbackRecordChange{}, err
+	}
+	if err := a.publishDependentChangesTx(ctx, tx, changeSetID, dependents); err != nil {
 		return RollbackRecordChange{}, err
 	}
 	return RollbackRecordChange{
