@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v13",
+  "schema_id": "cartulary.test_family_manifest.v14",
   "owner_id": "module.reporting",
   "rows": [
     {
@@ -114,6 +114,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 36000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -152,6 +153,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 65000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -182,6 +184,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 6000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -239,6 +242,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 6000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -300,6 +304,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 2000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -385,6 +390,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 125000,
       "runtime_profile_id": "none",
       "resource_profile_id": "renderer_browser",
       "claim_posture": "implementation",
@@ -505,6 +511,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 26000,
       "runtime_profile_id": "none",
       "resource_profile_id": "renderer_browser",
       "claim_posture": "implementation",
@@ -591,6 +598,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 3000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -622,6 +630,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 19000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -650,6 +659,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 4000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -678,6 +688,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 3000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -708,6 +719,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 11000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -738,6 +750,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 6000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",

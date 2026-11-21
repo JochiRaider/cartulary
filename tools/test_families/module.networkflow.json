@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v13",
+  "schema_id": "cartulary.test_family_manifest.v14",
   "owner_id": "module.networkflow",
   "rows": [
     {
@@ -1251,69 +1251,6 @@
       "postgres_isolation": "shared"
     },
     {
-      "row_id": "module.networkflow.integration.canonical_identity_migration_repairs_retained_ro_14035fcdca",
-      "owner_id": "module.networkflow",
-      "family_id": "module.networkflow.integration",
-      "collaborator_ids": [
-        "module.database_migrations",
-        "module.imports",
-        "platform.postgres"
-      ],
-      "verification_ids": [
-        "module.networkflow.verification.behavior_contract"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/networkflow",
-        "tests": [
-          "TestNetworkFlowOrientationMigrationAdmission"
-        ]
-      },
-      "evidence_class": "integration",
-      "runtime_profile_id": "network_flow_claimed",
-      "resource_profile_id": "io_heavy",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "postgres_migration",
-      "aggregate_placement": "standard",
-      "service_dependencies": [
-        "postgres"
-      ],
-      "postgres_isolation": "exclusive"
-    },
-    {
-      "row_id": "module.networkflow.integration.canonical_migration_preserves_immutable_results_c092f26ac0",
-      "owner_id": "module.networkflow",
-      "family_id": "module.networkflow.integration",
-      "collaborator_ids": [
-        "module.database_migrations",
-        "module.graphprojection",
-        "module.imports",
-        "platform.postgres"
-      ],
-      "verification_ids": [
-        "module.networkflow.verification.behavior_contract"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/networkflow",
-        "tests": [
-          "TestNetworkFlowOrientationPreservesHistoricalState_Integration"
-        ]
-      },
-      "evidence_class": "integration",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "io_heavy",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "postgres_migration",
-      "aggregate_placement": "standard",
-      "service_dependencies": [
-        "postgres"
-      ],
-      "postgres_isolation": "exclusive"
-    },
-    {
       "row_id": "module.networkflow.integration.contributor_fixture_compares_exact_graph_vertex_91ea7945d2",
       "owner_id": "module.networkflow",
       "family_id": "module.networkflow.integration",
@@ -1598,6 +1535,39 @@
       "fixture_capability": "postgres_dedicated",
       "aggregate_placement": "standard",
       "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.networkflow.integration.graph_worker_faults_at_every_boundary_leave_jobs_8c7b02b181",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.integration",
+      "collaborator_ids": [
+        "app.server",
+        "module.graphprojection",
+        "platform.jobs"
+      ],
+      "verification_ids": [
+        "module.networkflow.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/networkflow",
+        "tests": [
+          "TestNetworkFlowGraphWorkerFaults_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "estimated_work_ms": 46000,
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "postgres_heavy",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
         "postgres"
       ],
       "postgres_isolation": "exclusive"
@@ -2434,7 +2404,7 @@
         ]
       },
       "evidence_class": "integration",
-      "estimated_work_ms": 208000,
+      "estimated_work_ms": 104000,
       "runtime_profile_id": "network_flow_claimed",
       "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",

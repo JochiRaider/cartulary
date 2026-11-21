@@ -2,10 +2,12 @@ package evidence_test
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
@@ -92,5 +94,58 @@ SELECT EXISTS (
 		if present != want {
 			t.Fatalf("index %s present = %t, want %t", indexName, present, want)
 		}
+	}
+}
+
+// TestEvidenceFailedBlobCleanupDueIsStorageEnforced_Integration covers Core 02
+// REQ-02-189a: a failed Blob's cleanup is due exactly 45 minutes after its
+// failure, and storage enforces it, including for the Recovery role in replica
+// mode, so a row cleanup could never claim cannot exist.
+func TestEvidenceFailedBlobCleanupDueIsStorageEnforced_Integration(t *testing.T) {
+	harness := pgtest.Start(t)
+	db := harness.BeginRollbackDBT(t, "evidence-blob-failure-cleanup")
+	ctx := context.Background()
+	if _, err := db.Exec(ctx, `SET LOCAL ROLE cartulary_recovery`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(ctx, `SET LOCAL session_replication_role = replica`); err != nil {
+		t.Fatal(err)
+	}
+	insert := func(blobID, cleanupDue string) error {
+		_, err := db.Exec(ctx, `SAVEPOINT failed_blob`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = db.Exec(ctx, `
+INSERT INTO public.object_blobs (
+    object_blob_id, incident_id, created_by_user_id, storage_key, upload_state,
+    byte_size, target_expires_at, pending_expires_at, terminal_reason, failed_at, cleanup_due_at
+) VALUES (
+	$1::uuid, '53000000-0000-4000-8000-000000000021', '53000000-0000-4000-8000-000000000031',
+	'incidents/fixture/objects/' || $1::text, 'failed', 1, now(), now(), 'pending_timeout',
+	'2026-11-21T10:00:00Z', `+cleanupDue+`
+)`, blobID)
+		if err != nil {
+			if _, rollbackErr := db.Exec(ctx, `ROLLBACK TO SAVEPOINT failed_blob`); rollbackErr != nil {
+				t.Fatal(rollbackErr)
+			}
+		}
+		return err
+	}
+	for _, tc := range []struct{ name, blobID, cleanupDue string }{
+		{"no cleanup due time", "53000000-0000-4000-8000-000000000041", "NULL"},
+		{"due one second early", "53000000-0000-4000-8000-000000000042", "'2026-11-21T10:44:59Z'"},
+		{"due one second late", "53000000-0000-4000-8000-000000000043", "'2026-11-21T10:45:01Z'"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := insert(tc.blobID, tc.cleanupDue)
+			var pgErr *pgconn.PgError
+			if !errors.As(err, &pgErr) || pgErr.Code != "23514" || pgErr.ConstraintName != "object_blobs_failure_cleanup_ck" {
+				t.Fatalf("failed Blob with cleanup due %s: err=%v, want check violation object_blobs_failure_cleanup_ck", tc.cleanupDue, err)
+			}
+		})
+	}
+	if err := insert("53000000-0000-4000-8000-000000000044", "'2026-11-21T10:45:00Z'"); err != nil {
+		t.Fatalf("coherent failed Blob rejected: %v", err)
 	}
 }

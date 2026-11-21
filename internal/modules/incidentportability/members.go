@@ -112,6 +112,13 @@ func writeMemberFrom(ctx context.Context, destination MemberWriter, path string,
 	return member, ctx.Err()
 }
 
+// WriteStagedMemberFrom is WriteMemberFrom for a staged preparation stream
+// that may be empty: a producer that writes nothing stages no member, and the
+// zero Member is returned (Core 01 REQ-01-641).
+func WriteStagedMemberFrom(ctx context.Context, destination MemberWriter, path string, write func(context.Context, io.Writer) error) (Member, error) {
+	return writeStagedMemberFrom(ctx, destination, path, write)
+}
+
 // writeStagedMemberFrom is writeMemberFrom for preparation streams. The
 // member is allocated with the producer's first byte, so a producer that
 // writes nothing stages no object and the zero Member is returned (Core 01

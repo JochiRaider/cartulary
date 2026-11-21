@@ -267,8 +267,8 @@ assert_volume_mount postgres /var/lib/postgresql
 # shellcheck disable=SC2016 # Expand PGDATA inside the Compose container, not this shell.
 effective_pgdata="$(compose exec -T postgres sh -c 'printf %s "$PGDATA"')"
 [[ "$effective_pgdata" == "/var/lib/postgresql/18/docker" ]] || fail "postgres PGDATA was $effective_pgdata"
-server_facts="$(compose exec -T --user postgres postgres psql -U postgres -d cartulary -Atc "SELECT current_setting('server_version_num'), current_setting('data_checksums');")"
-[[ "$server_facts" == "180006|on" ]] || fail "postgres engine admission facts were not exact 18.6/checksums-on"
+server_facts="$(compose exec -T --user postgres postgres psql -U postgres -d cartulary -Atc "SELECT current_setting('server_version_num'), current_setting('data_checksums'), COALESCE((SELECT 'lz4' = ANY(enumvals) FROM pg_catalog.pg_settings WHERE name = 'default_toast_compression'), false);")"
+[[ "$server_facts" == "180006|on|t" ]] || fail "postgres engine admission facts were not exact 18.6/checksums-on/lz4"
 assert_volume_mount seaweedfs-s3 /data
 assert_volume_mount app /var/lib/cartulary/backups
 assert_volume_mount app /var/lib/cartulary/reference-packs

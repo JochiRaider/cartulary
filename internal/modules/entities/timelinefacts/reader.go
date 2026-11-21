@@ -14,29 +14,37 @@ import (
 
 type Reader struct{}
 
-func (Reader) LoadMentionsTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) ([]workbookprojection.MentionFact, error) {
+// LoadMentionsTx returns the active mentions of each requested record that has
+// any, in the record's mention order, with one read for the mentions and at
+// most one for the aliases of auto-matched resolutions.
+func (Reader) LoadMentionsTx(ctx context.Context, tx pgx.Tx, recordIDs []uuid.UUID) (map[uuid.UUID][]workbookprojection.MentionFact, error) {
+	result := make(map[uuid.UUID][]workbookprojection.MentionFact)
+	if len(recordIDs) == 0 {
+		return result, nil
+	}
 	rows, err := tx.Query(ctx, `
-SELECT entity_mention_id, entity_type, source_field_key, raw_text, resolution_status,
+SELECT source_record_id, entity_mention_id, entity_type, source_field_key, raw_text, resolution_status,
        row_version, resolved_record_id, resolution_method
   FROM entity_mentions
- WHERE source_record_id = $1
+ WHERE source_record_id = ANY($1)
    AND resolution_status IN ('unresolved', 'resolved')
- ORDER BY ordinal ASC, entity_mention_id ASC
-`, recordID)
+ ORDER BY source_record_id ASC, ordinal ASC, entity_mention_id ASC
+`, recordIDs)
 	if err != nil {
 		return nil, fmt.Errorf("load timeline mention facts: %w", err)
 	}
 	defer rows.Close()
 
-	facts := make([]workbookprojection.MentionFact, 0)
 	autoResolvedIDs := make([]uuid.UUID, 0)
 	for rows.Next() {
 		var (
+			sourceRecordID   uuid.UUID
 			fact             workbookprojection.MentionFact
 			resolvedRecordID pgtype.UUID
 			resolutionMethod pgtype.Text
 		)
 		if err := rows.Scan(
+			&sourceRecordID,
 			&fact.MentionID,
 			&fact.EntityType,
 			&fact.SourceFieldKey,
@@ -59,38 +67,40 @@ SELECT entity_mention_id, entity_type, source_field_key, raw_text, resolution_st
 		if fact.ResolvedRecordID != nil && fact.ResolutionMethod != nil && *fact.ResolutionMethod == "auto_match" {
 			autoResolvedIDs = append(autoResolvedIDs, *fact.ResolvedRecordID)
 		}
-		facts = append(facts, fact)
+		result[sourceRecordID] = append(result[sourceRecordID], fact)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("iterate timeline mention facts: %w", err)
 	}
 	if len(autoResolvedIDs) == 0 {
-		return facts, nil
+		return result, nil
 	}
 
 	aliases, err := loadAliasesTx(ctx, tx, autoResolvedIDs)
 	if err != nil {
 		return nil, err
 	}
-	for index := range facts {
-		fact := &facts[index]
-		if fact.ResolvedRecordID == nil || fact.ResolutionMethod == nil || *fact.ResolutionMethod != "auto_match" {
-			continue
-		}
-		candidate, ok := fieldnorm.AutoResolutionCandidateText(fact.RawText)
-		if !ok {
-			continue
-		}
-		for _, alias := range aliases[*fact.ResolvedRecordID] {
-			normalized, ok := fieldnorm.AutoResolutionCandidateText(alias)
-			if ok && normalized == candidate {
-				value := alias
-				fact.MatchedAliasText = &value
-				break
+	for _, facts := range result {
+		for index := range facts {
+			fact := &facts[index]
+			if fact.ResolvedRecordID == nil || fact.ResolutionMethod == nil || *fact.ResolutionMethod != "auto_match" {
+				continue
+			}
+			candidate, ok := fieldnorm.AutoResolutionCandidateText(fact.RawText)
+			if !ok {
+				continue
+			}
+			for _, alias := range aliases[*fact.ResolvedRecordID] {
+				normalized, ok := fieldnorm.AutoResolutionCandidateText(alias)
+				if ok && normalized == candidate {
+					value := alias
+					fact.MatchedAliasText = &value
+					break
+				}
 			}
 		}
 	}
-	return facts, nil
+	return result, nil
 }
 
 func loadAliasesTx(ctx context.Context, tx pgx.Tx, recordIDs []uuid.UUID) (map[uuid.UUID][]string, error) {

@@ -304,6 +304,35 @@ test("catalog package closure rejects a silently removed helper test", () => {
   assert.equal(loadTestCatalog(root).summary.status, "pass", "TestMain is not a missing catalog assertion");
 });
 
+// TH-HARNESS-REQ-865: a Go row must fit one packed cohort, so its estimate plus
+// the Go startup and cleanup allowance may not exceed the packing bound.
+test("catalog validation rejects a Go row estimate that cannot fit one packed cohort", () => {
+  const read = fs.readFileSync;
+  const manifestPath = path.join(root, "tools/test_families/harness.command_surface.json");
+  const owner = JSON.parse(read(path.join(root, "tools/harness_work_graph_owner.json"), "utf8"));
+  const { startup_ms: startup, cleanup_ms: cleanup } = owner.invocation_policies.go;
+  const fits = owner.go_cohort_packing_bound_ms - startup - cleanup;
+  let estimate = fits + 1;
+  fs.readFileSync = (file, ...args) => {
+    const value = read(file, ...args);
+    if (String(file) !== manifestPath) return value;
+    const manifest = JSON.parse(value);
+    const row = manifest.rows.find((entry) => entry.row_id === "harness.command_surface.unit.configtest_helper_contract");
+    assert.equal(row.runner, "go");
+    row.estimated_work_ms = estimate;
+    return JSON.stringify(manifest);
+  };
+  syncBuiltinESMExports();
+  try {
+    assert.throws(() => loadTestCatalog(root), /configtest_helper_contract|harness\.command_surface\.json.*exceeds the packing bound/u);
+    estimate = fits;
+    assert.equal(loadTestCatalog(root).summary.status, "pass", "an estimate that exactly fills the bound is admitted");
+  } finally {
+    fs.readFileSync = read;
+    syncBuiltinESMExports();
+  }
+});
+
 test("catalog entry rejects legacy and hybrid topology before selector work", () => {
   const read = fs.readFileSync;
   const topologyPath = path.join(root, "tools/execution_topology_manifest.json");

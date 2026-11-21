@@ -40,6 +40,7 @@ else
   otel-conformance \
   go-vulncheck \
   go-gosec-targeted \
+  go-error-declaration-audit \
   go-gosec-audit \
   frontend-fallow-static \
   generate \
@@ -177,6 +178,7 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'  make lint-markdown                  lint authored Markdown and apply safe fixes' \
 	'  make go-vulncheck                   run Go vulnerability scanning over authored package roots' \
 	'  make go-gosec-targeted              run targeted Go security static analysis' \
+	'  make go-error-declaration-audit     run the advisory static error-declaration audit' \
 	'  make go-gosec-audit                 run advisory Go security audit profiles' \
 	'' \
 	'full gates:' \
@@ -272,6 +274,8 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'  side effects: retained_artifacts' \
 	'go-gosec-targeted inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off)' \
 	'  side effects: retained_artifacts' \
+	'go-error-declaration-audit inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off)' \
+	'  side effects: retained_artifacts' \
 	'go-gosec-audit inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off)' \
 	'  side effects: retained_artifacts' \
 	'frontend-fallow-static inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off)' \
@@ -318,7 +322,7 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'  side effects: none' \
 	'target-plan inputs: TARGET=target_name (required), INPUTS=path (optional), DETAIL=summary|graph|rows|artifacts (default summary), JSON=exact_1_bool (default false)' \
 	'  side effects: none' \
-	'explain-run inputs: RESULTS_DIR=result_selector (required), RUN_ID=run_id (optional), TARGET=retained_target_name (optional), DETAIL=summary|children|logs|progress|accounting|performance|fixtures|critical-path (default summary), JSON=exact_1_bool (default false), COMPARE_RESULTS_DIR=result_selector (optional), COMPARISON=equivalent|instrumentation (optional), FIXTURE_THRESHOLD_MS=positive_integer (default 30000), FIXTURE_TOP=positive_integer (default 5), \
+	'explain-run inputs: RESULTS_DIR=result_selector (required), RUN_ID=run_id (optional), TARGET=retained_target_name (optional), DETAIL=summary|children|logs|progress|accounting|performance|fixtures|critical-path|estimates (default summary), JSON=exact_1_bool (default false), COMPARE_RESULTS_DIR=result_selector (optional), COMPARISON=equivalent|instrumentation (optional), FIXTURE_THRESHOLD_MS=positive_integer (default 30000), FIXTURE_TOP=positive_integer (default 5), \
 	  VIEW=units|waits|allocations|host-admission (optional), UNIT_ID=semantic_text (optional), OFFSET=nonnegative_integer (optional), LIMIT=positive_integer (optional)' \
 	'  side effects: none' \
 	'test-run-status inputs: RESULTS_DIR=result_selector (required), RUN_ID=run_id (optional), TARGET=target_name (optional), JSON=exact_1_bool (default false), AFTER_REVISION=positive_integer (optional), WAIT_SECONDS=positive_integer (default 0)' \
@@ -565,6 +569,27 @@ go-gosec-targeted:
 	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
 	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS)" \
 	  $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target go-gosec-targeted
+endif
+
+ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
+go-error-declaration-audit: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+go-error-declaration-audit: export CARTULARY_TEST_TARGET ?= go-error-declaration-audit
+go-error-declaration-audit:
+	$(Q)$(TASK_SURFACE_NODE_READINESS)
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,go-error-declaration-audit)
+	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS)" CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "go error declaration audit" -- env \
+	  $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS)" GO="$(GO)" \
+	  GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" NODE_BIN="$(NODE_BIN)" bash ./tools/harness/static-analysis/go-error-declaration-audit.sh
+	$(call RUN_TARGET_SUMMARY,go-error-declaration-audit,pass)
+else
+go-error-declaration-audit: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+go-error-declaration-audit: export CARTULARY_TEST_TARGET ?= go-error-declaration-audit
+go-error-declaration-audit:
+	$(Q)$(TASK_SURFACE_NODE_READINESS)
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,go-error-declaration-audit)
+	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS)" \
+	  $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target go-error-declaration-audit
 endif
 
 ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)

@@ -4,7 +4,7 @@ import path from "node:path";
 import { validateSchemaSync } from "../contract/index.mjs";
 import { readExecutableRepositoryJSON } from "./restricted-input-boundary.mjs";
 
-const schemaID = "cartulary.postgres_fixture_policy_registry.v6";
+const schemaID = "cartulary.postgres_fixture_policy_registry.v7";
 
 function compareASCII(left, right) {
   return left < right ? -1 : left > right ? 1 : 0;

@@ -519,6 +519,7 @@ func AssertErrorDetailShape(t *testing.T) {
 		t.Fatalf("unexpected API error details: %#v", details)
 	}
 	assertRouteErrorDetailsComplete(t)
+	assertEmittedReasonCodesRegistered(t)
 }
 
 func AssertSuccessResourceShape(t *testing.T) {

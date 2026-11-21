@@ -110,7 +110,7 @@ func (s *indicatorLinkApplication) execute(ctx context.Context, incidentID uuid.
 		}
 	}
 	if int64(len(resolved.SourceRowRefs)) > s.store.limits.MaxBindingSourceRowRefs {
-		return indicatorLinkOutcome{}, &semanticFailure{kind: failureResourceLimit, reason: "row_limit_exceeded", details: failureDetails{LimitKey: "max_binding_source_row_refs", Limit: int(s.store.limits.MaxBindingSourceRowRefs), Actual: len(resolved.SourceRowRefs), Phase: "indicator_link"}}
+		return indicatorLinkOutcome{}, &semanticFailure{kind: failureResourceLimit, reason: "row_limit_exceeded", details: failureDetails{LimitKey: "network_flow.max_binding_source_row_refs", Limit: int(s.store.limits.MaxBindingSourceRowRefs), Actual: len(resolved.SourceRowRefs), Phase: "indicator_link"}}
 	}
 	if int64(len(request.Selector.GraphQuery.SelectedTableIDs)) > s.store.limits.MaxSelectedTablesPerQuery {
 		return indicatorLinkOutcome{}, &semanticFailure{kind: failureInvalidTableScope, reason: "selected_table_limit_exceeded", details: failureDetails{TableIDs: request.Selector.GraphQuery.SelectedTableIDs, LimitKey: "network_flow.max_selected_tables_per_query", LinkGraph: true}}

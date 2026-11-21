@@ -61,7 +61,7 @@ type Runner struct {
 	shutdownFailures []shutdownReleaseFailure
 	renewalTicks     func(time.Duration) (<-chan time.Time, func())
 	renewExecution   func(context.Context, Execution) error
-	releaseExecution func(context.Context, Execution) error
+	releaseExecution func(ctx context.Context, execution Execution, wait bool) error
 	beforeWait       func()
 }
 
@@ -102,7 +102,7 @@ func NewRunner(options RunnerOptions) (*Runner, error) {
 			return ticker.C, ticker.Stop
 		},
 		renewExecution:   options.Manager.RenewExecution,
-		releaseExecution: options.Manager.ReleaseExecution,
+		releaseExecution: options.Manager.releaseExecution,
 	}
 	for slot := 1; slot <= options.Policy.HandlerConcurrency; slot++ {
 		runner.attemptSlots <- slot
@@ -361,7 +361,7 @@ func (r *Runner) execute(candidate runnerCandidate, attemptSlot int) {
 	if handlerName != candidate.HandlerName || jobKind != candidate.JobKind {
 		r.signalComponentLoss()
 		r.withAttemptTimeout(func(ctx context.Context) {
-			_ = r.releaseExecution(ctx, execution)
+			_ = r.releaseExecution(ctx, execution, true)
 		})
 		return
 	}
@@ -371,7 +371,7 @@ func (r *Runner) execute(candidate runnerCandidate, attemptSlot int) {
 	if handler == nil {
 		r.signalComponentLoss()
 		r.withAttemptTimeout(func(ctx context.Context) {
-			_ = r.releaseExecution(ctx, execution)
+			_ = r.releaseExecution(ctx, execution, true)
 		})
 		return
 	}
@@ -441,6 +441,7 @@ func (outcome attemptTelemetryOutcome) telemetryError() error {
 
 func (r *Runner) runExecution(execution Execution, handler HandlerFunc, jobKind string, attemptSlot int, leaseHeldUntil time.Time) {
 	attemptCtx, span := r.manager.startJobSpan(r.ctx, "cartulary.jobs.run", jobKind, "run")
+	attemptCtx = withAttemptOperationTimeout(attemptCtx, r.policy.AttemptOperationTimeout)
 	attemptOutcome := attemptTelemetryOutcome{result: "failed", failed: true}
 	defer func() {
 		r.manager.recordAttempt(attemptCtx, jobKind, attemptOutcome.result)
@@ -509,15 +510,30 @@ func (r *Runner) runExecution(execution Execution, handler HandlerFunc, jobKind 
 				}
 				r.manager.recordLeaseRenewalFailure(attemptCtx, jobKind, renewalResult)
 				cancelHandler()
+				drained := false
 				if !lost {
+					// Core 01 REQ-01-453: the attempt's own owner transaction may
+					// hold the transition lock, so never wait behind it while the
+					// handler runs. Record the failure after the handler drains;
+					// an execution that expired meanwhile is execution loss.
+					var recordErr error
 					r.withAttemptTimeout(func(ctx context.Context) {
-						_ = r.manager.RecordExecutionFailure(ctx, execution, false)
+						recordErr = r.manager.recordExecutionFailure(ctx, execution, false, false)
 					})
+					if errors.Is(recordErr, errTransitionBusy) {
+						<-result
+						drained = true
+						r.withAttemptTimeout(func(ctx context.Context) {
+							_ = r.manager.recordExecutionFailure(ctx, execution, false, true)
+						})
+					}
 				}
 				// The handler drains before both reservations are released,
 				// so a successful runner close means it has returned (Core 01
 				// REQ-01-453).
-				<-result
+				if !drained {
+					<-result
+				}
 				attemptOutcome = r.classifyAttempt(execution.JobID(), renewalResult)
 				return
 			}
@@ -541,7 +557,7 @@ func (r *Runner) runExecution(execution Execution, handler HandlerFunc, jobKind 
 			case r.ctx.Err() != nil && errors.Is(handlerOutcome.err, context.Canceled):
 				fallback = "canceled"
 				r.withAttemptTimeout(func(ctx context.Context) {
-					_ = r.releaseExecution(ctx, execution)
+					_ = r.releaseExecution(ctx, execution, true)
 				})
 			default:
 				r.withAttemptTimeout(func(ctx context.Context) {
@@ -564,9 +580,26 @@ func (r *Runner) releaseForShutdown(
 ) attemptTelemetryOutcome {
 	cancelHandler()
 	releaseCtx, cancelRelease := r.shutdownAttemptContext()
-	releaseErr := r.releaseExecution(releaseCtx, execution)
+	releaseErr := r.releaseExecution(releaseCtx, execution, handlerDrained)
 	releaseContextErr := releaseCtx.Err()
 	cancelRelease()
+	if errors.Is(releaseErr, errTransitionBusy) {
+		// Core 01 REQ-01-453: the holder may be this attempt's own owner
+		// transaction, which cannot commit until its handler drains. Wait for
+		// the drain under the caller close deadline, then release as a new
+		// operation under its own attempt-operation timeout.
+		base := r.shutdownBaseContext()
+		select {
+		case <-handlerResult:
+			handlerDrained = true
+			releaseCtx, cancelRelease = r.shutdownAttemptContext()
+			releaseErr = r.releaseExecution(releaseCtx, execution, true)
+			releaseContextErr = releaseCtx.Err()
+			cancelRelease()
+		case <-base.Done():
+			releaseErr, releaseContextErr = base.Err(), base.Err()
+		}
+	}
 	if releaseErr != nil && !errors.Is(releaseErr, ErrExecutionLost) {
 		reason := "operation_failed"
 		if errors.Is(releaseErr, context.DeadlineExceeded) || errors.Is(releaseContextErr, context.DeadlineExceeded) {
@@ -625,13 +658,19 @@ func (r *Runner) withAttemptTimeout(operation func(context.Context)) {
 }
 
 func (r *Runner) shutdownAttemptContext() (context.Context, context.CancelFunc) {
+	return context.WithTimeout(r.shutdownBaseContext(), r.policy.AttemptOperationTimeout)
+}
+
+// shutdownBaseContext is the caller's close context, which carries any earlier
+// close deadline.
+func (r *Runner) shutdownBaseContext() context.Context {
 	r.mu.Lock()
 	base := r.shutdownCtx
 	r.mu.Unlock()
 	if base == nil {
 		base = context.Background()
 	}
-	return context.WithTimeout(base, r.policy.AttemptOperationTimeout)
+	return base
 }
 
 func (r *Runner) signalComponentLoss() {

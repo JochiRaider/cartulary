@@ -96,8 +96,8 @@ until compose exec -T postgres pg_isready -U "${POSTGRES_USER:-cartulary}" -d "$
   sleep 1
 done
 
-facts="$(compose exec -T postgres psql -U "${POSTGRES_USER:-cartulary}" -d "${POSTGRES_DB:-cartulary}" -Atc "SELECT current_setting('server_version_num'), current_setting('data_checksums');")"
-[[ "$facts" == "180006|on" ]] || { echo "postgres-baseline-reset: PostgreSQL admission failed" >&2; exit 1; }
+facts="$(compose exec -T postgres psql -U "${POSTGRES_USER:-cartulary}" -d "${POSTGRES_DB:-cartulary}" -Atc "SELECT current_setting('server_version_num'), current_setting('data_checksums'), COALESCE((SELECT 'lz4' = ANY(enumvals) FROM pg_catalog.pg_settings WHERE name = 'default_toast_compression'), false);")"
+[[ "$facts" == "180006|on|t" ]] || { echo "postgres-baseline-reset: PostgreSQL admission failed" >&2; exit 1; }
 
 if [[ "$PROFILE" == "dev" ]]; then
   env CARTULARY_DESTRUCTIVE_CONFIRM=db-reset \

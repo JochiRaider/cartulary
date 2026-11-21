@@ -142,7 +142,6 @@ CREATE TABLE public.handoff_risk_refs (
     incident_id uuid NOT NULL,
     handoff_record_id uuid NOT NULL,
     risk_ref_text text NOT NULL,
-    normalized_risk_ref_text text NOT NULL,
     created_by_user_id uuid NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     deleted_at timestamp with time zone,
@@ -197,7 +196,7 @@ CREATE INDEX artifacts_owner_user_id_fk_idx ON public.artifacts USING btree (own
 
 CREATE INDEX artifacts_review_owner_user_id_fk_idx ON public.artifacts USING btree (review_owner_user_id);
 
-CREATE UNIQUE INDEX handoff_risk_refs_active_text_idx ON public.handoff_risk_refs USING btree (handoff_record_id, normalized_risk_ref_text) WHERE (deleted_at IS NULL);
+CREATE UNIQUE INDEX handoff_risk_refs_active_text_idx ON public.handoff_risk_refs USING btree (handoff_record_id, risk_ref_text) WHERE (deleted_at IS NULL);
 
 CREATE INDEX handoff_risk_refs_created_by_user_id_fk_idx ON public.handoff_risk_refs USING btree (created_by_user_id);
 

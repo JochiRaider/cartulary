@@ -208,7 +208,7 @@ func TestEvidencePortableRecordAdmission_Unit(t *testing.T) {
 		value     any
 		invariant string
 	}{
-		{"unknown", true, "row_shape_exact"}, {"incident_id", uuid.NewString(), "envelope_type_scope"},
+		{"unknown", true, "row_shape_exact"}, {"title", 42, "row_shape_exact"}, {"incident_id", uuid.NewString(), "envelope_type_scope"},
 		{"lifecycle_state", "unknown", "lifecycle_legal"}, {"upload_state", "unknown", "lifecycle_legal"},
 		{"lifecycle_state", "available", "lifecycle_legal"}, {"lifecycle_state", "released", "lifecycle_legal"},
 		{"storage_ref", "object://10000000-0000-4000-8000-000000000001", "storage_reference_legal"},

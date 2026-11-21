@@ -13,7 +13,13 @@ import {
 
 type Admission =
   | { readonly kind: "idle" }
-  | { readonly kind: "pending" | "uncertain"; readonly attempt: ImportAttempt }
+  | { readonly kind: "pending"; readonly attempt: ImportAttempt }
+  | {
+      readonly kind: "uncertain";
+      readonly attempt: ImportAttempt;
+      /** Why the outcome is unknown, so a refused replay reads as such. */
+      readonly problem: ImportProblem;
+    }
   | { readonly kind: "rejected"; readonly problem: ImportProblem }
   | { readonly kind: "accepted"; readonly jobId: string };
 type Observation =
@@ -21,9 +27,11 @@ type Observation =
   | { readonly kind: "failed"; readonly problem: ImportProblem };
 type Cancellation =
   | { readonly kind: "idle" | "observed" }
+  | { readonly kind: "pending"; readonly attempt: ImportCancelAttempt }
   | {
-      readonly kind: "pending" | "uncertain";
+      readonly kind: "uncertain";
       readonly attempt: ImportCancelAttempt;
+      readonly problem: ImportProblem;
     }
   | { readonly kind: "rejected"; readonly problem: ImportProblem };
 export type ImportAction =
@@ -207,7 +215,14 @@ export function transitionImport(
           admission:
             outcome.kind === "rejected"
               ? { kind: "rejected", problem: outcome.problem }
-              : { kind: "uncertain", attempt: event.attempt },
+              : {
+                  kind: "uncertain",
+                  attempt: event.attempt,
+                  problem:
+                    outcome.kind === "uncertain"
+                      ? outcome.problem
+                      : "transport",
+                },
         };
       const job = outcome.job;
       const existing = state.jobs[job.job_id];
@@ -312,7 +327,12 @@ export function transitionImport(
           availability:
             result.kind === "unavailable" ? "unavailable" : entry.availability,
           cancellation: uncertain
-            ? { kind: "uncertain", attempt: event.attempt }
+            ? {
+                kind: "uncertain",
+                attempt: event.attempt,
+                problem:
+                  result.kind === "uncertain" ? result.problem : "contract",
+              }
             : {
                 kind: "rejected",
                 problem:

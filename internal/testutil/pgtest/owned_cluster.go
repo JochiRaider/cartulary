@@ -426,5 +426,6 @@ func isNonRetryablePostgresReadinessError(err error) bool {
 		strings.Contains(lower, "invalid connection") ||
 		strings.Contains(lower, postgres.ReasonServerVersionMismatch) ||
 		strings.Contains(lower, postgres.ReasonDataChecksumsDisabled) ||
+		strings.Contains(lower, postgres.ReasonLZ4CompressionUnsupported) ||
 		strings.Contains(lower, postgres.ReasonAdmissionFailed)
 }

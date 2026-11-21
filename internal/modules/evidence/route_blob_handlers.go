@@ -63,6 +63,13 @@ func (s *service) handleCreateBlob(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, internalAPIError(fmt.Errorf("build object blob storage key: %w", err)))
 		return
 	}
+	// Core 01 REQ-01-246: a generated physical key is validated where it is
+	// made, so a malformed key fails before any slot is persisted or any
+	// capability is minted for it.
+	if err := evidencepolicy.ValidatePersistedObjectBlobStorageKey(storageKey, request.IncidentID, objectBlobID); err != nil {
+		writeAPIError(w, r, objectStoreDependencyAPIError(err))
+		return
+	}
 	targetExpiresAt := now.Add(60 * time.Minute)
 	pendingExpiresAt := now.Add(24 * time.Hour)
 	requiredHeaders := map[string]string{
@@ -229,10 +236,6 @@ func (s *service) handleUploadTarget(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, objectUploadRejected("upload_contract_mismatch"))
 		return
 	}
-	if err := evidencepolicy.ValidatePersistedObjectBlobStorageKey(blob.StorageKey, blob.IncidentID, blob.ObjectBlobID); err != nil {
-		writeAPIError(w, r, objectStoreDependencyAPIError(err))
-		return
-	}
 	if blob.UploadState != "pending" {
 		writeAPIError(w, r, objectUploadRejected("blob_not_pending"))
 		return
@@ -265,6 +268,13 @@ func (s *service) handleUploadTarget(w http.ResponseWriter, r *http.Request) {
 	}
 	if incident.IncidentStatus == admission.IncidentStatusClosed {
 		writeAPIError(w, r, incidentClosedError())
+		return
+	}
+	// Core 04 Table 2-B gate 11: building the object-store request is the last
+	// check, after every request and lifecycle gate and before the lease claim
+	// and any object-store access (Core 01 REQ-01-246).
+	if err := evidencepolicy.ValidatePersistedObjectBlobStorageKey(blob.StorageKey, blob.IncidentID, blob.ObjectBlobID); err != nil {
+		writeAPIError(w, r, objectStoreDependencyAPIError(err))
 		return
 	}
 	if err := s.operations.ClaimUploadLease(r.Context(), claims.LeaseID, capabilityHash, now); err != nil {

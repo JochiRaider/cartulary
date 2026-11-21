@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { notAppliedText } from "../shared/publicError";
 import {
   credentialStateResource,
   sessionResource,
@@ -685,6 +686,25 @@ describe("authentication and Security operation lifetime", () => {
       propagation: "ready",
     });
     expect(confirmed.loginLocal).toHaveBeenCalledOnce();
+  });
+  // Core 01 REQ-01-677: exhausted authentication capacity creates no session
+  // and commits nothing, so it is a definite non-application, not uncertainty.
+  it("settles exhausted authentication capacity as not applied", async () => {
+    const s = auth();
+    s.loginLocal.mockResolvedValueOnce(
+      operationRejection({
+        code: "authentication_capacity_exhausted",
+        status: 503,
+      }),
+    );
+    s.controller.login();
+    await flush();
+    expect(s.uncertain).not.toHaveBeenCalled();
+    expect(s.controller.getSnapshot().operation).toEqual({ kind: "idle" });
+    expect(s.controller.getSnapshot().banner).toEqual({
+      tone: "error",
+      message: notAppliedText(),
+    });
   });
   it("serializes Security writes and clears every dispatched credential", async () => {
     const s = security();

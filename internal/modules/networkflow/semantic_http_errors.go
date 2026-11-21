@@ -71,7 +71,22 @@ func semanticHTTPError(f *semanticFailure) *httpapi.APIError {
 		}
 		details["retry_action"] = "correct_request"
 	case failureCursorInvalid:
+		// The route's cursor scope is completed at the route's error write.
 		details["cursor_scope"], details["retry_action"] = nil, "restart_query"
+	case failureInvalidSort:
+		details["field_key"], details["direction"], details["sort_index"] = nullableStringValue(d.FieldKey), nullableStringValue(d.SortDirection), nullableInt(d.SortIndex)
+		details["retry_action"] = "correct_request"
+	case failureInvalidLimit:
+		delete(details, "field")
+		details["limit_key"], details["limit"] = linkNullable(d.LimitKey), nullableInt(d.LimitValue)
+		details["minimum"], details["maximum"] = nullableInt(d.LimitMinimum), nullableInt(d.LimitMaximum)
+		details["retry_action"] = "correct_request"
+	case failureInvalidRequest:
+		// A kind the decoder read from the raw value; route completion supplies
+		// every kind it can derive from the reason alone.
+		if d.ActualKind != "" {
+			details["actual_kind"] = d.ActualKind
+		}
 	case failureInvalidTableScope:
 		delete(details, "field")
 		tables := d.TableIDs
@@ -79,20 +94,19 @@ func semanticHTTPError(f *semanticFailure) *httpapi.APIError {
 			tables = []string{}
 		}
 		details["mode"], details["table_ids"], details["limit_key"] = linkNullable(d.ScopeMode), tables, linkNullable(d.LimitKey)
+		// A retry action belongs to the error code (NF NLSpec Table 21-A), so
+		// every invalid table scope, a selected-table limit included, asks the
+		// caller to correct the request.
 		details["retry_action"] = "correct_request"
-		if f.reason == "selected_table_limit_exceeded" {
-			details["retry_action"] = "reduce_scope_or_limits"
-		}
 	case failureInvalidGraphAggregation:
 		details["retry_action"] = "correct_request"
 	case failureInvalidTimeRange:
 		details["start_utc"], details["end_utc"] = nullableTimestamp(d.StartUTC), nullableTimestamp(d.EndUTC)
 		details["retry_action"] = "correct_request"
 	case failureInvalidLimitOverride:
-		if d.LimitKey != "" {
-			details["limit_key"], details["limit"] = d.LimitKey, d.Limit
-			details["minimum"], details["maximum"] = d.Minimum, d.Maximum
-		}
+		details["limit_key"], details["limit"] = linkNullable(d.LimitKey), nullableInt(d.LimitValue)
+		details["minimum"], details["maximum"] = nullableInt(d.LimitMinimum), nullableInt(d.LimitMaximum)
+		details["retry_action"] = "correct_request"
 	case failureGraphLimitExceeded, failureCounterSumLimitExceeded, failureResourceLimit:
 		details["limit_key"], details["limit"], details["actual"] = d.LimitKey, d.Limit, d.Actual
 		details["phase"], details["retry_action"] = d.Phase, "reduce_scope_or_limits"
@@ -122,22 +136,7 @@ func semanticHTTPError(f *semanticFailure) *httpapi.APIError {
 	}
 	switch f.kind {
 	case failureInvalidIndicatorSelector, failureInvalidIndicatorTarget, failureIndicatorLinkForbidden, failureIndicatorLinkAmbiguous:
-		if d.LinkContext {
-			details["selector_kind"], details["field_key"], details["target_mode"], details["resolved_candidate_value"] = linkNullable(d.SelectorKind), linkNullable(d.LinkFieldKey), linkNullable(d.TargetMode), linkNullable(d.Candidate)
-		} else {
-			if d.SelectorKind != "" {
-				details["selector_kind"] = d.SelectorKind
-			}
-			if d.LinkFieldKey != "" {
-				details["field_key"] = d.LinkFieldKey
-			}
-			if d.TargetMode != "" {
-				details["target_mode"] = d.TargetMode
-			}
-			if d.Candidate != "" {
-				details["resolved_candidate_value"] = d.Candidate
-			}
-		}
+		details["selector_kind"], details["field_key"], details["target_mode"], details["resolved_candidate_value"] = linkNullable(d.SelectorKind), linkNullable(d.LinkFieldKey), linkNullable(d.TargetMode), linkNullable(d.Candidate)
 		details["retry_action"] = "correct_request"
 		if f.kind == failureIndicatorLinkForbidden {
 			details["retry_action"] = "do_not_retry"
@@ -146,4 +145,13 @@ func semanticHTTPError(f *semanticFailure) *httpapi.APIError {
 		details["operation_id"], details["timeout_seconds"] = d.OperationID, d.TimeoutSeconds
 	}
 	return &httpapi.APIError{Status: status, Code: string(f.kind), Message: string(f.kind), Details: details, Retryable: f.kind == failureTransactionConflict || f.kind == failureTransactionTimeout}
+}
+
+// nullableInt is JSON null for a member the failing stage has not determined
+// (NF-REQ-175).
+func nullableInt(value *int) any {
+	if value == nil {
+		return nil
+	}
+	return *value
 }

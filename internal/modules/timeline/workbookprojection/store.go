@@ -77,6 +77,9 @@ func (mutation ProjectionMutation) Validate() error {
 
 type CollectionFactReader interface {
 	LoadTimelineCollectionFactsTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID) (CollectionFacts, error)
+	// LoadTimelineCollectionFactsForRecordsTx loads a page of one incident's
+	// records with a fixed number of reads.
+	LoadTimelineCollectionFactsForRecordsTx(context.Context, pgx.Tx, uuid.UUID, []uuid.UUID) (map[uuid.UUID]CollectionFacts, error)
 }
 
 type Source struct {
@@ -138,14 +141,18 @@ func (s *Source) ListProjectionInputsTx(ctx context.Context, tx pgx.Tx, incident
 		return ProjectionInputPage{}, err
 	}
 
+	recordIDs := make([]uuid.UUID, 0, len(sourcePage.Snapshots))
+	for _, snapshot := range sourcePage.Snapshots {
+		recordIDs = append(recordIDs, snapshot.RecordID)
+	}
+	facts, err := s.collections.LoadTimelineCollectionFactsForRecordsTx(ctx, tx, incidentID, recordIDs)
+	if err != nil {
+		return ProjectionInputPage{}, err
+	}
 	inputs := make([]ProjectionInput, 0, len(sourcePage.Snapshots))
 	for _, snapshot := range sourcePage.Snapshots {
 		derived := Derive(snapshot, nil)
-		facts, err := s.collections.LoadTimelineCollectionFactsTx(ctx, tx, derived.IncidentID, derived.RecordID)
-		if err != nil {
-			return ProjectionInputPage{}, err
-		}
-		ApplyCollectionFacts(&derived, facts)
+		ApplyCollectionFacts(&derived, facts[derived.RecordID])
 		input := derived.ProjectionInput()
 		if err := validateProjectionInput(input); err != nil {
 			return ProjectionInputPage{}, err

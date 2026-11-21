@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 	"time"
@@ -392,81 +393,155 @@ type referenceOutcome struct {
 	terminalMismatch bool
 }
 
+// referenceReadPage bounds the reference groups resolved together, so the pass
+// reads each owner once per page rather than once per record.
+const referenceReadPage = 128
+
 // checkReferencesTx resolves each distinct referenced record once: its envelope
 // in this incident, its current source row and every required row provider.
 // It returns the references failure at its rank and records the declared-type
-// and terminal-row verdicts for later ranks.
+// and terminal-row verdicts for later ranks. Groups are read a page at a time
+// and judged in record order, so the first failing record decides the result.
 func (p preparedRevisionsImport) checkReferencesTx(ctx context.Context, tx pgx.Tx, reader incidentportability.MemberReader, validation *incidentBundleValidationCatalog, terminal *terminalRevisionCursor) (referenceOutcome, error) {
 	var outcome referenceOutcome
-	err := p.visitReferenceGroups(ctx, reader, func(group revisionsReferenceGroup) error {
-		recordType, current, err := p.declaredCurrentRowTx(ctx, tx, validation, group)
+	page := make([]revisionsReferenceGroup, 0, referenceReadPage)
+	flush := func() error {
+		if len(page) == 0 {
+			return nil
+		}
+		resolved, err := p.resolveReferencesTx(ctx, tx, validation, page)
 		if err != nil {
 			return err
 		}
-		if current == nil {
-			recordType, err = validation.envelopes.RecordTypeTx(ctx, tx, p.incidentID, group.recordID)
-			if errors.Is(err, pgx.ErrNoRows) {
-				return revisionsFailure(revisionsReferencesInvariant)
-			}
-			if err != nil {
-				return err
-			}
-			// Source owners have already applied in the catalog's dependency order.
-			// An envelope alone does not establish an authoritative row reference.
-			current, err = validation.currentSourceRowTx(ctx, tx, group.recordID, recordType)
-			if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, ErrUnexpectedHistoryTargetProvider) {
-				return revisionsFailure(revisionsReferencesInvariant)
-			}
-			if err != nil {
+		for index, group := range page {
+			if err := p.judgeReference(group, resolved[index], validation, terminal, &outcome); err != nil {
 				return err
 			}
 		}
-		for _, kind := range group.kinds {
-			if _, err := validation.targets.rowProvider(kind, recordType); err != nil {
-				return revisionsFailure(revisionsReferencesInvariant)
-			}
-		}
-		if slices.ContainsFunc(group.declared, func(declared string) bool { return declared != recordType }) {
-			outcome.typeMismatch = true
-		}
-		if terminal == nil {
+		page = page[:0]
+		return nil
+	}
+	err := p.visitReferenceGroups(ctx, reader, func(group revisionsReferenceGroup) error {
+		page = append(page, group)
+		if len(page) < referenceReadPage {
 			return nil
 		}
-		after, found, err := terminal.lookup(group.recordID)
-		if err != nil || !found {
-			return err
-		}
-		expected := normalizePortableSnapshotActors(after, p.actors, p.runtimeActor)
-		if !canonicalHistoryRowMatchesSnapshot(group.recordID, expected, current) {
-			outcome.terminalMismatch = true
-		}
-		return nil
+		return flush()
 	})
+	if err == nil {
+		err = flush()
+	}
 	return outcome, err
 }
 
-// declaredCurrentRowTx resolves a reference with one owner read when every
-// declared type agrees: the owner's current row carries its record envelope,
-// so a row in this incident with the declared type is exactly what the
-// envelope lookup and the owner read would return together. Anything else
-// returns no row, and the caller resolves the envelope first.
-func (p preparedRevisionsImport) declaredCurrentRowTx(ctx context.Context, tx pgx.Tx, validation *incidentBundleValidationCatalog, group revisionsReferenceGroup) (string, map[string]any, error) {
-	if len(group.declared) == 0 || slices.ContainsFunc(group.declared, func(declared string) bool { return declared != group.declared[0] }) {
-		return "", nil, nil
+// resolvedReference is a group's record type and current source row; a nil
+// row means the record does not resolve in this incident.
+type resolvedReference struct {
+	recordType string
+	current    map[string]any
+}
+
+// resolveReferencesTx resolves a page of groups. A group whose declared types
+// agree is read from that owner directly: the owner's current row carries its
+// record envelope, so a row in this incident with the declared type is exactly
+// what the envelope lookup and the owner read would return together. Every
+// other group resolves its envelope type first and then its owner row. Each
+// step is one read per record type for the page.
+func (p preparedRevisionsImport) resolveReferencesTx(ctx context.Context, tx pgx.Tx, validation *incidentBundleValidationCatalog, page []revisionsReferenceGroup) ([]resolvedReference, error) {
+	resolved := make([]resolvedReference, len(page))
+	declared := make(map[string][]int)
+	for index, group := range page {
+		if len(group.declared) > 0 && !slices.ContainsFunc(group.declared, func(value string) bool { return value != group.declared[0] }) {
+			declared[group.declared[0]] = append(declared[group.declared[0]], index)
+		}
 	}
-	recordType := group.declared[0]
-	current, err := validation.currentSourceRowTx(ctx, tx, group.recordID, recordType)
-	if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, ErrUnexpectedHistoryTargetProvider) {
-		return "", nil, nil
+	if err := readCurrentRowsTx(ctx, tx, validation, page, declared, resolved); err != nil {
+		return nil, err
 	}
+	pending := make([]uuid.UUID, 0, len(page))
+	for index, group := range page {
+		if current := resolved[index].current; current != nil {
+			envelope, ok := current["record"].(map[string]any)
+			if ok && envelope["record_id"] == group.recordID.String() && envelope["incident_id"] == p.incidentID.String() && envelope["record_type"] == resolved[index].recordType {
+				continue
+			}
+		}
+		resolved[index] = resolvedReference{}
+		pending = append(pending, group.recordID)
+	}
+	if len(pending) == 0 {
+		return resolved, nil
+	}
+	types, err := validation.envelopes.RecordTypesTx(ctx, tx, p.incidentID, pending)
 	if err != nil {
-		return "", nil, err
+		return nil, err
 	}
-	envelope, ok := current["record"].(map[string]any)
-	if !ok || envelope["record_id"] != group.recordID.String() || envelope["incident_id"] != p.incidentID.String() || envelope["record_type"] != recordType {
-		return "", nil, nil
+	byType := make(map[string][]int)
+	for index, group := range page {
+		if resolved[index].recordType != "" {
+			continue
+		}
+		if recordType, found := types[group.recordID]; found {
+			byType[recordType] = append(byType[recordType], index)
+		}
 	}
-	return recordType, current, nil
+	if err := readCurrentRowsTx(ctx, tx, validation, page, byType, resolved); err != nil {
+		return nil, err
+	}
+	return resolved, nil
+}
+
+// readCurrentRowsTx reads the current source rows of the indexed groups, one
+// owner read per record type. A type with no snapshot owner resolves nothing.
+func readCurrentRowsTx(ctx context.Context, tx pgx.Tx, validation *incidentBundleValidationCatalog, page []revisionsReferenceGroup, byType map[string][]int, resolved []resolvedReference) error {
+	recordTypes := slices.Sorted(maps.Keys(byType))
+	for _, recordType := range recordTypes {
+		indexes := byType[recordType]
+		recordIDs := make([]uuid.UUID, len(indexes))
+		for position, index := range indexes {
+			recordIDs[position] = page[index].recordID
+		}
+		rows, err := validation.currentSourceRowsTx(ctx, tx, recordIDs, recordType)
+		if errors.Is(err, ErrUnexpectedHistoryTargetProvider) {
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		for _, index := range indexes {
+			if current, found := rows[page[index].recordID]; found {
+				resolved[index] = resolvedReference{recordType: recordType, current: current}
+			}
+		}
+	}
+	return nil
+}
+
+// judgeReference applies one resolved group's verdicts in rank order.
+func (p preparedRevisionsImport) judgeReference(group revisionsReferenceGroup, resolved resolvedReference, validation *incidentBundleValidationCatalog, terminal *terminalRevisionCursor, outcome *referenceOutcome) error {
+	if resolved.current == nil {
+		return revisionsFailure(revisionsReferencesInvariant)
+	}
+	for _, kind := range group.kinds {
+		if _, err := validation.targets.rowProvider(kind, resolved.recordType); err != nil {
+			return revisionsFailure(revisionsReferencesInvariant)
+		}
+	}
+	if slices.ContainsFunc(group.declared, func(declared string) bool { return declared != resolved.recordType }) {
+		outcome.typeMismatch = true
+	}
+	if terminal == nil {
+		return nil
+	}
+	after, found, err := terminal.lookup(group.recordID)
+	if err != nil || !found {
+		return err
+	}
+	expected := normalizePortableSnapshotActors(after, p.actors, p.runtimeActor)
+	if !canonicalHistoryRowMatchesSnapshot(group.recordID, expected, resolved.current) {
+		outcome.terminalMismatch = true
+	}
+	return nil
 }
 
 // terminalRevisionCursor pages the incident's terminal revision of each record

@@ -11,16 +11,7 @@ import (
 	artifactprojection "github.com/JochiRaider/cartulary/internal/modules/artifacts/workbookprojection"
 )
 
-func (store *Store) InsertArtifactTx(
-	ctx context.Context,
-	tx pgx.Tx,
-	input artifactprojection.ProjectionInput,
-) error {
-	row, err := artifactPhysicalRowFromInput(input)
-	if err != nil {
-		return err
-	}
-	if _, err := tx.Exec(ctx, `
+const artifactProjectionRowSQL = `
 INSERT INTO artifact_grid_projection (
     record_id, incident_id, row_version, artifact_type, title, body,
     timestamp_utc, updated_at, created_at, created_by_user_id, comm_id,
@@ -49,7 +40,15 @@ VALUES (
     $41, $42, $43, $44, $45, $46, $47, $48, $49, $50,
     $51, $52, $53, $54, $55
 )
-`, row.RecordID, row.IncidentID, row.RowVersion, row.ArtifactType,
+`
+
+func artifactProjectionRowArguments(input artifactprojection.ProjectionInput) ([]any, error) {
+	row, err := artifactPhysicalRowFromInput(input)
+	if err != nil {
+		return nil, err
+	}
+	return []any{
+		row.RecordID, row.IncidentID, row.RowVersion, row.ArtifactType,
 		row.Title, row.Body, row.TimestampUTC, row.UpdatedAt.UTC(),
 		row.CreatedAt.UTC(), row.CreatedByUserID, row.CommID, row.CommType,
 		row.Audience, row.ChannelOrMeeting, row.Summary, row.NextReportAt,
@@ -68,10 +67,35 @@ VALUES (
 		row.ForensicKeywordMatchMode, row.ForensicKeywordCaseSensitive,
 		row.ForensicKeywordCreatedAt, row.ForensicKeywordCreatedDay,
 		row.TimestampDay, row.NextReportDay, row.AckState,
-		row.LinkedRecordCount); err != nil {
+		row.LinkedRecordCount,
+	}, nil
+}
+
+func (store *Store) InsertArtifactTx(ctx context.Context, tx pgx.Tx, input artifactprojection.ProjectionInput) error {
+	args, err := artifactProjectionRowArguments(input)
+	if err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, artifactProjectionRowSQL, args...); err != nil {
 		return fmt.Errorf("insert Artifact projection row: %w", err)
 	}
 	return nil
+}
+
+// InsertArtifactRowsTx writes a page of rows in one round trip.
+func (store *Store) InsertArtifactRowsTx(ctx context.Context, tx pgx.Tx, inputs []artifactprojection.ProjectionInput) error {
+	if len(inputs) == 0 {
+		return nil
+	}
+	batch := &pgx.Batch{}
+	for _, input := range inputs {
+		args, err := artifactProjectionRowArguments(input)
+		if err != nil {
+			return err
+		}
+		batch.Queue(artifactProjectionRowSQL, args...)
+	}
+	return projectionRowsResult(tx.SendBatch(ctx, batch), len(inputs), "insert Artifact projection row")
 }
 
 // artifactPhysicalRow is private Projections-owned binding state. Its order

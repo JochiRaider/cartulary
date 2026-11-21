@@ -11,28 +11,7 @@ import (
 	timelineprojection "github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 )
 
-func (store *Store) UpsertTimelineRowTx(
-	ctx context.Context,
-	tx pgx.Tx,
-	input timelineprojection.ProjectionInput,
-) error {
-	hostRefs, err := json.Marshal(input.HostRefs)
-	if err != nil {
-		return fmt.Errorf("encode timeline host refs: %w", err)
-	}
-	identityRefs, err := json.Marshal(input.IdentityRefs)
-	if err != nil {
-		return fmt.Errorf("encode timeline identity refs: %w", err)
-	}
-	tags, err := json.Marshal(input.Tags)
-	if err != nil {
-		return fmt.Errorf("encode timeline tags: %w", err)
-	}
-	attachedEvidence, err := json.Marshal(input.AttachedEvidence)
-	if err != nil {
-		return fmt.Errorf("encode timeline attached evidence refs: %w", err)
-	}
-	if _, err := tx.Exec(ctx, `
+const timelineProjectionRowSQL = `
 INSERT INTO timeline_grid_projection (
     record_id, incident_id, row_version, date_entered_text, analyst_text,
     mitre_stage_text, device_object_text, ip_address_text, activity_utc_text,
@@ -74,7 +53,27 @@ SET incident_id = EXCLUDED.incident_id,
     identity_refs = EXCLUDED.identity_refs,
     tags = EXCLUDED.tags,
     attached_evidence_refs = EXCLUDED.attached_evidence_refs
-`, input.RecordID, input.IncidentID, input.RowVersion, input.DateEnteredText,
+`
+
+func timelineProjectionRowArguments(input timelineprojection.ProjectionInput) ([]any, error) {
+	hostRefs, err := json.Marshal(input.HostRefs)
+	if err != nil {
+		return nil, fmt.Errorf("encode timeline host refs: %w", err)
+	}
+	identityRefs, err := json.Marshal(input.IdentityRefs)
+	if err != nil {
+		return nil, fmt.Errorf("encode timeline identity refs: %w", err)
+	}
+	tags, err := json.Marshal(input.Tags)
+	if err != nil {
+		return nil, fmt.Errorf("encode timeline tags: %w", err)
+	}
+	attachedEvidence, err := json.Marshal(input.AttachedEvidence)
+	if err != nil {
+		return nil, fmt.Errorf("encode timeline attached evidence refs: %w", err)
+	}
+	return []any{
+		input.RecordID, input.IncidentID, input.RowVersion, input.DateEnteredText,
 		input.AnalystText, input.MitreStageText, input.DeviceObjectText,
 		input.IPAddressText, input.ActivityUTCText, input.ActivityLocalText,
 		input.RawActivityText, input.ActivitySynopsisText, input.DataSourceText,
@@ -82,10 +81,35 @@ SET incident_id = EXCLUDED.incident_id,
 		input.DateEnteredSortDay, input.ActivityTimePairState, input.CaptureState,
 		input.ReplacementRecordID, input.EvidenceCount, input.HasEvidence,
 		input.HasUnresolvedMentions, string(hostRefs), string(identityRefs),
-		string(tags), string(attachedEvidence)); err != nil {
+		string(tags), string(attachedEvidence),
+	}, nil
+}
+
+func (store *Store) UpsertTimelineRowTx(ctx context.Context, tx pgx.Tx, input timelineprojection.ProjectionInput) error {
+	args, err := timelineProjectionRowArguments(input)
+	if err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, timelineProjectionRowSQL, args...); err != nil {
 		return fmt.Errorf("upsert timeline projection row: %w", err)
 	}
 	return nil
+}
+
+// UpsertTimelineRowsTx writes a page of rows in one round trip.
+func (store *Store) UpsertTimelineRowsTx(ctx context.Context, tx pgx.Tx, inputs []timelineprojection.ProjectionInput) error {
+	if len(inputs) == 0 {
+		return nil
+	}
+	batch := &pgx.Batch{}
+	for _, input := range inputs {
+		args, err := timelineProjectionRowArguments(input)
+		if err != nil {
+			return err
+		}
+		batch.Queue(timelineProjectionRowSQL, args...)
+	}
+	return projectionRowsResult(tx.SendBatch(ctx, batch), len(inputs), "upsert timeline projection row")
 }
 
 func (store *Store) InsertTimelineFixtureBatchTx(

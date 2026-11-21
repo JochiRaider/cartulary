@@ -9,7 +9,7 @@ import type {
 // Non-gating evidence for the AC-043 blank-row measurement. It never feeds the
 // frontend measurement observation, its samples, statistics, or threshold.
 export const blankRowDiagnosticSchemaId =
-  "cartulary.diagnostic.timeline_blank_row_main_thread.v1";
+  "cartulary.diagnostic.timeline_blank_row_main_thread.v2";
 
 const inPageKey = "__cartularyMainThreadDiagnostics";
 const capacity = 20_000;
@@ -53,6 +53,8 @@ export type DiagnosticResource = {
   start: number;
   responseStart: number | null;
   responseEnd: number | null;
+  /** The connection protocol, such as "h2" or "http/1.1", when exposed. */
+  nextHopProtocol: string | null;
 };
 
 /** Cumulative renderer task time read between samples, never inside a window. */
@@ -356,6 +358,7 @@ export function summarizeBlankRowDiagnostics(input: BlankRowDiagnosticInput) {
         body_transfer: bodyMs === null ? null : round(bodyMs),
         parse_wait_after_body: parseWaitMs === null ? null : round(parseWaitMs),
       },
+      create_next_hop_protocol: resource?.nextHopProtocol ?? null,
       long_task: {
         count: longTask.count,
         overlap_ms: round(longTask.overlapMs),
@@ -480,6 +483,28 @@ export function summarizeBlankRowDiagnostics(input: BlankRowDiagnosticInput) {
         ? [sample.create_ttfb_ms]
         : [],
     );
+  const protocols: Record<string, number> = {};
+  for (const sample of measured) {
+    const protocol = sample.create_next_hop_protocol ?? "unreported";
+    protocols[protocol] = (protocols[protocol] ?? 0) + 1;
+  }
+  const bodySpikes = (inFlight: (count: number) => boolean) => {
+    const selected = measured.filter(
+      (sample) =>
+        sample.create_resource_ms.body_transfer !== null &&
+        sample.timeline_queries_in_flight_at_create !== null &&
+        inFlight(sample.timeline_queries_in_flight_at_create),
+    );
+    const spiked = selected.filter(
+      (sample) =>
+        (sample.create_resource_ms.body_transfer ?? 0) > decodeSpikeMs,
+    ).length;
+    return {
+      count: selected.length,
+      spikes: spiked,
+      rate: ratio(spiked, selected.length),
+    };
+  };
   const allTtfb = ttfb(() => true);
   const busyTtfb = ttfb((count) => count > 0);
   const quietTtfb = ttfb((count) => count === 0);
@@ -550,6 +575,12 @@ export function summarizeBlankRowDiagnostics(input: BlankRowDiagnosticInput) {
         overlapped_by_long_work: spikesBlocked.length,
         parse_wait_after_body_over_threshold: spikeParseWait.length,
         body_transfer_over_threshold: spikeBody.length,
+      },
+      create_next_hop_protocols: protocols,
+      create_body_transfer_spikes: {
+        threshold_ms: decodeSpikeMs,
+        with_timeline_query_in_flight: bodySpikes((count) => count > 0),
+        without_timeline_query_in_flight: bodySpikes((count) => count === 0),
       },
       create_ttfb_ms: {
         p50: nearestRank(allTtfb, 50),
@@ -695,6 +726,7 @@ export function installMainThreadObserversInBrowser(options: {
             responseStart:
               timing.responseStart > 0 ? timing.responseStart : null,
             responseEnd: timing.responseEnd > 0 ? timing.responseEnd : null,
+            nextHopProtocol: timing.nextHopProtocol || null,
           });
         }
       }).observe({ type: "resource", buffered: true });

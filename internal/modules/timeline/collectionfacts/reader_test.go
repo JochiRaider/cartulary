@@ -151,12 +151,21 @@ type mentionReaderStub struct {
 	err    error
 }
 
-func (reader *mentionReaderStub) LoadMentionsTx(_ context.Context, tx pgx.Tx, _ uuid.UUID) ([]workbookprojection.MentionFact, error) {
+func (reader *mentionReaderStub) LoadMentionsTx(_ context.Context, tx pgx.Tx, recordIDs []uuid.UUID) (map[uuid.UUID][]workbookprojection.MentionFact, error) {
 	if reader.events != nil {
 		*reader.events = append(*reader.events, "mentions")
 	}
 	reader.tx = tx
-	return reader.facts, reader.err
+	if reader.err != nil {
+		return nil, reader.err
+	}
+	result := map[uuid.UUID][]workbookprojection.MentionFact{}
+	for _, recordID := range recordIDs {
+		if reader.facts != nil {
+			result[recordID] = reader.facts
+		}
+	}
+	return result, nil
 }
 
 type linkReaderStub struct {
@@ -166,12 +175,19 @@ type linkReaderStub struct {
 	err    error
 }
 
-func (reader *linkReaderStub) LoadTx(_ context.Context, tx pgx.Tx, _ uuid.UUID, _ uuid.UUID) (LinkFacts, error) {
+func (reader *linkReaderStub) LoadTx(_ context.Context, tx pgx.Tx, _ uuid.UUID, recordIDs []uuid.UUID) (map[uuid.UUID]LinkFacts, error) {
 	if reader.events != nil {
 		*reader.events = append(*reader.events, "links")
 	}
 	reader.tx = tx
-	return reader.facts, reader.err
+	if reader.err != nil {
+		return nil, reader.err
+	}
+	result := map[uuid.UUID]LinkFacts{}
+	for _, recordID := range recordIDs {
+		result[recordID] = reader.facts
+	}
+	return result, nil
 }
 
 type evidenceReaderStub struct {
@@ -189,4 +205,84 @@ func (reader *evidenceReaderStub) LoadTx(_ context.Context, tx pgx.Tx, _ uuid.UU
 	reader.tx = tx
 	reader.recordIDs = append([]uuid.UUID(nil), recordIDs...)
 	return reader.facts, reader.err
+}
+
+// TestReaderPartitionsAPageWithOneReadPerSource: a page of records costs one
+// read per fact source, and each record receives exactly its own facts with
+// attached Evidence in the Evidence reader's display order.
+func TestReaderPartitionsAPageWithOneReadPerSource(t *testing.T) {
+	incidentID := uuid.New()
+	first, second, bare := uuid.New(), uuid.New(), uuid.New()
+	disk, memory := uuid.New(), uuid.New()
+	events := []string{}
+	mentionFact := workbookprojection.MentionFact{MentionID: uuid.New(), RawText: "host-a", SourceFieldKey: "timeline.host_refs"}
+	mentions := &pageMentionReader{events: &events, facts: map[uuid.UUID][]workbookprojection.MentionFact{first: {mentionFact}}}
+	links := &pageLinkReader{events: &events, facts: map[uuid.UUID]LinkFacts{
+		first:  {AttachedEvidenceIDs: []uuid.UUID{memory, disk}, Tags: []TagFact{{RecordTagID: uuid.New(), TagName: "first"}}},
+		second: {AttachedEvidenceIDs: []uuid.UUID{memory}},
+		bare:   {},
+	}}
+	evidence := &evidenceReaderStub{events: &events, facts: []evidencefacts.TimelineFact{
+		{RecordID: disk, Title: "Disk image", LifecycleState: "received", UploadState: "complete"},
+		{RecordID: memory, Title: "Memory capture", LifecycleState: "received", UploadState: "complete"},
+	}}
+	got, err := New(mentions, links, evidence).LoadTimelineCollectionFactsForRecordsTx(context.Background(), &transactionMarker{}, incidentID, []uuid.UUID{first, second, bare})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(events, []string{"mentions", "links", "evidence"}) {
+		t.Fatalf("reads = %#v, want one per source", events)
+	}
+	if !reflect.DeepEqual(evidence.recordIDs, []uuid.UUID{memory, disk}) {
+		t.Fatalf("evidence read IDs = %#v, want the distinct union in first-seen order", evidence.recordIDs)
+	}
+	diskFact := workbookprojection.EvidenceFact{RecordID: disk, Title: "Disk image", LifecycleState: "received", UploadState: "complete"}
+	memoryFact := workbookprojection.EvidenceFact{RecordID: memory, Title: "Memory capture", LifecycleState: "received", UploadState: "complete"}
+	want := map[uuid.UUID]workbookprojection.CollectionFacts{
+		first: {
+			Mentions: []workbookprojection.MentionFact{mentionFact}, ResolvedLinks: []workbookprojection.LinkFact{},
+			Tags: []workbookprojection.TagFact{{RecordTagID: links.facts[first].Tags[0].RecordTagID, TagName: "first"}}, AttachedEvidence: []workbookprojection.EvidenceFact{diskFact, memoryFact},
+		},
+		second: {
+			Mentions: []workbookprojection.MentionFact{}, ResolvedLinks: []workbookprojection.LinkFact{},
+			Tags: []workbookprojection.TagFact{}, AttachedEvidence: []workbookprojection.EvidenceFact{memoryFact},
+		},
+		bare: {
+			Mentions: []workbookprojection.MentionFact{}, ResolvedLinks: []workbookprojection.LinkFact{},
+			Tags: []workbookprojection.TagFact{}, AttachedEvidence: []workbookprojection.EvidenceFact{},
+		},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("facts = %#v, want %#v", got, want)
+	}
+}
+
+type pageMentionReader struct {
+	events *[]string
+	facts  map[uuid.UUID][]workbookprojection.MentionFact
+}
+
+func (reader *pageMentionReader) LoadMentionsTx(_ context.Context, _ pgx.Tx, recordIDs []uuid.UUID) (map[uuid.UUID][]workbookprojection.MentionFact, error) {
+	*reader.events = append(*reader.events, "mentions")
+	result := map[uuid.UUID][]workbookprojection.MentionFact{}
+	for _, recordID := range recordIDs {
+		if facts, ok := reader.facts[recordID]; ok {
+			result[recordID] = facts
+		}
+	}
+	return result, nil
+}
+
+type pageLinkReader struct {
+	events *[]string
+	facts  map[uuid.UUID]LinkFacts
+}
+
+func (reader *pageLinkReader) LoadTx(_ context.Context, _ pgx.Tx, _ uuid.UUID, recordIDs []uuid.UUID) (map[uuid.UUID]LinkFacts, error) {
+	*reader.events = append(*reader.events, "links")
+	result := map[uuid.UUID]LinkFacts{}
+	for _, recordID := range recordIDs {
+		result[recordID] = reader.facts[recordID]
+	}
+	return result, nil
 }

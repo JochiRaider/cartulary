@@ -86,26 +86,39 @@ ON CONFLICT (projection_result_id) DO NOTHING
 	return tag.RowsAffected() == 1, nil
 }
 
+// insertResultObjects copies a new result's vertices and edges, one COPY each,
+// so publication costs the same round trips whatever the graph's size.
 func (publisher *Publisher) insertResultObjects(ctx context.Context, result graphprojection.CompletedResultV2) error {
 	binding := result.Binding
-	for ordinal, vertex := range result.Vertices {
-		if _, err := publisher.tx.Exec(ctx, `
-INSERT INTO graph_projection_result_vertices (
-    projection_result_id, vertex_id, vertex_kind, sort_ordinal, sort_key, vertex_json
-) VALUES ($1, $2, $3, $4, $5, $6)
-`, binding.ProjectionResultID, vertex.VertexID, vertex.VertexKind, ordinal, vertex.SortKey, []byte(vertex.JSON)); err != nil {
-			return fmt.Errorf("insert Graph Projection result vertex: %w", err)
+	if len(result.Vertices) > 0 {
+		rows := make([][]any, len(result.Vertices))
+		for ordinal, vertex := range result.Vertices {
+			rows[ordinal] = []any{binding.ProjectionResultID, vertex.VertexID, vertex.VertexKind, ordinal, vertex.SortKey, []byte(vertex.JSON)}
+		}
+		copied, err := publisher.tx.CopyFrom(ctx, pgx.Identifier{"graph_projection_result_vertices"},
+			[]string{"projection_result_id", "vertex_id", "vertex_kind", "sort_ordinal", "sort_key", "vertex_json"},
+			pgx.CopyFromRows(rows))
+		if err != nil {
+			return fmt.Errorf("insert Graph Projection result vertices: %w", err)
+		}
+		if copied != int64(len(rows)) {
+			return fmt.Errorf("insert Graph Projection result vertices: copied %d of %d", copied, len(rows))
 		}
 	}
-	for ordinal, edge := range result.Edges {
-		if _, err := publisher.tx.Exec(ctx, `
-INSERT INTO graph_projection_result_edges (
-    projection_result_id, edge_id, edge_kind, src_vertex_id, dst_vertex_id,
-    direction, sort_ordinal, sort_key, edge_json
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-`, binding.ProjectionResultID, edge.EdgeID, edge.EdgeKind, edge.SrcVertexID, edge.DstVertexID,
-			edge.Direction, ordinal, edge.SortKey, []byte(edge.JSON)); err != nil {
-			return fmt.Errorf("insert Graph Projection result edge: %w", err)
+	if len(result.Edges) > 0 {
+		rows := make([][]any, len(result.Edges))
+		for ordinal, edge := range result.Edges {
+			rows[ordinal] = []any{binding.ProjectionResultID, edge.EdgeID, edge.EdgeKind, edge.SrcVertexID, edge.DstVertexID,
+				edge.Direction, ordinal, edge.SortKey, []byte(edge.JSON)}
+		}
+		copied, err := publisher.tx.CopyFrom(ctx, pgx.Identifier{"graph_projection_result_edges"},
+			[]string{"projection_result_id", "edge_id", "edge_kind", "src_vertex_id", "dst_vertex_id", "direction", "sort_ordinal", "sort_key", "edge_json"},
+			pgx.CopyFromRows(rows))
+		if err != nil {
+			return fmt.Errorf("insert Graph Projection result edges: %w", err)
+		}
+		if copied != int64(len(rows)) {
+			return fmt.Errorf("insert Graph Projection result edges: copied %d of %d", copied, len(rows))
 		}
 	}
 	return nil

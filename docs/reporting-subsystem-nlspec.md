@@ -3337,7 +3337,7 @@ ownership. The current built-in template is selected under REQ-RPT-102a;
 retired versions have no alias. Its admitted metadata and manifest digest must match
 the current template exactly. Existing history is subject to the clean
 pre-production cutover; no reader fills missing metadata or rewrites old source.
-The v3 database lineage gate rejects previous database histories before DDL;
+The current production DDL lineage gate (Core 01 §2.1A) rejects previous database histories before DDL;
 no historical per-format migration or template-metadata reconstruction remains.
 The baseline admits only explicit, request-bound template metadata. The active template registry owns supported versions and themes; the
 database does not become a second template registry.

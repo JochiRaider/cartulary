@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Private generation renderer (TH-HARNESS-REQ-004, REQ-261). It writes in place,
+# including clearing the SQL outputs, so it runs only inside the private scratch
+# tree that check-generate-drift.sh copies, marks and later compares and
+# publishes. Public `make generate` reaches it only through that driver.
+generation_marker=".cartulary-generation-scratch"
+render_root="$(pwd -P)"
+if [[ "${CARTULARY_GENERATION_SCRATCH_ROOT:-}" != "$render_root" || ! -f "$render_root/$generation_marker" ]]; then
+  echo "render-generated-artifacts.sh renders only inside a marked generation scratch tree; run make generate" >&2
+  exit 2
+fi
+
+"${NODE_BIN:?NODE_BIN is required}" ./tools/harness/workspace/layout.mjs
+
+mkdir -p "${GO_CACHE_DIR:?GO_CACHE_DIR is required}" "${GO_MOD_CACHE_DIR:?GO_MOD_CACHE_DIR is required}" "${GO_TMP_DIR:?GO_TMP_DIR is required}" internal/gen/sql
+find internal/gen/sql -maxdepth 1 -type f -name '*.go' -delete
+"${NODE_BIN:?NODE_BIN is required}" \
+  ./tools/harness/generated-artifacts/generate-foundation-schema-validators.mjs
+"$RUN_STEP_SCRIPT" "generate producer audit validators" -- \
+  "$NODE_BIN" ./tools/reference-packs/generate-audit-validators.mjs
+"$RUN_STEP_SCRIPT" "generate migration catalog projections" -- \
+  "$NODE_BIN" ./tools/database-migrations/generate-catalog-projections.mjs
+"${RUN_STEP_SCRIPT:?RUN_STEP_SCRIPT is required}" "generate closed maintenance SQL" -- \
+  "$NODE_BIN" ./tools/harness/generated-artifacts/generate-maintenance-sql.mjs
+"${RUN_STEP_SCRIPT:?RUN_STEP_SCRIPT is required}" "generate sqlc" -- \
+  "${SQLC_BIN:?SQLC_BIN is required}" generate
+"$RUN_STEP_SCRIPT" "assemble OpenAPI" -- \
+  env GOCACHE="$GO_CACHE_DIR" GOMODCACHE="$GO_MOD_CACHE_DIR" GOTMPDIR="$GO_TMP_DIR" "${GO:?GO is required}" run ./tools/openapi-assemble --write
+"$RUN_STEP_SCRIPT" "verify OpenAPI compatibility" -- \
+  env GOCACHE="$GO_CACHE_DIR" GOMODCACHE="$GO_MOD_CACHE_DIR" GOTMPDIR="$GO_TMP_DIR" "${GO:?GO is required}" run ./tools/openapi-compatibility
+"$RUN_STEP_SCRIPT" "generate OpenAPI operation catalog" -- \
+  env GOCACHE="$GO_CACHE_DIR" GOMODCACHE="$GO_MOD_CACHE_DIR" GOTMPDIR="$GO_TMP_DIR" "${GO:?GO is required}" run ./tools/openapi-operation-catalog
+"$RUN_STEP_SCRIPT" "generate reference format, fixtures and downstream contracts" -- \
+  env GOCACHE="$GO_CACHE_DIR" GOMODCACHE="$GO_MOD_CACHE_DIR" GOTMPDIR="$GO_TMP_DIR" \
+  "$NODE_BIN" ./tools/reference-pack-modules/product-generation.mjs "${GO:?GO is required}"
+"$RUN_STEP_SCRIPT" "generate Network Flow tzdb" -- \
+  env GOCACHE="$GO_CACHE_DIR" GOMODCACHE="$GO_MOD_CACHE_DIR" GOTMPDIR="$GO_TMP_DIR" "${GO:?GO is required}" run ./tools/networkflow-tzdb
+"$RUN_STEP_SCRIPT" "generate Network Flow Unicode 17 NFC" -- \
+  env GOCACHE="$GO_CACHE_DIR" GOMODCACHE="$GO_MOD_CACHE_DIR" GOTMPDIR="$GO_TMP_DIR" "${GO:?GO is required}" run ./tools/networkflow-unicode17
+"$RUN_STEP_SCRIPT" "generate otel contracts" -- \
+  "${NODE_BIN:?NODE_BIN is required}" ./tools/otel/generate-otel-contracts.mjs --write
+"$RUN_STEP_SCRIPT" "generate design tokens" -- \
+  "${NODE_BIN:?NODE_BIN is required}" ./tools/harness/generated-artifacts/design-tokens/design-token-cli.mjs
+"$RUN_STEP_SCRIPT" "generate design presentation" -- \
+  "${NODE_BIN:?NODE_BIN is required}" ./tools/harness/generated-artifacts/design-presentation/design-presentation-cli.mjs
+"$RUN_STEP_SCRIPT" "generate performance contracts" -- \
+  "${NODE_BIN:?NODE_BIN is required}" ./tools/harness/generated-artifacts/performance/performance-contracts-cli.mjs
+"$RUN_STEP_SCRIPT" "generate frontend visual golden manifest" -- \
+  "${NODE_BIN:?NODE_BIN is required}" ./tools/harness/browser/frontend-visual-golden-manifest.mjs
+"$RUN_STEP_SCRIPT" "generate task surface and execution topology" -- \
+  "$NODE_BIN" ./tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs \
+  --topology tools/execution_topology_manifest.json
+"$NODE_BIN" ./tools/harness/generated-artifacts/generated-transaction.mjs \
+  --repo "$PWD" --manifest tools/generate_drift_scratch_inputs.json --mode normalize

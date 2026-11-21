@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v13",
+  "schema_id": "cartulary.test_family_manifest.v14",
   "owner_id": "module.projections",
   "rows": [
     {
@@ -426,6 +426,38 @@
       "aggregate_placement": "full",
       "service_dependencies": [],
       "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.projections.rebuild.incident_rebuild_round_trips_are_bounded_by_page_8a10fd85db",
+      "owner_id": "module.projections",
+      "family_id": "module.projections.rebuild",
+      "collaborator_ids": [
+        "module.assessments",
+        "module.links",
+        "module.parties",
+        "module.timeline"
+      ],
+      "verification_ids": [
+        "module.projections.verification.rebuild"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/projections/internal/runtime",
+        "tests": [
+          "TestIncidentRebuildRoundTripsAreBoundedByPages"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.projections.rebuild.managed_service_assertions_for_atomic_catalog_a9d64032f0",

@@ -40,6 +40,7 @@ const (
 	ReasonEffectiveRoleMismatch              = "postgres_effective_role_mismatch"
 	ReasonServerVersionMismatch              = "postgres_server_version_mismatch"
 	ReasonDataChecksumsDisabled              = "postgres_data_checksums_disabled"
+	ReasonLZ4CompressionUnsupported          = "postgres_lz4_compression_unsupported"
 	ReasonAdmissionFailed                    = "postgres_admission_failed"
 
 	RequiredServerVersionNum = 180006
@@ -403,8 +404,10 @@ func connectionInitializer(settings Settings, expectedSessionUser string) func(c
 SELECT session_user::text,
        current_user::text,
        current_setting('server_version_num')::integer,
-       current_setting('data_checksums')::text
-`).Scan(&facts.sessionUser, &facts.currentUser, &facts.serverVersionNum, &facts.dataChecksums); err != nil {
+       current_setting('data_checksums')::text,
+       COALESCE((SELECT 'lz4' = ANY(enumvals) FROM pg_catalog.pg_settings
+                  WHERE name = 'default_toast_compression'), false)
+`).Scan(&facts.sessionUser, &facts.currentUser, &facts.serverVersionNum, &facts.dataChecksums, &facts.lz4); err != nil {
 			return configurationError(ReasonAdmissionFailed)
 		}
 		return validateAdmissionFacts(facts, expectedSessionUser, contract.role)
@@ -416,6 +419,7 @@ type admissionFacts struct {
 	currentUser      string
 	serverVersionNum int
 	dataChecksums    string
+	lz4              bool
 }
 
 func validateAdmissionFacts(facts admissionFacts, expectedSessionUser string, expectedRole string) error {
@@ -427,6 +431,11 @@ func validateAdmissionFacts(facts admissionFacts, expectedSessionUser string, ex
 	}
 	if facts.dataChecksums != "on" {
 		return configurationError(ReasonDataChecksumsDisabled)
+	}
+	// Core 04 REQ-04-153: Network Flow row storage uses lz4 TOAST compression,
+	// so a server built without it fails admission rather than migration.
+	if !facts.lz4 {
+		return configurationError(ReasonLZ4CompressionUnsupported)
 	}
 	return nil
 }

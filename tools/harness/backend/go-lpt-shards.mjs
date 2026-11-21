@@ -57,6 +57,18 @@ export function planGoLPTShards(items, { availableGoLanes,
     if (packingBoundMs >= timeoutMS) {
       throw new Error(`Go LPT packing bound ${packingBoundMs} must be below the unit timeout ${timeoutMS}`);
     }
+    // TH-HARNESS-REQ-865: no packed cohort's estimate exceeds the bound, so an
+    // item that cannot fit even alone fails closed instead of forming one.
+    // An exempt measurement item is planned alone under its own profile.
+    const overhead = invocationPolicy.startup_ms + invocationPolicy.cleanup_ms;
+    for (const item of group.items) {
+      if (item.packing_exempt === true && group.items.length !== 1) {
+        throw new Error(`${item.id} is exempt from the packing bound and cannot share a cohort`);
+      }
+      if (item.packing_exempt !== true && item.estimated_work_ms + overhead > packingBoundMs) {
+        throw new Error(`${item.id} estimate ${item.estimated_work_ms} ms plus ${overhead} ms invocation overhead exceeds the Go packing bound ${packingBoundMs} ms`);
+      }
+    }
     const cohorts = packInvocationCohorts(
       group.items.map((item) => ({ ...item, cost: item.estimated_work_ms })),
       invocationPolicy, packingBoundMs,

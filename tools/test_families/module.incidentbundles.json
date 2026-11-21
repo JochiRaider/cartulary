@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v13",
+  "schema_id": "cartulary.test_family_manifest.v14",
   "owner_id": "module.incidentbundles",
   "rows": [
     {
@@ -51,7 +51,7 @@
         ]
       },
       "evidence_class": "integration",
-      "estimated_work_ms": 63000,
+      "estimated_work_ms": 109000,
       "runtime_profile_id": "default",
       "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
@@ -87,7 +87,7 @@
         ]
       },
       "evidence_class": "integration",
-      "estimated_work_ms": 8000,
+      "estimated_work_ms": 18000,
       "runtime_profile_id": "default",
       "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
@@ -180,7 +180,7 @@
         ]
       },
       "evidence_class": "integration",
-      "estimated_work_ms": 43000,
+      "estimated_work_ms": 105000,
       "runtime_profile_id": "default",
       "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
@@ -238,7 +238,7 @@
         ]
       },
       "evidence_class": "integration",
-      "estimated_work_ms": 8000,
+      "estimated_work_ms": 11000,
       "runtime_profile_id": "default",
       "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
@@ -267,7 +267,7 @@
         ]
       },
       "evidence_class": "integration",
-      "estimated_work_ms": 7000,
+      "estimated_work_ms": 9000,
       "runtime_profile_id": "default",
       "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
@@ -314,7 +314,7 @@
         ]
       },
       "evidence_class": "integration",
-      "estimated_work_ms": 17000,
+      "estimated_work_ms": 24000,
       "runtime_profile_id": "default",
       "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
@@ -372,7 +372,7 @@
         ]
       },
       "evidence_class": "integration",
-      "estimated_work_ms": 112000,
+      "estimated_work_ms": 96000,
       "runtime_profile_id": "default",
       "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
@@ -495,6 +495,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 12000,
       "runtime_profile_id": "network_flow_claimed",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -530,7 +531,7 @@
         ]
       },
       "evidence_class": "integration",
-      "estimated_work_ms": 6000,
+      "estimated_work_ms": 10000,
       "runtime_profile_id": "default",
       "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
@@ -563,6 +564,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 9000,
       "runtime_profile_id": "network_flow_claimed",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -598,6 +600,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 8000,
       "runtime_profile_id": "network_flow_claimed",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -719,7 +722,7 @@
         ]
       },
       "evidence_class": "integration",
-      "estimated_work_ms": 21000,
+      "estimated_work_ms": 38000,
       "runtime_profile_id": "default",
       "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
@@ -751,7 +754,7 @@
         ]
       },
       "evidence_class": "integration",
-      "estimated_work_ms": 8000,
+      "estimated_work_ms": 18000,
       "runtime_profile_id": "default",
       "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",

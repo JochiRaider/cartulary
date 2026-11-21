@@ -6,7 +6,6 @@ import (
 
 	evidenceblob "github.com/JochiRaider/cartulary/internal/modules/evidence/internal/blob"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
-	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -40,7 +39,7 @@ func (p preparedEvidenceImport) compareBlobs(ctx context.Context, tx pgx.Tx, inp
 	if p.blobRewrite == nil || p.blobRewrite.members == nil {
 		return sourceport.ErrPreparedBinding
 	}
-	bound, err := incidentportability.BindMembers(input.RewrittenObjectBlobs, []string{portableBlobPath})
+	bound, err := bindRewrittenBlobs(input.RewrittenObjectBlobs)
 	if err != nil {
 		return err
 	}

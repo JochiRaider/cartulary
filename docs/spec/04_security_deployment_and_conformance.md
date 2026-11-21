@@ -2492,21 +2492,23 @@ These criteria provide direct runtime-family verification for substantive base-p
   surface or writable field through only one projection fails closed rather
   than partially registering behavior.
   - Verifies: REQ-01-660
-- **AC-542**: Production DDL Rebaseline v4 evidence proves that one pristine
+- **AC-542**: Production DDL Rebaseline v5 evidence proves that one pristine
   exact PostgreSQL 18.6 database with `server_version_num=180006` and data
   checksums enabled applies the complete contiguous authored catalog through its current head under lineage
-  `cartulary.prod_ddl_rebaseline.v4`; v1, v2, v3, foreign, unmarked-nonzero, and
-  contaminated cryptographically admitted states fail before v4 DDL with remediation-report schema v1,
-  boundary `prod_ddl_rebaseline_v4`, reason `historical_migration_lineage`, and
+  `cartulary.prod_ddl_rebaseline.v5`; v1, v2, v3, v4, foreign, unmarked-nonzero, and
+  contaminated cryptographically admitted states fail before v5 DDL with remediation-report schema v1,
+  boundary `prod_ddl_rebaseline_v5`, reason `historical_migration_lineage`, and
   the exact reset-only hint; and no previous-lineage SQL, data bridge,
   export/import transition, compatibility object, dual lineage, or downgrade
   remains. Manifest and catalog evidence proves exact file, object, logical
   owner, dependency, FK coverage, routine, Recovery, SQLC, and per-purpose
   access allocation. Prerequisite matrices prove exact administrator-owned
   `pgcrypto` 1.3 and `citext` 1.6 state, contamination rejection, qualified
-  DDL, transactional Up sections, exact historical reversible rollback-through-zero
-  residue, cutover rejection at each addressed boundary, and independently committed
-  successful steps before a later scratch rollback failure.
+  DDL, transactional Up sections, exact rollback-through-zero residue from the
+  baseline head, and independently committed successful steps before a later
+  scratch rollback failure. Semantic catalog evidence proves the v5 baseline's
+  schema equals the final v4 head's except for the differences REQ-01-661
+  declares.
   Resolver, connection, and PostgreSQL catalog matrices prove three-purpose
   credential isolation, closed failure precedence and redaction, no-follow
   bounded files, fixed role attributes and memberships, per-connection
@@ -4911,7 +4913,8 @@ The resolver failure precedence and reason codes are closed:
 7. required role identity not established: `postgres_effective_role_mismatch`;
 8. server version differs from exact integer `180006`: `postgres_server_version_mismatch`;
 9. data checksums are not `on`: `postgres_data_checksums_disabled`;
-10. engine admission cannot read or validate safe server facts: `postgres_admission_failed`.
+10. the server build does not support `lz4` TOAST compression, which Network Flow row storage requires (REQ-04-153): `postgres_lz4_compression_unsupported`;
+11. engine admission cannot read or validate safe server facts: `postgres_admission_failed`.
 
 The repeated `postgres_binding_invalid` reason intentionally hides whether the
 failure arose from deployment structure or secret content. If multiple
@@ -4952,8 +4955,9 @@ and Goose metadata; extension-managed objects are the only ownership
 exception. Runtime and Recovery MUST own no object. Every newly created or
 recycled physical connection MUST execute `SET ROLE` for its required fixed
 role and verify its deployment login as `session_user`, its fixed role as
-`current_user`, exact `server_version_num=180006`, and `data_checksums=on`
-before entering a pool or becoming caller-usable. A failing
+`current_user`, exact `server_version_num=180006`, `data_checksums=on`, and
+`lz4` TOAST compression support before entering a pool or becoming
+caller-usable. A failing
 connection MUST be closed. One-time pool initialization is insufficient, and
 pgx pool and `database/sql` construction MUST share one identity-establishment
 implementation.
@@ -5486,12 +5490,11 @@ downgrade is supplied. Recovery retains its separate authentication inventory,
 session invalidation and operator serving-admission policy. Qualification uses
 isolated harness-owned deployments and must not reset live environments.
 
-The incident-portability cutover requires fresh schema initialization. For the
-canonical catalog containing migration 39 or later, an initialized predecessor
-schema below 39 fails read-only admission with `schema_fresh_state_required`
-before any successor DDL or migration-ledger mutation. Provision an explicitly
-new target; keep the prior executable and its data together for historical
-access. Neither application startup nor test setup resets a live target.
+Predecessor schemas from before the incident-portability cutover belong to the
+v4 lineage, which the Core 01 §2.1A lineage gate rejects before any DDL or
+migration-ledger mutation. Provision an explicitly new target; keep the prior
+executable and its data together for historical access. Neither application
+startup nor test setup resets a live target.
 
 
 ## Generic Reference Pack coordinated amendment — 2026-11-08

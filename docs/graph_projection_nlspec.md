@@ -960,10 +960,7 @@ clear, rebuild, publication, reconciliation, or postcondition phase rolls back
 the complete Graph mutation. An indeterminate commit keeps the target
 unavailable under Core 04; any operator recovery is separate from this protocol.
 
-The current catalog removes the retired lease table. Existing migrations MUST
-remain unchanged. A new Core-owned migration may remove that table only when it
-is empty, checked under a table lock in the same transaction. Nonempty state
-MUST reject before mutation; migration MUST NOT delete or expire rows to pass.
+The current baseline excludes the retired lease table and never creates it.
 Old backup generations reject before restore mutation; old completion cannot
 authorize current startup and its control tuple MUST NOT be rewritten. No reader,
 converter, alias, implicit claim or automatic reset is introduced.

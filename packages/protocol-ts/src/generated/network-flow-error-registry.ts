@@ -339,7 +339,11 @@ const value = {
         "explicit_null",
         "type_mismatch",
         "invalid_schema_id",
-        "variant_member_conflict"
+        "variant_member_conflict",
+        "invalid_value",
+        "invalid_timestamp",
+        "unknown_selector_kind",
+        "id_key_mismatch"
       ]
     },
     {

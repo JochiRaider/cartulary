@@ -69,10 +69,8 @@ func (s *Store) rebuildIncidentTaskRequestsTxCore(ctx context.Context, tx pgx.Tx
 		if err != nil {
 			return err
 		}
-		for _, input := range page.Inputs {
-			if err := s.physical.InsertTaskRequestTx(ctx, tx, input); err != nil {
-				return err
-			}
+		if err := s.physical.InsertTaskRequestRowsTx(ctx, tx, page.Inputs); err != nil {
+			return err
 		}
 		if page.NextRecordID == nil {
 			return nil
@@ -97,10 +95,8 @@ func (s *Store) rebuildIncidentDecisionsTxCore(ctx context.Context, tx pgx.Tx, i
 		if err != nil {
 			return err
 		}
-		for _, input := range page.Inputs {
-			if err := s.physical.InsertDecisionTx(ctx, tx, input); err != nil {
-				return err
-			}
+		if err := s.physical.InsertDecisionRowsTx(ctx, tx, page.Inputs); err != nil {
+			return err
 		}
 		if page.NextRecordID == nil {
 			return nil

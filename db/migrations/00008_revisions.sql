@@ -64,6 +64,12 @@ CREATE TABLE public.change_sets (
     client_txn_id text,
     request_id text,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
+    actor_import_contexts jsonb DEFAULT '[]'::jsonb NOT NULL,
+    history_order bigint,
+    CONSTRAINT change_sets_actor_import_contexts_array_ck
+        CHECK (jsonb_typeof(actor_import_contexts) = 'array'),
+    CONSTRAINT change_sets_history_order_positive_ck CHECK (history_order > 0),
+    CONSTRAINT change_sets_incident_history_order_key UNIQUE (incident_id, history_order),
     CONSTRAINT change_sets_pkey PRIMARY KEY (change_set_id)
 );
 
@@ -134,6 +140,21 @@ REVOKE ALL ON TYPE public.record_revisions FROM PUBLIC;
 GRANT INSERT, SELECT, UPDATE, DELETE ON TABLE public.record_revisions TO cartulary_runtime;
 
 GRANT INSERT, SELECT, UPDATE, DELETE, TRUNCATE ON TABLE public.record_revisions TO cartulary_recovery;
+
+CREATE TABLE public.revision_history_orders (
+    incident_id uuid NOT NULL,
+    last_order bigint NOT NULL,
+    CONSTRAINT revision_history_orders_pkey PRIMARY KEY (incident_id),
+    CONSTRAINT revision_history_orders_positive_ck CHECK (last_order > 0)
+);
+
+REVOKE ALL ON TABLE public.revision_history_orders FROM PUBLIC;
+
+REVOKE ALL ON TYPE public.revision_history_orders FROM PUBLIC;
+
+GRANT INSERT, SELECT, UPDATE, DELETE ON TABLE public.revision_history_orders TO cartulary_runtime;
+
+GRANT INSERT, SELECT, UPDATE, DELETE, TRUNCATE ON TABLE public.revision_history_orders TO cartulary_recovery;
 
 -- +goose StatementBegin
 CREATE FUNCTION public.revisions_incident_bundle_sequence_begin_v1()
@@ -220,6 +241,72 @@ GRANT EXECUTE ON FUNCTION public.revisions_incident_bundle_sequence_finish_v1(or
 
 GRANT EXECUTE ON FUNCTION public.revisions_incident_bundle_sequence_finish_v1(original_next bigint) TO cartulary_recovery;
 
+-- One deferred event per inserted change set. The allocator upsert takes the
+-- incident's row lock at commit and holds it until transaction end. A row
+-- removed earlier in the transaction allocates nothing. An explicit portable
+-- order only raises the high water. Exhaustion fails the commit; never wrap.
+-- +goose StatementBegin
+CREATE FUNCTION public.revisions_allocate_history_order_v2() RETURNS trigger
+LANGUAGE plpgsql SET search_path = pg_catalog, public AS $$
+DECLARE
+    assigned bigint;
+    allocated bigint;
+BEGIN
+    SELECT history_order INTO assigned
+      FROM public.change_sets
+     WHERE change_set_id = NEW.change_set_id;
+    IF NOT FOUND THEN
+        RETURN NULL;
+    END IF;
+    IF assigned IS NOT NULL THEN
+        INSERT INTO public.revision_history_orders AS allocator (incident_id, last_order)
+        VALUES (NEW.incident_id, assigned)
+        ON CONFLICT (incident_id) DO UPDATE
+          SET last_order = GREATEST(allocator.last_order, EXCLUDED.last_order);
+        RETURN NULL;
+    END IF;
+    INSERT INTO public.revision_history_orders AS allocator (incident_id, last_order)
+    VALUES (NEW.incident_id, 1)
+    ON CONFLICT (incident_id) DO UPDATE
+      SET last_order = allocator.last_order + 1
+      WHERE allocator.last_order < 9223372036854775807
+    RETURNING allocator.last_order INTO allocated;
+    IF allocated IS NULL THEN
+        RAISE EXCEPTION 'revision history order is exhausted'
+            USING ERRCODE = 'numeric_value_out_of_range';
+    END IF;
+    UPDATE public.change_sets
+       SET history_order = allocated
+     WHERE change_set_id = NEW.change_set_id;
+    RETURN NULL;
+END $$;
+-- +goose StatementEnd
+
+REVOKE ALL ON FUNCTION public.revisions_allocate_history_order_v2() FROM PUBLIC;
+
+-- Recovery loads change sets with triggers disabled, so the commit-time
+-- allocator never runs for restored rows. This Revisions-owned predicate lets
+-- Recovery prove the restored chronology before commit: every change set has a
+-- history order, and each incident's allocator covers its greatest order.
+-- +goose StatementBegin
+CREATE FUNCTION public.revisions_history_order_is_valid_v1()
+RETURNS boolean LANGUAGE sql STABLE SET search_path = pg_catalog, public AS $$
+ SELECT NOT EXISTS (SELECT 1 FROM public.change_sets WHERE history_order IS NULL)
+ AND NOT EXISTS (
+   SELECT 1
+     FROM (SELECT incident_id, max(history_order) AS high_water
+             FROM public.change_sets
+            GROUP BY incident_id) AS restored
+     LEFT JOIN public.revision_history_orders AS allocator USING (incident_id)
+    WHERE allocator.last_order IS NULL OR allocator.last_order < restored.high_water
+ );
+$$;
+-- +goose StatementEnd
+
+REVOKE ALL ON FUNCTION public.revisions_history_order_is_valid_v1() FROM PUBLIC;
+
+GRANT EXECUTE ON FUNCTION public.revisions_history_order_is_valid_v1() TO cartulary_recovery;
+
 CREATE INDEX change_set_mutations_history_record_ids_idx ON public.change_set_mutations USING gin (history_record_ids);
 
 CREATE INDEX change_set_mutations_target_lookup_idx ON public.change_set_mutations USING btree (target_kind, target_id);
@@ -254,6 +341,8 @@ ALTER TABLE public.record_revisions ADD CONSTRAINT record_revisions_change_set_i
 
 ALTER TABLE public.record_revisions ADD CONSTRAINT record_revisions_record_id_fkey FOREIGN KEY (record_id) REFERENCES public.records(record_id) ON DELETE CASCADE ON UPDATE NO ACTION;
 
+ALTER TABLE public.revision_history_orders ADD CONSTRAINT revision_history_orders_incident_id_fkey FOREIGN KEY (incident_id) REFERENCES public.incidents(id) ON DELETE CASCADE ON UPDATE NO ACTION;
+
 ALTER SEQUENCE public.record_revisions_revision_id_seq OWNED BY public.record_revisions.revision_id;
 
 REVOKE ALL ON SEQUENCE public.record_revisions_revision_id_seq FROM PUBLIC;
@@ -262,8 +351,15 @@ GRANT USAGE ON SEQUENCE public.record_revisions_revision_id_seq TO cartulary_run
 
 GRANT SELECT, UPDATE, USAGE ON SEQUENCE public.record_revisions_revision_id_seq TO cartulary_recovery;
 
+CREATE CONSTRAINT TRIGGER change_sets_allocate_history_order
+AFTER INSERT ON public.change_sets
+DEFERRABLE INITIALLY DEFERRED FOR EACH ROW
+EXECUTE FUNCTION public.revisions_allocate_history_order_v2();
+
 -- +goose Down
 -- Disposable harness cleanup only; no production downgrade or restore guarantee.
+DROP TRIGGER change_sets_allocate_history_order ON public.change_sets;
+ALTER TABLE public.revision_history_orders DROP CONSTRAINT revision_history_orders_incident_id_fkey;
 ALTER TABLE public.record_revisions DROP CONSTRAINT record_revisions_record_id_fkey;
 ALTER TABLE public.record_revisions DROP CONSTRAINT record_revisions_change_set_id_fkey;
 ALTER TABLE public.record_revision_conflict_facts DROP CONSTRAINT record_revision_conflict_facts_revision_id_fkey;
@@ -273,8 +369,11 @@ ALTER TABLE public.record_history_entry_refs DROP CONSTRAINT record_history_entr
 ALTER TABLE public.change_sets DROP CONSTRAINT change_sets_incident_id_fkey;
 ALTER TABLE public.change_sets DROP CONSTRAINT change_sets_actor_user_id_fkey;
 ALTER TABLE public.change_set_mutations DROP CONSTRAINT change_set_mutations_change_set_id_fkey;
+DROP FUNCTION public.revisions_history_order_is_valid_v1();
+DROP FUNCTION public.revisions_allocate_history_order_v2();
 DROP FUNCTION public.revisions_incident_bundle_sequence_finish_v1(original_next bigint);
 DROP FUNCTION public.revisions_incident_bundle_sequence_begin_v1();
+DROP TABLE public.revision_history_orders;
 DROP TABLE public.record_revisions;
 DROP TABLE public.record_revision_conflict_facts;
 DROP TABLE public.record_history_entry_refs;

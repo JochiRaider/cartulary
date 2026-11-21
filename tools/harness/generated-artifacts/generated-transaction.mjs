@@ -14,6 +14,7 @@ import {
   readdirSync,
   renameSync,
   rmSync,
+  writeFileSync,
 } from "node:fs";
 import path from "node:path";
 import process from "node:process";
@@ -95,6 +96,45 @@ export function changedGeneratedPaths(repoRoot, renderedRoot, generatedPaths) {
     .sort(compareASCII);
 }
 
+// Scratch-state roots never hold generated outputs: Git metadata, the borrowed
+// dependency link, and gitignored temporary and machine state.
+const scratchStateRoots = new Set([".git", ".cartulary", "node_modules", "tmp"]);
+
+export class GeneratedClosureError extends Error {}
+
+// A render inventory identifies each scratch entry by inode, size, mode and
+// nanosecond mtime, so any write during rendering is observable, including a
+// rewrite with identical bytes.
+export function renderedInventory(renderedRoot) {
+  const entries = {};
+  const visit = (relative) => {
+    const absolute = relative ? path.join(renderedRoot, relative) : renderedRoot;
+    for (const name of readdirSync(absolute).sort(compareASCII)) {
+      if (!relative && scratchStateRoots.has(name)) continue;
+      const child = relative ? `${relative}/${name}` : name;
+      const info = lstatSync(path.join(renderedRoot, child), { bigint: true });
+      if (info.isDirectory()) {
+        visit(child);
+        continue;
+      }
+      entries[child] = `${info.ino}:${info.size}:${info.mode}:${info.mtimeNs}:${info.isSymbolicLink() ? "link" : "file"}`;
+    }
+  };
+  visit("");
+  return entries;
+}
+
+// Closure check (TH-HARNESS-REQ-004): every path the renderer created, changed
+// or removed must lie inside a declared generated path.
+export function undeclaredRenderedWrites(before, after, generatedPaths) {
+  const declared = generatedPaths.map(validateRelative);
+  const inside = (relative) => declared.some((root) => relative === root || relative.startsWith(`${root}/`));
+  const touched = new Set();
+  for (const [relative, identity] of Object.entries(after)) if (before[relative] !== identity) touched.add(relative);
+  for (const relative of Object.keys(before)) if (!(relative in after)) touched.add(relative);
+  return [...touched].filter((relative) => !inside(relative)).sort(compareASCII);
+}
+
 export function publishGeneratedTransaction({
   repoRoot,
   renderedRoot,
@@ -152,17 +192,23 @@ export function publishGeneratedTransaction({
 }
 
 function parseCLI(argv) {
-  const options = { repo: "", rendered: "", manifest: "", mode: "check" };
+  const options = { repo: "", rendered: "", manifest: "", mode: "check", inventory: "", out: "" };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === "--repo") options.repo = argv[++index] ?? "";
     else if (arg === "--rendered") options.rendered = argv[++index] ?? "";
     else if (arg === "--manifest") options.manifest = argv[++index] ?? "";
     else if (arg === "--mode") options.mode = argv[++index] ?? "";
+    else if (arg === "--inventory") options.inventory = argv[++index] ?? "";
+    else if (arg === "--out") options.out = argv[++index] ?? "";
     else throw new Error("invalid generated transaction arguments");
   }
+  if (options.mode === "inventory") {
+    if (!options.rendered || !options.manifest || !options.out) throw new Error("generated inventory requires rendered, manifest and out");
+    return options;
+  }
   if (!options.repo || !options.manifest || !["check", "refresh", "normalize"].includes(options.mode) || (options.mode !== "normalize" && !options.rendered)) {
-    throw new Error("generated transaction requires repo, manifest, and check|refresh|normalize mode; comparison requires rendered");
+    throw new Error("generated transaction requires repo, manifest, and check|refresh|normalize|inventory mode; comparison requires rendered");
   }
   return options;
 }
@@ -177,6 +223,20 @@ function main() {
   if (options.mode === "normalize") {
     normalizeGeneratedSourceModes(options.repo, generatedPaths);
     return;
+  }
+  if (options.mode === "inventory") {
+    writeFileSync(options.out, `${JSON.stringify(renderedInventory(options.rendered))}\n`, { flag: "wx", mode: 0o600 });
+    return;
+  }
+  if (options.inventory) {
+    const undeclared = undeclaredRenderedWrites(
+      JSON.parse(readFileSync(options.inventory, "utf8")),
+      renderedInventory(options.rendered),
+      generatedPaths,
+    );
+    if (undeclared.length > 0) {
+      throw new GeneratedClosureError(`generated render wrote undeclared paths: ${undeclared.join(", ")}`);
+    }
   }
   const changed = changedGeneratedPaths(options.repo, options.rendered, generatedPaths);
   if (options.mode === "check" && changed.length > 0) {
@@ -198,6 +258,7 @@ if (import.meta.url === new URL(`file://${process.argv[1]}`).href) {
     main();
   } catch (error) {
     process.stderr.write(`${error.message}\n`);
-    process.exitCode = 1;
+    // An undeclared render write is an artifact failure, not a drift finding.
+    process.exitCode = error instanceof GeneratedClosureError ? 11 : 1;
   }
 }

@@ -50,24 +50,11 @@ for (const [index, filename] of migrationFiles.entries()) {
 const profileByVersion = new Map([
   [2, "enterprise_authentication"],
   [19, "import"],
-  [31, "import"],
-  [32, "import"],
-  [33, "import"],
-  [39, "import"],
-  [49, "import"],
   [20, "network_flow_activity"],
-  [30, "network_flow_activity"],
-  [34, "network_flow_activity"],
-  [38, "network_flow_activity"],
-  [40, "network_flow_activity"],
-  [60, "network_flow_activity"],
   [23, "snapshot_reporting"],
-  [37, "snapshot_reporting"],
   [24, "snapshot_reporting"],
   [25, "incident_portability"],
   [26, "reference_pack"],
-  [48, "reference_pack"],
-  [50, "reference_pack"],
 ]);
 const recoveryCatalog = JSON.parse(
   readFileSync(path.join(root, "contracts/recovery/fixtures/recovery-state-catalog.v3.json"), "utf8"),
@@ -281,7 +268,7 @@ function validateCatalogPolicy(filename, body) {
     ["unenforced_constraint", /\bNOT\s+ENFORCED\b/u],
     ["concurrent_index", /\bCREATE\s+(?:UNIQUE\s+)?INDEX\s+CONCURRENTLY\b/u],
     ["cascade_drop", /\bDROP\b[^;]*\bCASCADE\b/u],
-    ["historical_lineage", /CARTULARY\.PROD_DDL_REBASELINE\.V1|00062_|MIGRATION\s+62/u],
+    ["historical_lineage", /CARTULARY\.PROD_DDL_REBASELINE\.V[1-4]\b/u],
   ]) {
     if (pattern.test(upper)) violations.push(code);
   }
@@ -332,7 +319,7 @@ function validateCatalogPolicy(filename, body) {
     }
   }
   if (violations.length > 0) {
-    throw new Error(`${filename} violates Production DDL Rebaseline v4 policy: ${[...new Set(violations)].sort().join(", ")}`);
+    throw new Error(`${filename} violates Production DDL Rebaseline v5 policy: ${[...new Set(violations)].sort().join(", ")}`);
   }
 }
 

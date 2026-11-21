@@ -28,7 +28,10 @@ import (
 )
 
 var ErrConflict = errors.New("host admission unavailable")
-var resources = []string{"browser_stack", "cpu", "io", "memory_mb", "object_store", "port_lane", "postgres", "process", "service_stack", "volume"}
+
+// Resources returns the admission resource vocabulary, which is generated from
+// the scheduler resource registry (TH-HARNESS-REQ-381), in canonical order.
+func Resources() []string { return slices.Clone(resources) }
 
 const maxInteger = 9007199254740991
 
@@ -206,13 +209,13 @@ func ReadRequest(data []byte) (Request, error) {
 func readState(directory *os.File, mutable bool) (*state, error) {
 	data, err := harnesslocal.ReadFileAt(directory, "state.json", 4*1024*1024, mutable)
 	if errors.Is(err, os.ErrNotExist) {
-		return &state{Generation: 2, Residents: []Resident{}, Leases: []*lease{}}, nil
+		return &state{Generation: stateGeneration, Residents: []Resident{}, Leases: []*lease{}}, nil
 	}
 	if err != nil {
 		return nil, err
 	}
 	var s state
-	if strict(data, &s) != nil || s.Generation != 2 || s.Residents == nil || len(s.Residents) > 4096 || !integer(s.Sequence) || s.Leases == nil || len(s.Leases) > 4096 {
+	if strict(data, &s) != nil || s.Generation != stateGeneration || s.Residents == nil || len(s.Residents) > 4096 || !integer(s.Sequence) || s.Leases == nil || len(s.Leases) > 4096 {
 		return nil, ErrConflict
 	}
 	// Structural required-field checks distinguish omitted false/zero from facts.

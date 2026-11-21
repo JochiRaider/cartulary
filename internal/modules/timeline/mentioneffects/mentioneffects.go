@@ -28,8 +28,9 @@ type RecordPort interface {
 	LoadRowVersionTx(context.Context, pgx.Tx, uuid.UUID) (int64, error)
 }
 
+// CollectionPort is the Timeline projection source's collection-fact reader.
 type CollectionPort interface {
-	LoadTimelineCollectionFactsTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID) (workbookprojection.CollectionFacts, error)
+	workbookprojection.CollectionFactReader
 }
 
 type Provider struct {

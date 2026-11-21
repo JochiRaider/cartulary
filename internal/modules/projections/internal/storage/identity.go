@@ -10,12 +10,7 @@ import (
 	entitycontract "github.com/JochiRaider/cartulary/internal/modules/entities/projectioncontract"
 )
 
-func (store *Store) UpsertIdentityTx(
-	ctx context.Context,
-	tx pgx.Tx,
-	input entitycontract.IdentityProjectionInput,
-) error {
-	if _, err := tx.Exec(ctx, `
+const identityProjectionRowSQL = `
 INSERT INTO identity_grid_projection (
     record_id, incident_id, row_version, display_name, upn, email,
     sam_account_name, identity_state, linked_event_count, evidence_count,
@@ -36,13 +31,42 @@ SET incident_id = EXCLUDED.incident_id,
     mfa_state = EXCLUDED.mfa_state,
     reset_status = EXCLUDED.reset_status,
     edited_at = EXCLUDED.edited_at
-`, input.RecordID, input.IncidentID, input.RowVersion, input.DisplayName,
+`
+
+func identityProjectionRowArguments(input entitycontract.IdentityProjectionInput) ([]any, error) {
+	return []any{
+		input.RecordID, input.IncidentID, input.RowVersion, input.DisplayName,
 		input.UPN, input.Email, input.SamAccountName, input.IdentityState,
 		input.LinkedEventCount, input.EvidenceCount, input.PrivilegeLevel,
-		input.MFAState, input.ResetStatus, input.EditedAt.UTC()); err != nil {
+		input.MFAState, input.ResetStatus, input.EditedAt.UTC(),
+	}, nil
+}
+
+func (store *Store) UpsertIdentityTx(ctx context.Context, tx pgx.Tx, input entitycontract.IdentityProjectionInput) error {
+	args, err := identityProjectionRowArguments(input)
+	if err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, identityProjectionRowSQL, args...); err != nil {
 		return fmt.Errorf("upsert identity projection row: %w", err)
 	}
 	return nil
+}
+
+// UpsertIdentityRowsTx writes a page of rows in one round trip.
+func (store *Store) UpsertIdentityRowsTx(ctx context.Context, tx pgx.Tx, inputs []entitycontract.IdentityProjectionInput) error {
+	if len(inputs) == 0 {
+		return nil
+	}
+	batch := &pgx.Batch{}
+	for _, input := range inputs {
+		args, err := identityProjectionRowArguments(input)
+		if err != nil {
+			return err
+		}
+		batch.Queue(identityProjectionRowSQL, args...)
+	}
+	return projectionRowsResult(tx.SendBatch(ctx, batch), len(inputs), "upsert identity projection row")
 }
 
 func (store *Store) DeleteIdentityRowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {

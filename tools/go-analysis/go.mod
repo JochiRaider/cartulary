@@ -7,6 +7,9 @@ tool (
 	honnef.co/go/tools/cmd/staticcheck
 )
 
+// Go 1.27.2 export data requires the method-order-aware upstream reader.
+require golang.org/x/tools v0.51.0
+
 require (
 	cloud.google.com/go v0.123.0 // indirect
 	cloud.google.com/go/auth v0.23.2 // indirect
@@ -51,8 +54,6 @@ require (
 	golang.org/x/sync v0.24.0 // indirect
 	golang.org/x/sys v0.49.0 // indirect
 	golang.org/x/text v0.43.0 // indirect
-	// Go 1.27.2 export data requires the method-order-aware upstream reader.
-	golang.org/x/tools v0.51.0 // indirect
 	google.golang.org/api v0.293.0 // indirect
 	google.golang.org/genai v1.69.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260819154853-08b0e4226688 // indirect

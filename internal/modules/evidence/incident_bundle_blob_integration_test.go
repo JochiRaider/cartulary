@@ -32,6 +32,11 @@ func portableBlobRewriteFixture(t testing.TB, rows []map[string]any) portability
 			t.Fatal(err)
 		}
 	}
+	// Core 01 REQ-01-695: zero prepared rows stage no rewritten member.
+	if len(rows) == 0 {
+		delete(b, portableBlobTestPath)
+		return b
+	}
 	b[portableBlobTestPath] = out.Bytes()
 	return b
 }
@@ -158,6 +163,24 @@ func TestEvidencePortableBlobTransaction_Integration(t *testing.T) {
 			}
 		})
 	}
+	// Core 01 REQ-01-695: an absent rewritten member is the empty rewrite, so a
+	// member present for zero rows, or absent for rows, is not exact.
+	t.Run("rewritten member presence matches prepared rows", func(t *testing.T) {
+		t.Run("present for zero rows", func(t *testing.T) {
+			tx := begin(t)
+			p, input, _ := prepare(t)
+			present := input.RewrittenObjectBlobs.(portabilitysupport.MapBundle)
+			present[portableBlobTestPath] = []byte{}
+			requireEvidencePortableFailure(t, port.ApplyImportTx(ctx, tx, p, input), "source_state_exact")
+		})
+		t.Run("absent for rows", func(t *testing.T) {
+			tx := begin(t)
+			p, input, _ := prepare(t, portableBlobTestRow(incident, 1, "pending"))
+			absent := input.RewrittenObjectBlobs.(portabilitysupport.MapBundle)
+			delete(absent, portableBlobTestPath)
+			requireEvidencePortableFailure(t, port.ApplyImportTx(ctx, tx, p, input), "source_state_exact")
+		})
+	})
 	t.Run("terminal reason alone", func(t *testing.T) {
 		tx := begin(t)
 		source := portableBlobTestRow(incident, 1, "failed")

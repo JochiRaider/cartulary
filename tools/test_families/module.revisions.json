@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v13",
+  "schema_id": "cartulary.test_family_manifest.v14",
   "owner_id": "module.revisions",
   "rows": [
     {
@@ -1745,6 +1745,34 @@
         "package": "./internal/modules/revisions",
         "tests": [
           "TestRevisionsIncidentBundlePreparationPrecedence_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.revisions.portability.reference_pass_reads_owners_and_envelopes_by_pag_766898c375",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.portability",
+      "collaborator_ids": [
+        "module.incidentbundles",
+        "module.records"
+      ],
+      "verification_ids": [
+        "module.revisions.verification.portability_contract_and_attribution"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions",
+        "tests": [
+          "TestIncidentBundleReferencePassReadsByPage_Unit"
         ]
       },
       "evidence_class": "unit",

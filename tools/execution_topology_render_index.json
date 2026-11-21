@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 3,
-  "input_digest": "sha256:39bbca0e2ef6b6eddd7c35bd8dd9213224b0bdbfc46e7992508cbbe610fa264b",
+  "input_digest": "sha256:04dcc6f596a434e0d7b871a1822945bb48681b3707bb052313487f778d09f920",
   "inputs": [
     {
       "path": "contracts/performance/ac003.v2.json",
@@ -442,7 +442,7 @@
     {
       "path": "tools/harness/backend/go-lpt-shards.mjs",
       "role": "renderer_source",
-      "hash": "sha256:ebc038b8878148c6fdd9b8353808c364f1e72f0de5d1dd327824b16b418dd3f4"
+      "hash": "sha256:91ecf3c2009bf98cc94bc6c299783efecef83e5b5b6a738f6f306b502ab754b3"
     },
     {
       "path": "tools/harness/browser/acquire-process.mjs",
@@ -767,7 +767,7 @@
     {
       "path": "tools/harness/browser/ui-review/source.mjs",
       "role": "renderer_source",
-      "hash": "sha256:a7d10f576de75e4c06fbf2ebaca470e41518dd00fabc793a5b18950ff8b7664b"
+      "hash": "sha256:c41873d5333e67d5eb202057c19bab3485a742155ba43c05d00bd8b470868adf"
     },
     {
       "path": "tools/harness/browser/ui-review/toolchain.mjs",
@@ -823,6 +823,11 @@
       "path": "tools/harness/contract/failure-taxonomy.mjs",
       "role": "renderer_source",
       "hash": "sha256:4d9ac981d346a90a5281e4259c15367d49eefab16f78ddd52d4cfbb2f0e3d267"
+    },
+    {
+      "path": "tools/harness/contract/generated/admission-vocabulary.mjs",
+      "role": "renderer_source",
+      "hash": "sha256:11974f4de36244011df1fb88e40b03cf034614278dbec1786e0a6c8bfa312093"
     },
     {
       "path": "tools/harness/contract/generated/instrumentation-definitions.mjs",
@@ -980,6 +985,11 @@
       "hash": "sha256:3ad4b4b9cf3b6813485e2b90d9a25306daf7ca115af770f03becf479e102c3fa"
     },
     {
+      "path": "tools/harness/generated-artifacts/admission-vocabulary.mjs",
+      "role": "renderer_source",
+      "hash": "sha256:c0b68104a2efa57aea0aea9410bf9de4b8879975a4fe9239a6550edfc7f940a1"
+    },
+    {
       "path": "tools/harness/generated-artifacts/check-generated-artifact-policy.mjs",
       "role": "renderer_source",
       "hash": "sha256:c380649286f4e0d7ccf94bb196171cc20be3be9b457ecdba06858ff6a9352f35"
@@ -1057,7 +1067,7 @@
     {
       "path": "tools/harness/generated-artifacts/generate-foundation-schema-validators.mjs",
       "role": "renderer_source",
-      "hash": "sha256:ce8c2bf13c96729c7218ea3c44f2f83356b16b59d42e35dd11a7f8869316011d"
+      "hash": "sha256:b5d8d5bd94fb58d318cd084163fdfd4e3a41eb02e960f7b55707312bd74e54ab"
     },
     {
       "path": "tools/harness/generated-artifacts/generate-maintenance-sql.mjs",
@@ -1067,7 +1077,7 @@
     {
       "path": "tools/harness/generated-artifacts/generated-transaction.mjs",
       "role": "renderer_source",
-      "hash": "sha256:b2fbacba00bb6e41aacc15f74a13b2ed9c00588c7505cf251acce301a2f5e940"
+      "hash": "sha256:1683ad988d3eaf6574167deb22edf0606c7437829fe99dbd6dc96be8f2528a3f"
     },
     {
       "path": "tools/harness/generated-artifacts/index.mjs",
@@ -1242,7 +1252,7 @@
     {
       "path": "tools/harness/scheduler/work-graph/compiler.mjs",
       "role": "renderer_source",
-      "hash": "sha256:d4dbc9004b2325fd4aa9742a5bfa9217d36a6b613b5f1895c5355e9c8f7b4e38"
+      "hash": "sha256:a682be8a66e2f046a025ee3c9e763c8725d5a0e65b36d492a70ddba52986d133"
     },
     {
       "path": "tools/harness/scheduler/work-graph/index.mjs",
@@ -1282,7 +1292,7 @@
     {
       "path": "tools/harness/scheduler/work-graph/prepare-plan.mjs",
       "role": "renderer_source",
-      "hash": "sha256:8a763b2957865d17e5bf7cb99a223ed837ca26aed90085512150556364edd105"
+      "hash": "sha256:aae45822a8b1f5cd6400d4c72d12680802d49764c3c88bdc210c068e0b7ccd6b"
     },
     {
       "path": "tools/harness/scheduler/work-graph/resource-claims.mjs",
@@ -1327,7 +1337,7 @@
     {
       "path": "tools/harness/test-catalog/postgres-fixture-policy.mjs",
       "role": "renderer_source",
-      "hash": "sha256:ad256e9d5ef75133cc45e9094d844f941271be707de2e65bbf3c1779a4bd3f92"
+      "hash": "sha256:e9aac9b169f24877af7dc9982891016fa93b97950e03dabed382c60ca8d4eba8"
     },
     {
       "path": "tools/harness/test-catalog/restricted-input-boundary.mjs",
@@ -1377,7 +1387,7 @@
     {
       "path": "tools/harness/test-catalog/test-catalog.mjs",
       "role": "renderer_source",
-      "hash": "sha256:01211ced3dd45dd677ed7044db129891ffd2206bb3bcb5dbf3fdd58b72783ee3"
+      "hash": "sha256:ae1c7429fb1fd583a1eadcb68d9cc9f6882745dea3dc227bd2d1bcf604494bd3"
     },
     {
       "path": "tools/harness/test-catalog/validated-context.mjs",
@@ -1402,7 +1412,7 @@
     {
       "path": "tools/postgres_fixture_policy_registry.json",
       "role": "postgres_fixture_policy_registry",
-      "hash": "sha256:79f538d1b72b61f375c6fe54d808b92a052c721a4ef57c9dcd0dac7232e6a177"
+      "hash": "sha256:742d01bb6d1052ec670aded6c85410096b6397056cdddc8199a294a62206bc4f"
     },
     {
       "path": "tools/scheduler_resource_registry.json",
@@ -1412,7 +1422,7 @@
     {
       "path": "tools/task_surface_owner.json",
       "role": "task_surface_owner",
-      "hash": "sha256:11ffef367ae872439cea022d39e075b50afcbd2d6d45140eaacd93729db83a98"
+      "hash": "sha256:abd4a10587b264fdcbccc758f64e1416188e4af6bdae78d53207e9a3a20fa99b"
     },
     {
       "path": "tools/test_catalog_owner.json",
@@ -1422,332 +1432,332 @@
     {
       "path": "tools/test_families/app.migrate.json",
       "role": "test_family_manifest",
-      "hash": "sha256:cce613abcce7a8fe5e85cbf571382126162af2e26b9921164ae5b5c806b2bd7e"
+      "hash": "sha256:fd0263f3e7947d4989811b4b90f1f3e23cb9ad5cc8440eb5344fe5f07ed5d6b9"
     },
     {
       "path": "tools/test_families/app.operator.json",
       "role": "test_family_manifest",
-      "hash": "sha256:2920a522227793e9523d76dac29a93ab268568d0b2fb8b68efb63cd6e4d18ffd"
+      "hash": "sha256:7d231218cb4c79f9a8ad57a697f747bb006aeeaa5501059edacc55373ed13733"
     },
     {
       "path": "tools/test_families/app.server.json",
       "role": "test_family_manifest",
-      "hash": "sha256:0a3a654769600149cbb44605ec01521c689f2e6d190a10c723a84d814af3e127"
+      "hash": "sha256:272ebded2d0a4e7180ee2315e8e97fed36bd7d66ae43d03df7cab53a3559adf2"
     },
     {
       "path": "tools/test_families/harness.browser.json",
       "role": "test_family_manifest",
-      "hash": "sha256:b18cf6610188d8e9f0ce80bd027ba1302f7eb8c143b182d1274dd10adcb0f820"
+      "hash": "sha256:2d1cdd577e58b18f266f1d12c20b28ed70f46117590b2a4c236acae9022aa2a4"
     },
     {
       "path": "tools/test_families/harness.command_surface.json",
       "role": "test_family_manifest",
-      "hash": "sha256:be341f4fd18adde9cafe363504033c4f0d785beb4141c92b1e7b62fe79519d7f"
+      "hash": "sha256:60f7cb2a10cccd6b5e2be1e43bc39200baa0ede1001749bb2b9ef3e12eed0bb0"
     },
     {
       "path": "tools/test_families/harness.evidence_accounting.json",
       "role": "test_family_manifest",
-      "hash": "sha256:1f94e5c1c1a34d35f31189a4086fcfcb976c3fcd6c218ad29739691133fedabc"
+      "hash": "sha256:fa7e45bef3e94e14cef65fbc8a5c1ba5cfe0e297268f0e54f1c2f6d164dd592a"
     },
     {
       "path": "tools/test_families/harness.generated_artifacts.json",
       "role": "test_family_manifest",
-      "hash": "sha256:edbf6585f62f09fe17d58f5c89cd4c55534cb28300ce46def9a6029dc84b7971"
+      "hash": "sha256:65b543ee862b7e03357c50dc15a9768dbb676597f1354fd0b03a02599c04ba07"
     },
     {
       "path": "tools/test_families/harness.release.json",
       "role": "test_family_manifest",
-      "hash": "sha256:89c07c9fe34331976030a5ed6285b5f985eb569706932c97ecbb072f74737615"
+      "hash": "sha256:df285626400ac51ab1820268a8dd4f6adfb1e6ce4a045fe0d5b43e26e164b39c"
     },
     {
       "path": "tools/test_families/harness.test_catalog.json",
       "role": "test_family_manifest",
-      "hash": "sha256:b0899d835daa645358d299411f2f4e27806b3383d252559d53ee4159ef12095d"
+      "hash": "sha256:48906aab02fe50e5e8c8fccc93e9c4ee5476c68edd06492f150e1576e5d6618b"
     },
     {
       "path": "tools/test_families/module.artifacts.json",
       "role": "test_family_manifest",
-      "hash": "sha256:85ffe5d76ac674e35f2b4d569728f9238002972b274c9175db62c1dde12a43d2"
+      "hash": "sha256:55d6ce521da7d06c2247c90cbaebef0b33b43284962ad8d3ebf0ff223fb25c8a"
     },
     {
       "path": "tools/test_families/module.assessments.json",
       "role": "test_family_manifest",
-      "hash": "sha256:cef517677cb3ef2b02988a48f2f83f59f76b2939727f6723c71699726ed5332e"
+      "hash": "sha256:abbdde3e99c2cabb8e0cf58548742fa2cb1630179473ec4304e94360294111f0"
     },
     {
       "path": "tools/test_families/module.auth.json",
       "role": "test_family_manifest",
-      "hash": "sha256:3a8cbd6d4e3514dd751449ff37f5721c183ee78300554c1f4084646de382c611"
+      "hash": "sha256:0754006bec00784798229f2a42d836a65e0410b73ef52b87b77f549d9dcb6d15"
     },
     {
       "path": "tools/test_families/module.collaboration.json",
       "role": "test_family_manifest",
-      "hash": "sha256:b3321854071555bc8eaa4f532b85015e49a5d4c826fd76cd37404fd655fce16f"
+      "hash": "sha256:6a7f7181985e0d385f58707e68f32cf18e05fbf6b942ff6cb7dc62cd7d7412fb"
     },
     {
       "path": "tools/test_families/module.crossownertransaction.json",
       "role": "test_family_manifest",
-      "hash": "sha256:6f768a05b3ea07edda1e1cc019efb3de0dec62279d8dce947a34593664ba8181"
+      "hash": "sha256:3e31cfaffb82469d7ef1e4590e552443f48c78c2c39d2667611bcdb351549700"
     },
     {
       "path": "tools/test_families/module.database_migrations.json",
       "role": "test_family_manifest",
-      "hash": "sha256:eaf8cc0ba38cd5a7b58fdbb01db33ccb69a6e0051838db2a943761e904708b0c"
+      "hash": "sha256:7e32bfdbe9a6200afea51d686bfabd2a65c3b0701502319f4f6e55a42d3075a5"
     },
     {
       "path": "tools/test_families/module.entities.json",
       "role": "test_family_manifest",
-      "hash": "sha256:3d9bbcf6f2acb16ab6197ad464471b7d538b4c339005f08e7ced7e46242b5775"
+      "hash": "sha256:d3cbc3cb00be863fb0f0124cde9a640d398e2ab7f016bd341aafbe412484589a"
     },
     {
       "path": "tools/test_families/module.evidence.json",
       "role": "test_family_manifest",
-      "hash": "sha256:d965227380150c1f22d98c7107cd1537a240e1bdaf72ff135e6cd77217a0b2fb"
+      "hash": "sha256:2bd691c09eb0ab7ba359c7d573037f3e9b2ef803a19da0c8406109d26ebc7f00"
     },
     {
       "path": "tools/test_families/module.extensions.json",
       "role": "test_family_manifest",
-      "hash": "sha256:081270bc3725cef1f0c95015fe07f846816019879cd744eb31cade2c774541e4"
+      "hash": "sha256:44d9c4e7a4ce1d26abe794a1f4683efb9338840ca92c8a8eb72fc6b2977f9be6"
     },
     {
       "path": "tools/test_families/module.graphprojection.json",
       "role": "test_family_manifest",
-      "hash": "sha256:fabd483d32f543525c28bde5be287cd29f62e261a697cc3504d2bde58d6b39f8"
+      "hash": "sha256:e2385324b5767d5436ac1082db99fc10783df3fbe4e5a6b69584aa9733560c7a"
     },
     {
       "path": "tools/test_families/module.imports.json",
       "role": "test_family_manifest",
-      "hash": "sha256:8a1ec41d318ad5ef315a5323abc88367b94724e8bc757fe7f6791173585891b4"
+      "hash": "sha256:a3d61f1a850fe16081e29bcc711fc42d1845df3310140bdc762da95d7bfb4663"
     },
     {
       "path": "tools/test_families/module.incidentbundles.json",
       "role": "test_family_manifest",
-      "hash": "sha256:b850159da85bb9728ab46ced6a2d424f057b5c79162de8c323e1dfa6b281dcb8"
+      "hash": "sha256:2675bcb259c45b4cf01cbfd5f70d635ea55f70dec95885464def55077401575b"
     },
     {
       "path": "tools/test_families/module.incidents.json",
       "role": "test_family_manifest",
-      "hash": "sha256:87170992816200123a944ceb5ff0612e5917ada55037cb010e90e9e0bd26ff31"
+      "hash": "sha256:b6e1f11543e592827d570491a09e959830f55cb51267dac8a0abb822b6c2d98a"
     },
     {
       "path": "tools/test_families/module.indicators.json",
       "role": "test_family_manifest",
-      "hash": "sha256:3061fde207e729d7038d52ab541376af5050f004a4cb173c2bbb6b49a613f88d"
+      "hash": "sha256:4f89d612db60628373337d5c23232d8438aa8e000353ef58dae65c586cbeaf52"
     },
     {
       "path": "tools/test_families/module.jobapi.json",
       "role": "test_family_manifest",
-      "hash": "sha256:90170fe5969870a18d854d68e2211cb2e51f92c7e129799f3030cba66e137292"
+      "hash": "sha256:4da77b30f6a83b59b2b1f0aaf42ec9c9484980ce7584353151194cb10e9a290d"
     },
     {
       "path": "tools/test_families/module.links.json",
       "role": "test_family_manifest",
-      "hash": "sha256:41f99d77914c3ff664610866f0ddf7a1ce122a29703aadfca42ba1eae3a13abc"
+      "hash": "sha256:7e76955379604ba926d273d35620a48941fbaacaa85b942fb54c0a64685c0150"
     },
     {
       "path": "tools/test_families/module.networkflow.json",
       "role": "test_family_manifest",
-      "hash": "sha256:b3d369d9a00e53b2e28e6062051ad7c1b4ef7a15368c2088544c7b2e4aa87587"
+      "hash": "sha256:b6c7e9bcf723f42f18b683d0b94890e94b7da01f1e8f1bea42b052cf1cb890c7"
     },
     {
       "path": "tools/test_families/module.parties.json",
       "role": "test_family_manifest",
-      "hash": "sha256:460beddd674a81cc4a03f3842246cb4743403a60c7452fa9e26d0d627e61e919"
+      "hash": "sha256:f915b610efac00c4cc58fe87cf5c6c284e1d650391b050c0c4c344ed0eeda688"
     },
     {
       "path": "tools/test_families/module.projections.json",
       "role": "test_family_manifest",
-      "hash": "sha256:e24c4161344ad586f207cf1508e0d3862433eed7dad77f0ec2592477f5744e25"
+      "hash": "sha256:4a42819ce6aa561ce2c177278185ed731329e110c9a7dd975d5e5d1b6763cfb0"
     },
     {
       "path": "tools/test_families/module.records.json",
       "role": "test_family_manifest",
-      "hash": "sha256:2a8e93797758f9fbb284da1271b29298c81749f240e6378550466a3990cb2460"
+      "hash": "sha256:d624ef021616ab7679a2aa1f139afd27c90d8dcf55e41d1b8db3d25e554f358d"
     },
     {
       "path": "tools/test_families/module.recovery.json",
       "role": "test_family_manifest",
-      "hash": "sha256:3dd52c3207645282d4000f6301968fc72e71a531cd9b77f88b6d568721b0ee0c"
+      "hash": "sha256:64dade9fa8265c1862c29018fd7bda8219844722757601a33a874ef44e1abc10"
     },
     {
       "path": "tools/test_families/module.reference_data.json",
       "role": "test_family_manifest",
-      "hash": "sha256:cf4d1430d2f50f226d143cdc906152df3b245cce8b4aa9d417920bd66255b239"
+      "hash": "sha256:5e31b4b397b91789ea60f671dbc8ed7705bef383737648530f070be1c1e1800e"
     },
     {
       "path": "tools/test_families/module.reportcomposition.json",
       "role": "test_family_manifest",
-      "hash": "sha256:12ba458c89e31c4d69d3396155e59d4418778537b79b68be1c6284b2ffb4fc8f"
+      "hash": "sha256:e6c854fd15dcc94a24aada7f0c948d356d43332e3c152f42216f4e2f527369fc"
     },
     {
       "path": "tools/test_families/module.reporting.json",
       "role": "test_family_manifest",
-      "hash": "sha256:963b7c7a096b4d9a69c24fedb8a35f8040a38449528e762fafeff32e69d475c9"
+      "hash": "sha256:c455e1920cd1d9b82a753aa85b75b5081fb3950a3d8984a9075453e3242b77c9"
     },
     {
       "path": "tools/test_families/module.revisions.json",
       "role": "test_family_manifest",
-      "hash": "sha256:fcd415c53f396c358b87cc2382182b7e349c5769d2f83e94ec6a3054ee4a40b3"
+      "hash": "sha256:2bb6c50c5b5bc0d02a3d01e8eb580ab9c952b88ae8bb1afeeb9641d679db21c3"
     },
     {
       "path": "tools/test_families/module.savedviews.json",
       "role": "test_family_manifest",
-      "hash": "sha256:21378ac5568b2c052eeb4fbdaf425eb6e121d760f2323f36170e495b5d98e80d"
+      "hash": "sha256:3e347ab7d0ec84c61e7cdbbec1fa450663579a76fc544824f0d2fb431bf6a8f5"
     },
     {
       "path": "tools/test_families/module.stagedobjects.json",
       "role": "test_family_manifest",
-      "hash": "sha256:b42934c0cc10e157583070b06a74635987ff1737bcb826a511403b944650e9fe"
+      "hash": "sha256:491d5fa0b3ab3c2595b349ba683373eb4e048429b01084fdc3b624aa5e7a8eae"
     },
     {
       "path": "tools/test_families/module.tabularingest.json",
       "role": "test_family_manifest",
-      "hash": "sha256:1118e9c1ce282dfcf35890185f7e720ecd899377dafffbff1bb0881a45d7581d"
+      "hash": "sha256:a3217dc038ba8fbf2259594744af7c58ddad4d13959c1cf28624521400c73445"
     },
     {
       "path": "tools/test_families/module.tasksdecisions.json",
       "role": "test_family_manifest",
-      "hash": "sha256:6400e670dee5dd5b881d199643da054ecdcd6a70c959203c8a7d47514441fba9"
+      "hash": "sha256:02b292ecea439e5b6c27b6acd3a54372e38a1d21176081ec74e1be1c95320d00"
     },
     {
       "path": "tools/test_families/module.timeline.json",
       "role": "test_family_manifest",
-      "hash": "sha256:48f88f918862d2bdac3f66fe05a986ab45addddd2afdd028e48fd15485c7c3b0"
+      "hash": "sha256:63fd1b0288d5b864a369ecc435bb9907aaf38ebd627031846bdbd40a52fe1a1d"
     },
     {
       "path": "tools/test_families/module.workbook.json",
       "role": "test_family_manifest",
-      "hash": "sha256:834771fb9d3fe4e68b15d720292d8dafef9e348eb7d0ce818200c94136e60f7b"
+      "hash": "sha256:a954e0d995f127b8e9cb2c3a3a8bc0ff5b8700fb3eff6347180486cc6756a0d9"
     },
     {
       "path": "tools/test_families/package.grid_adapter.json",
       "role": "test_family_manifest",
-      "hash": "sha256:a49228aef2bf4abce2d370f60e6c3f3f9ec69f0728ac2db0fc7828b5b44bd470"
+      "hash": "sha256:8e69e1e2191929d970e4a685d102b3b20158d4b4168bdfb26f522d0cec7f331b"
     },
     {
       "path": "tools/test_families/package.protocol_ts.json",
       "role": "test_family_manifest",
-      "hash": "sha256:6b18c7dd1c9b5c61a841308fd93e200889744650965f2abf7267f511ab1f6d08"
+      "hash": "sha256:e97cc70a99169e6cc8cc3ed854a754ab7a7143bb4adf3952b2ac16b9b89344c9"
     },
     {
       "path": "tools/test_families/package.test_utils.json",
       "role": "test_family_manifest",
-      "hash": "sha256:eec5d45e346c9610a87eab578bc7c63c556dca285eb0d96bde0eac4166641489"
+      "hash": "sha256:4a5ddb6b99cb2a7646e8a27c47c3f3926ab5786fcd2e9ca726c5a8587647a449"
     },
     {
       "path": "tools/test_families/package.ui.json",
       "role": "test_family_manifest",
-      "hash": "sha256:1cd04e62b4baf7d6a6ee5f27aeca819f04348099a071ac3462b8621ed5fb13d6"
+      "hash": "sha256:0e364d0adb66656f78710bf04a5d4516695096cfd5a6cd1f7d0baaf3e596898f"
     },
     {
       "path": "tools/test_families/package.view_contracts.json",
       "role": "test_family_manifest",
-      "hash": "sha256:3128e640bfd004506ed4f2e5fa0027d8a0d8b6f7899cce05415921f316f800c8"
+      "hash": "sha256:c0e0cd0748ee19a69e62e72cf4a4b586590f0ed431a6997d6f5d9a9c92fe9263"
     },
     {
       "path": "tools/test_families/platform.audit.json",
       "role": "test_family_manifest",
-      "hash": "sha256:010be22ad814ca8f71670d1af0c96007bbb7c81449fd5672128178589813b917"
+      "hash": "sha256:e92beb920aa5e6657e20e2d5a8ad7f9c4f82d96d1c41d5a597e7f1c712453d2c"
     },
     {
       "path": "tools/test_families/platform.bootstrap.json",
       "role": "test_family_manifest",
-      "hash": "sha256:4faa77babee970383a2cafa565cb5b0533ada38af829485b11db513482774de7"
+      "hash": "sha256:fe4753580040ce431013cc1d942afd2614371123e83d0ea4546805f6b64563ff"
     },
     {
       "path": "tools/test_families/platform.config.json",
       "role": "test_family_manifest",
-      "hash": "sha256:b11c6211232b3f98b9c911097e2dc2067fddf6b37c853f09a252da72c322e120"
+      "hash": "sha256:748ec11a5e4103218b1793c4423f54239e7fbbd82d30a5868476e6aa72974298"
     },
     {
       "path": "tools/test_families/platform.cryptography.json",
       "role": "test_family_manifest",
-      "hash": "sha256:5afc2cc667e9af4f81bc481dcd1538c0b559ff1f9c697ffae6a8a8e6a81eb3f4"
+      "hash": "sha256:dde98c42c1e55eb800c145bb65581268552f071a38b6d63d726b7a39c993d01c"
     },
     {
       "path": "tools/test_families/platform.httpruntime.json",
       "role": "test_family_manifest",
-      "hash": "sha256:51135a9aa27115428aa7463fbcfafadb3a293dbffdc5a67c652edb931bd50f13"
+      "hash": "sha256:b9bb256b84f4f154f097433a983ab1a1fcb28ba8a9fb8b8a8acbc6e43a808657"
     },
     {
       "path": "tools/test_families/platform.jobs.json",
       "role": "test_family_manifest",
-      "hash": "sha256:ed27641d7829ff84c7d5dd5b178d756a3a110bca5ba09de29f0e650a59587311"
+      "hash": "sha256:f68415f2063a114a1cb6ebb5d837fe6ee70574d109bcbad51d385edc11307cbb"
     },
     {
       "path": "tools/test_families/platform.objectstore.json",
       "role": "test_family_manifest",
-      "hash": "sha256:951c6f625229aa6dc1d78ad38ee44918a8e1d55dfe3f4f134555540a5844bb99"
+      "hash": "sha256:dbcd64b2c04059cb4588b0ab31d83f4ce1db5f70212fc36f4705c5439c6d2f31"
     },
     {
       "path": "tools/test_families/platform.openapi.json",
       "role": "test_family_manifest",
-      "hash": "sha256:af3ae4123e81ed5f9bf32e43368751723e2d927f911a1f9b1f6c45d70af18fc9"
+      "hash": "sha256:05535aed2f2139dd5d509f3fc098364c8ee45841d5fe202e36f92ced60bedf67"
     },
     {
       "path": "tools/test_families/platform.pagination.json",
       "role": "test_family_manifest",
-      "hash": "sha256:cb6326567d66c7505bf3dd95d5cdd943931655e95f338cfa0007d1b9be759a01"
+      "hash": "sha256:c1f91bec6d2cc309c1a813d5cd589f6219c750e22d7e1c09ab43dd5dd16d8ba4"
     },
     {
       "path": "tools/test_families/platform.postgres.json",
       "role": "test_family_manifest",
-      "hash": "sha256:1cc7929d3e0ea416ea92c92aac4686611067e39b18f619a5e868f18ad9ecda6b"
+      "hash": "sha256:0e75a8ca6c578cd9fcd196ec8947d4a35bc065b27f86d04bd72d59bf6c04aa80"
     },
     {
       "path": "tools/test_families/platform.rootedfs.json",
       "role": "test_family_manifest",
-      "hash": "sha256:9ba02c1d83e5ff5fb56ef96d79e855810cb04dbc192056196e7ec1630712ae63"
+      "hash": "sha256:34cb303d69928f085f9244fa111b839c90fbd12ed1ef4f0403e6733a3a45de51"
     },
     {
       "path": "tools/test_families/platform.telemetry.json",
       "role": "test_family_manifest",
-      "hash": "sha256:d4f4075783456fcff8dfb5609991781f6c3afaaa2b39cc39f0cb102d566ecf81"
+      "hash": "sha256:aeb59f75016f4c7c500b924e949f2467a61953b0d676a0840257ad9de9dbbe88"
     },
     {
       "path": "tools/test_families/platform.viewquery.json",
       "role": "test_family_manifest",
-      "hash": "sha256:1e7cff8d1e68a3e4c09024b92fadf31cc64dfd6f0932193be64f6fe9bc12891b"
+      "hash": "sha256:9efeda712a3e8e368df00fb7faae64462fe91193d4565f59439fe155cdb26476"
     },
     {
       "path": "tools/test_families/platform.viewschema.json",
       "role": "test_family_manifest",
-      "hash": "sha256:d535e1b7280c55e479abd81a1598124ec82390cf3cdbe89d6819546ed63f99bd"
+      "hash": "sha256:54ea409f191d2d73a78379b7cf4c8b7b1c5f0c97b9a743eab3c5d41f73170884"
     },
     {
       "path": "tools/test_families/platform.ws.json",
       "role": "test_family_manifest",
-      "hash": "sha256:befc545465f6fb8b2360b81e04d1ca107f19451e3d0b30a318904dd7fe7b6843"
+      "hash": "sha256:d7b6ed1262f75d65c74ec27abf419dc65f75b620933fb70ec0a5a48255276874"
     },
     {
       "path": "tools/test_families/web.application.json",
       "role": "test_family_manifest",
-      "hash": "sha256:989633e4c0b870d910bc75f3d8fe99e59332ee3291d6d181d805529e479018bf"
+      "hash": "sha256:6b7e009c59b14c750c7a647ec929c01087b13aae90b654f8e7bb17805204c137"
     },
     {
       "path": "tools/test_families/web.architecture.json",
       "role": "test_family_manifest",
-      "hash": "sha256:8bfecf664922ff77e2952856ee3ba7090ee164a126e9385868a0abddd72f9a5c"
+      "hash": "sha256:6a66662f31a953c14a4a7187012047147fab78c70d068458a42143b0216b0e20"
     },
     {
       "path": "tools/test_families/web.collaboration.json",
       "role": "test_family_manifest",
-      "hash": "sha256:54fdcc7dc1894cf5e576ce68814544936ebc9b4d204f9f385117442319eceebe"
+      "hash": "sha256:04b38c89b33e71c045fe7860ba32a257d31bb00bc6164ff1fedc6eaabc78be93"
     },
     {
       "path": "tools/test_families/web.design.json",
       "role": "test_family_manifest",
-      "hash": "sha256:6e869b9e52d5796e2697185e6bd8993e473900aed7b6e46fc52316e511039cb3"
+      "hash": "sha256:53c2cfe807772e81e0864fc134d4d92e40d99f0bbf66f673e92ce21cf13b11f3"
     },
     {
       "path": "tools/test_families/web.networkflow.json",
       "role": "test_family_manifest",
-      "hash": "sha256:c2adfb9afbf634622daedc9b8799cccd84b413f75a24eb24adac2ddf90c9067d"
+      "hash": "sha256:f36dd4cb4ad93c7dcfc35e27acf00c0edd2ec240d5e86d97b11990f833c81660"
     },
     {
       "path": "tools/test_families/web.workbook.json",
       "role": "test_family_manifest",
-      "hash": "sha256:c97ee65e8e1d5987ec612e9c37a768fca2f7007028a100b73c7da62d5e2d5eb5"
+      "hash": "sha256:81d69926d92f500732755807ed1a1fac925cc3e07598456d0dcaf84b3d7aa1c0"
     },
     {
       "path": "tools/test_runner_registry.json",
@@ -1758,9 +1768,9 @@
   "outputs": {
     "tools/browser_e2e_batch_manifest.json": "sha256:a81cba3f927e09b8b612f24434f5cd426fbdb026e58ede6ef8d27f05e9ade144",
     "tools/scheduler_manifest.json": "sha256:e0a6b0776d9b0a783d99264afa25a10636cec566aeb8d44f52580b6131eb5e4d",
-    "tools/task_surface_manifest.json": "sha256:7dce66ff6de5700a029344d885c53d2d13947fad5cd3fbae942b6a515035528f",
-    "tools/task_surface.generated.mk": "sha256:0b440b3ca2ec62a569ec2c2f469029ac08b62c4e4d21c5b16d7ca719e730d2c3",
-    "tools/task_surface.help-all.generated.json": "sha256:be34f95766bfcbf9aa011744d74eb51e0722e125666c7fadee956abf27d46396",
+    "tools/task_surface_manifest.json": "sha256:9d58c2ed398bb5da14cbea80d5bea3ce4cd94acb49c2f1ad05718dca70e7f0c8",
+    "tools/task_surface.generated.mk": "sha256:2f593b20533f24fba9789841f4fcece056396e3f00abcce68ae9347752e9d591",
+    "tools/task_surface.help-all.generated.json": "sha256:e6c2b94b8d30bf2e4a6b621b30e074723a7a1ba481197bdbff7a2c94a37483d5",
     "tools/task_surface.help.generated.json": "sha256:5063c6e0fad8314affe184113c10f01c7f5efa037dea36b51d3f8cf19cf4e441",
     "tools/task_surface.runtime.generated.mk": "sha256:0af3a0331c3fcd2f7b2e9a12f6cb0cf57112dda7a4d3ea8304d4a311dcdc14cb"
   }

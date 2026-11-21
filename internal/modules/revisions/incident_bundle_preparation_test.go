@@ -41,9 +41,9 @@ func (p *revisionsPreparationEnvelopeProbe) VisitIncidentRecordIDsTx(context.Con
 	return errors.New("preparation must not enumerate database envelopes")
 }
 
-func (p *revisionsPreparationEnvelopeProbe) RecordTypeTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID) (string, error) {
+func (p *revisionsPreparationEnvelopeProbe) RecordTypesTx(context.Context, pgx.Tx, uuid.UUID, []uuid.UUID) (map[uuid.UUID]string, error) {
 	p.calls++
-	return "", errors.New("preparation must not load database envelopes")
+	return nil, errors.New("preparation must not load database envelopes")
 }
 
 func newRevisionsPreparationHarness(t testing.TB) (revisionsPortabilityHarness, *revisionsPreparationEnvelopeProbe) {

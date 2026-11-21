@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v13",
+  "schema_id": "cartulary.test_family_manifest.v14",
   "owner_id": "module.workbook",
   "rows": [
     {
@@ -7558,6 +7558,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 34000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -7587,6 +7588,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 5000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -7615,6 +7617,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 2000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -7674,6 +7677,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 12000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -7729,6 +7733,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 2000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -7757,6 +7762,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 4000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -7810,6 +7816,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 2000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -7897,6 +7904,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 2000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -7925,6 +7933,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 3000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -8748,6 +8757,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 3000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -8776,6 +8786,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 2000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -8804,6 +8815,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 3000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -8832,6 +8844,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 3000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -8865,6 +8878,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 12000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -8895,6 +8909,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 2000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -8924,6 +8939,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 5000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -8952,6 +8968,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 3000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -8981,6 +8998,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 6000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -9831,6 +9849,31 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "full",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.workbook.unit.direct_mutation_responses_match_the_mutation_fai_4ea77db888",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestDirectMutationResponsesMatchTheClassifier_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
       "service_dependencies": [],
       "postgres_isolation": "none"
     },

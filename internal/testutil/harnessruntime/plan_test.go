@@ -153,7 +153,7 @@ func TestRuntimePlanClosure(t *testing.T) {
 			}
 		})
 	}
-	for _, bytes := range [][]byte{[]byte(strings.Replace(string(valid), `"schema_id":"cartulary.harness_runtime_plan.v6"`, `"schema_id":"cartulary.harness_runtime_plan.v6","schema_id":"cartulary.harness_runtime_plan.v6"`, 1)), append(valid, []byte("{}")...), valid[:len(valid)-1], []byte(strings.Repeat(" ", maximumPlanBytes+1))} {
+	for _, bytes := range [][]byte{[]byte(strings.Replace(string(valid), `"schema_id":"cartulary.harness_runtime_plan.v7"`, `"schema_id":"cartulary.harness_runtime_plan.v7","schema_id":"cartulary.harness_runtime_plan.v7"`, 1)), append(valid, []byte("{}")...), valid[:len(valid)-1], []byte(strings.Repeat(" ", maximumPlanBytes+1))} {
 		if _, err := decodePlan(bytes); err == nil {
 			t.Fatal("accepted malformed publication")
 		}

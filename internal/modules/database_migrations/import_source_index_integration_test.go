@@ -11,10 +11,10 @@ import (
 )
 
 func TestImportSourceIndexPreservesAssociationsAndPrivileges_Integration(t *testing.T) {
-	database := pgtest.Start(t).MigrationDatabaseThroughT(t, 48)
+	database := pgtest.Start(t).MigrationDatabaseT(t)
 	db := database.SQL()
-	// Synthetic structural rows exercise the populated increment, not document
-	// acquisition or an alternative Imports application path.
+	// Synthetic structural rows exercise the baseline's association contract,
+	// not document acquisition or an alternative Imports application path.
 	for _, statement := range []string{
 		`INSERT INTO public.users(id,email,display_name,password_hash) VALUES ('00000000-0000-4000-8000-000000000001','index@example.test','Index fixture','unused')`,
 		`INSERT INTO public.incidents(id,incident_key,incident_key_canonical,title,status,created_by_user_id,updated_by_user_id)
@@ -32,29 +32,10 @@ VALUES('00000000-0000-4000-8000-000000000002','00000000-0000-4000-8000-000000000
 		}
 	}
 	const fk = "public.import_committed_source_records.import_committed_source_records_source_fk"
-	beforeCoverage := queryForeignKeyCoverage(t, db)
-	if beforeCoverage[fk] {
-		t.Fatal("predecessor unexpectedly covers source FK")
+	if !queryForeignKeyCoverage(t, db)[fk] {
+		t.Fatal("the baseline does not cover the source FK with an index")
 	}
 	before := sourceAssociationState(t, db)
-	if err := database.ApplyThrough(t.Context(), 49); err != nil {
-		t.Fatal(err)
-	}
-	assertMigrationHead(t, db, 49)
-	afterCoverage := queryForeignKeyCoverage(t, db)
-	if len(beforeCoverage) != len(afterCoverage) || !afterCoverage[fk] || before != sourceAssociationState(t, db) {
-		t.Fatal("index increment changed source data or failed to cover the existing FK")
-	}
-	// Down is tested only on this owned scratch database.
-	if err := database.RollbackThrough(t.Context(), 48); err != nil {
-		t.Fatal(err)
-	}
-	if queryForeignKeyCoverage(t, db)[fk] || before != sourceAssociationState(t, db) {
-		t.Fatal("index Down changed data or retained index coverage")
-	}
-	if err := database.ApplyThrough(t.Context(), 49); err != nil {
-		t.Fatal(err)
-	}
 	fixture, err := database.RuntimeDatabase()
 	if err != nil {
 		t.Fatal(err)

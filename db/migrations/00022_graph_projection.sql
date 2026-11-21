@@ -33,33 +33,6 @@ GRANT USAGE ON TYPE public.graph_projection_result_edges TO cartulary_runtime;
 
 GRANT USAGE ON TYPE public.graph_projection_result_edges TO cartulary_recovery;
 
-CREATE TABLE public.graph_projection_result_leases (
-    lease_id uuid NOT NULL,
-    projection_result_id text NOT NULL,
-    lease_owner_id text NOT NULL,
-    lease_owner_resource_id text NOT NULL,
-    lease_purpose text NOT NULL,
-    leased_until timestamp with time zone NOT NULL,
-    created_at timestamp with time zone NOT NULL,
-    renewed_at timestamp with time zone NOT NULL,
-    CONSTRAINT graph_projection_result_leases_identity_key UNIQUE (projection_result_id, lease_owner_id, lease_owner_resource_id, lease_purpose),
-    CONSTRAINT graph_projection_result_leases_owner_ck CHECK (char_length(lease_owner_id) >= 1 AND char_length(lease_owner_id) <= 255 AND char_length(lease_owner_resource_id) >= 1 AND char_length(lease_owner_resource_id) <= 255 AND lease_purpose ~ '^[a-z][a-z0-9_.:-]{0,254}$'::text),
-    CONSTRAINT graph_projection_result_leases_pkey PRIMARY KEY (lease_id),
-    CONSTRAINT graph_projection_result_leases_time_ck CHECK (renewed_at >= created_at AND leased_until > renewed_at)
-);
-
-REVOKE ALL ON TABLE public.graph_projection_result_leases FROM PUBLIC;
-
-REVOKE ALL ON TYPE public.graph_projection_result_leases FROM PUBLIC;
-
-GRANT INSERT, SELECT, UPDATE, DELETE ON TABLE public.graph_projection_result_leases TO cartulary_runtime;
-
-GRANT INSERT, SELECT, UPDATE, DELETE, TRUNCATE ON TABLE public.graph_projection_result_leases TO cartulary_recovery;
-
-GRANT USAGE ON TYPE public.graph_projection_result_leases TO cartulary_runtime;
-
-GRANT USAGE ON TYPE public.graph_projection_result_leases TO cartulary_recovery;
-
 CREATE TABLE public.graph_projection_result_vertices (
     projection_result_id text NOT NULL,
     vertex_id text NOT NULL,
@@ -142,8 +115,6 @@ CREATE INDEX graph_projection_result_edges_order_idx ON public.graph_projection_
 
 CREATE INDEX graph_projection_result_edges_src_traversal_idx ON public.graph_projection_result_edges USING btree (projection_result_id, src_vertex_id, sort_ordinal, edge_id);
 
-CREATE INDEX graph_projection_result_leases_expiry_idx ON public.graph_projection_result_leases USING btree (leased_until, projection_result_id);
-
 CREATE INDEX graph_projection_result_vertices_order_idx ON public.graph_projection_result_vertices USING btree (projection_result_id, sort_key, vertex_id);
 
 CREATE INDEX graph_projection_results_cleanup_candidate_idx ON public.graph_projection_results USING btree (source_owner_id, published_at, projection_result_id);
@@ -153,8 +124,6 @@ ALTER TABLE public.graph_projection_result_edges ADD CONSTRAINT graph_projection
 ALTER TABLE public.graph_projection_result_edges ADD CONSTRAINT graph_projection_result_edges_result_id_fkey FOREIGN KEY (projection_result_id) REFERENCES public.graph_projection_results(projection_result_id) ON DELETE CASCADE ON UPDATE NO ACTION;
 
 ALTER TABLE public.graph_projection_result_edges ADD CONSTRAINT graph_projection_result_edges_src_vertex_fkey FOREIGN KEY (projection_result_id, src_vertex_id) REFERENCES public.graph_projection_result_vertices(projection_result_id, vertex_id) ON DELETE CASCADE ON UPDATE NO ACTION;
-
-ALTER TABLE public.graph_projection_result_leases ADD CONSTRAINT graph_projection_result_leases_result_id_fkey FOREIGN KEY (projection_result_id) REFERENCES public.graph_projection_results(projection_result_id) ON DELETE RESTRICT ON UPDATE NO ACTION;
 
 ALTER TABLE public.graph_projection_result_vertices ADD CONSTRAINT graph_projection_result_vertices_result_id_fkey FOREIGN KEY (projection_result_id) REFERENCES public.graph_projection_results(projection_result_id) ON DELETE CASCADE ON UPDATE NO ACTION;
 
@@ -170,12 +139,10 @@ DROP TRIGGER graph_projection_results_immutable_update ON public.graph_projectio
 DROP TRIGGER graph_projection_result_vertices_immutable_update ON public.graph_projection_result_vertices;
 DROP TRIGGER graph_projection_result_edges_immutable_update ON public.graph_projection_result_edges;
 ALTER TABLE public.graph_projection_result_vertices DROP CONSTRAINT graph_projection_result_vertices_result_id_fkey;
-ALTER TABLE public.graph_projection_result_leases DROP CONSTRAINT graph_projection_result_leases_result_id_fkey;
 ALTER TABLE public.graph_projection_result_edges DROP CONSTRAINT graph_projection_result_edges_src_vertex_fkey;
 ALTER TABLE public.graph_projection_result_edges DROP CONSTRAINT graph_projection_result_edges_result_id_fkey;
 ALTER TABLE public.graph_projection_result_edges DROP CONSTRAINT graph_projection_result_edges_dst_vertex_fkey;
 DROP FUNCTION public.graph_projection_reject_immutable_result_update();
 DROP TABLE public.graph_projection_results;
 DROP TABLE public.graph_projection_result_vertices;
-DROP TABLE public.graph_projection_result_leases;
 DROP TABLE public.graph_projection_result_edges;

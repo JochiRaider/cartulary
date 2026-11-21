@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v13",
+  "schema_id": "cartulary.test_family_manifest.v14",
   "owner_id": "app.operator",
   "rows": [
     {
@@ -50,6 +50,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 37000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",

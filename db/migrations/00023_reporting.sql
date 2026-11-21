@@ -69,8 +69,6 @@ CREATE TABLE public.reporting_imported_artifact_files (
     operation_id uuid NOT NULL,
     size_bytes bigint NOT NULL,
     sha256 text NOT NULL,
-    content bytea NOT NULL,
-    CONSTRAINT reporting_imported_artifact_bytes_ck CHECK (octet_length(content) = size_bytes AND encode(sha256(content), 'hex'::text) = sha256),
     CONSTRAINT reporting_imported_artifact_files_pk PRIMARY KEY (incident_id, bundle_path),
     CONSTRAINT reporting_imported_artifact_path_ck CHECK (bundle_path ~~ 'ext/snapshots/%'::text AND octet_length(bundle_path) <= 640 AND bundle_path !~ '(^/|(^|/)\.\.?(/|$)|//)'::text AND POSITION((chr(92)) IN (bundle_path)) = 0),
     CONSTRAINT reporting_imported_artifact_sha256_ck CHECK (sha256 ~ '^[0-9a-f]{64}$'::text),
@@ -89,6 +87,26 @@ GRANT USAGE ON TYPE public.reporting_imported_artifact_files TO cartulary_runtim
 
 GRANT USAGE ON TYPE public.reporting_imported_artifact_files TO cartulary_recovery;
 
+CREATE TABLE public.reporting_imported_artifact_chunks (
+    incident_id uuid NOT NULL,
+    bundle_path text NOT NULL,
+    chunk_ordinal bigint NOT NULL,
+    content bytea NOT NULL,
+    CONSTRAINT reporting_imported_artifact_chunks_pk PRIMARY KEY (incident_id, bundle_path, chunk_ordinal),
+    CONSTRAINT reporting_imported_artifact_chunks_ordinal_ck CHECK (chunk_ordinal >= 0),
+    CONSTRAINT reporting_imported_artifact_chunks_bytes_ck CHECK (octet_length(content) BETWEEN 1 AND 65536)
+);
+
+ALTER TABLE public.reporting_imported_artifact_chunks ALTER COLUMN content SET STORAGE EXTERNAL;
+
+REVOKE ALL ON TABLE public.reporting_imported_artifact_chunks FROM PUBLIC;
+
+REVOKE ALL ON TYPE public.reporting_imported_artifact_chunks FROM PUBLIC;
+
+GRANT SELECT, INSERT ON TABLE public.reporting_imported_artifact_chunks TO cartulary_runtime;
+
+GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE ON TABLE public.reporting_imported_artifact_chunks TO cartulary_recovery;
+
 CREATE TABLE public.reporting_job_payloads (
     job_id uuid NOT NULL,
     job_kind text NOT NULL,
@@ -98,8 +116,6 @@ CREATE TABLE public.reporting_job_payloads (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     admitted_profile_sha256 text,
-    render_failure_summary bytea,
-    render_failure_sha256 text,
     admitted_graph_sources_sha256 text,
     admitted_template_manifest_sha256 text,
     snapshot_admission_json jsonb,
@@ -107,10 +123,15 @@ CREATE TABLE public.reporting_job_payloads (
     render_admission_sha256 text,
     render_preparation_json jsonb,
     render_preparation_sha256 text,
-    CONSTRAINT reporting_graph_input_v1_ck CHECK (job_kind = 'snapshot_create'::text AND admitted_graph_sources_sha256 IS NULL OR (job_kind <> 'snapshot_create'::text AND admitted_graph_sources_sha256 ~ '^[0-9a-f]{64}$'::text AND ((request_json -> 'graph_sources'::text) ->> 'schema_id'::text) = 'cartulary.reporting_graph_input.v1'::text AND jsonb_typeof((request_json -> 'graph_sources'::text) -> 'results'::text) = 'array'::text) IS TRUE),
+    CONSTRAINT reporting_graph_input_v2_ck CHECK (
+        (job_kind = 'snapshot_create' AND admitted_graph_sources_sha256 IS NULL
+         OR job_kind <> 'snapshot_create'
+            AND admitted_graph_sources_sha256 ~ '^[0-9a-f]{64}$'
+            AND request_json->'graph_sources'->>'schema_id' = 'cartulary.reporting_graph_input.v2'
+            AND jsonb_typeof(request_json->'graph_sources'->'results') = 'array') IS TRUE
+    ),
     CONSTRAINT reporting_job_payloads_job_kind_check CHECK (job_kind = ANY (ARRAY['snapshot_create'::text, 'release_create'::text, 'composition_preview'::text])),
     CONSTRAINT reporting_job_payloads_pkey PRIMARY KEY (job_id),
-    CONSTRAINT reporting_render_failure_summary_ck CHECK (render_failure_summary IS NULL AND render_failure_sha256 IS NULL OR (job_kind = ANY (ARRAY['release_create'::text, 'composition_preview'::text])) AND render_failure_summary IS NOT NULL AND octet_length(render_failure_summary) >= 1 AND octet_length(render_failure_summary) <= 1048576 AND render_failure_sha256 IS NOT NULL AND render_failure_sha256 ~ '^[a-f0-9]{64}$'::text),
     CONSTRAINT reporting_render_recipe_v1_ck CHECK (job_kind = 'snapshot_create'::text AND admitted_profile_sha256 IS NULL AND render_admission_sha256 IS NULL AND render_preparation_json IS NULL AND render_preparation_sha256 IS NULL OR (job_kind = ANY (ARRAY['release_create'::text, 'composition_preview'::text])) AND ((request_json ->> 'schema_id'::text) = 'cartulary.reporting_render_admission.v1'::text AND (request_json ->> 'preparation_algorithm'::text) = 'materialize_retained_reporting_render_v1'::text AND render_admission_sha256 ~ '^[a-f0-9]{64}$'::text AND (request_json ->> 'source_capture_sha256'::text) ~ '^[a-f0-9]{64}$'::text AND (request_json ->> 'authored_redaction_profile_sha256'::text) = admitted_profile_sha256 AND admitted_profile_sha256 ~ '^[a-f0-9]{64}$'::text AND ((request_json -> 'authored_redaction_profile'::text) ->> 'schema_id'::text) = 'cartulary.redaction_profile.v3'::text AND ((request_json -> 'authored_redaction_profile'::text) ->> 'version'::text) = '5'::text AND ((request_json -> 'authored_redaction_profile'::text) -> 'allowed_release_scopes'::text) ? (request_json ->> 'release_scope'::text) AND ((request_json ->> 'release_scope'::text) <> 'external_release'::text OR ((request_json -> 'authored_redaction_profile'::text) ->> 'profile_status'::text) = 'adopted_current'::text) AND ((request_json -> 'template_contract'::text) ->> 'schema_id'::text) = 'cartulary.reporting_template_pack_manifest.v3'::text AND (request_json ->> 'template_sha256'::text) = admitted_template_manifest_sha256 AND (request_json ->> 'graph_sources_sha256'::text) = admitted_graph_sources_sha256 AND NOT request_json ?| ARRAY['export_model'::text, 'redaction_profile'::text, 'source_facts'::text] AND (job_kind = 'release_create'::text AND jsonb_typeof((request_json -> 'identity'::text) -> 'release_id'::text) = 'string'::text AND ((request_json -> 'identity'::text) -> 'preview_attempt_id'::text) = 'null'::jsonb OR job_kind = 'composition_preview'::text AND jsonb_typeof((request_json -> 'identity'::text) -> 'preview_attempt_id'::text) = 'string'::text AND ((request_json -> 'identity'::text) -> 'release_id'::text) = 'null'::jsonb) AND (render_preparation_json IS NULL AND render_preparation_sha256 IS NULL OR (render_preparation_sha256 ~ '^[a-f0-9]{64}$'::text AND (render_preparation_json ->> 'schema_id'::text) = 'cartulary.reporting_render_preparation.v1'::text AND (render_preparation_json ->> 'admission_sha256'::text) = render_admission_sha256 AND (render_preparation_json ->> 'source_capture_sha256'::text) = (request_json ->> 'source_capture_sha256'::text) AND (render_preparation_json ->> 'export_model_sha256'::text) ~ '^[a-f0-9]{64}$'::text AND (render_preparation_json ->> 'source_facts_sha256'::text) ~ '^[a-f0-9]{64}$'::text AND (render_preparation_json ->> 'redaction_profile_sha256'::text) ~ '^[a-f0-9]{64}$'::text) IS TRUE)) IS TRUE),
     CONSTRAINT reporting_snapshot_admission_v1_ck CHECK (job_kind = 'snapshot_create'::text AND (jsonb_typeof(snapshot_admission_json) = 'object'::text AND (snapshot_admission_json ->> 'schema_id'::text) = 'cartulary.reporting_snapshot_admission.v1'::text AND snapshot_admission_sha256 ~ '^[a-f0-9]{64}$'::text AND (request_json IS NULL OR jsonb_typeof(request_json) = 'object'::text)) IS TRUE OR job_kind <> 'snapshot_create'::text AND request_json IS NOT NULL AND snapshot_admission_json IS NULL AND snapshot_admission_sha256 IS NULL),
     CONSTRAINT reporting_template_manifest_admission_v1_ck CHECK (job_kind = 'snapshot_create'::text AND admitted_template_manifest_sha256 IS NULL OR job_kind <> 'snapshot_create'::text AND (admitted_template_manifest_sha256 ~ '^[0-9a-f]{64}$'::text) IS TRUE)
@@ -301,6 +322,27 @@ GRANT INSERT, SELECT, UPDATE, DELETE ON TABLE public.reporting_render_bundles TO
 
 GRANT INSERT, SELECT, UPDATE, DELETE, TRUNCATE ON TABLE public.reporting_render_bundles TO cartulary_recovery;
 
+CREATE TABLE public.reporting_render_failure_records (
+    job_id uuid NOT NULL,
+    record_json bytea NOT NULL,
+    record_sha256 text NOT NULL,
+    CONSTRAINT reporting_render_failure_records_pkey PRIMARY KEY (job_id),
+    CONSTRAINT reporting_render_failure_records_bytes_ck CHECK (octet_length(record_json) BETWEEN 1 AND 2097152),
+    CONSTRAINT reporting_render_failure_records_digest_ck CHECK (record_sha256 ~ '^[0-9a-f]{64}$'::text)
+);
+
+REVOKE ALL ON TABLE public.reporting_render_failure_records FROM PUBLIC;
+
+REVOKE ALL ON TYPE public.reporting_render_failure_records FROM PUBLIC;
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.reporting_render_failure_records TO cartulary_runtime;
+
+GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE ON TABLE public.reporting_render_failure_records TO cartulary_recovery;
+
+GRANT USAGE ON TYPE public.reporting_render_failure_records TO cartulary_runtime;
+
+GRANT USAGE ON TYPE public.reporting_render_failure_records TO cartulary_recovery;
+
 CREATE TABLE public.reporting_snapshots (
     snapshot_id uuid DEFAULT gen_random_uuid() NOT NULL,
     incident_id uuid NOT NULL,
@@ -378,6 +420,8 @@ ALTER TABLE public.reporting_composition_preview_output_files ADD CONSTRAINT rep
 
 ALTER TABLE public.reporting_composition_preview_outputs ADD CONSTRAINT reporting_composition_preview_outputs_job_fk FOREIGN KEY (render_attempt_id) REFERENCES public.jobs(job_id) ON DELETE RESTRICT ON UPDATE NO ACTION;
 
+ALTER TABLE public.reporting_imported_artifact_chunks ADD CONSTRAINT reporting_imported_artifact_chunks_file_fk FOREIGN KEY (incident_id, bundle_path) REFERENCES public.reporting_imported_artifact_files(incident_id, bundle_path) ON UPDATE RESTRICT ON DELETE CASCADE;
+
 ALTER TABLE public.reporting_imported_artifact_files ADD CONSTRAINT reporting_imported_artifact_incident_fk FOREIGN KEY (incident_id) REFERENCES public.incidents(id) ON UPDATE RESTRICT ON DELETE CASCADE;
 
 ALTER TABLE public.reporting_imported_artifact_files ADD CONSTRAINT reporting_imported_artifact_operation_fk FOREIGN KEY (operation_id) REFERENCES public.jobs(job_id) ON UPDATE RESTRICT ON DELETE RESTRICT;
@@ -408,20 +452,26 @@ ALTER TABLE public.reporting_render_bundle_files ADD CONSTRAINT reporting_render
 
 ALTER TABLE public.reporting_render_bundles ADD CONSTRAINT reporting_render_bundles_release_id_fkey FOREIGN KEY (release_id) REFERENCES public.reporting_releases(release_id) ON DELETE CASCADE ON UPDATE NO ACTION;
 
+ALTER TABLE public.reporting_render_failure_records ADD CONSTRAINT reporting_render_failure_records_job_fk FOREIGN KEY (job_id) REFERENCES public.jobs(job_id) ON DELETE RESTRICT ON UPDATE NO ACTION;
+
 ALTER TABLE public.reporting_snapshots ADD CONSTRAINT reporting_snapshots_create_job_id_fkey FOREIGN KEY (incident_id, create_job_id) REFERENCES public.jobs(incident_id, job_id) ON UPDATE NO ACTION ON DELETE NO ACTION;
 
 ALTER TABLE public.reporting_snapshots ADD CONSTRAINT reporting_snapshots_created_by_user_id_fkey FOREIGN KEY (created_by_user_id) REFERENCES public.users(id) ON UPDATE NO ACTION ON DELETE NO ACTION;
 
 ALTER TABLE public.reporting_snapshots ADD CONSTRAINT reporting_snapshots_incident_id_fkey FOREIGN KEY (incident_id) REFERENCES public.incidents(id) ON DELETE CASCADE ON UPDATE NO ACTION;
 
+CREATE TRIGGER reporting_imported_artifact_chunks_immutable BEFORE UPDATE ON public.reporting_imported_artifact_chunks FOR EACH ROW EXECUTE FUNCTION public.reporting_reject_imported_artifact_update();
+
 CREATE TRIGGER reporting_imported_artifacts_immutable BEFORE UPDATE ON public.reporting_imported_artifact_files FOR EACH ROW EXECUTE FUNCTION public.reporting_reject_imported_artifact_update();
 
 -- +goose Down
 -- Disposable harness cleanup only; no production downgrade or restore guarantee.
 DROP TRIGGER reporting_imported_artifacts_immutable ON public.reporting_imported_artifact_files;
+DROP TRIGGER reporting_imported_artifact_chunks_immutable ON public.reporting_imported_artifact_chunks;
 ALTER TABLE public.reporting_snapshots DROP CONSTRAINT reporting_snapshots_incident_id_fkey;
 ALTER TABLE public.reporting_snapshots DROP CONSTRAINT reporting_snapshots_created_by_user_id_fkey;
 ALTER TABLE public.reporting_snapshots DROP CONSTRAINT reporting_snapshots_create_job_id_fkey;
+ALTER TABLE public.reporting_render_failure_records DROP CONSTRAINT reporting_render_failure_records_job_fk;
 ALTER TABLE public.reporting_render_bundles DROP CONSTRAINT reporting_render_bundles_release_id_fkey;
 ALTER TABLE public.reporting_render_bundle_files DROP CONSTRAINT reporting_render_bundle_files_release_id_fkey;
 ALTER TABLE public.reporting_releases DROP CONSTRAINT reporting_releases_snapshot_id_fkey;
@@ -437,10 +487,12 @@ ALTER TABLE public.reporting_job_payloads DROP CONSTRAINT reporting_job_payloads
 ALTER TABLE public.reporting_job_payloads DROP CONSTRAINT reporting_job_payloads_actor_user_id_fkey;
 ALTER TABLE public.reporting_imported_artifact_files DROP CONSTRAINT reporting_imported_artifact_operation_fk;
 ALTER TABLE public.reporting_imported_artifact_files DROP CONSTRAINT reporting_imported_artifact_incident_fk;
+ALTER TABLE public.reporting_imported_artifact_chunks DROP CONSTRAINT reporting_imported_artifact_chunks_file_fk;
 ALTER TABLE public.reporting_composition_preview_outputs DROP CONSTRAINT reporting_composition_preview_outputs_job_fk;
 ALTER TABLE public.reporting_composition_preview_output_files DROP CONSTRAINT reporting_composition_preview_output_files_attempt_fk;
 DROP FUNCTION public.reporting_reject_imported_artifact_update();
 DROP TABLE public.reporting_snapshots;
+DROP TABLE public.reporting_render_failure_records;
 DROP TABLE public.reporting_render_bundles;
 DROP TABLE public.reporting_render_bundle_files;
 DROP TABLE public.reporting_releases;
@@ -448,6 +500,7 @@ DROP TABLE public.reporting_release_reveal_maps;
 DROP TABLE public.reporting_release_approvals;
 DROP TABLE public.reporting_preview_reveal_maps;
 DROP TABLE public.reporting_job_payloads;
+DROP TABLE public.reporting_imported_artifact_chunks;
 DROP TABLE public.reporting_imported_artifact_files;
 DROP TABLE public.reporting_composition_preview_outputs;
 DROP TABLE public.reporting_composition_preview_output_files;

@@ -129,13 +129,17 @@ func (s *Store) rebuildIncidentTimelineTxCore(ctx context.Context, tx pgx.Tx, in
 			return err
 		}
 		for _, input := range page.Inputs {
-			if err := s.applyTimelineMutationTx(ctx, tx, timelineprojection.ProjectionMutation{
+			mutation := timelineprojection.ProjectionMutation{
 				Kind:     timelineprojection.ProjectionMutationUpsert,
 				RecordID: input.RecordID,
 				Input:    input,
-			}); err != nil {
+			}
+			if err := mutation.Validate(); err != nil {
 				return err
 			}
+		}
+		if err := s.physical.UpsertTimelineRowsTx(ctx, tx, page.Inputs); err != nil {
+			return err
 		}
 		if page.NextRecordID == nil {
 			break

@@ -1,6 +1,6 @@
 {
   "fixture_id": "NF-FIX-014-cursor-pagination",
-  "freeze_revision": 7,
+  "freeze_revision": 8,
   "outcomes": [
     {
       "case": "keyset-actor-rename",
@@ -2387,7 +2387,7 @@
           "request_id": "$request-id",
           "details": {
             "reason_code": "actor_mismatch",
-            "cursor_scope": null,
+            "cursor_scope": "table_rows",
             "retry_action": "restart_query"
           }
         },

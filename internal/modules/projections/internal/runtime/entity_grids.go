@@ -54,10 +54,8 @@ func (s *Store) rebuildIncidentHostsTxCore(
 		if err != nil {
 			return err
 		}
-		for _, input := range page.Inputs {
-			if err := s.physical.UpsertHostTx(ctx, tx, input); err != nil {
-				return err
-			}
+		if err := s.physical.UpsertHostRowsTx(ctx, tx, page.Inputs); err != nil {
+			return err
 		}
 		if page.NextRecordID == nil {
 			return nil
@@ -109,10 +107,8 @@ func (s *Store) rebuildIncidentIdentitiesTxCore(
 		if err != nil {
 			return err
 		}
-		for _, input := range page.Inputs {
-			if err := s.physical.UpsertIdentityTx(ctx, tx, input); err != nil {
-				return err
-			}
+		if err := s.physical.UpsertIdentityRowsTx(ctx, tx, page.Inputs); err != nil {
+			return err
 		}
 		if page.NextRecordID == nil {
 			return nil
@@ -164,10 +160,8 @@ func (s *Store) rebuildIncidentIndicatorsTxCore(
 		if err != nil {
 			return err
 		}
-		for _, input := range page.Inputs {
-			if err := s.physical.UpsertIndicatorTx(ctx, tx, input); err != nil {
-				return err
-			}
+		if err := s.physical.UpsertIndicatorRowsTx(ctx, tx, page.Inputs); err != nil {
+			return err
 		}
 		if page.NextRecordID == nil {
 			return nil

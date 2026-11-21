@@ -20,7 +20,7 @@ function fixture(t) {
   t.after(() => rmSync(base, { recursive: true, force: true }));
   const manifest = { run_id: "execution", source_digest: digest, graph_digest: digest, instrumentation: { mode: "basic", policy_digest: digest } };
   const run = { manifest, registrations: new Map([["u", { row_ids: ["r"] }]]) };
-  const index = { schema_id: "cartulary.harness_execution_index.v5", host_admission: { status: "complete", omitted_records: 0, records: [], records_digest: executionRecordsDigest([]) }, allocation_lifecycle: { status: "complete", omitted_records: 0, omitted_refs: [], records: [], records_digest: executionRecordsDigest([]) }, graph_clock: null, run_id: "execution", source_digest: digest, graph_digest: digest,
+  const index = { schema_id: "cartulary.harness_execution_index.v6", host_admission: { status: "complete", omitted_records: 0, records: [], records_digest: executionRecordsDigest([]) }, allocation_lifecycle: { status: "complete", omitted_records: 0, omitted_refs: [], records: [], records_digest: executionRecordsDigest([]) }, graph_clock: null, run_id: "execution", source_digest: digest, graph_digest: digest,
     policy_digest: digest, status: "complete", omitted_records: 0, omitted_refs: [], records: [structuredClone(launch)] };
   const file = path.join(root, "diagnostics/execution-index.json");
   const save = () => atomicLocalFile(file, JSON.stringify({ ...index, records_digest: executionRecordsDigest(index.records) }), { replace: true });

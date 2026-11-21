@@ -57,10 +57,8 @@ func (s *Store) rebuildIncidentArtifactsTxCore(
 		if err != nil {
 			return err
 		}
-		for _, input := range page.Inputs() {
-			if err := s.physical.InsertArtifactTx(ctx, tx, input); err != nil {
-				return err
-			}
+		if err := s.physical.InsertArtifactRowsTx(ctx, tx, page.Inputs()); err != nil {
+			return err
 		}
 		nextRecordID := page.NextRecordID()
 		if nextRecordID == nil {
@@ -116,10 +114,8 @@ func (s *Store) rebuildIncidentEvidenceTxCore(
 		if err != nil {
 			return err
 		}
-		for _, input := range page.Inputs {
-			if err := s.physical.InsertEvidenceTx(ctx, tx, input); err != nil {
-				return err
-			}
+		if err := s.physical.InsertEvidenceRowsTx(ctx, tx, page.Inputs); err != nil {
+			return err
 		}
 		if page.NextRecordID == nil {
 			return nil
@@ -174,10 +170,8 @@ func (s *Store) rebuildIncidentPartiesTxCore(
 		if err != nil {
 			return err
 		}
-		for _, input := range page.Inputs {
-			if err := s.physical.InsertPartyTx(ctx, tx, input); err != nil {
-				return err
-			}
+		if err := s.physical.InsertPartyRowsTx(ctx, tx, page.Inputs); err != nil {
+			return err
 		}
 		if page.NextRecordID == nil {
 			return nil

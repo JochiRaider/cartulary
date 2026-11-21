@@ -112,7 +112,8 @@ func (portability *blobPortability) RewriteAndStageObjectBlobs(
 		}
 	}()
 	publications := []stagedobjects.Publication{}
-	err = incidentportability.WriteMemberFrom(ctx, destination, "data/object_blobs.ndjson", func(ctx context.Context, output io.Writer) error {
+	// Core 01 REQ-01-695: zero Blob rows stage no rewritten member.
+	_, err = incidentportability.WriteStagedMemberFrom(ctx, destination, "data/object_blobs.ndjson", func(ctx context.Context, output io.Writer) error {
 		return incidentportability.WalkPath(ctx, members, "data/object_blobs.ndjson", func(row map[string]any) error {
 			objectBlobText, _ := row["object_blob_id"].(string)
 			objectBlobID, err := uuid.Parse(objectBlobText)

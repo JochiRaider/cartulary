@@ -30,6 +30,14 @@ func (source catalogAdmissionSnapshotSource) SnapshotTx(context.Context, pgx.Tx,
 	return source.value, nil
 }
 
+func (source catalogAdmissionSnapshotSource) SnapshotsTx(_ context.Context, _ pgx.Tx, recordIDs []uuid.UUID) (map[uuid.UUID]map[string]any, error) {
+	snapshots := make(map[uuid.UUID]map[string]any, len(recordIDs))
+	for _, recordID := range recordIDs {
+		snapshots[recordID] = source.value
+	}
+	return snapshots, nil
+}
+
 func (catalogAdmissionSnapshotSource) UpdateSourceDeleteStateTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, time.Time, bool) error {
 	return nil
 }

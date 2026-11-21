@@ -143,7 +143,12 @@ func TestSupervisedRunnerContract_Integration(t *testing.T) {
 	})
 
 	t.Run("initial recovery renews a long attempt", func(t *testing.T) {
-		manager, actorID, incidentID, _, catalog, policy := newSupervisedJobsHarness(t, "jobs-supervisor-renewal")
+		// The handler outlives three short leases, so only renewal keeps it.
+		manager, actorID, incidentID, _, catalog, policy := newSupervisedJobsHarness(t, "jobs-supervisor-renewal", func(policy *jobs.RuntimePolicy) {
+			policy.HandlerLease = 300 * time.Millisecond
+			policy.LeaseRenewal = 100 * time.Millisecond
+			policy.AttemptOperationTimeout = 200 * time.Millisecond
+		})
 		jobID := createSupervisedJob(t, manager, actorID, incidentID)
 		gate := &dequeueGate{}
 		gate.open.Store(true)
@@ -490,7 +495,9 @@ UPDATE jobs
 		manager, actorID, incidentID, pool, catalog, policy := newSupervisedJobsHarness(t, "jobs-supervisor-renewal-own-transaction", func(policy *jobs.RuntimePolicy) {
 			policy.HandlerLease = 2 * time.Second
 			policy.LeaseRenewal = 500 * time.Millisecond
-			policy.AttemptOperationTimeout = 250 * time.Millisecond
+			// A renewal stalled behind harness load times out only after
+			// a margin no ordinary pool wait reaches.
+			policy.AttemptOperationTimeout = time.Second
 		})
 		compositionValue, present := testJobCompositions.Load(manager)
 		if !present {
@@ -691,7 +698,7 @@ UPDATE jobs
 			// A long lease keeps the manually ticked attempt live for its
 			// neutral release, and a long attempt-operation timeout leaves
 			// only shutdown to end the renewal.
-			policy.HandlerLease = 30 * time.Second
+			policy.HandlerLease = 60 * time.Second
 			policy.LeaseRenewal = 10 * time.Second
 			policy.AttemptOperationTimeout = 30 * time.Second
 		})
@@ -860,6 +867,114 @@ UPDATE jobs
 		case <-time.After(5 * time.Second):
 			t.Fatal("the released handler did not exit")
 		}
+		closeRunner(t, runner)
+	})
+
+	// holdValidatedTransaction validates the attempt's execution inside its own
+	// owner transaction, so the transaction holds the Jobs transition lock, then
+	// keeps it open after cancellation until hold elapses, as a commit in
+	// flight may.
+	holdValidatedTransaction := func(
+		pool *pgxpool.Pool,
+		composition testJobComposition,
+		entered chan<- struct{},
+		hold time.Duration,
+	) jobs.HandlerFunc {
+		return func(ctx context.Context, execution jobs.Execution) error {
+			tx, err := pool.Begin(context.WithoutCancel(ctx))
+			if err != nil {
+				return err
+			}
+			defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+			if err := composition.transactions.ValidateExecutionTx(ctx, tx, execution); err != nil {
+				return err
+			}
+			close(entered)
+			<-ctx.Done()
+			time.Sleep(hold)
+			return ctx.Err()
+		}
+	}
+
+	t.Run("shutdown release waits for its own attempt's owner transaction to drain", func(t *testing.T) {
+		// Core 01 REQ-01-453: a conditional release that finds the transition
+		// lock held by the attempt's own owner transaction does not wait
+		// behind it while the handler runs. It releases after the handler
+		// drains, under its own attempt-operation timeout, so ordinary
+		// shutdown succeeds and the attempt stays neutral.
+		manager, actorID, incidentID, pool, catalog, policy := newSupervisedJobsHarness(t, "jobs-supervisor-release-own-transaction", func(policy *jobs.RuntimePolicy) {
+			policy.HandlerLease = 30 * time.Second
+			policy.LeaseRenewal = 10 * time.Second
+			policy.AttemptOperationTimeout = 250 * time.Millisecond
+		})
+		composition := mustTestJobComposition(t, manager)
+		jobID := createSupervisedJob(t, manager, actorID, incidentID)
+		gate := &dequeueGate{}
+		gate.open.Store(true)
+		runner, err := jobs.NewRunner(jobs.RunnerOptions{Manager: manager, Catalog: catalog, Policy: policy, DequeueGate: gate})
+		if err != nil {
+			t.Fatal(err)
+		}
+		entered := make(chan struct{})
+		if err := runner.RegisterHandler(supervisedHandlerName, holdValidatedTransaction(pool, composition, entered, 4*policy.AttemptOperationTimeout)); err != nil {
+			t.Fatal(err)
+		}
+		if err := runner.Activate(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+		select {
+		case <-entered:
+		case <-time.After(5 * time.Second):
+			t.Fatal("timed out waiting for the handler's validated transaction")
+		}
+		gate.open.Store(false)
+		closeCtx, cancelClose := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancelClose()
+		if err := runner.Close(closeCtx); err != nil {
+			t.Fatalf("ordinary shutdown failed behind the attempt's own transaction: %v", err)
+		}
+		assertNeutralAttemptState(t, pool, jobID, false)
+	})
+
+	t.Run("a renewal failure records the attempt failure after its own transaction drains", func(t *testing.T) {
+		// Core 01 REQ-01-453: the failure record after an ordinary renewal
+		// error does not wait behind the attempt's own owner transaction while
+		// the handler runs. It is recorded promptly once the handler drains,
+		// not deferred to lease expiry.
+		manager, actorID, incidentID, pool, catalog, policy := newSupervisedJobsHarness(t, "jobs-supervisor-failure-own-transaction", func(policy *jobs.RuntimePolicy) {
+			policy.HandlerLease = 30 * time.Second
+			policy.LeaseRenewal = 10 * time.Second
+			policy.AttemptOperationTimeout = 250 * time.Millisecond
+		})
+		composition := mustTestJobComposition(t, manager)
+		jobID := createSupervisedJob(t, manager, actorID, incidentID)
+		gate := &dequeueGate{}
+		gate.open.Store(true)
+		runner, err := jobs.NewRunner(jobs.RunnerOptions{Manager: manager, Catalog: catalog, Policy: policy, DequeueGate: gate})
+		if err != nil {
+			t.Fatal(err)
+		}
+		renewalTicks := make(chan time.Time, 1)
+		jobs.ConfigureRunnerSynchronizationForTest(runner, renewalTicks, nil, func(context.Context, jobs.Execution) error {
+			return errors.New("forced operational renewal failure")
+		})
+		entered := make(chan struct{})
+		if err := runner.RegisterHandler(supervisedHandlerName, holdValidatedTransaction(pool, composition, entered, 4*policy.AttemptOperationTimeout)); err != nil {
+			t.Fatal(err)
+		}
+		if err := runner.Activate(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+		select {
+		case <-entered:
+		case <-time.After(5 * time.Second):
+			t.Fatal("timed out waiting for the handler's validated transaction")
+		}
+		gate.open.Store(false)
+		renewalTicks <- time.Now().UTC()
+		// The handler holds its transaction for 1 s after cancellation; the
+		// failure lands soon after it drains, far inside the 30 s lease.
+		waitSupervisedAttemptStateWithin(t, pool, jobID, 1, true, 3*time.Second)
 		closeRunner(t, runner)
 	})
 
@@ -1615,14 +1730,24 @@ func newSupervisedJobsHarnessWithClock(
 		t.Fatal(err)
 	}
 	transactions := collaborationsupport.NewJobTransactionsForCatalog(catalog, collaborationsupport.TestWorkerRuntimeContracts([]jobs.Definition{definition}))
+	// The default lease leaves ordinary pool and scheduling stalls far inside
+	// it. Subtests that need expiry seed it through SQL or an injected clock
+	// rather than racing a short real-time lease.
 	policy := jobs.ProductionRuntimePolicy()
-	policy.HandlerLease = 120 * time.Millisecond
-	policy.LeaseRenewal = 30 * time.Millisecond
-	policy.AttemptOperationTimeout = 250 * time.Millisecond
+	policy.HandlerLease = time.Second
+	policy.LeaseRenewal = 250 * time.Millisecond
+	policy.AttemptOperationTimeout = 500 * time.Millisecond
 	policy.RecoveryScan = 20 * time.Millisecond
 	policy.RetryDelays = []time.Duration{20 * time.Millisecond, 40 * time.Millisecond}
 	for _, change := range adjust {
 		change(&policy)
+	}
+	// Core 01 REQ-01-453 production proportions: a stalled attempt operation
+	// times out before the lease lapses, and at least three renewals fit in
+	// one lease, so harness load cannot turn a stall into execution loss.
+	if policy.AttemptOperationTimeout >= policy.HandlerLease || 3*policy.LeaseRenewal > policy.HandlerLease {
+		t.Fatalf("supervised harness policy lease %v, renewal %v, attempt timeout %v breaks timeout < lease and renewal <= lease/3",
+			policy.HandlerLease, policy.LeaseRenewal, policy.AttemptOperationTimeout)
 	}
 	manager, err := jobs.NewManager(jobs.ManagerOptions{
 		Postgres: pool, Transactions: transactions, Catalog: catalog,
@@ -1669,6 +1794,15 @@ func waitSupervisedJobStatus(t testing.TB, manager *jobs.Manager, jobID uuid.UUI
 	}
 }
 
+func mustTestJobComposition(t testing.TB, manager *jobs.Manager) testJobComposition {
+	t.Helper()
+	value, present := testJobCompositions.Load(manager)
+	if !present {
+		t.Fatal("test Jobs composition is unavailable")
+	}
+	return value.(testJobComposition)
+}
+
 func waitSupervisedAttemptState(
 	t testing.TB,
 	pool *pgxpool.Pool,
@@ -1677,7 +1811,19 @@ func waitSupervisedAttemptState(
 	wantRetryDelay bool,
 ) {
 	t.Helper()
-	deadline := time.Now().Add(time.Second)
+	waitSupervisedAttemptStateWithin(t, pool, jobID, wantFailureCount, wantRetryDelay, time.Second)
+}
+
+func waitSupervisedAttemptStateWithin(
+	t testing.TB,
+	pool *pgxpool.Pool,
+	jobID uuid.UUID,
+	wantFailureCount int,
+	wantRetryDelay bool,
+	within time.Duration,
+) {
+	t.Helper()
+	deadline := time.Now().Add(within)
 	for {
 		var attemptID *uuid.UUID
 		var failureCount int

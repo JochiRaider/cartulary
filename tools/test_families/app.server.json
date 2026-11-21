@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v13",
+  "schema_id": "cartulary.test_family_manifest.v14",
   "owner_id": "app.server",
   "rows": [
     {
@@ -724,6 +724,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 16000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -755,6 +756,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 7000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -786,6 +788,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 7000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -847,6 +850,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 9000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -878,6 +882,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 2000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -909,6 +914,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 13000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -940,6 +946,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 9000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -1130,6 +1137,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 14000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -1161,6 +1169,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 15000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -1225,6 +1234,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 29000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",

@@ -129,7 +129,7 @@ func productionDDLPolicyViolations(body string) []string {
 		{"unenforced_constraint", regexp.MustCompile(`\bNOT\s+ENFORCED\b`)},
 		{"concurrent_index", regexp.MustCompile(`\bCREATE\s+(?:UNIQUE\s+)?INDEX\s+CONCURRENTLY\b`)},
 		{"cascade_drop", regexp.MustCompile(`(?s)\bDROP\b[^;]*\bCASCADE\b`)},
-		{"historical_lineage", regexp.MustCompile(`CARTULARY\.PROD_DDL_REBASELINE\.V1|00062_|MIGRATION\s+62`)},
+		{"historical_lineage", regexp.MustCompile(`CARTULARY\.PROD_DDL_REBASELINE\.V[1-4]\b`)},
 	} {
 		if check.pattern.MatchString(upper) {
 			add(check.code)

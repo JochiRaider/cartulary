@@ -199,7 +199,7 @@ CREATE TABLE schema_migration_lineage (
     description text NOT NULL
 );
 INSERT INTO schema_migration_lineage (lineage_id, description)
-VALUES ('cartulary.prod_ddl_rebaseline.v4', 'Migration locking integration test.');
+VALUES ('cartulary.prod_ddl_rebaseline.v5', 'Migration locking integration test.');
 -- +goose Down
 DROP TABLE schema_migration_lineage;
 `)},
@@ -239,7 +239,7 @@ CREATE TABLE IF NOT EXISTS schema_migration_lineage (
     description text NOT NULL
 );
 INSERT INTO schema_migration_lineage (lineage_id, description)
-VALUES ('cartulary.prod_ddl_rebaseline.v4', 'Migration locking integration test.')
+VALUES ('cartulary.prod_ddl_rebaseline.v5', 'Migration locking integration test.')
 ON CONFLICT (lineage_id) DO NOTHING;
 `, 1)
 	source, err := postgres.BuildCanonicalEmbedded(
@@ -261,20 +261,8 @@ func emptyMigrationDatabase(t testing.TB, harness *pgtest.Harness) *pgtest.Migra
 	return database
 }
 
-func TestOrientationDowngradeBarrier_Integration(t *testing.T) {
-	assertDowngradeBarrier(t, 38, 37)
-}
-
-func TestImportProjectionDowngradeBarrier_Integration(t *testing.T) {
-	assertDowngradeBarrier(t, 47, 46)
-}
-
-func TestReferencePackGenericDowngradeBarrier_Integration(t *testing.T) {
-	assertDowngradeBarrier(t, 50, 49)
-}
-
 func TestReferencePackGenericIndexStorageBound_Integration(t *testing.T) {
-	database := pgtest.Start(t).MigrationDatabaseThroughT(t, 50)
+	database := pgtest.Start(t).MigrationDatabaseT(t)
 	db := database.SQL()
 	// Copy the installed checks without foreign keys, so this verifies the
 	// storage boundary independently of importer-generated records.
@@ -297,56 +285,41 @@ func TestReferencePackGenericIndexStorageBound_Integration(t *testing.T) {
 	}
 }
 
-func assertDowngradeBarrier(t *testing.T, version, target int64) {
-	t.Helper()
-	database := pgtest.Start(t).MigrationDatabaseThroughT(t, version)
-	before := semanticCatalogState(t, database.SQL())
-	ledger := migrationLedger(t, database.SQL())
-	if err := database.RollbackThrough(t.Context(), target); err == nil {
-		t.Fatal("irreversible cutover accepted a downgrade")
-	}
-	assertMigrationHead(t, database.SQL(), version)
-	if ledger != migrationLedger(t, database.SQL()) || !reflect.DeepEqual(before, semanticCatalogState(t, database.SQL())) {
-		t.Fatal("rejected barrier changed the ledger or semantic catalog")
-	}
-}
-
+// TestScratchRollbackPreservesCompletedSteps_Integration covers Core 04 AC-542:
+// a multi-step scratch rollback commits each successful step independently, so
+// a later step's failure leaves the earlier successful Down applied. A probe
+// view depending on a table from the version below head makes that version's
+// Down fail after the head's own Down has succeeded.
 func TestScratchRollbackPreservesCompletedSteps_Integration(t *testing.T) {
-	database := pgtest.Start(t).MigrationDatabaseThroughT(t, 48)
+	database := pgtest.Start(t).MigrationDatabaseT(t)
 	db := database.SQL()
-	var before, after string
-	query := `SELECT pg_get_constraintdef(oid) FROM pg_catalog.pg_constraint WHERE conrelid='public.reference_pack_indexes'::regclass AND conname='rp_indexes_ck3'`
-	if err := db.QueryRowContext(t.Context(), query).Scan(&before); err != nil {
+	head := canonicalRepositoryHead(t)
+	if _, err := db.ExecContext(t.Context(), `CREATE VIEW public.rollback_step_probe AS SELECT count(*) AS audited FROM public.administrative_audit_projections`); err != nil {
 		t.Fatal(err)
 	}
-	if err := database.RollbackThrough(t.Context(), 46); err == nil {
-		t.Fatal("migration 47 accepted a downgrade")
+	if err := database.RollbackThrough(t.Context(), head-2); err == nil {
+		t.Fatalf("migration %d Down succeeded beneath a dependent view", head-1)
 	}
-	assertMigrationHead(t, db, 47)
-	if err := db.QueryRowContext(t.Context(), query).Scan(&after); err != nil {
-		t.Fatal(err)
-	}
-	if before == after || strings.Contains(after, "4194303") || !strings.Contains(after, "1048576") {
-		t.Fatalf("successful migration 48 Down was not retained: %s", after)
-	}
+	assertMigrationHead(t, db, head-1)
 	state, ledger := semanticCatalogState(t, db), migrationLedger(t, db)
-	if err := database.RollbackThrough(t.Context(), 46); err == nil {
-		t.Fatal("repeated barrier accepted a downgrade")
+	if err := database.RollbackThrough(t.Context(), head-2); err == nil {
+		t.Fatal("repeated rollback succeeded beneath a dependent view")
 	}
 	if ledger != migrationLedger(t, db) || !reflect.DeepEqual(state, semanticCatalogState(t, db)) {
-		t.Fatal("failing migration 47 changed committed state")
+		t.Fatalf("failing migration %d Down changed committed state", head-1)
 	}
 }
 
-func TestCatalogHistoricalRollbackAndForwardTraversal_Integration(t *testing.T) {
-	database := pgtest.Start(t).MigrationDatabaseThroughT(t, 37)
-	for version := int64(36); version >= 0; version-- {
+func TestCatalogRollbackAndForwardTraversal_Integration(t *testing.T) {
+	database := pgtest.Start(t).MigrationDatabaseT(t)
+	head := canonicalRepositoryHead(t)
+	for version := head - 1; version >= 0; version-- {
 		if err := database.RollbackThrough(t.Context(), version); err != nil {
 			t.Fatalf("rollback canonical catalog through version %d: %v", version, err)
 		}
 		assertMigrationHead(t, database.SQL(), version)
 	}
-	for version := int64(1); version <= canonicalRepositoryHead(t); version++ {
+	for version := int64(1); version <= head; version++ {
 		if err := database.ApplyThrough(t.Context(), version); err != nil {
 			t.Fatalf("apply canonical catalog through version %d: %v", version, err)
 		}

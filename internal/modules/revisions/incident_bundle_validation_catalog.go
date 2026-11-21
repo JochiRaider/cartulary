@@ -24,7 +24,9 @@ type incidentBundleValidationCatalog struct {
 }
 
 type IncidentBundleRecordEnvelopeReader interface {
-	RecordTypeTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID) (string, error)
+	// RecordTypesTx returns the record type of each requested record whose
+	// envelope belongs to the incident, with one read.
+	RecordTypesTx(context.Context, pgx.Tx, uuid.UUID, []uuid.UUID) (map[uuid.UUID]string, error)
 	VisitIncidentRecordIDsTx(context.Context, pgx.Tx, uuid.UUID, func(uuid.UUID) error) error
 }
 
@@ -79,17 +81,19 @@ func (c *incidentBundleValidationCatalog) targetKinds() []string {
 	return c.targets.targetKinds()
 }
 
-func (c *incidentBundleValidationCatalog) currentSourceRowTx(
+// currentSourceRowsTx reads the current rows of records of one type with one
+// owner read. A record the owner does not hold is absent.
+func (c *incidentBundleValidationCatalog) currentSourceRowsTx(
 	ctx context.Context,
 	tx pgx.Tx,
-	recordID uuid.UUID,
+	recordIDs []uuid.UUID,
 	recordType string,
-) (map[string]any, error) {
+) (map[uuid.UUID]map[string]any, error) {
 	capture, ok := c.snapshots.byRecordType[recordType]
 	if !ok {
 		return nil, fmt.Errorf("%w: current row provider", ErrUnexpectedHistoryTargetProvider)
 	}
-	return capture.source.SnapshotTx(ctx, tx, recordID)
+	return capture.source.SnapshotsTx(ctx, tx, recordIDs)
 }
 
 // canonicalHistoryRowMatchesSnapshot compares a canonical retained history

@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v13",
+  "schema_id": "cartulary.test_family_manifest.v14",
   "owner_id": "module.database_migrations",
   "rows": [
     {
@@ -71,35 +71,6 @@
       "postgres_isolation": "exclusive"
     },
     {
-      "row_id": "module.database_migrations.integration.graph_consumer_lease_retirement_drops_only_an_em_d588ead870",
-      "owner_id": "module.database_migrations",
-      "family_id": "module.database_migrations.integration",
-      "collaborator_ids": [
-        "module.graphprojection"
-      ],
-      "verification_ids": [
-        "module.database_migrations.verification.behavior_contract"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/database_migrations",
-        "tests": [
-          "TestGraphLeaseRetirementRejectsPopulatedState_Integration"
-        ]
-      },
-      "evidence_class": "integration",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "io_heavy",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "postgres_migration",
-      "aggregate_placement": "standard",
-      "service_dependencies": [
-        "postgres"
-      ],
-      "postgres_isolation": "exclusive"
-    },
-    {
       "row_id": "module.database_migrations.integration.migration_evidence_database_semantics",
       "owner_id": "module.database_migrations",
       "family_id": "module.database_migrations.integration",
@@ -148,11 +119,10 @@
           "TestForeignKeyCoverageUsesInstalledIndexKeys_Integration",
           "TestHistoricalProductionDDLRollbackThroughZeroResidue_Integration",
           "TestImportSourceIndexPreservesAssociationsAndPrivileges_Integration",
-          "TestIncidentPortabilityCutoverRejectsPredecessorBeforeDDL_Integration",
           "TestProductionDDLCatalogManifestParity_Integration",
           "TestProductionDDLContaminationFailsBeforeMutation_Integration",
-          "TestProductionDDLExtensionPrerequisiteMatrix_Integration"
-          ,"TestReferencePackGenericIndexStorageBound_Integration"
+          "TestProductionDDLExtensionPrerequisiteMatrix_Integration",
+          "TestReferencePackGenericIndexStorageBound_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -182,15 +152,12 @@
       "selector": {
         "package": "./internal/modules/database_migrations",
         "tests": [
-          "TestCatalogHistoricalRollbackAndForwardTraversal_Integration",
-          "TestImportProjectionDowngradeBarrier_Integration",
+          "TestCatalogRollbackAndForwardTraversal_Integration",
           "TestMigrationLineagePreflightAllowsCurrentLine",
           "TestMigrationLineagePreflightRejectsPreviousLineages",
           "TestMigrationLineagePreflightRejectsUnmarkedNonzeroDatabase",
           "TestMigrationLineagePreflightReportsApplyHeadTarget",
-          "TestOrientationDowngradeBarrier_Integration",
           "TestProductionPreflightStateMatrix",
-          "TestReferencePackGenericDowngradeBarrier_Integration",
           "TestScratchRollbackPreservesCompletedSteps_Integration"
         ]
       },
@@ -222,35 +189,6 @@
         "package": "./internal/modules/database_migrations",
         "tests": [
           "TestRecoveryTargetControlInitializationAndPrivileges_Integration"
-        ]
-      },
-      "evidence_class": "integration",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "io_heavy",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "postgres_migration",
-      "aggregate_placement": "standard",
-      "service_dependencies": [
-        "postgres"
-      ],
-      "postgres_isolation": "exclusive"
-    },
-    {
-      "row_id": "module.database_migrations.integration.reporting_failure_record_cutover_rejects_retaine_b481878864",
-      "owner_id": "module.database_migrations",
-      "family_id": "module.database_migrations.integration",
-      "collaborator_ids": [
-        "module.reporting"
-      ],
-      "verification_ids": [
-        "module.database_migrations.verification.behavior_contract"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/database_migrations",
-        "tests": [
-          "TestReportingFailureRecordMigration_Integration"
         ]
       },
       "evidence_class": "integration",

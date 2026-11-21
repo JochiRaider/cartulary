@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v13",
+  "schema_id": "cartulary.test_family_manifest.v14",
   "owner_id": "module.reference_data",
   "rows": [
     {
@@ -371,7 +371,7 @@
         ]
       },
       "evidence_class": "integration",
-      "estimated_work_ms": 4000,
+      "estimated_work_ms": 5000,
       "runtime_profile_id": "default",
       "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
@@ -400,7 +400,7 @@
         ]
       },
       "evidence_class": "integration",
-      "estimated_work_ms": 38000,
+      "estimated_work_ms": 57000,
       "runtime_profile_id": "default",
       "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
@@ -433,7 +433,7 @@
         ]
       },
       "evidence_class": "integration",
-      "estimated_work_ms": 26000,
+      "estimated_work_ms": 43000,
       "runtime_profile_id": "default",
       "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
@@ -503,7 +503,7 @@
         ]
       },
       "evidence_class": "integration",
-      "estimated_work_ms": 3000,
+      "estimated_work_ms": 4000,
       "runtime_profile_id": "default",
       "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
@@ -532,7 +532,7 @@
         ]
       },
       "evidence_class": "integration",
-      "estimated_work_ms": 2000,
+      "estimated_work_ms": 3000,
       "runtime_profile_id": "default",
       "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
@@ -561,7 +561,7 @@
         ]
       },
       "evidence_class": "integration",
-      "estimated_work_ms": 2000,
+      "estimated_work_ms": 3000,
       "runtime_profile_id": "default",
       "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
@@ -590,7 +590,7 @@
         ]
       },
       "evidence_class": "integration",
-      "estimated_work_ms": 2000,
+      "estimated_work_ms": 3000,
       "runtime_profile_id": "default",
       "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
@@ -619,7 +619,7 @@
         ]
       },
       "evidence_class": "integration",
-      "estimated_work_ms": 2000,
+      "estimated_work_ms": 6000,
       "runtime_profile_id": "default",
       "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
@@ -648,7 +648,7 @@
         ]
       },
       "evidence_class": "integration",
-      "estimated_work_ms": 2000,
+      "estimated_work_ms": 5000,
       "runtime_profile_id": "default",
       "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
@@ -677,7 +677,7 @@
         ]
       },
       "evidence_class": "integration",
-      "estimated_work_ms": 2000,
+      "estimated_work_ms": 3000,
       "runtime_profile_id": "default",
       "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
@@ -735,7 +735,7 @@
         ]
       },
       "evidence_class": "integration",
-      "estimated_work_ms": 2000,
+      "estimated_work_ms": 4000,
       "runtime_profile_id": "default",
       "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
@@ -793,7 +793,7 @@
         ]
       },
       "evidence_class": "integration",
-      "estimated_work_ms": 2000,
+      "estimated_work_ms": 3000,
       "runtime_profile_id": "default",
       "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
@@ -822,7 +822,7 @@
         ]
       },
       "evidence_class": "integration",
-      "estimated_work_ms": 7000,
+      "estimated_work_ms": 14000,
       "runtime_profile_id": "default",
       "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
@@ -998,7 +998,7 @@
         ]
       },
       "evidence_class": "integration",
-      "estimated_work_ms": 1000,
+      "estimated_work_ms": 2000,
       "runtime_profile_id": "default",
       "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",

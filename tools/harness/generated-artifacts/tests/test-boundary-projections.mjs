@@ -132,7 +132,7 @@ export function registerBoundariesTests() {
     for (const schema of [
       "cartulary.harness_work_graph.v8.schema.json",
       "cartulary.harness_execution_context.v3.schema.json",
-      "cartulary.harness_runtime_plan.v6.schema.json",
+      "cartulary.harness_runtime_plan.v7.schema.json",
       "cartulary.harness_run_manifest.v3.schema.json",
       "cartulary.harness_unit_event.v4.schema.json",
       "cartulary.harness_run_summary.v1.schema.json",

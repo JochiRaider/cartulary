@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/app/revisionassembly"
 	assessmenttest "github.com/JochiRaider/cartulary/internal/modules/assessments/testsupport"
@@ -34,24 +35,11 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
-type sourceSnapshotScanRow struct {
-	raw []byte
-	err error
-}
-
-func (row sourceSnapshotScanRow) Scan(dest ...any) error {
-	if row.err != nil {
-		return row.err
-	}
-	*(dest[0].(*[]byte)) = append([]byte(nil), row.raw...)
-	return nil
-}
-
 func TestDeleteRestoreAdapterMatrix_Unit(t *testing.T) {
 	t.Parallel()
 	t.Run("source snapshot JSON boundary", func(t *testing.T) {
 		payload := []byte(`{"record":{"row_version":9007199254740993},"source":{"row_version":9223372036854775807}}`)
-		snapshot, err := deleterestorecontract.ScanSnapshot(sourceSnapshotScanRow{raw: payload})
+		snapshot, err := deleterestorecontract.DecodeSnapshot(payload)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -59,16 +47,12 @@ func TestDeleteRestoreAdapterMatrix_Unit(t *testing.T) {
 			t.Fatalf("snapshot lost exact integers: %#v", snapshot)
 		}
 		for _, suffix := range []string{" {}", " null", " broken"} {
-			if _, err := deleterestorecontract.ScanSnapshot(sourceSnapshotScanRow{raw: append(append([]byte(nil), payload...), suffix...)}); err == nil {
+			if _, err := deleterestorecontract.DecodeSnapshot(append(append([]byte(nil), payload...), suffix...)); err == nil {
 				t.Fatalf("trailing snapshot content %q accepted", suffix)
 			}
 		}
-		if _, err := deleterestorecontract.ScanSnapshot(sourceSnapshotScanRow{raw: []byte(`{"record":`)}); err == nil {
+		if _, err := deleterestorecontract.DecodeSnapshot([]byte(`{"record":`)); err == nil {
 			t.Fatal("malformed snapshot accepted")
-		}
-		scanErr := errors.New("source row unavailable")
-		if _, err := deleterestorecontract.ScanSnapshot(sourceSnapshotScanRow{err: scanErr}); !errors.Is(err, scanErr) {
-			t.Fatalf("scan failure = %v", err)
 		}
 	})
 	t.Run("source scalar kinds", func(t *testing.T) {
@@ -210,6 +194,14 @@ func TestDeleteRestoreConcreteSourceAdapterMatrix_Integration(t *testing.T) {
 			record["record_type"] != recordType ||
 			source["record_id"] != recordID.String() {
 			t.Fatalf("%s snapshot shape = %#v", recordType, snapshot)
+		}
+		absentID := uuid.New()
+		batch, err := contribution.DeleteRestoreSource.SnapshotsTx(ctx, tx, []uuid.UUID{absentID, recordID})
+		if err != nil || len(batch) != 1 || !reflect.DeepEqual(batch[recordID], snapshot) {
+			t.Fatalf("%s batched snapshots = %#v, %v; want only the single-record snapshot", recordType, batch, err)
+		}
+		if _, err := contribution.DeleteRestoreSource.SnapshotTx(ctx, tx, absentID); !errors.Is(err, pgx.ErrNoRows) {
+			t.Fatalf("%s absent snapshot error = %v, want pgx.ErrNoRows", recordType, err)
 		}
 		t.Run(recordType+" source schema", func(t *testing.T) {
 			if contribution.ValidateSnapshotSource == nil {

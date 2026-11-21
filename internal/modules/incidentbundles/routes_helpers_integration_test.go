@@ -1515,21 +1515,29 @@ func (s importFailureState) equal(other importFailureState) bool {
 
 func snapshotImportFailureState(t testing.TB, harness *appsupport.ServerHarness, incidentID string) importFailureState {
 	t.Helper()
-	return importFailureState{
-		IncidentRows:            countRows(t, harness.DB, `SELECT count(*) FROM incidents WHERE id = $1`, incidentID),
-		RecordRows:              countRows(t, harness.DB, `SELECT count(*) FROM records WHERE incident_id = $1`, incidentID),
-		MembershipRows:          countRows(t, harness.DB, `SELECT count(*) FROM incident_memberships WHERE incident_id = $1`, incidentID),
-		IncidentPreferenceRows:  countRows(t, harness.DB, `SELECT count(*) FROM incident_workbook_preferences WHERE incident_id = $1`, incidentID),
-		UserPreferenceRows:      countRows(t, harness.DB, `SELECT count(*) FROM user_workbook_preferences WHERE incident_id = $1`, incidentID),
-		ProjectionRows:          countRows(t, harness.DB, `SELECT count(*) FROM timeline_grid_projection WHERE incident_id = $1`, incidentID),
-		ImportedActorRows:       countRows(t, harness.DB, `SELECT count(*) FROM incident_bundle_imported_actors WHERE incident_id = $1`, incidentID),
-		ImportedAttributionRows: countRows(t, harness.DB, `SELECT count(*) FROM incident_bundle_imported_attributions WHERE incident_id = $1`, incidentID),
-		SuccessAuditRows:        countRows(t, harness.DB, `SELECT count(*) FROM deployment_admin_audit_events WHERE incident_id = $1`, incidentID),
-		ExportRows:              countRows(t, harness.DB, `SELECT count(*) FROM incident_bundle_exports WHERE incident_id = $1`, incidentID),
-		ExtensionStateRows:      countRows(t, harness.DB, `SELECT count(*) FROM extension_state_metadata`),
-		PublishedStagedRows:     countRows(t, harness.DB, `SELECT count(*) FROM extension_staged_objects WHERE state = 'published'`),
-		ImportedObjectKeys:      objectKeysWithPrefix(t, harness.ObjectStore, "incidents/"+incidentID+"/object-blobs/"),
+	var state importFailureState
+	if err := harness.DB.QueryRow(`
+SELECT (SELECT count(*) FROM incidents WHERE id = $1),
+       (SELECT count(*) FROM records WHERE incident_id = $1),
+       (SELECT count(*) FROM incident_memberships WHERE incident_id = $1),
+       (SELECT count(*) FROM incident_workbook_preferences WHERE incident_id = $1),
+       (SELECT count(*) FROM user_workbook_preferences WHERE incident_id = $1),
+       (SELECT count(*) FROM timeline_grid_projection WHERE incident_id = $1),
+       (SELECT count(*) FROM incident_bundle_imported_actors WHERE incident_id = $1),
+       (SELECT count(*) FROM incident_bundle_imported_attributions WHERE incident_id = $1),
+       (SELECT count(*) FROM deployment_admin_audit_events WHERE incident_id = $1),
+       (SELECT count(*) FROM incident_bundle_exports WHERE incident_id = $1),
+       (SELECT count(*) FROM extension_state_metadata),
+       (SELECT count(*) FROM extension_staged_objects WHERE state = 'published')
+`, incidentID).Scan(
+		&state.IncidentRows, &state.RecordRows, &state.MembershipRows, &state.IncidentPreferenceRows,
+		&state.UserPreferenceRows, &state.ProjectionRows, &state.ImportedActorRows, &state.ImportedAttributionRows,
+		&state.SuccessAuditRows, &state.ExportRows, &state.ExtensionStateRows, &state.PublishedStagedRows,
+	); err != nil {
+		t.Fatalf("snapshot import failure state: %v", err)
 	}
+	state.ImportedObjectKeys = objectKeysWithPrefix(t, harness.ObjectStore, "incidents/"+incidentID+"/object-blobs/")
+	return state
 }
 
 func objectKeysWithPrefix(t testing.TB, store objectstore.Store, prefix string) []string {
@@ -1707,10 +1715,6 @@ func requirePreparationStagesOnlyRows(t testing.TB, db *sql.DB, jobID string, bu
 			digest := sha256.Sum256(payload)
 			payloads[hex.EncodeToString(digest[:])]++
 		}
-	}
-	// The Evidence blob rewrite stages its rewritten rows even when empty.
-	if payload, ok := members["data/object_blobs.ndjson"]; ok && len(payload) == 0 {
-		wantEmpty++
 	}
 	if snapshots != (len(payloads) != 0) {
 		t.Fatalf("bundle snapshot payloads = %d; want present=%t", len(payloads), snapshots)

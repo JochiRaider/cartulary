@@ -1,7 +1,6 @@
 package database_migrations_test
 
 import (
-	"context"
 	"database/sql"
 	"errors"
 	"testing"
@@ -60,42 +59,6 @@ func TestRecoveryTargetControlInitializationAndPrivileges_Integration(t *testing
 		} {
 			_, err := recovery.ExecContext(t.Context(), statement)
 			assertRecoveryControlSQLState(t, err, "23514")
-		}
-	})
-	t.Run("retained predecessor rejects before control initialization", func(t *testing.T) {
-		// Historical generation 34 must remain untouched, including its absence
-		// of the current Recovery control record. No conversion is attempted.
-		target := h.MigrationDatabaseThroughT(t, 34)
-		work := target.SQL()
-		if _, err := work.ExecContext(t.Context(), `INSERT INTO public.application_crypto_format (singleton,format_id) VALUES (true,$1)`, migrations.ApplicationCryptoFormat); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := work.ExecContext(t.Context(), `INSERT INTO public.extension_state_metadata
- (profile_id,migration_lineage_id,state_version,metadata_version,created_at,updated_at)
- VALUES ('reference_pack','reference_pack.state_v1',1,1,'2026-01-01T00:00:00Z','2026-01-01T00:00:00Z')`); err != nil {
-			t.Fatal(err)
-		}
-		var before, after string
-		const retained = `SELECT to_jsonb(t)::text FROM public.extension_state_metadata t WHERE profile_id='reference_pack'`
-		if err := work.QueryRowContext(t.Context(), retained).Scan(&before); err != nil {
-			t.Fatal(err)
-		}
-		identity, err := target.RuntimeDatabase()
-		if err != nil {
-			t.Fatal(err)
-		}
-		guard := recoveryControlPurposeDB(t, identity.DSN, postgres.PurposeMigration)
-		err = migrations.ApplyWithCryptoAdmission(t.Context(), work, guard, source, func(context.Context) error {
-			t.Error("retained state was incorrectly treated as fresh initialization")
-			return errors.New("unexpected freshness admission")
-		})
-		requireExternalMigrationFailureReason(t, err, "schema_fresh_state_required")
-		var controlAbsent bool
-		if err := work.QueryRowContext(t.Context(), `SELECT to_regclass('public.recovery_target_state') IS NULL`).Scan(&controlAbsent); err != nil || !controlAbsent {
-			t.Fatalf("predecessor rejection initialized current Recovery control: absent=%t err=%v", controlAbsent, err)
-		}
-		if err := work.QueryRowContext(t.Context(), retained).Scan(&after); err != nil || after != before {
-			t.Fatalf("increment changed retained profile metadata: equal=%t error=%v", before == after, err)
 		}
 	})
 }

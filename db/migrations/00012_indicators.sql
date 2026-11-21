@@ -130,7 +130,6 @@ CREATE TABLE public.indicator_state_intervals (
     CONSTRAINT indicator_state_intervals_confidence_check CHECK (confidence IS NULL OR confidence >= 0 AND confidence <= 100),
     CONSTRAINT indicator_state_intervals_lifecycle_state_ck CHECK (lifecycle_state = ANY (ARRAY['active'::text, 'benign'::text, 'false_positive'::text, 'retired'::text])),
     CONSTRAINT indicator_state_intervals_pkey PRIMARY KEY (indicator_state_interval_id),
-    CONSTRAINT indicator_state_intervals_required_text_ck CHECK ((rationale IS NULL OR octet_length(rationale) > 0) AND (assessor IS NULL OR octet_length(assessor) > 0)),
     CONSTRAINT indicator_state_intervals_row_version_ck CHECK (row_version >= 1),
     CONSTRAINT indicator_state_intervals_support_refs_ck CHECK (public.indicator_support_refs_are_valid(support_refs)),
     CONSTRAINT indicator_state_intervals_tombstone_pair_ck CHECK ((deleted_at IS NULL) = (deleted_by_user_id IS NULL)),
@@ -169,7 +168,12 @@ END AND octet_length(dedupe_key) >= 1 AND octet_length(dedupe_key) <= 32784),
     CONSTRAINT indicators_ip_value_kind_ck CHECK ((indicator_type <> ALL (ARRAY['ipv4_addr'::text, 'ipv6_addr'::text])) OR value_kind = 'atomic'::text),
     CONSTRAINT indicators_pkey PRIMARY KEY (record_id),
     CONSTRAINT indicators_registry_value_kind_ck CHECK (value_kind = 'atomic'::text OR value_kind = 'reference'::text AND (indicator_type = ANY (ARRAY['url'::text, 'registry_key'::text, 'process_name'::text, 'text'::text])) OR value_kind = 'pattern'::text AND indicator_type = 'text'::text),
-    CONSTRAINT indicators_required_text_ck CHECK (octet_length(display_value) > 0 AND octet_length(dedupe_key) > 0 AND (normalized_value IS NULL OR octet_length(normalized_value) > 0) AND (defanged_value IS NULL OR octet_length(defanged_value) > 0) AND (hash_algorithm IS NULL OR octet_length(hash_algorithm) > 0) AND (hash_value IS NULL OR octet_length(hash_value) > 0) AND (stix_pattern IS NULL OR octet_length(stix_pattern) > 0)),
+    CONSTRAINT indicators_required_text_ck CHECK (
+        octet_length(display_value) > 0 AND octet_length(dedupe_key) > 0
+        AND octet_length(normalized_value) > 0
+        AND (hash_algorithm IS NULL OR octet_length(hash_algorithm) > 0)
+        AND (hash_value IS NULL OR octet_length(hash_value) > 0)
+    ),
     CONSTRAINT indicators_value_kind_check CHECK (value_kind = ANY (ARRAY['atomic'::text, 'pattern'::text, 'reference'::text]))
 );
 
@@ -437,8 +441,45 @@ CREATE TRIGGER records_sync_indicator_active_identity AFTER INSERT OR DELETE OR 
 
 ALTER TABLE public.records ENABLE ALWAYS TRIGGER records_sync_indicator_active_identity;
 
+-- Owner-scoped transaction work. Rows must be removed before commit.
+-- No runtime DDL, TEMPORARY privilege, retained source state, or backfill.
+
+CREATE TABLE public.indicators_bundle_validation_sources (
+    id uuid NOT NULL,
+    kind text NOT NULL,
+    dedupe_key text NOT NULL,
+    active boolean NOT NULL,
+    transaction_id xid8 DEFAULT pg_current_xact_id() NOT NULL,
+    CONSTRAINT indicators_bundle_validation_sources_tx_ck CHECK (transaction_id = pg_current_xact_id()),
+    CONSTRAINT indicators_bundle_validation_sources_pkey PRIMARY KEY (transaction_id, id)
+ );
+REVOKE ALL ON TABLE public.indicators_bundle_validation_sources FROM PUBLIC;
+REVOKE ALL ON TYPE public.indicators_bundle_validation_sources FROM PUBLIC;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.indicators_bundle_validation_sources TO cartulary_runtime;
+GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE ON TABLE public.indicators_bundle_validation_sources TO cartulary_recovery;
+
+-- +goose StatementBegin
+CREATE FUNCTION public.indicators_reject_retained_bundle_validation() RETURNS trigger
+LANGUAGE plpgsql SET search_path = pg_catalog, public AS $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM public.indicators_bundle_validation_sources WHERE transaction_id = NEW.transaction_id) THEN
+        RAISE EXCEPTION 'incident import validation work must be released before commit';
+    END IF;
+    RETURN NULL;
+END;
+$$;
+-- +goose StatementEnd
+REVOKE ALL ON FUNCTION public.indicators_reject_retained_bundle_validation() FROM PUBLIC;
+
+CREATE CONSTRAINT TRIGGER indicators_bundle_validation_sources_empty_commit
+AFTER INSERT OR UPDATE ON public.indicators_bundle_validation_sources
+DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION public.indicators_reject_retained_bundle_validation();
+
 -- +goose Down
 -- Disposable harness cleanup only; no production downgrade or restore guarantee.
+DROP TRIGGER indicators_bundle_validation_sources_empty_commit ON public.indicators_bundle_validation_sources;
+DROP FUNCTION public.indicators_reject_retained_bundle_validation();
+DROP TABLE public.indicators_bundle_validation_sources;
 DROP TRIGGER records_sync_indicator_active_identity ON public.records;
 DROP TRIGGER indicators_sync_active_identity ON public.indicators;
 DROP TRIGGER indicator_state_intervals_support_ref_incident ON public.indicator_state_intervals;

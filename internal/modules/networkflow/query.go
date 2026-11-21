@@ -224,7 +224,7 @@ func requiredJSONString(raw map[string]json.RawMessage, field string) (string, *
 	}
 	var out string
 	if err := json.Unmarshal(value, &out); err != nil || out == "" {
-		return "", invalidNetworkFlowRequest(field, "type_mismatch")
+		return "", typeMismatch(field, value)
 	}
 	return out, nil
 }
@@ -257,40 +257,40 @@ func decodeSort(raw json.RawMessage, limits EffectiveLimits) ([]sortSpec, *seman
 	}
 	var encodedSpecs []json.RawMessage
 	if err := json.Unmarshal(raw, &encodedSpecs); err != nil || encodedSpecs == nil {
-		return nil, invalidSort("sort", "invalid_direction")
+		return nil, invalidSortAt("invalid_direction", nil, nil, nil)
 	}
 	if int64(len(encodedSpecs)) > limits.MaxSortsPerQuery {
-		return nil, invalidSort("sort", "too_many_sorts")
+		return nil, invalidSortAt("too_many_sorts", nil, nil, nil)
 	}
 	specs := make([]sortSpec, 0, len(encodedSpecs))
 	seen := map[string]struct{}{}
-	for _, encoded := range encodedSpecs {
+	for index, encoded := range encodedSpecs {
 		object, err := strictjson.DecodeUnicodeObject(bytes.NewReader(encoded))
 		if err != nil || len(object) != 2 {
-			return nil, invalidSort("sort", "invalid_direction")
+			return nil, invalidSortAt("invalid_direction", &index, nil, nil)
 		}
 		for member := range object {
 			if member != "field_key" && member != "direction" {
-				return nil, invalidSort("sort", "invalid_direction")
+				return nil, invalidSortAt("invalid_direction", &index, nil, nil)
 			}
 		}
 		fieldKey, fieldErr := strictSortString(object, "field_key")
 		if fieldErr != nil {
-			return nil, invalidSort("field_key", "unknown_field")
+			return nil, invalidSortAt("unknown_field", &index, nil, nil)
 		}
 		direction, directionErr := strictSortString(object, "direction")
 		if directionErr != nil {
-			return nil, invalidSort("direction", "invalid_direction")
+			return nil, invalidSortAt("invalid_direction", &index, &fieldKey, nil)
 		}
 		spec := sortSpec{FieldKey: fieldKey, Direction: direction}
 		if !isSortField(spec.FieldKey) {
-			return nil, invalidSort("field_key", "unknown_field")
+			return nil, invalidSortAt("unknown_field", &index, &fieldKey, &direction)
 		}
 		if spec.Direction != "asc" && spec.Direction != "desc" {
-			return nil, invalidSort("direction", "invalid_direction")
+			return nil, invalidSortAt("invalid_direction", &index, &fieldKey, &direction)
 		}
 		if _, exists := seen[spec.FieldKey]; exists {
-			return nil, invalidSort("field_key", "duplicate_sort_field")
+			return nil, invalidSortAt("duplicate_sort_field", &index, &fieldKey, &direction)
 		}
 		seen[spec.FieldKey] = struct{}{}
 		specs = append(specs, spec)
@@ -794,15 +794,15 @@ func decodePositiveInt(raw json.RawMessage, field string) (int, *semanticFailure
 	decoder.UseNumber()
 	var value any
 	if err := decoder.Decode(&value); err != nil {
-		return 0, invalidNetworkFlowRequest(field, "type_mismatch")
+		return 0, typeMismatch(field, raw)
 	}
 	number, ok := value.(json.Number)
 	if !ok {
-		return 0, invalidNetworkFlowRequest(field, "type_mismatch")
+		return 0, typeMismatch(field, raw)
 	}
 	parsed, err := strconv.ParseInt(number.String(), 10, 64)
 	if err != nil {
-		return 0, invalidNetworkFlowRequest(field, "type_mismatch")
+		return 0, typeMismatch(field, raw)
 	}
 	return int(parsed), nil
 }
@@ -813,7 +813,7 @@ func decodeStringArray(raw json.RawMessage, field string, max int) ([]string, *s
 	}
 	var values []string
 	if err := json.Unmarshal(raw, &values); err != nil {
-		return nil, invalidNetworkFlowRequest(field, "type_mismatch")
+		return nil, typeMismatch(field, raw)
 	}
 	if len(values) > max {
 		return nil, invalidNetworkFlowRequest(field, "invalid_schema_id")
@@ -821,7 +821,7 @@ func decodeStringArray(raw json.RawMessage, field string, max int) ([]string, *s
 	seen := map[string]struct{}{}
 	for _, value := range values {
 		if value == "" {
-			return nil, invalidNetworkFlowRequest(field, "type_mismatch")
+			return nil, typeMismatch(field, raw)
 		}
 		if _, exists := seen[value]; exists {
 			return nil, invalidFilter(field, "duplicate_in_value")
@@ -875,13 +875,13 @@ func decodeQueryLimit(raw json.RawMessage, limits EffectiveLimits) (int, *semant
 	}
 	limit, failure := decodePositiveInt(raw, "limit")
 	if failure != nil {
-		return 0, invalidLimit("limit", "not_integer")
+		return 0, invalidQueryLimit("not_integer", nil, limits)
 	}
 	if limit < 1 {
-		return 0, invalidLimit("limit", "below_minimum")
+		return 0, invalidQueryLimit("below_minimum", &limit, limits)
 	}
 	if int64(limit) > limits.MaxQueryLimit {
-		return 0, invalidLimit("limit", "above_maximum")
+		return 0, invalidQueryLimit("above_maximum", &limit, limits)
 	}
 	return limit, nil
 }
@@ -900,6 +900,37 @@ func invalidNetworkFlowRequest(field string, reason string) *semanticFailure {
 	return newSemanticFailure(failureInvalidRequest, field, reason)
 }
 
+// typeMismatch reports a member whose JSON kind the request contract rejects,
+// with the kind the decoder found (NF NLSpec Table 21-B actual_kind).
+func typeMismatch(field string, raw json.RawMessage) *semanticFailure {
+	failure := newSemanticFailure(failureInvalidRequest, field, "type_mismatch")
+	failure.details.ActualKind = jsonKind(raw)
+	return failure
+}
+
+// jsonKind is the JSON kind of one complete value, or "" when it is absent or
+// not a single well-formed value.
+func jsonKind(raw json.RawMessage) string {
+	trimmed := bytes.TrimSpace(raw)
+	if len(trimmed) == 0 || !json.Valid(trimmed) {
+		return ""
+	}
+	switch trimmed[0] {
+	case 'n':
+		return "null"
+	case 't', 'f':
+		return "boolean"
+	case '"':
+		return "string"
+	case '[':
+		return "array"
+	case '{':
+		return "object"
+	default:
+		return "number"
+	}
+}
+
 func invalidFilter(field string, reason string) *semanticFailure {
 	if reason == "value_forbidden" || reason == "unknown_member" {
 		reason = "invalid_value"
@@ -907,12 +938,26 @@ func invalidFilter(field string, reason string) *semanticFailure {
 	return newSemanticFailure(failureInvalidFilter, "", reason)
 }
 
-func invalidSort(field string, reason string) *semanticFailure {
-	return newSemanticFailure(failureInvalidSort, field, reason)
+// invalidSortAt reports an invalid sort with the members the decoder had
+// determined: the failing entry's index, field key and direction.
+func invalidSortAt(reason string, index *int, fieldKey, direction *string) *semanticFailure {
+	failure := newSemanticFailure(failureInvalidSort, "", reason)
+	if index != nil {
+		at := *index
+		failure.details.SortIndex = &at
+	}
+	failure.details.FieldKey, failure.details.SortDirection = fieldKey, direction
+	return failure
 }
 
-func invalidLimit(field string, reason string) *semanticFailure {
-	return newSemanticFailure(failureInvalidLimit, field, reason)
+// invalidQueryLimit reports a page limit outside network_flow.max_query_limit's
+// bounds; value is nil when the presented limit is not an integer.
+func invalidQueryLimit(reason string, value *int, limits EffectiveLimits) *semanticFailure {
+	failure := newSemanticFailure(failureInvalidLimit, "limit", reason)
+	minimum, maximum := 1, int(limits.MaxQueryLimit)
+	failure.details.LimitKey = "network_flow.max_query_limit"
+	failure.details.LimitValue, failure.details.LimitMinimum, failure.details.LimitMaximum = value, &minimum, &maximum
+	return failure
 }
 
 func cursorInvalid(reason string) *semanticFailure {

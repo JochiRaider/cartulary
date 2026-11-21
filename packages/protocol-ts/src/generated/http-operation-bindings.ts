@@ -858,7 +858,8 @@ export const httpOperationBindings = {
         "blob_create_rejected"
       ],
       "500": [
-        "internal_error"
+        "internal_error",
+        "object_store_invalid_request"
       ],
       "503": [
         "service_unavailable"

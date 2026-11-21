@@ -67,10 +67,27 @@ func (FactReader) LoadRecordTx(
 	incidentID uuid.UUID,
 	recordID uuid.UUID,
 ) (ActiveFacts, error) {
-	return loadActiveFactsTx(ctx, tx, incidentID, &recordID)
+	return loadActiveFactsTx(ctx, tx, incidentID, []uuid.UUID{recordID})
 }
 
-func loadActiveFactsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID *uuid.UUID) (ActiveFacts, error) {
+// LoadRecordsTx returns, with one read for links and one for tags, the active
+// links whose source is a requested record, the supersessions that replace a
+// requested record and the tags on a requested record.
+func (FactReader) LoadRecordsTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	incidentID uuid.UUID,
+	recordIDs []uuid.UUID,
+) (ActiveFacts, error) {
+	if len(recordIDs) == 0 {
+		return ActiveFacts{RecordLinks: []RecordLinkFact{}, RecordTags: []RecordTagFact{}}, nil
+	}
+	return loadActiveFactsTx(ctx, tx, incidentID, recordIDs)
+}
+
+// loadActiveFactsTx reads the incident's active facts, limited to recordIDs
+// when it is non-nil.
+func loadActiveFactsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordIDs []uuid.UUID) (ActiveFacts, error) {
 	facts := ActiveFacts{
 		RecordLinks: []RecordLinkFact{},
 		RecordTags:  []RecordTagFact{},
@@ -92,11 +109,11 @@ SELECT
  WHERE incident_id = $1
 `
 	linkArgs := []any{incidentID}
-	if recordID != nil {
+	if recordIDs != nil {
 		linkQuery += `
-   AND (src_record_id = $2 OR (dst_record_id = $2 AND link_type = 'supersedes'))
+   AND (src_record_id = ANY($2) OR (dst_record_id = ANY($2) AND link_type = 'supersedes'))
 `
-		linkArgs = append(linkArgs, *recordID)
+		linkArgs = append(linkArgs, recordIDs)
 	}
 	linkQuery += `
  ORDER BY src_record_id ASC, dst_record_id ASC, record_link_id ASC
@@ -172,11 +189,11 @@ SELECT
  WHERE incident_id = $1
 `
 	tagArgs := []any{incidentID}
-	if recordID != nil {
+	if recordIDs != nil {
 		tagQuery += `
-   AND record_id = $2
+   AND record_id = ANY($2)
 `
-		tagArgs = append(tagArgs, *recordID)
+		tagArgs = append(tagArgs, recordIDs)
 	}
 	tagQuery += `
  ORDER BY record_tag_id ASC

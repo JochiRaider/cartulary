@@ -158,10 +158,64 @@ func TestEvidencePortableBlobAdmission_Unit(t *testing.T) {
 		{"failed", "failed_at", nil}, {"failed", "cleanup_due_at", nil}, {"failed", "cleanup_due_at", "2026-01-02T00:44:59Z"},
 		{"failed", "failed_at", "2026-01-01T00:00:00Z"}, {"failed", "cleaned_up_at", "2026-01-02T00:44:59Z"}, {"failed", "cleaned_up_at", "2026-01-02T01:00:01Z"},
 		{"failed", "observed_content_type", "text/plain"}, {"available", "updated_at", "2026-01-01T00:29:59Z"},
+		{"available", "terminal_reason", "pending_timeout"},
 	} {
 		row := portableBlobTestRow(incident, 1, tc.state)
 		row[tc.field] = tc.value
 		requireEvidencePortableFailure(t, prepare(row), "lifecycle_legal")
+	}
+	// The archive never supplies a physical key, in any state.
+	for _, state := range []string{"pending", "failed", "available", "quarantined"} {
+		for _, key := range []any{nil, "", "incidents/source/object-blobs/source/objects/source", map[string]any{"key": "untrusted"}} {
+			row := portableBlobTestRow(incident, 1, state)
+			row["storage_key"] = key
+			requireEvidencePortableFailure(t, prepare(row), "storage_reference_legal")
+		}
+	}
+	// A finalized row's sizes and digests must describe its member's bytes
+	// before any shape or lifecycle phase.
+	finalized := portableBlobTestRow(incident, 1, "available")
+	member := "blobs/sha256/" + finalized["observed_sha256_hex"].(string)
+	observation := func(mutate func(map[string]any)) error {
+		row := maps.Clone(finalized)
+		mutate(row)
+		b := portableBlobTestBundle(t, row)
+		for path := range b {
+			if strings.HasPrefix(path, "blobs/sha256/") {
+				delete(b, path)
+			}
+		}
+		b[member] = bytes.Clone(portableBlobTestBytes)
+		_, err := port.PrepareImport(ctx, b, input)
+		return err
+	}
+	observations := map[string]func(map[string]any){
+		"both sizes disagree with bytes": func(row map[string]any) {
+			row["byte_size"], row["observed_size"] = json.Number("123"), json.Number("123")
+		},
+		"missing observed digest with expected digest": func(row map[string]any) { delete(row, "observed_sha256_hex") },
+		"null observed digest with expected digest":    func(row map[string]any) { row["observed_sha256_hex"] = nil },
+		"empty observed digest":                        func(row map[string]any) { row["observed_sha256_hex"] = "" },
+		"noncanonical observed digest":                 func(row map[string]any) { row["observed_sha256_hex"] = strings.Repeat("A", 64) },
+		"nonhex observed digest":                       func(row map[string]any) { row["observed_sha256_hex"] = strings.Repeat("g", 64) },
+		"mistyped observed digest":                     func(row map[string]any) { row["observed_sha256_hex"] = true },
+		"expected digest disagrees":                    func(row map[string]any) { row["expected_sha256_hex"] = strings.Repeat("0", 64) },
+		"missing expected digest member":               func(row map[string]any) { delete(row, "expected_sha256_hex") },
+		"mistyped expected digest":                     func(row map[string]any) { row["expected_sha256_hex"] = false },
+	}
+	for _, field := range []string{"byte_size", "observed_size"} {
+		observations["missing "+field] = func(row map[string]any) { delete(row, field) }
+		for _, value := range []any{nil, "14", json.Number("-1"), json.Number("-0"), json.Number("14.0"), json.Number("14e0"), json.Number("9223372036854775808"), json.Number("123")} {
+			observations[fmt.Sprintf("%s=%v", field, value)] = func(row map[string]any) { row[field] = value }
+		}
+	}
+	for name, mutate := range observations {
+		t.Run("observation/"+name, func(t *testing.T) {
+			requireEvidencePortableFailure(t, observation(mutate), "byte_size_digest_agree")
+		})
+	}
+	if err := observation(func(map[string]any) {}); err != nil {
+		t.Fatalf("agreeing observation: %v", err)
 	}
 	for _, reason := range []string{"pending_timeout", "declared_size_mismatch", "expected_sha256_mismatch"} {
 		row := portableBlobTestRow(incident, 1, "failed")

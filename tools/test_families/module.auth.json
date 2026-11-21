@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v13",
+  "schema_id": "cartulary.test_family_manifest.v14",
   "owner_id": "module.auth",
   "rows": [
     {
@@ -963,6 +963,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 28000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -991,6 +992,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 16000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -1019,6 +1021,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 4000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -1047,6 +1050,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 4000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -1078,6 +1082,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 67000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -1106,6 +1111,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 19000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -1134,6 +1140,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 22000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -1165,6 +1172,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 2000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -1193,6 +1201,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 6000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -1221,6 +1230,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 20000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -1249,6 +1259,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 6000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -1305,6 +1316,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 8000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -1334,6 +1346,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 4000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -1418,6 +1431,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 25000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -1446,6 +1460,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 2000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",

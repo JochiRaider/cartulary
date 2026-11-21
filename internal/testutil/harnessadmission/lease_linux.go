@@ -17,7 +17,7 @@ import (
 var ErrRelease = errors.New("host admission release failed")
 
 func DefaultRoot() string {
-	return filepath.Join(os.TempDir(), "cartulary-host-admission-"+strconv.Itoa(os.Getuid()))
+	return filepath.Join(os.TempDir(), "cartulary-host-admission-g"+strconv.Itoa(stateGeneration)+"-"+strconv.Itoa(os.Getuid()))
 }
 
 type Lease struct {
@@ -125,7 +125,7 @@ func acquire(ctx context.Context, root string, claims, capacities Quantities, pa
 	lease := &Lease{Token: hex.EncodeToString(nonce[:]), root: root}
 	quantities := func(input Quantities) Quantities {
 		out := Quantities{}
-		for _, k := range []string{"browser_stack", "cpu", "io", "memory_mb", "object_store", "port_lane", "postgres", "process", "service_stack", "volume"} {
+		for _, k := range resources {
 			out[k] = input[k]
 		}
 		return out

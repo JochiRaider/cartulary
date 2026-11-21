@@ -749,3 +749,52 @@ func TestAdmissionStateRejection(t *testing.T) {
 		t.Fatal("invented zero for null request claim")
 	}
 }
+
+// TH-HARNESS-REQ-381 and REQ-804: host admission charges every scheduler
+// registry resource, so a graph-local lane such as postgres_heavy also bounds
+// units held by other invocations sharing the admission root.
+func TestAdmissionChargesEveryRegistryResource(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "admission")
+	claims := Quantities{"cpu": 1, "postgres": 1, "postgres_heavy": 1}
+	capacities := Quantities{"cpu": 8, "postgres": 4, "postgres_heavy": 1}
+	first, err := Acquire(t.Context(), root, claims, capacities, nil, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	waiting, cancel := context.WithTimeout(t.Context(), 400*time.Millisecond)
+	defer cancel()
+	if second, err := Acquire(waiting, root, claims, capacities, nil, false); err == nil {
+		_ = second.Release(t.Context())
+		_ = first.Release(t.Context())
+		t.Fatal("a second postgres_heavy lease was admitted while the only lane was held")
+	}
+	if err := first.Release(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	second, err := Acquire(t.Context(), root, claims, capacities, nil, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := second.Release(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join("..", "..", "..", "tools", "scheduler_resource_registry.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var registry struct {
+		Resources []struct {
+			Name string `json:"name"`
+		} `json:"resources"`
+	}
+	if err := json.Unmarshal(data, &registry); err != nil {
+		t.Fatal(err)
+	}
+	var names []string
+	for _, resource := range registry.Resources {
+		names = append(names, resource.Name)
+	}
+	if strings.Join(names, ",") != strings.Join(Resources(), ",") {
+		t.Fatalf("admission vocabulary %v differs from the scheduler registry %v", Resources(), names)
+	}
+}

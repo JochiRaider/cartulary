@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v13",
+  "schema_id": "cartulary.test_family_manifest.v14",
   "owner_id": "module.evidence",
   "rows": [
     {
@@ -2044,6 +2044,35 @@
       "postgres_isolation": "exclusive"
     },
     {
+      "row_id": "module.evidence.integration.blob_export_refuses_finalized_metadata_that_does_dc95fdc9b7",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.integration",
+      "collaborator_ids": [
+        "module.incidentbundles"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/evidence",
+        "tests": [
+          "TestEvidencePortableBlobExportMetadata_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "shared"
+    },
+    {
       "row_id": "module.evidence.integration.blob_uniqueness_migration_round_trip_6de21f480c",
       "owner_id": "module.evidence",
       "family_id": "module.evidence.integration",
@@ -2057,7 +2086,8 @@
       "selector": {
         "package": "./internal/modules/evidence",
         "tests": [
-          "TestEvidenceBlobAssociationHeadSchemaContract_Integration"
+          "TestEvidenceBlobAssociationHeadSchemaContract_Integration",
+          "TestEvidenceFailedBlobCleanupDueIsStorageEnforced_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -3079,6 +3109,7 @@
           "TestObjectUploadCapabilityOpaqueBindingAndBounds_Unit",
           "TestObjectUploadCapabilityVersion1IsRejected_Unit",
           "TestObjectUploadMalformedGeneratedKeyFailsBeforeBackend_Unit",
+          "TestObjectUploadPersistedKeyValidatedAtObjectStoreBoundary_Unit",
           "TestReasonCodeRegistryConformance_Unit"
         ]
       },

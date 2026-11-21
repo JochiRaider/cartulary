@@ -12,6 +12,7 @@ import { renderNativeRuntimePolicy } from "./native-runtime-policy.mjs";
 import { renderNativeSchemaValidators } from "./native-schema-validators.mjs";
 import { renderInstrumentationDefinitions } from "./instrumentation-definitions.mjs";
 import { renderNativeRedactionPolicy } from "./redaction-policy.mjs";
+import { renderAdmissionVocabulary } from "./admission-vocabulary.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..", "..");
@@ -66,6 +67,9 @@ function generate(root, definitions) {
   const validators = compileStandaloneValidators([...loaded.values()]);
   const artifacts = new Map(renderLifecyclePolicy(root)), mapEntries = [];
   artifacts.set("internal/platform/harnessredact/policy_generated.go", renderNativeRedactionPolicy(readJSON(path.join(root, "tools/harness_redaction_manifest.json"))));
+  const admissionVocabulary = renderAdmissionVocabulary(readJSON(path.join(root, "tools/scheduler_resource_registry.json")));
+  artifacts.set("internal/testutil/harnessadmission/vocabulary_generated.go", admissionVocabulary.go);
+  artifacts.set("tools/harness/contract/generated/admission-vocabulary.mjs", admissionVocabulary.js);
   artifacts.set("internal/testutil/harnessruntime/policy_generated.go", renderNativeRuntimePolicy(readJSON(path.join(root,"tools/harness_instrumentation_definitions.json")),readJSON(path.join(root,"tools/task_surface_owner.json"))));
   artifacts.set("internal/testutil/harnessdiag/command_generated.go", renderNativeCommandPolicy(readJSON(path.join(root,"tools/task_surface_owner.json"))));
   const patterns = new Set();
@@ -114,11 +118,7 @@ export function generateFoundationArtifacts(root) {
       mkdirSync(path.dirname(file), { recursive: true });
       writeFileSync(file, content, { flag: "wx", mode: 0o644 });
     }
-    const result = publishGeneratedTransaction({ repoRoot: root, renderedRoot, generatedPaths: [...artifacts.keys()].filter((relative) => !relative.startsWith("tools/harness/contract/generated/schema-validators/" )).concat("tools/harness/contract/generated/schema-validators") });
-    // Retire the superseded generated definition only after the new closure is installed.
-    rmSync(path.join(root, "tools/schemas/cartulary.harness_instrumentation_defs.v1.schema.json"), { force: true });
-    for (const name of ["schema_generated.go", "schema_parity_generated_test.go"]) rmSync(path.join(root, "internal/testutil/harnessdiag", name), { force: true });
-    return result;
+    return publishGeneratedTransaction({ repoRoot: root, renderedRoot, generatedPaths: [...artifacts.keys()].filter((relative) => !relative.startsWith("tools/harness/contract/generated/schema-validators/" )).concat("tools/harness/contract/generated/schema-validators") });
   } finally { rmSync(renderedRoot, { recursive: true, force: true }); }
 }
 

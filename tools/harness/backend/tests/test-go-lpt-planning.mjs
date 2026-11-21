@@ -22,7 +22,7 @@ test("go_lpt_cpu_budget: Go LPT planning preserves row closure and CPU budgets",
   })), { availableGoLanes: 4, packingBoundMs: 300_000 });
   assert.equal(isolatedPlan.shards.length, 3);
   assert.ok(isolatedPlan.shards.every((shard) => shard.isolated));
-  const boundedItems = [80, 80, 80, 80, 80, 80, 200].map((cost, index) => ({
+  const boundedItems = [80, 80, 80, 80, 80, 80].map((cost, index) => ({
     id: `bounded-${index}`, estimated_work_ms: cost,
     compatibility: { package: "same-package", timeout_ms: 100, resource_claims: { cpu: 2 } },
   }));
@@ -30,9 +30,12 @@ test("go_lpt_cpu_budget: Go LPT planning preserves row closure and CPU budgets",
   const bounded = planGoLPTShards(boundedItems, options);
   assert.deepEqual(planGoLPTShards([...boundedItems].reverse(), options), bounded);
   assert.deepEqual(bounded.shards.flatMap((shard) => shard.item_ids).sort(), boundedItems.map((item) => item.id));
-  assert.equal(bounded.shards.length, 7, "bounded packing has no speculative two-wave limit");
+  assert.equal(bounded.shards.length, 6, "bounded packing has no speculative two-wave limit");
   assert.ok(bounded.shards.every((shard) => shard.cpu_tokens === 2));
-  assert.equal(bounded.shards.filter((shard) => shard.estimated_work_ms > 100).length, 1, "an indivisible oversized row stays explicit without changing its timeout or selection");
+  // TH-HARNESS-REQ-865: an indivisible item above the bound fails closed rather
+  // than forming a cohort whose estimate exceeds it.
+  const oversized = { id: "bounded-6", estimated_work_ms: 200, compatibility: boundedItems[0].compatibility };
+  assert.throws(() => planGoLPTShards([...boundedItems, oversized], options), /bounded-6 estimate 200 ms plus 15 ms invocation overhead exceeds the Go packing bound 99 ms/u);
 });
 test("go_lpt_packing_bound: compatible rows pack against the authored packing bound, not the unit timeout", () => {
   // 36 rows whose total exceeds the packing bound but fits the unit timeout.

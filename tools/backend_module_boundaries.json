@@ -2786,13 +2786,13 @@
         },
         {
           "package": "internal/modules/entities/hostidentity/deleterestore",
-          "declaration": "HostSource.SnapshotTx",
-          "sql": "\nSELECT jsonb_build_object('record', to_jsonb(r), 'source', to_jsonb(h))\n  FROM records r\n  JOIN hosts h\n    ON h.record_id = r.record_id\n WHERE r.record_id = $1\n"
+          "declaration": "HostSource.SnapshotsTx",
+          "sql": "\nSELECT r.record_id, jsonb_build_object('record', to_jsonb(r), 'source', to_jsonb(h))\n  FROM records r\n  JOIN hosts h\n    ON h.record_id = r.record_id\n WHERE r.record_id = ANY($1)\n"
         },
         {
           "package": "internal/modules/entities/hostidentity/deleterestore",
-          "declaration": "IdentitySource.SnapshotTx",
-          "sql": "\nSELECT jsonb_build_object('record', to_jsonb(r), 'source', to_jsonb(i))\n  FROM records r\n  JOIN identities i\n    ON i.record_id = r.record_id\n WHERE r.record_id = $1\n"
+          "declaration": "IdentitySource.SnapshotsTx",
+          "sql": "\nSELECT r.record_id, jsonb_build_object('record', to_jsonb(r), 'source', to_jsonb(i))\n  FROM records r\n  JOIN identities i\n    ON i.record_id = r.record_id\n WHERE r.record_id = ANY($1)\n"
         },
         {
           "package": "internal/modules/entities/hostidentity/projectionprovider",

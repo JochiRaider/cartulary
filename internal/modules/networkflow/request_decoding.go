@@ -162,8 +162,11 @@ func decodeGraphViewCreateRequestValue(reader io.Reader, limits EffectiveLimits)
 		return graphViewCreateRequest{}, invalidNetworkFlowRequest("semantic_query.schema_id", "invalid_schema_id")
 	}
 	scope, failure := requiredJSONString(raw, "refresh_scope")
-	if failure != nil || (scope != "selected_tables" && scope != "all_active_tables") {
-		return graphViewCreateRequest{}, invalidNetworkFlowRequest("refresh_scope", "invalid_enum")
+	if failure != nil {
+		return graphViewCreateRequest{}, failure
+	}
+	if scope != "selected_tables" && scope != "all_active_tables" {
+		return graphViewCreateRequest{}, invalidNetworkFlowRequest("refresh_scope", "invalid_value")
 	}
 	return graphViewCreateRequest{RefreshScope: scope, ClientTxnID: clientTxnID, DisplayName: displayName, Semantic: semantic}, nil
 }
@@ -242,8 +245,11 @@ func decodeSavedGraphContributorRequestValue(reader io.Reader, limits EffectiveL
 		return graphViewContributorRequest{}, apiErr
 	}
 	resultID, apiErr := requiredJSONString(raw, "projection_result_id")
-	if apiErr != nil || !graphProjectionResultIDPattern.MatchString(resultID) {
-		return graphViewContributorRequest{}, invalidNetworkFlowRequest("projection_result_id", "invalid_identifier")
+	if apiErr != nil {
+		return graphViewContributorRequest{}, apiErr
+	}
+	if !graphProjectionResultIDPattern.MatchString(resultID) {
+		return graphViewContributorRequest{}, invalidNetworkFlowRequest("projection_result_id", "invalid_value")
 	}
 	selector, apiErr := decodeGraphSelector(raw["selector"])
 	if apiErr != nil {

@@ -3526,7 +3526,7 @@ Core-registered codes are not route-local. When the cross-owner transaction of a
 
 | Error code or family | Permitted `reason_code` values |
 | --- | --- |
-| `network_flow_invalid_request` | `duplicate_member`, `malformed_json`, `body_not_object`, `unknown_member`, `missing_member`, `explicit_null`, `type_mismatch`, `invalid_schema_id`, `variant_member_conflict` |
+| `network_flow_invalid_request` | `duplicate_member`, `malformed_json`, `body_not_object`, `unknown_member`, `missing_member`, `explicit_null`, `type_mismatch`, `invalid_schema_id`, `variant_member_conflict`, `invalid_value`, `invalid_timestamp`, `unknown_selector_kind`, `id_key_mismatch` |
 | `network_flow_unsupported_source_profile` | `reserved_profile`, `unknown_profile` |
 | `network_flow_invalid_utf8` | `invalid_utf8_sequence`, `bom_not_at_offset_zero` |
 | `network_flow_csv_empty_file` | `zero_bytes`, `bom_only` |
@@ -3579,7 +3579,13 @@ An emitted reason code not permitted by Table 21-A1 is non-conformant. Codes who
 ### 21.2 Error detail schema registry
 
 **NF-REQ-175**
-Route-local errors MUST include details according to Table 21-B. A detail member listed as required MUST be present even when its value is JSON `null`, unless the row states that the member is conditionally present.
+Route-local errors MUST include details according to Table 21-B. A detail member listed as required MUST be present even when its value is JSON `null`, unless the row states that the member is conditionally present. Table 21-B governs route-local emissions only. The import-unit codes (the CSV import-unit failures, `network_flow_source_changed` and the mapping failures) are the import facade's internal classification: no Network Flow route emits them, so their Table 21-A statuses and Table 21-B member sets describe that classification. They reach clients only through the Imports surface, inside NF-REQ-088d's closed `cartulary.network_flow.import_owner_error.v1`, whose `safe_details` shape alone governs what is disclosed. A required member MUST be non-null when the emitting stage has determined its value; JSON `null` means the value was absent, malformed, or not attributable at that stage. These members use closed vocabularies:
+
+- `actual_kind` is the JSON kind of the rejected value: `null`, `boolean`, `number`, `string`, `array` or `object`. It is `null` when no single well-formed value was presented.
+- `expected_contract` is the operation's declared request schema ID, and `null` for an operation that declares no request body.
+- `cursor_scope` names the paged collection of the route that presented the cursor, never a value read from the cursor: `table_rows`, `rejected_rows`, `incident_rows`, `graph_contributors` or `saved_graph_contributors`.
+- `limit_key` is always a Table 20-A key. An unknown limit-override member names no key, so its `limit_key`, `limit`, `minimum` and `maximum` are `null`; a non-integer value has a `null` `limit`.
+- `sort_index` is the zero-based index of the failing sort entry, `null` when the whole sort member is malformed or too long. `field_key` and `direction` are the failing entry's values once decoded.
 
 **Table 21-B. Error detail schemas**
 
@@ -3610,7 +3616,7 @@ Route-local errors MUST include details according to Table 21-B. A detail member
 | `network_flow_external_enrichment_forbidden` | `requested_capability`, `reason_code`. |
 | `network_flow_id_generation_failed` | `reason_code`, `attempt_count`; generated candidate IDs forbidden. |
 
-Every route-local error MUST include `retry_action` at the top level of `error.details` with a value from Table 21-B1. When a Table 21-B row does not list the member explicitly, this sentence still requires it.
+Every route-local error MUST include `retry_action` at the top level of `error.details` with a value from Table 21-B1. When a Table 21-B row does not list the member explicitly, this sentence still requires it. Each route-local error code has exactly one retry action, the one the packaged error registry declares for it; a reason code never changes it.
 
 **Table 21-B1. Retry-action registry**
 
@@ -4307,10 +4313,9 @@ publication replay and Reporting input admission lock the result before the
 declaration. No retention interval or cross-owner reachable-ID list is admitted.
 Private retained Reporting inputs are outside cleanup ownership.
 
-The PostgreSQL 18.6 v3 baseline defines the owner/order candidate index and exact
-supporting cleanup indexes in `00022_graph_projection.sql`; it creates no
-retention state or bucket table. The authorized reset-only consolidation folds
-historical migrations 32–34 into that final owner definition. Core 01 §2.1A owns
+The current PostgreSQL 18.6 baseline defines the owner/order candidate index and
+exact supporting cleanup indexes in its Graph Projection owner file; it creates
+no retention state or bucket table. Core 01 §2.1A owns
 lineage admission and baseline immutability; extension state transitions do not
 authorize rewriting an applied database ledger.
 

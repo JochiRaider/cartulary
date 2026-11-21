@@ -45,7 +45,7 @@ export function registerJSONShapeTests() {
       ["tools/execution_topology_manifest.json", "cartulary.execution_topology.v16"],
       ["tools/scheduler_manifest.json", "cartulary.scheduler_manifest.v3"],
       ["tools/browser_e2e_batch_manifest.json", "cartulary.browser_e2e_batch_manifest.v16"],
-      ["tools/harness_work_graph_owner.json", "cartulary.harness_work_graph_owner.v8"],
+      ["tools/harness_work_graph_owner.json", "cartulary.harness_work_graph_owner.v9"],
     ]) {
       const value = JSON.parse(readFileSync(path.join(root, file), "utf8"));
       assert.equal(value.schema_id, schemaID);
@@ -66,8 +66,22 @@ export function registerJSONShapeTests() {
       "cartulary.execution_topology.v5",
       "cartulary.execution_topology.v8",
       "cartulary.scheduler_manifest.v2",
+      "cartulary.harness_work_graph_owner.v8",
+      "cartulary.test_family_manifest.v13",
+      "cartulary.postgres_fixture_policy_registry.v6",
+      "cartulary.harness_host_admission_record.v2",
+      "cartulary.harness_resident_allocation.v1",
+      "cartulary.harness_execution_index.v5",
+      "cartulary.harness_critical_path.v3",
+      "cartulary.harness_runtime_plan.v6",
+      "cartulary.test_services.local_session.v3",
     ]) {
       assert.equal(attachments.attachments.some((entry) => entry.schema_id === retired), false, `${retired} must be rejected as current input`);
+    }
+    // TH-HARNESS-REQ-253: a structurally changed closed schema takes a new ID,
+    // and a document still carrying a replaced ID has no current validator.
+    for (const retired of ["cartulary.harness_work_graph_owner.v8", "cartulary.test_family_manifest.v13", "cartulary.postgres_fixture_policy_registry.v6"]) {
+      assert.throws(() => validateSchemaSync(retired, { schema_id: retired }), undefined, `${retired} must have no current validator`);
     }
   });
 }

@@ -134,3 +134,146 @@ func receiverTypeName(expression ast.Expr) string {
 		return ""
 	}
 }
+
+// lockTakingJobsCalls validate their execution under the Jobs transition lock
+// in a transaction of their own (Core 01 REQ-01-453). Called while the
+// attempt's own owner transaction is open, which holds that lock until commit,
+// they would wait on themselves until their context ends.
+var lockTakingJobsCalls = map[string]bool{
+	"UpdateProgress": true, "CompleteSucceeded": true, "CompleteFailed": true,
+	"CompleteCanceled": true, "ReleaseExecution": true, "RecordExecutionFailure": true,
+}
+
+func TestNoLockTakingJobsCallInsideOwnerTransaction_Architecture(t *testing.T) {
+	t.Parallel()
+	_, currentFile, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("resolve architecture guard location")
+	}
+	modules := filepath.Join(filepath.Dir(currentFile), "..", "..", "modules")
+	err := filepath.WalkDir(modules, func(path string, entry os.DirEntry, err error) error {
+		if err != nil || entry.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+			return err
+		}
+		fileSet := token.NewFileSet()
+		parsed, err := parser.ParseFile(fileSet, path, nil, 0)
+		if err != nil {
+			return err
+		}
+		for _, violation := range ownerTransactionJobsCallViolations(fileSet, parsed) {
+			t.Errorf("%s: %s", path, violation)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, fixture := range []struct {
+		name, source string
+		violations   int
+	}{
+		{"progress with a transaction parameter", "func apply(ctx context.Context, tx pgx.Tx) { manager.UpdateProgress(ctx, execution, progress, nil) }", 1},
+		{"completion inside a begun transaction", "func apply(ctx context.Context) { tx, _ := pool.Begin(ctx); jobs.CompleteSucceeded(ctx, execution, done); tx.Commit(ctx) }", 1},
+		{"closure inside a begun transaction", "func apply(ctx context.Context) { tx, _ := pool.BeginTx(ctx, options); run(func() { manager.RecordExecutionFailure(ctx, execution, false) }); _ = tx.Commit(ctx) }", 1},
+		{"progress after commit", "func apply(ctx context.Context) { tx, _ := pool.Begin(ctx); _ = tx.Commit(ctx); manager.UpdateProgress(ctx, execution, progress, nil) }", 0},
+		{"transactional variant", "func apply(ctx context.Context, tx pgx.Tx) { transactions.UpdateProgressTx(ctx, tx, execution, progress) }", 0},
+		{"no transaction", "func apply(ctx context.Context) { manager.CompleteCanceled(ctx, execution, canceled) }", 0},
+	} {
+		t.Run(fixture.name, func(t *testing.T) {
+			fileSet := token.NewFileSet()
+			parsed, err := parser.ParseFile(fileSet, "fixture.go", "package owner\n"+fixture.source, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := ownerTransactionJobsCallViolations(fileSet, parsed); len(got) != fixture.violations {
+				t.Fatalf("violations = %v; want %d", got, fixture.violations)
+			}
+		})
+	}
+}
+
+// ownerTransactionJobsCallViolations reports lock-taking Jobs calls lexically
+// inside an open transaction: anywhere in a function with a pgx.Tx parameter,
+// or after a Begin/BeginTx assignment and before that variable's Commit.
+func ownerTransactionJobsCallViolations(fileSet *token.FileSet, file *ast.File) []string {
+	type region struct{ start, end token.Pos }
+	var violations []string
+	inspectBody := func(params *ast.FieldList, body *ast.BlockStmt) {
+		if body == nil {
+			return
+		}
+		var open []region
+		if params != nil {
+			for _, field := range params.List {
+				if selector, ok := field.Type.(*ast.SelectorExpr); ok && selector.Sel.Name == "Tx" {
+					if pkg, ok := selector.X.(*ast.Ident); ok && pkg.Name == "pgx" {
+						open = append(open, region{body.Pos(), body.End()})
+					}
+				}
+			}
+		}
+		ast.Inspect(body, func(node ast.Node) bool {
+			assign, ok := node.(*ast.AssignStmt)
+			if !ok || len(assign.Rhs) != 1 || len(assign.Lhs) == 0 {
+				return true
+			}
+			call, ok := assign.Rhs[0].(*ast.CallExpr)
+			if !ok {
+				return true
+			}
+			selector, ok := call.Fun.(*ast.SelectorExpr)
+			if !ok || (selector.Sel.Name != "Begin" && selector.Sel.Name != "BeginTx") {
+				return true
+			}
+			name, ok := assign.Lhs[0].(*ast.Ident)
+			if !ok {
+				return true
+			}
+			end := body.End()
+			ast.Inspect(body, func(inner ast.Node) bool {
+				commit, ok := inner.(*ast.CallExpr)
+				if !ok || commit.Pos() < assign.End() {
+					return true
+				}
+				if sel, ok := commit.Fun.(*ast.SelectorExpr); ok && sel.Sel.Name == "Commit" {
+					if receiver, ok := sel.X.(*ast.Ident); ok && receiver.Name == name.Name && commit.Pos() < end {
+						end = commit.Pos()
+					}
+				}
+				return true
+			})
+			open = append(open, region{assign.End(), end})
+			return true
+		})
+		if len(open) == 0 {
+			return
+		}
+		ast.Inspect(body, func(node ast.Node) bool {
+			call, ok := node.(*ast.CallExpr)
+			if !ok {
+				return true
+			}
+			selector, ok := call.Fun.(*ast.SelectorExpr)
+			if !ok || !lockTakingJobsCalls[selector.Sel.Name] {
+				return true
+			}
+			for _, within := range open {
+				if call.Pos() >= within.start && call.Pos() < within.end {
+					violations = append(violations, fmt.Sprintf("%s: %s while an owner transaction is open", fileSet.Position(call.Pos()), selector.Sel.Name))
+					break
+				}
+			}
+			return true
+		})
+	}
+	ast.Inspect(file, func(node ast.Node) bool {
+		switch value := node.(type) {
+		case *ast.FuncDecl:
+			inspectBody(value.Type.Params, value.Body)
+		case *ast.FuncLit:
+			inspectBody(value.Type.Params, value.Body)
+		}
+		return true
+	})
+	return violations
+}

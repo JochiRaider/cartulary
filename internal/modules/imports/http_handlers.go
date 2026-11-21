@@ -157,7 +157,7 @@ func (s *service) handleGetSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	result, err := s.applicationGetSession(r.Context(), route.SessionID)
-	if apiErr := importLookupAPIError(err); apiErr != nil {
+	if apiErr := importSessionLookupAPIError(err); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -191,7 +191,7 @@ func (s *service) handleListUnits(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	result, err := s.applicationListUnits(r.Context(), route.SessionID)
-	if apiErr := importLookupAPIError(err); apiErr != nil {
+	if apiErr := importSessionLookupAPIError(err); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -234,7 +234,7 @@ func (s *service) handleGetUnit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	result, err := s.applicationGetUnit(r.Context(), route.SessionID, route.UnitID)
-	if apiErr := importLookupAPIError(err); apiErr != nil {
+	if apiErr := importUnitLookupAPIError(err); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -255,7 +255,7 @@ func (s *service) handleGetUnitPreview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	result, err := s.applicationGetUnit(r.Context(), route.SessionID, route.UnitID)
-	if apiErr := importLookupAPIError(err); apiErr != nil {
+	if apiErr := importUnitLookupAPIError(err); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -295,7 +295,7 @@ func (s *service) serveExtensionRead(w http.ResponseWriter, r *http.Request, ins
 		return
 	}
 	scope, err := s.applicationGetUnit(r.Context(), route.SessionID, route.UnitID)
-	if apiErr := importLookupAPIError(err); apiErr != nil {
+	if apiErr := importUnitLookupAPIError(err); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -335,7 +335,7 @@ func (s *service) handleMapping(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	scope, err := s.applicationGetUnit(r.Context(), route.SessionID, route.UnitID)
-	if apiErr := importLookupAPIError(err); apiErr != nil {
+	if apiErr := importUnitLookupAPIError(err); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -383,7 +383,7 @@ func (s *service) serveUnitAction(w http.ResponseWriter, r *http.Request, routeK
 		return
 	}
 	_, err := s.applicationGetUnit(r.Context(), route.SessionID, route.UnitID)
-	if apiErr := importLookupAPIError(err); apiErr != nil {
+	if apiErr := importUnitLookupAPIError(err); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -525,9 +525,23 @@ func regionAdmissionAPIError(err error) *httpapi.APIError {
 	}
 }
 
-// importLookupAPIError classifies a session or unit lookup after the
-// visibility gate. A session is never reported as a missing unit.
-func importLookupAPIError(err error) *httpapi.APIError {
+// importSessionLookupAPIError classifies a session read after the visibility
+// gate. A session read addresses no unit, so it never reports a missing unit.
+func importSessionLookupAPIError(err error) *httpapi.APIError {
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, errSessionNotFound):
+		return httpapi.NotFound("import_session_not_found")
+	default:
+		return internalAPIError(err)
+	}
+}
+
+// importUnitLookupAPIError classifies a unit read after the visibility gate.
+// The session is read first, and a missing session is never reported as a
+// missing unit.
+func importUnitLookupAPIError(err error) *httpapi.APIError {
 	switch {
 	case err == nil:
 		return nil

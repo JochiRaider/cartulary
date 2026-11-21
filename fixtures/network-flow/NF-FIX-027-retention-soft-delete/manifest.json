@@ -5,7 +5,7 @@
   "profile_id": "network_flow_activity",
   "freeze": {
     "status": "frozen",
-    "revision": 6,
+    "revision": 7,
     "change_policy": "new_fixture_revision_required"
   },
   "source_files": [
@@ -38,8 +38,8 @@
     {
       "logical_path": "expected/retention-soft-delete.expected.json",
       "media_type": "application/json; charset=utf-8",
-      "size_bytes": 309539,
-      "sha256": "d2c85cbb4980610c33b2b9fb52a934cae6d89b882fcc1b124eb1ae82116cba00",
+      "size_bytes": 309558,
+      "sha256": "34b53346dfc0de8f9aeff35b7b22793e1afe83cd2bd9c63010969df01135f6c9",
       "role": "expected_response"
     }
   ],
@@ -47,11 +47,11 @@
     {
       "logical_path": "transcripts/retention-soft-delete.transcript.json",
       "media_type": "application/json; charset=utf-8",
-      "size_bytes": 309539,
-      "sha256": "d2c85cbb4980610c33b2b9fb52a934cae6d89b882fcc1b124eb1ae82116cba00",
+      "size_bytes": 309558,
+      "sha256": "34b53346dfc0de8f9aeff35b7b22793e1afe83cd2bd9c63010969df01135f6c9",
       "transcript_kind": "fixture_validation"
     }
   ],
   "source_bundle_sha256": "0dcbb030aff44d035e967c2a3fa08e2018cb97be78aafdb418d163057386cc37",
-  "expected_bundle_sha256": "657a3916ef5943986aab70915aa090c8690278427b71993a861c6fdd7d6667c9"
+  "expected_bundle_sha256": "8ca58278bb5ae3cbcf6f47779f3021927bd9cc26a805301c9781ff9583cc072d"
 }

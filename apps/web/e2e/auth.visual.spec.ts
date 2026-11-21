@@ -70,7 +70,7 @@ async function fulfillAuthVisualLogin(route: Route, mode: AuthVisualLoginMode) {
     );
     return;
   }
-  if (mode === "service_unavailable") {
+  if (mode === "capacity_exhausted") {
     await fulfillOperationError(
       route,
       "loginLocalUser",
@@ -107,7 +107,7 @@ type AuthVisualLoginMode =
   | "mfa_required"
   | "mfa_setup_required"
   | "pending"
-  | "service_unavailable";
+  | "capacity_exhausted";
 
 test("Capture auth gateway initial, focused, loading, invalid credentials, MFA required, invalid MFA, MFA setup required, service unavailable, mobile, reduced-motion, and 200%-zoom states.", async ({
   page,
@@ -214,13 +214,14 @@ test("Capture auth gateway initial, focused, loading, invalid credentials, MFA r
   );
   await assertAuthGatewayVisual(page, "auth-mfa-setup-required");
 
-  loginMode = "service_unavailable";
+  loginMode = "capacity_exhausted";
   await test.step("reload visual application", () =>
     reloadVisualApplication(page));
   await fillAuthVisualCredentials(page);
   await page.getByTestId(authTestId("login-submit")).click();
+  // Core 01 REQ-01-677: exhausted capacity applied nothing (Core 03 REQ-03-086a).
   await expect(page.getByTestId(authTestId("feedback"))).toHaveText(
-    "The earlier authentication remains unconfirmed. Check the current session again or enter fresh credentials after the request settles; reload if it does not finish.",
+    "Cartulary is temporarily unavailable. This action was not applied; try again shortly.",
   );
   await expect(page.getByTestId(authTestId("login-password"))).toHaveValue("");
   await assertAuthGatewayVisual(page, "auth-service-unavailable");

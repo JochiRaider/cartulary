@@ -1,6 +1,6 @@
 {
   "fixture_id": "NF-FIX-024-query-normalization-cursors",
-  "freeze_revision": 7,
+  "freeze_revision": 8,
   "outcomes": [
     {
       "case": "query-boundaries",
@@ -3591,7 +3591,7 @@
                   "nft_00000000000000000000000000000011"
                 ],
                 "limit_key": "network_flow.max_selected_tables_per_query",
-                "retry_action": "reduce_scope_or_limits"
+                "retry_action": "correct_request"
               }
             }
           },
@@ -3639,7 +3639,7 @@
               "request_id": "$request-id",
               "details": {
                 "reason_code": "mixed_initial_and_continuation",
-                "cursor_scope": null,
+                "cursor_scope": "table_rows",
                 "retry_action": "restart_query"
               }
             }
@@ -3654,7 +3654,7 @@
               "request_id": "$request-id",
               "details": {
                 "reason_code": "mixed_initial_and_continuation",
-                "cursor_scope": null,
+                "cursor_scope": "table_rows",
                 "retry_action": "restart_query"
               }
             }
@@ -3669,7 +3669,7 @@
               "request_id": "$request-id",
               "details": {
                 "reason_code": "malformed",
-                "cursor_scope": null,
+                "cursor_scope": "table_rows",
                 "retry_action": "restart_query"
               }
             }
@@ -3684,7 +3684,7 @@
               "request_id": "$request-id",
               "details": {
                 "reason_code": "too_long",
-                "cursor_scope": null,
+                "cursor_scope": "table_rows",
                 "retry_action": "restart_query"
               }
             }
@@ -4566,7 +4566,7 @@
           "request_id": "$request-id",
           "details": {
             "reason_code": "route_mismatch",
-            "cursor_scope": null,
+            "cursor_scope": "rejected_rows",
             "retry_action": "restart_query"
           }
         },
@@ -4578,7 +4578,7 @@
           "request_id": "$request-id",
           "details": {
             "reason_code": "route_mismatch",
-            "cursor_scope": null,
+            "cursor_scope": "table_rows",
             "retry_action": "restart_query"
           }
         },
@@ -4772,7 +4772,7 @@
           "request_id": "$request-id",
           "details": {
             "reason_code": "expired",
-            "cursor_scope": null,
+            "cursor_scope": "table_rows",
             "retry_action": "restart_query"
           }
         },

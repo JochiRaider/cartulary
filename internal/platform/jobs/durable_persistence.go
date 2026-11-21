@@ -143,6 +143,13 @@ UPDATE jobs
 // owner transaction of the same execution: owner validation holds the row only
 // FOR KEY SHARE, which a bare update would not wait for.
 func (m *Manager) ReleaseExecution(ctx context.Context, execution Execution) error {
+	return m.releaseExecution(ctx, execution, true)
+}
+
+// releaseExecution waits for the transition lock only when wait is set. The
+// runner tries first, because the holder may be the attempt's own owner
+// transaction, which cannot commit until its handler drains.
+func (m *Manager) releaseExecution(ctx context.Context, execution Execution, wait bool) error {
 	if err := m.ensureConfigured(); err != nil {
 		return err
 	}
@@ -154,7 +161,11 @@ func (m *Manager) ReleaseExecution(ctx context.Context, execution Execution) err
 		return err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	if err := lockTransitionTx(ctx, tx, execution.jobID); err != nil {
+	lock := lockTransitionTx
+	if !wait {
+		lock = tryLockTransitionTx
+	}
+	if err := lock(ctx, tx, execution.jobID); err != nil {
 		return err
 	}
 	result, err := tx.Exec(ctx, `
@@ -429,6 +440,12 @@ RETURNING job_id, scope_kind, incident_id, status, cancelable, submitted_by_user
 }
 
 func (m *Manager) RecordExecutionFailure(ctx context.Context, execution Execution, incomplete bool) error {
+	return m.recordExecutionFailure(ctx, execution, incomplete, true)
+}
+
+// recordExecutionFailure waits for the transition lock only when wait is set
+// (Core 01 REQ-01-453); otherwise a held lock reports errTransitionBusy.
+func (m *Manager) recordExecutionFailure(ctx context.Context, execution Execution, incomplete bool, wait bool) error {
 	reason := HandlerExecutionFailed
 	if incomplete {
 		reason = HandlerIncomplete
@@ -445,6 +462,12 @@ func (m *Manager) RecordExecutionFailure(ctx context.Context, execution Executio
 		return err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
+	if !wait {
+		// The validation below takes the same lock again, at once.
+		if err := tryLockTransitionTx(ctx, tx, execution.jobID); err != nil {
+			return err
+		}
+	}
 	if err := m.validateExecutionTx(ctx, tx, execution, now); err != nil {
 		return err
 	}

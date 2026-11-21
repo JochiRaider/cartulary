@@ -17,7 +17,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 )
 
-const planSchema = "cartulary.harness_runtime_plan.v6"
+const planSchema = "cartulary.harness_runtime_plan.v7"
 const maximumPlanBytes = harnesssession.MaximumPlan
 
 var errPlan = errors.New("invalid private harness runtime plan")

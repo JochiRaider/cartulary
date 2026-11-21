@@ -63,6 +63,12 @@ type failureDetails struct {
 	LimitKey, Phase, Digest         string
 	Limit, Actual, Minimum, Maximum int
 	StartUTC, EndUTC                *time.Time
+
+	// Invalid sort and limit members are JSON null where the failing stage
+	// has not determined them (NF-REQ-175).
+	SortIndex                              *int
+	SortDirection                          *string
+	LimitValue, LimitMinimum, LimitMaximum *int
 }
 
 func (f *semanticFailure) Error() string { return string(f.kind) }

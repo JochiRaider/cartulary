@@ -3,6 +3,7 @@ import test from "node:test";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { packInvocationCohorts } from "../cohorts.mjs";
+import { planGoLPTShards } from "../../../backend/go-lpt-shards.mjs";
 import { operationExecutionDigest } from "../operations.mjs";
 import { selectionFor } from "../preparation.mjs";
 
@@ -400,6 +401,27 @@ test("Go rows use reviewed estimates and pack below the authored packing bound",
       else catalogRow(id).estimated_work_ms = value;
     }
   }
+});
+
+// TH-HARNESS-REQ-865: the Go packer fails closed rather than emit a cohort whose
+// estimate exceeds the packing bound.
+test("a Go item too large for one packed cohort fails closed", () => {
+  const policy = { startup_ms: 10, cleanup_ms: 5 };
+  const item = (id, work) => ({ id, estimated_work_ms: work, compatibility: { timeout_ms: 1000 } });
+  assert.throws(() => planGoLPTShards([item("small", 10), item("oversized", 76)], { availableGoLanes: 2, invocationPolicy: policy, packingBoundMs: 90 }),
+    /oversized estimate 76 ms plus 15 ms invocation overhead exceeds the Go packing bound 90 ms/u);
+  const shards = planGoLPTShards([item("fits", 75)], { availableGoLanes: 2, invocationPolicy: policy, packingBoundMs: 90 });
+  assert.deepEqual(shards.shards.map((shard) => [shard.item_ids, shard.estimated_work_ms]), [[["fits"], 75]]);
+  // A measurement item is exempt from the bound but is always planned alone.
+  const exempt = { ...item("measurement", 5000), packing_exempt: true };
+  assert.deepEqual(planGoLPTShards([exempt], { availableGoLanes: 2, invocationPolicy: policy, packingBoundMs: 90 }).shards.map((shard) => shard.item_ids), [["measurement"]]);
+  assert.throws(() => planGoLPTShards([exempt, item("other", 5)], { availableGoLanes: 2, invocationPolicy: policy, packingBoundMs: 90 }), /exempt from the packing bound and cannot share a cohort/u);
+  // The compiler plans each measurement-class Go row alone.
+  const compiler = new WorkGraphCompiler(root);
+  const measurementRows = compiler.catalog.rows.filter((row) => row.runner === "go" && row.evidence_class === "measurement");
+  assert.ok(measurementRows.length >= 1);
+  const units = compiler.compileRows(measurementRows.map((row) => row.row_id)).units.filter((unit) => unit.unit_id.startsWith("go:"));
+  assert.ok(units.every((unit) => unit.row_bindings.length === 1));
 });
 
 // TH-HARNESS-REQ-353: postgres_heavy is an authored lane capacity, two by

@@ -844,7 +844,8 @@ func pingAdminDSN(ctx context.Context, dsn string, connected func(context.Contex
 	}
 	var version int
 	var checksums string
-	if err := db.QueryRowContext(ctx, `SELECT current_setting('server_version_num')::integer, current_setting('data_checksums')::text`).Scan(&version, &checksums); err != nil {
+	var lz4 bool
+	if err := db.QueryRowContext(ctx, `SELECT current_setting('server_version_num')::integer, current_setting('data_checksums')::text, COALESCE((SELECT 'lz4' = ANY(enumvals) FROM pg_catalog.pg_settings WHERE name = 'default_toast_compression'), false)`).Scan(&version, &checksums, &lz4); err != nil {
 		return errors.New(postgres.ReasonAdmissionFailed)
 	}
 	if version != postgres.RequiredServerVersionNum {
@@ -852,6 +853,9 @@ func pingAdminDSN(ctx context.Context, dsn string, connected func(context.Contex
 	}
 	if checksums != "on" {
 		return errors.New(postgres.ReasonDataChecksumsDisabled)
+	}
+	if !lz4 {
+		return errors.New(postgres.ReasonLZ4CompressionUnsupported)
 	}
 	return nil
 }

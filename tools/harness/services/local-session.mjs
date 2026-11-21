@@ -24,7 +24,7 @@ import { parseStrictJSON } from "../contract/index.mjs";
 import { atomicLocalFile, readLocalFile } from "../runtime/secure-local-files.mjs";
 import { recoverRuntime, borrowRuntime, createRuntime } from "../runtime/session-client.mjs";
 
-const descriptorSchemaID = "cartulary.test_services.local_session.v3";
+const descriptorSchemaID = "cartulary.test_services.local_session.v4";
 const borrowerSchemaID = "cartulary.test_services.local_session_borrower.v2";
 const statusSchemaID = "cartulary.test_services.local_session_status.v1";
 const sessionDurationMS = 24 * 60 * 60 * 1000;
@@ -40,7 +40,7 @@ const callerServiceInputs = new Set([
 // The private schema owns the closed attachment environment; selection is its
 // projection so physical TLS bindings cannot drift from descriptor acceptance.
 const serviceEnvironmentNames = Object.freeze(JSON.parse(readFileSync(
-  new URL("../../schemas/cartulary.test_services.local_session.v3.schema.json", import.meta.url), "utf8",
+  new URL("../../schemas/cartulary.test_services.local_session.v4.schema.json", import.meta.url), "utf8",
 )).properties.environment.propertyNames.enum);
 
 const configInputs = ["db/migrations", "go.mod", "go.sum", "tools/toolchain_pins.json"];
@@ -520,7 +520,7 @@ export async function createLocalSession({ root, binary, sessionFile, environmen
     // Keep the starter's admitted envelope in the native weighted tree. The
     // durable allocation remains charged after that ancestor releases or dies.
     const parent = inheritedHostLease(environment);
-    const reservation = { schema_id: "cartulary.harness_resident_allocation.v1", admission_root: hostAdmissionRoot, allocation: { token: randomBytes(16).toString("hex"), reference: reservationFile, claims, capacities: hostClaims(Object.fromEntries(resourceCapacities(captureCapabilitySnapshot({root})))), parent } };
+    const reservation = { schema_id: "cartulary.harness_resident_allocation.v2", admission_root: hostAdmissionRoot, allocation: { token: randomBytes(16).toString("hex"), reference: reservationFile, claims, capacities: hostClaims(Object.fromEntries(resourceCapacities(captureCapabilitySnapshot({root})))), parent } };
     writePrivateJSON(reservationFile, reservation);
     const residentRef = suiteRuntime.record({ kind: "resident_allocation", target: reservationFile, state: "pending", depends_on: [], recovery_files: [reservationFile] });
     suiteRuntime.record({ kind: "managed_suite", target: leaseFile, state: "pending", depends_on: [residentRef] });

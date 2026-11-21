@@ -419,11 +419,35 @@ func (m *Manager) completeTerminal(ctx context.Context, execution Execution, par
 // lockTransitionTx serializes current-state checks and commits that can change
 // a job's cancellation or terminal state. Owner transactions that commit work
 // for a job must acquire this lock before revalidating the job status.
+// errTransitionBusy reports that another transaction holds a Job's transition
+// lock. The runner's own attempt may be that holder, so the runner never waits
+// behind it while the handler runs (Core 01 REQ-01-453).
+var errTransitionBusy = errors.New("jobs: execution transition lock is held")
+
+// transitionLockSeed namespaces the Jobs transition advisory locks.
+const transitionLockSeed int64 = 49006006
+
+// tryLockTransitionTx takes the Job's transition lock only when it is free.
+func tryLockTransitionTx(ctx context.Context, tx pgx.Tx, jobID uuid.UUID) error {
+	if tx == nil || jobID == uuid.Nil {
+		return ErrInvalidJobDefinition
+	}
+	var acquired bool
+	if err := tx.QueryRow(ctx, `
+SELECT pg_try_advisory_xact_lock(hashtextextended($1::text, $2))
+`, jobID, transitionLockSeed).Scan(&acquired); err != nil {
+		return err
+	}
+	if !acquired {
+		return errTransitionBusy
+	}
+	return nil
+}
+
 func lockTransitionTx(ctx context.Context, tx pgx.Tx, jobID uuid.UUID) error {
 	if tx == nil || jobID == uuid.Nil {
 		return ErrInvalidJobDefinition
 	}
-	const transitionLockSeed int64 = 49006006
 	_, err := tx.Exec(ctx, `
 SELECT pg_advisory_xact_lock(hashtextextended($1::text, $2))
 `, jobID, transitionLockSeed)

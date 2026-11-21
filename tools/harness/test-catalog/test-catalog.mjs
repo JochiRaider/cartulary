@@ -17,7 +17,7 @@ import { validatePostgresFixturePolicy } from "./postgres-fixture-policy.mjs";
 import { inspectExecutableRepositoryPath, readExecutableRepositoryJSON } from "./restricted-input-boundary.mjs";
 
 const ownerRegistrySchemaID = "cartulary.test_owner_registry.v1";
-const familyManifestSchemaID = "cartulary.test_family_manifest.v13";
+const familyManifestSchemaID = "cartulary.test_family_manifest.v14";
 const rowMigrationSchemaID = "cartulary.test_catalog_row_migration.v1";
 const runnerRegistrySchemaID = "cartulary.test_runner_registry.v3";
 export const evidenceEpoch = "cartulary.test_evidence.nlspec.v1";
@@ -481,6 +481,16 @@ function readCatalogDefinition(root) {
       // TH-HARNESS 11.6: a reviewed row estimate stays below the unit timeout.
       if (row.estimated_work_ms !== undefined && row.estimated_work_ms >= graphOwner.default_timeout_ms) {
         throw new Error(`${label}.estimated_work_ms must be below the unit timeout ${graphOwner.default_timeout_ms}`);
+      }
+      // TH-HARNESS-REQ-865: a Go row must fit one packed cohort, whose estimate
+      // includes the invocation's startup and cleanup allowance. Measurement
+      // rows run alone under their capacity profile and are exempt.
+      if (row.runner === "go" && row.evidence_class !== "measurement") {
+        const go = graphOwner.invocation_policies.go;
+        const planned = (row.estimated_work_ms ?? graphOwner.evidence_estimates_ms[row.evidence_class]) + go.startup_ms + go.cleanup_ms;
+        if (planned > graphOwner.go_cohort_packing_bound_ms) {
+          throw new Error(`${label} Go estimate ${planned} ms including startup and cleanup exceeds the packing bound ${graphOwner.go_cohort_packing_bound_ms} ms`);
+        }
       }
       if (rowIDs.has(row.row_id)) {
         throw new Error(`duplicate row_id ${row.row_id}`);

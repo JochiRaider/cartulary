@@ -1,0 +1,154 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_estimate_audit.v1",
+  "description": "Advisory audit of one exact retained invocation's Go units against current planning inputs (TH-HARNESS-REQ-866).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "run_id",
+    "target",
+    "qualification",
+    "policy",
+    "unit_count",
+    "findings",
+    "findings_omitted"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.harness_estimate_audit.v1"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "target": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 256
+    },
+    "qualification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "reasons"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "accepted",
+            "rejected"
+          ]
+        },
+        "reasons": {
+          "type": "array",
+          "maxItems": 3,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "canonical_evidence_invalid",
+              "run_not_passed",
+              "source_digest_mismatch"
+            ]
+          }
+        }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "go_cohort_packing_bound_ms",
+        "go_startup_ms",
+        "go_cleanup_ms",
+        "drift_ratio",
+        "heavy_lane_threshold_ms"
+      ],
+      "properties": {
+        "go_cohort_packing_bound_ms": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "go_startup_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "go_cleanup_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "drift_ratio": {
+          "type": "number",
+          "exclusiveMinimum": 1
+        },
+        "heavy_lane_threshold_ms": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "unit_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "findings": {
+      "type": "array",
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "unit_id",
+          "code",
+          "observed_ms",
+          "planned_ms",
+          "row_ids",
+          "row_ids_omitted"
+        ],
+        "properties": {
+          "unit_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "code": {
+            "enum": [
+              "estimate_drift",
+              "heavy_lane_candidate",
+              "over_packing_bound"
+            ]
+          },
+          "observed_ms": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "planned_ms": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "row_ids": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            }
+          },
+          "row_ids_omitted": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "findings_omitted": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}

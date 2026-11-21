@@ -69,7 +69,21 @@ func (admission routeAdmission) visibleIncident(
 		AllowedRoles: admissionpkg.RolesMember,
 		Lifecycle:    admissionpkg.LifecycleAny,
 	})
-	return evidenceAdmissionResult(grant, err, "member")
+	return evidenceVisibilityResult(grant, err)
+}
+
+// evidenceVisibilityResult classifies a member-visibility read. Every member
+// role is admitted, so the read has no role refusal: an incident the caller
+// cannot see is not found, and any other failure is internal.
+func evidenceVisibilityResult(grant admissionpkg.Grant, err error) (admissionpkg.Grant, *httpapi.APIError) {
+	switch {
+	case admissionpkg.IsDenied(err, admissionpkg.DenialNotVisible):
+		return admissionpkg.Grant{}, httpapi.NotFound("incident_not_found")
+	case err != nil:
+		return admissionpkg.Grant{}, httpapi.InternalAPIError(err)
+	default:
+		return grant, nil
+	}
 }
 
 // concealedIncident decides visibility like visibleIncident, except that an

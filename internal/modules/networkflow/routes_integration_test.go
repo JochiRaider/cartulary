@@ -1396,8 +1396,13 @@ func TestNetworkFlowTimeBucketSavedGraphLifecycle_Integration(t *testing.T) {
 	}
 }
 
+// TestNetworkFlowGraphWorkerFaults_Integration shares no state with the
+// saved-graph lifecycle, so it schedules as its own row.
+func TestNetworkFlowGraphWorkerFaults_Integration(t *testing.T) {
+	assertNetworkFlowWorkerFaultConsumers(t)
+}
+
 func TestNetworkFlowSavedGraphLifecycleRoutes_Integration(t *testing.T) {
-	t.Run("functional worker faults", assertNetworkFlowWorkerFaultConsumers)
 	runtime := appsupport.StartRuntime(t)
 	renderer := &restoredReportingRuntime{started: make(chan struct{}, 1)}
 	harness := claimedNetworkFlowServerWithControlsForRouteTest(t, runtime, "network-flow-saved-graph-routes", "", nil, func(options *server.Options) { options.ReportingRuntime = renderer })
@@ -1932,8 +1937,9 @@ func TestNetworkFlowSavedGraphLifecycleRoutes_Integration(t *testing.T) {
 		t.Fatalf("saved graph outbox duplicated or omitted lifecycle effects: total=%d renamed=%d removed=%d", intentCount, renamedCount, removalCount)
 	}
 	assertFrozenReportingRestore(t, runtime, harness, adminLogin, frozenInputs, reportingJobID, previewJobID)
-	assertFrozenReportingRestoreFailures(t, runtime, harness, reportingJobID, previewJobID)
-	assertFrozenReportingInputCorruption(t, runtime, harness, reportingJobID, previewJobID)
+	deferred := captureDeferredReportingSource(t, runtime, harness, reportingJobID, previewJobID)
+	assertFrozenReportingRestoreFailures(t, runtime, deferred, reportingJobID, previewJobID)
+	assertFrozenReportingInputCorruption(t, deferred, reportingJobID, previewJobID)
 }
 
 func projectionObjectIDs(t testing.TB, projection map[string]any) ([]string, []string) {

@@ -23,9 +23,14 @@ func NewSource(catalog *sourcecatalog.Catalog) Source {
 	return Source{catalog: catalog}
 }
 
-func (Source) SnapshotTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (map[string]any, error) {
-	return deleterestorecontract.ScanSnapshot(tx.QueryRow(ctx, `
-SELECT jsonb_build_object(
+func (s Source) SnapshotTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (map[string]any, error) {
+	snapshots, err := s.SnapshotsTx(ctx, tx, []uuid.UUID{recordID})
+	return deleterestorecontract.SnapshotOf(snapshots, recordID, err)
+}
+
+func (Source) SnapshotsTx(ctx context.Context, tx pgx.Tx, recordIDs []uuid.UUID) (map[uuid.UUID]map[string]any, error) {
+	return deleterestorecontract.CollectSnapshots(tx.Query(ctx, `
+SELECT r.record_id, jsonb_build_object(
            'record', to_jsonb(r),
            'source', to_jsonb(a) || jsonb_build_object(
                'finding', to_jsonb(f),
@@ -45,8 +50,8 @@ SELECT jsonb_build_object(
   LEFT JOIN artifact_forensic_keywords fk
     ON fk.incident_id = a.incident_id
    AND fk.record_id = a.record_id
- WHERE r.record_id = $1
-`, recordID))
+ WHERE r.record_id = ANY($1)
+`, recordIDs))
 }
 
 func (Source) UpdateSourceDeleteStateTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, time.Time, bool) error {

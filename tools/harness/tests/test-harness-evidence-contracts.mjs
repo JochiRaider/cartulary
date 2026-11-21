@@ -3,6 +3,7 @@ import { registerEvidenceTests as registerReadinessEvidenceTests } from "../read
 import "../observability/tests/test-critical-path.mjs";
 import "../observability/tests/test-execution-index.mjs";
 import "../observability/tests/test-owner-evidence-audit.mjs";
+import "../observability/tests/test-estimate-audit.mjs";
 import { registerRunObservationTests } from "../diagnostics/tests/run-observation-cases.mjs";
 import "../observability/tests/test-instrumentation.mjs";
 import "../observability/tests/test-foundation-characterization.mjs";

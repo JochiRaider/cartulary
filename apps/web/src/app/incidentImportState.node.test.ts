@@ -117,7 +117,11 @@ it("pure import transitions retain exact unresolved attempts and clear protected
     actorId: importActorID,
     outcome: { kind: "uncertain", problem: "transport" },
   });
-  expect(uncertain.admission).toEqual({ kind: "uncertain", attempt: first });
+  expect(uncertain.admission).toEqual({
+    kind: "uncertain",
+    attempt: first,
+    problem: "transport",
+  });
   expect(
     transitionImport(uncertain, {
       type: "file",

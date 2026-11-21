@@ -41,6 +41,18 @@ SERVER_HANDLE=""
 VITE_HANDLE=""
 cleanup_done=0
 
+# Repeats the exact reset-only remediation hint the backend reported with
+# historical_migration_lineage (Testing Harness NLSpec §9, Core 01 §2.1A), so
+# this diagnostic never names a stale lineage.
+emit_lineage_remediation() {
+  local hint
+  grep -q 'historical_migration_lineage' "${SERVER_LOG}" 2>/dev/null || return 0
+  hint="$(grep -o '"remediation_hint":"[^"]*"' "${SERVER_LOG}" 2>/dev/null | head -n 1 | sed 's/^"remediation_hint":"//; s/"$//')" || true
+  if [[ -n "${hint}" ]]; then
+    echo "The backend reports historical_migration_lineage: ${hint}" >&2
+  fi
+}
+
 port_in_use() {
   local port="$1"
 
@@ -183,7 +195,7 @@ wait_for_http() {
     if [[ -n "${SERVER_HANDLE:-}" ]] && ! owned_command_running "${SERVER_HANDLE}" >/dev/null 2>&1; then
       echo "backend exited before ${name} readiness; inspect ${SERVER_LOG}, run make services-up for backing services, and run make db-migrate for current-line schema upgrades" >&2
       if [[ "${name}" == "backend" ]]; then
-        echo "If the backend reports historical_migration_lineage, destroy and recreate the database, then apply the Production DDL Rebaseline v3 catalog from version 1." >&2
+        emit_lineage_remediation
       fi
       cat "${SERVER_LOG}" >&2 || true
       return 1
@@ -199,7 +211,7 @@ wait_for_http() {
 
   echo "timed out waiting for ${name} at ${url}; inspect ${SERVER_LOG} and ${WEB_LOG}, run make services-up for backing services, and run make db-migrate for current-line schema upgrades" >&2
   if [[ "${name}" == "backend" ]]; then
-    echo "If the backend reports historical_migration_lineage, destroy and recreate the database, then apply the Production DDL Rebaseline v3 catalog from version 1." >&2
+    emit_lineage_remediation
   fi
   cat "${SERVER_LOG}" >&2 || true
   cat "${WEB_LOG}" >&2 || true

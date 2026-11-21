@@ -229,7 +229,7 @@ CREATE TABLE public.reference_pack_indexes (
     lookup_keys bytea NOT NULL,
     CONSTRAINT rp_indexes_ck1 CHECK (entry_kind = ANY (ARRAY['entry'::text, 'object'::text, 'relationship'::text])),
     CONSTRAINT rp_indexes_ck2 CHECK (octet_length(entry_id) >= 1 AND octet_length(entry_id) <= 512),
-    CONSTRAINT rp_indexes_ck3 CHECK (octet_length(canonical_item) >= 1 AND octet_length(canonical_item) <= 1048576),
+    CONSTRAINT rp_indexes_ck3 CHECK (octet_length(canonical_item) >= 1 AND octet_length(canonical_item) <= 4194303),
     CONSTRAINT rp_indexes_pk1 PRIMARY KEY (index_id, entry_kind, entry_id)
 );
 

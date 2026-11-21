@@ -10,12 +10,7 @@ import (
 	indicatorprojection "github.com/JochiRaider/cartulary/internal/modules/indicators/workbookprojection"
 )
 
-func (store *Store) UpsertIndicatorTx(
-	ctx context.Context,
-	tx pgx.Tx,
-	input indicatorprojection.ProjectionInput,
-) error {
-	if _, err := tx.Exec(ctx, `
+const indicatorProjectionRowSQL = `
 INSERT INTO indicator_grid_projection (
     record_id, incident_id, row_version, indicator_type, value_kind,
     display_value, normalized_value, dedupe_key, defanged_value,
@@ -42,14 +37,43 @@ SET incident_id = EXCLUDED.incident_id,
     lifecycle_summary = EXCLUDED.lifecycle_summary,
     supporting_link_count = EXCLUDED.supporting_link_count,
     edited_at = EXCLUDED.edited_at
-`, input.RecordID, input.IncidentID, input.RowVersion, input.IndicatorType,
+`
+
+func indicatorProjectionRowArguments(input indicatorprojection.ProjectionInput) ([]any, error) {
+	return []any{
+		input.RecordID, input.IncidentID, input.RowVersion, input.IndicatorType,
 		input.ValueKind, input.DisplayValue, input.NormalizedValue, input.DedupeKey,
 		input.DefangedValue, input.HashAlgorithm, input.HashValue, input.STIXPattern,
 		input.FirstObservedAt, input.LastObservedAt, input.ObservationCount,
-		input.LifecycleSummary, input.SupportingLinkCount, input.EditedAt.UTC()); err != nil {
+		input.LifecycleSummary, input.SupportingLinkCount, input.EditedAt.UTC(),
+	}, nil
+}
+
+func (store *Store) UpsertIndicatorTx(ctx context.Context, tx pgx.Tx, input indicatorprojection.ProjectionInput) error {
+	args, err := indicatorProjectionRowArguments(input)
+	if err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, indicatorProjectionRowSQL, args...); err != nil {
 		return fmt.Errorf("upsert Indicator projection row: %w", err)
 	}
 	return nil
+}
+
+// UpsertIndicatorRowsTx writes a page of rows in one round trip.
+func (store *Store) UpsertIndicatorRowsTx(ctx context.Context, tx pgx.Tx, inputs []indicatorprojection.ProjectionInput) error {
+	if len(inputs) == 0 {
+		return nil
+	}
+	batch := &pgx.Batch{}
+	for _, input := range inputs {
+		args, err := indicatorProjectionRowArguments(input)
+		if err != nil {
+			return err
+		}
+		batch.Queue(indicatorProjectionRowSQL, args...)
+	}
+	return projectionRowsResult(tx.SendBatch(ctx, batch), len(inputs), "upsert Indicator projection row")
 }
 
 func (store *Store) DeleteIndicatorRowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {

@@ -57,7 +57,7 @@ export function buildReaderEvidence({ runID, target = "test-slice", commandID,
   const records = [{ kind: "activity", local_start_ms: null, local_end_ms: null, anchors: [], ref: "activity:example", activity: "report_parse", unit_id: unitID, invocation_id: null,
     allocation_ref: null, clock: "node_monotonic", clock_identity: "clock:example", resolution_ms: 0.000001, duration_ms: 5,
     availability: "available", outcome: "failed" }];
-  files["diagnostics/execution-index.json"] = { schema_id: "cartulary.harness_execution_index.v5", host_admission: { status: "complete", omitted_records: 0, records: [], records_digest: executionRecordsDigest([]) }, allocation_lifecycle: { status: "complete", omitted_records: 0, omitted_refs: [], records: [], records_digest: executionRecordsDigest([]) }, graph_clock: null,
+  files["diagnostics/execution-index.json"] = { schema_id: "cartulary.harness_execution_index.v6", host_admission: { status: "complete", omitted_records: 0, records: [], records_digest: executionRecordsDigest([]) }, allocation_lifecycle: { status: "complete", omitted_records: 0, omitted_refs: [], records: [], records_digest: executionRecordsDigest([]) }, graph_clock: null,
     run_id: manifest.run_id, source_digest: digest, graph_digest: digest, policy_digest: digest, status: "complete", omitted_records: 0,
     omitted_refs: [], records, records_digest: executionRecordsDigest(records) };
   return { manifest, summary, events, files };

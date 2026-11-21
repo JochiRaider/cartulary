@@ -5,7 +5,11 @@ import {
   type HTTPOperationID,
   type HTTPOperationResult,
 } from "../services/browserApi";
-import { isFailureCode, isUnappliedRefusal } from "../shared/publicError";
+import {
+  isFailureCode,
+  isUnappliedRefusal,
+  notAppliedText,
+} from "../shared/publicError";
 import { validateAccountEmail } from "./accountInputValidation";
 import {
   accountOperationError,
@@ -377,12 +381,18 @@ export class AuthenticationController {
       const outcome = await observation.result;
       if (!current()) return;
       // A decoded 503 was refused before it was applied, so it settles as an
-      // ordinary rejection (Core 03 REQ-03-086a).
+      // ordinary rejection (Core 03 REQ-03-086a). Exhausted authentication
+      // capacity creates no session and commits nothing (Core 01
+      // REQ-01-677), so it is a definite non-application too.
       if (
         outcome.kind !== "completed" ||
         (!outcome.value.ok &&
           ((outcome.value.status >= 500 &&
             !isUnappliedRefusal(
+              outcome.value.status,
+              outcome.value.payload.error,
+            ) &&
+            !isCapacityRefusal(
               outcome.value.status,
               outcome.value.payload.error,
             )) ||
@@ -734,6 +744,14 @@ export type AuthBannerErrorCode =
     >
   | SessionErrorCode;
 
+/** Exhausted authentication capacity: a 503 that applied nothing (REQ-01-677). */
+function isCapacityRefusal(
+  status: number,
+  error: { readonly code: string } | null | undefined,
+): boolean {
+  return status === 503 && error?.code === "authentication_capacity_exhausted";
+}
+
 export function authBannerForError(
   error: Pick<APIError<AuthBannerErrorCode>, "code"> | null,
 ): AuthBanner {
@@ -749,6 +767,8 @@ export function authBannerForError(
                 "credential_bootstrap_rejected",
               ])
             ? "Sign in again to continue."
-            : "Authentication is temporarily unavailable. Try again.",
+            : isFailureCode(error?.code, ["authentication_capacity_exhausted"])
+              ? notAppliedText()
+              : "Authentication is temporarily unavailable. Try again.",
   };
 }

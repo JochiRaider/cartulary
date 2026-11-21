@@ -2,7 +2,6 @@ package incidentbundles_test
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	referencetest "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
@@ -269,19 +268,18 @@ func TestIncidentBundlesEvidenceBlobStagingCleanup_Integration(t *testing.T) {
 			}
 		}
 	}
+	// Row legality is proven at Evidence's preparation port and transaction
+	// tests (TestEvidencePortable*Admission_Unit, *Transaction_Integration).
+	// One end-to-end import per invariant proves the job fails closed and
+	// leaves no state.
 	t.Run("typed portable custody history", func(t *testing.T) {
 		for index, tc := range []struct {
 			name, field, invariant, family string
 			value                          any
 			missing                        bool
 		}{
-			{name: "missing nullable note", field: "note", invariant: "row_shape_exact", missing: true},
 			{name: "unknown member", field: "unrecognized", invariant: "row_shape_exact", value: true},
-			{name: "metadata array", field: "metadata", invariant: "row_shape_exact", value: []any{}},
-			{name: "metadata NUL", field: "metadata", invariant: "row_shape_exact", value: map[string]any{"context": "bad\x00text"}},
 			{name: "lossy occurrence", field: "occurred_at", invariant: "custody_ordered", value: "2024-01-01T00:00:00.1234567Z"},
-			{name: "unknown event", field: "custody_event_type", invariant: "row_shape_exact", value: "unknown"},
-			{name: "other incident", field: "incident_id", invariant: "custody_same_incident", value: uuid.NewString()},
 			{name: "missing Evidence", field: "evidence_record_id", invariant: "custody_same_incident", value: uuid.NewString()},
 			{name: "missing historical actor", field: "actor_user_id", invariant: "reference_complete", family: "actors", value: uuid.NewString()},
 		} {
@@ -310,51 +308,24 @@ func TestIncidentBundlesEvidenceBlobStagingCleanup_Integration(t *testing.T) {
 	})
 
 	t.Run("typed portable blob metadata", func(t *testing.T) {
-		for index, tc := range []struct {
-			name, field, invariant string
-			value                  any
-			missing                bool
-		}{
-			{"missing nullable hint", "filename_hint", "row_shape_exact", nil, true},
-			{"unknown member", "unrecognized", "row_shape_exact", true, false},
-			{"noncanonical hint", "filename_hint", "row_shape_exact", " padded", false},
-			{"mistyped observed content type", "observed_content_type", "row_shape_exact", true, false},
-			{"lossy expiry", "target_expires_at", "row_shape_exact", "2026-01-01T00:00:00.1234567Z", false},
-			{"null finalization", "finalized_at", "lifecycle_legal", nil, false},
-			{"unknown state", "upload_state", "lifecycle_legal", "unknown", false},
-			{"finalized failure reason", "terminal_reason", "lifecycle_legal", "pending_timeout", false},
-		} {
-			t.Run(tc.name, func(t *testing.T) {
-				rows := decodeNDJSONRows(t, zipMemberBytes(t, bundleBytes, "data/object_blobs.ndjson"))
-				if tc.missing {
-					delete(rows[0], tc.field)
-				} else {
-					rows[0][tc.field] = tc.value
-				}
-				candidate := replaceStructuredBundleMember(t, bundleBytes, "data/object_blobs.ndjson", encodeNDJSONRows(t, rows))
-				failed := assertImportFailureLeavesState(t, targetHarness, targetAdmin, incidentID, fmt.Sprintf("typed-blob-%d", index), candidate, "source_family_invalid")
-				details := failed["error_summary"].(map[string]any)["details"].(map[string]any)
-				if len(details) != 3 || details["reason_code"] != "source_family_invalid" || details["source_family_id"] != "evidence" || details["invariant_id"] != "evidence."+tc.invariant {
-					t.Fatalf("typed Blob metadata failure=%#v", details)
-				}
-			})
+		rows := decodeNDJSONRows(t, zipMemberBytes(t, bundleBytes, "data/object_blobs.ndjson"))
+		rows[0]["upload_state"] = "unknown"
+		candidate := replaceStructuredBundleMember(t, bundleBytes, "data/object_blobs.ndjson", encodeNDJSONRows(t, rows))
+		failed := assertImportFailureLeavesState(t, targetHarness, targetAdmin, incidentID, "typed-blob", candidate, "source_family_invalid")
+		details := failed["error_summary"].(map[string]any)["details"].(map[string]any)
+		if len(details) != 3 || details["reason_code"] != "source_family_invalid" || details["source_family_id"] != "evidence" || details["invariant_id"] != "evidence.lifecycle_legal" {
+			t.Fatalf("typed Blob metadata failure=%#v", details)
 		}
 	})
 
 	t.Run("archive cannot supply physical blob keys", func(t *testing.T) {
-		for _, state := range []string{"pending", "failed", "available", "quarantined"} {
-			for index, key := range []any{nil, "", "incidents/source/object-blobs/source/objects/source", map[string]any{"key": "untrusted"}} {
-				t.Run(fmt.Sprintf("%s/%d", state, index), func(t *testing.T) {
-					rows := decodeNDJSONRows(t, zipMemberBytes(t, bundleBytes, "data/object_blobs.ndjson"))
-					rows[0]["upload_state"], rows[0]["storage_key"] = state, key
-					candidate := replaceStructuredBundleMember(t, bundleBytes, "data/object_blobs.ndjson", encodeNDJSONRows(t, rows))
-					failed := assertImportFailureLeavesState(t, targetHarness, targetAdmin, incidentID, fmt.Sprintf("physical-key-%s-%d", state, index), candidate, "source_family_invalid")
-					details := failed["error_summary"].(map[string]any)["details"].(map[string]any)
-					if len(details) != 3 || details["reason_code"] != "source_family_invalid" || details["source_family_id"] != "evidence" || details["invariant_id"] != "evidence.storage_reference_legal" {
-						t.Fatalf("physical key admission lost owner: %#v", details)
-					}
-				})
-			}
+		rows := decodeNDJSONRows(t, zipMemberBytes(t, bundleBytes, "data/object_blobs.ndjson"))
+		rows[0]["storage_key"] = "incidents/source/object-blobs/source/objects/source"
+		candidate := replaceStructuredBundleMember(t, bundleBytes, "data/object_blobs.ndjson", encodeNDJSONRows(t, rows))
+		failed := assertImportFailureLeavesState(t, targetHarness, targetAdmin, incidentID, "physical-key", candidate, "source_family_invalid")
+		details := failed["error_summary"].(map[string]any)["details"].(map[string]any)
+		if len(details) != 3 || details["reason_code"] != "source_family_invalid" || details["source_family_id"] != "evidence" || details["invariant_id"] != "evidence.storage_reference_legal" {
+			t.Fatalf("physical key admission lost owner: %#v", details)
 		}
 	})
 
@@ -364,21 +335,9 @@ func TestIncidentBundlesEvidenceBlobStagingCleanup_Integration(t *testing.T) {
 			value                          any
 			missing                        bool
 		}{
-			{name: "missing nullable owner", field: "owner_user_id", invariant: "row_shape_exact", missing: true},
-			{name: "missing title", field: "title", invariant: "row_shape_exact", missing: true},
-			{name: "unknown field", field: "unrecognized", value: true, invariant: "row_shape_exact"},
-			{name: "unknown actor column", field: "extra_user_id", value: sourceAdminID.String(), invariant: "row_shape_exact"},
-			{name: "numeric text", field: "title", value: 42, invariant: "row_shape_exact"},
-			{name: "NUL attachment hash", field: "blob_hash", value: "bad\x00digest", invariant: "row_shape_exact"},
 			{name: "missing collector Party", field: "collector_party_id", value: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", invariant: "references_same_incident"},
-			{name: "missing source Party", field: "source_party_id", value: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", invariant: "references_same_incident"},
-			{name: "noncanonical text", field: "title", value: " padded", invariant: "row_shape_exact"},
-			{name: "lossy timestamp", field: "updated_at", value: "2026-01-01T00:00:00.1234567Z", invariant: "row_shape_exact"},
 			{name: "nil identity", field: "record_id", value: uuid.Nil.String(), invariant: "source_identity_admitted"},
 			{name: "other incident", field: "incident_id", value: uuid.NewString(), invariant: "envelope_type_scope"},
-			{name: "unknown lifecycle", field: "lifecycle_state", value: "unrecognized", invariant: "lifecycle_legal"},
-			{name: "logical object mismatch", field: "storage_ref", value: "object://10000000-0000-4000-8000-000000000001", invariant: "storage_reference_legal"},
-			{name: "missing historical owner", field: "owner_user_id", value: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", invariant: "reference_complete", family: "actors"},
 		}
 		for index, tc := range cases {
 			t.Run(tc.name, func(t *testing.T) {
@@ -403,116 +362,43 @@ func TestIncidentBundlesEvidenceBlobStagingCleanup_Integration(t *testing.T) {
 	})
 
 	t.Run("Evidence associations use authoritative Blob state", func(t *testing.T) {
-		for _, variant := range []string{"missing", "quarantined bridge"} {
-			t.Run(variant, func(t *testing.T) {
-				rows := decodeNDJSONRows(t, zipMemberBytes(t, bundleBytes, "data/evidence_records.ndjson"))
-				rows[0]["lifecycle_state"], rows[0]["upload_state"] = "available", "available"
-				candidate := bundleBytes
-				invariant := "lifecycle_legal"
-				if variant == "missing" {
-					rows[0]["object_blob_id"], rows[0]["storage_ref"] = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", nil
-					invariant = "object_metadata_agree"
-				} else {
-					blobs := decodeNDJSONRows(t, zipMemberBytes(t, candidate, "data/object_blobs.ndjson"))
-					blobs[0]["upload_state"] = "quarantined"
-					candidate = replaceStructuredBundleMember(t, candidate, "data/object_blobs.ndjson", encodeNDJSONRows(t, blobs))
-				}
-				candidate = replaceStructuredBundleMember(t, candidate, "data/evidence_records.ndjson", encodeNDJSONRows(t, rows))
-				failed := assertImportFailureLeavesState(t, targetHarness, targetAdmin, incidentID, "blob-association-"+variant, candidate, "source_family_invalid")
-				details := failed["error_summary"].(map[string]any)["details"].(map[string]any)
-				if len(details) != 3 || details["reason_code"] != "source_family_invalid" || details["source_family_id"] != "evidence" || details["invariant_id"] != "evidence."+invariant {
-					t.Fatalf("Blob association failure=%#v", details)
-				}
-			})
+		rows := decodeNDJSONRows(t, zipMemberBytes(t, bundleBytes, "data/evidence_records.ndjson"))
+		rows[0]["lifecycle_state"], rows[0]["upload_state"] = "available", "available"
+		rows[0]["object_blob_id"], rows[0]["storage_ref"] = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", nil
+		candidate := replaceStructuredBundleMember(t, bundleBytes, "data/evidence_records.ndjson", encodeNDJSONRows(t, rows))
+		failed := assertImportFailureLeavesState(t, targetHarness, targetAdmin, incidentID, "blob-association-missing", candidate, "source_family_invalid")
+		details := failed["error_summary"].(map[string]any)["details"].(map[string]any)
+		if len(details) != 3 || details["reason_code"] != "source_family_invalid" || details["source_family_id"] != "evidence" || details["invariant_id"] != "evidence.object_metadata_agree" {
+			t.Fatalf("Blob association failure=%#v", details)
 		}
 	})
 
 	t.Run("export finalized observation disagreement", func(t *testing.T) {
-		// Arrange invalid retained metadata; public commands do not create these states.
-		blobBytes := []byte("extension_profile incident bundle blob\n")
-		digest := hashHexBytes(blobBytes)
-		reset := func(t *testing.T) {
-			t.Helper()
-			if _, err := sourceHarness.DB.Exec(`UPDATE object_blobs
-SET upload_state='available', byte_size=$2, observed_size=$2,
-    observed_sha256_hex=$3, expected_sha256_hex=$3 WHERE incident_id=$1`, incidentID, len(blobBytes), digest); err != nil {
-				t.Fatal(err)
-			}
-		}
-		var originalID, originalKey string
-		if err := sourceHarness.DB.QueryRow(`SELECT object_blob_id, storage_key FROM object_blobs WHERE incident_id=$1`, incidentID).Scan(&originalID, &originalKey); err != nil {
+		// Arrange invalid retained metadata; public commands do not create these
+		// states. Evidence's export test covers every disagreement and state.
+		if _, err := sourceHarness.DB.Exec(`UPDATE object_blobs SET expected_sha256_hex=repeat('0',64) WHERE incident_id=$1`, incidentID); err != nil {
 			t.Fatal(err)
 		}
-		cases := []struct {
-			name, update string
-			duplicate    bool
-		}{
-			{"absent observed digest", "observed_sha256_hex=NULL", false},
-			{"absent observed size", "observed_size=NULL", false},
-			{"negative observed size", "observed_size=-1", false},
-			{"declared observed size disagreement", "observed_size=byte_size+1", false},
-			{"expected observed digest disagreement", "expected_sha256_hex=repeat('0',64)", false},
-			{"actual member size disagreement", "byte_size=byte_size+1, observed_size=observed_size+1", false},
-			{"duplicate digest size disagreement", "byte_size=byte_size+1, observed_size=observed_size+1", true},
-		}
-		for _, state := range []string{"available", "quarantined"} {
-			for index, tc := range cases {
-				t.Run(state+"/"+tc.name, func(t *testing.T) {
-					reset(t)
-					t.Cleanup(func() { reset(t) })
-					targetID := originalID
-					if tc.duplicate {
-						targetID = uuid.NewString()
-						duplicateKey := originalKey + "/export-duplicate-" + targetID
-						if err := sourceHarness.ObjectStore.PutObject(context.Background(), duplicateKey, bytes.NewReader(blobBytes), int64(len(blobBytes)), "text/plain"); err != nil {
-							t.Fatal(err)
-						}
-						if _, err := sourceHarness.DB.Exec(`INSERT INTO object_blobs
-(object_blob_id,incident_id,created_by_user_id,storage_key,upload_state,byte_size,observed_size,observed_sha256_hex,expected_sha256_hex,target_expires_at,pending_expires_at,finalized_at,created_at,updated_at)
-SELECT $2,incident_id,created_by_user_id,$3,$4,byte_size,observed_size,observed_sha256_hex,expected_sha256_hex,target_expires_at,pending_expires_at,finalized_at,created_at,updated_at FROM object_blobs WHERE object_blob_id=$1`, originalID, targetID, duplicateKey, state); err != nil {
-							t.Fatal(err)
-						}
-						t.Cleanup(func() {
-							if _, err := sourceHarness.DB.Exec(`DELETE FROM object_blobs WHERE object_blob_id=$1`, targetID); err != nil {
-								t.Fatal(err)
-							}
-						})
-						valid := exportBundleBytes(t, sourceHarness, sourceAdmin, incidentID, "export-valid-duplicate-"+state)
-						assertPortableBlobShape(t, valid, 2)
-						blobCount := 0
-						for path, payload := range zipMemberMap(t, valid) {
-							if strings.HasPrefix(path, "blobs/sha256/") {
-								blobCount++
-								if path != "blobs/sha256/"+digest || !bytes.Equal(payload, blobBytes) {
-									t.Fatal("deduplicated finalized bytes changed")
-								}
-							}
-						}
-						if blobCount != 1 {
-							t.Fatalf("deduplicated blob members=%d", blobCount)
-						}
-					}
-					if _, err := sourceHarness.DB.Exec(`UPDATE object_blobs SET upload_state=$2, `+tc.update+` WHERE incident_id=$1 AND object_blob_id=$3`, incidentID, state, targetID); err != nil {
-						t.Fatal(err)
-					}
-					job := httptestx.RequireSuccessEnvelope(t, postExport(t, sourceHarness.Server, sourceAdmin, map[string]any{
-						"incident_id":   incidentID,
-						"client_txn_id": fmt.Sprintf("export-observation-%s-%d", state, index),
-					}), http.StatusAccepted)["data"].(map[string]any)
-					jobID := job["job_id"].(string)
-					terminal := waitFailedJob(t, sourceHarness.Server, sourceAdmin, jobID)
-					requireFailedJobReason(t, terminal, "incident_bundle_export_rejected", "source_family_invalid")
-					details := terminal["error_summary"].(map[string]any)["details"].(map[string]any)
-					if len(details) != 3 || details["reason_code"] != "source_family_invalid" || details["source_family_id"] != "evidence" || details["invariant_id"] != "evidence.byte_size_digest_agree" {
-						t.Fatalf("export observation disagreement lost owner: %#v", details)
-					}
-					if countRows(t, sourceHarness.DB, `SELECT count(*) FROM incident_bundle_exports WHERE export_job_id=$1`, jobID) != 0 {
-						t.Fatal("invalid finalized metadata published a bundle descriptor")
-					}
-					assertNoIncidentBundleStaging(t, sourceHarness.Server)
-				})
+		t.Cleanup(func() {
+			if _, err := sourceHarness.DB.Exec(`UPDATE object_blobs SET expected_sha256_hex=observed_sha256_hex WHERE incident_id=$1`, incidentID); err != nil {
+				t.Fatal(err)
 			}
+		})
+		job := httptestx.RequireSuccessEnvelope(t, postExport(t, sourceHarness.Server, sourceAdmin, map[string]any{
+			"incident_id":   incidentID,
+			"client_txn_id": "export-observation-disagreement",
+		}), http.StatusAccepted)["data"].(map[string]any)
+		jobID := job["job_id"].(string)
+		terminal := waitFailedJob(t, sourceHarness.Server, sourceAdmin, jobID)
+		requireFailedJobReason(t, terminal, "incident_bundle_export_rejected", "source_family_invalid")
+		details := terminal["error_summary"].(map[string]any)["details"].(map[string]any)
+		if len(details) != 3 || details["reason_code"] != "source_family_invalid" || details["source_family_id"] != "evidence" || details["invariant_id"] != "evidence.byte_size_digest_agree" {
+			t.Fatalf("export observation disagreement lost owner: %#v", details)
 		}
+		if countRows(t, sourceHarness.DB, `SELECT count(*) FROM incident_bundle_exports WHERE export_job_id=$1`, jobID) != 0 {
+			t.Fatal("invalid finalized metadata published a bundle descriptor")
+		}
+		assertNoIncidentBundleStaging(t, sourceHarness.Server)
 	})
 
 	t.Run("export missing blob", func(t *testing.T) {
@@ -653,46 +539,14 @@ SELECT $2,incident_id,created_by_user_id,$3,$4,byte_size,observed_size,observed_
 			rows[0]["observed_size"] != float64(len("extension_profile incident bundle blob\n")) {
 			t.Fatalf("expected one complete available blob observation: %#v", rows)
 		}
-		cases := []struct {
-			name   string
-			mutate func(map[string]any)
-		}{
-			{"both sizes disagree with bytes", func(row map[string]any) { row["byte_size"], row["observed_size"] = 123, 123 }},
-			{"missing observed digest with expected digest", func(row map[string]any) { delete(row, "observed_sha256_hex") }},
-			{"null observed digest with expected digest", func(row map[string]any) { row["observed_sha256_hex"] = nil }},
-			{"empty observed digest", func(row map[string]any) { row["observed_sha256_hex"] = "" }},
-			{"noncanonical observed digest", func(row map[string]any) { row["observed_sha256_hex"] = strings.Repeat("A", 64) }},
-			{"nonhex observed digest", func(row map[string]any) { row["observed_sha256_hex"] = strings.Repeat("g", 64) }},
-			{"mistyped observed digest", func(row map[string]any) { row["observed_sha256_hex"] = true }},
-			{"expected digest disagrees", func(row map[string]any) { row["expected_sha256_hex"] = strings.Repeat("0", 64) }},
-			{"missing expected digest member", func(row map[string]any) { delete(row, "expected_sha256_hex") }},
-			{"mistyped expected digest", func(row map[string]any) { row["expected_sha256_hex"] = false }},
-		}
-		for _, field := range []string{"byte_size", "observed_size"} {
-			cases = append(cases, struct {
-				name   string
-				mutate func(map[string]any)
-			}{"missing " + field, func(row map[string]any) { delete(row, field) }})
-			for _, value := range []any{nil, "38", -1, json.Number("-0"), json.Number("38.0"), json.Number("38e0"), json.Number("9223372036854775808"), 123} {
-				cases = append(cases, struct {
-					name   string
-					mutate func(map[string]any)
-				}{field + "=" + fmt.Sprint(value), func(row map[string]any) { row[field] = value }})
-			}
-		}
-		for index, test := range cases {
-			t.Run(test.name, func(t *testing.T) {
-				row := mapsClone(rows[0])
-				test.mutate(row)
-				candidate := replaceStructuredBundleMember(t, bundleBytes, "data/object_blobs.ndjson", encodeNDJSONRows(t, []map[string]any{row}))
-				terminal := assertImportFailureLeavesState(t, targetHarness, targetAdmin, incidentID,
-					fmt.Sprintf("blob-observation-%d", index), candidate, "source_family_invalid")
-				details := terminal["error_summary"].(map[string]any)["details"].(map[string]any)
-				if len(details) != 3 || details["reason_code"] != "source_family_invalid" ||
-					details["source_family_id"] != "evidence" || details["invariant_id"] != "evidence.byte_size_digest_agree" {
-					t.Fatalf("blob observation failure is not exact and redacted: %#v", details)
-				}
-			})
+		// Every other disagreement is proven at Evidence's preparation port.
+		rows[0]["byte_size"], rows[0]["observed_size"] = 123, 123
+		candidate := replaceStructuredBundleMember(t, bundleBytes, "data/object_blobs.ndjson", encodeNDJSONRows(t, rows))
+		terminal := assertImportFailureLeavesState(t, targetHarness, targetAdmin, incidentID, "blob-observation", candidate, "source_family_invalid")
+		details := terminal["error_summary"].(map[string]any)["details"].(map[string]any)
+		if len(details) != 3 || details["reason_code"] != "source_family_invalid" ||
+			details["source_family_id"] != "evidence" || details["invariant_id"] != "evidence.byte_size_digest_agree" {
+			t.Fatalf("blob observation failure is not exact and redacted: %#v", details)
 		}
 	})
 

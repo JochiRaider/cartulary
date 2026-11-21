@@ -113,13 +113,17 @@ func (commandServiceTestAttributionResolver) ResolveImportedSourceActorsTx(
 	return map[string]string{}, nil
 }
 
-func (incidentBundleEnvelopeReaderStub) RecordTypeTx(
-	context.Context,
-	pgx.Tx,
-	uuid.UUID,
-	uuid.UUID,
-) (string, error) {
-	return "host", nil
+func (incidentBundleEnvelopeReaderStub) RecordTypesTx(
+	_ context.Context,
+	_ pgx.Tx,
+	_ uuid.UUID,
+	recordIDs []uuid.UUID,
+) (map[uuid.UUID]string, error) {
+	types := make(map[uuid.UUID]string, len(recordIDs))
+	for _, recordID := range recordIDs {
+		types[recordID] = "host"
+	}
+	return types, nil
 }
 
 func TestCommandServiceRequiresEveryExplicitDependency(t *testing.T) {

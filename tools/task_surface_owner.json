@@ -82,6 +82,7 @@
       "credential-capacity-assessment",
       "cryptographic-policy-assessment",
       "frontend-fallow-static",
+      "go-error-declaration-audit",
       "go-gosec-audit",
       "go-gosec-targeted",
       "go-vulncheck",
@@ -537,6 +538,10 @@
           "description": "run targeted Go security static analysis"
         },
         {
+          "target": "go-error-declaration-audit",
+          "description": "run the advisory static error-declaration audit"
+        },
+        {
           "target": "go-gosec-audit",
           "description": "run advisory Go security audit profiles"
         }
@@ -839,6 +844,10 @@
     "go-gosec-targeted": {
       "type": "operation",
       "operation_id": "harness.go_gosec_targeted"
+    },
+    "go-error-declaration-audit": {
+      "type": "operation",
+      "operation_id": "harness.go_error_declaration_audit"
     },
     "go-gosec-audit": {
       "type": "operation",
@@ -4037,6 +4046,143 @@
       }
     },
     {
+      "name": "go-error-declaration-audit",
+      "backing_scripts": [
+        "tools/harnessruntime/main.go",
+        "tools/harness/static-analysis/go-error-declaration-audit.sh",
+        "tools/harness/static-analysis/error-declaration-audit-report.mjs"
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "run_and_target_summaries",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.harness_run_summary.v1"
+      },
+      "command_id": "cartulary.harness.command.go_error_declaration_audit.v1",
+      "semantic_behaviors": [
+        {
+          "behavior": "evidence_normalization",
+          "owner_section": "Section 8"
+        },
+        {
+          "behavior": "failure_normalization",
+          "owner_section": "Section 9"
+        },
+        {
+          "behavior": "scheduler_orchestration",
+          "owner_section": "Section 10"
+        }
+      ],
+      "target_class": "public",
+      "default_inclusion_sets": [
+        "helper_only"
+      ],
+      "lifecycle_state": "public_active",
+      "family_id": "static_analysis_security",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "run_and_target_summaries"
+        }
+      ],
+      "input_contract": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": [
+          {
+            "name": "CARTULARY_HARNESS_CACHE_MODE",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "normal",
+              "cold",
+              "off"
+            ],
+            "default": "normal",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "CARTULARY_HARNESS_CAPACITY_OVERRIDE",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "path",
+            "default": null,
+            "empty_string": "omitted",
+            "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_ACCOUNTING",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "required"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          }
+        ]
+      }
+    },
+    {
       "name": "go-gosec-audit",
       "backing_scripts": [
         "tools/harnessruntime/main.go",
@@ -4386,7 +4532,10 @@
         "inputs": []
       },
       "backing_scripts": [
-        "tools/harness/generated-artifacts/generate-artifacts.sh"
+        "tools/harness/generated-artifacts/generate-artifacts.sh",
+        "tools/harness/generated-artifacts/check-generate-drift.sh",
+        "tools/harness/generated-artifacts/render-generated-artifacts.sh",
+        "tools/harness/generated-artifacts/generated-transaction.mjs"
       ]
     },
     {
@@ -6465,7 +6614,7 @@
         "raw_stream_policy": "explicit_detail_only",
         "summary_schema": null
       },
-      "command_id": "cartulary.harness.command.explain_run.v3",
+      "command_id": "cartulary.harness.command.explain_run.v4",
       "semantic_behaviors": [
         {
           "behavior": "diagnostic_synthesis",
@@ -6563,7 +6712,8 @@
               "accounting",
               "performance",
               "fixtures",
-              "critical-path"
+              "critical-path",
+              "estimates"
             ]
           },
           {
@@ -10557,7 +10707,10 @@
       "name": "harness-smoke-generate-drift",
       "backing_scripts": [
         "tools/harness/generated-artifacts/tests/test-generate-drift.sh",
-        "tools/harness/generated-artifacts/check-generate-drift.sh"
+        "tools/harness/generated-artifacts/check-generate-drift.sh",
+        "tools/harness/generated-artifacts/generate-artifacts.sh",
+        "tools/harness/generated-artifacts/render-generated-artifacts.sh",
+        "tools/harness/generated-artifacts/generated-transaction.mjs"
       ]
     },
     {

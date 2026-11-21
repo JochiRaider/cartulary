@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v13",
+  "schema_id": "cartulary.test_family_manifest.v14",
   "owner_id": "web.application",
   "rows": [
     {
@@ -1461,6 +1461,7 @@
           "authentication and Security operation lifetime separates failed provider discovery from unclaimed discovery and isolates navigation instances",
           "authentication and Security operation lifetime serializes Security writes and clears every dispatched credential",
           "authentication and Security operation lifetime serializes local and enterprise activation while preserving exact login bytes",
+          "authentication and Security operation lifetime settles exhausted authentication capacity as not applied",
           "authentication and Security operation lifetime treats malformed authentication success as uncertainty and clears terminal-failure secrets",
           "authentication and Security operation lifetime validates owner email and provisioning scalar boundaries without password transformations"
         ],
@@ -1863,7 +1864,8 @@
           "incident import lifecycle recovers a failed or timed out read and retains the last validated status",
           "incident import lifecycle renders no inferred navigation for nonsuccess and uses server reads for job unavailability",
           "incident import lifecycle requires explicit opening and retries only the handoff after workbook failure",
-          "incident import lifecycle retains in-flight admission across navigation but excludes lost capability and new sessions"
+          "incident import lifecycle retains in-flight admission across navigation but excludes lost capability and new sessions",
+          "incident import lifecycle words a refused replay and a refused first cancellation by their cause"
         ],
         "project_id": "node-unit"
       },

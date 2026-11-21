@@ -10,21 +10,49 @@ import (
 	decisionprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/projectioncontract"
 )
 
-func (store *Store) InsertDecisionTx(ctx context.Context, tx pgx.Tx, input decisionprojection.DecisionProjectionInput) error {
-	if _, err := tx.Exec(ctx, `
+const decisionProjectionRowSQL = `
 INSERT INTO decision_grid_projection (
     record_id, incident_id, row_version, summary, status, owner_user_id,
     decision_type, decided_at, rationale, affected_record_count,
     supersedes_record_id, updated_at, is_superseded
 )
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-`, input.RecordID, input.IncidentID, input.RowVersion, input.Summary,
+`
+
+func decisionProjectionRowArguments(input decisionprojection.DecisionProjectionInput) ([]any, error) {
+	return []any{
+		input.RecordID, input.IncidentID, input.RowVersion, input.Summary,
 		input.Status, input.OwnerUserID, input.DecisionType, input.DecidedAt,
 		input.Rationale, input.AffectedRecordCount, input.SupersedesRecordID,
-		input.UpdatedAt.UTC(), input.IsSuperseded); err != nil {
+		input.UpdatedAt.UTC(), input.IsSuperseded,
+	}, nil
+}
+
+func (store *Store) InsertDecisionTx(ctx context.Context, tx pgx.Tx, input decisionprojection.DecisionProjectionInput) error {
+	args, err := decisionProjectionRowArguments(input)
+	if err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, decisionProjectionRowSQL, args...); err != nil {
 		return fmt.Errorf("insert Decision projection row: %w", err)
 	}
 	return nil
+}
+
+// InsertDecisionRowsTx writes a page of rows in one round trip.
+func (store *Store) InsertDecisionRowsTx(ctx context.Context, tx pgx.Tx, inputs []decisionprojection.DecisionProjectionInput) error {
+	if len(inputs) == 0 {
+		return nil
+	}
+	batch := &pgx.Batch{}
+	for _, input := range inputs {
+		args, err := decisionProjectionRowArguments(input)
+		if err != nil {
+			return err
+		}
+		batch.Queue(decisionProjectionRowSQL, args...)
+	}
+	return projectionRowsResult(tx.SendBatch(ctx, batch), len(inputs), "insert Decision projection row")
 }
 
 func (store *Store) DeleteDecisionRowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {

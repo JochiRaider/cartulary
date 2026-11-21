@@ -26,14 +26,19 @@ func NewTaskRequestSource(targets referencefacts.Capability) TaskRequestSource {
 	return TaskRequestSource{referenceTargets: targets}
 }
 
-func (TaskRequestSource) SnapshotTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (map[string]any, error) {
-	return deleterestorecontract.ScanSnapshot(tx.QueryRow(ctx, `
-SELECT jsonb_build_object('record', to_jsonb(r), 'source', to_jsonb(t))
+func (s TaskRequestSource) SnapshotTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (map[string]any, error) {
+	snapshots, err := s.SnapshotsTx(ctx, tx, []uuid.UUID{recordID})
+	return deleterestorecontract.SnapshotOf(snapshots, recordID, err)
+}
+
+func (TaskRequestSource) SnapshotsTx(ctx context.Context, tx pgx.Tx, recordIDs []uuid.UUID) (map[uuid.UUID]map[string]any, error) {
+	return deleterestorecontract.CollectSnapshots(tx.Query(ctx, `
+SELECT r.record_id, jsonb_build_object('record', to_jsonb(r), 'source', to_jsonb(t))
   FROM records r
   JOIN task_requests t
     ON t.record_id = r.record_id
- WHERE r.record_id = $1
-`, recordID))
+ WHERE r.record_id = ANY($1)
+`, recordIDs))
 }
 
 func (TaskRequestSource) UpdateSourceDeleteStateTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, time.Time, bool) error {
@@ -59,14 +64,19 @@ func NewDecisionSource(facts linkfacts.Capability, supersession linkfacts.Supers
 	return DecisionSource{linkFacts: facts, supersession: supersession}
 }
 
-func (DecisionSource) SnapshotTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (map[string]any, error) {
-	return deleterestorecontract.ScanSnapshot(tx.QueryRow(ctx, `
-SELECT jsonb_build_object('record', to_jsonb(r), 'source', to_jsonb(d))
+func (s DecisionSource) SnapshotTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (map[string]any, error) {
+	snapshots, err := s.SnapshotsTx(ctx, tx, []uuid.UUID{recordID})
+	return deleterestorecontract.SnapshotOf(snapshots, recordID, err)
+}
+
+func (DecisionSource) SnapshotsTx(ctx context.Context, tx pgx.Tx, recordIDs []uuid.UUID) (map[uuid.UUID]map[string]any, error) {
+	return deleterestorecontract.CollectSnapshots(tx.Query(ctx, `
+SELECT r.record_id, jsonb_build_object('record', to_jsonb(r), 'source', to_jsonb(d))
   FROM records r
   JOIN decisions d
     ON d.record_id = r.record_id
- WHERE r.record_id = $1
-`, recordID))
+ WHERE r.record_id = ANY($1)
+`, recordIDs))
 }
 
 func (DecisionSource) UpdateSourceDeleteStateTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, time.Time, bool) error {

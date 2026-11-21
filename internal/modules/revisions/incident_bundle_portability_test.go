@@ -57,20 +57,29 @@ func (revisionsPortabilityEnvelopeReader) VisitIncidentRecordIDsTx(ctx context.C
 	return records.NewStore().VisitIncidentRecordIDsTx(ctx, tx, incidentID, visit)
 }
 
-func (revisionsPortabilityEnvelopeReader) RecordTypeTx(
+func (revisionsPortabilityEnvelopeReader) RecordTypesTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	incidentID uuid.UUID,
-	recordID uuid.UUID,
-) (string, error) {
-	var recordType string
-	err := tx.QueryRow(ctx, `
-SELECT record_type
+	recordIDs []uuid.UUID,
+) (map[uuid.UUID]string, error) {
+	rows, err := tx.Query(ctx, `
+SELECT record_id, record_type
   FROM records
  WHERE incident_id = $1
-   AND record_id = $2
-`, incidentID, recordID).Scan(&recordType)
-	return recordType, err
+   AND record_id = ANY($2)
+`, incidentID, recordIDs)
+	if err != nil {
+		return nil, err
+	}
+	types := map[uuid.UUID]string{}
+	var recordID uuid.UUID
+	var recordType string
+	_, err = pgx.ForEachRow(rows, []any{&recordID, &recordType}, func() error {
+		types[recordID] = recordType
+		return nil
+	})
+	return types, err
 }
 
 func (r revisionsPortableAttributionResolver) ResolvePortableSourceActors(

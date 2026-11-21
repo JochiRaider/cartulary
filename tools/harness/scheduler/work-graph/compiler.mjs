@@ -475,8 +475,11 @@ export class WorkGraphCompiler {
       base.resource_claims = boundedGoClaims({ ...base.resource_claims, cpu }, cpu, this.availablePostgresLanes).claims;
       return [row.row_id, base];
     }));
-    const goSelections = [goRows.filter((row) => !explicitContexts[row.row_id]),
-      ...goRows.filter((row) => explicitContexts[row.row_id]).map((row) => [row])];
+    // TH-HARNESS-REQ-865: measurement rows are exempt from the packing bound,
+    // so each is planned alone, like a row with an explicit execution context.
+    const plannedAlone = (row) => Boolean(explicitContexts[row.row_id]) || row.evidence_class === "measurement";
+    const goSelections = [goRows.filter((row) => !plannedAlone(row)),
+      ...goRows.filter(plannedAlone).map((row) => [row])];
     for (const selectedGoRows of goSelections.filter((selection) => selection.length > 0)) {
       const context = explicitContexts[selectedGoRows[0].row_id];
       const plan = planGoLPTShards(
@@ -492,6 +495,7 @@ export class WorkGraphCompiler {
             ...(context ? { execution_context: context } : {}),
           },
           isolated: goRowProcessIsolation(row) === "exclusive",
+          packing_exempt: row.evidence_class === "measurement",
         })),
         { availableGoLanes: context?.cpu_tokens ?? this.availableGoLanes,
           invocationPolicy: this.owner.invocation_policies.go,

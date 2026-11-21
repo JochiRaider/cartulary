@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v13",
+  "schema_id": "cartulary.test_family_manifest.v14",
   "owner_id": "module.timeline",
   "rows": [
     {
@@ -5266,6 +5266,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 2000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -6792,6 +6793,34 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "full",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.timeline.unit.collection_facts_for_a_page_cost_one_read_per_so_d435054e5e",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.unit",
+      "collaborator_ids": [
+        "module.evidence"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract",
+        "module.timeline.verification.collection_facts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/timeline/collectionfacts",
+        "tests": [
+          "TestReaderPartitionsAPageWithOneReadPerSource"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
       "service_dependencies": [],
       "postgres_isolation": "none"
     },

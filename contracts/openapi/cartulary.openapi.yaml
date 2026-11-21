@@ -9761,7 +9761,18 @@
             ]
           },
           "500": {
-            "$ref": "#/components/responses/InternalServerErrorResponse"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Internal server error",
+            "x-cartulary-error-codes": [
+              "internal_error",
+              "object_store_invalid_request"
+            ]
           },
           "503": {
             "$ref": "#/components/responses/ServiceUnavailableErrorResponse"

@@ -16,12 +16,15 @@ import { resolveExactRunDir, printObservabilityPerformance } from "../observabil
 import { resolveRetainedLogArtifacts } from "./retained-artifact-resolver.mjs";
 import { criticalPathExplanation, formatCriticalPath } from "../observability/critical-path.mjs";
 import { fixtureExplanation } from "../observability/fixture-explanation.mjs";
+import { auditEstimates, formatEstimateAudit } from "../observability/estimate-audit.mjs";
+import { buildSourceSnapshot, loadTestCatalog } from "../test-catalog/index.mjs";
+import { loadWorkGraphOwner } from "../scheduler/work-graph/index.mjs";
 import { buildFixtureReport, fixtureSummaryLine, fixtureSummaryLines } from "./fixture-reporting.mjs";
 import { readLocalFile } from "../runtime/secure-local-files.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "../../..");
-const validDetails = new Set(["summary", "children", "logs", "progress", "accounting", "performance", "resources", "measurement", "fixtures", "critical-path"]);
+const validDetails = new Set(["summary", "children", "logs", "progress", "accounting", "performance", "resources", "measurement", "fixtures", "critical-path", "estimates"]);
 const coverageBuckets = [
   "authoritative",
   "support",
@@ -34,7 +37,7 @@ const toolRunSummarySchemaID = "cartulary.tool_run_summary.v5";
 
 function usage() {
   process.stderr.write(
-    "usage: print-explain-run.mjs --results-dir <root|run-dir> [--run-id <id>] [--target <target>] [--detail summary|children|logs|progress|accounting|performance|resources|measurement|fixtures|critical-path] [--json] [--compare-results-dir <exact-run-dir> --comparison equivalent|instrumentation]\n",
+    "usage: print-explain-run.mjs --results-dir <root|run-dir> [--run-id <id>] [--target <target>] [--detail summary|children|logs|progress|accounting|performance|resources|measurement|fixtures|critical-path|estimates] [--json] [--compare-results-dir <exact-run-dir> --comparison equivalent|instrumentation]\n",
   );
   process.exit(2);
 }
@@ -1004,6 +1007,16 @@ async function main() {
       const model = await criticalPathExplanation(resolveExactRunDir(options.resultsDir, options.runId), options);
       process.stdout.write(formatCriticalPath(model, { json: options.json }));
     } catch (error) { error.exit_code ??= 11; throw error; }
+    return;
+  }
+  if (options.detail === "estimates") {
+    // TH-HARNESS-REQ-866: advisory only. A qualified or rejected run exits 0;
+    // only unreadable current planning inputs fail.
+    const runDir = resolveExactRunDir(options.resultsDir, options.runId);
+    const report = await auditEstimates({ runDir, owner: loadWorkGraphOwner(repoRoot),
+      catalogRows: loadTestCatalog(repoRoot).rows, sourceDigest: buildSourceSnapshot(repoRoot).digest });
+    validateSchemaSync(report.schema_id, report);
+    process.stdout.write(options.json ? `${JSON.stringify(report)}\n` : formatEstimateAudit(report));
     return;
   }
   if (options.detail === "fixtures") {

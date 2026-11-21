@@ -1,12 +1,12 @@
 # Test Consolidation Refactor Tracker and Handoff
 
-Version: 1.15.0
-Date: 2026-11-15
+Version: 1.16.0
+Date: 2026-11-21
 Target: Cartulary testing ecosystem  
-Authoring status: S-064 DONE (E-843), corrected by E-845; all 66 owner workstreams complete; R-04 fixture-legality workstream DONE (E-845, S-798–S-827); R-05 assertion-strength workstream DONE with R-03 folded in (E-876, S-828–S-854); R-05 phase 2 verified-deferred repairs DONE (E-904, S-855–S-900); R-05 phase 3 DONE (E-951, S-901–S-957); `make check` repairs DONE (S-958–S-963); residual closure workstream DONE (E-1015, S-964–S-995); gap remediation workstream DONE except G16 deferred (E-1048, S-996–S-1033); open-residual closure workstream DONE (E-1087, S-1034–S-1053); residual remediation workstream DONE (E-1127, S-1054–S-1071)
+Authoring status: S-064 DONE (E-843), corrected by E-845; all 66 owner workstreams complete; R-04 fixture-legality workstream DONE (E-845, S-798–S-827); R-05 assertion-strength workstream DONE with R-03 folded in (E-876, S-828–S-854); R-05 phase 2 verified-deferred repairs DONE (E-904, S-855–S-900); R-05 phase 3 DONE (E-951, S-901–S-957); `make check` repairs DONE (S-958–S-963); residual closure workstream DONE (E-1015, S-964–S-995); gap remediation workstream DONE, with G16 deferred there and completed by E-1087 (E-1048, S-996–S-1033); open-residual closure workstream DONE (E-1087, S-1034–S-1053); residual remediation workstream DONE (E-1127, S-1054–S-1071); post-closure remediation workstream DONE (E-1175, S-1072–S-1118); carried-residual remediation workstream DONE (E-1188, S-1119–S-1130); outstanding-items remediation workstream OPEN (entry E-1189, slices from S-1131)
 Artifact mode: normal; S-065 → S-059–S-063 → S-066–S-073 → all owner audits → S-064; S-001–S-058 remain completed history
 
-Current execution point: complete. Start with the [residual closure workstream closure](#e-1015--residual-closure-workstream-closure-2026-11-16): its open items are the current backlog. Then read the [R-05 phase 2 handoff](#r-05-phase-2-handoff-2026-11-15), then the [R-04 handoff](#r-04-and-s-064-correction-handoff-2026-11-15) and then the [final S-064 handoff](#final-s-064-handoff-2026-11-15). Its residual register (E-843) is the follow-up backlog. The [S-641](#maintainer-requested-pause-after-s-641-2026-11-14) and [S-342](#maintainer-requested-pause-after-s-342-2026-11-11) pause checkpoints remain historical evidence.
+Current execution point: the [outstanding-items remediation workstream entry](#outstanding-items-remediation-workstream--entry-e-1189-reserved-2026-11-21) at the end of this file; its plan covers every item the [carried-residual closure (E-1188)](#s-1130--f-1115--e-1188--wv-closure-gate-and-handoff-for-the-carried-residual-workstream-verification-tracker) left open. Older backlogs are closed. For history, read the [R-05 phase 2 handoff](#r-05-phase-2-handoff-2026-11-15), then the [R-04 handoff](#r-04-and-s-064-correction-handoff-2026-11-15) and then the [final S-064 handoff](#final-s-064-handoff-2026-11-15). Its residual register (E-843) is the follow-up backlog. The [S-641](#maintainer-requested-pause-after-s-641-2026-11-14) and [S-342](#maintainer-requested-pause-after-s-342-2026-11-11) pause checkpoints remain historical evidence.
 
 ## 1. Scope and Source Posture
 
@@ -90822,6 +90822,7 @@ Recorded before editing; identities verified unused. DONE (2026-11-20).
 
 Recorded on 2026-11-20, after its spec text was written in the same session
 but before any code change. Identities verified unused. OPEN.
+Status updated 2026-11-21: DONE; see the outcome below and the E-1188 closure.
 
 - **Gap.** About 17 s of the 23.6 s bundle-import transaction under `check`
   load is application work. Preparation discards validated rows, and every
@@ -92173,3 +92174,1724 @@ E-1176 through E-1188 close the workstream.
      - paint drift;
      - the order of upload key validation;
      - two copy residuals.
+
+### Outstanding-items remediation workstream — entry (E-1189 reserved), 2026-11-21
+
+**Maintainer request.** A complete, durability-biased remediation plan,
+end to end, for every item in the post-E-1188 outstanding-items assessment:
+
+- tracker hygiene;
+- the Jobs waits behind open handler transactions;
+- the failed-Blob cleanup CHECK and the contradictory migration-history
+  wording;
+- Network Flow detail members;
+- the lz4 probe;
+- upload key order;
+- the empty Evidence rewrite;
+- copy;
+- margins (idle time, slow rows, paint);
+- harness integrity (generation atomicity, lane scope, estimate and lane
+  guards, the static undeclared-code check, in-place schema changes);
+- evidence never re-run.
+
+The plan was approved on 2026-11-21. E-1189 is reserved for this entry.
+Slices start at S-1131/F-1116/E-1190, and the closure takes the last E. All
+identities were verified unused: the tracker's highest were S-1130, F-1115
+and E-1188.
+
+**Research.** Four read-only traces with file:line evidence; the plan file
+holds the detail. Besides the assessment's items, they found:
+
+- **D1.** `make generate`'s prerequisites and `generated_paths` are
+  incomplete.
+- **D2.** Three heavy Go cohorts exceeded the 300 s packing bound under
+  `check`, and two `standard` rows ran 217–289 s.
+- **D3.** Network Flow defects:
+  - `invalid_limit_override` emits wrong non-null zeros;
+  - four reason codes are outside Table 21-A1;
+  - the link route's `retry_action` disagrees with the registry the web
+    client checks;
+  - one `limit_key` lacks its prefix.
+- **D4.** NF Table 21-B contradicts NF-REQ-088d for import-unit codes.
+- **D5.** REQ-01-453 says payload reads and observation take the transition
+  lock. They correctly do not.
+- **D6.** `jobs.AwaitCommit` ignores the injected test policy.
+- **D7.** `createObjectBlobSlot` does not declare its possible 500.
+- **D8.** TH-HARNESS-REQ-060 names a stale schema version, and §11.6 has no
+  requirement IDs.
+- **Generation.** `make generate` alone breaks TH-HARNESS-REQ-004/261: a
+  failure after its SQL delete leaves the tree broken.
+- **Migrations.** v4 was a relabel, not a fold. The v3 fold (`ec32b25f3`)
+  is the precedent. Stale v3 lineage text survives in five places.
+
+**Decisions (maintainer, 2026-11-21).**
+
+- **DDL.** Migration 62 is authorized: a validated CHECK making a failed
+  Blob without its exact cleanup due time unrepresentable.
+- **Migration history.** Rebaseline to a v5 lineage. Versions 1–62 fold into
+  a new 29-file, per-owner baseline whose schema equals the v4 head except
+  for declared differences. Disposable databases are recreated. v4 backups
+  stay restorable, because the Recovery generation is unchanged.
+- **Auth copy.** `authentication_capacity_exhausted` is shown as not
+  applied. The auth visual golden diff is shown before any update.
+- **Slow bundle test.** About 76 typed row cases move to Evidence source-port
+  preparation tests. About 11 end-to-end imports stay as atomicity
+  evidence.
+
+**Workstreams, in order.** Make runs stay serial.
+
+1. **Phase 0.** XA: tracker hygiene and this entry.
+2. **Phase 1.**
+   - XB: transactional `make generate`.
+   - XC: schema versioning and scheduling-evidence integrity.
+   - XD: host admission charges every registry resource.
+3. **Phase 2.**
+   - XE: Jobs waits.
+   - XF: Evidence storage correctness: the empty rewrite, upload key
+     order, migration 62.
+   - XH: the lz4 admission probe.
+   - XI: the Network Flow error contract.
+   - XJ: copy residuals.
+4. **Phase 3.** XG: the v5 migration rebaseline.
+5. **Phase 4.**
+   - XK: set-based import idle levers.
+   - XL: slow rows and reviewed estimates.
+   - XM: Timeline paint residuals.
+6. **Phase 5.** XN: error-declaration precision and a static undeclared-code
+   check.
+7. **Phase 6.** XO: closure, evidence re-run and handoff.
+
+**Approval stops.**
+
+- Golden diffs: the NF canonical fixtures and the auth visual golden.
+- The Playwright dependency patch.
+- The destructive developer-environment reset.
+- Any DDL beyond migration 62 and the v5 fold.
+
+**XA outcome (this entry).** DONE.
+
+- The header is now version 1.16.0, dated 2026-11-21. The authoring status
+  lists every workstream through E-1188 plus this one. G16 is recorded as
+  completed by E-1087. The current execution point names this entry.
+- S-1123's stale "OPEN." gets an appended DONE status note; the original
+  line is preserved.
+- Verification is documentation-only: `make lint-markdown` and
+  `git diff --check`.
+
+### S-1131 / F-1116 / E-1190 — XB: `make generate` renders in scratch and publishes atomically (harness, tests)
+
+Recorded on 2026-11-21, before editing; identities verified unused. DONE (2026-11-21).
+
+- **Gap.** Public `generate` is the only Make-owned generator that writes
+  in place:
+  - `generate-artifacts.sh:7` deletes `internal/gen/sql/*.go`, and any
+    failure in the following steps leaves the tree without them. That
+    happened at S-1109 `generate04` and S-1120.
+  - TH-HARNESS-REQ-004 and REQ-261 already require one private scratch
+    render that is validated, compared once and published atomically.
+  - **D1.** The `$(FOUNDATION_SCHEMA_VALIDATORS)` prerequisites omit the
+    redaction manifest, the lifecycle policy and their renderers.
+    `generated_paths` omits three outputs `generate` writes:
+    - the two task-surface help projections;
+    - `tools/performance_fixture_snapshot_key_vectors.json`.
+- **Spec.** No change; the existing clauses govern.
+- **Plan.**
+  - The step list moves to a private renderer that refuses to run outside a
+    marked harness scratch tree.
+  - The drift driver calls the renderer in scratch rather than
+    `make -C "$scratch" generate`.
+  - Public `generate` becomes the driver's refresh mode, publishing through
+    `publishGeneratedTransaction`.
+  - A closure check fails any write outside `generated_paths`, excluding
+    `tmp/` and `.git/`.
+  - The three paths and the prerequisites are completed, and the dead
+    in-place retirement deletes are removed.
+- **Red.** A fixture repository whose foundation generator fails must keep
+  its `internal/gen/sql` bytes after the public `generate` entry. On the
+  current script it loses them.
+
+**S-1131 outcome. DONE.**
+
+- **Renderer.** The step list moved verbatim into
+  `tools/harness/generated-artifacts/render-generated-artifacts.sh`. It
+  refuses to run unless `CARTULARY_GENERATION_SCRATCH_ROOT` names the current
+  directory and that directory carries the driver's
+  `.cartulary-generation-scratch` marker.
+- **Driver.** `check-generate-drift.sh` no longer runs `make -C "$scratch"
+  generate`.
+  - It marks the scratch tree.
+  - It records an inode, size, mode and nanosecond-mtime inventory with the
+    new `generated-transaction.mjs --mode inventory`.
+  - It runs the renderer in scratch.
+  - It then compares (check) or publishes (refresh) with `--inventory`.
+- **Public entry.** `generate-artifacts.sh` now only runs the driver's
+  refresh mode, so `generate`, `source-check CHECK=generated` and the
+  `agent-finalize` refresh share one transactional renderer.
+- **Closure.** `undeclaredRenderedWrites` fails any render create, rewrite
+  or removal outside `generated_paths` with exit 11. It ignores only `.git`,
+  `.cartulary`, `node_modules` and `tmp`.
+  - On its first real run it found 16 tracked `internal/gen` packages that
+    `generate` writes but that were never declared, so drift checking and
+    refresh never covered them:
+    - 13 `contract*` packages;
+    - `networkflowunicode`, `partypolicy` and `stringcontracts`.
+  - They are now declared, along with the two task-surface help projections
+    and `tools/performance_fixture_snapshot_key_vectors.json`. All of them
+    matched the render byte for byte.
+- **D1.**
+  - The `$(FOUNDATION_SCHEMA_VALIDATORS)` prerequisites now include the
+    lifecycle, runtime and redaction policy renderers, `failure-taxonomy.mjs`,
+    `redaction-vocabulary.mjs`, and the lifecycle and redaction manifests.
+  - The foundation generator's dead in-place deletes of long-retired files
+    are gone. Retirement inside a declared directory now publishes with that
+    directory.
+  - The backing scripts for `generate` and the drift smoke row name the new
+    files.
+- **Red.**
+  - `tcr-s1131-red02`, the new fixture test on the unmodified script:
+    "generated SQL outputs changed after a failed generate".
+  - `tcr-s1131-red03`, a diagnostic restore of the original
+    `generate-artifacts.sh` under the final fixture: the same failure. My
+    version was restored with `cp` and confirmed with `cmp`.
+- **Green.**
+  - `harness.command_surface.behavior.generate_drift` passes
+    (`tcr-s1131-green05`). It covers a failed render leaving the tree
+    byte-identical with no transaction left behind, an unmarked render
+    refused, and the closure matrix.
+  - `make generate` (`tcr-s1131-generate02`) published only the two
+    task-surface projections changed by the backing-script edit.
+  - `make source-check CHECK=generated` (`tcr-s1131-srcgen01`, 5/5).
+  - `make lint CHECK=scripts` (`tcr-s1131-lintscripts01`).
+  - `make harness-contract SUITE=contract` (`tcr-s1131-hc01`, 13/13).
+- **Note.** `tcr-s1131-generate01` failed with the closure error that found
+  the 16 packages. Nothing was published, so the tree was untouched; that
+  is the intended behavior.
+
+### S-1132 / F-1117 / E-1191 — XC: schema versioning and scheduling-evidence integrity (Testing Harness NLSpec owner first; harness)
+
+Recorded on 2026-11-21. Identities verified unused. **Deviation:** this entry
+was written after the slice's edits instead of before them. The spec text was
+still written first. DONE (2026-11-21).
+
+- **Gap.**
+  - Commit `97b166b46` extended two closed harness schemas in place:
+    - `harness_work_graph_owner.v8` gained a required member;
+    - `test_family_manifest.v13` gained an optional member and enum values.
+
+    TH-HARNESS-REQ-253 required a new ID for at least the first.
+  - **D8.** TH-HARNESS-REQ-060 still named owner v6, and §11.6 had no
+    requirement ID.
+  - Nothing tied row estimates to the 300 s packing bound. The packer
+    emitted an over-bound cohort for any indivisible item.
+  - No observation audit existed, and the heavy-lane MUST had no detection.
+- **Spec (Testing Harness NLSpec).**
+  - **TH-HARNESS-REQ-253.** Adding any member or enum value, or tightening a
+    constraint, in a current closed schema needs a new schema ID, and the
+    replaced ID is retired.
+  - **REQ-013, REQ-268 and the schema table** name
+    `test_family_manifest.v14`. **REQ-060** names owner v9.
+  - **§11.6** becomes:
+    - **TH-HARNESS-REQ-865.** It adds: catalog validation rejects a Go row
+      whose estimate plus the Go startup and cleanup allowance exceeds the
+      packing bound, and the packer fails closed. Measurement-class rows are
+      exempt; they run explicit-only under their capacity profile and are
+      planned alone.
+    - **TH-HARNESS-REQ-866.** The advisory `explain-run DETAIL=estimates`
+      with schema `cartulary.harness_estimate_audit.v1`. Its findings are
+      `over_packing_bound`, `estimate_drift` and `heavy_lane_candidate`. It
+      always exits 0 and never gates or writes.
+  - **TH-HARNESS-AC-161 and AC-162**, plus a REQ range row.
+  - **Command table.** `explain-run` is
+    `cartulary.harness.command.explain_run.v4`. Its DETAIL enum now
+    includes the existing `critical-path` (stale since REQ-857) and
+    `estimates`.
+- **Implementation.**
+  - **Schemas:** owner v9 (adds the `estimate_audit` block: drift ratio 2,
+    heavy-lane threshold 120 s), family manifest v14, fixture policy
+    registry v7.
+  - **Readers updated:** the catalog, UI review, lane-policy, fixture-policy,
+    work-graph contract and JSON-shape readers, and
+    `internal/modules/extensions/contract_test.go`.
+  - **Retired IDs** are listed, and a test asserts they have no validator.
+  - **Catalog gate:** `test-catalog.mjs`.
+  - **Fail-closed check:** `planGoLPTShards`. It applies to Go only,
+    because the shared packer also serves browser and vitest envelopes.
+  - **Compiler:** plans measurement-class Go rows alone with
+    `packing_exempt`.
+  - **Audit:** `observability/estimate-audit.mjs`, wired into
+    `explain-run-cli.mjs`.
+- **Found on the way.** The new gate rejected the two Go measurement
+  capacity rows, which carry the 1,800,000 ms measurement class default.
+  That surfaced the measurement exemption above.
+- **Not done, by design.** No per-row observation identity clarification.
+  Estimates are source, so observations always come from the run before an
+  estimate edit, and §11.6 already requires that.
+- **Red.** `tcr-s1132-red01`: the original planner and catalog validator were
+  restored temporarily, and three new or updated assertions failed:
+  - the planner accepted the oversized item;
+  - the oversized-item compilation case;
+  - the catalog fixture row.
+
+  Both files were restored with `cp` and confirmed with `cmp`. The audit
+  module is new, so its tests could not pass before it existed.
+- **Green.**
+  - `make generate` (`tcr-s1132-generate02`).
+  - `harness.test_catalog.behavior.routing_contract` (`tcr-s1132-routing01`).
+  - `make harness-contract SUITE=contract` (`tcr-s1132-hc02`, 13/13).
+  - `make source-check` with `CHECK=schema` and `CHECK=catalog`.
+  - `module.extensions.static.behavior_routing_e80c9e3dc7`.
+  - The smoke run of `make explain-run DETAIL=estimates` behaved as
+    specified: `tcr-s1130-check04` is rejected for
+    `source_digest_mismatch`, and `tcr-s1132-routing01` is accepted with no
+    Go units.
+- **Note.** `tcr-s1132-generate01` failed in scratch on the oversized
+  measurement rows before the exemption existed. The tree was untouched,
+  except for the in-place foundation-validator prerequisite, which is
+  itself transactional.
+
+### S-1133 / F-1118 / E-1192 — XD: host admission charges every registry resource (Testing Harness NLSpec owner first; harness runtime)
+
+Recorded on 2026-11-21, before any XD edit; identities verified unused. DONE (2026-11-21).
+
+- **Gap.** The `postgres_heavy` lane bounds units only within one invocation.
+  Five hand-copied 10-key lists drop it from host admission:
+  - `harnessadmission/admission_linux.go:31`;
+  - `harnessadmission/lease_linux.go:126-133`;
+  - `harnessfixtures/residency_linux.go:42-48`;
+  - `harnesscollect/collector_linux.go:487-489`;
+  - `runtime/host-admission.mjs:51-53`.
+
+  So two concurrent invocations can run 2 + 2 heavy units, which defeats
+  TH-HARNESS-REQ-804's storage-contention purpose.
+- **Spec.**
+  - **TH-HARNESS-REQ-381:** host admission charges every resource in the
+    TH-HARNESS-REQ-353 registry, the vocabulary is generated from the
+    registry, and state is generation 3 under a generation-named root.
+  - **TH-HARNESS-REQ-804:** the lane bound is host-wide.
+  - **Schema IDs**, per the XC rule: the host admission record v3,
+    resident allocation v2, execution index v6, critical path v4, runtime
+    plan v7 (it references the execution index's clock), and local session
+    v4.
+- **Plan.**
+  - The foundation generator renders the Go admission vocabulary from the
+    registry. JS reads the registry owner directly.
+  - Delete the five copies.
+  - Admission state becomes generation 3 under a generation-named default
+    root.
+  - Bump the schemas with their readers and writers.
+  - Confirm that nested-lease parent credit admits a heavy-free parent.
+- **Red.** A `harnessadmission` test with two owners, each claiming
+  `postgres_heavy:1` against capacity 1: the second must wait.
+
+**S-1133 outcome. DONE.**
+
+- **Spec.**
+  - **TH-HARNESS-REQ-381:** host admission charges every TH-HARNESS-REQ-353
+    registry resource, the native and script vocabularies are generated
+    from the registry, and state is generation 3 under a generation-named
+    root.
+  - **The `postgres_heavy` paragraph:** its bound holds across concurrent
+    invocations.
+  - **Schema IDs:**
+    - the host admission record v3 and resident allocation v2 each gain
+      `postgres_heavy` in every closed resource object (10 and 1 objects);
+    - the execution index v6, critical path v4, runtime plan v7 and local
+      session v4 change only their references.
+
+    The old IDs are retired and listed in `test-json-shapes.mjs`.
+- **Generation.** The new `generated-artifacts/admission-vocabulary.mjs`
+  renders two files from `tools/scheduler_resource_registry.json`, through
+  the foundation generator:
+  - `internal/testutil/harnessadmission/vocabulary_generated.go`;
+  - `tools/harness/contract/generated/admission-vocabulary.mjs`.
+
+  Both carry the vocabulary and state generation 3. They are declared in
+  `generated_paths` and the generated-artifact policy, and their inputs are
+  added to the Makefile prerequisites.
+- **Copies removed.** Seven hard-coded copies are gone:
+  - the five the research listed;
+  - a sixth, the collector's zero-claim observation request
+    (`collector_linux.go:151`), which the collector test exposed. Against an
+    11-key vocabulary it would always have been refused;
+  - the two root spellings (`host-admission.mjs:24` and
+    `harnessruntime/run_linux.go:141`), which now use the generation-named
+    root.
+- **Nested leases.** The per-key accounting is uniform, so a heavy-free
+  parent admits a heavy child exactly as for `postgres`.
+- **Red.** `tcr-s1133-red01`: the new
+  `TestAdmissionChargesEveryRegistryResource` failed with "a second
+  postgres_heavy lease was admitted while the only lane was held".
+- **Green.**
+  - `make generate` (`tcr-s1133-generate01`).
+  - `harness.evidence_accounting`: the `observation_admission`,
+    `native_collection` and `native_schema` rows (`tcr-s1133-native03`) and
+    `current_epoch_evidence` (`tcr-s1133-epoch01`). The foundation fixture now
+    copies the registry.
+  - `harness.command_surface`: `native_runtime` and `scheduler_smoke`
+    (`tcr-s1133-native01`).
+  - Four `harness.browser` native fixture rows (`tcr-s1133-browser01`).
+  - `make harness-contract SUITE=contract` (`tcr-s1133-hc02`, 13/13).
+  - `make lint CHECK=go` (`tcr-s1133-lintgo02`), after `make format`
+    rewrapped one test file.
+  - `make source-check` with `CHECK=generated` and `CHECK=schema`.
+- **Compatibility.** The previous generation's state stays at
+  `/tmp/cartulary-host-admission-<uid>`. It is not deleted: a concurrent
+  older checkout may still own it. Old and new invocations do not see each
+  other's leases during the transition.
+
+### S-1134 / F-1119 / E-1193 — XE: the Jobs runner never waits behind its own attempt's owner transaction (Core 01 owner first; platform jobs)
+
+Recorded on 2026-11-21, before any XE edit; identities verified unused. DONE (2026-11-21).
+
+- **Gap.**
+  - **(a) Shutdown release.** `releaseForShutdown` (`runner.go:557-588`)
+    cancels, then `ReleaseExecution`. Release takes the transition lock and so
+    waits behind the handler's open owner transaction. On timeout, ordinary
+    shutdown exits 1.
+  - **(b) Failure record.** After a non-loss renewal error,
+    `RecordExecutionFailure` (`runner.go:511-516`) waits the same way. On
+    timeout the record is dropped, and lease expiry later charges
+    `job_handler_abandoned`.
+  - **D5.** REQ-01-453 says payload reads and execution observation validate
+    under the transition lock. They correctly take none, because observers
+    poll while the attempt's own transaction holds it.
+  - **D6.** `AwaitCommit` ignores the injected test policy.
+  - **No guard.** Nothing prevents a handler from calling a lock-taking
+    `Manager` method inside its own transaction. An audit found no current
+    offender.
+  - **Harness timing.** The harness's 250 ms attempt timeout is longer than
+    its 120 ms lease.
+- **Spec (Core 01 REQ-01-453).**
+  - A release, or a renewal-error failure record, that finds the transition
+    lock held waits for the handler to drain, then runs as a new operation
+    bounded by the attempt-operation timeout and any earlier close deadline.
+  - Payload reads and observation validate atomically without the lock.
+- **Plan.**
+  - Add try-lock variants that return a typed busy error.
+  - The runner tries first and falls back after the drain.
+  - `AwaitCommit` takes its bound from the attempt context.
+  - An architecture guard rejects lock-taking `Manager` calls with a
+    `pgx.Tx` in scope under `internal/modules/**`.
+  - The harness timing invariants are timeout < lease and renewal ≤ lease/3.
+- **Red.**
+  - **R1:** a handler holds a validated transaction past cancel, so `Close`
+    reports `stage=release deadline_exceeded`.
+  - **R2:** a forced renewal error while the transaction is held: the failure
+    is not recorded until lease expiry.
+
+**S-1134 outcome. DONE.**
+
+- **Spec (Core 01 REQ-01-453).**
+  - Progress changes, finalization, completion, failure recording and
+    conditional release validate under the transition lock.
+  - **D5:** payload reads, observation and renewal validate atomically
+    without it.
+  - A release, or a renewal-error failure record, that finds the lock held
+    waits for the handler to drain under the caller close deadline. It then
+    runs as a new operation under its own attempt-operation timeout. A
+    failure record whose execution expired meanwhile is execution loss.
+- **Implementation (`internal/platform/jobs`).**
+  - `tryLockTransitionTx`, using `pg_try_advisory_xact_lock`, returns
+    `errTransitionBusy`. The lock seed is now one package constant.
+  - The Manager's `releaseExecution` and `recordExecutionFailure` take a
+    `wait` mode. The exported methods keep waiting.
+  - `releaseForShutdown` tries first. On busy it waits for the handler or the
+    close context, then releases with a fresh timeout.
+  - The renewal-error path tries first. On busy it drains, then records.
+  - **D6:** the runner puts its attempt-operation timeout on the attempt
+    context, and `AwaitCommit` bounds the detached commit with it.
+  - **Architecture guard:**
+    `TestNoLockTakingJobsCallInsideOwnerTransaction_Architecture`.
+    - It flags these calls inside an open owner transaction under
+      `internal/modules/**`: `UpdateProgress`, `Complete*`,
+      `ReleaseExecution` and `RecordExecutionFailure`.
+    - An open transaction is a function with a `pgx.Tx` parameter, or the
+      span from `Begin`/`BeginTx` to that variable's `Commit`.
+    - It finds no violation in the tree, and its six fixtures prove
+      detection.
+  - **Harness timing:**
+    - The defaults move from 120 ms lease, 30 ms renewal and 250 ms timeout
+      to 1 s, 250 ms and 500 ms.
+    - The harness fails a policy that breaks timeout < lease or
+      renewal ≤ lease/3.
+    - Three subtests now state their own leases. The own-transaction
+      renewal subtest has a 1 s timeout.
+- **Red.** `tcr-s1134-red01`, the new subtests on the unmodified runner:
+  - **R1:** "ordinary shutdown failed behind the attempt's own transaction
+    … stage=release … reason=deadline_exceeded";
+  - **R2:** after the forced renewal failure the attempt was still held with
+    0 failures.
+- **Green.**
+  - The `platform.jobs` owner run, 9/9 (`tcr-s1134-green02`).
+  - The three `app.server` shutdown rows, 11 units (`tcr-s1134-server01`).
+  - `make lint CHECK=go`.
+  - `make source-check CHECK=catalog`.
+- **Compatibility.** No wire change. When the lock is busy, a shutdown
+  release completes after its handler drains.
+
+### S-1135 / F-1120 / E-1194 — XF1: an empty Evidence blob rewrite stages no member (Core 01 owner first; Evidence, incident portability)
+
+Recorded on 2026-11-21, before any XF1 edit; identities verified unused. DONE (2026-11-21).
+
+- **Gap.**
+  - `RewriteAndStageObjectBlobs` (`blob_portability.go:115`) always stages a
+    rewritten `data/object_blobs.ndjson`, even with zero rows.
+  - Evidence binds that member by presence (`bindBlobRewrite`,
+    `compareBlobs`).
+  - This conflicts with REQ-01-641's "a stream with no rows creates no staged
+    object". A test helper exempts it
+    (`routes_helpers_integration_test.go:1711-1714`).
+- **Spec.** REQ-01-695 gains: with no prepared Blob rows, staging writes no
+  rewritten member, and Apply admits its absence as the empty rewrite. A
+  member present for zero rows, or absent for one or more rows, fails
+  `evidence.source_state_exact`.
+- **Plan.**
+  - Export the lazy staged-member writer and use it for the rewrite.
+  - Add one Evidence binding helper: absent means bound to nothing.
+  - `rewrittenBlobs` rejects a present member that has no rows.
+  - Delete the exemption.
+- **Red.** With the exemption deleted, a bundle without blobs leaves one more
+  zero-byte staged object than the bundle accounts for.
+
+**S-1135 outcome. DONE.**
+
+- **Spec.** REQ-01-695 is amended as recorded.
+- **Implementation.**
+  - `incidentportability.WriteStagedMemberFrom` exports the lazy writer, and
+    `RewriteAndStageObjectBlobs` uses it.
+  - The new Evidence `bindRewrittenBlobs` binds the rewritten member only when
+    present, and `bindBlobRewrite` and `compareBlobs` use it.
+  - `rewrittenBlobs` treats an absent member as zero rows and fails a present
+    member with zero rows as `evidence.source_state_exact`.
+  - The staging-accounting exemption
+    (`routes_helpers_integration_test.go:1711-1714`) is deleted.
+- **Tests.**
+  - The Evidence rewrite fixture omits the member for zero rows.
+  - `TestEvidencePortableBlobTransaction_Integration` adds "present for zero
+    rows" and "absent for rows", both expecting `source_state_exact`.
+- **Red.**
+  - `tcr-s1135-red01`, the new Evidence tests on the unmodified code:
+    - the "empty" variant failed `missing_required_file`;
+    - "present for zero rows" was accepted;
+    - "absent for rows" reported `missing_required_file`.
+  - `tcr-s1135-red02`, the original eager staging restored temporarily: the
+    round-trip imports failed. The new rule rejects its present-but-empty
+    member. The file was restored with `cp` and confirmed with `cmp`.
+- **Green.**
+  - `module.evidence`: `portable_blob_transaction` and
+    `portable_blob_admission` (`tcr-s1135-green02`).
+  - `module.incidentbundles`: the round trip, `member_stream_records` and
+    `prepared_source_binding` (`tcr-s1135-green03`).
+
+### S-1136 / F-1121 / E-1195 — XF2: a malformed generated storage key fails at slot creation, and upload validates it at the gate-11 boundary (Core 01 owner first; Evidence, contracts)
+
+Recorded on 2026-11-21, before any XF2 edit; identities verified unused. DONE (2026-11-21).
+
+- **Gap.**
+  - `handleUploadTarget` validates the persisted storage key
+    (`route_blob_handlers.go:232-235`) before Core 04 Table 2-B gates 8–9. With
+    a malformed key, a missing Content-Length returns 500 instead of 411, and a
+    closed incident returns 500 instead of 409. Only a generator defect can
+    reach this.
+  - **D7.** `createObjectBlobSlot` declares no 500
+    `object_store_invalid_request`.
+- **Spec.** Core 01 REQ-01-246:
+  - slot creation validates the generated key, so a malformed key fails
+    before any slot or capability exists;
+  - upload validates the persisted key immediately before the lease claim and
+    object-store access.
+- **Plan.**
+  - Validate in `handleCreateBlob` before `createTarget`.
+  - Move the upload check to just before `ClaimUploadLease`.
+  - Add the 500 to `createObjectBlobSlot` with a 2.0.0 change-set entry, then
+    run `make generate`.
+- **Red.**
+  - The malformed-key create test expects 500 and no `CreateBlobSlot` call.
+    Today create returns 201.
+  - The upload-order test expects 411, 400 and 409 before the 500.
+
+**S-1136 outcome. DONE.**
+
+- **Spec (Core 01 REQ-01-246).**
+  - Slot creation validates its generated key before persisting the slot or
+    minting a capability.
+  - Upload validates the persisted key after the request, header, size and
+    lifecycle checks, immediately before the lease claim and object-store
+    access (Table 2-B gate 11).
+- **Implementation.**
+  - `handleCreateBlob` calls `ValidatePersistedObjectBlobStorageKey` right
+    after generating the key.
+  - `handleUploadTarget`'s check moves to just before `ClaimUploadLease`.
+- **Contract (D7).** `createObjectBlobSlot`'s 500 now declares
+  `internal_error` and `object_store_invalid_request`.
+  - The 2.0.0 change-set entry for that response was replaced: stale
+    `13ae5868…` became `8fc9fa70…`.
+  - `make generate` (`tcr-s1136-generate02`) refreshed the OpenAPI bundle,
+    the two operation catalogs and `protocol-ts` operation bindings.
+- **Tests.**
+  - `TestObjectUploadMalformedGeneratedKeyFailsBeforeBackend_Unit` now
+    expects create to return 500 with no slot, and the production generator
+    to upload through one Put.
+  - **New** `TestObjectUploadPersistedKeyValidatedAtObjectStoreBoundary_Unit`
+    mints a capability bound to a malformed persisted key. It expects 411,
+    400 and 409 for the gate 8–9 cases, and 500 only for an otherwise valid
+    request, with no claim or Put in any case.
+- **Red.** `tcr-s1136-red01`: create returned 201 for both malformed
+  generators, and all three gate cases returned 500.
+- **Green.**
+  - Four Evidence rows (`tcr-s1136-green02`), including the 409 companion.
+  - `make openapi-compatibility-check`.
+  - `make lint CHECK=protocol` and `CHECK=types`.
+
+### S-1137 / F-1122 / E-1196 — XF3: storage enforces a failed Blob's exact cleanup due time (Core 02 owner first; DDL migration 62, authorized 2026-11-21)
+
+Recorded on 2026-11-21, before any XF3 edit; identities verified unused. DONE (2026-11-21).
+
+- **Gap.**
+  - A failed `object_blobs` row with a NULL or wrong `cleanup_due_at` is
+    never claimed by cleanup (`lock.go:223`), so the runtime tuple check
+    never sees it.
+  - Nothing in storage constrains the field. Core 02 requires cleanup due
+    exactly 45 minutes after failure (REQ-02-189a).
+- **Spec (Core 02 REQ-02-189a).** Storage enforces the failed-slot due time.
+- **DDL.** The maintainer authorized migration 62 on 2026-11-21:
+  - add `object_blobs_failure_cleanup_ck` CHECK
+    `(upload_state <> 'failed' OR (cleanup_due_at IS NOT NULL AND cleanup_due_at = failed_at + interval '45 minutes'))`;
+  - it is validated, with no `NOT VALID`;
+  - the Down drops it;
+  - no comment names the migration number (DDL policy).
+
+  Owner allocation `[62, "evidence"]`. This follows the S-1077 procedure.
+- **Red.** Under the `cartulary_recovery` role, inserting a failed row with a
+  NULL due time, or with a 44:59 offset, must fail with SQLSTATE 23514 naming
+  the constraint. Today both succeed.
+
+**S-1137 outcome. DONE.**
+
+- **Spec.** Core 02 REQ-02-189a gains a bullet: storage enforces a failed
+  slot's due time. A failed Blob whose due time is absent or not exactly
+  45 minutes after `failed_at` is unrepresentable, so cleanup can claim every
+  failed Blob, and restore cannot admit one it couldn't.
+- **DDL (authorized).**
+  - `db/migrations/00062_evidence_blob_failure_cleanup.sql` adds the
+    validated `object_blobs_failure_cleanup_ck`. Its Down drops it.
+  - The owner allocation is `[62, "evidence"]`.
+  - `make generate` (`tcr-s1137-generate01`) refreshed
+    `tools/migration_history_manifest.json` and
+    `tools/schema_object_ownership_manifest.json`. sqlc output is unchanged.
+- **Test.** The new
+  `TestEvidenceFailedBlobCleanupDueIsStorageEnforced_Integration`, in row
+  `module.evidence.integration.blob_uniqueness_migration_round_trip_6de21f480c`,
+  runs as `cartulary_recovery` in replica mode:
+  - NULL, 44:59 and 45:01 due times fail with 23514 on the constraint;
+  - 45:00 is accepted.
+- **Red.** `tcr-s1137-red02`: all three illegal tuples were accepted before
+  the migration. The first red run, `tcr-s1137-red01`, failed only on
+  ambiguous parameter typing in the test, which was fixed.
+- **Green.**
+  - `module.evidence`: the head schema, the cleanup claim engine and the
+    cleanup dispatcher (`tcr-s1137-green01`).
+  - `module.database_migrations`: the five catalog, recurrence, preflight
+    and readiness rows (`tcr-s1137-green02`).
+  - `module.recovery.integration.evidence_inventory_closure_9f2714ac10`
+    (`tcr-s1137-green03`).
+  - `platform.postgres.integration.purpose_identity_roles_and_acl`
+    (`tcr-s1137-green04`).
+  - The two migration support rows (`tcr-s1137-green05`).
+  - `make source-check` with `CHECK=generated` and `CHECK=catalog`.
+- **Next.** The v5 rebaseline (XG) will fold this migration into the
+  Evidence baseline file.
+
+### S-1138 / F-1123 / E-1197 — XH: connection admission requires lz4 TOAST support (Core 04 owner first; platform postgres, harness scripts)
+
+Recorded on 2026-11-21, before any XH edit; identities verified unused. DONE (2026-11-21).
+
+- **Gap.** REQ-04-153 requires a server build with `lz4` TOAST compression,
+  but only migration 60's DDL ever detects its absence. Connection admission's
+  closed reason list (Core 04, about lines 4903–4914) has no reason for it.
+- **Spec (Core 04).**
+  - Add reason 10, "the server build does not support `lz4` TOAST
+    compression: `postgres_lz4_compression_unsupported`", and renumber
+    `postgres_admission_failed` to 11.
+  - The per-connection admission list adds lz4 support.
+- **Plan.**
+  - Fold the probe
+    `COALESCE((SELECT 'lz4' = ANY(enumvals) FROM pg_catalog.pg_settings WHERE name = 'default_toast_compression'), false)`
+    into the admission query, checked after the checksums fact.
+  - Classify the reason in pgtest.
+  - Extend the server-fact scripts and the test copies of the admission
+    query.
+- **Red.** `TestAdmissionFactsRequireExactEngineAndSecurityPosture` with
+  `lz4: false` expects the new reason. With checksums also off, the
+  checksums reason comes first.
+
+**S-1138 outcome. DONE.**
+
+- **Spec (Core 04).**
+  - Reason 10 is `postgres_lz4_compression_unsupported`;
+    `postgres_admission_failed` becomes 11.
+  - The per-connection admission list includes lz4 TOAST support.
+- **Implementation.**
+  - `ReasonLZ4CompressionUnsupported` and the `lz4` admission fact.
+  - The admission query probes `pg_settings.enumvals` for
+    `default_toast_compression`, and the check runs after the checksums
+    check.
+  - The pgtest server-fact check and the owned-cluster classification use
+    the same probe.
+  - `check-standup-package-smoke.sh` and `postgres-baseline-reset.sh` now
+    expect `180006|on|t`.
+  - The engine-posture test copies (baseline integrity and catalog capture)
+    are unchanged, because every connection now passes the lz4 admission
+    check.
+- **Red.** `tcr-s1138-red01`: with the fact present but unchecked, the
+  "no lz4" case was admitted.
+- **Green.**
+  - The `platform.postgres` owner run, 6/6 (`tcr-s1138-green01`).
+  - Three pgtest-backed `harness.browser` rows (`tcr-s1138-green02`). These
+    connect to the pinned image, so lz4 is present.
+  - `make lint CHECK=scripts` and `CHECK=go`.
+
+### S-1139 / F-1124 / E-1198 — XI1: Network Flow route errors carry every determined detail member and only registered reasons (NF NLSpec owner first; Network Flow, contracts)
+
+Recorded on 2026-11-21. Identities verified unused. **Deviation:** recorded
+after the slice's edits began, not before. The spec text was written before the
+tests ran. DONE (2026-11-21); the golden gate was approved.
+
+- **Gap.** NF-REQ-175 allowed `null` for any required member, so known
+  values went unreported:
+  - `invalid_sort` index, field and direction;
+  - query limit key and bounds;
+  - `expected_contract` and `actual_kind`;
+  - `cursor_scope`.
+
+  **D3:**
+  - `invalid_limit_override` emitted wrong non-null zeros;
+  - four `network_flow_invalid_request` reasons were outside Table 21-A1:
+    `invalid_value`, `invalid_timestamp`, `unknown_selector_kind` and
+    `id_key_mismatch`;
+  - `limit_overrides` shape failures used reasons not registered for
+    overrides;
+  - `invalid_table_scope/selected_table_limit_exceeded` emitted
+    `reduce_scope_or_limits` against its code's registered
+    `correct_request`, which the web client rejects as a contract failure;
+  - one `limit_key` lacked its `network_flow.` prefix.
+
+  The route mapping for `network_flow_table_name_exhausted` was unreachable.
+- **Spec (NF NLSpec).**
+  - **NF-REQ-175:** a determined member is non-null, with closed
+    vocabularies for `actual_kind`, `expected_contract`, `cursor_scope`
+    (`table_rows`, `rejected_rows`, `incident_rows`, `graph_contributors`,
+    `saved_graph_contributors`), `limit_key` and `sort_index`.
+  - **Table 21-A1:** the four selector reasons are added to
+    `network_flow_invalid_request`.
+  - **Retry action:** each route-local code has exactly one, and a reason
+    never changes it.
+- **Golden gate.** The NF canonical fixtures that pin these members will
+  change. The diff goes to the maintainer before any fixture is updated.
+
+**S-1139 outcome. DONE.**
+
+- **Spec (NF NLSpec).**
+  - The NF-REQ-175 non-null rule and member vocabularies.
+  - Table 21-A1 adds `invalid_value`, `invalid_timestamp`,
+    `unknown_selector_kind` and `id_key_mismatch` to
+    `network_flow_invalid_request`.
+  - One retry action per code.
+- **Implementation (`internal/modules/networkflow`).**
+  - `invalidSortAt` carries the failing entry's index, field key and
+    direction. The extra `field` member is dropped.
+  - `invalidQueryLimit` carries `network_flow.max_query_limit`, the value,
+    and the bounds 1 and `MaxQueryLimit`.
+  - `invalidLimitOverride` takes nullable values, and override members map
+    to Table 20-A keys. An unknown member and a non-integer value report
+    `null`. The `limit_overrides` shape failures are now request errors.
+  - `typeMismatch` and `jsonKind` set `actual_kind` at 17 decode sites. Route
+    completion derives `null` for `explicit_null`. Decoder-level details
+    therefore change only where the decoder read the value, and NF-FIX-010
+    stays byte-identical.
+  - `writeOperationError` and `completeRouteError(apiErr, operationID)`
+    complete `expected_contract` from the route contract and `cursor_scope`
+    from a closed per-route map.
+  - `selected_table_limit_exceeded` now carries its code's
+    `correct_request`.
+  - `limit_key` is `network_flow.max_binding_source_row_refs`.
+  - The two indicator mapping branches merged.
+  - The unreachable route mapping for `network_flow_table_name_exhausted` is
+    removed.
+  - The new static reason guard found three more unregistered reasons:
+    - a stored-row counter parse error was labelled `invalid_counter`; it is
+      now `internal_error`, because it is a storage invariant failure, not a
+      request error;
+    - `invalid_enum` became `invalid_value`;
+    - `invalid_identifier` became `invalid_value`.
+
+    The masked missing, null and type failures behind those two now
+    propagate.
+- **Contract.** `contracts/network-flow/errors.v1.json` reason registry. Then
+  `make generate` (`tcr-s1139-generate01`): `internal/gen/contractnetworkflow`
+  and `protocol-ts`.
+- **Tests.**
+  - `error_detail_completion_test.go` gains the non-null value matrix
+    (sort, limit, override, request kind and contract, every cursor scope)
+    and the per-code retry-action case.
+  - The new `assertEmittedReasonCodesRegistered` scans every literal reason
+    on the package's semantic failure constructors, more than 100 sites.
+- **Goldens (approved 2026-11-21).** NF-FIX-009, 014, 024 and 027.
+  - The expected and transcript files carry exactly 12 `cursor_scope`
+    tokens and 1 `retry_action`.
+  - Each takes a new frozen revision (7, 8, 8, 7): `freeze_revision`,
+    manifest sizes and SHA-256 values, the bundle digest, and the test
+    revision pins.
+- **Red.** `tcr-s1139-unit01`: the static guard flagged four unregistered
+  reasons in the tree. The value assertions use the new constructors, so
+  they could not run against the old code.
+- **Green.**
+  - `module.networkflow.unit.network_flow_selector_covers_every_route_local_e_5288e318ae`
+    (`tcr-s1139-unit02`).
+  - The four fixture rows (`tcr-s1139-fixtures04`).
+  - The full `module.networkflow` owner, 44/44 (`tcr-s1139-owner02`).
+- **Next.** XI2, the import owner-error reconciliation (D4), follows
+  separately.
+
+### S-1140 / F-1125 / E-1199 — XI2: Network Flow import-unit error details are governed by the owner-error contract (NF NLSpec; documentation only)
+
+Recorded on 2026-11-21, before the edit; identities verified unused. DONE
+(2026-11-21).
+
+- **Gap (D4).** Table 21-B lists rich members for the CSV import-unit,
+  source-changed and mapping failures. NF-REQ-088d's closed
+  `cartulary.network_flow.import_owner_error.v1` flattens them, and no NF route
+  emits those codes.
+- **Decision (maintainer, 2026-11-21).** Spec-only reconciliation, instead of
+  the planned widening. Widening would have meant an `import_owner_error.v2`
+  contract, Imports translation changes and new frozen revisions of 9 more
+  NF canonical fixtures.
+- **Spec.** NF-REQ-175 now states that:
+  - Table 21-B governs route-local emissions only;
+  - the import-unit codes are the import facade's internal classification;
+  - they reach clients only inside NF-REQ-088d's closed owner error, whose
+    `safe_details` alone governs disclosure.
+- **No code, contract or golden change.** Verified with `make lint-markdown`.
+- **Residuals.**
+  - `errors.v1.json` still scopes those codes as `route`, and Table 21-A
+    gives them statuses. Reclassifying them to an import-unit scope is a
+    contract change. It was not selected.
+  - Richer import diagnostics (row, column, mapping kind) remain a possible
+    future product decision.
+
+### S-1141 / F-1126 / E-1200 — XJ: refused replays and capacity refusals read as not applied (web; golden gate)
+
+Recorded on 2026-11-21, before any XJ edit; identities verified unused. DONE (2026-11-21).
+
+- **Gap (a).** The incident-import reducer drops the `temporarily_unavailable`
+  cause on uncertain admission and cancellation (`incidentImportState.ts`).
+  A refused replay therefore reads as a generic "unconfirmed", against
+  REQ-03-086a. A first-attempt cancel refused with 503 reads "rejected".
+- **Gap (b).** `authentication_capacity_exhausted` (503) is shown as "remains
+  unconfirmed", yet Core 01 REQ-01-677 makes it a definite non-application.
+  The visual test mode is misnamed `service_unavailable`.
+- **Decision (maintainer, 2026-11-21).** Treat capacity exhaustion as not
+  applied. The `auth-service-unavailable` golden diff is shown before any
+  update.
+- **Plan.**
+  - Keep `problem` on the uncertain states.
+  - Use the shared `stillUnconfirmedText()` and `notAppliedText()`.
+  - Add a dedicated authentication branch for the declared capacity code.
+  - Rename the test mode.
+- **Red.** New model and panel tests expect the specific copy. A unit test
+  expects capacity exhaustion to produce the not-applied state.
+
+### S-1142 / F-1127 / E-1201 — XG1: Production DDL Rebaseline v5 specification (Core 01 owner first; Core 02, Core 04, Testing Harness, Reporting, Network Flow, Graph Projection, operator documentation)
+
+Recorded on 2026-11-21, before any XG edit; identities verified unused. DONE (2026-11-21).
+
+- **Decision (maintainer, 2026-11-21).**
+  - Rebaseline to a v5 lineage: fold v4 versions 1–62 into a new 29-file,
+    per-owner baseline.
+  - Disposable databases are recreated.
+  - The schema must equal the v4 head except for declared differences, so
+    the Recovery generation is unchanged and v4 backups stay restorable.
+- **Spec edits.**
+  - **Core 01 §2.1A:** the lineage, boundary and hint become v5; v4 joins
+    the rejected previous lineages; the stale NF-REQ-032c citation is
+    replaced.
+  - **REQ-01-661:** the opening becomes the v5 baseline folding 1–62; the
+    per-increment narratives become baseline facts; there is no
+    irreversible section; backups stay restorable.
+  - **Core 02:3724:** a stale v3 sentence.
+  - **Core 04:** AC-542 becomes v5 and gains a semantic-equivalence clause;
+    the version-39 predecessor paragraph is retired.
+  - **Testing Harness:** lines 1535, 1547, 1552 and 9829, and AC-095.
+  - **Reporting:3340 and Network Flow:4310:** stale v3 text.
+  - **Graph Projection:** the lease-table removal sentence.
+  - **`deploy/mvp/README.md`:** the lineage name.
+- **Verified by.** Documentation lint here. The implementation slices
+  (XG2–XG4) verify behavior.
+
+**Process note (2026-11-21).** While `tcr-s1141-visualsuite01`
+(`make browser-e2e SUITE=visual`) was running in the background,
+`make lint-markdown` (`tcr-s1142-lintmd01`) was run concurrently. That
+breaks the standing "never run Make targets concurrently" rule. The lint
+run is documentation-only and completed cleanly. The visual run's outcome
+is judged on its own evidence. No further Make target ran until it ended.
+
+**S-1141 outcome. DONE.**
+
+- **(a) Incident import.**
+  - The uncertain admission and cancellation states keep their `problem`.
+  - A refused replay (`temporarily_unavailable`) reads
+    `stillUnconfirmedText()` in the announcement and the panel.
+  - A first-attempt cancellation refused with 503 reads `notAppliedText()`.
+  - **Test:** a new lifecycle case, "words a refused replay and a refused
+    first cancellation by their cause". The state test now expects the
+    retained problem.
+- **(b) Authentication.**
+  - `authentication_capacity_exhausted` (503) is a definite
+    non-application (Core 01 REQ-01-677). It settles through
+    `authBannerForError` with `notAppliedText()`, with no session retry.
+    The shared `isUnappliedRefusal` is unchanged.
+  - The visual mode is renamed `capacity_exhausted`, and its expected
+    feedback text is updated.
+  - **Test:** a new lifecycle case, "settles exhausted authentication
+    capacity as not applied".
+- **Golden (approved 2026-11-21).**
+  - `tcr-s1141-visualsuite01` showed `auth-service-unavailable` as the only
+    failing comparison.
+  - `make browser-e2e-visual-update` (`tcr-s1141-visualupdate01`) replaced
+    only that PNG and its manifest digest
+    (`07a89ecc…` became `96ba5a8e…`). The auto-mode classifier blocked the
+    first attempt; it ran on retry.
+  - Two fresh ordinary visual runs passed 20/20 (`tcr-s1141-visualpost01`
+    and `tcr-s1141-visualpost02`).
+- **Red.**
+  - `tcr-s1141-red02`: the original state and model were restored, and the
+    wording case failed.
+  - `tcr-s1141-red03`: the original authentication model was restored,
+    and the capacity case failed.
+
+  Both restores used `cp` and were confirmed with `cmp`.
+- **Green.**
+  - Five web rows (`tcr-s1141-green01`).
+  - `make lint CHECK=types`: the first run (`tcr-s1141-linttypes01`)
+    rejected `isCapacityRefusal`'s narrow parameter type. It now takes any
+    error with a code, and the lint passes (`tcr-s1141-linttypes02`).
+    Runtime behavior is unchanged; the authentication row passes again
+    (`tcr-s1141-green02`).
+
+### S-1143 / F-1128 / E-1202 — XG2–XG4: fold v4 1–62 into the v5 baseline and prove schema equivalence (DDL rebaseline, authorized 2026-11-21)
+
+Recorded on 2026-11-21, before the fold reaches `db/migrations`; identities
+verified unused. DONE (2026-11-21).
+
+- **XG2, instrumentation (test-only).**
+  - `semanticCatalogState` gains attribute storage, compression and options,
+    relation persistence and replica identity, and order-normalized ACLs.
+  - `BuildLineageSourceForTest` builds a source under an explicit lineage.
+  - `testdata/rebaseline-v4/` freezes the exact v4 SQL, versions 1–62.
+  - A transient proof test applies v4 and v5 to two scratch databases and
+    compares both catalogs. The allowed differences are:
+    - compacted column positions, with column rank equal;
+    - NOT NULL constraint names;
+    - the lineage seed.
+- **XG3, the fold.**
+  - The 29 per-owner files fold the increments under the approved fold map.
+    They were drafted in scratch by a delegated agent, then reviewed and
+    proven here.
+  - The allocation shrinks to 1..29 and generation reruns.
+  - v5 constants, a hint derived from the lineage, the version-39 guard
+    removed, and the tests that pin intermediate versions are retired or
+    rewritten.
+- **XG4, proof and cleanup.** The proof row passes; then the transient
+  proof and its testdata are removed and the owner slices run.
+
+**S-1142 and S-1143 outcome. DONE**, except the developer-environment reset
+(XG5), which awaits explicit confirmation.
+
+- **Spec (XG1).**
+  - **Core 01:** §2.1A (v5 lineage, boundary and hint; v4 rejected; the
+    stale NF-REQ-032c citation replaced) and REQ-01-661. REQ-01-661 now
+    covers: the v5 baseline folds 1–62; the declared differences; Recovery
+    and backup continuity; no irreversible section; the cutover narratives
+    become baseline facts.
+  - **Core 02:3725.**
+  - **Core 04:** AC-542 adds v4 and semantic equivalence, and the
+    version-39 predecessor paragraph is replaced by the lineage gate.
+  - **Testing Harness:** v5, v1–v4 rejection, reversible-baseline residue,
+    and the dev-stack hint repeats the backend's report. AC-095 is updated.
+  - Reporting, Network Flow and Graph Projection stale text, and
+    `deploy/mvp/README.md`.
+- **The fold (XG3).**
+  - A delegated agent drafted the 29 per-owner files in scratch under the
+    approved fold map: 16 changed and 13 byte-identical.
+  - Its static self-check covered the generator policy, FK coverage and a
+    model diff. It omitted the guards, locks, the 00034 repair, the `nf34_*`
+    helpers, the graph lease table and the superseded v1 routines, and kept
+    final bodies, names, grants and storage/lz4 settings.
+  - Copied into `db/migrations`; 00030–00062 deleted.
+  - `owner-allocation.mjs` is 1..29, `profileByVersion` is trimmed, and the
+    policy rule rejects v1–v4 literals.
+  - **Code:**
+    - v5 constants;
+    - `historicalMigrationLineageHint` is derived from `canonicalLineageID`;
+    - the version-39 guard and `schema_fresh_state_required` are removed;
+    - `dev-stack.sh` repeats the reported hint.
+  - **`make generate`** (`tcr-s1143-generate01`) passed the DDL policy for
+    every file, with a zero diff in sqlc and maintenance SQL.
+  - **Ownership manifest:** the same 2,097 objects and owners. 191 changed
+    only file and version, and 44 changed profile (21
+    incident_portability, 15 import, 7 snapshot_reporting, and 1 Reporting
+    CHECK that moved off the Network Flow profile).
+- **Proof (XG2 and XG4).**
+  - `semanticCatalogState` now captures storage, compression, options,
+    persistence and replica identity, with ACLs order-normalized.
+  - The transient
+    `TestRebaselineV5EqualsV4HeadCatalog_Integration`, with frozen v4 SQL and
+    a test-only explicit-lineage source builder:
+    - `tcr-s1143-proof01`, a control on the unfolded tree: equal;
+    - `tcr-s1143-proof04`, the v5 fold against v4 1–62: equal except the
+      declared differences (column rank kept, NOT NULL names, lineage seed);
+    - `tcr-s1143-proofred01`, a diagnostic mutation of one v4 default: the
+      proof failed on exactly that column. Restored with `cp` and confirmed
+      with `cmp`.
+
+    The proof test, its frozen testdata and the helper were then removed.
+- **Tests and catalog.**
+  - **Lineage literals and hint goldens** now name v5 (derived from the
+    spec). v4 joins the previous-lineage loop.
+  - **Retired, as v4 cutovers v5 does not have:** the three downgrade
+    barriers, the incident-portability cutover test, the version-34 Recovery
+    subtest, three increment-specific bootstrap subtests and their helpers,
+    and four rows with their tests and testdata. The rows are recorded in
+    `tools/test_catalog_row_migrations.json`, replaced by the recurrence
+    row:
+    - the graph lease retirement;
+    - the Reporting failure-record cutover;
+    - the two Network Flow canonical migration rows, with 10 testdata files.
+  - **Re-anchored to the baseline head:**
+    - traversal, renamed `TestCatalogRollbackAndForwardTraversal_Integration`;
+    - rollback-through-zero;
+    - the generic index bound;
+    - import source index coverage and privileges;
+    - the lineage preflight at head−1;
+    - a behind database now reports `schema_migration_required`.
+  - **The multi-step rollback property** is kept on the canonical line: a
+    probe view makes version 28's Down fail after 29's succeeded.
+- **Green.**
+  - `module.database_migrations` owner, 14/14 (`tcr-s1143-dbm01`).
+  - `module.recovery` owner, 27/27 (`tcr-s1143-recovery01`). v4 backups
+    remain restorable, because the Recovery catalog and generation are
+    unchanged.
+  - `platform.postgres` owner, 6/6.
+  - `app.migrate` and `app.server` golden rows.
+  - The migration support rows.
+  - `make source-check` with `CHECK=generated`, `CHECK=schema` and
+    `CHECK=catalog`, after `make format` and a regeneration for the
+    test-family edits.
+  - `make lint` with `CHECK=go` and `CHECK=scripts`.
+- **Not done.**
+  - The rows named `production_ddl_v3_recurrence` keep their stable IDs.
+    Renaming them is cosmetic churn, recorded as a residual.
+  - **XG5.** Local developer databases on the v4 lineage now fail startup
+    with the v5 remediation hint. The destructive reset is
+    `object-store-reset`, then `db-reset`, and waits for confirmation.
+
+### S-1144 / F-1129 / E-1203 — XK: the import transaction's projection rebuild, Revisions reference check and graph publication are set-based (projections, timeline, revisions, graph projection)
+
+Recorded on 2026-11-21, before any XK edit; identities verified unused. OPEN.
+
+- **Gap.** Under `check`, the transfer row has 1.80 s idle in its final
+  transaction, against a 2 s target. The measured levers:
+  - the projection rebuild (about 0.7 s): per-record Timeline fact loads,
+    about 3 queries per record, and per-row upserts;
+  - the Revisions reference check (about 0.6 s): one owner snapshot read per
+    referenced record, run twice;
+  - graph result publication (about 0.3 s): one `Exec` per vertex and per
+    edge.
+
+  REQ-01-641 keeps all of this inside the transaction, so each lever becomes
+  set-based. Order and failure ranks are preserved.
+- **Spec.** No change.
+- **Plan.**
+  - Batched Timeline fact loaders per page, and `CopyFrom` per rebuild page
+    after the existing delete.
+  - `SnapshotsTx` batch reads on the delete/restore source contract, with
+    ordered evaluation.
+  - `CopyFrom` for a new graph result's vertices and edges.
+- **Red.** A pgx statement-count tracer per lever: statements per rebuild,
+  per reference pass and per publication are bounded by pages, not records.
+- **Exit.** The transfer row under `make check`: idle at most 1.0 s,
+  transaction at most 6 s, attempt 1.
+
+**S-1144 progress (2026-11-21).**
+
+- **Change.**
+  - Timeline facts: `collectionfacts.Reader` reads mentions, links and tags,
+    and Evidence once per call; the projection source pages through it. The
+    single-record path is the same reader over one record. Mentions, links
+    (`linkfacts.FactReader.LoadRecordsTx`) and the Timeline link assembly
+    are set-based.
+  - Assessment source: one envelope read and one support-fact read per page.
+  - Projection writes: every provider's rebuild sends a page of its
+    single-row statement as one pipelined `pgx.Batch`. Each provider queues
+    and sends its own constant SQL, because the projection SQL ownership
+    checker traces SQL from declaration to sink; only result reading is
+    shared.
+  - Revisions: `DeleteRestoreSource.SnapshotsTx` on all 10 owners, each
+    from one fixed `SnapshotQuery` that also serves `SnapshotTx`;
+    `RecordTypesTx` replaces `RecordTypeTx`. The reference pass resolves
+    128 groups at a time, then judges them in record order.
+    `ScanSnapshot` became `DecodeSnapshot`.
+  - Graph publication: one COPY for vertices and one for edges.
+  - Test support: `dbassert.RoundTripCounter`.
+- **Deviation from the plan.** Projection writes use a pipelined batch of
+  the existing upsert rather than COPY: one statement definition per
+  provider, and the measured cost is round trips.
+- **Process deviations.**
+  - The projection and Revisions production edits preceded their red runs,
+    so their reds are diagnostic mutations restoring per-record behaviour.
+    Graph publication was red on unmodified code.
+  - `fmt02` reran a failed `make format` before investigating. The cause
+    was that the two new `postgres_transaction` rows lacked
+    `transaction_row_approvals` entries; `target-plan` named it.
+- **Red.**
+  - `graphred02`, unmodified publisher: "4 for 2 vertices, 42 for 40".
+  - `projred01`, mutation of `rows.go` and the Timeline source back to
+    per-row writes and per-record facts: "35 for 2 records of each kind,
+    105 for 12". Restored with `cp`, confirmed with `cmp`.
+  - `revred01`, mutation `referenceReadPage = 1`: "320 owner reads and 20
+    envelope reads". Restored with `cp`, confirmed with `cmp`.
+- **Green so far.**
+  - `graphgreen01`: graph storage rows 5/5.
+  - `projgreen01`, then `projections02`: Projections owner 18/18,
+    including rebuilt rows equal to single-row refresh rows.
+  - `revisions01`: Revisions owner 37/37, including batched snapshots
+    equal to single snapshots for every owner.
+  - `sqlcheck02`: projection SQL declaration ownership.
+  - `fmt04`, `lintgo02`.
+- **Boundary repair.** `lintbb01` rejected `LoadSnapshots`, because the
+  snapshot SQL reached `tx.Query` as a parameter, and the host and identity
+  `records` grants were stale. Each owner's `SnapshotsTx` now runs its own
+  SQL literal through `CollectSnapshots`, and `SnapshotTx` delegates
+  through `SnapshotOf`. The two grants name `SnapshotsTx` with the new
+  text.
+- **More green.**
+  - Owner runs:
+    - Timeline 65/65 (`timeline01`);
+    - assessments 28/28;
+    - links 20/20;
+    - entities 34/34;
+    - Graph Projection 11/11;
+    - incident bundles 15/15 (`incidentbundles01`);
+    - Revisions 37/37 again after the boundary repair (`revisions02`).
+  - `lintgo04`, `lintbb02`, `fmt05`, `lintmd01`, and `git diff --check`.
+- **Transfer row under the incident-bundles owner run
+  (`incidentbundles01`).** Transaction 4.85 s, idle in transaction 0.59 s,
+  attempt 1, no bundle reads after Begin. Before XK the same run gave
+  6.4–6.7 s and 1.4–1.9 s.
+- **Exit measurement.** `tcr-s1144-check01` is running. It serves both the
+  XK exit criterion, defined under `make check` load, and the fresh
+  qualified root XL's estimate audit needs.
+- **Exit measurement, `tcr-s1144-check01`.** The transfer row met the XK
+  exit: transaction 4.81 s, idle in transaction 0.50 s, attempt 1, no
+  bundle reads after Begin. The gate failed 355/358:
+  - `harness.json_shape_check` and the generated-protocol row: generated
+    topology inputs were stale. The XK catalog rows and the
+    `transaction_row_approvals` edit were made without `make generate`.
+    This is an XK omission, repaired by regenerating.
+  - The Evidence custody and record transaction rows failed with
+    `evidence.source_state_exact`. This is an XF1 regression in test
+    fixtures, handled in S-1145.
+
+### S-1145 / F-1130 / E-1204 — XF1 follow-up: Evidence transaction tests pass a present, empty rewritten Blob member (Evidence)
+
+Recorded on 2026-11-21 before editing; identities verified unused. OPEN.
+
+- **Gap.** `TestEvidencePortableCustodyTransaction_Integration` and
+  `TestEvidencePortableRecordTransaction_Integration` set
+  `RewrittenObjectBlobs` to the source bundle. That bundle carries
+  `data/object_blobs.ndjson` with no bytes, which REQ-01-695 (XF1) now
+  rejects as `evidence.source_state_exact`. XF's validation never selected
+  these two rows; `tcr-s1144-check01` was the first gate after XF.
+- **Spec.** No change: the product rule is right and the fixtures are wrong.
+- **Change.** Those sites use `portableBlobRewriteFixture(t, nil)`, the
+  rule-following rewrite with no Blob rows, which leaves the member absent.
+- **Red.** `tcr-s1144-check01`: 8 custody variants and the record
+  reference variants report `evidence.source_state_exact`.
+- **Exit.** Both rows pass, and so does the Evidence owner.
+
+**S-1145 outcome (2026-11-21). DONE.**
+
+- The two transaction tests use `portableBlobRewriteFixture(t, nil)` at the
+  three sites that passed the source bundle as the rewrite.
+- **Green.**
+  - `tcr-s1145-green01`: the custody and record transaction rows, 3/3.
+  - `tcr-s1145-evidence01`: Evidence owner 40/40.
+- **Lesson.** XF selected rows by changed code, not by changed contract
+  consumers. Every test that constructs `RewrittenObjectBlobs` was a
+  consumer of the new rule.
+
+**S-1144 outcome (2026-11-21). DONE.**
+
+- **Exit met.** In `tcr-s1144-check01` the transfer row's transaction took
+  4.81 s against at most 6 s, with 0.50 s idle against at most 1.0 s, on
+  attempt 1. Before XK, under `check`, it was 6.59 s with 1.80 s idle.
+- **Repairs after `check01`.**
+  - `make generate` (`generate01`; `generate02` was a needless repeat after
+    reading the wrong summary file).
+  - `srcgenerated01` 5/5, `srcschema01` 3/3 and `srccatalog02` 2/2.
+  - `genrow01`: the generated-protocol row, 4/4.
+- **Residual.** `tcr-s1146-audit01` rejected `check01` as estimate-audit
+  input (`run_not_passed`, `source_digest_mismatch`). XL produces its own
+  qualified root.
+
+### S-1146 / F-1131 / E-1205 — XL1: Evidence-cleanup bundle row proves row legality at the preparation port and atomicity end to end (incident bundles, Evidence)
+
+Recorded on 2026-11-21 before editing; identities verified unused (the run
+ID `tcr-s1146-audit01` above was used once, before this record). OPEN.
+
+- **Gap.** `TestIncidentBundlesEvidenceBlobStagingCleanup_Integration`
+  (row `…z_evidence_cleanup_a3d619b413`, estimate 112 s) runs about 92
+  Evidence-specific import and export jobs:
+  - custody 9;
+  - Blob metadata 8;
+  - physical keys 16;
+  - Evidence typed 15;
+  - associations 2;
+  - Blob observations 28;
+  - export observations 14.
+
+  Most of those duplicate the preparation-level unit tests
+  (`TestEvidencePortable{Record,Blob,Custody}Admission_Unit`).
+- **Decision (maintainer, 2026-11-21).** Move the row cases down. Keep one
+  end-to-end import per distinct `invariant_id` as atomicity and cleanup
+  evidence.
+- **Plan.**
+  - Add every moved case not already asserted at the preparation port to
+    the Evidence unit tests. Database-side invariants
+    (`references_same_incident`, `object_metadata_agree`, custody
+    missing-Evidence) stay in the Evidence transaction tests.
+  - Keep one end-to-end case per invariant:
+    - Evidence: `row_shape_exact`, `custody_ordered`,
+      `custody_same_incident`, `lifecycle_legal`, `storage_reference_legal`,
+      `references_same_incident`, `source_identity_admitted`,
+      `envelope_type_scope`, `object_metadata_agree` and
+      `byte_size_digest_agree` (import and export);
+    - `actors.reference_complete`.
+  - The non-Evidence bundle reasons, the Records invariants and the limit
+    cases are unchanged.
+  - Build the staged-object janitor once per harness, and fold the 12
+    failure-state counts into one statement.
+- **Coverage proof.** Before and after, each kept `invariant_id` is asserted
+  with the same expected code. Each removed case maps to a named unit or
+  transaction assertion; the mapping is recorded in the outcome.
+- **Exit.** The row runs in under 35 s, and the incident-bundles and
+  Evidence owners pass.
+
+**S-1146 progress (2026-11-21).**
+
+- **Kept end to end, 12 cases, one per invariant.**
+
+  | Invariant | Kept case |
+  | --- | --- |
+  | `row_shape_exact` | custody, unknown member |
+  | `custody_ordered` | custody, lossy occurrence |
+  | `custody_same_incident` | custody, missing Evidence (apply time) |
+  | `actors.reference_complete` | custody, missing historical actor |
+  | `lifecycle_legal` | Blob, unknown state |
+  | `storage_reference_legal` | Blob, archive storage key |
+  | `references_same_incident` | record, missing collector Party (apply time) |
+  | `source_identity_admitted` | record, nil identity |
+  | `envelope_type_scope` | record, other incident |
+  | `object_metadata_agree` | association, missing Blob |
+  | `byte_size_digest_agree` (import) | Blob, both sizes disagree with the bytes |
+  | `byte_size_digest_agree` (export) | expected digest disagrees |
+
+  The bundle-level reasons, the Records invariants, the limits and the
+  isolated-server cases are unchanged.
+- **Removed cases, and where each is now asserted.**
+  - **Custody, 5.** Missing note, metadata array and metadata NUL, unknown
+    event, other incident: `TestEvidencePortableCustodyAdmission_Unit`
+    (field-delete loop, the NUL-metadata cases, unknown event, foreign
+    incident).
+  - **Blob metadata, 7.**
+    - Missing hint, unknown member, padded hint, mistyped observed type,
+      lossy expiry, null finalization:
+      `TestEvidencePortableBlobAdmission_Unit` (delete and type loops,
+      extra, trimmed hint, timestamp loop, the lifecycle table).
+    - Finalized row with a terminal reason: **added** to the lifecycle
+      table.
+  - **Physical keys, 15:** **added**, the full four-state × four-value
+    matrix in the Blob admission unit test.
+  - **Evidence record, 12.**
+    - Covered by `TestEvidencePortableRecordAdmission_Unit`: missing
+      owner and title (delete loop), unknown field, `extra_user_id`, NUL
+      hash, padded text, lossy timestamp, unknown lifecycle, logical object
+      mismatch, and attribution of an unknown owner.
+    - Numeric title: **added**.
+    - Missing source Party: `TestEvidencePortableRecordTransaction_Integration`
+      (the Party reference matrix).
+    - Missing historical owner: covered by the kept custody actor case,
+      which has the same family and invariant.
+  - **Association, quarantined bridge, 1:**
+    `TestEvidencePortableRecordTransaction_Integration`, the bridge
+    lifecycle × Blob-state matrix.
+  - **Import observations, 27: added** to the Blob admission unit test.
+    They run against a finalized row and its member bytes, all expecting
+    `byte_size_digest_agree`.
+  - **Export observations, 13, plus the deduplicating export: added** as
+    `TestEvidencePortableBlobExportMetadata_Integration`. It covers both
+    finalized states, all seven disagreements, and an agreeing pair that
+    exports one member. Row:
+    `module.evidence.integration.blob_export_refuses_finalized_metadata_that_does_dc95fdc9b7`.
+- **Harness changes.**
+  - `snapshotImportFailureState` runs one statement instead of 12.
+  - The janitor is still built per call. Caching it per harness would bind
+    its fatal sink to the first test's `t`, and after the cut the
+    construction cost is negligible.
+- **Timing.** `tcr-s1146-audit02` over `bundlerow02` observed 41.2 s of
+  runner time against 117.25 s planned. It was 112 s before. That misses
+  the < 35 s target: the remainder is bundle-level reasons and
+  isolated-server cases owned by incident bundles, which are not Evidence
+  row legality.
+- **Green.**
+  - `tcr-s1146-evidence01`: the four Evidence rows, 4/4.
+  - `bundlerow01` and `bundlerow02`: the bundle row.
+  - `lintgo02`, `fmt01` and `generate01`.
+- `tcr-s1146-incidentbundles01`: incident-bundles owner 15/15, 229 s wall
+  (307 s in `tcr-s1144-incidentbundles01`).
+
+**S-1146 outcome (2026-11-21). DONE, with one target missed.** The row
+moved from 112 s to a measured 41.2 s of runner time. The < 35 s target was
+missed, for the reason given above.
+
+### S-1147 / F-1132 / E-1206 — XL2: Network Flow saved-graph lifecycle restores frozen-reporting targets from one capture (test support, Network Flow)
+
+Recorded on 2026-11-21 before editing; identities verified unused. OPEN.
+
+- **Gap.** `module.networkflow.integration.saved_graph_lifecycle_v2`
+  (estimate 208 s) captures the same source backup once per fault:
+  - 8 times in `assertFrozenReportingRestoreFailures`;
+  - 5 times in `assertFrozenReportingInputCorruption`.
+
+  Each fault applies the same source deferral and then mutates only its own
+  restored target. The worker-fault suite shares the row but no state.
+- **Change.**
+  - `appsupport`: `Runtime.CaptureCurrent(t, source)` captures once;
+    `CurrentCapture.RestoreServer(t, options, probes...)` restores any
+    number of isolated targets. `CaptureRestoreServer` is their
+    composition, so its other callers are unchanged.
+  - Network Flow: the two fault suites share one capture, taken after the
+    deferral.
+  - `TestNetworkFlowGraphWorkerFaults_Integration` becomes its own row.
+- **Deviation from the plan.** The `ObserveJobs` notify lever is dropped if
+  the timing shows the scan wait is no longer material. The frozen suites
+  stay in the lifecycle test, because they consume its state; a separate
+  row would rebuild that state.
+- **Exit.** The largest resulting row runs under 90 s, and the Network
+  Flow owner passes.
+
+**S-1147 progress (2026-11-21).**
+
+- **Change.**
+  - `appsupport.Runtime.CaptureCurrent` and
+    `CurrentCapture.RestoreServer`; `CaptureRestoreServer` is now their
+    composition.
+  - `captureDeferredReportingSource` applies the source deferral once and
+    captures once for both fault suites (13 captures become 1).
+  - The fault targets observe their Jobs runner (`ObserveJobs`, chained)
+    and `Runner.Notify` the attempts each fault releases. Previously each
+    release waited up to the 5 s `RecoveryScan`.
+  - `TestNetworkFlowGraphWorkerFaults_Integration` and its row
+    `module.networkflow.integration.graph_worker_faults_at_every_boundary_leave_jobs_8c7b02b181`.
+- **Measured runner time for the lifecycle row alone.**
+
+  | Run | Change | Runner time |
+  | --- | --- | --- |
+  | before | worker faults included | about 200 s (`nfrows01`: 202 s wall for both rows) |
+  | `lifecycle01` | one capture | 140.8 s |
+  | `lifecycle02`, `lifecycle03` | parallel faults added | 143.2 s and 142.8 s; no gain |
+  | `lifecycle04` | sequential faults, runner hints | 72.8 s |
+
+  Parallel faults gained nothing because the Go unit's `GOMAXPROCS` equals
+  its CPU tokens, which is 1 for `postgres_heavy`; they were reverted. On
+  2026-11-21 the maintainer asked whether more CPU tokens could be used.
+  Answered: yes, through a dedicated multi-CPU profile, a TH profile-list
+  change. Deferred unless the hints proved insufficient, and they did not.
+- `fmt03` and `lintgo03` passed. `networkflow01` is running.
+- `tcr-s1147-networkflow01`: Network Flow owner 42/42.
+
+**S-1147 outcome (2026-11-21). DONE.** The lifecycle row's runner time fell
+from about 200 s to 72.8 s, under the 90 s target. The other
+`CaptureRestoreServer` callers (Recovery, reference data, Reporting) keep
+the same composition; the S-1148 gate covers them.
+
+### S-1148 / F-1133 / E-1207 — XL3: reviewed estimates and heavy-lane placement from a qualified `check` root (test families)
+
+Recorded on 2026-11-21 before editing; identities verified unused. OPEN.
+
+- **Gap.** Estimates are stale after XK, XL1 and XL2:
+  - the lifecycle row still declares 208 s;
+  - the worker-fault row has no estimate;
+  - D2 left `check` cohorts and `standard`-profile rows over their
+    expected bounds.
+- **Plan.**
+  - Run `make check`. It is the qualified root the advisory audit needs,
+    and it also verifies the XK/XL changes and the `appsupport` consumers.
+  - Run `explain-run DETAIL=estimates` over it.
+  - Set reviewed `estimated_work_ms` from observed runner time for every
+    flagged row.
+  - Move any row the heavy-lane threshold flags onto a heavy profile.
+- **Exit.**
+  - The audit reports no unreviewed drift.
+  - No heavy cohort exceeds the packing bound.
+  - The catalog and schema source checks pass.
+
+**S-1148 outcome (2026-11-21). DONE; the drift-free audit is confirmed on
+the XO root.**
+
+- **`tcr-s1148-check01`: `make check` 358/358, 1198 s.**
+  - Transfer row: transaction 4.99 s, idle 1.003 s, attempt 1. That is at
+    the 1.0 s bound, within one 100 ms recorder sample; `check01` gave
+    0.50 s.
+  - Under load, the Evidence-cleanup row took 95.8 s (41.2 s alone), the
+    lifecycle row 103.5 s (72.8 s alone) and the worker-fault row 45.9 s.
+- **Audit `tcr-s1148-audit01`.** Accepted: 223 units and 22 findings, three
+  over the packing bound, 13 drift and six heavy-lane candidates, all
+  reported per cohort. Per-row `duration_ms` comes from
+  `rows/<row_id>.json`.
+- **Change: 132 reviewed estimates.** Every row in a flagged cohort, plus
+  the two Network Flow rows, is set to its observed duration rounded up to
+  the next second (minimum 1 s). Examples:
+  - lifecycle row 208 s → 104 s;
+  - Evidence cleanup 112 s → 96 s;
+  - attack portability 63 s → 109 s;
+  - `current_workflows` → 227 s.
+- **Heavy lane.** Only rows that exceed the 120 s threshold by themselves
+  move:
+  - `module.imports.integration.current_workflows` (226.5 s);
+  - `module.reportcomposition.integration.preview_reporting_delegation_ecdd2bc64a`
+    (122.6 s).
+
+  The other rows in flagged cohorts run 2–67 s each. Moving whole cohorts
+  would serialize them behind the two-lane bound. The audit's heavy-lane
+  finding is per cohort, and this per-row reading is recorded as the
+  review. `renderer_installed_sandbox` (124.9 s) has no PostgreSQL fixture,
+  so it is not a heavy-lane candidate.
+- **Green.**
+  - `generate01`;
+  - source checks `catalog` 2/2, `schema` 3/3 and `generated` 5/5;
+  - `target-plan TARGET=check`: 362 units, no packing-bound rejection.
+- **Residuals.**
+  - The two timing targets above were met only when the rows ran alone;
+    under load they missed, so the reviewed estimates use the loaded
+    values.
+  - The audit's heavy-lane rule flags cohorts rather than rows. A TH
+    follow-up could make it per row.
+
+### S-1149 / F-1134 / E-1208 — XM: Timeline paint residuals, diagnosed before any fix (web measurement)
+
+Recorded on 2026-11-21 before editing; identities verified unused. OPEN.
+
+- **Gap.** The blank-row paint passes, with p95 at 123–131 ms against
+  150 ms. Its tail growth is unexplained: `client_apply` rose about 3 ms,
+  and the create body is delayed while a Timeline query is in flight.
+- **Hypotheses.**
+  - **H1.** The Vite backend proxy `Agent` has no keep-alive, so each
+    proxied request opens a new TLS 1.3 connection.
+  - **H2.** Nagle plus delayed ACK on the shared tunnel socket.
+- **Step 1, diagnostics only.** The diagnostic schema becomes
+  `cartulary.diagnostic.timeline_blank_row_main_thread.v2`. It records the
+  create resource's `nextHopProtocol`, protocol counts, and body-transfer
+  spikes split by Timeline queries in flight. The measurement is
+  non-gating.
+- **Step 2.** Fix only what the diagnostics confirm, keeping to the plan.
+  A Playwright dependency patch needs the maintainer's approval. If the
+  diagnostics refute both hypotheses, record that and re-plan.
+
+**S-1149 outcome (2026-11-21). DONE: diagnosed; both transport hypotheses
+refuted; no fix applied.**
+
+- **`tcr-s1149-paint01`, v2 diagnostics, unchanged transport.**
+  - Paint p50 89.8 ms, p95 126.6 ms (threshold 150 ms, 100 samples).
+  - All 100 creates used `h2`.
+  - Zero creates had a Timeline query in flight. S-1117 already removed
+    that condition, so the ~65% spike scenario no longer occurs.
+  - Body-transfer spikes: 4/100, the baseline.
+  - Create TTFB p50 20.5 ms, p95 56.4 ms.
+  - **H2 is refuted** as a current cause: its condition is absent.
+- **`tcr-s1149-paint02`, A/B with backend keep-alive.**
+  - TTFB p50 18.7 ms, p95 60.0 ms. Paint p50 89.8 ms, p95 131.4 ms.
+  - The difference is within run-to-run noise, so **H1 is refuted**.
+  - `vite.config.ts` was restored from its saved copy and confirmed with
+    `cmp`.
+- **Product lever not taken.** `projectAcceptedTimelineRow` makes one
+  linear pass over the grid's rows per commit. That is microseconds at the
+  measured grid size and cannot explain a ~3 ms `client_apply` rise.
+  Changing it without evidence would be a guess.
+- **Kept.** The non-gating v2 diagnostics: per-sample and aggregate
+  protocol, and body-transfer spikes split by Timeline queries in flight.
+- **No Playwright dependency patch.** Its premise was refuted, so no
+  approval was requested.
+- **Green.**
+  - `diagunit01` and `diagunit02`: 2/2.
+  - `linttypes02` (`linttypes01` failed on an unchecked index access in the
+    new assertion, which was fixed).
+  - `fmt01`.
+- **Residual.** The paint tail still passes with 19–23 ms of margin.
+  Further attribution needs per-sample `client_apply` against
+  long-animation-frame script time, not transport.
+
+### S-1150 / F-1135 / E-1209 — XN: classifier splits and an advisory static undeclared-code analyzer (web API classifiers, TH, `tools/go-analysis`)
+
+Recorded on 2026-11-21 before editing; identities verified unused. OPEN.
+
+- **Scope decision (maintainer, 2026-11-21).** "Advisory analyzer first."
+  - Error codes reach the HTTP writer as constants stored into
+    `httpapi.APIError.Code` through shared classifiers, interfaces and
+    central admission. So a per-operation SSA+VTA analysis
+    over-approximates, and a zero-finding gate with no allowlist would be
+    open-ended.
+  - This slice therefore:
+    - splits the three planned classifiers;
+    - adds a TH requirement;
+    - builds the analyzer as an advisory report (exit 0 with findings,
+      like the estimate audit);
+    - measures the finding count.
+
+    Gating is a follow-up decision.
+- **Plan.**
+  1. Per-operation classifiers for `importLookupAPIError`,
+     `visibleIncident` and `mutationFailureAPIError`, deleting branches
+     unreachable for that operation. No wire change.
+  2. TH owner text for the advisory analysis.
+  3. The analyzer in `tools/go-analysis`, with `golang.org/x/tools`
+     promoted to direct through `make bootstrap PART=go`. It runs as an
+     advisory target modelled on `go-gosec-audit`.
+- **Exit.**
+  - Owner runs pass for imports, Evidence and workbook.
+  - The analyzer runs and reports a measured count.
+  - A seeded undeclared emission is reported.
+
+**S-1150 outcome (2026-11-21). DONE, advisory as decided; gating is a
+maintainer follow-up.**
+
+- **Classifier splits.** No wire change.
+  - Imports: `importSessionLookupAPIError` serves the session and
+    unit-list reads, which never produce a missing unit.
+    `importUnitLookupAPIError` serves unit reads.
+  - Evidence: `visibleIncident` uses `evidenceVisibilityResult`. It admits
+    every member role, so it has no role-refusal arm.
+  - Workbook:
+    - `recordDeletedAPIError` and `unsupportedLifecycleActionAPIError`
+      serve the four call sites that pass a constant failure, and the
+      classifier's arms delegate to them;
+    - one `unsupportedLifecycleActionDetail` feeds both constructors;
+    - `TestDirectMutationResponsesMatchTheClassifier_Unit` proves parity.
+- **Spec (TH).**
+  - TH-HARNESS-REQ-867, an advisory static error-declaration audit, with
+    TH-HARNESS-AC-163;
+  - a `go-error-declaration-audit` target-table row (`helper_only`) and
+    input-table entries;
+  - a traceability row.
+- **Implementation.**
+  - `tools/go-analysis/errordeclaudit` builds an SSA program with a VTA
+    call graph.
+    - **Roots:** each owner's `map[string]http.HandlerFunc` binding.
+    - **Codes:** constants stored into `httpapi.APIError.Code` or passed
+      as the code of an `httpapi` error writer. Codes forwarded through
+      parameters are followed to a fixed point.
+    - **Declared codes:** read from
+      `internal/gen/openapioperations/catalog_gen.go`.
+  - A fixture module provides the proof.
+  - The report is `cartulary.harness_error_declaration_audit.v1`, with a
+    schema, an attachment and a shape validator
+    (`error-declaration-audit-report.mjs`).
+  - Script `go-error-declaration-audit.sh`: `GOPROXY=off`,
+    `-mod=readonly`, fixture proof first.
+  - Wiring: the task-surface target, recipe, help entry, observability
+    `required_targets`, and the work-graph operation and policy unit.
+  - `golang.org/x/tools` v0.51.0 became a direct requirement of
+    `tools/go-analysis` through `make bootstrap PART=go`
+    (`bootstrap01`). Only that `go.mod` changed; no checksum changed.
+- **Red.** In `errdeclred01`, forwarding was disabled by mutation. The
+  fixture proof reported 0 findings against the seeded one, and the target
+  failed. Restored with `cp`, confirmed with `cmp`.
+- **Green.**
+  - `errdecl02`: exit 0. 136 operations, 136 rooted, 0 unrooted, and
+    **224 findings across 91 operations**. The report validated.
+  - `generate03`; source checks `schema` 3/3 and `generated` 5/5; lint
+    `scripts` 2/2 and `shell` 4/4; `lintgo01`.
+  - `harness-contract SUITE=contract`: 13/13 (`harnesscontract01`).
+  - `workbook01`: the parity row.
+  - Owner-wide coverage for the three splits comes from XO's
+    `make check`.
+- **Measured baseline for the gating decision.**
+  - The leading codes are `authorization_denied` (29),
+    `incident_not_found` (23), `evidence_attach_rejected` (12),
+    `required_reference_pack_unavailable` (11) and `same_field_conflict`
+    (9).
+  - The leading sites are shared classifiers:
+    - workbook `mutationFailureAPIError` (22);
+    - imports `importAdmissionResult` (15);
+    - Reporting `internalAPIError` (11) and `reportingAdmissionResult` (9);
+    - Evidence `evidenceAdmissionResult` (9).
+  - Most findings are the over-approximation of shared classifiers that
+    the decision anticipated. Some may be real undeclared codes. Triage
+    per finding is the follow-up, and so is any gate.
+
+### S-1151 / F-1136 / E-1210 — XO: closure gate, evidence re-run and handoff (verification; tracker)
+
+Recorded on 2026-11-21 before running; identities verified unused. OPEN.
+
+- **Gate.** Each run has its reason, as AGENTS.md requires.
+
+  | Run | Reason |
+  | --- | --- |
+  | `make check` | Phases 1–5 touched backend, harness and migration lineage. Its root also confirms the S-1148 estimates. |
+  | `make browser-e2e`, suites `functional`, `stateful`, `accessibility` and `visual` | Not run since the redaction rework, and XJ changed web copy. The visual suite updates no golden; a diff stops and asks. |
+  | `make source-check CHECK=catalog` | XN added a row. |
+  | `make lint`, checks `types`, `backend-boundary`, `frontend-boundary` and `protocol` | Code and contracts changed since their last runs. |
+  | `make openapi-compatibility-check` | XF2 and XI changed contracts. |
+  | `make agent-finalize` | XB changed the generated-refresh path finalization uses, and XG regenerated the catalog. |
+
+- **Reused, on compatible source.**
+  - `harness-contract SUITE=contract`: `tcr-s1150-harnesscontract01`;
+  - source checks: `tcr-s1150-srcschema` and `tcr-s1150-srcgenerated`;
+  - lint: `tcr-s1150-lintgo01`, `lintscripts01` and `lintshell01`.
+- **Not run.** `release-check` and the performance, release and
+  publication evidence, by the maintainer's earlier decision.
+
+**S-1151 outcome and workstream closure (E-1210, 2026-11-21). DONE. One
+action awaits the maintainer: XG5.**
+
+- **Gate results, all on the final source.**
+
+  | Run | Result |
+  | --- | --- |
+  | `tcr-s1151-check01`: `make check` | 362/362, 1298 s |
+  | `tcr-s1151-e2efunctional01` | 31/31 |
+  | `tcr-s1151-e2estateful01` | 22/22 |
+  | `tcr-s1151-e2ea11y01` | 17/17 |
+  | `tcr-s1151-e2evisual01` | 20/20 |
+  | `tcr-s1151-srccatalog01` | 2/2 |
+  | `tcr-s1151-linttypes` | 2/2 |
+  | `tcr-s1151-lintbackend-boundary` | 5/5 |
+  | `tcr-s1151-lintfrontend-boundary` | 2/2 |
+  | `tcr-s1151-lintprotocol` | 4/4 |
+  | `tcr-s1151-openapi01` | pass |
+  | `tcr-s1151-finalize01`: `agent-finalize` | pass; the tracked diff was unchanged |
+  | Reused: `harness-contract`, source checks `schema` and `generated`, and lint `go`, `scripts` and `shell` (from S-1150) | pass |
+
+  - In `check01` the contract evidence showed `undeclared_error_code`,
+    `server_fatal` and `security_mismatch` all at 0. Neither
+    `operation_cancellation_grace_exhausted` nor
+    `indeterminate_database_commit` appears in the root.
+  - Error-code coverage: 731 of 1313 declared codes exercised; 0
+    undeclared exercised.
+  - The visual suite updated no golden. The only modified golden is
+    `auth-service-unavailable`, approved in XJ.
+- **Outcomes by workstream.**
+  - **XA.** The tracker header is current.
+  - **XB.** `make generate` is transactional and its outputs closed.
+  - **XC.** Schema-ID rule; a fail-closed packing bound; the advisory
+    estimate audit (REQ-866).
+  - **XD.** Host admission charges every registry resource, including
+    `postgres_heavy`.
+  - **XE.** Jobs never waits behind open handler transactions;
+    `AwaitCommit` honours the policy.
+  - **XF.**
+    - An empty rewrite stages no member.
+    - Upload keys are validated in order, and `createObjectBlobSlot`
+      declares its 500.
+    - Migration 62 adds the failed-Blob CHECK.
+    - S-1145 fixed two test fixtures that XF1 left behind.
+  - **XG.** The v5 migration rebaseline: 29 owner files with the
+    equivalence proven. XG5 is pending.
+  - **XH.** The lz4 admission probe.
+  - **XI.** NF details are non-null with closed vocabularies; reason
+    codes are reconciled to the registry; spec-only `owner_error`.
+  - **XJ.** Incident-import copy and the capacity-refusal copy.
+  - **XK.** The import transaction is set-based. Transfer row under
+    `check`:
+    - before XK: 6.59 s, with 1.80 s idle;
+    - after XK: 4.81–4.99 s, with 0.40–1.00 s idle, on attempt 1.
+  - **XL.**
+    - XL1: the Evidence-cleanup row moved from 112 s to 41 s alone and 96
+      s under load.
+    - XL2: the saved-graph lifecycle moved from about 200 s to 73 s alone
+      and 104 s under load, with the worker-fault suite split out.
+    - XL3: 132 reviewed estimates and two heavy-lane moves.
+  - **XM.** Paint diagnosed with v2 diagnostics. Both transport hypotheses
+    were refuted, so no fix was applied.
+  - **XN.** Three classifier splits, and the advisory
+    `go-error-declaration-audit` (REQ-867): 224 findings across 91
+    operations.
+- **Wire changes, all in the unreleased 2.0.0.**
+  - `createObjectBlobSlot` gains `500 object_store_invalid_request`.
+  - NF error details are populated with closed vocabularies.
+  - No other wire change: the classifier splits and the XK set-based
+    work are internal.
+- **DDL.** Migration 62 was folded into the v5 lineage
+  (`cartulary.prod_ddl_rebaseline.v5`, versions 1..29), as authorized
+  on 2026-11-21.
+- **Harness schema IDs.**
+  - From XC: `harness_work_graph_owner.v9`, `test_family_manifest.v14`,
+    `postgres_fixture_policy_registry.v7` and
+    `harness_estimate_audit.v1`.
+  - From XD: the host-admission, resident-allocation,
+    `harness_execution_index.v6` and `harness_critical_path.v4` schemas.
+  - From XN: `harness_error_declaration_audit.v1`.
+  - From XM, diagnostic only:
+    `cartulary.diagnostic.timeline_blank_row_main_thread.v2`.
+- **Residuals.**
+  1. **XG5, the developer-environment reset.** Destructive: run
+     `object-store-reset`, then `db-reset`. It awaits explicit maintainer
+     confirmation, and local developer databases stay on the v4 lineage
+     until it runs.
+  2. **Estimate audit on the final root (`tcr-s1151-audit01`): 13
+     findings, against 22 before XL3.**
+     - Two heavy cohorts (reference data, Network Flow) were packed within
+       300 s by estimate but ran 352 s and 381 s under load. Both stay
+       well under the 600 s unit timeout.
+     - Five rows show new drift.
+     - The heavy-lane flags are cohort-level, reviewed per row in S-1148.
+     - Recommendation: give heavy cohorts packing headroom below the
+       bound, instead of chasing per-run variance.
+  3. **Timing targets met only alone.**
+     - Evidence cleanup: < 35 s was missed (41 s alone).
+     - Saved-graph lifecycle: < 90 s was met alone (73 s) but not under
+       load (104 s).
+  4. **XN gating is a maintainer decision.** It needs per-finding triage
+     of the 224 findings first; the leading sites are shared admission
+     and failure classifiers.
+  5. **Carried from XG and XI.**
+     - The `production_ddl_v3_recurrence` row names were not renamed.
+     - `errors.v1.json` still scopes the NF import-unit codes as `route`.
+     - The pre-generation-3 admission state directory
+       `/tmp/cartulary-host-admission-<uid>` is left in place.
+  6. **XM.** The paint tail passes with 19–23 ms of margin. Further
+     attribution needs `client_apply` against long-animation-frame script
+     time.
+- **Not run.** `release-check` and the performance, release and
+  publication evidence, by the maintainer's decision.
+- **Process deviations,** recorded in their slices:
+  - XK's production code preceded its reds;
+  - one premature rerun of a failed `make format` (S-1144);
+  - one needless `generate` repeat (S-1144);
+  - S-1145, the missed consumer selection in XF.
+
+**XG5, developer-environment reset (2026-11-21).** The maintainer confirmed
+"Run the reset now" after the closure. The order is
+`CARTULARY_DESTRUCTIVE_CONFIRM=object-store-reset make object-store-reset`,
+then `CARTULARY_DESTRUCTIVE_CONFIRM=db-reset make db-reset`. Results follow.
+- **Result: not executed; nothing was deleted.**
+  `tcr-s1151-objreset01` failed at its first step,
+  `docker compose up -d seaweedfs-s3`. Compose interpolation needs
+  `CARTULARY_TLS_DIR`, `SEAWEEDFS_S3_ACCESS_KEY_ID` and
+  `SEAWEEDFS_S3_SECRET_ACCESS_KEY`, which the operator's own terminal
+  provides and this session does not have. Credentials are never invented
+  or requested in chat.
+  `db-reset` was not attempted, because it must follow the object-store
+  reset and would fail the same way.
+  XG5 therefore stays with the maintainer: run the two commands in the
+  configured dev terminal.

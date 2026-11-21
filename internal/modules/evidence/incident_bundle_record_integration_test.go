@@ -56,7 +56,7 @@ func TestEvidencePortableRecordTransaction_Integration(t *testing.T) {
 		}
 		attribution := &evidencePortableAttributions{local: actor}
 		input.Attributions = attribution
-		input.RewrittenObjectBlobs = bundle
+		input.RewrittenObjectBlobs = portableBlobRewriteFixture(t, nil)
 		return prepared, input, attribution
 	}
 	prepareAssociation := func(t testing.TB, rows []map[string]any, blobs ...map[string]any) (sourceport.Prepared, sourceport.ImportContext, *evidencePortableAttributions) {

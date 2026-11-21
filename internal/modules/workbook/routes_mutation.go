@@ -80,7 +80,7 @@ func (s *service) handlePatch(w http.ResponseWriter, r *http.Request) {
 		// REQ-01-705: a soft-deleted record is classified before its type, so a
 		// deleted record of a type without a patch owner must be restored first.
 		if target.LifecycleState == RecordLifecycleDeleted {
-			writeAPIError(w, r, mutationFailureAPIError(RecordDeletedFailure()))
+			writeAPIError(w, r, recordDeletedAPIError())
 			return
 		}
 		writeAPIError(w, r, httpapi.NotFound("incident_not_found"))

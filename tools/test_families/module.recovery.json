@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v13",
+  "schema_id": "cartulary.test_family_manifest.v14",
   "owner_id": "module.recovery",
   "rows": [
     {
@@ -157,7 +157,7 @@
         ]
       },
       "evidence_class": "integration",
-      "estimated_work_ms": 143000,
+      "estimated_work_ms": 188000,
       "runtime_profile_id": "default",
       "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
@@ -247,7 +247,7 @@
         ]
       },
       "evidence_class": "integration",
-      "estimated_work_ms": 19000,
+      "estimated_work_ms": 27000,
       "runtime_profile_id": "default",
       "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
@@ -340,7 +340,7 @@
         ]
       },
       "evidence_class": "integration",
-      "estimated_work_ms": 21000,
+      "estimated_work_ms": 15000,
       "runtime_profile_id": "default",
       "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
@@ -428,6 +428,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 17000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -548,6 +549,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 5000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -696,7 +698,7 @@
         ]
       },
       "evidence_class": "integration",
-      "estimated_work_ms": 43000,
+      "estimated_work_ms": 57000,
       "runtime_profile_id": "default",
       "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
@@ -725,7 +727,7 @@
         ]
       },
       "evidence_class": "integration",
-      "estimated_work_ms": 13000,
+      "estimated_work_ms": 15000,
       "runtime_profile_id": "default",
       "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
@@ -969,6 +971,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 30000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",

@@ -381,9 +381,6 @@ func tableMutationError(err error, tableID string) *httpapi.APIError {
 		apiErr.Details["retry_action"] = "correct_request"
 		return apiErr
 	}
-	if errors.Is(err, errTableNameExhausted) {
-		return networkFlowAPIError(http.StatusConflict, "network_flow_table_name_exhausted", "display_name", "suffix_space_exhausted")
-	}
 	return semanticHTTPError(tableReadFailure(err, tableID))
 }
 

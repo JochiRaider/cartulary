@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { notAppliedText, stillUnconfirmedText } from "../shared/publicError";
 import { deferred } from "../testing/fetchMockTestSupport";
 import {
   importActorID,
@@ -269,6 +270,52 @@ describe("incident import lifecycle", () => {
       );
       if (retirement !== "navigation")
         expect(controller.getSnapshot().selectedFile).toBeNull();
+    }
+  });
+  // Core 03 REQ-03-086a: a refused replay leaves the earlier outcome unknown,
+  // while a refused first attempt was not applied.
+  it("words a refused replay and a refused first cancellation by their cause", async () => {
+    const { controller } = setup({
+      admit: vi.fn<IncidentImportPorts["admit"]>().mockResolvedValue({
+        kind: "uncertain",
+        problem: "temporarily_unavailable",
+      }),
+    });
+    controller.submit();
+    await tick();
+    expect(controller.getSnapshot().admission).toMatchObject({
+      kind: "uncertain",
+      problem: "temporarily_unavailable",
+    });
+    expect(controller.getSnapshot().announcement.text).toBe(
+      stillUnconfirmedText(),
+    );
+    for (const [outcome, text] of [
+      [
+        { kind: "rejected", problem: "temporarily_unavailable" },
+        notAppliedText(),
+      ],
+      [
+        { kind: "uncertain", problem: "temporarily_unavailable" },
+        stillUnconfirmedText(),
+      ],
+    ] as const) {
+      const accepted = setup({
+        cancel: vi
+          .fn<IncidentImportPorts["cancel"]>()
+          .mockResolvedValue(outcome),
+      }).controller;
+      accepted.submit();
+      await tick();
+      accepted.cancel();
+      await tick();
+      expect(
+        accepted.getSnapshot().jobs[importJobID]?.cancellation,
+      ).toMatchObject({
+        kind: outcome.kind,
+        problem: "temporarily_unavailable",
+      });
+      expect(accepted.getSnapshot().announcement.text).toBe(text);
     }
   });
   it("observes cancellation uncertainty and reuses its exact id only while cancellation remains allowed", async () => {

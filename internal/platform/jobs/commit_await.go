@@ -12,8 +12,24 @@ import (
 // bounded by the attempt-operation timeout, which bounds attempt persistence
 // (Core 01 Jobs execution policy). A caller whose context is never cancelled,
 // such as a coordinator that already detached the commit, keeps its own bound.
+//
+// The bound is the attempt's own policy: the runner places its
+// attempt-operation timeout on the attempt context, so a harness-injected
+// policy bounds the wait as it bounds every other attempt operation.
 func AwaitCommit(ctx context.Context, commit func(context.Context) error) error {
-	return awaitCommit(ctx, ProductionRuntimePolicy().AttemptOperationTimeout, commit)
+	bound := ProductionRuntimePolicy().AttemptOperationTimeout
+	if attempt, ok := ctx.Value(attemptOperationTimeoutKey{}).(time.Duration); ok && attempt > 0 {
+		bound = attempt
+	}
+	return awaitCommit(ctx, bound, commit)
+}
+
+type attemptOperationTimeoutKey struct{}
+
+// withAttemptOperationTimeout carries the runner's attempt-operation timeout to
+// owner code running under the attempt context.
+func withAttemptOperationTimeout(ctx context.Context, timeout time.Duration) context.Context {
+	return context.WithValue(ctx, attemptOperationTimeoutKey{}, timeout)
 }
 
 func awaitCommit(ctx context.Context, bound time.Duration, commit func(context.Context) error) error {

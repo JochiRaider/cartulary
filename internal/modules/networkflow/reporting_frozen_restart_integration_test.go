@@ -10,12 +10,35 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/server"
 	"github.com/JochiRaider/cartulary/internal/modules/reporting"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+// observeTargetRunner records the restored target's Jobs runner, chaining any
+// earlier observer, so a fault can hint released attempts to it.
+func observeTargetRunner(options *server.Options, runner **jobs.Runner) {
+	previous := options.ObserveJobs
+	options.ObserveJobs = func(manager *jobs.Manager, transactions *jobs.TransactionService, observed *jobs.Runner, pool *pgxpool.Pool) {
+		if previous != nil {
+			previous(manager, transactions, observed, pool)
+		}
+		*runner = observed
+	}
+}
+
+// notifyReleasedJobs hints attempts made due by a committed update, so the
+// worker claims them without waiting for its next durable scan. The scan
+// remains authoritative; the hint only removes idle waiting.
+func notifyReleasedJobs(runner *jobs.Runner, ids ...uuid.UUID) {
+	for _, id := range ids {
+		runner.Notify(id)
+	}
+}
 
 // Extends the real saved-graph lifecycle scenario. The renderer remains an
 // explicit protocol fixture; this establishes admission, recovery and execution
@@ -156,22 +179,32 @@ func retainedReportingReceiptSnapshot(t testing.TB, h *appsupport.ServerHarness,
 	return result
 }
 
-func assertFrozenReportingRestoreFailures(t *testing.T, runtime *appsupport.Runtime, source *appsupport.ServerHarness, ids ...uuid.UUID) {
+// captureDeferredReportingSource defers the retained Reporting attempts and
+// captures the source once. Every fault target restores from that capture and
+// then changes only itself.
+func captureDeferredReportingSource(t *testing.T, runtime *appsupport.Runtime, source *appsupport.ServerHarness, ids ...uuid.UUID) *appsupport.CurrentCapture {
+	t.Helper()
+	if _, err := source.Pool.Exec(t.Context(), `UPDATE jobs SET handler_next_attempt_at=clock_timestamp()+interval '2 hours' WHERE job_id=ANY($1::uuid[])`, ids); err != nil {
+		t.Fatal(err)
+	}
+	return runtime.CaptureCurrent(t, source)
+}
+
+func assertFrozenReportingRestoreFailures(t *testing.T, runtime *appsupport.Runtime, deferred *appsupport.CurrentCapture, ids ...uuid.UUID) {
 	t.Helper()
 	if len(ids) != 2 {
 		t.Fatal("fixture requires release and preview identities")
 	}
 	for _, fault := range []string{"authorization lost", "actor inactive", "release role lost", "incident closed", "revoked during release", "revoked during preview", "preparation changed during release", "inconsistent digest rejected"} {
 		t.Run(fault, func(t *testing.T) {
-			if _, err := source.Pool.Exec(t.Context(), `UPDATE jobs SET handler_next_attempt_at=clock_timestamp()+interval '2 hours' WHERE job_id=ANY($1::uuid[])`, ids); err != nil {
-				t.Fatal(err)
-			}
 			resume := make(chan struct{})
 			gate := &restoredReportingRuntime{started: make(chan struct{}, 1), resume: resume}
 			late := fault == "revoked during release" || fault == "revoked during preview" || fault == "preparation changed during release"
-			target := runtime.CaptureRestoreServer(t, source, appsupport.ServerOptions{
+			var runner *jobs.Runner
+			target := deferred.RestoreServer(t, appsupport.ServerOptions{
 				Prefix: "frozen-reporting-rejection", Env: map[string]string{"CARTULARY__NETWORK_FLOW_ACTIVITY__CLAIMED": "false"}, TestRouteMode: httptestx.TestRouteModeDisabled,
 				ConfigureRuntime: func(options *server.Options) {
+					observeTargetRunner(options, &runner)
 					options.Now = func() time.Time { return time.Now().UTC().Add(time.Hour) }
 					if late {
 						options.ReportingRuntime = gate
@@ -191,6 +224,7 @@ func assertFrozenReportingRestoreFailures(t *testing.T, runtime *appsupport.Runt
 				if _, err := target.Pool.Exec(t.Context(), `UPDATE jobs SET handler_next_attempt_at=NULL WHERE job_id=$1`, id); err != nil {
 					t.Fatal(err)
 				}
+				notifyReleasedJobs(runner, id)
 				select {
 				case <-gate.started:
 				case <-time.After(15 * time.Second):
@@ -245,6 +279,7 @@ func assertFrozenReportingRestoreFailures(t *testing.T, runtime *appsupport.Runt
 			if err := tx.Commit(ctx); err != nil {
 				t.Fatal(err)
 			}
+			notifyReleasedJobs(runner, ids...)
 			if late {
 				close(resume)
 			}
@@ -332,19 +367,18 @@ func assertFrozenReportingRestoreFailures(t *testing.T, runtime *appsupport.Runt
 
 // Corruption must satisfy the storage shape so this exercises the shipped
 // retained-input reader, rather than merely observing a rejected fixture UPDATE.
-func assertFrozenReportingInputCorruption(t *testing.T, runtime *appsupport.Runtime, source *appsupport.ServerHarness, ids ...uuid.UUID) {
+func assertFrozenReportingInputCorruption(t *testing.T, deferred *appsupport.CurrentCapture, ids ...uuid.UUID) {
 	t.Helper()
 	for _, fault := range []string{"graph bytes", "missing input", "admission digest", "missing snapshot input", "snapshot capture bytes"} {
 		t.Run("retained input "+fault, func(t *testing.T) {
-			if _, err := source.Pool.Exec(t.Context(), `UPDATE jobs SET handler_next_attempt_at=clock_timestamp()+interval '2 hours' WHERE job_id=ANY($1::uuid[])`, ids); err != nil {
-				t.Fatal(err)
-			}
 			resume := make(chan struct{})
 			close(resume)
 			renderer := &restoredReportingRuntime{started: make(chan struct{}, len(ids)), resume: resume}
-			target := runtime.CaptureRestoreServer(t, source, appsupport.ServerOptions{
+			var runner *jobs.Runner
+			target := deferred.RestoreServer(t, appsupport.ServerOptions{
 				Prefix: "frozen-reporting-corruption", Env: map[string]string{"CARTULARY__NETWORK_FLOW_ACTIVITY__CLAIMED": "false"}, TestRouteMode: httptestx.TestRouteModeDisabled,
 				ConfigureRuntime: func(options *server.Options) {
+					observeTargetRunner(options, &runner)
 					options.Now = func() time.Time { return time.Now().UTC().Add(time.Hour) }
 					options.ReportingRuntime = renderer
 				},
@@ -392,6 +426,7 @@ func assertFrozenReportingInputCorruption(t *testing.T, runtime *appsupport.Runt
 			if err := tx.Commit(ctx); err != nil {
 				t.Fatal(err)
 			}
+			notifyReleasedJobs(runner, ids...)
 			corrupted := retainedReportingInputSnapshot(t, target, observed...)
 			if corrupted == original {
 				t.Fatal("corruption fixture left input unchanged")

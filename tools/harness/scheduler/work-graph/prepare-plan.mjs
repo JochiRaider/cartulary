@@ -74,7 +74,7 @@ export function prepareRuntimePlan(argv) {
     ...(serviceSession.sessionFile ? { CARTULARY_TEST_SERVICES_SESSION_FILE: serviceSession.sessionFile } : {}) };
   mark("launch_bindings");
   const commandIDs = new Map(compiler.taskSurface.targets.map((target) => [target.name, target.command_id]));
-  const value = { schema_id: "cartulary.harness_runtime_plan.v6", graph, manifest, input_environment, browser_lane_limit: browserLaneLimit,
+  const value = { schema_id: "cartulary.harness_runtime_plan.v7", graph, manifest, input_environment, browser_lane_limit: browserLaneLimit,
     host_profile: { platform: os.platform(), architecture: os.arch(), kernel_release: os.release(), cpu_models: [...new Set(os.cpus().map((cpu) => cpu.model))].sort() },
     instrumentation_policy_bytes: readFileSync(path.join(root, "tools/harness_instrumentation_policy.json"), "utf8"),
     projections: Object.fromEntries(Object.entries(projections).map(([target, unit_ids]) => [target, { command_id: commandIDs.get(target) ?? entry.command_id, unit_ids }])),

@@ -18,6 +18,10 @@ func (testDeleteRestoreSource) SnapshotTx(context.Context, pgx.Tx, uuid.UUID) (m
 	return map[string]any{}, nil
 }
 
+func (testDeleteRestoreSource) SnapshotsTx(context.Context, pgx.Tx, []uuid.UUID) (map[uuid.UUID]map[string]any, error) {
+	return map[uuid.UUID]map[string]any{}, nil
+}
+
 func (testDeleteRestoreSource) UpdateSourceDeleteStateTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, time.Time, bool) error {
 	return nil
 }

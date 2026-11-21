@@ -33,7 +33,7 @@ func (s *executionSession) admission(value harnessadmission.Observation) {
 	if a.last == nil {
 		a.last = map[string]int{}
 	}
-	encoded, err := documentBytes("cartulary.harness_host_admission_record.v2", value)
+	encoded, err := documentBytes("cartulary.harness_host_admission_record.v3", value)
 	if err != nil || len(encoded) > s.limit("maximum_record_bytes") {
 		a.partial = true
 		a.omissions++

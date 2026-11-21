@@ -138,7 +138,7 @@ func Run(ctx context.Context, root, binary string, args, environment []string) (
 	}
 	defer runtime.ReleaseHandles()
 	nestedClean = false
-	admission := filepath.Join(os.TempDir(), fmt.Sprintf("cartulary-host-admission-%d", os.Getuid()))
+	admission := harnessadmission.DefaultRoot()
 	// Admission's own transaction creates and validates this root. Collection
 	// may start before the first transaction and waits for that existing owner.
 	if err = diagnostics.start(binary, runRoot, admission, runtime, plan, policy, env, accountingParent != ""); err != nil {

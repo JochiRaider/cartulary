@@ -182,6 +182,13 @@
       "required_marker": "^// Code generated .* DO NOT EDIT\\.$"
     },
     {
+      "path": "tools/harness/contract/generated/admission-vocabulary.mjs",
+      "allowed_extensions": [
+        ".mjs"
+      ],
+      "required_marker": "^// Code generated .* DO NOT EDIT\\.$"
+    },
+    {
       "path": "tools/harness/contract/generated/lifecycle-policy.mjs",
       "allowed_extensions": [
         ".mjs"
@@ -610,6 +617,13 @@
     },
     {
       "path": "internal/platform/maintenancequery/catalog_generated.go",
+      "allowed_extensions": [
+        ".go"
+      ],
+      "required_marker": "^// Code generated .* DO NOT EDIT\\.$"
+    },
+    {
+      "path": "internal/testutil/harnessadmission/vocabulary_generated.go",
       "allowed_extensions": [
         ".go"
       ],

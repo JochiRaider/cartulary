@@ -1,6 +1,6 @@
 {
-  "schema_id": "cartulary.postgres_fixture_policy_registry.v6",
-  "catalog_schema_id": "cartulary.test_family_manifest.v13",
+  "schema_id": "cartulary.postgres_fixture_policy_registry.v7",
+  "catalog_schema_id": "cartulary.test_family_manifest.v14",
   "capability_policies": [
     {
       "capability": "postgres_dedicated",
@@ -60,6 +60,7 @@
     "module.entities.support_integration.entity_alias_migration_31",
     "module.entities.support_integration.entity_incident_bundle_invariant_closure_92db429a94",
     "module.entities.support_integration.integration_record_envelope_head_schema_3b559686a9",
+    "module.evidence.integration.blob_export_refuses_finalized_metadata_that_does_dc95fdc9b7",
     "module.evidence.integration.blob_uniqueness_migration_round_trip_6de21f480c",
     "module.evidence.integration.portable_blob_transaction",
     "module.evidence.integration.portable_custody_transaction",
@@ -75,6 +76,7 @@
     "module.extensions.integration.job_progress_intent_persistence_characterization_a2b3c4d5e6",
     "module.graphprojection.storage.managed_service_assertions_for_result_v2_atomici_ff9eae0340",
     "module.graphprojection.storage.restore_publication",
+    "module.graphprojection.storage.result_publication_round_trips_are_bounded_regar_1cf2b676c3",
     "module.incidentbundles.integration.actor_export_combines_native_users_and_imported_f4f3ed2ecc",
     "module.incidentbundles.integration.incident_bundle_storage_reference_cutover_is_cle_7e4d8743ff",
     "module.incidents.store.incident_create_idempotency_scopes_by_actor_plus_b2c23d5e25",
@@ -105,6 +107,7 @@
     "module.parties.portability.party_portable_apply_preserves_exact_state_claim_7a428a3abd",
     "module.parties.references.party_reference_targets_must_be_active_parties_i_6ca84ebe53",
     "module.parties.store.party_create_reuses_exactly_one_active_same_inci_f7f18f1c5c",
+    "module.projections.rebuild.incident_rebuild_round_trips_are_bounded_by_page_8a10fd85db",
     "module.projections.rebuild.managed_service_assertions_for_atomic_catalog_a9d64032f0",
     "module.projections.rebuild.managed_service_assertions_for_restore_contract_f5f84e9227",
     "module.projections.source.party_projection_source_enumeration_is_determini_69ccf7df7c",

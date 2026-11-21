@@ -65,7 +65,7 @@ func TestEvidencePortableCustodyTransaction_Integration(t *testing.T) {
 		}
 		attrs := &evidencePortableAttributions{local: actor}
 		input.Attributions = attrs
-		input.RewrittenObjectBlobs = b
+		input.RewrittenObjectBlobs = portableBlobRewriteFixture(t, nil)
 		return p, input, attrs
 	}
 	for _, variant := range []string{"populated", "null", "empty text", "129 rows", "empty", "deleted evidence", "chronology"} {
@@ -340,7 +340,7 @@ func TestEvidencePortableCustodyTransaction_Integration(t *testing.T) {
 			t.Fatal(err)
 		}
 		input.Attributions = &evidencePortableAttributions{local: actor}
-		input.RewrittenObjectBlobs = b
+		input.RewrittenObjectBlobs = portableBlobRewriteFixture(t, nil)
 		if err := port.ApplyImportTx(ctx, tx, p, input); err != nil {
 			t.Fatal(err)
 		}

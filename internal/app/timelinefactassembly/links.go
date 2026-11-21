@@ -2,6 +2,7 @@ package timelinefactassembly
 
 import (
 	"context"
+	"slices"
 	"sort"
 
 	"github.com/google/uuid"
@@ -24,34 +25,50 @@ func (reader linkReader) LoadTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	incidentID uuid.UUID,
-	recordID uuid.UUID,
-) (collectionfacts.LinkFacts, error) {
-	facts, err := reader.source.LoadRecordTx(ctx, tx, incidentID, recordID)
+	recordIDs []uuid.UUID,
+) (map[uuid.UUID]collectionfacts.LinkFacts, error) {
+	facts, err := reader.source.LoadRecordsTx(ctx, tx, incidentID, recordIDs)
 	if err != nil {
-		return collectionfacts.LinkFacts{}, err
+		return nil, err
 	}
-	outbound := make([]linkfacts.RecordLinkFact, 0)
-	tags := make([]linkfacts.RecordTagFact, 0)
-	var replacement *linkfacts.RecordLinkFact
+	outbound := make(map[uuid.UUID][]linkfacts.RecordLinkFact)
+	replacements := make(map[uuid.UUID]linkfacts.RecordLinkFact)
 	for _, fact := range facts.RecordLinks {
-		if fact.SrcRecordID == recordID {
-			switch fact.LinkType {
-			case linkvocabulary.LinkTypeObservedOnHost, linkvocabulary.LinkTypeObservedAsIdentity, linkvocabulary.LinkTypeAttachedEvidence:
-				outbound = append(outbound, fact)
+		switch fact.LinkType {
+		case linkvocabulary.LinkTypeObservedOnHost, linkvocabulary.LinkTypeObservedAsIdentity, linkvocabulary.LinkTypeAttachedEvidence:
+			outbound[fact.SrcRecordID] = append(outbound[fact.SrcRecordID], fact)
+		case linkvocabulary.LinkTypeSupersedes:
+			replacement, found := replacements[fact.DstRecordID]
+			if !found || replacement.CreatedAt.Before(fact.CreatedAt) ||
+				(replacement.CreatedAt.Equal(fact.CreatedAt) && replacement.RecordLinkID.String() < fact.RecordLinkID.String()) {
+				replacements[fact.DstRecordID] = fact
 			}
 		}
-		if fact.DstRecordID == recordID && fact.LinkType == linkvocabulary.LinkTypeSupersedes &&
-			(replacement == nil || replacement.CreatedAt.Before(fact.CreatedAt) ||
-				(replacement.CreatedAt.Equal(fact.CreatedAt) && replacement.RecordLinkID.String() < fact.RecordLinkID.String())) {
-			copy := fact
-			replacement = &copy
-		}
 	}
+	tags := make(map[uuid.UUID][]linkfacts.RecordTagFact)
 	for _, fact := range facts.RecordTags {
-		if fact.RecordID == recordID {
-			tags = append(tags, fact)
-		}
+		tags[fact.RecordID] = append(tags[fact.RecordID], fact)
 	}
+	result := make(map[uuid.UUID]collectionfacts.LinkFacts, len(recordIDs))
+	for _, recordID := range recordIDs {
+		var replacement *linkfacts.RecordLinkFact
+		if fact, found := replacements[recordID]; found {
+			replacement = &fact
+		}
+		result[recordID] = recordLinkFacts(outbound[recordID], tags[recordID], replacement)
+	}
+	return result, nil
+}
+
+// recordLinkFacts maps one record's outbound collection links, tags and
+// newest replacing supersession to Timeline collection facts.
+func recordLinkFacts(
+	outbound []linkfacts.RecordLinkFact,
+	tags []linkfacts.RecordTagFact,
+	replacement *linkfacts.RecordLinkFact,
+) collectionfacts.LinkFacts {
+	outbound = slices.Clone(outbound)
+	tags = slices.Clone(tags)
 	sort.Slice(outbound, func(i, j int) bool {
 		if outbound[i].LinkType != outbound[j].LinkType {
 			return outbound[i].LinkType < outbound[j].LinkType
@@ -98,5 +115,5 @@ func (reader linkReader) LoadTx(
 			TagName:     fact.TagName,
 		}
 	}
-	return result, nil
+	return result
 }

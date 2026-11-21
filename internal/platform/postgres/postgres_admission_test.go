@@ -8,14 +8,17 @@ func TestAdmissionFactsRequireExactEngineAndSecurityPosture(t *testing.T) {
 		facts  admissionFacts
 		reason string
 	}{
-		{name: "exact baseline", facts: admissionFacts{sessionUser: "login", currentUser: "role", serverVersionNum: 180006, dataChecksums: "on"}},
-		{name: "18.4", facts: admissionFacts{sessionUser: "login", currentUser: "role", serverVersionNum: 180004, dataChecksums: "on"}, reason: ReasonServerVersionMismatch},
-		{name: "18.7", facts: admissionFacts{sessionUser: "login", currentUser: "role", serverVersionNum: 180007, dataChecksums: "on"}, reason: ReasonServerVersionMismatch},
-		{name: "16", facts: admissionFacts{sessionUser: "login", currentUser: "role", serverVersionNum: 160000, dataChecksums: "on"}, reason: ReasonServerVersionMismatch},
-		{name: "19", facts: admissionFacts{sessionUser: "login", currentUser: "role", serverVersionNum: 190000, dataChecksums: "on"}, reason: ReasonServerVersionMismatch},
-		{name: "checksums off", facts: admissionFacts{sessionUser: "login", currentUser: "role", serverVersionNum: 180006, dataChecksums: "off"}, reason: ReasonDataChecksumsDisabled},
-		{name: "wrong login", facts: admissionFacts{sessionUser: "other", currentUser: "role", serverVersionNum: 180006, dataChecksums: "on"}, reason: ReasonEffectiveRoleMismatch},
-		{name: "wrong role", facts: admissionFacts{sessionUser: "login", currentUser: "other", serverVersionNum: 180006, dataChecksums: "on"}, reason: ReasonEffectiveRoleMismatch},
+		{name: "exact baseline", facts: admissionFacts{sessionUser: "login", currentUser: "role", serverVersionNum: 180006, dataChecksums: "on", lz4: true}},
+		{name: "18.4", facts: admissionFacts{sessionUser: "login", currentUser: "role", serverVersionNum: 180004, dataChecksums: "on", lz4: true}, reason: ReasonServerVersionMismatch},
+		{name: "18.7", facts: admissionFacts{sessionUser: "login", currentUser: "role", serverVersionNum: 180007, dataChecksums: "on", lz4: true}, reason: ReasonServerVersionMismatch},
+		{name: "16", facts: admissionFacts{sessionUser: "login", currentUser: "role", serverVersionNum: 160000, dataChecksums: "on", lz4: true}, reason: ReasonServerVersionMismatch},
+		{name: "19", facts: admissionFacts{sessionUser: "login", currentUser: "role", serverVersionNum: 190000, dataChecksums: "on", lz4: true}, reason: ReasonServerVersionMismatch},
+		{name: "checksums off", facts: admissionFacts{sessionUser: "login", currentUser: "role", serverVersionNum: 180006, dataChecksums: "off", lz4: true}, reason: ReasonDataChecksumsDisabled},
+		// REQ-04-153: Network Flow row storage requires lz4 TOAST compression.
+		{name: "no lz4", facts: admissionFacts{sessionUser: "login", currentUser: "role", serverVersionNum: 180006, dataChecksums: "on", lz4: false}, reason: ReasonLZ4CompressionUnsupported},
+		{name: "checksums before lz4", facts: admissionFacts{sessionUser: "login", currentUser: "role", serverVersionNum: 180006, dataChecksums: "off", lz4: false}, reason: ReasonDataChecksumsDisabled},
+		{name: "wrong login", facts: admissionFacts{sessionUser: "other", currentUser: "role", serverVersionNum: 180006, dataChecksums: "on", lz4: true}, reason: ReasonEffectiveRoleMismatch},
+		{name: "wrong role", facts: admissionFacts{sessionUser: "login", currentUser: "other", serverVersionNum: 180006, dataChecksums: "on", lz4: true}, reason: ReasonEffectiveRoleMismatch},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

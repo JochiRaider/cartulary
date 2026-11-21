@@ -40,7 +40,7 @@ func (s *service) handleLinkedNoteCreate(w http.ResponseWriter, r *http.Request)
 		// linked-note receipt can exist for an unsupported type, so there is no
 		// replay to return first.
 		if target.LifecycleState == RecordLifecycleDeleted {
-			writeAPIError(w, r, mutationFailureAPIError(RecordDeletedFailure()))
+			writeAPIError(w, r, recordDeletedAPIError())
 			return
 		}
 		writeAPIError(w, r, httpapi.NotFound("incident_not_found"))
@@ -90,12 +90,12 @@ func (s *service) handleSupersede(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if target.LifecycleState == RecordLifecycleDeleted {
-		writeAPIError(w, r, mutationFailureAPIError(RecordDeletedFailure()))
+		writeAPIError(w, r, recordDeletedAPIError())
 		return
 	}
 	provider, registered := s.contributions.SupersedeFor(target.RecordType)
 	if !registered {
-		writeAPIError(w, r, mutationFailureAPIError(UnsupportedLifecycleActionFailure("superseded")))
+		writeAPIError(w, r, unsupportedLifecycleActionAPIError("superseded"))
 		return
 	}
 	operation, failure, err := provider.DecodeSupersede(r.Body)

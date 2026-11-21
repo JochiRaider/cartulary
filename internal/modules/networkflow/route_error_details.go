@@ -37,7 +37,6 @@ var routeErrorRetryActions = func() map[string]string {
 // emitting path does not know is JSON null (NF-REQ-175).
 var routeErrorDetailMembers = map[string][]string{
 	"network_flow_invalid_request":               {"field", "expected_contract", "actual_kind"},
-	"network_flow_table_name_exhausted":          {"base_display_name_digest", "base_display_name_digest_key_id", "attempted_suffix_min", "attempted_suffix_max"},
 	"network_flow_table_not_found":               {"network_flow_table_id", "table_status", "allowed_states"},
 	"network_flow_table_not_active":              {"network_flow_table_id", "table_status", "allowed_states"},
 	"network_flow_table_version_conflict":        {"network_flow_table_id", "base_table_version", "current_table_version"},
@@ -63,13 +62,46 @@ var routeErrorDetailMembers = map[string][]string{
 	"network_flow_external_enrichment_forbidden": {"requested_capability"},
 }
 
+// operationRequestSchemas is each operation's declared request schema from the
+// packaged route contract: NF NLSpec Table 21-B expected_contract for a
+// request that fails validation. A bodyless operation declares none.
+var operationRequestSchemas = func() map[string]string {
+	var contract struct {
+		Routes []struct {
+			RouteID         string  `json:"route_id"`
+			RequestSchemaID *string `json:"request_schema_id"`
+		} `json:"routes"`
+	}
+	if err := json.Unmarshal([]byte(contractnetworkflow.Index["contracts/network-flow/routes.v1.json"].JSON), &contract); err != nil {
+		panic(err)
+	}
+	schemas := make(map[string]string, len(contract.Routes))
+	for _, route := range contract.Routes {
+		if route.RequestSchemaID != nil {
+			schemas[route.RouteID] = *route.RequestSchemaID
+		}
+	}
+	return schemas
+}()
+
+// cursorScopes is NF NLSpec Table 21-B cursor_scope: the paged collection a
+// cursor belongs to, named by the route that presents it and never read from
+// the cursor itself.
+var cursorScopes = map[string]string{
+	"nf.tables.query":                   "table_rows",
+	"nf.rejected_rows.query":            "rejected_rows",
+	"nf.rows.query":                     "incident_rows",
+	"nf.graphs.contributors.query":      "graph_contributors",
+	"nf.graph_views.contributors.query": "saved_graph_contributors",
+}
+
 // completeRouteError is the single completion of every Network Flow route
 // error (NF-REQ-175): a route-local error gains its registry retry_action when
 // the emitting path chose none, and every Table 21-B member it lacks as JSON
 // null. An indicator-link error on this incident-authorized route that carries
 // no candidate value or safe digest carries resolved_candidate_value null.
 // Core-registered codes pass unchanged.
-func completeRouteError(apiErr *httpapi.APIError) *httpapi.APIError {
+func completeRouteError(apiErr *httpapi.APIError, operationID string) *httpapi.APIError {
 	if apiErr == nil {
 		return nil
 	}
@@ -84,6 +116,21 @@ func completeRouteError(apiErr *httpapi.APIError) *httpapi.APIError {
 	}
 	if _, chosen := completed.Details["retry_action"]; !chosen {
 		completed.Details["retry_action"] = action
+	}
+	// Members the route itself determines complete what the emitting path
+	// left unknown (NF-REQ-175).
+	if apiErr.Code == string(failureInvalidRequest) && completed.Details["actual_kind"] == nil && completed.Details["reason_code"] == "explicit_null" {
+		completed.Details["actual_kind"] = "null"
+	}
+	if apiErr.Code == string(failureInvalidRequest) && completed.Details["expected_contract"] == nil {
+		if schema, declared := operationRequestSchemas[operationID]; declared {
+			completed.Details["expected_contract"] = schema
+		}
+	}
+	if apiErr.Code == string(failureCursorInvalid) && completed.Details["cursor_scope"] == nil {
+		if scope, paged := cursorScopes[operationID]; paged {
+			completed.Details["cursor_scope"] = scope
+		}
 	}
 	for _, member := range routeErrorDetailMembers[apiErr.Code] {
 		if _, present := completed.Details[member]; !present {
@@ -120,7 +167,14 @@ func pathTableNotFound(apiErr *httpapi.APIError) *httpapi.APIError {
 // writeAPIError writes every Network Flow route error through
 // completeRouteError, keeping its retryable flag (Extensions EXT-REQ-219).
 func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *httpapi.APIError) {
-	apiErr = completeRouteError(apiErr)
+	operation, _ := httpapi.OperationMetadataFromContext(r.Context())
+	writeOperationError(w, r, apiErr, operation.OperationID)
+}
+
+// writeOperationError completes and writes a route error for the admitted
+// operation, whose contract determines expected_contract and cursor_scope.
+func writeOperationError(w http.ResponseWriter, r *http.Request, apiErr *httpapi.APIError, operationID string) {
+	apiErr = completeRouteError(apiErr, operationID)
 	if apiErr == nil {
 		httpapi.WriteAPIError(w, r, nil)
 		return

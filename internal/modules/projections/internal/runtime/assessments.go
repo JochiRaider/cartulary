@@ -76,17 +76,17 @@ func (s *Store) rebuildIncidentAssessmentsTxCore(
 			return err
 		}
 		for _, input := range page.Inputs {
-			if err := s.applyAssessmentMutationTx(
-				ctx,
-				tx,
-				assessmentprojection.ProjectionMutation{
-					Kind:     assessmentprojection.ProjectionMutationUpsert,
-					RecordID: input.RecordID,
-					Input:    input,
-				},
-			); err != nil {
+			mutation := assessmentprojection.ProjectionMutation{
+				Kind:     assessmentprojection.ProjectionMutationUpsert,
+				RecordID: input.RecordID,
+				Input:    input,
+			}
+			if err := mutation.Validate(); err != nil {
 				return err
 			}
+		}
+		if err := s.physical.UpsertAssessmentRowsTx(ctx, tx, page.Inputs); err != nil {
+			return err
 		}
 		if page.NextRecordID == nil {
 			break

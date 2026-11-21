@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { workspaceLayout } from "../../workspace_layout.generated.mjs";
+import { admissionResources, admissionStateGeneration } from "../contract/generated/admission-vocabulary.mjs";
 const nativeAdmission = path.resolve(import.meta.dirname, "../../..", workspaceLayout.toolbin, "cartulary-harness");
 
 const bootID = readFileSync("/proc/sys/kernel/random/boot_id", "utf8").trim();
@@ -21,7 +22,7 @@ export function processIdentityAlive(proof) {
   catch (error) { if (error.code === "ENOENT" || error.code === "ESRCH") return false; throw error; }
 }
 function conflict() { return Object.assign(new Error("host admission unavailable"), { failure_class: "infra", failure_reason: "resource_conflict" }); }
-export const hostAdmissionRoot = path.join(os.tmpdir(), `cartulary-host-admission-${process.getuid()}`);
+export const hostAdmissionRoot = path.join(os.tmpdir(), `cartulary-host-admission-g${admissionStateGeneration}-${process.getuid()}`);
 const delay = (milliseconds, signal) => new Promise((resolve, reject) => {
   signal?.throwIfAborted();
   const abort = () => { clearTimeout(timer); reject(signal.reason); };
@@ -48,7 +49,8 @@ async function transaction(root, request, timeoutMs = 5000) {
 // Executed entirely inside the short-lived native transaction child. A synchronous build or
 // fixture operation in the scheduler must never hold the mutex awaiting its
 // parent's event loop. The child publishes and exits without a parent handshake.
-const resources = ["browser_stack", "cpu", "io", "memory_mb", "object_store", "port_lane", "postgres", "process", "service_stack", "volume"];
+// TH-HARNESS-REQ-381: the generated vocabulary is every scheduler registry resource.
+const resources = admissionResources;
 const quantities = (value) => value && Object.keys(value).length === resources.length && resources.every((key) => Number.isSafeInteger(value[key]) && value[key] >= 0);
 export const hostClaims = (value = {}) => Object.fromEntries(resources.map((key) => [key, value[key] ?? 0]));
 export function inheritedHostLease(environment = process.env) {

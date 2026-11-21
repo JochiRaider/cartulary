@@ -10,12 +10,7 @@ import (
 	entitycontract "github.com/JochiRaider/cartulary/internal/modules/entities/projectioncontract"
 )
 
-func (store *Store) UpsertHostTx(
-	ctx context.Context,
-	tx pgx.Tx,
-	input entitycontract.HostProjectionInput,
-) error {
-	if _, err := tx.Exec(ctx, `
+const hostProjectionRowSQL = `
 INSERT INTO host_grid_projection (
     record_id, incident_id, row_version, display_name, hostname, host_state,
     linked_event_count, evidence_count, location, os_platform, business_owner,
@@ -36,13 +31,42 @@ SET incident_id = EXCLUDED.incident_id,
     criticality = EXCLUDED.criticality,
     containment_status = EXCLUDED.containment_status,
     edited_at = EXCLUDED.edited_at
-`, input.RecordID, input.IncidentID, input.RowVersion, input.DisplayName,
+`
+
+func hostProjectionRowArguments(input entitycontract.HostProjectionInput) ([]any, error) {
+	return []any{
+		input.RecordID, input.IncidentID, input.RowVersion, input.DisplayName,
 		input.Hostname, input.HostState, input.LinkedEventCount, input.EvidenceCount,
 		input.Location, input.OSPlatform, input.BusinessOwner, input.Criticality,
-		input.ContainmentStatus, input.EditedAt.UTC()); err != nil {
+		input.ContainmentStatus, input.EditedAt.UTC(),
+	}, nil
+}
+
+func (store *Store) UpsertHostTx(ctx context.Context, tx pgx.Tx, input entitycontract.HostProjectionInput) error {
+	args, err := hostProjectionRowArguments(input)
+	if err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, hostProjectionRowSQL, args...); err != nil {
 		return fmt.Errorf("upsert host projection row: %w", err)
 	}
 	return nil
+}
+
+// UpsertHostRowsTx writes a page of rows in one round trip.
+func (store *Store) UpsertHostRowsTx(ctx context.Context, tx pgx.Tx, inputs []entitycontract.HostProjectionInput) error {
+	if len(inputs) == 0 {
+		return nil
+	}
+	batch := &pgx.Batch{}
+	for _, input := range inputs {
+		args, err := hostProjectionRowArguments(input)
+		if err != nil {
+			return err
+		}
+		batch.Queue(hostProjectionRowSQL, args...)
+	}
+	return projectionRowsResult(tx.SendBatch(ctx, batch), len(inputs), "upsert host projection row")
 }
 
 func (store *Store) DeleteHostRowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {

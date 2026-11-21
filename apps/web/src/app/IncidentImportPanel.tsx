@@ -3,7 +3,7 @@ import {
   incidentImportTestId,
 } from "@cartulary/ui-contracts";
 import { useId } from "react";
-import { notAppliedText } from "../shared/publicError";
+import { notAppliedText, stillUnconfirmedText } from "../shared/publicError";
 import {
   importedIncidentTarget,
   terminalImportJob,
@@ -179,8 +179,9 @@ export function IncidentImportPanel({
         {admission.kind === "uncertain" ? (
           <>
             <p style={errorTextStyle}>
-              Admission is unconfirmed. The server may have accepted this
-              import.
+              {admission.problem === "temporarily_unavailable"
+                ? stillUnconfirmedText()
+                : "Admission is unconfirmed. The server may have accepted this import."}
             </p>
             <p style={metadataTextStyle}>
               Retry sends the same file and request. Keep this tab open to
@@ -346,14 +347,16 @@ export function IncidentImportPanel({
           ) : null}
           {entry.cancellation.kind === "uncertain" ? (
             <p style={errorTextStyle}>
-              Cancellation is unconfirmed. Check the job status; retry
-              cancellation only if it remains available.
+              {entry.cancellation.problem === "temporarily_unavailable"
+                ? stillUnconfirmedText()
+                : "Cancellation is unconfirmed. Check the job status; retry cancellation only if it remains available."}
             </p>
           ) : null}
           {entry.cancellation.kind === "rejected" ? (
             <p style={errorTextStyle}>
-              Cancellation was rejected. The job’s authoritative status
-              determines its outcome.
+              {entry.cancellation.problem === "temporarily_unavailable"
+                ? notAppliedText()
+                : "Cancellation was rejected. The job’s authoritative status determines its outcome."}
             </p>
           ) : null}
           {job.status === "cancel_requested" ? (

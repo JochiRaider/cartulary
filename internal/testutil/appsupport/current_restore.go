@@ -15,6 +15,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	recoverystate "github.com/JochiRaider/cartulary/internal/platform/recoverystate"
 	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
@@ -30,21 +31,43 @@ import (
 // Operator process behavior must be qualified separately.
 func (runtime *Runtime) CaptureRestoreServer(t testing.TB, source *ServerHarness, options ServerOptions, probes ...CurrentRestoreProbe) *ServerHarness {
 	t.Helper()
-	ctx := t.Context()
-	open := func(database *pgtest.TestDatabase) postgres.AdmittedPool {
-		t.Helper()
-		dsn, err := database.DSNForPurpose(postgres.PurposeRecovery)
-		if err != nil {
-			t.Fatal(err)
-		}
-		pool, err := postgres.Setup(ctx, postgres.Settings{BindingKind: "managed_service", DSN: dsn, Purpose: postgres.PurposeRecovery, ExpectedRole: "cartulary_recovery"})
-		if err != nil {
-			t.Fatal(err)
-		}
-		t.Cleanup(pool.Close)
-		return pool
+	return runtime.CaptureCurrent(t, source).RestoreServer(t, options, probes...)
+}
+
+// CurrentCapture is one published current backup of a source server. Any
+// number of fresh, isolated targets restore from it, so callers that need
+// several targets of the same source state capture once. Its source resources
+// live until the capturing test ends.
+type CurrentCapture struct {
+	runtime    *Runtime
+	sourcePool postgres.AdmittedPool
+	store      *recovery.Store
+	storage    recovery.BackupStorage
+	extensions *recovery.ExtensionBackupCatalog
+	state      *recoverystate.Catalog
+	backup     recovery.BackupSet
+	key        recovery.RecoveryEncryptionKey
+}
+
+func openRecoveryPool(t testing.TB, database *pgtest.TestDatabase) postgres.AdmittedPool {
+	t.Helper()
+	dsn, err := database.DSNForPurpose(postgres.PurposeRecovery)
+	if err != nil {
+		t.Fatal(err)
 	}
-	sourcePool := open(source.Database)
+	pool, err := postgres.Setup(t.Context(), postgres.Settings{BindingKind: "managed_service", DSN: dsn, Purpose: postgres.PurposeRecovery, ExpectedRole: "cartulary_recovery"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(pool.Close)
+	return pool
+}
+
+// CaptureCurrent captures and publishes the source server's current backup.
+func (runtime *Runtime) CaptureCurrent(t testing.TB, source *ServerHarness) *CurrentCapture {
+	t.Helper()
+	ctx := t.Context()
+	sourcePool := openRecoveryPool(t, source.Database)
 	state, err := recoveryassembly.CurrentRecoveryStateCatalog()
 	if err != nil {
 		t.Fatal(err)
@@ -102,10 +125,18 @@ func (runtime *Runtime) CaptureRestoreServer(t testing.TB, source *ServerHarness
 	if err != nil {
 		t.Fatal(err)
 	}
+	return &CurrentCapture{runtime: runtime, sourcePool: sourcePool, store: store, storage: storage, extensions: extensions, state: state, backup: backup, key: key}
+}
 
+// RestoreServer restores the capture into a fresh owned database and
+// object-store namespace and starts a server on it. Each probe first receives
+// its own fresh target of the same captured bytes.
+func (capture *CurrentCapture) RestoreServer(t testing.TB, options ServerOptions, probes ...CurrentRestoreProbe) *ServerHarness {
+	t.Helper()
+	runtime := capture.runtime
 	prepareTarget := func(selected ServerOptions) (ServerOptions, CurrentRestoreParams) {
 		targetDB := runtime.PrepareIsolatedDatabase(t, selected.Prefix+"-target")
-		targetPool := open(targetDB)
+		targetPool := openRecoveryPool(t, targetDB)
 		targetObjects, objectEnv := prepareApplicationObjectStore(t, selected.Prefix+"-target")
 		env := configtest.SetupTempRoots(t).Paths
 		env["CARTULARY__DEPLOYMENT_PROFILE"] = "on_prem"
@@ -143,10 +174,10 @@ func (runtime *Runtime) CaptureRestoreServer(t testing.TB, source *ServerHarness
 		}
 		target := recovery.RestoreTarget{Postgres: targetPool, ObjectStore: targetObjects, ReferencePacks: targetPacks, ProofScratch: recoverytest.ProofScratch(t), EvidenceObjects: evidence.NewRecoveryProvider(targetPool), Projections: core.RecoveryPorts().Rebuilder}
 		params := CurrentRestoreParams{
-			Source: sourcePool, Target: target,
-			Runner:  recovery.NewVersionedRestoreRunner(store, storage, extensions, state),
-			Catalog: recovery.NewBackupCatalog(store, storage, extensions, state),
-			Backup:  backup, Key: key, Bindings: bindings,
+			Source: capture.sourcePool, Target: target,
+			Runner:  recovery.NewVersionedRestoreRunner(capture.store, capture.storage, capture.extensions, capture.state),
+			Catalog: recovery.NewBackupCatalog(capture.store, capture.storage, capture.extensions, capture.state),
+			Backup:  capture.backup, Key: capture.key, Bindings: bindings,
 		}
 		selected.Database, selected.ObjectStore, selected.Env, selected.loaded = targetDB, targetObjects, env, &loaded
 		return selected, params
@@ -158,8 +189,7 @@ func (runtime *Runtime) CaptureRestoreServer(t testing.TB, source *ServerHarness
 		probe.Run(t, params)
 	}
 	options, params := prepareTarget(options)
-	_, err = RestoreCurrentBackup(ctx, params)
-	if err != nil {
+	if _, err := RestoreCurrentBackup(t.Context(), params); err != nil {
 		t.Fatalf("restore current backup: %v", err)
 	}
 	return runtime.StartServer(t, options)

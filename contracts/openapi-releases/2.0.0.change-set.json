@@ -7018,10 +7018,10 @@
       "rationale": "S-1101 (REQ-01-702): cancelJob declares 503 service_unavailable. service_unavailable, the admission gate's retryable refusal before publication, while lease ownership is uncertain, or once the process is fatal, is implied by every operation."
     },
     {
-      "fingerprint": "13ae5868248bb8e11a13a2f50a04a923202bad9ccffa43d61f0e886d29edab8c",
+      "fingerprint": "8fc9fa703560b0dc73dc470ba13031e0c857bcc9455dd131fb7bf029ca31f2cd",
       "classification": "additive",
       "owner_id": "module.evidence",
-      "rationale": "S-1101 (REQ-01-702): createObjectBlobSlot declares 500 internal_error. internal_error is implied by every operation (REQ-01-229)."
+      "rationale": "S-1101 (REQ-01-702) and S-1136 (REQ-01-246): createObjectBlobSlot declares 500 internal_error and object_store_invalid_request. internal_error is implied by every operation (REQ-01-229); object_store_invalid_request is a malformed generated storage key, which slot creation now rejects before persisting the slot or minting a capability."
     },
     {
       "fingerprint": "d7d4c1498e048f353d4a1237c685a678e68880705d24cc474786de63125f1761",

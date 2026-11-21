@@ -123,10 +123,14 @@ type SupportFacts struct {
 	ActiveTargetCount int
 }
 
+// EnvelopeReader returns the envelope of each requested record that has one,
+// with one read however many records are requested.
 type EnvelopeReader interface {
-	LoadAssessmentProjectionEnvelopeTx(context.Context, pgx.Tx, uuid.UUID) (Envelope, bool, error)
+	LoadAssessmentProjectionEnvelopesTx(context.Context, pgx.Tx, []uuid.UUID) (map[uuid.UUID]Envelope, error)
 }
 
+// SupportFactReader returns the support facts of every requested Assessment of
+// one incident with a fixed number of reads.
 type SupportFactReader interface {
-	LoadAssessmentProjectionSupportFactsTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID) (SupportFacts, error)
+	LoadAssessmentProjectionSupportFactsTx(context.Context, pgx.Tx, uuid.UUID, []uuid.UUID) (map[uuid.UUID]SupportFacts, error)
 }

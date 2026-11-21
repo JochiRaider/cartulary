@@ -16,7 +16,6 @@ import (
 // retry_action.
 var routeErrorRequiredDetails = map[string][]string{
 	"network_flow_invalid_request":                      {"field", "expected_contract", "actual_kind"},
-	"network_flow_table_name_exhausted":                 {"base_display_name_digest", "base_display_name_digest_key_id", "attempted_suffix_min", "attempted_suffix_max"},
 	"network_flow_table_not_found":                      {"network_flow_table_id", "table_status", "allowed_states"},
 	"network_flow_table_not_active":                     {"network_flow_table_id", "table_status", "allowed_states"},
 	"network_flow_table_version_conflict":               {"network_flow_table_id", "base_table_version", "current_table_version"},
@@ -82,9 +81,9 @@ func assertRouteErrorDetailsComplete(t *testing.T) {
 	emissions := []*httpapi.APIError{
 		semanticHTTPError(invalidNetworkFlowRequest("query", "unknown_member")),
 		semanticHTTPError(invalidNetworkFlowRequest("body", "variant_member_conflict")),
-		semanticHTTPError(invalidSort("sort", "unknown_field")),
-		semanticHTTPError(invalidLimit("limit", "above_maximum")),
-		semanticHTTPError(invalidLimitOverride("limits", "unknown_limit_key", "", 0, 0, 0)),
+		semanticHTTPError(invalidSortAt("unknown_field", nil, nil, nil)),
+		semanticHTTPError(invalidQueryLimit("above_maximum", nil, EffectiveLimits{MaxQueryLimit: 1000})),
+		semanticHTTPError(invalidLimitOverride("limits", "unknown_limit_key", "", nil, nil, nil)),
 		semanticHTTPError(invalidFilter("value", "duplicate_in_value")),
 		semanticHTTPError(cursorInvalid("expired")),
 		semanticHTTPError(invalidTableScope(tableScope{Mode: "selected_tables"}, "unknown_mode")),
@@ -107,7 +106,6 @@ func assertRouteErrorDetailsComplete(t *testing.T) {
 		graphViewMutationError(errGraphViewRetainedLimit),
 		graphViewMutationError(errGraphViewJobLimit),
 		graphViewMutationError(&invalidDisplayNameError{ReasonCode: "display_name_too_long", NormalizedLength: 65}),
-		tableMutationError(errTableNameExhausted, "nft_"+fixtureHex32()),
 		tableMutationError(&invalidDisplayNameError{ReasonCode: "empty_display_name"}, "nft_"+fixtureHex32()),
 		tableMutationError(&tableVersionConflictError{TableID: "nft_" + fixtureHex32(), BaseTableVersion: 1, CurrentTableVersion: 2}, "nft_"+fixtureHex32()),
 	}
@@ -132,10 +130,68 @@ func assertRouteErrorDetailsComplete(t *testing.T) {
 			}
 		})
 	}
-	t.Run("an explicit retry action is kept", func(t *testing.T) {
+	t.Run("a reason never changes its code's retry action", func(t *testing.T) {
 		details := write(t, semanticHTTPError(invalidTableScope(tableScope{Mode: "selected_tables"}, "selected_table_limit_exceeded")))["details"].(map[string]any)
-		if details["retry_action"] != "reduce_scope_or_limits" {
-			t.Fatalf("selected-table limit retry_action = %v", details["retry_action"])
+		if details["retry_action"] != registryActions["network_flow_invalid_table_scope"] {
+			t.Fatalf("selected-table limit retry_action = %v, want the registry's %q", details["retry_action"], registryActions["network_flow_invalid_table_scope"])
+		}
+	})
+	// NF-REQ-175: a member the emitting stage determined is never null.
+	operationWrite := func(t *testing.T, operationID string, apiErr *httpapi.APIError) map[string]any {
+		t.Helper()
+		recorder := httptest.NewRecorder()
+		writeOperationError(recorder, httptest.NewRequest(http.MethodPost, "/api/v1/incidents/x/network-flow/rows/query", nil), apiErr, operationID)
+		var envelope struct {
+			Error struct {
+				Details map[string]any `json:"details"`
+			} `json:"error"`
+		}
+		if err := json.Unmarshal(recorder.Body.Bytes(), &envelope); err != nil {
+			t.Fatal(err)
+		}
+		return envelope.Error.Details
+	}
+	t.Run("determined members are non-null", func(t *testing.T) {
+		index, field, direction := 1, "packets", "sideways"
+		sort := write(t, semanticHTTPError(invalidSortAt("invalid_direction", &index, &field, &direction)))["details"].(map[string]any)
+		if sort["sort_index"] != float64(1) || sort["field_key"] != "packets" || sort["direction"] != "sideways" {
+			t.Fatalf("invalid sort details = %v", sort)
+		}
+		if _, present := sort["field"]; present {
+			t.Fatalf("invalid sort carries a member outside Table 21-B: %v", sort)
+		}
+		zero := 0
+		limit := write(t, semanticHTTPError(invalidQueryLimit("below_minimum", &zero, EffectiveLimits{MaxQueryLimit: 500})))["details"].(map[string]any)
+		if limit["limit_key"] != "network_flow.max_query_limit" || limit["limit"] != float64(0) || limit["minimum"] != float64(1) || limit["maximum"] != float64(500) {
+			t.Fatalf("invalid limit details = %v", limit)
+		}
+		notInteger := write(t, semanticHTTPError(invalidQueryLimit("not_integer", nil, EffectiveLimits{MaxQueryLimit: 500})))["details"].(map[string]any)
+		if notInteger["limit"] != nil || notInteger["minimum"] != float64(1) {
+			t.Fatalf("non-integer limit details = %v", notInteger)
+		}
+		unknown := write(t, semanticHTTPError(invalidLimitOverride("max_widgets", "unknown_limit_key", "", nil, nil, nil)))["details"].(map[string]any)
+		for _, member := range []string{"limit_key", "limit", "minimum", "maximum"} {
+			if value, present := unknown[member]; !present || value != nil {
+				t.Fatalf("unknown override member %s = %v, want present null", member, value)
+			}
+		}
+		_, overrideErr := decodeLowerableGraphLimit(json.RawMessage(`0`), "max_vertices", 1, 100)
+		override := write(t, semanticHTTPError(overrideErr))["details"].(map[string]any)
+		if override["limit_key"] != "network_flow.max_graph_vertices" || override["limit"] != float64(0) || override["minimum"] != float64(1) || override["maximum"] != float64(100) {
+			t.Fatalf("override details = %v", override)
+		}
+		_, mismatch := decodePositiveInt(json.RawMessage(`"seven"`), "limit")
+		request := operationWrite(t, "nf.rows.query", semanticHTTPError(mismatch))
+		if request["actual_kind"] != "string" || request["expected_contract"] != "cartulary.network_flow.rows_query_request.v2" {
+			t.Fatalf("invalid request details = %v", request)
+		}
+		if bodyless := operationWrite(t, "nf.tables.list", semanticHTTPError(invalidNetworkFlowRequest("query", "explicit_null"))); bodyless["expected_contract"] != nil || bodyless["actual_kind"] != "null" {
+			t.Fatalf("bodyless invalid request details = %v", bodyless)
+		}
+		for operation, scope := range cursorScopes {
+			if cursor := operationWrite(t, operation, semanticHTTPError(cursorInvalid("expired"))); cursor["cursor_scope"] != scope {
+				t.Fatalf("%s cursor_scope = %v, want %s", operation, cursor["cursor_scope"], scope)
+			}
 		}
 	})
 	t.Run("the graph-view display name carries its bounds", func(t *testing.T) {

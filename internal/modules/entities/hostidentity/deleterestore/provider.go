@@ -21,14 +21,19 @@ func NewHostSource() HostSource {
 	return HostSource{}
 }
 
-func (HostSource) SnapshotTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (map[string]any, error) {
-	return deleterestorecontract.ScanSnapshot(tx.QueryRow(ctx, `
-SELECT jsonb_build_object('record', to_jsonb(r), 'source', to_jsonb(h))
+func (s HostSource) SnapshotTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (map[string]any, error) {
+	snapshots, err := s.SnapshotsTx(ctx, tx, []uuid.UUID{recordID})
+	return deleterestorecontract.SnapshotOf(snapshots, recordID, err)
+}
+
+func (HostSource) SnapshotsTx(ctx context.Context, tx pgx.Tx, recordIDs []uuid.UUID) (map[uuid.UUID]map[string]any, error) {
+	return deleterestorecontract.CollectSnapshots(tx.Query(ctx, `
+SELECT r.record_id, jsonb_build_object('record', to_jsonb(r), 'source', to_jsonb(h))
   FROM records r
   JOIN hosts h
     ON h.record_id = r.record_id
- WHERE r.record_id = $1
-`, recordID))
+ WHERE r.record_id = ANY($1)
+`, recordIDs))
 }
 
 func (HostSource) UpdateSourceDeleteStateTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, _ uuid.UUID, _ time.Time, _ bool) error {
@@ -72,14 +77,19 @@ func NewIdentitySource() IdentitySource {
 	return IdentitySource{}
 }
 
-func (IdentitySource) SnapshotTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (map[string]any, error) {
-	return deleterestorecontract.ScanSnapshot(tx.QueryRow(ctx, `
-SELECT jsonb_build_object('record', to_jsonb(r), 'source', to_jsonb(i))
+func (s IdentitySource) SnapshotTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (map[string]any, error) {
+	snapshots, err := s.SnapshotsTx(ctx, tx, []uuid.UUID{recordID})
+	return deleterestorecontract.SnapshotOf(snapshots, recordID, err)
+}
+
+func (IdentitySource) SnapshotsTx(ctx context.Context, tx pgx.Tx, recordIDs []uuid.UUID) (map[uuid.UUID]map[string]any, error) {
+	return deleterestorecontract.CollectSnapshots(tx.Query(ctx, `
+SELECT r.record_id, jsonb_build_object('record', to_jsonb(r), 'source', to_jsonb(i))
   FROM records r
   JOIN identities i
     ON i.record_id = r.record_id
- WHERE r.record_id = $1
-`, recordID))
+ WHERE r.record_id = ANY($1)
+`, recordIDs))
 }
 
 func (IdentitySource) UpdateSourceDeleteStateTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, _ uuid.UUID, _ time.Time, _ bool) error {

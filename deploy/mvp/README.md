@@ -55,7 +55,7 @@ Closure reads retained evidence and launches no tests; missing or incompatible
 evidence fails. See the [release handoff](../../docs/handoffs/remediation-release-implementation.md)
 for the exact candidate, claims and remaining review dispositions.
 
-The current fresh-install lineage is `cartulary.prod_ddl_rebaseline.v4` and the
+The current fresh-install lineage is `cartulary.prod_ddl_rebaseline.v5` and the
 current incident-bundle version is 7. Previous databases, backups and bundles
 remain artifacts for their matching releases. This release provides no converter,
 historical reader, downgrade or automatic reset. Preserve the old release and

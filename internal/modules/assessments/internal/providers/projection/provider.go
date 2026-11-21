@@ -44,17 +44,17 @@ func (s *Source) BuildProjectionMutationTx(
 	if !found || snapshot.DeletedAt != nil {
 		return workbookprojection.ProjectionMutation{Kind: workbookprojection.ProjectionMutationDelete, RecordID: recordID}, nil
 	}
-	input, found, err := s.projectionInputTx(ctx, tx, snapshot)
+	inputs, err := s.projectionInputsTx(ctx, tx, snapshot.IncidentID, []sourceSnapshot{snapshot})
 	if err != nil {
 		return workbookprojection.ProjectionMutation{}, err
 	}
-	if !found {
+	if len(inputs) == 0 {
 		return workbookprojection.ProjectionMutation{Kind: workbookprojection.ProjectionMutationDelete, RecordID: recordID}, nil
 	}
 	return workbookprojection.ProjectionMutation{
 		Kind:     workbookprojection.ProjectionMutationUpsert,
 		RecordID: recordID,
-		Input:    input,
+		Input:    inputs[0],
 	}, nil
 }
 
@@ -85,15 +85,9 @@ func (s *Source) ListProjectionInputsTx(
 	if hasMore {
 		snapshots = snapshots[:limit]
 	}
-	inputs := make([]workbookprojection.ProjectionInput, 0, len(snapshots))
-	for _, snapshot := range snapshots {
-		input, found, err := s.projectionInputTx(ctx, tx, snapshot)
-		if err != nil {
-			return workbookprojection.ProjectionInputPage{}, err
-		}
-		if found {
-			inputs = append(inputs, input)
-		}
+	inputs, err := s.projectionInputsTx(ctx, tx, incidentID, snapshots)
+	if err != nil {
+		return workbookprojection.ProjectionInputPage{}, err
 	}
 	var nextRecordID *uuid.UUID
 	if hasMore {
@@ -116,53 +110,66 @@ type sourceSnapshot struct {
 	DeletedAt       *time.Time
 }
 
-func (s *Source) projectionInputTx(
+// projectionInputsTx derives the rows of one incident's snapshots whose
+// envelope is a live Assessment in that incident, with one envelope read and
+// one support-fact read for the whole set.
+func (s *Source) projectionInputsTx(
 	ctx context.Context,
 	tx pgx.Tx,
-	snapshot sourceSnapshot,
-) (workbookprojection.ProjectionInput, bool, error) {
-	envelope, found, err := s.envelopes.LoadAssessmentProjectionEnvelopeTx(
-		ctx,
-		tx,
-		snapshot.RecordID,
-	)
+	incidentID uuid.UUID,
+	snapshots []sourceSnapshot,
+) ([]workbookprojection.ProjectionInput, error) {
+	recordIDs := make([]uuid.UUID, 0, len(snapshots))
+	for _, snapshot := range snapshots {
+		recordIDs = append(recordIDs, snapshot.RecordID)
+	}
+	envelopes, err := s.envelopes.LoadAssessmentProjectionEnvelopesTx(ctx, tx, recordIDs)
 	if err != nil {
-		return workbookprojection.ProjectionInput{}, false, err
+		return nil, err
 	}
-	if !found ||
-		envelope.DeletedAt != nil ||
-		envelope.RecordType != "assessment" ||
-		envelope.IncidentID != snapshot.IncidentID {
-		return workbookprojection.ProjectionInput{}, false, nil
+	live := make([]sourceSnapshot, 0, len(snapshots))
+	liveIDs := make([]uuid.UUID, 0, len(snapshots))
+	for _, snapshot := range snapshots {
+		envelope, found := envelopes[snapshot.RecordID]
+		if !found ||
+			envelope.DeletedAt != nil ||
+			envelope.RecordType != "assessment" ||
+			envelope.IncidentID != snapshot.IncidentID {
+			continue
+		}
+		live = append(live, snapshot)
+		liveIDs = append(liveIDs, snapshot.RecordID)
 	}
-	facts, err := s.support.LoadAssessmentProjectionSupportFactsTx(
-		ctx,
-		tx,
-		snapshot.IncidentID,
-		snapshot.RecordID,
-	)
+	if len(live) == 0 {
+		return []workbookprojection.ProjectionInput{}, nil
+	}
+	facts, err := s.support.LoadAssessmentProjectionSupportFactsTx(ctx, tx, incidentID, liveIDs)
 	if err != nil {
-		return workbookprojection.ProjectionInput{}, false, err
+		return nil, err
 	}
-	confidenceBand, _ := assessmentpolicy.ConfidenceBand(snapshot.ConfidenceScore)
-	input := workbookprojection.ProjectionInput{
-		RecordID:            snapshot.RecordID,
-		IncidentID:          snapshot.IncidentID,
-		RowVersion:          envelope.RowVersion,
-		SubjectRef:          snapshot.SubjectRef,
-		SubjectType:         snapshot.SubjectType,
-		AssessmentState:     snapshot.AssessmentState,
-		ConfidenceScore:     cloneInt(snapshot.ConfidenceScore),
-		ConfidenceBand:      confidenceBand,
-		Rationale:           snapshot.Rationale,
-		Assessor:            snapshot.Assessor,
-		AssessedAt:          snapshot.AssessedAt.UTC(),
-		SupportingLinkCount: facts.ActiveTargetCount,
+	inputs := make([]workbookprojection.ProjectionInput, 0, len(live))
+	for _, snapshot := range live {
+		confidenceBand, _ := assessmentpolicy.ConfidenceBand(snapshot.ConfidenceScore)
+		input := workbookprojection.ProjectionInput{
+			RecordID:            snapshot.RecordID,
+			IncidentID:          snapshot.IncidentID,
+			RowVersion:          envelopes[snapshot.RecordID].RowVersion,
+			SubjectRef:          snapshot.SubjectRef,
+			SubjectType:         snapshot.SubjectType,
+			AssessmentState:     snapshot.AssessmentState,
+			ConfidenceScore:     cloneInt(snapshot.ConfidenceScore),
+			ConfidenceBand:      confidenceBand,
+			Rationale:           snapshot.Rationale,
+			Assessor:            snapshot.Assessor,
+			AssessedAt:          snapshot.AssessedAt.UTC(),
+			SupportingLinkCount: facts[snapshot.RecordID].ActiveTargetCount,
+		}
+		if err := input.Validate(); err != nil {
+			return nil, err
+		}
+		inputs = append(inputs, input)
 	}
-	if err := input.Validate(); err != nil {
-		return workbookprojection.ProjectionInput{}, false, err
-	}
-	return input, true, nil
+	return inputs, nil
 }
 
 func loadSnapshotTx(

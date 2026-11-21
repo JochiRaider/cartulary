@@ -42,7 +42,7 @@ func fixtureCollector(t *testing.T) (*collector, *bytes.Buffer) {
 	}
 	d := "sha256:" + strings.Repeat("a", 64)
 	out := &bytes.Buffer{}
-	c := &collector{policy: p, identity: object{"run_id": "fixture", "source_digest": d, "graph_digest": d, "policy_digest": d}, epoch: monotonic(), adapter: a, store: store, containers: &containerAdapter{policy: p}, admissionRoot: filepath.Join(t.TempDir(), "admission"), capacities: harnessadmission.Quantities{"browser_stack": 0, "cpu": 2, "io": 2, "memory_mb": 100, "object_store": 0, "port_lane": 0, "postgres": 0, "process": 10, "service_stack": 0, "volume": 0}, owner: owner, byIdentity: map[string]*processEntry{}, relationships: map[string]bool{}, containerIdentities: map[string]object{}, containerOrder: []any{}, containerSignals: map[string]bool{"container_memory_usage_bytes": true}, containerAvailability: "not_observed", lastContext: -1 << 50, lastContainer: -1 << 50, output: out}
+	c := &collector{policy: p, identity: object{"run_id": "fixture", "source_digest": d, "graph_digest": d, "policy_digest": d}, epoch: monotonic(), adapter: a, store: store, containers: &containerAdapter{policy: p}, admissionRoot: filepath.Join(t.TempDir(), "admission"), capacities: admissionClaims(map[string]float64{"cpu": 2, "io": 2, "memory_mb": 100, "process": 10}), owner: owner, byIdentity: map[string]*processEntry{}, relationships: map[string]bool{}, containerIdentities: map[string]object{}, containerOrder: []any{}, containerSignals: map[string]bool{"container_memory_usage_bytes": true}, containerAvailability: "not_observed", lastContext: -1 << 50, lastContainer: -1 << 50, output: out}
 	return c, out
 }
 func TestCollectorLocalCounters(t *testing.T) {
@@ -204,10 +204,20 @@ func TestCollectorStorageFailures(t *testing.T) {
 		t.Fatal("interrupted publication claimed a digest")
 	}
 }
+
+// admissionClaims is a complete admission quantity set over the generated
+// vocabulary, zero except for the named resources.
+func admissionClaims(named map[string]float64) harnessadmission.Quantities {
+	claims := harnessadmission.Quantities{}
+	for _, key := range harnessadmission.Resources() {
+		claims[key] = named[key]
+	}
+	return claims
+}
 func TestCollectorQuietAndCancellation(t *testing.T) {
 	t.Run("resource waiter does not starve observation", func(t *testing.T) {
 		c, _ := fixtureCollector(t)
-		request := harnessadmission.Request{Root: c.admissionRoot, Operation: "admit", Token: strings.Repeat("a", 32), Owner: c.owner, Mode: "shared", Claims: harnessadmission.Quantities{"browser_stack": 0, "cpu": 2, "io": 0, "memory_mb": 0, "object_store": 0, "port_lane": 0, "postgres": 0, "process": 0, "service_stack": 0, "volume": 0}, Capacities: c.capacities}
+		request := harnessadmission.Request{Root: c.admissionRoot, Operation: "admit", Token: strings.Repeat("a", 32), Owner: c.owner, Mode: "shared", Claims: admissionClaims(map[string]float64{"cpu": 2}), Capacities: c.capacities}
 		if granted, err := harnessadmission.Transact(context.Background(), request); err != nil || !granted {
 			t.Fatal("capacity holder", granted, err)
 		}
@@ -227,7 +237,7 @@ func TestCollectorQuietAndCancellation(t *testing.T) {
 		}
 	}
 	c, _ := fixtureCollector(t)
-	request := harnessadmission.Request{Root: c.admissionRoot, Operation: "admit", Token: strings.Repeat("a", 32), Owner: c.owner, Mode: "exclusive", Claims: harnessadmission.Quantities{"browser_stack": 0, "cpu": 0, "io": 0, "memory_mb": 0, "object_store": 0, "port_lane": 0, "postgres": 0, "process": 0, "service_stack": 0, "volume": 0}, Capacities: c.capacities}
+	request := harnessadmission.Request{Root: c.admissionRoot, Operation: "admit", Token: strings.Repeat("a", 32), Owner: c.owner, Mode: "exclusive", Claims: admissionClaims(nil), Capacities: c.capacities}
 	granted, err := harnessadmission.Transact(context.Background(), request)
 	if err != nil || !granted {
 		t.Fatal(err)

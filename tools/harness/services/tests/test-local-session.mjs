@@ -552,12 +552,12 @@ test("status rejects malformed, permissive, wrong-owner, and symlink descriptors
     linkSync(fixture.sessionFile, alias);
     assert.throws(() => readLocalSessionDescriptor(fixture.sessionFile), /unsafe local file/u);
     rmSync(alias);
-    writeFileSync(fixture.sessionFile, `{"schema_id":"cartulary.test_services.local_session.v3",${bytes.slice(bytes.indexOf("{") + 1)}`);
+    writeFileSync(fixture.sessionFile, `{"schema_id":"cartulary.test_services.local_session.v4",${bytes.slice(bytes.indexOf("{") + 1)}`);
     assert.throws(() => readLocalSessionDescriptor(fixture.sessionFile), /duplicate/u);
     privateJSON(fixture.sessionFile, { ...JSON.parse(bytes), schema_id: "cartulary.test_services.local_session.v2" });
     assert.throws(() => readLocalSessionDescriptor(fixture.sessionFile), /schema|validation/u);
     writeFileSync(fixture.sessionFile, bytes);
-    assert.equal(readLocalSessionDescriptor(fixture.sessionFile).schema_id, "cartulary.test_services.local_session.v3");
+    assert.equal(readLocalSessionDescriptor(fixture.sessionFile).schema_id, "cartulary.test_services.local_session.v4");
     privateDirectory(directory);
     writeFileSync(fixture.sessionFile, "{not-json\n", { mode: 0o600 });
     assert.equal(localSessionStatus({ root: repositoryRoot, binary: fixture.binary, sessionFile: fixture.sessionFile }).state, "invalid");

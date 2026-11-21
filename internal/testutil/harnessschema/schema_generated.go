@@ -19,11 +19,11 @@ case "cartulary.harness_contract_evidence.v1": return schema245(value)
 case "cartulary.harness_detail_authority.v2": return schema276(value)
 case "cartulary.harness_error_code_coverage.v1": return schema300(value)
 case "cartulary.harness_execution_context.v3": return schema316(value)
-case "cartulary.harness_execution_index.v5": return schema387(value)
+case "cartulary.harness_execution_index.v6": return schema387(value)
 case "cartulary.harness_execution_record.v2": return schema396(value)
 case "cartulary.harness_fixture_lease.v5": return schema485(value)
 case "cartulary.harness_go_failure_diagnostic.v3": return schema506(value)
-case "cartulary.harness_host_admission_record.v2": return schema451(value)
+case "cartulary.harness_host_admission_record.v3": return schema451(value)
 case "cartulary.harness_instrumentation_policy.v5": return schema590(value)
 case "cartulary.harness_invocation_accounting.v1": return schema611(value)
 case "cartulary.harness_invocation_envelope.v2": return schema624(value)
@@ -40,7 +40,7 @@ case "cartulary.harness_renderer_event.v2": return schema861(value)
 case "cartulary.harness_renderer_physical.v1": return schema869(value)
 case "cartulary.harness_renderer_startup.v1": return schema885(value)
 case "cartulary.harness_reset_characterization.v1": return schema896(value)
-case "cartulary.harness_resident_allocation.v1": return schema906(value)
+case "cartulary.harness_resident_allocation.v2": return schema906(value)
 case "cartulary.harness_resource_index.v3": return schema915(value)
 case "cartulary.harness_resource_live.v1": return schema676(value)
 case "cartulary.harness_resource_sample.v2": return schema937(value)
@@ -55,7 +55,7 @@ case "cartulary.harness_row_result.v6": return schema1673(value)
 case "cartulary.harness_run_manifest.v3": return schema1725(value)
 case "cartulary.harness_run_observation.v3": return schema1743(value)
 case "cartulary.harness_run_summary.v1": return schema1798(value)
-case "cartulary.harness_runtime_plan.v6": return schema1853(value)
+case "cartulary.harness_runtime_plan.v7": return schema1853(value)
 case "cartulary.harness_runtime_resource.v2": return schema1895(value)
 case "cartulary.harness_runtime_session.v3": return schema1945(value)
 case "cartulary.harness_service_failure_diagnostic.v1": return schema1712(value)
@@ -3877,7 +3877,7 @@ return true
 }
 
 func schema388(v any) bool {
-if !schemaEqual(v, "cartulary.harness_execution_index.v5") { return false }
+if !schemaEqual(v, "cartulary.harness_execution_index.v6") { return false }
 return true
 }
 
@@ -4733,6 +4733,7 @@ if x, present := o["memory_mb"]; present && !schema465(x) { return false }
 if x, present := o["process"]; present && !schema465(x) { return false }
 if x, present := o["browser_stack"]; present && !schema465(x) { return false }
 if x, present := o["postgres"]; present && !schema465(x) { return false }
+if x, present := o["postgres_heavy"]; present && !schema465(x) { return false }
 if x, present := o["object_store"]; present && !schema465(x) { return false }
 if x, present := o["port_lane"]; present && !schema465(x) { return false }
 if x, present := o["service_stack"]; present && !schema465(x) { return false }
@@ -4740,7 +4741,7 @@ if x, present := o["volume"]; present && !schema465(x) { return false }
 for key, x := range o {
 _ = x
 switch key {
-case "cpu","io","memory_mb","process","browser_stack","postgres","object_store","port_lane","service_stack","volume":
+case "cpu","io","memory_mb","process","browser_stack","postgres","postgres_heavy","object_store","port_lane","service_stack","volume":
 default:
 return false
 }
@@ -9334,7 +9335,7 @@ return true
 }
 
 func schema907(v any) bool {
-if !schemaEqual(v, "cartulary.harness_resident_allocation.v1") { return false }
+if !schemaEqual(v, "cartulary.harness_resident_allocation.v2") { return false }
 return true
 }
 
@@ -9397,6 +9398,7 @@ if _, present := o["memory_mb"]; !present { return false }
 if _, present := o["object_store"]; !present { return false }
 if _, present := o["port_lane"]; !present { return false }
 if _, present := o["postgres"]; !present { return false }
+if _, present := o["postgres_heavy"]; !present { return false }
 if _, present := o["process"]; !present { return false }
 if _, present := o["service_stack"]; !present { return false }
 if _, present := o["volume"]; !present { return false }
@@ -9407,13 +9409,14 @@ if x, present := o["memory_mb"]; present && !schema913(x) { return false }
 if x, present := o["object_store"]; present && !schema913(x) { return false }
 if x, present := o["port_lane"]; present && !schema913(x) { return false }
 if x, present := o["postgres"]; present && !schema913(x) { return false }
+if x, present := o["postgres_heavy"]; present && !schema913(x) { return false }
 if x, present := o["process"]; present && !schema913(x) { return false }
 if x, present := o["service_stack"]; present && !schema913(x) { return false }
 if x, present := o["volume"]; present && !schema913(x) { return false }
 for key, x := range o {
 _ = x
 switch key {
-case "browser_stack","cpu","io","memory_mb","object_store","port_lane","postgres","process","service_stack","volume":
+case "browser_stack","cpu","io","memory_mb","object_store","port_lane","postgres","postgres_heavy","process","service_stack","volume":
 default:
 return false
 }
@@ -18376,7 +18379,7 @@ return true
 }
 
 func schema1854(v any) bool {
-if !schemaEqual(v, "cartulary.harness_runtime_plan.v6") { return false }
+if !schemaEqual(v, "cartulary.harness_runtime_plan.v7") { return false }
 return true
 }
 

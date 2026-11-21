@@ -16,12 +16,12 @@ func decodeLinkGraphQuery(raw json.RawMessage, limits EffectiveLimits) (graphSem
 	}
 	var tables []string
 	if json.Unmarshal(object["selected_table_ids"], &tables) != nil || len(tables) < 1 || len(tables) > 64 {
-		return graphSemanticRequest{}, invalidNetworkFlowRequest("selected_table_ids", "type_mismatch")
+		return graphSemanticRequest{}, typeMismatch("selected_table_ids", object["selected_table_ids"])
 	}
 	seen := map[string]bool{}
 	for _, id := range tables {
 		if !linkTableIDPattern.MatchString(id) {
-			return graphSemanticRequest{}, invalidNetworkFlowRequest("selected_table_ids", "type_mismatch")
+			return graphSemanticRequest{}, typeMismatch("selected_table_ids", object["selected_table_ids"])
 		}
 		if seen[id] {
 			return graphSemanticRequest{}, &semanticFailure{kind: failureInvalidTableScope, reason: "duplicate_table_id", details: failureDetails{TableIDs: tables, LinkGraph: true}}
@@ -45,7 +45,7 @@ func decodeLinkGraphQuery(raw json.RawMessage, limits EffectiveLimits) (graphSem
 	var filters []json.RawMessage
 	_ = json.Unmarshal(object["filters"], &filters)
 	if len(filters) > 16 {
-		return graphSemanticRequest{}, invalidNetworkFlowRequest("filters", "type_mismatch")
+		return graphSemanticRequest{}, typeMismatch("filters", object["filters"])
 	}
 	for _, filter := range filters {
 		entry, err := linkObject(filter, "filters")

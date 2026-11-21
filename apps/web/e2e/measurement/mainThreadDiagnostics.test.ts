@@ -90,9 +90,27 @@ function input(): BlankRowDiagnosticInput {
       { start: 1606, end: 1640, ttfbMs: 25, failed: false },
     ],
     resources: [
-      { kind: "query", start: 1151, responseStart: 1180, responseEnd: 1181 },
-      { kind: "create", start: 1305.5, responseStart: 1338, responseEnd: 1339 },
-      { kind: "create", start: 1605.5, responseStart: 1630, responseEnd: 1641 },
+      {
+        kind: "query",
+        start: 1151,
+        responseStart: 1180,
+        responseEnd: 1181,
+        nextHopProtocol: "h2",
+      },
+      {
+        kind: "create",
+        start: 1305.5,
+        responseStart: 1338,
+        responseEnd: 1339,
+        nextHopProtocol: "h2",
+      },
+      {
+        kind: "create",
+        start: 1605.5,
+        responseStart: 1630,
+        responseEnd: 1641,
+        nextHopProtocol: null,
+      },
     ],
     samples: [
       sample(2, 1600, 1690, [1640, 1641], [1590, 1230, 600, 1700, 1260, 610]),
@@ -196,8 +214,19 @@ describe("AC-043 blank-row main-thread diagnostics", () => {
       renderer_task_ms_around_sample: 50,
       refreshing_entries: 0,
     });
+    expect(summary.samples[1]?.create_next_hop_protocol).toBe("h2");
+    expect(summary.run.create_next_hop_protocols).toEqual({
+      h2: 1,
+      unreported: 1,
+    });
+    expect(summary.run.create_body_transfer_spikes).toEqual({
+      threshold_ms: 10,
+      with_timeline_query_in_flight: { count: 1, spikes: 0, rate: 0 },
+      without_timeline_query_in_flight: { count: 1, spikes: 1, rate: 1 },
+    });
     expect(summary.samples[2]).toMatchObject({
       decode_spike: false,
+      create_next_hop_protocol: null,
       create_resource_ms: { body_transfer: 11, parse_wait_after_body: 0 },
       long_task: { count: 0, overlap_ms: 0 },
       timeline_queries_in_flight_at_create: 0,

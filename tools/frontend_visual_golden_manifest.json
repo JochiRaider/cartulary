@@ -160,7 +160,7 @@
     },
     {
       "path": "apps/web/e2e/visual-goldens/auth-service-unavailable-linux.png",
-      "sha256": "07a89ecc578b09d09f579cd810ea29cc5a6be18bdc05a7401967a46e2f29c11b"
+      "sha256": "96ba5a8ed5ec2fcf4b27f9ae8c48961942aac5a203054b896964afacf9ab2861"
     },
     {
       "path": "apps/web/e2e/visual-goldens/auth-submitting-linux.png",

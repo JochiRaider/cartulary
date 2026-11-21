@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v13",
+  "schema_id": "cartulary.test_family_manifest.v14",
   "owner_id": "module.graphprojection",
   "rows": [
     {
@@ -61,6 +61,7 @@
         ]
       },
       "evidence_class": "unit",
+      "estimated_work_ms": 75000,
       "runtime_profile_id": "none",
       "resource_profile_id": "io_heavy",
       "claim_posture": "implementation",
@@ -249,6 +250,36 @@
           "TestGraphRestoreWriterReconcilesBeforeCommitAndReturnsExactCounts_Integration",
           "TestGraphRestoreWriterRequiresDatabaseAndReconciler_Unit",
           "TestGraphRestoreWriterRollsBackEveryPrecommitPhase_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "shared"
+    },
+    {
+      "row_id": "module.graphprojection.storage.result_publication_round_trips_are_bounded_regar_1cf2b676c3",
+      "owner_id": "module.graphprojection",
+      "family_id": "module.graphprojection.storage",
+      "collaborator_ids": [
+        "module.networkflow",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.graphprojection.verification.engine_and_storage"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/graphprojection/postgresresult",
+        "tests": [
+          "TestResultV2PublicationRoundTripsAreBoundedByObjects_Integration"
         ]
       },
       "evidence_class": "integration",

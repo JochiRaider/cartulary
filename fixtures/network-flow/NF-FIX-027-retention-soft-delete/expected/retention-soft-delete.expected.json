@@ -1,6 +1,6 @@
 {
   "fixture_id": "NF-FIX-027-retention-soft-delete",
-  "freeze_revision": 6,
+  "freeze_revision": 7,
   "outcomes": [
     {
       "case": "soft-delete",
@@ -2955,7 +2955,7 @@
             "request_id": "$request-id",
             "details": {
               "reason_code": "scope_stale",
-              "cursor_scope": null,
+              "cursor_scope": "table_rows",
               "retry_action": "restart_query"
             }
           },
@@ -2967,7 +2967,7 @@
             "request_id": "$request-id",
             "details": {
               "reason_code": "scope_stale",
-              "cursor_scope": null,
+              "cursor_scope": "rejected_rows",
               "retry_action": "restart_query"
             }
           }

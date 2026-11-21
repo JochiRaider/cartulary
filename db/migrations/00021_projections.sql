@@ -139,6 +139,7 @@ CREATE TABLE public.evidence_grid_projection (
     upload_state text NOT NULL,
     linked_record_count integer DEFAULT 0 NOT NULL,
     edited_at timestamp with time zone NOT NULL,
+    owner_user_id uuid,
     CONSTRAINT evidence_grid_projection_pkey PRIMARY KEY (record_id)
 );
 

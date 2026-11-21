@@ -1978,8 +1978,8 @@
       "qualified_name": "public.change_sets.change_sets_actor_import_contexts_array_ck",
       "management_class": "cartulary_authored",
       "source_owner": "revisions",
-      "migration_version": 57,
-      "migration_file": "00057_revision_actor_import_contexts.sql",
+      "migration_version": 8,
+      "migration_file": "00008_revisions.sql",
       "dependency_object_ids": [
         "table.public.change-sets"
       ],
@@ -2017,8 +2017,8 @@
       "qualified_name": "public.change_sets.change_sets_allocate_history_order",
       "management_class": "cartulary_authored",
       "source_owner": "revisions",
-      "migration_version": 59,
-      "migration_file": "00059_revision_history_order_at_commit.sql",
+      "migration_version": 8,
+      "migration_file": "00008_revisions.sql",
       "dependency_object_ids": [
         "table.public.change-sets"
       ],
@@ -2036,8 +2036,8 @@
       "qualified_name": "public.change_sets.change_sets_history_order_positive_ck",
       "management_class": "cartulary_authored",
       "source_owner": "revisions",
-      "migration_version": 58,
-      "migration_file": "00058_revision_history_order.sql",
+      "migration_version": 8,
+      "migration_file": "00008_revisions.sql",
       "dependency_object_ids": [
         "table.public.change-sets"
       ],
@@ -2055,8 +2055,8 @@
       "qualified_name": "public.change_sets.change_sets_incident_history_order_key",
       "management_class": "cartulary_authored",
       "source_owner": "revisions",
-      "migration_version": 58,
-      "migration_file": "00058_revision_history_order.sql",
+      "migration_version": 8,
+      "migration_file": "00008_revisions.sql",
       "dependency_object_ids": [
         "table.public.change-sets"
       ],
@@ -3482,8 +3482,8 @@
       "qualified_name": "public.entities_bundle_validation_associations.entities_bundle_validation_associations_empty_commit",
       "management_class": "cartulary_authored",
       "source_owner": "entities",
-      "migration_version": 43,
-      "migration_file": "00043_entities_bundle_validation.sql",
+      "migration_version": 11,
+      "migration_file": "00011_entities.sql",
       "dependency_object_ids": [
         "table.public.entities-bundle-validation-associations"
       ],
@@ -3501,8 +3501,8 @@
       "qualified_name": "public.entities_bundle_validation_associations.entities_bundle_validation_associations_pkey",
       "management_class": "cartulary_authored",
       "source_owner": "entities",
-      "migration_version": 43,
-      "migration_file": "00043_entities_bundle_validation.sql",
+      "migration_version": 11,
+      "migration_file": "00011_entities.sql",
       "dependency_object_ids": [
         "table.public.entities-bundle-validation-associations"
       ],
@@ -3520,8 +3520,8 @@
       "qualified_name": "public.entities_bundle_validation_associations.entities_bundle_validation_associations_tx_ck",
       "management_class": "cartulary_authored",
       "source_owner": "entities",
-      "migration_version": 43,
-      "migration_file": "00043_entities_bundle_validation.sql",
+      "migration_version": 11,
+      "migration_file": "00011_entities.sql",
       "dependency_object_ids": [
         "table.public.entities-bundle-validation-associations"
       ],
@@ -3539,8 +3539,8 @@
       "qualified_name": "public.entities_bundle_validation_binding.entities_bundle_validation_binding_empty_commit",
       "management_class": "cartulary_authored",
       "source_owner": "entities",
-      "migration_version": 43,
-      "migration_file": "00043_entities_bundle_validation.sql",
+      "migration_version": 11,
+      "migration_file": "00011_entities.sql",
       "dependency_object_ids": [
         "table.public.entities-bundle-validation-binding"
       ],
@@ -3558,8 +3558,8 @@
       "qualified_name": "public.entities_bundle_validation_binding.entities_bundle_validation_binding_pkey",
       "management_class": "cartulary_authored",
       "source_owner": "entities",
-      "migration_version": 43,
-      "migration_file": "00043_entities_bundle_validation.sql",
+      "migration_version": 11,
+      "migration_file": "00011_entities.sql",
       "dependency_object_ids": [
         "table.public.entities-bundle-validation-binding"
       ],
@@ -3577,8 +3577,8 @@
       "qualified_name": "public.entities_bundle_validation_binding.entities_bundle_validation_binding_tx_ck",
       "management_class": "cartulary_authored",
       "source_owner": "entities",
-      "migration_version": 43,
-      "migration_file": "00043_entities_bundle_validation.sql",
+      "migration_version": 11,
+      "migration_file": "00011_entities.sql",
       "dependency_object_ids": [
         "table.public.entities-bundle-validation-binding"
       ],
@@ -3596,8 +3596,8 @@
       "qualified_name": "public.entities_bundle_validation_claims.entities_bundle_validation_claims_empty_commit",
       "management_class": "cartulary_authored",
       "source_owner": "entities",
-      "migration_version": 43,
-      "migration_file": "00043_entities_bundle_validation.sql",
+      "migration_version": 11,
+      "migration_file": "00011_entities.sql",
       "dependency_object_ids": [
         "table.public.entities-bundle-validation-claims"
       ],
@@ -3615,8 +3615,8 @@
       "qualified_name": "public.entities_bundle_validation_claims.entities_bundle_validation_claims_pkey",
       "management_class": "cartulary_authored",
       "source_owner": "entities",
-      "migration_version": 43,
-      "migration_file": "00043_entities_bundle_validation.sql",
+      "migration_version": 11,
+      "migration_file": "00011_entities.sql",
       "dependency_object_ids": [
         "table.public.entities-bundle-validation-claims"
       ],
@@ -3634,8 +3634,8 @@
       "qualified_name": "public.entities_bundle_validation_claims.entities_bundle_validation_claims_tx_ck",
       "management_class": "cartulary_authored",
       "source_owner": "entities",
-      "migration_version": 43,
-      "migration_file": "00043_entities_bundle_validation.sql",
+      "migration_version": 11,
+      "migration_file": "00011_entities.sql",
       "dependency_object_ids": [
         "table.public.entities-bundle-validation-claims"
       ],
@@ -3653,8 +3653,8 @@
       "qualified_name": "public.entities_bundle_validation_mentions.entities_bundle_validation_mentions_empty_commit",
       "management_class": "cartulary_authored",
       "source_owner": "entities",
-      "migration_version": 43,
-      "migration_file": "00043_entities_bundle_validation.sql",
+      "migration_version": 11,
+      "migration_file": "00011_entities.sql",
       "dependency_object_ids": [
         "table.public.entities-bundle-validation-mentions"
       ],
@@ -3672,8 +3672,8 @@
       "qualified_name": "public.entities_bundle_validation_mentions.entities_bundle_validation_mentions_pkey",
       "management_class": "cartulary_authored",
       "source_owner": "entities",
-      "migration_version": 43,
-      "migration_file": "00043_entities_bundle_validation.sql",
+      "migration_version": 11,
+      "migration_file": "00011_entities.sql",
       "dependency_object_ids": [
         "table.public.entities-bundle-validation-mentions"
       ],
@@ -3691,8 +3691,8 @@
       "qualified_name": "public.entities_bundle_validation_mentions.entities_bundle_validation_mentions_tx_ck",
       "management_class": "cartulary_authored",
       "source_owner": "entities",
-      "migration_version": 43,
-      "migration_file": "00043_entities_bundle_validation.sql",
+      "migration_version": 11,
+      "migration_file": "00011_entities.sql",
       "dependency_object_ids": [
         "table.public.entities-bundle-validation-mentions"
       ],
@@ -3710,8 +3710,8 @@
       "qualified_name": "public.entities_bundle_validation_nodes.entities_bundle_validation_nodes_empty_commit",
       "management_class": "cartulary_authored",
       "source_owner": "entities",
-      "migration_version": 43,
-      "migration_file": "00043_entities_bundle_validation.sql",
+      "migration_version": 11,
+      "migration_file": "00011_entities.sql",
       "dependency_object_ids": [
         "table.public.entities-bundle-validation-nodes"
       ],
@@ -3729,8 +3729,8 @@
       "qualified_name": "public.entities_bundle_validation_nodes.entities_bundle_validation_nodes_pkey",
       "management_class": "cartulary_authored",
       "source_owner": "entities",
-      "migration_version": 43,
-      "migration_file": "00043_entities_bundle_validation.sql",
+      "migration_version": 11,
+      "migration_file": "00011_entities.sql",
       "dependency_object_ids": [
         "table.public.entities-bundle-validation-nodes"
       ],
@@ -3748,8 +3748,8 @@
       "qualified_name": "public.entities_bundle_validation_nodes.entities_bundle_validation_nodes_tx_ck",
       "management_class": "cartulary_authored",
       "source_owner": "entities",
-      "migration_version": 43,
-      "migration_file": "00043_entities_bundle_validation.sql",
+      "migration_version": 11,
+      "migration_file": "00011_entities.sql",
       "dependency_object_ids": [
         "table.public.entities-bundle-validation-nodes"
       ],
@@ -5373,8 +5373,8 @@
       "qualified_name": "public.evidence.evidence_owner_user_id_fkey",
       "management_class": "cartulary_authored",
       "source_owner": "evidence",
-      "migration_version": 53,
-      "migration_file": "00053_evidence_accountable_owner.sql",
+      "migration_version": 17,
+      "migration_file": "00017_evidence.sql",
       "dependency_object_ids": [
         "table.public.evidence",
         "table.public.users"
@@ -6139,8 +6139,8 @@
       "qualified_name": "public.extension_staged_objects.extension_staged_objects_operation_ck",
       "management_class": "cartulary_authored",
       "source_owner": "extensions",
-      "migration_version": 41,
-      "migration_file": "00041_operation_scoped_stream_staging.sql",
+      "migration_version": 27,
+      "migration_file": "00027_extensions.sql",
       "dependency_object_ids": [
         "table.public.extension-staged-objects"
       ],
@@ -6196,8 +6196,8 @@
       "qualified_name": "public.extension_staged_objects.extension_staged_objects_resource_ck",
       "management_class": "cartulary_authored",
       "source_owner": "extensions",
-      "migration_version": 41,
-      "migration_file": "00041_operation_scoped_stream_staging.sql",
+      "migration_version": 27,
+      "migration_file": "00027_extensions.sql",
       "dependency_object_ids": [
         "table.public.extension-staged-objects"
       ],
@@ -6215,8 +6215,8 @@
       "qualified_name": "public.extension_staged_objects.extension_staged_objects_seal_ck",
       "management_class": "cartulary_authored",
       "source_owner": "extensions",
-      "migration_version": 41,
-      "migration_file": "00041_operation_scoped_stream_staging.sql",
+      "migration_version": 27,
+      "migration_file": "00027_extensions.sql",
       "dependency_object_ids": [
         "table.public.extension-staged-objects"
       ],
@@ -7780,8 +7780,8 @@
       "qualified_name": "public.import_apply_unit_plans.import_apply_unit_plans_digest_ck",
       "management_class": "cartulary_authored",
       "source_owner": "imports",
-      "migration_version": 32,
-      "migration_file": "00032_import_analytical_plan_authority.sql",
+      "migration_version": 19,
+      "migration_file": "00019_imports.sql",
       "dependency_object_ids": [
         "table.public.import-apply-unit-plans"
       ],
@@ -7857,8 +7857,8 @@
       "qualified_name": "public.import_apply_unit_plans.import_apply_unit_plans_rectangle_ck",
       "management_class": "cartulary_authored",
       "source_owner": "imports",
-      "migration_version": 33,
-      "migration_file": "00033_import_source_only_units.sql",
+      "migration_version": 19,
+      "migration_file": "00019_imports.sql",
       "dependency_object_ids": [
         "table.public.import-apply-unit-plans"
       ],
@@ -7934,8 +7934,8 @@
       "qualified_name": "public.import_apply_unit_plans.import_apply_unit_plans_source_authority_ck",
       "management_class": "cartulary_authored",
       "source_owner": "imports",
-      "migration_version": 32,
-      "migration_file": "00032_import_analytical_plan_authority.sql",
+      "migration_version": 19,
+      "migration_file": "00019_imports.sql",
       "dependency_object_ids": [
         "table.public.import-apply-unit-plans"
       ],
@@ -8030,8 +8030,8 @@
       "qualified_name": "public.import_committed_source_blobs.import_committed_source_blobs_digest_ck",
       "management_class": "cartulary_authored",
       "source_owner": "imports",
-      "migration_version": 39,
-      "migration_file": "00039_committed_import_sources.sql",
+      "migration_version": 19,
+      "migration_file": "00019_imports.sql",
       "dependency_object_ids": [
         "table.public.import-committed-source-blobs"
       ],
@@ -8049,8 +8049,8 @@
       "qualified_name": "public.import_committed_source_blobs.import_committed_source_blobs_nonnegative_size_ck",
       "management_class": "cartulary_authored",
       "source_owner": "imports",
-      "migration_version": 39,
-      "migration_file": "00039_committed_import_sources.sql",
+      "migration_version": 19,
+      "migration_file": "00019_imports.sql",
       "dependency_object_ids": [
         "table.public.import-committed-source-blobs"
       ],
@@ -8068,8 +8068,8 @@
       "qualified_name": "public.import_committed_source_blobs.import_committed_source_blobs_pkey",
       "management_class": "cartulary_authored",
       "source_owner": "imports",
-      "migration_version": 39,
-      "migration_file": "00039_committed_import_sources.sql",
+      "migration_version": 19,
+      "migration_file": "00019_imports.sql",
       "dependency_object_ids": [
         "table.public.import-committed-source-blobs"
       ],
@@ -8087,8 +8087,8 @@
       "qualified_name": "public.import_committed_source_chunks.import_committed_source_chunks_blob_fk",
       "management_class": "cartulary_authored",
       "source_owner": "imports",
-      "migration_version": 39,
-      "migration_file": "00039_committed_import_sources.sql",
+      "migration_version": 19,
+      "migration_file": "00019_imports.sql",
       "dependency_object_ids": [
         "table.public.import-committed-source-blobs",
         "table.public.import-committed-source-chunks"
@@ -8107,8 +8107,8 @@
       "qualified_name": "public.import_committed_source_chunks.import_committed_source_chunks_ordinal_ck",
       "management_class": "cartulary_authored",
       "source_owner": "imports",
-      "migration_version": 39,
-      "migration_file": "00039_committed_import_sources.sql",
+      "migration_version": 19,
+      "migration_file": "00019_imports.sql",
       "dependency_object_ids": [
         "table.public.import-committed-source-chunks"
       ],
@@ -8126,8 +8126,8 @@
       "qualified_name": "public.import_committed_source_chunks.import_committed_source_chunks_pkey",
       "management_class": "cartulary_authored",
       "source_owner": "imports",
-      "migration_version": 39,
-      "migration_file": "00039_committed_import_sources.sql",
+      "migration_version": 19,
+      "migration_file": "00019_imports.sql",
       "dependency_object_ids": [
         "table.public.import-committed-source-chunks"
       ],
@@ -8145,8 +8145,8 @@
       "qualified_name": "public.import_committed_source_chunks.import_committed_source_chunks_size_ck",
       "management_class": "cartulary_authored",
       "source_owner": "imports",
-      "migration_version": 39,
-      "migration_file": "00039_committed_import_sources.sql",
+      "migration_version": 19,
+      "migration_file": "00019_imports.sql",
       "dependency_object_ids": [
         "table.public.import-committed-source-chunks"
       ],
@@ -8164,14 +8164,14 @@
       "qualified_name": "public.import_committed_source_records.import_committed_source_records_pkey",
       "management_class": "cartulary_authored",
       "source_owner": "imports",
-      "migration_version": 47,
-      "migration_file": "00047_import_projection_rows.sql",
+      "migration_version": 19,
+      "migration_file": "00019_imports.sql",
       "dependency_object_ids": [
         "table.public.import-committed-source-records"
       ],
       "runtime_access_class": "not_applicable",
       "recovery_access_class": "not_applicable",
-      "extension_profile_id": null,
+      "extension_profile_id": "import",
       "recovery_classification": "not_applicable",
       "sqlc_input": false,
       "foreign_key_index_status": "not_applicable",
@@ -8183,15 +8183,15 @@
       "qualified_name": "public.import_committed_source_records.import_committed_source_records_record_fk",
       "management_class": "cartulary_authored",
       "source_owner": "imports",
-      "migration_version": 47,
-      "migration_file": "00047_import_projection_rows.sql",
+      "migration_version": 19,
+      "migration_file": "00019_imports.sql",
       "dependency_object_ids": [
         "table.public.import-committed-source-records",
         "table.public.records"
       ],
       "runtime_access_class": "not_applicable",
       "recovery_access_class": "not_applicable",
-      "extension_profile_id": null,
+      "extension_profile_id": "import",
       "recovery_classification": "not_applicable",
       "sqlc_input": false,
       "foreign_key_index_status": "covered",
@@ -8203,14 +8203,14 @@
       "qualified_name": "public.import_committed_source_records.import_committed_source_records_row_ck",
       "management_class": "cartulary_authored",
       "source_owner": "imports",
-      "migration_version": 47,
-      "migration_file": "00047_import_projection_rows.sql",
+      "migration_version": 19,
+      "migration_file": "00019_imports.sql",
       "dependency_object_ids": [
         "table.public.import-committed-source-records"
       ],
       "runtime_access_class": "not_applicable",
       "recovery_access_class": "not_applicable",
-      "extension_profile_id": null,
+      "extension_profile_id": "import",
       "recovery_classification": "not_applicable",
       "sqlc_input": false,
       "foreign_key_index_status": "not_applicable",
@@ -8222,15 +8222,15 @@
       "qualified_name": "public.import_committed_source_records.import_committed_source_records_source_fk",
       "management_class": "cartulary_authored",
       "source_owner": "imports",
-      "migration_version": 47,
-      "migration_file": "00047_import_projection_rows.sql",
+      "migration_version": 19,
+      "migration_file": "00019_imports.sql",
       "dependency_object_ids": [
         "table.public.import-committed-source-records",
         "table.public.import-committed-sources"
       ],
       "runtime_access_class": "not_applicable",
       "recovery_access_class": "not_applicable",
-      "extension_profile_id": null,
+      "extension_profile_id": "import",
       "recovery_classification": "not_applicable",
       "sqlc_input": false,
       "foreign_key_index_status": "covered",
@@ -8242,8 +8242,8 @@
       "qualified_name": "public.import_committed_sources.import_committed_sources_actor_fk",
       "management_class": "cartulary_authored",
       "source_owner": "imports",
-      "migration_version": 39,
-      "migration_file": "00039_committed_import_sources.sql",
+      "migration_version": 19,
+      "migration_file": "00019_imports.sql",
       "dependency_object_ids": [
         "table.public.import-committed-sources",
         "table.public.users"
@@ -8262,8 +8262,8 @@
       "qualified_name": "public.import_committed_sources.import_committed_sources_blob_fk",
       "management_class": "cartulary_authored",
       "source_owner": "imports",
-      "migration_version": 39,
-      "migration_file": "00039_committed_import_sources.sql",
+      "migration_version": 19,
+      "migration_file": "00019_imports.sql",
       "dependency_object_ids": [
         "table.public.import-committed-source-blobs",
         "table.public.import-committed-sources"
@@ -8282,8 +8282,8 @@
       "qualified_name": "public.import_committed_sources.import_committed_sources_file_kind_ck",
       "management_class": "cartulary_authored",
       "source_owner": "imports",
-      "migration_version": 39,
-      "migration_file": "00039_committed_import_sources.sql",
+      "migration_version": 19,
+      "migration_file": "00019_imports.sql",
       "dependency_object_ids": [
         "table.public.import-committed-sources"
       ],
@@ -8301,8 +8301,8 @@
       "qualified_name": "public.import_committed_sources.import_committed_sources_incident_fk",
       "management_class": "cartulary_authored",
       "source_owner": "imports",
-      "migration_version": 39,
-      "migration_file": "00039_committed_import_sources.sql",
+      "migration_version": 19,
+      "migration_file": "00019_imports.sql",
       "dependency_object_ids": [
         "table.public.import-committed-sources",
         "table.public.incidents"
@@ -8321,8 +8321,8 @@
       "qualified_name": "public.import_committed_sources.import_committed_sources_mapping_ck",
       "management_class": "cartulary_authored",
       "source_owner": "imports",
-      "migration_version": 39,
-      "migration_file": "00039_committed_import_sources.sql",
+      "migration_version": 19,
+      "migration_file": "00019_imports.sql",
       "dependency_object_ids": [
         "table.public.import-committed-sources"
       ],
@@ -8340,8 +8340,8 @@
       "qualified_name": "public.import_committed_sources.import_committed_sources_origin_key",
       "management_class": "cartulary_authored",
       "source_owner": "imports",
-      "migration_version": 39,
-      "migration_file": "00039_committed_import_sources.sql",
+      "migration_version": 19,
+      "migration_file": "00019_imports.sql",
       "dependency_object_ids": [
         "table.public.import-committed-sources"
       ],
@@ -8359,8 +8359,8 @@
       "qualified_name": "public.import_committed_sources.import_committed_sources_pkey",
       "management_class": "cartulary_authored",
       "source_owner": "imports",
-      "migration_version": 39,
-      "migration_file": "00039_committed_import_sources.sql",
+      "migration_version": 19,
+      "migration_file": "00019_imports.sql",
       "dependency_object_ids": [
         "table.public.import-committed-sources"
       ],
@@ -8378,8 +8378,8 @@
       "qualified_name": "public.import_committed_sources.import_committed_sources_row_selection_ck",
       "management_class": "cartulary_authored",
       "source_owner": "imports",
-      "migration_version": 39,
-      "migration_file": "00039_committed_import_sources.sql",
+      "migration_version": 19,
+      "migration_file": "00019_imports.sql",
       "dependency_object_ids": [
         "table.public.import-committed-sources"
       ],
@@ -8397,8 +8397,8 @@
       "qualified_name": "public.import_committed_sources.import_committed_sources_scope_key",
       "management_class": "cartulary_authored",
       "source_owner": "imports",
-      "migration_version": 39,
-      "migration_file": "00039_committed_import_sources.sql",
+      "migration_version": 19,
+      "migration_file": "00019_imports.sql",
       "dependency_object_ids": [
         "table.public.import-committed-sources"
       ],
@@ -9131,14 +9131,14 @@
       "qualified_name": "public.import_unit_projection_rows.import_unit_projection_rows_bytes_ck",
       "management_class": "cartulary_authored",
       "source_owner": "imports",
-      "migration_version": 47,
-      "migration_file": "00047_import_projection_rows.sql",
+      "migration_version": 19,
+      "migration_file": "00019_imports.sql",
       "dependency_object_ids": [
         "table.public.import-unit-projection-rows"
       ],
       "runtime_access_class": "not_applicable",
       "recovery_access_class": "not_applicable",
-      "extension_profile_id": null,
+      "extension_profile_id": "import",
       "recovery_classification": "not_applicable",
       "sqlc_input": false,
       "foreign_key_index_status": "not_applicable",
@@ -9150,14 +9150,14 @@
       "qualified_name": "public.import_unit_projection_rows.import_unit_projection_rows_pkey",
       "management_class": "cartulary_authored",
       "source_owner": "imports",
-      "migration_version": 47,
-      "migration_file": "00047_import_projection_rows.sql",
+      "migration_version": 19,
+      "migration_file": "00019_imports.sql",
       "dependency_object_ids": [
         "table.public.import-unit-projection-rows"
       ],
       "runtime_access_class": "not_applicable",
       "recovery_access_class": "not_applicable",
-      "extension_profile_id": null,
+      "extension_profile_id": "import",
       "recovery_classification": "not_applicable",
       "sqlc_input": false,
       "foreign_key_index_status": "not_applicable",
@@ -9169,14 +9169,14 @@
       "qualified_name": "public.import_unit_projection_rows.import_unit_projection_rows_ref_ck",
       "management_class": "cartulary_authored",
       "source_owner": "imports",
-      "migration_version": 47,
-      "migration_file": "00047_import_projection_rows.sql",
+      "migration_version": 19,
+      "migration_file": "00019_imports.sql",
       "dependency_object_ids": [
         "table.public.import-unit-projection-rows"
       ],
       "runtime_access_class": "not_applicable",
       "recovery_access_class": "not_applicable",
-      "extension_profile_id": null,
+      "extension_profile_id": "import",
       "recovery_classification": "not_applicable",
       "sqlc_input": false,
       "foreign_key_index_status": "not_applicable",
@@ -9188,15 +9188,15 @@
       "qualified_name": "public.import_unit_projection_rows.import_unit_projection_rows_unit_fk",
       "management_class": "cartulary_authored",
       "source_owner": "imports",
-      "migration_version": 47,
-      "migration_file": "00047_import_projection_rows.sql",
+      "migration_version": 19,
+      "migration_file": "00019_imports.sql",
       "dependency_object_ids": [
         "table.public.import-unit-projection-rows",
         "table.public.import-units"
       ],
       "runtime_access_class": "not_applicable",
       "recovery_access_class": "not_applicable",
-      "extension_profile_id": null,
+      "extension_profile_id": "import",
       "recovery_classification": "not_applicable",
       "sqlc_input": false,
       "foreign_key_index_status": "covered",
@@ -9208,8 +9208,8 @@
       "qualified_name": "public.import_units.import_units_approved_source_selection_ck",
       "management_class": "cartulary_authored",
       "source_owner": "imports",
-      "migration_version": 39,
-      "migration_file": "00039_committed_import_sources.sql",
+      "migration_version": 19,
+      "migration_file": "00019_imports.sql",
       "dependency_object_ids": [
         "table.public.import-units"
       ],
@@ -9456,14 +9456,14 @@
       "qualified_name": "public.import_units.import_units_projection_shape_ck",
       "management_class": "cartulary_authored",
       "source_owner": "imports",
-      "migration_version": 47,
-      "migration_file": "00047_import_projection_rows.sql",
+      "migration_version": 19,
+      "migration_file": "00019_imports.sql",
       "dependency_object_ids": [
         "table.public.import-units"
       ],
       "runtime_access_class": "not_applicable",
       "recovery_access_class": "not_applicable",
-      "extension_profile_id": null,
+      "extension_profile_id": "import",
       "recovery_classification": "not_applicable",
       "sqlc_input": false,
       "foreign_key_index_status": "not_applicable",
@@ -9494,14 +9494,14 @@
       "qualified_name": "public.import_units.import_units_source_rows_digest_ck",
       "management_class": "cartulary_authored",
       "source_owner": "imports",
-      "migration_version": 47,
-      "migration_file": "00047_import_projection_rows.sql",
+      "migration_version": 19,
+      "migration_file": "00019_imports.sql",
       "dependency_object_ids": [
         "table.public.import-units"
       ],
       "runtime_access_class": "not_applicable",
       "recovery_access_class": "not_applicable",
-      "extension_profile_id": null,
+      "extension_profile_id": "import",
       "recovery_classification": "not_applicable",
       "sqlc_input": false,
       "foreign_key_index_status": "not_applicable",
@@ -11431,8 +11431,8 @@
       "qualified_name": "public.indicators_bundle_validation_sources.indicators_bundle_validation_sources_empty_commit",
       "management_class": "cartulary_authored",
       "source_owner": "indicators",
-      "migration_version": 44,
-      "migration_file": "00044_indicators_bundle_validation.sql",
+      "migration_version": 12,
+      "migration_file": "00012_indicators.sql",
       "dependency_object_ids": [
         "table.public.indicators-bundle-validation-sources"
       ],
@@ -11450,8 +11450,8 @@
       "qualified_name": "public.indicators_bundle_validation_sources.indicators_bundle_validation_sources_pkey",
       "management_class": "cartulary_authored",
       "source_owner": "indicators",
-      "migration_version": 44,
-      "migration_file": "00044_indicators_bundle_validation.sql",
+      "migration_version": 12,
+      "migration_file": "00012_indicators.sql",
       "dependency_object_ids": [
         "table.public.indicators-bundle-validation-sources"
       ],
@@ -11469,8 +11469,8 @@
       "qualified_name": "public.indicators_bundle_validation_sources.indicators_bundle_validation_sources_tx_ck",
       "management_class": "cartulary_authored",
       "source_owner": "indicators",
-      "migration_version": 44,
-      "migration_file": "00044_indicators_bundle_validation.sql",
+      "migration_version": 12,
+      "migration_file": "00012_indicators.sql",
       "dependency_object_ids": [
         "table.public.indicators-bundle-validation-sources"
       ],
@@ -11680,8 +11680,8 @@
       "qualified_name": "public.indicators.indicators_required_text_ck",
       "management_class": "cartulary_authored",
       "source_owner": "indicators",
-      "migration_version": 55,
-      "migration_file": "00055_indicator_optional_presentation.sql",
+      "migration_version": 12,
+      "migration_file": "00012_indicators.sql",
       "dependency_object_ids": [
         "table.public.indicators"
       ],
@@ -12233,8 +12233,8 @@
       "qualified_name": "public.links_bundle_validation_catalog.links_bundle_validation_catalog_empty_commit",
       "management_class": "cartulary_authored",
       "source_owner": "links",
-      "migration_version": 42,
-      "migration_file": "00042_links_bundle_validation.sql",
+      "migration_version": 14,
+      "migration_file": "00014_links.sql",
       "dependency_object_ids": [
         "table.public.links-bundle-validation-catalog"
       ],
@@ -12252,8 +12252,8 @@
       "qualified_name": "public.links_bundle_validation_catalog.links_bundle_validation_catalog_pkey",
       "management_class": "cartulary_authored",
       "source_owner": "links",
-      "migration_version": 42,
-      "migration_file": "00042_links_bundle_validation.sql",
+      "migration_version": 14,
+      "migration_file": "00014_links.sql",
       "dependency_object_ids": [
         "table.public.links-bundle-validation-catalog"
       ],
@@ -12271,8 +12271,8 @@
       "qualified_name": "public.links_bundle_validation_catalog.links_bundle_validation_catalog_tx_ck",
       "management_class": "cartulary_authored",
       "source_owner": "links",
-      "migration_version": 42,
-      "migration_file": "00042_links_bundle_validation.sql",
+      "migration_version": 14,
+      "migration_file": "00014_links.sql",
       "dependency_object_ids": [
         "table.public.links-bundle-validation-catalog"
       ],
@@ -12290,8 +12290,8 @@
       "qualified_name": "public.links_bundle_validation_links.links_bundle_validation_links_empty_commit",
       "management_class": "cartulary_authored",
       "source_owner": "links",
-      "migration_version": 42,
-      "migration_file": "00042_links_bundle_validation.sql",
+      "migration_version": 14,
+      "migration_file": "00014_links.sql",
       "dependency_object_ids": [
         "table.public.links-bundle-validation-links"
       ],
@@ -12309,8 +12309,8 @@
       "qualified_name": "public.links_bundle_validation_links.links_bundle_validation_links_pkey",
       "management_class": "cartulary_authored",
       "source_owner": "links",
-      "migration_version": 42,
-      "migration_file": "00042_links_bundle_validation.sql",
+      "migration_version": 14,
+      "migration_file": "00014_links.sql",
       "dependency_object_ids": [
         "table.public.links-bundle-validation-links"
       ],
@@ -12328,8 +12328,8 @@
       "qualified_name": "public.links_bundle_validation_links.links_bundle_validation_links_tx_ck",
       "management_class": "cartulary_authored",
       "source_owner": "links",
-      "migration_version": 42,
-      "migration_file": "00042_links_bundle_validation.sql",
+      "migration_version": 14,
+      "migration_file": "00014_links.sql",
       "dependency_object_ids": [
         "table.public.links-bundle-validation-links"
       ],
@@ -12347,8 +12347,8 @@
       "qualified_name": "public.links_bundle_validation_tags.links_bundle_validation_tags_empty_commit",
       "management_class": "cartulary_authored",
       "source_owner": "links",
-      "migration_version": 42,
-      "migration_file": "00042_links_bundle_validation.sql",
+      "migration_version": 14,
+      "migration_file": "00014_links.sql",
       "dependency_object_ids": [
         "table.public.links-bundle-validation-tags"
       ],
@@ -12366,8 +12366,8 @@
       "qualified_name": "public.links_bundle_validation_tags.links_bundle_validation_tags_pkey",
       "management_class": "cartulary_authored",
       "source_owner": "links",
-      "migration_version": 42,
-      "migration_file": "00042_links_bundle_validation.sql",
+      "migration_version": 14,
+      "migration_file": "00014_links.sql",
       "dependency_object_ids": [
         "table.public.links-bundle-validation-tags"
       ],
@@ -12385,8 +12385,8 @@
       "qualified_name": "public.links_bundle_validation_tags.links_bundle_validation_tags_tx_ck",
       "management_class": "cartulary_authored",
       "source_owner": "links",
-      "migration_version": 42,
-      "migration_file": "00042_links_bundle_validation.sql",
+      "migration_version": 14,
+      "migration_file": "00014_links.sql",
       "dependency_object_ids": [
         "table.public.links-bundle-validation-tags"
       ],
@@ -12540,8 +12540,8 @@
       "qualified_name": "public.network_flow_graph_views.network_flow_graph_views_refresh_intent_ck",
       "management_class": "cartulary_authored",
       "source_owner": "networkflow",
-      "migration_version": 40,
-      "migration_file": "00040_network_flow_incident_portability.sql",
+      "migration_version": 20,
+      "migration_file": "00020_network_flow.sql",
       "dependency_object_ids": [
         "table.public.network-flow-graph-views"
       ],
@@ -12578,8 +12578,8 @@
       "qualified_name": "public.network_flow_graph_views.network_flow_graph_views_selected_source_ck",
       "management_class": "cartulary_authored",
       "source_owner": "networkflow",
-      "migration_version": 40,
-      "migration_file": "00040_network_flow_incident_portability.sql",
+      "migration_version": 20,
+      "migration_file": "00020_network_flow.sql",
       "dependency_object_ids": [
         "table.public.network-flow-graph-views"
       ],
@@ -13038,8 +13038,8 @@
       "qualified_name": "public.network_flow_rejected_row_diagnostics.network_flow_rejected_row_diagnostics_pkey",
       "management_class": "cartulary_authored",
       "source_owner": "networkflow",
-      "migration_version": 30,
-      "migration_file": "00030_network_flow_diagnostic_identity.sql",
+      "migration_version": 20,
+      "migration_file": "00020_network_flow.sql",
       "dependency_object_ids": [
         "table.public.network-flow-rejected-row-diagnostics"
       ],
@@ -13172,8 +13172,8 @@
       "qualified_name": "public.network_flow_rows.network_flow_rows_direction_ck",
       "management_class": "cartulary_authored",
       "source_owner": "networkflow",
-      "migration_version": 38,
-      "migration_file": "00038_network_flow_orientation.sql",
+      "migration_version": 20,
+      "migration_file": "00020_network_flow.sql",
       "dependency_object_ids": [
         "table.public.network-flow-rows"
       ],
@@ -13191,8 +13191,8 @@
       "qualified_name": "public.network_flow_rows.network_flow_rows_direction_evidence_ck",
       "management_class": "cartulary_authored",
       "source_owner": "networkflow",
-      "migration_version": 60,
-      "migration_file": "00060_network_flow_row_check_cost.sql",
+      "migration_version": 20,
+      "migration_file": "00020_network_flow.sql",
       "dependency_object_ids": [
         "table.public.network-flow-rows"
       ],
@@ -13210,8 +13210,8 @@
       "qualified_name": "public.network_flow_rows.network_flow_rows_endpoints_ck",
       "management_class": "cartulary_authored",
       "source_owner": "networkflow",
-      "migration_version": 38,
-      "migration_file": "00038_network_flow_orientation.sql",
+      "migration_version": 20,
+      "migration_file": "00020_network_flow.sql",
       "dependency_object_ids": [
         "table.public.network-flow-rows"
       ],
@@ -13229,8 +13229,8 @@
       "qualified_name": "public.network_flow_rows.network_flow_rows_id_ck",
       "management_class": "cartulary_authored",
       "source_owner": "networkflow",
-      "migration_version": 60,
-      "migration_file": "00060_network_flow_row_check_cost.sql",
+      "migration_version": 20,
+      "migration_file": "00020_network_flow.sql",
       "dependency_object_ids": [
         "table.public.network-flow-rows"
       ],
@@ -13343,8 +13343,8 @@
       "qualified_name": "public.network_flow_rows.network_flow_rows_sha_ck",
       "management_class": "cartulary_authored",
       "source_owner": "networkflow",
-      "migration_version": 60,
-      "migration_file": "00060_network_flow_row_check_cost.sql",
+      "migration_version": 20,
+      "migration_file": "00020_network_flow.sql",
       "dependency_object_ids": [
         "table.public.network-flow-rows"
       ],
@@ -13362,8 +13362,8 @@
       "qualified_name": "public.network_flow_rows.network_flow_rows_table_creator_fkey",
       "management_class": "cartulary_authored",
       "source_owner": "networkflow",
-      "migration_version": 60,
-      "migration_file": "00060_network_flow_row_check_cost.sql",
+      "migration_version": 20,
+      "migration_file": "00020_network_flow.sql",
       "dependency_object_ids": [
         "table.public.network-flow-rows",
         "table.public.network-flow-tables"
@@ -13458,8 +13458,8 @@
       "qualified_name": "public.network_flow_tables.network_flow_tables_committed_source_fk",
       "management_class": "cartulary_authored",
       "source_owner": "networkflow",
-      "migration_version": 40,
-      "migration_file": "00040_network_flow_incident_portability.sql",
+      "migration_version": 20,
+      "migration_file": "00020_network_flow.sql",
       "dependency_object_ids": [
         "table.public.import-committed-sources",
         "table.public.network-flow-tables"
@@ -13478,8 +13478,8 @@
       "qualified_name": "public.network_flow_tables.network_flow_tables_committed_source_key",
       "management_class": "cartulary_authored",
       "source_owner": "networkflow",
-      "migration_version": 40,
-      "migration_file": "00040_network_flow_incident_portability.sql",
+      "migration_version": 20,
+      "migration_file": "00020_network_flow.sql",
       "dependency_object_ids": [
         "table.public.network-flow-tables"
       ],
@@ -13536,8 +13536,8 @@
       "qualified_name": "public.network_flow_tables.network_flow_tables_creator_identity_key",
       "management_class": "cartulary_authored",
       "source_owner": "networkflow",
-      "migration_version": 60,
-      "migration_file": "00060_network_flow_row_check_cost.sql",
+      "migration_version": 20,
+      "migration_file": "00020_network_flow.sql",
       "dependency_object_ids": [
         "table.public.network-flow-tables"
       ],
@@ -13632,8 +13632,8 @@
       "qualified_name": "public.network_flow_tables.network_flow_tables_interpretation_ck",
       "management_class": "cartulary_authored",
       "source_owner": "networkflow",
-      "migration_version": 40,
-      "migration_file": "00040_network_flow_incident_portability.sql",
+      "migration_version": 20,
+      "migration_file": "00020_network_flow.sql",
       "dependency_object_ids": [
         "table.public.network-flow-tables"
       ],
@@ -13746,8 +13746,8 @@
       "qualified_name": "public.network_flow_tables.network_flow_tables_source_raw_cell_scalar_limit_ck",
       "management_class": "cartulary_authored",
       "source_owner": "networkflow",
-      "migration_version": 40,
-      "migration_file": "00040_network_flow_incident_portability.sql",
+      "migration_version": 20,
+      "migration_file": "00020_network_flow.sql",
       "dependency_object_ids": [
         "table.public.network-flow-tables"
       ],
@@ -13878,6 +13878,25 @@
       "object_id": "constraint.public.object-blobs.object-blobs-expected-sha256-hex-check",
       "object_kind": "constraint",
       "qualified_name": "public.object_blobs.object_blobs_expected_sha256_hex_check",
+      "management_class": "cartulary_authored",
+      "source_owner": "evidence",
+      "migration_version": 17,
+      "migration_file": "00017_evidence.sql",
+      "dependency_object_ids": [
+        "table.public.object-blobs"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.object-blobs.object-blobs-failure-cleanup-ck",
+      "object_kind": "constraint",
+      "qualified_name": "public.object_blobs.object_blobs_failure_cleanup_ck",
       "management_class": "cartulary_authored",
       "source_owner": "evidence",
       "migration_version": 17,
@@ -15429,8 +15448,8 @@
       "qualified_name": "public.recovery_target_state.recovery_target_state_attempt_check",
       "management_class": "cartulary_authored",
       "source_owner": "recovery",
-      "migration_version": 35,
-      "migration_file": "00035_recovery_target_state.sql",
+      "migration_version": 4,
+      "migration_file": "00004_recovery.sql",
       "dependency_object_ids": [
         "table.public.recovery-target-state"
       ],
@@ -15448,8 +15467,8 @@
       "qualified_name": "public.recovery_target_state.recovery_target_state_hash_check",
       "management_class": "cartulary_authored",
       "source_owner": "recovery",
-      "migration_version": 35,
-      "migration_file": "00035_recovery_target_state.sql",
+      "migration_version": 4,
+      "migration_file": "00004_recovery.sql",
       "dependency_object_ids": [
         "table.public.recovery-target-state"
       ],
@@ -15467,8 +15486,8 @@
       "qualified_name": "public.recovery_target_state.recovery_target_state_operation_check",
       "management_class": "cartulary_authored",
       "source_owner": "recovery",
-      "migration_version": 35,
-      "migration_file": "00035_recovery_target_state.sql",
+      "migration_version": 4,
+      "migration_file": "00004_recovery.sql",
       "dependency_object_ids": [
         "table.public.recovery-target-state"
       ],
@@ -15486,8 +15505,8 @@
       "qualified_name": "public.recovery_target_state.recovery_target_state_phase_check",
       "management_class": "cartulary_authored",
       "source_owner": "recovery",
-      "migration_version": 35,
-      "migration_file": "00035_recovery_target_state.sql",
+      "migration_version": 4,
+      "migration_file": "00004_recovery.sql",
       "dependency_object_ids": [
         "table.public.recovery-target-state"
       ],
@@ -15505,8 +15524,8 @@
       "qualified_name": "public.recovery_target_state.recovery_target_state_pkey",
       "management_class": "cartulary_authored",
       "source_owner": "recovery",
-      "migration_version": 35,
-      "migration_file": "00035_recovery_target_state.sql",
+      "migration_version": 4,
+      "migration_file": "00004_recovery.sql",
       "dependency_object_ids": [
         "table.public.recovery-target-state"
       ],
@@ -15524,8 +15543,8 @@
       "qualified_name": "public.recovery_target_state.recovery_target_state_purpose_check",
       "management_class": "cartulary_authored",
       "source_owner": "recovery",
-      "migration_version": 35,
-      "migration_file": "00035_recovery_target_state.sql",
+      "migration_version": 4,
+      "migration_file": "00004_recovery.sql",
       "dependency_object_ids": [
         "table.public.recovery-target-state"
       ],
@@ -15543,8 +15562,8 @@
       "qualified_name": "public.recovery_target_state.recovery_target_state_revision_check",
       "management_class": "cartulary_authored",
       "source_owner": "recovery",
-      "migration_version": 35,
-      "migration_file": "00035_recovery_target_state.sql",
+      "migration_version": 4,
+      "migration_file": "00004_recovery.sql",
       "dependency_object_ids": [
         "table.public.recovery-target-state"
       ],
@@ -15562,8 +15581,8 @@
       "qualified_name": "public.recovery_target_state.recovery_target_state_schema_check",
       "management_class": "cartulary_authored",
       "source_owner": "recovery",
-      "migration_version": 35,
-      "migration_file": "00035_recovery_target_state.sql",
+      "migration_version": 4,
+      "migration_file": "00004_recovery.sql",
       "dependency_object_ids": [
         "table.public.recovery-target-state"
       ],
@@ -15581,8 +15600,8 @@
       "qualified_name": "public.recovery_target_state.recovery_target_state_singleton_check",
       "management_class": "cartulary_authored",
       "source_owner": "recovery",
-      "migration_version": 35,
-      "migration_file": "00035_recovery_target_state.sql",
+      "migration_version": 4,
+      "migration_file": "00004_recovery.sql",
       "dependency_object_ids": [
         "table.public.recovery-target-state"
       ],
@@ -15600,8 +15619,8 @@
       "qualified_name": "public.recovery_target_state.recovery_target_state_state_check",
       "management_class": "cartulary_authored",
       "source_owner": "recovery",
-      "migration_version": 35,
-      "migration_file": "00035_recovery_target_state.sql",
+      "migration_version": 4,
+      "migration_file": "00004_recovery.sql",
       "dependency_object_ids": [
         "table.public.recovery-target-state"
       ],
@@ -15619,8 +15638,8 @@
       "qualified_name": "public.recovery_target_state.recovery_target_state_uuid_check",
       "management_class": "cartulary_authored",
       "source_owner": "recovery",
-      "migration_version": 35,
-      "migration_file": "00035_recovery_target_state.sql",
+      "migration_version": 4,
+      "migration_file": "00004_recovery.sql",
       "dependency_object_ids": [
         "table.public.recovery-target-state"
       ],
@@ -16830,8 +16849,8 @@
       "qualified_name": "public.reference_pack_indexes.rp_indexes_ck3",
       "management_class": "cartulary_authored",
       "source_owner": "reference_data",
-      "migration_version": 50,
-      "migration_file": "00050_reference_pack_generic_index_bound.sql",
+      "migration_version": 26,
+      "migration_file": "00026_reference_data.sql",
       "dependency_object_ids": [
         "table.public.reference-pack-indexes"
       ],
@@ -20052,14 +20071,14 @@
       "qualified_name": "public.reporting_imported_artifact_chunks.reporting_imported_artifact_chunks_bytes_ck",
       "management_class": "cartulary_authored",
       "source_owner": "reporting",
-      "migration_version": 45,
-      "migration_file": "00045_reporting_portable_member_streams.sql",
+      "migration_version": 23,
+      "migration_file": "00023_reporting.sql",
       "dependency_object_ids": [
         "table.public.reporting-imported-artifact-chunks"
       ],
       "runtime_access_class": "not_applicable",
       "recovery_access_class": "not_applicable",
-      "extension_profile_id": null,
+      "extension_profile_id": "snapshot_reporting",
       "recovery_classification": "not_applicable",
       "sqlc_input": false,
       "foreign_key_index_status": "not_applicable",
@@ -20071,15 +20090,15 @@
       "qualified_name": "public.reporting_imported_artifact_chunks.reporting_imported_artifact_chunks_file_fk",
       "management_class": "cartulary_authored",
       "source_owner": "reporting",
-      "migration_version": 45,
-      "migration_file": "00045_reporting_portable_member_streams.sql",
+      "migration_version": 23,
+      "migration_file": "00023_reporting.sql",
       "dependency_object_ids": [
         "table.public.reporting-imported-artifact-chunks",
         "table.public.reporting-imported-artifact-files"
       ],
       "runtime_access_class": "not_applicable",
       "recovery_access_class": "not_applicable",
-      "extension_profile_id": null,
+      "extension_profile_id": "snapshot_reporting",
       "recovery_classification": "not_applicable",
       "sqlc_input": false,
       "foreign_key_index_status": "covered",
@@ -20091,14 +20110,14 @@
       "qualified_name": "public.reporting_imported_artifact_chunks.reporting_imported_artifact_chunks_ordinal_ck",
       "management_class": "cartulary_authored",
       "source_owner": "reporting",
-      "migration_version": 45,
-      "migration_file": "00045_reporting_portable_member_streams.sql",
+      "migration_version": 23,
+      "migration_file": "00023_reporting.sql",
       "dependency_object_ids": [
         "table.public.reporting-imported-artifact-chunks"
       ],
       "runtime_access_class": "not_applicable",
       "recovery_access_class": "not_applicable",
-      "extension_profile_id": null,
+      "extension_profile_id": "snapshot_reporting",
       "recovery_classification": "not_applicable",
       "sqlc_input": false,
       "foreign_key_index_status": "not_applicable",
@@ -20110,14 +20129,14 @@
       "qualified_name": "public.reporting_imported_artifact_chunks.reporting_imported_artifact_chunks_pk",
       "management_class": "cartulary_authored",
       "source_owner": "reporting",
-      "migration_version": 45,
-      "migration_file": "00045_reporting_portable_member_streams.sql",
+      "migration_version": 23,
+      "migration_file": "00023_reporting.sql",
       "dependency_object_ids": [
         "table.public.reporting-imported-artifact-chunks"
       ],
       "runtime_access_class": "not_applicable",
       "recovery_access_class": "not_applicable",
-      "extension_profile_id": null,
+      "extension_profile_id": "snapshot_reporting",
       "recovery_classification": "not_applicable",
       "sqlc_input": false,
       "foreign_key_index_status": "not_applicable",
@@ -20245,14 +20264,14 @@
       "qualified_name": "public.reporting_job_payloads.reporting_graph_input_v2_ck",
       "management_class": "cartulary_authored",
       "source_owner": "reporting",
-      "migration_version": 38,
-      "migration_file": "00038_network_flow_orientation.sql",
+      "migration_version": 23,
+      "migration_file": "00023_reporting.sql",
       "dependency_object_ids": [
         "table.public.reporting-job-payloads"
       ],
       "runtime_access_class": "not_applicable",
       "recovery_access_class": "not_applicable",
-      "extension_profile_id": "network_flow_activity",
+      "extension_profile_id": "snapshot_reporting",
       "recovery_classification": "not_applicable",
       "sqlc_input": false,
       "foreign_key_index_status": "not_applicable",
@@ -21246,8 +21265,8 @@
       "qualified_name": "public.reporting_render_failure_records.reporting_render_failure_records_bytes_ck",
       "management_class": "cartulary_authored",
       "source_owner": "reporting",
-      "migration_version": 37,
-      "migration_file": "00037_independent_reporting_failure_records.sql",
+      "migration_version": 23,
+      "migration_file": "00023_reporting.sql",
       "dependency_object_ids": [
         "table.public.reporting-render-failure-records"
       ],
@@ -21265,8 +21284,8 @@
       "qualified_name": "public.reporting_render_failure_records.reporting_render_failure_records_digest_ck",
       "management_class": "cartulary_authored",
       "source_owner": "reporting",
-      "migration_version": 37,
-      "migration_file": "00037_independent_reporting_failure_records.sql",
+      "migration_version": 23,
+      "migration_file": "00023_reporting.sql",
       "dependency_object_ids": [
         "table.public.reporting-render-failure-records"
       ],
@@ -21284,8 +21303,8 @@
       "qualified_name": "public.reporting_render_failure_records.reporting_render_failure_records_job_fk",
       "management_class": "cartulary_authored",
       "source_owner": "reporting",
-      "migration_version": 37,
-      "migration_file": "00037_independent_reporting_failure_records.sql",
+      "migration_version": 23,
+      "migration_file": "00023_reporting.sql",
       "dependency_object_ids": [
         "table.public.jobs",
         "table.public.reporting-render-failure-records"
@@ -21304,8 +21323,8 @@
       "qualified_name": "public.reporting_render_failure_records.reporting_render_failure_records_pkey",
       "management_class": "cartulary_authored",
       "source_owner": "reporting",
-      "migration_version": 37,
-      "migration_file": "00037_independent_reporting_failure_records.sql",
+      "migration_version": 23,
+      "migration_file": "00023_reporting.sql",
       "dependency_object_ids": [
         "table.public.reporting-render-failure-records"
       ],
@@ -21593,8 +21612,8 @@
       "qualified_name": "public.revision_history_orders.revision_history_orders_incident_id_fkey",
       "management_class": "cartulary_authored",
       "source_owner": "revisions",
-      "migration_version": 58,
-      "migration_file": "00058_revision_history_order.sql",
+      "migration_version": 8,
+      "migration_file": "00008_revisions.sql",
       "dependency_object_ids": [
         "table.public.incidents",
         "table.public.revision-history-orders"
@@ -21613,8 +21632,8 @@
       "qualified_name": "public.revision_history_orders.revision_history_orders_pkey",
       "management_class": "cartulary_authored",
       "source_owner": "revisions",
-      "migration_version": 58,
-      "migration_file": "00058_revision_history_order.sql",
+      "migration_version": 8,
+      "migration_file": "00008_revisions.sql",
       "dependency_object_ids": [
         "table.public.revision-history-orders"
       ],
@@ -21632,8 +21651,8 @@
       "qualified_name": "public.revision_history_orders.revision_history_orders_positive_ck",
       "management_class": "cartulary_authored",
       "source_owner": "revisions",
-      "migration_version": 58,
-      "migration_file": "00058_revision_history_order.sql",
+      "migration_version": 8,
+      "migration_file": "00008_revisions.sql",
       "dependency_object_ids": [
         "table.public.revision-history-orders"
       ],
@@ -24221,8 +24240,8 @@
       "qualified_name": "public.change_sets_incident_history_order_key",
       "management_class": "cartulary_authored",
       "source_owner": "revisions",
-      "migration_version": 58,
-      "migration_file": "00058_revision_history_order.sql",
+      "migration_version": 8,
+      "migration_file": "00008_revisions.sql",
       "dependency_object_ids": [
         "constraint.public.change-sets.change-sets-incident-history-order-key",
         "table.public.change-sets"
@@ -25172,8 +25191,8 @@
       "qualified_name": "public.entities_bundle_validation_associations_pkey",
       "management_class": "cartulary_authored",
       "source_owner": "entities",
-      "migration_version": 43,
-      "migration_file": "00043_entities_bundle_validation.sql",
+      "migration_version": 11,
+      "migration_file": "00011_entities.sql",
       "dependency_object_ids": [
         "constraint.public.entities-bundle-validation-associations.entities-bundle-validation-associations-pkey",
         "table.public.entities-bundle-validation-associations"
@@ -25192,8 +25211,8 @@
       "qualified_name": "public.entities_bundle_validation_binding_pkey",
       "management_class": "cartulary_authored",
       "source_owner": "entities",
-      "migration_version": 43,
-      "migration_file": "00043_entities_bundle_validation.sql",
+      "migration_version": 11,
+      "migration_file": "00011_entities.sql",
       "dependency_object_ids": [
         "constraint.public.entities-bundle-validation-binding.entities-bundle-validation-binding-pkey",
         "table.public.entities-bundle-validation-binding"
@@ -25212,8 +25231,8 @@
       "qualified_name": "public.entities_bundle_validation_claims_pkey",
       "management_class": "cartulary_authored",
       "source_owner": "entities",
-      "migration_version": 43,
-      "migration_file": "00043_entities_bundle_validation.sql",
+      "migration_version": 11,
+      "migration_file": "00011_entities.sql",
       "dependency_object_ids": [
         "constraint.public.entities-bundle-validation-claims.entities-bundle-validation-claims-pkey",
         "table.public.entities-bundle-validation-claims"
@@ -25232,8 +25251,8 @@
       "qualified_name": "public.entities_bundle_validation_mentions_pkey",
       "management_class": "cartulary_authored",
       "source_owner": "entities",
-      "migration_version": 43,
-      "migration_file": "00043_entities_bundle_validation.sql",
+      "migration_version": 11,
+      "migration_file": "00011_entities.sql",
       "dependency_object_ids": [
         "constraint.public.entities-bundle-validation-mentions.entities-bundle-validation-mentions-pkey",
         "table.public.entities-bundle-validation-mentions"
@@ -25252,8 +25271,8 @@
       "qualified_name": "public.entities_bundle_validation_nodes_pkey",
       "management_class": "cartulary_authored",
       "source_owner": "entities",
-      "migration_version": 43,
-      "migration_file": "00043_entities_bundle_validation.sql",
+      "migration_version": 11,
+      "migration_file": "00011_entities.sql",
       "dependency_object_ids": [
         "constraint.public.entities-bundle-validation-nodes.entities-bundle-validation-nodes-pkey",
         "table.public.entities-bundle-validation-nodes"
@@ -26350,8 +26369,8 @@
       "qualified_name": "public.evidence_owner_user_id_fk_idx",
       "management_class": "cartulary_authored",
       "source_owner": "evidence",
-      "migration_version": 53,
-      "migration_file": "00053_evidence_accountable_owner.sql",
+      "migration_version": 17,
+      "migration_file": "00017_evidence.sql",
       "dependency_object_ids": [
         "table.public.evidence"
       ],
@@ -26567,8 +26586,8 @@
       "qualified_name": "public.extension_staged_objects_operation_idx",
       "management_class": "cartulary_authored",
       "source_owner": "extensions",
-      "migration_version": 41,
-      "migration_file": "00041_operation_scoped_stream_staging.sql",
+      "migration_version": 27,
+      "migration_file": "00027_extensions.sql",
       "dependency_object_ids": [
         "table.public.extension-staged-objects"
       ],
@@ -26861,8 +26880,8 @@
       "qualified_name": "public.handoff_risk_refs_active_text_idx",
       "management_class": "cartulary_authored",
       "source_owner": "artifacts",
-      "migration_version": 52,
-      "migration_file": "00052_handoff_risk_canonical_identity.sql",
+      "migration_version": 16,
+      "migration_file": "00016_artifacts.sql",
       "dependency_object_ids": [
         "table.public.handoff-risk-refs"
       ],
@@ -27747,8 +27766,8 @@
       "qualified_name": "public.import_committed_source_blobs_pkey",
       "management_class": "cartulary_authored",
       "source_owner": "imports",
-      "migration_version": 39,
-      "migration_file": "00039_committed_import_sources.sql",
+      "migration_version": 19,
+      "migration_file": "00019_imports.sql",
       "dependency_object_ids": [
         "constraint.public.import-committed-source-blobs.import-committed-source-blobs-pkey",
         "table.public.import-committed-source-blobs"
@@ -27767,8 +27786,8 @@
       "qualified_name": "public.import_committed_source_chunks_pkey",
       "management_class": "cartulary_authored",
       "source_owner": "imports",
-      "migration_version": 39,
-      "migration_file": "00039_committed_import_sources.sql",
+      "migration_version": 19,
+      "migration_file": "00019_imports.sql",
       "dependency_object_ids": [
         "constraint.public.import-committed-source-chunks.import-committed-source-chunks-pkey",
         "table.public.import-committed-source-chunks"
@@ -27787,15 +27806,15 @@
       "qualified_name": "public.import_committed_source_records_pkey",
       "management_class": "cartulary_authored",
       "source_owner": "imports",
-      "migration_version": 47,
-      "migration_file": "00047_import_projection_rows.sql",
+      "migration_version": 19,
+      "migration_file": "00019_imports.sql",
       "dependency_object_ids": [
         "constraint.public.import-committed-source-records.import-committed-source-records-pkey",
         "table.public.import-committed-source-records"
       ],
       "runtime_access_class": "not_applicable",
       "recovery_access_class": "not_applicable",
-      "extension_profile_id": null,
+      "extension_profile_id": "import",
       "recovery_classification": "not_applicable",
       "sqlc_input": false,
       "foreign_key_index_status": "not_applicable",
@@ -27807,14 +27826,14 @@
       "qualified_name": "public.import_committed_source_records_record_idx",
       "management_class": "cartulary_authored",
       "source_owner": "imports",
-      "migration_version": 47,
-      "migration_file": "00047_import_projection_rows.sql",
+      "migration_version": 19,
+      "migration_file": "00019_imports.sql",
       "dependency_object_ids": [
         "table.public.import-committed-source-records"
       ],
       "runtime_access_class": "not_applicable",
       "recovery_access_class": "not_applicable",
-      "extension_profile_id": null,
+      "extension_profile_id": "import",
       "recovery_classification": "not_applicable",
       "sqlc_input": false,
       "foreign_key_index_status": "not_applicable",
@@ -27826,8 +27845,8 @@
       "qualified_name": "public.import_committed_source_records_source_fk_idx",
       "management_class": "cartulary_authored",
       "source_owner": "imports",
-      "migration_version": 49,
-      "migration_file": "00049_import_committed_source_index.sql",
+      "migration_version": 19,
+      "migration_file": "00019_imports.sql",
       "dependency_object_ids": [
         "table.public.import-committed-source-records"
       ],
@@ -27845,8 +27864,8 @@
       "qualified_name": "public.import_committed_sources_actor_idx",
       "management_class": "cartulary_authored",
       "source_owner": "imports",
-      "migration_version": 39,
-      "migration_file": "00039_committed_import_sources.sql",
+      "migration_version": 19,
+      "migration_file": "00019_imports.sql",
       "dependency_object_ids": [
         "table.public.import-committed-sources"
       ],
@@ -27864,8 +27883,8 @@
       "qualified_name": "public.import_committed_sources_content_idx",
       "management_class": "cartulary_authored",
       "source_owner": "imports",
-      "migration_version": 39,
-      "migration_file": "00039_committed_import_sources.sql",
+      "migration_version": 19,
+      "migration_file": "00019_imports.sql",
       "dependency_object_ids": [
         "table.public.import-committed-sources"
       ],
@@ -27883,8 +27902,8 @@
       "qualified_name": "public.import_committed_sources_origin_key",
       "management_class": "cartulary_authored",
       "source_owner": "imports",
-      "migration_version": 39,
-      "migration_file": "00039_committed_import_sources.sql",
+      "migration_version": 19,
+      "migration_file": "00019_imports.sql",
       "dependency_object_ids": [
         "constraint.public.import-committed-sources.import-committed-sources-origin-key",
         "table.public.import-committed-sources"
@@ -27903,8 +27922,8 @@
       "qualified_name": "public.import_committed_sources_pkey",
       "management_class": "cartulary_authored",
       "source_owner": "imports",
-      "migration_version": 39,
-      "migration_file": "00039_committed_import_sources.sql",
+      "migration_version": 19,
+      "migration_file": "00019_imports.sql",
       "dependency_object_ids": [
         "constraint.public.import-committed-sources.import-committed-sources-pkey",
         "table.public.import-committed-sources"
@@ -27923,8 +27942,8 @@
       "qualified_name": "public.import_committed_sources_scope_key",
       "management_class": "cartulary_authored",
       "source_owner": "imports",
-      "migration_version": 39,
-      "migration_file": "00039_committed_import_sources.sql",
+      "migration_version": 19,
+      "migration_file": "00019_imports.sql",
       "dependency_object_ids": [
         "constraint.public.import-committed-sources.import-committed-sources-scope-key",
         "table.public.import-committed-sources"
@@ -28331,15 +28350,15 @@
       "qualified_name": "public.import_unit_projection_rows_pkey",
       "management_class": "cartulary_authored",
       "source_owner": "imports",
-      "migration_version": 47,
-      "migration_file": "00047_import_projection_rows.sql",
+      "migration_version": 19,
+      "migration_file": "00019_imports.sql",
       "dependency_object_ids": [
         "constraint.public.import-unit-projection-rows.import-unit-projection-rows-pkey",
         "table.public.import-unit-projection-rows"
       ],
       "runtime_access_class": "not_applicable",
       "recovery_access_class": "not_applicable",
-      "extension_profile_id": null,
+      "extension_profile_id": "import",
       "recovery_classification": "not_applicable",
       "sqlc_input": false,
       "foreign_key_index_status": "not_applicable",
@@ -29530,8 +29549,8 @@
       "qualified_name": "public.indicators_bundle_validation_sources_pkey",
       "management_class": "cartulary_authored",
       "source_owner": "indicators",
-      "migration_version": 44,
-      "migration_file": "00044_indicators_bundle_validation.sql",
+      "migration_version": 12,
+      "migration_file": "00012_indicators.sql",
       "dependency_object_ids": [
         "constraint.public.indicators-bundle-validation-sources.indicators-bundle-validation-sources-pkey",
         "table.public.indicators-bundle-validation-sources"
@@ -29782,8 +29801,8 @@
       "qualified_name": "public.links_bundle_validation_catalog_pkey",
       "management_class": "cartulary_authored",
       "source_owner": "links",
-      "migration_version": 42,
-      "migration_file": "00042_links_bundle_validation.sql",
+      "migration_version": 14,
+      "migration_file": "00014_links.sql",
       "dependency_object_ids": [
         "constraint.public.links-bundle-validation-catalog.links-bundle-validation-catalog-pkey",
         "table.public.links-bundle-validation-catalog"
@@ -29802,8 +29821,8 @@
       "qualified_name": "public.links_bundle_validation_links_pkey",
       "management_class": "cartulary_authored",
       "source_owner": "links",
-      "migration_version": 42,
-      "migration_file": "00042_links_bundle_validation.sql",
+      "migration_version": 14,
+      "migration_file": "00014_links.sql",
       "dependency_object_ids": [
         "constraint.public.links-bundle-validation-links.links-bundle-validation-links-pkey",
         "table.public.links-bundle-validation-links"
@@ -29822,8 +29841,8 @@
       "qualified_name": "public.links_bundle_validation_tags_pkey",
       "management_class": "cartulary_authored",
       "source_owner": "links",
-      "migration_version": 42,
-      "migration_file": "00042_links_bundle_validation.sql",
+      "migration_version": 14,
+      "migration_file": "00014_links.sql",
       "dependency_object_ids": [
         "constraint.public.links-bundle-validation-tags.links-bundle-validation-tags-pkey",
         "table.public.links-bundle-validation-tags"
@@ -30110,8 +30129,8 @@
       "qualified_name": "public.network_flow_rejected_row_diagnostics_pkey",
       "management_class": "cartulary_authored",
       "source_owner": "networkflow",
-      "migration_version": 30,
-      "migration_file": "00030_network_flow_diagnostic_identity.sql",
+      "migration_version": 20,
+      "migration_file": "00020_network_flow.sql",
       "dependency_object_ids": [
         "constraint.public.network-flow-rejected-row-diagnostics.network-flow-rejected-row-diagnostics-pkey",
         "table.public.network-flow-rejected-row-diagnostics"
@@ -30149,8 +30168,8 @@
       "qualified_name": "public.network_flow_rows_direction_idx",
       "management_class": "cartulary_authored",
       "source_owner": "networkflow",
-      "migration_version": 38,
-      "migration_file": "00038_network_flow_orientation.sql",
+      "migration_version": 20,
+      "migration_file": "00020_network_flow.sql",
       "dependency_object_ids": [
         "table.public.network-flow-rows"
       ],
@@ -30207,8 +30226,8 @@
       "qualified_name": "public.network_flow_rows_table_creator_scope_idx",
       "management_class": "cartulary_authored",
       "source_owner": "networkflow",
-      "migration_version": 60,
-      "migration_file": "00060_network_flow_row_check_cost.sql",
+      "migration_version": 20,
+      "migration_file": "00020_network_flow.sql",
       "dependency_object_ids": [
         "table.public.network-flow-rows"
       ],
@@ -30303,8 +30322,8 @@
       "qualified_name": "public.network_flow_tables_committed_source_key",
       "management_class": "cartulary_authored",
       "source_owner": "networkflow",
-      "migration_version": 40,
-      "migration_file": "00040_network_flow_incident_portability.sql",
+      "migration_version": 20,
+      "migration_file": "00020_network_flow.sql",
       "dependency_object_ids": [
         "constraint.public.network-flow-tables.network-flow-tables-committed-source-key",
         "table.public.network-flow-tables"
@@ -30323,8 +30342,8 @@
       "qualified_name": "public.network_flow_tables_committed_source_scope_idx",
       "management_class": "cartulary_authored",
       "source_owner": "networkflow",
-      "migration_version": 40,
-      "migration_file": "00040_network_flow_incident_portability.sql",
+      "migration_version": 20,
+      "migration_file": "00020_network_flow.sql",
       "dependency_object_ids": [
         "table.public.network-flow-tables"
       ],
@@ -30361,8 +30380,8 @@
       "qualified_name": "public.network_flow_tables_creator_identity_key",
       "management_class": "cartulary_authored",
       "source_owner": "networkflow",
-      "migration_version": 60,
-      "migration_file": "00060_network_flow_row_check_cost.sql",
+      "migration_version": 20,
+      "migration_file": "00020_network_flow.sql",
       "dependency_object_ids": [
         "constraint.public.network-flow-tables.network-flow-tables-creator-identity-key",
         "table.public.network-flow-tables"
@@ -31562,8 +31581,8 @@
       "qualified_name": "public.recovery_target_state_pkey",
       "management_class": "cartulary_authored",
       "source_owner": "recovery",
-      "migration_version": 35,
-      "migration_file": "00035_recovery_target_state.sql",
+      "migration_version": 4,
+      "migration_file": "00004_recovery.sql",
       "dependency_object_ids": [
         "constraint.public.recovery-target-state.recovery-target-state-pkey",
         "table.public.recovery-target-state"
@@ -32103,15 +32122,15 @@
       "qualified_name": "public.reporting_imported_artifact_chunks_pk",
       "management_class": "cartulary_authored",
       "source_owner": "reporting",
-      "migration_version": 45,
-      "migration_file": "00045_reporting_portable_member_streams.sql",
+      "migration_version": 23,
+      "migration_file": "00023_reporting.sql",
       "dependency_object_ids": [
         "constraint.public.reporting-imported-artifact-chunks.reporting-imported-artifact-chunks-pk",
         "table.public.reporting-imported-artifact-chunks"
       ],
       "runtime_access_class": "not_applicable",
       "recovery_access_class": "not_applicable",
-      "extension_profile_id": null,
+      "extension_profile_id": "snapshot_reporting",
       "recovery_classification": "not_applicable",
       "sqlc_input": false,
       "foreign_key_index_status": "not_applicable",
@@ -32550,8 +32569,8 @@
       "qualified_name": "public.reporting_render_failure_records_pkey",
       "management_class": "cartulary_authored",
       "source_owner": "reporting",
-      "migration_version": 37,
-      "migration_file": "00037_independent_reporting_failure_records.sql",
+      "migration_version": 23,
+      "migration_file": "00023_reporting.sql",
       "dependency_object_ids": [
         "constraint.public.reporting-render-failure-records.reporting-render-failure-records-pkey",
         "table.public.reporting-render-failure-records"
@@ -32725,8 +32744,8 @@
       "qualified_name": "public.revision_history_orders_pkey",
       "management_class": "cartulary_authored",
       "source_owner": "revisions",
-      "migration_version": 58,
-      "migration_file": "00058_revision_history_order.sql",
+      "migration_version": 8,
+      "migration_file": "00008_revisions.sql",
       "dependency_object_ids": [
         "constraint.public.revision-history-orders.revision-history-orders-pkey",
         "table.public.revision-history-orders"
@@ -35251,8 +35270,8 @@
       "qualified_name": "public.entities_reject_retained_bundle_validation",
       "management_class": "cartulary_authored",
       "source_owner": "entities",
-      "migration_version": 43,
-      "migration_file": "00043_entities_bundle_validation.sql",
+      "migration_version": 11,
+      "migration_file": "00011_entities.sql",
       "dependency_object_ids": [],
       "runtime_access_class": "routine_private",
       "recovery_access_class": "routine_private",
@@ -35387,8 +35406,8 @@
       "qualified_name": "public.import_reject_committed_source_update",
       "management_class": "cartulary_authored",
       "source_owner": "imports",
-      "migration_version": 39,
-      "migration_file": "00039_committed_import_sources.sql",
+      "migration_version": 19,
+      "migration_file": "00019_imports.sql",
       "dependency_object_ids": [],
       "runtime_access_class": "routine_private",
       "recovery_access_class": "routine_private",
@@ -35404,12 +35423,12 @@
       "qualified_name": "public.incident_bundle_retire_mutated_attribution",
       "management_class": "cartulary_authored",
       "source_owner": "incidentbundles",
-      "migration_version": 46,
-      "migration_file": "00046_portable_attribution_mutations.sql",
+      "migration_version": 25,
+      "migration_file": "00025_incident_bundles.sql",
       "dependency_object_ids": [],
       "runtime_access_class": "routine_private",
       "recovery_access_class": "routine_private",
-      "extension_profile_id": null,
+      "extension_profile_id": "incident_portability",
       "recovery_classification": "not_applicable",
       "sqlc_input": false,
       "foreign_key_index_status": "not_applicable",
@@ -35455,8 +35474,8 @@
       "qualified_name": "public.indicators_reject_retained_bundle_validation",
       "management_class": "cartulary_authored",
       "source_owner": "indicators",
-      "migration_version": 44,
-      "migration_file": "00044_indicators_bundle_validation.sql",
+      "migration_version": 12,
+      "migration_file": "00012_indicators.sql",
       "dependency_object_ids": [],
       "runtime_access_class": "routine_private",
       "recovery_access_class": "routine_private",
@@ -35472,8 +35491,8 @@
       "qualified_name": "public.links_reject_retained_bundle_validation",
       "management_class": "cartulary_authored",
       "source_owner": "links",
-      "migration_version": 42,
-      "migration_file": "00042_links_bundle_validation.sql",
+      "migration_version": 14,
+      "migration_file": "00014_links.sql",
       "dependency_object_ids": [],
       "runtime_access_class": "routine_private",
       "recovery_access_class": "routine_private",
@@ -35489,8 +35508,8 @@
       "qualified_name": "public.network_flow_direction_evidence_is_valid_v2",
       "management_class": "cartulary_authored",
       "source_owner": "networkflow",
-      "migration_version": 60,
-      "migration_file": "00060_network_flow_row_check_cost.sql",
+      "migration_version": 20,
+      "migration_file": "00020_network_flow.sql",
       "dependency_object_ids": [],
       "runtime_access_class": "routine_application",
       "recovery_access_class": "routine_recovery",
@@ -35506,8 +35525,8 @@
       "qualified_name": "public.network_flow_endpoints_are_valid_v1",
       "management_class": "cartulary_authored",
       "source_owner": "networkflow",
-      "migration_version": 38,
-      "migration_file": "00038_network_flow_orientation.sql",
+      "migration_version": 20,
+      "migration_file": "00020_network_flow.sql",
       "dependency_object_ids": [],
       "runtime_access_class": "routine_application",
       "recovery_access_class": "routine_recovery",
@@ -35523,8 +35542,8 @@
       "qualified_name": "public.network_flow_ip_literal_is_canonical_v1",
       "management_class": "cartulary_authored",
       "source_owner": "networkflow",
-      "migration_version": 38,
-      "migration_file": "00038_network_flow_orientation.sql",
+      "migration_version": 20,
+      "migration_file": "00020_network_flow.sql",
       "dependency_object_ids": [],
       "runtime_access_class": "routine_application",
       "recovery_access_class": "routine_recovery",
@@ -35540,8 +35559,8 @@
       "qualified_name": "public.network_flow_orientation_state_is_valid_v2",
       "management_class": "cartulary_authored",
       "source_owner": "networkflow",
-      "migration_version": 60,
-      "migration_file": "00060_network_flow_row_check_cost.sql",
+      "migration_version": 20,
+      "migration_file": "00020_network_flow.sql",
       "dependency_object_ids": [],
       "runtime_access_class": "routine_application",
       "recovery_access_class": "routine_recovery",
@@ -35829,8 +35848,8 @@
       "qualified_name": "public.revisions_allocate_history_order_v2",
       "management_class": "cartulary_authored",
       "source_owner": "revisions",
-      "migration_version": 59,
-      "migration_file": "00059_revision_history_order_at_commit.sql",
+      "migration_version": 8,
+      "migration_file": "00008_revisions.sql",
       "dependency_object_ids": [],
       "runtime_access_class": "routine_private",
       "recovery_access_class": "routine_private",
@@ -35846,8 +35865,8 @@
       "qualified_name": "public.revisions_history_order_is_valid_v1",
       "management_class": "cartulary_authored",
       "source_owner": "revisions",
-      "migration_version": 61,
-      "migration_file": "00061_revision_history_order_restore_validation.sql",
+      "migration_version": 8,
+      "migration_file": "00008_revisions.sql",
       "dependency_object_ids": [],
       "runtime_access_class": "routine_private",
       "recovery_access_class": "routine_recovery",
@@ -36373,8 +36392,8 @@
       "qualified_name": "public.entities_bundle_validation_associations",
       "management_class": "cartulary_authored",
       "source_owner": "entities",
-      "migration_version": 43,
-      "migration_file": "00043_entities_bundle_validation.sql",
+      "migration_version": 11,
+      "migration_file": "00011_entities.sql",
       "dependency_object_ids": [],
       "runtime_access_class": "table_read_write",
       "recovery_access_class": "table_restore",
@@ -36390,8 +36409,8 @@
       "qualified_name": "public.entities_bundle_validation_binding",
       "management_class": "cartulary_authored",
       "source_owner": "entities",
-      "migration_version": 43,
-      "migration_file": "00043_entities_bundle_validation.sql",
+      "migration_version": 11,
+      "migration_file": "00011_entities.sql",
       "dependency_object_ids": [],
       "runtime_access_class": "table_read_write",
       "recovery_access_class": "table_restore",
@@ -36407,8 +36426,8 @@
       "qualified_name": "public.entities_bundle_validation_claims",
       "management_class": "cartulary_authored",
       "source_owner": "entities",
-      "migration_version": 43,
-      "migration_file": "00043_entities_bundle_validation.sql",
+      "migration_version": 11,
+      "migration_file": "00011_entities.sql",
       "dependency_object_ids": [],
       "runtime_access_class": "table_read_write",
       "recovery_access_class": "table_restore",
@@ -36424,8 +36443,8 @@
       "qualified_name": "public.entities_bundle_validation_mentions",
       "management_class": "cartulary_authored",
       "source_owner": "entities",
-      "migration_version": 43,
-      "migration_file": "00043_entities_bundle_validation.sql",
+      "migration_version": 11,
+      "migration_file": "00011_entities.sql",
       "dependency_object_ids": [],
       "runtime_access_class": "table_read_write",
       "recovery_access_class": "table_restore",
@@ -36441,8 +36460,8 @@
       "qualified_name": "public.entities_bundle_validation_nodes",
       "management_class": "cartulary_authored",
       "source_owner": "entities",
-      "migration_version": 43,
-      "migration_file": "00043_entities_bundle_validation.sql",
+      "migration_version": 11,
+      "migration_file": "00011_entities.sql",
       "dependency_object_ids": [],
       "runtime_access_class": "table_read_write",
       "recovery_access_class": "table_restore",
@@ -36917,8 +36936,8 @@
       "qualified_name": "public.import_committed_source_blobs",
       "management_class": "cartulary_authored",
       "source_owner": "imports",
-      "migration_version": 39,
-      "migration_file": "00039_committed_import_sources.sql",
+      "migration_version": 19,
+      "migration_file": "00019_imports.sql",
       "dependency_object_ids": [],
       "runtime_access_class": "table_immutable",
       "recovery_access_class": "table_restore",
@@ -36934,8 +36953,8 @@
       "qualified_name": "public.import_committed_source_chunks",
       "management_class": "cartulary_authored",
       "source_owner": "imports",
-      "migration_version": 39,
-      "migration_file": "00039_committed_import_sources.sql",
+      "migration_version": 19,
+      "migration_file": "00019_imports.sql",
       "dependency_object_ids": [],
       "runtime_access_class": "table_immutable",
       "recovery_access_class": "table_restore",
@@ -36951,12 +36970,12 @@
       "qualified_name": "public.import_committed_source_records",
       "management_class": "cartulary_authored",
       "source_owner": "imports",
-      "migration_version": 47,
-      "migration_file": "00047_import_projection_rows.sql",
+      "migration_version": 19,
+      "migration_file": "00019_imports.sql",
       "dependency_object_ids": [],
       "runtime_access_class": "table_append_only",
       "recovery_access_class": "table_restore",
-      "extension_profile_id": null,
+      "extension_profile_id": "import",
       "recovery_classification": "authoritative_required",
       "sqlc_input": false,
       "foreign_key_index_status": "not_applicable",
@@ -36968,8 +36987,8 @@
       "qualified_name": "public.import_committed_sources",
       "management_class": "cartulary_authored",
       "source_owner": "imports",
-      "migration_version": 39,
-      "migration_file": "00039_committed_import_sources.sql",
+      "migration_version": 19,
+      "migration_file": "00019_imports.sql",
       "dependency_object_ids": [],
       "runtime_access_class": "table_immutable",
       "recovery_access_class": "table_restore",
@@ -37036,12 +37055,12 @@
       "qualified_name": "public.import_unit_projection_rows",
       "management_class": "cartulary_authored",
       "source_owner": "imports",
-      "migration_version": 47,
-      "migration_file": "00047_import_projection_rows.sql",
+      "migration_version": 19,
+      "migration_file": "00019_imports.sql",
       "dependency_object_ids": [],
       "runtime_access_class": "table_read_write",
       "recovery_access_class": "table_restore",
-      "extension_profile_id": null,
+      "extension_profile_id": "import",
       "recovery_classification": "authoritative_required",
       "sqlc_input": false,
       "foreign_key_index_status": "not_applicable",
@@ -37308,8 +37327,8 @@
       "qualified_name": "public.indicators_bundle_validation_sources",
       "management_class": "cartulary_authored",
       "source_owner": "indicators",
-      "migration_version": 44,
-      "migration_file": "00044_indicators_bundle_validation.sql",
+      "migration_version": 12,
+      "migration_file": "00012_indicators.sql",
       "dependency_object_ids": [],
       "runtime_access_class": "table_read_write",
       "recovery_access_class": "table_restore",
@@ -37342,8 +37361,8 @@
       "qualified_name": "public.links_bundle_validation_catalog",
       "management_class": "cartulary_authored",
       "source_owner": "links",
-      "migration_version": 42,
-      "migration_file": "00042_links_bundle_validation.sql",
+      "migration_version": 14,
+      "migration_file": "00014_links.sql",
       "dependency_object_ids": [],
       "runtime_access_class": "table_read_write",
       "recovery_access_class": "table_restore",
@@ -37359,8 +37378,8 @@
       "qualified_name": "public.links_bundle_validation_links",
       "management_class": "cartulary_authored",
       "source_owner": "links",
-      "migration_version": 42,
-      "migration_file": "00042_links_bundle_validation.sql",
+      "migration_version": 14,
+      "migration_file": "00014_links.sql",
       "dependency_object_ids": [],
       "runtime_access_class": "table_read_write",
       "recovery_access_class": "table_restore",
@@ -37376,8 +37395,8 @@
       "qualified_name": "public.links_bundle_validation_tags",
       "management_class": "cartulary_authored",
       "source_owner": "links",
-      "migration_version": 42,
-      "migration_file": "00042_links_bundle_validation.sql",
+      "migration_version": 14,
+      "migration_file": "00014_links.sql",
       "dependency_object_ids": [],
       "runtime_access_class": "table_read_write",
       "recovery_access_class": "table_restore",
@@ -37682,8 +37701,8 @@
       "qualified_name": "public.recovery_target_state",
       "management_class": "cartulary_authored",
       "source_owner": "recovery",
-      "migration_version": 35,
-      "migration_file": "00035_recovery_target_state.sql",
+      "migration_version": 4,
+      "migration_file": "00004_recovery.sql",
       "dependency_object_ids": [],
       "runtime_access_class": "table_read_only",
       "recovery_access_class": "table_read_update",
@@ -38311,12 +38330,12 @@
       "qualified_name": "public.reporting_imported_artifact_chunks",
       "management_class": "cartulary_authored",
       "source_owner": "reporting",
-      "migration_version": 45,
-      "migration_file": "00045_reporting_portable_member_streams.sql",
+      "migration_version": 23,
+      "migration_file": "00023_reporting.sql",
       "dependency_object_ids": [],
       "runtime_access_class": "table_append_only",
       "recovery_access_class": "table_restore",
-      "extension_profile_id": null,
+      "extension_profile_id": "snapshot_reporting",
       "recovery_classification": "authoritative_required",
       "sqlc_input": false,
       "foreign_key_index_status": "not_applicable",
@@ -38464,8 +38483,8 @@
       "qualified_name": "public.reporting_render_failure_records",
       "management_class": "cartulary_authored",
       "source_owner": "reporting",
-      "migration_version": 37,
-      "migration_file": "00037_independent_reporting_failure_records.sql",
+      "migration_version": 23,
+      "migration_file": "00023_reporting.sql",
       "dependency_object_ids": [],
       "runtime_access_class": "table_read_write",
       "recovery_access_class": "table_restore",
@@ -38515,8 +38534,8 @@
       "qualified_name": "public.revision_history_orders",
       "management_class": "cartulary_authored",
       "source_owner": "revisions",
-      "migration_version": 58,
-      "migration_file": "00058_revision_history_order.sql",
+      "migration_version": 8,
+      "migration_file": "00008_revisions.sql",
       "dependency_object_ids": [],
       "runtime_access_class": "table_read_write",
       "recovery_access_class": "table_restore",
@@ -38755,14 +38774,14 @@
       "qualified_name": "public.assessments.incident_bundle_attribution_mutation_13",
       "management_class": "cartulary_authored",
       "source_owner": "assessments",
-      "migration_version": 46,
-      "migration_file": "00046_portable_attribution_mutations.sql",
+      "migration_version": 25,
+      "migration_file": "00025_incident_bundles.sql",
       "dependency_object_ids": [
         "table.public.assessments"
       ],
       "runtime_access_class": "not_applicable",
       "recovery_access_class": "not_applicable",
-      "extension_profile_id": null,
+      "extension_profile_id": "incident_portability",
       "recovery_classification": "not_applicable",
       "sqlc_input": false,
       "foreign_key_index_status": "not_applicable",
@@ -38774,14 +38793,14 @@
       "qualified_name": "public.assessments.incident_bundle_attribution_mutation_14",
       "management_class": "cartulary_authored",
       "source_owner": "assessments",
-      "migration_version": 46,
-      "migration_file": "00046_portable_attribution_mutations.sql",
+      "migration_version": 25,
+      "migration_file": "00025_incident_bundles.sql",
       "dependency_object_ids": [
         "table.public.assessments"
       ],
       "runtime_access_class": "not_applicable",
       "recovery_access_class": "not_applicable",
-      "extension_profile_id": null,
+      "extension_profile_id": "incident_portability",
       "recovery_classification": "not_applicable",
       "sqlc_input": false,
       "foreign_key_index_status": "not_applicable",
@@ -38793,8 +38812,8 @@
       "qualified_name": "public.change_sets.change_sets_allocate_history_order",
       "management_class": "cartulary_authored",
       "source_owner": "revisions",
-      "migration_version": 59,
-      "migration_file": "00059_revision_history_order_at_commit.sql",
+      "migration_version": 8,
+      "migration_file": "00008_revisions.sql",
       "dependency_object_ids": [
         "table.public.change-sets"
       ],
@@ -38812,14 +38831,14 @@
       "qualified_name": "public.decisions.incident_bundle_attribution_mutation_19",
       "management_class": "cartulary_authored",
       "source_owner": "tasksdecisions",
-      "migration_version": 46,
-      "migration_file": "00046_portable_attribution_mutations.sql",
+      "migration_version": 25,
+      "migration_file": "00025_incident_bundles.sql",
       "dependency_object_ids": [
         "table.public.decisions"
       ],
       "runtime_access_class": "not_applicable",
       "recovery_access_class": "not_applicable",
-      "extension_profile_id": null,
+      "extension_profile_id": "incident_portability",
       "recovery_classification": "not_applicable",
       "sqlc_input": false,
       "foreign_key_index_status": "not_applicable",
@@ -38850,8 +38869,8 @@
       "qualified_name": "public.entities_bundle_validation_associations.entities_bundle_validation_associations_empty_commit",
       "management_class": "cartulary_authored",
       "source_owner": "entities",
-      "migration_version": 43,
-      "migration_file": "00043_entities_bundle_validation.sql",
+      "migration_version": 11,
+      "migration_file": "00011_entities.sql",
       "dependency_object_ids": [
         "table.public.entities-bundle-validation-associations"
       ],
@@ -38869,8 +38888,8 @@
       "qualified_name": "public.entities_bundle_validation_binding.entities_bundle_validation_binding_empty_commit",
       "management_class": "cartulary_authored",
       "source_owner": "entities",
-      "migration_version": 43,
-      "migration_file": "00043_entities_bundle_validation.sql",
+      "migration_version": 11,
+      "migration_file": "00011_entities.sql",
       "dependency_object_ids": [
         "table.public.entities-bundle-validation-binding"
       ],
@@ -38888,8 +38907,8 @@
       "qualified_name": "public.entities_bundle_validation_claims.entities_bundle_validation_claims_empty_commit",
       "management_class": "cartulary_authored",
       "source_owner": "entities",
-      "migration_version": 43,
-      "migration_file": "00043_entities_bundle_validation.sql",
+      "migration_version": 11,
+      "migration_file": "00011_entities.sql",
       "dependency_object_ids": [
         "table.public.entities-bundle-validation-claims"
       ],
@@ -38907,8 +38926,8 @@
       "qualified_name": "public.entities_bundle_validation_mentions.entities_bundle_validation_mentions_empty_commit",
       "management_class": "cartulary_authored",
       "source_owner": "entities",
-      "migration_version": 43,
-      "migration_file": "00043_entities_bundle_validation.sql",
+      "migration_version": 11,
+      "migration_file": "00011_entities.sql",
       "dependency_object_ids": [
         "table.public.entities-bundle-validation-mentions"
       ],
@@ -38926,8 +38945,8 @@
       "qualified_name": "public.entities_bundle_validation_nodes.entities_bundle_validation_nodes_empty_commit",
       "management_class": "cartulary_authored",
       "source_owner": "entities",
-      "migration_version": 43,
-      "migration_file": "00043_entities_bundle_validation.sql",
+      "migration_version": 11,
+      "migration_file": "00011_entities.sql",
       "dependency_object_ids": [
         "table.public.entities-bundle-validation-nodes"
       ],
@@ -38983,14 +39002,14 @@
       "qualified_name": "public.entity_mentions.incident_bundle_attribution_mutation_09",
       "management_class": "cartulary_authored",
       "source_owner": "entities",
-      "migration_version": 46,
-      "migration_file": "00046_portable_attribution_mutations.sql",
+      "migration_version": 25,
+      "migration_file": "00025_incident_bundles.sql",
       "dependency_object_ids": [
         "table.public.entity-mentions"
       ],
       "runtime_access_class": "not_applicable",
       "recovery_access_class": "not_applicable",
-      "extension_profile_id": null,
+      "extension_profile_id": "incident_portability",
       "recovery_classification": "not_applicable",
       "sqlc_input": false,
       "foreign_key_index_status": "not_applicable",
@@ -39173,14 +39192,14 @@
       "qualified_name": "public.hosts.incident_bundle_attribution_mutation_04",
       "management_class": "cartulary_authored",
       "source_owner": "entities",
-      "migration_version": 46,
-      "migration_file": "00046_portable_attribution_mutations.sql",
+      "migration_version": 25,
+      "migration_file": "00025_incident_bundles.sql",
       "dependency_object_ids": [
         "table.public.hosts"
       ],
       "runtime_access_class": "not_applicable",
       "recovery_access_class": "not_applicable",
-      "extension_profile_id": null,
+      "extension_profile_id": "incident_portability",
       "recovery_classification": "not_applicable",
       "sqlc_input": false,
       "foreign_key_index_status": "not_applicable",
@@ -39249,14 +39268,14 @@
       "qualified_name": "public.identities.incident_bundle_attribution_mutation_05",
       "management_class": "cartulary_authored",
       "source_owner": "entities",
-      "migration_version": 46,
-      "migration_file": "00046_portable_attribution_mutations.sql",
+      "migration_version": 25,
+      "migration_file": "00025_incident_bundles.sql",
       "dependency_object_ids": [
         "table.public.identities"
       ],
       "runtime_access_class": "not_applicable",
       "recovery_access_class": "not_applicable",
-      "extension_profile_id": null,
+      "extension_profile_id": "incident_portability",
       "recovery_classification": "not_applicable",
       "sqlc_input": false,
       "foreign_key_index_status": "not_applicable",
@@ -39268,8 +39287,8 @@
       "qualified_name": "public.import_committed_source_blobs.import_committed_source_blobs_immutable_update",
       "management_class": "cartulary_authored",
       "source_owner": "imports",
-      "migration_version": 39,
-      "migration_file": "00039_committed_import_sources.sql",
+      "migration_version": 19,
+      "migration_file": "00019_imports.sql",
       "dependency_object_ids": [
         "table.public.import-committed-source-blobs"
       ],
@@ -39287,8 +39306,8 @@
       "qualified_name": "public.import_committed_source_chunks.import_committed_source_chunks_immutable_update",
       "management_class": "cartulary_authored",
       "source_owner": "imports",
-      "migration_version": 39,
-      "migration_file": "00039_committed_import_sources.sql",
+      "migration_version": 19,
+      "migration_file": "00019_imports.sql",
       "dependency_object_ids": [
         "table.public.import-committed-source-chunks"
       ],
@@ -39306,8 +39325,8 @@
       "qualified_name": "public.import_committed_sources.import_committed_sources_immutable_update",
       "management_class": "cartulary_authored",
       "source_owner": "imports",
-      "migration_version": 39,
-      "migration_file": "00039_committed_import_sources.sql",
+      "migration_version": 19,
+      "migration_file": "00019_imports.sql",
       "dependency_object_ids": [
         "table.public.import-committed-sources"
       ],
@@ -39325,14 +39344,14 @@
       "qualified_name": "public.incidents.incident_bundle_attribution_mutation_01",
       "management_class": "cartulary_authored",
       "source_owner": "incidents",
-      "migration_version": 46,
-      "migration_file": "00046_portable_attribution_mutations.sql",
+      "migration_version": 25,
+      "migration_file": "00025_incident_bundles.sql",
       "dependency_object_ids": [
         "table.public.incidents"
       ],
       "runtime_access_class": "not_applicable",
       "recovery_access_class": "not_applicable",
-      "extension_profile_id": null,
+      "extension_profile_id": "incident_portability",
       "recovery_classification": "not_applicable",
       "sqlc_input": false,
       "foreign_key_index_status": "not_applicable",
@@ -39344,14 +39363,14 @@
       "qualified_name": "public.indicator_observations.incident_bundle_attribution_mutation_10",
       "management_class": "cartulary_authored",
       "source_owner": "indicators",
-      "migration_version": 46,
-      "migration_file": "00046_portable_attribution_mutations.sql",
+      "migration_version": 25,
+      "migration_file": "00025_incident_bundles.sql",
       "dependency_object_ids": [
         "table.public.indicator-observations"
       ],
       "runtime_access_class": "not_applicable",
       "recovery_access_class": "not_applicable",
-      "extension_profile_id": null,
+      "extension_profile_id": "incident_portability",
       "recovery_classification": "not_applicable",
       "sqlc_input": false,
       "foreign_key_index_status": "not_applicable",
@@ -39363,14 +39382,14 @@
       "qualified_name": "public.indicator_observations.incident_bundle_attribution_mutation_11",
       "management_class": "cartulary_authored",
       "source_owner": "indicators",
-      "migration_version": 46,
-      "migration_file": "00046_portable_attribution_mutations.sql",
+      "migration_version": 25,
+      "migration_file": "00025_incident_bundles.sql",
       "dependency_object_ids": [
         "table.public.indicator-observations"
       ],
       "runtime_access_class": "not_applicable",
       "recovery_access_class": "not_applicable",
-      "extension_profile_id": null,
+      "extension_profile_id": "incident_portability",
       "recovery_classification": "not_applicable",
       "sqlc_input": false,
       "foreign_key_index_status": "not_applicable",
@@ -39382,14 +39401,14 @@
       "qualified_name": "public.indicator_state_intervals.incident_bundle_attribution_mutation_12",
       "management_class": "cartulary_authored",
       "source_owner": "indicators",
-      "migration_version": 46,
-      "migration_file": "00046_portable_attribution_mutations.sql",
+      "migration_version": 25,
+      "migration_file": "00025_incident_bundles.sql",
       "dependency_object_ids": [
         "table.public.indicator-state-intervals"
       ],
       "runtime_access_class": "not_applicable",
       "recovery_access_class": "not_applicable",
-      "extension_profile_id": null,
+      "extension_profile_id": "incident_portability",
       "recovery_classification": "not_applicable",
       "sqlc_input": false,
       "foreign_key_index_status": "not_applicable",
@@ -39420,8 +39439,8 @@
       "qualified_name": "public.indicators_bundle_validation_sources.indicators_bundle_validation_sources_empty_commit",
       "management_class": "cartulary_authored",
       "source_owner": "indicators",
-      "migration_version": 44,
-      "migration_file": "00044_indicators_bundle_validation.sql",
+      "migration_version": 12,
+      "migration_file": "00012_indicators.sql",
       "dependency_object_ids": [
         "table.public.indicators-bundle-validation-sources"
       ],
@@ -39458,8 +39477,8 @@
       "qualified_name": "public.links_bundle_validation_catalog.links_bundle_validation_catalog_empty_commit",
       "management_class": "cartulary_authored",
       "source_owner": "links",
-      "migration_version": 42,
-      "migration_file": "00042_links_bundle_validation.sql",
+      "migration_version": 14,
+      "migration_file": "00014_links.sql",
       "dependency_object_ids": [
         "table.public.links-bundle-validation-catalog"
       ],
@@ -39477,8 +39496,8 @@
       "qualified_name": "public.links_bundle_validation_links.links_bundle_validation_links_empty_commit",
       "management_class": "cartulary_authored",
       "source_owner": "links",
-      "migration_version": 42,
-      "migration_file": "00042_links_bundle_validation.sql",
+      "migration_version": 14,
+      "migration_file": "00014_links.sql",
       "dependency_object_ids": [
         "table.public.links-bundle-validation-links"
       ],
@@ -39496,8 +39515,8 @@
       "qualified_name": "public.links_bundle_validation_tags.links_bundle_validation_tags_empty_commit",
       "management_class": "cartulary_authored",
       "source_owner": "links",
-      "migration_version": 42,
-      "migration_file": "00042_links_bundle_validation.sql",
+      "migration_version": 14,
+      "migration_file": "00014_links.sql",
       "dependency_object_ids": [
         "table.public.links-bundle-validation-tags"
       ],
@@ -39591,14 +39610,14 @@
       "qualified_name": "public.record_links.incident_bundle_attribution_mutation_15",
       "management_class": "cartulary_authored",
       "source_owner": "links",
-      "migration_version": 46,
-      "migration_file": "00046_portable_attribution_mutations.sql",
+      "migration_version": 25,
+      "migration_file": "00025_incident_bundles.sql",
       "dependency_object_ids": [
         "table.public.record-links"
       ],
       "runtime_access_class": "not_applicable",
       "recovery_access_class": "not_applicable",
-      "extension_profile_id": null,
+      "extension_profile_id": "incident_portability",
       "recovery_classification": "not_applicable",
       "sqlc_input": false,
       "foreign_key_index_status": "not_applicable",
@@ -39610,14 +39629,14 @@
       "qualified_name": "public.record_links.incident_bundle_attribution_mutation_16",
       "management_class": "cartulary_authored",
       "source_owner": "links",
-      "migration_version": 46,
-      "migration_file": "00046_portable_attribution_mutations.sql",
+      "migration_version": 25,
+      "migration_file": "00025_incident_bundles.sql",
       "dependency_object_ids": [
         "table.public.record-links"
       ],
       "runtime_access_class": "not_applicable",
       "recovery_access_class": "not_applicable",
-      "extension_profile_id": null,
+      "extension_profile_id": "incident_portability",
       "recovery_classification": "not_applicable",
       "sqlc_input": false,
       "foreign_key_index_status": "not_applicable",
@@ -39629,14 +39648,14 @@
       "qualified_name": "public.record_tags.incident_bundle_attribution_mutation_17",
       "management_class": "cartulary_authored",
       "source_owner": "links",
-      "migration_version": 46,
-      "migration_file": "00046_portable_attribution_mutations.sql",
+      "migration_version": 25,
+      "migration_file": "00025_incident_bundles.sql",
       "dependency_object_ids": [
         "table.public.record-tags"
       ],
       "runtime_access_class": "not_applicable",
       "recovery_access_class": "not_applicable",
-      "extension_profile_id": null,
+      "extension_profile_id": "incident_portability",
       "recovery_classification": "not_applicable",
       "sqlc_input": false,
       "foreign_key_index_status": "not_applicable",
@@ -39667,14 +39686,14 @@
       "qualified_name": "public.records.incident_bundle_attribution_mutation_02",
       "management_class": "cartulary_authored",
       "source_owner": "records",
-      "migration_version": 46,
-      "migration_file": "00046_portable_attribution_mutations.sql",
+      "migration_version": 25,
+      "migration_file": "00025_incident_bundles.sql",
       "dependency_object_ids": [
         "table.public.records"
       ],
       "runtime_access_class": "not_applicable",
       "recovery_access_class": "not_applicable",
-      "extension_profile_id": null,
+      "extension_profile_id": "incident_portability",
       "recovery_classification": "not_applicable",
       "sqlc_input": false,
       "foreign_key_index_status": "not_applicable",
@@ -39686,14 +39705,14 @@
       "qualified_name": "public.records.incident_bundle_attribution_mutation_03",
       "management_class": "cartulary_authored",
       "source_owner": "records",
-      "migration_version": 46,
-      "migration_file": "00046_portable_attribution_mutations.sql",
+      "migration_version": 25,
+      "migration_file": "00025_incident_bundles.sql",
       "dependency_object_ids": [
         "table.public.records"
       ],
       "runtime_access_class": "not_applicable",
       "recovery_access_class": "not_applicable",
-      "extension_profile_id": null,
+      "extension_profile_id": "incident_portability",
       "recovery_classification": "not_applicable",
       "sqlc_input": false,
       "foreign_key_index_status": "not_applicable",
@@ -40085,14 +40104,14 @@
       "qualified_name": "public.reporting_imported_artifact_chunks.reporting_imported_artifact_chunks_immutable",
       "management_class": "cartulary_authored",
       "source_owner": "reporting",
-      "migration_version": 45,
-      "migration_file": "00045_reporting_portable_member_streams.sql",
+      "migration_version": 23,
+      "migration_file": "00023_reporting.sql",
       "dependency_object_ids": [
         "table.public.reporting-imported-artifact-chunks"
       ],
       "runtime_access_class": "not_applicable",
       "recovery_access_class": "not_applicable",
-      "extension_profile_id": null,
+      "extension_profile_id": "snapshot_reporting",
       "recovery_classification": "not_applicable",
       "sqlc_input": false,
       "foreign_key_index_status": "not_applicable",
@@ -40123,14 +40142,14 @@
       "qualified_name": "public.saved_views.incident_bundle_attribution_mutation_20",
       "management_class": "cartulary_authored",
       "source_owner": "savedviews",
-      "migration_version": 46,
-      "migration_file": "00046_portable_attribution_mutations.sql",
+      "migration_version": 25,
+      "migration_file": "00025_incident_bundles.sql",
       "dependency_object_ids": [
         "table.public.saved-views"
       ],
       "runtime_access_class": "not_applicable",
       "recovery_access_class": "not_applicable",
-      "extension_profile_id": null,
+      "extension_profile_id": "incident_portability",
       "recovery_classification": "not_applicable",
       "sqlc_input": false,
       "foreign_key_index_status": "not_applicable",
@@ -40142,14 +40161,14 @@
       "qualified_name": "public.task_requests.incident_bundle_attribution_mutation_18",
       "management_class": "cartulary_authored",
       "source_owner": "tasksdecisions",
-      "migration_version": 46,
-      "migration_file": "00046_portable_attribution_mutations.sql",
+      "migration_version": 25,
+      "migration_file": "00025_incident_bundles.sql",
       "dependency_object_ids": [
         "table.public.task-requests"
       ],
       "runtime_access_class": "not_applicable",
       "recovery_access_class": "not_applicable",
-      "extension_profile_id": null,
+      "extension_profile_id": "incident_portability",
       "recovery_classification": "not_applicable",
       "sqlc_input": false,
       "foreign_key_index_status": "not_applicable",
@@ -40161,14 +40180,14 @@
       "qualified_name": "public.timeline_events.incident_bundle_attribution_mutation_07",
       "management_class": "cartulary_authored",
       "source_owner": "timeline",
-      "migration_version": 46,
-      "migration_file": "00046_portable_attribution_mutations.sql",
+      "migration_version": 25,
+      "migration_file": "00025_incident_bundles.sql",
       "dependency_object_ids": [
         "table.public.timeline-events"
       ],
       "runtime_access_class": "not_applicable",
       "recovery_access_class": "not_applicable",
-      "extension_profile_id": null,
+      "extension_profile_id": "incident_portability",
       "recovery_classification": "not_applicable",
       "sqlc_input": false,
       "foreign_key_index_status": "not_applicable",
@@ -40180,14 +40199,14 @@
       "qualified_name": "public.timeline_events.incident_bundle_attribution_mutation_08",
       "management_class": "cartulary_authored",
       "source_owner": "timeline",
-      "migration_version": 46,
-      "migration_file": "00046_portable_attribution_mutations.sql",
+      "migration_version": 25,
+      "migration_file": "00025_incident_bundles.sql",
       "dependency_object_ids": [
         "table.public.timeline-events"
       ],
       "runtime_access_class": "not_applicable",
       "recovery_access_class": "not_applicable",
-      "extension_profile_id": null,
+      "extension_profile_id": "incident_portability",
       "recovery_classification": "not_applicable",
       "sqlc_input": false,
       "foreign_key_index_status": "not_applicable",
@@ -40199,14 +40218,14 @@
       "qualified_name": "public.timeline_time_conversion_profiles.incident_bundle_attribution_mutation_06",
       "management_class": "cartulary_authored",
       "source_owner": "timeline",
-      "migration_version": 46,
-      "migration_file": "00046_portable_attribution_mutations.sql",
+      "migration_version": 25,
+      "migration_file": "00025_incident_bundles.sql",
       "dependency_object_ids": [
         "table.public.timeline-time-conversion-profiles"
       ],
       "runtime_access_class": "not_applicable",
       "recovery_access_class": "not_applicable",
-      "extension_profile_id": null,
+      "extension_profile_id": "incident_portability",
       "recovery_classification": "not_applicable",
       "sqlc_input": false,
       "foreign_key_index_status": "not_applicable",

@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.harness_work_graph_owner.v8",
+  "schema_id": "cartulary.harness_work_graph_owner.v9",
   "capacity_override_input": "CARTULARY_HARNESS_CAPACITY_OVERRIDE",
   "tier_order": [
     "fast",
@@ -1843,6 +1843,16 @@
       "resource_profile_id": "harness_contract",
       "service_dependencies": [],
       "postgres_isolation": "none"
+    },
+    "harness.go_error_declaration_audit": {
+      "needs": [
+        "harness.toolchain_drift"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 120000,
+      "resource_profile_id": "standard",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     }
   },
   "evidence_estimates_ms": {
@@ -1858,6 +1868,10 @@
   },
   "default_timeout_ms": 600000,
   "go_cohort_packing_bound_ms": 300000,
+  "estimate_audit": {
+    "drift_ratio": 2,
+    "heavy_lane_threshold_ms": 120000
+  },
   "aging_quantum_ms": 1000,
   "operations": {
     "harness.agent_finalize": {
@@ -4354,7 +4368,10 @@
         ],
         "backing_scripts": [
           "tools/harness/generated-artifacts/tests/test-generate-drift.sh",
-          "tools/harness/generated-artifacts/check-generate-drift.sh"
+          "tools/harness/generated-artifacts/check-generate-drift.sh",
+          "tools/harness/generated-artifacts/generate-artifacts.sh",
+          "tools/harness/generated-artifacts/render-generated-artifacts.sh",
+          "tools/harness/generated-artifacts/generated-transaction.mjs"
         ]
       }
     },
@@ -6055,6 +6072,32 @@
         ],
         "test_target": "self"
       }
+    },
+    "harness.go_error_declaration_audit": {
+      "report_key": "go-error-declaration-audit",
+      "execution": {
+        "prerequisites": [
+          "$(NODE_BIN)"
+        ],
+        "type": "step_command",
+        "mode": "run_step",
+        "step_label": "go error declaration audit",
+        "env": {
+          "GO": "$(GO)",
+          "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
+          "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)",
+          "GO_TMP_DIR": "$(GO_TMP_DIR)",
+          "NODE_BIN": "$(NODE_BIN)"
+        },
+        "command": [
+          "bash",
+          "./tools/harness/static-analysis/go-error-declaration-audit.sh"
+        ],
+        "test_target": "self",
+        "success_summary": true,
+        "graph_entry": true
+      },
+      "kind": "policy"
     }
   },
   "row_execution_contexts": {

@@ -35,7 +35,10 @@ func ConfigureRunnerReleaseForTest(
 	if runner == nil || releaseExecution == nil {
 		return
 	}
-	runner.releaseExecution = releaseExecution
+	// A replacement release holds no transition lock, so its wait mode is moot.
+	runner.releaseExecution = func(ctx context.Context, execution Execution, _ bool) error {
+		return releaseExecution(ctx, execution)
+	}
 }
 
 // RecoverableJobsForTest exercises the current scanner without exporting a second production dispatcher.

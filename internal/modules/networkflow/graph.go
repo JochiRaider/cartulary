@@ -146,7 +146,7 @@ func decodeGraphTimeRangeV2(raw json.RawMessage) (graphTimeRange, *semanticFailu
 	}
 	var object map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &object); err != nil || object == nil {
-		return graphTimeRange{}, invalidNetworkFlowRequest("time_range", "type_mismatch")
+		return graphTimeRange{}, typeMismatch("time_range", raw)
 	}
 	if apiErr := ensureAllowedMembers(object, "start_utc", "end_utc"); apiErr != nil {
 		return graphTimeRange{}, invalidNetworkFlowRequest("time_range", "unknown_member")
@@ -184,7 +184,7 @@ func decodeSemanticTimeRangeV2(raw json.RawMessage) (graphTimeRange, *semanticFa
 	}
 	var object map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &object); err != nil || object == nil {
-		return graphTimeRange{}, invalidNetworkFlowRequest("graph_query.time_range", "type_mismatch")
+		return graphTimeRange{}, typeMismatch("graph_query.time_range", raw)
 	}
 	if apiErr := ensureAllowedMembers(object, "start_utc", "end_utc"); apiErr != nil {
 		return graphTimeRange{}, invalidNetworkFlowRequest("graph_query.time_range", "unknown_member")
@@ -215,7 +215,7 @@ func decodeOptionalTimestamp(raw json.RawMessage, field string) (*time.Time, *se
 	}
 	var text string
 	if err := json.Unmarshal(raw, &text); err != nil || text == "" {
-		return nil, invalidNetworkFlowRequest(field, "type_mismatch")
+		return nil, typeMismatch(field, raw)
 	}
 	parsed, err := time.Parse(time.RFC3339Nano, text)
 	if err != nil || !canonicalTimestampText(text, parsed) {
@@ -298,12 +298,14 @@ func decodeGraphResultLimits(raw json.RawMessage, limits EffectiveLimits) (graph
 	if len(raw) == 0 {
 		return out, nil
 	}
+	// The member's own shape is request validation; only its values are
+	// limit overrides (NF NLSpec Table 21-A1).
 	if bytes.Equal(raw, []byte("null")) {
-		return graphResultLimits{}, invalidLimitOverride("limit_overrides", "explicit_null", "", 0, 0, 0)
+		return graphResultLimits{}, invalidNetworkFlowRequest("limit_overrides", "explicit_null")
 	}
 	var object map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &object); err != nil || object == nil {
-		return graphResultLimits{}, invalidLimitOverride("limit_overrides", "type_mismatch", "", 0, 0, 0)
+		return graphResultLimits{}, typeMismatch("limit_overrides", raw)
 	}
 	allowed := map[string]struct{}{
 		"max_vertices":                    {},
@@ -314,7 +316,7 @@ func decodeGraphResultLimits(raw json.RawMessage, limits EffectiveLimits) (graph
 	}
 	for _, key := range sortedObjectKeys(object) {
 		if _, ok := allowed[key]; !ok {
-			return graphResultLimits{}, invalidLimitOverride(key, "unknown_limit_key", key, 0, 0, 0)
+			return graphResultLimits{}, invalidLimitOverride(key, "unknown_limit_key", "", nil, nil, nil)
 		}
 	}
 	if value, ok := object["max_vertices"]; ok {
@@ -355,16 +357,27 @@ func decodeGraphResultLimits(raw json.RawMessage, limits EffectiveLimits) (graph
 	return out, nil
 }
 
+// graphOverrideLimitKeys maps each graph result override member to its NF
+// NLSpec Table 20-A limit key, the key error details name.
+var graphOverrideLimitKeys = map[string]string{
+	"max_vertices":                    "network_flow.max_graph_vertices",
+	"max_edges":                       "network_flow.max_graph_edges",
+	"max_example_row_refs_per_edge":   "network_flow.max_example_row_refs_per_edge",
+	"max_contributing_rows_per_graph": "network_flow.max_contributing_rows_per_graph",
+	"max_time_buckets_per_graph":      "network_flow.max_time_buckets_per_graph",
+}
+
 func decodeLowerableGraphLimit(raw json.RawMessage, key string, minimum int, maximum int) (int, *semanticFailure) {
+	limitKey := graphOverrideLimitKeys[key]
 	parsed, apiErr := decodePositiveInt(raw, key)
 	if apiErr != nil {
-		return 0, invalidLimitOverride(key, "not_integer", key, 0, minimum, maximum)
+		return 0, invalidLimitOverride(key, "not_integer", limitKey, nil, &minimum, &maximum)
 	}
 	if parsed < minimum {
-		return 0, invalidLimitOverride(key, "below_minimum", key, parsed, minimum, maximum)
+		return 0, invalidLimitOverride(key, "below_minimum", limitKey, &parsed, &minimum, &maximum)
 	}
 	if parsed > maximum {
-		return 0, invalidLimitOverride(key, "above_maximum", key, parsed, minimum, maximum)
+		return 0, invalidLimitOverride(key, "above_maximum", limitKey, &parsed, &minimum, &maximum)
 	}
 	return parsed, nil
 }
@@ -375,7 +388,7 @@ func decodeGraphSelector(raw json.RawMessage) (graphSelector, *semanticFailure) 
 	}
 	var object map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &object); err != nil || object == nil {
-		return graphSelector{}, invalidNetworkFlowRequest("selector", "type_mismatch")
+		return graphSelector{}, typeMismatch("selector", raw)
 	}
 	kind, apiErr := requiredJSONString(object, "kind")
 	if apiErr != nil {
@@ -505,7 +518,7 @@ func decodeGraphSemanticRequest(raw json.RawMessage, limits EffectiveLimits) (gr
 	}
 	var object map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &object); err != nil || object == nil {
-		return graphSemanticRequest{}, invalidNetworkFlowRequest("graph_query", "type_mismatch")
+		return graphSemanticRequest{}, typeMismatch("graph_query", raw)
 	}
 	schemaID, apiErr := requiredJSONString(object, "schema_id")
 	if apiErr != nil || schemaID != schemaGraphSemanticQuery {
@@ -644,13 +657,15 @@ func addGraphEdgeAggregate(row flowRow, tableByID map[string]tableRecord, compos
 	if row.FlowEndUTC.After(edge.LastFlowEndUTC) {
 		edge.LastFlowEndUTC = row.FlowEndUTC.UTC()
 	}
+	// Stored counters are canonical decimal text; one that is not is a
+	// storage invariant failure, never a request error.
 	bytesValue, ok := new(big.Int).SetString(row.BytesCount, 10)
 	if !ok {
-		return newSemanticFailure(failureInvalidRequest, fieldBytesCount, "invalid_counter")
+		return internalSemanticFailure(errors.New("network flow row bytes counter is not decimal text"))
 	}
 	packetsValue, ok := new(big.Int).SetString(row.PacketsCount, 10)
 	if !ok {
-		return newSemanticFailure(failureInvalidRequest, fieldPacketsCount, "invalid_counter")
+		return internalSemanticFailure(errors.New("network flow row packets counter is not decimal text"))
 	}
 	edge.BytesSum.Add(&edge.BytesSum, bytesValue)
 	edge.PacketsSum.Add(&edge.PacketsSum, packetsValue)
@@ -1296,12 +1311,12 @@ func cloneInt32(value *int32) *int32 {
 	return &out
 }
 
-func invalidLimitOverride(field, reason, limitKey string, limit, minimum, maximum int) *semanticFailure {
+// invalidLimitOverride reports a rejected graph result override. An unknown
+// override member names no Table 20-A key, and a non-integer value has none.
+func invalidLimitOverride(field, reason, limitKey string, limit, minimum, maximum *int) *semanticFailure {
 	f := newSemanticFailure(failureInvalidLimitOverride, field, reason)
 	f.details.LimitKey = limitKey
-	f.details.Limit = limit
-	f.details.Minimum = minimum
-	f.details.Maximum = maximum
+	f.details.LimitValue, f.details.LimitMinimum, f.details.LimitMaximum = limit, minimum, maximum
 	return f
 }
 

@@ -154,11 +154,11 @@ Verified by: AC-529, AC-539, AC-552, AC-558, AC-560, AC-564, AC-568
 
 `db/migrations` is schema-evolution and database-contract infrastructure for the modular monolith. It is not a domain module and it MUST NOT become a second source of product behavior outside the owning Core or adopted subsystem specification.
 
-The current project is pre-production. Transition from another DDL lineage to Production DDL Rebaseline v4 is reset-only. Within the current v4 lineage, owner-authorized changes MUST append contiguous migrations with explicit machine-owned allocation under REQ-01-661, preserving the baseline and previously authored increments. Catalog projections MUST be regenerated from those inputs. The migration-history manifest MUST declare `immutable_through_version=0`: this pre-production catalog does not establish a protected deployed-production history boundary. Disposable databases MAY be recreated. An explicitly adopted current-line owner contract MAY require preservation and transformation of retained data, as NF-REQ-032c does for Network Flow canonical identities; it does not authorize conversion from another DDL lineage. Once a production migration baseline is established, applied history remains append-only unless the relevant owner authorizes a separate reset or rebaseline contract.
+The current project is pre-production. Transition from another DDL lineage to Production DDL Rebaseline v5 is reset-only. Within the current v5 lineage, owner-authorized changes MUST append contiguous migrations with explicit machine-owned allocation under REQ-01-661, preserving the baseline and previously authored increments. Catalog projections MUST be regenerated from those inputs. The migration-history manifest MUST declare `immutable_through_version=0`: this pre-production catalog does not establish a protected deployed-production history boundary. Disposable databases MAY be recreated. An explicitly adopted current-line owner contract MAY require preservation and transformation of retained current-line data; it does not authorize conversion from another DDL lineage. Once a production migration baseline is established, applied history remains append-only unless the relevant owner authorizes a separate reset or rebaseline contract.
 
-When an owner-authorized production DDL rebaseline is adopted, the runnable migration line MUST identify its lineage in the database and repository migration source. The current production DDL lineage is `cartulary.prod_ddl_rebaseline.v4`; its pre-production immutable boundary is `0`, and its baseline contains versions `1..29`. The authored migration catalog determines the current repository head, including owner-authorized increments. A database with v1, v2 or v3 lineage, another lineage, unmarked nonzero Goose history, or pre-existing Cartulary application objects is not a v4 upgrade source. After cryptographic-state admission under REQ-04-164, repository migration tooling MUST reject it before executing v4 DDL with boundary `prod_ddl_rebaseline_v4`, reason code `historical_migration_lineage`, and the exact remediation hint `Destroy and recreate this database, then apply the Production DDL Rebaseline v4 catalog from version 1.`
+When an owner-authorized production DDL rebaseline is adopted, the runnable migration line MUST identify its lineage in the database and repository migration source. The current production DDL lineage is `cartulary.prod_ddl_rebaseline.v5`; its pre-production immutable boundary is `0`, and its baseline contains versions `1..29`, which fold the final effect of v4 versions `1..62`. The authored migration catalog determines the current repository head, including owner-authorized increments. A database with v1, v2, v3 or v4 lineage, another lineage, unmarked nonzero Goose history, or pre-existing Cartulary application objects is not a v5 upgrade source. After cryptographic-state admission under REQ-04-164, repository migration tooling MUST reject it before executing v5 DDL with boundary `prod_ddl_rebaseline_v5`, reason code `historical_migration_lineage`, and the exact remediation hint `Destroy and recreate this database, then apply the Production DDL Rebaseline v5 catalog from version 1.`
 
-The transition from a previous lineage to v4 is pre-production and reset-only. It defines no export/import transition, row transformation, data bridge, compatibility view, dual catalog, downgrade, automatic remediation, or retained executable previous-lineage source. A requirement to preserve previous-lineage database content blocks that transition and requires a separately adopted data-migration contract. Current-line owner-authorized increments follow REQ-01-661 and their adopted data-preservation obligations.
+The transition from a previous lineage to v5 is pre-production and reset-only. It defines no export/import transition, row transformation, data bridge, compatibility view, dual catalog, downgrade, automatic remediation, or retained executable previous-lineage source. A requirement to preserve previous-lineage database content blocks that transition and requires a separately adopted data-migration contract. Current-line owner-authorized increments follow REQ-01-661 and their adopted data-preservation obligations.
 After read-only cryptographic-state admission under REQ-04-164, server startup MUST verify the configured database is on the current production DDL lineage and at the repository migration head before object-store setup, bootstrap mutation, WebSocket setup, background-job runner setup, HTTP handler construction, or readiness. A current-line database behind the repository head MUST fail startup with `invalid_deployment_config` and reason code `schema_migration_required`; a current-line database ahead of the repository head MUST fail startup with reason code `schema_version_ahead`; a database from an unmarked or different migration line MUST surface the same `cartulary.migration_remediation_report.v1` remediation report used by repository migration tooling.
 
 Migration `Down` sections document goose reversibility only. A `Down` section MUST NOT be represented as a production rollback, restore, or data-recovery guarantee unless the applicable recovery owner separately defines that operator workflow and its validation evidence.
@@ -248,12 +248,19 @@ Profiles: base
 Verified by: AC-599
 
 **REQ-01-661**
-The current pre-production Production DDL Rebaseline v4 baseline MUST contain exactly 29
-contiguous authored SQL migrations, versions `1..29`. Those baseline files remain unchanged. Later owner-authorized incremental migrations MUST append contiguous versions with explicit machine-owned allocation. Network Flow major 8 appends version 30 for diagnostic table-scoped uniqueness; it rewrites no historical diagnostic bytes.
+The current pre-production Production DDL Rebaseline v5 baseline MUST contain exactly 29
+contiguous authored SQL migrations, versions `1..29`, one per allocated owner,
+folding the final effect of v4 versions `1..62`. Its schema MUST equal the v4
+head's except for differences a fold cannot avoid: compacted column positions
+where v4 dropped columns, PostgreSQL-assigned names of NOT NULL constraints on
+renamed columns, and the lineage row. The Recovery catalog and generation are
+therefore unchanged, and a backup taken on the v4 head restores into a v5
+database. Those baseline files remain unchanged. Later owner-authorized
+incremental migrations MUST append contiguous versions with explicit
+machine-owned allocation. The baseline has no irreversible section.
 
-Recovery appends version 35 after the already allocated owner increments
-31–34. It adds `public.recovery_target_state`, owned by `module.recovery`,
-without rewriting versions 1–34 or deleting retained data. This table has
+The baseline creates `public.recovery_target_state`, owned by
+`module.recovery`. This table has
 state class `recovery_metadata`, backup inclusion
 `excluded_recovery_metadata`, restore action `ignore`, and null snapshot
 codec and restore-algorithm identities. It is installation-local admission
@@ -300,18 +307,10 @@ Reporting owns authoritative-required `reporting_render_failure_records`, whose
 `record_sha256` stores their schema-domain digest. Recovery preserves these exact
 rows even while Reporting is unclaimed. The superseded private-payload
 `render_failure_summary` and `render_failure_sha256` columns have no current
-reader. Their transactional removal MUST preserve earlier migration files,
-lock the owner table and reject any non-null member of the old pair before any
-schema change. No conversion, automatic deletion or reinterpretation of old
-failure history is permitted. Empty retired columns and their pair constraint
-may be removed. Catalog, schema head, current generation and dependent bindings
-MUST change coherently; incompatible prior identity pairs reject before mutation.
+reader and are absent from the baseline.
 
-The current catalog excludes `graph_projection_result_leases`. The Core-owned
-removal migration MUST preserve all earlier migration files and hold the table
-lock while checking emptiness and removing it in one transaction. Any row,
-including an expired row, rejects migration before mutation. No automatic row
-deletion, expiry, conversion or completion-control rewrite is permitted.
+The current catalog excludes `graph_projection_result_leases`; the baseline
+never creates it.
 The Recovery target admission required by REQ-04-113 is an expressly
 authorized startup lifecycle change. It adds no public product route or
 incident payload. SQLC output may change
@@ -5030,6 +5029,15 @@ their Core 04 codes, and object-store failures keep the codes defined after the
 Both length outcomes also include `requested_byte_size` and
 `contracted_byte_size`. Every rejection leaves the slot to ordinary timeout and
 cleanup.
+
+Blob-slot creation MUST validate the physical storage key it generates against
+the current grammar and both source identities before it persists the slot or
+mints an upload capability. A malformed generated key fails creation with `500`
+`object_store_invalid_request`, leaving no slot and no capability. An upload
+MUST validate the slot's persisted key after the request, header, size and
+lifecycle checks above and immediately before it claims the upload lease and
+accesses object storage (Core 04 Table 2-B gate 11), so a malformed persisted
+key never changes which earlier rejection a request receives.
 Profiles: base
 Verified by: AC-015, AC-016, AC-102, AC-103, AC-128, AC-154, AC-155, AC-231
 
@@ -10030,7 +10038,11 @@ It MUST equal prepared source in order and every value, with only a required
 incident/blob/nonzero-generation grammar and match both source identities.
 Changed, missing, duplicate or extra rewritten rows fail
 `evidence.source_state_exact`; an absent/invalid/mismatched key fails
-`evidence.storage_reference_legal`. The immutable rewritten descriptor accepted
+`evidence.storage_reference_legal`. When prepared source has no Blob rows,
+Evidence staging writes no rewritten member, under REQ-01-641's rule that a
+stream with no rows creates no staged object, and Apply admits the absent
+member as the empty rewrite. A rewritten member present for zero prepared rows,
+or absent for one or more, fails `evidence.source_state_exact`. The immutable rewritten descriptor accepted
 by Apply MUST remain bound to this prepared value through Validate; it cannot be
 replaced by another valid generation. Apply MUST use fixed explicit columns and
 typed values, reject existing identities, require one inserted row per identity,
@@ -11398,12 +11410,13 @@ inactive-owner reconciliation MUST use the complete catalog.
 
 A queued durable-job claim MUST atomically commit `running`, `started_at`, a
 unique opaque execution identity, and lease expiry before invoking the
-handler. Handler payload reads, execution observation, progress changes,
-owner-transaction finalization, terminal completion, and conditional release
-MUST validate that same live unexpired execution identity under the Jobs
-transition lock. Lease renewal MUST validate it atomically in its single
-conditional update of the Job row and MUST NOT take the transition lock, which
-an attempt's own owner transaction holds until it commits. An expired or superseded execution MUST be
+handler. Progress changes, owner-transaction finalization, terminal
+completion, failure recording, and conditional release MUST validate that same
+live unexpired execution identity under the Jobs transition lock. Handler
+payload reads, execution observation, and lease renewal MUST validate it
+atomically in a single read or conditional update of the Job row and MUST NOT
+take the transition lock, which an attempt's own owner transaction holds until
+it commits. An expired or superseded execution MUST be
 unable to read handler payload or mutate Jobs, owner, or Collaboration state,
 even when its handler ignores context cancellation. Lease and execution
 bookkeeping alone MUST NOT change public `updated_at` or publish a public
@@ -11485,7 +11498,13 @@ semantics. A successful runner close MUST mean that supervised
 handler goroutines have drained; deadline expiry remains an unsuccessful
 close. Graceful conditional releases MUST remain concurrent and MUST NOT exceed
 global handler concurrency. Each release is bounded by the attempt-operation
-timeout and by an earlier caller close deadline. Release timeout or operational
+timeout and by an earlier caller close deadline. A conditional release, or the
+failure record that follows an ordinary renewal error, that finds the
+execution's transition lock held MUST NOT wait behind it while the handler
+runs, because the holder may be the attempt's own owner transaction. It waits
+for the handler to drain, still bounded by the caller close deadline, and then
+runs as a new operation under its own attempt-operation timeout. A failure
+record whose execution has meanwhile expired is execution loss. Release timeout or operational
 failure makes close unsuccessful but MUST NOT increment failure count or set a
 retry delay; execution loss remains neutral. Shutdown-release diagnostics MAY
 contain only operation stage, job kind, a bounded attempt-slot ordinal, and a

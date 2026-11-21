@@ -2,12 +2,16 @@ package database_migrations
 
 import (
 	"encoding/json"
+	"strings"
 )
 
-const (
-	migrationRemediationSchemaID   = "cartulary.migration_remediation_report.v1"
-	historicalMigrationLineageHint = "Destroy and recreate this database, then apply the Production DDL Rebaseline v4 catalog from version 1."
-)
+const migrationRemediationSchemaID = "cartulary.migration_remediation_report.v1"
+
+// historicalMigrationLineageHint names the current lineage's catalog, derived
+// from the lineage identity so a later rebaseline cannot leave it stale (Core
+// 01 §2.1A).
+var historicalMigrationLineageHint = "Destroy and recreate this database, then apply the Production DDL Rebaseline " +
+	strings.TrimPrefix(canonicalLineageID, "cartulary.prod_ddl_rebaseline.") + " catalog from version 1."
 
 type migrationRemediationReport struct {
 	SchemaID    string                        `json:"schema_id"`

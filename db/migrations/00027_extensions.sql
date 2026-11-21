@@ -105,8 +105,8 @@ CREATE TABLE public.extension_staged_objects (
     staging_id text NOT NULL,
     owner_profile_id text NOT NULL,
     storage_identity text NOT NULL,
-    expected_byte_size bigint NOT NULL,
-    expected_sha256 text NOT NULL,
+    expected_byte_size bigint,
+    expected_sha256 text,
     staged_at timestamp with time zone NOT NULL,
     staging_expires_at timestamp with time zone NOT NULL,
     ready_at timestamp with time zone,
@@ -117,15 +117,28 @@ CREATE TABLE public.extension_staged_objects (
     delete_attempt_count integer NOT NULL,
     next_delete_attempt_at timestamp with time zone,
     last_delete_error_code text,
+    operation_id text NOT NULL,
+    reserved_resource_kind text,
+    reserved_resource_id text,
     CONSTRAINT extension_staged_objects_attempt_count_ck CHECK (delete_attempt_count >= 0 AND delete_attempt_count <= 2147483647),
     CONSTRAINT extension_staged_objects_delete_state_ck CHECK (delete_state = ANY (ARRAY['not_applicable'::text, 'pending'::text, 'deleted'::text])),
     CONSTRAINT extension_staged_objects_digest_ck CHECK (expected_sha256 ~ '^[0-9a-f]{64}$'::text),
     CONSTRAINT extension_staged_objects_error_code_ck CHECK (last_delete_error_code IS NULL OR last_delete_error_code ~ '^[A-Za-z][A-Za-z0-9_.:-]{0,127}$'::text),
     CONSTRAINT extension_staged_objects_expiry_ck CHECK (staging_expires_at = (staged_at + '24:00:00'::interval)),
     CONSTRAINT extension_staged_objects_id_ck CHECK (staging_id ~ '^[A-Za-z0-9][A-Za-z0-9_.:-]{0,159}$'::text),
+    CONSTRAINT extension_staged_objects_operation_ck CHECK (octet_length(operation_id) BETWEEN 1 AND 512 AND operation_id !~ '[[:cntrl:]]'),
     CONSTRAINT extension_staged_objects_lifecycle_ck CHECK (state = 'allocated'::text AND ready_at IS NULL AND published_at IS NULL AND abandoned_at IS NULL AND delete_state = 'not_applicable'::text AND next_delete_attempt_at IS NULL AND last_delete_error_code IS NULL OR state = 'ready'::text AND ready_at IS NOT NULL AND published_at IS NULL AND abandoned_at IS NULL AND delete_state = 'not_applicable'::text AND next_delete_attempt_at IS NULL AND last_delete_error_code IS NULL OR state = 'published'::text AND ready_at IS NOT NULL AND published_at IS NOT NULL AND abandoned_at IS NULL AND delete_state = 'not_applicable'::text AND next_delete_attempt_at IS NULL AND last_delete_error_code IS NULL OR state = 'abandoned'::text AND ready_at IS NULL AND published_at IS NULL AND abandoned_at IS NOT NULL AND (delete_state = 'pending'::text AND next_delete_attempt_at IS NOT NULL OR delete_state = 'deleted'::text AND next_delete_attempt_at IS NULL AND last_delete_error_code IS NULL)),
     CONSTRAINT extension_staged_objects_pkey PRIMARY KEY (staging_id),
     CONSTRAINT extension_staged_objects_profile_id_ck CHECK (owner_profile_id ~ '^[a-z][a-z0-9_]{0,127}$'::text),
+    CONSTRAINT extension_staged_objects_resource_ck CHECK (
+        (reserved_resource_kind IS NULL) = (reserved_resource_id IS NULL)
+        AND (reserved_resource_kind IS NULL OR (reserved_resource_kind ~ '^[a-z][a-z0-9_]{0,127}$' AND octet_length(reserved_resource_id) BETWEEN 1 AND 512 AND reserved_resource_id !~ '[[:cntrl:]]'))
+    ),
+    CONSTRAINT extension_staged_objects_seal_ck CHECK (
+        (expected_byte_size IS NULL) = (expected_sha256 IS NULL)
+        AND (state NOT IN ('ready', 'published') OR expected_byte_size IS NOT NULL)
+        AND (state <> 'allocated' OR expected_byte_size IS NULL)
+    ),
     CONSTRAINT extension_staged_objects_size_ck CHECK (expected_byte_size >= 0),
     CONSTRAINT extension_staged_objects_state_ck CHECK (state = ANY (ARRAY['allocated'::text, 'ready'::text, 'published'::text, 'abandoned'::text])),
     CONSTRAINT extension_staged_objects_storage_identity_ck CHECK (octet_length(storage_identity) >= 1 AND octet_length(storage_identity) <= 512 AND storage_identity !~ '[[:cntrl:]]'::text),
@@ -171,6 +184,8 @@ CASE
     WHEN ((state = 'abandoned'::text) AND (delete_state = 'pending'::text)) THEN next_delete_attempt_at
     ELSE NULL::timestamp with time zone
 END), staging_id) WHERE ((state = ANY (ARRAY['allocated'::text, 'ready'::text])) OR ((state = 'abandoned'::text) AND (delete_state = 'pending'::text)));
+
+CREATE INDEX extension_staged_objects_operation_idx ON public.extension_staged_objects USING btree (operation_id, owner_profile_id, staging_id);
 
 ALTER TABLE public.extension_job_cancellation_observations ADD CONSTRAINT extension_job_cancellation_observations_job_id_fkey FOREIGN KEY (job_id) REFERENCES public.jobs(job_id) ON DELETE RESTRICT ON UPDATE NO ACTION;
 

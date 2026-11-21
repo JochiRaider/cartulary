@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_error_declaration_audit.v1",
+  "description": "Advisory static audit of error codes each operation's handler can produce but does not declare (TH-HARNESS-REQ-867).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "operation_count",
+    "rooted_operation_count",
+    "unrooted_operations",
+    "finding_count",
+    "findings"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.harness_error_declaration_audit.v1"
+    },
+    "operation_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "rooted_operation_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "unrooted_operations": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "finding_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operation_id",
+          "code",
+          "functions",
+          "functions_omitted"
+        ],
+        "properties": {
+          "operation_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "code": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "functions": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 5,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "functions_omitted": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    }
+  }
+}

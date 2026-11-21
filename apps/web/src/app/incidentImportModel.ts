@@ -1,5 +1,5 @@
 import { clientTxnID } from "../services/browserApi";
-import { notAppliedText } from "../shared/publicError";
+import { notAppliedText, stillUnconfirmedText } from "../shared/publicError";
 import {
   captureImport,
   type ImportAdmissionOutcome,
@@ -242,7 +242,9 @@ export class IncidentImportController {
     } else
       this.announce(
         admission.kind === "uncertain"
-          ? "Import admission is unconfirmed. Retry the same upload to recover."
+          ? admission.problem === "temporarily_unavailable"
+            ? stillUnconfirmedText()
+            : "Import admission is unconfirmed. Retry the same upload to recover."
           : admission.kind === "rejected" &&
               admission.problem === "temporarily_unavailable"
             ? notAppliedText()
@@ -494,8 +496,13 @@ export class IncidentImportController {
     } else
       this.announce(
         entry?.cancellation.kind === "uncertain"
-          ? "Cancellation is unconfirmed. Checking the job status."
-          : "Cancellation was rejected. Checking the job status.",
+          ? entry.cancellation.problem === "temporarily_unavailable"
+            ? stillUnconfirmedText()
+            : "Cancellation is unconfirmed. Checking the job status."
+          : entry?.cancellation.kind === "rejected" &&
+              entry.cancellation.problem === "temporarily_unavailable"
+            ? notAppliedText()
+            : "Cancellation was rejected. Checking the job status.",
         "assertive",
       );
     if (outcome.kind === "unavailable") this.beginAccessConfirmation();

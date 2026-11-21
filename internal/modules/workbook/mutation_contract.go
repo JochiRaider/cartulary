@@ -381,7 +381,14 @@ func IllegalTransitionFailure(fromStatus string, toStatus string, reasonCode str
 // that defines no such machine: from_status is null, the guard is
 // record_type_has_machine (Core 01 REQ-01-231, §3.3.6.2).
 func UnsupportedLifecycleActionFailure(requestedStatus string) *MutationFailure {
-	return IllegalTransitionFailure("", requestedStatus, "transition_not_allowed", []string{"record_type_has_machine"})
+	return &MutationFailure{kind: MutationFailureIllegalTransition, detail: unsupportedLifecycleActionDetail(requestedStatus)}
+}
+
+func unsupportedLifecycleActionDetail(requestedStatus string) illegalTransitionFailureDetail {
+	return illegalTransitionFailureDetail{
+		toStatus: requestedStatus, reasonCode: "transition_not_allowed",
+		violatedGuards: []string{"record_type_has_machine"},
+	}
 }
 
 func EntityMatchConflictFailure(entityType string, identifierClass string, candidateRecordIDs []uuid.UUID) *MutationFailure {
@@ -396,6 +403,43 @@ func EntityMatchConflictFailure(entityType string, identifierClass string, candi
 
 func EvidenceAttachFailure(reasonCode string) *MutationFailure {
 	return &MutationFailure{kind: MutationFailureEvidenceAttach, detail: reasonFailureDetail{reasonCode: reasonCode}}
+}
+
+// recordDeletedAPIError is the response for a soft-deleted record, which must
+// be restored first. Routes that classify the deleted state themselves use it
+// directly, rather than the full mutation-failure classifier.
+func recordDeletedAPIError() *httpapi.APIError {
+	return &httpapi.APIError{
+		Status: http.StatusConflict, Code: "record_deleted_use_restore",
+		Message: "record deleted use restore", Details: map[string]any{},
+	}
+}
+
+// unsupportedLifecycleActionAPIError is the illegal_transition response for a
+// lifecycle action that the record type does not support.
+func unsupportedLifecycleActionAPIError(requestedStatus string) *httpapi.APIError {
+	return illegalTransitionAPIError(unsupportedLifecycleActionDetail(requestedStatus))
+}
+
+func illegalTransitionAPIError(detail illegalTransitionFailureDetail) *httpapi.APIError {
+	// REQ-01-231: a status is never an empty string; an absent machine state
+	// (create, or a record type without the machine) serializes as null.
+	statusValue := func(status string) any {
+		if status == "" {
+			return nil
+		}
+		return status
+	}
+	details := map[string]any{
+		"from_status": statusValue(detail.fromStatus), "to_status": statusValue(detail.toStatus),
+		"violated_guards": append([]string{}, detail.violatedGuards...),
+	}
+	if detail.reasonCode != "" {
+		details["reason_code"] = detail.reasonCode
+	}
+	return &httpapi.APIError{
+		Status: http.StatusConflict, Code: "illegal_transition", Message: "illegal transition", Details: details,
+	}
 }
 
 func mutationFailureAPIError(failure *MutationFailure) *httpapi.APIError {
@@ -432,10 +476,7 @@ func mutationFailureAPIError(failure *MutationFailure) *httpapi.APIError {
 	case MutationFailureAuthorizationDenied:
 		return &httpapi.APIError{Status: http.StatusForbidden, Code: "authorization_denied", Message: "authorization denied", Details: map[string]any{"required_role": "editor|reviewer|admin"}}
 	case MutationFailureRecordDeleted:
-		return &httpapi.APIError{
-			Status: http.StatusConflict, Code: "record_deleted_use_restore",
-			Message: "record deleted use restore", Details: map[string]any{},
-		}
+		return recordDeletedAPIError()
 	case MutationFailureRowVersionConflict:
 		detail, ok := failure.detail.(rowVersionConflictFailureDetail)
 		if !ok {
@@ -495,24 +536,7 @@ func mutationFailureAPIError(failure *MutationFailure) *httpapi.APIError {
 		if !ok {
 			return internalAPIError(nil)
 		}
-		// REQ-01-231: a status is never an empty string; an absent machine state
-		// (create, or a record type without the machine) serializes as null.
-		statusValue := func(status string) any {
-			if status == "" {
-				return nil
-			}
-			return status
-		}
-		details := map[string]any{
-			"from_status": statusValue(detail.fromStatus), "to_status": statusValue(detail.toStatus),
-			"violated_guards": append([]string{}, detail.violatedGuards...),
-		}
-		if detail.reasonCode != "" {
-			details["reason_code"] = detail.reasonCode
-		}
-		return &httpapi.APIError{
-			Status: http.StatusConflict, Code: "illegal_transition", Message: "illegal transition", Details: details,
-		}
+		return illegalTransitionAPIError(detail)
 	case MutationFailureEntityMatchConflict:
 		detail, ok := failure.detail.(entityMatchConflictFailureDetail)
 		if !ok {

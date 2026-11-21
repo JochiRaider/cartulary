@@ -41,12 +41,12 @@ func TestAssessmentProjectionContributionConstruction_Unit(t *testing.T) {
 
 type assessmentProjectionEnvelopeStub struct{}
 
-func (assessmentProjectionEnvelopeStub) LoadAssessmentProjectionEnvelopeTx(
+func (assessmentProjectionEnvelopeStub) LoadAssessmentProjectionEnvelopesTx(
 	context.Context,
 	pgx.Tx,
-	uuid.UUID,
-) (workbookprojection.Envelope, bool, error) {
-	return workbookprojection.Envelope{}, false, nil
+	[]uuid.UUID,
+) (map[uuid.UUID]workbookprojection.Envelope, error) {
+	return map[uuid.UUID]workbookprojection.Envelope{}, nil
 }
 
 type assessmentProjectionSupportStub struct{}
@@ -55,7 +55,7 @@ func (assessmentProjectionSupportStub) LoadAssessmentProjectionSupportFactsTx(
 	context.Context,
 	pgx.Tx,
 	uuid.UUID,
-	uuid.UUID,
-) (workbookprojection.SupportFacts, error) {
-	return workbookprojection.SupportFacts{}, nil
+	[]uuid.UUID,
+) (map[uuid.UUID]workbookprojection.SupportFacts, error) {
+	return map[uuid.UUID]workbookprojection.SupportFacts{}, nil
 }

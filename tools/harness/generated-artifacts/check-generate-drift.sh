@@ -43,9 +43,10 @@ if [[ ! -d "$ROOT_DIR/node_modules" ]]; then
 fi
 
 scratch="$(cartulary_harness_mktemp_dir generate-drift.XXXXXX)"
+inventory_dir="$(cartulary_harness_mktemp_dir generate-drift-inventory.XXXXXX)"
 
 cleanup() {
-  rm -rf "$scratch"
+  rm -rf "$scratch" "$inventory_dir"
 }
 trap cleanup EXIT
 
@@ -229,22 +230,40 @@ ln -s "$ROOT_DIR/node_modules" "$scratch/node_modules"
 
 git -C "$scratch" init --quiet
 
-env -u CARTULARY_HARNESS_IDENTITY_PREPARED -u CARTULARY_TEST_TARGET -u CARTULARY_MAKE_INPUT_SOURCES \
-  MAKEFLAGS= MAKEOVERRIDES= \
-  SQLC_BIN="$sqlc_bin" \
-  GO="${GO:-go}" \
-  GO_CACHE_DIR="${GO_CACHE_DIR:?GO_CACHE_DIR is required}" \
-  GO_MOD_CACHE_DIR="${GO_MOD_CACHE_DIR:?GO_MOD_CACHE_DIR is required}" \
-  GO_TMP_DIR="${GO_TMP_DIR:?GO_TMP_DIR is required}" \
-  NODE_RUNTIME_DIR="${NODE_RUNTIME_DIR:-$ROOT_DIR/${CARTULARY_LAYOUT_NODE_RUNTIME}}" \
-  CARTULARY_NODE_ARCHIVE_DIR="${CARTULARY_NODE_ARCHIVE_DIR:-$ROOT_DIR/${CARTULARY_LAYOUT_NODE_ARCHIVES}}" \
-  NODE_BIN="${NODE_BIN:-$ROOT_DIR/${CARTULARY_LAYOUT_NODE_RUNTIME}/bin/node}" \
-  PNPM="${PNPM:-$ROOT_DIR/${CARTULARY_LAYOUT_NODE_RUNTIME}/bin/pnpm}" \
-  make -C "$scratch" --no-print-directory generate
+node_bin="${NODE_BIN:-$ROOT_DIR/${CARTULARY_LAYOUT_NODE_RUNTIME}/bin/node}"
+transaction_tool="$ROOT_DIR/tools/harness/generated-artifacts/generated-transaction.mjs"
 
-"${NODE_BIN:-$ROOT_DIR/${CARTULARY_LAYOUT_NODE_RUNTIME}/bin/node}" \
-  "$ROOT_DIR/tools/harness/generated-artifacts/generated-transaction.mjs" \
+# Only a tree marked here may run the private renderer, so its in-place clearing
+# of outputs can never reach the checkout. The inventory taken after copying and
+# marking lets the transaction reject any render write outside generated_paths.
+: >"$scratch/.cartulary-generation-scratch"
+render_root="$(cd "$scratch" && pwd -P)"
+inventory="$inventory_dir/inventory.json"
+"$node_bin" "$transaction_tool" --mode inventory --rendered "$render_root" \
+  --manifest "$ROOT_DIR/$SCRATCH_INPUT_MANIFEST" --out "$inventory"
+
+(
+  cd "$render_root"
+  env -u CARTULARY_HARNESS_IDENTITY_PREPARED -u CARTULARY_MAKE_INPUT_SOURCES \
+    MAKEFLAGS= MAKEOVERRIDES= \
+    CARTULARY_TEST_TARGET=generate \
+    CARTULARY_GENERATION_SCRATCH_ROOT="$render_root" \
+    RUN_STEP_SCRIPT="$render_root/tools/harness/execution/run-step.sh" \
+    SQLC_BIN="$sqlc_bin" \
+    GO="${GO:-go}" \
+    GO_CACHE_DIR="${GO_CACHE_DIR:?GO_CACHE_DIR is required}" \
+    GO_MOD_CACHE_DIR="${GO_MOD_CACHE_DIR:?GO_MOD_CACHE_DIR is required}" \
+    GO_TMP_DIR="${GO_TMP_DIR:?GO_TMP_DIR is required}" \
+    NODE_RUNTIME_DIR="${NODE_RUNTIME_DIR:-$ROOT_DIR/${CARTULARY_LAYOUT_NODE_RUNTIME}}" \
+    CARTULARY_NODE_ARCHIVE_DIR="${CARTULARY_NODE_ARCHIVE_DIR:-$ROOT_DIR/${CARTULARY_LAYOUT_NODE_ARCHIVES}}" \
+    NODE_BIN="$node_bin" \
+    PNPM="${PNPM:-$ROOT_DIR/${CARTULARY_LAYOUT_NODE_RUNTIME}/bin/pnpm}" \
+    bash ./tools/harness/generated-artifacts/render-generated-artifacts.sh
+)
+
+"$node_bin" "$transaction_tool" \
   --repo "$ROOT_DIR" \
-  --rendered "$scratch" \
+  --rendered "$render_root" \
   --manifest "$ROOT_DIR/$SCRATCH_INPUT_MANIFEST" \
+  --inventory "$inventory" \
   --mode "$mode"

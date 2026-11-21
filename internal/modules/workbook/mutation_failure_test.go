@@ -61,3 +61,15 @@ func TestInvalidPayloadFailureDetailMapping_Unit(t *testing.T) {
 		})
 	}
 }
+
+// TestDirectMutationResponsesMatchTheClassifier_Unit: routes that classify a
+// failure themselves build exactly the response the mutation-failure
+// classifier builds for the same failure.
+func TestDirectMutationResponsesMatchTheClassifier_Unit(t *testing.T) {
+	if got, want := recordDeletedAPIError(), mutationFailureAPIError(RecordDeletedFailure()); !reflect.DeepEqual(got, want) {
+		t.Fatalf("record deleted = %#v, classifier %#v", got, want)
+	}
+	if got, want := unsupportedLifecycleActionAPIError("superseded"), mutationFailureAPIError(UnsupportedLifecycleActionFailure("superseded")); !reflect.DeepEqual(got, want) {
+		t.Fatalf("unsupported lifecycle action = %#v, classifier %#v", got, want)
+	}
+}

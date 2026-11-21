@@ -6,6 +6,7 @@ import (
 	"iter"
 	"maps"
 	"reflect"
+	"slices"
 
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
 	evidenceblob "github.com/JochiRaider/cartulary/internal/modules/evidence/internal/blob"
@@ -99,7 +100,17 @@ func (p preparedEvidenceImport) rewrittenBlobs(ctx context.Context, rewritten in
 		}
 	})
 	defer stop()
-	err := incidentportability.WalkPath(ctx, rewritten, portableBlobPath, func(raw map[string]any) error {
+	// Core 01 REQ-01-695: an absent rewritten member is the empty rewrite, and a
+	// present member must carry at least one row.
+	present, walked := slices.ContainsFunc(rewritten.Members(), func(member incidentportability.Member) bool { return member.Path == portableBlobPath }), 0
+	walk := func(visit func(map[string]any) error) error {
+		if !present {
+			return nil
+		}
+		return incidentportability.WalkPath(ctx, rewritten, portableBlobPath, visit)
+	}
+	err := walk(func(raw map[string]any) error {
+		walked++
 		expected, err, ok := next()
 		if err != nil {
 			return err
@@ -127,6 +138,9 @@ func (p preparedEvidenceImport) rewrittenBlobs(ctx context.Context, rewritten in
 	if err != nil {
 		return err
 	}
+	if present && walked == 0 {
+		return d.DeclaredFailure("evidence.source_state_exact")
+	}
 	_, err, ok := next()
 	if err != nil {
 		return err
@@ -137,11 +151,24 @@ func (p preparedEvidenceImport) rewrittenBlobs(ctx context.Context, rewritten in
 	return nil
 }
 
+// bindRewrittenBlobs binds the rewritten Blob member when staging wrote one.
+// Its absence binds nothing: the empty rewrite (Core 01 REQ-01-695).
+func bindRewrittenBlobs(source incidentportability.MemberReader) (*incidentportability.BoundMembers, error) {
+	if source != nil {
+		for _, member := range source.Members() {
+			if member.Path == portableBlobPath {
+				return incidentportability.BindMembers(source, []string{portableBlobPath})
+			}
+		}
+	}
+	return incidentportability.BindMembers(source, nil)
+}
+
 func (p preparedEvidenceImport) bindBlobRewrite(ctx context.Context, input sourceport.ImportContext, d sourceport.Descriptor) error {
 	if p.blobRewrite == nil {
 		return sourceport.ErrPreparedBinding
 	}
-	bound, err := incidentportability.BindMembers(input.RewrittenObjectBlobs, []string{portableBlobPath})
+	bound, err := bindRewrittenBlobs(input.RewrittenObjectBlobs)
 	if err != nil {
 		return err
 	}

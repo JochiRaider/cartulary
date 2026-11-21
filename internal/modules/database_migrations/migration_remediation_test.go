@@ -14,7 +14,7 @@ import (
 
 func TestMigrationLineagePreflightAllowsCurrentLine(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
-	migrationDB := postgresHarness.MigrationDatabaseThroughT(t, 39)
+	migrationDB := postgresHarness.MigrationDatabaseThroughT(t, canonicalRepositoryHead(t)-1)
 	db := migrationDB.SQL()
 
 	if err := postgres.Apply(context.Background(), db, canonicalMigrationSource(t)); err != nil {
@@ -54,7 +54,7 @@ func TestMigrationLineagePreflightRejectsUnmarkedNonzeroDatabase(t *testing.T) {
 }
 
 func TestMigrationLineagePreflightRejectsPreviousLineages(t *testing.T) {
-	for _, lineage := range []string{"cartulary.prod_ddl_rebaseline.v2", "cartulary.prod_ddl_rebaseline.v3"} {
+	for _, lineage := range []string{"cartulary.prod_ddl_rebaseline.v2", "cartulary.prod_ddl_rebaseline.v3", "cartulary.prod_ddl_rebaseline.v4"} {
 		t.Run(lineage, func(t *testing.T) {
 			postgresHarness := pgtest.Start(t)
 			migrationDB := postgresHarness.MigrationDatabaseThroughT(t, 1)

@@ -97,26 +97,26 @@ func (adapter recordEnvelopeAdapter) VisitIncidentRecordIDsTx(ctx context.Contex
 	return adapter.store.VisitIncidentRecordIDsTx(ctx, tx, incidentID, visit)
 }
 
-func (adapter recordEnvelopeAdapter) RecordTypeTx(
+func (adapter recordEnvelopeAdapter) RecordTypesTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	incidentID uuid.UUID,
-	recordID uuid.UUID,
-) (string, error) {
+	recordIDs []uuid.UUID,
+) (map[uuid.UUID]string, error) {
 	if adapter.store == nil {
-		return "", pgx.ErrNoRows
+		return nil, pgx.ErrNoRows
 	}
-	envelope, err := adapter.store.LoadEnvelopeTx(ctx, tx, recordID, false)
+	envelopes, err := adapter.store.LoadEnvelopesTx(ctx, tx, recordIDs, false)
 	if err != nil {
-		if errors.Is(err, recordenvelope.ErrEnvelopeNotFound) {
-			return "", pgx.ErrNoRows
+		return nil, err
+	}
+	types := make(map[uuid.UUID]string, len(envelopes))
+	for recordID, envelope := range envelopes {
+		if envelope.IncidentID == incidentID {
+			types[recordID] = envelope.RecordType
 		}
-		return "", err
 	}
-	if envelope.IncidentID != incidentID {
-		return "", pgx.ErrNoRows
-	}
-	return envelope.RecordType, nil
+	return types, nil
 }
 
 func (adapter recordEnvelopeAdapter) LoadEnvelope(ctx context.Context, recordID uuid.UUID) (revisions.RecordEnvelope, error) {

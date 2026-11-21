@@ -19,6 +19,7 @@ CREATE TABLE public.evidence (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     object_blob_id uuid,
+    owner_user_id uuid,
     CONSTRAINT evidence_pkey PRIMARY KEY (record_id),
     CONSTRAINT evidence_incident_identity_key UNIQUE (incident_id, record_id)
 );
@@ -201,6 +202,10 @@ CREATE TABLE public.object_blobs (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT object_blobs_byte_size_check CHECK (byte_size >= 0),
+    CONSTRAINT object_blobs_failure_cleanup_ck CHECK (
+        upload_state <> 'failed'
+        OR (cleanup_due_at IS NOT NULL AND cleanup_due_at = failed_at + interval '45 minutes')
+    ),
     CONSTRAINT object_blobs_expected_sha256_hex_check CHECK (expected_sha256_hex IS NULL OR expected_sha256_hex ~ '^[0-9a-f]{64}$'::text),
     CONSTRAINT object_blobs_observed_sha256_hex_check CHECK (observed_sha256_hex IS NULL OR observed_sha256_hex ~ '^[0-9a-f]{64}$'::text),
     CONSTRAINT object_blobs_pkey PRIMARY KEY (object_blob_id),
@@ -321,6 +326,8 @@ CREATE UNIQUE INDEX evidence_object_blob_unique_idx ON public.evidence USING btr
 
 CREATE INDEX evidence_object_upload_leases_expiry_idx ON public.evidence_object_upload_leases USING btree (expires_at, lease_id) WHERE (lease_state = 'issued'::text);
 
+CREATE INDEX evidence_owner_user_id_fk_idx ON public.evidence USING btree (owner_user_id);
+
 CREATE INDEX evidence_object_upload_leases_incident_id_fk_idx ON public.evidence_object_upload_leases USING btree (incident_id);
 
 CREATE INDEX evidence_object_upload_leases_issuing_session_id_fk_idx ON public.evidence_object_upload_leases USING btree (issuing_session_id);
@@ -338,6 +345,8 @@ CREATE INDEX object_blobs_incident_state_idx ON public.object_blobs USING btree 
 ALTER TABLE public.evidence ADD CONSTRAINT evidence_incident_id_fkey FOREIGN KEY (incident_id) REFERENCES public.incidents(id) ON DELETE CASCADE ON UPDATE NO ACTION;
 
 ALTER TABLE public.evidence ADD CONSTRAINT evidence_object_blob_fkey FOREIGN KEY (incident_id, object_blob_id) REFERENCES public.object_blobs(incident_id, object_blob_id) ON UPDATE NO ACTION ON DELETE NO ACTION;
+
+ALTER TABLE public.evidence ADD CONSTRAINT evidence_owner_user_id_fkey FOREIGN KEY (owner_user_id) REFERENCES public.users(id) ON UPDATE NO ACTION ON DELETE NO ACTION;
 
 ALTER TABLE public.evidence ADD CONSTRAINT evidence_record_envelope_fkey FOREIGN KEY (incident_id, record_id) REFERENCES public.records(incident_id, record_id) ON DELETE CASCADE ON UPDATE NO ACTION;
 
@@ -398,6 +407,7 @@ ALTER TABLE public.evidence_access_handles DROP CONSTRAINT evidence_access_handl
 ALTER TABLE public.evidence_access_handles DROP CONSTRAINT evidence_access_handles_incident_id_fkey;
 ALTER TABLE public.evidence_access_handles DROP CONSTRAINT evidence_access_handles_evidence_fkey;
 ALTER TABLE public.evidence DROP CONSTRAINT evidence_record_envelope_fkey;
+ALTER TABLE public.evidence DROP CONSTRAINT evidence_owner_user_id_fkey;
 ALTER TABLE public.evidence DROP CONSTRAINT evidence_object_blob_fkey;
 ALTER TABLE public.evidence DROP CONSTRAINT evidence_incident_id_fkey;
 DROP FUNCTION public.evidence_reject_cleanup_claimed_blob_update();

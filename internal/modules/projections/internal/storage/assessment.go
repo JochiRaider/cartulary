@@ -10,12 +10,7 @@ import (
 	assessmentprojection "github.com/JochiRaider/cartulary/internal/modules/assessments/workbookprojection"
 )
 
-func (store *Store) UpsertAssessmentTx(
-	ctx context.Context,
-	tx pgx.Tx,
-	input assessmentprojection.ProjectionInput,
-) error {
-	if _, err := tx.Exec(ctx, `
+const assessmentProjectionRowSQL = `
 INSERT INTO assessment_grid_projection (
     record_id, incident_id, row_version, subject_ref, subject_type,
     assessment_state, confidence_score, confidence_band, rationale,
@@ -34,13 +29,42 @@ SET incident_id = EXCLUDED.incident_id,
     assessor = EXCLUDED.assessor,
     assessed_at = EXCLUDED.assessed_at,
     supporting_link_count = EXCLUDED.supporting_link_count
-`, input.RecordID, input.IncidentID, input.RowVersion, input.SubjectRef,
+`
+
+func assessmentProjectionRowArguments(input assessmentprojection.ProjectionInput) ([]any, error) {
+	return []any{
+		input.RecordID, input.IncidentID, input.RowVersion, input.SubjectRef,
 		input.SubjectType, input.AssessmentState, input.ConfidenceScore,
 		input.ConfidenceBand, input.Rationale, input.Assessor,
-		input.AssessedAt.UTC(), input.SupportingLinkCount); err != nil {
+		input.AssessedAt.UTC(), input.SupportingLinkCount,
+	}, nil
+}
+
+func (store *Store) UpsertAssessmentTx(ctx context.Context, tx pgx.Tx, input assessmentprojection.ProjectionInput) error {
+	args, err := assessmentProjectionRowArguments(input)
+	if err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, assessmentProjectionRowSQL, args...); err != nil {
 		return fmt.Errorf("upsert assessment projection row: %w", err)
 	}
 	return nil
+}
+
+// UpsertAssessmentRowsTx writes a page of rows in one round trip.
+func (store *Store) UpsertAssessmentRowsTx(ctx context.Context, tx pgx.Tx, inputs []assessmentprojection.ProjectionInput) error {
+	if len(inputs) == 0 {
+		return nil
+	}
+	batch := &pgx.Batch{}
+	for _, input := range inputs {
+		args, err := assessmentProjectionRowArguments(input)
+		if err != nil {
+			return err
+		}
+		batch.Queue(assessmentProjectionRowSQL, args...)
+	}
+	return projectionRowsResult(tx.SendBatch(ctx, batch), len(inputs), "upsert assessment projection row")
 }
 
 func (store *Store) DeleteAssessmentRowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {
