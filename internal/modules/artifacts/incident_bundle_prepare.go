@@ -2,7 +2,10 @@ package artifacts
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"maps"
+	"slices"
 
 	"github.com/google/uuid"
 
@@ -13,6 +16,9 @@ import (
 
 type artifactPreparationBinding struct{ contractMajor int }
 
+// preparedArtifactImport carries bundle members only while preparing; the
+// value the final transaction receives holds staged streams (Core 01
+// REQ-01-641).
 type preparedArtifactImport struct {
 	binding             *artifactPreparationBinding
 	manifest            *sourceStateManifest
@@ -20,10 +26,12 @@ type preparedArtifactImport struct {
 	incidentID, actorID uuid.UUID
 	operationID         string
 	version             int
+	staged              map[string]incidentportability.PreparedRowStream
+	attribution         incidentportability.AttributionStream
 }
 
 func (p preparedArtifactImport) matches(input sourceport.ImportContext, binding *artifactPreparationBinding) bool {
-	return binding != nil && p.binding == binding && binding.contractMajor == sourceport.ContractMajor && p.manifest != nil && p.members != nil && p.incidentID == input.IncidentID && p.actorID == input.ActorUserID && p.operationID == input.OperationID && p.version == input.BundleVersion && input.Attributions != nil
+	return binding != nil && p.binding == binding && binding.contractMajor == sourceport.ContractMajor && p.manifest != nil && p.members == nil && p.staged != nil && input.Preparation != nil && p.incidentID == input.IncidentID && p.actorID == input.ActorUserID && p.operationID == input.OperationID && p.version == input.BundleVersion && input.Attributions != nil
 }
 
 func prepareArtifactImport(ctx context.Context, bundle sourceport.Bundle, input sourceport.ImportContext, descriptor sourceport.Descriptor, manifest *sourceStateManifest, binding *artifactPreparationBinding) (preparedArtifactImport, error) {
@@ -72,7 +80,7 @@ func prepareArtifactImport(ctx context.Context, bundle sourceport.Bundle, input 
 			return true
 		}},
 	} {
-		if err := p.typed(ctx, descriptor, func(_ sourceStateRelation, row any) error {
+		if err := p.bundleTyped(ctx, descriptor, func(_ sourceStateRelation, row any) error {
 			if !phase.valid(row) {
 				return descriptor.DeclaredFailure("artifacts." + phase.invariant)
 			}
@@ -81,7 +89,101 @@ func prepareArtifactImport(ctx context.Context, bundle sourceport.Bundle, input 
 			return preparedArtifactImport{}, err
 		}
 	}
+	if err := p.stage(ctx, input, descriptor); err != nil {
+		return preparedArtifactImport{}, err
+	}
+	// The transaction receives no bundle reader.
+	p.members = nil
 	return p, nil
+}
+
+// stage writes each relation's admitted typed rows and the historical
+// attribution of their actor columns.
+func (p *preparedArtifactImport) stage(ctx context.Context, input sourceport.ImportContext, descriptor sourceport.Descriptor) error {
+	store := input.Preparation
+	if store == nil {
+		return errors.New("artifacts: incident bundle preparation staging is required")
+	}
+	p.staged = map[string]incidentportability.PreparedRowStream{}
+	for _, relation := range p.manifest.relations {
+		stream, err := incidentportability.StagePreparedRows(ctx, store, relation.tableName+".rows", artifactRowCodec{table: relation.tableName}, func(emit func(any) error) error {
+			return p.rawPath(ctx, descriptor, relation, func(raw map[string]any) error {
+				row, valid := portablevalue.Parse(relation.tableName, raw)
+				if !valid {
+					return descriptor.DeclaredFailure("artifacts.row_shape_exact")
+				}
+				return emit(row)
+			})
+		})
+		if err != nil {
+			return err
+		}
+		p.staged[relation.tableName] = stream
+	}
+	admitted := func(actorID string) bool { _, ok := input.Actors.Lookup(actorID); return ok }
+	var err error
+	p.attribution, err = incidentportability.StageAttributions(ctx, store, "attribution.rows", admitted, func(emit func(incidentportability.AttributionRow) error) error {
+		return p.typed(ctx, store, func(relation sourceStateRelation, row any) error {
+			id, _ := portablevalue.IDs(row)
+			actors := portablevalue.Actors(row)
+			for _, column := range slices.Sorted(maps.Keys(actors)) {
+				if err := emit(incidentportability.AttributionRow{SourceTable: relation.tableName, SourceRowID: id.String(), SourceColumn: column, SourceActorID: actors[column].String()}); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+	})
+	return err
+}
+
+// artifactRowCodec stages one relation's admitted typed row as JSON.
+type artifactRowCodec struct{ table string }
+
+func (artifactRowCodec) Encode(row any) ([]byte, error) { return json.Marshal(row) }
+func (c artifactRowCodec) Decode(line []byte) (any, error) {
+	var row any
+	switch c.table {
+	case "artifacts":
+		row = &portablevalue.Parent{}
+	case "artifact_findings":
+		row = &portablevalue.Finding{}
+	case "artifact_investigative_queries":
+		row = &portablevalue.Query{}
+	case "artifact_forensic_keywords":
+		row = &portablevalue.Keyword{}
+	case "handoff_risk_refs":
+		row = &portablevalue.Risk{}
+	default:
+		return nil, incidentportability.ErrPreparedStream
+	}
+	if err := json.Unmarshal(line, row); err != nil {
+		return nil, incidentportability.ErrPreparedStream
+	}
+	return row, nil
+}
+func (artifactRowCodec) Columns() []string { return nil }
+func (artifactRowCodec) Values(any) ([]any, error) {
+	return nil, incidentportability.ErrPreparedStream
+}
+
+// typed visits each relation's staged rows in relation order; the final
+// transaction reads no bundle member.
+func (p preparedArtifactImport) typed(ctx context.Context, store incidentportability.MemberReader, visit func(sourceStateRelation, any) error) error {
+	for _, relation := range p.manifest.relations {
+		if err := p.typedRelation(ctx, store, relation, func(row any) error { return visit(relation, row) }); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (p preparedArtifactImport) typedRelation(ctx context.Context, store incidentportability.MemberReader, relation sourceStateRelation, visit func(any) error) error {
+	stream, ok := p.staged[relation.tableName]
+	if !ok || store == nil {
+		return sourceport.ErrPreparedBinding
+	}
+	return incidentportability.ReadPreparedRows(ctx, store, stream, artifactRowCodec{table: relation.tableName}, visit)
 }
 
 func (p preparedArtifactImport) raw(ctx context.Context, descriptor sourceport.Descriptor, visit func(sourceStateRelation, map[string]any) error) error {
@@ -102,7 +204,7 @@ func (p preparedArtifactImport) rawPath(ctx context.Context, descriptor sourcepo
 	return err
 }
 
-func (p preparedArtifactImport) typed(ctx context.Context, descriptor sourceport.Descriptor, visit func(sourceStateRelation, any) error) error {
+func (p preparedArtifactImport) bundleTyped(ctx context.Context, descriptor sourceport.Descriptor, visit func(sourceStateRelation, any) error) error {
 	return p.raw(ctx, descriptor, func(relation sourceStateRelation, raw map[string]any) error {
 		row, valid := portablevalue.Parse(relation.tableName, raw)
 		if !valid {

@@ -16,13 +16,16 @@ const portabilityParticipantID = "network_flow_activity.incident_portability_v1"
 const portabilityInputSchema = "cartulary.network_flow.incident_import_input.v1"
 const portabilitySpecializationSchema = "cartulary.extension_participant_specialization.v5"
 
-type portabilityParticipant struct{ limits EffectiveLimits }
+type portabilityParticipant struct {
+	limits   EffectiveLimits
+	digester safeDigester
+}
 
 func (m *Module) IncidentPortability() incidentbundles.ExtensionParticipant {
 	if m == nil {
 		return nil
 	}
-	return &portabilityParticipant{limits: m.limits}
+	return &portabilityParticipant{limits: m.limits, digester: m.safeDigester}
 }
 func (*portabilityParticipant) ID() string { return portabilityParticipantID }
 func (*portabilityParticipant) SpecializationSchemaID() string {
@@ -44,6 +47,10 @@ func (p *portabilityParticipant) PrepareImport(ctx context.Context, invocation i
 	if err != nil {
 		return incidentbundles.ImportPreparation{}, err
 	}
+	plan, err := prepared.plan(ctx, p.digester)
+	if err != nil {
+		return incidentbundles.ImportPreparation{}, err
+	}
 	graphMembers := []incidentportability.Member{}
 	for _, graph := range prepared.graphs {
 		if graph.members != nil {
@@ -54,45 +61,48 @@ func (p *portabilityParticipant) PrepareImport(ctx context.Context, invocation i
 	if err != nil {
 		return incidentbundles.ImportPreparation{}, err
 	}
-	participant := &portabilityImportTransaction{prepared: prepared, input: input}
+	participant := &portabilityImportTransaction{plan: plan, input: input}
 	return incidentbundles.ImportPreparation{SchemaID: incidentbundles.ExtensionImportResultSchema, Status: "prepared", ParticipantInput: input, ParticipantInputSHA256: sha256Hex(input), StagedOutputRefs: []string{}, TransactionParticipant: participant}, nil
 }
 
+// portabilityImportTransaction holds only the import plan: sealed preparation
+// streams and bounded declarations. It has no handle to a bundle member, so
+// the final transaction cannot reopen one (Core 01 REQ-01-641).
 type portabilityImportTransaction struct {
-	prepared *preparedNetworkFlow
-	input    []byte
+	plan  *portableImportPlan
+	input []byte
 }
 
 func (*portabilityImportTransaction) ID() string { return PortabilityTransactionParticipantID }
 func (p *portabilityImportTransaction) BuildInput(_ context.Context, operation crossownertransaction.OperationContext) (crossownertransaction.Input, error) {
-	if p == nil || p.prepared == nil || operation.OperationID != p.prepared.operationID {
+	if p == nil || p.plan == nil || operation.OperationID != p.plan.operationID {
 		return crossownertransaction.Input{}, errPortableNetworkFlow
 	}
 	return crossownertransaction.Input{SchemaID: portabilityInputSchema, CanonicalBytes: append([]byte(nil), p.input...)}, nil
 }
 func (p *portabilityImportTransaction) Prepare(context.Context, crossownertransaction.Invocation) (crossownertransaction.PrepareResult, error) {
-	return crossownertransaction.PrepareResult{SerializationKeys: []crossownertransaction.SerializationKey{{KeyKind: "network_flow_activity.incident", Key: p.prepared.incidentID.String()}}}, nil
+	return crossownertransaction.PrepareResult{SerializationKeys: []crossownertransaction.SerializationKey{{KeyKind: "network_flow_activity.incident", Key: p.plan.incidentID.String()}}}, nil
 }
 func (p *portabilityImportTransaction) Validate(ctx context.Context, invocation crossownertransaction.Invocation) (crossownertransaction.ValidationResult, error) {
 	access, ok := invocation.ReadAccess.(interface {
-		ValidatePortableState(context.Context, *preparedNetworkFlow) error
+		ValidatePortableState(context.Context, *portableImportPlan) error
 	})
 	if !ok {
 		return crossownertransaction.ValidationResult{}, crossownertransaction.ErrUnavailable
 	}
-	if err := access.ValidatePortableState(ctx, p.prepared); err != nil {
+	if err := access.ValidatePortableState(ctx, p.plan); err != nil {
 		return crossownertransaction.ValidationResult{}, err
 	}
 	return crossownertransaction.Valid(), nil
 }
 func (p *portabilityImportTransaction) Write(ctx context.Context, invocation crossownertransaction.Invocation) (crossownertransaction.WriteResult, error) {
 	access, ok := invocation.WriteAccess.(interface {
-		WritePortableState(context.Context, *preparedNetworkFlow) error
+		WritePortableState(context.Context, *portableImportPlan) error
 	})
 	if !ok {
 		return crossownertransaction.WriteResult{}, crossownertransaction.ErrUnavailable
 	}
-	if err := access.WritePortableState(ctx, p.prepared); err != nil {
+	if err := access.WritePortableState(ctx, p.plan); err != nil {
 		return crossownertransaction.WriteResult{}, err
 	}
 	return crossownertransaction.Written(nil), nil

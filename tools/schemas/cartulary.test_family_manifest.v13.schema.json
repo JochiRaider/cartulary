@@ -205,6 +205,11 @@
             }
           ]
         },
+        "estimated_work_ms": {
+          "description": "Reviewed planning estimate for the whole row, from retained observations; below the unit timeout. Replaces the evidence-class estimate.",
+          "type": "integer",
+          "minimum": 1
+        },
         "evidence_class": {
           "enum": [
             "unit",
@@ -228,6 +233,7 @@
         "resource_profile_id": {
           "enum": [
             "backend_capacity_isolated",
+            "backend_capacity_postgres_heavy",
             "browser_ordinary",
             "browser_measurement_quiet",
             "harness_contract",
@@ -237,6 +243,7 @@
             "package_qualification",
             "performance_fixture_builder",
             "postgres_catalog_isolated",
+            "postgres_heavy",
             "renderer_browser",
             "standard",
             "ui_review_browser",

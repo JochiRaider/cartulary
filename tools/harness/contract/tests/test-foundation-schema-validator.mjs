@@ -111,6 +111,7 @@ try {
   for (const relative of [
     "tools/harness/contract/harness-contract.mjs",
     "tools/harness/contract/artifact-writer.mjs",
+    "tools/harness/contract/redaction-vocabulary.mjs",
     "tools/harness/contract/generated/foundation-schema-validators.cjs",
     "tools/harness/contract/generated/schema-validators",
   ]) {

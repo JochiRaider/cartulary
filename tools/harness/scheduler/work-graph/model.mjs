@@ -12,6 +12,11 @@ const graphSchemaID = "cartulary.harness_work_graph.v8";
 export function loadWorkGraphOwner(root) {
   const owner = readOperationOwner(root);
   validateSchemaSync(owner.schema_id, owner);
+  // TH-HARNESS 11.6: the Go packing bound is a fraction of the unit timeout
+  // that leaves headroom for aggregate concurrent load.
+  if (owner.go_cohort_packing_bound_ms >= owner.default_timeout_ms) {
+    throw new Error("go_cohort_packing_bound_ms must be below default_timeout_ms");
+  }
   return owner;
 }
 

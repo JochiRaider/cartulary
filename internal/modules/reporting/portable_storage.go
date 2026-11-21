@@ -15,11 +15,14 @@ import (
 
 const portableArtifactChunkBytes = 64 << 10
 
+// ApplyTx publishes the admitted snapshot payloads, each streamed once from
+// its sealed bundle member; new chunks are written by COPY and a replay
+// compares the retained chunks.
 func (p *preparedArtifactImport) ApplyTx(ctx context.Context, tx pgx.Tx) error {
-	if tx == nil || p == nil || p.members == nil {
+	if tx == nil || p == nil || p.unadmitted || (len(p.files) > 0 && p.payloads == nil) {
 		return artifactport.ErrInvalid
 	}
-	for _, member := range p.members.Members() {
+	for _, member := range p.files {
 		tag, err := tx.Exec(ctx, `INSERT INTO reporting_imported_artifact_files(incident_id,bundle_path,operation_id,size_bytes,sha256) VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING`, p.incident, member.Path, p.operation, member.ByteSize, member.SHA256)
 		if err != nil {
 			return err
@@ -34,11 +37,17 @@ func (p *preparedArtifactImport) ApplyTx(ctx context.Context, tx pgx.Tx) error {
 				return artifactport.ErrInvalid
 			}
 		}
-		source, err := incidentportability.OpenVerifiedMember(ctx, p.members, member)
+		source, err := p.payloads.OpenPayload(ctx, member)
 		if err != nil {
 			return err
 		}
-		ordinal, writeErr := writePortableArtifactChunks(ctx, tx, p.incident, member.Path, source, inserted)
+		var ordinal int64
+		var writeErr error
+		if inserted {
+			ordinal, writeErr = copyPortableArtifactChunks(ctx, tx, p.incident, member.Path, source)
+		} else {
+			ordinal, writeErr = comparePortableArtifactChunks(ctx, tx, p.incident, member.Path, source)
+		}
 		err = errors.Join(writeErr, source.Close())
 		if err != nil {
 			return err
@@ -54,7 +63,56 @@ func (p *preparedArtifactImport) ApplyTx(ctx context.Context, tx pgx.Tx) error {
 	return nil
 }
 
-func writePortableArtifactChunks(ctx context.Context, tx pgx.Tx, incident uuid.UUID, path string, source io.Reader, insert bool) (int64, error) {
+// copyPortableArtifactChunks writes one member's fixed-size chunks with one
+// COPY; the chunk buffer is reused, so at most one chunk is resident.
+func copyPortableArtifactChunks(ctx context.Context, tx pgx.Tx, incident uuid.UUID, path string, source io.Reader) (int64, error) {
+	chunks := &portableArtifactChunks{source: source, incident: incident, path: path, buffer: make([]byte, portableArtifactChunkBytes)}
+	written, err := tx.CopyFrom(ctx, pgx.Identifier{"reporting_imported_artifact_chunks"}, []string{"incident_id", "bundle_path", "chunk_ordinal", "content"}, chunks)
+	if err != nil {
+		return written, err
+	}
+	if written != chunks.ordinal {
+		return written, artifactport.ErrInvalid
+	}
+	return written, nil
+}
+
+// portableArtifactChunks is the COPY source of one member's chunks.
+type portableArtifactChunks struct {
+	source   io.Reader
+	incident uuid.UUID
+	path     string
+	buffer   []byte
+	length   int
+	ordinal  int64
+	err      error
+}
+
+func (c *portableArtifactChunks) Next() bool {
+	if c.err != nil {
+		return false
+	}
+	n, err := io.ReadFull(c.source, c.buffer)
+	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
+		c.err = err
+		return false
+	}
+	if n == 0 {
+		return false
+	}
+	c.length = n
+	c.ordinal++
+	return true
+}
+
+func (c *portableArtifactChunks) Values() ([]any, error) {
+	return []any{c.incident, c.path, c.ordinal - 1, c.buffer[:c.length]}, nil
+}
+
+func (c *portableArtifactChunks) Err() error { return c.err }
+
+// comparePortableArtifactChunks proves a replayed member's retained chunks.
+func comparePortableArtifactChunks(ctx context.Context, tx pgx.Tx, incident uuid.UUID, path string, source io.Reader) (int64, error) {
 	buffer := make([]byte, portableArtifactChunkBytes)
 	ordinal := int64(0)
 	for {
@@ -63,18 +121,12 @@ func writePortableArtifactChunks(ctx context.Context, tx pgx.Tx, incident uuid.U
 			return ordinal, readErr
 		}
 		if n > 0 {
-			if insert {
-				if _, err := tx.Exec(ctx, `INSERT INTO reporting_imported_artifact_chunks(incident_id,bundle_path,chunk_ordinal,content) VALUES($1,$2,$3,$4)`, incident, path, ordinal, buffer[:n]); err != nil {
-					return ordinal, err
-				}
-			} else {
-				var retained []byte
-				if err := tx.QueryRow(ctx, `SELECT content FROM reporting_imported_artifact_chunks WHERE incident_id=$1 AND bundle_path=$2 AND chunk_ordinal=$3`, incident, path, ordinal).Scan(&retained); err != nil {
-					return ordinal, err
-				}
-				if !bytes.Equal(retained, buffer[:n]) {
-					return ordinal, artifactport.ErrInvalid
-				}
+			var retained []byte
+			if err := tx.QueryRow(ctx, `SELECT content FROM reporting_imported_artifact_chunks WHERE incident_id=$1 AND bundle_path=$2 AND chunk_ordinal=$3`, incident, path, ordinal).Scan(&retained); err != nil {
+				return ordinal, err
+			}
+			if !bytes.Equal(retained, buffer[:n]) {
+				return ordinal, artifactport.ErrInvalid
 			}
 			ordinal++
 		}

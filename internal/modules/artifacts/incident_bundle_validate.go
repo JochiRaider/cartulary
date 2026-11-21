@@ -58,14 +58,15 @@ func (p preparedArtifactImport) validate(ctx context.Context, tx pgx.Tx, input s
 		}
 	}
 	for _, relation := range p.manifest.relations {
-		if err := p.compareRelation(ctx, tx, descriptor, relation); err != nil {
+		if err := p.compareRelation(ctx, tx, input.Preparation, descriptor, relation); err != nil {
 			return err
 		}
 	}
-	return p.validateAttributions(ctx, input.Attributions, descriptor)
+	// Attribution is flushed by the core in step 9 and checked there by counts.
+	return nil
 }
 
-func (p preparedArtifactImport) compareRelation(ctx context.Context, tx pgx.Tx, descriptor sourceport.Descriptor, relation sourceStateRelation) error {
+func (p preparedArtifactImport) compareRelation(ctx context.Context, tx pgx.Tx, store incidentportability.MemberReader, descriptor sourceport.Descriptor, relation sourceStateRelation) error {
 	query, valid := artifactSourceReadQuery(relation.tableName)
 	if !valid {
 		return sourceport.ErrInvalidCatalog
@@ -75,11 +76,7 @@ func (p preparedArtifactImport) compareRelation(ctx context.Context, tx pgx.Tx, 
 		return err
 	}
 	defer rows.Close()
-	err = p.rawPath(ctx, descriptor, relation, func(raw map[string]any) error {
-		expected, valid := portablevalue.Parse(relation.tableName, raw)
-		if !valid {
-			return descriptor.DeclaredFailure("artifacts.row_shape_exact")
-		}
+	err = p.typedRelation(ctx, store, relation, func(expected any) error {
 		if !rows.Next() {
 			if err := rows.Err(); err != nil {
 				return err
@@ -103,41 +100,6 @@ func (p preparedArtifactImport) compareRelation(ctx context.Context, tx pgx.Tx, 
 		return descriptor.DeclaredFailure("artifacts.source_state_exact")
 	}
 	return rows.Err()
-}
-
-func (p preparedArtifactImport) validateAttributions(ctx context.Context, recorder incidentportability.AttributionRecorder, descriptor sourceport.Descriptor) error {
-	expectedCounts := map[string]uint64{}
-	if err := p.typed(ctx, descriptor, func(relation sourceStateRelation, row any) error {
-		id, _ := portablevalue.IDs(row)
-		expected := portablevalue.Actors(row)
-		expectedCounts[relation.tableName] += uint64(len(expected))
-		if err := recorder.VisitImportedAttributions(relation.tableName, id.String(), func(value incidentportability.ImportedAttribution) error {
-			actor, exists := expected[value.SourceColumn]
-			if !exists || value.LocalUserID != p.actorID || value.SourceTable != relation.tableName || value.SourceRowID != id.String() || value.SourceActorID != actor.String() {
-				return descriptor.DeclaredFailure("artifacts.attribution_exact")
-			}
-			delete(expected, value.SourceColumn)
-			return ctx.Err()
-		}); err != nil {
-			return err
-		}
-		if len(expected) != 0 {
-			return descriptor.DeclaredFailure("artifacts.attribution_exact")
-		}
-		return nil
-	}); err != nil {
-		return err
-	}
-	for _, relation := range p.manifest.relations {
-		var count uint64
-		if err := recorder.VisitImportedAttributions(relation.tableName, "", func(incidentportability.ImportedAttribution) error { count++; return ctx.Err() }); err != nil {
-			return err
-		}
-		if count != expectedCounts[relation.tableName] {
-			return descriptor.DeclaredFailure("artifacts.attribution_exact")
-		}
-	}
-	return nil
 }
 
 func artifactSourceReadQuery(table string) (sqlshape.Fragment, bool) {

@@ -43,12 +43,10 @@ func TestPortableArtifactStreamRetention_Integration(t *testing.T) {
 		t.Fatal(err)
 	}
 	member := incidentportability.Member{Path: "ext/snapshots/storage-boundary.bin", ByteSize: size, SHA256: hex.EncodeToString(digest.Sum(nil))}
+	// The pattern source stands in for the sealed bundle member preparation
+	// admitted as a payload.
 	input := &portablePatternMembers{member: member}
-	bound, err := incidentportability.BindMembers(input, []string{member.Path})
-	if err != nil {
-		t.Fatal(err)
-	}
-	prepared := &preparedArtifactImport{incident: incident, operation: operation, members: bound}
+	prepared := &preparedArtifactImport{incident: incident, operation: operation, payloads: patternPayloads{members: input}, files: []incidentportability.Member{member}}
 	for attempt := 0; attempt < 2; attempt++ {
 		tx, err := pool.Begin(ctx)
 		if err != nil {
@@ -127,15 +125,11 @@ func TestPortableArtifactStreamRetention_Integration(t *testing.T) {
 		other := member
 		other.Path = "ext/snapshots/changed-source.bin"
 		bad := &portablePatternMembers{member: other, corrupt: true}
-		bound, err := incidentportability.BindMembers(bad, []string{other.Path})
-		if err != nil {
-			t.Fatal(err)
-		}
 		tx, err := pool.Begin(ctx)
 		if err != nil {
 			t.Fatal(err)
 		}
-		err = (&preparedArtifactImport{incident: incident, operation: operation, members: bound}).ApplyTx(ctx, tx)
+		err = (&preparedArtifactImport{incident: incident, operation: operation, payloads: patternPayloads{members: bad}, files: []incidentportability.Member{other}}).ApplyTx(ctx, tx)
 		_ = tx.Rollback(ctx)
 		if err == nil {
 			t.Fatal("altered bytes matched the prepared digest")
@@ -189,4 +183,16 @@ func (r *portablePatternReader) Read(p []byte) (int, error) {
 	r.remaining -= int64(n)
 	r.offset += int64(n)
 	return n, nil
+}
+
+// patternPayloads streams the synthetic member as an admitted payload,
+// verified against its descriptor while read.
+type patternPayloads struct{ members *portablePatternMembers }
+
+func (patternPayloads) AdmitPayload(context.Context, string) (incidentportability.Member, error) {
+	return incidentportability.Member{}, incidentportability.ErrPayloadNotAdmitted
+}
+
+func (p patternPayloads) OpenPayload(ctx context.Context, member incidentportability.Member) (io.ReadCloser, error) {
+	return incidentportability.OpenVerifiedMember(ctx, p.members, member)
 }

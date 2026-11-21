@@ -123,9 +123,10 @@ func portableAdmissionFixture(t *testing.T) (incidentbundles.ImportInvocation, p
 }
 
 func TestNetworkFlowPortableMemberAdmission(t *testing.T) {
+	t.Run("apply opens no bundle member after Begin", checkPortableWriteOpensNoBundleMember)
 	t.Run("prepared descriptor binds closed owner members", func(t *testing.T) {
 		invocation, _ := portableAdmissionFixture(t)
-		result, err := (&portabilityParticipant{limits: defaultLimits()}).PrepareImport(t.Context(), invocation, nil)
+		result, err := (&portabilityParticipant{limits: defaultLimits(), digester: &queryCompletionProbe{}}).PrepareImport(t.Context(), invocation, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -358,6 +359,7 @@ func TestNetworkFlowPortableSelectedGraphHistory(t *testing.T) {
 		}
 		limits := defaultLimits()
 		limits.MaxActiveGraphViewsPerIncident = 1
+		duplicateInvocation.PreparationMembers = portableFixtureMembers{MapBundle: portabilitysupport.MapBundle{}}
 		if _, err := prepareNetworkFlow(t.Context(), duplicateInvocation, limits); err == nil {
 			t.Fatal("duplicate-name admission bypassed active graph quota")
 		}
@@ -369,6 +371,7 @@ func TestNetworkFlowPortableSelectedGraphHistory(t *testing.T) {
 	table.DeletedAt = &retiredAt
 	members.MapBundle[portabilityMemberPrefix+"tables.ndjson"] = append(mappingTestJSON(t, portableTableRecord(table)), '\n')
 	members.MapBundle[portabilityMemberPrefix+"graph_views.ndjson"] = append(mappingTestJSON(t, portableGraphViewDeclaration(declaration)), '\n')
+	invocation.PreparationMembers = portableFixtureMembers{MapBundle: portabilitysupport.MapBundle{}}
 	reconstructed, err := prepareNetworkFlow(t.Context(), invocation, defaultLimits())
 	if err != nil {
 		t.Fatal(err)
@@ -378,6 +381,7 @@ func TestNetworkFlowPortableSelectedGraphHistory(t *testing.T) {
 	}
 	declaration.SelectedResult.CanonicalOutputSHA256 = strings.Repeat("e", 64)
 	members.MapBundle[portabilityMemberPrefix+"graph_views.ndjson"] = append(mappingTestJSON(t, portableGraphViewDeclaration(declaration)), '\n')
+	invocation.PreparationMembers = portableFixtureMembers{MapBundle: portabilitysupport.MapBundle{}}
 	if _, err := prepareNetworkFlow(t.Context(), invocation, defaultLimits()); err == nil {
 		t.Fatal("altered graph binding admitted")
 	}

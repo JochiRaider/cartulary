@@ -10,8 +10,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-
-	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 )
 
 type Queryer interface {
@@ -27,18 +25,12 @@ type ImportedAttribution struct {
 	LocalUserID   uuid.UUID
 }
 
+// AttributionRecorder is the final transaction's historical-attribution
+// capability (Core 01 REQ-01-641 step 9). Source ports stage attribution while
+// preparing and require only the capability's presence; the attribution owner
+// flushes every staged stream once, after ValidateImportTx.
 type AttributionRecorder interface {
-	RecordImportedAttribution(table string, sourceRowID string, column string, sourceActorID string) error
-	VisitImportedAttributions(table string, sourceRowID string, visit func(ImportedAttribution) error) error
-}
-
-type FixedImportSpec struct {
-	LogicalBundlePath string
-	AttributionTable  string
-	StableIdentity    []string
-	RequiredColumns   []string
-	AllowedColumns    []string
-	InsertSQL         sqlshape.Statement
+	FlushImportedAttributions(ctx context.Context, source MemberReader, streams ...AttributionStream) error
 }
 
 type UnexpectedColumnsError struct{}
@@ -87,52 +79,6 @@ func FixedImportFailurePath(err error) (string, bool) {
 	return failure.logicalPath, true
 }
 
-func ImportFixedMemberNDJSON(ctx context.Context, tx pgx.Tx, spec FixedImportSpec, members MemberReader, actorUserID uuid.UUID, attributions AttributionRecorder) error {
-	return WalkPath(ctx, members, spec.LogicalBundlePath, func(row map[string]any) error {
-		return ImportFixedRows(ctx, tx, spec, []map[string]any{row}, actorUserID, attributions)
-	})
-}
-
-func ImportFixedRows(ctx context.Context, tx pgx.Tx, spec FixedImportSpec, rows []map[string]any, actorUserID uuid.UUID, attributions AttributionRecorder) error {
-	if strings.TrimSpace(spec.LogicalBundlePath) == "" ||
-		strings.TrimSpace(spec.AttributionTable) == "" ||
-		len(spec.StableIdentity) == 0 ||
-		len(spec.RequiredColumns) == 0 ||
-		strings.TrimSpace(sqlshape.CommandText(spec.InsertSQL)) == "" {
-		return &VerificationFailure{ReasonCode: "malformed_manifest"}
-	}
-	for _, row := range rows {
-		if err := ValidateRequiredColumns(row, spec.RequiredColumns, spec.StableIdentity); err != nil {
-			return err
-		}
-		if spec.AllowedColumns != nil {
-			if len(spec.AllowedColumns) == 0 {
-				return &VerificationFailure{ReasonCode: "malformed_manifest"}
-			}
-			if err := ValidateAllowedColumns(row, spec.AllowedColumns); err != nil {
-				return err
-			}
-		}
-	}
-	for _, row := range rows {
-		if err := RemapTopLevelUserFields(row, spec.AttributionTable, spec.StableIdentity, actorUserID, attributions); err != nil {
-			return err
-		}
-		raw, err := json.Marshal(row)
-		if err != nil {
-			return err
-		}
-		tag, err := tx.Exec(ctx, sqlshape.CommandText(spec.InsertSQL), raw)
-		if err != nil {
-			return err
-		}
-		if tag.RowsAffected() != 1 {
-			return FixedImportFailure(spec.LogicalBundlePath)
-		}
-	}
-	return nil
-}
-
 func ValidateAllowedColumns(row map[string]any, allowed []string) error {
 	allowedSet := make(map[string]struct{}, len(allowed))
 	for _, column := range allowed {
@@ -176,26 +122,6 @@ func SourceRowID(row map[string]any, identity []string) string {
 		parts = append(parts, value)
 	}
 	return strings.Join(parts, ":")
-}
-
-func RemapTopLevelUserFields(row map[string]any, table string, identity []string, actorUserID uuid.UUID, attributions AttributionRecorder) error {
-	sourceRowID := SourceRowID(row, identity)
-	for key, value := range row {
-		if !strings.HasSuffix(key, "_user_id") || value == nil {
-			continue
-		}
-		sourceActorID := StringFromAny(value)
-		if strings.TrimSpace(sourceActorID) == "" {
-			continue
-		}
-		if attributions != nil && sourceRowID != "" {
-			if err := attributions.RecordImportedAttribution(table, sourceRowID, key, sourceActorID); err != nil {
-				return err
-			}
-		}
-		row[key] = actorUserID.String()
-	}
-	return nil
 }
 
 func CanonicalRawJSON(raw []byte) ([]byte, error) {

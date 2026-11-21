@@ -122,11 +122,56 @@ func (s *Scope) OpenSealed(ctx context.Context, operationID string, reference Se
 	if !owned {
 		return nil, ErrScopeDenied
 	}
+	if validator, ok := s.allocator.(sealValidator); ok {
+		return s.openValidated(ctx, validator, reference)
+	}
 	allocator, ok := s.allocator.(StreamAllocator)
 	if !ok {
 		return nil, ErrDependency
 	}
 	return allocator.OpenSealed(ctx, s.operationID, s.profileID, reference)
+}
+
+// sealValidator separates REQ-01-686 seal validation from opening bytes so a
+// scope validates each seal once per operation.
+type sealValidator interface {
+	ValidateSealed(context.Context, string, string, SealedReference) (SealedObject, error)
+	OpenValidated(context.Context, SealedObject) (io.ReadCloser, error)
+	OpenSealed(context.Context, string, string, SealedReference) (io.ReadCloser, error)
+}
+
+func (s *Scope) openValidated(ctx context.Context, validator sealValidator, reference SealedReference) (io.ReadCloser, error) {
+	s.sealedMu.Lock()
+	object, cached := s.sealed[reference.StagingID]
+	s.sealedMu.Unlock()
+	if !cached || object.ContentBinding != reference.ContentBinding {
+		validated, err := validator.ValidateSealed(ctx, s.operationID, s.profileID, reference)
+		if err != nil {
+			return nil, err
+		}
+		if validated.ExpiresAt.IsZero() {
+			// Without an immutable lease bound every read revalidates.
+			return validator.OpenSealed(ctx, s.operationID, s.profileID, reference)
+		}
+		object = validated
+		s.sealedMu.Lock()
+		if s.sealed == nil {
+			s.sealed = map[string]SealedObject{}
+		}
+		s.sealed[reference.StagingID] = object
+		s.sealedMu.Unlock()
+	}
+	return validator.OpenValidated(ctx, object)
+}
+
+// VerifiesSealedContent reports whether streams opened through this scope are
+// verified against the immutable seal by the allocator.
+func (s *Scope) VerifiesSealedContent() bool {
+	if s == nil {
+		return false
+	}
+	verifier, ok := s.allocator.(interface{ VerifiesSealedContent() bool })
+	return ok && verifier.VerifiesSealedContent()
 }
 
 // ResourceAllocator is restricted to source owners with an admitted physical

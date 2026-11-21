@@ -318,70 +318,80 @@ describe("@cartulary/protocol-ts family conformance", () => {
       result_summary: null,
       error_summary: null,
     };
+    const inline = {
+      data: { pack_version: pack },
+      meta: { request_id: "inline" },
+    };
+    const accepted = { data: job, meta: { request_id: "accepted" } };
+    // Activate, disable and remove settle inline and never admit a Job.
     for (const operation of [
       "activateReferencePackVersion",
       "disableReferencePackVersion",
+      "removeReferencePackVersion",
     ] as const) {
-      const inline = {
-        data: { pack_version: pack },
-        meta: { request_id: "inline" },
-      };
-      const accepted = { data: job, meta: { request_id: "accepted" } };
-      expect(httpOperationBindings[operation].success_statuses).toEqual([
-        200, 202,
-      ]);
+      expect(httpOperationBindings[operation].success_statuses).toEqual([200]);
       expect(validateHTTPOperationResponse(operation, inline, 200).ok).toBe(
         true,
       );
-      expect(validateHTTPOperationResponse(operation, accepted, 202).ok).toBe(
-        true,
-      );
       expect(validateHTTPOperationResponse(operation, inline).ok).toBe(true);
-      expect(validateHTTPOperationResponse(operation, accepted).ok).toBe(true);
-      for (const updated_at of [
-        "2024-02-29T23:59:59.123456Z",
-        "2000-02-29T00:00:00Z",
-      ]) {
+      for (const status of [202, 201]) {
         expect(
-          validateHTTPOperationResponse(
-            operation,
-            { ...accepted, data: { ...job, updated_at } },
-            202,
-          ).ok,
-        ).toBe(true);
+          validateHTTPOperationResponse(operation, inline, status).ok,
+        ).toBe(false);
+        expect(
+          validateHTTPOperationResponse(operation, accepted, status).ok,
+        ).toBe(false);
       }
-      for (const updated_at of [
-        "must-not-leak-date",
-        "1900-02-29T00:00:00Z",
-        "2026-02-29T00:00:00Z",
-        "2026-01-01T24:00:00Z",
-        "2026-01-01T00:00:00",
-      ]) {
-        const invalid = validateHTTPOperationResponse(
-          operation,
-          { ...accepted, data: { ...job, updated_at } },
-          202,
-        );
-        expect(invalid.ok).toBe(false);
-        expect(JSON.stringify(invalid)).not.toContain("must-not-leak-date");
-      }
-      expect(validateHTTPOperationResponse(operation, inline, 202).ok).toBe(
-        false,
-      );
       expect(validateHTTPOperationResponse(operation, accepted, 200).ok).toBe(
         false,
       );
-      expect(validateHTTPOperationResponse(operation, accepted, 201).ok).toBe(
-        false,
-      );
+      expect(validateHTTPOperationResponse(operation, accepted).ok).toBe(false);
+    }
+    // Reverify always admits a Job; its envelope keeps exact date-time checks.
+    const reverify = "reverifyReferencePackVersion";
+    expect(httpOperationBindings[reverify].success_statuses).toEqual([202]);
+    expect(validateHTTPOperationResponse(reverify, accepted, 202).ok).toBe(
+      true,
+    );
+    expect(validateHTTPOperationResponse(reverify, accepted).ok).toBe(true);
+    for (const updated_at of [
+      "2024-02-29T23:59:59.123456Z",
+      "2000-02-29T00:00:00Z",
+    ]) {
       expect(
         validateHTTPOperationResponse(
-          operation,
-          { data: { job_id: job.job_id }, meta: accepted.meta },
+          reverify,
+          { ...accepted, data: { ...job, updated_at } },
           202,
         ).ok,
-      ).toBe(false);
+      ).toBe(true);
     }
+    for (const updated_at of [
+      "must-not-leak-date",
+      "1900-02-29T00:00:00Z",
+      "2026-02-29T00:00:00Z",
+      "2026-01-01T24:00:00Z",
+      "2026-01-01T00:00:00",
+    ]) {
+      const invalid = validateHTTPOperationResponse(
+        reverify,
+        { ...accepted, data: { ...job, updated_at } },
+        202,
+      );
+      expect(invalid.ok).toBe(false);
+      expect(JSON.stringify(invalid)).not.toContain("must-not-leak-date");
+    }
+    expect(validateHTTPOperationResponse(reverify, inline, 202).ok).toBe(false);
+    expect(validateHTTPOperationResponse(reverify, accepted, 200).ok).toBe(
+      false,
+    );
+    expect(
+      validateHTTPOperationResponse(
+        reverify,
+        { data: { job_id: job.job_id }, meta: accepted.meta },
+        202,
+      ).ok,
+    ).toBe(false);
     expect([
       buildHTTPOperationPath("loginLocalUser"),
       buildHTTPOperationPath("logoutCurrentSession"),

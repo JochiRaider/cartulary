@@ -84,6 +84,12 @@ func (r *ndjsonRowsReader) Read(p []byte) (int, error) {
 // whole-member buffer. The producer is cancelled and joined before returning,
 // including when storage stops consuming early.
 func WriteMemberFrom(ctx context.Context, destination MemberWriter, path string, write func(context.Context, io.Writer) error) error {
+	_, err := writeMemberFrom(ctx, destination, path, write)
+	return err
+}
+
+// writeMemberFrom is WriteMemberFrom returning the sealed member descriptor.
+func writeMemberFrom(ctx context.Context, destination MemberWriter, path string, write func(context.Context, io.Writer) error) (Member, error) {
 	producerContext, cancel := context.WithCancel(ctx)
 	defer cancel()
 	reader, writer := io.Pipe()
@@ -93,17 +99,77 @@ func WriteMemberFrom(ctx context.Context, destination MemberWriter, path string,
 		_ = writer.CloseWithError(err)
 		done <- err
 	}()
-	_, err := destination.WriteMember(ctx, path, reader)
+	member, err := destination.WriteMember(ctx, path, reader)
 	cancel()
 	_ = reader.Close()
 	produced := <-done
 	if err != nil {
-		return err
+		return Member{}, err
 	}
 	if produced != nil {
-		return produced
+		return Member{}, produced
 	}
-	return ctx.Err()
+	return member, ctx.Err()
+}
+
+// writeStagedMemberFrom is writeMemberFrom for preparation streams. The
+// member is allocated with the producer's first byte, so a producer that
+// writes nothing stages no object and the zero Member is returned (Core 01
+// REQ-01-641: a stream with no rows creates no staged object).
+func writeStagedMemberFrom(ctx context.Context, destination MemberWriter, path string, write func(context.Context, io.Writer) error) (Member, error) {
+	lazy := &lazyMemberWriter{ctx: ctx, destination: destination, path: path}
+	return lazy.finish(write(ctx, lazy))
+}
+
+// lazyMemberWriter starts the destination write on the first byte. The
+// destination consumes the pipe on its own goroutine while the producer
+// writes, as writeMemberFrom does with the roles reversed.
+type lazyMemberWriter struct {
+	ctx         context.Context
+	destination MemberWriter
+	path        string
+	pipe        *io.PipeWriter
+	done        chan stagedMemberResult
+}
+
+type stagedMemberResult struct {
+	member Member
+	err    error
+}
+
+func (w *lazyMemberWriter) Write(payload []byte) (int, error) {
+	if len(payload) == 0 {
+		return 0, nil
+	}
+	if w.pipe == nil {
+		reader, writer := io.Pipe()
+		w.pipe, w.done = writer, make(chan stagedMemberResult, 1)
+		go func() {
+			member, err := w.destination.WriteMember(w.ctx, w.path, reader)
+			// A destination that stops early unblocks the producer.
+			_ = reader.Close()
+			w.done <- stagedMemberResult{member: member, err: err}
+		}()
+	}
+	return w.pipe.Write(payload)
+}
+
+func (w *lazyMemberWriter) finish(produced error) (Member, error) {
+	if w.pipe == nil {
+		if produced != nil {
+			return Member{}, produced
+		}
+		return Member{}, w.ctx.Err()
+	}
+	_ = w.pipe.CloseWithError(produced)
+	result := <-w.done
+	if result.err != nil {
+		return Member{}, result.err
+	}
+	if produced != nil {
+		return Member{}, produced
+	}
+	return result.member, w.ctx.Err()
 }
 
 // WriteNDJSONRecord enforces the logical row ceiling independently of member

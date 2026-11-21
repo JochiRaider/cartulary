@@ -130,7 +130,9 @@ func runNativeSnapshotRoundTrip(t *testing.T, fixture roundTripPackFixture, embe
 	sourceRow["title"] = " padded title "
 	malformed, _ := json.Marshal(sourceRow)
 	assertImportFailureLeavesState(t, target, targetAdmin, id, "noncanonical-incident-source", replaceStructuredBundleMember(t, container, "data/incident.json", malformed), "source_family_invalid")
-	importBundleAndWait(t, target.Server, targetAdmin, container, "native-reference-import")
+	imported := importBundleAndWait(t, target.Server, targetAdmin, container, "native-reference-import")
+	jobID, _ := imported["job_id"].(string)
+	requirePreparationStagesOnlyRows(t, target.DB, jobID, container, false)
 	roundTrip := exportBundleBytes(t, target, targetAdmin, id, "native-reference-reexport")
 	if embedAllowed {
 		roundTrip = exportBundleBytes(t, target, targetAdmin, id, "pack-embedded-reexport", "embedded")

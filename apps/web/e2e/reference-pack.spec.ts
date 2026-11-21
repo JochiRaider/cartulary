@@ -218,7 +218,7 @@ test("imports and replays real pack bytes then activates disables reverifies and
   });
 });
 
-test("supports asynchronous exact actions and retained selection with independent observation recovery", async ({
+test("supports synchronous exact actions with idempotent replay and retained selection with independent observation recovery", async ({
   testActorPage: page,
   testActor,
 }) => {
@@ -299,30 +299,51 @@ test("supports asynchronous exact actions and retained selection with independen
   ).toBeVisible();
   await panel.getByRole("button", { name: "Clear filters" }).click();
   await expect(rows.nth(2).getByRole("checkbox")).toBeChecked();
-  for (const label of ["Activate", "Disable"] as const) {
-    fixture.failReads(true);
+  // Activate and disable settle inline on the exact version, never as a Job. A
+  // lost acknowledgement after commit replays the identical captured request,
+  // which returns the original committed version.
+  const versionRoute = `/api/v1/reference-packs/${encodeURIComponent(pack.pack_key)}/${encodeURIComponent(pack.pack_version)}`;
+  const currentAction = panel.getByRole("region", {
+    name: "Current pack action",
+  });
+  const jobReads = fixture.reads();
+  for (const [label, action] of [
+    ["Activate", "activate"],
+    ["Disable", "disable"],
+  ] as const) {
+    const sent = fixture.lifecycleRequests.length;
+    const commits = fixture.lifecycleCommits();
+    fixture.loseLifecycleResponses(true);
     await rows.nth(1).getByRole("button", { name: label, exact: true }).click();
-    const retry = panel.getByRole("button", { name: "Retry observation" });
-    await expect(retry).toBeVisible();
+    const replay = panel.getByRole("button", { name: "Retry exact request" });
+    await expect(replay).toBeVisible();
     await expect(
-      panel.getByText(
-        "Accepted for processing. Completion has not yet been confirmed.",
-        { exact: true },
-      ),
-    ).toBeVisible();
-    fixture.setStatus("succeeded");
-    fixture.failReads(false);
-    await retry.focus();
-    await page.keyboard.press("Enter");
-    await expect(
-      panel.getByText("Committed. Catalog data may still need reloading.", {
+      currentAction.getByRole("heading", {
+        name: `${label} ${pack.pack_key}@${pack.pack_version}`,
         exact: true,
       }),
     ).toBeVisible();
+    fixture.loseLifecycleResponses(false);
+    await replay.focus();
+    await page.keyboard.press("Enter");
+    await expect(
+      currentAction.getByText(
+        "Committed. Catalog data may still need reloading.",
+        { exact: true },
+      ),
+    ).toBeVisible();
+    const requests = fixture.lifecycleRequests.slice(sent);
+    expect(requests.map(({ path }) => path)).toEqual([
+      `${versionRoute}/${action}`,
+      `${versionRoute}/${action}`,
+    ]);
+    expect(requests[1]?.body).toBe(requests[0]?.body);
+    expect(fixture.lifecycleCommits()).toBe(commits + 1);
   }
+  expect(fixture.reads()).toBe(jobReads);
   await expect(
-    panel.getByRole("button", { name: "Dismiss operation" }),
-  ).toHaveCount(2);
+    panel.getByRole("region", { name: "Operations in this session" }),
+  ).toHaveCount(0);
   await panel
     .getByRole("button", { name: "Refresh selected", exact: true })
     .click();

@@ -1156,7 +1156,7 @@ Verified by: EXT-AC-082
 | `intervals.extensions.staged_object_sweep_seconds` | Integer | `300` | `30..3600` | Begin the next cleanup sweep; logical inaccessibility does not depend on the sweep. |
 | `limits.extensions.staged_object_cleanup_batch` | Integer | `1000` | `1..10000` | Process at most the configured ordered candidates per batch. |
 | `timeouts.extensions.staged_object_cleanup_seconds` | Integer | `300` | `30..3600` | Startup remains not-ready until its captured cutoff set is drained or cleanup fails. |
-| `timeouts.extensions.portability_participant_seconds` | Integer | `300` | `1..3600` | Cancel and fail the portability operation without publishing a bundle or target state. |
+| `timeouts.extensions.portability_participant_seconds` | Integer | `300` | `1..3600` | Cancel and fail the portability operation without publishing a bundle or target state, with `service_unavailable` and `reason_code='extension_participant_timeout'`. |
 | `limits.extensions.max_nonterminal_jobs_per_profile` | Integer | `100000` | `1..1000000` | Fail before reconciliation mutation with `extension_reconciliation_limit_exceeded`. |
 
 Every omitted Table 9-C key MUST materialize its default before startup validation. Explicit `null`, Boolean, string, fraction, exponent-form number, array, object, negative value, zero where excluded, or out-of-range integer MUST fail the Core 04 deployment-configuration envelope. The configured nonterminal-job limit MUST NOT exceed `1000000` and MUST be enforced by fetching at most `limit + 1` ordered rows. When the extra row exists, diagnostic `actual` MUST equal `limit + 1`; the implementation MUST NOT scan the remaining collection merely to calculate a larger count.
@@ -3997,6 +3997,7 @@ Verified by: EXT-AC-005, EXT-AC-009, EXT-AC-010, EXT-AC-012, EXT-AC-013, EXT-AC-
 | `recovery_target_incomplete` | Current database-owned Recovery completion is absent, invalid or incomplete. |
 | `extension_publication_failed` | Stage 6 could not reach the externally visible `serving` state. |
 | `extension_transaction_timeout` | Cross-owner transaction deadline expired and absence of commit was proven; HTTP `503`, `error.code='service_unavailable'`, and `retryable=true`. |
+| `extension_participant_timeout` | An Incident Portability participant invocation exceeded `timeouts.extensions.portability_participant_seconds`; the operation was canceled and failed without publishing a bundle or target state, and its Job terminal error uses `error.code='service_unavailable'` and `retryable=true`. |
 | `backup_binding_codec_unsupported` | Backup metadata names a codec ID and digest that are not explicitly packaged for the binding; fail before restore mutation. |
 | `extension_staged_object_cleanup_dependency_failed` | Authorization or storage configuration prevents physical staged-object deletion; Core readiness is `degraded_dependency`. |
 | `extension_state_validation_failed` | Fresh, current-version, migrated, or restored profile state failed the final state validator. |
@@ -4055,6 +4056,7 @@ Verified by: EXT-AC-069, EXT-AC-084
 | `recovery_target_incomplete` | `Recovery target completion is not established; application startup is closed.` | None; `details` is exactly `{}`. |
 | `extension_publication_failed` | `Extension publication did not reach the serving state.` | `phase`, `timeout_seconds`. |
 | `extension_transaction_timeout` | `The extension transaction did not complete before its deadline.` | `operation_id`, `timeout_seconds`. |
+| `extension_participant_timeout` | `The extension participant did not complete before its deadline.` | `operation_id`, `timeout_seconds`. |
 | `backup_binding_codec_unsupported` | `The backup binding codec is not supported by this build.` | `profile_id`, `binding_id`, `backup_codec_id`, `backup_codec_sha256`. |
 | `extension_staged_object_cleanup_dependency_failed` | `Staged-object cleanup cannot access its storage dependency.` | None; `details` is exactly `{}`. |
 | `extension_state_validation_failed` | `Extension state failed final validation.` | `profile_id`, `phase`, `algorithm_id`. |
@@ -4143,7 +4145,7 @@ Each `conditions[]` row MUST contain exactly:
 
 Rows MUST sort by `phase`, then `condition_id`, using ascending UTF-8 bytes. The array MUST contain `1..16384` rows. The canonical object MUST contain `1..16777216` bytes and serialize under `extension_registry_canonical_json_v1`. `extension_validation_condition_registry_sha256_v1` is the lowercase SHA-256 digest of that canonical byte form.
 
-The registry MUST include exact rows for transaction deadline expiry with proven absent commit using `extension_transaction_timeout`, unsupported backup codec selection using `backup_binding_codec_unsupported`, and staged-object cleanup authorization or storage-configuration failure using `extension_staged_object_cleanup_dependency_failed`. Their paths, formatters, multiplicity and secrecy MUST match EXT-REQ-219, EXT-REQ-235, and Table 20-B; omission of any row is invalid.
+The registry MUST include exact rows for transaction deadline expiry with proven absent commit using `extension_transaction_timeout`, Incident Portability participant deadline expiry using `extension_participant_timeout`, unsupported backup codec selection using `backup_binding_codec_unsupported`, and staged-object cleanup authorization or storage-configuration failure using `extension_staged_object_cleanup_dependency_failed`. Their paths, formatters, multiplicity and secrecy MUST match EXT-REQ-219, EXT-REQ-235, and Table 20-B; omission of any row is invalid.
 
 An implementation MUST NOT infer a diagnostic path, reason code, expected value, actual value, multiplicity, or secret policy from local validation-library behavior. Every schema constraint and procedural decision row MUST resolve to exactly one registry condition, and every registry condition MUST be reachable from exactly one declared surface. A condition absent from the canonical registry is a specification or generator defect and MUST fail conformance rather than produce an implementation-selected diagnostic. A validator that attempts to emit an unregistered condition MUST terminate that validation surface with `extension_validation_result_invalid`; it MUST NOT expose the invented condition or library error.
 

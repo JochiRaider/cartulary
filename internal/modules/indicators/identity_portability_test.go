@@ -109,10 +109,18 @@ func portableImportContext(t testing.TB, operationID string) sourceport.ImportCo
 	if err != nil {
 		t.Fatalf("actor catalog: %v", err)
 	}
-	return sourceport.ImportContext{
+	input := sourceport.ImportContext{
 		IncidentID: uuid.MustParse(portableIncidentID), ActorUserID: actorID,
 		BundleVersion: 8, OperationID: operationID, Actors: actors,
+		Preparation: portabilitysupport.NewPreparationStore(),
 	}
+	// Preparation-only cases need the records family's published fact; an
+	// empty fact defers any actor verdict to the transaction's ranks.
+	input, err = portabilitysupport.PublishFact(context.Background(), input, []string{sourceport.RecordsFamilyID, "indicators"}, sourceport.RecordsFamilyID, sourceport.RecordAttributionFact, nil)
+	if err != nil {
+		t.Fatalf("publish records fact: %v", err)
+	}
+	return input
 }
 
 type indicatorTestBundle = portabilitysupport.MapBundle

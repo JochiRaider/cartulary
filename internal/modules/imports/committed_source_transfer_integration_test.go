@@ -12,6 +12,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/JochiRaider/cartulary/internal/app/server"
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -23,7 +24,10 @@ import (
 func TestCommittedSourcesTransferThroughPublicBundleOperations_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	source := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "committed-source-a", TestRouteMode: httptestx.TestRouteModeDisabled})
-	target := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "committed-source-b", TestRouteMode: httptestx.TestRouteModeDisabled})
+	reads := newMemberReadLog()
+	target := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "committed-source-b", TestRouteMode: httptestx.TestRouteModeDisabled, ConfigureRuntime: func(options *server.Options) {
+		options.ObserveIncidentBundleMemberReads = reads.observe
+	}})
 	sourceLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, source.Server.HTTP.URL)
 	targetLogin, targetActor := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, target.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, source.Server, sourceLogin, map[string]any{"client_txn_id": "committed-source-incident", "incident_key": "COMMITTED-SOURCES", "title": "Immutable original sources"})
@@ -168,6 +172,13 @@ func TestCommittedSourcesTransferThroughPublicBundleOperations_Integration(t *te
 	if terminal := waitIRApply(t, target.Server.HTTP.URL, targetLogin, job["job_id"].(string)); terminal["status"] != "succeeded" {
 		t.Fatalf("transfer failed: %#v", terminal)
 	}
+	// Core 01 REQ-01-641: Records, Timeline and committed sources apply only
+	// staged preparation streams; their final transaction reopens no member.
+	reads.requireNoBundleReadsAfterBegin(t, "data/records.ndjson", "data/timeline_", "data/committed_source", "sources/")
+	// The source bytes are an opaque payload: preparation verified their seal
+	// and copied nothing, and the transaction streamed them from the sealed
+	// bundle member through the payload reader.
+	reads.requirePayloadReadsAfterBegin(t, "sources/*")
 	replay := uploadPublicSourceBundle(t, target.Server.HTTP.URL, targetLogin, bundle, "transfer")
 	if replay["job_id"] != job["job_id"] {
 		t.Fatal("exact transfer replay duplicated the operation")

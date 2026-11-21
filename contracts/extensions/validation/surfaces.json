@@ -931,6 +931,29 @@
           ]
         },
         {
+          "surface_id": "core01.portability_participant",
+          "decision_rows": [
+            {
+              "predicate": "participant_deadline_expired",
+              "outcome": "extension_participant_timeout",
+              "condition_id": "extension_participant_deadline_expired"
+            }
+          ],
+          "conditions": [
+            {
+              "condition_id": "extension_participant_deadline_expired",
+              "condition_class": "timeout",
+              "phase": "portability_participant",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
+              "reason_code": "extension_participant_timeout",
+              "expected_formatter_id": "diagnostic_integer_range_v1",
+              "actual_formatter_id": "diagnostic_count_v1",
+              "multiplicity": "single",
+              "secret_policy": "safe_value"
+            }
+          ]
+        },
+        {
           "surface_id": "core01.backup_codec",
           "decision_rows": [
             {

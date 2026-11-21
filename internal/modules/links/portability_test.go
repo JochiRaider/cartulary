@@ -69,6 +69,7 @@ func TestLinksIncidentBundleRejectsUnknownLinkMembersBeforeMutation(t *testing.T
 			}, sourceport.ImportContext{
 				IncidentID: incident.ID, ActorUserID: actor.ID, BundleVersion: 8,
 				OperationID: "unknown-member-" + member, Attributions: attributions,
+				Preparation: portabilitysupport.NewPreparationStore(),
 			})
 			var failure *sourceport.Failure
 			if !errors.As(err, &failure) || failure.InvariantID() != "links_tags.source_identity_admitted" {
@@ -117,25 +118,10 @@ func TestLinksIncidentBundleRejectsUnknownLinkMembersBeforeMutation(t *testing.T
 }
 
 type countingLinkAttributions struct {
+	portabilitysupport.AttributionCapability
 	calls int
-}
-
-func (recorder *countingLinkAttributions) RecordImportedAttribution(string, string, string, string) error {
-	recorder.calls++
-	return nil
 }
 
 func (*countingLinkAttributions) ImportedAttributions() []incidentportability.ImportedAttribution {
 	return []incidentportability.ImportedAttribution{}
-}
-
-func (r *countingLinkAttributions) VisitImportedAttributions(table, rowID string, visit func(incidentportability.ImportedAttribution) error) error {
-	for _, row := range r.ImportedAttributions() {
-		if row.SourceTable == table && (rowID == "" || row.SourceRowID == rowID) {
-			if err := visit(row); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
 }

@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math/big"
 	"strings"
+	"sync/atomic"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -19,6 +21,10 @@ type ApplyFunc func(context.Context, pgx.Tx, any, ImportContext) error
 type ValidateFunc func(context.Context, pgx.Tx, any, ImportContext) error
 type ContractValidateFunc func() error
 
+// AttributionFunc returns the attribution streams a port staged while
+// preparing value. The core flushes them in step 9 (Core 01 REQ-01-641).
+type AttributionFunc func(value any) []incidentportability.AttributionStream
+
 type AdapterOptions struct {
 	Descriptor       Descriptor
 	Export           ExportFunc
@@ -26,6 +32,7 @@ type AdapterOptions struct {
 	Apply            ApplyFunc
 	Validate         ValidateFunc
 	ValidateContract ContractValidateFunc
+	Attributions     AttributionFunc
 }
 
 type Adapter struct {
@@ -36,7 +43,12 @@ type Adapter struct {
 	apply            ApplyFunc
 	validate         ValidateFunc
 	validateContract ContractValidateFunc
+	attributions     AttributionFunc
 }
+
+// preparationSequence distinguishes preparation scopes, including repeated
+// preparations against one store.
+var preparationSequence atomic.Uint64
 
 // A non-zero-sized private token distinguishes constructions even when a caller
 // overwrites an Adapter value at an existing address.
@@ -51,6 +63,7 @@ func NewAdapter(options AdapterOptions) *Adapter {
 		apply:            options.Apply,
 		validate:         options.Validate,
 		validateContract: options.ValidateContract,
+		attributions:     options.Attributions,
 	}
 }
 
@@ -98,11 +111,30 @@ func (a *Adapter) PrepareImport(ctx context.Context, bundle Bundle, importContex
 	if !admitted {
 		return Prepared{}, fmt.Errorf("%w: unsupported source version", ErrInvalidCatalog)
 	}
+	// Each preparation receives its own scope below the operation's store, so a
+	// port can neither read nor replace another port's or attempt's streams.
+	scope := fmt.Sprintf("prepared/core/%s/%d/", a.descriptor.FamilyID, preparationSequence.Add(1))
+	binding := importContext
+	importContext.Preparation = scopePreparation(importContext.Preparation, scope)
+	importContext.Facts = importContext.Facts.forFamily(a.descriptor.FamilyID)
 	value, err := a.prepare(ctx, bundle, importContext)
 	if err != nil {
 		return Prepared{}, err
 	}
-	return newPrepared(a, importContext, value), nil
+	return newPrepared(a, binding, value, scope), nil
+}
+
+// PreparedAttributions returns the attribution streams the port staged while
+// preparing; ports without staged attribution return none.
+func (a *Adapter) PreparedAttributions(prepared Prepared, importContext ImportContext) ([]incidentportability.AttributionStream, error) {
+	if a == nil {
+		return nil, fmt.Errorf("%w: missing attribution", ErrInvalidCatalog)
+	}
+	value, err := prepared.valueFor(a, importContext)
+	if err != nil || a.attributions == nil {
+		return nil, err
+	}
+	return a.attributions(value), nil
 }
 
 func (a *Adapter) ApplyImportTx(ctx context.Context, tx pgx.Tx, prepared Prepared, importContext ImportContext) error {
@@ -113,6 +145,8 @@ func (a *Adapter) ApplyImportTx(ctx context.Context, tx pgx.Tx, prepared Prepare
 	if err != nil {
 		return err
 	}
+	importContext.Preparation = scopePreparation(importContext.Preparation, prepared.preparation)
+	importContext.Facts = nil
 	err = a.apply(ctx, tx, value, importContext)
 	if err == nil {
 		return nil
@@ -143,7 +177,53 @@ func (a *Adapter) ValidateImportTx(ctx context.Context, tx pgx.Tx, prepared Prep
 	if err != nil {
 		return err
 	}
+	importContext.Preparation = scopePreparation(importContext.Preparation, prepared.preparation)
+	importContext.Facts = nil
 	return a.validate(ctx, tx, value, importContext)
+}
+
+// scopedPreparation confines one port preparation to its prefix. Writes take
+// paths relative to the scope; reads take the full paths writes returned.
+type scopedPreparation struct {
+	store  PreparationStore
+	prefix string
+}
+
+func scopePreparation(store PreparationStore, prefix string) PreparationStore {
+	if store == nil || prefix == "" {
+		return nil
+	}
+	return scopedPreparation{store: store, prefix: prefix}
+}
+
+func (s scopedPreparation) WriteMember(ctx context.Context, path string, source io.Reader) (incidentportability.Member, error) {
+	if path == "" || strings.HasPrefix(path, "/") || strings.Contains(path, "..") {
+		return incidentportability.Member{}, ErrPreparedBinding
+	}
+	return s.store.WriteMember(ctx, s.prefix+path, source)
+}
+
+func (s scopedPreparation) OpenMember(ctx context.Context, path string) (io.ReadCloser, incidentportability.Member, error) {
+	if !strings.HasPrefix(path, s.prefix) {
+		return nil, incidentportability.Member{}, ErrPreparedBinding
+	}
+	return s.store.OpenMember(ctx, path)
+}
+
+func (s scopedPreparation) Members() []incidentportability.Member {
+	result := []incidentportability.Member{}
+	for _, member := range s.store.Members() {
+		if strings.HasPrefix(member.Path, s.prefix) {
+			result = append(result, member)
+		}
+	}
+	return result
+}
+
+// VerifiesSealedContent delegates the single-hash marker to the store.
+func (s scopedPreparation) VerifiesSealedContent() bool {
+	verifier, ok := s.store.(interface{ VerifiesSealedContent() bool })
+	return ok && verifier.VerifiesSealedContent()
 }
 
 // PrepareMembers validates canonical source identities without retaining rows.

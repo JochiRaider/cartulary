@@ -4,7 +4,6 @@ import (
 	"context"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/internal/sourcevalue"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
-	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/jackc/pgx/v5"
 	"reflect"
 )
@@ -39,35 +38,4 @@ func (p preparedEvidenceImport) compareRecords(ctx context.Context, tx pgx.Tx, d
 		return d.DeclaredFailure("evidence.source_state_exact")
 	}
 	return rows.Err()
-}
-func (p preparedEvidenceImport) validateRecordAttributions(ctx context.Context, recorder incidentportability.AttributionRecorder, d sourceport.Descriptor) error {
-	var expectedCount, actualCount uint64
-	if err := p.typed(ctx, d, func(row sourcevalue.Row) error {
-		present := row.OwnerUserID != nil
-		if present {
-			expectedCount++
-		}
-		if err := recorder.VisitImportedAttributions("evidence", row.RecordID.String(), func(value incidentportability.ImportedAttribution) error {
-			if !present || value.SourceTable != "evidence" || value.SourceRowID != row.RecordID.String() || value.SourceColumn != "owner_user_id" || value.SourceActorID != row.OwnerUserID.String() || value.LocalUserID != p.actorID {
-				return d.DeclaredFailure("evidence.attribution_exact")
-			}
-			present = false
-			return ctx.Err()
-		}); err != nil {
-			return err
-		}
-		if present {
-			return d.DeclaredFailure("evidence.attribution_exact")
-		}
-		return nil
-	}); err != nil {
-		return err
-	}
-	if err := recorder.VisitImportedAttributions("evidence", "", func(incidentportability.ImportedAttribution) error { actualCount++; return ctx.Err() }); err != nil {
-		return err
-	}
-	if actualCount != expectedCount {
-		return d.DeclaredFailure("evidence.attribution_exact")
-	}
-	return nil
 }

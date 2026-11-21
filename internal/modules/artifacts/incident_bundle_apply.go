@@ -2,8 +2,6 @@ package artifacts
 
 import (
 	"context"
-	"maps"
-	"slices"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -15,7 +13,8 @@ import (
 
 func (p preparedArtifactImport) apply(ctx context.Context, tx pgx.Tx, input sourceport.ImportContext, descriptor sourceport.Descriptor) error {
 	// All envelope preconditions finish before the first owner write.
-	if err := p.typed(ctx, descriptor, func(_ sourceStateRelation, row any) error {
+	store := input.Preparation
+	if err := p.typed(ctx, store, func(_ sourceStateRelation, row any) error {
 		if _, risk := row.(*portablevalue.Risk); risk {
 			return nil
 		}
@@ -31,7 +30,7 @@ func (p preparedArtifactImport) apply(ctx context.Context, tx pgx.Tx, input sour
 	}); err != nil {
 		return err
 	}
-	if err := p.typed(ctx, descriptor, func(relation sourceStateRelation, row any) error {
+	if err := p.typed(ctx, store, func(relation sourceStateRelation, row any) error {
 		query, valid := artifactIdentityExistsQuery(relation.tableName)
 		if !valid {
 			return sourceport.ErrInvalidCatalog
@@ -48,7 +47,9 @@ func (p preparedArtifactImport) apply(ctx context.Context, tx pgx.Tx, input sour
 	}); err != nil {
 		return err
 	}
-	return p.typed(ctx, descriptor, func(relation sourceStateRelation, row any) error {
+	// Each row's owner checks depend on the rows written before it, so the
+	// staged rows are written in order. Attribution is flushed in step 9.
+	return p.typed(ctx, store, func(_ sourceStateRelation, row any) error {
 		if err := validateArtifactInsertReferences(ctx, tx, row, descriptor); err != nil {
 			return err
 		}
@@ -58,13 +59,6 @@ func (p preparedArtifactImport) apply(ctx context.Context, tx pgx.Tx, input sour
 		}
 		if tag.RowsAffected() != 1 {
 			return descriptor.DeclaredFailure("artifacts.source_identity_admitted")
-		}
-		id, _ := portablevalue.IDs(row)
-		actors := portablevalue.Actors(row)
-		for _, column := range slices.Sorted(maps.Keys(actors)) {
-			if err := input.Attributions.RecordImportedAttribution(relation.tableName, id.String(), column, actors[column].String()); err != nil {
-				return err
-			}
 		}
 		return nil
 	})

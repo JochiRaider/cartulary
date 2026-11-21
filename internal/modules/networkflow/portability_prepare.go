@@ -17,16 +17,22 @@ import (
 
 var errPortableNetworkFlow = errors.New("network flow portable state is invalid")
 
+// preparedNetworkFlow is preparation-only state. It holds the admitted bundle
+// members; the final transaction receives only a portableImportPlan.
 type preparedNetworkFlow struct {
-	incidentID  uuid.UUID
-	operationID string
-	actorID     uuid.UUID
-	actors      sourceport.ActorCatalog
-	members     *incidentportability.BoundMembers
-	tables      map[string]tableRecord
-	counts      map[string]int64
-	limits      EffectiveLimits
-	graphs      []preparedPortableGraph
+	incidentID   uuid.UUID
+	operationID  string
+	actorID      uuid.UUID
+	actors       sourceport.ActorCatalog
+	members      *incidentportability.BoundMembers
+	tables       map[string]tableRecord
+	counts       map[string]int64
+	limits       EffectiveLimits
+	graphs       []preparedPortableGraph
+	preparation  incidentbundles.PreparationMembers
+	observations incidentportability.PreparedRowStream
+	diagnostics  incidentportability.PreparedRowStream
+	bindings     incidentportability.PreparedRowStream
 }
 
 type preparedPortableGraph struct {
@@ -35,27 +41,27 @@ type preparedPortableGraph struct {
 	path        string
 }
 
+// walkPortable reads one admitted member in a single pass: one hash, one
+// strict scan and one typed decode per line (incidentportability.WalkTyped).
 func walkPortable[T any](ctx context.Context, members incidentportability.MemberReader, path, required, nullable string, visit func(T) error) error {
-	return incidentportability.WalkPath(ctx, members, portabilityMemberPrefix+path, func(object map[string]any) error {
-		raw, err := json.Marshal(object)
-		if err != nil {
-			return err
-		}
-		var value T
-		if _, err := decodeClosedImportObject(raw, required, "", nullable, &value); err != nil {
-			return fmt.Errorf("%s record shape: %w", path, errPortableNetworkFlow)
-		}
+	shape := incidentportability.RecordShape{Required: strings.Fields(required), Nullable: strings.Fields(nullable)}
+	err := incidentportability.WalkTyped(ctx, members, portabilityMemberPrefix+path, shape, func(value *T, line []byte) error {
 		// A typed round trip must preserve every nested member. Unknown nested
 		// fields and omitted required struct fields cannot disappear on import.
-		closed, err := json.Marshal(value)
-		if err != nil || !canonicalEqual(json.RawMessage(raw), json.RawMessage(closed)) {
+		closed, err := json.Marshal(*value)
+		if err != nil || !canonicalEqual(json.RawMessage(line), json.RawMessage(closed)) {
 			return fmt.Errorf("%s nested record shape: %w", path, errPortableNetworkFlow)
 		}
-		if err := visit(value); err != nil {
+		if err := visit(*value); err != nil {
 			return fmt.Errorf("%s record admission: %w", path, err)
 		}
 		return nil
 	})
+	var shapeErr *incidentportability.RecordShapeError
+	if errors.As(err, &shapeErr) {
+		return fmt.Errorf("%s record shape: %w", path, errPortableNetworkFlow)
+	}
+	return err
 }
 func validPortableTime(value time.Time) bool {
 	return value.Year() >= 1 && value.Year() <= 9999 && value.Location() == time.UTC && value.Nanosecond()%1000 == 0
@@ -83,11 +89,14 @@ func prepareNetworkFlow(ctx context.Context, invocation incidentbundles.ImportIn
 	if invocation.Members == nil || len(invocation.Members.Members()) != len(paths) {
 		return nil, errPortableNetworkFlow
 	}
+	if invocation.PreparationMembers == nil {
+		return nil, incidentbundles.ErrPortabilityUnavailable
+	}
 	members, err := incidentportability.BindMembers(invocation.Members, paths)
 	if err != nil {
 		return nil, err
 	}
-	p := &preparedNetworkFlow{incidentID: invocation.IncidentID, operationID: invocation.OperationID, actorID: invocation.ActorUserID, actors: invocation.Actors, members: members, tables: map[string]tableRecord{}, counts: map[string]int64{"tables": 0, "observations": 0, "diagnostics": 0, "indicator_bindings": 0, "graph_views": 0}, limits: limits}
+	p := &preparedNetworkFlow{incidentID: invocation.IncidentID, operationID: invocation.OperationID, actorID: invocation.ActorUserID, actors: invocation.Actors, members: members, tables: map[string]tableRecord{}, counts: map[string]int64{"tables": 0, "observations": 0, "diagnostics": 0, "indicator_bindings": 0, "graph_views": 0}, limits: limits, preparation: invocation.PreparationMembers}
 	previous := ""
 	var active int64
 	sourceIDs := map[uuid.UUID]bool{}
@@ -152,11 +161,28 @@ func prepareNetworkFlow(ctx context.Context, invocation incidentbundles.ImportIn
 	if len(p.tables) == 0 {
 		return nil, errPortableNetworkFlow
 	}
-	if err := p.verifyCommittedObservations(ctx, dependencies.CommittedSources()); err != nil {
+	// Each validating walk stages its write-ready rows as it admits them
+	// (Core 01 REQ-01-641), so no family is read again to stage it.
+	p.diagnostics, err = incidentportability.StagePreparedRows(ctx, p.preparation, preparedDiagnosticsPath, diagnosticCodec{incidentID: p.incidentID}, func(emit func(portableDiagnostic) error) error {
+		return p.validateDiagnostics(ctx, emit)
+	})
+	if err != nil {
 		return nil, err
 	}
-	if err := p.validateBindings(ctx, dependencies.IndicatorReferences()); err != nil {
+	p.observations, err = incidentportability.StagePreparedRows(ctx, p.preparation, preparedObservationsPath, observationCodec{}, func(emit func(flowRow) error) error {
+		return p.verifyCommittedObservations(ctx, dependencies.CommittedSources(), emit)
+	})
+	if err != nil {
 		return nil, err
+	}
+	p.bindings, err = incidentportability.StagePreparedRows(ctx, p.preparation, preparedBindingsPath, bindingCodec{}, func(emit func(preparedBinding) error) error {
+		return p.validateBindings(ctx, dependencies.IndicatorReferences(), emit)
+	})
+	if err != nil {
+		return nil, err
+	}
+	if p.diagnostics.Rows != p.counts["diagnostics"] || p.observations.Rows != p.counts["observations"] || p.bindings.Rows != p.counts["indicator_bindings"] {
+		return nil, fmt.Errorf("prepared family counts: %w", errPortableNetworkFlow)
 	}
 	if err := p.prepareGraphs(ctx, invocation.PreparationMembers); err != nil {
 		return nil, err
@@ -216,7 +242,7 @@ func (p *preparedNetworkFlow) validateObservation(row flowRow, table tableRecord
 	return nil
 }
 
-func (p *preparedNetworkFlow) validateDiagnostics(ctx context.Context) error {
+func (p *preparedNetworkFlow) validateDiagnostics(ctx context.Context, emit func(portableDiagnostic) error) error {
 	previous := ""
 	counts := map[string]int64{}
 	rejected := map[string]int64{}
@@ -247,7 +273,7 @@ func (p *preparedNetworkFlow) validateDiagnostics(ctx context.Context) error {
 			return incidentbundles.ErrPortabilityLimit
 		}
 		p.counts["diagnostics"]++
-		return nil
+		return emit(v)
 	})
 	if err != nil {
 		return err
@@ -259,7 +285,7 @@ func (p *preparedNetworkFlow) validateDiagnostics(ctx context.Context) error {
 	}
 	return nil
 }
-func (p *preparedNetworkFlow) validateBindings(ctx context.Context, indicators portableIndicatorReferences) error {
+func (p *preparedNetworkFlow) validateBindings(ctx context.Context, indicators portableIndicatorReferences, emit func(preparedBinding) error) error {
 	previous := ""
 	return walkPortable(ctx, p.members, "indicator_bindings.ndjson", portableBindingMembers, "", func(v portableBinding) error {
 		if v.IncidentID != p.incidentID || v.BindingID <= previous || !linkBindingIDPattern.MatchString(v.BindingID) || !p.actor(v.CreatedByUserID) || !validPortableTime(v.CreatedAt) || !validBindingSelectorKind(v.SelectorKind) || len(v.SourceRowRefs) == 0 || int64(len(v.SourceRowRefs)) > p.limits.MaxBindingSourceRowRefs || v.SourceRowRefsTotalCount < int64(len(v.SourceRowRefs)) || v.SourceRowRefsTruncated != (v.SourceRowRefsTotalCount > int64(len(v.SourceRowRefs))) {
@@ -304,6 +330,12 @@ func (p *preparedNetworkFlow) validateBindings(ctx context.Context, indicators p
 		}
 		previous = v.BindingID
 		p.counts["indicator_bindings"]++
-		return nil
+		refs, err := json.Marshal(v.SourceRowRefs)
+		if err != nil {
+			return err
+		}
+		return emit(preparedBinding{BindingID: v.BindingID, IndicatorID: v.IndicatorID, IndicatorType: v.IndicatorType, CandidateValue: v.CandidateValue,
+			SelectorKind: v.SelectorKind, SourceRowRefs: refs, SourceRowIDs: bindingSourceRowIDs(v.SourceRowRefs), Truncated: v.SourceRowRefsTruncated,
+			TotalCount: v.SourceRowRefsTotalCount, CreatedAt: v.CreatedAt, HistoricalActor: v.CreatedByUserID})
 	})
 }

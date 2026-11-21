@@ -91,7 +91,12 @@ func NewIncidentBundleSourcePort() (sourceport.Port, error) {
 			if err != nil {
 				return nil, err
 			}
-			prepared, err := prepareIncidentBundleIncident(contract, payload, incidentSourcePortImportContext(importContext))
+			private := incidentSourcePortImportContext(importContext)
+			prepared, err := prepareIncidentBundleIncident(contract, payload, private)
+			if err != nil {
+				return prepared, incidentSourcePortError(descriptor, err)
+			}
+			prepared.attribution, err = stageIncidentSourceAttribution(ctx, importContext.Preparation, prepared, private.actorAdmitted)
 			return prepared, incidentSourcePortError(descriptor, err)
 		},
 		Apply: func(ctx context.Context, tx pgx.Tx, value any, importContext sourceport.ImportContext) error {
@@ -103,6 +108,13 @@ func NewIncidentBundleSourcePort() (sourceport.Port, error) {
 			return incidentSourcePortError(descriptor, err)
 		},
 		ValidateContract: sourcestate.Validate,
+		Attributions: func(value any) []incidentportability.AttributionStream {
+			prepared, ok := value.(preparedIncidentSource)
+			if !ok {
+				return nil
+			}
+			return []incidentportability.AttributionStream{prepared.attribution}
+		},
 	}), nil
 }
 

@@ -38,6 +38,17 @@
       "runner_timeout_ms": 3600000
     },
     {
+      "id": "backend_capacity_postgres_heavy",
+      "resource_claims": {
+        "cpu": 1,
+        "io": 1,
+        "memory_mb": 1024,
+        "postgres_heavy": 1,
+        "process": 1
+      },
+      "runner_timeout_ms": 3600000
+    },
+    {
       "id": "browser_measurement_quiet",
       "resource_claims": {
         "cpu": 2,
@@ -145,6 +156,16 @@
         "postgres": 4,
         "process": 12,
         "volume": 1
+      }
+    },
+    {
+      "id": "postgres_heavy",
+      "resource_claims": {
+        "cpu": 1,
+        "io": 1,
+        "memory_mb": 256,
+        "postgres_heavy": 1,
+        "process": 1
       }
     },
     {

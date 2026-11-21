@@ -138,6 +138,9 @@ type SealedReference struct {
 type SealedObject struct {
 	StorageIdentity string
 	ContentBinding
+	// ExpiresAt is the immutable staging_expires_at lease bound. A zero value
+	// means the repository supplied no lease, and every read revalidates.
+	ExpiresAt time.Time
 }
 
 type CleanupCandidate struct {
@@ -158,6 +161,10 @@ type Repository interface {
 	Seal(context.Context, string, string, SealedReference, time.Time) error
 	ReadSealed(context.Context, string, string, Reference, time.Time) (SealedObject, error)
 	Abandon(context.Context, string, time.Time) error
+	// AbandonAll abandons every listed object with one set-based statement.
+	// It changes nothing unless every object is abandonable; an object already
+	// abandoned counts as abandoned, so a retry is safe.
+	AbandonAll(context.Context, []string, time.Time) error
 	PrepareCleanupBatch(context.Context, time.Time, time.Time, int) ([]CleanupCandidate, error)
 	RecordDeletionSuccess(context.Context, string) error
 	RecordDeletionFailure(context.Context, DeletionFailure) error

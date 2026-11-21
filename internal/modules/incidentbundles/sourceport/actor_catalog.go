@@ -2,6 +2,7 @@ package sourceport
 
 import (
 	"errors"
+	"slices"
 	"strings"
 
 	"github.com/google/uuid"
@@ -42,4 +43,14 @@ func (c ActorCatalog) Lookup(sourceActorID string) (ActorDescriptor, bool) {
 
 func (c ActorCatalog) Len() int {
 	return len(c.bySourceActorID)
+}
+
+// Descriptors returns the admitted descriptors in source actor order.
+func (c ActorCatalog) Descriptors() []ActorDescriptor {
+	result := make([]ActorDescriptor, 0, len(c.bySourceActorID))
+	for _, descriptor := range c.bySourceActorID {
+		result = append(result, descriptor)
+	}
+	slices.SortFunc(result, func(left, right ActorDescriptor) int { return strings.Compare(left.SourceActorID, right.SourceActorID) })
+	return result
 }

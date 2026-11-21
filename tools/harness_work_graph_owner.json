@@ -1857,6 +1857,7 @@
     "visual": 15000
   },
   "default_timeout_ms": 600000,
+  "go_cohort_packing_bound_ms": 300000,
   "aging_quantum_ms": 1000,
   "operations": {
     "harness.agent_finalize": {

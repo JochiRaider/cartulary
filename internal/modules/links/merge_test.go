@@ -172,8 +172,13 @@ SELECT
 				if err != nil {
 					t.Fatal(err)
 				}
+				actors, err := sourceport.NewActorCatalog([]sourceport.ActorDescriptor{{SourceActorID: actor.ID.String(), DisplayName: "Owner"}, {SourceActorID: creator.ID.String(), DisplayName: "Creator"}})
+				if err != nil {
+					t.Fatal(err)
+				}
 				input := sourceport.ImportContext{IncidentID: incident.ID, ActorUserID: actor.ID, BundleVersion: 8,
-					OperationID: "merge-" + provenance, Attributions: &linksPortableAttributionRecorder{}}
+					OperationID: "merge-" + provenance, Attributions: &linksPortableAttributionRecorder{},
+					Actors: actors, Preparation: portabilitysupport.NewPreparationStore()}
 				prepared, err := port.PrepareImport(ctx, portabilitysupport.MapBundle{
 					"data/record_links.ndjson": append(payload, '\n'), "data/tags.ndjson": {}, "data/record_tags.ndjson": {},
 				}, input)

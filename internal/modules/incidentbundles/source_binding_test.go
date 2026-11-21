@@ -14,13 +14,8 @@ import (
 )
 
 type sourceBindingTx struct{ pgx.Tx }
-type sourceBindingAttributions struct{}
-
-func (sourceBindingAttributions) RecordImportedAttribution(string, string, string, string) error {
-	return nil
-}
-func (sourceBindingAttributions) VisitImportedAttributions(string, string, func(incidentportability.ImportedAttribution) error) error {
-	return nil
+type sourceBindingAttributions struct {
+	portabilitysupport.AttributionCapability
 }
 
 func TestSourcePortPreparedBinding_Unit(t *testing.T) {

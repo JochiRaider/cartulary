@@ -21,6 +21,7 @@ import (
 func TestRevisionsIncidentBundleExactSourceState(t *testing.T) {
 	t.Run("exact_integer_storage", exerciseRevisionIntegerStorage)
 	t.Run("actually_empty_incident_history", exerciseEmptyIncidentHistory)
+	t.Run("apply_opens_no_bundle_member_after_preparation", exerciseRevisionsApplyOpensNoBundleMember)
 	h := newRevisionsPortabilityHarness(t, "exact-source-state")
 	ctx := t.Context()
 	const version int64 = 1
@@ -263,4 +264,31 @@ VALUES ($1,$2,'Other host','canonical',1,$3,$3,$4,$4)
 			requireRevisionsInvariant(t, h.port.ValidateImportTx(t.Context(), tx, prepared, caseInput), "revisions.references_complete")
 		})
 	})
+}
+
+// Core 01 REQ-01-641: Apply and Validate use only staged preparation streams
+// and database state; once preparation returns, no bundle member is reopened.
+func exerciseRevisionsApplyOpensNoBundleMember(t *testing.T) {
+	h := newRevisionsPortabilityHarness(t, "no-bundle-reopen")
+	bundle := &portabilitysupport.CountingBundle{MemberReader: h.validBundle(t)}
+	input := h.freshImportContext()
+	prepared, err := h.port.PrepareImport(t.Context(), bundle, input)
+	if err != nil {
+		t.Fatalf("prepare Revisions history: %v", err)
+	}
+	bundle.Freeze()
+	tx, err := h.db.BeginTx(t.Context(), pgx.TxOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = tx.Rollback(context.Background()) }()
+	if err := h.port.ApplyImportTx(t.Context(), tx, prepared, input); err != nil {
+		t.Fatalf("apply Revisions history: %v", err)
+	}
+	if err := h.port.ValidateImportTx(t.Context(), tx, prepared, input); err != nil {
+		t.Fatalf("validate Revisions history: %v", err)
+	}
+	if late := bundle.Late(); late != 0 {
+		t.Fatalf("Revisions Apply and Validate opened %d bundle members after preparation", late)
+	}
 }

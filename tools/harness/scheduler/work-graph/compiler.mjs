@@ -8,7 +8,7 @@ import {
   resolveVitestTitles,
   targetForCatalogRow,
 } from "../../test-catalog/index.mjs";
-import { packInvocationCohorts } from "./cohorts.mjs";
+import { packInvocationCohorts, rowEstimateMs } from "./cohorts.mjs";
 import { retainedGoWorkerBudget } from "./capability.mjs";
 import { planGoLPTShards } from "../../backend/go-lpt-shards.mjs";
 import { buildWorkGraph, loadWorkGraphOwner } from "./model.mjs";
@@ -177,7 +177,7 @@ function rowUnit(row, target, owner, topology, needs, runtimeEnvironment) {
       continue_independent: true,
       aggregate_effect: "required",
     },
-    estimated_work_ms: owner.evidence_estimates_ms[row.evidence_class],
+    estimated_work_ms: rowEstimateMs(owner, row),
   };
 }
 
@@ -435,7 +435,7 @@ export class WorkGraphCompiler {
       const files = new Map();
       for (const row of selected) {
         const item = files.get(row.selector.file) ?? { id: row.selector.file, cost: 0, rows: [] };
-        item.cost += this.owner.evidence_estimates_ms[row.evidence_class];
+        item.cost += rowEstimateMs(this.owner, row);
         item.rows.push(row);
         files.set(item.id, item);
       }
@@ -482,7 +482,7 @@ export class WorkGraphCompiler {
       const plan = planGoLPTShards(
         selectedGoRows.map((row) => ({
           id: row.row_id,
-          estimated_work_ms: this.owner.evidence_estimates_ms[row.evidence_class],
+          estimated_work_ms: rowEstimateMs(this.owner, row),
           compatibility: {
             ...executionContract(goBases.get(row.row_id)),
             package_selection: row.selector.package,
@@ -495,6 +495,7 @@ export class WorkGraphCompiler {
         })),
         { availableGoLanes: context?.cpu_tokens ?? this.availableGoLanes,
           invocationPolicy: this.owner.invocation_policies.go,
+          packingBoundMs: this.owner.go_cohort_packing_bound_ms,
         },
       );
       for (const shard of plan.shards) {

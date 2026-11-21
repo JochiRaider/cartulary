@@ -18,7 +18,7 @@ type portableBlobRewrite struct {
 	members *incidentportability.BoundMembers
 }
 
-func (p preparedEvidenceImport) blobRaw(ctx context.Context, d sourceport.Descriptor, visit func(map[string]any) error) error {
+func (p preparedEvidenceImport) bundleBlobRaw(ctx context.Context, d sourceport.Descriptor, visit func(map[string]any) error) error {
 	err := incidentportability.WalkPath(ctx, p.members, portableBlobPath, visit)
 	var malformed *incidentportability.StrictNDJSONDecodeError
 	if errors.As(err, &malformed) {
@@ -26,8 +26,8 @@ func (p preparedEvidenceImport) blobRaw(ctx context.Context, d sourceport.Descri
 	}
 	return err
 }
-func (p preparedEvidenceImport) blobs(ctx context.Context, d sourceport.Descriptor, visit func(evidenceblob.Row) error) error {
-	return p.blobRaw(ctx, d, func(raw map[string]any) error {
+func (p preparedEvidenceImport) bundleBlobs(ctx context.Context, d sourceport.Descriptor, visit func(evidenceblob.Row) error) error {
+	return p.bundleBlobRaw(ctx, d, func(raw map[string]any) error {
 		row, ok := evidenceblob.ParseRow(raw)
 		if !ok {
 			return d.DeclaredFailure("evidence.row_shape_exact")
@@ -36,11 +36,11 @@ func (p preparedEvidenceImport) blobs(ctx context.Context, d sourceport.Descript
 	})
 }
 func (p preparedEvidenceImport) prepareBlobs(ctx context.Context, bundle sourceport.Bundle, input sourceport.ImportContext, d sourceport.Descriptor) error {
-	if err := p.blobRaw(ctx, d, func(map[string]any) error { return nil }); err != nil {
+	if err := p.bundleBlobRaw(ctx, d, func(map[string]any) error { return nil }); err != nil {
 		return err
 	}
 	previous := ""
-	if err := p.blobRaw(ctx, d, func(raw map[string]any) error {
+	if err := p.bundleBlobRaw(ctx, d, func(raw map[string]any) error {
 		value, ok := raw["object_blob_id"].(string)
 		id, err := uuid.Parse(value)
 		if !ok || err != nil || id == uuid.Nil || id.String() != value || value <= previous {
@@ -51,7 +51,7 @@ func (p preparedEvidenceImport) prepareBlobs(ctx context.Context, bundle sourcep
 	}); err != nil {
 		return err
 	}
-	if err := p.blobRaw(ctx, d, func(raw map[string]any) error {
+	if err := p.bundleBlobRaw(ctx, d, func(raw map[string]any) error {
 		if _, present := raw["storage_key"]; present {
 			return d.DeclaredFailure("evidence.storage_reference_legal")
 		}
@@ -71,7 +71,7 @@ func (p preparedEvidenceImport) prepareBlobs(ctx context.Context, bundle sourcep
 		{"lifecycle_legal", func(r evidenceblob.Row) bool { return r.Coherent() }},
 		{"attribution_exact", func(r evidenceblob.Row) bool { _, ok := input.Actors.Lookup(r.CreatedByUserID.String()); return ok }},
 	} {
-		if err := p.blobs(ctx, d, func(row evidenceblob.Row) error {
+		if err := p.bundleBlobs(ctx, d, func(row evidenceblob.Row) error {
 			if !phase.valid(row) {
 				return d.DeclaredFailure("evidence." + phase.invariant)
 			}

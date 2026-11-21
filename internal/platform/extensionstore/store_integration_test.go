@@ -2,6 +2,10 @@ package extensionstore
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -77,6 +81,43 @@ func TestExtensionCoordinationStateAndStagedObjects_Integration(t *testing.T) {
 	if err := store.AbandonStagedObject(context.Background(), staged.StagingID, now.Add(2*time.Minute)); err != nil {
 		t.Fatal(err)
 	}
+	t.Run("a scope abandons in one statement", func(t *testing.T) {
+		var ids []string
+		for index := range 3 {
+			object := NewStagedObject(fmt.Sprintf("scope-staging-%d", index), "operation-scope", "coordination_fixture", fmt.Sprintf("staged/scope-%d", index), now)
+			if err := store.AllocateStagedObject(context.Background(), object); err != nil {
+				t.Fatal(err)
+			}
+			if index > 0 {
+				if err := store.SealStagedObject(context.Background(), object.OperationID, object.OwnerProfileID, object.StagingID, 3, strings.Repeat("b", 64), now.Add(time.Minute)); err != nil {
+					t.Fatal(err)
+				}
+			}
+			ids = append(ids, object.StagingID)
+		}
+		// An unknown object makes the statement change nothing.
+		// These objects become deletable only after the cleanup windows below.
+		abandonedAt := now.Add(time.Hour)
+		if err := store.AbandonStagedObjects(context.Background(), append(slices.Clone(ids), "scope-staging-missing"), abandonedAt); !errors.Is(err, ErrInvalidTransition) {
+			t.Fatalf("abandon with a missing object = %v", err)
+		}
+		for _, id := range ids {
+			if object, err := store.StagedObject(context.Background(), id); err != nil || object.State == StagedAbandoned {
+				t.Fatalf("rejected abandon changed %s: %#v/%v", id, object, err)
+			}
+		}
+		for attempt := range 2 {
+			if err := store.AbandonStagedObjects(context.Background(), ids, abandonedAt); err != nil {
+				t.Fatalf("abandon attempt %d = %v", attempt, err)
+			}
+		}
+		for _, id := range ids {
+			object, err := store.StagedObject(context.Background(), id)
+			if err != nil || object.State != StagedAbandoned || object.ReadyAt != nil || object.DeleteState != DeletePending {
+				t.Fatalf("scope abandon left %s = %#v/%v", id, object, err)
+			}
+		}
+	})
 	object, err := store.StagedObject(context.Background(), staged.StagingID)
 	if err != nil || object.State != StagedAbandoned || object.ReadyAt != nil || object.DeleteState != DeletePending {
 		t.Fatalf("abandoned staged object = %#v/%v", object, err)

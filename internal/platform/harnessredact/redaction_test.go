@@ -4,9 +4,12 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestStringUsesSharedHarnessRules(t *testing.T) {
+	t.Run("linear_on_adversarial_inputs", testLinearRedaction)
+
 	input := strings.Join([]string{
 		"postgres://cartulary:supersecret@127.0.0.1:5432/postgres?sslmode=disable",
 		"password=supersecret",
@@ -22,6 +25,33 @@ func TestStringUsesSharedHarnessRules(t *testing.T) {
 	}
 	if !strings.Contains(got, Marker) || strings.Contains(got, "REDACTED") {
 		t.Fatalf("redacted output must contain only the replacement marker: %s", got)
+	}
+}
+
+// TH-HARNESS-REQ-617: redaction is linear in its input. Adversarial runs of
+// 4 MiB finish far inside a bound that a quadratic redactor cannot meet.
+func testLinearRedaction(t *testing.T) {
+	const size = 4 << 20
+	fill := func(unit string) string { return strings.Repeat(unit, size/len(unit)+1)[:size] }
+	for name, run := range map[string]string{
+		"word_without_assignment":  fill("Password_Token_Session_9"),
+		"unquoted_terms":           fill("passwordsecrettokencookiedsn"),
+		"scheme_without_separator": fill("ab0+.-"),
+		"token_without_dot":        fill("eyJ-_aZ9"),
+	} {
+		for context, input := range map[string]string{
+			"raw":                run,
+			"unterminated_quote": `"` + run,
+			"json_value":         `{"message":"` + run + `","next":"x"}`,
+			"json_key":           `{"` + run + `":"value"}`,
+		} {
+			started := time.Now()
+			_ = String(input)
+			_ = StructuredString(input)
+			if elapsed := time.Since(started); elapsed >= 5*time.Second {
+				t.Errorf("%s/%s took %s for a 4 MiB input", context, name, elapsed)
+			}
+		}
 	}
 }
 
@@ -45,6 +75,25 @@ func TestValueRedactsStructuredKeysAndCLIArgs(t *testing.T) {
 		"nested": map[string]any{
 			"CARTULARY_S3TEST_SECRET_ACCESS_KEY": "object-store-secret",
 		},
+	}
+
+	// TH-HARNESS-REQ-604 key canonicalization, with independent expectations.
+	for key, want := range map[string]string{
+		"dbPassword":                   "DB_PASSWORD",
+		"clientSecret":                 "CLIENT_SECRET",
+		"api2Key":                      "API2_KEY",
+		"HTTPServer":                   "HTTPSERVER",
+		"X-Cartulary-Test-Route-Token": "X_CARTULARY_TEST_ROUTE_TOKEN",
+		"__session..target__":          "SESSION_TARGET",
+		"pässword":                     "P_SSWORD",
+		"paßword":                      "PA_WORD",
+		"ſecret":                       "ECRET",
+		"tökenSecret":                  "T_KEN_SECRET",
+		"--":                           "",
+	} {
+		if got := canonicalStructuredKey(key); got != want {
+			t.Errorf("canonicalStructuredKey(%q) = %q, want %q", key, got, want)
+		}
 	}
 
 	got := Value(input, "").(map[string]any)

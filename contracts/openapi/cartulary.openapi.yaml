@@ -12420,16 +12420,6 @@
             },
             "description": "Activated reference-pack version response"
           },
-          "202": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/JobEnvelope"
-                }
-              }
-            },
-            "description": "Reference-pack operation admitted as a background job"
-          },
           "400": {
             "content": {
               "application/json": {
@@ -12554,16 +12544,6 @@
             },
             "description": "Disabled reference-pack version response"
           },
-          "202": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/JobEnvelope"
-                }
-              }
-            },
-            "description": "Reference-pack operation admitted as a background job"
-          },
           "400": {
             "content": {
               "application/json": {
@@ -12685,7 +12665,7 @@
                 }
               }
             },
-            "description": "Disabled reference-pack version response"
+            "description": "Removed reference-pack version response"
           },
           "400": {
             "content": {

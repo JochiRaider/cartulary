@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
-	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
@@ -41,9 +40,7 @@ func validatePreparedEntityImportTx(ctx context.Context, tx pgx.Tx, prepared pre
 	} else if !equal {
 		failures.add(entitySameIncident)
 	}
-	if err := validateEntityAttributions(ctx, prepared, input); err != nil {
-		failures.add(entitySourceIdentity)
-	}
+	// Attribution is flushed by the core in step 9 and checked there by counts.
 	if err := validateStagedEntityClaims(ctx, tx, prepared, input); err != nil {
 		var failure *sourceport.Failure
 		if !errors.As(err, &failure) {
@@ -105,20 +102,6 @@ func compareEntitySource[T any](ctx context.Context, tx pgx.Tx, input sourceport
 	}
 	_, extra, err := next()
 	return same && !extra, err
-}
-
-func validateEntityAttributions(ctx context.Context, prepared preparedEntityImport, input sourceport.ImportContext) error {
-	for _, family := range []struct{ path, table, identity string }{
-		{hostsBundlePath, "hosts", "record_id"}, {identitiesBundlePath, "identities", "record_id"},
-		{entityMentionsBundlePath, "entity_mentions", "entity_mention_id"},
-		{preservedIDsBundlePath, "entity_preserved_identifiers", "entity_preserved_identifier_id"},
-		{entityAliasesBundlePath, "entity_aliases", "entity_alias_id"},
-	} {
-		if err := incidentportability.ValidateTopLevelAttributions(ctx, prepared.members, family.path, family.table, family.identity, input.Attributions); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func portableHostEqual(left, right portableHostRow) bool {

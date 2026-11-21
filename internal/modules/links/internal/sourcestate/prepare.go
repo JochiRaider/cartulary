@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -32,11 +33,22 @@ type preparedRecordTagRow struct {
 	deleted             bool
 	targetKey           string
 }
+
+// preparedImport holds the staged source streams and their historical
+// attribution (Core 01 REQ-01-641); the final transaction reads no bundle
+// member.
 type preparedImport struct {
 	incidentID    uuid.UUID
 	bundleVersion int
 	operationID   string
-	members       *incidentportability.BoundMembers
+	links         incidentportability.PreparedRowStream
+	catalog       incidentportability.PreparedRowStream
+	tags          incidentportability.PreparedRowStream
+	attribution   incidentportability.AttributionStream
+	// unadmittedActor records an attributed source actor the operation's
+	// catalog does not admit; Apply reports it at the write rank.
+	unadmittedActor bool
+	staged          bool
 }
 type sourceStateError struct{ reason string }
 
@@ -54,11 +66,11 @@ func prepareImport(ctx context.Context, descriptor sourceport.Descriptor, stateM
 		}
 		return preparedImport{}, err
 	}
-	result := preparedImport{incidentID: importContext.IncidentID, bundleVersion: importContext.BundleVersion, operationID: importContext.OperationID, members: members}
+	result := preparedImport{incidentID: importContext.IncidentID, bundleVersion: importContext.BundleVersion, operationID: importContext.OperationID}
 	// Separate bounded passes preserve invariant precedence across every source row.
 	for _, invariant := range []string{"links_tags.source_identity_admitted", "links_tags.link_tuple_legal", "links_tags.deletion_tuple_legal", "links_tags.tag_normalized"} {
 		for _, path := range stateManifest.pathSpecs() {
-			err := result.walk(ctx, path.kind, func(raw map[string]any) error {
+			err := walkMembers(ctx, members, path.kind, func(raw map[string]any) error {
 				if !rowAdmitted(raw, path, invariant) {
 					return descriptor.DeclaredFailure(invariant)
 				}
@@ -69,10 +81,121 @@ func prepareImport(ctx context.Context, descriptor sourceport.Descriptor, stateM
 			}
 		}
 	}
+	if err := result.stage(ctx, members, importContext, stateManifest); err != nil {
+		return preparedImport{}, err
+	}
 	return result, nil
 }
 
-func (value preparedImport) walk(ctx context.Context, kind pathKind, visit func(map[string]any) error) error {
+// stage writes the admitted source streams and the historical attribution of
+// every top-level actor column; the core flushes the attribution in step 9.
+func (value *preparedImport) stage(ctx context.Context, members *incidentportability.BoundMembers, importContext sourceport.ImportContext, stateManifest manifest) error {
+	store := importContext.Preparation
+	if store == nil {
+		return &sourceStateError{reason: "preparation staging is required"}
+	}
+	paths := stateManifest.pathSpecs()
+	for _, path := range paths {
+		staged, err := incidentportability.StagePreparedRows(ctx, store, strings.TrimSuffix(strings.TrimPrefix(path.logicalPath, "data/"), ".ndjson")+".rows", incidentportability.RawRowCodec{}, func(emit func(map[string]any) error) error {
+			return walkMembers(ctx, members, path.kind, emit)
+		})
+		if err != nil {
+			return err
+		}
+		stream, err := value.stream(path.kind)
+		if err != nil {
+			return err
+		}
+		*stream = staged
+	}
+	admitted := func(actorID string) bool { _, ok := importContext.Actors.Lookup(actorID); return ok }
+	attribution, err := incidentportability.StageAttributions(ctx, store, "attribution.rows", admitted, func(emit func(incidentportability.AttributionRow) error) error {
+		for _, path := range paths {
+			table, attributed := attributedTable(path.kind)
+			if !attributed {
+				continue
+			}
+			stream, err := value.stream(path.kind)
+			if err != nil {
+				return err
+			}
+			if err := incidentportability.ReadPreparedRows(ctx, store, *stream, incidentportability.RawRowCodec{}, func(row map[string]any) error {
+				rowID := incidentportability.SourceRowID(row, path.stableIdentity)
+				columns := make([]string, 0, len(row))
+				for column := range row {
+					columns = append(columns, column)
+				}
+				slices.Sort(columns)
+				for _, column := range columns {
+					if !strings.HasSuffix(column, "_user_id") || row[column] == nil {
+						continue
+					}
+					actorID := incidentportability.StringFromAny(row[column])
+					if strings.TrimSpace(actorID) == "" || rowID == "" {
+						continue
+					}
+					if !admitted(actorID) {
+						value.unadmittedActor = true
+						continue
+					}
+					if err := emit(incidentportability.AttributionRow{SourceTable: table, SourceRowID: rowID, SourceColumn: column, SourceActorID: actorID}); err != nil {
+						return err
+					}
+				}
+				return nil
+			}); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	value.attribution = attribution
+	value.staged = true
+	return nil
+}
+
+func (value *preparedImport) stream(kind pathKind) (*incidentportability.PreparedRowStream, error) {
+	switch kind {
+	case pathRecordLinks:
+		return &value.links, nil
+	case pathTagCatalog:
+		return &value.catalog, nil
+	case pathRecordTags:
+		return &value.tags, nil
+	default:
+		return nil, manifestError("unknown path kind")
+	}
+}
+
+// attributedTable names the authoritative relation whose actor columns carry
+// historical attribution.
+func attributedTable(kind pathKind) (string, bool) {
+	switch kind {
+	case pathRecordLinks:
+		return "record_links", true
+	case pathRecordTags:
+		return "record_tags", true
+	default:
+		return "", false
+	}
+}
+
+// walk visits one staged stream in order.
+func (value preparedImport) walk(ctx context.Context, importContext sourceport.ImportContext, kind pathKind, visit func(map[string]any) error) error {
+	if !value.staged || importContext.Preparation == nil {
+		return &sourceStateError{reason: "prepared value is not staged"}
+	}
+	stream, err := value.stream(kind)
+	if err != nil {
+		return err
+	}
+	return incidentportability.ReadPreparedRows(ctx, importContext.Preparation, *stream, incidentportability.RawRowCodec{}, visit)
+}
+
+func walkMembers(ctx context.Context, members *incidentportability.BoundMembers, kind pathKind, visit func(map[string]any) error) error {
 	var path string
 	switch kind {
 	case pathRecordLinks:
@@ -84,7 +207,7 @@ func (value preparedImport) walk(ctx context.Context, kind pathKind, visit func(
 	default:
 		return manifestError("unknown path kind")
 	}
-	return incidentportability.WalkPath(ctx, value.members, path, visit)
+	return incidentportability.WalkPath(ctx, members, path, visit)
 }
 
 func rowAdmitted(raw map[string]any, path pathSpec, invariant string) bool {

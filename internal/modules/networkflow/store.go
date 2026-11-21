@@ -666,50 +666,6 @@ func retainedFlowRowSize(arguments []any) int {
 	return size
 }
 
-func insertRetainedRowsTx(ctx context.Context, tx pgx.Tx, visit func(func(flowRow) error) error) error {
-	var batch [][]any
-	var batchBytes int
-	flush := func() error {
-		if len(batch) == 0 {
-			return nil
-		}
-		written, err := tx.CopyFrom(ctx, pgx.Identifier{"network_flow_rows"}, retainedFlowRowColumns, pgx.CopyFromRows(batch))
-		if err != nil {
-			return fmt.Errorf("insert network flow row batch: %w", err)
-		}
-		if written != int64(len(batch)) {
-			return errSourceChanged
-		}
-		batch = nil
-		batchBytes = 0
-		return nil
-	}
-	err := visit(func(row flowRow) error {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		arguments := retainedFlowRowValues(row)
-		// Bound retained rows and variable-sized values independently. A single
-		// admitted row may exceed the byte target; it is flushed on its own.
-		rowBytes := retainedFlowRowSize(arguments)
-		if len(batch) > 0 && (len(batch) >= 128 || batchBytes+rowBytes > 1<<20) {
-			if err := flush(); err != nil {
-				return err
-			}
-		}
-		batch = append(batch, arguments)
-		batchBytes += rowBytes
-		if batchBytes >= 1<<20 {
-			return flush()
-		}
-		return nil
-	})
-	if err != nil {
-		return err
-	}
-	return flush()
-}
-
 func insertDiagnosticsTx(ctx context.Context, tx pgx.Tx, tableID string, params createTableParams, now time.Time) error {
 	ordered := append([]rejectedRowDiagnostic(nil), params.Diagnostics...)
 	sort.SliceStable(ordered, func(i, j int) bool {

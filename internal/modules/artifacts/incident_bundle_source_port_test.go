@@ -102,7 +102,7 @@ func artifactPortInput(t testing.TB, incident, local uuid.UUID) sourceport.Impor
 	if err != nil {
 		t.Fatal(err)
 	}
-	return sourceport.ImportContext{IncidentID: incident, ActorUserID: local, OperationID: "artifact-portable", BundleVersion: 8, Actors: actors}
+	return sourceport.ImportContext{IncidentID: incident, ActorUserID: local, OperationID: "artifact-portable", BundleVersion: 8, Actors: actors, Preparation: portabilitysupport.NewPreparationStore()}
 }
 func requireArtifactPortFailure(t testing.TB, err error, invariant string) {
 	t.Helper()
@@ -476,24 +476,11 @@ func requireArtifactPortableFailurePriority(t *testing.T, base artifactPortableR
 }
 
 type artifactPortAttributions struct {
+	portabilitysupport.AttributionCapability
 	local uuid.UUID
 	rows  []incidentportability.ImportedAttribution
 }
 
-func (a *artifactPortAttributions) RecordImportedAttribution(table, row, column, actor string) error {
-	a.rows = append(a.rows, incidentportability.ImportedAttribution{SourceTable: table, SourceRowID: row, SourceColumn: column, SourceActorID: actor, LocalUserID: a.local})
-	return nil
-}
-func (a *artifactPortAttributions) VisitImportedAttributions(table, row string, visit func(incidentportability.ImportedAttribution) error) error {
-	for _, value := range a.rows {
-		if value.SourceTable == table && (row == "" || value.SourceRowID == row) {
-			if err := visit(value); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
 func (a *artifactPortAttributions) ResolvePortableSourceActors(_ context.Context, _ incidentportability.Queryer, _ uuid.UUID, table, column string, ids []string) (map[string]string, error) {
 	result := map[string]string{}
 	for _, id := range ids {
@@ -588,6 +575,7 @@ func TestArtifactIncidentBundleTransaction_Integration(t *testing.T) {
 			if err := port.ValidateImportTx(ctx, tx, prepared, input); err != nil {
 				t.Fatal(err)
 			}
+			flushArtifactStagedAttribution(t, port, prepared, input, attributions)
 			requireArtifactPortableStored(t, tx, rows, actor, attributions)
 			files, err := portabilitysupport.Export(port, ctx, sourceport.ExportContext{Query: tx, IncidentID: incident, PortableAttributions: attributions})
 			if err != nil || len(files) != 5 {
@@ -623,7 +611,6 @@ func TestArtifactIncidentBundleTransaction_Integration(t *testing.T) {
 					})
 				}
 				requireArtifactPortableStateMutations(t, tx, port, prepared, input, rows, otherActor)
-				requireArtifactPortableSidecarMutations(t, tx, port, prepared, input, attributions)
 				requireArtifactPortFailure(t, port.ApplyImportTx(ctx, tx, prepared, input), "source_identity_admitted")
 			}
 			if err := tx.Rollback(ctx); err != nil {
@@ -780,10 +767,15 @@ func TestArtifactIncidentBundleTransaction_Integration(t *testing.T) {
 				t.Fatalf("foreign/nil binding=%v", err)
 			}
 		}
+		// Core 01 REQ-01-641: Apply reads the sealed staged rows, never the
+		// bundle; a changed staged stream fails its seal.
 		bundle[artifactRiskPath] = append(bundle[artifactRiskPath], ' ')
-		var verification *incidentportability.VerificationFailure
-		if err := port.ApplyImportTx(ctx, tx, prepared, input); !errors.As(err, &verification) {
-			t.Fatalf("changed bytes=%v", err)
+		store, ok := input.Preparation.(*portabilitysupport.PreparationStore)
+		if !ok || !store.Tamper("handoff_risk_refs.rows", []byte("{}\n")) {
+			t.Fatal("staged risk rows are missing")
+		}
+		if err := port.ApplyImportTx(ctx, tx, prepared, input); err == nil {
+			t.Fatal("changed staged rows admitted")
 		}
 		requireArtifactPortableEmpty(t, tx, incident)
 	})
@@ -925,33 +917,20 @@ func requireArtifactPortableStateMutations(t *testing.T, tx pgx.Tx, port sourcep
 		})
 	}
 }
-func requireArtifactPortableSidecarMutations(t *testing.T, tx pgx.Tx, port sourceport.Port, prepared sourceport.Prepared, input sourceport.ImportContext, attributions *artifactPortAttributions) {
+
+// flushArtifactStagedAttribution stands in for the core's step-9 flush: Core
+// 01 REQ-01-641 stages attribution while preparing and Artifacts records none
+// row by row.
+func flushArtifactStagedAttribution(t *testing.T, port sourceport.Port, prepared sourceport.Prepared, input sourceport.ImportContext, attributions *artifactPortAttributions) {
 	t.Helper()
-	for _, change := range []string{"missing", "extra row", "duplicate", "changed actor", "changed local", "changed column", "changed table", "unexpected keyword"} {
-		t.Run("sidecar "+change, func(t *testing.T) {
-			saved := slices.Clone(attributions.rows)
-			defer func() { attributions.rows = saved }()
-			switch change {
-			case "missing":
-				attributions.rows = attributions.rows[1:]
-			case "extra row":
-				extra := attributions.rows[0]
-				extra.SourceRowID = uuid.NewString()
-				attributions.rows = append(attributions.rows, extra)
-			case "duplicate":
-				attributions.rows = append(attributions.rows, attributions.rows[0])
-			case "changed actor":
-				attributions.rows[0].SourceActorID = uuid.NewString()
-			case "changed local":
-				attributions.rows[0].LocalUserID = uuid.New()
-			case "changed column":
-				attributions.rows[0].SourceColumn = "not_an_actor"
-			case "changed table":
-				attributions.rows[0].SourceTable = "artifact_forensic_keywords"
-			case "unexpected keyword":
-				attributions.rows = append(attributions.rows, incidentportability.ImportedAttribution{SourceTable: "artifact_forensic_keywords", SourceRowID: artifactPortRecordID(8).String(), SourceColumn: "creator_user_id", SourceActorID: artifactSourceActor.String(), LocalUserID: input.ActorUserID})
-			}
-			requireArtifactPortFailure(t, port.ValidateImportTx(t.Context(), tx, prepared, input), "attribution_exact")
-		})
+	if len(attributions.rows) != 0 {
+		t.Fatalf("apply recorded attribution row by row: %#v", attributions.rows)
+	}
+	staged, err := portabilitysupport.ReadStagedAttributions(t.Context(), port, prepared, input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, row := range staged {
+		attributions.rows = append(attributions.rows, incidentportability.ImportedAttribution{SourceTable: row.SourceTable, SourceRowID: row.SourceRowID, SourceColumn: row.SourceColumn, SourceActorID: row.SourceActorID, LocalUserID: input.ActorUserID})
 	}
 }

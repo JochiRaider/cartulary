@@ -3,43 +3,6 @@
   "owner_id": "module.reference_data",
   "rows": [
     {
-      "row_id": "module.reference_data.browser.administration_async_recovery",
-      "owner_id": "module.reference_data",
-      "family_id": "module.reference_data.browser",
-      "collaborator_ids": [
-        "harness.browser",
-        "web.application"
-      ],
-      "verification_ids": [
-        "module.reference_data.verification.behavior_contract"
-      ],
-      "runner": "playwright",
-      "selector": {
-        "file": "apps/web/e2e/reference-pack.spec.ts",
-        "project_id": "chromium",
-        "stage": "webserver_backed",
-        "scenario_ids": [
-          "scenario_7c2843c7b21f"
-        ],
-        "titles": [
-          "supports asynchronous exact actions and retained selection with independent observation recovery"
-        ]
-      },
-      "evidence_class": "browser",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "browser_ordinary",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "browser_stack",
-      "aggregate_placement": "full",
-      "service_dependencies": [
-        "object_store",
-        "postgres"
-      ],
-      "browser_state_scope": "test_owned",
-      "postgres_isolation": "exclusive"
-    },
-    {
       "row_id": "module.reference_data.browser.administration_real_lifecycle",
       "owner_id": "module.reference_data",
       "family_id": "module.reference_data.browser",
@@ -97,6 +60,43 @@
         ],
         "titles": [
           "shows Reference Pack progress and cancel controls without blocking landing interaction"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_ordinary",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "aggregate_placement": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.reference_data.browser.supports_synchronous_exact_actions_with_idempote_6216950e7b",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/reference-pack.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_7c2843c7b21f"
+        ],
+        "titles": [
+          "supports synchronous exact actions with idempotent replay and retained selection with independent observation recovery"
         ]
       },
       "evidence_class": "browser",
@@ -209,7 +209,7 @@
           "Reference Pack transport preserves upload bytes filename media hint and staged-only metadata across lost-response replay",
           "Reference Pack transport validates bounded diagnostic summaries and never follows an arbitrary reference",
           "Reference Pack transport validates complete job envelopes while accepting unknown additive reference kinds",
-          "Reference Pack transport validates inline and asynchronous activation and disable by successful HTTP status"
+          "Reference Pack transport validates synchronous activation disable and removal by the exact inline version"
         ],
         "project_id": "browser-unit"
       },
@@ -342,8 +342,9 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 2000,
       "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
+      "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
@@ -370,8 +371,9 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 4000,
       "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
+      "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
@@ -398,8 +400,9 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 38000,
       "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
+      "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
@@ -430,8 +433,9 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 26000,
       "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
+      "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
@@ -471,8 +475,9 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 21000,
       "runtime_profile_id": "default",
-      "resource_profile_id": "io_heavy",
+      "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
@@ -498,8 +503,9 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 3000,
       "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
+      "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
@@ -526,8 +532,9 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 2000,
       "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
+      "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
@@ -554,8 +561,9 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 2000,
       "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
+      "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
@@ -582,8 +590,9 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 2000,
       "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
+      "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
@@ -610,8 +619,9 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 2000,
       "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
+      "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
@@ -638,8 +648,9 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 2000,
       "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
+      "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
@@ -666,8 +677,9 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 2000,
       "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
+      "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
@@ -694,8 +706,9 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 2000,
       "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
+      "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
@@ -722,8 +735,9 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 2000,
       "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
+      "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
@@ -750,8 +764,9 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 2000,
       "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
+      "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
@@ -778,8 +793,9 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 2000,
       "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
+      "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
@@ -806,8 +822,9 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 7000,
       "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
+      "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
@@ -835,7 +852,7 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
+      "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
@@ -894,8 +911,9 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 2000,
       "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
+      "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
@@ -922,8 +940,9 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 3000,
       "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
+      "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
@@ -950,8 +969,9 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 3000,
       "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
+      "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
@@ -978,8 +998,9 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 1000,
       "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
+      "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
@@ -1006,8 +1027,9 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 2000,
       "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
+      "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
@@ -1073,8 +1095,9 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 27000,
       "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
+      "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
@@ -1101,8 +1124,9 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 3000,
       "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
+      "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
@@ -1129,8 +1153,9 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 2000,
       "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
+      "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
@@ -1157,8 +1182,9 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 2000,
       "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
+      "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
@@ -1185,8 +1211,9 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 2000,
       "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
+      "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
@@ -1214,8 +1241,9 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 14000,
       "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
+      "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
@@ -1242,8 +1270,9 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 2000,
       "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
+      "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
@@ -1270,8 +1299,9 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 4000,
       "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
+      "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
@@ -1327,8 +1357,9 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 3000,
       "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
+      "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
@@ -1355,8 +1386,9 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 2000,
       "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
+      "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
@@ -1383,8 +1415,9 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 2000,
       "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
+      "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
@@ -1411,8 +1444,9 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 2000,
       "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
+      "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
@@ -1439,8 +1473,9 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 15000,
       "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
+      "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
@@ -1468,7 +1503,7 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
+      "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
@@ -1498,8 +1533,9 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 2000,
       "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
+      "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
@@ -1527,7 +1563,7 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
+      "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
@@ -1558,8 +1594,9 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 64000,
       "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
+      "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",

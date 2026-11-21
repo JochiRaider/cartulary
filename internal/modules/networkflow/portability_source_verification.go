@@ -128,10 +128,9 @@ func (v *portableSourceVerifier) finish(ctx context.Context) error {
 	return v.reader.Close()
 }
 
-func (p *preparedNetworkFlow) verifyCommittedObservations(ctx context.Context, sources committedPortabilitySources) error {
-	if err := p.validateDiagnostics(ctx); err != nil {
-		return err
-	}
+// verifyCommittedObservations admits each observation against its committed
+// source and emits the write-ready row (importing actor as creator) once.
+func (p *preparedNetworkFlow) verifyCommittedObservations(ctx context.Context, sources committedPortabilitySources, emit func(flowRow) error) error {
 	var verifier *portableSourceVerifier
 	defer func() {
 		if verifier != nil {
@@ -179,7 +178,9 @@ func (p *preparedNetworkFlow) verifyCommittedObservations(ctx context.Context, s
 		}
 		p.counts["observations"]++
 		previous = &row
-		return nil
+		retained := row
+		retained.CreatedByUserID = p.actorID
+		return emit(retained)
 	})
 	if err != nil {
 		return err

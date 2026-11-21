@@ -78,9 +78,8 @@ func (p preparedEvidenceImport) insertRecords(ctx context.Context, tx pgx.Tx, in
 		if tag.RowsAffected() != 1 {
 			return d.DeclaredFailure("evidence.source_identity_admitted")
 		}
-		if source.OwnerUserID != nil {
-			return input.Attributions.RecordImportedAttribution("evidence", source.RecordID.String(), "owner_user_id", source.OwnerUserID.String())
-		}
+		// The owner attribution was staged while preparing; the core flushes it
+		// in step 9.
 		return nil
 	})
 }

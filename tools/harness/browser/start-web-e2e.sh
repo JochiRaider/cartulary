@@ -589,18 +589,22 @@ const secrets = [
   process.env.CARTULARY_PRIVATE_FAILURE_S3_ACCESS_KEY,
   process.env.CARTULARY_PRIVATE_FAILURE_S3_SECRET_KEY,
 ].filter((value) => typeof value === "string" && value.length >= 8);
-// The single retained marker is owned by the redaction manifest
-// (TH-HARNESS-REQ-617).
-const marker = JSON.parse(
+// The single retained marker and the credential-bearing URL schemes are owned
+// by the redaction manifest (TH-HARNESS-REQ-617).
+const manifest = JSON.parse(
   require("node:fs").readFileSync(process.env.CARTULARY_PRIVATE_FAILURE_REDACTION_MANIFEST, "utf8"),
-).replacement;
+);
+const marker = manifest.replacement;
+const schemes = manifest.retained_scan?.url_userinfo_schemes;
 if (typeof marker !== "string" || marker === "") throw new Error("redaction manifest has no marker");
+if (!Array.isArray(schemes) || schemes.length === 0 || schemes.some((scheme) => typeof scheme !== "string" || scheme === "")) {
+  throw new Error("redaction manifest has no credential URL schemes");
+}
 let text = process.env.CARTULARY_PRIVATE_FAILURE_TEXT ?? "";
 for (const secret of secrets) text = text.replaceAll(secret, marker);
-text = text.replace(
-  /\b(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis):\/\/[^\s]+/giu,
-  marker,
-);
+const schemeAlternatives = schemes.map((scheme) => scheme.replace(/[\\^$.*+?()[\]{}|]/gu, "\\$&")).join("|");
+// Explicit ASCII classes, as in every shared redaction pattern (TH-HARNESS-REQ-617).
+text = text.replace(new RegExp(`(?:${schemeAlternatives}):\\/\\/[^\\t\\n\\f\\r ]+`, "giu"), marker);
 text = text.replace(/[\u0000-\u001f\u007f]+/gu, " ").trim();
 if (text.length > 1500) text = text.slice(-1500);
 process.stdout.write(`${process.env.CARTULARY_PRIVATE_FAILURE_LABEL} process failed to establish a session: ${text}\n`);

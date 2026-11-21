@@ -7,6 +7,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
+	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 )
 
 func NewIncidentBundleSourcePort() sourceport.Port {
@@ -59,6 +60,13 @@ func NewIncidentBundleSourcePort() sourceport.Port {
 				savedViewPrivateImportContext(importContext),
 			))
 		},
+		Attributions: func(value any) []incidentportability.AttributionStream {
+			prepared, ok := value.(preparedSavedViewImport)
+			if !ok {
+				return nil
+			}
+			return []incidentportability.AttributionStream{prepared.attribution}
+		},
 	})
 }
 
@@ -72,6 +80,7 @@ func savedViewPrivateImportContext(importContext sourceport.ImportContext) saved
 			_, ok := importContext.Actors.Lookup(actorID)
 			return ok
 		},
+		Preparation: importContext.Preparation,
 	}
 }
 

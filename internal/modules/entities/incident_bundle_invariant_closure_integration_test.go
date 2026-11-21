@@ -71,10 +71,13 @@ func TestEntityIncidentBundleInvariantClosure_Integration(t *testing.T) {
 		validContext := importContext
 		validContext.OperationID = "entities-portable-valid"
 		validContext.Attributions = attributions
-		prepared, err := prepareEntityImport(ctx, base, validContext)
+		validContext.Preparation = portabilitysupport.NewPreparationStore()
+		bundle := &portabilitysupport.CountingBundle{MemberReader: base}
+		prepared, err := prepareEntityImport(ctx, bundle, validContext)
 		if err != nil {
 			t.Fatalf("prepare valid entity source: %v", err)
 		}
+		bundle.Freeze()
 		tx, err := db.BeginTx(ctx, pgx.TxOptions{})
 		if err != nil {
 			t.Fatalf("begin valid entity source transaction: %v", err)
@@ -85,6 +88,10 @@ func TestEntityIncidentBundleInvariantClosure_Integration(t *testing.T) {
 		}
 		if err := validatePreparedEntityImportTx(ctx, tx, prepared, validContext); err != nil {
 			t.Fatalf("validate valid entity source: %v", err)
+		}
+		// Core 01 REQ-01-641: once preparation returns, no bundle member reopens.
+		if late := bundle.Late(); late != 0 {
+			t.Fatalf("Entities Apply and Validate opened %d bundle members after preparation", late)
 		}
 		files, err := portabilitysupport.Export(NewIncidentBundleSourcePort(), ctx, sourceport.ExportContext{Query: tx, IncidentID: incidentID})
 		if err != nil {
@@ -170,7 +177,9 @@ func TestEntityIncidentBundleInvariantClosure_Integration(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			bundle := cloneEntityPortableBundle(base)
 			test.mutate(bundle)
-			_, err := prepareEntityImport(ctx, bundle, importContext)
+			input := importContext
+			input.Preparation = portabilitysupport.NewPreparationStore()
+			_, err := prepareEntityImport(ctx, bundle, input)
 			requireEntityPortableFailure(t, err, test.invariant)
 			assertNoEntityPortableRows(t, ctx, db, incidentID)
 		})
@@ -200,7 +209,9 @@ func TestEntityIncidentBundleInvariantClosure_Integration(t *testing.T) {
 		alias := entityPortableAliasMap(uuid.New(), incidentID, hostRecordID, actorID, timestamp)
 		alias["normalized_text"] = "wrong"
 		bundle[entityAliasesBundlePath] = entityMarshalPortableRows(t, alias)
-		_, err := prepareEntityImport(ctx, bundle, importContext)
+		input := importContext
+		input.Preparation = portabilitysupport.NewPreparationStore()
+		_, err := prepareEntityImport(ctx, bundle, input)
 		requireEntityPortableFailure(t, err, entitySourceIdentity)
 	})
 }
@@ -245,6 +256,7 @@ func entityPortableTestContext(t testing.TB, incidentID, actorID uuid.UUID, oper
 	return sourceport.ImportContext{
 		IncidentID: incidentID, ActorUserID: actorID, BundleVersion: 8,
 		OperationID: operationID, Actors: actors,
+		Preparation: portabilitysupport.NewPreparationStore(),
 	}
 }
 
@@ -334,6 +346,7 @@ func requireEntityPortableApplyFailure(t testing.TB, ctx context.Context, db *pg
 	importContext := baseContext
 	importContext.OperationID = "entities-portable-" + invariant
 	importContext.Attributions = attributions
+	importContext.Preparation = portabilitysupport.NewPreparationStore()
 	prepared, err := prepareEntityImport(ctx, bundle, importContext)
 	if err != nil {
 		t.Fatalf("prepare cross-row entity failure: %v", err)
@@ -372,29 +385,12 @@ func assertNoEntityPortableRows(t testing.TB, ctx context.Context, db *pgtest.Ro
 }
 
 type entityPortableTestAttributions struct {
+	portabilitysupport.AttributionCapability
 	rows []incidentportability.ImportedAttribution
-}
-
-func (r *entityPortableTestAttributions) RecordImportedAttribution(table, rowID, column, actorID string) error {
-	r.rows = append(r.rows, incidentportability.ImportedAttribution{
-		SourceTable: table, SourceRowID: rowID, SourceColumn: column, SourceActorID: actorID,
-	})
-	return nil
 }
 
 func (r *entityPortableTestAttributions) ImportedAttributions() []incidentportability.ImportedAttribution {
 	return append([]incidentportability.ImportedAttribution(nil), r.rows...)
-}
-
-func (r *entityPortableTestAttributions) VisitImportedAttributions(table, rowID string, visit func(incidentportability.ImportedAttribution) error) error {
-	for _, row := range r.ImportedAttributions() {
-		if row.SourceTable == table && (rowID == "" || row.SourceRowID == rowID) {
-			if err := visit(row); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
 }
 
 func rollbackEntityPortableProbe(t testing.TB, tx pgx.Tx) {

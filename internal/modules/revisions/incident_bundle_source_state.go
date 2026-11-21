@@ -8,19 +8,24 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+
+	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 )
 
-func validatePreparedRevisionsSourceStateTx(ctx context.Context, tx pgx.Tx, prepared preparedRevisionsImport, validation *incidentBundleValidationCatalog) error {
-	if err := prepared.validateChangeSetState(ctx, tx); err != nil {
+// validatePreparedRevisionsSourceStateTx compares the stored rows with the
+// staged write-ready rows, never with bundle members. Imported rows must be
+// exactly what preparation staged, after database normalization.
+func validatePreparedRevisionsSourceStateTx(ctx context.Context, tx pgx.Tx, prepared preparedRevisionsImport, store incidentportability.MemberReader) error {
+	if err := prepared.validateChangeSetState(ctx, tx, store); err != nil {
 		return err
 	}
-	if err := prepared.validateMutationState(ctx, tx, validation); err != nil {
+	if err := prepared.validateMutationState(ctx, tx, store); err != nil {
 		return err
 	}
-	return prepared.validateRevisionState(ctx, tx)
+	return prepared.validateRevisionState(ctx, tx, store)
 }
 
-func (p preparedRevisionsImport) validateChangeSetState(ctx context.Context, tx pgx.Tx) error {
+func (p preparedRevisionsImport) validateChangeSetState(ctx context.Context, tx pgx.Tx, store incidentportability.MemberReader) error {
 	rows, err := tx.Query(ctx, `
 SELECT change_set_id, incident_id, actor_user_id, source, reason, client_txn_id, request_id, created_at, actor_import_contexts, history_order
 FROM change_sets WHERE incident_id=$1 ORDER BY change_set_id
@@ -29,7 +34,13 @@ FROM change_sets WHERE incident_id=$1 ORDER BY change_set_id
 		return err
 	}
 	defer rows.Close()
-	err = p.walkChangeSets(ctx, func(expected portableChangeSet) error {
+	err = incidentportability.ReadPreparedRows(ctx, store, p.changeSets, changeSetRowCodec{}, func(staged stagedChangeSet) error {
+		expected := portableChangeSet{
+			HistoryOrder: staged.HistoryOrder, ActorImportContexts: staged.Contexts,
+			ChangeSetID: staged.ChangeSetID, IncidentID: staged.IncidentID, RuntimeActorID: p.runtimeActor,
+			Source: staged.Source, Reason: staged.Reason, ClientTxnID: staged.ClientTxnID,
+			RequestID: staged.RequestID, CreatedAt: staged.CreatedAt,
+		}
 		if err := requireRevisionSourceRow(rows); err != nil {
 			return err
 		}
@@ -50,10 +61,7 @@ FROM change_sets WHERE incident_id=$1 ORDER BY change_set_id
 		if err != nil {
 			return revisionsFailure(revisionsSourceStateInvariant)
 		}
-		expected.ActorImportContexts = p.importedActorContexts(expected.ActorImportContexts)
 		actual.CreatedAt = actual.CreatedAt.UTC()
-		expected.PortableActorID = uuid.Nil
-		expected.RuntimeActorID = p.runtimeActor
 		if !reflect.DeepEqual(actual, expected) {
 			return revisionsFailure(revisionsSourceStateInvariant)
 		}
@@ -62,7 +70,7 @@ FROM change_sets WHERE incident_id=$1 ORDER BY change_set_id
 	return finishRevisionSourceRows(rows, err)
 }
 
-func (p preparedRevisionsImport) validateMutationState(ctx context.Context, tx pgx.Tx, validation *incidentBundleValidationCatalog) error {
+func (p preparedRevisionsImport) validateMutationState(ctx context.Context, tx pgx.Tx, store incidentportability.MemberReader) error {
 	rows, err := tx.Query(ctx, `
 SELECT m.change_set_id, m.sequence_no, m.target_kind, m.target_id, m.operation_kind,
        m.before_version_id, m.after_version_id, m.before_value, m.after_value,
@@ -74,7 +82,19 @@ WHERE c.incident_id=$1 ORDER BY m.change_set_id,m.sequence_no
 		return err
 	}
 	defer rows.Close()
-	err = p.walkMutations(ctx, func(expected portableChangeSetMutation) error {
+	err = incidentportability.ReadPreparedRows(ctx, store, p.mutations, mutationRowCodec{}, func(staged stagedMutation) error {
+		expected := portableChangeSetMutation{
+			ChangeSetID: staged.ChangeSetID, SequenceNo: staged.SequenceNo, TargetKind: staged.TargetKind,
+			TargetID: staged.TargetID, OperationKind: staged.OperationKind,
+			BeforeVersionID: staged.BeforeVersionID, AfterVersionID: staged.AfterVersionID,
+		}
+		var err error
+		if expected.BeforeValue, err = decodeDatabaseJSON(staged.BeforeValue); err != nil {
+			return incidentportability.ErrPreparedStream
+		}
+		if expected.AfterValue, err = decodeDatabaseJSON(staged.AfterValue); err != nil {
+			return incidentportability.ErrPreparedStream
+		}
 		if err := requireRevisionSourceRow(rows); err != nil {
 			return err
 		}
@@ -93,11 +113,12 @@ WHERE c.incident_id=$1 ORDER BY m.change_set_id,m.sequence_no
 		if err != nil {
 			return err
 		}
-		history, err := validation.targets.DescribeValues(expected.TargetKind, expected.TargetID, expected.OperationKind, expected.BeforeValue, expected.AfterValue)
-		if err != nil {
+		// Preparation derived the history identities; a mutation whose values
+		// could not be described keeps that verdict at this rank.
+		if staged.DescribeFailed {
 			return revisionsFailure(revisionsHistoryInvariant)
 		}
-		if !reflect.DeepEqual(actual, expected) || !slices.Equal(historyIDs, history.HistoryRecordIDs) || !slices.Equal(entryIDs, history.HistoryEntryRecordIDs) {
+		if !reflect.DeepEqual(actual, expected) || !slices.Equal(historyIDs, staged.HistoryRecordIDs) || !slices.Equal(entryIDs, staged.HistoryEntryRecordIDs) {
 			return revisionsFailure(revisionsSourceStateInvariant)
 		}
 		return nil
@@ -105,7 +126,7 @@ WHERE c.incident_id=$1 ORDER BY m.change_set_id,m.sequence_no
 	return finishRevisionSourceRows(rows, err)
 }
 
-func (p preparedRevisionsImport) validateRevisionState(ctx context.Context, tx pgx.Tx) error {
+func (p preparedRevisionsImport) validateRevisionState(ctx context.Context, tx pgx.Tx, store incidentportability.MemberReader) error {
 	rows, err := tx.Query(ctx, `
 SELECT r.revision_id,r.change_set_id,r.record_id,r.row_version,r.before_json,r.after_json,r.created_at
 FROM record_revisions r JOIN change_sets c USING(change_set_id)
@@ -115,7 +136,18 @@ WHERE c.incident_id=$1 ORDER BY r.revision_id
 		return err
 	}
 	defer rows.Close()
-	err = p.walkRevisions(ctx, func(expected portableRecordRevision) error {
+	err = incidentportability.ReadPreparedRows(ctx, store, p.revisions, revisionRowCodec{}, func(staged stagedRevision) error {
+		expected := portableRecordRevision{
+			RevisionID: staged.RevisionID, ChangeSetID: staged.ChangeSetID, RecordID: staged.RecordID,
+			RowVersion: staged.RowVersion, CreatedAt: staged.CreatedAt,
+		}
+		var err error
+		if expected.BeforeJSON, err = decodeDatabaseJSONObject(staged.BeforeJSON); err != nil {
+			return incidentportability.ErrPreparedStream
+		}
+		if expected.AfterJSON, err = decodeDatabaseJSONObject(staged.AfterJSON); err != nil {
+			return incidentportability.ErrPreparedStream
+		}
 		if err := requireRevisionSourceRow(rows); err != nil {
 			return err
 		}

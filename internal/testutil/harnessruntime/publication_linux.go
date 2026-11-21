@@ -190,9 +190,9 @@ func writeEvidence(root, relative, schema string, value any, replace bool) error
 }
 
 var safeUnitName = regexp.MustCompile(`[^A-Za-z0-9_.-]+`)
-var secretAssignment = regexp.MustCompile(`(?i)((?:PASSWORD|SECRET|TOKEN|COOKIE|SESSION|DSN|ACCESS_KEY|PRIVATE_KEY)=)[^\s]+`)
-var secretPostgres = regexp.MustCompile(`(?i)((?:postgres|postgresql)://[^\s/:]+:)[^\s/@]+(@)`)
 
+// redactDiagnostic replaces registered secrets, then applies the shared
+// manifest-owned harness rules, so retained unit logs pass the scan.
 func redactDiagnostic(bytes []byte, forbidden []string) []byte {
 	if len(bytes) > 64*1024 {
 		bytes = bytes[len(bytes)-64*1024:]
@@ -203,9 +203,7 @@ func redactDiagnostic(bytes []byte, forbidden []string) []byte {
 			text = strings.ReplaceAll(text, secret, harnessredact.Marker)
 		}
 	}
-	text = secretAssignment.ReplaceAllString(text, "${1}"+harnessredact.Marker)
-	text = secretPostgres.ReplaceAllString(text, "${1}"+harnessredact.Marker+"${2}")
-	return []byte(text)
+	return []byte(harnessredact.String(text))
 }
 func nullableString(value string) any {
 	if value == "" {

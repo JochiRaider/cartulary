@@ -12,17 +12,33 @@ import (
 const evidenceRecordPath = "data/evidence_records.ndjson"
 
 type evidencePreparationBinding struct{ contractMajor int }
+
+// preparedEvidenceImport holds the staged Evidence streams and attribution
+// (Core 01 REQ-01-641). members is the bundle while preparing only; the value
+// the final transaction receives reads store, the port's preparation scope.
 type preparedEvidenceImport struct {
 	binding             *evidencePreparationBinding
 	members             *incidentportability.BoundMembers
+	store               incidentportability.MemberReader
 	incidentID, actorID uuid.UUID
 	operationID         string
 	version             int
 	blobRewrite         *portableBlobRewrite
+	recordRows          incidentportability.PreparedRowStream
+	custodyRows         incidentportability.PreparedRowStream
+	blobRows            incidentportability.PreparedRowStream
+	attribution         incidentportability.AttributionStream
+	staged              bool
 }
 
 func (p preparedEvidenceImport) matches(input sourceport.ImportContext, binding *evidencePreparationBinding) bool {
-	return binding != nil && p.binding == binding && binding.contractMajor == sourceport.ContractMajor && p.members != nil && p.incidentID == input.IncidentID && p.actorID == input.ActorUserID && p.operationID == input.OperationID && p.version == input.BundleVersion && input.Attributions != nil
+	return binding != nil && p.binding == binding && binding.contractMajor == sourceport.ContractMajor && p.staged && p.members == nil && input.Preparation != nil && p.incidentID == input.IncidentID && p.actorID == input.ActorUserID && p.operationID == input.OperationID && p.version == input.BundleVersion && input.Attributions != nil
+}
+
+// inTransaction binds the prepared value to the port's preparation scope.
+func (p preparedEvidenceImport) inTransaction(input sourceport.ImportContext) preparedEvidenceImport {
+	p.store = input.Preparation
+	return p
 }
 func prepareEvidenceImport(ctx context.Context, bundle sourceport.Bundle, input sourceport.ImportContext, d sourceport.Descriptor, binding *evidencePreparationBinding) (preparedEvidenceImport, error) {
 	if input.IncidentID == uuid.Nil || input.ActorUserID == uuid.Nil || input.BundleVersion != 8 || input.OperationID == "" {
@@ -33,11 +49,11 @@ func prepareEvidenceImport(ctx context.Context, bundle sourceport.Bundle, input 
 		return preparedEvidenceImport{}, err
 	}
 	p := preparedEvidenceImport{binding: binding, members: members, incidentID: input.IncidentID, actorID: input.ActorUserID, operationID: input.OperationID, version: input.BundleVersion, blobRewrite: &portableBlobRewrite{}}
-	if err := p.raw(ctx, d, func(map[string]any) error { return nil }); err != nil {
+	if err := p.bundleRaw(ctx, d, func(map[string]any) error { return nil }); err != nil {
 		return preparedEvidenceImport{}, err
 	}
 	previous := ""
-	if err := p.raw(ctx, d, func(raw map[string]any) error {
+	if err := p.bundleRaw(ctx, d, func(raw map[string]any) error {
 		text, ok := raw["record_id"].(string)
 		id, err := uuid.Parse(text)
 		if !ok || err != nil || id == uuid.Nil || text != id.String() || text <= previous {
@@ -64,7 +80,7 @@ func prepareEvidenceImport(ctx context.Context, bundle sourceport.Bundle, input 
 			return ok
 		}},
 	} {
-		if err := p.typed(ctx, d, func(row sourcevalue.Row) error {
+		if err := p.bundleTyped(ctx, d, func(row sourcevalue.Row) error {
 			if !phase.valid(row) {
 				return d.DeclaredFailure("evidence." + phase.invariant)
 			}
@@ -79,9 +95,12 @@ func prepareEvidenceImport(ctx context.Context, bundle sourceport.Bundle, input 
 	if err := p.prepareBlobs(ctx, bundle, input, d); err != nil {
 		return preparedEvidenceImport{}, err
 	}
+	if err := p.stage(ctx, input, d); err != nil {
+		return preparedEvidenceImport{}, err
+	}
 	return p, nil
 }
-func (p preparedEvidenceImport) raw(ctx context.Context, d sourceport.Descriptor, visit func(map[string]any) error) error {
+func (p preparedEvidenceImport) bundleRaw(ctx context.Context, d sourceport.Descriptor, visit func(map[string]any) error) error {
 	err := incidentportability.WalkPath(ctx, p.members, evidenceRecordPath, visit)
 	var malformed *incidentportability.StrictNDJSONDecodeError
 	if errors.As(err, &malformed) {
@@ -89,8 +108,8 @@ func (p preparedEvidenceImport) raw(ctx context.Context, d sourceport.Descriptor
 	}
 	return err
 }
-func (p preparedEvidenceImport) typed(ctx context.Context, d sourceport.Descriptor, visit func(sourcevalue.Row) error) error {
-	return p.raw(ctx, d, func(raw map[string]any) error {
+func (p preparedEvidenceImport) bundleTyped(ctx context.Context, d sourceport.Descriptor, visit func(sourcevalue.Row) error) error {
+	return p.bundleRaw(ctx, d, func(raw map[string]any) error {
 		row, ok := sourcevalue.Parse(raw)
 		if !ok {
 			return d.DeclaredFailure("evidence.row_shape_exact")

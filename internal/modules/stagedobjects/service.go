@@ -11,6 +11,7 @@ import (
 	"io"
 	"regexp"
 	"sort"
+	"sync"
 	"time"
 )
 
@@ -133,21 +134,68 @@ func (s *Service) allocateStream(ctx context.Context, operationID, profileID str
 // OpenSealed is private preparation access. It requires the allocating operation
 // and verifies the complete bytes against the immutable seal as they are read.
 func (s *Service) OpenSealed(ctx context.Context, operationID, profileID string, reference SealedReference) (io.ReadCloser, error) {
-	if s == nil || operationID == "" || !semanticIDPattern.MatchString(profileID) || reference.StagingID == "" {
-		return nil, ErrScopeDenied
-	}
-	object, err := s.repository.ReadSealed(ctx, operationID, profileID, reference.Reference, s.now().UTC().Truncate(time.Microsecond))
+	object, err := s.ValidateSealed(ctx, operationID, profileID, reference)
 	if err != nil {
 		return nil, err
 	}
-	if object.ContentBinding != reference.ContentBinding || !validSHA256(object.SHA256) || object.ByteSize < 0 {
-		return nil, ErrIntegrity
+	return s.openVerified(ctx, object)
+}
+
+// ValidateSealed checks one private read's operation, owner, ready state,
+// unexpired lease and immutable seal (Core 01 REQ-01-686).
+func (s *Service) ValidateSealed(ctx context.Context, operationID, profileID string, reference SealedReference) (SealedObject, error) {
+	if s == nil || operationID == "" || !semanticIDPattern.MatchString(profileID) || reference.StagingID == "" {
+		return SealedObject{}, ErrScopeDenied
 	}
+	object, err := s.repository.ReadSealed(ctx, operationID, profileID, reference.Reference, s.now().UTC().Truncate(time.Microsecond))
+	if err != nil {
+		return SealedObject{}, err
+	}
+	if object.ContentBinding != reference.ContentBinding || !validSHA256(object.SHA256) || object.ByteSize < 0 {
+		return SealedObject{}, ErrIntegrity
+	}
+	return object, nil
+}
+
+// OpenValidated opens a seal validated earlier in the same operation without a
+// repository round trip. Operation, owner and seal are immutable once ready;
+// the lease is rechecked against the immutable expiry and the bytes are still
+// verified against the seal as they are read.
+func (s *Service) OpenValidated(ctx context.Context, object SealedObject) (io.ReadCloser, error) {
+	if s == nil || object.StorageIdentity == "" || object.ExpiresAt.IsZero() || !s.now().UTC().Before(object.ExpiresAt) {
+		return nil, ErrScopeDenied
+	}
+	return s.openVerified(ctx, object)
+}
+
+// VerifiesSealedContent reports that every stream this service opens checks
+// size and digest against the immutable seal.
+func (s *Service) VerifiesSealedContent() bool { return s != nil }
+
+func (s *Service) openVerified(ctx context.Context, object SealedObject) (io.ReadCloser, error) {
 	source, err := s.bytes.Open(ctx, object.StorageIdentity)
 	if err != nil {
 		return nil, err
 	}
 	return &verifiedReadCloser{source: source, reader: measuredReader{ctx: ctx, source: source, remaining: object.ByteSize, hash: sha256.New()}, expected: object.ContentBinding}, nil
+}
+
+// AbandonAll abandons a scope's objects with one repository statement.
+func (s *Service) AbandonAll(ctx context.Context, references []Reference) error {
+	if s == nil {
+		return ErrScopeDenied
+	}
+	stagingIDs := make([]string, len(references))
+	for index, reference := range references {
+		if reference.StagingID == "" {
+			return ErrScopeDenied
+		}
+		stagingIDs[index] = reference.StagingID
+	}
+	if len(stagingIDs) == 0 {
+		return nil
+	}
+	return s.repository.AbandonAll(ctx, stagingIDs, s.now().UTC().Truncate(time.Microsecond))
 }
 
 func (s *Service) Abandon(ctx context.Context, reference Reference) error {
@@ -194,6 +242,14 @@ type Scope struct {
 	allocator   Allocator
 	references  []Reference
 	closed      bool
+	// abandoning keeps a scope whose set-based abandon failed open for a
+	// retry; the failed statement changed nothing.
+	abandoning bool
+	// sealed caches each private read's validated seal for this operation, so
+	// the seal is checked once per operation and every read rechecks only the
+	// immutable lease bound locally.
+	sealedMu sync.Mutex
+	sealed   map[string]SealedObject
 }
 
 func NewScope(operationID, profileID string, allocator Allocator) (*Scope, error) {
@@ -230,11 +286,24 @@ func (s *Scope) Refs() []string {
 	return references
 }
 
+// scopeAbandoner abandons a whole scope with one set-based statement.
+type scopeAbandoner interface {
+	AbandonAll(context.Context, []Reference) error
+}
+
 func (s *Scope) Abandon(ctx context.Context) error {
-	if s == nil || s.closed {
+	if s == nil || (s.closed && !s.abandoning) {
 		return nil
 	}
 	s.closed = true
+	if abandoner, ok := s.allocator.(scopeAbandoner); ok {
+		s.abandoning = true
+		if err := abandoner.AbandonAll(ctx, s.references); err != nil {
+			return err
+		}
+		s.abandoning = false
+		return nil
+	}
 	var joined error
 	for _, reference := range s.references {
 		joined = errors.Join(joined, s.allocator.Abandon(ctx, reference))

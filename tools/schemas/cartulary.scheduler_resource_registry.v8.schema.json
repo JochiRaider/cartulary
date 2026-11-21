@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.scheduler_resource_registry.v7",
+  "$id": "cartulary.scheduler_resource_registry.v8",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -12,7 +12,7 @@
   ],
   "properties": {
     "schema_id": {
-      "const": "cartulary.scheduler_resource_registry.v7"
+      "const": "cartulary.scheduler_resource_registry.v8"
     },
     "capacity_override_schema": {
       "const": "cartulary.harness_capacity_override.v1"
@@ -26,6 +26,7 @@
         "memory_bytes",
         "object_store_lanes",
         "port_lanes",
+        "postgres_heavy_lanes",
         "postgres_lanes",
         "process_slots",
         "writable_volume"
@@ -46,6 +47,9 @@
         "port_lanes": {
           "$ref": "#/$defs/fixed_cpu_bounded"
         },
+        "postgres_heavy_lanes": {
+          "$ref": "#/$defs/fixed_postgres_bounded"
+        },
         "postgres_lanes": {
           "$ref": "#/$defs/fixed_cpu_bounded"
         },
@@ -59,8 +63,8 @@
     },
     "resources": {
       "type": "array",
-      "minItems": 10,
-      "maxItems": 10,
+      "minItems": 11,
+      "maxItems": 11,
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -79,6 +83,7 @@
               "object_store",
               "port_lane",
               "postgres",
+              "postgres_heavy",
               "process",
               "service_stack",
               "volume"
@@ -208,6 +213,28 @@
           "type": "integer",
           "minimum": 1,
           "maximum": 64
+        }
+      }
+    },
+    "fixed_postgres_bounded": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "default",
+        "minimum"
+      ],
+      "properties": {
+        "source": {
+          "const": "fixed_postgres_bounded"
+        },
+        "default": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1024
+        },
+        "minimum": {
+          "const": 1
         }
       }
     },

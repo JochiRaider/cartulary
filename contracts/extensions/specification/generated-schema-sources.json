@@ -6806,6 +6806,37 @@
         {
           "properties": {
             "reason_code": {
+              "const": "extension_participant_timeout"
+            },
+            "message": {
+              "const": "The extension participant did not complete before its deadline."
+            },
+            "details": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "operation_id",
+                "timeout_seconds"
+              ],
+              "properties": {
+                "operation_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 160,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,159}$"
+                },
+                "timeout_seconds": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 2147483647
+                }
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "reason_code": {
               "const": "extension_profile_not_claimable"
             },
             "message": {

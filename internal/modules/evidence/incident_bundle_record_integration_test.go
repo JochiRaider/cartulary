@@ -45,7 +45,7 @@ func TestEvidencePortableRecordTransaction_Integration(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	port := evidence.NewIncidentBundleSourcePort()
+	var port sourceport.Port = flushingEvidencePort{evidence.NewIncidentBundleSourcePort()}
 	prepare := func(t testing.TB, rows ...map[string]any) (sourceport.Prepared, sourceport.ImportContext, *evidencePortableAttributions) {
 		t.Helper()
 		input := evidencePortableInput(t, incident, actor)
@@ -414,37 +414,12 @@ func TestEvidencePortableRecordTransaction_Integration(t *testing.T) {
 				empty, emptyInput, _ := prepare(t)
 				requireEvidencePortableFailure(t, port.ValidateImportTx(ctx, tx, empty, emptyInput), "source_state_exact")
 			})
-			for _, variant := range []string{"missing", "duplicate", "table", "row", "column", "source actor", "local actor", "extra row", "extra column"} {
-				t.Run("attribution_"+variant, func(t *testing.T) {
-					original := slices.Clone(attributions.rows)
-					defer func() { attributions.rows = original }()
-					switch variant {
-					case "missing":
-						attributions.rows = nil
-					case "duplicate":
-						attributions.rows = append(attributions.rows, attributions.rows[0])
-					case "table":
-						attributions.rows[0].SourceTable = "records"
-					case "row":
-						attributions.rows[0].SourceRowID = uuid.NewString()
-					case "column":
-						attributions.rows[0].SourceColumn = "created_by_user_id"
-					case "source actor":
-						attributions.rows[0].SourceActorID = uuid.NewString()
-					case "local actor":
-						attributions.rows[0].LocalUserID = other
-					case "extra row":
-						extra := attributions.rows[0]
-						extra.SourceRowID = uuid.NewString()
-						attributions.rows = append(attributions.rows, extra)
-					case "extra column":
-						extra := attributions.rows[0]
-						extra.SourceColumn = "unexpected_user_id"
-						attributions.rows = append(attributions.rows, extra)
-					}
-					requireEvidencePortableFailure(t, port.ValidateImportTx(ctx, tx, prepared, input), "attribution_exact")
-				})
-			}
+			t.Run("staged rows are sealed", func(t *testing.T) {
+				sealed, sealedInput, _ := prepare(t, rows...)
+				requireEvidenceStagedSealed(t, func(prepared sourceport.Prepared, input sourceport.ImportContext) error {
+					return port.ValidateImportTx(ctx, tx, prepared, input)
+				}, sealed, sealedInput, "evidence_records.rows")
+			})
 		})
 	}
 	for _, kind := range []string{"missing", "host"} {

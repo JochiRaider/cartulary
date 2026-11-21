@@ -17,25 +17,13 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// Preserve the scan-policy identity across the port. These are the existing
-// owner patterns in their original ECMAScript notation; Go predicates below
-// implement its look-ahead exclusions without adding a second schema reader.
-const scanNames = `/^(?:stack|suite|test-services).*\.env$/iu
-/^postgres\.recovery\.dsn$/u
-/^performance-fixture-runtime\.json$/u
-/^suite-environment\.json$/u
-/^suite-lease\.json$/u
-/^stack\.lease$/u
-/^test-route-token$/u
-/key[-_.]?ring/iu`
+// The scan's policy identity, forbidden names and syntactic contexts are
+// generated from the authored redaction manifest into harnessredact.
+// Generation fails unless the identity reproduces the frozen policy digest,
+// and the exemption is the manifest-owned marker (TH-HARNESS-REQ-617).
+var forbiddenName = regexp.MustCompile(harnessredact.RetainedScanForbiddenNames)
 
-// The exemption is the manifest-owned marker (TH-HARNESS-REQ-617), so the
-// identity text, and therefore the policy digest, is unchanged.
-const scanSyntax = `/"[^"]*(?:password|secret|token(?!s)|cookie|dsn|access_key|private_key)[^"]*"\s*:\s*"(?!` + harnessredact.Marker + `)[^"]+"/iu
-/(?:PASSWORD|SECRET|TOKEN(?!S)|COOKIE|DSN|ACCESS_KEY|PRIVATE_KEY)=(?!` + harnessredact.Marker + `)[^\s]+/u
-/(?:postgres|postgresql):\/\/[^\s/:]+:(?!` + harnessredact.Marker + `)[^\s/@]+@/iu`
-
-var forbiddenName = regexp.MustCompile(`(?i:^(?:stack|suite|test-services).*\.env$)|^postgres\.recovery\.dsn$|^performance-fixture-runtime\.json$|^suite-environment\.json$|^suite-lease\.json$|^stack\.lease$|^test-route-token$|(?i:key[-_.]?ring)`)
+var scanPolicyDigest = fmt.Sprintf("sha256:%x", sha256.Sum256([]byte(harnessredact.RetainedScanPolicyIdentity)))
 
 func scanContent(reader io.Reader, secrets []string) error {
 	maximum := 256
@@ -162,7 +150,7 @@ func ScanRetained(root string, secrets []string) (map[string]any, error) {
 	if err = harnesslocal.CheckDirectory(dir, root); err != nil {
 		return nil, err
 	}
-	return map[string]any{"schema_id": "cartulary.harness_retained_secret_scan.v1", "status": "pass", "scanned_files": count, "policy_digest": fmt.Sprintf("sha256:%x", sha256.Sum256([]byte(scanNames+scanSyntax)))}, nil
+	return map[string]any{"schema_id": "cartulary.harness_retained_secret_scan.v1", "status": "pass", "scanned_files": count, "policy_digest": scanPolicyDigest}, nil
 }
 
 // A failed scan still removes unsafe retained bytes. Temporarily granting only

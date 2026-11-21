@@ -2,10 +2,13 @@ package incidentbundle
 
 import (
 	"context"
+	"errors"
+	"reflect"
 
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
+	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators/internal/identity"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 )
@@ -22,11 +25,16 @@ func NewSourcePort(paths []sourceport.Path, consumer reference_data.Consumer, as
 			return exportFiles(evaluate, ctx, input)
 		},
 		Prepare: func(ctx context.Context, bundle sourceport.Bundle, importContext sourceport.ImportContext) (any, error) {
-			evaluate, err := identity.FromConsumer(ctx, consumer)
+			evaluate, set, err := identity.FromConsumerSet(ctx, consumer)
 			if err != nil {
 				return nil, err
 			}
-			return prepareIndicatorImport(ctx, evaluate, bundle, importContext)
+			prepared, err := prepareIndicatorImport(ctx, evaluate, bundle, importContext)
+			if err != nil {
+				return nil, err
+			}
+			prepared.packSet = set
+			return prepared, nil
 		},
 		Apply: func(ctx context.Context, tx pgx.Tx, value any, importContext sourceport.ImportContext) error {
 			prepared, ok := value.(preparedIndicatorImport)
@@ -43,9 +51,16 @@ func NewSourcePort(paths []sourceport.Path, consumer reference_data.Consumer, as
 			if err != nil {
 				return err
 			}
-			evaluate, err := identity.FromConsumer(ctx, assignment)
+			evaluate, err := lockedEvaluator(ctx, assignment, prepared.packSet)
 			if err != nil {
 				return err
+			}
+			if evaluate == nil {
+				// Preparation's canonical results stand under the same locked set.
+				if err := applyPreparedIndicatorImportTx(ctx, tx, prepared, importContext); err != nil {
+					return err
+				}
+				return assignment.RecordUsage(ctx, "type_registry.indicator")
 			}
 			prepared.evaluate = evaluate
 			if err := prepared.indicators(ctx, importContext, func(row portableIndicatorRow) error {
@@ -83,13 +98,44 @@ func NewSourcePort(paths []sourceport.Path, consumer reference_data.Consumer, as
 			if err != nil {
 				return err
 			}
-			evaluate, err := identity.FromConsumer(ctx, assignment)
+			evaluate, err := lockedEvaluator(ctx, assignment, prepared.packSet)
 			if err != nil {
 				return err
 			}
 			return validatePreparedIndicatorImportTx(evaluate, ctx, tx, prepared, importContext)
 		},
+		// Attribution was staged while preparing; the core flushes it in step 9.
+		Attributions: func(value any) []incidentportability.AttributionStream {
+			prepared, ok := value.(preparedIndicatorImport)
+			if !ok {
+				return nil
+			}
+			return []incidentportability.AttributionStream{prepared.attribution}
+		},
 	})
+}
+
+// lockedEvaluator returns nil when the registry-locked current pack set equals
+// the set preparation evaluated under: evaluation is a pure function of the
+// content-addressed set and its request, so the prepared canonical results
+// stand. Otherwise it returns an evaluator over the locked set, and the import
+// re-evaluates.
+func lockedEvaluator(ctx context.Context, assignment reference_data.RegistryAssignment, prepared reference_data.PackSet) (identity.Evaluator, error) {
+	locked := assignment.ResolveCurrentPackSet(ctx)
+	if locked.Error != nil {
+		return nil, locked.Error
+	}
+	if locked.Value == nil {
+		return nil, errors.New("indicator set unavailable")
+	}
+	if samePackSet(prepared, *locked.Value) {
+		return nil, nil
+	}
+	return identity.FromConsumer(ctx, assignment)
+}
+
+func samePackSet(left, right reference_data.PackSet) bool {
+	return left.ID != "" && left.ID == right.ID && left.SHA256 == right.SHA256 && left.SchemaID == right.SchemaID && reflect.DeepEqual(left.Members, right.Members)
 }
 
 func indicatorSourceDescriptor(paths []sourceport.Path) sourceport.Descriptor {

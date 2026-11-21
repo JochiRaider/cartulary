@@ -571,6 +571,10 @@ func TestNetworkFlow_StoreLifecycleAndLimitAccounting_Integration(t *testing.T) 
 		}
 	})
 	t.Run("create_rows_counts", assertNetworkFlowStoreCreateTableDerivesNamePersistsRowsAndCounts)
+	t.Run("portable_import_writes_final_table_status", func(t *testing.T) {
+		harness, actor, incidentID := startNetworkFlowStoreTest(t, "network-flow-portable-final")
+		AssertPortableImportWritesFinalTableStatus(t, harness.DB, incidentID, actor.ID)
+	})
 	t.Run("rename_soft_delete_reuse", assertNetworkFlowStoreRenameSoftDeleteAndRetainedNameReuse)
 	t.Run("limits", assertNetworkFlowStoreLimitsUseActiveAndRetainedCounts)
 	t.Run("invalid_names", assertNetworkFlowStoreRejectsInvalidExplicitDisplayNames)

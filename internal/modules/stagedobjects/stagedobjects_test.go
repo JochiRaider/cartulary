@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"reflect"
 	"sync"
@@ -103,6 +104,37 @@ func TestScope_Unit_OperationTransferAndFinalPublication(t *testing.T) {
 	if err := PublishTransferred(context.Background(), transfer, publications, &publicationCapabilityFake{operationID: "other"}); !errors.Is(err, ErrScopeDenied) {
 		t.Fatalf("wrong operation publication = %v", err)
 	}
+	t.Run("abandon is one set-based statement and retry-safe", func(t *testing.T) {
+		repository := &serviceRepositoryFake{abandonErr: NewFailure(FailureDependency, "postgres_unavailable", nil)}
+		next := 0
+		service := newTestService(t, repository, &byteStoreFake{putOutcome: ByteWriteSuccess}, time.Date(2026, 7, 24, 15, 0, 0, 0, time.UTC), func() (string, error) {
+			next++
+			return fmt.Sprintf("staging-%d", next), nil
+		}, nil)
+		scope, err := NewScope("operation", "incident_portability", service)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for range 3 {
+			if _, err := scope.Allocate(context.Background(), "operation", []byte("payload")); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := scope.Abandon(context.Background()); err == nil {
+			t.Fatal("a failed abandon statement was reported as success")
+		}
+		repository.abandonErr = nil
+		if err := scope.Abandon(context.Background()); err != nil {
+			t.Fatalf("retried abandon = %v", err)
+		}
+		if err := scope.Abandon(context.Background()); err != nil {
+			t.Fatalf("abandon after success = %v", err)
+		}
+		want := [][]string{{"staging-1", "staging-2", "staging-3"}, {"staging-1", "staging-2", "staging-3"}}
+		if !reflect.DeepEqual(repository.abandonStatements, want) {
+			t.Fatalf("abandon statements = %v; want one per attempt naming the whole scope", repository.abandonStatements)
+		}
+	})
 }
 
 func TestJanitor_Unit_CapturedCutoffDrainsBoundedBatchesWithoutDeleteLock(t *testing.T) {
@@ -277,13 +309,17 @@ func TestJanitor_Unit_PeriodicErrorsAreSurfacedWithoutStoppingRecovery(t *testin
 }
 
 type serviceRepositoryFake struct {
-	allocations []Allocation
-	ready       []string
-	sealed      SealedReference
-	abandoned   []string
-	allocateErr error
-	readyErr    error
-	abandonErr  error
+	readSealedCalls int
+	expiresAt       time.Time
+	allocations     []Allocation
+	ready           []string
+	sealed          SealedReference
+	abandoned       []string
+	// abandonStatements records each abandon statement's staged objects.
+	abandonStatements [][]string
+	allocateErr       error
+	readyErr          error
+	abandonErr        error
 }
 
 func (r *serviceRepositoryFake) Allocate(_ context.Context, allocation Allocation) error {
@@ -298,15 +334,23 @@ func (r *serviceRepositoryFake) Seal(_ context.Context, _, _ string, sealed Seal
 }
 
 func (r *serviceRepositoryFake) ReadSealed(_ context.Context, op, profile string, ref Reference, _ time.Time) (SealedObject, error) {
+	r.readSealedCalls++
 	for _, a := range r.allocations {
 		if a.StagingID == ref.StagingID && a.OperationID == op && a.OwnerProfileID == profile && r.sealed.Reference == ref {
-			return SealedObject{StorageIdentity: a.StorageIdentity, ContentBinding: r.sealed.ContentBinding}, nil
+			return SealedObject{StorageIdentity: a.StorageIdentity, ContentBinding: r.sealed.ContentBinding, ExpiresAt: r.expiresAt}, nil
 		}
 	}
 	return SealedObject{}, ErrScopeDenied
 }
 func (r *serviceRepositoryFake) Abandon(_ context.Context, stagingID string, _ time.Time) error {
 	r.abandoned = append(r.abandoned, stagingID)
+	r.abandonStatements = append(r.abandonStatements, []string{stagingID})
+	return r.abandonErr
+}
+
+func (r *serviceRepositoryFake) AbandonAll(_ context.Context, stagingIDs []string, _ time.Time) error {
+	r.abandoned = append(r.abandoned, stagingIDs...)
+	r.abandonStatements = append(r.abandonStatements, append([]string(nil), stagingIDs...))
 	return r.abandonErr
 }
 
@@ -450,6 +494,10 @@ func (r *janitorRepositoryFake) RecordDeletionSuccess(_ context.Context, staging
 	r.mu.Lock()
 	r.successes = append(r.successes, stagingID)
 	r.mu.Unlock()
+	return nil
+}
+
+func (r *janitorRepositoryFake) AbandonAll(context.Context, []string, time.Time) error {
 	return nil
 }
 

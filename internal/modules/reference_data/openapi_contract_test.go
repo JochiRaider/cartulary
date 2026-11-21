@@ -3,6 +3,7 @@ package reference_data_test
 import (
 	"encoding/json"
 	"reflect"
+	"sort"
 	"strings"
 	"testing"
 
@@ -68,6 +69,18 @@ func TestOpenAPIAndErrorRegistriesExposeClosedReferencePackContract_Unit(t *test
 	for _, action := range []string{"activate", "disable"} {
 		requireRequestRef(t, openAPIObjectAt(t, paths, "/api/v1/reference-packs/{pack_key}/{pack_version}/"+action, "post"), "ReferencePackActionRequest")
 		requireResponseRef(t, openAPIObjectAt(t, paths, "/api/v1/reference-packs/{pack_key}/{pack_version}/"+action, "post"), "200", "ReferencePackActionEnvelope")
+	}
+	// Activate, disable and remove settle inline and never admit a Job; import,
+	// reverify and refresh always do (Core 01 Table 17.4-A, AC-309, RP-REQ-015).
+	for _, action := range []struct{ route, status string }{
+		{"/api/v1/reference-packs/{pack_key}/{pack_version}/activate", "200"},
+		{"/api/v1/reference-packs/{pack_key}/{pack_version}/disable", "200"},
+		{"/api/v1/reference-packs/{pack_key}/{pack_version}/remove", "200"},
+		{"/api/v1/reference-packs/{pack_key}/{pack_version}/reverify", "202"},
+		{"/api/v1/reference-packs/import", "202"},
+		{"/api/v1/reference-packs/refresh", "202"},
+	} {
+		requireOnlySuccessStatus(t, action.route, openAPIObjectAt(t, paths, action.route, "post"), action.status)
 	}
 	requireResponseRef(t, openAPIObjectAt(t, paths, "/api/v1/reference-packs/{pack_key}/{pack_version}/reverify", "post"), "202", "JobEnvelope")
 	requireRequestRef(t, openAPIObjectAt(t, paths, "/api/v1/reference-packs/refresh", "post"), "ReferencePackRefreshRequest")
@@ -190,6 +203,20 @@ func requireResponseRef(t testing.TB, operation map[string]any, status string, w
 	want := "#/components/schemas/" + wantSchema
 	if schema["$ref"] != want {
 		t.Fatalf("response %s ref mismatch: got %#v want %q", status, schema, want)
+	}
+}
+
+func requireOnlySuccessStatus(t testing.TB, route string, operation map[string]any, want string) {
+	t.Helper()
+	var got []string
+	for status := range openAPIObjectAt(t, operation, "responses") {
+		if strings.HasPrefix(status, "2") {
+			got = append(got, status)
+		}
+	}
+	sort.Strings(got)
+	if !reflect.DeepEqual(got, []string{want}) {
+		t.Errorf("%s success statuses: got %v want [%s]", route, got, want)
 	}
 }
 

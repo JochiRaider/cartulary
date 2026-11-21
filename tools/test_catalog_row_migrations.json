@@ -286,6 +286,13 @@
       "reason": "The mixed selection is split into exact service-free and managed-service assertions; every original symbol and assurance tier remains selected without acquiring unused infrastructure."
     },
     {
+      "retired_row_id": "module.reference_data.browser.administration_async_recovery",
+      "replacement_row_ids": [
+        "module.reference_data.browser.supports_synchronous_exact_actions_with_idempote_6216950e7b"
+      ],
+      "reason": "Activate and disable complete synchronously and never create a Job (Core 01 Table 17.4-A, RP-REQ-015). The same scenario now proves the exact-version inline result and idempotent replay after a lost acknowledgement instead of a long-running Job path no server implements; retained selection and import observation recovery are unchanged."
+    },
+    {
       "retired_row_id": "module.reference_data.unit.attack_producer_cli_enforces_current_inputs_and_9107ea959a",
       "replacement_row_ids": [
         "module.reference_data.unit.independent_attack_producer"

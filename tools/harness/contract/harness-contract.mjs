@@ -16,6 +16,13 @@ export {
   secureWriteFile,
 } from "./artifact-writer.mjs";
 import { secureMkdir, secureWriteFile } from "./artifact-writer.mjs";
+import {
+  applyValueRules,
+  compileRedactionVocabulary,
+  isStructuredSecretKey,
+  redactionVocabulary,
+  scanKeyMatches,
+} from "./redaction-vocabulary.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const requireFromHarness = createRequire(import.meta.url);
@@ -71,21 +78,6 @@ const protectedCleanupIdentities = new Set([
   "pnpm-workspace.yaml",
   "scripts",
   "tools",
-]);
-const structuredSecretKeyTokens = new Set([
-  "PASSWORD",
-  "PASS",
-  "PWD",
-  "TOKEN",
-  "JWT",
-  "BEARER",
-  "API_KEY",
-  "ACCESS_KEY",
-  "SECRET_KEY",
-  "AUTHORIZATION",
-  "COOKIE",
-  "SET_COOKIE",
-  "X_CARTULARY_TEST_ROUTE_TOKEN",
 ]);
 const weakTestRouteTokens = new Set([
   "test",
@@ -809,7 +801,8 @@ function validateServiceAttachGroups(env) {
     resolved[group.label] = Object.fromEntries(
       Object.entries(values).map(([name, value]) => [
         name,
-        /SECRET|KEY|DSN/u.test(name) ? redactionMarker() : value,
+        // The manifest-owned structured vocabulary decides what is retained.
+        redactValue(value, name),
       ]),
     );
   }
@@ -1358,50 +1351,10 @@ function compiledRedactionRules() {
   if (redactionRules) {
     return redactionRules;
   }
-  const manifest = loadRedactionManifest();
-  // The manifest owns the single retained marker (TH-HARNESS-REQ-617).
-  const replacement = manifest.replacement;
-  if (typeof replacement !== "string" || replacement === "") {
-    throw new Error("redaction manifest has no marker");
-  }
-  redactionRules = {
-    replacement,
-    valuePatterns: (manifest.value_patterns ?? []).map((rule) => ({
-      name: rule.name,
-      regex: new RegExp(String(rule.pattern).replace(/^\(\?i\)/u, ""), "giu"),
-      replacement: rule.replacement ?? replacement,
-    })),
-  };
+  // The manifest owns the single retained marker and every redaction and scan
+  // vocabulary (TH-HARNESS-REQ-617); the native policy is generated from it.
+  redactionRules = compileRedactionVocabulary(redactionVocabulary(loadRedactionManifest()));
   return redactionRules;
-}
-
-function isSensitiveCLIFlag(value) {
-  return /^--(?:password|passwd|pwd|secret|token|jwt|api[_-]?key|access[_-]?key|secret[_-]?key|private[_-]?key|client[_-]?secret|dsn)$/iu.test(
-    String(value ?? ""),
-  );
-}
-
-function canonicalStructuredKey(value) {
-  return String(value ?? "")
-    .toUpperCase()
-    .replace(/[^A-Z0-9]+/gu, "_")
-    .replace(/^_+|_+$/gu, "");
-}
-
-function isStructuredSecretKey(key) {
-  const canonical = canonicalStructuredKey(key);
-  if (!canonical) {
-    return false;
-  }
-  if (structuredSecretKeyTokens.has(canonical)) {
-    return true;
-  }
-  for (const token of structuredSecretKeyTokens) {
-    if (canonical.startsWith(`${token}_`) || canonical.endsWith(`_${token}`)) {
-      return true;
-    }
-  }
-  return false;
 }
 
 /** The single retained redaction marker, owned by the redaction manifest. */
@@ -1409,35 +1362,36 @@ export function redactionMarker() {
   return compiledRedactionRules().replacement;
 }
 
+// The shared value rules, then the JSON-member scan closure, in linear time.
 export function redactString(value) {
-  const rules = compiledRedactionRules();
-  let text = String(value);
-  for (const rule of rules.valuePatterns) {
-    text = text.replace(rule.regex, rule.replacement);
-  }
-  return text;
+  return applyValueRules(compiledRedactionRules(), value);
 }
 
-function redactStructuredText(value) {
-  const text = String(value ?? "");
-  try {
-    return compactJSONString(JSON.parse(text));
-  } catch {
-    return redactString(text);
+// A non-empty string under a key that the retained-secret scan's JSON-member
+// rule matches is replaced whole (TH-HARNESS-REQ-604), as is the value of a
+// whole-string assignment to a secret-named key.
+function redactStructuredString(rules, value, key) {
+  if (value === "") {
+    return "";
   }
+  if (key !== "" && scanKeyMatches(rules.scanMemberTerms, key)) {
+    return rules.replacement;
+  }
+  const assignment = rules.wholeStringAssignment.exec(value);
+  if (assignment && isStructuredSecretKey(rules.tokens, assignment[1])) {
+    return `${assignment[1]}=${rules.replacement}`;
+  }
+  return redactString(value);
 }
 
 export function redactValue(value, key = "") {
   const rules = compiledRedactionRules();
-  if (typeof key === "string" && isStructuredSecretKey(key)) {
+  const name = typeof key === "string" ? key : "";
+  if (name !== "" && isStructuredSecretKey(rules.tokens, name)) {
     return rules.replacement;
   }
   if (typeof value === "string") {
-    const assignment = /^([A-Z][A-Z0-9_]*)=(.*)$/isu.exec(value);
-    if (assignment && isStructuredSecretKey(assignment[1])) {
-      return `${assignment[1]}=${rules.replacement}`;
-    }
-    return redactString(value);
+    return redactStructuredString(rules, value, name);
   }
   if (Array.isArray(value)) {
     const redacted = [];
@@ -1449,7 +1403,7 @@ export function redactValue(value, key = "") {
         continue;
       }
       redacted.push(redactValue(entry));
-      if (typeof entry === "string" && isSensitiveCLIFlag(entry)) {
+      if (typeof entry === "string" && rules.cliFlag.test(entry)) {
         redactNext = true;
       }
     }

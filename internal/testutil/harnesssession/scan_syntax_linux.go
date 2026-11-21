@@ -29,11 +29,11 @@ func unredactedValue(excluded, terminator string) string {
 }
 
 var secretProgram = func() *syntax.Prog {
-	key := `(?i:"(?:[^"]*(?:password|secret|cookie|dsn|access_key|private_key)[^"]*|[^"]*token(?:[^s"][^"]*)?)"\s*:\s*")`
-	json := key + unredactedValue(`"`, `"`)
-	assignment := `(?:PASSWORD|SECRET|TOKEN|COOKIE|DSN|ACCESS_KEY|PRIVATE_KEY)=` + unredactedValue(`\s`, `(?:\s|$)`)
-	postgres := `(?i:(?:postgres|postgresql)://[^\s/:]+:)` + unredactedValue(`\s/@`, `@`)
-	tree, err := syntax.Parse(json+"|"+assignment+"|"+postgres, syntax.Perl)
+	alternatives := make([]string, 0, len(harnessredact.RetainedScanContexts))
+	for _, scanContext := range harnessredact.RetainedScanContexts {
+		alternatives = append(alternatives, scanContext.Prefix+unredactedValue(scanContext.Excluded, scanContext.Terminator))
+	}
+	tree, err := syntax.Parse(strings.Join(alternatives, "|"), syntax.Perl)
 	if err != nil {
 		panic(err)
 	}

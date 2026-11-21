@@ -5,11 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"slices"
 	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
@@ -40,6 +40,13 @@ func NewSourcePort() (sourceport.Port, error) {
 		ValidateContract: func() error {
 			_, err := validateManifest(authoredManifestInput())
 			return err
+		},
+		Attributions: func(value any) []incidentportability.AttributionStream {
+			prepared, ok := value.(preparedImport)
+			if !ok {
+				return nil
+			}
+			return []incidentportability.AttributionStream{prepared.attribution}
 		},
 	}), nil
 }
@@ -122,17 +129,15 @@ func applyPreparedTx(
 	} else if invariantID != "" {
 		return descriptor.DeclaredFailure(invariantID)
 	}
+	// An actor the catalog does not admit failed attribution at the write rank.
+	if prepared.unadmittedActor {
+		return descriptor.DeclaredFailure("links_tags.link_tuple_legal")
+	}
 	for _, path := range stateManifest.pathSpecs() {
 		if path.kind == pathTagCatalog {
 			continue
 		}
-		spec, err := fixedImportSpec(path)
-		if err != nil {
-			return err
-		}
-		if err := incidentportability.ImportFixedMemberNDJSON(
-			ctx, tx, spec, prepared.members, importContext.ActorUserID, importContext.Attributions,
-		); err != nil {
+		if err := insertStagedRows(ctx, tx, prepared, importContext, path); err != nil {
 			if _, fixed := incidentportability.FixedImportFailurePath(err); fixed {
 				return err
 			}
@@ -140,6 +145,87 @@ func applyPreparedTx(
 		}
 	}
 	return nil
+}
+
+// insertStagedRows writes one staged stream, rebound to the importing actor,
+// with one set-based statement per batch. Attribution was staged while
+// preparing.
+func insertStagedRows(ctx context.Context, tx pgx.Tx, prepared preparedImport, importContext sourceport.ImportContext, path pathSpec) error {
+	return prepared.batches(ctx, importContext, path.kind, func(row map[string]any) (map[string]any, error) {
+		if err := incidentportability.ValidateRequiredColumns(row, path.requiredColumns, path.stableIdentity); err != nil {
+			return nil, err
+		}
+		if err := incidentportability.ValidateAllowedColumns(row, path.allowedColumns); err != nil {
+			return nil, err
+		}
+		return runtimeAttributedRow(row, importContext.ActorUserID), nil
+	}, func(batch []byte, rows int64) error {
+		var (
+			tag pgconn.CommandTag
+			err error
+		)
+		switch path.kind {
+		case pathRecordLinks:
+			tag, err = tx.Exec(ctx, `INSERT INTO record_links SELECT * FROM jsonb_populate_recordset(NULL::record_links, $1::jsonb)`, batch)
+		case pathRecordTags:
+			tag, err = tx.Exec(ctx, `INSERT INTO record_tags SELECT * FROM jsonb_populate_recordset(NULL::record_tags, $1::jsonb)`, batch)
+		default:
+			return manifestError("path has no import relation")
+		}
+		if err != nil {
+			return err
+		}
+		if tag.RowsAffected() != rows {
+			return incidentportability.FixedImportFailure(path.logicalPath)
+		}
+		return nil
+	})
+}
+
+const (
+	// linkSetBatchRows and linkSetBatchBytes bound one set-based statement.
+	linkSetBatchRows  = 256
+	linkSetBatchBytes = 4 << 20
+)
+
+// batches visits one staged stream as JSON arrays of mapped rows.
+func (value preparedImport) batches(ctx context.Context, importContext sourceport.ImportContext, kind pathKind, mapRow func(map[string]any) (map[string]any, error), visit func([]byte, int64) error) error {
+	var batch []byte
+	var rows int64
+	flush := func() error {
+		if rows == 0 {
+			return nil
+		}
+		err := visit(append(batch, ']'), rows)
+		batch, rows = batch[:0], 0
+		return err
+	}
+	if err := value.walk(ctx, importContext, kind, func(row map[string]any) error {
+		mapped, err := mapRow(row)
+		if err != nil {
+			return err
+		}
+		encoded, err := json.Marshal(mapped)
+		if err != nil {
+			return err
+		}
+		if rows > 0 && (rows == linkSetBatchRows || len(batch)+len(encoded) > linkSetBatchBytes) {
+			if err := flush(); err != nil {
+				return err
+			}
+		}
+		if rows == 0 {
+			batch = append(batch, '[')
+		} else {
+			batch = append(batch, ',')
+		}
+		batch = append(batch, encoded...)
+		rows++
+		return nil
+	}); err != nil {
+		return err
+	}
+	return flush()
 }
 
 func validatePreparedTx(
@@ -176,29 +262,6 @@ func (value preparedImport) matches(importContext sourceport.ImportContext) bool
 		value.operationID != "" && value.operationID == importContext.OperationID
 }
 
-func fixedImportSpec(path pathSpec) (incidentportability.FixedImportSpec, error) {
-	var table string
-	var insertSQL string
-	switch path.kind {
-	case pathRecordLinks:
-		table = "record_links"
-		insertSQL = `INSERT INTO record_links SELECT * FROM jsonb_populate_record(NULL::record_links, $1::jsonb)`
-	case pathRecordTags:
-		table = "record_tags"
-		insertSQL = `INSERT INTO record_tags SELECT * FROM jsonb_populate_record(NULL::record_tags, $1::jsonb)`
-	default:
-		return incidentportability.FixedImportSpec{}, manifestError("path has no import relation")
-	}
-	return incidentportability.FixedImportSpec{
-		LogicalBundlePath: path.logicalPath,
-		AttributionTable:  table,
-		StableIdentity:    slices.Clone(path.stableIdentity),
-		RequiredColumns:   slices.Clone(path.requiredColumns),
-		AllowedColumns:    slices.Clone(path.allowedColumns),
-		InsertSQL:         sqlshape.Command(insertSQL),
-	}, nil
-}
-
 // Transaction-local relations let PostgreSQL perform collection-wide joins and
 // uniqueness checks without retaining source collections in the process heap.
 // Deferred owner guards forbid committing scratch rows. Runtime uses only DML.
@@ -207,17 +270,14 @@ func validateDatabasePreconditions(ctx context.Context, tx pgx.Tx, prepared prep
 		kind      pathKind
 		statement string
 	}{
-		{pathRecordLinks, `INSERT INTO public.links_bundle_validation_links SELECT * FROM jsonb_populate_record(NULL::public.record_links, $1::jsonb)`},
-		{pathRecordTags, `INSERT INTO public.links_bundle_validation_tags SELECT * FROM jsonb_populate_record(NULL::public.record_tags, $1::jsonb)`},
-		{pathTagCatalog, `INSERT INTO public.links_bundle_validation_catalog SELECT tag_name, normalized_tag_name FROM jsonb_to_record($1::jsonb) AS t(tag_name text, normalized_tag_name text)`},
+		{pathRecordLinks, `INSERT INTO public.links_bundle_validation_links SELECT * FROM jsonb_populate_recordset(NULL::public.record_links, $1::jsonb)`},
+		{pathRecordTags, `INSERT INTO public.links_bundle_validation_tags SELECT * FROM jsonb_populate_recordset(NULL::public.record_tags, $1::jsonb)`},
+		{pathTagCatalog, `INSERT INTO public.links_bundle_validation_catalog SELECT tag_name, normalized_tag_name FROM jsonb_to_recordset($1::jsonb) AS t(tag_name text, normalized_tag_name text)`},
 	} {
 		statement := item.statement
-		if err := prepared.walk(ctx, item.kind, func(row map[string]any) error {
-			raw, err := json.Marshal(row)
-			if err != nil {
-				return err
-			}
-			_, err = tx.Exec(ctx, statement, raw)
+		keep := func(row map[string]any) (map[string]any, error) { return row, nil }
+		if err := prepared.batches(ctx, importContext, item.kind, keep, func(batch []byte, _ int64) error {
+			_, err := tx.Exec(ctx, statement, batch)
 			return err
 		}); err != nil {
 			return "", err
@@ -321,9 +381,8 @@ func validatePersistedState(ctx context.Context, tx pgx.Tx, prepared preparedImp
 	if !values[pathTagCatalog] {
 		return "links_tags.tag_catalog_exact", nil
 	}
-	if err := validateAttributions(ctx, prepared, importContext); err != nil {
-		return "", err
-	}
+	// Attribution was staged while preparing and is flushed and counted by the
+	// core in step 9.
 	return "", nil
 }
 
@@ -349,7 +408,7 @@ func comparePersistedRows(ctx context.Context, tx pgx.Tx, prepared preparedImpor
 	}
 	defer rows.Close()
 	sameIDs, sameValues := true, true
-	err = prepared.walk(ctx, path.kind, func(source map[string]any) error {
+	err = prepared.walk(ctx, importContext, path.kind, func(source map[string]any) error {
 		if !rows.Next() {
 			sameIDs, sameValues = false, false
 			return rows.Err()
@@ -388,19 +447,4 @@ func comparePersistedRows(ctx context.Context, tx pgx.Tx, prepared preparedImpor
 		return false, false, err
 	}
 	return sameIDs, sameValues, nil
-}
-
-func validateAttributions(ctx context.Context, prepared preparedImport, input sourceport.ImportContext) error {
-	for _, family := range []struct{ path, table, identity string }{
-		{"data/record_links.ndjson", "record_links", "record_link_id"}, {"data/record_tags.ndjson", "record_tags", "record_tag_id"},
-	} {
-		if err := incidentportability.ValidateTopLevelAttributions(ctx, prepared.members, family.path, family.table, family.identity, input.Attributions); err != nil {
-			stateManifest, manifestErr := loadManifest()
-			if manifestErr != nil {
-				return manifestErr
-			}
-			return stateManifest.descriptor().DeclaredFailure("links_tags.source_identity_admitted")
-		}
-	}
-	return nil
 }

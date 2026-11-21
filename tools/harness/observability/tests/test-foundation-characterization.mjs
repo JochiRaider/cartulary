@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import test from "node:test";
+import { spawnSync } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { canonicalTimingAccounting, projectResourcePressure, reduceCanonicalUnitIntervals } from "../../evidence-accounting/index.mjs";
-import { validateSchemaSync, redactString, redactValue } from "../../contract/index.mjs";
+import { compactJSONString, validateSchemaSync, redactString, redactValue } from "../../contract/index.mjs";
 import { resolveExactRunDir } from "../observability.mjs";
 import { deliver, headersFromFile, validatedEndpoint } from "../otel-export-cli.mjs";
 import { renderInstrumentationDefinitions } from "../../generated-artifacts/instrumentation-definitions.mjs";
@@ -233,14 +236,154 @@ test("generated definitions preserve acceptance and admit isolated ordinary exte
   assert.throws(() => renderInstrumentationDefinitions(duplicate), /duplicate/u);
 });
 
-test("native redaction generation rejects unavailable, partial and ambiguous policy", () => {
-  const policy = { schema_id: "cartulary.harness_redaction_manifest.v1", replacement: "<redacted>",
-    value_patterns: [{ name: "fixture", pattern: "(?i)(secret=)fixture-secret", replacement: "$1<redacted>" }] };
+// TH-HARNESS-AC-160: the script redactor yields the same independently
+// specified output as the native redactor (scan_linux_test.go) for every
+// manifest rule and structured secret-key class in every scan context.
+function redactionMatrix() {
+  const secret = "fixture-secret-1234";
+  const cases = [
+    ["rule/bearer_token", false, `token type Bearer ${secret} end`, "token type Bearer <redacted> end", secret],
+    ["rule/basic_auth", false, "scheme Basic Zml4dHVyZS1zZWNyZXQtMTIzNA== end", "scheme Basic <redacted> end", "Zml4dHVyZS1zZWNyZXQtMTIzNA=="],
+    ["rule/authorization_header", false, `Authorization: Digest ${secret}`, "Authorization: <redacted>", secret],
+    ["rule/authorization_bearer_header", false, `Authorization: Bearer ${secret}`, "Authorization: <redacted>", secret],
+    ["rule/cookie_header", false, `Set-Cookie: sid=${secret}; Path=/`, "Set-Cookie: <redacted>", secret],
+    ["rule/route_token_header", false, `X-Cartulary-Test-Route-Token: ${secret}`, "X-Cartulary-Test-Route-Token: <redacted>", secret],
+    ["rule/jwt", false, "jwt eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.fixturesignature1234 end", "jwt <redacted> end", "fixturesignature1234"],
+    ["rule/generic_url_userinfo", false, `https://user:${secret}@example.test/path`, "https://<redacted>@example.test/path", secret],
+    ["rule/postgres_url_userinfo_query", false, "postgres://u:fixture?secret-1234@h/db", "postgres://u:<redacted>@h/db", "fixture?secret-1234"],
+    ["rule/postgres_url_userinfo_fragment", false, "postgres://u:fixture#secret-1234@h/db", "postgres://u:<redacted>@h/db", "fixture#secret-1234"],
+    ["rule/cli_secret_argument_equals", false, `--client-secret=${secret}`, "--client-secret=<redacted>", secret],
+    ["rule/cli_secret_argument_space", false, `--token ${secret}`, "--token <redacted>", secret],
+    ["rule/secret_assignment", false, `DB_PASSWORD=${secret}`, "DB_PASSWORD=<redacted>", secret],
+    ["rule/json_like_secret_assignment", false, `{"pwd":"${secret}"}`, '{"pwd":"<redacted>"}', secret],
+    ["rule/private_key_block", false, `-----BEGIN PRIVATE KEY-----\n${secret}\n-----END PRIVATE KEY-----`, "<redacted>", secret],
+    ["rule/json_member_closure", false, `{"database_dsn":"${secret}"}`, '{"database_dsn":"<redacted>"}', secret],
+    ["rule/json_member_closure_url", false, `{"database_dsn":"postgres://u:${secret}@h"}`, '{"database_dsn":"<redacted>"}', secret],
+    ["assignment/PASSWORD", false, `PASSWORD=${secret}`, "PASSWORD=<redacted>", secret],
+    ["assignment/ACCESS_TOKEN", false, `ACCESS_TOKEN=${secret}`, "ACCESS_TOKEN=<redacted>", secret],
+    ["assignment/CARTULARY_S3_ACCESS_KEY", false, `CARTULARY_S3_ACCESS_KEY=${secret}`, "CARTULARY_S3_ACCESS_KEY=<redacted>", secret],
+    ["assignment/AWS_ACCESS_KEY_ID", false, `AWS_ACCESS_KEY_ID=${secret}`, "AWS_ACCESS_KEY_ID=<redacted>", secret],
+    ["assignment/SESSION_SECRET", false, `SESSION_SECRET=${secret}`, "SESSION_SECRET=<redacted>", secret],
+    ["assignment/TLS_PRIVATE_KEY", false, `TLS_PRIVATE_KEY=${secret}`, "TLS_PRIVATE_KEY=<redacted>", secret],
+    ["assignment/COOKIE", false, `COOKIE=${secret}`, "COOKIE=<redacted>", secret],
+    ["assignment/CARTULARY_DSN", false, `CARTULARY_DSN=postgres://u:${secret}@h/db`, "CARTULARY_DSN=<redacted>", secret],
+    ["assignment/export_prefix", false, `export DB_PASSWORD=${secret}`, "export DB_PASSWORD=<redacted>", secret],
+    ["assignment/lowercase_dsn_keyword", false, `host=db password=${secret} dbname=cartulary`, "host=db password=<redacted> dbname=cartulary", secret],
+    ["assignment/spaced", false, `client_secret = ${secret}`, "client_secret=<redacted>", secret],
+    ["url/postgres", false, `postgres://cartulary:${secret}@127.0.0.1:5432/db`, "postgres://<redacted>@127.0.0.1:5432/db", secret],
+    ["url/postgresql_query", false, `postgresql://u:${secret}@h/db?sslmode=disable`, "postgresql://<redacted>@h/db?sslmode=disable", secret],
+    ["url/postgres_query_at", false, `postgres://u:${secret}@h:5432?user=a@b`, "postgres://<redacted>@h:<redacted>@b", secret],
+    ["assignment/SESSION", false, `SESSION=${secret}`, "SESSION=<redacted>", secret],
+    ["assignment/APP_SESSION", false, `APP_SESSION=${secret}`, "APP_SESSION=<redacted>", secret],
+    ["assignment/export_session", false, `export CARTULARY_SESSION=${secret}`, "export CARTULARY_SESSION=<redacted>", secret],
+    ["assignment/session_query", false, `https://example.test/cb?session=${secret}`, "https://example.test/cb?session=<redacted>", secret],
+    ["nbsp/assignment", false, "DB_PASSWORD=fixture\u00a0secret-1234", "DB_PASSWORD=<redacted>", "secret-1234"],
+    ["nbsp/cli_secret_argument_equals", false, "--token=fixture\u00a0secret-1234", "--token=<redacted>", "secret-1234"],
+    ["preserve/SESSION_ID", false, "SESSION_ID=abc123", "SESSION_ID=abc123", ""],
+    ["preserve/raw_session_member", false, '{"session":"browser-session-name"}', '{"session":"browser-session-name"}', ""],
+    ["preserve/TOKENS", false, "TOKENS=ordinary", "TOKENS=ordinary", ""],
+    ["preserve/max_tokens", false, "max_tokens=5", "max_tokens=5", ""],
+    ["preserve/url_at_outside_authority", false, "https://example.test/path@item?q=a@b#c@d", "https://example.test/path@item?q=a@b#c@d", ""],
+    ["preserve/json_tokens", false, '{"tokens":"ordinary"}', '{"tokens":"ordinary"}', ""],
+  ];
+  for (const key of [
+    "password", "Password", "PASS", "pwd", "secret", "SECRET", "client_secret", "session_secret", "secret_ref",
+    "dsn", "DSN", "database_dsn", "recovery_dsn", "dsn_ref", "private_key", "private_key_path", "api_key",
+    "access_key", "secret_key", "jwt", "bearer", "Authorization", "Cookie", "Set-Cookie", "X-Cartulary-Test-Route-Token",
+    "token", "session_token", "cookies", "tokenizer", "passwordless", "CARTULARY_S3TEST_ACCESS_KEY_ID",
+    "dbPassword", "clientSecret", "secretKey", "accessToken", "refreshToken", "sessionCookie",
+  ]) cases.push([`member/${key}`, true, `{"${key}":"${secret}"}`, `{"${key}":"<redacted>"}\n`, secret]);
+  cases.push(
+    ["member/dsn_url", true, `{"dsn":"postgres://u:${secret}@h/db"}`, '{"dsn":"<redacted>"}\n', secret],
+    ["member/database_dsn_url", true, `{"database_dsn":"postgres://u:${secret}@h/db"}`, '{"database_dsn":"<redacted>"}\n', secret],
+    ["member/cookies_assignment", true, `{"cookies":"session=${secret}"}`, '{"cookies":"<redacted>"}\n', secret],
+    ["member/session_secret_bearer", true, `{"session_secret":"Bearer ${secret}"}`, '{"session_secret":"<redacted>"}\n', secret],
+    ["member/nested", true, `{"nested":{"SECRET_KEY":"${secret}","api_key":"${secret}"}}`, '{"nested":{"SECRET_KEY":"<redacted>","api_key":"<redacted>"}}\n', secret],
+    ["member/message_url", true, `{"message":"postgres://u:${secret}@h/db"}`, '{"message":"postgres://<redacted>@h/db"}\n', secret],
+    ["member/message_assignment", true, `{"message":"run DB_PASSWORD=${secret} now"}`, '{"message":"run DB_PASSWORD=<redacted> now"}\n', secret],
+    ["member/whole_string_assignment", true, `{"env":["DB_PASSWORD=fixture secret 1234","TOKEN_FILE=/run/${secret}","PLAIN=value"]}`, '{"env":["DB_PASSWORD=<redacted>","TOKEN_FILE=<redacted>","PLAIN=value"]}\n', secret],
+    ["member/cli_arguments", true, `{"args":["--token","${secret}","--dsn=postgres://u:${secret}@h/db"]}`, '{"args":["--token","<redacted>","--dsn=<redacted>"]}\n', secret],
+    ["member/message_session", true, `{"message":"SESSION=${secret}"}`, '{"message":"SESSION=<redacted>"}\n', secret],
+    ["member/env_session", true, `{"env":["SESSION=${secret} tail"]}`, '{"env":["SESSION=<redacted> tail"]}\n', secret],
+    ["member/long_s_secret", true, `{"\u017fecret":"${secret}"}`, '{"\u017fecret":"<redacted>"}\n', secret],
+    ["member/non_ascii_prefix_secret", true, `{"t\u00f6kenSecret":"${secret}"}`, '{"t\u00f6kenSecret":"<redacted>"}\n', secret],
+    ["preserve/session_member", true, '{"session":"browser-session-name"}', '{"session":"browser-session-name"}\n', ""],
+    ["preserve/sharp_s_key", true, '{"pa\u00dfword":"fixture-plain"}', '{"pa\u00dfword":"fixture-plain"}\n', ""],
+    ["preserve/session_target", true, '{"session_target":"browser-stage-token-name"}', '{"session_target":"browser-stage-token-name"}\n', ""],
+    ["preserve/cpu_tokens", true, '{"cpu_tokens":"2"}', '{"cpu_tokens":"2"}\n', ""],
+    ["preserve/closure_container", true, '{"tokenizer":{"kind":"bpe"}}', '{"tokenizer":{"kind":"bpe"}}\n', ""],
+    ["preserve/closure_scalar", true, '{"cookies":3,"tokenizer_count":2}', '{"cookies":3,"tokenizer_count":2}\n', ""],
+    ["preserve/service_sessions", true, '{"service_sessions":[{"cleanup_status":"pass","setup_duration_ms":12}]}', '{"service_sessions":[{"cleanup_status":"pass","setup_duration_ms":12}]}\n', ""],
+  );
+  return cases;
+}
+
+// TH-HARNESS-REQ-617: every redactor is linear in its input. Adversarial runs
+// of 4 MiB finish in milliseconds when linear; a quadratic redactor cannot meet
+// the bound. A synchronous regular-expression hang cannot be interrupted in
+// process, so the work runs in a child with its own deadline.
+test("script redaction completes in linear time on adversarial inputs", () => {
+  const child = `
+const { compactJSONString, redactString } = await import(process.env.CARTULARY_REDACTION_CONTRACT_URL);
+const size = 4 * 1024 * 1024;
+const fill = (unit) => unit.repeat(Math.ceil(size / unit.length)).slice(0, size);
+const runs = {
+  word_without_assignment: fill("Password_Token_Session_9"),
+  unquoted_terms: fill("passwordsecrettokencookiedsn"),
+  scheme_without_separator: fill("ab0+.-"),
+  token_without_dot: fill("eyJ-_aZ9"),
+};
+const cases = [];
+for (const [name, run] of Object.entries(runs)) {
+  cases.push([\`raw/\${name}\`, () => redactString(run)]);
+  cases.push([\`unterminated_quote/\${name}\`, () => redactString(\`"\${run}\`)]);
+  cases.push([\`json_value/\${name}\`, () => redactString(\`{"message":"\${run}","next":"x"}\`)]);
+  cases.push([\`json_key/\${name}\`, () => redactString(\`{"\${run}":"value"}\`)]);
+  cases.push([\`structured/\${name}\`, () => compactJSONString({ [run]: "value", message: run, args: [run] })]);
+}
+const timings = {};
+for (const [name, redact] of cases) {
+  const started = performance.now();
+  redact();
+  timings[name] = Math.round(performance.now() - started);
+}
+process.stdout.write(JSON.stringify(timings));
+`;
+  const result = spawnSync(process.execPath, ["--input-type=module", "-e", child], {
+    encoding: "utf8",
+    timeout: 120_000,
+    env: { ...process.env, CARTULARY_REDACTION_CONTRACT_URL: pathToFileURL(path.resolve(import.meta.dirname, "../../contract/index.mjs")).href },
+  });
+  assert.equal(result.error?.code, undefined, "adversarial redaction exceeded its 120 s deadline and was stopped");
+  assert.equal(result.status, 0, "adversarial redaction child failed");
+  const slow = Object.entries(JSON.parse(result.stdout)).filter(([, milliseconds]) => milliseconds >= 5000);
+  assert.deepEqual(slow, [], "adversarial redaction exceeded 5 s for a 4 MiB input");
+});
+
+test("script redaction matrix matches the independently specified expectations", () => {
+  // Report case names only: a failing output may still hold its fixture
+  // secret, and retained logs must pass the retained-secret scan.
+  const failures = [];
+  const cases = redactionMatrix();
+  for (const [name, structured, input, want, secret] of cases) {
+    const got = structured ? compactJSONString(JSON.parse(input)) : redactString(input);
+    if (got !== want) failures.push(`${name}:differs`);
+    if (secret && got.includes(secret)) failures.push(`${name}:leaks`);
+    if (/REDACTED[\]:]/u.test(got)) failures.push(`${name}:marker`);
+  }
+  assert.deepEqual(failures, [], `${failures.length} findings over ${cases.length} cases`);
+});
+
+test("native redaction generation renders the frozen scan identity and rejects partial, ambiguous or uncovered policy", () => {
+  const policy = JSON.parse(readFileSync(path.resolve(import.meta.dirname, "../../../harness_redaction_manifest.json"), "utf8"));
   const rendered = renderNativeRedactionPolicy(policy);
-  assert.match(rendered, /regexp\.MustCompile\("\(\?i\)\(secret=\)fixture-secret"\)/u);
   // The manifest owns the single marker; the native policy exports it (TH-HARNESS-REQ-617).
   assert.match(rendered, /^const Marker = "<redacted>"$/mu);
   assert.match(rendered, /replacement: Marker,/u);
+  // The generated scan identity reproduces the frozen policy digest.
+  const identity = JSON.parse(/^const RetainedScanPolicyIdentity = (".*")$/mu.exec(rendered)[1]);
+  assert.equal(`sha256:${createHash("sha256").update(identity).digest("hex")}`,
+    "sha256:eaa74efae69ea73a6e0f18823a94ccc70a19b242e2cb2880e446611c3084ee11");
   for (const mutate of [
     () => null,
     (p) => ({ ...p, schema_id: "foreign" }),
@@ -254,7 +397,38 @@ test("native redaction generation rejects unavailable, partial and ambiguous pol
     (p) => { p.value_patterns[0].replacement = "$1[REDACTED]"; return p; },
     (p) => { p.value_patterns[0].replacement = "$1<redacted>:dsn"; return p; },
     (p) => { p.value_patterns[0].replacement = "$1<redacted> [REDACTED:token]"; return p; },
+    // The structured and CLI vocabularies are required, closed and canonical.
+    (p) => { delete p.structured_secret_key_tokens; return p; },
+    (p) => { p.structured_secret_key_tokens.push("password"); return p; },
+    (p) => { p.secret_cli_flag_names = []; return p; },
+    (p) => { p.whole_string_assignment = "([A-Za-z]+)="; return p; },
+    // A scan vocabulary change cannot keep the frozen policy identity.
+    (p) => { p.retained_scan.json_member_terms.push({ term: "credential" }); return p; },
+    (p) => { p.retained_scan.assignment_names[2] = { name: "TOKEN" }; return p; },
+    (p) => { p.retained_scan.url_userinfo_schemes.push("mysql"); return p; },
+    (p) => { p.retained_scan.forbidden_names.pop(); return p; },
+    // The authored rules must cover the scan and CLI vocabularies.
+    (p) => { p.value_patterns = p.value_patterns.filter((rule) => rule.name !== "secret_assignment"); return p; },
+    (p) => { p.value_patterns = p.value_patterns.filter((rule) => rule.name !== "postgres_url_userinfo"); return p; },
+    (p) => { p.secret_cli_flag_names.push("credential"); return p; },
+    // Shared patterns use explicit ASCII classes, never engine-dependent ones.
+    ...["\\s", "\\S", "\\d", "\\D", "\\w", "\\W", "\\b", "\\B", "."].map((token) =>
+      (p) => { p.value_patterns[0].pattern = `(?i)Bearer${token}[A-Za-z]+`; return p; }),
+    (p) => { p.whole_string_assignment = "^([A-Za-z]\\w*)="; return p; },
   ]) assert.throws(() => renderNativeRedactionPolicy(mutate(structuredClone(policy))));
+  // A shared pattern begins with a literal or with a consumed ASCII boundary
+  // group that its replacement re-emits, so it stays linear (TH-HARNESS-REQ-617).
+  const rule = (p, name) => p.value_patterns.find((entry) => entry.name === name);
+  for (const [mutate, message] of [
+    [(p) => { rule(p, "secret_assignment").pattern = String.raw`(?i)([A-Za-z0-9_]*?(?:PASSWORD|SECRET))=[^\t\n\f\r ]+`; }, /must begin with a literal or a consumed boundary/u],
+    [(p) => { rule(p, "bearer_token").pattern = String.raw`(?i)B+earer[\t ]+[A-Za-z]+`; }, /must begin with a literal/u],
+    [(p) => { rule(p, "cookie_header").pattern = String.raw`(?i)((?:Cookie|[A-Z]+-Cookie)[\t ]*:[\t ]*)([^\r\n]+)`; }, /must begin with a literal/u],
+    [(p) => { rule(p, "jwt").replacement = "<redacted>"; }, /re-emit its consumed boundary/u],
+  ]) {
+    const copy = structuredClone(policy);
+    mutate(copy);
+    assert.throws(() => renderNativeRedactionPolicy(copy), message);
+  }
 });
 
 test("foundation generation compiles before publication and rolls back partial installation", async (t) => {

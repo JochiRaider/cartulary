@@ -192,6 +192,8 @@ func testReportingArtifactRoundTrip(t *testing.T, runtime *appsupport.Runtime) {
 	}
 	active := stringScalar(t, target.DB, `SELECT pack_set_id FROM reference_pack_current_set WHERE singleton`)
 	terminalImport := importBundleAndWait(t, target.Server, destination, original, "artifact-valid-import")
+	importJobID, _ := terminalImport["job_id"].(string)
+	requirePreparationStagesOnlyRows(t, target.DB, importJobID, original, true)
 	if got := stringScalar(t, target.DB, `SELECT pack_set_id FROM reference_pack_current_set WHERE singleton`); got != active {
 		t.Fatal("artifact import changed activation")
 	}

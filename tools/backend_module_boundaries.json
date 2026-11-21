@@ -358,6 +358,7 @@
         "internal/modules/crossownertransaction/coordinator.go",
         "internal/modules/crossownertransaction/validation.go",
         "internal/modules/extensions/**",
+        "internal/modules/incidentbundles/portability_deadline.go",
         "internal/modules/incidentbundles/portable_fatal_integration_test.go",
         "internal/modules/recovery/binding_validation.go",
         "internal/modules/reference_data/coordinator_execution.go",
@@ -2781,7 +2782,7 @@
         {
           "package": "internal/modules/entities",
           "declaration": "validateEntityCrossRowsBeforeApply",
-          "sql": "SELECT EXISTS (SELECT 1 FROM public.entities_bundle_validation_nodes WHERE kind=$1 AND id=$2), EXISTS (SELECT 1 FROM public.entities_bundle_validation_nodes n JOIN records r ON r.record_id=n.id WHERE n.kind=$1 AND n.id=$2 AND n.state IN ('stub','canonical') AND r.deleted_at IS NULL AND r.incident_id=$3)"
+          "sql": "\nSELECT EXISTS (SELECT 1 FROM public.entities_bundle_validation_nodes WHERE kind=u.kind AND id=u.id),\n       EXISTS (SELECT 1 FROM public.entities_bundle_validation_nodes n JOIN records r ON r.record_id=n.id WHERE n.kind=u.kind AND n.id=u.id AND n.state IN ('stub','canonical') AND r.deleted_at IS NULL AND r.incident_id=$3)\n  FROM unnest($1::text[],$2::uuid[]) WITH ORDINALITY AS u(kind,id,ordinal)\n ORDER BY u.ordinal"
         },
         {
           "package": "internal/modules/entities/hostidentity/deleterestore",

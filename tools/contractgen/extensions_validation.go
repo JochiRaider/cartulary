@@ -809,7 +809,7 @@ func validateExtensionValidationDeclarations(object map[string]any) error {
 		return fmt.Errorf("validation declarations must not be empty")
 	}
 	seenConditions := map[string]struct{}{}
-	requiredReasons := stringSet("extension_transaction_timeout", "backup_binding_codec_unsupported", "extension_staged_object_cleanup_dependency_failed")
+	requiredReasons := stringSet("extension_transaction_timeout", "extension_participant_timeout", "backup_binding_codec_unsupported", "extension_staged_object_cleanup_dependency_failed")
 	seenReasons := map[string]struct{}{}
 	for declarationIndex, declaration := range declarations {
 		label := fmt.Sprintf("declarations[%d]", declarationIndex)

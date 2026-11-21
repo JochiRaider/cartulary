@@ -69,9 +69,11 @@ export function packBrowserCohorts(partitions, catalog, policy, owner, timeoutFo
   return partitions.flatMap((partition) => {
     const items = partition.selectedRowIDs.map((id) => {
       const row = catalog.rowByID.get(id);
-      const cost = owner.evidence_estimates_ms[row?.evidence_class];
+      // A reviewed row estimate covers the whole row; the evidence-class
+      // estimate applies per selected title (TH-HARNESS 11.6).
+      const cost = row?.estimated_work_ms ?? owner.evidence_estimates_ms[row?.evidence_class] * (row?.selector.titles.length ?? 0);
       if (!row || !Number.isSafeInteger(cost) || cost < 1) throw new Error(`browser row ${id} has no selected execution estimate`);
-      return { id, cost: cost * row.selector.titles.length, row };
+      return { id, cost, row };
     });
     // Placement is known only after packing. Reserve both allocation boundaries
     // for every candidate; the compiler charges them only at their actual ends.

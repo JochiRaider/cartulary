@@ -62,14 +62,12 @@ func TestRecordsIncidentBundleSourcePortAppliesAndRollsBack_Integration(t *testi
 	importContext := recordsTestImportContext(
 		t, incidentID, actorID, "records-apply-rollback", attributions,
 	)
-	prepared, err := port.PrepareImport(
-		ctx,
-		portabilitysupport.MapBundle{recordsBundlePath: payload},
-		importContext,
-	)
+	bundle := &portabilitysupport.CountingBundle{MemberReader: portabilitysupport.MapBundle{recordsBundlePath: payload}}
+	prepared, err := port.PrepareImport(ctx, bundle, importContext)
 	if err != nil {
 		t.Fatalf("prepare records import: %v", err)
 	}
+	bundle.Freeze()
 	tx, err := db.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		t.Fatalf("begin records apply transaction: %v", err)
@@ -81,6 +79,11 @@ func TestRecordsIncidentBundleSourcePortAppliesAndRollsBack_Integration(t *testi
 	if err := port.ValidateImportTx(ctx, tx, prepared, importContext); err != nil {
 		_ = tx.Rollback(ctx)
 		t.Fatalf("validate records import: %v", err)
+	}
+	// Core 01 REQ-01-641: once preparation returns, no bundle member reopens.
+	if late := bundle.Late(); late != 0 {
+		_ = tx.Rollback(ctx)
+		t.Fatalf("Records Apply and Validate opened %d bundle members after preparation", late)
 	}
 	var insideCount int
 	if err := tx.QueryRow(
@@ -95,9 +98,10 @@ func TestRecordsIncidentBundleSourcePortAppliesAndRollsBack_Integration(t *testi
 		_ = tx.Rollback(ctx)
 		t.Fatalf("applied record count = %d; want 1", insideCount)
 	}
-	if got := len(attributions.rows); got != 2 {
+	staged, err := portabilitysupport.ReadStagedAttributions(ctx, port, prepared, importContext)
+	if err != nil || len(staged) != 2 || len(attributions.rows) != 0 {
 		_ = tx.Rollback(ctx)
-		t.Fatalf("recorded attributions = %d; want 2", got)
+		t.Fatalf("staged attributions = %v, recorded rows = %d, err = %v; want 2 staged", staged, len(attributions.rows), err)
 	}
 	if err := tx.Rollback(ctx); err != nil {
 		t.Fatalf("roll back records import: %v", err)
@@ -729,22 +733,8 @@ func newRecordsTestPort(t testing.TB, mirror bool) sourceport.Port {
 }
 
 type recordsTestAttributions struct {
+	portabilitysupport.AttributionCapability
 	rows []incidentportability.ImportedAttribution
-}
-
-func (r *recordsTestAttributions) RecordImportedAttribution(
-	table string,
-	sourceRowID string,
-	column string,
-	sourceActorID string,
-) error {
-	r.rows = append(r.rows, incidentportability.ImportedAttribution{
-		SourceTable:   table,
-		SourceRowID:   sourceRowID,
-		SourceColumn:  column,
-		SourceActorID: sourceActorID,
-	})
-	return nil
 }
 
 func (r *recordsTestAttributions) ImportedAttributions() []incidentportability.ImportedAttribution {
@@ -790,6 +780,7 @@ func recordsTestImportContext(
 		OperationID:   operationID,
 		Attributions:  attributions,
 		Actors:        actors,
+		Preparation:   portabilitysupport.NewPreparationStore(),
 	}
 }
 
@@ -871,15 +862,4 @@ func TestRecordsPortableEnvelopeRejectsTrailingContent_Unit(t *testing.T) {
 		recordsTestImportContext(t, incidentID, actorID, "records-trailing", nil),
 	)
 	requireRecordsFailure(t, err, "records.envelope_legal")
-}
-
-func (r *recordsTestAttributions) VisitImportedAttributions(table, rowID string, visit func(incidentportability.ImportedAttribution) error) error {
-	for _, row := range r.ImportedAttributions() {
-		if row.SourceTable == table && (rowID == "" || row.SourceRowID == rowID) {
-			if err := visit(row); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
 }

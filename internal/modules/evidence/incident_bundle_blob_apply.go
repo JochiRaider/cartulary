@@ -32,7 +32,7 @@ VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$2
 		if tag.RowsAffected() != 1 {
 			return d.DeclaredFailure("evidence.source_identity_admitted")
 		}
-		return input.Attributions.RecordImportedAttribution("object_blobs", row.ObjectBlobID.String(), "created_by_user_id", row.CreatedByUserID.String())
+		return nil
 	})
 }
 
@@ -78,34 +78,4 @@ func (p preparedEvidenceImport) compareBlobs(ctx context.Context, tx pgx.Tx, inp
 		return d.DeclaredFailure("evidence.source_state_exact")
 	}
 	return rows.Err()
-}
-
-func (p preparedEvidenceImport) validateBlobAttributions(ctx context.Context, recorder incidentportability.AttributionRecorder, d sourceport.Descriptor) error {
-	var expectedCount, actualCount uint64
-	if err := p.blobs(ctx, d, func(row evidenceblob.Row) error {
-		expectedCount++
-		seen := false
-		if err := recorder.VisitImportedAttributions("object_blobs", row.ObjectBlobID.String(), func(a incidentportability.ImportedAttribution) error {
-			if seen || a.SourceTable != "object_blobs" || a.SourceRowID != row.ObjectBlobID.String() || a.SourceColumn != "created_by_user_id" || a.SourceActorID != row.CreatedByUserID.String() || a.LocalUserID != p.actorID {
-				return d.DeclaredFailure("evidence.attribution_exact")
-			}
-			seen = true
-			return ctx.Err()
-		}); err != nil {
-			return err
-		}
-		if !seen {
-			return d.DeclaredFailure("evidence.attribution_exact")
-		}
-		return nil
-	}); err != nil {
-		return err
-	}
-	if err := recorder.VisitImportedAttributions("object_blobs", "", func(incidentportability.ImportedAttribution) error { actualCount++; return ctx.Err() }); err != nil {
-		return err
-	}
-	if actualCount != expectedCount {
-		return d.DeclaredFailure("evidence.attribution_exact")
-	}
-	return nil
 }

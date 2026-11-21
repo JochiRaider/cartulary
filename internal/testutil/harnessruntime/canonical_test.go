@@ -578,7 +578,7 @@ func TestRuntimeRequiredPublication(t *testing.T) {
 			return unitResult{Status: "failed", ExitCode: 11, Failure: failed("artifact", "artifact_error")}
 		}
 		prefixes <- prefix
-		return unitResult{Status: "passed", Stdout: []byte("PASSWORD=private-sentinel\npostgres://user:password@host/db")}
+		return unitResult{Status: "passed", Stdout: []byte("PASSWORD=private-sentinel\npostgres://user:password@host/db\n{\"session_secret\":\"other-value\"}")}
 	}})
 	if err != nil {
 		t.Fatal(err)
@@ -630,8 +630,10 @@ func TestRuntimeRequiredPublication(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(string(bytes), "private-sentinel") || strings.Contains(string(bytes), ":password@") {
-		t.Fatal("unredacted diagnostic")
+	// Registered secrets, then the manifest-owned harness rules, including the
+	// retained-scan closure for JSON members (TH-HARNESS-REQ-617).
+	if string(bytes) != "PASSWORD=<redacted>\npostgres://<redacted>@host/db\n{\"session_secret\":\"<redacted>\"}" {
+		t.Fatalf("unredacted diagnostic: %q", bytes)
 	}
 	if err := publisher.Event(map[string]any{}); err == nil {
 		t.Fatal("late event accepted")

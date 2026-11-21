@@ -12,6 +12,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -57,7 +58,7 @@ func TestIncidentBundlePortabilityStateAndClaimMatrix_Integration(t *testing.T) 
 			if test.policy.Mode == PortabilityModeParticipant && test.policy.ClaimState == ClaimStateClaimed {
 				participants = []ExtensionParticipant{participant}
 			}
-			orchestrator, err := NewPortabilityOrchestrator(PortabilityOptions{Policies: []ExtensionPolicy{test.policy}, Presence: portabilityPresenceFake{present: test.present}, Participants: participants, Allocator: &portabilityAllocatorFake{}, SnapshotReads: portabilityReadFactoryFake{}})
+			orchestrator, err := NewPortabilityOrchestrator(PortabilityOptions{Policies: []ExtensionPolicy{test.policy}, Presence: portabilityPresenceFake{present: test.present}, Participants: participants, Allocator: &portabilityAllocatorFake{}, SnapshotReads: portabilityReadFactoryFake{}, ParticipantTimeout: time.Minute, FatalSink: func(error) {}})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -121,6 +122,8 @@ func TestIncidentBundlePortabilityStateAndClaimMatrix_Integration(t *testing.T) 
 
 func TestIncidentBundlePortabilityImportAdmissionAndCleanup_Integration(t *testing.T) {
 	t.Run("operation limits", checkPortabilityImportLimits)
+	t.Run("participant deadlines", checkPortabilityParticipantDeadlines)
+	t.Run("participant bundle reader retires after preparation", checkParticipantMemberRetirement)
 	ctx := t.Context()
 	incidentID := uuid.MustParse("22222222-2222-2222-2222-222222222222")
 	input := PortabilityImportContext{OperationID: "operation", IncidentID: incidentID, ActorUserID: uuid.MustParse("33333333-3333-4333-8333-333333333333")}
@@ -132,7 +135,7 @@ func TestIncidentBundlePortabilityImportAdmissionAndCleanup_Integration(t *testi
 		AuthoritativeFamilyIDs: []string{"profile.state"}}
 	allocator := &portabilityAllocatorFake{}
 	participant := &portabilityParticipantFake{id: policy.ParticipantID, allocate: true}
-	orchestrator, err := NewPortabilityOrchestrator(PortabilityOptions{Policies: []ExtensionPolicy{policy}, Presence: portabilityPresenceFake{present: true}, Participants: []ExtensionParticipant{participant}, Allocator: allocator, SnapshotReads: portabilityReadFactoryFake{}})
+	orchestrator, err := NewPortabilityOrchestrator(PortabilityOptions{Policies: []ExtensionPolicy{policy}, Presence: portabilityPresenceFake{present: true}, Participants: []ExtensionParticipant{participant}, Allocator: allocator, SnapshotReads: portabilityReadFactoryFake{}, ParticipantTimeout: time.Minute, FatalSink: func(error) {}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -236,7 +239,7 @@ func TestIncidentBundlePortabilityImportAdmissionAndCleanup_Integration(t *testi
 			if tc.policy.Mode == PortabilityModeParticipant && tc.policy.ClaimState == ClaimStateClaimed {
 				participants = []ExtensionParticipant{fake}
 			}
-			current, err := NewPortabilityOrchestrator(PortabilityOptions{Policies: []ExtensionPolicy{tc.policy}, Presence: portabilityPresenceFake{}, Participants: participants, Allocator: &portabilityAllocatorFake{}, SnapshotReads: portabilityReadFactoryFake{}})
+			current, err := NewPortabilityOrchestrator(PortabilityOptions{Policies: []ExtensionPolicy{tc.policy}, Presence: portabilityPresenceFake{}, Participants: participants, Allocator: &portabilityAllocatorFake{}, SnapshotReads: portabilityReadFactoryFake{}, ParticipantTimeout: time.Minute, FatalSink: func(error) {}})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -286,7 +289,7 @@ func TestIncidentBundlePortabilityImportAdmissionAndCleanup_Integration(t *testi
 				t.Fatal(err)
 			}
 			fake := &portabilityParticipantFake{id: policy.ParticipantID}
-			current, err := NewPortabilityOrchestrator(PortabilityOptions{Policies: []ExtensionPolicy{policy}, Presence: portabilityPresenceFake{}, Participants: []ExtensionParticipant{fake}, Allocator: &portabilityAllocatorFake{}, SnapshotReads: portabilityReadFactoryFake{}})
+			current, err := NewPortabilityOrchestrator(PortabilityOptions{Policies: []ExtensionPolicy{policy}, Presence: portabilityPresenceFake{}, Participants: []ExtensionParticipant{fake}, Allocator: &portabilityAllocatorFake{}, SnapshotReads: portabilityReadFactoryFake{}, ParticipantTimeout: time.Minute, FatalSink: func(error) {}})
 			if err != nil {
 				t.Fatal(err)
 			}

@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
+	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/envelopefacts"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/linkfacts"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/policy"
@@ -43,6 +44,14 @@ func NewSourcePort(linkFacts linkfacts.Capability, fieldReferences linkfacts.Fie
 				return tasksDecisionsInvariantFailure("tasks_decisions.envelope_type_scope")
 			}
 			return validatePreparedTasksDecisionsImportTx(ctx, tx, linkFacts, fieldReferences, envelopes, prepared, importContext)
+		},
+		// Attribution was staged while preparing; the core flushes it in step 9.
+		Attributions: func(value any) []incidentportability.AttributionStream {
+			prepared, ok := value.(preparedTasksDecisionsImport)
+			if !ok {
+				return nil
+			}
+			return []incidentportability.AttributionStream{prepared.attribution}
 		},
 	}), nil
 }

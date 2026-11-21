@@ -75,4 +75,5 @@ func TestPreparedMemberChecksMetadataAndActualBytes_Unit(t *testing.T) {
 			}
 		})
 	}
+	t.Run("seal-verified readers are hashed once", checkSealVerifiedReaders)
 }

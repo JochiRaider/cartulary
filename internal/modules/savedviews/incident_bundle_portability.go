@@ -3,11 +3,9 @@ package savedviews
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"hash"
 	"io"
 	"strconv"
 	"time"
@@ -18,6 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/JochiRaider/cartulary/internal/gen/sql"
+	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/JochiRaider/cartulary/internal/platform/viewquery"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
@@ -47,6 +46,10 @@ type savedViewImportContext struct {
 	ActorUserID   uuid.UUID
 	Attributions  incidentportability.AttributionRecorder
 	ActorAdmitted func(string) bool
+	// Preparation is the port's preparation scope (Core 01 REQ-01-641):
+	// preparation stages the admitted rows and owner attribution there, and
+	// the final transaction reads them back without reopening the bundle.
+	Preparation sourceport.PreparationStore
 }
 
 type savedViewInvariantError struct {
@@ -272,28 +275,55 @@ func decodeSavedViewPortableJSON(raw []byte) (any, error) {
 	return value, nil
 }
 
+// preparedSavedViewImport holds the staged rows and owner attribution; the
+// final transaction reads no bundle member.
 type preparedSavedViewImport struct {
-	members             *incidentportability.BoundMembers
+	rows                incidentportability.PreparedRowStream
+	attribution         incidentportability.AttributionStream
 	incidentID, actorID uuid.UUID
-	count               uint64
+	count, owners       uint64
+	staged              bool
 }
 
 type preparedSavedViewRow struct {
-	SavedViewID      uuid.UUID
-	IncidentID       uuid.UUID
-	ViewSchemaID     string
-	Scope            scope
-	DisplayName      string
-	QueryJSON        []byte
-	LayoutJSON       []byte
-	PortableOwnerID  *uuid.UUID
-	RuntimeOwnerID   *uuid.UUID
-	CreatedAt        time.Time
-	UpdatedAt        time.Time
-	SavedViewVersion int64
+	SavedViewID      uuid.UUID       `json:"id"`
+	IncidentID       uuid.UUID       `json:"incident"`
+	ViewSchemaID     string          `json:"schema"`
+	Scope            scope           `json:"scope"`
+	DisplayName      string          `json:"name"`
+	QueryJSON        json.RawMessage `json:"query"`
+	LayoutJSON       json.RawMessage `json:"layout"`
+	PortableOwnerID  *uuid.UUID      `json:"owner"`
+	RuntimeOwnerID   *uuid.UUID      `json:"runtime_owner"`
+	CreatedAt        time.Time       `json:"created"`
+	UpdatedAt        time.Time       `json:"updated"`
+	SavedViewVersion int64           `json:"version"`
 }
 
-const savedViewMemberPath = "data/saved_views.ndjson"
+const (
+	savedViewMemberPath        = "data/saved_views.ndjson"
+	preparedSavedViewsPath     = "saved_views.rows"
+	preparedSavedViewAttrPath  = "attribution.rows"
+	savedViewOwnerColumnSource = "owner_user_id"
+)
+
+// savedViewRowCodec stages one admitted row.
+type savedViewRowCodec struct{}
+
+func (savedViewRowCodec) Encode(row preparedSavedViewRow) ([]byte, error) {
+	return incidentportability.EncodeJSONRow(row)
+}
+
+func (savedViewRowCodec) Decode(line []byte) (preparedSavedViewRow, error) {
+	var row preparedSavedViewRow
+	return row, incidentportability.DecodeJSONRow(line, &row)
+}
+
+func (savedViewRowCodec) Columns() []string { return nil }
+
+func (savedViewRowCodec) Values(preparedSavedViewRow) ([]any, error) {
+	return nil, incidentportability.ErrPreparedStream
+}
 
 func prepareSavedViewImport(ctx context.Context, bundle incidentportability.MemberReader, importContext savedViewImportContext) (preparedSavedViewImport, error) {
 	if importContext.BundleVersion != 8 {
@@ -303,27 +333,59 @@ func prepareSavedViewImport(ctx context.Context, bundle incidentportability.Memb
 	if err != nil {
 		return preparedSavedViewImport{}, savedViewInvariantFailure("saved_views.row_shape_exact")
 	}
-	prepared := preparedSavedViewImport{members: members, incidentID: importContext.IncidentID, actorID: importContext.ActorUserID}
+	store := importContext.Preparation
+	if store == nil {
+		return preparedSavedViewImport{}, errors.New("saved views: incident bundle preparation staging is required")
+	}
+	prepared := preparedSavedViewImport{incidentID: importContext.IncidentID, actorID: importContext.ActorUserID}
 	previous := ""
-	err = prepared.walk(ctx, importContext, func(row preparedSavedViewRow) error {
-		id := row.SavedViewID.String()
-		if id <= previous {
-			return savedViewInvariantFailure("saved_views.identity_scope_legal")
-		}
-		previous = id
-		prepared.count++
-		return nil
+	prepared.rows, err = incidentportability.StagePreparedRows(ctx, store, preparedSavedViewsPath, savedViewRowCodec{}, func(emit func(preparedSavedViewRow) error) error {
+		return walkSavedViewMembers(ctx, members, importContext, func(row preparedSavedViewRow) error {
+			id := row.SavedViewID.String()
+			if id <= previous {
+				return savedViewInvariantFailure("saved_views.identity_scope_legal")
+			}
+			previous = id
+			prepared.count++
+			if row.PortableOwnerID != nil {
+				prepared.owners++
+			}
+			return emit(row)
+		})
 	})
 	if err != nil {
 		return preparedSavedViewImport{}, err
 	}
+	admitted := func(actorID string) bool {
+		return importContext.ActorAdmitted != nil && importContext.ActorAdmitted(actorID)
+	}
+	prepared.attribution, err = incidentportability.StageAttributions(ctx, store, preparedSavedViewAttrPath, admitted, func(emit func(incidentportability.AttributionRow) error) error {
+		return incidentportability.ReadPreparedRows(ctx, store, prepared.rows, savedViewRowCodec{}, func(row preparedSavedViewRow) error {
+			if row.PortableOwnerID == nil {
+				return nil
+			}
+			return emit(incidentportability.AttributionRow{SourceTable: "saved_views", SourceRowID: row.SavedViewID.String(), SourceColumn: savedViewOwnerColumnSource, SourceActorID: row.PortableOwnerID.String()})
+		})
+	})
+	if err != nil {
+		return preparedSavedViewImport{}, err
+	}
+	prepared.staged = true
 	return prepared, nil
 }
+
+// walk visits the staged rows in order; the final transaction reads no bundle
+// member.
 func (p preparedSavedViewImport) walk(ctx context.Context, importContext savedViewImportContext, visit func(preparedSavedViewRow) error) error {
-	if p.members == nil || p.incidentID != importContext.IncidentID || p.actorID != importContext.ActorUserID {
+	if !p.staged || importContext.Preparation == nil || p.incidentID != importContext.IncidentID || p.actorID != importContext.ActorUserID {
 		return savedViewInvariantFailure("saved_views.identity_scope_legal")
 	}
-	err := incidentportability.WalkPath(ctx, p.members, savedViewMemberPath, func(raw map[string]any) error {
+	return incidentportability.ReadPreparedRows(ctx, importContext.Preparation, p.rows, savedViewRowCodec{}, visit)
+}
+
+// walkSavedViewMembers admits the bundle rows while preparing.
+func walkSavedViewMembers(ctx context.Context, members *incidentportability.BoundMembers, importContext savedViewImportContext, visit func(preparedSavedViewRow) error) error {
+	err := incidentportability.WalkPath(ctx, members, savedViewMemberPath, func(raw map[string]any) error {
 		row, err := prepareSavedViewRow(raw, importContext)
 		if err != nil {
 			return err
@@ -734,18 +796,9 @@ func applyPreparedSavedViewImportTx(
 		if affected != 1 {
 			return savedViewInvariantFailure("saved_views.identity_scope_legal")
 		}
-		if row.PortableOwnerID == nil {
-			return nil
-		}
-		if importContext.Attributions == nil {
-			return savedViewInvariantFailure("saved_views.owner_tuple_legal")
-		}
-		if err := importContext.Attributions.RecordImportedAttribution(
-			"saved_views",
-			row.SavedViewID.String(),
-			"owner_user_id",
-			row.PortableOwnerID.String(),
-		); err != nil {
+		// The owner attribution was staged while preparing; the core flushes it
+		// in step 9. The capability check keeps its rank.
+		if row.PortableOwnerID != nil && importContext.Attributions == nil {
 			return savedViewInvariantFailure("saved_views.owner_tuple_legal")
 		}
 		return nil
@@ -889,7 +942,7 @@ SELECT saved_view_id,
 	}
 	rows.Close()
 
-	if err := validateSavedViewAttributions(ctx, prepared, importContext); err != nil {
+	if err := validateSavedViewAttributions(prepared, importContext); err != nil {
 		return err
 	}
 	// Saved Views neither consumes nor mutates Reference Packs. Exact equality
@@ -906,41 +959,11 @@ func pgUUIDMatches(actual pgtype.UUID, expected *uuid.UUID) bool {
 	return err == nil && parsed == *expected
 }
 
-func validateSavedViewAttributions(ctx context.Context, prepared preparedSavedViewImport, importContext savedViewImportContext) error {
-	expected, actual := sha256.New(), sha256.New()
-	var expectedCount, actualCount uint64
-	write := func(digest hash.Hash, rowID, actorID string) {
-		_, _ = io.WriteString(digest, rowID+"\x00owner_user_id\x00"+actorID+"\x00"+importContext.ActorUserID.String()+"\x00")
-	}
-	if err := prepared.walk(ctx, importContext, func(row preparedSavedViewRow) error {
-		if row.PortableOwnerID != nil {
-			expectedCount++
-			write(expected, row.SavedViewID.String(), row.PortableOwnerID.String())
-		}
-		return nil
-	}); err != nil {
-		return err
-	}
-	if importContext.Attributions == nil {
-		if expectedCount == 0 {
-			return nil
-		}
-		return savedViewInvariantFailure("saved_views.owner_tuple_legal")
-	}
-	previous := ""
-	err := importContext.Attributions.VisitImportedAttributions("saved_views", "", func(entry incidentportability.ImportedAttribution) error {
-		if entry.SourceTable != "saved_views" || entry.SourceRowID <= previous || entry.SourceColumn != "owner_user_id" || entry.LocalUserID != importContext.ActorUserID {
-			return savedViewInvariantFailure("saved_views.owner_tuple_legal")
-		}
-		previous = entry.SourceRowID
-		actualCount++
-		write(actual, entry.SourceRowID, entry.SourceActorID)
-		return nil
-	})
-	if err != nil {
-		return err
-	}
-	if actualCount != expectedCount || !bytes.Equal(actual.Sum(nil), expected.Sum(nil)) {
+// validateSavedViewAttributions keeps the capability's rank; the owner
+// attribution itself is flushed by the core in step 9 and checked there by
+// counts.
+func validateSavedViewAttributions(prepared preparedSavedViewImport, importContext savedViewImportContext) error {
+	if importContext.Attributions == nil && prepared.owners != 0 {
 		return savedViewInvariantFailure("saved_views.owner_tuple_legal")
 	}
 	return nil

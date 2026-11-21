@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"math"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -13,92 +14,155 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions/rollbackcontract"
 )
 
-func prepareRevisionsImport(ctx context.Context, bundle incidentportability.MemberReader, importContext sourceport.ImportContext) (preparedRevisionsImport, error) {
+func prepareRevisionsImport(ctx context.Context, bundle incidentportability.MemberReader, importContext sourceport.ImportContext, validation *incidentBundleValidationCatalog) (preparedRevisionsImport, error) {
 	operationID, validOperation := canonicalRevisionsUUID(importContext.OperationID)
 	if bundle == nil || importContext.IncidentID == uuid.Nil || importContext.ActorUserID == uuid.Nil || !validOperation {
 		return preparedRevisionsImport{}, revisionsFailure(revisionsReferencesInvariant)
+	}
+	store := importContext.Preparation
+	if store == nil || validation == nil {
+		return preparedRevisionsImport{}, errors.New("revisions: incident bundle preparation staging is required")
 	}
 	members, err := incidentportability.BindMembers(bundle, []string{changeSetsBundlePath, changeSetMutationsPath, recordRevisionsBundlePath})
 	if err != nil {
 		return preparedRevisionsImport{}, revisionsFailure(revisionsReferencesInvariant)
 	}
-	prepared := preparedRevisionsImport{actorContext: revisionActorImportContext{ImportID: operationID, ActorID: importContext.ActorUserID}, incidentID: importContext.IncidentID, runtimeActor: importContext.ActorUserID, actors: importContext.Actors, members: members}
+	prepared := preparedRevisionsImport{
+		actorContext: revisionActorImportContext{ImportID: operationID, ActorID: importContext.ActorUserID},
+		incidentID:   importContext.IncidentID, runtimeActor: importContext.ActorUserID, actors: importContext.Actors,
+		verdicts: &incidentportability.PreparedVerdicts{},
+	}
 	var selected *revisionsParseFailure
 	remember := func(failure *revisionsParseFailure) {
 		if failure != nil && (selected == nil || failure.precedes(*selected)) {
 			selected = failure
 		}
 	}
+	walk := func(path string, visit func(map[string]any) error) error {
+		return walkRevisionsMember(ctx, members, path, visit)
+	}
 	previous := ""
-	if err := prepared.walk(ctx, changeSetsBundlePath, func(raw map[string]any) error {
-		// Identity order is independent of lower-priority row admission.
-		if id, ok := canonicalRevisionsUUID(raw["change_set_id"]); ok {
-			if id.String() <= previous {
-				failure := parseFailure(revisionsReferencesInvariant, changeSetsBundlePath, id.String())
-				remember(&failure)
+	var longest []revisionActorImportContext
+	prepared.changeSets, err = incidentportability.StagePreparedRows(ctx, store, preparedChangeSetsPath, changeSetRowCodec{}, func(emit func(stagedChangeSet) error) error {
+		return walk(changeSetsBundlePath, func(raw map[string]any) error {
+			// Identity order is independent of lower-priority row admission.
+			if id, ok := canonicalRevisionsUUID(raw["change_set_id"]); ok {
+				if id.String() <= previous {
+					failure := parseFailure(revisionsReferencesInvariant, changeSetsBundlePath, id.String())
+					remember(&failure)
+				}
+				previous = id.String()
 			}
-			previous = id.String()
-		}
-		if !revisionChangeSetExportFits(raw, importContext) {
-			failure := parseFailure(revisionsReferencesInvariant, changeSetsBundlePath, portableIdentity(raw["change_set_id"]))
-			remember(&failure)
-			return nil
-		}
-		_, failure := parsePortableChangeSet(raw, importContext)
-		remember(failure)
-		return nil
-	}); err != nil {
+			if !revisionChangeSetExportFits(raw, importContext) {
+				failure := parseFailure(revisionsReferencesInvariant, changeSetsBundlePath, portableIdentity(raw["change_set_id"]))
+				remember(&failure)
+				return nil
+			}
+			row, failure := parsePortableChangeSet(raw, importContext)
+			remember(failure)
+			if failure != nil {
+				return nil
+			}
+			// Every change set's actor-context path is a suffix of the longest.
+			if !admitActorContextPath(&longest, row.ActorImportContexts) {
+				prepared.verdicts.Record(rankActorContexts, row.ChangeSetID.String(), revisionsFailure(revisionsHistoryInvariant))
+			}
+			return emit(stagedChangeSet{
+				ChangeSetID: row.ChangeSetID, IncidentID: row.IncidentID, PortableActorID: row.PortableActorID,
+				Source: row.Source, Reason: row.Reason, ClientTxnID: row.ClientTxnID, RequestID: row.RequestID,
+				CreatedAt: row.CreatedAt, Contexts: prepared.importedActorContexts(row.ActorImportContexts), HistoryOrder: row.HistoryOrder,
+			})
+		})
+	})
+	if err != nil {
 		return preparedRevisionsImport{}, err
 	}
 	previous = ""
 	sequence := 0
-	if err := prepared.walk(ctx, changeSetMutationsPath, func(raw map[string]any) error {
-		row, failure := parsePortableMutation(raw, prepared.actors)
-		remember(failure)
-		if failure != nil {
-			return nil
-		}
-		id := row.ChangeSetID.String()
-		if id != previous {
-			if id < previous {
+	prepared.mutations, err = incidentportability.StagePreparedRows(ctx, store, preparedMutationsPath, mutationRowCodec{}, func(emit func(stagedMutation) error) error {
+		return walk(changeSetMutationsPath, func(raw map[string]any) error {
+			row, failure := parsePortableMutation(raw, prepared.actors)
+			remember(failure)
+			if failure != nil {
+				return nil
+			}
+			id := row.ChangeSetID.String()
+			if id != previous {
+				if id < previous {
+					prepared.sequenceInvalid = true
+				}
+				previous = id
+				sequence = 0
+			}
+			if row.SequenceNo != sequence+1 {
 				prepared.sequenceInvalid = true
 			}
-			previous = id
-			sequence = 0
-		}
-		if row.SequenceNo != sequence+1 {
-			prepared.sequenceInvalid = true
-		}
-		sequence = row.SequenceNo
-		return nil
-	}); err != nil {
+			sequence = row.SequenceNo
+			staged, err := prepared.prepareMutation(row, validation)
+			if err != nil {
+				return err
+			}
+			return emit(staged)
+		})
+	})
+	if err != nil {
 		return preparedRevisionsImport{}, err
 	}
 	var revisionID int64
-	if err := prepared.walk(ctx, recordRevisionsBundlePath, func(raw map[string]any) error {
-		row, failure := parsePortableRecordRevision(raw, prepared.actors)
-		remember(failure)
-		if failure != nil {
-			return nil
-		}
-		if row.RevisionID <= revisionID {
-			prepared.revisionIdentityInvalid = true
-		}
-		revisionID = row.RevisionID
-		return nil
-	}); err != nil {
+	prepared.revisions, err = incidentportability.StagePreparedRows(ctx, store, preparedRevisionsPath, revisionRowCodec{}, func(emit func(stagedRevision) error) error {
+		return walk(recordRevisionsBundlePath, func(raw map[string]any) error {
+			row, failure := parsePortableRecordRevision(raw, prepared.actors)
+			remember(failure)
+			if failure != nil {
+				return nil
+			}
+			if row.RevisionID <= revisionID {
+				prepared.revisionIdentityInvalid = true
+			}
+			revisionID = row.RevisionID
+			staged, err := prepared.prepareRevision(row, validation)
+			if err != nil {
+				return err
+			}
+			return emit(staged)
+		})
+	})
+	if err != nil {
 		return preparedRevisionsImport{}, err
 	}
 	if selected != nil {
 		return preparedRevisionsImport{}, revisionsFailure(selected.invariant)
 	}
+	membership, versions, err := prepared.stageKeys(ctx, store, store)
+	if err != nil {
+		return preparedRevisionsImport{}, err
+	}
+	if err := prepared.checkMembership(ctx, store, membership); err != nil {
+		return preparedRevisionsImport{}, err
+	}
+	if err := prepared.checkRecordVersions(ctx, store, versions); err != nil {
+		return preparedRevisionsImport{}, err
+	}
+	admitted := func(actorID string) bool { _, ok := prepared.actors.Lookup(actorID); return ok }
+	prepared.attribution, err = incidentportability.StageAttributions(ctx, store, preparedAttributionPath, admitted, func(emit func(incidentportability.AttributionRow) error) error {
+		return incidentportability.ReadPreparedRows(ctx, store, prepared.changeSets, changeSetRowCodec{}, func(row stagedChangeSet) error {
+			return emit(incidentportability.AttributionRow{SourceTable: "change_sets", SourceRowID: row.ChangeSetID.String(), SourceColumn: "actor_user_id", SourceActorID: row.PortableActorID.String()})
+		})
+	})
+	if err != nil {
+		return preparedRevisionsImport{}, err
+	}
+	if prepared.attribution.Rows != prepared.changeSets.Rows {
+		return preparedRevisionsImport{}, incidentportability.ErrAttributionStream
+	}
 	return prepared, nil
 }
 
-func (p preparedRevisionsImport) walk(ctx context.Context, path string, visit func(map[string]any) error) error {
-	err := incidentportability.WalkPath(ctx, p.members, path, visit)
+func walkRevisionsMember(ctx context.Context, members incidentportability.MemberReader, path string, visit func(map[string]any) error) error {
+	err := incidentportability.WalkPath(ctx, members, path, visit)
 	var malformed *incidentportability.StrictNDJSONDecodeError
 	if errors.As(err, &malformed) {
 		return revisionsFailure(revisionsReferencesInvariant)
@@ -106,32 +170,109 @@ func (p preparedRevisionsImport) walk(ctx context.Context, path string, visit fu
 	return err
 }
 
-func (p preparedRevisionsImport) walkChangeSets(ctx context.Context, visit func(portableChangeSet) error) error {
-	return p.walk(ctx, changeSetsBundlePath, func(raw map[string]any) error {
-		row, failure := parsePortableChangeSet(raw, sourceport.ImportContext{ActorUserID: p.runtimeActor, IncidentID: p.incidentID, Actors: p.actors, OperationID: p.actorContext.ImportID.String()})
-		if failure != nil {
-			return revisionsFailure(failure.invariant)
+// prepareMutation proves a mutation's bundle-only reference and history facts,
+// recording each verdict at its rank, and derives its write-ready history
+// identities. Database-side facts become reference keys.
+func (p preparedRevisionsImport) prepareMutation(row portableChangeSetMutation, validation *incidentBundleValidationCatalog) (stagedMutation, error) {
+	before, err := stagedJSON(row.BeforeValue)
+	if err != nil {
+		return stagedMutation{}, err
+	}
+	after, err := stagedJSON(row.AfterValue)
+	if err != nil {
+		return stagedMutation{}, err
+	}
+	staged := stagedMutation{
+		ChangeSetID: row.ChangeSetID, SequenceNo: row.SequenceNo, TargetKind: row.TargetKind, TargetID: row.TargetID,
+		OperationKind: row.OperationKind, BeforeVersionID: row.BeforeVersionID, AfterVersionID: row.AfterVersionID,
+		BeforeValue: before, AfterValue: after,
+	}
+	key := row.ChangeSetID.String() + ":" + strconv.Itoa(row.SequenceNo)
+	referenceFailure := func() { p.verdicts.Record(rankBundleReferences, key, revisionsFailure(revisionsReferencesInvariant)) }
+	historyFailure := func() { p.verdicts.Record(rankHistoryShapes, key, revisionsFailure(revisionsHistoryInvariant)) }
+	history, err := validation.targets.DescribeValues(row.TargetKind, row.TargetID, row.OperationKind, row.BeforeValue, row.AfterValue)
+	if err != nil {
+		staged.DescribeFailed = true
+		historyFailure()
+	} else {
+		staged.HistoryRecordIDs, staged.HistoryEntryRecordIDs = history.HistoryRecordIDs, history.HistoryEntryRecordIDs
+	}
+	if !validation.resolvesTargetKind(row.TargetKind) ||
+		(validation.targets.requiresGenericPortableTargetID(row.TargetKind) && !canonicalPortableTargetID(row.TargetKind, row.TargetID)) {
+		referenceFailure()
+		return staged, nil
+	}
+	dispatch, err := validation.targets.dispatchClass(row.TargetKind)
+	if err != nil {
+		return stagedMutation{}, err
+	}
+	if dispatch != rollbackcontract.DispatchRow {
+		references, err := validation.targets.historyRecordReferences(row, p.incidentID)
+		if err != nil {
+			referenceFailure()
+			return staged, nil
 		}
-		return visit(row)
-	})
+		for _, reference := range references {
+			if reference.IncidentID != p.incidentID || reference.RecordID == uuid.Nil {
+				referenceFailure()
+				return staged, nil
+			}
+			staged.References = append(staged.References, reference.RecordID)
+		}
+		return staged, nil
+	}
+	recordID, err := uuid.Parse(row.TargetID)
+	if err != nil {
+		referenceFailure()
+		return staged, nil
+	}
+	staged.RowRecord = &recordID
+	if row.AfterValue == nil {
+		historyFailure()
+	}
+	for _, value := range []any{row.BeforeValue, row.AfterValue} {
+		declared, valid := validation.declaredSnapshotType(p.incidentID, recordID, value)
+		if !valid {
+			historyFailure()
+		} else if declared != "" && !slices.Contains(staged.Declared, declared) {
+			staged.Declared = append(staged.Declared, declared)
+		}
+	}
+	return staged, nil
 }
-func (p preparedRevisionsImport) walkMutations(ctx context.Context, visit func(portableChangeSetMutation) error) error {
-	return p.walk(ctx, changeSetMutationsPath, func(raw map[string]any) error {
-		row, failure := parsePortableMutation(raw, p.actors)
-		if failure != nil {
-			return revisionsFailure(failure.invariant)
+
+// prepareRevision proves a revision's bundle-only snapshot facts and stages its
+// write-ready row; its envelope type is checked in the transaction.
+func (p preparedRevisionsImport) prepareRevision(row portableRecordRevision, validation *incidentBundleValidationCatalog) (stagedRevision, error) {
+	before, err := stagedJSON(row.BeforeJSON)
+	if err != nil {
+		return stagedRevision{}, err
+	}
+	after, err := stagedJSON(row.AfterJSON)
+	if err != nil {
+		return stagedRevision{}, err
+	}
+	staged := stagedRevision{
+		RevisionID: row.RevisionID, ChangeSetID: row.ChangeSetID, RecordID: row.RecordID, RowVersion: row.RowVersion,
+		BeforeJSON: before, AfterJSON: after, CreatedAt: row.CreatedAt,
+	}
+	key := strconv.FormatInt(row.RevisionID, 10)
+	for _, value := range []map[string]any{row.BeforeJSON, row.AfterJSON} {
+		var snapshot any
+		if value != nil {
+			snapshot = value
 		}
-		return visit(row)
-	})
-}
-func (p preparedRevisionsImport) walkRevisions(ctx context.Context, visit func(portableRecordRevision) error) error {
-	return p.walk(ctx, recordRevisionsBundlePath, func(raw map[string]any) error {
-		row, failure := parsePortableRecordRevision(raw, p.actors)
-		if failure != nil {
-			return revisionsFailure(failure.invariant)
+		declared, valid := validation.declaredSnapshotType(p.incidentID, row.RecordID, snapshot)
+		if !valid {
+			p.verdicts.Record(rankHistoryShapes, key, revisionsFailure(revisionsHistoryInvariant))
+		} else if declared != "" && !slices.Contains(staged.Declared, declared) {
+			staged.Declared = append(staged.Declared, declared)
 		}
-		return visit(row)
-	})
+	}
+	if !revisionSnapshotPairMatches(row.BeforeJSON, row.AfterJSON, row.RowVersion) {
+		p.verdicts.Record(rankHistoryShapes, key, revisionsFailure(revisionsHistoryInvariant))
+	}
+	return staged, nil
 }
 
 func parsePortableChangeSet(

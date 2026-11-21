@@ -2,14 +2,12 @@ package revisions_test
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"reflect"
 	"testing"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
@@ -117,15 +115,21 @@ func TestRevisionsIncidentBundleExactAttribution(t *testing.T) {
 		}
 	}
 	for _, empty := range []bool{false, true} {
+		// Core 01 REQ-01-641: attribution is staged while preparing and flushed
+		// by the core in step 9; Revisions records nothing row by row.
 		t.Run(fmt.Sprintf("exact/empty=%t", empty), func(t *testing.T) {
 			withPrepared(t, base(empty), func(tx pgx.Tx, prepared sourceport.Prepared, input sourceport.ImportContext, recorder *revisionsAttributionRecorder) {
 				apply(t, tx, prepared, input)
+				if len(recorder.rows) != 0 {
+					t.Fatalf("apply recorded attribution row by row: %#v", recorder.rows)
+				}
+				got := revisionsStagedAttributions(t, h.port, prepared, input, h.actor.ID)
 				if empty {
-					if len(recorder.rows) != 0 {
-						t.Fatalf("empty input recorded attribution: %#v", recorder.rows)
+					if len(got) != 0 {
+						t.Fatalf("empty input staged attribution: %#v", got)
 					}
-				} else if !reflect.DeepEqual(recorder.rows, want) {
-					t.Fatalf("attribution=%#v want=%#v", recorder.rows, want)
+				} else if !reflect.DeepEqual(got, want) {
+					t.Fatalf("attribution=%#v want=%#v", got, want)
 				}
 				if err := h.port.ValidateImportTx(t.Context(), tx, prepared, input); err != nil {
 					t.Fatalf("exact attribution rejected: %v", err)
@@ -147,68 +151,6 @@ func TestRevisionsIncidentBundleExactAttribution(t *testing.T) {
 					}
 				})
 			})
-		}
-		t.Run(fmt.Sprintf("extra/empty=%t", empty), func(t *testing.T) {
-			withPrepared(t, base(empty), func(tx pgx.Tx, prepared sourceport.Prepared, input sourceport.ImportContext, recorder *revisionsAttributionRecorder) {
-				apply(t, tx, prepared, input)
-				extra := want[0]
-				extra.SourceRowID = uuid.NewString()
-				recorder.rows = append(recorder.rows, extra)
-				requireRevisionsInvariant(t, h.port.ValidateImportTx(t.Context(), tx, prepared, input), "revisions.actor_references_complete")
-			})
-		})
-	}
-	for _, defect := range []string{"missing", "duplicate", "table", "row", "column", "source_actor", "local_actor"} {
-		for _, index := range []int{0, 1} {
-			t.Run(fmt.Sprintf("%s/row=%d", defect, index), func(t *testing.T) {
-				withPrepared(t, base(false), func(tx pgx.Tx, prepared sourceport.Prepared, input sourceport.ImportContext, recorder *revisionsAttributionRecorder) {
-					apply(t, tx, prepared, input)
-					switch defect {
-					case "missing":
-						recorder.rows = append(recorder.rows[:index], recorder.rows[index+1:]...)
-					case "duplicate":
-						recorder.rows = append(recorder.rows, recorder.rows[index])
-					case "table":
-						recorder.rows[index].SourceTable = "record_revisions"
-					case "row":
-						recorder.rows[index].SourceRowID = uuid.NewString()
-					case "column":
-						recorder.rows[index].SourceColumn = "owner_user_id"
-					case "source_actor":
-						recorder.rows[index].SourceActorID = portableActors[1-index].String()
-					case "local_actor":
-						recorder.rows[index].LocalUserID = portableActors[index]
-					}
-					requireRevisionsInvariant(t, h.port.ValidateImportTx(t.Context(), tx, prepared, input), "revisions.actor_references_complete")
-				})
-			})
-		}
-	}
-	for _, phase := range []string{"record", "visit"} {
-		for _, empty := range []bool{false, true} {
-			if phase == "record" && empty {
-				continue
-			}
-			for _, failure := range []error{errors.New("attribution capability unavailable"), &pgconn.PgError{Code: "40001", ConstraintName: "record_revisions_pkey"}} {
-				t.Run(fmt.Sprintf("ordinary_error/%s/empty=%t/%T", phase, empty, failure), func(t *testing.T) {
-					withPrepared(t, base(empty), func(tx pgx.Tx, prepared sourceport.Prepared, input sourceport.ImportContext, recorder *revisionsAttributionRecorder) {
-						var got error
-						if phase == "record" {
-							recorder.recordErr = failure
-							got = h.port.ApplyImportTx(t.Context(), tx, prepared, input)
-							requireCounts(t, tx, [3]int{})
-						} else {
-							apply(t, tx, prepared, input)
-							recorder.visitErr = failure
-							got = h.port.ValidateImportTx(t.Context(), tx, prepared, input)
-						}
-						var semantic *sourceport.Failure
-						if !errors.Is(got, failure) || errors.As(got, &semantic) {
-							t.Fatalf("capability cause lost or reclassified: got=%v want=%v", got, failure)
-						}
-					})
-				})
-			}
 		}
 	}
 	for _, phase := range []string{"apply", "validate"} {
@@ -233,12 +175,12 @@ func TestRevisionsIncidentBundleExactAttribution(t *testing.T) {
 		})
 	}
 	t.Run("source_state_before_attribution", func(t *testing.T) {
-		withPrepared(t, base(false), func(tx pgx.Tx, prepared sourceport.Prepared, input sourceport.ImportContext, recorder *revisionsAttributionRecorder) {
+		withPrepared(t, base(false), func(tx pgx.Tx, prepared sourceport.Prepared, input sourceport.ImportContext, _ *revisionsAttributionRecorder) {
 			apply(t, tx, prepared, input)
 			if _, err := tx.Exec(t.Context(), `UPDATE change_sets SET source='drifted' WHERE change_set_id=$1`, changeSets[0]); err != nil {
 				t.Fatal(err)
 			}
-			recorder.rows = nil
+			input.Attributions = nil
 			requireRevisionsInvariant(t, h.port.ValidateImportTx(t.Context(), tx, prepared, input), "revisions.source_state_exact")
 		})
 	})
@@ -255,13 +197,13 @@ func TestRevisionsIncidentBundleExactAttribution(t *testing.T) {
 		})
 	})
 	t.Run("attribution_before_history", func(t *testing.T) {
-		withPrepared(t, h.validBundle(t), func(tx pgx.Tx, prepared sourceport.Prepared, input sourceport.ImportContext, recorder *revisionsAttributionRecorder) {
+		withPrepared(t, h.validBundle(t), func(tx pgx.Tx, prepared sourceport.Prepared, input sourceport.ImportContext, _ *revisionsAttributionRecorder) {
 			apply(t, tx, prepared, input)
 			if _, err := tx.Exec(t.Context(), `UPDATE hosts SET display_name='drifted' WHERE record_id=$1`, h.recordID); err != nil {
 				t.Fatal(err)
 			}
 			requireRevisionsInvariant(t, h.port.ValidateImportTx(t.Context(), tx, prepared, input), "revisions.history_reconstruction")
-			recorder.rows = nil
+			input.Attributions = nil
 			requireRevisionsInvariant(t, h.port.ValidateImportTx(t.Context(), tx, prepared, input), "revisions.actor_references_complete")
 		})
 	})

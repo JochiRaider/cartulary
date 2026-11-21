@@ -11,7 +11,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/importfinalizerport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
-	"github.com/JochiRaider/cartulary/internal/testutil/portabilitysupport"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
@@ -38,7 +37,6 @@ func TestImportSequenceRepairFollowsAllOwnerValidation_Unit(t *testing.T) {
 			trace.tx = tx
 			prepared := &preparedImport{
 				IncidentID:    trace.incident,
-				members:       portabilitysupport.MapBundle{"data/actors.ndjson": {}},
 				importContext: sourceport.ImportContext{IncidentID: trace.incident, OperationID: "sequence-order"},
 				artifacts:     trace,
 			}

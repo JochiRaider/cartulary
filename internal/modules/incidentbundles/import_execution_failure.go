@@ -34,7 +34,15 @@ func (w *incidentBundleWorker) finalizeImportFailure(ctx context.Context, scope 
 			return classificationErr
 		}
 		reason := outcome
-		if code == "" {
+		var deadline *deadlineFailure
+		if code == "" && outcome == "execution_failed" {
+			if failure, ok := importDeadlineFailure(cause, w.transactions); ok {
+				deadline = &failure
+			}
+		}
+		if deadline != nil {
+			code, reason = "service_unavailable", deadline.reasonCode
+		} else if code == "" {
 			var rejected *verificationError
 			if errors.As(cause, &rejected) || errors.Is(cause, ErrPortabilityUnavailable) || errors.Is(cause, ErrPortabilityBlocked) || errors.Is(cause, ErrPortabilityLimit) || errors.Is(cause, ErrPortabilityPayload) || errors.Is(cause, ErrPortabilityResult) {
 				code = "incident_bundle_import_rejected"
@@ -53,12 +61,15 @@ func (w *incidentBundleWorker) finalizeImportFailure(ctx context.Context, scope 
 			return w.store.markJobFailureTx(ctx, tx, execution.JobID(), reason, w.now())
 		}
 		completion := failedCompletion(code, details)
+		if deadline != nil {
+			completion = deadlineFailureCompletion(execution.JobID(), *deadline)
+		}
 		publication, stop := scope.FinalizationContext(finish)
 		var err error
-		switch outcome {
-		case "canceled":
+		switch {
+		case outcome == "canceled":
 			_, err = w.jobFinalizer.FinalizeIncidentBundleJobCancellation(publication, JobCancellationFinalization{Execution: execution, Completion: jobs.CancellationCompletion{Progress: jobs.Progress{Completed: 0, Total: intPtr(1)}}, Mutate: mutate})
-		case "timed_out":
+		case outcome == "timed_out" || deadline != nil:
 			_, err = w.jobFinalizer.FinalizeIncidentBundleJobTimeout(publication, JobFailureFinalization{Execution: execution, Completion: completion, Mutate: mutate})
 		default:
 			_, err = w.jobFinalizer.FinalizeIncidentBundleJobFailure(publication, JobFailureFinalization{Execution: execution, Completion: completion, Mutate: mutate})

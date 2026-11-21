@@ -45,6 +45,13 @@ type recordsImportContext struct {
 	ActorUserID   uuid.UUID
 	Attributions  incidentportability.AttributionRecorder
 	ActorAdmitted func(string) bool
+	// Preparation holds the port's staged write-ready rows and attribution.
+	Preparation recordsPreparationStore
+}
+
+type recordsPreparationStore interface {
+	incidentportability.MemberReader
+	incidentportability.MemberWriter
 }
 
 type recordsInvariantError struct {
@@ -71,12 +78,58 @@ type recordsPortableRow struct {
 	RuntimeDeletedByID  *uuid.UUID
 }
 
+// preparedRecordsImport is the only state the final transaction receives:
+// sealed write-ready rows and attribution, never a bundle member reader
+// (Core 01 REQ-01-641).
 type preparedRecordsImport struct {
-	source     incidentportability.MemberReader
-	member     incidentportability.Member
-	envelopes  subtypepresence.Summary
-	incidentID uuid.UUID
-	actorID    uuid.UUID
+	rows        incidentportability.PreparedRowStream
+	attribution incidentportability.AttributionStream
+	envelopes   subtypepresence.Summary
+	incidentID  uuid.UUID
+	actorID     uuid.UUID
+}
+
+const (
+	preparedRecordsPath            = "records.rows"
+	preparedRecordsAttributionPath = "attribution.rows"
+)
+
+var portableRecordColumns = []string{
+	"record_id", "incident_id", "record_type", "created_by_user_id", "created_at",
+	"updated_by_user_id", "updated_at", "row_version", "deleted_at", "deleted_by_user_id",
+}
+
+// recordRowCodec stages one admitted envelope with both its historical and
+// importing actors; COPY writes the importing actors.
+type recordRowCodec struct{}
+
+func (recordRowCodec) Encode(row recordsPortableRow) ([]byte, error) {
+	return json.Marshal([]any{row.RecordID, row.IncidentID, row.RecordType, row.CreatedAt, row.PortableCreatedByID,
+		row.RuntimeCreatedByID, row.UpdatedAt, row.PortableUpdatedByID, row.RuntimeUpdatedByID, row.RowVersion,
+		row.DeletedAt, row.PortableDeletedByID, row.RuntimeDeletedByID})
+}
+
+func (recordRowCodec) Decode(line []byte) (recordsPortableRow, error) {
+	var row recordsPortableRow
+	var raw []json.RawMessage
+	if err := json.Unmarshal(line, &raw); err != nil || len(raw) != 13 {
+		return row, incidentportability.ErrPreparedStream
+	}
+	for index, target := range []any{&row.RecordID, &row.IncidentID, &row.RecordType, &row.CreatedAt, &row.PortableCreatedByID,
+		&row.RuntimeCreatedByID, &row.UpdatedAt, &row.PortableUpdatedByID, &row.RuntimeUpdatedByID, &row.RowVersion,
+		&row.DeletedAt, &row.PortableDeletedByID, &row.RuntimeDeletedByID} {
+		if err := json.Unmarshal(raw[index], target); err != nil {
+			return row, incidentportability.ErrPreparedStream
+		}
+	}
+	return row, nil
+}
+
+func (recordRowCodec) Columns() []string { return portableRecordColumns }
+
+func (recordRowCodec) Values(row recordsPortableRow) ([]any, error) {
+	return []any{row.RecordID, row.IncidentID, string(row.RecordType), row.RuntimeCreatedByID, row.CreatedAt,
+		row.RuntimeUpdatedByID, row.UpdatedAt, row.RowVersion, row.DeletedAt, row.RuntimeDeletedByID}, nil
 }
 
 func exportIncidentBundleFiles(ctx context.Context, exportContext recordsExportContext, members incidentportability.MemberWriter) error {
@@ -283,22 +336,28 @@ func prepareRecordsImport(ctx context.Context, bundle incidentportability.Member
 	if member.Path == "" {
 		return preparedRecordsImport{}, recordsInvariantFailure("records.envelope_legal")
 	}
+	store := importContext.Preparation
+	if store == nil {
+		return preparedRecordsImport{}, errors.New("records: incident bundle preparation staging is required")
+	}
 	inventory := subtypepresence.NewInventory(importContext.IncidentID)
 	previous := ""
-	err := incidentportability.WalkMember(ctx, bundle, member, func(raw map[string]any) error {
-		row, err := prepareRecordsRow(raw, importContext)
-		if err != nil {
-			return err
-		}
-		id := row.RecordID.String()
-		if id <= previous {
-			return recordsInvariantFailure("records.envelope_legal")
-		}
-		previous = id
-		if err := inventory.Add(subtypepresence.Binding{RecordID: row.RecordID, IncidentID: row.IncidentID, RecordType: row.RecordType}); err != nil {
-			return recordsInvariantFailure("records.envelope_legal")
-		}
-		return nil
+	rows, err := incidentportability.StagePreparedRows(ctx, store, preparedRecordsPath, recordRowCodec{}, func(emit func(recordsPortableRow) error) error {
+		return incidentportability.WalkMember(ctx, bundle, member, func(raw map[string]any) error {
+			row, err := prepareRecordsRow(raw, importContext)
+			if err != nil {
+				return err
+			}
+			id := row.RecordID.String()
+			if id <= previous {
+				return recordsInvariantFailure("records.envelope_legal")
+			}
+			previous = id
+			if err := inventory.Add(subtypepresence.Binding{RecordID: row.RecordID, IncidentID: row.IncidentID, RecordType: row.RecordType}); err != nil {
+				return recordsInvariantFailure("records.envelope_legal")
+			}
+			return emit(row)
+		})
 	})
 	if err != nil {
 		if ctx.Err() != nil {
@@ -310,7 +369,29 @@ func prepareRecordsImport(ctx context.Context, bundle incidentportability.Member
 		}
 		return preparedRecordsImport{}, err
 	}
-	return preparedRecordsImport{source: bundle, member: member, envelopes: inventory.Summary(), incidentID: importContext.IncidentID, actorID: importContext.ActorUserID}, nil
+	// Historical actors are admitted while parsing; one pass per column keeps
+	// the grouped attribution lines dense.
+	admitted := func(actorID string) bool {
+		return importContext.ActorAdmitted != nil && importContext.ActorAdmitted(actorID)
+	}
+	attribution, err := incidentportability.StageAttributions(ctx, store, preparedRecordsAttributionPath, admitted, func(emit func(incidentportability.AttributionRow) error) error {
+		for _, column := range []string{"created_by_user_id", "updated_by_user_id", "deleted_by_user_id"} {
+			if err := incidentportability.ReadPreparedRows(ctx, store, rows, recordRowCodec{}, func(row recordsPortableRow) error {
+				portable := map[string]*uuid.UUID{"created_by_user_id": &row.PortableCreatedByID, "updated_by_user_id": &row.PortableUpdatedByID, "deleted_by_user_id": row.PortableDeletedByID}[column]
+				if portable == nil {
+					return nil
+				}
+				return emit(incidentportability.AttributionRow{SourceTable: "records", SourceRowID: row.RecordID.String(), SourceColumn: column, SourceActorID: portable.String()})
+			}); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return preparedRecordsImport{}, err
+	}
+	return preparedRecordsImport{rows: rows, attribution: attribution, envelopes: inventory.Summary(), incidentID: importContext.IncidentID, actorID: importContext.ActorUserID}, nil
 }
 
 func prepareRecordsRow(
@@ -476,65 +557,20 @@ func applyPreparedRecordsImportTx(
 	if importContext.ActorUserID == uuid.Nil || importContext.Attributions == nil || prepared.incidentID != importContext.IncidentID || prepared.actorID != importContext.ActorUserID {
 		return recordsInvariantFailure("records.envelope_legal")
 	}
-	return incidentportability.WalkMember(ctx, prepared.source, prepared.member, func(raw map[string]any) error {
-		row, err := prepareRecordsRow(raw, importContext)
-		if err != nil {
-			return err
-		}
-		tag, err := tx.Exec(ctx, `
-INSERT INTO records (
-    record_id,
-    incident_id,
-    record_type,
-    created_by_user_id,
-    created_at,
-    updated_by_user_id,
-    updated_at,
-    row_version,
-    deleted_at,
-    deleted_by_user_id
-)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-`,
-			row.RecordID,
-			row.IncidentID,
-			string(row.RecordType),
-			row.RuntimeCreatedByID,
-			row.CreatedAt,
-			row.RuntimeUpdatedByID,
-			row.UpdatedAt,
-			row.RowVersion,
-			row.DeletedAt,
-			row.RuntimeDeletedByID,
-		)
-		if err != nil {
-			return classifyRecordsApplyError(err)
-		}
-		if tag.RowsAffected() != 1 {
-			return recordsInvariantFailure("records.envelope_legal")
-		}
-		for _, attribution := range []struct {
-			column   string
-			portable *uuid.UUID
-		}{
-			{column: "created_by_user_id", portable: &row.PortableCreatedByID},
-			{column: "updated_by_user_id", portable: &row.PortableUpdatedByID},
-			{column: "deleted_by_user_id", portable: row.PortableDeletedByID},
-		} {
-			if attribution.portable == nil {
-				continue
-			}
-			if err := importContext.Attributions.RecordImportedAttribution(
-				"records",
-				row.RecordID.String(),
-				attribution.column,
-				attribution.portable.String(),
-			); err != nil {
-				return recordsInvariantFailure("records.envelope_legal")
-			}
-		}
-		return nil
-	})
+	if importContext.Preparation == nil {
+		return errors.New("records: incident bundle preparation is required")
+	}
+	// One COPY of the staged envelopes; the acknowledgement must equal the
+	// staged count. Attribution is flushed by the core in step 9.
+	source, err := incidentportability.OpenPreparedCopy(ctx, importContext.Preparation, prepared.rows, recordRowCodec{})
+	if err != nil {
+		return err
+	}
+	written, err := tx.CopyFrom(ctx, pgx.Identifier{"records"}, portableRecordColumns, source)
+	if err := source.Finish(written, err); err != nil {
+		return classifyRecordsApplyError(err)
+	}
+	return nil
 }
 
 func classifyRecordsApplyError(err error) error {

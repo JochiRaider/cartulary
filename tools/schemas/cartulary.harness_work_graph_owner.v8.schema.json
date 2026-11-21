@@ -14,6 +14,7 @@
     "policy_units",
     "evidence_estimates_ms",
     "default_timeout_ms",
+    "go_cohort_packing_bound_ms",
     "aging_quantum_ms",
     "operations",
     "invocation_policies",
@@ -323,6 +324,12 @@
       }
     },
     "default_timeout_ms": {
+      "type": "integer",
+      "minimum": 1000,
+      "maximum": 3600000
+    },
+    "go_cohort_packing_bound_ms": {
+      "description": "Compatible Go rows pack into cohorts whose estimate stays within this bound, a fraction of default_timeout_ms that leaves headroom for aggregate concurrent load.",
       "type": "integer",
       "minimum": 1000,
       "maximum": 3600000

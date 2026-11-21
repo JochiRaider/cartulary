@@ -145,6 +145,45 @@ UPDATE extension_staged_objects
 	return nil
 }
 
+// AbandonStagedObjects abandons every listed staged object with one
+// statement. It changes nothing unless every object exists and is allocated,
+// ready or already abandoned; an already abandoned object stays as it is, so
+// retrying after an unacknowledged commit is safe.
+func (s *Store) AbandonStagedObjects(ctx context.Context, stagingIDs []string, now time.Time) error {
+	if len(stagingIDs) == 0 {
+		return nil
+	}
+	var admissible bool
+	var changed int64
+	if err := s.pool.QueryRow(ctx, `
+WITH requested AS (
+    SELECT DISTINCT unnest($1::text[]) AS staging_id
+), current_state AS (
+    SELECT o.staging_id, o.state
+      FROM extension_staged_objects o
+      JOIN requested r ON r.staging_id = o.staging_id
+       FOR UPDATE OF o
+), admission AS (
+    SELECT (SELECT count(*) FROM requested) =
+           (SELECT count(*) FROM current_state WHERE state IN ('allocated', 'ready', 'abandoned')) AS admissible
+), changed AS (
+    UPDATE extension_staged_objects o
+       SET state = 'abandoned', ready_at = NULL, abandoned_at = $2, delete_state = 'pending',
+           next_delete_attempt_at = $2, last_delete_error_code = NULL
+      FROM current_state c, admission a
+     WHERE o.staging_id = c.staging_id AND c.state IN ('allocated', 'ready') AND a.admissible
+    RETURNING o.staging_id
+)
+SELECT (SELECT admissible FROM admission), (SELECT count(*) FROM changed)
+`, stagingIDs, now.UTC()).Scan(&admissible, &changed); err != nil {
+		return err
+	}
+	if !admissible {
+		return ErrInvalidTransition
+	}
+	return nil
+}
+
 func (s *Store) RedeemableStagedObject(ctx context.Context, stagingID string, now time.Time) (StagedObject, error) {
 	object, err := s.StagedObject(ctx, stagingID)
 	if err != nil {

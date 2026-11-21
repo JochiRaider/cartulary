@@ -113,7 +113,41 @@ export async function expectReferencePackControlReachable(
   expect(box.y + box.height).toBeLessThanOrEqual(viewport.height + 1);
 }
 
-/** Complete HTTP fixtures for permitted async variants; production execution stays service-backed. */
+/** Inline lifecycle results; activate, disable and remove never admit a Job. */
+function committedLifecycleAction(
+  pack: Pack,
+  action: "activate" | "disable" | "remove",
+  actorId: string,
+): Pack {
+  if (action === "activate")
+    return {
+      ...pack,
+      active: true,
+      activated_at: "2026-09-07T12:00:05Z",
+      activated_by_user_id: actorId,
+    };
+  if (action === "disable")
+    return {
+      ...pack,
+      active: false,
+      administratively_disabled: true,
+      pack_version_state: "disabled",
+    };
+  return {
+    ...pack,
+    active: false,
+    removed: true,
+    health: "missing",
+    pack_version_state: "missing",
+    missing_reason: "administrative_removal",
+  };
+}
+const lifecycleActions = ["activate", "disable", "remove"] as const;
+function lifecycleAction(value: string | undefined) {
+  return lifecycleActions.find((action) => action === value) ?? null;
+}
+
+/** Complete HTTP fixtures for presentation states; production execution stays service-backed. */
 export async function installReferencePackPresentation(
   page: Page,
   actorId: string,
@@ -131,9 +165,14 @@ export async function installReferencePackPresentation(
     referencePackBrowserPack("type_registry.process", "1"),
   ];
   let failAdmission = false;
+  let loseLifecycleResponses = false;
   let failReads = false;
   let failCatalog = false;
   let admissionGate: Promise<BarrierOutcome> | null = null;
+  // Exact replay of a committed lifecycle action returns its original result.
+  const lifecycleReceipts = new Map<string, Pack>();
+  const lifecycleRequests: { path: string; body: string }[] = [];
+  let lifecycleCommits = 0;
   let sequence = 0;
   let current: Job | null = null;
   let family = "reference_packs_refreshed";
@@ -231,17 +270,46 @@ export async function installReferencePackPresentation(
         return;
       }
       const action = url.pathname.split("/").at(-1);
+      const parts = url.pathname.split("/").map(decodeURIComponent);
+      const inline = lifecycleAction(action);
+      if (inline) {
+        const body = route.request().postData() ?? "";
+        lifecycleRequests.push({ path: url.pathname, body });
+        const receipt = `${url.pathname}\n${JSON.parse(body).client_txn_id}`;
+        let pack = lifecycleReceipts.get(receipt);
+        if (!pack) {
+          const index = packs.findIndex(
+            (candidate) =>
+              candidate.pack_key === parts[4] &&
+              candidate.pack_version === parts[5],
+          );
+          const prior = packs[index];
+          if (!prior) throw new Error(`Unknown fixture pack ${url.pathname}`);
+          pack = committedLifecycleAction(prior, inline, actorId);
+          packs[index] = pack;
+          lifecycleReceipts.set(receipt, pack);
+          ++lifecycleCommits;
+        }
+        // A lost acknowledgement after commit leaves the client uncertain.
+        if (loseLifecycleResponses) {
+          await route.abort("failed");
+          return;
+        }
+        await route.fulfill({
+          status: 200,
+          json: {
+            data: { pack_version: pack },
+            meta: { request_id: "inline" },
+          },
+        });
+        return;
+      }
       family =
         action === "import"
           ? "reference_pack_imported"
-          : action === "activate"
-            ? "reference_pack_activated"
-            : action === "disable"
-              ? "reference_pack_disabled"
-              : action === "reverify"
-                ? "reference_pack_reverified"
-                : "reference_packs_refreshed";
-      const parts = url.pathname.split("/").map(decodeURIComponent);
+          : action === "reverify"
+            ? "reference_pack_reverified"
+            : "reference_packs_refreshed";
       target =
         packs.find(
           (pack) =>
@@ -289,10 +357,15 @@ export async function installReferencePackPresentation(
   return {
     packs,
     admissions,
+    lifecycleRequests,
+    lifecycleCommits: () => lifecycleCommits,
     setStatus,
     reads: () => reads,
     failAdmission: (value: boolean) => {
       failAdmission = value;
+    },
+    loseLifecycleResponses: (value: boolean) => {
+      loseLifecycleResponses = value;
     },
     failReads: (value: boolean) => {
       failReads = value;

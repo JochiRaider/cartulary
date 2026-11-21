@@ -421,6 +421,11 @@ func validCapacities(snapshot map[string]any, actual map[string]int64) bool {
 		volume = 1
 	}
 	expected := map[string]int64{"cpu": n("cpu_tokens"), "memory_mb": max(1, n("memory_bytes")/1048576), "process": n("process_slots"), "io": n("io_tokens"), "postgres": service("postgres", n("postgres_lanes")), "object_store": service("object_store", n("object_store_lanes")), "port_lane": n("port_lanes"), "browser_stack": service("browser", n("port_lanes")), "service_stack": service("service_stack", n("port_lanes")), "volume": volume}
+	// Capture always resolves the authored heavy-PostgreSQL lanes; a snapshot
+	// recorded before the lane existed carries no such resource.
+	if lanes, ok := snapshot["postgres_heavy_lanes"].(float64); ok {
+		expected["postgres_heavy"] = int64(lanes)
+	}
 	if len(expected) != len(actual) {
 		return false
 	}

@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func (p preparedEvidenceImport) custodyRaw(ctx context.Context, d sourceport.Descriptor, visit func(map[string]any) error) error {
+func (p preparedEvidenceImport) bundleCustodyRaw(ctx context.Context, d sourceport.Descriptor, visit func(map[string]any) error) error {
 	err := incidentportability.WalkPath(ctx, p.members, portableCustodyPath, visit)
 	var malformed *incidentportability.StrictNDJSONDecodeError
 	if errors.As(err, &malformed) {
@@ -17,8 +17,8 @@ func (p preparedEvidenceImport) custodyRaw(ctx context.Context, d sourceport.Des
 	}
 	return err
 }
-func (p preparedEvidenceImport) custody(ctx context.Context, d sourceport.Descriptor, visit func(portableCustodyRow) error) error {
-	return p.custodyRaw(ctx, d, func(raw map[string]any) error {
+func (p preparedEvidenceImport) bundleCustody(ctx context.Context, d sourceport.Descriptor, visit func(portableCustodyRow) error) error {
+	return p.bundleCustodyRaw(ctx, d, func(raw map[string]any) error {
 		row, ok := parsePortableCustodyShape(raw)
 		if !ok {
 			return d.DeclaredFailure("evidence.row_shape_exact")
@@ -27,11 +27,11 @@ func (p preparedEvidenceImport) custody(ctx context.Context, d sourceport.Descri
 	})
 }
 func (p preparedEvidenceImport) prepareCustody(ctx context.Context, input sourceport.ImportContext, d sourceport.Descriptor) error {
-	if err := p.custodyRaw(ctx, d, func(map[string]any) error { return nil }); err != nil {
+	if err := p.bundleCustodyRaw(ctx, d, func(map[string]any) error { return nil }); err != nil {
 		return err
 	}
 	previous := ""
-	if err := p.custodyRaw(ctx, d, func(raw map[string]any) error {
+	if err := p.bundleCustodyRaw(ctx, d, func(raw map[string]any) error {
 		text, ok := raw["custody_event_id"].(string)
 		id, err := uuid.Parse(text)
 		if !ok || err != nil || id == uuid.Nil || id.String() != text || text <= previous {
@@ -57,7 +57,7 @@ func (p preparedEvidenceImport) prepareCustody(ctx context.Context, input source
 			return ok
 		}},
 	} {
-		if err := p.custody(ctx, d, func(row portableCustodyRow) error {
+		if err := p.bundleCustody(ctx, d, func(row portableCustodyRow) error {
 			if !phase.valid(row) {
 				return d.DeclaredFailure("evidence." + phase.invariant)
 			}

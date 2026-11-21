@@ -53,15 +53,23 @@ type Consumer interface {
 }
 
 func FromConsumer(ctx context.Context, consumer Consumer) (Evaluator, error) {
+	evaluate, _, err := FromConsumerSet(ctx, consumer)
+	return evaluate, err
+}
+
+// FromConsumerSet binds an evaluator to the consumer's current pack set and
+// returns that set. Evaluation is a pure function of the content-addressed set
+// and its request, so equal sets give equal evaluations.
+func FromConsumerSet(ctx context.Context, consumer Consumer) (Evaluator, reference_data.PackSet, error) {
 	if consumer == nil {
-		return nil, errors.New("indicator evaluator unavailable")
+		return nil, reference_data.PackSet{}, errors.New("indicator evaluator unavailable")
 	}
 	set := consumer.ResolveCurrentPackSet(ctx)
 	if set.Error != nil {
-		return nil, set.Error
+		return nil, reference_data.PackSet{}, set.Error
 	}
 	if set.Value == nil {
-		return nil, errors.New("indicator set unavailable")
+		return nil, reference_data.PackSet{}, errors.New("indicator set unavailable")
 	}
 	return func(typ, kind, raw string) (reference_data.IndicatorEvaluation, error) {
 		result := consumer.EvaluateIndicatorValue(ctx, reference_data.EvaluateIndicatorRequest{PackSetID: set.Value.ID, IndicatorTypeID: typ, ValueKind: kind, RawValue: raw})
@@ -72,7 +80,7 @@ func FromConsumer(ctx context.Context, consumer Consumer) (Evaluator, error) {
 			return reference_data.IndicatorEvaluation{}, errors.New("indicator evaluation unavailable")
 		}
 		return *result.Value, nil
-	}, nil
+	}, *set.Value, nil
 }
 
 func ValidateShape(input Input) error {

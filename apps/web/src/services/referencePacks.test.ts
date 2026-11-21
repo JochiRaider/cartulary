@@ -122,50 +122,76 @@ describe("Reference Pack transport", () => {
     ).toEqual({ kind: "access_failed", status: 403 });
   });
 
-  it("validates inline and asynchronous activation and disable by successful HTTP status", async () => {
-    for (const kind of ["activate", "disable"] as const) {
+  it("validates synchronous activation disable and removal by the exact inline version", async () => {
+    const target = { pack_key: "type_registry.host", pack_version: "1" };
+    for (const command of [
+      { kind: "activate", target },
+      { kind: "disable", target },
+      { kind: "remove", target, reason: "Superseded" },
+    ] as const) {
+      fetchMock.mockClear();
       const attempt = captureReferencePackAttempt(
-        { kind, target: { pack_key: "type_registry.host", pack_version: "1" } },
-        `txn-${kind}`,
+        command,
+        `txn-${command.kind}`,
       );
+      const committed = referencePackFixture({
+        active: command.kind === "activate",
+        administratively_disabled: command.kind === "disable",
+        removed: command.kind === "remove",
+        pack_version_state:
+          command.kind === "disable" ? "disabled" : "verified_available",
+      });
+      fetchMock.mockResolvedValueOnce(
+        envelope({ pack_version: committed }, 200),
+      );
+      expect(await submitReferencePackAttempt(attempt, signal())).toEqual({
+        kind: "committed",
+        pack: committed,
+      });
+      // These routes never admit a Job, whatever its status.
+      for (const status of [202, 200]) {
+        fetchMock.mockResolvedValueOnce(
+          envelope(referencePackJobFixture(), status),
+        );
+        expect((await submitReferencePackAttempt(attempt, signal())).kind).toBe(
+          "uncertain",
+        );
+      }
+      fetchMock.mockResolvedValueOnce(
+        envelope({ pack_version: committed }, 202),
+      );
+      expect((await submitReferencePackAttempt(attempt, signal())).kind).toBe(
+        "uncertain",
+      );
+      // A sibling version of the same key is not the exact target.
       fetchMock.mockResolvedValueOnce(
         envelope(
-          {
-            pack_version: referencePackFixture({
-              active: kind === "activate",
-              pack_version_state:
-                kind === "disable" ? "disabled" : "verified_available",
-            }),
-          },
+          { pack_version: referencePackFixture({ pack_version: "2" }) },
           200,
         ),
       );
       expect((await submitReferencePackAttempt(attempt, signal())).kind).toBe(
-        "committed",
-      );
-      fetchMock.mockResolvedValueOnce(envelope(referencePackJobFixture(), 202));
-      expect((await submitReferencePackAttempt(attempt, signal())).kind).toBe(
-        "accepted",
-      );
-      fetchMock.mockResolvedValueOnce(envelope(referencePackJobFixture(), 200));
-      expect((await submitReferencePackAttempt(attempt, signal())).kind).toBe(
         "uncertain",
       );
+      // Exact replay resends the captured request and settles inline.
       fetchMock.mockResolvedValueOnce(
-        envelope({ pack_version: referencePackFixture() }, 202),
+        envelope({ pack_version: committed }, 200),
       );
-      expect((await submitReferencePackAttempt(attempt, signal())).kind).toBe(
-        "uncertain",
-      );
-      fetchMock.mockResolvedValueOnce(
-        envelope(
-          { pack_version: referencePackFixture({ pack_version: "other" }) },
-          200,
-        ),
-      );
-      expect((await submitReferencePackAttempt(attempt, signal())).kind).toBe(
-        "uncertain",
-      );
+      expect(
+        (await submitReferencePackAttempt(attempt, signal(), true)).kind,
+      ).toBe("committed");
+      const expectedBody = {
+        client_txn_id: `txn-${command.kind}`,
+        ...(command.kind === "remove" ? { reason: "Superseded" } : {}),
+      };
+      expect(fetchMock.mock.calls).toHaveLength(6);
+      for (const [input, init] of fetchMock.mock.calls) {
+        expect(String(input)).toBe(
+          `/api/v1/reference-packs/type_registry.host/1/${command.kind}`,
+        );
+        expect(init?.method).toBe("POST");
+        expect(JSON.parse(String(init?.body))).toEqual(expectedBody);
+      }
     }
   });
 

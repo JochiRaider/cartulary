@@ -12,6 +12,7 @@ const expectedResources = [
   "object_store",
   "port_lane",
   "postgres",
+  "postgres_heavy",
   "process",
   "service_stack",
   "volume",
@@ -35,7 +36,7 @@ export function validateSchedulerResourceRegistrySemantics(
   ) {
     throw new Error(`${label} has unexpected fields`);
   }
-  if (registry.schema_id !== "cartulary.scheduler_resource_registry.v7") {
+  if (registry.schema_id !== "cartulary.scheduler_resource_registry.v8") {
     throw new Error(`${label} has the wrong schema ID`);
   }
   if (registry.capacity_override_schema !== "cartulary.harness_capacity_override.v1") {
@@ -54,6 +55,7 @@ export function validateSchedulerResourceRegistrySemantics(
     "memory_bytes",
     "object_store_lanes",
     "port_lanes",
+    "postgres_heavy_lanes",
     "postgres_lanes",
     "process_slots",
     "writable_volume",
@@ -70,6 +72,7 @@ export function validateSchedulerResourceRegistrySemantics(
     memory_bytes: "host_memory_cgroup_bounded",
     object_store_lanes: "fixed_cpu_bounded",
     port_lanes: "fixed_cpu_bounded",
+    postgres_heavy_lanes: "fixed_postgres_bounded",
     postgres_lanes: "fixed_cpu_bounded",
     process_slots: "process_limit_bounded_cpu_multiple",
     writable_volume: "writable_root",
@@ -96,6 +99,12 @@ export function validateSchedulerResourceRegistrySemantics(
         policy.maximum_cpu_multiplier < 1 || policy.maximum_cpu_multiplier > 64) {
       throw new Error(`${label}.capacity_policies.${field} must declare bounded positive integral capacity`);
     }
+  }
+  // The heavy-PostgreSQL lanes are an authored concurrency policy bounded by
+  // the PostgreSQL lanes (TH-HARNESS-REQ-353).
+  const heavy = registry.capacity_policies.postgres_heavy_lanes;
+  if (!Number.isSafeInteger(heavy.default) || heavy.default < 1 || heavy.default > 1024 || heavy.minimum !== 1) {
+    throw new Error(`${label}.capacity_policies.postgres_heavy_lanes must declare bounded positive integral capacity`);
   }
   for (const resource of registry.resources) {
     if (

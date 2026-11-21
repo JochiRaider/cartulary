@@ -9,6 +9,7 @@ import { selectionFor } from "../preparation.mjs";
 import {
   WorkGraphCompiler,
   availableGoWorkerBudget,
+  captureCapabilitySnapshot,
   resourceCapacities,
   compileRetainedRun,
   assertFixtureServiceDependencies,
@@ -360,6 +361,72 @@ test("compatible contract files share bounded invocations", () => {
   const contractUnits = contractGraph.units.filter((unit) => unit.unit_id.startsWith("vitest_cohort:"));
   assert.ok(contractUnits.length < new Set(contractRows.map((row) => row.selector.file)).size, "compatible files amortize coordinator startup");
   assert.deepEqual(compiler.compileRows(contractRows.map((row) => row.row_id).reverse()), contractGraph);
+});
+
+// TH-HARNESS 11.6: a catalog row's reviewed estimate replaces its evidence-class
+// estimate, and compatible Go rows pack against the work-graph owner's packing
+// bound, a fraction of the unit timeout, so no packed cohort's estimate exceeds it.
+test("Go rows use reviewed estimates and pack below the authored packing bound", () => {
+  const compiler = new WorkGraphCompiler(root);
+  const goRows = compiler.catalog.rows.filter((row) => row.runner === "go" && row.owner_id === "module.networkflow");
+  const catalogRow = (id) => compiler.catalog.rowByID.get(id);
+  const previous = new Map(goRows.map((row) => [row.row_id, catalogRow(row.row_id).estimated_work_ms]));
+  try {
+    // Find the largest compatible group under evidence-class estimates alone.
+    for (const row of goRows) delete catalogRow(row.row_id).estimated_work_ms;
+    const heaviest = compiler.compileRows(goRows.map((row) => row.row_id)).units
+      .filter((unit) => unit.unit_id.startsWith("go:") && unit.row_bindings.length > 1)
+      .sort((left, right) => right.estimated_work_ms - left.estimated_work_ms)[0];
+    const ids = heaviest.row_bindings.map((row) => row.row_id);
+    assert.ok(ids.length >= 30, "the heaviest Network Flow Go cohort carries many compatible rows");
+    // Together these exceed the packing bound but stay below the unit timeout.
+    const reviewed = new Map(ids.map((id, index) => [id, 11_000 + index]));
+    for (const id of ids) catalogRow(id).estimated_work_ms = reviewed.get(id);
+    const { go_cohort_packing_bound_ms: bound, default_timeout_ms: timeout, invocation_policies: { go: policy } } = compiler.owner;
+    assert.ok(Number.isInteger(bound) && bound > 0 && bound < timeout, "the packing bound is a positive fraction of the unit timeout");
+    const units = compiler.compileRows(ids).units.filter((unit) => unit.unit_id.startsWith("go:"));
+    const total = [...reviewed.values()].reduce((sum, value) => sum + value, 0);
+    assert.ok(total + policy.startup_ms + policy.cleanup_ms > bound && total < timeout);
+    assert.ok(units.length > 1, "the reviewed rows split into several cohorts");
+    assert.deepEqual(units.flatMap((unit) => unit.row_bindings.map((row) => row.row_id)).sort(), [...ids].sort());
+    for (const unit of units) {
+      const rowWork = unit.row_bindings.reduce((sum, row) => sum + reviewed.get(row.row_id), 0);
+      assert.equal(unit.estimated_work_ms, policy.startup_ms + rowWork + policy.cleanup_ms, "a cohort estimate sums its reviewed rows");
+      assert.ok(unit.estimated_work_ms <= bound, `${unit.unit_id} exceeds the packing bound`);
+    }
+  } finally {
+    for (const [id, value] of previous) {
+      if (value === undefined) delete catalogRow(id).estimated_work_ms;
+      else catalogRow(id).estimated_work_ms = value;
+    }
+  }
+});
+
+// TH-HARNESS-REQ-353: postgres_heavy is an authored lane capacity, two by
+// default and at most the PostgreSQL lanes. Rows dominated by PostgreSQL bulk
+// writes, restores and imports claim one lane each, so with two lanes no three
+// such units can hold lanes at once.
+test("postgres_heavy units claim one lane each against a bounded two-lane capacity", () => {
+  const snapshot = captureCapabilitySnapshot({ root });
+  const capacities = resourceCapacities(snapshot);
+  assert.equal(snapshot.postgres_heavy_lanes, Math.min(2, snapshot.postgres_lanes));
+  assert.equal(capacities.get("postgres_heavy"), snapshot.postgres_heavy_lanes);
+  const oneLane = captureCapabilitySnapshot({ root, override: { schema_id: "cartulary.harness_capacity_override.v1", postgres_lanes: 1 } });
+  assert.equal(oneLane.postgres_heavy_lanes, 1, "the heavy lanes never exceed the PostgreSQL lanes");
+  assert.throws(() => captureCapabilitySnapshot({ root, override: { schema_id: "cartulary.harness_capacity_override.v1", postgres_lanes: 1, postgres_heavy_lanes: 2 } }));
+  const { postgres_heavy_lanes: _omitted, ...historical } = snapshot;
+  assert.equal(resourceCapacities(historical).has("postgres_heavy"), false, "a snapshot recorded before the lane is read as recorded");
+
+  const compiler = new WorkGraphCompiler(root);
+  const heavyRows = compiler.catalog.rows.filter((row) => row.resource_profile_id === "postgres_heavy" && row.aggregate_placement !== "explicit_only");
+  const heavyUnits = compiler.compileRows(heavyRows.map((row) => row.row_id)).units.filter((unit) => unit.resource_claims.postgres_heavy !== undefined);
+  assert.ok(heavyUnits.length >= 3, "the heavy database rows compile to several lane-claiming units");
+  assert.ok(heavyUnits.every((unit) => unit.resource_claims.postgres_heavy === 1));
+  // Admission is additive, so three lane claims exceed a two-lane capacity.
+  const lanes = 2;
+  const [first, second, third] = heavyUnits;
+  assert.ok(first.resource_claims.postgres_heavy + second.resource_claims.postgres_heavy <= lanes);
+  assert.ok(first.resource_claims.postgres_heavy + second.resource_claims.postgres_heavy + third.resource_claims.postgres_heavy > lanes);
 });
 
 test("cohort packing includes lifecycle and preserves oversized work", () => {

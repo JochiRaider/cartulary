@@ -2,7 +2,6 @@ package tasksdecisions_test
 
 import (
 	"context"
-	"errors"
 	"maps"
 	"reflect"
 	"testing"
@@ -12,34 +11,13 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
+	"github.com/JochiRaider/cartulary/internal/testutil/portabilitysupport"
 )
 
 type taskDecisionAttributions struct {
-	local               uuid.UUID
-	rows                []incidentportability.ImportedAttribution
-	recordErr, visitErr error
-}
-
-func (a *taskDecisionAttributions) RecordImportedAttribution(table, row, column, actor string) error {
-	if a.recordErr != nil {
-		return a.recordErr
-	}
-	a.rows = append(a.rows, incidentportability.ImportedAttribution{SourceTable: table, SourceRowID: row, SourceColumn: column, SourceActorID: actor, LocalUserID: a.local})
-	return nil
-}
-
-func (a *taskDecisionAttributions) VisitImportedAttributions(table, row string, visit func(incidentportability.ImportedAttribution) error) error {
-	if a.visitErr != nil {
-		return a.visitErr
-	}
-	for _, value := range a.rows {
-		if value.SourceTable == table && (row == "" || value.SourceRowID == row) {
-			if err := visit(value); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
+	portabilitysupport.AttributionCapability
+	local uuid.UUID
+	rows  []incidentportability.ImportedAttribution
 }
 
 func TestIncidentBundleTasksDecisionsExactAttribution(t *testing.T) {
@@ -73,125 +51,67 @@ func TestIncidentBundleTasksDecisionsExactAttribution(t *testing.T) {
 		t.Cleanup(func() { _ = tx.Rollback(context.Background()) })
 		return tx, prepared, input, input.Attributions.(*taskDecisionAttributions)
 	}
-	want := []incidentportability.ImportedAttribution{
-		{SourceTable: "task_requests", SourceRowID: taskID.String(), SourceColumn: "owner_user_id", SourceActorID: sourceActor.String(), LocalUserID: harness.actor.ID},
-		{SourceTable: "decisions", SourceRowID: decisionID.String(), SourceColumn: "owner_user_id", SourceActorID: sourceActor.String(), LocalUserID: harness.actor.ID},
+	// Core 01 REQ-01-641: attribution is staged while preparing and flushed by
+	// the core in step 9; the port records none row by row.
+	want := []incidentportability.AttributionRow{
+		{SourceTable: "task_requests", SourceRowID: taskID.String(), SourceColumn: "owner_user_id", SourceActorID: sourceActor.String()},
+		{SourceTable: "decisions", SourceRowID: decisionID.String(), SourceColumn: "owner_user_id", SourceActorID: sourceActor.String()},
 	}
-	for _, variant := range []string{"both owners", "null task owner", "empty", "null owner extra", "empty task extra", "empty decision extra"} {
+	for _, variant := range []string{"both owners", "null task owner", "empty"} {
 		t.Run(variant, func(t *testing.T) {
 			taskRow := maps.Clone(task)
 			tasks, decisions := []map[string]any{taskRow}, []map[string]any{decision}
 			expected := want
-			if variant == "null task owner" || variant == "null owner extra" {
+			if variant == "null task owner" {
 				taskRow["status"], taskRow["owner_user_id"] = "canceled", nil
 				expected = want[1:]
 			}
-			if variant == "empty" || variant == "empty task extra" || variant == "empty decision extra" {
+			if variant == "empty" {
 				tasks, decisions, expected = nil, nil, nil
 			}
 			tx, prepared, input, attrs := prepare(t, tasks, decisions)
 			if err := port.ApplyImportTx(ctx, tx, prepared, input); err != nil {
 				t.Fatal(err)
 			}
-			if !reflect.DeepEqual(attrs.rows, expected) {
-				t.Fatalf("sidecars=%#v want=%#v", attrs.rows, expected)
+			staged, err := portabilitysupport.ReadStagedAttributions(ctx, port, prepared, input)
+			if err != nil || !reflect.DeepEqual(staged, expected) || len(attrs.rows) != 0 {
+				t.Fatalf("staged=%#v want=%#v recorded=%#v err=%v", staged, expected, attrs.rows, err)
 			}
 			if err := port.ValidateImportTx(ctx, tx, prepared, input); err != nil {
 				t.Fatal(err)
 			}
-			switch variant {
-			case "null owner extra", "empty task extra":
-				attrs.rows = append(attrs.rows, want[0])
-			case "empty decision extra":
-				attrs.rows = append(attrs.rows, want[1])
-			default:
-				return
-			}
-			requireTasksDecisionsPortabilityFailure(t, port.ValidateImportTx(ctx, tx, prepared, input), "tasks_decisions.attribution_exact")
 		})
 	}
-	for _, tableIndex := range []int{0, 1} {
-		for _, variant := range []string{"missing", "duplicate", "table", "row", "column", "source actor", "local actor", "extra row"} {
-			t.Run(want[tableIndex].SourceTable+" "+variant, func(t *testing.T) {
-				tx, prepared, input, attrs := prepare(t, []map[string]any{task}, []map[string]any{decision})
-				if err := port.ApplyImportTx(ctx, tx, prepared, input); err != nil {
-					t.Fatal(err)
-				}
-				if err := port.ValidateImportTx(ctx, tx, prepared, input); err != nil {
-					t.Fatal(err)
-				}
-				switch variant {
-				case "missing":
-					attrs.rows = append(attrs.rows[:tableIndex], attrs.rows[tableIndex+1:]...)
-				case "duplicate":
-					attrs.rows = append(attrs.rows, attrs.rows[tableIndex])
-				case "table":
-					attrs.rows[tableIndex].SourceTable = "records"
-				case "row":
-					attrs.rows[tableIndex].SourceRowID = uuid.NewString()
-				case "column":
-					attrs.rows[tableIndex].SourceColumn = "created_by_user_id"
-				case "source actor":
-					attrs.rows[tableIndex].SourceActorID = uuid.NewString()
-				case "local actor":
-					attrs.rows[tableIndex].LocalUserID = uuid.New()
-				case "extra row":
-					extra := attrs.rows[tableIndex]
-					extra.SourceRowID = uuid.NewString()
-					attrs.rows = append(attrs.rows, extra)
-				}
-				requireTasksDecisionsPortabilityFailure(t, port.ValidateImportTx(ctx, tx, prepared, input), "tasks_decisions.attribution_exact")
-			})
-		}
-	}
 	t.Run("source drift precedes attribution drift", func(t *testing.T) {
-		tx, prepared, input, attrs := prepare(t, []map[string]any{task}, []map[string]any{decision})
+		tx, prepared, input, _ := prepare(t, []map[string]any{task}, []map[string]any{decision})
 		if err := port.ApplyImportTx(ctx, tx, prepared, input); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := tx.Exec(ctx, `UPDATE task_requests SET title='Changed' WHERE record_id=$1`, taskID); err != nil {
 			t.Fatal(err)
 		}
-		attrs.rows = nil
+		input.Attributions = nil
 		requireTasksDecisionsPortabilityFailure(t, port.ValidateImportTx(ctx, tx, prepared, input), "tasks_decisions.source_state_exact")
 	})
-	for _, variant := range []string{"nil before apply", "nil empty", "nil before validate", "nil empty before validate", "record task failure", "record decision failure", "visit failure"} {
+	for _, variant := range []string{"nil before apply", "nil empty", "nil before validate", "nil empty before validate"} {
 		t.Run(variant, func(t *testing.T) {
 			tasks, decisions := []map[string]any{task}, []map[string]any{decision}
 			if variant == "nil empty" || variant == "nil empty before validate" {
 				tasks, decisions = nil, nil
 			}
-			if variant == "record decision failure" {
-				tasks = nil
-			}
-			tx, prepared, input, attrs := prepare(t, tasks, decisions)
-			failure := errors.New("attribution capability failure")
+			tx, prepared, input, _ := prepare(t, tasks, decisions)
 			if variant == "nil before apply" || variant == "nil empty" {
 				input.Attributions = nil
-			}
-			if variant == "record task failure" || variant == "record decision failure" {
-				attrs.recordErr = failure
 			}
 			err := port.ApplyImportTx(ctx, tx, prepared, input)
 			if variant == "nil before apply" || variant == "nil empty" {
 				requireTasksDecisionsPortabilityFailure(t, err, "tasks_decisions.attribution_exact")
-			} else if attrs.recordErr != nil {
-				if !errors.Is(err, failure) {
-					t.Fatalf("recorder failure changed: %v", err)
-				}
 			} else {
 				if err != nil {
 					t.Fatal(err)
 				}
-				if variant == "nil before validate" || variant == "nil empty before validate" {
-					input.Attributions = nil
-					requireTasksDecisionsPortabilityFailure(t, port.ValidateImportTx(ctx, tx, prepared, input), "tasks_decisions.attribution_exact")
-				} else {
-					attrs.visitErr = failure
-					if err := port.ValidateImportTx(ctx, tx, prepared, input); !errors.Is(err, failure) {
-						t.Fatalf("visitor failure changed: %v", err)
-					}
-				}
+				input.Attributions = nil
+				requireTasksDecisionsPortabilityFailure(t, port.ValidateImportTx(ctx, tx, prepared, input), "tasks_decisions.attribution_exact")
 				return
 			}
 			var count int

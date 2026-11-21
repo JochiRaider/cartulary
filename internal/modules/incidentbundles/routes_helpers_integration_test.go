@@ -1685,3 +1685,64 @@ func hashHexBytes(data []byte) string {
 	sum := sha256.Sum256(data)
 	return hex.EncodeToString(sum[:])
 }
+
+// requirePreparationStagesOnlyRows checks Core 01 REQ-01-641's staging rules
+// on one import's staged objects: a preparation stream with no rows creates no
+// object, and preparation never copies an opaque payload. Every zero-byte
+// object and every snapshot payload digest is therefore accounted for by the
+// bundle's own members.
+func requirePreparationStagesOnlyRows(t testing.TB, db *sql.DB, jobID string, bundle []byte, snapshots bool) {
+	t.Helper()
+	if jobID == "" {
+		t.Fatal("import job identity is missing")
+	}
+	members := zipMemberMap(t, bundle)
+	wantEmpty := 0
+	payloads := map[string]int{}
+	for path, payload := range members {
+		if len(payload) == 0 {
+			wantEmpty++
+		}
+		if strings.HasPrefix(path, "ext/snapshots/") {
+			digest := sha256.Sum256(payload)
+			payloads[hex.EncodeToString(digest[:])]++
+		}
+	}
+	// The Evidence blob rewrite stages its rewritten rows even when empty.
+	if payload, ok := members["data/object_blobs.ndjson"]; ok && len(payload) == 0 {
+		wantEmpty++
+	}
+	if snapshots != (len(payloads) != 0) {
+		t.Fatalf("bundle snapshot payloads = %d; want present=%t", len(payloads), snapshots)
+	}
+	rows, err := db.QueryContext(t.Context(), `SELECT expected_byte_size, expected_sha256 FROM extension_staged_objects WHERE operation_id = $1 AND owner_profile_id = $2 AND expected_byte_size IS NOT NULL`, jobID, incidentbundles.ProfileID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	empty, staged := 0, map[string]int{}
+	for rows.Next() {
+		var size int64
+		var digest string
+		if err := rows.Scan(&size, &digest); err != nil {
+			t.Fatal(err)
+		}
+		if size == 0 {
+			empty++
+		}
+		if _, payload := payloads[digest]; payload {
+			staged[digest]++
+		}
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	if empty != wantEmpty {
+		t.Errorf("import staged %d zero-byte objects; the bundle accounts for %d", empty, wantEmpty)
+	}
+	for digest, want := range payloads {
+		if staged[digest] != want {
+			t.Errorf("snapshot payload %s staged %d times; the bundle holds it %d times", digest[:12], staged[digest], want)
+		}
+	}
+}

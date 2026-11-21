@@ -42,7 +42,7 @@ func timelineProfileInput(t testing.TB, incident, actor uuid.UUID) sourceport.Im
 	if err != nil {
 		t.Fatal(err)
 	}
-	return sourceport.ImportContext{IncidentID: incident, ActorUserID: actor, OperationID: "timeline-profile", BundleVersion: 8, Actors: actors}
+	return sourceport.ImportContext{IncidentID: incident, ActorUserID: actor, OperationID: "timeline-profile", BundleVersion: 8, Actors: actors, Preparation: portabilitysupport.NewPreparationStore()}
 }
 func requireTimelineProfileFailure(t testing.TB, err error, invariant string) {
 	t.Helper()
@@ -53,23 +53,9 @@ func requireTimelineProfileFailure(t testing.TB, err error, invariant string) {
 }
 
 type timelineProfileAttributions struct {
+	portabilitysupport.AttributionCapability
 	local uuid.UUID
 	rows  []incidentportability.ImportedAttribution
-}
-
-func (a *timelineProfileAttributions) RecordImportedAttribution(table, row, column, actor string) error {
-	a.rows = append(a.rows, incidentportability.ImportedAttribution{SourceTable: table, SourceRowID: row, SourceColumn: column, SourceActorID: actor, LocalUserID: a.local})
-	return nil
-}
-func (a *timelineProfileAttributions) VisitImportedAttributions(table, row string, visit func(incidentportability.ImportedAttribution) error) error {
-	for _, value := range a.rows {
-		if value.SourceTable == table && (row == "" || value.SourceRowID == row) {
-			if err := visit(value); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
 }
 
 type forbiddenTimelineProfileTx struct{ pgx.Tx }
@@ -218,11 +204,35 @@ func TestTimelinePortableProfileAdmission_Unit(t *testing.T) {
 			}
 		})
 	}
-	bundle[timelineProfilePath] = append(bundle[timelineProfilePath], '\n')
-	if err := port.ApplyImportTx(ctx, forbiddenTimelineProfileTx{}, prepared, input); err == nil {
-		t.Fatal("changed sealed profile admitted")
+	// Core 01 REQ-01-641: the prepared value holds staged streams only, so
+	// Apply never reopens the sealed bundle profile after preparation.
+	counting := &portabilitysupport.CountingBundle{MemberReader: timelineProfileBundle(t, base)}
+	sealed, err := port.PrepareImport(ctx, counting, input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	counting.Freeze()
+	if err := port.ApplyImportTx(ctx, unavailableTimelineTx{}, sealed, input); !errors.Is(err, errTimelineTxUnavailable) || counting.Late() != 0 {
+		t.Fatalf("apply err=%v reopened=%d", err, counting.Late())
 	}
 }
+
+var errTimelineTxUnavailable = errors.New("timeline test transaction unavailable")
+
+// unavailableTimelineTx fails every statement, so Apply stops at its first
+// database read without mutating anything.
+type unavailableTimelineTx struct{ pgx.Tx }
+
+func (unavailableTimelineTx) QueryRow(context.Context, string, ...any) pgx.Row {
+	return unavailableTimelineRow{}
+}
+func (unavailableTimelineTx) Query(context.Context, string, ...any) (pgx.Rows, error) {
+	return nil, errTimelineTxUnavailable
+}
+
+type unavailableTimelineRow struct{}
+
+func (unavailableTimelineRow) Scan(...any) error { return errTimelineTxUnavailable }
 
 // strictTimelineRowVariants returns a valid row's encoding and three encodings
 // that differ from it only by malformed JSON in textField: a duplicate member,

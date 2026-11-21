@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -114,7 +115,7 @@ func checkPortabilityExportLimits(t *testing.T) {
 			}
 			participant := &portabilityBudgetParticipant{portabilityParticipantFake: &portabilityParticipantFake{id: policy.ParticipantID}, exportMembers: 2}
 			factory := &portabilityBudgetReadFactory{}
-			orchestrator, err := NewPortabilityOrchestrator(PortabilityOptions{Policies: []ExtensionPolicy{policy}, Presence: portabilityPresenceFake{present: true}, Participants: []ExtensionParticipant{participant}, SnapshotReads: factory})
+			orchestrator, err := NewPortabilityOrchestrator(PortabilityOptions{Policies: []ExtensionPolicy{policy}, Presence: portabilityPresenceFake{present: true}, Participants: []ExtensionParticipant{participant}, SnapshotReads: factory, ParticipantTimeout: time.Minute, FatalSink: func(error) {}})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -163,7 +164,7 @@ func checkPortabilityImportLimits(t *testing.T) {
 			policy.Import.MaximumInputBytes, policy.Import.MaximumOutputBytes, policy.Import.MaximumItems = int64(tc.inputBytes), int64(tc.outputBytes), tc.maximumItems
 			participant := &portabilityBudgetParticipant{portabilityParticipantFake: &portabilityParticipantFake{id: policy.ParticipantID}, preparationMembers: tc.preparationMembers, publicationMembers: tc.publicationMembers, streamPublication: tc.streamPublication}
 			allocator := newWorkerArchiveStaging(t)
-			orchestrator, err := NewPortabilityOrchestrator(PortabilityOptions{Policies: []ExtensionPolicy{policy}, Presence: portabilityPresenceFake{}, Participants: []ExtensionParticipant{participant}, SnapshotReads: portabilityReadFactoryFake{}, Allocator: allocator})
+			orchestrator, err := NewPortabilityOrchestrator(PortabilityOptions{Policies: []ExtensionPolicy{policy}, Presence: portabilityPresenceFake{}, Participants: []ExtensionParticipant{participant}, SnapshotReads: portabilityReadFactoryFake{}, Allocator: allocator, ParticipantTimeout: time.Minute, FatalSink: func(error) {}})
 			if err != nil {
 				t.Fatal(err)
 			}

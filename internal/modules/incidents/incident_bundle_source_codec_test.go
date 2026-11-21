@@ -16,6 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
+	"github.com/JochiRaider/cartulary/internal/testutil/portabilitysupport"
 )
 
 var (
@@ -234,17 +235,35 @@ func TestIncidentSourceApplyUsesExplicitColumnsAndPreservesBothAttributions_Unit
 	if db.execArgs[10] != incidentSourceImportActor || db.execArgs[13] != incidentSourceImportActor {
 		t.Fatalf("stored actor remap = created %#v updated %#v", db.execArgs[10], db.execArgs[13])
 	}
-	wantAttributions := []incidentportability.ImportedAttribution{
+	// Core 01 REQ-01-641: preparation stages both historical actors; the core
+	// flushes them in step 9 and Apply records none row by row.
+	store := portabilitysupport.NewPreparationStore()
+	stream, err := stageIncidentSourceAttribution(context.Background(), store, prepared, importContext.actorAdmitted)
+	if err != nil {
+		t.Fatalf("stage source actor attribution: %v", err)
+	}
+	reader := incidentportability.OpenAttributions(context.Background(), store, stream)
+	var staged []incidentportability.AttributionRow
+	for reader.Next() {
+		staged = append(staged, reader.Row())
+	}
+	if err := errors.Join(reader.Err(), reader.Close()); err != nil {
+		t.Fatalf("read staged source actor attribution: %v", err)
+	}
+	wantAttributions := []incidentportability.AttributionRow{
 		{SourceTable: "incidents", SourceRowID: incidentSourceTestID.String(), SourceColumn: "created_by_user_id", SourceActorID: incidentSourceCreatedActor.String()},
 		{SourceTable: "incidents", SourceRowID: incidentSourceTestID.String(), SourceColumn: "updated_by_user_id", SourceActorID: incidentSourceUpdatedActor.String()},
 	}
-	if !slices.Equal(recorder.rows, wantAttributions) {
-		t.Fatalf("source actor attributions = %#v, want %#v", recorder.rows, wantAttributions)
+	if !slices.Equal(staged, wantAttributions) {
+		t.Fatalf("source actor attributions = %#v, want %#v", staged, wantAttributions)
+	}
+	if _, err := stageIncidentSourceAttribution(context.Background(), portabilitysupport.NewPreparationStore(), prepared, func(string) bool { return false }); err == nil {
+		t.Fatal("staged an unadmitted source actor")
 	}
 
 	zeroRows := &incidentSourceDatabaseFake{execTag: pgconn.NewCommandTag("INSERT 0 0")}
 	importContext.attributions = &incidentSourceAttributionRecorder{}
-	err := applyIncidentBundleIncidentTx(context.Background(), zeroRows, prepared, importContext, contract)
+	err = applyIncidentBundleIncidentTx(context.Background(), zeroRows, prepared, importContext, contract)
 	if path, ok := incidentportability.FixedImportFailurePath(err); !ok || path != contract.source.Path.LogicalPath {
 		t.Fatalf("affected-row mismatch = %v, path %q, %v", err, path, ok)
 	}
@@ -435,19 +454,8 @@ func mustPreparedIncidentSource(
 }
 
 type incidentSourceAttributionRecorder struct {
+	portabilitysupport.AttributionCapability
 	rows []incidentportability.ImportedAttribution
-}
-
-func (recorder *incidentSourceAttributionRecorder) RecordImportedAttribution(
-	table string,
-	rowID string,
-	column string,
-	actorID string,
-) error {
-	recorder.rows = append(recorder.rows, incidentportability.ImportedAttribution{
-		SourceTable: table, SourceRowID: rowID, SourceColumn: column, SourceActorID: actorID,
-	})
-	return nil
 }
 
 func (recorder *incidentSourceAttributionRecorder) ImportedAttributions() []incidentportability.ImportedAttribution {
@@ -583,15 +591,4 @@ func (query *incidentSourceExportQueryFake) QueryRow(_ context.Context, statemen
 		*destinations[1].(*string) = query.incidentKey
 		return nil
 	})
-}
-
-func (r *incidentSourceAttributionRecorder) VisitImportedAttributions(table, rowID string, visit func(incidentportability.ImportedAttribution) error) error {
-	for _, row := range r.ImportedAttributions() {
-		if row.SourceTable == table && (rowID == "" || row.SourceRowID == rowID) {
-			if err := visit(row); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
 }

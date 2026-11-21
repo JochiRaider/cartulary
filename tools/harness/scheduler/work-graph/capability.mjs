@@ -110,6 +110,11 @@ export function automaticCapacities({ registry, cpuTokens, detectedMemory, detec
       cpuTokens * policies.io_tokens.cpu_multiplier,
     ),
     postgres_lanes: fixed("postgres_lanes"),
+    // At most the PostgreSQL lanes; the caller bounds it by the resolved value.
+    postgres_heavy_lanes: Math.max(
+      policies.postgres_heavy_lanes.minimum,
+      Math.min(policies.postgres_heavy_lanes.default, fixed("postgres_lanes")),
+    ),
     object_store_lanes: fixed("object_store_lanes"),
     port_lanes: fixed("port_lanes"),
   };
@@ -178,6 +183,12 @@ export function captureCapabilitySnapshot({
   const ioMaximum = resolvedCPU * registry.capacity_policies.io_tokens.cpu_multiplier;
   const fixedMaximum = (field) =>
     resolvedCPU * registry.capacity_policies[field].maximum_cpu_multiplier;
+  const postgresLanes = resolveIntegerCapacity({
+    field: "postgres_lanes",
+    override,
+    automatic: boundedAutomatic.postgres_lanes,
+    maximum: fixedMaximum("postgres_lanes"),
+  });
   let writableVolume = true;
   try {
     accessSync(root ?? process.cwd(), constants.W_OK);
@@ -200,11 +211,12 @@ export function captureCapabilitySnapshot({
       automatic: boundedAutomatic.io_tokens,
       maximum: ioMaximum,
     }),
-    postgres_lanes: resolveIntegerCapacity({
-      field: "postgres_lanes",
+    postgres_lanes: postgresLanes,
+    postgres_heavy_lanes: resolveIntegerCapacity({
+      field: "postgres_heavy_lanes",
       override,
-      automatic: boundedAutomatic.postgres_lanes,
-      maximum: fixedMaximum("postgres_lanes"),
+      automatic: Math.min(boundedAutomatic.postgres_heavy_lanes, postgresLanes),
+      maximum: postgresLanes,
     }),
     object_store_lanes: resolveIntegerCapacity({
       field: "object_store_lanes",
@@ -232,6 +244,8 @@ export function captureCapabilitySnapshot({
       object_store_lanes:
         override?.object_store_lanes === undefined ? "fallback" : "override",
       port_lanes: override?.port_lanes === undefined ? "host" : "override",
+      postgres_heavy_lanes:
+        override?.postgres_heavy_lanes === undefined ? "fallback" : "override",
       postgres_lanes:
         override?.postgres_lanes === undefined ? "fallback" : "override",
       process_slots:
@@ -262,6 +276,9 @@ export function resourceCapacities(snapshot) {
     ["object_store", snapshot.services.object_store === false ? 0 : snapshot.object_store_lanes],
     ["port_lane", snapshot.port_lanes],
     ["postgres", snapshot.services.postgres === false ? 0 : snapshot.postgres_lanes],
+    // Capture always resolves the authored lanes (minimum one). A historical
+    // snapshot recorded before the lane existed is read as recorded, without it.
+    ...(snapshot.postgres_heavy_lanes === undefined ? [] : [["postgres_heavy", snapshot.postgres_heavy_lanes]]),
     ["process", snapshot.process_slots],
     ["service_stack", snapshot.services.service_stack === false ? 0 : snapshot.port_lanes],
     ["volume", snapshot.writable_volume ? 1 : 0],

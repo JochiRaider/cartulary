@@ -106,6 +106,7 @@ type incidentBundleWorker struct {
 	referencePacks     reference_data.IncidentReferences
 	limits             Limits
 	now                func() time.Time
+	memberReads        MemberReadObserver
 }
 
 func newIncidentBundleWorker(store *store, pool *pgxpool.Pool, jobManager JobOperations, jobRunner JobRunner, storage BundleStorage, staging stagedobjects.StreamAllocator, importFinalizer importfinalizerport.Finalizer, jobFinalizer JobSuccessFinalizer, portability *PortabilityOrchestrator, publicationLock IncidentPublicationLock, projectionRebuild ImportProjectionRebuilder, sourceCatalog *sourceport.Catalog, blobPort BlobPortability, referencePacks reference_data.IncidentReferences, artifactReferences ArtifactReferenceSource, limits Limits, now func() time.Time) *incidentBundleWorker {
@@ -205,6 +206,10 @@ func (w *incidentBundleWorker) executeExportJob(ctx context.Context, execution j
 	builder := bundleBuilder{staging: w.staging, limits: w.limits, artifactReferences: w.artifactReferences, pool: w.pool, blobPort: w.blobPort, portability: w.portability, sourceCatalog: w.sourceCatalog, referencePacks: w.referencePacks}
 	built, err := builder.build(ctx, *payload.IncidentID, request, bundleID, exportedAt)
 	if err != nil {
+		if fatalImportFailure(err) {
+			// Grace exhaustion selected process termination; publish nothing.
+			return
+		}
 		w.results.completeFailedFromError(ctx, execution, "incident_bundle_export_rejected", err)
 		return
 	}
@@ -318,6 +323,7 @@ func (w *incidentBundleWorker) executeImportJob(ctx context.Context, execution j
 		w.results.completeInternalFailure(ctx, execution)
 		return
 	}
+	members.observeReads("bundle", w.memberReads)
 	if err := stageBundleArchive(ctx, archive, archiveSize, members); err != nil {
 		w.results.completeFailedFromError(ctx, execution, "incident_bundle_import_rejected", err)
 		return
@@ -332,6 +338,14 @@ func (w *incidentBundleWorker) executeImportJob(ctx context.Context, execution j
 		w.results.completeFailedFromError(ctx, execution, "incident_bundle_import_rejected", err)
 		return
 	}
+	// Every preparation reads the bundle through this reader. It retires before
+	// the final transaction begins, so steps 7 through 9 cannot reopen a bundle
+	// member (Core 01 REQ-01-641).
+	bundleReader := newRetiringMembers(verified.Members)
+	verified.Members = bundleReader
+	// Opaque payloads stay readable through their own view after the row
+	// reader retires, limited to members preparation admitted.
+	payloads := newPayloadMembers(members)
 	baseCtx := ctx
 	committed := false
 	err = w.referencePacks.RunImportExecution(ctx, execution, executionStarted, func(ctx context.Context, scope *reference_data.IncidentReferenceExecution) error {
@@ -372,7 +386,18 @@ func (w *incidentBundleWorker) executeImportJob(ctx context.Context, execution j
 			if err != nil {
 				return err
 			}
+			rewritten.observeReads("rewritten", w.memberReads)
 			importParams.RewrittenMembers = rewritten
+			// Core ports stage write-ready rows and attribution here while
+			// preparing; the scope abandons them after commit or failure.
+			corePreparation, err := newMemberStore(payload.JobID.String(), memberScope, w.limits)
+			if err != nil {
+				return err
+			}
+			corePreparation.pathPrefix = "prepared/core/"
+			corePreparation.observeReads("prepared", w.memberReads)
+			importParams.PreparationMembers = corePreparation
+			importParams.Payloads = payloads
 			prepared, err := importer.prepareImport(ctx, verified, importParams)
 			if err != nil {
 				return err
@@ -384,7 +409,7 @@ func (w *incidentBundleWorker) executeImportJob(ctx context.Context, execution j
 					}
 				}
 			}()
-			portability, err := w.portability.PrepareImport(ctx, PortabilityImportContext{OperationID: payload.JobID.String(), IncidentID: prepared.IncidentID, ActorUserID: payload.ActorUserID, Actors: prepared.importContext.Actors}, verified.Members)
+			portability, err := w.portability.PrepareImport(ctx, PortabilityImportContext{OperationID: payload.JobID.String(), IncidentID: prepared.IncidentID, ActorUserID: payload.ActorUserID, Actors: prepared.importContext.Actors, PreparedSources: prepared}, verified.Members)
 			if err != nil {
 				return err
 			}
@@ -400,6 +425,13 @@ func (w *incidentBundleWorker) executeImportJob(ctx context.Context, execution j
 				return errors.New("incident import execution failed")
 			}
 			participants := append([]crossownertransaction.Participant{coreParticipant}, portability.Participants...)
+			// The final-commit protocol starts here (EXT-REQ-219 step 3). Opens
+			// after this point are bundle reopens that REQ-01-641 forbids.
+			bundleReader.retire()
+			payloads.closeAdmission()
+			members.enterFinalTransaction()
+			rewritten.enterFinalTransaction()
+			corePreparation.enterFinalTransaction()
 			result, err := w.transactions.Execute(ctx, crossownertransaction.Operation{
 				OperationID: payload.JobID.String(), NormalizedRequestSHA256: verified.ManifestSHA256,
 				Participants: participants,
@@ -515,6 +547,10 @@ func (s incidentBundleJobResultSink) completeInternalFailure(ctx context.Context
 }
 
 func (s incidentBundleJobResultSink) completeFailedFromError(ctx context.Context, execution jobs.Execution, code string, err error) {
+	if failure, ok := importDeadlineFailure(err, nil); ok {
+		s.completeDeadlineFailure(ctx, execution, failure)
+		return
+	}
 	if code == "internal_error" {
 		s.completeInternalFailure(ctx, execution)
 		return
@@ -533,6 +569,28 @@ func (s incidentBundleJobResultSink) completeFailedFromError(ctx context.Context
 		Completion: failedCompletion(code, details),
 		Mutate: func(ctx context.Context, tx pgx.Tx) error {
 			return s.store.markJobFailureTx(ctx, tx, execution.JobID(), reason, s.now())
+		},
+	})
+}
+
+// completeDeadlineFailure finalizes a participant deadline expiry that
+// published nothing: the Job fails through the shared timeout finalizer with
+// service_unavailable and its registered reason (Extensions Table 9-C).
+func (s incidentBundleJobResultSink) completeDeadlineFailure(ctx context.Context, execution jobs.Execution, failure deadlineFailure) {
+	completion := deadlineFailureCompletion(execution.JobID(), failure)
+	if resource, observeErr := s.manager.ObserveExecution(ctx, execution); observeErr == nil && resource.Status == jobs.StatusCancelRequested {
+		_, _ = s.manager.CompleteCanceled(ctx, execution, jobs.CancellationCompletion{Progress: completion.Progress})
+		return
+	}
+	if s.finalizer == nil {
+		s.completeFailed(ctx, execution, completion)
+		return
+	}
+	_, _ = s.finalizer.FinalizeIncidentBundleJobTimeout(ctx, JobFailureFinalization{
+		Execution:  execution,
+		Completion: completion,
+		Mutate: func(ctx context.Context, tx pgx.Tx) error {
+			return s.store.markJobFailureTx(ctx, tx, execution.JobID(), failure.reasonCode, s.now())
 		},
 	})
 }

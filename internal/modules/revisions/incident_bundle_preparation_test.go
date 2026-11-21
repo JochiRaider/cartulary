@@ -71,7 +71,7 @@ func newRevisionsPreparationHarness(t testing.TB) (revisionsPortabilityHarness, 
 	if err != nil {
 		t.Fatal(err)
 	}
-	input := sourceport.ImportContext{IncidentID: h.incidentID, ActorUserID: h.actor.ID, Actors: actors, BundleVersion: 8, OperationID: uuid.NewString()}
+	input := sourceport.ImportContext{IncidentID: h.incidentID, ActorUserID: h.actor.ID, Actors: actors, BundleVersion: 8, OperationID: uuid.NewString(), Preparation: portabilitysupport.NewPreparationStore()}
 	h.port, h.context = port, input
 	return h, probe
 }

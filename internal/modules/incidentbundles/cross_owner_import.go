@@ -188,3 +188,45 @@ func (p *importTransactionParticipant) Write(ctx context.Context, invocation cro
 	}
 	return crossownertransaction.Written(result), nil
 }
+
+// deadlineFailure is a deadline expiry whose commit is proven absent. Its Job
+// terminal error is service_unavailable with the registered reason and the
+// Extensions Table 26-B details operation_id and timeout_seconds.
+type deadlineFailure struct {
+	reasonCode     string
+	timeoutSeconds int64
+}
+
+// importDeadlineFailure classifies only the two portability deadlines: the
+// participant boundary (Table 9-E) and the cross-owner transaction (EXT-REQ-219).
+// Fatal and cancellation outcomes are classified before this is consulted.
+func importDeadlineFailure(cause error, transactions any) (deadlineFailure, bool) {
+	var participant *PortabilityTimeoutError
+	if errors.As(cause, &participant) {
+		return deadlineFailure{reasonCode: "extension_participant_timeout", timeoutSeconds: participant.TimeoutSeconds}, true
+	}
+	if errors.Is(cause, crossownertransaction.ErrTimeout) {
+		var seconds int64
+		if timed, ok := transactions.(interface{ Timeout() time.Duration }); ok {
+			seconds = int64(timed.Timeout() / time.Second)
+		}
+		return deadlineFailure{reasonCode: "extension_transaction_timeout", timeoutSeconds: seconds}, true
+	}
+	return deadlineFailure{}, false
+}
+
+func deadlineFailureCompletion(operationID uuid.UUID, failure deadlineFailure) jobs.FailureCompletion {
+	return jobs.FailureCompletion{
+		Progress: jobs.Progress{Completed: 1, Total: intPtr(1)},
+		ErrorSummary: jobs.ErrorSummary{
+			Code:      "service_unavailable",
+			Message:   "service_unavailable",
+			Retryable: true,
+			Details: map[string]any{
+				"reason_code":     failure.reasonCode,
+				"operation_id":    operationID.String(),
+				"timeout_seconds": failure.timeoutSeconds,
+			},
+		},
+	}
+}

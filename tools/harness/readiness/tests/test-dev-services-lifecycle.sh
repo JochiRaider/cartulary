@@ -19,11 +19,35 @@ run_stdout=""
 run_stderr=""
 run_status=0
 command_handles=()
+concurrent_runtime="$tmp_dir/concurrent-runtime"
+race_runtime="$tmp_dir/race-runtime"
+proxy_runtimes=("$tmp_dir/runtime" "$concurrent_runtime" "$race_runtime")
+
+fake_process_alive() {
+  local candidate="$1" stat_line=""
+  { read -r stat_line <"/proc/$candidate/stat"; } 2>/dev/null || return 1
+  stat_line="${stat_line##*) }"
+  [[ "${stat_line%% *}" != Z ]]
+}
+
+# Fake proxies outlive their launchers, so every runtime is stopped explicitly.
+stop_fake_proxy_runtime() {
+  local state_dir="$1/object-store-proxy" state_file
+  [[ -x "$state_dir/s3corsproxy" ]] || return 0
+  for state_file in "$state_dir/ready-lease.json" "$state_dir/start-attempt.json"; do
+    [[ -f "$state_file" ]] || continue
+    "$state_dir/s3corsproxy" stop --state-file "$state_file" ||
+      "$state_dir/s3corsproxy" discard --state-file "$state_file" || return 1
+  done
+}
 
 cleanup() {
-  local handle status=0 primary=$?
+  local handle runtime status=0 primary=$?
   for handle in "${command_handles[@]}"; do
     stop_owned_command "$handle" || status=$?
+  done
+  for runtime in "${proxy_runtimes[@]}"; do
+    stop_fake_proxy_runtime "$runtime" || status=$?
   done
   if [[ "$status" -ne 0 ]]; then
     echo "development service fixture cleanup failed; runtime retained" >&2
@@ -140,22 +164,123 @@ while [[ "$#" -gt 0 ]]; do
   esac
 done
 
+# The double keeps the real proxy's lifecycle shape: atomic state publication,
+# a recorded process that serves until TERM, status 1 while launching and 4 for
+# a missing state or dead process, and stop that signals the recorded process.
+state=""
+pid=""
+
+process_alive() {
+  local candidate="${1:-}" stat_line=""
+  [[ "$candidate" =~ ^[1-9][0-9]*$ ]] || return 1
+  { read -r stat_line <"/proc/$candidate/stat"; } 2>/dev/null || return 1
+  stat_line="${stat_line##*) }"
+  [[ "${stat_line%% *}" != Z ]]
+}
+
+read_state() {
+  state=""
+  pid=""
+  [[ -f "$1" ]] || return 1
+  read -r state pid _ <"$1" || [[ -n "$state" ]]
+}
+
+publish_state() {
+  local target="$1" temporary="$1.tmp.$$"
+  shift
+  printf '%s\n' "$*" >"$temporary"
+  mv -f "$temporary" "$target"
+}
+
+hold_until_term() {
+  local state_dir="$1" sleeper="" deadline=$((SECONDS + 600))
+  trap 'if [[ -n "$sleeper" ]]; then kill "$sleeper" 2>/dev/null || true; fi; exit 0' TERM INT
+  publish_state "$state_file" bound "$$"
+  # The bounded lifetime and state-directory check only guard against orphans.
+  while (( SECONDS < deadline )) && [[ -d "$state_dir" ]]; do
+    sleep 1 &
+    sleeper="$!"
+    wait "$sleeper" || true
+    sleeper=""
+  done
+}
+
+# The handshake gate holds the launched child until the launcher's first status
+# read has failed, then waits until that child has exited and been reaped.
+release_handshake_gate() {
+  local gate="${FAKE_PROXY_HANDSHAKE_GATE:-}" launcher="" deadline=$((SECONDS + 10))
+  [[ -n "$gate" ]] || return 0
+  mkdir "$gate/released" 2>/dev/null || return 0
+  until [[ -s "$gate/launcher.pid" ]]; do
+    (( SECONDS < deadline )) || return 0
+    sleep 0.02
+  done
+  read -r launcher <"$gate/launcher.pid"
+  while kill -0 "$launcher" 2>/dev/null; do
+    (( SECONDS < deadline )) || return 0
+    sleep 0.02
+  done
+  : >"$gate/launcher-reaped"
+}
+
 case "$command" in
   attempt)
-    printf 'launching\n' >"$attempt_file"
+    publish_state "$attempt_file" launching
     ;;
   serve)
-    # This adapter tests orchestration, not physical proxy ownership. Publishing
-    # state completes the fake service; no persistent process or PID is needed.
-    printf 'bound\n' >"$attempt_file"
+    if [[ -n "${FAKE_PROXY_HANDSHAKE_GATE:-}" ]]; then
+      gate="$FAKE_PROXY_HANDSHAKE_GATE"
+      publish_state "$gate/launcher.pid" "$$"
+      deadline=$((SECONDS + 30))
+      until [[ -d "$gate/released" ]]; do
+        (( SECONDS < deadline )) || exit 1
+        sleep 0.02
+      done
+      # Hand the proven identity to a detached server, then exit.
+      setsid "$0" hold --state-file "$attempt_file" </dev/null &
+      until read_state "$attempt_file" && [[ "$state" == bound ]]; do
+        (( SECONDS < deadline )) || exit 1
+        sleep 0.02
+      done
+      exit 0
+    fi
+    # Like a development service, the proxy outlives its launcher's group.
+    exec setsid "$0" hold --state-file "$attempt_file"
+    ;;
+  hold)
+    hold_until_term "$(dirname "$state_file")"
     ;;
   status)
-    [[ -f "$state_file" && "$(awk '{print $1}' "$state_file")" == "bound" ]]
+    read_state "$state_file" || exit 4
+    if [[ "$state" != bound ]]; then
+      release_handshake_gate
+      exit 1
+    fi
+    process_alive "$pid" || exit 4
     ;;
   promote)
-    mv "$attempt_file" "$lease_file"
+    if ! read_state "$attempt_file" || [[ "$state" != bound ]] || ! process_alive "$pid"; then
+      exit 1
+    fi
+    mv -f "$attempt_file" "$lease_file"
     ;;
-  stop | discard)
+  stop)
+    read_state "$state_file" || exit 0
+    if [[ "$state" != bound ]]; then
+      echo "refusing to signal unproven proxy process" >&2
+      exit 1
+    fi
+    if process_alive "$pid"; then
+      kill -TERM "$pid"
+      deadline=$((SECONDS + 5))
+      while process_alive "$pid"; do
+        (( SECONDS < deadline )) || exit 1
+        sleep 0.05
+      done
+    fi
+    rm -f "$state_file"
+    ;;
+  discard)
     rm -f "$state_file"
     ;;
   *)
@@ -329,6 +454,9 @@ assert_file_contains "$go_log" "--mode reset" "object-store-reset selects reset 
 assert_file_contains "$go_log" "--bucket ct-test" "object-store-reset passes configured bucket"
 
 # Repeated startup reuses the owned proxy and performs exactly one readiness pass.
+owned_lease="$tmp_dir/runtime/object-store-proxy/ready-lease.json"
+read -r _ owned_pid _ <"$owned_lease" || fail "object-store-reset must publish a ready lease"
+fake_process_alive "$owned_pid" || fail "the owned proxy must keep serving after its launcher exits"
 reset_logs
 for attempt in 1 2; do
   run_service "services_up_${attempt}" bash tools/harness/readiness/dev-services.sh up
@@ -338,13 +466,32 @@ done
 [[ "$(grep -c 'pg_isready' "$docker_log")" == 2 ]] || fail "one Postgres readiness pass per invocation"
 [[ "$(grep -c -- '--mode probe' "$go_log")" == 2 ]] || fail "one object-store readiness pass per invocation"
 assert_file_not_contains "$go_log" "build -o" "repeated startup reuses the owned proxy"
+read -r _ reused_pid _ <"$owned_lease" || fail "repeated startup must retain the ready lease"
+if [[ "$reused_pid" != "$owned_pid" ]] || ! fake_process_alive "$owned_pid"; then
+  fail "repeated startup must reuse the same live owned proxy"
+fi
 assert_file_not_contains "$go_log" "cmd/migrate" "startup does not migrate"
 assert_file_not_contains "$go_log" "--mode reset" "startup does not reset object storage"
 assert_file_not_contains "$docker_log" "DROP DATABASE" "startup does not reset the database"
 assert_file_not_contains "$docker_log" "provision.sh" "startup does not reprovision retained state"
 
+# A lease whose proven process died is discarded and replaced by one new instance.
+kill -TERM "$owned_pid"
+stop_deadline=$((SECONDS + 5))
+while fake_process_alive "$owned_pid"; do
+  (( SECONDS < stop_deadline )) || fail "owned proxy did not stop"
+  sleep 0.05
+done
 reset_logs
-concurrent_runtime="$tmp_dir/concurrent-runtime"
+run_service services_up_recovery bash tools/harness/readiness/dev-services.sh up
+assert_status 0
+[[ "$(grep -c '^build -o ' "$go_log")" == 1 ]] || fail "recovery must build exactly one replacement proxy"
+read -r _ recovered_pid _ <"$owned_lease" || fail "recovery must publish a ready lease"
+if [[ "$recovered_pid" == "$owned_pid" ]] || ! fake_process_alive "$recovered_pid"; then
+  fail "recovery must publish a live replacement proxy"
+fi
+
+reset_logs
 for index in 1 2; do
   concurrent_handle=""
   acquisition_status=0
@@ -394,3 +541,18 @@ build_count="$(grep -c '^build -o ' "$go_log" || true)"
   fail "concurrent proxy starts must publish exactly one owned instance, got $build_count builds"
 [[ -f "$concurrent_runtime/object-store-proxy/ready-lease.json" ]] ||
   fail "concurrent proxy starts must publish one ready lease"
+
+# A launched child that hands its proven identity to a detached server and exits
+# between the launcher's failed status read and its liveness check must not end
+# the handshake: the launcher reads the published state again.
+reset_logs
+race_gate="$tmp_dir/handshake-gate"
+mkdir -p "$race_gate"
+run_service handshake_child_exit env CARTULARY_RUNTIME_DIR="$race_runtime" \
+  FAKE_PROXY_HANDSHAKE_GATE="$race_gate" \
+  bash tools/harness/readiness/dev-services.sh wait-object-store
+[[ -e "$race_gate/launcher-reaped" ]] ||
+  fail "handshake fixture did not reap the launched child between the status read and liveness check"
+assert_status 0
+[[ -f "$race_runtime/object-store-proxy/ready-lease.json" ]] ||
+  fail "a handshake completed by a reaped child must publish one ready lease"

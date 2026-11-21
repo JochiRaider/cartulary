@@ -49,6 +49,17 @@ type jobAttemptEvidence struct {
 	OmittedSegmentCount  int                    `json:"omitted_segment_count"`
 	AttemptTransactions  []jobAttemptPhaseTotal `json:"attempt_phases"`
 	ObservationStartedAt time.Time              `json:"observation_started_at"`
+	// MemberReads counts Incident Bundle member opens by phase and store
+	// ("final_transaction"/"bundle" are reopens after the final-commit
+	// protocol started, which Core 01 REQ-01-641 forbids).
+	MemberReads map[string]map[string]int `json:"member_reads"`
+	// BundlePathsAfterBegin counts bundle member opens in the final
+	// transaction by owner path (blob members collapse to their prefix).
+	BundlePathsAfterBegin map[string]int `json:"bundle_paths_after_begin"`
+	// PayloadPathsAfterBegin counts verified opaque payload opens in the final
+	// transaction by path class. They stream sealed bundle bytes through the
+	// payload reader and are not row reads.
+	PayloadPathsAfterBegin map[string]int `json:"payload_reads_after_begin"`
 }
 
 // jobAttemptWindow is one handler attempt. Offsets are milliseconds from the
@@ -106,6 +117,9 @@ type jobAttemptPhaseTotal struct {
 	// LeaseExpiryMS the attempt's lease expiry then in force, as offsets.
 	TransactionEndMS int64 `json:"transaction_end_ms"`
 	LeaseExpiryMS    int64 `json:"lease_expiry_at_transaction_end_ms"`
+	// IdleInTransactionMS and ActiveMS split TransactionSeenMS by session state.
+	IdleInTransactionMS int64 `json:"idle_in_transaction_ms"`
+	ActiveMS            int64 `json:"active_ms"`
 }
 
 type jobAttemptRecorder struct {
@@ -123,6 +137,168 @@ type jobAttemptRecorder struct {
 	lastLease      time.Time
 	lastRenew      time.Time
 	open           map[string]int
+	memberReads    *memberReadLog
+}
+
+// observeMemberReads attaches the destination server's member-read log.
+func (r *jobAttemptRecorder) observeMemberReads(log *memberReadLog) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.memberReads = log
+}
+
+// memberReadLog keeps one destination server's Incident Bundle member opens per
+// import operation (the import Job identity). It holds counts only.
+type memberReadLog struct {
+	mu                sync.Mutex
+	byOperation       map[string]map[string]map[string]int
+	lateByPath        map[string]map[string]int
+	latePayloadByPath map[string]map[string]int
+}
+
+func newMemberReadLog() *memberReadLog {
+	return &memberReadLog{byOperation: map[string]map[string]map[string]int{}, lateByPath: map[string]map[string]int{}, latePayloadByPath: map[string]map[string]int{}}
+}
+
+func (l *memberReadLog) observe(operationID, store, phase, path string) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	phases := l.byOperation[operationID]
+	if phases == nil {
+		phases = map[string]map[string]int{}
+		l.byOperation[operationID] = phases
+	}
+	if phases[phase] == nil {
+		phases[phase] = map[string]int{}
+	}
+	phases[phase][store]++
+	if store == "bundle" && phase == "final_transaction" {
+		if l.lateByPath[operationID] == nil {
+			l.lateByPath[operationID] = map[string]int{}
+		}
+		l.lateByPath[operationID][memberReadPathClass(path)]++
+	}
+	if store == "payload" && phase == "final_transaction" {
+		if l.latePayloadByPath[operationID] == nil {
+			l.latePayloadByPath[operationID] = map[string]int{}
+		}
+		l.latePayloadByPath[operationID][memberReadPathClass(path)]++
+	}
+}
+
+// requirePayloadReadsAfterBegin requires every final-transaction payload open
+// to belong to one of classes, and each class to be read (Core 01
+// REQ-01-641: opaque payloads stream from their sealed bundle member).
+func (l *memberReadLog) requirePayloadReadsAfterBegin(t *testing.T, classes ...string) {
+	t.Helper()
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	read := map[string]int{}
+	for _, paths := range l.latePayloadByPath {
+		for path, count := range paths {
+			read[path] += count
+		}
+	}
+	for path, count := range read {
+		if !slices.Contains(classes, path) {
+			t.Errorf("final transaction read payload %s %d times outside the verified payload classes", path, count)
+		}
+	}
+	for _, class := range classes {
+		if read[class] == 0 {
+			t.Errorf("final transaction streamed no %s payload from its sealed bundle member", class)
+		}
+	}
+}
+
+func (l *memberReadLog) latePayloadsForOperation(operationID string) map[string]int {
+	result := map[string]int{}
+	if l == nil {
+		return result
+	}
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	for path, count := range l.latePayloadByPath[operationID] {
+		result[path] = count
+	}
+	return result
+}
+
+// memberReadPathClass keeps data members' logical paths and collapses other
+// members, such as blobs, to their first path segment.
+func memberReadPathClass(path string) string {
+	if strings.HasPrefix(path, "data/") {
+		return path
+	}
+	if first, _, ok := strings.Cut(path, "/"); ok {
+		return first + "/*"
+	}
+	return path
+}
+
+// bundlePathsAfterBegin returns the final-transaction bundle opens of every
+// operation by path class.
+func (l *memberReadLog) bundlePathsAfterBegin() map[string]int {
+	result := map[string]int{}
+	if l == nil {
+		return result
+	}
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	for _, paths := range l.lateByPath {
+		for path, count := range paths {
+			result[path] += count
+		}
+	}
+	return result
+}
+
+// migratedBundlePaths are the path classes whose final transaction must
+// reopen no bundle member. Every family is migrated (Core 01 REQ-01-641), so
+// the empty prefix covers every bundle member.
+var migratedBundlePaths = []string{""}
+
+// requireNoBundleReadsAfterBegin fails when any final transaction reopened a
+// bundle member whose path class starts with one of prefixes (Core 01
+// REQ-01-641).
+func (l *memberReadLog) requireNoBundleReadsAfterBegin(t *testing.T, prefixes ...string) {
+	t.Helper()
+	for path, count := range l.bundlePathsAfterBegin() {
+		for _, prefix := range prefixes {
+			if strings.HasPrefix(path, prefix) {
+				t.Errorf("final transaction reopened bundle member %s %d times", path, count)
+			}
+		}
+	}
+}
+
+func (l *memberReadLog) forOperation(operationID string) map[string]map[string]int {
+	result := map[string]map[string]int{}
+	if l == nil {
+		return result
+	}
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	for phase, stores := range l.byOperation[operationID] {
+		result[phase] = map[string]int{}
+		for store, count := range stores {
+			result[phase][store] = count
+		}
+	}
+	return result
+}
+
+func (l *memberReadLog) lateForOperation(operationID string) map[string]int {
+	result := map[string]int{}
+	if l == nil {
+		return result
+	}
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	for path, count := range l.lateByPath[operationID] {
+		result[path] = count
+	}
+	return result
 }
 
 // recordJobAttempts samples the job's attempts in db until the returned
@@ -336,6 +512,9 @@ func (r *jobAttemptRecorder) finish(job map[string]any) {
 		}
 	}
 	r.evidence.AttemptTransactions = r.phases()
+	r.evidence.MemberReads = r.memberReads.forOperation(r.jobID)
+	r.evidence.BundlePathsAfterBegin = r.memberReads.lateForOperation(r.jobID)
+	r.evidence.PayloadPathsAfterBegin = r.memberReads.latePayloadsForOperation(r.jobID)
 	name := "job-attempts-" + r.jobID + ".json"
 	location := "not recorded"
 	if root, err := fixtureartifacts.SelectedRunRoot(); err != nil {
@@ -401,6 +580,13 @@ func (r *jobAttemptRecorder) phases() []jobAttemptPhaseTotal {
 			total.StatementSeenMS = longest.kinds
 			total.TransactionWaitMS = longest.waited
 			total.TransactionEndMS = longest.last
+			for kind, seen := range longest.kinds {
+				if _, state, ok := strings.Cut(kind, "/"); ok && strings.HasPrefix(state, "idle in transaction") {
+					total.IdleInTransactionMS += int64(seen)
+				} else if ok && state == "active" {
+					total.ActiveMS += int64(seen)
+				}
+			}
 			for _, lease := range attempt.LeaseHistory {
 				if lease.ObservedMS <= longest.last {
 					total.LeaseExpiryMS = lease.ExpiresMS
@@ -421,15 +607,15 @@ func (r *jobAttemptRecorder) phases() []jobAttemptPhaseTotal {
 }
 
 func (r *jobAttemptRecorder) summary() string {
-	parts := []string{fmt.Sprintf("final=%s/%s samples=%d sample_errors=%d", r.evidence.FinalStatus, r.evidence.FinalErrorCode, r.evidence.Samples, r.evidence.SampleErrors)}
+	parts := []string{fmt.Sprintf("final=%s/%s samples=%d sample_errors=%d bundle_reads_after_begin=%d", r.evidence.FinalStatus, r.evidence.FinalErrorCode, r.evidence.Samples, r.evidence.SampleErrors, r.evidence.MemberReads["final_transaction"]["bundle"])}
 	for index, attempt := range r.evidence.Attempts {
 		line := fmt.Sprintf("attempt %d: claimed=%dms ended=%dms duration=%dms reason=%q failures=%d renewals=%d max_renewal_gap=%dms lease_left=%dms",
 			attempt.Number, attempt.ClaimedOffsetMS, attempt.EndedOffsetMS, attempt.DurationMS, attempt.RecordedReason, attempt.FailureCountAfter,
 			attempt.LeaseRenewals, attempt.MaxRenewalGapMS, attempt.LeaseRemainingMS)
 		if index < len(r.evidence.AttemptTransactions) {
 			phase := r.evidence.AttemptTransactions[index]
-			line += fmt.Sprintf(" tx_start_after_claim=%dms tx_seen=%dms tx_end=%dms lease_expiry=%dms commit_seen=%dms tx_lock_wait=%dms blocked_others=%dms",
-				phase.TransactionStartAfter, phase.TransactionSeenMS, phase.TransactionEndMS, phase.LeaseExpiryMS, phase.CommitSeenMS, phase.TransactionWaitMS, phase.BlockedOthersMS)
+			line += fmt.Sprintf(" tx_start_after_claim=%dms tx_seen=%dms idle_in_tx=%dms tx_end=%dms lease_expiry=%dms commit_seen=%dms tx_lock_wait=%dms blocked_others=%dms",
+				phase.TransactionStartAfter, phase.TransactionSeenMS, phase.IdleInTransactionMS, phase.TransactionEndMS, phase.LeaseExpiryMS, phase.CommitSeenMS, phase.TransactionWaitMS, phase.BlockedOthersMS)
 		}
 		parts = append(parts, line)
 	}

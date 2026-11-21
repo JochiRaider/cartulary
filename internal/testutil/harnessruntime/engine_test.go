@@ -77,6 +77,56 @@ func TestRuntimeScheduling(t *testing.T) {
 			t.Fatal("capability and additive reservations diverged", peaks)
 		}
 	})
+	// TH-HARNESS-REQ-353: postgres_heavy is additive; two lanes admit two
+	// heavy units and the third waits for a lane to be released.
+	t.Run("postgres_heavy_lanes_bound_concurrent_heavy_units", func(t *testing.T) {
+		a, b, c := engineUnit("a", 3), engineUnit("b", 2), engineUnit("c", 1)
+		for _, u := range []unit{a, b, c} {
+			u.Claims["postgres_heavy"] = 1
+		}
+		p := enginePlan(a, b, c)
+		p.facts.Capacities["cpu"], p.facts.Capacities["postgres_heavy"] = 3, 2
+		// The first two lane holders must overlap; a third may start only after
+		// one of them has released its lane.
+		var active, peak, arrived atomic.Int64
+		both := make(chan struct{})
+		r := boundedGraph(t, p, enginePorts{RetainEvents: true, Execute: func(ctx context.Context, _ executionRequest) unitResult {
+			now := active.Add(1)
+			defer active.Add(-1)
+			for {
+				prior := peak.Load()
+				if now <= prior || peak.CompareAndSwap(prior, now) {
+					break
+				}
+			}
+			if order := arrived.Add(1); order <= 2 {
+				if order == 2 {
+					close(both)
+				}
+				select {
+				case <-both:
+				case <-ctx.Done():
+					return unitResult{Status: "cancelled", Failure: failureOf(ctx.Err())}
+				}
+			}
+			return unitResult{Status: "passed"}
+		}})
+		if r.Status != "passed" || peak.Load() != 2 {
+			t.Fatal("heavy lanes did not bound concurrent heavy units", r.Status, peak.Load())
+		}
+		facts := newCanonicalFacts(p)
+		for _, event := range r.Events {
+			if err := facts.consume(event); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := facts.validate(); err != nil {
+			t.Fatal(err)
+		}
+		if peaks := facts.pressure()["peak_use"].(map[string]int64); peaks["postgres_heavy"] != 2 {
+			t.Fatal("canonical pressure diverged from heavy-lane admission", peaks)
+		}
+	})
 	t.Run("wait_segments_follow_reservations_and_barriers", func(t *testing.T) {
 		p := enginePlan(engineUnit("holder", 10), engineUnit("waiter", 1))
 		r := boundedGraph(t, p, enginePorts{RetainEvents: true, Execute: func(context.Context, executionRequest) unitResult { return unitResult{Status: "passed"} }})

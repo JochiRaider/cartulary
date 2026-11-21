@@ -47,6 +47,11 @@ func prepareEntityImport(ctx context.Context, bundle incidentportability.MemberR
 	if err := failures.err(); err != nil {
 		return preparedEntityImport{}, err
 	}
+	if err := prepared.stage(ctx, importContext); err != nil {
+		return preparedEntityImport{}, err
+	}
+	// The transaction receives no bundle reader.
+	prepared.members = nil
 	return prepared, nil
 }
 
@@ -62,20 +67,39 @@ func walkEntitySource[T any](ctx context.Context, prepared preparedEntityImport,
 		return visit(row)
 	})
 }
-func (p preparedEntityImport) hosts(ctx context.Context, input sourceport.ImportContext, visit func(portableHostRow) error) error {
+
+// Preparation-time walks read the bound bundle members.
+func (p preparedEntityImport) walkHosts(ctx context.Context, input sourceport.ImportContext, visit func(portableHostRow) error) error {
 	return walkEntitySource(ctx, p, input, hostsBundlePath, preparePortableHost, visit)
 }
-func (p preparedEntityImport) identities(ctx context.Context, input sourceport.ImportContext, visit func(portableIdentityRow) error) error {
+func (p preparedEntityImport) walkIdentities(ctx context.Context, input sourceport.ImportContext, visit func(portableIdentityRow) error) error {
 	return walkEntitySource(ctx, p, input, identitiesBundlePath, preparePortableIdentity, visit)
 }
-func (p preparedEntityImport) mentions(ctx context.Context, input sourceport.ImportContext, visit func(portableMentionRow) error) error {
+func (p preparedEntityImport) walkMentions(ctx context.Context, input sourceport.ImportContext, visit func(portableMentionRow) error) error {
 	return walkEntitySource(ctx, p, input, entityMentionsBundlePath, preparePortableMention, visit)
 }
-func (p preparedEntityImport) preserved(ctx context.Context, input sourceport.ImportContext, visit func(portablePreservedIdentifierRow) error) error {
+func (p preparedEntityImport) walkPreserved(ctx context.Context, input sourceport.ImportContext, visit func(portablePreservedIdentifierRow) error) error {
 	return walkEntitySource(ctx, p, input, preservedIDsBundlePath, preparePortablePreserved, visit)
 }
-func (p preparedEntityImport) aliases(ctx context.Context, input sourceport.ImportContext, visit func(portableAliasRow) error) error {
+func (p preparedEntityImport) walkAliases(ctx context.Context, input sourceport.ImportContext, visit func(portableAliasRow) error) error {
 	return walkEntitySource(ctx, p, input, entityAliasesBundlePath, preparePortableAlias, visit)
+}
+
+// Transaction-time readers visit the staged rows only.
+func (p preparedEntityImport) hosts(ctx context.Context, input sourceport.ImportContext, visit func(portableHostRow) error) error {
+	return readEntityRows(ctx, p, input, p.hostRows, hostCodec{}, func(row stagedEntityHost) error { return visit(row.Row) })
+}
+func (p preparedEntityImport) identities(ctx context.Context, input sourceport.ImportContext, visit func(portableIdentityRow) error) error {
+	return readEntityRows(ctx, p, input, p.identityRows, identityCodec{}, func(row stagedEntityIdentity) error { return visit(row.Row) })
+}
+func (p preparedEntityImport) mentions(ctx context.Context, input sourceport.ImportContext, visit func(portableMentionRow) error) error {
+	return readEntityRows(ctx, p, input, p.mentionRows, mentionCodec{}, visit)
+}
+func (p preparedEntityImport) preserved(ctx context.Context, input sourceport.ImportContext, visit func(portablePreservedIdentifierRow) error) error {
+	return readEntityRows(ctx, p, input, p.preservedRows, preservedCodec{}, func(row stagedEntityPreserved) error { return visit(row.Row) })
+}
+func (p preparedEntityImport) aliases(ctx context.Context, input sourceport.ImportContext, visit func(portableAliasRow) error) error {
+	return readEntityRows(ctx, p, input, p.aliasRows, aliasCodec{}, visit)
 }
 
 func preparePortableHost(raw map[string]any, importContext sourceport.ImportContext) (portableHostRow, []entityFailureCandidate) {

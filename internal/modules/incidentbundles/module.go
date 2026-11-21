@@ -37,6 +37,8 @@ type ModuleDependencies struct {
 	BlobPortability         BlobPortability
 	ReferencePacks          reference_data.IncidentReferences
 	Now                     func() time.Time
+	// MemberReads is test evidence only; production composition passes nil.
+	MemberReads MemberReadObserver
 }
 
 // Module is the sole production construction facade for Incident Bundles.
@@ -125,6 +127,7 @@ func NewModule(dependencies ModuleDependencies) (*Module, error) {
 		dependencies.Limits,
 		now,
 	)
+	worker.memberReads = dependencies.MemberReads
 	return &Module{
 		pool:     dependencies.Postgres,
 		store:    store,

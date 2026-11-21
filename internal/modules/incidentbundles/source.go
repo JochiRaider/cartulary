@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"maps"
 	"slices"
 	"sort"
 	"strings"
@@ -77,11 +78,16 @@ type importParams struct {
 	RequestID          *string
 	OperationID        string
 	RewrittenMembers   *memberStore
+	// PreparationMembers is the operation's core preparation store (Core 01
+	// REQ-01-641 steps 4 and 5); it is sealed when preparation completes.
+	PreparationMembers *memberStore
+	// Payloads admits opaque bundle payloads while preparing and streams
+	// only those in the final transaction.
+	Payloads *payloadMembers
 }
 
 type preparedImport struct {
 	IncidentID         uuid.UUID
-	members            incidentportability.MemberReader
 	rewrittenMembers   incidentportability.MemberReader
 	stagedObjects      *stagedobjects.PreparedResources
 	sourcePreparations []preparedSource
@@ -93,6 +99,20 @@ type preparedImport struct {
 type preparedSource struct {
 	port     sourceport.Port
 	prepared sourceport.Prepared
+}
+
+// PreparedSourceValue returns the completed preparation of one core source
+// family for this same operation.
+func (p *preparedImport) PreparedSourceValue(familyID string) (any, bool) {
+	if p == nil {
+		return nil, false
+	}
+	for _, source := range p.sourcePreparations {
+		if source.port != nil && source.port.Descriptor().FamilyID == familyID {
+			return source.prepared.FamilyValue(familyID)
+		}
+	}
+	return nil, false
 }
 
 func (p *preparedImport) cleanup(ctx context.Context) error {
@@ -394,9 +414,24 @@ func (i importer) prepareImport(ctx context.Context, verified verifiedBundle, pa
 	if i.sourceCatalog == nil {
 		return nil, errors.New("incident bundle source catalog is required")
 	}
+	if params.PreparationMembers == nil {
+		return nil, errors.New("incident import preparation staging is required")
+	}
+	// Families prepare in the catalog's recorded order; a family's published
+	// facts are readable by later families' preparation only.
+	ports := i.sourceCatalog.Ports()
+	families := make([]string, 0, len(ports))
+	for _, port := range ports {
+		families = append(families, port.Descriptor().FamilyID)
+	}
 	importContext := sourceport.ImportContext{
 		IncidentID: incidentID, ActorUserID: params.ActorUserID,
 		BundleVersion: verified.Manifest.BundleVersion, OperationID: params.OperationID,
+		Preparation: params.PreparationMembers,
+		Facts:       sourceport.NewImportFacts(params.PreparationMembers, families),
+	}
+	if params.Payloads != nil {
+		importContext.Payloads = params.Payloads
 	}
 	actorCatalog, err := validateImportedActors(ctx, verified.Members, incidentID)
 	if err != nil {
@@ -450,7 +485,11 @@ func (i importer) prepareImport(ctx context.Context, verified verifiedBundle, pa
 	if i.artifactReferences == nil {
 		return nil, errors.New("incident bundle artifact source is required")
 	}
-	artifacts, err := i.artifactReferences.PrepareArtifactImport(ctx, artifactport.ImportRequest{IncidentID: incidentID, OperationID: operationID, References: references, Bundle: verified.Members})
+	artifactRequest := artifactport.ImportRequest{IncidentID: incidentID, OperationID: operationID, References: references, Bundle: verified.Members}
+	if params.Payloads != nil {
+		artifactRequest.Payloads = params.Payloads
+	}
+	artifacts, err := i.artifactReferences.PrepareArtifactImport(ctx, artifactRequest)
 	if err != nil {
 		return nil, verificationErrorFromPort(err)
 	}
@@ -463,6 +502,7 @@ func (i importer) prepareImport(ctx context.Context, verified verifiedBundle, pa
 		}
 		sourcePreparations = append(sourcePreparations, preparedSource{port: port, prepared: prepared})
 	}
+	params.PreparationMembers.Seal()
 	if i.blobPort == nil {
 		return nil, errors.New("incident bundle blob portability is required")
 	}
@@ -475,7 +515,7 @@ func (i importer) prepareImport(ctx context.Context, verified verifiedBundle, pa
 	}
 	params.RewrittenMembers.Seal()
 	return &preparedImport{
-		IncidentID: incidentID, members: verified.Members, rewrittenMembers: params.RewrittenMembers,
+		IncidentID: incidentID, rewrittenMembers: params.RewrittenMembers,
 		stagedObjects:      stagedObjects,
 		sourcePreparations: sourcePreparations, importContext: importContext,
 		referencePacks: referencePacks, artifacts: artifacts,
@@ -498,7 +538,7 @@ func (i importer) applyPreparedImportTx(ctx context.Context, tx pgx.Tx, prepared
 	if existing > 0 {
 		return uuid.UUID{}, &verificationError{ReasonCode: "duplicate_incident_id"}
 	}
-	attributions := transactionAttributions{ctx: ctx, tx: tx, incidentID: incidentID, localUserID: params.ActorUserID, actors: prepared.importContext.Actors}
+	attributions := transactionAttributions{tx: tx, incidentID: incidentID, localUserID: params.ActorUserID}
 	importContext := prepared.importContext
 	importContext.Attributions = &attributions
 	importContext.RewrittenObjectBlobs = prepared.rewrittenMembers
@@ -511,7 +551,7 @@ func (i importer) applyPreparedImportTx(ctx context.Context, tx pgx.Tx, prepared
 	); err != nil {
 		return uuid.UUID{}, verificationErrorFromDeclaredPort(prepared.sourcePreparations[0].port, err)
 	}
-	if err := i.importActors(ctx, tx, prepared.members, incidentID); err != nil {
+	if err := i.importActors(ctx, tx, prepared.importContext.Actors, incidentID); err != nil {
 		return uuid.UUID{}, verificationErrorFromPort(err)
 	}
 	if i.referencePacks == nil {
@@ -543,6 +583,11 @@ func (i importer) applyPreparedImportTx(ctx context.Context, tx pgx.Tx, prepared
 	); err != nil {
 		return uuid.UUID{}, revisionsSequenceRepairVerificationError()
 	}
+	// Step 9 flushes the attribution every migrated port staged while preparing,
+	// after every ValidateImportTx (Core 01 REQ-01-641), and checks the counts.
+	if err := flushStagedAttributions(ctx, &attributions, prepared, importContext); err != nil {
+		return uuid.UUID{}, err
+	}
 	projectionRebuild := i.projectionRebuild
 	if projectionRebuild == nil {
 		return uuid.UUID{}, errors.New("incident bundle projection rebuild is required")
@@ -565,6 +610,47 @@ func (i importer) applyPreparedImportTx(ctx context.Context, tx pgx.Tx, prepared
 		return uuid.UUID{}, err
 	}
 	return incidentID, nil
+}
+
+// flushStagedAttributions writes every port's staged attribution with one COPY
+// and requires the database aggregates to equal the staged expectations. The
+// rows were admitted while preparing, so a difference is an internal failure.
+func flushStagedAttributions(ctx context.Context, sink *transactionAttributions, prepared *preparedImport, importContext sourceport.ImportContext) error {
+	var streams []incidentportability.AttributionStream
+	for _, source := range prepared.sourcePreparations {
+		staged, ok := source.port.(sourceport.StagedAttributionPort)
+		if !ok {
+			continue
+		}
+		portStreams, err := staged.PreparedAttributions(source.prepared, importContext)
+		if err != nil {
+			return err
+		}
+		streams = append(streams, portStreams...)
+	}
+	if len(streams) == 0 {
+		return nil
+	}
+	if importContext.Preparation == nil {
+		return errors.New("incident bundle attribution preparation is required")
+	}
+	if err := sink.FlushImportedAttributions(ctx, importContext.Preparation, streams...); err != nil {
+		return err
+	}
+	expected := map[string]int64{}
+	for _, stream := range streams {
+		for table, count := range stream.Tables {
+			expected[table] += count
+		}
+	}
+	actual, err := sink.CountImportedAttributions(ctx, incidentportability.AttributionTables(streams...))
+	if err != nil {
+		return err
+	}
+	if !maps.Equal(actual, expected) {
+		return errors.New("incident bundle attribution counts differ from preparation")
+	}
+	return nil
 }
 
 func referenceImportError(err error) error {
@@ -693,21 +779,35 @@ func validateImportedActors(ctx context.Context, members incidentportability.Mem
 	return catalog, nil
 }
 
-func (i importer) importActors(ctx context.Context, tx pgx.Tx, members incidentportability.MemberReader, incidentID uuid.UUID) error {
-	return incidentportability.WalkPath(ctx, members, "data/actors.ndjson", func(row map[string]any) error {
-		descriptor, err := decodePortableActorDescriptor(row)
-		if err != nil {
-			return err
-		}
-		tag, err := tx.Exec(ctx, `INSERT INTO incident_bundle_imported_actors (incident_id, source_actor_id, display_name, email_hint, provider_subject_hint, local_user_id) VALUES ($1, $2, $3, $4, $5, $6)`, incidentID, descriptor.ActorID, descriptor.DisplayName, nullableString(descriptor.EmailHint), nullableString(descriptor.ProviderSubjectHint), nil)
-		if err != nil {
-			return err
-		}
-		if tag.RowsAffected() != 1 {
-			return actorReferenceFailure()
-		}
+// importActors writes the actor roster preparation admitted, from the
+// in-memory catalog, with one set-based statement; it reopens no bundle member
+// (Core 01 REQ-01-641).
+func (i importer) importActors(ctx context.Context, tx pgx.Tx, actors sourceport.ActorCatalog, incidentID uuid.UUID) error {
+	descriptors := actors.Descriptors()
+	if len(descriptors) == 0 {
 		return nil
-	})
+	}
+	ids, names := make([]string, len(descriptors)), make([]string, len(descriptors))
+	emails, subjects := make([]*string, len(descriptors)), make([]*string, len(descriptors))
+	for index, descriptor := range descriptors {
+		ids[index], names[index] = descriptor.SourceActorID, descriptor.DisplayName
+		if descriptor.EmailHint != "" {
+			emails[index] = &descriptors[index].EmailHint
+		}
+		if descriptor.ProviderSubjectHint != "" {
+			subjects[index] = &descriptors[index].ProviderSubjectHint
+		}
+	}
+	tag, err := tx.Exec(ctx, `INSERT INTO incident_bundle_imported_actors (incident_id, source_actor_id, display_name, email_hint, provider_subject_hint, local_user_id)
+ SELECT $1, actor.source_actor_id, actor.display_name, actor.email_hint, actor.provider_subject_hint, NULL::uuid
+ FROM unnest($2::text[], $3::text[], $4::text[], $5::text[]) AS actor(source_actor_id, display_name, email_hint, provider_subject_hint)`, incidentID, ids, names, emails, subjects)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() != int64(len(descriptors)) {
+		return actorReferenceFailure()
+	}
+	return nil
 }
 
 func decodePortableActorDescriptor(row map[string]any) (portableActorDescriptor, error) {
@@ -752,11 +852,4 @@ func actorReferenceFailure() error {
 		SourceFamilyID: "actors",
 		InvariantID:    "actors.reference_complete",
 	}
-}
-
-func nullableString(value string) any {
-	if value == "" {
-		return nil
-	}
-	return value
 }

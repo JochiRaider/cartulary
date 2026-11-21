@@ -113,6 +113,10 @@ type Options struct {
 	ObserveProjections        func(*projectionassembly.Runtime)
 	ObserveTimeline           func(*timelineassembly.Bundle)
 	ObserveRevisions          func(*revisionassembly.Runtime)
+	// ObserveIncidentBundleMemberReads receives each Incident Bundle member open
+	// (operation, store, phase, path) for the transfer evidence recorder. Production
+	// assembly passes none.
+	ObserveIncidentBundleMemberReads func(operationID, store, phase, path string)
 	// HarnessJobs adds harness-only job kinds (TH-HARNESS-REQ-450). Only the
 	// server-harness profile sets it; production assembly passes none.
 	HarnessJobs []jobs.Contribution
@@ -1206,6 +1210,9 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 		Policies:     extensionassembly.IncidentPortabilityPolicies(extensionCoordinator.PortabilityPolicies(), resolvedClaims),
 		Participants: portabilityParticipants, SnapshotReads: extensionassembly.IncidentPortabilityReads{}, ImportDependencies: extensionassembly.IncidentPortabilityReads{},
 		Presence: portabilityPresence, Allocator: stagedObjectService, Limits: settingsProjection.IncidentBundles(),
+		ParticipantTimeout: time.Duration(normalizedCfg.Timeouts.Extensions.PortabilityParticipantSeconds) * time.Second,
+		CancellationGrace:  time.Duration(normalizedCfg.Timeouts.Extensions.CancellationGraceSeconds) * time.Second,
+		FatalSink:          runtime.fatalIntegrity,
 	})
 	if err != nil {
 		runtime.Close()
@@ -1271,6 +1278,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 		ReferencePacks:          incidentReferences,
 		ArtifactReferences:      reporting.PortableReferenceSource{Outputs: typedObjectStore},
 		Now:                     now,
+		MemberReads:             options.ObserveIncidentBundleMemberReads,
 	})
 	if err != nil {
 		runtime.Close()

@@ -19,6 +19,9 @@ import (
 
 type timelinePreparationBinding struct{ contractMajor int }
 
+// preparedTimelineImport carries bundle members only while preparing; the
+// value the final transaction receives holds staged streams instead
+// (Core 01 REQ-01-641).
 type preparedTimelineImport struct {
 	binding             *timelinePreparationBinding
 	members             *incidentportability.BoundMembers
@@ -26,6 +29,10 @@ type preparedTimelineImport struct {
 	operationID         string
 	version             int
 	profile             *portableTimelineProfile
+	staged              bool
+	eventRows           incidentportability.PreparedRowStream
+	provenanceRows      incidentportability.PreparedRowStream
+	attribution         incidentportability.AttributionStream
 }
 
 type portableTimelineProfile struct {
@@ -39,7 +46,7 @@ type portableTimelineProfile struct {
 }
 
 func (p preparedTimelineImport) matches(input sourceport.ImportContext, binding *timelinePreparationBinding) bool {
-	return binding != nil && p.binding == binding && binding.contractMajor == sourceport.ContractMajor && p.members != nil && p.incidentID == input.IncidentID && p.actorID == input.ActorUserID && p.operationID == input.OperationID && p.version == input.BundleVersion && input.Attributions != nil
+	return binding != nil && p.binding == binding && binding.contractMajor == sourceport.ContractMajor && p.staged && p.members == nil && input.Preparation != nil && p.incidentID == input.IncidentID && p.actorID == input.ActorUserID && p.operationID == input.OperationID && p.version == input.BundleVersion && input.Attributions != nil
 }
 
 func prepareTimelineImport(ctx context.Context, bundle sourceport.Bundle, input sourceport.ImportContext, d sourceport.Descriptor, binding *timelinePreparationBinding) (preparedTimelineImport, error) {
@@ -92,6 +99,14 @@ func prepareTimelineImport(ctx context.Context, bundle sourceport.Bundle, input 
 	if err := p.prepareProvenance(ctx, d); err != nil {
 		return preparedTimelineImport{}, err
 	}
+	if input.Preparation == nil {
+		return preparedTimelineImport{}, errors.New("timeline: incident bundle preparation staging is required")
+	}
+	if err := p.stage(ctx, input.Preparation, input, d); err != nil {
+		return preparedTimelineImport{}, err
+	}
+	// The transaction receives no bundle reader.
+	p.members = nil
 	return p, nil
 }
 
@@ -158,11 +173,8 @@ func parsePortableTimelineProfile(raw map[string]any) (portableTimelineProfile, 
 	return row, true
 }
 
-func (p preparedTimelineImport) applyProfile(ctx context.Context, tx pgx.Tx, input sourceport.ImportContext, d sourceport.Descriptor) error {
-	// Consume the sealed singleton through EOF before any owner mutation.
-	if err := incidentportability.WalkPath(ctx, p.members, timelineBundleProfilesPath, func(map[string]any) error { return nil }); err != nil {
-		return err
-	}
+func (p preparedTimelineImport) applyProfile(ctx context.Context, tx pgx.Tx, d sourceport.Descriptor) error {
+	// Preparation consumed the sealed singleton through EOF.
 	var occupied bool
 	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM timeline_time_conversion_profiles WHERE incident_id=$1)`, p.incidentID).Scan(&occupied); err != nil {
 		return err
@@ -185,13 +197,12 @@ func (p preparedTimelineImport) applyProfile(ctx context.Context, tx pgx.Tx, inp
 	if tag.RowsAffected() != 1 {
 		return d.DeclaredFailure("timeline.source_identity_admitted")
 	}
-	if row.UpdatedByUserID != nil {
-		return input.Attributions.RecordImportedAttribution("timeline_time_conversion_profiles", row.IncidentID.String(), "updated_by_user_id", row.UpdatedByUserID.String())
-	}
+	// Historical attribution was staged while preparing; the core flushes it in
+	// step 9 and checks the counts.
 	return nil
 }
 
-func (p preparedTimelineImport) validateProfile(ctx context.Context, tx pgx.Tx, input sourceport.ImportContext, d sourceport.Descriptor) error {
+func (p preparedTimelineImport) validateProfile(ctx context.Context, tx pgx.Tx, d sourceport.Descriptor) error {
 	var actual portableTimelineProfile
 	err := tx.QueryRow(ctx, `SELECT incident_id,enabled,local_offset_minutes,local_label,profile_version,updated_at,updated_by_user_id FROM timeline_time_conversion_profiles WHERE incident_id=$1`, p.incidentID).Scan(&actual.IncidentID, &actual.Enabled, &actual.LocalOffsetMinutes, &actual.LocalLabel, &actual.ProfileVersion, &actual.UpdatedAt, &actual.UpdatedByUserID)
 	if p.profile == nil {
@@ -216,23 +227,6 @@ func (p preparedTimelineImport) validateProfile(ctx context.Context, tx pgx.Tx, 
 		if !reflect.DeepEqual(actual, expected) {
 			return d.DeclaredFailure("timeline.profile_state_exact")
 		}
-	}
-	var expected *incidentportability.ImportedAttribution
-	if p.profile != nil && p.profile.UpdatedByUserID != nil {
-		expected = &incidentportability.ImportedAttribution{SourceTable: "timeline_time_conversion_profiles", SourceRowID: p.incidentID.String(), SourceColumn: "updated_by_user_id", SourceActorID: p.profile.UpdatedByUserID.String(), LocalUserID: p.actorID}
-	}
-	err = input.Attributions.VisitImportedAttributions("timeline_time_conversion_profiles", "", func(actual incidentportability.ImportedAttribution) error {
-		if expected == nil || actual != *expected {
-			return d.DeclaredFailure("timeline.profile_attribution_exact")
-		}
-		expected = nil
-		return ctx.Err()
-	})
-	if err != nil {
-		return err
-	}
-	if expected != nil {
-		return d.DeclaredFailure("timeline.profile_attribution_exact")
 	}
 	return nil
 }

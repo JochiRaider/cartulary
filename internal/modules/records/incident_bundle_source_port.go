@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
+	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/JochiRaider/cartulary/internal/modules/records/subtypepresence"
 )
 
@@ -40,7 +42,10 @@ func NewIncidentBundleSourcePort(subtypeCatalog *subtypepresence.Catalog) source
 				bundle,
 				recordsPrivateImportContext(importContext),
 			)
-			return prepared, recordsPortError(descriptor, err)
+			if err != nil {
+				return prepared, recordsPortError(descriptor, err)
+			}
+			return prepared, publishRecordAttribution(ctx, importContext, prepared)
 		},
 		Apply: func(
 			ctx context.Context,
@@ -77,6 +82,14 @@ func NewIncidentBundleSourcePort(subtypeCatalog *subtypepresence.Catalog) source
 				subtypeCatalog,
 			))
 		},
+		// Attribution was staged while preparing; the core flushes it in step 9.
+		Attributions: func(value any) []incidentportability.AttributionStream {
+			prepared, ok := value.(preparedRecordsImport)
+			if !ok {
+				return nil
+			}
+			return []incidentportability.AttributionStream{prepared.attribution}
+		},
 	})
 }
 
@@ -89,6 +102,7 @@ func recordsPrivateImportContext(importContext sourceport.ImportContext) records
 			_, admitted := importContext.Actors.Lookup(actorID)
 			return admitted
 		},
+		Preparation: importContext.Preparation,
 	}
 }
 
@@ -101,4 +115,29 @@ func recordsPortError(descriptor sourceport.Descriptor, err error) error {
 		return descriptor.DeclaredFailure(invariantFailure.InvariantID)
 	}
 	return err
+}
+
+// publishRecordAttribution publishes every admitted historical envelope actor
+// as a read-only fact for later families' preparation (Core 01 REQ-01-641),
+// so their cross-family actor checks are proven before the final transaction.
+func publishRecordAttribution(ctx context.Context, importContext sourceport.ImportContext, prepared preparedRecordsImport) error {
+	if importContext.Facts == nil {
+		return nil
+	}
+	return importContext.Facts.Publish(ctx, sourceport.RecordAttributionFact, func(add func(string) error) error {
+		return incidentportability.ReadPreparedRows(ctx, importContext.Preparation, prepared.rows, recordRowCodec{}, func(row recordsPortableRow) error {
+			for _, attribution := range []struct {
+				column string
+				actor  *uuid.UUID
+			}{{"created_by_user_id", &row.PortableCreatedByID}, {"updated_by_user_id", &row.PortableUpdatedByID}, {"deleted_by_user_id", row.PortableDeletedByID}} {
+				if attribution.actor == nil {
+					continue
+				}
+				if err := add(sourceport.RecordAttributionKey(row.RecordID, attribution.column, *attribution.actor)); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+	})
 }

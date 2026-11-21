@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 
 	"github.com/google/uuid"
@@ -21,9 +22,13 @@ const committedSourcesPath = "data/committed_sources.ndjson"
 const committedSourceRecordsPath = "data/committed_source_records.ndjson"
 const committedSourceBlobPrefix = "sources/sha256/"
 
+// CommittedSourcesFamilyID is the Incident Bundle source family whose
+// preparation dependent extension participants reuse.
+const CommittedSourcesFamilyID = "committed_sources"
+
 func committedSourceDescriptor() sourceport.Descriptor {
 	return sourceport.Descriptor{
-		FamilyID: "committed_sources", ContractMajor: sourceport.ContractMajor, OwnerID: "module.imports",
+		FamilyID: CommittedSourcesFamilyID, ContractMajor: sourceport.ContractMajor, OwnerID: "module.imports",
 		OwnerRelationIDs: []string{"committed-import-sources"}, Dependencies: []string{"incident", "records"},
 		Paths: []sourceport.Path{
 			{LogicalPath: committedSourcesPath, ContentRole: "source_rows", SchemaID: "cartulary.imports.committed_source.v1", Versions: []int{8}, StableIdentity: []string{"committed_source_id"}, StableIdentityInvariantID: "committed_sources.source_identity_admitted"},
@@ -40,7 +45,10 @@ func NewIncidentBundleSourcePort() sourceport.Port {
 	return sourceport.NewAdapter(sourceport.AdapterOptions{
 		Descriptor: descriptor, Export: exportCommittedSources,
 		Prepare: func(ctx context.Context, members sourceport.Bundle, input sourceport.ImportContext) (any, error) {
-			return PrepareCommittedSources(ctx, members, input.IncidentID, input.Actors)
+			if input.Preparation == nil || input.Payloads == nil {
+				return nil, errors.New("committed sources: incident bundle preparation staging is required")
+			}
+			return prepareCommittedSources(ctx, members, input.IncidentID, input.Actors, input.Preparation, input.Payloads)
 		},
 		Apply: func(ctx context.Context, tx pgx.Tx, value any, input sourceport.ImportContext) error {
 			prepared, ok := value.(*PreparedCommittedSources)
@@ -48,6 +56,14 @@ func NewIncidentBundleSourcePort() sourceport.Port {
 				return sourceport.ErrPreparedBinding
 			}
 			return prepared.apply(ctx, tx, input)
+		},
+		// Attribution was staged while preparing; the core flushes it in step 9.
+		Attributions: func(value any) []incidentportability.AttributionStream {
+			prepared, ok := value.(*PreparedCommittedSources)
+			if !ok || prepared == nil {
+				return nil
+			}
+			return []incidentportability.AttributionStream{prepared.attribution}
 		},
 		Validate: func(ctx context.Context, tx pgx.Tx, value any, input sourceport.ImportContext) error {
 			prepared, ok := value.(*PreparedCommittedSources)
@@ -61,12 +77,11 @@ func NewIncidentBundleSourcePort() sourceport.Port {
 			if count != prepared.count {
 				return descriptor.DeclaredFailure("committed_sources.source_identity_admitted")
 			}
-			if err := prepared.validateRecordBindings(ctx, tx); err != nil {
+			if err := prepared.validateRecordBindings(ctx, tx, input.Preparation); err != nil {
 				return err
 			}
-			if err := incidentportability.ValidateTopLevelAttributions(ctx, prepared.members, committedSourcesPath, "import_committed_sources", "committed_source_id", input.Attributions); err != nil {
-				return descriptor.DeclaredFailure("committed_sources.attribution_exact")
-			}
+			// Attribution is flushed by the core in step 9 and checked there by
+			// counts (Core 01 REQ-01-641).
 			return nil
 		},
 	})
@@ -203,9 +218,28 @@ type PreparedCommittedSources struct {
 	members     *incidentportability.BoundMembers
 	count       int64
 	recordCount int64
+	// Staged write-ready streams for the final transaction (Core 01
+	// REQ-01-641). Bundle members remain only for dependent preparation.
+	staged      bool
+	sources     incidentportability.PreparedRowStream
+	bindings    incidentportability.PreparedRowStream
+	blobs       []stagedCommittedBlob
+	views       map[uuid.UUID]committedSourceView
+	attribution incidentportability.AttributionStream
 }
 
 func PrepareCommittedSources(ctx context.Context, members incidentportability.MemberReader, incidentID uuid.UUID, actors sourceport.ActorCatalog) (*PreparedCommittedSources, error) {
+	return prepareCommittedSources(ctx, members, incidentID, actors, nil, nil)
+}
+
+// prepareCommittedSources admits the source rows. With a preparation store
+// it stages them for the final transaction and admits each source blob as an
+// opaque payload whose sealed digest is its name; it copies no blob bytes
+// (Core 01 REQ-01-641). Without one it only validates, reading each blob.
+func prepareCommittedSources(ctx context.Context, members incidentportability.MemberReader, incidentID uuid.UUID, actors sourceport.ActorCatalog, store committedSourceStaging, payloads incidentportability.PayloadMembers) (*PreparedCommittedSources, error) {
+	if store != nil && payloads == nil {
+		return nil, errors.New("committed sources: incident bundle payload admission is required")
+	}
 	descriptor := committedSourceDescriptor()
 	sourceRows, err := sourceport.PrepareMembers(ctx, descriptor, members, 8)
 	if err != nil {
@@ -225,6 +259,7 @@ func PrepareCommittedSources(ctx context.Context, members incidentportability.Me
 		}
 	}
 	used := map[string]bool{}
+	var blobs []stagedCommittedBlob
 	origins := map[uuid.UUID]bool{}
 	firstRows := map[uuid.UUID]int{}
 	var count int64
@@ -253,13 +288,26 @@ func PrepareCommittedSources(ctx context.Context, members incidentportability.Me
 			return descriptor.DeclaredFailure("committed_sources.blob_exact")
 		}
 		if !used[path] {
-			reader, err := incidentportability.OpenVerifiedMember(ctx, members, member)
-			if err != nil {
-				return err
-			}
-			_, readErr := io.Copy(io.Discard, reader)
-			if err := errors.Join(readErr, reader.Close()); err != nil {
-				return err
+			if payloads != nil {
+				// The member's seal is its digest, and its name is that digest:
+				// the final transaction streams it from the sealed bundle member.
+				admitted, err := payloads.AdmitPayload(ctx, path)
+				if err != nil {
+					return err
+				}
+				if admitted != member {
+					return descriptor.DeclaredFailure("committed_sources.blob_exact")
+				}
+				blobs = append(blobs, stagedCommittedBlob{Digest: source.ContentSHA256, ByteSize: member.ByteSize, Member: admitted})
+			} else {
+				reader, err := incidentportability.OpenVerifiedMember(ctx, members, member)
+				if err != nil {
+					return err
+				}
+				_, readErr := io.Copy(io.Discard, reader)
+				if err := errors.Join(readErr, reader.Close()); err != nil {
+					return err
+				}
 			}
 			used[path] = true
 			paths = append(paths, path)
@@ -287,6 +335,13 @@ func PrepareCommittedSources(ctx context.Context, members incidentportability.Me
 		return nil
 	}); err != nil {
 		return nil, err
+	}
+	if store != nil {
+		sort.Slice(blobs, func(i, j int) bool { return blobs[i].Digest < blobs[j].Digest })
+		prepared.blobs = blobs
+		if err := prepared.stage(ctx, store, actors); err != nil {
+			return nil, err
+		}
 	}
 	return prepared, nil
 }
@@ -415,69 +470,43 @@ func (p *PreparedCommittedSources) apply(ctx context.Context, tx pgx.Tx, input s
 	if p == nil || p.incidentID != input.IncidentID || input.Attributions == nil {
 		return sourceport.ErrPreparedBinding
 	}
-	for _, member := range p.members.Members() {
-		if !strings.HasPrefix(member.Path, committedSourceBlobPrefix) {
-			continue
-		}
-		digest := strings.TrimPrefix(member.Path, committedSourceBlobPrefix)
-		result, err := tx.Exec(ctx, `INSERT INTO import_committed_source_blobs(content_sha256,byte_size) VALUES($1,$2) ON CONFLICT(content_sha256) DO NOTHING`, digest, member.ByteSize)
+	store := input.Preparation
+	if !p.staged || store == nil || (len(p.blobs) > 0 && input.Payloads == nil) {
+		return errors.New("committed sources: incident bundle preparation is required")
+	}
+	// Blob deduplication stays in the transaction; new blob bytes stream from
+	// the admitted payload's sealed bundle member, never through a row reader.
+	for _, blob := range p.blobs {
+		result, err := tx.Exec(ctx, `INSERT INTO import_committed_source_blobs(content_sha256,byte_size) VALUES($1,$2) ON CONFLICT(content_sha256) DO NOTHING`, blob.Digest, blob.ByteSize)
 		if err != nil {
 			return err
 		}
 		if result.RowsAffected() == 0 {
 			var size int64
-			if err := tx.QueryRow(ctx, `SELECT byte_size FROM import_committed_source_blobs WHERE content_sha256=$1`, digest).Scan(&size); err != nil {
+			if err := tx.QueryRow(ctx, `SELECT byte_size FROM import_committed_source_blobs WHERE content_sha256=$1`, blob.Digest).Scan(&size); err != nil {
 				return err
 			}
-			if size != member.ByteSize {
+			if size != blob.ByteSize {
 				return committedSourceDescriptor().DeclaredFailure("committed_sources.blob_exact")
 			}
-			reader := newCommittedBlobReader(ctx, tx, digest, size)
+			reader := newCommittedBlobReader(ctx, tx, blob.Digest, size)
 			_, err = io.Copy(io.Discard, reader)
 			if err := errors.Join(err, reader.Close()); err != nil {
 				return err
 			}
 			continue
 		}
-		if err := p.insertBlob(ctx, tx, member, digest); err != nil {
+		if err := insertStagedBlob(ctx, tx, input.Payloads, blob); err != nil {
 			return err
 		}
 	}
-	err := walkCommittedSources(ctx, p.members, func(source CommittedSource) error {
-		if err := input.Attributions.RecordImportedAttribution("import_committed_sources", source.CommittedSourceID.String(), "created_by_user_id", source.CreatedByUserID.String()); err != nil {
-			return err
-		}
-		_, err := tx.Exec(ctx, `INSERT INTO import_committed_sources
-(committed_source_id,incident_id,content_sha256,source_file_kind,source_media_type,original_filename,parser_profile_id,parser_version,locator_kind,locator,source_rect_a1,header_row_ref,data_start_row_ref,approved_mapping_json,mapping_fingerprint,target_kind,target_view_schema_id,extension_profile_id,origin_import_session_id,origin_import_unit_id,created_by_user_id,committed_at)
-VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)`, source.CommittedSourceID, source.IncidentID, source.ContentSHA256, source.SourceFileKind, source.SourceMediaType, source.OriginalFilename, source.ParserProfileID, source.ParserVersion, source.LocatorKind, source.Locator, source.SourceRectA1, source.HeaderRowRef, source.DataStartRowRef, source.ApprovedMapping, source.MappingFingerprint, source.TargetKind, source.TargetViewSchemaID, source.ExtensionProfileID, source.OriginImportSessionID, source.OriginImportUnitID, input.ActorUserID, source.CommittedAt)
-		return err
-	})
+	sources, err := incidentportability.OpenPreparedCopy(ctx, store, p.sources, committedSourceRowCodec{actor: input.ActorUserID})
 	if err != nil {
 		return err
 	}
-	return p.applyRecordBindings(ctx, tx)
-}
-func (p *PreparedCommittedSources) insertBlob(ctx context.Context, tx pgx.Tx, member incidentportability.Member, digest string) error {
-	reader, err := incidentportability.OpenVerifiedMember(ctx, p.members, member)
-	if err != nil {
+	written, err := tx.CopyFrom(ctx, pgx.Identifier{"import_committed_sources"}, committedSourceColumns, sources)
+	if err := sources.Finish(written, err); err != nil {
 		return err
 	}
-	defer reader.Close()
-	buffer := make([]byte, sourceReadChunkBytes)
-	var ordinal int64
-	for {
-		n, readErr := io.ReadFull(reader, buffer)
-		if readErr != nil && !errors.Is(readErr, io.EOF) && !errors.Is(readErr, io.ErrUnexpectedEOF) {
-			return readErr
-		}
-		if n > 0 {
-			if _, err := tx.Exec(ctx, `INSERT INTO import_committed_source_chunks(content_sha256,chunk_ordinal,source_bytes) VALUES($1,$2,$3)`, digest, ordinal, buffer[:n]); err != nil {
-				return err
-			}
-			ordinal++
-		}
-		if errors.Is(readErr, io.EOF) || errors.Is(readErr, io.ErrUnexpectedEOF) {
-			return reader.Close()
-		}
-	}
+	return p.applyRecordBindings(ctx, tx, store)
 }

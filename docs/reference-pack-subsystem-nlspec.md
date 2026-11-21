@@ -171,7 +171,7 @@ An acceptance criterion MUST verify behavior already defined by a requirement. A
 The Reference Pack subsystem MUST provide deterministic, locally verifiable, versioned registry, framework, and enrichment data without requiring internet access and without changing incident source authority.
 
 **RP-REQ-015**
-Reference-pack administration MUST remain outside the workbook capture hot path. Import, verification, reverify, and refresh MUST execute as background jobs. Their UI state MUST distinguish staged, verified, active, disabled, failed, and missing conditions without blocking timeline capture, entity resolution, evidence attachment, or core editing.
+Reference-pack administration MUST remain outside the workbook capture hot path. Import, verification, reverify, and refresh MUST execute as background jobs. Activation, disablement, and removal MUST complete synchronously within their request and MUST NOT create a job. Their UI state MUST distinguish staged, verified, active, disabled, failed, and missing conditions without blocking timeline capture, entity resolution, evidence attachment, or core editing.
 
 **RP-REQ-016**
 Framework and enrichment data MUST be advisory or reference-only. It MUST NOT create, update, delete, merge, supersede, or change lifecycle state on incident records automatically.

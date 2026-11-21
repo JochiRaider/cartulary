@@ -14,9 +14,16 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/textpolicy"
 )
 
+// preparedTasksDecisionsImport carries bundle members only while preparing; the
+// value the final transaction receives holds staged streams (Core 01
+// REQ-01-641).
 type preparedTasksDecisionsImport struct {
 	members             *incidentportability.BoundMembers
 	incidentID, actorID uuid.UUID
+	staged              bool
+	taskRows            incidentportability.PreparedRowStream
+	decisionRows        incidentportability.PreparedRowStream
+	attribution         incidentportability.AttributionStream
 }
 
 func prepareTasksDecisionsImport(ctx context.Context, bundle incidentportability.MemberReader, importContext sourceport.ImportContext) (preparedTasksDecisionsImport, error) {
@@ -79,7 +86,50 @@ func prepareTasksDecisionsImport(ctx context.Context, bundle incidentportability
 	if selected != nil {
 		return preparedTasksDecisionsImport{}, selected
 	}
+	if err := prepared.stage(ctx, importContext); err != nil {
+		return preparedTasksDecisionsImport{}, err
+	}
+	// The transaction receives no bundle reader.
+	prepared.members = nil
 	return prepared, nil
+}
+
+// stage writes the admitted rows and their historical attribution.
+func (p *preparedTasksDecisionsImport) stage(ctx context.Context, input sourceport.ImportContext) error {
+	store := input.Preparation
+	if store == nil {
+		return errors.New("tasks/decisions: incident bundle preparation staging is required")
+	}
+	var err error
+	if p.taskRows, err = incidentportability.StagePreparedRows(ctx, store, "task_requests.rows", taskRowCodec{}, func(emit func(portableTaskRequest) error) error {
+		return p.bundleTasks(ctx, input, emit)
+	}); err != nil {
+		return err
+	}
+	if p.decisionRows, err = incidentportability.StagePreparedRows(ctx, store, "decisions.rows", decisionRowCodec{}, func(emit func(portableDecision) error) error {
+		return p.bundleDecisions(ctx, input, emit)
+	}); err != nil {
+		return err
+	}
+	admitted := func(actorID string) bool { _, ok := input.Actors.Lookup(actorID); return ok }
+	p.attribution, err = incidentportability.StageAttributions(ctx, store, "attribution.rows", admitted, func(emit func(incidentportability.AttributionRow) error) error {
+		if err := incidentportability.ReadPreparedRows(ctx, store, p.taskRows, taskRowCodec{}, func(row portableTaskRequest) error {
+			if row.PortableOwnerUserID == nil {
+				return nil
+			}
+			return emit(incidentportability.AttributionRow{SourceTable: "task_requests", SourceRowID: row.RecordID.String(), SourceColumn: "owner_user_id", SourceActorID: row.PortableOwnerUserID.String()})
+		}); err != nil {
+			return err
+		}
+		return incidentportability.ReadPreparedRows(ctx, store, p.decisionRows, decisionRowCodec{}, func(row portableDecision) error {
+			return emit(incidentportability.AttributionRow{SourceTable: "decisions", SourceRowID: row.RecordID.String(), SourceColumn: "owner_user_id", SourceActorID: row.PortableOwnerUserID.String()})
+		})
+	})
+	if err != nil {
+		return err
+	}
+	p.staged = true
+	return nil
 }
 func (p preparedTasksDecisionsImport) walk(ctx context.Context, importContext sourceport.ImportContext, path string, visit func(map[string]any) error) error {
 	if p.members == nil || p.incidentID != importContext.IncidentID || p.actorID != importContext.ActorUserID {
@@ -92,7 +142,30 @@ func (p preparedTasksDecisionsImport) walk(ctx context.Context, importContext so
 	}
 	return err
 }
+
+// walkTasks and walkDecisions visit the staged rows; the final transaction
+// reads no bundle member.
 func (p preparedTasksDecisionsImport) walkTasks(ctx context.Context, importContext sourceport.ImportContext, visit func(portableTaskRequest) error) error {
+	if err := p.stagedFor(importContext); err != nil {
+		return err
+	}
+	return incidentportability.ReadPreparedRows(ctx, importContext.Preparation, p.taskRows, taskRowCodec{}, visit)
+}
+func (p preparedTasksDecisionsImport) walkDecisions(ctx context.Context, importContext sourceport.ImportContext, visit func(portableDecision) error) error {
+	if err := p.stagedFor(importContext); err != nil {
+		return err
+	}
+	return incidentportability.ReadPreparedRows(ctx, importContext.Preparation, p.decisionRows, decisionRowCodec{}, visit)
+}
+
+func (p preparedTasksDecisionsImport) stagedFor(importContext sourceport.ImportContext) error {
+	if !p.staged || importContext.Preparation == nil || p.incidentID != importContext.IncidentID || p.actorID != importContext.ActorUserID {
+		return tasksDecisionsInvariantFailure("tasks_decisions.envelope_type_scope")
+	}
+	return nil
+}
+
+func (p preparedTasksDecisionsImport) bundleTasks(ctx context.Context, importContext sourceport.ImportContext, visit func(portableTaskRequest) error) error {
 	return p.walk(ctx, importContext, taskRequestsBundlePath, func(raw map[string]any) error {
 		row, err := preparePortableTaskRequest(raw, importContext)
 		if err != nil {
@@ -101,7 +174,7 @@ func (p preparedTasksDecisionsImport) walkTasks(ctx context.Context, importConte
 		return visit(row)
 	})
 }
-func (p preparedTasksDecisionsImport) walkDecisions(ctx context.Context, importContext sourceport.ImportContext, visit func(portableDecision) error) error {
+func (p preparedTasksDecisionsImport) bundleDecisions(ctx context.Context, importContext sourceport.ImportContext, visit func(portableDecision) error) error {
 	return p.walk(ctx, importContext, decisionsBundlePath, func(raw map[string]any) error {
 		row, err := preparePortableDecision(raw, importContext)
 		if err != nil {

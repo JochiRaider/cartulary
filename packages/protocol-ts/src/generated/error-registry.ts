@@ -1733,6 +1733,10 @@ const value = {
         {
           "code": "extension_transaction_timeout",
           "summary": "A cross-owner transaction deadline expired with its commit proven absent."
+        },
+        {
+          "code": "extension_participant_timeout",
+          "summary": "An Incident Portability participant exceeded its deadline; nothing was published."
         }
       ]
     },

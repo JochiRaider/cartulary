@@ -39,6 +39,13 @@ func FinalizePortableFailureForTest(ctx context.Context, scope *reference_data.I
 	return worker.finishImportFailure(ctx, scope, execution, cause)
 }
 
+// FinalizeDeadlineFailureForTest enters the production import failure path with
+// a coordinator whose effective transaction timeout is transactionTimeout.
+func FinalizeDeadlineFailureForTest(ctx context.Context, scope *reference_data.IncidentReferenceExecution, execution jobs.Execution, pool *pgxpool.Pool, finalizer JobSuccessFinalizer, cause error, transactionTimeout time.Duration) error {
+	worker := &incidentBundleWorker{store: &store{pool: pool}, jobFinalizer: finalizer, transactions: timedCoordinatorFake{timeout: transactionTimeout}, now: time.Now}
+	return worker.finishImportFailure(ctx, scope, execution, cause)
+}
+
 type forbiddenImportFinalizer struct {
 	JobSuccessFinalizer
 	t testing.TB

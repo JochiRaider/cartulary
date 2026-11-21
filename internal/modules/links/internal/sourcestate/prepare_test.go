@@ -42,7 +42,8 @@ func TestPrepareImportEnforcesStrictNDJSONAndExactMembers(t *testing.T) {
 				for _, rows := range [][]map[string]any{files.tagCatalog, files.recordTags} {
 					rows[0]["tag_name"], rows[0]["normalized_tag_name"] = tc.label, tc.folded
 				}
-				prepared, err := prepareImport(t.Context(), stateManifest.descriptor(), stateManifest, bundleFromDecoded(t, files), testImportContext(tc.name))
+				importContext := testImportContext(tc.name)
+				prepared, err := prepareImport(t.Context(), stateManifest.descriptor(), stateManifest, bundleFromDecoded(t, files), importContext)
 				if !tc.valid {
 					if failureInvariant(err) != "links_tags.tag_normalized" {
 						t.Fatalf("tag rejection=%v; want tag_normalized", err)
@@ -54,7 +55,7 @@ func TestPrepareImportEnforcesStrictNDJSONAndExactMembers(t *testing.T) {
 				}
 				for _, kind := range []pathKind{pathTagCatalog, pathRecordTags} {
 					count := 0
-					if err := prepared.walk(t.Context(), kind, func(row map[string]any) error {
+					if err := prepared.walk(t.Context(), importContext, kind, func(row map[string]any) error {
 						count++
 						if row["tag_name"] != "Café\u200d  TAG" || row["normalized_tag_name"] != "café\u200d  tag" {
 							t.Errorf("prepared tag changed: %#v", row)
@@ -205,18 +206,19 @@ func TestPreparedValueIsOpaqueCopiedAndWrongTypesDoNotPanic(t *testing.T) {
 		t.Fatalf("load manifest: %v", err)
 	}
 	descriptor := stateManifest.descriptor()
+	importContext := testImportContext("opaque")
 	prepared, err := prepareImport(
-		context.Background(), descriptor, stateManifest, bundleFromDecoded(t, validDecodedFiles()), testImportContext("opaque"),
+		context.Background(), descriptor, stateManifest, bundleFromDecoded(t, validDecodedFiles()), importContext,
 	)
 	if err != nil {
 		t.Fatalf("prepare import: %v", err)
 	}
 	var retained map[string]any
-	if err := prepared.walk(context.Background(), pathRecordLinks, func(row map[string]any) error { retained = row; return nil }); err != nil {
+	if err := prepared.walk(context.Background(), importContext, pathRecordLinks, func(row map[string]any) error { retained = row; return nil }); err != nil {
 		t.Fatal(err)
 	}
 	retained["link_type"] = "corrupted"
-	if err := prepared.walk(context.Background(), pathRecordLinks, func(row map[string]any) error {
+	if err := prepared.walk(context.Background(), importContext, pathRecordLinks, func(row map[string]any) error {
 		if row["link_type"] != "references_record" {
 			t.Fatal("prepared member exposed retained mutable rows")
 		}
@@ -288,9 +290,13 @@ func encodeTestRows(t *testing.T, rows []map[string]any) []byte {
 }
 
 func testImportContext(operationID string) sourceport.ImportContext {
+	actors, err := sourceport.NewActorCatalog([]sourceport.ActorDescriptor{{SourceActorID: testActorID.String(), DisplayName: "Links actor"}})
+	if err != nil {
+		panic(err)
+	}
 	return sourceport.ImportContext{
 		IncidentID: testIncidentID, ActorUserID: testActorID, BundleVersion: 8,
-		OperationID: operationID,
+		OperationID: operationID, Actors: actors, Preparation: portabilitysupport.NewPreparationStore(),
 	}
 }
 

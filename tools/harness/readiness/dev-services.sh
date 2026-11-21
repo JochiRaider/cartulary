@@ -223,8 +223,9 @@ resolve_existing_proxy_state() {
 
 start_object_store_proxy_locked() {
   local instance_id=""
-  local start_time="$SECONDS"
+  local handshake_start=""
   local child_pid=""
+  local child_alive=0
   local proxy_binary_built=0
 
   rm -f "$OBJECT_STORE_CORS_PROXY_PID_FILE"
@@ -268,12 +269,20 @@ start_object_store_proxy_locked() {
     --log-path "$OBJECT_STORE_CORS_PROXY_LOG_FILE" \
     >"$OBJECT_STORE_CORS_PROXY_LOG_FILE" 2>&1 &
   child_pid="$!"
+  # The bind/identity budget starts at spawn, so proxy builds cannot consume it.
+  handshake_start="$SECONDS"
 
-  while (( SECONDS - start_time < 5 )); do
+  while (( SECONDS - handshake_start < 5 )); do
+    # Sample liveness before reading state: a child that publishes and exits
+    # after a failed read is read again; only a child already gone ends early.
+    child_alive=0
+    if kill -0 "$child_pid" >/dev/null 2>&1; then
+      child_alive=1
+    fi
     if proxy_command status --state-file "$OBJECT_STORE_CORS_PROXY_ATTEMPT_FILE" >/dev/null 2>&1; then
       return 0
     fi
-    if ! kill -0 "$child_pid" >/dev/null 2>&1; then
+    if [[ "$child_alive" -eq 0 ]]; then
       break
     fi
     sleep 0.1

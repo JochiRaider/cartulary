@@ -6,6 +6,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
+	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 )
 
 func NewIncidentBundleSourcePort() sourceport.Port {
@@ -40,23 +41,27 @@ func NewIncidentBundleSourcePort() sourceport.Port {
 			if !ok || !prepared.matches(importContext, binding) || tx == nil {
 				return sourceport.ErrPreparedBinding
 			}
-			if err := prepared.preflightEvents(ctx, tx, descriptor); err != nil {
+			// Apply reads only the staged preparation streams (Core 01
+			// REQ-01-641); attribution is flushed by the core in step 9.
+			store := importContext.Preparation
+			if err := prepared.preflightEvents(ctx, tx, store, descriptor); err != nil {
 				return err
 			}
-			if err := prepared.applyProfile(ctx, tx, importContext, descriptor); err != nil {
+			if err := prepared.applyProfile(ctx, tx, descriptor); err != nil {
 				return err
 			}
-			if err := prepared.applyEvents(ctx, tx, importContext, descriptor); err != nil {
+			if err := prepared.applyEvents(ctx, tx, store, descriptor); err != nil {
 				return err
 			}
-			return prepared.applyProvenance(ctx, tx, descriptor)
+			return prepared.applyProvenance(ctx, tx, store, descriptor)
 		},
 		Validate: func(ctx context.Context, tx pgx.Tx, value any, importContext sourceport.ImportContext) error {
 			prepared, ok := value.(preparedTimelineImport)
 			if !ok || !prepared.matches(importContext, binding) || tx == nil {
 				return sourceport.ErrPreparedBinding
 			}
-			if err := prepared.validateProfile(ctx, tx, importContext, descriptor); err != nil {
+			store := importContext.Preparation
+			if err := prepared.validateProfile(ctx, tx, descriptor); err != nil {
 				return err
 			}
 			var invalid bool
@@ -73,10 +78,18 @@ SELECT EXISTS (
 			if invalid {
 				return descriptor.DeclaredFailure("timeline.envelope_type_scope")
 			}
-			if err := prepared.validateEvents(ctx, tx, importContext, descriptor); err != nil {
+			if err := prepared.validateEvents(ctx, tx, store, descriptor); err != nil {
 				return err
 			}
-			return prepared.validateProvenance(ctx, tx, descriptor)
+			return prepared.validateProvenance(ctx, tx, store, descriptor)
+		},
+		// Attribution was staged while preparing; the core flushes it in step 9.
+		Attributions: func(value any) []incidentportability.AttributionStream {
+			prepared, ok := value.(preparedTimelineImport)
+			if !ok {
+				return nil
+			}
+			return []incidentportability.AttributionStream{prepared.attribution}
 		},
 	})
 }

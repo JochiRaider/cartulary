@@ -33,7 +33,11 @@ func RequireLinksPortableRoundTrip(t testing.TB, db dbport.DB, incidentID, actor
 	for _, file := range exported {
 		bundle[file.Path] = file.Payload
 	}
-	imported := sourceport.ImportContext{IncidentID: incidentID, ActorUserID: actorID, BundleVersion: 8, OperationID: "note-associations-round-trip", Attributions: &associationAttributions{}}
+	actors, err := portabilitysupport.ReferencedActors(bundle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	imported := sourceport.ImportContext{IncidentID: incidentID, ActorUserID: actorID, BundleVersion: 8, OperationID: "note-associations-round-trip", Attributions: &associationAttributions{}, Actors: actors, Preparation: portabilitysupport.NewPreparationStore()}
 	prepared, err := port.PrepareImport(ctx, bundle, imported)
 	if err != nil {
 		t.Fatal(err)
@@ -69,24 +73,10 @@ func RequireLinksPortableRoundTrip(t testing.TB, db dbport.DB, incidentID, actor
 }
 
 type associationAttributions struct {
+	portabilitysupport.AttributionCapability
 	values []incidentportability.ImportedAttribution
 }
 
-func (a *associationAttributions) RecordImportedAttribution(table, row, column, actor string) error {
-	a.values = append(a.values, incidentportability.ImportedAttribution{SourceTable: table, SourceRowID: row, SourceColumn: column, SourceActorID: actor})
-	return nil
-}
 func (a *associationAttributions) ImportedAttributions() []incidentportability.ImportedAttribution {
 	return a.values
-}
-
-func (r *associationAttributions) VisitImportedAttributions(table, rowID string, visit func(incidentportability.ImportedAttribution) error) error {
-	for _, row := range r.ImportedAttributions() {
-		if row.SourceTable == table && (rowID == "" || row.SourceRowID == rowID) {
-			if err := visit(row); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
 }

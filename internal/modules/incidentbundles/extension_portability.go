@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -131,6 +132,16 @@ type PortabilityImportContext struct {
 	IncidentID  uuid.UUID
 	ActorUserID uuid.UUID
 	Actors      sourceport.ActorCatalog
+	// PreparedSources exposes this operation's completed core source
+	// preparation to application composition, which reuses it for extension
+	// dependencies instead of preparing the same members again.
+	PreparedSources PreparedSourceValues
+}
+
+// PreparedSourceValues looks up one core source family's admitted preparation
+// for the same import operation.
+type PreparedSourceValues interface {
+	PreparedSourceValue(familyID string) (any, bool)
 }
 
 // ImportDependencyAccess is refined by each owner to the admitted logical source
@@ -313,6 +324,10 @@ type PortabilityOrchestrator struct {
 	reads        ExportReadFactory
 	dependencies ImportDependencyFactory
 	limits       Limits
+	timeout      time.Duration
+	grace        time.Duration
+	fatalSink    func(error)
+	clock        func() int64
 }
 
 type PortabilityOptions struct {
@@ -323,6 +338,13 @@ type PortabilityOptions struct {
 	SnapshotReads      ExportReadFactory
 	ImportDependencies ImportDependencyFactory
 	Limits             Limits
+	// ParticipantTimeout is timeouts.extensions.portability_participant_seconds.
+	// CancellationGrace, FatalSink and Clock follow EXT-REQ-215; a nil Clock
+	// selects the process monotonic clock.
+	ParticipantTimeout time.Duration
+	CancellationGrace  time.Duration
+	FatalSink          func(error)
+	Clock              func() int64
 }
 
 func NewPortabilityOrchestrator(options PortabilityOptions) (*PortabilityOrchestrator, error) {
@@ -391,8 +413,17 @@ func NewPortabilityOrchestrator(options PortabilityOptions) (*PortabilityOrchest
 	if len(admittedParticipants) != len(participantMap) || len(participantMap) > 0 && options.SnapshotReads == nil {
 		return nil, ErrPortabilityResult
 	}
+	// Every admitted participant invocation runs under the Table 9-C deadline.
+	if len(participantMap) > 0 && (options.ParticipantTimeout <= 0 || options.CancellationGrace < 0 || options.FatalSink == nil) {
+		return nil, ErrPortabilityUnavailable
+	}
+	clock := options.Clock
+	if clock == nil {
+		clock = defaultPortabilityClock
+	}
 	return &PortabilityOrchestrator{
 		policies: resolved, presence: presence, participants: participantMap, allocator: allocator, reads: options.SnapshotReads, dependencies: options.ImportDependencies, limits: options.Limits,
+		timeout: options.ParticipantTimeout, grace: options.CancellationGrace, fatalSink: options.FatalSink, clock: clock,
 	}, nil
 }
 
@@ -447,37 +478,9 @@ func (o *PortabilityOrchestrator) Export(ctx context.Context, query ExportSnapsh
 				return newPortabilityFailure(ErrPortabilityUnavailable, policy.ProfileID)
 			}
 			emitter := &extensionMemberWriter{destination: members, profileID: policy.ProfileID, paths: map[string]incidentportability.Member{}, maximumItems: policy.Export.MaximumItems}
-			result, err := o.participants[policy.ParticipantID].Export(ctx, ExportInvocation{
-				ProfileID: policy.ProfileID, ContractMajor: policy.ContractMajor, ClaimState: policy.ClaimState,
-				IncidentID: incidentID, ReadAccess: access, Members: emitter, Actors: actors,
-			})
-			emitter.closed = true
-			if errors.Is(err, ErrPortabilityLimit) {
-				return ErrPortabilityLimit
-			}
-			if err != nil {
-				return newPortabilityFailure(ErrPortabilityResult, policy.ProfileID)
-			}
-			if result.SchemaID != ExtensionExportResultSchema || result.Kind != "members" ||
-				result.ContentSchemaID != policy.Export.OutputSchemaID || result.ContractMajor != policy.ContractMajor || result.StateVersion < 1 || len(emitter.paths) == 0 {
-				return newPortabilityFailure(ErrPortabilityResult, policy.ProfileID)
-			}
-			catalog := extensionMemberCatalog{SchemaID: ExtensionMemberCatalogSchema, ProfileID: policy.ProfileID,
-				ContractMajor: result.ContractMajor, StateVersion: result.StateVersion, ContentSchemaID: result.ContentSchemaID, Members: emitter.members()}
-			encoded, err := encodeExtensionCatalog(catalog)
+			encoded, outputSize, err := o.exportParticipant(ctx, policy, incidentID, access, emitter, actors, metadataBytes)
 			if err != nil {
 				return err
-			}
-			resultBytes, err := canonicaljson.MarshalExtension(map[string]any{
-				"schema_id": result.SchemaID, "kind": result.Kind, "content_schema_id": result.ContentSchemaID,
-				"contract_major": result.ContractMajor, "state_version": result.StateVersion,
-			})
-			if err != nil {
-				return ErrPortabilityResult
-			}
-			outputSize := int64(len(encoded)) + int64(len(resultBytes))
-			if outputSize > policy.Export.MaximumOutputBytes || outputSize > PortabilityParticipantByteLimit-metadataBytes {
-				return ErrPortabilityLimit
 			}
 			metadataBytes += outputSize
 			if _, err := members.WriteMember(ctx, extensionCatalogPath(policy.ProfileID), bytes.NewReader(encoded)); err != nil {
@@ -486,6 +489,58 @@ func (o *PortabilityOrchestrator) Export(ctx context.Context, query ExportSnapsh
 		}
 	}
 	return nil
+}
+
+// exportParticipant applies the Table 9-E boundary: the deadline starts
+// immediately before the participant invocation and ends after the result,
+// catalog and limits validate. Expiry discards the result and writes no catalog.
+func (o *PortabilityOrchestrator) exportParticipant(ctx context.Context, policy ExtensionPolicy, incidentID uuid.UUID, access ExportReadCapability, emitter *extensionMemberWriter, actors incidentportability.ActorReferences, metadataBytes int64) ([]byte, int64, error) {
+	deadline, err := o.startParticipantDeadline(ctx, policy.ProfileID, "export")
+	if err != nil {
+		return nil, 0, err
+	}
+	defer deadline.close()
+	result, err := invokeParticipant(deadline, func(callCtx context.Context) (ExportResult, error) {
+		return o.participants[policy.ParticipantID].Export(callCtx, ExportInvocation{
+			ProfileID: policy.ProfileID, ContractMajor: policy.ContractMajor, ClaimState: policy.ClaimState,
+			IncidentID: incidentID, ReadAccess: access, Members: emitter, Actors: actors,
+		})
+	})
+	emitter.closed = true
+	if lifetime := participantLifetimeError(ctx, err); lifetime != nil {
+		return nil, 0, lifetime
+	}
+	if errors.Is(err, ErrPortabilityLimit) {
+		return nil, 0, ErrPortabilityLimit
+	}
+	if err != nil {
+		return nil, 0, newPortabilityFailure(ErrPortabilityResult, policy.ProfileID)
+	}
+	if result.SchemaID != ExtensionExportResultSchema || result.Kind != "members" ||
+		result.ContentSchemaID != policy.Export.OutputSchemaID || result.ContractMajor != policy.ContractMajor || result.StateVersion < 1 || len(emitter.paths) == 0 {
+		return nil, 0, newPortabilityFailure(ErrPortabilityResult, policy.ProfileID)
+	}
+	catalog := extensionMemberCatalog{SchemaID: ExtensionMemberCatalogSchema, ProfileID: policy.ProfileID,
+		ContractMajor: result.ContractMajor, StateVersion: result.StateVersion, ContentSchemaID: result.ContentSchemaID, Members: emitter.members()}
+	encoded, err := encodeExtensionCatalog(catalog)
+	if err != nil {
+		return nil, 0, err
+	}
+	resultBytes, err := canonicaljson.MarshalExtension(map[string]any{
+		"schema_id": result.SchemaID, "kind": result.Kind, "content_schema_id": result.ContentSchemaID,
+		"contract_major": result.ContractMajor, "state_version": result.StateVersion,
+	})
+	if err != nil {
+		return nil, 0, ErrPortabilityResult
+	}
+	outputSize := int64(len(encoded)) + int64(len(resultBytes))
+	if outputSize > policy.Export.MaximumOutputBytes || outputSize > PortabilityParticipantByteLimit-metadataBytes {
+		return nil, 0, ErrPortabilityLimit
+	}
+	if err := deadline.finish(); err != nil {
+		return nil, 0, err
+	}
+	return encoded, outputSize, nil
 }
 
 func portabilityContextMetadata(policy ExtensionPolicy, incidentID uuid.UUID, operation string) map[string]any {
@@ -621,19 +676,40 @@ func (o *PortabilityOrchestrator) PrepareImport(ctx context.Context, input Porta
 				return PreparedPortability{}, newPortabilityFailure(ErrPortabilityPayload, payload.ProfileID)
 			}
 		}
-		result, err := participant.PrepareImport(ctx, ImportInvocation{
-			PreparationMembers: preparationMembers, Dependencies: dependencies, PortabilityImportContext: input, ProfileID: payload.ProfileID, ContractMajor: policy.ContractMajor,
-			ClaimState: policy.ClaimState, StateVersion: payload.StateVersion,
-			ContentSchemaID: payload.ContentSchemaID, CatalogSHA256: payload.sha256, Members: payload.bound,
-		}, participantScope)
+		// Table 9-E: the deadline starts immediately before the invocation and
+		// ends after the result, staged references and limits validate.
+		deadline, err := o.startParticipantDeadline(ctx, payload.ProfileID, "import")
+		if err != nil {
+			_ = prepared.Abandon(ctx)
+			return PreparedPortability{}, err
+		}
+		// The participant reads its declared bundle members only while it
+		// prepares; the reader retires when preparation returns, so the final
+		// transaction cannot reopen a bundle member (Core 01 REQ-01-641).
+		bundle := newRetiringMembers(payload.bound)
+		result, err := invokeParticipant(deadline, func(callCtx context.Context) (ImportPreparation, error) {
+			return participant.PrepareImport(callCtx, ImportInvocation{
+				PreparationMembers: preparationMembers, Dependencies: dependencies, PortabilityImportContext: input, ProfileID: payload.ProfileID, ContractMajor: policy.ContractMajor,
+				ClaimState: policy.ClaimState, StateVersion: payload.StateVersion,
+				ContentSchemaID: payload.ContentSchemaID, CatalogSHA256: payload.sha256, Members: bundle,
+			}, participantScope)
+		})
+		bundle.retire()
 		if preparation != nil {
 			preparation.Seal()
 		}
+		if lifetime := participantLifetimeError(ctx, err); lifetime != nil {
+			deadline.close()
+			_ = prepared.Abandon(ctx)
+			return PreparedPortability{}, lifetime
+		}
 		if errors.Is(err, ErrPortabilityLimit) {
+			deadline.close()
 			_ = prepared.Abandon(ctx)
 			return PreparedPortability{}, ErrPortabilityLimit
 		}
 		if err != nil || validateImportPreparation(result, participantScope) != nil {
+			deadline.close()
 			_ = prepared.Abandon(ctx)
 			return PreparedPortability{}, newPortabilityFailure(ErrPortabilityResult, payload.ProfileID)
 		}
@@ -644,18 +720,25 @@ func (o *PortabilityOrchestrator) PrepareImport(ctx context.Context, input Porta
 			"staged_output_refs":       result.StagedOutputRefs,
 		})
 		if err != nil {
+			deadline.close()
 			_ = prepared.Abandon(ctx)
 			return PreparedPortability{}, ErrPortabilityResult
 		}
 		publicationMetadata, err := canonicaljson.MarshalExtension(append([]stagedobjects.Publication{}, participantScope.publications...))
 		if err != nil {
+			deadline.close()
 			_ = prepared.Abandon(ctx)
 			return PreparedPortability{}, ErrPortabilityResult
 		}
 		resultSize := int64(len(resultMetadata)) + int64(len(publicationMetadata))
 		if resultSize > policy.Import.MaximumOutputBytes || resultSize > PortabilityParticipantByteLimit-preparedBytes {
+			deadline.close()
 			_ = prepared.Abandon(ctx)
 			return PreparedPortability{}, ErrPortabilityLimit
+		}
+		if err := deadline.finish(); err != nil {
+			_ = prepared.Abandon(ctx)
+			return PreparedPortability{}, err
 		}
 		preparedBytes += resultSize
 		prepared.references = append(prepared.references, participantScope.references...)

@@ -58,7 +58,7 @@ func TestEvidencePortableBlobTransaction_Integration(t *testing.T) {
 		t.Cleanup(func() { _ = tx.Rollback(context.Background()) })
 		return tx
 	}
-	port := evidence.NewIncidentBundleSourcePort()
+	var port sourceport.Port = flushingEvidencePort{evidence.NewIncidentBundleSourcePort()}
 	prepare := func(t testing.TB, rows ...map[string]any) (sourceport.Prepared, sourceport.ImportContext, *evidencePortableAttributions) {
 		t.Helper()
 		input := evidencePortableInput(t, incident, actor)
@@ -173,7 +173,7 @@ func TestEvidencePortableBlobTransaction_Integration(t *testing.T) {
 	t.Run("complete stored relation and sidecars", func(t *testing.T) {
 		tx := begin(t)
 		source := portableBlobTestRow(incident, 1, "available")
-		p, input, attrs := prepare(t, source)
+		p, input, _ := prepare(t, source)
 		if err := port.ApplyImportTx(ctx, tx, p, input); err != nil {
 			t.Fatal(err)
 		}
@@ -218,37 +218,12 @@ func TestEvidencePortableBlobTransaction_Integration(t *testing.T) {
 			}
 			requireEvidencePortableFailure(t, port.ValidateImportTx(ctx, tx, empty, emptyInput), "source_state_exact")
 		})
-		for _, variant := range []string{"missing", "duplicate", "table", "row", "column", "source actor", "local actor", "extra row", "extra column"} {
-			t.Run("attribution "+variant, func(t *testing.T) {
-				original := slices.Clone(attrs.rows)
-				defer func() { attrs.rows = original }()
-				switch variant {
-				case "missing":
-					attrs.rows = nil
-				case "duplicate":
-					attrs.rows = append(attrs.rows, attrs.rows[0])
-				case "table":
-					attrs.rows[0].SourceTable = "evidence"
-				case "row":
-					attrs.rows[0].SourceRowID = uuid.NewString()
-				case "column":
-					attrs.rows[0].SourceColumn = "owner_user_id"
-				case "source actor":
-					attrs.rows[0].SourceActorID = uuid.NewString()
-				case "local actor":
-					attrs.rows[0].LocalUserID = other
-				case "extra row":
-					a := attrs.rows[0]
-					a.SourceRowID = uuid.NewString()
-					attrs.rows = append(attrs.rows, a)
-				case "extra column":
-					a := attrs.rows[0]
-					a.SourceColumn = "unknown_user_id"
-					attrs.rows = append(attrs.rows, a)
-				}
-				requireEvidencePortableFailure(t, port.ValidateImportTx(ctx, tx, p, input), "attribution_exact")
-			})
-		}
+		t.Run("staged rows are sealed", func(t *testing.T) {
+			sealed, sealedInput, _ := prepare(t, source)
+			requireEvidenceStagedSealed(t, func(prepared sourceport.Prepared, input sourceport.ImportContext) error {
+				return port.ValidateImportTx(ctx, tx, prepared, input)
+			}, sealed, sealedInput, "object_blobs.rows")
+		})
 		t.Run("rewritten generation cannot be replaced", func(t *testing.T) {
 			changed := input
 			replacement := portableBlobRewriteFixture(t, []map[string]any{source})

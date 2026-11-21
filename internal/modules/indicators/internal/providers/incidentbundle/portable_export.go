@@ -92,6 +92,9 @@ SELECT indicator.record_id, indicator.incident_id, indicator.indicator_type,
 	// The evaluator may query the same guarded transaction. Finish the source
 	// query before entering another owner; pgx permits only one live result set.
 	for _, row := range result {
+		if evaluate == nil {
+			break
+		}
 		if err := validatePortableIndicatorForExport(evaluate, row, exportContext.IncidentID); err != nil {
 			return nil, err
 		}
@@ -157,6 +160,9 @@ SELECT indicator_observation_id, incident_id, source_record_id, source_field_key
 	}
 	rows.Close()
 	for _, row := range result {
+		if evaluate == nil {
+			break
+		}
 		if err := validatePortableObservationForExport(evaluate, row, exportContext.IncidentID); err != nil {
 			return nil, err
 		}

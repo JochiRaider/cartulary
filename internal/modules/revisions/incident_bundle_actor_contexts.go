@@ -1,7 +1,6 @@
 package revisions
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"maps"
@@ -81,22 +80,16 @@ func revisionActorContextSuffix(path, suffix []revisionActorImportContext) bool 
 	return len(path) >= len(suffix) && slices.Equal(path[len(path)-len(suffix):], suffix)
 }
 
-func (p preparedRevisionsImport) validateActorContextPaths(ctx context.Context) error {
-	var longest []revisionActorImportContext
-	if err := p.walkChangeSets(ctx, func(row portableChangeSet) error {
-		if len(row.ActorImportContexts) > len(longest) {
-			longest = row.ActorImportContexts
-		}
-		return nil
-	}); err != nil {
-		return err
+// admitActorContextPath keeps the longest path seen and reports whether every
+// path so far is a suffix of it. Two suffixes of one path are always ordered
+// by the suffix relation, so one ordered pass decides the collection.
+func admitActorContextPath(longest *[]revisionActorImportContext, path []revisionActorImportContext) bool {
+	if len(path) > len(*longest) {
+		admitted := revisionActorContextSuffix(path, *longest)
+		*longest = path
+		return admitted
 	}
-	return p.walkChangeSets(ctx, func(row portableChangeSet) error {
-		if !revisionActorContextSuffix(longest, row.ActorImportContexts) {
-			return revisionsFailure(revisionsHistoryInvariant)
-		}
-		return nil
-	})
+	return revisionActorContextSuffix(*longest, path)
 }
 
 func (p preparedRevisionsImport) importedActorContexts(path []revisionActorImportContext) []revisionActorImportContext {

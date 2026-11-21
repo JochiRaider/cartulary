@@ -27,26 +27,6 @@ export type PagingMeta1 =
     };
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
- * via the `definition` "ActivateReferencePackVersionSuccessBody".
- */
-export type ActivateReferencePackVersionSuccessBody = ReferencePackActionEnvelope | JobEnvelope;
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
- * via the `definition` "ReferencePackVersionState".
- */
-export type ReferencePackVersionState = "staged" | "verified_available" | "disabled" | "failed" | "missing";
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
- * via the `definition` "JobScope".
- */
-export type JobScope = {
-  [k: string]: unknown;
-} & {
-  incident_id?: string;
-  kind: "deployment" | "incident";
-};
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "PagedEnvelopeMeta".
  */
 export type PagedEnvelopeMeta = EnvelopeMeta & {
@@ -114,11 +94,6 @@ export type CreateViewRowRequestBody =
  * via the `definition` "SheetRef".
  */
 export type SheetRef = ViewSchemaSheetRef | SavedViewSheetRef | ExtensionWorkspaceSheetRef;
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
- * via the `definition` "DisableReferencePackVersionSuccessBody".
- */
-export type DisableReferencePackVersionSuccessBody = ReferencePackActionEnvelope | JobEnvelope;
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "EvidenceAttachBlobData".
@@ -207,6 +182,16 @@ export type IncidentMembershipCreateRequest =
     };
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "JobScope".
+ */
+export type JobScope = {
+  [k: string]: unknown;
+} & {
+  incident_id?: string;
+  kind: "deployment" | "incident";
+};
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "LinkedNoteMutationData".
  */
 export type LinkedNoteMutationData = ViewMutationDataFields & {
@@ -266,6 +251,11 @@ export type RecordPatchChange1 = {
  */
 export type RecordRollbackTarget =
   RecordRollbackHistoryEntryTarget | RecordRollbackChangeSetTarget | RecordRollbackRowRestoreTarget;
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ReferencePackVersionState".
+ */
+export type ReferencePackVersionState = "staged" | "verified_available" | "disabled" | "failed" | "missing";
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "ReleaseCreateRequest".
@@ -426,140 +416,6 @@ export interface AccountProfilePatchRequest {
   base_user_version: number;
   client_txn_id: string;
   display_name: string;
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
- * via the `definition` "ReferencePackActionEnvelope".
- */
-export interface ReferencePackActionEnvelope {
-  data: {
-    pack_version: ReferencePackVersionResource;
-  };
-  meta: EnvelopeMeta;
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
- * via the `definition` "ReferencePackVersionResource".
- */
-export interface ReferencePackVersionResource {
-  activated_at: string | null;
-  activated_by_user_id: string | null;
-  active: boolean;
-  administratively_disabled: boolean;
-  content_profile_id: string | null;
-  content_profile_version: string | null;
-  /**
-   * @minItems 0
-   * @maxItems 64
-   */
-  dependencies:
-    | {
-        pack_key: string;
-        pack_version: string;
-        payload_sha256: string;
-      }[]
-    | null;
-  distribution_kind: "operator_imported" | "packaged_builtin";
-  fallback_from_version: string | null;
-  health: "staged" | "verified_available" | "failed" | "missing";
-  imported_at: string;
-  imported_by_user_id: string | null;
-  last_failure_code: string | null;
-  last_verified_at: string | null;
-  license_expression: string | null;
-  manifest_sha256: string | null;
-  missing_reason: null | "staging_loss" | "storage_loss" | "administrative_removal";
-  pack_contract_version: string | null;
-  pack_key: string;
-  pack_kind: string;
-  pack_release_sequence: number | null;
-  pack_version: string;
-  pack_version_state: ReferencePackVersionState;
-  payload_sha256: string | null;
-  pending_work: boolean;
-  previous_active_version: string | null;
-  redistribution: null | "allowed" | "restricted" | "prohibited";
-  removed: boolean;
-  reproducibility_pinned: boolean;
-  source_as_of: string | null;
-  source_identifier: string | null;
-  source_profile_id: string | null;
-  source_profile_sha256: string | null;
-  source_version: string | null;
-  trust_repository_id: string | null;
-  trust_valid_until: string | null;
-  verification_method: string | null;
-  /**
-   * @maxItems 64
-   */
-  verified_signer_key_ids: string[];
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
- * via the `definition` "JobEnvelope".
- */
-export interface JobEnvelope {
-  data: JobResource;
-  meta: EnvelopeMeta;
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
- * via the `definition` "JobResource".
- */
-export interface JobResource {
-  cancelable: boolean;
-  error_summary: JobErrorSummary | null;
-  finished_at: string | null;
-  job_id: string;
-  message?: string;
-  progress: JobProgress;
-  result_summary: JobResultSummary | null;
-  retained_until: string | null;
-  scope: JobScope;
-  started_at: string | null;
-  status: "queued" | "running" | "cancel_requested" | "succeeded" | "failed" | "canceled";
-  status_route: string;
-  submitted_at: string;
-  submitted_by_user_id: string | null;
-  updated_at: string;
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
- * via the `definition` "JobErrorSummary".
- */
-export interface JobErrorSummary {
-  code: string;
-  details?: {
-    [k: string]: unknown;
-  };
-  message: string;
-  retryable: boolean;
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
- * via the `definition` "JobProgress".
- */
-export interface JobProgress {
-  completed: number;
-  total: number | null;
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
- * via the `definition` "JobResultSummary".
- */
-export interface JobResultSummary {
-  code: string;
-  message: string;
-  resource_refs?: JobResourceRef[];
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
- * via the `definition` "JobResourceRef".
- */
-export interface JobResourceRef {
-  id: string;
-  kind: string;
-  route?: string;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
@@ -2209,6 +2065,73 @@ export interface JobCancelRequest {
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "JobEnvelope".
+ */
+export interface JobEnvelope {
+  data: JobResource;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "JobResource".
+ */
+export interface JobResource {
+  cancelable: boolean;
+  error_summary: JobErrorSummary | null;
+  finished_at: string | null;
+  job_id: string;
+  message?: string;
+  progress: JobProgress;
+  result_summary: JobResultSummary | null;
+  retained_until: string | null;
+  scope: JobScope;
+  started_at: string | null;
+  status: "queued" | "running" | "cancel_requested" | "succeeded" | "failed" | "canceled";
+  status_route: string;
+  submitted_at: string;
+  submitted_by_user_id: string | null;
+  updated_at: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "JobErrorSummary".
+ */
+export interface JobErrorSummary {
+  code: string;
+  details?: {
+    [k: string]: unknown;
+  };
+  message: string;
+  retryable: boolean;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "JobProgress".
+ */
+export interface JobProgress {
+  completed: number;
+  total: number | null;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "JobResultSummary".
+ */
+export interface JobResultSummary {
+  code: string;
+  message: string;
+  resource_refs?: JobResourceRef[];
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "JobResourceRef".
+ */
+export interface JobResourceRef {
+  id: string;
+  kind: string;
+  route?: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "LinkedNoteCreateRequest".
  */
 export interface LinkedNoteCreateRequest {
@@ -2747,6 +2670,73 @@ export interface RecordRollbackRequest {
   client_txn_id: string;
   reason?: string | null;
   target: RecordRollbackTarget;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ReferencePackActionEnvelope".
+ */
+export interface ReferencePackActionEnvelope {
+  data: {
+    pack_version: ReferencePackVersionResource;
+  };
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ReferencePackVersionResource".
+ */
+export interface ReferencePackVersionResource {
+  activated_at: string | null;
+  activated_by_user_id: string | null;
+  active: boolean;
+  administratively_disabled: boolean;
+  content_profile_id: string | null;
+  content_profile_version: string | null;
+  /**
+   * @minItems 0
+   * @maxItems 64
+   */
+  dependencies:
+    | {
+        pack_key: string;
+        pack_version: string;
+        payload_sha256: string;
+      }[]
+    | null;
+  distribution_kind: "operator_imported" | "packaged_builtin";
+  fallback_from_version: string | null;
+  health: "staged" | "verified_available" | "failed" | "missing";
+  imported_at: string;
+  imported_by_user_id: string | null;
+  last_failure_code: string | null;
+  last_verified_at: string | null;
+  license_expression: string | null;
+  manifest_sha256: string | null;
+  missing_reason: null | "staging_loss" | "storage_loss" | "administrative_removal";
+  pack_contract_version: string | null;
+  pack_key: string;
+  pack_kind: string;
+  pack_release_sequence: number | null;
+  pack_version: string;
+  pack_version_state: ReferencePackVersionState;
+  payload_sha256: string | null;
+  pending_work: boolean;
+  previous_active_version: string | null;
+  redistribution: null | "allowed" | "restricted" | "prohibited";
+  removed: boolean;
+  reproducibility_pinned: boolean;
+  source_as_of: string | null;
+  source_identifier: string | null;
+  source_profile_id: string | null;
+  source_profile_sha256: string | null;
+  source_version: string | null;
+  trust_repository_id: string | null;
+  trust_valid_until: string | null;
+  verification_method: string | null;
+  /**
+   * @maxItems 64
+   */
+  verified_signer_key_ids: string[];
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema

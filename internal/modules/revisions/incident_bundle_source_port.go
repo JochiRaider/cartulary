@@ -6,6 +6,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
+	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 )
 
 func NewIncidentBundleSourcePort(
@@ -25,7 +26,7 @@ func NewIncidentBundleSourcePort(
 		},
 		Export: exportIncidentBundleFiles,
 		Prepare: func(ctx context.Context, bundle sourceport.Bundle, importContext sourceport.ImportContext) (any, error) {
-			return prepareRevisionsImport(ctx, bundle, importContext)
+			return prepareRevisionsImport(ctx, bundle, importContext, validation)
 		},
 		Apply: func(ctx context.Context, tx pgx.Tx, value any, importContext sourceport.ImportContext) error {
 			prepared, ok := value.(preparedRevisionsImport)
@@ -39,7 +40,15 @@ func NewIncidentBundleSourcePort(
 			if !ok {
 				return sourceport.ErrPreparedBinding
 			}
-			return validatePreparedRevisionsImportTx(ctx, tx, prepared, validation, input.Attributions)
+			return validatePreparedRevisionsImportTx(ctx, tx, prepared, validation, input)
+		},
+		// Attribution was staged while preparing; the core flushes it in step 9.
+		Attributions: func(value any) []incidentportability.AttributionStream {
+			prepared, ok := value.(preparedRevisionsImport)
+			if !ok {
+				return nil
+			}
+			return []incidentportability.AttributionStream{prepared.attribution}
 		},
 	})
 	if err := port.ValidateSourcePortContract(); err != nil {

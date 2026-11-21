@@ -937,6 +937,13 @@ var incidentBundleExportAllowlist = map[string]struct{}{
 	"ExportReadCapability":                        {},
 	"ExportReadFactory":                           {},
 	"PortabilityImportContext":                    {},
+	"PreparedSourceValues":                        {},
+	"MemberReadObserver":                          {},
+	"ErrPortabilityTimeout":                       {},
+	"PortabilityTimeoutError":                     {},
+	"PortabilityTimeoutError.Error":               {},
+	"PortabilityTimeoutError.Unwrap":              {},
+	"PortabilityOrchestrator.Timeout":             {},
 	"PortabilityOptions":                          {},
 	"PortabilityStagedOutputScope.AllocateStream": {},
 	"ExtensionPolicy":                             {},
@@ -1421,6 +1428,7 @@ func TestWorkerResultTransitionsPreservePublicSummaries_Unit(t *testing.T) {
 	})
 	testImportInputRetention(t)
 	testBoundedContainerExport(t)
+	testDeadlineFailureResults(t)
 	bundleID := uuid.MustParse("22222222-2222-2222-2222-222222222222")
 	incidentID := uuid.MustParse("33333333-3333-3333-3333-333333333333")
 

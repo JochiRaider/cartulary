@@ -42,10 +42,9 @@ type revisionsPortabilityHarness struct {
 }
 
 type revisionsAttributionRecorder struct {
+	portabilitysupport.AttributionCapability
 	rows       []incidentportability.ImportedAttribution
 	localActor uuid.UUID
-	recordErr  error
-	visitErr   error
 }
 
 type revisionsPortableAttributionResolver struct {
@@ -96,22 +95,6 @@ func (r revisionsPortableAttributionResolver) ResolvePortableSourceActors(
 		}
 	}
 	return result, nil
-}
-
-func (r *revisionsAttributionRecorder) RecordImportedAttribution(
-	table string,
-	rowID string,
-	column string,
-	actorID string,
-) error {
-	if r.recordErr != nil {
-		return r.recordErr
-	}
-	r.rows = append(r.rows, incidentportability.ImportedAttribution{
-		SourceTable: table, SourceRowID: rowID, SourceColumn: column,
-		SourceActorID: actorID, LocalUserID: r.localActor,
-	})
-	return nil
 }
 
 func (r *revisionsAttributionRecorder) ImportedAttributions() []incidentportability.ImportedAttribution {
@@ -883,7 +866,7 @@ SELECT history_record_ids, history_entry_record_ids
 			exported, err := portabilitysupport.Export(harness.port, context.Background(), sourceport.ExportContext{
 				Query: tx, IncidentID: harness.incidentID,
 				PortableAttributions: revisionsPortableAttributionResolver{
-					rows: attributions.ImportedAttributions(),
+					rows: revisionsStagedAttributions(t, harness.port, prepared, importContext, harness.actor.ID),
 				},
 			})
 			if err != nil {
@@ -1045,6 +1028,7 @@ INSERT INTO hosts (
 			IncidentID: incident.ID, ActorUserID: actor.ID, BundleVersion: 8,
 			OperationID:  uuid.NewString(),
 			Attributions: attributions, Actors: actors,
+			Preparation: portabilitysupport.NewPreparationStore(),
 		},
 	}
 }
@@ -1220,16 +1204,29 @@ func replacePortableActorIDs(value any, oldActorID string, newActorID string) {
 	}
 }
 
-func (r *revisionsAttributionRecorder) VisitImportedAttributions(table, rowID string, visit func(incidentportability.ImportedAttribution) error) error {
-	if r.visitErr != nil {
-		return r.visitErr
+// revisionsStagedAttributions reads the attribution Revisions staged while
+// preparing; the core flushes exactly these rows in step 9.
+func revisionsStagedAttributions(t testing.TB, port sourceport.Port, prepared sourceport.Prepared, input sourceport.ImportContext, localActor uuid.UUID) []incidentportability.ImportedAttribution {
+	t.Helper()
+	staged, ok := port.(sourceport.StagedAttributionPort)
+	if !ok {
+		t.Fatal("Revisions port does not stage attribution")
 	}
-	for _, row := range r.ImportedAttributions() {
-		if row.SourceTable == table && (rowID == "" || row.SourceRowID == rowID) {
-			if err := visit(row); err != nil {
-				return err
-			}
-		}
+	streams, err := staged.PreparedAttributions(prepared, input)
+	if err != nil || len(streams) != 1 {
+		t.Fatalf("staged attribution streams=%d err=%v", len(streams), err)
 	}
-	return nil
+	reader := incidentportability.OpenAttributions(context.Background(), input.Preparation, streams...)
+	var rows []incidentportability.ImportedAttribution
+	for reader.Next() {
+		row := reader.Row()
+		rows = append(rows, incidentportability.ImportedAttribution{SourceTable: row.SourceTable, SourceRowID: row.SourceRowID, SourceColumn: row.SourceColumn, SourceActorID: row.SourceActorID, LocalUserID: localActor})
+	}
+	if err := errors.Join(reader.Err(), reader.Close()); err != nil || reader.Count() != reader.Expected() {
+		t.Fatalf("read staged attribution count=%d expected=%d err=%v", reader.Count(), reader.Expected(), err)
+	}
+	if streams[0].Tables["change_sets"] != int64(len(rows)) || len(streams[0].Tables) > 1 {
+		t.Fatalf("staged attribution aggregates=%v rows=%d", streams[0].Tables, len(rows))
+	}
+	return rows
 }

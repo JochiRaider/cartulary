@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"maps"
 	"reflect"
-	"slices"
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
@@ -43,7 +42,7 @@ func TestEvidencePortableCustodyTransaction_Integration(t *testing.T) {
 		t.Cleanup(func() { _ = tx.Rollback(context.Background()) })
 		return tx
 	}
-	port := evidence.NewIncidentBundleSourcePort()
+	var port sourceport.Port = flushingEvidencePort{evidence.NewIncidentBundleSourcePort()}
 	record := evidencePortableRow(incident, 1)
 	record["owner_user_id"] = nil
 	seed := func(t testing.TB, tx pgx.Tx, deleted bool) {
@@ -216,7 +215,7 @@ func TestEvidencePortableCustodyTransaction_Integration(t *testing.T) {
 		tx := begin(t)
 		seed(t, tx, false)
 		source := portableCustodyTestRow(incident, 1)
-		p, input, attrs := prepare(t, source)
+		p, input, _ := prepare(t, source)
 		if err := port.ApplyImportTx(ctx, tx, p, input); err != nil {
 			t.Fatal(err)
 		}
@@ -280,37 +279,12 @@ func TestEvidencePortableCustodyTransaction_Integration(t *testing.T) {
 			}
 			requireEvidencePortableFailure(t, port.ValidateImportTx(ctx, nested, p, input), "source_state_exact")
 		})
-		for _, variant := range []string{"missing", "duplicate", "table", "row", "column", "source actor", "local actor", "extra row", "extra column"} {
-			t.Run("attribution "+variant, func(t *testing.T) {
-				original := slices.Clone(attrs.rows)
-				defer func() { attrs.rows = original }()
-				switch variant {
-				case "missing":
-					attrs.rows = nil
-				case "duplicate":
-					attrs.rows = append(attrs.rows, attrs.rows[0])
-				case "table":
-					attrs.rows[0].SourceTable = "object_blobs"
-				case "row":
-					attrs.rows[0].SourceRowID = uuid.NewString()
-				case "column":
-					attrs.rows[0].SourceColumn = "created_by_user_id"
-				case "source actor":
-					attrs.rows[0].SourceActorID = uuid.NewString()
-				case "local actor":
-					attrs.rows[0].LocalUserID = other
-				case "extra row":
-					a := attrs.rows[0]
-					a.SourceRowID = uuid.NewString()
-					attrs.rows = append(attrs.rows, a)
-				case "extra column":
-					a := attrs.rows[0]
-					a.SourceColumn = "other_user_id"
-					attrs.rows = append(attrs.rows, a)
-				}
-				requireEvidencePortableFailure(t, port.ValidateImportTx(ctx, tx, p, input), "attribution_exact")
-			})
-		}
+		t.Run("staged rows are sealed", func(t *testing.T) {
+			sealed, sealedInput, _ := prepare(t, source)
+			requireEvidenceStagedSealed(t, func(prepared sourceport.Prepared, input sourceport.ImportContext) error {
+				return port.ValidateImportTx(ctx, tx, prepared, input)
+			}, sealed, sealedInput, "evidence_custody_events.rows")
+		})
 	})
 	for _, variant := range []string{"missing", "foreign", "wrong type", "late missing"} {
 		t.Run("references "+variant, func(t *testing.T) {
@@ -398,7 +372,7 @@ func TestEvidencePortableCustodyTransaction_Integration(t *testing.T) {
 		}
 		requireEvidencePortableFailure(t, port.ValidateImportTx(ctx, tx, p, input), "source_state_exact")
 	})
-	t.Run("null actor rejects sidecar", func(t *testing.T) {
+	t.Run("null actor stages no attribution", func(t *testing.T) {
 		tx := begin(t)
 		seed(t, tx, false)
 		source := portableCustodyTestRow(incident, 1)
@@ -407,8 +381,14 @@ func TestEvidencePortableCustodyTransaction_Integration(t *testing.T) {
 		if err := port.ApplyImportTx(ctx, tx, p, input); err != nil {
 			t.Fatal(err)
 		}
-		attrs.rows = append(attrs.rows, incidentportability.ImportedAttribution{SourceTable: "evidence_custody_events", SourceRowID: source["custody_event_id"].(string), SourceColumn: "actor_user_id", SourceActorID: evidencePortableActor.String(), LocalUserID: actor})
-		requireEvidencePortableFailure(t, port.ValidateImportTx(ctx, tx, p, input), "attribution_exact")
+		if err := port.ValidateImportTx(ctx, tx, p, input); err != nil {
+			t.Fatal(err)
+		}
+		for _, row := range attrs.rows {
+			if row.SourceTable == "evidence_custody_events" {
+				t.Fatalf("null custody actor staged attribution %#v", row)
+			}
+		}
 	})
 
 	t.Run("existing custody identity preflight", func(t *testing.T) {

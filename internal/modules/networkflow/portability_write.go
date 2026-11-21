@@ -9,14 +9,15 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection/postgresresult"
-	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
-	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
 
-type PortabilityAttributionFactory func(context.Context, uuid.UUID, uuid.UUID, sourceport.ActorCatalog) (incidentportability.AttributionRecorder, error)
+// PortabilityAttributionFactory binds the attribution owner's adapter to the
+// final transaction. The returned recorder must also be an
+// incidentportability.AttributionSink, which flushes precomputed streams.
+type PortabilityAttributionFactory func(context.Context, uuid.UUID, uuid.UUID) (incidentportability.AttributionRecorder, error)
 
 type portabilityWriteAccess struct {
 	tx           pgx.Tx
@@ -29,13 +30,13 @@ func (*portabilityWriteAccess) ParticipantScope() string { return PortabilityTra
 // Application composition supplies both the final transaction and the separate
 // attribution owner's adapter. Network Flow never reaches into its relations.
 func (m *Module) PortabilityTransactionCapabilities(tx pgx.Tx, attributions PortabilityAttributionFactory) (crossownertransaction.ReadCapability, crossownertransaction.WriteCapability, error) {
-	if m == nil || tx == nil || attributions == nil || m.safeDigester == nil {
+	if m == nil || tx == nil || attributions == nil {
 		return nil, nil, crossownertransaction.ErrUnavailable
 	}
 	access := &portabilityWriteAccess{tx: tx, module: m, attributions: attributions}
 	return access, access, nil
 }
-func (a *portabilityWriteAccess) ValidatePortableState(ctx context.Context, p *preparedNetworkFlow) error {
+func (a *portabilityWriteAccess) ValidatePortableState(ctx context.Context, p *portableImportPlan) error {
 	if a == nil || p == nil || a.module.graphStateReady == nil || !a.module.graphStateReady() {
 		return crossownertransaction.ErrUnavailable
 	}
@@ -49,71 +50,35 @@ func (a *portabilityWriteAccess) ValidatePortableState(ctx context.Context, p *p
 	}
 	return ctx.Err()
 }
-func (a *portabilityWriteAccess) WritePortableState(ctx context.Context, p *preparedNetworkFlow) error {
-	if a == nil || p == nil || a.tx == nil {
+
+// WritePortableState applies only staged write-ready streams (Core 01
+// REQ-01-641): one COPY per family, the bounded selected graph results, and
+// one attribution COPY. It opens no bundle member and re-proves no bundle fact.
+func (a *portabilityWriteAccess) WritePortableState(ctx context.Context, p *portableImportPlan) error {
+	if a == nil || p == nil || a.tx == nil || p.preparation == nil {
 		return crossownertransaction.ErrUnavailable
 	}
-	attribution, err := a.attributions(ctx, p.incidentID, p.actorID, p.actors)
+	recorder, err := a.attributions(ctx, p.incidentID, p.actorID)
 	if err != nil {
 		return err
 	}
-	record := func(table, id string, actor uuid.UUID) error {
-		return attribution.RecordImportedAttribution(table, id, "created_by_user_id", actor.String())
+	sink, ok := recorder.(incidentportability.AttributionSink)
+	if !ok {
+		return crossownertransaction.ErrUnavailable
 	}
-	err = walkPortable(ctx, p.members, "tables.ndjson", portableTableMembers, "deleted_at", func(v portableTable) error {
-		digest, key, err := a.module.safeDigester.Digest("source_filename", v.SourceFilenameDisplay)
-		if err != nil {
-			return err
-		}
-		_, err = insertTableTx(ctx, a.tx, v.TableID, insertTableParams{IncidentID: p.incidentID, DisplayName: v.DisplayName, CommittedSourceID: v.CommittedSourceID, SourceInterpretationSHA256: v.SourceInterpretationSHA256, SourceRawCellScalarLimit: v.SourceRawCellScalarLimit, SourceContentSHA256: v.SourceContentSHA256, SourceFilenameDisplay: v.SourceFilenameDisplay, SourceFilenameDigest: digest, SourceFilenameDigestKeyID: key, MappingFingerprint: v.MappingFingerprint, SourceProfileID: v.SourceProfileID, ParserProfileID: v.ParserProfileID, RowCountAccepted: v.RowCountAccepted, RowCountRejected: v.RowCountRejected, DiagnosticsTruncated: v.DiagnosticsTruncated, CreatedByUserID: p.actorID, CreatedAt: v.CreatedAt})
-		if err != nil {
-			return err
-		}
-		_, err = a.tx.Exec(ctx, `UPDATE network_flow_tables SET table_version=$3,table_status=$4,updated_at=$5,deleted_at=$6 WHERE incident_id=$1 AND network_flow_table_id=$2`, p.incidentID, v.TableID, v.TableVersion, v.TableStatus, v.UpdatedAt, v.DeletedAt)
-		if err != nil {
-			return err
-		}
-		return record("network_flow_tables", v.TableID, v.CreatedByUserID)
-	})
-	if err != nil {
+	if err := copyPreparedFamilies(ctx, a.tx, p); err != nil {
 		return err
 	}
-	err = insertRetainedRowsTx(ctx, a.tx, func(visit func(flowRow) error) error {
-		return walkPortable(ctx, p.members, "observations.ndjson", portableObservationMembers, portableObservationNullable, func(v portableObservation) error {
-			if err := record("network_flow_rows", v.RowID, v.CreatedByUserID); err != nil {
-				return err
-			}
-			row := v.retained()
-			row.CreatedByUserID = p.actorID
-			return visit(row)
-		})
-	})
-	if err != nil {
+	if err := a.publishPreparedGraphs(ctx, p); err != nil {
 		return err
 	}
-	err = walkPortable(ctx, p.members, "diagnostics.ndjson", portableDiagnosticMembers, "", func(v portableDiagnostic) error {
-		return insertDiagnosticsTx(ctx, a.tx, v.TableID, createTableParams{IncidentID: p.incidentID, Diagnostics: []rejectedRowDiagnostic{v.Diagnostic}}, v.CreatedAt)
-	})
-	if err != nil {
-		return err
-	}
-	err = walkPortable(ctx, p.members, "indicator_bindings.ndjson", portableBindingMembers, "", func(v portableBinding) error {
-		raw, err := json.Marshal(v.SourceRowRefs)
-		if err != nil {
-			return err
-		}
-		_, inserted, err := insertIndicatorBindingTx(ctx, a.tx, v.BindingID, createIndicatorBindingParams{IncidentID: p.incidentID, ActorUserID: p.actorID, TargetIndicator: indicators.IndicatorReference{RecordID: v.IndicatorID, IncidentID: p.incidentID, IndicatorType: v.IndicatorType, ValueKind: "atomic", NormalizedValue: &v.CandidateValue}, SelectorKind: v.SelectorKind, CandidateValue: v.CandidateValue, SourceRowRefs: v.SourceRowRefs, SourceRowRefsTruncated: v.SourceRowRefsTruncated, SourceRowRefsTotalCount: v.SourceRowRefsTotalCount}, raw, bindingSourceRowIDs(v.SourceRowRefs), v.CreatedAt)
-		if err != nil {
-			return err
-		}
-		if !inserted {
-			return errPortableNetworkFlow
-		}
-		return record("network_flow_indicator_bindings", v.BindingID, v.CreatedByUserID)
-	})
-	if err != nil {
-		return err
-	}
+	return sink.FlushImportedAttributions(ctx, p.preparation, p.attribution)
+}
+
+// publishPreparedGraphs reads the graph results reconstructed during
+// preparation (staged outputs, not bundle members) and publishes them with
+// their declarations under the importing actor.
+func (a *portabilityWriteAccess) publishPreparedGraphs(ctx context.Context, p *portableImportPlan) error {
 	publisher, err := postgresresult.NewPublisher(a.tx)
 	if err != nil {
 		return err
@@ -151,12 +116,8 @@ func (a *portabilityWriteAccess) WritePortableState(ctx context.Context, p *prep
 				return err
 			}
 		}
-		original := declaration.CreatedByUserID
 		declaration.CreatedByUserID = p.actorID
 		if err := insertGraphViewDeclarationTx(ctx, a.tx, declaration); err != nil {
-			return err
-		}
-		if err := record("network_flow_graph_views", declaration.GraphViewID, original); err != nil {
 			return err
 		}
 	}

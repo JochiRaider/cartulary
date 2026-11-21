@@ -3,12 +3,13 @@ package revisions
 import (
 	"context"
 	"errors"
-	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
+	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 )
 
 func applyPreparedRevisionsImportTx(
@@ -22,75 +23,38 @@ func applyPreparedRevisionsImportTx(
 		importContext.IncidentID != prepared.incidentID || importContext.ActorUserID != prepared.runtimeActor || validation == nil {
 		return revisionsFailure(revisionsReferencesInvariant)
 	}
-	if err := validatePreparedRevisionsBeforeWriteTx(ctx, tx, prepared, validation, importContext.Attributions); err != nil {
+	store := importContext.Preparation
+	if store == nil || prepared.verdicts == nil {
+		return errors.New("revisions: incident bundle preparation is required")
+	}
+	if err := validatePreparedRevisionsBeforeWriteTx(ctx, tx, prepared, store, validation, importContext.Attributions); err != nil {
 		return err
 	}
-	if err := prepared.walkChangeSets(ctx, func(row portableChangeSet) error {
-		if err := importContext.Attributions.RecordImportedAttribution(
-			"change_sets", row.ChangeSetID.String(), "actor_user_id", row.PortableActorID.String(),
-		); err != nil {
-			return err
-		}
-		tag, err := tx.Exec(ctx, `
-INSERT INTO change_sets (
-    change_set_id, incident_id, actor_user_id, source, reason,
-    client_txn_id, request_id, created_at, actor_import_contexts, history_order
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-`, row.ChangeSetID, row.IncidentID, importContext.ActorUserID, row.Source,
-			row.Reason, row.ClientTxnID, row.RequestID, row.CreatedAt, jsonOrNil(prepared.importedActorContexts(row.ActorImportContexts)), row.HistoryOrder)
-		if err != nil {
-			return classifyRevisionsImportError(err)
-		}
-		if tag.RowsAffected() != 1 {
-			return revisionsFailure(revisionsReferencesInvariant)
-		}
-		return nil
-	}); err != nil {
+	// Each family is one COPY of its staged write-ready rows; the database
+	// acknowledgement must equal the staged count.
+	changeSets, err := incidentportability.OpenPreparedCopy(ctx, store, prepared.changeSets, changeSetRowCodec{actor: importContext.ActorUserID})
+	if err != nil {
 		return err
 	}
-
-	if err := prepared.walkMutations(ctx, func(row portableChangeSetMutation) error {
-		history, err := validation.targets.DescribeValues(row.TargetKind, row.TargetID, row.OperationKind, row.BeforeValue, row.AfterValue)
-		if err != nil {
-			return revisionsFailure(revisionsHistoryInvariant)
-		}
-		tag, err := tx.Exec(ctx, `
-INSERT INTO change_set_mutations (
-    change_set_id, sequence_no, target_kind, target_id, operation_kind,
-    before_version_id, after_version_id, before_value, after_value,
-    history_record_ids, history_entry_record_ids
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-`, row.ChangeSetID, row.SequenceNo, row.TargetKind, row.TargetID,
-			row.OperationKind, row.BeforeVersionID, row.AfterVersionID,
-			jsonOrNil(row.BeforeValue), jsonOrNil(row.AfterValue),
-			history.HistoryRecordIDs, history.HistoryEntryRecordIDs)
-		if err != nil {
-			return classifyRevisionsImportError(err)
-		}
-		if tag.RowsAffected() != 1 {
-			return revisionsFailure(revisionsSequenceInvariant)
-		}
-		return nil
-	}); err != nil {
+	written, err := tx.CopyFrom(ctx, pgx.Identifier{"change_sets"}, changeSetColumns, changeSets)
+	if err := changeSets.Finish(written, err); err != nil {
+		return classifyRevisionsImportError(err)
+	}
+	mutations, err := incidentportability.OpenPreparedCopy(ctx, store, prepared.mutations, mutationRowCodec{})
+	if err != nil {
 		return err
 	}
-	if err := prepared.walkRevisions(ctx, func(row portableRecordRevision) error {
-		tag, err := tx.Exec(ctx, `
-INSERT INTO record_revisions (
-    revision_id, change_set_id, record_id, row_version,
-    before_json, after_json, created_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7)
-`, row.RevisionID, row.ChangeSetID, row.RecordID, row.RowVersion,
-			jsonOrNil(row.BeforeJSON), jsonOrNil(row.AfterJSON), row.CreatedAt)
-		if err != nil {
-			return classifyRevisionsImportError(err)
-		}
-		if tag.RowsAffected() != 1 {
-			return revisionsFailure(revisionsRecordVersionInvariant)
-		}
-		return nil
-	}); err != nil {
+	written, err = tx.CopyFrom(ctx, pgx.Identifier{"change_set_mutations"}, mutationColumns, mutations)
+	if err := mutations.Finish(written, err); err != nil {
+		return classifyRevisionsImportError(err)
+	}
+	revisionRows, err := incidentportability.OpenPreparedCopy(ctx, store, prepared.revisions, revisionRowCodec{})
+	if err != nil {
 		return err
+	}
+	written, err = tx.CopyFrom(ctx, pgx.Identifier{"record_revisions"}, revisionColumns, revisionRows)
+	if err := revisionRows.Finish(written, err); err != nil {
+		return classifyRevisionsImportError(err)
 	}
 	return nil
 }

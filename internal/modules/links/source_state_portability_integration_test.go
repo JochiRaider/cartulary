@@ -52,6 +52,10 @@ func TestLinksSourceStateStrictRoundTripAndAtomicFailure_Integration(t *testing.
 	for _, file := range exported {
 		bundle[file.Path] = append([]byte(nil), file.Payload...)
 	}
+	actors, err := portabilitysupport.ReferencedActors(bundle)
+	if err != nil {
+		t.Fatalf("admit exported actors: %v", err)
+	}
 	if _, err := harness.DB.Exec(ctx, `DELETE FROM record_tags WHERE incident_id = $1`, incident.ID); err != nil {
 		t.Fatalf("remove exported tag rows: %v", err)
 	}
@@ -100,7 +104,7 @@ func TestLinksSourceStateStrictRoundTripAndAtomicFailure_Integration(t *testing.
 				invalid["data/tags.ndjson"] = nil
 			}
 			recorder := &linksPortableAttributionRecorder{}
-			importContext := sourceport.ImportContext{IncidentID: incident.ID, ActorUserID: actor.ID, BundleVersion: 8, OperationID: test.name, Attributions: recorder}
+			importContext := sourceport.ImportContext{IncidentID: incident.ID, ActorUserID: actor.ID, BundleVersion: 8, OperationID: test.name, Attributions: recorder, Actors: actors, Preparation: portabilitysupport.NewPreparationStore()}
 			prepared, err := port.PrepareImport(ctx, invalid, importContext)
 			if err != nil {
 				t.Fatalf("prepare row-local valid input: %v", err)
@@ -129,11 +133,20 @@ func TestLinksSourceStateStrictRoundTripAndAtomicFailure_Integration(t *testing.
 	importContext := sourceport.ImportContext{
 		IncidentID: incident.ID, ActorUserID: actor.ID, BundleVersion: 8,
 		OperationID: "links-valid-round-trip", Attributions: recorder,
+		Actors: actors, Preparation: portabilitysupport.NewPreparationStore(),
 	}
-	prepared, err := port.PrepareImport(ctx, bundle, importContext)
+	counted := &portabilitysupport.CountingBundle{MemberReader: bundle}
+	prepared, err := port.PrepareImport(ctx, counted, importContext)
 	if err != nil {
 		t.Fatalf("prepare owner-exported v3 bytes: %v", err)
 	}
+	// Core 01 REQ-01-641: once preparation returns, no bundle member reopens.
+	counted.Freeze()
+	defer func() {
+		if late := counted.Late(); late != 0 {
+			t.Errorf("Links Apply and Validate opened %d bundle members after preparation", late)
+		}
+	}()
 	tx, err := harness.DB.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		t.Fatalf("begin valid import: %v", err)
@@ -144,6 +157,16 @@ func TestLinksSourceStateStrictRoundTripAndAtomicFailure_Integration(t *testing.
 	}
 	if err := port.ValidateImportTx(ctx, tx, prepared, importContext); err != nil {
 		t.Fatalf("validate owner-exported v3 bytes: %v", err)
+	}
+	if len(recorder.values) != 0 {
+		t.Fatalf("Links recorded attribution row by row: %#v", recorder.values)
+	}
+	staged, err := portabilitysupport.ReadStagedAttributions(ctx, port, prepared, importContext)
+	if err != nil {
+		t.Fatalf("read staged Links attribution: %v", err)
+	}
+	if len(staged) != 3 {
+		t.Fatalf("staged Links attribution = %#v; want link owner and creator and tag creator", staged)
 	}
 	reexported, err := portabilitysupport.Export(port, ctx, sourceport.ExportContext{Query: tx, IncidentID: incident.ID, PortableAttributions: incidentbundles.PortableSourceAttributions()})
 	if err != nil {
@@ -160,19 +183,8 @@ func TestLinksSourceStateStrictRoundTripAndAtomicFailure_Integration(t *testing.
 }
 
 type linksPortableAttributionRecorder struct {
+	portabilitysupport.AttributionCapability
 	values []incidentportability.ImportedAttribution
-}
-
-func (recorder *linksPortableAttributionRecorder) RecordImportedAttribution(
-	table string,
-	rowID string,
-	column string,
-	actorID string,
-) error {
-	recorder.values = append(recorder.values, incidentportability.ImportedAttribution{
-		SourceTable: table, SourceRowID: rowID, SourceColumn: column, SourceActorID: actorID,
-	})
-	return nil
 }
 
 func (recorder *linksPortableAttributionRecorder) ImportedAttributions() []incidentportability.ImportedAttribution {
@@ -185,17 +197,6 @@ func clonePortableBundle(source portabilitysupport.MapBundle) portabilitysupport
 		result[path] = append([]byte(nil), payload...)
 	}
 	return result
-}
-
-func (r *linksPortableAttributionRecorder) VisitImportedAttributions(table, rowID string, visit func(incidentportability.ImportedAttribution) error) error {
-	for _, row := range r.ImportedAttributions() {
-		if row.SourceTable == table && (rowID == "" || row.SourceRowID == rowID) {
-			if err := visit(row); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
 }
 
 func TestLinksBundleValidationCommitIsolation_Integration(t *testing.T) {

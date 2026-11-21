@@ -34,16 +34,37 @@ var partyIncidentBundleMembers = []string{
 }
 
 type partyPortableRow struct {
-	RecordID         uuid.UUID
-	IncidentID       uuid.UUID
-	DisplayName      string
-	PartyKind        string
-	OrganizationName *string
-	RoleTitle        *string
-	PrimaryEmail     *string
-	TimezoneName     *string
-	ExternalRef      *string
-	Notes            *string
+	RecordID         uuid.UUID `json:"id"`
+	IncidentID       uuid.UUID `json:"incident"`
+	DisplayName      string    `json:"name"`
+	PartyKind        string    `json:"kind"`
+	OrganizationName *string   `json:"organization"`
+	RoleTitle        *string   `json:"role"`
+	PrimaryEmail     *string   `json:"email"`
+	TimezoneName     *string   `json:"timezone"`
+	ExternalRef      *string   `json:"external_ref"`
+	Notes            *string   `json:"notes"`
+}
+
+// preparedPartyRows is the staged admitted-row stream (Core 01 REQ-01-641):
+// the final transaction reads it and opens no bundle member.
+const preparedPartyRows = "parties.rows"
+
+type partyRowCodec struct{}
+
+func (partyRowCodec) Encode(row partyPortableRow) ([]byte, error) {
+	return incidentportability.EncodeJSONRow(row)
+}
+
+func (partyRowCodec) Decode(line []byte) (partyPortableRow, error) {
+	var row partyPortableRow
+	return row, incidentportability.DecodeJSONRow(line, &row)
+}
+
+func (partyRowCodec) Columns() []string { return nil }
+
+func (partyRowCodec) Values(partyPortableRow) ([]any, error) {
+	return nil, incidentportability.ErrPreparedStream
 }
 
 type preparedPartyImport struct {
@@ -51,7 +72,8 @@ type preparedPartyImport struct {
 	incidentID    uuid.UUID
 	bundleVersion int
 	contractMajor int
-	members       *incidentportability.BoundMembers
+	rows          incidentportability.PreparedRowStream
+	staged        bool
 }
 
 func exportIncidentBundleFiles(
@@ -97,11 +119,14 @@ func preparePartyImport(
 		return preparedPartyImport{}, sourceport.ErrPreparedBinding
 	}
 
+	if importContext.Preparation == nil {
+		return preparedPartyImport{}, errors.New("parties: incident bundle preparation staging is required")
+	}
 	members, err := incidentportability.BindMembers(bundle, []string{partyIncidentBundlePath})
 	if err != nil {
 		return preparedPartyImport{}, err
 	}
-	prepared := preparedPartyImport{operationID: importContext.OperationID, incidentID: importContext.IncidentID, bundleVersion: importContext.BundleVersion, contractMajor: descriptor.ContractMajor, members: members}
+	prepared := preparedPartyImport{operationID: importContext.OperationID, incidentID: importContext.IncidentID, bundleVersion: importContext.BundleVersion, contractMajor: descriptor.ContractMajor}
 	previous := ""
 	err = incidentportability.WalkPath(ctx, members, partyIncidentBundlePath, func(raw map[string]any) error {
 		recordID, ok := canonicalPartyPortableUUID(raw["record_id"])
@@ -116,11 +141,12 @@ func preparePartyImport(
 		return preparedPartyImport{}, partyStreamFailure(descriptor, err)
 	}
 	// Each bounded pass preserves the owner's semantic precedence without sorting
-	// or retaining the complete source collection.
-	if err := prepared.walk(ctx, descriptor, func(partyPortableRow) error { return nil }); err != nil {
+	// or retaining the complete source collection. The last pass stages the
+	// admitted rows.
+	if err := walkPartyMembers(ctx, members, descriptor, func(partyPortableRow) error { return nil }); err != nil {
 		return preparedPartyImport{}, err
 	}
-	if err := prepared.walk(ctx, descriptor, func(row partyPortableRow) error {
+	if err := walkPartyMembers(ctx, members, descriptor, func(row partyPortableRow) error {
 		if row.DisplayName == "" || !partyKindAdmitted(row.PartyKind) {
 			return descriptor.DeclaredFailure("parties.identity_lifecycle")
 		}
@@ -128,18 +154,29 @@ func preparePartyImport(
 	}); err != nil {
 		return preparedPartyImport{}, err
 	}
-	if err := prepared.walk(ctx, descriptor, func(row partyPortableRow) error {
-		if !partyPortableNormalizationExact(row) {
-			return descriptor.DeclaredFailure("parties.normalization_exact")
-		}
-		return nil
-	}); err != nil {
+	prepared.rows, err = incidentportability.StagePreparedRows(ctx, importContext.Preparation, preparedPartyRows, partyRowCodec{}, func(emit func(partyPortableRow) error) error {
+		return walkPartyMembers(ctx, members, descriptor, func(row partyPortableRow) error {
+			if !partyPortableNormalizationExact(row) {
+				return descriptor.DeclaredFailure("parties.normalization_exact")
+			}
+			return emit(row)
+		})
+	})
+	if err != nil {
 		return preparedPartyImport{}, err
 	}
+	prepared.staged = true
 	return prepared, nil
 }
-func (p preparedPartyImport) walk(ctx context.Context, descriptor sourceport.Descriptor, visit func(partyPortableRow) error) error {
-	err := incidentportability.WalkPath(ctx, p.members, partyIncidentBundlePath, func(raw map[string]any) error {
+
+// walk visits the staged rows in order; the final transaction reads no bundle
+// member.
+func (p preparedPartyImport) walk(ctx context.Context, importContext sourceport.ImportContext, visit func(partyPortableRow) error) error {
+	return incidentportability.ReadPreparedRows(ctx, importContext.Preparation, p.rows, partyRowCodec{}, visit)
+}
+
+func walkPartyMembers(ctx context.Context, members *incidentportability.BoundMembers, descriptor sourceport.Descriptor, visit func(partyPortableRow) error) error {
+	err := incidentportability.WalkPath(ctx, members, partyIncidentBundlePath, func(raw map[string]any) error {
 		row, valid := partyPortableRowShape(raw)
 		if !valid {
 			return descriptor.DeclaredFailure("parties.version_shape_exact")
@@ -166,7 +203,7 @@ func applyPreparedPartyImportTx(
 	if !prepared.matches(importContext, descriptor) || tx == nil {
 		return sourceport.ErrPreparedBinding
 	}
-	return prepared.walk(ctx, descriptor, func(row partyPortableRow) error {
+	return prepared.walk(ctx, importContext, func(row partyPortableRow) error {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
@@ -267,7 +304,7 @@ SELECT EXISTS (
 	}
 	defer actualRows.Close()
 	expectedClaims := newPartyClaimInventory()
-	err = prepared.walk(ctx, descriptor, func(expected partyPortableRow) error {
+	err = prepared.walk(ctx, importContext, func(expected partyPortableRow) error {
 		if !actualRows.Next() {
 			if err := actualRows.Err(); err != nil {
 				return err
@@ -364,7 +401,7 @@ func (prepared preparedPartyImport) matches(
 	importContext sourceport.ImportContext,
 	descriptor sourceport.Descriptor,
 ) bool {
-	return prepared.members != nil && prepared.operationID != "" &&
+	return prepared.staged && importContext.Preparation != nil && prepared.operationID != "" &&
 		prepared.operationID == importContext.OperationID &&
 		prepared.incidentID != uuid.Nil &&
 		prepared.incidentID == importContext.IncidentID &&

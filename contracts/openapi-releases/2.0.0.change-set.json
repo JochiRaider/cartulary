@@ -3076,12 +3076,6 @@
       "rationale": "Project adopted owner mutation semantics explicitly under Core 01. Classification is independent of HTTP method and does not alter the separately declared authentication or CSRF contract; missing declarations fail assembly and generation."
     },
     {
-      "fingerprint": "95d541dab1b798ad3bb68f1263bd2cd1dce75df9de882a225a2eabb0aeb4199e",
-      "classification": "additive",
-      "owner_id": "module.reference_data",
-      "rationale": "Reference Pack profile 2 clean cutover: separate health and disablement; expose nullable successful verification metadata and complete signer sets; retire verification-result aliases; add explicit removal and bounded normalized reasons."
-    },
-    {
       "fingerprint": "f54db6bd560a4ad0df0c22c7c9a5017f5e71aaecfb23a35908747a219f7aa034",
       "classification": "non_behavioral",
       "owner_id": "platform.openapi",
@@ -3092,12 +3086,6 @@
       "classification": "security_sensitive",
       "owner_id": "module.reference_data",
       "rationale": "Project adopted owner mutation semantics explicitly under Core 01. Classification is independent of HTTP method and does not alter the separately declared authentication or CSRF contract; missing declarations fail assembly and generation."
-    },
-    {
-      "fingerprint": "6237c68e2a3bd3effd41fb99496b91b4c6c73bddbaa88fdbfb1d499678b993b9",
-      "classification": "additive",
-      "owner_id": "module.reference_data",
-      "rationale": "Reference Pack profile 2 clean cutover: separate health and disablement; expose nullable successful verification metadata and complete signer sets; retire verification-result aliases; add explicit removal and bounded normalized reasons."
     },
     {
       "fingerprint": "51faf070b8c78ab4fb5401df51574d2d9a36d2de756cbc2ca2f5f4ee13170c00",
@@ -5506,10 +5494,10 @@
       "rationale": "Declare the error codes this response can emit (REQ-01-702). S-1069 (REQ-01-702): disableReferencePackVersion 409 also declares client_txn_conflict, which its handler emits: client_txn_conflict when a client_txn_id is reused with a different request."
     },
     {
-      "fingerprint": "f97c919887bb1121682840946c0212f83b25a7911ac0264205909f60dfb7bed4",
+      "fingerprint": "fccacc399a1fcfaa9c7725957a70e732f36d8dfe0c934451bc2275bdcd8d4131",
       "classification": "additive",
       "owner_id": "module.reference_data",
-      "rationale": "Project Reference Pack family admission, exact methods and versions, and closed queries. Classify original and structurally cleaned escaped paths before admission; reject noncanonical family paths after authorization without redirects. Successful operation envelopes and stored pack identities are unchanged. S-1069 (REQ-01-702): removeReferencePackVersion 409 also declares client_txn_conflict, which its handler emits: client_txn_conflict when a client_txn_id is reused with a different request. S-1081 (REQ-01-706, REQ-01-707): the pack_key path parameter declares the canonical pack-key syntax (pattern ^[a-z][a-z0-9_]{0,31}(\\.[a-z][a-z0-9_]{0,31}){1,7}$, length 3 to 128) that every admitted pack key already satisfies. A malformed key receives reference_pack_not_found, identical to a well-formed key that names no pack, never internal_error. S-1089 (REQ-01-707): its path parameters now declare their formats and not-found responses. S-1101 (REQ-01-702): removeReferencePackVersion declares 404 extension_profile_not_claimed, 500 internal_error, 503 service_unavailable. extension_profile_not_claimed is implied because the operation belongs to a route family reserved for an extension profile, which answers it while that profile is unclaimed; internal_error is implied by every operation (REQ-01-229); service_unavailable, the admission gate's retryable refusal before publication, while lease ownership is uncertain, or once the process is fatal, is implied by every operation."
+      "rationale": "Project Reference Pack family admission, exact methods and versions, and closed queries. Classify original and structurally cleaned escaped paths before admission; reject noncanonical family paths after authorization without redirects. Successful operation envelopes and stored pack identities are unchanged. S-1069 (REQ-01-702): removeReferencePackVersion 409 also declares client_txn_conflict, which its handler emits: client_txn_conflict when a client_txn_id is reused with a different request. S-1081 (REQ-01-706, REQ-01-707): the pack_key path parameter declares the canonical pack-key syntax (pattern ^[a-z][a-z0-9_]{0,31}(\\.[a-z][a-z0-9_]{0,31}){1,7}$, length 3 to 128) that every admitted pack key already satisfies. A malformed key receives reference_pack_not_found, identical to a well-formed key that names no pack, never internal_error. S-1089 (REQ-01-707): its path parameters now declare their formats and not-found responses. S-1101 (REQ-01-702): removeReferencePackVersion declares 404 extension_profile_not_claimed, 500 internal_error, 503 service_unavailable. extension_profile_not_claimed is implied because the operation belongs to a route family reserved for an extension profile, which answers it while that profile is unclaimed; internal_error is implied by every operation (REQ-01-229); service_unavailable, the admission gate's retryable refusal before publication, while lease ownership is uncertain, or once the process is fatal, is implied by every operation. S-1121 (Core 01 Table 17.4-A): the 200 response description names the removed version instead of a disabled one; the response schema is unchanged."
     },
     {
       "fingerprint": "5b6ea30582af9f888f069d715b531ea652b5d56308a78a4ce74a4def4b2d38fc",

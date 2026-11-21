@@ -51,6 +51,36 @@ type ImportContext struct {
 	Attributions         incidentportability.AttributionRecorder
 	Actors               ActorCatalog
 	RewrittenObjectBlobs incidentportability.MemberReader
+	// Preparation is the operation's private core preparation store (Core 01
+	// REQ-01-641 steps 4 and 5). A port stages its write-ready rows,
+	// attribution and expected aggregates there while preparing, and reads them
+	// back in ApplyImportTx and ValidateImportTx. The adapter scopes it to the
+	// port; it never reaches a bundle member.
+	Preparation PreparationStore
+	// Payloads admits opaque bundle payloads whose digests preparation
+	// verified, and streams only those, through a seal-verifying reader, in
+	// ApplyImportTx (Core 01 REQ-01-641). Preparation copies no payload.
+	Payloads incidentportability.PayloadMembers
+	// Facts holds read-only facts families publish from their own preparation
+	// for later families' preparation, in the catalog's recorded order. The
+	// adapter scopes it to the preparing family; Apply and Validate receive
+	// none.
+	Facts *ImportFacts
+}
+
+// PreparationStore holds operation-owned, sealed, non-visible preparation
+// streams. WriteMember takes a path relative to the port's scope and returns
+// the member's full path; OpenMember takes that full path.
+type PreparationStore interface {
+	incidentportability.MemberReader
+	incidentportability.MemberWriter
+}
+
+// StagedAttributionPort is implemented by ports whose preparation stages
+// historical-actor attribution. The core flushes every port's streams once,
+// in step 9 after ValidateImportTx, and checks the database counts.
+type StagedAttributionPort interface {
+	PreparedAttributions(Prepared, ImportContext) ([]incidentportability.AttributionStream, error)
 }
 
 type PortableAttributionResolver interface {
@@ -80,6 +110,8 @@ type Prepared struct {
 	instance *adapterInstance
 	binding  preparedBinding
 	actors   ActorCatalog
+	// preparation is the port's scope within the operation's store.
+	preparation string
 }
 
 type preparedBinding struct {
@@ -94,8 +126,8 @@ func sourceBinding(major int, input ImportContext) preparedBinding {
 	return preparedBinding{major: major, operationID: input.OperationID, incidentID: input.IncidentID, actorID: input.ActorUserID, version: input.BundleVersion}
 }
 
-func newPrepared(port *Adapter, input ImportContext, value any) Prepared {
-	return Prepared{value: value, port: port, instance: port.instance, binding: sourceBinding(port.descriptor.ContractMajor, input), actors: input.Actors}
+func newPrepared(port *Adapter, input ImportContext, value any, preparation string) Prepared {
+	return Prepared{value: value, port: port, instance: port.instance, binding: sourceBinding(port.descriptor.ContractMajor, input), actors: input.Actors, preparation: preparation}
 }
 
 func (p Prepared) valueFor(port *Adapter, input ImportContext) (any, error) {
@@ -104,6 +136,17 @@ func (p Prepared) valueFor(port *Adapter, input ImportContext) (any, error) {
 		return nil, ErrPreparedBinding
 	}
 	return p.value, nil
+}
+
+// FamilyValue returns this operation's admitted owner preparation when it
+// belongs to familyID. Application composition uses it so a dependent
+// extension participant reuses the core preparation instead of re-proving the
+// same admitted members; the value stays bound to its preparing port.
+func (p Prepared) FamilyValue(familyID string) (any, bool) {
+	if p.port == nil || p.instance == nil || p.instance != p.port.instance || p.port.descriptor.FamilyID != familyID {
+		return nil, false
+	}
+	return p.value, true
 }
 
 type Port interface {

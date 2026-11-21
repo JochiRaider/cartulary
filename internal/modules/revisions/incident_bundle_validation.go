@@ -14,22 +14,29 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
-	"github.com/JochiRaider/cartulary/internal/modules/revisions/rollbackcontract"
 )
 
+// validatePreparedRevisionsBeforeWriteTx reports, in the owner's precedence,
+// the verdicts preparation recorded and the database-side reference checks.
+// It opens no bundle member (Core 01 REQ-01-641).
 func validatePreparedRevisionsBeforeWriteTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	prepared preparedRevisionsImport,
+	store incidentportability.MemberReader,
 	validation *incidentBundleValidationCatalog,
 	attributions incidentportability.AttributionRecorder,
 ) error {
-	if err := validatePreparedRevisionsChangeSetMembership(ctx, prepared); err != nil {
+	if err := prepared.verdicts.At(rankMembership); err != nil {
 		return err
 	}
 	// Resolve every record reference before admitting any history shape. A later
 	// missing envelope outranks an earlier malformed snapshot across both files.
-	if err := validatePreparedRevisionsRecordReferencesTx(ctx, tx, prepared, validation); err != nil {
+	if err := prepared.verdicts.At(rankBundleReferences); err != nil {
+		return err
+	}
+	outcome, err := prepared.checkReferencesTx(ctx, tx, store, validation, nil)
+	if err != nil {
 		return err
 	}
 	if attributions == nil {
@@ -41,224 +48,13 @@ func validatePreparedRevisionsBeforeWriteTx(
 	if prepared.revisionIdentityInvalid {
 		return revisionsFailure(revisionsRecordVersionInvariant)
 	}
-	if err := validatePreparedRevisionsRecordVersions(ctx, prepared); err != nil {
+	if err := prepared.verdicts.At(rankRecordVersions); err != nil {
 		return err
 	}
-
-	if err := prepared.walkMutations(ctx, func(mutation portableChangeSetMutation) error {
-		if _, err := validation.targets.DescribeValues(
-			mutation.TargetKind,
-			mutation.TargetID,
-			mutation.OperationKind,
-			mutation.BeforeValue,
-			mutation.AfterValue,
-		); err != nil {
-			return revisionsFailure(revisionsHistoryInvariant)
-		}
-		dispatch, err := validation.targets.dispatchClass(mutation.TargetKind)
-		if err != nil {
-			return revisionsFailure(revisionsHistoryInvariant)
-		}
-		if dispatch == rollbackcontract.DispatchRow {
-			if mutation.AfterValue == nil {
-				return revisionsFailure(revisionsHistoryInvariant)
-			}
-			recordID, err := uuid.Parse(mutation.TargetID)
-			if err != nil {
-				return revisionsFailure(revisionsHistoryInvariant)
-			}
-			recordType, err := validation.envelopes.RecordTypeTx(ctx, tx, prepared.incidentID, recordID)
-			if err != nil {
-				if errors.Is(err, pgx.ErrNoRows) {
-					return revisionsFailure(revisionsReferencesInvariant)
-				}
-				return err
-			}
-			if err := validation.validateSnapshot(prepared.incidentID, recordID, recordType, mutation.BeforeValue); err != nil {
-				return revisionsFailure(revisionsHistoryInvariant)
-			}
-			if err := validation.validateSnapshot(prepared.incidentID, recordID, recordType, mutation.AfterValue); err != nil {
-				return revisionsFailure(revisionsHistoryInvariant)
-			}
-		}
-		return nil
-	}); err != nil {
-		return err
-	}
-	if err := prepared.walkRevisions(ctx, func(revision portableRecordRevision) error {
-		recordType, err := validation.envelopes.RecordTypeTx(
-			ctx,
-			tx,
-			prepared.incidentID,
-			revision.RecordID,
-		)
-		if err != nil {
-			if !errors.Is(err, pgx.ErrNoRows) {
-				return err
-			}
-			return revisionsFailure(revisionsReferencesInvariant)
-		}
-		if err := validation.validateSnapshot(prepared.incidentID, revision.RecordID, recordType, revision.BeforeJSON); err != nil {
-			return revisionsFailure(revisionsHistoryInvariant)
-		}
-		if err := validation.validateSnapshot(prepared.incidentID, revision.RecordID, recordType, revision.AfterJSON); err != nil {
-			return revisionsFailure(revisionsHistoryInvariant)
-		}
-		if !revisionSnapshotPairMatches(revision.BeforeJSON, revision.AfterJSON, revision.RowVersion) {
-			return revisionsFailure(revisionsHistoryInvariant)
-		}
-		return nil
-	}); err != nil {
-		return err
+	if err := prepared.verdicts.At(rankHistoryShapes); err != nil || outcome.typeMismatch {
+		return revisionsFailure(revisionsHistoryInvariant)
 	}
 	return nil
-}
-
-// Check each record's versions in revision-ID order without retaining all
-// record identities or historical snapshots. A batch keeps only last versions.
-func validatePreparedRevisionsRecordVersions(ctx context.Context, prepared preparedRevisionsImport) error {
-	const batchLimit = 128
-	versions := make(map[uuid.UUID]int64, batchLimit)
-	flush := func() error {
-		if len(versions) == 0 {
-			return nil
-		}
-		if err := prepared.walkRevisions(ctx, func(row portableRecordRevision) error {
-			previous, tracked := versions[row.RecordID]
-			if !tracked {
-				return nil
-			}
-			if row.RowVersion <= previous {
-				return revisionsFailure(revisionsRecordVersionInvariant)
-			}
-			versions[row.RecordID] = row.RowVersion
-			return nil
-		}); err != nil {
-			return err
-		}
-		clear(versions)
-		return nil
-	}
-	if err := prepared.walkRevisions(ctx, func(row portableRecordRevision) error {
-		versions[row.RecordID] = 0
-		if len(versions) == batchLimit {
-			return flush()
-		}
-		return nil
-	}); err != nil {
-		return err
-	}
-	return flush()
-}
-
-// Membership batches retain only bounded scalar identities. Every change-set
-// scan reaches EOF so the admitted member's byte verification remains effective.
-func validatePreparedRevisionsChangeSetMembership(ctx context.Context, prepared preparedRevisionsImport) error {
-	const batchLimit = 128
-	pending := make(map[uuid.UUID]struct{}, batchLimit)
-	flush := func() error {
-		if len(pending) == 0 {
-			return nil
-		}
-		if err := prepared.walkChangeSets(ctx, func(row portableChangeSet) error {
-			delete(pending, row.ChangeSetID)
-			return nil
-		}); err != nil {
-			return err
-		}
-		if len(pending) != 0 {
-			return revisionsFailure(revisionsReferencesInvariant)
-		}
-		return nil
-	}
-	admit := func(changeSetID uuid.UUID) error {
-		pending[changeSetID] = struct{}{}
-		if len(pending) == batchLimit {
-			return flush()
-		}
-		return nil
-	}
-	if err := prepared.walkMutations(ctx, func(row portableChangeSetMutation) error {
-		return admit(row.ChangeSetID)
-	}); err != nil {
-		return err
-	}
-	if err := prepared.walkRevisions(ctx, func(row portableRecordRevision) error {
-		return admit(row.ChangeSetID)
-	}); err != nil {
-		return err
-	}
-	return flush()
-}
-
-func validatePreparedRevisionsRecordReferencesTx(
-	ctx context.Context,
-	tx pgx.Tx,
-	prepared preparedRevisionsImport,
-	validation *incidentBundleValidationCatalog,
-) error {
-	checkRecord := func(recordID uuid.UUID) (string, error) {
-		recordType, err := validation.envelopes.RecordTypeTx(ctx, tx, prepared.incidentID, recordID)
-		if errors.Is(err, pgx.ErrNoRows) {
-			return "", revisionsFailure(revisionsReferencesInvariant)
-		}
-		if err != nil {
-			return "", err
-		}
-		// Source owners have already applied in the catalog's dependency order.
-		// An envelope alone does not establish an authoritative row reference.
-		if _, err := validation.currentSourceRowTx(ctx, tx, recordID, recordType); err != nil {
-			if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, ErrUnexpectedHistoryTargetProvider) {
-				return "", revisionsFailure(revisionsReferencesInvariant)
-			}
-			return "", err
-		}
-		return recordType, nil
-	}
-	if err := prepared.walkMutations(ctx, func(mutation portableChangeSetMutation) error {
-		if !validation.resolvesTargetKind(mutation.TargetKind) ||
-			(validation.targets.requiresGenericPortableTargetID(mutation.TargetKind) &&
-				!canonicalPortableTargetID(mutation.TargetKind, mutation.TargetID)) {
-			return revisionsFailure(revisionsReferencesInvariant)
-		}
-		dispatch, err := validation.targets.dispatchClass(mutation.TargetKind)
-		if err != nil {
-			return err
-		}
-		if dispatch != rollbackcontract.DispatchRow {
-			references, err := validation.targets.historyRecordReferences(mutation, prepared.incidentID)
-			if err != nil {
-				return revisionsFailure(revisionsReferencesInvariant)
-			}
-			for _, reference := range references {
-				if reference.IncidentID != prepared.incidentID || reference.RecordID == uuid.Nil {
-					return revisionsFailure(revisionsReferencesInvariant)
-				}
-				if _, err := checkRecord(reference.RecordID); err != nil {
-					return err
-				}
-			}
-			return nil
-		}
-		recordID, err := uuid.Parse(mutation.TargetID)
-		if err != nil {
-			return revisionsFailure(revisionsReferencesInvariant)
-		}
-		recordType, err := checkRecord(recordID)
-		if err != nil {
-			return err
-		}
-		if _, err := validation.targets.rowProvider(mutation.TargetKind, recordType); err != nil {
-			return revisionsFailure(revisionsReferencesInvariant)
-		}
-		return nil
-	}); err != nil {
-		return err
-	}
-	return prepared.walkRevisions(ctx, func(revision portableRecordRevision) error {
-		_, err := checkRecord(revision.RecordID)
-		return err
-	})
 }
 
 func validatePreparedRevisionsImportTx(
@@ -266,68 +62,74 @@ func validatePreparedRevisionsImportTx(
 	tx pgx.Tx,
 	prepared preparedRevisionsImport,
 	validation *incidentBundleValidationCatalog,
-	attributions incidentportability.AttributionRecorder,
+	input sourceport.ImportContext,
 ) error {
-	if err := validatePreparedRevisionsRecordReferencesTx(ctx, tx, prepared, validation); err != nil {
+	store := input.Preparation
+	if store == nil || prepared.verdicts == nil || validation == nil {
+		return errors.New("revisions: incident bundle preparation is required")
+	}
+	// References rank first, bundle-only verdicts included. One pass resolves
+	// each distinct referenced record and compares its terminal revision with
+	// the current row; that verdict keeps its own rank.
+	if err := prepared.verdicts.At(rankBundleReferences); err != nil {
 		return err
 	}
-	if err := validatePreparedRevisionsSourceStateTx(ctx, tx, prepared, validation); err != nil {
+	terminal := &terminalRevisionCursor{ctx: ctx, tx: tx, incidentID: prepared.incidentID}
+	outcome, err := prepared.checkReferencesTx(ctx, tx, store, validation, terminal)
+	if err != nil {
 		return err
 	}
-	if err := prepared.validateAttributions(ctx, attributions); err != nil {
+	if err := validatePreparedRevisionsSourceStateTx(ctx, tx, prepared, store); err != nil {
 		return err
 	}
-	if err := validation.envelopes.VisitIncidentRecordIDsTx(ctx, tx, prepared.incidentID, func(recordID uuid.UUID) error {
-		var retained bool
-		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM record_revisions WHERE record_id=$1)`, recordID).Scan(&retained); err != nil {
-			return err
-		}
-		if !retained {
-			return revisionsFailure(revisionsHistoryInvariant)
-		}
-		return nil
-	}); err != nil {
+	// Attribution is flushed in step 9 and checked by counts there.
+	if input.Attributions == nil {
+		return revisionsFailure(revisionsActorsInvariant)
+	}
+	if err := validateIncidentHistoryCoverageTx(ctx, tx, validation, prepared.incidentID); err != nil {
 		return err
 	}
-	if err := prepared.validateActorContextPaths(ctx); err != nil {
+	if err := prepared.verdicts.At(rankActorContexts); err != nil {
 		return err
 	}
 	if err := validateImportedRevisionChainsTx(ctx, tx, prepared.incidentID); err != nil {
 		return err
 	}
-	return prepared.walkRevisions(ctx, func(revision portableRecordRevision) error {
-		var terminal bool
-		if err := tx.QueryRow(ctx, `SELECT NOT EXISTS (SELECT 1 FROM record_revisions WHERE record_id=$1 AND row_version>$2)`, revision.RecordID, revision.RowVersion).Scan(&terminal); err != nil {
-			return err
-		}
-		if !terminal {
+	if outcome.terminalMismatch {
+		return revisionsFailure(revisionsHistoryInvariant)
+	}
+	return nil
+}
+
+// validateIncidentHistoryCoverageTx requires retained history for every
+// incident record with one aggregate read per page of record identities.
+func validateIncidentHistoryCoverageTx(ctx context.Context, tx pgx.Tx, validation *incidentBundleValidationCatalog, incidentID uuid.UUID) error {
+	const pageSize = 128
+	page := make([]uuid.UUID, 0, pageSize)
+	flush := func() error {
+		if len(page) == 0 {
 			return nil
 		}
-		recordID := revision.RecordID
-
-		expected := normalizePortableSnapshotActors(
-			revision.AfterJSON,
-			prepared.actors,
-			prepared.runtimeActor,
-		)
-		matches, err := validation.currentHistoryRowMatchesTx(
-			ctx,
-			tx,
-			prepared.incidentID,
-			recordID,
-			expected,
-		)
-		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				return revisionsFailure(revisionsReferencesInvariant)
-			}
+		var covered int
+		if err := tx.QueryRow(ctx, `SELECT count(DISTINCT record_id) FROM record_revisions WHERE record_id = ANY($1::uuid[])`, page).Scan(&covered); err != nil {
 			return err
 		}
-		if !matches {
+		if covered != len(page) {
 			return revisionsFailure(revisionsHistoryInvariant)
 		}
+		page = page[:0]
 		return nil
-	})
+	}
+	if err := validation.envelopes.VisitIncidentRecordIDsTx(ctx, tx, incidentID, func(recordID uuid.UUID) error {
+		page = append(page, recordID)
+		if len(page) == pageSize {
+			return flush()
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	return flush()
 }
 
 func revisionsFailure(invariantID string) error {

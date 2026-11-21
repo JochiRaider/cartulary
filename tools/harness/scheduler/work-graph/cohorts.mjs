@@ -1,3 +1,9 @@
+// TH-HARNESS 11.6: a catalog row's reviewed estimate replaces its
+// evidence-class estimate.
+export function rowEstimateMs(owner, row) {
+  return row.estimated_work_ms ?? owner.evidence_estimates_ms[row.evidence_class];
+}
+
 // Deterministic packing within one already-proved compatibility partition.
 // Lifecycle costs are paid once per invocation; items remain indivisible.
 export function packInvocationCohorts(items, { startup_ms, cleanup_ms }, timeoutMS) {

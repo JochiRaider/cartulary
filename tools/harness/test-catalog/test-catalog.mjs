@@ -60,6 +60,7 @@ const expectedProfiles = Object.freeze({
   runtime_profiles: ["default", "network_flow_claimed", "none"],
   resource_profiles: [
     "backend_capacity_isolated",
+    "backend_capacity_postgres_heavy",
     "browser_measurement_quiet",
     "browser_ordinary",
     "credential_capacity_quiet",
@@ -70,6 +71,7 @@ const expectedProfiles = Object.freeze({
     "package_qualification",
     "performance_fixture_builder",
     "postgres_catalog_isolated",
+    "postgres_heavy",
     "renderer_browser",
     "standard",
     "ui_review_browser",
@@ -476,6 +478,10 @@ function readCatalogDefinition(root) {
         fixtureProfiles,
         label,
       });
+      // TH-HARNESS 11.6: a reviewed row estimate stays below the unit timeout.
+      if (row.estimated_work_ms !== undefined && row.estimated_work_ms >= graphOwner.default_timeout_ms) {
+        throw new Error(`${label}.estimated_work_ms must be below the unit timeout ${graphOwner.default_timeout_ms}`);
+      }
       if (rowIDs.has(row.row_id)) {
         throw new Error(`duplicate row_id ${row.row_id}`);
       }

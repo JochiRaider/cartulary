@@ -1,77 +1,130 @@
 {
-  "schema_id": "cartulary.harness_redaction_manifest.v1",
+  "schema_id": "cartulary.harness_redaction_manifest.v2",
   "replacement": "<redacted>",
-  "sensitive_key_patterns": [
-    "^(?:authorization|cookie|set-cookie|x-cartulary-test-route-token)$",
-    "^(?:password|pass|pwd|token|jwt|bearer|api[_-]?key|access[_-]?key|secret[_-]?key)$",
-    "(?:^|[_-])(?:password|pass|pwd|token|jwt|bearer|api[_-]?key|access[_-]?key|secret[_-]?key)$",
-    "^(?:password|pass|pwd|token|jwt|bearer|api[_-]?key|access[_-]?key|secret[_-]?key)(?:[_-]|$)"
+  "structured_secret_key_tokens": [
+    "PASSWORD",
+    "PASS",
+    "PWD",
+    "SECRET",
+    "TOKEN",
+    "JWT",
+    "BEARER",
+    "API_KEY",
+    "ACCESS_KEY",
+    "SECRET_KEY",
+    "PRIVATE_KEY",
+    "DSN",
+    "AUTHORIZATION",
+    "COOKIE",
+    "SET_COOKIE",
+    "X_CARTULARY_TEST_ROUTE_TOKEN"
   ],
+  "secret_cli_flag_names": [
+    "password",
+    "passwd",
+    "pwd",
+    "secret",
+    "token",
+    "jwt",
+    "api-key",
+    "access-key",
+    "secret-key",
+    "private-key",
+    "client-secret",
+    "dsn"
+  ],
+  "whole_string_assignment": "^([A-Za-z][A-Za-z0-9_]*)=",
   "value_patterns": [
     {
       "name": "bearer_token",
-      "pattern": "(?i)\\bBearer\\s+[-._~+/A-Za-z0-9]+=*",
+      "pattern": "(?i)Bearer[\\t\\n\\f\\r ]+[-._~+/A-Za-z0-9]+=*",
       "replacement": "Bearer <redacted>"
     },
     {
       "name": "basic_auth",
-      "pattern": "(?i)\\bBasic\\s+[-._~+/A-Za-z0-9]+=*",
+      "pattern": "(?i)Basic[\\t\\n\\f\\r ]+[-._~+/A-Za-z0-9]+=*",
       "replacement": "Basic <redacted>"
     },
     {
       "name": "authorization_header",
-      "pattern": "(?i)\\b(Authorization\\s*:\\s*)([^\\r\\n]+)",
+      "pattern": "(?i)(Authorization[\\t\\n\\f\\r ]*:[\\t\\n\\f\\r ]*)([^\\r\\n]+)",
       "replacement": "$1<redacted>"
     },
     {
       "name": "cookie_header",
-      "pattern": "(?i)\\b((?:Cookie|Set-Cookie|X-Cartulary-Test-Route-Token)\\s*:\\s*)([^\\r\\n]+)",
+      "pattern": "(?i)((?:Cookie|Set-Cookie|X-Cartulary-Test-Route-Token)[\\t\\n\\f\\r ]*:[\\t\\n\\f\\r ]*)([^\\r\\n]+)",
       "replacement": "$1<redacted>"
     },
     {
       "name": "jwt",
-      "pattern": "\\beyJ[-_A-Za-z0-9]+\\.[-_A-Za-z0-9]+\\.[-_A-Za-z0-9]+\\b",
-      "replacement": "<redacted>"
-    },
-    {
-      "name": "postgres_password_assignment",
-      "pattern": "(?i)\\b(password\\s*=\\s*)([^\\s&;]+)",
+      "pattern": "(^|[^-_A-Za-z0-9])eyJ[-_A-Za-z0-9]+\\.[-_A-Za-z0-9]+\\.[-_A-Za-z0-9]*[A-Za-z0-9_]",
       "replacement": "$1<redacted>"
     },
     {
       "name": "generic_url_userinfo",
-      "pattern": "(?i)\\b([a-z][a-z0-9+.-]*://)([^/?#\\s@]+)@",
+      "pattern": "(?i)(^|[^a-z0-9+.-])([a-z0-9+.-]+://)([^/?#\\t\\n\\f\\r @]+)@",
+      "replacement": "$1$2<redacted>@"
+    },
+    {
+      "name": "postgres_url_userinfo",
+      "pattern": "(?i)((?:postgres|postgresql)://[^\\t\\n\\f\\r /:]+:)[^\\t\\n\\f\\r /@]+@",
       "replacement": "$1<redacted>@"
     },
     {
       "name": "cli_secret_argument_equals",
-      "pattern": "(?i)(--(?:password|passwd|pwd|secret|token|jwt|api[_-]?key|access[_-]?key|secret[_-]?key|private[_-]?key|client[_-]?secret|dsn)\\s*=\\s*)((?:\\\\.|[^\\s])+)",
+      "pattern": "(?i)(--(?:password|passwd|pwd|secret|token|jwt|api[_-]?key|access[_-]?key|secret[_-]?key|private[_-]?key|client[_-]?secret|dsn)[\\t\\n\\f\\r ]*=[\\t\\n\\f\\r ]*)((?:\\\\[^\\n]|[^\\t\\n\\f\\r ])+)",
       "replacement": "$1<redacted>"
     },
     {
       "name": "cli_secret_argument_space",
-      "pattern": "(?i)(--(?:password|passwd|pwd|secret|token|jwt|api[_-]?key|access[_-]?key|secret[_-]?key|private[_-]?key|client[_-]?secret|dsn)\\s+)((?:\\\\.|[^\\s])+)",
+      "pattern": "(?i)(--(?:password|passwd|pwd|secret|token|jwt|api[_-]?key|access[_-]?key|secret[_-]?key|private[_-]?key|client[_-]?secret|dsn)[\\t\\n\\f\\r ]+)((?:\\\\[^\\n]|[^\\t\\n\\f\\r ])+)",
       "replacement": "$1<redacted>"
     },
     {
-      "name": "generic_password_assignment",
-      "pattern": "(?i)\\b(password|passwd|pwd|secret|token|jwt|api[_-]?key|access[_-]?key|secret[_-]?key|private[_-]?key|client[_-]?secret|dsn)\\s*=\\s*([^\\s&]+)",
-      "replacement": "$1=<redacted>"
-    },
-    {
-      "name": "object_store_credential_assignment",
-      "pattern": "(?i)\\b((?:minio|s3|aws)?[_-]?(?:access[_-]?key|secret[_-]?key|access[_-]?key[_-]?id|secret[_-]?access[_-]?key)\\s*=\\s*)([^\\s&]+)",
-      "replacement": "$1<redacted>"
+      "name": "secret_assignment",
+      "pattern": "(?i)(^|[^A-Za-z0-9_])([A-Za-z0-9_]*?(?:PASSWORD|PASSWD|PWD|SECRET|TOKEN|JWT|API[_-]?KEY|ACCESS[_-]?KEY(?:[_-]?ID)?|SECRET[_-]?KEY|PRIVATE[_-]?KEY|DSN|COOKIE|SESSION))[\\t ]*=[\\t ]*[^\\t\\n\\f\\r ]+",
+      "replacement": "$1$2=<redacted>"
     },
     {
       "name": "json_like_secret_assignment",
-      "pattern": "(?i)(\"(?:authorization|cookie|set-cookie|x-cartulary-test-route-token|password|passwd|pwd|secret|token|jwt|api[_-]?key|access[_-]?key|secret[_-]?key|private[_-]?key|client[_-]?secret|dsn)\"\\s*:\\s*\")([^\"]+)(\")",
+      "pattern": "(?i)(\"(?:authorization|cookie|set-cookie|x-cartulary-test-route-token|password|passwd|pwd|secret|token|jwt|api[_-]?key|access[_-]?key|secret[_-]?key|private[_-]?key|client[_-]?secret|dsn)\"[\\t\\n\\f\\r ]*:[\\t\\n\\f\\r ]*\")([^\"]+)(\")",
       "replacement": "$1<redacted>$3"
     },
     {
       "name": "private_key_block",
-      "pattern": "-----BEGIN [A-Z ]*PRIVATE KEY-----[\\s\\S]*?-----END [A-Z ]*PRIVATE KEY-----",
+      "pattern": "-----BEGIN [A-Z ]*PRIVATE KEY-----(?:[^-]|-[^-])*-----END [A-Z ]*PRIVATE KEY-----",
       "replacement": "<redacted>"
     }
-  ]
+  ],
+  "retained_scan": {
+    "forbidden_names": [
+      { "pattern": "^(?:stack|suite|test-services).*\\.env$", "flags": "iu" },
+      { "pattern": "^postgres\\.recovery\\.dsn$", "flags": "u" },
+      { "pattern": "^performance-fixture-runtime\\.json$", "flags": "u" },
+      { "pattern": "^suite-environment\\.json$", "flags": "u" },
+      { "pattern": "^suite-lease\\.json$", "flags": "u" },
+      { "pattern": "^stack\\.lease$", "flags": "u" },
+      { "pattern": "^test-route-token$", "flags": "u" },
+      { "pattern": "key[-_.]?ring", "flags": "iu" }
+    ],
+    "json_member_terms": [
+      { "term": "password" },
+      { "term": "secret" },
+      { "term": "token", "not_followed_by": "s" },
+      { "term": "cookie" },
+      { "term": "dsn" },
+      { "term": "access_key" },
+      { "term": "private_key" }
+    ],
+    "assignment_names": [
+      { "name": "PASSWORD" },
+      { "name": "SECRET" },
+      { "name": "TOKEN", "not_followed_by": "S" },
+      { "name": "COOKIE" },
+      { "name": "DSN" },
+      { "name": "ACCESS_KEY" },
+      { "name": "PRIVATE_KEY" }
+    ],
+    "url_userinfo_schemes": ["postgres", "postgresql"]
+  }
 }

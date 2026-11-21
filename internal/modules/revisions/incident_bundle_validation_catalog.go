@@ -79,22 +79,6 @@ func (c *incidentBundleValidationCatalog) targetKinds() []string {
 	return c.targets.targetKinds()
 }
 
-func (c *incidentBundleValidationCatalog) currentRowTx(
-	ctx context.Context,
-	tx pgx.Tx,
-	incidentID uuid.UUID,
-	recordID uuid.UUID,
-) (map[string]any, error) {
-	if c == nil || c.snapshots == nil {
-		return nil, ErrMissingHistoryTargetProvider
-	}
-	recordType, err := c.envelopes.RecordTypeTx(ctx, tx, incidentID, recordID)
-	if err != nil {
-		return nil, err
-	}
-	return c.currentSourceRowTx(ctx, tx, recordID, recordType)
-}
-
 func (c *incidentBundleValidationCatalog) currentSourceRowTx(
 	ctx context.Context,
 	tx pgx.Tx,
@@ -108,22 +92,8 @@ func (c *incidentBundleValidationCatalog) currentSourceRowTx(
 	return capture.source.SnapshotTx(ctx, tx, recordID)
 }
 
-// currentHistoryRowMatchesTx compares a canonical retained history envelope
-// with the source owner's canonical current-row snapshot.
-func (c *incidentBundleValidationCatalog) currentHistoryRowMatchesTx(
-	ctx context.Context,
-	tx pgx.Tx,
-	incidentID uuid.UUID,
-	recordID uuid.UUID,
-	historyRow map[string]any,
-) (bool, error) {
-	current, err := c.currentRowTx(ctx, tx, incidentID, recordID)
-	if err != nil {
-		return false, err
-	}
-	return canonicalHistoryRowMatchesSnapshot(recordID, historyRow, current), nil
-}
-
+// canonicalHistoryRowMatchesSnapshot compares a canonical retained history
+// envelope with the source owner's canonical current-row snapshot.
 func canonicalHistoryRowMatchesSnapshot(
 	recordID uuid.UUID,
 	historyRow map[string]any,

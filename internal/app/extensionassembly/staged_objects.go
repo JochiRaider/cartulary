@@ -61,11 +61,15 @@ func (r *StagedObjectRepository) ReadSealed(ctx context.Context, operationID, pr
 	if object.ExpectedByteSize == nil || object.ExpectedSHA256 == nil {
 		return stagedobjects.SealedObject{}, stagedobjects.ErrIntegrity
 	}
-	return stagedobjects.SealedObject{StorageIdentity: object.StorageIdentity, ContentBinding: stagedobjects.ContentBinding{ByteSize: *object.ExpectedByteSize, SHA256: *object.ExpectedSHA256}}, nil
+	return stagedobjects.SealedObject{StorageIdentity: object.StorageIdentity, ContentBinding: stagedobjects.ContentBinding{ByteSize: *object.ExpectedByteSize, SHA256: *object.ExpectedSHA256}, ExpiresAt: object.StagingExpiresAt}, nil
 }
 
 func (r *StagedObjectRepository) Abandon(ctx context.Context, stagingID string, now time.Time) error {
 	return classifyStagedRepositoryError(r.store.AbandonStagedObject(ctx, stagingID, now))
+}
+
+func (r *StagedObjectRepository) AbandonAll(ctx context.Context, stagingIDs []string, now time.Time) error {
+	return classifyStagedRepositoryError(r.store.AbandonStagedObjects(ctx, stagingIDs, now))
 }
 
 func (r *StagedObjectRepository) PrepareCleanupBatch(ctx context.Context, cutoff, now time.Time, limit int) ([]stagedobjects.CleanupCandidate, error) {

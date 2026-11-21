@@ -11,8 +11,6 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
-	recordenvelope "github.com/JochiRaider/cartulary/internal/modules/records/enveloperead"
-	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
 type committedSourceRecord struct {
@@ -44,38 +42,60 @@ func walkCommittedSourceRecords(ctx context.Context, members incidentportability
 	})
 }
 
-func (p *PreparedCommittedSources) applyRecordBindings(ctx context.Context, tx pgx.Tx) error {
-	return walkCommittedSourceRecords(ctx, p.members, func(value committedSourceRecord) error {
-		var viewID string
-		var firstRow int
-		err := tx.QueryRow(ctx, `SELECT target_view_schema_id,data_start_row_ref FROM import_committed_sources
-WHERE incident_id=$1 AND committed_source_id=$2 AND target_kind=$3`, p.incidentID, value.CommittedSourceID, ImportTargetKindViewSchema).Scan(&viewID, &firstRow)
-		if errors.Is(err, pgx.ErrNoRows) {
-			return recordBindingFailure()
+// applyRecordBindings checks every staged binding against its source's view
+// scope and the applied record envelopes, one envelope read per batch, then
+// writes the bindings with one COPY.
+func (p *PreparedCommittedSources) applyRecordBindings(ctx context.Context, tx pgx.Tx, store incidentportability.MemberReader) error {
+	envelopes := records.NewStore()
+	batch := make([]committedSourceRecord, 0, committedSourceBindingBatch)
+	check := func() error {
+		if len(batch) == 0 {
+			return nil
 		}
+		ids := make([]uuid.UUID, len(batch))
+		for index, value := range batch {
+			ids[index] = value.RecordID
+		}
+		loaded, err := envelopes.LoadEnvelopesTx(ctx, tx, ids, false)
 		if err != nil {
 			return err
 		}
-		resource, ok := viewschema.LookupPublicResource(viewID)
-		if !ok || value.SourceRowRef < firstRow {
-			return recordBindingFailure()
+		for _, value := range batch {
+			view, ok := p.views[value.CommittedSourceID]
+			if !ok || !view.public || value.SourceRowRef < view.firstRow {
+				return recordBindingFailure()
+			}
+			envelope, ok := loaded[value.RecordID]
+			if !ok || envelope.IncidentID != p.incidentID || !slices.Contains(view.types, envelope.RecordType) {
+				return recordBindingFailure()
+			}
 		}
-		envelope, err := records.NewStore().LoadEnvelopeTx(ctx, tx, value.RecordID, false)
-		if errors.Is(err, recordenvelope.ErrEnvelopeNotFound) {
-			return recordBindingFailure()
+		batch = batch[:0]
+		return nil
+	}
+	if err := incidentportability.ReadPreparedRows(ctx, store, p.bindings, committedSourceBindingCodec{}, func(value committedSourceRecord) error {
+		batch = append(batch, value)
+		if len(batch) < committedSourceBindingBatch {
+			return nil
 		}
-		if err != nil {
-			return err
-		}
-		if envelope.IncidentID != p.incidentID || !slices.Contains(resource.SourceRecordTypes, envelope.RecordType) {
-			return recordBindingFailure()
-		}
-		_, err = tx.Exec(ctx, `INSERT INTO import_committed_source_records(incident_id,committed_source_id,source_row_ref,record_id) VALUES($1,$2,$3,$4)`, p.incidentID, value.CommittedSourceID, value.SourceRowRef, value.RecordID)
+		return check()
+	}); err != nil {
 		return err
-	})
+	}
+	if err := check(); err != nil {
+		return err
+	}
+	source, err := incidentportability.OpenPreparedCopy(ctx, store, p.bindings, committedSourceBindingCodec{incidentID: p.incidentID})
+	if err != nil {
+		return err
+	}
+	written, err := tx.CopyFrom(ctx, pgx.Identifier{"import_committed_source_records"}, committedSourceBindingColumns, source)
+	return source.Finish(written, err)
 }
 
-func (p *PreparedCommittedSources) validateRecordBindings(ctx context.Context, tx pgx.Tx) error {
+// validateRecordBindings compares the stored bindings with the staged
+// bindings in one ordered pass.
+func (p *PreparedCommittedSources) validateRecordBindings(ctx context.Context, tx pgx.Tx, store incidentportability.MemberReader) error {
 	var count int64
 	if err := tx.QueryRow(ctx, `SELECT count(*) FROM import_committed_source_records WHERE incident_id=$1`, p.incidentID).Scan(&count); err != nil {
 		return err
@@ -83,12 +103,36 @@ func (p *PreparedCommittedSources) validateRecordBindings(ctx context.Context, t
 	if count != p.recordCount {
 		return recordBindingFailure()
 	}
-	return walkCommittedSourceRecords(ctx, p.members, func(value committedSourceRecord) error {
-		var recordID uuid.UUID
-		err := tx.QueryRow(ctx, `SELECT record_id FROM import_committed_source_records WHERE incident_id=$1 AND committed_source_id=$2 AND source_row_ref=$3`, p.incidentID, value.CommittedSourceID, value.SourceRowRef).Scan(&recordID)
-		if errors.Is(err, pgx.ErrNoRows) || err == nil && recordID != value.RecordID {
+	if !p.staged || store == nil {
+		return errors.New("committed sources: incident bundle preparation is required")
+	}
+	rows, err := tx.Query(ctx, `SELECT committed_source_id,source_row_ref,record_id FROM import_committed_source_records WHERE incident_id=$1 ORDER BY committed_source_id,source_row_ref`, p.incidentID)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	err = incidentportability.ReadPreparedRows(ctx, store, p.bindings, committedSourceBindingCodec{}, func(value committedSourceRecord) error {
+		if !rows.Next() {
+			if err := rows.Err(); err != nil {
+				return err
+			}
 			return recordBindingFailure()
 		}
-		return err
+		var sourceID, recordID uuid.UUID
+		var rowRef int
+		if err := rows.Scan(&sourceID, &rowRef, &recordID); err != nil {
+			return err
+		}
+		if sourceID != value.CommittedSourceID || rowRef != value.SourceRowRef || recordID != value.RecordID {
+			return recordBindingFailure()
+		}
+		return nil
 	})
+	if err != nil {
+		return err
+	}
+	if rows.Next() {
+		return recordBindingFailure()
+	}
+	return rows.Err()
 }

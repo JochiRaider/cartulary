@@ -1762,6 +1762,7 @@ if x, present := o["process_slots"]; present && !schema174(x) { return false }
 if x, present := o["io_tokens"]; present && !schema174(x) { return false }
 if x, present := o["postgres_lanes"]; present && !schema174(x) { return false }
 if x, present := o["object_store_lanes"]; present && !schema174(x) { return false }
+if x, present := o["postgres_heavy_lanes"]; present && !schema174(x) { return false }
 if x, present := o["writable_volume"]; present && !schema175(x) { return false }
 if x, present := o["port_lanes"]; present && !schema174(x) { return false }
 if x, present := o["services"]; present && !schema176(x) { return false }
@@ -1770,7 +1771,7 @@ if x, present := o["snapshot_digest"]; present && !schema180(x) { return false }
 for key, x := range o {
 _ = x
 switch key {
-case "schema_id","cpu_tokens","memory_bytes","process_slots","io_tokens","postgres_lanes","object_store_lanes","writable_volume","port_lanes","services","sources","snapshot_digest":
+case "schema_id","cpu_tokens","memory_bytes","process_slots","io_tokens","postgres_lanes","object_store_lanes","postgres_heavy_lanes","writable_volume","port_lanes","services","sources","snapshot_digest":
 default:
 return false
 }
@@ -1858,6 +1859,7 @@ if x, present := o["memory_bytes"]; present && !schema184(x) { return false }
 if x, present := o["process_slots"]; present && !schema185(x) { return false }
 if x, present := o["io_tokens"]; present && !schema185(x) { return false }
 if x, present := o["postgres_lanes"]; present && !schema183(x) { return false }
+if x, present := o["postgres_heavy_lanes"]; present && !schema183(x) { return false }
 if x, present := o["object_store_lanes"]; present && !schema183(x) { return false }
 if x, present := o["port_lanes"]; present && !schema183(x) { return false }
 if x, present := o["writable_volume"]; present && !schema186(x) { return false }
@@ -1865,7 +1867,7 @@ if x, present := o["services"]; present && !schema187(x) { return false }
 for key, x := range o {
 _ = x
 switch key {
-case "schema_id","cpu_tokens","memory_bytes","process_slots","io_tokens","postgres_lanes","object_store_lanes","port_lanes","writable_volume","services":
+case "schema_id","cpu_tokens","memory_bytes","process_slots","io_tokens","postgres_lanes","postgres_heavy_lanes","object_store_lanes","port_lanes","writable_volume","services":
 default:
 return false
 }

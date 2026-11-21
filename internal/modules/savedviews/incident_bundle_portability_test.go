@@ -242,14 +242,15 @@ INSERT INTO incidents (
 		ActorUserID:   targetActorID,
 		Attributions:  attributions,
 		ActorAdmitted: savedViewActorAdmission(sourceActorID),
+		Preparation:   portabilitysupport.NewSequencedPreparationStore(),
 	}
-	prepared, err := prepareSavedViewImport(context.Background(),
-		savedViewMapBundle{"data/saved_views.ndjson": payload},
-		importContext,
-	)
+	bundle := &portabilitysupport.CountingBundle{MemberReader: savedViewMapBundle{"data/saved_views.ndjson": payload}}
+	prepared, err := prepareSavedViewImport(context.Background(), bundle, importContext)
 	if err != nil {
 		t.Fatalf("prepare portable owner row: %v", err)
 	}
+	// Core 01 REQ-01-641: once preparation returns, no bundle member reopens.
+	bundle.Freeze()
 	tx, err := db.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		t.Fatalf("begin portable owner transaction: %v", err)
@@ -261,6 +262,10 @@ INSERT INTO incidents (
 	if err := validatePreparedSavedViewImportTx(ctx, tx, prepared, importContext); err != nil {
 		t.Fatalf("validate portable owner row: %v", err)
 	}
+	if late := bundle.Late(); late != 0 {
+		t.Fatalf("Saved Views Apply and Validate opened %d bundle members after preparation", late)
+	}
+	flushSavedViewStagedAttribution(t, prepared, importContext, attributions)
 
 	runtimeRows, err := tx.Query(ctx, `
 SELECT saved_view_id, scope, owner_user_id
@@ -367,13 +372,6 @@ UPDATE saved_views
 				return err
 			},
 		},
-		"portable owner attribution": {
-			invariant: "saved_views.owner_tuple_legal",
-			mutate: func(_ pgx.Tx, recorder *recordingAttributionRecorder) error {
-				recorder.entries[0].sourceActorID = uuid.NewString()
-				return nil
-			},
-		},
 		"display name": {
 			invariant: "saved_views.display_name_normalized",
 			mutate: func(tx pgx.Tx, _ *recordingAttributionRecorder) error {
@@ -437,6 +435,49 @@ UPDATE saved_views SET saved_view_version = saved_view_version + 1 WHERE saved_v
 		})
 	}
 
+	t.Run("missing attribution capability keeps the owner rank", func(t *testing.T) {
+		caseContext := importContext
+		caseContext.Attributions = nil
+		casePrepared, err := prepareSavedViewImport(context.Background(),
+			savedViewMapBundle{"data/saved_views.ndjson": encodePortableSavedViewRow(t, privateRow)},
+			caseContext,
+		)
+		if err != nil {
+			t.Fatalf("prepare capability case: %v", err)
+		}
+		caseTx, err := db.BeginTx(ctx, pgx.TxOptions{})
+		if err != nil {
+			t.Fatalf("begin capability case: %v", err)
+		}
+		t.Cleanup(func() { _ = caseTx.Rollback(ctx) })
+		err = applyPreparedSavedViewImportTx(ctx, caseTx, casePrepared, caseContext)
+		requireSavedViewInvariantFailure(t, err, "saved_views.owner_tuple_legal")
+	})
+
+	t.Run("tampered staged rows fail closed", func(t *testing.T) {
+		store := portabilitysupport.NewSequencedPreparationStore()
+		caseContext := importContext
+		caseContext.Preparation = store
+		casePrepared, err := prepareSavedViewImport(context.Background(),
+			savedViewMapBundle{"data/saved_views.ndjson": encodePortableSavedViewRow(t, privateRow)},
+			caseContext,
+		)
+		if err != nil {
+			t.Fatalf("prepare tamper case: %v", err)
+		}
+		if !store.Tamper(preparedSavedViewsPath, []byte("{}\n")) {
+			t.Fatal("no staged saved-view rows to tamper")
+		}
+		caseTx, err := db.BeginTx(ctx, pgx.TxOptions{})
+		if err != nil {
+			t.Fatalf("begin tamper case: %v", err)
+		}
+		t.Cleanup(func() { _ = caseTx.Rollback(ctx) })
+		if err := applyPreparedSavedViewImportTx(ctx, caseTx, casePrepared, caseContext); err == nil {
+			t.Fatal("apply admitted a tampered staged stream")
+		}
+	})
+
 	t.Run("duplicate target row fails affected-row admission", func(t *testing.T) {
 		recorder := &recordingAttributionRecorder{localUserID: targetActorID}
 		caseContext := importContext
@@ -489,18 +530,9 @@ type attributionEntry struct {
 }
 
 type recordingAttributionRecorder struct {
+	portabilitysupport.AttributionCapability
 	localUserID uuid.UUID
 	entries     []attributionEntry
-}
-
-func (r *recordingAttributionRecorder) RecordImportedAttribution(table string, sourceRowID string, column string, sourceActorID string) error {
-	r.entries = append(r.entries, attributionEntry{
-		table:         table,
-		sourceRowID:   sourceRowID,
-		column:        column,
-		sourceActorID: sourceActorID,
-	})
-	return nil
 }
 
 func (r *recordingAttributionRecorder) ImportedAttributions() []incidentportability.ImportedAttribution {
@@ -860,10 +892,11 @@ func TestIncidentBundleSavedViewStrictPrepareSemantics_Unit(t *testing.T) {
 			}
 			row["query_json"] = map[string]any{"sort": []any{}, "filters": []any{map[string]any{"field_key": "note.updated_at", "op": "range", "arg": map[string]any{"gte": lower, "lte": upper}}}}
 			original := encodePortableSavedViewRow(t, row)
-			prepared, err := prepareSavedViewImport(context.Background(), savedViewMapBundle{"data/saved_views.ndjson": original}, strictSavedViewImportContext(t))
+			importContext := strictSavedViewImportContext(t)
+			prepared, err := prepareSavedViewImport(context.Background(), savedViewMapBundle{"data/saved_views.ndjson": original}, importContext)
 			if reverse {
 				requireSavedViewInvariantFailure(t, err, "saved_views.query_layout_legal")
-			} else if err != nil || prepared.count != 1 || !bytes.Contains(readPreparedSavedViewRow(t, prepared, strictSavedViewImportContext(t)).QueryJSON, []byte(lower)) {
+			} else if err != nil || prepared.count != 1 || !bytes.Contains(readPreparedSavedViewRow(t, prepared, importContext).QueryJSON, []byte(lower)) {
 				t.Fatalf("lost valid timestamp query: %v", err)
 			}
 			if !bytes.Equal(original, encodePortableSavedViewRow(t, row)) {
@@ -1132,6 +1165,28 @@ func strictSavedViewImportContext(t testing.TB) savedViewImportContext {
 		ActorAdmitted: savedViewActorAdmission(
 			uuid.MustParse("00000000-0000-4000-8000-000000110403"),
 		),
+		Preparation: portabilitysupport.NewSequencedPreparationStore(),
+	}
+}
+
+// flushSavedViewStagedAttribution stands in for the core's step-9 flush: Core
+// 01 REQ-01-641 stages the owner attribution while preparing, and Saved Views
+// records none row by row.
+func flushSavedViewStagedAttribution(t testing.TB, prepared preparedSavedViewImport, importContext savedViewImportContext, recorder *recordingAttributionRecorder) {
+	t.Helper()
+	if len(recorder.entries) != 0 {
+		t.Fatalf("apply recorded attribution row by row: %#v", recorder.entries)
+	}
+	reader := incidentportability.OpenAttributions(context.Background(), importContext.Preparation, prepared.attribution)
+	for reader.Next() {
+		row := reader.Row()
+		recorder.entries = append(recorder.entries, attributionEntry{table: row.SourceTable, sourceRowID: row.SourceRowID, column: row.SourceColumn, sourceActorID: row.SourceActorID})
+	}
+	if err := errors.Join(reader.Err(), reader.Close()); err != nil {
+		t.Fatalf("read staged saved-view attribution: %v", err)
+	}
+	if reader.Count() != reader.Expected() {
+		t.Fatalf("staged attribution count %d differs from %d", reader.Count(), reader.Expected())
 	}
 }
 
@@ -1173,17 +1228,6 @@ func errorText(err error) string {
 
 func exportSavedViewTestFiles(ctx context.Context, input savedViewExportContext) ([]portabilitysupport.File, error) {
 	return portabilitysupport.Export(NewIncidentBundleSourcePort(), ctx, sourceport.ExportContext{Query: input.Query, IncidentID: input.IncidentID, PortableAttributions: input.PortableAttributions})
-}
-
-func (r *recordingAttributionRecorder) VisitImportedAttributions(table, rowID string, visit func(incidentportability.ImportedAttribution) error) error {
-	for _, row := range r.ImportedAttributions() {
-		if row.SourceTable == table && (rowID == "" || row.SourceRowID == rowID) {
-			if err := visit(row); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
 }
 
 func readPreparedSavedViewRow(t testing.TB, prepared preparedSavedViewImport, importContext savedViewImportContext) preparedSavedViewRow {

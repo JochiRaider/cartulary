@@ -3,76 +3,87 @@ package incidentbundles
 import (
 	"context"
 	"errors"
-	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"strings"
 )
 
 // Attribution is authoritative incident state and is written within the same
 // publication transaction as its source rows. Preparation retains no row buffer.
 type transactionAttributions struct {
-	ctx                     context.Context
 	tx                      pgx.Tx
 	incidentID, localUserID uuid.UUID
-	actors                  sourceport.ActorCatalog
 }
 
-func (r *transactionAttributions) RecordImportedAttribution(table, rowID, column, actorID string) error {
-	if r == nil || r.tx == nil || r.incidentID == uuid.Nil || r.localUserID == uuid.Nil || strings.TrimSpace(table) == "" || strings.TrimSpace(rowID) == "" || strings.TrimSpace(column) == "" {
-		return errors.New("incident bundle attribution is invalid")
+// FlushImportedAttributions writes precomputed attribution streams with one
+// COPY into the attribution owner's relation (Core 01 REQ-01-641 step 9). The
+// rows were admitted at staging; the database must acknowledge exactly the
+// staged count, and the unique identity key remains the backstop.
+func (r *transactionAttributions) FlushImportedAttributions(ctx context.Context, source incidentportability.MemberReader, streams ...incidentportability.AttributionStream) error {
+	if r == nil || r.tx == nil || r.incidentID == uuid.Nil || r.localUserID == uuid.Nil || source == nil {
+		return errors.New("incident bundle attribution flush is invalid")
 	}
-	if _, admitted := r.actors.Lookup(actorID); !admitted {
-		return actorReferenceFailure()
-	}
-	tag, err := r.tx.Exec(r.ctx, `
- INSERT INTO incident_bundle_imported_attributions AS existing
- (incident_id,source_table,source_row_id,source_column,source_actor_id,local_user_id)
- VALUES ($1,$2,$3,$4,$5,$6)
- ON CONFLICT (incident_id,source_table,source_row_id,source_column)
- DO UPDATE SET source_actor_id=EXCLUDED.source_actor_id
- WHERE existing.source_actor_id=EXCLUDED.source_actor_id AND existing.local_user_id=EXCLUDED.local_user_id
- `, r.incidentID, table, rowID, column, actorID, r.localUserID)
+	reader := incidentportability.OpenAttributions(ctx, source, streams...)
+	written, err := r.tx.CopyFrom(ctx, pgx.Identifier{"incident_bundle_imported_attributions"},
+		[]string{"incident_id", "source_table", "source_row_id", "source_column", "source_actor_id", "local_user_id"},
+		attributionCopySource{reader: reader, incidentID: r.incidentID, localUserID: r.localUserID})
+	err = errors.Join(err, reader.Err(), reader.Close())
 	if err != nil {
 		return err
 	}
-	if tag.RowsAffected() != 1 {
-		return errors.New("incident bundle attribution conflicts")
+	if written != reader.Expected() || reader.Count() != reader.Expected() {
+		return errors.New("incident bundle attribution flush count differs from preparation")
 	}
 	return nil
 }
-func (r *transactionAttributions) VisitImportedAttributions(table, rowID string, visit func(incidentportability.ImportedAttribution) error) error {
-	if r == nil || r.tx == nil || strings.TrimSpace(table) == "" || visit == nil {
-		return errors.New("incident bundle attribution query is invalid")
+
+// CountImportedAttributions is the set-based database side of attribution
+// validation: one aggregate read per flush, never a per-row lookup.
+func (r *transactionAttributions) CountImportedAttributions(ctx context.Context, tables []string) (map[string]int64, error) {
+	if r == nil || r.tx == nil || r.incidentID == uuid.Nil {
+		return nil, errors.New("incident bundle attribution query is invalid")
 	}
-	rows, err := r.tx.Query(r.ctx, `
- SELECT source_table,source_row_id,source_column,source_actor_id,local_user_id
+	rows, err := r.tx.Query(ctx, `
+ SELECT source_table, count(*)
  FROM incident_bundle_imported_attributions
- WHERE incident_id=$1 AND source_table=$2 AND ($3='' OR source_row_id=$3)
- ORDER BY source_row_id,source_column
- `, r.incidentID, table, rowID)
+ WHERE incident_id=$1 AND source_table = ANY($2::text[])
+ GROUP BY source_table
+ ORDER BY source_table
+ `, r.incidentID, tables)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer rows.Close()
+	counts := make(map[string]int64, len(tables))
 	for rows.Next() {
-		var row incidentportability.ImportedAttribution
-		if err := rows.Scan(&row.SourceTable, &row.SourceRowID, &row.SourceColumn, &row.SourceActorID, &row.LocalUserID); err != nil {
-			return err
+		var table string
+		var count int64
+		if err := rows.Scan(&table, &count); err != nil {
+			return nil, err
 		}
-		if err := visit(row); err != nil {
-			return err
-		}
+		counts[table] = count
 	}
-	return rows.Err()
+	return counts, rows.Err()
 }
+
+type attributionCopySource struct {
+	reader                  *incidentportability.AttributionReader
+	incidentID, localUserID uuid.UUID
+}
+
+func (s attributionCopySource) Next() bool { return s.reader.Next() }
+func (s attributionCopySource) Values() ([]any, error) {
+	row := s.reader.Row()
+	return []any{s.incidentID, row.SourceTable, row.SourceRowID, row.SourceColumn, row.SourceActorID, s.localUserID}, nil
+}
+func (s attributionCopySource) Err() error { return s.reader.Err() }
 
 // NewImportedAttributionRecorder binds a participant's historical attribution to
 // the same final transaction. Only application composition supplies the handle.
-func NewImportedAttributionRecorder(ctx context.Context, tx pgx.Tx, incidentID, actorID uuid.UUID, actors sourceport.ActorCatalog) (incidentportability.AttributionRecorder, error) {
+// Actor admission happened when each participant staged its attribution.
+func NewImportedAttributionRecorder(ctx context.Context, tx pgx.Tx, incidentID, actorID uuid.UUID) (incidentportability.AttributionRecorder, error) {
 	if ctx == nil || tx == nil || incidentID == uuid.Nil || actorID == uuid.Nil {
 		return nil, ErrPortabilityUnavailable
 	}
-	return &transactionAttributions{ctx: ctx, tx: tx, incidentID: incidentID, localUserID: actorID, actors: actors}, nil
+	return &transactionAttributions{tx: tx, incidentID: incidentID, localUserID: actorID}, nil
 }

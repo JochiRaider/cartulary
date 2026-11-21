@@ -122,4 +122,50 @@ func TestStream_Unit_PrivateReadsVerifyOperationAndContent(t *testing.T) {
 	if _, err := service.AllocateStream(ctx, "operation", "incident_portability", bytes.NewReader(nil), 1); err == nil {
 		t.Fatal("cancelled allocation sealed")
 	}
+	t.Run("a scope validates each seal once per operation", checkScopeSealValidation)
+}
+
+// checkScopeSealValidation: operation, owner and seal are validated once per
+// scope; every read still rechecks the immutable lease and verifies bytes.
+func checkScopeSealValidation(t *testing.T) {
+	now := time.Now()
+	repo := &serviceRepositoryFake{expiresAt: now.Add(StagingLifetime)}
+	store := &byteStoreFake{putOutcome: ByteWriteSuccess}
+	service := newTestService(t, repo, store, now, func() (string, error) { return "cached", nil }, nil)
+	scope, err := NewScope("operation", "incident_portability", service)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !scope.VerifiesSealedContent() {
+		t.Fatal("service-backed scope does not report seal verification")
+	}
+	sealed, err := scope.AllocateStream(t.Context(), "operation", bytes.NewReader([]byte("original")), 64)
+	if err != nil {
+		t.Fatal(err)
+	}
+	read := func() error {
+		stream, err := scope.OpenSealed(t.Context(), "operation", sealed)
+		if err != nil {
+			return err
+		}
+		_, err = io.Copy(io.Discard, stream)
+		return errors.Join(err, stream.Close())
+	}
+	repo.readSealedCalls = 0
+	for range 3 {
+		if err := read(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if repo.readSealedCalls != 1 {
+		t.Fatalf("seal validated %d times for one operation", repo.readSealedCalls)
+	}
+	store.putPayload = []byte("modified")
+	if err := read(); !errors.Is(err, ErrIntegrity) {
+		t.Fatalf("cached seal skipped byte verification: %v", err)
+	}
+	expired := newTestService(t, repo, store, now.Add(StagingLifetime), func() (string, error) { return "late", nil }, nil)
+	if _, err := expired.OpenValidated(t.Context(), SealedObject{StorageIdentity: "x", ContentBinding: sealed.ContentBinding, ExpiresAt: repo.expiresAt}); !errors.Is(err, ErrScopeDenied) {
+		t.Fatalf("expired lease opened: %v", err)
+	}
 }

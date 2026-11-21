@@ -22,6 +22,11 @@ type ImportRequest struct {
 	OperationID uuid.UUID
 	References  []byte
 	Bundle      Bundle
+	// Payloads admits the owner's opaque payload members while preparing and
+	// streams them, verified against their seals, in ApplyTx (Core 01
+	// REQ-01-641); ApplyTx never reopens Bundle. Payloads is nil when the
+	// request only validates; such a preparation cannot be applied.
+	Payloads incidentportability.PayloadMembers
 }
 
 // Prepared is opaque owner state. It publishes only within the parent's

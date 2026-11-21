@@ -13,6 +13,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
+	"github.com/JochiRaider/cartulary/internal/testutil/portabilitysupport"
 )
 
 func TestTimelinePortableProvenanceTransaction_Integration(t *testing.T) {
@@ -54,6 +55,33 @@ func TestTimelinePortableProvenanceTransaction_Integration(t *testing.T) {
 		input.Attributions = &timelineProfileAttributions{local: actor}
 		return prepared, input
 	}
+	// Core 01 REQ-01-641: profile, events and provenance apply and validate from
+	// staged preparation streams; once preparation returns, no member reopens.
+	t.Run("apply opens no bundle member after preparation", func(t *testing.T) {
+		tx := begin(t)
+		seed(t, tx, 1)
+		seed(t, tx, 2)
+		source := timelineProvenanceBundle(t, incident, timelineProvenanceRow(incident, 1), timelineProvenanceRow(incident, 2))
+		source[timelineEventPath] = timelineEventBundle(t, timelineEventRow(incident, 1), timelineEventRow(incident, 2))[timelineEventPath]
+		source[timelineProfilePath] = timelineProfileBundle(t, timelineProfileRow(incident))[timelineProfilePath]
+		bundle := &portabilitysupport.CountingBundle{MemberReader: source}
+		input := timelineProfileInput(t, incident, actor)
+		prepared, err := port.PrepareImport(ctx, bundle, input)
+		if err != nil {
+			t.Fatal(err)
+		}
+		bundle.Freeze()
+		input.Attributions = &timelineProfileAttributions{local: actor}
+		if err := port.ApplyImportTx(ctx, tx, prepared, input); err != nil {
+			t.Fatal(err)
+		}
+		if err := port.ValidateImportTx(ctx, tx, prepared, input); err != nil {
+			t.Fatal(err)
+		}
+		if late := bundle.Late(); late != 0 {
+			t.Fatalf("Timeline Apply and Validate opened %d bundle members after preparation", late)
+		}
+	})
 	for _, variant := range []string{"populated", "nulls", "129 rows", "empty"} {
 		t.Run(variant, func(t *testing.T) {
 			tx := begin(t)
@@ -166,6 +194,9 @@ func TestTimelinePortableProvenanceTransaction_Integration(t *testing.T) {
 			requireTimelineProfileFailure(t, port.ValidateImportTx(ctx, tx, prepared, input), "provenance_state_exact")
 		})
 	}
+	// Core 01 REQ-01-641: Apply reads the sealed staged provenance, never the
+	// bundle member; a changed staged stream fails its seal and rolls back the
+	// events written before it.
 	t.Run("changed sealed provenance rolls back earlier writes", func(t *testing.T) {
 		tx := begin(t)
 		seed(t, tx, 1)
@@ -176,7 +207,10 @@ func TestTimelinePortableProvenanceTransaction_Integration(t *testing.T) {
 			t.Fatal(err)
 		}
 		input.Attributions = &timelineProfileAttributions{local: actor}
-		bundle[timelineProvenancePath] = append(bundle[timelineProvenancePath], '\n')
+		store, ok := input.Preparation.(*portabilitysupport.PreparationStore)
+		if !ok || !store.Tamper("timeline_source_provenance.rows", []byte("[]\n")) {
+			t.Fatal("staged provenance is missing")
+		}
 		if err := port.ApplyImportTx(ctx, tx, prepared, input); err == nil {
 			t.Fatal("changed provenance admitted")
 		}

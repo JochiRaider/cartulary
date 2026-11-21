@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -15,6 +16,7 @@ import (
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
+	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
 	extensiondeadline "github.com/JochiRaider/cartulary/internal/modules/extensions/deadline"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
@@ -33,6 +35,7 @@ func TestPortableFatalCompletionPreservesParent_Integration(t *testing.T) {
 	for _, phase := range []string{"after_abort", "after_receipt", "cooperative"} {
 		t.Run(phase, func(t *testing.T) { testPortableFatalAfterAbort(t, phase) })
 	}
+	t.Run("deadline expiry fails the parent as a service_unavailable timeout", testPortableDeadlineFailure)
 	f := referencetest.NewPortable(t)
 	fatal := make(chan error, 1)
 	lifetime, err := reference_data.NewVerificationLifetime(20*time.Millisecond, func(err error) { fatal <- err })
@@ -487,4 +490,96 @@ func (p portableReceiptBarrier) ReconcileFinalIdempotencyOutcomeTx(ctx context.C
 		p.barrier(ctx, tx)
 	}
 	return present, err
+}
+
+// A proven-absent deadline expiry uses the production parent failure path with
+// the common finalizer: the Job fails through the timeout finalizer with
+// service_unavailable, retryable=true and its registered reason (Extensions
+// Table 9-C, EXT-REQ-219, Table 26-B), and publishes no incident.
+func testPortableDeadlineFailure(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		cause   error
+		reason  string
+		seconds int64
+	}{
+		{"participant", &incidentbundles.PortabilityTimeoutError{ProfileID: "network_flow_activity", Operation: "import", TimeoutSeconds: 300}, "extension_participant_timeout", 300},
+		{"transaction", fmt.Errorf("rollback proved commit absent: %w", crossownertransaction.ErrTimeout), "extension_transaction_timeout", 30},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := referencetest.NewPortable(t)
+			definitions := appsupport.RecognizedJobDefinitions(t)
+			catalog, err := jobs.NewCatalog(definitions)
+			if err != nil {
+				t.Fatal(err)
+			}
+			f.Transactions = collaborationsupport.NewJobTransactionsWithTerminalEffects(catalog, reference_data.JobTerminalEffects{}, collaborationsupport.TestWorkerRuntimeContracts(definitions))
+			f.Manager, err = jobs.NewManager(jobs.ManagerOptions{Postgres: f.Pool, Transactions: f.Transactions, Catalog: catalog, Policy: jobs.ProductionRuntimePolicy(), Now: time.Now})
+			if err != nil {
+				t.Fatal(err)
+			}
+			digest := sha256.Sum256(f.Pack.Container)
+			parent := incidentbundles.AdmitPortableFailureForTest(t, f.Pool, f.Transactions, f.Actor, hex.EncodeToString(digest[:]))
+			execution, claimed, err := f.Manager.Claim(t.Context(), uuid.MustParse(parent.JobID))
+			if err != nil || !claimed {
+				t.Fatal("claim parent", claimed, err)
+			}
+			request := f.RequestFor(execution)
+			lifetime, err := reference_data.NewVerificationLifetime(time.Second, func(err error) { t.Errorf("unexpected fatal outcome: %v", err) })
+			if err != nil {
+				t.Fatal(err)
+			}
+			service := f.Service(f.Root, lifetime)
+			commonStore, err := extensionstore.New(f.Pool, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			common, err := extensionstore.NewOwnerFinalizer(commonStore, f.Transactions, collaborationsupport.NewJobOwnerTransactionAdapters(), time.Now, func(err error) { t.Errorf("unexpected indeterminate commit: %v", err) })
+			if err != nil {
+				t.Fatal(err)
+			}
+			finalizer := &portableTimeoutRecorder{JobSuccessFinalizer: extensionassembly.NewIncidentBundleJobSuccessFinalizer(common, time.Now)}
+			err = service.RunImportExecution(t.Context(), execution, request.ExecutionStarted, func(run context.Context, scope *reference_data.IncidentReferenceExecution) error {
+				request.ExecutionScope = scope
+				if _, err := service.PrepareImport(run, request); err != nil {
+					return err
+				}
+				return incidentbundles.FinalizeDeadlineFailureForTest(context.Background(), scope, execution, f.Pool, finalizer, tc.cause, 30*time.Second)
+			})
+			if err != nil {
+				t.Fatal("deadline failure finalization", err)
+			}
+			if finalizer.timeouts != 1 || finalizer.failures != 0 {
+				t.Fatalf("finalizer calls timeout=%d failure=%d", finalizer.timeouts, finalizer.failures)
+			}
+			job, err := f.Manager.Get(t.Context(), execution.JobID())
+			if err != nil || job.Status != jobs.StatusFailed || job.ErrorSummary == nil {
+				t.Fatal("deadline failure not published", job.Status, err)
+			}
+			summary := *job.ErrorSummary
+			if summary.Code != "service_unavailable" || !summary.Retryable || summary.Details["reason_code"] != tc.reason ||
+				fmt.Sprint(summary.Details["timeout_seconds"]) != fmt.Sprint(tc.seconds) || summary.Details["operation_id"] != execution.JobID().String() {
+				t.Fatalf("deadline Job error = %#v", summary)
+			}
+			var incidents int
+			if err := f.Pool.QueryRow(t.Context(), `SELECT count(*) FROM incidents`).Scan(&incidents); err != nil || incidents != 0 {
+				t.Fatal("deadline failure published incident state", incidents, err)
+			}
+		})
+	}
+}
+
+type portableTimeoutRecorder struct {
+	incidentbundles.JobSuccessFinalizer
+	timeouts, failures int
+}
+
+func (f *portableTimeoutRecorder) FinalizeIncidentBundleJobTimeout(ctx context.Context, request incidentbundles.JobFailureFinalization) (jobs.Resource, error) {
+	f.timeouts++
+	return f.JobSuccessFinalizer.FinalizeIncidentBundleJobTimeout(ctx, request)
+}
+
+func (f *portableTimeoutRecorder) FinalizeIncidentBundleJobFailure(ctx context.Context, request incidentbundles.JobFailureFinalization) (jobs.Resource, error) {
+	f.failures++
+	return f.JobSuccessFinalizer.FinalizeIncidentBundleJobFailure(ctx, request)
 }

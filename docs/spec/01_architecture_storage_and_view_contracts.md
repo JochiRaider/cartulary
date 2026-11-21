@@ -4163,7 +4163,7 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 | `invalid_enterprise_auth_request` | `400` | `false` | An enterprise-auth discovery or initiation request is malformed, omits a required member, includes an unknown or forbidden member, supplies `null` where forbidden, or uses a `return_to` value not allowed by the current profile. |  |  |  |
 | `extension_profile_not_claimed` | `404` | `false` | The request path matches a reserved extension route family for a profile the deployment does not currently claim. `error.details` MUST include `profile_id` and `route_family`. |  |  |  |
 | `internal_error` | `500` | `false` | An internal failure could not complete the request; the shared boundary emits only the fixed safe envelope in REQ-01-229. | REQ-01-229 | base | AC-231 |
-| `service_unavailable` | `503` | `true` | The process is not admitting work: startup publication has not opened admission, lease ownership is uncertain, an operator stop request started ordinary shutdown, the process is in a fatal state, or a cross-owner transaction timed out with its commit proven absent. `error.details.reason_code` MUST use the `service_unavailable` registry in §3.3.6.2. Every operation declares it (REQ-01-702). | REQ-01-702 | base | AC-618 |
+| `service_unavailable` | `503` | `true` | The process is not admitting work: startup publication has not opened admission, lease ownership is uncertain, an operator stop request started ordinary shutdown, the process is in a fatal state, a cross-owner transaction timed out with its commit proven absent, or an Incident Portability participant exceeded its deadline. `error.details.reason_code` MUST use the `service_unavailable` registry in §3.3.6.2. Every operation declares it (REQ-01-702). | REQ-01-702 | base | AC-618 |
 | `transaction_conflict` | `409` | `true` | A cross-owner extension transaction aborted on a deadlock or serialization failure with its commit proven absent (Extensions EXT-REQ-219). `error.details.reason_code` MUST use the `transaction_conflict` registry in §3.3.6.2. A caller retries only under the operation's idempotency contract. | REQ-01-702 | network_flow_activity |  |
 | `route_not_found` | `404` | `false` | The request path, under `/api` or under `/ws/v1/` (REQ-01-708 step 1), matches no public operation or socket route. Raised before route resolution; it belongs to no operation. `error.details` is empty. | REQ-01-707, REQ-01-708 | base | AC-617, AC-131 |
 | `method_not_allowed` | `405` | `false` | The request path, under `/api` or under `/ws/v1/` (REQ-01-708 step 1), matches a public operation or socket route only under other methods, including `HEAD` on a `GET`-only path. Raised before route resolution; it belongs to no operation. `error.details.allowed_methods` lists the declared methods, matching the `Allow` header. | REQ-01-707, REQ-01-708 | base | AC-617, AC-131 |
@@ -4792,6 +4792,7 @@ Reference Pack request, operation and activation reason registries are defined e
 | `shutdown_in_progress` | An operator stop request started ordinary shutdown, and the process admits no new work (Core 04 REQ-04-146a). Admission does not reopen in this process. |
 | `extension_integrity_failure` | The process is in a fatal state and is shutting down (Extensions EXT-REQ-193). |
 | `extension_transaction_timeout` | A cross-owner transaction deadline expired with its commit proven absent (Extensions Table 26-B). |
+| `extension_participant_timeout` | An Incident Portability participant exceeded its Extensions Table 9-C deadline; the export or import failed without publishing a bundle or target state (Extensions Table 26-B). |
 
 When more than one applies, the admission gate reports the first of
 `extension_integrity_failure`, `shutdown_in_progress`, `admission_paused` and
@@ -11021,6 +11022,26 @@ A port MUST NOT commit, start an independent nested transaction, or publish
 visible state. Prepared evidence and participant bytes MUST remain non-visible
 until commit. Cleanup MUST be retry-safe and MUST NOT delete a committed final
 object.
+
+Steps 4 and 5 MUST prove every fact that depends only on the admitted bundle,
+including member shape, canonical form, identities, actor resolution and
+cross-member consistency, and MUST stage each port's write-ready rows, its
+attribution rows and its expected per-family aggregates as bounded non-visible
+streams under REQ-01-686. Steps 7 through 9 MUST then perform only lock
+acquisition, bulk application of those staged streams, the database side of
+aggregate validation against the staged expectations, revision repair, the
+attribution flush, projection rebuild and finalization. They MUST NOT re-parse
+a bundle member or re-prove a bundle-only fact. An opaque byte payload whose
+digest preparation verified MAY be streamed from its sealed bundle member
+through a reader that verifies the seal and hashes the bytes once; preparation
+MUST NOT copy such a payload, and a stream with no rows creates no staged
+object. When an owner's failure
+precedence ranks a bundle-only verdict after a database-side check,
+preparation records the verdict and the final transaction reports it at that
+rank. A family's preparation MAY consume read-only facts that a family earlier
+in the catalog's recorded order published from its own preparation, so a
+cross-family consistency check is proven before step 6 rather than by reading
+another family's rows inside the final transaction.
 Profiles: incident_portability
 Verified by: AC-488, AC-495, AC-500, AC-503, AC-527
 
@@ -11517,9 +11538,9 @@ units:
 | `import.apply_v1` | `import.apply.import_unit.v1` |
 | `incident_portability.export_v2` | `incident_portability.export.request.v2` |
 | `incident_portability.import_v2` | `incident_portability.import.request.v2` |
-| `reference_pack.import_v2` | `reference_pack.import.request.v1` |
-| `reference_pack.refresh_v2` | `reference_pack.refresh.pack_key.v1` |
-| `reference_pack.reverify_v2` | `reference_pack.reverify.pack_version.v1` |
+| `reference_pack.import_v2` | `reference_pack.import.request.v2` |
+| `reference_pack.refresh_v2` | `reference_pack.refresh.cohort_member.v2` |
+| `reference_pack.reverify_v2` | `reference_pack.reverify.pack_version.v2` |
 
 Profiles: base
 Verified by: AC-030, AC-033, AC-046, AC-129, AC-169, AC-231, AC-258, AC-260
@@ -11942,7 +11963,7 @@ Contract tables. The tables in §17 are the compact owner-local route-family con
 | Import | `/api/v1/import-sessions`, `/api/v1/incidents/{incident_id}/committed-sources` | Yes | Yes for `POST /api/v1/import-sessions` | Discovery and apply use the common job resource | `import_session` workflow and immutable `committed_source` resources |
 | Network Flow Activity | `/api/v1/incidents/{incident_id}/network-flow` | Yes for mutating Network Flow routes; Core import apply uses Import idempotency | No; source upload remains owned by Import | Import apply uses the common job resource; queries are synchronous; saved-graph creation and explicit refresh use materialization jobs | `network_flow_table` resources |
 | Snapshot and Reporting | `/api/v1/incidents/{incident_id}/report-compositions`, `/api/v1/snapshots`, `/api/v1/releases`, `/api/v1/incidents/{incident_id}/retained-report-artifacts` | Yes for mutations | No | Snapshot create, release create, and report-composition preview use job or attempt identity as declared by the owner specs; release approve, publish, and invalidate are synchronous | `snapshot`, `release`, `report_composition`, and `report_composition_version` resources |
-| Reference Pack | `/api/v1/reference-packs` | Yes | Yes for `POST /api/v1/reference-packs/import` | Import, reverify, and refresh are background jobs; activate and disable may be sync or backgrounded | `reference_pack_version` resource |
+| Reference Pack | `/api/v1/reference-packs` | Yes | Yes for `POST /api/v1/reference-packs/import` | Import, reverify, and refresh are background jobs; activate, disable, and remove complete synchronously | `reference_pack_version` resource |
 | Incident Portability | `/api/v1/incident-bundles` | Yes | Yes for `POST /api/v1/incident-bundles/import` | Export and import use the common job resource | `incident_bundle` export descriptor on export; imported `incident` on success |
 
 
@@ -12945,8 +12966,8 @@ Except for the collection list, every operation accepts an empty query contract.
 | `GET /api/v1/reference-packs/validation-summaries/{summary_id}` | Immutable singleton diagnostic; empty query | Exact closed validation summary | No | `reference_pack_not_found`, `invalid_pagination_request`, `invalid_reference_pack_request` |
 | `GET /api/v1/reference-packs/{pack_key}/{pack_version}` | Singleton read | `reference_pack_version` resource | No | `reference_pack_not_found`, `invalid_pagination_request` |
 | `POST /api/v1/reference-packs/import` | Shared upload envelope with required `client_txn_id`; optional `activation_policy` defaulting to `staged_only` and auto-activation forbidden | Common job resource; terminal success emits one `reference_pack_version` ref | Yes | `invalid_reference_pack_request`, `reference_pack_verification_failed` |
-| `POST /api/v1/reference-packs/{pack_key}/{pack_version}/activate` | JSON object with required `client_txn_id` and optional `reason` | Either inline `200 OK` with `data.pack_version` or common job resource | Maybe | `reference_pack_activation_rejected`, `reference_pack_operation_rejected` |
-| `POST /api/v1/reference-packs/{pack_key}/{pack_version}/disable` | JSON object with required `client_txn_id` and optional `reason` | Either inline `200 OK` with `data.pack_version` or common job resource | Maybe | `reference_pack_operation_rejected` |
+| `POST /api/v1/reference-packs/{pack_key}/{pack_version}/activate` | JSON object with required `client_txn_id` and optional `reason` | Inline `200 OK` with `data.pack_version` | No | `reference_pack_activation_rejected`, `reference_pack_operation_rejected` |
+| `POST /api/v1/reference-packs/{pack_key}/{pack_version}/disable` | JSON object with required `client_txn_id` and optional `reason` | Inline `200 OK` with `data.pack_version` | No | `reference_pack_operation_rejected` |
 | `POST /api/v1/reference-packs/{pack_key}/{pack_version}/reverify` | JSON object with required `client_txn_id` and optional `reason` | Common job resource | Yes | `reference_pack_operation_rejected`, `reference_pack_verification_failed` |
 | `POST /api/v1/reference-packs/refresh` | JSON object with required `client_txn_id` and optional `pack_keys[]`; omitted `pack_keys[]` resolves once at admission to all imported pack keys visible to the authorized deployment-admin caller | Common job resource | Yes | `invalid_reference_pack_request`, `reference_pack_verification_failed` |
 | `POST /api/v1/reference-packs/{pack_key}/{pack_version}/remove` | JSON object with required `client_txn_id` and nonempty `reason` | Inline `200 OK` with `data.pack_version` | No | `reference_pack_operation_rejected` |
@@ -12966,8 +12987,6 @@ Except for the collection list, every operation accepts an empty query contract.
 | Route or condition | Required code or registry |
 | --- | --- |
 | Import success | `result_summary.code='reference_pack_imported'` and exactly one `reference_pack_version` ref |
-| Long-running activate success | `result_summary.code='reference_pack_activated'` and exactly one `reference_pack_version` ref |
-| Long-running disable success | `result_summary.code='reference_pack_disabled'` and exactly one `reference_pack_version` ref |
 | Reverify success | `result_summary.code='reference_pack_reverified'` and exactly one `reference_pack_version` ref |
 | Refresh success | `result_summary.code='reference_packs_refreshed'`; `resource_refs[]` may be empty or non-exhaustive `reference_pack_version` refs sorted by `route asc` |
 | Invalid request registry | `invalid_reference_pack_request` with shared upload-envelope reasons plus the request-shape and selector reasons in REQ-01-482 |
@@ -13010,7 +13029,7 @@ Refresh accepts only required `client_txn_id` and optional `pack_keys`. Null and
 
 Import, reverify and refresh use persisted v2 lifecycle Jobs and the subsystem verification/check registry. One UTC verification-start instant and one monotonic execution budget apply to the whole attempt, including a refresh cohort. A content failure and an execution abort are distinct outcomes. Initial content rejection retains attributable candidate/attempt evidence; failed renewal preserves prior successful state; invalidating reverify publishes health and fallback atomically. Mixed refresh publishes the entire cohort's results atomically with a failed terminal Job. Cancellation, timeout, stale state, indexing failure and absent publication preserve established content health. Proven commit remains authoritative after lost acknowledgement; indeterminate mutation follows Extensions' fatal integrity path.
 
-`activate` and `disable` may return an inline `200 OK` with `data.pack_version`; long-running implementations return the common Job. `remove` returns inline `200 OK` with `data.pack_version`. No request may publish a partial set, trust advancement or index change. Consumer behavior, fallback, dependency pruning, retained trust, exact sets and provenance follow the Reference Pack subsystem owner.
+`activate`, `disable`, and `remove` complete synchronously and return inline `200 OK` with `data.pack_version`; none of them creates a Job. No request may publish a partial set, trust advancement or index change. Consumer behavior, fallback, dependency pruning, retained trust, exact sets and provenance follow the Reference Pack subsystem owner.
 
 For every `reference_pack_version` ref emitted by this family, `kind` MUST be `reference_pack_version` and both `id` and `route` MUST equal the canonical `/api/v1/reference-packs/{pack_key}/{pack_version}` path.
 
@@ -13023,12 +13042,10 @@ Committed content-rejection Jobs include `error.details` with exactly `reason_co
 `GET /api/v1/reference-packs/validation-summaries/{summary_id}` requires the claimed Reference Pack profile and current deployment-administrator authorization, and returns the common success envelope with the exact closed subsystem validation summary as `data`. The reference is `rpvs_` followed by lowercase SHA-256 of its canonical retained bytes. A syntactically invalid, unknown, uncommitted, or operationally aborted reference returns `reference_pack_not_found`. Authorization precedes route-specific query validation and lookup. The route accepts no query members and uses the empty-query admission and error precedence in REQ-01-480. It never returns private preparation state or inlines diagnostics into the version collection. Attestations and Jobs refer to the same immutable object; later attempts cannot rewrite it.
 
 - `POST /api/v1/reference-packs/import` MUST use `result_summary.code='reference_pack_imported'` and MUST emit exactly one `reference_pack_version` ref.
-- A long-running `POST /api/v1/reference-packs/{pack_key}/{pack_version}/activate` MUST use `result_summary.code='reference_pack_activated'` and MUST emit exactly one `reference_pack_version` ref.
-- A long-running `POST /api/v1/reference-packs/{pack_key}/{pack_version}/disable` MUST use `result_summary.code='reference_pack_disabled'` and MUST emit exactly one `reference_pack_version` ref.
 - `POST /api/v1/reference-packs/{pack_key}/{pack_version}/reverify` MUST use `result_summary.code='reference_pack_reverified'` and MUST emit exactly one `reference_pack_version` ref.
 - `POST /api/v1/reference-packs/refresh` MUST use `result_summary.code='reference_packs_refreshed'`. Its `resource_refs[]` MAY be empty or contain one or more `reference_pack_version` refs. When present, those refs are non-exhaustive when multiple versions changed and MUST sort by `route asc`.
 
-These success-code rules apply only when the route completes through the common job resource. Inline `200 OK` `activate` or `disable` success continues to use `data.pack_version` equal to the exact `reference_pack_version resource` defined here.
+These success-code rules apply to the routes that complete through the common job resource. Inline `200 OK` `activate`, `disable`, or `remove` success uses `data.pack_version` equal to the exact `reference_pack_version resource` defined here.
 Profiles: reference_pack
 Verified by: AC-270, AC-271, AC-308, AC-309, AC-326, AC-369, AC-427, AC-443
 

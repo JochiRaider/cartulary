@@ -17,6 +17,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/internal/provenancevalue"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/portabilitysupport"
 )
@@ -197,19 +198,28 @@ func TestTimelineProvenanceWriter_Integration(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			// The phase reads staged rows only (Core 01 REQ-01-641).
 			prepared := preparedTimelineImport{members: members, incidentID: incident}
 			descriptor := NewIncidentBundleSourcePort().Descriptor()
+			store := portabilitysupport.NewPreparationStore()
+			prepared.provenanceRows, err = incidentportability.StagePreparedRows(ctx, store, preparedTimelineProvenancePath, timelineProvenanceCodec{}, func(emit func(provenancevalue.Row) error) error {
+				return prepared.provenance(ctx, descriptor, emit)
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			prepared.members = nil
 			if variant == "collision" {
 				if _, err := tx.Exec(ctx, `INSERT INTO timeline_source_provenance(record_id,source_identity_hash,source_row_ordinal,source_column_ordinal,source_kind,source_metadata,source_header_json,raw_value,created_at) VALUES($1,$2,1,1,'capture','{"source_kind":"capture"}','null','existing',now())`, record, hash[:]); err != nil {
 					t.Fatal(err)
 				}
 			}
-			err = prepared.applyProvenance(ctx, tx, descriptor)
+			err = prepared.applyProvenance(ctx, tx, store, descriptor)
 			if variant == "valid" {
 				if err != nil {
 					t.Fatal(err)
 				}
-				if err := prepared.validateProvenance(ctx, tx, descriptor); err != nil {
+				if err := prepared.validateProvenance(ctx, tx, store, descriptor); err != nil {
 					t.Fatal(err)
 				}
 			} else {

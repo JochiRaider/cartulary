@@ -16,6 +16,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators/internal/identity"
 	indicatororigin "github.com/JochiRaider/cartulary/internal/modules/indicators/internal/origin"
+	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 )
 
 const (
@@ -52,7 +53,28 @@ type preparedIndicatorImport struct {
 	members                          *incidentportability.BoundMembers
 	evaluate                         identity.Evaluator
 	indicatorCount, observationCount uint64
+	// verdicts holds bundle-only cross-family facts proven while preparing
+	// and reported at their ranks (Core 01 REQ-01-641).
+	verdicts *incidentportability.PreparedVerdicts
+	// packSet is the Reference Pack set preparation evaluated under; the
+	// final transaction reuses its results only under the same locked set.
+	packSet         reference_data.PackSet
+	staged          bool
+	indicatorRows   incidentportability.PreparedRowStream
+	observationRows incidentportability.PreparedRowStream
+	intervalRows    incidentportability.PreparedRowStream
+	attribution     incidentportability.AttributionStream
 }
+
+// Each indicator's historical envelope actors must equal the records family's
+// published attribution for that record. The verdict keeps both of its ranks:
+// before writes in Apply and in Validate.
+const (
+	rankApplyEnvelopeActors = iota + 1
+	rankValidateEnvelopeActors
+	recordAttributionExpectedPath = "record_attribution_expected/"
+)
+
 type indicatorFailureAccumulator struct{ invariant string }
 
 func (a *indicatorFailureAccumulator) add(invariant string) {

@@ -3,8 +3,8 @@ package indicators_test
 import (
 	"context"
 	"encoding/json"
-	"errors"
-	"github.com/JochiRaider/cartulary/internal/testutil/portabilitysupport"
+	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -16,9 +16,36 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators/internal/identity"
+	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	referencefixture "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/portabilitysupport"
 )
+
+// countingIndicatorRegistry is the registry-locked assignment: it reports set
+// as the current pack set (the fixture's set when empty) and counts value
+// evaluations made under the lock.
+type countingIndicatorRegistry struct {
+	referencefixture.IndicatorRegistry
+	set         string
+	evaluations atomic.Int64
+}
+
+func (r *countingIndicatorRegistry) BeginTx(context.Context, pgx.Tx) (reference_data.RegistryAssignment, error) {
+	return r, nil
+}
+
+func (r *countingIndicatorRegistry) ResolveCurrentPackSet(ctx context.Context) reference_data.ConsumerResult[reference_data.PackSet] {
+	if r.set == "" {
+		return r.IndicatorRegistry.ResolveCurrentPackSet(ctx)
+	}
+	return reference_data.ConsumerResult[reference_data.PackSet]{Value: &reference_data.PackSet{ID: r.set}}
+}
+
+func (r *countingIndicatorRegistry) EvaluateIndicatorValue(ctx context.Context, request reference_data.EvaluateIndicatorRequest) reference_data.ConsumerResult[reference_data.IndicatorEvaluation] {
+	r.evaluations.Add(1)
+	return r.IndicatorRegistry.EvaluateIndicatorValue(ctx, request)
+}
 
 func TestIndicatorPortableFinalStateInvariants_Integration(t *testing.T) {
 	ctx := context.Background()
@@ -37,11 +64,23 @@ func TestIndicatorPortableFinalStateInvariants_Integration(t *testing.T) {
 		name      string
 		invariant string
 		duplicate bool
+		// actorMismatch publishes another historical creator for the record.
+		actorMismatch bool
+		// lockedSet is the current pack set the registry lock reports; empty
+		// keeps the set preparation evaluated under.
+		lockedSet string
 		arrange   func(testing.TB, pgx.Tx, *portableIntegrationScenario)
 		mutate    func(testing.TB, pgx.Tx, portableIntegrationScenario)
 	}{
 		{name: "valid"},
 		{name: "identity_unique", invariant: "indicators.identity_unique", duplicate: true},
+		// Core 01 REQ-01-641: the indicator's historical envelope actors are
+		// proven against the records family's published attribution while
+		// preparing; a disagreement keeps its original rank before writes.
+		{name: "envelope_attribution_mismatch", invariant: "indicators.representation_legal", actorMismatch: true},
+		// The registry locks stay. Under a different locked pack set the import
+		// re-evaluates the staged rows; under the prepared set it reuses them.
+		{name: "changed_pack_set_reevaluates", lockedSet: "rpset_" + strings.Repeat("1", 64)},
 		{
 			name: "observation_same_incident", invariant: "indicators.observation_same_incident",
 			arrange: func(_ testing.TB, _ pgx.Tx, scenario *portableIntegrationScenario) {
@@ -90,29 +129,29 @@ func TestIndicatorPortableFinalStateInvariants_Integration(t *testing.T) {
 				scenario.actorID, scenario.timestamp,
 			)
 			recorder := &indicatorPortableAttributionRecorder{}
-			for _, column := range []string{"created_by_user_id", "updated_by_user_id"} {
-				if err := recorder.RecordImportedAttribution(
-					"records", scenario.indicatorID.String(), column, scenario.actorID.String(),
-				); err != nil {
-					t.Fatalf("record envelope attribution: %v", err)
-				}
+			creator := scenario.actorID
+			if testCase.actorMismatch {
+				creator = uuid.MustParse("00000000-0000-4000-8000-0000000000ac")
 			}
-			importContext := scenario.importContext(t, recorder, "indicator-final-state-"+testCase.name)
-			contribution, err := indicators.NewIncidentBundleContribution(referencefixture.IndicatorRegistry{}, referencefixture.IndicatorRegistry{})
+			published := []string{
+				sourceport.RecordAttributionKey(scenario.indicatorID, "created_by_user_id", creator),
+				sourceport.RecordAttributionKey(scenario.indicatorID, "updated_by_user_id", scenario.actorID),
+			}
+			locked := &countingIndicatorRegistry{set: testCase.lockedSet}
+			contribution, err := indicators.NewIncidentBundleContribution(referencefixture.IndicatorRegistry{}, locked)
 			if err != nil {
 				t.Fatalf("construct Indicator incident-bundle contribution: %v", err)
 			}
 			port := contribution.SourcePort
-			bundle := scenario.bundle(t)
+			source := scenario.bundle(t)
+			bundle := &portabilitysupport.CountingBundle{MemberReader: source}
 			if testCase.duplicate {
 				id := uuid.MustParse("00000000-0000-4000-8000-000000000002")
 				seedPortableRecordEnvelope(t, tx, scenario.incidentID, id, "indicator", scenario.actorID, scenario.timestamp)
 				for _, column := range []string{"created_by_user_id", "updated_by_user_id"} {
-					if err := recorder.RecordImportedAttribution("records", id.String(), column, scenario.actorID.String()); err != nil {
-						t.Fatal(err)
-					}
+					published = append(published, sourceport.RecordAttributionKey(id, column, scenario.actorID))
 				}
-				rows, err := incidentportability.DecodeNDJSON(bundle["data/indicators.ndjson"])
+				rows, err := incidentportability.DecodeNDJSON(source["data/indicators.ndjson"])
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -121,16 +160,24 @@ func TestIndicatorPortableFinalStateInvariants_Integration(t *testing.T) {
 					duplicate[key] = value
 				}
 				duplicate["record_id"] = id.String()
-				bundle["data/indicators.ndjson"] = marshalPortableRows(t, rows[0], duplicate)
+				source["data/indicators.ndjson"] = marshalPortableRows(t, rows[0], duplicate)
 			}
+			importContext := scenario.importContext(t, recorder, "indicator-final-state-"+testCase.name, published)
 			beforeAttributions := len(recorder.rows)
 			prepared, err := port.PrepareImport(ctx, bundle, importContext)
 			if err != nil {
 				t.Fatalf("prepare portable scenario: %v", err)
 			}
+			// Core 01 REQ-01-641: once preparation returns, no bundle member reopens.
+			bundle.Freeze()
+			defer func() {
+				if late := bundle.Late(); late != 0 {
+					t.Errorf("Indicators Apply and Validate opened %d bundle members after preparation", late)
+				}
+			}()
 			if err := port.ApplyImportTx(ctx, tx, prepared, importContext); err != nil {
 				if testCase.invariant == "indicators.identity_unique" || testCase.invariant == "indicators.observation_same_incident" ||
-					testCase.invariant == "indicators.interval_same_incident" {
+					testCase.invariant == "indicators.interval_same_incident" || testCase.invariant == "indicators.representation_legal" {
 					assertPortableIndicatorInvariant(t, err, testCase.invariant)
 					var rows int
 					if err := tx.QueryRow(ctx, `SELECT (SELECT count(*) FROM indicators WHERE incident_id=$1)+(SELECT count(*) FROM indicator_observations WHERE incident_id=$1)+(SELECT count(*) FROM indicator_state_intervals WHERE incident_id=$1)`, scenario.incidentID).Scan(&rows); err != nil {
@@ -150,6 +197,13 @@ func TestIndicatorPortableFinalStateInvariants_Integration(t *testing.T) {
 			if testCase.invariant == "" {
 				if err != nil {
 					t.Fatalf("validate portable scenario: %v", err)
+				}
+				evaluations := locked.evaluations.Load()
+				if testCase.lockedSet == "" && evaluations != 0 {
+					t.Fatalf("re-evaluated %d values under the prepared pack set", evaluations)
+				}
+				if testCase.lockedSet != "" && evaluations == 0 {
+					t.Fatal("a changed locked pack set was not re-evaluated")
 				}
 				return
 			}
@@ -186,6 +240,7 @@ func (scenario portableIntegrationScenario) importContext(
 	t testing.TB,
 	recorder incidentportability.AttributionRecorder,
 	operationID string,
+	recordAttribution []string,
 ) sourceport.ImportContext {
 	t.Helper()
 	actors, err := sourceport.NewActorCatalog([]sourceport.ActorDescriptor{{
@@ -194,10 +249,15 @@ func (scenario portableIntegrationScenario) importContext(
 	if err != nil {
 		t.Fatalf("actor catalog: %v", err)
 	}
-	return sourceport.ImportContext{
+	input, err := portabilitysupport.PublishFact(context.Background(), sourceport.ImportContext{
 		IncidentID: scenario.incidentID, ActorUserID: scenario.actorID,
 		BundleVersion: 8, OperationID: operationID, Attributions: recorder, Actors: actors,
+		Preparation: portabilitysupport.NewPreparationStore(),
+	}, []string{sourceport.RecordsFamilyID, "indicators"}, sourceport.RecordsFamilyID, sourceport.RecordAttributionFact, recordAttribution)
+	if err != nil {
+		t.Fatalf("publish records fact: %v", err)
 	}
+	return input
 }
 
 func (scenario portableIntegrationScenario) bundle(t testing.TB) portabilitysupport.MapBundle {
@@ -320,28 +380,8 @@ func assertPortableIndicatorInvariant(t testing.TB, err error, invariantID strin
 }
 
 type indicatorPortableAttributionRecorder struct {
+	portabilitysupport.AttributionCapability
 	rows []incidentportability.ImportedAttribution
-}
-
-func (recorder *indicatorPortableAttributionRecorder) RecordImportedAttribution(
-	table, sourceRowID, column, sourceActorID string,
-) error {
-	if recorder == nil || table == "" || sourceRowID == "" || column == "" || sourceActorID == "" {
-		return errors.New("invalid portable attribution")
-	}
-	for _, row := range recorder.rows {
-		if row.SourceTable == table && row.SourceRowID == sourceRowID && row.SourceColumn == column {
-			if row.SourceActorID == sourceActorID {
-				return nil
-			}
-			return errors.New("conflicting portable attribution")
-		}
-	}
-	recorder.rows = append(recorder.rows, incidentportability.ImportedAttribution{
-		SourceTable: table, SourceRowID: sourceRowID,
-		SourceColumn: column, SourceActorID: sourceActorID,
-	})
-	return nil
 }
 
 func (recorder *indicatorPortableAttributionRecorder) ImportedAttributions() []incidentportability.ImportedAttribution {
@@ -349,15 +389,4 @@ func (recorder *indicatorPortableAttributionRecorder) ImportedAttributions() []i
 		return nil
 	}
 	return append([]incidentportability.ImportedAttribution(nil), recorder.rows...)
-}
-
-func (r *indicatorPortableAttributionRecorder) VisitImportedAttributions(table, rowID string, visit func(incidentportability.ImportedAttribution) error) error {
-	for _, row := range r.ImportedAttributions() {
-		if row.SourceTable == table && (rowID == "" || row.SourceRowID == rowID) {
-			if err := visit(row); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
 }

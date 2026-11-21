@@ -466,6 +466,7 @@ func taskDecisionImportContext(harness tasksDecisionsPortabilityHarness, operati
 		OperationID:   "tasks-decisions-" + operationID,
 		Actors:        actors,
 		Attributions:  &taskDecisionAttributions{local: harness.actor.ID},
+		Preparation:   portabilitysupport.NewPreparationStore(),
 	}
 }
 

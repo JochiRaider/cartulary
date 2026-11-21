@@ -208,10 +208,18 @@ func TestPartyIncidentBundleExactStateClaimsAndFailureAtomicity_Integration(t *t
 	port := NewContribution()
 	importContext := partyPortableImportContext(incidentID, "party-apply")
 	importContext.ActorUserID = actorID
-	prepared, err := port.PrepareImport(ctx, portabilitysupport.MapBundle{partyIncidentBundlePath: payload}, importContext)
+	bundle := &portabilitysupport.CountingBundle{MemberReader: portabilitysupport.MapBundle{partyIncidentBundlePath: payload}}
+	prepared, err := port.PrepareImport(ctx, bundle, importContext)
 	if err != nil {
 		t.Fatalf("prepare Party rows: %v", err)
 	}
+	// Core 01 REQ-01-641: once preparation returns, no bundle member reopens.
+	bundle.Freeze()
+	defer func() {
+		if late := bundle.Late(); late != 0 {
+			t.Errorf("Parties Apply and Validate opened %d bundle members after preparation", late)
+		}
+	}()
 	var preApplyCount int
 	if err := db.QueryRow(ctx, `SELECT count(*) FROM parties WHERE incident_id = $1`, incidentID).Scan(&preApplyCount); err != nil || preApplyCount != 0 {
 		t.Fatalf("prepare changed Party state: count=%d err=%v", preApplyCount, err)
@@ -364,6 +372,7 @@ func partyPortableImportContext(incidentID uuid.UUID, operationID string) source
 		ActorUserID:   uuid.MustParse("ffffffff-ffff-4fff-8fff-ffffffffffff"),
 		BundleVersion: 8,
 		OperationID:   operationID,
+		Preparation:   portabilitysupport.NewPreparationStore(),
 	}
 }
 

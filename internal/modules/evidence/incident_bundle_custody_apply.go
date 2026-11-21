@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
-	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -55,9 +54,6 @@ func (p preparedEvidenceImport) insertCustody(ctx context.Context, tx pgx.Tx, in
 		}
 		if tag.RowsAffected() != 1 {
 			return d.DeclaredFailure("evidence.source_identity_admitted")
-		}
-		if row.ActorUserID != nil {
-			return input.Attributions.RecordImportedAttribution("evidence_custody_events", row.CustodyEventID.String(), "actor_user_id", row.ActorUserID.String())
 		}
 		return nil
 	})
@@ -116,35 +112,4 @@ func (p preparedEvidenceImport) compareCustody(ctx context.Context, tx pgx.Tx, d
 		return d.DeclaredFailure("evidence.source_state_exact")
 	}
 	return rows.Err()
-}
-func (p preparedEvidenceImport) validateCustodyAttributions(ctx context.Context, recorder incidentportability.AttributionRecorder, d sourceport.Descriptor) error {
-	var expectedCount, actualCount uint64
-	if err := p.custody(ctx, d, func(row portableCustodyRow) error {
-		present := row.ActorUserID != nil
-		if present {
-			expectedCount++
-		}
-		if err := recorder.VisitImportedAttributions("evidence_custody_events", row.CustodyEventID.String(), func(a incidentportability.ImportedAttribution) error {
-			if !present || a.SourceTable != "evidence_custody_events" || a.SourceRowID != row.CustodyEventID.String() || a.SourceColumn != "actor_user_id" || a.SourceActorID != row.ActorUserID.String() || a.LocalUserID != p.actorID {
-				return d.DeclaredFailure("evidence.attribution_exact")
-			}
-			present = false
-			return ctx.Err()
-		}); err != nil {
-			return err
-		}
-		if present {
-			return d.DeclaredFailure("evidence.attribution_exact")
-		}
-		return nil
-	}); err != nil {
-		return err
-	}
-	if err := recorder.VisitImportedAttributions("evidence_custody_events", "", func(incidentportability.ImportedAttribution) error { actualCount++; return ctx.Err() }); err != nil {
-		return err
-	}
-	if actualCount != expectedCount {
-		return d.DeclaredFailure("evidence.attribution_exact")
-	}
-	return nil
 }

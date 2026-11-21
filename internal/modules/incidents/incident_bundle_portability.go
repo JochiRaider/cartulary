@@ -114,6 +114,23 @@ type preparedIncidentSource struct {
 	bundleVersion int
 	contractMajor int
 	row           incidentSourceRow
+	// attribution is the staged historical creator and updater (Core 01
+	// REQ-01-641); the core flushes it in step 9.
+	attribution incidentportability.AttributionStream
+}
+
+// stageIncidentSourceAttribution stages the incident row's historical actors.
+func stageIncidentSourceAttribution(ctx context.Context, store incidentportability.MemberWriter, prepared preparedIncidentSource, admitted func(string) bool) (incidentportability.AttributionStream, error) {
+	if store == nil || admitted == nil {
+		return incidentportability.AttributionStream{}, fmt.Errorf("%w: Incidents preparation staging is required", errIncidentSourceCatalog)
+	}
+	rowID := prepared.row.ID.String()
+	return incidentportability.StageAttributions(ctx, store, "attribution.rows", admitted, func(emit func(incidentportability.AttributionRow) error) error {
+		if err := emit(incidentportability.AttributionRow{SourceTable: "incidents", SourceRowID: rowID, SourceColumn: "created_by_user_id", SourceActorID: prepared.row.CreatedByUserID.String()}); err != nil {
+			return err
+		}
+		return emit(incidentportability.AttributionRow{SourceTable: "incidents", SourceRowID: rowID, SourceColumn: "updated_by_user_id", SourceActorID: prepared.row.UpdatedByUserID.String()})
+	})
 }
 
 func (prepared preparedIncidentSource) matches(
@@ -506,17 +523,8 @@ func applyIncidentBundleIncidentTx(
 	if tag.RowsAffected() != 1 {
 		return incidentportability.FixedImportFailure(prepared.logicalPath)
 	}
-	rowID := row.ID.String()
-	if err := importContext.attributions.RecordImportedAttribution(
-		"incidents", rowID, "created_by_user_id", row.CreatedByUserID.String(),
-	); err != nil {
-		return err
-	}
-	if err := importContext.attributions.RecordImportedAttribution(
-		"incidents", rowID, "updated_by_user_id", row.UpdatedByUserID.String(),
-	); err != nil {
-		return err
-	}
+	// The historical actors were staged while preparing; the core flushes them
+	// in step 9.
 	return nil
 }
 

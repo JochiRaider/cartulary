@@ -28,6 +28,30 @@ func (e *StrictNDJSONDecodeError) Error() string {
 // blank records and trailing JSON values before calling the owner. The visitor
 // must not retain rows when processing bulk members.
 func WalkNDJSON(ctx context.Context, source io.Reader, logicalPath string, maximumRecordBytes int, visit func(map[string]any) error) error {
+	if visit == nil {
+		return strictNDJSONError(logicalPath, 0, "invalid_record_limit")
+	}
+	return walkLines(ctx, source, logicalPath, maximumRecordBytes, func(ordinal int, line []byte) error {
+		_, err := strictjson.DecodeBoundedUnicodeObject(bytes.NewReader(line), int64(maximumRecordBytes))
+		if err != nil {
+			return strictNDJSONError(logicalPath, ordinal, strictDecodeKind(err))
+		}
+		var row map[string]any
+		decoder := json.NewDecoder(bytes.NewReader(line))
+		decoder.UseNumber()
+		if err := decoder.Decode(&row); err != nil {
+			return strictNDJSONError(logicalPath, ordinal, "malformed_json")
+		}
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		return visit(row)
+	})
+}
+
+// walkLines frames one member into bounded, nonblank logical lines. It holds at
+// most one line and never the member.
+func walkLines(ctx context.Context, source io.Reader, logicalPath string, maximumRecordBytes int, visit func(int, []byte) error) error {
 	if source == nil || visit == nil || maximumRecordBytes < 1 || maximumRecordBytes > MaxNDJSONLogicalLineBytes {
 		return strictNDJSONError(logicalPath, 0, "invalid_record_limit")
 	}
@@ -61,31 +85,22 @@ func WalkNDJSON(ctx context.Context, source io.Reader, logicalPath string, maxim
 		if len(bytes.TrimSpace(line)) == 0 {
 			return strictNDJSONError(logicalPath, ordinal, "blank_line")
 		}
-		_, err := strictjson.DecodeBoundedUnicodeObject(bytes.NewReader(line), int64(maximumRecordBytes))
-		if err != nil {
-			kind := "malformed_json"
-			switch {
-			case errors.Is(err, strictjson.ErrDuplicateMember):
-				kind = "duplicate_member"
-			case errors.Is(err, strictjson.ErrNotObject):
-				kind = "row_not_object"
-			case errors.Is(err, strictjson.ErrTrailingData):
-				kind = "multiple_values"
-			}
-			return strictNDJSONError(logicalPath, ordinal, kind)
-		}
-		var row map[string]any
-		decoder := json.NewDecoder(bytes.NewReader(line))
-		decoder.UseNumber()
-		if err := decoder.Decode(&row); err != nil {
-			return strictNDJSONError(logicalPath, ordinal, "malformed_json")
-		}
-		if err := ctx.Err(); err != nil {
+		if err := visit(ordinal, line); err != nil {
 			return err
 		}
-		if err := visit(row); err != nil {
-			return err
-		}
+	}
+}
+
+func strictDecodeKind(err error) string {
+	switch {
+	case errors.Is(err, strictjson.ErrDuplicateMember):
+		return "duplicate_member"
+	case errors.Is(err, strictjson.ErrNotObject):
+		return "row_not_object"
+	case errors.Is(err, strictjson.ErrTrailingData):
+		return "multiple_values"
+	default:
+		return "malformed_json"
 	}
 }
 

@@ -50,10 +50,14 @@ func TestNetworkFlowIncidentTransferThroughPublicOperations_Integration(t *testi
 		}
 		return env
 	}
-	start := func(prefix string, key byte, claimed bool) *appsupport.ServerHarness {
-		return runtime.StartServer(t, appsupport.ServerOptions{Prefix: prefix, TestRouteMode: httptestx.TestRouteModeDisabled, Env: flowEnvironment(key, claimed), ConfigureRuntime: func(options *server.Options) { options.ReportingTemplatePacks = irReportTemplates(t) }})
+	reads := newMemberReadLog()
+	start := func(prefix string, key byte, claimed bool, observe func(string, string, string, string)) *appsupport.ServerHarness {
+		return runtime.StartServer(t, appsupport.ServerOptions{Prefix: prefix, TestRouteMode: httptestx.TestRouteModeDisabled, Env: flowEnvironment(key, claimed), ConfigureRuntime: func(options *server.Options) {
+			options.ReportingTemplatePacks = irReportTemplates(t)
+			options.ObserveIncidentBundleMemberReads = observe
+		}})
 	}
-	a, b := start("nf-portable-a", 11, true), start("nf-portable-b", 31, true)
+	a, b := start("nf-portable-a", 11, true, nil), start("nf-portable-b", 31, true, reads.observe)
 	loginA, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, a.Server.HTTP.URL)
 	loginB, secretB := irBootstrapRecoveryAdmin(t, b.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, a.Server, loginA, map[string]any{"client_txn_id": "nf-transfer-incident", "incident_key": "IR-NF-TRANSFER", "title": "Portable Network Flow investigation"})
@@ -156,11 +160,17 @@ func TestNetworkFlowIncidentTransferThroughPublicOperations_Integration(t *testi
 	irVerifyReport(clientA, report, bundle, true)
 	job := uploadPublicSourceBundle(t, b.Server.HTTP.URL, loginB, bundle, "transfer-network-flow")
 	attempts := recordJobAttempts(t, b.DB, job["job_id"].(string))
+	attempts.observeMemberReads(reads)
 	terminal := waitIRApply(t, b.Server.HTTP.URL, loginB, job["job_id"].(string))
 	attempts.finish(terminal)
 	if terminal["status"] != "succeeded" {
 		t.Fatalf("Network Flow transfer failed: %#v", terminal)
 	}
+	// Core 01 REQ-01-641: migrated families apply only staged preparation
+	// streams; their final transaction reopens no bundle member as rows. The
+	// only bundle bytes it reads are verified opaque payloads.
+	reads.requireNoBundleReadsAfterBegin(t, migratedBundlePaths...)
+	reads.requirePayloadReadsAfterBegin(t, "ext/*", "sources/*")
 	replay := uploadPublicSourceBundle(t, b.Server.HTTP.URL, loginB, bundle, "transfer-network-flow")
 	if replay["job_id"] != job["job_id"] {
 		t.Fatal("transfer replay duplicated effects")
@@ -276,7 +286,7 @@ func TestNetworkFlowIncidentTransferThroughPublicOperations_Integration(t *testi
 	}
 	verifyDestination(clientB, "b")
 	// An unclaimed destination must reject the complete incident, leaving no public state.
-	unsupported := start("nf-portable-disabled", 51, false)
+	unsupported := start("nf-portable-disabled", 51, false, nil)
 	loginDisabled, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, unsupported.Server.HTTP.URL)
 	denied := uploadPublicSourceBundle(t, unsupported.Server.HTTP.URL, loginDisabled, bundle, "reject-unavailable-profile")
 	failed := waitIRApply(t, unsupported.Server.HTTP.URL, loginDisabled, denied["job_id"].(string))

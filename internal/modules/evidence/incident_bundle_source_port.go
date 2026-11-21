@@ -7,6 +7,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/internal/sourcevalue"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
+	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 )
 
 func incidentBundleSourceDescriptor() sourceport.Descriptor {
@@ -44,13 +45,14 @@ func NewIncidentBundleSourcePort() sourceport.Port {
 			if !ok || !prepared.matches(input, binding) || tx == nil {
 				return sourceport.ErrPreparedBinding
 			}
-			return prepared.apply(ctx, tx, input, descriptor)
+			return prepared.inTransaction(input).apply(ctx, tx, input, descriptor)
 		},
 		Validate: func(ctx context.Context, tx pgx.Tx, value any, importContext sourceport.ImportContext) error {
 			prepared, ok := value.(preparedEvidenceImport)
 			if !ok || !prepared.matches(importContext, binding) || tx == nil {
 				return sourceport.ErrPreparedBinding
 			}
+			prepared = prepared.inTransaction(importContext)
 			var invalid bool
 			if err := tx.QueryRow(ctx, `
 SELECT EXISTS (
@@ -64,10 +66,9 @@ SELECT EXISTS (
 			if invalid {
 				return descriptor.DeclaredFailure("evidence.envelope_type_scope")
 			}
+			// Attribution was staged while preparing; the core flushes and counts
+			// it in step 9.
 			if err := prepared.compareRecords(ctx, tx, descriptor); err != nil {
-				return err
-			}
-			if err := prepared.validateRecordAttributions(ctx, importContext.Attributions, descriptor); err != nil {
 				return err
 			}
 			if err := prepared.validatePartyReferences(ctx, tx, descriptor); err != nil {
@@ -76,18 +77,19 @@ SELECT EXISTS (
 			if err := prepared.compareBlobs(ctx, tx, importContext, descriptor); err != nil {
 				return err
 			}
-			if err := prepared.validateBlobAttributions(ctx, importContext.Attributions, descriptor); err != nil {
-				return err
-			}
 			if err := prepared.typed(ctx, descriptor, func(row sourcevalue.Row) error {
 				return prepared.validateBlobAssociation(ctx, tx, row, descriptor)
 			}); err != nil {
 				return err
 			}
-			if err := prepared.compareCustody(ctx, tx, descriptor); err != nil {
-				return err
+			return prepared.compareCustody(ctx, tx, descriptor)
+		},
+		Attributions: func(value any) []incidentportability.AttributionStream {
+			prepared, ok := value.(preparedEvidenceImport)
+			if !ok {
+				return nil
 			}
-			return prepared.validateCustodyAttributions(ctx, importContext.Attributions, descriptor)
+			return []incidentportability.AttributionStream{prepared.attribution}
 		},
 	})
 }

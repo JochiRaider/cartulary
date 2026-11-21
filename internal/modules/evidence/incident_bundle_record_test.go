@@ -49,7 +49,43 @@ func evidencePortableInput(t testing.TB, incident, local uuid.UUID) sourceport.I
 	if err != nil {
 		t.Fatal(err)
 	}
-	return sourceport.ImportContext{IncidentID: incident, ActorUserID: local, OperationID: "evidence-portable", BundleVersion: 8, Actors: actors}
+	return sourceport.ImportContext{IncidentID: incident, ActorUserID: local, OperationID: "evidence-portable", BundleVersion: 8, Actors: actors, Preparation: portabilitysupport.NewPreparationStore()}
+}
+
+// flushingEvidencePort stands in for the core's step-9 flush (Core 01
+// REQ-01-641): Evidence stages its attribution while preparing and records
+// none row by row, so a successful Apply is followed by the staged rows.
+type flushingEvidencePort struct{ sourceport.Port }
+
+func (p flushingEvidencePort) ApplyImportTx(ctx context.Context, tx pgx.Tx, prepared sourceport.Prepared, input sourceport.ImportContext) error {
+	if err := p.Port.ApplyImportTx(ctx, tx, prepared, input); err != nil {
+		return err
+	}
+	recorder, ok := input.Attributions.(*evidencePortableAttributions)
+	if !ok {
+		return nil
+	}
+	staged, err := portabilitysupport.ReadStagedAttributions(ctx, p.Port, prepared, input)
+	if err != nil {
+		return err
+	}
+	for _, row := range staged {
+		recorder.rows = append(recorder.rows, incidentportability.ImportedAttribution{SourceTable: row.SourceTable, SourceRowID: row.SourceRowID, SourceColumn: row.SourceColumn, SourceActorID: row.SourceActorID, LocalUserID: recorder.local})
+	}
+	return nil
+}
+
+// requireEvidenceStagedSealed proves the final transaction reads the sealed
+// staged stream: a changed stream is never admitted.
+func requireEvidenceStagedSealed(t testing.TB, check func(sourceport.Prepared, sourceport.ImportContext) error, prepared sourceport.Prepared, input sourceport.ImportContext, stream string) {
+	t.Helper()
+	store, ok := input.Preparation.(*portabilitysupport.PreparationStore)
+	if !ok || !store.Tamper(stream, []byte("{}\n")) {
+		t.Fatalf("staged %s is missing", stream)
+	}
+	if err := check(prepared, input); err == nil {
+		t.Fatalf("changed staged %s admitted", stream)
+	}
 }
 func requireEvidencePortableFailure(t testing.TB, err error, invariant string) {
 	t.Helper()
@@ -60,24 +96,11 @@ func requireEvidencePortableFailure(t testing.TB, err error, invariant string) {
 }
 
 type evidencePortableAttributions struct {
+	portabilitysupport.AttributionCapability
 	local uuid.UUID
 	rows  []incidentportability.ImportedAttribution
 }
 
-func (a *evidencePortableAttributions) RecordImportedAttribution(table, row, column, actor string) error {
-	a.rows = append(a.rows, incidentportability.ImportedAttribution{SourceTable: table, SourceRowID: row, SourceColumn: column, SourceActorID: actor, LocalUserID: a.local})
-	return nil
-}
-func (a *evidencePortableAttributions) VisitImportedAttributions(table, row string, visit func(incidentportability.ImportedAttribution) error) error {
-	for _, value := range a.rows {
-		if value.SourceTable == table && (row == "" || value.SourceRowID == row) {
-			if err := visit(value); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
 func (a *evidencePortableAttributions) ResolvePortableSourceActors(_ context.Context, _ incidentportability.Queryer, _ uuid.UUID, table, column string, ids []string) (map[string]string, error) {
 	result := map[string]string{}
 	for _, value := range a.rows {

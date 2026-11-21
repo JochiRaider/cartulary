@@ -70,9 +70,19 @@ type entityPortableBinding struct {
 	contractMajor int
 }
 
+// preparedEntityImport carries bundle members only while preparing; the value
+// the final transaction receives holds staged streams (Core 01 REQ-01-641).
 type preparedEntityImport struct {
-	binding entityPortableBinding
-	members *incidentportability.BoundMembers
+	binding       entityPortableBinding
+	members       *incidentportability.BoundMembers
+	staged        bool
+	sourceDigest  string
+	hostRows      incidentportability.PreparedRowStream
+	identityRows  incidentportability.PreparedRowStream
+	mentionRows   incidentportability.PreparedRowStream
+	preservedRows incidentportability.PreparedRowStream
+	aliasRows     incidentportability.PreparedRowStream
+	attribution   incidentportability.AttributionStream
 }
 
 type entityFailureAccumulator struct{ invariant string }

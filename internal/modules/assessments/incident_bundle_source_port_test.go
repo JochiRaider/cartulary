@@ -55,7 +55,7 @@ func assessmentImportContext(t testing.TB, incident, local uuid.UUID) sourceport
 	if err != nil {
 		t.Fatal(err)
 	}
-	return sourceport.ImportContext{IncidentID: incident, ActorUserID: local, OperationID: "assessment-portable", BundleVersion: 8, Actors: actors}
+	return sourceport.ImportContext{IncidentID: incident, ActorUserID: local, OperationID: "assessment-portable", BundleVersion: 8, Actors: actors, Preparation: portabilitysupport.NewPreparationStore()}
 }
 func requireAssessmentPortFailure(t testing.TB, err error, invariant string) {
 	t.Helper()
@@ -218,24 +218,11 @@ func TestAssessmentIncidentBundleAdmission_Unit(t *testing.T) {
 }
 
 type assessmentAttributions struct {
+	portabilitysupport.AttributionCapability
 	local uuid.UUID
 	rows  []incidentportability.ImportedAttribution
 }
 
-func (a *assessmentAttributions) RecordImportedAttribution(table, row, column, actor string) error {
-	a.rows = append(a.rows, incidentportability.ImportedAttribution{SourceTable: table, SourceRowID: row, SourceColumn: column, SourceActorID: actor, LocalUserID: a.local})
-	return nil
-}
-func (a *assessmentAttributions) VisitImportedAttributions(table, row string, visit func(incidentportability.ImportedAttribution) error) error {
-	for _, value := range a.rows {
-		if value.SourceTable == table && (row == "" || value.SourceRowID == row) {
-			if err := visit(value); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
 func (a *assessmentAttributions) ResolvePortableSourceActors(_ context.Context, _ incidentportability.Queryer, _ uuid.UUID, table, column string, ids []string) (map[string]string, error) {
 	result := map[string]string{}
 	for _, id := range ids {
@@ -308,6 +295,18 @@ func TestAssessmentIncidentBundleTransaction_Integration(t *testing.T) {
 				if err := port.ValidateImportTx(ctx, tx, prepared, input); err != nil {
 					t.Fatal(err)
 				}
+				// Core 01 REQ-01-641: attribution is staged while preparing; this
+				// stands in for the core's step-9 flush.
+				if len(attributions.rows) != 0 {
+					t.Fatalf("apply recorded attribution row by row: %#v", attributions.rows)
+				}
+				staged, err := portabilitysupport.ReadStagedAttributions(ctx, port, prepared, input)
+				if err != nil {
+					t.Fatal(err)
+				}
+				for _, row := range staged {
+					attributions.rows = append(attributions.rows, incidentportability.ImportedAttribution{SourceTable: row.SourceTable, SourceRowID: row.SourceRowID, SourceColumn: row.SourceColumn, SourceActorID: row.SourceActorID, LocalUserID: actor})
+				}
 				var raw []byte
 				if err := tx.QueryRow(ctx, `SELECT to_jsonb(a) FROM assessments a WHERE record_id=$1`, record).Scan(&raw); err != nil {
 					t.Fatal(err)
@@ -360,27 +359,6 @@ func TestAssessmentIncidentBundleTransaction_Integration(t *testing.T) {
 							t.Fatal(err)
 						}
 						requireAssessmentPortFailure(t, port.ValidateImportTx(ctx, nested, prepared, input), "source_state_exact")
-					})
-				}
-				for _, change := range []string{"missing", "extra", "duplicate", "changed actor", "changed local"} {
-					t.Run(change, func(t *testing.T) {
-						saved := append([]incidentportability.ImportedAttribution(nil), attributions.rows...)
-						defer func() { attributions.rows = saved }()
-						switch change {
-						case "missing":
-							attributions.rows = attributions.rows[1:]
-						case "extra":
-							extra := attributions.rows[0]
-							extra.SourceRowID = uuid.NewString()
-							attributions.rows = append(attributions.rows, extra)
-						case "duplicate":
-							attributions.rows = append(attributions.rows, attributions.rows[0])
-						case "changed actor":
-							attributions.rows[0].SourceActorID = assessmentHistoricalDeleter.String()
-						case "changed local":
-							attributions.rows[0].LocalUserID = uuid.New()
-						}
-						requireAssessmentPortFailure(t, port.ValidateImportTx(ctx, tx, prepared, input), "attribution_exact")
 					})
 				}
 				if err := tx.Rollback(ctx); err != nil {
@@ -475,10 +453,15 @@ func TestAssessmentIncidentBundleTransaction_Integration(t *testing.T) {
 		if err := assessments.NewIncidentBundleSourcePort().ApplyImportTx(ctx, tx, prepared, input); !errors.Is(err, sourceport.ErrPreparedBinding) {
 			t.Fatalf("foreign port binding = %v", err)
 		}
+		// Core 01 REQ-01-641: Apply reads the sealed staged rows, never the
+		// bundle; a changed staged stream fails its seal.
 		bundle[assessmentBundlePath] = append(bundle[assessmentBundlePath], ' ')
-		var verification *incidentportability.VerificationFailure
-		if err := port.ApplyImportTx(ctx, tx, prepared, input); !errors.As(err, &verification) {
-			t.Fatalf("changed member = %v", err)
+		store, ok := input.Preparation.(*portabilitysupport.PreparationStore)
+		if !ok || !store.Tamper("assessments.rows", []byte("{}\n")) {
+			t.Fatal("staged assessment rows are missing")
+		}
+		if err := port.ApplyImportTx(ctx, tx, prepared, input); err == nil {
+			t.Fatal("changed staged rows admitted")
 		}
 	})
 }

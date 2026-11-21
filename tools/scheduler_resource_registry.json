@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.scheduler_resource_registry.v7",
+  "schema_id": "cartulary.scheduler_resource_registry.v8",
   "capacity_override_schema": "cartulary.harness_capacity_override.v1",
   "capacity_policies": {
     "cpu_tokens": {
@@ -27,6 +27,11 @@
       "default": 32,
       "minimum": 1,
       "maximum_cpu_multiplier": 2
+    },
+    "postgres_heavy_lanes": {
+      "source": "fixed_postgres_bounded",
+      "default": 2,
+      "minimum": 1
     },
     "postgres_lanes": {
       "source": "fixed_cpu_bounded",
@@ -78,6 +83,11 @@
       "name": "postgres",
       "snapshot_field": "postgres_lanes",
       "unit": "capability"
+    },
+    {
+      "name": "postgres_heavy",
+      "snapshot_field": "postgres_heavy_lanes",
+      "unit": "lane"
     },
     {
       "name": "process",

@@ -659,6 +659,15 @@ maximum across active volume claims, including overlapping starts and releases.
 Memory, process, port, and PostgreSQL claims remain additive across physical
 clusters. Capacity ceilings are unchanged.
 
+The `postgres_heavy` claim limits how many units whose work is dominated by
+PostgreSQL bulk writes, restores, imports and checkpoints run at once, so their
+forced checkpoints and database drops do not stall one another. A row whose
+measured work is dominated by such I/O MUST use a resource profile that claims
+one `postgres_heavy` lane. Like `volume`, it is a logical concurrency limit,
+not an I/O isolation promise. A retained capability snapshot recorded before
+this resource existed is interpreted as recorded, without a `postgres_heavy`
+resource; every newly resolved snapshot resolves at least one lane.
+
 The physical PostgreSQL owner MUST initialize fixed roles, deployment logins,
 memberships and parameter privileges exactly once after service readiness and
 before publishing its generation. Failure publishes no usable capability.
@@ -2181,8 +2190,8 @@ The current runtime profiles are:
 | `default` | yes | Ordinary unclaimed isolated test-service/browser configuration. |
 | `network_flow_claimed` | yes | Network Flow claimed startup configuration with its separately owned key-ring and secret-handling rules. |
 
-The current resource profiles are `standard`, `io_heavy`, `managed_process`,
-`backend_capacity_isolated`, `performance_fixture_builder`,
+The current resource profiles are `standard`, `io_heavy`, `postgres_heavy`, `managed_process`,
+`backend_capacity_isolated`, `backend_capacity_postgres_heavy`, `performance_fixture_builder`,
 `browser_ordinary`, `browser_measurement_quiet`, and
 `postgres_catalog_isolated`, `ui_review_raster`, `ui_review_report`, and `ui_review_diagnostic`. Every resource profile MUST
 bound executable work with positive `cpu`, `io`, `memory_mb`, and `process`
@@ -6353,7 +6362,7 @@ schema and only when every graph claim remains feasible.
 
 **TH-HARNESS-REQ-353**
 The logical resource registry is closed by the table below.
-`tools/scheduler_resource_registry.json` is the v7 typed projection of this
+`tools/scheduler_resource_registry.json` is the v8 typed projection of this
 current-conformance registry and MUST NOT independently add resources, change
 bounds, change override inputs, or redefine automatic policies. Capacity
 resolution MUST interpret that typed projection; hard-coded fallback
@@ -6370,6 +6379,7 @@ Verified by: TH-HARNESS-AC-006, TH-HARNESS-AC-030
 
 | `port_lane` | broker port-lane inventory | lane | fail safe to one |
 | `postgres` | service readiness | capability | unavailable when unready |
+| `postgres_heavy` | authored heavy-PostgreSQL concurrency policy | lane | fail safe to one |
 | `object_store` | service readiness | capability | unavailable when unready |
 | `service_stack` | managed-stack readiness | capability | unavailable when unready |
 | `browser_stack` | broker browser-stack capacity | lease | fail safe to one |
@@ -6384,6 +6394,7 @@ overrides remain subject to the v1 override schema and to the host bounds below.
 | `process_slots` | Minimum of the effective process limit and four times CPU tokens; use four times CPU tokens when the process limit is unavailable. | Minimum `1`. |
 | `io_tokens` | Two times CPU tokens. | Minimum `1`. |
 | `postgres_lanes` | Sixteen lanes by default. | Minimum `1`; at most CPU tokens. |
+| `postgres_heavy_lanes` | Two lanes by default. | Minimum `1`; at most PostgreSQL lanes. |
 | `object_store_lanes` | Eight lanes by default. | Minimum `1`; at most CPU tokens. |
 | `port_lanes` | Thirty-two lanes by default, including resident listeners. | Minimum `1`; at most twice CPU tokens. |
 | `writable_volume` | Writable-root proof. | Boolean capability. |
@@ -8683,10 +8694,15 @@ replacing terminal startup evidence is forbidden.
 Authored duration estimates are advisory scheduler planning data only. They MUST NOT become benchmark claims, product performance conformance, timeout policy, or evidence that product behavior is fast enough.
 
 Every work unit MUST carry a positive authored `estimated_work_ms`. Catalog row
-units derive that value from the exact evidence-class estimate in the authored
-work-graph owner; direct units use their exact target policy; browser group
-units sum their selected row estimates; compatible Go units sum their exact
-rows before bounded first-fit packing. Estimates affect rank and
+units derive that value from the row's own reviewed `estimated_work_ms` when
+the catalog row declares one, and otherwise from the exact evidence-class
+estimate in the authored work-graph owner; a row estimate MUST be a positive
+integer below the unit timeout. Direct units use their exact target policy;
+browser group units sum their selected row estimates; compatible Go units sum
+their exact rows before bounded first-fit packing against the work-graph
+owner's authored packing bound. That bound MUST be a positive fraction of the
+unit timeout that leaves headroom for aggregate concurrent load, so a packed
+cohort's estimate never exceeds it. Estimates affect rank and
 packing only. They MUST NOT change selection, timeout, failure, cache, fixture,
 or evidence semantics.
 
@@ -10339,7 +10355,7 @@ The redaction algorithm MUST apply to both keys and values after decoding struct
 - `Authorization`, `Cookie`, `Set-Cookie`, and `X-Cartulary-Test-Route-Token` values.
 Verified by: TH-HARNESS-AC-011
 
-Structured redaction MUST preserve schema-owned container shapes and scalar types unless the value itself is secret. Object and array fields such as `service_sessions`, `browser_stage_sessions`, `session_target`, `cleanup_status`, `lease_file`, and timing fields MUST NOT be replaced merely because their names contain a secret-related substring. Secret key matching MUST use exact or anchored credential-name patterns rather than broad substring matching that can redact structural diagnostics.
+Structured redaction MUST preserve schema-owned container shapes and scalar types unless the value itself is secret. Object and array fields such as `service_sessions`, `browser_stage_sessions`, `session_target`, `cleanup_status`, `lease_file`, and timing fields MUST NOT be replaced merely because their names contain a secret-related substring. Secret key matching MUST use exact or anchored credential-name patterns rather than broad substring matching that can redact structural diagnostics; the only exception is the string-value scan closure of TH-HARNESS-REQ-604.
 
 Redaction is defense in depth and MUST NOT be used to justify retaining a
 secret-capable runtime file. Replacement diagnostics are closed,
@@ -10349,10 +10365,10 @@ retaining operational values.
 Verified by: TH-HARNESS-AC-000, TH-HARNESS-AC-011
 
 **TH-HARNESS-REQ-604**
-Structured secret-key matching is closed. Before comparing a structured key name, the redactor MUST uppercase it and replace every non-ASCII-alphanumeric run with one `_`, then trim leading and trailing `_`. The resulting token is secret-bearing only when it equals or has an anchored credential suffix/prefix equivalent to one of: `PASSWORD`, `PASS`, `PWD`, `TOKEN`, `JWT`, `BEARER`, `API_KEY`, `ACCESS_KEY`, `SECRET_KEY`, `AUTHORIZATION`, `COOKIE`, `SET_COOKIE`, or `X_CARTULARY_TEST_ROUTE_TOKEN`. Substring-only matches such as `session_target` containing `token` across token boundaries MUST NOT redact the field.
+Structured secret-key matching is closed. Before comparing a structured key name, the redactor MUST insert `_` at every boundary between a lowercase ASCII letter or digit and an uppercase ASCII letter, uppercase only its ASCII letters, replace every non-ASCII-alphanumeric run with one `_`, then trim leading and trailing `_`. The resulting token is secret-bearing only when it equals or has an anchored credential suffix/prefix equivalent to one of: `PASSWORD`, `PASS`, `PWD`, `SECRET`, `TOKEN`, `JWT`, `BEARER`, `API_KEY`, `ACCESS_KEY`, `SECRET_KEY`, `PRIVATE_KEY`, `DSN`, `AUTHORIZATION`, `COOKIE`, `SET_COOKIE`, or `X_CARTULARY_TEST_ROUTE_TOKEN`. In addition, a non-empty string value under a key that the retained-secret scan's JSON-member rule matches is replaced whole by the marker even when its key is not secret-bearing above, both in structured values and in JSON members embedded in raw text, so redacted output always passes the scan; containers and non-string scalars are never replaced by this closure. Substring-only matches such as `session_target` containing `token` across token boundaries MUST NOT redact the field.
 
 Raw-text redaction MUST apply after structured redaction to these closed families: URL userinfo (`scheme://userinfo@host`), PostgreSQL-style DSN password segments (`password=` or `:password@` credential forms), bearer authorization headers, JWT-like three-part base64url tokens, PEM private-key blocks, and S3-compatible access-key or secret-key assignments. Structured redaction MUST preserve object and array shapes and preserve numeric, boolean, and null scalar types unless that scalar value itself is secret. A redaction write or validation failure maps to `failure_class=artifact`, `failure_reason=artifact_error`, and public exit `11` unless Section 9.1 preserves an earlier primary failure.
-Verified by: TH-HARNESS-AC-011, TH-HARNESS-AC-036
+Verified by: TH-HARNESS-AC-011, TH-HARNESS-AC-036, TH-HARNESS-AC-160
 
 **TH-HARNESS-REQ-617 — One retained redaction marker**
 Every harness redactor MUST replace a redacted secret with the single marker
@@ -10361,9 +10377,24 @@ exactly a value that begins with that marker. A redactor MUST NOT emit another
 marker form, such as a bracketed or typed token, and the scan MUST NOT exempt
 one. Every redaction rule MUST leave output that the scan accepts in each
 syntactic context it checks: a secret-named JSON member value, an uppercase
-secret assignment, and URL userinfo or a DSN password. The authored redaction
-manifest is the single machine owner of the marker; the native redactor and the
-scan consume it and do not restate it. The scan's policy identity is unchanged.
+secret assignment, and URL userinfo or a DSN password. A value under a
+secret-named key is replaced whole, so it begins with the marker. Raw-text
+assignment redaction matches a credential name, or `SESSION`, with any name
+prefix, such as `DB_PASSWORD=`, and replaces the whole value. Shared redaction
+patterns MUST use explicit ASCII character classes, never engine-dependent
+classes such as `\s`, so every redactor produces identical output. Every
+redactor MUST complete in time linear in its input, whether its regular
+expression engine backtracks or not. Each shared pattern therefore begins with a
+literal or an explicit consumed ASCII boundary class, so no match can start
+inside a token it cannot complete, and a closure that tests a key for a term
+captures the whole key and decides membership in code rather than by a
+quantified alternation. The authored redaction manifest
+is the single machine owner of the marker, the structured secret-key tokens,
+the secret CLI flag names and the retained-secret scan's vocabulary. Every
+native and script redactor and the scan consume it and do not restate it.
+Generation renders the scan's identity text from the manifest byte for byte
+and fails unless it reproduces the frozen policy digest, so the scan's policy
+identity is unchanged.
 Product-owned masking, such as Reporting redaction, is outside this requirement.
 Verified by: TH-HARNESS-AC-011, TH-HARNESS-AC-160
 
@@ -10663,14 +10694,18 @@ Verified by: TH-HARNESS-AC-076
 
 ### 15.1 Secret Pattern Table
 
-| Secret class               | Match rule                                                                          | Redaction token                      |
-| -------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------ |
-| Passwords                  | Exact or anchored variable/key names for `PASSWORD`, `PASS`, `PWD`, or equivalent credential suffixes | `[REDACTED:password]`                |
-| Tokens                     | Exact or anchored variable/key names for `TOKEN`, `JWT`, `BEARER`, cookie headers, or equivalent credential suffixes | `[REDACTED:token]`                   |
-| API or access keys         | Exact or anchored `API_KEY`, `ACCESS_KEY`, `SECRET_KEY`, or credential-context key names | `[REDACTED:key]`                     |
-| DSNs/URLs with credentials | URL userinfo or DSN password segment present                                        | `[REDACTED:dsn]`                     |
-| Object-store credentials   | S3-compatible access key or secret key variables                                    | `[REDACTED:object-store-credential]` |
-| Private keys               | PEM private-key block markers                                                       | `[REDACTED:private-key]`             |
+Every class is replaced with the single marker `<redacted>` of
+TH-HARNESS-REQ-617; a header or scheme prefix such as `Bearer ` may precede the
+marker only outside a secret-named key.
+
+| Secret class               | Match rule |
+| -------------------------- | ---------- |
+| Passwords and secrets      | Exact or anchored names for `PASSWORD`, `PASS`, `PWD`, `SECRET`, or equivalent credential suffixes, with any name prefix in assignments |
+| Tokens, cookies and sessions | Exact or anchored names for `TOKEN`, `JWT`, `BEARER`, `COOKIE`, cookie headers, or equivalent credential suffixes; `SESSION` in raw assignments only |
+| API or access keys         | Exact or anchored `API_KEY`, `ACCESS_KEY`, `SECRET_KEY`, `PRIVATE_KEY`, or credential-context key names |
+| DSNs/URLs with credentials | A `DSN`-named value, URL userinfo, or a DSN password segment |
+| Object-store credentials   | S3-compatible access key or secret key variables |
+| Private keys               | PEM private-key block markers |
 
 ### 15.2 Artifact Redaction Table
 
@@ -11245,7 +11280,7 @@ expected behavior. Failure codes below are normalized wrapper codes.
 | TH-HARNESS-AC-157 | REQ-862 | Repeated and distinct emissions in one process and across processes, an emission of an undeclared code, a run with no emissions | One `error_emission` record per distinct emission per process; `error-code-coverage.json` lists declared, exercised and unexercised codes per operation and status, with summary totals; a run without emissions publishes no report; unexercised declarations never fail the run | A duplicate record, a missing operation or status, or a run failed for coverage fails. |
 | TH-HARNESS-AC-158 | REQ-860/863 | An in-process test server and a server-harness process each forced into a lifecycle fatal; a test that fails on the resulting `503`; a run with no fatal | Each fatal writes one `server_fatal` record with its reason code and fails the run as `server_fatal`, listed in the summary; the failing test keeps its own failure; a run without a fatal is unaffected | A fatal with no record, a record without its reason, a run that passes after a fatal, or a production build that writes evidence fails. |
 | TH-HARNESS-AC-159 | REQ-864 | A status assertion on a wrong status; a poll that meets a retryable `503`, a non-retryable error, and its deadline; a browser action whose target never appears; a request that times out behind a lock | The failure message carries the redacted body; the poll waits through the retryable response, stops on the non-retryable one, and reports the last response at its deadline; the action fails at its own timeout; the lock-wait snapshot names blocked and blocking sessions without statement text | A discarded body, a poll that fails on a retryable response or retries a product test, an action that consumes the whole test budget, or a snapshot carrying statement text or parameters fails. |
-| TH-HARNESS-AC-160 | REQ-617 | Each manifest rule and each structured-key redaction applied to a fixture secret in a JSON member, an uppercase assignment, URL userinfo and a DSN password; a bracketed or typed marker | Every redacted output passes the retained-secret scan and contains only the marker; the scan's policy digest is unchanged | A redacted output that fails the scan, a second marker form, or a scan exemption for any other marker fails. |
+| TH-HARNESS-AC-160 | REQ-604, REQ-617 | Each manifest rule and each structured secret-key class, through both the native and the script redactor, applied to a fixture secret in every scan context: a JSON member under each scan term including camelCase and prefixed keys, an uppercase assignment with and without a name prefix, URL userinfo and a DSN password; a bracketed or typed marker; a generated scan identity | Every redacted output equals its independently specified expected value, passes the retained-secret scan and carries no secret; the generated identity reproduces the frozen policy digest | A redacted output that fails the scan or differs between redactors, a second marker form, a scan exemption for any other marker, or a generated identity with another digest fails. |
 
 The numerical image cases MUST include transparent pixels, alpha-only differences,
 one-pixel boundaries, and zero/full changed area. Interface fixtures MUST include

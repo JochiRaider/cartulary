@@ -100,7 +100,8 @@ INSERT INTO incidents (
 	members := fixtureMembers(t, map[string][]byte{
 		"data/actors.ndjson": []byte(`{"actor_id":"00000000-0000-4000-8000-000000110502","display_name":"Imported Actor","email_hint":"imported-actor@example.test","provider_subject_hint":"issuer.example.test/subject-17"}` + "\n"),
 	})
-	if _, err := validateImportedActors(ctx, members, incidentID); err != nil {
+	catalog, err := validateImportedActors(ctx, members, incidentID)
+	if err != nil {
 		t.Fatalf("validate actor descriptor: %v", err)
 	}
 	importTx, err := db.BeginTx(ctx, pgx.TxOptions{})
@@ -108,7 +109,7 @@ INSERT INTO incidents (
 		t.Fatal(err)
 	}
 	defer importTx.Rollback(ctx)
-	if err := (importer{}).importActors(ctx, importTx, members, incidentID); err != nil {
+	if err := (importer{}).importActors(ctx, importTx, catalog, incidentID); err != nil {
 		t.Fatalf("import actor descriptor: %v", err)
 	}
 	if err := importTx.Commit(ctx); err != nil {
@@ -165,10 +166,11 @@ INSERT INTO incidents (
 		members := fixtureMembers(t, map[string][]byte{
 			"data/actors.ndjson": []byte(`{"actor_id":"00000000-0000-4000-8000-000000110502","display_name":"","email_hint":" ","provider_subject_hint":"\t"}` + "\n"),
 		})
-		if _, err := validateImportedActors(ctx, members, incidentID); err != nil {
+		catalog, err := validateImportedActors(ctx, members, incidentID)
+		if err != nil {
 			t.Fatal(err)
 		}
-		if err := (importer{}).importActors(ctx, tx, members, incidentID); err != nil {
+		if err := (importer{}).importActors(ctx, tx, catalog, incidentID); err != nil {
 			t.Fatal(err)
 		}
 		payload, err := (bundleBuilder{}).exportActors(ctx, tx, incidentID, references)

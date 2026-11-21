@@ -14,9 +14,9 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
-	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
+	"github.com/JochiRaider/cartulary/internal/testutil/portabilitysupport"
 )
 
 func TestTimelinePortableEventTransaction_Integration(t *testing.T) {
@@ -99,6 +99,12 @@ func TestTimelinePortableEventTransaction_Integration(t *testing.T) {
 			if err := tx.QueryRow(ctx, `SELECT count(*) FROM timeline_events WHERE incident_id=$1`, incident).Scan(&actualCount); err != nil || actualCount != count {
 				t.Fatalf("row count=%d want=%d err=%v", actualCount, count, err)
 			}
+			// Core 01 REQ-01-641: attribution is staged while preparing and
+			// flushed by the core in step 9.
+			staged, err := portabilitysupport.ReadStagedAttributions(ctx, port, prepared, input)
+			if err != nil {
+				t.Fatal(err)
+			}
 			for _, source := range rows {
 				expected := maps.Clone(source)
 				if expected["reviewed_by_user_id"] != nil {
@@ -126,9 +132,9 @@ func TestTimelinePortableEventTransaction_Integration(t *testing.T) {
 				}
 				if variant != "nulls" {
 					seen := map[string]bool{}
-					for _, a := range attrs.rows {
+					for _, a := range staged {
 						if a.SourceRowID == source["record_id"] {
-							if a.SourceTable != "timeline_events" || (a.SourceColumn != "reviewed_by_user_id" && a.SourceColumn != "superseded_by_user_id") || a.SourceActorID != timelineSourceActor.String() || a.LocalUserID != actor || seen[a.SourceColumn] {
+							if a.SourceTable != "timeline_events" || (a.SourceColumn != "reviewed_by_user_id" && a.SourceColumn != "superseded_by_user_id") || a.SourceActorID != timelineSourceActor.String() || seen[a.SourceColumn] {
 								t.Fatalf("bad attribution=%v", a)
 							}
 							seen[a.SourceColumn] = true
@@ -143,12 +149,8 @@ func TestTimelinePortableEventTransaction_Integration(t *testing.T) {
 			if variant == "nulls" {
 				wantAttrs = 0
 			}
-			if len(attrs.rows) != wantAttrs {
-				t.Fatalf("attributions=%d want=%d", len(attrs.rows), wantAttrs)
-			}
-			if variant == "nulls" || variant == "empty" {
-				attrs.rows = append(attrs.rows, incidentportability.ImportedAttribution{SourceTable: "timeline_events", SourceRowID: "10000000-0000-4000-8000-000000000001", SourceColumn: "reviewed_by_user_id", SourceActorID: timelineSourceActor.String(), LocalUserID: actor})
-				requireTimelineProfileFailure(t, port.ValidateImportTx(ctx, tx, prepared, input), "event_attribution_exact")
+			if len(staged) != wantAttrs || len(attrs.rows) != 0 {
+				t.Fatalf("staged attributions=%d want=%d recorded=%d", len(staged), wantAttrs, len(attrs.rows))
 			}
 		})
 	}
@@ -210,36 +212,6 @@ func TestTimelinePortableEventTransaction_Integration(t *testing.T) {
 		}
 		requireTimelineProfileFailure(t, port.ValidateImportTx(ctx, tx, prepared, input), "event_state_exact")
 	})
-	for _, variant := range []string{"missing", "duplicate", "row", "column", "source actor", "local actor", "extra"} {
-		t.Run("sidecar drift/"+variant, func(t *testing.T) {
-			tx := begin(t)
-			row := populated(1)
-			seed(t, tx, row, incident, "timeline_event")
-			prepared, input, attrs := prepare(t, row)
-			if err := port.ApplyImportTx(ctx, tx, prepared, input); err != nil {
-				t.Fatal(err)
-			}
-			switch variant {
-			case "missing":
-				attrs.rows = attrs.rows[:1]
-			case "duplicate":
-				attrs.rows = append(attrs.rows, attrs.rows[0])
-			case "row":
-				attrs.rows[0].SourceRowID = uuid.NewString()
-			case "column":
-				attrs.rows[0].SourceColumn = "created_by_user_id"
-			case "source actor":
-				attrs.rows[0].SourceActorID = uuid.NewString()
-			case "local actor":
-				attrs.rows[0].LocalUserID = other
-			case "extra":
-				extra := attrs.rows[0]
-				extra.SourceRowID = uuid.NewString()
-				attrs.rows = append(attrs.rows, extra)
-			}
-			requireTimelineProfileFailure(t, port.ValidateImportTx(ctx, tx, prepared, input), "event_attribution_exact")
-		})
-	}
 	for _, variant := range []string{"missing", "foreign", "wrong type", "occupied"} {
 		t.Run("all rows preflight/"+variant, func(t *testing.T) {
 			tx := begin(t)

@@ -398,16 +398,6 @@
               }
             }
           },
-          "202": {
-            "description": "Reference-pack operation admitted as a background job",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/JobEnvelope"
-                }
-              }
-            }
-          },
           "400": {
             "description": "Invalid reference-pack action request",
             "content": {
@@ -528,16 +518,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ReferencePackActionEnvelope"
-                }
-              }
-            }
-          },
-          "202": {
-            "description": "Reference-pack operation admitted as a background job",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/JobEnvelope"
                 }
               }
             }
@@ -867,7 +847,7 @@
         },
         "responses": {
           "200": {
-            "description": "Disabled reference-pack version response",
+            "description": "Removed reference-pack version response",
             "content": {
               "application/json": {
                 "schema": {

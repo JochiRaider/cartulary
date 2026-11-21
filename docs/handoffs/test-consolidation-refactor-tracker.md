@@ -90621,3 +90621,1555 @@ remediation.
         "unconfirmed".
       - The `service_unavailable` mode in `auth.visual.spec.ts` sends
         another code.
+
+### Carried-residual remediation workstream — entry (E-1176 reserved), 2026-11-20
+
+**Maintainer request.** A complete, durability-biased remediation plan for
+five residuals carried forward by the E-1175 closure:
+
+- the bundle-import transaction budget;
+- the unread `portability_participant_seconds` timeout;
+- Reference Pack activate and disable jobs that no contract declares;
+- the redactor and scan vocabulary mismatch;
+- the `dev-services.sh` race.
+
+The plan was approved the same day. E-1176 is reserved for this entry.
+Slices start at S-1119/F-1104/E-1177, and the closure takes the last E. All
+identities were verified unused.
+
+**Research** (three read-only traces with file:line evidence; the plan file
+holds the detail).
+
+- **Bundle import.** About 17 s of the 23.6 s transaction is application
+  work. Preparation discards validated rows, so every port re-reads,
+  double-hashes and double-parses each member inside the transaction, then
+  writes and checks row by row. The Revisions checks re-walk the bundle
+  N²/128 times.
+- **`portability_participant_seconds`.** Nothing reads it. Export and import
+  preparation participants run with no deadline. A coordinator timeout is
+  reported as `internal_error`, not `extension_transaction_timeout`.
+  `ForImport` re-runs committed-source preparation.
+- **Reference Pack.** Activate, disable and remove are synchronous in the
+  backend, the job fragment, REQ-01-453, REQ-01-634 and RP-REQ-015. Only
+  Core 01 §17.4's "Maybe" branch, its two codes, and the 202 responses added
+  in the unreleased 2.0.0 describe a long-running path, and no job kind backs
+  it. REQ-01-453 also names v1 progress units where the fragment declares
+  v2.
+- **Redaction.** 27 of 50 corpus inputs pass the redactor but fail the scan.
+  The causes:
+  - TH-HARNESS-REQ-604's closed key list lacks `SECRET`, `DSN` and
+    `PRIVATE_KEY`;
+  - `\b` anchoring lets prefixed assignments escape;
+  - no rule covers `COOKIE=`;
+  - replacements that keep a prefix leave values not starting with the
+    marker;
+  - Go and JS differ, and two ad hoc redactors exist.
+- **dev-services.** A check-then-act race between `status` and `kill -0`. The
+  test double publishes non-atomically and exits at once, unlike the real
+  proxy. The 5 s timer also starts before the proxy build.
+
+**Decisions.**
+
+- The 30 s participant budget stays, and the import gets shorter.
+- Activate and disable are synchronous-only.
+- One machine-owned redaction vocabulary feeds every redactor and the scan,
+  and the scan's frozen identity is kept.
+- Both the script and the test double are fixed.
+
+**Workstreams, in order.**
+
+1. WQ: dev-services race.
+2. WR: one redaction vocabulary.
+3. WS: Reference Pack lifecycle contract.
+4. WT: portability deadlines and timeout classification.
+5. WU: the bundle-import transaction does only writes. It is staged per
+   owner, and each slice is recorded when it starts.
+6. WV: closure.
+
+DDL is not expected; any need for it stops for the user.
+
+### S-1119 / F-1104 / E-1177 — WQ: the dev-services proxy handshake has no check-then-act race (harness, tests)
+
+Recorded before editing; identities verified unused. DONE (2026-11-20).
+
+- **Gap.** In `tools/harness/readiness/dev-services.sh:272-280`, `status`
+  runs, then `kill -0`. A child that publishes `bound` and exits between the
+  two makes the loop break without reading the status again.
+- **Fault in the test double.** The double (`readiness/tests/test-dev-services-lifecycle.sh:114-165`)
+  writes `bound` non-atomically and exits at once. The real proxy
+  (`internal/testutil/objectstoreproxy/proxy.go`) instead publishes
+  atomically, serves until TERM, and `status` reports 4 for a dead process.
+- **Timer.** The 5 s handshake timer starts at function entry, before the
+  proxy build.
+- **Change.**
+  - **Script.** Sample whether the child is alive before reading the status,
+    and break only when the child had already exited before that failed
+    read. Start the timer after the spawn.
+  - **Double.** Atomic publish, long-lived until TERM, a recorded PID,
+    `status` 4 for a dead process, and `stop` signals the process. Cleanup
+    stops both runtimes.
+- **Spec.** None. TH-HARNESS-REQ-413 already requires the atomic handshake.
+- **Exit.**
+  - A deterministic red, gated by a FIFO so the double publishes and exits
+    between the two checks, fails on the old script.
+  - The row `harness.command_surface.behavior.dev_services_lifecycle` is
+    green.
+  - Two consecutive `make harness-contract SUITE=contract` runs pass.
+
+### S-1120 / F-1105 / E-1178 — WR: one machine-owned redaction vocabulary feeds every redactor and the scan (Testing Harness NLSpec owner first; harness, tests)
+
+Recorded before editing; identities verified unused. DONE (2026-11-20).
+
+- **Gap.**
+  - 27 corpus inputs are redacted yet still flagged by the scan, against
+    TH-HARNESS-REQ-617.
+  - Vocabularies are hand-maintained in five places: the manifest rules, the
+    Go keys, the JS keys, `publication_linux.go` and `start-web-e2e.sh`.
+  - The manifest's `sensitive_key_patterns` is dead.
+  - §15.1 still lists typed markers.
+- **Change.**
+  - **Spec.**
+    - TH-HARNESS-REQ-604 adds `SECRET`, `DSN`, `PRIVATE_KEY` and `COOKIE`
+      variants and camelCase token splitting. Matching stays anchored.
+    - TH-HARNESS-REQ-617 makes the manifest own both vocabularies, with
+      generation asserting the frozen scan digest, and requires a value
+      under a secret-named key to be replaced whole.
+    - §15.1 loses its typed-marker table.
+    - TH-HARNESS-AC-160 becomes a rule-by-context matrix over Go and JS.
+  - **Implementation.**
+    - The manifest gains `structured_secret_key_tokens`, CLI flag names and
+      a `retained_scan` block.
+    - One prefix-tolerant assignment rule, the scan-shaped Postgres rule,
+      and the whole-string assignment rule shared by Go and JS.
+    - The generator emits the Go keys, the scan's RE2 program, its identity
+      text with a digest assertion, and the closure pass.
+    - Hand-written copies and the dead `redactStructuredText` are deleted.
+    - `publication_linux.go`, `start-web-e2e.sh` and
+      `harness-contract.mjs:812` consume the manifest.
+    - The scan's identity, its exemption, and Reporting's `DefaultMaskText`
+      are unchanged.
+- **Exit.**
+  - The research corpus is red on the current code, and the matrix is green
+    in Go and JS.
+  - Generation and source checks pass.
+  - The `harness.evidence_accounting` rows and the harness-contract evidence
+    operation pass.
+  - Lint: go, scripts and backend-boundary.
+
+### S-1121 / F-1106 / E-1179 — WS: Reference Pack activate, disable and remove are synchronous (Core 01 owner first; contract, client tests)
+
+Recorded before editing; identities verified unused. DONE (2026-11-20).
+
+- **Gap.**
+  - Core 01 §17.4 lets activate and disable be long-running, with
+    `reference_pack_activated` and `reference_pack_disabled`.
+  - The unreleased 2.0.0 OpenAPI declares a 202 Job for both, but no job
+    kind, worker or implementation exists.
+  - The e2e mock exercises that dead path.
+  - REQ-01-453 names v1 progress units where the fragment declares v2.
+  - Remove's 200 description reads "Disabled…".
+- **Change.**
+  - **Spec.**
+    - Core 01: activate and disable are synchronous; the long-running branch
+      and its two codes are deleted.
+    - Core 04 AC-271 and AC-309 follow.
+    - RP-REQ-015 states that the lifecycle actions are synchronous.
+    - REQ-01-453's progress units are settled by history: if the v2 cutover
+      adopted them, the spec is amended.
+  - **Contract.**
+    - Remove the two 202s and delete change-set entries `95d541dab1…` and
+      `6237c68e2a…`.
+    - Fix remove's description.
+    - Regenerate.
+  - **Tests.**
+    - The e2e mock returns 200 inline for activate and disable.
+    - Update the browser, web and protocol-ts tests, and rename their rows.
+- **Exit.**
+  - A contract test (activate and disable declare exactly 200) is red first.
+  - `make generate` and `openapi-compatibility-check` pass.
+  - The reference-data owner run, the protocol-ts and web rows, and the
+    reference-pack browser rows pass.
+  - Lint: types and protocol.
+
+### S-1122 / F-1107 / E-1180 — WT: portability participants run under their deadline, and transaction timeouts are classified (backend, tests)
+
+Recorded before editing; identities verified unused. DONE (2026-11-20).
+
+- **Gap.**
+  - `timeouts.extensions.portability_participant_seconds` is read nowhere,
+    so the export participant (`extension_portability.go:450`) and the
+    import-preparation participant (`:624`) run with no deadline. That is
+    against Table 9-C/9-E and EXT-REQ-215.
+  - A 30 s coordinator timeout is reported as `internal_error` instead of
+    EXT-REQ-219's `extension_transaction_timeout`.
+  - `ForImport` re-runs the core's committed-source preparation.
+- **Change.**
+  - Thread the timeout, grace, fatal sink and clock into
+    `PortabilityOptions`, and add a `Timeout()` accessor.
+  - Wrap both invocations in the `extensions/deadline` helpers, using the
+    Table 9-E start and end points.
+  - On expiry: an export publishes no bundle, and an import abandons and
+    finalizes as a timeout.
+  - `ForImport` reuses the core's preparation.
+  - Map `ErrTimeout`, with commit proven absent, to
+    `extension_transaction_timeout`.
+- **Exit.**
+  - Reds: a blocking fake participant on export and on import, and a
+    coordinator timeout.
+  - Owner runs: incident bundles, extensions and Network Flow.
+
+### S-1123 / F-1108 / E-1181 — WU1: the bundle-import transaction does only writes; spec and shared infrastructure (Core 01 and Core 03 owner first; incident portability)
+
+Recorded on 2026-11-20, after its spec text was written in the same session
+but before any code change. Identities verified unused. OPEN.
+
+- **Gap.** About 17 s of the 23.6 s bundle-import transaction under `check`
+  load is application work. Preparation discards validated rows, and every
+  port then re-reads, double-hashes and double-parses each member inside the
+  transaction before writing and checking row by row. The Revisions checks
+  re-walk the bundle N²/128 times. The deployment-wide revision-sequence
+  exclusion and the registry row locks are held throughout.
+- **Spec, applied.**
+  - REQ-01-641 gains the division of labour:
+    - preparation proves every bundle-only fact and stages write-ready rows,
+      attribution and expected aggregates as bounded streams;
+    - the final transaction only locks, applies, validates the database side,
+      repairs, flushes, rebuilds and finalizes, and never reopens a bundle
+      member;
+    - a bundle-only verdict ranked after a database check is recorded during
+      preparation and reported at its rank.
+  - REQ-03-168: deployment-global locks held by a final import transaction
+    are subject to the same bound, so no bulk computation runs while they
+    are held.
+- **Change (shared infrastructure).**
+  - Single-pass member reads: hash once, parse each line once into the
+    owner's typed row, and check the seal once per operation.
+  - A typed, bounded prepared-row stream staged through
+    `incidentportability.WriteMemberFrom`/`PreparationMembers`, with a COPY
+    writer.
+  - Attribution as a precomputed stream, flushed once by COPY before the
+    database-side validation.
+- **Port slices follow,** each recorded when it starts:
+  1. Network Flow;
+  2. Revisions;
+  3. Records, Timeline and committed sources;
+  4. Entities;
+  5. Indicators;
+  6. the rest.
+- **Exit for WU as a whole.** The transfer-row recorder, under `make check`
+  load, shows:
+  - the transaction at no more than 12 s;
+  - idle in transaction no more than 2 s;
+  - no bundle-member reopen after Begin;
+  - a commit on attempt 1.
+
+  Every port owner's run passes.
+
+**S-1123 design (2026-11-20, read-only).** The note is in the session
+scratchpad as `s1123-design.md`.
+
+- **No DDL.** Staged streams use the existing staged-object owner and object
+  store, COPY writes into existing tables, and the aggregate checks use
+  counts and existing indexes.
+- **Costs found.**
+  - A Network Flow member read is hashed four times: three nested
+    `BoundMembers` layers, plus `stagedobjects`. Each read also runs a
+    `ReadSealed` query.
+  - Each line is parsed or serialized about seven times.
+  - Network Flow's whole Write runs while Revisions sequence exclusion is
+    held.
+- **Likely existing defect (inferred, not run).** A bundle that holds an
+  active table and a soft-deleted table with the same display name can fail
+  in the import transaction as `internal_error`.
+  - `insertTableTx` inserts `active` and corrects the status afterwards
+    (`store.go:555-559`), which can break the unique index on active display
+    names.
+  - COPY with the final status fixes this by construction.
+
+**Decisions (2026-11-20).**
+
+- **D1, attribution flush.** The flush follows REQ-01-641's order: step 9,
+  after `ValidateImportTx`, checked by counts. This corrects the S-1123
+  entry's "before validation".
+- **D2, staged format.** Staged rows use a compact positional format, with
+  attribution grouped, inside the existing REQ-01-686 ceilings. No new
+  budget.
+- **D3.** The Network Flow participant input stays
+  `incident_import_input.v1`. Stream descriptors are held in process.
+- **D4, seal check.** Each staging ID's seal is checked once per operation,
+  and the lease is still checked on every read. Final publication
+  validation is unchanged.
+- **D5, enforcement in production.** An extension participant's bundle
+  reader is retired once its preparation returns, so a later open fails.
+- **D6.** A test hook, `server.Options.ObserveIncidentBundleMemberReads`,
+  modelled on `ObserveJobs`.
+- **D7.** A small new shared COPY helper. Network Flow's live
+  `rowCopyPipeline` is left alone.
+- **D8.** The display-name defect gets a deterministic database-backed
+  regression test, with fixed table IDs, in the Network Flow slice.
+
+**S-1119 outcome (2026-11-20). DONE.**
+
+- **Script.** The handshake timer starts after the spawn. Each pass checks
+  whether the child is alive before reading the status, and gives up only
+  if the child had already exited before a failed read.
+- **Test double**, now faithful to the real proxy:
+  - it publishes atomically and records its PID;
+  - it serves until TERM;
+  - `status` returns 1 while launching and 4 for a missing state file or a
+    dead process;
+  - `promote` and `stop` follow the real proxy, and `stop` waits for exit;
+  - it runs detached under `setsid` and leaves itself after 600 s or when
+    its state directory is removed;
+  - cleanup stops all three runtimes.
+- **Tests.**
+  - The reuse assertions check the lease PID and that the process is alive.
+  - New: a dead proxy is discarded and exactly one replacement is built.
+  - New: a race case driven by marker files, not timing, with a
+    `launcher-reaped` marker proving the window was hit.
+- **Red.** `tcr-s1119-red01`: on the unmodified script, only the race case
+  failed, with the original `resource_conflict … bind/identity handshake`.
+- **Green.**
+  - The lifecycle row passed (`green01`).
+  - `lintscripts01` and `lintshell01` passed.
+  - Two consecutive `make harness-contract SUITE=contract` runs passed,
+    13/13 each (`harnesscontract01` and `02`).
+  - No double processes were left behind.
+
+**S-1120 progress (2026-11-20). OPEN for follow-ups.**
+
+- **Built.**
+  - The manifest owns:
+    - the REQ-604 tokens;
+    - the secret CLI flag names;
+    - the whole-string assignment rule;
+    - a `retained_scan` block;
+    - one prefix-tolerant `secret_assignment` rule;
+    - the scan-shaped Postgres rule.
+  - A pure `redaction-vocabulary.mjs` serves both the generator and the JS
+    redactor.
+  - The generator renders the scan identity and fails unless it hashes to
+    the frozen digest. It also emits the RE2 pieces and checks that every
+    scan term is covered.
+  - The hand-written Go and JS copies and the dead code are deleted.
+  - `publication_linux.go` and `start-web-e2e.sh` consume the manifest.
+- **Red.** `red-go02`: 41 of 86 matrix cases failed. `red-js02`: 40 failed.
+  The one-case gap is the whole-string rule only JS had. The matrices now
+  report case names only, because printing fixture secrets got a log
+  deleted by the scan.
+- **Green.**
+  - The rows passed: `native_session`, the shared-rules unit row,
+    `current_epoch_evidence`, `native_runtime` and `web_e2e_lifecycle`.
+  - The `harness.evidence_accounting` owner run passed, 15/15.
+  - The `harness.command_surface` owner run passed after a bootstrap file
+    list gained the new module.
+  - `harness-contract` passed 13/13, with the scan digest unchanged.
+  - Generation, source, format and lint checks passed.
+- **Follow-ups decided, with the spec amended.**
+  - `SESSION` becomes a raw-assignment credential name, not a structured
+    token.
+  - The raw-text JSON closure is confirmed.
+  - Key canonicalization uppercases ASCII only.
+  - Shared patterns use explicit ASCII classes, and the generator rejects
+    `\s`, `\S`, `\d`, `\w` and `\b`.
+  - The manifest `schema_id` moves to v2.
+- **Accepted.**
+  - Whole-URL masking in `start-web-e2e.sh` now covers only the Postgres
+    schemes; other schemes still lose their userinfo.
+  - The scan forces over-redaction in two URL edge cases.
+
+**S-1120 follow-ups (2026-11-20). DONE.**
+
+- **`SESSION`.** A credential name in the raw `secret_assignment` rule only.
+  It is not a structured token, and it is not in the scan's frozen
+  vocabulary.
+- **ASCII canonicalization.** Go and JS already did it exactly, and unit
+  and matrix cases now pin it.
+- **ASCII-only patterns.** Generation rejects `\s`, `\S`, `\d`, `\D`,
+  `\w`, `\W`, `\b`, `\B` and an unescaped `.` in shared patterns, and
+  every pattern now uses explicit ASCII classes. The scan's forbidden-name
+  patterns are exempt, because they are Go-only and frozen.
+  - A non-breaking space no longer cuts JS redaction short.
+  - Dropping the leading `\b` only adds matches.
+- **Manifest** is now `cartulary.harness_redaction_manifest.v2`.
+- **Red.** `followup-red-js01`: the generator rejected `\b`, and 8 JS cases
+  failed. `followup-red-go01`: 6 SESSION cases failed.
+- **Green.**
+  - Generation, source, format and lint checks.
+  - The rows `native_session`, the shared-rules row,
+    `current_epoch_evidence`, `native_runtime` and `web_e2e_lifecycle`.
+  - Owner runs: `harness.evidence_accounting` 15/15 and
+    `harness.command_surface` 30/30.
+  - `harness-contract` 13/13, with the scan digest unchanged.
+- **Residual found.** A failing `make generate` deletes
+  `internal/gen/sql/*.go` before the foundation generator runs and never
+  restores them. Generation is not atomic across its steps, as also seen in
+  S-1109 `generate04`.
+
+**S-1121 outcome (2026-11-20). DONE.**
+
+- **Spec, applied before any code.**
+  - Core 01: the family table and Table 17.4-A make activate and disable
+    inline `200`; the long-running rows of Table 17.4-C and REQ-01-481 are
+    deleted; the "may return … long-running" text is replaced.
+  - REQ-01-453's Reference Pack progress units are now v2. The profile-2
+    cutover adopted them, and refresh counts cohort members.
+  - Core 04 AC-271 and AC-309 follow.
+  - RP-REQ-015 makes activation, disablement and removal synchronous, with
+    no job.
+- **Contract.**
+  - The two `202` JobEnvelope responses are removed.
+  - Remove's description now reads "Removed …".
+  - Change-set entries `95d541dab1…` and `6237c68e2a…` are deleted.
+  - Remove's whole-route fingerprint `f97c919887bb…` was replaced by
+    `fccacc399a1f…`, because the description is part of that new 2.0.0
+    route.
+- **Tests.**
+  - The contract test requires exactly `200` for activate, disable and
+    remove, and `202` for import, reverify and refresh.
+  - The protocol-ts and web tests cover only the inline shapes.
+  - The e2e mock is synchronous, with lost-response replay and no
+    `reference_pack_activated` or `_disabled` codes.
+  - The browser test was rewritten to exercise synchronous exact actions
+    with idempotent replay.
+  - The browser row was renamed to
+    `module.reference_data.browser.supports_synchronous_exact_actions_with_idempote_6216950e7b`,
+    and `administration_async_recovery` is retired in
+    `tools/test_catalog_row_migrations.json`.
+  - The six-title web transport row keeps its ID, because its claim is
+    unchanged.
+- **Red and green.**
+  - `tcr-s1121-red01`: activate and disable had `[200 202]` and needed
+    `[200]`. `green01` passed.
+- **Checks.**
+  - `gen02`/`03` and `compat02` passed.
+  - Lint passed: types, protocol, go and frontend.
+  - Source checks passed: generated and catalog.
+  - Rows:
+    - web transport: 6/6;
+    - `package.protocol_ts` owner: 8 rows;
+    - the three reference-pack browser rows: 13/13 units;
+    - reference-pack accessibility: 12/12;
+    - `module.reference_data` owner: 101/101.
+- **Failures the agent caused.** `gen01` and `compat01` both came from the
+  stale remove fingerprint, which the change-set update cleared.
+
+**S-1122 decision (2026-11-20).**
+
+- **The question.** A portability participant timeout had no named error
+  code. Two options:
+  - reuse `extension_transaction_timeout`, which would stretch "cross-owner
+    transaction" to cover a different concept;
+  - a new reason.
+- **Decision:** a new reason, `extension_participant_timeout`, under
+  `service_unavailable` with `retryable=true` and details `operation_id` and
+  `timeout_seconds`.
+- **Spec, applied.**
+  - Extensions: the reason table, Table 26-B, the registry exact-rows
+    sentence, and the Table 9-C row for `portability_participant_seconds`.
+  - Core 01: the `service_unavailable` reason table and its code-row
+    description.
+- **Code.** The coordinator timeout keeps `extension_transaction_timeout`.
+
+**S-1120 reopened (2026-11-20): super-linear JS redaction.**
+
+- **Found** during S-1122's checks, in
+  `module.networkflow.browser.cisco_flow_search_upload_builds_and_saves_the_co_06fe25b179`:
+  - It hangs to the harness bound in `tcr-s1122-owner-nf01` and
+    `nfcisco02`. It passed in about 14 s on every earlier run that day.
+  - The test body finishes in about 15 s. Then the Playwright cohort
+    reporter, which calls the JS `redactValue`, spins at 88% CPU on the
+    test's large report payload.
+- **Cause.** JS backtracking on two of WR's changes:
+  - the JSON-member closure `"(?:[^"]*(?:terms)[^"]*|…)"` is quadratic in a
+    long unquoted run;
+  - dropping the leading `\b` lets the URL userinfo, JWT and prefix-tolerant
+    assignment patterns restart at every position inside long word runs.
+
+  Go's RE2 is linear and unaffected. Rejecting `\b` (the follow-up
+  decision) removed the anchors that had kept those patterns linear.
+- **Spec, applied.** TH-HARNESS-REQ-617: every redactor completes in linear
+  time. Shared patterns begin with a literal or an explicit consumed ASCII
+  boundary class, and a key closure captures the key and decides membership
+  in code.
+- **Fix.**
+  - Boundary classes on the URL, JWT and assignment patterns.
+  - A key capture plus a predicate for the closure, in Go and JS.
+  - A generator lint requiring a literal or boundary-class start.
+  - A regression test with multi-megabyte adversarial inputs under a
+    generous time bound. Linear time finishes in milliseconds, quadratic
+    never finishes.
+  - Red: the current patterns on those inputs.
+- **Sequencing.** S-1122 is paused, holding no Make runs or edits, until
+  this is fixed.
+
+**S-1122 progress (2026-11-20). Paused for the S-1120 fix.**
+
+- **Participant deadlines.**
+  - `incidentbundles/portability_deadline.go` uses the `extensions/deadline`
+    helpers: the deadline starts just before each participant call and ends
+    after result, digest and limit validation, capped by any earlier parent
+    deadline.
+  - A late result is discarded, and a call still running after the
+    cancellation grace triggers the fatal outcome.
+  - `PortabilityOptions` carries the timeout, grace, fatal sink and clock,
+    and `Timeout()` is exposed.
+  - On expiry, export publishes nothing, and import abandons its
+    preparation.
+- **Classification.** The Job terminal error is `service_unavailable`,
+  `retryable=true`, with details `operation_id` and `timeout_seconds`:
+  - a participant timeout uses `extension_participant_timeout`;
+  - a coordinator `ErrTimeout` uses `extension_transaction_timeout`.
+- **`ForImport`** reuses the core committed-source preparation and fails
+  closed if it is missing.
+- **Contracts.**
+  - `contracts/errors/index.json` gains the new reason.
+  - `surfaces.json` gains the `core01.portability_participant` surface, with
+    condition `extension_participant_deadline_expired`.
+  - The generated-schema sources gain the Table 26-B variant.
+  - Everything was regenerated.
+- **Red.** `tcr-s1122-red01`: a mutation removed the deadline and the
+  classification. Export and import returned no timeout, no fatal followed
+  grace exhaustion, and both the unit and the database-backed tests took
+  the failure path. The files were restored with `cp` and confirmed with
+  `cmp`.
+- **Green.**
+  - `green01`: 4/4.
+  - Generation, format, and source-check `generated` passed.
+  - Lint passed: go, backend-boundary and types.
+  - Owner run `module.extensions`: 27/27.
+- **Not yet run.**
+  - The `module.incidentbundles` owner run.
+  - The `module.networkflow` owner run. Its only failure, in `owner-nf01`,
+    is the S-1120 reporter hang.
+
+**S-1120 linear-time fix (2026-11-20). DONE.**
+
+- **Boundaries.** `secret_assignment`, `generic_url_userinfo` and `jwt`
+  begin with consumed ASCII boundary groups, re-emitted as `$1`. The PEM
+  body is `(?:[^-]|-[^-])*`.
+- **Closure.** The raw JSON-member closure is a linear pass,
+  `redactJSONMembers`, in both Go and JS. A shared `scanKeyMatches` decides
+  term membership with the scan's case folding and the `token`/`s`
+  exclusion. The closure regexes are gone.
+- **Generator lint.** Every shared pattern must start with an unquantified
+  literal or a `(^|[^ASCII…])` group whose replacement keeps `$1`.
+- **Tests.** A JS linear-time test (4 MiB adversarial inputs, run in a
+  child process with its own deadline) and a matching Go guard.
+- **Outputs.** Every Go and JS matrix case is unchanged. Outside the matrix:
+  - URL schemes may begin with a digit or with `+.-`;
+  - a `eyJ…` that starts inside a longer token is not redacted, as with the
+    original `\b`;
+  - a PEM body that contains `--` no longer matches;
+  - in malformed text, the raw closure considers every alignment of quotes.
+- **Red.** `fix-red-js01`: the JS child hit its 120 s deadline.
+- **Green.**
+  - The Cisco browser row passed in 14.0 s (`fix-nfcisco01`).
+  - The rows passed: `current_epoch_evidence`, `native_session`, the
+    shared-rules unit, `native_runtime` and `web_e2e_lifecycle`.
+  - Owner runs: evidence accounting 15/15 and command surface 30/30.
+  - `harness-contract` passed 13/13, with the scan digest unchanged.
+  - Generation, source, format and lint checks passed.
+
+**S-1122 outcome (2026-11-20). DONE.** The changes are as recorded under
+"S-1122 progress".
+
+- **Export surface.** The Incident Bundles allowlist approves
+  `ErrPortabilityTimeout`, `PortabilityTimeoutError`,
+  `PortabilityOrchestrator.Timeout` and `PreparedSourceValues`.
+- **Owner runs.**
+  - `owner-ib01`: 13/14. The export-surface row had not yet approved the
+    new exports, and `ib-surface01` passed after the allowlist fix.
+  - `owner-nf02`: `module.networkflow` 43/43 units, 155 rows, after the
+    S-1120 fix.
+  - `owner-ext01`: `module.extensions` 27/27.
+- **Checks.**
+  - Generation passed, and the contract-generator row passed (`gen02`).
+  - Format passed (`fmt01`/`02`).
+  - Lint passed: go, backend-boundary and types.
+  - Source-check `generated` passed.
+- **Earlier failures.** `owner-nf01` and `nfcisco02` were red only from the
+  S-1120 reporter hang.
+
+**S-1123 shared infrastructure (2026-11-20).** In place. The ports are
+wired in their own slices.
+
+- **`incidentportability`.**
+  - `WalkTyped`: one strict scan plus one typed decode per line.
+  - `SealVerifiedReader`: no second hash when the reader already verifies
+    the seal.
+  - Prepared row streams: stage and read, plus an owner-issued COPY
+    through `OpenPreparedCopy`.
+  - Attribution streams, staged as grouped lines with per-table aggregates.
+  - `PreparedVerdicts`.
+- **`stagedobjects`.** Each seal is validated once per operation and cached,
+  and every read still checks the lease and verifies the bytes.
+- **`incidentbundles`.**
+  - A member-read observer, plus the
+    `server.Options.ObserveIncidentBundleMemberReads` hook.
+  - An extension participant's bundle reader is retired after its
+    `PrepareImport` (D5).
+  - `FlushImportedAttributions` (one COPY) and `CountImportedAttributions`
+    (one GROUP BY).
+- **Recorder.** It adds member reads by phase and store, idle and active
+  time per attempt, and `bundle_reads_after_begin`.
+- **Deferred to the first core port.** The core preparation stores and the
+  step-9 attribution flush (D1).
+- **Red, by mutation.** Removing reader retirement, bypassing the seal
+  cache, and removing the single-hash short circuit:
+  - `red02`: "rehashed=true" and "bundle member reader survived
+    preparation";
+  - `red03`: "seal validated 3 times for one operation".
+
+  The files were restored with `cp` and confirmed with `cmp`.
+- **Green.**
+  - `green02`: stagedobjects owner, 5/5.
+  - `green03`: member streams.
+  - `lintgo02`, `lintbb02`, `fmt01` and `fmt02`.
+- **Expected red until S-1124.** `green01` passed 5/6. In
+  `large_member_public_transfer`, Network Flow's Write reopens the retired
+  bundle reader and fails as `internal_error`. It is the integration red
+  for the Network Flow port.
+
+### S-1124 / F-1109 / E-1182 — WU2: Network Flow portability writes only staged rows by COPY (Network Flow, incident portability)
+
+Recorded before editing Network Flow code; identities verified unused. DONE (2026-11-20).
+
+- **Gap.** In `portability_write.go`, `WritePortableState` re-walks every
+  bundle member through `walkPortable` inside the final transaction:
+  - marshal, strict decode, unmarshal, marshal and `canonicalEqual`;
+  - about seven parses per line and four hashes per read;
+  - one attribution INSERT per table, observation, binding and graph;
+  - `insertTableTx` inserts each table `active` and then corrects its
+    status, which can break the unique index on active display names
+    (D8).
+- **Change.**
+  - Preparation stages write-ready streams for tables, observations,
+    diagnostics, bindings and attribution, inside its existing validating
+    walks, in a compact positional format (D2).
+  - `WritePortableState` becomes four COPYs from those streams, the
+    unchanged graph publish, and one attribution COPY. Tables are written
+    with their final status.
+  - The participant input stays v1 (D3).
+- **Red first, on unchanged Network Flow code.**
+  - "Apply opens no bundle member after Begin", with a counting reader.
+  - D8: an active table and a soft-deleted table that share a display name,
+    database-backed, with fixed table IDs.
+  - `module.incidentbundles.integration.network_flow_portability`, red
+    from reader retirement.
+- **Exit.**
+  - The transfer row is green on attempt 1, with zero bundle reads after
+    Begin.
+  - The recorder's transaction and idle times are reported alone and under
+    the incident-bundles owner run.
+  - Owner runs pass: incident bundles, Network Flow, imports and recovery.
+
+**S-1124 outcome (2026-11-20). DONE.**
+
+- **Red, on unchanged Network Flow code.**
+  - `tcr-s1124-red01`:
+    - "Apply opened 1 bundle members after Begin";
+    - D8 hit a `23505` on `network_flow_tables_active_display_name_uidx`,
+      which confirms the defect.
+  - `red02`: the transfer row failed as `internal_error`, with 179 bundle
+    reads after Begin.
+- **Change.**
+  - `portability_prepared_rows.go` holds `portableImportPlan`: sealed
+    streams only, no bundle reader.
+  - Positional codecs for tables, with final status, version, `deleted_at`,
+    destination digest and the importing actor; also observations,
+    diagnostics and bindings.
+  - `stageAttribution` builds attribution with a count check.
+  - `copyPreparedFamilies` writes one literal `CopyFrom` per family, in FK
+    order, each with a count check.
+  - Preparation uses `WalkTyped` and stages rows inside its validating walks.
+  - `WritePortableState` performs the COPYs, the prepared-graph publish and
+    one attribution flush.
+  - `ValidatePortableState` keeps only the database-side check.
+  - `insertRetainedRowsTx` is removed.
+  - No contract, generated output, documentation or DDL changed.
+- **Measurement** (the transfer row, attempt 1, before and after).
+
+  | Run | Transaction | Idle in transaction |
+  | --- | --: | --: |
+  | Before, alone (`tcr-wp-nf-alone01`) | 23.2 s | 15.7 s |
+  | Before, owner run (`tcr-s1122-owner-ib01`) | 23.9 s | 17.9 s |
+  | After, alone (`tcr-s1124-transfer01`) | 16.4 s | 9.6 s |
+  | After, owner run (`tcr-s1124-owner-ib01`) | 16.9 s | 10.3 s |
+
+  - Network Flow opens no bundle member after Begin.
+  - The 179 bundle reads and 3 rewritten reads that remain after Begin all
+    come from core ports that have not been migrated.
+- **Green.**
+  - `green01`: 4/4.
+  - `transfer01`: pass.
+  - Owner runs:
+    - incident bundles 14/14, with `large_member_public_transfer` green;
+    - Network Flow 43/43;
+    - imports 38/38;
+    - recovery 27/27.
+  - `lintgo01`, `lintbb01`, `fmt01` and `fmt02`.
+- **Procedural.** The agent wrapped `owner-nf01` in a 590 s `timeout`
+  shorter than the run, so it was interrupted. That says nothing about the
+  code. `owner-nf02` ran without the wrapper and passed.
+
+### S-1125 / F-1110 / E-1183 — WU3: Revisions import proves bundle-only facts during preparation; core ports gain preparation stores and the step-9 attribution flush (Revisions, incident portability)
+
+Recorded before editing; identities verified unused. DONE (2026-11-20).
+
+- **Gap.**
+  - The Revisions Apply and Validate steps re-walk the bundle inside the
+    transaction. Membership and record versions are re-walked once per
+    batch of 128 IDs, which grows as N²/128.
+  - `DescribeValues` and `normalizePortableSnapshotActors` run per row
+    inside the transaction.
+  - Writes are one INSERT plus attribution per change set, mutation and
+    revision.
+  - The core ports have no preparation stores, and their attribution is not
+    yet flushed at step 9 (D1).
+- **Change.**
+  - Core-port wiring: `sourceport.ImportContext` preparation stores, plus
+    the step-9 attribution flush checked by counts, per REQ-01-641.
+  - Revisions moves membership, record-version and actor-context checks and
+    `DescribeValues` into preparation, with verdict flags reported at their
+    rank, and stages write-ready rows for COPY.
+  - The database-side reference checks stay in the transaction and become
+    set-based.
+- **Exit.**
+  - Red: "Revisions Apply opens no bundle member after Begin".
+  - Bundle reads after Begin drop by Revisions' share.
+  - Owner runs pass: revisions, incident bundles, recovery and imports.
+
+### S-1126 / F-1111 / E-1184 — WU4: Records, Timeline and committed sources import from staged rows (records, timeline, imports)
+
+Recorded before editing; identities verified unused. DONE (2026-11-20).
+
+- **Gap.**
+  - Records re-runs `prepareRecordsRow` per row, inside the transaction.
+  - Committed sources re-read and re-hash blobs, decode each row four ways,
+    and SELECT the same source metadata per record.
+  - Timeline walks events twice and sends one SELECT plus one
+    `INSERT…SELECT` per row.
+- **Change.**
+  - Write-ready rows are staged for all three.
+  - Committed-source metadata is cached per source.
+  - Timeline's preflight becomes one set-based query.
+  - Blob deduplication and envelope checks stay in the transaction.
+- **Exit.**
+  - Red per port: no member is opened after Begin.
+  - Owner runs pass: records, timeline, imports and incident bundles.
+
+### S-1127 / F-1112 / E-1185 — WU5: Entities import from staged rows (entities)
+
+Recorded before editing; identities verified unused. DONE (2026-11-20).
+
+- **Gap.** Hosts and identities are each walked three times in Apply. Per
+  row there is one INSERT or UPDATE, plus attribution and validation-claim
+  rows.
+- **Change.** Stage write-ready rows and claim rows once, then COPY.
+- **Exit.**
+  - Red: no member is opened after Begin.
+  - Owner runs pass: entities and incident bundles.
+
+### S-1128 / F-1113 / E-1186 — WU6: Indicators reuse preparation's canonical results under unchanged registry locks (indicators, reference data)
+
+Recorded before editing; identities verified unused. DONE (2026-11-20).
+
+- **Gap.** Indicators and observations are re-walked and re-evaluated
+  through the Reference Pack consumer, once in Apply and again in Validate.
+  Meanwhile 7 deployment-global registry rows are held `FOR UPDATE`.
+- **Change.** The registry locks stay. Preparation's canonical results are
+  reused only when the locked pack set and revisions equal the prepared
+  ones, otherwise the import re-evaluates.
+- **Owner check.** If the owner cannot show that evaluation is
+  deterministic, this slice stops and reports instead.
+- **Exit.**
+  - Red: no member is opened after Begin on the equal-pack-set path.
+  - A changed-pack-set case re-evaluates.
+  - Owner runs pass: indicators, reference data and incident bundles.
+
+### S-1129 / F-1114 / E-1187 — WU7: remaining ports import from staged rows; old per-row APIs retired (links, artifacts, tasks/decisions, evidence, assessments, saved views, reporting, incidents)
+
+Recorded before editing; identities verified unused. DONE (2026-11-20).
+
+- **Gap.** These ports each walk their members several times, then SELECT
+  and INSERT per row, with attribution:
+  - links, artifacts, tasks/decisions, Evidence, assessments and saved
+    views;
+  - Reporting, which writes one INSERT per 64 KiB chunk;
+  - `importActors`, which re-walks `actors.ndjson`.
+- **Change.**
+  - Stage write-ready rows and COPY them.
+  - Reporting chunks are written by COPY.
+  - `importActors` uses the in-memory actor catalog.
+  - At the end, every bundle reader is retired before the transaction, and
+    the old per-row APIs (`RecordImportedAttribution`,
+    `VisitImportedAttributions`, the in-transaction `WalkNDJSON` uses) are
+    deleted.
+- **Exit for WU as a whole.** The transfer-row recorder, under `make check`
+  load, shows:
+  - the transaction at no more than 12 s;
+  - idle in transaction no more than 2 s;
+  - zero bundle reads after Begin;
+  - a commit on attempt 1.
+
+  Every port owner's run passes.
+
+**S-1125 outcome (2026-11-20). DONE.**
+
+- **Red.** `tcr-s1125-red01`: "Revisions Apply and Validate opened 21 bundle
+  members after preparation". The mutations were restored with `cp` and
+  confirmed with `cmp`.
+- **Core wiring.**
+  - Each port gets its own preparation scope (`prepared/core/<family>/<n>/`)
+    in one per-operation store on the bundle's staged-object scope. The
+    store is sealed after preparation and abandoned with the scope.
+  - `sourceport.StagedAttributionPort` hands staged attribution to the core.
+    Step 9 flushes it with one COPY, after sequence repair and before the
+    projection rebuild. The written total and the per-table counts must
+    equal preparation's.
+  - `SortedKeyStager` and `MergeSortedKeys` keep memory bounded.
+- **Revisions.**
+  - Write-ready change sets, mutations and revisions are staged.
+  - These bundle-only checks run in preparation, each reported at its
+    original rank: membership, record versions, reference shape,
+    `DescribeValues`, snapshot shape and the actor-context suffix.
+  - The database reference check runs once per distinct record, from sorted
+    runs.
+  - The source-state check compares the database against the staged rows.
+- **Semantic change (D1).** Revisions no longer records or validates
+  attribution row by row. Step 9 checks completeness by count, and the
+  staged objects' seals guarantee content integrity. The per-row tampering
+  cases in `TestRevisionsIncidentBundleExactAttribution` became
+  staged-stream assertions.
+- **Green.**
+  - `green02`: 3/3. `green01` failed one row, because Validate did not
+    re-report a bundle-only verdict at its rank; that was fixed.
+  - Owner runs:
+    - revisions 37/37 units, 87 rows;
+    - incident bundles 14/14;
+    - imports 38/38;
+    - recovery 27/27.
+  - `fmt02`, `lintgo02` and `lintbb02`.
+- **Transfer row** (owner run, attempt 1):
+  - transaction 10.8 s, from 16.9 s;
+  - idle in transaction 5.2 s, from 10.3 s;
+  - bundle reads after Begin 146, from 179;
+  - also 9 reads of staged streams and 3 of the rewritten store.
+
+**S-1126 stop and decision (2026-11-20).**
+
+- **The conflict.** Indicators reads Records' attribution rows during
+  steps 7–8 (`indicatorEnvelopeAttributionsEqual`,
+  `indicators/internal/providers/incidentbundle/portable_validate.go:180`)
+  and requires every indicator row's historical actors to equal them. Under
+  D1, Records' attribution is not flushed until step 9. So every import
+  with indicators failed as `indicators.representation_legal`
+  (`tcr-s1126-owner-ib01`: 12/14). No other port reads another family's
+  attribution.
+- **Decision: option B.** The check is a bundle-only cross-member fact, so
+  it is proven during preparation.
+  - Records publishes its staged attribution as a sorted key run.
+  - A small `sourceport` mechanism exposes read-only facts published by
+    earlier families to later families' preparation, in catalog order.
+  - Indicators merge-joins against that run and reports the verdict at its
+    existing ranks.
+
+  Rejected: (A) flushing Records at step 7 as an interim, which deviates
+  from D1, and (C) answering per-row visits from unflushed streams, which
+  is quadratic.
+- **Spec, applied.** REQ-01-641: a family's preparation may consume
+  read-only facts that an earlier family published, so cross-family checks
+  are proven before step 6.
+- **S-1126 so far.**
+  - **Red,** on unchanged code:
+    - `red01`: Records reopened 1 member after preparation.
+    - `red02`: Timeline reopened 8.
+    - `red03`: the committed-source transfer reopened members by path.
+  - **Ported.**
+    - Records: staged envelopes, COPY and staged attribution.
+    - Timeline:
+      - staged events and provenance;
+      - preflight and binding checks as one statement per 512 rows;
+      - events through `INSERT…SELECT unnest`;
+      - provenance by COPY;
+      - a single ordered validation pass.
+    - Committed sources:
+      - blobs are staged while preparation verifies them;
+      - deduplication stays in the transaction, and new chunks are written
+        by COPY;
+      - sources and bindings by COPY;
+      - envelope checks batched;
+      - a single ordered validation pass.
+  - **Tests.** Timeline's sidecar and attribution checks in Validate became
+    staged-stream assertions, consistent with D1. Two tests that asserted a
+    reopen now assert that no member is reopened and that a tampered stream
+    fails its seal.
+  - **Green so far.**
+    - Owner runs: records 12/12 and imports 38/38. Timeline was 64/65; its
+      one failure asserted the old reread and was rewritten, and `green01`
+      passed 4/4.
+    - `lintgo03`, `fmt01` and `fmt02`.
+  - **Pending:**
+    - the Indicators fix (option B);
+    - the incident-bundles and recovery owner runs;
+    - the backend-boundary lint.
+
+**S-1126 outcome (2026-11-20). DONE, with option B.**
+
+- **Published facts.**
+  - The core builds `sourceport.ImportFacts` in the catalog's recorded
+    order, and the adapter scopes it to the preparing family.
+  - A fact is published once, as a sealed sorted key run under
+    `prepared/core/<family>/facts/<name>/`. A later family reads it through
+    a confined reader.
+  - Reading a family that is not earlier, or an unpublished fact, fails with
+    `ErrFactUnavailable`. Apply and Validate receive no facts.
+  - Records publishes `record_attribution`. Indicators merge-joins its
+    expected keys against it (`MergeSortedKeySets`) and reports the verdict
+    through `PreparedVerdicts` at its original Apply and Validate ranks.
+    Its steps 7–8 no longer read records' attribution.
+- **Red.**
+  - `red01`–`red03`: Records reopened 1 bundle member, Timeline 8, and the
+    committed-source transfer reopened members by path.
+  - `red04`: with the verdict not reported, the
+    `envelope_attribution_mismatch` case passed Apply. The mutation was
+    restored with `cp` and confirmed with `cmp`.
+- **Green.**
+  - Owner runs:
+    - records 12/12;
+    - timeline 65/65, 214 rows;
+    - imports 38/38;
+    - incident bundles 14/14;
+    - recovery 27/27.
+  - Indicators portability rows: 4/4.
+  - `fmt03`, `lintgo05` and `lintbb01`.
+- **Transfer row** (owner run, attempt 1):
+  - transaction 7.7 s, from 10.8 s;
+  - idle 3.1 s, from 5.2 s;
+  - bundle reads after Begin 127, from 146.
+
+  What remains: evidence 19, artifacts 20, hosts and identities 14,
+  indicators 15, tasks and decisions 12, and reference packs (`ext/*`) 9.
+
+**S-1127 outcome (2026-11-20). DONE.**
+
+- **Red.**
+  - `tcr-s1127-red01`: "Entities Apply and Validate opened 27 bundle members
+    after preparation".
+  - `red02`: the transfer row now asserts that no migrated family reopens a
+    member after Begin. That is `migratedBundlePaths` in the recorder. On
+    unchanged Entities code it reported hosts 7, identities 7, mentions 5,
+    preserved identifiers 4 and aliases 4.
+- **Port.**
+  - Preparation stages hosts and identities with their normalized claims,
+    plus mentions, preserved identifiers, aliases and attribution. It
+    computes the catalog digest once.
+  - Apply's scratch validation:
+    - nodes and mentions by COPY;
+    - batched envelope loads and checks;
+    - claims through batched `INSERT…SELECT unnest … ON CONFLICT DO NOTHING`;
+    - failures still go through the minimum-rank accumulator.
+  - Writes:
+    - hosts and identities in two COPY phases, unmerged then merged,
+      through `OpenPreparedFilteredCopy`;
+    - mentions, preserved identifiers and aliases by COPY;
+    - seed links by batched `UPDATE … FROM unnest`.
+  - Validate compares the database against the staged rows.
+  - In `tools/backend_module_boundaries.json`, the
+    `records-current-envelope-access` grant now names the set-based owner
+    query.
+- **Green.**
+  - Owner runs: entities 34/34, 50 rows; incident bundles 14/14; recovery
+    27/27.
+  - `fmt02`, `lintgo03` and `lintbb02`.
+- **Transfer row** (owner run, attempt 1):
+  - transaction 7.3 s;
+  - idle 2.7 s;
+  - bundle reads after Begin 100, from 127.
+- **S-1128 determinism, settled.**
+  - `EvaluateIndicatorValue` reads the indicator policy from the retained
+    set named by its content-addressed `rpset_<sha256>` ID.
+  - `packformat.Evaluate` is a pure function of that policy, the kind and
+    the raw value. It uses no clock, no randomness and no environment.
+  - Results are reused only when the locked current set is identical (ID,
+    SHA, schema and members); otherwise the import re-evaluates.
+
+**S-1128 outcome (2026-11-20). DONE.**
+
+- **Red.** `tcr-s1128-red01`: every case of
+  `TestIndicatorPortableFinalStateInvariants_Integration` uses a counting
+  bundle and a counting registry assignment.
+  - On unchanged code, the valid case opened 15 members and re-evaluated 14
+    values under the prepared set.
+  - The rejection cases opened 5 each.
+  - The new `changed_pack_set_reevaluates` case failed its reopen check.
+- **Port.**
+  - Preparation records its pack set (`identity.FromConsumerSet`). Apply and
+    Validate still lock the registry rows `FOR UPDATE`.
+  - When the locked current set is identical, the prepared canonical results
+    stand. Otherwise the staged rows are re-evaluated under the locked
+    evaluator.
+  - Indicators, observations, intervals and attribution are staged:
+    - scratch sources are filled by COPY;
+    - envelope and reference checks are batched;
+    - the redundant per-row re-checks are gone;
+    - the writes are three COPYs;
+    - attribution is checked at step 9.
+- **Green.**
+  - Owner runs:
+    - indicators 19/19, 44 rows;
+    - reference data 48/48;
+    - incident bundles 14/14;
+    - recovery 27/27.
+  - The portability rows: 4/4.
+  - `fmt01`, `lintgo02` and `lintbb01`.
+- **Transfer row** (owner run, attempt 1):
+  - transaction 7.2 s;
+  - idle 2.5 s;
+  - bundle reads after Begin 85, from 100.
+
+  None of the remaining reads come from Indicators, and the guard now covers
+  `data/indicator*`. What remains for S-1129: artifacts 25, evidence 19,
+  tasks and decisions 12, links and tags 10, reference packs 9, assessments
+  4, saved views 3, parties 2 and actors 1.
+
+**S-1129 outcome (2026-11-20). DONE. The WU exit is met in the owner run;
+the `make check` confirmation is due in WV.**
+
+- **Red.** `tcr-s1129-red01`: with the transfer guard widened to every path,
+  it reported reopens after Begin across actors, artifacts, assessments,
+  decisions, evidence, handoff risks, object blobs, parties, links and tags,
+  saved views, tasks and `ext/*`. The `ext/*` reads were Reporting's
+  `ApplyTx` reading snapshots, not reference packs.
+- **Ports.**
+  - tasks/decisions and assessments: staged rows and attribution, COPY.
+  - artifacts, saved views and parties: read staged rows. Their per-row
+    inserts stay where owner checks depend on earlier rows.
+  - Links:
+    - raw rows are staged and loaded in `jsonb_populate_recordset` batches;
+    - unadmitted actors keep their `links_tags.link_tuple_legal` mapping.
+  - Evidence: records, custody and blobs are staged.
+  - Incidents: creator and updater attribution is staged.
+  - Reporting: snapshot members are copied into the core preparation and
+    size- and digest-checked. `ApplyTx` writes one chunk COPY per member.
+  - `importActors`: one `unnest` insert from the in-memory catalog.
+- **Closure.**
+  - The bundle reader is retired immediately before `Execute`.
+  - Deleted:
+    - `RecordImportedAttribution` and `VisitImportedAttributions`;
+    - `ValidateTopLevelAttributions`;
+    - `ImportFixedMemberNDJSON`, `ImportFixedRows` and
+      `RemapTopLevelUserFields`.
+  - Concrete row codecs replace a generic JSON codec, which the boundary
+    checker rejected.
+- **Extra fix, accepted.** A Revisions reference-pass fast path reads the
+  owner's current row directly when every declared type agrees, and
+  otherwise falls back to the original lookup with unchanged results and
+  ranks. The reference pass dropped from 599 to 314 ms in Apply and from
+  629 to 381 ms in Validate.
+  - It was found with temporary timing in `diag01`–`diag05`, restored with
+    `cp` and confirmed with `cmp`.
+  - Remaining idle, attributed: projection rebuild about 0.7 s, Revisions
+    per-record snapshot reads about 0.6 s, and the Network Flow participant
+    about 0.3 s.
+- **Green.**
+  - Owner runs, all passing:
+    - tasksdecisions 26/26;
+    - artifacts 9/9;
+    - assessments 28/28;
+    - saved views 23/23;
+    - parties 23/23;
+    - links 20/20;
+    - evidence 40/40;
+    - incidents 25/25;
+    - reporting 34/34;
+    - imports 38/38;
+    - revisions 37/37;
+    - incident bundles 14/14;
+    - recovery 27/27.
+  - `fmt07`, `lintgo10` and `lintbb03`.
+  - Records, timeline, entities, indicators and Network Flow had only
+    test-fake edits after their slices, and lint compiles them.
+- **WU exit, measured in `tcr-s1129-incidentbundles-02`:**
+  - the transaction took 6.84 s, against at most 12 s;
+  - idle in transaction was 1.50 s, against at most 2 s; earlier runs gave
+    about 2.0–2.2 s;
+  - no bundle reads after Begin;
+  - commit on attempt 1.
+- **Cleanup asked for before WV.** The now-unused actor-catalog parameter of
+  `NewImportedAttributionRecorder` is to be removed.
+- **Cleanup, done.** `NewImportedAttributionRecorder` now takes
+  `(ctx, tx, incidentID, actorID)`, and Network Flow's dead factory
+  parameter is gone.
+  - Passed: `cleanup-fmt01`, `cleanup-lintgo01` and `cleanup-lintbb01`.
+  - Owner runs: incident bundles 14/14, Network Flow 43/43 and
+    crossownertransaction 4/4.
+  - The transfer row took 6.45 s, with 1.91 s idle, zero bundle reads after
+    Begin and attempt 1.
+
+### S-1130 / F-1115 / E-1188 — WV: closure gate and handoff for the carried-residual workstream (verification; tracker)
+
+Recorded before running; identities verified unused. DONE (2026-11-20).
+
+- **Scope.**
+  - `make check`, with no `operation_cancellation_grace_exhausted` or
+    `indeterminate_database_commit`. Its transfer-row recorder confirms the
+    WU exit under load.
+  - `make browser-e2e SUITE=functional`.
+  - `make harness-contract SUITE=contract`.
+  - `make source-check` for generated, schema and catalog.
+  - `make lint` for go, types, backend-boundary, frontend-boundary,
+    protocol, scripts and shell.
+  - `make openapi-compatibility-check`.
+  - `make lint-markdown` and `git diff --check`.
+- **Visual suite.** Not run. WS changed the browser mock and tests but no
+  rendered surface, and no other workstream touched the UI.
+- **Rules.** Investigate a failure before any rerun. If a golden differs,
+  stop and ask the user.
+
+**`make check` (`tcr-s1130-check01`): fail, 353 of 356 units.**
+
+- **WU exit under check load: met.** The transfer row committed on attempt
+  1:
+  - transaction 6.58 s;
+  - idle in transaction 1.80 s;
+  - no bundle reads after Begin.
+
+  Contract evidence is clean: 0 undeclared codes, 0 security mismatches, 0
+  `server_fatal` records, and no fatal reasons.
+- **Failure 1: two integration units timed out** at the harness bound,
+  `module.incidentbundles` (717 s) and `module.networkflow` (643 s). Owner
+  runs show the incident-bundles unit growing during WU.
+
+  | Run | Incident-bundles unit |
+  | --- | --: |
+  | S-1125 | 252 s |
+  | S-1126 | 304 s |
+  | S-1127 | 292 s |
+  | S-1128 | 299 s |
+  | S-1129 | 318 s and 352 s |
+
+  The Network Flow unit grew from 418 s to 441 s. Under `check` load the
+  incident-bundles unit took 563 s in `tcr-wp-check03`, already close to
+  the bound.
+  - **Hypothesis, unconfirmed.** Preparation now copies opaque bytes into
+    new staged objects. S-1126 copies committed-source blobs, and S-1129
+    copies Reporting snapshot members. That doubles object-store writes and
+    staged bytes for large bundles, against REQ-01-686's ceilings.
+- **Failure 2: the 250k Network Flow capacity row failed.** It reported
+  `extension_transaction_timeout`, with pass 1 at 5.8 s and pass 2 still
+  running at 24.2 s; in `tcr-wp-check03` the passes took 5.3 s and 18.8 s.
+  WU did not change the CSV import path, so check load is suspected. This
+  is S-1109's residual margin of about 6 s.
+- **Next.** A diagnosis before any product change: per-test and per-phase
+  timings for the incident-bundles unit before WU (S-1125) and now, and
+  whether anything in WU touches the 250k path.
+
+**Diagnosis (2026-11-20).**
+
+- **The bound.** Go units have `timeout_ms` 600000 (`default_timeout_ms`,
+  `tools/harness_work_graph_owner.json:1859`), measured from fixture
+  acquisition. In `check01`, both units were killed about 601.7 s after
+  their fixture was acquired. In `check03`, the incident-bundles unit used
+  490 s of the bound and the Network Flow unit 564 s.
+- **Incident bundles.** The rows grew by about 97 s (41%) between S-1125 and
+  S-1129, mostly `z_evidence_cleanup` (70 s to 108–129 s) and
+  `export_and_import` (38 s to 51–55 s).
+  - Each staged object has a fixed cost of about 7.7 ms: allocate, PUT and
+    seal, plus a per-object abandon commit. An open costs about 1.4 ms more.
+  - A small import writes about 45 preparation members holding 230 bytes in
+    total, which is about 0.6 s per import.
+  - `z_evidence_cleanup` runs 87 imports with 2,733 writes; staging costs
+    about 29 s of it.
+  - Copied payload bytes are minor in these tests.
+- **Network Flow unit and the 250k row: not WU.** The WU changes neither
+  path:
+  - the CSV apply files, `crossownertransaction` and the staged-object
+    paths have no diff;
+  - `insertRetainedRowsTx`'s only caller was the old bundle write.
+
+  The Network Flow rows grew 3% in owner runs (428.8 s, 425.8 s, 442.6 s),
+  and were already at 94% of the bound in `check03`. The 250k row's unit
+  time barely moved (36.9 s to 37.8 s). Its pass 2 ran slower under check
+  load.
+- **Shard packing.** Go rows use the evidence-class estimate, 5 s per
+  integration row (`compiler.mjs:180`). So the Network Flow package's
+  36 rows, about 180 s by estimate, were packed into one cohort that takes
+  420–600 s. TH lines 367-370 allow "a reviewed authored estimate" informed
+  by retained observations.
+
+**Decisions (2026-11-20).**
+
+- **(A)** A stream with no rows creates no staged object, and readers of a
+  zero-row prepared value return at once.
+- **(B)** `Scope.Abandon` abandons a whole scope in one set-based statement.
+- **(C)** Opaque payloads (Reporting snapshots, committed-source blobs)
+  whose digest preparation verified stream from the sealed bundle member,
+  through a payload-only reader that verifies the seal and hashes once,
+  with no copy. The recorder counts payload reads separately from row
+  reads, and the WU exit counts row reads.
+- **Spec, applied.** REQ-01-641: no re-parsing or re-proving after Begin;
+  verified opaque payloads may stream from their sealed member; preparation
+  must not copy them; an empty stream creates no staged object.
+- **(E)** An optional, reviewed per-row `estimated_work_ms` in the test
+  families, validated as a positive integer below the unit bound. The
+  compiler uses it in place of the evidence-class default. Estimates are
+  set from retained observations under `check` load for the heavy
+  incident-bundles and Network Flow integration rows, so LPT packing splits
+  those cohorts below the 600 s bound with headroom.
+- **The 250k row.** If it fails again under `check` after A, B, C and E,
+  the margin decision goes to the user. The levers left need fresh
+  authorization.
+
+**A, B and C done (2026-11-20).**
+
+- **A.** A preparation stream allocates its staged object on the first byte
+  written. A zero-row stream has no member, and its readers and COPYs
+  return at once. A zero-row descriptor that names a member is rejected.
+- **B.** `extensionstore.Store.AbandonStagedObjects` abandons a scope in one
+  statement, with no DDL. An already-abandoned object counts as done, so a
+  retry succeeds; before, re-abandoning was an error.
+- **C.**
+  - `incidentportability.PayloadMembers` is a core view that opens only the
+    admitted, descriptor-matched sealed members, through the
+    seal-verifying reader, and reports them as `payload` reads. Admission
+    closes when the row reader retires.
+  - Reporting snapshots and committed-source blobs stream through it, with
+    no copy.
+  - The S-1129 `ImportRequest.Preparation` and `ScopePreparation` are
+    removed.
+- **Red.**
+  - `tcr-s1130-red-a01`: empty streams staged 2 members.
+  - `red-b01`: one abandon statement per object.
+  - `red-ac02`: VERIS staged 78 zero-byte objects where 34 were expected,
+    and snapshots twice.
+  - `red-c01`: no `sources/*` payload was streamed.
+- **Green.**
+  - The `green-*` runs passed. `green-b02` hit a test cleanup-window
+    collision, fixed by `b03`.
+  - Owner runs: incident bundles 14/14 (`-02`; `-01` failed on an
+    over-narrow guard), imports 38/38, reporting 34/34, stagedobjects 5/5,
+    recovery 27/27, extensions 27/27 and Network Flow 43/43.
+  - `fmt01`–`03`, `lintgo01`–`03` and `lintbb01`.
+- **Transfer row.**
+  - transaction 6.72 s, idle 1.72 s (`-01` showed 6.42 s and 1.40 s);
+  - no row reads after Begin;
+  - payload reads `ext/*` 9 and `sources/*` 6;
+  - attempt 1.
+- **Incident-bundles unit rows.**
+  - Before: 236.8 s at S-1125 and 333.7 s at S-1129.
+  - Now: 271.7 s and 298.8 s.
+  - `z_evidence_cleanup` is still 20–42 s above S-1125.
+
+**E: spec, applied (2026-11-20).** Testing Harness, the planning-estimate
+paragraph:
+
+- A catalog row may declare a reviewed `estimated_work_ms` below the unit
+  timeout, which replaces its evidence-class estimate.
+- Go cohorts pack against the work-graph owner's authored packing bound, a
+  fraction of the unit timeout that leaves headroom for concurrent load.
+
+**E done (2026-11-20).**
+
+- **Bound.** `tools/harness_work_graph_owner.json` gains
+  `go_cohort_packing_bound_ms: 300000`. It is required by the owner schema
+  and must be below `default_timeout_ms`. Half the timeout covers check
+  load of up to 1.9 times owner load; `check03` measured 1.37–1.63.
+- **Row estimates.**
+  - The test-family row schema gains an optional `estimated_work_ms` below
+    the timeout.
+  - `cohorts.mjs` `rowEstimateMs` takes the reviewed estimate when one is
+    present.
+  - `go-lpt-shards.mjs` packs against the bound.
+  - Both schemas were extended in place, because they are authored inputs
+    with no retained instances.
+- **Estimates set** on 115 rows, each the measured row duration rounded up,
+  from passing runs whose unit IDs and digests match the current plan:
+  - Network Flow, 36 rows, totalling 436 s;
+  - incident bundles, 15 rows, totalling 307 s;
+  - reference data, 36 rows, totalling 257 s;
+  - recovery `b420…` 241 s and `99ce…` 200 s.
+- **Plans.**
+  - Network Flow splits into 299 s + 147 s cohorts; its owner run took
+    267.6 s and 117.3 s.
+  - Incident bundles split into 298 s + 19 s; its owner run took 261.5 s
+    and 11.7 s.
+  - Reference data and recovery are re-estimated, still one cohort each.
+- **Red.** `tcr-s1130-e-red01`: one cohort was packed where two were
+  expected, and the owner had no bound. `routing01` and `routing02` failed
+  on a faulty test premise; `routing03` passed.
+- **Green.**
+  - `e-generate01`, `format01`, and the generated, schema and catalog
+    source checks.
+  - Lint: scripts and shell.
+  - Owner runs: `harness.test_catalog`, `harness.command_surface` 30/30,
+    Network Flow 44/44 and incident bundles 15/15.
+  - `harness-contract`: 13/13.
+- **Residuals.** These were made visible, not hidden:
+  - `z_evidence_cleanup` takes 112 s, still 20–42 s above S-1125;
+  - `saved_graph_lifecycle_v2` takes about 200 s, about half of the
+    Network Flow package.
+
+**`make check` (`tcr-s1130-check02`): 357 of 358 units. The one failure is
+a harness fixture error, environmental.**
+
+- **Passed.**
+  - The incident-bundles and Network Flow cohorts no longer time out. The
+    heavy cohorts ran 550 s and 459 s from start to end.
+  - The 250k capacity row passed, at 5.8 s + 19.3 s.
+  - The transfer row: transaction 6.59 s, idle 1.71 s, payload reads only,
+    attempt 1.
+  - Contract evidence is clean: 0 undeclared codes, 0 security mismatches,
+    0 `server_fatal`, and no fatal reasons.
+- **Failed: recovery cohort `go:b420a5fe8fec90ea`, `fixture_error`.**
+  - The first test passed, but its cleanup's `forced_drop` exceeded the
+    35 s budget waiting on `CheckpointStart`. The checkpointer was in
+    `DataFileSync`, with sync of about 10.9 s per sample, 8,147 buffers,
+    and 8 of 10 requested checkpoints done.
+  - The poisoned fixture then failed the next three tests' setup at the
+    `capability` stage. No product assertion failed.
+- **Why.** E's realistic estimates make LPT start the heavy database-bound
+  cohorts together: recovery, incident bundles, Network Flow and reference
+  data. They saturate host IO, and `DROP DATABASE`'s forced checkpoint
+  stalls.
+- **Margin.** The heavy incident-bundles cohort ran 550 s of the 600 s
+  bound under this load (1.84 times its estimate).
+- **Next.** One `make check` rerun to see whether this recurs. If it does,
+  the harness's IO capacity question (IO claims for heavy database units,
+  or the packing bound) goes to the user.
+
+**`make check` (`tcr-s1130-check03`): 357 of 358 again. The same
+environmental failure recurred, in recovery cohort `go:99ce4c6332b17502`.**
+
+- **The failure.** Its `forced_drop` hit `deadline_exceeded` while the
+  checkpointer was in `DataFileSync`, with sync at 42.8 s. Six tests then
+  failed their fixture setup at the `capability` stage. No product
+  assertion failed.
+- **Everything else held.**
+  - The transfer row took 6.44 s, with 1.90 s idle, payload reads only, and
+    attempt 1.
+  - The 250k row's two passes took 5.18 s and 17.13 s.
+  - The heavy cohorts ran 553 s (incident bundles), 438 s (Network Flow)
+    and 392 s (reference data).
+  - Contract evidence is clean.
+- **Decision (user, 2026-11-20).** The heavy database integration rows of
+  recovery, incident bundles, Network Flow and reference data move to the
+  existing `io_heavy` resource profile, which claims `io: 2` where
+  `standard` claims 1. The scheduler then runs fewer of them at once. This
+  is the harness capacity model used as intended; `make check` may take
+  longer.
+
+**F: `io_heavy` cannot limit overlap. Corrected decision (user,
+2026-11-20).**
+
+- **The finding.** Scheduler IO capacity is twice the CPU tokens
+  (`tools/scheduler_resource_registry.json`), and `io_heavy` claims exactly
+  that ratio, so CPU always runs out first. In `check02` and `check03`, IO
+  peaked at 25 and 23 of 38 and never saturated. The harness agent stopped
+  before editing anything.
+- **Decision.** A dedicated fixed-capacity lane for heavy database work.
+- **Spec, applied (Testing Harness).**
+  - The closed resource registry gains `postgres_heavy`: an authored
+    heavy-PostgreSQL concurrency policy, counted in lanes, failing safe to
+    one.
+  - The capacity policy gains `postgres_heavy_lanes`: two by default, at
+    least one and at most the PostgreSQL lanes.
+  - A new paragraph: a row whose measured work is dominated by PostgreSQL
+    bulk writes, restores, imports and checkpoints uses a profile that
+    claims one `postgres_heavy` lane. Like `volume`, it is a logical
+    concurrency limit, not an I/O isolation promise.
+  - The closed profile list gains `postgres_heavy`.
+
+**G: the `postgres_heavy` lane is in place (2026-11-20).**
+
+- **Registry** (`tools/scheduler_resource_registry.json`, now v8):
+  - `postgres_heavy` lanes, policy `postgres_heavy_lanes` with a default of
+    2, bounded by the PostgreSQL lanes;
+  - the v8 schema replaces v7, and v7 is listed as retired;
+  - the JS scheduler resources and capability resolution, and the native
+    `validCapacities`, are updated;
+  - host admission is unchanged, so the lane limits units within one
+    invocation.
+- **Profile.** `postgres_heavy` claims cpu 1, io 1, memory 256, process 1
+  and `postgres_heavy` 1.
+- **Rows.** 112 rows moved: Network Flow 37, incident bundles 16, reference
+  data 40 and recovery 19.
+  - **Criteria:** the item-E cohorts, plus `postgres_dedicated` integration
+    or process rows with at least 10 s of measured work, or that restore or
+    bulk-import.
+  - **Estimates:** added for the 9 newly moved rows that have measurements.
+  - **Unchanged:** cohort membership. The heavy units stay within the
+    300,000 ms bound.
+- **Plan evidence.** `tcr-s1130-g-plan-check02`: 11 heavy units, each
+  claiming one lane, with `postgres_heavy_lanes` 2, so at most two overlap.
+  A simulated estimate puts `check` about 0–3 minutes longer.
+- **Red.** `g-red01`: the planner test failed on the old code. The native
+  guard `postgres_heavy_lanes_bound_concurrent_heavy_units` holds the peak
+  at exactly 2.
+- **A regression the agent caused, and fixed.** `g-harnesscontract01` failed
+  12/13: a fail-safe lane on historical snapshots broke canonical
+  reconstruction. Historical snapshots without the lane now carry no lane
+  resource. `g-evidence01` and `g-harnesscontract02` passed (13/13).
+- **Green.**
+  - `g-generate01`/`02`;
+  - source checks: catalog, generated and schema;
+  - lint: scripts, shell and go;
+  - owner runs: `harness.test_catalog` and `harness.command_surface` 30/30;
+  - the native rows.
+- **Spec, applied.**
+  - The registry is named v8.
+  - Historical snapshots are interpreted without the lane, and every new
+    snapshot resolves at least one lane.
+  - The closed profile list gains `backend_capacity_postgres_heavy`: the
+    `backend_capacity_isolated` claims plus one lane, for the PostgreSQL
+    bulk capacity rows, including the 250k row.
+
+**H done (2026-11-20).**
+
+- **Profile.** `backend_capacity_postgres_heavy` has
+  `backend_capacity_isolated`'s exact claims plus one `postgres_heavy`
+  lane.
+- **Rows moved.** The 250k row and the explicit-only scaling sweep.
+  `networkflow.measurement.backend_graph_capacity_certification` and the
+  parties security row stay on `backend_capacity_isolated`.
+- **Plan.** `tcr-s1130-h-plan-check01` shows 12 lane-claiming units on 2
+  lanes, the 250k unit among them.
+- **The 250k row's estimate is left at its class default.** LPT therefore
+  runs it after the heavy cohorts, sharing a lane with at most one other
+  heavy unit, which favours its timing margin.
+- **Green.** `h-generate01`, the catalog, generated and schema source
+  checks, `lint-scripts`, and `routing01` (2/2).
+
+**`make check` (`tcr-s1130-check04`): pass, 360 of 360 units, wall 1,077 s.**
+
+- **Contract evidence is clean.**
+  - 0 undeclared codes, 0 security mismatches and 0 `server_fatal`
+    records;
+  - 988 emissions;
+  - 731 of 1,312 declared codes exercised.
+  - No `operation_cancellation_grace_exhausted` or
+    `indeterminate_database_commit` appears.
+- **Lane.** `postgres_heavy` peaked at 2. The heavy cohorts ran 372 s,
+  333 s and 328 s, against 550 s and 553 s before the lane, under the 600 s
+  bound.
+- **WU exit under check load: met.**
+  - transaction 6.59 s, at most 12 s allowed;
+  - idle in transaction 1.80 s, at most 2 s allowed;
+  - no bundle row reads after Begin; payload reads `ext/*` 9 and
+    `sources/*` 6;
+  - attempt 1.
+- **NF-REQ-171a.** The 250k row took 4.55 s + 15.33 s, about 19.9 s against
+  the 30 s budget.
+
+**Remaining WV gates: all pass.**
+
+- `tcr-s1130-func01`, functional browser suite: 31/31 units and 403 rows,
+  with clean contract evidence.
+- `harnesscontract01`: 13/13.
+- Source checks: generated, schema and catalog.
+- Lint: go, types, backend-boundary, frontend-boundary, protocol, scripts
+  and shell.
+- `compat01`, the OpenAPI compatibility check.
+- `md02`, `lint-markdown`.
+- `git diff --check`.
+- The visual suite was not run, because no rendered surface changed.
+
+**Carried-residual workstream closure (E-1188, 2026-11-20). DONE.**
+E-1176 through E-1188 close the workstream.
+
+- **Outcomes.**
+  - **WQ** (S-1119). The `dev-services.sh` handshake race is gone. The test
+    double is faithful to the real proxy, and two consecutive
+    `harness-contract` runs passed.
+  - **WR** (S-1120). One machine-owned redaction vocabulary feeds the Go,
+    JS and script redactors and the scan. The scan's frozen identity is
+    generated and asserted.
+    - Fixed along the way: the 27 leaking cases, the `SESSION=` regression,
+      Go/JS divergence, and a super-linear JS hang that a linear-time rule
+      and lint now prevent.
+  - **WS** (S-1121). Reference Pack activate, disable and remove are
+    synchronous in spec and contract. The dead 2.0.0 202 branch and its two
+    codes are gone, and the REQ-01-453 progress units match the contract.
+  - **WT** (S-1122).
+    - Portability participants run under
+      `portability_participant_seconds`, and expiry fails with the new
+      `extension_participant_timeout` reason.
+    - Coordinator timeouts report `extension_transaction_timeout`.
+    - Committed-source preparation no longer runs twice.
+  - **WU** (S-1123–S-1129). The bundle-import final transaction performs
+    only writes and the database side of validation:
+    - preparation proves every bundle-only fact and stages write-ready rows,
+      attribution and cross-family facts;
+    - verified opaque payloads stream from their sealed bundle member;
+    - no bundle row is read after Begin.
+  - **WV** (S-1130). The closure gate, plus the fixes it needed:
+    - staging cost: empty streams stage nothing, a scope is abandoned in one
+      statement, and payloads are not copied;
+    - per-row reviewed estimates and a 300 s Go packing bound;
+    - the `postgres_heavy` lane, two by default, chosen by the user after
+      the `io_heavy` premise proved wrong.
+- **Wire and contract changes (unreleased 2.0.0).**
+  - `activateReferencePackVersion` and `disableReferencePackVersion` declare
+    `200` only.
+  - The `service_unavailable` reason registry gains
+    `extension_participant_timeout`.
+  - Bundle-import Job timeouts report `extension_transaction_timeout`
+    instead of `internal_error`.
+- **Harness changes.**
+  - The redaction manifest is v2.
+  - The scheduler resource registry is v8, with `postgres_heavy`.
+  - New profiles: `postgres_heavy` and `backend_capacity_postgres_heavy`.
+  - `go_cohort_packing_bound_ms` is 300000.
+  - Test-family rows may carry `estimated_work_ms`.
+- **Spec changes.**
+  - Core 01: REQ-01-453 (twice), REQ-01-641 (three times), the Reference
+    Pack lifecycle text, and the `service_unavailable` reasons.
+  - Core 03: REQ-03-168.
+  - Core 04: AC-271 and AC-309.
+  - Extensions: the participant timeout reason, Table 26-B and Table 9-C.
+  - Reference Pack: RP-REQ-015.
+  - Testing Harness:
+    - TH-HARNESS-REQ-602, REQ-604 and REQ-617, §15.1 and AC-160;
+    - the planning-estimate and packing-bound paragraph;
+    - the `postgres_heavy` resource, its capacity policy and the profile
+      list.
+- **No DDL.**
+- **Measurements.** The transfer row, attempt 1, before and after.
+
+  | Condition | Before | After |
+  | --- | --- | --- |
+  | Owner run | 23.9 s transaction, 17.9 s idle | 6.4–6.7 s, 1.4–1.9 s idle |
+  | `make check` | 23.6 s | 6.59 s, 1.80 s idle |
+
+  - The 250k Network Flow capacity row took 19.9 s under `check`, against
+    the 30 s budget.
+  - The heavy integration cohorts took 328–372 s under `check`, against the
+    600 s bound.
+- **Final evidence.**
+  - `tcr-s1130-check04`: 360/360.
+  - The functional suite: 31/31.
+  - `harness-contract`: 13/13.
+  - Source checks, lint, compatibility and markdown: all pass.
+  - Owner runs for every touched owner, as recorded per slice.
+- **Residuals carried forward.**
+  1. **Slow rows.** `incident_bundle_import_z_evidence_cleanup` (112 s,
+     still above its S-1125 time) and Network Flow
+     `saved_graph_lifecycle_v2` (about 200 s) dominate their packages.
+  2. **Remaining idle.** Under `check` the transfer row has about 1.8 s idle
+     against a 2 s target. The levers are the projection rebuild (about
+     0.7 s) and Revisions per-record snapshot reads (about 0.6 s), both
+     outside this scope.
+  3. **Generation is not atomic.** A failing `make generate` deletes
+     `internal/gen/sql/*.go` and never restores them.
+  4. **Lane scope.** The `postgres_heavy` lane limits units within one
+     invocation; host admission across concurrent invocations ignores it.
+  5. **Evidence rewrite.** The Evidence blob rewrite still writes an empty
+     rewritten `object_blobs.ndjson`.
+  6. **Unselected residuals from E-1175.** Still recorded:
+     - the Jobs waits behind open handler transactions;
+     - Network Flow's `null` detail members;
+     - the lz4 probe;
+     - paint drift;
+     - the order of upload key validation;
+     - two copy residuals.

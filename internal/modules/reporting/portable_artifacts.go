@@ -43,10 +43,17 @@ type portableArtifactCatalog struct {
 	Releases   []portableRelease  `json:"releases"`
 }
 
+// preparedArtifactImport holds the admitted snapshot payloads (Core 01
+// REQ-01-641). members is the bundle while preparing only; ApplyTx streams
+// each admitted payload from its sealed bundle member and copies nothing.
 type preparedArtifactImport struct {
 	incident  uuid.UUID
 	operation uuid.UUID
 	members   *incidentportability.BoundMembers
+	payloads  incidentportability.PayloadMembers
+	files     []incidentportability.Member
+	// unadmitted marks a validation-only preparation of a nonempty member set.
+	unadmitted bool
 }
 
 var portableDigestPattern = regexp.MustCompile(`^[0-9a-f]{64}$`)
@@ -223,7 +230,33 @@ func (PortableReferenceSource) PrepareArtifactImport(ctx context.Context, reques
 	if len(used) != len(paths) {
 		return nil, artifactport.ErrInvalid
 	}
+	if err := p.admit(ctx, request.Payloads); err != nil {
+		return nil, err
+	}
 	return p, nil
+}
+
+// admit records each snapshot member as an opaque payload whose sealed
+// digest the bundle verified, copies nothing, and retires the bundle from
+// the prepared value.
+func (p *preparedArtifactImport) admit(ctx context.Context, payloads incidentportability.PayloadMembers) error {
+	members := p.members.Members()
+	if payloads == nil {
+		p.unadmitted = len(members) > 0
+		return nil
+	}
+	for _, member := range members {
+		admitted, err := payloads.AdmitPayload(ctx, member.Path)
+		if err != nil {
+			return err
+		}
+		if admitted != member {
+			return artifactport.ErrInvalid
+		}
+		p.files = append(p.files, admitted)
+	}
+	p.members, p.payloads = nil, payloads
+	return nil
 }
 
 var _ artifactport.Prepared = (*preparedArtifactImport)(nil)

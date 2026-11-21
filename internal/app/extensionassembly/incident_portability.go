@@ -93,9 +93,16 @@ func (IncidentPortabilityReads) ForImport(ctx context.Context, input incidentbun
 	if profileID != networkflow.ProfileID {
 		return nil, incidentbundles.ErrPortabilityUnavailable
 	}
-	sources, err := imports.PrepareCommittedSources(ctx, members, input.IncidentID, input.Actors)
-	if err != nil {
-		return nil, err
+	// Reuse the core committed-source preparation of this same operation. It
+	// already proved these admitted members; preparing them again is unbounded
+	// duplicate work inside the participant deadline.
+	if input.PreparedSources == nil {
+		return nil, incidentbundles.ErrPortabilityUnavailable
+	}
+	value, ok := input.PreparedSources.PreparedSourceValue(imports.CommittedSourcesFamilyID)
+	sources, typed := value.(*imports.PreparedCommittedSources)
+	if !ok || !typed || sources == nil {
+		return nil, incidentbundles.ErrPortabilityUnavailable
 	}
 	indicatorReferences, err := indicators.NewPortableReferences(members, input.IncidentID)
 	if err != nil {

@@ -27,7 +27,20 @@ func OpenVerifiedMember(ctx context.Context, members MemberReader, expected Memb
 		}
 		return nil, &VerificationFailure{ReasonCode: "checksum_mismatch"}
 	}
+	// A reader whose streams already verify the immutable staged seal is
+	// hashed once, by that reader, not again here.
+	if verifier, ok := members.(SealVerifiedReader); ok && verifier.VerifiesSealedContent() {
+		return source, nil
+	}
 	return &verifiedMemberRead{ctx: ctx, source: source, expected: expected, digest: sha256.New()}, nil
+}
+
+// SealVerifiedReader is a member reader whose opened streams verify byte size
+// and SHA-256 against the immutable staged seal as they are read, so callers
+// need not hash them a second time. Wrappers report their source's property.
+type SealVerifiedReader interface {
+	MemberReader
+	VerifiesSealedContent() bool
 }
 
 type verifiedMemberRead struct {
@@ -114,6 +127,13 @@ func (b *BoundMembers) Members() []Member {
 	sort.Slice(result, func(i, j int) bool { return result[i].Path < result[j].Path })
 	return result
 }
+
+// VerifiesSealedContent reports the bound source's seal verification.
+func (b *BoundMembers) VerifiesSealedContent() bool {
+	verifier, ok := b.source.(SealVerifiedReader)
+	return ok && verifier.VerifiesSealedContent()
+}
+
 func (b *BoundMembers) OpenMember(ctx context.Context, path string) (io.ReadCloser, Member, error) {
 	member, ok := b.members[path]
 	if !ok {

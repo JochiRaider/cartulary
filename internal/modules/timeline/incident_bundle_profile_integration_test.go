@@ -14,6 +14,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
+	"github.com/JochiRaider/cartulary/internal/testutil/portabilitysupport"
 )
 
 func TestTimelinePortableProfileTransaction_Integration(t *testing.T) {
@@ -71,9 +72,15 @@ func TestTimelinePortableProfileTransaction_Integration(t *testing.T) {
 			if err := tx.QueryRow(ctx, `SELECT count(*) FROM timeline_time_conversion_profiles WHERE incident_id=$1`, incident).Scan(&count); err != nil {
 				t.Fatal(err)
 			}
+			// Core 01 REQ-01-641: attribution is staged while preparing and
+			// flushed by the core in step 9; the port records none row by row.
+			staged, err := portabilitysupport.ReadStagedAttributions(ctx, port, prepared, input)
+			if err != nil || len(attrs.rows) != 0 {
+				t.Fatalf("staged attribution err=%v recorded=%v", err, attrs.rows)
+			}
 			if variant == "absent" {
-				if count != 0 || len(attrs.rows) != 0 {
-					t.Fatalf("absence materialized: rows=%d attributions=%v", count, attrs.rows)
+				if count != 0 || len(staged) != 0 {
+					t.Fatalf("absence materialized: rows=%d attributions=%v", count, staged)
 				}
 			} else {
 				var id uuid.UUID
@@ -91,22 +98,18 @@ func TestTimelinePortableProfileTransaction_Integration(t *testing.T) {
 					t.Fatalf("profile identity/version/time changed: count=%d id=%s version=%d stamp=%s", count, id, version, stamp)
 				}
 				if variant == "nulls" {
-					if enabled || offset != nil || label != nil || local != nil || len(attrs.rows) != 0 {
+					if enabled || offset != nil || label != nil || local != nil || len(staged) != 0 {
 						t.Fatal("null profile fields or absent attribution changed")
 					}
 				} else {
 					if !enabled || offset == nil || *offset != -300 || label == nil || *label != "UTC−05" || local == nil || *local != actor {
 						t.Fatal("populated profile fields changed")
 					}
-					want := []incidentportability.ImportedAttribution{{SourceTable: "timeline_time_conversion_profiles", SourceRowID: incident.String(), SourceColumn: "updated_by_user_id", SourceActorID: timelineSourceActor.String(), LocalUserID: actor}}
-					if !reflect.DeepEqual(attrs.rows, want) {
-						t.Fatalf("sidecars=%v want=%v", attrs.rows, want)
+					want := []incidentportability.AttributionRow{{SourceTable: "timeline_time_conversion_profiles", SourceRowID: incident.String(), SourceColumn: "updated_by_user_id", SourceActorID: timelineSourceActor.String()}}
+					if !reflect.DeepEqual(staged, want) {
+						t.Fatalf("sidecars=%v want=%v", staged, want)
 					}
 				}
-			}
-			if variant != "populated" {
-				attrs.rows = append(attrs.rows, incidentportability.ImportedAttribution{SourceTable: "timeline_time_conversion_profiles", SourceRowID: incident.String(), SourceColumn: "updated_by_user_id", SourceActorID: timelineSourceActor.String(), LocalUserID: actor})
-				requireTimelineProfileFailure(t, port.ValidateImportTx(ctx, tx, prepared, input), "profile_attribution_exact")
 			}
 		})
 	}
@@ -144,36 +147,6 @@ func TestTimelinePortableProfileTransaction_Integration(t *testing.T) {
 				t.Fatal(err)
 			}
 			requireTimelineProfileFailure(t, port.ValidateImportTx(ctx, tx, prepared, input), "profile_state_exact")
-		})
-	}
-	for _, variant := range []string{"missing", "duplicate", "row", "column", "source actor", "local actor", "table", "extra"} {
-		t.Run("sidecar drift/"+variant, func(t *testing.T) {
-			tx := begin(t)
-			prepared, input, attrs := prepare(t, timelineProfileRow(incident))
-			if err := port.ApplyImportTx(ctx, tx, prepared, input); err != nil {
-				t.Fatal(err)
-			}
-			switch variant {
-			case "missing":
-				attrs.rows = nil
-			case "duplicate":
-				attrs.rows = append(attrs.rows, attrs.rows[0])
-			case "row":
-				attrs.rows[0].SourceRowID = uuid.NewString()
-			case "column":
-				attrs.rows[0].SourceColumn = "created_by_user_id"
-			case "source actor":
-				attrs.rows[0].SourceActorID = uuid.NewString()
-			case "local actor":
-				attrs.rows[0].LocalUserID = other
-			case "table":
-				attrs.rows[0].SourceTable = "timeline_events"
-			case "extra":
-				extra := attrs.rows[0]
-				extra.SourceRowID = uuid.NewString()
-				attrs.rows = append(attrs.rows, extra)
-			}
-			requireTimelineProfileFailure(t, port.ValidateImportTx(ctx, tx, prepared, input), "profile_attribution_exact")
 		})
 	}
 	for _, absent := range []bool{false, true} {

@@ -26,10 +26,15 @@ function validateItems(items) {
 }
 
 export function planGoLPTShards(items, { availableGoLanes,
-  invocationPolicy = { startup_ms: 5000, cleanup_ms: 250 } } = {}) {
+  invocationPolicy = { startup_ms: 5000, cleanup_ms: 250 }, packingBoundMs } = {}) {
   validateItems(items);
   if (!Number.isInteger(availableGoLanes) || availableGoLanes < 1) {
     throw new Error("availableGoLanes must be a positive integer");
+  }
+  // TH-HARNESS 11.6: cohorts pack against the authored packing bound, never
+  // the unit timeout, so concurrent load keeps headroom below the timeout.
+  if (!Number.isInteger(packingBoundMs) || packingBoundMs < 1) {
+    throw new Error("Go LPT planning requires a positive authored packing bound");
   }
   const groups = new Map();
   for (const item of items) {
@@ -48,9 +53,13 @@ export function planGoLPTShards(items, { availableGoLanes,
   for (const group of ordered) {
     const contract = group.items[0].compatibility;
     const cpu = Math.min(availableGoLanes, contract.execution_context?.cpu_tokens ?? contract.resource_claims?.cpu ?? 1);
+    const timeoutMS = contract.timeout_ms ?? 600000;
+    if (packingBoundMs >= timeoutMS) {
+      throw new Error(`Go LPT packing bound ${packingBoundMs} must be below the unit timeout ${timeoutMS}`);
+    }
     const cohorts = packInvocationCohorts(
       group.items.map((item) => ({ ...item, cost: item.estimated_work_ms })),
-      invocationPolicy, contract.timeout_ms ?? 600000,
+      invocationPolicy, packingBoundMs,
     );
     for (const cohort of cohorts) {
       const itemIDs = cohort.items.map((item) => item.id).sort(compareASCII);

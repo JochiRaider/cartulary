@@ -62,13 +62,19 @@ type portableRecordRevision struct {
 	CreatedAt   time.Time
 }
 
+// preparedRevisionsImport is the only state the final transaction receives.
+// It holds sealed preparation streams and recorded verdicts, never a bundle
+// member reader (Core 01 REQ-01-641).
 type preparedRevisionsImport struct {
 	actorContext                             revisionActorImportContext
 	incidentID                               uuid.UUID
 	runtimeActor                             uuid.UUID
 	actors                                   sourceport.ActorCatalog
-	members                                  *incidentportability.BoundMembers
 	sequenceInvalid, revisionIdentityInvalid bool
+	verdicts                                 *incidentportability.PreparedVerdicts
+	changeSets, mutations, revisions         incidentportability.PreparedRowStream
+	references                               incidentportability.SortedKeyRuns
+	attribution                              incidentportability.AttributionStream
 }
 
 type revisionsParseFailure struct {

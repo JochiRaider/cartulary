@@ -40,6 +40,7 @@ func TestNDJSONStreamRejectsAmbiguousOrLossyRecords_Unit(t *testing.T) {
 			}
 		})
 	}
+	t.Run("typed single-pass walk", checkTypedWalk)
 }
 
 func TestNDJSONStreamBoundsReadsAndPreservesValues_Unit(t *testing.T) {
@@ -177,6 +178,11 @@ func TestMemberProducerIsIncrementalAndJoinedOnFailure_Unit(t *testing.T) {
 	if !errors.Is(err, sourceFailure) {
 		t.Fatalf("source failure = %v", err)
 	}
+	t.Run("prepared row streams", checkPreparedRowStreams)
+	t.Run("attribution streams", checkAttributionStreams)
+	t.Run("deferred verdicts", checkPreparedVerdicts)
+	t.Run("sorted key runs", checkSortedKeyRuns)
+	t.Run("empty streams stage nothing", checkEmptyStreamsStageNothing)
 }
 
 func TestNDJSONRecordWriterEnforcesLimitsAndShortWrites_Unit(t *testing.T) {

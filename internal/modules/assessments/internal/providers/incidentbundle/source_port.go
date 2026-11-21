@@ -6,6 +6,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
+	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 )
 
 const assessmentsBundlePath = "data/compromise_assessments.ndjson"
@@ -47,6 +48,14 @@ func NewSourcePort() sourceport.Port {
 				return sourceport.ErrPreparedBinding
 			}
 			return prepared.validate(ctx, tx, input, descriptor)
+		},
+		// Attribution was staged while preparing; the core flushes it in step 9.
+		Attributions: func(value any) []incidentportability.AttributionStream {
+			prepared, ok := value.(preparedImport)
+			if !ok {
+				return nil
+			}
+			return []incidentportability.AttributionStream{prepared.attribution}
 		},
 	})
 }

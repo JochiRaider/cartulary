@@ -75,7 +75,7 @@ func TestIncidentsSourcePortCurrentFormatCharacterization_Unit(t *testing.T) {
 		"data/incident.json": wantPayload,
 	}, sourceport.ImportContext{
 		IncidentID: incidentID, ActorUserID: actorID, BundleVersion: 8,
-		OperationID: operationID, Actors: actors,
+		OperationID: operationID, Actors: actors, Preparation: portabilitysupport.NewPreparationStore(),
 	})
 	if err != nil {
 		t.Fatalf("prepare characterized valid incident source: %v", err)

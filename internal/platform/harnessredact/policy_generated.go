@@ -7,21 +7,71 @@ import "regexp"
 // tools/harness_redaction_manifest.json (TH-HARNESS-REQ-617).
 const Marker = "<redacted>"
 
+// structuredSecretKeyTokens is the closed TH-HARNESS-REQ-604 token set.
+var structuredSecretKeyTokens = []string{
+	"PASSWORD",
+	"PASS",
+	"PWD",
+	"SECRET",
+	"TOKEN",
+	"JWT",
+	"BEARER",
+	"API_KEY",
+	"ACCESS_KEY",
+	"SECRET_KEY",
+	"PRIVATE_KEY",
+	"DSN",
+	"AUTHORIZATION",
+	"COOKIE",
+	"SET_COOKIE",
+	"X_CARTULARY_TEST_ROUTE_TOKEN",
+}
+
+var sensitiveCLIFlagPattern = regexp.MustCompile("(?i)^--(?:password|passwd|pwd|secret|token|jwt|api[_-]?key|access[_-]?key|secret[_-]?key|private[_-]?key|client[_-]?secret|dsn)$")
+
+var wholeStringAssignmentPattern = regexp.MustCompile("^([A-Za-z][A-Za-z0-9_]*)=")
+
+// scanMemberTerms are the retained-secret scan's JSON-member terms. The
+// TH-HARNESS-REQ-604 closure decides key membership in code from them.
+var scanMemberTerms = []scanTerm{
+	{text: "password"},
+	{text: "secret"},
+	{text: "token", excluded: 's'},
+	{text: "cookie"},
+	{text: "dsn"},
+	{text: "access_key"},
+	{text: "private_key"},
+}
+
 var rules = compiledManifest{
 	replacement: Marker,
 	valueRules: []compiledRule{
-		{pattern: regexp.MustCompile("(?i)\\bBearer\\s+[-._~+/A-Za-z0-9]+=*"), replacement: "Bearer <redacted>"},
-		{pattern: regexp.MustCompile("(?i)\\bBasic\\s+[-._~+/A-Za-z0-9]+=*"), replacement: "Basic <redacted>"},
-		{pattern: regexp.MustCompile("(?i)\\b(Authorization\\s*:\\s*)([^\\r\\n]+)"), replacement: "$1<redacted>"},
-		{pattern: regexp.MustCompile("(?i)\\b((?:Cookie|Set-Cookie|X-Cartulary-Test-Route-Token)\\s*:\\s*)([^\\r\\n]+)"), replacement: "$1<redacted>"},
-		{pattern: regexp.MustCompile("\\beyJ[-_A-Za-z0-9]+\\.[-_A-Za-z0-9]+\\.[-_A-Za-z0-9]+\\b"), replacement: "<redacted>"},
-		{pattern: regexp.MustCompile("(?i)\\b(password\\s*=\\s*)([^\\s&;]+)"), replacement: "$1<redacted>"},
-		{pattern: regexp.MustCompile("(?i)\\b([a-z][a-z0-9+.-]*://)([^/?#\\s@]+)@"), replacement: "$1<redacted>@"},
-		{pattern: regexp.MustCompile("(?i)(--(?:password|passwd|pwd|secret|token|jwt|api[_-]?key|access[_-]?key|secret[_-]?key|private[_-]?key|client[_-]?secret|dsn)\\s*=\\s*)((?:\\\\.|[^\\s])+)"), replacement: "$1<redacted>"},
-		{pattern: regexp.MustCompile("(?i)(--(?:password|passwd|pwd|secret|token|jwt|api[_-]?key|access[_-]?key|secret[_-]?key|private[_-]?key|client[_-]?secret|dsn)\\s+)((?:\\\\.|[^\\s])+)"), replacement: "$1<redacted>"},
-		{pattern: regexp.MustCompile("(?i)\\b(password|passwd|pwd|secret|token|jwt|api[_-]?key|access[_-]?key|secret[_-]?key|private[_-]?key|client[_-]?secret|dsn)\\s*=\\s*([^\\s&]+)"), replacement: "$1=<redacted>"},
-		{pattern: regexp.MustCompile("(?i)\\b((?:minio|s3|aws)?[_-]?(?:access[_-]?key|secret[_-]?key|access[_-]?key[_-]?id|secret[_-]?access[_-]?key)\\s*=\\s*)([^\\s&]+)"), replacement: "$1<redacted>"},
-		{pattern: regexp.MustCompile("(?i)(\"(?:authorization|cookie|set-cookie|x-cartulary-test-route-token|password|passwd|pwd|secret|token|jwt|api[_-]?key|access[_-]?key|secret[_-]?key|private[_-]?key|client[_-]?secret|dsn)\"\\s*:\\s*\")([^\"]+)(\")"), replacement: "$1<redacted>$3"},
-		{pattern: regexp.MustCompile("-----BEGIN [A-Z ]*PRIVATE KEY-----[\\s\\S]*?-----END [A-Z ]*PRIVATE KEY-----"), replacement: "<redacted>"},
+		{pattern: regexp.MustCompile("(?i)Bearer[\\t\\n\\f\\r ]+[-._~+/A-Za-z0-9]+=*"), replacement: "Bearer <redacted>"},
+		{pattern: regexp.MustCompile("(?i)Basic[\\t\\n\\f\\r ]+[-._~+/A-Za-z0-9]+=*"), replacement: "Basic <redacted>"},
+		{pattern: regexp.MustCompile("(?i)(Authorization[\\t\\n\\f\\r ]*:[\\t\\n\\f\\r ]*)([^\\r\\n]+)"), replacement: "$1<redacted>"},
+		{pattern: regexp.MustCompile("(?i)((?:Cookie|Set-Cookie|X-Cartulary-Test-Route-Token)[\\t\\n\\f\\r ]*:[\\t\\n\\f\\r ]*)([^\\r\\n]+)"), replacement: "$1<redacted>"},
+		{pattern: regexp.MustCompile("(^|[^-_A-Za-z0-9])eyJ[-_A-Za-z0-9]+\\.[-_A-Za-z0-9]+\\.[-_A-Za-z0-9]*[A-Za-z0-9_]"), replacement: "$1<redacted>"},
+		{pattern: regexp.MustCompile("(?i)(^|[^a-z0-9+.-])([a-z0-9+.-]+://)([^/?#\\t\\n\\f\\r @]+)@"), replacement: "$1$2<redacted>@"},
+		{pattern: regexp.MustCompile("(?i)((?:postgres|postgresql)://[^\\t\\n\\f\\r /:]+:)[^\\t\\n\\f\\r /@]+@"), replacement: "$1<redacted>@"},
+		{pattern: regexp.MustCompile("(?i)(--(?:password|passwd|pwd|secret|token|jwt|api[_-]?key|access[_-]?key|secret[_-]?key|private[_-]?key|client[_-]?secret|dsn)[\\t\\n\\f\\r ]*=[\\t\\n\\f\\r ]*)((?:\\\\[^\\n]|[^\\t\\n\\f\\r ])+)"), replacement: "$1<redacted>"},
+		{pattern: regexp.MustCompile("(?i)(--(?:password|passwd|pwd|secret|token|jwt|api[_-]?key|access[_-]?key|secret[_-]?key|private[_-]?key|client[_-]?secret|dsn)[\\t\\n\\f\\r ]+)((?:\\\\[^\\n]|[^\\t\\n\\f\\r ])+)"), replacement: "$1<redacted>"},
+		{pattern: regexp.MustCompile("(?i)(^|[^A-Za-z0-9_])([A-Za-z0-9_]*?(?:PASSWORD|PASSWD|PWD|SECRET|TOKEN|JWT|API[_-]?KEY|ACCESS[_-]?KEY(?:[_-]?ID)?|SECRET[_-]?KEY|PRIVATE[_-]?KEY|DSN|COOKIE|SESSION))[\\t ]*=[\\t ]*[^\\t\\n\\f\\r ]+"), replacement: "$1$2=<redacted>"},
+		{pattern: regexp.MustCompile("(?i)(\"(?:authorization|cookie|set-cookie|x-cartulary-test-route-token|password|passwd|pwd|secret|token|jwt|api[_-]?key|access[_-]?key|secret[_-]?key|private[_-]?key|client[_-]?secret|dsn)\"[\\t\\n\\f\\r ]*:[\\t\\n\\f\\r ]*\")([^\"]+)(\")"), replacement: "$1<redacted>$3"},
+		{pattern: regexp.MustCompile("-----BEGIN [A-Z ]*PRIVATE KEY-----(?:[^-]|-[^-])*-----END [A-Z ]*PRIVATE KEY-----"), replacement: "<redacted>"},
 	},
+}
+
+// RetainedScanPolicyIdentity is the retained-secret scan's frozen identity
+// text. Its SHA-256 digest is sha256:eaa74efae69ea73a6e0f18823a94ccc70a19b242e2cb2880e446611c3084ee11.
+const RetainedScanPolicyIdentity = "/^(?:stack|suite|test-services).*\\.env$/iu\n/^postgres\\.recovery\\.dsn$/u\n/^performance-fixture-runtime\\.json$/u\n/^suite-environment\\.json$/u\n/^suite-lease\\.json$/u\n/^stack\\.lease$/u\n/^test-route-token$/u\n/key[-_.]?ring/iu/\"[^\"]*(?:password|secret|token(?!s)|cookie|dsn|access_key|private_key)[^\"]*\"\\s*:\\s*\"(?!<redacted>)[^\"]+\"/iu\n/(?:PASSWORD|SECRET|TOKEN(?!S)|COOKIE|DSN|ACCESS_KEY|PRIVATE_KEY)=(?!<redacted>)[^\\s]+/u\n/(?:postgres|postgresql):\\/\\/[^\\s/:]+:(?!<redacted>)[^\\s/@]+@/iu"
+
+// RetainedScanForbiddenNames matches retained file names that are never safe.
+const RetainedScanForbiddenNames = "(?i:^(?:stack|suite|test-services).*\\.env$)|^postgres\\.recovery\\.dsn$|^performance-fixture-runtime\\.json$|^suite-environment\\.json$|^suite-lease\\.json$|^stack\\.lease$|^test-route-token$|(?i:key[-_.]?ring)"
+
+// RetainedScanContexts are the syntactic contexts the retained-secret scan
+// checks; a value in each is safe only when it begins with Marker.
+var RetainedScanContexts = []RetainedScanContext{
+	{Prefix: "(?i:\"(?:[^\"]*(?:password|secret|cookie|dsn|access_key|private_key)[^\"]*|[^\"]*token(?:[^s\"][^\"]*)?)\"[\\t\\n\\f\\r ]*:[\\t\\n\\f\\r ]*\")", Excluded: "\"", Terminator: "\""},
+	{Prefix: "(?:PASSWORD|SECRET|TOKEN|COOKIE|DSN|ACCESS_KEY|PRIVATE_KEY)=", Excluded: "\\t\\n\\f\\r ", Terminator: "(?:[\\t\\n\\f\\r ]|$)"},
+	{Prefix: "(?i:(?:postgres|postgresql)://[^\\t\\n\\f\\r /:]+:)", Excluded: "\\t\\n\\f\\r /@", Terminator: "@"},
 }

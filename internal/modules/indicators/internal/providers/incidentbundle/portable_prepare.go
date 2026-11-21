@@ -2,6 +2,7 @@ package incidentbundle
 
 import (
 	"context"
+	"errors"
 	"strings"
 
 	"github.com/google/uuid"
@@ -47,6 +48,13 @@ func prepareIndicatorImport(ctx context.Context, evaluate identity.Evaluator, bu
 		return preparedIndicatorImport{}, indicatorSourceFailure(representationInvariant)
 	}
 	prepared.members = members
+	store := input.Preparation
+	if store == nil || input.Facts == nil {
+		return preparedIndicatorImport{}, errors.New("indicators: incident bundle preparation facts are required")
+	}
+	// Expected record attribution keys: a scope key per indicator record and
+	// one key per historical envelope actor.
+	expected := incidentportability.NewSortedKeyStager(ctx, store, recordAttributionExpectedPath, 0)
 	var failures indicatorFailureAccumulator
 	for _, path := range []string{indicatorsBundlePath, observationsBundlePath, intervalsBundlePath} {
 		previous := ""
@@ -60,6 +68,11 @@ func prepareIndicatorImport(ctx context.Context, evaluate identity.Evaluator, bu
 				rowFailures = f
 				id = row.RecordID
 				prepared.indicatorCount++
+				if len(f) == 0 {
+					if err := addExpectedRecordAttribution(expected, row); err != nil {
+						return err
+					}
+				}
 			case observationsBundlePath:
 				row, f := preparePortableObservationRow(evaluate, raw, input)
 				rowFailures = f
@@ -91,7 +104,67 @@ func prepareIndicatorImport(ctx context.Context, evaluate identity.Evaluator, bu
 	if err := failures.err(); err != nil {
 		return preparedIndicatorImport{}, err
 	}
+	verdicts, err := proveEnvelopeActors(ctx, store, expected, input.Facts)
+	if err != nil {
+		return preparedIndicatorImport{}, err
+	}
+	prepared.verdicts = verdicts
+	if err := prepared.stage(ctx, input); err != nil {
+		return preparedIndicatorImport{}, err
+	}
+	// The transaction receives no bundle reader.
+	prepared.members = nil
 	return prepared, nil
+}
+
+func addExpectedRecordAttribution(expected *incidentportability.SortedKeyStager, row portableIndicatorRow) error {
+	keys := []string{
+		sourceport.RecordAttributionScope(row.RecordID),
+		sourceport.RecordAttributionKey(row.RecordID, "created_by_user_id", row.PortableCreatedByID),
+		sourceport.RecordAttributionKey(row.RecordID, "updated_by_user_id", row.PortableUpdatedByID),
+	}
+	if row.PortableDeletedByID != nil {
+		keys = append(keys, sourceport.RecordAttributionKey(row.RecordID, "deleted_by_user_id", *row.PortableDeletedByID))
+	}
+	for _, key := range keys {
+		if err := expected.Add(key); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// proveEnvelopeActors merge-joins each indicator record's expected envelope
+// actors with the records family's published attribution. A record whose
+// actor set differs records the verdict at both of its ranks. A missing fact
+// fails closed.
+func proveEnvelopeActors(ctx context.Context, store incidentportability.MemberReader, expected *incidentportability.SortedKeyStager, facts *sourceport.ImportFacts) (*incidentportability.PreparedVerdicts, error) {
+	runs, err := expected.Finish()
+	if err != nil {
+		return nil, err
+	}
+	published, err := facts.Fact(sourceport.RecordsFamilyID, sourceport.RecordAttributionFact)
+	if err != nil {
+		return nil, err
+	}
+	verdicts := &incidentportability.PreparedVerdicts{}
+	current := ""
+	err = incidentportability.MergeSortedKeySets(ctx, []incidentportability.SortedKeySet{{Source: store, Runs: runs}, published}, func(key string, present []bool) error {
+		record, rest, _ := strings.Cut(key, "|")
+		if rest == "" {
+			if present[0] {
+				current = record
+			}
+			return nil
+		}
+		if record == current && present[0] != present[1] {
+			failure := indicatorSourceFailure(representationInvariant)
+			verdicts.Record(rankApplyEnvelopeActors, record, failure)
+			verdicts.Record(rankValidateEnvelopeActors, record, failure)
+		}
+		return nil
+	})
+	return verdicts, err
 }
 
 func walkIndicatorSource[T any](ctx context.Context, prepared preparedIndicatorImport, input sourceport.ImportContext, path string, parse func(map[string]any) (T, []indicatorFailureCandidate), visit func(T) error) error {
@@ -106,20 +179,33 @@ func walkIndicatorSource[T any](ctx context.Context, prepared preparedIndicatorI
 		return visit(row)
 	})
 }
-func (p preparedIndicatorImport) indicators(ctx context.Context, input sourceport.ImportContext, visit func(portableIndicatorRow) error) error {
+
+// Preparation-time walks read the bound bundle members.
+func (p preparedIndicatorImport) walkIndicators(ctx context.Context, input sourceport.ImportContext, visit func(portableIndicatorRow) error) error {
 	return walkIndicatorSource(ctx, p, input, indicatorsBundlePath, func(raw map[string]any) (portableIndicatorRow, []indicatorFailureCandidate) {
 		return preparePortableIndicatorRow(p.evaluate, raw, input)
 	}, visit)
 }
-func (p preparedIndicatorImport) observations(ctx context.Context, input sourceport.ImportContext, visit func(portableObservationRow) error) error {
+func (p preparedIndicatorImport) walkObservations(ctx context.Context, input sourceport.ImportContext, visit func(portableObservationRow) error) error {
 	return walkIndicatorSource(ctx, p, input, observationsBundlePath, func(raw map[string]any) (portableObservationRow, []indicatorFailureCandidate) {
 		return preparePortableObservationRow(p.evaluate, raw, input)
 	}, visit)
 }
-func (p preparedIndicatorImport) intervals(ctx context.Context, input sourceport.ImportContext, visit func(portableIntervalRow) error) error {
+func (p preparedIndicatorImport) walkIntervals(ctx context.Context, input sourceport.ImportContext, visit func(portableIntervalRow) error) error {
 	return walkIndicatorSource(ctx, p, input, intervalsBundlePath, func(raw map[string]any) (portableIntervalRow, []indicatorFailureCandidate) {
 		return preparePortableIntervalRow(raw, input)
 	}, visit)
+}
+
+// Transaction-time readers visit the staged rows only.
+func (p preparedIndicatorImport) indicators(ctx context.Context, input sourceport.ImportContext, visit func(portableIndicatorRow) error) error {
+	return readIndicatorRows(ctx, p, input, p.indicatorRows, indicatorRowCodec{}, visit)
+}
+func (p preparedIndicatorImport) observations(ctx context.Context, input sourceport.ImportContext, visit func(portableObservationRow) error) error {
+	return readIndicatorRows(ctx, p, input, p.observationRows, observationRowCodec{}, visit)
+}
+func (p preparedIndicatorImport) intervals(ctx context.Context, input sourceport.ImportContext, visit func(portableIntervalRow) error) error {
+	return readIndicatorRows(ctx, p, input, p.intervalRows, intervalRowCodec{}, visit)
 }
 
 func preparePortableIndicatorRow(
