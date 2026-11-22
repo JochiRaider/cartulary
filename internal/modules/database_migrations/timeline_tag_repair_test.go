@@ -1,7 +1,6 @@
 package database_migrations_test
 
 import (
-	"context"
 	"database/sql"
 	"strings"
 	"testing"
@@ -13,7 +12,6 @@ import (
 	linkportability "github.com/JochiRaider/cartulary/internal/modules/links/testsupport/portability"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
-	"github.com/JochiRaider/cartulary/internal/testutil/postgrescleanup"
 )
 
 // Exercise the increment against data that could have been committed at v29.
@@ -101,11 +99,7 @@ VALUES ($1,$2,$3,$4,$5,$3,now())`, record, incident, actor, raw17, key17)
 	source := migrationScratchDatabaseName(t, db)
 	created, err := pgtest.CloneDatabase(ctx, h.AdminDSN(), backup, source)
 	if created {
-		t.Cleanup(func() {
-			if err := postgrescleanup.DropOwnedDatabase(context.Background(), h.AdminDSN(), backup); err != nil {
-				t.Errorf("clean up repair rehearsal: %v", err)
-			}
-		})
+		h.RetireClonedDatabaseT(t, backup)
 	}
 	if err != nil {
 		t.Fatal(err)

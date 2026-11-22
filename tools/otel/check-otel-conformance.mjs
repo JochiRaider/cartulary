@@ -6,6 +6,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { otlpProjection } from "../harness/observability/otlp-projection.mjs";
+import { executableRepositoryPaths, inspectExecutableRepositoryPath } from "../harness/test-catalog/index.mjs";
 import { policyDependencyRowIDs } from "../harness/scheduler/work-graph/policy-rows.mjs";
 import { enforcePrivateProcessUmask } from "../harness/runtime/private-process.mjs";
 import {
@@ -773,18 +774,12 @@ function collectFiles(root, excludedDirectories, files = []) {
   return files;
 }
 
+// Whole-checkout scans use the harness's Git enumeration of repository inputs,
+// so ignored, nested-repository, and documentation paths are never scanned.
+// Present regular files only: a tracked deletion or a link is not source.
 function walkFiles(root, predicate, files = []) {
-  repositoryFileIndex ??= collectFiles(
-    ".",
-    new Set([
-      ".git",
-      "node_modules",
-      "tmp",
-      ".cartulary",
-      ".cache",
-      ".pnpm-store",
-      "dist",
-    ]),
+  repositoryFileIndex ??= executableRepositoryPaths(repoRoot, { untracked: true }).filter(
+    (relative) => inspectExecutableRepositoryPath(repoRoot, relative)?.stat.isFile() === true,
   );
   const prefix = root === "." ? "" : `${root.replace(/\/$/u, "")}/`;
   for (const relative of repositoryFileIndex) {

@@ -24,6 +24,7 @@ export {
   captureCapabilitySnapshot,
   availableGoWorkerBudget,
   cpuCapacityWithSafetyMargin,
+  processSlotsFor,
   resourceCapacities,
 } from "./capability.mjs";
 export { loadCacheRegistry, CachePlan } from "./cache-plan.mjs";

@@ -4,12 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/imports"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
+	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/dbassert"
@@ -19,6 +21,35 @@ import (
 )
 
 type currentImportIDs struct{ actor, incident, session, unit, job, txn string }
+
+// currentWorkflowWait bounds waits for durable state. Every wait returns as soon
+// as the state settles, so the bound only limits how long a broken run takes to
+// fail; it is generous because the scenarios run beside other suites.
+const currentWorkflowWait = 2 * time.Minute
+
+// currentDatabaseLocks restricts pg_locks to this test's database: the cluster
+// may hold other databases whose advisory keys coincide.
+const currentDatabaseLocks = `database=(SELECT oid FROM pg_database WHERE datname=current_database())`
+
+// seedCurrentActor creates the importing actor and a session without password
+// material. These scenarios assert import recovery, not authentication, so they
+// use the supported actor/session fixtures instead of repeated password logins;
+// the session row also survives server restarts.
+func seedCurrentActor(t *testing.T, db *sql.DB) (string, authcookietest.AuthCookies) {
+	t.Helper()
+	keys, err := authn.LoadMasterKeys(map[string]string{authn.AuthMasterKeyEnv: strings.TrimSpace(string(fixtures.MustRead("auth", "master-key.base64")))})
+	if err != nil {
+		t.Fatal(err)
+	}
+	actor := flowtest.SeedActor(t, db, flowtest.ActorAttributes{Email: "current-import@example.test", DisplayName: "Current import", DeploymentAdmin: true})
+	const token = "current-import-session"
+	now := time.Now().UTC()
+	flowtest.SeedSession(t, db, keys, actor.ID, token, now, now)
+	return actor.ID.String(), authcookietest.AuthCookies{
+		Session: &http.Cookie{Name: authn.SessionCookieName, Value: token},
+		CSRF:    &http.Cookie{Name: authn.CSRFCookieName, Value: authn.CSRFTokenForSessionToken(keys, token)},
+	}
+}
 
 func currentExec(t testing.TB, db *sql.DB, query string, args ...any) {
 	t.Helper()
@@ -43,8 +74,8 @@ func admitCurrentWorkflow(t *testing.T, runtime *appsupport.Runtime, family stri
 	options := currentImportOptions()
 	first := runtime.StartServer(t, options)
 	ids := currentImportIDs{txn: "txn-current-apply"}
-	ids.actor = flowtest.SeedLocalUserFlags(t, first.DB, "current-import@example.test", "Current import", "Current-import-test-42!", false, true, true)
-	login := flowtest.LoginLocalUser(t, http.DefaultClient, first.Server.HTTP.URL, "current-import@example.test", "Current-import-test-42!", nil)
+	var login authcookietest.AuthCookies
+	ids.actor, login = seedCurrentActor(t, first.DB)
 	incident := scenariotest.CreateIncident(t, first.Server, login, map[string]any{"client_txn_id": "current-incident", "incident_key": "IR-CURRENT", "title": "Current import"})
 	ids.incident = incident["incident_id"].(string)
 	if family == "generic" {
@@ -78,7 +109,7 @@ func admitCurrentWorkflow(t *testing.T, runtime *appsupport.Runtime, family stri
 	currentExec(t, first.DB, `CREATE FUNCTION current_claim_gate() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.status='queued' AND NEW.status='running' AND NEW.job_kind='import.apply_v1' THEN PERFORM pg_advisory_xact_lock(181,303); END IF; RETURN NEW; END $$; CREATE TRIGGER current_claim_gate BEFORE UPDATE ON jobs FOR EACH ROW EXECUTE FUNCTION current_claim_gate()`)
 	response := doImportJSON(t, first.Server.HTTP.URL, login, http.MethodPost, "/api/v1/import-sessions/"+ids.session+"/apply", map[string]any{"client_txn_id": ids.txn})
 	ids.job = httptestx.RequireSuccessEnvelope(t, response, http.StatusAccepted)["data"].(map[string]any)["job_id"].(string)
-	if got := waitForSQLCount(t, first.DB, 10*time.Second, 1, `SELECT count(*) FROM pg_locks WHERE locktype='advisory' AND classid=181 AND objid=303 AND NOT granted`); got != 1 {
+	if got := waitForSQLCount(t, first.DB, currentWorkflowWait, 1, `SELECT count(*) FROM pg_locks WHERE locktype='advisory' AND classid=181 AND objid=303 AND NOT granted AND `+currentDatabaseLocks); got != 1 {
 		t.Fatal("current worker did not reach claim boundary")
 	}
 	first.Server.Close()
@@ -206,7 +237,6 @@ func runCurrentWorkflows(t *testing.T, scenarios []string) {
 				if scenario == "precommit_cancel" {
 					cancelCurrentBlockedUnit(t, db, first, ids, login)
 				}
-				login = flowtest.LoginLocalUser(t, http.DefaultClient, first.Server.HTTP.URL, "current-import@example.test", "Current-import-test-42!", nil)
 				waitCurrentJob(t, db, ids.job)
 				terminal := waitImportJobTerminal(t, first.Server.HTTP.URL, login, ids.job)
 				want, effects := "failed", 0
@@ -235,10 +265,11 @@ func runCurrentWorkflows(t *testing.T, scenarios []string) {
 						t.Fatalf("mismatch: %s/%s", code, got)
 					}
 				}
+				// Replay after a restart, then replay again: both must return the
+				// original job and leave the settled outcome untouched.
+				first.Server.Close()
+				first = runtime.StartServer(t, options)
 				for range 2 {
-					first.Server.Close()
-					first = runtime.StartServer(t, options)
-					login = flowtest.LoginLocalUser(t, http.DefaultClient, first.Server.HTTP.URL, "current-import@example.test", "Current-import-test-42!", nil)
 					response := doImportJSON(t, first.Server.HTTP.URL, login, http.MethodPost, "/api/v1/import-sessions/"+ids.session+"/apply", map[string]any{"client_txn_id": ids.txn})
 					if data := httptestx.RequireSuccessEnvelope(t, response, http.StatusAccepted)["data"].(map[string]any); data["job_id"] != ids.job {
 						t.Fatal("replay replaced job identity")
@@ -316,7 +347,7 @@ func assertCurrentOutcome(t testing.TB, db *sql.DB, ids currentImportIDs, family
 // controlled retry cases. This does not change runner or product deadlines.
 func waitCurrentJob(t testing.TB, db *sql.DB, job string) {
 	t.Helper()
-	deadline := time.Now().Add(20 * time.Second)
+	deadline := time.Now().Add(currentWorkflowWait)
 	for {
 		var status string
 		var attempts int

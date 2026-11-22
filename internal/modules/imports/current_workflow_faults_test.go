@@ -84,7 +84,7 @@ func installCurrentCommitFault(t testing.TB, db *sql.DB, scenario string) {
 
 func recoverCurrentCommitFault(t testing.TB, db *sql.DB, runtime *appsupport.Runtime, first *appsupport.ServerHarness, options appsupport.ServerOptions, ids currentImportIDs, family, scenario string) *appsupport.ServerHarness {
 	t.Helper()
-	if got := waitForSQLCount(t, db, 20*time.Second, 1, `SELECT count(*) FROM jobs WHERE job_id::text=$1 AND handler_failure_count=1 AND handler_attempt_id IS NULL AND handler_next_attempt_at IS NOT NULL`, ids.job); got != 1 {
+	if got := waitForSQLCount(t, db, currentWorkflowWait, 1, `SELECT count(*) FROM jobs WHERE job_id::text=$1 AND handler_failure_count=1 AND handler_attempt_id IS NULL AND handler_next_attempt_at IS NOT NULL`, ids.job); got != 1 {
 		t.Fatal("worker did not reach interrupted commit boundary")
 	}
 	wantEffects := 0
@@ -109,12 +109,12 @@ func recoverCurrentCommitFault(t testing.TB, db *sql.DB, runtime *appsupport.Run
 
 func cancelCurrentBlockedUnit(t testing.TB, db *sql.DB, first *appsupport.ServerHarness, ids currentImportIDs, login authcookietest.AuthCookies) {
 	t.Helper()
-	if got := waitForSQLCount(t, db, 20*time.Second, 1, `SELECT count(*) FROM pg_locks WHERE locktype='advisory' AND classid=177 AND objid=299 AND NOT granted`); got != 1 {
+	if got := waitForSQLCount(t, db, currentWorkflowWait, 1, `SELECT count(*) FROM pg_locks WHERE locktype='advisory' AND classid=177 AND objid=299 AND NOT granted AND `+currentDatabaseLocks); got != 1 {
 		t.Fatal("current worker did not reach uncommitted owner write")
 	}
 	// A fresh login takes the actor's exclusive row lock, which conflicts with
 	// the staged owner's reference. Use the session admitted before the gate.
-	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), currentWorkflowWait)
 	defer cancel()
 	request, err := http.NewRequestWithContext(ctx, http.MethodPost, first.Server.HTTP.URL+"/api/v1/jobs/"+ids.job+"/cancel", bytes.NewBufferString(`{"client_txn_id":"txn-current-cancel"}`))
 	if err != nil {

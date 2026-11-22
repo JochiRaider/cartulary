@@ -5,7 +5,7 @@ import path from "node:path";
 import { tmpdir } from "node:os";
 import test from "node:test";
 import { validateSchemaSync } from "../../../contract/index.mjs";
-import { captureCapabilitySnapshot, cpuCapacityWithSafetyMargin, assertScannerEvidenceParity, resolveVulnerabilityDatabaseRevision, CachePlan, resolveCacheDependencyClosure } from "../index.mjs";
+import { captureCapabilitySnapshot, cpuCapacityWithSafetyMargin, processSlotsFor, assertScannerEvidenceParity, resolveVulnerabilityDatabaseRevision, CachePlan, resolveCacheDependencyClosure } from "../index.mjs";
 import { buildSourceSnapshot } from "../../../test-catalog/index.mjs";
 import { createContractTestContext } from "../../../tests/contract-test-context.mjs";
 const root = path.resolve(import.meta.dirname, "../../../../..");
@@ -448,6 +448,14 @@ export function registerSchedulerTests() {
     assert.equal(cpuCapacityWithSafetyMargin(24, cpuPolicy), 19);
     assert.equal(cpuCapacityWithSafetyMargin(4, cpuPolicy), 3);
     assert.equal(cpuCapacityWithSafetyMargin(1, cpuPolicy), 1);
+    // Process slots count operating-system processes: they derive from the
+    // effective process limit, not from CPU, except when no limit is known.
+    const processPolicy = schedulerRegistry.capacity_policies.process_slots;
+    assert.equal(processPolicy.safety_margin_percent, 25);
+    assert.equal(processSlotsFor(processPolicy, 19, 127192), 95394);
+    assert.equal(processSlotsFor(processPolicy, 19, null), 76);
+    assert.equal(processSlotsFor(processPolicy, 2, 4), 3);
+    assert.equal(processSlotsFor(processPolicy, 2, 1), 1);
     const snapshot = captureCapabilitySnapshot({
       root,
       override: { schema_id: "cartulary.harness_capacity_override.v1", cpu_tokens: 2, memory_bytes: 1048576, process_slots: 2, io_tokens: 2, port_lanes: 1, writable_volume: true },

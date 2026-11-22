@@ -73,8 +73,10 @@ func DoJSON(t testing.TB, serverURL string, login authcookietest.AuthCookies, me
 // canceled, and returns its public projection.
 func WaitJobTerminal(t testing.TB, serverURL string, login authcookietest.AuthCookies, jobID string) map[string]any {
 	t.Helper()
+	// Polling returns as soon as the job is terminal; the bound only limits a
+	// stuck run and allows for hosts running other suites concurrently.
 	return httptestx.PollJob(t, serverURL, jobID, httptestx.PollOptions{
-		Timeout: 5 * time.Second, Interval: 10 * time.Millisecond, Request: []func(*http.Request){httptestx.WithCookies(login.Session)},
+		Timeout: time.Minute, Interval: 10 * time.Millisecond, Request: []func(*http.Request){httptestx.WithCookies(login.Session)},
 	}, "succeeded", "failed", "canceled")
 }
 

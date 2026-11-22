@@ -6,9 +6,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -215,7 +217,7 @@ func TestAdmissionWeightedTree(t *testing.T) {
 			pendingToken = pending.Token
 			apply(t, later, false) // A fitting new arrival cannot overtake us.
 			apply(t, Request{Root: root, Operation: "release", Token: holder.Token}, false)
-			apply(t, later, false) // The same priority survives before reacquisition.
+			apply(t, later, true) // Both fit after the release, so admitting it cannot delay us.
 			return nil
 		})
 		if err != nil || lease == nil || lease.Token != pendingToken || preparations != 2 || misses != 1 {
@@ -311,11 +313,107 @@ func TestAdmissionWeightedTree(t *testing.T) {
 				t.Fatalf("priority confused with capacity: %+v", later.diagnostic)
 			}
 			apply(t, Request{Root: root, Operation: "release", Token: holder.Token}, false)
-			apply(t, later, false) // Priority persists until the waiter takes admission.
+			apply(t, later, true) // Both now fit, so the bypass leaves the waiter's deficits unchanged.
 			apply(t, older, true)
-			apply(t, later, true) // Remaining capacity is usable after that grant.
 		})
 	}
+	t.Run("deficit_disjoint_backfill_never_delays_an_older_waiter", func(t *testing.T) {
+		root := filepath.Join(t.TempDir(), "admission")
+		capacities := testQuantities(4)
+		capacities["memory_mb"] = 1024
+		shaped := func(token string, cpu, memory float64) Request {
+			r := request(t, root, token, cpu, 4)
+			r.Capacities = maps.Clone(capacities)
+			r.Claims["memory_mb"] = memory
+			return r
+		}
+		blockers := func(rs ...Request) []string {
+			refs := []string{}
+			for _, r := range rs {
+				refs = append(refs, ObservationReference("request", r.Token))
+			}
+			slices.Sort(refs)
+			return refs
+		}
+		holder := shaped("a", 1, 900)
+		apply(t, holder, true)
+		older := shaped("b", 1, 300) // Lacks 176 MiB until the holder drains.
+		older.diagnostic = &Decision{}
+		apply(t, older, false)
+		if older.diagnostic.Deficits["memory_mb"] != 176 || len(older.diagnostic.PersistentDeficits) != 0 {
+			t.Fatalf("waiter deficit: %+v", older.diagnostic)
+		}
+		// Draws only on CPU the waiter already has: admitted ahead of it.
+		disjoint := shaped("c", 1, 0)
+		disjoint.diagnostic = &Decision{}
+		apply(t, disjoint, true)
+		if len(disjoint.diagnostic.PriorityBlockers) != 0 {
+			t.Fatalf("disjoint backfill reported a blocker: %+v", disjoint.diagnostic)
+		}
+		// Would deepen the waiter's memory deficit: held behind it.
+		overlapping := shaped("d", 1, 100)
+		overlapping.diagnostic = &Decision{}
+		apply(t, overlapping, false)
+		if len(overlapping.diagnostic.Deficits) != 0 || !slices.Equal(overlapping.diagnostic.PriorityBlockers, blockers(older)) {
+			t.Fatalf("overlapping request was not held by priority alone: %+v", overlapping.diagnostic)
+		}
+		// Would create CPU deficits that neither older waiter has yet: held
+		// behind both, including the overlapping request now queued ahead.
+		creating := shaped("e", 2, 0)
+		creating.diagnostic = &Decision{}
+		apply(t, creating, false)
+		if len(creating.diagnostic.Deficits) != 0 || !slices.Equal(creating.diagnostic.PriorityBlockers, blockers(older, overlapping)) {
+			t.Fatalf("request creating a waiter deficit was admitted or misattributed: %+v", creating.diagnostic)
+		}
+		// Prospective resident allocations count as the bypasser's draw.
+		resident := Resident{Token: strings.Repeat("7", 32), Reference: filepath.Join(root, "prospective.json"), Claims: testQuantities(0), Capacities: capacities}
+		resident.Claims["memory_mb"] = 50
+		residentBacked := shaped("f", 0, 0)
+		residentBacked.Residents = []Resident{resident}
+		residentBacked.diagnostic = &Decision{}
+		apply(t, residentBacked, false)
+		if !slices.Equal(residentBacked.diagnostic.PriorityBlockers, blockers(older, overlapping)) {
+			t.Fatalf("prospective resident bypassed the waiter: %+v", residentBacked.diagnostic)
+		}
+		// Once the holder drains, the waiter is admitted first.
+		apply(t, Request{Root: root, Operation: "release", Token: holder.Token}, false)
+		apply(t, older, true)
+		apply(t, overlapping, true)
+	})
+	t.Run("backfilled_branch_descendants_respect_the_bypassed_waiter", func(t *testing.T) {
+		root := filepath.Join(t.TempDir(), "admission")
+		capacities := testQuantities(4)
+		capacities["memory_mb"] = 1024
+		shaped := func(token string, cpu, memory float64, parent *Request) Request {
+			r := request(t, root, token, cpu, 4)
+			r.Capacities = maps.Clone(capacities)
+			r.Claims["memory_mb"] = memory
+			if parent != nil {
+				r.Parent = &parent.Token
+			}
+			return r
+		}
+		holder := shaped("a", 1, 900, nil)
+		apply(t, holder, true)
+		older := shaped("b", 1, 300, nil)
+		apply(t, older, false)
+		backfilled := shaped("c", 1, 0, nil)
+		apply(t, backfilled, true)
+		// A descendant may exceed its ancestor's claim; drawing memory the
+		// waiter lacks would delay it, so the bypassed waiter still holds it.
+		deepening := shaped("d", 0, 100, &backfilled)
+		deepening.diagnostic = &Decision{}
+		apply(t, deepening, false)
+		if len(deepening.diagnostic.Deficits) != 0 || !slices.Equal(deepening.diagnostic.PriorityBlockers, []string{ObservationReference("request", older.Token)}) {
+			t.Fatalf("backfilled descendant bypassed the waiter: %+v", deepening.diagnostic)
+		}
+		// Work within the ancestor's envelope leaves the waiter unchanged.
+		within := shaped("e", 1, 0, &backfilled)
+		apply(t, within, true)
+		apply(t, Request{Root: root, Operation: "release", Token: holder.Token}, false)
+		apply(t, older, true)
+		apply(t, deepening, true)
+	})
 	t.Run("retirement_preserves_required_ancestor_claims", func(t *testing.T) {
 		root := filepath.Join(t.TempDir(), "admission")
 		parent := request(t, root, "a", 1, 2)
@@ -591,7 +689,7 @@ func TestAdmissionWeightedTree(t *testing.T) {
 		apply(t, queued, false)
 		later := request(t, root, "f", 0, 2)
 		later.Parent = &holder.Token
-		apply(t, later, false) // An older sibling keeps priority while active work drains.
+		apply(t, later, true) // Draws nothing, so it cannot delay the older sibling (deficit-disjoint backfill).
 		grandchild := request(t, root, "1", 1, 2)
 		grandchild.Parent = &child.Token
 		apply(t, grandchild, true)
@@ -650,11 +748,11 @@ func TestAdmissionWeightedTree(t *testing.T) {
 func TestAdmissionQuietOrdering(t *testing.T) {
 	t.Run("bounded observation does not reorder workload or bypass quietness", func(t *testing.T) {
 		root := filepath.Join(t.TempDir(), "admission")
-		holder := request(t, root, "a", 2, 2)
+		holder := request(t, root, "a", 2, 3)
 		apply(t, holder, true)
-		waiter := request(t, root, "b", 2, 2)
+		waiter := request(t, root, "b", 2, 3)
 		apply(t, waiter, false)
-		later := request(t, root, "c", 0, 2)
+		later := request(t, root, "c", 1, 3) // Fits, but would deepen the waiter's deficit.
 		apply(t, later, false)
 		observer := request(t, root, "d", 0, 0)
 		observer.Mode = "observation"
@@ -664,10 +762,10 @@ func TestAdmissionQuietOrdering(t *testing.T) {
 		apply(t, Request{Root: root, Operation: "release", Token: holder.Token}, false)
 		apply(t, waiter, true)
 		apply(t, later, true)
-		exclusive := request(t, root, "e", 0, 2)
+		exclusive := request(t, root, "e", 0, 3)
 		exclusive.Mode = "exclusive"
 		apply(t, exclusive, false)
-		next := request(t, root, "f", 0, 2)
+		next := request(t, root, "f", 0, 3)
 		next.Mode = "observation"
 		apply(t, next, false)
 		apply(t, Request{Root: root, Operation: "release", Token: waiter.Token}, false)

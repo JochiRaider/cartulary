@@ -70,6 +70,27 @@ export function assertSourceSnapshotIdentity() {
       rmSync(path.join(root, "owner.Md"));
       rmSync(path.join(root, "README"));
     }
+    // Git lists a nested repository (a clone or an agent worktree) as one
+    // "dir/" entry. Enumeration names it instead of admitting or skipping it,
+    // and an ignored nested repository leaves the snapshot unchanged.
+    const nestedRepository = path.join(root, "agent", "worktree");
+    mkdirSync(nestedRepository, { recursive: true });
+    execFileSync("git", ["init", "-q"], { cwd: nestedRepository });
+    writeFileSync(path.join(nestedRepository, "copy.ts"), "export const copy = 1;");
+    const exclude = path.join(root, ".git", "info", "exclude");
+    const originalExclude = readFileSync(exclude, "utf8");
+    try {
+      assert.throws(
+        () => buildSourceSnapshot(root, { restrictedRoots: [] }),
+        /nested Git repository inside the checkout: agent\/worktree\/; move it outside the checkout or add it to \.gitignore/u,
+      );
+      writeFileSync(exclude, `${originalExclude}/agent/worktree/\n`);
+      assert.deepEqual(buildSourceSnapshot(root, { restrictedRoots: [] }), result);
+    }
+    finally {
+      writeFileSync(exclude, originalExclude);
+      rmSync(path.join(root, "agent"), { recursive: true, force: true });
+    }
     for (const mutate of [
       () => fs.appendFileSync(target, "growth"),
       () => fs.truncateSync(target, 1),

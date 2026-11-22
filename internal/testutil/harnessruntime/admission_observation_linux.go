@@ -46,6 +46,7 @@ func (s *executionSession) admission(value harnessadmission.Observation) {
 		a.omissions++
 		return
 	}
+	compactDecision(next.Decision)
 	key := value.UnitID + ":" + value.Kind
 	if value.Kind == "phase" {
 		key += ":" + value.Phase
@@ -60,9 +61,15 @@ func (s *executionSession) admission(value harnessadmission.Observation) {
 	index := -1
 	if prior, ok := a.last[key]; ok && value.Kind != "retirement" {
 		old := a.records[prior]
-		left, _ := json.Marshal([]any{old.Decision, old.Evaluation})
-		right, _ := json.Marshal([]any{value.Decision, value.Evaluation})
-		if value.Kind == "phase" || string(left) == string(right) && old.Outcome == next.Outcome {
+		same := value.Kind == "phase"
+		if value.Kind == "decision" {
+			same = decisionIdentity(old) == decisionIdentity(next)
+		} else if !same {
+			left, _ := json.Marshal([]any{old.Decision, old.Evaluation})
+			right, _ := json.Marshal([]any{next.Decision, next.Evaluation})
+			same = string(left) == string(right) && old.Outcome == next.Outcome
+		}
+		if same {
 			if next.StartMS < old.EndMS {
 				a.partial = true
 				a.omissions++
@@ -98,6 +105,64 @@ func (s *executionSession) admission(value harnessadmission.Observation) {
 	}
 	a.last[key] = index
 	a.bytes += delta
+}
+
+// decisionIdentity is the material content of an admission decision
+// (TH-HARNESS-REQ-857). Re-evaluating a waiting request changes queue position,
+// deficit amounts and holders on almost every transaction; only a change in this
+// identity starts a new record, so record volume follows decision transitions
+// rather than retry frequency.
+func decisionIdentity(o harnessadmission.Observation) string {
+	d := o.Decision
+	if d == nil {
+		return ""
+	}
+	deficitSet := func(q harnessadmission.Quantities) []string {
+		keys := []string{}
+		for k, v := range q {
+			if v != 0 {
+				keys = append(keys, k)
+			}
+		}
+		slices.Sort(keys)
+		return keys
+	}
+	b, _ := json.Marshal(struct {
+		Outcome          string                            `json:"outcome"`
+		Mode             string                            `json:"mode"`
+		Granted          bool                              `json:"granted"`
+		Requested        harnessadmission.Quantities       `json:"requested"`
+		Capacities       harnessadmission.Quantities       `json:"capacities"`
+		Ancestors        []harnessadmission.ObservedHolder `json:"ancestors"`
+		Current          []string                          `json:"current"`
+		Persistent       []string                          `json:"persistent"`
+		PriorityBlocked  bool                              `json:"priority_blocked"`
+		ExclusiveBlocked bool                              `json:"exclusive_blocked"`
+	}{o.Outcome, d.Mode, d.Granted, d.RequestedClaims, d.Capacities, d.Ancestors, deficitSet(d.Deficits), deficitSet(d.PersistentDeficits), len(d.PriorityBlockers) > 0, len(d.ExclusiveBlockers) > 0})
+	return string(b)
+}
+
+// compactDecision omits zero claim and deficit quantities. Effective capacities
+// stay complete because a zero capacity is itself a fact.
+func compactDecision(d *harnessadmission.Decision) {
+	if d == nil {
+		return
+	}
+	prune := func(q harnessadmission.Quantities) {
+		for k, v := range q {
+			if v == 0 {
+				delete(q, k)
+			}
+		}
+	}
+	prune(d.RequestedClaims)
+	prune(d.Deficits)
+	prune(d.PersistentDeficits)
+	for _, holders := range [][]harnessadmission.ObservedHolder{d.Ancestors, d.Holders, d.Residents, d.Prospective} {
+		for _, h := range holders {
+			prune(h.Claims)
+		}
+	}
 }
 
 func (a *admissionSection) document() map[string]any {

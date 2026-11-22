@@ -1487,6 +1487,35 @@
       "postgres_isolation": "exclusive"
     },
     {
+      "row_id": "module.reference_data.integration.verification_timeout_classifies_the_operation_an_4ef0203684",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data",
+        "tests": [
+          "TestReferenceWorkspaceVerificationTimeout_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "estimated_work_ms": 70000,
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "module.reference_data.integration.veris_real_release_import",
       "owner_id": "module.reference_data",
       "family_id": "module.reference_data.integration",
@@ -1594,7 +1623,7 @@
         ]
       },
       "evidence_class": "integration",
-      "estimated_work_ms": 64000,
+      "estimated_work_ms": 17000,
       "runtime_profile_id": "default",
       "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",

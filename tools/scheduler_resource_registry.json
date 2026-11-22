@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.scheduler_resource_registry.v8",
+  "schema_id": "cartulary.scheduler_resource_registry.v9",
   "capacity_override_schema": "cartulary.harness_capacity_override.v1",
   "capacity_policies": {
     "cpu_tokens": {
@@ -40,8 +40,9 @@
       "maximum_cpu_multiplier": 1
     },
     "process_slots": {
-      "source": "process_limit_bounded_cpu_multiple",
-      "cpu_multiplier": 4,
+      "source": "process_limit_with_margin",
+      "safety_margin_percent": 25,
+      "fallback_cpu_multiplier": 4,
       "minimum": 1
     },
     "writable_volume": {

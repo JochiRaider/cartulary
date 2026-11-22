@@ -118,7 +118,9 @@ test("host budgets charge each exclusive browser cluster and one shared object s
   for (const [resource, amount] of Object.entries({ ...four, memory_mb: four.memory_mb + 64, process: four.process + 1 })) {
     assert.ok(amount <= available.get(resource), resource);
   }
-  assert.ok(six.process > available.get("process"));
+  // Process slots follow the operating-system process limit, so they no
+  // longer bound the lanes; PostgreSQL lanes still exclude six clusters.
+  assert.ok(six.process <= available.get("process"));
   assert.ok(six.postgres > available.get("postgres"));
   assert.ok(four.postgres > small.postgres_lanes);
   assert.ok(four.port_lane > small.port_lanes);

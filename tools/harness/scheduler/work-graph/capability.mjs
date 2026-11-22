@@ -17,7 +17,16 @@ function readPositiveInteger(file) {
   }
 }
 
+// The effective process limit is the smaller of the soft per-user limit and a
+// positive cgroup pids.max; null when neither is available.
 function processLimit() {
+  const cgroup = readPositiveInteger("/sys/fs/cgroup/pids.max");
+  const user = userProcessLimit();
+  if (cgroup === null) return user;
+  return user === null ? cgroup : Math.min(cgroup, user);
+}
+
+function userProcessLimit() {
   try {
     const line = readFileSync("/proc/self/limits", "utf8")
       .split("\n")
@@ -88,9 +97,17 @@ export function retainedGoWorkerBudget(manifest) {
   return budget;
 }
 
+// Process slots bound operating-system processes, including idle resident
+// service processes. CPU contention is bounded separately by cpu_tokens.
+export function processSlotsFor(policy, cpuTokens, detectedProcessLimit) {
+  if (detectedProcessLimit === null || detectedProcessLimit === undefined) {
+    return Math.max(policy.minimum, cpuTokens * policy.fallback_cpu_multiplier);
+  }
+  return Math.max(policy.minimum, Math.floor((detectedProcessLimit * (100 - policy.safety_margin_percent)) / 100));
+}
+
 export function automaticCapacities({ registry, cpuTokens, detectedMemory, detectedProcessLimit }) {
   const policies = registry.capacity_policies;
-  const processBound = cpuTokens * policies.process_slots.cpu_multiplier;
   const fixed = (field) => {
     const policy = policies[field];
     return Math.max(
@@ -101,10 +118,7 @@ export function automaticCapacities({ registry, cpuTokens, detectedMemory, detec
   return {
     cpu_tokens: Math.max(policies.cpu_tokens.minimum, cpuTokens),
     memory_bytes: Math.max(policies.memory_bytes.minimum, detectedMemory),
-    process_slots: Math.max(
-      policies.process_slots.minimum,
-      Math.min(detectedProcessLimit ?? processBound, processBound),
-    ),
+    process_slots: processSlotsFor(policies.process_slots, cpuTokens, detectedProcessLimit),
     io_tokens: Math.max(
       policies.io_tokens.minimum,
       cpuTokens * policies.io_tokens.cpu_multiplier,
@@ -175,11 +189,7 @@ export function captureCapabilitySnapshot({
     detectedMemory,
     detectedProcessLimit,
   });
-  const processPolicy = registry.capacity_policies.process_slots;
-  const processMaximum = Math.min(
-    detectedProcessLimit ?? resolvedCPU * processPolicy.cpu_multiplier,
-    resolvedCPU * processPolicy.cpu_multiplier,
-  );
+  const processMaximum = processSlotsFor(registry.capacity_policies.process_slots, resolvedCPU, detectedProcessLimit);
   const ioMaximum = resolvedCPU * registry.capacity_policies.io_tokens.cpu_multiplier;
   const fixedMaximum = (field) =>
     resolvedCPU * registry.capacity_policies[field].maximum_cpu_multiplier;

@@ -374,7 +374,9 @@ func postReferencePackUpload(t testing.TB, baseURL string, login authcookietest.
 
 func requireJob(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, jobID string) map[string]any {
 	t.Helper()
-	return requireJobWithin(t, harness, login, jobID, 5*time.Second)
+	// The wait ends as soon as the job is terminal; the bound only limits a
+	// stuck run and allows for hosts running other suites concurrently.
+	return requireJobWithin(t, harness, login, jobID, time.Minute)
 }
 func requireJobWithin(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, jobID string, budget time.Duration) map[string]any {
 	t.Helper()

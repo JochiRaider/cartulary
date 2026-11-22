@@ -201,7 +201,7 @@ exports.foundationSchemaValidators = Object.freeze({
   get "cartulary.retained_run_relationships.v1"() { return require("./schema-validators/validateCartularyRetainedRunRelationshipsV1.cjs"); },
   get "cartulary.same_run_helper_artifact_ref.v2"() { return require("./schema-validators/validateCartularySameRunHelperArtifactRefV2.cjs"); },
   get "cartulary.scheduler_manifest.v3"() { return require("./schema-validators/validateCartularySchedulerManifestV3.cjs"); },
-  get "cartulary.scheduler_resource_registry.v8"() { return require("./schema-validators/validateCartularySchedulerResourceRegistryV8.cjs"); },
+  get "cartulary.scheduler_resource_registry.v9"() { return require("./schema-validators/validateCartularySchedulerResourceRegistryV9.cjs"); },
   get "cartulary.schema_object_ownership_manifest.v2"() { return require("./schema-validators/validateCartularySchemaObjectOwnershipManifestV2.cjs"); },
   get "cartulary.seaweedfs_release_gate_summary.v3"() { return require("./schema-validators/validateCartularySeaweedfsReleaseGateSummaryV3.cjs"); },
   get "cartulary.seaweedfs_s3_compatibility_report.v1"() { return require("./schema-validators/validateCartularySeaweedfsS3CompatibilityReportV1.cjs"); },

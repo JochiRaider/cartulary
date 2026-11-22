@@ -361,7 +361,9 @@ func mutate(s *state, r Request) (bool, error) {
 		}
 		return nil
 	}
-	capacityFor := func(candidate *lease, active []*lease, removed map[string]bool) (Quantities, []Resident, Quantities) {
+	// prospective adds another request's not-yet-granted resident allocations,
+	// so a waiter can be evaluated as if that request were admitted.
+	capacityFor := func(candidate *lease, active []*lease, removed map[string]bool, prospective []Resident) (Quantities, []Resident, Quantities) {
 		included := map[string]bool{candidate.Token: true}
 		charged := map[string]bool{candidate.Token: true}
 		for _, entry := range active {
@@ -376,7 +378,7 @@ func mutate(s *state, r Request) (bool, error) {
 			}
 		}
 		allocations := slices.DeleteFunc(slices.Clone(s.Residents), func(r Resident) bool { return removed[r.Token] })
-		for _, candidate := range candidate.Residents {
+		for _, candidate := range slices.Concat(candidate.Residents, prospective) {
 			found := false
 			for _, existing := range allocations {
 				found = found || existing.Token == candidate.Token
@@ -499,8 +501,8 @@ func mutate(s *state, r Request) (bool, error) {
 		// is re-added by capacityFor, including a selected resident the pending
 		// request would still need to replace. Ancestor envelopes stay charged.
 		ancestors := requiredAncestors(pending)
-		before, _, _ := capacityFor(pending, ancestors, nil)
-		after, _, _ := capacityFor(pending, ancestors, removed)
+		before, _, _ := capacityFor(pending, ancestors, nil, nil)
+		after, _, _ := capacityFor(pending, ancestors, removed, nil)
 		improved, increased := false, false
 		for _, key := range resources {
 			improved = improved || after[key] < before[key]
@@ -718,9 +720,13 @@ func mutate(s *state, r Request) (bool, error) {
 		for entry := l; entry.Parent != nil; entry = find(*entry.Parent) {
 			ancestors[*entry.Parent] = true
 		}
-		// Preserve priority while independent active work drains. Only durable
-		// resident pressure permits backfill: its consumers may need to run
-		// before those allocations can release capacity.
+		// Preserve an older waiter's priority while independent active work
+		// drains, but only against requests that would increase one of its
+		// current deficits (TH-HARNESS-REQ-803). A deficit-disjoint request
+		// cannot delay the waiter, so it may backfill. Durable resident pressure
+		// still permits backfill: its consumers may need to run before those
+		// allocations can release capacity.
+		withCandidate := append(slices.Clone(active), l)
 		blocks := func(entry *lease) bool {
 			if entry.Mode == "exclusive" {
 				return true
@@ -728,8 +734,17 @@ func mutate(s *state, r Request) (bool, error) {
 			if entry.Mode == "observation" {
 				return false
 			}
-			deficits, _, _ := capacityFor(entry, requiredAncestors(entry), nil)
-			return len(deficits) == 0
+			if persistent, _, _ := capacityFor(entry, requiredAncestors(entry), nil, nil); len(persistent) != 0 {
+				return false
+			}
+			before, _, _ := capacityFor(entry, active, nil, nil)
+			after, _, _ := capacityFor(entry, withCandidate, nil, l.Residents)
+			for _, key := range resources {
+				if after[key] > before[key] {
+					return true
+				}
+			}
+			return false
 		}
 		compatible := true
 		priorityBlockers, exclusiveBlockers := []string{}, []string{}
@@ -754,6 +769,30 @@ func mutate(s *state, r Request) (bool, error) {
 				// still checks every request against host capacity.
 				if r.Mode != "drain" && entry.Parent != nil && *entry.Parent == *l.Parent && blocks(entry) {
 					block(entry, entry.Mode == "exclusive")
+				}
+			}
+			// The weighted tree lets descendants exceed an ancestor's own claim.
+			// When an ancestor was admitted ahead of an older shared waiter
+			// (deficit-disjoint backfill), its descendants must not increase
+			// that waiter's deficits either. Branches admitted before the waiter
+			// keep their drain entitlement, so this cannot deadlock: the waiter
+			// never depends on resources the backfilled branch was admitted with.
+			bypassed := func(waiter *lease) bool {
+				for a := find(*l.Parent); a != nil; a = find(*a.Parent) {
+					sameParent := a.Parent == nil && waiter.Parent == nil || a.Parent != nil && waiter.Parent != nil && *a.Parent == *waiter.Parent
+					otherTree := a.Parent == nil && rootOf(waiter) != a
+					if (sameParent || otherTree) && waiter.Sequence < a.Sequence {
+						return true
+					}
+					if a.Parent == nil {
+						return false
+					}
+				}
+				return false
+			}
+			for _, entry := range predecessors {
+				if r.Mode != "drain" && entry.Mode != "exclusive" && !(entry.Parent != nil && *entry.Parent == *l.Parent) && bypassed(entry) && blocks(entry) {
+					block(entry, false)
 				}
 			}
 			for _, entry := range active {
@@ -789,10 +828,10 @@ func mutate(s *state, r Request) (bool, error) {
 				}
 			}
 		}
-		deficits, allocations, effective := capacityFor(l, active, nil)
+		deficits, allocations, effective := capacityFor(l, active, nil, nil)
 		fits := len(deficits) == 0
 		if d := r.diagnostic; d != nil {
-			persistent, _, _ := capacityFor(l, requiredAncestors(l), nil)
+			persistent, _, _ := capacityFor(l, requiredAncestors(l), nil, nil)
 			*d = Decision{RequestRef: ObservationReference("request", l.Token), Sequence: l.Sequence, QueuePosition: len(predecessors) + 1, Mode: l.Mode, Granted: l.Granted || fits && compatible,
 				RequestedClaims: maps.Clone(l.Claims), Capacities: effective, Deficits: deficits, PersistentDeficits: persistent,
 				Ancestors: []ObservedHolder{}, Holders: []ObservedHolder{}, Residents: []ObservedHolder{}, Prospective: []ObservedHolder{}, PriorityBlockers: priorityBlockers, ExclusiveBlockers: exclusiveBlockers}

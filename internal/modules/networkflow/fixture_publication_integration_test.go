@@ -144,6 +144,14 @@ func startPublicationFixture(t *testing.T, input publicationFixtureCase, source 
 	return runtime
 }
 
+// bindTest points the runtime's failure reporting at the running subtest when
+// sequential subtests share one deployment; the returned function restores it.
+func (r *publicationFixtureRuntime) bindTest(t *testing.T) func() {
+	prior := r.t
+	r.t = t
+	return func() { r.t = prior }
+}
+
 func (r *publicationFixtureRuntime) request(method, path string, body any, status int) map[string]any {
 	r.t.Helper()
 	resp := httptestx.DoJSON(r.t, http.DefaultClient, method, r.h.Server.HTTP.URL+path, body, r.requestOptions...)

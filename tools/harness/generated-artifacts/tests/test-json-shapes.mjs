@@ -62,6 +62,7 @@ export function registerJSONShapeTests() {
       "cartulary.harness_runtime_plan.v5", "cartulary.harness_renderer_event.v1",
       "cartulary.scheduler_resource_registry.v6",
       "cartulary.scheduler_resource_registry.v7",
+      "cartulary.scheduler_resource_registry.v8",
       "cartulary.test_family_manifest.v2",
       "cartulary.execution_topology.v5",
       "cartulary.execution_topology.v8",

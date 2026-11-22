@@ -14,7 +14,7 @@ import (
 
 // Cleanup guarantees vary by resource kind and borrowing context.
 func TestDatabaseFixtureCleanup(t *testing.T) {
-	for _, ownership := range []string{"standalone", "attached", "persistent_borrower"} {
+	for _, ownership := range []string{"standalone", "attached", "persistent_borrower", "unit_generation", "lane_generation"} {
 		for _, kind := range []string{"clone", "scratch_head", "scratch_target"} {
 			t.Run(ownership+"/"+kind, func(t *testing.T) {
 				authorizePGSuite(t)
@@ -36,6 +36,14 @@ func TestDatabaseFixtureCleanup(t *testing.T) {
 				inputs := processFixtureInputs()
 				inputs["CARTULARY_FIXTURE_CAPABILITY"] = "postgres_migration"
 				inputs[suiteservices.PGIsolationEnv] = "exclusive"
+				switch ownership {
+				case "unit_generation":
+					// The unit's own generation is retired with the unit.
+					inputs[suiteservices.PGAllocationRefEnv] = "postgres:unit:go:cleanup-contract:unit"
+				case "lane_generation":
+					// A browser lane's generation outlives each consumer.
+					inputs[suiteservices.PGAllocationRefEnv] = "postgres:stack:cleanup-contract:lane"
+				}
 				h := &Harness{binding: bindFixture(inputs), operations: &ops, adminDSN: "postgres://owner/cluster", dsnTemplate: "postgres://fixture/{database}", templateDB: "suite_template", suiteHash: "suitehash", processHash: "procaaaa"}
 				var created, dropped string
 				var opened *sql.DB
@@ -107,8 +115,12 @@ func TestDatabaseFixtureCleanup(t *testing.T) {
 				if kind == "clone" {
 					wantMigrations = 0
 				}
-				if created == "" || dropped != created || creates != 1 || drops != 1 || migrations != wantMigrations {
-					t.Fatal("fixture not eagerly and exactly settled", creates, drops, migrations)
+				wantDrops := 1
+				if ownership == "unit_generation" {
+					wantDrops = 0
+				}
+				if created == "" || creates != 1 || drops != wantDrops || wantDrops == 1 && dropped != created || migrations != wantMigrations {
+					t.Fatal("fixture not settled by its retirement rule", ownership, creates, drops, migrations)
 				}
 			})
 		}

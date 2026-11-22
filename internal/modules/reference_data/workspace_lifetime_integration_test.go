@@ -19,6 +19,18 @@ import (
 )
 
 func TestReferenceWorkspaceOperationCleanup_Integration(t *testing.T) {
+	runReferenceWorkspaceCleanup(t, []string{"content_rejection", "cancel", "index_failure"}, true)
+}
+
+// The timeout case waits for the real verification deadline, whose configured
+// minimum is 60 s. It is its own test so it holds an ordinary PostgreSQL lane
+// while idle instead of a heavy one.
+func TestReferenceWorkspaceVerificationTimeout_Integration(t *testing.T) {
+	runReferenceWorkspaceCleanup(t, []string{"timeout"}, false)
+}
+
+func runReferenceWorkspaceCleanup(t *testing.T, modes []string, historical bool) {
+	t.Helper()
 	runtime := appsupport.StartRuntime(t)
 	barrier := &appsupport.ReferencePackVerificationBarrier{}
 	harness := startReferencePackServerWithEnv(t, runtime, "reference-workspace-lifetime", map[string]string{"CARTULARY__LIMITS__REFERENCE_PACKS__MAX_VERIFICATION_SECONDS": "60"}, barrier)
@@ -33,7 +45,7 @@ func TestReferenceWorkspaceOperationCleanup_Integration(t *testing.T) {
 	}
 	importReferencePack(t, harness, admin, "type_registry.host", "1", "workspace-success")
 	assertEmpty()
-	for _, mode := range []string{"content_rejection", "cancel", "index_failure", "timeout"} {
+	for _, mode := range modes {
 		t.Run(mode, func(t *testing.T) {
 			entered, release := make(chan struct{}), make(chan struct{})
 			var fault error
@@ -84,6 +96,9 @@ func TestReferenceWorkspaceOperationCleanup_Integration(t *testing.T) {
 				t.Fatal("failed operation published content", n)
 			}
 		})
+	}
+	if !historical {
+		return
 	}
 	root, err := referenceassembly.NewRootStorage(harness.Server.Config.Roots.TemporaryWork.Path, harness.Server.Config.Roots.ReferencePackStorage.Path)
 	if err != nil {

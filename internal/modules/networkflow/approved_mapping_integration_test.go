@@ -98,96 +98,139 @@ func approvedApplyAdmissionCases() []approvedApplyAdmissionCase {
 	return cases
 }
 
-func TestApprovedMappingApplyAdmission(t *testing.T) {
+// approvedApplyCase is one profile/mutation pair with its own import session,
+// unit, table identity and idempotency keys, so every case can share one
+// deployment without observing another case's state.
+type approvedApplyCase struct {
+	name       string
+	profileID  string
+	mutation   approvedApplyAdmissionCase
+	keys       []string
+	transforms []string
+	derivation string
+	timestamp  map[string]any
+	input      publicationFixtureCase
+	source     []byte
+}
+
+func approvedApplyCasesFor() []approvedApplyCase {
+	var cases []approvedApplyCase
 	for _, profileID := range []string{"cisco_sna_netflow_csv_v2", "cisco_sna_flow_search_csv_v2"} {
 		for _, mutation := range approvedApplyAdmissionCases() {
-			t.Run(profileID+"/"+mutation.name, func(t *testing.T) {
-				keys := []string{"flow_start_utc", "flow_end_utc", "input_first_ip", "input_second_ip", "input_first_port", "input_second_port", "ip_protocol", "bytes_count", "packets_count"}
-				transforms := []string{"timestamp_profile_v1", "timestamp_profile_v1", "ip_literal_v1", "ip_literal_v1", "port_number_v1", "port_number_v1", "protocol_number_or_token_v1", "uint64_decimal_string_v1", "uint64_decimal_string_v1"}
-				derivation := "declared_source_destination_v1"
-				stamp := "2026-10-29T00:00:00Z"
-				timestamp := map[string]any{"schema_id": "cartulary.network_flow.timestamp_profile.v1", "mode": "rfc3339", "precision": "milliseconds", "timezone": nil, "timezone_ruleset_id": nil, "ambiguous_local_time_policy": "reject", "local_time_gap_policy": "reject"}
-				if profileID == "cisco_sna_flow_search_csv_v2" {
-					derivation = "cisco_flow_search_orientation_v1"
-					keys = append(keys, "input_first_orientation", "input_second_orientation")
-					transforms = append(transforms, "orientation_role_v1", "orientation_role_v1")
-					stamp = "2026-10-29T00:00:00+0000"
-					timestamp = map[string]any{"schema_id": "cartulary.network_flow.timestamp_profile.v1", "mode": "cisco_sna_datetime_v1", "precision": "milliseconds"}
-				}
-				values := []string{stamp, stamp, "192.0.2.1", "198.51.100.2", "12345", "443", "TCP", "100", "2"}
-				if profileID == "cisco_sna_flow_search_csv_v2" {
-					values = append(values, "client", "server")
-				}
-				values = append(values, "ignored")
-				source := []byte(strings.Join(keys, ",") + ",ignored\n" + strings.Join(values, ",") + "\n")
-				input := publicationFixtureCase{Name: "approved-policy", Filename: "policies.csv", ActorID: "00000000-0000-4000-8000-000000000001", IncidentID: "00000000-0000-4000-8000-000000000002", SessionID: "00000000-0000-4000-8000-000000000003", UnitID: "00000000-0000-4000-8000-000000000004", TableUUID: "00000000-0000-4000-8000-000000000005"}
-				r := startPublicationFixture(t, input, source)
-				path := "/api/v1/import-sessions/" + input.SessionID + "/units/" + input.UnitID
-				fields := []map[string]any{}
-				for i, key := range keys {
-					fields = append(fields, map[string]any{"mapping_kind": "source_column", "field_key": "network_flow." + key, "source_column_ordinal": i + 1, "transform_id": transforms[i], "combinability": "single_source_only"})
-				}
-				fields = append(fields, map[string]any{"mapping_kind": "ignored_source_column", "source_column_ordinal": len(keys) + 1, "ignore_reason": "user_ignored"})
-				mapping := map[string]any{"endpoint_derivation_id": derivation, "target_kind": "network_flow_table", "target_table_schema_id": "cartulary.network_flow_table.v2", "source_profile_id": profileID, "timestamp_profile": timestamp, "field_mappings": fields}
-				body := map[string]any{"target_kind": "network_flow_table", "extension_profile_id": "network_flow_activity", "owner_mapping_schema_id": "cartulary.network_flow.mapping_candidate.v2", "owner_mapping": mapping}
-				preview := r.request(http.MethodPost, path+"/mapping-preview", body, http.StatusOK)["owner_result"].(map[string]any)
-				if preview["preview_accepted_count"] != float64(1) || preview["preview_rejected_count"] != float64(0) {
-					t.Fatal("invalid positive control")
-				}
-				columns := []map[string]any{}
-				for _, item := range preview["source_columns"].([]any) {
-					column := item.(map[string]any)
-					columns = append(columns, map[string]any{"source_column_ordinal": column["source_column_ordinal"], "source_header_text": column["raw_header_text"], "field_key": nil, "entity_binding_mode": nil, "transform_id": nil, "transform_options": map[string]any{}, "empty_value_policy": "omit_field"})
-				}
-				body["client_txn_id"], body["header_row_ref"], body["data_start_row_ref"], body["source_columns"] = "approved-policy", 1, 2, columns
-				r.request(http.MethodPut, path+"/mapping", body, http.StatusOK)
-				r.request(http.MethodPost, path+"/select", map[string]any{"client_txn_id": "select-policy"}, http.StatusOK)
-				before := r.durableState()
-				r.source.mu.Lock()
-				r.source.active = &publicationSourceChangeCase{Kind: "approved_mapping"}
-				r.source.changeApprovedMapping = mutation.apply
-				r.source.mu.Unlock()
-				applyPath := "/api/v1/import-sessions/" + input.SessionID + "/apply"
-				applyBody := map[string]any{"client_txn_id": "apply-policy"}
-				job := r.request(http.MethodPost, applyPath, applyBody, http.StatusAccepted)
-				jobID := job["job_id"].(string)
-				terminal := r.waitJob(jobID)
-				after := r.durableState()
-				if terminal["status"] != "failed" {
-					t.Errorf("malformed approved mapping applied: %#v", terminal)
-				}
-				for _, member := range []string{"tables", "rows", "diagnostics", "audit"} {
-					if !reflect.DeepEqual(before[member], after[member]) {
-						t.Errorf("rejected apply changed %s", member)
-					}
-				}
-				outcomes := after["outcomes"].([]any)
-				if len(outcomes) != 1 {
-					t.Fatalf("expected one failed unit outcome, got %#v", outcomes)
-				}
-				outcome := outcomes[0].(map[string]any)
-				details, ok := outcome["error_details"].(map[string]any)
-				if !ok {
-					t.Fatalf("missing owner error: %#v", outcome)
-				}
-				owner, ok := details["owner_error"].(map[string]any)
-				if !ok {
-					t.Fatalf("missing owner error translation: %#v", details)
-				}
-				safe := owner["safe_details"].(map[string]any)
-				if outcome["error_code"] != "import_apply_blocked" || outcome["error_retryable"] != false || owner["owner_code"] != "network_flow_mapping_invalid" || safe["reason_code"] != "variant_member_conflict" {
-					t.Errorf("unexpected rejection: %#v", outcome)
-				}
-				r.source.mu.Lock()
-				mutated, opens := r.source.requestMutated, r.source.opens
-				r.source.mu.Unlock()
-				if !mutated || opens != 0 {
-					t.Errorf("apply did not reject injected mapping before source access: mutated=%v opens=%d", mutated, opens)
-				}
-				if replay := r.request(http.MethodPost, applyPath, applyBody, http.StatusAccepted); !reflect.DeepEqual(job, replay) || !reflect.DeepEqual(terminal, r.waitJob(jobID)) || !reflect.DeepEqual(after, r.durableState()) {
-					t.Fatal("failed apply replay changed response or state")
-				}
+			n := len(cases) + 1
+			keys := []string{"flow_start_utc", "flow_end_utc", "input_first_ip", "input_second_ip", "input_first_port", "input_second_port", "ip_protocol", "bytes_count", "packets_count"}
+			transforms := []string{"timestamp_profile_v1", "timestamp_profile_v1", "ip_literal_v1", "ip_literal_v1", "port_number_v1", "port_number_v1", "protocol_number_or_token_v1", "uint64_decimal_string_v1", "uint64_decimal_string_v1"}
+			derivation := "declared_source_destination_v1"
+			stamp := "2026-10-29T00:00:00Z"
+			timestamp := map[string]any{"schema_id": "cartulary.network_flow.timestamp_profile.v1", "mode": "rfc3339", "precision": "milliseconds", "timezone": nil, "timezone_ruleset_id": nil, "ambiguous_local_time_policy": "reject", "local_time_gap_policy": "reject"}
+			if profileID == "cisco_sna_flow_search_csv_v2" {
+				derivation = "cisco_flow_search_orientation_v1"
+				keys = append(keys, "input_first_orientation", "input_second_orientation")
+				transforms = append(transforms, "orientation_role_v1", "orientation_role_v1")
+				stamp = "2026-10-29T00:00:00+0000"
+				timestamp = map[string]any{"schema_id": "cartulary.network_flow.timestamp_profile.v1", "mode": "cisco_sna_datetime_v1", "precision": "milliseconds"}
+			}
+			values := []string{stamp, stamp, "192.0.2.1", "198.51.100.2", "12345", "443", "TCP", "100", "2"}
+			if profileID == "cisco_sna_flow_search_csv_v2" {
+				values = append(values, "client", "server")
+			}
+			values = append(values, "ignored")
+			cases = append(cases, approvedApplyCase{
+				name: profileID + "/" + mutation.name, profileID: profileID, mutation: mutation,
+				keys: keys, transforms: transforms, derivation: derivation, timestamp: timestamp,
+				source: []byte(strings.Join(keys, ",") + ",ignored\n" + strings.Join(values, ",") + "\n"),
+				input: publicationFixtureCase{Name: "approved-policy", Filename: "policies.csv", TxnPrefix: fmt.Sprintf("approved-%d", n),
+					ActorID: "00000000-0000-4000-8000-000000000001", IncidentID: "00000000-0000-4000-8000-000000000002",
+					SessionID: fmt.Sprintf("00000000-0000-4000-8000-%012d", 100000+n), UnitID: fmt.Sprintf("00000000-0000-4000-8000-%012d", 200000+n), TableUUID: fmt.Sprintf("00000000-0000-4000-8000-%012d", 300000+n)},
 			})
 		}
+	}
+	return cases
+}
+
+// One deployment serves every case. Each case adds its own source; the
+// injected mapping change is armed only for that case's apply and replay.
+func TestApprovedMappingApplyAdmission(t *testing.T) {
+	cases := approvedApplyCasesFor()
+	r := startPublicationFixture(t, cases[0].input, cases[0].source)
+	for i, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			defer r.bindTest(t)()
+			if i > 0 {
+				r.addSource(c.input, c.source)
+			}
+			n := i + 1
+			path := "/api/v1/import-sessions/" + c.input.SessionID + "/units/" + c.input.UnitID
+			fields := []map[string]any{}
+			for i, key := range c.keys {
+				fields = append(fields, map[string]any{"mapping_kind": "source_column", "field_key": "network_flow." + key, "source_column_ordinal": i + 1, "transform_id": c.transforms[i], "combinability": "single_source_only"})
+			}
+			fields = append(fields, map[string]any{"mapping_kind": "ignored_source_column", "source_column_ordinal": len(c.keys) + 1, "ignore_reason": "user_ignored"})
+			mapping := map[string]any{"endpoint_derivation_id": c.derivation, "target_kind": "network_flow_table", "target_table_schema_id": "cartulary.network_flow_table.v2", "source_profile_id": c.profileID, "timestamp_profile": c.timestamp, "field_mappings": fields}
+			body := map[string]any{"target_kind": "network_flow_table", "extension_profile_id": "network_flow_activity", "owner_mapping_schema_id": "cartulary.network_flow.mapping_candidate.v2", "owner_mapping": mapping}
+			preview := r.request(http.MethodPost, path+"/mapping-preview", body, http.StatusOK)["owner_result"].(map[string]any)
+			if preview["preview_accepted_count"] != float64(1) || preview["preview_rejected_count"] != float64(0) {
+				t.Fatal("invalid positive control")
+			}
+			columns := []map[string]any{}
+			for _, item := range preview["source_columns"].([]any) {
+				column := item.(map[string]any)
+				columns = append(columns, map[string]any{"source_column_ordinal": column["source_column_ordinal"], "source_header_text": column["raw_header_text"], "field_key": nil, "entity_binding_mode": nil, "transform_id": nil, "transform_options": map[string]any{}, "empty_value_policy": "omit_field"})
+			}
+			body["client_txn_id"], body["header_row_ref"], body["data_start_row_ref"], body["source_columns"] = fmt.Sprintf("approved-policy-%d", n), 1, 2, columns
+			r.request(http.MethodPut, path+"/mapping", body, http.StatusOK)
+			r.request(http.MethodPost, path+"/select", map[string]any{"client_txn_id": fmt.Sprintf("select-policy-%d", n)}, http.StatusOK)
+			before := r.durableState()
+			r.source.mu.Lock()
+			r.source.active = &publicationSourceChangeCase{Kind: "approved_mapping"}
+			r.source.changeApprovedMapping = c.mutation.apply
+			r.source.requestMutated, r.source.opens = false, 0
+			r.source.mu.Unlock()
+			defer func() {
+				r.source.mu.Lock()
+				r.source.active, r.source.changeApprovedMapping = nil, nil
+				r.source.mu.Unlock()
+			}()
+			applyPath := "/api/v1/import-sessions/" + c.input.SessionID + "/apply"
+			applyBody := map[string]any{"client_txn_id": fmt.Sprintf("apply-policy-%d", n)}
+			job := r.request(http.MethodPost, applyPath, applyBody, http.StatusAccepted)
+			jobID := job["job_id"].(string)
+			terminal := r.waitJob(jobID)
+			after := r.durableState()
+			if terminal["status"] != "failed" {
+				t.Errorf("malformed approved mapping applied: %#v", terminal)
+			}
+			for _, member := range []string{"tables", "rows", "diagnostics", "audit"} {
+				if !reflect.DeepEqual(before[member], after[member]) {
+					t.Errorf("rejected apply changed %s", member)
+				}
+			}
+			outcomes := r.jsonQuery(`SELECT coalesce(jsonb_agg(jsonb_build_object('outcome_status',outcome_status,'owner_result',owner_result_json,'resource_refs',resource_refs_json,'error_code',error_code,'reason_code',reason_code,'error_retryable',error_retryable,'error_details',error_details_json) ORDER BY import_unit_id),'[]') FROM import_unit_apply_outcomes WHERE import_session_id=$1`, c.input.SessionID).([]any)
+			if len(outcomes) != 1 {
+				t.Fatalf("expected one failed unit outcome, got %#v", outcomes)
+			}
+			outcome := outcomes[0].(map[string]any)
+			details, ok := outcome["error_details"].(map[string]any)
+			if !ok {
+				t.Fatalf("missing owner error: %#v", outcome)
+			}
+			owner, ok := details["owner_error"].(map[string]any)
+			if !ok {
+				t.Fatalf("missing owner error translation: %#v", details)
+			}
+			safe := owner["safe_details"].(map[string]any)
+			if outcome["error_code"] != "import_apply_blocked" || outcome["error_retryable"] != false || owner["owner_code"] != "network_flow_mapping_invalid" || safe["reason_code"] != "variant_member_conflict" {
+				t.Errorf("unexpected rejection: %#v", outcome)
+			}
+			r.source.mu.Lock()
+			mutated, opens := r.source.requestMutated, r.source.opens
+			r.source.mu.Unlock()
+			if !mutated || opens != 0 {
+				t.Errorf("apply did not reject injected mapping before source access: mutated=%v opens=%d", mutated, opens)
+			}
+			if replay := r.request(http.MethodPost, applyPath, applyBody, http.StatusAccepted); !reflect.DeepEqual(job, replay) || !reflect.DeepEqual(terminal, r.waitJob(jobID)) || !reflect.DeepEqual(after, r.durableState()) {
+				t.Fatal("failed apply replay changed response or state")
+			}
+		})
 	}
 }

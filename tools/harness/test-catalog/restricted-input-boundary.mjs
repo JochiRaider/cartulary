@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { closeSync, constants, fstatSync, lstatSync, openSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 
@@ -58,17 +58,32 @@ export function executableInputPathspec(restrictedRoots, includes = ["."]) {
   ];
 }
 
+// The single Git enumeration of repository inputs. Git reports an untracked
+// nested repository (a clone, or a worktree created inside the checkout) as one
+// entry ending in "/"; its files belong to another repository, so it is neither
+// admitted nor silently omitted.
 export function executableRepositoryPaths(root, {
   restrictedRoots = restrictedExecutableInputRoots(root),
   untracked = false,
   includes = ["."],
 } = {}) {
-  const result = spawnSync("git", [
-    "ls-files", "--cached", ...(untracked ? ["--others", "--exclude-standard"] : []),
-    "-z", "--", ...executableInputPathspec(restrictedRoots, includes),
-  ], { cwd: root, encoding: "utf8" });
-  if (result.status !== 0) throw new Error("cannot enumerate admitted repository inputs");
-  return [...new Set(result.stdout.split("\0").filter(Boolean))].sort();
+  let output;
+  try {
+    output = execFileSync("git", [
+      "ls-files", "--cached", ...(untracked ? ["--others", "--exclude-standard"] : []),
+      "-z", "--", ...executableInputPathspec(restrictedRoots, includes),
+    ], { cwd: root, encoding: "utf8", maxBuffer: 128 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"] });
+  } catch {
+    throw new Error("cannot enumerate admitted repository inputs");
+  }
+  const paths = [...new Set(output.split("\0").filter(Boolean))].sort();
+  const nested = paths.filter((entry) => entry.endsWith("/"));
+  if (nested.length > 0) {
+    throw new Error(
+      `nested Git repository inside the checkout: ${nested.join(", ")}; move it outside the checkout or add it to .gitignore`,
+    );
+  }
+  return paths;
 }
 
 // Git can retain descendants of a directory replaced by a link. Inspect every
@@ -115,18 +130,7 @@ function readExecutableSource(root, relative) {
 }
 
 function trackedExecutableSources(root, restrictedRoots) {
-  const result = spawnSync(
-    "git",
-    ["ls-files", "--cached", "--others", "--exclude-standard", "-z", "--", ...executableInputPathspec(restrictedRoots)],
-    { cwd: root, encoding: "buffer" },
-  );
-  if (result.status !== 0) {
-    throw new Error(`git ls-files failed: ${String(result.stderr)}`);
-  }
-  return result.stdout
-    .toString("utf8")
-    .split("\0")
-    .filter(Boolean)
+  return executableRepositoryPaths(root, { restrictedRoots, untracked: true })
     .filter((file) => {
       const normalized = normalize(file);
       const basename = path.posix.basename(normalized);

@@ -101,6 +101,76 @@ func TestRuntimeObservations(t *testing.T) {
 			t.Fatal("off diagnostics recorded a unit")
 		}
 	})
+	t.Run("admission_decisions_coalesce_by_identity_not_retry_frequency", func(t *testing.T) {
+		p, r, run, policy := observationFixture(t)
+		s := newExecutionSession(r, run, p.facts.Manifest, policy, nil)
+		request := harnessadmission.ObservationReference("request", "waiting")
+		holder := harnessadmission.ObservationReference("request", "holder")
+		decision := func(at float64, position int, processDeficit float64, holderProcess float64, granted bool) harnessadmission.Observation {
+			deficits := harnessadmission.Quantities{}
+			if processDeficit > 0 {
+				deficits["process"] = processDeficit
+			}
+			return harnessadmission.Observation{UnitID: "u", RequestRef: &request, Clock: "graph-monotonic", Kind: "decision", StartMS: at, EndMS: at, Count: 1, Outcome: "committed", Decision: &harnessadmission.Decision{
+				RequestRef: request, Sequence: 7, QueuePosition: position, Mode: "shared", Granted: granted,
+				RequestedClaims:    harnessadmission.Quantities{"cpu": 1, "process": 1, "postgres": 0},
+				Capacities:         harnessadmission.Quantities{"cpu": 19, "process": 76, "volume": 0},
+				Deficits:           deficits,
+				PersistentDeficits: harnessadmission.Quantities{"postgres": 0},
+				Ancestors:          []harnessadmission.ObservedHolder{},
+				Holders:            []harnessadmission.ObservedHolder{{Reference: holder, Claims: harnessadmission.Quantities{"cpu": 1, "process": holderProcess, "postgres": 0}}},
+				Residents:          []harnessadmission.ObservedHolder{},
+				Prospective:        []harnessadmission.ObservedHolder{},
+				PriorityBlockers:   []string{},
+				ExclusiveBlockers:  []string{},
+			}}
+		}
+		// Retries that change only queue position, deficit amount and holder
+		// claims are one decision; the record carries the last observation.
+		s.admission(decision(10, 3, 9, 8, false))
+		s.admission(decision(20, 2, 4, 3, false))
+		s.admission(decision(30, 1, 1, 1, false))
+		if len(s.hostAdmission.records) != 1 {
+			t.Fatalf("identity-preserving retries produced %d records", len(s.hostAdmission.records))
+		}
+		got := s.hostAdmission.records[0]
+		if got.StartMS != 10 || got.EndMS != 30 || got.Count != 3 || got.Decision.QueuePosition != 1 || got.Decision.Deficits["process"] != 1 {
+			t.Fatal(got)
+		}
+		// Zero quantities are omitted; zero capacities are facts and remain.
+		if _, ok := got.Decision.RequestedClaims["postgres"]; ok {
+			t.Fatal("zero requested claim retained", got.Decision.RequestedClaims)
+		}
+		if _, ok := got.Decision.Holders[0].Claims["postgres"]; ok {
+			t.Fatal("zero holder claim retained", got.Decision.Holders[0].Claims)
+		}
+		if len(got.Decision.PersistentDeficits) != 0 {
+			t.Fatal("zero persistent deficit retained", got.Decision.PersistentDeficits)
+		}
+		if v, ok := got.Decision.Capacities["volume"]; !ok || v != 0 {
+			t.Fatal("zero capacity dropped", got.Decision.Capacities)
+		}
+		// A grant changes identity and starts the successor record.
+		s.admission(decision(40, 1, 0, 1, true))
+		if len(s.hostAdmission.records) != 2 || s.hostAdmission.records[1].StartMS != 40 || !s.hostAdmission.records[1].Decision.Granted {
+			t.Fatal(s.hostAdmission.records)
+		}
+		// A different deficit resource set is a new decision, even mid-wait.
+		other := harnessadmission.ObservationReference("request", "other")
+		blocked := decision(50, 2, 9, 8, false)
+		blocked.RequestRef, blocked.Decision.RequestRef = &other, other
+		s.admission(blocked)
+		blocked = decision(60, 2, 0, 8, false)
+		blocked.RequestRef, blocked.Decision.RequestRef = &other, other
+		blocked.Decision.Deficits = harnessadmission.Quantities{"postgres": 1}
+		s.admission(blocked)
+		if len(s.hostAdmission.records) != 4 {
+			t.Fatalf("deficit set change coalesced: %d records", len(s.hostAdmission.records))
+		}
+		if doc := s.hostAdmission.document(); doc["status"] != "complete" || doc["omitted_records"] != 0 {
+			t.Fatal(doc)
+		}
+	})
 	testAllocationObservationBounds(t)
 	t.Run("admission_preserves_typed_owner_failure", func(t *testing.T) {
 		for _, tc := range []struct {

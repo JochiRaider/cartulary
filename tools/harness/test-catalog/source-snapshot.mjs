@@ -4,7 +4,7 @@ import { closeSync, constants, fstatSync, lstatSync, openSync, readSync, readlin
 import path from "node:path";
 
 import { canonicalJSONString } from "../contract/index.mjs";
-import { executableInputPathspec, inspectExecutableRepositoryPath, isDocumentationOnlyPath, restrictedExecutableInputRoots } from "./restricted-input-boundary.mjs";
+import { executableInputPathspec, executableRepositoryPaths, inspectExecutableRepositoryPath, isDocumentationOnlyPath, restrictedExecutableInputRoots } from "./restricted-input-boundary.mjs";
 
 function asciiCompare(left, right) {
   return left < right ? -1 : left > right ? 1 : 0;
@@ -56,13 +56,7 @@ function validateRepositoryPath(relativePath) {
 }
 
 function repositoryPaths(root, restrictedRoots) {
-  return execFileSync(
-    "git",
-    ["ls-files", "--cached", "--others", "--exclude-standard", "-z", "--", ...executableInputPathspec(restrictedRoots)],
-    { cwd: root, encoding: "utf8", maxBuffer: 128 * 1024 * 1024 },
-  )
-    .split("\0")
-    .filter(Boolean)
+  return executableRepositoryPaths(root, { restrictedRoots, untracked: true })
     .map(validateRepositoryPath)
     .filter((relativePath) => !isDocumentationOnlyPath(relativePath, restrictedRoots))
     .filter((relativePath) => inspectExecutableRepositoryPath(root, relativePath) !== null)

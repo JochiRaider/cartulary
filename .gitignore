@@ -1,4 +1,6 @@
 .codex
+# Agent worktrees are separate repositories nested in the checkout.
+/.claude/worktrees/
 /temp/*
 .cache/
 .vscode/

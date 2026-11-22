@@ -430,7 +430,10 @@ Verified by: TH-HARNESS-AC-084
 **TH-HARNESS-REQ-803**
 Physical allocations MUST retain resident capacity until exact cleanup proves
 release. Logical borrowers reserve only their additional active claims; the same
-allocation MUST NOT be charged twice. Resident claims do not authorize
+allocation MUST NOT be charged twice. A borrower's active `postgres` claim and
+its generation's resident `postgres` claim are distinct: the first bounds
+concurrent PostgreSQL work, the second the clusters kept on the host's storage,
+and the default lane count is calibrated for both. Resident claims do not authorize
 `host_activity`. Acquisition, execution, reset, health inspection and cleanup
 require active admission through the existing native owner. Owner-process death
 alone MUST NOT retire a resident container reservation. Allocation identity and
@@ -444,11 +447,21 @@ Admission MUST leave capacity for the bounded cleanup process after active work
 drains; resident memory and process occupancy cannot consume that entitlement.
 Persistent local services retain their own durable reservation. Attaching runs
 validate it and MUST NOT create another reservation for the same services.
-Shared host admission preserves the oldest request's priority while independent
-active work drains. Later fitting work MUST NOT repeatedly bypass that waiter.
-Backfill is permitted only when resident pressure would still prevent admission
-after independent active work drains, so existing-resource consumers can make
-progress. Required ancestor claims remain charged. Exclusive waiters retain
+Shared host admission preserves an older waiting request's priority while
+independent active work drains. Later fitting work MUST NOT be admitted ahead of
+that waiter when its admission would increase any of the waiter's current
+deficits, evaluated with the same weighted algorithm and including the later
+request's prospective resident allocations. Later work that leaves every such
+deficit unchanged MAY be admitted ahead of the waiter (deficit-disjoint backfill):
+it cannot delay the waiter's admission, because the resources the waiter lacks are
+never drawn down by a bypass. Because weighted descendants may exceed their
+ancestor's own claim, descendants of a lease admitted ahead of an older waiter
+remain subject to the same deficit test for that waiter; branches admitted before
+the waiter keep their drain entitlement. Backfill is also permitted when resident pressure
+would still prevent the waiter's admission after independent active work drains,
+so existing-resource consumers can make progress. A decision's queue-priority
+blockers are exactly the older waiters whose deficits it would increase.
+Required ancestor claims remain charged. Exclusive waiters retain
 their activity fence. A renderer borrower MUST retain one pending host-request
 identity and its original queue priority across capacity misses. A miss grants no
 active or prospective capacity. Before waiting again, ordinary and dedicated
@@ -595,9 +608,11 @@ service. Missing or contradictory declarations fail before provisioning.
 Browser allocations (including measurement), migration/role/cluster-state
 mutations, checkpoint observations and lifecycle/deadline assertions require
 exclusive scope. Scope MUST include fixture provisioning and retirement, not only
-product assertions. A dedicated database created and dropped for a selected test
-or work unit requires exclusive cluster scope: DROP DATABASE checkpoint work is
-cluster-wide even when all product mutations are database-local. Shared scope is
+product assertions. A dedicated database created for a selected test or work
+unit requires exclusive cluster scope: DROP DATABASE checkpoint work is
+cluster-wide even when all product mutations are database-local, and in a
+single-unit generation the database is retired with the generation instead
+(TH-HARNESS-REQ-357). Shared scope is
 permitted for approved rollback buckets without per-test database replacement or
 drop, provided assertions and mutations are database-local and do not observe
 cluster lifecycle or deadlines. Their owner-provided initial provisioning and final
@@ -4045,6 +4060,15 @@ the excluded documentation surfaces is recorded as a link and its link bytes
 are hashed; the digest algorithm MUST NOT follow it. Duplicate, escaping,
 unreadable, or unstable executable-input paths MUST fail snapshot
 construction.
+
+Git reports a non-ignored untracked nested repository, such as a clone or a
+Git worktree created inside the checkout, as one directory entry. Its files
+belong to another repository: enumeration MUST NOT admit or silently omit
+them, and MUST fail naming the nested repository, which is resolved by moving
+it outside the checkout or ignoring it. A check that scans source across the
+whole checkout MUST take its files from this enumeration rather than from its
+own directory walk, and a third-party tool that discovers its own
+configuration MUST honour Git ignore rules.
 Verified by: TH-HARNESS-AC-066, TH-HARNESS-AC-067
 
 **TH-HARNESS-REQ-154**
@@ -6395,7 +6419,7 @@ overrides remain subject to the v1 override schema and to the host bounds below.
 | --- | --- | --- |
 | `cpu_tokens` | Effective host parallelism with a 25 percent safety margin. | Minimum `1`. |
 | `memory_bytes` | Minimum of the positive cgroup bound and host memory when both exist; otherwise the positive available value. | Minimum `1`. |
-| `process_slots` | Minimum of the effective process limit and four times CPU tokens; use four times CPU tokens when the process limit is unavailable. | Minimum `1`. |
+| `process_slots` | The effective operating-system process limit (the smaller of the soft per-user process limit and a positive cgroup `pids.max`) with a 25 percent safety margin; four times CPU tokens when no process limit is available. Process slots bound concurrent operating-system processes, including idle resident service processes; CPU contention is bounded by `cpu_tokens`. | Minimum `1`. |
 | `io_tokens` | Two times CPU tokens. | Minimum `1`. |
 | `postgres_lanes` | Sixteen lanes by default. | Minimum `1`; at most CPU tokens. |
 | `postgres_heavy_lanes` | Three lanes by default. | Minimum `1`; at most PostgreSQL lanes. |
@@ -6467,9 +6491,18 @@ capability model `managed_process` is inherently process-isolated. A Go row
 whose assertion owns process-global test state MAY declare the explicit
 `exclusive` policy; this is an assertion-compatibility boundary, not a resource
 capacity or fixture substitute. Dedicated and migration PostgreSQL helpers and
-per-test object-store helpers instead create, register, and eagerly retire an
-exact resource for each `testing.T`; their rows MAY share a process without
-sharing that resource. Within each compatible execution
+per-test object-store helpers instead create, register, and retire an exact
+resource for each `testing.T`; their rows MAY share a process without sharing
+that resource. Retirement is eager, with one exception: a dedicated or migration
+database inside a single-unit exclusive generation (allocation reference
+`postgres:unit:<unit>`) is retired with that generation. The generation belongs
+to one work unit and its retirement physically deletes every database in it, so
+the helper issues no per-test `DROP DATABASE` and forces no cluster checkpoint.
+Shared, browser-lane, measurement, owned-lifecycle and persistent attached
+clusters keep eager per-test drops, and explicit drop operations remain
+available. A scenario that must make such a database unavailable renames it to an
+unreachable name instead of dropping it, which forces no checkpoint, and leaves
+its deletion to the generation's retirement. Within each compatible execution
 family the planner MUST use the capacity-derived longest-processing-time
 algorithm in TH-HARNESS-REQ-805. Fixed symbol counts, fixed duration ceilings,
 and target-specific packing exceptions are unsupported. Package and command
@@ -7550,9 +7583,18 @@ Host-admission phases SHALL distinguish logical_slot, admission_transaction,
 admission_wait, pressure_retirement and uncovered time. Repeated phase operations
 MAY aggregate disjoint durations with explicit observation count and first/last
 bounds; their span MUST NOT be reported as continuously occupied phase time.
-Consecutive identical decisions for a request SHALL coalesce with first/last
-observation bounds and count. They describe observations, not continuous evidence
-between transactions. Simultaneous blockers SHALL NOT be summed as exclusive
+Consecutive decisions for a request SHALL coalesce into one record with first/last
+observation bounds and count while their decision identity is unchanged. Decision
+identity is the request, mode, grant and transaction outcome, requested claims,
+effective capacities, required ancestors, the set of resources in current deficit,
+the set of resources in persistent deficit, and whether any queue-priority or any
+exclusive-fence blocker exists. Queue position, deficit amounts, charged residents,
+prospective additions, relevant holders and blocker identities are context; a
+coalesced record carries them as captured at its last observation. A waiting
+request re-evaluated without an identity change therefore adds observations, not
+records. Claim and deficit quantities equal to zero are omitted from records;
+effective capacities are retained in full. Coalesced records describe
+observations, not continuous evidence between transactions. Simultaneous blockers SHALL NOT be summed as exclusive
 wall-clock causes. Retirement observations SHALL record the owning trigger,
 proposed resident references and settlement, without changing cleanup authority.
 A retirement-evaluation observation SHALL bind the pending request, exact proposed

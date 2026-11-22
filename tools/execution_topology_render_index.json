@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 3,
-  "input_digest": "sha256:0d3db18a8c7a58dec022a45a50341d7e67191cd235679ad86b1505098546ac11",
+  "input_digest": "sha256:a82f923d1ff9777723802810d9f5b8863d2d14a44a466e2aff02562d29501899",
   "inputs": [
     {
       "path": "contracts/performance/ac003.v2.json",
@@ -1212,7 +1212,7 @@
     {
       "path": "tools/harness/scheduler/scheduler-resources.mjs",
       "role": "renderer_source",
-      "hash": "sha256:ee7d8cb222ee723258cc6c6e957e56a4333f48255081570faf21d57e109ed598"
+      "hash": "sha256:64dd69c872a7e4aa6f87c12b9a244a0070457c132f75c4cc3e0e4b9d84bb3257"
     },
     {
       "path": "tools/harness/scheduler/work-graph/browser-lanes.mjs",
@@ -1237,7 +1237,7 @@
     {
       "path": "tools/harness/scheduler/work-graph/capability.mjs",
       "role": "renderer_source",
-      "hash": "sha256:3b6526dfac5c744f46a0f6a5c0213bbbc537cb6c17be0bc09201799512e4f18b"
+      "hash": "sha256:113f90f9bec5ffc635018a1ef9e76961916a18619944db6bfd65e5246b7e2cc9"
     },
     {
       "path": "tools/harness/scheduler/work-graph/cohorts.mjs",
@@ -1257,7 +1257,7 @@
     {
       "path": "tools/harness/scheduler/work-graph/index.mjs",
       "role": "renderer_source",
-      "hash": "sha256:59997ba482ffee227d7d2067cf839c7cb912591086b7d492cade229aa4488689"
+      "hash": "sha256:fa3dc22cf9060f454ed758a389bc383fd3199b97c1241a1b66074dfe3b1b8425"
     },
     {
       "path": "tools/harness/scheduler/work-graph/launch-binding.mjs",
@@ -1342,7 +1342,7 @@
     {
       "path": "tools/harness/test-catalog/restricted-input-boundary.mjs",
       "role": "renderer_source",
-      "hash": "sha256:7e8ef6535a50faaa7408959a89d80827663bc699270f40d4e9756a182aeeec2e"
+      "hash": "sha256:8121da9cbbfe0eedea9aef783d9042706a24ac6db02ecce7786b1adb43546dde"
     },
     {
       "path": "tools/harness/test-catalog/row-id-authoring-cli.mjs",
@@ -1377,7 +1377,7 @@
     {
       "path": "tools/harness/test-catalog/source-snapshot.mjs",
       "role": "renderer_source",
-      "hash": "sha256:18a46afb104d40599f315b7727eacadc115bcca869af7679a7295c680f56c639"
+      "hash": "sha256:486d101890417f1f0c41cced739eeca3543249ec32f71382c242cc7472c1cb71"
     },
     {
       "path": "tools/harness/test-catalog/target-routing.mjs",
@@ -1417,7 +1417,7 @@
     {
       "path": "tools/scheduler_resource_registry.json",
       "role": "scheduler_resource_registry",
-      "hash": "sha256:1eb559b4b78d2eaacd3fdcde8d3185628cf3b197e332a34a4c3bc82eea2ef5a6"
+      "hash": "sha256:ec6a9d04129b7a494542f62ec07b1fd7202538803e4b474fc3088a8c13457292"
     },
     {
       "path": "tools/task_surface_owner.json",
@@ -1582,7 +1582,7 @@
     {
       "path": "tools/test_families/module.reference_data.json",
       "role": "test_family_manifest",
-      "hash": "sha256:5e31b4b397b91789ea60f671dbc8ed7705bef383737648530f070be1c1e1800e"
+      "hash": "sha256:dec78ecffbfefd4c90cd039a307e79a843213377c6518e28c23ade3b17cbc987"
     },
     {
       "path": "tools/test_families/module.reportcomposition.json",

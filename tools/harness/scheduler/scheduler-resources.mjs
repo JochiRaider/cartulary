@@ -36,7 +36,7 @@ export function validateSchedulerResourceRegistrySemantics(
   ) {
     throw new Error(`${label} has unexpected fields`);
   }
-  if (registry.schema_id !== "cartulary.scheduler_resource_registry.v8") {
+  if (registry.schema_id !== "cartulary.scheduler_resource_registry.v9") {
     throw new Error(`${label} has the wrong schema ID`);
   }
   if (registry.capacity_override_schema !== "cartulary.harness_capacity_override.v1") {
@@ -74,7 +74,7 @@ export function validateSchedulerResourceRegistrySemantics(
     port_lanes: "fixed_cpu_bounded",
     postgres_heavy_lanes: "fixed_postgres_bounded",
     postgres_lanes: "fixed_cpu_bounded",
-    process_slots: "process_limit_bounded_cpu_multiple",
+    process_slots: "process_limit_with_margin",
     writable_volume: "writable_root",
   };
   for (const field of expectedPolicyFields) {
@@ -99,6 +99,14 @@ export function validateSchedulerResourceRegistrySemantics(
         policy.maximum_cpu_multiplier < 1 || policy.maximum_cpu_multiplier > 64) {
       throw new Error(`${label}.capacity_policies.${field} must declare bounded positive integral capacity`);
     }
+  }
+  // Process slots bound operating-system processes, so they derive from the
+  // effective process limit; the CPU multiple applies only without a limit.
+  const processPolicy = registry.capacity_policies.process_slots;
+  if (!Number.isSafeInteger(processPolicy.safety_margin_percent) || processPolicy.safety_margin_percent < 0 ||
+      processPolicy.safety_margin_percent > 90 || !Number.isSafeInteger(processPolicy.fallback_cpu_multiplier) ||
+      processPolicy.fallback_cpu_multiplier < 1 || processPolicy.fallback_cpu_multiplier > 64 || processPolicy.minimum !== 1) {
+    throw new Error(`${label}.capacity_policies.process_slots must declare a bounded margin and fallback multiplier`);
   }
   // The heavy-PostgreSQL lanes are an authored concurrency policy bounded by
   // the PostgreSQL lanes (TH-HARNESS-REQ-353).

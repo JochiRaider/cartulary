@@ -1473,8 +1473,8 @@
       "validation": "harness.json_shape_check"
     },
     {
-      "schema_id": "cartulary.scheduler_resource_registry.v8",
-      "path": "tools/schemas/cartulary.scheduler_resource_registry.v8.schema.json",
+      "schema_id": "cartulary.scheduler_resource_registry.v9",
+      "path": "tools/schemas/cartulary.scheduler_resource_registry.v9.schema.json",
       "classification": "owner_input",
       "producer": "canonical scheduler resource owner",
       "validation": "harness.json_shape_check"

@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/stdlib"
@@ -283,11 +284,68 @@ func (h *Harness) newMigrationDatabaseT(t testing.TB) *TestDatabase {
 
 func (h *Harness) registerDatabaseCleanupT(t testing.TB, name string, reuseScope string, attribution fixtureAttribution) {
 	t.Helper()
+	if h.retiresWithGeneration() {
+		return
+	}
 	t.Cleanup(func() {
 		if err := h.dropDatabase(context.Background(), name, reuseScope, attribution); err != nil {
 			testfailure.CleanupFailure(t, "pgtest", "postgres", "delete", err)
 		}
 	})
+}
+
+// RemoveDatabase makes a harness-created database unavailable to clients as a
+// scenario step. In a single-unit exclusive generation it ends the database's
+// sessions and renames it to an unreachable name, which forces no checkpoint,
+// and leaves physical deletion to the generation's retirement
+// (TH-HARNESS-REQ-357). Elsewhere it drops the database.
+func (h *Harness) RemoveDatabase(ctx context.Context, name string) (resultErr error) {
+	if !h.retiresWithGeneration() {
+		return h.DropDatabase(ctx, name)
+	}
+	if !h.ownsDatabase(name) {
+		return fmt.Errorf("refuse to remove postgres database %q without exact harness ownership", name)
+	}
+	config, err := pgx.ParseConfig(h.adminDSN)
+	if err != nil {
+		return err
+	}
+	db := stdlib.OpenDB(*config)
+	defer func() { resultErr = errors.Join(resultErr, db.Close()) }()
+	if _, err := db.ExecContext(ctx, `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname=$1 AND pid<>pg_backend_pid()`, name); err != nil {
+		return err
+	}
+	// A fixed-length unique name stays within PostgreSQL's 63-byte identifier limit.
+	tombstone := "rm_" + strings.ReplaceAll(uuid.NewString(), "-", "")
+	_, err = db.ExecContext(ctx, fmt.Sprintf(`ALTER DATABASE %s RENAME TO %s`, pgx.Identifier{name}.Sanitize(), pgx.Identifier{tombstone}.Sanitize()))
+	return err
+}
+
+// RetireClonedDatabaseT registers retirement for a database a test cloned
+// itself with CloneDatabase. It follows the rule for harness-created databases:
+// retired with a single-unit exclusive generation, otherwise dropped when the
+// test ends.
+func (h *Harness) RetireClonedDatabaseT(t testing.TB, name string) {
+	t.Helper()
+	if h.retiresWithGeneration() {
+		return
+	}
+	t.Cleanup(func() {
+		if err := postgrescleanup.DropOwnedDatabase(context.Background(), h.AdminDSN(), name); err != nil {
+			t.Errorf("drop cloned database %s: %v", name, err)
+		}
+	})
+}
+
+// retiresWithGeneration reports whether this attachment is a single-unit
+// exclusive generation. Such a generation belongs to one work unit and its
+// retirement physically deletes every database in it, so per-test databases are
+// retired with it instead of by an eager DROP DATABASE and the cluster-wide
+// checkpoint that forces (TH-HARNESS-REQ-357). Shared, browser-lane, measurement,
+// owned and persistent clusters keep eager drops.
+func (h *Harness) retiresWithGeneration() bool {
+	return h.binding.inputs[suiteservices.PGIsolationEnv] == "exclusive" &&
+		strings.HasPrefix(h.binding.inputs[suiteservices.PGAllocationRefEnv], "postgres:unit:")
 }
 
 func (h *Harness) MigrationDatabaseT(t testing.TB) *MigrationDatabase {

@@ -73,7 +73,7 @@ func TestCanonicalOperatorRestoreBundle_Process(t *testing.T) {
 			if err := recovery.CloseBackupStorage(storage); err != nil {
 				t.Fatal(err)
 			}
-			if err := harness.DropDatabase(ctx, sourceDB.Name); err != nil {
+			if err := harness.RemoveDatabase(ctx, sourceDB.Name); err != nil {
 				t.Fatal(err)
 			}
 			for _, root := range []string{sourceCfg.objectRoot, sourceCfg.backupRoot, sourceDeployment.Roots.ReferencePackStorage.Path, sourceDeployment.Roots.ExportOutputs.Path} {
