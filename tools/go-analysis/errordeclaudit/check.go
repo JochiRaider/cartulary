@@ -17,13 +17,16 @@ type writtenError struct {
 }
 
 type writeCheck struct {
-	Writes     int
+	Writes     []writtenError
 	Violations []writtenError
 }
 
 // checkWrites accepts only a fresh map literal passed to the route binder and
 // an unambiguous operation binding. The broader VTA audit has separate roots.
 func checkWrites(config Config, binder string) (writeCheck, error) {
+	if err := resolveProbes(config.Catalog); err != nil {
+		return writeCheck{}, err
+	}
 	program, err := loadProgram(config)
 	if err != nil {
 		return writeCheck{}, err
@@ -44,23 +47,27 @@ func checkWrites(config Config, binder string) (writeCheck, error) {
 				}
 				bindings := literalHandlers(m, call)
 				for operation, handler := range bindings {
-					statuses, exists := config.Catalog[operation]
+					declaration, exists := config.Catalog[operation]
 					if !exists || handler == nil || len(roots[operation]) != 1 || len(handler.Params) != 2 {
 						continue
 					}
 					written, ok := firstResponseWrite(handler, handler.Params[0], handler.Params[1], nil, config.Writers, map[*ssa.Function]bool{})
+					if !ok && declaration.probe != nil && declaration.probe.owner == stringConstant(call.Call.Args[2]) {
+						written, ok = conditionalWrite(handler, config, declaration.probe)
+					}
 					if !ok {
 						continue
 					}
-					result.Writes++
-					if !slices.Contains(statuses[written.Status], written.Code) {
-						written.Operation = operation
+					written.Operation = operation
+					result.Writes = append(result.Writes, written)
+					if !slices.Contains(declaration.codes[written.Status], written.Code) {
 						result.Violations = append(result.Violations, written)
 					}
 				}
 			}
 		}
 	}
+	sort.Slice(result.Writes, func(i, j int) bool { return result.Writes[i].Operation < result.Writes[j].Operation })
 	sort.Slice(result.Violations, func(i, j int) bool { return result.Violations[i].Operation < result.Violations[j].Operation })
 	return result, nil
 }

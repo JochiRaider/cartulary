@@ -7,21 +7,32 @@ import { createFixture, repository } from "./fixtures.mjs";
 export const authoredPackages = ["cmd/operator", "cmd/server", "internal/app/server", "internal/modules/auth", "db/migrations", "tools/testservices"]
   .map((name) => `github.com/JochiRaider/cartulary/${name}`);
 export const discoveryPackages = [...authoredPackages, "github.com/JochiRaider/cartulary/internal/gen/contracts", "github.com/JochiRaider/cartulary/internal/gen/sql"];
+export const analyzerDirectory = path.join(repository, "tools/go-analysis");
+export const analyzerPackage = "github.com/JochiRaider/cartulary/tools/go-analysis/errordeclaudit";
 export const discoveryArgs = ["list", "./cmd/...", "./internal/...", "./db/...", "./tools/..."];
 
 // Small fake executables record the real wrapper's boundary. They do not model
 // wrapper policy, parse findings or compute expected scanner arguments.
-export function scannerFixture(t, { packages = discoveryPackages, goExit = 0, output = "", scannerExit = 0, failArgument } = {}) {
+export function scannerFixture(t, { packages = discoveryPackages, goExit = 0, output = "", scannerExit = 0, failArgument, vetExit = 0, analysis = {} } = {}) {
   const fixture = createFixture(t);
-  fixture.write("tool-config.json", { go: { output: packages.join("\n") + (packages.length ? "\n" : ""), status: goExit },
-    scanner: { output, status: scannerExit, failArgument } });
+  const moduleTools = (listed, listStatus, vetStatus, scanner) => ({
+    go: { output: listed.map((name) => `${name}\n`).join(""), status: listStatus }, vet: { output: "", status: vetStatus }, scanner,
+  });
+  fixture.write("tool-config.json", {
+    root: moduleTools(packages, goExit, vetExit, { output, status: scannerExit, failArgument }),
+    analysis: moduleTools(analysis.packages ?? [analyzerPackage], analysis.goExit ?? 0, analysis.vetExit ?? 0,
+      { output: "", status: analysis.scannerExit ?? 0 }),
+  });
   for (const tool of ["go", "scanner"]) {
     fixture.write(`${tool}.mjs`, `#!${process.execPath}
 import { appendFileSync, readFileSync } from "node:fs";
-const config = JSON.parse(readFileSync(new URL("./tool-config.json", import.meta.url))).${tool};
+const modules = JSON.parse(readFileSync(new URL("./tool-config.json", import.meta.url)));
+const cwd = process.cwd();
+const configByTool = cwd === ${JSON.stringify(analyzerDirectory)} ? modules.analysis : modules.root;
 const args = process.argv.slice(2);
-const env = Object.fromEntries(["GOCACHE", "GOMODCACHE", "GOTMPDIR", "GOMAXPROCS", "PATH"].map(key => [key, process.env[key] ?? ""]));
-appendFileSync(new URL("./${tool}-calls.jsonl", import.meta.url), JSON.stringify({ args, env }) + "\\n");
+const config = configByTool[${JSON.stringify(tool)} === "go" && args[0] === "vet" ? "vet" : ${JSON.stringify(tool)}];
+const env = Object.fromEntries(["GOCACHE", "GOMODCACHE", "GOTMPDIR", "GOMAXPROCS", "PATH", "GOWORK", "GOFLAGS", "GOPROXY"].map(key => [key, process.env[key] ?? ""]));
+appendFileSync(new URL("./${tool}-calls.jsonl", import.meta.url), JSON.stringify({ args, env, cwd }) + "\\n");
 process.stdout.write(config.output);
 process.exit(config.failArgument && !args.includes(config.failArgument) ? 0 : config.status);
 `);

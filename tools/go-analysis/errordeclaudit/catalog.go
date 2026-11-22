@@ -9,7 +9,13 @@ import (
 	"strconv"
 )
 
-type declarationCatalog map[string]map[int][]string
+type operationDeclaration struct {
+	codes   map[int][]string
+	pattern string
+	probe   *admittedProbe
+}
+
+type declarationCatalog map[string]operationDeclaration
 
 // readCatalog reads each operation's declared error codes from the generated
 // operation catalog source. Every element of its composite literals that names
@@ -26,47 +32,36 @@ func readCatalog(path string) (declarationCatalog, error) {
 		if !ok || failure != nil {
 			return failure == nil
 		}
-		operationID := ""
-		var codes map[int][]string
-		hasCodes := false
-		for _, element := range literal.Elts {
-			pair, ok := element.(*ast.KeyValueExpr)
-			if !ok {
-				continue
-			}
-			key, ok := pair.Key.(*ast.Ident)
-			if !ok {
-				continue
-			}
-			switch key.Name {
-			case "OperationID":
-				value, err := stringLiteral(pair.Value)
-				if err != nil {
-					failure = fmt.Errorf("operation catalog OperationID: %w", err)
-					return false
-				}
-				operationID = value
-			case "ErrorCodes":
-				hasCodes = true
-				codes, err = errorCodes(pair.Value)
-				if err != nil {
-					failure = fmt.Errorf("operation catalog ErrorCodes: %w", err)
-					return false
-				}
-			}
+		fields := literalFields(literal)
+		id, found := fields["OperationID"]
+		if !found {
+			return true
+		}
+		operationID, err := stringLiteral(id)
+		if err != nil {
+			failure = fmt.Errorf("operation catalog OperationID: %w", err)
+			return false
 		}
 		if operationID == "" {
 			return true
 		}
-		if !hasCodes {
+		expr, found := fields["ErrorCodes"]
+		if !found {
 			failure = fmt.Errorf("operation %s declares no ErrorCodes", operationID)
+			return false
+		}
+		codes, err := errorCodes(expr)
+		if err != nil {
+			failure = fmt.Errorf("operation %s ErrorCodes: %w", operationID, err)
 			return false
 		}
 		if _, duplicate := catalog[operationID]; duplicate {
 			failure = fmt.Errorf("operation %s is declared twice", operationID)
 			return false
 		}
-		catalog[operationID] = codes
+		catalog[operationID] = operationDeclaration{
+			codes: codes, pattern: literalText(fields["Pattern"]), probe: singletonProbe(fields),
+		}
 		return false
 	})
 	if failure != nil {

@@ -1,12 +1,12 @@
 # Test Consolidation Refactor Tracker and Handoff
 
-Version: 1.16.0
+Version: 1.17.0
 Date: 2026-11-21
 Target: Cartulary testing ecosystem  
-Authoring status: S-064 DONE (E-843), corrected by E-845; all 66 owner workstreams complete; R-04 fixture-legality workstream DONE (E-845, S-798–S-827); R-05 assertion-strength workstream DONE with R-03 folded in (E-876, S-828–S-854); R-05 phase 2 verified-deferred repairs DONE (E-904, S-855–S-900); R-05 phase 3 DONE (E-951, S-901–S-957); `make check` repairs DONE (S-958–S-963); residual closure workstream DONE (E-1015, S-964–S-995); gap remediation workstream DONE, with G16 deferred there and completed by E-1087 (E-1048, S-996–S-1033); open-residual closure workstream DONE (E-1087, S-1034–S-1053); residual remediation workstream DONE (E-1127, S-1054–S-1071); post-closure remediation workstream DONE (E-1175, S-1072–S-1118); carried-residual remediation workstream DONE (E-1188, S-1119–S-1130); outstanding-items workstream closed at E-1210 with the developer reset outstanding; post-closure engineering remediation verified in post1210-check03
+Authoring status: S-064 DONE (E-843), corrected by E-845; all 66 owner workstreams complete; R-04 fixture-legality workstream DONE (E-845, S-798–S-827); R-05 assertion-strength workstream DONE with R-03 folded in (E-876, S-828–S-854); R-05 phase 2 verified-deferred repairs DONE (E-904, S-855–S-900); R-05 phase 3 DONE (E-951, S-901–S-957); `make check` repairs DONE (S-958–S-963); residual closure workstream DONE (E-1015, S-964–S-995); gap remediation workstream DONE, with G16 deferred there and completed by E-1087 (E-1048, S-996–S-1033); open-residual closure workstream DONE (E-1087, S-1034–S-1053); residual remediation workstream DONE (E-1127, S-1054–S-1071); post-closure remediation workstream DONE (E-1175, S-1072–S-1118); carried-residual remediation workstream DONE (E-1188, S-1119–S-1130); outstanding-items workstream closed at E-1210 with the developer reset outstanding; post-closure engineering remediation verified in post1210-check03. Conditional error qualification now covers two operations, and Go lint includes the analyzer module.
 Artifact mode: normal; S-065 → S-059–S-063 → S-066–S-073 → all owner audits → S-064; S-001–S-058 remain completed history
 
-Current execution point: [Post-E-1210 remediation](#post-e-1210-remediation). The [E-1210 handoff](#s-1151--f-1136--e-1210--xo-closure-gate-evidence-re-run-and-handoff-verification-tracker) records the previous implementation gate and subsequent unsuccessful developer reset.
+Current execution point: [Second production witness and analyzer lint](#second-production-witness-and-analyzer-lint). See the [post-E-1210 remediation](#post-e-1210-remediation) for the preceding engineering gate. The [E-1210 handoff](#s-1151--f-1136--e-1210--xo-closure-gate-evidence-re-run-and-handoff-verification-tracker) records the previous implementation gate and subsequent unsuccessful developer reset.
 
 ## 1. Scope and Source Posture
 
@@ -94155,3 +94155,73 @@ During development, `slowrows-edit-e01` failed to build the Evidence test
 when the quarantine re-export passed ZIP bytes to the new member assertion.
 The fixture now decodes that re-export once and uses its members for both
 checks. The corrected run is `slowrows-edit-e02`.
+
+## Conditional HTTP error qualification
+
+The first conditional rule proved one first response across the 136
+catalog operations in `declproof-shadow01`. An authenticated GET of
+`/api/v1/view-schemas/cartulary.view.timeline.v2?limit=1` reaches
+`httpapi.WriteError` with `400 invalid_pagination_request` on `getViewSchema`.
+The proof uses the generated catalog to admit the specimen path and session.
+It follows concrete branches and single-assignment local values within a
+bounded static trace. An opaque call, unresolved branch, prior response,
+or escape of the error ends the trace. The runtime guard checks other
+resolved paths as tests exercise them under REQ-858 and REQ-862.
+
+The shadow run `declproof-shadow01` proved the declared tuple and reported zero violations.
+The isolated wrong-status control `declproof-route-red03` failed with the
+operation, writer, code and status 409. Restoring the original producer passed
+in `declproof-route-green03`. The independent control `declproof-zero01`
+removed the qualifying query path and failed with the zero-proven-writes
+diagnostic. The unchanged route passed its HTTP integration test. The
+advisory audit reproduced the previous 217 findings byte for byte.
+
+The three fresh checker runs `declproof-sample01`, `declproof-sample02`
+and `declproof-sample03` shared a source digest. Their full runner phases,
+including fixture self-tests, took 6.126 s, 6.099 s and 4.920 s. The first
+two overlapped independent checkout work. Rounding the maximum up to the next
+multiple of five seconds gives the 10 s scheduler estimate.
+
+Each retained run below is under `.cartulary/test-results/`.
+
+| Command | Run | Result |
+| --- | --- | --- |
+| `make test-slice OWNER=platform.viewschema ROWS=platform.viewschema.integration.view_schema_and_extension_discovery_routes_are_a_d61075d869` | `declproof-http01` | The real HTTP request produces the declared response. |
+| `make go-error-declaration-audit` | `declproof-audit01` | All 136 operations rooted. |
+| `make test-slice OWNER=harness.command_surface ROWS=harness.command_surface.behavior.owner_boundaries` | `declproof-retire01` | All 24 retired IDs lack both current attachments and registered validators, including work-graph owner v9 and estimate-audit v1. |
+| `make test-slice OWNER=harness.evidence_accounting ROWS=harness.evidence_accounting.behavior.current_epoch_evidence` | `declproof-estimate-schema01` | Current estimate-audit evidence validates. |
+| `make test-slice OWNER=module.database_migrations ROWS=module.database_migrations.integration.production_ddl_recurrence` | `declproof-ddl01` | The recurrence row passed with lineage-neutral scratch names and completed cleanup. |
+| `make generate`, `make source-check CHECK=generated`, `make source-check CHECK=schema` | `declproof-generate01`, `declproof-generated01`, `declproof-schema01` | Generation completed and both source checks passed. |
+
+## Second production witness and analyzer lint
+
+The authenticated GETs for `getViewSchema` and `listDeploymentExtensions`
+both reach `httpapi.WriteError` with `400 invalid_pagination_request` when
+the query is `limit=1`. REQ-868 supplies the concrete view-schema path
+value `cartulary.view.timeline.v2`. The extensions path is literal and
+grants no named path parameter. The checker still accepts a positive
+proof on a single operation.
+
+| Verification | Retained run | Result |
+| --- | --- | --- |
+| `make go-error-declaration-check` on the candidate | `witness2-shadow01` | 136 operations, two proven writes, zero violations. |
+| Same command with view-schema validation behind an indirect call | `witness2-single01` | The extensions witness alone passed. |
+| Same control with the extensions writer returning 409 | `witness2-wrong01` | Expected failure named `listDeploymentExtensions`, `httpapi.WriteError`, 409 and `invalid_pagination_request`. |
+| Same command with both validations behind indirect calls | `witness2-zero01` | Expected qualification failure named REQ-868, both request URLs and the reproducing command. |
+| Restored checkout, `make go-error-declaration-check` | `witness2-restored01` | Both reference operations proved the declared 400 and the command passed. |
+| `make test-slice OWNER=platform.viewschema ROWS=platform.viewschema.integration.view_schema_and_extension_discovery_routes_are_a_d61075d869` | `witness2-http01` | The HTTP row verified authentication precedence and the declared error for both reference requests. |
+| `make lint CHECK=go` | `witness2-lintgo01` | Vet and Staticcheck passed in the root and analyzer modules. |
+| `make test-slice OWNER=harness.command_surface ROWS=harness.command_surface.behavior.go_scanner_wrappers` | `witness2-scanners02` | Wrapper tests verified both module directories, the filtered package arguments and failure propagation. |
+| `make harness-contract SUITE=regression` | `witness2-regression01` | All 50 work units passed, including the generated-artifact-policy vet fixture. |
+| `make lint CHECK=shell` and `make lint CHECK=scripts` | `witness2-shell01`, `witness2-scripts01` | Shell and script lint passed. |
+
+The spec and tracker passed `make lint-markdown` in the initial round and
+after the version 1.17.0 edits. The command checked 126 files and applied
+zero fixes.
+
+The first wrapper test run, `witness2-scanners01`, failed because the
+fake `go list` omitted its final newline. Restoring line-delimited output
+made the nested-package check pass. `make target-plan TARGET=check JSON=1`
+confirmed the checker, vet and Staticcheck are selected by the aggregate.
+The XG5 reset and legacy host-admission directory retirement retain the
+operator prerequisites in the [local cutover instructions](#local-cutover).

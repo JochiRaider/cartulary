@@ -5,10 +5,6 @@ set -euo pipefail
 source "$(dirname -- "${BASH_SOURCE[0]}")/../../workspace_layout.generated.sh"
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../.." && pwd)"
-GO_BIN="${GO:-go}"
-GO_CACHE_DIR="${GO_CACHE_DIR:?GO_CACHE_DIR is required}"
-GO_MOD_CACHE_DIR="${GO_MOD_CACHE_DIR:?GO_MOD_CACHE_DIR is required}"
-GO_TMP_DIR="${GO_TMP_DIR:?GO_TMP_DIR is required}"
 STATICCHECK_BIN="${STATICCHECK_BIN:-$ROOT_DIR/${CARTULARY_LAYOUT_TOOLBIN}/staticcheck-v0.8.1}"
 STATICCHECK_CHECKS="${STATICCHECK_CHECKS:-}"
 
@@ -28,30 +24,12 @@ if [[ ! -x "$STATICCHECK_BIN" ]]; then
   exit 1
 fi
 
-cd "$ROOT_DIR"
-
-if ! package_output="$(
-  GOCACHE="$GO_CACHE_DIR" \
-  GOMODCACHE="$GO_MOD_CACHE_DIR" \
-  GOTMPDIR="$GO_TMP_DIR" \
-    "$GO_BIN" list ./cmd/... ./internal/... ./db/... ./tools/...
-)"; then
-  echo "staticcheck package discovery failed" >&2
-  exit 1
-fi
-mapfile -t packages < <(printf '%s\n' "$package_output" | cartulary_filter_authored_go_packages)
-
-if [[ "${#packages[@]}" -eq 0 || -z "${packages[*]}" ]]; then
-  echo "staticcheck package discovery returned no packages" >&2
-  exit 1
-fi
+# shellcheck source=tools/harness/static-analysis/go-lint-modules.sh
+# shellcheck disable=SC1091
+source "$ROOT_DIR/tools/harness/static-analysis/go-lint-modules.sh"
 
 staticcheck_args=()
 if [[ -n "$STATICCHECK_CHECKS" ]]; then
   staticcheck_args+=("-checks=$STATICCHECK_CHECKS")
 fi
-
-env GOCACHE="$GO_CACHE_DIR" \
-  GOMODCACHE="$GO_MOD_CACHE_DIR" \
-  GOTMPDIR="$GO_TMP_DIR" \
-  "$STATICCHECK_BIN" "${staticcheck_args[@]}" "${packages[@]}"
+cartulary_lint_go_modules "$ROOT_DIR" cartulary_filter_authored_go_packages "$STATICCHECK_BIN" "${staticcheck_args[@]}"

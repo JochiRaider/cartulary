@@ -22,13 +22,15 @@ const (
 // Config names the program, the error vocabulary carriers and the declared
 // catalog. Type and function names are "import/path.Name".
 type Config struct {
-	Dir         string
-	Patterns    []string
-	APIError    string
-	CodeField   string
-	Writers     map[string]int
-	HandlerType string
-	Catalog     declarationCatalog
+	Dir                string
+	Patterns           []string
+	APIError           string
+	CodeField          string
+	Writers            map[string]int
+	AdmittedPrincipal  string
+	AdmittedPathString string
+	HandlerType        string
+	Catalog            declarationCatalog
 }
 
 type Finding struct {
@@ -74,7 +76,7 @@ func Run(config Config) (Report, error) {
 		}
 		report.RootedCount++
 		declared := map[string]bool{}
-		for _, codes := range config.Catalog[operationID] {
+		for _, codes := range config.Catalog[operationID].codes {
 			for _, code := range codes {
 				declared[code] = true
 			}

@@ -62,7 +62,7 @@ func TestDiscoveryRouteAdmissionOrder_Integration(t *testing.T) {
 	httptestx.RequireSuccessEnvelope(t, get(t, http.MethodGet, known, &login), http.StatusOK)
 
 	t.Run("authentication precedes path parameters and queries", func(t *testing.T) {
-		for _, path := range []string{"/api/v1/view-schemas/NOT_A_SCHEMA", known + "?limit=1", "/api/v1/view-schemas?limit=0", "/api/v1/extensions?cursor_token=opaque"} {
+		for _, path := range []string{"/api/v1/view-schemas/NOT_A_SCHEMA", known + "?limit=1", "/api/v1/view-schemas?limit=0", "/api/v1/extensions?limit=1", "/api/v1/extensions?cursor_token=opaque"} {
 			httptestx.RequireErrorEnvelope(t, get(t, http.MethodGet, path, nil), http.StatusUnauthorized, "session_required")
 		}
 	})
@@ -90,7 +90,7 @@ func TestDiscoveryRouteAdmissionOrder_Integration(t *testing.T) {
 		}
 	})
 	t.Run("an authenticated caller meets the query checks", func(t *testing.T) {
-		for _, path := range []string{known + "?limit=1", unknown + "?limit=1", "/api/v1/view-schemas?limit=0", "/api/v1/extensions?cursor_token=opaque"} {
+		for _, path := range []string{known + "?limit=1", unknown + "?limit=1", "/api/v1/view-schemas?limit=0", "/api/v1/extensions?limit=1", "/api/v1/extensions?cursor_token=opaque"} {
 			httptestx.RequireErrorEnvelope(t, get(t, http.MethodGet, path, &login), http.StatusBadRequest, "invalid_pagination_request")
 		}
 	})

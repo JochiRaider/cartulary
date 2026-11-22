@@ -1860,7 +1860,7 @@
         "harness.toolchain_drift"
       ],
       "cache_policy": "none",
-      "estimated_work_ms": 120000,
+      "estimated_work_ms": 10000,
       "resource_profile_id": "standard",
       "service_dependencies": [],
       "postgres_isolation": "none"

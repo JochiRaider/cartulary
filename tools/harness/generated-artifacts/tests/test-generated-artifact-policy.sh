@@ -382,6 +382,10 @@ set -euo pipefail
 
 case "${1:-}" in
   list)
+    if [[ "$PWD" == */tools/go-analysis ]]; then
+      echo github.com/JochiRaider/cartulary/tools/go-analysis/errordeclaudit
+      exit 0
+    fi
     cat <<'PACKAGES'
 github.com/JochiRaider/cartulary/cmd/server
 github.com/JochiRaider/cartulary/cmd/operator
@@ -392,7 +396,7 @@ PACKAGES
     ;;
   vet)
     shift
-    printf '%s\n' "$@" >"${FAKE_GO_VET_ARGS_LOG:?}"
+    printf '%s\n' "$@" >>"${FAKE_GO_VET_ARGS_LOG:?}"
     ;;
   *)
     echo "unexpected go invocation: $*" >&2
@@ -415,3 +419,4 @@ assert_contains "$vet_args" "github.com/JochiRaider/cartulary/cmd/operator" "go 
 assert_contains "$vet_args" "github.com/JochiRaider/cartulary/internal/modules/auth" "go vet authored module package"
 assert_not_contains "$vet_args" "github.com/JochiRaider/cartulary/internal/gen/contracts" "go vet generated contracts exclusion"
 assert_not_contains "$vet_args" "github.com/JochiRaider/cartulary/internal/gen/sql" "go vet generated sql exclusion"
+assert_contains "$vet_args" "github.com/JochiRaider/cartulary/tools/go-analysis/errordeclaudit" "go vet nested analyzer package"

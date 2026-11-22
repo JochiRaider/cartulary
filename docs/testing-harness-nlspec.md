@@ -3071,7 +3071,7 @@ security, runtime or evidence context MUST NOT be dropped as duplicate coverage.
 | `contract` (default) | Boundary, command-surface, evidence, graph, local-session, observation, scheduler and local-service lifecycle contracts. |
 | `smoke` | Public wrapper projection, `TestRuntimeScheduling`, `TestFixtureBrokerOwnership`. |
 | `execution` | Shell run-step, Vitest run-step, Playwright run-step, canonical graph compilation/planning assurance, service-backed graph delegation and Make-node dispatch. |
-| `regression` | Execution topology, task surface, finalizer, execution preset, toolchain pins, Go readiness, Node bootstrap, shellcheck bootstrap, cache artifact, cleanup, capacity failure, shell lint, build-input discovery, migration checks, generated drift/policy, JSON shapes, Go scanner wrapper assurance (Staticcheck, Govulncheck and targeted/advisory Gosec), release task surface/readiness, SBOM/license, SeaweedFS release evidence, canonical evidence, browser graph, canonical graph compilation/planning assurance, scheduler matrix, fixture-broker matrix, observability, frontend boundaries and Fallow static contracts. |
+| `regression` | Execution topology, task surface, finalizer, execution preset, toolchain pins, Go readiness, Node bootstrap, shellcheck bootstrap, cache artifact, cleanup, capacity failure, shell lint, build-input discovery, migration checks, generated drift/policy, JSON shapes, Go scanner wrapper assurance (Go vet, Staticcheck, Govulncheck and targeted/advisory Gosec), release task surface/readiness, SBOM/license, SeaweedFS release evidence, canonical evidence, browser graph, canonical graph compilation/planning assurance, scheduler matrix, fixture-broker matrix, observability, frontend boundaries and Fallow static contracts. |
 | `lifecycle` | Browser E2E, local dev-stack and local-service lifecycle assertions. |
 | `full` | Union of smoke, regression and lifecycle, plus real-target tool-output assertions. |
 | `runtime` | Race-enabled runtime, schema and session Go package contracts. |
@@ -3236,7 +3236,7 @@ database evidence retain separate unit, resource, lease, and artifact identities
 | `browser-e2e` | `cartulary.harness.command.browser_e2e.v4` | `browser_e2e` | `ci`, `release-check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `service_start`, `service_resource_mutation`, `runtime_reset` | `public_active` | Requires explicit `SUITE`; direct suites are complete and never aggregate-tier filtered. |
 | `browser-e2e-visual-update` | `cartulary.harness.command.browser_e2e_visual_update.v3` | `browser_e2e` | `helper_only` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `authored_source_write`, `service_start`, `service_resource_mutation`, `runtime_reset` | `public_active` | Helper-only refresh command for committed Playwright visual goldens. It runs the same visual stack and row selection as `browser-e2e SUITE=visual` with snapshot-update mode, mutates only authored snapshot PNGs under the visual spec snapshot directory, and MUST NOT be selected by `check`, `ci`, or release gates. |
 | `test-fast` | `cartulary.harness.command.test_fast.v4` | `aggregates_gates` | `test-fast` | `aggregate_summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `service_start`, `service_resource_mutation`, `runtime_reset` | `public_active` | Fast rows with only their required preparation. |
-| `lint` | `cartulary.harness.command.lint.v3` | `aggregates_gates` | `helper_only` | `aggregate_summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` | Default `CHECK=standard` retains the blocking lint union; explicit protocol checks keep their aggregate placement. |
+| `lint` | `cartulary.harness.command.lint.v3` | `aggregates_gates` | `helper_only` | `aggregate_summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` | Default `CHECK=standard` retains the blocking lint union; explicit protocol checks keep their aggregate placement. Go vet and Staticcheck under `CHECK=go` MUST scan authored root packages and the `tools/go-analysis` module separately with the pinned tools. Failed or empty discovery and lint findings in either module fail the corresponding check. |
 | `go-vulncheck` | `cartulary.harness.command.go_vulncheck.v2` | `static_analysis_security` | `check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `security_boundary` (Section 15), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` | Runs Govulncheck with structured JSON output and retains `govulncheck-findings.json` with schema ID `cartulary.govulncheck_findings.v1`. Symbol-reachable vulnerability findings are blocking `security_finding` failures; package-only and module-only findings are retained as diagnostic security evidence unless a later profile promotes them. |
 | `go-gosec-targeted` | `cartulary.harness.command.go_gosec_targeted.v2` | `static_analysis_security` | `check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `security_boundary` (Section 15), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` |  |
 | `go-gosec-audit` | `cartulary.harness.command.go_gosec_audit.v2` | `static_analysis_security` | `ci`, `release-check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `security_boundary` (Section 15), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` | Advisory no-fail audit evidence. It MUST NOT be selected by default local `check`. |
@@ -9213,12 +9213,31 @@ write to declarations for its exact operation and HTTP status. The initial
 rule accepts a unique handler from a fresh literal handler map handed to the
 admission binder and the first unconditional call chain to a known response
 writer, with the original response writer and request and constant status
-and code. Its diagnostic names the operation, writer, status and code.
-Unsupported bindings, unresolved paths, constructed errors and broad
-reachability findings supply no proof. Fixture or analyzer failure fails
-the check. The check aggregate MUST run the qualified rule. Expanding its proof
-requires fixture coverage, shadow qualification and adjudication of new blockers. The exercised-response
-guard continues to apply to all resolved operations.
+and code. The conditional rule MUST trace a concrete admissible request from
+the same binding to its first response. The qualified request is a base GET
+with an admitted session cookie and the query `limit=1`. Its path is either
+literal or contains one pattern-admitted string parameter with the sample
+value `cartulary.view.timeline.v2`. The concrete URL MUST resolve to the
+operation under review. The checker may use central admission facts for
+the selected session and path parameters, evaluate determinate guards, and
+follow a fresh typed error through static calls to a known writer. Status and
+code MUST come from that write on the same path and original writer and request.
+An unresolved guard, opaque effect, escaped or overwritten error, substituted
+writer or request, or earlier response ends that proof. The checker lists each
+proven operation, writer, status and code in operation order and identifies
+each violating tuple. A constructed error alone and broad
+call-graph reachability supply no proof.
+
+Fixture or analyzer failure fails the check. Zero proven writes on the server
+program MUST fail qualification with a diagnostic naming this requirement,
+the two reference requests, and the command to reproduce the result. The
+reference requests are `getViewSchema` at
+`/api/v1/view-schemas/cartulary.view.timeline.v2?limit=1` and
+`listDeploymentExtensions` at `/api/v1/extensions?limit=1`. A positive proof
+on either route or another qualified operation satisfies the coverage floor.
+The check aggregate MUST run the qualified rules. Expansion requires fixture coverage, shadow
+qualification and adjudication of new blockers. The exercised-response guard
+continues to apply to all resolved operations.
 Verified by: TH-HARNESS-AC-164
 
 **TH-HARNESS-REQ-863 — A test server's fatal is evidence**
@@ -11377,7 +11396,7 @@ expected behavior. Failure codes below are normalized wrapper codes.
 | TH-HARNESS-AC-161 | REQ-865 | A catalog fixture Go row whose estimate plus the Go startup and cleanup allowance exceeds the packing bound; a packer item above the bound; a measurement-class Go row | Catalog validation rejects the oversized row and the packer throws, each naming the row or item; rows within the bound pack unchanged; a measurement row is planned alone and exempt | An oversized non-measurement row validates, a cohort whose estimate exceeds the bound is emitted, or an exempt item shares a cohort. |
 | TH-HARNESS-AC-162 | REQ-866 | Synthetic retained runs that passed on the current source, failed, or carry another source digest; Go units over the bound, drifting in each direction, and selecting a dedicated-isolation row without a heavy lane | A qualified run yields the sorted, bounded findings and omission count, a rejected run yields its reason codes and no findings, human and JSON views agree, every case exits `0`, and the retained inputs and authored owners are unchanged | A finding gates a command or exits non-zero, an unqualified run yields findings, or the audit writes an estimate, owner or retained file. |
 | TH-HARNESS-AC-163 | REQ-867 | A fixture program whose handlers produce declared codes, a seeded undeclared constant reached through a forwarding function, and a handler the binding does not root; then the server program | The fixture report lists exactly the seeded code with its producing function and the unrooted operation, the server report validates against its schema, and every finding leaves the exit status `0` | The seeded code is missed, a declared code is reported, a finding changes the exit status, or the audit is selected by `check`, CI or a finalizer. |
-| TH-HARNESS-AC-164 | REQ-868 | Bound handlers with a direct and forwarded write, wrong-status and undeclared codes, a conditional path, unused error and unrooted operation | Only witnessed mismatches fail and each names its writer, operation, status and code | A missing seeded violation, advisory finding used as a blocker or failed analyzer reported as clean fails. |
+| TH-HARNESS-AC-164 | REQ-868 | Direct and forwarded writes, an admissible conditional write through a typed error, wrong-status and undeclared pairs, infeasible and unresolved paths, and the server program | The clean server has positive proof coverage. Each witnessed mismatch names its writer, operation, status and code. The parameterized and literal reference requests qualify during shadow validation, and losing either individual proof still permits the other to qualify | A missed seeded violation, unsupported path counted as proof, or empty server proof set reported as clean fails. |
 
 The numerical image cases MUST include transparent pixels, alpha-only differences,
 one-pixel boundaries, and zero/full changed area. Interface fixtures MUST include

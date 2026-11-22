@@ -1,7 +1,10 @@
 package main
 
 import (
+	"go/ast"
+	"go/parser"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -53,7 +56,7 @@ func TestCatalogRejectsMalformedDeclarations(t *testing.T) {
 func TestCheckUsesProvenWriterAndDeclaredStatus(t *testing.T) {
 	catalog := declarationCatalog{}
 	for _, op := range []string{"declared", "wrongStatus", "undeclared", "conditional", "unrooted"} {
-		catalog[op] = map[int][]string{404: {"missing"}}
+		catalog[op] = operationDeclaration{codes: map[int][]string{404: {"missing"}}}
 	}
 	result, err := checkWrites(Config{
 		Dir: "testdata/fixture", Patterns: []string{"./qualified"}, Catalog: catalog,
@@ -66,7 +69,80 @@ func TestCheckUsesProvenWriterAndDeclaredStatus(t *testing.T) {
 		{Operation: "undeclared", Status: 404, Code: "unknown", Writer: "example.test/fixture/httpapi.WriteError"},
 		{Operation: "wrongStatus", Status: 409, Code: "missing", Writer: "example.test/fixture/httpapi.WriteError"},
 	}
-	if result.Writes != 3 || !reflect.DeepEqual(result.Violations, want) {
+	if len(result.Writes) != 3 || !reflect.DeepEqual(result.Violations, want) {
 		t.Fatalf("qualified writes = %#v, want 3 with violations %#v", result, want)
+	}
+}
+
+func TestConditionalProofUsesOnlyTheAdmittedRequest(t *testing.T) {
+	names := strings.Fields("queryDeclared queryWrongStatus queryUnknown infeasible discarded reassigned escaped otherRequest otherWriter earlierResponse ambiguous absentParameter")
+	catalog := declarationCatalog{}
+	for _, op := range names {
+		catalog[op] = operationDeclaration{codes: map[int][]string{404: {"missing"}}, pattern: "GET /" + op, probe: &admittedProbe{owner: "example", path: "/" + op}}
+	}
+	const writer = "example.test/fixture/httpapi.WriteError"
+	result, err := checkWrites(Config{Dir: "testdata/fixture", Patterns: []string{"./qualified"}, Catalog: catalog,
+		AdmittedPathString: "example.test/fixture/qualified.PathString", APIError: "example.test/fixture/httpapi.APIError", Writers: map[string]int{writer: 3}, HandlerType: "net/http.HandlerFunc"}, "example.test/fixture/qualified.BindRoutes")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []writtenError{{"queryDeclared", 404, "missing", writer}, {"queryUnknown", 404, "unknown", writer}, {"queryWrongStatus", 409, "missing", writer}}
+	if !reflect.DeepEqual(result.Writes, want) || !reflect.DeepEqual(result.Violations, want[1:]) {
+		t.Fatalf("conditional writes = %#v", result)
+	}
+}
+
+func TestSingletonProbeRequiresSessionAndAdmissiblePath(t *testing.T) {
+	const op = `Operation{OwnerID:"owner", Method:"GET", Availability:"base", Pattern:"GET /schema/{id}", PathTemplate:"/schema/{id}", Security:[][]string{{"sessionCookie"}}, PathParameters:[]Param{{Name:"id", Pattern:"^cartulary[.]", MaxLength:100}}}`
+	for _, tc := range []struct {
+		old, replacement string
+		want             bool
+	}{
+		{"GET", "GET", true}, {"GET", "POST", false}, {"sessionCookie", "credentialBootstrapBearer", false},
+		{`{"sessionCookie"}`, `{}, {"sessionCookie"}`, false}, {"^cartulary", "^other", false}, {"100", "3", false},
+	} {
+		expr, err := parser.ParseExpr(strings.ReplaceAll(op, tc.old, tc.replacement))
+		if err != nil {
+			t.Fatal(err)
+		}
+		probe := singletonProbe(literalFields(expr.(*ast.CompositeLit)))
+		if (probe != nil) != tc.want {
+			t.Fatalf("replacement %q: probe=%#v", tc.replacement, probe)
+		}
+		if probe != nil {
+			catalog := declarationCatalog{"member": {probe: probe, pattern: "GET /schema/{id}"}, "literal": {pattern: "GET " + probe.path}}
+			if err := resolveProbes(catalog); err != nil {
+				t.Fatal(err)
+			}
+			if catalog["member"].probe != nil {
+				t.Fatal("literal sibling shadows witness request")
+			}
+		}
+	}
+}
+
+func TestLiteralProbeCarriesOnlyTheSessionAndQuery(t *testing.T) {
+	const op = `Operation{OwnerID:"owner", Method:"GET", Availability:"base", Pattern:"GET /things", PathTemplate:"/things", Security:[][]string{{"sessionCookie"}}`
+	for _, suffix := range []string{"}", ", PathParameters:nil}", ", PathParameters:[]Param{}}", ", PathParameters:unknown}"} {
+		expr, err := parser.ParseExpr(op + suffix)
+		if err != nil {
+			t.Fatal(err)
+		}
+		fields := literalFields(expr.(*ast.CompositeLit))
+		probe := singletonProbe(fields)
+		if suffix == ", PathParameters:unknown}" {
+			if probe != nil {
+				t.Fatal("unresolved path parameters qualified")
+			}
+			continue
+		}
+		if probe == nil || probe.parameter != "" || probe.path != "/things" {
+			t.Fatalf("literal request with %s: %#v", suffix, probe)
+		}
+		fields["PathTemplate"], _ = parser.ParseExpr(`"/things/{id}"`)
+		fields["Pattern"], _ = parser.ParseExpr(`"GET /things/{id}"`)
+		if singletonProbe(fields) != nil {
+			t.Fatal("unbound template parameter qualified")
+		}
 	}
 }

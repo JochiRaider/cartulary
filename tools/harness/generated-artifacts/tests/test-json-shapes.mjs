@@ -67,6 +67,8 @@ export function registerJSONShapeTests() {
       "cartulary.execution_topology.v8",
       "cartulary.scheduler_manifest.v2",
       "cartulary.harness_work_graph_owner.v8",
+      "cartulary.harness_work_graph_owner.v9",
+      "cartulary.harness_estimate_audit.v1",
       "cartulary.test_family_manifest.v13",
       "cartulary.postgres_fixture_policy_registry.v6",
       "cartulary.harness_host_admission_record.v2",
@@ -77,11 +79,7 @@ export function registerJSONShapeTests() {
       "cartulary.test_services.local_session.v3",
     ]) {
       assert.equal(attachments.attachments.some((entry) => entry.schema_id === retired), false, `${retired} must be rejected as current input`);
-    }
-    // TH-HARNESS-REQ-253: a structurally changed closed schema takes a new ID,
-    // and a document still carrying a replaced ID has no current validator.
-    for (const retired of ["cartulary.harness_work_graph_owner.v8", "cartulary.test_family_manifest.v13", "cartulary.postgres_fixture_policy_registry.v6"]) {
-      assert.throws(() => validateSchemaSync(retired, { schema_id: retired }), undefined, `${retired} must have no current validator`);
+      assert.throws(() => validateSchemaSync(retired, { schema_id: retired }), { message: `unregistered schema attachment ${retired}` });
     }
   });
 }

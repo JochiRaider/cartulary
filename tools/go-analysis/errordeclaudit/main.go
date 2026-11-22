@@ -40,8 +40,10 @@ func main() {
 			httpapiPackage + ".WriteErrorWithConflict": 3,
 			httpapiPackage + ".WriteErrorWithOptions":  3,
 		},
-		HandlerType: "net/http.HandlerFunc",
-		Catalog:     catalog,
+		AdmittedPrincipal:  "github.com/JochiRaider/cartulary/internal/platform/httpauth.AdmittedPrincipal",
+		AdmittedPathString: httpapiPackage + ".PathString",
+		HandlerType:        "net/http.HandlerFunc",
+		Catalog:            catalog,
 	}
 	if *check {
 		result, err := checkWrites(config, httpapiPackage+".BindAdmittedOwnerRoutes")
@@ -49,7 +51,16 @@ func main() {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
-		fmt.Printf("operations=%d proven_writes=%d violations=%d\n", len(catalog), result.Writes, len(result.Violations))
+		fmt.Printf("operations=%d proven_writes=%d violations=%d\n", len(catalog), len(result.Writes), len(result.Violations))
+		if len(result.Writes) == 0 {
+			fmt.Fprintln(os.Stderr, "error declaration qualification failed: zero proven server writes (TH-HARNESS-REQ-868)")
+			fmt.Fprintf(os.Stderr, "reference requests with an admitted session: getViewSchema GET /api/v1/view-schemas/%s?limit=1 and listDeploymentExtensions GET /api/v1/extensions?limit=1\n", samplePathValue)
+			fmt.Fprintln(os.Stderr, "reproduce with: make go-error-declaration-check")
+			os.Exit(1)
+		}
+		for _, v := range result.Writes {
+			fmt.Printf("proven operation=%s status=%d code=%s writer=%s\n", v.Operation, v.Status, v.Code, v.Writer)
+		}
 		for _, v := range result.Violations {
 			fmt.Fprintf(os.Stderr, "operation=%s status=%d code=%s writer=%s\n", v.Operation, v.Status, v.Code, v.Writer)
 		}
