@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 3,
-  "input_digest": "sha256:6ce78ffe650caa4453ed7acfd063a6e4750442c67d3fc6b4a4db85edf5351c6f",
+  "input_digest": "sha256:0d3db18a8c7a58dec022a45a50341d7e67191cd235679ad86b1505098546ac11",
   "inputs": [
     {
       "path": "contracts/performance/ac003.v2.json",
@@ -1417,7 +1417,7 @@
     {
       "path": "tools/scheduler_resource_registry.json",
       "role": "scheduler_resource_registry",
-      "hash": "sha256:c07b02b449b2838e7a7c7fca292dfdb3fa6af7cf2d477465ff06dcb6ea74ca63"
+      "hash": "sha256:1eb559b4b78d2eaacd3fdcde8d3185628cf3b197e332a34a4c3bc82eea2ef5a6"
     },
     {
       "path": "tools/task_surface_owner.json",

@@ -6,6 +6,7 @@ import { packInvocationCohorts } from "../cohorts.mjs";
 import { planGoLPTShards } from "../../../backend/go-lpt-shards.mjs";
 import { operationExecutionDigest } from "../operations.mjs";
 import { selectionFor } from "../preparation.mjs";
+import { loadSchedulerResourceRegistry } from "../../scheduler-resources.mjs";
 
 import {
   WorkGraphCompiler,
@@ -431,14 +432,17 @@ test("a Go item too large for one packed cohort fails closed", () => {
   assert.ok(units.every((unit) => unit.row_bindings.length === 1));
 });
 
-// TH-HARNESS-REQ-353: postgres_heavy is an authored lane capacity, two by
+// TH-HARNESS-REQ-353: postgres_heavy is an authored lane capacity, three by
 // default and at most the PostgreSQL lanes. Rows dominated by PostgreSQL bulk
-// writes, restores and imports claim one lane each, so with two lanes no three
+// writes, restores and imports claim one lane each, so with N lanes no N + 1
 // such units can hold lanes at once.
-test("postgres_heavy units claim one lane each against a bounded two-lane capacity", () => {
+test("postgres_heavy units claim one lane each against a bounded authored lane capacity", () => {
+  const authoredLanes = loadSchedulerResourceRegistry(path.join(root, "tools/scheduler_resource_registry.json"))
+    .capacity_policies.postgres_heavy_lanes.default;
+  assert.equal(authoredLanes, 3, "the authored heavy-lane default is three");
   const snapshot = captureCapabilitySnapshot({ root });
   const capacities = resourceCapacities(snapshot);
-  assert.equal(snapshot.postgres_heavy_lanes, Math.min(2, snapshot.postgres_lanes));
+  assert.equal(snapshot.postgres_heavy_lanes, Math.min(authoredLanes, snapshot.postgres_lanes));
   assert.equal(capacities.get("postgres_heavy"), snapshot.postgres_heavy_lanes);
   const oneLane = captureCapabilitySnapshot({ root, override: { schema_id: "cartulary.harness_capacity_override.v1", postgres_lanes: 1 } });
   assert.equal(oneLane.postgres_heavy_lanes, 1, "the heavy lanes never exceed the PostgreSQL lanes");
@@ -449,13 +453,13 @@ test("postgres_heavy units claim one lane each against a bounded two-lane capaci
   const compiler = new WorkGraphCompiler(root);
   const heavyRows = compiler.catalog.rows.filter((row) => row.resource_profile_id === "postgres_heavy" && row.aggregate_placement !== "explicit_only");
   const heavyUnits = compiler.compileRows(heavyRows.map((row) => row.row_id)).units.filter((unit) => unit.resource_claims.postgres_heavy !== undefined);
-  assert.ok(heavyUnits.length >= 3, "the heavy database rows compile to several lane-claiming units");
+  const lanes = snapshot.postgres_heavy_lanes;
+  assert.ok(heavyUnits.length > lanes, "the heavy database rows compile to more lane-claiming units than lanes");
   assert.ok(heavyUnits.every((unit) => unit.resource_claims.postgres_heavy === 1));
-  // Admission is additive, so three lane claims exceed a two-lane capacity.
-  const lanes = 2;
-  const [first, second, third] = heavyUnits;
-  assert.ok(first.resource_claims.postgres_heavy + second.resource_claims.postgres_heavy <= lanes);
-  assert.ok(first.resource_claims.postgres_heavy + second.resource_claims.postgres_heavy + third.resource_claims.postgres_heavy > lanes);
+  // Admission is additive, so one more lane claim than the capacity exceeds it.
+  const claimed = (units) => units.reduce((sum, unit) => sum + unit.resource_claims.postgres_heavy, 0);
+  assert.ok(claimed(heavyUnits.slice(0, lanes)) <= lanes);
+  assert.ok(claimed(heavyUnits.slice(0, lanes + 1)) > lanes);
 });
 
 test("cohort packing includes lifecycle and preserves oversized work", () => {

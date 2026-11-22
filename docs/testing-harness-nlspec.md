@@ -6398,7 +6398,7 @@ overrides remain subject to the v1 override schema and to the host bounds below.
 | `process_slots` | Minimum of the effective process limit and four times CPU tokens; use four times CPU tokens when the process limit is unavailable. | Minimum `1`. |
 | `io_tokens` | Two times CPU tokens. | Minimum `1`. |
 | `postgres_lanes` | Sixteen lanes by default. | Minimum `1`; at most CPU tokens. |
-| `postgres_heavy_lanes` | Two lanes by default. | Minimum `1`; at most PostgreSQL lanes. |
+| `postgres_heavy_lanes` | Three lanes by default. | Minimum `1`; at most PostgreSQL lanes. |
 | `object_store_lanes` | Eight lanes by default. | Minimum `1`; at most CPU tokens. |
 | `port_lanes` | Thirty-two lanes by default, including resident listeners. | Minimum `1`; at most twice CPU tokens. |
 | `writable_volume` | Writable-root proof. | Boolean capability. |
