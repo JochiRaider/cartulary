@@ -1,12 +1,12 @@
 # Test Consolidation Refactor Tracker and Handoff
 
-Version: 1.17.0
+Version: 1.17.1
 Date: 2026-11-21
 Target: Cartulary testing ecosystem  
 Authoring status: S-064 DONE (E-843), corrected by E-845; all 66 owner workstreams complete; R-04 fixture-legality workstream DONE (E-845, S-798–S-827); R-05 assertion-strength workstream DONE with R-03 folded in (E-876, S-828–S-854); R-05 phase 2 verified-deferred repairs DONE (E-904, S-855–S-900); R-05 phase 3 DONE (E-951, S-901–S-957); `make check` repairs DONE (S-958–S-963); residual closure workstream DONE (E-1015, S-964–S-995); gap remediation workstream DONE, with G16 deferred there and completed by E-1087 (E-1048, S-996–S-1033); open-residual closure workstream DONE (E-1087, S-1034–S-1053); residual remediation workstream DONE (E-1127, S-1054–S-1071); post-closure remediation workstream DONE (E-1175, S-1072–S-1118); carried-residual remediation workstream DONE (E-1188, S-1119–S-1130); outstanding-items workstream closed at E-1210 with the developer reset outstanding; post-closure engineering remediation verified in post1210-check03. Conditional error qualification now covers two operations, and Go lint includes the analyzer module.
 Artifact mode: normal; S-065 → S-059–S-063 → S-066–S-073 → all owner audits → S-064; S-001–S-058 remain completed history
 
-Current execution point: [Second production witness and analyzer lint](#second-production-witness-and-analyzer-lint). See the [post-E-1210 remediation](#post-e-1210-remediation) for the preceding engineering gate. The [E-1210 handoff](#s-1151--f-1136--e-1210--xo-closure-gate-evidence-re-run-and-handoff-verification-tracker) records the previous implementation gate and subsequent unsuccessful developer reset.
+The [XG5 developer reset](#xg5-developer-reset) is complete. The [second production witness and analyzer lint](#second-production-witness-and-analyzer-lint) remain the latest engineering gate. The [E-1210 handoff](#s-1151--f-1136--e-1210--xo-closure-gate-evidence-re-run-and-handoff-verification-tracker) records the first reset attempt.
 
 ## 1. Scope and Source Posture
 
@@ -93898,7 +93898,7 @@ then `CARTULARY_DESTRUCTIVE_CONFIRM=db-reset make db-reset`. Results follow.
 
 ## Post-E-1210 remediation
 
-E-1210 closed the preceding engineering gate. XG5 remains an operator action.
+E-1210 closed the preceding engineering gate with XG5 still pending at that point.
 The earlier S-1148 drift-free outcome referred to a prospective check. The
 qualified S-1151 check actually reported 13 findings across 310 launched Go
 units, comprising two packing overruns, seven cohort drifts, and four lane
@@ -94223,5 +94223,32 @@ The first wrapper test run, `witness2-scanners01`, failed because the
 fake `go list` omitted its final newline. Restoring line-delimited output
 made the nested-package check pass. `make target-plan TARGET=check JSON=1`
 confirmed the checker, vet and Staticcheck are selected by the aggregate.
-The XG5 reset and legacy host-admission directory retirement retain the
-operator prerequisites in the [local cutover instructions](#local-cutover).
+The legacy host-admission directory still awaits retirement under the
+[local cutover instructions](#local-cutover).
+
+### XG5 developer reset
+
+On 2026-11-21 the maintainer confirmed the local database and bucket were
+disposable and authorized a private developer profile. Both configured
+previews passed (`xg5-profile-obj-preview01`, `xg5-profile-db-preview01`).
+The live connections matched the local Compose project and the `cartulary`
+database and bucket.
+
+- `make object-store-reset` passed in `xg5-object-reset01`. An authenticated
+  listing returned zero keys and no further pages.
+- The existing PostgreSQL 18.6 cluster used the legacy bootstrap role
+  `cartulary`. Its application database had no migration ledger or application
+  tables. After a clean shutdown, its data directory was preserved at
+  `18/before-xg5-7681737584129208359` inside `cartulary_postgres-data-v18`.
+  Fresh provisioning used the ordinary data path on that same volume.
+- `make db-reset` dropped and recreated the database in `xg5-db-reset01`.
+  Migration stopped during configuration admission. After configuring the S3
+  binding, separating migration and runtime credentials, and keeping the S3
+  proxy running in a user service, `make db-migrate` passed in
+  `xg5-db-migrate03`. A direct ledger query confirmed v5 and all 29 applied
+  versions, from 1 through 29.
+- `make services-up` passed in `xg5-services04`. With `make dev` running,
+  the backend readiness endpoint, frontend home page and frontend-proxied
+  readiness endpoint all returned HTTP 200 over verified TLS. The backend
+  reported ready for PostgreSQL, object storage, reference packs and staged
+  object cleanup.
