@@ -31,6 +31,50 @@ func TestRestoreRejectsBypassedReferentialIntegrity_Integration(t *testing.T) {
 	if err := target.WithAtomicRestore(t.Context(), nil, func(recovery.VNextRestoreMutation) error { return nil }); err != nil {
 		t.Fatal("empty restore", err)
 	}
+	t.Run("Timeline tag labels on a migrated target", func(t *testing.T) {
+		for _, tc := range []struct {
+			name, label string
+			deleted     bool
+			valid       bool
+		}{
+			{"canonical", "Café", false, true},
+			{"legacy active", "Cafe\u0301", false, false},
+			{"legacy tombstone", "Cafe\u0301", true, false},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				target, pool := newTarget(t, "tag")
+				incident, record, actor := uuid.New(), uuid.New(), uuid.New()
+				err := target.WithAtomicRestore(t.Context(), nil, func(m recovery.VNextRestoreMutation) error {
+					tx := recovery.RestoreMutationTransactionForTest(m)
+					if _, err := tx.Exec(t.Context(), `INSERT INTO users(id,email,display_name,password_hash)
+VALUES ($1,'tag@example.test','Tag','unused')`, actor); err != nil {
+						return err
+					}
+					if _, err := tx.Exec(t.Context(), `INSERT INTO incidents(id,incident_key,incident_key_canonical,title,status,created_by_user_id,updated_by_user_id)
+VALUES ($1,'TAG','tag','Tag restore','active',$2,$2)`, incident, actor); err != nil {
+						return err
+					}
+					if _, err := tx.Exec(t.Context(), `INSERT INTO records(record_id,incident_id,record_type,created_by_user_id,updated_by_user_id)
+VALUES ($1,$2,'timeline_event',$3,$3)`, record, incident, actor); err != nil {
+						return err
+					}
+					_, err := tx.Exec(t.Context(), `INSERT INTO record_tags(record_id,incident_id,created_by_user_id,tag_name,normalized_tag_name,deleted_at,deleted_by_user_id)
+VALUES ($1,$2,$3,$4,'café',CASE WHEN $5 THEN now() END,CASE WHEN $5 THEN $3::uuid END)`, record, incident, actor, tc.label, tc.deleted)
+					return err
+				})
+				if tc.valid && err != nil {
+					t.Fatal(err)
+				}
+				if !tc.valid && (!errors.Is(err, recovery.ErrVNextBackup) || !strings.Contains(err.Error(), "noncanonical restored Timeline tag")) {
+					t.Fatalf("restore admitted a noncanonical binding or returned an unexpected error: %v", err)
+				}
+				var committed bool
+				if err := pool.QueryRow(t.Context(), `SELECT EXISTS(SELECT 1 FROM record_tags WHERE record_id=$1)`, record).Scan(&committed); err != nil || committed != tc.valid {
+					t.Fatalf("committed=%v want %v, err=%v", committed, tc.valid, err)
+				}
+			})
+		}
+	})
 	t.Run("inactive state metadata is preserved without profile admission", func(t *testing.T) {
 		for _, version := range []int{4, 5} {
 			target, pool := newTarget(t, "inactive")

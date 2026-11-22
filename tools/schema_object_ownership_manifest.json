@@ -40264,6 +40264,23 @@
       "sqlc_input": false,
       "foreign_key_index_status": "not_applicable",
       "approval": null
+    },
+    {
+      "object_id": "view.public.links-timeline-tag-labels-v1",
+      "object_kind": "view",
+      "qualified_name": "public.links_timeline_tag_labels_v1",
+      "management_class": "cartulary_authored",
+      "source_owner": "links",
+      "migration_version": 30,
+      "migration_file": "00030_timeline_tag_labels.sql",
+      "dependency_object_ids": [],
+      "runtime_access_class": "view_read_only",
+      "recovery_access_class": "view_read_only",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
     }
   ]
 }

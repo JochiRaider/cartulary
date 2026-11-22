@@ -156,7 +156,7 @@ func (s *store) buildSameFieldConflictTx(ctx context.Context, tx pgx.Tx, recordI
 			if action.ResolvedRecord == nil {
 				return nil, &InvalidCollectionActionError{FieldKey: change.FieldKey}
 			}
-			err := s.entityStore.InspectResolvedTargetTx(ctx, tx, current.IncidentID, collectionEntityType(change.FieldKey), *action.ResolvedRecord)
+			err := s.entityStore.InspectResolvedTargetTx(ctx, tx, current.IncidentID, mentionEntityType(change.FieldKey), *action.ResolvedRecord)
 			if errors.Is(err, ErrResolvedRecordNotFound) {
 				return nil, &InvalidCollectionActionError{FieldKey: change.FieldKey}
 			}
@@ -295,13 +295,14 @@ func applyCollectionConflictActions(recordID uuid.UUID, fieldKey string, baseVal
 	if !ok {
 		return nil, fmt.Errorf("%w for %s", errInvalidCollectionConflictBase, fieldKey)
 	}
+	policy, _ := LookupCollectionPolicy(fieldKey)
 	for index, action := range payload.Actions {
 		switch action.Op {
 		case "add_tag":
 			duplicate := false
 			for _, item := range items {
 				label, _ := item["display_text"].(string)
-				normalized, valid := normalizeCollectionToken(fieldKey, label)
+				_, normalized, valid := policy.NormalizeText(label)
 				if valid && normalized == action.NormalizedText {
 					duplicate = true
 					break
@@ -396,7 +397,7 @@ func newClientCollectionItem(recordID uuid.UUID, fieldKey string, action Collect
 		return item
 	}
 
-	item["entity_type"] = collectionEntityType(fieldKey)
+	item["entity_type"] = mentionEntityType(fieldKey)
 	if resolved {
 		item["item_kind"] = "resolved_ref"
 		if action.ResolvedRecord != nil {
@@ -435,13 +436,6 @@ func clientCollectionItemRef(fieldKey string, action CollectionAction, requestHa
 		token = token[:18]
 	}
 	return "client:" + token
-}
-
-func collectionEntityType(fieldKey string) string {
-	if policy, ok := timelineCollectionPolicy(fieldKey); ok && policy.ExpectedTargetType != "" {
-		return policy.ExpectedTargetType
-	}
-	return "host"
 }
 
 func findCollectionItem(items []map[string]any, itemRef string) map[string]any {

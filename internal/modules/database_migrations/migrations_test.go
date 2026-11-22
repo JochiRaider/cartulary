@@ -291,9 +291,10 @@ func TestReferencePackGenericIndexStorageBound_Integration(t *testing.T) {
 // view depending on a table from the version below head makes that version's
 // Down fail after the head's own Down has succeeded.
 func TestScratchRollbackPreservesCompletedSteps_Integration(t *testing.T) {
-	database := pgtest.Start(t).MigrationDatabaseT(t)
+	const baselineHead = int64(29)
+	database := pgtest.Start(t).MigrationDatabaseThroughT(t, baselineHead)
 	db := database.SQL()
-	head := canonicalRepositoryHead(t)
+	head := baselineHead
 	if _, err := db.ExecContext(t.Context(), `CREATE VIEW public.rollback_step_probe AS SELECT count(*) AS audited FROM public.administrative_audit_projections`); err != nil {
 		t.Fatal(err)
 	}
@@ -311,9 +312,10 @@ func TestScratchRollbackPreservesCompletedSteps_Integration(t *testing.T) {
 }
 
 func TestCatalogRollbackAndForwardTraversal_Integration(t *testing.T) {
-	database := pgtest.Start(t).MigrationDatabaseT(t)
+	const reversibleHead = int64(29)
+	database := pgtest.Start(t).MigrationDatabaseThroughT(t, reversibleHead)
 	head := canonicalRepositoryHead(t)
-	for version := head - 1; version >= 0; version-- {
+	for version := reversibleHead - 1; version >= 0; version-- {
 		if err := database.RollbackThrough(t.Context(), version); err != nil {
 			t.Fatalf("rollback canonical catalog through version %d: %v", version, err)
 		}

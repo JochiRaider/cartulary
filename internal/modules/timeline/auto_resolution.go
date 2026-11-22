@@ -29,6 +29,10 @@ type autoResolutionKey struct{ Field, RawText string }
 type preparedAutoResolution map[autoResolutionKey]*autoResolutionMatch
 
 func (s *store) lookupInteractiveAutoResolutionMatchTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, fieldKey string, rawText string, prepared preparedAutoResolution) (*autoResolutionMatch, error) {
+	entityType := mentionEntityType(fieldKey)
+	if entityType == "" {
+		return nil, nil
+	}
 	match, present := prepared[autoResolutionKey{fieldKey, rawText}]
 	if !present {
 		return nil, errors.New("timeline: automatic reference was not prepared")
@@ -36,7 +40,6 @@ func (s *store) lookupInteractiveAutoResolutionMatchTx(ctx context.Context, tx p
 	if match == nil {
 		return nil, nil
 	}
-	entityType, _ := timelineRelationshipEntityType(fieldKey)
 	if err := s.entityStore.AdmitResolvedTargetTx(ctx, tx, incidentID, entityType, match.RecordID); err != nil {
 		if errors.Is(err, ErrResolvedRecordNotFound) {
 			return nil, nil
@@ -54,8 +57,8 @@ func (s *store) lookupInteractiveAutoResolutionMatchTx(ctx context.Context, tx p
 }
 
 func (s *store) initialAutoResolutionMatchTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, fieldKey, rawText string) (*autoResolutionMatch, error) {
-	entityType, ok := timelineRelationshipEntityType(fieldKey)
-	if !ok {
+	entityType := mentionEntityType(fieldKey)
+	if entityType == "" {
 		return nil, nil
 	}
 	candidateText, ok := fieldnorm.AutoResolutionCandidateText(rawText)
@@ -96,15 +99,4 @@ func autoResolutionSuppressed(candidateText string) bool {
 		}
 	}
 	return false
-}
-
-func timelineRelationshipEntityType(fieldKey string) (string, bool) {
-	switch fieldKey {
-	case "timeline.host_refs":
-		return "host", true
-	case "timeline.identity_refs":
-		return "identity", true
-	default:
-		return "", false
-	}
 }

@@ -492,7 +492,7 @@ func TestFieldAwareLinkIdentityAndMergeCharacterization(t *testing.T) {
 
 	tagCreate, err := store.ApplyTagCollectionWithMutationValuesTx(ctx, tx, links.TagCollectionCommand{
 		IncidentID: incident.ID, RecordID: src, ActorUserID: actor.ID, FieldKey: "timeline.tags",
-		AddTags: []links.TagCollectionAdd{{RawText: "Durable", NormalizedText: "durable"}}, Now: now.Add(6 * time.Second),
+		AddTags: []links.TagCollectionAdd{{RawText: "Café", NormalizedText: "café"}}, Now: now.Add(6 * time.Second),
 	})
 	tagCreateMutations := tagCreate.Mutations()
 	if err != nil || len(tagCreateMutations) != 1 {
@@ -509,11 +509,40 @@ func TestFieldAwareLinkIdentityAndMergeCharacterization(t *testing.T) {
 		RemoveTags: []links.RecordTagRef{{RecordID: src, RecordTagID: tagID}}, Now: now.Add(7 * time.Second),
 	})
 	tagDeleteMutations := tagDelete.Mutations()
-	if err != nil || len(tagDeleteMutations) != 1 || mutationMap(t, tagDeleteMutations[0].BeforeValue())["tag_name"] != "Durable" {
+	if err != nil || len(tagDeleteMutations) != 1 || mutationMap(t, tagDeleteMutations[0].BeforeValue())["tag_name"] != "Café" {
 		t.Fatalf("delete tag mutation: result=%#v err=%v", tagDelete, err)
 	}
 	requireCanonicalRecordTagMutationValue(t, mutationMap(t, tagDeleteMutations[0].BeforeValue()))
 	requireCanonicalRecordTagMutationValue(t, mutationMap(t, tagDeleteMutations[0].AfterValue()))
+
+	t.Run("retained tag inverse uses exact source and canonical restore values", func(t *testing.T) {
+		m := tagDeleteMutations[0]
+		before, after := mutationMap(t, m.BeforeValue()), mutationMap(t, m.AfterValue())
+		before["tag_name"], after["tag_name"] = "Cafe\u0301", "Cafe\u0301"
+		target := rollbackcontract.NonRowTarget{
+			IncidentID: incident.ID, TargetKind: "record_tag", TargetID: m.TargetID(),
+			OperationKind: "delete", BeforeValue: before, AfterValue: after,
+		}
+		provider := links.RevisionProviderContribution().NonRowTargets[1].RollbackProvider
+		reject := func(reason error) {
+			t.Helper()
+			_, err := provider.ApplyInverseTx(ctx, tx, rollbackcontract.ApplyInverseRequest{Target: target, ActorUserID: actor.ID, Now: now})
+			if !errors.Is(err, reason) {
+				t.Fatalf("inverse error %v, want %v", err, reason)
+			}
+		}
+		reject(rollbackcontract.ErrStaleTarget)
+		// Simulate a retained row restored before the repair. Even when the
+		// complete current row matches, its inverse cannot recreate this label.
+		if _, err := tx.Exec(ctx, `UPDATE record_tags SET tag_name=$2 WHERE record_tag_id=$1`, tagID, before["tag_name"]); err != nil {
+			t.Fatal(err)
+		}
+		reject(rollbackcontract.ErrTargetNotReversible)
+		var stillDeleted bool
+		if err := tx.QueryRow(ctx, `SELECT deleted_at IS NOT NULL FROM record_tags WHERE record_tag_id=$1`, tagID).Scan(&stillDeleted); err != nil || !stillDeleted {
+			t.Fatalf("rejected inverse changed deletion state: %v", err)
+		}
+	})
 
 	factReader := linkfacts.FactReader{}
 	recordFacts, err := factReader.LoadRecordTx(ctx, tx, incident.ID, src)

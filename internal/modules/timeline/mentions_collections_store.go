@@ -63,7 +63,7 @@ func (s *store) refreshMentionEntityProjectionsTx(ctx context.Context, tx pgx.Tx
 }
 
 func (r *mentionProjectionRefresh) include(fieldKey string, recordID uuid.UUID) {
-	switch collectionEntityType(fieldKey) {
+	switch mentionEntityType(fieldKey) {
 	case "host":
 		if r.Hosts == nil {
 			r.Hosts = make(map[uuid.UUID]struct{})
@@ -104,12 +104,12 @@ func (s *store) applyCreateMentionActionsTx(ctx context.Context, tx pgx.Tx, acto
 		allowInteractiveAutoResolution: options.allowInteractiveAutoResolution,
 		preparedAuto:                   options.preparedAuto,
 	}
-	hostResult, err := s.insertMentionActionsTx(ctx, tx, s.linkStore, actorUserID, incidentID, recordID, "timeline.host_refs", collectionEntityType("timeline.host_refs"), hostRefs, insertOptions, now)
+	hostResult, err := s.insertMentionActionsTx(ctx, tx, s.linkStore, actorUserID, incidentID, recordID, "timeline.host_refs", mentionEntityType("timeline.host_refs"), hostRefs, insertOptions, now)
 	if err != nil {
 		return mentionApplicationResult{}, err
 	}
 	result.merge(hostResult)
-	identityResult, err := s.insertMentionActionsTx(ctx, tx, s.linkStore, actorUserID, incidentID, recordID, "timeline.identity_refs", collectionEntityType("timeline.identity_refs"), identityRefs, insertOptions, now)
+	identityResult, err := s.insertMentionActionsTx(ctx, tx, s.linkStore, actorUserID, incidentID, recordID, "timeline.identity_refs", mentionEntityType("timeline.identity_refs"), identityRefs, insertOptions, now)
 	if err != nil {
 		return mentionApplicationResult{}, err
 	}
@@ -127,7 +127,7 @@ func (s *store) applyPatchMentionActionsTx(ctx context.Context, tx pgx.Tx, actor
 		if change.ActionPayload == nil {
 			continue
 		}
-		entityType := collectionEntityType(change.FieldKey)
+		entityType := mentionEntityType(change.FieldKey)
 		for _, action := range change.ActionPayload.Actions {
 			switch action.Op {
 			case "add_token", "add_resolved_ref":

@@ -1,6 +1,10 @@
 package timeline
 
-import "slices"
+import (
+	"slices"
+
+	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
+)
 
 type CollectionFamily string
 
@@ -26,6 +30,32 @@ func (p CollectionPolicy) AllowsOp(op string) bool {
 
 func (p CollectionPolicy) AllowsLinksCollectionMutation() bool {
 	return p.Family == CollectionFamilyRecordRef || p.Family == CollectionFamilyRecordTag
+}
+
+func (p CollectionPolicy) IsAttachedEvidence() bool {
+	return p.Family == CollectionFamilyRecordRef && p.LinkType == "attached_evidence"
+}
+
+// NormalizeText returns the source value and comparison key for a textual action.
+func (p CollectionPolicy) NormalizeText(raw string) (source, comparison string, ok bool) {
+	switch p.Family {
+	case CollectionFamilyMentionOrigin:
+		token, valid := fieldnorm.NormalizeMentionToken(raw)
+		return raw, token, valid
+	case CollectionFamilyRecordTag:
+		return fieldnorm.NormalizeTagLabel(raw)
+	default:
+		return "", "", false
+	}
+}
+
+// mentionEntityType returns the eligible entity type for a mention-origin field.
+func mentionEntityType(fieldKey string) string {
+	policy := timelineCollectionPolicies[fieldKey]
+	if policy.Family != CollectionFamilyMentionOrigin {
+		return ""
+	}
+	return policy.ExpectedTargetType
 }
 
 func LookupCollectionPolicy(fieldKey string) (CollectionPolicy, bool) {

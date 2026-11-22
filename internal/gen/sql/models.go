@@ -1323,6 +1323,13 @@ type LinksBundleValidationTag struct {
 	TransactionID     interface{}        `json:"transaction_id"`
 }
 
+type LinksTimelineTagLabelsV1 struct {
+	RecordTagID       pgtype.UUID        `json:"record_tag_id"`
+	TagName           string             `json:"tag_name"`
+	NormalizedTagName string             `json:"normalized_tag_name"`
+	DeletedAt         pgtype.Timestamptz `json:"deleted_at"`
+}
+
 type NetworkFlowGraphView struct {
 	GraphViewID                           string             `json:"graph_view_id"`
 	IncidentID                            pgtype.UUID        `json:"incident_id"`

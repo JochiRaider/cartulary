@@ -66,6 +66,11 @@ func NormalizeTagLabel(raw string) (string, string, bool) {
 	return label, TextSortKey(label), true
 }
 
+func IsCanonicalTagLabel(label, comparison string) bool {
+	source, key, ok := NormalizeTagLabel(label)
+	return ok && source == label && key == comparison
+}
+
 func countRunes(value string) int {
 	count := 0
 	for range value {

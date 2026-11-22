@@ -122,7 +122,8 @@
           "TestProductionDDLCatalogManifestParity_Integration",
           "TestProductionDDLContaminationFailsBeforeMutation_Integration",
           "TestProductionDDLExtensionPrerequisiteMatrix_Integration",
-          "TestReferencePackGenericIndexStorageBound_Integration"
+          "TestReferencePackGenericIndexStorageBound_Integration",
+          "TestTimelineTagLabelRepair_Integration"
         ]
       },
       "evidence_class": "integration",

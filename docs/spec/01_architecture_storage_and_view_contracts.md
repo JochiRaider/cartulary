@@ -6547,6 +6547,21 @@ Verified by: AC-119, AC-124, AC-125, AC-184, AC-191, AC-192, AC-193, AC-194, AC-
 **REQ-01-322**
 - `tag_name` in `add_tag` MUST use `string_contract_id=tag_label_v1`.
 - The server MUST normalize and compare `tag_name` using `tag_label_v1`, including trimmed Unicode NFC normalization and case-insensitive dedupe canonicalization, so that a record holds at most one active tag binding per normalized label. Empty tag names after normalization MUST be rejected with `400 Bad Request` and `error.code = invalid_mutation_payload`. Duplicate adds MUST coalesce to one surviving active binding.
+
+Current-line Timeline tag repair applies to existing active and tombstoned
+Timeline tag bindings whose stored label differs from its valid NFC spelling
+only by Unicode composition and whose comparison key already matches that
+spelling under `tag_label_v1`. Before changing source, the upgrade MUST audit
+these bindings and abort on any other invalid Timeline tag. The Links-owned
+increment MUST recheck under write protection, correct only the display label,
+and bring affected Timeline projection cells into agreement before serving.
+IDs, keys, timestamps, attribution, deletion state, historical mutation values,
+committed receipts and published artifacts MUST retain their original values.
+Exact receipt replay returns its original result. A newly exported bundle
+reflects the corrected source. A logical restore into an already upgraded
+target MUST validate the restored Timeline bindings before committing them.
+A backup containing affected labels can be restored using its original
+release and then upgraded through the protected repair.
 Profiles: base
 Verified by: AC-119, AC-124, AC-125, AC-184, AC-191, AC-192, AC-193, AC-194, AC-195, AC-196, AC-197, AC-198, AC-231
 

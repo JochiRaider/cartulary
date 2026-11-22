@@ -12,7 +12,9 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/links/internal/valuecodec"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
+	"github.com/JochiRaider/cartulary/internal/modules/records/enveloperead"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/rollbackcontract"
+	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 )
 
 var (
@@ -204,7 +206,7 @@ func (p Provider) DescribeTx(ctx context.Context, tx pgx.Tx, request rollbackcon
 				}
 			}
 		}
-		if err := validateRetainedEnvelopesTx(ctx, tx, target.IncidentID, descriptor.AffectedRecordIDs); err != nil {
+		if _, err := loadRetainedEnvelopesTx(ctx, tx, target.IncidentID, descriptor.AffectedRecordIDs); err != nil {
 			return descriptor, err
 		}
 		current, err := p.loadRecordLinkValueTx(ctx, tx, parsed.RecordLinkID)
@@ -235,7 +237,8 @@ func (p Provider) DescribeTx(ctx context.Context, tx pgx.Tx, request rollbackcon
 			affected = append(affected, after.RecordID)
 		}
 		descriptor := rollbackcontract.TargetDescriptor{AffectedRecordIDs: canonicalIDs(affected...)}
-		if err := validateRetainedEnvelopesTx(ctx, tx, target.IncidentID, descriptor.AffectedRecordIDs); err != nil {
+		envelopes, err := loadRetainedEnvelopesTx(ctx, tx, target.IncidentID, descriptor.AffectedRecordIDs)
+		if err != nil {
 			return descriptor, err
 		}
 		current, err := p.loadRecordTagValueTx(ctx, tx, parsed.RecordTagID)
@@ -244,6 +247,10 @@ func (p Provider) DescribeTx(ctx context.Context, tx pgx.Tx, request rollbackcon
 		}
 		if err := requireCompleteCurrentTag(current, target.AfterValue); err != nil {
 			return descriptor, err
+		}
+		if target.OperationKind != "create" && envelopes[parsed.RecordID].RecordType == "timeline_event" &&
+			!fieldnorm.IsCanonicalTagLabel(parsed.TagName, parsed.NormalizedTagName) {
+			return descriptor, ErrTargetNotReversible
 		}
 		return descriptor, nil
 	default:
@@ -276,18 +283,18 @@ func requireCompleteCurrentTag(current, after map[string]any) error {
 }
 
 // Rollback may restore relationships whose endpoints are retained but deleted.
-func validateRetainedEnvelopesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, ids []uuid.UUID) error {
+func loadRetainedEnvelopesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, ids []uuid.UUID) (map[uuid.UUID]enveloperead.Envelope, error) {
 	envelopes, err := records.NewStore().LoadEnvelopesTx(ctx, tx, ids, false)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	for _, id := range ids {
 		envelope, ok := envelopes[id]
 		if !ok || envelope.IncidentID != incidentID {
-			return ErrTargetNotFound
+			return nil, ErrTargetNotFound
 		}
 	}
-	return nil
+	return envelopes, nil
 }
 
 func (p Provider) ApplyInverseTx(ctx context.Context, tx pgx.Tx, request rollbackcontract.ApplyInverseRequest) (rollbackcontract.ApplyInverseResult, error) {

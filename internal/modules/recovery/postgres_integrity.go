@@ -6,6 +6,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	linkfacts "github.com/JochiRaider/cartulary/internal/modules/links/facts"
 	"github.com/JochiRaider/cartulary/internal/platform/maintenancequery"
 	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 )
@@ -99,6 +100,13 @@ func validateRestoredPostgresRows(ctx context.Context, tx pgx.Tx) error {
 	}
 	if !valid {
 		return fmt.Errorf("%w: restored revision history order", ErrVNextBackup)
+	}
+	valid, err = linkfacts.TimelineTagLabelsAreCanonicalTx(ctx, tx)
+	if err != nil {
+		return fmt.Errorf("validate restored Timeline tag labels: %w", err)
+	}
+	if !valid {
+		return fmt.Errorf("%w: noncanonical restored Timeline tag", ErrVNextBackup)
 	}
 	return nil
 }

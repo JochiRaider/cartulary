@@ -268,7 +268,7 @@ func rowAdmitted(raw map[string]any, path pathSpec, invariant string) bool {
 		}
 		name, nameOK := raw["tag_name"].(string)
 		normalized, normOK := raw["normalized_tag_name"].(string)
-		return nameOK && normOK && canonicalTag(name, normalized)
+		return nameOK && normOK && fieldnorm.IsCanonicalTagLabel(name, normalized)
 	}
 	return false
 }
@@ -348,10 +348,6 @@ func canonicalCodecRow(raw map[string]any, timestampFields ...string) (map[strin
 	return result, true
 }
 
-func canonicalTag(tagName string, normalized string) bool {
-	label, expectedNormalized, ok := fieldnorm.NormalizeTagLabel(tagName)
-	return ok && label == tagName && expectedNormalized == normalized
-}
 
 func canonicalUUIDValue(raw any) (uuid.UUID, bool) {
 	text, ok := raw.(string)

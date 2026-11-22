@@ -114,8 +114,8 @@ func TestProductionDDLExtensionPrerequisiteMatrix_Integration(t *testing.T) {
 
 func TestHistoricalProductionDDLRollbackThroughZeroResidue_Integration(t *testing.T) {
 	harness := pgtest.Start(t)
-	// The baseline is reversible from its head.
-	database := harness.MigrationDatabaseT(t)
+	// The consolidated baseline ends at 29, before irreversible increments.
+	database := harness.MigrationDatabaseThroughT(t, 29)
 	if err := database.RollbackThrough(context.Background(), 0); err != nil {
 		t.Fatalf("rollback through zero: %v", err)
 	}

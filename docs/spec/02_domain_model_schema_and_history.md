@@ -3534,6 +3534,12 @@ exact invariants:
   the inverse retains the addressed original target and restores every retained
   field exactly, including original creation attribution and timestamps.
 
+The current-line Timeline tag repair under REQ-01-322 preserves both retained
+mutation sides. A repaired display label that differs from the retained after
+value makes the target stale. Inverse application MUST reject an inverse that
+would restore a noncanonical Timeline tag label with `target_not_reversible`
+before mutation. Neither condition permits rewriting retained values.
+
 Each Links command MUST produce its mutation atomically with the source write in
 the caller-owned transaction. The Links owner MUST contribute one pure history
 validator to the application-composed Revisions target-semantics catalog.

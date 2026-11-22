@@ -96,6 +96,17 @@ func TestClipboardPasteParsingMappingProvenanceAndBinding(t *testing.T) {
 	if _, err := buildClipboardOwnerRows(plan); !errors.Is(err, tabularingest.ErrInvalidClipboard) {
 		t.Fatalf("invalid mapped relationship value must reject, not become unmapped data: %v", err)
 	}
+	for _, field := range []string{"timeline.tags", "timeline.attached_evidence_ids", "timeline.unknown"} {
+		// Neither pass may consult Entities, even with an incorrectly prepared candidate.
+		s := &store{}
+		if match, err := s.initialAutoResolutionMatchTx(t.Context(), nil, uuid.Nil, field, "gateway"); err != nil || match != nil {
+			t.Fatalf("%s initial match = %v, err = %v", field, match, err)
+		}
+		prepared := preparedAutoResolution{autoResolutionKey{field, "gateway"}: {RecordID: uuid.New()}}
+		if match, err := s.lookupInteractiveAutoResolutionMatchTx(t.Context(), nil, uuid.Nil, field, "gateway", prepared); err != nil || match != nil {
+			t.Fatalf("%s prepared match = %v, err = %v", field, match, err)
+		}
+	}
 }
 
 func TestClipboardPasteRejectsCrossIncidentRecordTarget(t *testing.T) {

@@ -3,7 +3,6 @@ package timeline
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/JochiRaider/cartulary/internal/modules/tabularingest"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/mutationpolicy"
@@ -183,20 +182,22 @@ func fillDownValueToPatchChange(fieldKey string, rawValue string) (PatchChange, 
 }
 
 func clipboardCollectionAction(fieldKey string, rawValue string) (CollectionAction, bool) {
-	switch fieldKey {
-	case "timeline.host_refs", "timeline.identity_refs":
-		normalized, ok := normalizeCollectionToken(fieldKey, rawValue)
-		if !ok {
-			return CollectionAction{}, false
-		}
-		return CollectionAction{Op: "add_token", RawText: rawValue, NormalizedText: normalized}, true
-	case "timeline.tags":
-		normalized, ok := normalizeCollectionToken(fieldKey, rawValue)
-		if !ok {
-			return CollectionAction{}, false
-		}
-		return CollectionAction{Op: "add_tag", RawText: strings.TrimSpace(rawValue), NormalizedText: normalized}, true
+	policy, ok := LookupCollectionPolicy(fieldKey)
+	if !ok {
+		return CollectionAction{}, false
+	}
+	var op string
+	switch policy.Family {
+	case CollectionFamilyMentionOrigin:
+		op = "add_token"
+	case CollectionFamilyRecordTag:
+		op = "add_tag"
 	default:
 		return CollectionAction{}, false
 	}
+	source, comparison, ok := policy.NormalizeText(rawValue)
+	if !ok || !policy.AllowsOp(op) {
+		return CollectionAction{}, false
+	}
+	return CollectionAction{Op: op, RawText: source, NormalizedText: comparison}, true
 }

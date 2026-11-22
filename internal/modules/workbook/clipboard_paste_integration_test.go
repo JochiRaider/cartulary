@@ -256,6 +256,47 @@ func TestTimelineClipboardPastePersistsOrderedMutationsAndConflicts_Integration(
 		t.Fatalf("each conflict resolution must create its own change_set: paste=%s first=%s second=%s", partial["change_set_id"], firstResolveChangeSetID, secondResolveChangeSetID)
 	}
 	requireChangeSetSource(t, harness, secondResolveChangeSetID, "timeline.records.conflicts.resolve", "txn-workbook_interaction-i-9-01-resolve-conflict-second")
+	t.Run("collection field admission and canonical tag replay", func(t *testing.T) {
+		body := map[string]any{
+			"view_schema_id": timeline.TimelineViewSchemaID, "client_txn_id": "paste-tag-nfc",
+			"clipboard_text": " Cafe\u0301 ", "format": "tsv", "header_mode": "none",
+			"start_field_key": "timeline.tags", "columns": []string{"timeline.tags"},
+			"targets": []map[string]any{{"kind": "create"}},
+		}
+		for _, field := range []string{"timeline.unknown", "timeline.attached_evidence_ids"} {
+			rejected := make(map[string]any, len(body))
+			for key, value := range body {
+				rejected[key] = value
+			}
+			rejected["start_field_key"], rejected["columns"] = field, []string{field}
+			requireClipboardPaste(t, harness, adminLogin, incidentID, timeline.TimelineViewSchemaID, rejected, http.StatusBadRequest)
+			requireNoChangeSetForClientTxn(t, harness, "paste-tag-nfc")
+		}
+		accepted := requireClipboardPaste(t, harness, adminLogin, incidentID, timeline.TimelineViewSchemaID, body, http.StatusOK)
+		row := accepted["rows"].([]any)[0].(map[string]any)
+		id := row["record_id"].(string)
+		replayed := requireClipboardPaste(t, harness, adminLogin, incidentID, timeline.TimelineViewSchemaID, body, http.StatusOK)
+		if !reflect.DeepEqual(accepted, replayed) {
+			t.Fatalf("exact tag replay differs: %#v", replayed)
+		}
+		body["client_txn_id"], body["clipboard_text"] = "paste-tag-duplicate", " CAFÉ "
+		body["targets"] = []map[string]any{{"kind": "record", "record_id": id, "base_row_version": row["row_version"]}}
+		duplicate := requireClipboardPaste(t, harness, adminLogin, incidentID, timeline.TimelineViewSchemaID, body, http.StatusOK)
+		if len(duplicate["rows"].([]any)) != 0 {
+			t.Fatalf("duplicate tag changed row: %#v", duplicate)
+		}
+		var label, key string
+		var count int
+		if err := harness.DB.QueryRowContext(t.Context(), `SELECT count(*), min(tag_name), min(normalized_tag_name)
+FROM record_tags WHERE record_id=$1 AND deleted_at IS NULL`, id).Scan(&count, &label, &key); err != nil {
+			t.Fatal(err)
+		}
+		cell := row["cells"].(map[string]any)["timeline.tags"].(map[string]any)["value"].(map[string]any)
+		items := cell["items"].([]any)
+		if count != 1 || label != "Café" || key != "café" || len(items) != 1 || items[0].(map[string]any)["display_text"] != label {
+			t.Fatalf("canonical tag count=%d label=%q key=%q items=%#v", count, label, key, items)
+		}
+	})
 }
 
 func TestEntityOriginClipboardPasteUsesSharedIngest_Integration(t *testing.T) {

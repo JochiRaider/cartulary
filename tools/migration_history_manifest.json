@@ -176,6 +176,12 @@
       "filename": "00029_collaboration.sql",
       "sha256": "3232240e9888ae62c12c08d068f9b6614258474b45bdc7c4d24301d562235d10",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 30,
+      "filename": "00030_timeline_tag_labels.sql",
+      "sha256": "baec19bd4a0c938f24903219a69a05b0c27a5ca2161f698394a28f4a749639b3",
+      "historical_phase_shaped": false
     }
   ]
 }
