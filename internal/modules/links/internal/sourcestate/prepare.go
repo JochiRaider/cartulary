@@ -348,7 +348,6 @@ func canonicalCodecRow(raw map[string]any, timestampFields ...string) (map[strin
 	return result, true
 }
 
-
 func canonicalUUIDValue(raw any) (uuid.UUID, bool) {
 	text, ok := raw.(string)
 	if !ok {
