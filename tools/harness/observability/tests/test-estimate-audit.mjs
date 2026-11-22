@@ -34,8 +34,11 @@ function syntheticRun({ status = "pass", source = sourceDigest, units }) {
   };
 }
 
-const audit = (run, catalogRows = []) => auditEstimates({
-  runDir: "/retained/tcr-estimates-fixture", owner, catalogRows, sourceDigest, loadRun: async () => {
+const audit = (run, catalogRows = [], durations = {}) => auditEstimates({
+  runDir: "/retained/tcr-estimates-fixture", owner, catalogRows, sourceDigest, readRow: (_root, id) => {
+    if (!Object.hasOwn(durations, id)) throw new Error("row timing unavailable");
+    return { duration_ms: durations[id] };
+  }, loadRun: async () => {
     if (run instanceof Error) throw run;
     return run;
   },
@@ -72,12 +75,12 @@ test("a qualified run reports packing, drift and heavy-lane findings from runner
     { id: "go:d", rows: ["d.heavy_lane"], claims: { cpu: 1, postgres_heavy: 1 }, phases: [["runner", 0, 150000]] },
     { id: "vitest_cohort:e", rows: ["e.vitest"], phases: [["runner", 0, 900000]] },
     { id: "go:f", rows: ["f.not_launched"] },
-  ] }), rows);
+  ] }), rows, { "a.heavy": 130000 });
   assert.equal(report.qualification.status, "accepted");
   assert.equal(report.unit_count, 4, "only launched Go row units are audited");
   assert.deepEqual(report.findings.map((finding) => [finding.unit_id, finding.code, finding.observed_ms, finding.planned_ms]), [
     ["go:a", "estimate_drift", 310000, 105250],
-    ["go:a", "heavy_lane_candidate", 310000, 105250],
+    ["go:a", "heavy_lane_candidate", 130000, 100000],
     ["go:a", "over_packing_bound", 310000, 105250],
     ["go:b", "estimate_drift", 20000, 105250],
   ]);
@@ -85,7 +88,7 @@ test("a qualified run reports packing, drift and heavy-lane findings from runner
   validateSchemaSync(report.schema_id, report);
   const human = formatEstimateAudit(report);
   assert.match(human, /^\[ESTIMATES\] run_id=tcr-estimates-fixture target=check qualification=accepted units=4 findings=4\n/u);
-  assert.match(human, /\[ESTIMATE\] code=heavy_lane_candidate unit=go:a observed_ms=310000 planned_ms=105250 rows=a\.heavy\n/u);
+  assert.match(human, /\[ESTIMATE\] code=heavy_lane_candidate unit=go:a observed_ms=130000 planned_ms=100000 rows=a\.heavy\n/u);
 });
 
 test("findings are sorted and bounded, and the human view states the remainder", async () => {
@@ -111,5 +114,16 @@ test("a unit's row list is bounded with an omission count", async () => {
   assert.equal(finding.code, "estimate_drift");
   assert.equal(finding.row_ids.length, 20);
   assert.equal(finding.row_ids_omitted, 5);
+  validateSchemaSync(report.schema_id, report);
+});
+
+test("a slow cohort cannot substitute its duration for eligible PostgreSQL rows", async () => {
+  const rows = ["first", "second", "missing", "plain"].map((id) =>
+    goRow(id, { fixture_capability: id === "plain" ? "none" : "postgres_dedicated" }));
+  const run = syntheticRun({ units: [{ id: "go:group", rows: rows.map((row) => row.row_id), phases: [["runner", 0, 240000]] }] });
+  const report = await audit(run, rows, { first: 120000, second: 60000, plain: 180000 });
+  assert.deepEqual(report.findings.filter((finding) => finding.code !== "estimate_drift"), [{
+    unit_id: "go:group", code: "row_timing_unavailable", observed_ms: null, planned_ms: 5000, row_ids: ["missing"], row_ids_omitted: 0,
+  }]);
   validateSchemaSync(report.schema_id, report);
 });

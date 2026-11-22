@@ -101,7 +101,7 @@
       "postgres_isolation": "exclusive"
     },
     {
-      "row_id": "module.database_migrations.integration.production_ddl_v3_recurrence",
+      "row_id": "module.database_migrations.integration.production_ddl_recurrence",
       "owner_id": "module.database_migrations",
       "family_id": "module.database_migrations.integration",
       "collaborator_ids": [
@@ -391,7 +391,7 @@
       "postgres_isolation": "none"
     },
     {
-      "row_id": "module.database_migrations.unit.production_ddl_v3_recurrence",
+      "row_id": "module.database_migrations.unit.production_ddl_recurrence",
       "owner_id": "module.database_migrations",
       "family_id": "module.database_migrations.unit",
       "collaborator_ids": [],

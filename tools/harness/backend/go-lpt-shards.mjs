@@ -26,7 +26,7 @@ function validateItems(items) {
 }
 
 export function planGoLPTShards(items, { availableGoLanes,
-  invocationPolicy = { startup_ms: 5000, cleanup_ms: 250 }, packingBoundMs } = {}) {
+  invocationPolicy = { startup_ms: 5000, cleanup_ms: 250 }, packingBoundMs, heavyPackingTargetMs } = {}) {
   validateItems(items);
   if (!Number.isInteger(availableGoLanes) || availableGoLanes < 1) {
     throw new Error("availableGoLanes must be a positive integer");
@@ -69,9 +69,15 @@ export function planGoLPTShards(items, { availableGoLanes,
         throw new Error(`${item.id} estimate ${item.estimated_work_ms} ms plus ${overhead} ms invocation overhead exceeds the Go packing bound ${packingBoundMs} ms`);
       }
     }
+    const heavy = (contract.resource_claims?.postgres_heavy ?? 0) > 0;
+    if (heavy && (!Number.isInteger(heavyPackingTargetMs) || heavyPackingTargetMs < 1 || heavyPackingTargetMs > packingBoundMs)) {
+      throw new Error("heavy Go packing target must be positive and within the hard bound");
+    }
+    // Every row already fits the hard bound. First fit keeps rows larger than
+    // the multi-row target alone and charges invocation overhead exactly once.
     const cohorts = packInvocationCohorts(
       group.items.map((item) => ({ ...item, cost: item.estimated_work_ms })),
-      invocationPolicy, packingBoundMs,
+      invocationPolicy, heavy ? heavyPackingTargetMs : packingBoundMs,
     );
     for (const cohort of cohorts) {
       const itemIDs = cohort.items.map((item) => item.id).sort(compareASCII);

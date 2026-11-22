@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.harness_work_graph_owner.v9",
+  "schema_id": "cartulary.harness_work_graph_owner.v10",
   "capacity_override_input": "CARTULARY_HARNESS_CAPACITY_OVERRIDE",
   "tier_order": [
     "fast",
@@ -31,6 +31,7 @@
       "harness.frontend_import_boundary_check",
       "harness.frontend_typecheck",
       "harness.generated_artifact_policy_check",
+      "harness.go_error_declaration_check",
       "harness.go_gosec_targeted",
       "harness.go_vulncheck",
       "harness.json_shape_check",
@@ -1853,6 +1854,16 @@
       "resource_profile_id": "standard",
       "service_dependencies": [],
       "postgres_isolation": "none"
+    },
+    "harness.go_error_declaration_check": {
+      "needs": [
+        "harness.toolchain_drift"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 120000,
+      "resource_profile_id": "standard",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     }
   },
   "evidence_estimates_ms": {
@@ -1868,6 +1879,7 @@
   },
   "default_timeout_ms": 600000,
   "go_cohort_packing_bound_ms": 300000,
+  "postgres_heavy_packing_target_ms": 225000,
   "estimate_audit": {
     "drift_ratio": 2,
     "heavy_lane_threshold_ms": 120000
@@ -6092,6 +6104,33 @@
         "command": [
           "bash",
           "./tools/harness/static-analysis/go-error-declaration-audit.sh"
+        ],
+        "test_target": "self",
+        "success_summary": true,
+        "graph_entry": true
+      },
+      "kind": "policy"
+    },
+    "harness.go_error_declaration_check": {
+      "report_key": "go-error-declaration-check",
+      "execution": {
+        "prerequisites": [
+          "$(NODE_BIN)"
+        ],
+        "type": "step_command",
+        "mode": "run_step",
+        "step_label": "go error declaration check",
+        "env": {
+          "GO": "$(GO)",
+          "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
+          "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)",
+          "GO_TMP_DIR": "$(GO_TMP_DIR)",
+          "NODE_BIN": "$(NODE_BIN)"
+        },
+        "command": [
+          "bash",
+          "./tools/harness/static-analysis/go-error-declaration-audit.sh",
+          "check-writes"
         ],
         "test_target": "self",
         "success_summary": true,

@@ -54,11 +54,13 @@ function input(): BlankRowDiagnosticInput {
         blockingDuration: 20,
         scripts: [
           {
+            start: 1205,
             invokerType: "event-listener",
             invoker: "WebSocket.onmessage",
             duration: 30,
           },
           {
+            start: 1205,
             invokerType: "event-listener",
             invoker: "MessagePort.onmessage",
             duration: 25,
@@ -133,6 +135,46 @@ describe("AC-043 blank-row main-thread diagnostics", () => {
   it("attributes long work, socket frames and Timeline queries to sample windows and gaps", () => {
     const summary = summarizeBlankRowDiagnostics(input());
 
+    const partial = input();
+    const measured = partial.samples.find((entry) => entry.sampleIndex === 1);
+    if (!measured) throw new Error("missing measured fixture");
+    measured.window.marks.apply_row_mutation_start = 1350;
+    measured.window.marks.apply_row_mutation_end = 1370;
+    partial.loafs.push({
+      start: 1340,
+      duration: 65,
+      blockingDuration: 15,
+      scripts: [
+        {
+          start: 1345,
+          duration: 18,
+          invokerType: "user-callback",
+          invoker: "TimerHandler:setTimeout",
+        },
+        {
+          start: 1358,
+          duration: 18,
+          invokerType: "user-callback",
+          invoker: "TimerHandler:setTimeout",
+        },
+      ],
+    });
+    const attribution = () =>
+      summarizeBlankRowDiagnostics(partial).samples.find(
+        (entry) => entry.sample_index === 1,
+      )?.client_apply;
+    expect(attribution()).toMatchObject({
+      duration_ms: 20,
+      script_overlap_ms: 20,
+      script_ms_by_invoker: { timer: 20 },
+    });
+    partial.supported.loaf = false;
+    expect(attribution()).toEqual({
+      duration_ms: 20,
+      script_overlap_ms: null,
+      script_ms_by_invoker: null,
+    });
+    expect(summary.samples[0]?.client_apply).toBeNull();
     expect(summary.schema_id).toBe(blankRowDiagnosticSchemaId);
     expect(summary.samples.map((entry) => entry.sample_index)).toEqual([
       0, 1, 2,

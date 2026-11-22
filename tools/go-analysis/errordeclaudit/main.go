@@ -19,8 +19,9 @@ func main() {
 	pattern := flag.String("pattern", "./cmd/server", "server program package pattern")
 	catalogPath := flag.String("catalog", "internal/gen/openapioperations/catalog_gen.go", "generated operation catalog, relative to -dir")
 	out := flag.String("out", "", "report path")
+	check := flag.Bool("check-writes", false, "check proven operation/status/code writes")
 	flag.Parse()
-	if *root == "" || *out == "" {
+	if *root == "" || (!*check && *out == "") {
 		fmt.Fprintln(os.Stderr, "errordeclaudit requires -dir and -out")
 		os.Exit(2)
 	}
@@ -29,7 +30,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	report, err := Run(Config{
+	config := Config{
 		Dir:       *root,
 		Patterns:  []string{*pattern},
 		APIError:  httpapiPackage + ".APIError",
@@ -41,7 +42,23 @@ func main() {
 		},
 		HandlerType: "net/http.HandlerFunc",
 		Catalog:     catalog,
-	})
+	}
+	if *check {
+		result, err := checkWrites(config, httpapiPackage+".BindAdmittedOwnerRoutes")
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		fmt.Printf("operations=%d proven_writes=%d violations=%d\n", len(catalog), result.Writes, len(result.Violations))
+		for _, v := range result.Violations {
+			fmt.Fprintf(os.Stderr, "operation=%s status=%d code=%s writer=%s\n", v.Operation, v.Status, v.Code, v.Writer)
+		}
+		if len(result.Violations) > 0 {
+			os.Exit(1)
+		}
+		return
+	}
+	report, err := Run(config)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

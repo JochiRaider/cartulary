@@ -51,14 +51,20 @@ var routeErrorRequiredDetails = map[string][]string{
 // Core-registered codes pass through unchanged and keep their retryable flag.
 func assertRouteErrorDetailsComplete(t *testing.T) {
 	t.Helper()
+	// A facade-only classification must never cross the route writer.
+	for _, code := range []string{"network_flow_source_changed", "network_flow_mapping_conflict", "network_flow_csv_empty_file", "network_flow_invalid_utf8"} {
+		got := completeRouteError(&httpapi.APIError{Status: 400, Code: code, Details: map[string]any{"filename": "private"}}, "")
+		if got.Status != http.StatusInternalServerError || got.Code != "internal_error" || len(got.Details) != 0 {
+			t.Fatalf("import-only classification %s escaped the route writer: %#v", code, got)
+		}
+	}
 	var registry struct {
 		Errors []struct {
 			Code        string `json:"code"`
-			Scope       string `json:"scope"`
 			RetryAction string `json:"retry_action"`
 		} `json:"errors"`
 	}
-	if err := json.Unmarshal([]byte(contractnetworkflow.Index["contracts/network-flow/errors.v1.json"].JSON), &registry); err != nil {
+	if err := json.Unmarshal([]byte(contractnetworkflow.Index["contracts/network-flow/errors.v2.json"].JSON), &registry); err != nil {
 		t.Fatal(err)
 	}
 	registryActions := map[string]string{}

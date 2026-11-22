@@ -416,6 +416,13 @@ test("a Go item too large for one packed cohort fails closed", () => {
   const exempt = { ...item("measurement", 5000), packing_exempt: true };
   assert.deepEqual(planGoLPTShards([exempt], { availableGoLanes: 2, invocationPolicy: policy, packingBoundMs: 90 }).shards.map((shard) => shard.item_ids), [["measurement"]]);
   assert.throws(() => planGoLPTShards([exempt, item("other", 5)], { availableGoLanes: 2, invocationPolicy: policy, packingBoundMs: 90 }), /exempt from the packing bound and cannot share a cohort/u);
+  const heavy = (id, work) => ({ ...item(id, work), compatibility: { timeout_ms: 1000, resource_claims: { postgres_heavy: 1 } } });
+  const items = [heavy("large", 70), heavy("a", 20), heavy("b", 25), heavy("c", 1)];
+  const limits = { availableGoLanes: 2, invocationPolicy: policy, packingBoundMs: 90, heavyPackingTargetMs: 60 };
+  const packed = planGoLPTShards(items, limits);
+  assert.deepEqual(packed.shards.map((shard) => shard.item_ids).sort(), [["a", "b"], ["c"], ["large"]]);
+  assert.deepEqual(planGoLPTShards(items.reverse(), limits), packed);
+  assert.throws(() => planGoLPTShards([heavy("oversized", 76)], limits), /exceeds the Go packing bound/u);
   // The compiler plans each measurement-class Go row alone.
   const compiler = new WorkGraphCompiler(root);
   const measurementRows = compiler.catalog.rows.filter((row) => row.runner === "go" && row.evidence_class === "measurement");
@@ -532,7 +539,7 @@ test("service-backed Go selections preserve resource and process isolation", () 
   assertSizedGoPartition(dedicatedUnits, dedicatedRows, "postgres_dedicated");
 
   const migrationRows = [
-    "module.database_migrations.integration.production_ddl_v3_recurrence",
+    "module.database_migrations.integration.production_ddl_recurrence",
     "module.database_migrations.integration.production_preflight_state_matrix",
   ];
   const migrationGraph = compiler.compile({ kind: "rows", row_ids: migrationRows });

@@ -49,3 +49,24 @@ func TestCatalogRejectsMalformedDeclarations(t *testing.T) {
 		t.Fatal("a source with no operations was accepted as a catalog")
 	}
 }
+
+func TestCheckUsesProvenWriterAndDeclaredStatus(t *testing.T) {
+	catalog := declarationCatalog{}
+	for _, op := range []string{"declared", "wrongStatus", "undeclared", "conditional", "unrooted"} {
+		catalog[op] = map[int][]string{404: {"missing"}}
+	}
+	result, err := checkWrites(Config{
+		Dir: "testdata/fixture", Patterns: []string{"./qualified"}, Catalog: catalog,
+		Writers: map[string]int{"example.test/fixture/httpapi.WriteError": 3}, HandlerType: "net/http.HandlerFunc",
+	}, "example.test/fixture/qualified.BindRoutes")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []writtenError{
+		{Operation: "undeclared", Status: 404, Code: "unknown", Writer: "example.test/fixture/httpapi.WriteError"},
+		{Operation: "wrongStatus", Status: 409, Code: "missing", Writer: "example.test/fixture/httpapi.WriteError"},
+	}
+	if result.Writes != 3 || !reflect.DeepEqual(result.Violations, want) {
+		t.Fatalf("qualified writes = %#v, want 3 with violations %#v", result, want)
+	}
+}

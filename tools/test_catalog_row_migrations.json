@@ -119,16 +119,30 @@
     {
       "retired_row_id": "module.database_migrations.integration.graph_consumer_lease_retirement_drops_only_an_em_d588ead870",
       "replacement_row_ids": [
-        "module.database_migrations.integration.production_ddl_v3_recurrence"
+        "module.database_migrations.integration.production_ddl_recurrence"
       ],
       "reason": "The graph-result lease table retirement was a v4 cutover; the v5 baseline never creates the table, and the rebaseline equivalence and catalog parity rows prove its absence."
     },
     {
+      "retired_row_id": "module.database_migrations.integration.production_ddl_v3_recurrence",
+      "replacement_row_ids": [
+        "module.database_migrations.integration.production_ddl_recurrence"
+      ],
+      "reason": "Lineage-neutral selector for recurring production DDL obligations."
+    },
+    {
       "retired_row_id": "module.database_migrations.integration.reporting_failure_record_cutover_rejects_retaine_b481878864",
       "replacement_row_ids": [
-        "module.database_migrations.integration.production_ddl_v3_recurrence"
+        "module.database_migrations.integration.production_ddl_recurrence"
       ],
       "reason": "The Reporting failure-record migration was a v4 cutover; the v5 baseline creates the final columns directly, which the rebaseline equivalence and catalog parity rows prove."
+    },
+    {
+      "retired_row_id": "module.database_migrations.unit.production_ddl_v3_recurrence",
+      "replacement_row_ids": [
+        "module.database_migrations.unit.production_ddl_recurrence"
+      ],
+      "reason": "Lineage-neutral selector for recurring production DDL obligations."
     },
     {
       "retired_row_id": "module.entities.integration.merge_protected_set_uses_shared_revision_appender_6b3d19f2a8",
@@ -253,14 +267,14 @@
     {
       "retired_row_id": "module.networkflow.integration.canonical_identity_migration_repairs_retained_ro_14035fcdca",
       "replacement_row_ids": [
-        "module.database_migrations.integration.production_ddl_v3_recurrence"
+        "module.database_migrations.integration.production_ddl_recurrence"
       ],
       "reason": "The Network Flow canonical identity and orientation migration repaired retained v4 rows; the reset-only v5 baseline creates the final orientation schema directly and carries no row repair (NF-REQ-032c retired it)."
     },
     {
       "retired_row_id": "module.networkflow.integration.canonical_migration_preserves_immutable_results_c092f26ac0",
       "replacement_row_ids": [
-        "module.database_migrations.integration.production_ddl_v3_recurrence"
+        "module.database_migrations.integration.production_ddl_recurrence"
       ],
       "reason": "The Network Flow orientation upgrade preserved retained v4 results; the reset-only v5 baseline has no upgrade path, and its final schema is proven by the rebaseline equivalence and catalog parity rows."
     },

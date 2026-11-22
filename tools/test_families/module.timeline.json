@@ -5573,6 +5573,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 40000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -5716,6 +5717,7 @@
         ]
       },
       "evidence_class": "integration",
+      "estimated_work_ms": 30000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",

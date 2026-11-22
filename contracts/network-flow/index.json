@@ -7,7 +7,7 @@
   "contract_files": {
     "routes": "contracts/network-flow/routes.v1.json",
     "schemas": "contracts/network-flow/schemas.v5.json",
-    "errors": "contracts/network-flow/errors.v1.json",
+    "errors": "contracts/network-flow/errors.v2.json",
     "import_facade_binding": "contracts/network-flow/import-facade-binding.v1.json",
     "import_owner_error": "contracts/network-flow/import-owner-error.v1.schema.json",
     "key_rings": "contracts/network-flow/key-rings.v2.schema.json",

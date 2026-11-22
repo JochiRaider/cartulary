@@ -108,9 +108,9 @@ func BuildAccountPreferencesResource(record authn.AccountPreferencesRecord) map[
 }
 
 func DecodeUserCreateRequest(reader io.Reader) (UserCreateRequest, *httpapi.APIError) {
-	raw, apiErr := decodeObject(reader)
+	raw, apiErr := decodeMutationObject(reader)
 	if apiErr != nil {
-		return UserCreateRequest{}, invalidMutationPayload("", "request_not_object")
+		return UserCreateRequest{}, apiErr
 	}
 
 	allowed := map[string]struct{}{
@@ -209,9 +209,9 @@ func DecodeUserCreateRequest(reader io.Reader) (UserCreateRequest, *httpapi.APIE
 }
 
 func DecodeUserPatchRequest(reader io.Reader) (UserPatchRequest, *httpapi.APIError) {
-	raw, apiErr := decodeObject(reader)
+	raw, apiErr := decodeMutationObject(reader)
 	if apiErr != nil {
-		return UserPatchRequest{}, invalidMutationPayload("", "request_not_object")
+		return UserPatchRequest{}, apiErr
 	}
 
 	allowed := map[string]struct{}{
@@ -291,9 +291,9 @@ func DecodeUserPatchRequest(reader io.Reader) (UserPatchRequest, *httpapi.APIErr
 }
 
 func DecodeAccountProfilePatchRequest(reader io.Reader) (AccountProfilePatchRequest, *httpapi.APIError) {
-	raw, apiErr := decodeObject(reader)
+	raw, apiErr := decodeMutationObject(reader)
 	if apiErr != nil {
-		return AccountProfilePatchRequest{}, invalidMutationPayload("", "request_not_object")
+		return AccountProfilePatchRequest{}, apiErr
 	}
 	allowed := map[string]struct{}{
 		"base_user_version": {},
@@ -333,9 +333,9 @@ func DecodeAccountProfilePatchRequest(reader io.Reader) (AccountProfilePatchRequ
 }
 
 func DecodeAccountPreferencesPutRequest(reader io.Reader) (AccountPreferencesPutRequest, *httpapi.APIError) {
-	raw, apiErr := decodeObject(reader)
+	raw, apiErr := decodeMutationObject(reader)
 	if apiErr != nil {
-		return AccountPreferencesPutRequest{}, invalidMutationPayload("", "request_not_object")
+		return AccountPreferencesPutRequest{}, apiErr
 	}
 	allowed := map[string]struct{}{
 		"base_preferences_version": {},
@@ -380,9 +380,9 @@ func DecodeAccountPreferencesPutRequest(reader io.Reader) (AccountPreferencesPut
 }
 
 func DecodeAdminPasswordResetRequest(reader io.Reader) (AdminPasswordResetRequest, *httpapi.APIError) {
-	raw, apiErr := decodeObject(reader)
+	raw, apiErr := decodeMutationObject(reader)
 	if apiErr != nil {
-		return AdminPasswordResetRequest{}, invalidMutationPayload("", "request_not_object")
+		return AdminPasswordResetRequest{}, apiErr
 	}
 	allowed := map[string]struct{}{
 		"base_user_version": {},
@@ -426,9 +426,9 @@ func DecodeAdminPasswordResetRequest(reader io.Reader) (AdminPasswordResetReques
 }
 
 func DecodeAdminTOTPResetRequest(reader io.Reader) (AdminTOTPResetRequest, *httpapi.APIError) {
-	raw, apiErr := decodeObject(reader)
+	raw, apiErr := decodeMutationObject(reader)
 	if apiErr != nil {
-		return AdminTOTPResetRequest{}, invalidMutationPayload("", "request_not_object")
+		return AdminTOTPResetRequest{}, apiErr
 	}
 	allowed := map[string]struct{}{
 		"base_user_version": {},
@@ -463,9 +463,9 @@ func DecodeAdminTOTPResetRequest(reader io.Reader) (AdminTOTPResetRequest, *http
 }
 
 func DecodeAdminRevokeAllRequest(reader io.Reader) (AdminRevokeAllRequest, *httpapi.APIError) {
-	raw, apiErr := decodeObject(reader)
+	raw, apiErr := decodeMutationObject(reader)
 	if apiErr != nil {
-		return AdminRevokeAllRequest{}, invalidMutationPayload("", "request_not_object")
+		return AdminRevokeAllRequest{}, apiErr
 	}
 	allowed := map[string]struct{}{
 		"client_txn_id": {},

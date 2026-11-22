@@ -2374,7 +2374,7 @@ Every cacheable unit declares `same_run` or `content_addressed`; every other
 unit declares `none`. The registry binds policy work by canonical `operation_ids`
 and catalog work by `runner_types`; it MUST NOT bind cache eligibility to public
 command spelling. An operation or runner context absent from the registry is
-ineligible. The work-graph owner uses `cartulary.harness_work_graph_owner.v9`
+ineligible. The work-graph owner uses `cartulary.harness_work_graph_owner.v10`
 with closed operation definitions; task-surface bindings cannot override them. The
 retired scheduler-input-stamp and finalizer-action-cache families are not valid
 v3 inputs, and current commands MUST NOT read or translate them.
@@ -3241,6 +3241,7 @@ database evidence retain separate unit, resource, lease, and artifact identities
 | `go-gosec-targeted` | `cartulary.harness.command.go_gosec_targeted.v2` | `static_analysis_security` | `check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `security_boundary` (Section 15), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` |  |
 | `go-gosec-audit` | `cartulary.harness.command.go_gosec_audit.v2` | `static_analysis_security` | `ci`, `release-check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `security_boundary` (Section 15), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` | Advisory no-fail audit evidence. It MUST NOT be selected by default local `check`. |
 | `go-error-declaration-audit` | `cartulary.harness.command.go_error_declaration_audit.v1` | `static_analysis_security` | `helper_only` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` | Advisory static error-declaration audit (TH-HARNESS-REQ-867). Findings never fail it; it MUST NOT be selected by `check`, CI or a finalizer. |
+| `go-error-declaration-check` | `cartulary.harness.command.go_error_declaration_check.v1` | `static_analysis_security` | `check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` | Qualified operation/status/code check (TH-HARNESS-REQ-868). |
 | `check` | `cartulary.harness.command.check.v4` | `aggregates_gates` | `check` | `scheduler_summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `scheduler_orchestration` (Section 10), `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `service_start`, `service_resource_mutation`, `runtime_reset` | `public_active` | Fast/standard rows, blocking source/static/security/evidence checks, three smoke roles and consumer-driven builds. |
 | `ci` | `cartulary.harness.command.ci.v5` | `aggregates_gates` | `ci` | `aggregate_summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `service_start`, `service_resource_mutation`, `runtime_reset` | `public_active` | Full-tier row union, inherited blocking policy, production build qualification, advisory analysis and harness contracts. |
 | `release-check` | `cartulary.harness.command.release_check.v4` | `aggregates_gates` | `release-check` | `aggregate_summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `service_start`, `service_resource_mutation`, `runtime_reset` | `public_active` | All tiers and inherited CI policy, shared package/inventory production, installed-package scenarios and release/security evidence. |
@@ -3764,8 +3765,8 @@ Verified by: TH-HARNESS-AC-002, TH-HARNESS-AC-029
 | `test-run-recover` | `RESULTS_DIR` | `path` | yes | make command line | none | invalid | `invalid` | `path_token` | exact original run directory | `configuration_error`, exit `2` | `redacted_value` | `runtime_env` |
 | `test-run-recover` | `RUNTIME_ROOT` | `path` | yes | make command line | none | invalid | `invalid` | `path_token` | exact external private runtime directory | `configuration_error`, exit `2` | `redacted_value` | `runtime_env` |
 | `test-run-recover` | `RUNTIME_LEASE_ID` | `semantic_text` | yes | make command line | none | invalid | `invalid` | `trim` | exact opaque lease identifier, native owner validated | `configuration_error`, exit `2` | `redacted_value` | `runtime_env` |
-| `agent-finalize`, `benchmark-claim-check`, `browser-e2e`, `browser-e2e-visual-update`, `build`, `check`, `ci`, `format`, `frontend-fallow-static`, `go-error-declaration-audit`, `go-gosec-audit`, `go-gosec-targeted`, `go-vulncheck`, `harness-contract`, `lint`, `migration-drift`, `openapi-compatibility-check`, `otel-conformance`, `package-inspect`, `release-check`, `seaweedfs-compatibility`, `seaweedfs-release-gate`, `source-check`, `test-evidence-audit`, `test-fast`, `test-slice` | `CARTULARY_HARNESS_CACHE_MODE` | `enum` | no | make command line, environment, makefile default | `normal` | use `normal` | `omitted` | `trim` | `normal`, `cold`, `off` | `usage_error`, exit `2` | `value` | `runtime_env` |
-| `agent-finalize`, `benchmark-claim-check`, `browser-e2e`, `browser-e2e-visual-update`, `build`, `check`, `ci`, `format`, `frontend-fallow-static`, `go-error-declaration-audit`, `go-gosec-audit`, `go-gosec-targeted`, `go-vulncheck`, `harness-contract`, `lint`, `migration-drift`, `openapi-compatibility-check`, `otel-conformance`, `package-inspect`, `release-check`, `seaweedfs-compatibility`, `seaweedfs-release-gate`, `source-check`, `test-evidence-audit`, `test-fast`, `test-slice` | `CARTULARY_HARNESS_CAPACITY_OVERRIDE` | `path` | no | make command line, environment, makefile default | none | omitted | `omitted` | `path_token` | `path` | `usage_error`, exit `2` | `value` | `runtime_env` |
+| `agent-finalize`, `benchmark-claim-check`, `browser-e2e`, `browser-e2e-visual-update`, `build`, `check`, `ci`, `format`, `frontend-fallow-static`, `go-error-declaration-audit`, `go-error-declaration-check`, `go-gosec-audit`, `go-gosec-targeted`, `go-vulncheck`, `harness-contract`, `lint`, `migration-drift`, `openapi-compatibility-check`, `otel-conformance`, `package-inspect`, `release-check`, `seaweedfs-compatibility`, `seaweedfs-release-gate`, `source-check`, `test-evidence-audit`, `test-fast`, `test-slice` | `CARTULARY_HARNESS_CACHE_MODE` | `enum` | no | make command line, environment, makefile default | `normal` | use `normal` | `omitted` | `trim` | `normal`, `cold`, `off` | `usage_error`, exit `2` | `value` | `runtime_env` |
+| `agent-finalize`, `benchmark-claim-check`, `browser-e2e`, `browser-e2e-visual-update`, `build`, `check`, `ci`, `format`, `frontend-fallow-static`, `go-error-declaration-audit`, `go-error-declaration-check`, `go-gosec-audit`, `go-gosec-targeted`, `go-vulncheck`, `harness-contract`, `lint`, `migration-drift`, `openapi-compatibility-check`, `otel-conformance`, `package-inspect`, `release-check`, `seaweedfs-compatibility`, `seaweedfs-release-gate`, `source-check`, `test-evidence-audit`, `test-fast`, `test-slice` | `CARTULARY_HARNESS_CAPACITY_OVERRIDE` | `path` | no | make command line, environment, makefile default | none | omitted | `omitted` | `path_token` | `path` | `usage_error`, exit `2` | `value` | `runtime_env` |
 | browser-capable graph commands | `BROWSER_LANES` | `positive_integer` | no | make command line, environment, makefile default | topology `4` | use topology default | `invalid` | `trim` | `1..6` | `usage_error`, exit `2` | `value` | `runtime_env` |
 | `test-slice` | `ROWS` | `row_ids` | no | make command line, environment, makefile default | none | omitted | `invalid` | `trim` | `row_ids` | `usage_error`, exit `2` | `value` | `argv` |
 | `test-slice` | `VITEST_MAX_WORKERS` | `positive_integer` | no | make command line, environment, makefile default | `4` | use `4` | `invalid` | `trim` | `1..16` | `usage_error`, exit `2` | `value` | `runtime_env` |
@@ -4310,7 +4311,7 @@ claim publication.
 | `cartulary.harness_target_plan.v7`              | `tools/schemas/cartulary.harness_target_plan.v7.schema.json`              | present           | Graph diagnostics        | Before machine target-plan output.        |
 | `cartulary.harness_evidence_root_manifest.v1`   | `tools/schemas/cartulary.harness_evidence_root_manifest.v1.schema.json`   | present           | Evidence audit caller    | Before canonical owner-evidence audit.    |
 | `cartulary.harness_owner_evidence_audit.v1` | `tools/schemas/cartulary.harness_owner_evidence_audit.v1.schema.json` | present | Owner-evidence auditor | Before publishing owner-evidence acceptance. |
-| `cartulary.harness_estimate_audit.v1` | `tools/schemas/cartulary.harness_estimate_audit.v1.schema.json` | present | Advisory estimate audit | Before `explain-run DETAIL=estimates JSON=1` output. |
+| `cartulary.harness_estimate_audit.v2` | `tools/schemas/cartulary.harness_estimate_audit.v2.schema.json` | present | Advisory estimate audit | Before `explain-run DETAIL=estimates JSON=1` output. |
 | `cartulary.fallow_reachability_owner.v1`        | `tools/schemas/cartulary.fallow_reachability_owner.v1.schema.json`        | present           | Fallow reachability owner | During JSON shape checks and before `frontend-fallow-static` builds its effective config. |
 | `cartulary.fallow_static_summary.v2`            | `tools/schemas/cartulary.fallow_static_summary.v2.schema.json`            | present           | Fallow static target     | Before `frontend-fallow-static` success.  |
 | `cartulary.vitest_failure_details.v3`           | `tools/schemas/cartulary.vitest_failure_details.v3.schema.json`           | present           | Vitest wrappers          | Before owner summaries consume failure diagnostics. |
@@ -8712,7 +8713,7 @@ browser group units sum their selected row estimates; compatible Go units sum
 their exact rows before bounded first-fit packing against the work-graph
 owner's authored packing bound. That bound MUST be a positive fraction of the
 unit timeout that leaves headroom for aggregate concurrent load, so a packed
-cohort's estimate never exceeds it. Catalog validation MUST reject a Go row
+cohort's estimate never exceeds it. A cohort claiming `postgres_heavy` uses an authored 225,000 ms packing target including invocation overhead. A single row above that target may run alone up to the hard packing bound. The target MUST be positive and at most the hard bound. Catalog validation MUST reject a Go row
 whose estimate plus the Go invocation policy's startup and cleanup allowance
 exceeds the packing bound, and the packer MUST fail closed rather than emit a
 cohort above the bound. Rows of the `measurement` evidence class are exempt:
@@ -8762,11 +8763,16 @@ of the unit's rows. The audit reports these findings:
 | --- | --- |
 | `over_packing_bound` | The observation exceeds `go_cohort_packing_bound_ms`. |
 | `estimate_drift` | The observation exceeds the planned estimate by more than the factor `estimate_audit.drift_ratio`, or a unit with at least one reviewed row estimate is observed below its planned estimate by more than that factor. |
-| `heavy_lane_candidate` | The observation exceeds the owner's `estimate_audit.heavy_lane_threshold_ms`, the unit selects a row whose fixture capability is `postgres_dedicated` or `postgres_migration`, and the unit claims no `postgres_heavy` lane (TH-HARNESS-REQ-804). |
+| `heavy_lane_candidate` | An individually observed row with fixture capability `postgres_dedicated` or `postgres_migration` has a passed, identity-matched Go row result whose `duration_ms` exceeds the owner's `estimate_audit.heavy_lane_threshold_ms`, and the unit claims no `postgres_heavy` lane (TH-HARNESS-REQ-804). |
 
-Findings are sorted by unit ID and finding code and are bounded at 50 with an
+Run qualification precedes row timing analysis. A missing required canonical
+artifact rejects the run. Within a qualified run, a qualifying non-heavy row
+without a compatible timing result yields a bounded `row_timing_unavailable`
+finding with null observed duration. Row-level findings name exactly one row
+and use that row’s estimate. Cohort drift and overrun use the runner interval
+union. Findings are sorted by unit ID, finding code and row ID and bounded at 50 with an
 omission count. Human output and `JSON=1` output, which is one
-`cartulary.harness_estimate_audit.v1` document, derive from the same model;
+`cartulary.harness_estimate_audit.v2` document, derive from the same model;
 the human view displays at most 20 findings and states the remainder.
 The audit is advisory: it exits `0` whether or not it reports findings, it is
 never part of `check`, CI, a finalizer or a handoff gate (TH-HARNESS-REQ-054),
@@ -9199,6 +9205,21 @@ its fixture proof, and it MUST fail when that proof does not report a seeded
 undeclared code. It complements, and does not replace, the exercised-route
 guard (TH-HARNESS-REQ-858, TH-HARNESS-REQ-862).
 Verified by: TH-HARNESS-AC-163
+
+**TH-HARNESS-REQ-868 — Proven HTTP error declarations**
+
+The separate `go-error-declaration-check` MUST compare a proven response
+write to declarations for its exact operation and HTTP status. The initial
+rule accepts a unique handler from a fresh literal handler map handed to the
+admission binder and the first unconditional call chain to a known response
+writer, with the original response writer and request and constant status
+and code. Its diagnostic names the operation, writer, status and code.
+Unsupported bindings, unresolved paths, constructed errors and broad
+reachability findings supply no proof. Fixture or analyzer failure fails
+the check. The check aggregate MUST run the qualified rule. Expanding its proof
+requires fixture coverage, shadow qualification and adjudication of new blockers. The exercised-response
+guard continues to apply to all resolved operations.
+Verified by: TH-HARNESS-AC-164
 
 **TH-HARNESS-REQ-863 — A test server's fatal is evidence**
 When an in-process test server or the server-harness build enters a lifecycle
@@ -11356,6 +11377,7 @@ expected behavior. Failure codes below are normalized wrapper codes.
 | TH-HARNESS-AC-161 | REQ-865 | A catalog fixture Go row whose estimate plus the Go startup and cleanup allowance exceeds the packing bound; a packer item above the bound; a measurement-class Go row | Catalog validation rejects the oversized row and the packer throws, each naming the row or item; rows within the bound pack unchanged; a measurement row is planned alone and exempt | An oversized non-measurement row validates, a cohort whose estimate exceeds the bound is emitted, or an exempt item shares a cohort. |
 | TH-HARNESS-AC-162 | REQ-866 | Synthetic retained runs that passed on the current source, failed, or carry another source digest; Go units over the bound, drifting in each direction, and selecting a dedicated-isolation row without a heavy lane | A qualified run yields the sorted, bounded findings and omission count, a rejected run yields its reason codes and no findings, human and JSON views agree, every case exits `0`, and the retained inputs and authored owners are unchanged | A finding gates a command or exits non-zero, an unqualified run yields findings, or the audit writes an estimate, owner or retained file. |
 | TH-HARNESS-AC-163 | REQ-867 | A fixture program whose handlers produce declared codes, a seeded undeclared constant reached through a forwarding function, and a handler the binding does not root; then the server program | The fixture report lists exactly the seeded code with its producing function and the unrooted operation, the server report validates against its schema, and every finding leaves the exit status `0` | The seeded code is missed, a declared code is reported, a finding changes the exit status, or the audit is selected by `check`, CI or a finalizer. |
+| TH-HARNESS-AC-164 | REQ-868 | Bound handlers with a direct and forwarded write, wrong-status and undeclared codes, a conditional path, unused error and unrooted operation | Only witnessed mismatches fail and each names its writer, operation, status and code | A missing seeded violation, advisory finding used as a blocker or failed analyzer reported as clean fails. |
 
 The numerical image cases MUST include transparent pixels, alpha-only differences,
 one-pixel boundaries, and zero/full changed area. Interface fixtures MUST include
@@ -11429,6 +11451,7 @@ retained evidence keep their separate owner-only permission contract.
 | `TH-HARNESS-REQ-852..855` | Native graph and shared fixture ownership | TH-HARNESS-AC-147, TH-HARNESS-AC-148, TH-HARNESS-AC-149 |
 | `TH-HARNESS-REQ-865..866` | Work estimates and advisory estimate audit | TH-HARNESS-AC-161, TH-HARNESS-AC-162 |
 | `TH-HARNESS-REQ-867` | Advisory static error-declaration audit | TH-HARNESS-AC-163 |
+| `TH-HARNESS-REQ-868` | Proven operation error writes | TH-HARNESS-AC-164 |
 | `TH-HARNESS-REQ-858..864` | Runtime contract guards and evidence | TH-HARNESS-AC-008, TH-HARNESS-AC-154, TH-HARNESS-AC-155, TH-HARNESS-AC-156, TH-HARNESS-AC-157, TH-HARNESS-AC-158, TH-HARNESS-AC-159 |
 
 

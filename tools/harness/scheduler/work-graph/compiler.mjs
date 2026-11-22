@@ -500,6 +500,7 @@ export class WorkGraphCompiler {
         { availableGoLanes: context?.cpu_tokens ?? this.availableGoLanes,
           invocationPolicy: this.owner.invocation_policies.go,
           packingBoundMs: this.owner.go_cohort_packing_bound_ms,
+          heavyPackingTargetMs: this.owner.postgres_heavy_packing_target_ms,
         },
       );
       for (const shard of plan.shards) {

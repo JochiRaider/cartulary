@@ -9,7 +9,7 @@ import type {
 // Non-gating evidence for the AC-043 blank-row measurement. It never feeds the
 // frontend measurement observation, its samples, statistics, or threshold.
 export const blankRowDiagnosticSchemaId =
-  "cartulary.diagnostic.timeline_blank_row_main_thread.v2";
+  "cartulary.diagnostic.timeline_blank_row_main_thread.v3";
 
 const inPageKey = "__cartularyMainThreadDiagnostics";
 const capacity = 20_000;
@@ -22,6 +22,7 @@ const triggerWindowMs = 50;
 export type DiagnosticInterval = { start: number; duration: number };
 
 export type DiagnosticLoafScript = {
+  start: number | null;
   invokerType: string;
   invoker: string;
   duration: number;
@@ -214,6 +215,69 @@ function countIn<T extends { at: number }>(
   ).length;
 }
 
+// Union clipped script intervals so nested or overlapping attribution can
+// never account for more than the client apply window.
+function coveredTime(intervals: DiagnosticInterval[]) {
+  let covered = 0;
+  let previousEnd = -Infinity;
+  for (const { start, duration } of intervals.sort(
+    (a, b) => a.start - b.start,
+  )) {
+    const end = start + duration;
+    covered += Math.max(0, end - Math.max(start, previousEnd));
+    previousEnd = Math.max(previousEnd, end);
+  }
+  return round(covered);
+}
+
+function applyScriptTime(
+  input: BlankRowDiagnosticInput,
+  window: BlankRowSampleWindow,
+) {
+  const start = mark(window, "apply_row_mutation_start");
+  const end = mark(window, "apply_row_mutation_end");
+  if (
+    start === null ||
+    end === null ||
+    start < window.acceptedAt ||
+    end > window.stoppedAt ||
+    end < start
+  )
+    return null;
+  const duration = round(end - start);
+  const unavailable = {
+    duration_ms: duration,
+    script_overlap_ms: null,
+    script_ms_by_invoker: null,
+  };
+  if (!input.supported.loaf || input.droppedEntries > 0) return unavailable;
+  const intervals: DiagnosticInterval[] = [];
+  const byInvoker = new Map<LoafInvokerClass, DiagnosticInterval[]>();
+  for (const frame of input.loafs) {
+    if (overlap(start, end, frame) === 0) continue;
+    for (const script of frame.scripts) {
+      if (script.start === null) return unavailable;
+      const from = Math.max(start, script.start);
+      const to = Math.min(end, script.start + script.duration);
+      if (to <= from) continue;
+      const clipped = { start: from, duration: to - from };
+      intervals.push(clipped);
+      const name = classifyLoafInvoker(script.invokerType, script.invoker);
+      const sameInvoker = byInvoker.get(name) ?? [];
+      sameInvoker.push(clipped);
+      byInvoker.set(name, sameInvoker);
+    }
+  }
+  const totals = emptyInvokerTotals();
+  for (const [name, selected] of byInvoker)
+    totals[name] = coveredTime(selected);
+  return {
+    duration_ms: duration,
+    script_overlap_ms: coveredTime(intervals),
+    script_ms_by_invoker: totals,
+  };
+}
+
 function mark(window: BlankRowSampleWindow, name: string) {
   const value = window.marks[name];
   return typeof value === "number" && Number.isFinite(value) ? value : null;
@@ -358,6 +422,7 @@ export function summarizeBlankRowDiagnostics(input: BlankRowDiagnosticInput) {
         body_transfer: bodyMs === null ? null : round(bodyMs),
         parse_wait_after_body: parseWaitMs === null ? null : round(parseWaitMs),
       },
+      client_apply: applyScriptTime(input, sample.window),
       create_next_hop_protocol: resource?.nextHopProtocol ?? null,
       long_task: {
         count: longTask.count,
@@ -674,6 +739,7 @@ export function installMainThreadObserversInBrowser(options: {
           const frame = entry as PerformanceEntry & {
             blockingDuration?: number;
             scripts?: readonly {
+              startTime?: number;
               duration?: number;
               invoker?: string;
               invokerType?: string;
@@ -686,6 +752,11 @@ export function installMainThreadObserversInBrowser(options: {
             scripts: Array.from(frame.scripts ?? [], (script) => {
               const invoker = String(script.invoker ?? "");
               return {
+                start:
+                  typeof script.startTime === "number" &&
+                  Number.isFinite(script.startTime)
+                    ? script.startTime
+                    : null,
                 invokerType: String(script.invokerType ?? ""),
                 // Script URLs and source positions never leave the page.
                 invoker: invoker.includes("/") ? "" : invoker.slice(0, 64),

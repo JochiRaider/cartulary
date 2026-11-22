@@ -3466,16 +3466,16 @@ Network Flow errors MUST use Table 21-A where route-local errors are required.
 | Error code | Exact HTTP status or non-route scope | Use |
 | --- | ---: | --- |
 | `network_flow_invalid_request` | 400 | JSON admission, unknown member, type mismatch, or route-local schema failure. |
-| `network_flow_unsupported_source_profile` | 400 | Reserved or unsupported profile requested. |
-| `network_flow_invalid_utf8` | 400 | CSV source is not valid UTF-8. |
-| `network_flow_csv_empty_file` | 400 | CSV source has zero bytes after BOM removal. |
-| `network_flow_invalid_header` | 400 | First logical record contains a forbidden header scalar or violates the header contract. |
-| `network_flow_no_data_rows` | 400 | CSV contains header but no data rows. |
-| `network_flow_csv_malformed_quote` | 400 | Quote grammar invalid. |
-| `network_flow_source_changed` | 409 | Apply source bytes, descriptors, or mapping fingerprint differ from approval. |
+| `network_flow_unsupported_source_profile` | import unit | Reserved or unsupported profile requested. |
+| `network_flow_invalid_utf8` | import unit | CSV source is not valid UTF-8. |
+| `network_flow_csv_empty_file` | import unit | CSV source has zero bytes after BOM removal. |
+| `network_flow_invalid_header` | import unit | First logical record contains a forbidden header scalar or violates the header contract. |
+| `network_flow_no_data_rows` | import unit | CSV contains header but no data rows. |
+| `network_flow_csv_malformed_quote` | import unit | Quote grammar invalid. |
+| `network_flow_source_changed` | import unit | Apply source bytes, descriptors, or mapping fingerprint differ from approval. |
 | `network_flow_csv_field_count_mismatch` | row diagnostic | Row field count differs from header. |
-| `network_flow_mapping_required` | 400 | Mapping incomplete or invalid. |
-| `network_flow_mapping_conflict` | 400 | Mapping rows conflict or persisted defaults invalid. |
+| `network_flow_mapping_required` | import unit | Mapping incomplete or invalid. |
+| `network_flow_mapping_conflict` | import unit | Mapping rows conflict or persisted defaults invalid. |
 | `network_flow_invalid_timestamp` | row diagnostic | Timestamp parse/profile failure. |
 | `network_flow_end_before_start` | row diagnostic | Flow end earlier than start. |
 | `network_flow_invalid_ip` | row diagnostic | IP parse/canonicalization failure. |
@@ -3485,10 +3485,10 @@ Network Flow errors MUST use Table 21-A where route-local errors are required.
 | `network_flow_orientation_conflict` | row diagnostic | Two valid equal roles; emit one diagnostic per role column and reject the observation once. |
 | `network_flow_invalid_counter` | row diagnostic | Counter invalid. |
 | `network_flow_invalid_text` | row diagnostic | Mapped interface text violates its scalar bound or control-character rule. |
-| `network_flow_all_rows_rejected` | 400 | Import validation accepted zero rows. |
+| `network_flow_all_rows_rejected` | import unit | Import validation accepted zero rows. |
 | `network_flow_table_limit_exceeded` | 409 | Table active or retained limit exceeded. |
 | `network_flow_resource_limit_exceeded` | 413 or row diagnostic | Parser, import, row-validation, or raw-cell limit exceeded when no more specific table, graph, query, or counter limit code applies. |
-| `network_flow_table_name_exhausted` | 409 | Display-name suffix space exhausted. |
+| `network_flow_table_name_exhausted` | import unit | Display-name suffix space exhausted. |
 | `network_flow_table_not_found` | 404 | Table not found or hidden under route policy. |
 | `network_flow_table_not_active` | 409 | Table state not active for route. |
 | `network_flow_table_version_conflict` | 409 | `base_table_version` stale. |
@@ -3517,6 +3517,13 @@ Network Flow errors MUST use Table 21-A where route-local errors are required.
 | `network_flow_indicator_link_forbidden` | 403 | Authorization or target visibility fails. |
 | `network_flow_external_enrichment_forbidden` | 400 | Request attempts forbidden third-party enrichment. |
 | `network_flow_id_generation_failed` | 500 | Eight CSPRNG identifier collision attempts failed. |
+
+The packaged v2 error registry declares each code's exact emission contexts:
+`route`, `import_unit`, `row_diagnostic`, and `job`. Only a code with route
+context has an HTTP status or can classify a top-level Network Flow refusal.
+Table and resource limits and invalid display names also have import-unit
+context. Import-unit classifications cross the Imports boundary only through
+NF-REQ-088d. Row diagnostics and job failures retain their own envelopes.
 
 No code omitted from Table 21-A is a current Network Flow route-local error. Row-diagnostic entries MUST NOT be emitted as top-level route errors except when another Table 21-A import-unit error, including `network_flow_all_rows_rejected`, carries them as bounded diagnostic data.
 
@@ -3579,7 +3586,7 @@ An emitted reason code not permitted by Table 21-A1 is non-conformant. Codes who
 ### 21.2 Error detail schema registry
 
 **NF-REQ-175**
-Route-local errors MUST include details according to Table 21-B. A detail member listed as required MUST be present even when its value is JSON `null`, unless the row states that the member is conditionally present. Table 21-B governs route-local emissions only. The import-unit codes (the CSV import-unit failures, `network_flow_source_changed` and the mapping failures) are the import facade's internal classification: no Network Flow route emits them, so their Table 21-A statuses and Table 21-B member sets describe that classification. They reach clients only through the Imports surface, inside NF-REQ-088d's closed `cartulary.network_flow.import_owner_error.v1`, whose `safe_details` shape alone governs what is disclosed. A required member MUST be non-null when the emitting stage has determined its value; JSON `null` means the value was absent, malformed, or not attributable at that stage. These members use closed vocabularies:
+Route-local errors MUST include details according to Table 21-B. A detail member listed as required MUST be present even when its value is JSON `null`, unless the row states that the member is conditionally present. Table 21-B governs route-local emissions only. The import-unit codes (the CSV import-unit failures, `network_flow_source_changed` and the mapping failures) are the import facade's internal classification: no Network Flow route emits them, so their Table 21-A contexts and Table 21-B member sets describe that classification. They reach clients only through the Imports surface, inside NF-REQ-088d's closed `cartulary.network_flow.import_owner_error.v1`, whose `safe_details` shape alone governs what is disclosed. A required member MUST be non-null when the emitting stage has determined its value; JSON `null` means the value was absent, malformed, or not attributable at that stage. These members use closed vocabularies:
 
 - `actual_kind` is the JSON kind of the rejected value: `null`, `boolean`, `number`, `string`, `array` or `object`. It is `null` when no single well-formed value was presented.
 - `expected_contract` is the operation's declared request schema ID, and `null` for an operation that declares no request body.

@@ -31,6 +31,23 @@ describe("Network Flow structured errors", () => {
         },
       }).retryAction,
     ).toBe("do_not_retry");
+    expect(
+      networkFlowRequestError(400, {
+        error: {
+          code: "network_flow_invalid_utf8",
+          message: "private filename",
+          details: { retry_action: "retry_with_backoff", field: "private" },
+          retryable: true,
+        },
+      }),
+    ).toMatchObject({
+      status: 400,
+      code: "network_flow_response_invalid",
+      retryAction: "do_not_retry",
+      retryable: false,
+      field: null,
+      message: "Request failed.",
+    });
     const error = networkFlowRequestError(400, {
       error: {
         code: "network_flow_cursor_invalid",

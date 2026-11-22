@@ -39,7 +39,7 @@ func networkFlowFixtureSources(t *testing.T, edit func(routes, policy, schemas, 
 	policy := decode(`{"admission_stages": ["session_and_csrf", "incident_visibility_role_lifecycle", "resource_path", "query_body_framing"],
 	  "operations": [{"route_id": "fx.tables.list", "csrf_required": false}, {"route_id": "fx.tables.patch", "csrf_required": true}]}`)
 	schemas := decode(`{"$defs": {"TableID": {"type": "string", "pattern": "^fxt_[a-f0-9]{32}$"}, "Loose": {"type": "string", "pattern": "fxt_"}}}`)
-	nfErrors := decode(`{"errors": [{"code": "fixture_table_not_found", "scope": "route", "http_status": 404}, {"code": "fixture_row_failure", "scope": "row_diagnostic", "http_status": null}]}`)
+	nfErrors := decode(`{"errors": [{"code": "fixture_table_not_found", "contexts": ["route"], "http_status": 404}, {"code": "fixture_row_failure", "contexts": ["row_diagnostic"], "http_status": null}]}`)
 	if edit != nil {
 		edit(routes, policy, schemas, nfErrors)
 	}
@@ -184,7 +184,7 @@ func TestNetworkFlowRouteProjection(t *testing.T) {
 			t.Fatalf("route count = %d, want 19", len(routes))
 		}
 		for _, route := range routes {
-			if route.OwnerID != "module.networkflow" || route.Availability != "network_flow_activity" || !route.OwnerGate || route.ErrorRegistry != "contracts/network-flow/errors.v1.json" {
+			if route.OwnerID != "module.networkflow" || route.Availability != "network_flow_activity" || !route.OwnerGate || route.ErrorRegistry != "contracts/network-flow/errors.v2.json" {
 				t.Fatalf("%s projection = %#v", route.RouteID, route)
 			}
 			if route.PathParameters[0].Name != "incident_id" || route.PathParameters[0].AfterOwnerGate {

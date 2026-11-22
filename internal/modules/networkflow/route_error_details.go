@@ -3,6 +3,7 @@ package networkflow
 import (
 	"encoding/json"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/JochiRaider/cartulary/internal/gen/contractnetworkflow"
@@ -15,17 +16,17 @@ import (
 var routeErrorRetryActions = func() map[string]string {
 	var registry struct {
 		Errors []struct {
-			Code        string `json:"code"`
-			Scope       string `json:"scope"`
-			RetryAction string `json:"retry_action"`
+			Code        string   `json:"code"`
+			Contexts    []string `json:"contexts"`
+			RetryAction string   `json:"retry_action"`
 		} `json:"errors"`
 	}
-	if err := json.Unmarshal([]byte(contractnetworkflow.Index["contracts/network-flow/errors.v1.json"].JSON), &registry); err != nil {
+	if err := json.Unmarshal([]byte(contractnetworkflow.Index["contracts/network-flow/errors.v2.json"].JSON), &registry); err != nil {
 		panic(err)
 	}
 	actions := make(map[string]string, len(registry.Errors))
 	for _, entry := range registry.Errors {
-		if strings.Contains(entry.Scope, "route") && entry.RetryAction != "" {
+		if slices.Contains(entry.Contexts, "route") && entry.RetryAction != "" {
 			actions[entry.Code] = entry.RetryAction
 		}
 	}
@@ -107,6 +108,9 @@ func completeRouteError(apiErr *httpapi.APIError, operationID string) *httpapi.A
 	}
 	action, routeLocal := routeErrorRetryActions[apiErr.Code]
 	if !routeLocal {
+		if strings.HasPrefix(apiErr.Code, "network_flow_") {
+			return httpapi.InternalAPIError(nil)
+		}
 		return apiErr
 	}
 	completed := *apiErr

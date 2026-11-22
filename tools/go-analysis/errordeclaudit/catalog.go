@@ -5,19 +5,21 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
-	"sort"
+	"net/http"
 	"strconv"
 )
+
+type declarationCatalog map[string]map[int][]string
 
 // readCatalog reads each operation's declared error codes from the generated
 // operation catalog source. Every element of its composite literals that names
 // an OperationID contributes that operation's ErrorCodes values.
-func readCatalog(path string) (map[string][]string, error) {
+func readCatalog(path string) (declarationCatalog, error) {
 	file, err := parser.ParseFile(token.NewFileSet(), path, nil, parser.SkipObjectResolution)
 	if err != nil {
 		return nil, fmt.Errorf("parse operation catalog: %w", err)
 	}
-	catalog := map[string][]string{}
+	catalog := declarationCatalog{}
 	var failure error
 	ast.Inspect(file, func(node ast.Node) bool {
 		literal, ok := node.(*ast.CompositeLit)
@@ -25,7 +27,7 @@ func readCatalog(path string) (map[string][]string, error) {
 			return failure == nil
 		}
 		operationID := ""
-		var codes []string
+		var codes map[int][]string
 		hasCodes := false
 		for _, element := range literal.Elts {
 			pair, ok := element.(*ast.KeyValueExpr)
@@ -64,7 +66,6 @@ func readCatalog(path string) (map[string][]string, error) {
 			failure = fmt.Errorf("operation %s is declared twice", operationID)
 			return false
 		}
-		sort.Strings(codes)
 		catalog[operationID] = codes
 		return false
 	})
@@ -77,20 +78,32 @@ func readCatalog(path string) (map[string][]string, error) {
 	return catalog, nil
 }
 
-func errorCodes(expression ast.Expr) ([]string, error) {
+func errorCodes(expression ast.Expr) (map[int][]string, error) {
 	if ident, ok := expression.(*ast.Ident); ok && ident.Name == "nil" {
-		return []string{}, nil
+		return map[int][]string{}, nil
 	}
 	literal, ok := expression.(*ast.CompositeLit)
 	if !ok {
 		return nil, fmt.Errorf("expected a map literal")
 	}
-	var codes []string
+	codes := map[int][]string{}
 	for _, element := range literal.Elts {
 		pair, ok := element.(*ast.KeyValueExpr)
 		if !ok {
 			return nil, fmt.Errorf("expected status: codes pairs")
 		}
+		key, ok := pair.Key.(*ast.BasicLit)
+		if !ok || key.Kind != token.INT {
+			return nil, fmt.Errorf("expected a numeric HTTP status")
+		}
+		status, err := strconv.Atoi(key.Value)
+		if err != nil || status < http.StatusBadRequest || status > 599 {
+			return nil, fmt.Errorf("invalid error status %q", key.Value)
+		}
+		if _, exists := codes[status]; exists {
+			return nil, fmt.Errorf("duplicate error status %d", status)
+		}
+		codes[status] = nil
 		list, ok := pair.Value.(*ast.CompositeLit)
 		if !ok {
 			return nil, fmt.Errorf("expected a code list")
@@ -100,7 +113,7 @@ func errorCodes(expression ast.Expr) ([]string, error) {
 			if err != nil {
 				return nil, err
 			}
-			codes = append(codes, code)
+			codes[status] = append(codes[status], code)
 		}
 	}
 	return codes, nil

@@ -38,5 +38,8 @@ report="$report_dir/error-declaration-audit.json"
 # The fixture proof must report its seeded undeclared code before the server
 # program is analyzed.
 "${go_env[@]}" "$GO_BIN" -C "$analysis_dir" test -count=1 ./errordeclaudit
+if [[ "${1:-}" == check-writes ]]; then
+  exec "${go_env[@]}" "$GO_BIN" -C "$analysis_dir" run ./errordeclaudit -dir "$ROOT_DIR" -check-writes
+fi
 "${go_env[@]}" "$GO_BIN" -C "$analysis_dir" run ./errordeclaudit -dir "$ROOT_DIR" -out "$report"
 "$NODE_BIN" "$ROOT_DIR/tools/harness/static-analysis/error-declaration-audit-report.mjs" "$report"

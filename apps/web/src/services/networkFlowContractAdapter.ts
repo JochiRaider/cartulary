@@ -99,6 +99,15 @@ export { networkFlowTimestampMetadata };
 export const networkFlowMappingCandidateSchemaId =
   "cartulary.network_flow.mapping_candidate.v2";
 export const networkFlowErrorMetadata = networkFlowErrorRegistry;
+
+export function networkFlowRouteError(code: string, status: number) {
+  return networkFlowErrorMetadata.errors.find(
+    (entry) =>
+      entry.code === code &&
+      entry.http_status === status &&
+      entry.contexts.some((context) => context === "route"),
+  );
+}
 export const networkFlowPresentationMetadata = networkFlowPresentationRegistry;
 export { networkFlowQueryMetadata };
 export const decodeNetworkFlowFilter = networkFlowDecoders.filter.decode;
@@ -137,7 +146,12 @@ export function validNetworkFlowErrorEnvelope(
   payload: unknown,
 ): boolean {
   const decoded = errorEnvelopeDecoder.decode(payload);
-  return decoded.ok && decoded.value.error.status === status;
+  if (!decoded.ok || decoded.value.error.status !== status) return false;
+  const code = decoded.value.error.code;
+  return (
+    !code.startsWith("network_flow_") ||
+    networkFlowRouteError(code, status) !== undefined
+  );
 }
 
 export class NetworkFlowContractDecodeError extends Error {

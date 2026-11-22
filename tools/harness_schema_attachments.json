@@ -451,8 +451,8 @@
       "validation": "harness.json_shape_check"
     },
     {
-      "schema_id": "cartulary.harness_estimate_audit.v1",
-      "path": "tools/schemas/cartulary.harness_estimate_audit.v1.schema.json",
+      "schema_id": "cartulary.harness_estimate_audit.v2",
+      "path": "tools/schemas/cartulary.harness_estimate_audit.v2.schema.json",
       "classification": "public_contract",
       "producer": "advisory estimate audit",
       "validation": "harness.json_shape_check"
@@ -925,8 +925,8 @@
       "validation": "harness.json_shape_check"
     },
     {
-      "schema_id": "cartulary.harness_work_graph_owner.v9",
-      "path": "tools/schemas/cartulary.harness_work_graph_owner.v9.schema.json",
+      "schema_id": "cartulary.harness_work_graph_owner.v10",
+      "path": "tools/schemas/cartulary.harness_work_graph_owner.v10.schema.json",
       "classification": "owner_input",
       "producer": "harness graph owner",
       "validation": "harness.json_shape_check"

@@ -50,11 +50,19 @@ export function validateRetainedSelection(runRoot, run, units, projection, catal
       rowUnits.set(rowID, id);
       const row = byRow?.get(rowID);
       if (byRow && !row) throw new Error("selected row is absent from the current catalog");
-      const result = read(runRoot, `rows/${rowID}.json`);
-      validateSchemaSync("cartulary.harness_row_result.v6", result);
-      if (result.row_id !== rowID || result.runner !== bindings.get(rowID) || (row && result.runner !== row.runner) || result.terminal_state !== "passed" ||
-          result.exit_code !== 0 || result.failure_class !== null || result.failure_reason !== null) throw new Error("required row has no compatible successful terminal result");
+      readPassedRowResult(runRoot, rowID, bindings.get(rowID));
+      if (row && row.runner !== bindings.get(rowID)) throw new Error("selected row runner differs from catalog");
     }
   }
   return rowUnits;
+}
+
+export function readPassedRowResult(runRoot, rowID, runner) {
+  const result = read(runRoot, `rows/${rowID}.json`);
+  validateSchemaSync("cartulary.harness_row_result.v6", result);
+  if (result.row_id !== rowID || result.runner !== runner || result.terminal_state !== "passed" ||
+      result.exit_code !== 0 || result.failure_class !== null || result.failure_reason !== null) {
+    throw new Error("required row has no compatible successful terminal result");
+  }
+  return result;
 }

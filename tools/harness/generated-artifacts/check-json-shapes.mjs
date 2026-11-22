@@ -306,7 +306,7 @@ const networkFlowErrorContractKeys = new Set([
 ]);
 const networkFlowErrorEntryKeys = new Set([
   "code",
-  "scope",
+  "contexts",
   "http_status",
   "retry_action",
 ]);
@@ -2038,7 +2038,7 @@ function validateNetworkFlowErrorContractsShape(file, contractMajor) {
   const errorContracts = readShapeFile(file, file);
   assertObjectKeys(errorContracts, networkFlowErrorContractKeys, file);
   assertRequiredKeys(errorContracts, networkFlowErrorContractKeys, file);
-  requireSchemaID(errorContracts, "cartulary.network_flow_error_contracts.v1", file);
+  requireSchemaID(errorContracts, "cartulary.network_flow_error_contracts.v2", file);
   requireExact(errorContracts.profile_id, "network_flow_activity", `${file}.profile_id`);
   requireExact(errorContracts.contract_major, contractMajor, `${file}.contract_major`);
   assertExactIDSet(
@@ -2056,61 +2056,61 @@ function validateNetworkFlowErrorContractsShape(file, contractMajor) {
 
   const expectedErrors = new Map(
     [
-      ["network_flow_invalid_request", "route", 400, "correct_request"],
-      ["network_flow_unsupported_source_profile", "route", 400, "correct_request"],
-      ["network_flow_invalid_utf8", "route", 400, "correct_request"],
-      ["network_flow_csv_empty_file", "route", 400, "correct_request"],
-      ["network_flow_invalid_header", "route", 400, "correct_request"],
-      ["network_flow_no_data_rows", "route", 400, "correct_request"],
-      ["network_flow_csv_malformed_quote", "route", 400, "correct_request"],
-      ["network_flow_source_changed", "route", 409, "refresh_resource"],
-      ["network_flow_csv_field_count_mismatch", "row_diagnostic", null, "correct_request"],
-      ["network_flow_mapping_required", "route", 400, "correct_request"],
-      ["network_flow_mapping_conflict", "route", 400, "correct_request"],
-      ["network_flow_invalid_timestamp", "row_diagnostic", null, "correct_request"],
-      ["network_flow_end_before_start", "row_diagnostic", null, "correct_request"],
-      ["network_flow_invalid_ip", "row_diagnostic", null, "correct_request"],
-      ["network_flow_invalid_orientation", "row_diagnostic", null, "correct_request"],
-      ["network_flow_orientation_conflict", "row_diagnostic", null, "correct_request"],
-      ["network_flow_invalid_port", "row_diagnostic", null, "correct_request"],
-      ["network_flow_invalid_protocol", "row_diagnostic", null, "correct_request"],
-      ["network_flow_invalid_counter", "row_diagnostic", null, "correct_request"],
-      ["network_flow_invalid_text", "row_diagnostic", null, "correct_request"],
-      ["network_flow_all_rows_rejected", "route", 400, "correct_request"],
-      ["network_flow_table_limit_exceeded", "route", 409, "reduce_scope_or_limits"],
-      ["network_flow_resource_limit_exceeded", "route_or_row_diagnostic", 413, "reduce_scope_or_limits"],
-      ["network_flow_table_name_exhausted", "route", 409, "correct_request"],
-      ["network_flow_table_not_found", "route", 404, "refresh_resource"],
-      ["network_flow_table_not_active", "route", 409, "refresh_resource"],
-      ["network_flow_table_version_conflict", "route", 409, "refresh_resource"],
-      ["network_flow_invalid_display_name", "route", 400, "correct_request"],
-      ["network_flow_invalid_table_scope", "route", 400, "correct_request"],
-      ["network_flow_invalid_filter", "route", 400, "correct_request"],
-      ["network_flow_invalid_sort", "route", 400, "correct_request"],
-      ["network_flow_invalid_limit", "route", 400, "correct_request"],
-      ["network_flow_cursor_invalid", "route", 400, "restart_query"],
-      ["network_flow_invalid_time_range", "route", 400, "correct_request"],
-      ["network_flow_invalid_graph_aggregation", "route", 400, "correct_request"],
-      ["network_flow_invalid_limit_override", "route", 400, "correct_request"],
-      ["network_flow_graph_limit_exceeded", "route", 413, "reduce_scope_or_limits"],
-      ["network_flow_counter_sum_limit_exceeded", "route", 413, "reduce_scope_or_limits"],
-      ["network_flow_graph_projection_failed", "route", 502, "do_not_retry"],
-      ["network_flow_graph_query_stale", "route", 409, "refresh_resource"],
-      ["network_flow_graph_view_not_found", "route", 404, "refresh_resource"],
-      ["network_flow_graph_view_not_materialized", "route", 409, "retry_with_backoff"],
-      ["network_flow_graph_view_version_conflict", "route", 409, "refresh_resource"],
-      ["network_flow_graph_view_limit_exceeded", "route", 409, "reduce_scope_or_limits"],
-      ["network_flow_graph_materialization_limit_exceeded", "route", 409, "retry_with_backoff"],
-      ["network_flow_graph_materialization_failed", "route_or_job", 500, "do_not_retry"],
-      ["network_flow_indicator_link_ambiguous", "route", 400, "correct_request"],
-      ["network_flow_invalid_indicator_selector", "route", 400, "correct_request"],
-      ["network_flow_invalid_indicator_target", "route", 400, "correct_request"],
-      ["network_flow_indicator_link_forbidden", "route", 403, "do_not_retry"],
-      ["network_flow_external_enrichment_forbidden", "route", 400, "do_not_retry"],
-      ["network_flow_id_generation_failed", "route", 500, "do_not_retry"],
-    ].map(([code, scope, httpStatus, retryAction]) => [
+      ["network_flow_invalid_request", ["route"], 400, "correct_request"],
+      ["network_flow_unsupported_source_profile", ["import_unit"], null, "correct_request"],
+      ["network_flow_invalid_utf8", ["import_unit"], null, "correct_request"],
+      ["network_flow_csv_empty_file", ["import_unit"], null, "correct_request"],
+      ["network_flow_invalid_header", ["import_unit"], null, "correct_request"],
+      ["network_flow_no_data_rows", ["import_unit"], null, "correct_request"],
+      ["network_flow_csv_malformed_quote", ["import_unit"], null, "correct_request"],
+      ["network_flow_source_changed", ["import_unit"], null, "refresh_resource"],
+      ["network_flow_csv_field_count_mismatch", ["row_diagnostic"], null, "correct_request"],
+      ["network_flow_mapping_required", ["import_unit"], null, "correct_request"],
+      ["network_flow_mapping_conflict", ["import_unit"], null, "correct_request"],
+      ["network_flow_invalid_timestamp", ["row_diagnostic"], null, "correct_request"],
+      ["network_flow_end_before_start", ["row_diagnostic"], null, "correct_request"],
+      ["network_flow_invalid_ip", ["row_diagnostic"], null, "correct_request"],
+      ["network_flow_invalid_orientation", ["row_diagnostic"], null, "correct_request"],
+      ["network_flow_orientation_conflict", ["row_diagnostic"], null, "correct_request"],
+      ["network_flow_invalid_port", ["row_diagnostic"], null, "correct_request"],
+      ["network_flow_invalid_protocol", ["row_diagnostic"], null, "correct_request"],
+      ["network_flow_invalid_counter", ["row_diagnostic"], null, "correct_request"],
+      ["network_flow_invalid_text", ["row_diagnostic"], null, "correct_request"],
+      ["network_flow_all_rows_rejected", ["import_unit"], null, "correct_request"],
+      ["network_flow_table_limit_exceeded", ["import_unit", "route"], 409, "reduce_scope_or_limits"],
+      ["network_flow_resource_limit_exceeded", ["import_unit", "route", "row_diagnostic"], 413, "reduce_scope_or_limits"],
+      ["network_flow_table_name_exhausted", ["import_unit"], null, "correct_request"],
+      ["network_flow_table_not_found", ["route"], 404, "refresh_resource"],
+      ["network_flow_table_not_active", ["route"], 409, "refresh_resource"],
+      ["network_flow_table_version_conflict", ["route"], 409, "refresh_resource"],
+      ["network_flow_invalid_display_name", ["import_unit", "route"], 400, "correct_request"],
+      ["network_flow_invalid_table_scope", ["route"], 400, "correct_request"],
+      ["network_flow_invalid_filter", ["route"], 400, "correct_request"],
+      ["network_flow_invalid_sort", ["route"], 400, "correct_request"],
+      ["network_flow_invalid_limit", ["route"], 400, "correct_request"],
+      ["network_flow_cursor_invalid", ["route"], 400, "restart_query"],
+      ["network_flow_invalid_time_range", ["route"], 400, "correct_request"],
+      ["network_flow_invalid_graph_aggregation", ["route"], 400, "correct_request"],
+      ["network_flow_invalid_limit_override", ["route"], 400, "correct_request"],
+      ["network_flow_graph_limit_exceeded", ["route"], 413, "reduce_scope_or_limits"],
+      ["network_flow_counter_sum_limit_exceeded", ["route"], 413, "reduce_scope_or_limits"],
+      ["network_flow_graph_projection_failed", ["route"], 502, "do_not_retry"],
+      ["network_flow_graph_query_stale", ["route"], 409, "refresh_resource"],
+      ["network_flow_graph_view_not_found", ["route"], 404, "refresh_resource"],
+      ["network_flow_graph_view_not_materialized", ["route"], 409, "retry_with_backoff"],
+      ["network_flow_graph_view_version_conflict", ["route"], 409, "refresh_resource"],
+      ["network_flow_graph_view_limit_exceeded", ["route"], 409, "reduce_scope_or_limits"],
+      ["network_flow_graph_materialization_limit_exceeded", ["route"], 409, "retry_with_backoff"],
+      ["network_flow_graph_materialization_failed", ["job", "route"], 500, "do_not_retry"],
+      ["network_flow_indicator_link_ambiguous", ["route"], 400, "correct_request"],
+      ["network_flow_invalid_indicator_selector", ["route"], 400, "correct_request"],
+      ["network_flow_invalid_indicator_target", ["route"], 400, "correct_request"],
+      ["network_flow_indicator_link_forbidden", ["route"], 403, "do_not_retry"],
+      ["network_flow_external_enrichment_forbidden", ["route"], 400, "do_not_retry"],
+      ["network_flow_id_generation_failed", ["route"], 500, "do_not_retry"],
+    ].map(([code, contexts, httpStatus, retryAction]) => [
       code,
-      { scope, http_status: httpStatus, retry_action: retryAction },
+      { contexts, http_status: httpStatus, retry_action: retryAction },
     ]),
   );
   const errors = validateObjectArray(errorContracts.errors, `${file}.errors`, {
@@ -2131,7 +2131,7 @@ function validateNetworkFlowErrorContractsShape(file, contractMajor) {
     if (!expected) {
       throw new Error(`${label}.code is not a Network Flow Table 21-A error code`);
     }
-    requireExact(error.scope, expected.scope, `${label}.scope`);
+    requireExactArray(requireArray(error.contexts, `${label}.contexts`), expected.contexts, `${label}.contexts`);
     requireExact(error.http_status, expected.http_status, `${label}.http_status`);
     requireExact(error.retry_action, expected.retry_action, `${label}.retry_action`);
   }

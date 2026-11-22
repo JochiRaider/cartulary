@@ -4,6 +4,7 @@ import {
   isNetworkFlowClaimed,
   isSupportedNetworkFlowContract,
   networkFlowContractDescriptor,
+  networkFlowRouteError,
 } from "./networkFlowContractAdapter";
 
 describe("networkFlowContractAdapter", () => {
@@ -24,6 +25,15 @@ describe("networkFlowContractAdapter", () => {
         },
       ]),
     ).toBe(false);
+    expect(
+      networkFlowRouteError("network_flow_source_changed", 409),
+    ).toBeUndefined();
+    expect(
+      networkFlowRouteError("network_flow_resource_limit_exceeded", 413),
+    ).toBeDefined();
+    expect(
+      networkFlowRouteError("network_flow_resource_limit_exceeded", 400),
+    ).toBeUndefined();
     expect(isSupportedNetworkFlowContract({ contract_major: 10 })).toBe(true);
     expect(isSupportedNetworkFlowContract({ contract_major: 9 })).toBe(false);
     expect(isSupportedNetworkFlowContract({ contract_major: 8 })).toBe(false);

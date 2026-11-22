@@ -1,7 +1,7 @@
 import { extractError, publicErrorView } from "../services/browserApi";
 import {
   NetworkFlowContractDecodeError,
-  networkFlowErrorMetadata,
+  networkFlowRouteError,
 } from "../services/networkFlowContractAdapter";
 
 export type NetworkFlowRetryAction =
@@ -62,9 +62,16 @@ export function networkFlowRequestError(
   const apiError = extractError(payload);
   const view = publicErrorView(apiError, status);
   const code = view?.code ?? "unknown_public_error";
-  const contract = networkFlowErrorMetadata.errors.find(
-    (candidate) => candidate.code === code,
-  );
+  const contract = networkFlowRouteError(code, status);
+  if (code.startsWith("network_flow_") && contract === undefined) {
+    return new NetworkFlowRequestError({
+      code: "network_flow_response_invalid",
+      retryAction: "do_not_retry",
+      retryable: false,
+      safeMessage: "Request failed.",
+      status,
+    });
+  }
   const suppliedAction = apiError?.details?.retry_action;
   const retryAction =
     suppliedAction === undefined

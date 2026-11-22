@@ -118,7 +118,7 @@ describe("@cartulary/protocol-ts family conformance", () => {
     }
     expect(errorRegistry.registry_id).toBe("cartulary.errors.phase3.v1");
     expect(networkFlowErrorRegistry.schema_id).toBe(
-      "cartulary.network_flow_error_contracts.v1",
+      "cartulary.network_flow_error_contracts.v2",
     );
     expect(viewSchemaRegistry.registry_id).toBe(
       "cartulary.view_schemas.base.v1",

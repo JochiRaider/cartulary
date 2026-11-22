@@ -15,315 +15,424 @@ const value = {
   "errors": [
     {
       "code": "network_flow_invalid_request",
+      "contexts": [
+        "route"
+      ],
       "http_status": 400,
-      "retry_action": "correct_request",
-      "scope": "route"
+      "retry_action": "correct_request"
     },
     {
       "code": "network_flow_unsupported_source_profile",
-      "http_status": 400,
-      "retry_action": "correct_request",
-      "scope": "route"
+      "contexts": [
+        "import_unit"
+      ],
+      "http_status": null,
+      "retry_action": "correct_request"
     },
     {
       "code": "network_flow_invalid_utf8",
-      "http_status": 400,
-      "retry_action": "correct_request",
-      "scope": "route"
+      "contexts": [
+        "import_unit"
+      ],
+      "http_status": null,
+      "retry_action": "correct_request"
     },
     {
       "code": "network_flow_csv_empty_file",
-      "http_status": 400,
-      "retry_action": "correct_request",
-      "scope": "route"
+      "contexts": [
+        "import_unit"
+      ],
+      "http_status": null,
+      "retry_action": "correct_request"
     },
     {
       "code": "network_flow_invalid_header",
-      "http_status": 400,
-      "retry_action": "correct_request",
-      "scope": "route"
+      "contexts": [
+        "import_unit"
+      ],
+      "http_status": null,
+      "retry_action": "correct_request"
     },
     {
       "code": "network_flow_no_data_rows",
-      "http_status": 400,
-      "retry_action": "correct_request",
-      "scope": "route"
+      "contexts": [
+        "import_unit"
+      ],
+      "http_status": null,
+      "retry_action": "correct_request"
     },
     {
       "code": "network_flow_csv_malformed_quote",
-      "http_status": 400,
-      "retry_action": "correct_request",
-      "scope": "route"
+      "contexts": [
+        "import_unit"
+      ],
+      "http_status": null,
+      "retry_action": "correct_request"
     },
     {
       "code": "network_flow_source_changed",
-      "http_status": 409,
-      "retry_action": "refresh_resource",
-      "scope": "route"
+      "contexts": [
+        "import_unit"
+      ],
+      "http_status": null,
+      "retry_action": "refresh_resource"
     },
     {
       "code": "network_flow_csv_field_count_mismatch",
+      "contexts": [
+        "row_diagnostic"
+      ],
       "http_status": null,
-      "retry_action": "correct_request",
-      "scope": "row_diagnostic"
+      "retry_action": "correct_request"
     },
     {
       "code": "network_flow_mapping_required",
-      "http_status": 400,
-      "retry_action": "correct_request",
-      "scope": "route"
+      "contexts": [
+        "import_unit"
+      ],
+      "http_status": null,
+      "retry_action": "correct_request"
     },
     {
       "code": "network_flow_mapping_conflict",
-      "http_status": 400,
-      "retry_action": "correct_request",
-      "scope": "route"
+      "contexts": [
+        "import_unit"
+      ],
+      "http_status": null,
+      "retry_action": "correct_request"
     },
     {
       "code": "network_flow_invalid_timestamp",
+      "contexts": [
+        "row_diagnostic"
+      ],
       "http_status": null,
-      "retry_action": "correct_request",
-      "scope": "row_diagnostic"
+      "retry_action": "correct_request"
     },
     {
       "code": "network_flow_end_before_start",
+      "contexts": [
+        "row_diagnostic"
+      ],
       "http_status": null,
-      "retry_action": "correct_request",
-      "scope": "row_diagnostic"
+      "retry_action": "correct_request"
     },
     {
       "code": "network_flow_invalid_ip",
+      "contexts": [
+        "row_diagnostic"
+      ],
       "http_status": null,
-      "retry_action": "correct_request",
-      "scope": "row_diagnostic"
+      "retry_action": "correct_request"
     },
     {
       "code": "network_flow_invalid_port",
+      "contexts": [
+        "row_diagnostic"
+      ],
       "http_status": null,
-      "retry_action": "correct_request",
-      "scope": "row_diagnostic"
+      "retry_action": "correct_request"
     },
     {
       "code": "network_flow_invalid_protocol",
+      "contexts": [
+        "row_diagnostic"
+      ],
       "http_status": null,
-      "retry_action": "correct_request",
-      "scope": "row_diagnostic"
+      "retry_action": "correct_request"
     },
     {
       "code": "network_flow_invalid_counter",
+      "contexts": [
+        "row_diagnostic"
+      ],
       "http_status": null,
-      "retry_action": "correct_request",
-      "scope": "row_diagnostic"
+      "retry_action": "correct_request"
     },
     {
       "code": "network_flow_invalid_text",
+      "contexts": [
+        "row_diagnostic"
+      ],
       "http_status": null,
-      "retry_action": "correct_request",
-      "scope": "row_diagnostic"
+      "retry_action": "correct_request"
     },
     {
       "code": "network_flow_all_rows_rejected",
-      "http_status": 400,
-      "retry_action": "correct_request",
-      "scope": "route"
+      "contexts": [
+        "import_unit"
+      ],
+      "http_status": null,
+      "retry_action": "correct_request"
     },
     {
       "code": "network_flow_table_limit_exceeded",
+      "contexts": [
+        "import_unit",
+        "route"
+      ],
       "http_status": 409,
-      "retry_action": "reduce_scope_or_limits",
-      "scope": "route"
+      "retry_action": "reduce_scope_or_limits"
     },
     {
       "code": "network_flow_resource_limit_exceeded",
+      "contexts": [
+        "import_unit",
+        "route",
+        "row_diagnostic"
+      ],
       "http_status": 413,
-      "retry_action": "reduce_scope_or_limits",
-      "scope": "route_or_row_diagnostic"
+      "retry_action": "reduce_scope_or_limits"
     },
     {
       "code": "network_flow_table_name_exhausted",
-      "http_status": 409,
-      "retry_action": "correct_request",
-      "scope": "route"
+      "contexts": [
+        "import_unit"
+      ],
+      "http_status": null,
+      "retry_action": "correct_request"
     },
     {
       "code": "network_flow_table_not_found",
+      "contexts": [
+        "route"
+      ],
       "http_status": 404,
-      "retry_action": "refresh_resource",
-      "scope": "route"
+      "retry_action": "refresh_resource"
     },
     {
       "code": "network_flow_table_not_active",
+      "contexts": [
+        "route"
+      ],
       "http_status": 409,
-      "retry_action": "refresh_resource",
-      "scope": "route"
+      "retry_action": "refresh_resource"
     },
     {
       "code": "network_flow_table_version_conflict",
+      "contexts": [
+        "route"
+      ],
       "http_status": 409,
-      "retry_action": "refresh_resource",
-      "scope": "route"
+      "retry_action": "refresh_resource"
     },
     {
       "code": "network_flow_invalid_display_name",
+      "contexts": [
+        "import_unit",
+        "route"
+      ],
       "http_status": 400,
-      "retry_action": "correct_request",
-      "scope": "route"
+      "retry_action": "correct_request"
     },
     {
       "code": "network_flow_invalid_table_scope",
+      "contexts": [
+        "route"
+      ],
       "http_status": 400,
-      "retry_action": "correct_request",
-      "scope": "route"
+      "retry_action": "correct_request"
     },
     {
       "code": "network_flow_invalid_filter",
+      "contexts": [
+        "route"
+      ],
       "http_status": 400,
-      "retry_action": "correct_request",
-      "scope": "route"
+      "retry_action": "correct_request"
     },
     {
       "code": "network_flow_invalid_sort",
+      "contexts": [
+        "route"
+      ],
       "http_status": 400,
-      "retry_action": "correct_request",
-      "scope": "route"
+      "retry_action": "correct_request"
     },
     {
       "code": "network_flow_invalid_limit",
+      "contexts": [
+        "route"
+      ],
       "http_status": 400,
-      "retry_action": "correct_request",
-      "scope": "route"
+      "retry_action": "correct_request"
     },
     {
       "code": "network_flow_cursor_invalid",
+      "contexts": [
+        "route"
+      ],
       "http_status": 400,
-      "retry_action": "restart_query",
-      "scope": "route"
+      "retry_action": "restart_query"
     },
     {
       "code": "network_flow_invalid_time_range",
+      "contexts": [
+        "route"
+      ],
       "http_status": 400,
-      "retry_action": "correct_request",
-      "scope": "route"
+      "retry_action": "correct_request"
     },
     {
       "code": "network_flow_invalid_graph_aggregation",
+      "contexts": [
+        "route"
+      ],
       "http_status": 400,
-      "retry_action": "correct_request",
-      "scope": "route"
+      "retry_action": "correct_request"
     },
     {
       "code": "network_flow_invalid_limit_override",
+      "contexts": [
+        "route"
+      ],
       "http_status": 400,
-      "retry_action": "correct_request",
-      "scope": "route"
+      "retry_action": "correct_request"
     },
     {
       "code": "network_flow_graph_limit_exceeded",
+      "contexts": [
+        "route"
+      ],
       "http_status": 413,
-      "retry_action": "reduce_scope_or_limits",
-      "scope": "route"
+      "retry_action": "reduce_scope_or_limits"
     },
     {
       "code": "network_flow_counter_sum_limit_exceeded",
+      "contexts": [
+        "route"
+      ],
       "http_status": 413,
-      "retry_action": "reduce_scope_or_limits",
-      "scope": "route"
+      "retry_action": "reduce_scope_or_limits"
     },
     {
       "code": "network_flow_graph_projection_failed",
+      "contexts": [
+        "route"
+      ],
       "http_status": 502,
-      "retry_action": "do_not_retry",
-      "scope": "route"
+      "retry_action": "do_not_retry"
     },
     {
       "code": "network_flow_graph_query_stale",
+      "contexts": [
+        "route"
+      ],
       "http_status": 409,
-      "retry_action": "refresh_resource",
-      "scope": "route"
+      "retry_action": "refresh_resource"
     },
     {
       "code": "network_flow_graph_view_not_found",
+      "contexts": [
+        "route"
+      ],
       "http_status": 404,
-      "retry_action": "refresh_resource",
-      "scope": "route"
+      "retry_action": "refresh_resource"
     },
     {
       "code": "network_flow_graph_view_not_materialized",
+      "contexts": [
+        "route"
+      ],
       "http_status": 409,
-      "retry_action": "retry_with_backoff",
-      "scope": "route"
+      "retry_action": "retry_with_backoff"
     },
     {
       "code": "network_flow_graph_view_version_conflict",
+      "contexts": [
+        "route"
+      ],
       "http_status": 409,
-      "retry_action": "refresh_resource",
-      "scope": "route"
+      "retry_action": "refresh_resource"
     },
     {
       "code": "network_flow_graph_view_limit_exceeded",
+      "contexts": [
+        "route"
+      ],
       "http_status": 409,
-      "retry_action": "reduce_scope_or_limits",
-      "scope": "route"
+      "retry_action": "reduce_scope_or_limits"
     },
     {
       "code": "network_flow_graph_materialization_limit_exceeded",
+      "contexts": [
+        "route"
+      ],
       "http_status": 409,
-      "retry_action": "retry_with_backoff",
-      "scope": "route"
+      "retry_action": "retry_with_backoff"
     },
     {
       "code": "network_flow_graph_materialization_failed",
+      "contexts": [
+        "job",
+        "route"
+      ],
       "http_status": 500,
-      "retry_action": "do_not_retry",
-      "scope": "route_or_job"
+      "retry_action": "do_not_retry"
     },
     {
       "code": "network_flow_indicator_link_ambiguous",
+      "contexts": [
+        "route"
+      ],
       "http_status": 400,
-      "retry_action": "correct_request",
-      "scope": "route"
+      "retry_action": "correct_request"
     },
     {
       "code": "network_flow_invalid_indicator_selector",
+      "contexts": [
+        "route"
+      ],
       "http_status": 400,
-      "retry_action": "correct_request",
-      "scope": "route"
+      "retry_action": "correct_request"
     },
     {
       "code": "network_flow_invalid_indicator_target",
+      "contexts": [
+        "route"
+      ],
       "http_status": 400,
-      "retry_action": "correct_request",
-      "scope": "route"
+      "retry_action": "correct_request"
     },
     {
       "code": "network_flow_indicator_link_forbidden",
+      "contexts": [
+        "route"
+      ],
       "http_status": 403,
-      "retry_action": "do_not_retry",
-      "scope": "route"
+      "retry_action": "do_not_retry"
     },
     {
       "code": "network_flow_external_enrichment_forbidden",
+      "contexts": [
+        "route"
+      ],
       "http_status": 400,
-      "retry_action": "do_not_retry",
-      "scope": "route"
+      "retry_action": "do_not_retry"
     },
     {
       "code": "network_flow_id_generation_failed",
+      "contexts": [
+        "route"
+      ],
       "http_status": 500,
-      "retry_action": "do_not_retry",
-      "scope": "route"
+      "retry_action": "do_not_retry"
     },
     {
       "code": "network_flow_invalid_orientation",
+      "contexts": [
+        "row_diagnostic"
+      ],
       "http_status": null,
-      "retry_action": "correct_request",
-      "scope": "row_diagnostic"
+      "retry_action": "correct_request"
     },
     {
       "code": "network_flow_orientation_conflict",
+      "contexts": [
+        "row_diagnostic"
+      ],
       "http_status": null,
-      "retry_action": "correct_request",
-      "scope": "row_diagnostic"
+      "retry_action": "correct_request"
     }
   ],
   "profile_id": "network_flow_activity",
@@ -732,7 +841,7 @@ const value = {
     "retry_with_backoff",
     "do_not_retry"
   ],
-  "schema_id": "cartulary.network_flow_error_contracts.v1"
+  "schema_id": "cartulary.network_flow_error_contracts.v2"
 } as const;
 
 export const networkFlowErrorRegistry = deepFreeze(value);

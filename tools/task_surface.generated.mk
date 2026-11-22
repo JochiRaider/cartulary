@@ -41,6 +41,7 @@ else
   go-vulncheck \
   go-gosec-targeted \
   go-error-declaration-audit \
+  go-error-declaration-check \
   go-gosec-audit \
   frontend-fallow-static \
   generate \
@@ -179,6 +180,7 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'  make go-vulncheck                   run Go vulnerability scanning over authored package roots' \
 	'  make go-gosec-targeted              run targeted Go security static analysis' \
 	'  make go-error-declaration-audit     run the advisory static error-declaration audit' \
+	'  make go-error-declaration-check     check proven HTTP error writes against operation and status declarations' \
 	'  make go-gosec-audit                 run advisory Go security audit profiles' \
 	'' \
 	'full gates:' \
@@ -275,6 +277,8 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'go-gosec-targeted inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off)' \
 	'  side effects: retained_artifacts' \
 	'go-error-declaration-audit inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off)' \
+	'  side effects: retained_artifacts' \
+	'go-error-declaration-check inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off)' \
 	'  side effects: retained_artifacts' \
 	'go-gosec-audit inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off)' \
 	'  side effects: retained_artifacts' \
@@ -1083,5 +1087,26 @@ reference-pack-module-check:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,reference-pack-module-check)
 	$(Q)MODULE="$(MODULE)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,MODULE)" $(RUN_STEP_SCRIPT) "reference-pack-module-check" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) MODULE="$(MODULE)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,MODULE)" GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" NODE_BIN="$(NODE_BIN)" MODULE="$(MODULE)" bash \
 	  ./tools/reference-pack-modules/check.sh
+
+ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
+go-error-declaration-check: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+go-error-declaration-check: export CARTULARY_TEST_TARGET ?= go-error-declaration-check
+go-error-declaration-check:
+	$(Q)$(TASK_SURFACE_NODE_READINESS)
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,go-error-declaration-check)
+	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS)" CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "go error declaration check" -- env \
+	  $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS)" GO="$(GO)" \
+	  GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" NODE_BIN="$(NODE_BIN)" bash ./tools/harness/static-analysis/go-error-declaration-audit.sh check-writes
+	$(call RUN_TARGET_SUMMARY,go-error-declaration-check,pass)
+else
+go-error-declaration-check: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+go-error-declaration-check: export CARTULARY_TEST_TARGET ?= go-error-declaration-check
+go-error-declaration-check:
+	$(Q)$(TASK_SURFACE_NODE_READINESS)
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,go-error-declaration-check)
+	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS)" \
+	  $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target go-error-declaration-check
+endif
 
 endif

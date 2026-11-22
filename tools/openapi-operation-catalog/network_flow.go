@@ -14,14 +14,12 @@ import (
 )
 
 const (
-	networkFlowIndexPath        = "contracts/network-flow/index.json"
-	networkFlowRoutesSchemaID   = "cartulary.network_flow_route_contracts.v1"
-	coreErrorRegistryPath       = "contracts/errors/index.json"
-	networkFlowGateStage        = "incident_visibility_role_lifecycle"
-	networkFlowUUIDFormat       = "uuid"
-	networkFlowRouteErrorScope  = "route"
-	networkFlowRouteOrJobScope  = "route_or_job"
-	networkFlowRouteOrRowScope  = "route_or_row_diagnostic"
+	networkFlowIndexPath      = "contracts/network-flow/index.json"
+	networkFlowRoutesSchemaID = "cartulary.network_flow_route_contracts.v1"
+	coreErrorRegistryPath     = "contracts/errors/index.json"
+	networkFlowGateStage      = "incident_visibility_role_lifecycle"
+	networkFlowUUIDFormat     = "uuid"
+
 	networkFlowMinimumNotFound  = 400
 	networkFlowMaximumNotFound  = 599
 	networkFlowCSRFCookieScheme = "csrfCookie"
@@ -76,9 +74,9 @@ type networkFlowOperationPolicy struct {
 
 type errorRegistry struct {
 	Errors []struct {
-		Code       string `json:"code"`
-		HTTPStatus *int   `json:"http_status"`
-		Scope      string `json:"scope"`
+		Code       string   `json:"code"`
+		HTTPStatus *int     `json:"http_status"`
+		Contexts   []string `json:"contexts"`
 	} `json:"errors"`
 }
 
@@ -270,11 +268,8 @@ func registeredNotFoundStatuses(networkFlow, core errorRegistry) map[string]int 
 		}
 	}
 	for _, entry := range networkFlow.Errors {
-		switch entry.Scope {
-		case networkFlowRouteErrorScope, networkFlowRouteOrJobScope, networkFlowRouteOrRowScope:
-			if entry.HTTPStatus != nil {
-				registered[entry.Code] = *entry.HTTPStatus
-			}
+		if slices.Contains(entry.Contexts, "route") && entry.HTTPStatus != nil {
+			registered[entry.Code] = *entry.HTTPStatus
 		}
 	}
 	return registered

@@ -124,7 +124,7 @@
           "projection_kind": "json_value",
           "output_path": "packages/protocol-ts/src/generated/network-flow-error-registry.ts",
           "identifier": "networkFlowErrorRegistry",
-          "artifact_path": "contracts/network-flow/errors.v1.json"
+          "artifact_path": "contracts/network-flow/errors.v2.json"
         }
       ],
       "activation_dependency_ids": [],

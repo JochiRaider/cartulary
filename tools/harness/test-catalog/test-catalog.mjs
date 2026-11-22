@@ -442,6 +442,9 @@ function readCatalogDefinition(root) {
   const profiles = loadTopologyProfiles(root);
   const fixtureProfiles = loadPerformanceFixtureSnapshotRegistry(root);
   const graphOwner = readExecutableRepositoryJSON(root, "tools/harness_work_graph_owner.json");
+  if (!(graphOwner.postgres_heavy_packing_target_ms > 0 && graphOwner.postgres_heavy_packing_target_ms <= graphOwner.go_cohort_packing_bound_ms)) {
+    throw new Error("postgres_heavy_packing_target_ms must be positive and within the Go packing bound");
+  }
   const operationIDs = new Set(Object.keys(graphOwner.operations));
   const manifests = [];
   const rows = [];

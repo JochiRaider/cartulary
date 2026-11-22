@@ -28,7 +28,7 @@ type Config struct {
 	CodeField   string
 	Writers     map[string]int
 	HandlerType string
-	Catalog     map[string][]string
+	Catalog     declarationCatalog
 }
 
 type Finding struct {
@@ -50,15 +50,10 @@ type Report struct {
 // Run builds the program, roots one traversal at each bound operation handler
 // and reports the codes each operation can produce but does not declare.
 func Run(config Config) (Report, error) {
-	loaded, err := packages.Load(&packages.Config{Mode: packages.LoadAllSyntax, Dir: config.Dir}, config.Patterns...)
+	program, err := loadProgram(config)
 	if err != nil {
-		return Report{}, fmt.Errorf("load program: %w", err)
+		return Report{}, err
 	}
-	if packages.PrintErrors(loaded) > 0 {
-		return Report{}, fmt.Errorf("load program: package errors")
-	}
-	program, _ := ssautil.AllPackages(loaded, ssa.InstantiateGenerics)
-	program.Build()
 	functions := ssautil.AllFunctions(program)
 	graph := vta.CallGraph(functions, cha.CallGraph(program))
 
@@ -79,8 +74,10 @@ func Run(config Config) (Report, error) {
 		}
 		report.RootedCount++
 		declared := map[string]bool{}
-		for _, code := range config.Catalog[operationID] {
-			declared[code] = true
+		for _, codes := range config.Catalog[operationID] {
+			for _, code := range codes {
+				declared[code] = true
+			}
 		}
 		sites := map[string]map[string]bool{}
 		for function := range reachable(graph, handlers) {
@@ -306,4 +303,17 @@ func qualifiedFunction(function *ssa.Function) string {
 		return function.String()
 	}
 	return function.Pkg.Pkg.Path() + "." + function.Name()
+}
+
+func loadProgram(config Config) (*ssa.Program, error) {
+	loaded, err := packages.Load(&packages.Config{Mode: packages.LoadAllSyntax, Dir: config.Dir}, config.Patterns...)
+	if err != nil {
+		return nil, fmt.Errorf("load program: %w", err)
+	}
+	if packages.PrintErrors(loaded) > 0 {
+		return nil, fmt.Errorf("load program: package errors")
+	}
+	program, _ := ssautil.AllPackages(loaded, ssa.InstantiateGenerics)
+	program.Build()
+	return program, nil
 }

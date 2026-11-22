@@ -162,6 +162,7 @@
         ]
       },
       "evidence_class": "unit",
+      "estimated_work_ms": 40000,
       "runtime_profile_id": "none",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",

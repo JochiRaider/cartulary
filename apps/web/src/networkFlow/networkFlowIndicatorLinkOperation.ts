@@ -11,6 +11,7 @@ import type {
 } from "../services/networkFlowContractAdapter";
 import {
   networkFlowErrorMetadata,
+  networkFlowRouteError,
   validNetworkFlowErrorEnvelope,
 } from "../services/networkFlowContractAdapter";
 import {
@@ -76,9 +77,7 @@ export function validIndicatorLinkRejection(
   const error = extractError(payload);
   if (!error || status < 400 || status >= 500) return false;
   if (!error.code.startsWith("network_flow_")) return true;
-  const contract = networkFlowErrorMetadata.errors.find(
-    (item) => item.code === error.code,
-  );
+  const contract = networkFlowRouteError(error.code, status);
   const details = error.details;
   if (
     !contract ||

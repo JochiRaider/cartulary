@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.harness_estimate_audit.v1",
+  "$id": "cartulary.harness_estimate_audit.v2",
   "description": "Advisory audit of one exact retained invocation's Go units against current planning inputs (TH-HARNESS-REQ-866).",
   "type": "object",
   "additionalProperties": false,
@@ -16,7 +16,7 @@
   ],
   "properties": {
     "schema_id": {
-      "const": "cartulary.harness_estimate_audit.v1"
+      "const": "cartulary.harness_estimate_audit.v2"
     },
     "run_id": {
       "type": "string",
@@ -119,11 +119,15 @@
             "enum": [
               "estimate_drift",
               "heavy_lane_candidate",
-              "over_packing_bound"
+              "over_packing_bound",
+              "row_timing_unavailable"
             ]
           },
           "observed_ms": {
-            "type": "integer",
+            "type": [
+              "integer",
+              "null"
+            ],
             "minimum": 0
           },
           "planned_ms": {
@@ -143,7 +147,32 @@
             "type": "integer",
             "minimum": 0
           }
-        }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "code": {
+                  "const": "row_timing_unavailable"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "observed_ms": {
+                  "type": "null"
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "observed_ms": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        ]
       }
     },
     "findings_omitted": {

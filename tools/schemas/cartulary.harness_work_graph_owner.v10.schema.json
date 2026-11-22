@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.harness_work_graph_owner.v9",
+  "$id": "cartulary.harness_work_graph_owner.v10",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -15,6 +15,7 @@
     "evidence_estimates_ms",
     "default_timeout_ms",
     "go_cohort_packing_bound_ms",
+    "postgres_heavy_packing_target_ms",
     "estimate_audit",
     "aging_quantum_ms",
     "operations",
@@ -23,7 +24,7 @@
   ],
   "properties": {
     "schema_id": {
-      "const": "cartulary.harness_work_graph_owner.v9"
+      "const": "cartulary.harness_work_graph_owner.v10"
     },
     "capacity_override_input": {
       "const": "CARTULARY_HARNESS_CAPACITY_OVERRIDE"
@@ -676,6 +677,12 @@
           "minimum": 1
         }
       }
+    },
+    "postgres_heavy_packing_target_ms": {
+      "description": "Compatible Go rows pack into cohorts whose estimate stays within this bound, a fraction of default_timeout_ms that leaves headroom for aggregate concurrent load.",
+      "type": "integer",
+      "minimum": 1000,
+      "maximum": 3600000
     }
   },
   "$defs": {

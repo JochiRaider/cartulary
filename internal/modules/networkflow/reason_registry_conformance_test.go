@@ -51,7 +51,7 @@ func assertEmittedReasonCodesRegistered(t *testing.T) {
 			ReasonCodes []string `json:"reason_codes"`
 		} `json:"reason_registries"`
 	}
-	if err := json.Unmarshal([]byte(contractnetworkflow.Index["contracts/network-flow/errors.v1.json"].JSON), &registry); err != nil {
+	if err := json.Unmarshal([]byte(contractnetworkflow.Index["contracts/network-flow/errors.v2.json"].JSON), &registry); err != nil {
 		t.Fatal(err)
 	}
 	permitted := map[string]map[string]bool{}

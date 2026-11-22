@@ -3,10 +3,10 @@
 Version: 1.16.0
 Date: 2026-11-21
 Target: Cartulary testing ecosystem  
-Authoring status: S-064 DONE (E-843), corrected by E-845; all 66 owner workstreams complete; R-04 fixture-legality workstream DONE (E-845, S-798–S-827); R-05 assertion-strength workstream DONE with R-03 folded in (E-876, S-828–S-854); R-05 phase 2 verified-deferred repairs DONE (E-904, S-855–S-900); R-05 phase 3 DONE (E-951, S-901–S-957); `make check` repairs DONE (S-958–S-963); residual closure workstream DONE (E-1015, S-964–S-995); gap remediation workstream DONE, with G16 deferred there and completed by E-1087 (E-1048, S-996–S-1033); open-residual closure workstream DONE (E-1087, S-1034–S-1053); residual remediation workstream DONE (E-1127, S-1054–S-1071); post-closure remediation workstream DONE (E-1175, S-1072–S-1118); carried-residual remediation workstream DONE (E-1188, S-1119–S-1130); outstanding-items remediation workstream OPEN (entry E-1189, slices from S-1131)
+Authoring status: S-064 DONE (E-843), corrected by E-845; all 66 owner workstreams complete; R-04 fixture-legality workstream DONE (E-845, S-798–S-827); R-05 assertion-strength workstream DONE with R-03 folded in (E-876, S-828–S-854); R-05 phase 2 verified-deferred repairs DONE (E-904, S-855–S-900); R-05 phase 3 DONE (E-951, S-901–S-957); `make check` repairs DONE (S-958–S-963); residual closure workstream DONE (E-1015, S-964–S-995); gap remediation workstream DONE, with G16 deferred there and completed by E-1087 (E-1048, S-996–S-1033); open-residual closure workstream DONE (E-1087, S-1034–S-1053); residual remediation workstream DONE (E-1127, S-1054–S-1071); post-closure remediation workstream DONE (E-1175, S-1072–S-1118); carried-residual remediation workstream DONE (E-1188, S-1119–S-1130); outstanding-items workstream closed at E-1210 with the developer reset outstanding; post-closure engineering remediation verified in post1210-check03
 Artifact mode: normal; S-065 → S-059–S-063 → S-066–S-073 → all owner audits → S-064; S-001–S-058 remain completed history
 
-Current execution point: the [outstanding-items remediation workstream entry](#outstanding-items-remediation-workstream--entry-e-1189-reserved-2026-11-21) at the end of this file; its plan covers every item the [carried-residual closure (E-1188)](#s-1130--f-1115--e-1188--wv-closure-gate-and-handoff-for-the-carried-residual-workstream-verification-tracker) left open. Older backlogs are closed. For history, read the [R-05 phase 2 handoff](#r-05-phase-2-handoff-2026-11-15), then the [R-04 handoff](#r-04-and-s-064-correction-handoff-2026-11-15) and then the [final S-064 handoff](#final-s-064-handoff-2026-11-15). Its residual register (E-843) is the follow-up backlog. The [S-641](#maintainer-requested-pause-after-s-641-2026-11-14) and [S-342](#maintainer-requested-pause-after-s-342-2026-11-11) pause checkpoints remain historical evidence.
+Current execution point: [Post-E-1210 remediation](#post-e-1210-remediation). The [E-1210 handoff](#s-1151--f-1136--e-1210--xo-closure-gate-evidence-re-run-and-handoff-verification-tracker) records the previous implementation gate and subsequent unsuccessful developer reset.
 
 ## 1. Scope and Source Posture
 
@@ -93895,3 +93895,180 @@ then `CARTULARY_DESTRUCTIVE_CONFIRM=db-reset make db-reset`. Results follow.
   reset and would fail the same way.
   XG5 therefore stays with the maintainer: run the two commands in the
   configured dev terminal.
+
+## Post-E-1210 remediation
+
+E-1210 closed the preceding engineering gate. XG5 remains an operator action.
+The earlier S-1148 drift-free outcome referred to a prospective check. The
+qualified S-1151 check actually reported 13 findings across 310 launched Go
+units, comprising two packing overruns, seven cohort drifts, and four lane
+candidates. Estimates, row timings and scheduler timeouts serve different
+purposes.
+
+| Row | Isolated runner time | S-1148 loaded row duration | S-1151 loaded row duration | Advisory target |
+| --- | ---: | ---: | ---: | ---: |
+| Evidence cleanup | 41.2 s | 95.81 s | 42.96 s | <35 s |
+| Network Flow saved graph | 72.8 s | 103.46 s | 112.96 s | <90 s |
+
+S-1144 recorded pre-change failure for graph publication and diagnostic
+reversions for projection batching and Revisions. For shared port changes,
+identify callers and affected fixture rows before running verification.
+The empty-member change also affected the two Evidence transaction fixtures
+corrected in S-1145. Diagnose a failed Make operation before retrying it and
+record the changed input that warrants repeating generation.
+
+### Local cutover
+
+The object-store reset failed during Compose interpolation before deletion.
+The database reset never started. In the configured developer terminal,
+check the local lineage, target database and bucket, TLS directory, S3
+credentials and migration DSN before clearing either store. Preview each
+target with `CARTULARY_CLEANUP_DRY_RUN=1` as a Make argument. For an
+authorized disposable v4 environment execute, in order:
+
+1. `make object-store-reset CARTULARY_DESTRUCTIVE_CONFIRM=object-store-reset`
+2. After the first target succeeds, `make db-reset CARTULARY_DESTRUCTIVE_CONFIRM=db-reset`.
+
+Record each result, bucket clearance, v5 migrations 1–29 and application
+readiness. Resume a partial cutover from its last successful step. A database
+requiring preservation needs a separate migration contract.
+
+Host admission uses a per-user generation-3 directory. Older checkouts use
+`/tmp/cartulary-host-admission-<uid>` and cannot observe generation-3 leases.
+The local operator must drain older checkouts before scheduling generation-3
+work alongside them. Retire only the exact legacy directory after confirming
+ownership, retirement of older users of that directory, and quiescence. Until
+then retain it. The active path is `/tmp/cartulary-host-admission-g3-<uid>`.
+
+### Engineering decisions and validation
+
+| Workstream | Change and reason | Compatibility and residual risk | Exit evidence |
+| --- | --- | --- | --- |
+| Network Flow specification, contracts, implementation and tests | Table 21-A names the public contexts. The v2 registry carries an explicit list of contexts and an HTTP status for route entries. Go and browser consumers use the same packaged vocabulary. The import facade retains its safe-details projection. | Packaged-registry consumers migrate from v1 scope strings to v2 contexts. Route-local codes and the Imports owner envelope retain their existing public contracts. A misplaced import error previously exposed private details or supplied retry advice to the browser. | A controlled Go regression exercised the HTTP writer. A separate frontend regression exposed a direct client path that accepted an import-only code, message and retry instruction. Both paths now reject that input. |
+| Error declarations, implementation and tests | Remove discarded auth error constructions. Use an operation/status/code proof for build enforcement and retain the call-graph audit as an investigative tool. A union of codes across statuses loses wrong-status violations. | Build behavior changes for qualified writes and checker failures. New dispatch styles and conditional writes need exercised-response evidence until a further proof rule qualifies. | The seeded fixture covers declared, wrong-status, undeclared, conditional and unused errors. A controlled first write in the registered getIncident handler caused post1210-route-red02 to fail on 409 incident_not_found. The temporary line was removed. See the [224-pair triage](error-declaration-triage.md). |
+| Scheduler specification, planning and tests | Give heavy multi-row Go cohorts a 225 s target including the 5.25 s allowance. A larger indivisible row can run alone through the 300 s hard estimate limit. The execution timeout stays at 600 s. | Work-graph owner v10 replaces v9. Cohort composition, IDs and scheduling order can change. Row coverage and fixture isolation remain contractual. The extra headroom absorbs some variance under concurrency. | Packing tests exercise heavy and ordinary cohorts, the singleton exception, and hard-limit rejection. Check the final run for observed overruns separately from estimated packing. |
+| Retained estimate audit | Estimate-audit v2 uses individual successful Go row durations for lane candidates. It retains unit runner interval unions for drift and overrun. A qualifying row without usable timing has an explicit unavailable result. | Consumers of v1 must accept the v2 schema, a nullable observation for unavailable timing, and a single row per lane finding. Earlier evidence retains its published schema and source identity. This avoids tying scarce PostgreSQL capacity to the duration of unrelated siblings. | Contract tests cover a slow cohort of individually short rows, heavy and ordinary fixture capabilities, missing timing, qualification and bounded output. |
+| Test duration and fixture ownership | Keep all 27 rejected imports, reclamation, janitor and durable cleanup witnesses, and all 13 injected saved-graph failures with restore checks. Run the advisory comparison both in isolation and under the full gate. | The 35 s and 90 s goals guide investigation. Removing a failure case or timing out early to reach those numbers would weaken evidence. | Isolated instrumented runs post1210-evidence-profile01 and post1210-graph-profile01 passed. Temporary timers have been removed. |
+| Timeline measurement | Diagnostic v3 intersects each client-apply interval with timestamped long-frame scripts and unions the overlaps. Missing observations and unmeasured intervals retain their uncertainty. | Consumers of the diagnostic attachment select v3. AC-043 still uses its existing paint predicate and threshold. A script category alone cannot locate time inside a particular component. | post1210-timeline01 passed AC-043 with 100 measured samples after one warmup. No observer entries were dropped. |
+| Row names, history and operator handoff | Current production DDL recurrence rows have lineage-neutral names. Retirement and replacement mappings retain the two old IDs. Local cleanup and dev cutover have separate operator procedures above. | Direct selectors must use the new row IDs. Historical retained invocations keep their original IDs. Removing the legacy directory while an older checkout still uses it would split host admission. | Catalog and scheduler checks validate active and retired rows. A successful dry run previews the selected target. Actual deletion requires the configured dev environment and confirmation of quiescence where applicable. |
+
+The qualified error checker shadowed the repository before aggregate inclusion.
+The baseline contained zero straight-line proven writes. The controlled
+production-route mutation established end-to-end detection. The original
+`post1210-route-red01` ran on the unchanged route because the edit command
+used an unavailable Python executable. Its pass supplies no negative proof.
+
+### Measurements and dispositions
+
+The Evidence cleanup row took 29.99 s in isolation. Across all cases,
+archive setup took 2.28 s, admission 0.28 s, job completion waits 11.30 s,
+input reclamation checks 0.03 s, and janitor sweeps 3.13 s. The saved-graph
+row took 61.23 s in isolation. Its 13 failure bodies took 37.76 s. Across
+the complete lifecycle, the 15 restore preparations took 3.37 s and restore
+execution took 17.87 s. Three captures took 3.04 s, including the one
+shared across injected failures. These intervals overlap. The measurements
+support retaining the current ownership and lifecycle witnesses.
+
+In the Timeline browser run, paint p50 was 90.4 ms and p95 was 133.2 ms,
+against 150 ms. Measured client apply p50 was 23.2 ms and p95 was 28.8 ms.
+Recorded long-frame script overlap was positive in 32 of 100 measured samples,
+all under promise resolution. Its p95 was 28.3 ms. Eight of the ten longest
+apply intervals and three of the ten slowest paints had overlap. The instrumentation
+identifies the callback category. More granular application changes would
+require evidence identifying work within that callback.
+
+The S-1151 estimate audit produced 13 findings.
+
+| Findings | Evidence and disposition |
+| --- | --- |
+| Two packing overruns | Reference Data planned 298.25 s and ran 352.65 s. Network Flow planned 299.25 s and ran 381.28 s. Apply heavy multi-row packing headroom at the scheduler. |
+| Four lane candidates | The longest rows in the Server, Reporting, Workbook and Auth cohorts were 28.67 s, 67.80 s, 34.76 s and 71.50 s respectively. Each falls below the 120 s row threshold. Keep the existing lanes. |
+| Seven cohort drifts | The slowest constituent of each flagged cohort was Recovery 28.25 s, Rooted FS 16.92 s, Reference Data 23.05 s, Timeline 39.32 s, Incident Bundles 42.96 s, generated artifacts 42.46 s, and Server 33.52 s. Keep current estimates pending comparable independent observations of the same rows. The earlier Rooted FS and generated-artifact runs recorded zero for those rows. They provide no usable positive elapsed-time reference. |
+
+### Acceptance on the remediation checkout
+
+In `post1210-check01`, the Evidence cleanup row passed in 35.30 s and
+the saved-graph row passed in 112.40 s. Their isolated results met the
+advisory goals. Under full load the excesses were 0.30 s and 22.40 s.
+Neither observation changes test selection, timeout, or acceptance criteria.
+
+The first full `make check` passed 364/364 work units. Its qualified v2
+audit covered 311 launched Go units and returned five drift findings, zero
+observed packing overruns, zero heavy-lane candidates and zero unavailable
+timings. Database bootstrap at 23.70 s and the Recovery cohort at 49.56 s
+were cohort findings. Their individual rows and earlier observations did
+not establish a new stable cost for the whole unit.
+
+Three recurring cohort findings had four individually identified,
+consistently expensive rows. Rounded estimates use the qualified run's
+row results. Earlier observations corroborate the size of the work.
+
+| Row | S-1151 row | First remediation gate row | Prior estimate | New estimate |
+| --- | ---: | ---: | ---: | ---: |
+| Timeline real HTTP create/patch/review/supersede/replay | 39.32 s | 38.00 s | 5 s | 40 s |
+| Timeline patch/query auto-resolution | 27.89 s | 31.01 s | 5 s | 30 s |
+| Generated-artifact duplicate JSON member check | 42.46 s | 39.74 s | 1 s | 40 s |
+| Server retained reference-pack admission | 33.52 s | 37.79 s | 5 s | 40 s |
+
+Only scheduling estimates changed in this calibration. The four rows keep
+their resource profiles. The catalog check and a fresh full run verify the
+new schedule. A new finding on a single run requires independent row evidence
+before further calibration.
+
+| Completed verification | Retained run under `.cartulary/test-results/` | Result |
+| --- | --- | --- |
+| Network Flow writer regression | `post1210-nf-red01`, `post1210-nf-green01` | Negative control exposed private details. The corrected writer passed. |
+| Network Flow browser error parsing and saved-graph decoder | `post1210-web-red01`, `post1210-web-green01` | Regression reproduced on the direct parser. All three selected rows passed after repair. |
+| Network Flow indicator-link browser recovery | `post1210-browser01` | Real-browser row passed with its fixture and cleanup. |
+| Timeline diagnostics and measurement | `post1210-diag01`, `post1210-timeline01` | Diagnostic unit and AC-043 measurement passed. |
+| Harness contract suite | `post1210-harness01` | Passed 13/13 work units, including scheduler and retained-evidence contracts. |
+| Controlled operation error and corrected aggregate | `post1210-route-red02`, `post1210-check01` | The registered wrong-status write failed the check. The restored program and runtime error assertions passed the aggregate. |
+| Advisory operation-error audit | `post1210-errdecl01` | 136 rooted operations, 217 findings. Comparison to S-1150 removes exactly the seven user mutation findings and adds none. |
+| Generation, format, schema, OpenAPI and protocol | `post1210-gen03`, `post1210-format01`, `post1210-schema01`, `post1210-openapi01`, `post1210-protocol01` | Passed. The full gate also verified generated-file freshness, types, boundaries and Go/script/shell lints. |
+| Calibrated catalog | `post1210-catalog02` | Passed 2/2 work units. |
+
+Two development failures preceded qualification. `post1210-gencheck01`
+identified a missing harness-runtime backing-script declaration in the new
+task surface. The corrected declaration passed generation. `post1210-shadow01`
+identified a missing SSA program binding in the shared loader. After repair,
+`post1210-shadow02` passed the fixture and shadow analysis. The two intentional
+Network Flow regressions and the wrong-status route control have separate
+retained roots in the table.
+
+`post1210-check02` finished with 362/364 passing. Both failures reported the
+same missing refresh of the topology index after the four estimate edits.
+The JSON-shape operation and the generated-protocol policy row detected it.
+`post1210-calgen01` regenerated the index. Its three updated input digests
+belong to the Server, Generated Artifacts and Timeline family files. All
+output descriptors matched the previous index. The schema recheck
+`post1210-calschema01` and generated-source recheck `post1210-calgenerated01`
+passed. The failed aggregate is ineligible for the retained estimate audit.
+
+The operator previews `post1210-reset-preview-obj01` and
+`post1210-reset-preview-db01` both passed with `CARTULARY_CLEANUP_DRY_RUN=1`.
+This environment lacks the development TLS directory setting, S3 credentials
+and `CARTULARY_POSTGRES_POSTGRES_PRIMARY_MIGRATION_DSN`. The actual reset
+and verification of application readiness remain with the configured operator.
+The local legacy and generation-3 admission directories both exist.
+
+**Final gate.** `CARTULARY_TEST_RUN_ID=post1210-check03 make check` exited
+successfully with 364/364 work units passing and a successful retained-secret
+scan. Evidence cleanup took 41.36 s and the saved-graph lifecycle took
+110.11 s under this load. All functional assertions passed. Keep both
+timing goals advisory.
+
+The final estimate audit (`make explain-run` with `DETAIL=estimates JSON=1`
+against `post1210-check03`) accepted 130 launched Go units in the warm
+run. Its only finding was an overestimate in Incident Bundles. That cohort
+ran for 106.195 s against 223.250 s planned. The VERIS round trip alone varied
+from 54.31 s on the first gate to 18.50 s on the final gate, and Evidence
+cleanup had previously reached 95.81 s under load. Retain the headroom. Both
+accepted aggregate audits recorded zero observed overruns, zero heavy-lane
+candidates and zero unavailable row timings. The initial 311-unit audit
+provides the wider timing sample. The later 130-unit audit qualifies the
+final source and its calibrated estimates.
+
+The engineering handoff is complete. Actual developer cutover and retirement
+of the legacy admission directory remain operator actions. Browser acceptance
+for this change covered the Network Flow recovery and Timeline measurement
+rows. Existing visual approval and release evidence keep their original scope.
