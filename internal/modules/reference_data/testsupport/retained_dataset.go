@@ -6,13 +6,15 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data/internal/packformat"
 )
 
 // A retained qualification never constructs, renews or signs its subject. It
 // checks exact public identities before sending these bytes to the importer,
-// whose clock and complete verification lifecycle supply freshness admission.
+// whose complete verification lifecycle supplies freshness admission at the
+// pinned trusted instant from RetainedReleaseClock (RP-REQ-282).
 func retainedDataset(t testing.TB, repositoryRoot, name, key, repository, class string, objects, relationships int64) (datasetFixture, packformat.Manifest) {
 	t.Helper()
 	read := func(name string) []byte {
@@ -53,11 +55,40 @@ func retainedDataset(t testing.TB, repositoryRoot, name, key, repository, class 
 	if err != nil || packformat.Digest(members["manifest.json"]) != release.Manifest || payload != release.Payload || m.Key != key || m.Version != release.Version || m.Repository == nil || *m.Repository != repository || m.Summary.Objects == nil || *m.Summary.Objects != objects || m.Summary.Relationships == nil || *m.Summary.Relationships != relationships {
 		t.Fatal("retained logical identity", err)
 	}
-	container, bootstrap := read(release.EnvelopeRoot+"/container.pack"), read(release.EnvelopeRoot+"/bootstrap.json")
-	if packformat.Digest(container) != release.Container || packformat.Digest(bootstrap) != release.Bootstrap || packformat.Digest(read(release.EnvelopeRoot+"/envelope-report.json")) != release.Report {
+	container, bootstrap, reportBytes := read(release.EnvelopeRoot+"/container.pack"), read(release.EnvelopeRoot+"/bootstrap.json"), read(release.EnvelopeRoot+"/envelope-report.json")
+	if packformat.Digest(container) != release.Container || packformat.Digest(bootstrap) != release.Bootstrap || packformat.Digest(reportBytes) != release.Report {
 		t.Fatal("retained signed envelope identity")
 	}
-	return datasetFixture{PortablePackFixture{Bootstrap: bootstrap, Container: container, Key: key, Version: m.Version, Path: "ext/reference_packs/containers/" + release.Manifest + ".pack"}, release.Manifest, payload, members}, m
+	var report struct {
+		Container string `json:"container_sha256"`
+		Manifest  string `json:"manifest_sha256"`
+		IssuedAt  string `json:"issued_at"`
+	}
+	if err := json.Unmarshal(reportBytes, &report); err != nil {
+		t.Fatal(err)
+	}
+	issued, err := time.Parse(time.RFC3339, report.IssuedAt)
+	if err != nil || issued.IsZero() || report.Container != release.Container || report.Manifest != release.Manifest {
+		t.Fatal("retained envelope report issuance", err)
+	}
+	return datasetFixture{PortablePackFixture: PortablePackFixture{Bootstrap: bootstrap, Container: container, Key: key, Version: m.Version, Path: "ext/reference_packs/containers/" + release.Manifest + ".pack"}, ManifestSHA256: release.Manifest, PayloadSHA256: payload, Members: members, ReleaseIssuedAt: issued.UTC()}, m
+}
+
+// RetainedReleaseClock is the Reference Pack trusted clock for qualifying an
+// exact retained release (RP-REQ-282). It starts at the release's digest-bound
+// envelope issuance instant and advances monotonically, so the delivered signed
+// bytes verify inside their signed validity window regardless of wall-clock
+// date. It signs, renews and substitutes nothing; every signature, expiry,
+// horizon and binding check still runs. Pass it only as
+// server.Options.ReferencePackClock: Jobs, sessions and other owners keep the
+// wall clock, and restore must not need it.
+func RetainedReleaseClock(t testing.TB, issuedAt time.Time) func() time.Time {
+	t.Helper()
+	if issuedAt.IsZero() {
+		t.Fatal("retained release issuance instant required")
+	}
+	start := time.Now()
+	return func() time.Time { return issuedAt.Add(time.Since(start)).UTC() }
 }
 
 func WindowsRelease(t testing.TB, root string) ProducedWindowsPack {
@@ -75,5 +106,5 @@ func ATTACKRelease(t testing.TB, root string) AuthenticATTACKPack {
 		t.Fatal("production release must retain the exact MITRE license and approved distribution binding")
 	}
 	set := producedSetDigest(t, root, f.PortablePackFixture, f.ManifestSHA256, f.PayloadSHA256, "cartulary.reference_pack.dataset.v1")
-	return AuthenticATTACKPack{f.PortablePackFixture, f.ManifestSHA256, f.PayloadSHA256, set, 6221, 34632}
+	return AuthenticATTACKPack{PortablePackFixture: f.PortablePackFixture, ManifestSHA256: f.ManifestSHA256, PayloadSHA256: f.PayloadSHA256, SetSHA256: set, Objects: 6221, Relationships: 34632, ReleaseIssuedAt: f.ReleaseIssuedAt}
 }

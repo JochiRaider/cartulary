@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/app/referenceassembly"
+	"github.com/JochiRaider/cartulary/internal/app/server"
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	referencetest "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
@@ -47,7 +48,13 @@ func runAuthenticATTACKLifecycle(t *testing.T, retained bool) {
 		t.Fatal(err)
 	}
 	runtime := appsupport.StartRuntime(t)
-	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "authentic-attack", TestRouteMode: httptestx.TestRouteModeDisabled, Env: map[string]string{"CARTULARY__REFERENCE_PACKS__TRUST_BOOTSTRAP_PATH": bootstrap, "CARTULARY__REFERENCE_PACKS__CLOCK_TRUSTED": "true"}})
+	options := appsupport.ServerOptions{Prefix: "authentic-attack", TestRouteMode: httptestx.TestRouteModeDisabled, Env: map[string]string{"CARTULARY__REFERENCE_PACKS__TRUST_BOOTSTRAP_PATH": bootstrap, "CARTULARY__REFERENCE_PACKS__CLOCK_TRUSTED": "true"}}
+	if retained {
+		// The delivered release verifies at its pinned trusted instant (RP-REQ-282).
+		trusted := referencetest.RetainedReleaseClock(t, fixture.ReleaseIssuedAt)
+		options.ConfigureRuntime = func(o *server.Options) { o.ReferencePackClock = trusted }
+	}
+	harness := runtime.StartServer(t, options)
 	admin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	storage, err := referenceassembly.NewRootStorage(harness.Server.Config.Roots.TemporaryWork.Path, harness.Server.Config.Roots.ReferencePackStorage.Path)
 	if err != nil {

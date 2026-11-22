@@ -16,6 +16,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/referenceassembly"
+	"github.com/JochiRaider/cartulary/internal/app/server"
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
@@ -30,15 +31,20 @@ import (
 
 func TestATTACKProductionPackRestoresPinnedHistory_Integration(t *testing.T) {
 	// This selector verifies retained hashes and MITRE notices before import. It
-	// neither signs a substitute nor overrides the application's trusted clock.
+	// never signs a substitute. The source verifies and activates at the pinned
+	// trusted instant (RP-REQ-282); the restored server keeps the wall clock,
+	// because restore must not reapply current-time expiry (RP-AC-043).
 	f := referencetest.ATTACKRelease(t, "../../..")
+	trusted := referencetest.RetainedReleaseClock(t, f.ReleaseIssuedAt)
 	runtime := appsupport.StartRuntime(t)
 	bootstrap := filepath.Join(t.TempDir(), "bootstrap.json")
 	if err := os.WriteFile(bootstrap, f.Bootstrap, 0600); err != nil {
 		t.Fatal(err)
 	}
 	options := appsupport.ServerOptions{Prefix: "attack-production-recovery", TestRouteMode: httptestx.TestRouteModeDisabled, Env: map[string]string{"CARTULARY__REFERENCE_PACKS__TRUST_BOOTSTRAP_PATH": bootstrap, "CARTULARY__REFERENCE_PACKS__CLOCK_TRUSTED": "true"}}
-	source := runtime.StartServer(t, options)
+	sourceOptions := options
+	sourceOptions.ConfigureRuntime = func(o *server.Options) { o.ReferencePackClock = trusted }
+	source := runtime.StartServer(t, sourceOptions)
 	admin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, source.Server.HTTP.URL)
 	referencehttp.ImportPackFixture(t, source.Server, admin, f.PortablePackFixture, "attack-recovery-import")
 	action := func(s *appsupport.ServerHarness, action, transaction string) *http.Response {

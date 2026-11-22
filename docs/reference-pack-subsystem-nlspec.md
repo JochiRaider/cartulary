@@ -1426,9 +1426,18 @@ lock, source profile, builder, output license decision, pack version and sequenc
 Unresolved redistribution approval blocks distribution of that release. Public
 bootstrap accompanies a release but does not install deployment trust. Private
 key confinement, monotonic reservations, atomic publication and logical-byte
-preserving renewal remain mandatory. Fresh qualification imports the delivered
-signed bytes with the trusted current clock; it MUST NOT silently re-sign them.
-Expired metadata fails visibly. Renewal is a new immutable envelope descriptor.
+preserving renewal remain mandatory. Publication verifies the delivered signed
+bytes at the trusted current clock; expired metadata fails visibly there, and
+renewal is a new immutable envelope descriptor.
+
+Repository qualification of a retained release imports the exact delivered
+signed bytes and MUST NOT re-sign, renew or substitute them. Its Reference Pack
+trusted clock starts at the release's digest-bound envelope issuance instant
+and advances monotonically, so every signature, expiry, horizon and binding
+check runs inside the signed validity window and a retained release does not
+expire as a repository fixture. Only that clock is pinned: Jobs, sessions, other
+owners, restore and test-signed fixtures keep the current clock. Dedicated
+expiry vectors, not retained releases, qualify current-time expiry rejection.
 
 One publisher ledger root separates logical release reservations from per-manifest
 envelope metadata reservations. Signing or renewal MUST NOT prevent an identical

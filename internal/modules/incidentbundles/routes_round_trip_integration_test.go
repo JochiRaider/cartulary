@@ -13,9 +13,11 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/app/server"
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
@@ -68,13 +70,24 @@ type roundTripPackFixture struct {
 }
 
 func runNativeSnapshotRoundTrip(t *testing.T, fixture roundTripPackFixture, embedAllowed bool) {
+	runNativeSnapshotRoundTripAt(t, fixture, embedAllowed, nil)
+}
+
+// runNativeSnapshotRoundTripAt pins both servers' Reference Pack trusted clock
+// when referencePackClock is non-nil, as retained-release qualification
+// requires (RP-REQ-282). Test-signed fixtures pass nil and use the wall clock.
+func runNativeSnapshotRoundTripAt(t *testing.T, fixture roundTripPackFixture, embedAllowed bool, referencePackClock func() time.Time) {
 	runtime := appsupport.StartRuntime(t)
 	bootstrap := filepath.Join(t.TempDir(), "bootstrap.json")
 	if err := os.WriteFile(bootstrap, fixture.Bootstrap, 0600); err != nil {
 		t.Fatal(err)
 	}
-	source := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "native-reference-source", TestRouteMode: httptestx.TestRouteModeDisabled, Env: map[string]string{"CARTULARY__REFERENCE_PACKS__TRUST_BOOTSTRAP_PATH": bootstrap, "CARTULARY__REFERENCE_PACKS__CLOCK_TRUSTED": "true"}})
-	target := startIsolatedIncidentBundleServerWithEnv(t, runtime, "native-reference-target", map[string]string{"CARTULARY__REFERENCE_PACKS__TRUST_BOOTSTRAP_PATH": bootstrap, "CARTULARY__REFERENCE_PACKS__CLOCK_TRUSTED": "true"})
+	var configure func(*server.Options)
+	if referencePackClock != nil {
+		configure = func(o *server.Options) { o.ReferencePackClock = referencePackClock }
+	}
+	source := runtime.StartServer(t, appsupport.ServerOptions{ConfigureRuntime: configure, Prefix: "native-reference-source", TestRouteMode: httptestx.TestRouteModeDisabled, Env: map[string]string{"CARTULARY__REFERENCE_PACKS__TRUST_BOOTSTRAP_PATH": bootstrap, "CARTULARY__REFERENCE_PACKS__CLOCK_TRUSTED": "true"}})
+	target := startIsolatedIncidentBundleServerConfigured(t, runtime, "native-reference-target", map[string]string{"CARTULARY__REFERENCE_PACKS__TRUST_BOOTSTRAP_PATH": bootstrap, "CARTULARY__REFERENCE_PACKS__CLOCK_TRUSTED": "true"}, configure)
 	sourceAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, source.Server.HTTP.URL)
 	targetAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, target.Server.HTTP.URL)
 	referencehttp.ImportPackFixture(t, source.Server, sourceAdmin, fixture.PortablePackFixture, "native-pack-import")

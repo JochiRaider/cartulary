@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/app/referenceassembly"
+	"github.com/JochiRaider/cartulary/internal/app/server"
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	referencetest "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
@@ -21,8 +22,9 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
-// The release is imported unchanged, with its actual publisher and expiry.
-// This test never builds a replacement corpus or signs a fresh test envelope.
+// The release is imported unchanged, with its actual publisher and expiry,
+// verified at its pinned trusted instant (RP-REQ-282). This test never builds a
+// replacement corpus or signs a fresh test envelope.
 func TestWindowsRealReleaseImport_Integration(t *testing.T) {
 	release := referencetest.WindowsRelease(t, "../../..")
 	container, bootstrap, members := release.Container, release.Bootstrap, release.Members
@@ -46,7 +48,8 @@ func TestWindowsRealReleaseImport_Integration(t *testing.T) {
 		t.Fatal(err)
 	}
 	runtime := appsupport.StartRuntime(t)
-	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "windows-release", TestRouteMode: httptestx.TestRouteModeDisabled, Env: map[string]string{"CARTULARY__REFERENCE_PACKS__TRUST_BOOTSTRAP_PATH": bootstrapPath, "CARTULARY__REFERENCE_PACKS__CLOCK_TRUSTED": "true"}})
+	trusted := referencetest.RetainedReleaseClock(t, release.ReleaseIssuedAt)
+	harness := runtime.StartServer(t, appsupport.ServerOptions{ConfigureRuntime: func(o *server.Options) { o.ReferencePackClock = trusted }, Prefix: "windows-release", TestRouteMode: httptestx.TestRouteModeDisabled, Env: map[string]string{"CARTULARY__REFERENCE_PACKS__TRUST_BOOTSTRAP_PATH": bootstrapPath, "CARTULARY__REFERENCE_PACKS__CLOCK_TRUSTED": "true"}})
 	admin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	storage, err := referenceassembly.NewRootStorage(harness.Server.Config.Roots.TemporaryWork.Path, harness.Server.Config.Roots.ReferencePackStorage.Path)
 	if err != nil {

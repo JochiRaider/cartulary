@@ -10,7 +10,7 @@ import (
 func TestATTACKSnapshotReferencesSurviveBundleRoundTrip_Integration(t *testing.T) {
 	t.Run("production MITRE license permits exact embedding", func(t *testing.T) {
 		f := referencetest.ATTACKRelease(t, "../../..")
-		runNativeSnapshotRoundTrip(t, roundTripPackFixture{f.PortablePackFixture, f.SetSHA256}, true)
+		runNativeSnapshotRoundTripAt(t, roundTripPackFixture{f.PortablePackFixture, f.SetSHA256}, true, referencetest.RetainedReleaseClock(t, f.ReleaseIssuedAt))
 	})
 	t.Run("restricted fixture stays references-only", func(t *testing.T) {
 		keys, err := referencepackfixture.NewSigningContext("fixture.attack.dataset.v1", "framework.attack")

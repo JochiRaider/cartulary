@@ -117,6 +117,12 @@ type Options struct {
 	// (operation, store, phase, path) for the transfer evidence recorder. Production
 	// assembly passes none.
 	ObserveIncidentBundleMemberReads func(operationID, store, phase, path string)
+	// ReferencePackClock replaces Now only for Reference Pack operation
+	// admission, trust verification and activation instants, including
+	// portable verification. Retained-release qualification pins it inside the
+	// release's signed validity window (RP-REQ-282); Jobs leases, sessions and
+	// every other owner keep Now. Production assembly passes none.
+	ReferencePackClock func() time.Time
 	// HarnessJobs adds harness-only job kinds (TH-HARNESS-REQ-450). Only the
 	// server-harness profile sets it; production assembly passes none.
 	HarnessJobs []jobs.Contribution
@@ -219,6 +225,10 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 	now := options.Now
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
+	}
+	referencePackNow := options.ReferencePackClock
+	if referencePackNow == nil {
+		referencePackNow = now
 	}
 
 	// Configuration material is admitted before any service or lease acquisition.
@@ -1225,7 +1235,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 		runtime.Close()
 		return nil, fmt.Errorf("compose Incident Portability source catalog: %w", err)
 	}
-	incidentReferences, err := reference_data.NewIncidentReferences(reference_data.IncidentReferenceOptions{Lifetime: referenceLifetime, Postgres: referenceDatabase, Storage: rootReferencePackStorage, Configuration: normalizedCfg.ReferencePacks, Limits: settingsProjection.ReferenceData(), JobExecutions: jobTransactions, JobOperations: jobManager, Observer: referenceObserver, Now: now})
+	incidentReferences, err := reference_data.NewIncidentReferences(reference_data.IncidentReferenceOptions{Lifetime: referenceLifetime, Postgres: referenceDatabase, Storage: rootReferencePackStorage, Configuration: normalizedCfg.ReferencePacks, Limits: settingsProjection.ReferenceData(), JobExecutions: jobTransactions, JobOperations: jobManager, Observer: referenceObserver, Now: referencePackNow})
 	if err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("compose Incident Portability reference retention: %w", err)
@@ -1426,7 +1436,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 			Configuration: normalizedCfg.ReferencePacks, Limits: settingsProjection.ReferenceData(),
 			JobAdmission: jobTransactions, JobOperations: jobManager, JobExecutionGuard: jobTransactions,
 			JobFinalizer:  extensionassembly.NewReferencePackJobSuccessFinalizer(extensionJobFinalizer),
-			RegistryUsage: referenceassembly.RegistryUsage{}, Now: now,
+			RegistryUsage: referenceassembly.RegistryUsage{}, Now: referencePackNow,
 		}, runtime.jobRunner)
 		if err != nil {
 			runtime.Close()

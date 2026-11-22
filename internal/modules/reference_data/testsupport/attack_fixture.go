@@ -11,6 +11,9 @@ type AuthenticATTACKPack struct {
 	PortablePackFixture
 	ManifestSHA256, PayloadSHA256, SetSHA256 string
 	Objects, Relationships                   int64
+	// ReleaseIssuedAt is the retained release envelope's issuance instant;
+	// zero for a test-signed fixture. See RetainedReleaseClock.
+	ReleaseIssuedAt time.Time
 }
 
 // AuthenticATTACKFixture uses immutable canonical generic artifacts derived
@@ -25,5 +28,5 @@ func AuthenticATTACKFixture(t testing.TB, repositoryRoot, sourceVersion string, 
 	m.Repository = &repository
 	f := signDataset(t, "attack", now, keys, metadataVersion, m, members)
 	set := producedSetDigest(t, repositoryRoot, f.PortablePackFixture, f.ManifestSHA256, f.PayloadSHA256, dataset.ProfileID)
-	return AuthenticATTACKPack{f.PortablePackFixture, f.ManifestSHA256, f.PayloadSHA256, set, *m.Summary.Objects, *m.Summary.Relationships}
+	return AuthenticATTACKPack{PortablePackFixture: f.PortablePackFixture, ManifestSHA256: f.ManifestSHA256, PayloadSHA256: f.PayloadSHA256, SetSHA256: set, Objects: *m.Summary.Objects, Relationships: *m.Summary.Relationships}
 }

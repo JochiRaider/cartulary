@@ -19,6 +19,9 @@ type ProducedWindowsPack struct {
 	PortablePackFixture
 	ManifestSHA256, PayloadSHA256 string
 	Members                       map[string][]byte
+	// ReleaseIssuedAt is the retained release envelope's issuance instant;
+	// zero for a test-signed fixture. See RetainedReleaseClock.
+	ReleaseIssuedAt time.Time
 }
 
 func WindowsSetDigest(t testing.TB, repositoryRoot string, f ProducedWindowsPack) string {

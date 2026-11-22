@@ -21,6 +21,7 @@ type datasetFixture struct {
 	PortablePackFixture
 	ManifestSHA256, PayloadSHA256 string
 	Members                       map[string][]byte
+	ReleaseIssuedAt               time.Time
 }
 
 func signSyntheticDataset(t testing.TB, name, version string, now time.Time, signer *referencepackfixture.SigningContext, metadataVersion int64, members map[string][]byte, objects, relationships int64) datasetFixture {
@@ -67,7 +68,7 @@ func signDataset(t testing.TB, name string, now time.Time, signer *referencepack
 		t.Fatal(err)
 	}
 	t.Logf("%s fixture %s manifest=%s payload=%s container=%s retained=%s", name, m.Version, manifestSHA, payloadSHA, envelope.Digest(container), retained)
-	return datasetFixture{PortablePackFixture{Bootstrap: bootstrap, Container: container, Key: m.Key, Version: m.Version, Path: "ext/reference_packs/containers/" + manifestSHA + ".pack"}, manifestSHA, payloadSHA, members}
+	return datasetFixture{PortablePackFixture: PortablePackFixture{Bootstrap: bootstrap, Container: container, Key: m.Key, Version: m.Version, Path: "ext/reference_packs/containers/" + manifestSHA + ".pack"}, ManifestSHA256: manifestSHA, PayloadSHA256: payloadSHA, Members: members}
 }
 
 func readDatasetMembers(t testing.TB, root string) (envelope.Manifest, map[string][]byte) {

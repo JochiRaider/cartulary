@@ -10,6 +10,8 @@ type ProducedVERISPack struct {
 	PortablePackFixture
 	ManifestSHA256, PayloadSHA256 string
 	Members                       map[string][]byte
+	// ReleaseIssuedAt is zero for a test-signed fixture. See RetainedReleaseClock.
+	ReleaseIssuedAt time.Time
 }
 
 func VERISSetDigest(t testing.TB, repositoryRoot string, f ProducedVERISPack) string {
