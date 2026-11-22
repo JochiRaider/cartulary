@@ -1662,24 +1662,43 @@ func TestNetworkFlowSavedGraphLifecycleRoutes_Integration(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer func() { _ = tx.Rollback(ctx) }()
-			if _, err := tx.Exec(ctx, `INSERT INTO jobs SELECT (jsonb_populate_record(NULL::jobs, to_jsonb(source) || jsonb_build_object('job_id', ('00000000-0000-0000-0001-' || lpad(n::text, 12, '0'))::uuid, 'status', (ARRAY['queued','running','cancel_requested'])[1 + n % 3], 'cancelable', false, 'incident_id', CASE WHEN n % 2 = 0 THEN $3::uuid ELSE source.incident_id END, 'handler_payload_json', source.handler_payload_json || jsonb_build_object('incident_id', CASE WHEN n % 2 = 0 THEN $3::uuid ELSE source.incident_id END)))).* FROM jobs source CROSS JOIN generate_series(1, $2::int) n WHERE source.job_id = $1 ORDER BY n DESC`, networkFlowJobID, count, otherIncidentID); err != nil {
+			if _, err := tx.Exec(ctx, `INSERT INTO jobs
+SELECT fixture.*
+  FROM jobs source CROSS JOIN generate_series(1, $2::int) n
+ CROSS JOIN LATERAL jsonb_populate_record(source, jsonb_build_object(
+       'job_id', ('00000000-0000-0000-0001-' || lpad(n::text, 12, '0'))::uuid,
+       'status', (ARRAY['queued','running','cancel_requested'])[1 + n % 3],
+       'cancelable', false,
+       'incident_id', CASE WHEN n % 2 = 0 THEN $3::uuid ELSE source.incident_id END,
+       'handler_payload_json', source.handler_payload_json || jsonb_build_object(
+           'incident_id', CASE WHEN n % 2 = 0 THEN $3::uuid ELSE source.incident_id END))) fixture
+ WHERE source.job_id = $1 ORDER BY n DESC`, networkFlowJobID, count, otherIncidentID); err != nil {
 				t.Fatal(err)
 			}
 			if _, err := tx.Exec(ctx, `UPDATE jobs SET extension_owner_profile_id = 'restore_neighbor' WHERE job_id = $1`, networkFlowJobID); err != nil {
 				t.Fatal(err)
 			}
 			// Exclusion is independent in each scope dimension and terminal status.
-			if _, err := tx.Exec(ctx, `INSERT INTO jobs SELECT (jsonb_populate_record(NULL::jobs, to_jsonb(source) || jsonb_build_object(
-			 'job_id', ('00000000-0000-0000-0002-' || lpad(n::text, 12, '0'))::uuid,
-			 'extension_owner_profile_id', $2::text, 'status', (ARRAY['succeeded','failed','canceled'])[n],
-			 'cancelable', false, 'handler_attempt_id', NULL, 'handler_lease_expires_at', NULL,
-			 'progress_completed', 1, 'finished_at', now(), 'retained_until', now()+interval '1 day',
-			 'result_summary_json', CASE WHEN n = 2 THEN NULL ELSE '{}'::jsonb END,
-			 'error_summary_json', CASE WHEN n = 2 THEN '{}'::jsonb ELSE NULL END))).*
-			 FROM jobs source CROSS JOIN generate_series(1,3) n WHERE source.job_id = $1`, networkFlowJobID, ProfileID); err != nil {
+			if _, err := tx.Exec(ctx, `INSERT INTO jobs
+SELECT fixture.*
+  FROM jobs source CROSS JOIN generate_series(1,3) n
+ CROSS JOIN LATERAL jsonb_populate_record(source, jsonb_build_object(
+       'job_id', ('00000000-0000-0000-0002-' || lpad(n::text, 12, '0'))::uuid,
+       'extension_owner_profile_id', $2::text, 'status', (ARRAY['succeeded','failed','canceled'])[n],
+       'cancelable', false, 'handler_attempt_id', NULL, 'handler_lease_expires_at', NULL,
+       'progress_completed', 1, 'finished_at', now(), 'retained_until', now()+interval '1 day',
+       'result_summary_json', CASE WHEN n = 2 THEN NULL ELSE '{}'::jsonb END,
+       'error_summary_json', CASE WHEN n = 2 THEN '{}'::jsonb ELSE NULL END)) fixture
+ WHERE source.job_id = $1`, networkFlowJobID, ProfileID); err != nil {
 				t.Fatal(err)
 			}
-			if _, err := tx.Exec(ctx, `INSERT INTO jobs SELECT (jsonb_populate_record(NULL::jobs, to_jsonb(source) || jsonb_build_object('job_id', '00000000-0000-0000-0002-000000000004', 'extension_owner_profile_id', $2::text, 'job_kind', 'other.kind.v1'))).* FROM jobs source WHERE source.job_id = $1`, networkFlowJobID, ProfileID); err != nil {
+			if _, err := tx.Exec(ctx, `INSERT INTO jobs
+SELECT fixture.*
+  FROM jobs source
+ CROSS JOIN LATERAL jsonb_populate_record(source, jsonb_build_object(
+       'job_id', '00000000-0000-0000-0002-000000000004',
+       'extension_owner_profile_id', $2::text, 'job_kind', 'other.kind.v1')) fixture
+ WHERE source.job_id = $1`, networkFlowJobID, ProfileID); err != nil {
 				t.Fatal(err)
 			}
 			var cursor *uuid.UUID
@@ -1710,39 +1729,23 @@ func TestNetworkFlowSavedGraphLifecycleRoutes_Integration(t *testing.T) {
 			if err := tx.QueryRow(ctx, snapshot).Scan(&before); err != nil {
 				t.Fatal(err)
 			}
-			if count == 513 {
+			switch count {
+			case 1:
 				for _, defect := range []string{
-					"handler_payload_json = '{}'::jsonb",
-					"handler_payload_json = handler_payload_json || '{\"source_snapshot_id\":\"not-a-snapshot\"}'::jsonb",
-					"handler_payload_json = handler_payload_json || '{\"unknown\":true}'::jsonb",
-					"handler_payload_json = handler_payload_json || '{\"schema_id\":\"invalid\"}'::jsonb",
-					"handler_payload_json = handler_payload_json || '{\"graph_view_id\":\"invalid\"}'::jsonb",
-					"handler_payload_json = handler_payload_json || '{\"materialization_generation\":0}'::jsonb",
-					"handler_payload_json = handler_payload_json || '{\"source_snapshot_id\":\"\"}'::jsonb",
-					"handler_payload_json = handler_payload_json || '{\"incident_id\":\"00000000-0000-0000-0000-000000000001\"}'::jsonb",
-					"handler_failure_count = 3",
+					`handler_payload_json = handler_payload_json || '{"source_snapshot_id":"not-a-snapshot"}'::jsonb`,
+					`handler_payload_json = handler_payload_json || '{"unknown":true}'::jsonb`,
+					`handler_payload_json = handler_payload_json || '{"schema_id":"invalid"}'::jsonb`,
+					`handler_payload_json = handler_payload_json || '{"graph_view_id":"invalid"}'::jsonb`,
+					`handler_payload_json = handler_payload_json || '{"materialization_generation":0}'::jsonb`,
+					`handler_payload_json = handler_payload_json || '{"source_snapshot_id":""}'::jsonb`,
+					`handler_payload_json = handler_payload_json || '{"incident_id":"00000000-0000-0000-0000-000000000001"}'::jsonb`,
 				} {
-					failedTx, err := tx.Begin(ctx)
-					if err != nil {
-						t.Fatal(err)
-					}
-					if _, err := failedTx.Exec(ctx, `UPDATE jobs SET `+defect+` WHERE job_id = '00000000-0000-0000-0001-000000000513'`); err != nil {
-						t.Fatal(err)
-					}
-					if got, err := ReconcileGraphRestoreJobsTx(ctx, failedTx); err == nil || got != 0 {
-						t.Fatalf("later page failure returned success: %d %v", got, err)
-					}
-					var cleared bool
-					if err := failedTx.QueryRow(ctx, `SELECT handler_attempt_id IS NULL FROM jobs WHERE job_id = '00000000-0000-0000-0001-000000000001'`).Scan(&cleared); err != nil || !cleared {
-						t.Fatalf("fixture did not reach earlier-page writes: %v", err)
-					}
-					if err := failedTx.Rollback(ctx); err != nil {
-						t.Fatal(err)
-					}
-					if err := tx.QueryRow(ctx, `SELECT handler_attempt_id IS NULL FROM jobs WHERE job_id = '00000000-0000-0000-0001-000000000001'`).Scan(&cleared); err != nil || cleared {
-						t.Fatalf("later-page failure lost atomic rollback: %v", err)
-					}
+					assertRejectedRestoreJob(t, tx, count, defect)
 				}
+			case 513:
+				// Each owner can reject the last page after prior pages released attempts.
+				assertRejectedRestoreJob(t, tx, count, `handler_payload_json = '{}'::jsonb`)
+				assertRejectedRestoreJob(t, tx, count, `handler_failure_count = 3`)
 			}
 
 			for range 2 {
@@ -1936,10 +1939,7 @@ func TestNetworkFlowSavedGraphLifecycleRoutes_Integration(t *testing.T) {
 	if intentCount != 7 || renamedCount != 1 || removalCount != 1 {
 		t.Fatalf("saved graph outbox duplicated or omitted lifecycle effects: total=%d renamed=%d removed=%d", intentCount, renamedCount, removalCount)
 	}
-	assertFrozenReportingRestore(t, runtime, harness, adminLogin, frozenInputs, reportingJobID, previewJobID)
-	deferred := captureDeferredReportingSource(t, runtime, harness, reportingJobID, previewJobID)
-	assertFrozenReportingRestoreFailures(t, runtime, deferred, reportingJobID, previewJobID)
-	assertFrozenReportingInputCorruption(t, deferred, reportingJobID, previewJobID)
+	assertFrozenReportingRestores(t, runtime, harness, adminLogin, frozenInputs, reportingJobID, previewJobID)
 }
 
 func projectionObjectIDs(t testing.TB, projection map[string]any) ([]string, []string) {
@@ -1978,6 +1978,38 @@ func restoreContainsExactGraphBinding(views []graphrestore.RestoreRebuiltView, g
 		}
 	}
 	return false
+}
+
+// assertRejectedRestoreJob injects one defect into the last selected job.
+func assertRejectedRestoreJob(t *testing.T, parent pgx.Tx, count int, defect string) {
+	t.Helper()
+	ctx := t.Context()
+	failedTx, err := parent.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = failedTx.Rollback(ctx) }()
+	lastID := fmt.Sprintf("00000000-0000-0000-0001-%012d", count)
+	tag, err := failedTx.Exec(ctx, `UPDATE jobs SET `+defect+` WHERE job_id = $1`, lastID)
+	if err != nil || tag.RowsAffected() != 1 {
+		t.Fatalf("inject %s into last job: %v, changed %d", defect, err, tag.RowsAffected())
+	}
+	if got, err := ReconcileGraphRestoreJobsTx(ctx, failedTx); err == nil || got != 0 {
+		t.Fatalf("restore accepted %s: count=%d err=%v", defect, got, err)
+	}
+	const firstAttempt = `SELECT handler_attempt_id IS NULL FROM jobs WHERE job_id = '00000000-0000-0000-0001-000000000001'`
+	var cleared bool
+	if count > jobs.MaximumRestoredNonterminalPageSize {
+		if err := failedTx.QueryRow(ctx, firstAttempt).Scan(&cleared); err != nil || !cleared {
+			t.Fatalf("earlier page did not release the first attempt before %s: %v", defect, err)
+		}
+	}
+	if err := failedTx.Rollback(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := parent.QueryRow(ctx, firstAttempt).Scan(&cleared); err != nil || cleared {
+		t.Fatalf("rollback after %s lost the first attempt: %v", defect, err)
+	}
 }
 
 // Block only the declared render protocol. Admission, snapshot capture, retained

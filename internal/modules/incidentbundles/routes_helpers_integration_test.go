@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
@@ -74,11 +75,15 @@ type incidentBundleFileMirror struct {
 	Required  bool   `json:"required"`
 }
 
+type seededPortableEvidence struct {
+	BlobBytes        []byte
+	BlobSHA          string
+	ObjectBlobID     string
+	EvidenceRecordID string
+}
+
 type seededIncidentBundlePortableState struct {
-	BlobBytes                []byte
-	BlobSHA                  string
-	ObjectBlobID             string
-	EvidenceRecordID         string
+	seededPortableEvidence
 	HistoryHostRecordID      string
 	PartyRecordID            string
 	FindingArtifactRecordID  string
@@ -381,15 +386,33 @@ VALUES (
 	nonReversibleChangeSetID := uuid.New()
 	seedPortableRecordTagCreateHistory(t, harness.DB, incidentUUID, historyHostID, actorUUID, nonReversibleChangeSetID, time.Date(2026, 5, 25, 17, 1, 0, 0, time.UTC))
 
+	portableEvidence := seedPortableEvidence(t, harness, incidentID, actorUserID)
+	seedPortableCreationHistory(t, harness, identityID, assessmentID, indicatorID, partyRecordID, taskRequestID, decisionID, findingArtifactID, queryArtifactID, keywordArtifactID, handoffArtifactID, uuid.MustParse(portableEvidence.EvidenceRecordID))
+	return seededIncidentBundlePortableState{
+		seededPortableEvidence:   portableEvidence,
+		HistoryHostRecordID:      historyHostID.String(),
+		PartyRecordID:            partyRecordID.String(),
+		FindingArtifactRecordID:  findingArtifactID.String(),
+		QueryArtifactRecordID:    queryArtifactID.String(),
+		KeywordArtifactRecordID:  keywordArtifactID.String(),
+		HandoffArtifactRecordID:  handoffArtifactID.String(),
+		SavedViewID:              savedViewID.String(),
+		ReversibleChangeSetID:    reversibleChangeSetID.String(),
+		NonReversibleChangeSetID: nonReversibleChangeSetID.String(),
+	}
+}
+
+func seedPortableEvidence(t testing.TB, harness *appsupport.ServerHarness, incidentID, actorUserID string) seededPortableEvidence {
+	t.Helper()
 	blobBytes := []byte("extension_profile incident bundle blob\n")
 	sum := sha256.Sum256(blobBytes)
 	blobSHA := hex.EncodeToString(sum[:])
 	objectBlobID := uuid.NewString()
-	sourceStorageKey, keyErr := blobref.ObjectBlobStorageKey(incidentUUID, uuid.MustParse(objectBlobID), uuid.New())
+	sourceStorageKey, keyErr := blobref.ObjectBlobStorageKey(uuid.MustParse(incidentID), uuid.MustParse(objectBlobID), uuid.New())
 	if keyErr != nil {
 		t.Fatal(keyErr)
 	}
-	if err := harness.ObjectStore.PutObject(ctx, sourceStorageKey, bytes.NewReader(blobBytes), int64(len(blobBytes)), "text/plain"); err != nil {
+	if err := harness.ObjectStore.PutObject(t.Context(), sourceStorageKey, bytes.NewReader(blobBytes), int64(len(blobBytes)), "text/plain"); err != nil {
 		t.Fatalf("seed source object bytes: %v", err)
 	}
 
@@ -439,7 +462,7 @@ INSERT INTO evidence (
     owner_user_id
 )
 VALUES ($1, $2, 'Portable evidence', 'received', now(), now(), $3, $4, 'available', $5, $6)
-`, evidenceRecordID, incidentID, sourceStorageKey, blobSHA, objectBlobID, actorUUID); err != nil {
+`, evidenceRecordID, incidentID, sourceStorageKey, blobSHA, objectBlobID, actorUserID); err != nil {
 		t.Fatalf("seed evidence row: %v", err)
 	}
 	if _, err := harness.DB.Exec(`
@@ -455,22 +478,8 @@ VALUES ($1, $2, 'made_available', $3, 'source deployment', 'seeded portable cust
 `, incidentID, evidenceRecordID, actorUserID); err != nil {
 		t.Fatalf("seed evidence custody event: %v", err)
 	}
-	seedPortableCreationHistory(t, harness, identityID, assessmentID, indicatorID, partyRecordID, taskRequestID, decisionID, findingArtifactID, queryArtifactID, keywordArtifactID, handoffArtifactID, uuid.MustParse(evidenceRecordID))
-	return seededIncidentBundlePortableState{
-		BlobBytes:                blobBytes,
-		BlobSHA:                  blobSHA,
-		ObjectBlobID:             objectBlobID,
-		EvidenceRecordID:         evidenceRecordID,
-		HistoryHostRecordID:      historyHostID.String(),
-		PartyRecordID:            partyRecordID.String(),
-		FindingArtifactRecordID:  findingArtifactID.String(),
-		QueryArtifactRecordID:    queryArtifactID.String(),
-		KeywordArtifactRecordID:  keywordArtifactID.String(),
-		HandoffArtifactRecordID:  handoffArtifactID.String(),
-		SavedViewID:              savedViewID.String(),
-		ReversibleChangeSetID:    reversibleChangeSetID.String(),
-		NonReversibleChangeSetID: nonReversibleChangeSetID.String(),
-	}
+
+	return seededPortableEvidence{BlobBytes: blobBytes, BlobSHA: blobSHA, ObjectBlobID: objectBlobID, EvidenceRecordID: evidenceRecordID}
 }
 
 func seedPortableArtifactRecord(t testing.TB, db *sql.DB, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, artifactType string, title string) {
@@ -788,31 +797,6 @@ func zipMemberBytes(t testing.TB, bundle []byte, memberPath string) []byte {
 	return nil
 }
 
-func firstZipMemberWithPrefix(t testing.TB, bundle []byte, prefix string) string {
-	t.Helper()
-	reader, err := zip.NewReader(bytes.NewReader(bundle), int64(len(bundle)))
-	if err != nil {
-		t.Fatalf("open zip: %v", err)
-	}
-	for _, member := range reader.File {
-		if strings.HasPrefix(member.Name, prefix) {
-			return member.Name
-		}
-	}
-	t.Fatalf("zip member with prefix %s not found", prefix)
-	return ""
-}
-
-func removeZipMember(t testing.TB, bundle []byte, memberPath string) []byte {
-	t.Helper()
-	return rewriteZipMembers(t, bundle, func(path string, data []byte) ([]byte, bool) {
-		if path == memberPath {
-			return nil, false
-		}
-		return data, true
-	})
-}
-
 func replaceZipMember(t testing.TB, bundle []byte, memberPath string, replace func([]byte) []byte) []byte {
 	t.Helper()
 	found := false
@@ -868,30 +852,20 @@ func appendZipMember(t testing.TB, bundle []byte, memberPath string, payload []b
 	return buf.Bytes()
 }
 
-func appendZipDirectoryMembers(t testing.TB, bundle []byte, directories ...string) []byte {
-	t.Helper()
-	result := bundle
-	for _, directory := range directories {
-		result = appendZipMember(t, result, directory, nil)
-	}
-	return result
+// withMember returns an independent directory. Members of the pristine export are
+// immutable; each variant replaces whole payloads.
+type bundleMembers map[string][]byte
+
+func (files bundleMembers) withMember(path string, value []byte) bundleMembers {
+	variant := maps.Clone(files)
+	variant[path] = value
+	return variant
 }
 
-func replaceZipMemberAndChecksum(t testing.TB, bundle []byte, memberPath string, replacement []byte) []byte {
-	t.Helper()
-	replacementSHA := hashHexBytes(replacement)
-	rewritten := replaceZipMember(t, bundle, memberPath, func([]byte) []byte {
-		return replacement
-	})
-	return replaceZipMember(t, rewritten, "integrity/checksums.sha256", func(original []byte) []byte {
-		lines := strings.Split(strings.TrimSpace(string(original)), "\n")
-		for idx, line := range lines {
-			if strings.HasSuffix(line, "  "+memberPath) {
-				lines[idx] = replacementSHA + "  " + memberPath
-			}
-		}
-		return []byte(strings.Join(lines, "\n") + "\n")
-	})
+func (files bundleMembers) withoutMember(path string) bundleMembers {
+	variant := maps.Clone(files)
+	delete(variant, path)
+	return variant
 }
 
 func replaceStructuredBundleMember(
@@ -902,7 +876,13 @@ func replaceStructuredBundleMember(
 ) []byte {
 	t.Helper()
 	files := zipMemberMap(t, bundle)
-	files[memberPath] = append([]byte(nil), replacement...)
+	files[memberPath] = replacement
+	return writeStructuredBundle(t, files)
+}
+
+// writeStructuredBundle refreshes the manifest and checksums in a case-owned directory.
+func writeStructuredBundle(t testing.TB, files bundleMembers) []byte {
+	t.Helper()
 	var manifest incidentBundleManifestMirror
 	if err := json.Unmarshal(files["manifest.json"], &manifest); err != nil {
 		t.Fatalf("decode manifest for structured replacement: %v", err)
@@ -958,15 +938,7 @@ func encodeNDJSONRows(t testing.TB, rows []map[string]any) []byte {
 	return payload.Bytes()
 }
 
-func mapsClone(source map[string]any) map[string]any {
-	result := make(map[string]any, len(source))
-	for key, value := range source {
-		result[key] = value
-	}
-	return result
-}
-
-func zipMemberMap(t testing.TB, bundle []byte) map[string][]byte {
+func zipMemberMap(t testing.TB, bundle []byte) bundleMembers {
 	t.Helper()
 	reader, err := zip.NewReader(bytes.NewReader(bundle), int64(len(bundle)))
 	if err != nil {

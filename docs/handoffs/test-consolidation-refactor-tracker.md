@@ -94072,3 +94072,86 @@ The engineering handoff is complete. Actual developer cutover and retirement
 of the legacy admission directory remain operator actions. Browser acceptance
 for this change covered the Network Flow recovery and Timeline measurement
 rows. Existing visual approval and release evidence keep their original scope.
+
+## Evidence cleanup and saved-graph lifecycle under load
+
+Both rows met their advisory goals under full load after the timing probes
+were removed. The two instrumented full runs used normal cache
+settings, the same capability snapshot and two PostgreSQL heavy lanes. Both
+rows executed in each run. Durations are the harness row `duration_ms`,
+including all three selected Go tests in the saved-graph row.
+
+| Row | Previous full gate | Instrumented baseline, isolated / loaded | Revised instrumented, isolated / loaded | Final full load | Advisory goal |
+| --- | ---: | ---: | ---: | ---: | --- |
+| Evidence cleanup | 41.36 s | 30.70 / 33.01 s | 23.37 / 24.73 s | 29.03 s | <35 s — met |
+| Saved-graph lifecycle | 110.11 s | 62.78 / 109.32 s | 45.21 / 79.16 s | 76.49 s | <90 s — met |
+
+### What grew under load
+
+- **Evidence.** In the matched baseline the row grew by 2.31 s. The 27
+  rejected-import cases accounted for 1.38 s, including 0.74 s of additional
+  job wait and 0.51 s of additional janitor time. Source and target startup
+  and the first export accounted for another 0.44 s. Roughly 0.49 s fell
+  outside those intervals. The earlier 41.36 s run retained row totals only.
+- **Saved graph.** Of the 46.54 s baseline increase, capture accounted for
+  13.60 s, restore execution 12.43 s, target preparation 3.45 s, server
+  startup 4.17 s and post-body fault cleanup 7.73 s. Pagination accounted
+  for 1.87 s and the fault cases' terminal-check interval grew by 0.62 s.
+  About 2.67 s remained outside those intervals. Job claim and completion
+  measurements sit inside the fault bodies.
+- **Publication retry.** The renderer had already started the release when
+  the fixture changed its stored preparation. Reporting detected the change
+  at publication and handed the error to Jobs. The last claim then occurred
+  about 10 s after the original hint. This delay also occurred in isolation.
+
+### Changes and coverage
+
+The cleanup fixture exports a timeline record and an Evidence record with
+its blob, custody event, actors and creation history. Its pristine ZIP fell
+from about 90 KB to 28 KB while retaining all 39 members. Each variant
+replaces complete payloads in its own member directory. Structured variants
+rebuild integrity metadata once. The raw archive cases still introduce their
+specific digest, manifest or member defects. A separate incident on the
+source server supplies the missing-blob export. Under load, execution of the
+27 rejected imports fell from 11.77 s to 8.38 s and their janitor sweeps
+from 3.70 s to 2.63 s. Each case checks its original outcome, input
+reclamation, staging and database/object-store state. Successful controls
+include the pristine archive, directory entries, zero-byte blob and quarantine.
+
+The saved-graph fixture captures the deferred jobs once for successful startup
+and all 13 fault cases. The successful target starts at eligibility. Each
+fault receives a fresh target before eligibility. A second capture proves
+durability of the failure journal. The revised row performed 15 real restores.
+All six page sizes, nine invalid jobs, scope exclusions and replay checks
+remain covered. A Network Flow payload defect and a Common Jobs failure-count
+defect each prove rollback of earlier writes on page three. Under full load,
+the pagination cases fell from 8.33 s to 3.63 s. This supports retaining the
+existing Jobs locking and reconciliation contract. Restore execution accounted
+for 26.98 s across the 15 revised targets under load.
+
+Release and preview workers now finalize a determinate retained-input
+integrity rejection on the same attempt, using Reporting's existing
+nonretryable failure journal. In the preparation-change case, the revised
+loaded run observed the terminal result 0.15 s after releasing the jobs.
+The real restore verifies zero charged failures, an unbound failure record,
+and no release, preview output or success proof for the rejected job.
+Cancellation, deadlines and indeterminate commit outcomes retain their
+existing finalization paths. The change requires no API or data migration.
+
+### Verification evidence
+
+All IDs below are under `.cartulary/test-results/`. Temporary probes wrote
+`row-phase-details.tsv` in the six instrumented run roots.
+
+| Verification | Run IDs | Outcome |
+| --- | --- | --- |
+| Instrumented baseline | `slowrows-base-e01`, `slowrows-base-g01`, `slowrows-base-check01` | Both slices passed. Full check passed 364/364. |
+| Reporting publication regression | `slowrows-regression-red01`, `slowrows-report-green01` | Missing and mismatched retained input failed the original worker for both release and preview. The repaired worker passed all four controls in its owner row. |
+| Revised instrumented rows | `slowrows-edit-e02`, `slowrows-edit-g01`, `slowrows-edit-check01` | Both slices passed. Full check passed 364/364 and its retained-secret scan passed. |
+| Final source without timing probes | `slowrows-final-e01`, `slowrows-final-g01` | Both exact slices passed. Evidence took 25.45 s and saved graph took 50.69 s. |
+| Final full load without timing probes | `slowrows-final-check01` | `make check` passed 364/364 work units. |
+
+During development, `slowrows-edit-e01` failed to build the Evidence test
+when the quarantine re-export passed ZIP bytes to the new member assertion.
+The fixture now decodes that re-export once and uses its members for both
+checks. The corrected run is `slowrows-edit-e02`.

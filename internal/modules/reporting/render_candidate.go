@@ -87,8 +87,11 @@ func renderCandidateForCommitTx(ctx context.Context, jobReader jobs.RetainedJobR
 	if err != nil {
 		return a, noInput, noOutput, err
 	}
-	if seal == nil || *seal != candidate.preparation {
-		return a, noInput, noOutput, errors.New("reporting: candidate preparation changed")
+	if seal == nil {
+		return a, noInput, noOutput, retainedRenderInputMissing()
+	}
+	if *seal != candidate.preparation {
+		return a, noInput, noOutput, retainedRenderInputMismatch()
 	}
 	input, err := renderAdmissionMetadata(a, seal)
 	if err != nil {

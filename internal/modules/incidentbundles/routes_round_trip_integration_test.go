@@ -7,6 +7,7 @@ import (
 	referencetest "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
 	referencehttp "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport/fixturehttp"
 	"io"
+	"maps"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -225,17 +226,21 @@ func TestIncidentBundlesEvidenceBlobStagingCleanup_Integration(t *testing.T) {
 		"title":         "Incident bundle failures",
 	})
 	incidentID := incident["incident_id"].(string)
-	row := timelineroutetest.CreateRow(t, sourceHarness.Server, sourceAdmin, incidentID, map[string]any{
+	timelineroutetest.CreateRow(t, sourceHarness.Server, sourceAdmin, incidentID, map[string]any{
 		"client_txn_id":                   "txn-incident-bundle-failure-row",
 		"timeline.activity_synopsis_text": "Portable failure event",
 	})
-	recordID := row["row"].(map[string]any)["record_id"].(string)
-	seededState := seedIncidentBundlePortableState(t, sourceHarness, incidentID, recordID, sourceAdminID.String())
+	seeded := seedPortableEvidence(t, sourceHarness, incidentID, sourceAdminID.String())
+	seedPortableCreationHistory(t, sourceHarness, uuid.MustParse(seeded.EvidenceRecordID))
 	bundleBytes := exportBundleBytes(t, sourceHarness, sourceAdmin, incidentID, "txn-export-failure-fixture")
-	blobPath := firstZipMemberWithPrefix(t, bundleBytes, "blobs/sha256/")
-	assertPortableBlobShape := func(t *testing.T, archive []byte, count int) []map[string]any {
+	members := zipMemberMap(t, bundleBytes)
+	blobPath := "blobs/sha256/" + seeded.BlobSHA
+	if !bytes.Equal(members[blobPath], seeded.BlobBytes) {
+		t.Fatal("export missing seeded blob bytes")
+	}
+	assertPortableBlobShape := func(t *testing.T, files bundleMembers, count int) []map[string]any {
 		t.Helper()
-		rows := decodeNDJSONRows(t, zipMemberBytes(t, archive, "data/object_blobs.ndjson"))
+		rows := decodeNDJSONRows(t, files["data/object_blobs.ndjson"])
 		if len(rows) != count {
 			t.Fatalf("portable blob rows=%d want=%d", len(rows), count)
 		}
@@ -255,9 +260,9 @@ func TestIncidentBundlesEvidenceBlobStagingCleanup_Integration(t *testing.T) {
 		}
 		return rows
 	}
-	assertPortableBlobShape(t, bundleBytes, 1)
+	assertPortableBlobShape(t, members, 1)
 
-	for _, row := range decodeNDJSONRows(t, zipMemberBytes(t, bundleBytes, "data/evidence_custody_events.ndjson")) {
+	for _, row := range decodeNDJSONRows(t, members["data/evidence_custody_events.ndjson"]) {
 		want := strings.Fields("custody_event_id incident_id evidence_record_id custody_event_type actor_user_id occurred_at location_text note metadata")
 		if len(row) != len(want) {
 			t.Fatalf("portable custody fields=%d want=%d", len(row), len(want))
@@ -284,7 +289,7 @@ func TestIncidentBundlesEvidenceBlobStagingCleanup_Integration(t *testing.T) {
 			{name: "missing historical actor", field: "actor_user_id", invariant: "reference_complete", family: "actors", value: uuid.NewString()},
 		} {
 			t.Run(tc.name, func(t *testing.T) {
-				rows := decodeNDJSONRows(t, zipMemberBytes(t, bundleBytes, "data/evidence_custody_events.ndjson"))
+				rows := decodeNDJSONRows(t, members["data/evidence_custody_events.ndjson"])
 				if len(rows) != 1 {
 					t.Fatalf("custody fixture rows=%d", len(rows))
 				}
@@ -293,7 +298,7 @@ func TestIncidentBundlesEvidenceBlobStagingCleanup_Integration(t *testing.T) {
 				} else {
 					rows[0][tc.field] = tc.value
 				}
-				candidate := replaceStructuredBundleMember(t, bundleBytes, "data/evidence_custody_events.ndjson", encodeNDJSONRows(t, rows))
+				candidate := writeStructuredBundle(t, members.withMember("data/evidence_custody_events.ndjson", encodeNDJSONRows(t, rows)))
 				failed := assertImportFailureLeavesState(t, targetHarness, targetAdmin, incidentID, fmt.Sprintf("typed-custody-%d", index), candidate, "source_family_invalid")
 				details := failed["error_summary"].(map[string]any)["details"].(map[string]any)
 				family := tc.family
@@ -308,9 +313,9 @@ func TestIncidentBundlesEvidenceBlobStagingCleanup_Integration(t *testing.T) {
 	})
 
 	t.Run("typed portable blob metadata", func(t *testing.T) {
-		rows := decodeNDJSONRows(t, zipMemberBytes(t, bundleBytes, "data/object_blobs.ndjson"))
+		rows := decodeNDJSONRows(t, members["data/object_blobs.ndjson"])
 		rows[0]["upload_state"] = "unknown"
-		candidate := replaceStructuredBundleMember(t, bundleBytes, "data/object_blobs.ndjson", encodeNDJSONRows(t, rows))
+		candidate := writeStructuredBundle(t, members.withMember("data/object_blobs.ndjson", encodeNDJSONRows(t, rows)))
 		failed := assertImportFailureLeavesState(t, targetHarness, targetAdmin, incidentID, "typed-blob", candidate, "source_family_invalid")
 		details := failed["error_summary"].(map[string]any)["details"].(map[string]any)
 		if len(details) != 3 || details["reason_code"] != "source_family_invalid" || details["source_family_id"] != "evidence" || details["invariant_id"] != "evidence.lifecycle_legal" {
@@ -319,9 +324,9 @@ func TestIncidentBundlesEvidenceBlobStagingCleanup_Integration(t *testing.T) {
 	})
 
 	t.Run("archive cannot supply physical blob keys", func(t *testing.T) {
-		rows := decodeNDJSONRows(t, zipMemberBytes(t, bundleBytes, "data/object_blobs.ndjson"))
+		rows := decodeNDJSONRows(t, members["data/object_blobs.ndjson"])
 		rows[0]["storage_key"] = "incidents/source/object-blobs/source/objects/source"
-		candidate := replaceStructuredBundleMember(t, bundleBytes, "data/object_blobs.ndjson", encodeNDJSONRows(t, rows))
+		candidate := writeStructuredBundle(t, members.withMember("data/object_blobs.ndjson", encodeNDJSONRows(t, rows)))
 		failed := assertImportFailureLeavesState(t, targetHarness, targetAdmin, incidentID, "physical-key", candidate, "source_family_invalid")
 		details := failed["error_summary"].(map[string]any)["details"].(map[string]any)
 		if len(details) != 3 || details["reason_code"] != "source_family_invalid" || details["source_family_id"] != "evidence" || details["invariant_id"] != "evidence.storage_reference_legal" {
@@ -341,13 +346,13 @@ func TestIncidentBundlesEvidenceBlobStagingCleanup_Integration(t *testing.T) {
 		}
 		for index, tc := range cases {
 			t.Run(tc.name, func(t *testing.T) {
-				rows := decodeNDJSONRows(t, zipMemberBytes(t, bundleBytes, "data/evidence_records.ndjson"))
+				rows := decodeNDJSONRows(t, members["data/evidence_records.ndjson"])
 				if tc.missing {
 					delete(rows[0], tc.field)
 				} else {
 					rows[0][tc.field] = tc.value
 				}
-				candidate := replaceStructuredBundleMember(t, bundleBytes, "data/evidence_records.ndjson", encodeNDJSONRows(t, rows))
+				candidate := writeStructuredBundle(t, members.withMember("data/evidence_records.ndjson", encodeNDJSONRows(t, rows)))
 				failed := assertImportFailureLeavesState(t, targetHarness, targetAdmin, incidentID, fmt.Sprintf("typed-evidence-%d", index), candidate, "source_family_invalid")
 				details := failed["error_summary"].(map[string]any)["details"].(map[string]any)
 				family := tc.family
@@ -362,10 +367,10 @@ func TestIncidentBundlesEvidenceBlobStagingCleanup_Integration(t *testing.T) {
 	})
 
 	t.Run("Evidence associations use authoritative Blob state", func(t *testing.T) {
-		rows := decodeNDJSONRows(t, zipMemberBytes(t, bundleBytes, "data/evidence_records.ndjson"))
+		rows := decodeNDJSONRows(t, members["data/evidence_records.ndjson"])
 		rows[0]["lifecycle_state"], rows[0]["upload_state"] = "available", "available"
 		rows[0]["object_blob_id"], rows[0]["storage_ref"] = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", nil
-		candidate := replaceStructuredBundleMember(t, bundleBytes, "data/evidence_records.ndjson", encodeNDJSONRows(t, rows))
+		candidate := writeStructuredBundle(t, members.withMember("data/evidence_records.ndjson", encodeNDJSONRows(t, rows)))
 		failed := assertImportFailureLeavesState(t, targetHarness, targetAdmin, incidentID, "blob-association-missing", candidate, "source_family_invalid")
 		details := failed["error_summary"].(map[string]any)["details"].(map[string]any)
 		if len(details) != 3 || details["reason_code"] != "source_family_invalid" || details["source_family_id"] != "evidence" || details["invariant_id"] != "evidence.object_metadata_agree" {
@@ -402,31 +407,49 @@ func TestIncidentBundlesEvidenceBlobStagingCleanup_Integration(t *testing.T) {
 	})
 
 	t.Run("export missing blob", func(t *testing.T) {
-		brokenHarness := startIsolatedIncidentBundleServer(t, runtime, "extension_profile-incident-bundle-export-missing-blob")
-		brokenAdmin, brokenAdminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, brokenHarness.Server.HTTP.URL)
-		brokenIncident := scenariotest.CreateIncident(t, brokenHarness.Server, brokenAdmin, map[string]any{
+		brokenIncident := scenariotest.CreateIncident(t, sourceHarness.Server, sourceAdmin, map[string]any{
 			"client_txn_id": "txn-incident-bundle-export-missing-blob",
 			"incident_key":  "BUNDLE-MISSING-BLOB",
 			"title":         "Incident bundle missing blob",
 		})
 		brokenIncidentID := brokenIncident["incident_id"].(string)
-		seedMissingIncidentBundleBlob(t, brokenHarness, brokenIncidentID, brokenAdminID.String())
+		seedMissingIncidentBundleBlob(t, sourceHarness, brokenIncidentID, sourceAdminID.String())
 		for _, state := range []string{"available", "quarantined"} {
-			if _, err := brokenHarness.DB.Exec(`UPDATE object_blobs SET upload_state=$2 WHERE incident_id=$1`, brokenIncidentID, state); err != nil {
+			if _, err := sourceHarness.DB.Exec(`UPDATE object_blobs SET upload_state=$2 WHERE incident_id=$1`, brokenIncidentID, state); err != nil {
 				t.Fatal(err)
 			}
-			job := httptestx.RequireSuccessEnvelope(t, postExport(t, brokenHarness.Server, brokenAdmin, map[string]any{
+			job := httptestx.RequireSuccessEnvelope(t, postExport(t, sourceHarness.Server, sourceAdmin, map[string]any{
 				"incident_id":   brokenIncidentID,
 				"client_txn_id": "txn-export-missing-blob-" + state,
 			}), http.StatusAccepted)["data"].(map[string]any)
-			terminal := waitFailedJob(t, brokenHarness.Server, brokenAdmin, job["job_id"].(string))
+			terminal := waitFailedJob(t, sourceHarness.Server, sourceAdmin, job["job_id"].(string))
 			requireFailedJobReason(t, terminal, "incident_bundle_export_rejected", "missing_required_blob")
-			if countRows(t, brokenHarness.DB, `SELECT count(*) FROM incident_bundle_exports WHERE export_job_id = $1`, job["job_id"].(string)) != 0 {
+			if countRows(t, sourceHarness.DB, `SELECT count(*) FROM incident_bundle_exports WHERE export_job_id = $1`, job["job_id"].(string)) != 0 {
 				t.Fatalf("failed %s missing-blob export published a bundle descriptor", state)
 			}
 		}
 	})
 
+	manifestVariant := func(field string, value any) []byte {
+		var manifest map[string]any
+		if err := json.Unmarshal(members["manifest.json"], &manifest); err != nil {
+			t.Fatal(err)
+		}
+		manifest[field] = value
+		encoded, err := json.Marshal(manifest)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return writeZipMemberMap(t, members.withMember("manifest.json", append(encoded, '\n')))
+	}
+	// Keep the manifest intact so this variant reaches the blob identity check.
+	wrongBlob := []byte("extension_profile wrong blob bytes\n")
+	wrongBytes := members.withMember(blobPath, wrongBlob)
+	originalLine := []byte(seeded.BlobSHA + "  " + blobPath + "\n")
+	if bytes.Count(members["integrity/checksums.sha256"], originalLine) != 1 {
+		t.Fatal("expected one checksum for the exported blob")
+	}
+	wrongBytes["integrity/checksums.sha256"] = bytes.Replace(members["integrity/checksums.sha256"], originalLine, []byte(hashHexBytes(wrongBlob)+"  "+blobPath+"\n"), 1)
 	importCases := []struct {
 		name       string
 		txn        string
@@ -436,93 +459,49 @@ func TestIncidentBundlesEvidenceBlobStagingCleanup_Integration(t *testing.T) {
 		{
 			name:       "checksum mismatch",
 			txn:        "txn-import-checksum-mismatch",
-			bundle:     corruptZipMember(t, bundleBytes, "data/records.ndjson"),
+			bundle:     writeZipMemberMap(t, members.withMember("data/records.ndjson", append(bytes.Clone(members["data/records.ndjson"]), "corrupt\n"...))),
 			wantReason: "checksum_mismatch",
 		},
 		{
 			name:       "missing blob",
 			txn:        "txn-import-missing-blob",
-			bundle:     removeZipMember(t, bundleBytes, blobPath),
+			bundle:     writeZipMemberMap(t, members.withoutMember(blobPath)),
 			wantReason: "missing_required_blob",
 		},
 		{
 			name:       "blob hash mismatch",
 			txn:        "txn-import-blob-hash-mismatch",
-			bundle:     replaceZipMemberAndChecksum(t, bundleBytes, blobPath, []byte("extension_profile wrong blob bytes\n")),
+			bundle:     writeZipMemberMap(t, wrongBytes),
 			wantReason: "blob_hash_mismatch",
 		},
 		{
-			name: "malformed manifest",
-			txn:  "txn-import-malformed-manifest",
-			bundle: replaceZipMember(t, bundleBytes, "manifest.json", func(original []byte) []byte {
-				var manifest map[string]any
-				if err := json.Unmarshal(original, &manifest); err != nil {
-					t.Fatalf("decode manifest: %v", err)
-				}
-				manifest["bundle_version"] = nil
-				payload, err := json.Marshal(manifest)
-				if err != nil {
-					t.Fatalf("encode manifest: %v", err)
-				}
-				return append(payload, '\n')
-			}),
+			name:       "malformed manifest",
+			txn:        "txn-import-malformed-manifest",
+			bundle:     manifestVariant("bundle_version", nil),
 			wantReason: "malformed_manifest",
 		},
 		{
-			name: "unsupported bundle version",
-			txn:  "txn-import-unsupported-bundle-version",
-			bundle: replaceZipMember(t, bundleBytes, "manifest.json", func(original []byte) []byte {
-				var manifest map[string]any
-				if err := json.Unmarshal(original, &manifest); err != nil {
-					t.Fatalf("decode manifest: %v", err)
-				}
-				manifest["bundle_version"] = float64(2)
-				payload, err := json.Marshal(manifest)
-				if err != nil {
-					t.Fatalf("encode manifest: %v", err)
-				}
-				return append(payload, '\n')
-			}),
+			name:       "unsupported bundle version",
+			txn:        "txn-import-unsupported-bundle-version",
+			bundle:     manifestVariant("bundle_version", float64(2)),
 			wantReason: "unsupported_bundle_version",
 		},
 		{
-			name: "unsupported required capability",
-			txn:  "txn-import-unsupported-required-capability",
-			bundle: replaceZipMember(t, bundleBytes, "manifest.json", func(original []byte) []byte {
-				var manifest map[string]any
-				if err := json.Unmarshal(original, &manifest); err != nil {
-					t.Fatalf("decode manifest: %v", err)
-				}
-				manifest["required_capabilities"] = []any{"snapshots"}
-				payload, err := json.Marshal(manifest)
-				if err != nil {
-					t.Fatalf("encode manifest: %v", err)
-				}
-				return append(payload, '\n')
-			}),
+			name:       "unsupported required capability",
+			txn:        "txn-import-unsupported-required-capability",
+			bundle:     manifestVariant("required_capabilities", []any{"snapshots"}),
 			wantReason: "extension_capability_not_supported",
 		},
 		{
 			name:       "signature mismatch",
 			txn:        "txn-import-signature-mismatch",
-			bundle:     appendZipMember(t, bundleBytes, "integrity/signature.ed25519", []byte("not-a-supported-signature")),
+			bundle:     writeZipMemberMap(t, members.withMember("integrity/signature.ed25519", []byte("not-a-supported-signature"))),
 			wantReason: "signature_mismatch",
 		},
 		{
-			name: "unknown optional section",
-			txn:  "txn-import-unknown-optional-section",
-			bundle: replaceZipMember(t, bundleBytes, "manifest.json", func(original []byte) []byte {
-				var manifest map[string]any
-				if err := json.Unmarshal(original, &manifest); err != nil {
-					t.Fatalf("decode manifest: %v", err)
-				}
-				manifest["optional_sections"] = []any{"unknown_section"}
-				payload, err := json.Marshal(manifest)
-				if err != nil {
-					t.Fatalf("encode manifest: %v", err)
-				}
-				return append(payload, '\n')
-			}),
+			name:       "unknown optional section",
+			txn:        "txn-import-unknown-optional-section",
+			bundle:     manifestVariant("optional_sections", []any{"unknown_section"}),
 			wantReason: "malformed_manifest",
 		},
 	}
@@ -533,7 +512,7 @@ func TestIncidentBundlesEvidenceBlobStagingCleanup_Integration(t *testing.T) {
 	}
 
 	t.Run("blob observations agree before staging", func(t *testing.T) {
-		rows := decodeNDJSONRows(t, zipMemberBytes(t, bundleBytes, "data/object_blobs.ndjson"))
+		rows := decodeNDJSONRows(t, members["data/object_blobs.ndjson"])
 		if len(rows) != 1 || rows[0]["upload_state"] != "available" ||
 			rows[0]["byte_size"] != float64(len("extension_profile incident bundle blob\n")) ||
 			rows[0]["observed_size"] != float64(len("extension_profile incident bundle blob\n")) {
@@ -541,7 +520,7 @@ func TestIncidentBundlesEvidenceBlobStagingCleanup_Integration(t *testing.T) {
 		}
 		// Every other disagreement is proven at Evidence's preparation port.
 		rows[0]["byte_size"], rows[0]["observed_size"] = 123, 123
-		candidate := replaceStructuredBundleMember(t, bundleBytes, "data/object_blobs.ndjson", encodeNDJSONRows(t, rows))
+		candidate := writeStructuredBundle(t, members.withMember("data/object_blobs.ndjson", encodeNDJSONRows(t, rows)))
 		terminal := assertImportFailureLeavesState(t, targetHarness, targetAdmin, incidentID, "blob-observation", candidate, "source_family_invalid")
 		details := terminal["error_summary"].(map[string]any)["details"].(map[string]any)
 		if len(details) != 3 || details["reason_code"] != "source_family_invalid" ||
@@ -551,20 +530,20 @@ func TestIncidentBundlesEvidenceBlobStagingCleanup_Integration(t *testing.T) {
 	})
 
 	t.Run("records invariant failures are closed and atomic", func(t *testing.T) {
-		recordRows := decodeNDJSONRows(t, zipMemberMap(t, bundleBytes)["data/records.ndjson"])
+		recordRows := decodeNDJSONRows(t, members["data/records.ndjson"])
 		if len(recordRows) == 0 {
 			t.Fatal("records invariant fixture requires at least one envelope")
 		}
 		incidentMismatchRows := append([]map[string]any(nil), recordRows...)
-		incidentMismatchRows[0] = mapsClone(incidentMismatchRows[0])
+		incidentMismatchRows[0] = maps.Clone(incidentMismatchRows[0])
 		incidentMismatchRows[0]["incident_id"] = uuid.NewString()
 		envelopeRows := append([]map[string]any(nil), recordRows...)
-		envelopeRows[0] = mapsClone(envelopeRows[0])
+		envelopeRows[0] = maps.Clone(envelopeRows[0])
 		envelopeRows[0]["hostile_member_name"] = "SELECT secret FROM records"
 		// Isolate Records validation from earlier Revisions Apply reference checks.
-		subtypeIncomplete := replaceStructuredBundleMember(t, bundleBytes, "data/timeline_records.ndjson", nil)
+		subtypeIncomplete := members.withMember("data/timeline_records.ndjson", nil)
 		for _, path := range []string{"data/change_sets.ndjson", "data/change_set_mutations.ndjson", "data/record_revisions.ndjson"} {
-			subtypeIncomplete = replaceStructuredBundleMember(t, subtypeIncomplete, path, nil)
+			subtypeIncomplete[path] = nil
 		}
 		cases := []struct {
 			name        string
@@ -574,32 +553,22 @@ func TestIncidentBundlesEvidenceBlobStagingCleanup_Integration(t *testing.T) {
 			hostile     string
 		}{
 			{
-				name: "incident scope",
-				txn:  "txn-import-records-incident-scope",
-				bundle: replaceStructuredBundleMember(
-					t,
-					bundleBytes,
-					"data/records.ndjson",
-					encodeNDJSONRows(t, incidentMismatchRows),
-				),
+				name:        "incident scope",
+				txn:         "txn-import-records-incident-scope",
+				bundle:      writeStructuredBundle(t, members.withMember("data/records.ndjson", encodeNDJSONRows(t, incidentMismatchRows))),
 				invariantID: "records.incident_scope",
 			},
 			{
-				name: "envelope legal",
-				txn:  "txn-import-records-envelope-legal",
-				bundle: replaceStructuredBundleMember(
-					t,
-					bundleBytes,
-					"data/records.ndjson",
-					encodeNDJSONRows(t, envelopeRows),
-				),
+				name:        "envelope legal",
+				txn:         "txn-import-records-envelope-legal",
+				bundle:      writeStructuredBundle(t, members.withMember("data/records.ndjson", encodeNDJSONRows(t, envelopeRows))),
 				invariantID: "records.envelope_legal",
 				hostile:     "SELECT secret FROM records",
 			},
 			{
 				name:        "subtype complete",
 				txn:         "txn-import-records-subtype-complete",
-				bundle:      subtypeIncomplete,
+				bundle:      writeStructuredBundle(t, subtypeIncomplete),
 				invariantID: "records.subtype_complete",
 			},
 		}
@@ -637,7 +606,11 @@ func TestIncidentBundlesEvidenceBlobStagingCleanup_Integration(t *testing.T) {
 	t.Run("safe directory entries import", func(t *testing.T) {
 		directoryHarness := startIsolatedIncidentBundleServer(t, runtime, "extension_profile-incident-bundle-directory-import")
 		directoryAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, directoryHarness.Server.HTTP.URL)
-		terminal := importBundleAndWait(t, directoryHarness.Server, directoryAdmin, appendZipDirectoryMembers(t, bundleBytes, "data/", "integrity/", "ext/"), "txn-import-safe-directories")
+		directories := maps.Clone(members)
+		for _, path := range []string{"data/", "integrity/", "ext/"} {
+			directories[path] = nil
+		}
+		terminal := importBundleAndWait(t, directoryHarness.Server, directoryAdmin, writeZipMemberMap(t, directories), "txn-import-safe-directories")
 		if terminal["status"] != "succeeded" {
 			encoded, _ := json.MarshalIndent(terminal, "", "  ")
 			t.Fatalf("directory-bearing import did not succeed: %s", encoded)
@@ -673,7 +646,7 @@ func TestIncidentBundlesEvidenceBlobStagingCleanup_Integration(t *testing.T) {
 
 	t.Run("zero byte blob with no expected digest", func(t *testing.T) {
 		const emptySHA = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-		files := zipMemberMap(t, bundleBytes)
+		files := maps.Clone(members)
 		blobRows := decodeNDJSONRows(t, files["data/object_blobs.ndjson"])
 		blobRows[0]["byte_size"], blobRows[0]["observed_size"] = 0, 0
 		blobRows[0]["observed_sha256_hex"], blobRows[0]["expected_sha256_hex"] = emptySHA, nil
@@ -685,7 +658,8 @@ func TestIncidentBundlesEvidenceBlobStagingCleanup_Integration(t *testing.T) {
 		files["data/evidence_records.ndjson"] = encodeNDJSONRows(t, evidenceRows)
 		delete(files, blobPath)
 		files["blobs/sha256/"+emptySHA] = []byte{}
-		candidate := replaceStructuredBundleMember(t, writeZipMemberMap(t, files), "data/object_blobs.ndjson", encodeNDJSONRows(t, blobRows))
+		files["data/object_blobs.ndjson"] = encodeNDJSONRows(t, blobRows)
+		candidate := writeStructuredBundle(t, files)
 		emptyTarget := startIsolatedIncidentBundleServer(t, runtime, "incident-bundle-empty-blob")
 		emptyAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, emptyTarget.Server.HTTP.URL)
 		importBundleAndWait(t, emptyTarget.Server, emptyAdmin, candidate, "empty-observed-blob")
@@ -701,12 +675,13 @@ func TestIncidentBundlesEvidenceBlobStagingCleanup_Integration(t *testing.T) {
 
 	t.Run("quarantined bytes survive without state promotion", func(t *testing.T) {
 		// Arrange retained source state; this is not a test of the quarantine command.
-		seedPortableEvidenceQuarantine(t, sourceHarness, uuid.MustParse(incidentID), uuid.MustParse(seededState.EvidenceRecordID), sourceAdminID)
+		seedPortableEvidenceQuarantine(t, sourceHarness, uuid.MustParse(incidentID), uuid.MustParse(seeded.EvidenceRecordID), sourceAdminID)
 		quarantined := exportBundleBytes(t, sourceHarness, sourceAdmin, incidentID, "quarantined-blob-export")
-		if payload, exists := zipMemberMap(t, quarantined)[blobPath]; !exists || string(payload) != "extension_profile incident bundle blob\n" {
+		quarantinedMembers := zipMemberMap(t, quarantined)
+		if payload, exists := quarantinedMembers[blobPath]; !exists || string(payload) != "extension_profile incident bundle blob\n" {
 			t.Fatal("quarantined source bytes were omitted or changed during export")
 		}
-		blobRows := assertPortableBlobShape(t, quarantined, 1)
+		blobRows := assertPortableBlobShape(t, quarantinedMembers, 1)
 		if len(blobRows) != 1 || blobRows[0]["upload_state"] != "quarantined" {
 			t.Fatalf("quarantined source metadata changed: %#v", blobRows)
 		}
@@ -718,10 +693,10 @@ func TestIncidentBundlesEvidenceBlobStagingCleanup_Integration(t *testing.T) {
 		quarantineTarget := startIsolatedIncidentBundleServer(t, runtime, "incident-bundle-quarantined-blob")
 		quarantineAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, quarantineTarget.Server.HTTP.URL)
 		assertImportFailureLeavesState(t, quarantineTarget, quarantineAdmin, incidentID, "quarantine-missing-blob",
-			removeZipMember(t, quarantined, blobPath), "missing_required_blob")
-		badRow := mapsClone(blobRows[0])
+			writeZipMemberMap(t, quarantinedMembers.withoutMember(blobPath)), "missing_required_blob")
+		badRow := maps.Clone(blobRows[0])
 		badRow["observed_size"] = 123
-		badMetadata := replaceStructuredBundleMember(t, quarantined, "data/object_blobs.ndjson", encodeNDJSONRows(t, []map[string]any{badRow}))
+		badMetadata := writeStructuredBundle(t, quarantinedMembers.withMember("data/object_blobs.ndjson", encodeNDJSONRows(t, []map[string]any{badRow})))
 		failed := assertImportFailureLeavesState(t, quarantineTarget, quarantineAdmin, incidentID, "quarantine-bad-observation", badMetadata, "source_family_invalid")
 		details := failed["error_summary"].(map[string]any)["details"].(map[string]any)
 		if len(details) != 3 || details["source_family_id"] != "evidence" || details["invariant_id"] != "evidence.byte_size_digest_agree" {
@@ -752,8 +727,9 @@ func TestIncidentBundlesEvidenceBlobStagingCleanup_Integration(t *testing.T) {
 			t.Fatalf("quarantined bytes did not survive staging: read=%v close=%v", readErr, closeErr)
 		}
 		reexported := exportBundleBytes(t, quarantineTarget, quarantineAdmin, incidentID, "quarantined-blob-reexport")
-		assertPortableBlobShape(t, reexported, 1)
-		if payload, exists := zipMemberMap(t, reexported)[blobPath]; !exists || string(payload) != "extension_profile incident bundle blob\n" {
+		reexportedMembers := zipMemberMap(t, reexported)
+		assertPortableBlobShape(t, reexportedMembers, 1)
+		if payload, exists := reexportedMembers[blobPath]; !exists || string(payload) != "extension_profile incident bundle blob\n" {
 			t.Fatal("quarantined bytes did not survive re-export")
 		}
 		assertNoIncidentBundleStaging(t, quarantineTarget.Server)

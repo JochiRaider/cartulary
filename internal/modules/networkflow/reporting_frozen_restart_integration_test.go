@@ -86,7 +86,7 @@ func retainedReportingInputSnapshot(t testing.TB, h *appsupport.ServerHarness, i
 	return result
 }
 
-func assertFrozenReportingRestore(t testing.TB, runtime *appsupport.Runtime, h *appsupport.ServerHarness, actor authcookietest.AuthCookies, frozen string, ids ...uuid.UUID) {
+func assertFrozenReportingRestores(t *testing.T, runtime *appsupport.Runtime, h *appsupport.ServerHarness, actor authcookietest.AuthCookies, frozen string, ids ...uuid.UUID) {
 	t.Helper()
 	if retainedReportingInputSnapshot(t, h, ids...) != frozen {
 		t.Fatal("Graph reconstruction or retirement changed Reporting's immutable input")
@@ -109,13 +109,29 @@ func assertFrozenReportingRestore(t testing.TB, runtime *appsupport.Runtime, h *
 	if _, err := h.Pool.Exec(t.Context(), `DELETE FROM graph_projection_results`); err != nil {
 		t.Fatal(err)
 	}
-	// Advance the application clock beyond the former consumer-lease lifetime.
-	// Session cookies are unnecessary: retained jobs use current actor authority.
-	restarted := runtime.CaptureRestoreServer(t, h, appsupport.ServerOptions{
+	// Capture the two deferred jobs once. A target whose clock has crossed the
+	// retry time can resume them at startup; earlier targets admit each fault first.
+	retryAt := time.Now().UTC().Add(2 * time.Hour).Truncate(time.Microsecond)
+	updated, err := h.Pool.Exec(t.Context(), `UPDATE jobs SET handler_next_attempt_at=$2 WHERE job_id=ANY($1::uuid[])`, ids, retryAt)
+	if err != nil || updated.RowsAffected() != int64(len(ids)) {
+		t.Fatalf("defer captured attempts: changed=%d err=%v", updated.RowsAffected(), err)
+	}
+	capture := runtime.CaptureCurrent(t, h)
+	t.Run("eligible jobs resume on startup", func(t *testing.T) {
+		assertFrozenReportingResumption(t, capture, actor, frozen, receipts, retryAt, ids...)
+	})
+	assertFrozenReportingRestoreFailures(t, runtime, capture, ids...)
+	assertFrozenReportingInputCorruption(t, capture, ids...)
+}
+
+func assertFrozenReportingResumption(t *testing.T, capture *appsupport.CurrentCapture, actor authcookietest.AuthCookies, frozen, receipts string, retryAt time.Time, ids ...uuid.UUID) {
+	t.Helper()
+	started := time.Now()
+	restarted := capture.RestoreServer(t, appsupport.ServerOptions{
 		Prefix: "frozen-reporting-source-unclaimed",
 		Env:    map[string]string{"CARTULARY__NETWORK_FLOW_ACTIVITY__CLAIMED": "false"}, TestRouteMode: httptestx.TestRouteModeDisabled,
 		ConfigureRuntime: func(options *server.Options) {
-			options.Now = func() time.Time { return time.Now().UTC().Add(time.Hour) }
+			options.Now = func() time.Time { return retryAt.Add(time.Since(started)) }
 		},
 	})
 	var restoredSessions int
@@ -177,17 +193,6 @@ func retainedReportingReceiptSnapshot(t testing.TB, h *appsupport.ServerHarness,
 		t.Fatalf("retained route receipt coverage: want=%d got=%d err=%v", len(ids), count, err)
 	}
 	return result
-}
-
-// captureDeferredReportingSource defers the retained Reporting attempts and
-// captures the source once. Every fault target restores from that capture and
-// then changes only itself.
-func captureDeferredReportingSource(t *testing.T, runtime *appsupport.Runtime, source *appsupport.ServerHarness, ids ...uuid.UUID) *appsupport.CurrentCapture {
-	t.Helper()
-	if _, err := source.Pool.Exec(t.Context(), `UPDATE jobs SET handler_next_attempt_at=clock_timestamp()+interval '2 hours' WHERE job_id=ANY($1::uuid[])`, ids); err != nil {
-		t.Fatal(err)
-	}
-	return runtime.CaptureCurrent(t, source)
 }
 
 func assertFrozenReportingRestoreFailures(t *testing.T, runtime *appsupport.Runtime, deferred *appsupport.CurrentCapture, ids ...uuid.UUID) {
@@ -295,10 +300,14 @@ func assertFrozenReportingRestoreFailures(t *testing.T, runtime *appsupport.Runt
 				for {
 					var status, code, reason string
 					var retryable bool
-					if err := target.Pool.QueryRow(ctx, `SELECT status,COALESCE(error_summary_json->>'code',''),COALESCE(error_summary_json->'details'->>'reason_code',''),COALESCE((error_summary_json->>'retryable')::boolean,false) FROM jobs WHERE job_id=$1`, id).Scan(&status, &code, &reason, &retryable); err != nil {
+					var failures int
+					if err := target.Pool.QueryRow(ctx, `SELECT status,COALESCE(error_summary_json->>'code',''),COALESCE(error_summary_json->'details'->>'reason_code',''),COALESCE((error_summary_json->>'retryable')::boolean,false), handler_failure_count FROM jobs WHERE job_id=$1`, id).Scan(&status, &code, &reason, &retryable, &failures); err != nil {
 						t.Fatal(err)
 					}
 					if status == "succeeded" || status == "failed" || status == "canceled" {
+						if failures != 0 {
+							t.Fatalf("restored %s charged %d attempt failures for %s", fault, failures, want)
+						}
 						if status != want || want == "failed" && (code != "release_render_failed" || reason != wantReason || retryable) {
 							t.Fatalf("restored authority outcome: want=%s got=%s code=%s reason=%s retryable=%t", want, status, code, reason, retryable)
 						}
@@ -319,6 +328,13 @@ func assertFrozenReportingRestoreFailures(t *testing.T, runtime *appsupport.Runt
 			}
 			if retainedReportingInputSnapshot(t, target, ids...) != before {
 				t.Fatal("authority transition changed immutable input")
+			}
+			if fault == "preparation changed during release" {
+				var unboundFailure, hasRelease bool
+				if err := target.Pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM reporting_render_failure_records WHERE job_id=$1 AND (convert_from(record_json,'UTF8')::jsonb)->'input_binding' = 'null'::jsonb),
+                    EXISTS(SELECT 1 FROM reporting_releases WHERE create_job_id=$1)`, ids[0]).Scan(&unboundFailure, &hasRelease); err != nil || !unboundFailure || hasRelease {
+					t.Fatalf("corrupt preparation must leave an unbound failure and no release: unbound=%v release=%v err=%v", unboundFailure, hasRelease, err)
+				}
 			}
 			if fault == "authorization lost" {
 				journal := func(h *appsupport.ServerHarness) string {

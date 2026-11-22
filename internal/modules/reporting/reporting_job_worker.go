@@ -256,16 +256,7 @@ func (w *reportingJobWorker) executeCompositionPreviewJob(ctx context.Context, p
 			return nil
 		},
 	})
-	if errors.Is(err, jobs.ErrCancellationRequested) {
-		return w.completeCanceled(parentCtx, execution, progress)
-	}
-	if errors.Is(err, errReportingAuthorityUnavailable) {
-		return w.finishRenderFailure(parentCtx, execution, err)
-	}
-	if errors.Is(err, context.DeadlineExceeded) {
-		return w.finishRenderFailure(parentCtx, execution, classifyRenderContextError(ctx, err))
-	}
-	return err
+	return w.finishRenderPublication(ctx, parentCtx, execution, progress, err)
 }
 
 func (w *reportingJobWorker) executeSnapshotCreateJob(ctx context.Context, parentCtx context.Context, execution jobs.Execution) error {
@@ -441,10 +432,17 @@ func (w *reportingJobWorker) executeReleaseCreateJob(ctx context.Context, parent
 			return nil
 		},
 	})
+	return w.finishRenderPublication(ctx, parentCtx, execution, progress, err)
+}
+
+// The success finalizer returns owner validation errors before issuing COMMIT.
+// Only determinate rejections can be published as an independent failed outcome.
+func (w *reportingJobWorker) finishRenderPublication(ctx, parentCtx context.Context, execution jobs.Execution, progress jobs.Progress, err error) error {
 	if errors.Is(err, jobs.ErrCancellationRequested) {
 		return w.completeCanceled(parentCtx, execution, progress)
 	}
-	if errors.Is(err, errReportingAuthorityUnavailable) {
+	var invalidInput *retainedRenderInputError
+	if errors.Is(err, errReportingAuthorityUnavailable) || errors.As(err, &invalidInput) {
 		return w.finishRenderFailure(parentCtx, execution, err)
 	}
 	if errors.Is(err, context.DeadlineExceeded) {

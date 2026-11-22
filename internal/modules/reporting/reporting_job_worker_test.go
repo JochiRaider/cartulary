@@ -490,6 +490,31 @@ func (succeedingReleaseRenderer) Render(context.Context, renderInput) (RenderedR
 // The handler returns persistence errors to the shared Jobs supervisor. It must
 // never infer a rollback, fabricate a second terminal write, or expose raw errors.
 func TestReportingJobWorkerExecutionBoundary(t *testing.T) {
+	for _, kind := range []string{reportingJobKindReleaseCreate, reportingJobKindCompositionPreview} {
+		for _, tc := range []struct {
+			reason string
+			cause  error
+		}{
+			{"retained_input_missing", retainedRenderInputMissing()},
+			{"retained_input_mismatch", retainedRenderInputMismatch()},
+		} {
+			t.Run(kind+"/publication/"+tc.reason, func(t *testing.T) {
+				manager := &fakeReportingJobManager{status: jobs.StatusRunning}
+				store := &fakeReportingJobStore{kind: kind}
+				worker := newFakeReportingJobWorker(store, manager, nil)
+				finalizer := &reportingPublicationFinalizer{fakeReportingJobFinalizer: fakeReportingJobFinalizer{manager: manager}}
+				finalizer.success = func(context.Context, JobSuccessFinalization) (jobs.Resource, error) { return jobs.Resource{}, tc.cause }
+				worker.jobFinalizer = finalizer
+				if err := worker.Handle(t.Context(), jobs.Execution{}); err != nil {
+					t.Fatalf("publication integrity rejection escaped the worker: %v", err)
+				}
+				if finalizer.successCalls != 1 || manager.status != jobs.StatusFailed || manager.failed == nil || manager.failed.ErrorSummary.Retryable || manager.failed.ErrorSummary.Details["reason_code"] != tc.reason || store.completeReleaseCalls != 0 || store.completePreviewCalls != 0 {
+					t.Fatalf("publication rejection did not terminate with %s: status=%s failure=%v", tc.reason, manager.status, manager.failed)
+				}
+			})
+		}
+	}
+
 	for _, kind := range []string{reportingJobKindSnapshotCreate, reportingJobKindReleaseCreate, reportingJobKindCompositionPreview} {
 		t.Run(kind+"/authority lost at final publication", func(t *testing.T) {
 			manager := &fakeReportingJobManager{status: jobs.StatusRunning}

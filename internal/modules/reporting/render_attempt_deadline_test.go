@@ -58,7 +58,7 @@ func TestReportingRenderDeadlineOwnsMaterializationAndPublication(t *testing.T) 
 				defer cancel()
 				deadline, _ := ctx.Deadline()
 				uncertain := errors.New("commit outcome remains indeterminate")
-				finalizer := &deadlineReportingFinalizer{fakeReportingJobFinalizer: fakeReportingJobFinalizer{manager: manager}}
+				finalizer := &reportingPublicationFinalizer{fakeReportingJobFinalizer: fakeReportingJobFinalizer{manager: manager}}
 				finalizer.success = func(work context.Context, request JobSuccessFinalization) (jobs.Resource, error) {
 					if actual, ok := work.Deadline(); !ok || !actual.Equal(deadline) {
 						t.Fatal("publication replaced the original work deadline")
@@ -102,13 +102,13 @@ func TestReportingRenderDeadlineOwnsMaterializationAndPublication(t *testing.T) 
 	}
 }
 
-type deadlineReportingFinalizer struct {
+type reportingPublicationFinalizer struct {
 	fakeReportingJobFinalizer
 	success      func(context.Context, JobSuccessFinalization) (jobs.Resource, error)
 	successCalls int
 }
 
-func (f *deadlineReportingFinalizer) FinalizeReportingJobSuccess(ctx context.Context, request JobSuccessFinalization) (jobs.Resource, error) {
+func (f *reportingPublicationFinalizer) FinalizeReportingJobSuccess(ctx context.Context, request JobSuccessFinalization) (jobs.Resource, error) {
 	f.successCalls++
 	return f.success(ctx, request)
 }
