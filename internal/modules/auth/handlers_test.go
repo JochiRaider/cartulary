@@ -655,7 +655,9 @@ func TestCredentialStateRoute_Unit(t *testing.T) {
 						if !bytes.Equal(fingerprint, authn.FingerprintToken(keys, token)) {
 							t.Fatal("credential state used the wrong session fingerprint")
 						}
-						return activeSessionRecord(sessionID, userID, now), tc.user, nil
+						// The last persisted slide is one write interval old, so this
+						// request is due to persist the next one (REQ-04-011).
+						return activeSessionRecord(sessionID, userID, now.Add(-httpauth.SessionSlideWriteInterval)), tc.user, nil
 					},
 					slideSessionFunc: func(_ context.Context, gotSessionID uuid.UUID, timing authn.SessionTiming) (authn.SessionTiming, error) {
 						slideCalls++

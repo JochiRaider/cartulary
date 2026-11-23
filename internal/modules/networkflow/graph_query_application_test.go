@@ -83,7 +83,9 @@ func (p *queryCompletionProbe) composeGraph(context.Context, uuid.UUID, graphQue
 func (p *queryCompletionProbe) GetSessionByFingerprint(context.Context, []byte) (authn.SessionRecord, authn.UserRecord, error) {
 	now := time.Now()
 	actor := uuid.MustParse("11111111-1111-4111-8111-111111111111")
-	return authn.SessionRecord{ID: uuid.New(), UserID: actor, AuthenticatedAt: now.Add(-time.Hour), LastQualifyingActivityAt: now, IdleExpiresAt: now.Add(time.Hour), AbsoluteExpiresAt: now.Add(2 * time.Hour), SessionExpiresAt: now.Add(time.Hour)}, authn.UserRecord{ID: actor, IsActive: true}, nil
+	// Last activity one write interval ago makes every request persist a
+	// slide, so the session-maintenance failure path is reached.
+	return authn.SessionRecord{ID: uuid.New(), UserID: actor, AuthenticatedAt: now.Add(-time.Hour), LastQualifyingActivityAt: now.Add(-httpauth.SessionSlideWriteInterval), IdleExpiresAt: now.Add(time.Hour), AbsoluteExpiresAt: now.Add(2 * time.Hour), SessionExpiresAt: now.Add(time.Hour)}, authn.UserRecord{ID: actor, IsActive: true}, nil
 }
 func (p *queryCompletionProbe) SlideSession(_ context.Context, _ uuid.UUID, timing authn.SessionTiming) (authn.SessionTiming, error) {
 	return timing, p.slideErr
