@@ -2524,6 +2524,7 @@
         "package": "./internal/testutil/httptestx",
         "tests": [
           "TestApplyTestRouteModeRejectsMissingAndUnknownModes",
+          "TestPollDefaultsToTheTestDeadline",
           "TestPollKeepsEvidence",
           "TestServerFatalObserverWritesOneRecord"
         ]

@@ -150,3 +150,47 @@ func TestPollKeepsEvidence(t *testing.T) {
 		}
 	})
 }
+
+type deadlineTB struct {
+	testing.TB
+	deadline time.Time
+	bounded  bool
+}
+
+func (d deadlineTB) Deadline() (time.Time, bool) { return d.deadline, d.bounded }
+
+// A zero-timeout poll is a hang guard: it takes the test's deadline less the
+// settlement margin, never below one second, and keeps only the test's
+// context when the test has no deadline (TH-HARNESS-REQ-864).
+func TestPollDefaultsToTheTestDeadline(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		remaining time.Duration
+		bounded   bool
+		want      time.Duration
+	}{
+		{name: "long", remaining: 10 * time.Minute, bounded: true, want: 10*time.Minute - pollSettlement},
+		{name: "inside_settlement", remaining: 10 * time.Second, bounded: true, want: time.Second},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancel := testPollContext(deadlineTB{TB: t, deadline: time.Now().Add(tc.remaining), bounded: tc.bounded})
+			defer cancel()
+			deadline, ok := ctx.Deadline()
+			if !ok {
+				t.Fatal("test-bounded poll has no deadline")
+			}
+			if got := time.Until(deadline); got > tc.want || got < tc.want-5*time.Second {
+				t.Fatalf("poll deadline in %s, want about %s", got, tc.want)
+			}
+		})
+	}
+	ctx, cancel := testPollContext(deadlineTB{TB: t})
+	defer cancel()
+	if _, ok := ctx.Deadline(); ok {
+		t.Fatal("a test without a deadline gained one")
+	}
+	cancel()
+	if ctx.Err() == nil {
+		t.Fatal("poll context ignores its cancellation")
+	}
+}

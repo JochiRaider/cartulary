@@ -34,8 +34,11 @@ var jobTerminalStatuses = []string{"succeeded", "failed", "canceled"}
 // PollOptions bound one poll of a job or other eventually-consistent resource
 // (TH-HARNESS-REQ-864).
 type PollOptions struct {
-	// Timeout is the poll's own deadline. Zero bounds the poll only by the
-	// test's context, for a caller that had no deadline of its own.
+	// Timeout is the poll's own deadline, for a wait the test asserts. Zero
+	// bounds the poll by the test's deadline less a settlement margin, which
+	// is the right bound for a hang guard: load can slow a job without the
+	// test failing, and a real hang still reports its last response before
+	// the test binary's own timeout.
 	Timeout time.Duration
 	// Interval separates observations; zero selects 25 ms.
 	Interval time.Duration
@@ -67,11 +70,29 @@ func (o Observation) String() string {
 // of a product test.
 func Poll(t testing.TB, target string, options PollOptions, done func(Observation) (bool, error)) Observation {
 	t.Helper()
-	observation, err := poll(t.Context(), target, options, done)
+	ctx, cancel := testPollContext(t)
+	defer cancel()
+	observation, err := poll(ctx, target, options, done)
 	if err != nil {
 		t.Fatal(err)
 	}
 	return observation
+}
+
+// pollSettlement is left between a test-bounded poll's deadline and the
+// test's, so the failure, its evidence and the test's cleanup all fit.
+const pollSettlement = 30 * time.Second
+
+// testPollContext bounds a poll by the test's deadline less pollSettlement
+// (TH-HARNESS-REQ-864), never below one second. A test without a deadline
+// keeps only its context.
+func testPollContext(t testing.TB) (context.Context, context.CancelFunc) {
+	if test, ok := t.(interface{ Deadline() (time.Time, bool) }); ok {
+		if deadline, bounded := test.Deadline(); bounded {
+			return context.WithTimeout(t.Context(), max(time.Until(deadline)-pollSettlement, time.Second))
+		}
+	}
+	return context.WithCancel(t.Context())
 }
 
 // PollJob polls the job origin/api/v1/jobs/{jobID} until its status is one of
@@ -80,7 +101,9 @@ func Poll(t testing.TB, target string, options PollOptions, done func(Observatio
 // fails at once and reports the job.
 func PollJob(t testing.TB, origin, jobID string, options PollOptions, want ...string) map[string]any {
 	t.Helper()
-	job, err := pollJob(t.Context(), origin, jobID, options, want)
+	ctx, cancel := testPollContext(t)
+	defer cancel()
+	job, err := pollJob(ctx, origin, jobID, options, want)
 	if err != nil {
 		t.Fatal(err)
 	}

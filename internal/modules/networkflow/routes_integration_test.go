@@ -2127,7 +2127,7 @@ UPDATE jobs
 func waitForNetworkFlowJob(t testing.TB, serverURL string, login authcookietest.AuthCookies, jobID string, wantStatus string) {
 	t.Helper()
 	httptestx.PollJob(t, serverURL, jobID, httptestx.PollOptions{
-		Timeout: 10 * time.Second, Interval: 25 * time.Millisecond, Request: []func(*http.Request){httptestx.WithCookies(login.Session)},
+		Interval: 25 * time.Millisecond, Request: []func(*http.Request){httptestx.WithCookies(login.Session)},
 	}, wantStatus)
 }
 

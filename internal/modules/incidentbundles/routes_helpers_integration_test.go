@@ -712,24 +712,25 @@ func postImport(t testing.TB, server *httptestx.Server, login authcookietest.Aut
 }
 
 // incidentBundleJobPoll observes a job through the shared poll helper
-// (TH-HARNESS-REQ-864) with the submitter's session and the caller's deadline.
-func incidentBundleJobPoll(login authcookietest.AuthCookies, timeout time.Duration) httptestx.PollOptions {
-	return httptestx.PollOptions{Timeout: timeout, Interval: 25 * time.Millisecond, Request: []func(*http.Request){httptestx.WithCookies(login.Session)}}
+// (TH-HARNESS-REQ-864) with the submitter's session. These waits are hang
+// guards, so the test's deadline bounds them, not a fixed duration.
+func incidentBundleJobPoll(login authcookietest.AuthCookies) httptestx.PollOptions {
+	return httptestx.PollOptions{Interval: 25 * time.Millisecond, Request: []func(*http.Request){httptestx.WithCookies(login.Session)}}
 }
 
 func waitJob(t testing.TB, server *httptestx.Server, login authcookietest.AuthCookies, jobID string) map[string]any {
 	t.Helper()
-	return httptestx.PollJob(t, server.HTTP.URL, jobID, incidentBundleJobPoll(login, 30*time.Second), "succeeded")
+	return httptestx.PollJob(t, server.HTTP.URL, jobID, incidentBundleJobPoll(login), "succeeded")
 }
 
 func waitJobWithStatus(t testing.TB, server *httptestx.Server, login authcookietest.AuthCookies, jobID string, wantStatus string) map[string]any {
 	t.Helper()
-	return httptestx.PollJob(t, server.HTTP.URL, jobID, incidentBundleJobPoll(login, 10*time.Second), wantStatus)
+	return httptestx.PollJob(t, server.HTTP.URL, jobID, incidentBundleJobPoll(login), wantStatus)
 }
 
 func waitFailedJob(t testing.TB, server *httptestx.Server, login authcookietest.AuthCookies, jobID string) map[string]any {
 	t.Helper()
-	return httptestx.PollJob(t, server.HTTP.URL, jobID, incidentBundleJobPoll(login, 40*time.Second), "failed")
+	return httptestx.PollJob(t, server.HTTP.URL, jobID, incidentBundleJobPoll(login), "failed")
 }
 
 func corruptZipMember(t testing.TB, bundle []byte, memberPath string) []byte {

@@ -276,7 +276,6 @@ func (r *publicationFixtureRuntime) waitJob(id string) map[string]any {
 		}
 	})
 	job := httptestx.PollJob(r.t, r.h.Server.HTTP.URL, id, httptestx.PollOptions{
-		Timeout: 15 * time.Second,
 		Request: r.requestOptions,
 	}, "succeeded", "failed", "canceled")
 	settled = true

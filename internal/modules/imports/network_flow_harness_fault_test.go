@@ -90,7 +90,6 @@ func assertNetworkFlowImportFaultConsumers(t *testing.T) {
 				// The protocol closes this attempt. A committed reply loss is proved
 				// from the durable unit outcome; an absent attempt is never retried.
 				job := httptestx.PollJob(t, h.Server.HTTP.URL, jobID, httptestx.PollOptions{
-					Timeout: 12 * time.Second,
 					Request: []func(*http.Request){httptestx.WithCookies(login.Session)},
 				}, "failed", "succeeded")
 				if _, pending := controls.Faults.ConsumeNetworkFlowFaultFor(boundary, unit); pending {

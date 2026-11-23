@@ -9381,7 +9381,10 @@ Test support MUST preserve the evidence a load-dependent failure needs:
   shared poll helper. It MAY keep polling through a response whose error
   envelope says `retryable: true`, until its deadline (its own, or the test's
   when it has none), and on failure MUST report the last response it
-  received. A `503` `service_unavailable` with reason
+  received. The test's deadline leaves a settlement margin so the failure and
+  the test's cleanup finish before the test binary's own timeout. A fixed poll
+  deadline is for a wait the test asserts; a hang guard, which only stops a
+  stuck test, uses the test's deadline, so load alone cannot fail it. A `503` `service_unavailable` with reason
   `extension_integrity_failure` or `shutdown_in_progress` is a closing
   server's permanent refusal, so polling stops on it. Waiting through a retryable response is part of one
   test's execution; it is not a retry of a product test, which remains
