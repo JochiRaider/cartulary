@@ -1,6 +1,6 @@
 # Test Execution Efficiency Remediation Plan
 
-**Status.** Active remediation tracker, last updated 2026-11-23. All phase-1 work is committed. Phase 2 ([Section 12](#12-phase-2-plan--check-wall-clock)) landed G7 and G6; G6 brought the `check` graph wall from 1,022–1,157 s to under 900 s. In G17 (phase 3), G17b and G17c landed, G17a was not adopted, and disk stall was identified as the contention the failing tests hit. G17f withdrew A17 and added A18 (WAL compression, −22% container writes), and G17g bounded test-side waits by the test deadline. G17 is closed; follow-ups are G27 (heavy-row test work; its workflow-test fix landed) and G28 (flush-bound disk stall). `make distclean` on 2026-11-22 deleted every retained run, so the run IDs in Section 11 before that date are a record, not retrievable evidence.
+**Status.** Active remediation tracker, last updated 2026-11-23. All phase-1 work is committed. Phase 2 ([Section 12](#12-phase-2-plan--check-wall-clock)) landed G7 and G6; G6 brought the `check` graph wall from 1,022–1,157 s to under 900 s. In G17 (phase 3), G17b and G17c landed, G17a was not adopted, and disk stall was identified as the contention the failing tests hit. G17f withdrew A17 and added A18 (WAL compression, −22% container writes), and G17g bounded test-side waits by the test deadline. G17 is closed. G27 (heavy-row test work) is done: graph wall 800–840 s, the best recorded. G28 (flush-bound disk stall) is the next lever. `make distclean` on 2026-11-22 deleted every retained run, so the run IDs in Section 11 before that date are a record, not retrievable evidence.
 
 The active plan for the remaining `check` wall-clock work is [Section 12](#12-phase-2-plan--check-wall-clock). Original framing: this document authorizes no implementation by itself.
 Each specification amendment in [Section 8](#8-specification-amendment-ledger) needs
@@ -106,7 +106,7 @@ repetitions each.
 | G24 | Heavy units hold a heavy lane while queued in host admission behind ordinary PostgreSQL units | Specification, implementation | WS2 | Done (`fb5c7b63d`): about 150 s of `check` wall |
 | G25 | Unattributed I/O regression: checkpoint sync and graph wall up since the morning's passing runs | Measurement, possibly implementation | W2-1 | Closed: the cost was per-generation provisioning checkpoints, amplified by host disk state; G6 removed it (checkpoint sync 1,156 s → 4 s) |
 | G26 | Packing omits PostgreSQL generation acquisition | Specification, machine inputs, implementation | W2-5 | Medium; not implemented, see the G26 decision in Section 12 |
-| G27 | Heavy-lane wall sits in a few long single tests (import workflows, ATT&CK production restore, Network Flow incident transfer, the two bundle round trips) | Tests (module owners) | Phase 3 follow-up | High for wall. Workflow test fixed (`7a62a435a`, −99 s heavy work); the rest is product work needing owner decisions (Section 5, G27) |
+| G27 | Heavy-lane wall sits in a few long single tests (import workflows, ATT&CK production restore, Network Flow incident transfer, the two bundle round trips) | Tests (module owners) | Phase 3 follow-up | Done: `7a62a435a`, `9f01fdc27`; changed tests −48%, graph wall −50 s (800/840 s); remaining saving lost to disk contention (G28) |
 | G28 | Disk stall follows flush count, not bytes (A18 cut writes 22% without moving `io_full`); 21–35 s of CPU-stall bursts per `check` remain unattributed | Measurement, then specification | Phase 3 follow-up | Medium; measure WAL flushes per unit and short-lived child CPU first |
 
 ## 5. Gap Remediation Detail
@@ -755,23 +755,65 @@ ran slower on host disk state: mean `io_full` 11.5% against 7.3–8.7%, and up
 to +45 s per test, as in G25. One run cannot show the wall gain under that
 noise; the per-test saving is direct.
 
-**Remaining, owner-level.** The rest of the measured time is product work
-that the tests' assertions name:
-- *ATT&CK restore fault probes.* Each of `missing_member`, `damaged_member` and
-  `wrong_authority` runs a full restore into its own fresh target (about 53 s
-  together). Options: run the independent probes concurrently, or assert two
-  member faults in one restore. Both are recovery-owner decisions; clone-based
-  targets were rejected in G3.7.
-- *Network Flow incident transfer.* Backup/restore, the transfer import and the
-  report release are the subject of the test. The remaining options are owner
-  judgments about scope, such as a smaller corpus or one destination instead
-  of two.
-- *Setup-only ATT&CK imports.* The report composition preview imports the full
-  95 MB pack (91 s test) only as setup. A smaller authentic-shaped dataset or a
-  snapshot would need the reporting owner (G3.4).
-- *Other restarts with recovered jobs* (incident-bundle queued export recovery,
-  a few imports and reporting tests) can adopt the same `JobPolicy` seam; each
-  saves about 5 s.
+**Owner-approved options (committed `9f01fdc27`, 2026-11-23).** The owner
+approved every remaining option. Isolated row times are from the
+`g27b-slice-*` runs:
+
+1. *ATT&CK restore probes run concurrently.* `RestoreServer` prepares every
+   probe target on the test goroutine, then runs each probe on its own
+   goroutine beside the final restore; each already used its own fresh
+   target. `probeTB` turns `Fatal`, `FailNow` and `Skip` into goroutine-safe
+   errors that end only the probe, and the test fails once all have finished.
+   `attack_production_recovery`: 109 s → 70.6 s.
+2. *The Network Flow incident transfer verifies one destination.* The
+   operator backup/restore leg (a third server and a second full
+   verification) is removed. Restored Network Flow claims and Graph readiness
+   stay qualified by `TestRestoredNetworkFlowClaimBoundary_Process`. The row no
+   longer needs the operator binary, and the unused
+   `BackupRestoreServerWithOperator` and `pollImportJSON` are deleted.
+   `network_flow_portability`: 173 s → 119.9 s.
+3. *The report composition preview imports a 1 MB Entra pack* instead of the
+   95 MB ATT&CK corpus; it only checks that the current pack set binds into
+   the snapshot. The row drops the ATT&CK fixture root and moves from
+   `postgres_heavy` to `standard`, like the Entra binding row, because its work
+   is no longer dominated by PostgreSQL bulk I/O. 91 s → 22.0 s.
+4. *`appsupport.ShortJobRecoveryScan`*, a `ConfigureRuntime` hook shortening
+   only the recovery scan, is used by the current-workflow tests, the import
+   crash-recovery restart and the incident-bundle queued-export restart.
+   `unit_commit_crash_recovery`: 26 s → 14.1 s; export job row: 9–10 s →
+   2.4 s.
+
+Estimates for the seven changed rows were scaled to the new durations. Checks:
+`g27b-lintgo03` (after `make format`), `g27b-srccat02`, `g27b-srcgen01`,
+`g27b-generate02`, and `g27b-slice-rec01`, `-ib01`, `-rc01`, `-imp01` (all
+seven rows pass).
+
+**Final validation (paired diagnostic `check` on `9f01fdc27`).**
+
+| Run | Result | Graph | Outer | Heavy unit work | Changed tests (heavy) | Other heavy tests | Mean `io_full` |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `g17-final-check01` (before G27) | Pass | 857 s | 870 s | 2,383 s | 711 s | 1,496 s | 7.3% |
+| `g17-final-check02` (before G27) | Pass | 882 s | 893 s | 2,496 s | 747 s | 1,564 s | 8.7% |
+| `g27-final-check01` | Pass | 800 s | 811 s | 2,243 s | 378 s | 1,714 s | 9.5% |
+| `g27-final-check02` | Pass | 840 s | 853 s | 2,355 s | 376 s | 1,772 s | 11.2% |
+
+Rows under `check` load (before pair → after pair): current workflows
+208/221 → 80/81 s, current cancellation 16/15 → 6/6 s, crash recovery 26/27 →
+16/15 s, Network Flow transfer 241/254 → 188/179 s, export job 10/9 → 5/2 s,
+ATT&CK restore 159/174 → 106/114 s, composition preview 93/90 → 37/65 s (now
+off the heavy lanes). All 1,890 rows still run; the preview row now packs into
+a standard cohort, so units are 364 rather than 365.
+
+The total change is a graph wall 50 s lower on average (857/882 → 800/840 s,
+the best recorded) and 140 s less heavy unit work. The changed tests saved
+352 s (−48%), but every other heavy test ran 14% slower in both runs (+213 s),
+and mean `io_full` rose from 7–9% to 9–11%. Container writes did not change
+(46–48 GB). The same disk work in a shorter run contends harder, which is the
+G28 flush-bound limit showing up: further heavy-row cuts will keep losing part
+of their saving until disk stall falls.
+
+**Remaining.** G27's identified options are done. The next wall-clock lever is
+G28 (disk flushes), not more heavy-row work.
 
 ### G18 — ATT&CK release fixture expiry
 
@@ -1043,6 +1085,8 @@ Each amendment lands spec-first in one change with its machine projections, rege
 | 2026-11-23 | G17 | Final validation: paired diagnostic `check` on `4a30fd00c` | `g17-final-check01`, `g17-final-check02` | **Pass 365/365 twice.** Graph 857 s and 882 s (G6 pair 887 s and 889 s); heavy work 2,383 s and 2,496 s; container writes 46.2 GB and 48.4 GB (from 61.8–63.0 GB); mean `io_full` 7.3% and 8.7%. G17 closed |
 | 2026-11-23 | G27 | Profiling of the three heaviest tests with temporary phase marks (removed after) | `g27-prof-cw01`, `g27-prof-nf01`, `g27-prof-attack01`, `g27-prof-cw02` | Workflow test idle about 6 s per subtest waiting on the 5 s recovery scan after restart; transfer and ATT&CK time is product work. With a 100 ms injected scan the workflow row fell from 191 s to 86 s (instrumented) |
 | 2026-11-23 | G27 | Targeted checks, then one confirming diagnostic `check` | `g27-generate01`, `g27-lintgo02`, `g27-srcgen01`, `g27-slice-server01`, `g27-slice-imports01`, `g27-check01` | All pass; `check` 365/365. Workflow test 116 s (from 208–221 s). Graph 945 s on noisy host disk (`io_full` 11.5%). Committed `7a62a435a` |
+| 2026-11-23 | G27 | Four owner-approved options: concurrent restore probes, one transfer destination, Entra setup pack, shared recovery-scan hook; targeted checks and changed rows | `g27b-lintgo03`, `g27b-srccat02`, `g27b-srcgen01`, `g27b-generate02`, `g27b-slice-rec01`, `g27b-slice-ib01`, `g27b-slice-rc01`, `g27b-slice-imp01` | All pass; seven rows 31–76% faster in isolation. Committed `9f01fdc27` |
+| 2026-11-23 | G27 | Final validation: paired diagnostic `check` on `9f01fdc27` | `g27-final-check01`, `g27-final-check02` | **Pass twice.** Graph 800 s and 840 s (from 857 s and 882 s); heavy unit work 2,243 s and 2,355 s; changed tests −352 s, other heavy tests +213 s on higher disk stall (`io_full` 9.5% and 11.2%) |
 
 ## 12. Phase 2 Plan — `check` Wall Clock
 
