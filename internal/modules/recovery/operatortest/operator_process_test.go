@@ -349,7 +349,7 @@ func TestCanonicalOperatorBackupCreate_Process(t *testing.T) {
 
 	env := mergeOperatorEnv(operatorRecoveryEnv(), s3Harness.EnvForServiceRef("backup-create", bucket))
 	operatorBin := injectedOperatorBinary(t)
-	stdout, stderr, exitCode := runOperatorBinaryWithTimeout(t, 30*time.Second, operatorBin, env,
+	stdout, stderr, exitCode := runOperatorBinary(t, operatorBin, env,
 		"backup", "create",
 		"--source-config-file", sourceConfig.path,
 		"--progress", "jsonl",
@@ -387,7 +387,7 @@ func TestCanonicalOperatorBackupCreate_Process(t *testing.T) {
 	}
 
 	outputDirectory := filepath.Join(t.TempDir(), "portable-backup")
-	exportedStdout, exportedStderr, exportedExit := runOperatorBinaryWithTimeout(t, 30*time.Second, operatorBin, env,
+	exportedStdout, exportedStderr, exportedExit := runOperatorBinary(t, operatorBin, env,
 		"backup", "export", "latest", "--source-config-file", sourceConfig.path, "--output-directory", outputDirectory, "--progress", "jsonl")
 	if exportedExit != 0 {
 		t.Fatalf("export failed: %d %s %s", exportedExit, exportedStdout, exportedStderr)
@@ -458,10 +458,7 @@ func TestCanonicalOperatorRestoreLatest_Process(t *testing.T) {
 		t.Fatal("seed retained Base registries", err)
 	}
 	operatorBin := injectedOperatorBinary(t)
-	createStdout, createStderr, createExit := runOperatorBinaryWithTimeout(
-		t,
-		30*time.Second,
-		operatorBin,
+	createStdout, createStderr, createExit := runOperatorBinary(t, operatorBin,
 		operatorRecoveryEnv(),
 		"backup", "create",
 		"--source-config-file", sourceConfig.path,
@@ -528,7 +525,7 @@ func TestCanonicalOperatorRestoreLatest_Process(t *testing.T) {
 		t.Fatalf("release active-server fixture: %v", err)
 	}
 
-	stdout, stderr, exitCode := runOperatorBinaryWithTimeout(t, 30*time.Second, operatorBin, operatorRecoveryEnv(),
+	stdout, stderr, exitCode := runOperatorBinary(t, operatorBin, operatorRecoveryEnv(),
 		"restore", "latest",
 		"--source-config-file", sourceConfig.path,
 		"--target-config-file", targetConfig.path,
@@ -548,7 +545,7 @@ func TestCanonicalOperatorRestoreLatest_Process(t *testing.T) {
 	// The target is no longer fresh, so this exact-identity retry can succeed
 	// only by replaying durable terminal evidence before preflight and without a
 	// second Graph or workbook rebuild.
-	replayStdout, replayStderr, replayExit := runOperatorBinaryWithTimeout(t, 30*time.Second, operatorBin, operatorRecoveryEnv(),
+	replayStdout, replayStderr, replayExit := runOperatorBinary(t, operatorBin, operatorRecoveryEnv(),
 		"restore", "latest",
 		"--source-config-file", sourceConfig.path,
 		"--target-config-file", targetConfig.path,
@@ -625,7 +622,7 @@ func TestCanonicalOperatorRestoreVerifyLatest_Process(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	stdout, stderr, exitCode := runOperatorBinaryWithTimeout(t, 30*time.Second, operatorBin, operatorRecoveryEnv(),
+	stdout, stderr, exitCode := runOperatorBinary(t, operatorBin, operatorRecoveryEnv(),
 		"restore-verify", "latest",
 		"--source-config-file", sourceConfig.path,
 		"--target-config-file", targetConfig.path,
@@ -698,7 +695,7 @@ func TestCanonicalOperatorRestoreVerifyDue_Process(t *testing.T) {
 	requireOperatorRecoveryFailure(t, sameObjectStdout, sameObjectStderr, sameObjectExit, "restore_verify_due", 3, "unsafe_restore_target", "same_object_store_binding")
 	requireOperatorRestoreTargetUnmutated(t, targetDB.DSN)
 
-	stdout, stderr, exitCode := runOperatorBinaryWithTimeout(t, 45*time.Second, operatorBin, operatorRecoveryEnv(),
+	stdout, stderr, exitCode := runOperatorBinary(t, operatorBin, operatorRecoveryEnv(),
 		"restore-verify", "due",
 		"--source-config-file", sourceConfig.path,
 		"--target-config-file", targetConfig.path,
@@ -811,10 +808,7 @@ VALUES ($1, 'recovery-zero-incident', 'recovery-zero-incident', 'Recovery zero i
 		"backup_restore-after-determinate-failure",
 	)
 
-	stdout, stderr, exitCode := runOperatorBinaryWithTimeout(
-		t,
-		45*time.Second,
-		injectedOperatorBinary(t),
+	stdout, stderr, exitCode := runOperatorBinary(t, injectedOperatorBinary(t),
 		operatorRecoveryEnv(),
 		"restore-verify",
 		"due",
@@ -1405,16 +1399,29 @@ func injectedOperatorBinary(t testing.TB) string {
 	return bin
 }
 
+// operatorProcessSettlement is kept back from the test deadline, so a hung
+// operator is killed and reported before the test binary's own timeout.
+const operatorProcessSettlement = 30 * time.Second
+
+// operatorProcessFallback bounds a child when the test has no deadline.
+const operatorProcessFallback = 5 * time.Minute
+
+// operatorProcessBound is a hang guard only. No caller asserts operator
+// timing, so the bound follows the test's remaining deadline instead of a
+// fixed duration that host load can exceed.
+func operatorProcessBound(t testing.TB) time.Duration {
+	if test, ok := t.(interface{ Deadline() (time.Time, bool) }); ok {
+		if deadline, bounded := test.Deadline(); bounded {
+			return max(time.Until(deadline)-operatorProcessSettlement, time.Second)
+		}
+	}
+	return operatorProcessFallback
+}
+
 func runOperatorBinary(t testing.TB, bin string, env map[string]string, args ...string) (string, string, int) {
 	t.Helper()
 
-	return runOperatorBinaryWithTimeout(t, 15*time.Second, bin, env, args...)
-}
-
-func runOperatorBinaryWithTimeout(t testing.TB, timeout time.Duration, bin string, env map[string]string, args ...string) (string, string, int) {
-	t.Helper()
-
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), operatorProcessBound(t))
 	defer cancel()
 	cmd := exec.CommandContext(ctx, bin, args...)
 	cmd.Dir = repoRoot()

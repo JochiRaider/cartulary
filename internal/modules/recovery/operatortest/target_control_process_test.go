@@ -65,7 +65,7 @@ func TestRecoveryRestoreInterruptionAndCompletionReplay_Process(t *testing.T) {
 CREATE TRIGGER block_control_admission BEFORE INSERT ON operator_recovery_journal FOR EACH ROW EXECUTE FUNCTION block_control_admission()`); err != nil {
 					t.Fatal(err)
 				}
-				commandCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+				commandCtx, cancel := context.WithTimeout(ctx, operatorProcessBound(t))
 				defer cancel()
 				cmd := exec.CommandContext(commandCtx, bin, args...)
 				cmd.Dir, cmd.Env = repoRoot(), append(os.Environ(), envPairs(operatorRecoveryEnv())...)
@@ -81,7 +81,7 @@ CREATE TRIGGER block_control_admission BEFORE INSERT ON operator_recovery_journa
 						_ = cmd.Wait()
 					}
 				}()
-				deadline := time.NewTimer(15 * time.Second)
+				deadline := time.NewTimer(operatorProcessBound(t))
 				defer deadline.Stop()
 				tick := time.NewTicker(25 * time.Millisecond)
 				defer tick.Stop()
@@ -151,7 +151,7 @@ CREATE TRIGGER block_control_admission BEFORE INSERT ON operator_recovery_journa
 CREATE TRIGGER reject_control_completion BEFORE UPDATE ON recovery_target_state FOR EACH ROW EXECUTE FUNCTION reject_control_completion()`); err != nil {
 				t.Fatal(err)
 			}
-			out, diagnostic, status := runOperatorBinaryWithTimeout(t, 60*time.Second, bin, operatorRecoveryEnv(), args...)
+			out, diagnostic, status := runOperatorBinary(t, bin, operatorRecoveryEnv(), args...)
 			requireOperatorRecoveryFailure(t, out, diagnostic, status, "restore_latest", 4, "restore_failed", "journal_write_failed")
 			before, err := recovery.ReadTargetControl(ctx, targetPool)
 			if err != nil || before.State != recovery.TargetRestoring || before.CompletionEvidenceSHA256 != nil {
@@ -162,7 +162,7 @@ CREATE FUNCTION reject_payload_replay() RETURNS trigger LANGUAGE plpgsql AS $$ B
 CREATE TRIGGER reject_payload_replay BEFORE INSERT OR UPDATE OR DELETE ON users FOR EACH ROW EXECUTE FUNCTION reject_payload_replay()`); err != nil {
 				t.Fatal(err)
 			}
-			out, diagnostic, status = runOperatorBinaryWithTimeout(t, 30*time.Second, bin, operatorRecoveryEnv(), args...)
+			out, diagnostic, status = runOperatorBinary(t, bin, operatorRecoveryEnv(), args...)
 			if status != 0 {
 				t.Fatalf("completion reconciliation failed: exit=%d stdout=%s stderr=%s", status, out, diagnostic)
 			}

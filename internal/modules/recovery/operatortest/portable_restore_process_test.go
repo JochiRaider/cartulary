@@ -102,7 +102,7 @@ func TestCanonicalOperatorRestoreBundle_Process(t *testing.T) {
 CREATE TRIGGER fail_portable_audit BEFORE INSERT ON deployment_admin_audit_events FOR EACH ROW EXECUTE FUNCTION fail_portable_audit();`); err != nil {
 				t.Fatal(err)
 			}
-			stdout, stderr, status = runOperatorBinaryWithTimeout(t, 60*time.Second, bin, operatorRecoveryEnv(), portableWithoutProgress(args)...)
+			stdout, stderr, status = runOperatorBinary(t, bin, operatorRecoveryEnv(), portableWithoutProgress(args)...)
 			requireOperatorRecoveryFailure(t, stdout, stderr, status, "restore_bundle", 4, "restore_failed", "journal_write_failed")
 			quarantined, err := recovery.ReadTargetControl(ctx, targetPool)
 			if err != nil || quarantined.State != recovery.TargetRestoring || quarantined.CompletionEvidenceSHA256 != nil {
@@ -111,7 +111,7 @@ CREATE TRIGGER fail_portable_audit BEFORE INSERT ON deployment_admin_audit_event
 			if _, err := targetPool.Exec(ctx, `DROP TRIGGER fail_portable_audit ON deployment_admin_audit_events; DROP FUNCTION fail_portable_audit();`); err != nil {
 				t.Fatal(err)
 			}
-			stdout, stderr, status = runOperatorBinaryWithTimeout(t, 60*time.Second, bin, operatorRecoveryEnv(), args...)
+			stdout, stderr, status = runOperatorBinary(t, bin, operatorRecoveryEnv(), args...)
 			if status != 0 {
 				t.Fatalf("source-loss restore: exit=%d stdout=%s stderr=%s", status, stdout, stderr)
 			}
@@ -149,7 +149,7 @@ CREATE TRIGGER fail_portable_audit BEFORE INSERT ON deployment_admin_audit_event
 			}
 			// A target audit publication can be retried from the local terminal record.
 			// Exact replay must not rerun engine writes or alter the encrypted journal.
-			stdout, stderr, status = runOperatorBinaryWithTimeout(t, 60*time.Second, bin, operatorRecoveryEnv(), args...)
+			stdout, stderr, status = runOperatorBinary(t, bin, operatorRecoveryEnv(), args...)
 			if status != 0 {
 				t.Fatalf("exact portable replay: exit=%d stdout=%s stderr=%s", status, stdout, stderr)
 			}
