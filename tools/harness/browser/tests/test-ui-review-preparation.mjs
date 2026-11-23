@@ -4,7 +4,8 @@ import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { browserReadiness, coreReadiness, goReadiness, nodeReadiness, publishFrontendInstallation, serviceImageReadiness, validateFrontendInstallation } from "../../readiness/installed-readiness.mjs";
+import { browserReadiness, coreReadiness, goReadiness, nodeReadiness, publishFrontendInstallation, rendererImageReadiness, serviceImageReadiness, validateFrontendInstallation } from "../../readiness/installed-readiness.mjs";
+import { loadVisualRendererProfile } from "../visual-renderer-profile.mjs";
 import { createRuntime } from "../../runtime/session-client.mjs";
 import { recipeEnvironment } from "../review-recipes.mjs";
 import { reviewChild } from "../review-child.mjs";
@@ -113,6 +114,20 @@ test("installation proof is independent of reuse caches and binds installed lock
     assert.throws(() => nodeReadiness(root), (error) => error.subject_id === "node" && error.condition === "incompatible");
     assert.throws(() => validateFrontendInstallation(root), (error) => error.condition === "stale_installation");
   } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test("renderer image readiness proves the pinned image and recovers through browser installation", () => {
+  const profile = loadVisualRendererProfile(repoRoot);
+  const [osName, architecture] = profile.platform.split("/");
+  const calls = [];
+  const inspect = (image) => (args) => { calls.push(args); if (!image) throw new Error("pinned browser renderer lifecycle failed at docker image (exit 1, reason command_failed)"); return JSON.stringify([image]); };
+  const present = rendererImageReadiness(repoRoot, inspect({ Id: "sha256:pinned", Os: osName, Architecture: architecture, RepoDigests: [profile.container_image] }));
+  assert.deepEqual(present, { image_id: "sha256:pinned", container_image: profile.container_image, platform: profile.platform });
+  assert.deepEqual(calls[0], ["image", "inspect", profile.container_image]);
+  for (const [image, condition] of [[null, "missing"], [{ Id: "sha256:other", Os: osName, Architecture: architecture, RepoDigests: ["example/other@sha256:00"] }, "incompatible"]]) {
+    assert.throws(() => rendererImageReadiness(repoRoot, inspect(image)), (error) =>
+      error.subject_id === "chromium" && error.condition === condition && error.recovery_id === "playwright_install");
+  }
 });
 
 test("readiness rejects missing tools, damaged packages, browsers and images without acquisition", () => {

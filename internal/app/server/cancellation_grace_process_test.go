@@ -37,7 +37,10 @@ func TestServerRunnerCancellationGrace_Process(t *testing.T) {
 			ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 			defer cancel()
 			command := exec.CommandContext(ctx, executable, "-test.run=^TestServerRunnerCancellationGrace_Process$")
-			command.Env = append(os.Environ(), graceProcessPhaseEnv+"="+phase, "TMPDIR="+t.TempDir())
+			// t.TempDir uses GOTMPDIR when set; the child exits without cleanups,
+			// so its temporary roots must live inside this test's own TempDir.
+			scratch := t.TempDir()
+			command.Env = append(os.Environ(), graceProcessPhaseEnv+"="+phase, "TMPDIR="+scratch, "GOTMPDIR="+scratch)
 			var stderr bytes.Buffer
 			command.Stdout = io.Discard
 			command.Stderr = &stderr
@@ -143,7 +146,10 @@ func TestPortableReferenceCleanupGrace_Process(t *testing.T) {
 			ctx, cancel := context.WithTimeout(t.Context(), 45*time.Second)
 			defer cancel()
 			command := exec.CommandContext(ctx, executable, "-test.run=^TestPortableReferenceCleanupGrace_Process$")
-			command.Env = append(os.Environ(), graceProcessPhaseEnv+"="+phase, "TMPDIR="+t.TempDir())
+			// t.TempDir uses GOTMPDIR when set; the child exits without cleanups,
+			// so its temporary roots must live inside this test's own TempDir.
+			scratch := t.TempDir()
+			command.Env = append(os.Environ(), graceProcessPhaseEnv+"="+phase, "TMPDIR="+scratch, "GOTMPDIR="+scratch)
 			var stderr bytes.Buffer
 			command.Stdout = io.Discard
 			command.Stderr = &stderr

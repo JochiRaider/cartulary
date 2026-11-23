@@ -10,6 +10,8 @@ import { CommandFailure } from "../runtime/command-failure.mjs";
 import { atomicLocalFile, privateDirectory, readLocalFile, removePrivateFile } from "../runtime/secure-local-files.mjs";
 
 import { resolvePlaywrightPackages } from "./playwright-packages.mjs";
+import { verifyRendererImage } from "../browser/visual-renderer-lease.mjs";
+import { loadVisualRendererProfile } from "../browser/visual-renderer-profile.mjs";
 
 const repoRoot = path.resolve(import.meta.dirname, "../../..");
 const hash = (value) => createHash("sha256").update(value).digest("hex");
@@ -109,6 +111,15 @@ export function browserReadiness(root = repoRoot) {
     if (!descriptor || !version.endsWith(` ${descriptor.browserVersion}`)) throw new Error("browser pin mismatch");
   });
   probe("host_lock", "doctor", () => accessSync("/usr/bin/flock", constants.X_OK));
+  rendererImageReadiness(root);
+}
+// The pinned renderer image lives in the Docker store, outside every readiness
+// stamp, so it is proven on each use. It is part of the browser installation
+// subject: absent is "missing", any other identity difference "incompatible".
+export function rendererImageReadiness(root = repoRoot, run) {
+  const profile = probe("chromium", "playwright_install", () => loadVisualRendererProfile(root));
+  try { return verifyRendererImage(profile, ...(run ? [run] : [])); }
+  catch (cause) { throw readinessFailure("chromium", /identity mismatch/u.test(cause.message) ? "incompatible" : "missing", "playwright_install", cause); }
 }
 export function goReadiness(environment, root = repoRoot, runner = spawnSync) {
   return probe("go", "bootstrap", () => {
@@ -138,6 +149,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   try {
     if (process.argv[2] === "invalidate") removePrivateFile(receiptFile(repoRoot));
     else if (process.argv[2] === "publish") publishFrontendInstallation();
+    else if (process.argv[2] === "renderer-image") { rendererImageReadiness(); process.stdout.write("ok pinned visual renderer image\n"); }
     else if (process.argv[2] === "frontend") { coreReadiness(); process.stdout.write("ok installed frontend prerequisites\n"); }
     else if (process.argv[2] === "doctor") { coreReadiness(); frontendBuildReadiness(); browserReadiness(); goReadiness(process.env); dockerReadiness(process.env); process.stdout.write("ok installed UI review prerequisites\n"); }
     else throw new Error("unsupported installed readiness operation");

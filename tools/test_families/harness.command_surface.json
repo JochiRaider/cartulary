@@ -615,6 +615,7 @@
           "TestRuntimeContractEvidenceGate",
           "TestRuntimeErrorCodeCoverageReport",
           "TestRuntimeFailurePrecedence",
+          "TestRuntimeGoTemporaryWork",
           "TestRuntimeHostAdmission",
           "TestRuntimeLifecycle",
           "TestRuntimeObservations",

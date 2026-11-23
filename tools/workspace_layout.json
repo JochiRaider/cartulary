@@ -20,6 +20,15 @@
       ]
     },
     {
+      "id": "root_dist",
+      "path": "dist",
+      "tier": "clean",
+      "state": "current",
+      "producers": [
+        "release package builds"
+      ]
+    },
+    {
       "id": "web_dist",
       "path": "apps/web/dist",
       "tier": "clean",
@@ -56,11 +65,39 @@
       ]
     },
     {
+      "id": "reference_pack_builders",
+      "path": ".cartulary/reference-packs/builders",
+      "tier": "clean",
+      "state": "current",
+      "producers": [
+        "reference-pack producer builds"
+      ]
+    },
+    {
+      "id": "reference_pack_modules",
+      "path": ".cartulary/reference-packs/modules",
+      "tier": "distclean",
+      "state": "current",
+      "producers": [
+        "reference-pack module staging"
+      ]
+    },
+    {
+      "id": "web_test_scratch",
+      "path": "apps/web/.cartulary",
+      "tier": "clean",
+      "state": "current",
+      "producers": [
+        "harness Vitest fixtures"
+      ]
+    },
+    {
       "id": "legacy_web_results",
       "path": "apps/web/.cartulary/test-results",
       "tier": "clean",
       "state": "legacy",
-      "producers": []
+      "producers": [],
+      "parent": "web_test_scratch"
     },
     {
       "id": "root_test_results",
@@ -133,6 +170,13 @@
       "producers": [
         "frontend verification"
       ]
+    },
+    {
+      "id": "legacy_web_fixture_vite",
+      "path": "apps/web/src/testing/fixtures/node_modules",
+      "tier": "clean",
+      "state": "legacy",
+      "producers": []
     },
     {
       "id": "cache",
@@ -250,6 +294,26 @@
       "state": "current",
       "producers": [
         "harness readiness"
+      ],
+      "parent": "cache"
+    },
+    {
+      "id": "graph_cache",
+      "path": ".cache/cartulary/graph-v2",
+      "tier": "distclean",
+      "state": "current",
+      "producers": [
+        "harness graph cache"
+      ],
+      "parent": "cache"
+    },
+    {
+      "id": "static_analysis_cache",
+      "path": ".cache/cartulary/static-analysis",
+      "tier": "distclean",
+      "state": "current",
+      "producers": [
+        "static analysis cache"
       ],
       "parent": "cache"
     },

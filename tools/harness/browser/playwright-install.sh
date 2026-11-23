@@ -1,6 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# A readiness hit cannot see the Docker store. Before the cache is consulted,
+# drop the stamp unless the pinned renderer image is provably present, so a
+# removed or replaced image forces the ordinary install to pull it again.
+if [[ "${1:-}" == "--invalidate-stale-stamp" ]]; then
+  stamp="${PLAYWRIGHT_INSTALL_STAMP:?PLAYWRIGHT_INSTALL_STAMP is required}"
+  node_bin="${NODE_BIN:?NODE_BIN is required}"
+  if [[ -f "$stamp" ]] && ! "$node_bin" "$(dirname "${BASH_SOURCE[0]}")/../readiness/installed-readiness.mjs" renderer-image >/dev/null 2>&1; then
+    echo "Pinned visual renderer image is not present; reinstalling browser prerequisites." >&2
+    rm -f -- "$stamp"
+  fi
+  exit 0
+fi
+
 stamp="${PLAYWRIGHT_INSTALL_STAMP:?PLAYWRIGHT_INSTALL_STAMP is required}"
 run_step="${RUN_STEP_SCRIPT:?RUN_STEP_SCRIPT is required}"
 node_runtime_dir="${NODE_RUNTIME_DIR:?NODE_RUNTIME_DIR is required}"

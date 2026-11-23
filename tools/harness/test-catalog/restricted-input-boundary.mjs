@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { closeSync, constants, fstatSync, lstatSync, openSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 
@@ -67,16 +67,12 @@ export function executableRepositoryPaths(root, {
   untracked = false,
   includes = ["."],
 } = {}) {
-  let output;
-  try {
-    output = execFileSync("git", [
-      "ls-files", "--cached", ...(untracked ? ["--others", "--exclude-standard"] : []),
-      "-z", "--", ...executableInputPathspec(restrictedRoots, includes),
-    ], { cwd: root, encoding: "utf8", maxBuffer: 128 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"] });
-  } catch {
-    throw new Error("cannot enumerate admitted repository inputs");
-  }
-  const paths = [...new Set(output.split("\0").filter(Boolean))].sort();
+  const result = spawnSync("git", [
+    "ls-files", "--cached", ...(untracked ? ["--others", "--exclude-standard"] : []),
+    "-z", "--", ...executableInputPathspec(restrictedRoots, includes),
+  ], { cwd: root, encoding: "utf8", maxBuffer: 128 * 1024 * 1024 });
+  if (result.status !== 0 || typeof result.stdout !== "string") throw new Error("cannot enumerate admitted repository inputs");
+  const paths = [...new Set(result.stdout.split("\0").filter(Boolean))].sort();
   const nested = paths.filter((entry) => entry.endsWith("/"));
   if (nested.length > 0) {
     throw new Error(

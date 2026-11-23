@@ -285,6 +285,14 @@ func (h *Harness) newMigrationDatabaseT(t testing.TB) *TestDatabase {
 func (h *Harness) registerDatabaseCleanupT(t testing.TB, name string, reuseScope string, attribution fixtureAttribution) {
 	t.Helper()
 	if h.retiresWithGeneration() {
+		// The generation's retirement deletes it. Recording that disposition keeps
+		// drop-or-retirement evidence for every harness-owned database.
+		t.Cleanup(func() {
+			details := h.postgresFixtureDetails("", reuseScope, attribution, 0)
+			if err := h.recordEvent(suiteservices.Event{Type: suiteservices.EventPostgresDBRetired, Name: name, Details: details}); err != nil {
+				testfailure.CleanupFailure(t, "pgtest", "postgres", "delete", err)
+			}
+		})
 		return
 	}
 	t.Cleanup(func() {

@@ -115,3 +115,39 @@ func mutateManifest(t *testing.T, root string, mutate func(*Manifest)) {
 		t.Fatal(err)
 	}
 }
+
+func TestIRCorpusSettleRetainsInputsOnlyOnFailure(t *testing.T) {
+	fixtures, err := filepath.Abs("../../../fixtures")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, failed := range []bool{false, true} {
+		workspace := ownedWorkspace(t)
+		inputs := filepath.Join(workspace, "inputs")
+		c, err := Admit(fixtures, inputs)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := settle(workspace, c, t.Name(), failed); err != nil {
+			t.Fatal(err)
+		}
+		var record struct {
+			AssertionsPassed bool              `json:"assertions_passed"`
+			InputsRetained   bool              `json:"inputs_retained"`
+			Files            []json.RawMessage `json:"admitted_files"`
+		}
+		raw, err := os.ReadFile(filepath.Join(workspace, "comparison.json"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := json.Unmarshal(raw, &record); err != nil {
+			t.Fatal(err)
+		}
+		if record.AssertionsPassed == failed || record.InputsRetained != failed || len(record.Files) == 0 {
+			t.Fatalf("failed=%v: wrong record %s", failed, raw)
+		}
+		if _, err := os.Stat(inputs); failed != (err == nil) {
+			t.Fatalf("failed=%v: admitted copy retained=%v", failed, err == nil)
+		}
+	}
+}

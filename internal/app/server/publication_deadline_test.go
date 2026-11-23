@@ -141,7 +141,10 @@ func TestServerRunnerPublicationDeadline_Process(t *testing.T) {
 			ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 			defer cancel()
 			command := exec.CommandContext(ctx, executable, "-test.run=^TestServerRunnerPublicationDeadline_Process$")
-			command.Env = append(os.Environ(), publicationDeadlinePhaseEnv+"="+phase, "TMPDIR="+t.TempDir())
+			// t.TempDir uses GOTMPDIR when set; the child exits without cleanups,
+			// so its temporary roots must live inside this test's own TempDir.
+			scratch := t.TempDir()
+			command.Env = append(os.Environ(), publicationDeadlinePhaseEnv+"="+phase, "TMPDIR="+scratch, "GOTMPDIR="+scratch)
 			var stderr bytes.Buffer
 			command.Stdout, command.Stderr = io.Discard, &stderr
 			err := command.Run()

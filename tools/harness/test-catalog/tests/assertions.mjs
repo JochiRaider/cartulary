@@ -40,19 +40,19 @@ export function assertSourceSnapshotIdentity() {
     writeFileSync(path.join(root, excludedRoot, "untracked", "hidden.test.ts"), "throw new Error('not executable');");
     writeFileSync(path.join(root, "owner.Md"), "not executable");
     writeFileSync(path.join(root, "README"), "not executable");
-    const originalExec = childProcess.execFileSync;
+    const originalSpawn = childProcess.spawnSync;
     const originalStat = fs.lstatSync;
     const originalOpen = fs.openSync;
     const assertAdmitted = (file) => assert.ok(!String(file).startsWith(path.join(root, excludedRoot)) && !/\/(?:owner\.Md$|README$)/u.test(String(file)), `probed excluded input: ${file}`);
     let checkedEnumeration = false;
-    childProcess.execFileSync = (command, args, options) => {
+    childProcess.spawnSync = (command, args, options) => {
       if (command === "git" && args[0] === "ls-files") {
         const pathspec = args.slice(args.indexOf("--") + 1);
         for (const excluded of [`:(top,exclude,literal)${excludedRoot}`, ":(exclude,icase)*.md", ":(exclude,icase)README"])
           assert.ok(pathspec.includes(excluded), `missing pre-enumeration exclusion ${excluded}`);
         checkedEnumeration = true;
       }
-      return originalExec(command, args, options);
+      return originalSpawn(command, args, options);
     };
     fs.lstatSync = (file, ...args) => { assertAdmitted(file); return originalStat(file, ...args); };
     fs.openSync = (file, ...args) => { assertAdmitted(file); return originalOpen(file, ...args); };
@@ -62,7 +62,7 @@ export function assertSourceSnapshotIdentity() {
       assert.equal(checkedEnumeration, true);
     }
     finally {
-      childProcess.execFileSync = originalExec;
+      childProcess.spawnSync = originalSpawn;
       fs.lstatSync = originalStat;
       fs.openSync = originalOpen;
       syncBuiltinESMExports();

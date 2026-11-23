@@ -3,6 +3,7 @@ package testsupport
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -64,9 +65,18 @@ func signDataset(t testing.TB, name string, now time.Time, signer *referencepack
 		t.Fatal("fixture envelope requires Harness artifacts", err)
 	}
 	retained := filepath.Join(artifacts, name+"-envelopes", envelope.Digest(container))
-	if err := publication.PublishTree(retained, "public", map[string][]byte{"container.pack": container, "bootstrap.json": bootstrap}); err != nil {
-		t.Fatal(err)
-	}
+	// The directory name is the container digest. Every test keeps the bootstrap
+	// metadata; only a failing test also keeps the container bytes, in a separate
+	// tree so passing and failing tests sharing a digest never conflict.
+	t.Cleanup(func() {
+		err := publication.PublishTree(retained, "public", map[string][]byte{"bootstrap.json": bootstrap})
+		if t.Failed() {
+			err = errors.Join(err, publication.PublishTree(retained, "failure", map[string][]byte{"container.pack": container, "bootstrap.json": bootstrap}))
+		}
+		if err != nil {
+			t.Error(err)
+		}
+	})
 	t.Logf("%s fixture %s manifest=%s payload=%s container=%s retained=%s", name, m.Version, manifestSHA, payloadSHA, envelope.Digest(container), retained)
 	return datasetFixture{PortablePackFixture: PortablePackFixture{Bootstrap: bootstrap, Container: container, Key: m.Key, Version: m.Version, Path: "ext/reference_packs/containers/" + manifestSHA + ".pack"}, ManifestSHA256: manifestSHA, PayloadSHA256: payloadSHA, Members: members}
 }

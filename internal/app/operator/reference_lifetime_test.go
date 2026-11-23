@@ -29,7 +29,10 @@ func TestReferenceCleanupGrace_Process(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, executable, "-test.run=^TestReferenceCleanupGrace_Process$")
-	cmd.Env = append(os.Environ(), child+"=1", "TMPDIR="+t.TempDir())
+	// t.TempDir uses GOTMPDIR when set; the child exits without cleanups,
+	// so its temporary roots must live inside this test's own TempDir.
+	scratch := t.TempDir()
+	cmd.Env = append(os.Environ(), child+"=1", "TMPDIR="+scratch, "GOTMPDIR="+scratch)
 	var stderr bytes.Buffer
 	cmd.Stdout = io.Discard
 	cmd.Stderr = &stderr

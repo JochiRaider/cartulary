@@ -137,6 +137,17 @@ func Run(ctx context.Context, root, binary string, args, environment []string) (
 		return nil, 11, err
 	}
 	defer runtime.ReleaseHandles()
+	// Registered before the settlement defer below, the removal of this
+	// invocation's Go temporary work runs after fixtures and units are closed.
+	goTemp := ""
+	if machineTemp := plan.unitEnvironment(env)["GO_TMP_DIR"]; machineTemp != "" {
+		if goTemp, err = newGoTemp(machineTemp); err != nil {
+			cleanupErr := runtime.Close()
+			nestedClean = cleanupErr == nil
+			return nil, 11, errors.Join(err, cleanupErr)
+		}
+		defer func() { _ = removeGoTemp(goTemp) }()
+	}
 	nestedClean = false
 	admission := harnessadmission.DefaultRoot()
 	// Admission's own transaction creates and validates this root. Collection
@@ -156,6 +167,11 @@ func Run(ctx context.Context, root, binary string, args, environment []string) (
 	delete(child, "CARTULARY_TEST_SERVICES_MODE")
 	delete(child, "CARTULARY_TEST_SERVICES_SESSION_FILE")
 	maps.Copy(child, runtime.Environment())
+	// Units and fixtures receive this invocation's private Go temporary work
+	// directory in place of the shared machine path.
+	if goTemp != "" {
+		child["GO_TMP_DIR"], child["GOTMPDIR"] = goTemp, goTemp
+	}
 	// The graph starts with no fixture consumers. A fixture lease supplies its
 	// exact retained resource references when it extends this environment.
 	child["CARTULARY_HARNESS_RESOURCE_DEPENDENCIES"] = "[]"

@@ -85,9 +85,9 @@ repetitions each.
 | G5 | PostgreSQL concurrency emerges from process-slot arithmetic and double-charged lanes | Specification, machine inputs, implementation | WS2 | Implemented (G5a process slots, G5b single lane), uncommitted |
 | G6 | Exclusive PostgreSQL generation startup and residency cost | Specification, implementation | WS2, WS3 | High (measured ~15 s per generation, 1,819 s per `check`) |
 | G7 | Retained-secret scan costs ~120 s per `check` | Implementation, tests | WS4 | High |
-| G8 | Run roots retain bulk fixture bytes on success | Specification, test support | WS4 | High |
+| G8 | Run roots retain bulk fixture bytes on success | Specification, test support | WS4 | High (remediated, uncommitted) |
 | G9 | Wait-segment and admission-record churn | Specification, implementation | WS4 | Stage 1 verified, uncommitted; stage 2 (wait segments) reopened: G4/G5 did not reduce it |
-| G10 | Temporary-directory leaks, including private keys | Implementation, tests, specification | WS5 | High (security hygiene) |
+| G10 | Temporary-directory leaks, including private keys | Implementation, tests, specification | WS5 | High (security hygiene; remediated, uncommitted) |
 | G11 | Unbounded retained-result growth | Specification, implementation | WS5 | Medium |
 | G12 | Go build-cache growth without a budget | Implementation, specification | WS5 | Low |
 | G13 | `release-check` unmeasured; quiet measurement runs inline in aggregates | Measurement, specification, process | WS1, WS6 | Medium (`ci` measured: measurement is 96 s) |
@@ -98,6 +98,9 @@ repetitions each.
 | G18 | Retained ATT&CK release metadata expires 2026-12-08T20:40:00Z; tests import it against the real clock | Fixtures, tests | Separate task | Urgent (outside efficiency scope) |
 | G19 | `DROP DATABASE` checkpoints can exceed the fixed 35 s cleanup budget under I/O load, poisoning the unit's generation | Specification, implementation | WS2/WS3 | High (contention failure mode) |
 | G20 | A Git repository nested in the checkout (such as an agent worktree under `.claude/worktrees/`) breaks source enumeration and is scanned by a whole-checkout filesystem walk | Specification, implementation | WS4 | Medium (remediated, uncommitted) |
+| G21 | `clean`/`distclean` miss declared build outputs and harness scratch (root `dist`, reference-pack builders and module staging, `apps/web/.cartulary`) | Specification, implementation | WS5 | Medium (remediated, uncommitted) |
+| G22 | Readiness cache stamps vouch for external Docker images that may have been removed | Specification, implementation | WS5 | Low (remediated, uncommitted) |
+| G23 | The pinned browser-trust package was removed upstream; only the local readiness cache kept bootstrap working | Implementation | WS0 | High while broken (pin updated, uncommitted) |
 
 ## 5. Gap Remediation Detail
 
@@ -238,6 +241,8 @@ First combined measurement (`g3-check01`, fixes 1–3, before 2b): graph 959 s (
 - **Risk if unresolved.** Disk growth of about 1 GB per `check` and scan cost both scale with fixture size.
 - **Validation.** Successful `check` root ≤ 150 MB. A deliberately failing fixture comparison retains its full bundle. A deliberately failing reference-data test retains its pack.
 
+- **Status (2026-11-22, uncommitted).** Done as amended REQ-407. `networkflowfixtures.Run` releases `inputs/` and `produced/` after a pass and records `materialized_input_root: null`; the summary keeps manifest, bundle and produced-artifact digests. Keeping `actual.json` was dropped: a pass means it matched the committed expectation, and it reaches 17 MB. `irfixtures` writes `comparison.json` (now with `inputs_retained`) and releases the admitted copy unless the test failed. Reference-pack fixtures always publish `public/bootstrap.json` under the container-digest directory and publish `failure/container.pack` only when the owning test fails, in a separate tree so passing and failing tests sharing a digest never conflict. Shared helper `fixtureartifacts.ReleaseTree` restores owner permissions on the sealed read-only copies before removal.
+
 ### G9 — Wait-segment and admission-record churn
 
 - **Evidence.** 110,873 wait-segment pairs per `check` (63,988 `resources`, 46,885 `rank`). TH-HARNESS-REQ-371 closes a segment whenever blocking unit IDs change, so every admission re-segments every waiting unit. The spec already tells reducers to compact holders. Host-admission records: 173,449 in the baseline and 311,463 with 3 lanes, of which about 3,200 fit the cap.
@@ -250,6 +255,8 @@ First combined measurement (`g3-check01`, fixes 1–3, before 2b): graph 959 s (
 - **Compatibility.** Readers drop v4/v3 support; older runs stay historical evidence. `explain-run` and `test-run-status` change in step.
 - **Risk if unresolved.** Event volume grows quadratically with graph size; diagnostics stay sampled.
 - **Validation.** Stage 1: host-admission section `complete` with zero omitted records on a diagnostic `ci`, and the retained-evidence readers accept the run. Event volume: `unit-events.ndjson` ≤ 10 MB for `check` after G4, with no change to segment semantics.
+
+- **Footprint note (2026-11-22).** With G8 in place, the event log dominates a `check` root: in `post-distclean-check01` (diagnostics off), `unit-events.ndjson` is 163 of 208 MB, and 98% of it is 102,968 `wait_started`/`wait_ended` pairs. The REQ-371 wait-segment redesign is therefore also the main remaining disk lever per run.
 
 ### G10 — Temporary-directory leaks
 
@@ -264,6 +271,8 @@ First combined measurement (`g3-check01`, fixes 1–3, before 2b): graph 959 s (
 - **Compatibility.** Tests that assume a stable machine-wide temporary directory break visibly; none is known.
 - **Risk if unresolved.** Unbounded disk growth and lingering secrets outside the retained-secret scan's reach.
 - **Validation.** After a clean `check`, a cancelled `check` and a `test-slice`, no new entries exist under the machine temporary roots. The janitor reclaims a scratch root left by a killed invocation.
+
+- **Status (2026-11-22, uncommitted).** Cause found: Go's `t.TempDir()` creates roots under `GOTMPDIR` when set, not `TMPDIR`, so the five `_Process` tests' `TMPDIR=` override never applied and each child that exits through `os.Exit` leaked a TLS-key directory into the shared `GO_TMP_DIR` (7 per run of one test, measured in `g10-probe02`). Fixes: (1) the graph runtime creates `invocation-*` beneath `GO_TMP_DIR` with an owner proof, projects it as `GO_TMP_DIR` and `GOTMPDIR` to units and fixtures, removes it at settlement and reclaims dead-owner siblings (`harnessruntime/gotemp_linux.go`); (2) the `_Process` tests pass `GOTMPDIR` with `TMPDIR`. `TMPDIR` is deliberately not scoped: host admission and the session socket registries live there.
 
 ### G11 — Unbounded retained-result growth
 
@@ -373,6 +382,25 @@ First combined measurement (`g3-check01`, fixes 1–3, before 2b): graph 959 s (
 - **Risk if unresolved.** Any agent worktree created under the checkout turns `make check` red without a defect.
 - **Validation.** With the worktree still present: `make lint-markdown`, `make lint CHECK=shell`, `make lint CHECK=frontend`, `make source-check CHECK=schema` and `make otel-conformance` pass. The source-snapshot contract test covers the named failure and the ignored case. The Git index matches the old walk's 3,862 Go files exactly, without the nested copy.
 
+### G21 — Cleanup layout misses declared outputs
+
+- **Evidence.** Audit on 2026-11-22. The task surface declares root `dist` (from `build`, `package-release`, `package-inspect` and `credential-capacity-assessment`) and `.cartulary/reference-packs/builders` and `modules` (from the reference-pack producer and module-check commands) as build outputs. None is registered in `tools/workspace_layout.json`, so both cleanup commands preserved them; builders alone held 1.4 GB. `apps/web/.cartulary` holds Vitest group scratch from `test-vitest-diagnostics.mjs`, but only its legacy `test-results` child was registered. A stale Vite cache from an older fixture root sat in `apps/web/src/testing/fixtures/node_modules`. The `.cache/cartulary` children `graph-v2` (native graph cache, 1 GB) and `static-analysis` were covered by their parent but unregistered.
+- **Remediation (done, uncommitted).** Registered `dist`, `.cartulary/reference-packs/builders` and `apps/web/.cartulary` (with the legacy results nested beneath it) at the `clean` tier; `.cartulary/reference-packs/modules` at `distclean` with the other dependency installs; the fixture Vite cache as legacy `clean`; and both cache children under `cache`. The REQ-505 disposition table records the new classes, and the cleanup contract test covers each path plus a preserved sibling (`.cartulary/reference-packs/isolation`, which holds qualification evidence).
+- **Left preserved by design.** External caches (`~/.cache/cartulary`: Go build, module and temporary work, harness scratch), `temp`, `.cartulary/retained-work`, runtime roots, browser leases, and ad-hoc custom roots under `.cartulary` (about 4 GB of manual qualification and remediation output, including the other `.cartulary/reference-packs/*` folders).
+- **Validation.** `make harness-contract SUITE=regression` (cleanup contract) and a `make distclean` preview list exactly the registered paths.
+
+### G22 — Readiness stamps vouch for removed images
+
+- **Evidence.** `harness-contract SUITE=regression` (`clean-regression01/02`) failed `native_graph_observations` and `native_fixture_lifecycle` at the renderer `image` stage: the pinned Playwright renderer image was no longer in the local Docker store (only the SeaweedFS and PostgreSQL images remained), while the `playwright-install` readiness stamp still recorded a successful install, so the pull never re-ran. A run with the G10 scoping disabled (`g10-ab-off01`) failed identically.
+- **Remediation (done, uncommitted).** Same rule the spec already applied to test-service images, now stated for the browser installation: a hit must prove the pinned renderer image is present with its repository digest and platform (spec text beside the test-service image paragraph). `installed-readiness.mjs` gains `rendererImageReadiness`, built on the lease's own `verifyRendererImage`, used by the installed-only browser probe and a `renderer-image` CLI mode; it reports under the existing `chromium` subject with `playwright_install` recovery, so the closed failure vocabulary is unchanged. `playwright-install.sh --invalidate-stale-stamp`, run by the stamp recipe before the readiness cache, drops the stamp when that proof fails.
+- **Validation.** New tests cover present, missing and replaced images for both the probe and the stamp invalidation (`ui_review_contract`, `ui_review_lifecycle` rows pass). End to end: with the image removed and the stamp still on disk, `make bootstrap PART=browser` reported the missing image, reinstalled and restored it; `native_graph_observations` and `native_fixture_lifecycle` then passed (`g22-native01`).
+
+### G23 — Pinned security package removed upstream
+
+- **Evidence.** After `make distclean`, `make bootstrap` failed at `playwright-install`: `libnss3-tools_3.98-1ubuntu0.2_amd64.deb` returns 404 from `security.ubuntu.com`, which drops superseded security builds. The cached copy under `.cache/cartulary/playwright/trust-tools` had hidden this. `post-distclean-check01` then failed `playwright_install` and skipped 10 dependent units.
+- **Fix (uncommitted).** `browser_trust_tool` in `tools/toolchain_pins.json` moves to `2:3.98-1ubuntu0.3` (615,126 bytes, SHA-256 `0bb79191…88c0`). Provenance: the `noble-security` `InRelease` file verifies with the Ubuntu archive key, lists the `main/binary-amd64/Packages.gz` digest, and that index lists this package's size and digest; the download matches.
+- **Remaining risk.** The next security update will break the pin again. A durable fix would pin to an archive that keeps superseded builds, or retain the verified package in a release-evidence cache that cleanup preserves.
+
 ## 6. Rejected Alternatives
 
 | Alternative | Reason rejected |
@@ -474,9 +502,10 @@ WS2 and WS3 can run in parallel but are measured together, because both move the
 | A4b | REQ-371 | Withdrawn: replay shows segment churn comes from waiting-unit volume (G4), not holder changes | G9 | None |
 | A9 | REQ-357; REQ-804 | Databases in a single-unit exclusive generation retire with the generation instead of eager `DROP DATABASE` (drafted, uncommitted) | G19 | None |
 | A10 | REQ-153 | Non-ignored nested repositories fail enumeration by name; whole-checkout scans use the Git enumeration; third-party tools honour ignore rules (drafted, uncommitted) | G20 | None |
+| A11 | REQ-505 | Disposition table adds root `dist`, reference-pack builders and module staging, and the whole `apps/web/.cartulary` (drafted, uncommitted) | G21 | None |
 | A8 | REQ-803; REQ-381 | Admission waiters re-evaluate on admission-state change, with a bounded fallback for dead-owner reclamation | G16 | None expected |
-| A5 | REQ-407 | Passing Network Flow comparisons keep outputs and digests; bulk materialization released at unit finalization | G8 | None expected |
-| A6 | §13 | Invocation-scoped `TMPDIR`/`GOTMPDIR`; retention command with pins and dry-run; cache-maintenance command | G10–G12 | New command identities in the task surface |
+| A5 | REQ-407 | A passing fixture comparison keeps its digest record only (Network Flow summary with `materialized_input_root` null, IR `comparison.json`, reference-pack `bootstrap.json`); a failing one keeps its full material (drafted, uncommitted) | G8 | None |
+| A6 | §5 Go path table; §14 readiness | Invocation-scoped `GOTMPDIR`/`GO_TMP_DIR` beneath the machine path, removed at settlement, dead-owner reclamation; `TMPDIR` stays host-wide (drafted, uncommitted). Retention and cache-maintenance commands (G11, G12) not started | G10 | None |
 | A7 | Aggregate membership; Core 05 alignment | Quiet measurement leaves `ci`/`release-check`; release verification requires measurement roots | G13 | Aggregate projections |
 
 Each amendment lands spec-first in one change with its machine projections, regenerated outputs (`make generate`) and the tests that exercise it, following [tools/AGENTS.md](../../tools/AGENTS.md).
@@ -538,3 +567,9 @@ Each amendment lands spec-first in one change with its machine projections, rege
 | 2026-11-22 | Validation 1 of 2 | Diagnostic `check`, default capacities | `g19b-check01` | **Pass 365/365.** Graph 970 s, outer 1,097 s; checkpoint sync 594 s; CPU-only host-admission wait 7 s |
 | 2026-11-22 | Validation 2 of 2 | Diagnostic `check`, default capacities | `g19b-check02` | Fail 361/365: only the four static checks failed, all on a git worktree another session created inside the checkout mid-run (G20); every service-backed unit passed. Graph 996 s; checkpoint sync 692 s; admission log complete |
 | 2026-11-22 | G20 remediation | Targeted: `test-slice` (command-surface parity, owner boundaries), `lint CHECK=shell`, `lint CHECK=frontend`, `source-check CHECK=schema`, `otel-conformance`, `lint-markdown`; nested worktree present throughout | `g20-slice01`, `g20-lintshell01`, `g20-lintfe01`, `g20-schema02`, `g20-otel01` | Pass. `g20-schema01` failed only on stale generated topology digests; fixed by `make generate` (`g20-generate01`) |
+| 2026-11-22 | One-time cleanup | Removed fixture copies from retained runs for passed comparisons and packs not named in a failed test's log (60 GiB); leaked `GO_TMP_DIR` entries older than 1 day (55,357, 2.5 GiB); Go build-cache entries unused for 2 days (146 GiB). Disk use 462 → 253 GB | — | Kept: every summary, log, diagnostic, event log, Playwright output, 1,452 Network Flow and 50 IR folders tied to failures, 115 failure-referenced packs, 33 possibly live runs |
+| 2026-11-22 | G8 + G10 validation | Targeted slices across six owners; diagnostic `check` | `g810-*01`, `g810-check01` | Slices pass; no new shared Go temp entries. `check` 363/365: a `staticcheck` ST1005 finding in `gotemp_linux.go` (fixed) and `network_flow_portability` (import participant error under load; passes alone in `g810-nfport01`). Check root 249 MB, 174 MB of it the diagnostics event log |
+| 2026-11-22 | Regression suite | `harness-contract SUITE=regression` | `clean-regression01`, `clean-regression02` | First run: 5 failures. Fixed 3 caused by committed work: two tests intercept `spawnSync` for the shared Git listing (G20 had switched it to `execFileSync`), and the selected-services test required a drop for every owned database (G19 retirement; now a `postgres-db-retired` event, REQ-357). Remaining 2 are G22 |
+| 2026-11-22 | Cleanup audit and `distclean` | Registered missing build outputs and scratch (G21); `make distclean` preview then run | — | 39 roots removed in 53 s; disk use 251 → 127 GB. External Go caches and custom `.cartulary` roots preserved |
+| 2026-11-22 | Post-`distclean` check 1 | `make bootstrap`, `make check` | `post-distclean-check01` | Bootstrap failed (G23). Check 352/365 + 10 skipped: `playwright_install` (G23) and two stale-generation failures (generation not re-run after a late edit; fixed by `make generate`). Run root 208 MB without diagnostics |
+| 2026-11-22 | Post-`distclean` check 2 | NSS pin updated (G23), `make bootstrap`, `make check` | `post-distclean-check02` | **Pass 365/365.** Graph 1,181 s with cold caches; no new entries in the shared `GO_TMP_DIR`; run root 222 MB, mostly the event log (G9) |

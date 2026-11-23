@@ -248,21 +248,6 @@ func (c *Corpus) Read(name string) ([]byte, error) {
 }
 
 // Remove releases only this admitted copy. Source fixtures remain immutable.
-// Callers retaining comparison inputs under a run root need not call Remove.
 func (c *Corpus) Remove() error {
-	if err := fixtureartifacts.RejectSymlinkComponents(c.root); err != nil {
-		return err
-	}
-	if err := filepath.WalkDir(c.root, func(path string, entry fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if entry.IsDir() {
-			return os.Chmod(path, 0700)
-		}
-		return nil
-	}); err != nil {
-		return err
-	}
-	return os.RemoveAll(c.root)
+	return fixtureartifacts.ReleaseTree(c.root)
 }

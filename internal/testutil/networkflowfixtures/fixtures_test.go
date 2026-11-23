@@ -256,11 +256,14 @@ func TestFixtureExecution(t *testing.T) {
 		var s Summary
 		requireNoError(t, json.Unmarshal(read(t, path), &s))
 		requireNoError(t, validateDocument(read(t, path), summarySchema))
-		if s.Status != "passed" || s.FailurePhase != nil || s.InputRoot == nil || s.ManifestSHA256 == nil || len(s.Artifacts) != 1 || s.Artifacts[0].Size != 12 {
+		if s.Status != "passed" || s.FailurePhase != nil || s.InputRoot != nil || s.ManifestSHA256 == nil || len(s.Artifacts) != 1 || s.Artifacts[0].Size != 12 {
 			t.Fatalf("incomplete summary: %+v", s)
 		}
-		if !strings.HasPrefix(filepath.Join(config.RunRoot, *s.InputRoot), config.RunRoot+string(filepath.Separator)) {
-			t.Fatal("escaped run root")
+		// A pass keeps only the digest record; the sealed copy and outputs are released.
+		entries, err := os.ReadDir(filepath.Dir(path))
+		requireNoError(t, err)
+		if len(entries) != 1 || entries[0].Name() != "comparison-summary.json" {
+			t.Fatalf("passing comparison retained bulk: %v", entries)
 		}
 	})
 	t.Run("failed comparison", func(t *testing.T) {
@@ -272,8 +275,18 @@ func TestFixtureExecution(t *testing.T) {
 		}
 		var s Summary
 		requireNoError(t, json.Unmarshal(read(t, path), &s))
-		if s.Status != "failed" || *s.FailurePhase != "comparison" {
+		if s.Status != "failed" || *s.FailurePhase != "comparison" || s.InputRoot == nil {
 			t.Fatalf("wrong failure: %+v", s)
+		}
+		// A failure keeps the complete workspace for diagnosis.
+		input := filepath.Join(config.RunRoot, *s.InputRoot)
+		if !strings.HasPrefix(input, config.RunRoot+string(filepath.Separator)) {
+			t.Fatal("escaped run root")
+		}
+		for _, retained := range []string{input, filepath.Join(filepath.Dir(path), "produced")} {
+			if info, err := os.Stat(retained); err != nil || !info.IsDir() {
+				t.Fatalf("failed comparison released %s: %v", retained, err)
+			}
 		}
 	})
 	t.Run("concurrent isolation", func(t *testing.T) {

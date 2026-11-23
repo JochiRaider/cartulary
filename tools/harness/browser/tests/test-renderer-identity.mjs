@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync, existsSync, symlinkSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { chmodSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync, existsSync, symlinkSync } from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import { resolvePlaywrightPackages } from "../../readiness/playwright-packages.mjs";
@@ -195,3 +196,33 @@ for (const accountingParent of ["", "/fixture/accounting-parent"]) for (const di
   assert.equal(create[create.indexOf("--user") + 1], "pwuser");
   assert.ok(!create.includes("--volume") && !create.includes("--network"));
 }
+
+// A readiness stamp cannot see the Docker store: the install path keeps its
+// stamp only while the pinned image is provably present, so a removed or
+// replaced image forces the ordinary install to pull it again.
+const stampScratch = mkdtempSync(path.join(os.tmpdir(), "cartulary-renderer-stamp-"));
+try {
+  const bin = path.join(stampScratch, "bin");
+  mkdirSync(bin);
+  writeFileSync(path.join(bin, "docker"), "#!/bin/sh\n[ \"$1 $2\" = \"image inspect\" ] || exit 1\n[ -n \"$FAKE_DOCKER_IMAGE_JSON\" ] || { echo 'Error: No such image' >&2; exit 1; }\nprintf '%s\\n' \"$FAKE_DOCKER_IMAGE_JSON\"\n");
+  chmodSync(path.join(bin, "docker"), 0o755);
+  const stamp = path.join(stampScratch, "chromium.stamp");
+  const [os_, architecture] = profile.platform.split("/");
+  const invalidate = (image) => spawnSync("bash", ["tools/harness/browser/playwright-install.sh", "--invalidate-stale-stamp"], {
+    cwd: root, encoding: "utf8",
+    env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, PLAYWRIGHT_INSTALL_STAMP: stamp, NODE_BIN: process.execPath, FAKE_DOCKER_IMAGE_JSON: image ? JSON.stringify([image]) : "" },
+  });
+  for (const [label, image, kept] of [
+    ["present", { Id: "sha256:pinned", Os: os_, Architecture: architecture, RepoDigests: [profile.container_image] }, true],
+    ["missing", null, false],
+    ["replaced", { Id: "sha256:other", Os: os_, Architecture: architecture, RepoDigests: ["example/other@sha256:00"] }, false],
+  ]) {
+    writeFileSync(stamp, "installed\n");
+    const result = invalidate(image);
+    assert.equal(result.status, 0, `${label}: ${result.stderr}`);
+    assert.equal(existsSync(stamp), kept, `${label}: stamp ${kept ? "dropped" : "kept"}`);
+  }
+  const absent = invalidate(null);
+  assert.equal(absent.status, 0);
+  assert.equal(existsSync(stamp), false, "invalidation created a stamp");
+} finally { rmSync(stampScratch, { recursive: true, force: true }); }

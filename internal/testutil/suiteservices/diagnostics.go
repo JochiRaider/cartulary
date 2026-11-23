@@ -34,6 +34,7 @@ const (
 	EventPostgresAttach         = "postgres-attach"
 	EventPostgresDBCreated      = "postgres-db-created"
 	EventPostgresDBDropped      = "postgres-db-dropped"
+	EventPostgresDBRetired      = "postgres-db-retired"
 	EventPostgresDropAttempt    = "postgres-drop-attempt"
 	EventPostgresReady          = "postgres-ready"
 	EventPostgresDBMigrated     = "postgres-db-migrated"
@@ -572,7 +573,7 @@ func Summarize(env map[string]string) (ServiceScope, bool, error) {
 			}
 			upsertPostgresPreparation(databasePreparations, event, strategyForPostgresCreateEvent(event))
 			recordFixtureActivity(&scope.Fixture, packageFixtures, testFixtures, strategyFixtures, &slowestFixtures, event)
-		case EventPostgresDBDropped:
+		case EventPostgresDBDropped, EventPostgresDBRetired:
 			recordFixtureActivity(&scope.Fixture, packageFixtures, testFixtures, strategyFixtures, &slowestFixtures, event)
 		case EventPostgresDropAttempt:
 			if len(scope.Postgres.DropAttempts) >= 32 {
@@ -949,7 +950,7 @@ func fixtureActivityFromEvent(event Event) FixtureActivity {
 
 func fixtureServiceForEvent(eventType string) string {
 	switch eventType {
-	case EventPostgresDBCreated, EventPostgresDBDropped, EventPostgresDBMigrated, EventPostgresTransaction:
+	case EventPostgresDBCreated, EventPostgresDBDropped, EventPostgresDBRetired, EventPostgresDBMigrated, EventPostgresTransaction:
 		return ServicePostgres
 	case EventS3BucketCreated, EventS3BucketCleaned, EventS3PrefixCleaned:
 		return ServiceObjectStore
@@ -964,6 +965,8 @@ func fixtureOperationForEvent(eventType string) string {
 		return "database-create"
 	case EventPostgresDBDropped:
 		return "database-drop"
+	case EventPostgresDBRetired:
+		return "database-retire"
 	case EventPostgresDBMigrated:
 		return "database-migrate"
 	case EventPostgresTransaction:

@@ -10,8 +10,9 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtureartifacts"
 )
 
-// ForTest retains the exact admitted inputs and an assertion disposition under
-// the already selected harness run. The harness row remains the test authority.
+// ForTest records the admitted inputs' digests and an assertion disposition under
+// the already selected harness run, and keeps the admitted copy only when the
+// test fails. The harness row remains the test authority.
 // Calling this helper during source discovery is neither needed nor supported.
 func ForTest(t testing.TB, fixtureRoot string) *Corpus {
 	t.Helper()
@@ -31,27 +32,40 @@ func ForTest(t testing.TB, fixtureRoot string) *Corpus {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
-		files := make([]fixtureartifacts.File, 0, len(c.files))
-		for _, file := range c.files {
-			files = append(files, file)
-		}
-		sort.Slice(files, func(i, j int) bool { return files[i].Path < files[j].Path })
-		record := struct {
-			FixtureID        string                  `json:"fixture_id"`
-			Revision         int                     `json:"revision"`
-			ManifestSHA256   string                  `json:"manifest_sha256"`
-			Test             string                  `json:"test"`
-			AssertionsPassed bool                    `json:"assertions_passed"`
-			Files            []fixtureartifacts.File `json:"admitted_files"`
-		}{ID, Revision, c.ManifestSHA256, t.Name(), !t.Failed(), files}
-		raw, err := json.MarshalIndent(record, "", "  ")
-		if err == nil {
-			err = os.WriteFile(filepath.Join(workspace, "comparison.json"), append(raw, '\n'), 0600)
-		}
-		if err != nil {
+		if err := settle(workspace, c, t.Name(), t.Failed()); err != nil {
 			t.Error(err)
 		}
 	})
 	t.Logf("IR fixture comparison: %s", filepath.Join(workspace, "comparison.json"))
 	return c
+}
+
+// settle writes the comparison record and releases the admitted copy after a
+// passing test; a failing test keeps it beside the record for diagnosis.
+func settle(workspace string, c *Corpus, test string, failed bool) error {
+	files := make([]fixtureartifacts.File, 0, len(c.files))
+	for _, file := range c.files {
+		files = append(files, file)
+	}
+	sort.Slice(files, func(i, j int) bool { return files[i].Path < files[j].Path })
+	record := struct {
+		FixtureID        string                  `json:"fixture_id"`
+		Revision         int                     `json:"revision"`
+		ManifestSHA256   string                  `json:"manifest_sha256"`
+		Test             string                  `json:"test"`
+		AssertionsPassed bool                    `json:"assertions_passed"`
+		InputsRetained   bool                    `json:"inputs_retained"`
+		Files            []fixtureartifacts.File `json:"admitted_files"`
+	}{ID, Revision, c.ManifestSHA256, test, !failed, failed, files}
+	raw, err := json.MarshalIndent(record, "", "  ")
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(workspace, "comparison.json"), append(raw, '\n'), 0600); err != nil {
+		return err
+	}
+	if failed {
+		return nil
+	}
+	return c.Remove()
 }

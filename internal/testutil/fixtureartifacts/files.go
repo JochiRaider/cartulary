@@ -43,6 +43,27 @@ func RejectSymlinkComponents(path string) error {
 	return nil
 }
 
+// ReleaseTree removes a run-local fixture copy after its digest record is kept.
+// Admitted copies are sealed read-only, so owner permissions are restored on
+// its real directories first. Links are never followed.
+func ReleaseTree(path string) error {
+	if err := RejectSymlinkComponents(path); err != nil {
+		return err
+	}
+	if err := filepath.WalkDir(path, func(current string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() {
+			return os.Chmod(current, 0700)
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	return os.RemoveAll(path)
+}
+
 func SecureDirectory(path string) error {
 	if !filepath.IsAbs(path) {
 		return errors.New("fixture run root must be absolute")

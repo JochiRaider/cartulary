@@ -100,6 +100,18 @@ func Run(config Config, compare func(*Bundle) error) (summaryPath string, err er
 		if bundle != nil {
 			summary.Artifacts = bundle.artifacts
 		}
+		// A pass keeps the digests; only a failed or blocked comparison keeps the
+		// materialized inputs and produced bytes for diagnosis.
+		if err == nil && summary.Status == "passed" {
+			releaseErr := errors.Join(
+				fixtureartifacts.ReleaseTree(filepath.Join(workspace, "inputs")),
+				fixtureartifacts.ReleaseTree(filepath.Join(workspace, "produced")),
+			)
+			if releaseErr == nil {
+				summary.InputRoot = nil
+			}
+			err = releaseErr
+		}
 		data, publishErr := json.MarshalIndent(summary, "", "  ")
 		if publishErr == nil {
 			publishErr = validateDocument(data, summarySchema)

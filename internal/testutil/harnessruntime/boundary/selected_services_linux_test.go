@@ -230,7 +230,9 @@ func TestNativeSelectedServiceLifecycle(t *testing.T) {
 			if len(processes) < 2 {
 				t.Fatal("independent database consumers missing")
 			}
-			if ownedDatabases == 0 || operations["database-drop"] != ownedDatabases || operations["transaction"] != 2 {
+			// Each owned database is dropped, or retired with its single-unit
+			// exclusive generation (TH-HARNESS-REQ-357).
+			if ownedDatabases == 0 || operations["database-drop"]+operations["database-retire"] != ownedDatabases || operations["transaction"] != 2 {
 				t.Fatal("owned database cleanup or transaction isolation evidence missing")
 			}
 			if scope.ObjectStore.BucketCreateCount == 0 || scope.ObjectStore.BucketCleanupCount < scope.ObjectStore.BucketCreateCount {

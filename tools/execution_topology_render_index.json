@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 3,
-  "input_digest": "sha256:a82f923d1ff9777723802810d9f5b8863d2d14a44a466e2aff02562d29501899",
+  "input_digest": "sha256:b96ea74210071b10a04faad3ec0a5b94619c68d0982138479dc7462c3c581695",
   "inputs": [
     {
       "path": "contracts/performance/ac003.v2.json",
@@ -1342,7 +1342,7 @@
     {
       "path": "tools/harness/test-catalog/restricted-input-boundary.mjs",
       "role": "renderer_source",
-      "hash": "sha256:8121da9cbbfe0eedea9aef783d9042706a24ac6db02ecce7786b1adb43546dde"
+      "hash": "sha256:670c0c492e2311cf1f68e9d738a8cd2a44cd6b3f8b441ce4ceb41d5c44d6e6b5"
     },
     {
       "path": "tools/harness/test-catalog/row-id-authoring-cli.mjs",
@@ -1452,7 +1452,7 @@
     {
       "path": "tools/test_families/harness.command_surface.json",
       "role": "test_family_manifest",
-      "hash": "sha256:60f7cb2a10cccd6b5e2be1e43bc39200baa0ede1001749bb2b9ef3e12eed0bb0"
+      "hash": "sha256:ecaa7a9b1a17399a10b1e4f16694ae4a02f502f2a24b0124714712b5db1402a5"
     },
     {
       "path": "tools/test_families/harness.evidence_accounting.json",
@@ -1527,7 +1527,7 @@
     {
       "path": "tools/test_families/module.imports.json",
       "role": "test_family_manifest",
-      "hash": "sha256:a3d61f1a850fe16081e29bcc711fc42d1845df3310140bdc762da95d7bfb4663"
+      "hash": "sha256:3b0c35825caddb77e1a3ab3e3fe2b97e2a8e8da0d76c331fe158d0244748a686"
     },
     {
       "path": "tools/test_families/module.incidentbundles.json",

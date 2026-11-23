@@ -2486,7 +2486,7 @@ contribute to the same target projections and aggregate verdict. A cache hit
 MUST NOT bypass service readiness, fixture cleanup, runtime reset, destructive
 guards, failure projection, or publication of canonical current-run evidence.
 
-Test-service image readiness is a readiness cache profile only. Its cache key MUST include the testservices binary digest, image-owner source digests, helper implementation digests, and toolchain pins. A cache hit MUST still prove that every pinned service image named by the testservices helper is locally present before accepting the readiness stamp; missing images invalidate the stamp and force the ordinary image warmup command. This cache profile MUST NOT replace service startup readiness, test service lifecycle evidence, browser reset, cleanup, fixture preparation, or product-conformance evidence.
+Test-service image readiness is a readiness cache profile only. Its cache key MUST include the testservices binary digest, image-owner source digests, helper implementation digests, and toolchain pins. A cache hit MUST still prove that every pinned service image named by the testservices helper is locally present before accepting the readiness stamp; missing images invalidate the stamp and force the ordinary image warmup command. Browser installation readiness follows the same rule for the pinned visual renderer image: a cache hit MUST still prove that the image is locally present with its pinned repository digest and platform, and a missing, mismatched, or unprovable image invalidates the stamp so the ordinary browser installation pulls it again. The installed-only browser readiness probe applies the same proof and reports a missing or mismatched image under the browser installation subject `chromium` with the `playwright_install` recovery. This cache profile MUST NOT replace service startup readiness, test service lifecycle evidence, browser reset, cleanup, fixture preparation, or product-conformance evidence.
 
 Cache records that are missing, bypassed, invalid, corrupt, or whose declared
 outputs are missing or digest-mismatched MUST NOT produce success by reuse.
@@ -3892,7 +3892,7 @@ Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-002, TH-HARNESS-AC-003
 | `--resource-limit name=value`                                                                   | scheduler               | declared resource name and positive integer value                                                                     | none                                                                                      | CLI flag only                                   | invalid                                                 | name exact; value decimal                                                                                     | `usage_error` for malformed flag, `configuration_error` for invalid declared value | normalized override                                |
 | `CARTULARY_MACHINE_CACHE_DIR`                                                                  | global machine state    | absolute filesystem path outside the repository                                                                       | `$XDG_CACHE_HOME/cartulary` when `XDG_CACHE_HOME` is absolute and nonempty; otherwise `$HOME/.cache/cartulary`; no `/tmp` or repository fallback | Make variable, env, default | invalid | realpath-aware normalization against the repository boundary | `configuration_error`, exit `2` | normalized root and source |
 | `GO`, `GO_CACHE_DIR`, `GO_MOD_CACHE_DIR`, `GO_TMP_DIR`                                         | toolchain               | executable path for `GO`; absolute external filesystem paths for the three state directories                          | Go launcher auto-discovered; `<machine-cache>/go/build`, `<machine-cache>/go/mod`, and `<machine-cache>/go/tmp` | Make variable, env, default | invalid for paths, omitted for executable | realpath-aware path normalization; state directories must be outside the repository and pairwise non-overlapping | `configuration_error`, exit `2` | launcher and normalized state paths unless redacted |
-| `GOCACHE`, `GOMODCACHE`, `GOTMPDIR`                                                            | toolchain child env     | exact projections of the resolved Cartulary path variables                                                            | resolved `GO_CACHE_DIR`, `GO_MOD_CACHE_DIR`, and `GO_TMP_DIR` | internal child environment only | invalid | no caller alias translation or fallback | caller Make override is `usage_error`, exit `2`; inherited values are stripped or overwritten | omitted |
+| `GOCACHE`, `GOMODCACHE`, `GOTMPDIR`                                                            | toolchain child env     | exact projections of the resolved Cartulary path variables; inside a graph invocation, `GOTMPDIR` is its private directory beneath `GO_TMP_DIR` | resolved `GO_CACHE_DIR`, `GO_MOD_CACHE_DIR`, and `GO_TMP_DIR` | internal child environment only | invalid | no caller alias translation or fallback | caller Make override is `usage_error`, exit `2`; inherited values are stripped or overwritten | omitted |
 | `GO_TOOLCHAIN`, `GOTOOLCHAIN`                                                                  | toolchain               | exact reviewed Go toolchain token                                                                                     | exact reviewed `go_toolchain` from `tools/toolchain_pins.json`, mirrored in `go.mod` and Make | internal Make projection only                  | invalid                                                 | exact token; `GOTOOLCHAIN` is forced to the repository pin for Make-owned Go work                            | `configuration_error`, exit `2`                                                    | launcher version, exact effective version, and source |
 | `NODE_VERSION`, `PNPM_VERSION`, `NODE_RUNTIME_DIR`, `NODE_BIN`, `PNPM`, `COREPACK_HOME`, `PATH` | toolchain               | version token or filesystem path                                                                                      | Node `24.15.0`, pnpm `10.33.0`, repo-local `.cache/cartulary/node-runtime`                             | Make variable, env, default                     | invalid for paths/versions unless row-specific optional | exact version token; path normalization                                                                       | `configuration_error`, exit `2`                                                    | version and runtime path                           |
 | `CARTULARY_READINESS_CACHE_DIR`, `CARTULARY_READINESS_DISABLE_CACHE`, `CARTULARY_FORCE_REINSTALL` | harness cache           | repo-local path for cache dir; exact `1` for disable or force reinstall                                                | `.cache/cartulary/readiness`; false; false                                                 | Make variable, env, default                     | invalid for path; false for boolean flags                | path normalization; exact string compare for flags                                                           | invalid path is `configuration_error`; non-`1` flags are false                     | cache state and record path only                   |
@@ -6497,8 +6497,9 @@ that resource. Retirement is eager, with one exception: a dedicated or migration
 database inside a single-unit exclusive generation (allocation reference
 `postgres:unit:<unit>`) is retired with that generation. The generation belongs
 to one work unit and its retirement physically deletes every database in it, so
-the helper issues no per-test `DROP DATABASE` and forces no cluster checkpoint.
-Shared, browser-lane, measurement, owned-lifecycle and persistent attached
+the helper issues no per-test `DROP DATABASE` and forces no cluster checkpoint;
+it records a `postgres-db-retired` service-journal event instead, so every
+harness-owned database keeps drop or retirement evidence. Shared, browser-lane, measurement, owned-lifecycle and persistent attached
 clusters keep eager per-test drops, and explicit drop operations remain
 available. A scenario that must make such a database unavailable renames it to an
 unreachable name instead of dropping it, which forces no checkpoint, and leaves
@@ -8826,7 +8827,7 @@ Verified by: TH-HARNESS-AC-162
 ### 11.7 Network Flow Fixture Materialization Lifecycle
 
 **TH-HARNESS-REQ-407**
-Network Flow fixture source roots are committed fixture inputs, not service-owned mutable state. A harness runner MUST NOT write into `fixtures/network-flow/**` during validation, preview, apply, graph, cursor, indicator-link, or transcript comparison work. Any generated, staged, normalized, or copied fixture material MUST live under the current run root and MUST be removed only by ordinary result-root cleanup. `make clean`, service teardown, stale janitors, database reset, and object-store reset MUST NOT delete committed Network Flow fixture roots.
+Network Flow fixture source roots are committed fixture inputs, not service-owned mutable state. A harness runner MUST NOT write into `fixtures/network-flow/**` during validation, preview, apply, graph, cursor, indicator-link, or transcript comparison work. Any generated, staged, normalized, or copied fixture material MUST live under the current run root. A passing comparison releases its materialized inputs and produced artifacts when the comparison completes; its execution summary keeps the manifest, bundle, and produced-artifact digests and records `materialized_input_root` as null. A failed or blocked comparison keeps its complete workspace. The same rule applies to other fixture material a test helper copies or generates under the run root, such as admitted incident corpora and signed reference-pack containers: a passing test keeps only its digest record, and a failing test keeps the material. Retained material MUST be removed only by ordinary result-root cleanup. `make clean`, service teardown, stale janitors, database reset, and object-store reset MUST NOT delete committed Network Flow fixture roots.
 Verified by: TH-HARNESS-AC-049
 
 **TH-HARNESS-REQ-408**
@@ -9919,12 +9920,12 @@ Verified by: TH-HARNESS-AC-009, TH-HARNESS-AC-010, TH-HARNESS-AC-092
 
 | Directory class | `clean` | `distclean` |
 | --- | --- | --- |
-| Whole `tmp`, `build/bin`, web `dist` and `dist-measurement` | remove | remove |
+| Whole `tmp`, `build/bin`, root and web `dist`, web `dist-measurement`, and `.cartulary/reference-packs/builders` | remove | remove |
 | Default test/release results; registered coverage, Playwright and Vite output directories | remove | remove |
-| Adopted `apps/web/.cartulary/test-results` legacy manual results | remove | remove |
+| `apps/web/.cartulary` harness Vitest scratch, including adopted legacy `test-results` | remove | remove |
 | `webassets/assets/generated` and legacy `webassets/dist` | remove | remove |
 | `.cache/cartulary` | preserve | remove |
-| Root and workspace `node_modules`, `.pnpm-store` | preserve installs; remove registered Vite children | remove |
+| Root and workspace `node_modules`, `.pnpm-store`, `.cartulary/reference-packs/modules` | preserve installs; remove registered Vite children | remove |
 | Legacy `.cartulary/go-build`, `go-cache`, `go-mod`, `go-mod-cache`, `cache`, `tmp`, and `.fallow` | preserve | remove |
 | `temp`, `.cartulary/retained-work`, runtime roots, browser leases, external caches, and other custom roots | preserve | preserve |
 
@@ -10359,7 +10360,17 @@ and `GOTMPDIR`. No helper may restore a literal `/tmp/cartulary-go-*` fallback
 or treat native Go variables as a second public configuration interface.
 Graph-selected Go runners MUST apply these same resolved path projections at
 process launch, including when public command admission has stripped inherited
-native aliases. Static selector discovery MUST remain independent of machine
+native aliases.
+
+Temporary work is invocation-scoped. Each graph invocation MUST create one
+private directory directly beneath the resolved `GO_TMP_DIR`, record its owner
+process proof there before any unit starts, and project that directory to every
+unit as both `GO_TMP_DIR` and `GOTMPDIR`; Go's build work directories and test
+`TempDir` roots therefore land inside it. The invocation MUST remove the
+directory when the graph settles. Before creating its own, an invocation MUST
+remove any sibling invocation directory whose recorded owner is proven dead,
+and MUST leave every other entry untouched. `TMPDIR` is not scoped: it remains
+the host-wide namespace for cross-process admission and session registries. Static selector discovery MUST remain independent of machine
 cache paths. An inherited `GOROOT` MUST NOT select a different toolchain tree:
 public Make entry and review preparation MUST remove it, and the Go runner MUST
 supply an empty `GOROOT` so that the selected executable resolves its own root.

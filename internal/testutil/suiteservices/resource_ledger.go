@@ -52,7 +52,7 @@ func resourceLedgerFromEvents(env map[string]string, events []Event) ResourceLed
 			if event.Name != "" {
 				databases[event.Name] = struct{}{}
 			}
-		case EventPostgresDBDropped:
+		case EventPostgresDBDropped, EventPostgresDBRetired:
 			delete(databases, event.Name)
 		case EventS3BucketReserved, EventS3BucketCreated:
 			if event.Name != "" {

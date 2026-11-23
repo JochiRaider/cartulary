@@ -11,6 +11,7 @@ export const defaultFixtureTop = 5;
 const fixtureEventTypes = new Set([
   "postgres-db-created",
   "postgres-db-dropped",
+  "postgres-db-retired",
   "postgres-db-migrated",
   "postgres-transaction",
   "s3-bucket-created",
@@ -76,6 +77,8 @@ export function fixtureOperationForEvent(type) {
       return "database-create";
     case "postgres-db-dropped":
       return "database-drop";
+    case "postgres-db-retired":
+      return "database-retire";
     case "postgres-db-migrated":
       return "database-migrate";
     case "postgres-transaction":
