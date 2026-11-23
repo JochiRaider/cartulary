@@ -8,7 +8,6 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	otellog "go.opentelemetry.io/otel/log"
-	logglobal "go.opentelemetry.io/otel/log/global"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/metric/noop"
 	"go.opentelemetry.io/otel/trace"
@@ -100,7 +99,7 @@ func newLoggerHandle(scope Scope, serviceVersion string) LoggerHandle {
 	return LoggerHandle{
 		scopeName: string(scope),
 		version:   version,
-		logger:    logglobal.Logger(string(scope), otellog.WithInstrumentationVersion(version)),
+		logger:    otel.Logger(string(scope), otellog.WithInstrumentationVersion(version)),
 	}
 }
 

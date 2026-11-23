@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	logglobal "go.opentelemetry.io/otel/log/global"
+	"go.opentelemetry.io/otel"
 	collectlogs "go.opentelemetry.io/proto/otlp/collector/logs/v1"
 	common "go.opentelemetry.io/proto/otlp/common/v1"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -21,7 +21,7 @@ import (
 // Flush waits for the configured application log exporter without exposing its
 // provider to a source-owner test.
 func Flush(ctx context.Context) error {
-	provider, ok := logglobal.GetLoggerProvider().(interface{ ForceFlush(context.Context) error })
+	provider, ok := otel.GetLoggerProvider().(interface{ ForceFlush(context.Context) error })
 	if !ok {
 		return fmt.Errorf("configured log exporter is not active")
 	}

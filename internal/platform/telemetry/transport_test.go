@@ -41,7 +41,7 @@ type telemetrySink struct {
 
 func (s *telemetrySink) accept(signal, userAgent string) {
 	s.t.Helper()
-	version := map[string]string{"traces": "v1.45.0", "metrics": "v1.45.0", "logs": "v0.21.0"}[signal]
+	version := map[string]string{"traces": "v1.47.0", "metrics": "v1.47.0", "logs": "v0.23.0"}[signal]
 	expected := "Cartulary/1.2.3 OTel-OTLP-Exporter-go/" + version
 	if userAgent != expected && !strings.HasPrefix(userAgent, expected+" grpc-go/") {
 		s.t.Errorf("wrong %s exporter identity: %q", signal, userAgent)

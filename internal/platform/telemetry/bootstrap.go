@@ -16,7 +16,6 @@ import (
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
-	logglobal "go.opentelemetry.io/otel/log/global"
 	lognoop "go.opentelemetry.io/otel/log/noop"
 	"go.opentelemetry.io/otel/metric/noop"
 	sdklog "go.opentelemetry.io/otel/sdk/log"
@@ -269,10 +268,10 @@ func (r *Runtime) activateOTLP(ctx context.Context, cfg telemetryconfiguration.C
 			sdklog.WithProcessor(logProcessor),
 		)
 		r.shutdowns = append(r.shutdowns, loggerProvider.Shutdown)
-		logglobal.SetLoggerProvider(loggerProvider)
+		otel.SetLoggerProvider(loggerProvider)
 		r.networkExport = true
 	} else {
-		logglobal.SetLoggerProvider(lognoop.NewLoggerProvider())
+		otel.SetLoggerProvider(lognoop.NewLoggerProvider())
 	}
 
 	return nil
@@ -445,7 +444,7 @@ func (r *Runtime) shutdownBuiltProviders(ctx context.Context) error {
 func installNoopProviders() {
 	otel.SetTracerProvider(tracenoop.NewTracerProvider())
 	otel.SetMeterProvider(noop.NewMeterProvider())
-	logglobal.SetLoggerProvider(lognoop.NewLoggerProvider())
+	otel.SetLoggerProvider(lognoop.NewLoggerProvider())
 }
 
 func sdkSampler(profile string, ratio float64) sdktrace.Sampler {

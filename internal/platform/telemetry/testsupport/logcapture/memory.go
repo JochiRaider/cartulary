@@ -4,9 +4,9 @@ import (
 	"context"
 	"sync"
 
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	otellog "go.opentelemetry.io/otel/log"
-	logglobal "go.opentelemetry.io/otel/log/global"
 	sdklog "go.opentelemetry.io/otel/sdk/log"
 )
 
@@ -31,15 +31,15 @@ type Capture struct {
 func Start() *Capture {
 	processor := &memoryProcessor{}
 	capture := &Capture{
-		previous: logglobal.GetLoggerProvider(), processor: processor,
+		previous: otel.GetLoggerProvider(), processor: processor,
 		provider: sdklog.NewLoggerProvider(sdklog.WithProcessor(processor)),
 	}
-	logglobal.SetLoggerProvider(capture.provider)
+	otel.SetLoggerProvider(capture.provider)
 	return capture
 }
 
 func (capture *Capture) Close(ctx context.Context) error {
-	logglobal.SetLoggerProvider(capture.previous)
+	otel.SetLoggerProvider(capture.previous)
 	return capture.provider.Shutdown(ctx)
 }
 
