@@ -705,14 +705,44 @@ func mutate(s *state, r Request) (bool, error) {
 			return l
 		}
 		root := rootOf(l)
-		active, predecessors, roots := []*lease{}, []*lease{}, []*lease{}
+		active, waiting, roots := []*lease{}, []*lease{}, []*lease{}
 		for _, entry := range s.Leases {
 			if entry.Granted && (!entry.Released || guarded(entry)) {
 				active = append(active, entry)
 				if entry.Parent == nil {
 					roots = append(roots, entry)
 				}
-			} else if !entry.Released && entry.Sequence < l.Sequence {
+			} else if !entry.Released && entry != l {
+				waiting = append(waiting, entry)
+			}
+		}
+		// Waiter priority is arrival order, except that between shared requests
+		// one whose postgres_heavy lane is available precedes those claiming no
+		// heavy lane: a free heavy lane carries the longest work and must not idle
+		// behind ordinary PostgreSQL waiters (TH-HARNESS-REQ-803).
+		laneReady := map[*lease]bool{}
+		heavyReady := func(entry *lease) bool {
+			ready, known := laneReady[entry]
+			if !known {
+				if entry.Mode == "shared" && entry.Claims["postgres_heavy"] > 0 {
+					deficits, _, _ := capacityFor(entry, active, nil, nil)
+					ready = deficits["postgres_heavy"] == 0
+				}
+				laneReady[entry] = ready
+			}
+			return ready
+		}
+		precedes := func(a, b *lease) bool {
+			if a.Mode == "shared" && b.Mode == "shared" {
+				if ready := heavyReady(a); ready != heavyReady(b) {
+					return ready
+				}
+			}
+			return a.Sequence < b.Sequence
+		}
+		predecessors := []*lease{}
+		for _, entry := range waiting {
+			if precedes(entry, l) {
 				predecessors = append(predecessors, entry)
 			}
 		}

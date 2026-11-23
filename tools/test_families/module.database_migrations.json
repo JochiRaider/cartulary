@@ -34,7 +34,8 @@
       "service_dependencies": [
         "postgres"
       ],
-      "postgres_isolation": "exclusive"
+      "postgres_isolation": "exclusive",
+      "estimated_work_ms": 6000
     },
     {
       "row_id": "module.database_migrations.integration.cryptographic_state_admission",
@@ -68,7 +69,8 @@
       "service_dependencies": [
         "postgres"
       ],
-      "postgres_isolation": "exclusive"
+      "postgres_isolation": "exclusive",
+      "estimated_work_ms": 16000
     },
     {
       "row_id": "module.database_migrations.integration.migration_evidence_database_semantics",
@@ -136,7 +138,8 @@
       "service_dependencies": [
         "postgres"
       ],
-      "postgres_isolation": "exclusive"
+      "postgres_isolation": "exclusive",
+      "estimated_work_ms": 23000
     },
     {
       "row_id": "module.database_migrations.integration.production_preflight_state_matrix",
@@ -172,7 +175,8 @@
       "service_dependencies": [
         "postgres"
       ],
-      "postgres_isolation": "exclusive"
+      "postgres_isolation": "exclusive",
+      "estimated_work_ms": 17000
     },
     {
       "row_id": "module.database_migrations.integration.recovery_target_control_distinguishes_fresh_init_d379ae733e",
@@ -202,7 +206,8 @@
       "service_dependencies": [
         "postgres"
       ],
-      "postgres_isolation": "exclusive"
+      "postgres_isolation": "exclusive",
+      "estimated_work_ms": 3000
     },
     {
       "row_id": "module.database_migrations.integration.schema_bootstrap",
@@ -272,7 +277,8 @@
       "service_dependencies": [
         "postgres"
       ],
-      "postgres_isolation": "exclusive"
+      "postgres_isolation": "exclusive",
+      "estimated_work_ms": 15000
     },
     {
       "row_id": "module.database_migrations.unit.fail_closed_source_and_remediation_contract",

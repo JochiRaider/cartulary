@@ -1103,7 +1103,7 @@
         ]
       },
       "evidence_class": "integration",
-      "estimated_work_ms": 45000,
+      "estimated_work_ms": 8000,
       "runtime_profile_id": "network_flow_claimed",
       "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
@@ -1431,7 +1431,7 @@
         ]
       },
       "evidence_class": "integration",
-      "estimated_work_ms": 7000,
+      "estimated_work_ms": 17000,
       "runtime_profile_id": "network_flow_claimed",
       "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
@@ -1732,7 +1732,7 @@
         ]
       },
       "evidence_class": "integration",
-      "estimated_work_ms": 21000,
+      "estimated_work_ms": 40000,
       "runtime_profile_id": "network_flow_claimed",
       "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
@@ -1765,7 +1765,7 @@
         ]
       },
       "evidence_class": "integration",
-      "estimated_work_ms": 10000,
+      "estimated_work_ms": 18000,
       "runtime_profile_id": "network_flow_claimed",
       "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
@@ -1833,7 +1833,7 @@
         ]
       },
       "evidence_class": "integration",
-      "estimated_work_ms": 13000,
+      "estimated_work_ms": 27000,
       "runtime_profile_id": "network_flow_claimed",
       "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
@@ -2235,7 +2235,7 @@
         ]
       },
       "evidence_class": "integration",
-      "estimated_work_ms": 11000,
+      "estimated_work_ms": 22000,
       "runtime_profile_id": "network_flow_claimed",
       "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
@@ -2472,7 +2472,7 @@
         ]
       },
       "evidence_class": "integration",
-      "estimated_work_ms": 16000,
+      "estimated_work_ms": 22000,
       "runtime_profile_id": "network_flow_claimed",
       "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",

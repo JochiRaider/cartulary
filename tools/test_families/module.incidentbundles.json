@@ -87,7 +87,7 @@
         ]
       },
       "evidence_class": "integration",
-      "estimated_work_ms": 18000,
+      "estimated_work_ms": 30000,
       "runtime_profile_id": "default",
       "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
@@ -314,7 +314,7 @@
         ]
       },
       "evidence_class": "integration",
-      "estimated_work_ms": 24000,
+      "estimated_work_ms": 34000,
       "runtime_profile_id": "default",
       "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
@@ -701,7 +701,8 @@
       "service_dependencies": [
         "postgres"
       ],
-      "postgres_isolation": "exclusive"
+      "postgres_isolation": "exclusive",
+      "estimated_work_ms": 22000
     },
     {
       "row_id": "module.incidentbundles.integration.veris_bundle_round_trip",
@@ -722,7 +723,7 @@
         ]
       },
       "evidence_class": "integration",
-      "estimated_work_ms": 38000,
+      "estimated_work_ms": 48000,
       "runtime_profile_id": "default",
       "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",

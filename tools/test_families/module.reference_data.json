@@ -400,7 +400,7 @@
         ]
       },
       "evidence_class": "integration",
-      "estimated_work_ms": 57000,
+      "estimated_work_ms": 74000,
       "runtime_profile_id": "default",
       "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
@@ -433,7 +433,7 @@
         ]
       },
       "evidence_class": "integration",
-      "estimated_work_ms": 43000,
+      "estimated_work_ms": 54000,
       "runtime_profile_id": "default",
       "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
@@ -532,7 +532,7 @@
         ]
       },
       "evidence_class": "integration",
-      "estimated_work_ms": 3000,
+      "estimated_work_ms": 10000,
       "runtime_profile_id": "default",
       "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
@@ -1095,7 +1095,7 @@
         ]
       },
       "evidence_class": "integration",
-      "estimated_work_ms": 27000,
+      "estimated_work_ms": 75000,
       "runtime_profile_id": "default",
       "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
@@ -1473,7 +1473,7 @@
         ]
       },
       "evidence_class": "integration",
-      "estimated_work_ms": 15000,
+      "estimated_work_ms": 33000,
       "runtime_profile_id": "default",
       "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
@@ -1623,7 +1623,7 @@
         ]
       },
       "evidence_class": "integration",
-      "estimated_work_ms": 17000,
+      "estimated_work_ms": 6000,
       "runtime_profile_id": "default",
       "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",

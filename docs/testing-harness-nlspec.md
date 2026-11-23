@@ -459,8 +459,16 @@ ancestor's own claim, descendants of a lease admitted ahead of an older waiter
 remain subject to the same deficit test for that waiter; branches admitted before
 the waiter keep their drain entitlement. Backfill is also permitted when resident pressure
 would still prevent the waiter's admission after independent active work drains,
-so existing-resource consumers can make progress. A decision's queue-priority
-blockers are exactly the older waiters whose deficits it would increase.
+so existing-resource consumers can make progress. Waiter priority is arrival
+order with one exception: between shared requests, a request that claims a
+`postgres_heavy` lane and has no deficit on that lane precedes requests that claim
+no heavy lane. Heavy lanes carry the longest work, so a lane that is available must
+not idle while its unit waits behind ordinary PostgreSQL work; the deficit rule
+above then keeps ordinary work from drawing down the capacity the heavy request
+still lacks. Heavy lanes are few, so ordinary work keeps progressing, and a heavy
+request that still lacks its lane gains no precedence. Exclusive, drain and
+observation requests keep arrival order. A decision's queue-priority blockers are
+exactly the preceding waiters whose deficits it would increase.
 Required ancestor claims remain charged. Exclusive waiters retain
 their activity fence. A renderer borrower MUST retain one pending host-request
 identity and its original queue priority across capacity misses. A miss grants no

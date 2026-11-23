@@ -380,6 +380,63 @@ func TestAdmissionWeightedTree(t *testing.T) {
 		apply(t, older, true)
 		apply(t, overlapping, true)
 	})
+	t.Run("available_heavy_lane_precedes_older_ordinary_postgres_waiters", func(t *testing.T) {
+		root := filepath.Join(t.TempDir(), "admission")
+		capacities := testQuantities(8)
+		capacities["postgres"], capacities["postgres_heavy"] = 4, 1
+		shaped := func(token string, postgres, heavy float64) Request {
+			r := request(t, root, token, 1, 8)
+			r.Capacities = maps.Clone(capacities)
+			r.Claims["postgres"], r.Claims["postgres_heavy"] = postgres, heavy
+			r.diagnostic = &Decision{}
+			return r
+		}
+		first, second := shaped("a", 2, 0), shaped("b", 2, 0)
+		apply(t, first, true)
+		apply(t, second, true)
+		older := shaped("c", 2, 0) // Ordinary PostgreSQL work, queued first.
+		apply(t, older, false)
+		heavy := shaped("d", 2, 1) // Its heavy lane is free; it lacks PostgreSQL lanes.
+		apply(t, heavy, false)
+		if heavy.diagnostic.QueuePosition != 1 || len(heavy.diagnostic.PriorityBlockers) != 0 || heavy.diagnostic.Deficits["postgres"] != 2 {
+			t.Fatalf("available heavy lane queued behind ordinary work: %+v", heavy.diagnostic)
+		}
+		// Freed lanes go to the heavy request: the older ordinary waiter would
+		// deepen its deficit, so it is held by priority alone.
+		apply(t, Request{Root: root, Operation: "release", Token: first.Token}, false)
+		apply(t, older, false)
+		if len(older.diagnostic.Deficits) != 0 || !slices.Equal(older.diagnostic.PriorityBlockers, []string{ObservationReference("request", heavy.Token)}) {
+			t.Fatalf("ordinary waiter took the heavy request's lanes: %+v", older.diagnostic)
+		}
+		apply(t, heavy, true)
+		apply(t, Request{Root: root, Operation: "release", Token: second.Token}, false)
+		apply(t, older, true)
+	})
+	t.Run("heavy_request_without_its_lane_keeps_arrival_order", func(t *testing.T) {
+		root := filepath.Join(t.TempDir(), "admission")
+		capacities := testQuantities(8)
+		capacities["postgres"], capacities["postgres_heavy"] = 6, 1
+		shaped := func(token string, postgres, heavy float64) Request {
+			r := request(t, root, token, 1, 8)
+			r.Capacities = maps.Clone(capacities)
+			r.Claims["postgres"], r.Claims["postgres_heavy"] = postgres, heavy
+			r.diagnostic = &Decision{}
+			return r
+		}
+		apply(t, shaped("a", 2, 1), true) // Holds the only heavy lane.
+		apply(t, shaped("b", 3, 0), true)
+		older := shaped("c", 2, 0)
+		apply(t, older, false)
+		waiting := shaped("d", 1, 1) // Its lane is taken, so it gains no precedence.
+		apply(t, waiting, false)
+		if waiting.diagnostic.QueuePosition != 2 || waiting.diagnostic.Deficits["postgres_heavy"] != 1 {
+			t.Fatalf("heavy request without its lane jumped the queue: %+v", waiting.diagnostic)
+		}
+		apply(t, older, false)
+		if older.diagnostic.QueuePosition != 1 {
+			t.Fatalf("older ordinary waiter lost its place: %+v", older.diagnostic)
+		}
+	})
 	t.Run("backfilled_branch_descendants_respect_the_bypassed_waiter", func(t *testing.T) {
 		root := filepath.Join(t.TempDir(), "admission")
 		capacities := testQuantities(4)
