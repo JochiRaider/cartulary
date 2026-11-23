@@ -326,7 +326,7 @@ func Run(ctx context.Context, root, binary string, args, environment []string) (
 		return nil, 4, err
 	}
 
-	ports := enginePorts{ConsumerTerminal: production.ConsumerTerminal, Now: func() time.Duration { return time.Duration(monotonicNS() - diagnostics.canonicalEpoch) }, Execute: func(ctx context.Context, r executionRequest) unitResult {
+	ports := enginePorts{AttachedServices: fixtureEnv["CARTULARY_TEST_SERVICES_MODE"] == "attach", ConsumerTerminal: production.ConsumerTerminal, Now: func() time.Duration { return time.Duration(monotonicNS() - diagnostics.canonicalEpoch) }, Execute: func(ctx context.Context, r executionRequest) unitResult {
 		artifact := filepath.Join(runRoot, "unit-artifacts", safeUnitName.ReplaceAllString(r.Unit.ID, "-"))
 		d, err := harnesslocal.PrivateDirectory(artifact)
 		if err != nil {
