@@ -1,6 +1,6 @@
 # Test Execution Efficiency Remediation Plan
 
-**Status.** Active remediation tracker, last updated 2026-11-23. All phase-1 work is committed. Phase 2 ([Section 12](#12-phase-2-plan--check-wall-clock)) landed G7 and G6; G6 brought the `check` graph wall from 1,022–1,157 s to under 900 s. In G17 (phase 3), G17b and G17c landed, G17a was not adopted, and disk stall was identified as the contention the failing tests hit. G17f withdrew A17 and added A18 (WAL compression, −22% container writes); G17g (test-side waits) is next. `make distclean` on 2026-11-22 deleted every retained run, so the run IDs in Section 11 before that date are a record, not retrievable evidence.
+**Status.** Active remediation tracker, last updated 2026-11-23. All phase-1 work is committed. Phase 2 ([Section 12](#12-phase-2-plan--check-wall-clock)) landed G7 and G6; G6 brought the `check` graph wall from 1,022–1,157 s to under 900 s. In G17 (phase 3), G17b and G17c landed, G17a was not adopted, and disk stall was identified as the contention the failing tests hit. G17f withdrew A17 and added A18 (WAL compression, −22% container writes), and G17g bounded test-side waits by the test deadline. G17 is closed; follow-ups are G27 (heavy-row test work) and G28 (flush-bound disk stall). `make distclean` on 2026-11-22 deleted every retained run, so the run IDs in Section 11 before that date are a record, not retrievable evidence.
 
 The active plan for the remaining `check` wall-clock work is [Section 12](#12-phase-2-plan--check-wall-clock). Original framing: this document authorizes no implementation by itself.
 Each specification amendment in [Section 8](#8-specification-amendment-ledger) needs
@@ -96,16 +96,18 @@ repetitions each.
 | G14 | Estimates drift and diagnostics truncate | Machine inputs, implementation | WS1, WS4 | Medium; heavy-row estimates rebalanced (`fb5c7b63d`), little wall effect; estimates predate G6 |
 | G15 | Fallow web dead-code policy fails `ci` on 5 unused exports | Implementation (frontend) | WS0 follow-up | Immediate for a green `ci` |
 | G16 | Admission waiters re-run a full cross-process transaction every 50 ms | Implementation, specification | WS2 | High |
-| G17 | Heavy-lane critical path: subtest timings are discarded; process tests used fixed hang guards; disk stalls (`guest:io` `full` about 10% of the run) are the binding contention, and template-clone I/O (about 38 of 62 GB per `check`) is unattributed | Specification, machine inputs, implementation, tests | Phase 3 | High: G17b done (`3373cd3b5`); G17a not adopted; four lanes rejected a third time; G17c done (`b98e95e17`); G17f measured (A17 withdrawn, A18 WAL compression −22% writes); next G17g in Section 5 |
+| G17 | Heavy-lane critical path: subtest timings are discarded; process tests used fixed hang guards; disk stalls (`guest:io` `full` about 10% of the run) are the binding contention, and template-clone I/O (about 38 of 62 GB per `check`) is unattributed | Specification, machine inputs, implementation, tests | Phase 3 | Closed: G17b, G17c, G17g and A18 committed; G17a not adopted; A17 withdrawn; follow-ups G27 and G28 (Section 5) |
 | G18 | Retained ATT&CK release metadata expires 2026-12-08T20:40:00Z; tests import it against the real clock | Fixtures, tests | Separate task | Urgent (outside efficiency scope) |
 | G19 | `DROP DATABASE` checkpoints can exceed the fixed 35 s cleanup budget under I/O load, poisoning the unit's generation | Specification, implementation | WS2/WS3 | Done: retirement and hardening (`500e3bdda`), retirement event (`a5df06952`); G6 removed most checkpoint backlog |
 | G20 | A Git repository nested in the checkout (such as an agent worktree under `.claude/worktrees/`) breaks source enumeration and is scanned by a whole-checkout filesystem walk | Specification, implementation | WS4 | Done (`500e3bdda`, regression fix `a5df06952`) |
 | G21 | `clean`/`distclean` miss declared build outputs and harness scratch (root `dist`, reference-pack builders and module staging, `apps/web/.cartulary`) | Specification, implementation | WS5 | Done (`a5df06952`) |
-| G22 | Readiness cache stamps vouch for external Docker images that may have been removed | Specification, implementation | WS5 | Done (`a5df06952`) |
+| G22 | Readiness cache stamps vouch for external Docker images that may have been removed | Specification, implementation | WS5 | Done (`a5df06952`); regression: `installed-readiness.mjs` imports private browser modules, failing `harness.command_surface.behavior.owner_boundaries` (not in `check`; separate task) |
 | G23 | The pinned browser-trust package was removed upstream; only the local readiness cache kept bootstrap working | Implementation | WS0 | Done (`a5df06952`) |
 | G24 | Heavy units hold a heavy lane while queued in host admission behind ordinary PostgreSQL units | Specification, implementation | WS2 | Done (`fb5c7b63d`): about 150 s of `check` wall |
 | G25 | Unattributed I/O regression: checkpoint sync and graph wall up since the morning's passing runs | Measurement, possibly implementation | W2-1 | Closed: the cost was per-generation provisioning checkpoints, amplified by host disk state; G6 removed it (checkpoint sync 1,156 s → 4 s) |
 | G26 | Packing omits PostgreSQL generation acquisition | Specification, machine inputs, implementation | W2-5 | Medium; not implemented, see the G26 decision in Section 12 |
+| G27 | Heavy-lane wall sits in a few long single tests (import workflows, ATT&CK production restore, Network Flow incident transfer, the two bundle round trips) | Tests (module owners) | Phase 3 follow-up | High for wall; owner-level test changes guided by G17c timings |
+| G28 | Disk stall follows flush count, not bytes (A18 cut writes 22% without moving `io_full`); 21–35 s of CPU-stall bursts per `check` remain unattributed | Measurement, then specification | Phase 3 follow-up | Medium; measure WAL flushes per unit and short-lived child CPU first |
 
 ## 5. Gap Remediation Detail
 
@@ -484,6 +486,10 @@ everything known about what that work waits on, and the fixes in order.
      shutdown checkpoint (A17 withdrawn), I/O weights are unavailable here, and
      clones are spread too thinly for a few moves to matter. WAL compression
      (A18) was added instead.
+7. **G17g — Test-side waits from the test deadline** (test support, tests,
+   REQ-864 clarification). A zero-timeout `Poll`/`PollJob` takes the test's
+   deadline less a 30 s settlement margin. The sub-minute job-poll hang guards
+   drop their fixed timeouts. **Done** (`4a30fd00c`).
 
 - **Implementation (2026-11-23).**
   - *G17a (not adopted; branch `g17a-attempt`, `2f23c6e44`).* Drafted A16 in
@@ -644,22 +650,36 @@ everything known about what that work waits on, and the fixes in order.
     `io_full` with the CPU idle. That wait is a test hang guard, not a product
     budget, like the G17b operator guards. A18 is kept for the write reduction;
     adoption awaits owner review.
-- **Next.** The binding contention is disk stall from flushes, which A18's byte
-  reduction did not move. Candidates, in order:
-  - *G17g — Test-side waits from the test deadline.* Disk-stall failures since
-    G6 hit fixed test waits: the `incidentbundles` `waitJob` 30 s poll (twice)
-    and the operator guards (fixed by G17b). REQ-864 already lets a poll take
-    the test's deadline. Product budgets the tests assert (the 30 s
-    participant budget, the 2 s cancellation grace) stay as they are.
-  - *Heavy-row test work.* With G17c timings, the largest single tests
-    (`TestCurrentImportWorkflows_Integration`, the ATT&CK production restore,
-    the Network Flow incident transfer, the two bundle round trips) are where
-    wall can still come from. They need owner-level test changes.
-  - *Commit volume.* If flush count binds, fewer commits per test (batched
-    fixture setup) would help more than fewer bytes. Measure WAL flushes per
-    unit first (`pg_stat_wal` before retirement).
-  - The remaining CPU bursts are 21–35 stall-seconds per `check`; finding their
-    source needs a per-process probe that counts short-lived children.
+- **G17g (committed `4a30fd00c`).** A zero-timeout `Poll` or `PollJob` takes
+  the test's deadline less a 30 s settlement margin, never below one second,
+  as REQ-864 allowed; the spec now says a hang guard uses the test's deadline
+  and a fixed deadline is for a wait the test asserts. Six sub-minute
+  hang guards drop their fixed timeouts: `incidentbundles` `waitJob` (30 s),
+  `waitJobWithStatus` (10 s) and `waitFailedJob` (40 s), the Network Flow job
+  wait (10 s), fixture publication (15 s) and the harness fault test (12 s).
+  Polls with one minute or more, and product budgets the tests assert (the
+  30 s participant budget, the 2 s cancellation grace), are unchanged.
+  Targeted checks: `g17g-generate01`, `g17g-lintgo01`, `g17g-slice01`
+  (`harness.browser.unit.httptestx_helper_contract` with the new
+  `TestPollDefaultsToTheTestDeadline`), `g17g-srcgen01`, `g17g-mdlint01`; all
+  pass.
+- **Closed (2026-11-23).** G17a was not adopted. G17b, G17c, G17g and A18 are
+  committed. A17 was withdrawn, and G17d and G17e are recorded with no change.
+  The rest moves to two follow-up gaps: heavy-row test work (G27, owner-level
+  test changes guided by G17c timings), and flush-bound disk stall plus the
+  unattributed CPU bursts (G28, measurement first). Final validation: a
+  paired diagnostic `check` on `4a30fd00c` (cache off), against the G6 pair:
+
+  | Run | Result | Graph | Outer | Heavy work | Container writes | Mean `io_full` | Windows > 15% |
+  | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+  | `g6-check01`, `g6-check02` | Pass, pass | 887 s, 889 s | 899 s, 900 s | 2,490 s, 2,537 s | 61.8 GB, 63.0 GB | 8.1%, 9.6% | 9, 16 |
+  | `g17-final-check01` | Pass 365/365 | 857 s | 870 s | 2,383 s | 46.2 GB | 7.3% | 5 |
+  | `g17-final-check02` | Pass 365/365 | 882 s | 893 s | 2,496 s | 48.4 GB | 8.7% | 21 |
+
+  Both runs pass with no deadline failures, and graph wall is at or below the
+  G6 pair (best yet: 857 s). Container writes are down 23–26% (A18). The
+  mid-run analysis block still peaks at 67–70% CPU stall (G28). Duration files
+  were written for 312 of 312 Go units in both runs; no leaked volumes.
 - **Area.** Specification (A16; REQ-844 naming for G17c; A17 if adopted),
   machine inputs (operation resource profiles), implementation (work-graph
   compiler, Go runner), tests (process-test helpers).
@@ -954,6 +974,8 @@ Each amendment lands spec-first in one change with its machine projections, rege
 | 2026-11-23 | G17c | Diagnostic `check` | `g17c-check01` | Fail 364/365 (`incidentbundles` `network_flow_portability`, during a concurrent WAL probe; run mean `io_full` 13.3%). Durations retained for 312 of 312 Go units; retained-secret scan pass. Committed `b98e95e17` |
 | 2026-11-23 | G17f | Shutdown-checkpoint trace (Docker events), I/O scheduler and cgroup controllers, clone census from journals, `wal_compression` probe on the seed image | `g17a-check01`, `g17c-check01` | No shutdown checkpoint (force removal, SIGKILL); no I/O weights; 1,300 clones over 579 tests; `lz4` −60% WAL per clone. A17 withdrawn, A18 drafted |
 | 2026-11-23 | A18 | Go lint, PostgreSQL rows, seeded-generation template row, then one diagnostic `check` | `a18-lintgo01`, `a18-slice-pg01`, `a18-slice-hb01`, `a18-check01` | Targeted checks pass. `a18-check01` fail 364/365 (`incidentbundles` ATT&CK round trip, fixed 30 s poll under `io_full`); container writes 48.6 GB (from 61.8–63.0 GB); `io_full` 10.6%; graph 961 s |
+| 2026-11-23 | G17g | Generation, Go lint, httptestx helper row with the new deadline test, generated projections, Markdown lint | `g17g-generate01`, `g17g-lintgo01`, `g17g-slice01`, `g17g-srcgen01`, `g17g-mdlint01` | All pass. Committed `4a30fd00c` |
+| 2026-11-23 | G17 | Final validation: paired diagnostic `check` on `4a30fd00c` | `g17-final-check01`, `g17-final-check02` | **Pass 365/365 twice.** Graph 857 s and 882 s (G6 pair 887 s and 889 s); heavy work 2,383 s and 2,496 s; container writes 46.2 GB and 48.4 GB (from 61.8–63.0 GB); mean `io_full` 7.3% and 8.7%. G17 closed |
 
 ## 12. Phase 2 Plan — `check` Wall Clock
 
@@ -1507,7 +1529,7 @@ log 178–185 MB), G15, G16, G11, G12 and G13.
 Update after G17a and G17b (2026-11-23): the process-test guards landed; the
 operation CPU bound did not remove the CPU bursts and was not adopted; four
 lanes failed a third time. Disk stall, not CPU, is the contention that the
-failing tests hit, so G17c and then G17f come next.
+failing tests hit, so G17c and then G17f come next. G17 has since closed (Section 5): G17c, G17g and A18 landed, A17 was withdrawn, and G27 and G28 hold what remains.
 
 ### 12.6 Amendments and Decisions
 
