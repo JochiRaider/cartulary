@@ -154,7 +154,7 @@ SELECT status_code, response_json
 			adminID,
 			uuid.MustParse(incidentID),
 			func() *appsupport.ServerHarness {
-				return runtime.StartServer(t, appsupport.ServerOptions{Prefix: "incident-bundle-named-runner-recovery", Database: database, ObjectStore: harness.ObjectStore, Env: retainedRoots, TestRouteMode: httptestx.TestRouteModeDisabled})
+				return runtime.StartServer(t, appsupport.ServerOptions{Prefix: "incident-bundle-named-runner-recovery", Database: database, ObjectStore: harness.ObjectStore, Env: retainedRoots, TestRouteMode: httptestx.TestRouteModeDisabled, ConfigureRuntime: appsupport.ShortJobRecoveryScan})
 			},
 		)
 	})

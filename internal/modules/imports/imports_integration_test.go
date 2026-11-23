@@ -1625,7 +1625,7 @@ SELECT s.session_status, u.unit_status, j.status
 				time.Sleep(delay)
 			}
 
-			second := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "imports-recovery-second-" + slug, Database: database, ObjectStore: durableObjects, TestRouteMode: httptestx.TestRouteModeDisabled})
+			second := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "imports-recovery-second-" + slug, Database: database, ObjectStore: durableObjects, TestRouteMode: httptestx.TestRouteModeDisabled, ConfigureRuntime: appsupport.ShortJobRecoveryScan})
 			deadline := time.Now().Add(10 * time.Second)
 			var recoveredJobStatus string
 			for time.Now().Before(deadline) {

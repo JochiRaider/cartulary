@@ -157,7 +157,7 @@
         ]
       },
       "evidence_class": "integration",
-      "estimated_work_ms": 188000,
+      "estimated_work_ms": 106000,
       "runtime_profile_id": "default",
       "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",

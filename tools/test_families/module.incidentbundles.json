@@ -238,7 +238,7 @@
         ]
       },
       "evidence_class": "integration",
-      "estimated_work_ms": 11000,
+      "estimated_work_ms": 4000,
       "runtime_profile_id": "default",
       "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
@@ -649,11 +649,8 @@
           "TestNetworkFlowIncidentTransferThroughPublicOperations_Integration"
         ]
       },
-      "runtime_binary_ids": [
-        "operator"
-      ],
       "evidence_class": "integration",
-      "estimated_work_ms": 192000,
+      "estimated_work_ms": 171000,
       "runtime_profile_id": "network_flow_claimed",
       "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",

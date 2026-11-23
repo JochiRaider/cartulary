@@ -3,7 +3,6 @@ package imports_test
 import (
 	"archive/zip"
 	"bytes"
-	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -14,7 +13,6 @@ import (
 	"reflect"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/JochiRaider/cartulary/internal/app/server"
 	"github.com/google/uuid"
@@ -30,6 +28,9 @@ import (
 
 // The bundle owner qualifies the complete Network Flow participant through real
 // uploads and public transfer operations, with independent destination key rings.
+// Operator restore of claimed Network Flow state, including Graph
+// reconstruction behind its readiness gate, is qualified by
+// TestRestoredNetworkFlowClaimBoundary_Process; this test covers transfer.
 func TestNetworkFlowIncidentTransferThroughPublicOperations_Integration(t *testing.T) {
 	fixtureRoot, err := filepath.Abs("../../../fixtures")
 	if err != nil {
@@ -59,7 +60,7 @@ func TestNetworkFlowIncidentTransferThroughPublicOperations_Integration(t *testi
 	}
 	a, b := start("nf-portable-a", 11, true, nil), start("nf-portable-b", 31, true, reads.observe)
 	loginA, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, a.Server.HTTP.URL)
-	loginB, secretB := irBootstrapRecoveryAdmin(t, b.Server.HTTP.URL)
+	loginB, _ := irBootstrapRecoveryAdmin(t, b.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, a.Server, loginA, map[string]any{"client_txn_id": "nf-transfer-incident", "incident_key": "IR-NF-TRANSFER", "title": "Portable Network Flow investigation"})
 	id := incident["incident_id"].(string)
 	irImportCoreCorpus(t, corpus, a, loginA, id)
@@ -307,50 +308,6 @@ func TestNetworkFlowIncidentTransferThroughPublicOperations_Integration(t *testi
 	if response.StatusCode != http.StatusNotFound {
 		t.Fatal("rejected transfer exposed an incident")
 	}
-	c := runtime.BackupRestoreServerWithOperator(t, b, appsupport.ServerOptions{Prefix: "ir-restored-c", TestRouteMode: httptestx.TestRouteModeDisabled, Env: flowEnvironment(31, true), ConfigureRuntime: func(options *server.Options) { options.ReportingTemplatePacks = irReportTemplates(t) }})
-	for _, prior := range []authcookietest.AuthCookies{loginA, loginB} {
-		response := doImportJSON(t, c.Server.HTTP.URL, prior, http.MethodGet, "/api/v1/auth/session", nil)
-		response.Body.Close()
-		if response.StatusCode != http.StatusUnauthorized {
-			t.Fatal("pre-transfer or pre-backup session authenticated after restore")
-		}
-	}
-	loginC := flowtest.LoginLocalUserWithSecondFactor(t, http.DefaultClient, c.Server.HTTP.URL, "bootstrap-admin@example.test", "BootstrapPass1!", flowtest.GenerateTOTPCode(t, secretB))
-	// Recovery admits the deployment first; the claimed Graph owner then
-	// reconstructs derived results behind its separate readiness gate. Observe
-	// only that documented pending response, without refreshing the declaration.
-	deadline, ok := t.Deadline()
-	if !ok {
-		t.Fatal("restored Graph readiness requires a harness deadline")
-	}
-	graphContext, cancelGraphWait := context.WithDeadline(t.Context(), deadline)
-	defer cancelGraphWait()
-	for {
-		response := pollImportJSON(t, graphContext, c.Server.HTTP.URL, loginC, graphPath+"/result")
-		if response.StatusCode == http.StatusOK {
-			response.Body.Close()
-			break
-		}
-		var failure struct {
-			Error struct {
-				Code    string `json:"code"`
-				Details struct {
-					Reason string `json:"reason_code"`
-				} `json:"details"`
-			} `json:"error"`
-		}
-		err := json.NewDecoder(response.Body).Decode(&failure)
-		response.Body.Close()
-		if err != nil || response.StatusCode != http.StatusBadGateway || failure.Error.Code != "network_flow_graph_projection_failed" || failure.Error.Details.Reason != "projection_unavailable" {
-			t.Fatalf("restored graph readiness: status=%d code=%s reason=%s decode=%v", response.StatusCode, failure.Error.Code, failure.Error.Details.Reason, err)
-		}
-		select {
-		case <-graphContext.Done():
-			t.Fatalf("restored Graph never became available: %v", graphContext.Err())
-		case <-time.After(100 * time.Millisecond):
-		}
-	}
-	verifyDestination(irPublicClient{t: t, origin: c.Server.HTTP.URL, incident: id, login: loginC}, "c")
 
 }
 

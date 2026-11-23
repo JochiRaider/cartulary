@@ -2,7 +2,6 @@ package imports_test
 
 import (
 	"bytes"
-	"context"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
@@ -363,14 +362,6 @@ func waitIRApply(t *testing.T, url string, login authcookietest.AuthCookies, job
 			httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value),
 		},
 	}, "succeeded", "failed", "canceled")
-}
-
-func pollImportJSON(t *testing.T, ctx context.Context, baseURL string, login authcookietest.AuthCookies, path string) *http.Response {
-	t.Helper()
-	request := httptestx.NewJSONRequest(t, http.MethodGet, baseURL+path, nil).WithContext(ctx)
-	httptestx.WithCookies(login.Session, login.CSRF)(request)
-	request.Header.Set(authn.CSRFHeaderName, login.CSRF.Value)
-	return httptestx.Do(t, http.DefaultClient, request)
 }
 
 func irText(t testing.TB, row map[string]any, key string) string {

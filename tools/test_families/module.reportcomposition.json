@@ -20,9 +20,9 @@
         ]
       },
       "evidence_class": "integration",
-      "estimated_work_ms": 92000,
+      "estimated_work_ms": 29000,
       "runtime_profile_id": "default",
-      "resource_profile_id": "postgres_heavy",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
@@ -31,10 +31,7 @@
         "object_store",
         "postgres"
       ],
-      "postgres_isolation": "exclusive",
-      "fixture_input_roots": [
-        "fixtures/reference-packs/attack-native-v2"
-      ]
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.reportcomposition.integration.public_lifecycle_authority",

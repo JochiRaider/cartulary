@@ -2,6 +2,9 @@ package appsupport
 
 import (
 	verificationtest "github.com/JochiRaider/cartulary/internal/testutil/referencetest"
+	goruntime "runtime"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -182,22 +185,71 @@ func (capture *CurrentCapture) RestoreServer(t testing.TB, options ServerOptions
 		selected.Database, selected.ObjectStore, selected.Env, selected.loaded = targetDB, targetObjects, env, &loaded
 		return selected, params
 	}
-	for _, probe := range probes {
+	// Every probe and the final restore use their own fresh target of the same
+	// captured bytes, so they run concurrently. Targets are prepared here on the
+	// test goroutine; each probe then runs on its own goroutine through probeTB.
+	probeTargets := make([]CurrentRestoreParams, len(probes))
+	for i, probe := range probes {
 		selected := options
 		selected.Prefix += "-" + probe.Name
-		_, params := prepareTarget(selected)
-		probe.Run(t, params)
+		_, probeTargets[i] = prepareTarget(selected)
 	}
 	options, params := prepareTarget(options)
-	if _, err := RestoreCurrentBackup(t.Context(), params); err != nil {
-		t.Fatalf("restore current backup: %v", err)
+	var probesFailed atomic.Bool
+	var probesDone sync.WaitGroup
+	for i, probe := range probes {
+		probesDone.Add(1)
+		go func() {
+			defer probesDone.Done()
+			probe.Run(probeTB{TB: t, failed: &probesFailed}, probeTargets[i])
+		}()
+	}
+	_, restoreErr := RestoreCurrentBackup(t.Context(), params)
+	probesDone.Wait()
+	if restoreErr != nil {
+		t.Fatalf("restore current backup: %v", restoreErr)
+	}
+	if probesFailed.Load() {
+		t.FailNow()
 	}
 	return runtime.StartServer(t, options)
 }
 
+// probeTB runs a restore probe off the test goroutine. testing forbids FailNow
+// there, so Fatal, FailNow and Skip report through the goroutine-safe Error
+// methods and end only the probe's goroutine; RestoreServer then fails the test.
+type probeTB struct {
+	testing.TB
+	failed *atomic.Bool
+}
+
+func (p probeTB) Error(args ...any) { p.failed.Store(true); p.TB.Error(args...) }
+func (p probeTB) Errorf(format string, args ...any) {
+	p.failed.Store(true)
+	p.TB.Errorf(format, args...)
+}
+func (p probeTB) Fail()             { p.failed.Store(true); p.TB.Fail() }
+func (p probeTB) FailNow()          { p.Fail(); goruntime.Goexit() }
+func (p probeTB) Fatal(args ...any) { p.Error(args...); goruntime.Goexit() }
+func (p probeTB) SkipNow()          { p.Error("restore probe skipped"); goruntime.Goexit() }
+func (p probeTB) Skip(args ...any) {
+	p.Error(append([]any{"restore probe skipped:"}, args...)...)
+	goruntime.Goexit()
+}
+func (p probeTB) Fatalf(format string, args ...any) {
+	p.Errorf(format, args...)
+	goruntime.Goexit()
+}
+func (p probeTB) Skipf(format string, args ...any) {
+	p.Errorf("restore probe skipped: "+format, args...)
+	goruntime.Goexit()
+}
+
 // CurrentRestoreProbe receives a separate fresh target of the same captured
 // bytes. Probes can inject faults at participant boundaries, never reuse/reset
-// the successful target or manufacture recovery evidence.
+// the successful target or manufacture recovery evidence. Probes run
+// concurrently with each other and the final restore, so a probe must keep
+// its state to its own closure and target.
 type CurrentRestoreProbe struct {
 	Name string
 	Run  func(testing.TB, CurrentRestoreParams)

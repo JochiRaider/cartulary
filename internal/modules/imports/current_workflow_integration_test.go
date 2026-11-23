@@ -8,12 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/app/server"
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/imports"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/dbassert"
@@ -60,24 +58,16 @@ func currentExec(t testing.TB, db *sql.DB, query string, args ...any) {
 	}
 }
 
-// currentRecoveryScan replaces only the Jobs recovery-scan cadence (Core 01
-// lets harness-owned composition inject shorter values). A restarted server's
-// activation scan runs before admission opens, so recovered jobs otherwise
-// wait the production 5 s cadence. Retry delays and leases stay at production
-// values, which the commit-fault scenarios rely on to stop after one failure.
-const currentRecoveryScan = 100 * time.Millisecond
-
+// currentImportOptions shortens only the Jobs recovery scan
+// (appsupport.ShortJobRecoveryScan); production retry delays and leases stay,
+// which the commit-fault scenarios rely on to stop after one failure.
 func currentImportOptions() appsupport.ServerOptions {
 	return appsupport.ServerOptions{Prefix: "current-import", TestRouteMode: httptestx.TestRouteModeDisabled, Env: map[string]string{
 		"CARTULARY__NETWORK_FLOW_ACTIVITY__CLAIMED":                "true",
 		"CARTULARY__NETWORK_FLOW_ACTIVITY__KEY_RING_MANIFEST_PATH": fixtures.Path("network-flow", "key-rings.json"),
 		"CARTULARY_SECRET_TEST_NETWORK_FLOW_CURSOR":                "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
 		"CARTULARY_SECRET_TEST_NETWORK_FLOW_SAFE_DIGEST":           "AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI",
-	}, ConfigureRuntime: func(options *server.Options) {
-		policy := jobs.ProductionRuntimePolicy()
-		policy.RecoveryScan = currentRecoveryScan
-		options.JobPolicy = &policy
-	}}
+	}, ConfigureRuntime: appsupport.ShortJobRecoveryScan}
 }
 
 // Construct all workflow state through current public admission. Only the

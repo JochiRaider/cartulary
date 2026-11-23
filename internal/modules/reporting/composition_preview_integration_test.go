@@ -28,11 +28,15 @@ import (
 func TestCompositionPreviewDelegatesToReportingAndRemainsInternalDraft_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	assetPack, templates := declaredTemplateImageRegistry(t)
-	keys, err := referencepackfixture.NewSigningContext("fixture.attack.dataset.v1", "framework.attack")
+	// The preview binds whichever pack set is current; it reads no pack content.
+	// A small canonical dataset (Entra app IDs, about 1 MB) proves the same
+	// binding as the 95 MB ATT&CK corpus at a fraction of the import cost.
+	keys, err := referencepackfixture.NewSigningContext("fixture.entra.dataset.v1", "enrichment.entra_app_ids")
 	if err != nil {
 		t.Fatal(err)
 	}
-	fixture := referencetest.AuthenticATTACKFixture(t, "../../..", "20.1", time.Now().UTC(), keys, 3)
+	fixture := referencetest.EntraFixture(t, "fixture-a", time.Now().UTC(), keys, 3)
+	fixtureSetSHA256 := referencetest.EntraSetDigest(t, "../../..", fixture)
 	bootstrap := filepath.Join(t.TempDir(), "bootstrap.json")
 	if err = os.WriteFile(bootstrap, fixture.Bootstrap, 0600); err != nil {
 		t.Fatal(err)
@@ -51,8 +55,8 @@ func TestCompositionPreviewDelegatesToReportingAndRemainsInternalDraft_Integrati
 		}
 	}})
 	adminLogin, adminUserID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
-	referencehttp.ImportPackFixture(t, harness.Server, adminLogin, fixture.PortablePackFixture, "preview-native-attack-import")
-	httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/reference-packs/"+fixture.Key+"/"+fixture.Version+"/activate", map[string]any{"client_txn_id": "preview-native-attack-activate"}, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value)), http.StatusOK)
+	referencehttp.ImportPackFixture(t, harness.Server, adminLogin, fixture.PortablePackFixture, "preview-reference-pack-import")
+	httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/reference-packs/"+fixture.Key+"/"+fixture.Version+"/activate", map[string]any{"client_txn_id": "preview-reference-pack-activate"}, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value)), http.StatusOK)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-preview-incident",
 		"incident_key":  "IR-PREVIEW-01",
@@ -83,7 +87,7 @@ SELECT record_id::text FROM party
 		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	), http.StatusAccepted)["data"].(map[string]any)
 	snapshotID := requireSucceededJobResourceID(t, harness, adminLogin, snapshotJob, "snapshot")
-	if requireSnapshotExportModel(t, harness.DB, snapshotID)["reference_packs"].(map[string]any)["pack_set_id"] != "rpset_"+fixture.SetSHA256 {
+	if requireSnapshotExportModel(t, harness.DB, snapshotID)["reference_packs"].(map[string]any)["pack_set_id"] != "rpset_"+fixtureSetSHA256 {
 		t.Fatal("preview authentic reference binding")
 	}
 

@@ -791,7 +791,7 @@
         ]
       },
       "evidence_class": "integration",
-      "estimated_work_ms": 18000,
+      "estimated_work_ms": 6000,
       "runtime_profile_id": "network_flow_claimed",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -823,7 +823,7 @@
         ]
       },
       "evidence_class": "integration",
-      "estimated_work_ms": 227000,
+      "estimated_work_ms": 80000,
       "runtime_profile_id": "network_flow_claimed",
       "resource_profile_id": "postgres_heavy",
       "claim_posture": "implementation",
@@ -1346,7 +1346,7 @@
         ]
       },
       "evidence_class": "integration",
-      "estimated_work_ms": 29000,
+      "estimated_work_ms": 20000,
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
