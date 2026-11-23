@@ -503,12 +503,60 @@ func (e *graphEngine) choose(ready []unit, barriers map[string][]string) *unit {
 		}
 		return strings.Compare(a.ID, b.ID)
 	})
+	// Deficit-disjoint backfill (TH-HARNESS-REQ-802): the highest-ranked ready
+	// unit that lacks claimed capacity keeps every freed unit of what it lacks.
+	// Lower-ranked fitting work is admitted only when it leaves each of that
+	// unit's deficits unchanged, so a unit claiming more than is free at any one
+	// moment cannot be starved by smaller units taking capacity as it frees.
+	var head *unit
 	for _, u := range ordered {
 		if e.blocking(u, barriers).reason == "rank" {
+			if head != nil && e.deepensDeficit(*head, u) {
+				continue
+			}
 			return &u
+		}
+		if head == nil && e.lacksCapacity(u) {
+			head = &u
 		}
 	}
 	return nil
+}
+
+// deficit is how far u's claim on r exceeds free capacity, with candidate's
+// claims admitted first when candidate is non-nil.
+func (e *graphEngine) deficit(u unit, r string, candidate *unit) int64 {
+	held := e.claims[r]
+	if candidate != nil {
+		if r == "volume" {
+			held = max(held, candidate.Claims[r])
+		} else {
+			held += candidate.Claims[r]
+		}
+	}
+	requested := held + u.Claims[r]
+	if r == "volume" {
+		requested = max(held, u.Claims[r])
+	}
+	return max(0, requested-e.plan.facts.Capacities[r])
+}
+
+func (e *graphEngine) lacksCapacity(u unit) bool {
+	for r := range u.Claims {
+		if e.deficit(u, r, nil) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func (e *graphEngine) deepensDeficit(head, candidate unit) bool {
+	for r := range head.Claims {
+		if candidate.Claims[r] > 0 && e.deficit(head, r, &candidate) > e.deficit(head, r, nil) {
+			return true
+		}
+	}
+	return false
 }
 func (e *graphEngine) openWait(id string, w waitDetails, at int64) {
 	if prior, ok := e.waits[id]; ok {

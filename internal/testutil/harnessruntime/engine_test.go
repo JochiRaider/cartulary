@@ -200,25 +200,73 @@ func TestRuntimeScheduling(t *testing.T) {
 			t.Fatal(r.Admissions)
 		}
 	})
-	t.Run("fitting_backfill_preserves_claims", func(t *testing.T) {
-		a, b, c := engineUnit("holder", 10000), engineUnit("large", 100), engineUnit("fitting", 1)
+	// TH-HARNESS-REQ-802 deficit-disjoint backfill: lower-ranked fitting work
+	// may run beside the highest-ranked unit that lacks capacity only when it
+	// draws none of what that unit lacks.
+	t.Run("deficit_disjoint_backfill_cannot_starve_a_larger_claim", func(t *testing.T) {
+		a, b, c, d := engineUnit("holder", 10000), engineUnit("large", 100), engineUnit("fitting", 1), engineUnit("other", 1)
 		b.Claims["cpu"] = 2
-		p := enginePlan(a, b, c)
-		p.facts.Capacities["cpu"] = 2
+		d.Claims = map[string]int64{"io": 1}
+		p := enginePlan(a, b, c, d)
+		p.facts.Capacities["cpu"], p.facts.Capacities["io"] = 2, 1
 		backfilled := make(chan struct{})
-		r := boundedGraph(t, p, enginePorts{Now: func() time.Duration { return 0 }, Execute: func(ctx context.Context, req executionRequest) unitResult {
+		r := boundedGraph(t, p, enginePorts{RetainEvents: true, Now: func() time.Duration { return 0 }, Execute: func(ctx context.Context, req executionRequest) unitResult {
 			if req.Unit.ID == "holder" {
 				select {
 				case <-backfilled:
 				case <-ctx.Done():
 				}
 			}
-			if req.Unit.ID == "fitting" {
+			if req.Unit.ID == "other" {
 				close(backfilled)
 			}
 			return unitResult{Status: "passed"}
 		}})
-		if !slices.Equal(r.Admissions, []string{"holder", "fitting", "large"}) {
+		// "fitting" fits beside the holder but would take the token "large"
+		// lacks; the CPU-free "other" backfills instead.
+		if !slices.Equal(r.Admissions, []string{"holder", "other", "large", "fitting"}) {
+			t.Fatal(r.Admissions)
+		}
+		facts := newCanonicalFacts(p)
+		for _, event := range r.Events {
+			if err := facts.consume(event); err != nil {
+				t.Fatal(err)
+			}
+			if event["unit_id"] == "fitting" && event["event"] == "wait_started" && event["wait_reason"] != "rank" && event["wait_reason"] != "resources" {
+				t.Fatal("held-back fitting work must wait as rank or resources", event)
+			}
+		}
+		if err := facts.validate(); err != nil {
+			t.Fatal(err)
+		}
+	})
+	t.Run("deficit_disjoint_backfill_keeps_capacity_the_blocked_unit_still_needs", func(t *testing.T) {
+		holder, head, c1, c2 := engineUnit("holder", 10000), engineUnit("head", 100), engineUnit("c1", 2), engineUnit("c2", 1)
+		holder.Claims["postgres_heavy"], head.Claims["postgres_heavy"] = 1, 1
+		p := enginePlan(holder, head, c1, c2)
+		p.facts.Capacities["cpu"], p.facts.Capacities["postgres_heavy"] = 3, 1
+		c1Started, headStarted := make(chan struct{}), make(chan struct{})
+		r := boundedGraph(t, p, enginePorts{Now: func() time.Duration { return 0 }, Execute: func(ctx context.Context, req executionRequest) unitResult {
+			wait := func(ch chan struct{}) {
+				select {
+				case <-ch:
+				case <-ctx.Done():
+				}
+			}
+			switch req.Unit.ID {
+			case "holder":
+				wait(c1Started)
+			case "c1":
+				close(c1Started)
+				wait(headStarted)
+			case "head":
+				close(headStarted)
+			}
+			return unitResult{Status: "passed"}
+		}})
+		// "head" lacks only the heavy lane. c1 leaves it the CPU it needs; c2
+		// would take that last token, so it waits until "head" is admitted.
+		if !slices.Equal(r.Admissions, []string{"holder", "c1", "head", "c2"}) {
 			t.Fatal(r.Admissions)
 		}
 	})
