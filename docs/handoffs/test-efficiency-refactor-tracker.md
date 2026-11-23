@@ -601,6 +601,8 @@ Each amendment lands spec-first in one change with its machine projections, rege
 | 2026-11-22 | W2-0 | Phase-2 reference, second run on the landed code (`fb5c7b63d`; `g24-check01` is the first) | `w20-ref-check02` | **Pass 365/365.** Graph 1,054 s; heavy work 3,027 s (fixture acquire 331 s, host admission 54 s); lanes all busy 985 s; makespan 40 s above a perfect split; checkpoint sync 975 s. Reference pair: 1,022 s and 1,054 s |
 | 2026-11-23 | W2-1 / G25 | Side A: `500e3bdda` plus the G23 pin, diagnostic `check` twice | `g25-a-generate01`, `g25-a-check01`, `g25-a-check02` | Pass 365/365 both. Graph 1,112 s and 1,144 s; checkpoint sync 845 s and 1,012 s; heavy host admission 413 s and 386 s (no G24). Same as side B, so the regression is not in the code |
 | 2026-11-23 | W2-1 / G25 | Host disk probe: `pg_test_fsync -s 3` in the pinned PostgreSQL image, idle host | — | `fdatasync` 2,102 µs/op, `fsync` 3,785 µs/op, `open_datasync` 1,990 µs/op. Root mounted `ext4 … discard`. Recorded as host baseline |
+| 2026-11-23 | W2-2 | G3.6 and G3.9 implemented, measured isolated against clean `HEAD`, then reverted | `w22-imports01`, `w22-nfport01`, `w22-before-imports02`, `w22-before-nfport02` | `network_flow_portability` 177.9 → 174.8 s; `current_workflows` 169.3 → 175.3 s; `ir_corpus_core` 15.7 s with the higher page size. No meaningful gain, so no change kept. A first before-run (`w22-before-*01`) was invalid: a path-limited `git stash` left the working tree unchanged |
+| 2026-11-23 | W2-3 | G3.7 rejected (recovery binding digests forbid clone-per-target); G3.4 deferred pending G17 | — | No code change |
 
 ## 12. Phase 2 Plan — `check` Wall Clock
 
@@ -940,6 +942,20 @@ W2-6 (independent) ───────────────> W2-7
   mutation probe.
 - **Exit criteria.** Owners' targeted rows pass; heavy work down by at least
   100 s across two checks.
+- **Result (2026-11-23).** Not met; both changes reverted after measurement.
+  Isolated rows against clean `HEAD` (`w22-before-imports02`,
+  `w22-before-nfport02` against `w22-imports01`, `w22-nfport01`):
+  - G3.6, capturing side A once at limit 500: `network_flow_portability`
+    177.9 s → 174.8 s.
+  - G3.9, advancing the recovering server's clock to the persisted retry
+    instant: `current_workflows` 169.3 s → 175.3 s. Closing and restarting the
+    server already outlasts the 5 s retry delay, so the job was due anyway.
+
+  The code-reading estimates (15–30% and about 45 s) were wrong: exports,
+  imports, restores and server starts dominate these rows, not re-reads or
+  timers. G3.5 was dropped before implementation: the reporting source needs
+  template packs, so sharing would save one server start (about 3 s). D7 is not
+  needed.
 
 #### W2-3 — Shared fixture support
 
@@ -949,6 +965,16 @@ W2-6 (independent) ───────────────> W2-7
   mandatory.
 - **Exit criteria.** Identical ATT&CK digests within a run; isolation probes
   pass; heavy work down by a further 80 s or more.
+- **Result (2026-11-23).** Not started; both items stopped on evidence.
+  - G3.7 is rejected as designed: a restored target records binding digests
+    for its database, object store, pack storage and export outputs
+    (`recovery_target_state`), which the server checks at startup. A database
+    clone has a different binding, so clone-per-target would need a bypass of a
+    recovery safety fence.
+  - G3.4 is deferred. Signing cost is mostly hashing and archiving 95 MB
+    (about a second per build), and the import-snapshot saving is an unmeasured
+    code-reading estimate of the kind W2-2 just disproved. Resume it only with
+    per-subtest timings (G17) showing import time inside the ATT&CK rows.
 
 #### W2-4 — Seeded generations
 
