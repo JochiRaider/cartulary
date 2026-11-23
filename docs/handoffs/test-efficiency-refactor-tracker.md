@@ -104,7 +104,7 @@ repetitions each.
 | G22 | Readiness cache stamps vouch for external Docker images that may have been removed | Specification, implementation | WS5 | Low (remediated, uncommitted) |
 | G23 | The pinned browser-trust package was removed upstream; only the local readiness cache kept bootstrap working | Implementation | WS0 | High while broken (pin updated, uncommitted) |
 | G24 | Heavy units hold a heavy lane while queued in host admission behind ordinary PostgreSQL units | Specification, implementation | WS2 | High (remediated, uncommitted: about 150 s of `check` wall) |
-| G25 | Unattributed I/O regression: checkpoint sync and graph wall up since the morning's passing runs | Measurement, possibly implementation | W2-1 | High (open, Section 12) |
+| G25 | Unattributed I/O regression: checkpoint sync and graph wall up since the morning's passing runs | Measurement, possibly implementation | W2-1 | High; attributed to host disk state, not code (Section 12) |
 | G26 | Packing omits PostgreSQL generation acquisition | Specification, machine inputs, implementation | W2-5 | Medium (open, Section 12) |
 
 ## 5. Gap Remediation Detail
@@ -599,6 +599,8 @@ Each amendment lands spec-first in one change with its machine projections, rege
 | 2026-11-22 | G24 | Heavy-lane precedence in host admission (REQ-803 amended) | `g24-generate01`, `g24-admission01` (row `harness.evidence_accounting.behavior.observation_admission`), `g24-runtime01` (row `harness.command_surface.unit.native_runtime`), `g24-lintgo01`; mutation check (precedence disabled fails the new subtest) | All pass |
 | 2026-11-22 | G24 | Diagnostic `check` | `g24-check01` | **Pass 365/365.** Graph 1,022 s (from 1,152–1,171 s); heavy host admission 35 s (from 443–454 s); heavy work 2,921 s; checkpoint sync 871 s |
 | 2026-11-22 | W2-0 | Phase-2 reference, second run on the landed code (`fb5c7b63d`; `g24-check01` is the first) | `w20-ref-check02` | **Pass 365/365.** Graph 1,054 s; heavy work 3,027 s (fixture acquire 331 s, host admission 54 s); lanes all busy 985 s; makespan 40 s above a perfect split; checkpoint sync 975 s. Reference pair: 1,022 s and 1,054 s |
+| 2026-11-23 | W2-1 / G25 | Side A: `500e3bdda` plus the G23 pin, diagnostic `check` twice | `g25-a-generate01`, `g25-a-check01`, `g25-a-check02` | Pass 365/365 both. Graph 1,112 s and 1,144 s; checkpoint sync 845 s and 1,012 s; heavy host admission 413 s and 386 s (no G24). Same as side B, so the regression is not in the code |
+| 2026-11-23 | W2-1 / G25 | Host disk probe: `pg_test_fsync -s 3` in the pinned PostgreSQL image, idle host | — | `fdatasync` 2,102 µs/op, `fsync` 3,785 µs/op, `open_datasync` 1,990 µs/op. Root mounted `ext4 … discard`. Recorded as host baseline |
 
 ## 12. Phase 2 Plan — `check` Wall Clock
 
@@ -670,6 +672,20 @@ The Section 3 rules still apply. In addition:
 - **Validation.** Two runs on each side of the bisection reproduce or rule out
   the difference beyond noise. A fix, if any, restores checkpoint sync to the
   morning range. The `fsync` probe result is recorded here.
+- **Result (W2-1, 2026-11-23).** Not the code. Side A (`500e3bdda` plus the G23
+  pin, the code of the morning's 970 s run) took 1,112 s and 1,144 s with
+  checkpoint sync 845 s and 1,012 s (`g25-a-check01`, `g25-a-check02`). Side B
+  (`a5df06952` content) took 1,152 s and 1,171 s with 1,000 s and 1,066 s
+  (`pack-base-check01`, `pack-rebal-check01`). The slowdown is host disk state.
+  Likely mechanism: the root filesystem is mounted with `discard`, so the
+  day's roughly 300 GB of deletions were passed to the WSL virtual disk as TRIM;
+  later writes land in deallocated space and pay allocation on the Windows host.
+  Host baseline with `pg_test_fsync` in the pinned PostgreSQL image, idle host:
+  `fdatasync` 2.1 ms per 8 kB write (476 ops/s), `fsync` 3.8 ms, `open_datasync`
+  2.0 ms. Remedies are host-side and need the owner: compact the virtual disk
+  from Windows after `wsl --shutdown`, or mount without `discard` and trim on a
+  schedule. The phase-2 targets are measured against the reference pair
+  (1,022 s and 1,054 s); rerun the probe before comparing any later treatment.
 
 #### G3.6 — Network Flow transfer re-reads frozen state
 
