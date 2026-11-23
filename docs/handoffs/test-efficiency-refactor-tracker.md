@@ -1,6 +1,6 @@
 # Test Execution Efficiency Remediation Plan
 
-**Status.** Active remediation tracker, last updated 2026-11-23. All phase-1 work is committed. Phase 2 ([Section 12](#12-phase-2-plan--check-wall-clock)) landed G7 and G6; G6 brought the `check` graph wall from 1,022–1,157 s to under 900 s. In G17 (phase 3), G17b and G17c landed, G17a was not adopted, and disk stall was identified as the contention the failing tests hit. G17f withdrew A17 and added A18 (WAL compression, −22% container writes), and G17g bounded test-side waits by the test deadline. G17 is closed. G27 (heavy-row test work) is done: graph wall 800–840 s, the best recorded. G28 (flush-bound disk stall) is the next lever. `make distclean` on 2026-11-22 deleted every retained run, so the run IDs in Section 11 before that date are a record, not retrievable evidence.
+**Status.** Active remediation tracker, last updated 2026-11-23. All phase-1 work is committed. Phase 2 ([Section 12](#12-phase-2-plan--check-wall-clock)) landed G7 and G6; G6 brought the `check` graph wall from 1,022–1,157 s to under 900 s. In G17 (phase 3), G17b and G17c landed, G17a was not adopted, and disk stall was identified as the contention the failing tests hit. G17f withdrew A17 and added A18 (WAL compression, −22% container writes), and G17g bounded test-side waits by the test deadline. G17 is closed. G27 (heavy-row test work) is done: graph wall 800–840 s, the best recorded. G28 measured the disk flushes: stall follows host flush latency, and heavy units spend about 15% of their time on their own synchronous flushes; its options await an owner decision. `make distclean` on 2026-11-22 deleted every retained run, so the run IDs in Section 11 before that date are a record, not retrievable evidence.
 
 The active plan for the remaining `check` wall-clock work is [Section 12](#12-phase-2-plan--check-wall-clock). Original framing: this document authorizes no implementation by itself.
 Each specification amendment in [Section 8](#8-specification-amendment-ledger) needs
@@ -107,7 +107,7 @@ repetitions each.
 | G25 | Unattributed I/O regression: checkpoint sync and graph wall up since the morning's passing runs | Measurement, possibly implementation | W2-1 | Closed: the cost was per-generation provisioning checkpoints, amplified by host disk state; G6 removed it (checkpoint sync 1,156 s → 4 s) |
 | G26 | Packing omits PostgreSQL generation acquisition | Specification, machine inputs, implementation | W2-5 | Medium; not implemented, see the G26 decision in Section 12 |
 | G27 | Heavy-lane wall sits in a few long single tests (import workflows, ATT&CK production restore, Network Flow incident transfer, the two bundle round trips) | Tests (module owners) | Phase 3 follow-up | Done: `7a62a435a`, `9f01fdc27`; changed tests −48%, graph wall −50 s (800/840 s); remaining saving lost to disk contention (G28) |
-| G28 | Disk stall follows flush count, not bytes (A18 cut writes 22% without moving `io_full`); 21–35 s of CPU-stall bursts per `check` remain unattributed | Measurement, then specification | Phase 3 follow-up | Medium; measure WAL flushes per unit and short-lived child CPU first |
+| G28 | Heavy units spend about 15% of their time waiting on their own synchronous flushes (WAL commits and product file fsyncs); stall follows host flush latency, not guest flush or byte rates; 21–35 s of CPU-stall bursts per `check` remain unattributed | Measurement, then owner decisions | Phase 3 follow-up | Measured; options A–D await owner decision (Section 5) |
 
 ## 5. Gap Remediation Detail
 
@@ -815,6 +815,87 @@ of their saving until disk stall falls.
 **Remaining.** G27's identified options are done. The next wall-clock lever is
 G28 (disk flushes), not more heavy-row work.
 
+### G28 — Synchronous flushes on the heavy-lane path
+
+Opened 2026-11-23 as a G17 follow-up, measurement first. The premise was that
+disk stall follows flush count, so cutting flushes would cut stall for every
+test. The measurement does not support that premise.
+
+**Method.** Three scratch instruments, not committed. A sampler read
+per-second flush and write counters for the two virtual disks: `sdd`, the Ubuntu
+root, holds the harness, Go test temp directories and caches, and `sde`, Docker
+Desktop's data disk, holds PostgreSQL and SeaweedFS. Every 5 s it also read
+`pg_stat_io`, `pg_stat_wal` and `pg_stat_database` from each test cluster, less
+the counters a seeded cluster restores from the seed build. A tracer counted
+`fsync`-family syscalls of the whole `make` tree with seccomp user notification,
+recording caller, unit and file. Runs: `g28-measure-check01` (sampler; pass,
+graph 742 s), `g28-measure-check02` (sampler and tracer; graph 805 s; the two
+report-renderer sandbox rows failed because a process tree can hold only one
+seccomp listener, an instrument artifact; every other row passed), and
+`g28-prof-ib01` (the eight heaviest incident-bundle rows, per-database
+counters; pass).
+
+| Run | `sdd` flushes | `sde` flushes | `sdd` written | `sde` written | Mean `io_full` |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `g28-measure-check01` | 160,517 | 118,625 | 23.6 GB | 70.6 GB | 8.0% |
+| `g28-measure-check02` | 153,884 | 118,920 | 23.7 GB | 70.8 GB | 9.3% |
+
+**Findings.**
+
+1. *PostgreSQL flushes are commits.* Clusters issued 81,445 WAL fsyncs, 74,461
+   of them by client backends at commit, and the checkpointer only 337 (one
+   seal checkpoint per generation). PostgreSQL wrote 40.2 GB: clone copies
+   12.8 GB, background writer 9.4 GB, WAL 8.9 GB, and 7.0 GB zero-filling 417
+   new 16 MB WAL segments, since short-lived clusters never recycle WAL.
+2. *Host flushes are mostly product storage in tests.* Of 99.6k fsyncs to
+   disk-backed paths, 61.8k came from product storage under the Go test temp
+   directories (reference-pack storage, backup sets, and transfer staging at
+   423 fsyncs per stage) and about 36k from harness and test-service state,
+   10.4k of which are execution observations written only under diagnostics.
+   The harness's 175.6k admission-state fsyncs go to `/tmp`, which is tmpfs on
+   this host, so they reach no disk.
+3. *Stall follows flush latency, not flush or byte rates.* Over 156 ten-second
+   windows, flush and write rates on both disks explain little of `io_full`
+   (joint regression R² 0.15). Stall tracks mean flush latency (r 0.64 and
+   0.88). Latency rises from about 2 ms at idle to 3–6 ms under any load and
+   does not scale with guest writes (r ≤ 0.32), so the host sets it. This
+   corrects the G27 reading: run-to-run `io_full` differences are host
+   latency, not contention from compressing the same work.
+4. *Each test pays for its own flushes.* Heavy units issued 48.6k WAL and
+   43.8k host fsyncs. At the run's mean latencies that is about 330 s of their
+   2,245 s (15%) spent waiting on their own flushes. The largest: two
+   incident-bundle round-trip units (11.5k and 10.6k WAL fsyncs), the
+   reference-data fresh-runtime unit (6.1k WAL, 3.6k host), and two recovery
+   units (11.0k and 9.8k host fsyncs from backup storage).
+5. *Server settings cannot remove commit flushes.* Isolated `pgbench`
+   micro-benchmarks on `sde`: `commit_delay` of 1 ms halves flushes per commit
+   at four clients but cuts throughput 36% (23% at two clients), so it is
+   rejected. `wal_init_zero=off` keeps throughput and costs 1.05 instead of
+   1.00 flushes per commit, removing only the zero-fill. A larger
+   `shared_buffers` would cut background-writer bytes, which do not set
+   latency. Synchronous commit, `fsync` and checkpoint behavior are fixed by
+   the NLSpec.
+6. *Commit sources in the incident-bundle rows.* `g28-prof-ib01` saw 62k
+   commits. The ATT&CK import commits about 20 rows per transaction (60k rows
+   in 2.7–3.5k commits). Several databases commit 2–7k transactions with few
+   inserts, mostly updates. These are not session slides, which Core 04 lets
+   routes throttle to one per minute and the product does, and not the
+   import. Their source (job leases and progress, or 25 ms test polling) is
+   not yet attributed.
+
+**Options (owner decisions).**
+
+- *A. Cut per-request and job commits in the heaviest rows.* Attribute them
+  with per-table counters, then change tests or product. Halving the top
+  units' commits would save roughly 50–80 s of heavy work under `check`.
+- *B. Batch fsyncs in product backup and transfer staging.* A product
+  durability design change (recovery owner).
+- *C. Put Go test temp directories on tmpfs when capacity allows.* This
+  removes about 62k disk flushes, but conflicts with TH-HARNESS-AC-092 (cache
+  roots resolve outside `/tmp`) and moves test data into memory.
+- *D. `wal_init_zero=off`.* Needs a spec sentence like A18; small and
+  uncertain gain.
+
 ### G18 — ATT&CK release fixture expiry
 
 - **Evidence.** `container.pack` under `fixtures/reference-packs/dataset-v1/attack/release/envelopes/83ec1d97…/` carries `metadata/snapshot.json`, `targets.json` and `timestamp.json` with `"expires":"2026-12-08T20:40:00Z"`. Envelope validation requires `verified_at` before `trust_valid_until` ([envelope.go:52](../../internal/modules/reference_data/internal/packformat/envelope.go)), and the recovery test imports with `CLOCK_TRUSTED=true` against the real clock. The failure after that date is inferred, not yet reproduced.
@@ -1087,6 +1168,9 @@ Each amendment lands spec-first in one change with its machine projections, rege
 | 2026-11-23 | G27 | Targeted checks, then one confirming diagnostic `check` | `g27-generate01`, `g27-lintgo02`, `g27-srcgen01`, `g27-slice-server01`, `g27-slice-imports01`, `g27-check01` | All pass; `check` 365/365. Workflow test 116 s (from 208–221 s). Graph 945 s on noisy host disk (`io_full` 11.5%). Committed `7a62a435a` |
 | 2026-11-23 | G27 | Four owner-approved options: concurrent restore probes, one transfer destination, Entra setup pack, shared recovery-scan hook; targeted checks and changed rows | `g27b-lintgo03`, `g27b-srccat02`, `g27b-srcgen01`, `g27b-generate02`, `g27b-slice-rec01`, `g27b-slice-ib01`, `g27b-slice-rc01`, `g27b-slice-imp01` | All pass; seven rows 31–76% faster in isolation. Committed `9f01fdc27` |
 | 2026-11-23 | G27 | Final validation: paired diagnostic `check` on `9f01fdc27` | `g27-final-check01`, `g27-final-check02` | **Pass twice.** Graph 800 s and 840 s (from 857 s and 882 s); heavy unit work 2,243 s and 2,355 s; changed tests −352 s, other heavy tests +213 s on higher disk stall (`io_full` 9.5% and 11.2%) |
+| 2026-11-23 | G28 | Diagnostic `check` with a per-second disk-flush and PostgreSQL I/O sampler | `g28-measure-check01` | Pass; graph 742 s. Host disk 160,517 flushes, Docker disk 118,625; PostgreSQL sampling missed seeded clusters (image-ID filter), fixed for the next run |
+| 2026-11-23 | G28 | Diagnostic `check` with the sampler and a seccomp `fsync` tracer | `g28-measure-check02` | Graph 805 s; two report-renderer sandbox rows failed on the tracer's seccomp listener (instrument artifact), all other rows passed. 81,445 WAL fsyncs, 337 checkpointer fsyncs; 99.6k host fsyncs to disk; heavy units about 15% in their own flush waits |
+| 2026-11-23 | G28 | `pgbench` micro-benchmarks for `commit_delay` and `wal_init_zero`; per-database commit profile of the eight heaviest incident-bundle rows | `g28bench` (scratch), `g28-prof-ib01` | `commit_delay` rejected (−23–36% throughput); `wal_init_zero=off` marginal; 62k commits, import batched about 20 rows per commit, remaining commit source unattributed |
 
 ## 12. Phase 2 Plan — `check` Wall Clock
 
