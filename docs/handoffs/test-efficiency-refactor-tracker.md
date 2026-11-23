@@ -1,6 +1,6 @@
 # Test Execution Efficiency Remediation Plan
 
-**Status.** Active remediation tracker, last updated 2026-11-23. All phase-1 work is committed. Phase 2 ([Section 12](#12-phase-2-plan--check-wall-clock)) landed G7 and G6; G6 brought the `check` graph wall from 1,022–1,157 s to under 900 s. In G17 (phase 3), G17b landed, G17a was not adopted, and disk stall was identified as the contention the failing tests hit. `make distclean` on 2026-11-22 deleted every retained run, so the run IDs in Section 11 before that date are a record, not retrievable evidence.
+**Status.** Active remediation tracker, last updated 2026-11-23. All phase-1 work is committed. Phase 2 ([Section 12](#12-phase-2-plan--check-wall-clock)) landed G7 and G6; G6 brought the `check` graph wall from 1,022–1,157 s to under 900 s. In G17 (phase 3), G17b and G17c landed, G17a was not adopted, and disk stall was identified as the contention the failing tests hit. G17f withdrew A17 and added A18 (WAL compression, −22% container writes); G17g (test-side waits) is next. `make distclean` on 2026-11-22 deleted every retained run, so the run IDs in Section 11 before that date are a record, not retrievable evidence.
 
 The active plan for the remaining `check` wall-clock work is [Section 12](#12-phase-2-plan--check-wall-clock). Original framing: this document authorizes no implementation by itself.
 Each specification amendment in [Section 8](#8-specification-amendment-ledger) needs
@@ -96,7 +96,7 @@ repetitions each.
 | G14 | Estimates drift and diagnostics truncate | Machine inputs, implementation | WS1, WS4 | Medium; heavy-row estimates rebalanced (`fb5c7b63d`), little wall effect; estimates predate G6 |
 | G15 | Fallow web dead-code policy fails `ci` on 5 unused exports | Implementation (frontend) | WS0 follow-up | Immediate for a green `ci` |
 | G16 | Admission waiters re-run a full cross-process transaction every 50 ms | Implementation, specification | WS2 | High |
-| G17 | Heavy-lane critical path: subtest timings are discarded; process tests used fixed hang guards; disk stalls (`guest:io` `full` about 10% of the run) are the binding contention, and template-clone I/O (about 38 of 62 GB per `check`) is unattributed | Specification, machine inputs, implementation, tests | Phase 3 | High: G17b done (`3373cd3b5`); G17a not adopted; four lanes rejected a third time; next G17c and G17f in Section 5 |
+| G17 | Heavy-lane critical path: subtest timings are discarded; process tests used fixed hang guards; disk stalls (`guest:io` `full` about 10% of the run) are the binding contention, and template-clone I/O (about 38 of 62 GB per `check`) is unattributed | Specification, machine inputs, implementation, tests | Phase 3 | High: G17b done (`3373cd3b5`); G17a not adopted; four lanes rejected a third time; G17c done (`b98e95e17`); G17f measured (A17 withdrawn, A18 WAL compression −22% writes); next G17g in Section 5 |
 | G18 | Retained ATT&CK release metadata expires 2026-12-08T20:40:00Z; tests import it against the real clock | Fixtures, tests | Separate task | Urgent (outside efficiency scope) |
 | G19 | `DROP DATABASE` checkpoints can exceed the fixed 35 s cleanup budget under I/O load, poisoning the unit's generation | Specification, implementation | WS2/WS3 | Done: retirement and hardening (`500e3bdda`), retirement event (`a5df06952`); G6 removed most checkpoint backlog |
 | G20 | A Git repository nested in the checkout (such as an agent worktree under `.claude/worktrees/`) breaks source enumeration and is scanned by a whole-checkout filesystem walk | Specification, implementation | WS4 | Done (`500e3bdda`, regression fix `a5df06952`) |
@@ -457,7 +457,9 @@ everything known about what that work waits on, and the fixes in order.
    original G17). Under `HARNESS_DIAGNOSTICS=basic`, retain a bounded per-unit
    artifact of subtest durations keyed by the row's catalog identity plus an
    ordinal or digest of the subtest name, with names kept only where the spec
-   permits. Decide the naming rule in the spec first (REQ-844).
+   permits. Decide the naming rule in the spec first (REQ-844). **Done**
+   (`b98e95e17`, TH-HARNESS-REQ-869): redacted names beside the unit logs,
+   outside the execution index (see G17c and G17f results).
 4. **G17d — Capacity-row margin** (measurement, then machine inputs if needed).
    After G17a, measure the row-limit test's apply duration against its 30 s
    budget. Keep the product default; it is what the test proves. If the margin
@@ -478,6 +480,10 @@ everything known about what that work waits on, and the fixes in order.
      WSL virtual disk honours I/O weights.
    - With G17c data, move tests that clone only to read or to roll back onto
      the transaction capability, row by row (successors of G3.4).
+   - **Measured** (see G17c and G17f results): retired generations have no
+     shutdown checkpoint (A17 withdrawn), I/O weights are unavailable here, and
+     clones are spread too thinly for a few moves to matter. WAL compression
+     (A18) was added instead.
 
 - **Implementation (2026-11-23).**
   - *G17a (not adopted; branch `g17a-attempt`, `2f23c6e44`).* Drafted A16 in
@@ -550,11 +556,110 @@ everything known about what that work waits on, and the fixes in order.
     barrier; the response does not carry the fatal reason code, so the cause
     (likely a 2 s default cancellation grace overrun under disk stall) is
     inferred. Neither test changed.
-- **Next.** The binding contention is disk I/O, not CPU. G17c (subtest timings)
-  comes first, to attribute heavy-row time and clone use. Then G17f (test I/O),
-  starting with the shutdown-checkpoint measurement and the clone-to-transaction
-  moves. The remaining CPU bursts are 21–35 stall-seconds per `check`; finding
-  their source needs a per-process probe that counts short-lived children.
+- **G17c and G17f results (2026-11-23).**
+  - *G17c (committed `b98e95e17`).* TH-HARNESS-REQ-869 and
+    `cartulary.harness_go_test_durations.v1`. Under basic diagnostics each Go
+    unit writes `unit-logs/row-<row-id>/go-test-durations.json`, with every test
+    and subtest's outcome and Go-reported elapsed time from the parse that
+    settles row outcomes. Names are redacted like unit logs (URL credentials and
+    `cursor_token` values were masked in 13 real names) and kept out of the
+    secure execution index. The file holds at most 4,096 observations; overflow
+    is counted (901 in the Network Flow alias-fixture unit, 14 in one graph
+    projection unit). Targeted checks: `g17c-generate01`, `g17c-contract01`
+    (Go row-runner assertions in `public_registry_parity`), `g17c-shapes01`,
+    `g17c-srcgen01`, `g17c-srcschema01`, `g17c-lintscripts02`; all pass.
+    `g17c-check01` wrote files for 312 of 312 Go units and the retained-secret
+    scan passed (4,731 files). Its one failure (`incidentbundles`
+    `network_flow_portability`, first in 24 runs) ran while a WAL probe of mine
+    added disk load (run mean `io_full` 13.3%, the highest recorded). The
+    participant-deadline expiry and the contract-compatibility rejection share
+    one error mapping, so that reason code cannot tell them apart.
+  - *Heavy-lane attribution* (`g17c-check01`, inflated by the probe; shares,
+    not absolutes). Heavy-lane time sits in a few long single tests, not in
+    setup or clones: `TestCurrentImportWorkflows_Integration` 210 s (one test,
+    no subtests), `TestATTACKProductionPackRestoresPinnedHistory_Integration`
+    181 s, the Network Flow incident transfer 153 s, the ATT&CK snapshot
+    bundle round trip 100 s (68 s in the production-license subtest), the
+    reference-catalog round trip 93 s (61 s in embedded-destination
+    verification), and the recovery referential-integrity test 94 s (29 s and
+    24 s in two subtests). Build and binary start add 5–25 s per heavy unit.
+  - *Shutdown checkpoint: none; A17 withdrawn.* Suite termination
+    (`terminateLeasedService` in `tools/testservices/main.go`) force-removes
+    each generation container with its volumes. Docker events show SIGKILL
+    (signal 9, exit 137), so PostgreSQL writes no shutdown checkpoint. Teardown
+    took 111 s over 90 generations (median 0.93 s, max 4.8 s) in `g17a-check01`,
+    and heavy-unit release 33–41 s per run: at most about 11 s of wall.
+  - *I/O priority: unavailable on this host.* Every WSL virtual disk uses the
+    `none` scheduler (BFQ not offered), and the cgroups have no `io.weight` or
+    `io.cost`. `io.latency` exists, but Docker's container cgroups are
+    root-owned. Not pursued.
+  - *Clones.* 1,300 template clones per `check` across 579 tests, at most 39 in
+    any one test (`TestOperatorReferencePackRetainedAdmission_Integration` 39,
+    `TestServerReferencePackRetainedAdmission_Integration` 35,
+    `TestCredentialStateAndBootstrapFlows_Integration` 35,
+    `TestStateRuntimeAdmit_ServiceBacked_InitializationValidationRollback` 34,
+    `TestRestoreRejectsBypassedReferentialIntegrity_Integration` 30). Creation
+    took 384 s in total, spread across lanes. Moving the top tests to the
+    transaction capability would remove about a fifth of the clone I/O through a
+    module-by-module test refactor, so it is deferred to row owners.
+  - *WAL compression (A18).* A seed-container probe measured the WAL of one
+    `WAL_LOG` clone of the migrated template under each `wal_compression` mode
+    (bytes by LSN difference, five clones each):
+
+    | Mode | WAL per clone | Five clones | Update after checkpoint |
+    | --- | ---: | ---: | ---: |
+    | `off` (current) | 9,451 KiB | 1,235 ms | 77,972 KiB |
+    | `pglz` | 3,458 KiB | 2,602 ms | 66,672 KiB |
+    | `lz4` | 3,797 KiB | 923 ms | 67,079 KiB |
+    | `zstd` | 2,680 KiB | 3,151 ms | 61,496 KiB |
+
+    `lz4` cuts clone WAL by 60% at no time cost (about 7 GB of the 62–63 GB
+    containers write per `check`); `zstd` saves more but is CPU-bound. A18 adds
+    `wal_compression=lz4` to the harness server command and the REQ-804 clone
+    paragraph. Full-page writes, `fsync` and synchronous commit are unchanged,
+    and the seeded-generation test now asserts all four settings. The setting
+    enters the provisioning identity, so a new seed image was built. Targeted
+    checks: `a18-lintgo01`, `a18-slice-pg01`, `a18-slice-hb01`
+    (`harness.browser.integration.postgres_template_preparation`); all pass.
+    Validation: one diagnostic `check`, `a18-check01`. Per the owner's
+    direction, one `check` confirms correctness and paired runs are kept for
+    final validations; `a18-check02` was stopped before it started.
+
+    | Run | Container writes | Mean `io_full` | Windows > 15% | Graph | Heavy work |
+    | --- | ---: | ---: | ---: | ---: | ---: |
+    | `g6-check01`, `g6-check02` | 61.8 GB, 63.0 GB | 8.1%, 9.6% | 9, 16 | 887 s, 889 s | 2,490 s, 2,537 s |
+    | `g17a-check01`, `g17a-check02` | 62.3 GB, 62.8 GB | 9.7%, 10.4% | 24, 27 | 918 s, 948 s | 2,552 s, 2,631 s |
+    | `a18-check01` | 48.6 GB | 10.6% | 26 | 961 s | 2,737 s |
+
+    A18 cut container writes by 22%, about twice the WAL estimate. Disk stall
+    and wall did not improve, which fits a virtual disk whose stall follows
+    flush count rather than bytes (every commit still flushes WAL). Since G6,
+    graph wall has drifted from 887–889 s to 918–961 s and heavy work by up to
+    10% with no code on the path that explains it, as with G25's host-state
+    drift. One run cannot separate A18 from that drift. The run failed one
+    row: the `incidentbundles` ATT&CK snapshot round trip, whose import job did
+    not finish within the test's fixed 30 s poll (`waitJob` in
+    `routes_helpers_integration_test.go`). This was the second such failure
+    after `g17a-lane4-check02`, again early in the run (82–112 s) at 13–21%
+    `io_full` with the CPU idle. That wait is a test hang guard, not a product
+    budget, like the G17b operator guards. A18 is kept for the write reduction;
+    adoption awaits owner review.
+- **Next.** The binding contention is disk stall from flushes, which A18's byte
+  reduction did not move. Candidates, in order:
+  - *G17g — Test-side waits from the test deadline.* Disk-stall failures since
+    G6 hit fixed test waits: the `incidentbundles` `waitJob` 30 s poll (twice)
+    and the operator guards (fixed by G17b). REQ-864 already lets a poll take
+    the test's deadline. Product budgets the tests assert (the 30 s
+    participant budget, the 2 s cancellation grace) stay as they are.
+  - *Heavy-row test work.* With G17c timings, the largest single tests
+    (`TestCurrentImportWorkflows_Integration`, the ATT&CK production restore,
+    the Network Flow incident transfer, the two bundle round trips) are where
+    wall can still come from. They need owner-level test changes.
+  - *Commit volume.* If flush count binds, fewer commits per test (batched
+    fixture setup) would help more than fewer bytes. Measure WAL flushes per
+    unit first (`pg_stat_wal` before retirement).
+  - The remaining CPU bursts are 21–35 stall-seconds per `check`; finding their
+    source needs a per-process probe that counts short-lived children.
 - **Area.** Specification (A16; REQ-844 naming for G17c; A17 if adopted),
   machine inputs (operation resource profiles), implementation (work-graph
   compiler, Go runner), tests (process-test helpers).
@@ -749,7 +854,9 @@ WS2 and WS3 can run in parallel but are measured together, because both move the
 | A14 | Lifecycle estimates beside REQ-865 | Withdrawn (Section 12, G26 decision) | G26 | None |
 | A15 | §10.2 capacity table | Not adopted: four lanes gained no wall time and added contention failures (Section 12, G2 result) | G2 | None |
 | A16 | REQ-379; §10.2 `cpu_tokens` and `process_slots` rows | Not adopted: bounding operation children to their CPU claim left the CPU-stall bursts in place and moved 4-CPU builds to the run's tail (G17 Results); the draft is on local branch `g17a-attempt` | G17 | None |
-| A17 (conditional) | REQ-357; REQ-804 retirement | Generations whose databases all retire with them stop immediately instead of gracefully, skipping the shutdown checkpoint (proposed only if G17f measures it as material) | G17 | None |
+| A17 (conditional) | REQ-357; REQ-804 retirement | Withdrawn: suite termination already force-removes generation containers, so there is no shutdown checkpoint to skip (G17f) | G17 | None |
+| A18 | REQ-804 clone paragraph | Harness clusters run with `wal_compression=lz4`, cutting `WAL_LOG` clone WAL by about 60% and container writes per `check` by 22% (`a18-check01`); durability settings unchanged; part of the provisioning identity. Disk stall and wall unchanged in one run (committed `81f709c2d`; adoption awaits owner review) | G17 | None (new seed image) |
+| A19 | REQ-869 (new) | Go test and subtest durations retained under basic diagnostics beside the unit logs, redacted and bounded, outside the execution index (committed `b98e95e17`; keeping redacted names rather than digests awaits owner review) | G17 | Schema `cartulary.harness_go_test_durations.v1` |
 | A8 | REQ-803; REQ-381 | Admission waiters re-evaluate on admission-state change, with a bounded fallback for dead-owner reclamation | G16 | None expected |
 | A5 | REQ-407 | A passing fixture comparison keeps its digest record only (Network Flow summary with `materialized_input_root` null, IR `comparison.json`, reference-pack `bootstrap.json`); a failing one keeps its full material (drafted, uncommitted) | G8 | None |
 | A6 | §5 Go path table; §14 readiness | Invocation-scoped `GOTMPDIR`/`GO_TMP_DIR` beneath the machine path, removed at settlement, dead-owner reclamation; `TMPDIR` stays host-wide (drafted, uncommitted). Retention and cache-maintenance commands (G11, G12) not started | G10 | None |
@@ -843,6 +950,10 @@ Each amendment lands spec-first in one change with its machine projections, rege
 | 2026-11-23 | G17b, G17e | Diagnostic `check` twice, four lanes by capacity override | `g17a-lane4-check01`, `g17a-lane4-check02` | Fail 364/365, graph 966 s; fail 363/365, graph 921 s (network-flow row limit both times; `incidentbundles` ATT&CK round trip once). Operator process rows passed: G17b met. Four lanes rejected a third time |
 | 2026-11-23 | G17 | Contention re-analysis: per-window `guest` CPU and I/O pressure, unit overlap, process CPU of the network-flow unit, source-pass timings | The eight runs above and `g6-check01/02`, `g2b-lane4-check01/02` | All four failures fall in `io_full` windows of 13–27% with CPU stall 0–10%; CPU stall totals 21–35 s per `check`. G17d: passes share the 30 s budget, three-lane margin 20–30%; no change |
 | 2026-11-23 | G17a, G17b | Commits; projection check after removing G17a | `g17-srcgen02` | G17b `3373cd3b5`; G17a kept on local branch `g17a-attempt` (`2f23c6e44`); generated projections match their inputs |
+| 2026-11-23 | G17c | Targeted checks: generation, `harness-contract SUITE=contract`, JSON-shape and Go row-runner rows, generated and schema projections, script lint | `g17c-generate01`, `g17c-contract01`, `g17c-shapes01`, `g17c-srcgen01`, `g17c-srcschema01`, `g17c-lintscripts02` | All G17c checks pass. `g17c-contract01` also failed `harness.command_surface.behavior.owner_boundaries`: `installed-readiness.mjs` imports private browser modules, from G22's `a5df06952`; not in `check`; split into a separate task |
+| 2026-11-23 | G17c | Diagnostic `check` | `g17c-check01` | Fail 364/365 (`incidentbundles` `network_flow_portability`, during a concurrent WAL probe; run mean `io_full` 13.3%). Durations retained for 312 of 312 Go units; retained-secret scan pass. Committed `b98e95e17` |
+| 2026-11-23 | G17f | Shutdown-checkpoint trace (Docker events), I/O scheduler and cgroup controllers, clone census from journals, `wal_compression` probe on the seed image | `g17a-check01`, `g17c-check01` | No shutdown checkpoint (force removal, SIGKILL); no I/O weights; 1,300 clones over 579 tests; `lz4` −60% WAL per clone. A17 withdrawn, A18 drafted |
+| 2026-11-23 | A18 | Go lint, PostgreSQL rows, seeded-generation template row, then one diagnostic `check` | `a18-lintgo01`, `a18-slice-pg01`, `a18-slice-hb01`, `a18-check01` | Targeted checks pass. `a18-check01` fail 364/365 (`incidentbundles` ATT&CK round trip, fixed 30 s poll under `io_full`); container writes 48.6 GB (from 61.8–63.0 GB); `io_full` 10.6%; graph 961 s |
 
 ## 12. Phase 2 Plan — `check` Wall Clock
 
