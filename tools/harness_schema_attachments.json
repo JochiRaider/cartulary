@@ -519,6 +519,14 @@
       "validation": "harness.json_shape_check"
     },
     {
+      "schema_id": "cartulary.harness_go_test_durations.v1",
+      "path": "tools/schemas/cartulary.harness_go_test_durations.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "canonical Go row runner",
+      "validation": "harness.json_shape_check",
+      "foundation_runtime": true
+    },
+    {
       "schema_id": "cartulary.harness_helper_ownership.v1",
       "path": "tools/schemas/cartulary.harness_helper_ownership.v1.schema.json",
       "classification": "owner_input",

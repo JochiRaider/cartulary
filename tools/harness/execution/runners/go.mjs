@@ -1,7 +1,9 @@
 import { createReadStream } from "node:fs";
+import path from "node:path";
 import { createInterface } from "node:readline";
 
-import { validateSchemaSync } from "../../contract/index.mjs";
+import { secureWriteFile, validateSchemaSync } from "../../contract/index.mjs";
+import { executionEnabledKey } from "../../runtime/execution-observations.mjs";
 import { resolveMachineStatePaths } from "../../contract/harness-contract.mjs";
 import { goModuleSelection } from "../../test-catalog/index.mjs";
 
@@ -70,6 +72,7 @@ const failureMarker = "CARTULARY_HARNESS_TEST_FAILURE=";
 
 function goEventObserver() {
   const terminal = new Map(), markers = [], partial = new Map();
+  let packageName = null, packageOutcome = null;
   const malformed = (test) => markers.push({ test, envelope: null, malformed: true });
   const finishLine = (state, terminated) => {
     if (state.encoded === null) return;
@@ -83,7 +86,12 @@ function goEventObserver() {
   const empty = (test) => ({ test, tail: "", encoded: null, bytes: 0, overflow: false });
   return {
     observe(event) {
-      if (typeof event.Test !== "string") return;
+      if (packageName === null && typeof event.Package === "string" && event.Package !== "") packageName = event.Package;
+      if (typeof event.Test !== "string") {
+        // The package's own terminal event carries the test binary's elapsed time.
+        if (["pass", "fail", "skip"].includes(event.Action)) packageOutcome = { action: event.Action, elapsed_ms: elapsedMS(event.Elapsed) };
+        return;
+      }
       // Package identity also prevents a malformed mixed-package stream from
       // joining fragments belonging to equal test names in different packages.
       const key = JSON.stringify([event.Package ?? "", event.Test]);
@@ -129,9 +137,73 @@ function goEventObserver() {
     finish() {
       for (const state of partial.values()) finishLine(state, false);
       partial.clear();
-      return { terminal, markers };
+      return { terminal, markers, packageName, packageOutcome };
     },
   };
+}
+
+function elapsedMS(value) {
+  const seconds = Number(value);
+  return value !== undefined && value !== null && Number.isFinite(seconds) ? Math.max(0, Math.round(seconds * 1000)) : null;
+}
+
+// TH-HARNESS-REQ-869: subtest durations come from the parse that settles row
+// outcomes. They are diagnostics only and never feed outcomes or scheduling.
+export const goTestDurationsSchemaID = "cartulary.harness_go_test_durations.v1";
+const durationLimits = Object.freeze({ max_tests: 4096, max_name_bytes: 512 });
+
+export function goTestDurationRecord(invocation, { terminal, packageName, packageOutcome }) {
+  return {
+    package: packageName ?? invocation.args?.at(-1) ?? "unknown",
+    rows: invocation.rows.map((row) => ({ row_id: row.row_id, selectors: [...row.selectors] })),
+    package_action: packageOutcome?.action ?? null,
+    package_elapsed_ms: packageOutcome?.elapsed_ms ?? null,
+    tests: [...terminal].map(([name, observation]) => ({ name, action: observation.action, duration_ms: observation.duration_ms })),
+  };
+}
+
+export function goTestDurationsDocument(unitID, records, redact) {
+  let remaining = durationLimits.max_tests, omitted = 0;
+  const invocations = records.map((record) => {
+    const tests = [];
+    for (const test of record.tests) {
+      const name = redact(test.name);
+      // Over-limit observations are counted, never truncated.
+      if (remaining === 0 || name === "" || Buffer.byteLength(name) > durationLimits.max_name_bytes) {
+        omitted++;
+        continue;
+      }
+      remaining--;
+      tests.push({ ...test, name });
+    }
+    return { ...record, tests };
+  });
+  const document = { schema_id: goTestDurationsSchemaID, unit_id: unitID || null, limits: { ...durationLimits }, omitted, invocations };
+  validateSchemaSync(goTestDurationsSchemaID, document);
+  return document;
+}
+
+export function goTestDurationsPath(runRoot, rows) {
+  const first = rows.map((row) => row.row_id).sort(asciiCompare)[0];
+  return path.join(runRoot, "unit-logs", `row-${first}`, "go-test-durations.json");
+}
+
+export function publishGoTestDurations(runRoot, rows, unitID, records, redact) {
+  const file = goTestDurationsPath(runRoot, rows);
+  secureWriteFile(file, `${JSON.stringify(goTestDurationsDocument(unitID, records, redact))}\n`, { allowedRoot: runRoot });
+  return file;
+}
+
+// Basic diagnostics only. A failure is reported once and changes neither the
+// unit's outcome nor its evidence.
+export function retainGoTestDurations({ environment, runRoot, rows, records, redact, report }) {
+  if (rows[0]?.runner !== "go" || environment[executionEnabledKey] !== "1") return null;
+  try {
+    return publishGoTestDurations(runRoot, rows, environment.CARTULARY_WORK_UNIT_ID, records, redact);
+  } catch {
+    report("go test durations unavailable (diagnostic_write_failed)\n");
+    return null;
+  }
 }
 
 function parseGoEventLine(line) {
@@ -306,9 +378,10 @@ function failureDetails(invocation) {
   };
 }
 
-export async function adaptGoInvocationFile(invocation, result, onFailureOutput = () => {}) {
+export async function adaptGoInvocationFile(invocation, result, onFailureOutput = () => {}, onDurations = () => {}) {
   const diagnostic = failureDetails(invocation);
   const parsed = await parseEventsFile(result.stdoutPath, diagnostic);
   onFailureOutput(diagnostic.render(parsed.terminal));
+  onDurations(goTestDurationRecord(invocation, parsed));
   return adaptParsedGoInvocation(invocation, result, parsed);
 }

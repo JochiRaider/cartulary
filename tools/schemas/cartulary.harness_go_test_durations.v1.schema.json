@@ -1,0 +1,152 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_go_test_durations.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "unit_id",
+    "limits",
+    "omitted",
+    "invocations"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.harness_go_test_durations.v1"
+    },
+    "unit_id": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      ]
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max_tests",
+        "max_name_bytes"
+      ],
+      "properties": {
+        "max_tests": {
+          "const": 4096
+        },
+        "max_name_bytes": {
+          "const": 512
+        }
+      }
+    },
+    "omitted": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "invocations": {
+      "type": "array",
+      "maxItems": 4096,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "package",
+          "rows",
+          "package_action",
+          "package_elapsed_ms",
+          "tests"
+        ],
+        "properties": {
+          "package": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          },
+          "rows": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 4096,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "row_id",
+                "selectors"
+              ],
+              "properties": {
+                "row_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                },
+                "selectors": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 4096,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 512
+                  }
+                }
+              }
+            }
+          },
+          "package_action": {
+            "enum": [
+              "pass",
+              "fail",
+              "skip",
+              null
+            ]
+          },
+          "package_elapsed_ms": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "integer",
+                "minimum": 0
+              }
+            ]
+          },
+          "tests": {
+            "type": "array",
+            "maxItems": 4096,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "name",
+                "action",
+                "duration_ms"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                },
+                "action": {
+                  "enum": [
+                    "pass",
+                    "fail",
+                    "skip"
+                  ]
+                },
+                "duration_ms": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

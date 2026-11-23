@@ -4994,6 +4994,7 @@ Verified by: TH-HARNESS-AC-135
 | Tool-run summary                                     | Centralized wrappers                            | `<target>/tool-run-summary.json` or the summary directory closed by the target's Section 8.1 row | `cartulary.tool_run_summary.v5`                               | Required non-null timestamps, target, exit code, output mode, artifact refs, failures | Retained; removed by cleanup only under default result root. |
 | Fallow static reports                                | `frontend-fallow-static`                        | `frontend-fallow-static/fallow/*` and `frontend-fallow-static/fallow-static-summary.json` | `cartulary.fallow_static_summary.v2` for the normalized summary; raw JSON, SARIF, Markdown, stdout, stderr, and `resolved-fallowrc.json` files are diagnostic-only | Report names, statuses, issue counts, artifact refs, resolved-config refs, baseline state, and enforcement state in schema-defined order | Retained as run-root artifacts; generated/source roots and Fallow config or baseline inputs are not cleanup candidates. |
 | Vitest failure details                               | Vitest wrappers                                 | `<target>/raw/<row-id>/vitest-failure-details.json` or `unit-logs/<unit-log-id>/vitest-failure-details.json`             | `cartulary.vitest_failure_details.v3`                         | Current invocation identity, runner/log refs, project/file/full-title observations, original errors, kinds, deadlines, and durations | Required for completed Vitest invocations; no legacy fallback. |
+| Go test durations                                    | Canonical Go row runner, basic diagnostics only | `unit-logs/row-<row-id>/go-test-durations.json`                 | `cartulary.harness_go_test_durations.v1`                      | Invocations in execution order; tests and subtests in terminal-event order; nullable package outcome; exact omission count | Retained with the unit logs; diagnostic only, never evidence (TH-HARNESS-REQ-869). |
 | Run manifest                                         | Graph runner                                    | `run-manifest.json`                                             | `cartulary.harness_run_manifest.v3`                            | Immutable command, source, system, graph, capacity, cache-mode, and target-projection identity | Retained. |
 | Unit event stream                                    | Graph scheduler                                 | `unit-events.ndjson`                                            | `cartulary.harness_unit_event.v4`                              | `seq` strictly increases with no gaps; stable unit and resource ordering | Retained; sole current timing authority. |
 | Run summary                                          | Canonical evidence projector                    | `run-summary.json`                                              | `cartulary.harness_run_summary.v1`                             | Unit outcomes, interval unions, critical path, resources, cache, and row closure in stable order | Retained. |
@@ -7252,6 +7253,35 @@ Producers and readers MUST migrate together without legacy translation readers.
 Executable projections and verification MUST NOT depend on Markdown.
 
 Verified by: TH-HARNESS-AC-138–141.
+
+**TH-HARNESS-REQ-869 — Go test duration diagnostics.**
+Under `HARNESS_DIAGNOSTICS=basic`, a canonical Go row-runner unit SHALL retain
+`unit-logs/row-<row-id>/go-test-durations.json`, schema
+`cartulary.harness_go_test_durations.v1`, where `<row-id>` is the unit's
+lexically first selected row. For each Go invocation of the unit, in execution
+order, it records the package selector, the selected rows with their top-level
+test selectors, the package's terminal action and elapsed time, and every
+terminal test and subtest observation in terminal-event order: name, `pass`,
+`fail` or `skip`, and duration. These facts come from the same Go JSON parse
+that establishes row outcomes; durations are Go's reported `Elapsed`, and no
+second timer is added. Names are the test names Go reports, passed through the
+retained-output redaction applied to unit logs (TH-HARNESS-REQ-617). The file
+holds at most 4,096 test observations, each name at most 512 UTF-8 bytes.
+Observations beyond either bound are counted in `omitted`, never truncated.
+
+This artifact is a runner-owned diagnostic beside the unit's logs, like Vitest
+failure details. It is not part of the secure execution projection
+(TH-HARNESS-REQ-844), is never exported, and MUST NOT feed scheduling, packing,
+estimates, cache identity, row outcomes or required evidence. Off mode produces
+none. A failure to build, validate or write it MUST leave the unit's outcome and
+evidence unchanged and is reported once on the unit's standard error. Readers
+treat an absent file as unavailable.
+
+Rationale: row durations alone cannot attribute heavy-row time inside a test
+function, and Go already reports every subtest's elapsed time in the parse the
+runner performs.
+
+Verified by: TH-HARNESS-AC-165.
 
 ### 10.9 Diagnostic coverage and integrity (instrumentation-3)
 
@@ -11486,6 +11516,7 @@ expected behavior. Failure codes below are normalized wrapper codes.
 | TH-HARNESS-AC-162 | REQ-866 | Synthetic retained runs that passed on the current source, failed, or carry another source digest; Go units over the bound, drifting in each direction, and selecting a dedicated-isolation row without a heavy lane | A qualified run yields the sorted, bounded findings and omission count, a rejected run yields its reason codes and no findings, human and JSON views agree, every case exits `0`, and the retained inputs and authored owners are unchanged | A finding gates a command or exits non-zero, an unqualified run yields findings, or the audit writes an estimate, owner or retained file. |
 | TH-HARNESS-AC-163 | REQ-867 | A fixture program whose handlers produce declared codes, a seeded undeclared constant reached through a forwarding function, and a handler the binding does not root; then the server program | The fixture report lists exactly the seeded code with its producing function and the unrooted operation, the server report validates against its schema, and every finding leaves the exit status `0` | The seeded code is missed, a declared code is reported, a finding changes the exit status, or the audit is selected by `check`, CI or a finalizer. |
 | TH-HARNESS-AC-164 | REQ-868 | Direct and forwarded writes, an admissible conditional write through a typed error, wrong-status and undeclared pairs, infeasible and unresolved paths, and the server program | The clean server has positive proof coverage. Each witnessed mismatch names its writer, operation, status and code. The parameterized and literal reference requests qualify during shadow validation, and losing either individual proof still permits the other to qualify | A missed seeded violation, unsupported path counted as proof, or empty server proof set reported as clean fails. |
+| TH-HARNESS-AC-165 | REQ-869 | A Go event stream with nested subtests, pass, fail and skip, a package elapsed time, a secret-bearing name, an over-length name and more than 4,096 observations; basic and off modes; an unwritable destination | Basic mode retains one schema-valid file per Go unit with every observation in terminal-event order, the redacted name and exact omission counts; off mode writes none; row outcomes are identical with and without the file | A missing or reordered observation, invented duration, truncated or unredacted name, file in off mode, or row outcome changed by a diagnostic failure fails. |
 
 The numerical image cases MUST include transparent pixels, alpha-only differences,
 one-pixel boundaries, and zero/full changed area. Interface fixtures MUST include
@@ -11560,6 +11591,7 @@ retained evidence keep their separate owner-only permission contract.
 | `TH-HARNESS-REQ-865..866` | Work estimates and advisory estimate audit | TH-HARNESS-AC-161, TH-HARNESS-AC-162 |
 | `TH-HARNESS-REQ-867` | Advisory static error-declaration audit | TH-HARNESS-AC-163 |
 | `TH-HARNESS-REQ-868` | Proven operation error writes | TH-HARNESS-AC-164 |
+| `TH-HARNESS-REQ-869` | Go test duration diagnostics | TH-HARNESS-AC-165 |
 | `TH-HARNESS-REQ-858..864` | Runtime contract guards and evidence | TH-HARNESS-AC-008, TH-HARNESS-AC-154, TH-HARNESS-AC-155, TH-HARNESS-AC-156, TH-HARNESS-AC-157, TH-HARNESS-AC-158, TH-HARNESS-AC-159 |
 
 

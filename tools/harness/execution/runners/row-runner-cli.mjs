@@ -10,7 +10,7 @@ import { createLaunchContext } from "../../runtime/launch-context.mjs";
 import { beginActivity } from "../../runtime/local-activity.mjs";
 import { createCommandFailureContext, reportCommandFailure } from "../../runtime/command-failure.mjs";
 import { runPrivateCapturedProcess } from "../../runtime/private-child-process.mjs";
-import { adaptGoInvocationFile, buildGoInvocations, goExecutionEnvironment } from "./go.mjs";
+import { adaptGoInvocationFile, buildGoInvocations, goExecutionEnvironment, retainGoTestDurations } from "./go.mjs";
 import { adaptShellInvocation, buildShellInvocations } from "./shell.mjs";
 import { publishRowResult } from "./row-results.mjs";
 import { readUnitSelection } from "./unit-selection.mjs";
@@ -168,7 +168,7 @@ async function main() {
   const { invocations, adapt } = invocationsForRows(rows);
   const startedAt = new Date().toISOString();
   const started = Date.now();
-  const results = [], invocationFailures = [];
+  const results = [], invocationFailures = [], durations = [];
   let cleanupFailed = false;
   for (const invocation of invocations) {
     const execution = await execute(invocation, rows[0].runner);
@@ -176,7 +176,7 @@ async function main() {
       let failureOutput = "";
       const parsing = beginActivity({ repoRoot: root, environment: process.env, launch: execution.launch, activity: "report_parse" });
       try {
-        const adapted = await adapt(invocation, execution, (output) => { failureOutput = output; });
+        const adapted = await adapt(invocation, execution, (output) => { failureOutput = output; }, (record) => { durations.push(record); });
         parsing.finish(adapted.some((row) => row.failure_class === "artifact" || row.failure_class === "harness") ? "failed" : "passed");
         results.push(...adapted);
         if (rows[0].runner === "vitest") {
@@ -197,6 +197,8 @@ async function main() {
       }
     }
   }
+  retainGoTestDurations({ environment: process.env, runRoot: runRoot(), rows, records: durations, redact: redactString,
+    report: (message) => process.stderr.write(message) });
   for (const result of results) {
     publishRowResult(runRoot(), {
       schema_id: "cartulary.harness_row_result.v6",

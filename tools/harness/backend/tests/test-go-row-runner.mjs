@@ -3,12 +3,16 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 import os from "node:os";
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { chmodSync, existsSync, mkdtempSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 
 import {
   WorkGraphCompiler,
 } from "../../scheduler/work-graph/index.mjs";
-import { adaptGoInvocation, adaptGoInvocationFile, buildGoInvocations, goExecutionEnvironment } from "../../execution/runners/go.mjs";
+import { redactString } from "../../contract/index.mjs";
+import {
+  adaptGoInvocation, adaptGoInvocationFile, buildGoInvocations, goExecutionEnvironment,
+  goTestDurationsDocument, goTestDurationsPath, goTestDurationsSchemaID, retainGoTestDurations,
+} from "../../execution/runners/go.mjs";
 import { goRunnerBuildContext } from "../../test-catalog/index.mjs";
 import { foundationSchemaValidators } from "../../contract/generated/foundation-schema-validators.cjs";
 
@@ -412,3 +416,81 @@ assert.deepEqual(shuffledInvocation.args.filter((arg) => !arg.startsWith("-shuff
 assert.ok(shuffledInvocation.args.includes("-shuffle=1"));
 assert.equal(shuffledInvocation.environment.GOFLAGS, "");
 assert.throws(() => buildGoInvocations([], 1, "go", { ...buildContext, goShuffleSeed: "on" }), /shuffle seed/);
+
+// TH-HARNESS-AC-165: Go test durations come from the outcome parse, keep
+// terminal-event order, redact and bound names, and never change outcomes.
+{
+  const durationScratch = mkdtempSync(path.join(os.tmpdir(), "go-test-durations-"));
+  try {
+    const durationInvocation = { args: ["test", "-json", "./internal/fixture"], rows: [
+      { row_id: "row-b", selectors: ["TestB"] }, { row_id: "row-a", selectors: ["TestA"] },
+    ] };
+    const longName = `TestA/${"x".repeat(600)}`;
+    const durationEvents = [
+      { Action: "run", Package: "example.test/fixture", Test: "TestA" },
+      { Action: "pass", Package: "example.test/fixture", Test: "TestA/one", Elapsed: 1.25 },
+      { Action: "pass", Package: "example.test/fixture", Test: "TestA/two/nested", Elapsed: 0.004 },
+      { Action: "fail", Package: "example.test/fixture", Test: "TestA/two", Elapsed: 0.5 },
+      { Action: "skip", Package: "example.test/fixture", Test: "TestA/password=hunter2", Elapsed: 0 },
+      { Action: "pass", Package: "example.test/fixture", Test: longName, Elapsed: 0.1 },
+      { Action: "fail", Package: "example.test/fixture", Test: "TestA", Elapsed: 2 },
+      { Action: "pass", Package: "example.test/fixture", Test: "TestB", Elapsed: 0.25 },
+      { Action: "fail", Package: "example.test/fixture", Elapsed: 2.6 },
+    ];
+    const eventsFile = path.join(durationScratch, "events");
+    writeFileSync(eventsFile, durationEvents.map((event) => JSON.stringify(event)).join("\n"), { mode: 0o600 });
+    const records = [];
+    const withDurations = await adaptGoInvocationFile(durationInvocation, { stdoutPath: eventsFile }, () => {}, (record) => records.push(record));
+    const withoutDurations = await adaptGoInvocationFile(durationInvocation, { stdoutPath: eventsFile });
+    assert.deepEqual(withDurations, withoutDurations, "duration diagnostics cannot change row outcomes");
+    assert.equal(records.length, 1);
+    assert.deepEqual(records[0], {
+      package: "example.test/fixture",
+      rows: [{ row_id: "row-b", selectors: ["TestB"] }, { row_id: "row-a", selectors: ["TestA"] }],
+      package_action: "fail", package_elapsed_ms: 2600,
+      tests: [
+        { name: "TestA/one", action: "pass", duration_ms: 1250 },
+        { name: "TestA/two/nested", action: "pass", duration_ms: 4 },
+        { name: "TestA/two", action: "fail", duration_ms: 500 },
+        { name: "TestA/password=hunter2", action: "skip", duration_ms: 0 },
+        { name: longName, action: "pass", duration_ms: 100 },
+        { name: "TestA", action: "fail", duration_ms: 2000 },
+        { name: "TestB", action: "pass", duration_ms: 250 },
+      ],
+    });
+    const document = goTestDurationsDocument("go:unit", records, redactString);
+    assert.equal(typeof foundationSchemaValidators[goTestDurationsSchemaID], "function");
+    assert.equal(document.omitted, 1, "an over-length name is counted, not truncated");
+    assert.deepEqual(document.invocations[0].tests.map((test) => test.name),
+      ["TestA/one", "TestA/two/nested", "TestA/two", "TestA/password=<redacted>", "TestA", "TestB"]);
+
+    const many = { ...records[0], tests: Array.from({ length: 4100 }, (_, index) => ({ name: `TestA/case${index}`, action: "pass", duration_ms: index })) };
+    const bounded = goTestDurationsDocument(null, [many, { ...records[0] }], redactString);
+    assert.equal(bounded.invocations[0].tests.length, 4096);
+    assert.equal(bounded.invocations[1].tests.length, 0);
+    assert.equal(bounded.omitted, 4 + records[0].tests.length, "the bound spans the unit's invocations");
+    assert.equal(bounded.invocations[0].tests.at(-1).name, "TestA/case4095");
+
+    const goRows = durationInvocation.rows.map((row) => ({ ...row, runner: "go" }));
+    const reports = [];
+    const report = (message) => reports.push(message);
+    const runRoot = path.join(durationScratch, "run");
+    const destination = goTestDurationsPath(runRoot, goRows);
+    assert.equal(destination, path.join(runRoot, "unit-logs", "row-row-a", "go-test-durations.json"));
+    assert.equal(retainGoTestDurations({ environment: {}, runRoot, rows: goRows, records, redact: redactString, report }), null);
+    assert.equal(existsSync(destination), false, "off mode writes no durations");
+    assert.equal(retainGoTestDurations({ environment: { CARTULARY_HARNESS_EXECUTION_ENABLED: "1" }, runRoot,
+      rows: goRows.map((row) => ({ ...row, runner: "vitest" })), records, redact: redactString, report }), null);
+    const basic = { CARTULARY_HARNESS_EXECUTION_ENABLED: "1", CARTULARY_WORK_UNIT_ID: "go:unit" };
+    assert.equal(retainGoTestDurations({ environment: basic, runRoot, rows: goRows, records, redact: redactString, report }), destination);
+    const retained = JSON.parse(readFileSync(destination, "utf8"));
+    assert.deepEqual(retained, document);
+    assert.deepEqual(reports, []);
+
+    const blocked = path.join(durationScratch, "blocked");
+    writeFileSync(blocked, "not a directory", { mode: 0o600 });
+    chmodSync(blocked, 0o400);
+    assert.equal(retainGoTestDurations({ environment: basic, runRoot: blocked, rows: goRows, records, redact: redactString, report }), null);
+    assert.deepEqual(reports, ["go test durations unavailable (diagnostic_write_failed)\n"]);
+  } finally { rmSync(durationScratch, { recursive: true, force: true }); }
+}

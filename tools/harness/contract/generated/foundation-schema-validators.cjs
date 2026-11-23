@@ -72,6 +72,7 @@ exports.foundationSchemaValidators = Object.freeze({
   get "cartulary.harness_fixture_lease.v5"() { return require("./schema-validators/validateCartularyHarnessFixtureLeaseV5.cjs"); },
   get "cartulary.harness_go_failure_diagnostic.v3"() { return require("./schema-validators/validateCartularyHarnessGoFailureDiagnosticV3.cjs"); },
   get "cartulary.harness_go_lpt_plan.v3"() { return require("./schema-validators/validateCartularyHarnessGoLptPlanV3.cjs"); },
+  get "cartulary.harness_go_test_durations.v1"() { return require("./schema-validators/validateCartularyHarnessGoTestDurationsV1.cjs"); },
   get "cartulary.harness_helper_ownership.v1"() { return require("./schema-validators/validateCartularyHarnessHelperOwnershipV1.cjs"); },
   get "cartulary.harness_host_admission_record.v3"() { return require("./schema-validators/validateCartularyHarnessHostAdmissionRecordV3.cjs"); },
   get "cartulary.harness_instrumentation_definitions.v2"() { return require("./schema-validators/validateCartularyHarnessInstrumentationDefinitionsV2.cjs"); },
