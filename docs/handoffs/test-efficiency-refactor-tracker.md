@@ -598,6 +598,7 @@ Each amendment lands spec-first in one change with its machine projections, rege
 | 2026-11-22 | Packing rebalance | 29 row estimates updated from observations (G14) | `pack-generate01`, `pack-catalog01`, `pack-rebal-check01` | **Pass 365/365.** Graph 1,171 s. Makespan excess 58 → 42 s; heavy work 3,375 s (host admission 454 s, fixture acquire 341 s). Both packing runs are about 180 s slower than `g19b-check01` (970 s): total checkpoint sync is now 1,000–1,066 s against 594–692 s then, for the same 91 checkpoints, so the disk is slower or busier. Cause not attributed: the earlier runs were deleted by `distclean`. Candidates: the uncommitted G8/G10/G22/G23 changes and the retirement event, the ATT&CK clock commit `181413312`, or host disk state after about 300 GB of deletions |
 | 2026-11-22 | G24 | Heavy-lane precedence in host admission (REQ-803 amended) | `g24-generate01`, `g24-admission01` (row `harness.evidence_accounting.behavior.observation_admission`), `g24-runtime01` (row `harness.command_surface.unit.native_runtime`), `g24-lintgo01`; mutation check (precedence disabled fails the new subtest) | All pass |
 | 2026-11-22 | G24 | Diagnostic `check` | `g24-check01` | **Pass 365/365.** Graph 1,022 s (from 1,152–1,171 s); heavy host admission 35 s (from 443–454 s); heavy work 2,921 s; checkpoint sync 871 s |
+| 2026-11-22 | W2-0 | Phase-2 reference, second run on the landed code (`fb5c7b63d`; `g24-check01` is the first) | `w20-ref-check02` | **Pass 365/365.** Graph 1,054 s; heavy work 3,027 s (fixture acquire 331 s, host admission 54 s); lanes all busy 985 s; makespan 40 s above a perfect split; checkpoint sync 975 s. Reference pair: 1,022 s and 1,054 s |
 
 ## 12. Phase 2 Plan — `check` Wall Clock
 
@@ -902,6 +903,9 @@ W2-6 (independent) ───────────────> W2-7
   source and counts as the first).
 - **Dependencies.** None.
 - **Exit criteria.** Clean tree; two reference runs recorded in Section 11.
+- **Result.** Complete. The plan is committed as `dd8dfdd62`, and the reference
+  pair is `g24-check01` (1,022 s) and `w20-ref-check02` (1,054 s), with
+  checkpoint sync of 871 s and 975 s.
 
 #### W2-1 — Attribution
 
