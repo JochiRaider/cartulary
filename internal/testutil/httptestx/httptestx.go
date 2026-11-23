@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
@@ -75,7 +76,7 @@ func (capability *JobsCapability) Create(ctx context.Context, params jobs.Enqueu
 		return jobs.Resource{}, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	resource, err := capability.transactions.CreateQueuedTx(ctx, tx, params, capability.now())
+	resource, err := capability.CreateTx(ctx, tx, params)
 	if err != nil {
 		return jobs.Resource{}, err
 	}
@@ -83,6 +84,16 @@ func (capability *JobsCapability) Create(ctx context.Context, params jobs.Enqueu
 		return jobs.Resource{}, err
 	}
 	return resource, nil
+}
+
+// CreateTx creates a queued job inside the caller's transaction. A test that
+// seeds further job state before commit keeps a live Jobs runner from ever
+// observing, and claiming, the job in its unseeded queued state.
+func (capability *JobsCapability) CreateTx(ctx context.Context, tx pgx.Tx, params jobs.EnqueueParams) (jobs.Resource, error) {
+	if capability == nil || capability.transactions == nil || capability.now == nil || tx == nil {
+		return jobs.Resource{}, errors.New("jobs create capability is unavailable")
+	}
+	return capability.transactions.CreateQueuedTx(ctx, tx, params, capability.now())
 }
 
 type CollaborationCapability struct {

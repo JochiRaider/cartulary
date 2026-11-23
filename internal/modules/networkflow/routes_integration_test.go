@@ -1823,7 +1823,11 @@ SELECT fixture.*
 	if _, err := harness.Pool.Exec(context.Background(), `UPDATE reporting_job_payloads SET request_json=$2 WHERE job_id=$1`, reportingJobID, reportingPayload); err != nil {
 		t.Fatal(err)
 	}
-	if err := harness.Pool.QueryRow(context.Background(), `SELECT handler_attempt_id FROM jobs WHERE job_id = $1`, networkFlowJobID).Scan(&restoredAttemptID); err != nil || restoredAttemptID != nil {
+	// Restore releases the restored attempt and leaves the job resumable. This
+	// server's Jobs runner stays live, so its recovery scan may already have
+	// claimed the job under a fresh attempt; only the restored attempt must be
+	// gone.
+	if err := harness.Pool.QueryRow(context.Background(), `SELECT handler_attempt_id FROM jobs WHERE job_id = $1`, networkFlowJobID).Scan(&restoredAttemptID); err != nil || (restoredAttemptID != nil && *restoredAttemptID == restoredNetworkFlowSeedAttempt) {
 		t.Fatalf("restore did not reconcile Network Flow Common Job attempt: attempt=%v err=%v", restoredAttemptID, err)
 	}
 	restoredResultResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, resourcePath+"/result", nil, httptestx.WithCookies(adminLogin.Session))
@@ -2076,6 +2080,10 @@ func seedRestoredReportingGraphJob(t testing.TB, harness *appsupport.ServerHarne
 	return jobID, previewJobID
 }
 
+// restoredNetworkFlowSeedAttempt is the execution attempt a restored Network
+// Flow job carries from its backup. Restore must release it.
+var restoredNetworkFlowSeedAttempt = uuid.MustParse("00000000-0000-0000-0000-000000009105")
+
 func seedRestoredNetworkFlowGraphJob(
 	t testing.TB,
 	harness *appsupport.ServerHarness,
@@ -2102,8 +2110,16 @@ func seedRestoredNetworkFlowGraphJob(
 	if err != nil {
 		t.Fatalf("encode restored Network Flow graph payload: %v", err)
 	}
+	// Create and seed the restored attempt in one transaction: the server's
+	// live Jobs runner must never see this job queued and claimable.
+	ctx := context.Background()
+	tx, err := harness.Pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
 	total := 1
-	resource, err := harness.Jobs.Create(context.Background(), jobs.EnqueueParams{
+	resource, err := harness.Jobs.CreateTx(ctx, tx, jobs.EnqueueParams{
 		JobKind: GraphViewMaterializationJobKind, Scope: scope, SubmittedByUserID: actorID,
 		AuthPolicy: jobs.AuthPolicyIncidentMembership, Cancelable: true,
 		Progress: jobs.Progress{Completed: 0, Total: &total}, HandlerPayload: payload, Extension: admission,
@@ -2113,13 +2129,16 @@ func seedRestoredNetworkFlowGraphJob(
 	}
 	jobID := uuid.MustParse(resource.JobID)
 	now := time.Date(2026, 7, 10, 12, 41, 0, 0, time.UTC)
-	if _, err := harness.Pool.Exec(context.Background(), `
+	if _, err := tx.Exec(ctx, `
 UPDATE jobs
    SET status = 'running', started_at = $2, updated_at = $2,
        handler_attempt_id = $3, handler_lease_expires_at = $4
  WHERE job_id = $1
-`, jobID, now, uuid.MustParse("00000000-0000-0000-0000-000000009105"), time.Now().UTC().Add(time.Hour)); err != nil {
+`, jobID, now, restoredNetworkFlowSeedAttempt, time.Now().UTC().Add(time.Hour)); err != nil {
 		t.Fatalf("seed restored Network Flow execution lease: %v", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatalf("commit restored Network Flow job: %v", err)
 	}
 	return jobID
 }
