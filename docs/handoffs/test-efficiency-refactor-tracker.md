@@ -1,6 +1,6 @@
 # Test Execution Efficiency Remediation Plan
 
-**Status.** Active remediation tracker, last updated 2026-11-23. All phase-1 work is committed. Phase 2 ([Section 12](#12-phase-2-plan--check-wall-clock)) landed G7 and G6; G6 brought the `check` graph wall from 1,022–1,157 s to under 900 s. `make distclean` on 2026-11-22 deleted every retained run, so the run IDs in Section 11 before that date are a record, not retrievable evidence.
+**Status.** Active remediation tracker, last updated 2026-11-23. All phase-1 work is committed. Phase 2 ([Section 12](#12-phase-2-plan--check-wall-clock)) landed G7 and G6; G6 brought the `check` graph wall from 1,022–1,157 s to under 900 s. In G17 (phase 3), G17b landed, G17a was not adopted, and disk stall was identified as the contention the failing tests hit. `make distclean` on 2026-11-22 deleted every retained run, so the run IDs in Section 11 before that date are a record, not retrievable evidence.
 
 The active plan for the remaining `check` wall-clock work is [Section 12](#12-phase-2-plan--check-wall-clock). Original framing: this document authorizes no implementation by itself.
 Each specification amendment in [Section 8](#8-specification-amendment-ledger) needs
@@ -96,7 +96,7 @@ repetitions each.
 | G14 | Estimates drift and diagnostics truncate | Machine inputs, implementation | WS1, WS4 | Medium; heavy-row estimates rebalanced (`fb5c7b63d`), little wall effect; estimates predate G6 |
 | G15 | Fallow web dead-code policy fails `ci` on 5 unused exports | Implementation (frontend) | WS0 follow-up | Immediate for a green `ci` |
 | G16 | Admission waiters re-run a full cross-process transaction every 50 ms | Implementation, specification | WS2 | High |
-| G17 | Heavy-lane critical path: subtest timings are discarded; operations claim one CPU token but use every core, causing CPU-stall bursts; process tests use fixed hang guards; template-clone I/O (about 38 of 62 GB per `check`) is unattributed | Specification, machine inputs, implementation, tests | Phase 3 | High: next `check` wall-clock lever; G17a–G17f in Section 5 |
+| G17 | Heavy-lane critical path: subtest timings are discarded; process tests used fixed hang guards; disk stalls (`guest:io` `full` about 10% of the run) are the binding contention, and template-clone I/O (about 38 of 62 GB per `check`) is unattributed | Specification, machine inputs, implementation, tests | Phase 3 | High: G17b done (`3373cd3b5`); G17a not adopted; four lanes rejected a third time; next G17c and G17f in Section 5 |
 | G18 | Retained ATT&CK release metadata expires 2026-12-08T20:40:00Z; tests import it against the real clock | Fixtures, tests | Separate task | Urgent (outside efficiency scope) |
 | G19 | `DROP DATABASE` checkpoints can exceed the fixed 35 s cleanup budget under I/O load, poisoning the unit's generation | Specification, implementation | WS2/WS3 | Done: retirement and hardening (`500e3bdda`), retirement event (`a5df06952`); G6 removed most checkpoint backlog |
 | G20 | A Git repository nested in the checkout (such as an agent worktree under `.claude/worktrees/`) breaks source enumeration and is scanned by a whole-checkout filesystem walk | Specification, implementation | WS4 | Done (`500e3bdda`, regression fix `a5df06952`) |
@@ -393,8 +393,10 @@ everything known about what that work waits on, and the fixes in order.
     product claim: the default 250,000 accepted rows commit within the default
     30 s extension transaction-participant budget. The whole row takes 28–31 s
     on three lanes (`w27-check01`, `g6-check01`, `g6-check02`) and 34–36 s on
-    four. In the failing run, the second 25 MB source pass took 24.1 s instead
-    of 5.3 s before `extension_transaction_timeout`.
+    four. In the failing run the two 25 MB source passes took 5.3 s and 24.1 s
+    before `extension_transaction_timeout`. On three lanes the second pass
+    takes 16–20 s (corrected after G17d; this said "instead of 5.3 s", which is
+    the first pass).
   - `TestCanonicalOperatorRestoreBundle_Process/expired_source_retention` was
     killed by the test's own hang guard. `runOperatorBinary` kills the operator
     after a fixed 15 s; the call was a quick `stale_backup_unacknowledged`
@@ -414,6 +416,28 @@ everything known about what that work waits on, and the fixes in order.
 - *Four lanes.* Heavy work rose 2,490–2,537 s → 3,019–3,026 s (runner time
   2,379–2,407 → 2,804–2,806 s) with checkpoint sync unchanged at 4 s, so the
   fourth lane's capacity goes to I/O contention and the CPU bursts.
+- *Correction after the G17a validation.* The CPU bursts are not what the
+  failing tests wait on, and operations are not their only source:
+  - Total CPU stall is small: 21–35 stall-seconds per `check` in every run
+    before and after G17a, concentrated in 3–5 windows of 10 s.
+  - The harness samples attribute only 3–7 of the 13–19 busy cores in a burst.
+    The rest belongs to short-lived children (compilers, workers) that start
+    and exit between samples. Bounding operation `GOMAXPROCS` left the bursts
+    in place, so their source is not yet identified.
+  - The disk is the binding contention. `guest:io` `full` pressure averages
+    8–12% of the run, with 9–33 windows of 10 s above 15%, often in the
+    window after a write surge. During the failing step of each of the four
+    post-G17a failures (two of them first seen in 20 retained runs), CPU stall
+    was 0–10% and the host used 3–12 of 24 cores, while `io_full` was 13–27%:
+    - `module.reference_data`, `TestRefreshAdmissionEligibilityMatrix_Integration`,
+      at 188 s: the server went fatal (`extension_integrity_failure`) while
+      cancelling a job blocked at a test barrier.
+    - `module.incidentbundles`, the ATT&CK round-trip, at 79–109 s: an import
+      job did not finish within the test's 30 s poll.
+    - The network-flow row-limit test in both four-lane runs.
+  - In `g2b-lane4-check02` the network-flow failure did end in a CPU burst
+    (740 s) after 700–720 s at 12–15% `io_full`, so both pressures can push
+    that row over its budget.
 
 **Remediation**, in order:
 
@@ -422,7 +446,9 @@ everything known about what that work waits on, and the fixes in order.
    whose CPU claim reflects its real parallelism. The compiler gives it
    `GOMAXPROCS` (and, for `go` commands, `-p`) equal to that claim, as REQ-379
    already does for Go test children. Operations are off the heavy critical
-   path, so bounding them costs no wall time. Amendment A16.
+   path, so bounding them costs no wall time. Amendment A16. **Not adopted:**
+   validation failed (see Results); the attempt is kept on local branch
+   `g17a-attempt` (`2f23c6e44`).
 2. **G17b — Derive process-test hang guards from the test deadline** (tests).
    `runOperatorBinary` and similar helpers bound a child by the remaining
    `t.Deadline()` minus a settlement margin, not a fixed 15 s. Explicit product
@@ -437,9 +463,10 @@ everything known about what that work waits on, and the fixes in order.
    budget. Keep the product default; it is what the test proves. If the margin
    stays under about a third, give that row a capacity profile with two CPU
    tokens (and the matching PostgreSQL claim the rule requires), so its server
-   is not single-processor.
+   is not single-processor. **Measured; no change:** a second CPU could
+   shorten only the 5 s CPU-bound first pass (see Results).
 5. **G17e — Four lanes, third attempt** (measurement). Rerun the G2 criteria
-   after G17a and G17b.
+   after G17a and G17b. **Rejected a third time** (see Results).
 6. **G17f — Test I/O** (measurement first, then specification where needed).
    - Measure the shutdown checkpoint of retired single-unit generations from
      the container log before removal. If material, propose an immediate stop
@@ -452,6 +479,82 @@ everything known about what that work waits on, and the fixes in order.
    - With G17c data, move tests that clone only to read or to roll back onto
      the transaction capability, row by row (successors of G3.4).
 
+- **Implementation (2026-11-23).**
+  - *G17a (not adopted; branch `g17a-attempt`, `2f23c6e44`).* Drafted A16 in
+    TH-HARNESS-REQ-379 and the resource-profile list. The topology gained
+    `parallel_toolchain` (4 CPU, 2 I/O, 1,536 MB, 16 processes), assigned to the
+    Go analysis operations (`staticcheck`, `vet`, `govulncheck`, both `gosec`
+    and both error-declaration operations), Biome lint, the Go and web builds,
+    the Go toolchain installs, the two Go `go run` compatibility checks, and new
+    policy entries for the two `go test -race` contract operations. The
+    work-graph compiler set `GOMAXPROCS` and `RAYON_NUM_THREADS` to every
+    operation's CPU claim. A compiler test asserted both variables equal the
+    claim for every operation in `check`.
+  - *G17b (committed `3373cd3b5`).* `runOperatorBinary` bounds each operator
+    child by the test's remaining deadline minus 30 s (five minutes without a
+    deadline). All 13 explicit 30 s and 60 s guards now use it. The
+    interruption test's 30 s command context and 15 s progress waits use the
+    same bound.
+  - *Targeted checks.* `g17a-generate01`, `g17-lintgo01`, `g17-recovery01`
+    (the four operator process rows), `g17-srcgen01`, `g17-srcschema01`,
+    `g17-mdlint01b`, `g17-contract-exec01` (`harness-contract SUITE=execution`,
+    which runs the compiler tests): all pass.
+  - *Baseline for validation.* Every earlier run has 48–66% CPU-stall windows
+    during the analysis block (`g6-check01`, `g6-check02`, `g17-probe-check01`,
+    `g2b-lane4-check01`, `g2b-lane4-check02`).
+- **Results (2026-11-23).** Four diagnostic `check` runs (cache off) with G17a
+  and G17b applied, against `g6-check01` and `g6-check02` (pass, graph 887 s and
+  889 s, heavy work 2,490 s and 2,537 s, peak CPU stall 65% and 66%):
+
+  | Run | Lanes | Result | Graph | Heavy work | Peak CPU stall | Failed rows |
+  | --- | ---: | --- | ---: | ---: | ---: | --- |
+  | `g17a-check01` | 3 | Pass 365/365 | 918 s | 2,552 s | 47% | — |
+  | `g17a-check02` | 3 | Fail 364/365 | 948 s | 2,631 s | 50% | `module.reference_data` refresh-admission matrix |
+  | `g17a-lane4-check01` | 4 | Fail 364/365 | 966 s | 3,067 s | 49% | Network-flow row limit |
+  | `g17a-lane4-check02` | 4 | Fail 363/365 | 921 s | 2,881 s | 51% | Network-flow row limit; `module.incidentbundles` ATT&CK round trip |
+
+  - *G17a: both criteria failed; not adopted.* Each run still has 3–5 windows
+    above 10% CPU stall, peaking at 47–51%. Three-lane graph wall rose to 918 s
+    and 948 s. At four CPUs the analysis operations' own durations stayed
+    within their earlier ranges (`gosec` 18–19 s against 18–26 s,
+    `govulncheck` 12–15 s against 4–18 s, `staticcheck` 2–5 s against
+    2–13 s). The 4-CPU build operations (`build_server_harness`,
+    `build_report_renderer`) used to start in the run's first 110 s. They now
+    started at 584–654 s on three lanes, because four free tokens appear only
+    once the heavy phase thins out. Heavy work also rose, and windows above
+    15% `io_full` went from 9–16 to 24–27 per three-lane run. PostgreSQL
+    concurrency in the first 600 s was unchanged (11.9–15.9 units in each
+    150 s window, both pairs), so the extra disk stall points to host disk
+    state, as in G25. The attempt was taken out of the working branch.
+  - *G17b: met.* The operator process rows passed in both four-lane runs; they
+    failed in `g2-lane4-check02` and `g2b-lane4-check02`.
+  - *G17d: recorded, no change.* Both 25 MB source passes share the 30 s
+    participant budget: in the failing four-lane runs they stopped at 29.9 s
+    and 30.0 s (5.4 + 24.5 s and 7.4 + 22.6 s, after 15.7 MB and 18.9 MB of the
+    second pass). The two passes took 21.0–24.1 s on three lanes (four runs),
+    a margin of 20–30%, and 28.3 s in the passing four-lane run. Even in a
+    quiet window (`g17a-check01`, 1–3% `io_full`, CPU idle) they took 21.3 s.
+    The test process runs at about 1.0 core for the 5 s first pass and about
+    0.5 core for the second, which waits on PostgreSQL. In the failing runs that
+    wait coincided with 13–27% `io_full`. A two-CPU profile could shorten only
+    the first pass, by at most about 2 s, so the row is left unchanged. It runs
+    the product default close to its budget on this host. That headroom is a
+    product-owner question, not a harness one.
+  - *G17e: four lanes rejected a third time.* Both runs failed, and graph wall
+    (966 s and 921 s) showed no gain over three lanes. The row-limit test has
+    now failed in 4 of 6 four-lane runs and in none of 14 three-lane runs.
+  - *New failures.* The `reference_data` and `incidentbundles` failures are the
+    first for those rows in 20 retained runs. Both came early in the run (188 s;
+    79–109 s) during `io_full` windows of 15–25%. The `reference_data` server
+    selected a fatal integrity outcome while a cancelled job unwound from a test
+    barrier; the response does not carry the fatal reason code, so the cause
+    (likely a 2 s default cancellation grace overrun under disk stall) is
+    inferred. Neither test changed.
+- **Next.** The binding contention is disk I/O, not CPU. G17c (subtest timings)
+  comes first, to attribute heavy-row time and clone use. Then G17f (test I/O),
+  starting with the shutdown-checkpoint measurement and the clone-to-transaction
+  moves. The remaining CPU bursts are 21–35 stall-seconds per `check`; finding
+  their source needs a per-process probe that counts short-lived children.
 - **Area.** Specification (A16; REQ-844 naming for G17c; A17 if adopted),
   machine inputs (operation resource profiles), implementation (work-graph
   compiler, Go runner), tests (process-test helpers).
@@ -645,7 +748,7 @@ WS2 and WS3 can run in parallel but are measured together, because both move the
 | A13 | REQ-803 | Between shared requests, one claiming an available `postgres_heavy` lane precedes requests claiming none; otherwise arrival order (drafted, uncommitted) | G24 | None |
 | A14 | Lifecycle estimates beside REQ-865 | Withdrawn (Section 12, G26 decision) | G26 | None |
 | A15 | §10.2 capacity table | Not adopted: four lanes gained no wall time and added contention failures (Section 12, G2 result) | G2 | None |
-| A16 | REQ-379; §10.2 `cpu_tokens` and `process_slots` rows | Every operation declares a resource profile, and its child runs with `GOMAXPROCS` (and Go `-p`) equal to its CPU claim, so `cpu_tokens` bounds contention for operations as it does for Go test children (proposed) | G17 | Work-graph owner: operation profiles |
+| A16 | REQ-379; §10.2 `cpu_tokens` and `process_slots` rows | Not adopted: bounding operation children to their CPU claim left the CPU-stall bursts in place and moved 4-CPU builds to the run's tail (G17 Results); the draft is on local branch `g17a-attempt` | G17 | None |
 | A17 (conditional) | REQ-357; REQ-804 retirement | Generations whose databases all retire with them stop immediately instead of gracefully, skipping the shutdown checkpoint (proposed only if G17f measures it as material) | G17 | None |
 | A8 | REQ-803; REQ-381 | Admission waiters re-evaluate on admission-state change, with a bounded fallback for dead-owner reclamation | G16 | None expected |
 | A5 | REQ-407 | A passing fixture comparison keeps its digest record only (Network Flow summary with `materialized_input_root` null, IR `comparison.json`, reference-pack `bootstrap.json`); a failing one keeps its full material (drafted, uncommitted) | G8 | None |
@@ -735,6 +838,11 @@ Each amendment lands spec-first in one change with its machine projections, rege
 | 2026-11-23 | G17 | Contention analysis of the three-lane and four-lane runs: `cgroup_context`, `guest` pressure, process and container samples; unit overlap; template-clone count; one seed-container probe of clone cost | `g6-check01`, `g2b-lane4-check02`, `w27-check01` | CPU 6–9 of 24 cores, stall 1–3% except bursts of 14–21 cores and 21–65% stall from static-analysis operations; both failures sit in a burst. Containers write 62.4 GB; 1,302 clones at 9.8 MB WAL plus 19 MB pages each. G17 rescoped |
 | 2026-11-23 | W2-5 / G2 | Four heavy lanes by capacity override after G6, diagnostic `check` twice | `g2b-lane4-check01`, `g2b-lane4-check02` | Pass 365/365, graph 874 s; then fail 363/365, graph 825 s (contention timeouts in the network-flow row-limit and operator-restore tests). Heavy work 3,026 s and 3,019 s; checkpoint sync 4 s. Rejected again |
 | 2026-11-23 | W2-7 / G6 | Diagnostic `check`, second run | `g6-check02` | **Pass 365/365.** Outer 900 s, graph 889 s; heavy work 2,537 s; heavy fixture acquisition 56 s, median 2.6 s; all PostgreSQL units 283 s; checkpoint sync 4 s; no leaks. G6 validation met in both runs |
+| 2026-11-23 | G17a, G17b | Targeted checks: generation, Go lint, operator process rows, generated and schema projections, Markdown lint, `harness-contract SUITE=execution` | `g17a-generate01`, `g17-lintgo01`, `g17-recovery01`, `g17-srcgen01`, `g17-srcschema01`, `g17-mdlint01b`, `g17-contract-exec01` | All pass |
+| 2026-11-23 | G17a | Diagnostic `check` twice, three lanes | `g17a-check01`, `g17a-check02` | Pass 365/365, graph 918 s; then fail 364/365, graph 948 s (`reference_data` refresh-admission matrix, fatal during cancellation in an `io_full` window). Peak CPU stall 47% and 50%. Not adopted |
+| 2026-11-23 | G17b, G17e | Diagnostic `check` twice, four lanes by capacity override | `g17a-lane4-check01`, `g17a-lane4-check02` | Fail 364/365, graph 966 s; fail 363/365, graph 921 s (network-flow row limit both times; `incidentbundles` ATT&CK round trip once). Operator process rows passed: G17b met. Four lanes rejected a third time |
+| 2026-11-23 | G17 | Contention re-analysis: per-window `guest` CPU and I/O pressure, unit overlap, process CPU of the network-flow unit, source-pass timings | The eight runs above and `g6-check01/02`, `g2b-lane4-check01/02` | All four failures fall in `io_full` windows of 13–27% with CPU stall 0–10%; CPU stall totals 21–35 s per `check`. G17d: passes share the 30 s budget, three-lane margin 20–30%; no change |
+| 2026-11-23 | G17a, G17b | Commits; projection check after removing G17a | `g17-srcgen02` | G17b `3373cd3b5`; G17a kept on local branch `g17a-attempt` (`2f23c6e44`); generated projections match their inputs |
 
 ## 12. Phase 2 Plan — `check` Wall Clock
 
@@ -1284,6 +1392,11 @@ now holds the plan: bound operations to their CPU claim, derive process-test
 hang guards from the test deadline, retain per-subtest timings, then test
 I/O. Outside wall clock, open items are G9 stage 2 (run root 242–249 MB, event
 log 178–185 MB), G15, G16, G11, G12 and G13.
+
+Update after G17a and G17b (2026-11-23): the process-test guards landed; the
+operation CPU bound did not remove the CPU bursts and was not adopted; four
+lanes failed a third time. Disk stall, not CPU, is the contention that the
+failing tests hit, so G17c and then G17f come next.
 
 ### 12.6 Amendments and Decisions
 
