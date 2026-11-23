@@ -606,12 +606,28 @@ Each amendment lands spec-first in one change with its machine projections, rege
 | 2026-11-23 | W2-4 / G6 spike | Fresh start vs seed image (copy-on-write, then volume-initialized); template clone and write cost | — | Copy-on-write rejected (clone 6.7 s vs 0.2 s; writes 8× slower). Volume-initialized seed ready in 0.7–1.0 s with fresh-volume write speed. Projected saving about 10 s per generation |
 | 2026-11-23 | W2-5 / G2 | Four heavy lanes by capacity override, diagnostic `check` twice | `g2-lane4-check01`, `g2-lane4-check02` | Fail 364/365 each (contention timeouts). Graph 1,029 s and 1,052 s (three lanes: 1,022 s and 1,054 s); heavy work 3,659 s and 3,509 s; checkpoint sync 881 s and 755 s. Rejected |
 | 2026-11-23 | W2-6 / G7 | Secret-scan profile, then a memoized matcher with a differential test | `g7-generate01`, `g7-session01` (row `harness.evidence_accounting.behavior.native_session`), `g7-lintgo01`; mutation check | Scan of `g24-check01` root 22.3 s → 0.72 s; all pass; mutation caught |
+| 2026-11-23 | W2-7 (interim) | Diagnostic `check` with the memoized scan | `w27-check01` | **Pass 365/365.** Outer 1,168 s, graph 1,157 s; post-graph to scan completion 8 s (was about 28 s); heavy work 3,307 s; checkpoint sync 1,156 s, the highest recorded, so the graph wall reflects host disk state |
 
 ## 12. Phase 2 Plan — `check` Wall Clock
 
-**Status.** Proposed 2026-11-22, after G24. Nothing in this section is
-implemented. It supersedes Section 7 for the remaining `check` wall-clock work;
-Section 7 keeps the phase-1 history.
+**Status.** Proposed 2026-11-22, after G24; worked through 2026-11-23. It
+supersedes Section 7 for the remaining `check` wall-clock work; Section 7 keeps
+the phase-1 history.
+
+| Workstream | Outcome |
+| --- | --- |
+| W2-0 | Done: plan committed; reference pair 1,022 s and 1,054 s |
+| W2-1 (G25) | Done: host disk state, not code; `pg_test_fsync` baseline recorded |
+| W2-2 (G3.5, G3.6, G3.9) | Measured, no material gain; reverted or dropped |
+| W2-3 (G3.7, G3.4) | G3.7 rejected (recovery binding fence); G3.4 deferred pending G17 |
+| W2-4 (G6) | Spike done: volume-initialized seed viable, copy-on-write rejected; implementation awaits D6 |
+| W2-5 (G26, G2) | G26 not worth implementing; four lanes rejected |
+| W2-6 (G7) | Done: memoized scan matcher; post-graph time about 28 s → 8 s |
+| W2-7 | Interim validation `w27-check01` passed; final validation follows G6 or its deferral |
+
+Graph wall on unchanged code now ranges 1,022–1,157 s with checkpoint sync
+755–1,156 s. The host disk (G25) is the largest remaining source of both delay
+and variance.
 
 ### 12.1 Starting Point
 
