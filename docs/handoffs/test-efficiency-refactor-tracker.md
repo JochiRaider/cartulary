@@ -65,13 +65,13 @@ repetitions each.
 
 | Metric | Current | Target |
 | --- | ---: | ---: |
-| `check` graph wall | 1,022 s warm (`g24-check01`); best earlier 970 s (`g19b-check01`, before the unexplained disk slowdown) | ≤ 750 s |
-| `check` outer wall | 1,097 s (`g19b-check01`) | ≤ 800 s |
-| Post-graph overhead per invocation | ~60 s (`post-distclean-check02`; was ~121 s before G8) | ≤ 15 s |
-| CPU-only units waiting more than 300 s | 26 (`g5-check01`; was 188) | 0 |
-| Successful `check` run root | 222 MB (`post-distclean-check02`; was 1.1 GB) | ≤ 150 MB |
-| `unit-events.ndjson` per `check` | ~163 MB (98% wait-segment pairs) | ≤ 10 MB |
-| Temporary directories leaked per clean run | 0 (G10; was ~20) | 0 |
+| `check` graph wall | 887 s and 889 s (`g6-check01`, `g6-check02`); was 1,022–1,157 s before G6 | ≤ 750 s |
+| `check` outer wall | 899 s and 900 s (`g6-check01`, `g6-check02`) | ≤ 800 s |
+| Post-graph overhead per invocation | 11–12 s (outer minus graph, `g6-check01`, `g6-check02`; was ~60 s, ~121 s before G8) | ≤ 15 s (met) |
+| CPU-only units waiting more than 300 s | 55 and 96 with more than 300 s of `resources` wait (`g6-check01`, `g6-check02`; 119 in `w27-check01`). They queue for CPU tokens while the heavy lanes set the wall. Earlier figures used another definition | 0 |
+| Successful `check` run root | 249 MB and 242 MB (`g6-check01`, `g6-check02`; was 1.1 GB) | ≤ 150 MB |
+| `unit-events.ndjson` per `check` | 185 MB and 178 MB (`g6-check01`, `g6-check02`; 113,002 wait-segment pairs, G9 stage 2) | ≤ 10 MB |
+| Temporary directories leaked per clean run | 0 (G10; was ~20) | 0 (met) |
 | Retained results | Reset by `make distclean` 2026-11-22; still unbounded | Bounded by an owner-set budget |
 | `ci` graph wall | 3,279 s (`ws1-ci01`; not re-measured) | ≤ 1,500 s |
 | `release-check` wall | Unmeasured | Measured; correctness portion ≤ 1.5 × `check` |
@@ -81,30 +81,30 @@ repetitions each.
 | ID | Gap | Areas | Workstream | Priority |
 | --- | --- | --- | --- | --- |
 | G1 | `gofmt` drift keeps `make check` red at HEAD (resolved in `3bd5875af`) | Implementation | WS0 | Closed |
-| G2 | Heavy-lane default too low (resolved in `6712f0408`) | Specification, implementation, tests | WS0 follow-up | Closed; a 4-lane re-measure is now worthwhile (heavy lanes alone set the wall after G5) |
-| G3 | Heavy tests repeat expensive setup; a few oversized rows dominate | Tests, test support | WS3 | High; fixes 1–3 and 2b committed (`500e3bdda`); fixes 4–10 open; remaining plan in Section 12 (G3.4–G3.9) |
+| G2 | Heavy-lane default too low (resolved in `6712f0408`) | Specification, implementation, tests | WS0 follow-up | Closed at three lanes: four lanes rejected twice, before and after G6 (Section 12, G2) |
+| G3 | Heavy tests repeat expensive setup; a few oversized rows dominate | Tests, test support | WS3 / W2-2, W2-3 | Closed for phase 2: fixes 1–3 and 2b committed (`500e3bdda`); G3.5, G3.6 and G3.9 measured no gain and were dropped; G3.7 rejected; G3.4 deferred until G17 gives per-subtest timings |
 | G4 | Graph admission ignores physical footprint (head-of-line blocking) | Specification, implementation, tests | WS2 | G4a (host backfill) committed (`500e3bdda`); G4b (graph footprint) deferred: after G5a, host admission no longer blocks `check` |
 | G5 | PostgreSQL concurrency emerges from process-slot arithmetic and double-charged lanes | Specification, machine inputs, implementation | WS2 | G5a (process slots from the OS limit) committed (`500e3bdda`); G5b (single lane) reverted |
-| G6 | Exclusive PostgreSQL generation startup and residency cost | Specification, implementation | W2-4 | High; plan rewritten in Section 12 (harness-assigned identity, then a seed image) |
-| G7 | Retained-secret scan costs ~120 s per `check` | Implementation, tests | WS4 / W2-6 | Done: memoized matcher, 21.7 s → 0.72 s on a full root |
-| G8 | Run roots retain bulk fixture bytes on success | Specification, test support | WS4 | High (remediated, uncommitted) |
+| G6 | Exclusive PostgreSQL generation startup and residency cost | Specification, implementation | W2-4 | Done (`b42e9bf20`): seeded generations and harness-assigned identity; `check` graph 887–889 s |
+| G7 | Retained-secret scan costs ~120 s per `check` | Implementation, tests | WS4 / W2-6 | Done (`75b5ffea5`): memoized matcher, 21.7 s → 0.72 s on a full root |
+| G8 | Run roots retain bulk fixture bytes on success | Specification, test support | WS4 | Done (`a5df06952`) |
 | G9 | Wait-segment and admission-record churn | Specification, implementation | WS4 | Stage 1 committed (`500e3bdda`); stage 2 (wait segments) open: G4/G5 did not reduce it, and it is now most of each run root |
-| G10 | Temporary-directory leaks, including private keys | Implementation, tests, specification | WS5 | High (security hygiene; remediated, uncommitted) |
+| G10 | Temporary-directory leaks, including private keys | Implementation, tests, specification | WS5 | Done (`a5df06952`); zero leaks after the G6 checks |
 | G11 | Unbounded retained-result growth | Specification, implementation | WS5 | Medium |
 | G12 | Go build-cache growth without a budget | Implementation, specification | WS5 | Low |
 | G13 | `release-check` unmeasured; quiet measurement runs inline in aggregates | Measurement, specification, process | WS1, WS6 | Medium (`ci` measured: measurement is 96 s) |
-| G14 | Estimates drift and diagnostics truncate | Machine inputs, implementation | WS1, WS4 | High; heavy-row estimates rebalanced (uncommitted), little wall effect |
+| G14 | Estimates drift and diagnostics truncate | Machine inputs, implementation | WS1, WS4 | Medium; heavy-row estimates rebalanced (`fb5c7b63d`), little wall effect; estimates predate G6 |
 | G15 | Fallow web dead-code policy fails `ci` on 5 unused exports | Implementation (frontend) | WS0 follow-up | Immediate for a green `ci` |
 | G16 | Admission waiters re-run a full cross-process transaction every 50 ms | Implementation, specification | WS2 | High |
 | G17 | Go subtest timings are computed by the runner and discarded; only top-level row durations survive | Implementation, specification | WS4 | Medium |
 | G18 | Retained ATT&CK release metadata expires 2026-12-08T20:40:00Z; tests import it against the real clock | Fixtures, tests | Separate task | Urgent (outside efficiency scope) |
-| G19 | `DROP DATABASE` checkpoints can exceed the fixed 35 s cleanup budget under I/O load, poisoning the unit's generation | Specification, implementation | WS2/WS3 | High; generation retirement and hardening committed (`500e3bdda`); retirement event uncommitted |
-| G20 | A Git repository nested in the checkout (such as an agent worktree under `.claude/worktrees/`) breaks source enumeration and is scanned by a whole-checkout filesystem walk | Specification, implementation | WS4 | Medium (remediated, committed `500e3bdda`; `spawnSync` regression fix uncommitted) |
-| G21 | `clean`/`distclean` miss declared build outputs and harness scratch (root `dist`, reference-pack builders and module staging, `apps/web/.cartulary`) | Specification, implementation | WS5 | Medium (remediated, uncommitted) |
-| G22 | Readiness cache stamps vouch for external Docker images that may have been removed | Specification, implementation | WS5 | Low (remediated, uncommitted) |
-| G23 | The pinned browser-trust package was removed upstream; only the local readiness cache kept bootstrap working | Implementation | WS0 | High while broken (pin updated, uncommitted) |
-| G24 | Heavy units hold a heavy lane while queued in host admission behind ordinary PostgreSQL units | Specification, implementation | WS2 | High (remediated, uncommitted: about 150 s of `check` wall) |
-| G25 | Unattributed I/O regression: checkpoint sync and graph wall up since the morning's passing runs | Measurement, possibly implementation | W2-1 | High; attributed to host disk state, not code (Section 12) |
+| G19 | `DROP DATABASE` checkpoints can exceed the fixed 35 s cleanup budget under I/O load, poisoning the unit's generation | Specification, implementation | WS2/WS3 | Done: retirement and hardening (`500e3bdda`), retirement event (`a5df06952`); G6 removed most checkpoint backlog |
+| G20 | A Git repository nested in the checkout (such as an agent worktree under `.claude/worktrees/`) breaks source enumeration and is scanned by a whole-checkout filesystem walk | Specification, implementation | WS4 | Done (`500e3bdda`, regression fix `a5df06952`) |
+| G21 | `clean`/`distclean` miss declared build outputs and harness scratch (root `dist`, reference-pack builders and module staging, `apps/web/.cartulary`) | Specification, implementation | WS5 | Done (`a5df06952`) |
+| G22 | Readiness cache stamps vouch for external Docker images that may have been removed | Specification, implementation | WS5 | Done (`a5df06952`) |
+| G23 | The pinned browser-trust package was removed upstream; only the local readiness cache kept bootstrap working | Implementation | WS0 | Done (`a5df06952`) |
+| G24 | Heavy units hold a heavy lane while queued in host admission behind ordinary PostgreSQL units | Specification, implementation | WS2 | Done (`fb5c7b63d`): about 150 s of `check` wall |
+| G25 | Unattributed I/O regression: checkpoint sync and graph wall up since the morning's passing runs | Measurement, possibly implementation | W2-1 | Closed: the cost was per-generation provisioning checkpoints, amplified by host disk state; G6 removed it (checkpoint sync 1,156 s → 4 s) |
 | G26 | Packing omits PostgreSQL generation acquisition | Specification, machine inputs, implementation | W2-5 | Medium; not implemented, see the G26 decision in Section 12 |
 
 ## 5. Gap Remediation Detail
@@ -609,6 +609,7 @@ Each amendment lands spec-first in one change with its machine projections, rege
 | 2026-11-23 | W2-7 (interim) | Diagnostic `check` with the memoized scan | `w27-check01` | **Pass 365/365.** Outer 1,168 s, graph 1,157 s; post-graph to scan completion 8 s (was about 28 s); heavy work 3,307 s; checkpoint sync 1,156 s, the highest recorded, so the graph wall reflects host disk state |
 | 2026-11-23 | W2-4 / G6 | Seeded generations: targeted rows, Go lint, generated-projection check, Markdown lint | `g6-generate01`, `g6-slice-pg01`, `g6-slice-mig01`, `g6-slice-hb01`, `g6-lintgo01`, `g6-srcgen01`, `g6-mdlint01` | All pass (4, 1 and 9 units). Broker-provided exclusive generation acquired in 1.0 s |
 | 2026-11-23 | W2-7 / G6 | Diagnostic `check`, first run | `g6-check01` | **Pass 365/365.** Outer 899 s, graph 887 s; heavy work 2,490 s (from 3,307 s); heavy fixture acquisition 39 s in total, median 2.1 s (from 438 s, median 25.1 s); acquisition across all 126 PostgreSQL units 251 s (from 2,126 s); checkpoint sync 4 s (from 1,156 s); no leaked volumes or builder containers |
+| 2026-11-23 | W2-5 / G2 | Four heavy lanes by capacity override after G6, diagnostic `check` twice | `g2b-lane4-check01`, `g2b-lane4-check02` | Pass 365/365, graph 874 s; then fail 363/365, graph 825 s (contention timeouts in the network-flow row-limit and operator-restore tests). Heavy work 3,026 s and 3,019 s; checkpoint sync 4 s. Rejected again |
 | 2026-11-23 | W2-7 / G6 | Diagnostic `check`, second run | `g6-check02` | **Pass 365/365.** Outer 900 s, graph 889 s; heavy work 2,537 s; heavy fixture acquisition 56 s, median 2.6 s; all PostgreSQL units 283 s; checkpoint sync 4 s; no leaks. G6 validation met in both runs |
 
 ## 12. Phase 2 Plan — `check` Wall Clock
@@ -624,9 +625,9 @@ the phase-1 history.
 | W2-2 (G3.5, G3.6, G3.9) | Measured, no material gain; reverted or dropped |
 | W2-3 (G3.7, G3.4) | G3.7 rejected (recovery binding fence); G3.4 deferred pending G17 |
 | W2-4 (G6) | Done: harness-assigned identity and volume-initialized seed images; graph 887 s in `g6-check01` |
-| W2-5 (G26, G2) | G26 not worth implementing; four lanes rejected |
+| W2-5 (G26, G2) | G26 not worth implementing; four lanes rejected, and rejected again after G6 |
 | W2-6 (G7) | Done: memoized scan matcher; post-graph time about 28 s → 8 s |
-| W2-7 | Done: `g6-check01` and `g6-check02` passed, graph 887 s and 889 s |
+| W2-7 | Done: `g6-check01` and `g6-check02` passed, graph 887 s and 889 s; Section 3 targets and the gap register refreshed |
 
 Before G6, graph wall on unchanged code ranged 1,022–1,157 s with checkpoint
 sync 755–1,156 s. G6 removed almost all of that sync (see the G25
@@ -960,6 +961,18 @@ The Section 3 rules still apply. In addition:
   contention timeout (`extension_transaction_timeout` in
   `TestNetworkFlowPublicDefaultLimitsCommitAcceptedRowLimit`; an operator
   process killed on its deadline in `TestCanonicalOperatorRestoreBundle_Process`).
+- **Re-measured after G6 (2026-11-23).** Still rejected. The first run predated
+  W2-4, contrary to the plan's sequencing, so it was repeated once G6 removed
+  the checkpoint I/O (`g2b-lane4-check01`, `g2b-lane4-check02`). Graph 874 s
+  (pass) and 825 s (2 units failed, so the wall is not comparable) against
+  887 s and 889 s on three lanes. Heavy work rose from 2,490–2,537 s to
+  3,019–3,026 s (runner 2,379–2,407 → 2,804–2,806 s); checkpoint sync stayed
+  at 4 s. The same two tests failed together in the second run: the import's
+  second source pass took 24.1 s instead of 5.3 s before
+  `extension_transaction_timeout`, and the operator restore process was killed
+  on its deadline (exit −1). The disk is no longer the constraint: heavy units
+  slow each other on CPU and time-bounded work, so the fourth lane gains
+  nothing beyond noise and makes two fixed-deadline tests flaky.
 
 #### G7 (done, uncommitted at writing) — Secret scan
 
@@ -1135,7 +1148,17 @@ morning's I/O headroom.
 Measured: G6 alone saved about 800 s of heavy work and brought the graph wall
 from 1,022–1,157 s to 887–889 s, far above its estimate, because it also
 removed the provisioning checkpoint I/O behind G25. G7 saved about 20 s outside
-the graph. The other levers gave nothing measurable or were rejected.
+the graph. The other levers gave nothing measurable or were rejected, including
+four lanes after G6.
+
+**Phase 2 closed (2026-11-23).** Every Section 12 gap is closed or deferred
+with data. `check` (887–889 s graph, about 900 s outer) misses the 750 s target
+by about 140 s. It is bound by heavy-row test work (about 2,500 s ÷ 3 lanes),
+not by provisioning, admission, the disk or the post-graph scan. The remaining
+lever is that test work itself. G17 (per-subtest timings) is the prerequisite
+for attributing it, then G3.4 and any successors. Outside wall clock, open
+items are G9 stage 2 (run root 242–249 MB, event log 178–185 MB), G15, G16,
+G11, G12 and G13.
 
 ### 12.6 Amendments and Decisions
 
