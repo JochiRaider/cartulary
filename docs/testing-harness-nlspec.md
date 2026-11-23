@@ -407,28 +407,14 @@ aggregate, and owner-slice selectors. The scheduler MUST:
 1. capture one immutable host-capability snapshot;
 2. rank each ready unit by qualified work plus longest estimated downstream path;
 3. admit the highest-ranked resource-fitting unit with stable `unit_id` ties;
-4. backfill with any lower-ranked fitting unit that claims none of the
-   resources the highest-ranked ready unit lacking claimed capacity currently
-   lacks, without reserving unheld resources (deficit-disjoint backfill);
+4. backfill with any lower-ranked fitting unit without reserving unheld resources;
 5. add elapsed monotonic time since first eligibility, rounded down to the
-   authored aging quantum, to effective rank so waiting work eventually
-   outranks newly ready work;
+   authored aging quantum, to effective rank so backfill cannot starve work;
 6. block descendants of failed required predecessors while continuing only
    independent work permitted by target failure policy; and
 7. on cancellation, stop admission, terminate owned process groups, release or
    destroy leases, and publish a partial non-success summary.
 
-A unit lacks a resource when its claim on it exceeds the capacity left free.
-Aging alone cannot admit a unit whose claims exceed what is free at any one
-moment while smaller units keep taking capacity as it frees; the deficit rule
-lets freed capacity of what the highest-ranked such unit lacks accumulate for
-it. Only resources it currently lacks are protected, so capacity left idle is
-bounded by its own claims, and resources it does not lack stay available to
-backfill even when that later leaves it short of them. Unlike host admission
-under REQ-803, the logical rule does not protect capacity the unit will still
-need: a unit waiting for a scarce lane would otherwise idle every other lane it
-also claims. Work held back by the rule still fits and waits as `rank` under
-REQ-371.
 One monotonic time snapshot MUST serve each admission decision. Dispatch count
 MUST NOT increase waiting age. Warm fixture affinity MUST NOT precede effective
 rank or the stable unit-ID tie-break; reuse is a fixture lifecycle decision.
@@ -6620,8 +6606,7 @@ segments, each with matching `wait_started` and `wait_ended` boundaries. A chang
 in reason, blocking logical resources or blocking unit IDs closes the old segment
 and opens the next at the same monotonic instant. Reasons are `resources` for
 held claims or locks, `exclusive_barrier` for a ready exclusive consumer blocking
-shared backfill, `rank` for fitting work awaiting selection (including work
-held back by REQ-802's deficit-disjoint backfill), and `scheduler_stop`.
+shared backfill, `rank` for fitting work awaiting selection, and `scheduler_stop`.
 Resources and blocker IDs are sorted and unique. Zero-duration segments remain
 valid. The final boundary precedes admission or an unstarted terminal event at
 the same instant. Missing, overlapping, gapped, mismatched, or post-admission
@@ -6783,17 +6768,10 @@ while pending is not empty or running is not empty:
   ready = pending units whose dependencies all succeeded
   compute effective rank = critical-path work + monotonic wait age
   identify the highest-ranked feasible ready unit
-  head = none
 
   for unit in ready by effective rank DESC, unit ID ASC:
     if admission_stopped:
       break
-    if not resources_available(unit.resource_claims):
-      if head is none and unit lacks claimed capacity:
-        head = unit
-      continue
-    if head is not none and unit claims a resource head currently lacks:
-      continue
     if resources_available(unit.resource_claims):
       acquire declared fixture lease
       start unit
@@ -11436,7 +11414,7 @@ closure. Every historical failure remains visible in the accumulated ledger.
 | TH-HARNESS-AC-081 | Sections 8, 17 | Incremental accumulated validation | At least three source versions containing an unaffected passing target, an affected passing target, a failed affected attempt, a relevant repair, an unrelated repair, a selector/profile change, and malformed impact/provenance entries | Build and validate the accumulated workstream ledger; execute only each version's deterministic affected closure | Success only when all current requirements resolve exactly once to the newest applicable pass, unaffected passes carry forward, the repaired affected failure is superseded by a later-version pass, and unrelated or same-version attempts cannot erase a failure | Bounded closure summary by source version and carried/rerun/superseded count | Bounded impact, provenance, duplicate, missing, conflict, or same-version-retry diagnostic | Source-snapshot roster, changed-input digests, affected row/target closure, retained root refs, pass provenance, failure history, and supersession edges | Filename heuristic omits impact, changed contract carries forward, failed same-version result is retried away, historical bytes are relabeled, evidence is relabeled across source versions, or missing current work closes | retained attempts remain immutable; no scheduler or cache reuse is inferred |
 | TH-HARNESS-AC-082 | Section 2.1 | Tier selection | Complete catalog plus invalid, duplicate, and redundancy fixtures | Cutover disposition and tier-reachability validation | Every active row has one aggregate placement; ordered placements reach their aggregate union, explicit-only rows reach only dedicated or exact selectors, and policy reintroduction fails before provisioning | Bounded tier counts | Exact row/tier diagnostic | Tier report and evidence-union closure | Boolean fallback, missing or invalid tier, raw-group selection, or silent coverage removal passes | no child work |
 | TH-HARNESS-AC-083 | Section 2.1 | Canonical graph identity | Equivalent direct, aggregate, leaf, and owner-slice selectors plus semantic mutations | Compile and compare graphs | Equivalent selections have identical units/digests and changed semantics change the digest | Bounded graph summary | Graph validation diagnostic | Canonical graph and digest report | Duplicate execution, cycle, or invalid claim reaches child work | scratch graph removed |
-| TH-HARNESS-AC-084 | Section 2.1 | Unified scheduling | Contention, starvation, failure, cancellation, and simultaneous-completion fixtures | Deterministic scheduler simulation and process tests | Rank, fit, deficit-disjoint backfill, elapsed eligible aging, failure propagation, and cancellation match REQ-802; a lower-ranked fitting unit never draws down a resource the highest-ranked capacity-lacking unit currently lacks; dispatch frequency and fixture warmth never override rank; capacity misses preserve pending host priority, refresh only ungranted resident references, yield ordinary/dedicated logical pins, and bound unstarted renderer identities without weakening physical compatibility | Bounded scheduler summary | Scheduler diagnostic | Unit events and capability snapshot | Unheld reservation, starvation, or leaked process passes | owned work cleaned |
+| TH-HARNESS-AC-084 | Section 2.1 | Unified scheduling | Contention, starvation, failure, cancellation, and simultaneous-completion fixtures | Deterministic scheduler simulation and process tests | Rank, fit, backfill, elapsed eligible aging, failure propagation, and cancellation match REQ-802; dispatch frequency and fixture warmth never override rank; capacity misses preserve pending host priority, refresh only ungranted resident references, yield ordinary/dedicated logical pins, and bound unstarted renderer identities without weakening physical compatibility | Bounded scheduler summary | Scheduler diagnostic | Unit events and capability snapshot | Unheld reservation, starvation, or leaked process passes | owned work cleaned |
 | TH-HARNESS-AC-085 | Section 2.1 | Capacity closure | CPU, memory, process, IO, port, service, missing-data, override, resident ownership and dead-owner fixtures | Capability resolver and native admission validation | Resolved capacity is the safe multidimensional minimum; physical allocations remain charged once until proven cleanup; idle residents do not hold activity; drain and exclusive work progress | Bounded capability summary | Configuration diagnostic | Capability snapshot, allocation references and active grants | PID death frees resident capacity, borrowing double-charges, or cleanup bypasses capacity | no unaccounted child work |
 | TH-HARNESS-AC-086 | Section 2.1 | Fixture broker | Transaction, dedicated, migration, object, process, browser, contamination and borrowed-resource fixtures; empty/single/multi-page/multi-batch cleanup, per-object failure, repeated tokens, cancellation, missing bucket, sibling prefix and failed reuse | Broker lifecycle, one-time cluster initialization, clone grants and failure isolation, renderer reuse/context isolation/interruption, scoped trust, object-store admission and affected owner slices | Explicit leases preserve isolation; templates complete WAL-backed publication; ordinary clones perform only database finalization; compatible groups share one renderer generation; owned cleanup never deletes borrowed services; empty-state and mutation proof precede reuse; uncertain cleanup cannot readmit a generation | Bounded lease and safe stage summary | Fixture/cleanup diagnostic, with earlier readiness failure retained as primary | Logical borrow/settlement, shared physical attestations, provisioning identity and terminal cleanup | Implicit fallback, contamination, repeated clone role DDL, premature capacity release, post-readiness replacement or borrowed deletion passes | unhealthy generations retired; unresolved ownership and capacity retained |
 | TH-HARNESS-AC-087 | Section 2.1 | Runner grouping and incremental evidence | Compatible cross-owner/cross-file and incompatible project/setup cohorts; exact owner subsets; repeated titles; excluded, missing, duplicate and skipped tests; suite/global teardown; uncertain worker termination; interruption between durable checkpoint and row publication; foreign/malformed/unsafe checkpoint identities; redaction and evidence-volume scaling | Deterministic Go shard/Vitest cohort planning, explicit compatibility, worker claims, per-file public-API selection and atomic settled-file evidence | Bounded cohorts preserve isolated file lifetimes and exact per-owner attribution; completed files survive interruption; global failures supersede provisional success; incremental processing avoids cumulative rewrites and unchanged rows retain settlement timestamps | Bounded shard summary | Row/shard diagnostic | Plan digest, native reports, row outcomes and immutable file checkpoints | Owner-only fragmentation, incompatible merge, false completion, lost settled evidence, repeated cumulative publication or stale success | ordinary test cleanup |

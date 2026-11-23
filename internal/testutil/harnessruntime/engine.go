@@ -503,56 +503,12 @@ func (e *graphEngine) choose(ready []unit, barriers map[string][]string) *unit {
 		}
 		return strings.Compare(a.ID, b.ID)
 	})
-	// Deficit-disjoint backfill (TH-HARNESS-REQ-802): the highest-ranked ready
-	// unit that lacks claimed capacity keeps every freed unit of what it lacks.
-	// Lower-ranked fitting work is admitted only when it claims none of the
-	// resources that unit currently lacks, so a unit claiming more than is free
-	// at any one moment cannot be starved by smaller units taking capacity as it
-	// frees. Resources it does not lack stay available: protecting capacity it
-	// will need later idled PostgreSQL lanes behind a unit waiting for an
-	// object-store lane (G29, g29-check01).
-	var head *unit
 	for _, u := range ordered {
 		if e.blocking(u, barriers).reason == "rank" {
-			if head != nil && e.deepensDeficit(*head, u) {
-				continue
-			}
 			return &u
-		}
-		if head == nil && e.lacksCapacity(u) {
-			head = &u
 		}
 	}
 	return nil
-}
-
-// deficit is how far u's claim on r exceeds the capacity left free.
-func (e *graphEngine) deficit(u unit, r string) int64 {
-	requested := e.claims[r] + u.Claims[r]
-	if r == "volume" {
-		requested = max(e.claims[r], u.Claims[r])
-	}
-	return max(0, requested-e.plan.facts.Capacities[r])
-}
-
-func (e *graphEngine) lacksCapacity(u unit) bool {
-	for r := range u.Claims {
-		if e.deficit(u, r) > 0 {
-			return true
-		}
-	}
-	return false
-}
-
-// deepensDeficit reports whether candidate would draw down a resource head
-// currently lacks.
-func (e *graphEngine) deepensDeficit(head, candidate unit) bool {
-	for r := range head.Claims {
-		if candidate.Claims[r] > 0 && e.deficit(head, r) > 0 {
-			return true
-		}
-	}
-	return false
 }
 func (e *graphEngine) openWait(id string, w waitDetails, at int64) {
 	if prior, ok := e.waits[id]; ok {
