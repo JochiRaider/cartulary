@@ -2,7 +2,7 @@
 
 **Status.** Active remediation tracker, last updated 2026-11-22. Committed through `500e3bdda`: G3 fixes 1–3 and 2b, G4a, G5a, G9 stage 1, G19 with hardening, G20. Uncommitted in the working tree: G8, G10, G21, G22, G23, the database-retirement event, and fixes for regressions the regression suite exposed in G19 and G20. `make distclean` on 2026-11-22 deleted every retained run, so the run IDs in Section 11 before that date are a record, not retrievable evidence.
 
-Original framing: this document authorizes no implementation by itself.
+The active plan for the remaining `check` wall-clock work is [Section 12](#12-phase-2-plan--check-wall-clock). Original framing: this document authorizes no implementation by itself.
 Each specification amendment in [Section 8](#8-specification-amendment-ledger) needs
 owner approval before its workstream starts. Workstream 0 is the only work that
 needs no new decision.
@@ -82,10 +82,10 @@ repetitions each.
 | --- | --- | --- | --- | --- |
 | G1 | `gofmt` drift keeps `make check` red at HEAD (resolved in `3bd5875af`) | Implementation | WS0 | Closed |
 | G2 | Heavy-lane default too low (resolved in `6712f0408`) | Specification, implementation, tests | WS0 follow-up | Closed; a 4-lane re-measure is now worthwhile (heavy lanes alone set the wall after G5) |
-| G3 | Heavy tests repeat expensive setup; a few oversized rows dominate | Tests, test support | WS3 | High; fixes 1–3 and 2b committed (`500e3bdda`); fixes 4–10 open |
+| G3 | Heavy tests repeat expensive setup; a few oversized rows dominate | Tests, test support | WS3 | High; fixes 1–3 and 2b committed (`500e3bdda`); fixes 4–10 open; remaining plan in Section 12 (G3.4–G3.9) |
 | G4 | Graph admission ignores physical footprint (head-of-line blocking) | Specification, implementation, tests | WS2 | G4a (host backfill) committed (`500e3bdda`); G4b (graph footprint) deferred: after G5a, host admission no longer blocks `check` |
 | G5 | PostgreSQL concurrency emerges from process-slot arithmetic and double-charged lanes | Specification, machine inputs, implementation | WS2 | G5a (process slots from the OS limit) committed (`500e3bdda`); G5b (single lane) reverted |
-| G6 | Exclusive PostgreSQL generation startup and residency cost | Specification, implementation | WS2, WS3 | High (measured ~15 s per generation, 1,819 s per `check`) |
+| G6 | Exclusive PostgreSQL generation startup and residency cost | Specification, implementation | W2-4 | High; plan rewritten in Section 12 (harness-assigned identity, then a seed image) |
 | G7 | Retained-secret scan costs ~120 s per `check` | Implementation, tests | WS4 | High |
 | G8 | Run roots retain bulk fixture bytes on success | Specification, test support | WS4 | High (remediated, uncommitted) |
 | G9 | Wait-segment and admission-record churn | Specification, implementation | WS4 | Stage 1 committed (`500e3bdda`); stage 2 (wait segments) open: G4/G5 did not reduce it, and it is now most of each run root |
@@ -104,6 +104,8 @@ repetitions each.
 | G22 | Readiness cache stamps vouch for external Docker images that may have been removed | Specification, implementation | WS5 | Low (remediated, uncommitted) |
 | G23 | The pinned browser-trust package was removed upstream; only the local readiness cache kept bootstrap working | Implementation | WS0 | High while broken (pin updated, uncommitted) |
 | G24 | Heavy units hold a heavy lane while queued in host admission behind ordinary PostgreSQL units | Specification, implementation | WS2 | High (remediated, uncommitted: about 150 s of `check` wall) |
+| G25 | Unattributed I/O regression: checkpoint sync and graph wall up since the morning's passing runs | Measurement, possibly implementation | W2-1 | High (open, Section 12) |
+| G26 | Packing omits PostgreSQL generation acquisition | Specification, machine inputs, implementation | W2-5 | Medium (open, Section 12) |
 
 ## 5. Gap Remediation Detail
 
@@ -427,6 +429,8 @@ First combined measurement (`g3-check01`, fixes 1–3, before 2b): graph 959 s (
 
 ## 7. Workstreams, Sequencing and Exit Criteria
 
+Phase-1 workstreams. For remaining `check` wall-clock work, [Section 12](#12-phase-2-plan--check-wall-clock) supersedes WS2, WS3, WS4 and WS7.
+
 ```text
 WS0 ──┬─> WS1 ──┬─> WS2 ──┐
       │         ├─> WS3 ──┼─> WS7
@@ -510,7 +514,7 @@ WS2 and WS3 can run in parallel but are measured together, because both move the
 | A0 | §10.2 capacity table | Heavy lanes default 3 (adopted, `6712f0408`) | G2 | None |
 | A1 | §10.2 `process_slots` row; REQ-803 lane accounting | Process slots from the OS process limit with margin; active and resident `postgres` claims stated as distinct (the single-charge change was reverted) (adopted, `500e3bdda`) | G5 | Registry v9 (v8 retired) |
 | A2 | §2.1 REQ-803 | Deficit-non-increase backfill at host admission, with descendants of a backfilled branch bound by the bypassed waiter (adopted, `500e3bdda`). Graph-local footprint admission (G4b) deferred | G4 | None |
-| A3 | REQ-804 | Snapshot-seeded provisioning identity; single-use generation claims released at terminal settlement | G6 | Provisioning identity fields |
+| A3 | REQ-804, REQ-811 | Rewritten in Section 12.6: harness-assigned generation identity and seed-image provisioning (previous text: snapshot-seeded provisioning identity; single-use generation claims released at terminal settlement) | G6 | Attachment identity |
 | A4a | REQ-857 | Admission decisions coalesce on a defined decision identity; zero quantities omitted (adopted with G9 stage 1, `500e3bdda`) | G9 | None |
 | A4b | REQ-371 | Withdrawn: replay shows segment churn comes from waiting-unit volume (G4), not holder changes | G9 | None |
 | A9 | REQ-357; REQ-804 | Databases in a single-unit exclusive generation retire with the generation instead of eager `DROP DATABASE` (adopted, `500e3bdda`); the `postgres-db-retired` evidence event is drafted, uncommitted | G19 | None |
@@ -518,6 +522,8 @@ WS2 and WS3 can run in parallel but are measured together, because both move the
 | A11 | REQ-505 | Disposition table adds root `dist`, reference-pack builders and module staging, and the whole `apps/web/.cartulary` (drafted, uncommitted) | G21 | None |
 | A12 | Readiness cache profiles (beside the test-service image rule) | A browser-installation hit must prove the pinned renderer image is present by digest and platform; otherwise the stamp is invalidated (drafted, uncommitted) | G22 | None |
 | A13 | REQ-803 | Between shared requests, one claiming an available `postgres_heavy` lane precedes requests claiming none; otherwise arrival order (drafted, uncommitted) | G24 | None |
+| A14 | Lifecycle estimates beside REQ-865 | `postgres_generation_acquire` joins the closed set (proposed, Section 12) | G26 | Work-graph owner input |
+| A15 | §10.2 capacity table | Heavy lanes default 4, conditional on the G2 criteria (proposed, Section 12) | G2 | None |
 | A8 | REQ-803; REQ-381 | Admission waiters re-evaluate on admission-state change, with a bounded fallback for dead-owner reclamation | G16 | None expected |
 | A5 | REQ-407 | A passing fixture comparison keeps its digest record only (Network Flow summary with `materialized_input_root` null, IR `comparison.json`, reference-pack `bootstrap.json`); a failing one keeps its full material (drafted, uncommitted) | G8 | None |
 | A6 | §5 Go path table; §14 readiness | Invocation-scoped `GOTMPDIR`/`GO_TMP_DIR` beneath the machine path, removed at settlement, dead-owner reclamation; `TMPDIR` stays host-wide (drafted, uncommitted). Retention and cache-maintenance commands (G11, G12) not started | G10 | None |
@@ -592,3 +598,402 @@ Each amendment lands spec-first in one change with its machine projections, rege
 | 2026-11-22 | Packing rebalance | 29 row estimates updated from observations (G14) | `pack-generate01`, `pack-catalog01`, `pack-rebal-check01` | **Pass 365/365.** Graph 1,171 s. Makespan excess 58 → 42 s; heavy work 3,375 s (host admission 454 s, fixture acquire 341 s). Both packing runs are about 180 s slower than `g19b-check01` (970 s): total checkpoint sync is now 1,000–1,066 s against 594–692 s then, for the same 91 checkpoints, so the disk is slower or busier. Cause not attributed: the earlier runs were deleted by `distclean`. Candidates: the uncommitted G8/G10/G22/G23 changes and the retirement event, the ATT&CK clock commit `181413312`, or host disk state after about 300 GB of deletions |
 | 2026-11-22 | G24 | Heavy-lane precedence in host admission (REQ-803 amended) | `g24-generate01`, `g24-admission01` (row `harness.evidence_accounting.behavior.observation_admission`), `g24-runtime01` (row `harness.command_surface.unit.native_runtime`), `g24-lintgo01`; mutation check (precedence disabled fails the new subtest) | All pass |
 | 2026-11-22 | G24 | Diagnostic `check` | `g24-check01` | **Pass 365/365.** Graph 1,022 s (from 1,152–1,171 s); heavy host admission 35 s (from 443–454 s); heavy work 2,921 s; checkpoint sync 871 s |
+
+## 12. Phase 2 Plan — `check` Wall Clock
+
+**Status.** Proposed 2026-11-22, after G24. Nothing in this section is
+implemented. It supersedes Section 7 for the remaining `check` wall-clock work;
+Section 7 keeps the phase-1 history.
+
+### 12.1 Starting Point
+
+`g24-check01` (warm, diagnostics on, cache off) passed in 1,022 s. The three
+heavy lanes were all busy for 946 s, so the wall is heavy-lane work divided by
+three plus packing imbalance:
+
+| Component | Value |
+| --- | ---: |
+| Heavy-lane work | 2,921 s |
+| Of which test time | 2,442 s (top 8 rows 1,097 s) |
+| Of which PostgreSQL generation acquisition | 354 s (median 19 s per unit) |
+| Of which host admission and fixture release | 69 s |
+| Makespan above a perfect three-lane split | 42 s |
+| Post-graph time (scan and publication) | about 28 s |
+| Checkpoint sync, whole run | 871 s (594–692 s in the morning's passing runs) |
+
+Every second removed from heavy-lane work saves about a third of a second of
+wall at three lanes. The ≤ 750 s target needs about 800 s less heavy work at
+three lanes, or a fourth lane that the disk can sustain.
+
+### 12.2 Principles for Phase 2
+
+The Section 3 rules still apply. In addition:
+
+1. Remove repeated work before adding parallelism. On this host the disk, not
+   the CPU, saturates first.
+2. A test keeps every assertion. Shared setup is built once from the same
+   public operations the test would run, then cloned; anything a test mutates
+   is cloned, never shared.
+3. One mechanism per concept. Snapshot, clone and seed reuse the harness's
+   existing primitives (`SealTemplateDatabase`, `CloneDatabase`, the
+   performance-fixture object snapshot) instead of adding parallel ones.
+4. Production policy is never weakened to speed tests. Shorter timers enter only
+   through harness-owned composition, which the Core specification already
+   permits for job timers.
+5. Measure every treatment twice. Single-run wall varies by about ±150 s, so
+   judge by heavy-lane work and lane occupancy first and wall second.
+
+### 12.3 Gap Remediation
+
+#### G25 — Unattributed I/O regression
+
+- **Evidence.** This morning's passing runs had graph wall 970–996 s and
+  checkpoint sync 594–692 s. Every run since `distclean` shows 1,022–1,181 s
+  and 871–1,066 s for the same 91 checkpoints. The earlier roots were deleted,
+  so nothing can be compared directly.
+- **Remediation.** Compare `500e3bdda` with the G23 pin cherry-picked against
+  `a5df06952`, twice each. Pre-G23 commits cannot bootstrap: the old pinned
+  package is gone upstream. Each run uses a worktree outside the checkout (G20).
+  If the bundle is at fault, revert its G8 and G10 parts separately in a scratch
+  worktree to isolate them. If both are slow, test the host: record raw `fsync`
+  latency with `pg_test_fsync` in the pinned PostgreSQL image, then repeat after
+  host-side trim and compaction of the WSL disk image. Fix the culprit, or
+  record the new host baseline and move every target with it.
+- **Area.** Measurement; implementation if a commit is at fault.
+- **Rationale.** Every later saving is 10–70 s; an unexplained 50–150 s drift
+  makes them unmeasurable.
+- **Long-term benefit.** A recorded disk probe makes later I/O regressions
+  attributable in minutes instead of hours.
+- **Compatibility.** None.
+- **Risk if unresolved.** Savings are misattributed, or a real regression ships.
+- **Validation.** Two runs on each side of the bisection reproduce or rule out
+  the difference beyond noise. A fix, if any, restores checkpoint sync to the
+  morning range. The `fsync` probe result is recorded here.
+
+#### G3.6 — Network Flow transfer re-reads frozen state
+
+- **Evidence.** `TestNetworkFlowIncidentTransferThroughPublicOperations_Integration`
+  (254 s) verifies both destinations against side A. Side A stops changing
+  after line 158, yet each verification re-reads it: investigation views, three
+  tables and about 23 table pages at limit 200. The API allows 500.
+  `irCommittedSources` pages at limit 1.
+- **Remediation.** Read side A once, after it stops changing, into an immutable
+  expectation value and compare both destinations against it. Page table and
+  view reads at the API maximum. Keep one deliberately multi-page traversal so
+  pagination stays covered. Do not split the unclaimed-destination leg: it
+  needs the full bundle, so a split repeats the whole side-A setup and adds
+  work.
+- **Area.** Tests.
+- **Rationale.** Re-reading frozen state is repeated work, not coverage.
+- **Long-term benefit.** The row falls under the 225 s packing target, so the
+  packer can pair it instead of running it alone.
+- **Compatibility.** None. The row ID is unchanged; its estimate is refreshed.
+- **Risk if unresolved.** The longest single row keeps setting the heavy tail.
+- **Validation.** Identical assertions; a probe that changes one expected value
+  fails; row time drops in two checks (estimate 15–30%).
+
+#### G3.7 — Saved-graph restore fan-out
+
+- **Evidence.** `assertFrozenReportingRestores` captures once, then restores the
+  same capture 15 times into fresh databases and object-store namespaces:
+  resumption, 8 authority faults (one nested) and 5 retained-input corruptions.
+  appsupport has no "restore once, clone per target" helper.
+- **Remediation.** Add one appsupport helper. It restores a capture once,
+  seals the database (`SealTemplateDatabase`) and the object namespace,
+  then gives each target a database clone (`CloneDatabase`,
+  `RetireClonedDatabaseT`) and its own copy of the objects. Reuse the
+  performance-fixture object snapshot (`sealObjectSnapshot`,
+  `restoreObjectSnapshot`) by moving it to shared test support, with one owner,
+  rather than writing a second copier.
+- **Area.** Test support (appsupport, pgtest, performance-fixture support);
+  tests.
+- **Rationale.** Cloning is the harness's existing isolation primitive; fifteen
+  identical restores add nothing.
+- **Long-term benefit.** Recovery fault probes, including the ATT&CK recovery
+  test's three, can use the same helper.
+- **Compatibility.** The object-snapshot code moves package; its single caller
+  moves with it.
+- **Risk if unresolved.** Every new fault target adds a full restore.
+- **Validation.** Every fault still produces its expected outcome. An isolation
+  probe shows one target's mutation is invisible to the next, for both database
+  and objects. Row time drops (estimate 30–50% of 84 s).
+
+#### G3.4 — ATT&CK fixture cost
+
+- **Evidence.** Each test builds its own signing context with random keys, so
+  identical packs get different digests. Tests import the 95 MB pack two or
+  three times (the lifecycle "replay" uses a new `client_txn_id`, so it is a
+  full second import); recovery restores it four times; reporting imports it
+  once for setup only. Each import writes about 40,853 index rows in several
+  hundred transactions.
+- **Remediation.**
+  1. One deterministic signing context per test process: keys derived from a
+     fixed seed and `now` pinned to one second through the existing
+     `ReferencePackClock`. Pack bytes are memoized per dataset and version.
+     Tests that assert key or expiry behavior keep explicit contexts.
+  2. For tests whose subject is not import (reporting composition preview,
+     incident-bundle source setup, recovery setup), import once per package
+     process into a sealed template database plus a read-only pack-storage
+     snapshot, and clone per test with the G3.7 helper.
+  3. Owner review of redundant passes: decide whether the lifecycle "replay"
+     should assert receipt replay (same `client_txn_id`) or a second import; move
+     recovery's three fault probes onto the G3.7 helper.
+- **Out of scope.** COPY-based index writes would speed production imports
+  too, but batching is product behavior under the reference-pack NLSpec. Raise it
+  with that owner separately.
+- **Area.** Test support (`reference_data/testsupport`,
+  `referencepackfixture`); tests.
+- **Rationale.** Identical inputs should yield one artifact; setup that is not
+  under test should be built once.
+- **Long-term benefit.** New reference-pack tests start from a snapshot instead
+  of adding a 20–40 s import each.
+- **Compatibility.** None for product code.
+- **Risk if unresolved.** ATT&CK rows stay contention-sensitive (81–151 s
+  spreads) and keep growing with pack size.
+- **Validation.** Container digests are identical across tests in one run.
+  Each changed test keeps its assertions. Owners' targeted rows pass. Heavy
+  time for the four ATT&CK rows drops (estimate 60–120 s in total).
+
+#### G3.9 — Production job timers in fault tests
+
+- **Evidence.** `server.Options` has no job-policy field;
+  `runtime_assembly.go` hard-codes `ProductionRuntimePolicy()` (5 s recovery
+  scan, 5 s and 30 s retries) for manager and runner. Fault tests wait on these
+  real timers (about 45 s in `current_workflows`, 12–15 s in incident bundles).
+  Core 01 makes the values normative and says "Tests MAY inject shorter values
+  through harness-owned composition; deployment configuration MUST NOT redefine
+  these values."
+- **Remediation.** Add one composition field, `server.Options.JobPolicy`, where
+  nil means the production policy; it drives both manager and runner.
+  appsupport sets a short policy only for fault tests that exercise retry or
+  recovery and do not assert production cadence. Replace the tests that reach
+  the unexported dependency hook with this field.
+- **Area.** Implementation (`internal/app/server` composition, appsupport);
+  tests. No specification change.
+- **Rationale.** The seam the specification already permits, in one place,
+  instead of per-test workarounds.
+- **Long-term benefit.** Fault tests run at test speed without touching
+  production defaults.
+- **Compatibility.** None. `cmd/server` never sets the field.
+- **Risk if unresolved.** Each new fault test adds 5–35 s of idle waiting.
+- **Validation.** A composition test proves deployment configuration cannot set
+  the policy and that nil yields production values. The existing manager tests
+  still assert the production values. Fault tests keep their classification
+  assertions and get faster.
+
+#### G3.5 — Duplicated plain sources
+
+- **Remediation.** Share one plain source across the reporting, embedded and
+  main flows of
+  `TestIncidentReferenceCatalogSurvivesUnavailablePackRoundTrip_Integration`.
+- **Area.** Tests. **Benefit.** Estimate 10–20 s. **Compatibility.** None.
+- **Validation.** Same assertions; row time.
+
+#### G6 — Seeded PostgreSQL generations (replaces the earlier G6 plan)
+
+- **Evidence.** Every exclusive generation runs `initdb`, roles, template
+  creation, the full migration chain, seal and checkpoint. That is a median of
+  19 s per heavy unit, 354 s of heavy work and about 1,800 s per `check` across
+  89 generations. Everything is discarded at retirement. Attachments are keyed
+  by PostgreSQL's `system_identifier`, which a copied or seeded data directory
+  would share. `ProvisioningDigest` and `TemplateDigest` already identify
+  everything a seed depends on.
+- **Remediation.**
+  1. **Generation identity (G6a).** Each generation receives a harness-minted
+     identity at initialization, recorded in the cluster and verified on
+     attach. Attachments bind it instead of `system_identifier`. This is a
+     prerequisite for seeding and also removes a hidden dependency on `initdb`.
+  2. **Seed image (G6b).** Build one immutable seed image per `TemplateDigest`.
+     It holds an initialized, role-provisioned, migrated, sealed and
+     checkpointed data directory at a PGDATA path outside the base image's
+     declared volume, so containers start copy-on-write. The full migration
+     chain runs in the seed build, which is the owner proof that line 840 of the
+     NLSpec requires; checksums and every durability setting are unchanged.
+     Exclusive generations start from the seed, set their identity, and publish
+     the already-sealed template. There is no per-generation `initdb` or
+     migration path left to maintain.
+  3. **Ownership.** The seed is a content-addressed build artifact owned by the
+     readiness cache. It is verified on each use (the G22 rule), labelled for
+     cleanup, and never holds live data. It is not an allocation retained
+     across runs (NLSpec line 760); the specification must say so explicitly.
+- **Alternatives rejected.** Copying a data directory per generation adds I/O
+  on a disk-bound host and still needs G6a. Prefetching generations ahead of the
+  lane moves work instead of removing it, and resembles the asynchronous
+  replenishment the NLSpec forbids.
+- **Area.** Specification (A3, rewritten: REQ-804 and REQ-811 identity, seed
+  provenance, artifact ownership); implementation (`pgtest` owned cluster,
+  `testservices`, attachment registry, readiness cache); tests.
+- **Rationale.** The migration chain is deterministic for a digest; running it
+  89 times per `check` proves nothing the first run did not.
+- **Long-term benefit.** New migrations stop multiplying every generation's
+  start, and PostgreSQL lanes free sooner, which also helps ordinary units.
+- **Compatibility.** The attachment identity cuts over; attached sessions with
+  the old identity are rejected and rebuilt. The image gains a cleanup
+  registration.
+- **Risk if unresolved.** Startup grows with every migration, multiplied by
+  every exclusive unit.
+- **Main risk of the fix.** Write performance on the overlay filesystem
+  (copy-up on first write of each relation file). A spike measures it before
+  adoption; if it hurts, populate a named volume from the seed instead and
+  measure again.
+- **Validation.** Median exclusive acquisition ≤ 6 s. The REQ-804 acceptance
+  checks for template and clone isolation and durable WAL progress pass. The
+  migration owner keeps its full-chain proof. Two checks show heavy-unit
+  acquisition below 100 s in total.
+
+#### G26 — Packing omits generation acquisition
+
+- **Evidence.** Heavy cohorts are packed against 225 s using row estimates plus
+  a 5 s Go startup allowance. The closed lifecycle-estimate set has no
+  PostgreSQL generation acquisition, so about 19 s per heavy unit is invisible
+  to packing and ranking.
+- **Remediation.** Add `postgres_generation_acquire` to the closed
+  lifecycle-estimate set. The packer reserves it once per exclusive cohort, as
+  the specification already does for browser acquisition. Re-derive the value
+  after G6, and refresh row estimates from two qualified runs after W2-2 and
+  W2-3.
+- **Area.** Specification (lifecycle estimates beside REQ-865); machine input
+  (`lifecycle_estimates_ms`); implementation (compiler packing); tests.
+- **Rationale.** Packing should charge every cost the cohort pays exactly once.
+- **Long-term benefit.** Balance stays correct as acquisition cost changes.
+- **Compatibility.** Cohort composition and unit IDs change; this is planning
+  data only.
+- **Risk if unresolved.** Cohorts overrun the target, and the tail stays uneven.
+- **Validation.** The estimate audit reports no `over_packing_bound`; makespan
+  above a perfect split ≤ 20 s in two checks.
+
+#### G2 (revisited) — Heavy lane count
+
+- **Remediation.** After G25 is settled and W2-2 to W2-4 land, run three lanes
+  against four (capacity override), twice each. Adopt four as the default only
+  if graph wall improves beyond noise, checkpoint sync stays within 20% of the
+  three-lane runs, and no cleanup or deadline failure appears (the G19 pattern).
+- **Area.** Measurement; specification §10.2 default if adopted (A15).
+- **Risk.** Disk saturation turns speed into flakiness, as G5b showed.
+- **Validation.** The acceptance criteria above, recorded with run IDs.
+
+#### G7 (scheduled) — Secret scan
+
+Unchanged from Section 5. Post-graph time is now about 28 s, so the expected
+saving is about 13 s of outer wall. It runs last because it is independent and
+small.
+
+### 12.4 Workstreams
+
+```text
+W2-0 ─> W2-1 ─┬─> W2-4 ──┐
+              ├─> W2-2 ──┼─> W2-5 ─> W2-7
+              └─> W2-3 ──┘
+W2-6 (independent) ───────────────> W2-7
+```
+
+#### W2-0 — Land and baseline
+
+- **Scope.** The phase-1 work and this plan.
+- **Status.** The owner landed the work before this step:
+  - `a5df06952` (pushed) bundles G8, G10, the G19 retirement event, the G20
+    `spawnSync` fix, G21, G22 and G23;
+  - `fb5c7b63d` holds G24 and the G14 estimates.
+
+  The published bundle is not rewritten; W2-1 isolates its parts instead. This
+  plan is the remaining commit.
+- **Steps.** Commit this plan; take two warm diagnostic `check` runs on the
+  landed code as the phase-2 reference (`g24-check01` ran on the same executable
+  source and counts as the first).
+- **Dependencies.** None.
+- **Exit criteria.** Clean tree; two reference runs recorded in Section 11.
+
+#### W2-1 — Attribution
+
+- **Scope.** G25. Optional enabler: G17 (subtest timings) if the owner settles
+  its naming rule, because it makes W2-2 and W2-3 measurable inside tests.
+- **Dependencies.** W2-0.
+- **Risks.** Host noise; mitigate with two runs per side and the `fsync` probe.
+- **Exit criteria.** Cause identified and fixed, or a host baseline recorded
+  and Section 3 targets restated against it.
+
+#### W2-2 — Test-local heavy fixes
+
+- **Scope.** G3.6, G3.5, G3.9.
+- **Dependencies.** W2-0. Can run alongside W2-1; measure after it.
+- **Risks.** Lost coverage; every change keeps its assertions and gets a
+  mutation probe.
+- **Exit criteria.** Owners' targeted rows pass; heavy work down by at least
+  100 s across two checks.
+
+#### W2-3 — Shared fixture support
+
+- **Scope.** G3.7 helper, then G3.4.
+- **Dependencies.** W2-0; G3.4 step 2 needs the G3.7 helper.
+- **Risks.** Shared state leaking between tests; the isolation probe is
+  mandatory.
+- **Exit criteria.** Identical ATT&CK digests within a run; isolation probes
+  pass; heavy work down by a further 80 s or more.
+
+#### W2-4 — Seeded generations
+
+- **Scope.** G6a, then a G6b spike, then G6b.
+- **Steps.** Spike: build one seed by hand and measure container start and an
+  I/O-heavy test on overlay against a fresh generation. Then rewrite A3, land
+  G6a with its attachment cut-over, then G6b.
+- **Dependencies.** W2-1 (stable baseline); decision D6.
+- **Risks.** Overlay write cost; attachment cut-over breaking attached
+  sessions. Mitigate with the spike and with rejection, not translation, of old
+  attachments.
+- **Exit criteria.** G6 validation met; REQ-804 acceptance checks pass.
+
+#### W2-5 — Scheduling
+
+- **Scope.** G26, estimate refresh, then the G2 lane experiment.
+- **Dependencies.** W2-2, W2-3 and W2-4, so estimates reflect the new costs.
+- **Exit criteria.** G26 validation met; lane-count decision recorded with
+  evidence.
+
+#### W2-6 — Post-graph
+
+- **Scope.** G7.
+- **Dependencies.** None.
+- **Exit criteria.** Same verdicts on the redaction and scan fixtures;
+  post-graph time ≤ 15 s.
+
+#### W2-7 — Validation and handoff
+
+- **Steps.** Two final diagnostic `check` runs; Section 3 targets updated with
+  the outcome; amendments adopted with projections regenerated; test-ops skill
+  recipes updated only if public commands changed; tracker and memory updated.
+- **Exit criteria.** Every gap above closed or explicitly deferred with data.
+
+### 12.5 Expected Effect
+
+Estimates, before measurement; heavy-work savings convert to wall at about
+one third.
+
+| Lever | Heavy work saved | Wall saved |
+| --- | ---: | ---: |
+| G25 | — | 0–150 s, unknown |
+| G3.6, G3.5, G3.9 | 100–160 s | 35–55 s |
+| G3.7, G3.4 | 80–160 s | 25–55 s |
+| G6 | about 220 s | about 70 s |
+| G26 | — | 10–20 s |
+| G7 | — | about 13 s, outer only |
+| G2, four lanes | — | unknown; up to about 240 s if the disk holds |
+
+Without G2 and G25 the expected graph wall is about 820–880 s. Reaching
+≤ 750 s needs either a fourth lane the disk sustains, or G25 recovering the
+morning's I/O headroom.
+
+### 12.6 Amendments and Decisions
+
+| ID | Section or requirement | Change | Gap |
+| --- | --- | --- | --- |
+| A3 (rewritten) | REQ-804, REQ-811; line 760 clarification | Harness-assigned generation identity; exclusive generations start from a content-addressed seed proven by a full-chain build; the seed is an immutable build artifact, not a retained allocation | G6 |
+| A14 | Lifecycle estimates beside REQ-865 | `postgres_generation_acquire` joins the closed set and is reserved once per exclusive cohort | G26 |
+| A15 (conditional) | §10.2 capacity table | Heavy lanes default 4, only if the G2 criteria hold | G2 |
+
+| ID | Decision | Needed by | Recommendation |
+| --- | --- | --- | --- |
+| D6 | Approve rewritten A3 and the seed-image approach after the spike | W2-4 | Approve G6a now; decide G6b on the spike's numbers |
+| D7 | Add `server.Options.JobPolicy` (product composition) | W2-2 | Approve; Core 01 already permits it |
+| D8 | Lifecycle "replay": receipt replay or second import | W2-3 | Reference-data owner decides; keep whichever the NLSpec claim names |
+| D9 | Commit plan for the uncommitted work | W2-0 | Logical commits, so W2-1 can bisect |
+| D10 | Four-lane adoption criteria | W2-5 | As stated under G2 |
