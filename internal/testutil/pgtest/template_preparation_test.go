@@ -11,6 +11,9 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 
+	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
+	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/postgrescatalog"
 	"github.com/JochiRaider/cartulary/internal/testutil/postgrescleanup"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
@@ -113,8 +116,8 @@ func TestTemplatePreparationCompletesCopyBeforePublication(t *testing.T) {
 		}
 		return nil
 	}
-	creationOps.create = func(ctx context.Context, dsn, name, template string, confirmed func() error) (bool, error) {
-		return createDatabase(ctx, dsn, name, template, func() error {
+	ownedBeforeProvisioning := func(name string, confirmed func() error) func() error {
+		return func() error {
 			if err := confirmed(); err != nil {
 				return err
 			}
@@ -123,10 +126,21 @@ func TestTemplatePreparationCompletesCopyBeforePublication(t *testing.T) {
 				t.Fatal("provisioning preceded local or journal ownership")
 			}
 			return nil
-		})
+		}
+	}
+	creationOps.create = func(ctx context.Context, dsn, name, template string, confirmed func() error) (bool, error) {
+		return createDatabase(ctx, dsn, name, template, ownedBeforeProvisioning(name, confirmed))
+	}
+	adoptions := 0
+	creationOps.adopt = func(ctx context.Context, dsn, name, seed string, confirmed func() error) (bool, error) {
+		adoptions++
+		return adoptSeedTemplate(ctx, dsn, name, seed, ownedBeforeProvisioning(name, confirmed))
 	}
 	if _, err := owner.PrepareTemplate(ctx, ""); err != nil {
 		t.Fatal(err)
+	}
+	if adoptions != 1 {
+		t.Fatal("owned generation did not adopt its seed template", adoptions)
 	}
 
 	// A local borrower abandon leaves the physical owner and its prepared fixture
@@ -368,4 +382,86 @@ func startTemplatePreparationHarness(t *testing.T) (*OwnedCluster, *Harness) {
 		}
 	})
 	return h, h.Fixture()
+}
+
+// Generations copied from one seed share PostgreSQL's data-directory identity,
+// so only the harness-assigned identity distinguishes them. Each adopts and
+// seals a template that carries the complete canonical migration chain.
+func TestSeededGenerationsAdoptTemplateWithDistinctIdentity(t *testing.T) {
+	if suiteservices.LookupEnvValue(nil, suiteservices.PGAdminDSNEnv) != "" {
+		t.Fatal("self-owned lifecycle selection acquired an unused broker cluster")
+	}
+	source, err := dbmigrations.Source()
+	if err != nil {
+		t.Fatal(err)
+	}
+	chain, err := database_migrations.InspectSource(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	type generation struct{ identity, system string }
+	observe := func() generation {
+		owner, h := startTemplatePreparationHarness(t)
+		ctx := t.Context()
+		admin, err := sql.Open("pgx", h.AdminDSN())
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer admin.Close()
+		var observed generation
+		var seedPending bool
+		if err := admin.QueryRowContext(ctx, `SELECT current_setting('cluster_name'), (SELECT system_identifier::text FROM pg_control_system()), EXISTS (SELECT 1 FROM pg_database WHERE datname=$1 AND NOT datistemplate)`, seedTemplateName).Scan(&observed.identity, &observed.system, &seedPending); err != nil {
+			t.Fatal(err)
+		}
+		if observed.identity != owner.ProvisioningGeneration() || !seedPending || owner.seedTemplate != seedTemplateName {
+			t.Fatalf("generation %q reports %q; unadopted seed template present=%v", owner.ProvisioningGeneration(), observed.identity, seedPending)
+		}
+		if attached, err := inspectClusterGeneration(ctx, h.AdminDSN()); err != nil || attached != observed.identity {
+			t.Fatal("attachment does not verify the assigned identity", attached, err)
+		}
+		template, err := owner.PrepareTemplate(ctx, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		var seedRemains, sealed bool
+		if err := admin.QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 FROM pg_database WHERE datname=$1), EXISTS (SELECT 1 FROM pg_database WHERE datname=$2 AND datistemplate AND NOT datallowconn)`, seedTemplateName, template.Name).Scan(&seedRemains, &sealed); err != nil {
+			t.Fatal(err)
+		}
+		if seedRemains || !sealed {
+			t.Fatalf("adoption left the seed template=%v or an unsealed template=%v", seedRemains, !sealed)
+		}
+		clone, err := h.PrepareDatabase(ctx, "seeded")
+		if err != nil {
+			t.Fatal(err)
+		}
+		db, err := OpenPurposeDatabase(ctx, clone.DSN, postgres.PurposeMigration)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer db.Close()
+		var applied int
+		var latest int64
+		if err := db.QueryRowContext(ctx, `SELECT count(DISTINCT version_id) FILTER (WHERE version_id > 0 AND is_applied), coalesce(max(version_id), 0) FROM goose_db_version`).Scan(&applied, &latest); err != nil {
+			t.Fatal(err)
+		}
+		if applied != len(chain.Entries) || latest != chain.MaxVersion {
+			t.Fatalf("seeded clone carries %d migrations through %d, want %d through %d", applied, latest, len(chain.Entries), chain.MaxVersion)
+		}
+		closeCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		if err := db.Close(); err != nil {
+			t.Fatal(err)
+		}
+		if err := owner.Close(closeCtx); err != nil {
+			t.Fatal(err)
+		}
+		return observed
+	}
+	first, second := observe(), observe()
+	if first.system != second.system {
+		t.Fatal("generations did not start from one seed", first.system, second.system)
+	}
+	if first.identity == second.identity {
+		t.Fatal("seeded generations share an identity", first.identity)
+	}
 }

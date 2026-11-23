@@ -774,6 +774,20 @@ func truncateIdentifier(value string, max int) string {
 }
 
 func (h *Harness) createDatabase(ctx context.Context, name, template string, reuseScope string, attribution fixtureAttribution) error {
+	return h.provisionDatabase(ctx, name, template, reuseScope, attribution, func(confirmed func() error) (bool, error) {
+		return h.databaseOperations().create(ctx, h.adminDSN, name, template, confirmed)
+	})
+}
+
+// adoptDatabase takes ownership of a seeded generation's sealed template under
+// name, through the same ownership ledger and creation event as creation.
+func (h *Harness) adoptDatabase(ctx context.Context, name, seed string, reuseScope string, attribution fixtureAttribution) error {
+	return h.provisionDatabase(ctx, name, "", reuseScope, attribution, func(confirmed func() error) (bool, error) {
+		return h.databaseOperations().adopt(ctx, h.adminDSN, name, seed, confirmed)
+	})
+}
+
+func (h *Harness) provisionDatabase(ctx context.Context, name, template string, reuseScope string, attribution fixtureAttribution, provision func(func() error) (bool, error)) error {
 	if err := suiteservices.CheckServiceDependencies(h.binding.environment(), "postgres"); err != nil {
 		return err
 	}
@@ -781,7 +795,7 @@ func (h *Harness) createDatabase(ctx context.Context, name, template string, reu
 		return err
 	}
 	start := time.Now()
-	created, err := h.databaseOperations().create(ctx, h.adminDSN, name, template, func() error {
+	created, err := provision(func() error {
 		h.ownedDatabaseMu.Lock()
 		if h.ownedDatabases == nil {
 			h.ownedDatabases = make(map[string]struct{})

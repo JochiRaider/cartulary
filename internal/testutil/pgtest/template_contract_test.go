@@ -361,7 +361,7 @@ func testInvalidTemplateRequest(t *testing.T) {
 }
 
 func testPurposeOpenCancellation(t *testing.T) {
-	_, directory, err := preparePostgresTLS(testcontainers.ContainerRequest{})
+	_, directory, err := preparePostgresTLS(testcontainers.ContainerRequest{}, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -413,5 +413,99 @@ func testPurposeOpenCancellation(t *testing.T) {
 		}
 		cancel()
 		_ = connection.Close()
+	}
+}
+
+// A seeded generation adopts the seed's sealed template under the owner's
+// identity with the same ownership ledger, and never opens a migration handle.
+func testSeededTemplateAdoptionContract(t *testing.T) {
+	for _, stage := range []string{"success", "adopt_rejected", "adopt_committed_error", "created_event", "seal"} {
+		t.Run(stage, func(t *testing.T) {
+			primary := errors.New("adoption fault")
+			var sequence []string
+			dbOps := defaultDatabaseOperations()
+			dbOps.create = func(context.Context, string, string, string, func() error) (bool, error) {
+				t.Fatal("seeded generation created a template")
+				return false, nil
+			}
+			dbOps.adopt = func(_ context.Context, _, name, seed string, confirmed func() error) (bool, error) {
+				sequence = append(sequence, "adopt")
+				if name != "ct_tpl_contract" || seed != seedTemplateName {
+					t.Fatal("adoption lost its exact identities", name, seed)
+				}
+				if stage == "adopt_rejected" {
+					return false, primary
+				}
+				if err := confirmed(); err != nil {
+					return true, err
+				}
+				if stage == "adopt_committed_error" {
+					return true, primary
+				}
+				return true, nil
+			}
+			dbOps.drop = func(cleanup context.Context, _, name string, _ func(postgrescleanup.DropAttempt)) error {
+				sequence = append(sequence, "drop")
+				if deadline, ok := cleanup.Deadline(); name != "ct_tpl_contract" || !ok || time.Until(deadline) > 35*time.Second {
+					t.Fatal("lost bounded exact cleanup authority")
+				}
+				return nil
+			}
+			ops := defaultTemplateOperations()
+			ops.open = func(context.Context, string, postgres.Purpose) (*sql.DB, error) {
+				t.Fatal("seeded generation opened a migration handle")
+				return nil, nil
+			}
+			ops.seal = func(context.Context, string, string) error {
+				sequence = append(sequence, "seal")
+				if stage == "seal" {
+					return primary
+				}
+				return nil
+			}
+			h := &Harness{binding: bindFixture(processFixtureInputs()), operations: &dbOps}
+			owner := &OwnedCluster{Container: fakePostgresContainer{}, fixture: h, templateOps: &ops, seedTemplate: seedTemplateName}
+			owner.ready.Store(true)
+			h.events = func(event suiteservices.Event) error {
+				switch event.Type {
+				case suiteservices.EventPostgresDBCreated:
+					sequence = append(sequence, "created")
+					if !h.ownsDatabase(event.Name) || event.Kind != "template" {
+						t.Fatal("adoption published before ownership or as another kind", event.Kind)
+					}
+					if stage == "created_event" {
+						return primary
+					}
+				case suiteservices.EventPostgresDBMigrated:
+					t.Fatal("seeded generation reported a migration")
+				case suiteservices.EventPostgresDBDropped:
+					sequence = append(sequence, "dropped")
+				}
+				return nil
+			}
+			database, err := owner.PrepareTemplate(t.Context(), "ct_tpl_contract")
+			want := map[string][]string{
+				"success":               {"adopt", "created", "seal"},
+				"adopt_rejected":        {"adopt"},
+				"adopt_committed_error": {"adopt", "created", "drop", "dropped"},
+				"created_event":         {"adopt", "created", "drop", "dropped"},
+				"seal":                  {"adopt", "created", "seal", "drop", "dropped"},
+			}[stage]
+			if !reflect.DeepEqual(sequence, want) {
+				t.Fatalf("adoption sequence = %v, want %v", sequence, want)
+			}
+			if stage == "success" {
+				if err != nil || database == nil || database.Name != "ct_tpl_contract" || h.templateDB != "ct_tpl_contract" {
+					t.Fatal("adopted template not published", err)
+				}
+				return
+			}
+			if !errors.Is(err, primary) || database != nil || h.templateDB != "" || !h.quarantined.Load() {
+				t.Fatalf("failed adoption published or lost its cause: %v, %v", database, err)
+			}
+			if owns := h.ownsDatabase("ct_tpl_contract"); owns == (stage == "adopt_rejected") {
+				t.Fatal("rejected adoption acquired deletion authority, or confirmed adoption lost it")
+			}
+		})
 	}
 }

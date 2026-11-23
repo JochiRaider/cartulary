@@ -236,7 +236,7 @@ func observeDatabaseDrop(ctx context.Context, dsn, name string, backend int64, p
 		err := db.QueryRowContext(probe, `
 SELECT COALESCE(d.wait_event_type, ''), COALESCE(d.wait_event, ''), cardinality(pg_blocking_pids(d.pid)),
        COALESCE(c.wait_event_type, ''), COALESCE(c.wait_event, ''), cardinality(pg_blocking_pids(c.pid)),
-       s.num_requested, s.num_done, s.buffers_written, s.write_time, s.sync_time, s.stats_reset, (SELECT system_identifier::text FROM pg_catalog.pg_control_system())
+       s.num_requested, s.num_done, s.buffers_written, s.write_time, s.sync_time, s.stats_reset, pg_catalog.current_setting('cluster_name')
 FROM pg_catalog.pg_stat_activity d
 CROSS JOIN pg_catalog.pg_stat_checkpointer s
 CROSS JOIN LATERAL (SELECT pid, wait_event_type, wait_event FROM pg_catalog.pg_stat_activity WHERE backend_type = 'checkpointer' LIMIT 1) c

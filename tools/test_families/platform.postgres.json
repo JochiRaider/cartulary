@@ -106,6 +106,7 @@
           "TestOwnedPostgresAppliesContainerLabels",
           "TestOwnedPostgresDoesNotRetryAuthenticationReadinessFailure",
           "TestOwnedPostgresReadinessAndInitializationFailuresAreTerminal",
+          "TestPostgresSeedResolution",
           "TestPrepareDatabaseTemplateModeClonesWithoutMigrationReplay"
         ]
       },

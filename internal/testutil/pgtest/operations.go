@@ -14,6 +14,7 @@ import (
 type databaseOperations struct {
 	source          func() (*database_migrations.Source, error)
 	create          func(context.Context, string, string, string, func() error) (bool, error)
+	adopt           func(context.Context, string, string, string, func() error) (bool, error)
 	drop            func(context.Context, string, string, func(postgrescleanup.DropAttempt)) error
 	migrate         func(context.Context, *sql.DB, *database_migrations.Source) error
 	openMigration   func(context.Context, string, postgres.Purpose) (*sql.DB, error)
@@ -25,6 +26,7 @@ func defaultDatabaseOperations() databaseOperations {
 	return databaseOperations{
 		source:          dbmigrations.Source,
 		create:          createDatabase,
+		adopt:           adoptSeedTemplate,
 		drop:            postgrescleanup.DropOwnedDatabaseWithObservation,
 		migrate:         database_migrations.Apply,
 		openMigration:   OpenPurposeDatabase,

@@ -2,11 +2,14 @@ package pgtest
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"database/sql"
+	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -118,15 +121,18 @@ const templateTerminateSQL = `SELECT pg_terminate_backend(pid) FROM pg_stat_acti
 const templateDisableConnectionsSQL = `ALTER DATABASE %s WITH ALLOW_CONNECTIONS false`
 const templateMarkSQL = `ALTER DATABASE %s WITH IS_TEMPLATE true`
 const templateCheckpointSQL = `CHECKPOINT`
+const seedAdoptSQL = `ALTER DATABASE %s RENAME TO %s`
+const clusterIdentitySQL = `SELECT pg_catalog.current_setting('cluster_name')`
 
 // TemplatePreparationTimeout is the existing physical-owner provisioning bound,
 // shared by broker and native template preparation. Caller deadlines still clamp it.
 const TemplatePreparationTimeout = 2 * time.Minute
 
-// ProvisioningDigest binds exactly the prerequisites executed by this binary.
+// ProvisioningDigest binds exactly the prerequisites executed by this binary,
+// including the seed layout, so a changed seed procedure keys a new seed.
 // It is independent of repository paths and never reads documentation.
 func ProvisioningDigest() string {
-	sum := sha256.Sum256([]byte(strings.Join([]string{postgresImage, postgresInitdbArgs, postgresHBA, postgresDisablePasswordSQL, strings.Join(postgresServerCommand(), "\x00"), clusterPrerequisitesSQL, freshDatabasePrerequisitesSQL, databaseGrantsSQL, templateTerminateSQL, templateDisableConnectionsSQL, templateMarkSQL, templateCheckpointSQL}, "\x00")))
+	sum := sha256.Sum256([]byte(strings.Join([]string{postgresImage, postgresInitdbArgs, postgresHBA, postgresDisablePasswordSQL, strings.Join(postgresServerCommand(), "\x00"), clusterPrerequisitesSQL, freshDatabasePrerequisitesSQL, databaseGrantsSQL, templateTerminateSQL, templateDisableConnectionsSQL, templateMarkSQL, templateCheckpointSQL, seedFormat, seedDataDirectory, seedTemplateName, seedAdoptSQL}, "\x00")))
 	return hex.EncodeToString(sum[:])
 }
 
@@ -135,7 +141,22 @@ func TemplateDigest(schemaDigest string) string {
 	return hex.EncodeToString(sum[:])
 }
 
-// initializeCluster runs only in the physical owner's unpublished generation.
+// newGenerationIdentity mints a physical generation identity: a positive
+// 63-bit decimal, so it keeps the published generation format.
+func newGenerationIdentity() (string, error) {
+	var value [8]byte
+	if _, err := rand.Read(value[:]); err != nil {
+		return "", fmt.Errorf("mint postgres generation identity: %w", err)
+	}
+	identity := binary.BigEndian.Uint64(value[:]) >> 1
+	if identity == 0 {
+		identity = 1
+	}
+	return strconv.FormatUint(identity, 10), nil
+}
+
+// initializeCluster runs cluster prerequisites in a seed builder's unpublished
+// cluster and returns the identity the server reports.
 func initializeCluster(ctx context.Context, adminDSN string) (string, error) {
 	db, err := sql.Open("pgx", adminDSN)
 	if err != nil {
@@ -151,7 +172,7 @@ func initializeCluster(ctx context.Context, adminDSN string) (string, error) {
 		return "", fmt.Errorf("initialize postgres prerequisites: %w", err)
 	}
 	var generation string
-	if err = tx.QueryRowContext(ctx, `SELECT system_identifier::text FROM pg_catalog.pg_control_system()`).Scan(&generation); err != nil {
+	if err = tx.QueryRowContext(ctx, clusterIdentitySQL).Scan(&generation); err != nil {
 		return "", err
 	}
 	if err = tx.Commit(); err != nil {
@@ -160,6 +181,9 @@ func initializeCluster(ctx context.Context, adminDSN string) (string, error) {
 	return generation, nil
 }
 
+// inspectClusterGeneration returns the harness-assigned identity of the server
+// behind a binding. Seeded generations share data-directory identity, so the
+// server setting is the only proof of which generation answered.
 func inspectClusterGeneration(ctx context.Context, adminDSN string) (string, error) {
 	db, err := sql.Open("pgx", adminDSN)
 	if err != nil {
@@ -167,7 +191,7 @@ func inspectClusterGeneration(ctx context.Context, adminDSN string) (string, err
 	}
 	defer db.Close()
 	var generation string
-	err = db.QueryRowContext(ctx, `SELECT system_identifier::text FROM pg_catalog.pg_control_system()`).Scan(&generation)
+	err = db.QueryRowContext(ctx, clusterIdentitySQL).Scan(&generation)
 	return generation, err
 }
 
@@ -200,6 +224,21 @@ func PrepareFreshDatabase(ctx context.Context, adminDSN, name string) (resultErr
 		return err
 	}
 	return tx.Commit()
+}
+
+// adoptSeedTemplate renames a seeded generation's sealed template to the
+// owner's template identity under that identity's catalog admission.
+// Ownership is confirmed only after the rename commits.
+func adoptSeedTemplate(ctx context.Context, adminDSN, name, seed string, confirmed func() error) (bool, error) {
+	adopted := false
+	err := postgrescatalog.WithMutation(ctx, adminDSN, name, postgresCatalogAdmissionTimeout, func(admin *sql.Conn) error {
+		if _, err := admin.ExecContext(ctx, fmt.Sprintf(seedAdoptSQL, pgx.Identifier{seed}.Sanitize(), pgx.Identifier{name}.Sanitize())); err != nil {
+			return fmt.Errorf("adopt seed template %s: %w", name, err)
+		}
+		adopted = true
+		return confirmed()
+	})
+	return adopted, err
 }
 
 func finalizeClone(ctx context.Context, admin *sql.Conn, name string) error {

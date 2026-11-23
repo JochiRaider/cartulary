@@ -46,6 +46,7 @@ func TestPrepareDatabaseTemplateModeClonesWithoutMigrationReplay(t *testing.T) {
 	dbOps := defaultDatabaseOperations()
 	t.Setenv(suiteservices.HarnessServiceDependenciesEnv, "postgres")
 	t.Run("template_preparation_contract", testTemplatePreparationContract)
+	t.Run("seeded_template_adoption_contract", testSeededTemplateAdoptionContract)
 	t.Setenv(suiteservices.SuiteIDEnv, "suite-template-mode")
 	t.Setenv(suiteservices.TargetEnv, "backend-store")
 	t.Setenv("CARTULARY_TEST_RESULTS_DIR", t.TempDir())

@@ -111,20 +111,64 @@ func (owner *OwnedCluster) prepareTemplate(ctx context.Context, name string) (_ 
 		ops = *owner.templateOps
 	}
 	attribution := fixtureAttribution{PostgresFixturePolicy: "suite_template"}
-	if err := h.createDatabase(ctx, name, "", suiteservices.FixtureReuseSuiteTemplate, attribution); err != nil {
+	if owner.seedTemplate != "" {
+		// The seed build created and migrated this template through the fresh
+		// path below. Adoption replaces both; sealing stays per generation.
+		if err := h.adoptDatabase(ctx, name, owner.seedTemplate, suiteservices.FixtureReuseSuiteTemplate, attribution); err != nil {
+			return nil, fmt.Errorf("adopt postgres seed template: %w", err)
+		}
+	} else if err := h.createDatabase(ctx, name, "", suiteservices.FixtureReuseSuiteTemplate, attribution); err != nil {
 		return nil, fmt.Errorf("create postgres template: %w", err)
 	}
-	// Confirmed CREATE is already in both ownership ledgers before opening a
-	// migration handle. Failure never publishes h.templateDB or a ready binding.
+	// Confirmed CREATE or adoption is already in both ownership ledgers before
+	// any further step. Failure never publishes h.templateDB or a ready binding.
 	defer func() {
 		if retErr != nil {
 			retErr = errors.Join(retErr, h.disposeDatabase(ctx, name, suiteservices.FixtureReuseSuiteTemplate, attribution))
 		}
 	}()
+	if owner.seedTemplate == "" {
+		if err := migrateTemplate(ctx, h, ops, name, attribution); err != nil {
+			return nil, err
+		}
+	}
+	if err := ops.seal(ctx, h.adminDSN, name); err != nil {
+		return nil, fmt.Errorf("seal postgres template: %w", err)
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if err := h.admitPreparation(); err != nil {
+		return nil, err
+	}
+	h.templateMu.Lock()
+	h.templateDB = name
+	h.templateMu.Unlock()
+	return &TestDatabase{Name: name, DSN: h.dsnFor(name)}, nil
+}
+
+// prepareSeedTemplate creates and migrates a seed builder's template through
+// the fresh path. It is not sealed: each adopting generation seals its own
+// copy, so a failed publication can still drop it. The builder's clean
+// shutdown checkpoint settles the migration before the image is committed.
+func (owner *OwnedCluster) prepareSeedTemplate(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, TemplatePreparationTimeout)
+	defer cancel()
+	h := owner.fixture
+	attribution := fixtureAttribution{PostgresFixturePolicy: "suite_template"}
+	if err := h.createDatabase(ctx, seedTemplateName, "", suiteservices.FixtureReuseSuiteTemplate, attribution); err != nil {
+		return fmt.Errorf("create postgres seed template: %w", err)
+	}
+	return migrateTemplate(ctx, h, defaultTemplateOperations(), seedTemplateName, attribution)
+}
+
+// migrateTemplate replays the canonical chain into a freshly created template
+// and returns only after its migration handle is closed.
+func migrateTemplate(ctx context.Context, h *Harness, ops templateOperations, name string, attribution fixtureAttribution) (retErr error) {
 	dsn := h.dsnFor(name)
 	db, err := ops.open(ctx, dsn, postgres.PurposeMigration)
 	if err != nil {
-		return nil, fmt.Errorf("open postgres template: %w", err)
+		return fmt.Errorf("open postgres template: %w", err)
 	}
 	closed := false
 	closeHandle := func() error {
@@ -141,30 +185,15 @@ func (owner *OwnedCluster) prepareTemplate(ctx context.Context, name string) (_ 
 	defer func() { retErr = errors.Join(retErr, closeHandle()) }()
 	source, err := dbmigrations.Source()
 	if err != nil {
-		return nil, fmt.Errorf("load canonical migration source: %w", err)
+		return fmt.Errorf("load canonical migration source: %w", err)
 	}
 	duration, err := suiteservices.MeasureMigration(ctx, h.binding.environment(), func() error { return ops.initialize(ctx, db, dsn, source) })
 	if err != nil {
-		return nil, fmt.Errorf("migrate postgres template: %w", err)
+		return fmt.Errorf("migrate postgres template: %w", err)
 	}
 	if err := h.recordEvent(suiteservices.Event{Type: suiteservices.EventPostgresDBMigrated, Name: name, Kind: "template",
 		Details: h.postgresPreparationDetails(suiteservices.PostgresPreparationTemplate, name, suiteservices.FixtureReuseSuiteTemplate, attribution, duration)}); err != nil {
-		return nil, err
+		return err
 	}
-	if err := closeHandle(); err != nil {
-		return nil, err
-	}
-	if err := ops.seal(ctx, h.adminDSN, name); err != nil {
-		return nil, fmt.Errorf("seal postgres template: %w", err)
-	}
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
-	if err := h.admitPreparation(); err != nil {
-		return nil, err
-	}
-	h.templateMu.Lock()
-	h.templateDB = name
-	h.templateMu.Unlock()
-	return &TestDatabase{Name: name, DSN: dsn}, nil
+	return closeHandle()
 }

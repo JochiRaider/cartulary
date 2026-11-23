@@ -637,6 +637,11 @@ Partial snapshot identity or shared snapshot scope fails before provisioning.
 
 The existing native fixture owner owns both scopes. Attachments bind physical
 generation, provisioning and template identity, scope and owning allocation.
+A physical generation's identity is a positive decimal of at most 20 digits
+that its physical owner mints before the container exists and passes as the
+server's `cluster_name` setting. Attachment and drop observation read it from
+the running server. It MUST NOT derive from data-directory state, which every
+generation copied from one seed shares.
 Shared attachments cannot satisfy exclusive requests. PostgreSQL, object-store
 and renderer ownership remain independent; binding composition validates exact
 private descriptors rather than silently replacing ambient credentials. No
@@ -757,7 +762,8 @@ future-consumer counters are retired without fallback or compatibility toggles.
 The compiler MAY retain deterministic lifecycle estimates; an estimate is not
 cleanup authority. Consuming-cohort reset boundaries, fresh contexts, isolation,
 measurement quietness and existing failure policies remain required. No TTL,
-cross-run retention or owner-name exception is admitted.
+cross-run retention or owner-name exception is admitted. The PostgreSQL seed
+image of TH-HARNESS-REQ-811 is a build artifact, not a retained allocation.
 
 A successful borrow may return only after bounded proof that
 the server is alive and client connections, connection-owned browsers and
@@ -838,7 +844,8 @@ invalid and there is no implicit template-clone fallback. Failed reset, health,
 or contamination proof quarantines and retires a lease. Dedicated databases are
 created on demand; asynchronous replenishment and a writable clone pool are
 unsupported. A digest-keyed migrated template is valid
-only when an owner test proves the same migration chain produced it; every owned
+only when an owner test proves the same migration chain produced it; the seed
+build replays the full chain for the digest that keys it, and every owned
 migration chain retains at least one full-chain proof.
 
 Reuse admission requires affirmative settlement of the preceding borrow. Failed,
@@ -1530,13 +1537,34 @@ cleanup and MUST NOT close or delete a borrowed database capability.
 Verified by: TH-HARNESS-AC-094
 
 **TH-HARNESS-REQ-811**
-Cluster prerequisites are initialized once by the physical service owner;
-database-local prerequisites are prepared once per pristine database. A sealed
-template carries both migration and provisioning identity. Copying that template
-requires database-specific grants, not repeated cluster or template provisioning.
-Tests that alter fixed shared roles or cluster configuration MUST own a separate
-physical service. These lifecycle rules do not weaken any production connection,
-privilege, migration-chain or negative-admission requirement below.
+Cluster prerequisites, the template's database-local prerequisites and the full
+canonical migration chain run once per template digest, when a physical owner
+builds the PostgreSQL seed image, through the same provisioning path as a fresh
+cluster. Every physical generation starts from a private copy of that seed. It
+adopts the seed's migrated template under its own template identity and seals
+that copy before any borrower is admitted; it repeats neither cluster
+provisioning nor migration. Other database-local prerequisites are prepared
+once per pristine database. A sealed template carries both migration and
+provisioning identity. Copying that template requires database-specific grants,
+not repeated cluster or template provisioning. Tests that alter fixed shared
+roles or cluster configuration MUST own a separate physical service. These
+lifecycle rules do not weaken any production connection, privilege,
+migration-chain or negative-admission requirement below.
+
+The seed image is a content-addressed build artifact, not an allocation. It
+holds the cleanly shut down data directory and no run, suite, borrower or
+credential state; per-generation TLS material and the initialization script
+never enter it. Its key is the template digest, which binds the base image,
+every provisioning statement and the seed layout. Each use verifies the key
+label and creates the generation from the image's content ID. A generation
+copies the seed into a new anonymous volume when its container is created, so
+it never writes through copy-on-write image layers. A host-wide seed lock
+serializes builds: holders of the shared lock pin the seeds they are about to
+use until their container exists, and only the exclusive holder builds, prunes
+or removes seed-builder containers, which that exclusion proves orphaned. A
+build keeps at most three seeds, never removes one that a container references,
+and does not fail startup when pruning fails. A failed build fails the
+generation's startup; there is no unseeded fallback.
 
 Store-only rollback fixtures MUST use the existing transaction boundary and
 fixture-policy registry. All consequential operations, including nested helpers,

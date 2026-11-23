@@ -9,6 +9,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 	"github.com/JochiRaider/cartulary/internal/testutil/testcontainersx"
 	"github.com/jackc/pgx/v5/pgconn"
+	dockercontainer "github.com/moby/moby/api/types/container"
 	testcontainers "github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 	"os"
@@ -37,9 +38,16 @@ type OwnedCluster struct {
 	templateOps   *templateOperations
 	preparationMu sync.Mutex
 	preparation   *templateAttempt
+	// seedTemplate names the migrated template a seeded generation adopts and
+	// seals in place of creating and migrating one; empty for a fresh cluster.
+	seedTemplate string
 }
 
 type startupOperations struct {
+	source func(context.Context) (clusterSource, func(), error)
+	// identity mints each physical generation's identity before its container
+	// exists; initialize returns the identity the running server reports.
+	identity   func() (string, error)
 	start      func(context.Context, testcontainers.GenericContainerRequest, testcontainersx.CreateObserver) (testcontainers.Container, error)
 	wait       func(context.Context, *OwnedCluster) error
 	initialize func(context.Context, string) (string, error)
@@ -49,8 +57,21 @@ type startupOperations struct {
 	logs       func(context.Context, testcontainers.Container) ([]postgresLogChunk, bool, error)
 }
 
+// defaultStartupOperations start seeded generations. The seed build already
+// initialized cluster prerequisites, so initialization verifies identity only.
 func defaultStartupOperations() startupOperations {
-	return startupOperations{start: testcontainersx.GenericContainerObserved, wait: func(ctx context.Context, owner *OwnedCluster) error { return owner.WaitReady(ctx) }, initialize: initializeCluster, ping: pingAdminDSN, logs: readPostgresStartupLogs}
+	return startupOperations{source: resolveSeed, identity: newGenerationIdentity, start: testcontainersx.GenericContainerObserved, wait: func(ctx context.Context, owner *OwnedCluster) error { return owner.WaitReady(ctx) }, initialize: inspectClusterGeneration, ping: pingAdminDSN, logs: readPostgresStartupLogs}
+}
+
+// seedBuilderOperations provision the fresh cluster a seed is committed from,
+// through the same readiness, TLS and initialization path as any generation.
+func seedBuilderOperations(name string) startupOperations {
+	ops := defaultStartupOperations()
+	ops.source = func(context.Context) (clusterSource, func(), error) {
+		return clusterSource{image: postgresImage, name: name}, func() {}, nil
+	}
+	ops.initialize = initializeCluster
+	return ops
 }
 
 // StartOwned acquires a physical lifetime. On unresolved startup settlement it
@@ -95,25 +116,20 @@ func startOwned(ctx context.Context, options StartOptions, ops startupOperations
 	}
 	ctx, cancel := context.WithTimeout(ctx, postgresStartupTimeout)
 	defer cancel()
-	req := testcontainers.ContainerRequest{
-		Image:        postgresImage,
-		ExposedPorts: []string{"5432/tcp"},
-		Env: map[string]string{
-			"PGDATA":               "/var/lib/postgresql/18/docker",
-			"POSTGRES_DB":          "postgres",
-			"POSTGRES_USER":        "cartulary",
-			"POSTGRES_PASSWORD":    "cartulary",
-			"POSTGRES_INITDB_ARGS": postgresInitdbArgs,
-		},
-		WaitingFor: postgresPortWaitStrategy(),
+	source, release, err := ops.source(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("prepare postgres seed: %w", err)
 	}
+	// The seed stays pinned until a created container references it.
+	defer release()
+	req := postgresContainerRequest(source)
 	if len(options.Labels) > 0 {
 		req.Labels = cloneLabels(options.Labels)
 	}
 
 	harness, err := testcontainersx.StartWithRetry(ctx, testcontainersx.StartConfig{
 		Service:        "postgres testcontainer",
-		Image:          postgresImage,
+		Image:          source.image,
 		MaxAttempts:    3,
 		AttemptTimeout: postgresStartupAttemptTimeout,
 		RetryBackoff:   500 * time.Millisecond,
@@ -122,19 +138,51 @@ func startOwned(ctx context.Context, options StartOptions, ops startupOperations
 		Sleep:          ops.sleep,
 		Observer:       options.Observer,
 	}, func(ctx context.Context) (*OwnedCluster, error) {
-		return startOwnedAttempt(ctx, req, options, ops, binding)
+		return startOwnedAttempt(ctx, req, source, options, ops, binding)
 	})
 	return harness, err
 }
 
-func startOwnedAttempt(ctx context.Context, req testcontainers.ContainerRequest, options StartOptions, ops startupOperations, binding fixtureBinding) (partial *OwnedCluster, retErr error) {
+// postgresContainerRequest is the shared physical shape. A seed builder runs
+// initdb into a data directory outside every declared volume so it can be
+// committed; a seeded generation mounts a new anonymous volume over the seed
+// path, which Docker fills from the image when the container is created.
+func postgresContainerRequest(source clusterSource) testcontainers.ContainerRequest {
+	req := testcontainers.ContainerRequest{
+		Image:        source.image,
+		Name:         source.name,
+		ExposedPorts: []string{"5432/tcp"},
+		Env:          map[string]string{"PGDATA": seedDataDirectory},
+		WaitingFor:   postgresPortWaitStrategy(),
+	}
+	if source.seeded {
+		req.ConfigModifier = func(config *dockercontainer.Config) {
+			config.Volumes = map[string]struct{}{seedVolumeRoot: {}}
+		}
+		return req
+	}
+	req.Env["POSTGRES_DB"] = "postgres"
+	req.Env["POSTGRES_USER"] = "cartulary"
+	req.Env["POSTGRES_PASSWORD"] = "cartulary"
+	req.Env["POSTGRES_INITDB_ARGS"] = postgresInitdbArgs
+	return req
+}
+
+func startOwnedAttempt(ctx context.Context, req testcontainers.ContainerRequest, source clusterSource, options StartOptions, ops startupOperations, binding fixtureBinding) (partial *OwnedCluster, retErr error) {
 	diagnostic := newStartupDiagnostic(ctx)
 	diagnostic.logs = ops.logs
 	stage := "container_start"
-	req, tlsDirectory, err := preparePostgresTLS(req)
+	identity, err := ops.identity()
 	if err != nil {
 		return nil, err
 	}
+	req, tlsDirectory, err := preparePostgresTLS(req, !source.seeded)
+	if err != nil {
+		return nil, err
+	}
+	// The identity is a server setting, not data-directory state, so every
+	// generation copied from one seed remains distinguishable.
+	req.Cmd = append(req.Cmd, "-c", "cluster_name="+identity)
 	harness := &OwnedCluster{User: "cartulary", tlsDirectory: tlsDirectory, operations: ops, fixture: &Harness{binding: binding, schemaHash: pgschema.MustHash(), suiteHash: resolveSuiteHash(binding.environment()), processHash: suiteservices.ProcessHash(), events: options.Events}}
 	intentRecorded, providerCalled := false, false
 	defer func() {
@@ -246,6 +294,12 @@ func startOwnedAttempt(ctx context.Context, req testcontainers.ContainerRequest,
 	harness.fixture.generation, err = ops.initialize(ctx, harness.AdminDSN())
 	if err != nil {
 		return nil, &postgresGenerationFailure{fmt.Errorf("initialize postgres generation: %w", err)}
+	}
+	if harness.fixture.generation != identity {
+		return nil, &postgresGenerationFailure{errors.New("initialize postgres generation: server reports a different generation identity")}
+	}
+	if source.seeded {
+		harness.seedTemplate = seedTemplateName
 	}
 	harness.ready.Store(true)
 	return harness, nil

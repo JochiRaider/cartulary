@@ -104,16 +104,31 @@ func TestOwnedPostgresAppliesContainerLabels(t *testing.T) {
 	if gotRequest.Labels["cartulary.test"] != "suite" {
 		t.Fatalf("container labels not applied: %#v", gotRequest.Labels)
 	}
-	if gotRequest.Image != postgresImage || ContainerImage() != postgresImage {
-		t.Fatalf("postgres image mismatch: request=%q exported=%q want=%q", gotRequest.Image, ContainerImage(), postgresImage)
+	if gotRequest.Image != stubSeedImage || ContainerImage() != postgresImage {
+		t.Fatalf("postgres image mismatch: request=%q exported=%q want seed %q", gotRequest.Image, ContainerImage(), stubSeedImage)
 	}
-	if gotRequest.Env["PGDATA"] != "/var/lib/postgresql/18/docker" ||
-		gotRequest.Env["POSTGRES_INITDB_ARGS"] != "--data-checksums --auth-host=reject" {
-		t.Fatalf("postgres initialization environment mismatch: %#v", gotRequest.Env)
+	// A seeded generation neither runs initdb nor receives its init script; it
+	// mounts a private volume over the seed path and carries its identity.
+	if len(gotRequest.Env) != 1 || gotRequest.Env["PGDATA"] != seedDataDirectory || gotRequest.Name != "" {
+		t.Fatalf("seeded generation environment mismatch: %#v name=%q", gotRequest.Env, gotRequest.Name)
+	}
+	if slices.ContainsFunc(gotRequest.Files, func(file testcontainers.ContainerFile) bool { return file.ContainerFilePath == postgresInitScriptPath }) {
+		t.Fatal("seeded generation received the initdb script")
+	}
+	config := &dockercontainer.Config{}
+	gotRequest.ConfigModifier(config)
+	if _, mounted := config.Volumes[seedVolumeRoot]; !mounted || len(config.Volumes) != 1 {
+		t.Fatalf("seeded generation does not copy the seed into a private volume: %#v", config.Volumes)
 	}
 	if !slices.Contains(gotRequest.Cmd, "ssl_min_protocol_version=TLSv1.3") ||
 		!slices.Contains(gotRequest.Cmd, "hba_file=/etc/cartulary-postgres-tls/pg_hba.conf") {
 		t.Fatalf("fixture omitted TLS 1.3 or the mounted HBA file: %q", gotRequest.Cmd)
+	}
+	if gotRequest.Cmd[len(gotRequest.Cmd)-1] != "cluster_name=12345" || slices.Contains(postgresServerCommand(), "cluster_name=12345") {
+		t.Fatalf("generation identity is not a per-generation server setting: %q", gotRequest.Cmd)
+	}
+	if harness.seedTemplate != seedTemplateName {
+		t.Fatal("seeded generation does not adopt the seed template")
 	}
 	// Certificate-only host access: TLS clients present certificates, plain
 	// TCP is rejected, and only the local socket is trusted.
@@ -757,11 +772,17 @@ func TestPostgresWaitReadyRespectsContextCancellation(t *testing.T) {
 	}
 }
 
+const stubSeedImage = "sha256:5eed5eed5eed5eed5eed5eed5eed5eed5eed5eed5eed5eed5eed5eed5eed5eed"
+
 func stubOwnedPostgresStartup(t testing.TB) startupOperations {
 	t.Helper()
 	t.Setenv(suiteservices.HarnessServiceDependenciesEnv, "postgres")
 	t.Setenv(suiteservices.SuiteIDEnv, "")
 	ops := defaultStartupOperations()
+	ops.source = func(context.Context) (clusterSource, func(), error) {
+		return clusterSource{image: stubSeedImage, seeded: true}, func() {}, nil
+	}
+	ops.identity = func() (string, error) { return "12345", nil }
 	ops.initialize = func(context.Context, string) (string, error) { return "12345", nil }
 	ops.preflight = func(context.Context) (string, error) { return "unix:///var/run/docker.sock", nil }
 	ops.sleep = func(context.Context, time.Duration) error { return nil }

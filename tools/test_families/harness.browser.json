@@ -2101,6 +2101,7 @@
       "selector": {
         "package": "./internal/testutil/pgtest",
         "tests": [
+          "TestSeededGenerationsAdoptTemplateWithDistinctIdentity",
           "TestTemplatePreparationCompletesCopyBeforePublication"
         ]
       },
