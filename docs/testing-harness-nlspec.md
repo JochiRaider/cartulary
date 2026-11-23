@@ -909,6 +909,11 @@ cleanup failures. Failed CREATE MUST NOT authorize deletion of a pre-existing
 name. No consumer receives the clone before its required provisioning succeeds.
 This preserves `fsync`, full-page writes, synchronous commit, checksums, exact
 ownership, physical deletion and PostgreSQL's normal checkpoint behavior.
+Harness clusters run with `wal_compression=lz4`. A `WAL_LOG` copy logs every
+template block as a full-page image, and compression shrinks that WAL without
+changing which pages are logged, when WAL is flushed or how recovery replays
+it. The setting is part of the provisioning identity, so changing it keys new
+seed images.
 Independent acceptance MUST verify durable WAL progress, creation without
 checkpoint privilege, template/clone isolation, failed provisioning and existing
 cleanup budgets on an owned cluster. Elapsed-time comparisons alone cannot

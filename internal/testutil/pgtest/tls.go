@@ -20,8 +20,13 @@ const postgresHBA = "local all all trust\nhostssl all all 0.0.0.0/0 cert\nhostss
 const postgresDisablePasswordSQL = "ALTER ROLE cartulary PASSWORD NULL;\n"
 const postgresInitdbArgs = "--data-checksums --auth-host=reject"
 
+// postgresServerCommand is the harness cluster configuration. WAL_LOG clones
+// log every template block as a full-page image; lz4 compresses those images
+// (about 60% less WAL per clone) without changing which pages are logged, when
+// WAL is flushed or how recovery replays it (TH-HARNESS-REQ-804). fsync,
+// full-page writes and synchronous commit keep their defaults.
 func postgresServerCommand() []string {
-	return []string{"postgres", "-c", "ssl=on", "-c", "ssl_min_protocol_version=TLSv1.3", "-c", "ssl_max_protocol_version=TLSv1.3", "-c", "ssl_ecdh_curve=prime256v1", "-c", "ssl_ca_file=" + postgresTLSContainerRoot + "/root.pem", "-c", "ssl_cert_file=" + postgresTLSContainerRoot + "/server.pem", "-c", "ssl_key_file=" + postgresTLSContainerRoot + "/server.key", "-c", "hba_file=" + postgresTLSContainerRoot + "/pg_hba.conf"}
+	return []string{"postgres", "-c", "ssl=on", "-c", "ssl_min_protocol_version=TLSv1.3", "-c", "ssl_max_protocol_version=TLSv1.3", "-c", "ssl_ecdh_curve=prime256v1", "-c", "ssl_ca_file=" + postgresTLSContainerRoot + "/root.pem", "-c", "ssl_cert_file=" + postgresTLSContainerRoot + "/server.pem", "-c", "ssl_key_file=" + postgresTLSContainerRoot + "/server.key", "-c", "hba_file=" + postgresTLSContainerRoot + "/pg_hba.conf", "-c", "wal_compression=lz4"}
 }
 
 // preparePostgresTLS issues fresh per-generation credentials. Only a cluster

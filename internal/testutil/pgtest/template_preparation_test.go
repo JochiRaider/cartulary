@@ -410,8 +410,13 @@ func TestSeededGenerationsAdoptTemplateWithDistinctIdentity(t *testing.T) {
 		defer admin.Close()
 		var observed generation
 		var seedPending bool
-		if err := admin.QueryRowContext(ctx, `SELECT current_setting('cluster_name'), (SELECT system_identifier::text FROM pg_control_system()), EXISTS (SELECT 1 FROM pg_database WHERE datname=$1 AND NOT datistemplate)`, seedTemplateName).Scan(&observed.identity, &observed.system, &seedPending); err != nil {
+		var walCompression, fsync, fullPageWrites, synchronousCommit string
+		if err := admin.QueryRowContext(ctx, `SELECT current_setting('cluster_name'), (SELECT system_identifier::text FROM pg_control_system()), EXISTS (SELECT 1 FROM pg_database WHERE datname=$1 AND NOT datistemplate), current_setting('wal_compression'), current_setting('fsync'), current_setting('full_page_writes'), current_setting('synchronous_commit')`, seedTemplateName).Scan(&observed.identity, &observed.system, &seedPending, &walCompression, &fsync, &fullPageWrites, &synchronousCommit); err != nil {
 			t.Fatal(err)
+		}
+		// WAL compression shrinks clone WAL; durability settings stay on.
+		if walCompression != "lz4" || fsync != "on" || fullPageWrites != "on" || synchronousCommit != "on" {
+			t.Fatalf("generation settings wal_compression=%s fsync=%s full_page_writes=%s synchronous_commit=%s", walCompression, fsync, fullPageWrites, synchronousCommit)
 		}
 		if observed.identity != owner.ProvisioningGeneration() || !seedPending || owner.seedTemplate != seedTemplateName {
 			t.Fatalf("generation %q reports %q; unadopted seed template present=%v", owner.ProvisioningGeneration(), observed.identity, seedPending)
