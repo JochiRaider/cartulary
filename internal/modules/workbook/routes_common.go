@@ -30,7 +30,7 @@ func (s *service) requireIncidentRole(ctx context.Context, incidentID uuid.UUID,
 }
 
 func (s *service) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal) error {
-	return httpauth.SlideSessionIfPersistenceDue(ctx, s.authStore, principal, s.now)
+	return httpauth.SlideSessionIfNeeded(ctx, s.authStore, principal, s.now)
 }
 
 func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *httpapi.APIError) {

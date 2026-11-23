@@ -350,7 +350,7 @@ func slideAt(t *testing.T, operationID string, slide func(context.Context, Sessi
 // REQ-04-011: qualifying activity is decided by the resolved operation, so
 // session inspection (getCurrentSession) never slides idle expiry whatever its
 // path spelling, every other operation and a request resolved to no public
-// operation slide, and the persistence-due cadence writes at most once per
+// operation slide, and every route writes at most once per
 // SessionSlideWriteInterval.
 func TestSessionSlidingIsKeyedByOperation(t *testing.T) {
 	now := func() time.Time { return credentialTestNow }
@@ -358,14 +358,11 @@ func TestSessionSlidingIsKeyedByOperation(t *testing.T) {
 	recent.LastQualifyingActivityAt = credentialTestNow.Add(-time.Second)
 	stale := credentialTestSession(credentialTestNow.Add(20*time.Minute), false)
 	stale.LastQualifyingActivityAt = credentialTestNow.Add(-2 * SessionSlideWriteInterval)
-	always := func(session authn.SessionRecord) func(context.Context, SessionSlider) error {
+	due := stale
+	due.LastQualifyingActivityAt = credentialTestNow.Add(-SessionSlideWriteInterval)
+	slideFor := func(session authn.SessionRecord) func(context.Context, SessionSlider) error {
 		return func(ctx context.Context, slider SessionSlider) error {
 			return SlideSessionIfNeeded(ctx, slider, &Principal{Session: session}, now)
-		}
-	}
-	due := func(session authn.SessionRecord) func(context.Context, SessionSlider) error {
-		return func(ctx context.Context, slider SessionSlider) error {
-			return SlideSessionIfPersistenceDue(ctx, slider, &Principal{Session: session}, now)
 		}
 	}
 	for _, tc := range []struct {
@@ -373,12 +370,12 @@ func TestSessionSlidingIsKeyedByOperation(t *testing.T) {
 		slide             func(context.Context, SessionSlider) error
 		want              int
 	}{
-		{"session inspection never slides", "getCurrentSession", always(recent), 0},
-		{"session inspection never slides when persistence is due", "getCurrentSession", due(stale), 0},
-		{"credential state slides", "getCredentialState", always(recent), 1},
-		{"another owner's read slides", "getJob", always(recent), 1},
-		{"persistence not yet due", "getIncident", due(recent), 0},
-		{"persistence due", "getIncident", due(stale), 1},
+		{"session inspection never slides", "getCurrentSession", slideFor(stale), 0},
+		{"credential state slides", "getCredentialState", slideFor(stale), 1},
+		{"another owner's read slides", "getJob", slideFor(stale), 1},
+		{"persistence not yet due", "getIncident", slideFor(recent), 0},
+		{"persistence due at the interval", "getIncident", slideFor(due), 1},
+		{"credential state within the interval does not write", "getCredentialState", slideFor(recent), 0},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := slideAt(t, tc.operationID, tc.slide); got != tc.want {
@@ -391,7 +388,7 @@ func TestSessionSlidingIsKeyedByOperation(t *testing.T) {
 		if !QualifiesForIdleSlide(context.Background()) {
 			t.Fatal("an unresolved request must qualify")
 		}
-		if err := always(recent)(context.Background(), slider); err != nil || slider.slides != 1 {
+		if err := slideFor(stale)(context.Background(), slider); err != nil || slider.slides != 1 {
 			t.Fatalf("slides = %d err = %v", slider.slides, err)
 		}
 		if err := SlideSessionIfNeeded(context.Background(), slider, nil, now); err != nil || slider.slides != 1 {

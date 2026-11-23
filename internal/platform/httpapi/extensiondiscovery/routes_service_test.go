@@ -31,6 +31,11 @@ func TestExtensionDiscoverySessionSliding_ServiceBacked(t *testing.T) {
 		"ExtensionDiscovery1!",
 		nil,
 	)
+	// Slides persist at most once per httpauth.SessionSlideWriteInterval, so
+	// age the stored activity past it; discovery must then persist a slide.
+	if _, err := harness.DB.Exec(`UPDATE user_sessions SET last_qualifying_activity_at = last_qualifying_activity_at - interval '2 minutes' WHERE user_id = $1 AND revoked_at IS NULL`, userID); err != nil {
+		t.Fatal(err)
+	}
 	before := flowtest.QuerySessionRow(t, harness.DB, userID)
 
 	response := httptestx.DoJSON(

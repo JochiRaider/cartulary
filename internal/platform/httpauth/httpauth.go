@@ -195,20 +195,12 @@ func ShouldPersistIdleExpirySlide(timing authn.SessionTiming, now time.Time) boo
 }
 
 // SlideSessionIfNeeded slides the principal's idle expiry for the request's
-// operation when it is qualifying activity (QualifiesForIdleSlide).
+// operation when it is qualifying activity (QualifiesForIdleSlide), persisting
+// at most once per SessionSlideWriteInterval as Core 04 REQ-04-011 permits.
+// Every route shares this cadence: a per-request write would make each
+// authenticated request, polls included, commit and wait for a WAL flush, and
+// the stored last_qualifying_activity_at would still lag by under a minute.
 func SlideSessionIfNeeded(ctx context.Context, store SessionSlider, principal *Principal, now func() time.Time) error {
-	if principal == nil || !QualifiesForIdleSlide(ctx) {
-		return nil
-	}
-	if now == nil {
-		now = func() time.Time { return time.Now().UTC() }
-	}
-	return slideSession(ctx, store, principal, principalTiming(principal).Slide(now()))
-}
-
-// SlideSessionIfPersistenceDue is SlideSessionIfNeeded that writes at most
-// once per SessionSlideWriteInterval.
-func SlideSessionIfPersistenceDue(ctx context.Context, store SessionSlider, principal *Principal, now func() time.Time) error {
 	if principal == nil || !QualifiesForIdleSlide(ctx) {
 		return nil
 	}

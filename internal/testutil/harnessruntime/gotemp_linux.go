@@ -8,7 +8,9 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"syscall"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessadmission"
 	"golang.org/x/sys/unix"
@@ -22,7 +24,54 @@ const (
 	goTempStaging   = ".creating-" + goTempPrefix
 	goTempOwnerFile = "invocation-owner.json"
 	goTempOwnerMax  = 4096
+	// The memory-backed root keeps test TempDir trees and build work off the
+	// disk, so product fsync calls inside tests wait for no disk flush.
+	goTempMemoryParent  = "/dev/shm"
+	goTempMemoryName    = "cartulary-go-tmp-"
+	goTempMemoryMinimum = 8 << 30
 )
+
+// memoryStat reports whether path is on a memory-backed filesystem and how
+// many bytes an unprivileged writer may still use there.
+type memoryStat func(path string) (memory bool, available uint64, err error)
+
+func statMemory(path string) (bool, uint64, error) {
+	var stat unix.Statfs_t
+	if err := unix.Statfs(path, &stat); err != nil {
+		return false, 0, err
+	}
+	return stat.Type == unix.TMPFS_MAGIC, stat.Bavail * uint64(stat.Bsize), nil
+}
+
+// goTempBase selects where this invocation's private directory is created:
+// the memory-backed root when it is eligible, otherwise machine (GO_TMP_DIR).
+func goTempBase(machine string) string {
+	return selectGoTempBase(machine, goTempMemoryParent, os.Geteuid(), statMemory)
+}
+
+// selectGoTempBase returns parent/cartulary-go-tmp-<uid> when parent is a
+// memory-backed filesystem with goTempMemoryMinimum bytes available and the
+// root is, or can be created as, a real directory owned by uid with no group
+// or other permissions. Any other state falls back to machine, so a
+// world-writable parent can never hand this invocation a foreign directory.
+func selectGoTempBase(machine, parent string, uid int, stat memoryStat) string {
+	memory, available, err := stat(parent)
+	if err != nil || !memory || available < goTempMemoryMinimum {
+		return machine
+	}
+	root := filepath.Join(parent, goTempMemoryName+strconv.Itoa(uid))
+	if err := os.Mkdir(root, 0700); err != nil && !errors.Is(err, fs.ErrExist) {
+		return machine
+	}
+	info, err := os.Lstat(root)
+	if err != nil || !info.IsDir() || info.Mode().Perm()&0077 != 0 {
+		return machine
+	}
+	if owner, ok := info.Sys().(*syscall.Stat_t); !ok || int(owner.Uid) != uid {
+		return machine
+	}
+	return root
+}
 
 // newGoTemp reclaims sibling invocation directories whose recorded owner is
 // proven dead, then creates this invocation's directory beneath base with the

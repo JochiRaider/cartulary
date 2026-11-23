@@ -141,7 +141,12 @@ func Run(ctx context.Context, root, binary string, args, environment []string) (
 	// invocation's Go temporary work runs after fixtures and units are closed.
 	goTemp := ""
 	if machineTemp := plan.unitEnvironment(env)["GO_TMP_DIR"]; machineTemp != "" {
-		if goTemp, err = newGoTemp(machineTemp); err != nil {
+		base := goTempBase(machineTemp)
+		if base != machineTemp {
+			// Dead invocations may remain under either root.
+			reclaimGoTemp(machineTemp)
+		}
+		if goTemp, err = newGoTemp(base); err != nil {
 			cleanupErr := runtime.Close()
 			nestedClean = cleanupErr == nil
 			return nil, 11, errors.Join(err, cleanupErr)
