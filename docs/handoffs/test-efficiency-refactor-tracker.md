@@ -1,6 +1,6 @@
 # Test Execution Efficiency Remediation Plan
 
-**Status.** Active remediation tracker, last updated 2026-11-22. Committed through `500e3bdda`: G3 fixes 1–3 and 2b, G4a, G5a, G9 stage 1, G19 with hardening, G20. Uncommitted in the working tree: G8, G10, G21, G22, G23, the database-retirement event, and fixes for regressions the regression suite exposed in G19 and G20. `make distclean` on 2026-11-22 deleted every retained run, so the run IDs in Section 11 before that date are a record, not retrievable evidence.
+**Status.** Active remediation tracker, last updated 2026-11-23. All phase-1 work is committed. Phase 2 ([Section 12](#12-phase-2-plan--check-wall-clock)) landed G7 and G6; G6 brought the `check` graph wall from 1,022–1,157 s to under 900 s. `make distclean` on 2026-11-22 deleted every retained run, so the run IDs in Section 11 before that date are a record, not retrievable evidence.
 
 The active plan for the remaining `check` wall-clock work is [Section 12](#12-phase-2-plan--check-wall-clock). Original framing: this document authorizes no implementation by itself.
 Each specification amendment in [Section 8](#8-specification-amendment-ledger) needs
@@ -607,6 +607,9 @@ Each amendment lands spec-first in one change with its machine projections, rege
 | 2026-11-23 | W2-5 / G2 | Four heavy lanes by capacity override, diagnostic `check` twice | `g2-lane4-check01`, `g2-lane4-check02` | Fail 364/365 each (contention timeouts). Graph 1,029 s and 1,052 s (three lanes: 1,022 s and 1,054 s); heavy work 3,659 s and 3,509 s; checkpoint sync 881 s and 755 s. Rejected |
 | 2026-11-23 | W2-6 / G7 | Secret-scan profile, then a memoized matcher with a differential test | `g7-generate01`, `g7-session01` (row `harness.evidence_accounting.behavior.native_session`), `g7-lintgo01`; mutation check | Scan of `g24-check01` root 22.3 s → 0.72 s; all pass; mutation caught |
 | 2026-11-23 | W2-7 (interim) | Diagnostic `check` with the memoized scan | `w27-check01` | **Pass 365/365.** Outer 1,168 s, graph 1,157 s; post-graph to scan completion 8 s (was about 28 s); heavy work 3,307 s; checkpoint sync 1,156 s, the highest recorded, so the graph wall reflects host disk state |
+| 2026-11-23 | W2-4 / G6 | Seeded generations: targeted rows, Go lint, generated-projection check, Markdown lint | `g6-generate01`, `g6-slice-pg01`, `g6-slice-mig01`, `g6-slice-hb01`, `g6-lintgo01`, `g6-srcgen01`, `g6-mdlint01` | All pass (4, 1 and 9 units). Broker-provided exclusive generation acquired in 1.0 s |
+| 2026-11-23 | W2-7 / G6 | Diagnostic `check`, first run | `g6-check01` | **Pass 365/365.** Outer 899 s, graph 887 s; heavy work 2,490 s (from 3,307 s); heavy fixture acquisition 39 s in total, median 2.1 s (from 438 s, median 25.1 s); acquisition across all 126 PostgreSQL units 251 s (from 2,126 s); checkpoint sync 4 s (from 1,156 s); no leaked volumes or builder containers |
+| 2026-11-23 | W2-7 / G6 | Diagnostic `check`, second run | `g6-check02` | **Pass 365/365.** Outer 900 s, graph 889 s; heavy work 2,537 s; heavy fixture acquisition 56 s, median 2.6 s; all PostgreSQL units 283 s; checkpoint sync 4 s; no leaks. G6 validation met in both runs |
 
 ## 12. Phase 2 Plan — `check` Wall Clock
 
@@ -620,14 +623,15 @@ the phase-1 history.
 | W2-1 (G25) | Done: host disk state, not code; `pg_test_fsync` baseline recorded |
 | W2-2 (G3.5, G3.6, G3.9) | Measured, no material gain; reverted or dropped |
 | W2-3 (G3.7, G3.4) | G3.7 rejected (recovery binding fence); G3.4 deferred pending G17 |
-| W2-4 (G6) | Spike done: volume-initialized seed viable, copy-on-write rejected; implementation awaits D6 |
+| W2-4 (G6) | Done: harness-assigned identity and volume-initialized seed images; graph 887 s in `g6-check01` |
 | W2-5 (G26, G2) | G26 not worth implementing; four lanes rejected |
 | W2-6 (G7) | Done: memoized scan matcher; post-graph time about 28 s → 8 s |
-| W2-7 | Interim validation `w27-check01` passed; final validation follows G6 or its deferral |
+| W2-7 | Done: `g6-check01` and `g6-check02` passed, graph 887 s and 889 s |
 
-Graph wall on unchanged code now ranges 1,022–1,157 s with checkpoint sync
-755–1,156 s. The host disk (G25) is the largest remaining source of both delay
-and variance.
+Before G6, graph wall on unchanged code ranged 1,022–1,157 s with checkpoint
+sync 755–1,156 s. G6 removed almost all of that sync (see the G25
+follow-up): graph wall 887 s, checkpoint sync 4 s. `check` is again bound by
+heavy-lane test work (2,490 s ÷ 3 ≈ 830 s).
 
 ### 12.1 Starting Point
 
@@ -707,6 +711,14 @@ The Section 3 rules still apply. In addition:
   from Windows after `wsl --shutdown`, or mount without `discard` and trim on a
   schedule. The phase-2 targets are measured against the reference pair
   (1,022 s and 1,054 s); rerun the probe before comparing any later treatment.
+- **Follow-up (G6, 2026-11-23).** Most of that checkpoint sync was
+  provisioning I/O, not test I/O. Each generation's template-seal checkpoint
+  fsynced about 1,433 files that `initdb` and the migration had written: 13–15
+  s per generation, 2,614 s of checkpoint time in `w27-check01`. Seeded
+  generations receive those files by Docker volume copy, so each seal
+  checkpoint now syncs 5 files in about 9 ms. Total checkpoint sync per `check`
+  fell from 1,156 s to 4 s (`g6-check01`). The disk state explains why that
+  cost varied from run to run; the host remedies above now matter much less.
 
 #### G3.6 — Network Flow transfer re-reads frozen state
 
@@ -878,6 +890,31 @@ The Section 3 rules still apply. In addition:
   checks for template and clone isolation and durable WAL progress pass. The
   migration owner keeps its full-chain proof. Two checks show heavy-unit
   acquisition below 100 s in total.
+- **Implementation (2026-11-23).** Amendment A3 landed in REQ-804, REQ-811
+  and the two clarifications. In `internal/testutil/pgtest`:
+  - *Identity (G6a).* Each startup attempt mints a positive 63-bit decimal,
+    passes it as `-c cluster_name=…` outside the provisioning digest, and
+    rejects a server reporting another value. Attachment and drop observation
+    read `current_setting('cluster_name')` instead of `system_identifier`.
+  - *Seed (G6b).* `seed.go` resolves `cartulary-postgres-seed:<TemplateDigest>`
+    under a host-wide lock: shared to use, exclusive to build, prune or reclaim
+    builders. The builder is an ordinary fresh `startOwned` cluster with PGDATA
+    outside the declared volume. It runs cluster prerequisites, creates and
+    migrates the template without sealing it, deletes its TLS files and init
+    script, and shuts down cleanly. Then it is committed with a digest label,
+    and inherited Testcontainers labels are blanked so no reaper can claim the
+    image. Generations start from the image ID with an anonymous volume over
+    `/pgseed`. A generation renames the seed template to its own template name
+    under catalog admission (same ownership ledger and creation event), then
+    seals it. Builds keep three seeds and never fail startup on pruning.
+  - *Corrections found while testing.* A sealed seed template is marked
+    `IS_TEMPLATE`, and PostgreSQL refuses to drop it, so disposing a failed
+    publication left it behind. The seed now carries an unsealed migrated
+    template, and sealing stays per generation.
+  - *Measured.* Seed layer 78 MB; first build about 10 s on an idle host.
+    Seeded generation through the broker acquired in 1.0 s
+    (`g6-slice-pg01`). Two owned seeded generations started, adopted,
+    cloned and closed in 3.5 s.
 
 #### G26 — Packing omits generation acquisition
 
@@ -1095,6 +1132,11 @@ Without G2 and G25 the expected graph wall is about 820–880 s. Reaching
 ≤ 750 s needs either a fourth lane the disk sustains, or G25 recovering the
 morning's I/O headroom.
 
+Measured: G6 alone saved about 800 s of heavy work and brought the graph wall
+from 1,022–1,157 s to 887–889 s, far above its estimate, because it also
+removed the provisioning checkpoint I/O behind G25. G7 saved about 20 s outside
+the graph. The other levers gave nothing measurable or were rejected.
+
 ### 12.6 Amendments and Decisions
 
 | ID | Section or requirement | Change | Gap |
@@ -1105,7 +1147,7 @@ morning's I/O headroom.
 
 | ID | Decision | Needed by | Recommendation |
 | --- | --- | --- | --- |
-| D6 | Approve rewritten A3 and the seed-image approach after the spike | W2-4 | Approve G6a now; decide G6b on the spike's numbers |
+| D6 | Approve rewritten A3 and the seed-image approach after the spike | W2-4 | Approved 2026-11-23 and implemented |
 | D7 | Add `server.Options.JobPolicy` (product composition) | W2-2 | Approve; Core 01 already permits it |
 | D8 | Lifecycle "replay": receipt replay or second import | W2-3 | Reference-data owner decides; keep whichever the NLSpec claim names |
 | D9 | Commit plan for the uncommitted work | W2-0 | Logical commits, so W2-1 can bisect |
