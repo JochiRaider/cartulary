@@ -240,12 +240,12 @@ func TestRuntimeScheduling(t *testing.T) {
 			t.Fatal(err)
 		}
 	})
-	t.Run("deficit_disjoint_backfill_keeps_capacity_the_blocked_unit_still_needs", func(t *testing.T) {
-		holder, head, c1, c2 := engineUnit("holder", 10000), engineUnit("head", 100), engineUnit("c1", 2), engineUnit("c2", 1)
+	t.Run("deficit_disjoint_backfill_leaves_resources_the_blocked_unit_does_not_lack", func(t *testing.T) {
+		holder, head, c1, c2, c3 := engineUnit("holder", 10000), engineUnit("head", 100), engineUnit("c1", 3), engineUnit("c2", 2), engineUnit("c3", 1)
 		holder.Claims["postgres_heavy"], head.Claims["postgres_heavy"] = 1, 1
-		p := enginePlan(holder, head, c1, c2)
+		p := enginePlan(holder, head, c1, c2, c3)
 		p.facts.Capacities["cpu"], p.facts.Capacities["postgres_heavy"] = 3, 1
-		c1Started, headStarted := make(chan struct{}), make(chan struct{})
+		c2Started, headStarted := make(chan struct{}), make(chan struct{})
 		r := boundedGraph(t, p, enginePorts{Now: func() time.Duration { return 0 }, Execute: func(ctx context.Context, req executionRequest) unitResult {
 			wait := func(ch chan struct{}) {
 				select {
@@ -255,18 +255,22 @@ func TestRuntimeScheduling(t *testing.T) {
 			}
 			switch req.Unit.ID {
 			case "holder":
-				wait(c1Started)
+				wait(c2Started)
 			case "c1":
-				close(c1Started)
+				wait(headStarted)
+			case "c2":
+				close(c2Started)
 				wait(headStarted)
 			case "head":
 				close(headStarted)
 			}
 			return unitResult{Status: "passed"}
 		}})
-		// "head" lacks only the heavy lane. c1 leaves it the CPU it needs; c2
-		// would take that last token, so it waits until "head" is admitted.
-		if !slices.Equal(r.Admissions, []string{"holder", "c1", "head", "c2"}) {
+		// "head" lacks only the heavy lane, so CPU stays available to backfill
+		// even though c2 takes the last token; protecting capacity "head"
+		// does not yet lack would idle it. When the lane frees, "head" fits
+		// and runs before c3.
+		if !slices.Equal(r.Admissions, []string{"holder", "c1", "c2", "head", "c3"}) {
 			t.Fatal(r.Admissions)
 		}
 	})
