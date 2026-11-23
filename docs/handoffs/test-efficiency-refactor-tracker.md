@@ -108,7 +108,7 @@ repetitions each.
 | G26 | Packing omits PostgreSQL generation acquisition | Specification, machine inputs, implementation | W2-5 | Medium; not implemented, see the G26 decision in Section 12 |
 | G27 | Heavy-lane wall sits in a few long single tests (import workflows, ATT&CK production restore, Network Flow incident transfer, the two bundle round trips) | Tests (module owners) | Phase 3 follow-up | Done: `7a62a435a`, `9f01fdc27`; changed tests −48%, graph wall −50 s (800/840 s); remaining saving lost to disk contention (G28) |
 | G28 | Heavy units spent about 15% of their time waiting on their own synchronous flushes (WAL commits and product file fsyncs); stall follows host flush latency, not guest flush or byte rates | Measurement, product, specification | Phase 3 follow-up | Done: options A and C (`d8654d75a`, `42849a1e7`); graph wall 702–710 s, heavy work −14–27%, host flushes −56% |
-| G29 | The 377-row Vitest cohort waits for two CPU tokens until 372–442 s and then ends every run (heavy lanes finish at about 640 s) | Scheduling inputs or cohort packing | Phase 3 follow-up | Open |
+| G29 | The 377-row Vitest cohort waits for two CPU tokens until 372–442 s and then ends every run: first-fit backfill starves multi-token claims | Scheduling (REQ-802), coupled to host admission (G4b) | Phase 3 follow-up | Open: deficit-disjoint backfill tried and reverted (graph +200 s; `b5d0935a8`) |
 
 ## 5. Gap Remediation Detail
 
@@ -985,7 +985,54 @@ Across runs it started at 6, 161, 213, 372, 380 and 442 s although it is
 eligible at 1 s; its rows carry no duration estimates, and its wait reason is
 `cpu` (two-token deficit) behind one-token units. Since G28 it ends every run.
 Candidates: estimates for its rows so ranking places it early, or splitting
-the cohort. Not started.
+the cohort.
+
+**Cause.** Estimates are not the problem: at 378 s the cohort is already the
+highest-ranked unit in the graph. TH-HARNESS-REQ-802 admits the highest-ranked
+fitting unit and backfills with any lower-ranked fitting unit, without
+reservation. A two-token unit is skipped whenever one token is free, and in
+`g28a-final-check02` 268 lower-ranked one-token units each took a token at
+exactly that moment. Aging raises rank but cannot admit a unit that never
+fits, so REQ-802's "backfill cannot starve work" does not hold for multi-token
+claims. In runs where it started at 6 s, only 8 such backfills occurred.
+
+**Attempt (reverted).** The logical scheduler adopted REQ-803's
+deficit-disjoint backfill: lower-ranked fitting work may not draw down what the
+highest-ranked capacity-lacking unit lacks (`70565c792`), then a narrower form
+that protects only resources it currently lacks (`6a006b67a`). Scheduler tests
+passed, and the cohorts started at 2–4 s. Both validation runs were about
+200 s slower:
+
+| Run | Rule | Graph | Heavy-lane idle | Go `host_admission` | Rows |
+| --- | --- | ---: | ---: | ---: | --- |
+| `g28a-final-check02` | First-fit (before) | 702 s | 186 lane-s | 4,186 unit-s | 1,889 |
+| `g29-check01` | Deficit-disjoint | 899 s | 1,113 lane-s | — | 1,889 |
+| `g29-check02` | Current deficits only | 903 s | 999 lane-s | 9,298 unit-s | 1,889 |
+
+Held-back work (`rank`) accounts for almost none of the idle heavy-lane time.
+Heavy units instead waited on `postgres` and `object_store` lanes held by
+ordinary units, and Go units spent twice as long in physical host admission
+while holding their logical tokens and lanes. Changing the logical order shifts
+which units queue at host admission, and the head-of-line coupling between the
+logical and physical schedulers (G4b) dominates. Reverted in `b5d0935a8`; the
+spec and engine are back to `578259802`. G29 stays open: a fix must address
+the G4b coupling first, or start the cohort by about 300 s without
+reordering the rest. The two failing rows were unrelated:
+`module.networkflow.integration.saved_graph_lifecycle_v2` (`g29-check01`) is a
+live-runner race in the test, fixed in `408e11948`, and
+`module.extensions.integration.managed_service_assertions_for_state_admission_m_55b90ea265`
+(`g29-check02`) is not yet investigated.
+
+**Saved-graph test race (fixed `408e11948`).**
+`TestNetworkFlowSavedGraphLifecycleRoutes_Integration` restores against a live
+server whose Jobs runner keeps its 5 s recovery scan. Restore reconciliation
+leaves the Network Flow job `running` with no attempt, a recovery-scan
+candidate, so a scan landing between the restore commit and the test's read
+re-claimed it under a fresh attempt (`8b2a7936…`, not the seeded `…9105`); one
+failure in 33 retained runs. The test now asserts that the restored attempt was
+released, and seeds the job in one transaction through the new
+`JobsCapability.CreateTx`, so the runner never sees it queued. Checks:
+`race-lintgo01`, `race-slice-nf01`, `race-slice-cs01`; all pass.
 
 ### G18 — ATT&CK release fixture expiry
 
@@ -1267,6 +1314,9 @@ Each amendment lands spec-first in one change with its machine projections, rege
 | 2026-11-23 | G28 | Options A and C: throttled slides on every route; Go test temp work in `/dev/shm` (A20); targeted checks | `g28a-format01`, `g28a-lintgo01`, `g28a-slice-cs01`, `g28a-slice-http01`, `g28a-slice-srv01`, `g28a-slice-auth01`, `g28a-mdlint01`, `g28a-srcgen01` | All pass. Committed `d8654d75a` |
 | 2026-11-23 | G28 | Confirming diagnostic `check` | `g28a-check01` | Graph 750 s, heavy work 1,732 s. Failed: two unit tests expecting an immediate slide (fixed, `42849a1e7`; `g28a-slice-auth02`, `g28a-slice-nf01` pass), the jobs runner 1 s close budget (passed on rerun, `g28a-slice-jobs01`), and `harness.go_vulncheck` on a newly published otel advisory |
 | 2026-11-23 | G28 | Final validation: paired diagnostic `check` on `42849a1e7` | `g28a-final-check01`, `g28a-final-check02` | Graph 710 s and 702 s (best recorded); heavy work 1,768 s and 1,725 s; host flushes −56%, WAL fsyncs −28%. Rows 1,890 and 1,889 passed; both runs fail `harness.go_vulncheck` (GO-2026-6974, external), and `-02` failed the load-sensitive Network Flow row-limit test |
+| 2026-11-23 | OTel | GO-2026-6974 advisory: OpenTelemetry Go v1.47.0 (log v1, OTLP log exporters v0.23.0), deprecated log/global calls replaced, snapshot and identity tests updated | `otel-bootstrap01`, `otel-vuln02`, `otel-lintgo02`, `otel-telemetry02`, `otel-conformance02`, `otel-slice-srv01`, `otel-slice-nf01`, `otel-srcgen01` | All pass; `govulncheck` has no blocking finding. Committed `578259802` |
+| 2026-11-23 | G29 | Deficit-disjoint logical backfill, then current-deficit form; scheduler rows and one diagnostic `check` each | `g29-slice-sched01`, `g29-check01`, `g29-slice-sched02`, `g29-check02` | Cohort starts at 2–4 s, but graph 899 s and 903 s (from 702–710 s): heavy lanes idle behind host-admission waits. Reverted `b5d0935a8` |
+| 2026-11-23 | G29 | Saved-graph lifecycle test race: assert released restored attempt; transactional job seeding | `race-lintgo01`, `race-slice-nf01`, `race-slice-cs01` | All pass. Committed `408e11948` |
 
 ## 12. Phase 2 Plan — `check` Wall Clock
 
