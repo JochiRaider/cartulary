@@ -5,6 +5,7 @@ package harnesssession
 import (
 	"errors"
 	"io"
+	"math/rand/v2"
 	"os"
 	"path/filepath"
 	"strings"
@@ -109,6 +110,60 @@ func TestSessionScan(t *testing.T) {
 		errRead := errors.New("reader failed")
 		if err := scanContent(errorReader{errRead}, nil); !errors.Is(err, errRead) {
 			t.Fatal("read failure lost", err)
+		}
+	})
+	t.Run("memoized_matcher_matches_thompson_simulation", func(t *testing.T) {
+		if !secretDFAEligible {
+			t.Skip("the policy has empty-width assertions, so only the Thompson path runs")
+		}
+		tokens := []string{`"`, `:`, ` `, "\t", "\n", `=`, `{`, `}`, `,`, `@`, `/`, `x`, `7`, "é", "\xff", "\xe2\x82",
+			"password", "Password", "PASSWORD", "secret", "SECRET", "token", "TOKEN", "TOKENS", "tokens", "cookie", "dsn", "DSN",
+			"access_key", "ACCESS_KEY", "private_key", "PRIVATE_KEY", "postgres://", "PostgreSQL://", "user", harnessredact.Marker}
+		for i := range len(harnessredact.Marker) {
+			tokens = append(tokens, harnessredact.Marker[:i])
+		}
+		for _, scanContext := range harnessredact.RetainedScanContexts {
+			tokens = append(tokens, scanContext.Terminator)
+		}
+		feed := func(m *secretMatcher, data []byte, cuts *rand.Rand) bool {
+			for len(data) > 0 {
+				n := min(len(data), 1+cuts.IntN(17))
+				if m.feed(data[:n], false) {
+					return true
+				}
+				data = data[n:]
+			}
+			return m.feed(nil, true)
+		}
+		random := rand.New(rand.NewPCG(20261123, 1))
+		matched := 0
+		for range 6000 {
+			var input strings.Builder
+			for range random.IntN(60) {
+				input.WriteString(tokens[random.IntN(len(tokens))])
+			}
+			data := []byte(input.String())
+			seed := random.Uint64()
+			reference := newSecretMatcher()
+			reference.states = nil // Thompson simulation only.
+			want := feed(reference, data, rand.New(rand.NewPCG(seed, 2)))
+			if got := feed(newSecretMatcher(), data, rand.New(rand.NewPCG(seed, 2))); got != want {
+				t.Fatalf("memoized verdict %v differs from Thompson %v for %q", got, want, data)
+			}
+			if want {
+				matched++
+			}
+		}
+		if matched < 300 || matched > 5700 {
+			t.Fatalf("differential corpus is not discriminating: %d of 6000 inputs match", matched)
+		}
+		// A full memo reset keeps the same verdicts.
+		m := newSecretMatcher()
+		for i := range secretDFAStateLimit + 10 {
+			m.states[string(rune(i))+"#"] = &secretState{}
+		}
+		if !feed(m, []byte(`{"password":"plain-value"}`), rand.New(rand.NewPCG(1, 1))) {
+			t.Fatal("matcher missed a secret after the memo bound was reached")
 		}
 	})
 	t.Run("long_unregistered_syntax", func(t *testing.T) {

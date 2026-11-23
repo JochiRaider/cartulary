@@ -3,8 +3,10 @@
 package harnesssession
 
 import (
+	"encoding/binary"
 	"regexp"
 	"regexp/syntax"
+	"slices"
 	"strings"
 	"unicode/utf8"
 
@@ -44,21 +46,132 @@ var secretProgram = func() *syntax.Prog {
 	return program
 }()
 
+// End-of-text and end-of-line assertions depend only on the current rune (end
+// of input or a newline). When the program has no other assertion, a step
+// depends only on the pending program counters and the current rune, so the
+// Thompson steps can be memoized as a lazily built DFA whose states are exactly
+// those counter sets. Other assertions also read the previous rune.
+const memoizableEmptyOps = syntax.EmptyEndText | syntax.EmptyEndLine
+
+var secretDFAEligible = func() bool {
+	for _, instruction := range secretProgram.Inst {
+		if instruction.Op == syntax.InstEmptyWidth && syntax.EmptyOp(instruction.Arg)&^memoizableEmptyOps != 0 {
+			return false
+		}
+	}
+	return true
+}()
+
+// The memo is per matcher and bounded; reaching the bound clears it, which only
+// costs recomputation because every transition is derived from the program.
+const secretDFAStateLimit = 2048
+
+type secretState struct {
+	pcs   []uint32
+	ascii [utf8.RuneSelf]*secretEdge
+	other map[rune]*secretEdge
+}
+
+type secretEdge struct {
+	to    *secretState
+	match bool
+}
+
 // An unanchored Thompson matcher retains only program counters and at most one
 // incomplete UTF-8 rune. Memory is bounded by the fixed policy, not input length.
 // Standard regexp matching operates on complete strings and cannot retain this
 // state across Reader calls. Each instruction is visited at most once per rune.
+// When the program is eligible, each Thompson step is computed once per
+// (counter set, rune) and then replayed from the memo with identical verdicts.
 type secretMatcher struct {
 	active, next []uint32
 	seen         []uint64
 	generation   uint64
 	previous     rune
 	partial      []byte
+	states       map[string]*secretState
+	state        *secretState
 }
 
 func newSecretMatcher() *secretMatcher {
 	n := len(secretProgram.Inst)
-	return &secretMatcher{active: make([]uint32, 0, n), next: make([]uint32, 0, n), seen: make([]uint64, n), previous: -1}
+	m := &secretMatcher{active: make([]uint32, 0, n), next: make([]uint32, 0, n), seen: make([]uint64, n), previous: -1}
+	if secretDFAEligible {
+		m.states = map[string]*secretState{}
+		m.state = m.intern(nil)
+	}
+	return m
+}
+
+func (m *secretMatcher) intern(pcs []uint32) *secretState {
+	key := make([]byte, 4*len(pcs))
+	for i, pc := range pcs {
+		binary.LittleEndian.PutUint32(key[4*i:], pc)
+	}
+	if state := m.states[string(key)]; state != nil {
+		return state
+	}
+	if len(m.states) >= secretDFAStateLimit {
+		m.states = map[string]*secretState{}
+	}
+	state := &secretState{pcs: pcs}
+	m.states[string(key)] = state
+	return state
+}
+
+// memoize runs one Thompson step from the current counter set and records it.
+// Only rune-determined assertions exist, so the context derives from r alone.
+func (m *secretMatcher) memoize(r rune) *secretEdge {
+	from := m.state
+	context := syntax.EmptyOpContext(-1, r) & memoizableEmptyOps
+	m.generation++
+	m.next = m.next[:0]
+	match := m.transition(uint32(secretProgram.Start), r, context)
+	for _, pc := range from.pcs {
+		if match {
+			break
+		}
+		match = m.transition(pc, r, context)
+	}
+	edge := &secretEdge{match: match}
+	if !match {
+		pcs := slices.Clone(m.next)
+		slices.Sort(pcs)
+		edge.to = m.intern(slices.Compact(pcs))
+	}
+	if r >= 0 && r < utf8.RuneSelf {
+		from.ascii[r] = edge
+	} else {
+		if from.other == nil {
+			from.other = map[rune]*secretEdge{}
+		}
+		from.other[r] = edge
+	}
+	return edge
+}
+
+func (m *secretMatcher) advance(r rune) bool {
+	var edge *secretEdge
+	if r >= 0 && r < utf8.RuneSelf {
+		edge = m.state.ascii[r]
+	} else {
+		edge = m.state.other[r]
+	}
+	if edge == nil {
+		edge = m.memoize(r)
+	}
+	if edge.match {
+		return true
+	}
+	m.state = edge.to
+	return false
+}
+
+func (m *secretMatcher) consume(r rune) bool {
+	if m.states != nil {
+		return m.advance(r)
+	}
+	return m.step(r)
 }
 
 func (m *secretMatcher) transition(pc uint32, r rune, context syntax.EmptyOp) bool {
@@ -109,15 +222,22 @@ func (m *secretMatcher) feed(data []byte, final bool) bool {
 		m.partial = nil
 	}
 	for len(data) > 0 {
+		if m.states != nil && data[0] < utf8.RuneSelf {
+			if m.advance(rune(data[0])) {
+				return true
+			}
+			data = data[1:]
+			continue
+		}
 		if !final && !utf8.FullRune(data) {
 			m.partial = append([]byte{}, data...)
 			break
 		}
 		r, n := utf8.DecodeRune(data)
-		if m.step(r) {
+		if m.consume(r) {
 			return true
 		}
 		data = data[n:]
 	}
-	return final && m.step(-1)
+	return final && m.consume(-1)
 }

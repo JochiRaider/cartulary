@@ -86,7 +86,7 @@ repetitions each.
 | G4 | Graph admission ignores physical footprint (head-of-line blocking) | Specification, implementation, tests | WS2 | G4a (host backfill) committed (`500e3bdda`); G4b (graph footprint) deferred: after G5a, host admission no longer blocks `check` |
 | G5 | PostgreSQL concurrency emerges from process-slot arithmetic and double-charged lanes | Specification, machine inputs, implementation | WS2 | G5a (process slots from the OS limit) committed (`500e3bdda`); G5b (single lane) reverted |
 | G6 | Exclusive PostgreSQL generation startup and residency cost | Specification, implementation | W2-4 | High; plan rewritten in Section 12 (harness-assigned identity, then a seed image) |
-| G7 | Retained-secret scan costs ~120 s per `check` | Implementation, tests | WS4 | High |
+| G7 | Retained-secret scan costs ~120 s per `check` | Implementation, tests | WS4 / W2-6 | Done: memoized matcher, 21.7 s → 0.72 s on a full root |
 | G8 | Run roots retain bulk fixture bytes on success | Specification, test support | WS4 | High (remediated, uncommitted) |
 | G9 | Wait-segment and admission-record churn | Specification, implementation | WS4 | Stage 1 committed (`500e3bdda`); stage 2 (wait segments) open: G4/G5 did not reduce it, and it is now most of each run root |
 | G10 | Temporary-directory leaks, including private keys | Implementation, tests, specification | WS5 | High (security hygiene; remediated, uncommitted) |
@@ -105,7 +105,7 @@ repetitions each.
 | G23 | The pinned browser-trust package was removed upstream; only the local readiness cache kept bootstrap working | Implementation | WS0 | High while broken (pin updated, uncommitted) |
 | G24 | Heavy units hold a heavy lane while queued in host admission behind ordinary PostgreSQL units | Specification, implementation | WS2 | High (remediated, uncommitted: about 150 s of `check` wall) |
 | G25 | Unattributed I/O regression: checkpoint sync and graph wall up since the morning's passing runs | Measurement, possibly implementation | W2-1 | High; attributed to host disk state, not code (Section 12) |
-| G26 | Packing omits PostgreSQL generation acquisition | Specification, machine inputs, implementation | W2-5 | Medium (open, Section 12) |
+| G26 | Packing omits PostgreSQL generation acquisition | Specification, machine inputs, implementation | W2-5 | Medium; not implemented, see the G26 decision in Section 12 |
 
 ## 5. Gap Remediation Detail
 
@@ -522,8 +522,8 @@ WS2 and WS3 can run in parallel but are measured together, because both move the
 | A11 | REQ-505 | Disposition table adds root `dist`, reference-pack builders and module staging, and the whole `apps/web/.cartulary` (drafted, uncommitted) | G21 | None |
 | A12 | Readiness cache profiles (beside the test-service image rule) | A browser-installation hit must prove the pinned renderer image is present by digest and platform; otherwise the stamp is invalidated (drafted, uncommitted) | G22 | None |
 | A13 | REQ-803 | Between shared requests, one claiming an available `postgres_heavy` lane precedes requests claiming none; otherwise arrival order (drafted, uncommitted) | G24 | None |
-| A14 | Lifecycle estimates beside REQ-865 | `postgres_generation_acquire` joins the closed set (proposed, Section 12) | G26 | Work-graph owner input |
-| A15 | §10.2 capacity table | Heavy lanes default 4, conditional on the G2 criteria (proposed, Section 12) | G2 | None |
+| A14 | Lifecycle estimates beside REQ-865 | Withdrawn (Section 12, G26 decision) | G26 | None |
+| A15 | §10.2 capacity table | Not adopted: four lanes gained no wall time and added contention failures (Section 12, G2 result) | G2 | None |
 | A8 | REQ-803; REQ-381 | Admission waiters re-evaluate on admission-state change, with a bounded fallback for dead-owner reclamation | G16 | None expected |
 | A5 | REQ-407 | A passing fixture comparison keeps its digest record only (Network Flow summary with `materialized_input_root` null, IR `comparison.json`, reference-pack `bootstrap.json`); a failing one keeps its full material (drafted, uncommitted) | G8 | None |
 | A6 | §5 Go path table; §14 readiness | Invocation-scoped `GOTMPDIR`/`GO_TMP_DIR` beneath the machine path, removed at settlement, dead-owner reclamation; `TMPDIR` stays host-wide (drafted, uncommitted). Retention and cache-maintenance commands (G11, G12) not started | G10 | None |
@@ -603,6 +603,9 @@ Each amendment lands spec-first in one change with its machine projections, rege
 | 2026-11-23 | W2-1 / G25 | Host disk probe: `pg_test_fsync -s 3` in the pinned PostgreSQL image, idle host | — | `fdatasync` 2,102 µs/op, `fsync` 3,785 µs/op, `open_datasync` 1,990 µs/op. Root mounted `ext4 … discard`. Recorded as host baseline |
 | 2026-11-23 | W2-2 | G3.6 and G3.9 implemented, measured isolated against clean `HEAD`, then reverted | `w22-imports01`, `w22-nfport01`, `w22-before-imports02`, `w22-before-nfport02` | `network_flow_portability` 177.9 → 174.8 s; `current_workflows` 169.3 → 175.3 s; `ir_corpus_core` 15.7 s with the higher page size. No meaningful gain, so no change kept. A first before-run (`w22-before-*01`) was invalid: a path-limited `git stash` left the working tree unchanged |
 | 2026-11-23 | W2-3 | G3.7 rejected (recovery binding digests forbid clone-per-target); G3.4 deferred pending G17 | — | No code change |
+| 2026-11-23 | W2-4 / G6 spike | Fresh start vs seed image (copy-on-write, then volume-initialized); template clone and write cost | — | Copy-on-write rejected (clone 6.7 s vs 0.2 s; writes 8× slower). Volume-initialized seed ready in 0.7–1.0 s with fresh-volume write speed. Projected saving about 10 s per generation |
+| 2026-11-23 | W2-5 / G2 | Four heavy lanes by capacity override, diagnostic `check` twice | `g2-lane4-check01`, `g2-lane4-check02` | Fail 364/365 each (contention timeouts). Graph 1,029 s and 1,052 s (three lanes: 1,022 s and 1,054 s); heavy work 3,659 s and 3,509 s; checkpoint sync 881 s and 755 s. Rejected |
+| 2026-11-23 | W2-6 / G7 | Secret-scan profile, then a memoized matcher with a differential test | `g7-generate01`, `g7-session01` (row `harness.evidence_accounting.behavior.native_session`), `g7-lintgo01`; mutation check | Scan of `g24-check01` root 22.3 s → 0.72 s; all pass; mutation caught |
 
 ## 12. Phase 2 Plan — `check` Wall Clock
 
@@ -880,6 +883,12 @@ The Section 3 rules still apply. In addition:
 - **Risk if unresolved.** Cohorts overrun the target, and the tail stays uneven.
 - **Validation.** The estimate audit reports no `over_packing_bound`; makespan
   above a perfect split ≤ 20 s in two checks.
+- **Decision (2026-11-23).** Not implemented. Acquisition costs about the same
+  for every heavy cohort, so charging it changes no longest-first order among
+  heavy units, and charging it in packing only makes cohorts smaller, which adds
+  generations that each pay about 19 s. The remaining 33–49 s imbalance is
+  granularity, and G6 shrinks the per-cohort overhead directly. A14 is
+  withdrawn.
 
 #### G2 (revisited) — Heavy lane count
 
@@ -890,12 +899,37 @@ The Section 3 rules still apply. In addition:
 - **Area.** Measurement; specification §10.2 default if adopted (A15).
 - **Risk.** Disk saturation turns speed into flakiness, as G5b showed.
 - **Validation.** The acceptance criteria above, recorded with run IDs.
+- **Result (2026-11-23).** Rejected; A15 is not adopted. Four lanes by override
+  (`g2-lane4-check01`, `g2-lane4-check02`): graph 1,029 s and 1,052 s against
+  1,022 s and 1,054 s on three lanes. Heavy work rose from 2,921–3,027 s to
+  3,509–3,659 s (runner time alone 2,494–2,607 → 2,940–2,955 s), so the fourth
+  lane's capacity went to contention. Each run also failed one unit on a
+  contention timeout (`extension_transaction_timeout` in
+  `TestNetworkFlowPublicDefaultLimitsCommitAcceptedRowLimit`; an operator
+  process killed on its deadline in `TestCanonicalOperatorRestoreBundle_Process`).
 
-#### G7 (scheduled) — Secret scan
+#### G7 (done, uncommitted at writing) — Secret scan
 
-Unchanged from Section 5. Post-graph time is now about 28 s, so the expected
-saving is about 13 s of outer wall. It runs last because it is independent and
-small.
+- **Profile (`g24-check01` root, 229 MB, 4,404 files).** The scan took 22.3 s;
+  the 177 MB event log took 16.6 s, and 16.5 s of that was the syntactic
+  matcher alone. Per-secret `bytes.Contains` was negligible, so the planned
+  worker pool and multi-pattern automaton would have missed the cost: one large
+  file dominates, and the matcher ran at about 10.7 MB/s.
+- **Remediation.** The matcher was a Thompson NFA simulation walking the
+  program for every rune. It now memoizes each step as a lazily built DFA
+  whose states are exactly the Thompson counter sets, with a per-matcher bound
+  of 2,048 states that clears on overflow. Memoization is exact because the
+  policy's only assertions are end-of-text (`$`), which depends on the current
+  rune alone. A program with any assertion that reads the previous rune keeps
+  the Thompson path. Code: `scan_syntax_linux.go`; no specification change
+  (REQ-600 already permits it).
+- **Validation.** A differential subtest feeds 6,000 seeded inputs built from
+  the policy's tokens, marker fragments, multi-byte and invalid UTF-8 through
+  both paths at random chunk boundaries and requires identical verdicts. A
+  mutation that drops half the pending counters fails it. The existing scan
+  subtests pass (row `harness.evidence_accounting.behavior.native_session`),
+  and `lint CHECK=go` passes. The same root now scans in 0.72 s instead of
+  21.7 s, so every graph target saves about 21 s of outer wall.
 
 ### 12.4 Workstreams
 
@@ -987,6 +1021,23 @@ W2-6 (independent) ───────────────> W2-7
   sessions. Mitigate with the spike and with rejection, not translation, of old
   attachments.
 - **Exit criteria.** G6 validation met; REQ-804 acceptance checks pass.
+- **Spike result (2026-11-23, idle host, pinned PostgreSQL image).**
+  - Fresh container (entrypoint `initdb`) is ready in 1.5 s warm (4.1 s cold).
+    A seed with PGDATA outside the declared volume starts in 0.56 s.
+  - Copy-on-write seed: rejected. On the overlay filesystem a template clone
+    took 6,669 ms against 205 ms on a volume, and a 200k-row insert with
+    checkpoint 6,227 ms against 740 ms. Copy-up of whole relation and WAL
+    files on first write makes every test clone slow.
+  - Volume-initialized seed: viable. An anonymous volume mounted over the
+    seed's data path is filled from the image at create (84 MB synthetic data
+    directory). Ready in 0.70–0.96 s, clone 244 ms, and writes match a fresh
+    volume in alternating trials (417–467 ms against 440–484 ms).
+  - Projection: each generation skips `initdb`, roles, template migration
+    (median 9.8 s under load), seal and checkpoint, about 10 s per generation,
+    so roughly 170–200 s of heavy work and about 60 s of wall.
+  - G6b therefore uses volume initialization; Docker's copy replaces
+    `initdb` and the migration's writes, so per-generation I/O stays about
+    the same.
 
 #### W2-5 — Scheduling
 
