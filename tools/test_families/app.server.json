@@ -1678,6 +1678,7 @@
         "tests": [
           "TestEnterpriseAuthenticationManifestPreflight_Unit",
           "TestFailClosedStartup_Unit",
+          "TestJobRuntimePolicySelection_Unit",
           "TestNetworkFlowManifestPreflight_Unit",
           "TestRevisionsConflictTokenManifestPreflight_Unit"
         ]

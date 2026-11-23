@@ -126,6 +126,20 @@ type Options struct {
 	// HarnessJobs adds harness-only job kinds (TH-HARNESS-REQ-450). Only the
 	// server-harness profile sets it; production assembly passes none.
 	HarnessJobs []jobs.Contribution
+	// JobPolicy replaces the immutable production Jobs execution policy for
+	// harness-owned composition only: Core 01 lets tests inject shorter values,
+	// and deployment configuration has no path to this field. Nil selects
+	// jobs.ProductionRuntimePolicy(); production assembly passes none.
+	JobPolicy *jobs.RuntimePolicy
+}
+
+// jobRuntimePolicy selects the Jobs execution policy: the immutable production
+// policy unless harness-owned composition injected shorter values (Core 01).
+func jobRuntimePolicy(options Options) jobs.RuntimePolicy {
+	if options.JobPolicy != nil {
+		return *options.JobPolicy
+	}
+	return jobs.ProductionRuntimePolicy()
 }
 
 type evidenceCleanupLifecycle interface {
@@ -901,7 +915,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 		runtime.Close()
 		return nil, fmt.Errorf("compose Jobs transaction service: %w", err)
 	}
-	jobPolicy := jobs.ProductionRuntimePolicy()
+	jobPolicy := jobRuntimePolicy(options)
 	jobManager, err := dependencies.newJobsManager(jobs.ManagerOptions{
 		Postgres:                postgresPool,
 		Transactions:            jobTransactions,

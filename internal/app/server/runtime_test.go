@@ -599,3 +599,18 @@ func loadRuntimeConfig(t testing.TB, overlays map[string]string) (configassembly
 		Env:  env,
 	})
 }
+
+// Core 01: the production Jobs policy is immutable; only harness-owned
+// composition may inject shorter values, through Options.JobPolicy.
+func TestJobRuntimePolicySelection_Unit(t *testing.T) {
+	production := jobs.ProductionRuntimePolicy()
+	if got := jobRuntimePolicy(Options{}); got.RecoveryScan != production.RecoveryScan || got.HandlerLease != production.HandlerLease ||
+		len(got.RetryDelays) != len(production.RetryDelays) || got.RetryDelays[0] != production.RetryDelays[0] || got.RetryDelays[1] != production.RetryDelays[1] {
+		t.Fatalf("nil JobPolicy selected %+v, want the production policy", got)
+	}
+	injected := jobs.ProductionRuntimePolicy()
+	injected.RecoveryScan = 100 * time.Millisecond
+	if got := jobRuntimePolicy(Options{JobPolicy: &injected}); got.RecoveryScan != 100*time.Millisecond || got.HandlerLease != production.HandlerLease {
+		t.Fatalf("injected JobPolicy not selected: %+v", got)
+	}
+}
