@@ -1,6 +1,6 @@
 # Test Execution Efficiency Remediation Plan
 
-**Status.** Active remediation tracker, last updated 2026-11-23. All phase-1 work is committed. Phase 2 ([Section 12](#12-phase-2-plan--check-wall-clock)) landed G7 and G6; G6 brought the `check` graph wall from 1,022–1,157 s to under 900 s. In G17 (phase 3), G17b and G17c landed, G17a was not adopted, and disk stall was identified as the contention the failing tests hit. G17f withdrew A17 and added A18 (WAL compression, −22% container writes), and G17g bounded test-side waits by the test deadline. G17 is closed. G27 (heavy-row test work) is done: graph wall 800–840 s, the best recorded. G28 measured the disk flushes: stall follows host flush latency, and heavy units spend about 15% of their time on their own synchronous flushes; its options await an owner decision. `make distclean` on 2026-11-22 deleted every retained run, so the run IDs in Section 11 before that date are a record, not retrievable evidence.
+**Status.** Active remediation tracker, last updated 2026-11-23. All phase-1 work is committed. Phase 2 ([Section 12](#12-phase-2-plan--check-wall-clock)) landed G7 and G6; G6 brought the `check` graph wall from 1,022–1,157 s to under 900 s. In G17 (phase 3), G17b and G17c landed, G17a was not adopted, and disk stall was identified as the contention the failing tests hit. G17f withdrew A17 and added A18 (WAL compression, −22% container writes), and G17g bounded test-side waits by the test deadline. G17 is closed. G27 (heavy-row test work) is done: graph wall 800–840 s, the best recorded. G28 measured the disk flushes and, with owner-approved options A (session slides persist at most once a minute on every route) and C (Go test temp work in RAM), cut heavy work 14–27% and brought the graph wall to 702–710 s, the best recorded. The run now ends with a late-starting Vitest cohort (G29). `make distclean` on 2026-11-22 deleted every retained run, so the run IDs in Section 11 before that date are a record, not retrievable evidence.
 
 The active plan for the remaining `check` wall-clock work is [Section 12](#12-phase-2-plan--check-wall-clock). Original framing: this document authorizes no implementation by itself.
 Each specification amendment in [Section 8](#8-specification-amendment-ledger) needs
@@ -107,7 +107,8 @@ repetitions each.
 | G25 | Unattributed I/O regression: checkpoint sync and graph wall up since the morning's passing runs | Measurement, possibly implementation | W2-1 | Closed: the cost was per-generation provisioning checkpoints, amplified by host disk state; G6 removed it (checkpoint sync 1,156 s → 4 s) |
 | G26 | Packing omits PostgreSQL generation acquisition | Specification, machine inputs, implementation | W2-5 | Medium; not implemented, see the G26 decision in Section 12 |
 | G27 | Heavy-lane wall sits in a few long single tests (import workflows, ATT&CK production restore, Network Flow incident transfer, the two bundle round trips) | Tests (module owners) | Phase 3 follow-up | Done: `7a62a435a`, `9f01fdc27`; changed tests −48%, graph wall −50 s (800/840 s); remaining saving lost to disk contention (G28) |
-| G28 | Heavy units spend about 15% of their time waiting on their own synchronous flushes (WAL commits and product file fsyncs); stall follows host flush latency, not guest flush or byte rates; 21–35 s of CPU-stall bursts per `check` remain unattributed | Measurement, then owner decisions | Phase 3 follow-up | Measured; options A–D await owner decision (Section 5) |
+| G28 | Heavy units spent about 15% of their time waiting on their own synchronous flushes (WAL commits and product file fsyncs); stall follows host flush latency, not guest flush or byte rates | Measurement, product, specification | Phase 3 follow-up | Done: options A and C (`d8654d75a`, `42849a1e7`); graph wall 702–710 s, heavy work −14–27%, host flushes −56% |
+| G29 | The 377-row Vitest cohort waits for two CPU tokens until 372–442 s and then ends every run (heavy lanes finish at about 640 s) | Scheduling inputs or cohort packing | Phase 3 follow-up | Open |
 
 ## 5. Gap Remediation Detail
 
@@ -896,6 +897,96 @@ counters; pass).
 - *D. `wal_init_zero=off`.* Needs a spec sentence like A18; small and
   uncertain gain.
 
+**Owner decision (2026-11-23): A and C.** B and D are not pursued.
+
+**A: profile and change.** A temporary `pg_stat_statements` preload (removed
+after profiling) ranked the statements that write WAL in the heaviest
+incident-bundle and reference-data rows (`g28-pgss-ib01`, `g28-pgss-rd01`).
+The import itself commits in batches. The avoidable commits were session
+slides: 3,457 `UPDATE user_sessions` in the incident-bundle rows and 1,634 in
+the reference-data rows, about one per job poll. Core 04 REQ-04-011 lets a
+route skip persisting a slide while the stored activity is under a minute
+old. Only the workbook routes did; 17 other routes slid on every request (the
+2026-11-19 cadence review recorded the difference as conformant). Now
+`httpauth.SlideSessionIfNeeded` persists at most once per
+`SessionSlideWriteInterval` on every route, and the separate workbook-only
+helper is gone. Four tests that expected a write right after login now
+start from activity one interval old: the httpauth cadence test, extension
+discovery's service-backed slide test, and the auth credential-state and
+Network Flow session-maintenance unit tests. Staged-object state transitions
+(about 12k single-row writes in the incident-bundle rows) are a durable
+product state machine and are unchanged. Committed `d8654d75a`, `42849a1e7`.
+
+**C: Go test temp work in RAM (amendment A20).** A graph invocation creates
+its private Go temporary-work directory beneath
+`/dev/shm/cartulary-go-tmp-<uid>` when `/dev/shm` is tmpfs with at least
+8 GiB available and the root is a real directory owned by the user with mode
+`0700`; otherwise it uses `GO_TMP_DIR` as before. Test `TempDir` trees and
+build work then live in memory, and product `fsync` calls in tests wait for
+no disk flush. `GO_TMP_DIR` resolution, `doctor` and the machine-cache
+defaults are unchanged. The NLSpec's invocation-scoped paragraph and
+TH-HARNESS-AC-092 record the rule; `TestRuntimeGoTemporaryWork` covers
+eligible, disk-backed, under-capacity, unavailable, permissive,
+symbolic-link, non-directory and foreign-owned roots. Committed `d8654d75a`.
+
+**Checks.** `g28a-format01`, `g28a-lintgo01`, `g28a-slice-cs01`
+(`harness.command_surface.unit.native_runtime`), `g28a-slice-http01`,
+`g28a-slice-srv01`, `g28a-slice-auth01`, `g28a-mdlint01`, `g28a-srcgen01`:
+all pass. The first confirming `check`, `g28a-check01`, failed three rows: the
+two unit tests above (fixed, `g28a-slice-auth02` and `g28a-slice-nf01` pass)
+and `platform.jobs.integration.supervised_runner`, whose cleanup closes the
+runner within a fixed 1 s; it passed on rerun (`g28a-slice-jobs01`) and
+touches neither sessions nor temp directories.
+
+**Final validation (paired diagnostic `check` on `42849a1e7`, flush
+sampler attached).**
+
+| Run | Rows | Graph | Heavy unit work | Host-disk flushes | Host-disk writes | Docker-disk flushes | WAL fsyncs | Mean `io_full` | `/dev/shm` peak |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `g27-final-check01`, `-02` (before G28) | 1,890, 1,890 | 800 s, 840 s | 2,243 s, 2,355 s | — | — | — | — | 9.5%, 11.2% | — |
+| `g28-measure-check01` (before) | 1,890 | 742 s | 2,064 s | 160,517 | 23.6 GB | 118,625 | 81,445 (`-02`) | 8.0% | — |
+| `g28a-final-check01` | 1,890 | 710 s | 1,768 s | 69,432 | 5.3 GB | 96,617 | 59,465 | 5.0% | 2.2 GB |
+| `g28a-final-check02` | 1,889 | 702 s | 1,725 s | 70,091 | 5.5 GB | 96,520 | 58,837 | 5.3% | 2.2 GB |
+
+Graph wall 702–710 s is the best recorded (800/840 s before G27's pair,
+742 s for the unchanged measurement run). Heavy unit work fell 14–27%, host
+flushes 56%, host writes 77% and WAL fsyncs 28%; `io_full` dropped to 5%.
+The largest per-row cuts were file-heavy recovery and reference-data rows:
+capture-target admission 240 s → 110 s, absent optional packs 143 s → 97 s,
+canonical operator process 94 s → 55 s (`g28a-check01` against
+`g28-measure-check01`). Memory stayed ample: `/dev/shm` peaked at 2.2 GB and
+available memory never fell below 12.1 GB (9.4 GB in `g28a-check01`).
+
+Both runs exit non-zero, neither from this change:
+
+- *`harness.go_vulncheck` (both runs, and `g28a-check01`).* The Go
+  vulnerability database added GO-2026-6974
+  (`go.opentelemetry.io/otel` AttributeValueLengthLimit bypass, fixed in
+  v1.47.0) at 2026-11-23 20:05 UTC; the symbol is reachable, so the scan
+  blocks every `check` until the dependency is upgraded. Tracked as a
+  separate task.
+- *`module.imports.integration.network_flow_public_default_limits_commit_the_ac_fc9396304e`
+  (`-02` only).* The known row-limit test (G17): two source passes share the
+  30 s participant budget the test asserts. The second pass took 22.0 s
+  against 6.2 s for the first while Docker-disk flush latency rose from 2 ms
+  to 6–9 ms; it passed in the other two runs.
+
+**What bounds the wall now.** Heavy lanes finish at 637–646 s. The run ends
+when the 377-row Vitest cohort `vitest_cohort:16a12aa1…` does; it is eligible
+at 1 s but waits for two CPU tokens until 372–442 s (617 waits in
+`g28a-check01`) while one-token units keep taking them, then runs 300–330 s.
+Starting it early would put the wall near 650 s. That is G29.
+
+### G29 — Long Vitest cohort starts late
+
+Opened 2026-11-23 from the G28 validation. The 377-row frontend Vitest cohort
+`vitest_cohort:16a12aa1…` (claims 2 CPU, 4 process slots) takes 300–450 s.
+Across runs it started at 6, 161, 213, 372, 380 and 442 s although it is
+eligible at 1 s; its rows carry no duration estimates, and its wait reason is
+`cpu` (two-token deficit) behind one-token units. Since G28 it ends every run.
+Candidates: estimates for its rows so ranking places it early, or splitting
+the cohort. Not started.
+
 ### G18 — ATT&CK release fixture expiry
 
 - **Evidence.** `container.pack` under `fixtures/reference-packs/dataset-v1/attack/release/envelopes/83ec1d97…/` carries `metadata/snapshot.json`, `targets.json` and `timestamp.json` with `"expires":"2026-12-08T20:40:00Z"`. Envelope validation requires `verified_at` before `trust_valid_until` ([envelope.go:52](../../internal/modules/reference_data/internal/packformat/envelope.go)), and the recovery test imports with `CLOCK_TRUSTED=true` against the real clock. The failure after that date is inferred, not yet reproduced.
@@ -1065,6 +1156,7 @@ WS2 and WS3 can run in parallel but are measured together, because both move the
 | A17 (conditional) | REQ-357; REQ-804 retirement | Withdrawn: suite termination already force-removes generation containers, so there is no shutdown checkpoint to skip (G17f) | G17 | None |
 | A18 | REQ-804 clone paragraph | Harness clusters run with `wal_compression=lz4`, cutting `WAL_LOG` clone WAL by about 60% and container writes per `check` by 22% (`a18-check01`); durability settings unchanged; part of the provisioning identity. Disk stall and wall unchanged in one run (committed `81f709c2d`; adoption awaits owner review) | G17 | None (new seed image) |
 | A19 | REQ-869 (new) | Go test and subtest durations retained under basic diagnostics beside the unit logs, redacted and bounded, outside the execution index (committed `b98e95e17`; keeping redacted names rather than digests awaits owner review) | G17 | Schema `cartulary.harness_go_test_durations.v1` |
+| A20 | §13 invocation-scoped temporary work; TH-HARNESS-AC-092 | A graph invocation places its private Go temporary-work directory beneath `/dev/shm/cartulary-go-tmp-<uid>` when `/dev/shm` is tmpfs with at least 8 GiB available and the root is a private directory owned by the user, otherwise beneath `GO_TMP_DIR` (owner decision 2026-11-23, committed `d8654d75a`) | G28 | None |
 | A8 | REQ-803; REQ-381 | Admission waiters re-evaluate on admission-state change, with a bounded fallback for dead-owner reclamation | G16 | None expected |
 | A5 | REQ-407 | A passing fixture comparison keeps its digest record only (Network Flow summary with `materialized_input_root` null, IR `comparison.json`, reference-pack `bootstrap.json`); a failing one keeps its full material (drafted, uncommitted) | G8 | None |
 | A6 | §5 Go path table; §14 readiness | Invocation-scoped `GOTMPDIR`/`GO_TMP_DIR` beneath the machine path, removed at settlement, dead-owner reclamation; `TMPDIR` stays host-wide (drafted, uncommitted). Retention and cache-maintenance commands (G11, G12) not started | G10 | None |
@@ -1171,6 +1263,10 @@ Each amendment lands spec-first in one change with its machine projections, rege
 | 2026-11-23 | G28 | Diagnostic `check` with a per-second disk-flush and PostgreSQL I/O sampler | `g28-measure-check01` | Pass; graph 742 s. Host disk 160,517 flushes, Docker disk 118,625; PostgreSQL sampling missed seeded clusters (image-ID filter), fixed for the next run |
 | 2026-11-23 | G28 | Diagnostic `check` with the sampler and a seccomp `fsync` tracer | `g28-measure-check02` | Graph 805 s; two report-renderer sandbox rows failed on the tracer's seccomp listener (instrument artifact), all other rows passed. 81,445 WAL fsyncs, 337 checkpointer fsyncs; 99.6k host fsyncs to disk; heavy units about 15% in their own flush waits |
 | 2026-11-23 | G28 | `pgbench` micro-benchmarks for `commit_delay` and `wal_init_zero`; per-database commit profile of the eight heaviest incident-bundle rows | `g28bench` (scratch), `g28-prof-ib01` | `commit_delay` rejected (−23–36% throughput); `wal_init_zero=off` marginal; 62k commits, import batched about 20 rows per commit, remaining commit source unattributed |
+| 2026-11-23 | G28 | Statement profile with a temporary `pg_stat_statements` preload (removed after) | `g28-pgss-ib01`, `g28-pgss-rd01` | Pass. Avoidable commits are per-request session slides (3,457 and 1,634); the import is batched |
+| 2026-11-23 | G28 | Options A and C: throttled slides on every route; Go test temp work in `/dev/shm` (A20); targeted checks | `g28a-format01`, `g28a-lintgo01`, `g28a-slice-cs01`, `g28a-slice-http01`, `g28a-slice-srv01`, `g28a-slice-auth01`, `g28a-mdlint01`, `g28a-srcgen01` | All pass. Committed `d8654d75a` |
+| 2026-11-23 | G28 | Confirming diagnostic `check` | `g28a-check01` | Graph 750 s, heavy work 1,732 s. Failed: two unit tests expecting an immediate slide (fixed, `42849a1e7`; `g28a-slice-auth02`, `g28a-slice-nf01` pass), the jobs runner 1 s close budget (passed on rerun, `g28a-slice-jobs01`), and `harness.go_vulncheck` on a newly published otel advisory |
+| 2026-11-23 | G28 | Final validation: paired diagnostic `check` on `42849a1e7` | `g28a-final-check01`, `g28a-final-check02` | Graph 710 s and 702 s (best recorded); heavy work 1,768 s and 1,725 s; host flushes −56%, WAL fsyncs −28%. Rows 1,890 and 1,889 passed; both runs fail `harness.go_vulncheck` (GO-2026-6974, external), and `-02` failed the load-sensitive Network Flow row-limit test |
 
 ## 12. Phase 2 Plan — `check` Wall Clock
 
