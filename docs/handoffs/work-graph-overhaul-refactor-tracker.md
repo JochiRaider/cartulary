@@ -1,6 +1,6 @@
 # Work-Graph Overhaul Tracker
 
-**Status.** Audit complete, 2026-11-23; no overhaul work started. The owner
+**Status.** Audit complete, 2026-11-23. Stage 0 tried and reverted; Stage 1 scoped, not started. The owner
 asked for an audit of how the work graph is built and executed after G29
 (test-efficiency tracker, Section 5) showed that a one-rule scheduler change
 moved `check` wall time by +200 s through effects in another layer. This
@@ -214,7 +214,33 @@ not wall time alone. Stage 2 breaks cache identity once. The spec's
 module paths are not public bindings (NLSpec implementation-package rule), so
 the replacement needs no change for path reasons.
 
-## 6. Stage 1 scope: a clean Go planner
+## 6. Stage 0 result: reverted
+
+Stage 0 made logical admission charge residents as host admission keys them:
+an exclusive unit's own generation for its admission, the shared generation
+and shared object store from first consumer to last (`147651a9b`; scheduler
+tests passed). One diagnostic `check`, `s0-check01`, passed all 1,890 rows but
+ran 971 s against 702–710 s:
+
+| Measure | `g28a-final-check01` | `s0-check01` |
+| --- | ---: | ---: |
+| Graph wall | 710 s | 971 s |
+| Logical utilization: cpu, postgres | 79%, 72% | 56%, 46% |
+| PostgreSQL units: queue (logical) | 35,559 unit-s | 75,107 unit-s |
+| PostgreSQL units: `host_admission` | 4,139 unit-s | 3,325 unit-s |
+| At physical `postgres` denials: resident lanes, active lanes | 7–8, 7–9 | 10–12, 4–5 |
+
+The logical layer now admitted less, yet physical admission still denied:
+exclusive generations stay resident after their unit completes until the
+cleanup dispatcher drains them, and those drains need admission themselves. A
+logical copy of the resident rules releases at unit completion and cannot see
+that asynchronous retirement, so the two ledgers still disagree, now in the
+other direction. Reverted in `0e193c15b`. The lesson for the design: resident
+lifetime, retirement and admission must live in one ledger with one authority
+(Stage 3), with retirement completing inside that ledger rather than
+asynchronously beside it.
+
+## 7. Stage 1 scope: a clean Go planner
 
 **Decision (owner, 2026-11-23): Stage 0, then a Go planner.** The planner
 is designed from the NLSpec's requirements, not ported: a current behaviour
@@ -229,6 +255,13 @@ modules: graph logic (about 3,200), catalog and selector resolution (about
 each prepare), topology, browser, fixture and shard packing (about 1,250),
 and input resolution (about 500). It validates about 20 schemas at plan time
 that have no Go validator yet. About 15 other JavaScript tools call into it.
+
+**Node.** Node is not kept because the NLSpec names it (owner, 2026-11-23).
+It remains only where the tool under test is itself Node: running Vitest and
+Playwright. Harness logic that runs in Node today (the planner, the row runner
+that wraps `go test`, evidence and diagnostics tools, generated-artifact
+renderers) moves to Go as each milestone reaches it, and REQ-852's Node
+ownership clause is amended with milestone 1.
 
 **What the planner is.** A pure Go package that turns authored inputs (owner
 model, topology, catalog rows, task surface, capacity snapshot, measured
@@ -301,7 +334,11 @@ a row but is named by no row is no longer detected. Unit identities and cache ke
 About 15 JavaScript readers must move to the CLI or the retained plan in
 Stage 2; `operations.mjs` run-time dispatch is not planner code and stays.
 
-## 7. Decisions requested
+## 8. Decisions requested
 
-- Adopt Option B (staged Go replacement) or Option A.
-- Start with Stage 0 (footprint-aware logical admission) before any rewrite.
+- Decided 2026-11-23: Option B (staged Go replacement); Stage 0 tried and
+  reverted; TypeScript source parsing removed from the NLSpec; Node kept only
+  for running Vitest and Playwright.
+- Open: whether the single-authority scheduler (Stage 3) moves ahead of the
+  planner milestones, since it holds the measured wall-time cost and the
+  planner rewrite alone does not remove it.
