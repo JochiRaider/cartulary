@@ -183,6 +183,7 @@ type graphEngine struct {
 	shared                    map[string]int
 	exclusive                 map[string]bool
 	running, eligible         map[string]bool
+	released                  map[string]bool
 	waits                     map[string]waitDetails
 	activities                map[string]string
 	activityWait              map[string]string
@@ -208,7 +209,7 @@ func executeGraph(ctx context.Context, plan *Plan, ports enginePorts) (graphResu
 	defer cancel()
 	e := &graphEngine{plan: plan, ports: ports, ctx: ctx, cancel: cancel, mailbox: make(chan engineMessage, 256),
 		byID: map[string]unit{}, ranks: map[string]int64{}, eligibleAt: map[string]int64{}, claims: map[string]int64{},
-		shared: map[string]int{}, exclusive: map[string]bool{}, running: map[string]bool{}, eligible: map[string]bool{},
+		shared: map[string]int{}, exclusive: map[string]bool{}, running: map[string]bool{}, eligible: map[string]bool{}, released: map[string]bool{},
 		waits: map[string]waitDetails{}, activities: map[string]string{}, activityWait: map[string]string{}, starts: map[string]*int64{}, phase: "executing",
 		result: graphResult{States: map[string]string{}, Units: map[string]unitResult{}, Admissions: []string{}, Events: []map[string]any{}, Cleanup: []cleanupRecord{}}}
 	for _, u := range plan.facts.Graph.Units {
@@ -380,8 +381,13 @@ func (e *graphEngine) computeRanks() {
 	}
 }
 func terminalState(s string) bool { return s != "pending" && s != "running" }
+
+// A quiet unit becomes ready at the first decision at which its dependencies
+// are satisfied and no ordinary unit is ready, and stays ready (REQ-806).
+// Ordinary work runs before quiet work; quiet units released together run as
+// one block, because the work they unblock waits behind the released barrier.
 func (e *graphEngine) ready() []unit {
-	ready := []unit{}
+	candidates, ordinary := []unit{}, false
 	for _, u := range e.plan.facts.Graph.Units {
 		if e.result.States[u.ID] != "pending" {
 			continue
@@ -395,8 +401,19 @@ func (e *graphEngine) ready() []unit {
 			}
 		}
 		if ok {
-			ready = append(ready, u)
+			candidates = append(candidates, u)
+			ordinary = ordinary || !u.quiet()
 		}
+	}
+	ready := candidates[:0]
+	for _, u := range candidates {
+		if u.quiet() && !e.released[u.ID] {
+			if ordinary {
+				continue
+			}
+			e.released[u.ID] = true
+		}
+		ready = append(ready, u)
 	}
 	return ready
 }

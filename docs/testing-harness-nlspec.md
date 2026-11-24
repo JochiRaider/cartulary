@@ -1249,8 +1249,12 @@ cannot overlap the fixed-profile credential measurement. A
 `browser_measurement_quiet` session MUST hold `host_activity` in
 exclusive mode from reset through fixture preparation, readiness and traffic
 stabilization, warm-up, measured operations, artifact finalization, cleanup,
-and lease release. Once an exclusive waiter is ready, later shared work MUST
-NOT backfill ahead of it. A central graph validator MUST reject host-active work
+and lease release. A unit holding `host_activity` in exclusive mode becomes
+ready at the first scheduling decision at which its dependencies are satisfied
+and no unit holding `host_activity` in shared mode is ready, and it stays ready
+afterward. Ordinary work therefore runs before quiet work, and the quiet units
+released together run as one block. Once an exclusive waiter is ready, later
+shared work MUST NOT backfill ahead of it. A central graph validator MUST reject host-active work
 without exactly one valid `host_activity` mode; constructors MUST resolve the
 mode and numeric claims from the catalog topology profile instead of restating
 them locally.
@@ -6304,8 +6308,10 @@ run after every session reaches a terminal state, and the parent target summary
 MUST run after every evidence finalizer reaches a terminal state.
 
 Resource admission uses the ranked resource-fit and starvation-prevention rules
-in TH-HARNESS-REQ-802. A ready unit that does not fit holds no resource. Ready
-exclusive `host_activity` waiters bar later shared work. FIFO reservation,
+in TH-HARNESS-REQ-802. A ready unit that does not fit holds no resource. An
+exclusive `host_activity` unit becomes ready only when no shared
+`host_activity` unit is ready (TH-HARNESS-REQ-806). Ready exclusive
+`host_activity` waiters bar later shared work. FIFO reservation,
 high-water drain barriers, preemption, and capacity held for a dependency-blocked
 or not-yet-ready unit are unsupported. Product work has one scheduler attempt. A dependency failure emits `skipped_dependency`; an
 interrupt emits `cancelled`; an ordinary scheduler watchdog emits

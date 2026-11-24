@@ -232,22 +232,40 @@ func TestRuntimeScheduling(t *testing.T) {
 			t.Fatalf("%+v", r.Failure)
 		}
 	})
-	t.Run("exclusive_waiter_precedes_shared_backfill", func(t *testing.T) {
-		a, b := engineUnit("a", 10000), engineUnit("b", 1)
-		b.SharedLocks = []string{}
-		b.ExclusiveLocks = []string{"host_activity"}
-		r := boundedGraph(t, enginePlan(a, b), enginePorts{RetainEvents: true, Execute: func(context.Context, executionRequest) unitResult { return unitResult{Status: "passed"} }})
-		found := false
-		for _, e := range r.Events {
-			if e["unit_id"] == "a" && e["wait_reason"] == "exclusive_barrier" {
-				found = true
+	quietUnit := func(id string, estimate int64, needs ...string) unit {
+		u := engineUnit(id, estimate, needs...)
+		u.SharedLocks, u.ExclusiveLocks = []string{}, []string{"host_activity"}
+		return u
+	}
+	passing := func(context.Context, executionRequest) unitResult { return unitResult{Status: "passed"} }
+	// TH-HARNESS-REQ-806: quiet work is not ready while ordinary work is ready,
+	// whatever its rank; once released, it still bars later shared work.
+	t.Run("quiet_work_waits_for_ordinary_work_then_bars_later_shared_work", func(t *testing.T) {
+		r := boundedGraph(t, enginePlan(engineUnit("a", 10), quietUnit("q", 10000), engineUnit("c", 10, "a")), enginePorts{RetainEvents: true, Execute: passing})
+		if !slices.Equal(r.Admissions, []string{"a", "q", "c"}) || r.Status != "passed" {
+			t.Fatal(r.Admissions, r.Status)
+		}
+		eligible, barred := -1, false
+		for i, e := range r.Events {
+			if e["unit_id"] == "q" && e["event"] == "eligible" {
+				eligible = i
 			}
+			if e["unit_id"] == "a" && e["event"] == "admitted" && eligible >= 0 {
+				t.Fatal("quiet unit became ready while ordinary work was ready")
+			}
+			barred = barred || e["unit_id"] == "c" && e["wait_reason"] == "exclusive_barrier"
 		}
-		if !found {
-			t.Fatal("exclusive barrier not attributed")
+		if eligible < 0 || !barred {
+			t.Fatal("quiet release or barrier not attributed", eligible, barred)
 		}
-		if !slices.Equal(r.Admissions, []string{"b", "a"}) {
-			t.Fatal(r.Admissions)
+	})
+	// Quiet units released together stay ready, so the summary that one of them
+	// unblocks waits behind the others instead of splitting the quiet block.
+	t.Run("quiet_units_released_together_run_as_one_block", func(t *testing.T) {
+		p := enginePlan(engineUnit("a", 1), quietUnit("q1", 20), quietUnit("q2", 10), engineUnit("s1", 1, "q1"))
+		r := boundedGraph(t, p, enginePorts{Execute: passing})
+		if !slices.Equal(r.Admissions, []string{"a", "q1", "q2", "s1"}) || r.Status != "passed" {
+			t.Fatal(r.Admissions, r.Status)
 		}
 	})
 	t.Run("exclusive_barriers_name_only_overlapping_ready_owners", func(t *testing.T) {

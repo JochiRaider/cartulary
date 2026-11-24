@@ -74,6 +74,11 @@ type unit struct {
 	// JavaScript-planned unit, whose admission derives them from Physical.
 	Residents []harnessfixtures.Resident `json:"-"`
 }
+
+// quiet reports a unit that holds host_activity in exclusive mode: a quiet
+// measurement session or another fixed-profile quiet operation.
+func (u unit) quiet() bool { return slices.Contains(u.ExclusiveLocks, "host_activity") }
+
 type workGraph struct {
 	Schema   string `json:"schema_id"`
 	Selector string `json:"selector"`

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"maps"
-	"slices"
 	"time"
 )
 
@@ -60,7 +59,7 @@ func (e *graphEngine) work(u unit, c cacheResult) {
 		}
 		_ = e.send(engineMessage{ID: u.ID, Cleanup: &record})
 	}
-	quiet := slices.Contains(u.ExclusiveLocks, "host_activity")
+	quiet := u.quiet()
 	if quiet && e.ports.Pause != nil {
 		if err := e.ports.Pause(e.ctx); err != nil {
 			setFailure(err)

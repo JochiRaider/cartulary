@@ -1190,6 +1190,56 @@ not rerun for Stage 2; the 4e run already covers the Go plans they execute.
 **Not in Stage 2.** Scheduler redesign (one admission decision, capacity-based
 browser lanes, overlapping measurement with builds): Stage 3.
 
+### Wall-clock: quiet work last
+
+The owner set wall-clock reduction ahead of further expensive runs (2026-11-24):
+targeted tests verify each change, and `release-check` reruns only after real
+progress.
+
+**Profile of the 4e run (4,717 s).** The 35 units holding `host_activity`
+exclusively (33 measurement sessions, the credential-capacity operation and the
+measurement target summary) became exclusive barriers as soon as their
+dependencies finished. Four measurement sessions need no snapshot and were
+ready at 120 s, which barred all shared work; their lock then waited for the
+running shared units to drain, the last being the 569 s evidence-heavy snapshot
+build. The host ran 2–17 units on about 2 CPU tokens from 120 s to 576 s. The
+sessions then ran one at a time until 2,601 s (742 s of it fixture
+acquisition, 69 s release, 1,205 s Playwright). Behind the barrier, 551 shared
+units aged about 2,600 s each, so after measurement aging, not critical-path
+rank, ordered them: the webserver-backed browser chain, the critical path,
+waited 789 s for CPU behind the Go units. Measurement estimates were 30 times
+the actual durations (`evidence_estimates_ms.measurement` 1,800,000 ms against
+a 36.5 s mean runner time); Go, Vitest and browser estimates were within
+1.0–1.7 times.
+
+**Simulation.** A replay of the recorded unit durations under the engine's
+logical rules (ranked choice with backfill, claims, shared and exclusive locks,
+aging) gives 4,961 s for the current rules and 4,295–4,304 s with quiet work
+last (−13%). Correcting the estimate alone changes nothing, because the
+barrier ignores rank; a rank-aware barrier ran longer (5,268–5,803 s) because it
+interleaves drains. The simulation ignores host admission and contention.
+
+**Decision and change (A21).** A unit holding `host_activity` exclusively
+becomes ready at the first scheduling decision at which its dependencies are
+satisfied and no shared `host_activity` unit is ready, and stays ready; the
+no-backfill barrier is unchanged. Release is sticky so the measurement summaries
+that each session unblocks wait behind the released block instead of forcing a
+drain per session. The engine's `ready()` holds unreleased quiet units back and
+records the release; eligibility and aging start there. The measurement class
+estimate is now 40,000 ms.
+
+Checks: `TestRuntimeScheduling` (new cases: quiet work waits for ordinary work
+then bars later shared work; quiet units released together run as one block),
+the native-runtime and Go-planner rows, the graph-contract row,
+`make lint CHECK=go`, `source-check CHECK=generated` and `lint-markdown`: all
+pass.
+
+**Next wall-clock levers.** The quiet block itself (about 2,000 s, serial):
+per-session snapshot clone and bucket restore (about 22 s each) and session
+start with traffic stabilization (about 20 s for a 153 ms single observation).
+The webserver-backed chain (pure dependency path 1,447 s; lane loads up to
+1,005 s on four lanes).
+
 ## 9. Decisions requested
 
 - Decided 2026-11-23: Option B (staged Go replacement); Stage 0 tried and
