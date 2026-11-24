@@ -485,10 +485,55 @@ owner-boundaries row passes its owner-schema test but fails on private browser
 imports in `installed-readiness.mjs` from `a5df06952` (on main, unrelated;
 tracked as its own task).
 
-**Remaining milestone 2 slices.** 2c: preparation facts in Go (task-surface
-command inputs and input environment, run identity, source snapshot and
-provenance, launch bindings, host profile, Go worker budget) and a
-`harnessplan.Prepare` entry point. 2d: cache facts (cache profiles, input
+**Milestone 2, slice 2c: preparation in Go (2026-11-23).**
+`harnessplan.Prepare(root, request, now, pid)` turns a graph invocation into a
+validated plan without Node. The request carries the runtime's environment, so
+the planner reads nothing from the process environment.
+
+- *Selection.* `Selection` is now rows plus targets (operations or private
+  unions) plus inputs forwarded to the selected operations. A preparation
+  layer resolves requests into it: `command` through the command's selection
+  binding (owner slices with OWNER and ROWS, fixed and input-keyed private
+  selections flattened to rows and operations), `target` (operation, union,
+  or a public operation command with its argv inputs forwarded), `owner` and
+  `rows`. It also applies `explicit_only` placement, SCOPE=services and the
+  GO_SHUFFLE_SEED Go-only rule. `make test-slice` reaches the runtime as a
+  `command` selection, so this is what Go owner slices need.
+- *Inputs.* The task-surface owner is loaded with the planning inputs, and the
+  topology's browser lane policy is projected onto every BROWSER_LANES input.
+  The resolver applies Make origins, allowed sources, defaults, empty-string
+  rules, normalization, the seven input types graph commands declare (any
+  other type fails closed) and input constraints. Public preflight keeps
+  filesystem admission of path inputs. Declared inputs, redacted where
+  declared, go to the manifest. The unit input environment clears every public
+  input and forwards this command's runtime inputs. Cache, instrumentation and
+  service mode come from the resolved inputs, not the raw environment.
+- *Facts.* Source snapshot and provenance (`git ls-files` under the
+  executable-input pathspec, documentation pruned by Git before enumeration,
+  parallel hashing with change detection, nested repositories rejected); run
+  identity; Go worker budget under a nested admission lease; owned or attached
+  test services (attachment only for the selections the NLSpec names, with a
+  session file that reaches no symbolic link); launch bindings; Go host
+  profile; toolchain digest; instrumentation policy.
+- *Not yet.* Cache facts are slice 2d: until then `Prepare` accepts only cache
+  mode off and reports `ErrUnsupported` otherwise. Aggregates are milestone 3.
+  Selections that admit `explicit_only` rows by name (the visual and UI-review
+  suites) are a milestone 4 decision, since their rows are Playwright rows.
+  `harnessdiag` keeps its own narrow input parser. Folding it into the
+  planner's resolver is a later consolidation.
+
+Tests: `TestInputResolution` (origins, sources, defaults, normalization,
+types, constraints over a synthetic contract), `TestSourceSnapshot` (a
+temporary Git repository: restricted roots, documentation, ignored, deleted,
+untracked and symbolic-link entries, modes, clean and dirty state, nested
+repository), `TestPlanPreparation` (a test-slice owner slice prepares a
+schema-valid plan whose owner-request form compiles the same graph; a public
+operation command; thirteen rejections, each on its intended rule), and a
+forwarded-input case in `TestPlannerCompilation`. Checks: `make lint
+CHECK=go`, the planner row (executed, cache miss), `source-check`
+`generated` and `catalog`; all pass.
+
+**Remaining milestone 2 slices.** 2d: cache facts (cache profiles, input
 digests, `go list -deps` closures for Go units). 2e: the runtime calls the
 planner in-process for Go-planned slices behind a planner selector, writes
 `plan.json` to the run root, and reads residents by key; that removes the

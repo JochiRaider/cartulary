@@ -24,15 +24,19 @@ const (
 	topologyPath        = "tools/execution_topology_manifest.json"
 	registryPath        = "tools/scheduler_resource_registry.json"
 	catalogRegistryPath = "tools/test_catalog_owner.json"
+	taskSurfacePath     = "tools/task_surface_owner.json"
 	maxInputBytes       = 16 << 20
 )
 
 // Inputs is the validated authored model a plan is built from.
 type Inputs struct {
-	Owner    Owner
-	Topology Topology
-	Registry ResourceRegistry
-	Catalog  Catalog
+	Owner       Owner
+	Topology    Topology
+	Registry    ResourceRegistry
+	Catalog     Catalog
+	TaskSurface TaskSurface
+	// rowIndex finds a catalog row by ID.
+	rowIndex map[string]int
 }
 
 // ErrInput reports an authored input that cannot be read or violates a
@@ -51,11 +55,19 @@ func Load(root string) (*Inputs, error) {
 	if err := readDocument(root, registryPath, "cartulary.scheduler_resource_registry.v9", &inputs.Registry); err != nil {
 		return nil, err
 	}
+	if err := readDocument(root, taskSurfacePath, "cartulary.task_surface_owner.v4", &inputs.TaskSurface); err != nil {
+		return nil, err
+	}
+	inputs.TaskSurface.projectBrowserLanes(inputs.Topology.BrowserLanePolicy)
 	catalog, err := loadCatalog(root)
 	if err != nil {
 		return nil, err
 	}
 	inputs.Catalog = catalog
+	inputs.rowIndex = make(map[string]int, len(catalog.Rows))
+	for i, row := range catalog.Rows {
+		inputs.rowIndex[row.RowID] = i
+	}
 	if err := inputs.validate(); err != nil {
 		return nil, err
 	}
@@ -225,6 +237,13 @@ type Topology struct {
 	ServiceResourceMinimums map[string]map[string]int64 `json:"service_resource_minimums"`
 	PhysicalResourceClaims  map[string]map[string]int64 `json:"physical_resource_claims"`
 	RuntimeBinaries         []RuntimeBinary             `json:"runtime_binaries"`
+	BrowserLanePolicy       BrowserLanePolicy           `json:"browser_lane_policy"`
+}
+
+// BrowserLanePolicy bounds the browser lanes a command may request.
+type BrowserLanePolicy struct {
+	Default int64 `json:"default"`
+	Maximum int64 `json:"maximum"`
 }
 
 // ResourceProfile is a named set of active claims.
@@ -246,6 +265,7 @@ type RuntimeBinary struct {
 	ID                 string `json:"id"`
 	OutputMakeVariable string `json:"output_make_variable"`
 	ConsumerEnv        string `json:"consumer_env"`
+	DefaultOutputPath  string `json:"default_output_path"`
 	ProducerOperation  string `json:"producer_operation"`
 }
 

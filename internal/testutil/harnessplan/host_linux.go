@@ -78,3 +78,29 @@ func userProcessLimit() int64 {
 	}
 	return 0
 }
+
+// DetectHostProfile identifies the host a plan is prepared on: operating
+// system, architecture, kernel release and the distinct CPU models.
+func DetectHostProfile() HostProfile {
+	profile := HostProfile{Platform: runtime.GOOS, Architecture: runtime.GOARCH, KernelRelease: "unknown"}
+	var name unix.Utsname
+	if unix.Uname(&name) == nil {
+		if release := unix.ByteSliceToString(name.Release[:]); release != "" {
+			profile.KernelRelease = release
+		}
+	}
+	if data, err := os.ReadFile("/proc/cpuinfo"); err == nil {
+		scanner := bufio.NewScanner(bytes.NewReader(data))
+		for scanner.Scan() {
+			key, model, ok := strings.Cut(scanner.Text(), ":")
+			if ok && strings.TrimSpace(key) == "model name" && strings.TrimSpace(model) != "" {
+				profile.CPUModels = append(profile.CPUModels, strings.TrimSpace(model))
+			}
+		}
+	}
+	profile.CPUModels = dedupe(profile.CPUModels)
+	if len(profile.CPUModels) == 0 {
+		profile.CPUModels = []string{"unknown"}
+	}
+	return profile
+}

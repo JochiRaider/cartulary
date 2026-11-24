@@ -682,9 +682,12 @@
         "package": "./internal/testutil/harnessplan",
         "tests": [
           "TestCapabilityCapture",
+          "TestInputResolution",
           "TestPlanAssembly",
+          "TestPlanPreparation",
           "TestPlannerCompilation",
-          "TestPlannerInputs"
+          "TestPlannerInputs",
+          "TestSourceSnapshot"
         ]
       },
       "evidence_class": "unit",

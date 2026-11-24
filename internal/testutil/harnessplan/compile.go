@@ -17,12 +17,15 @@ var ErrSelection = errors.New("invalid harness selection")
 // (overhaul milestones 3 and 4: Vitest, Playwright, measurement rows).
 var ErrUnsupported = errors.New("not yet supported by the Go planner")
 
-// Selection names what to compile: exact rows, an owner slice (optionally
-// narrowed to rows), or an operation or private target union.
+// Selection names what to compile: catalog rows and operations or private
+// target unions. Preparation resolves public commands, owner slices and
+// command inputs into this form.
 type Selection struct {
-	Rows   []string
-	Owner  string
-	Target string
+	Rows    []string
+	Targets []string
+	// Forwarded are public command inputs passed to the selected operations'
+	// commands (not to the operations they depend on).
+	Forwarded map[string]string
 }
 
 // Options are the per-invocation facts compilation depends on.
@@ -40,7 +43,8 @@ func Compile(in *Inputs, selection Selection, options Options) (*Graph, error) {
 	if options.CPUTokens < 1 || options.GoVersion == "" {
 		return nil, fmt.Errorf("%w: compilation needs CPU tokens and a Go version", ErrSelection)
 	}
-	c := &compiler{in: in, options: options, units: map[string]*Unit{}, targets: map[string][]string{}, rows: map[string]*Row{}, shellRows: map[string][]*Row{}}
+	c := &compiler{in: in, options: options, units: map[string]*Unit{}, targets: map[string][]string{}, rows: map[string]*Row{}, shellRows: map[string][]*Row{},
+		selected: map[string]bool{}, forwarded: selection.Forwarded}
 	for i := range in.Catalog.Rows {
 		row := &in.Catalog.Rows[i]
 		c.rows[row.RowID] = row
@@ -48,22 +52,21 @@ func Compile(in *Inputs, selection Selection, options Options) (*Graph, error) {
 			c.shellRows[row.Selector.OperationID] = append(c.shellRows[row.Selector.OperationID], row)
 		}
 	}
-	var err error
-	switch {
-	case selection.Target != "" && selection.Owner == "" && len(selection.Rows) == 0:
-		_, err = c.target(selection.Target, nil)
-	case selection.Owner != "":
-		var rows []string
-		if rows, err = c.ownerRows(selection.Owner, selection.Rows); err == nil {
-			_, err = c.compileRows(rows, nil)
-		}
-	case len(selection.Rows) != 0 && selection.Target == "":
-		_, err = c.compileRows(selection.Rows, nil)
-	default:
-		err = fmt.Errorf("%w: select exactly one of rows, owner or target", ErrSelection)
+	if len(selection.Rows) == 0 && len(selection.Targets) == 0 {
+		return nil, fmt.Errorf("%w: the selection is empty", ErrSelection)
 	}
-	if err != nil {
-		return nil, err
+	for _, target := range selection.Targets {
+		c.selected[target] = true
+	}
+	for _, target := range dedupe(selection.Targets) {
+		if _, err := c.target(target, nil); err != nil {
+			return nil, err
+		}
+	}
+	if len(selection.Rows) != 0 {
+		if _, err := c.compileRows(selection.Rows, nil); err != nil {
+			return nil, err
+		}
 	}
 	graph := &Graph{Units: c.units}
 	if err := graph.validate(); err != nil {
@@ -80,19 +83,8 @@ type compiler struct {
 	targets   map[string][]string // target name -> its end units
 	rows      map[string]*Row
 	shellRows map[string][]*Row // operation -> shell rows that report it
-}
-
-func (c *compiler) ownerRows(owner string, narrow []string) ([]string, error) {
-	var rows []string
-	for _, row := range c.in.Catalog.Rows {
-		if row.OwnerID == owner && (len(narrow) == 0 || slices.Contains(narrow, row.RowID)) {
-			rows = append(rows, row.RowID)
-		}
-	}
-	if len(rows) == 0 || len(narrow) != 0 && len(rows) != len(narrow) {
-		return nil, fmt.Errorf("%w: owner %s has no such rows", ErrSelection, owner)
-	}
-	return rows, nil
+	selected  map[string]bool   // operations and unions named by the selection
+	forwarded map[string]string // inputs forwarded to selected operations
 }
 
 // target compiles an operation or a private union and returns its end units:
@@ -132,7 +124,7 @@ func (c *compiler) union(name string, members []TargetMember, stack []string) ([
 		case member.RowID != "":
 			rows = append(rows, member.RowID)
 		case member.Catalog != nil:
-			selected := c.catalogRows(*member.Catalog)
+			selected := c.in.catalogRows(*member.Catalog)
 			if len(selected) == 0 {
 				return nil, fmt.Errorf("%w: target %s selects no catalog rows", ErrSelection, name)
 			}
@@ -172,9 +164,9 @@ func (c *compiler) union(name string, members []TargetMember, stack []string) ([
 }
 
 // catalogRows selects rows by runner and, for Go, by suite.
-func (c *compiler) catalogRows(member CatalogMember) []string {
+func (in *Inputs) catalogRows(member CatalogMember) []string {
 	var rows []string
-	for _, row := range c.in.Catalog.Rows {
+	for _, row := range in.Catalog.Rows {
 		if row.Runner != member.Runner {
 			continue
 		}
@@ -274,6 +266,11 @@ func (c *compiler) operation(id string, stack []string) (string, error) {
 			"CARTULARY_OPERATION_DIGEST":             "sha256:" + digest(operation.Execution),
 			"CARTULARY_HARNESS_SERVICE_DEPENDENCIES": strings.Join(policy.ServiceDependencies, ","),
 		}},
+	}
+	if c.selected[id] {
+		for name, value := range c.forwarded {
+			unit.Command.Environment[name] = value
+		}
 	}
 	if rows := c.shellRows[id]; len(rows) != 0 {
 		ids := make([]string, len(rows))

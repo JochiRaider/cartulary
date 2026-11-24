@@ -54,7 +54,7 @@ func TestPlannerCompilation(t *testing.T) {
 	})
 
 	t.Run("an operation target compiles its dependency closure", func(t *testing.T) {
-		graph, err := Compile(inputs, Selection{Target: "harness.go_vulncheck"}, options)
+		graph, err := Compile(inputs, Selection{Targets: []string{"harness.go_vulncheck"}}, options)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -142,7 +142,7 @@ func TestPlannerCompilation(t *testing.T) {
 	})
 
 	t.Run("policy evidence outputs come from the policy unit", func(t *testing.T) {
-		graph, err := Compile(inputs, Selection{Target: "harness.go_vulncheck"}, options)
+		graph, err := Compile(inputs, Selection{Targets: []string{"harness.go_vulncheck"}}, options)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -150,6 +150,18 @@ func TestPlannerCompilation(t *testing.T) {
 		for _, output := range inputs.Owner.PolicyUnits["harness.go_vulncheck"].EvidenceOutputs {
 			if !slices.Contains(unit.EvidenceOutputs, output) {
 				t.Fatalf("operation unit lacks its policy's evidence output %s: %v", output, unit.EvidenceOutputs)
+			}
+		}
+	})
+
+	t.Run("forwarded inputs reach only the selected operations", func(t *testing.T) {
+		graph, err := Compile(inputs, Selection{Targets: []string{"harness.go_vulncheck"}, Forwarded: map[string]string{"GOVULNCHECK_DB": "/db"}}, options)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for id, unit := range graph.Units {
+			if got := unit.Command.Environment["GOVULNCHECK_DB"]; (id == "operation:harness.go_vulncheck") != (got == "/db") {
+				t.Fatalf("%s environment GOVULNCHECK_DB = %q", id, got)
 			}
 		}
 	})
@@ -212,8 +224,7 @@ func TestPlannerCompilation(t *testing.T) {
 		}
 		for name, selection := range map[string]Selection{
 			"unknown row":     {Rows: []string{"module.missing.unit.x"}},
-			"unknown target":  {Target: "harness.missing"},
-			"two kinds":       {Target: "harness.go_vulncheck", Rows: []string{"x"}},
+			"unknown target":  {Targets: []string{"harness.missing"}},
 			"empty selection": {},
 		} {
 			if _, err := Compile(inputs, selection, options); !errors.Is(err, ErrSelection) {
