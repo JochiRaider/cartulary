@@ -168,9 +168,11 @@ rows (no placement justification).
    gate keeps its source, supply-chain and compatibility checks.
 4. **Stage 2b** (work-graph tracker): the Go planner by default and readers on
    `plan.json`, so the verifier stops recompiling plans. Done 2026-11-24.
-5. **S4 Verifier and policy v2 (R1, R4).** Since Stage 2c the verifier
-   expands required private unions over their authored members; S4 removes
-   that expansion with the required operations. Required roots by command (`ci`,
+5. **S4 Verifier and policy v2 (R1, R4).** Done 2026-11-24: roots file v2
+   names the three roots, policy v2 keeps only the obligations, closure v2
+   records the roots by command, and the in-run readiness operation is gone
+   (its package-identity check is the verifier's). Stage 2c's union expansion
+   left with the required operations. Required roots by command (`ci`,
    `release-check`, `release-measure`), each complete and passing, one source
    digest and toolchain, every active measurement predicate, one package
    identity. `release_readiness_evidence` folds into the verifier's output.

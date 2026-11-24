@@ -1,0 +1,168 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.release_evidence_closure.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "status",
+    "source_digest",
+    "toolchain_digest",
+    "manifest_sha256",
+    "archive_sha256",
+    "roots",
+    "obligation_ids"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.release_evidence_closure.v2"
+    },
+    "status": {
+      "const": "pass"
+    },
+    "source_digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "toolchain_digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "manifest_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "archive_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "roots": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ci",
+        "release_check",
+        "release_measure"
+      ],
+      "properties": {
+        "ci": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "target",
+            "run_id",
+            "run_root",
+            "graph_digest",
+            "row_count"
+          ],
+          "properties": {
+            "target": {
+              "enum": [
+                "ci",
+                "release-check",
+                "release-measure"
+              ]
+            },
+            "run_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "run_root": {
+              "type": "string",
+              "minLength": 1
+            },
+            "graph_digest": {
+              "type": "string",
+              "pattern": "^sha256:[a-f0-9]{64}$"
+            },
+            "row_count": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "release_check": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "target",
+            "run_id",
+            "run_root",
+            "graph_digest",
+            "row_count"
+          ],
+          "properties": {
+            "target": {
+              "enum": [
+                "ci",
+                "release-check",
+                "release-measure"
+              ]
+            },
+            "run_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "run_root": {
+              "type": "string",
+              "minLength": 1
+            },
+            "graph_digest": {
+              "type": "string",
+              "pattern": "^sha256:[a-f0-9]{64}$"
+            },
+            "row_count": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "release_measure": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "target",
+            "run_id",
+            "run_root",
+            "graph_digest",
+            "row_count"
+          ],
+          "properties": {
+            "target": {
+              "enum": [
+                "ci",
+                "release-check",
+                "release-measure"
+              ]
+            },
+            "run_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "run_root": {
+              "type": "string",
+              "minLength": 1
+            },
+            "graph_digest": {
+              "type": "string",
+              "pattern": "^sha256:[a-f0-9]{64}$"
+            },
+            "row_count": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    "obligation_ids": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_.]+$"
+      }
+    }
+  }
+}

@@ -7,7 +7,6 @@ import { syncBuiltinESMExports } from "node:module";
 import { createScratch } from "../../harness/test-support/scratch.mjs";
 import { buildReaderEvidence, writeEvidenceFile } from "../../harness/observability/tests/retained-fixture.mjs";
 import { packageReceiptRoot, packageRunContext, publishPackageEvidence, readPackageJSON, readPackageReceipt, validatePackageReceipt, verifyPackageIdentity } from "../package-identity.mjs";
-import { validateLiveReleaseReadiness } from "../release-readiness-evidence.mjs";
 import { unpack } from "../package-release.mjs";
 
 const receipt = () => ({ schema_id: "cartulary.local_release_receipt.v1", manifest_sha256: "a".repeat(64),
@@ -90,7 +89,7 @@ test("package evidence is a strict bounded no-link snapshot and publication pres
  assert.deepEqual(fs.readFileSync(file), before);
 });
 
-test("package run context and live readiness require exact current typed evidence", t => {
+test("package run context requires exact current typed evidence", t => {
  const parent = createScratch(t, "cartulary-package-current-");
  const env = { CARTULARY_TEST_RESULTS_DIR: parent, CARTULARY_TEST_RUN_ID: "package-fixture", CARTULARY_HARNESS_GRAPH_CHILD: "1" };
  const runRoot = path.join(parent, env.CARTULARY_TEST_RUN_ID), m = manifest(env.CARTULARY_TEST_RUN_ID);
@@ -104,21 +103,6 @@ test("package run context and live readiness require exact current typed evidenc
  writeEvidenceFile(runRoot, "run-manifest.json", { ...m, run_id: "previous-run" });
  assert.throws(() => packageRunContext(env), /^Error: package run identity mismatch$/u);
  writeEvidenceFile(runRoot, "run-manifest.json", m);
- publishPackageEvidence(runRoot, "package", receipt());
- const consumers = ["standup-package-smoke", "standup-reference-pack-smoke", "standup-operational-recovery-smoke"];
- for (const name of consumers) writeEvidenceFile(runRoot, `${name}/artifacts/package.json`, receipt());
- validateLiveReleaseReadiness(env);
- assert.throws(() => validateLiveReleaseReadiness({ ...env, CARTULARY_HARNESS_GRAPH_CHILD: "0" }), /private graph operation/u);
- for (const name of consumers) {
-  const relative = `${name}/artifacts/package.json`;
-  fs.unlinkSync(path.join(runRoot, relative));
-  writeEvidenceFile(parent, `historical/${relative}`, receipt());
-  assert.throws(() => validateLiveReleaseReadiness(env), /admission failed/u);
-  writeEvidenceFile(runRoot, relative, { ...receipt(), archive_sha256: "f".repeat(64) });
-  assert.throws(() => validateLiveReleaseReadiness(env), /package identity mismatch/u);
-  writeEvidenceFile(runRoot, relative, receipt());
- }
- validateLiveReleaseReadiness(env);
 });
 
 test("a consumer reads its own package or a named passing release-check of the same source", t => {

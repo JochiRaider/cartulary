@@ -531,9 +531,6 @@
         "operation_id": "harness.seaweedfs_release_gate"
       },
       {
-        "operation_id": "harness.release_readiness_evidence"
-      },
-      {
         "row_id": "harness.release.behavior.benchmark_claim"
       },
       {
@@ -953,23 +950,6 @@
         }
       ],
       "estimated_work_ms": 10000,
-      "resource_profile_id": "standard",
-      "service_dependencies": [],
-      "postgres_isolation": "none"
-    },
-    "harness.release_readiness_evidence": {
-      "needs": [
-        "harness.cryptographic_policy_assessment",
-        "harness.license_report",
-        "harness.package_inspect",
-        "harness.sbom",
-        "harness.seaweedfs_release_gate",
-        "harness.standup_operational_recovery_smoke",
-        "harness.standup_package_smoke",
-        "harness.standup_reference_pack_smoke"
-      ],
-      "cache_policy": "none",
-      "estimated_work_ms": 3000,
       "resource_profile_id": "standard",
       "service_dependencies": [],
       "postgres_isolation": "none"
@@ -3721,29 +3701,6 @@
       },
       "kind": "artifact"
     },
-    "harness.release_readiness_evidence": {
-      "report_key": "release-readiness-evidence",
-      "execution": {
-        "prerequisites": [
-          "$(NODE_BIN)"
-        ],
-        "type": "step_command",
-        "mode": "run_step",
-        "step_label": "release-readiness-evidence",
-        "command": [
-          "$(NODE_BIN)",
-          "./tools/release-evidence/release-readiness-evidence.mjs"
-        ],
-        "exports": {
-          "CARTULARY_ALLOW_EXISTING_RUN_ROOT": "1",
-          "CARTULARY_TEST_RUN_ID": "$(CARTULARY_TEST_RUN_ID)"
-        },
-        "test_target": "self",
-        "success_summary": true,
-        "graph_entry": true
-      },
-      "kind": "policy"
-    },
     "harness.sbom": {
       "report_key": "sbom",
       "execution": {
@@ -4763,7 +4720,6 @@
           "tools/release-evidence/package-release.mjs",
           "tools/release-evidence/tests/test-package-release.mjs",
           "tools/release-evidence/package-identity.mjs",
-          "tools/release-evidence/release-readiness-evidence.mjs",
           "tools/release-evidence/tests/test-package-identity.mjs",
           "tools/release-evidence/package-archive.mjs",
           "tools/release-evidence/tests/test-package-archive.mjs",

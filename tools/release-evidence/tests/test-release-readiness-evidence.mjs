@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import assert from "node:assert/strict";
-import "./test-selected-evidence.mjs";
+import "./test-release-evidence.mjs";
 import "./test-package-operation.mjs";
 import "./test-package-release.mjs";
 import "./test-package-identity.mjs";

@@ -706,7 +706,7 @@
         },
         {
           "target": "release-evidence-verify",
-          "description": "verify selected retained release evidence without launching tests",
+          "description": "decide a release from its ci, release-check and release-measure roots without launching tests",
           "usage": "EVIDENCE_ROOTS_FILE=<path>"
         },
         {
@@ -10132,7 +10132,7 @@
       "name": "release-evidence-verify",
       "backing_scripts": [
         "tools/release-evidence/release-evidence-verify.mjs",
-        "tools/release-evidence/verify-selected-evidence.mjs",
+        "tools/release-evidence/verify-release-evidence.mjs",
         "tools/release-evidence/package-identity.mjs",
         "tools/harnessruntime/main.go"
       ],
@@ -11074,7 +11074,6 @@
         "tools/release-evidence/package-release.mjs",
         "tools/release-evidence/tests/test-package-release.mjs",
         "tools/release-evidence/package-identity.mjs",
-        "tools/release-evidence/release-readiness-evidence.mjs",
         "tools/release-evidence/tests/test-package-identity.mjs",
         "tools/release-evidence/package-archive.mjs",
         "tools/release-evidence/tests/test-package-archive.mjs",

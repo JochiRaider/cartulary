@@ -1416,22 +1416,22 @@
       "validation": "harness.json_shape_check"
     },
     {
-      "schema_id": "cartulary.release_evidence_closure.v1",
-      "path": "tools/schemas/cartulary.release_evidence_closure.v1.schema.json",
+      "schema_id": "cartulary.release_evidence_closure.v2",
+      "path": "tools/schemas/cartulary.release_evidence_closure.v2.schema.json",
       "classification": "public_contract",
       "producer": "targeted release evidence owner",
       "validation": "harness.json_shape_check"
     },
     {
-      "schema_id": "cartulary.release_evidence_roots.v1",
-      "path": "tools/schemas/cartulary.release_evidence_roots.v1.schema.json",
+      "schema_id": "cartulary.release_evidence_roots.v2",
+      "path": "tools/schemas/cartulary.release_evidence_roots.v2.schema.json",
       "classification": "public_contract",
       "producer": "targeted release evidence owner",
       "validation": "harness.json_shape_check"
     },
     {
-      "schema_id": "cartulary.release_qualification.v1",
-      "path": "tools/schemas/cartulary.release_qualification.v1.schema.json",
+      "schema_id": "cartulary.release_qualification.v2",
+      "path": "tools/schemas/cartulary.release_qualification.v2.schema.json",
       "classification": "owner_input",
       "producer": "targeted release evidence owner",
       "validation": "harness.json_shape_check"

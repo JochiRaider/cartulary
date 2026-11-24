@@ -481,13 +481,6 @@ export function writeStepArtifacts(context, details) {
             "json",
           )
         : null,
-      artifacts.release_readiness_evidence
-        ? fileArtifactRef(
-            "release_readiness_evidence",
-            artifacts.release_readiness_evidence,
-            "json",
-          )
-        : null,
     ],
     logArtifacts: Object.entries(artifacts)
       .filter(([key]) => key.endsWith("_log"))

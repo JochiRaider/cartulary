@@ -2039,7 +2039,7 @@ Verified by: TH-HARNESS-AC-101
 | run root                 | The directory `normalize_result_root(CARTULARY_TEST_RESULTS_DIR) / normalize_run_id(CARTULARY_TEST_RUN_ID)`.                                               |
 | harness artifact         | A file or directory produced by a harness run, child command, service, scheduler, test runner, or diagnostic tool.                                         |
 | retained artifact        | An artifact preserved after command exit for a specific result root, run ID, and target.                                                                   |
-| release-readiness evidence | A retained harness artifact that aggregates the selected product, frontend, accessibility, harness, release, and support evidence while preserving each record's owner-derived semantic effect. Visual and UI-Review evidence require explicit execution; a release-check pass does not imply their qualification. |
+| release-readiness evidence | The release verifier's closure over one complete, passing root of each of `ci`, `release-check` and `release-measure` for one source digest and one package identity. Visual and UI-Review evidence require explicit execution; a release closure does not imply their qualification. |
 | generated artifact       | A file produced from owner inputs by a generator and checked for drift.                                                                                    |
 | cache record             | A repo-local JSON record that proves a cache key, input digest, output digest, and profile-specific output contract for a local acceleration profile.      |
 | cacheable output         | A deterministic file or directory output whose digest is declared in a cache record and may be reused only when all profile validation succeeds.           |
@@ -5047,7 +5047,7 @@ Verified by: TH-HARNESS-AC-135
 | Network Flow auth-transition-control response        | Network Flow auth-transition-control route      | Network Flow fixture transcript or target-owned auth-transition-control dir | `cartulary.test.network_flow_auth_transition_control.v2`      | Control ID, exact boundary token, transition kind, actor ref, incident ref, resource kind/ref, optional correlation key, and `consume_once=true` | Retained only by the target or fixture transcript that arms route-time authorizations; never production API evidence. |
 | Network Flow audit-assertion-control response        | Network Flow audit-assertion-control route      | Network Flow fixture transcript or target-owned audit-assertion-control dir | `cartulary.test.network_flow_audit_assertion_control.v2`     | Assertion ID, assertion kind, event code, operation ref, actor ref, incident ref, resource kind/ref, baseline count, expected final count, optional correlation key, and `consume_once=true` | Retained only by the target or fixture transcript that arms exact-count or replay-silence assertions; never product audit evidence by itself. |
 | Frontend accessibility summary                       | Browser accessibility target                    | `browser-e2e-a11y/accessibility/frontend-accessibility-summary.json` | `cartulary.frontend_accessibility_summary.v4`                  | Active `rows[]`, `scenarios[]`, `keyboard_matrix[]`, `state_communication_checks[]`, `contrast_checks[]`, `violations[]`, and `artifact_refs[]` in schema-defined order | Retained for browser target.                                 |
-| Release-readiness projection                         | Unified scheduler                               | `target-summaries/release-readiness-evidence.json`                  | `cartulary.harness_target_summary.v1`                          | Exact producer-unit references, inclusive interval union, status, cache accounting, and evidence refs from the canonical run | Retained as part of the release-check canonical run; no parallel release-evidence format is written. |
+| Release closure                                      | `release-evidence-verify`                       | `release-evidence-verify/closure.json`                              | `cartulary.release_evidence_closure.v2`                        | The three admitted roots (target, run ID, graph digest, row count), source and toolchain digests, package identity and obligation IDs | Retained in the verifier's own invocation root; the release commands publish no readiness projection. |
 | Network Flow fixture manifest                        | Network Flow fixture manifest validator         | `fixtures/network-flow/<fixture_id>/manifest.json`                  | `cartulary.network_flow_fixture_manifest.v2`                   | Fixture identity, source files, expected artifacts, transcript files, per-file SHA-256 values, and aggregate bundle hashes in canonical sorted order | Source fixture roots are committed and immutable after freeze; run-local materializations are retained under the selected target's run root. |
 | Generated manifest summaries                         | Generation/drift scripts                        | tool-specific target dirs                                       | JSON schemas declared by generated artifacts                  | Unknown fields rejected where shape tools enforce closure                             | Generated files remain checked in; summaries retained.       |
 | Logs                                                 | Shell, Go, scheduler, browser, service wrappers | target log dirs                                                 | diagnostic-only unless producer declares schema               | Logs are text after redaction; empty logs may be omitted                              | Retained unless cleanup removes result root.                 |
@@ -12236,8 +12236,31 @@ separate commands, and each runs once per source digest:
 - A thin `make release` MAY run missing stages with explicit run IDs and then
   call the verifier; it has no graph of its own.
 
-The `release` aggregate placement is retired (TH-HARNESS-REQ-800). Until the
-qualification policy, verifier and `make release` slices land, the targeted
-release amendment's verifier contract above stays in force, and the SeaweedFS
-recovery admission keeps its current `release-check` placement.
+The `release` aggregate placement is retired (TH-HARNESS-REQ-800). The
+SeaweedFS recovery admission keeps its `release-check` placement.
+
+### Verifier — 2026-11-24
+
+This replaces the targeted release amendment's verifier contract. Its roots
+file is `cartulary.release_evidence_roots.v2`, which names exactly the `ci`,
+`release_check` and `release_measure` roots, each relative to the file; a list
+of arbitrary roots is no longer admitted. The verifier admits each root only
+as a complete, passing invocation of its own command and current command ID,
+for the current source digest: its canonical run, retained plan, completed
+cleanup, passing retained-secret scan, and every selected unit and row passed.
+All three roots share one toolchain digest. The `release-measure` root's
+`RELEASE_RESULTS_DIR` resolves to the named `release-check` root. The package
+producer, archive inspection, the three standup consumers of `release-check`
+and the credential-capacity consumer of `release-measure` bind one manifest
+and archive digest; this replaces the in-run readiness operation, which is
+removed. Because each root is a complete run of its command, no list of
+required operations remains.
+
+The qualification policy becomes `cartulary.release_qualification.v2`: the
+obligations alone, as the capability map. Every obligation names existing rows
+of its owners, every owner has a row, and every obligation row MUST have
+passed in one of the three roots; an obligation no release command runs fails
+the release. The closure is `cartulary.release_evidence_closure.v2`: the
+admitted roots by command (target, run ID, graph digest and row count), the
+source and toolchain digests, the package identity and the obligation IDs.
 

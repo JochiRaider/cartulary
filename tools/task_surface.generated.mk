@@ -236,7 +236,7 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'  make package-release                assemble one immutable local archive with exact image inventories' \
 	'  make package-inspect                install and inspect the exact archive without a checkout or build tools' \
 	'  make release-evidence-verify' \
-	'                                      EVIDENCE_ROOTS_FILE=<path> verify selected retained release evidence without launching tests' \
+	'                                      EVIDENCE_ROOTS_FILE=<path> decide a release from its ci, release-check and release-measure roots without launching tests' \
 	'  make reference-pack-producer-build  reproduce and retain the immutable reference-pack producer executable' \
 	'  make reference-pack-module-check' \
 	'                                      MODULE=format qualify an exported reference-pack module without application source' \
