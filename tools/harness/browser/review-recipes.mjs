@@ -4,7 +4,7 @@ import { readFileSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import { buildSourceSnapshot } from "../test-catalog/index.mjs";
 import { coreReadiness, frontendBuildReadiness, browserReadiness, goReadiness, serviceImageReadiness } from "../readiness/installed-readiness.mjs";
-import { operationDefinition, operationExecutionDigest, readOperationOwner } from "../scheduler/work-graph/operations.mjs";
+import { operationDefinition, operationExecutionDigest, readOperationOwner } from "../execution/operations.mjs";
 import { reviewChild } from "./review-child.mjs";
 import { seedDesignReview } from "./design-review-seed.mjs";
 import { CommandFailure } from "../runtime/command-failure.mjs";

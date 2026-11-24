@@ -1,6 +1,5 @@
 import { createLaunchContext } from "../runtime/launch-context.mjs";
 import { spawnSync } from "node:child_process";
-import { WorkGraphCompiler } from "../scheduler/work-graph/index.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync, symlinkSync, chmodSync } from "node:fs";
@@ -103,9 +102,6 @@ export function registerCommandFailureTests() {
   });
   test("Govulncheck producer preserves scanner causes through its private diagnostic channel", { timeout: 60000 }, async (t) => {
     const { scratch, runtime, environment } = setup(t);
-    const compiler = new WorkGraphCompiler(root);
-    const canonical = compiler.compile({ kind: "target", target: "go-vulncheck" }).units.find((unit) => unit.unit_id === "operation:harness.go_vulncheck");
-    assert.deepEqual(compiler.compile({ kind: "aggregate", target: "check" }).units.find((unit) => unit.unit_id === canonical.unit_id), canonical, "direct and aggregate selection use the same scanner unit");
     const fakeGo = path.join(scratch, "go");
     const scanner = path.join(scratch, "govulncheck");
     const payload = path.join(scratch, "scanner-output");
@@ -139,7 +135,7 @@ export function registerCommandFailureTests() {
       rmSync(invoked, { force: true });
       const artifacts = path.join(scratch, scenario.name);
       const unit = {
-        ...canonical, needs: [], cache_policy: "none", resource_claims: { cpu: 1 }, timeout_ms: 10000,
+        unit_id: "operation:harness.go_vulncheck",
         command: { executable: "make", args: ["--silent", "--no-print-directory", "-f", makefile, "go-vulncheck"], environment: {
           CARTULARY_TEST_TARGET: "go-vulncheck", CARTULARY_HARNESS_CACHE_MODE: "off", NODE_BIN: process.execPath,
           GO: fakeGo, GOVULNCHECK_BIN: scenario.missingTool ? path.join(scratch, "absent") : scanner,
@@ -179,11 +175,13 @@ export function registerCommandFailureTests() {
   test("canonical shell row preserves artifact diagnostics and removes private captures", (t) => {
     const { scratch, runtime, runRoot, environment } = setup(t);
     const rowID = "package.protocol_ts.boundary_support.browser_bundle_excludes_protected_audit_and_revi_13733d4a6b";
-    const unit = new WorkGraphCompiler(root).compileRows([rowID]).units.find((value) => value.unit_id === `row:${rowID}`);
-    const env = {...process.env, ...environment, ...unit.command.environment, CARTULARY_HARNESS_RESOURCE_DEPENDENCIES: "[]"};
+    const env = {...process.env, ...environment, CARTULARY_TEST_ROWS: rowID, CARTULARY_TEST_TARGET: "protocol-ts-browser-artifact-reachability",
+      CARTULARY_HARNESS_SERVICE_DEPENDENCIES: "", CARTULARY_HARNESS_RESOURCE_DEPENDENCIES: "[]"};
     const launch = createLaunchContext({ repoRoot: root, environment: env, commandID: "cartulary.harness.command.lint.v3", producer: "unit" });
     Object.assign(env, launch.environment);
-    for (const key of ["MAKEFLAGS", "MAKEOVERRIDES", "MFLAGS"]) delete env[key];
+    // The enclosing operation's digest is not this row's; a row run outside a
+    // plan carries none.
+    for (const key of ["MAKEFLAGS", "MAKEOVERRIDES", "MFLAGS", "CARTULARY_OPERATION_DIGEST"]) delete env[key];
     const result = spawnSync(process.execPath, ["tools/harness/execution/runners/row-runner-cli.mjs", "--row-id", rowID], {cwd: root, env, encoding: "utf8", timeout: 10000});
     assert.equal(result.error, undefined);
     assert.equal(result.status, 11, result.stderr);

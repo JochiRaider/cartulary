@@ -143,6 +143,7 @@ export function registerBoundariesTests() {
       "cartulary.harness_execution_context.v1.schema.json",
       "cartulary.harness_execution_context.v2.schema.json",
       "cartulary.harness_execution_context.v3.schema.json",
+      "cartulary.harness_work_graph.v8.schema.json",
       "cartulary.harness_runtime_plan.v7.schema.json",
       "cartulary.harness_runtime_plan.v8.schema.json",
       "cartulary.harness_preparation_diagnostic.v1.schema.json",

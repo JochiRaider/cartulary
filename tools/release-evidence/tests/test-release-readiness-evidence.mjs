@@ -15,72 +15,17 @@ import "./test-package-deployment-lifecycle.mjs";
 import "./test-package-qualification.mjs";
 import path from "node:path";
 
-import { WorkGraphCompiler, selectionFor } from "../../harness/scheduler/work-graph/index.mjs";
+import { readOperationOwner } from "../../harness/execution/operations.mjs";
+import { loadTestCatalog } from "../../harness/test-catalog/index.mjs";
 
 const root = path.resolve(import.meta.dirname, "../../..");
-const compiler = new WorkGraphCompiler(root);
-// release-check is a command with a fixed release-only selection, not an aggregate.
-const plan = selectionFor({ selection: "command", target: "release-check" }, compiler);
-assert.ok(plan.projections["release-check"].length > 0);
-assert.ok(plan.projections["harness.release_readiness_evidence"].length > 0);
-assert.equal(plan.graph.units.filter((unit) => unit.unit_id === "operation:harness.release_readiness_evidence").length, 1);
-assert.equal(plan.graph.units.some((unit) => unit.command.args.includes("release-check")), false, "release evidence must not nest the release aggregate");
-
-// Both public assurance contexts select the same static contract assertions.
+// Readiness assertions have one static row and one registrar operation.
 const readinessRow = "harness.release.behavior.package_readiness_contract";
-const canonical = compiler.compileRows([readinessRow]).units.find(unit => unit.row_bindings.some(binding => binding.row_id === readinessRow));
-assert.deepEqual(compiler.catalog.rowByID.get(readinessRow).verification_ids, [
+assert.deepEqual(loadTestCatalog(root).rowByID.get(readinessRow).verification_ids, [
   "harness.release.verification.current_owner_evidence_only",
   "harness.release.verification.package_readiness_contract",
 ]);
-const registrarOperations = Object.entries(compiler.owner.operations)
+const registrarOperations = Object.entries(readOperationOwner(root).operations)
   .filter(([, operation]) => operation.execution.command?.some(arg => arg.endsWith("/test-release-readiness-evidence.mjs")))
   .map(([id]) => id);
 assert.deepEqual(registrarOperations, ["harness.assurance_release_readiness_evidence"], "one readiness registrar operation");
-const regression = compiler.compileTarget("harness.contract_regression");
-assert.deepEqual(regression.units.filter(unit => unit.row_bindings.some(binding => binding.row_id === readinessRow)), [canonical], "readiness assertions execute once through their canonical static row");
-assert.equal(plan.graph.units.some(unit => unit.row_bindings.some(binding => binding.row_id === readinessRow)), false, "release-check runs no ci self-test rows");
-
-const units = new Map(plan.graph.units.map((unit) => [unit.unit_id, unit]));
-const readinessClosure = new Set();
-function collectDependencies(id) {
-  if (readinessClosure.has(id)) return;
-  readinessClosure.add(id);
-  for (const dependency of units.get(id).needs) collectDependencies(dependency);
-}
-collectDependencies("operation:harness.release_readiness_evidence");
-for (const target of ["standup-package-smoke", "standup-operational-recovery-smoke", "standup-reference-pack-smoke"]) {
-  const executions = plan.graph.units.filter((unit) => unit.command.environment.CARTULARY_TEST_TARGET === `harness.${target.replaceAll("-", "_")}`);
-  assert.equal(executions.length, 1, `${target} must execute exactly once in the release`);
-  const unit = executions[0];
-  assert.match(unit.unit_id, /^row:harness\.release\.behavior\./u, "package evidence needs a semantic owner");
-  assert.ok(plan.projections[`harness.${target.replaceAll("-", "_")}`].includes(unit.unit_id), "package target must retain its canonical projection");
-  assert.ok(plan.projections["release-check"].includes(unit.unit_id), "package qualification must be release-required");
-  assert.ok(readinessClosure.has(unit.unit_id), "readiness must wait for qualification and cleanup");
-  assert.deepEqual(unit.service_dependencies, ["object_store", "postgres"]);
-  assert.ok(unit.resource_claims.object_store >= 2 && unit.resource_claims.postgres >= 2, "admit both isolated deployments");
-  assert.equal(unit.resource_claims.volume, 1, "require a writable volume capability");
-  assert.equal(unit.cache_policy, "none", "package qualification needs fresh execution evidence");
-  assert.ok(unit.needs.includes("operation:harness.package_release"), "qualify the immutable producer output");
-}
-
-const cryptographic = "operation:harness.cryptographic_policy_assessment";
-assert.ok(readinessClosure.has(cryptographic), "release readiness must require current cryptographic evidence");
-assert.ok(plan.projections["release-check"].includes(cryptographic));
-assert.equal(units.get(cryptographic).cache_policy, "none");
-// Credential capacity is quiet measurement: it runs in release-measure against
-// the package of a named release-check root, never beside release work.
-const capacityID = "operation:harness.credential_capacity_assessment";
-assert.equal(units.has(capacityID), false, "release-check carries no quiet credential measurement");
-const packageInspection = new WorkGraphCompiler(root, { targetInputs: { "package-inspect": { CHECK: "all" } } }).compileTarget("package-inspect");
-assert.equal(packageInspection.units.some(unit => unit.unit_id === capacityID), false, "package inspection selects only same-run consumers");
-const measureCompiler = new WorkGraphCompiler(root);
-measureCompiler.targetInputs["release-measure"] = { RELEASE_RESULTS_DIR: "/results/release-run" };
-const measure = selectionFor({ selection: "command", target: "release-measure" }, measureCompiler);
-const capacity = measure.graph.units.find(unit => unit.unit_id === capacityID);
-assert.ok(capacity, "release-measure includes credential capacity");
-assert.deepEqual(capacity.needs, [], "credential capacity consumes the named release-check package");
-assert.equal(measure.graph.units.some(unit => unit.unit_id === "operation:harness.package_release"), false);
-assert.equal(capacity.cache_policy, "none");
-assert.deepEqual(capacity.shared_locks, []);
-assert.deepEqual(capacity.exclusive_locks, ["host_activity"], "credential measurement excludes all other host-active graph work");

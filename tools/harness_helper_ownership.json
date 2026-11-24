@@ -2,14 +2,6 @@
   "schema_id": "cartulary.harness_helper_ownership.v1",
   "facades": [
     {
-      "key": "backend_go_lpt_shards",
-      "boundary_group": "backend",
-      "paths": [
-        "tools/harness/backend/go-lpt-shards.mjs"
-      ],
-      "allowed_consumers": []
-    },
-    {
       "key": "browser_batch_manifest",
       "boundary_group": "browser",
       "paths": [
@@ -51,16 +43,6 @@
       ],
       "allowed_consumers": [
         "tools/harness/output/test-output/playwright-artifacts.mjs"
-      ]
-    },
-    {
-      "key": "browser_scheduler_adapter",
-      "boundary_group": "browser",
-      "paths": [
-        "tools/harness/scheduler/adapters/browser.mjs"
-      ],
-      "allowed_consumers": [
-        "tools/harness/scheduler/adapters/browser.mjs"
       ]
     },
     {
@@ -192,14 +174,6 @@
       "paths": [
         "tools/harness/diagnostics/scheduler-event-order-drift-cli.mjs",
         "tools/harness/diagnostics/scheduler-summary-timing-drift-cli.mjs"
-      ],
-      "allowed_consumers": []
-    },
-    {
-      "key": "scheduler_work_graph",
-      "boundary_group": "scheduler",
-      "paths": [
-        "tools/harness/scheduler/work-graph/index.mjs"
       ],
       "allowed_consumers": []
     },

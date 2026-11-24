@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { hasMakeNodeTool } from "../../command-surface/make-node-tools.mjs";
-import { semanticJSONDigest } from "../../contract/index.mjs";
+import { hasMakeNodeTool } from "../command-surface/make-node-tools.mjs";
+import { semanticJSONDigest } from "../contract/index.mjs";
 
 /** Operation definitions belong to the graph owner, independently of command names. */
 export function readOperationOwner(root) {

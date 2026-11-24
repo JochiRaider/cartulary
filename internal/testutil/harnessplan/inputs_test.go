@@ -2,6 +2,7 @@ package harnessplan
 
 import (
 	"errors"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -125,6 +126,19 @@ func TestPlannerInputs(t *testing.T) {
 		"fixture builder with an unknown resource profile": func(in *Inputs) {
 			in.Fixtures.Builders = slices.Clone(in.Fixtures.Builders)
 			in.Fixtures.Builders[0].ResourceProfileID = "missing"
+		},
+		"browser reset with a second attempt": func(in *Inputs) {
+			in.Topology.BrowserResetPolicy = maps.Clone(in.Topology.BrowserResetPolicy)
+			in.Topology.BrowserResetPolicy["max_attempts"] = 2
+		},
+		"browser reset drain inside the shutdown deadline and margin": func(in *Inputs) {
+			reset := maps.Clone(in.Topology.BrowserResetPolicy)
+			reset["backend_drain_timeout_ms"] = reset["backend_shutdown_drain_seconds"]*1000 + reset["backend_drain_margin_ms"]
+			in.Topology.BrowserResetPolicy = reset
+		},
+		"browser reset without a readiness deadline": func(in *Inputs) {
+			in.Topology.BrowserResetPolicy = maps.Clone(in.Topology.BrowserResetPolicy)
+			delete(in.Topology.BrowserResetPolicy, "backend_readiness_timeout_ms")
 		},
 		"unit-aware profile without unit inputs": func(in *Inputs) {
 			for i, profile := range in.Cache.Profiles {

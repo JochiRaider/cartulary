@@ -10,26 +10,18 @@ import { observeRun, renderObservation, nativeBinary } from "./native-observatio
 import { liveSnapshotBytes, validateLiveSnapshot } from "../../contract/live-observation.mjs";
 import { validateSchemaSync, validateResultRoot } from "../../contract/index.mjs";
 import { atomicLocalFile } from "../../runtime/secure-local-files.mjs";
-import { buildWorkGraph } from "../../scheduler/work-graph/model.mjs";
 
 const root = path.resolve(import.meta.dirname, "../../../..");
 const digest = `sha256:${"a".repeat(64)}`;
 const zeroTiming = Object.fromEntries(["setup_ms", "fixture_ms", "execution_ms", "collation_ms", "wrapper_ms", "unattributed_ms", "resource_blocking_ms", "process_count"].map((key) => [key, 0]));
-const graphUnit = (id, needs = [], overrides = {}) => ({
-  unit_id: id, owner_id: "harness.evidence_accounting", kind: "runner",
-  command: { executable: "true", args: [], environment: {} }, needs,
-  resource_claims: { cpu: 1, process: 1 }, fixture_lease: "none", service_dependencies: [],
-  cache_policy: "none", timeout_ms: 1000, current_run_evidence_outputs: [],
-  failure_policy: { block_descendants: true, continue_independent: true, aggregate_effect: "required" },
-  estimated_work_ms: 10, ...overrides,
-});
 
 function fixture(t, count = 2) {
   const parent = mkdtempSync(path.join(os.tmpdir(), "cartulary-observation-"));
   t.after(() => rmSync(parent, { recursive: true, force: true }));
   const runRoot = path.join(parent, "selected");
   mkdirSync(runRoot, { mode: 0o700 });
-  const graph = buildWorkGraph(Array.from({ length: count }, (_, index) => graphUnit(`unit-${String(index).padStart(5, "0")}`)));
+  // Observation reads unit identities and the graph digest, never the planned graph.
+  const graph = { graph_digest: digest, units: Array.from({ length: count }, (_, index) => ({ unit_id: `unit-${String(index).padStart(5, "0")}` })) };
   const manifest = {
     schema_id: "cartulary.harness_run_manifest.v3", run_id: "selected", target: "test-slice",
     command_id: "cartulary.harness.command.test_slice.v1", declared_inputs: {},

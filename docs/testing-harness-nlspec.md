@@ -2759,13 +2759,11 @@ The scheduler helper rows below own harness orchestration only. They MUST NOT de
 
 | Helper family | Facade key | Owner boundary | Compatibility status | Observable behavior to preserve |
 | --- | --- | --- | --- | --- |
-| Backend Go compatible LPT shard planning. | `backend_go_lpt_shards` | Backend shard planner; work-graph compilation owns target selection and execution. | `owner_facade` | Exact selected-row closure, shard identities and ordering, capacity-derived planning, fixture policy, runtime-binary requirements, and public target-plan projections. |
 | Browser batch manifest loading, normalization, and target/stage metadata. | `browser_batch_manifest` | Browser manifest helper boundary; current canonical path `tools/harness/browser/browser-batch-manifest.mjs`. | `owner_facade` | `cartulary.browser_e2e_batch_manifest.v16`, catalog-derived semantic groups, exact selector files and row IDs, fixture capabilities, affinity, and reporting target/stage metadata. |
 | Browser execution compatibility projection shared by generation and runtime. | `browser_compatibility` | Pure browser compatibility facade; current canonical path `tools/harness/browser/browser-compatibility.mjs`. | `owner_facade` | The REQ-806 explicit compatibility tuple, effective execution requirements resolved from selected stages, current manifest schema identity and owner-independent selected-case grouping; reporting labels do not create compatibility partitions; no service, renderer or execution side effects. |
 | Browser owned-stack lifecycle, runtime identity proof, and reset controller. | `browser_lifecycle_adapter` | Browser lifecycle/test-route adapter facade. | `owner_facade` | `cartulary.web_e2e_stack.v8`, `cartulary.web_e2e_backend_generation.v2`, per-session startup event and terminal-diagnostic ownership, immutable attachment evidence, preview-mode startup, port ownership, runtime root/session files, process-group cleanup, runtime identity proof, backend replacement, reset diagnostics/taint, and Playwright state cleanup. |
 | Browser selection, trust-tool identity and visual-manifest observations. | `browser_owner_facade` | Browser owner facade. | `owner_facade` | Exact group selection, pinned trust identity and current visual manifest validation. |
 | Browser Playwright selection, webserver-batch execution, report parsing, and selection artifacts. | `browser_playwright_execution` | Browser Playwright execution plus test-output adapter boundary; current stable adapter `tools/harness/output/test-output/playwright-artifacts.mjs`. | `owner_facade` | Exact catalog row and scenario selection, Playwright runner report interpretation, selected-test title/file indexing, merged report behavior, owner summaries, stdout/stderr/output artifact paths, and failure normalization. |
-| Browser command, dependency and acquisition projection. | `browser_scheduler_adapter` | Scheduler browser adapter; work-graph browser compiler consumes this adapter. | `owner_facade` | Group, reset, finalizer, affinity, lease, evidence and producer dependencies; acquisition ownership and cleanup. Scheduler code imports browser behavior only through this adapter. |
 | Public Make Node-tool command registry, input filtering, child environment construction, and invocation argument synthesis. | `command_surface_node_tool_dispatch` | Command-surface helpers; current facade `tools/harness/command-surface/make-node-tools.mjs`. | `owner_facade` | Public Make node-tool input matrix parity, inherited-environment stripping, runtime-env forwarding, usage diagnostics, and generated Make dispatch behavior. |
 | Migration-history and schema-object ownership validation. | `database_contract_drift` | Generated-drift `database_contract_drift` sub-boundary. | `owner_facade` | Manifest schema IDs, current-line lineage validation, deterministic diagnostics when present, fresh and penultimate scratch migration behavior for `migration-drift`, and `source-check CHECK=schema` compatibility. |
 | Design-token generation. | `design_token_generation` | Generated-artifact design-token sub-boundary. | `owner_facade` | `contracts/design/tokens.v1.json` machine-registry loading and validation, generated token TypeScript content, machine-input provenance identity, atomic replacement, and generated-artifact drift behavior; executable helpers MUST NOT access `docs/`. |
@@ -2780,7 +2778,6 @@ The scheduler helper rows below own harness orchestration only. They MUST NOT de
 | Scheduler manifest, graph, resource, and capability helpers. | `scheduler_contract_helpers` | Scheduler manifest and resource helper facades; work-graph model is exposed through the work-graph facade. | `owner_facade` | `cartulary.scheduler_manifest.v3`, work-graph identity, resource-registry validation, capability snapshots, and canonical artifact references. |
 | Scheduler retained event/timing diagnostics. | `scheduler_evidence_drift` | Diagnostics helper boundary; current entrypoints `tools/harness/diagnostics/scheduler-event-order-drift-cli.mjs` and `tools/harness/diagnostics/scheduler-summary-timing-drift-cli.mjs`. | `owner_facade` | Event-order drift, summary timing drift, warm-run eligibility checks, lane/session accounting diagnostics, bounded output, and retained-run evidence requirements. |
 | Service-backed fixture and lifecycle planning. | `scheduler_fixture_broker` | Run-scoped fixture broker. | `owner_facade` | Explicit capability leases, pool replacement, contamination handling, borrowed resources, cleanup and graph dependencies. |
-| Canonical work-graph compilation, execution and evidence. | `scheduler_work_graph` | Work-graph facade. | `owner_facade` | Target and owner-slice planning, row selection and results, graph identity, child cancellation and logs, resource fitting, admission, events, finalizers, failure mapping, canonical artifacts and source-compatible retained evidence. |
 | Govulncheck findings normalization and redaction. | `static_analysis_security_findings` | Static-analysis/security sub-boundary. | `owner_facade` | Redaction behavior, blocking/non-blocking classification, exit-code mapping, `cartulary.govulncheck_findings.v1`, and `GOVULNCHECK_DB` as the current public vulnerability database override. |
 | Shared command runtime and step accounting. | `step_execution_runtime` | Execution runtime facade. | `owner_facade` | Timing spans, redaction, artifact directories, output modes, summaries, public exit codes and watchdog substrate. |
 | Cross-runner owner catalogs, row IDs, selectors, profiles, and slice planning. | `test_catalog` | Catalog and selection boundary. | `owner_facade` | Owner/verification/runner registry validation, exact selector resolution, profile resolution, catalog semantic digest, and immutable slice-plan semantics. |
@@ -3091,7 +3088,7 @@ The public commands, machine contracts, selection inputs, artifact paths, and sc
 Verified by: TH-HARNESS-AC-068, TH-HARNESS-AC-070
 
 **TH-HARNESS-REQ-074**
-Public command preflight MUST validate every target-local input, owner, row, selector, and profile before setup or child work. Removed inputs and unknown Make command-line inputs MUST fail as `usage_error`; undeclared inherited environment variables retain the Section 5 ignore rule. A caller MUST NOT obtain partial selection by supplying an invalid row.
+Public command preflight MUST validate every target-local input before setup or child work. The Go planner validates owners, rows, selectors and profiles when the runtime prepares the graph, before any run root or child work exists. Removed inputs and unknown Make command-line inputs MUST fail as `usage_error`; undeclared inherited environment variables retain the Section 5 ignore rule. A caller MUST NOT obtain partial selection by supplying an invalid row.
 Verified by: TH-HARNESS-AC-064, TH-HARNESS-AC-065
 
 **TH-HARNESS-REQ-075**
@@ -6584,14 +6581,12 @@ failure classes, evidence closure, and cleanup behavior remain exact.
 Verified by: TH-HARNESS-AC-061
 
 **TH-HARNESS-REQ-358**
-Scheduler-manifest growth gates MUST remain meaningful when an optimization
-reduces the number of ordinary work units. The report MUST retain total bytes,
-unit count, bytes per unit, per-kind p95, and maximum serialized-unit
-measurements. Scratch graph compiles MUST be byte-identical for the same
-semantic selection. A gate MUST compare like unit kinds and MUST NOT permit a
-reduced unit count to conceal growth in a wide unit. Thresholds are
-machine-owned policy inputs so future unit kinds can be added without revising
-this owner contract.
+Graph growth gates MUST remain meaningful when an optimization reduces the
+number of ordinary work units. The planner's growth test compiles `ci` twice
+under a fixed planning profile; the compiles MUST be byte-identical. Every
+unit's serialized size MUST fit its kind's allowance: a base, plus a linear
+allowance per bound row and per dependency. Bounding each unit means a reduced
+unit count cannot conceal growth in a wide unit.
 Verified by: TH-HARNESS-AC-061
 
 **TH-HARNESS-REQ-359**
@@ -7753,10 +7748,10 @@ MUST NOT replace the child exit or relax admission and cleanup boundaries.
 The Go planner owns source-aware compilation, graph modeling and selector
 validation for execution. It runs inside the runtime before any graph unit
 launches and keeps no catalog, closures or caches once the plan is adopted.
-Node owns row runners, runner-specific report adaptation and offline analysis,
-and keeps its graph compiler only for diagnostic and maintenance tools until
-the Go planner's command-line entry points replace them. Node rows continue
-validating their current selected inputs. Full public source preflight
+Node owns row runners, runner-specific report adaptation and offline analysis.
+Diagnostic and maintenance tools read a plan and host capacity from the
+harness binary (`plan` and `capacities`); Node has no graph compiler. Node rows
+continue validating their current selected inputs. Full public source preflight
 MUST NOT be replaced by metadata-only fixture access.
 Verified by: TH-HARNESS-AC-147
 
@@ -12006,9 +12001,24 @@ without `bindings` and `input_environment`, which are launch state
 `plan.json`, require its manifest to equal `run-manifest.json` and recompute
 its unit and graph digests. Runs planned before the switch can no longer be
 verified or finalized; release evidence already requires the current source
-digest. Node keeps its graph compiler only for diagnostic and maintenance
-tools until the Go planner's command-line entry points replace them
-(TH-HARNESS-REQ-852).
+digest.
+
+### Deletion — 2026-11-24
+
+The JavaScript planner is deleted, with its browser and Go packing helpers,
+graph v8 and the scheduler-growth report. The harness binary gains two
+entry points for Node tools. `cartulary-harness plan <graph arguments>` prints
+the published plan the runtime would execute and starts nothing; the
+`target-plan` diagnostic and the task guide's explicit commands read it.
+`cartulary-harness capacities [--override <file>]` prints the capability
+snapshot, the scheduler capacities it maps to and the host profile; the local
+service session, the UI-review owner and agent-finalize read it, so the
+snapshot-to-capacity mapping has one definition. Canonical run validation
+reconstructs pressure under the run summary's resolved capacities, which the
+retained plan binds to its own capacities. Operation dispatch moves to the
+execution owner unchanged. Until S4 replaces required operations with required
+roots, the release verifier expands a required private union over its authored
+operation, row and catalog-stage members; it never plans or compiles.
 
 ## SQL architecture analysis completeness
 

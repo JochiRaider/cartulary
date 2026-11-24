@@ -1832,7 +1832,8 @@
     },
     "agent-finalize": {
       "prerequisites": [
-        "$(NODE_BIN)"
+        "$(NODE_BIN)",
+        "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "step_command",
       "mode": "run_step",
@@ -2246,7 +2247,8 @@
     "task-guide": {
       "type": "owner_command",
       "prerequisites": [
-        "$(NODE_BIN)"
+        "$(NODE_BIN)",
+        "$(HARNESS_RUNTIME_BIN)"
       ],
       "runtime_readiness": "installed_only",
       "tool_id": "task-guide",
@@ -2260,7 +2262,9 @@
     },
     "target-plan": {
       "type": "node_tool",
-      "prerequisites": [],
+      "prerequisites": [
+        "$(HARNESS_RUNTIME_BIN)"
+      ],
       "runtime_readiness": "installed_only",
       "tool_id": "target-plan",
       "operation_id": "harness.target_plan"
@@ -3187,7 +3191,6 @@
       "backing_scripts": [
         "tools/harness/execution/runners/row-runner-cli.mjs",
         "tools/harnessruntime/main.go",
-        "tools/harness/scheduler/work-graph/index.mjs",
         "tools/harness/runtime/cleanup-results.mjs",
         "tools/harness/browser/browser-acquisition.mjs"
       ],
@@ -3369,7 +3372,6 @@
       "backing_scripts": [
         "tools/harness/execution/runners/row-runner-cli.mjs",
         "tools/harnessruntime/main.go",
-        "tools/harness/scheduler/work-graph/index.mjs",
         "tools/harness/runtime/cleanup-results.mjs",
         "tools/harness/browser/browser-acquisition.mjs"
       ],
@@ -3550,7 +3552,6 @@
       "backing_scripts": [
         "tools/harness/execution/runners/row-runner-cli.mjs",
         "tools/harnessruntime/main.go",
-        "tools/harness/scheduler/work-graph/index.mjs",
         "tools/harness/runtime/cleanup-results.mjs",
         "tools/harness/browser/browser-acquisition.mjs"
       ],
@@ -3731,7 +3732,6 @@
       "backing_scripts": [
         "tools/harness/execution/runners/row-runner-cli.mjs",
         "tools/harnessruntime/main.go",
-        "tools/harness/scheduler/work-graph/index.mjs",
         "tools/harness/runtime/cleanup-results.mjs",
         "tools/harness/browser/browser-acquisition.mjs"
       ],
@@ -3897,7 +3897,6 @@
       "backing_scripts": [
         "tools/harness/execution/runners/row-runner-cli.mjs",
         "tools/harnessruntime/main.go",
-        "tools/harness/scheduler/work-graph/index.mjs",
         "tools/harness/runtime/cleanup-results.mjs",
         "tools/harness/browser/browser-acquisition.mjs"
       ],
@@ -4080,7 +4079,6 @@
       "backing_scripts": [
         "tools/harness/execution/runners/row-runner-cli.mjs",
         "tools/harnessruntime/main.go",
-        "tools/harness/scheduler/work-graph/index.mjs",
         "tools/harness/runtime/cleanup-results.mjs",
         "tools/harness/browser/browser-acquisition.mjs"
       ],
@@ -4456,8 +4454,7 @@
         "tools/harness/execution/runners/row-runner-cli.mjs",
         "tools/harness/performance-fixture/snapshot-builder-cli.mjs",
         "tools/harness/runtime/cleanup-results.mjs",
-        "tools/harnessruntime/main.go",
-        "tools/harness/scheduler/work-graph/index.mjs"
+        "tools/harnessruntime/main.go"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -4715,8 +4712,7 @@
         "tools/harness/execution/runners/row-runner-cli.mjs",
         "tools/harness/performance-fixture/snapshot-builder-cli.mjs",
         "tools/harness/runtime/cleanup-results.mjs",
-        "tools/harnessruntime/main.go",
-        "tools/harness/scheduler/work-graph/index.mjs"
+        "tools/harnessruntime/main.go"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -4933,10 +4929,6 @@
         "tools/harness/runtime/command-failure.mjs",
         "tools/harness/runtime/tests/test-process-cleanup.mjs",
         "tools/harness/runtime/tests/test-producer-umask.mjs",
-        "tools/harness/scheduler/work-graph/tests/test-composition.mjs",
-        "tools/harness/scheduler/work-graph/tests/test-contracts.mjs",
-        "tools/harness/scheduler/work-graph/tests/test-scheduler-contracts.mjs",
-        "tools/harness/scheduler/work-graph/tests/tier-selection.mjs",
         "tools/harness/services/local-session-cli.mjs",
         "tools/harness/services/local-session.mjs",
         "tools/harness/services/tests/test-local-session.mjs",
@@ -4960,7 +4952,6 @@
         "tools/harness/tests/test-harness-command-surface-contracts.mjs",
         "tools/harness/tests/test-harness-evidence-contracts.mjs",
         "tools/harness/tests/test-harness-graph-contracts.mjs",
-        "tools/harness/tests/test-harness-scheduler-contracts.mjs",
         "tools/harness/tests/test-real-command-output.mjs",
         "tools/harnessruntime/main.go"
       ],
@@ -5144,7 +5135,6 @@
       "backing_scripts": [
         "tools/harness/execution/runners/row-runner-cli.mjs",
         "tools/harnessruntime/main.go",
-        "tools/harness/scheduler/work-graph/index.mjs",
         "tools/harness/runtime/cleanup-results.mjs",
         "tools/harness/browser/browser-acquisition.mjs"
       ],
@@ -7123,7 +7113,6 @@
       "backing_scripts": [
         "tools/harness/execution/runners/row-runner-cli.mjs",
         "tools/harnessruntime/main.go",
-        "tools/harness/scheduler/work-graph/index.mjs",
         "tools/harness/runtime/cleanup-results.mjs",
         "tools/harness/browser/browser-acquisition.mjs"
       ],
@@ -7270,7 +7259,6 @@
       "backing_scripts": [
         "tools/harness/execution/runners/row-runner-cli.mjs",
         "tools/harnessruntime/main.go",
-        "tools/harness/scheduler/work-graph/index.mjs",
         "tools/harness/runtime/cleanup-results.mjs",
         "tools/harness/browser/browser-acquisition.mjs"
       ],

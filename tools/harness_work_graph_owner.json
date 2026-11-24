@@ -230,9 +230,6 @@
         "operation_id": "harness.harness_observation_contract"
       },
       {
-        "operation_id": "harness.harness_scheduler_contract"
-      },
-      {
         "operation_id": "harness.assurance_dev_services_lifecycle"
       },
       {
@@ -1226,16 +1223,6 @@
       "service_dependencies": [],
       "postgres_isolation": "none"
     },
-    "harness.harness_scheduler_contract": {
-      "needs": [
-        "harness.frontend_install"
-      ],
-      "cache_policy": "none",
-      "estimated_work_ms": 10000,
-      "resource_profile_id": "harness_contract",
-      "service_dependencies": [],
-      "postgres_isolation": "none"
-    },
     "harness.harness_local_session_contract": {
       "needs": [
         "harness.frontend_install"
@@ -2118,7 +2105,8 @@
       "report_key": "agent-finalize",
       "execution": {
         "prerequisites": [
-          "$(NODE_BIN)"
+          "$(NODE_BIN)",
+          "$(HARNESS_RUNTIME_BIN)"
         ],
         "type": "step_command",
         "mode": "run_step",
@@ -2988,9 +2976,7 @@
           "$(NODE_BIN)",
           "--test",
           "--test-concurrency=1",
-          "./tools/harness/tests/test-harness-graph-contracts.mjs",
-          "tools/harness/scheduler/work-graph/tests/test-browser-selection.mjs",
-          "tools/harness/backend/tests/test-go-lpt-planning.mjs"
+          "./tools/harness/tests/test-harness-graph-contracts.mjs"
         ],
         "test_target": "self"
       },
@@ -3102,27 +3088,6 @@
           "./internal/testutil/harnessruntime",
           "./internal/testutil/harnessschema",
           "./internal/testutil/harnesssession"
-        ],
-        "test_target": "self"
-      },
-      "kind": "policy"
-    },
-    "harness.harness_scheduler_contract": {
-      "report_key": "harness-scheduler-contract",
-      "execution": {
-        "type": "step_command",
-        "prerequisites": [
-          "$(FRONTEND_INSTALL_STAMP)",
-          "$(HARNESS_RUNTIME_BIN)",
-          "$(NODE_BIN)"
-        ],
-        "mode": "run_step",
-        "step_label": "harness-scheduler-contract",
-        "command": [
-          "$(NODE_BIN)",
-          "--test",
-          "--test-concurrency=1",
-          "./tools/harness/tests/test-harness-scheduler-contracts.mjs"
         ],
         "test_target": "self"
       },
@@ -4029,7 +3994,9 @@
       "report_key": "target-plan",
       "execution": {
         "type": "node_tool",
-        "prerequisites": [],
+        "prerequisites": [
+          "$(HARNESS_RUNTIME_BIN)"
+        ],
         "runtime_readiness": "installed_only",
         "tool_id": "target-plan"
       },
@@ -4040,7 +4007,8 @@
       "execution": {
         "type": "owner_command",
         "prerequisites": [
-          "$(NODE_BIN)"
+          "$(NODE_BIN)",
+          "$(HARNESS_RUNTIME_BIN)"
         ],
         "runtime_readiness": "installed_only",
         "tool_id": "task-guide"

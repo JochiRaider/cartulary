@@ -1,4 +1,4 @@
-import { operationDefinition, readOperationOwner } from "../../scheduler/work-graph/operations.mjs";
+import { operationDefinition, readOperationOwner } from "../operations.mjs";
 
 export function buildShellInvocations(rows, root = process.cwd()) {
   const owner = readOperationOwner(root);

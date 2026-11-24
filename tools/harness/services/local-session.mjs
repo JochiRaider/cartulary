@@ -19,7 +19,7 @@ import path from "node:path";
 import { assertMachineEvidencePath, semanticJSONDigest, validateSchemaSync } from "../contract/index.mjs";
 import { acquireHostAdmission, processIdentity, processIdentityAlive, hostClaims, hostAdmissionRoot, inheritedHostLease, transactAdmission } from "../runtime/host-admission.mjs";
 import { lifecyclePolicy } from "../contract/generated/lifecycle-policy.mjs";
-import { captureCapabilitySnapshot, resourceCapacities } from "../scheduler/work-graph/capability.mjs";
+import { hostCapacity } from "../runtime/harness-binary.mjs";
 import { parseStrictJSON } from "../contract/index.mjs";
 import { atomicLocalFile, readLocalFile } from "../runtime/secure-local-files.mjs";
 import { recoverRuntime, borrowRuntime, createRuntime } from "../runtime/session-client.mjs";
@@ -520,7 +520,7 @@ export async function createLocalSession({ root, binary, sessionFile, environmen
     // Keep the starter's admitted envelope in the native weighted tree. The
     // durable allocation remains charged after that ancestor releases or dies.
     const parent = inheritedHostLease(environment);
-    const reservation = { schema_id: "cartulary.harness_resident_allocation.v2", admission_root: hostAdmissionRoot, allocation: { token: randomBytes(16).toString("hex"), reference: reservationFile, claims, capacities: hostClaims(Object.fromEntries(resourceCapacities(captureCapabilitySnapshot({root})))), parent } };
+    const reservation = { schema_id: "cartulary.harness_resident_allocation.v2", admission_root: hostAdmissionRoot, allocation: { token: randomBytes(16).toString("hex"), reference: reservationFile, claims, capacities: hostClaims(hostCapacity({ root }).capacities), parent } };
     writePrivateJSON(reservationFile, reservation);
     const residentRef = suiteRuntime.record({ kind: "resident_allocation", target: reservationFile, state: "pending", depends_on: [], recovery_files: [reservationFile] });
     suiteRuntime.record({ kind: "managed_suite", target: leaseFile, state: "pending", depends_on: [residentRef] });

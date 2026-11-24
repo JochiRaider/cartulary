@@ -5,6 +5,7 @@ package harnessruntime
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessplan"
@@ -25,4 +26,25 @@ func prepare(root string, args []string, environment map[string]string, mode, im
 		return nil, plannerFailure(err)
 	}
 	return adoptPlan(source)
+}
+
+// PlanInvocation plans the invocation the runtime would execute for graph
+// arguments args under environment, without executing or publishing
+// anything. A rejection carries the closed preparation diagnostic.
+func PlanInvocation(root string, args, environment []string) (*harnessplan.Plan, error) {
+	env := make(map[string]string, len(environment))
+	for _, entry := range environment {
+		if name, value, ok := strings.Cut(entry, "="); ok {
+			env[name] = value
+		}
+	}
+	request, err := planRequest(args, env)
+	if err != nil {
+		return nil, plannerFailure(fmt.Errorf("%w: %v", harnessplan.ErrSelection, err))
+	}
+	plan, err := harnessplan.Prepare(root, request, time.Now(), os.Getpid())
+	if err != nil {
+		return nil, plannerFailure(err)
+	}
+	return plan, nil
 }

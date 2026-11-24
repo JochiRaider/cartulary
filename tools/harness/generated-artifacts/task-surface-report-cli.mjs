@@ -17,7 +17,6 @@ import {
 } from "./task-surface/index.mjs";
 import { loadTestCatalog, targetForCatalogRow } from "../test-catalog/index.mjs";
 
-import { collectSchedulerGrowth } from "./scheduler-growth.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "../../..");
@@ -67,12 +66,6 @@ function main() {
     recipeByTarget,
     targetScriptRefs,
   });
-  // Invalid task inputs already fail the report. Do not compile unrelated
-  // canonical selections or claim structural measurements for that surface.
-  const schedulerGrowth = errors.length === 0
-    ? { status: "measured", ...collectSchedulerGrowth(repoRoot) }
-    : { status: "not_measured", reason: "invalid_task_surface", errors: [] };
-  errors.push(...schedulerGrowth.errors);
   const report = buildReport({
     errors,
     helpEntries,
@@ -81,7 +74,6 @@ function main() {
     phonyTargets,
     targetScriptRefs,
     makeDensity: taskSurfaceMakeDensity(manifest),
-    schedulerGrowth,
   });
 
   if (jsonMode) {
@@ -429,7 +421,6 @@ function buildReport({
   makeDensity,
   manifest,
   phonyTargets,
-  schedulerGrowth,
   targetScriptRefs,
 }) {
   const entriesByName = new Map((manifest.targets ?? []).map((entry) => [entry.name, entry]));
@@ -519,9 +510,6 @@ function buildReport({
       ),
     },
     generated_make_density: makeDensity,
-    scheduler_growth: Object.fromEntries(
-      Object.entries(schedulerGrowth).filter(([key]) => key !== "errors"),
-    ),
     catalog_target_partitions: catalogTargetPartitions,
   };
 }
@@ -551,12 +539,6 @@ function printHumanReport(report, { allMode = false } = {}) {
   console.log("generated Make density:");
   for (const [metric, value] of Object.entries(report.generated_make_density)) {
     console.log(`  ${metric}: ${value}`);
-  }
-
-  console.log("");
-  console.log("scheduler growth:");
-  for (const [metric, value] of Object.entries(report.scheduler_growth)) {
-    console.log(`  ${metric}: ${typeof value === "object" ? JSON.stringify(value) : value}`);
   }
 
   console.log("");

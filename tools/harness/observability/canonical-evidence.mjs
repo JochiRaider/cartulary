@@ -1,5 +1,4 @@
 import { parseStrictJSON } from "../contract/strict-json.mjs";
-import { resourceCapacities } from "../scheduler/work-graph/index.mjs";
 import path from "node:path";
 
 import { assertRetainedArtifactFile, readRetainedArtifactBytes, validateSchemaSync } from "../contract/index.mjs";
@@ -47,7 +46,9 @@ export async function validateCanonicalRun(runRoot, expectedTarget = "", { evide
   same(summary.critical_path, criticalPath, "critical path");
   same(summary.actual_dependency_critical_path_ms, pathDuration(criticalPath), "critical duration");
   same(summary.timing_accounting, canonicalTimingAccounting(eventState, graph, summary.wall_duration_ms), "timing accounting");
-  same(summary.resource_pressure, projectResourcePressure(eventState, graph, Object.fromEntries(resourceCapacities(manifest.capability_snapshot))), "reservation pressure");
+  // Capacities are the runtime's resolved capacities, which the retained plan
+  // binds (validateRetainedPlan); pressure must reconstruct from events under them.
+  same(summary.resource_pressure, projectResourcePressure(eventState, graph, summary.resource_pressure.resolved_capacity), "reservation pressure");
   if ([...eventState.phases.values()].some((phase) => phase.end_ms === null)) throw new Error("incomplete phase in finalized run");
   const counts = summary.unit_counts;
   const terminalCounts = { passed: 0, failed: 0, skipped: 0, cancelled: 0 };

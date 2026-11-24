@@ -8,6 +8,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -226,8 +227,20 @@ func TestPlanPreparation(t *testing.T) {
 				t.Fatalf("release-check carries quiet unit %s", unit.ID)
 			}
 		}
+		// Each standup smoke consumes the one package release-check produces,
+		// fresh, with its own services.
+		for _, id := range []string{"standup_package_smoke", "standup_reference_pack_smoke", "standup_operational_recovery_smoke"} {
+			unit, ok := release.Graph.Units["operation:harness."+id]
+			if !ok || !slices.Contains(unit.Needs, "operation:harness.package_release") || unit.CachePolicy != "none" ||
+				unit.Claims["object_store"] < 2 || unit.Claims["postgres"] < 2 || unit.Claims["volume"] != 1 {
+				t.Fatalf("release-check %s = %+v", id, unit)
+			}
+		}
 		capacity := false
 		for _, unit := range measure.Graph.Units {
+			if unit.ID == "operation:harness.credential_capacity_assessment" && (len(unit.Needs) != 0 || !slices.Contains(unit.ExclusiveLocks, "host_activity")) {
+				t.Fatalf("credential capacity must be a lone quiet unit: %+v", unit)
+			}
 			capacity = capacity || unit.ID == "operation:harness.credential_capacity_assessment"
 			if unit.ID == "operation:harness.package_release" {
 				t.Fatal("release-measure must consume release-check's package, not produce one")
@@ -238,6 +251,60 @@ func TestPlanPreparation(t *testing.T) {
 		}
 		if _, err := Prepare(root, Request{Kind: "command", Target: "release-measure", Environment: environment(nil)}, now, 42); err == nil {
 			t.Fatal("release-measure planned without the release-check root its package comes from")
+		}
+	})
+
+	t.Run("a shuffle seed is a positive 32-bit integer", func(t *testing.T) {
+		for _, seed := range []string{"0", "-1", "random", "1.5", "2147483648"} {
+			if _, err := Prepare(root, command(map[string]string{"OWNER": "harness.command_surface", "ROWS": row, "GO_SHUFFLE_SEED": seed}), now, 42); err == nil {
+				t.Fatalf("GO_SHUFFLE_SEED=%s was accepted", seed)
+			}
+		}
+		if _, err := Prepare(root, command(map[string]string{"OWNER": "harness.command_surface", "ROWS": row, "GO_SHUFFLE_SEED": "2147483647"}), now, 42); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	t.Run("host capacity is the capture a plan records", func(t *testing.T) {
+		capacity, err := CaptureHostCapacity(root, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !maps.Equal(capacity.Capacities, capacity.CapabilitySnapshot.Capacities()) || capacity.HostProfile.Platform != runtime.GOOS || capacity.HostProfile.Architecture != runtime.GOARCH {
+			t.Fatalf("capacity %+v", capacity)
+		}
+		plan, err := Prepare(root, command(map[string]string{"OWNER": "harness.command_surface", "ROWS": row}), now, 42)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if plan.Manifest.CapabilitySnapshot.SnapshotDigest != capacity.CapabilitySnapshot.SnapshotDigest || !slices.Equal(plan.HostProfile.CPUModels, capacity.HostProfile.CPUModels) {
+			t.Fatal("the plan records a different capture of the same host")
+		}
+		if _, err := CaptureHostCapacity(root, filepath.Join(t.TempDir(), "absent.json")); err == nil {
+			t.Fatal("an unreadable capacity override was accepted")
+		}
+	})
+
+	t.Run("package qualification produces one package for its consumers and the verifier launches nothing", func(t *testing.T) {
+		qualification, err := Prepare(root, Request{Kind: "command", Target: "package-inspect", Environment: environment(map[string]string{"CHECK": "all"})}, now, 42)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, id := range []string{"package_release", "package_inspect", "standup_package_smoke", "standup_reference_pack_smoke", "standup_operational_recovery_smoke"} {
+			if _, ok := qualification.Graph.Units["operation:harness."+id]; !ok {
+				t.Fatalf("package qualification lacks %s", id)
+			}
+		}
+		if _, ok := qualification.Graph.Units["operation:harness.credential_capacity_assessment"]; ok {
+			t.Fatal("credential capacity belongs to release-measure, not package qualification")
+		}
+		verify, err := Prepare(root, Request{Kind: "target", Target: "release-evidence-verify", Environment: environment(map[string]string{"EVIDENCE_ROOTS_FILE": ".cartulary/selected-evidence.json"})}, now, 42)
+		if err != nil {
+			t.Fatal(err)
+		}
+		unit, ok := verify.Graph.Units["operation:harness.release_evidence_verify"]
+		if len(verify.Graph.Units) != 1 || !ok || len(unit.ServiceDependencies) != 0 || len(unit.RowBindings) != 0 {
+			t.Fatalf("release-evidence-verify plans %d units", len(verify.Graph.Units))
 		}
 	})
 

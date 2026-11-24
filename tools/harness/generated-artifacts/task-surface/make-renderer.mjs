@@ -1,5 +1,5 @@
 import { nativeTool } from "../../command-surface/native-tools.mjs";
-import { operationBindingNames } from "../../scheduler/work-graph/operations.mjs";
+import { operationBindingNames } from "../../execution/operations.mjs";
 import { makeNodeToolResultDirMakeEnvVars, makeNodeToolRuntimeEnvVars } from "../../command-surface/make-node-tools.mjs";
 import {
   canonicalInternalMakeValues, compactHelpEntries, globalInputEntries, harnessCheckEntryMap, harnessCheckEntries, helpTiers, makeIdentifier, makeRecipeEntries, nonCanonicalPublicMakeVariables, restrictedInternalMakeVariables, retiredPublicMakeVariables, sequenceDefinition, targetEntries, targetEntryMap,

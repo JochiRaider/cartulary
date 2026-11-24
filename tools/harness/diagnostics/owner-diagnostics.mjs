@@ -1,6 +1,6 @@
 import { loadTestCatalog } from "../test-catalog/index.mjs";
-import { readOperationOwner } from "../scheduler/work-graph/operations.mjs";
-import { resolvePrivateSelection } from "../scheduler/work-graph/command-selection.mjs";
+import { loadExecutionTopology } from "../generated-artifacts/execution-topology.mjs";
+import { planCommand } from "../runtime/harness-binary.mjs";
 
 const ownerIDPattern = /^(?:module|platform|app|web|package|harness)\.[a-z][a-z0-9_]{0,62}$/u;
 
@@ -38,15 +38,31 @@ function broaderCommands(projection) {
   return [...new Set(projection.rows.filter((row) => row.aggregate_placement !== "explicit_only").map((row) => `make ${gate[row.aggregate_placement]}`))].sort(asciiCompare);
 }
 
-export function buildOwnerTaskGuide(root, ownerID) {
+// The commands that run explicit-only rows, with the inputs that select them.
+// RELEASE_RESULTS_DIR only names a root; planning never reads it.
+const explicitRoutes = [
+  ["make browser-e2e SUITE=visual", "browser-e2e", { SUITE: "visual" }],
+  ["make harness-contract SUITE=ui-review", "harness-contract", { SUITE: "ui-review" }],
+  ["make release-measure", "release-measure", { RELEASE_RESULTS_DIR: "/release-check-root" }],
+  ["make release-check", "release-check", {}],
+];
+
+// The Go planner owns selection: an explicit command runs exactly the rows its
+// plan binds.
+function explicitCommandsFor(root, rows, plan) {
+  const explicit = rows.filter((row) => row.aggregate_placement === "explicit_only").map((row) => row.row_id);
+  if (explicit.length === 0) return [];
+  const surface = loadExecutionTopology({ root }).taskSurface;
+  return explicitRoutes.filter(([, target, inputs]) => {
+    const planned = planCommand({ root, surface, target, inputs, ...(plan ? { plan } : {}) });
+    const bound = new Set(planned.graph.units.flatMap((unit) => unit.row_bindings.map((binding) => binding.row_id)));
+    return explicit.some((id) => bound.has(id));
+  }).map(([command]) => command);
+}
+
+export function buildOwnerTaskGuide(root, ownerID, { plan } = {}) {
   const projection = ownerProjection(root, ownerID);
-  const owner = readOperationOwner(root);
-  const explicitCommands = [];
-  for (const [selection, command] of [["harness.suite_browser_visual", "make browser-e2e SUITE=visual"], ["harness.contract_ui_review", "make harness-contract SUITE=ui-review"], ["harness.release_measurement", "make release-measure"], ["harness.release_qualification", "make release-check"]]) {
-    const resolved = resolvePrivateSelection({ owner, catalog: projection.catalog }, selection);
-    if (projection.rows.some((row) => row.aggregate_placement === "explicit_only" &&
-      (resolved.rows.includes(row.row_id) || resolved.operations.includes(row.selector.operation_id)))) explicitCommands.push(command);
-  }
+  const explicitCommands = explicitCommandsFor(root, projection.rows, plan);
   const evidenceClasses = new Set(projection.rows.map((row) => row.evidence_class));
   const generatedCommands = [];
   if (

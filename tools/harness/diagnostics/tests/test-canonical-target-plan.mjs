@@ -5,127 +5,139 @@ import path from "node:path";
 import fs, { writeFileSync } from "node:fs";
 import { syncBuiltinESMExports } from "node:module";
 import { createScratch } from "../../test-support/scratch.mjs";
-import { assertHarnessTierRouting } from "../../scheduler/work-graph/tests/tier-selection.mjs";
-import { assertBlockingPolicy, assertSmokeContexts, assertAssuranceUnions, assertAggregateResources } from "../../scheduler/work-graph/tests/aggregate-assertions.mjs";
-import { WorkGraphCompiler, selectionFor } from "../../scheduler/work-graph/index.mjs";
+import { redactionMarker } from "../../contract/index.mjs";
+import { loadExecutionTopology } from "../../generated-artifacts/execution-topology.mjs";
+import { loadTestCatalog } from "../../test-catalog/index.mjs";
 import { buildTargetPlan, renderTargetPlan } from "../target-plan.mjs";
 
 const root = path.resolve(import.meta.dirname, "../../../..");
-const rowIDs = (units) => [...new Set(units.flatMap((unit) => unit.evidence_outputs ?? unit.current_run_evidence_outputs)
-  .filter((output) => output.startsWith("rows/")).map((output) => output.slice(5, -5)))].sort();
+const digest = (character) => `sha256:${character.repeat(64)}`;
 
-function assertComposition(target, supplied = {}) {
-  const plan = buildTargetPlan(root, target, supplied);
-  const compiler = new WorkGraphCompiler(root);
-  compiler.configureCapacity(plan.capability_snapshot, plan.go_worker_budget);
-  compiler.targetInputs[target] = supplied;
-  const recipe = compiler.taskSurface.make_recipes[target];
-  const execution = selectionFor({ selection: recipe.selection ?? "target", target,
-    owner: supplied.OWNER, rows: supplied.ROWS?.split(",") ?? recipe.row_ids,
-    serviceBackedOnly: recipe.service_backed_only === true }, compiler);
-  assert.equal(plan.schema_id, "cartulary.harness_target_plan.v7");
-  assert.equal(plan.graph_digest, execution.graph.graph_digest, `${target}: graph identity`);
-  assert.deepEqual(plan.projections, execution.projections, `${target}: every projection and member`);
-  assert.deepEqual(plan.units.map((unit) => [unit.unit_id, unit.semantic_digest]),
-    execution.graph.units.map((unit) => [unit.unit_id, unit.semantic_digest]));
-  assert.deepEqual(plan, buildTargetPlan(root, target, supplied), `${target}: deterministic plan`);
-  assert.ok(plan.go_worker_budget > 0 && plan.go_worker_budget <= plan.capability_snapshot.cpu_tokens);
-  const byID = new Map(plan.units.map((unit) => [unit.unit_id, unit]));
-  assert.equal(byID.size, plan.units.length);
-  for (const [projection, ids] of Object.entries(plan.projections)) {
-    assert.equal(new Set(ids).size, ids.length, projection);
-    assert.ok(ids.every((id) => byID.has(id) && byID.get(id).needs.every((dependency) => ids.includes(dependency))), projection);
-  }
-  return { plan, compiler, execution };
+// A graph v9 unit with only the fields a test varies.
+function stubUnit(unitID, fields = {}) {
+  return {
+    unit_id: unitID, owner_id: "harness.browser", kind: "operation",
+    command: { executable: "node", args: [], environment: {} }, needs: [], resource_claims: { cpu: 1 },
+    residents: [], shared_locks: [], exclusive_locks: [], fixture_lease: "none", service_dependencies: [],
+    postgres_isolation: "none", cache_policy: "none", timeout_ms: 60000,
+    current_run_evidence_outputs: [`unit-results/${unitID}.json`], row_bindings: [], reusable_artifact_outputs: [],
+    runtime_binary_ids: [], failure_policy: { block_descendants: true }, estimated_work_ms: 10, semantic_digest: digest("a"),
+    ...fields,
+  };
 }
 
-test("aggregate planning, execution and replay preserve policy, contexts and resources", async (t) => {
-  const plans = new Map();
-  let matrixCompiler;
-  for (const target of ["test-fast", "check", "ci"]) {
-    await t.test(`${target} planning has the complete execution and retained projection union`, () => {
-      const { plan, compiler, execution } = assertComposition(target);
-      plans.set(target, execution);
-      matrixCompiler = compiler;
-      assert.ok(plan.units.length > 0);
-      assert.deepEqual(plan.projections[target], plan.units.map((unit) => unit.unit_id));
-      for (const unit of plan.units) {
-        assert.ok(unit.owner_id);
-        if (unit.service_dependencies.includes("postgres")) assert.ok(unit.resource_claims.postgres > 0);
-      }
-      if (target !== "test-fast") assert.ok(plan.units.some((unit) => unit.fixture_capability.startsWith("postgres_")));
-      if (target === "ci") {
-        const gate = "operation:harness.frontend_fallow_static";
-        assert.ok(plan.projections["frontend-fallow-static"].includes(gate));
-        assert.ok(plan.projections[target].includes(gate));
-        assert.equal(plan.units.filter((unit) => unit.unit_id === gate).length, 1);
-      }
-    });
-  }
-  assertHarnessTierRouting({ compiler: matrixCompiler }, plans);
-  assertBlockingPolicy(matrixCompiler, plans);
-  assertSmokeContexts(matrixCompiler, plans);
-  assertAssuranceUnions(matrixCompiler, plans);
-  // Release qualification is a command, not an aggregate tier.
-  const { execution: release } = assertComposition("release-check");
-  assertAggregateResources(plans, release);
-});
-
-test("direct planning preserves independently expected schema projections", () => {
-  const { plan } = assertComposition("source-check", { CHECK: "schema" });
-  const install = "operation:harness.frontend_install", drift = "operation:harness.toolchain_drift", schema = "operation:harness.json_shape_check";
-  assert.deepEqual(plan.projections, {
-    "source-check": [install, schema, drift],
-    "harness.frontend_install": [install],
-    "harness.json_shape_check": [install, schema, drift],
-    "harness.toolchain_drift": [install, drift],
+// A planner port returning one service-backed runner unit, which binds the
+// rows in reverse and twice, after an operation it needs.
+function stubPlanner(rows) {
+  const calls = [];
+  const operation = stubUnit("operation:harness.test_service_images", { cache_policy: "content_addressed" });
+  const runner = stubUnit("playwright:group", {
+    kind: "runner", needs: [operation.unit_id], resource_claims: { cpu: 2, postgres: 1 }, fixture_lease: "browser_stack",
+    fixture_profile_id: "browser_baseline_v1", snapshot_key: "b".repeat(64), service_dependencies: ["object_store", "postgres"],
+    current_run_evidence_outputs: rows.map((row) => `rows/${row.row_id}.json`), estimated_work_ms: 2000, semantic_digest: digest("c"),
+    row_bindings: [...rows, ...rows].reverse().map((row) => ({ row_id: row.row_id, runner: row.runner })),
   });
-  assert.deepEqual(plan.rows, []);
-});
+  const plan = (args, options) => {
+    calls.push({ args, options });
+    return {
+      schema_id: "cartulary.harness_runtime_plan.v9",
+      graph: { schema_id: "cartulary.harness_work_graph.v9", graph_digest: digest("d"), units: [operation, runner] },
+      manifest: { capability_snapshot: { cpu_tokens: 4, postgres_lanes: 2, snapshot_digest: digest("e") }, go_worker_budget: 3 },
+      projections: {
+        "test-slice": { command_id: "cartulary.harness.command.test_slice.v5", unit_ids: [operation.unit_id, runner.unit_id] },
+        "backend-integration": { command_id: "cartulary.harness.command.test_slice.v5", unit_ids: [runner.unit_id] },
+      },
+    };
+  };
+  return { plan, calls, operation, runner };
+}
 
-test("exact and service selections preserve their own rows and child projections", () => {
-  for (const [owner, row, scope] of [
-    ["harness.command_surface", "harness.command_surface.unit.scheduler_smoke", "all"],
-    ["harness.browser", "harness.browser.integration.postgres_transaction_isolation", "services"],
-  ]) {
-    const { plan } = assertComposition("test-slice", { OWNER: owner, ROWS: row, SCOPE: scope });
-    assert.deepEqual(rowIDs(plan.units), [row]);
-    const child = scope === "all" ? "backend-unit" : "backend-integration";
-    assert.deepEqual(rowIDs(plan.units.filter((unit) => plan.projections[child].includes(unit.unit_id))), [row]);
-    assert.equal(plan.units.some((unit) => unit.unit_id === "operation:harness.test_service_images"), scope === "services");
-  }
-});
+const unreachable = () => assert.fail("target-plan planned a rejected request");
 
-test("visual planning includes every screenshot row in its visual child projection", () => {
-  const { plan, compiler } = assertComposition("browser-e2e", { SUITE: "visual" });
-  const members = plan.projections["browser-e2e-visual"];
-  assert.ok(members?.length, "the visual child must be published by planning");
-  const expected = compiler.catalog.rows.filter((row) => row.runner === "playwright" && row.selector.stage === "visual")
-    .map((row) => row.row_id);
-  // The visual fixture registry is a required dependency of the screenshot units.
-  expected.push("web.design.static.visual_fixture_registry");
-  assert.deepEqual(rowIDs(plan.units.filter((unit) => members.includes(unit.unit_id))), expected.sort());
-  assert.ok(plan.projections["browser-e2e"].includes("browser_target_summary:browser-e2e-visual"));
-  assert.ok(members.includes("browser_target_summary:browser-e2e-visual"));
-});
-
-test("planning service-backed work does not acquire fixtures, write files or launch commands", () => {
-  const compiler = new WorkGraphCompiler(root);
+test("target plans project the Go plan of exactly the supplied inputs and launch nothing themselves", () => {
+  const catalog = loadTestCatalog(root);
+  const surface = loadExecutionTopology({ root }).taskSurface;
+  const rows = catalog.rows.filter((row) => row.owner_id === "harness.browser" && row.service_dependencies.length > 0).slice(0, 2);
+  assert.equal(rows.length, 2);
+  const { plan, calls, operation, runner } = stubPlanner(rows);
+  const supplied = { OWNER: "harness.browser", SCOPE: "services", CARTULARY_TEST_SERVICES_MODE: "attach", CARTULARY_TEST_SERVICES_SESSION_FILE: "/private/session.json" };
+  const ambient = { SUITE: process.env.SUITE, ROWS: process.env.ROWS };
   const saved = new Map();
   for (const [object, names] of [[childProcess, ["spawn", "spawnSync", "exec", "execSync", "execFile", "execFileSync"]],
     [fs, ["mkdirSync", "mkdtempSync", "writeFileSync", "appendFileSync", "renameSync"]]]) {
     for (const name of names) {
       saved.set([object, name], object[name]);
-      object[name] = () => assert.fail(`planning performed ${name}`);
+      object[name] = () => assert.fail(`target-plan performed ${name}`);
     }
   }
   syncBuiltinESMExports();
+  let targetPlan;
   try {
-    const plan = buildTargetPlan(root, "test-slice", { OWNER: "harness.browser", ROWS: "harness.browser.integration.postgres_transaction_isolation", SCOPE: "services" }, compiler);
-    assert.deepEqual(plan.rows.map((row) => row.row_id), ["harness.browser.integration.postgres_transaction_isolation"]);
+    // Another command's inputs in the environment are not this command's.
+    Object.assign(process.env, { SUITE: "backend-unit", ROWS: "harness.browser.unit.absent" });
+    targetPlan = buildTargetPlan(root, "test-slice", supplied, { plan, surface, catalog });
   } finally {
+    for (const [name, value] of Object.entries(ambient)) {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    }
     for (const [[object, name], original] of saved) object[name] = original;
     syncBuiltinESMExports();
+  }
+  assert.equal(calls.length, 1);
+  assert.deepEqual(calls[0].args, ["--selection", surface.make_recipes["test-slice"].selection, "--target", "test-slice"]);
+  assert.equal(calls[0].options.root, root);
+  const environment = calls[0].options.environment;
+  for (const [name, value] of Object.entries(supplied)) assert.equal(environment[name], value);
+  assert.equal(environment.CARTULARY_MAKE_INPUT_SOURCES, Object.keys(supplied).map((name) => `${name}=cli`).join(" "));
+  assert.equal(Object.hasOwn(environment, "SUITE"), false);
+  assert.equal(Object.hasOwn(environment, "ROWS"), false);
+
+  assert.equal(targetPlan.schema_id, "cartulary.harness_target_plan.v7");
+  assert.equal(targetPlan.target, "test-slice");
+  assert.equal(targetPlan.command_id, surface.targets.find((entry) => entry.name === "test-slice").command_id);
+  assert.equal(targetPlan.inputs.CARTULARY_TEST_SERVICES_SESSION_FILE, redactionMarker());
+  assert.equal(targetPlan.inputs.OWNER, "harness.browser");
+  assert.equal(targetPlan.graph_digest, digest("d"));
+  assert.deepEqual(targetPlan.capability_snapshot, { cpu_tokens: 4, postgres_lanes: 2, snapshot_digest: digest("e") });
+  assert.equal(targetPlan.go_worker_budget, 3);
+  assert.deepEqual(targetPlan.projections, { "test-slice": [operation.unit_id, runner.unit_id], "backend-integration": [runner.unit_id] });
+  assert.deepEqual(targetPlan.rows, rows.map((row) => row.row_id).sort().map((id) => {
+    const row = catalog.rowByID.get(id);
+    return { row_id: id, owner_id: row.owner_id, runner: row.runner, evidence_class: row.evidence_class,
+      aggregate_placement: row.aggregate_placement, fixture_capability: row.fixture_capability, service_dependencies: row.service_dependencies };
+  }));
+  assert.deepEqual(targetPlan.units, [
+    { unit_id: operation.unit_id, owner_id: "harness.browser", kind: "operation", needs: [], resource_claims: { cpu: 1 },
+      fixture_capability: "none", service_dependencies: [], cache_policy: "content_addressed", estimated_work_ms: 10,
+      semantic_digest: digest("a"), evidence_outputs: operation.current_run_evidence_outputs },
+    { unit_id: runner.unit_id, owner_id: "harness.browser", kind: "runner", needs: [operation.unit_id], resource_claims: { cpu: 2, postgres: 1 },
+      fixture_capability: "browser_stack", fixture_profile_id: "browser_baseline_v1", snapshot_key: "b".repeat(64),
+      service_dependencies: ["object_store", "postgres"], cache_policy: "none", estimated_work_ms: 2000,
+      semantic_digest: digest("c"), evidence_outputs: runner.current_run_evidence_outputs },
+  ]);
+
+  assert.equal(renderTargetPlan(targetPlan), `target=test-slice units=2 cached=1 fixtures=1 digest=${digest("d")}`);
+  const header = ["target test-slice", `graph ${digest("d")}`, `capacity ${digest("e")} cpu=4 go_workers=3 postgres=2`];
+  assert.deepEqual(renderTargetPlan(targetPlan, "graph").split("\n"), [...header,
+    `${operation.unit_id} kind=operation owner=harness.browser needs=- fixture=none services=- cache=content_addressed work_ms=10`,
+    `${runner.unit_id} kind=runner owner=harness.browser needs=${operation.unit_id} fixture=browser_stack services=object_store,postgres cache=none work_ms=2000`]);
+  assert.deepEqual(renderTargetPlan(targetPlan, "rows").split("\n").slice(3).map((line) => line.split(" ")[0]), targetPlan.rows.map((row) => row.row_id));
+  assert.deepEqual(renderTargetPlan(targetPlan, "artifacts").split("\n").slice(3),
+    [operation, runner].flatMap((unit) => unit.current_run_evidence_outputs.map((output) => `${unit.unit_id} ${output}`)));
+  assert.throws(() => renderTargetPlan(targetPlan, "units"), /DETAIL must be/u);
+});
+
+test("target-plan rejects unknown targets, invalid inputs and commands without a work graph before planning", () => {
+  const ports = { plan: unreachable, surface: loadExecutionTopology({ root }).taskSurface, catalog: loadTestCatalog(root) };
+  for (const target of ["absent", "bootstrap-tool-installations"]) {
+    assert.throws(() => buildTargetPlan(root, target, {}, ports), /unknown public target/u);
+  }
+  for (const target of ["lint-markdown", "help"]) {
+    assert.throws(() => buildTargetPlan(root, target, {}, ports), new RegExp(`${target} runs no work graph`, "u"));
+  }
+  for (const invalid of [{}, { SUITE: "backend-unit", OWNER: "harness.browser" }, { ROWS: "harness.browser.unit.fixture_broker_smoke" }, { OWNER: "harness.browser", SCOPE: "everything" }]) {
+    assert.throws(() => buildTargetPlan(root, "test-slice", invalid, ports), /exactly one of OWNER, SUITE|must be one of/u);
   }
 });
 
@@ -141,10 +153,10 @@ test("target-plan CLI parses input files and reports rendering and usage failure
   };
   const compact = invoke("--target", "source-check", "--inputs", file);
   assert.equal(compact.status, 0, compact.stderr);
-  assert.match(compact.stdout, /target=source-check units=3 cached=\d+ fixtures=\d+ digest=sha256:/u);
-  const plan = buildTargetPlan(root, "source-check", { CHECK: "schema" });
-  const detailed = renderTargetPlan(plan, "graph");
-  assert.ok(compact.stdout.split("\n").length < detailed.split("\n").length);
+  assert.match(compact.stdout, /^target=source-check units=[1-9]\d* cached=\d+ fixtures=\d+ digest=sha256:[a-f0-9]{64}\n$/u);
+  const detailed = invoke("--target", "source-check", "--inputs", file, "--view", "graph");
+  assert.equal(detailed.status, 0, detailed.stderr);
+  assert.ok(compact.stdout.split("\n").length < detailed.stdout.split("\n").length);
   assert.equal(invoke("--target", "unknown-target").status, 2);
   assert.equal(invoke("--unknown-option").status, 2);
 });

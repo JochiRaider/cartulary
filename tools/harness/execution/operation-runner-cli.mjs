@@ -3,7 +3,7 @@ import { spawnSync } from "../workspace/child-process.mjs";
 import path from "node:path";
 import { reportCommandFailure } from "../runtime/command-failure.mjs";
 import { publicExitCodeForFailure, redactString } from "../contract/index.mjs";
-import { buildOperationSequence, operationDefinition, operationEnvironment, operationExecutionDigest, readOperationOwner } from "../scheduler/work-graph/operations.mjs";
+import { buildOperationSequence, operationDefinition, operationEnvironment, operationExecutionDigest, readOperationOwner } from "./operations.mjs";
 import { buildMakeNodeToolInvocation, buildMakeNodeToolChildEnv } from "../command-surface/make-node-tools.mjs";
 
 // Executes exactly one already-scheduled operation. It never acquires graph

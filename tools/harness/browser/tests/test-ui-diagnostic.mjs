@@ -12,7 +12,7 @@ import { PassThrough } from "node:stream";
 import { ReviewBrowser } from "../ui-review/browser.mjs";
 import { diagnosticSnapshot, diagnosticEnvironment, parseDiagnosticOutput, checkDiagnosticScratch, diagnosticScratchLimit } from "../ui-review/diagnostic.mjs";
 import { resolvePlaywrightPackages } from "../../readiness/playwright-packages.mjs";
-import { captureCapabilitySnapshot, resourceCapacities } from "../../scheduler/work-graph/capability.mjs";
+import { hostCapacity } from "../../runtime/harness-binary.mjs";
 import { inheritedHostLease } from "../../runtime/host-admission.mjs";
 import { repoRoot } from "../ui-review/policy.mjs";
 import { diagnosticProcessScope, diagnosticProcesses, stopDiagnosticProcesses, bindDiagnosticProcess } from "../ui-review/diagnostic-processes.mjs";
@@ -107,7 +107,7 @@ test("CLI diagnostic shares the exact owned page and preserves its state", async
   });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   owner = new ReviewBrowser({ origin: `http://127.0.0.1:${server.address().port}`, mode: "dev" });
-  const resources = new Map();
+  const resources = new Map(), capacities = hostCapacity({ root: repoRoot }).capacities;
   scratchRoot = mkdtempSync(path.join(os.tmpdir(), "cartulary-diagnostic-runtime-"));
   runtime = createRuntime({ repoRoot, runRoot: root, runID: "diagnostic-browser", scratchRoot });
   await owner.start();
@@ -132,7 +132,7 @@ test("CLI diagnostic shares the exact owned page and preserves its state", async
   let observations;
   try {
     observations = await diagnosticSnapshot({ owner, runtime, dependencies: [], operationID: 1,
-      signal: new AbortController().signal, capacities: Object.fromEntries(resourceCapacities(captureCapabilitySnapshot({ root: repoRoot }))), parentLease: inheritedHostLease(),
+      signal: new AbortController().signal, capacities, parentLease: inheritedHostLease(),
       onResource: (resource) => { runtime.record(resource); const key = JSON.stringify([resource.kind, resource.target]); if (resource.state === "released") resources.delete(key); else resources.set(key, resource); } });
   } catch (error) {
     // Keep failure detail private for causal inspection instead of deleting it
@@ -146,7 +146,7 @@ test("CLI diagnostic shares the exact owned page and preserves its state", async
   for (const failure of ["spawn", "publication"]) {
     let helperPublished = false;
     await assert.rejects(() => diagnosticSnapshot({ owner, runtime, dependencies: [], operationID: failure === "spawn" ? 4 : 5,
-      signal: new AbortController().signal, capacities: Object.fromEntries(resourceCapacities(captureCapabilitySnapshot({ root: repoRoot }))), parentLease: inheritedHostLease(),
+      signal: new AbortController().signal, capacities, parentLease: inheritedHostLease(),
       ...(failure === "spawn" ? { spawnProcess: () => {
         const child = new EventEmitter(); child.stdout = new PassThrough(); child.stderr = new PassThrough();
         child.kill = () => { throw new Error("must not signal a child without a PID"); };
@@ -169,7 +169,7 @@ test("CLI diagnostic shares the exact owned page and preserves its state", async
   }
   let acquired = 0;
   await assert.rejects(() => diagnosticSnapshot({ owner, runtime, dependencies: [], operationID: 3,
-    signal: new AbortController().signal, capacities: Object.fromEntries(resourceCapacities(captureCapabilitySnapshot({ root: repoRoot }))), parentLease: inheritedHostLease(),
+    signal: new AbortController().signal, capacities, parentLease: inheritedHostLease(),
     onResource: (resource) => {
       runtime.record(resource); const key = JSON.stringify([resource.kind, resource.target]);
       if (resource.state === "released") resources.delete(key); else resources.set(key, resource);
@@ -180,7 +180,7 @@ test("CLI diagnostic shares the exact owned page and preserves its state", async
   assert.equal(resources.size, 0); assert.ok(owner.browser.isConnected());
   const cancelled = new AbortController();
   await assert.rejects(() => diagnosticSnapshot({ owner, runtime, dependencies: [], operationID: 2,
-    signal: cancelled.signal, capacities: Object.fromEntries(resourceCapacities(captureCapabilitySnapshot({ root: repoRoot }))), parentLease: inheritedHostLease(),
+    signal: cancelled.signal, capacities, parentLease: inheritedHostLease(),
     onResource: (resource) => {
       runtime.record(resource); const key = JSON.stringify([resource.kind, resource.target]);
       if (resource.state === "released") resources.delete(key); else resources.set(key, resource);

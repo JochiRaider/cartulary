@@ -6,18 +6,21 @@ import path from "node:path";
 import { buildCompleteEvidence, buildEvidenceUnit, loadFixtureIdentity, persistEvidence, writeEvidenceFile } from "../../harness/observability/tests/retained-fixture.mjs";
 import { verifySelectedEvidence, packageConsumerNames, qualificationRequirements, resolveEvidenceRoots } from "../verify-selected-evidence.mjs";
 import { verifyPackageIdentity } from "../package-identity.mjs";
-import { WorkGraphCompiler } from "../../harness/scheduler/work-graph/index.mjs";
+import { readOperationOwner } from "../../harness/execution/operations.mjs";
 import { loadTestCatalog } from "../../harness/test-catalog/index.mjs";
 import { validateSchemaSync } from "../../harness/contract/index.mjs";
 
 test("release obligations resolve current owners and reject duplicate, unknown or ownerless claims", () => {
   const root = path.resolve(import.meta.dirname, "../../..");
   const policy = JSON.parse(readFileSync(path.join(root, "contracts/verification/release-qualification.v1.json"), "utf8"));
-  const catalog = loadTestCatalog(root), compiler = new WorkGraphCompiler(root);
-  const compile = target => compiler.compileTarget(target);
-  const required = qualificationRequirements(policy, catalog, compile);
+  const catalog = loadTestCatalog(root), owner = readOperationOwner(root);
+  const required = qualificationRequirements(policy, catalog, owner);
   assert.ok(required.row_ids.includes("module.database_migrations.integration.production_preflight_state_matrix"));
-  assert.ok(required.operation_ids.includes("harness.package_release"));
+  assert.ok(required.operation_ids.includes("harness.package_inspect"));
+  // A required union expands over its authored operations, rows and catalog stages.
+  assert.ok(required.operation_ids.includes("harness.build_server") && !required.operation_ids.includes("harness.build_production"));
+  assert.ok(required.row_ids.includes("harness.command_surface.unit.scheduler_smoke"));
+  assert.ok(catalog.rows.some((row) => row.runner === "playwright" && row.selector.stage === "support" && required.row_ids.includes(row.row_id)));
   const entra = policy.obligations.find(value => value.obligation_id === "reference.entra_retention");
   const entraSources = [
     "module.reference_data.unit.independent_entra_producer",
@@ -34,7 +37,7 @@ test("release obligations resolve current owners and reject duplicate, unknown o
   ]) {
     const changed = structuredClone(policy);
     change(changed);
-    assert.throws(() => qualificationRequirements(changed, catalog, compile), error);
+    assert.throws(() => qualificationRequirements(changed, catalog, owner), error);
   }
 });
 
@@ -115,19 +118,8 @@ test("selected release evidence rejects a complete failed invocation before acce
   await assert.rejects(verifySelectedEvidence(f.options), /^Error: retained invocation did not pass$/u);
 });
 
-test("release closure requires explicit roots and its Make selection launches no test or service work", () => {
+test("release closure requires explicit roots and identical package images", () => {
   assert.throws(() => resolveEvidenceRoots({schema_id: "cartulary.release_evidence_roots.v1", run_roots: [], newest: true}, "/tmp/roots.json"));
   assert.throws(() => verifyPackageIdentity(receipt, [["different image", {...receipt, images: receipt.images.map(image => ({...image, id: `sha256:${"f".repeat(64)}`}))}]]), /image identity mismatch/);
-  const root = path.resolve(import.meta.dirname, "../../..");
-  const compiler = new WorkGraphCompiler(root, {targetInputs: {"release-evidence-verify": {EVIDENCE_ROOTS_FILE: ".cartulary/selected-evidence.json"}}});
-  const graph = compiler.compileTarget("release-evidence-verify");
-  assert.deepEqual(graph.units.map(unit => unit.unit_id), ["operation:harness.release_evidence_verify"]);
-  assert.deepEqual(graph.units[0].service_dependencies, []);
-  assert.deepEqual(graph.units[0].row_bindings, []);
-  const qualification = compiler.compileCommand("package-inspect", {CHECK: "all"}).graph;
-  assert.equal(qualification.units.filter(unit => unit.unit_id === "operation:harness.package_release").length, 1);
-  for (const consumer of ["package_inspect", "standup_package_smoke", "standup_reference_pack_smoke", "standup_operational_recovery_smoke"])
-    assert.ok(qualification.units.some(unit => unit.unit_id === `operation:harness.${consumer}` || unit.command.environment.CARTULARY_TEST_TARGET === `harness.${consumer}`), consumer);
-  // Credential capacity is quiet measurement in release-measure, against a named release-check package.
-  assert.equal(qualification.units.some(unit => unit.unit_id === "operation:harness.credential_capacity_assessment"), false);
 });
+

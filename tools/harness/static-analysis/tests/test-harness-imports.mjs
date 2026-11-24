@@ -16,14 +16,14 @@ test("harness boundaries reject private imports, unrelated exceptions, unknown o
     writeFileSync(file, body);
   };
   const registry = { schema_id: "cartulary.harness_helper_ownership.v1", facades: [
-      { key: "browser_owner_facade", boundary_group: "browser", paths: ["tools/harness/browser/index.mjs"], allowed_consumers: ["tools/harness/scheduler/adapters/browser.mjs"] },
+      { key: "browser_owner_facade", boundary_group: "browser", paths: ["tools/harness/browser/index.mjs"], allowed_consumers: ["tools/harness/scheduler/browser-consumer.mjs"] },
       { key: "test_catalog", boundary_group: "test_catalog", paths: ["tools/harness/test-catalog/index.mjs"], allowed_consumers: ["tools/harness/readiness/check.mjs"] },
     ] };
   const save = () => write("tools/harness_helper_ownership.json", JSON.stringify(registry));
   try {
     for (const file of ["browser/index.mjs", "browser/private.mjs", "test-catalog/index.mjs", "test-catalog/private.mjs", "backend/private.mjs", "evidence-accounting/private.mjs"])
       write(`tools/harness/${file}`, "export const value = 1;\n");
-    write("tools/harness/scheduler/adapters/browser.mjs", 'export { value } from "../../browser/private.mjs";\n');
+    write("tools/harness/scheduler/browser-consumer.mjs", 'export { value } from "../browser/private.mjs";\n');
     write("tools/harness/readiness/check.mjs", 'import { value } from "../browser/index.mjs";\nconst text = \'import "../browser/private.mjs"\';\n');
     save();
     assert.deepEqual(collectHarnessImportBoundaryViolations(root).violations, []);

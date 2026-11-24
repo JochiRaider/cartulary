@@ -8,8 +8,32 @@ import { verifyPackageIdentity } from "./package-identity.mjs";
 const read = (root, name) => parseStrictJSON(readRetainedArtifactBytes(root, name, 16 * 1024 ** 2).toString("utf8"));
 export const packageConsumerNames = Object.freeze(["standup-package-smoke", "standup-reference-pack-smoke", "standup-operational-recovery-smoke", "credential-capacity-assessment"]);
 
-/** Admit authored obligations against current executable owners, without running them. */
-export function qualificationRequirements(policy, catalog, compileTarget) {
+// A required name is an operation or a private union of the work-graph owner.
+// A union expands over its authored members: operations, rows and catalog
+// stage queries. S4 replaces required operations with required roots.
+function expandRequirement(owner, catalog, name, rowIDs, operationIDs, visiting = new Set()) {
+  if (Object.hasOwn(owner.operations, name)) { operationIDs.add(name); return; }
+  const members = owner.target_members[name];
+  if (!members || visiting.has(name)) throw new Error(`unknown release operation: ${name}`);
+  for (const member of members) {
+    if (typeof member === "string") expandRequirement(owner, catalog, member, rowIDs, operationIDs, new Set(visiting).add(name));
+    else if (member.operation_id) expandRequirement(owner, catalog, member.operation_id, rowIDs, operationIDs, new Set(visiting).add(name));
+    else if (member.row_id) rowIDs.add(member.row_id);
+    else if (member.catalog && Object.keys(member.catalog).every((key) => key === "runner" || key === "stages")) {
+      const selected = catalog.rows.filter((row) => row.runner === member.catalog.runner &&
+        (!member.catalog.stages || member.catalog.stages.includes(row.selector.stage)));
+      if (selected.length === 0) throw new Error(`release operation ${name} selects no rows`);
+      for (const row of selected) rowIDs.add(row.row_id);
+    } else throw new Error(`unsupported release operation member in ${name}`);
+  }
+}
+
+/**
+ * Admit authored obligations against current owners, without planning or
+ * running them. A required operation is proven by its unit in a complete,
+ * passing root, whose every selected unit and row passed.
+ */
+export function qualificationRequirements(policy, catalog, owner) {
   validateSchemaSync("cartulary.release_qualification.v1", policy);
   const rows = new Map(catalog.rows.map(row => [row.row_id, row]));
   const obligations = new Set(), rowIDs = new Set(), operationIDs = new Set();
@@ -25,17 +49,8 @@ export function qualificationRequirements(policy, catalog, compileTarget) {
     }
     if (obligation.owner_ids.some(owner => !owners.has(owner))) throw new Error(`release owner has no selected evidence: ${obligation.obligation_id}`);
   }
-  for (const target of policy.required_operations) {
-    const graph = compileTarget(target);
-    if (!graph.units.length) throw new Error(`empty release operation: ${target}`);
-    for (const unit of graph.units) {
-      for (const binding of unit.row_bindings) {
-        if (!rows.has(binding.row_id)) throw new Error(`unknown release operation row: ${binding.row_id}`);
-        rowIDs.add(binding.row_id);
-      }
-      if (unit.unit_id.startsWith("operation:")) operationIDs.add(unit.unit_id.slice("operation:".length));
-    }
-  }
+  for (const name of policy.required_operations) expandRequirement(owner, catalog, name, rowIDs, operationIDs);
+  for (const id of rowIDs) if (!rows.has(id)) throw new Error(`unknown release row: ${id}`);
   return {row_ids: [...rowIDs].sort(), operation_ids: [...operationIDs].sort()};
 }
 

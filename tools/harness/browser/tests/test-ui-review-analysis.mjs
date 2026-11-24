@@ -24,7 +24,7 @@ import { ReviewBrowser } from "../ui-review/browser.mjs";
 import { repoRoot, reviewPins } from "../ui-review/policy.mjs";
 import { parseRequest, schemaID, ReviewFailure } from "../ui-review/contract.mjs";
 import { acquireHostAdmission, inheritedHostLease } from "../../runtime/host-admission.mjs";
-import { captureCapabilitySnapshot, resourceCapacities } from "../../scheduler/work-graph/capability.mjs";
+import { hostCapacity } from "../../runtime/harness-binary.mjs";
 
 const pixels = (width, height, rgba = [10, 20, 30, 255]) => ({ width, height, data: Buffer.from(Array.from({ length: width * height }, () => rgba).flat()) });
 const parsed = (value) => parseRequest(Buffer.from(JSON.stringify({ schema_id: schemaID("analysis_request"), ...value })), "analysis_request");
@@ -128,7 +128,7 @@ test("live axe excludes iframe contents; offline reports escape observed markup 
   });
   const session = sessionAt(root);
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-  admission = await acquireHostAdmission({ parent: inheritedHostLease(), claims: { browser_stack: 1 }, capacities: Object.fromEntries(resourceCapacities(captureCapabilitySnapshot({ root: repoRoot }))) });
+  admission = await acquireHostAdmission({ parent: inheritedHostLease(), claims: { browser_stack: 1 }, capacities: hostCapacity({ root: repoRoot }).capacities });
   browser = new ReviewBrowser({ origin: `http://127.0.0.1:${server.address().port}`, mode: "dev" });
   await browser.start();
   const axe = await observeAxe(browser.page); assert.equal(axe.unassessed_frames, 1); assert.ok(axe.violations.some((entry) => entry.rule_id === "image-alt")); assert.ok(!axe.violations.some((entry) => entry.rule_id === "button-name"));

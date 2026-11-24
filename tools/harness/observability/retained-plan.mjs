@@ -3,7 +3,6 @@ import path from "node:path";
 
 import { lifecyclePolicy } from "../contract/generated/lifecycle-policy.mjs";
 import { assertMachineEvidencePath, canonicalJSONString, parseStrictJSON, readRetainedArtifactBytes, semanticJSONDigest, validateSchemaSync } from "../contract/index.mjs";
-import { retainedGoWorkerBudget } from "../scheduler/work-graph/capability.mjs";
 
 // A run publishes the planner's document, without launch bindings, as
 // plan.json before any child starts. Readers take the graph, projections and
@@ -15,6 +14,12 @@ const digest = (value) => semanticJSONDigest(value);
 const bytesDigest = (value) => `sha256:${createHash("sha256").update(value).digest("hex")}`;
 function same(actual, expected, label) {
   if (canonicalJSONString(actual) !== canonicalJSONString(expected)) throw new Error(`retained ${label} binding does not close`);
+}
+function retainedGoWorkerBudget(manifest) {
+  const budget = manifest.go_worker_budget, capacity = manifest.capability_snapshot?.cpu_tokens;
+  if (!Number.isSafeInteger(capacity) || capacity < 1 || !Number.isSafeInteger(budget) || budget < 1 || budget > capacity) {
+    throw new Error("invalid retained Go worker budget");
+  }
 }
 function ordered(values, label) {
   if (values.some((value, index) => index > 0 && values[index - 1] >= value)) throw new Error(`retained ${label} must be sorted and unique`);
@@ -87,6 +92,7 @@ export function validateRetainedPlan(plan, canonical, cleanup) {
   same(digest(capability), snapshot_digest, "capability snapshot");
   same(snapshot_digest, manifest.system_digest, "system capacity");
   retainedGoWorkerBudget(manifest);
+  same(plan.capacities, summary.resource_pressure.resolved_capacity, "resolved capacity");
   ordered(plan.host_profile.cpu_models, "CPU models");
 
   const { graph, projections } = plan;

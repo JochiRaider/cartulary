@@ -1,6 +1,8 @@
 import path from "node:path";
 import { parseStrictJSON, redactionMarker, resolveCommandInputs } from "../contract/index.mjs";
-import { WorkGraphCompiler, buildWorkGraph, selectionFor, replayInputs, captureCapabilitySnapshot, availableGoWorkerBudget } from "../scheduler/work-graph/index.mjs";
+import { loadExecutionTopology } from "../generated-artifacts/execution-topology.mjs";
+import { planCommand, planInvocation } from "../runtime/harness-binary.mjs";
+import { loadTestCatalog } from "../test-catalog/index.mjs";
 import { readLocalFile } from "../runtime/secure-local-files.mjs";
 
 export function readPlanInputs(root, filename) {
@@ -11,46 +13,29 @@ export function readPlanInputs(root, filename) {
   return value;
 }
 
-// Compilation is shared with execution. This function never invokes preparation,
-// starts a process, installs tools, or samples historical evidence.
-export function buildTargetPlan(root, target, suppliedInputs = {}, compiler = new WorkGraphCompiler(root)) {
-  const entry = compiler.taskSurface.targets.find((candidate) => candidate.name === target && candidate.target_class === "public");
+export function buildTargetPlan(root, target, suppliedInputs = {}, {
+  plan = planInvocation, surface = loadExecutionTopology({ root }).taskSurface, catalog = loadTestCatalog(root),
+} = {}) {
+  const entry = surface.targets.find((candidate) => candidate.name === target && candidate.target_class === "public");
   if (!entry) throw new Error(`unknown public target ${target}`);
-  const inputs = resolveCommandInputs(target, suppliedInputs, compiler.taskSurface);
-  const snapshot = captureCapabilitySnapshot({ root, override: inputs.CARTULARY_HARNESS_CAPACITY_OVERRIDE,
-    services: { browser: true, object_store: true, postgres: true, service_stack: true } });
-  compiler.configureCapacity(snapshot, availableGoWorkerBudget(snapshot.cpu_tokens, process.env));
-  // Selection resolves declared inputs again. Retain normalized values without
-  // turning default false flags into explicitly supplied exact-1 tokens.
-  compiler.targetInputs = { ...compiler.targetInputs, [target]: replayInputs(entry, inputs) };
-  const recipe = compiler.taskSurface.make_recipes[target];
-  let compiled;
-  if (recipe?.type === "work_graph" || recipe?.graph_entry === true) compiled = selectionFor({
-    selection: recipe.selection ?? "target", target, owner: inputs.OWNER ?? "",
-    rows: inputs.ROWS ? inputs.ROWS.split(",") : recipe.row_ids,
-    serviceBackedOnly: recipe.service_backed_only === true,
-  }, compiler);
-  // Bootstrap has a declared selection but executes through its own tool entry.
-  else if (recipe?.type === "bootstrap") compiled = compiler.compileCommand(target, suppliedInputs);
-  else if (recipe?.type === "print_help") compiled = { graph: buildWorkGraph([]) };
-  else compiled = { graph: compiler.compile({ kind: "target", target }) };
-  const rowIDs = [...new Set(compiled.graph.units.flatMap((unit) => unit.current_run_evidence_outputs)
-    .filter((output) => output.startsWith("rows/") && output.endsWith(".json"))
-    .map((output) => output.slice(5, -5)))].sort();
+  const inputs = resolveCommandInputs(target, suppliedInputs, surface);
+  const planned = planCommand({ root, surface, target, inputs: suppliedInputs, plan });
+  const { units } = planned.graph;
+  const rowIDs = [...new Set(units.flatMap((unit) => unit.row_bindings.map((binding) => binding.row_id)))].sort();
   return {
     schema_id: "cartulary.harness_target_plan.v7",
     target, command_id: entry.command_id,
     inputs: Object.fromEntries(Object.entries(inputs).map(([key, value]) => [key,
       entry.input_contract.inputs.find((input) => input.name === key).summary_emission === "redacted_value" ? redactionMarker() : value])),
-    capability_snapshot: snapshot, go_worker_budget: compiler.availableGoLanes,
-    graph_digest: compiled.graph.graph_digest,
-    projections: compiled.projections ?? { [target]: compiled.graph.units.map((unit) => unit.unit_id) },
+    capability_snapshot: planned.manifest.capability_snapshot, go_worker_budget: planned.manifest.go_worker_budget,
+    graph_digest: planned.graph.graph_digest,
+    projections: Object.fromEntries(Object.entries(planned.projections).map(([name, projection]) => [name, projection.unit_ids])),
     rows: rowIDs.map((id) => {
-      const row = compiler.catalog.rowByID.get(id);
+      const row = catalog.rowByID.get(id);
       return { row_id: id, owner_id: row.owner_id, runner: row.runner, evidence_class: row.evidence_class,
         aggregate_placement: row.aggregate_placement, fixture_capability: row.fixture_capability, service_dependencies: row.service_dependencies };
     }),
-    units: compiled.graph.units.map((unit) => ({
+    units: units.map((unit) => ({
       unit_id: unit.unit_id, owner_id: unit.owner_id, kind: unit.kind, needs: unit.needs,
       resource_claims: unit.resource_claims, fixture_capability: unit.fixture_lease,
       ...(unit.fixture_profile_id ? { fixture_profile_id: unit.fixture_profile_id, snapshot_key: unit.snapshot_key } : {}),

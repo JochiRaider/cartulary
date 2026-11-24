@@ -3,7 +3,6 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { digest } from "../ui-review/input-files.mjs";
 import { repoRoot, reviewPins } from "../ui-review/policy.mjs";
-import { captureCapabilitySnapshot } from "../../scheduler/work-graph/capability.mjs";
 
 // Synthetic producer evidence uses current machine owners and fabricated process
 // identities. No retained run, private browser observation, or Markdown is input.
@@ -34,7 +33,7 @@ export function importFixture(root, { captureName = "auth-initial", ownerID = "m
     goldens: [{ golden_path: goldenPath, sha256: fileDigest(goldenPath), consumer_capture_ids: [capture.capture_id], catalog_row_ids: [row.row_id], owner_ids: [row.owner_id], scenario_ids: [capture.scenario_id], project_ids: [row.selector.project_id], fixture_ids: fixture ? [fixture.fixture_id] : [], design_contract_ids: [], consumer_refs: [], classification: "active", permitted_action: "retain" }],
     counts: { capture_intents: 1, committed_goldens: 1, active: 1, orphan: 0, missing_golden: 0, ambiguous_mapping: 0, registered_fixtures: fixture ? 1 : 0, unresolved_registered_fixtures: 0 }, artifact_refs: [], errors: [],
   };
-  const manifest = { schema_id: "cartulary.harness_run_manifest.v3", run_id: path.basename(root), command_id: "cartulary.harness.command.browser_e2e_visual.v1", target: "browser-e2e-visual", declared_inputs: {}, source_commit: "a".repeat(40), source_state: "dirty", source_digest: sha, toolchain_digest: sha, system_digest: sha, graph_digest: sha, capability_snapshot: captureCapabilitySnapshot({ root: repoRoot }), go_worker_budget: 1, cache_mode: "normal", instrumentation: { mode: "off", policy_digest: sha }, started_at: timestamp };
+  const manifest = { schema_id: "cartulary.harness_run_manifest.v3", run_id: path.basename(root), command_id: "cartulary.harness.command.browser_e2e_visual.v1", target: "browser-e2e-visual", declared_inputs: {}, source_commit: "a".repeat(40), source_state: "dirty", source_digest: sha, toolchain_digest: sha, system_digest: sha, graph_digest: sha, capability_snapshot: { schema_id: "cartulary.harness_capability_snapshot.v1", cpu_tokens: 1, memory_bytes: 1, process_slots: 1, io_tokens: 1, postgres_lanes: 1, object_store_lanes: 1, writable_volume: true, port_lanes: 1, services: {}, sources: {}, snapshot_digest: sha }, go_worker_budget: 1, cache_mode: "normal", instrumentation: { mode: "off", policy_digest: sha }, started_at: timestamp };
   const receipt = { schema_id: "cartulary.frontend_build_artifact.v2", run_id: manifest.run_id, artifact_id: "production", producer_unit_id: "operation:harness.build_web", source_digest: sha, toolchain_digest: sha, content_digest: sha };
   const process = { status: "pass", pid: 1, process_group_id: 1, boot_id: "synthetic", start_time_ticks: 1, effective_uid: 0, executable_device: 1, executable_inode: 1, executable_sha256: sha };
   const stack = {

@@ -3,6 +3,7 @@
 package harnessruntime
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -77,6 +78,29 @@ func TestGoPlannerAdoption(t *testing.T) {
 		}
 		if _, err := planRequest([]string{"--plan", "x"}, environment); err == nil {
 			t.Fatal("an unknown argument was accepted")
+		}
+	})
+
+	t.Run("a planned invocation keeps launch state private and rejects with a diagnostic", func(t *testing.T) {
+		env := []string{}
+		for name, value := range environment {
+			env = append(env, name+"="+value)
+		}
+		plan, err := PlanInvocation(root, []string{"--selection", "owner", "--target", "test-slice", "--owner", owner}, env)
+		if err != nil {
+			t.Fatal(err)
+		}
+		data, err := json.Marshal(plan)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var document map[string]any
+		if err := json.Unmarshal(data, &document); err != nil || document["schema_id"] != harnessplan.PlanSchema || document["bindings"] != nil || document["input_environment"] != nil || strings.Contains(string(data), node) {
+			t.Fatalf("published plan carries launch state: %v", err)
+		}
+		_, err = PlanInvocation(root, []string{"--selection", "owner", "--target", "test-slice", "--owner", "module.absent"}, env)
+		if lines := PreparationDiagnosticLines(err); len(lines) == 0 || !strings.Contains(lines[0], "failure_reason=usage_error") {
+			t.Fatalf("rejection diagnostic = %q", lines)
 		}
 	})
 

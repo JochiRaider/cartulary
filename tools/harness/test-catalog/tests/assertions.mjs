@@ -6,7 +6,6 @@ import { syncBuiltinESMExports } from "node:module";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { createRowSelectorResolver, discoverRunnerSources, playwrightSelection, validatePostgresFixturePolicy } from "../../test-support/owner-fixtures.mjs";
-import { groupRowsByPerformanceFixture, postgresMigrationDigest, snapshotKey } from "../../performance-fixture/index.mjs";
 import { buildSourceSnapshot, loadSelectedTestRows, loadTestCatalog } from "../index.mjs";
 import { HarnessConfigError } from "../../contract/index.mjs";
 export function assertSourceSnapshotIdentity() {
@@ -530,22 +529,6 @@ export function assertFixtureBuilderClosure(context) {
   const activeProfiles = [...catalog.fixtureProfiles.profiles.values()]
     .filter((profile) => profile.status === "active");
   assert.deepEqual([...fixtureBuilderPolicy.byFixtureProfileID.keys()].sort(), activeProfiles.map((profile) => profile.fixture_profile_id).sort());
-  const groups = groupRowsByPerformanceFixture(context.root, catalog.rows, {
-    registry: catalog.fixtureProfiles,
-  });
-  const migrationDigest = postgresMigrationDigest(context.root);
-  // Each group and their union exercise O(groups) plans, independent of row count.
-  const selections = [...groups.map((group) => [group]), ...(groups.length ? [groups] : [])];
-  for (const selected of selections) {
-    const graph = context.compiler.compile({ kind: "rows", row_ids: selected.flatMap((group) => group.row_ids) });
-    const builders = graph.units.filter((unit) => unit.kind === "fixture_builder");
-    assert.deepEqual(builders.map((unit) => unit.snapshot_key).sort(), selected.map((group) => snapshotKey(group.profile, migrationDigest)).sort());
-    assert.equal(new Set(builders.map((unit) => unit.unit_id)).size, builders.length);
-  }
-  const unprofiled = catalog.rows.find((row) => !row.fixture_profile_id && row.fixture_capability === "none");
-  assert.ok(unprofiled);
-  const plain = context.compiler.compile({ kind: "rows", row_ids: [unprofiled.row_id] });
-  assert.equal(plain.units.some((unit) => unit.kind === "fixture_builder"), false);
 }
 
 // TH-HARNESS-REQ-854: the diagnostic keeps only closed reasons and causes and

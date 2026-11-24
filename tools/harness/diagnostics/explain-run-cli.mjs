@@ -16,9 +16,8 @@ import { resolveExactRunDir, printObservabilityPerformance } from "../observabil
 import { resolveRetainedLogArtifacts } from "./retained-artifact-resolver.mjs";
 import { criticalPathExplanation, formatCriticalPath } from "../observability/critical-path.mjs";
 import { fixtureExplanation } from "../observability/fixture-explanation.mjs";
-import { auditEstimates, formatEstimateAudit } from "../observability/estimate-audit.mjs";
+import { auditEstimates, formatEstimateAudit, readEstimateOwner } from "../observability/estimate-audit.mjs";
 import { buildSourceSnapshot, loadTestCatalog } from "../test-catalog/index.mjs";
-import { loadWorkGraphOwner } from "../scheduler/work-graph/index.mjs";
 import { buildFixtureReport, fixtureSummaryLine, fixtureSummaryLines } from "./fixture-reporting.mjs";
 import { readLocalFile } from "../runtime/secure-local-files.mjs";
 
@@ -1013,7 +1012,7 @@ async function main() {
     // TH-HARNESS-REQ-866: advisory only. A qualified or rejected run exits 0;
     // only unreadable current planning inputs fail.
     const runDir = resolveExactRunDir(options.resultsDir, options.runId);
-    const report = await auditEstimates({ runDir, owner: loadWorkGraphOwner(repoRoot),
+    const report = await auditEstimates({ runDir, owner: readEstimateOwner(repoRoot),
       catalogRows: loadTestCatalog(repoRoot).rows, sourceDigest: buildSourceSnapshot(repoRoot).digest });
     validateSchemaSync(report.schema_id, report);
     process.stdout.write(options.json ? `${JSON.stringify(report)}\n` : formatEstimateAudit(report));

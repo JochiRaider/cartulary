@@ -10,7 +10,7 @@ import { createInterface } from "node:readline";
 import test from "node:test";
 import { acquireHostAdmission, inheritedHostLease, processIdentityAlive } from "../../runtime/host-admission.mjs";
 import { runPrivateCapturedProcess } from "../../runtime/private-child-process.mjs";
-import { captureCapabilitySnapshot, resourceCapacities } from "../../scheduler/work-graph/capability.mjs";
+import { hostCapacity } from "../../runtime/harness-binary.mjs";
 import { atomicLocalFile, privateDirectory, readLocalFile } from "../../runtime/secure-local-files.mjs";
 import { ReviewBrowser } from "../ui-review/browser.mjs";
 import { schemaID, validate, ReviewFailure, failureMappings, limits } from "../ui-review/contract.mjs";
@@ -164,7 +164,7 @@ test("browser actions use exact handles, epochs and isolated contexts without mo
   const origin = `http://127.0.0.1:${server.address().port}`;
   browser = new ReviewBrowser({ origin, mode: "dev" });
   const action = (name, parameters = {}, expected_epoch = browser.epoch) => ({ schema_id: schemaID("action"), expected_epoch, action: name, parameters });
-  admission = await acquireHostAdmission({ parent: inheritedHostLease(), claims: { browser_stack: 1 }, capacities: Object.fromEntries(resourceCapacities(captureCapabilitySnapshot({ root: repoRoot }))) });
+  admission = await acquireHostAdmission({ parent: inheritedHostLease(), claims: { browser_stack: 1 }, capacities: hostCapacity({ root: repoRoot }).capacities });
   await browser.start(); const snapshot = await browser.action(action("snapshot")); validate("observations", snapshot);
   const reference = snapshot.elements.find((element) => element.name === "Entry").resolved_ref;
   await browser.action(action("fill", { target: { kind: "element_ref", value: reference, epoch: 0 }, text: 'literal $(touch /no-shell)' }));
@@ -209,7 +209,7 @@ test("browser timeout requires a fresh snapshot, redirects stay at the borrowed 
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   browser = new ReviewBrowser({ origin: `http://127.0.0.1:${server.address().port}`, mode: "dev", onLost: (error) => { lost = error; } });
   const action = (name, parameters = {}) => ({ schema_id: schemaID("action"), expected_epoch: browser.epoch, action: name, parameters });
-  admission = await acquireHostAdmission({ parent: inheritedHostLease(), claims: { browser_stack: 1 }, capacities: Object.fromEntries(resourceCapacities(captureCapabilitySnapshot({ root: repoRoot }))) });
+  admission = await acquireHostAdmission({ parent: inheritedHostLease(), claims: { browser_stack: 1 }, capacities: hostCapacity({ root: repoRoot }).capacities });
   await browser.start();
   await assert.rejects(browser.action(action("click", { target: { kind: "test_id", value: "covered" } })), /operation_expired/u);
   await assert.rejects(browser.action(action("resize", { width: 800, height: 600 })), /session_mismatch/u);

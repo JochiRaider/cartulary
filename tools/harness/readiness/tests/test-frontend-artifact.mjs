@@ -7,28 +7,13 @@ import { createRuntime } from "../../runtime/session-client.mjs";
 import { validateFrontendAttachment } from "../../test-support/owner-fixtures.mjs";
 import { resolveFrontendArtifact, sealFrontendArtifact } from "../frontend-artifact.mjs";
 import { resolveBrowserFrontendArtifact } from "../../generated-artifacts/execution-topology.mjs";
-import { createContractTestContext } from "../../tests/contract-test-context.mjs";
 const root = path.resolve(import.meta.dirname, "../../../..");
 export function registerEvidenceTests() {
   test("browser_artifact_admission: browser attachments bind the selected artifact and current complete build", async () => {
-    const context = createContractTestContext(root);
     const temporaryRoot = mkdtempSync(path.join(tmpdir(), "cartulary-browser-artifact-"));
     try {
       const production = resolveBrowserFrontendArtifact(root, "webserver-backed");
       const measurement = resolveBrowserFrontendArtifact(root, "measurement");
-      for (const [rowID, expectedProducer] of [
-        ["module.auth.browser.browser_sign_in_exposes_the_ordinary_session_sur_2ec8df6229", "build-web"],
-        ["web.design.accessibility.account_menu_accessible_keyboard_and_focus_state_3c31f28451", "build-web"],
-        ["web.design.visual.incident_creation_form_errors_pending_recovery_a_0d7c2a3cde", "build-web"],
-        ["module.networkflow.measurement.saved_graph_dom_ceiling", "build-web-measurement"],
-      ]) {
-        const graph = context.compiler.compileRows([rowID]);
-        assert.ok(graph.units.some((unit) => unit.unit_id === `operation:harness.${expectedProducer.replaceAll("-", "_")}`), `row ${rowID} must build ${expectedProducer}`);
-        // Measurement still builds the backend's embedded production assets.
-        // Production work must never acquire the measurement producer.
-        if (expectedProducer === "build-web")
-          assert.ok(!graph.units.some((unit) => unit.unit_id === "operation:harness.build_web_measurement"), `production row ${rowID} must not build measurement output`);
-      }
       assert.notEqual(production.producer_report_key, measurement.producer_report_key);
       assert.notEqual(production.path, measurement.path);
       for (const artifact of [production, measurement]) {

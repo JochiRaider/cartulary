@@ -910,13 +910,6 @@
       "foundation_runtime": true
     },
     {
-      "schema_id": "cartulary.harness_work_graph.v8",
-      "path": "tools/schemas/cartulary.harness_work_graph.v8.schema.json",
-      "classification": "public_contract",
-      "producer": "harness graph compiler",
-      "validation": "harness.json_shape_check"
-    },
-    {
       "schema_id": "cartulary.harness_work_graph.v9",
       "path": "tools/schemas/cartulary.harness_work_graph.v9.schema.json",
       "classification": "public_contract",

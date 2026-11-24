@@ -36,6 +36,66 @@ func TestPlannerCompilation(t *testing.T) {
 		return rows
 	}
 
+	t.Run("a browser row builds exactly the frontend artifact its stage serves", func(t *testing.T) {
+		for id, producer := range map[string]string{
+			"module.auth.browser.browser_sign_in_exposes_the_ordinary_session_sur_2ec8df6229":      "build_web",
+			"web.design.accessibility.account_menu_accessible_keyboard_and_focus_state_3c31f28451": "build_web",
+			"web.design.visual.incident_creation_form_errors_pending_recovery_a_0d7c2a3cde":        "build_web",
+			"module.networkflow.measurement.saved_graph_dom_ceiling":                               "build_web_measurement",
+		} {
+			graph, err := Compile(inputs, Selection{Rows: []string{id}}, options)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, ok := graph.Units["operation:harness."+producer]; !ok {
+				t.Fatalf("%s does not build %s", id, producer)
+			}
+			// Measurement still builds the backend's embedded production assets;
+			// production work never acquires the measurement producer.
+			if _, ok := graph.Units["operation:harness.build_web_measurement"]; ok && producer == "build_web" {
+				t.Fatalf("production row %s builds measurement output", id)
+			}
+		}
+	})
+
+	t.Run("a race row runs under the race detector and a shuffle seed reaches Go units", func(t *testing.T) {
+		goRows := rowsWhere(func(row Row) bool { return row.Runner == RunnerGo && row.Status == "active" })
+		var race, plain string
+		for _, id := range goRows {
+			if inputs.Owner.RowExecutionContexts[id].GoRace {
+				race = id
+			} else if plain == "" {
+				plain = id
+			}
+		}
+		if race == "" || plain == "" {
+			t.Fatal("the catalog needs a race and an ordinary Go row")
+		}
+		graph, err := Compile(inputs, Selection{Rows: []string{race, plain}}, options)
+		if err != nil {
+			t.Fatal(err)
+		}
+		units := bound(graph)
+		raced, ordinary := graph.Units[units[race]].Command.Environment, graph.Units[units[plain]].Command.Environment
+		if raced["CARTULARY_GO_RACE"] != "1" || raced["CGO_ENABLED"] != "1" || ordinary["CARTULARY_GO_RACE"] != "0" {
+			t.Fatalf("race environment %v / %v", raced, ordinary)
+		}
+		seeded := options
+		seeded.GoShuffleSeed = "17"
+		shuffled, err := Compile(inputs, Selection{Rows: []string{plain}}, seeded)
+		if err != nil {
+			t.Fatal(err)
+		}
+		unseeded, err := Compile(inputs, Selection{Rows: []string{plain}}, options)
+		if err != nil {
+			t.Fatal(err)
+		}
+		unit := shuffled.Units[bound(shuffled)[plain]]
+		if unit.Command.Environment["CARTULARY_GO_SHUFFLE_SEED"] != "17" || shuffled.Digest == unseeded.Digest {
+			t.Fatal("the shuffle seed does not reach the Go unit's identity")
+		}
+	})
+
 	t.Run("every row compiles and is bound exactly once", func(t *testing.T) {
 		rows := rowsWhere(every)
 		graph, err := Compile(inputs, Selection{Rows: rows}, options)

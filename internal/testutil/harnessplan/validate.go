@@ -26,6 +26,22 @@ func (in *Inputs) validate() error {
 			return fail(registryPath, "missing capacity policy %s", name)
 		}
 	}
+	// A browser reset runs once, and its backend drain outlasts the shutdown
+	// deadline the harness configures for every backend by the declared
+	// margin (NLSpec §12.5).
+	reset := in.Topology.BrowserResetPolicy
+	for _, name := range []string{"backend_drain_timeout_ms", "backend_shutdown_drain_seconds", "backend_drain_margin_ms",
+		"database_reset_timeout_ms", "backend_readiness_timeout_ms", "evidence_overhead_timeout_ms"} {
+		if reset[name] <= 0 {
+			return fail(topologyPath, "browser reset policy needs a positive %s", name)
+		}
+	}
+	if reset["max_attempts"] != 1 {
+		return fail(topologyPath, "browser reset policy must declare one attempt")
+	}
+	if reset["backend_drain_timeout_ms"] <= reset["backend_shutdown_drain_seconds"]*1000+reset["backend_drain_margin_ms"] {
+		return fail(topologyPath, "browser reset drain must exceed the backend shutdown deadline by its margin")
+	}
 	resources := map[string]bool{}
 	for _, profile := range in.Topology.ResourceProfiles {
 		if resources[profile.ID] {

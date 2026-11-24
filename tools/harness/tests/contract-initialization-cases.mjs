@@ -9,8 +9,7 @@ import { createContractTestContext } from "./contract-test-context.mjs";
 export function assertLazyCaseContext(context) {
   const loads = [];
   const overrides = Object.fromEntries([
-    "taskSurface", "topology", "rowMigrations", "catalog", "catalogMetadata", "compiler",
-    "cacheRegistry", "fixtureBuilderPolicy",
+    "taskSurface", "topology", "rowMigrations", "catalog", "catalogMetadata", "fixtureBuilderPolicy",
   ].map((name) => [name, () => { loads.push(name); return { name }; }]));
   const first = createContractTestContext(context.root, overrides);
   const second = createContractTestContext(context.root, overrides);
@@ -26,8 +25,7 @@ export function assertImportAndFailureIsolation(context) {
     "tests/contract-test-context.mjs", "tests/initialization-tests.mjs",
     "command-surface/tests/test-contracts.mjs", "generated-artifacts/tests/test-boundary-projections.mjs",
     "performance-fixture/tests/test-evidence-generation.mjs", "runtime/tests/test-producer-umask.mjs",
-    "test-catalog/tests/test-contracts.mjs", "scheduler/work-graph/tests/test-contracts.mjs",
-    "scheduler/work-graph/tests/test-scheduler-contracts.mjs", "readiness/tests/test-frontend-artifact.mjs",
+    "test-catalog/tests/test-contracts.mjs", "readiness/tests/test-frontend-artifact.mjs",
     "static-analysis/backend-module-boundary-check.mjs", "static-analysis/tests/backend-boundary-fixtures.mjs",
     "static-analysis/backend-module-boundary-check-cli.mjs",
     "static-analysis/tests/test-backend-boundary-policy.mjs", "static-analysis/tests/test-backend-boundary-mechanics.mjs",

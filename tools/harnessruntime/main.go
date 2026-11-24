@@ -15,6 +15,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesscollect"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessdiag"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessfixtures"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnessplan"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessreview"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessruntime"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
@@ -136,6 +137,46 @@ func run() int {
 		return harnesscollect.Main(os.Stdin, os.Stdout)
 	case "diagnostics":
 		return harnessdiag.Main(os.Args[2:], os.Stdout, os.Stderr)
+	case "plan":
+		// Diagnostic and maintenance tools read the plan the runtime would
+		// execute; nothing is launched or published.
+		root, err := os.Getwd()
+		if err != nil {
+			return 2
+		}
+		plan, err := harnessruntime.PlanInvocation(root, os.Args[2:], os.Environ())
+		if err != nil {
+			for _, line := range harnessruntime.PreparationDiagnosticLines(err) {
+				fmt.Fprintln(os.Stderr, line)
+			}
+			fmt.Fprintln(os.Stderr, "graph preparation failed")
+			return 2
+		}
+		if err := json.NewEncoder(os.Stdout).Encode(plan); err != nil {
+			return 1
+		}
+		return 0
+	case "capacities":
+		root, err := os.Getwd()
+		if err != nil {
+			return 2
+		}
+		override := ""
+		switch {
+		case len(os.Args) == 4 && os.Args[2] == "--override" && os.Args[3] != "":
+			override = os.Args[3]
+		case len(os.Args) != 2:
+			return 2
+		}
+		capacity, err := harnessplan.CaptureHostCapacity(root, override)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "capacity capture failed")
+			return 2
+		}
+		if err := json.NewEncoder(os.Stdout).Encode(capacity); err != nil {
+			return 1
+		}
+		return 0
 	default:
 		return 2
 	}

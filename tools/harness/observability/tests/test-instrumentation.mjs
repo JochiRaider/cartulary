@@ -10,7 +10,6 @@ import { spawnSync } from "node:child_process";
 import { Worker } from "node:worker_threads";
 import { actualCriticalPath, intervalUnion } from "../../evidence-accounting/index.mjs";
 import { reduceCanonicalUnitIntervals } from "../../evidence-accounting/index.mjs";
-import { buildWorkGraph } from "../../scheduler/work-graph/model.mjs";
 import { resourceProjection } from "../resource-projection.mjs";
 import { readResourceObservations } from "../resource-reader.mjs";
 import { atomicLocalFile, readLocalChunks, readLocalFile } from "../../runtime/secure-local-files.mjs";

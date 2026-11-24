@@ -8,15 +8,12 @@ import { mkdtempSync, writeFileSync, readFileSync, existsSync, rmSync } from 'no
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { WorkGraphCompiler, selectionFor } from './tools/harness/scheduler/work-graph/index.mjs';
-import { buildOperationInvocation } from './tools/harness/scheduler/work-graph/operations.mjs';
-const compiler = new WorkGraphCompiler(process.cwd());
-const plan = selectionFor({ selection: 'command', target: 'release-check' }, compiler);
-const producer = 'operation:harness.release_inventory_artifacts';
-assert.equal(plan.graph.units.filter((unit) => unit.unit_id === producer).length, 1, 'one inventory producer serves both consumers');
+import { buildOperationInvocation, readOperationOwner } from './tools/harness/execution/operations.mjs';
+import { loadExecutionTopology } from './tools/harness/generated-artifacts/execution-topology.mjs';
+const owner = readOperationOwner(process.cwd());
+const surface = loadExecutionTopology({ root: process.cwd() }).taskSurface;
 for (const id of ['harness.license_report', 'harness.sbom']) {
-  const consumer = plan.graph.units.find((unit) => unit.unit_id === `operation:${id}`);
-  assert.ok(consumer.needs.includes(producer));
+  assert.ok(owner.policy_units[id].needs.includes('harness.release_inventory_artifacts'), `${id} consumes the one inventory producer`);
 }
 const env = { ...process.env, MAKEFLAGS: '', MFLAGS: '' };
 for (const name of ['MAKEOVERRIDES', 'CARTULARY_HARNESS_IDENTITY_PREPARED', 'CARTULARY_TEST_TARGET', 'CARTULARY_MAKE_INPUT_SOURCES']) delete env[name];
@@ -25,7 +22,7 @@ assert.equal(help.status, 0, help.stderr);
 const text = help.stdout;
 assert.match(text, /release-check/u);
 for (const name of ['license-report', 'sbom', 'release-readiness-evidence', 'release-inventory-artifacts']) {
-  assert.equal(compiler.taskSurface.targets.some((entry) => entry.name === name), false, `${name}: private operation only`);
+  assert.equal(surface.targets.some((entry) => entry.name === name), false, `${name}: private operation only`);
   const rejected = spawnSync('make', ['--no-print-directory', name], { env, encoding: 'utf8' });
   assert.equal(rejected.status, 2);
   assert.match(rejected.stderr, /No rule to make target/u);
@@ -41,7 +38,7 @@ try {
       if (bytes !== null) writeFileSync(file, bytes);
       // Execute only the already-scheduled consumer. A warm inventory cache must
       // neither repair malformed evidence nor create a missing artifact.
-      const invocation = buildOperationInvocation(compiler.owner, operation, { ...env, NODE_BIN: process.execPath, RUN_STEP_SCRIPT: path.resolve('tools/harness/execution/run-step.sh'), CARTULARY_HARNESS_GRAPH_CHILD: '1', LICENSE_REPORT_ARTIFACT: file, SBOM_ARTIFACT: file });
+      const invocation = buildOperationInvocation(owner, operation, { ...env, NODE_BIN: process.execPath, RUN_STEP_SCRIPT: path.resolve('tools/harness/execution/run-step.sh'), CARTULARY_HARNESS_GRAPH_CHILD: '1', LICENSE_REPORT_ARTIFACT: file, SBOM_ARTIFACT: file });
       const result = spawnSync(invocation.command, invocation.args, { env: invocation.env, encoding: 'utf8' });
       assert.ifError(result.error);
       assert.equal(result.status === 0, scenario === 'valid', `${label} ${scenario}: ${result.stderr}`);

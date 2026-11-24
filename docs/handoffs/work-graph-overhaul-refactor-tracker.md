@@ -1186,6 +1186,26 @@ native-runtime, planner, scheduler, fixture, review, boundary-lifecycle,
 routing, evidence, schema, owner-boundary, registry, scheduler-contract,
 package-readiness and SeaweedFS-evidence rows.
 
+**2a and 2c result (2026-11-24).** One slice. The harness binary gains
+`plan <graph arguments>` (the published plan, nothing launched) and
+`capacities [--override <file>]` (snapshot, capacities and host profile);
+`runtime/harness-binary.mjs` is the Node side. `target-plan` and the task
+guide's explicit commands read Go plans; the local service session, the
+UI-review owner and agent-finalize read Go capacities. Agent-finalize had
+compared the retained Go host profile (`amd64`) with Node's `os.arch()`
+(`x64`) and could never accept a real run; it now compares Go with Go. The
+public preflight keeps input admission only: the Go planner rejects owners,
+rows and selectors before any run root (REQ-074 amended). Canonical
+validation reconstructs pressure under the summary's resolved capacities,
+which the retained plan binds; the JavaScript capacity mapping is gone.
+`operations.mjs` moved to the execution owner, the row estimate rule to the
+estimate audit, policy rows to the OTel check. The scheduler-growth budget is
+`harnessplan.TestPlanGrowth`. The release verifier expands required unions
+over authored members until S4 removes required operations. Deleted:
+`tools/harness/scheduler/work-graph`, `go-lpt-shards.mjs`, the browser
+packing helpers, `scheduler/adapters`, `scheduler-growth.mjs`, graph v8 and
+three helper facades.
+
 **Verification.** 2a: the planner, native-runtime and new-CLI rows, the
 local-session and UI-review suites, `source-check` `generated`, `schema` and
 `catalog`. 2b: each moved reader's rows, the retained-run and boundary rows,

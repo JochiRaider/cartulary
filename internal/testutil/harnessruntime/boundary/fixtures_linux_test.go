@@ -27,6 +27,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessadmission"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessfixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnessplan"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
@@ -291,14 +292,11 @@ process.stdout.write(JSON.stringify(environment));
 				for key, value := range lease.Environment() {
 					owner.Options.Environment[key] = value
 				}
-				output, err := invoke(`import {captureCapabilitySnapshot,resourceCapacities} from './tools/harness/scheduler/work-graph/capability.mjs';process.stdout.write(JSON.stringify(Object.fromEntries(resourceCapacities(captureCapabilitySnapshot({root:process.cwd()})))));`)
+				host, err := harnessplan.CaptureHostCapacity(root, "")
 				if err != nil {
 					t.Fatal("renderer capacity", err)
 				}
-				capacities := map[string]int64{}
-				if json.Unmarshal(output, &capacities) != nil {
-					t.Fatal("renderer capacity shape")
-				}
+				capacities := host.Capacities
 				var parent *string
 				if value := environment["CARTULARY_HOST_ADMISSION_LEASE"]; value != "" {
 					parent = &value

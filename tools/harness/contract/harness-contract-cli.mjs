@@ -10,9 +10,6 @@ import {
   compactJSONString,
   generateTestRouteToken,
   preflightPublicTarget,
-  resolveHarnessConfig,
-  targetPolicy,
-  repoRoot,
   redactString,
   redactValue,
   resolveArtifactIdentityForTarget,
@@ -41,13 +38,8 @@ async function main(argv, programName) {
       usage(programName);
       return 2;
     }
-    if (target !== "bootstrap" && targetPolicy(target)?.selection_binding) {
-      // Selection admission precedes retained-root creation and Make producers.
-      // Keep the foundation contract independent of the graph implementation.
-      const resolved = resolveHarnessConfig(target);
-      const { WorkGraphCompiler, admitCommandSelection } = await import("../scheduler/work-graph/index.mjs");
-      admitCommandSelection(new WorkGraphCompiler(repoRoot), target, resolved.variables.target_inputs);
-    }
+    // Input admission only: the Go planner owns selection and rejects an
+    // invalid owner, row or selector before any run root or child exists.
     preflightPublicTarget(target);
     return 0;
   }

@@ -1,7 +1,8 @@
 import path from "node:path";
 
 import { intervalUnion } from "../evidence-accounting/index.mjs";
-import { rowEstimateMs } from "../scheduler/work-graph/cohorts.mjs";
+import { validateSchemaSync } from "../contract/index.mjs";
+import { readOperationOwner } from "../execution/operations.mjs";
 import { readPassedRowResult } from "./retained-selection.mjs";
 import { validateCanonicalRun } from "./canonical-evidence.mjs";
 
@@ -14,6 +15,20 @@ export const maximumDisplayedEstimateFindings = 20;
 const maximumFindingRows = 20;
 const heavyFixtureCapabilities = new Set(["postgres_dedicated", "postgres_migration"]);
 const compareASCII = (left, right) => (left < right ? -1 : left > right ? 1 : 0);
+
+// TH-HARNESS 11.6: a catalog row's reviewed estimate replaces its
+// evidence-class estimate. The audit reports drift against these authored
+// estimates.
+function rowEstimateMs(owner, row) {
+  return row.estimated_work_ms ?? owner.evidence_estimates_ms[row.evidence_class];
+}
+
+/** The work-graph owner whose authored estimates the audit checks. */
+export function readEstimateOwner(root) {
+  const owner = readOperationOwner(root);
+  validateSchemaSync(owner.schema_id, owner);
+  return owner;
+}
 
 export function estimateAuditPolicy(owner) {
   return {

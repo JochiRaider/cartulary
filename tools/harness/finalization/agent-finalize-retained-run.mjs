@@ -1,10 +1,9 @@
 import { closeSync, readdirSync } from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 import { assertMachineEvidencePath, canonicalJSONString, openDirectory, parseStrictJSON, readRetainedArtifactBytes, validateSchemaSync } from "../contract/index.mjs";
 import { buildSourceSnapshot, loadTestCatalog } from "../test-catalog/index.mjs";
-import { captureCapabilitySnapshot } from "../scheduler/work-graph/index.mjs";
+import { hostCapacity } from "../runtime/harness-binary.mjs";
 import { validateCanonicalRun } from "../observability/canonical-evidence.mjs";
 import { loadRetainedPlan } from "../observability/retained-plan.mjs";
 import { validateRetainedCleanup, validateRetainedSelection } from "../observability/retained-selection.mjs";
@@ -35,14 +34,16 @@ export function createRetainedRunPreflight({ allowOlderResultsDir, relToRepo, re
   function currentContract() {
     const override = process.env.CARTULARY_HARNESS_CAPACITY_OVERRIDE;
     if (override) assertMachineEvidencePath(path.resolve(repoRoot, override));
-    current ??= {
-      catalog: ports.catalog ?? (ports.loadCatalog ?? loadTestCatalog)(repoRoot),
-      surface: ports.surface ?? read(repoRoot, "tools/task_surface_owner.json"),
-      capability: ports.capability ?? captureCapabilitySnapshot({ root: repoRoot,
-        override,
-        services: { browser: true, object_store: true, postgres: true, service_stack: true } }),
-      host: ports.host ?? { platform: os.platform(), architecture: os.arch(), kernel_release: os.release(), cpu_models: [...new Set(os.cpus().map((cpu) => cpu.model))].sort() },
-    };
+    if (!current) {
+      // The planner's own capture is the comparison basis for its retained plan.
+      const host = ports.capability && ports.host ? null : hostCapacity({ root: repoRoot, override });
+      current = {
+        catalog: ports.catalog ?? (ports.loadCatalog ?? loadTestCatalog)(repoRoot),
+        surface: ports.surface ?? read(repoRoot, "tools/task_surface_owner.json"),
+        capability: ports.capability ?? host.capability_snapshot,
+        host: ports.host ?? host.host_profile,
+      };
+    }
     return current;
   }
 

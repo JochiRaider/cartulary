@@ -5,9 +5,6 @@ import path from "node:path";
 import os from "node:os";
 import { chmodSync, existsSync, mkdtempSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 
-import {
-  WorkGraphCompiler,
-} from "../../scheduler/work-graph/index.mjs";
 import { redactString } from "../../contract/index.mjs";
 import {
   adaptGoInvocation, adaptGoInvocationFile, buildGoInvocations, goExecutionEnvironment,
@@ -371,44 +368,7 @@ assert.equal(moduleInvocation.environment.GOWORK, "off");
 assert.throws(() => buildGoInvocations([
   { row_id: "unknown", selector: { package: "./referencepacks/undeclared/data", tests: ["TestUnknown"] } },
 ], 1, "go", buildContext), /unregistered independent Go module/);
-const graph = new WorkGraphCompiler(root).compile({ kind: "target", target: "harness.suite_backend_unit" });
-const goUnits = graph.units.filter((unit) => unit.unit_id.startsWith("go:"));
-assert.ok(goUnits.length > 0);
-assert.ok(
-  goUnits.every((unit) =>
-    unit.current_run_evidence_outputs.some((output) => output.startsWith("rows/")),
-  ),
-);
-assert.ok(
-  goUnits.every((unit) =>
-    unit.current_run_evidence_outputs.every(
-      (output) => output.startsWith("rows/") || output.startsWith("unit-results/"),
-    ),
-  ),
-);
-
-// Execution order is an admitted, reproducible input. It cannot broaden the exact
-// symbol selection or collide with an ordinary/other-seed cached graph.
-const selectedGoRow = "module.auth.integration.start_store_uses_rollback_dbfor_seeds_assertions_29c8a92930";
-const orderInputs = { OWNER: "module.auth", ROWS: selectedGoRow };
-const orderCompiler = new WorkGraphCompiler(root);
-const orderPlan = (seed) => orderCompiler.compileCommand("test-slice", {
-  ...orderInputs, ...(seed === undefined ? {} : { GO_SHUFFLE_SEED: seed }),
-}).graph;
-const normalOrder = orderPlan(undefined), firstOrder = orderPlan("1"), secondOrder = orderPlan("2");
-assert.equal(firstOrder.graph_digest, orderPlan("1").graph_digest);
-assert.notEqual(firstOrder.graph_digest, normalOrder.graph_digest);
-assert.notEqual(firstOrder.graph_digest, secondOrder.graph_digest);
-const firstGoUnit = firstOrder.units.find((unit) => unit.unit_id.startsWith("go:"));
-assert.deepEqual(firstGoUnit.row_bindings.map((row) => row.row_id), [selectedGoRow]);
-assert.equal(firstGoUnit.command.environment.CARTULARY_GO_SHUFFLE_SEED, "1");
-assert.equal(normalOrder.units.find((unit) => unit.unit_id.startsWith("go:")).command.environment.CARTULARY_GO_SHUFFLE_SEED, "");
-for (const invalid of ["0", "-1", "random", "1.5", "2147483648"]) {
-  assert.throws(() => orderPlan(invalid));
-}
-assert.throws(() => orderCompiler.compileCommand("test-slice", {
-  OWNER: "harness.command_surface", ROWS: "harness.command_surface.behavior.owner_boundaries", GO_SHUFFLE_SEED: "1",
-}), /Go-only selection/);
+// A shuffle seed only orders the exact symbol selection.
 const [shuffledInvocation] = buildGoInvocations([
   { row_id: "fixture", selector: { package: "./internal/fixture", tests: ["TestActive"] } },
 ], 2, "pinned-go", { ...buildContext, goShuffleSeed: "1" });
@@ -416,6 +376,12 @@ assert.deepEqual(shuffledInvocation.args.filter((arg) => !arg.startsWith("-shuff
 assert.ok(shuffledInvocation.args.includes("-shuffle=1"));
 assert.equal(shuffledInvocation.environment.GOFLAGS, "");
 assert.throws(() => buildGoInvocations([], 1, "go", { ...buildContext, goShuffleSeed: "on" }), /shuffle seed/);
+const [racedInvocation] = buildGoInvocations([
+  { row_id: "fixture", selector: { package: "./internal/fixture", tests: ["TestActive"] } },
+], 2, "pinned-go", { ...buildContext, goRace: true });
+assert.deepEqual(racedInvocation.args.filter((arg) => arg !== "-race"), ordinaryInvocation.args);
+assert.ok(racedInvocation.args.includes("-race"));
+assert.equal(racedInvocation.environment.CGO_ENABLED, "1");
 
 // TH-HARNESS-AC-165: Go test durations come from the outcome parse, keep
 // terminal-event order, redact and bound names, and never change outcomes.

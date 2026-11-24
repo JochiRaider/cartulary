@@ -11,7 +11,7 @@ import { browserBatchManifestSchemaID, browserCompatibility, browserPartitionCon
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..", "..");
 export const executionTopologySchemaID = "cartulary.execution_topology.v16";
-import { projectOperationBindings, readOperationOwner } from "../scheduler/work-graph/operations.mjs";
+import { projectOperationBindings, readOperationOwner } from "../execution/operations.mjs";
 export const taskSurfaceOwnerSchemaID = "cartulary.task_surface_owner.v4";
 export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v16";
 const schedulerManifestSchemaID = "cartulary.scheduler_manifest.v3";

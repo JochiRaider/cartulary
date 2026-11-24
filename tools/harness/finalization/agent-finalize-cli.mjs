@@ -27,7 +27,7 @@ import { publishFinalizationFailure } from "./failure-publication.mjs";
 import { createValidatedContext } from "../test-catalog/index.mjs";
 import { validateSourceShapes } from "../generated-artifacts/index.mjs";
 import { normalizeOutputMode } from "../output/index.mjs";
-import { operationDefinition, operationExecutionDigest, readOperationOwner } from "../scheduler/work-graph/operations.mjs";
+import { operationDefinition, operationExecutionDigest, readOperationOwner } from "../execution/operations.mjs";
 
 const schemaID = "cartulary.agent_finalize_summary.v4";
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));

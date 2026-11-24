@@ -122,7 +122,7 @@ export function buildCompleteEvidence({ runID, target = "test-slice", identity, 
     system_digest: manifest.capability_snapshot.snapshot_digest, graph_digest: graph.graph_digest,
     instrumentation: { mode: "off", policy_digest: hash(JSON.parse(policyBytes)) } });
   const plan = { schema_id: "cartulary.harness_runtime_plan.v9", graph, manifest: structuredClone(manifest), projections: projectionInputs,
-    capacities: { cpu: 2, io: 1, memory_mb: 1, process: 2 }, aging_quantum_ms: 1000,
+    capacities: structuredClone(summary.resource_pressure.resolved_capacity), aging_quantum_ms: 1000,
     cache: selected.map((unit) => ({ unit_id: unit.unit_id, eligible: false, reason: "mode_off", profile_id: null, policy: null,
       input_digest: null, dependency_strategy: null, vulnerability_database_revision: null, dependency_digest: null })),
     source_inputs: sourceInputs, cache_inputs: {}, host_profile: host, instrumentation_policy_bytes: policyBytes,

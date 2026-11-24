@@ -18,7 +18,7 @@ import { ReviewBrowser } from "../ui-review/browser.mjs";
 import { limits, parseRequest, schemaID } from "../ui-review/contract.mjs";
 import { repoRoot, reviewPins } from "../ui-review/policy.mjs";
 import { acquireHostAdmission, inheritedHostLease } from "../../runtime/host-admission.mjs";
-import { captureCapabilitySnapshot, resourceCapacities } from "../../scheduler/work-graph/capability.mjs";
+import { hostCapacity } from "../../runtime/harness-binary.mjs";
 
 const png = () => encodePNG({ width: 2, height: 1, data: Buffer.from([11, 22, 33, 0, 44, 55, 66, 255]) });
 function insertChunk(bytes, kind, payload) {
@@ -249,7 +249,7 @@ test("page capture preserves focus and scroll, crops exactly, and rejects post-s
   });
   const session = sessionAt(root);
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-  admission = await acquireHostAdmission({ parent: inheritedHostLease(), claims: { browser_stack: 1 }, capacities: Object.fromEntries(resourceCapacities(captureCapabilitySnapshot({ root: repoRoot }))) });
+  admission = await acquireHostAdmission({ parent: inheritedHostLease(), claims: { browser_stack: 1 }, capacities: hostCapacity({ root: repoRoot }).capacities });
   browser = new ReviewBrowser({ origin: `http://127.0.0.1:${server.address().port}`, mode: "dev" });
   await browser.start();
   session.mode = "dev"; session.browser = browser;

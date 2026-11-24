@@ -2,7 +2,7 @@ import path from "node:path";
 import { parseStrictJSON, readRetainedArtifactBytes, resolveRetainedArtifactIdentity, validateSchemaSync } from "../harness/contract/index.mjs";
 import { atomicLocalFile } from "../harness/runtime/secure-local-files.mjs";
 import { buildSourceSnapshot, loadTestCatalog } from "../harness/test-catalog/index.mjs";
-import { WorkGraphCompiler } from "../harness/scheduler/work-graph/index.mjs";
+import { readOperationOwner } from "../harness/execution/operations.mjs";
 import { qualificationRequirements, resolveEvidenceRoots, verifySelectedEvidence } from "./verify-selected-evidence.mjs";
 
 const root = path.resolve(import.meta.dirname, "../..");
@@ -12,9 +12,8 @@ try {
   const file = path.resolve(root, args[1]);
   const manifest = parseStrictJSON(readRetainedArtifactBytes(path.dirname(file), path.basename(file), 1024 * 1024).toString("utf8"));
   const policy = parseStrictJSON(readRetainedArtifactBytes(root, "contracts/verification/release-qualification.v1.json", 1024 * 1024).toString("utf8"));
-  const compiler = new WorkGraphCompiler(root);
   const catalog = loadTestCatalog(root);
-  const required = qualificationRequirements(policy, catalog, target => compiler.compileTarget(target));
+  const required = qualificationRequirements(policy, catalog, readOperationOwner(root));
   const sourceDigest = buildSourceSnapshot(root).digest;
   const report = await verifySelectedEvidence({roots: resolveEvidenceRoots(manifest, file), sourceDigest, catalog, required});
   if (buildSourceSnapshot(root).digest !== sourceDigest) throw new Error("source changed during evidence verification");

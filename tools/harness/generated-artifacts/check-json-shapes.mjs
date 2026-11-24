@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { projectOperationBindings, readOperationOwner } from "../scheduler/work-graph/operations.mjs";
+import { projectOperationBindings, readOperationOwner } from "../execution/operations.mjs";
 import { createHash } from "node:crypto";
 import { existsSync, lstatSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";

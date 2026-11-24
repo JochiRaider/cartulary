@@ -73,16 +73,7 @@ func Prepare(root string, request Request, now time.Time, pid int) (*Plan, error
 	if err != nil {
 		return nil, err
 	}
-	var override *CapacityOverride
-	if path := value(capacityOverrideInput, ""); path != "" {
-		if !filepath.IsAbs(path) {
-			path = filepath.Join(root, path)
-		}
-		if override, err = ReadCapacityOverride(path); err != nil {
-			return nil, err
-		}
-	}
-	snapshot, err := Capture(DetectHost(root), in.Registry, override)
+	snapshot, err := captureHost(root, in.Registry, value(capacityOverrideInput, ""))
 	if err != nil {
 		return nil, err
 	}
@@ -350,4 +341,43 @@ func launchBindings(root string, in *Inputs, environment map[string]string, mode
 		bindings[servicesSessionFileInput] = sessionFile
 	}
 	return bindings, nil
+}
+
+// HostCapacity is the host's capacity as the planner sees it: the capability
+// snapshot, the scheduler capacities it maps to and the host profile.
+type HostCapacity struct {
+	CapabilitySnapshot CapabilitySnapshot `json:"capability_snapshot"`
+	Capacities         map[string]int64   `json:"capacities"`
+	HostProfile        HostProfile        `json:"host_profile"`
+}
+
+// CaptureHostCapacity captures the host's capacity under the authored
+// resource registry and an optional capacity override file, as Prepare does
+// for a plan.
+func CaptureHostCapacity(root, overridePath string) (HostCapacity, error) {
+	var registry ResourceRegistry
+	if err := readDocument(root, registryPath, "cartulary.scheduler_resource_registry.v9", &registry); err != nil {
+		return HostCapacity{}, err
+	}
+	snapshot, err := captureHost(root, registry, overridePath)
+	if err != nil {
+		return HostCapacity{}, err
+	}
+	return HostCapacity{CapabilitySnapshot: snapshot, Capacities: snapshot.Capacities(), HostProfile: DetectHostProfile()}, nil
+}
+
+// captureHost detects the host and resolves its snapshot under registry and
+// the override file at overridePath, relative to root unless absolute.
+func captureHost(root string, registry ResourceRegistry, overridePath string) (CapabilitySnapshot, error) {
+	var override *CapacityOverride
+	if overridePath != "" {
+		if !filepath.IsAbs(overridePath) {
+			overridePath = filepath.Join(root, overridePath)
+		}
+		var err error
+		if override, err = ReadCapacityOverride(overridePath); err != nil {
+			return CapabilitySnapshot{}, err
+		}
+	}
+	return Capture(DetectHost(root), registry, override)
 }

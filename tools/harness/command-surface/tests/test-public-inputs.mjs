@@ -6,7 +6,7 @@ import path from "node:path";
 import test from "node:test";
 import { classifyShellFailureDetails } from "../../output/test-output/runners/shell.mjs";
 import { helpProjection, renderTaskSurfaceMake, renderTaskSurfaceMakeRuntime } from "../../generated-artifacts/task-surface/make-renderer.mjs";
-import { projectOperationBindings, readOperationOwner } from "../../scheduler/work-graph/operations.mjs";
+import { projectOperationBindings, readOperationOwner } from "../../execution/operations.mjs";
 import { collectTaskSurfaceManifestErrors } from "../../generated-artifacts/task-surface/index.mjs";
 test("native recovery exit retains cleanup classification independently of provider text", () => {
   assert.deepEqual(classifyShellFailureDetails({ target: "test-run-recover", exitStatus: 12 }, [], ["untrusted provider text"], ""), { failure_class: "harness", failure_reason: "cleanup_error" });

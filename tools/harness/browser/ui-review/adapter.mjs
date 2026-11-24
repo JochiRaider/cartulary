@@ -10,7 +10,7 @@ import { borrowRuntime } from "../../runtime/session-client.mjs";
 import { inheritedHostLease } from "../../runtime/host-admission.mjs";
 import { readLocalFile } from "../../runtime/secure-local-files.mjs";
 import { buildSourceSnapshot } from "../../test-catalog/index.mjs";
-import { captureCapabilitySnapshot, resourceCapacities } from "../../scheduler/work-graph/capability.mjs";
+import { hostCapacity } from "../../runtime/harness-binary.mjs";
 import { buildReviewProducer, seedReview, checkReview, recipeEnvironment } from "../review-recipes.mjs";
 import { ReviewBrowser, browserReady } from "./browser.mjs";
 import { ArtifactStore } from "./artifact-store.mjs";
@@ -26,7 +26,7 @@ export class ReviewAdapter {
     this.runtime = borrowRuntime({ repoRoot, runRoot: run_root, admissionToken: () => this.parentLease });
     if (input.mode !== "artifacts" && input.presentation === "ui") browserReady();
     if (input.presentation === "ui") this.store = new ArtifactStore({ sessionID: this.identity.session_id, profile, signal: this.abort.signal, privatePath: (...parts) => this.runtime.privatePath(...parts) });
-    this.capacities = Object.fromEntries(resourceCapacities(captureCapabilitySnapshot({ root: repoRoot })));
+    this.capacities = hostCapacity({ root: repoRoot }).capacities;
     this.sourceDigest = buildSourceSnapshot(repoRoot).digest;
     this.preparationRoot = input.presentation === "design" ? run_root : this.runtime.privatePath("lifecycle", this.runtime.runID);
     this.sourceCommit = execFileSync("git", ["rev-parse", "HEAD"], { cwd: repoRoot, encoding: "utf8" }).trim();

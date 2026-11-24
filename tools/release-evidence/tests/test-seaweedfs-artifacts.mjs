@@ -7,7 +7,8 @@ import test from "node:test";
 import { createScratch } from "../../harness/test-support/scratch.mjs";
 import { buildEvidenceUnit, buildReaderEvidence, buildRowResult, buildUnitResult, writeEvidenceFile } from "../../harness/observability/tests/retained-fixture.mjs";
 import { canonicalJSONString } from "../../harness/contract/index.mjs";
-import { WorkGraphCompiler } from "../../harness/scheduler/work-graph/index.mjs";
+import { readOperationOwner } from "../../harness/execution/operations.mjs";
+import { loadTestCatalog } from "../../harness/test-catalog/index.mjs";
 import { buildSeaweedfsSummary, publishSeaweedfsSummary, readCurrentSeaweedfsCompatibility, readCurrentSeaweedfsRecovery, readSeaweedfsInventories, readSeaweedfsJSON, scanSeaweedfsPrivacy, seaweedfsRunContext,
   validateSeaweedfsCompatibility, validateSeaweedfsSummary } from "../seaweedfs-artifacts.mjs";
 
@@ -307,29 +308,23 @@ test("SeaweedFS publication binds explicit current context and keeps one immutab
   assert.deepEqual(fs.readFileSync(path.join(runRoot, relative)), bytes);
 });
 
-test("SeaweedFS graph requires the actual current reports and has no legacy path overrides", () => {
-  const compiler = new WorkGraphCompiler(path.resolve(import.meta.dirname, "../../.."));
-  const graph = compiler.compileTarget("seaweedfs-release-gate");
-  const compatibility = graph.units.find(value => value.unit_id === "operation:harness.seaweedfs_compatibility");
-  assert.ok(compatibility.current_run_evidence_outputs.includes("seaweedfs-compatibility/object-store-compatibility-report.json"));
-  const gate = graph.units.find(value => value.unit_id === "operation:harness.seaweedfs_release_gate");
+test("SeaweedFS gate declares the actual current reports and has no legacy path overrides", () => {
+  const root = path.resolve(import.meta.dirname, "../../..");
+  const owner = readOperationOwner(root);
+  assert.ok(owner.policy_units["harness.seaweedfs_compatibility"].current_run_evidence_outputs.includes("seaweedfs-compatibility/object-store-compatibility-report.json"));
+  const gate = owner.policy_units["harness.seaweedfs_release_gate"];
   assert.ok(gate.current_run_evidence_outputs.includes("seaweedfs-release-gate/artifacts/release-gate-summary.json"));
-  const execution = compiler.owner.operations["harness.seaweedfs_release_gate"].execution;
+  assert.ok(gate.needs.includes("harness.seaweedfs_compatibility"));
+  const execution = owner.operations["harness.seaweedfs_release_gate"].execution;
   assert.deepEqual(execution.command, ["$(NODE_BIN)", "./tools/release-evidence/seaweedfs-release-evidence.mjs"]);
   assert.deepEqual(execution.env, {});
-  assert.deepEqual(compiler.owner.policy_units["harness.seaweedfs_release_gate"].required_rows.map(value => value.row_id), [recoveryRowID]);
-  const recovery = graph.units.find(value => value.row_bindings.some(row => row.row_id === recoveryRowID));
-  assert.ok(recovery, "canonical operator process evidence must execute in this invocation");
-  assert.equal(recovery.cache_policy, "none");
-  assert.deepEqual(recovery.service_dependencies, ["object_store", "postgres"]);
-  assert.ok(gate.needs.includes(recovery.unit_id));
-  assert.ok(recovery.current_run_evidence_outputs.includes(`rows/${recoveryRowID}.json`));
-  assert.deepEqual(graph.units.flatMap(value => value.row_bindings.map(row => row.row_id)), [recoveryRowID]);
-  assert.equal(Object.hasOwn(compiler.owner.operations, "harness.seaweedfs_release_evidence"), false);
-  assert.equal(Object.hasOwn(compiler.owner.policy_units, "harness.seaweedfs_release_evidence"), false);
-  const row = compiler.catalog.rows.find(value => value.row_id === recoveryRowID);
+  assert.deepEqual(gate.required_rows.map(value => value.row_id), [recoveryRowID]);
+  assert.equal(Object.hasOwn(owner.operations, "harness.seaweedfs_release_evidence"), false);
+  assert.equal(Object.hasOwn(owner.policy_units, "harness.seaweedfs_release_evidence"), false);
+  const row = loadTestCatalog(root).rowByID.get(recoveryRowID);
   assert.deepEqual(row.selector.tests, ["TestCanonicalOperatorBackupCreate_Process", "TestCanonicalOperatorBackupInspectLatest_Process",
     "TestCanonicalOperatorRestoreLatest_Process", "TestCanonicalOperatorRestoreVerifyDue_Process", "TestCanonicalOperatorRestoreVerifyLatest_Process"]);
+  assert.deepEqual(row.service_dependencies, ["object_store", "postgres"]);
   assert.equal(row.runtime_profile_id, "default");
   assert.deepEqual(row.runtime_binary_ids, ["operator"]);
 });
