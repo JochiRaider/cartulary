@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 
 	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
+	"github.com/JochiRaider/cartulary/internal/testutil/pgschema"
 )
 
 // Authored input locations, relative to the repository root.
@@ -27,6 +28,7 @@ const (
 	taskSurfacePath     = "tools/task_surface_owner.json"
 	cacheRegistryPath   = "tools/harness_cache_registry.json"
 	browserBatchPath    = "tools/browser_e2e_batch_manifest.json"
+	fixtureBuilderPath  = "tools/performance_fixture_builder_policy.json"
 	maxInputBytes       = 16 << 20
 )
 
@@ -39,8 +41,30 @@ type Inputs struct {
 	TaskSurface TaskSurface
 	Cache       CacheRegistry
 	Browser     BrowserBatch
-	// rowIndex finds a catalog row by ID.
-	rowIndex map[string]int
+	Fixtures    FixtureBuilderPolicy
+	// MigrationDigest identifies the migrated PostgreSQL template every
+	// populated fixture snapshot is built from. It is the digest the harness
+	// and services binaries embed and verify, not one read under root.
+	MigrationDigest string
+	// rowIndex finds a catalog row by ID; rowFixtures holds each populated
+	// fixture row's resolved snapshot.
+	rowIndex    map[string]int
+	rowFixtures map[string]*rowFixture
+}
+
+// FixtureBuilderPolicy says how each active populated fixture profile's
+// snapshot is built.
+type FixtureBuilderPolicy struct {
+	Builders []FixtureBuilder `json:"builders"`
+}
+
+type FixtureBuilder struct {
+	FixtureProfileID    string   `json:"fixture_profile_id"`
+	RuntimeProfileID    string   `json:"runtime_profile_id"`
+	ResourceProfileID   string   `json:"resource_profile_id"`
+	FixtureCapability   string   `json:"fixture_capability"`
+	ServiceDependencies []string `json:"service_dependencies"`
+	PostgresIsolation   string   `json:"postgres_isolation"`
 }
 
 // ErrInput reports an authored input that cannot be read or violates a
@@ -69,6 +93,14 @@ func Load(root string) (*Inputs, error) {
 	if err := readDocument(root, browserBatchPath, "cartulary.browser_e2e_batch_manifest.v16", &inputs.Browser); err != nil {
 		return nil, err
 	}
+	if err := readDocument(root, fixtureBuilderPath, "cartulary.performance_fixture_builder_policy.v2", &inputs.Fixtures); err != nil {
+		return nil, err
+	}
+	migrations, err := pgschema.Hash()
+	if err != nil {
+		return nil, fmt.Errorf("%w: migration digest: %v", ErrInput, err)
+	}
+	inputs.MigrationDigest = migrations
 	catalog, err := loadCatalog(root)
 	if err != nil {
 		return nil, err

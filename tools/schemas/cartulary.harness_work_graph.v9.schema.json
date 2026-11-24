@@ -273,6 +273,14 @@
         "affinity_key": {
           "$ref": "cartulary.harness_execution_defs.v1#/$defs/id"
         },
+        "fixture_profile_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*_v[1-9][0-9]*$"
+        },
+        "snapshot_key": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
         "semantic_digest": {
           "$ref": "cartulary.harness_execution_defs.v1#/$defs/digest"
         }

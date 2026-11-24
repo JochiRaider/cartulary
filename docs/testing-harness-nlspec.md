@@ -11759,9 +11759,9 @@ the runtime switches to it, the JavaScript compiler remains the default producer
 of executed plans (`cartulary.harness_runtime_plan.v7` carrying
 `cartulary.harness_work_graph.v8`). The temporary environment selector
 `CARTULARY_HARNESS_PLANNER=go` makes one invocation plan with the Go planner
-inside the runtime: no compiler process or plan transport is involved. A
-selection the Go planner does not support fails with a usage error and never
-falls back to the JavaScript compiler. Units do not inherit the selector. The
+inside the runtime: no compiler process or plan transport is involved. An
+invalid selection fails with a usage error and never falls back to the
+JavaScript compiler. Units do not inherit the selector. The
 selector is removed at the switch. The Go planner is verified on its own
 correctness: every selected row bound to exactly one unit, every need resolved
 and acyclic, each unit waiting for the producers its rows require, and
@@ -11800,8 +11800,9 @@ list of TH-HARNESS-REQ-801 as follows:
 - `current_run_evidence_outputs` holds each bound row's `rows/<row_id>.json`,
   the unit result `unit-results/<unit>.json` and the outputs declared by the
   unit's policy. Row identity is read only from `row_bindings`.
-- Renderer, browser-affinity, fixture-profile and snapshot fields are added
-  when the planner compiles browser, fixture-profile and measurement work.
+- A browser group unit carries `renderer_requirement` and `affinity_key`. A
+  fixture builder, measurement group and measurement summary carry
+  `fixture_profile_id` and `snapshot_key`. Other units omit these fields.
 
 Plan v8 changes v7 as follows. It carries graph v9. `host_profile` reports the
 Go host facts: operating system, architecture, kernel release and CPU models.
@@ -11851,7 +11852,9 @@ selected owners' manifests and the rows' fixture roots are added per
 selection. No compiler keeps its own list of these inputs or derives contract
 locations from owner names. A broad profile declares no `unit_inputs`. A Go
 package's closure also includes the module manifest and checksum file of the
-module that encloses it.
+module that encloses it. An imported package's tests are left out: Go never
+compiles them into another package's tests, so neither their files nor their
+imports enter the closure.
 
 Vitest rows compile to units of one execution contract (project, profiles,
 fixture, services, binaries, preparations, cache policy and isolation). A
@@ -11911,6 +11914,33 @@ affinity. The fixture broker uses the named stack key, and host admission
 takes the claims of the renderer slot it assigns from the topology. Every
 stage that reports selected rows gets one target finalizer that waits for
 their groups.
+
+Populated fixture rows are planned through the performance fixture owner
+under TH-HARNESS-REQ-812..815. When the planner loads its inputs it routes
+every catalog row through the owner's verification bindings. A populated
+profile must bind one Playwright row to exactly one predicate, and the row's
+partition must declare the same profile. The builder policy
+(`tools/performance_fixture_builder_policy.json`) must cover exactly the
+active profiles. Any other routing fails before work. Each populated row runs
+alone in its own cohort. Each distinct snapshot has one builder unit,
+`fixture_snapshot:<runtime_profile_id>:<fixture_profile_id>:<snapshot_key>`.
+The owner computes its key from the profile and the migrated-template digest
+that the harness binaries embed and verify. The builder waits only for what
+its own fixture lease needs, the service images, and holds shared host
+activity. Every measurement group that clones the snapshot waits for it. Each
+measurement group has a summary finalizer, and the measurement target
+finalizer waits for every summary and adds the aggregate. The planner names
+the snapshot's PostgreSQL cluster (`postgres:measurement:<digest>`). The
+builder and every clone hold it as a graph resident.
+
+The planner names every PostgreSQL cluster a unit's fixture lease uses: the
+unit's own generation (`postgres:unit:<unit>`), the shared generation, a
+browser stack's cluster or a snapshot's cluster. The unit's command carries
+that key in `CARTULARY_POSTGRES_CLUSTER_KEY`, and the fixture broker
+allocates the named cluster instead of deriving one. A measurement-class Go
+row runs alone under TH-HARNESS-REQ-865. A runner unit's timeout is its
+resource profile's `runner_timeout_ms`, or the owner's default when the
+profile declares none.
 
 ## SQL architecture analysis completeness
 

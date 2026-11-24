@@ -181,7 +181,8 @@ func (p *cachePlanner) broad(profile *CacheProfile, strategy, reason string) clo
 // (Go packages and their repository-local imports, or frontend workspaces and
 // their declared workspace dependencies) with everything beneath them, the
 // profile's unit inputs, the selected owners' manifests, and the rows'
-// fixture roots.
+// fixture roots. An imported package's own tests are not part of what a row
+// runs, so they are left out.
 func (p *cachePlanner) unitClosure(profile *CacheProfile, unit *Unit) (closure, error) {
 	var selected, owners, fixtures []string
 	runner := ""
@@ -216,7 +217,11 @@ func (p *cachePlanner) unitClosure(profile *CacheProfile, unit *Unit) (closure, 
 			return closure{}, err
 		}
 		for _, directory := range directories {
-			p.under(directory, set)
+			if slices.Contains(selected, directory) {
+				p.under(directory, set)
+			} else {
+				p.withoutTests(directory, set)
+			}
 			for module := directory; module != "."; module = path.Dir(module) {
 				if _, ok := p.index(module + "/go.mod"); ok {
 					p.under(module+"/go.mod", set)
@@ -397,8 +402,10 @@ func (p *cachePlanner) readWorkspaces() (map[string]workspace, error) {
 
 var moduleLine = regexp.MustCompile(`(?m)^module\s+(\S+)\s*$`)
 
-// packageDirectories follows the repository-local imports of every Go file
-// (all build constraints, tests included) from the selected packages.
+// packageDirectories follows the repository-local imports from the selected
+// packages: of every Go file (all build constraints) in a selected package,
+// and of every non-test Go file in an imported one, since a package's tests
+// are never compiled into another package's tests.
 func (p *cachePlanner) packageDirectories(packages []string) ([]string, error) {
 	goMod, err := p.text("go.mod")
 	if err != nil {
@@ -425,7 +432,7 @@ func (p *cachePlanner) packageDirectories(packages []string) ([]string, error) {
 		for _, index := range p.rangeOf(directory + "/") {
 			entry := p.source[index]
 			name := strings.TrimPrefix(entry.Path, directory+"/")
-			if strings.Contains(name, "/") || !strings.HasSuffix(name, ".go") {
+			if strings.Contains(name, "/") || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") && !slices.Contains(packages, directory) {
 				continue
 			}
 			if entry.Kind != "file" {
@@ -515,6 +522,17 @@ func (p *cachePlanner) under(root string, set map[int]bool) {
 	root = strings.TrimSuffix(root, "/")
 	for _, index := range p.rangeOf(root) {
 		if path := p.source[index].Path; path == root || strings.HasPrefix(path, root+"/") {
+			set[index] = true
+		}
+	}
+}
+
+// withoutTests adds everything beneath root except Go test files.
+func (p *cachePlanner) withoutTests(root string, set map[int]bool) {
+	members := map[int]bool{}
+	p.under(root, members)
+	for index := range members {
+		if !strings.HasSuffix(p.source[index].Path, "_test.go") {
 			set[index] = true
 		}
 	}

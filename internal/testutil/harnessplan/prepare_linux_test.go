@@ -134,7 +134,7 @@ func TestPlanPreparation(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, aggregate := range []string{"test-fast", "check"} {
+		for _, aggregate := range []string{"test-fast", "check", "release-check"} {
 			plan, err := Prepare(root, Request{Kind: "aggregate", Target: aggregate, Environment: environment(nil)}, now, 42)
 			if err != nil {
 				t.Fatalf("%s: %v", aggregate, err)
@@ -216,7 +216,7 @@ func TestPlanPreparation(t *testing.T) {
 						_, err = inputs.projections(graph, resolved.entry, options)
 					}
 				}
-				if err != nil && !errors.Is(err, ErrUnsupported) && !(value == "" && target.SelectionBinding != nil) {
+				if err != nil && !(value == "" && target.SelectionBinding != nil) {
 					t.Errorf("%s %s %s: %v", kind, target.Name, value, err)
 				}
 			}
@@ -302,8 +302,13 @@ func TestPlanPreparation(t *testing.T) {
 				t.Errorf("closure lacks %s", member)
 			}
 		}
-		if slices.ContainsFunc(closure, func(path string) bool { return strings.HasPrefix(path, "internal/modules/") }) {
-			t.Error("closure includes packages the row does not import")
+		// The planner imports the migration owner for the snapshot template
+		// identity, and no other module.
+		imported := func(path string) bool {
+			return !strings.HasPrefix(path, "internal/modules/") || strings.HasPrefix(path, "internal/modules/database_migrations/")
+		}
+		if foreign := slices.DeleteFunc(slices.Clone(closure), imported); len(foreign) != 0 {
+			t.Errorf("closure includes packages the row does not import: %v", foreign)
 		}
 		again, err := Prepare(root, normal, now, 42)
 		if err != nil || *again.Cache[0].InputDigest != *plan.Cache[0].InputDigest {
@@ -346,7 +351,6 @@ func TestPlanPreparation(t *testing.T) {
 			request Request
 			want    error
 		}{
-			"measurement aggregate":        {Request{Kind: "aggregate", Target: "release-check", Environment: environment(nil)}, ErrUnsupported},
 			"unknown command":              {Request{Kind: "command", Target: "no-such-command", Environment: environment(nil)}, ErrSelection},
 			"unknown owner":                {command(map[string]string{"OWNER": "harness.no_such_owner"}), ErrSelection},
 			"row of another owner":         {command(map[string]string{"OWNER": "harness.test_catalog", "ROWS": row}), ErrSelection},

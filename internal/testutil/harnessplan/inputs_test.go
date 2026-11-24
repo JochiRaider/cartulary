@@ -101,6 +101,31 @@ func TestPlannerInputs(t *testing.T) {
 		"operation bound by two cache profiles": func(in *Inputs) {
 			in.Cache.Profiles[1].OperationIDs = append(slices.Clone(in.Cache.Profiles[1].OperationIDs), in.Cache.Profiles[0].OperationIDs[0])
 		},
+		"populated fixture profile on a Go row": func(in *Inputs) {
+			for i, row := range in.Catalog.Rows {
+				if row.Runner == RunnerGo && row.EvidenceClass == "measurement" {
+					populated := in.Catalog.Rows[slices.IndexFunc(in.Catalog.Rows, func(row Row) bool { return row.FixtureProfileID != "" })]
+					in.Catalog.Rows[i].FixtureProfileID = populated.FixtureProfileID
+					in.Catalog.Rows[i].VerificationIDs = populated.VerificationIDs
+					return
+				}
+			}
+		},
+		"fixture profile without a bound verification": func(in *Inputs) {
+			i := slices.IndexFunc(in.Catalog.Rows, func(row Row) bool { return row.FixtureProfileID != "" })
+			in.Catalog.Rows[i].VerificationIDs = nil
+		},
+		"partition disagreeing with its row's fixture profile": func(in *Inputs) {
+			i := slices.IndexFunc(in.Browser.Partitions, func(partition BrowserPartition) bool { return partition.FixtureProfileID != "" })
+			in.Browser.Partitions[i].FixtureProfileID = ""
+		},
+		"active fixture profile without a builder": func(in *Inputs) {
+			in.Fixtures.Builders = in.Fixtures.Builders[1:]
+		},
+		"fixture builder with an unknown resource profile": func(in *Inputs) {
+			in.Fixtures.Builders = slices.Clone(in.Fixtures.Builders)
+			in.Fixtures.Builders[0].ResourceProfileID = "missing"
+		},
 		"unit-aware profile without unit inputs": func(in *Inputs) {
 			for i, profile := range in.Cache.Profiles {
 				if profile.DependencyStrategy == "unit_aware" {

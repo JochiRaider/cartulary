@@ -43,7 +43,7 @@ func (in *Inputs) projections(graph *Graph, selected SurfaceTarget, options Opti
 	contains := func(name string, selection Selection) error {
 		// A candidate the planner cannot compile cannot be contained.
 		candidate, err := Compile(in, selection, options)
-		if errors.Is(err, ErrUnsupported) || errors.Is(err, ErrSelection) {
+		if errors.Is(err, ErrSelection) {
 			return nil
 		}
 		if err != nil {

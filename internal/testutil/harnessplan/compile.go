@@ -13,9 +13,10 @@ import (
 // ErrSelection reports a selection the planner cannot compile.
 var ErrSelection = errors.New("invalid harness selection")
 
-// ErrUnsupported reports work the Go planner does not compile yet
-// (overhaul milestone 4: Playwright and measurement rows).
-var ErrUnsupported = errors.New("not yet supported by the Go planner")
+// clusterKeyEnvironment names, in a unit's command environment, the
+// PostgreSQL cluster resident its fixture lease uses, so the fixture broker
+// allocates exactly the cluster the plan accounts for.
+const clusterKeyEnvironment = "CARTULARY_POSTGRES_CLUSTER_KEY"
 
 // Selection names what to compile: catalog rows and operations or private
 // target unions. Preparation resolves public commands, owner slices and
@@ -399,9 +400,10 @@ func (c *compiler) operation(id string, stack []string) (string, error) {
 	if lease == "" {
 		lease = "none"
 	}
+	residents, cluster := c.residents(unitID, lease, policy.ServiceDependencies, policy.PostgresIsolation)
 	unit := &Unit{
 		ID: unitID, OwnerID: "harness.command_surface", Kind: operation.Kind, Needs: needs, Claims: claims,
-		Residents: c.residents(unitID, lease, policy.ServiceDependencies, policy.PostgresIsolation), FixtureLease: lease,
+		Residents: residents, FixtureLease: lease,
 		ServiceDependencies: slices.Clone(policy.ServiceDependencies), PostgresIsolation: policy.PostgresIsolation,
 		CachePolicy: policy.CachePolicy, TimeoutMS: timeout, ArtifactOutputs: policy.ReusableArtifactOutputs,
 		EvidenceOutputs: slices.Clone(policy.EvidenceOutputs), FailurePolicy: FailurePolicy{BlockDescendants: true},
@@ -411,6 +413,9 @@ func (c *compiler) operation(id string, stack []string) (string, error) {
 			"CARTULARY_OPERATION_DIGEST":             "sha256:" + digest(operation.Execution),
 			"CARTULARY_HARNESS_SERVICE_DEPENDENCIES": strings.Join(policy.ServiceDependencies, ","),
 		}},
+	}
+	if cluster != "" {
+		unit.Command.Environment[clusterKeyEnvironment] = cluster
 	}
 	if c.selected[id] {
 		for name, value := range c.forwarded {
@@ -474,14 +479,12 @@ func (c *compiler) assign(rows []*Row) error {
 	var runnerRows, browserRows []*Row
 	for _, row := range rows {
 		switch {
-		case row.Runner == RunnerGo && (row.FixtureProfileID != "" || row.EvidenceClass == "measurement"):
-			return fmt.Errorf("%w: measurement row %s", ErrUnsupported, row.RowID)
 		case row.Runner == RunnerGo, row.Runner == RunnerVitest:
 			runnerRows = append(runnerRows, row)
 		case row.Runner == RunnerPlaywright:
 			browserRows = append(browserRows, row)
 		default:
-			return fmt.Errorf("%w: %s row %s", ErrUnsupported, row.Runner, row.RowID)
+			return fmt.Errorf("%w: %s row %s cannot be packed", ErrInput, row.Runner, row.RowID)
 		}
 	}
 	if err := c.planBrowser(browserRows); err != nil {
@@ -534,7 +537,8 @@ type contract struct {
 	CPUTokens             int64
 	Race                  bool
 	// Alone is set for rows that need a process of their own: process
-	// isolation, a managed process, or an explicit execution context.
+	// isolation, a managed process, an explicit execution context, or
+	// measurement, which is exempt from the packing bound.
 	Alone string
 }
 
@@ -567,7 +571,7 @@ func (c *compiler) contract(row *Row) (contract, error) {
 	if context, ok := c.in.Owner.RowExecutionContexts[row.RowID]; ok {
 		result.CPUTokens, result.CachePolicy, result.Race, result.Alone = context.CPUTokens, context.CachePolicy, context.GoRace, row.RowID
 	}
-	if row.ProcessIsolation == "exclusive" || row.FixtureCapability == "managed_process" {
+	if row.ProcessIsolation == "exclusive" || row.FixtureCapability == "managed_process" || row.EvidenceClass == "measurement" {
 		result.Alone = row.RowID
 	}
 	return result, nil
@@ -703,6 +707,10 @@ func (c *compiler) runnerUnit(id string, stack []string) (string, error) {
 	}
 	claims["cpu"] = min(claims["cpu"], c.options.CPUTokens)
 	environment := fixtureEnvironment(contract.FixtureCapability, contract.ServiceDependencies)
+	residents, cluster := c.residents(id, contract.FixtureCapability, contract.ServiceDependencies, contract.PostgresIsolation)
+	if cluster != "" {
+		environment[clusterKeyEnvironment] = cluster
+	}
 	switch contract.Runner {
 	case RunnerGo:
 		maps.Copy(environment, c.goEnvironment(contract.Race))
@@ -719,9 +727,9 @@ func (c *compiler) runnerUnit(id string, stack []string) (string, error) {
 	}
 	unit := &Unit{
 		ID: id, OwnerID: owner, Kind: "runner", Needs: dedupe(needs), Claims: claims,
-		Residents: c.residents(id, contract.FixtureCapability, contract.ServiceDependencies, contract.PostgresIsolation), FixtureLease: contract.FixtureCapability,
+		Residents: residents, FixtureLease: contract.FixtureCapability,
 		ServiceDependencies: contract.ServiceDependencies, PostgresIsolation: contract.PostgresIsolation, CachePolicy: contract.CachePolicy,
-		TimeoutMS: c.in.Owner.DefaultTimeoutMS, RuntimeBinaryIDs: contract.RuntimeBinaryIDs,
+		TimeoutMS: c.timeout(contract.ResourceProfileID), RuntimeBinaryIDs: contract.RuntimeBinaryIDs,
 		FailurePolicy: FailurePolicy{BlockDescendants: true}, EstimatedWorkMS: policy.StartupMS + work + policy.CleanupMS,
 		Command: Command{Executable: "node", Args: []string{"tools/harness/execution/runners/row-runner-cli.mjs", "--row-ids", strings.Join(rowIDs, ",")}, Environment: environment},
 	}
@@ -776,14 +784,14 @@ func (c *compiler) claims(profileID string, services []string) (map[string]int64
 }
 
 // residents names the physical allocations a unit's fixture lease creates
-// or borrows: its own PostgreSQL generation, or the shared generation, and
-// the shared object store. Shared allocations of an attached service session
-// belong to that session. A unit without a fixture lease manages or attaches
-// to its services itself and has no residents.
-func (c *compiler) residents(unitID, lease string, services []string, isolation string) []Resident {
+// or borrows, and returns its PostgreSQL cluster: its own generation or the
+// shared one, and the shared object store. Shared allocations of an attached
+// service session belong to that session. A unit without a fixture lease
+// manages or attaches to its services itself and has no residents.
+func (c *compiler) residents(unitID, lease string, services []string, isolation string) ([]Resident, string) {
 	var residents []Resident
 	if lease == "none" {
-		return nil
+		return nil, ""
 	}
 	shared := ScopeGraph
 	if c.options.AttachedServices {
@@ -795,11 +803,12 @@ func (c *compiler) residents(unitID, lease string, services []string, isolation 
 	}
 	switch isolation {
 	case "exclusive":
-		residents = append(residents, Resident{Key: "postgres:unit:" + unitID, Scope: ScopeUnit, Claims: maps.Clone(physical["postgres"])})
+		cluster := "postgres:unit:" + unitID
+		return append(residents, Resident{Key: cluster, Scope: ScopeUnit, Claims: maps.Clone(physical["postgres"])}), cluster
 	case "shared":
-		residents = append(residents, Resident{Key: "postgres:shared", Scope: shared, Claims: maps.Clone(physical["postgres"])})
+		return append(residents, Resident{Key: "postgres:shared", Scope: shared, Claims: maps.Clone(physical["postgres"])}), "postgres:shared"
 	}
-	return residents
+	return residents, ""
 }
 
 // lock takes the shared host-activity lock for any unit with claims; the

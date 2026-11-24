@@ -25,6 +25,7 @@ type Row struct {
 	OwnerID               string   `json:"owner_id"`
 	CollaboratorIDs       []string `json:"collaborator_ids,omitempty"`
 	FamilyID              string   `json:"family_id"`
+	VerificationIDs       []string `json:"verification_ids"`
 	Runner                string   `json:"runner"`
 	Selector              Selector `json:"selector"`
 	EvidenceClass         string   `json:"evidence_class"`

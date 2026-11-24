@@ -5,6 +5,9 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/JochiRaider/cartulary/internal/gen/performancefixtureprofile"
+	"github.com/JochiRaider/cartulary/internal/testutil/performancefixture"
 )
 
 func TestPlannerCompilation(t *testing.T) {
@@ -22,9 +25,7 @@ func TestPlannerCompilation(t *testing.T) {
 		}
 		return ids
 	}
-	plannable := func(row Row) bool {
-		return row.Runner == RunnerShell || row.Runner == RunnerVitest || row.Runner == RunnerGo && row.FixtureProfileID == "" && row.EvidenceClass != "measurement"
-	}
+	every := func(Row) bool { return true }
 	bound := func(g *Graph) map[string]string {
 		rows := map[string]string{}
 		for _, unit := range g.Units {
@@ -35,8 +36,8 @@ func TestPlannerCompilation(t *testing.T) {
 		return rows
 	}
 
-	t.Run("every plannable row compiles and is bound exactly once", func(t *testing.T) {
-		rows := rowsWhere(plannable)
+	t.Run("every row compiles and is bound exactly once", func(t *testing.T) {
+		rows := rowsWhere(every)
 		graph, err := Compile(inputs, Selection{Rows: rows}, options)
 		if err != nil {
 			t.Fatal(err)
@@ -108,7 +109,7 @@ func TestPlannerCompilation(t *testing.T) {
 	})
 
 	t.Run("units are canonical and identified by their own contract", func(t *testing.T) {
-		rows := rowsWhere(plannable)
+		rows := rowsWhere(every)
 		graph, err := Compile(inputs, Selection{Rows: rows}, options)
 		if err != nil {
 			t.Fatal(err)
@@ -120,8 +121,10 @@ func TestPlannerCompilation(t *testing.T) {
 			if !slices.Contains(unit.EvidenceOutputs, unit.ResultPath()) || !slices.IsSorted(unit.EvidenceOutputs) {
 				t.Fatalf("%s evidence outputs %v lack its result or are unsorted", unit.ID, unit.EvidenceOutputs)
 			}
-			if !unit.FailurePolicy.BlockDescendants {
-				t.Fatalf("%s does not block its descendants", unit.ID)
+			// A browser group is finalizable: its summaries and target
+			// finalizer still run when it fails.
+			if group := strings.HasPrefix(unit.ID, "browser_group:"); unit.FailurePolicy.BlockDescendants == group {
+				t.Fatalf("%s block_descendants = %v", unit.ID, unit.FailurePolicy.BlockDescendants)
 			}
 		}
 		// A row whose contract is shared with no other selected row compiles
@@ -200,7 +203,7 @@ func TestPlannerCompilation(t *testing.T) {
 	})
 
 	t.Run("runner units carry their rows on the command line", func(t *testing.T) {
-		graph, err := Compile(inputs, Selection{Rows: rowsWhere(plannable)}, options)
+		graph, err := Compile(inputs, Selection{Rows: rowsWhere(every)}, options)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -219,7 +222,7 @@ func TestPlannerCompilation(t *testing.T) {
 	})
 
 	t.Run("runner units are balanced under their size target", func(t *testing.T) {
-		graph, err := Compile(inputs, Selection{Rows: rowsWhere(plannable)}, options)
+		graph, err := Compile(inputs, Selection{Rows: rowsWhere(every)}, options)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -317,11 +320,86 @@ func TestPlannerCompilation(t *testing.T) {
 		}
 	})
 
-	t.Run("unsupported and invalid selections fail", func(t *testing.T) {
+	t.Run("a Go measurement row is planned alone", func(t *testing.T) {
 		measurement := rowsWhere(func(row Row) bool { return row.Runner == RunnerGo && row.EvidenceClass == "measurement" })
-		if _, err := Compile(inputs, Selection{Rows: measurement[:1]}, options); !errors.Is(err, ErrUnsupported) {
-			t.Fatalf("measurement row: %v", err)
+		if len(measurement) == 0 {
+			t.Fatal("no Go measurement rows")
 		}
+		graph, err := Compile(inputs, Selection{Rows: rowsWhere(func(row Row) bool { return row.Runner == RunnerGo })}, options)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, id := range measurement {
+			unit := graph.Units[bound(graph)[id]]
+			if len(unit.RowBindings) != 1 {
+				t.Errorf("measurement row %s shares unit %s", id, unit.ID)
+			}
+			// Its resource profile's runner timeout, not the default, covers it.
+			if unit.TimeoutMS < unit.EstimatedWorkMS {
+				t.Errorf("measurement unit %s times out at %d ms before its %d ms estimate", unit.ID, unit.TimeoutMS, unit.EstimatedWorkMS)
+			}
+		}
+	})
+
+	t.Run("measurement groups clone one snapshot per fixture profile", func(t *testing.T) {
+		populated := rowsWhere(func(row Row) bool { return row.FixtureProfileID != "" })
+		graph, err := Compile(inputs, Selection{Rows: populated}, options)
+		if err != nil {
+			t.Fatal(err)
+		}
+		builders := map[string]*Unit{}
+		for _, unit := range graph.Units {
+			if unit.Kind == "fixture_builder" {
+				builders[unit.FixtureProfileID] = unit
+			}
+		}
+		profiles := map[string]bool{}
+		for _, id := range populated {
+			profiles[inputs.row(id).FixtureProfileID] = true
+		}
+		if len(builders) != len(profiles) {
+			t.Fatalf("%d builders for %d fixture profiles", len(builders), len(profiles))
+		}
+		for profileID, builder := range builders {
+			profile, _ := performancefixtureprofile.Lookup(profileID)
+			key, err := performancefixture.SnapshotKey(profile, inputs.MigrationDigest)
+			if err != nil {
+				t.Fatal(err)
+			}
+			cluster := builder.Command.Environment[clusterKeyEnvironment]
+			if builder.ID != "fixture_snapshot:default:"+profileID+":"+key || builder.SnapshotKey != key ||
+				len(builder.Residents) != 1 || builder.Residents[0].Key != cluster || builder.Residents[0].Scope != ScopeGraph {
+				t.Fatalf("builder %s is not keyed and resident by its snapshot: %+v", builder.ID, builder.Residents)
+			}
+			for _, need := range builder.Needs {
+				if strings.Contains(need, "playwright") || strings.Contains(need, "frontend") {
+					t.Fatalf("builder %s waits for browser preparation %s", builder.ID, need)
+				}
+			}
+		}
+		target := graph.Units["browser_target_summary:browser-e2e-measurement"]
+		if target == nil || !slices.Contains(target.EvidenceOutputs, "browser-e2e-measurement/frontend-measurement-aggregate.json") {
+			t.Fatal("the measurement target finalizer does not aggregate the summaries")
+		}
+		for _, id := range populated {
+			group := graph.Units[bound(graph)[id]]
+			builder := builders[inputs.row(id).FixtureProfileID]
+			environment := group.Command.Environment
+			if len(group.RowBindings) != 1 || !slices.Contains(group.Needs, builder.ID) || group.SnapshotKey != builder.SnapshotKey ||
+				environment["CARTULARY_FIXTURE_ROW_ID"] != id || environment["CARTULARY_FIXTURE_SNAPSHOT_BUILDER_UNIT_ID"] != builder.ID ||
+				environment[clusterKeyEnvironment] != builder.Command.Environment[clusterKeyEnvironment] || !slices.ContainsFunc(group.Residents, func(r Resident) bool {
+				return r.Key == environment[clusterKeyEnvironment]
+			}) {
+				t.Fatalf("group %s does not clone its row's snapshot alone", group.ID)
+			}
+			summary := graph.Units["browser_measurement_summary:measurement:"+strings.TrimPrefix(group.ID, "browser_group:measurement:")]
+			if summary == nil || !slices.Equal(summary.Needs, []string{group.ID}) || !slices.Contains(target.Needs, summary.ID) {
+				t.Fatalf("group %s has no summary the target finalizer waits for", group.ID)
+			}
+		}
+	})
+
+	t.Run("invalid selections fail", func(t *testing.T) {
 		for name, selection := range map[string]Selection{
 			"unknown row":     {Rows: []string{"module.missing.unit.x"}},
 			"unknown target":  {Targets: []string{"harness.missing"}},

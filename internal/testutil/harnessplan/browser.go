@@ -15,6 +15,8 @@ const (
 	browserQuiet         = "browser_measurement_quiet"
 	browserGroupCLI      = "tools/harness/browser/browser-catalog-group-cli.mjs"
 	browserFinalizerCLI  = "tools/harness/browser/browser-target-finalizer-cli.mjs"
+	measurementCLI       = "tools/harness/browser/browser-measurement-finalizer-cli.mjs"
+	snapshotBuilderCLI   = "tools/harness/performance-fixture/snapshot-builder-cli.mjs"
 	visualUpdateTarget   = "browser-e2e-visual-update"
 	snapshotUpdateMode   = "snapshot_update"
 	browserLanePrefix    = "browser-"
@@ -36,6 +38,7 @@ type browserCohort struct {
 	affinity  string
 	stack     string // the browser stack resident the cohort holds
 	estimate  int64
+	fixture   *rowFixture // the populated snapshot a measurement cohort clones
 }
 
 // planBrowser places the reached Playwright rows into cohorts and lanes. A
@@ -58,9 +61,6 @@ func (c *compiler) planBrowser(rows []*Row) error {
 		if !ok {
 			return fmt.Errorf("%w: Playwright row %s has no browser partition", ErrInput, row.RowID)
 		}
-		if partition.FixtureProfileID != "" {
-			return fmt.Errorf("%w: measurement browser row %s", ErrUnsupported, row.RowID)
-		}
 		rowNeeds := c.browserNeeds(row, partition)
 		key := partition.Name + "\x00" + strings.Join(rowNeeds, ",")
 		groups[key] = append(groups[key], row)
@@ -77,7 +77,12 @@ func (c *compiler) planBrowser(rows []*Row) error {
 				rowIDs[i] = row.RowID
 			}
 			slices.Sort(rowIDs)
-			cohort.name = "cohort-" + digest(map[string]any{"partition": partition.Name, "rows": rowIDs, "mode": c.options.BrowserMode})
+			identity := map[string]any{"partition": partition.Name, "rows": rowIDs, "mode": c.options.BrowserMode}
+			if partition.FixtureProfileID != "" {
+				cohort.fixture = c.in.rowFixtures[rowIDs[0]]
+				identity["snapshot_key"] = cohort.fixture.key
+			}
+			cohort.name = "cohort-" + digest(identity)
 			cohort.id = "browser_group:" + partition.ExecutionStage + ":" + cohort.name
 			cohorts = append(cohorts, cohort)
 		}
@@ -115,15 +120,16 @@ type browserBin struct {
 }
 
 // packBrowser divides a partition group into cohorts. Rows outside
-// test-owned state run alone. Otherwise the work is split into as many
-// balanced cohorts as fit the resource profile's timeout less allocation
-// headroom, and ordinary cohorts are spread over the browser lanes while
-// each cohort's work still covers one stack acquisition.
+// test-owned state run alone, as does each populated fixture row, whose
+// predicate gets its own snapshot clone and quiet session. Otherwise the work
+// is split into as many balanced cohorts as fit the resource profile's
+// timeout less allocation headroom, and ordinary cohorts are spread over the
+// browser lanes while each cohort's work still covers one stack acquisition.
 func (c *compiler) packBrowser(partition *BrowserPartition, rows []*Row) []browserBin {
 	policy := c.in.Browser.InvocationPolicy
 	overhead := policy.StartupMS + policy.CleanupMS
 	lifecycle := c.in.Owner.LifecycleEstimatesMS
-	envelope := c.browserTimeout(partition) - max(lifecycle["browser_allocation_acquire"], lifecycle["browser_reset"]) - lifecycle["browser_allocation_release"] - overhead
+	envelope := c.timeout(partition.ResourceProfileID) - max(lifecycle["browser_allocation_acquire"], lifecycle["browser_reset"]) - lifecycle["browser_allocation_release"] - overhead
 	ordered := slices.Clone(rows)
 	cost := func(row *Row) int64 {
 		if row.EstimatedWorkMS > 0 {
@@ -138,7 +144,7 @@ func (c *compiler) packBrowser(partition *BrowserPartition, rows []*Row) []brows
 	}
 	count := max(1, int((total+envelope-1)/max(1, envelope)))
 	switch {
-	case partition.StateScope != "test_owned":
+	case partition.StateScope != "test_owned" || partition.FixtureProfileID != "":
 		count = len(ordered)
 	case partition.ResourceProfileID == browserOrdinary:
 		useful := max(1, int(total/max(1, lifecycle["browser_allocation_acquire"])))
@@ -167,8 +173,9 @@ func (c *compiler) packBrowser(partition *BrowserPartition, rows []*Row) []brows
 	}
 }
 
-func (c *compiler) browserTimeout(partition *BrowserPartition) int64 {
-	index := slices.IndexFunc(c.in.Topology.ResourceProfiles, func(p ResourceProfile) bool { return p.ID == partition.ResourceProfileID })
+// timeout is a resource profile's runner timeout, or the owner's default.
+func (c *compiler) timeout(profileID string) int64 {
+	index := slices.IndexFunc(c.in.Topology.ResourceProfiles, func(p ResourceProfile) bool { return p.ID == profileID })
 	if index >= 0 && c.in.Topology.ResourceProfiles[index].RunnerTimeoutMS > 0 {
 		return c.in.Topology.ResourceProfiles[index].RunnerTimeoutMS
 	}
@@ -261,6 +268,13 @@ func (c *compiler) browserUnit(id string, stack []string) (string, error) {
 		}
 		needs = append(needs, cohort.previous)
 	}
+	if cohort.fixture != nil {
+		builder, err := c.fixtureBuilder(cohort.fixture, stack)
+		if err != nil {
+			return "", err
+		}
+		needs = append(needs, builder)
+	}
 	claims, err := c.claims(partition.ResourceProfileID, partition.ServiceDependencies)
 	if err != nil {
 		return "", err
@@ -295,6 +309,19 @@ func (c *compiler) browserUnit(id string, stack []string) (string, error) {
 	if cohort.lane != "" {
 		environment["CARTULARY_BROWSER_LANE_ID"] = cohort.lane
 	}
+	residents, cluster := c.browserResidents(cohort)
+	if cluster != "" {
+		environment[clusterKeyEnvironment] = cluster
+	}
+	if fixture := cohort.fixture; fixture != nil {
+		maps.Copy(environment, map[string]string{
+			"CARTULARY_FIXTURE_PROFILE_ID":               fixture.profile.FixtureProfileID,
+			"CARTULARY_FIXTURE_SNAPSHOT_KEY":             fixture.key,
+			"CARTULARY_FIXTURE_SNAPSHOT_BUILDER_UNIT_ID": fixture.builderID,
+			"CARTULARY_FIXTURE_ROW_ID":                   rowIDs[0],
+			"CARTULARY_FIXTURE_PREDICATE_ID":             fixture.predicate,
+		})
+	}
 	if c.options.BrowserMode == snapshotUpdateMode {
 		environment["CARTULARY_BROWSER_MAINTENANCE_MODE"] = snapshotUpdateMode
 		environment["CARTULARY_PLAYWRIGHT_UPDATE_SNAPSHOTS"] = "1"
@@ -313,14 +340,17 @@ func (c *compiler) browserUnit(id string, stack []string) (string, error) {
 	}
 	unit := &Unit{
 		ID: id, OwnerID: browserLifecycleUnit, Kind: "runner", Needs: dedupe(needs), Claims: claims,
-		Residents: c.browserResidents(cohort), SharedLocks: shared, ExclusiveLocks: exclusive,
+		Residents: residents, SharedLocks: shared, ExclusiveLocks: exclusive,
 		FixtureLease: partition.FixtureCapability, ServiceDependencies: sortedCopy(partition.ServiceDependencies),
-		PostgresIsolation: partition.PostgresIsolation, CachePolicy: "none", TimeoutMS: c.browserTimeout(partition),
+		PostgresIsolation: partition.PostgresIsolation, CachePolicy: "none", TimeoutMS: c.timeout(partition.ResourceProfileID),
 		EvidenceOutputs:  []string{target + "/browser-groups/" + safeIdentifier(cohort.name) + "/browser-group-result.json"},
 		RuntimeBinaryIDs: sortedCopy(binaries), FailurePolicy: FailurePolicy{BlockDescendants: false},
 		EstimatedWorkMS: cohort.estimate, RendererRequirement: renderer, AffinityKey: cohort.affinity,
 		Command: Command{Executable: "node", Args: []string{browserGroupCLI, "--manifest", browserBatchPath, "--stage", partition.ExecutionStage,
 			"--partition", partition.Name, "--group", cohort.name, "--rows", strings.Join(rowIDs, ",")}, Environment: environment},
+	}
+	if cohort.fixture != nil {
+		unit.FixtureProfileID, unit.SnapshotKey = cohort.fixture.profile.FixtureProfileID, cohort.fixture.key
 	}
 	for _, row := range rowIDs {
 		unit.RowBindings = append(unit.RowBindings, RowBinding{RowID: row, Runner: RunnerPlaywright})
@@ -330,12 +360,13 @@ func (c *compiler) browserUnit(id string, stack []string) (string, error) {
 	return id, nil
 }
 
-// browserResidents are a browser group's stack and the PostgreSQL cluster it
-// owns, shared by the cohorts of one affinity, and the shared object store.
-func (c *compiler) browserResidents(cohort *browserCohort) []Resident {
+// browserResidents are a browser group's stack, the shared object store, and
+// its PostgreSQL cluster, which it returns: the cluster of its stack, shared
+// by the cohorts of one affinity, or the cluster holding its populated
+// fixture's snapshot.
+func (c *compiler) browserResidents(cohort *browserCohort) ([]Resident, string) {
 	physical := c.in.Topology.PhysicalResourceClaims
-	stack := cohort.stack
-	residents := []Resident{{Key: stack, Scope: ScopeGraph, Claims: maps.Clone(physical["browser_stack"])}}
+	residents := []Resident{{Key: cohort.stack, Scope: ScopeGraph, Claims: maps.Clone(physical["browser_stack"])}}
 	shared := ScopeGraph
 	if c.options.AttachedServices {
 		shared = ScopeAttached
@@ -343,10 +374,84 @@ func (c *compiler) browserResidents(cohort *browserCohort) []Resident {
 	if slices.Contains(cohort.partition.ServiceDependencies, "object_store") {
 		residents = append(residents, Resident{Key: "object_store:shared", Scope: shared, Claims: maps.Clone(physical["object_store"])})
 	}
-	if slices.Contains(cohort.partition.ServiceDependencies, "postgres") {
-		residents = append(residents, Resident{Key: "postgres:" + stack, Scope: ScopeGraph, Claims: maps.Clone(physical["postgres"])})
+	if !slices.Contains(cohort.partition.ServiceDependencies, "postgres") {
+		return residents, ""
 	}
-	return residents
+	cluster := "postgres:" + cohort.stack
+	if cohort.fixture != nil {
+		cluster = cohort.fixture.cluster
+	}
+	return append(residents, Resident{Key: cluster, Scope: ScopeGraph, Claims: maps.Clone(physical["postgres"])}), cluster
+}
+
+// fixtureBuilder builds the one unit that constructs and seals a populated
+// fixture snapshot, shared by every measurement group cloning it. It holds
+// the snapshot's cluster, which stays resident until the last clone, and
+// shares host activity, so it finishes before any dependent quiet session.
+func (c *compiler) fixtureBuilder(fixture *rowFixture, stack []string) (string, error) {
+	id := fixture.builderID
+	if _, ok := c.units[id]; ok {
+		return id, nil
+	}
+	builder := fixture.builder
+	var needs []string
+	if len(builder.ServiceDependencies) != 0 {
+		ends, err := c.target("harness.test_service_images", stack)
+		if err != nil {
+			return "", err
+		}
+		needs = ends
+	}
+	claims, err := c.claims(builder.ResourceProfileID, builder.ServiceDependencies)
+	if err != nil {
+		return "", err
+	}
+	profile := fixture.profile.FixtureProfileID
+	c.units[id] = &Unit{
+		ID: id, OwnerID: browserLifecycleUnit, Kind: "fixture_builder", Needs: needs, Claims: claims,
+		Residents:   []Resident{{Key: fixture.cluster, Scope: ScopeGraph, Claims: maps.Clone(c.in.Topology.PhysicalResourceClaims["postgres"])}},
+		SharedLocks: []string{"host_activity"}, FixtureLease: builder.FixtureCapability, ServiceDependencies: sortedCopy(builder.ServiceDependencies),
+		PostgresIsolation: builder.PostgresIsolation, CachePolicy: "none", TimeoutMS: c.timeout(builder.ResourceProfileID),
+		EvidenceOutputs: []string{"performance-fixtures/" + fixture.key + "/build-diagnostics.json", "performance-fixtures/" + fixture.key + "/snapshot-build.json"},
+		FailurePolicy:   FailurePolicy{BlockDescendants: true}, EstimatedWorkMS: c.in.Owner.LifecycleEstimatesMS["performance_fixture_prepare"],
+		FixtureProfileID: profile, SnapshotKey: fixture.key,
+		Command: Command{Executable: "node", Args: []string{snapshotBuilderCLI, "--fixture-profile", profile, "--snapshot-key", fixture.key},
+			Environment: map[string]string{
+				"CARTULARY_BROWSER_RUNTIME_PROFILE_ID":          builder.RuntimeProfileID,
+				"CARTULARY_FIXTURE_BUILDER_RESOURCE_PROFILE_ID": builder.ResourceProfileID,
+				"CARTULARY_FIXTURE_PROFILE_ID":                  profile,
+				"CARTULARY_FIXTURE_SNAPSHOT_KEY":                fixture.key,
+				"CARTULARY_FIXTURE_MIGRATION_DIGEST":            c.in.MigrationDigest,
+				"CARTULARY_FIXTURE_SOURCE_CONTRACT_DIGEST":      fixture.profile.SourceContractDigest,
+				"CARTULARY_FIXTURE_SNAPSHOT_BUILDER_UNIT_ID":    id,
+				clusterKeyEnvironment:                           fixture.cluster,
+			}},
+	}
+	return id, nil
+}
+
+// measurementSummary builds the finalizer that summarizes one measurement
+// group's predicate against its snapshot. It runs even when the group fails,
+// since a browser group does not block its descendants.
+func (c *compiler) measurementSummary(cohort *browserCohort, groupUnit, target string) (string, error) {
+	fixture := cohort.fixture
+	id := "browser_measurement_summary:" + cohort.partition.ExecutionStage + ":" + cohort.name
+	claims, err := c.claims("standard", nil)
+	if err != nil {
+		return "", err
+	}
+	schema := fixture.profile.ArtifactPolicy.SummarySchemaID
+	c.units[id] = &Unit{
+		ID: id, OwnerID: browserLifecycleUnit, Kind: "finalizer", Needs: []string{groupUnit}, Claims: claims,
+		SharedLocks: []string{"host_activity"}, FixtureLease: "none", PostgresIsolation: "none", CachePolicy: "none",
+		TimeoutMS:       c.in.Owner.DefaultTimeoutMS,
+		EvidenceOutputs: []string{target + "/browser-groups/" + safeIdentifier(cohort.name) + "/frontend-measurement-summary." + schema[strings.LastIndex(schema, ".")+1:] + ".json"},
+		FailurePolicy:   FailurePolicy{BlockDescendants: true}, EstimatedWorkMS: c.in.Owner.LifecycleEstimatesMS["measurement_finalize"],
+		FixtureProfileID: fixture.profile.FixtureProfileID, SnapshotKey: fixture.key,
+		Command: Command{Executable: "node", Args: []string{measurementCLI, "--target", target, "--stage", cohort.partition.ExecutionStage,
+			"--group", cohort.name, "--row", cohort.rows[0].RowID, "--predicate", fixture.predicate}},
+	}
+	return id, nil
 }
 
 // browserFinalizers add one target finalizer for every stage that reports
@@ -355,7 +460,7 @@ func (c *compiler) browserFinalizers() error {
 	for _, stage := range c.in.Browser.Stages {
 		var groups, groupTargets, groupUnits, needs []string
 		quiet := true
-		visual := false
+		visual, measured := false, false
 		for _, membership := range stage.Groups {
 			for _, row := range membership.SelectedRowIDs {
 				id, ok := c.assigned[row]
@@ -375,6 +480,14 @@ func (c *compiler) browserFinalizers() error {
 				groupUnits = append(groupUnits, cohort.name+"="+id)
 				quiet = quiet && cohort.partition.ResourceProfileID == browserQuiet
 				visual = visual || cohort.partition.Kind == "visual"
+				if cohort.fixture != nil {
+					summary, err := c.measurementSummary(cohort, id, c.browserTarget(cohort.partition))
+					if err != nil {
+						return err
+					}
+					needs = append(needs, summary)
+					measured = true
+				}
 			}
 		}
 		if len(needs) == 0 {
@@ -413,6 +526,9 @@ func (c *compiler) browserFinalizers() error {
 		evidence := []string{target + "/browser-target-result.json"}
 		if visual {
 			evidence = append(evidence, target+"/frontend-visual-reconciliation.json")
+		}
+		if measured {
+			evidence = append(evidence, target+"/frontend-measurement-aggregate.json")
 		}
 		id := "browser_target_summary:" + safeIdentifier(target)
 		c.units[id] = &Unit{

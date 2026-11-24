@@ -51,7 +51,8 @@ func adoptPlan(source *harnessplan.Plan) (*Plan, error) {
 			ID: u.ID, Owner: u.OwnerID, Kind: u.Kind, PostgresIsolation: u.PostgresIsolation, Renderer: cmp.Or(u.RendererRequirement, "none"), Affinity: u.AffinityKey,
 			Command: command{Executable: u.Command.Executable, Args: slices.Clone(u.Command.Args), Environment: source.LaunchEnvironment(u)},
 			Needs:   slices.Clone(u.Needs), Claims: u.Claims, SharedLocks: slices.Clone(u.SharedLocks), ExclusiveLocks: slices.Clone(u.ExclusiveLocks),
-			Fixture: u.FixtureLease, Services: slices.Clone(u.ServiceDependencies), CachePolicy: u.CachePolicy, TimeoutMS: u.TimeoutMS,
+			Fixture: u.FixtureLease, FixtureProfile: u.FixtureProfileID, SnapshotKey: u.SnapshotKey,
+			Services: slices.Clone(u.ServiceDependencies), CachePolicy: u.CachePolicy, TimeoutMS: u.TimeoutMS,
 			Evidence: slices.Clone(u.EvidenceOutputs), EstimateMS: u.EstimatedWorkMS, Digest: u.SemanticDigest,
 			FailurePolicy: failurePolicy{BlockDescendants: u.FailurePolicy.BlockDescendants, ContinueIndependent: true, AggregateEffect: "required"},
 			Residents:     make([]harnessfixtures.Resident, 0, len(u.Residents)),
@@ -109,7 +110,7 @@ func planRequest(args []string, environment map[string]string) (harnessplan.Requ
 func plannerFailure(err error) error {
 	diagnostic := PreparationDiagnostic{FailureReason: "configuration_error", Cause: "unclassified", Subjects: []string{}}
 	switch {
-	case errors.Is(err, harnessplan.ErrSelection), errors.Is(err, harnessplan.ErrUnsupported):
+	case errors.Is(err, harnessplan.ErrSelection):
 		diagnostic.FailureReason, diagnostic.Cause = "usage_error", "command_selection"
 	case errors.Is(err, harnessplan.ErrInput):
 		diagnostic.Cause = "catalog_shape"

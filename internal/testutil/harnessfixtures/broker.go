@@ -81,9 +81,11 @@ type Request struct {
 	PredicateID       string   `json:"predicate_id,omitempty"`
 	LeaseID           string   `json:"-"`
 	AllocationRef     string   `json:"-"`
-	// StackKey is the browser stack identity a Go plan names; the broker uses
-	// it instead of deriving one, so plan residents and allocations agree.
-	StackKey string `json:"-"`
+	// StackKey and ClusterKey are the browser stack and PostgreSQL cluster a
+	// Go plan names; the broker uses them instead of deriving its own, so
+	// plan residents and allocations agree.
+	StackKey   string `json:"-"`
+	ClusterKey string `json:"-"`
 }
 type Allocation struct {
 	// Prepare runs only for an actual reused allocation, before exposing its lease.

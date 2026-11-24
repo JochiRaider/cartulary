@@ -23,6 +23,9 @@ func clusterKey(request Request) string {
 	if request.PostgresIsolation == "none" {
 		return ""
 	}
+	if request.ClusterKey != "" {
+		return request.ClusterKey
+	}
 	if request.PostgresIsolation == "shared" {
 		return "postgres:shared"
 	}

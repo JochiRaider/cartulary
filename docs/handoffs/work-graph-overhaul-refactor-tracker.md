@@ -916,6 +916,77 @@ CHECK=go` and `CHECK=scripts`; the planner, native-runtime,
 scheduler-contract, native-fixtures, fixture-broker, Playwright-adapter and
 graph-contract rows; `source-check` `generated` and `schema`; all pass.
 
+**Milestone 4, slice 4d: measurement rows and performance fixtures
+(2026-11-23).** The planner now compiles every selection; `ErrUnsupported`
+is gone, and the runtime's usage-error mapping with it.
+
+- *Fixture owner.* Routing a row to its populated fixture is the fixture
+  owner's job (TH-HARNESS-REQ-812), so `performancefixture.ResolveRow` now
+  does it in Go from the generated profiles' verification bindings. The
+  planner consumes it and `performancefixture.SnapshotKey`; it implements no
+  keying of its own. The migration digest is `pgschema.Hash()`: the
+  migrated-template identity both harness binaries embed and already verify.
+- *Load-time routing.* Every row is routed when the inputs load. A populated
+  profile binds one Playwright row to exactly one predicate. The row's
+  partition declares the same profile. The builder policy
+  (`tools/performance_fixture_builder_policy.json`, now a planner input)
+  covers exactly the active profiles. A Go row with a populated profile is
+  rejected, since nothing runs a Go clone.
+- *Units.* Each populated row is its own cohort; its cohort name includes the
+  snapshot key. One builder per snapshot,
+  `fixture_snapshot:<runtime>:<profile>:<key>`, waits only for the service
+  images. The old planner made it wait for every browser preparation too. It
+  holds shared host activity. Each measurement group needs its builder and
+  carries the fixture, row and predicate. Each group gets a summary
+  finalizer. The measurement target finalizer waits for the summaries and
+  adds the aggregate. Builder, group and summary carry `fixture_profile_id`
+  and `snapshot_key` (graph v9 amended in place).
+- *Cluster authority.* The planner names every PostgreSQL cluster a fixture
+  lease uses (`postgres:unit:<unit>`, `postgres:shared`, `postgres:<stack>`,
+  `postgres:measurement:<digest>`) and passes it as
+  `CARTULARY_POSTGRES_CLUSTER_KEY`. The broker allocates the named cluster
+  (`Request.ClusterKey`) instead of deriving one. The builder and every clone
+  hold the snapshot's cluster as one graph resident.
+- *Go measurement rows* run alone (TH-HARNESS-REQ-865). A runner unit's
+  timeout is now its resource profile's `runner_timeout_ms`: the backend
+  capacity profiles author 3,600 s, but runner units took the 600 s default.
+  That was shorter than the rows' 1,800 s measurement estimate, and the old
+  planner had the same gap.
+- *Closures.* Importing the migration owner exposed an over-approximation:
+  the Go closure followed the test-file imports of every imported package.
+  That pulled whole modules (for example `internal/modules/artifacts`, via the
+  migration owner's tests) into unrelated cache keys. Go never compiles a
+  dependency's tests into a dependent's test binary, so imported packages'
+  `_test.go` files and their imports are now left out. Selected packages keep
+  theirs.
+
+Runs (Go planner): `browser-e2e SUITE=measurement` passes in 2,458 s. Four
+builders ran, one per profile (128 s each; 437 s for the evidence-heavy
+profile). Then 33 quiet groups and 29 summaries ran, and the aggregate is
+`qualified` across four profile groups. The builders' shared host activity
+holds off every quiet session until the slowest builder finishes, so about
+430 s of the run is builder-only. That ordering is spec-mandated; a later
+scheduler may still overlap one profile's measurements with another
+profile's build, if quietness allows it. `test-slice
+SUITE=backend-integration` ran its PostgreSQL units under planner-named
+clusters, and its Go measurement row ran alone. Two `full`-tier rows failed;
+neither failure comes from this slice:
+`app.server.integration.application_fixtures_own_independent_databases…`
+fails identically under the JavaScript planner. Since `500e3bdda` a
+unit-owned exclusive generation no longer drops per-test databases eagerly,
+and the test still asserts an eager drop. Tracked separately.
+`harness.browser.integration.native_fixture_lifecycle` compared a
+same-run frontend receipt with the source digest after this session edited
+files mid-run; on a stable tree it passes. Tests: measurement planning (one
+builder per profile, keyed by the owner, resident on the snapshot cluster;
+one group and summary per row; the aggregate), Go measurement rows alone
+within their timeout, load-time routing rejections, the fixture owner's
+`TestRowFixtureRouting`, and `release-check` among the prepared aggregates.
+Checks: `make lint CHECK=go`; the planner, native-runtime, scheduler-smoke,
+native-fixtures, fixture-broker, nested-cancellation and fixture-owner rows;
+`source-check` `catalog`, `schema` and `generated`; `make lint-markdown`;
+all pass.
+
 ## 9. Decisions requested
 
 - Decided 2026-11-23: Option B (staged Go replacement); Stage 0 tried and

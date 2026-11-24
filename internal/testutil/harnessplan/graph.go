@@ -122,8 +122,12 @@ type Unit struct {
 	// RendererRequirement is a browser group's renderer: pooled or dedicated.
 	RendererRequirement string `json:"renderer_requirement,omitempty"`
 	// AffinityKey names the browser stack a group reuses across cohorts.
-	AffinityKey    string `json:"affinity_key,omitempty"`
-	SemanticDigest string `json:"semantic_digest"`
+	AffinityKey string `json:"affinity_key,omitempty"`
+	// FixtureProfileID and SnapshotKey identify the populated fixture snapshot
+	// a fixture builder, measurement group or measurement summary works on.
+	FixtureProfileID string `json:"fixture_profile_id,omitempty"`
+	SnapshotKey      string `json:"snapshot_key,omitempty"`
+	SemanticDigest   string `json:"semantic_digest"`
 }
 
 // unsafeResultCharacters are replaced to name a unit's result file.

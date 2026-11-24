@@ -83,7 +83,6 @@ func TestGoPlannerAdoption(t *testing.T) {
 	t.Run("planner rejections become closed preparation diagnostics", func(t *testing.T) {
 		for err, want := range map[error]string{
 			fmt.Errorf("%w: unknown owner", harnessplan.ErrSelection):         "failure_reason=usage_error cause=command_selection",
-			fmt.Errorf("%w: aggregates", harnessplan.ErrUnsupported):          "failure_reason=usage_error cause=command_selection",
 			fmt.Errorf("%w: duplicate row", harnessplan.ErrInput):             "failure_reason=configuration_error cause=catalog_shape",
 			errors.New("a\nmultiline " + strings.Repeat("x", 400) + " error"): "failure_reason=configuration_error cause=unclassified",
 		} {

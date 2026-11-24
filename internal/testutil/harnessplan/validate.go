@@ -247,7 +247,16 @@ func (in *Inputs) validate() error {
 			return fail(ownerPath, "policy unit %s has cache policy %s but no cache profile with that policy binds it", id, unit.CachePolicy)
 		}
 	}
-	return nil
+	for _, builder := range in.Fixtures.Builders {
+		source := "fixture builder " + builder.FixtureProfileID
+		if !resources[builder.ResourceProfileID] || !runtimes[builder.RuntimeProfileID] {
+			return fail(fixtureBuilderPath, "%s: unknown resource or runtime profile", source)
+		}
+		if err := checkServices(fixtureBuilderPath, source, builder.ServiceDependencies, builder.PostgresIsolation); err != nil {
+			return err
+		}
+	}
+	return in.resolveFixtures()
 }
 
 // check enforces the selector fields each runner requires and forbids the

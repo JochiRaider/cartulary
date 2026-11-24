@@ -2940,6 +2940,7 @@
         "package": "./internal/testutil/performancefixture",
         "tests": [
           "TestGeneratedProfileLookupReturnsDefensiveCopies",
+          "TestRowFixtureRouting",
           "TestSnapshotKeyIsProfileExplicit"
         ]
       },
