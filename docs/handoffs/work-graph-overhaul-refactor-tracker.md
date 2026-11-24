@@ -750,11 +750,10 @@ Runs (Go planner, `CARTULARY_HARNESS_PLANNER=go`):
   1891 rows passed in 856.6 s graph time (14 min 24 s for the whole command),
   with 144 cache hits partly warmed by the `test-fast` run.
 
-This is one partly warm run. The JavaScript-planned `check` runs recorded on
-2026-11-22 took 1077–1352 s and were insensitive to cache hits; no
-JavaScript-planned `check` was run under the same cache state for comparison.
 Preparing the `check` plan in Go takes 0.89 s (6.5 MB, 197 cache-eligible
-units).
+units). The Go planner is judged on correctness and, later, efficiency, never
+by comparison with the JavaScript planner, which is being removed (owner,
+2026-11-23).
 
 Tests: aggregate preparation for `test-fast` and `check` (every tier row
 bound, no explicit-only row, a projection for every root operation, suite
