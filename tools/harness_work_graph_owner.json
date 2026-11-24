@@ -1250,7 +1250,7 @@
       ],
       "cache_policy": "none",
       "estimated_work_ms": 1000,
-      "resource_profile_id": "standard",
+      "resource_profile_id": "ui_review_raster",
       "service_dependencies": [],
       "postgres_isolation": "none"
     },
@@ -1861,6 +1861,94 @@
       ],
       "cache_policy": "none",
       "estimated_work_ms": 10000,
+      "resource_profile_id": "standard",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    "harness.harness_benchmark_claim_contract": {
+      "needs": [],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "standard",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    "harness.harness_browser_preparation_contract": {
+      "needs": [],
+      "cache_policy": "none",
+      "estimated_work_ms": 1500,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    "harness.harness_ui_review_artifacts": {
+      "needs": [],
+      "cache_policy": "none",
+      "estimated_work_ms": 1500,
+      "resource_profile_id": "ui_review_browser",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    "harness.harness_ui_review_execution": {
+      "needs": [],
+      "cache_policy": "none",
+      "estimated_work_ms": 1500,
+      "resource_profile_id": "ui_review_parallel",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    "harness.harness_ui_review_lifecycle": {
+      "needs": [],
+      "cache_policy": "none",
+      "estimated_work_ms": 1500,
+      "resource_profile_id": "ui_review_browser",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    "harness.harness_ui_review_presentation": {
+      "needs": [],
+      "cache_policy": "none",
+      "estimated_work_ms": 1500,
+      "resource_profile_id": "ui_review_browser",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    "harness.harness_ui_review_seeded_default": {
+      "needs": [],
+      "cache_policy": "none",
+      "estimated_work_ms": 5000,
+      "resource_profile_id": "harness_installed_browser",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    "harness.harness_ui_review_seeded_network_flow_claimed": {
+      "needs": [],
+      "cache_policy": "none",
+      "estimated_work_ms": 5000,
+      "resource_profile_id": "harness_installed_browser",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    "harness.harness_ui_review_workflow": {
+      "needs": [],
+      "cache_policy": "none",
+      "estimated_work_ms": 1500,
+      "resource_profile_id": "ui_review_browser_pair",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    "harness.reference_pack_module_boundaries": {
+      "needs": [],
+      "cache_policy": "none",
+      "estimated_work_ms": 1500,
+      "resource_profile_id": "standard",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    "harness.visual_registry_check": {
+      "needs": [],
+      "cache_policy": "none",
+      "estimated_work_ms": 1500,
       "resource_profile_id": "standard",
       "service_dependencies": [],
       "postgres_isolation": "none"

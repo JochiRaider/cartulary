@@ -682,6 +682,7 @@
         "package": "./internal/testutil/harnessplan",
         "tests": [
           "TestCapabilityCapture",
+          "TestPlannerCompilation",
           "TestPlannerInputs"
         ]
       },

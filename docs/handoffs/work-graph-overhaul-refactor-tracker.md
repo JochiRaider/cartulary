@@ -309,9 +309,12 @@ comparison aid only during Stage 1 and is deleted in Stage 2.
    plan v8 and graph v9 schemas with explicit residents.
 2. *Go rows and operations.* Owner and row slices and operation targets
    (`make test-slice` for Go owners), plan v8 accepted by the runtime behind a
-   planner selector. Compared with the JavaScript planner on behaviour: the
-   same rows run exactly once, the same dependency producers, footprints that
-   fit, and outcomes from one `check`-sized slice. Digests are not compared.
+   planner selector. The JavaScript planner is not a reference (owner,
+   2026-11-23: it never worked well, so nothing is copied for parity). The Go
+   planner is judged on its own correctness: every selected row bound exactly
+   once, every need resolved and acyclic, each unit waiting for what its rows
+   require, footprints and residents that follow the declared services, and
+   the outcome of running Go-planned slices.
 3. *Aggregates and Vitest.* `test-fast` and `check`, with Vitest cohorts
    sized to a target duration and authored titles passed through to the
    runner; file-level frontend completeness; TypeScript parsing removed from
@@ -395,6 +398,45 @@ milestone 2, so no schema exists without a writer. The contract:
 
 Milestone 1 is complete apart from this contract's schemas, which move to
 milestone 2 with their producer.
+
+**Milestone 2, slice 2a: unit compilation (2026-11-23).** `harnessplan.Compile`
+turns a selection (exact rows, an owner slice, or an operation or private
+target union) into a validated graph:
+
+- *Operations* compile to one unit each under their own policy unit; there is
+  no default policy. Dependencies attach through each dependency's end units,
+  and a union's own policy needs attach to its member units.
+- *Shell rows* bind to their operation's unit, which runs the row runner and
+  publishes their evidence under the operation's policy. This removes the
+  silent override. It exposed authoring conflicts, now fixed in authored data:
+  six full-tier shell rows declared `standard` where their operation's policy
+  declares `harness_contract`, so the rows take `harness_contract`; the
+  UI-review contract policy declared `standard` where its row declares
+  `ui_review_raster`, so the policy takes `ui_review_raster`; and eleven
+  operations named by shell rows had no policy unit, so each now has one
+  carrying the values that already applied (the row's profile, no needs, no
+  cache, its evidence-class estimate).
+- *Go rows* group by execution contract (package, profiles, fixture, services,
+  binaries, preparation, cache, CPU, race) and split into balanced units:
+  `ceil(work / target)` units filled longest-first into the least-loaded unit
+  (225 s target for heavy-lane units, 300 s otherwise). Process-isolated rows,
+  managed processes and rows with an explicit context run alone. Unit IDs are
+  digests of the contract and the row set.
+- *Residents* are explicit per unit: `postgres:unit:<unit>` (scope `unit`) for
+  exclusive isolation, `postgres:shared` and `object_store:shared` (scope
+  `graph`).
+- Runtime binaries are listed per unit; their paths are bound at launch.
+- Vitest, Playwright and measurement rows return `ErrUnsupported` until
+  milestones 3 and 4.
+- The Go suite of a row is still inferred from its family name's last
+  segment, as before; an explicit suite field in the catalog is a later
+  cleanup.
+
+Tests: `TestPlannerCompilation` (every plannable row bound once and
+deterministically; an operation's dependency closure; residents and scopes;
+balanced units; shell rows under the operation's policy; unsupported and
+invalid selections). Checks: `m2-lintgo01`, `m2-slice02`, `m2-srccat01`,
+`m2-srcgen01`, `m2-srcjson01`; all pass.
 
 ## 9. Decisions requested
 

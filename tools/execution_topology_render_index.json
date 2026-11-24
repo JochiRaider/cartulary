@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 3,
-  "input_digest": "sha256:0b34115a37ec97bcf09369871561dafbd6f9819913f0cf77c440ece2112346b9",
+  "input_digest": "sha256:373f5035dab21f72252a4a44dccb9e492d74248e3380d572d53ae63f4eba28fc",
   "inputs": [
     {
       "path": "contracts/performance/ac003.v2.json",
@@ -1447,17 +1447,17 @@
     {
       "path": "tools/test_families/harness.browser.json",
       "role": "test_family_manifest",
-      "hash": "sha256:d85ee73af871200e78630d6f1a4fb0d075025ec51c43cbd9e01b0dad2a485ada"
+      "hash": "sha256:fc1d328473175adbd86bdebd483dd7777cdfaa71fe4c487fbb21afc89b704531"
     },
     {
       "path": "tools/test_families/harness.command_surface.json",
       "role": "test_family_manifest",
-      "hash": "sha256:e70d6c3f61b09e50f3e89160faf0e65f4750f94572dd56cc8fd341f86d6379ce"
+      "hash": "sha256:aebfbac0f1ef86b1b5d5e36c154faaf75e4eabb81fa4897528faa2bd5faaf12b"
     },
     {
       "path": "tools/test_families/harness.evidence_accounting.json",
       "role": "test_family_manifest",
-      "hash": "sha256:fa7e45bef3e94e14cef65fbc8a5c1ba5cfe0e297268f0e54f1c2f6d164dd592a"
+      "hash": "sha256:8e591ab2cc66ea576d9dcb8e4486f0c66fb2310164338e8af4593db6c8cae3cd"
     },
     {
       "path": "tools/test_families/harness.generated_artifacts.json",
@@ -1472,7 +1472,7 @@
     {
       "path": "tools/test_families/harness.test_catalog.json",
       "role": "test_family_manifest",
-      "hash": "sha256:48906aab02fe50e5e8c8fccc93e9c4ee5476c68edd06492f150e1576e5d6618b"
+      "hash": "sha256:7be725145a645bca036d1618a158b701a8f12e21ed69a741c0769bc3fe9f09b8"
     },
     {
       "path": "tools/test_families/module.artifacts.json",
@@ -1737,7 +1737,7 @@
     {
       "path": "tools/test_families/web.architecture.json",
       "role": "test_family_manifest",
-      "hash": "sha256:6a66662f31a953c14a4a7187012047147fab78c70d068458a42143b0216b0e20"
+      "hash": "sha256:508853774ef9777f4b446cc31f12f8f039a1eb48c878ff0d224fc073ff5a72c5"
     },
     {
       "path": "tools/test_families/web.collaboration.json",

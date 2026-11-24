@@ -114,6 +114,8 @@ type Owner struct {
 	Operations              map[string]Operation           `json:"operations"`
 	EvidenceEstimatesMS     map[string]int64               `json:"evidence_estimates_ms"`
 	DefaultTimeoutMS        int64                          `json:"default_timeout_ms"`
+	GoUnitTargetMS          int64                          `json:"go_cohort_packing_bound_ms"`
+	GoHeavyUnitTargetMS     int64                          `json:"postgres_heavy_packing_target_ms"`
 	AgingQuantumMS          int64                          `json:"aging_quantum_ms"`
 	RowExecutionContexts    map[string]RowExecutionContext `json:"row_execution_contexts"`
 	InvocationPolicies      map[string]InvocationPolicy    `json:"invocation_policies"`

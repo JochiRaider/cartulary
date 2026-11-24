@@ -63,8 +63,11 @@ func (in *Inputs) validate() error {
 	}
 
 	owner := in.Owner
-	if owner.DefaultTimeoutMS <= 0 || owner.AgingQuantumMS <= 0 {
-		return fail(ownerPath, "default_timeout_ms and aging_quantum_ms must be positive")
+	if owner.DefaultTimeoutMS <= 0 || owner.AgingQuantumMS <= 0 || owner.GoUnitTargetMS <= 0 || owner.GoHeavyUnitTargetMS <= 0 {
+		return fail(ownerPath, "default timeout, aging quantum and Go unit targets must be positive")
+	}
+	if _, ok := owner.InvocationPolicies[RunnerGo]; !ok {
+		return fail(ownerPath, "missing the go invocation policy")
 	}
 	for id, unit := range owner.PolicyUnits {
 		subject := "policy unit " + id
