@@ -214,6 +214,31 @@ rows (no placement justification).
    validated; reducing it is a schema change and needs the owner's DDL
    authorization.
 
+   **Proposal (2026-11-24, awaiting the owner).** Measured under `COPY` on the
+   seeded schema, 250,000 rows, indexes only:
+   - *Row-to-table key.* Replace `network_flow_rows_table_creator_fkey` with
+     set-based triggers. An `AFTER INSERT … FOR EACH STATEMENT` trigger on
+     `network_flow_rows` reads the transition table: every distinct
+     (incident, table, creator) must match a `network_flow_tables` row, taken
+     `FOR KEY SHARE` as the key would; otherwise it raises SQLSTATE 23503. An
+     `AFTER DELETE … FOR EACH STATEMENT` trigger on `network_flow_tables`
+     deletes the deleted tables' rows (the cascade). A `BEFORE UPDATE OF`
+     trigger rejects changes to a table's key columns (the key's `NO ACTION`).
+     Rows are already immutable. `network_flow_rows_table_creator_scope_idx`
+     serves only the key and goes with it. `COPY` 6.70 s → 4.56 s (2.1 s
+     saved, plus about 0.3 s for the index); an orphan row still fails.
+   - *Row checks.* No cheaper equivalent was found: removing `SET
+     search_path` saves about 2 %, and an inlined SQL rewrite of the
+     direction-evidence check is 3× slower (8.3 s against 2.5 s) because it
+     repeats the JSON extraction PL/pgSQL binds once. Recommend leaving them.
+   - *Not DDL.* The separate validation pass costs 4.2 s alone and 5.6 s under
+     `ci`. The Network Flow spec (§9.2: "No table is allocated until
+     validation has succeeded") requires it, so one pass would need a spec
+     change.
+   - *Projection.* The key change alone brings the 250k-row write pass from
+     about 15 s to 13 s alone; under `ci` load, from about 30 s to about 27 s.
+     That is under the budget, but with a thin margin.
+
 ### S1 result (2026-11-24)
 
 - **Rows.** 34 measurement rows and the 4 release package rows are
