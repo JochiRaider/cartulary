@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.harness_work_graph_owner.v12",
+  "$id": "cartulary.harness_work_graph_owner.v13",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -8,7 +8,6 @@
     "capacity_override_input",
     "tier_order",
     "aggregate_tiers",
-    "aggregate_policy_inherits",
     "aggregate_policy_roots",
     "target_members",
     "explicit_selections",
@@ -25,7 +24,7 @@
   ],
   "properties": {
     "schema_id": {
-      "const": "cartulary.harness_work_graph_owner.v12"
+      "const": "cartulary.harness_work_graph_owner.v13"
     },
     "capacity_override_input": {
       "const": "CARTULARY_HARNESS_CAPACITY_OVERRIDE"
@@ -56,9 +55,6 @@
           "const": "full"
         }
       }
-    },
-    "aggregate_policy_inherits": {
-      "$ref": "#/$defs/aggregate_target_lists"
     },
     "aggregate_policy_roots": {
       "$ref": "#/$defs/aggregate_operation_lists"

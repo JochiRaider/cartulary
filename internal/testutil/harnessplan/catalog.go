@@ -89,7 +89,7 @@ func loadCatalog(root string) (Catalog, error) {
 			return Catalog{}, fmt.Errorf("%w: %s: owner %s manifest path %q is outside tools/test_families", ErrInput, catalogRegistryPath, owner.OwnerID, owner.ManifestPath)
 		}
 		var family familyManifest
-		if err := readDocument(root, manifest, "cartulary.test_family_manifest.v14", &family); err != nil {
+		if err := readDocument(root, manifest, "cartulary.test_family_manifest.v15", &family); err != nil {
 			return Catalog{}, err
 		}
 		if family.OwnerID != owner.OwnerID {

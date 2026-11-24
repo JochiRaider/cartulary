@@ -71,11 +71,11 @@ test("topology resolves four or six lanes and rejects invalid public controls", 
 
 test("catalog rows declare an aggregate placement", () => {
   const [row] = loadTestCatalog(root).rows;
-  const family = (rows) => ({ schema_id: "cartulary.test_family_manifest.v14", owner_id: row.owner_id, rows });
-  validateSchemaSync("cartulary.test_family_manifest.v14", family([row]));
+  const family = (rows) => ({ schema_id: "cartulary.test_family_manifest.v15", owner_id: row.owner_id, rows });
+  validateSchemaSync("cartulary.test_family_manifest.v15", family([row]));
   const legacy = { ...row, minimum_tier: "fast" };
   delete legacy.aggregate_placement;
-  assert.throws(() => validateSchemaSync("cartulary.test_family_manifest.v14", family([legacy])));
+  assert.throws(() => validateSchemaSync("cartulary.test_family_manifest.v15", family([legacy])));
 });
 
 test("browser cohorts bind exact cases and execution compatibility independently of reporting ownership", async () => {

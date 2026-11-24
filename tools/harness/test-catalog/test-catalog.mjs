@@ -17,7 +17,7 @@ import { validatePostgresFixturePolicy } from "./postgres-fixture-policy.mjs";
 import { inspectExecutableRepositoryPath, readExecutableRepositoryJSON } from "./restricted-input-boundary.mjs";
 
 const ownerRegistrySchemaID = "cartulary.test_owner_registry.v1";
-const familyManifestSchemaID = "cartulary.test_family_manifest.v14";
+const familyManifestSchemaID = "cartulary.test_family_manifest.v15";
 const rowMigrationSchemaID = "cartulary.test_catalog_row_migration.v1";
 const runnerRegistrySchemaID = "cartulary.test_runner_registry.v3";
 export const evidenceEpoch = "cartulary.test_evidence.nlspec.v1";

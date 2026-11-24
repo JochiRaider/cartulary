@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.test_family_manifest.v14",
+  "$id": "cartulary.test_family_manifest.v15",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -10,7 +10,7 @@
   ],
   "properties": {
     "schema_id": {
-      "const": "cartulary.test_family_manifest.v14"
+      "const": "cartulary.test_family_manifest.v15"
     },
     "owner_id": {
       "$ref": "cartulary.test_catalog_defs.v1#/$defs/owner_id"
@@ -280,7 +280,6 @@
             "fast",
             "standard",
             "full",
-            "release",
             "explicit_only"
           ]
         },
@@ -399,7 +398,10 @@
             "not": {
               "properties": {
                 "runner": {
-                  "enum": ["go", "playwright"]
+                  "enum": [
+                    "go",
+                    "playwright"
+                  ]
                 }
               }
             }

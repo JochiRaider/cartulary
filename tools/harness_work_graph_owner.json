@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.harness_work_graph_owner.v12",
+  "schema_id": "cartulary.harness_work_graph_owner.v13",
   "capacity_override_input": "CARTULARY_HARNESS_CAPACITY_OVERRIDE",
   "tier_order": [
     "fast",
@@ -10,13 +10,6 @@
     "test-fast": "fast",
     "check": "standard",
     "ci": "full"
-  },
-  "aggregate_policy_inherits": {
-    "test-fast": [],
-    "check": [],
-    "ci": [
-      "check"
-    ]
   },
   "aggregate_policy_roots": {
     "test-fast": [],
@@ -41,12 +34,30 @@
       "harness.test_catalog_check"
     ],
     "ci": [
+      "harness.backend_module_boundary_check",
       "harness.build_production",
       "harness.contract_default",
+      "harness.contract_smoke",
       "harness.deployable_shape",
       "harness.frontend_fallow_static",
+      "harness.frontend_import_boundary_check",
+      "harness.frontend_typecheck",
+      "harness.generated_artifact_policy_check",
+      "harness.go_error_declaration_check",
       "harness.go_gosec_audit",
-      "harness.suite_browser_support"
+      "harness.go_gosec_targeted",
+      "harness.go_vulncheck",
+      "harness.json_shape_check",
+      "harness.lint_biome",
+      "harness.lint_go",
+      "harness.lint_scripts",
+      "harness.lint_shell",
+      "harness.migration_input_drift",
+      "harness.otel_conformance",
+      "harness.semantic_identity_check",
+      "harness.source_generated",
+      "harness.suite_browser_support",
+      "harness.test_catalog_check"
     ]
   },
   "target_members": {

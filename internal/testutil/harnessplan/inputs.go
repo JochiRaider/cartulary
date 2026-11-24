@@ -74,7 +74,7 @@ var ErrInput = errors.New("invalid harness planning input")
 // Load reads and validates every authored planning input under root.
 func Load(root string) (*Inputs, error) {
 	inputs := &Inputs{}
-	if err := readDocument(root, ownerPath, "cartulary.harness_work_graph_owner.v12", &inputs.Owner); err != nil {
+	if err := readDocument(root, ownerPath, "cartulary.harness_work_graph_owner.v13", &inputs.Owner); err != nil {
 		return nil, err
 	}
 	if err := readDocument(root, topologyPath, "cartulary.execution_topology.v16", &inputs.Topology); err != nil {
@@ -159,11 +159,10 @@ func readBounded(path string) ([]byte, error) {
 
 // Owner is the planning part of the harness work-graph owner model.
 type Owner struct {
-	TierOrder               []string                  `json:"tier_order"`
-	AggregateTiers          map[string]string         `json:"aggregate_tiers"`
-	AggregatePolicyInherits map[string][]string       `json:"aggregate_policy_inherits"`
-	AggregatePolicyRoots    map[string][]string       `json:"aggregate_policy_roots"`
-	TargetMembers           map[string][]TargetMember `json:"target_members"`
+	TierOrder            []string                  `json:"tier_order"`
+	AggregateTiers       map[string]string         `json:"aggregate_tiers"`
+	AggregatePolicyRoots map[string][]string       `json:"aggregate_policy_roots"`
+	TargetMembers        map[string][]TargetMember `json:"target_members"`
 	// ExplicitSelections are the private selections that run their
 	// explicit-only rows.
 	ExplicitSelections  []string              `json:"explicit_selections"`

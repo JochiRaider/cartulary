@@ -2101,7 +2101,7 @@ The current owner inputs are `contracts/verification/registry.json`,
 `contracts/verification/owners/*.json`, `tools/test_catalog_owner.json`, and
 `tools/test_families/*.json`. They validate respectively as
 `cartulary.verification_registry.v3`, `cartulary.verification_contract.v3`,
-`cartulary.test_owner_registry.v1`, and `cartulary.test_family_manifest.v14`.
+`cartulary.test_owner_registry.v1`, and `cartulary.test_family_manifest.v15`.
 Every schema uses JSON Schema Draft 2020-12, requires its exact `schema_id`,
 rejects unknown properties, and closes every current enum.
 
@@ -2442,7 +2442,7 @@ Every cacheable unit declares `same_run` or `content_addressed`; every other
 unit declares `none`. The registry binds policy work by canonical `operation_ids`
 and catalog work by `runner_types`; it MUST NOT bind cache eligibility to public
 command spelling. An operation or runner context absent from the registry is
-ineligible. The work-graph owner uses `cartulary.harness_work_graph_owner.v12`
+ineligible. The work-graph owner uses `cartulary.harness_work_graph_owner.v13`
 with closed operation definitions; task-surface bindings cannot override them. The
 retired scheduler-input-stamp and finalizer-action-cache families are not valid
 v3 inputs, and current commands MUST NOT read or translate them.
@@ -4402,7 +4402,7 @@ claim publication.
 | `cartulary.verification_registry.v3`            | `tools/schemas/cartulary.verification_registry.v3.schema.json`            | present           | Verification registry    | Before catalog compilation or evidence routing. |
 | `cartulary.verification_contract.v3`            | `tools/schemas/cartulary.verification_contract.v3.schema.json`            | present           | Verification owner       | Before catalog compilation or evidence routing. |
 | `cartulary.test_owner_registry.v1`              | `tools/schemas/cartulary.test_owner_registry.v1.schema.json`              | present           | Test catalog owner       | Before owner manifest loading. |
-| `cartulary.test_family_manifest.v14`             | `tools/schemas/cartulary.test_family_manifest.v14.schema.json`             | present           | Test family owners       | Before selection, topology generation, or audit. |
+| `cartulary.test_family_manifest.v15`             | `tools/schemas/cartulary.test_family_manifest.v15.schema.json`             | present           | Test family owners       | Before selection, topology generation, or audit. |
 | `cartulary.test_runner_registry.v3`             | `tools/schemas/cartulary.test_runner_registry.v3.schema.json`             | present           | Runner registry          | Before selector resolution or adapter invocation. |
 | `cartulary.task_guide_summary.v7`               | `tools/schemas/cartulary.task_guide_summary.v7.schema.json`               | present           | Task guidance            | Before target-local JSON output. |
 | `cartulary.test_catalog_check_summary.v2`       | `tools/schemas/cartulary.test_catalog_check_summary.v2.schema.json`       | present           | Catalog validator        | Before private catalog-check success. |
@@ -4701,7 +4701,7 @@ Verified by: TH-HARNESS-AC-037
 The owner-first schema families are `cartulary.requirement_registry.v1`,
 `cartulary.requirement_catalog.v1`, `cartulary.verification_registry.v3`,
 `cartulary.verification_contract.v3`, `cartulary.test_owner_registry.v1`,
-`cartulary.test_family_manifest.v14`, `cartulary.test_runner_registry.v3`,
+`cartulary.test_family_manifest.v15`, `cartulary.test_runner_registry.v3`,
 `cartulary.harness_work_graph.v9`, `cartulary.harness_target_plan.v7`,
 `cartulary.harness_row_result.v6`, `cartulary.harness_test_failure.v4`,
 `cartulary.harness_unit_result.v1`,
@@ -11920,8 +11920,8 @@ the graph without parsing sources. The Vitest profile's `unit_inputs` add the
 runner's own configuration and setup files, which every Vitest invocation
 loads whatever workspace its files belong to.
 
-An aggregate selects every row placed at or below its tier and the policy
-roots of the aggregate and of every aggregate it inherits. The planner first
+An aggregate selects every row placed at or below its tier and its own policy
+roots; aggregates do not inherit one another's roots. The planner first
 collects every row a selection reaches. That covers selected rows, union
 members, policies' required rows, and rows reached through the operations
 rows and policies wait for. It packs all of them in one pass, so a row
@@ -12282,3 +12282,15 @@ the roots file in its run root and runs `release-evidence-verify` the same
 way; that invocation is the release decision. A failed stage stops the
 release; a rerun names the passing roots and reruns the failed stage alone.
 
+### Cleanup — 2026-11-24
+
+The test-family manifest becomes `cartulary.test_family_manifest.v15`, whose
+`aggregate_placement` no longer admits `release`. The work-graph owner becomes
+`cartulary.harness_work_graph_owner.v13`: `aggregate_policy_inherits` is
+removed and each aggregate lists every policy root it runs. No throughput
+graph (`test-fast`, `check`, `ci`, `release-check`) contains a quiet unit. The
+quiet scheduling contract (TH-HARNESS-REQ-806) stays, because `release-measure`
+still runs its builds, snapshot builders and summaries beside its quiet
+sessions in one graph: the exclusive `host_activity` lock, ordinary work
+before quiet work, the diagnostics pause and retirement before exclusive
+admission all apply there.

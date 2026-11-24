@@ -181,7 +181,15 @@ rows (no placement justification).
    (`tools/release-evidence/release-cli.mjs`): stages run one at a time as
    top-level commands, named roots are reused, logs stay in the release root.
 7. **S6 Cleanup.** Remove aggregate inheritance and quiet-only scheduling
-   paths that no throughput graph uses any more.
+   paths that no throughput graph uses any more. Done 2026-11-24 in part:
+   family manifest v15 drops `release`; owner v13 drops
+   `aggregate_policy_inherits` (`ci` lists all 24 roots). The quiet paths
+   stay: no throughput graph has a quiet unit, but `release-measure` runs 44
+   ordinary units (builds, snapshot builders, summaries) beside its 35 quiet
+   ones, so the exclusive lock, quiet ordering, diagnostics pause and
+   retirement before exclusive admission are still its correctness
+   mechanism. Replacing them with one exclusive phase and a sequential runner
+   is a redesign of `release-measure`, left for the owner to decide.
 8. **S7 One real release**, with the owner's go-ahead.
 
 ### S1 result (2026-11-24)

@@ -135,11 +135,6 @@ func (in *Inputs) validate() error {
 				return fail(ownerPath, "aggregate %s root %s is neither a policy unit nor a target", target, root)
 			}
 		}
-		for _, parent := range owner.AggregatePolicyInherits[target] {
-			if _, ok := owner.AggregateTiers[parent]; !ok {
-				return fail(ownerPath, "aggregate %s inherits unknown aggregate %s", target, parent)
-			}
-		}
 	}
 
 	rows := map[string]bool{}

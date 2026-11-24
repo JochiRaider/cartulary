@@ -14,7 +14,7 @@
       "const": "cartulary.postgres_fixture_policy_registry.v7"
     },
     "catalog_schema_id": {
-      "const": "cartulary.test_family_manifest.v14"
+      "const": "cartulary.test_family_manifest.v15"
     },
     "capability_policies": {
       "type": "array",

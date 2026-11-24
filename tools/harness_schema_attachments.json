@@ -917,8 +917,8 @@
       "validation": "harness.json_shape_check"
     },
     {
-      "schema_id": "cartulary.harness_work_graph_owner.v12",
-      "path": "tools/schemas/cartulary.harness_work_graph_owner.v12.schema.json",
+      "schema_id": "cartulary.harness_work_graph_owner.v13",
+      "path": "tools/schemas/cartulary.harness_work_graph_owner.v13.schema.json",
       "classification": "owner_input",
       "producer": "harness graph owner",
       "validation": "harness.json_shape_check"
@@ -1577,8 +1577,8 @@
       "validation": "harness.json_shape_check"
     },
     {
-      "schema_id": "cartulary.test_family_manifest.v14",
-      "path": "tools/schemas/cartulary.test_family_manifest.v14.schema.json",
+      "schema_id": "cartulary.test_family_manifest.v15",
+      "path": "tools/schemas/cartulary.test_family_manifest.v15.schema.json",
       "classification": "owner_input",
       "producer": "test family owner",
       "validation": "harness.json_shape_check"

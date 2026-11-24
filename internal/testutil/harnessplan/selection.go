@@ -183,8 +183,7 @@ func (in *Inputs) targetSelection(name string, entry SurfaceTarget, inputs map[s
 }
 
 // aggregateSelection selects an aggregate's tier: every row placed at or
-// below the tier, and the policy roots of the aggregate and of the
-// aggregates it inherits.
+// below the tier, and the aggregate's own policy roots.
 func (in *Inputs) aggregateSelection(name string) (Selection, error) {
 	tier, ok := in.Owner.AggregateTiers[name]
 	if !ok {
@@ -197,19 +196,7 @@ func (in *Inputs) aggregateSelection(name string) (Selection, error) {
 			rows = append(rows, row.RowID)
 		}
 	}
-	var roots []string
-	pending, seen := []string{name}, map[string]bool{}
-	for len(pending) != 0 {
-		aggregate := pending[0]
-		pending = pending[1:]
-		if seen[aggregate] {
-			continue
-		}
-		seen[aggregate] = true
-		roots = append(roots, in.Owner.AggregatePolicyRoots[aggregate]...)
-		pending = append(pending, in.Owner.AggregatePolicyInherits[aggregate]...)
-	}
-	return Selection{Rows: rows, Targets: dedupe(roots)}, nil
+	return Selection{Rows: rows, Targets: dedupe(in.Owner.AggregatePolicyRoots[name])}, nil
 }
 
 // commandSelection resolves a command's selection binding: an owner slice
