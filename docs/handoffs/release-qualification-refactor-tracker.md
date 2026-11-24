@@ -231,6 +231,19 @@ verifier work. `release-check` now carries no quiet unit. Checks: `lint`
 `go` and `scripts`; `source-check` `generated` and `schema`; the Go planner,
 package readiness contract and routing contract rows: all pass.
 
+### S3 decision (2026-11-24): the gate keeps its recovery prerequisite
+
+The NLSpec requires the SeaweedFS release gate to declare current-invocation
+prerequisites for `seaweedfs-compatibility` and the canonical operator
+process row, and to read that row from the same invocation, never from
+retained or historical evidence. Moving it to the verifier would weaken that
+guarantee from "same invocation" to "same source digest", which is an owner
+decision, not a refactor. `release-check` therefore keeps exactly one `ci`
+row: the gate's declared, owner-justified policy dependency
+(`module.recovery.process.canonical_operator_process_evidence_maps_the_imp_9808fdd4e9`),
+which REQ-800 permits. It runs beside the 441 s package smoke, so it adds no
+wall time. S3 is closed without a change.
+
 ## 9. Open question: the evidence-heavy fixture
 
 Core 04 REQ-04-157 defines `cartulary.perf.evidence_heavy.v2` as 10,000
