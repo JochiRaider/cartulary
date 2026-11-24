@@ -214,7 +214,94 @@ not wall time alone. Stage 2 breaks cache identity once. The spec's
 module paths are not public bindings (NLSpec implementation-package rule), so
 the replacement needs no change for path reasons.
 
-## 6. Decisions requested
+## 6. Stage 1 scope: a clean Go planner
+
+**Decision (owner, 2026-11-23): Stage 0, then a Go planner.** The planner
+is designed from the NLSpec's requirements, not ported: a current behaviour
+is carried forward only when it materially improves the subsystem, and
+compatibility burden is removed rather than reproduced. Byte-identical
+digests with today's plan are not a goal; the plan and graph schema versions
+change once.
+
+**Inventory.** The JavaScript planner reaches about 7,100 lines in about 35
+modules: graph logic (about 3,200), catalog and selector resolution (about
+2,150, including TypeScript AST parsing of every Vitest and Playwright file on
+each prepare), topology, browser, fixture and shard packing (about 1,250),
+and input resolution (about 500). It validates about 20 schemas at plan time
+that have no Go validator yet. About 15 other JavaScript tools call into it.
+
+**What the planner is.** A pure Go package that turns authored inputs (owner
+model, topology, catalog rows, task surface, capacity snapshot, measured
+estimates) and a selection into a plan, plus a CLI that prints the plan or
+graph as JSON. It does not parse sources for validation, spawn Node, or read
+the clock for identity.
+
+| Current behaviour | Decision | Reason |
+| --- | --- | --- |
+| Selection kinds: aggregate tiers, commands, targets, owner and row slices | Keep, one resolver | Public contract (`make check`, `test-slice OWNER=… ROWS=…`) |
+| Policy operations and dependency closure (`needs` to exact producers) | Keep | Required ordering; already exact |
+| Per-row resource profiles and service minimums | Keep, as one footprint | Becomes a unit's full footprint: active claims plus named residents (below) |
+| Resident allocations re-derived in two places (Stage 0 mirror, host admission) | Replace | The plan names each unit's residents with key and scope (`unit`, `graph`, `persistent`); engine and host admission both read that one record |
+| Go shard packing by compatibility digest to a fixed 300 s bound ("LPT" in name only) | Simplify | Unit = package and fixture class; size from measured estimates; drop LPT naming and the separate shard plan schema |
+| Vitest cohorts packed first-fit to the 600 s timeout | Replace | Size cohorts against a target duration and capacity so no cohort sets the critical-path floor; allow more than one worker per cohort |
+| Unit IDs from packing results and resolved titles | Replace | ID = digest of the unit's row set and execution contract; editing an estimate never renames a unit |
+| TypeScript AST parsing for Vitest and Playwright titles and registration-level coverage on every prepare | Drop (removed from the NLSpec, 2026-11-23) | Rows already carry exact full titles; the pinned runner resolves them at execution and a title it does not collect exactly once fails; frontend completeness is file-level (every matching test file has a catalog row), which needs no parsing |
+| TypeScript import closure with silent broad fallback for cache keys | Simplify | Workspace-level digests for frontend units; `go list -deps` closures for Go units; no silent fallback |
+| Estimates: row values or class defaults, flat overheads, `?? 1000` defaults | Replace | A reviewed, generated estimates file from retained runs (per unit kind, including fixed overheads), with explicit failure when an estimate is missing |
+| Capacity mapping defined in registry, JavaScript and Go | Simplify | One Go definition; the registry stays the authored input |
+| Host profile from Node (`x64`, `os.release`) | Replace | Go host facts; identity strings change once |
+| Shell rows silently overriding their operation's policy | Drop | Each unit takes its own declared policy; a conflict is an authoring error |
+| Absolute binary and checkout paths inside unit environments (graph digest depends on checkout path) | Replace | Paths are bound at launch, outside unit identity |
+| Plan never written to disk; retained runs replayed by recompiling (`compileRetainedRun`) | Replace | The plan is written to the run root; readers use it instead of recompiling |
+| `validateWorkGraph` in every row-runner child | Drop | The runtime hands each child its validated unit; no per-child revalidation |
+| Non-canonical browser execution key, locale-sensitive lane ordering, insertion-order lane chains | Replace | Canonical digests and explicit orderings |
+| Browser lanes chained at compile time through `needs` | Revisit in browser milestone | A third ordering layer; candidate for scheduler-owned lane assignment |
+
+**Spec changes before code.** The TypeScript source-parsing contract is
+already removed (2026-11-23): rows carry exact full titles, the runner resolves
+them, and frontend completeness is file-level. The JavaScript planner still
+parses until milestone 3 removes it. REQ-802 ("one graph compiler") and
+REQ-852 ("Node owns source-aware compilation") name the Go planner; REQ-363's byte-identical graph
+stays as determinism of the new graph; the plan becomes
+`harness_runtime_plan.v8` and the graph `work_graph.v9`; residents become an
+explicit plan field (REQ-802, REQ-803); estimates come from a reviewed
+generated file (REQ-865); the line forbidding a retired JavaScript
+implementation as a native test oracle means the JavaScript planner is a
+comparison aid only during Stage 1 and is deleted in Stage 2.
+
+**Milestones.**
+
+1. *Inputs and model.* Go loaders and generated validators for the owner,
+   topology, task-surface and catalog schemas; one capacity definition; the
+   plan v8 and graph v9 schemas with explicit residents.
+2. *Go rows and operations.* Owner and row slices and operation targets
+   (`make test-slice` for Go owners), plan v8 accepted by the runtime behind a
+   planner selector. Compared with the JavaScript planner on behaviour: the
+   same rows run exactly once, the same dependency producers, footprints that
+   fit, and outcomes from one `check`-sized slice. Digests are not compared.
+3. *Aggregates and Vitest.* `test-fast` and `check`, with Vitest cohorts
+   sized to a target duration and authored titles passed through to the
+   runner; file-level frontend completeness; TypeScript parsing removed from
+   the JavaScript catalog path.
+4. *Commands and browser.* Command selections, `ci` and `release-check`
+   browser stages; decide lane assignment.
+5. *Switch and delete (Stage 2).* Go planner by default, plan written to the
+   run root, a Go CLI for the remaining JavaScript readers, then deletion of
+   the JavaScript planner, selector resolution's planning half, retained-run
+   recompilation and their tests.
+
+Each milestone is validated by targeted checks and one diagnostic `check`
+once `check` is covered. The scheduler redesign (one admission decision
+reading the plan's footprints, one fairness policy) follows as Stage 3 and
+replaces Stage 0's mirrored resident keys.
+
+**Risks.** Without source parsing a misauthored title fails when its file
+runs rather than at prepare, and a test registered in a file that already has
+a row but is named by no row is no longer detected. Unit identities and cache keys change once.
+About 15 JavaScript readers must move to the CLI or the retained plan in
+Stage 2; `operations.mjs` run-time dispatch is not planner code and stays.
+
+## 7. Decisions requested
 
 - Adopt Option B (staged Go replacement) or Option A.
 - Start with Stage 0 (footprint-aware logical admission) before any rewrite.

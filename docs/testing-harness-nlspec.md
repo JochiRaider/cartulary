@@ -232,7 +232,9 @@ Frontend completeness covers the browser-unit file patterns declared by the
 current Vitest project (`apps/web/src/**/*.{test,spec}.{ts,tsx}` and
 `packages/*/src/**/*.test.{ts,tsx}`, excluding `packages/report-renderer`), harness-node
 `apps/web/e2e/**/*.test.ts`, and Chromium Playwright
-`apps/web/e2e/**/*.spec.{ts,tsx}`. Helpers without registrations are not tests.
+`apps/web/e2e/**/*.spec.{ts,tsx}`. Completeness is file-level: every file
+matching these patterns MUST have at least one owner-catalog row, and the
+harness does not discover individual test registrations.
 The `renderer-node` Vitest project owns
 `packages/report-renderer/src/**/*.test.ts` under the Reporting owner. Its pure
 unit rows require frontend installation; its browser integration rows additionally
@@ -246,30 +248,11 @@ is not input to these tests; temporary generated presentation source is product
 data. The project has a 60-second test deadline and 30-second hook deadline for
 bounded cold renderer characterization. These are test-execution bounds, not
 Reporting product timeout or performance predicates.
-Discovery and selector resolution MUST use the same non-executing parser.
-Literal titles, static local constants and supported literal/constant `.each`
-tables resolve to exact full titles. Unresolvable test registrations are
-configuration failures, not omitted coverage. Registrations MUST be unconditional
-module-level statements or statements in literal suite callbacks. Named imports
-may alias the runner's `it`, `test`, `describe`, or `suite` interfaces. Bindings
-MUST resolve in their declaration's lexical scope; mutable or dynamic title
-bindings, conditional registrations, arbitrary callback registration, unknown
-registration modifiers and parameterized suite registration MUST reject.
-Runner APIs may use simple constant aliases. Computed member access,
-destructuring, storage in objects, and passage to arbitrary registration helpers
-are unsupported API escapes and MUST reject before setup. Runtime test metadata
-and hooks remain distinct from registration; ordinary object property names do
-not create runner identities.
-The admitted `.each` title grammar is primitive `%s`, `%d`, `%i`, `%f`, case
-indices `%#`/`%$`, and primitive named object properties (`$name`), with the
-pinned runner's exact formatting. Other formatting tokens, unresolved property
-paths or inspected object values MUST reject; neither approximated titles nor
-unexpanded templates establish selection coverage. New syntax requires an
-explicit parser-contract amendment and parity tests before admission.
-Imported `register*Suite` modules MUST expose the named zero-argument exported
-function and the importer MUST call it exactly once as an unconditional
-module-level statement. Unused, conditional, argument-bearing or repeated suite
-calls MUST reject. Runtime profile routing belongs in catalog execution context,
+The harness does not parse TypeScript or JavaScript test sources. A Vitest or
+Playwright row carries the exact full titles it selects as authored catalog
+data, and the pinned runner resolves them when it executes the file: a selected
+title the runner does not collect exactly once is a configuration failure, not
+omitted coverage. Runtime profile routing belongs in catalog execution context,
 not environment-dependent registration guards.
 Playwright logical scenario IDs
 and physical project/file/full-title identities MUST both be unique; changing a
@@ -1031,8 +1014,8 @@ unexecuted cases cannot pass. Partial failure retains independently completed fi
 outcomes and one invocation cleanup owner. Public row identities and failure
 precedence remain.
 
-Vitest selectors explicitly name their registered project. Static resolution maps
-each selected title to one exact full test name. Runtime execution MUST use the
+Vitest selectors explicitly name their registered project. Each selected title is
+the exact full test name authored in the row. Runtime execution MUST use the
 pinned Vitest public TestSpecification API with an anchored name filter for each
 exact file; a global union of titles is invalid because files may repeat names.
 A leaf-name/full-name pair for the same case is overlapping selection.
@@ -2706,7 +2689,7 @@ structured diagnostics, not classify by matching
 human error strings. One failed cleanup step MUST NOT prevent independent owned
 resources from being retired; repeated finalization MUST be idempotent.
 
-The Playwright result adapter MUST join observations by exact normalized selector file, project ID and full suite/test title path resolved by the shared static parser. Execution MUST use the pinned Playwright exact test-list interface, derived from those catalog identities; substring or suffix title filters are forbidden. Unrepresentable test-list components, imported Playwright registration suites whose source location differs from the spec entrypoint, or a selected test path that is also a suite prefix MUST fail configuration preflight. Shared fixture and test-body helpers remain supported. Unexpected executed identities are accounting failures, even when every selected test passed. Zero observations, multiple observations, aggregate process success without selector observations, and an unauthorized Playwright skip are accounting failures; a product assertion failure MUST remain a product failure. Reports, stdout, and stderr MUST be retained through the redaction boundary, and only exact selector observations may close catalog rows.
+The Playwright result adapter MUST join observations by exact normalized selector file, project ID and full suite/test title path authored in the catalog row. Execution MUST use the pinned Playwright exact test-list interface, derived from those catalog identities; substring or suffix title filters are forbidden. Unrepresentable test-list components, imported Playwright registration suites whose source location differs from the spec entrypoint, or a selected test path that is also a suite prefix MUST fail configuration preflight. Shared fixture and test-body helpers remain supported. Unexpected executed identities are accounting failures, even when every selected test passed. Zero observations, multiple observations, aggregate process success without selector observations, and an unauthorized Playwright skip are accounting failures; a product assertion failure MUST remain a product failure. Reports, stdout, and stderr MUST be retained through the redaction boundary, and only exact selector observations may close catalog rows.
 
 Ordinary Playwright configuration MUST set `updateSnapshots=none`. Missing
 goldens therefore fail ordinary visual validation. Snapshot mutation is
@@ -7746,7 +7729,7 @@ MUST NOT replace the child exit or relax admission and cleanup boundaries.
 
 Node owns source-aware compilation, graph modeling and selector validation, row
 runners, runner-specific report adaptation and offline analysis. The compiler
-MUST exit and be reaped before any graph unit launches; its catalog, source ASTs,
+MUST exit and be reaped before any graph unit launches; its catalog,
 closures and caches MUST NOT remain in a resident graph coordinator. Node rows
 continue validating their current selected inputs. Full public source preflight
 MUST NOT be replaced by metadata-only fixture access.
