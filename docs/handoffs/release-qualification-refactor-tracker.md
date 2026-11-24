@@ -190,7 +190,15 @@ rows (no placement justification).
    retirement before exclusive admission are still its correctness
    mechanism. Replacing them with one exclusive phase and a sequential runner
    is a redesign of `release-measure`, left for the owner to decide.
-8. **S7 One real release**, with the owner's go-ahead.
+8. **S7 One real release**, with the owner's go-ahead. First attempt
+   2026-11-24 (`20261124T200215Z-p34171`): `make release` ran `ci` alone in
+   1,653 s (500 of 501 units passed) and stopped there, as designed. The
+   failure is `module.imports.integration.network_flow_public_default_limits_commit_the_ac_fc9396304e`
+   (NF-REQ-171a capacity evidence): the 250,000-row default commit overran its
+   30 s participant budget (`extension_transaction_timeout`). The row takes
+   22 s alone, about 25 s under `check` and 32 to 33 s under full `ci` load; it
+   passed at 32.7 s in the 4e run. The margin is a product capacity question,
+   not a harness defect.
 
 ### S1 result (2026-11-24)
 
