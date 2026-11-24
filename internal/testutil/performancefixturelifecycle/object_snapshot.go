@@ -16,6 +16,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/rootedfs"
+	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -26,6 +27,9 @@ const (
 	maxSnapshotObjectCount         = 100000
 	maxSnapshotObjectBytes   int64 = 1 << 30
 	maxSnapshotTotalBytes    int64 = 128 << 30
+	// Objects transfer and verify independently. The pool matches the S3
+	// transport's idle connections per host; the first failure cancels the rest.
+	snapshotTransferWorkers = 8
 )
 
 // ObjectSnapshotSummary is the retained, non-capability-bearing proof of the
@@ -166,33 +170,43 @@ func restoreObjectSnapshot(ctx context.Context, privateRoot, key string, expecte
 	if err := matchSnapshotInventory(entries, manifest.Objects); err != nil {
 		return err
 	}
+	transfers, transferCtx := errgroup.WithContext(ctx)
+	transfers.SetLimit(snapshotTransferWorkers)
 	for _, object := range manifest.Objects {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		if err := guard.Check(); err != nil {
-			return errors.New("object snapshot payload root changed")
-		}
-		body, info, err := source.ReadObject(ctx, object.Key, objectstore.ReadOptions{})
-		if err != nil || body == nil {
-			return errors.New("object snapshot payload is unavailable or unsafe")
-		}
-		if info.Key != object.Key || info.Size != object.ByteSize || info.ContentType != object.ContentType {
-			_ = body.Close()
-			return errors.New("object snapshot payload metadata changed")
-		}
-		hash := sha256.New()
-		reader := &snapshotCountingReader{reader: io.TeeReader(io.LimitReader(body, object.ByteSize+1), hash), ctx: ctx}
-		putErr := destination.PutObject(ctx, object.Key, reader, object.ByteSize, object.ContentType)
-		closeErr := body.Close()
-		if putErr != nil || closeErr != nil || reader.count != object.ByteSize || "sha256:"+hex.EncodeToString(hash.Sum(nil)) != object.SHA256 {
-			return errors.New("object snapshot payload transfer failed integrity validation")
-		}
+		transfers.Go(func() error { return transferSnapshotObject(transferCtx, guard, source, destination, object) })
+	}
+	if err := transfers.Wait(); err != nil {
+		return err
 	}
 	// Verify stored bytes, not merely the stream submitted to the adapter.
 	actual, err := inspectSnapshotObjects(ctx, destination)
 	if err != nil || !slices.Equal(actual, manifest.Objects) {
 		return errors.New("object snapshot restored content differs from its sealed source")
+	}
+	return nil
+}
+
+func transferSnapshotObject(ctx context.Context, guard *rootedfs.Root, source, destination objectstore.Store, object snapshotObject) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if err := guard.Check(); err != nil {
+		return errors.New("object snapshot payload root changed")
+	}
+	body, info, err := source.ReadObject(ctx, object.Key, objectstore.ReadOptions{})
+	if err != nil || body == nil {
+		return errors.New("object snapshot payload is unavailable or unsafe")
+	}
+	if info.Key != object.Key || info.Size != object.ByteSize || info.ContentType != object.ContentType {
+		_ = body.Close()
+		return errors.New("object snapshot payload metadata changed")
+	}
+	hash := sha256.New()
+	reader := &snapshotCountingReader{reader: io.TeeReader(io.LimitReader(body, object.ByteSize+1), hash), ctx: ctx}
+	putErr := destination.PutObject(ctx, object.Key, reader, object.ByteSize, object.ContentType)
+	closeErr := body.Close()
+	if putErr != nil || closeErr != nil || reader.count != object.ByteSize || "sha256:"+hex.EncodeToString(hash.Sum(nil)) != object.SHA256 {
+		return errors.New("object snapshot payload transfer failed integrity validation")
 	}
 	return nil
 }
@@ -231,28 +245,36 @@ func inspectSnapshotObjects(ctx context.Context, store objectstore.Store) ([]sna
 	if _, err := validateSnapshotObjects(objects); err != nil {
 		return nil, err
 	}
+	reads, readCtx := errgroup.WithContext(ctx)
+	reads.SetLimit(snapshotTransferWorkers)
 	for i, entry := range entries {
-		if err := ctx.Err(); err != nil {
-			return nil, err
-		}
-		body, info, err := store.ReadObject(ctx, entry.Key, objectstore.ReadOptions{})
-		if err != nil || body == nil {
-			return nil, errors.New("object snapshot payload is unavailable")
-		}
-		// Listings establish membership and size; S3 does not include MIME.
-		if info.Key != entry.Key || info.Size != entry.Size {
-			_ = body.Close()
-			return nil, errors.New("object snapshot inventory changed while sealing")
-		}
-		hash := sha256.New()
-		reader := &snapshotCountingReader{reader: io.LimitReader(body, entry.Size+1), ctx: ctx}
-		_, copyErr := io.Copy(hash, reader)
-		closeErr := body.Close()
-		if copyErr != nil || closeErr != nil || reader.count != entry.Size {
-			return nil, errors.New("object snapshot payload length or read failed")
-		}
-		objects[i].ContentType = info.ContentType
-		objects[i].SHA256 = "sha256:" + hex.EncodeToString(hash.Sum(nil))
+		reads.Go(func() error {
+			if err := readCtx.Err(); err != nil {
+				return err
+			}
+			body, info, err := store.ReadObject(readCtx, entry.Key, objectstore.ReadOptions{})
+			if err != nil || body == nil {
+				return errors.New("object snapshot payload is unavailable")
+			}
+			// Listings establish membership and size; S3 does not include MIME.
+			if info.Key != entry.Key || info.Size != entry.Size {
+				_ = body.Close()
+				return errors.New("object snapshot inventory changed while sealing")
+			}
+			hash := sha256.New()
+			reader := &snapshotCountingReader{reader: io.LimitReader(body, entry.Size+1), ctx: readCtx}
+			_, copyErr := io.Copy(hash, reader)
+			closeErr := body.Close()
+			if copyErr != nil || closeErr != nil || reader.count != entry.Size {
+				return errors.New("object snapshot payload length or read failed")
+			}
+			objects[i].ContentType = info.ContentType
+			objects[i].SHA256 = "sha256:" + hex.EncodeToString(hash.Sum(nil))
+			return nil
+		})
+	}
+	if err := reads.Wait(); err != nil {
+		return nil, err
 	}
 	if _, err := validateSnapshotObjects(objects); err != nil {
 		return nil, err
