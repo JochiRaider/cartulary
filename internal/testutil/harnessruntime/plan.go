@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnessplan"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 )
@@ -407,32 +408,17 @@ func decodePlan(data []byte) (*Plan, error) {
 	}
 	return &Plan{facts: facts, context: context}, nil
 }
+
+// validCapacities requires the plan's capacities to be exactly the mapping
+// of its capability snapshot, through the planner's single definition.
 func validCapacities(snapshot map[string]any, actual map[string]int64) bool {
-	n := func(k string) int64 { return int64(snapshot[k].(float64)) }
-	services := snapshot["services"].(map[string]any)
-	service := func(k string, n int64) int64 {
-		if services[k] == false {
-			return 0
-		}
-		return n
-	}
-	volume := int64(0)
-	if snapshot["writable_volume"] == true {
-		volume = 1
-	}
-	expected := map[string]int64{"cpu": n("cpu_tokens"), "memory_mb": max(1, n("memory_bytes")/1048576), "process": n("process_slots"), "io": n("io_tokens"), "postgres": service("postgres", n("postgres_lanes")), "object_store": service("object_store", n("object_store_lanes")), "port_lane": n("port_lanes"), "browser_stack": service("browser", n("port_lanes")), "service_stack": service("service_stack", n("port_lanes")), "volume": volume}
-	// Capture always resolves the authored heavy-PostgreSQL lanes; a snapshot
-	// recorded before the lane existed carries no such resource.
-	if lanes, ok := snapshot["postgres_heavy_lanes"].(float64); ok {
-		expected["postgres_heavy"] = int64(lanes)
-	}
-	if len(expected) != len(actual) {
+	data, err := json.Marshal(snapshot)
+	if err != nil {
 		return false
 	}
-	for k, v := range expected {
-		if got, ok := actual[k]; !ok || got != v {
-			return false
-		}
+	var resolved harnessplan.CapabilitySnapshot
+	if err := json.Unmarshal(data, &resolved); err != nil {
+		return false
 	}
-	return true
+	return maps.Equal(resolved.Capacities(), actual)
 }
