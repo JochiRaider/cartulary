@@ -200,6 +200,20 @@ rows (no placement justification).
    passed at 32.7 s in the 4e run. The margin is a product capacity question,
    not a harness defect.
 
+   **Commit-path investigation (2026-11-24).** The test retains its pass
+   timings: validation pass 4.2 s alone (5.6 s under `ci`), write pass 15.3 s
+   alone (24.4 s under `ci`, cut off at 22.0 of 25.0 MB). The write pass is
+   database-bound; the Go producer overlaps it. On the seeded schema (PG 18.6,
+   250,000 rows, `INSERT … SELECT`): a logged copy of `network_flow_rows` with
+   every constraint, index and the composite foreign key takes 11.3 s; bare,
+   1.2 s. On temp copies: check constraints cost about 4.4 s, of which the
+   PL/pgSQL `network_flow_direction_evidence_is_valid_v2` is 2.6 s and
+   `network_flow_endpoints_are_valid_v1` 0.7 s; the per-row
+   `network_flow_rows_table_creator_fkey` check about 2.4 s; the six indexes
+   about 1.6 s. Each import re-checks per row what the Go writer already
+   validated; reducing it is a schema change and needs the owner's DDL
+   authorization.
+
 ### S1 result (2026-11-24)
 
 - **Rows.** 34 measurement rows and the 4 release package rows are
