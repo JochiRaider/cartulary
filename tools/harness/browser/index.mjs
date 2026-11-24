@@ -6,4 +6,4 @@ export { validateFrontendVisualGoldenManifest } from "./frontend-visual-golden-m
 
 export { createBrowserFixtureProcess, createGoBrowserFixtureProcess, fixtureLifecycleAttachment } from "./fixture-process.mjs";
 
-export { recoverVisualRenderer } from "./visual-renderer-lease.mjs";
+export { loadVisualRendererProfile, recoverVisualRenderer, verifyRendererImage } from "./visual-renderer-lease.mjs";

@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { atomicLocalFile } from "../runtime/secure-local-files.mjs";
-import { playwrightLeafTitle } from "../test-catalog/selector-resolution.mjs";
+import { playwrightLeafTitle } from "../test-catalog/index.mjs";
 
 const expectedFixtureIDs = [
   "visual.fixture.claimed_network_analysis_workspace_states",

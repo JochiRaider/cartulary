@@ -284,7 +284,7 @@ func (h *Harness) newMigrationDatabaseT(t testing.TB) *TestDatabase {
 
 func (h *Harness) registerDatabaseCleanupT(t testing.TB, name string, reuseScope string, attribution fixtureAttribution) {
 	t.Helper()
-	if h.retiresWithGeneration() {
+	if h.RetiresWithGeneration() {
 		// The generation's retirement deletes it. Recording that disposition keeps
 		// drop-or-retirement evidence for every harness-owned database.
 		t.Cleanup(func() {
@@ -308,7 +308,7 @@ func (h *Harness) registerDatabaseCleanupT(t testing.TB, name string, reuseScope
 // and leaves physical deletion to the generation's retirement
 // (TH-HARNESS-REQ-357). Elsewhere it drops the database.
 func (h *Harness) RemoveDatabase(ctx context.Context, name string) (resultErr error) {
-	if !h.retiresWithGeneration() {
+	if !h.RetiresWithGeneration() {
 		return h.DropDatabase(ctx, name)
 	}
 	if !h.ownsDatabase(name) {
@@ -335,7 +335,7 @@ func (h *Harness) RemoveDatabase(ctx context.Context, name string) (resultErr er
 // test ends.
 func (h *Harness) RetireClonedDatabaseT(t testing.TB, name string) {
 	t.Helper()
-	if h.retiresWithGeneration() {
+	if h.RetiresWithGeneration() {
 		return
 	}
 	t.Cleanup(func() {
@@ -345,13 +345,13 @@ func (h *Harness) RetireClonedDatabaseT(t testing.TB, name string) {
 	})
 }
 
-// retiresWithGeneration reports whether this attachment is a single-unit
+// RetiresWithGeneration reports whether this attachment is a single-unit
 // exclusive generation. Such a generation belongs to one work unit and its
 // retirement physically deletes every database in it, so per-test databases are
 // retired with it instead of by an eager DROP DATABASE and the cluster-wide
 // checkpoint that forces (TH-HARNESS-REQ-357). Shared, browser-lane, measurement,
 // owned and persistent clusters keep eager drops.
-func (h *Harness) retiresWithGeneration() bool {
+func (h *Harness) RetiresWithGeneration() bool {
 	return h.binding.inputs[suiteservices.PGIsolationEnv] == "exclusive" &&
 		strings.HasPrefix(h.binding.inputs[suiteservices.PGAllocationRefEnv], "postgres:unit:")
 }

@@ -1,6 +1,6 @@
 import { readLocalFile, listLocalDirectory } from "../runtime/secure-local-files.mjs";
 import { validateSchemaSync } from "../contract/index.mjs";
-import { playwrightLeafTitle } from "../test-catalog/selector-resolution.mjs";
+import { playwrightLeafTitle } from "../test-catalog/index.mjs";
 import { createHash } from "node:crypto";
 import {
   existsSync,

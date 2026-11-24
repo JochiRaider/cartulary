@@ -18,6 +18,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore/s3transport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
+	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
 )
 
@@ -51,9 +52,12 @@ func TestApplicationFixturesAreIndependent_Integration(t *testing.T) {
 	}) {
 		return
 	}
+	// A single-unit exclusive generation retires the child database with the
+	// generation; every other attachment drops it when its test ends.
+	retainedUntilRetirement := pgtest.Start(t).RetiresWithGeneration()
 	var remains bool
-	if err := first.DB.QueryRow("SELECT EXISTS (SELECT 1 FROM pg_database WHERE datname=$1)", secondDatabase).Scan(&remains); err != nil || remains {
-		t.Fatalf("child database was not retired: exists=%t err=%v", remains, err)
+	if err := first.DB.QueryRow("SELECT EXISTS (SELECT 1 FROM pg_database WHERE datname=$1)", secondDatabase).Scan(&remains); err != nil || remains != retainedUntilRetirement {
+		t.Fatalf("child database not settled by its retirement rule: exists=%t retained_until_generation_retirement=%t err=%v", remains, retainedUntilRetirement, err)
 	}
 	client, err := s3test.Start(t).Client(t.Context())
 	if err != nil {

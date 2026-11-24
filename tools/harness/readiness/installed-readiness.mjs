@@ -10,8 +10,7 @@ import { CommandFailure } from "../runtime/command-failure.mjs";
 import { atomicLocalFile, privateDirectory, readLocalFile, removePrivateFile } from "../runtime/secure-local-files.mjs";
 
 import { resolvePlaywrightPackages } from "./playwright-packages.mjs";
-import { verifyRendererImage } from "../browser/visual-renderer-lease.mjs";
-import { loadVisualRendererProfile } from "../browser/visual-renderer-profile.mjs";
+import { loadVisualRendererProfile, verifyRendererImage } from "../browser/index.mjs";
 
 const repoRoot = path.resolve(import.meta.dirname, "../../..");
 const hash = (value) => createHash("sha256").update(value).digest("hex");
