@@ -29,15 +29,6 @@
       "rationale": "Collaboration-owned fixture publication finalization through ordinary durable sequencing; no service-starting entrypoint."
     },
     {
-      "path": "internal/modules/entities/hostidentity/testsupport",
-      "owner": "entities.hostidentity",
-      "posture": "owner_local",
-      "runtime_scan": "included",
-      "support_scan": "included",
-      "service_starting": false,
-      "rationale": "Host/identity route inventory support without service-starting entrypoints."
-    },
-    {
       "path": "internal/modules/entities/testsupport",
       "owner": "entities",
       "posture": "owner_local",
@@ -162,15 +153,6 @@
       "support_scan": "included",
       "service_starting": false,
       "rationale": "Approved generated-contract test facade; does not start services."
-    },
-    {
-      "path": "internal/platform/httpapi/extensiondiscovery/testsupport",
-      "owner": "app_server",
-      "posture": "platform_facade",
-      "runtime_scan": "included",
-      "support_scan": "included",
-      "service_starting": false,
-      "rationale": "Extension discovery route inventory support for the app-server-owned HTTP adapter."
     },
     {
       "path": "internal/platform/telemetry/testsupport",
