@@ -869,6 +869,53 @@ CHECK=scripts`; every `harness.test_catalog` row; the registry-parity,
 generate-drift and Playwright-adapter rows; `source-check` `generated` and
 `catalog`; all pass.
 
+**Milestone 4, slice 4c: browser stages in Go (2026-11-23).**
+
+- *Inputs.* The planner reads the generated browser batch manifest
+  (partitions and reporting stages), the topology's frontend artifacts and
+  browser reset policy, and the owner's lifecycle estimates. The Playwright
+  invocation policy now declares the preparations every browser group waits
+  for (`build_migrate`, `build_server_harness`, `playwright_install`,
+  `test_service_images`); the JavaScript planner reads them instead of its
+  hard-coded list.
+- *Cohorts and lanes.* Rows of one partition with the same needs form
+  cohorts. Rows outside test-owned state run alone; otherwise balanced
+  cohorts fit the resource profile's timeout less allocation headroom, and
+  ordinary cohorts spread over `BROWSER_LANES`. Ordinary cohorts are placed
+  longest first on the least-loaded lane and wait for the cohort before them.
+  The lane chain stays a compile-time ordering for now. A capacity-based lane
+  bound needs a new logical resource and host-admission work, so it belongs
+  with the Stage 3 scheduler. Cohort names are the planner's own
+  (`cohort-<digest>`). A stage that reports selected rows gets one target
+  finalizer; snapshot updates report under `browser-e2e-visual-update`.
+- *Units.* Group units carry their rows (`--rows`), renderer requirement,
+  affinity key and stack key. The group CLI validates the cohort against its
+  partition from those rows and hands the cohort to the Playwright reporter,
+  so no browser child reads the published graph. The reporter now takes its
+  cohort only from the CLI, for both planners.
+- *Residents.* The planner names each group's stack (`stack:<digest>`) and
+  the PostgreSQL cluster it owns (`postgres:<stack>`). The fixture broker uses
+  the named key (`Request.StackKey`) instead of deriving one, so plan
+  residents and broker allocations agree. Admission reads renderer-slot
+  claims from the topology (cached once per run) when the plan names none.
+- *Projections.* Playwright rows report under their stage's target, and each
+  finalizer under its own.
+- *Still unsupported.* Fixture-profile (measurement) browser groups and Go
+  measurement rows (4d). `ci` now plans; `release-check` waits for 4d.
+
+Runs (Go planner, real browsers): `browser-e2e SUITE=support` (4 groups on 4
+lanes, 16 rows), `SUITE=stateful` (11 groups, 59 rows), `SUITE=accessibility`
+(6 groups, 57 rows) and `SUITE=visual` (6 groups, 48 rows, explicit-only
+visual rows included) all pass, with planner-named stacks and clusters. The
+JavaScript-planned `SUITE=support` also passes with the changed group CLI and
+reporter. Tests: browser plans for the functional, stateful and visual
+suites and the snapshot update (group units with rows, renderer, affinity and
+stack resident; lanes within `BROWSER_LANES`; finalizers with projections);
+measurement work and `release-check` remain unsupported. Checks: `make lint
+CHECK=go` and `CHECK=scripts`; the planner, native-runtime,
+scheduler-contract, native-fixtures, fixture-broker, Playwright-adapter and
+graph-contract rows; `source-check` `generated` and `schema`; all pass.
+
 ## 9. Decisions requested
 
 - Decided 2026-11-23: Option B (staged Go replacement); Stage 0 tried and

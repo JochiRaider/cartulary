@@ -119,7 +119,11 @@ type Unit struct {
 	RuntimeBinaryIDs    []string         `json:"runtime_binary_ids"`
 	FailurePolicy       FailurePolicy    `json:"failure_policy"`
 	EstimatedWorkMS     int64            `json:"estimated_work_ms"`
-	SemanticDigest      string           `json:"semantic_digest"`
+	// RendererRequirement is a browser group's renderer: pooled or dedicated.
+	RendererRequirement string `json:"renderer_requirement,omitempty"`
+	// AffinityKey names the browser stack a group reuses across cohorts.
+	AffinityKey    string `json:"affinity_key,omitempty"`
+	SemanticDigest string `json:"semantic_digest"`
 }
 
 // unsafeResultCharacters are replaced to name a unit's result file.

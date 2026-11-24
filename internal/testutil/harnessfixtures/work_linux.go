@@ -150,7 +150,16 @@ func (p *Production) Admit(ctx context.Context, requirement WorkRequirement) (*h
 			}
 		}
 		if err == nil && work.slot != nil {
-			err = add("renderer:"+work.slot.allocation, requirement.Physical["renderer"])
+			claims := requirement.Physical["renderer"]
+			if len(claims) == 0 {
+				var physical map[string]map[string]int64
+				if physical, err = p.physicalClaims(); err == nil {
+					claims = physical["renderer"]
+				}
+			}
+			if err == nil {
+				err = add("renderer:"+work.slot.allocation, claims)
+			}
 			if err == nil {
 				work.slot.resident = records[len(records)-1]
 			}
@@ -291,20 +300,8 @@ func (p *Production) Acquire(ctx context.Context, request Request) (*WorkLease, 
 // ConfigureDedicated projects the same authored physical claims for a native
 // review owner. Its one borrower lives until review settlement, not group exit.
 func (p *Production) ConfigureDedicated(parent *string, capacities map[string]int64, request Request, diagnostics bool) (WorkRequirement, error) {
-	bytes, err := os.ReadFile(filepath.Join(p.Options.Root, "tools/execution_topology_manifest.json"))
+	physical, err := p.physicalClaims()
 	if err != nil {
-		return WorkRequirement{}, err
-	}
-	topology, err := harnessschema.Decode(bytes)
-	if err != nil || harnessschema.Validate("cartulary.execution_topology.v16", topology) != nil {
-		return WorkRequirement{}, errors.New("invalid physical resource topology")
-	}
-	data, err := json.Marshal(topology.(map[string]any)["physical_resource_claims"])
-	if err != nil {
-		return WorkRequirement{}, err
-	}
-	physical := map[string]map[string]int64{}
-	if err := json.Unmarshal(data, &physical); err != nil {
 		return WorkRequirement{}, err
 	}
 	work := WorkRequirement{Request: request, Renderer: "dedicated", Diagnostics: diagnostics, Physical: physical, Active: map[string]int64{"cpu": 1, "io": 1, "memory_mb": 512, "process": 1}}
@@ -339,4 +336,28 @@ func (p *Production) retireIdleStacks(ctx context.Context, retirement Retirement
 		observe(err)
 		return err
 	})
+}
+
+// physicalClaims are the topology's resident claims per physical allocation
+// kind, read once. A Go plan names its residents but leaves the renderer slot,
+// which admission assigns, to these claims.
+func (p *Production) physicalClaims() (map[string]map[string]int64, error) {
+	p.physicalOnce.Do(func() {
+		bytes, err := os.ReadFile(filepath.Join(p.Options.Root, "tools/execution_topology_manifest.json"))
+		if err != nil {
+			p.physicalErr = err
+			return
+		}
+		topology, err := harnessschema.Decode(bytes)
+		if err != nil || harnessschema.Validate("cartulary.execution_topology.v16", topology) != nil {
+			p.physicalErr = errors.New("invalid physical resource topology")
+			return
+		}
+		data, err := json.Marshal(topology.(map[string]any)["physical_resource_claims"])
+		if err == nil {
+			err = json.Unmarshal(data, &p.physical)
+		}
+		p.physicalErr = err
+	})
+	return p.physical, p.physicalErr
 }

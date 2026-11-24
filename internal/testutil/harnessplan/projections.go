@@ -30,10 +30,13 @@ func (in *Inputs) projections(graph *Graph, selected SurfaceTarget, options Opti
 	for id, unit := range graph.Units {
 		for _, binding := range unit.RowBindings {
 			bound[binding.RowID] = id
-			add(rowSuite(in.row(binding.RowID)), id)
+			add(in.rowSuite(in.row(binding.RowID)), id)
 		}
 		if operation, ok := cutOperation(id); ok {
 			add(operation, id)
+		}
+		if target, ok := strings.CutPrefix(id, "browser_target_summary:"); ok {
+			add(target, id)
 		}
 	}
 	commandIDs := map[string]string{}
@@ -162,13 +165,23 @@ func (in *Inputs) projectable(target, selected SurfaceTarget) bool {
 	return json.Unmarshal(in.Owner.Operations[recipe.OperationID].Execution, &execution) == nil && execution.GraphEntry
 }
 
-// rowSuite is the suite a row reports under.
-func rowSuite(row Row) string {
+// rowSuite is the suite a row reports under: its Go suite, the frontend
+// unit suite, its browser stage's target, or a shell row's operation.
+func (in *Inputs) rowSuite(row Row) string {
 	switch row.Runner {
 	case RunnerGo:
 		return "backend-" + goSuite(row)
 	case RunnerVitest:
 		return "frontend-unit"
+	case RunnerPlaywright:
+		for _, stage := range in.Browser.Stages {
+			for _, membership := range stage.Groups {
+				if slices.Contains(membership.SelectedRowIDs, row.RowID) {
+					return stage.Target
+				}
+			}
+		}
+		return ""
 	default:
 		return row.Selector.OperationID
 	}

@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 3,
-  "input_digest": "sha256:3598bb086f36fe5769983f17e41e53739fc631c6cae6c0dba4a38aa15c4137c1",
+  "input_digest": "sha256:5e1644f3eb60288c39124da3e5f75fd0a933720bf3e50315c3943a18648f10db",
   "inputs": [
     {
       "path": "contracts/performance/ac003.v2.json",
@@ -462,7 +462,7 @@
     {
       "path": "tools/harness/browser/browser-catalog-group-cli.mjs",
       "role": "renderer_source",
-      "hash": "sha256:46b749510d3438e2edb9dbe95cd676a1079fae0d7132522992ae89e311280410"
+      "hash": "sha256:4cb4d345f01cea157b7c48193d6c0a8da21a488c2091c2a673569603b50354af"
     },
     {
       "path": "tools/harness/browser/browser-cohorts.mjs",
@@ -562,7 +562,7 @@
     {
       "path": "tools/harness/browser/playwright-cohort-reporter.mjs",
       "role": "renderer_source",
-      "hash": "sha256:3e0d2b1d4e846eccbed6409891e5117d785c32dcda88f978410355cbf9a9b405"
+      "hash": "sha256:c3ff6dec0841b104c4cccba00448919652803860b79db2dca604e5b613c4b28a"
     },
     {
       "path": "tools/harness/browser/playwright-output-cleanup.mjs",
@@ -1252,7 +1252,7 @@
     {
       "path": "tools/harness/scheduler/work-graph/compiler.mjs",
       "role": "renderer_source",
-      "hash": "sha256:0757e6cadc6e5d593844be7d2975204399974a16a5f7281c1cba15285acd8bed"
+      "hash": "sha256:9f8b99627b35d1122da3126be7d54dbe5f456f7ab9d0e81907325b5288095378"
     },
     {
       "path": "tools/harness/scheduler/work-graph/index.mjs",

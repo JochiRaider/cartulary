@@ -26,6 +26,7 @@ const (
 	catalogRegistryPath = "tools/test_catalog_owner.json"
 	taskSurfacePath     = "tools/task_surface_owner.json"
 	cacheRegistryPath   = "tools/harness_cache_registry.json"
+	browserBatchPath    = "tools/browser_e2e_batch_manifest.json"
 	maxInputBytes       = 16 << 20
 )
 
@@ -37,6 +38,7 @@ type Inputs struct {
 	Catalog     Catalog
 	TaskSurface TaskSurface
 	Cache       CacheRegistry
+	Browser     BrowserBatch
 	// rowIndex finds a catalog row by ID.
 	rowIndex map[string]int
 }
@@ -62,6 +64,9 @@ func Load(root string) (*Inputs, error) {
 	}
 	inputs.TaskSurface.projectBrowserLanes(inputs.Topology.BrowserLanePolicy)
 	if err := readDocument(root, cacheRegistryPath, "cartulary.harness_cache_registry.v3", &inputs.Cache); err != nil {
+		return nil, err
+	}
+	if err := readDocument(root, browserBatchPath, "cartulary.browser_e2e_batch_manifest.v16", &inputs.Browser); err != nil {
 		return nil, err
 	}
 	catalog, err := loadCatalog(root)
@@ -129,10 +134,13 @@ type Owner struct {
 	TargetMembers           map[string][]TargetMember `json:"target_members"`
 	// ExplicitSelections are the private selections that run their
 	// explicit-only rows.
-	ExplicitSelections   []string                       `json:"explicit_selections"`
-	PolicyUnits          map[string]PolicyUnit          `json:"policy_units"`
-	Operations           map[string]Operation           `json:"operations"`
-	EvidenceEstimatesMS  map[string]int64               `json:"evidence_estimates_ms"`
+	ExplicitSelections  []string              `json:"explicit_selections"`
+	PolicyUnits         map[string]PolicyUnit `json:"policy_units"`
+	Operations          map[string]Operation  `json:"operations"`
+	EvidenceEstimatesMS map[string]int64      `json:"evidence_estimates_ms"`
+	// LifecycleEstimatesMS charges browser allocation, reset and finalization
+	// work at their lifecycle boundaries.
+	LifecycleEstimatesMS map[string]int64               `json:"lifecycle_estimates_ms"`
 	DefaultTimeoutMS     int64                          `json:"default_timeout_ms"`
 	GoUnitTargetMS       int64                          `json:"go_cohort_packing_bound_ms"`
 	GoHeavyUnitTargetMS  int64                          `json:"postgres_heavy_packing_target_ms"`
@@ -251,6 +259,12 @@ type Topology struct {
 	PhysicalResourceClaims  map[string]map[string]int64 `json:"physical_resource_claims"`
 	RuntimeBinaries         []RuntimeBinary             `json:"runtime_binaries"`
 	BrowserLanePolicy       BrowserLanePolicy           `json:"browser_lane_policy"`
+	BrowserBatch            struct {
+		FrontendArtifacts map[string]struct {
+			ProducerOperation string `json:"producer_operation"`
+		} `json:"frontend_artifacts"`
+	} `json:"browser_e2e_batch"`
+	BrowserResetPolicy map[string]int64 `json:"browser_reset_policy"`
 }
 
 // BrowserLanePolicy bounds the browser lanes a command may request.
@@ -322,4 +336,48 @@ type CacheProfile struct {
 type UnitInputs struct {
 	Paths    []string `json:"paths"`
 	Prefixes []string `json:"prefixes"`
+}
+
+// BrowserBatch is the generated browser batch manifest: compatibility
+// partitions of Playwright rows and the stages that report them.
+type BrowserBatch struct {
+	InvocationPolicy struct {
+		StartupMS int64 `json:"startup_ms"`
+		CleanupMS int64 `json:"cleanup_ms"`
+	} `json:"invocation_policy"`
+	Partitions []BrowserPartition `json:"partitions"`
+	Stages     []BrowserStage     `json:"stages"`
+}
+
+// BrowserPartition is a set of Playwright rows that can share a browser
+// stack: one execution stage, frontend artifact, profiles and services.
+type BrowserPartition struct {
+	Name                  string   `json:"name"`
+	Target                string   `json:"target"`
+	Kind                  string   `json:"kind"`
+	ExecutionStage        string   `json:"execution_stage"`
+	FrontendArtifactID    string   `json:"frontend_artifact_id"`
+	SchedulerNeeds        []string `json:"scheduler_needs"`
+	StateScope            string   `json:"state_scope"`
+	RuntimeProfileID      string   `json:"runtime_profile_id"`
+	ResourceProfileID     string   `json:"resource_profile_id"`
+	FixtureCapability     string   `json:"fixture_capability"`
+	ServiceRequirement    string   `json:"service_requirement"`
+	ServiceDependencies   []string `json:"service_dependencies"`
+	PostgresIsolation     string   `json:"postgres_isolation"`
+	PreparationOperations []string `json:"preparation_operations"`
+	FixtureProfileID      string   `json:"fixture_profile_id"`
+	BrowserSessionGroup   string   `json:"browser_session_group"`
+	SelectedRowIDs        []string `json:"selected_row_ids"`
+}
+
+// BrowserStage reports a set of partitions' rows under one target.
+type BrowserStage struct {
+	Name            string   `json:"name"`
+	Target          string   `json:"target"`
+	SummaryChildren []string `json:"summary_children"`
+	Groups          []struct {
+		Partition      string   `json:"partition"`
+		SelectedRowIDs []string `json:"selected_row_ids"`
+	} `json:"groups"`
 }

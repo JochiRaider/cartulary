@@ -318,9 +318,9 @@ func TestPlannerCompilation(t *testing.T) {
 	})
 
 	t.Run("unsupported and invalid selections fail", func(t *testing.T) {
-		browser := rowsWhere(func(row Row) bool { return row.Runner == RunnerPlaywright })
-		if _, err := Compile(inputs, Selection{Rows: browser[:1]}, options); !errors.Is(err, ErrUnsupported) {
-			t.Fatalf("playwright row: %v", err)
+		measurement := rowsWhere(func(row Row) bool { return row.Runner == RunnerGo && row.EvidenceClass == "measurement" })
+		if _, err := Compile(inputs, Selection{Rows: measurement[:1]}, options); !errors.Is(err, ErrUnsupported) {
+			t.Fatalf("measurement row: %v", err)
 		}
 		for name, selection := range map[string]Selection{
 			"unknown row":     {Rows: []string{"module.missing.unit.x"}},

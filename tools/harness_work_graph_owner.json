@@ -6378,6 +6378,14 @@
     "go": {
       "startup_ms": 5000,
       "cleanup_ms": 250
+    },
+    "playwright": {
+      "preparation_operations": [
+        "harness.build_migrate",
+        "harness.build_server_harness",
+        "harness.playwright_install",
+        "harness.test_service_images"
+      ]
     }
   },
   "lifecycle_estimates_ms": {

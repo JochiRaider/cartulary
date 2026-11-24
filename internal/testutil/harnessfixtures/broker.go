@@ -81,6 +81,9 @@ type Request struct {
 	PredicateID       string   `json:"predicate_id,omitempty"`
 	LeaseID           string   `json:"-"`
 	AllocationRef     string   `json:"-"`
+	// StackKey is the browser stack identity a Go plan names; the broker uses
+	// it instead of deriving one, so plan residents and allocations agree.
+	StackKey string `json:"-"`
 }
 type Allocation struct {
 	// Prepare runs only for an actual reused allocation, before exposing its lease.
@@ -248,6 +251,9 @@ func New(options Options) *Broker {
 // stackKey is shared by physical residency, reuse and consumer accounting.
 // The run owner fixes engine/trust configuration independently of this tuple.
 func stackKey(request Request) string {
+	if request.StackKey != "" {
+		return request.StackKey
+	}
 	services := slices.Clone(request.Services)
 	slices.Sort(services)
 	data, _ := json.Marshal([]any{request.Capability, request.PostgresIsolation, request.Affinity, request.RuntimeProfile, request.BrowserStage, request.FixtureProfile, request.SnapshotKey, request.BuilderUnit, services})

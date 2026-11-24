@@ -26,6 +26,10 @@ type Production struct {
 	Broker     *Broker
 	Suite      *SuiteOwner
 	Options    ProductionOptions
+	// physical caches the topology's physical claims (physicalClaims).
+	physicalOnce sync.Once
+	physical     map[string]map[string]int64
+	physicalErr  error
 }
 
 func NewProduction(p ProductionOptions, options Options) *Production {

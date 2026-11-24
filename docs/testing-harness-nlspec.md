@@ -11893,6 +11893,25 @@ inputs and commands that write authored sources are never candidates. A
 projected public command carries its own command ID; every other projection
 carries the selected command's.
 
+The Go planner compiles Playwright rows from the generated browser batch
+manifest. A row's partition fixes what it can share a browser stack with; its
+stage reports it. Rows of one partition with the same needs form cohorts.
+Rows outside test-owned state run alone. Otherwise the work is split into
+balanced cohorts that fit the resource profile's timeout less allocation
+headroom, and ordinary cohorts are spread over the `BROWSER_LANES` lanes
+while each cohort's work still covers one stack acquisition. Ordinary cohorts
+are placed longest first on the least-loaded lane, and each waits for the
+cohort before it on its lane. The Playwright invocation policy declares the
+preparations every browser group waits for. A browser group unit names its
+rows and cohort in its command. The group runner hands that cohort to the
+Playwright reporter, and neither reads the published graph. The planner names
+each group's browser stack (`stack:<digest>`) and the PostgreSQL cluster the
+stack owns (`postgres:<stack>`) as residents shared by the cohorts of one
+affinity. The fixture broker uses the named stack key, and host admission
+takes the claims of the renderer slot it assigns from the topology. Every
+stage that reports selected rows gets one target finalizer that waits for
+their groups.
+
 ## SQL architecture analysis completeness
 
 Architecture checks that inspect SQL embedded in Go MUST use Go AST analysis for

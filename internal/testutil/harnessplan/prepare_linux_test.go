@@ -223,6 +223,51 @@ func TestPlanPreparation(t *testing.T) {
 		}
 	})
 
+	t.Run("browser suites plan groups, lanes and target finalizers", func(t *testing.T) {
+		for _, suite := range []string{"functional", "stateful", "visual"} {
+			plan, err := Prepare(root, Request{Kind: "command", Target: "browser-e2e", Environment: environment(map[string]string{"SUITE": suite, "BROWSER_LANES": "2"})}, now, 42)
+			if err != nil {
+				t.Fatalf("%s: %v", suite, err)
+			}
+			groups, finalizers, lanes := 0, 0, map[string]bool{}
+			for id, unit := range plan.Graph.Units {
+				switch {
+				case strings.HasPrefix(id, "browser_group:"):
+					groups++
+					if unit.FixtureLease != "browser_stack" || unit.RendererRequirement == "" || unit.AffinityKey == "" || unit.FailurePolicy.BlockDescendants {
+						t.Fatalf("%s group %s = %+v", suite, id, unit)
+					}
+					if unit.Command.Args[len(unit.Command.Args)-2] != "--rows" || !slices.ContainsFunc(unit.Residents, func(r Resident) bool { return strings.HasPrefix(r.Key, "stack:") }) {
+						t.Fatalf("%s group %s lacks its rows or stack: %v %v", suite, id, unit.Command.Args, unit.Residents)
+					}
+					if lane := unit.Command.Environment["CARTULARY_BROWSER_LANE_ID"]; lane != "" {
+						lanes[lane] = true
+					}
+				case strings.HasPrefix(id, "browser_target_summary:"):
+					finalizers++
+					if _, projected := plan.Projections[strings.TrimPrefix(id, "browser_target_summary:")]; !projected {
+						t.Fatalf("%s finalizer %s has no projection", suite, id)
+					}
+				}
+			}
+			if groups == 0 || finalizers == 0 || len(lanes) > 2 {
+				t.Fatalf("%s: %d groups, %d finalizers, lanes %v", suite, groups, finalizers, lanes)
+			}
+		}
+		update, err := Prepare(root, Request{Kind: "command", Target: "browser-e2e-visual-update", Environment: environment(nil)}, now, 42)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, ok := update.Graph.Units["browser_target_summary:browser-e2e-visual-update"]; !ok {
+			t.Fatal("the snapshot update reports under its own target")
+		}
+		for id, unit := range update.Graph.Units {
+			if strings.HasPrefix(id, "browser_group:") && unit.Command.Environment["CARTULARY_BROWSER_MAINTENANCE_MODE"] != "snapshot_update" {
+				t.Fatalf("%s does not run in snapshot update mode", id)
+			}
+		}
+	})
+
 	t.Run("a public operation command selects its operation", func(t *testing.T) {
 		plan, err := Prepare(root, Request{Kind: "target", Target: "go-vulncheck", Environment: environment(nil)}, now, 42)
 		if err != nil {
@@ -301,8 +346,7 @@ func TestPlanPreparation(t *testing.T) {
 			request Request
 			want    error
 		}{
-			"browser aggregate":            {Request{Kind: "aggregate", Target: "ci", Environment: environment(nil)}, ErrUnsupported},
-			"explicit browser suite":       {Request{Kind: "command", Target: "browser-e2e", Environment: environment(map[string]string{"SUITE": "visual"})}, ErrUnsupported},
+			"measurement aggregate":        {Request{Kind: "aggregate", Target: "release-check", Environment: environment(nil)}, ErrUnsupported},
 			"unknown command":              {Request{Kind: "command", Target: "no-such-command", Environment: environment(nil)}, ErrSelection},
 			"unknown owner":                {command(map[string]string{"OWNER": "harness.no_such_owner"}), ErrSelection},
 			"row of another owner":         {command(map[string]string{"OWNER": "harness.test_catalog", "ROWS": row}), ErrSelection},

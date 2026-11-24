@@ -344,11 +344,7 @@ export class WorkGraphCompiler {
       if (row.runner === "playwright") {
         for (const target of [
           ...(browserNeedsByRow.get(row.row_id) ?? []),
-          "harness.playwright_install",
           browserArtifactsByRow.get(row.row_id).producer_operation,
-          "harness.build_server_harness",
-          "harness.build_migrate",
-          "harness.test_service_images",
         ]) {
           targets.add(target);
         }

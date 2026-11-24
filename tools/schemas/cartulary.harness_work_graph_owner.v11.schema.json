@@ -598,8 +598,9 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "vitest",
-        "go"
+        "go",
+        "playwright",
+        "vitest"
       ],
       "properties": {
         "vitest": {
@@ -674,6 +675,23 @@
             "cleanup_ms": {
               "type": "integer",
               "minimum": 0
+            }
+          }
+        },
+        "playwright": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "preparation_operations"
+          ],
+          "properties": {
+            "preparation_operations": {
+              "description": "Operations every Playwright browser group waits for.",
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "$ref": "#/$defs/operation_id"
+              }
             }
           }
         }

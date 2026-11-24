@@ -106,7 +106,7 @@ func Prepare(root string, request Request, now time.Time, pid int) (*Plan, error
 	if err := json.Unmarshal(pins, &toolchain); err != nil || toolchain.GoVersion == "" {
 		return nil, fmt.Errorf("%w: %s has no go_version", ErrInput, toolchainPinsPath)
 	}
-	options := Options{CPUTokens: budget, GoVersion: toolchain.GoVersion, GoShuffleSeed: value("GO_SHUFFLE_SEED", ""), AttachedServices: mode == "attach"}
+	options := Options{CPUTokens: budget, GoVersion: toolchain.GoVersion, GoShuffleSeed: value("GO_SHUFFLE_SEED", ""), AttachedServices: mode == "attach", BrowserLanes: int(lanes)}
 	graph, err := Compile(in, resolved.selection, options)
 	if err != nil {
 		return nil, err

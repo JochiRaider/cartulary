@@ -2,7 +2,6 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { redactValue } from "../contract/index.mjs";
 import { atomicLocalFile } from "../runtime/secure-local-files.mjs";
-import { readPublishedUnit } from "../execution/runners/unit-selection.mjs";
 import { publishRowResult } from "../execution/runners/row-results.mjs";
 import { adaptPlaywrightReport, playwrightReportMaximumBytes } from "../execution/runners/playwright.mjs";
 import { loadTestCatalog, playwrightSelection } from "../test-catalog/index.mjs";
@@ -62,17 +61,17 @@ export default class PlaywrightCohortReporter extends PlaywrightCohortCollector 
   constructor() {
     const root = fileURLToPath(new URL("../../../", import.meta.url));
     const runRoot = path.resolve(root, process.env.CARTULARY_TEST_RESULTS_DIR, process.env.CARTULARY_TEST_RUN_ID);
-    const unit = readPublishedUnit(runRoot, process.env.CARTULARY_TEST_RUN_ID, process.env.CARTULARY_WORK_UNIT_ID);
-    if (unit.command.args[0] !== "tools/harness/browser/browser-catalog-group-cli.mjs" ||
-        !unit.row_bindings?.length || unit.row_bindings.some((entry) => entry.runner !== "playwright")) {
-      throw new Error("Playwright reporter requires its published browser cohort");
+    // The browser group CLI hands its validated cohort to the reporter.
+    const group = process.env.CARTULARY_BROWSER_COHORT ?? "";
+    const rowIDs = (process.env.CARTULARY_BROWSER_COHORT_ROWS ?? "").split(",").filter(Boolean);
+    const target = process.env.CARTULARY_TEST_TARGET ?? "";
+    if (!/^cohort-[a-f0-9]{64}$/u.test(group) || !rowIDs.length || !/^[A-Za-z0-9_.-]+$/u.test(target)) {
+      throw new Error("Playwright reporter requires its browser cohort");
     }
-    const group = unit.command.args[unit.command.args.indexOf("--group") + 1];
-    if (!/^cohort-[a-f0-9]{64}$/u.test(group)) throw new Error("invalid browser cohort identity");
     const catalog = loadTestCatalog(root);
-    const rows = unit.row_bindings.map(({ row_id }) => catalog.rowByID.get(row_id));
-    const checkpointFile = path.join(runRoot, unit.command.environment.CARTULARY_TEST_TARGET,
-      "browser-groups", group, "playwright-checkpoint.json");
+    const rows = rowIDs.map((id) => catalog.rowByID.get(id));
+    if (rows.some((row) => row?.runner !== "playwright")) throw new Error("Playwright reporter requires Playwright rows");
+    const checkpointFile = path.join(runRoot, target, "browser-groups", group, "playwright-checkpoint.json");
     super({ rows, selection: playwrightSelection(rows), runRoot, checkpointFile });
   }
 }

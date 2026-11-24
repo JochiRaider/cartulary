@@ -255,7 +255,7 @@ func (in *Inputs) commandSelection(entry SurfaceTarget, inputs map[string]resolv
 	if placed, err = in.serviceScope(placed, operations, false, inputs); err != nil {
 		return Selection{}, err
 	}
-	return Selection{Rows: placed, Targets: operations, Forwarded: forwardedInputs(entry, inputs)}, nil
+	return Selection{Rows: placed, Targets: operations, Forwarded: forwardedInputs(entry, inputs), BrowserMode: binding.BrowserMode}, nil
 }
 
 // flatten expands a private selection into its rows and operations.

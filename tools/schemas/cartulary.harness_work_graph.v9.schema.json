@@ -264,6 +264,15 @@
           "type": "integer",
           "minimum": 1
         },
+        "renderer_requirement": {
+          "enum": [
+            "pooled",
+            "dedicated"
+          ]
+        },
+        "affinity_key": {
+          "$ref": "cartulary.harness_execution_defs.v1#/$defs/id"
+        },
         "semantic_digest": {
           "$ref": "cartulary.harness_execution_defs.v1#/$defs/digest"
         }

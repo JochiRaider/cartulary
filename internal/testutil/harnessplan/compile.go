@@ -26,6 +26,9 @@ type Selection struct {
 	// Forwarded are public command inputs passed to the selected operations'
 	// commands (not to the operations they depend on).
 	Forwarded map[string]string
+	// BrowserMode is set when the command runs browser stages in a mode of
+	// its own (snapshot_update).
+	BrowserMode string
 }
 
 // Options are the per-invocation facts compilation depends on.
@@ -39,6 +42,11 @@ type Options struct {
 	// AttachedServices is set when units borrow a persistent local service
 	// session: its shared allocations are held by that session, not the run.
 	AttachedServices bool
+	// BrowserLanes bounds how many ordinary browser groups run at once; zero
+	// takes the topology's default.
+	BrowserLanes int
+	// BrowserMode is the selection's browser mode.
+	BrowserMode string
 }
 
 // Compile turns a selection into a work graph.
@@ -46,8 +54,12 @@ func Compile(in *Inputs, selection Selection, options Options) (*Graph, error) {
 	if options.CPUTokens < 1 || options.GoVersion == "" {
 		return nil, fmt.Errorf("%w: compilation needs CPU tokens and a Go version", ErrSelection)
 	}
+	if options.BrowserLanes < 1 {
+		options.BrowserLanes = int(in.Topology.BrowserLanePolicy.Default)
+	}
+	options.BrowserMode = selection.BrowserMode
 	c := &compiler{in: in, options: options, units: map[string]*Unit{}, targets: map[string][]string{}, rows: map[string]*Row{}, shellRows: map[string][]*Row{},
-		selected: map[string]bool{}, forwarded: selection.Forwarded, assigned: map[string]string{}, planned: map[string]plannedUnit{}}
+		selected: map[string]bool{}, forwarded: selection.Forwarded, assigned: map[string]string{}, planned: map[string]plannedUnit{}, browser: map[string]*browserCohort{}}
 	for i := range in.Catalog.Rows {
 		row := &in.Catalog.Rows[i]
 		c.rows[row.RowID] = row
@@ -81,6 +93,9 @@ func Compile(in *Inputs, selection Selection, options Options) (*Graph, error) {
 			return nil, err
 		}
 	}
+	if err := c.browserFinalizers(); err != nil {
+		return nil, err
+	}
 	graph := &Graph{Units: c.units}
 	if err := graph.validate(); err != nil {
 		return nil, err
@@ -102,6 +117,7 @@ type compiler struct {
 	// planned holds each planned unit's contract key, contract and rows.
 	assigned map[string]string
 	planned  map[string]plannedUnit
+	browser  map[string]*browserCohort
 }
 
 // plannedUnit is a runner unit whose rows are assigned but which is built
@@ -433,11 +449,15 @@ func (c *compiler) compileRows(ids []string, stack []string) ([]string, error) {
 		}
 		var unit string
 		var err error
-		if row.Runner == RunnerShell {
+		planned, ok := c.assigned[id]
+		switch {
+		case row.Runner == RunnerShell:
 			unit, err = c.operation(row.Selector.OperationID, stack)
-		} else if planned, ok := c.assigned[id]; ok {
+		case ok && c.browser[planned] != nil:
+			unit, err = c.browserUnit(planned, stack)
+		case ok:
 			unit, err = c.runnerUnit(planned, stack)
-		} else {
+		default:
 			err = fmt.Errorf("%w: row %s was compiled without being reached", ErrSelection, id)
 		}
 		if err != nil {
@@ -448,18 +468,24 @@ func (c *compiler) compileRows(ids []string, stack []string) ([]string, error) {
 	return dedupe(units), nil
 }
 
-// assign packs the reached Go and Vitest rows into planned units.
+// assign packs the reached Go and Vitest rows into planned units and the
+// reached Playwright rows into browser cohorts.
 func (c *compiler) assign(rows []*Row) error {
-	var runnerRows []*Row
+	var runnerRows, browserRows []*Row
 	for _, row := range rows {
 		switch {
 		case row.Runner == RunnerGo && (row.FixtureProfileID != "" || row.EvidenceClass == "measurement"):
 			return fmt.Errorf("%w: measurement row %s", ErrUnsupported, row.RowID)
 		case row.Runner == RunnerGo, row.Runner == RunnerVitest:
 			runnerRows = append(runnerRows, row)
+		case row.Runner == RunnerPlaywright:
+			browserRows = append(browserRows, row)
 		default:
 			return fmt.Errorf("%w: %s row %s", ErrUnsupported, row.Runner, row.RowID)
 		}
+	}
+	if err := c.planBrowser(browserRows); err != nil {
+		return err
 	}
 	groups := map[string][]*Row{}
 	contracts := map[string]contract{}

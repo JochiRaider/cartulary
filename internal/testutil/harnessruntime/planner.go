@@ -1,6 +1,7 @@
 package harnessruntime
 
 import (
+	"cmp"
 	"encoding/json"
 	"errors"
 	"slices"
@@ -47,7 +48,7 @@ func adoptPlan(source *harnessplan.Plan) (*Plan, error) {
 	}
 	for _, u := range source.Graph.Sorted() {
 		adopted := unit{
-			ID: u.ID, Owner: u.OwnerID, Kind: u.Kind, PostgresIsolation: u.PostgresIsolation, Renderer: "none",
+			ID: u.ID, Owner: u.OwnerID, Kind: u.Kind, PostgresIsolation: u.PostgresIsolation, Renderer: cmp.Or(u.RendererRequirement, "none"), Affinity: u.AffinityKey,
 			Command: command{Executable: u.Command.Executable, Args: slices.Clone(u.Command.Args), Environment: source.LaunchEnvironment(u)},
 			Needs:   slices.Clone(u.Needs), Claims: u.Claims, SharedLocks: slices.Clone(u.SharedLocks), ExclusiveLocks: slices.Clone(u.ExclusiveLocks),
 			Fixture: u.FixtureLease, Services: slices.Clone(u.ServiceDependencies), CachePolicy: u.CachePolicy, TimeoutMS: u.TimeoutMS,

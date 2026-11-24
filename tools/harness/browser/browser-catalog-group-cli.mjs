@@ -43,17 +43,18 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(scriptDir, "../../..");
 
 function usage() {
-  return "usage: browser-catalog-group-cli.mjs --manifest <path> --stage <stage> --partition <partition> --group <group>";
+  return "usage: browser-catalog-group-cli.mjs --manifest <path> --stage <stage> --partition <partition> --group <group> [--rows <row-id,...>]";
 }
 
 function parseArgs(argv) {
-  const options = { manifest: "", stage: "", partition: "", group: "" };
+  const options = { manifest: "", stage: "", partition: "", group: "", rows: [] };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === "--manifest") options.manifest = argv[++index] ?? "";
     else if (arg === "--stage") options.stage = argv[++index] ?? "";
     else if (arg === "--partition") options.partition = argv[++index] ?? "";
     else if (arg === "--group") options.group = argv[++index] ?? "";
+    else if (arg === "--rows") options.rows = (argv[++index] ?? "").split(",").filter(Boolean);
     else throw new Error(usage());
   }
   if (!options.manifest || !options.stage || !options.partition || !options.group) throw new Error(usage());
@@ -228,14 +229,23 @@ async function main() {
   const { partition, invocationPolicy } = resolveBrowserBatchPartition(manifest, options.partition);
   if (partition.stageName !== options.stage) throw new Error("browser execution stage mismatch");
   const catalog = loadTestCatalog(root);
-  const unit = readPublishedUnit(runRoot(), process.env.CARTULARY_TEST_RUN_ID, process.env.CARTULARY_WORK_UNIT_ID);
-  if (unit.command.args[0] !== "tools/harness/browser/browser-catalog-group-cli.mjs" ||
-      JSON.stringify(unit.command.args.slice(1)) !== JSON.stringify(process.argv.slice(2)) ||
-      !unit.row_bindings?.length || unit.row_bindings.some((row) => row.runner !== "playwright")) {
-    throw new Error("browser selection requires its exact published work unit");
+  let group;
+  if (options.rows.length) {
+    // A Go-planned group names its rows and its cohort in its own command;
+    // the cohort is validated against the partition, never re-read from the
+    // published graph.
+    if (!/^cohort-[a-f0-9]{64}$/u.test(options.group)) throw new Error("invalid browser cohort identity");
+    group = { ...browserCohort(partition, options.rows.map((id) => catalog.rowByID.get(id)), invocationPolicy), name: options.group };
+  } else {
+    const unit = readPublishedUnit(runRoot(), process.env.CARTULARY_TEST_RUN_ID, process.env.CARTULARY_WORK_UNIT_ID);
+    if (unit.command.args[0] !== "tools/harness/browser/browser-catalog-group-cli.mjs" ||
+        JSON.stringify(unit.command.args.slice(1)) !== JSON.stringify(process.argv.slice(2)) ||
+        !unit.row_bindings?.length || unit.row_bindings.some((row) => row.runner !== "playwright")) {
+      throw new Error("browser selection requires its exact published work unit");
+    }
+    group = browserCohort(partition, unit.row_bindings.map(({ row_id }) => catalog.rowByID.get(row_id)), invocationPolicy);
+    if (group.name !== options.group) throw new Error("browser cohort identity does not bind selected rows and policy");
   }
-  const group = browserCohort(partition, unit.row_bindings.map(({ row_id }) => catalog.rowByID.get(row_id)), invocationPolicy);
-  if (group.name !== options.group) throw new Error("browser cohort identity does not bind selected rows and policy");
   validateCurrentSessionAttachment();
   const attachedSessionID =
     process.env.CARTULARY_BROWSER_SESSION_GROUP?.trim() ?? "";
@@ -296,6 +306,9 @@ async function main() {
         ...process.env,
         ...rendererLease.environment,
         PLAYWRIGHT_JSON_OUTPUT_FILE: reportPath,
+        // The cohort reporter reads its cohort from here.
+        CARTULARY_BROWSER_COHORT: group.name,
+        CARTULARY_BROWSER_COHORT_ROWS: group.selectedRowIDs.join(","),
         CARTULARY_PLAYWRIGHT_WORKER_COUNT: "1",
         CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET: "0",
         CARTULARY_BROWSER_RUNTIME_PROFILE_ID: group.runtimeProfileID,
