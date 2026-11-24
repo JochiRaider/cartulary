@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessadmission"
+	"io"
 	"maps"
 	"os"
 	"path/filepath"
@@ -34,13 +35,16 @@ type RunResult struct {
 // no external executable plan or shell fragment exists. During the work-graph
 // overhaul the temporary CARTULARY_HARNESS_PLANNER=go selector plans the
 // invocation with the in-process Go planner instead of the Node compiler.
-func Run(ctx context.Context, root, binary string, args, environment []string) (report *RunResult, code int, resultErr error) {
+// A top-level graph reports the dead runs it recovers before admitting work on
+// stderr; nested graphs run inside an outer graph that already did so.
+func Run(ctx context.Context, root, binary string, args, environment []string, stderr io.Writer) (report *RunResult, code int, resultErr error) {
 	env := map[string]string{}
 	for _, entry := range environment {
 		if k, v, ok := strings.Cut(entry, "="); ok {
 			env[k] = v
 		}
 	}
+	nested := env[nestedContextKey] != ""
 	ctx, settleNested, err := joinNested(ctx, env[nestedContextKey])
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
@@ -114,6 +118,12 @@ func Run(ctx context.Context, root, binary string, args, environment []string) (
 			return nil, 13, entryFailureAt("runtime_plan", err)
 		}
 		return nil, 2, runtimePlanFailure(err)
+	}
+	// A stopped or killed run leaves its services and admission capacity
+	// charged until its retained runtime is recovered. Settle every dead run of
+	// this repository before this graph admits work.
+	if !nested {
+		harnessfixtures.RecoverDeadRuntimes(ctx, root, env, stderr)
 	}
 	// This is an externally measured preparation interval in the graph clock.
 	// Compiler subphases have a different clock and are never fabricated as
@@ -362,7 +372,14 @@ func Run(ctx context.Context, root, binary string, args, environment []string) (
 		if diagnostics.enabled {
 			ctx = harnessadmission.WithObservation(ctx, u.ID, func() float64 { return float64(monotonicNS()-diagnostics.canonicalEpoch) / 1e6 }, diagnostics.execution.admission)
 		}
-		return nativeAdmission(plan.facts.Capacities, parent, admission, production)(ctx, u)
+		lease, err := nativeAdmission(plan.facts.Capacities, parent, admission, production)(ctx, u)
+		// A unit failure carries only its class and reason; name the deficit
+		// that no live owner can relieve for the operator.
+		var blocked *harnessadmission.Unsatisfiable
+		if errors.As(err, &blocked) {
+			fmt.Fprintf(stderr, "[ADMISSION-UNSATISFIABLE] unit=%s %v\n", u.ID, blocked)
+		}
+		return lease, err
 	}, Terminal: publication.Terminal,
 		Cleanup: recordCleanup, CleanupServices: production.Close, Finalize: func(_ context.Context, unresolved bool, _ []cleanupRecord) error {
 			err := closeRuntime(unresolved)

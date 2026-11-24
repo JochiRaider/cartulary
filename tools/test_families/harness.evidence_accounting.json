@@ -242,6 +242,7 @@
         "package": "./internal/testutil/harnessadmission",
         "tests": [
           "TestAdmissionChargesEveryRegistryResource",
+          "TestAdmissionFailsWhenNoLiveOwnerCanRelieve",
           "TestAdmissionQuietOrdering",
           "TestAdmissionStateRejection",
           "TestAdmissionWeightedTree"

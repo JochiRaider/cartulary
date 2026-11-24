@@ -200,13 +200,9 @@ func CleanupStaleRoots(base string, now time.Time) (int, error) {
 			if err != nil {
 				return err
 			}
-			v, err := harnessschema.Decode(data)
-			if err != nil || harnessschema.Validate("cartulary.harness_suite_runtime_owner.v2", v) != nil {
-				return harnesslocal.ErrUnsafe
-			}
-			owner := v.(map[string]any)
-			if owner["owner_uid"] != float64(os.Getuid()) {
-				return harnesslocal.ErrUnsafe
+			owner, err := rootOwner(data)
+			if err != nil {
+				return err
 			}
 			if staging {
 				if e := RemoveOwnedTree(d, path); e != nil {
@@ -229,14 +225,9 @@ func CleanupStaleRoots(base string, now time.Time) (int, error) {
 			if err != nil {
 				return err
 			}
-			v, err = harnessschema.Decode(data)
-			m, ok := v.(map[string]any)
-			if err != nil || !ok || len(m) != 3 {
-				return harnesslocal.ErrUnsafe
-			}
-			var proof harnessadmission.Proof
-			if json.Unmarshal(data, &proof) != nil || proof.PID < 1 || proof.Boot == "" || !regexpDigits.MatchString(proof.Start) {
-				return harnesslocal.ErrUnsafe
+			proof, err := rootProcess(data)
+			if err != nil {
+				return err
 			}
 			alive, err := harnessadmission.Alive(proof)
 			if err != nil {
@@ -299,4 +290,110 @@ func CleanupStaleRoots(base string, now time.Time) (int, error) {
 		}
 	}
 	return removed, harnesslocal.CheckDirectory(dir, base)
+}
+
+// rootOwner validates a runtime root's private ownership proof. Invalid or
+// foreign proof fails closed.
+func rootOwner(data []byte) (map[string]any, error) {
+	v, err := harnessschema.Decode(data)
+	if err != nil || harnessschema.Validate("cartulary.harness_suite_runtime_owner.v2", v) != nil {
+		return nil, harnesslocal.ErrUnsafe
+	}
+	owner := v.(map[string]any)
+	if owner["owner_uid"] != float64(os.Getuid()) {
+		return nil, harnesslocal.ErrUnsafe
+	}
+	return owner, nil
+}
+
+// rootProcess validates a runtime root's original owner process proof.
+func rootProcess(data []byte) (harnessadmission.Proof, error) {
+	var proof harnessadmission.Proof
+	v, err := harnessschema.Decode(data)
+	m, ok := v.(map[string]any)
+	if err != nil || !ok || len(m) != 3 || json.Unmarshal(data, &proof) != nil || proof.PID < 1 || proof.Boot == "" || !regexpDigits.MatchString(proof.Start) {
+		return harnessadmission.Proof{}, harnesslocal.ErrUnsafe
+	}
+	return proof, nil
+}
+
+// DeadRuntime is one retained runtime root whose original owner process is
+// proven dead: the exact identity explicit recovery admits.
+type DeadRuntime struct {
+	Root, RunRoot, LeaseID string
+}
+
+// DeadRuntimes lists, in name order, the retained runtime roots bound to the
+// canonical repository whose original owner process is proven dead, with no
+// age requirement. It shares stale-root maintenance's enumeration bound and
+// grants no cleanup authority: recovery still admits each root through its
+// exact ownership proof. Busy and sealed roots, live or unproven owners, roots
+// of other repositories and roots with invalid ownership records are omitted.
+func DeadRuntimes(repository, scratch string) ([]DeadRuntime, error) {
+	scratch, err := resolveScratch(scratch)
+	if err != nil {
+		return nil, err
+	}
+	base := filepath.Join(scratch, "suite-runtime")
+	dir, err := harnesslocal.OpenDirectory(base, true)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer dir.Close()
+	names, err := dir.Readdirnames(8193)
+	if err != nil && err != io.EOF {
+		return nil, err
+	}
+	if len(names) > 8192 {
+		return nil, harnesslocal.ErrUnsafe
+	}
+	slices.Sort(names)
+	dead := []DeadRuntime{}
+	for _, name := range names {
+		if !strings.HasPrefix(name, "suite-") {
+			continue
+		}
+		path := filepath.Join(base, name)
+		d, err := harnesslocal.OpenDirectory(path, true)
+		if err != nil {
+			continue
+		}
+		inspect := func() (*DeadRuntime, error) {
+			data, err := harnesslocal.ReadFileAt(d, "runtime-owner.json", MaximumOwner, false)
+			if err != nil {
+				return nil, err
+			}
+			owner, err := rootOwner(data)
+			if err != nil || owner["repository"] != repository {
+				return nil, err
+			}
+			if data, err = harnesslocal.ReadFileAt(d, "runtime-process.json", 4096, false); err != nil {
+				return nil, err
+			}
+			proof, err := rootProcess(data)
+			if err != nil {
+				return nil, err
+			}
+			if alive, err := harnessadmission.Alive(proof); err != nil || alive {
+				return nil, err
+			}
+			// A sealed root drained its resources before sealing; it retains only
+			// terminal publication authority for exact explicit recovery.
+			if _, err := harnesslocal.ReadFileAt(d, "finalizing", 16, false); !errors.Is(err, os.ErrNotExist) {
+				return nil, err
+			}
+			return &DeadRuntime{Root: path, RunRoot: owner["run_root"].(string), LeaseID: owner["lease_id"].(string)}, nil
+		}
+		if unix.Flock(int(d.Fd()), unix.LOCK_EX|unix.LOCK_NB) == nil {
+			if runtime, err := inspect(); err == nil && runtime != nil {
+				dead = append(dead, *runtime)
+			}
+			_ = unix.Flock(int(d.Fd()), unix.LOCK_UN)
+		}
+		d.Close()
+	}
+	return dead, harnesslocal.CheckDirectory(dir, base)
 }

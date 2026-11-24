@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 
@@ -20,6 +21,55 @@ func testFixturePreservation(t *testing.T) {
 	testRecoveryDependencyValidation(t)
 	testScratchPlacement(t)
 	testStaleSettledRoots(t)
+	t.Run("dead_runtimes", testDeadRuntimes)
+}
+
+// Startup recovery admits exactly the dead, unsealed runtimes of its own
+// repository, at any age; live, busy, sealed and foreign roots are not offered.
+func testDeadRuntimes(t *testing.T) {
+	scratch, repository := t.TempDir(), t.TempDir()
+	open := func(t *testing.T, repository, id string) *Runtime {
+		t.Helper()
+		r, err := NewRuntime(repository, t.TempDir(), id, scratch)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() {
+			if err := r.ReleaseHandles(); err != nil {
+				t.Error(err)
+			}
+		})
+		return r
+	}
+	dead := func(t *testing.T, r *Runtime) {
+		t.Helper()
+		data, _ := json.Marshal(map[string]any{"boot": "retired-boot", "pid": os.Getpid(), "start": "1"})
+		if err := harnesslocal.ReplaceFile(filepath.Join(r.Root, "runtime-process.json"), data); err != nil {
+			t.Fatal(err)
+		}
+	}
+	open(t, repository, "live")
+	stopped := open(t, repository, "stopped")
+	dead(t, stopped)
+	dead(t, open(t, t.TempDir(), "foreign"))
+	sealed := open(t, repository, "sealed")
+	dead(t, sealed)
+	if err := harnesslocal.ReplaceFile(filepath.Join(sealed.Root, "finalizing"), []byte("sealed\n")); err != nil {
+		t.Fatal(err)
+	}
+	busy := open(t, repository, "busy")
+	dead(t, busy)
+	if err := unix.Flock(int(busy.Directory.Fd()), unix.LOCK_EX); err != nil {
+		t.Fatal(err)
+	}
+	defer unix.Flock(int(busy.Directory.Fd()), unix.LOCK_UN)
+	runtimes, err := DeadRuntimes(repository, scratch)
+	if want := []DeadRuntime{{Root: stopped.Root, RunRoot: stopped.RunRoot, LeaseID: stopped.LeaseID}}; err != nil || !slices.Equal(runtimes, want) {
+		t.Fatalf("dead runtimes %+v, %v; want %+v", runtimes, err, want)
+	}
+	if runtimes, err := DeadRuntimes(repository, t.TempDir()); err != nil || len(runtimes) != 0 {
+		t.Fatal("empty scratch", runtimes, err)
+	}
 }
 
 func testScratchPlacement(t *testing.T) {

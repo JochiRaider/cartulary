@@ -987,6 +987,47 @@ native-fixtures, fixture-broker, nested-cancellation and fixture-owner rows;
 `source-check` `catalog`, `schema` and `generated`; `make lint-markdown`;
 all pass.
 
+### Slice 4e: aggregate runs (blocked, then fixed in isolation)
+
+The Go-planned `release-check` graph (586 units; every `ci` unit with an
+identical digest, except the measurement target finalizer) was run once to
+cover both aggregates. It deadlocked 11 minutes in and sat idle for 5 hours:
+56 units had passed, none was running, and nothing was printed.
+
+- *Cause.* The host admission ledger still charged seven PostgreSQL residents
+  and one object-store resident from a run stopped the day before
+  (`otel-check01`). A stop by the agent's task stop kills the harness
+  mid-cancel; its runtime, containers and ledger residents stay until
+  `make test-run-recover`. The first measurement group's exclusive request
+  needed 17 of 16 PostgreSQL lanes and was re-filed for 5 hours, about 3.7
+  times a second. Retirement can reclaim only stacks and renderers. The
+  scheduler's exclusive barrier held the other 418 ready units, and the
+  measurement pause froze live status.
+- *Startup recovery.* A top-level graph now recovers every dead, unsealed
+  runtime of its repository before admitting work, through the same admission
+  and cleanup evaluator as `test-run-recover`. It reports `[RECOVERED]` or a
+  `[RECOVERY-FAIL]` line with the exact recovery command. Sealed roots have
+  already drained their resources and stay for explicit recovery (eight such
+  roots from October test runs exist; they hold no capacity).
+- *Unsatisfiable admission.* The ledger (generation 4) records which process
+  first charged each resident. A waiter fails with `infra/resource_conflict`
+  when its persistent deficit remains after removing every resident a live
+  foreign owner could release, its own owner holds no other active
+  admission, and its pressure retirement can neither release an allocation
+  nor finds one deferred by another request's pin. The scheduler prints
+  `[ADMISSION-UNSATISFIABLE]`.
+- *Known failures fixed first.* Installed readiness imported two private
+  browser modules. Three browser modules imported the test catalog's private
+  selector module, a slice 4b regression. The application fixture test still
+  asserted an eager drop where its database retires with its generation.
+
+Runs and checks: the owner-boundaries row, `harness-contract SUITE=ui-review`
+and the application fixture row pass (Go planner). `make lint CHECK=go`;
+`source-check` `catalog` and `generated`; the admission, native-session,
+native-fixtures, fixture-broker, nested-cancellation, native-runtime and
+scheduler-smoke rows; `make lint-markdown`: all pass. The aggregate rerun
+waits for the owner's go-ahead.
+
 ## 9. Decisions requested
 
 - Decided 2026-11-23: Option B (staged Go replacement); Stage 0 tried and

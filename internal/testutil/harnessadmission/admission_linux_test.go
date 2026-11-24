@@ -13,6 +13,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -212,13 +213,13 @@ func TestAdmissionWeightedTree(t *testing.T) {
 				return []Resident{old}, nil
 			}
 			return []Resident{fresh}, nil
-		}, func(_ context.Context, pending *Lease) error {
+		}, func(_ context.Context, pending *Lease) (bool, error) {
 			misses++
 			pendingToken = pending.Token
 			apply(t, later, false) // A fitting new arrival cannot overtake us.
 			apply(t, Request{Root: root, Operation: "release", Token: holder.Token}, false)
 			apply(t, later, true) // Both fit after the release, so admitting it cannot delay us.
-			return nil
+			return true, nil
 		})
 		if err != nil || lease == nil || lease.Token != pendingToken || preparations != 2 || misses != 1 {
 			t.Fatal("pending preparation lost identity or failed to refresh", lease, preparations, misses, err)
@@ -549,7 +550,7 @@ func TestAdmissionWeightedTree(t *testing.T) {
 		probe := testQuantities(1)
 		probe["port_lane"] = 3
 		interrupted := errors.New("preparation interrupted")
-		if lease, err := AcquireWithResidents(t.Context(), root, probe, owner.Capacities, nil, false, nil, func(context.Context, *Lease) error { return interrupted }); !errors.Is(err, interrupted) || lease != nil {
+		if lease, err := AcquireWithResidents(t.Context(), root, probe, owner.Capacities, nil, false, nil, func(context.Context, *Lease) (bool, error) { return false, interrupted }); !errors.Is(err, interrupted) || lease != nil {
 			t.Fatal("interrupted queue retained an active lease", lease, err)
 		}
 		probeQuiet := request(t, root, "9", 1, 2)
@@ -952,4 +953,122 @@ func TestAdmissionChargesEveryRegistryResource(t *testing.T) {
 	if strings.Join(names, ",") != strings.Join(Resources(), ",") {
 		t.Fatalf("admission vocabulary %v differs from the scheduler registry %v", Resources(), names)
 	}
+}
+
+// A waiter whose persistent deficit no live owner can relieve fails instead
+// of holding its queue position forever; any live source of relief keeps it
+// waiting.
+func TestAdmissionFailsWhenNoLiveOwnerCanRelieve(t *testing.T) {
+	full := func(q Quantities) Quantities {
+		out := testQuantities(0)
+		maps.Copy(out, q)
+		return out
+	}
+	capacities, claims := full(Quantities{"cpu": 2, "postgres": 4}), full(Quantities{"postgres": 2})
+	process := func(t *testing.T) (Proof, func()) {
+		t.Helper()
+		cmd := exec.Command("/bin/sh", "-c", "read value")
+		input, err := cmd.StdinPipe()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := cmd.Start(); err != nil {
+			t.Fatal(err)
+		}
+		var once sync.Once
+		exit := func() { once.Do(func() { input.Close(); _ = cmd.Wait() }) }
+		t.Cleanup(func() { _ = cmd.Process.Kill(); exit() })
+		proof, err := Identity(cmd.Process.Pid)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return proof, exit
+	}
+	// charge leaves one durable resident of three PostgreSQL lanes, first
+	// charged by owner, after the granting lease is released.
+	charge := func(t *testing.T, root string, owner Proof) Resident {
+		t.Helper()
+		resident := Resident{Token: strings.Repeat("c", 32), Reference: filepath.Join(root, "resident.json"), Claims: full(Quantities{"postgres": 3}), Capacities: capacities}
+		apply(t, Request{Root: root, Operation: "admit", Token: strings.Repeat("a", 32), Owner: owner, Mode: "shared", Claims: full(nil), Capacities: capacities, Residents: []Resident{resident}}, true)
+		apply(t, Request{Root: root, Operation: "release", Token: strings.Repeat("a", 32)}, false)
+		return resident
+	}
+	waitBriefly := func(t *testing.T) context.Context {
+		ctx, cancel := context.WithTimeout(t.Context(), 400*time.Millisecond)
+		t.Cleanup(cancel)
+		return ctx
+	}
+	t.Run("dead_owner_resident_fails_the_waiter_until_recovered", func(t *testing.T) {
+		root := filepath.Join(t.TempDir(), "admission")
+		owner, exit := process(t)
+		resident := charge(t, root, owner)
+		exit()
+		lease, err := AcquireWithResidents(t.Context(), root, claims, capacities, nil, true, nil, nil)
+		var blocked *Unsatisfiable
+		if lease != nil || !errors.Is(err, ErrUnsatisfiable) || !errors.As(err, &blocked) {
+			t.Fatal("waited on capacity no live owner can release", lease, err)
+		}
+		if blocked.Deficits["postgres"] != 1 || !slices.Equal(blocked.Unowned, []string{resident.Reference}) || blocked.Owned != 0 {
+			t.Fatal(blocked)
+		}
+		if err := ReleaseResident(t.Context(), root, resident); err != nil {
+			t.Fatal(err)
+		}
+		lease, err = AcquireWithResidents(t.Context(), root, claims, capacities, nil, true, nil, nil)
+		if err != nil {
+			t.Fatal("recovered capacity not admitted", err)
+		}
+		if err := lease.Release(t.Context()); err != nil {
+			t.Fatal(err)
+		}
+	})
+	t.Run("own_resident_fails_once_retirement_cannot_relieve", func(t *testing.T) {
+		root := filepath.Join(t.TempDir(), "admission")
+		self, err := Identity(os.Getpid())
+		if err != nil {
+			t.Fatal(err)
+		}
+		charge(t, root, self)
+		rounds := 0
+		_, err = AcquireWithResidents(t.Context(), root, claims, capacities, nil, false, nil, func(context.Context, *Lease) (bool, error) { rounds++; return false, nil })
+		var blocked *Unsatisfiable
+		if !errors.As(err, &blocked) || blocked.Owned != 1 || len(blocked.Unowned) != 0 || rounds != 1 {
+			t.Fatal("own unrelievable resident did not fail after one retirement round", err, rounds)
+		}
+	})
+	t.Run("live_relief_keeps_the_waiter_queued", func(t *testing.T) {
+		for name, arrange := range map[string]func(t *testing.T, root string) Retire{
+			"live_foreign_owner": func(t *testing.T, root string) Retire {
+				owner, _ := process(t)
+				charge(t, root, owner)
+				return nil
+			},
+			"own_active_admission": func(t *testing.T, root string) Retire {
+				owner, exit := process(t)
+				charge(t, root, owner)
+				exit()
+				active, err := Acquire(t.Context(), root, full(Quantities{"cpu": 1}), capacities, nil, false)
+				if err != nil {
+					t.Fatal(err)
+				}
+				t.Cleanup(func() { _ = active.Release(context.Background()) })
+				return nil
+			},
+			"relievable_retirement": func(t *testing.T, root string) Retire {
+				owner, exit := process(t)
+				charge(t, root, owner)
+				exit()
+				return func(context.Context, *Lease) (bool, error) { return true, nil }
+			},
+		} {
+			t.Run(name, func(t *testing.T) {
+				root := filepath.Join(t.TempDir(), "admission")
+				retire := arrange(t, root)
+				lease, err := AcquireWithResidents(waitBriefly(t), root, claims, capacities, nil, false, nil, retire)
+				if lease != nil || !errors.Is(err, context.DeadlineExceeded) {
+					t.Fatal("waiter with live relief did not stay queued", lease, err)
+				}
+			})
+		}
+	})
 }

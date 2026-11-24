@@ -9,4 +9,4 @@ var resources = []string{"browser_stack", "cpu", "io", "memory_mb", "object_stor
 
 // stateGeneration versions the on-disk admission state and names its root, so a
 // binary of another generation never reads or rewrites this state.
-const stateGeneration = 3
+const stateGeneration = 4

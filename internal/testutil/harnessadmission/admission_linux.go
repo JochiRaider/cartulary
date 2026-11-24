@@ -56,18 +56,19 @@ type Resident struct {
 }
 type Request struct {
 	retirementDiagnostic *RetirementDecision
-	diagnostic           *Decision  // Native-only transient capture; never part of the admission protocol or state.
-	Residents            []Resident `json:"residents,omitempty"`
-	Reference            string     `json:"reference,omitempty"`
-	Root                 string     `json:"root"`
-	Operation            string     `json:"operation"`
-	Token                string     `json:"token"`
-	Owner                Proof      `json:"owner"`
-	Mode                 string     `json:"mode"`
-	Claims               Quantities `json:"claims"`
-	Capacities           Quantities `json:"capacities"`
-	Parent               *string    `json:"parent"`
-	Guard                Proof      `json:"guard"`
+	diagnostic           *Decision      // Native-only transient capture; never part of the admission protocol or state.
+	blocked              *Unsatisfiable // Native-only transient capture of an ungranted admit's unsatisfiability.
+	Residents            []Resident     `json:"residents,omitempty"`
+	Reference            string         `json:"reference,omitempty"`
+	Root                 string         `json:"root"`
+	Operation            string         `json:"operation"`
+	Token                string         `json:"token"`
+	Owner                Proof          `json:"owner"`
+	Mode                 string         `json:"mode"`
+	Claims               Quantities     `json:"claims"`
+	Capacities           Quantities     `json:"capacities"`
+	Parent               *string        `json:"parent"`
+	Guard                Proof          `json:"guard"`
 }
 type lease struct {
 	Residents  []Resident `json:"residents"`
@@ -85,9 +86,42 @@ type lease struct {
 type state struct {
 	Generation int        `json:"generation"`
 	Residents  []Resident `json:"residents"`
-	Sequence   float64    `json:"sequence"`
-	Leases     []*lease   `json:"leases"`
+	// Owners records, per resident token, the process whose grant first charged
+	// it. A waiter thereby distinguishes capacity a live owner may still
+	// release from capacity none can.
+	Owners   map[string]Proof `json:"owners"`
+	Sequence float64          `json:"sequence"`
+	Leases   []*lease         `json:"leases"`
 }
+
+// ErrUnsatisfiable reports a waiting request that no live owner can make
+// admissible.
+var ErrUnsatisfiable = errors.New("host admission unsatisfiable")
+
+// Unsatisfiable is a persistent deficit that remains after every resident a
+// live foreign owner could release is removed, while the requester's own owner
+// holds no other active admission. Only the requester's pressure retirement or
+// explicit recovery can still change it.
+type Unsatisfiable struct {
+	Deficits Quantities
+	// Unowned lists the references of charged residents whose owner is dead.
+	Unowned []string
+	// Owned counts residents charged by the requester's own owner.
+	Owned int
+	// identity is the charged resident set and deficits, so an unchanged
+	// decision across a retirement round is recognizable.
+	identity string
+}
+
+func (u *Unsatisfiable) Error() string {
+	keys := slices.Sorted(maps.Keys(u.Deficits))
+	parts := make([]string, 0, len(keys))
+	for _, key := range keys {
+		parts = append(parts, fmt.Sprintf("%s=%g", key, u.Deficits[key]))
+	}
+	return fmt.Sprintf("host admission unsatisfiable: deficits %s; %d residents of dead owners, %d of this owner", strings.Join(parts, ","), len(u.Unowned), u.Owned)
+}
+func (u *Unsatisfiable) Is(target error) bool { return target == ErrUnsatisfiable }
 
 func integer(n float64) bool { return n >= 0 && n <= maxInteger && math.Trunc(n) == n }
 func quantities(q Quantities) bool {
@@ -209,13 +243,13 @@ func ReadRequest(data []byte) (Request, error) {
 func readState(directory *os.File, mutable bool) (*state, error) {
 	data, err := harnesslocal.ReadFileAt(directory, "state.json", 4*1024*1024, mutable)
 	if errors.Is(err, os.ErrNotExist) {
-		return &state{Generation: stateGeneration, Residents: []Resident{}, Leases: []*lease{}}, nil
+		return &state{Generation: stateGeneration, Residents: []Resident{}, Owners: map[string]Proof{}, Leases: []*lease{}}, nil
 	}
 	if err != nil {
 		return nil, err
 	}
 	var s state
-	if strict(data, &s) != nil || s.Generation != stateGeneration || s.Residents == nil || len(s.Residents) > 4096 || !integer(s.Sequence) || s.Leases == nil || len(s.Leases) > 4096 {
+	if strict(data, &s) != nil || s.Generation != stateGeneration || s.Residents == nil || len(s.Residents) > 4096 || s.Owners == nil || len(s.Owners) != len(s.Residents) || !integer(s.Sequence) || s.Leases == nil || len(s.Leases) > 4096 {
 		return nil, ErrConflict
 	}
 	// Structural required-field checks distinguish omitted false/zero from facts.
@@ -255,7 +289,7 @@ func readState(directory *os.File, mutable bool) (*state, error) {
 	}
 	seen := map[string]bool{}
 	for _, allocation := range s.Residents {
-		if seen[allocation.Token] {
+		if owner, ok := s.Owners[allocation.Token]; seen[allocation.Token] || !ok || !proofShape(owner) {
 			return nil, ErrConflict
 		}
 		seen[allocation.Token] = true
@@ -535,6 +569,7 @@ func mutate(s *state, r Request) (bool, error) {
 					return false, ErrConflict
 				}
 				s.Residents = append(s.Residents[:i], s.Residents[i+1:]...)
+				delete(s.Owners, a.Token)
 				return false, nil
 			}
 		}
@@ -886,12 +921,75 @@ func mutate(s *state, r Request) (bool, error) {
 		}
 		if fits && compatible {
 			l.Granted = true
+			for _, allocation := range allocations {
+				if _, charged := s.Owners[allocation.Token]; !charged {
+					s.Owners[allocation.Token] = l.Process
+				}
+			}
 			s.Residents = allocations
+		}
+		if !l.Granted && r.blocked != nil {
+			blocked, err := unsatisfiable(s, l, requiredAncestors(l), capacityFor)
+			if err != nil {
+				return false, err
+			}
+			if blocked != nil {
+				*r.blocked = *blocked
+			}
 		}
 		return l.Granted, nil
 	default:
 		return false, ErrConflict
 	}
+}
+
+// unsatisfiable reports an ungranted request's persistent deficit when no
+// live owner other than the requester's own can relieve it: residents a live
+// foreign owner could release are removed, residents of dead owners and of
+// the requester's own owner stay charged, and the requester's owner holds no
+// active admission other than its required ancestors. Retirement by that same
+// owner is the only remaining relief, so the caller fails the request once a
+// retirement round leaves the decision unchanged.
+func unsatisfiable(s *state, l *lease, ancestors []*lease, capacityFor func(*lease, []*lease, map[string]bool, []Resident) (Quantities, []Resident, Quantities)) (*Unsatisfiable, error) {
+	for _, entry := range s.Leases {
+		if entry != l && entry.Process == l.Process && entry.Granted && !entry.Released && !slices.Contains(ancestors, entry) {
+			return nil, nil
+		}
+	}
+	alive := map[Proof]bool{}
+	removed := map[string]bool{}
+	tokens := []string{}
+	result := &Unsatisfiable{Unowned: []string{}}
+	for _, allocation := range s.Residents {
+		tokens = append(tokens, allocation.Token)
+		owner := s.Owners[allocation.Token]
+		if owner == l.Process {
+			result.Owned++
+			continue
+		}
+		live, known := alive[owner]
+		if !known {
+			var err error
+			if live, err = Alive(owner); err != nil {
+				return nil, err
+			}
+			alive[owner] = live
+		}
+		if live {
+			removed[allocation.Token] = true
+		} else {
+			result.Unowned = append(result.Unowned, allocation.Reference)
+		}
+	}
+	deficits, _, _ := capacityFor(l, ancestors, removed, nil)
+	if len(deficits) == 0 {
+		return nil, nil
+	}
+	slices.Sort(tokens)
+	slices.Sort(result.Unowned)
+	result.Deficits = deficits
+	result.identity = fmt.Sprint(tokens, deficits)
+	return result, nil
 }
 
 func cleanupHeadroom(resource string) float64 {

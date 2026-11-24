@@ -69,7 +69,7 @@ func run() int {
 		if err != nil {
 			return 2
 		}
-		report, code, err := harnessruntime.Run(ctx, root, binary, os.Args[2:], os.Environ())
+		report, code, err := harnessruntime.Run(ctx, root, binary, os.Args[2:], os.Environ(), os.Stderr)
 		if report != nil && report.CleanupDiagnostic != nil {
 			fmt.Fprintln(os.Stderr, report.CleanupDiagnostic)
 		}

@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -86,7 +87,7 @@ func TestRuntimeCompilerLifetime(t *testing.T) {
 	} {
 		t.Run(fixture.stage, func(t *testing.T) {
 			root := t.TempDir()
-			report, code, err := Run(context.Background(), root, "", nil, fixture.env)
+			report, code, err := Run(context.Background(), root, "", nil, fixture.env, io.Discard)
 			class, reason := PublicFailure(err)
 			entries, readErr := os.ReadDir(root)
 			if report != nil || code != 2 || class != "config" || reason != "configuration_error" || PublicFailureStage(err) != fixture.stage || readErr != nil || len(entries) != 0 {

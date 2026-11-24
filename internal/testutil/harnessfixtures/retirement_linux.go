@@ -20,18 +20,28 @@ type retirementCandidate struct {
 // retireAllocations is called with retireMu held. It orders stacks and renderer
 // slots together, then each physical owner pins/revalidates its exact generation.
 // Pressure retires at most one allocation before native admission reevaluates.
-func (p *Production) retireAllocations(ctx context.Context, pending *harnessadmission.Lease, unusedOnly bool, reason Retirement) (int, error) {
+// It also counts idle allocations deferred only by another request's
+// provisional pin: those may become retirable on a later round.
+func (p *Production) retireAllocations(ctx context.Context, pending *harnessadmission.Lease, unusedOnly bool, reason Retirement) (retired int, deferred int, err error) {
 	candidates := []retirementCandidate{}
 	p.renderers.mu.Lock()
 	for _, s := range p.renderers.slots {
-		if s.borrower == "" && (s.state == "ready" || s.state == "unallocated") && (pending == nil || s.physical != nil) {
+		if (s.state == "ready" || s.state == "unallocated") && (pending == nil || s.physical != nil) {
+			if s.borrower != "" {
+				deferred++
+				continue
+			}
 			candidates = append(candidates, retirementCandidate{key: fmt.Sprintf("renderer:%04d", s.id), unused: p.renderers.future(s, "") == 0, slot: s})
 		}
 	}
 	p.renderers.mu.Unlock()
 	p.Broker.mu.Lock()
 	for _, e := range p.Broker.allocations {
-		if e.request.Capability == "browser_stack" && e.refs == 0 && p.Broker.reserved[e.key] == 0 && !e.settled && p.Broker.shared[e.key] == e {
+		if e.request.Capability == "browser_stack" && e.refs == 0 && !e.settled && p.Broker.shared[e.key] == e {
+			if p.Broker.reserved[e.key] != 0 {
+				deferred++
+				continue
+			}
 			candidates = append(candidates, retirementCandidate{key: e.key, unused: p.stackConsumers(e.key, "") == 0})
 		}
 	}
@@ -45,7 +55,6 @@ func (p *Production) retireAllocations(ctx context.Context, pending *harnessadmi
 		}
 		return strings.Compare(a.key, b.key)
 	})
-	retired := 0
 	for _, c := range candidates {
 		if unusedOnly && !c.unused {
 			continue
@@ -89,14 +98,14 @@ func (p *Production) retireAllocations(ctx context.Context, pending *harnessadmi
 			})
 		}
 		if err != nil {
-			return retired, err
+			return retired, deferred, err
 		}
 		retired += count
 		if pending != nil && count > 0 {
-			return retired, nil
+			return retired, deferred, nil
 		}
 	}
-	return retired, nil
+	return retired, deferred, nil
 }
 
 func (p *Production) stackRetirementRecords(request Request) []*residentRecord {

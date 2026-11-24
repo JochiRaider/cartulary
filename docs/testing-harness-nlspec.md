@@ -492,7 +492,19 @@ apply without exception. Unstarted cancellation must not leave a slot or capacit
 claim unavailable to subsequent work or exact finalization.
 Ordinary admission MUST distinguish temporary active-work contention from a
 capacity shortage that remains after independent active work drains, retaining
-required ancestor activity claims under the same weighted accounting. It MUST NOT retire a
+required ancestor activity claims under the same weighted accounting.
+The shared ledger records, for every charged resident allocation, the owner
+process whose grant first charged it, and forgets it when the allocation is
+released. A waiter's persistent deficit that remains after removing every
+resident a live foreign owner could still release, while the waiter's own owner
+holds no active admission beyond its required ancestors, can be relieved only by
+that owner's pressure retirement. When a retirement round neither releases an
+allocation nor finds one deferred only by another request's provisional pin, and
+the next evaluation is unchanged, admission MUST fail with
+`infra/resource_conflict` instead of holding its queue position; the scheduler
+reports the deficit with the counts of dead-owner and own residents. A live
+foreign resident, other own active admission or a retirement that may still
+relieve the deficit keeps the request waiting. It MUST NOT retire a
 reusable renderer for a shortage that its resident resources cannot relieve.
 Capacity-driven eviction retires one eligible allocation, awaits exact settlement,
 then re-evaluates admission; slot exhaustion likewise retires only the slot needed
@@ -7964,7 +7976,20 @@ removing a root. Enumeration is bounded to 8192 entries and physical removals to
 64 per acquisition; retained entries MUST NOT consume the removal budget or
 permanently hide later eligible roots. Invalid ownership or resource records fail
 closed. Ordinary terminal cleanup remains immediate; unresolved resources retain
-exact recovery proof. No name/age-only sweep of other scratch, retained evidence
+exact recovery proof. Before a top-level graph admits work, it MUST recover every
+runtime root bound to its canonical repository whose original owner process is
+proven dead, regardless of age, through the same owner admission, dependency
+evaluator and physical adapters as `test-run-recover`; a stopped or killed run
+therefore never leaves services or admission capacity charged for later runs.
+Nested graphs run inside an outer graph that already recovered. Busy and sealed
+roots, live or uncertain owners and roots of other repositories remain untouched;
+a sealed root drained its resources before sealing and stays available for exact
+recovery. Each
+recovered run is reported on stderr with its resource count. A failed recovery
+retains that root's exact proof, is reported with its explicit
+`make test-run-recover RESULTS_DIR=<run>` command and does not stop the graph,
+whose admission then fails rather than waiting on capacity no live owner can
+release. No name/age-only sweep of other scratch, retained evidence
 or machine caches is permitted. A root-location change MUST NOT relocate live
 allocations or rewrite historical recovery paths.
 

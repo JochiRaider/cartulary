@@ -223,7 +223,7 @@ func (p *Production) joinConsumerCleanup() error {
 func (p *Production) retireUnused(ctx context.Context) error {
 	p.retireMu.Lock()
 	defer p.retireMu.Unlock()
-	if _, err := p.retireAllocations(ctx, nil, true, Retirement{"terminal_borrower_release", ""}); err != nil {
+	if _, _, err := p.retireAllocations(ctx, nil, true, Retirement{"terminal_borrower_release", ""}); err != nil {
 		return err
 	}
 	// Shared/measurement services outlive both logical consumers and physical

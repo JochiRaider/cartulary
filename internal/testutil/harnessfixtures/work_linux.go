@@ -101,7 +101,7 @@ func (p *Production) Admit(ctx context.Context, requirement WorkRequirement) (*h
 	if requirement.Exclusive {
 		endObservation := harnessadmission.Phase(ctx, "pressure_retirement")
 		p.retireMu.Lock()
-		_, err := p.retireAllocations(ctx, nil, false, Retirement{"exclusive_admission", requirement.Request.UnitID})
+		_, _, err := p.retireAllocations(ctx, nil, false, Retirement{"exclusive_admission", requirement.Request.UnitID})
 		p.retireMu.Unlock()
 		endObservation()
 		if err != nil {
@@ -174,14 +174,14 @@ func (p *Production) Admit(ctx context.Context, requirement WorkRequirement) (*h
 		releaseStack()
 		releaseStack = func() {}
 	}
-	waiting := func(ctx context.Context, pending *harnessadmission.Lease) error {
+	waiting := func(ctx context.Context, pending *harnessadmission.Lease) (bool, error) {
 		// Pending priority survives, but logical reservations must not prevent
 		// pressure retirement or another waiter from reacquiring a slot.
 		yieldReservations()
 		p.retireMu.Lock()
 		defer p.retireMu.Unlock()
-		_, err := p.retireAllocations(ctx, pending, false, Retirement{"capacity_pressure", requirement.Request.UnitID})
-		return err
+		retired, deferred, err := p.retireAllocations(ctx, pending, false, Retirement{"capacity_pressure", requirement.Request.UnitID})
+		return retired+deferred > 0, err
 	}
 
 	var err error

@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 3,
-  "input_digest": "sha256:91b7b381f28df0590ae244f2f066be49a7f428e35767601264778ae1a05c778f",
+  "input_digest": "sha256:90d6656153b962cff7af3c5da44b1888d58f040907e28113e88552cf91934c6d",
   "inputs": [
     {
       "path": "contracts/performance/ac003.v2.json",
@@ -552,12 +552,12 @@
     {
       "path": "tools/harness/browser/frontend-visual-reconciliation.mjs",
       "role": "renderer_source",
-      "hash": "sha256:abd691fc23b3ed430c6090eb7133815d8a1e5cb064a2ba3da5cc7d03b179f36f"
+      "hash": "sha256:19582aa1a7ae4794febd7beda77919555ad17bc6ddcff1fd82b74de78cd8b885"
     },
     {
       "path": "tools/harness/browser/index.mjs",
       "role": "renderer_source",
-      "hash": "sha256:7508dbcd544aadca1ad5a2a4fa2320fa3e6ebaccc249270507cc2f725e77ff98"
+      "hash": "sha256:1aafadf3924d82c360e60c00ff0d7dc95cd8dfdeab37229fffb0dca55b43092f"
     },
     {
       "path": "tools/harness/browser/playwright-cohort-reporter.mjs",
@@ -767,7 +767,7 @@
     {
       "path": "tools/harness/browser/ui-review/source.mjs",
       "role": "renderer_source",
-      "hash": "sha256:a875fa40bd6e4d3cf6de231cc89864a39f548f4a80c86cbddb2efc5608eb29d4"
+      "hash": "sha256:b40a86667344b5f802a069916b85894969cc22daea584588f67c2aeb042b91ce"
     },
     {
       "path": "tools/harness/browser/ui-review/toolchain.mjs",
@@ -782,7 +782,7 @@
     {
       "path": "tools/harness/browser/visual-registry-check.mjs",
       "role": "renderer_source",
-      "hash": "sha256:29d4d73b36a31eba9c6901ebcea3b18678fcc36fa89ef1e3ad798af7e9bfc310"
+      "hash": "sha256:d511ab13fb5dfbb73a9df9f6afb13f4495671166c824b5743c7a783ba2dce07c"
     },
     {
       "path": "tools/harness/browser/visual-renderer-lease.mjs",
@@ -827,7 +827,7 @@
     {
       "path": "tools/harness/contract/generated/admission-vocabulary.mjs",
       "role": "renderer_source",
-      "hash": "sha256:11974f4de36244011df1fb88e40b03cf034614278dbec1786e0a6c8bfa312093"
+      "hash": "sha256:7a9e2356583306067b44b96c494d5f968e36585a79b0ecd6fc32dc93f7f6c5d8"
     },
     {
       "path": "tools/harness/contract/generated/instrumentation-definitions.mjs",
@@ -987,7 +987,7 @@
     {
       "path": "tools/harness/generated-artifacts/admission-vocabulary.mjs",
       "role": "renderer_source",
-      "hash": "sha256:c0b68104a2efa57aea0aea9410bf9de4b8879975a4fe9239a6550edfc7f940a1"
+      "hash": "sha256:a69de4bfbe717959df28a9dd519b3596529ea9c5cdeb8ca99669f4cf339ead77"
     },
     {
       "path": "tools/harness/generated-artifacts/check-generated-artifact-policy.mjs",
@@ -1457,7 +1457,7 @@
     {
       "path": "tools/test_families/harness.evidence_accounting.json",
       "role": "test_family_manifest",
-      "hash": "sha256:8e591ab2cc66ea576d9dcb8e4486f0c66fb2310164338e8af4593db6c8cae3cd"
+      "hash": "sha256:89d92686e5a9aaae176279bff009da1bac12dafc2ae202a1a97af239e7c69477"
     },
     {
       "path": "tools/test_families/harness.generated_artifacts.json",

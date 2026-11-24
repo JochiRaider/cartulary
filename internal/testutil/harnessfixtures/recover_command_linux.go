@@ -40,18 +40,65 @@ func RecoverRun(ctx context.Context, repository string, environment map[string]s
 		}
 		runtimeRoot, leaseID = locator.Root, locator.LeaseID
 	}
+	outcomes, code, messages := recoverRuntime(ctx, repository, run, runtimeRoot, leaseID, environment)
+	for _, message := range messages {
+		fmt.Fprintln(out, message)
+	}
+	// Outcome counts exist only once exact ownership was admitted.
+	if code != 2 {
+		_ = json.NewEncoder(out).Encode(outcomes)
+	}
+	return code
+}
+
+// RecoverDeadRuntimes settles, before a top-level graph admits work, every
+// retained runtime of the repository whose original owner is proven dead. Each
+// root is admitted and cleaned exactly as RecoverRun would; a stopped or killed
+// run therefore never leaves its services or admission capacity charged for
+// later runs. A failure retains that root's exact recovery proof and is
+// reported with its explicit recovery command; it does not stop the caller,
+// whose admission still fails rather than waiting on capacity no live owner
+// can release.
+func RecoverDeadRuntimes(ctx context.Context, repository string, environment map[string]string, out io.Writer) {
+	runtimes, err := harnesssession.DeadRuntimes(repository, environment["CARTULARY_HARNESS_SCRATCH_ROOT"])
+	if err != nil {
+		fmt.Fprintln(out, "[RECOVERY-FAIL] failure_class=harness failure_reason=cleanup_error dead runtime discovery failed")
+		return
+	}
+	for _, dead := range runtimes {
+		outcomes, code, messages := recoverRuntime(ctx, repository, dead.RunRoot, dead.Root, dead.LeaseID, environment)
+		if code == 0 {
+			resources := 0
+			for _, kinds := range outcomes {
+				for _, count := range kinds {
+					resources += count
+				}
+			}
+			fmt.Fprintf(out, "[RECOVERED] run_id=%s resources=%d\n", filepath.Base(dead.RunRoot), resources)
+			continue
+		}
+		fmt.Fprintf(out, "[RECOVERY-FAIL] run_id=%s failure_class=harness failure_reason=cleanup_error recover with: make test-run-recover RESULTS_DIR=%s\n", filepath.Base(dead.RunRoot), dead.RunRoot)
+		for _, message := range messages {
+			fmt.Fprintln(out, message)
+		}
+	}
+}
+
+// recoverRuntime admits one exact retained runtime for recovery and settles it
+// through the shared cleanup evaluator. Exit codes follow RecoverRun: 2 when
+// ownership or run binding is invalid, 12 when cleanup or settlement is
+// incomplete. Original execution evidence is never rewritten.
+func recoverRuntime(ctx context.Context, repository, run, runtimeRoot, leaseID string, environment map[string]string) (map[string]map[string]int, int, []string) {
+	outcomes := map[string]map[string]int{}
 	actor, err := harnessadmission.Identity(os.Getpid())
 	if err != nil {
-		return 2
+		return outcomes, 2, nil
 	}
 	runtime, err := harnesssession.OwnRuntime(repository, run, runtimeRoot, filepath.Base(run), leaseID, actor, true)
 	if err != nil {
-		fmt.Fprintln(out, "failure_class=config failure_reason=configuration_error recovery rejected: runtime ownership or run binding is not valid")
-		return 2
+		return outcomes, 2, []string{"failure_class=config failure_reason=configuration_error recovery rejected: runtime ownership or run binding is not valid"}
 	}
 	defer runtime.ReleaseHandles()
-	outcomes := map[string]map[string]int{}
-	defer func() { _ = json.NewEncoder(out).Encode(outcomes) }()
 	p := ProductionOptions{Root: repository, RunRoot: run, Target: "test-run-recover", Runtime: runtime, Environment: environment,
 		ReportCleanup: func(result CleanupOutcome) {
 			if outcomes[result.Kind] == nil {
@@ -61,17 +108,12 @@ func RecoverRun(ctx context.Context, repository string, environment map[string]s
 		},
 	}
 	if err := p.Recover(ctx); err != nil {
-		fmt.Fprintln(out, harnesssession.DescribeCleanupFailure(err))
-		fmt.Fprintln(out, "failure_class=harness failure_reason=cleanup_error recovery incomplete: exact ownership proof retained")
-		return 12
+		return outcomes, 12, []string{fmt.Sprint(harnesssession.DescribeCleanupFailure(err)), "failure_class=harness failure_reason=cleanup_error recovery incomplete: exact ownership proof retained"}
 	}
 	if err := runtime.Close(); err != nil {
-		fmt.Fprintln(out, harnesssession.DescribeCleanupFailure(err))
-		fmt.Fprintln(out, "failure_class=harness failure_reason=cleanup_error recovery incomplete: runtime settlement not established")
-		return 12
+		return outcomes, 12, []string{fmt.Sprint(harnesssession.DescribeCleanupFailure(err)), "failure_class=harness failure_reason=cleanup_error recovery incomplete: runtime settlement not established"}
 	}
-	fmt.Fprintln(out, "recovery complete; original execution result unchanged")
-	return 0
+	return outcomes, 0, []string{"recovery complete; original execution result unchanged"}
 }
 
 // RecoveryStatus reports only opaque binding state. Private coordinates remain

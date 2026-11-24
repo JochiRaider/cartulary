@@ -70,7 +70,7 @@ func classifyAdmissionFailure(caller context.Context, err error) error {
 	if errors.Is(err, harnessadmission.ErrRelease) {
 		return failed("harness", "cleanup_error")
 	}
-	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, harnessadmission.ErrConflict) {
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, harnessadmission.ErrConflict) || errors.Is(err, harnessadmission.ErrUnsatisfiable) {
 		return failed("infra", "resource_conflict")
 	}
 	return failureOf(err)
