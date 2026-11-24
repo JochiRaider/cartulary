@@ -67,6 +67,10 @@ SH
 
 chmod +x "$fake_go" "$fake_run_step"
 
+# A unit may be executing the previous artifact; a second link observes its inode.
+printf 'previous artifact\n' >"$output"
+ln "$output" "$TMP_DIR/previous-artifact"
+
 FAKE_GO_ARGS_LOG="$args_log" \
 FAKE_GO_ENV_LOG="$TMP_DIR/go-env.log" \
 GO="$fake_go" \
@@ -83,6 +87,12 @@ GO_TMP_DIR="$TMP_DIR/go-tmp" \
   "$SCRIPT"
 
 [[ -f "$output" ]] || fail "build helper did not create the declared output"
+[[ "$(cat "$output")" == "fake Go artifact" ]] || fail "build helper did not publish the new artifact"
+[[ "$(cat "$TMP_DIR/previous-artifact")" == "previous artifact" ]] || fail "build helper rewrote the published artifact in place"
+built="$(sed -n '/^-o$/{n;p;}' "$args_log")"
+[[ "$built" != "$output" && "$(dirname "$built")" == "$(dirname "$output")" ]] ||
+  fail "build helper did not build beside the declared output"
+if compgen -G "$TMP_DIR/.server-harness*" >/dev/null; then fail "build helper left staging files"; fi
 [[ -f "$output.crypto.json" ]] || fail "build helper did not create the build identity receipt"
 grep -Fq "\"selector\": \"$FAKE_GO_MODULE_SELECTOR\"" "$output.crypto.json" || fail "pinned receipt omitted identity"
 if GO="$fake_go" GOFIPS140=off "${NODE_BIN:?}" tools/harness/readiness/cryptographic-build-cli.mjs verify >"$TMP_DIR/rejected.log" 2>&1; then

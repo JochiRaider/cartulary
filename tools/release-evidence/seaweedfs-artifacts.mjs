@@ -1,4 +1,5 @@
 import path from "node:path";
+import { lstatSync } from "node:fs";
 import { parseStrictJSON, readRetainedArtifactBytes, redactValue, semanticJSONDigest, validateSchemaSync } from "../harness/contract/index.mjs";
 import { validateWorkGraph } from "../harness/scheduler/work-graph/index.mjs";
 import { atomicLocalFile } from "../harness/runtime/secure-local-files.mjs";
@@ -83,15 +84,35 @@ export function readCurrentSeaweedfsCompatibility({ runRoot }) {
 
 const recoveryRowID = "module.recovery.process.canonical_operator_process_evidence_maps_the_imp_9808fdd4e9";
 
+// A run publishes one plan document: plan.json when the Go planner planned it,
+// otherwise the JavaScript planner's execution-context.json, which Stage 2b
+// removes. Either graph must recompute to the run manifest's graph digest.
+function readCurrentGraph(runRoot, manifest) {
+  const published = ["plan.json", "execution-context.json"]
+    .filter((name) => lstatSync(path.join(runRoot, name), { throwIfNoEntry: false }) !== undefined);
+  if (published.length !== 1) throw new Error("current plan document is absent or ambiguous");
+  if (published[0] === "plan.json") {
+    const plan = readSeaweedfsJSON(runRoot, "plan.json", "cartulary.harness_runtime_plan.v8");
+    if (semanticJSONDigest(plan.manifest) !== semanticJSONDigest(manifest) ||
+        semanticJSONDigest({ units: plan.graph.units }) !== plan.graph.graph_digest ||
+        plan.graph.graph_digest !== manifest.graph_digest) {
+      throw new Error("current graph binding differs");
+    }
+    return plan.graph;
+  }
+  const context = readSeaweedfsJSON(runRoot, "execution-context.json", "cartulary.harness_execution_context.v3");
+  const graph = validateWorkGraph(context.graph);
+  if (context.manifest_digest !== semanticJSONDigest(manifest) || graph.graph_digest !== manifest.graph_digest) {
+    throw new Error("current graph binding differs");
+  }
+  return graph;
+}
+
 // The graph is published before execution. Do not wait for a whole-run terminal
 // summary from inside one of that run's own dependent operations.
 export function readCurrentSeaweedfsRecovery({ runRoot, manifest, target }) {
   try {
-    const context = readSeaweedfsJSON(runRoot, "execution-context.json", "cartulary.harness_execution_context.v3");
-    const graph = validateWorkGraph(context.graph);
-    if (context.manifest_digest !== semanticJSONDigest(manifest) || graph.graph_digest !== manifest.graph_digest) {
-      throw new Error("current graph binding differs");
-    }
+    const graph = readCurrentGraph(runRoot, manifest);
     const gateID = `operation:harness.${target.replaceAll("-", "_")}`;
     const units = new Map(graph.units.map(value => [value.unit_id, value]));
     const gate = units.get(gateID);

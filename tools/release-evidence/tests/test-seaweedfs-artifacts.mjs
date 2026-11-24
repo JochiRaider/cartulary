@@ -46,6 +46,48 @@ function persistRecovery(root, fixture) {
   writeEvidenceFile(root, `rows/${recoveryRowID}.json`, fixture.row);
 }
 
+// The same two-unit graph as the Go planner publishes it: graph v9 in plan v8.
+function goPlanFixture() {
+  const fixture = recoveryFixture();
+  const units = fixture.context.graph.units.map(({ physical_allocations: _allocations, renderer_requirement: _renderer, semantic_digest: _digest, ...value }) => {
+    const unit = { ...value, residents: [], runtime_binary_ids: [], failure_policy: { block_descendants: true } };
+    return { ...unit, semantic_digest: hash(unit) };
+  });
+  const graph = { schema_id: "cartulary.harness_work_graph.v9", units, graph_digest: hash({ units }) };
+  const manifest = { ...fixture.manifest, graph_digest: graph.graph_digest };
+  const plan = { schema_id: "cartulary.harness_runtime_plan.v8", graph, manifest: structuredClone(manifest),
+    projections: {}, capacities: {}, aging_quantum_ms: 1, bindings: {}, cache: [], source_inputs: [], cache_inputs: {},
+    host_profile: fixture.context.host_profile, instrumentation_policy_bytes: "{}",
+    input_environment: { clear: ["CARTULARY_FIXTURE"], forward: {} }, browser_lane_limit: 1 };
+  return { manifest, plan, unit: buildUnitResult(units[1]), row: fixture.row };
+}
+
+function persistGoPlanRecovery(root, fixture) {
+  writeEvidenceFile(root, "plan.json", fixture.plan);
+  writeEvidenceFile(root, "unit-results/recovery.json", fixture.unit);
+  writeEvidenceFile(root, `rows/${recoveryRowID}.json`, fixture.row);
+}
+
+test("SeaweedFS recovery reads the Go plan document bound to the run manifest", t => {
+  const root = createScratch(t, "cartulary-seaweed-go-plan-");
+  const fixture = goPlanFixture(); persistGoPlanRecovery(root, fixture);
+  const context = { runRoot: root, manifest: fixture.manifest, target };
+  assert.deepEqual(readCurrentSeaweedfsRecovery(context), { row: fixture.row, unit: fixture.unit,
+    evidence_refs: ["unit-results/recovery.json", `rows/${recoveryRowID}.json`] });
+  // Exactly one plan document names the run's graph.
+  writeEvidenceFile(root, "execution-context.json", recoveryFixture().context);
+  assert.throws(() => readCurrentSeaweedfsRecovery(context), /^Error: SeaweedFS recovery admission failed$/u);
+  fs.unlinkSync(path.join(root, "execution-context.json"));
+  for (const mutate of [
+    f => { f.plan.manifest.run_id = "prior-run"; },
+    // Only the recomputed graph digest notices a field recovery does not read.
+    f => { f.plan.graph.units[0].timeout_ms += 1; },
+  ]) {
+    const changed = structuredClone(fixture); mutate(changed); persistGoPlanRecovery(root, changed);
+    assert.throws(() => readCurrentSeaweedfsRecovery(context), /^Error: SeaweedFS recovery admission failed$/u);
+  }
+});
+
 test("SeaweedFS recovery requires current bound graph, prerequisite execution and actual passing row", t => {
   const root = createScratch(t, "cartulary-seaweed-recovery-");
   const fixture = recoveryFixture(); persistRecovery(root, fixture);

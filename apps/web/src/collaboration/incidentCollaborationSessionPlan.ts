@@ -142,8 +142,8 @@ export function planIncidentCollaborationSessionMessage(input: {
 }
 
 /** REQ-03-299a reconnect backoff: 1 s base, doubling, 30 s cap. */
-export const reconnectBaseDelayMs = 1_000;
-export const reconnectMaxDelayMs = 30_000;
+const reconnectBaseDelayMs = 1_000;
+const reconnectMaxDelayMs = 30_000;
 
 /** Upper bound of the delay before consecutive reconnect attempt `attempt` (0-based). */
 export function reconnectDelayBoundMs(attempt: number): number {

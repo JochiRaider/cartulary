@@ -20,7 +20,6 @@ import {
   buildThreatModelCoverage,
   globToRegExp,
   isDefaultExcluded,
-  isTextBuffer,
   occurrenceTokens,
   readRepositorySource,
   repositorySourceFiles,
@@ -169,8 +168,6 @@ assert.equal(isDefaultExcluded(".cartulary/test-results/run.json", generatedPoli
 assert.equal(isDefaultExcluded("internal/gen/contracts/contracts_gen.go", generatedPolicy), true);
 assert.equal(isDefaultExcluded("tools/task_surface.generated.mk", generatedPolicy), true);
 assert.equal(isDefaultExcluded("internal/platform/objectstore/objectstore.go", generatedPolicy), false);
-assert.equal(isTextBuffer(Buffer.from("plain text")), true);
-assert.equal(isTextBuffer(Buffer.from([0x61, 0x00, 0x62])), false);
 
 const inventory = buildOccurrenceInventoryFromEntries({
   rules,

@@ -164,7 +164,7 @@ export function publicErrorView(
   };
 }
 
-export function publicErrorStatusText(
+function publicErrorStatusText(
   error: PublicAPIError | null | undefined,
   fallbackStatus?: number | null,
 ): string {
@@ -195,9 +195,7 @@ export function publicErrorStatusText(
   }
 }
 
-export function publicErrorCode(
-  error: PublicAPIError | null | undefined,
-): string {
+function publicErrorCode(error: PublicAPIError | null | undefined): string {
   const code = error?.code?.trim() ?? "";
   return code === ""
     ? ("unknown_public_error" satisfies ClientErrorCode)

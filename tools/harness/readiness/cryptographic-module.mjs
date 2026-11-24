@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { validateSchemaSync } from "../contract/index.mjs";
@@ -32,7 +32,16 @@ export function buildReceipt(go, binary, env = process.env) {
   }
   const receipt = { schema_id: "cartulary.cryptographic_build_receipt.v1", ...module, binary_sha256: sha256(readFileSync(binary)), build_info: info };
   validateSchemaSync(receipt.schema_id, receipt);
-  writeFileSync(`${binary}.crypto.json`, `${JSON.stringify(receipt, null, 2)}\n`, { mode: 0o600 });
+  // Readers may inspect a receipt while a nested build republishes its binary;
+  // rename the complete receipt into place rather than rewriting it.
+  const target = `${binary}.crypto.json`;
+  const staging = path.join(path.dirname(target), `.${path.basename(target)}.${process.pid}.tmp`);
+  try {
+    writeFileSync(staging, `${JSON.stringify(receipt, null, 2)}\n`, { mode: 0o600, flag: "wx" });
+    renameSync(staging, target);
+  } finally {
+    rmSync(staging, { force: true });
+  }
   return receipt;
 }
 

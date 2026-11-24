@@ -1055,6 +1055,35 @@ unsatisfiable admission. 582 of 586 units passed; three failed, and
   `execution-context.json`, which a Go-planned run does not publish (caused
   by the planner switch; a Stage 2b reader).
 
+**Fixes, tested in isolation (2026-11-24).**
+
+- *Fallow.* The five declarations are module-private (`export` removed).
+- *Atomic Go artifacts.* Units receive a private `GOTMPDIR`, memory-backed
+  under `/dev/shm` when eligible. A nested `go build -o` into the repository
+  then crosses filesystems, so Go removes and rewrites the published binary,
+  and an exec during the copy fails. A scratch reproduction counted 130
+  failed execs out of 3,685 across six in-place rebuilds, and none when
+  building beside the output and renaming. `build-go-artifact.sh` now
+  publishes that way, and the cryptographic receipt is renamed into place.
+  The Go launcher on the host was 1.27.1 and switched to the pinned 1.27.4
+  from a module cache, which builds embed as GOROOT; the launcher is now the
+  pinned toolchain itself, and builds with disk and memory-backed temporary
+  roots are byte-identical. Nested rebuilds stay allowed: real-command tests
+  deliberately run the top-level path, and a rebuild can no longer break an
+  exec or change the bytes.
+- *SeaweedFS occurrence scan.* `readRetainedTextBytes` streams a source and
+  returns null at the first NUL byte whatever the size; only text the scan
+  keeps must fit 64 MiB.
+- *SeaweedFS recovery admission.* It reads the run's one plan document:
+  `plan.json` (schema, recomputed graph digest and manifest binding) or, until
+  Stage 2b, `execution-context.json`.
+
+Checks: `frontend-fallow-static`; `lint` `frontend`, `types`, `scripts` and
+`shell`; the artifact-assurance and SeaweedFS evidence rows;
+`harness-contract SUITE=regression`; and a Go-planned
+`seaweedfs-release-gate`, whose ten checks all pass. The scheduler-contract
+race is not reproducible on demand; the scratch reproduction is its evidence.
+
 ### Stage 2 scope: Go planner by default, JavaScript planner deleted
 
 **Entry condition.** The Go-planned `release-check` (slice 4e, which also
@@ -1083,10 +1112,11 @@ kind already plans in Go; `ErrUnsupported` is gone.
 - *Recompiling readers.* `release-evidence-verify`, `agent-finalize`
   retained runs and `test-evidence-audit` rebuild a run's plan with
   `compileRetainedRun` and compare it to the retained graph.
-- *JS-plan readers.* `explain-run`, retained checks, canonical context, the
-  SeaweedFS release gate's recovery admission and the row runner's
-  `--unit-rows` path read `execution-context.json` or revalidate the v8 graph
-  (`validateWorkGraph`).
+- *JS-plan readers.* `explain-run`, retained checks, canonical context and the
+  row runner's `--unit-rows` path read `execution-context.json` or revalidate
+  the v8 graph (`validateWorkGraph`). The SeaweedFS release gate's recovery
+  admission already reads `plan.json` and keeps an `execution-context.json`
+  branch for JavaScript-planned runs.
 - *Planning-only consumers.* The `target-plan` diagnostic and the
   task-surface report's scheduler-growth budget call `WorkGraphCompiler`.
 - *Go code that exists only for JavaScript plans.* `harnessruntime`
@@ -1120,7 +1150,8 @@ kind already plans in Go; `ErrUnsupported` is gone.
    resident derivation and cluster-key derivation are deleted. Every reader
    takes `plan.json`, validated against the manifest's graph digest:
    `explain-run`, retained checks, canonical context, agent-finalize,
-   `test-evidence-audit`, `release-evidence-verify` and the SeaweedFS gate.
+   `test-evidence-audit` and `release-evidence-verify`; the SeaweedFS gate drops
+   its `execution-context.json` branch.
    Recompilation is removed, as the NLSpec amendment already requires. The row
    runner drops `--unit-rows` and per-child graph revalidation. Retained-run
    fixtures are re-authored as Go-planned runs. The NLSpec's

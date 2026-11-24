@@ -4,7 +4,7 @@ import { syncBuiltinESMExports } from "node:module";
 import { closeSync, linkSync, mkdirSync, mkdtempSync, openSync, renameSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { assertRetainedArtifactFile, readRetainedArtifactBytes } from "../index.mjs";
+import { assertRetainedArtifactFile, readRetainedArtifactBytes, readRetainedTextBytes } from "../index.mjs";
 import test from "node:test";
 const root = path.resolve(import.meta.dirname, "../../../..");
 function artifactFiles(t) {
@@ -97,4 +97,16 @@ test("descriptor-relative reads reject concurrent mutation and close descriptors
         fs.closeSync = originalClose;
         syncBuiltinESMExports();
     }
+});
+test("retained text classifies binary content before applying its bound", (t) => {
+    const textRoot = mkdtempSync(path.join(os.tmpdir(), "cartulary-text-reader-"));
+    t.after(() => rmSync(textRoot, { recursive: true, force: true }));
+    writeFileSync(path.join(textRoot, "source.txt"), "plain text");
+    writeFileSync(path.join(textRoot, "container.pack"), Buffer.concat([Buffer.from("bundle.json"), Buffer.alloc(256 * 1024)]));
+    writeFileSync(path.join(textRoot, "late.bin"), Buffer.concat([Buffer.alloc(96 * 1024, 0x61), Buffer.from([0])]));
+    assert.equal(readRetainedTextBytes(textRoot, "source.txt", 16).toString(), "plain text");
+    assert.equal(readRetainedTextBytes(textRoot, "container.pack", 16), null, "binary content is classified before the text bound");
+    assert.equal(readRetainedTextBytes(textRoot, "late.bin", 128 * 1024), null, "a NUL after the first chunk still marks binary content");
+    assert.throws(() => readRetainedTextBytes(textRoot, "source.txt", 4), /bounded/u);
+    assert.throws(() => readRetainedTextBytes(textRoot, "source.txt", 0), /bound is invalid/u);
 });

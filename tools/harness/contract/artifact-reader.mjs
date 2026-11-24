@@ -68,11 +68,40 @@ export function readRetainedArtifactBytes(root, relative, maxBytes) {
       if (count === 0) break;
       read += count;
     }
-    const after = fstatSync(descriptor, { bigint: true });
-    if (BigInt(read) !== before.size || after.size !== before.size || after.nlink !== 1n ||
-        after.mtimeNs !== before.mtimeNs || after.ctimeNs !== before.ctimeNs) {
-      throw new Error("retained artifact changed during read");
-    }
+    assertUnchanged(descriptor, before, read);
     return buffer.subarray(0, read);
   });
+}
+
+// A NUL byte marks binary content, the test Git applies. Classification
+// streams, so a binary file of any size returns null at its first NUL; only
+// text, which the caller keeps, must fit the bound.
+export function readRetainedTextBytes(root, relative, maxBytes) {
+  if (!Number.isSafeInteger(maxBytes) || maxBytes < 1) {
+    throw new Error("retained artifact byte bound is invalid");
+  }
+  return withRetainedArtifact(root, relative, (descriptor, before) => {
+    const chunk = Buffer.alloc(64 * 1024);
+    const parts = [];
+    let read = 0;
+    for (;;) {
+      const count = readSync(descriptor, chunk, 0, chunk.length, read);
+      if (count === 0) break;
+      const bytes = chunk.subarray(0, count);
+      if (bytes.includes(0)) return null;
+      read += count;
+      if (read > maxBytes) throw new Error("retained text is not bounded by the admitted byte limit");
+      parts.push(Buffer.from(bytes));
+    }
+    assertUnchanged(descriptor, before, read);
+    return Buffer.concat(parts, read);
+  });
+}
+
+function assertUnchanged(descriptor, before, read) {
+  const after = fstatSync(descriptor, { bigint: true });
+  if (BigInt(read) !== before.size || after.size !== before.size || after.nlink !== 1n ||
+      after.mtimeNs !== before.mtimeNs || after.ctimeNs !== before.ctimeNs) {
+    throw new Error("retained artifact changed during read");
+  }
 }

@@ -55,7 +55,7 @@ export type HistoryReceipt = {
     }
 );
 /** Record History actions; each declares 409 incident_closed. */
-export type HistoryActionOperation =
+type HistoryActionOperation =
   | "deleteRecord"
   | "restoreRecord"
   | "rollbackRecord";

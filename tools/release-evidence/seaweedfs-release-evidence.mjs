@@ -2,7 +2,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { parseStrictJSON, readRetainedArtifactBytes, validateSchemaSync } from "../harness/contract/index.mjs";
+import { parseStrictJSON, readRetainedArtifactBytes, readRetainedTextBytes, validateSchemaSync } from "../harness/contract/index.mjs";
 import { executableRepositoryPaths, inspectExecutableRepositoryPath, isDocumentationOnlyPath, restrictedExecutableInputRoots } from "../harness/test-catalog/index.mjs";
 
 import { buildSeaweedfsSummary, publishSeaweedfsSummary, readCurrentSeaweedfsCompatibility, readCurrentSeaweedfsRecovery,
@@ -111,9 +111,18 @@ export function repositorySourceFiles(root = repoRoot, restrictedRoots = restric
     });
 }
 
+const sourceByteBound = 64 * 1024 * 1024;
+
 export function readRepositorySource(relative, root = repoRoot, restrictedRoots = restrictedInputRoots) {
   if (isDocumentationOnlyPath(relative, restrictedRoots)) throw new Error("release source is outside executable scope");
-  return readRetainedArtifactBytes(root, relative, 64 * 1024 * 1024);
+  return readRetainedArtifactBytes(root, relative, sourceByteBound);
+}
+
+// Binary sources (any NUL byte) leave the occurrence scan whatever their size,
+// such as tracked reference-pack containers; text sources must fit the bound.
+function readRepositoryText(relative) {
+  if (isDocumentationOnlyPath(relative, restrictedInputRoots)) throw new Error("release source is outside executable scope");
+  return readRetainedTextBytes(repoRoot, relative, sourceByteBound);
 }
 
 function loadGeneratedPolicy(policyRel = generatedPolicyPath) {
@@ -143,13 +152,6 @@ function isDefaultExcluded(rel, policy) {
     return true;
   }
   return isPolicyGenerated(normalized, policy);
-}
-
-function isTextBuffer(buffer) {
-  if (buffer.includes(0)) {
-    return false;
-  }
-  return true;
 }
 
 function globToRegExp(glob) {
@@ -319,8 +321,8 @@ function buildOccurrenceInventory({
       excluded.push(rel);
       continue;
     }
-    const buffer = readRepositorySource(rel);
-    if (!isTextBuffer(buffer)) {
+    const buffer = readRepositoryText(rel);
+    if (buffer === null) {
       excluded.push(rel);
       continue;
     }
@@ -803,7 +805,6 @@ export {
   findOccurrencesInText,
   globToRegExp,
   isDefaultExcluded,
-  isTextBuffer,
   loadClassificationRules,
   occurrenceResult,
   occurrenceTokens,
