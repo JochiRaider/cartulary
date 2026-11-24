@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func writeFixtureFile(t *testing.T, name string, data []byte, mode os.FileMode) {
@@ -389,4 +390,44 @@ func TestRuntimePublicationRollback(t *testing.T) {
 	if string(bytes) != "old-a" {
 		t.Fatal("unsafe second output changed first")
 	}
+}
+
+func TestRuntimeCacheFreshness(t *testing.T) {
+	t.Run("a recently changed entry is read at every lookup", func(t *testing.T) {
+		c, u := nativeCacheFixture(t, "normal")
+		fact := c.facts[u.ID]
+		if err := c.freshInputs(context.Background(), fact); err != nil {
+			t.Fatal(err)
+		}
+		if _, ok := c.verified[0]; ok {
+			t.Fatal("an entry changed within the racy margin was remembered")
+		}
+		// A same-size rewrite within one timestamp tick keeps every identity
+		// field; only reading the content detects it.
+		writeFixtureFile(t, filepath.Join(c.root, "input.txt"), []byte("changed source"), 0644)
+		if err := c.freshInputs(context.Background(), fact); err == nil {
+			t.Fatal("an edited source entry was reused")
+		}
+	})
+	t.Run("a settled entry is proven once until its identity changes", func(t *testing.T) {
+		c, u := nativeCacheFixture(t, "normal")
+		c.Now = func() time.Time { return time.Now().Add(time.Hour) }
+		fact := c.facts[u.ID]
+		if err := c.freshInputs(context.Background(), fact); err != nil {
+			t.Fatal(err)
+		}
+		if _, ok := c.verified[0]; !ok {
+			t.Fatal("a settled entry's identity was not remembered")
+		}
+		// An unchanged entry is not read again: an impossible snapshot digest
+		// still passes while the identity holds.
+		c.plan.facts.SourceInputs[0].Digest = "sha256:" + strings.Repeat("0", 64)
+		if err := c.freshInputs(context.Background(), fact); err != nil {
+			t.Fatalf("an unchanged entry was read again: %v", err)
+		}
+		writeFixtureFile(t, filepath.Join(c.root, "input.txt"), []byte("a longer changed source"), 0644)
+		if err := c.freshInputs(context.Background(), fact); err == nil {
+			t.Fatal("an entry whose identity changed was not read again")
+		}
+	})
 }

@@ -18,13 +18,51 @@ import (
 )
 
 type WorkRequirement struct {
-	Request     Request
-	Renderer    string
+	Request  Request
+	Renderer string
+	// Residents are the physical allocations the work holds, by the stable
+	// keys its plan names. Attached residents belong to a persistent service
+	// session and are not charged.
+	Residents []Resident
+	// Physical carries a JavaScript-planned unit's allocations by service;
+	// admission derives residents from it when Residents is nil. It also
+	// supplies the renderer slot's claims. It is removed when the runtime
+	// accepts only planner-named residents.
 	Physical    map[string]map[string]int64
 	Active      map[string]int64
 	Exclusive   bool
 	Diagnostics bool
 }
+
+// physicalResidents derives a JavaScript-planned unit's residents from its
+// physical allocations: the shared object store, its PostgreSQL generation
+// and its browser stack. An attached session holds the shared allocations.
+func (p *Production) physicalResidents(requirement WorkRequirement) []Resident {
+	attached := p.Options.Environment["CARTULARY_TEST_SERVICES_MODE"] == "attach"
+	var residents []Resident
+	shared := func(key string, claims map[string]int64) {
+		scope := ""
+		if attached {
+			scope = ResidentAttached
+		}
+		residents = append(residents, Resident{Key: key, Scope: scope, Claims: claims})
+	}
+	if claims := requirement.Physical["object_store"]; len(claims) != 0 {
+		shared("object_store:shared", claims)
+	}
+	if claims := requirement.Physical["postgres"]; len(claims) != 0 {
+		if requirement.Request.PostgresIsolation == "exclusive" {
+			residents = append(residents, Resident{Key: clusterKey(requirement.Request), Claims: claims})
+		} else {
+			shared(clusterKey(requirement.Request), claims)
+		}
+	}
+	if requirement.Request.Capability == "browser_stack" {
+		residents = append(residents, Resident{Key: stackKey(requirement.Request), Claims: requirement.Physical["browser_stack"]})
+	}
+	return residents
+}
+
 type admittedWork struct {
 	requirement             WorkRequirement
 	slot                    *rendererSlot
@@ -73,6 +111,10 @@ func (p *Production) Admit(ctx context.Context, requirement WorkRequirement) (*h
 	releaseStack := func() {}
 	records := []*residentRecord{}
 	residents := []harnessadmission.Resident{}
+	held := requirement.Residents
+	if held == nil {
+		held = p.physicalResidents(requirement)
+	}
 	reserve := func() error {
 		var err error
 		// A request waiting for a renderer must not pin an idle stack that
@@ -102,15 +144,10 @@ func (p *Production) Admit(ctx context.Context, requirement WorkRequirement) (*h
 			return nil
 		}
 		// Attached services retain the persistent owner's reservation.
-		attached := p.Options.Environment["CARTULARY_TEST_SERVICES_MODE"] == "attach"
-		if len(requirement.Physical["object_store"]) != 0 && !attached {
-			err = add("object_store:shared", requirement.Physical["object_store"])
-		}
-		if err == nil && len(requirement.Physical["postgres"]) != 0 && (!attached || requirement.Request.PostgresIsolation == "exclusive") {
-			err = add(clusterKey(requirement.Request), requirement.Physical["postgres"])
-		}
-		if err == nil && requirement.Request.Capability == "browser_stack" {
-			err = add(stackKey(requirement.Request), requirement.Physical["browser_stack"])
+		for _, resident := range held {
+			if err == nil && resident.Scope != ResidentAttached {
+				err = add(resident.Key, resident.Claims)
+			}
 		}
 		if err == nil && work.slot != nil {
 			err = add("renderer:"+work.slot.allocation, requirement.Physical["renderer"])

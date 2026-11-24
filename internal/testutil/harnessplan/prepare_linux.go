@@ -62,6 +62,13 @@ func Prepare(root string, request Request, now time.Time, pid int) (*Plan, error
 		return fallback
 	}
 	cacheMode := value(cacheModeInput, "normal")
+	if request.CacheMode != "" {
+		cacheMode = request.CacheMode
+	}
+	instrumentation := value(instrumentationModeInput, "off")
+	if request.InstrumentationMode != "" {
+		instrumentation = request.InstrumentationMode
+	}
 	mode, sessionFile, err := serviceSession(request, inputs)
 	if err != nil {
 		return nil, err
@@ -99,19 +106,19 @@ func Prepare(root string, request Request, now time.Time, pid int) (*Plan, error
 	if err := json.Unmarshal(pins, &toolchain); err != nil || toolchain.GoVersion == "" {
 		return nil, fmt.Errorf("%w: %s has no go_version", ErrInput, toolchainPinsPath)
 	}
-	graph, err := Compile(in, resolved.selection, Options{CPUTokens: budget, GoVersion: toolchain.GoVersion, GoShuffleSeed: value("GO_SHUFFLE_SEED", "")})
-	if err != nil {
-		return nil, err
-	}
-	declared, environment, err := commandInputs(in, resolved, root)
-	if err != nil {
-		return nil, err
-	}
-	runID, err := runIdentity(request.Environment, now, pid)
+	graph, err := Compile(in, resolved.selection, Options{CPUTokens: budget, GoVersion: toolchain.GoVersion, GoShuffleSeed: value("GO_SHUFFLE_SEED", ""), AttachedServices: mode == "attach"})
 	if err != nil {
 		return nil, err
 	}
 	bindings, err := launchBindings(root, in, request.Environment, mode, sessionFile)
+	if err != nil {
+		return nil, err
+	}
+	declared, environment, err := commandInputs(in, resolved, root, bindings)
+	if err != nil {
+		return nil, err
+	}
+	runID, err := runIdentity(request.Environment, now, pid)
 	if err != nil {
 		return nil, err
 	}
@@ -148,7 +155,7 @@ func Prepare(root string, request Request, now time.Time, pid int) (*Plan, error
 		Snapshot: snapshot, GoWorkerBudget: budget,
 		SourceInputs: source.Inputs, SourceCommit: source.Commit, SourceState: source.State,
 		ToolchainDigest: toolchainDigest, CacheMode: cacheMode,
-		InstrumentationMode: value(instrumentationModeInput, "off"), InstrumentationPolicy: policy,
+		InstrumentationMode: instrumentation, InstrumentationPolicy: policy,
 		Host: DetectHostProfile(), Bindings: bindings, Cache: cache, CacheInputs: cacheInputs, StartedAt: now,
 	})
 }
@@ -156,7 +163,9 @@ func Prepare(root string, request Request, now time.Time, pid int) (*Plan, error
 // commandInputs are the command's declared input values for the manifest
 // (credential values redacted) and the environment projection every unit
 // receives: all public inputs cleared, this command's runtime inputs set.
-func commandInputs(in *Inputs, resolved command, root string) (map[string]string, InputEnvironment, error) {
+// Inputs that preparation turns into launch bindings (the service mode and
+// session file) reach units only as bindings.
+func commandInputs(in *Inputs, resolved command, root string, bindings map[string]string) (map[string]string, InputEnvironment, error) {
 	var redaction struct {
 		Replacement string `json:"replacement"`
 	}
@@ -171,6 +180,9 @@ func commandInputs(in *Inputs, resolved command, root string) (map[string]string
 		declared[name] = input.Value
 		if redacted {
 			declared[name] = redaction.Replacement
+		}
+		if _, bound := bindings[name]; bound {
+			continue
 		}
 		if forwarding := input.Definition.ChildForwarding; forwarding != "runtime_env" && forwarding != "argv_and_runtime_env" {
 			continue

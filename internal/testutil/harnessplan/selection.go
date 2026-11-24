@@ -21,6 +21,9 @@ type Request struct {
 	// Environment is the runtime's environment. Preparation reads nothing
 	// from the process environment.
 	Environment map[string]string
+	// CacheMode and InstrumentationMode, when set, are imposed by the
+	// runtime's own policy (accounted runs) over the command's inputs.
+	CacheMode, InstrumentationMode string
 }
 
 // selectionControls are public inputs the planner consumes to select work;

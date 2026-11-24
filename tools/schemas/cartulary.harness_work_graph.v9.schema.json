@@ -323,7 +323,8 @@
         "scope": {
           "enum": [
             "unit",
-            "graph"
+            "graph",
+            "attached"
           ]
         },
         "claims": {

@@ -31,7 +31,9 @@ type RunResult struct {
 }
 
 // Run accepts only ordinary graph selectors. Prepare owns their interpretation;
-// no external executable plan, shell fragment or runtime-selection flag exists.
+// no external executable plan or shell fragment exists. During the work-graph
+// overhaul the temporary CARTULARY_HARNESS_PLANNER=go selector plans the
+// invocation with the in-process Go planner instead of the Node compiler.
 func Run(ctx context.Context, root, binary string, args, environment []string) (report *RunResult, code int, resultErr error) {
 	env := map[string]string{}
 	for _, entry := range environment {
@@ -60,6 +62,8 @@ func Run(ctx context.Context, root, binary string, args, environment []string) (
 	if accountingErr != nil {
 		return nil, 2, entryFailureAt("accounting_membership", failed("config", "configuration_error"))
 	}
+	// An accounted run imposes its own cache mode over the command's inputs.
+	imposedCacheMode := ""
 	if env["HARNESS_ACCOUNTING"] == "required" || accountingParent != "" {
 		if accountingParent == "" {
 			return nil, 2, entryFailureAt("accounting_required_scope", failed("config", "configuration_error"))
@@ -78,6 +82,7 @@ func Run(ctx context.Context, root, binary string, args, environment []string) (
 		mode = "basic"
 		env["HARNESS_DIAGNOSTICS"] = mode
 		env["CARTULARY_HARNESS_CACHE_MODE"] = "off"
+		imposedCacheMode = "off"
 		// Every accounted container, including self-owned test fixtures, has an
 		// exact owner finalizer. An unscoped auxiliary reaper is not admissible.
 		env["TESTCONTAINERS_RYUK_DISABLED"] = "true"
@@ -90,7 +95,12 @@ func Run(ctx context.Context, root, binary string, args, environment []string) (
 	for k, v := range env {
 		input = append(input, k+"="+v)
 	}
-	plan, err := Prepare(ctx, root, args, input)
+	var plan *Plan
+	if env[plannerSelector] == "go" {
+		plan, err = prepareInProcess(root, args, env, mode, imposedCacheMode)
+	} else {
+		plan, err = Prepare(ctx, root, args, input)
+	}
 	if err != nil {
 		var lifecycle *failure
 		if errors.As(err, &lifecycle) && lifecycle.Reason == "cleanup_error" {
@@ -164,6 +174,9 @@ func Run(ctx context.Context, root, binary string, args, environment []string) (
 	}
 	publication.Forbidden = runtime.ForbiddenValues
 	child := plan.unitEnvironment(env)
+	// The planner selector chooses this invocation's planner only; nested
+	// commands keep the default.
+	delete(child, plannerSelector)
 	for _, k := range []string{"CARTULARY_TEST_SERVICES_MODE", "CARTULARY_TEST_SERVICES_PERSISTENT_BORROWER", "CARTULARY_TEST_SERVICES_SESSION_FILE", "HARNESS_DIAGNOSTICS", "HARNESS_ACCOUNTING", "MAKEFLAGS", "MAKEOVERRIDES", "MFLAGS"} {
 		delete(child, k)
 	}

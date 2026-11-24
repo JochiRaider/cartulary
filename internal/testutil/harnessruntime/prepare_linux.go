@@ -5,7 +5,9 @@ package harnessruntime
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessadmission"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnessplan"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 	"golang.org/x/sys/unix"
 	"io"
@@ -167,4 +169,21 @@ receive:
 		return nil, errors.New("graph preparation failed")
 	}
 	return decodePlan(received.data)
+}
+
+// prepareInProcess plans the invocation with the Go planner inside the
+// runtime: no compiler process, private descriptor or plan decode. The
+// runtime's own instrumentation mode, and the cache mode an accounted run
+// imposes, take precedence over the command's inputs.
+func prepareInProcess(root string, args []string, environment map[string]string, mode, imposedCacheMode string) (*Plan, error) {
+	request, err := planRequest(args, environment)
+	if err != nil {
+		return nil, plannerFailure(fmt.Errorf("%w: %v", harnessplan.ErrSelection, err))
+	}
+	request.InstrumentationMode, request.CacheMode = mode, imposedCacheMode
+	source, err := harnessplan.Prepare(root, request, time.Now(), os.Getpid())
+	if err != nil {
+		return nil, plannerFailure(err)
+	}
+	return adoptPlan(source)
 }

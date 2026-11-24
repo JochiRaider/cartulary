@@ -3,6 +3,8 @@ package harnessplan
 import (
 	"encoding/json"
 	"errors"
+	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -68,6 +70,36 @@ func TestPlanAssembly(t *testing.T) {
 		again, err := Assemble(inputs, graph, invocation())
 		if err != nil || again.Manifest.SourceDigest != plan.Manifest.SourceDigest || again.Manifest.Instrumentation != plan.Manifest.Instrumentation {
 			t.Fatal("plan digests are not deterministic")
+		}
+	})
+
+	t.Run("launch binds the runtime binaries a unit consumes and clears the rest", func(t *testing.T) {
+		plan, err := Assemble(inputs, graph, invocation())
+		if err != nil {
+			t.Fatal(err)
+		}
+		binaries := inputs.Topology.RuntimeBinaries
+		plan.Bindings[binaries[0].ConsumerEnv] = "/bin/" + binaries[0].ID
+		unit := &Unit{ID: "probe", Command: Command{Environment: map[string]string{"KEEP": "1", binaries[1].ConsumerEnv: "/stale"}}, RuntimeBinaryIDs: []string{binaries[0].ID}}
+		environment := plan.LaunchEnvironment(unit)
+		if environment["KEEP"] != "1" || environment[binaries[0].ConsumerEnv] != "/bin/"+binaries[0].ID {
+			t.Fatalf("environment = %v", environment)
+		}
+		for _, binary := range binaries[1:] {
+			if value, ok := environment[binary.ConsumerEnv]; !ok || value != "" {
+				t.Fatalf("%s = %q, want cleared", binary.ConsumerEnv, value)
+			}
+		}
+	})
+
+	t.Run("a command argument beyond the kernel bound is rejected", func(t *testing.T) {
+		unit := graph.Sorted()[0]
+		original := unit.Command.Args
+		unit.Command.Args = append(slices.Clone(original), strings.Repeat("r", maximumArgumentBytes+1))
+		_, err := Assemble(inputs, graph, invocation())
+		unit.Command.Args = original
+		if !errors.Is(err, ErrPlan) {
+			t.Fatalf("Assemble = %v, want ErrPlan", err)
 		}
 	})
 

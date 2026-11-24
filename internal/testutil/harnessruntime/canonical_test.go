@@ -561,7 +561,7 @@ func TestRuntimeRequiredPublication(t *testing.T) {
 	if err := json.Unmarshal(contextBytes, &retained); err != nil {
 		t.Fatal(err)
 	}
-	if retained["manifest_digest"] != p.context["manifest_digest"] || retained["graph"] == nil || retained["projections"] == nil || len(retained["source_inputs"].([]any)) == 0 {
+	if retained["manifest_digest"] != p.published.document.(map[string]any)["manifest_digest"] || retained["graph"] == nil || retained["projections"] == nil || len(retained["source_inputs"].([]any)) == 0 {
 		t.Fatal("incomplete retained execution context")
 	}
 	if strings.Contains(string(contextBytes), "/private/node") || retained["bindings"] != nil || retained["cache_inputs"] != nil || retained["input_environment"] != nil {

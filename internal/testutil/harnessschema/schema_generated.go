@@ -19313,7 +19313,7 @@ return true
 }
 
 func schema1943(v any) bool {
-if !(schemaEqual(v, "unit") || schemaEqual(v, "graph")) { return false }
+if !(schemaEqual(v, "unit") || schemaEqual(v, "graph") || schemaEqual(v, "attached")) { return false }
 return true
 }
 

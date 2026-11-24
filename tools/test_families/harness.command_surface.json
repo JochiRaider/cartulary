@@ -606,7 +606,9 @@
       "selector": {
         "package": "./internal/testutil/harnessruntime",
         "tests": [
+          "TestGoPlannerAdoption",
           "TestRuntimeBrowserFailureContinuation",
+          "TestRuntimeCacheFreshness",
           "TestRuntimeCacheTransactions",
           "TestRuntimeCanonicalAccounting",
           "TestRuntimeCanonicalNodeParity",

@@ -189,6 +189,9 @@ const (
 	ScopeUnit = "unit"
 	// ScopeGraph: shared by consumers in the graph and retired after the last.
 	ScopeGraph = "graph"
+	// ScopeAttached: held by a persistent service session the run borrows;
+	// the run neither creates nor charges it.
+	ScopeAttached = "attached"
 )
 
 // RowBinding binds a catalog row to the unit that produces its evidence.

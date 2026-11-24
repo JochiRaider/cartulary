@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnessfixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessplan"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
@@ -69,6 +70,9 @@ type unit struct {
 	FailurePolicy     failurePolicy               `json:"failure_policy"`
 	EstimateMS        int64                       `json:"estimated_work_ms"`
 	Digest            string                      `json:"semantic_digest"`
+	// Residents are the allocations a Go-planned unit names; nil for a
+	// JavaScript-planned unit, whose admission derives them from Physical.
+	Residents []harnessfixtures.Resident `json:"-"`
 }
 type workGraph struct {
 	Schema   string `json:"schema_id"`
@@ -120,8 +124,16 @@ type planWire struct {
 // Plan can only be constructed through strict bounded validation. Its facts are
 // private so a consumer cannot modify validated graph closure after preparation.
 type Plan struct {
-	facts   planWire
-	context map[string]any
+	facts planWire
+	// published is the retained document that carries the graph: the
+	// execution context of a JavaScript plan, or a Go plan itself.
+	published publishedPlan
+}
+
+// publishedPlan is the run-root document a plan publishes beside the manifest.
+type publishedPlan struct {
+	name, schema string
+	document     any
 }
 
 func (p *Plan) GraphDigest() string  { return p.facts.Graph.Digest }
@@ -406,7 +418,7 @@ func decodePlan(data []byte) (*Plan, error) {
 	for _, key := range []string{"graph", "projections", "source_inputs", "host_profile", "instrumentation_policy_bytes"} {
 		context[key] = document[key]
 	}
-	return &Plan{facts: facts, context: context}, nil
+	return &Plan{facts: facts, published: publishedPlan{name: "execution-context.json", schema: "cartulary.harness_execution_context.v3", document: context}}, nil
 }
 
 // validCapacities requires the plan's capacities to be exactly the mapping

@@ -66,14 +66,22 @@ type nativeCache struct {
 	root, run, mode string
 	facts           map[string]cacheFact
 	sameRun         map[string]string
-	staging         []ownedCacheStage
-	Now             func() time.Time
-	BeforeRename    func(int) error
-	Fresh           func(context.Context, cacheFact) error
+	// verified records, per source snapshot entry, the file identity at
+	// which this run last proved its content; an entry whose identity is
+	// unchanged is not hashed again.
+	verified     map[int]unix.Stat_t
+	staging      []ownedCacheStage
+	Now          func() time.Time
+	BeforeRename func(int) error
+	Fresh        func(context.Context, cacheFact) error
 }
 
+// racyMargin exceeds filesystem timestamp granularity; a file changed within
+// it of a proof is read again at every lookup.
+const racyMargin = time.Second
+
 func newNativeCache(plan *Plan, root, run string) *nativeCache {
-	c := &nativeCache{plan: plan, root: root, run: run, mode: plan.facts.Manifest["cache_mode"].(string), facts: map[string]cacheFact{}, sameRun: map[string]string{}, Now: time.Now}
+	c := &nativeCache{plan: plan, root: root, run: run, mode: plan.facts.Manifest["cache_mode"].(string), facts: map[string]cacheFact{}, sameRun: map[string]string{}, verified: map[int]unix.Stat_t{}, Now: time.Now}
 	for _, fact := range plan.facts.Cache {
 		c.facts[fact.UnitID] = fact
 	}
@@ -90,45 +98,74 @@ func (c *nativeCache) base() string { return filepath.Join(c.root, ".cache/cartu
 func (c *nativeCache) directory(f cacheFact) string {
 	return filepath.Join(c.base(), textValue(f.Profile), strings.TrimPrefix(textValue(f.InputDigest), "sha256:"))
 }
+
+// freshInputs proves that the closure's files still match the run's source
+// snapshot. A file is read again only when its identity (device, inode,
+// mode, size, modification and change times) differs from the identity at
+// which this run last proved it. As in Git's racy-timestamp rule, an identity
+// is remembered only when the file's change time precedes the proof by a
+// margin wider than filesystem timestamp granularity: a later write must then
+// move the change time, so an edit during the run still blocks reuse.
+// Callers hold c.mu, which also guards verified.
 func (c *nativeCache) freshInputs(ctx context.Context, f cacheFact) error {
+	settled := c.Now().Add(-racyMargin)
 	for _, index := range c.plan.facts.CacheInputs[textValue(f.DependencyDigest)] {
 		entry := c.plan.facts.SourceInputs[index]
 		if !safeRelative(entry.Path) {
 			return errPlan
 		}
 		name := filepath.Join(c.root, entry.Path)
-		if entry.Kind == "symlink" {
-			parent, err := openOutputParent(name, false)
-			if err != nil {
-				return err
-			}
-			var before, after unix.Stat_t
-			err = unix.Fstatat(int(parent.file.Fd()), parent.leaf, &before, unix.AT_SYMLINK_NOFOLLOW)
-			if err != nil || before.Mode&unix.S_IFMT != unix.S_IFLNK {
-				parent.close()
-				return harnesslocal.ErrUnsafe
-			}
-			buffer := make([]byte, 4097)
-			n, err := unix.Readlinkat(int(parent.file.Fd()), parent.leaf, buffer)
-			if err != nil || n >= len(buffer) {
-				parent.close()
-				return harnesslocal.ErrUnsafe
-			}
-			err = unix.Fstatat(int(parent.file.Fd()), parent.leaf, &after, unix.AT_SYMLINK_NOFOLLOW)
-			same := err == nil && stableStat(before, after) && parent.check() == nil
-			parent.close()
-			if !same || bytesDigest(buffer[:n]) != entry.Digest || fmt.Sprintf("%04o", before.Mode&07777) != entry.Mode {
-				return harnesslocal.ErrUnsafe
-			}
+		var identity unix.Stat_t
+		if err := unix.Lstat(name, &identity); err != nil {
+			return harnesslocal.ErrUnsafe
+		}
+		if prior, ok := c.verified[index]; ok && stableStat(prior, identity) {
 			continue
 		}
-		digest, mode, err := streamRegular(ctx, name, nil)
+		if err := verifyInput(ctx, name, entry); err != nil {
+			return err
+		}
+		var after unix.Stat_t
+		if unix.Lstat(name, &after) == nil && stableStat(identity, after) && time.Unix(identity.Ctim.Unix()).Before(settled) {
+			c.verified[index] = identity
+		}
+	}
+	return nil
+}
+
+// verifyInput proves one snapshot entry's content and mode by reading it.
+func verifyInput(ctx context.Context, name string, entry sourceInput) error {
+	if entry.Kind == "symlink" {
+		parent, err := openOutputParent(name, false)
 		if err != nil {
 			return err
 		}
-		if digest != entry.Digest || modeString(mode) != entry.Mode {
+		var before, after unix.Stat_t
+		err = unix.Fstatat(int(parent.file.Fd()), parent.leaf, &before, unix.AT_SYMLINK_NOFOLLOW)
+		if err != nil || before.Mode&unix.S_IFMT != unix.S_IFLNK {
+			parent.close()
 			return harnesslocal.ErrUnsafe
 		}
+		buffer := make([]byte, 4097)
+		n, err := unix.Readlinkat(int(parent.file.Fd()), parent.leaf, buffer)
+		if err != nil || n >= len(buffer) {
+			parent.close()
+			return harnesslocal.ErrUnsafe
+		}
+		err = unix.Fstatat(int(parent.file.Fd()), parent.leaf, &after, unix.AT_SYMLINK_NOFOLLOW)
+		same := err == nil && stableStat(before, after) && parent.check() == nil
+		parent.close()
+		if !same || bytesDigest(buffer[:n]) != entry.Digest || fmt.Sprintf("%04o", before.Mode&07777) != entry.Mode {
+			return harnesslocal.ErrUnsafe
+		}
+		return nil
+	}
+	digest, mode, err := streamRegular(ctx, name, nil)
+	if err != nil {
+		return err
+	}
+	if digest != entry.Digest || modeString(mode) != entry.Mode {
+		return harnesslocal.ErrUnsafe
 	}
 	return nil
 }

@@ -56,7 +56,7 @@ func nativeAdmission(capacities map[string]int64, parent *string, root string, p
 
 func workRequirement(u unit) harnessfixtures.WorkRequirement {
 	request := nativeFixtureRequest(fixtureRequest{PostgresIsolation: u.PostgresIsolation, Services: u.Services, UnitID: u.ID, Capability: u.Fixture, Affinity: fixtureAffinity(u), Environment: u.Command.Environment})
-	return harnessfixtures.WorkRequirement{Request: request, Renderer: u.Renderer, Physical: u.Physical, Active: u.Claims, Exclusive: slices.Contains(u.ExclusiveLocks, "host_activity")}
+	return harnessfixtures.WorkRequirement{Request: request, Renderer: u.Renderer, Residents: u.Residents, Physical: u.Physical, Active: u.Claims, Exclusive: slices.Contains(u.ExclusiveLocks, "host_activity")}
 }
 
 func classifyAdmissionFailure(caller context.Context, err error) error {

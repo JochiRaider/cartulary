@@ -2557,7 +2557,8 @@
           "TestFixtureCommandLifecycle",
           "TestFixtureProxyLifecycle",
           "TestFixtureRecovery",
-          "TestFixtureSuiteOwner"
+          "TestFixtureSuiteOwner",
+          "TestPhysicalResidents"
         ]
       },
       "evidence_class": "unit",

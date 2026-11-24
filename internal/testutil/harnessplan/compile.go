@@ -36,6 +36,9 @@ type Options struct {
 	GoVersion string
 	// GoShuffleSeed, when set, orders Go tests with that seed.
 	GoShuffleSeed string
+	// AttachedServices is set when units borrow a persistent local service
+	// session: its shared allocations are held by that session, not the run.
+	AttachedServices bool
 }
 
 // Compile turns a selection into a work graph.
@@ -494,7 +497,7 @@ func (c *compiler) goUnit(key string, contract goContract, rows []*Row, stack []
 		ServiceDependencies: contract.ServiceDependencies, PostgresIsolation: contract.PostgresIsolation, CachePolicy: contract.CachePolicy,
 		TimeoutMS: c.in.Owner.DefaultTimeoutMS, RuntimeBinaryIDs: contract.RuntimeBinaryIDs,
 		FailurePolicy: FailurePolicy{BlockDescendants: true}, EstimatedWorkMS: policy.StartupMS + work + policy.CleanupMS,
-		Command: Command{Executable: "node", Args: []string{"tools/harness/execution/runners/row-runner-cli.mjs", "--unit-rows"}, Environment: environment},
+		Command: Command{Executable: "node", Args: []string{"tools/harness/execution/runners/row-runner-cli.mjs", "--row-ids", strings.Join(rowIDs, ",")}, Environment: environment},
 	}
 	for _, row := range rowIDs {
 		unit.RowBindings = append(unit.RowBindings, RowBinding{RowID: row, Runner: RunnerGo})
@@ -548,22 +551,27 @@ func (c *compiler) claims(profileID string, services []string) (map[string]int64
 
 // residents names the physical allocations a unit's fixture lease creates
 // or borrows: its own PostgreSQL generation, or the shared generation, and
-// the shared object store. A unit without a fixture lease manages or
-// attaches to its services itself and has no residents.
+// the shared object store. Shared allocations of an attached service session
+// belong to that session. A unit without a fixture lease manages or attaches
+// to its services itself and has no residents.
 func (c *compiler) residents(unitID, lease string, services []string, isolation string) []Resident {
 	var residents []Resident
 	if lease == "none" {
 		return nil
 	}
+	shared := ScopeGraph
+	if c.options.AttachedServices {
+		shared = ScopeAttached
+	}
 	physical := c.in.Topology.PhysicalResourceClaims
 	if slices.Contains(services, "object_store") {
-		residents = append(residents, Resident{Key: "object_store:shared", Scope: ScopeGraph, Claims: maps.Clone(physical["object_store"])})
+		residents = append(residents, Resident{Key: "object_store:shared", Scope: shared, Claims: maps.Clone(physical["object_store"])})
 	}
 	switch isolation {
 	case "exclusive":
 		residents = append(residents, Resident{Key: "postgres:unit:" + unitID, Scope: ScopeUnit, Claims: maps.Clone(physical["postgres"])})
 	case "shared":
-		residents = append(residents, Resident{Key: "postgres:shared", Scope: ScopeGraph, Claims: maps.Clone(physical["postgres"])})
+		residents = append(residents, Resident{Key: "postgres:shared", Scope: shared, Claims: maps.Clone(physical["postgres"])})
 	}
 	return residents
 }

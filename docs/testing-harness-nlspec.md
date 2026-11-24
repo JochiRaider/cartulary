@@ -11749,9 +11749,14 @@ supplement independently selected product tests.
 ## Go work-graph planner amendment — 2026-11-23
 
 A Go work-graph planner replaces the JavaScript graph compiler in stages. Until
-the runtime switches to it, the JavaScript compiler remains the only producer of
-executed plans (`cartulary.harness_runtime_plan.v7` carrying
-`cartulary.harness_work_graph.v8`). The Go planner is verified on its own
+the runtime switches to it, the JavaScript compiler remains the default producer
+of executed plans (`cartulary.harness_runtime_plan.v7` carrying
+`cartulary.harness_work_graph.v8`). The temporary environment selector
+`CARTULARY_HARNESS_PLANNER=go` makes one invocation plan with the Go planner
+inside the runtime: no compiler process or plan transport is involved. A
+selection the Go planner does not support fails with a usage error and never
+falls back to the JavaScript compiler. Units do not inherit the selector. The
+selector is removed at the switch. The Go planner is verified on its own
 correctness: every selected row bound to exactly one unit, every need resolved
 and acyclic, each unit waiting for the producers its rows require, and
 footprints and residents that follow the declared services and fixture leases.
@@ -11795,8 +11800,29 @@ list of TH-HARNESS-REQ-801 as follows:
 Plan v8 changes v7 as follows. It carries graph v9. `host_profile` reports the
 Go host facts: operating system, architecture, kernel release and CPU models.
 `helper_digest` and `preparation` are removed because the runtime measures
-preparation itself. The plan is written to the run root as `plan.json`.
-Retained-run readers read that file and never recompile a selection.
+preparation itself. A Go-planned run publishes the plan as `plan.json` in the
+run root, in place of `execution-context.json`, which it contains. Retained-run
+readers read that file and never recompile a selection.
+
+A resident's scope may also be `attached`: the allocation belongs to a borrowed
+persistent service session, so the run neither creates nor charges it. In
+attach mode the shared PostgreSQL generation and the shared object store are
+attached; a unit's own generation stays unit-scoped. Host admission holds a
+Go-planned unit's residents by the keys the plan names and derives them only
+for JavaScript-planned units.
+
+A Go unit names its rows in its command (`--row-ids`), so its child never
+reads or revalidates the published graph. Every argument stays within 32 KiB.
+The runtime binds a unit's runtime binaries when it adopts the plan: each
+binary the unit lists gets its bound path, and every other runtime binary is
+cleared. The service mode and session file reach units only as launch
+bindings, never as forwarded inputs. Before reusing a cached result, the
+runtime proves the closure's source-snapshot entries unchanged. It reads an
+entry again only when the file's identity (device, inode, mode, size,
+modification and change times) differs from the identity at its last proof in
+the run. An identity is remembered only when the file's change time precedes
+the proof by more than filesystem timestamp granularity, so an edit during the
+run always blocks reuse.
 
 The work-graph owner becomes `cartulary.harness_work_graph_owner.v11`. Each
 policy unit declares `current_run_evidence_outputs`: the run-root-relative

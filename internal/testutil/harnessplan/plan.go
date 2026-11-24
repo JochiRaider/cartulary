@@ -24,6 +24,9 @@ const (
 	// makeInputSources is always cleared and never forwarded: a unit must not
 	// inherit the enclosing Make invocation's input provenance.
 	makeInputSources = "CARTULARY_MAKE_INPUT_SOURCES"
+	// maximumArgumentBytes keeps every command argument well inside the
+	// kernel's per-argument limit (128 KiB).
+	maximumArgumentBytes = 32 << 10
 )
 
 // Plan is a compiled graph bound to one invocation: everything the runtime
@@ -43,6 +46,24 @@ type Plan struct {
 	Cache                      []CacheFact           `json:"cache"`
 	SourceInputs               []SourceInput         `json:"source_inputs"`
 	CacheInputs                map[string][]int      `json:"cache_inputs"`
+	// binaries maps each runtime binary ID to the environment name that
+	// carries its path.
+	binaries map[string]string
+}
+
+// LaunchEnvironment is a unit's command environment with its runtime
+// binaries bound: each binary the unit consumes is set to its bound path and
+// every other runtime binary is cleared, so a unit cannot reach a binary its
+// dependencies did not produce.
+func (p *Plan) LaunchEnvironment(u *Unit) map[string]string {
+	environment := maps.Clone(u.Command.Environment)
+	for id, name := range p.binaries {
+		environment[name] = ""
+		if slices.Contains(u.RuntimeBinaryIDs, id) {
+			environment[name] = p.Bindings[name]
+		}
+	}
+	return environment
 }
 
 // Manifest is the run manifest (cartulary.harness_run_manifest.v3).
@@ -178,6 +199,10 @@ func Assemble(in *Inputs, graph *Graph, invocation Invocation) (*Plan, error) {
 		Cache:                      slices.Clone(invocation.Cache),
 		SourceInputs:               slices.Clone(invocation.SourceInputs),
 		CacheInputs:                maps.Clone(invocation.CacheInputs),
+		binaries:                   map[string]string{},
+	}
+	for _, binary := range in.Topology.RuntimeBinaries {
+		plan.binaries[binary.ID] = binary.ConsumerEnv
 	}
 	if plan.CacheInputs == nil {
 		plan.CacheInputs = map[string][]int{}
@@ -245,6 +270,16 @@ func (p *Plan) validateUnits() error {
 		if len(u.Claims) == 0 {
 			return fail(u.ID, "declares no claims")
 		}
+		for _, argument := range u.Command.Args {
+			if len(argument) > maximumArgumentBytes {
+				return fail(u.ID, "a command argument exceeds %d bytes", maximumArgumentBytes)
+			}
+		}
+		for _, id := range u.RuntimeBinaryIDs {
+			if p.Bindings[p.binaries[id]] == "" {
+				return fail(u.ID, "runtime binary %s has no launch binding", id)
+			}
+		}
 		if slices.Contains(u.SharedLocks, "host_activity") == slices.Contains(u.ExclusiveLocks, "host_activity") {
 			return fail(u.ID, "must hold host_activity in exactly one mode")
 		}
@@ -254,6 +289,9 @@ func (p *Plan) validateUnits() error {
 				return fail(u.ID, "resident %s disagrees with another unit's", resident.Key)
 			}
 			residents[resident.Key] = resident
+			if resident.Scope == ScopeAttached {
+				continue
+			}
 			for name, amount := range resident.Claims {
 				switch name {
 				case "cpu", "io":

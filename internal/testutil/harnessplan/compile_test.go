@@ -166,6 +166,43 @@ func TestPlannerCompilation(t *testing.T) {
 		}
 	})
 
+	t.Run("an attached session holds the shared allocations", func(t *testing.T) {
+		attached := options
+		attached.AttachedServices = true
+		graph, err := Compile(inputs, Selection{Rows: rowsWhere(func(row Row) bool {
+			return row.Runner == RunnerGo && row.FixtureProfileID == "" && row.EvidenceClass != "measurement" && row.PostgresIsolation != "none" && row.FixtureCapability != "none"
+		})}, attached)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, unit := range graph.Units {
+			for _, resident := range unit.Residents {
+				if want := map[bool]string{true: ScopeUnit, false: ScopeAttached}[strings.HasPrefix(resident.Key, "postgres:unit:")]; resident.Scope != want {
+					t.Fatalf("%s resident %s has scope %s, want %s", unit.ID, resident.Key, resident.Scope, want)
+				}
+			}
+		}
+	})
+
+	t.Run("Go units carry their rows on the command line", func(t *testing.T) {
+		graph, err := Compile(inputs, Selection{Rows: rowsWhere(plannable)}, options)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, unit := range graph.Units {
+			if !strings.HasPrefix(unit.ID, "go:") {
+				continue
+			}
+			var rows []string
+			for _, binding := range unit.RowBindings {
+				rows = append(rows, binding.RowID)
+			}
+			if len(unit.Command.Args) != 3 || unit.Command.Args[1] != "--row-ids" || unit.Command.Args[2] != strings.Join(rows, ",") {
+				t.Fatalf("%s command %v does not name its rows", unit.ID, unit.Command.Args)
+			}
+		}
+	})
+
 	t.Run("Go units are balanced under their size target", func(t *testing.T) {
 		graph, err := Compile(inputs, Selection{Rows: rowsWhere(func(row Row) bool {
 			return row.Runner == RunnerGo && row.FixtureProfileID == "" && row.EvidenceClass != "measurement"

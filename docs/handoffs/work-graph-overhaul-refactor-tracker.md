@@ -598,11 +598,64 @@ Open items found here:
   declaration of data roots anywhere in the repository, which needs a spec
   change.
 
-**Remaining milestone 2 slice.** 2e: the runtime calls the planner
-in-process for Go-planned slices behind a planner selector, writes
-`plan.json` to the run root, reads residents by key and verifies source
-freshness once per file; that removes the compiler subprocess and the plan
-decode round trip on that path.
+**Milestone 2, slice 2e: the runtime runs Go plans (2026-11-23).** With
+`CARTULARY_HARNESS_PLANNER=go`, the runtime plans the invocation with
+`harnessplan.Prepare` in-process. There is no compiler process, descriptor or
+plan decode on that path. The JavaScript compiler stays the default. A
+selection the Go planner does not support fails as a usage error; it never
+falls back. Units do not inherit the selector.
+
+- *Adoption.* `adoptPlan` maps the Go plan onto the runtime's execution model
+  once. The plan itself is the published run-root document (`plan.json`, in
+  place of `execution-context.json`). Runtime binaries are bound at adoption
+  (`Plan.LaunchEnvironment`): a unit's listed binaries get their paths and
+  every other binary is cleared. Planner rejections become the same closed
+  preparation diagnostic the JavaScript path renders. Accounted runs impose
+  their cache and instrumentation modes through the request, not the
+  environment.
+- *Residents.* Host admission holds a unit's residents by the keys the plan
+  names (`WorkRequirement.Residents`). It derives them from `Physical` in one
+  place only for JavaScript-planned units; that path is deleted at the switch.
+  The planner marks the shared generation and object store `attached` in
+  attach mode; admission does not charge attached residents.
+- *Children.* Go units carry their rows in the command (`--row-ids`), so the
+  row runner never reads or revalidates the published graph. Every argument
+  is bounded at 32 KiB (the longest today is 5 KB).
+- *Inputs.* Inputs that preparation turns into launch bindings (service mode,
+  session file) are not forwarded. The JavaScript planner rejects an explicit
+  session file as a credential input, which makes that documented input
+  unusable there.
+- *Freshness.* Cache lookups read a closure file again only when its identity
+  (device, inode, mode, size, modification and change times) differs from its
+  last proof in the run. An identity is remembered only when the file's change
+  time precedes the proof by more than one second (Git's racy-timestamp rule),
+  so a same-size rewrite within one timestamp tick is still detected. A first
+  attempt that remembered every proof broke `input_change_blocks_reuse` and
+  was replaced. The rule applies to both planners.
+
+Runs: Go-planned `test-slice` for the planner row (cache miss, then a hit in
+104 ms), `module.reportcomposition` (exclusive and shared PostgreSQL
+generations and the shared object store held by planner keys; all five rows
+pass) and `platform.objectstore` (all rows pass; the second run reuses all
+three cacheable units). The default JavaScript-planned `module.reportcomposition`
+still passes through derived residents. Tests: `TestGoPlannerAdoption`
+(adoption, residents, row arguments, binary binding, attach-mode scopes,
+request parsing, diagnostics), `TestRuntimeCacheFreshness`,
+`TestPhysicalResidents`, and planner cases for attached scope, row arguments,
+launch binding, the argument bound and imposed modes. Checks: `make lint
+CHECK=go`; the planner, native-runtime, scheduler-smoke, native-fixtures and
+fixture-broker rows; `source-check` `generated`, `schema` and `catalog`;
+`lint-markdown`; all pass.
+
+Milestone 2 is complete. Open items carried forward:
+
+- Post-run JavaScript readers (`explain-run`, retained checks, agent-finalize
+  retained runs) read `execution-context.json` and do not yet accept a
+  Go-planned run's `plan.json`. They move to the plan in Stage 2.
+- Attach mode is covered by tests, not by a run against a live local service
+  session.
+- The JavaScript row runner keeps `--unit-rows` for JavaScript plans until
+  the switch.
 
 ## 9. Decisions requested
 

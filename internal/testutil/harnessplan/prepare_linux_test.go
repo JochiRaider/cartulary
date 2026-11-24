@@ -168,6 +168,18 @@ func TestPlanPreparation(t *testing.T) {
 		}
 	})
 
+	t.Run("the runtime's imposed modes override the command's inputs", func(t *testing.T) {
+		request := command(map[string]string{"OWNER": "harness.command_surface", "ROWS": row, cacheModeInput: "normal"})
+		request.CacheMode, request.InstrumentationMode = "off", "basic"
+		plan, err := Prepare(root, request, now, 42)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if plan.Manifest.CacheMode != "off" || plan.Manifest.Instrumentation.Mode != "basic" || plan.Manifest.DeclaredInputs[cacheModeInput] != "normal" {
+			t.Fatalf("manifest modes %s/%s, declared %s", plan.Manifest.CacheMode, plan.Manifest.Instrumentation.Mode, plan.Manifest.DeclaredInputs[cacheModeInput])
+		}
+	})
+
 	t.Run("invalid and unsupported requests are rejected before work", func(t *testing.T) {
 		owned := map[string]string{"OWNER": "harness.command_surface", "ROWS": row}
 		with := func(request Request, change func(map[string]string)) Request {
