@@ -48,7 +48,10 @@
             "uniqueItems": true,
             "items": {
               "type": "string",
-              "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[A-Za-z0-9._@+/-]+$"
+              "pattern": "^[A-Za-z0-9._@+-][A-Za-z0-9._@+/-]*$",
+              "not": {
+                "pattern": "(?:^|/)\\.\\.(?:/|$)"
+              }
             }
           },
           "requires_vulnerability_database_revision": {

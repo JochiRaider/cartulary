@@ -47,7 +47,10 @@
     "message": { "type": "string", "minLength": 1, "maxLength": 2048 },
     "events_ref": {
       "type": "string",
-      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+      "pattern": "^[^/\n\r\u2028\u2029][^\n\r\u2028\u2029]*$",
+      "not": {
+        "pattern": "(?:^|/)\\.\\.(?:/|$)"
+      }
     },
     "events_sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
     "frontend_mode": { "const": "preview" },
@@ -60,7 +63,10 @@
       "items": {
         "type": "string",
         "minLength": 1,
-        "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+        "pattern": "^[^/\n\r\u2028\u2029][^\n\r\u2028\u2029]*$",
+        "not": {
+          "pattern": "(?:^|/)\\.\\.(?:/|$)"
+        }
       }
     }
   },

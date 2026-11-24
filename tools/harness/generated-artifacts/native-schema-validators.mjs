@@ -3,7 +3,8 @@
 // must be implemented and tested explicitly; unsupported keywords stop generation.
 const annotations = new Set(["$schema", "$id", "$comment", "$defs", "title", "description", "default", "examples", "format"]);
 const assertions = new Set(["$ref", "type", "const", "enum", "minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "minLength", "maxLength", "minProperties", "maxProperties", "pattern", "required", "properties", "patternProperties", "additionalProperties", "propertyNames", "items", "prefixItems", "minItems", "maxItems", "uniqueItems", "allOf", "anyOf", "oneOf", "not", "if", "then", "else"]);
-const q = JSON.stringify;
+// Go string literals; keep invisible line separators visible as escapes.
+const q = (value) => JSON.stringify(value).replace(/[\u2028\u2029]/gu, (c) => `\\u${c.charCodeAt(0).toString(16)}`);
 // Token patterns dominate the harness schemas. Project this deliberately small
 // anchored grammar to byte predicates, so every reader does not rebuild a large
 // regexp automaton. Other patterns retain the validated RE2 implementation.
@@ -29,21 +30,16 @@ function tokenPredicate(pattern) {
   if (repeated) { min++; if (max !== -1) max++; }
   return `schemaToken(s,${q(rawPrefix.replaceAll("\\.", "."))},${min},${max},${mask(first)},${mask(repeated ?? first)})`;
 }
-const relativePattern = "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*(?:^|/)\\.(?:/|$))(?!.*//)[A-Za-z0-9._@+,:=-]+(?:/[A-Za-z0-9._@+,:=-]+)*$";
+// ECMAScript `.` also excludes these line terminators, so patterns written
+// without `.` name them; a literal code point means itself in both engines.
+const lineTerminators = new Set(["\u2028", "\u2029"]);
 function validatePattern(pattern) {
-  if (pattern === relativePattern) return;
-  if (pattern === "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*//)[A-Za-z0-9._@+-]+(?:/[A-Za-z0-9._@+-]+)*$") return;
-  if (pattern === "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[A-Za-z0-9._@+-]+(?:/[A-Za-z0-9._@+-]+)*$" || pattern === "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*[\\\\\\u0000]).+$") return;
-  if (pattern === "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$") return;
-  if (pattern === "^(?!/)(?!.*\\\\)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*//)[A-Za-z0-9._@+/-]+$") return;
-  // The catalog's exact reserved-segment assertions have a native predicate.
-  pattern = pattern.replaceAll("(?!phase[0-9]+\\.|fe_p[0-9]+\\.)", "").replaceAll("(?!phase[0-9]+$|fe_p[0-9]+$)", "");
-  // Deliberately admit only the shared ECMAScript/RE2 vocabulary. A future
-  // expression outside this subset needs an explicit projection and probes.
+  // Deliberately admit only the shared ECMAScript/RE2 vocabulary. Assertions an
+  // engine lacks are expressed in schema terms, such as `not` over a pattern.
   let inClass = false;
   for (let index = 0; index < pattern.length; index++) {
     const c = pattern[index];
-    if (c.charCodeAt(0) > 127) throw Error("native projection: unsupported Unicode regex literal");
+    if (c.charCodeAt(0) > 127 && !lineTerminators.has(c)) throw Error("native projection: unsupported Unicode regex literal");
     if (c === "\\") {
       const next = pattern[++index];
       if (!next || /[A-Za-z0-9]/u.test(next) && !/[dDwW]/u.test(next)) throw Error("native projection: unsupported regex escape");

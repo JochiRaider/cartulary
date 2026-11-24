@@ -114,7 +114,11 @@
         "string",
         "null"
       ],
-      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+      "pattern": "^[^/\n\r\u2028\u2029][^\n\r\u2028\u2029]*$",
+      "not": {
+        "type": "string",
+        "pattern": "(?:^|/)\\.\\.(?:/|$)"
+      }
     },
     "database_stage": {
       "type": [
@@ -144,7 +148,11 @@
         "string",
         "null"
       ],
-      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+      "pattern": "^[^/\n\r\u2028\u2029][^\n\r\u2028\u2029]*$",
+      "not": {
+        "type": "string",
+        "pattern": "(?:^|/)\\.\\.(?:/|$)"
+      }
     },
     "tainted": {
       "type": "boolean"

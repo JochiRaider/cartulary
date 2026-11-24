@@ -47,7 +47,10 @@
     "base_stack_ref": {
       "type": "string",
       "minLength": 1,
-      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+      "pattern": "^[^/\n\r\u2028\u2029][^\n\r\u2028\u2029]*$",
+      "not": {
+        "pattern": "(?:^|/)\\.\\.(?:/|$)"
+      }
     },
     "base_stack_sha256": {
       "type": "string",

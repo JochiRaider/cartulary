@@ -275,12 +275,18 @@
     "run_relative_path": {
       "type": "string",
       "minLength": 1,
-      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+      "pattern": "^[^/\n\r\u2028\u2029][^\n\r\u2028\u2029]*$",
+      "not": {
+        "pattern": "(?:^|/)\\.\\.(?:/|$)"
+      }
     },
     "repo_relative_path": {
       "type": "string",
       "minLength": 1,
-      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+      "pattern": "^[^/\n\r\u2028\u2029][^\n\r\u2028\u2029]*$",
+      "not": {
+        "pattern": "(?:^|/)\\.\\.(?:/|$)"
+      }
     },
     "process_proof": {
       "type": "object",

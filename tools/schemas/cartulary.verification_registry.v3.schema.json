@@ -37,7 +37,10 @@
   "$defs": {
     "ownerId": {
       "type": "string",
-      "pattern": "^(?:module|platform|app|web|package|harness)\\.(?!phase[0-9]+$|fe_p[0-9]+$)[a-z][a-z0-9_]{0,62}$",
+      "pattern": "^(?:module|platform|app|web|package|harness)\\.[a-z][a-z0-9_]{0,62}$",
+      "not": {
+        "pattern": "(?:^|\\.)(?:phase[0-9]+|fe_p[0-9]+)(?:\\.|$)"
+      },
       "maxLength": 191
     }
   }

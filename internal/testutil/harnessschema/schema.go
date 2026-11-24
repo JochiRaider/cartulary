@@ -118,78 +118,10 @@ func schemaUnique(values []any) bool {
 	}
 	return true
 }
+
+// MatchPattern applies an authored schema pattern with RE2 semantics. Generation
+// admits only the vocabulary RE2 and ECMAScript interpret alike.
 func MatchPattern(pattern, value string) bool {
-	// The authored relative-reference pattern has negative lookaheads. Project
-	// those predicates explicitly; all other authored patterns use RE2 syntax.
-	const relative = `^(?!/)(?!.*(?:^|/)\.\.(?:/|$))(?!.*(?:^|/)\.(?:/|$))(?!.*//)[A-Za-z0-9._@+,:=-]+(?:/[A-Za-z0-9._@+,:=-]+)*$`
-	const legacyReference = `^(?!/)(?!.*(?:^|/)\.\.(?:/|$)).+$`
-	const cachePath = `^(?!/)(?!.*\\)(?!.*(?:^|/)\.{1,2}(?:/|$))(?!.*//)[A-Za-z0-9._@+/-]+$`
-	if pattern == cachePath {
-		if strings.HasPrefix(value, "/") || strings.Contains(value, "//") {
-			return false
-		}
-		for _, part := range strings.Split(value, "/") {
-			if part == "." || part == ".." {
-				return false
-			}
-		}
-		pattern = `^[A-Za-z0-9._@+/-]+$`
-	}
-	const reservedPart = `(?!phase[0-9]+\.|fe_p[0-9]+\.)`
-	const reservedLast = `(?!phase[0-9]+$|fe_p[0-9]+$)`
-	if strings.Contains(pattern, reservedPart) || strings.Contains(pattern, reservedLast) {
-		for _, part := range strings.Split(value, ".") {
-			for _, prefix := range []string{"phase", "fe_p"} {
-				if !strings.HasPrefix(part, prefix) {
-					continue
-				}
-				suffix := strings.TrimPrefix(part, prefix)
-				digits := suffix != ""
-				for _, c := range suffix {
-					if c < '0' || c > '9' {
-						digits = false
-					}
-				}
-				if digits {
-					return false
-				}
-			}
-		}
-		pattern = strings.ReplaceAll(strings.ReplaceAll(pattern, reservedPart, ""), reservedLast, "")
-	}
-	const reviewReference = `^(?!/)(?!.*(?:^|/)\.\.(?:/|$))(?!.*[\\\u0000]).+$`
-	const repositoryPath = `^(?!/)(?!.*(?:^|/)\.\.(?:/|$))[A-Za-z0-9._@+-]+(?:/[A-Za-z0-9._@+-]+)*$`
-	const fixturePath = `^(?!/)(?!.*(?:^|/)\.\.(?:/|$))(?!.*//)[A-Za-z0-9._@+-]+(?:/[A-Za-z0-9._@+-]+)*$`
-	if pattern == repositoryPath || pattern == fixturePath {
-		for _, part := range strings.Split(value, "/") {
-			if part == ".." {
-				return false
-			}
-		}
-		pattern = `^[A-Za-z0-9._@+-]+(?:/[A-Za-z0-9._@+-]+)*$`
-	}
-	if pattern == reviewReference && strings.ContainsAny(value, "\\\x00") {
-		return false
-	}
-	if pattern == legacyReference || pattern == reviewReference {
-		if value == "" || strings.HasPrefix(value, "/") || strings.ContainsAny(value, "\n\r\u2028\u2029") {
-			return false
-		}
-		for _, part := range strings.Split(value, "/") {
-			if part == ".." {
-				return false
-			}
-		}
-		return true
-	}
-	if pattern == relative {
-		for _, part := range strings.Split(value, "/") {
-			if part == "." || part == ".." {
-				return false
-			}
-		}
-		pattern = `^[A-Za-z0-9._@+,:=-]+(?:/[A-Za-z0-9._@+,:=-]+)*$`
-	}
 	expression, found := schemaPatterns.Load(pattern)
 	if !found {
 		compiled, err := regexp.Compile(pattern)

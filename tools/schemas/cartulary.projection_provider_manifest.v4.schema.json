@@ -58,17 +58,26 @@
     "repo_relative_path": {
       "type": "string",
       "minLength": 1,
-      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\).+$"
+      "pattern": "^[^/\\\\\n\r\u2028\u2029][^\\\\\n\r\u2028\u2029]*$",
+      "not": {
+        "pattern": "(?:^|/)\\.\\.(?:/|$)"
+      }
     },
     "repo_relative_go_file": {
       "type": "string",
       "minLength": 1,
-      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\).+\\.go$"
+      "pattern": "^[^/\\\\\n\r\u2028\u2029][^\\\\\n\r\u2028\u2029]*\\.go$",
+      "not": {
+        "pattern": "(?:^|/)\\.\\.(?:/|$)"
+      }
     },
     "repo_relative_package": {
       "type": "string",
       "minLength": 1,
-      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\).+$"
+      "pattern": "^[^/\\\\\n\r\u2028\u2029][^\\\\\n\r\u2028\u2029]*$",
+      "not": {
+        "pattern": "(?:^|/)\\.\\.(?:/|$)"
+      }
     },
     "identifier": {
       "type": "string",

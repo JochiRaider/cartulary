@@ -30,13 +30,17 @@ func TestDiagnosticSchema(t *testing.T) {
 	if Validate("cartulary.harness_run_observation.v1", emptyObservation()) == nil {
 		t.Fatal("accepted obsolete schema")
 	}
-	for _, path := range []string{"a/b", "a_b/long-name.1", "a@b"} {
-		if !schemaPattern(`^(?!/)(?!.*(?:^|/)\.\.(?:/|$))(?!.*(?:^|/)\.(?:/|$))(?!.*//)[A-Za-z0-9._@+,:=-]+(?:/[A-Za-z0-9._@+,:=-]+)*$`, path) {
+	// The run-relative path schema pairs segment syntax with a dot-segment `not`.
+	runRelative := func(path string) bool {
+		return schemaPattern(`^[A-Za-z0-9._@+,:=-]+(?:/[A-Za-z0-9._@+,:=-]+)*$`, path) && !schemaPattern(`(?:^|/)\.\.?(?:/|$)`, path)
+	}
+	for _, path := range []string{"a/b", "a_b/long-name.1", "a@b", "a/..b", ".a/b"} {
+		if !runRelative(path) {
 			t.Fatalf("rejected %s", path)
 		}
 	}
-	for _, path := range []string{"/a", "a/../b", "a/./b", "a//b", "a/"} {
-		if schemaPattern(`^(?!/)(?!.*(?:^|/)\.\.(?:/|$))(?!.*(?:^|/)\.(?:/|$))(?!.*//)[A-Za-z0-9._@+,:=-]+(?:/[A-Za-z0-9._@+,:=-]+)*$`, path) {
+	for _, path := range []string{"/a", "a/../b", "a/./b", "a//b", "a/", "..", "a/."} {
+		if runRelative(path) {
 			t.Fatalf("accepted %s", path)
 		}
 	}

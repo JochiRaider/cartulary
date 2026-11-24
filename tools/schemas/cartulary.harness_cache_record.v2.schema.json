@@ -40,7 +40,7 @@
       "required": ["artifact_type", "relative_path", "destination_class", "mode", "digest", "producer_identity", "semantic_input_digest", "members"],
       "properties": {
         "artifact_type": { "enum": ["file", "directory"] },
-        "relative_path": { "type": "string", "minLength": 1, "maxLength": 512, "pattern": "^(?!/)(?!.*\\\\)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*//)[A-Za-z0-9._@+/-]+$" },
+        "relative_path": { "type": "string", "minLength": 1, "maxLength": 512, "pattern": "^[A-Za-z0-9._@+-][A-Za-z0-9._@+/-]*$", "not": { "pattern": "//|(?:^|/)\\.{1,2}(?:/|$)" } },
         "destination_class": { "enum": ["run_root", "repository_artifact"] },
         "mode": { "type": "string", "pattern": "^0[0-7]{3}$" },
         "digest": { "$ref": "#/$defs/digest" },
@@ -54,7 +54,7 @@
       "required": ["artifact_type", "relative_path", "mode", "digest"],
       "properties": {
         "artifact_type": { "enum": ["file", "directory"] },
-        "relative_path": { "type": "string", "minLength": 1, "maxLength": 512, "pattern": "^(?!/)(?!.*\\\\)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*//)[A-Za-z0-9._@+/-]+$" },
+        "relative_path": { "type": "string", "minLength": 1, "maxLength": 512, "pattern": "^[A-Za-z0-9._@+-][A-Za-z0-9._@+/-]*$", "not": { "pattern": "//|(?:^|/)\\.{1,2}(?:/|$)" } },
         "mode": { "type": "string", "pattern": "^0[0-7]{3}$" },
         "digest": { "$ref": "#/$defs/digest" }
       }
