@@ -3820,6 +3820,7 @@ Verified by: TH-HARNESS-AC-002, TH-HARNESS-AC-029
 | `agent-finalize` | `ALLOW_OLDER_RESULTS_DIR` | `exact_1_bool` | no | make command line, environment, makefile default | none | omitted | `false` | `trim` | `exact_1_bool` | `usage_error`, exit `2` | `value` | `runtime_env` |
 | `agent-finalize` | `RESULTS_DIR` | `result_selector` | no | make command line, environment, makefile default | none | omitted | `omitted` | `path_token` | `result_selector` | `usage_error`, exit `2` | `value` | `runtime_env` |
 | `release-measure`, `credential-capacity-assessment` | `RELEASE_RESULTS_DIR` | `result_selector` | yes | make command line, environment, makefile default | none | missing required input | `invalid` | `path_token` | `result_selector` | `usage_error`, exit `2` | `value` | `runtime_env` |
+| `release` | `CI_RESULTS_DIR`, `RELEASE_CHECK_RESULTS_DIR`, `RELEASE_MEASURE_RESULTS_DIR` | `result_selector` | no | make command line | none | the stage runs | omitted | `path_token` | `result_selector` | `usage_error`, exit `2` | `value` | `argv` |
 | `task-guide`, `test-evidence-audit` | `OWNER` | `owner_id` | yes | make command line, environment, makefile default | none | missing required input | `invalid` | `trim` | `owner_id` | `usage_error`, exit `2` | `value` | `argv` |
 | `test-slice` | `OWNER` | `owner_id` | no | make command line, environment, makefile default | none | requires OWNER or SUITE | `invalid` | `trim` | `owner_id` | `usage_error`, exit `2` | `value` | `argv` |
 | `test-evidence-audit` | `EVIDENCE_ROOTS_FILE` | `path` | yes | make command line, environment, makefile default | none | missing required input | `invalid` | `path_token` | `path` | `usage_error`, exit `2` | `value` | `argv` |
@@ -12263,4 +12264,21 @@ passed in one of the three roots; an obligation no release command runs fails
 the release. The closure is `cartulary.release_evidence_closure.v2`: the
 admitted roots by command (target, run ID, graph digest and row count), the
 source and toolchain digests, the package identity and the obligation IDs.
+
+### Release composition — 2026-11-24
+
+`make release` composes a release and executes no work of its own (R5). For
+each of `ci`, `release-check` and `release-measure` in that order, it reuses a
+root the caller names (`CI_RESULTS_DIR`, `RELEASE_CHECK_RESULTS_DIR`,
+`RELEASE_MEASURE_RESULTS_DIR`) or runs the command as its own top-level Make
+invocation with the explicit run ID `<release run ID>.<command>` in the same
+results directory. A stage starts only after the previous one finished, so the
+quiet campaign never overlaps other work, and no root is chosen by recency.
+`release-measure` runs with `RELEASE_RESULTS_DIR` naming this release's
+`release-check` root. A stage inherits no Make state, harness identity,
+service attachment or release input, and its output goes to a log in the
+release's own run root. After the three stages pass, `make release` writes
+the roots file in its run root and runs `release-evidence-verify` the same
+way; that invocation is the release decision. A failed stage stops the
+release; a rerun names the passing roots and reruns the failed stage alone.
 

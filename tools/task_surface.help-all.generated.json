@@ -6964,6 +6964,109 @@
       ]
     },
     {
+      "name": "release",
+      "command_id": "cartulary.harness.command.release.v1",
+      "inputs": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": [
+          {
+            "name": "CI_RESULTS_DIR",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "result_selector",
+            "default": null,
+            "empty_string": "omitted",
+            "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "argv"
+          },
+          {
+            "name": "RELEASE_CHECK_RESULTS_DIR",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "result_selector",
+            "default": null,
+            "empty_string": "omitted",
+            "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "argv"
+          },
+          {
+            "name": "RELEASE_MEASURE_RESULTS_DIR",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "result_selector",
+            "default": null,
+            "empty_string": "omitted",
+            "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "argv"
+          }
+        ]
+      },
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 4,
+          "stdout_bytes": 2000,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.harness_run_summary.v1"
+      },
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        },
+        {
+          "class": "service_start",
+          "owner_section": "Section 11",
+          "ownership_mode": "harness_owned",
+          "lifecycle_machine": "service lifecycle from Section 11"
+        },
+        {
+          "class": "service_resource_mutation",
+          "owner_section": "Section 11",
+          "ownership_mode": "harness_owned",
+          "resource_families": [
+            "scratch databases",
+            "object buckets or prefixes",
+            "fixture resources",
+            "runtime roots"
+          ],
+          "lifecycle_machine": "fixture and service lifecycle from Section 11"
+        },
+        {
+          "class": "runtime_reset",
+          "owner_section": "Section 12",
+          "predicates_section": "Section 12"
+        }
+      ]
+    },
+    {
       "name": "release-evidence-verify",
       "command_id": "cartulary.harness.command.release_evidence_verify.v1",
       "inputs": {

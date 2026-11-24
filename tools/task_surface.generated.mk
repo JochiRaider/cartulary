@@ -89,6 +89,7 @@ else
   clean \
   distclean \
   test-run-recover \
+  release \
   release-evidence-verify \
   test-run-recovery-status \
   reference-pack-producer-build \
@@ -237,6 +238,8 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'  make package-inspect                install and inspect the exact archive without a checkout or build tools' \
 	'  make release-evidence-verify' \
 	'                                      EVIDENCE_ROOTS_FILE=<path> decide a release from its ci, release-check and release-measure roots without launching tests' \
+	'  make release' \
+	'                                      [CI_RESULTS_DIR=<root>] [RELEASE_CHECK_RESULTS_DIR=<root>] [RELEASE_MEASURE_RESULTS_DIR=<root>] compose a release: run each missing ci, release-check and release-measure stage, then verify' \
 	'  make reference-pack-producer-build  reproduce and retain the immutable reference-pack producer executable' \
 	'  make reference-pack-module-check' \
 	'                                      MODULE=format qualify an exported reference-pack module without application source' \
@@ -377,6 +380,8 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'  side effects: destructive_cleanup' \
 	'test-run-recover inputs: RESULTS_DIR=path (required), RUNTIME_ROOT=path (optional), RUNTIME_LEASE_ID=semantic_text (optional)' \
 	'  side effects: retained_artifacts, destructive_cleanup' \
+	'release inputs: CI_RESULTS_DIR=result_selector (optional), RELEASE_CHECK_RESULTS_DIR=result_selector (optional), RELEASE_MEASURE_RESULTS_DIR=result_selector (optional)' \
+	'  side effects: retained_artifacts, service_start, service_resource_mutation, runtime_reset' \
 	'release-evidence-verify inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), EVIDENCE_ROOTS_FILE=path (required), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off)' \
 	'  side effects: retained_artifacts' \
 	'test-run-recovery-status inputs: RESULTS_DIR=path (required)' \
@@ -1124,5 +1129,11 @@ go-error-declaration-check:
 	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS)" \
 	  $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target go-error-declaration-check
 endif
+
+release: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+release:
+	$(Q)test -x "$(NODE_BIN)" || { echo "installed Node runtime required; run make bootstrap PART=node" >&2; exit 2; }
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,release)
+	$(Q)$(call RUN_MAKE_NODE_TOOL,release,$(call TASK_SURFACE_ARGV_ENV,CI_RESULTS_DIR RELEASE_CHECK_RESULTS_DIR RELEASE_MEASURE_RESULTS_DIR) CARTULARY_TEST_RESULTS_DIR="$(CARTULARY_TEST_RESULTS_DIR)" CARTULARY_TEST_RUN_ID="$(CARTULARY_TEST_RUN_ID)",release)
 
 endif

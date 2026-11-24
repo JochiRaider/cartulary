@@ -4717,6 +4717,9 @@
           "deploy/mvp/scripts/package-verification.sh",
           "tools/release-evidence/tests/test-package-operation.mjs",
           "tools/release-evidence/tests/test-release-readiness-evidence.mjs",
+          "tools/release-evidence/tests/test-release-evidence.mjs",
+          "tools/release-evidence/verify-release-evidence.mjs",
+          "tools/release-evidence/release-cli.mjs",
           "tools/release-evidence/package-release.mjs",
           "tools/release-evidence/tests/test-package-release.mjs",
           "tools/release-evidence/package-identity.mjs",
@@ -6287,6 +6290,18 @@
         "test_target": "self",
         "success_summary": true,
         "graph_entry": true
+      },
+      "kind": "policy"
+    },
+    "harness.release": {
+      "report_key": "release",
+      "execution": {
+        "type": "owner_command",
+        "prerequisites": [
+          "$(NODE_BIN)"
+        ],
+        "runtime_readiness": "installed_only",
+        "tool_id": "release"
       },
       "kind": "policy"
     }

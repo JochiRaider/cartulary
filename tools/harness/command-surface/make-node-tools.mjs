@@ -126,6 +126,19 @@ const makeNodeTools = {
     },
   },
   "task-guide": ownerDiagnosticTool("task-guide", "task-guide"),
+  release: {
+    inputs: ["CI_RESULTS_DIR", "RELEASE_CHECK_RESULTS_DIR", "RELEASE_MEASURE_RESULTS_DIR"],
+    runtimeEnv: ["CARTULARY_TEST_RESULTS_DIR", "CARTULARY_TEST_RUN_ID"],
+    script: "./tools/release-evidence/release-cli.mjs",
+    usage: "usage: make release [CI_RESULTS_DIR=<root>] [RELEASE_CHECK_RESULTS_DIR=<root>] [RELEASE_MEASURE_RESULTS_DIR=<root>]",
+    buildArgs(env) {
+      const args = [];
+      optionalFlag(args, env, "CI_RESULTS_DIR", "--ci");
+      optionalFlag(args, env, "RELEASE_CHECK_RESULTS_DIR", "--release-check");
+      optionalFlag(args, env, "RELEASE_MEASURE_RESULTS_DIR", "--release-measure");
+      return args;
+    },
+  },
   "release-evidence-verify": {
     inputs: ["EVIDENCE_ROOTS_FILE"],
     runtimeEnv: ["CARTULARY_TEST_RESULTS_DIR", "CARTULARY_TEST_RUN_ID"],

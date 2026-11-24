@@ -6,6 +6,7 @@ import path from "node:path";
 import { buildCompleteEvidence, buildEvidenceUnit, loadFixtureIdentity, persistEvidence, writeEvidenceFile } from "../../harness/observability/tests/retained-fixture.mjs";
 import { packageConsumers, releaseObligations, releaseRoots, resolveReleaseRoots, verifyReleaseEvidence } from "../verify-release-evidence.mjs";
 import { verifyPackageIdentity } from "../package-identity.mjs";
+import { composeRelease } from "../release-cli.mjs";
 import { loadExecutionTopology } from "../../harness/generated-artifacts/execution-topology.mjs";
 import { loadTestCatalog } from "../../harness/test-catalog/index.mjs";
 
@@ -122,3 +123,24 @@ test("a roots file names exactly the three release roots and identical package i
   }
   assert.throws(() => verifyPackageIdentity(receipt, [["different image", {...receipt, images: receipt.images.map(image => ({...image, id: `sha256:${"f".repeat(64)}`}))}]]), /image identity mismatch/);
 });
+
+test("make release runs each missing stage once, in order, and verifies their roots", t => {
+  const parent = mkdtempSync(path.join(os.tmpdir(), "cartulary-release-compose-"));
+  t.after(() => rmSync(parent, {recursive: true, force: true}));
+  const calls = [];
+  const runMake = (target, { runID, inputs }) => { calls.push({ target, runID, inputs }); return 0; };
+  const outcome = composeRelease({ supplied: { ci: path.join(parent, "earlier-ci") }, runID: "rel", resultsDir: parent, releaseRoot: path.join(parent, "rel"), runMake });
+  assert.equal(outcome.status, 0);
+  assert.deepEqual(calls.map(call => [call.target, call.runID]), [
+    ["release-check", "rel.release-check"], ["release-measure", "rel.release-measure"], ["release-evidence-verify", "rel.release-evidence-verify"]]);
+  // release-measure consumes this release's release-check package.
+  assert.deepEqual(calls[1].inputs, { RELEASE_RESULTS_DIR: path.join(parent, "rel.release-check") });
+  assert.deepEqual(calls[2].inputs, { EVIDENCE_ROOTS_FILE: outcome.rootsFile });
+  assert.deepEqual(resolveReleaseRoots(JSON.parse(readFileSync(outcome.rootsFile, "utf8")), outcome.rootsFile), {
+    ci: path.join(parent, "earlier-ci"), release_check: path.join(parent, "rel.release-check"), release_measure: path.join(parent, "rel.release-measure") });
+  const stopped = [];
+  const failed = composeRelease({ supplied: {}, runID: "again", resultsDir: parent, releaseRoot: path.join(parent, "again"),
+    runMake: (target) => { stopped.push(target); return target === "release-check" ? 2 : 0; } });
+  assert.deepEqual([failed.status, failed.failed, stopped], [2, "release-check", ["ci", "release-check"]]);
+});
+

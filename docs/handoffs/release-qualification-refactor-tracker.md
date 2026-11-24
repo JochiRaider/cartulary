@@ -177,7 +177,9 @@ rows (no placement justification).
    digest and toolchain, every active measurement predicate, one package
    identity. `release_readiness_evidence` folds into the verifier's output.
 6. **S5 `make release` (R5).** Runs the missing stages with explicit run IDs,
-   writes the roots file, calls the verifier.
+   writes the roots file, calls the verifier. Done 2026-11-24
+   (`tools/release-evidence/release-cli.mjs`): stages run one at a time as
+   top-level commands, named roots are reused, logs stay in the release root.
 7. **S6 Cleanup.** Remove aggregate inheritance and quiet-only scheduling
    paths that no throughput graph uses any more.
 8. **S7 One real release**, with the owner's go-ahead.

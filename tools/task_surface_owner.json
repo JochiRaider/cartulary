@@ -120,6 +120,16 @@
         "reason": "Explicit post-run delivery observes retained invocations and is outside ordinary test execution."
       },
       {
+        "target": "reference-pack-package",
+        "owner_section": "Section 4",
+        "reason": "Explicit offline fixture production; product verification remains in owner-routed tests."
+      },
+      {
+        "target": "release",
+        "owner_section": "Section 10",
+        "reason": "Thin orchestration: each stage command and the verifier is its own observed invocation; release executes no work of its own."
+      },
+      {
         "target": "test-run-status",
         "owner_section": "Section 8.9",
         "reason": "Read-only diagnostic observation; no retained output or recursive observability."
@@ -158,11 +168,6 @@
         "target": "ui-review-stop",
         "owner_section": "Section 15.1",
         "reason": "Private diagnostic review retains structural receipts only and never exports transient detail."
-      },
-      {
-        "target": "reference-pack-package",
-        "owner_section": "Section 4",
-        "reason": "Explicit offline fixture production; product verification remains in owner-routed tests."
       }
     ],
     "out_of_scope_targets": [
@@ -710,6 +715,11 @@
           "usage": "EVIDENCE_ROOTS_FILE=<path>"
         },
         {
+          "target": "release",
+          "description": "compose a release: run each missing ci, release-check and release-measure stage, then verify",
+          "usage": "[CI_RESULTS_DIR=<root>] [RELEASE_CHECK_RESULTS_DIR=<root>] [RELEASE_MEASURE_RESULTS_DIR=<root>]"
+        },
+        {
           "target": "reference-pack-producer-build",
           "description": "reproduce and retain the immutable reference-pack producer executable"
         },
@@ -1105,6 +1115,10 @@
     "go-error-declaration-check": {
       "type": "operation",
       "operation_id": "harness.go_error_declaration_check"
+    },
+    "release": {
+      "type": "operation",
+      "operation_id": "harness.release"
     }
   },
   "targets": [
@@ -10124,6 +10138,129 @@
             "invalid_reason": "configuration_error",
             "summary_emission": "redacted_value",
             "child_forwarding": "runtime_env"
+          }
+        ]
+      }
+    },
+    {
+      "name": "release",
+      "backing_scripts": [
+        "tools/release-evidence/release-cli.mjs",
+        "tools/release-evidence/verify-release-evidence.mjs"
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 4,
+          "stdout_bytes": 2000,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.harness_run_summary.v1"
+      },
+      "command_id": "cartulary.harness.command.release.v1",
+      "semantic_behaviors": [
+        {
+          "behavior": "scheduler_orchestration",
+          "owner_section": "Section 10"
+        },
+        {
+          "behavior": "evidence_normalization",
+          "owner_section": "Section 8"
+        }
+      ],
+      "target_class": "public",
+      "default_inclusion_sets": [
+        "helper_only"
+      ],
+      "lifecycle_state": "public_active",
+      "family_id": "aggregates_gates",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        },
+        {
+          "class": "service_start",
+          "owner_section": "Section 11",
+          "ownership_mode": "harness_owned",
+          "lifecycle_machine": "service lifecycle from Section 11"
+        },
+        {
+          "class": "service_resource_mutation",
+          "owner_section": "Section 11",
+          "ownership_mode": "harness_owned",
+          "resource_families": [
+            "scratch databases",
+            "object buckets or prefixes",
+            "fixture resources",
+            "runtime roots"
+          ],
+          "lifecycle_machine": "fixture and service lifecycle from Section 11"
+        },
+        {
+          "class": "runtime_reset",
+          "owner_section": "Section 12",
+          "predicates_section": "Section 12"
+        }
+      ],
+      "input_contract": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": [
+          {
+            "name": "CI_RESULTS_DIR",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "result_selector",
+            "default": null,
+            "empty_string": "omitted",
+            "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "argv"
+          },
+          {
+            "name": "RELEASE_CHECK_RESULTS_DIR",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "result_selector",
+            "default": null,
+            "empty_string": "omitted",
+            "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "argv"
+          },
+          {
+            "name": "RELEASE_MEASURE_RESULTS_DIR",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "result_selector",
+            "default": null,
+            "empty_string": "omitted",
+            "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "argv"
           }
         ]
       }
