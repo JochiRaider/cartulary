@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"maps"
 	"slices"
 	"strings"
 	"sync/atomic"
@@ -139,9 +138,6 @@ type enginePorts struct {
 	Pause            func(context.Context) error
 	Resume           func()
 	Observe          func(engineSnapshot)
-	// AttachedServices reports that a persistent owner holds the shared
-	// services, so their residents are not charged to this graph.
-	AttachedServices bool
 }
 type engineSnapshot struct {
 	Phase     string
@@ -186,8 +182,6 @@ type graphEngine struct {
 	ranks, eligibleAt, claims map[string]int64
 	shared                    map[string]int
 	exclusive                 map[string]bool
-	residentConsumers         map[string]int
-	residentHeld              map[string]map[string]int64
 	running, eligible         map[string]bool
 	waits                     map[string]waitDetails
 	activities                map[string]string
@@ -214,16 +208,11 @@ func executeGraph(ctx context.Context, plan *Plan, ports enginePorts) (graphResu
 	defer cancel()
 	e := &graphEngine{plan: plan, ports: ports, ctx: ctx, cancel: cancel, mailbox: make(chan engineMessage, 256),
 		byID: map[string]unit{}, ranks: map[string]int64{}, eligibleAt: map[string]int64{}, claims: map[string]int64{},
-		shared: map[string]int{}, exclusive: map[string]bool{}, residentConsumers: map[string]int{}, residentHeld: map[string]map[string]int64{}, running: map[string]bool{}, eligible: map[string]bool{},
+		shared: map[string]int{}, exclusive: map[string]bool{}, running: map[string]bool{}, eligible: map[string]bool{},
 		waits: map[string]waitDetails{}, activities: map[string]string{}, activityWait: map[string]string{}, starts: map[string]*int64{}, phase: "executing",
 		result: graphResult{States: map[string]string{}, Units: map[string]unitResult{}, Admissions: []string{}, Events: []map[string]any{}, Cleanup: []cleanupRecord{}}}
 	for _, u := range plan.facts.Graph.Units {
 		e.byID[u.ID] = u
-		for _, r := range e.residents(u) {
-			if r.shared {
-				e.residentConsumers[r.key]++
-			}
-		}
 		e.result.States[u.ID] = "pending"
 	}
 	e.computeRanks()
@@ -427,7 +416,7 @@ func readyExclusiveWaiters(ready []unit) map[string][]string {
 func (e *graphEngine) blocking(u unit, barriers map[string][]string) waitDetails {
 	w := waitDetails{"rank", []string{}, []string{}}
 	locks := []string{}
-	for r, n := range e.footprint(u) {
+	for r, n := range u.Claims {
 		requested := e.claims[r] + n
 		if r == "volume" {
 			requested = max(e.claims[r], n)
@@ -559,23 +548,15 @@ func (e *graphEngine) closeWait(id string, at int64) {
 }
 func (e *graphEngine) reserve(u unit, direction int64) {
 	for k, v := range u.Claims {
-		if k != "volume" {
-			e.claims[k] += direction * v
-		}
-	}
-	// A unit's own residents live as long as its admission; a shared resident
-	// is charged by its first consumer and released in consumerTerminal.
-	for _, r := range e.residents(u) {
-		if r.shared {
-			if direction > 0 && e.residentHeld[r.key] == nil {
-				e.residentHeld[r.key] = r.claims
-				e.chargeResident(r.claims, 1)
+		if k == "volume" {
+			e.claims[k] = 0
+			for id := range e.running {
+				e.claims[k] = max(e.claims[k], e.byID[id].Claims[k])
 			}
 			continue
 		}
-		e.chargeResident(r.claims, direction)
+		e.claims[k] += direction * v
 	}
-	e.settleVolume()
 	for _, l := range u.SharedLocks {
 		e.shared[l] += int(direction)
 	}
@@ -925,100 +906,9 @@ func (e *graphEngine) recordCleanup(r cleanupRecord) {
 }
 
 func (e *graphEngine) consumerTerminal(id, disposition string) {
-	for _, r := range e.residents(e.byID[id]) {
-		if !r.shared {
-			continue
-		}
-		e.residentConsumers[r.key]--
-		if held := e.residentHeld[r.key]; held != nil && e.residentConsumers[r.key] == 0 {
-			delete(e.residentHeld, r.key)
-			e.chargeResident(held, -1)
-			e.settleVolume()
-		}
-	}
 	if e.ports.ConsumerTerminal != nil {
 		if err := e.ports.ConsumerTerminal(id, disposition); err != nil {
 			e.requiredError(err)
 		}
 	}
-}
-
-// residentAllocation is one physical resident a unit's admission creates or
-// shares, keyed as host admission keys it (harnessfixtures Production.Admit
-// and clusterKey).
-type residentAllocation struct {
-	key    string
-	shared bool
-	claims map[string]int64
-}
-
-// residents lists the residents the logical layer charges for u
-// (TH-HARNESS-REQ-802 footprint): the shared object store, the shared
-// PostgreSQL generation and a unit's own exclusive generation. Browser
-// stacks, renderer slots and measurement generations stay physical-only.
-func (e *graphEngine) residents(u unit) []residentAllocation {
-	var out []residentAllocation
-	if claims := u.Physical["object_store"]; len(claims) != 0 && !e.ports.AttachedServices {
-		out = append(out, residentAllocation{"object_store:shared", true, claims})
-	}
-	if claims := u.Physical["postgres"]; len(claims) != 0 {
-		switch {
-		case u.PostgresIsolation == "shared":
-			if !e.ports.AttachedServices {
-				out = append(out, residentAllocation{"postgres:shared", true, claims})
-			}
-		case u.PostgresIsolation == "exclusive" && u.FixtureProfile == "" && u.Command.Environment["CARTULARY_FIXTURE_PROFILE_ID"] == "" && u.Fixture != "browser_stack":
-			out = append(out, residentAllocation{"postgres:unit:" + u.ID, false, claims})
-		}
-	}
-	return out
-}
-
-// footprint is what admitting u would add to the logical ledger now: its
-// active claims plus each of its residents not already charged.
-func (e *graphEngine) footprint(u unit) map[string]int64 {
-	f := maps.Clone(u.Claims)
-	if f == nil {
-		f = map[string]int64{}
-	}
-	for _, r := range e.residents(u) {
-		if r.shared && e.residentHeld[r.key] != nil {
-			continue
-		}
-		for k, v := range r.claims {
-			if k == "volume" {
-				f[k] = max(f[k], v)
-			} else {
-				f[k] += v
-			}
-		}
-	}
-	return f
-}
-
-func (e *graphEngine) chargeResident(claims map[string]int64, direction int64) {
-	for k, v := range claims {
-		if k != "volume" {
-			e.claims[k] += direction * v
-		}
-	}
-}
-
-// settleVolume recomputes the capability-style volume claim as the largest
-// held by any running unit, its own residents or a charged shared resident.
-func (e *graphEngine) settleVolume() {
-	volume := int64(0)
-	for id := range e.running {
-		u := e.byID[id]
-		volume = max(volume, u.Claims["volume"])
-		for _, r := range e.residents(u) {
-			if !r.shared {
-				volume = max(volume, r.claims["volume"])
-			}
-		}
-	}
-	for _, claims := range e.residentHeld {
-		volume = max(volume, claims["volume"])
-	}
-	e.claims["volume"] = volume
 }
