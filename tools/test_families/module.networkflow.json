@@ -1007,7 +1007,7 @@
       "selector": {
         "file": "apps/web/src/networkFlow/NetworkAnalysisWorkspace.test.tsx",
         "titles": [
-          "Verify production Network Flow grids, read-only behavior, stable references, virtualization, and adapter boundaries compose through semantic identities."
+          "NetworkAnalysisWorkspace Verify production Network Flow grids, read-only behavior, stable references, virtualization, and adapter boundaries compose through semantic identities."
         ],
         "project_id": "browser-unit"
       },
@@ -1035,7 +1035,7 @@
       "selector": {
         "file": "apps/web/src/networkFlow/networkFlowPresentation.node.test.ts",
         "titles": [
-          "derives default, conversation-counter and inspector-only accepted-row columns from the extension presentation registry"
+          "Network Flow presentation metadata derives default, conversation-counter and inspector-only accepted-row columns from the extension presentation registry"
         ],
         "project_id": "node-unit"
       },

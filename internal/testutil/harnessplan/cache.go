@@ -3,6 +3,7 @@ package harnessplan
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"go/parser"
@@ -22,6 +23,7 @@ const (
 	strategyBroad         = "broad"
 	strategyBroadFallback = "broad_fallback"
 	strategyGoPackages    = "go_packages"
+	strategyWorkspaces    = "typescript_workspaces"
 )
 
 // CacheContext is what every cache key binds besides the unit and its
@@ -50,6 +52,8 @@ type cachePlanner struct {
 	context  CacheContext
 	closures map[string]closure
 	imports  map[string][]string
+	// workspaces are the frontend workspaces by package name, once read.
+	workspaces map[string]workspace
 	// entries holds each snapshot entry's canonical JSON once computed.
 	entries map[int][]byte
 }
@@ -145,11 +149,12 @@ func (p *cachePlanner) profile(unit *Unit) (*CacheProfile, error) {
 }
 
 // closure resolves a unit's dependency closure. A unit-aware profile narrows
-// Go units to their packages; any incomplete knowledge selects the profile's
-// broad closure, recorded as a fallback.
+// Go units to their packages and Vitest units to their workspaces; any
+// incomplete knowledge selects the profile's broad closure, recorded as a
+// fallback.
 func (p *cachePlanner) closure(profile *CacheProfile, unit *Unit) closure {
 	if profile.DependencyStrategy == "unit_aware" {
-		if closure, err := p.goClosure(profile, unit); err == nil {
+		if closure, err := p.unitClosure(profile, unit); err == nil {
 			return closure
 		}
 		return p.broad(profile, strategyBroadFallback, "resolution_incomplete")
@@ -172,40 +177,64 @@ func (p *cachePlanner) broad(profile *CacheProfile, strategy, reason string) clo
 	return closure
 }
 
-// goClosure is the closure of a Go unit: its packages and their
-// repository-local imports with everything beneath them and their enclosing
-// modules' manifests, the profile's unit inputs, the selected owners'
-// manifests, and the rows' fixture roots.
-func (p *cachePlanner) goClosure(profile *CacheProfile, unit *Unit) (closure, error) {
-	var packages, owners, fixtures []string
+// unitClosure is the closure of a Go or Vitest unit: what its rows run
+// (Go packages and their repository-local imports, or frontend workspaces and
+// their declared workspace dependencies) with everything beneath them, the
+// profile's unit inputs, the selected owners' manifests, and the rows'
+// fixture roots.
+func (p *cachePlanner) unitClosure(profile *CacheProfile, unit *Unit) (closure, error) {
+	var selected, owners, fixtures []string
+	runner := ""
 	for _, binding := range unit.RowBindings {
 		row := p.in.row(binding.RowID)
-		if row.RowID == "" || row.Runner != RunnerGo {
-			return closure{}, errors.New("a selected row is unknown or not a Go row")
+		if row.RowID == "" || runner != "" && row.Runner != runner {
+			return closure{}, errors.New("a selected row is unknown or the rows mix runners")
 		}
-		packages = append(packages, strings.TrimPrefix(strings.TrimSuffix(row.Selector.Package, "/"), "./"))
+		runner = row.Runner
+		switch runner {
+		case RunnerGo:
+			selected = append(selected, strings.TrimPrefix(strings.TrimSuffix(row.Selector.Package, "/"), "./"))
+		case RunnerVitest:
+			selected = append(selected, row.Selector.File)
+		default:
+			return closure{}, fmt.Errorf("%s rows have no unit-aware closure", runner)
+		}
 		owners = append(append(owners, row.OwnerID), row.CollaboratorIDs...)
 		fixtures = append(fixtures, row.FixtureInputRoots...)
 	}
-	packages, owners, fixtures = dedupe(packages), dedupe(owners), dedupe(fixtures)
-	key := digest(map[string]any{"profile": profile.ProfileID, "packages": packages, "owners": owners, "fixtures": fixtures})
+	selected, owners, fixtures = dedupe(selected), dedupe(owners), dedupe(fixtures)
+	key := digest(map[string]any{"profile": profile.ProfileID, "runner": runner, "selected": selected, "owners": owners, "fixtures": fixtures})
 	if cached, ok := p.closures[key]; ok {
 		return cached, nil
 	}
-	directories, err := p.packageDirectories(packages)
-	if err != nil {
-		return closure{}, err
-	}
 	set := map[int]bool{}
-	for _, directory := range directories {
-		p.under(directory, set)
-		for module := directory; module != "."; module = path.Dir(module) {
-			if _, ok := p.index(module + "/go.mod"); ok {
-				p.under(module+"/go.mod", set)
-				p.under(module+"/go.sum", set)
-				break
+	strategy, metadata := strategyGoPackages, map[string]any{}
+	switch runner {
+	case RunnerGo:
+		directories, err := p.packageDirectories(selected)
+		if err != nil {
+			return closure{}, err
+		}
+		for _, directory := range directories {
+			p.under(directory, set)
+			for module := directory; module != "."; module = path.Dir(module) {
+				if _, ok := p.index(module + "/go.mod"); ok {
+					p.under(module+"/go.mod", set)
+					p.under(module+"/go.sum", set)
+					break
+				}
 			}
 		}
+		metadata["packages"] = directories
+	case RunnerVitest:
+		roots, err := p.workspaceRoots(selected)
+		if err != nil {
+			return closure{}, err
+		}
+		for _, root := range roots {
+			p.under(root, set)
+		}
+		strategy, metadata["workspaces"] = strategyWorkspaces, roots
 	}
 	for _, root := range fixtures {
 		members := map[int]bool{}
@@ -235,9 +264,135 @@ func (p *cachePlanner) goClosure(profile *CacheProfile, unit *Unit) (closure, er
 			p.under(manifest, set)
 		}
 	}
-	closure := p.digest(strategyGoPackages, map[string]any{"packages": directories}, set)
+	closure := p.digest(strategy, metadata, set)
 	p.closures[key] = closure
 	return closure, nil
+}
+
+// workspace is one frontend workspace package.
+type workspace struct {
+	root         string
+	dependencies []string
+}
+
+var workspaceEntry = regexp.MustCompile(`^\s+-\s+["']?([A-Za-z0-9._/*-]+)["']?\s*$`)
+
+// workspaceRoots are the workspaces that contain the selected files and,
+// transitively, every workspace they declare as a dependency. pnpm resolves
+// only declared dependencies and the frontend import boundary forbids
+// reaching another workspace by relative path, so declarations close the
+// graph without parsing sources.
+func (p *cachePlanner) workspaceRoots(files []string) ([]string, error) {
+	if p.workspaces == nil {
+		workspaces, err := p.readWorkspaces()
+		if err != nil {
+			return nil, err
+		}
+		p.workspaces = workspaces
+	}
+	pending := []string{}
+	for _, file := range files {
+		owner := ""
+		for name, workspace := range p.workspaces {
+			if strings.HasPrefix(file, workspace.root+"/") && (owner == "" || len(workspace.root) > len(p.workspaces[owner].root)) {
+				owner = name
+			}
+		}
+		if _, ok := p.index(file); !ok || owner == "" {
+			return nil, fmt.Errorf("selected file %s has no workspace", file)
+		}
+		pending = append(pending, owner)
+	}
+	selected := map[string]bool{}
+	for len(pending) != 0 {
+		name := pending[0]
+		pending = pending[1:]
+		if selected[name] {
+			continue
+		}
+		selected[name] = true
+		pending = append(pending, p.workspaces[name].dependencies...)
+	}
+	var roots []string
+	for name := range selected {
+		roots = append(roots, p.workspaces[name].root)
+	}
+	return dedupe(roots), nil
+}
+
+// readWorkspaces reads the workspace globs from pnpm-workspace.yaml (its
+// packages list: exact directories or "<directory>/*") and each workspace's
+// package name and declared workspace dependencies.
+func (p *cachePlanner) readWorkspaces() (map[string]workspace, error) {
+	manifest, err := p.text("pnpm-workspace.yaml")
+	if err != nil {
+		return nil, err
+	}
+	var patterns []string
+	listing := false
+	for _, line := range strings.Split(manifest, "\n") {
+		switch {
+		case strings.TrimSpace(line) == "packages:":
+			listing = true
+		case listing && workspaceEntry.MatchString(line):
+			patterns = append(patterns, workspaceEntry.FindStringSubmatch(line)[1])
+		case listing && strings.TrimSpace(line) != "" && !strings.HasPrefix(line, " "):
+			listing = false
+		}
+	}
+	if len(patterns) == 0 {
+		return nil, errors.New("pnpm-workspace.yaml lists no workspaces")
+	}
+	var manifests []string
+	for _, pattern := range patterns {
+		directory, wildcard := strings.CutSuffix(pattern, "/*")
+		if strings.ContainsAny(directory, "*?[") {
+			return nil, fmt.Errorf("unsupported workspace pattern %s", pattern)
+		}
+		for _, index := range p.rangeOf(directory + "/") {
+			relative := strings.TrimPrefix(p.source[index].Path, directory+"/")
+			if wildcard && strings.Count(relative, "/") == 1 && strings.HasSuffix(relative, "/package.json") || !wildcard && relative == "package.json" {
+				manifests = append(manifests, p.source[index].Path)
+			}
+		}
+	}
+	type packageJSON struct {
+		Name                 string            `json:"name"`
+		Dependencies         map[string]string `json:"dependencies"`
+		DevDependencies      map[string]string `json:"devDependencies"`
+		OptionalDependencies map[string]string `json:"optionalDependencies"`
+		PeerDependencies     map[string]string `json:"peerDependencies"`
+	}
+	parsed := map[string]packageJSON{}
+	names := map[string]bool{}
+	for _, manifest := range manifests {
+		text, err := p.text(manifest)
+		if err != nil {
+			return nil, err
+		}
+		var value packageJSON
+		if err := json.Unmarshal([]byte(text), &value); err != nil || value.Name == "" {
+			return nil, fmt.Errorf("%s has no package name", manifest)
+		}
+		if names[value.Name] {
+			return nil, fmt.Errorf("workspace package %s is declared twice", value.Name)
+		}
+		names[value.Name] = true
+		parsed[manifest] = value
+	}
+	workspaces := map[string]workspace{}
+	for manifest, value := range parsed {
+		var dependencies []string
+		for _, section := range []map[string]string{value.Dependencies, value.DevDependencies, value.OptionalDependencies, value.PeerDependencies} {
+			for name := range section {
+				if names[name] && name != value.Name {
+					dependencies = append(dependencies, name)
+				}
+			}
+		}
+		workspaces[value.Name] = workspace{root: path.Dir(manifest), dependencies: dedupe(dependencies)}
+	}
+	return workspaces, nil
 }
 
 var moduleLine = regexp.MustCompile(`(?m)^module\s+(\S+)\s*$`)

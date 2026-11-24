@@ -586,9 +586,9 @@
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.mentionChips.node.test.ts",
         "titles": [
-          "preserves closed mention chip states by stable identifiers and field keys",
-          "rejects malformed and unknown relationship collection members",
-          "retains dismissed evidence through stale projections and prunes it only after a newer restore version"
+          "browser.entity-linking mention chip state model preserves closed mention chip states by stable identifiers and field keys",
+          "browser.entity-linking mention chip state model rejects malformed and unknown relationship collection members",
+          "browser.entity-linking mention chip state model retains dismissed evidence through stale projections and prunes it only after a newer restore version"
         ],
         "project_id": "node-unit"
       },

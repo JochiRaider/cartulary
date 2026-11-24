@@ -7960,13 +7960,13 @@
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.sentinel.test.tsx",
         "titles": [
-          "dispatches one versioned multi-row tag command from Timeline selection",
-          "maps filtered overflow to explicit create-row targets",
-          "rejects invalid anchors and create-disabled grouped overflow",
-          "rendered paste dispatch uses stable anchors and quote-aware dimensions",
-          "requires a valid semantic anchor for paste planning",
-          "targets sorted paste rows by stable visible record identities",
-          "treats single-line comma clipboard text as scalar paste input"
+          "keyboard and grid anchor coverage dispatches one versioned multi-row tag command from Timeline selection",
+          "keyboard and grid anchor coverage maps filtered overflow to explicit create-row targets",
+          "keyboard and grid anchor coverage rejects invalid anchors and create-disabled grouped overflow",
+          "keyboard and grid anchor coverage rendered paste dispatch uses stable anchors and quote-aware dimensions",
+          "keyboard and grid anchor coverage requires a valid semantic anchor for paste planning",
+          "keyboard and grid anchor coverage targets sorted paste rows by stable visible record identities",
+          "keyboard and grid anchor coverage treats single-line comma clipboard text as scalar paste input"
         ],
         "project_id": "browser-unit"
       },
@@ -7994,7 +7994,7 @@
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.sentinel.test.tsx",
         "titles": [
-          "registers grouped paste conflicts without losing selection continuity"
+          "keyboard and grid anchor coverage registers grouped paste conflicts without losing selection continuity"
         ],
         "project_id": "browser-unit"
       },
@@ -8022,7 +8022,7 @@
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.surfaces.test.tsx",
         "titles": [
-          "builds required creates with direct values, timestamps, and explicit clears"
+          "generic workbook mutation payloads builds required creates with direct values, timestamps, and explicit clears"
         ],
         "project_id": "browser-unit"
       },
@@ -8050,7 +8050,7 @@
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.surfaces.test.tsx",
         "titles": [
-          "builds direct clears and typed collection actions"
+          "generic workbook mutation payloads builds direct clears and typed collection actions"
         ],
         "project_id": "browser-unit"
       },
@@ -8078,10 +8078,10 @@
       "selector": {
         "file": "apps/web/src/workbook/utils/GridAdapter.anchor.test.ts",
         "titles": [
-          "exposes no vendor-selection resolver on the semantic handle",
-          "focuses stable record_id and field_key anchors through the consumer handle",
-          "rejects invalid row, field, surface, and recordless targets",
-          "resolves Arrow, Tab, Enter, and Shift+Enter navigation through adapter anchors"
+          "adapter-owned semantic handle evidence exposes no vendor-selection resolver on the semantic handle",
+          "adapter-owned semantic handle evidence focuses stable record_id and field_key anchors through the consumer handle",
+          "adapter-owned semantic handle evidence rejects invalid row, field, surface, and recordless targets",
+          "adapter-owned semantic handle evidence resolves Arrow, Tab, Enter, and Shift+Enter navigation through adapter anchors"
         ],
         "project_id": "browser-unit"
       },
@@ -8109,10 +8109,10 @@
       "selector": {
         "file": "apps/web/src/workbook/policies/workbookApplicationShortcuts.node.test.ts",
         "titles": [
-          "does not claim Grid Adapter or native paste and navigation keys",
-          "does not consume an unavailable command",
-          "owns Find only for enabled grid navigation and Find controls",
-          "returns explicit commands and consumption decisions"
+          "Workbook application shortcuts does not claim Grid Adapter or native paste and navigation keys",
+          "Workbook application shortcuts does not consume an unavailable command",
+          "Workbook application shortcuts owns Find only for enabled grid navigation and Find controls",
+          "Workbook application shortcuts returns explicit commands and consumption decisions"
         ],
         "project_id": "node-unit"
       },
@@ -8140,7 +8140,7 @@
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.timelineQuery.test.tsx",
         "titles": [
-          "Verify Timeline query response rows render full view_row_v1 cells and preserve row identity through create, patch, validation error, and refresh."
+          "Timeline query row identity integration Verify Timeline query response rows render full view_row_v1 cells and preserve row identity through create, patch, validation error, and refresh."
         ],
         "project_id": "browser-unit"
       },
@@ -8168,7 +8168,7 @@
       "selector": {
         "file": "apps/web/src/workbook/utils/workbookRowReconciliation.node.test.ts",
         "titles": [
-          "Verify sparse patches preserve unchanged row object references and intentionally replace changed rows by record_id."
+          "workbook row reconciliation Verify sparse patches preserve unchanged row object references and intentionally replace changed rows by record_id."
         ],
         "project_id": "node-unit"
       },
@@ -8225,10 +8225,10 @@
       "selector": {
         "file": "apps/web/src/workbook/timeline/components/TimelineEvidencePanel.test.tsx",
         "titles": [
-          "does not render draft rows as row-bound inspector evidence",
-          "keeps collection identity and count separate from unavailable observation",
-          "uses row-specific file inputs for committed row evidence",
-          "withholds linked file actions until metadata is admitted"
+          "TimelineEvidencePanel does not render draft rows as row-bound inspector evidence",
+          "TimelineEvidencePanel keeps collection identity and count separate from unavailable observation",
+          "TimelineEvidencePanel uses row-specific file inputs for committed row evidence",
+          "TimelineEvidencePanel withholds linked file actions until metadata is admitted"
         ],
         "project_id": "browser-unit"
       },
@@ -8256,14 +8256,14 @@
       "selector": {
         "file": "apps/web/src/workbook/models/workbookInspectorModel.node.test.ts",
         "titles": [
-          "Verify active view_schema_id selects inspector_config_v1, saved views inherit immutable view_schema_id config, no-row state is no_row_selected, and stale row-bound inspector state invalidates across row, row-version, authorization, incident-lifecycle, delete, merge, hard refresh, and surface changes.",
-          "filters panels and feature groups by declared semantic config",
-          "keeps saved-view inheritance tied to the base view_schema_id",
-          "opens explicitly and represents no selection without inventing a row identity",
-          "resets closed when the active surface schema changes",
-          "retargets synchronously by stable schema, record, and row-version identity",
-          "selects immutable schema configuration, starts closed, and exposes the declared no-row state",
-          "separates review replacement from attachment departure and never revives old attachments"
+          "separates review replacement from attachment departure and never revives old attachments",
+          "workbookInspectorModel Verify active view_schema_id selects inspector_config_v1, saved views inherit immutable view_schema_id config, no-row state is no_row_selected, and stale row-bound inspector state invalidates across row, row-version, authorization, incident-lifecycle, delete, merge, hard refresh, and surface changes.",
+          "workbookInspectorModel filters panels and feature groups by declared semantic config",
+          "workbookInspectorModel keeps saved-view inheritance tied to the base view_schema_id",
+          "workbookInspectorModel opens explicitly and represents no selection without inventing a row identity",
+          "workbookInspectorModel resets closed when the active surface schema changes",
+          "workbookInspectorModel retargets synchronously by stable schema, record, and row-version identity",
+          "workbookInspectorModel selects immutable schema configuration, starts closed, and exposes the declared no-row state"
         ],
         "project_id": "node-unit"
       },
@@ -8291,8 +8291,8 @@
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.inspector.test.tsx",
         "titles": [
-          "closes the Timeline inspector when the active sheet identity changes",
-          "renders the configured no-row state when no saved row is selected"
+          "browser.inspector-history inspector and row-local action coverage closes the Timeline inspector when the active sheet identity changes",
+          "browser.inspector-history inspector and row-local action coverage renders the configured no-row state when no saved row is selected"
         ],
         "project_id": "browser-unit"
       },
@@ -8320,7 +8320,7 @@
       "selector": {
         "file": "apps/web/src/workbook/layout/workbookDensity.node.test.ts",
         "titles": [
-          "keeps Core null defaults while letting explicit account density override every workbook surface"
+          "workbook density resolution keeps Core null defaults while letting explicit account density override every workbook surface"
         ],
         "project_id": "node-unit"
       },
@@ -8348,9 +8348,9 @@
       "selector": {
         "file": "apps/web/src/workbook/models/workbookSurfaceRegistry.node.test.ts",
         "titles": [
-          "groups System views by stable group tokens and registry-backed IDs",
-          "keeps optional standardized surfaces additive after required surfaces",
-          "registers built-in and system workbook surfaces by stable IDs"
+          "workbook surface registry groups System views by stable group tokens and registry-backed IDs",
+          "workbook surface registry keeps optional standardized surfaces additive after required surfaces",
+          "workbook surface registry registers built-in and system workbook surfaces by stable IDs"
         ],
         "project_id": "node-unit"
       },
@@ -8378,7 +8378,7 @@
       "selector": {
         "file": "apps/web/src/workbook/models/workbookSurfaceRegistry.node.test.ts",
         "titles": [
-          "Verify coordination and review system-view registrations, field mappings, and closed vocabulary options use stable IDs and contract metadata."
+          "workbook surface registry Verify coordination and review system-view registrations, field mappings, and closed vocabulary options use stable IDs and contract metadata."
         ],
         "project_id": "node-unit"
       },
@@ -8406,7 +8406,7 @@
       "selector": {
         "file": "packages/view-contracts/src/contracts.node.test.ts",
         "titles": [
-          "uses generated Inspector panels and feature groups validated before browser initialization"
+          "view contracts uses generated Inspector panels and feature groups validated before browser initialization"
         ],
         "project_id": "node-unit"
       },
@@ -8434,8 +8434,8 @@
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.inspector.test.tsx",
         "titles": [
-          "creates a related Task Request from the Timeline inspector using emitted seed bindings",
-          "creates related Evidence from the Timeline inspector and links it back through the Timeline patch route"
+          "browser.inspector-history inspector and row-local action coverage creates a related Task Request from the Timeline inspector using emitted seed bindings",
+          "browser.inspector-history inspector and row-local action coverage creates related Evidence from the Timeline inspector and links it back through the Timeline patch route"
         ],
         "project_id": "browser-unit"
       },
@@ -8463,7 +8463,7 @@
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.inspector.test.tsx",
         "titles": [
-          "Verify inspector selection, tab state, details, relationships, evidence, and history anchors are record_id based and survive row refresh."
+          "browser.inspector-history inspector and row-local action coverage Verify inspector selection, tab state, details, relationships, evidence, and history anchors are record_id based and survive row refresh."
         ],
         "project_id": "browser-unit"
       },
@@ -8491,9 +8491,9 @@
       "selector": {
         "file": "apps/web/src/workbook/runtime/pending/workbookPendingQueue.node.test.ts",
         "titles": [
-          "derives exactly one primary save-state label for every Table C input condition",
-          "keeps failure, overflow, validation, and replay details as same-surface secondary status messages",
-          "preserves same-field conflict anchors by record_id, field_key, and base_row_version"
+          "save-state unit model derives exactly one primary save-state label for every Table C input condition",
+          "save-state unit model keeps failure, overflow, validation, and replay details as same-surface secondary status messages",
+          "save-state unit model preserves same-field conflict anchors by record_id, field_key, and base_row_version"
         ],
         "project_id": "node-unit"
       },
@@ -8521,7 +8521,7 @@
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.saveState.test.tsx",
         "titles": [
-          "renders derived secondary save-state detail inside the workbook status strip"
+          "WorkbookShell save-state status strip renders derived secondary save-state detail inside the workbook status strip"
         ],
         "project_id": "browser-unit"
       },
@@ -8549,14 +8549,14 @@
       "selector": {
         "file": "apps/web/src/workbook/models/workbookStartup.node.test.ts",
         "titles": [
-          "applies selected saved-view identity without collapsing base view_schema_id",
-          "preserves extension workspace identity with no base schema or saved view",
-          "preserves required-reference-pack unavailable startup reasons",
-          "rejects backend startup selections with non-standardized view_schema_id",
-          "rejects unsupported startup sheet_ref kinds at the frontend boundary",
-          "resolves workbook startup fallback order by stable sheet_ref identity",
-          "skips or clears invalid startup pointers without failing workbook open",
-          "treats deleted saved-view pointers as unavailable saved views"
+          "workbook startup model applies selected saved-view identity without collapsing base view_schema_id",
+          "workbook startup model preserves extension workspace identity with no base schema or saved view",
+          "workbook startup model preserves required-reference-pack unavailable startup reasons",
+          "workbook startup model rejects backend startup selections with non-standardized view_schema_id",
+          "workbook startup model rejects unsupported startup sheet_ref kinds at the frontend boundary",
+          "workbook startup model resolves workbook startup fallback order by stable sheet_ref identity",
+          "workbook startup model skips or clears invalid startup pointers without failing workbook open",
+          "workbook startup model treats deleted saved-view pointers as unavailable saved views"
         ],
         "project_id": "node-unit"
       },
@@ -8584,10 +8584,10 @@
       "selector": {
         "file": "apps/web/src/services/clientTransactionId.node.test.ts",
         "titles": [
-          "fails locally when Web Crypto is unavailable",
-          "keeps the browser mutation facade bound to secure entropy and fails closed without it",
-          "retains the prefix and uses the platform UUID generator",
-          "uses RFC 4122 v4 formatting with secure random bytes as fallback"
+          "createClientTransactionId fails locally when Web Crypto is unavailable",
+          "createClientTransactionId keeps the browser mutation facade bound to secure entropy and fails closed without it",
+          "createClientTransactionId retains the prefix and uses the platform UUID generator",
+          "createClientTransactionId uses RFC 4122 v4 formatting with secure random bytes as fallback"
         ],
         "project_id": "node-unit"
       },
@@ -8615,11 +8615,11 @@
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.actionSequencing.test.tsx",
         "titles": [
-          "fences a changed inspector selection while Timeline action preparation waits",
-          "keeps action result row versions ahead of stale projection reloads",
-          "requires a second Mark reviewed click after a queued material edit commits",
-          "sends Timeline actions with the current row version after earlier workbook mutations",
-          "waits for a pending material autosave before supersede dispatch"
+          "Timeline workbook action sequencing fences a changed inspector selection while Timeline action preparation waits",
+          "Timeline workbook action sequencing keeps action result row versions ahead of stale projection reloads",
+          "Timeline workbook action sequencing requires a second Mark reviewed click after a queued material edit commits",
+          "Timeline workbook action sequencing sends Timeline actions with the current row version after earlier workbook mutations",
+          "Timeline workbook action sequencing waits for a pending material autosave before supersede dispatch"
         ],
         "project_id": "browser-unit"
       },
@@ -8647,24 +8647,24 @@
       "selector": {
         "file": "apps/web/src/workbook/runtime/pending/workbookPendingQueue.node.test.ts",
         "titles": [
-          "admits row-create, row-patch, and paste-derived replay units with semantic mutation identity",
-          "applies successful replay without retargeting by visible row order or labels",
-          "coalesces only same-draft creates and contiguous same-record patches",
-          "discards exactly the halted blocker and resumes later FIFO work",
-          "halts non-retryable public failures with Table G anchors and queued units behind the blocker",
-          "keeps closure and authentication independent across repeated transitions",
-          "keeps pending queues isolated by incident and client instance scope",
           "normalizes only authorized never-dispatched head creates without changing replay identity",
+          "pending queue unit model admits row-create, row-patch, and paste-derived replay units with semantic mutation identity",
+          "pending queue unit model applies successful replay without retargeting by visible row order or labels",
+          "pending queue unit model coalesces only same-draft creates and contiguous same-record patches",
+          "pending queue unit model discards exactly the halted blocker and resumes later FIFO work",
+          "pending queue unit model halts non-retryable public failures with Table G anchors and queued units behind the blocker",
+          "pending queue unit model keeps closure and authentication independent across repeated transitions",
+          "pending queue unit model keeps pending queues isolated by incident and client instance scope",
+          "pending queue unit model preserves FIFO replay order and refuses the 65th non-coalescible unit without eviction",
+          "pending queue unit model preserves same-runtime retryable failures and does not survive a new page instance",
+          "pending queue unit model rejects invalid recovery transitions without changing queue state",
+          "pending queue unit model rekeys only a client transaction blocker and preserves FIFO intent",
+          "pending queue unit model retains closure blocking through late success and failure settlement",
+          "pending queue unit model retires pending replay irreversibly across late outcomes",
+          "pending queue unit model transfers late closure conflicts without stranding removed replay units",
           "prepares only first dispatch and never prepares an uncertain replay",
-          "preserves FIFO replay order and refuses the 65th non-coalescible unit without eviction",
           "preserves autosave FIFO and prevents coalescing across explicit batch boundaries",
-          "preserves same-runtime retryable failures and does not survive a new page instance",
-          "rejects invalid recovery transitions without changing queue state",
-          "rekeys only a client transaction blocker and preserves FIFO intent",
-          "retains closure blocking through late success and failure settlement",
-          "retires pending replay irreversibly across late outcomes",
-          "retires verified unchanged work only at an authorized never-dispatched FIFO head",
-          "transfers late closure conflicts without stranding removed replay units"
+          "retires verified unchanged work only at an authorized never-dispatched FIFO head"
         ],
         "project_id": "node-unit"
       },
@@ -8692,11 +8692,11 @@
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.collaboration.test.tsx",
         "titles": [
-          "discards a blocked edit locally without issuing another mutation",
-          "drives WorkbookShell admission, coalescing, and save-state from the shared pending queue model",
-          "drives WorkbookShell retry and success settlement from the shared pending queue model",
-          "drives WorkbookShell terminal halt presentation from the shared pending queue model",
-          "recovers a Timeline client transaction conflict with a fresh opaque request ID"
+          "workbook collaboration coverage discards a blocked edit locally without issuing another mutation",
+          "workbook collaboration coverage drives WorkbookShell admission, coalescing, and save-state from the shared pending queue model",
+          "workbook collaboration coverage drives WorkbookShell retry and success settlement from the shared pending queue model",
+          "workbook collaboration coverage drives WorkbookShell terminal halt presentation from the shared pending queue model",
+          "workbook collaboration coverage recovers a Timeline client transaction conflict with a fresh opaque request ID"
         ],
         "project_id": "browser-unit"
       },
@@ -8725,9 +8725,9 @@
       "selector": {
         "file": "apps/web/src/workbook/models/workbookRequestDecoders.node.test.ts",
         "titles": [
-          "constructs exact create, linked-note, collection, and patch requests",
-          "fails closed on malformed and future create or collection members",
-          "rejects empty, ambiguous, and malformed patch changes"
+          "Workbook request decoders constructs exact create, linked-note, collection, and patch requests",
+          "Workbook request decoders fails closed on malformed and future create or collection members",
+          "Workbook request decoders rejects empty, ambiguous, and malformed patch changes"
         ],
         "project_id": "node-unit"
       },

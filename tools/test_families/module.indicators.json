@@ -43,9 +43,9 @@
       "selector": {
         "file": "apps/web/src/workbook/features/indicators/IndicatorInspectorWorkflow.test.tsx",
         "titles": [
-          "forwards accepted mutation metadata to stable-ID refresh coordination",
-          "presents loading, retry, and empty observation states accessibly",
-          "preserves prior observations while loading the next cursor page"
+          "IndicatorInspectorWorkflow forwards accepted mutation metadata to stable-ID refresh coordination",
+          "IndicatorInspectorWorkflow presents loading, retry, and empty observation states accessibly",
+          "IndicatorInspectorWorkflow preserves prior observations while loading the next cursor page"
         ],
         "project_id": "browser-unit"
       },
@@ -74,11 +74,11 @@
       "selector": {
         "file": "apps/web/src/workbook/adapters/observationContracts.node.test.ts",
         "titles": [
-          "binds observation transitions to typed child operations",
-          "omits mismatched and generic-patch Indicator tuples",
-          "preserves paging metadata for load-more requests",
-          "resolves all four Indicator handlers by their complete semantic tuple",
-          "uses the typed source-span operation without provenance fields"
+          "Observation public contracts binds observation transitions to typed child operations",
+          "Observation public contracts omits mismatched and generic-patch Indicator tuples",
+          "Observation public contracts preserves paging metadata for load-more requests",
+          "Observation public contracts resolves all four Indicator handlers by their complete semantic tuple",
+          "Observation public contracts uses the typed source-span operation without provenance fields"
         ],
         "project_id": "node-unit"
       },

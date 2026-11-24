@@ -23,7 +23,7 @@ func TestPlannerCompilation(t *testing.T) {
 		return ids
 	}
 	plannable := func(row Row) bool {
-		return row.Runner == RunnerShell || row.Runner == RunnerGo && row.FixtureProfileID == "" && row.EvidenceClass != "measurement"
+		return row.Runner == RunnerShell || row.Runner == RunnerVitest || row.Runner == RunnerGo && row.FixtureProfileID == "" && row.EvidenceClass != "measurement"
 	}
 	bound := func(g *Graph) map[string]string {
 		rows := map[string]string{}
@@ -184,13 +184,13 @@ func TestPlannerCompilation(t *testing.T) {
 		}
 	})
 
-	t.Run("Go units carry their rows on the command line", func(t *testing.T) {
+	t.Run("runner units carry their rows on the command line", func(t *testing.T) {
 		graph, err := Compile(inputs, Selection{Rows: rowsWhere(plannable)}, options)
 		if err != nil {
 			t.Fatal(err)
 		}
 		for _, unit := range graph.Units {
-			if !strings.HasPrefix(unit.ID, "go:") {
+			if !strings.HasPrefix(unit.ID, "go:") && !strings.HasPrefix(unit.ID, "vitest:") {
 				continue
 			}
 			var rows []string
@@ -203,36 +203,84 @@ func TestPlannerCompilation(t *testing.T) {
 		}
 	})
 
-	t.Run("Go units are balanced under their size target", func(t *testing.T) {
-		graph, err := Compile(inputs, Selection{Rows: rowsWhere(func(row Row) bool {
-			return row.Runner == RunnerGo && row.FixtureProfileID == "" && row.EvidenceClass != "measurement"
-		})}, options)
+	t.Run("runner units are balanced under their size target", func(t *testing.T) {
+		graph, err := Compile(inputs, Selection{Rows: rowsWhere(plannable)}, options)
 		if err != nil {
 			t.Fatal(err)
 		}
-		overhead := inputs.Owner.InvocationPolicies[RunnerGo].StartupMS + inputs.Owner.InvocationPolicies[RunnerGo].CleanupMS
 		for _, unit := range graph.Units {
-			if !strings.HasPrefix(unit.ID, "go:") || len(unit.RowBindings) < 2 {
+			runner, _, _ := strings.Cut(unit.ID, ":")
+			if (runner != RunnerGo && runner != RunnerVitest) || len(unit.RowBindings) < 2 {
 				continue
 			}
-			work := unit.EstimatedWorkMS - overhead
-			target := inputs.Owner.GoUnitTargetMS
-			if unit.Claims["postgres_heavy"] > 0 {
-				target = inputs.Owner.GoHeavyUnitTargetMS
+			policy := inputs.Owner.InvocationPolicies[runner]
+			work := unit.EstimatedWorkMS - policy.StartupMS - policy.CleanupMS
+			target := policy.UnitTargetMS
+			if runner == RunnerGo {
+				target = inputs.Owner.GoUnitTargetMS
+				if unit.Claims["postgres_heavy"] > 0 {
+					target = inputs.Owner.GoHeavyUnitTargetMS
+				}
 			}
-			// Longest-first balancing keeps a multi-row unit within the
-			// target plus at most one row's estimate.
+			// Longest-first balancing keeps a multi-item unit within the
+			// target plus at most one item's estimate; a Vitest item is a
+			// whole file.
+			items := map[string]int64{}
 			largest := int64(0)
 			for _, binding := range unit.RowBindings {
-				for _, row := range inputs.Catalog.Rows {
-					if row.RowID == binding.RowID {
-						largest = max(largest, max(row.EstimatedWorkMS, inputs.Owner.EvidenceEstimatesMS[row.EvidenceClass]))
-					}
+				row := inputs.row(binding.RowID)
+				key := row.RowID
+				if runner == RunnerVitest {
+					key = row.Selector.File
 				}
+				items[key] += max(row.EstimatedWorkMS, inputs.Owner.EvidenceEstimatesMS[row.EvidenceClass])
+				largest = max(largest, items[key])
 			}
 			if work > target+largest {
 				t.Errorf("%s holds %d ms of work against a %d ms target", unit.ID, work, target)
 			}
+		}
+	})
+
+	t.Run("a Vitest file's rows of one contract share a unit with the runner's preparation", func(t *testing.T) {
+		rows := rowsWhere(func(row Row) bool { return row.Runner == RunnerVitest })
+		graph, err := Compile(inputs, Selection{Rows: rows}, options)
+		if err != nil {
+			t.Fatal(err)
+		}
+		fileUnit := map[string]string{}
+		policy := inputs.Owner.InvocationPolicies[RunnerVitest]
+		for _, unit := range graph.Units {
+			if !strings.HasPrefix(unit.ID, "vitest:") {
+				continue
+			}
+			if unit.Command.Environment["VITEST_MAX_WORKERS"] != "1" || unit.Command.Environment["CARTULARY_TEST_TARGET"] != "frontend-unit" {
+				t.Fatalf("%s environment %v", unit.ID, unit.Command.Environment)
+			}
+			if !slices.Contains(unit.Needs, "operation:harness.frontend_install") || unit.Claims["memory_mb"] < policy.CoordinatorClaims["memory_mb"] {
+				t.Fatalf("%s needs %v claims %v", unit.ID, unit.Needs, unit.Claims)
+			}
+			projects := map[string]bool{}
+			for _, binding := range unit.RowBindings {
+				row := inputs.row(binding.RowID)
+				projects[row.Selector.ProjectID] = true
+				// The unit ID's second segment names its execution contract;
+				// a file's rows of one contract share an invocation.
+				key := strings.Split(unit.ID, ":")[1] + " " + row.Selector.File
+				if other, ok := fileUnit[key]; ok && other != unit.ID {
+					t.Fatalf("file %s runs in %s and %s", row.Selector.File, other, unit.ID)
+				}
+				fileUnit[key] = unit.ID
+				if row.Selector.ProjectID == "renderer-node" && row.EvidenceClass == "integration" && !slices.Contains(unit.Needs, "operation:harness.playwright_install") {
+					t.Fatalf("%s runs renderer integration rows without the browser install", unit.ID)
+				}
+			}
+			if len(projects) != 1 {
+				t.Fatalf("%s mixes Vitest projects %v", unit.ID, projects)
+			}
+		}
+		if len(fileUnit) == 0 {
+			t.Fatal("no Vitest units compiled")
 		}
 	})
 
@@ -255,9 +303,9 @@ func TestPlannerCompilation(t *testing.T) {
 	})
 
 	t.Run("unsupported and invalid selections fail", func(t *testing.T) {
-		vitest := rowsWhere(func(row Row) bool { return row.Runner == RunnerVitest })
-		if _, err := Compile(inputs, Selection{Rows: vitest[:1]}, options); !errors.Is(err, ErrUnsupported) {
-			t.Fatalf("vitest row: %v", err)
+		browser := rowsWhere(func(row Row) bool { return row.Runner == RunnerPlaywright })
+		if _, err := Compile(inputs, Selection{Rows: browser[:1]}, options); !errors.Is(err, ErrUnsupported) {
+			t.Fatalf("playwright row: %v", err)
 		}
 		for name, selection := range map[string]Selection{
 			"unknown row":     {Rows: []string{"module.missing.unit.x"}},

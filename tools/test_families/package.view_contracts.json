@@ -19,17 +19,17 @@
       "selector": {
         "file": "packages/view-contracts/src/contracts.node.test.ts",
         "titles": [
-          "derives the four exact Indicator feature signatures from the owner registry",
-          "exposes inspector config by stable view_schema_id and semantic keys",
-          "exposes mutation metadata needed by workbook controls",
-          "exposes sortable, filterable, groupable, and inline-create metadata",
-          "exposes synthetic filter predicates as filter-only fields",
-          "freezes contracts and Inspector metadata",
-          "initializes all generated view artifacts by stable identity",
-          "matches generated contract projections by shared identity",
-          "requires an exact inline_create policy",
-          "requires explicit boolean grid_editable inputs",
-          "resolves header sort keys from contract metadata"
+          "view contracts derives the four exact Indicator feature signatures from the owner registry",
+          "view contracts exposes inspector config by stable view_schema_id and semantic keys",
+          "view contracts exposes mutation metadata needed by workbook controls",
+          "view contracts exposes sortable, filterable, groupable, and inline-create metadata",
+          "view contracts exposes synthetic filter predicates as filter-only fields",
+          "view contracts freezes contracts and Inspector metadata",
+          "view contracts initializes all generated view artifacts by stable identity",
+          "view contracts matches generated contract projections by shared identity",
+          "view contracts requires an exact inline_create policy",
+          "view contracts requires explicit boolean grid_editable inputs",
+          "view contracts resolves header sort keys from contract metadata"
         ],
         "project_id": "node-unit"
       },
@@ -55,7 +55,7 @@
       "selector": {
         "file": "packages/view-contracts/src/facade.node.test.ts",
         "titles": [
-          "exposes the supported public package facade"
+          "view-contracts façade exposes the supported public package facade"
         ],
         "project_id": "node-unit"
       },
@@ -110,13 +110,13 @@
       "selector": {
         "file": "packages/view-contracts/src/rows.node.test.ts",
         "titles": [
-          "accepts sparse patch cells without weakening full-row completeness",
-          "enforces conditional full-row group_values and sparse patch group_values",
-          "ignores additive row and cell members while preserving wire-derived values",
-          "keeps normalized full rows and sparse patches non-assignable",
-          "rejects missing and malformed row identity and version values",
-          "rejects row view identity mismatches deterministically",
-          "requires complete full-row cells and rejects technical cells"
+          "view row normalization accepts sparse patch cells without weakening full-row completeness",
+          "view row normalization enforces conditional full-row group_values and sparse patch group_values",
+          "view row normalization ignores additive row and cell members while preserving wire-derived values",
+          "view row normalization keeps normalized full rows and sparse patches non-assignable",
+          "view row normalization rejects missing and malformed row identity and version values",
+          "view row normalization rejects row view identity mismatches deterministically",
+          "view row normalization requires complete full-row cells and rejects technical cells"
         ],
         "project_id": "node-unit"
       },
@@ -144,10 +144,10 @@
       "selector": {
         "file": "packages/view-contracts/src/surfaces.node.test.ts",
         "titles": [
-          "derives every schema constant and status partition in registry order",
-          "exposes required reference-pack metadata from view contracts",
-          "joins workbook identity and status metadata in Core 01 Table 7.4-A order",
-          "matches generated surface projections by shared identity"
+          "workbook surface contracts derives every schema constant and status partition in registry order",
+          "workbook surface contracts exposes required reference-pack metadata from view contracts",
+          "workbook surface contracts joins workbook identity and status metadata in Core 01 Table 7.4-A order",
+          "workbook surface contracts matches generated surface projections by shared identity"
         ],
         "project_id": "node-unit"
       },

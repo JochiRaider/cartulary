@@ -371,6 +371,9 @@
       "fixture_capability": "none",
       "aggregate_placement": "standard",
       "service_dependencies": [],
+      "preparation_operations": [
+        "harness.playwright_install"
+      ],
       "process_isolation": "exclusive",
       "postgres_isolation": "none"
     },
@@ -429,6 +432,9 @@
       "fixture_capability": "none",
       "aggregate_placement": "standard",
       "service_dependencies": [],
+      "preparation_operations": [
+        "harness.playwright_install"
+      ],
       "process_isolation": "exclusive",
       "postgres_isolation": "none"
     },
@@ -490,7 +496,8 @@
       "service_dependencies": [],
       "process_isolation": "exclusive",
       "preparation_operations": [
-        "harness.build_report_renderer"
+        "harness.build_report_renderer",
+        "harness.playwright_install"
       ],
       "postgres_isolation": "none"
     },
@@ -550,6 +557,9 @@
       "fixture_capability": "none",
       "aggregate_placement": "standard",
       "service_dependencies": [],
+      "preparation_operations": [
+        "harness.playwright_install"
+      ],
       "process_isolation": "exclusive",
       "postgres_isolation": "none"
     },

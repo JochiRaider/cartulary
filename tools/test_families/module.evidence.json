@@ -1393,7 +1393,7 @@
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.evidence.test.tsx",
         "titles": [
-          "reflects attached evidence counts on the workbook surface without forcing navigation"
+          "workbook evidence coverage reflects attached evidence counts on the workbook surface without forcing navigation"
         ],
         "project_id": "browser-unit"
       },
@@ -1507,7 +1507,7 @@
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.surfaces.test.tsx",
         "titles": [
-          "issues opaque evidence preview and download handles from the evidence surface"
+          "WorkbookShell surface selection issues opaque evidence preview and download handles from the evidence surface"
         ],
         "project_id": "browser-unit"
       },
@@ -1567,7 +1567,7 @@
       "selector": {
         "file": "apps/web/src/services/workbookEvidence.test.ts",
         "titles": [
-          "attaches an empty file without changing Evidence custody"
+          "workbookEvidence attaches an empty file without changing Evidence custody"
         ],
         "project_id": "browser-unit"
       },
@@ -1629,8 +1629,8 @@
       "selector": {
         "file": "apps/web/src/services/workbookEvidence.test.ts",
         "titles": [
-          "creates and uploads a private Evidence object blob without exposing its target",
-          "fails closed before upload for malformed or cross-incident blob-slot responses"
+          "workbookEvidence creates and uploads a private Evidence object blob without exposing its target",
+          "workbookEvidence fails closed before upload for malformed or cross-incident blob-slot responses"
         ],
         "project_id": "browser-unit"
       },
@@ -1736,8 +1736,8 @@
       "selector": {
         "file": "apps/web/src/services/workbookEvidence.test.ts",
         "titles": [
-          "fails closed before upload when the current CSRF cookie is absent",
-          "uses one authenticated CSRF-bound upload attempt without reading response bodies"
+          "workbookEvidence fails closed before upload when the current CSRF cookie is absent",
+          "workbookEvidence uses one authenticated CSRF-bound upload attempt without reading response bodies"
         ],
         "project_id": "browser-unit"
       },

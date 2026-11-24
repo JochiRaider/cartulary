@@ -31,6 +31,16 @@ func TestCacheFacts(t *testing.T) {
 		"nested/go.mod":                   "module example.com/m/nested\n",
 		"nested/go.sum":                   "\n",
 		"nested/p/p.go":                   "package p\n",
+		"pnpm-workspace.yaml":             "packages:\n  - apps/web\n  - packages/*\nstoreDir: .pnpm-store\n",
+		"apps/web/package.json":           `{"name":"@m/web","dependencies":{"@m/lib":"workspace:*","react":"19"}}`,
+		"apps/web/src/a.test.ts":          "test('a', () => {})\n",
+		"packages/lib/package.json":       `{"name":"@m/lib","devDependencies":{"@m/base":"workspace:*"}}`,
+		"packages/lib/src/lib.test.ts":    "test('lib', () => {})\n",
+		"packages/base/package.json":      `{"name":"@m/base"}`,
+		"packages/base/src/base.ts":       "export const base = 1\n",
+		"packages/other/package.json":     `{"name":"@m/other"}`,
+		"packages/other/src/other.ts":     "export const other = 1\n",
+		"scripts/stray.test.ts":           "test('stray', () => {})\n",
 	}
 	write := func(relative, content string) {
 		t.Helper()
@@ -76,18 +86,24 @@ func TestCacheFacts(t *testing.T) {
 	unitAware := CacheProfile{ProfileID: "test_rows", Policy: "content_addressed", DependencyStrategy: "unit_aware",
 		InputRoots: []string{"a", "b", "c", "go.mod", "t"}, RunnerTypes: []string{RunnerGo},
 		UnitInputs: &UnitInputs{Paths: []string{"configs", "contracts", "go.mod"}, Prefixes: []string{"tools/harness"}}}
+	frontend := CacheProfile{ProfileID: "vitest_rows", Policy: "content_addressed", DependencyStrategy: "unit_aware",
+		InputRoots: []string{"apps", "packages", "scripts"}, RunnerTypes: []string{RunnerVitest},
+		UnitInputs: &UnitInputs{Paths: []string{"pnpm-workspace.yaml"}, Prefixes: []string{}}}
 	broad := CacheProfile{ProfileID: "build", Policy: "content_addressed", DependencyStrategy: "broad", InputRoots: []string{"b", "go.mod"}, OperationIDs: []string{"harness.build"}}
 	scan := CacheProfile{ProfileID: "scan", Policy: "content_addressed", DependencyStrategy: "broad", InputRoots: []string{"go.mod"}, OperationIDs: []string{"harness.scan"}, RequiresVulnerabilityDatabaseRevision: true}
 	in := &Inputs{
-		Cache: CacheRegistry{Profiles: []CacheProfile{unitAware, broad, scan}},
+		Cache: CacheRegistry{Profiles: []CacheProfile{unitAware, frontend, broad, scan}},
 		Catalog: Catalog{
 			Owners: []CatalogOwner{{OwnerID: "module.probe_owner", ManifestPath: "tools/test_families/owner.json"}},
 			Rows: []Row{{RowID: "module.probe_owner.unit.a", OwnerID: "module.probe_owner", Runner: RunnerGo,
 				Selector: Selector{Package: "./a", Tests: []string{"TestA"}}, FixtureInputRoots: []string{"fixtures/case"}},
 				{RowID: "module.probe_owner.unit.nested", OwnerID: "module.probe_owner", Runner: RunnerGo,
-					Selector: Selector{Package: "./nested/p", Tests: []string{"TestP"}}}},
+					Selector: Selector{Package: "./nested/p", Tests: []string{"TestP"}}},
+				{RowID: "web.probe.unit.web", OwnerID: "web.probe", Runner: RunnerVitest, Selector: Selector{File: "apps/web/src/a.test.ts", ProjectID: "browser-unit", Titles: []string{"a"}}},
+				{RowID: "web.probe.unit.lib", OwnerID: "web.probe", Runner: RunnerVitest, Selector: Selector{File: "packages/lib/src/lib.test.ts", ProjectID: "node-unit", Titles: []string{"lib"}}},
+				{RowID: "web.probe.unit.stray", OwnerID: "web.probe", Runner: RunnerVitest, Selector: Selector{File: "scripts/stray.test.ts", ProjectID: "node-unit", Titles: []string{"stray"}}}},
 		},
-		rowIndex: map[string]int{"module.probe_owner.unit.a": 0, "module.probe_owner.unit.nested": 1},
+		rowIndex: map[string]int{"module.probe_owner.unit.a": 0, "module.probe_owner.unit.nested": 1, "web.probe.unit.web": 2, "web.probe.unit.lib": 3, "web.probe.unit.stray": 4},
 	}
 	goUnit := &Unit{ID: "go:a", CachePolicy: "content_addressed", RowBindings: []RowBinding{{RowID: "module.probe_owner.unit.a", Runner: RunnerGo}},
 		EvidenceOutputs: []string{"rows/module.probe_owner.unit.a.json", "unit-results/go-a.json"}, SemanticDigest: "sha256:" + digest("go:a")}
@@ -137,6 +153,30 @@ func TestCacheFacts(t *testing.T) {
 			if !slices.Contains(got, member) {
 				t.Fatalf("closure %v lacks %s", got, member)
 			}
+		}
+	})
+
+	t.Run("a Vitest unit closes over its workspaces and their declared dependencies", func(t *testing.T) {
+		vitest := func(row string) *Unit {
+			return &Unit{ID: "vitest:" + row, CachePolicy: "content_addressed", RowBindings: []RowBinding{{RowID: row, Runner: RunnerVitest}},
+				EvidenceOutputs: []string{"rows/" + row + ".json"}, SemanticDigest: "sha256:" + digest(row)}
+		}
+		for row, want := range map[string][]string{
+			"web.probe.unit.web": {"apps/web/package.json", "apps/web/src/a.test.ts", "packages/base/package.json", "packages/base/src/base.ts",
+				"packages/lib/package.json", "packages/lib/src/lib.test.ts", "pnpm-workspace.yaml"},
+			"web.probe.unit.lib": {"packages/base/package.json", "packages/base/src/base.ts", "packages/lib/package.json", "packages/lib/src/lib.test.ts", "pnpm-workspace.yaml"},
+		} {
+			facts, inputs, err := facts(vitest(row))
+			if err != nil || *facts[0].DependencyStrategy != strategyWorkspaces || *facts[0].ProfileID != "vitest_rows" {
+				t.Fatalf("%s fact = %+v, %v", row, facts, err)
+			}
+			if got := paths(snapshot(), inputs[*facts[0].DependencyDigest]); !slices.Equal(got, want) {
+				t.Fatalf("%s closure = %v\nwant %v", row, got, want)
+			}
+		}
+		facts, _, err := facts(vitest("web.probe.unit.stray"))
+		if err != nil || *facts[0].DependencyStrategy != strategyBroadFallback {
+			t.Fatalf("a file outside every workspace: %+v, %v", facts, err)
 		}
 	})
 

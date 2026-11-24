@@ -239,7 +239,7 @@
       "selector": {
         "file": "apps/web/src/workbook/models/assessmentWorkbookModel.node.test.ts",
         "titles": [
-          "owns confidence mapping and normalized create payload construction"
+          "assessmentWorkbookModel owns confidence mapping and normalized create payload construction"
         ],
         "project_id": "node-unit"
       },
@@ -267,7 +267,7 @@
       "selector": {
         "file": "apps/web/src/workbook/models/assessmentWorkbookModel.node.test.ts",
         "titles": [
-          "seeds follow-on drafts from subject identity only"
+          "assessmentWorkbookModel seeds follow-on drafts from subject identity only"
         ],
         "project_id": "node-unit"
       },
@@ -295,7 +295,7 @@
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.assessments.test.tsx",
         "titles": [
-          "preserves stable selection and an editable subject-only follow-on draft"
+          "Assessment workbook surface preserves stable selection and an editable subject-only follow-on draft"
         ],
         "project_id": "browser-unit"
       },
@@ -323,7 +323,7 @@
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.assessments.test.tsx",
         "titles": [
-          "submits assessment creates through the workbook UI"
+          "Assessment workbook surface submits assessment creates through the workbook UI"
         ],
         "project_id": "browser-unit"
       },

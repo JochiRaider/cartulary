@@ -268,23 +268,23 @@
       "selector": {
         "file": "apps/web/src/app/ReferencePackAdminPanel.test.tsx",
         "titles": [
+          "ReferencePackAdminPanel admits material search and filter edits without a separate submit",
+          "ReferencePackAdminPanel admits only one request for the same pending cursor",
+          "ReferencePackAdminPanel clears protected list state and invalidates pending generations on authorization loss",
+          "ReferencePackAdminPanel discards stale reference pack search responses",
+          "ReferencePackAdminPanel does not load an inactive administration panel",
+          "ReferencePackAdminPanel does not replace an unresolved refresh with a duplicate command",
           "ReferencePackAdminPanel exposes exact verified source digests and dependencies in version details",
           "ReferencePackAdminPanel identifies active Base safety fallback without labelling its content unhealthy",
-          "admits material search and filter edits without a separate submit",
-          "admits only one request for the same pending cursor",
-          "clears protected list state and invalidates pending generations on authorization loss",
-          "discards stale reference pack search responses",
-          "does not load an inactive administration panel",
-          "does not replace an unresolved refresh with a duplicate command",
-          "keeps uncertain refresh recovery beside the exact captured request",
-          "offers observation recovery after a failed job read",
-          "rejects malformed successful Reference Pack responses",
-          "retains a selected upload across panel remount without native validation blocking import",
-          "retains accepted rows while searching, resets paging on Enter, and ignores stale terminal results",
-          "retains the actual ancestor scroll position across ordinary panel concealment",
-          "shows health and retention blockers without offering an ineligible mutation",
-          "shows job progress and cancel controls for deployment-admin Reference Pack work",
-          "shows ordered validation details with a read retry that never resubmits work"
+          "ReferencePackAdminPanel keeps uncertain refresh recovery beside the exact captured request",
+          "ReferencePackAdminPanel offers observation recovery after a failed job read",
+          "ReferencePackAdminPanel rejects malformed successful Reference Pack responses",
+          "ReferencePackAdminPanel retains a selected upload across panel remount without native validation blocking import",
+          "ReferencePackAdminPanel retains accepted rows while searching, resets paging on Enter, and ignores stale terminal results",
+          "ReferencePackAdminPanel retains the actual ancestor scroll position across ordinary panel concealment",
+          "ReferencePackAdminPanel shows health and retention blockers without offering an ineligible mutation",
+          "ReferencePackAdminPanel shows job progress and cancel controls for deployment-admin Reference Pack work",
+          "ReferencePackAdminPanel shows ordered validation details with a read retry that never resubmits work"
         ],
         "project_id": "browser-unit"
       },
@@ -312,7 +312,7 @@
       "selector": {
         "file": "apps/web/src/app/ReferencePackAdminPanel.test.tsx",
         "titles": [
-          "hides deployment Reference Pack controls from non-admin sessions"
+          "ReferencePackAdminPanel hides deployment Reference Pack controls from non-admin sessions"
         ],
         "project_id": "browser-unit"
       },

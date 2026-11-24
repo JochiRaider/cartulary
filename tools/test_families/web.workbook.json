@@ -826,7 +826,7 @@
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.support.test.tsx",
         "titles": [
-          "opens the Relationships inspector from compact relationship overflow"
+          "support TimelineWorkbookRuntimeFixture opens the Relationships inspector from compact relationship overflow"
         ],
         "project_id": "browser-unit"
       },
@@ -5746,11 +5746,11 @@
           "Timeline attachment feedback announces new outcomes once including identical admission rejections without replaying retained outcomes on mount",
           "Timeline attachment feedback falls back to the work area only when the last focused work disappears",
           "Timeline attachment feedback keeps Inspector recovery source-specific and completed details collapsed with no duplicate live outcome",
+          "Timeline attachment feedback keeps active verification cancellation visible while details are collapsed without moving grid focus",
           "Timeline attachment feedback keeps completed history collapsed and excludes it from unfinished counts without discarding receipts",
           "Timeline attachment feedback keeps stage-specific actions bound to the original source",
           "Timeline attachment feedback preserves focus and disclosure state through background outcomes and returns lost controls locally",
-          "Timeline attachment feedback shows new work on the same row and updates the feedback leaf without rebuilding its parent",
-          "keeps active verification cancellation visible while details are collapsed without moving grid focus"
+          "Timeline attachment feedback shows new work on the same row and updates the feedback leaf without rebuilding its parent"
         ],
         "project_id": "browser-unit"
       },
@@ -6171,7 +6171,7 @@
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.surfaces.test.tsx",
         "titles": [
-          "preserves unfinished filter draft sort and group through Timeline filtered-empty recovery"
+          "WorkbookShell surface selection preserves unfinished filter draft sort and group through Timeline filtered-empty recovery"
         ],
         "project_id": "browser-unit"
       },
@@ -6879,8 +6879,8 @@
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.support.test.tsx",
         "titles": [
-          "opens Timeline row actions from the committed row context menu",
-          "opens Timeline row actions from the keyboard and ignores draft rows"
+          "support TimelineWorkbookRuntimeFixture opens Timeline row actions from the committed row context menu",
+          "support TimelineWorkbookRuntimeFixture opens Timeline row actions from the keyboard and ignores draft rows"
         ],
         "project_id": "browser-unit"
       },

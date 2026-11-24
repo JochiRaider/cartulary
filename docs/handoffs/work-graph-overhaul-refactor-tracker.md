@@ -657,6 +657,65 @@ Milestone 2 is complete. Open items carried forward:
 - The JavaScript row runner keeps `--unit-rows` for JavaScript plans until
   the switch.
 
+**Milestone 3 plan.** 3a: Vitest rows in the Go planner. 3b: aggregate
+selections (`test-fast`, `check`) with sub-target projections. 3c: remove
+TypeScript title parsing from the JavaScript catalog and runner paths, and
+make frontend completeness file-level. `test-fast` and `check` hold Go, shell
+and Vitest rows plus policy roots; no Playwright or measurement rows sit in
+those tiers.
+
+**Milestone 3, slice 3a: Vitest in the Go planner (2026-11-23).**
+
+- *Titles.* 89 of 758 Vitest rows authored a leaf title that the TypeScript
+  parser expanded to the full title. They now carry the exact full titles,
+  produced once by the existing resolver and ASCII-sorted, so resolution is
+  the identity for every row. This makes the NLSpec's "rows carry exact full
+  titles" true.
+- *Authored needs.* The Vitest invocation policy declares
+  `preparation_operations` (`harness.frontend_install`) and `unit_target_ms`
+  (120 s). The four `renderer-node` integration rows declare
+  `harness.playwright_install`. The JavaScript planner's two rules that
+  derived these from runner and project names are replaced by reads of the
+  authored data. Owner v11 was amended in place; it exists only on this
+  branch.
+- *Units.* Go and Vitest share one compilation path. A contract (runner, Go
+  package or Vitest project, profiles, fixture, services, binaries,
+  preparations, cache, CPU, isolation) groups rows. Indivisible items (a Go
+  row, or a Vitest file's rows) are packed longest-first into as many
+  balanced units as the work needs at the runner's target. Vitest units run
+  one worker, claim the row profile plus the coordinator, and set
+  `CARTULARY_TEST_TARGET=frontend-unit`. A unit's owner is its rows' common
+  owner, else `harness.command_surface`; the former fixed `harness.backend`
+  for Go units is gone.
+- *Cache.* The unit-aware profile is split per runner: `test_rows` (Go) and
+  `vitest_rows`, whose unit inputs add the Vitest runner's configuration and
+  setup (`apps/web/vite.config.ts`, `apps/web/src/testing`, the app's
+  manifests). A Vitest closure is the workspaces holding its files plus their
+  declared workspace dependencies, read from `pnpm-workspace.yaml` and each
+  `package.json`; it needs no source parsing. The JavaScript closure for a
+  `packages/*` test omits the runner configuration it loads, so a
+  configuration change can reuse a stale result there.
+- *Plan contract.* Graph v9 allowed 4096-byte arguments (inherited from v8)
+  while the planner allowed 32 KiB. The first `web.application` run failed at
+  publication, reported as a `fixture_error`. The schema now allows 32 KiB,
+  and `Assemble` validates the plan against its schema, so a contract
+  violation is a planner error.
+
+Runs (Go planner): `package.view_contracts` (one Vitest unit, all five rows
+pass, four with migrated titles), `module.indicators` (Go and Vitest),
+`web.application` (two Vitest units of 35 and 60 rows; all 95 pass). The
+JavaScript-planned `package.view_contracts` also passes with the migrated
+titles. Tests: Vitest compilation (one unit per file within a contract,
+authored preparations, coordinator claims, project purity), runner-generic
+balance and row arguments, workspace closures over a synthetic repository
+(transitive declared dependencies, unrelated workspaces excluded, broad
+fallback outside every workspace), and preparing `web.application` within the
+schema. Checks: `make lint CHECK=go`; the planner, scheduler-contract and
+JSON-shape rows; every `harness.test_catalog` row; `source-check`
+`generated`, `schema` and `catalog`; all pass. The owner-boundaries row fails
+only on the known `installed-readiness.mjs` import (task_77d37cee); its
+owner-schema test passes.
+
 ## 9. Decisions requested
 
 - Decided 2026-11-23: Option B (staged Go replacement); Stage 0 tried and

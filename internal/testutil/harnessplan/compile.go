@@ -14,7 +14,7 @@ import (
 var ErrSelection = errors.New("invalid harness selection")
 
 // ErrUnsupported reports work the Go planner does not compile yet
-// (overhaul milestones 3 and 4: Vitest, Playwright, measurement rows).
+// (overhaul milestone 4: Playwright and measurement rows).
 var ErrUnsupported = errors.New("not yet supported by the Go planner")
 
 // Selection names what to compile: catalog rows and operations or private
@@ -298,39 +298,42 @@ func (c *compiler) operation(id string, stack []string) (string, error) {
 
 // compileRows compiles catalog rows and returns the IDs of their units.
 func (c *compiler) compileRows(ids []string, stack []string) ([]string, error) {
-	var goRows []*Row
+	var runnerRows []*Row
 	var units []string
 	for _, id := range dedupe(ids) {
 		row, ok := c.rows[id]
 		if !ok {
 			return nil, fmt.Errorf("%w: unknown row %s", ErrSelection, id)
 		}
-		switch row.Runner {
-		case RunnerGo:
-			if row.FixtureProfileID != "" || row.EvidenceClass == "measurement" {
-				return nil, fmt.Errorf("%w: measurement row %s", ErrUnsupported, id)
-			}
-			goRows = append(goRows, row)
-		case RunnerShell:
+		switch {
+		case row.Runner == RunnerShell:
 			unit, err := c.operation(row.Selector.OperationID, stack)
 			if err != nil {
 				return nil, err
 			}
 			units = append(units, unit)
+		case row.Runner == RunnerGo && (row.FixtureProfileID != "" || row.EvidenceClass == "measurement"):
+			return nil, fmt.Errorf("%w: measurement row %s", ErrUnsupported, id)
+		case row.Runner == RunnerGo, row.Runner == RunnerVitest:
+			runnerRows = append(runnerRows, row)
 		default:
 			return nil, fmt.Errorf("%w: %s row %s", ErrUnsupported, row.Runner, id)
 		}
 	}
-	goUnits, err := c.goUnits(goRows, stack)
+	runnerUnits, err := c.runnerUnits(runnerRows, stack)
 	if err != nil {
 		return nil, err
 	}
-	return dedupe(append(units, goUnits...)), nil
+	return dedupe(append(units, runnerUnits...)), nil
 }
 
-// goContract is everything that must be equal for Go rows to share a unit.
-type goContract struct {
+// contract is everything that must be equal for rows to share a runner
+// invocation: the runner and what it runs (a Go package or a Vitest project),
+// profiles, fixture, services, binaries, preparations, cache policy and CPU.
+type contract struct {
+	Runner                string
 	Package               string
+	Project               string
 	RuntimeProfileID      string
 	ResourceProfileID     string
 	FixtureCapability     string
@@ -346,11 +349,18 @@ type goContract struct {
 	Alone string
 }
 
-func (c *compiler) goUnits(rows []*Row, stack []string) ([]string, error) {
+// item is an indivisible piece of a runner invocation: a Go row, or every
+// selected row of one Vitest file (the runner runs a file once).
+type item struct {
+	rows []*Row
+	work int64
+}
+
+func (c *compiler) runnerUnits(rows []*Row, stack []string) ([]string, error) {
 	groups := map[string][]*Row{}
-	contracts := map[string]goContract{}
+	contracts := map[string]contract{}
 	for _, row := range rows {
-		contract, err := c.goContract(row)
+		contract, err := c.contract(row)
 		if err != nil {
 			return nil, err
 		}
@@ -358,12 +368,11 @@ func (c *compiler) goUnits(rows []*Row, stack []string) ([]string, error) {
 		groups[key] = append(groups[key], row)
 		contracts[key] = contract
 	}
-	keys := slices.Sorted(maps.Keys(groups))
 	var ids []string
-	for _, key := range keys {
+	for _, key := range slices.Sorted(maps.Keys(groups)) {
 		contract := contracts[key]
-		for _, bin := range c.split(groups[key], contract) {
-			id, err := c.goUnit(key, contract, bin, stack)
+		for _, bin := range c.split(c.items(groups[key], contract), contract) {
+			id, err := c.runnerUnit(key, contract, bin, stack)
 			if err != nil {
 				return nil, err
 			}
@@ -373,25 +382,32 @@ func (c *compiler) goUnits(rows []*Row, stack []string) ([]string, error) {
 	return ids, nil
 }
 
-func (c *compiler) goContract(row *Row) (goContract, error) {
-	contract := goContract{
-		Package: row.Selector.Package, RuntimeProfileID: row.RuntimeProfileID, ResourceProfileID: row.ResourceProfileID,
+func (c *compiler) contract(row *Row) (contract, error) {
+	result := contract{
+		Runner: row.Runner, RuntimeProfileID: row.RuntimeProfileID, ResourceProfileID: row.ResourceProfileID,
 		FixtureCapability: row.FixtureCapability, PostgresIsolation: row.PostgresIsolation,
 		ServiceDependencies: sortedCopy(row.ServiceDependencies), RuntimeBinaryIDs: sortedCopy(row.RuntimeBinaryIDs),
-		PreparationOperations: sortedCopy(row.PreparationOperations), CachePolicy: rowCachePolicy(*row),
+		PreparationOperations: sortedCopy(append(slices.Clone(row.PreparationOperations), c.in.Owner.InvocationPolicies[row.Runner].PreparationOperations...)),
+		CachePolicy:           rowCachePolicy(*row),
+	}
+	switch row.Runner {
+	case RunnerGo:
+		result.Package = row.Selector.Package
+	case RunnerVitest:
+		result.Project = row.Selector.ProjectID
 	}
 	claims, err := c.claims(row.ResourceProfileID, row.ServiceDependencies)
 	if err != nil {
-		return contract, err
+		return result, err
 	}
-	contract.CPUTokens = min(c.options.CPUTokens, max(1, claims["cpu"]))
+	result.CPUTokens = min(c.options.CPUTokens, max(1, claims["cpu"]))
 	if context, ok := c.in.Owner.RowExecutionContexts[row.RowID]; ok {
-		contract.CPUTokens, contract.CachePolicy, contract.Race, contract.Alone = context.CPUTokens, context.CachePolicy, context.GoRace, row.RowID
+		result.CPUTokens, result.CachePolicy, result.Race, result.Alone = context.CPUTokens, context.CachePolicy, context.GoRace, row.RowID
 	}
 	if row.ProcessIsolation == "exclusive" || row.FixtureCapability == "managed_process" {
-		contract.Alone = row.RowID
+		result.Alone = row.RowID
 	}
-	return contract, nil
+	return result, nil
 }
 
 // rowCachePolicy: only service-free, fixture-free Go and Vitest rows outside
@@ -404,44 +420,73 @@ func rowCachePolicy(row Row) string {
 	return "none"
 }
 
-// split divides one contract group into balanced units: as many as the work
-// needs at the target size, filled longest-first into the least-loaded unit.
-func (c *compiler) split(rows []*Row, contract goContract) [][]*Row {
-	target := c.in.Owner.GoUnitTargetMS
-	if c.heavy(contract) {
-		target = c.in.Owner.GoHeavyUnitTargetMS
+// items divides a contract group into indivisible items: one per Go row,
+// one per Vitest file.
+func (c *compiler) items(rows []*Row, contract contract) []item {
+	byKey := map[string]*item{}
+	var keys []string
+	for _, row := range rows {
+		key := row.RowID
+		if contract.Runner == RunnerVitest {
+			key = row.Selector.File
+		}
+		if byKey[key] == nil {
+			byKey[key] = &item{}
+			keys = append(keys, key)
+		}
+		byKey[key].rows = append(byKey[key].rows, row)
+		byKey[key].work += c.estimate(*row)
 	}
-	ordered := slices.Clone(rows)
-	slices.SortFunc(ordered, func(a, b *Row) int {
-		return cmp.Or(cmp.Compare(c.estimate(*b), c.estimate(*a)), strings.Compare(a.RowID, b.RowID))
+	items := make([]item, len(keys))
+	for i, key := range keys {
+		items[i] = *byKey[key]
+	}
+	return items
+}
+
+// split divides a contract group into balanced units: as many as the work
+// needs at the runner's target size, filled longest-first into the
+// least-loaded unit.
+func (c *compiler) split(items []item, contract contract) [][]*Row {
+	target := c.unitTarget(contract)
+	slices.SortFunc(items, func(a, b item) int {
+		return cmp.Or(cmp.Compare(b.work, a.work), strings.Compare(a.rows[0].RowID, b.rows[0].RowID))
 	})
 	total := int64(0)
-	for _, row := range ordered {
-		total += c.estimate(*row)
+	for _, item := range items {
+		total += item.work
 	}
 	count := max(1, int((total+target-1)/target))
 	if contract.Alone != "" {
-		count = len(ordered)
+		count = len(items)
 	}
-	count = min(count, len(ordered))
+	count = min(count, len(items))
 	bins := make([][]*Row, count)
 	loads := make([]int64, count)
-	for _, row := range ordered {
+	for _, item := range items {
 		least := 0
 		for i := range loads {
 			if loads[i] < loads[least] {
 				least = i
 			}
 		}
-		bins[least] = append(bins[least], row)
-		loads[least] += c.estimate(*row)
+		bins[least] = append(bins[least], item.rows...)
+		loads[least] += item.work
 	}
 	return bins
 }
 
-func (c *compiler) heavy(contract goContract) bool {
+// unitTarget is a unit's size target: the Vitest invocation policy's, or for
+// Go the owner's, smaller for units on the heavy PostgreSQL lane.
+func (c *compiler) unitTarget(contract contract) int64 {
+	if contract.Runner == RunnerVitest {
+		return c.in.Owner.InvocationPolicies[RunnerVitest].UnitTargetMS
+	}
 	claims, _ := c.claims(contract.ResourceProfileID, nil)
-	return claims["postgres_heavy"] > 0
+	if claims["postgres_heavy"] > 0 {
+		return c.in.Owner.GoHeavyUnitTargetMS
+	}
+	return c.in.Owner.GoUnitTargetMS
 }
 
 func (c *compiler) estimate(row Row) int64 {
@@ -451,15 +496,19 @@ func (c *compiler) estimate(row Row) int64 {
 	return c.in.Owner.EvidenceEstimatesMS[row.EvidenceClass]
 }
 
-func (c *compiler) goUnit(key string, contract goContract, rows []*Row, stack []string) (string, error) {
+// runnerUnit builds one Go or Vitest unit. Its ID is the digest of its
+// contract and row set.
+func (c *compiler) runnerUnit(key string, contract contract, rows []*Row, stack []string) (string, error) {
 	rowIDs := make([]string, len(rows))
+	owners := map[string]bool{}
 	work := int64(0)
 	for i, row := range rows {
 		rowIDs[i] = row.RowID
+		owners[row.OwnerID] = true
 		work += c.estimate(*row)
 	}
 	slices.Sort(rowIDs)
-	id := "go:" + key[:16] + ":" + digest(rowIDs)[:12]
+	id := contract.Runner + ":" + key[:16] + ":" + digest(rowIDs)[:12]
 	if _, ok := c.units[id]; ok {
 		return id, nil
 	}
@@ -485,14 +534,28 @@ func (c *compiler) goUnit(key string, contract goContract, rows []*Row, stack []
 		return "", err
 	}
 	claims["cpu"] = contract.CPUTokens
-	policy := c.in.Owner.InvocationPolicies[RunnerGo]
-	environment := c.goEnvironment(contract.Race)
-	maps.Copy(environment, fixtureEnvironment(contract.FixtureCapability, contract.ServiceDependencies))
-	environment["CARTULARY_UNIT_CPU_TOKENS"] = strconv.FormatInt(contract.CPUTokens, 10)
-	environment["GOMAXPROCS"] = strconv.FormatInt(contract.CPUTokens, 10)
-	environment["CARTULARY_GO_SHUFFLE_SEED"] = c.options.GoShuffleSeed
+	policy := c.in.Owner.InvocationPolicies[contract.Runner]
+	for resource, amount := range policy.CoordinatorClaims {
+		claims[resource] += amount
+	}
+	claims["cpu"] = min(claims["cpu"], c.options.CPUTokens)
+	environment := fixtureEnvironment(contract.FixtureCapability, contract.ServiceDependencies)
+	switch contract.Runner {
+	case RunnerGo:
+		maps.Copy(environment, c.goEnvironment(contract.Race))
+		environment["CARTULARY_UNIT_CPU_TOKENS"] = strconv.FormatInt(contract.CPUTokens, 10)
+		environment["GOMAXPROCS"] = strconv.FormatInt(contract.CPUTokens, 10)
+		environment["CARTULARY_GO_SHUFFLE_SEED"] = c.options.GoShuffleSeed
+	case RunnerVitest:
+		environment["CARTULARY_TEST_TARGET"] = "frontend-unit"
+		environment["VITEST_MAX_WORKERS"] = "1"
+	}
+	owner := "harness.command_surface"
+	if len(owners) == 1 {
+		owner = rows[0].OwnerID
+	}
 	unit := &Unit{
-		ID: id, OwnerID: "harness.backend", Kind: "runner", Needs: dedupe(needs), Claims: claims,
+		ID: id, OwnerID: owner, Kind: "runner", Needs: dedupe(needs), Claims: claims,
 		Residents: c.residents(id, contract.FixtureCapability, contract.ServiceDependencies, contract.PostgresIsolation), FixtureLease: contract.FixtureCapability,
 		ServiceDependencies: contract.ServiceDependencies, PostgresIsolation: contract.PostgresIsolation, CachePolicy: contract.CachePolicy,
 		TimeoutMS: c.in.Owner.DefaultTimeoutMS, RuntimeBinaryIDs: contract.RuntimeBinaryIDs,
@@ -500,7 +563,7 @@ func (c *compiler) goUnit(key string, contract goContract, rows []*Row, stack []
 		Command: Command{Executable: "node", Args: []string{"tools/harness/execution/runners/row-runner-cli.mjs", "--row-ids", strings.Join(rowIDs, ",")}, Environment: environment},
 	}
 	for _, row := range rowIDs {
-		unit.RowBindings = append(unit.RowBindings, RowBinding{RowID: row, Runner: RunnerGo})
+		unit.RowBindings = append(unit.RowBindings, RowBinding{RowID: row, Runner: contract.Runner})
 		unit.EvidenceOutputs = append(unit.EvidenceOutputs, "rows/"+row+".json")
 	}
 	c.lock(unit, contract.ResourceProfileID)

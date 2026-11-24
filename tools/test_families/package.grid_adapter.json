@@ -54,7 +54,7 @@
       "selector": {
         "file": "packages/grid-adapter/src/core.node.test.ts",
         "titles": [
-          "Reject unsafe record identities and keep non-record semantic rows from mutation-capable anchors."
+          "semantic grid policies Reject unsafe record identities and keep non-record semantic rows from mutation-capable anchors."
         ],
         "project_id": "node-unit"
       },
@@ -80,7 +80,7 @@
       "selector": {
         "file": "packages/grid-adapter/src/core.node.test.ts",
         "titles": [
-          "Translate private RDG positions through stable record_id and field_key anchors."
+          "semantic grid policies Translate private RDG positions through stable record_id and field_key anchors."
         ],
         "project_id": "node-unit"
       },
@@ -106,7 +106,7 @@
       "selector": {
         "file": "packages/grid-adapter/src/core.node.test.ts",
         "titles": [
-          "Resolve grid editability from explicit editor adapters and contract writeability only."
+          "semantic grid policies Resolve grid editability from explicit editor adapters and contract writeability only."
         ],
         "project_id": "node-unit"
       },
@@ -132,7 +132,7 @@
       "selector": {
         "file": "packages/grid-adapter/src/core.node.test.ts",
         "titles": [
-          "Resolve renderers and editors deterministically and clean adapter-owned resources."
+          "semantic grid policies Resolve renderers and editors deterministically and clean adapter-owned resources."
         ],
         "project_id": "node-unit"
       },

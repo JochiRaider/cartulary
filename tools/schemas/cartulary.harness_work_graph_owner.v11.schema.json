@@ -598,7 +598,9 @@
           "required": [
             "startup_ms",
             "cleanup_ms",
-            "coordinator_claims"
+            "coordinator_claims",
+            "unit_target_ms",
+            "preparation_operations"
           ],
           "properties": {
             "startup_ms": {
@@ -630,6 +632,19 @@
                   "type": "integer",
                   "minimum": 1
                 }
+              }
+            },
+            "unit_target_ms": {
+              "description": "Vitest rows of one execution contract split into as many units as their estimated work needs at this size.",
+              "type": "integer",
+              "minimum": 1000
+            },
+            "preparation_operations": {
+              "description": "Operations every Vitest unit waits for.",
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "$ref": "#/$defs/operation_id"
               }
             }
           }

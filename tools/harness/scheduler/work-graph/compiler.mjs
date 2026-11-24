@@ -339,11 +339,9 @@ export class WorkGraphCompiler {
       }
     }
     const prerequisiteTargetsForRow = (row) => {
-      const targets = new Set(row.preparation_operations ?? []);
-      if (row.runner === "vitest") targets.add("harness.frontend_install");
-      if (row.runner === "vitest" && row.selector.project_id === "renderer-node" && row.evidence_class === "integration") {
-        targets.add("harness.playwright_install");
-      }
+      // Rows and their runner's invocation policy declare what a row waits for.
+      const targets = new Set([...(row.preparation_operations ?? []),
+        ...(this.owner.invocation_policies[row.runner]?.preparation_operations ?? [])]);
       if (row.runner === "playwright") {
         for (const target of [
           ...(browserNeedsByRow.get(row.row_id) ?? []),

@@ -113,6 +113,22 @@ func TestPlanPreparation(t *testing.T) {
 		}
 	})
 
+	t.Run("a large Vitest owner prepares a plan within its schema", func(t *testing.T) {
+		plan, err := Prepare(root, command(map[string]string{"OWNER": "web.application"}), now, 42)
+		if err != nil {
+			t.Fatal(err)
+		}
+		longest := 0
+		for _, unit := range plan.Graph.Units {
+			for _, argument := range unit.Command.Args {
+				longest = max(longest, len(argument))
+			}
+		}
+		if longest <= 4096 {
+			t.Fatalf("the owner's longest argument is %d bytes; the case needs a unit beyond the former 4096-byte bound", longest)
+		}
+	})
+
 	t.Run("a public operation command selects its operation", func(t *testing.T) {
 		plan, err := Prepare(root, Request{Kind: "target", Target: "go-vulncheck", Environment: environment(nil)}, now, 42)
 		if err != nil {

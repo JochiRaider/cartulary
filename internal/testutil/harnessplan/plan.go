@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/JochiRaider/cartulary/internal/testutil/harnessschema"
 )
 
 // PlanSchema is the runtime plan document the planner writes.
@@ -209,6 +211,19 @@ func Assemble(in *Inputs, graph *Graph, invocation Invocation) (*Plan, error) {
 	}
 	if err := plan.validate(); err != nil {
 		return nil, err
+	}
+	// The planner owns its document contract: a plan that does not satisfy
+	// its schema is a planner error, never a later publication failure.
+	data, err := json.Marshal(plan)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrPlan, err)
+	}
+	document, err := harnessschema.Decode(data)
+	if err == nil {
+		err = harnessschema.Validate(PlanSchema, document)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("%w: the plan does not satisfy %s: %v", ErrPlan, PlanSchema, err)
 	}
 	return plan, nil
 }

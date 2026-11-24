@@ -203,7 +203,74 @@
       "requires_vulnerability_database_revision": false,
       "operation_ids": [],
       "runner_types": [
-        "go",
+        "go"
+      ]
+    },
+    {
+      "profile_id": "vitest_rows",
+      "policy": "content_addressed",
+      "dependency_strategy": "unit_aware",
+      "input_roots": [
+        "Makefile",
+        "apps",
+        "cmd",
+        "configs",
+        "contracts",
+        "fixtures",
+        "go.mod",
+        "go.sum",
+        "internal",
+        "package.json",
+        "packages",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "referencepacks",
+        "scripts",
+        "tools",
+        "tsconfig.base.json",
+        "tsconfig.json"
+      ],
+      "unit_inputs": {
+        "paths": [
+          "Makefile",
+          "apps/web/package.json",
+          "apps/web/src/testing",
+          "apps/web/tsconfig.json",
+          "apps/web/vite.config.ts",
+          "configs",
+          "contracts",
+          "go.mod",
+          "go.sum",
+          "internal/testutil/sourcecheck",
+          "package.json",
+          "pnpm-lock.yaml",
+          "pnpm-workspace.yaml",
+          "scripts",
+          "tools/execution_topology_manifest.json",
+          "tools/generated_artifact_policy.json",
+          "tools/go_modules.json",
+          "tools/scheduler_resource_registry.json",
+          "tools/schemas",
+          "tools/sourcecheck",
+          "tools/task_surface.generated.mk",
+          "tools/task_surface.runtime.generated.mk",
+          "tools/task_surface_manifest.json",
+          "tools/task_surface_owner.json",
+          "tools/test_catalog_owner.json",
+          "tools/toolchain_pins.json",
+          "tsconfig.base.json",
+          "tsconfig.json"
+        ],
+        "prefixes": [
+          "tools/generate",
+          "tools/harness",
+          "tools/render",
+          "tools/test_families/harness."
+        ]
+      },
+      "requires_vulnerability_database_revision": false,
+      "operation_ids": [],
+      "runner_types": [
         "vitest"
       ]
     }

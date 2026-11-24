@@ -233,6 +233,11 @@ type InvocationPolicy struct {
 	StartupMS         int64            `json:"startup_ms"`
 	CleanupMS         int64            `json:"cleanup_ms"`
 	CoordinatorClaims map[string]int64 `json:"coordinator_claims,omitempty"`
+	// UnitTargetMS sizes a runner's units (Vitest; Go units use the owner's
+	// targets).
+	UnitTargetMS int64 `json:"unit_target_ms,omitempty"`
+	// PreparationOperations are operations every unit of the runner waits for.
+	PreparationOperations []string `json:"preparation_operations,omitempty"`
 }
 
 // Topology is the planning part of the execution topology.

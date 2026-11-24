@@ -6292,7 +6292,11 @@
         "cpu": 1,
         "memory_mb": 384,
         "process": 3
-      }
+      },
+      "unit_target_ms": 120000,
+      "preparation_operations": [
+        "harness.frontend_install"
+      ]
     },
     "go": {
       "startup_ms": 5000,

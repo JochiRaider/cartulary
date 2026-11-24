@@ -1292,7 +1292,7 @@
       "selector": {
         "file": "apps/web/src/app/App.landing.test.tsx",
         "titles": [
-          "ordinary landing shell creates an incident, refreshes membership, opens the workbook, and delegates stale selection to workbook access recovery"
+          "Incident landing ordinary landing shell creates an incident, refreshes membership, opens the workbook, and delegates stale selection to workbook access recovery"
         ],
         "project_id": "browser-unit"
       },

@@ -127,9 +127,9 @@
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.query.test.tsx",
         "titles": [
-          "drops non-discovery keys before building query request bodies",
-          "emits stable schema keys for sort, filter, and group query controls",
-          "renders group headers as presentation-only rows"
+          "workbook query controls drops non-discovery keys before building query request bodies",
+          "workbook query controls emits stable schema keys for sort, filter, and group query controls",
+          "workbook query controls renders group headers as presentation-only rows"
         ],
         "project_id": "browser-unit"
       },
@@ -157,11 +157,11 @@
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.query.test.tsx",
         "titles": [
-          "compiles query requests with schema field keys and capability metadata",
-          "keeps grouped presentation rows out of mutation-capable anchors",
-          "renders active filter chips and grouping controls by field key",
-          "serializes saved-view layout_json as portable schema field-key state",
-          "serializes saved-view query_json with canonical empty arrays and omitted inactive grouping"
+          "workbook query controls compiles query requests with schema field keys and capability metadata",
+          "workbook query controls keeps grouped presentation rows out of mutation-capable anchors",
+          "workbook query controls renders active filter chips and grouping controls by field key",
+          "workbook query controls serializes saved-view layout_json as portable schema field-key state",
+          "workbook query controls serializes saved-view query_json with canonical empty arrays and omitted inactive grouping"
         ],
         "project_id": "browser-unit"
       },

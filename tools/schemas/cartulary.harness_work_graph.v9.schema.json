@@ -39,7 +39,7 @@
           "type": "array",
           "items": {
             "type": "string",
-            "maxLength": 4096
+            "maxLength": 32768
           }
         },
         "environment": {

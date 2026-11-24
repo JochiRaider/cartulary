@@ -11841,6 +11841,27 @@ locations from owner names. A broad profile declares no `unit_inputs`. A Go
 package's closure also includes the module manifest and checksum file of the
 module that encloses it.
 
+Vitest rows compile to units of one execution contract (project, profiles,
+fixture, services, binaries, preparations, cache policy and isolation). A
+test file's selected rows of one contract run in one unit, and files are
+packed longest-first into as many balanced units as their estimated work needs
+at the Vitest invocation policy's `unit_target_ms`. Each unit runs one worker
+and claims its rows' profile plus the policy's coordinator claims. The policy
+also declares `preparation_operations` every Vitest unit waits for. Rows
+declare any further preparation, such as the browser install that
+`renderer-node` integration rows need. No compiler derives these needs from
+runner or project names. Rows carry exact full titles, which pass to the
+runner unchanged.
+
+Unit-aware cache profiles are per runner. A Vitest unit's closure is the
+workspaces that hold its files plus, transitively, every workspace they
+declare as a dependency. Workspaces are listed in `pnpm-workspace.yaml`.
+pnpm resolves only declared dependencies, and the frontend import boundary
+forbids reaching another workspace by relative path, so declarations close
+the graph without parsing sources. The Vitest profile's `unit_inputs` add the
+runner's own configuration and setup files, which every Vitest invocation
+loads whatever workspace its files belong to.
+
 ## SQL architecture analysis completeness
 
 Architecture checks that inspect SQL embedded in Go MUST use Go AST analysis for

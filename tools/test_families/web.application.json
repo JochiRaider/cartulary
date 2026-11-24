@@ -1371,20 +1371,20 @@
       "selector": {
         "file": "apps/web/src/app/appSessionController.test.tsx",
         "titles": [
-          "admits a validated session while preferences and extension discovery fail independently",
+          "application session lifecycle admits a validated session while preferences and extension discovery fail independently",
+          "application session lifecycle cancels recovery before publication after caller cancellation navigation replacement and disposal",
+          "application session lifecycle classifies recovery without treating transport or contract failure as membership loss",
+          "application session lifecycle creates a new lifetime for identical-field reauthentication but preserves ordinary refresh identity",
+          "application session lifecycle distinguishes unavailable discovery from confirmed anonymous and permits manual retry",
           "application session lifecycle fences a delayed unauthorized observation and explicit session loss across accepted login and account replacement",
           "application session lifecycle keeps anonymous authentication confirmation inside its current flow and fences replacement",
-          "cancels recovery before publication after caller cancellation navigation replacement and disposal",
-          "classifies recovery without treating transport or contract failure as membership loss",
-          "creates a new lifetime for identical-field reauthentication but preserves ordinary refresh identity",
-          "distinguishes unavailable discovery from confirmed anonymous and permits manual retry",
-          "keeps workbook authorization through temporary failure and rejects obsolete hook callbacks",
-          "observes operation session and current profiles with explicit cancellation and failure outcomes",
-          "preserves same-account work across revocation and clears another account before publication",
-          "rejects obsolete session successes and failures from overlapping observations",
-          "settles overlapping recovery callers without publishing the obsolete account",
-          "settles session and supporting observations at thirty seconds despite ignored aborts",
-          "survives React lifecycle replay and disposes pending observations after unmount"
+          "application session lifecycle keeps workbook authorization through temporary failure and rejects obsolete hook callbacks",
+          "application session lifecycle preserves same-account work across revocation and clears another account before publication",
+          "application session lifecycle rejects obsolete session successes and failures from overlapping observations",
+          "application session lifecycle settles overlapping recovery callers without publishing the obsolete account",
+          "application session lifecycle settles session and supporting observations at thirty seconds despite ignored aborts",
+          "application session lifecycle survives React lifecycle replay and disposes pending observations after unmount",
+          "observes operation session and current profiles with explicit cancellation and failure outcomes"
         ],
         "project_id": "browser-unit"
       },
@@ -1410,13 +1410,13 @@
       "selector": {
         "file": "apps/web/src/app/AppWorkflows.test.tsx",
         "titles": [
-          "commits presentation updates and visibility without admitting abandoned render ports",
-          "constructs nine inert owners and retires and disposes each contribution once",
-          "does not subscribe dispatch or mutate a committed owner from an abandoned render",
-          "keeps owners live through Strict Mode replay and disposes once at terminal departure",
-          "rejects stale attachments mismatched subjects and bindings after retirement or disposal",
-          "replaces the committed session subscription and ignores callbacks from the old source",
-          "retires all old authority before publishing and suppresses a reentrant superseded session"
+          "Application workflow composition commits presentation updates and visibility without admitting abandoned render ports",
+          "Application workflow composition constructs nine inert owners and retires and disposes each contribution once",
+          "Application workflow composition does not subscribe dispatch or mutate a committed owner from an abandoned render",
+          "Application workflow composition keeps owners live through Strict Mode replay and disposes once at terminal departure",
+          "Application workflow composition rejects stale attachments mismatched subjects and bindings after retirement or disposal",
+          "Application workflow composition replaces the committed session subscription and ignores callbacks from the old source",
+          "Application workflow composition retires all old authority before publishing and suppresses a reentrant superseded session"
         ],
         "project_id": "browser-unit"
       },
@@ -2522,11 +2522,11 @@
       "selector": {
         "file": "apps/web/src/app/useNetworkFlowImport.test.tsx",
         "titles": [
+          "Network Flow import application binding clears retained work when an unsupported profile arrives while detached",
           "Network Flow import application binding distinguishes pending readiness from definitive loss and restores review without replay",
           "Network Flow import application binding fences incident and account replacement before accepting a pending analytical write",
           "Network Flow import application binding hides protected state while the shell is absent and restores only explicit recovery",
-          "Network Flow import application binding retains submitted intent on write loss and retires either withdrawn extension claim",
-          "clears retained work when an unsupported profile arrives while detached"
+          "Network Flow import application binding retains submitted intent on write loss and retires either withdrawn extension claim"
         ],
         "project_id": "browser-unit"
       },
@@ -2637,20 +2637,20 @@
       "selector": {
         "file": "apps/web/src/shared/useRegisteredOverlayNavigation.test.tsx",
         "titles": [
-          "allows a destination owner to suppress subject-change restoration",
-          "cancels requested restoration on unmount when the consumer owns that policy",
-          "closes on subject change and restores to a registered fallback",
-          "closes without restoring when focus leaves the registered surface",
           "delegates Escape restoration to the semantic owner and leaves focus exit alone",
-          "focuses on open, wraps, skips disabled items, and restores on Escape",
-          "keeps a programmatically focused overlay root inside the focus boundary",
-          "keeps form control keys native, wraps only boundary Tab, and reconciles disabled focus",
-          "preserves aria-disabled focus and ordinary navigation through asynchronous settlement",
-          "reconciles a removed focused item without using its detached element",
-          "restores through the fallback when closing unmounts the navigation owner",
-          "retains a form through native disabled blur without swallowing deliberate focus departure",
-          "returns to the trigger when the last registered item disappears",
-          "validates a semantic replacement and never reclaims an outside destination"
+          "registered overlay navigation allows a destination owner to suppress subject-change restoration",
+          "registered overlay navigation cancels requested restoration on unmount when the consumer owns that policy",
+          "registered overlay navigation closes on subject change and restores to a registered fallback",
+          "registered overlay navigation closes without restoring when focus leaves the registered surface",
+          "registered overlay navigation focuses on open, wraps, skips disabled items, and restores on Escape",
+          "registered overlay navigation keeps a programmatically focused overlay root inside the focus boundary",
+          "registered overlay navigation keeps form control keys native, wraps only boundary Tab, and reconciles disabled focus",
+          "registered overlay navigation preserves aria-disabled focus and ordinary navigation through asynchronous settlement",
+          "registered overlay navigation reconciles a removed focused item without using its detached element",
+          "registered overlay navigation restores through the fallback when closing unmounts the navigation owner",
+          "registered overlay navigation retains a form through native disabled blur without swallowing deliberate focus departure",
+          "registered overlay navigation returns to the trigger when the last registered item disappears",
+          "registered overlay navigation validates a semantic replacement and never reclaims an outside destination"
         ],
         "project_id": "browser-unit"
       },
@@ -2770,10 +2770,10 @@
       "selector": {
         "file": "apps/web/src/app/useWorkbookImport.test.tsx",
         "titles": [
+          "Workbook import application binding clears retained work when an unsupported profile arrives while detached",
           "Workbook import application binding distinguishes pending readiness from definitive loss and restores review without replay",
           "Workbook import application binding fences incident and account replacement before a pending write can be accepted",
-          "Workbook import application binding retains copyable work on role loss and purges it on confirmed profile withdrawal",
-          "clears retained work when an unsupported profile arrives while detached"
+          "Workbook import application binding retains copyable work on role loss and purges it on confirmed profile withdrawal"
         ],
         "project_id": "browser-unit"
       },

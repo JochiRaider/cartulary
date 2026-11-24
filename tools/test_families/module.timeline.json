@@ -4292,7 +4292,7 @@
       "selector": {
         "file": "apps/web/e2e/measurement/timingSupport.test.ts",
         "titles": [
-          "rejects wrong, hidden, offscreen, unfocused, unstable, and pre-acceptance states"
+          "AC-043 paint qualification rejects wrong, hidden, offscreen, unfocused, unstable, and pre-acceptance states"
         ],
         "project_id": "harness-node"
       },
@@ -4321,7 +4321,7 @@
       "selector": {
         "file": "apps/web/e2e/support/performance/ac043Snapshot.test.ts",
         "titles": [
-          "preserves the typed supported-envelope fixture and traffic shape"
+          "AC-043 snapshot runtime bundle preserves the typed supported-envelope fixture and traffic shape"
         ],
         "project_id": "harness-node"
       },
@@ -4576,7 +4576,7 @@
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.payload.test.tsx",
         "titles": [
-          "does not create a Timeline row from presses cancellation or non-primary activation"
+          "Timeline workbook payload coverage does not create a Timeline row from presses cancellation or non-primary activation"
         ],
         "project_id": "browser-unit"
       },
@@ -4663,7 +4663,7 @@
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.grid.test.tsx",
         "titles": [
-          "binds Timeline grid columns from the active view_schema and commits writable cells by field_key"
+          "Timeline workbook grid coverage binds Timeline grid columns from the active view_schema and commits writable cells by field_key"
         ],
         "project_id": "browser-unit"
       },
@@ -4691,7 +4691,7 @@
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.grid.test.tsx",
         "titles": [
-          "binds saved rows by record_id and row_version instead of visible row index"
+          "Timeline workbook grid coverage binds saved rows by record_id and row_version instead of visible row index"
         ],
         "project_id": "browser-unit"
       },
@@ -4719,7 +4719,7 @@
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.grid.test.tsx",
         "titles": [
-          "keeps sorted and filtered local edits bound to the original record_id, base_row_version, and field_key"
+          "Timeline workbook grid coverage keeps sorted and filtered local edits bound to the original record_id, base_row_version, and field_key"
         ],
         "project_id": "browser-unit"
       },
@@ -4747,7 +4747,7 @@
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.payload.test.tsx",
         "titles": [
-          "creates an explicit blank Timeline row with only client_txn_id and suppresses duplicate pending submits"
+          "Timeline workbook payload coverage creates an explicit blank Timeline row with only client_txn_id and suppresses duplicate pending submits"
         ],
         "project_id": "browser-unit"
       },
@@ -4775,11 +4775,11 @@
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.autosave.test.tsx",
         "titles": [
-          "autosaves Enter without a Save button and keeps exact save-state labels",
-          "autosaves Tab without a Save button and keeps exact save-state labels",
-          "autosaves blur without a Save button and keeps exact save-state labels",
-          "autosaves paste completion without a Save button and keeps exact save-state labels",
-          "reports Conflict after autosave failure and preserves local editor value"
+          "Timeline workbook autosave coverage autosaves Enter without a Save button and keeps exact save-state labels",
+          "Timeline workbook autosave coverage autosaves Tab without a Save button and keeps exact save-state labels",
+          "Timeline workbook autosave coverage autosaves blur without a Save button and keeps exact save-state labels",
+          "Timeline workbook autosave coverage autosaves paste completion without a Save button and keeps exact save-state labels",
+          "Timeline workbook autosave coverage reports Conflict after autosave failure and preserves local editor value"
         ],
         "project_id": "browser-unit"
       },
@@ -4807,7 +4807,7 @@
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.payload.test.tsx",
         "titles": [
-          "builds zero-field Timeline create payloads only for explicit blank-row creation"
+          "Timeline workbook payload coverage builds zero-field Timeline create payloads only for explicit blank-row creation"
         ],
         "project_id": "browser-unit"
       },
@@ -4963,8 +4963,8 @@
       "selector": {
         "file": "apps/web/src/workbook/timeline/models/timelineKeyboardIntentModel.node.test.ts",
         "titles": [
-          "maps scalar navigation without performing focus or save effects",
-          "maps work-area shortcuts to semantic panel and mention intent"
+          "Timeline keyboard intent mapping maps scalar navigation without performing focus or save effects",
+          "Timeline keyboard intent mapping maps work-area shortcuts to semantic panel and mention intent"
         ],
         "project_id": "node-unit"
       },

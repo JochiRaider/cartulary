@@ -530,11 +530,11 @@
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.collaboration.test.tsx",
         "titles": [
-          "clears protected rows and blocks new edits after session revocation",
-          "does not coalesce non-contiguous same-record pending patches",
-          "exposes the browser-runtime pending queue capacity as exactly 64 replay units",
-          "keeps save-state labels and pending queue replay bounded and explicit",
-          "moves a blocking same-field conflict out of the pending queue and retains its editor"
+          "workbook collaboration coverage clears protected rows and blocks new edits after session revocation",
+          "workbook collaboration coverage does not coalesce non-contiguous same-record pending patches",
+          "workbook collaboration coverage exposes the browser-runtime pending queue capacity as exactly 64 replay units",
+          "workbook collaboration coverage keeps save-state labels and pending queue replay bounded and explicit",
+          "workbook collaboration coverage moves a blocking same-field conflict out of the pending queue and retains its editor"
         ],
         "project_id": "browser-unit"
       },
@@ -562,7 +562,7 @@
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.collaboration.test.tsx",
         "titles": [
-          "keeps the grid visible, conflict unresolved, and focus bound to the same cell"
+          "workbook collaboration coverage keeps the grid visible, conflict unresolved, and focus bound to the same cell"
         ],
         "project_id": "browser-unit"
       },
@@ -590,8 +590,8 @@
       "selector": {
         "file": "apps/web/src/workbook/runtime/pending/workbookPendingQueue.node.test.ts",
         "titles": [
-          "derives save-state conflict anchors from record_id field_key and base_row_version",
-          "keeps same-field conflict queue identity separate from pending replay and visible order"
+          "conflict anchoring and resolver state unit model derives save-state conflict anchors from record_id field_key and base_row_version",
+          "conflict anchoring and resolver state unit model keeps same-field conflict queue identity separate from pending replay and visible order"
         ],
         "project_id": "node-unit"
       },
@@ -619,9 +619,9 @@
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.history.test.tsx",
         "titles": [
-          "keeps resolver keyboard focus non-destructive and cancellation preserves conflict draft",
-          "keeps resolver state anchored to stable row and field identities across refresh and reorder",
-          "preserves resolver draft and focus when a stale conflict token refreshes the same anchor"
+          "workbook history support coverage keeps resolver keyboard focus non-destructive and cancellation preserves conflict draft",
+          "workbook history support coverage keeps resolver state anchored to stable row and field identities across refresh and reorder",
+          "workbook history support coverage preserves resolver draft and focus when a stale conflict token refreshes the same anchor"
         ],
         "project_id": "browser-unit"
       },
@@ -649,7 +649,7 @@
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.collaboration.test.tsx",
         "titles": [
-          "routes a same-field conflict from transaction recovery into the normal resolver"
+          "workbook collaboration coverage routes a same-field conflict from transaction recovery into the normal resolver"
         ],
         "project_id": "browser-unit"
       },
@@ -677,11 +677,11 @@
       "selector": {
         "file": "apps/web/src/collaboration/IncidentCollaborationSession.test.tsx",
         "titles": [
-          "backs off server-initiated reconnects with full jitter and resets after hello (REQ-03-299a)",
-          "builds hello and resume session messages from socket resume state",
-          "ignores duplicate stream sequences and refreshes on sequence gaps",
-          "keeps replayable events unsynchronized until the owner completes reset",
-          "suppresses reconnect and clears connection state after revocation"
+          "IncidentCollaborationSession backs off server-initiated reconnects with full jitter and resets after hello (REQ-03-299a)",
+          "IncidentCollaborationSession builds hello and resume session messages from socket resume state",
+          "IncidentCollaborationSession ignores duplicate stream sequences and refreshes on sequence gaps",
+          "IncidentCollaborationSession keeps replayable events unsynchronized until the owner completes reset",
+          "IncidentCollaborationSession suppresses reconnect and clears connection state after revocation"
         ],
         "project_id": "browser-unit"
       },
@@ -709,10 +709,10 @@
       "selector": {
         "file": "apps/web/src/workbook/collaboration/workbookCollaborationMessages.node.test.ts",
         "titles": [
-          "builds default timeline presence payloads for WebSocket session establishment",
-          "builds presence_update messages without changing event names",
-          "includes field_key only for editing presence payloads",
-          "transmits extension workspace presence without record or field anchors"
+          "workbook collaboration presence messages builds default timeline presence payloads for WebSocket session establishment",
+          "workbook collaboration presence messages builds presence_update messages without changing event names",
+          "workbook collaboration presence messages includes field_key only for editing presence payloads",
+          "workbook collaboration presence messages transmits extension workspace presence without record or field anchors"
         ],
         "project_id": "node-unit"
       },
