@@ -334,7 +334,50 @@ a row but is named by no row is no longer detected. Unit identities and cache ke
 About 15 JavaScript readers must move to the CLI or the retained plan in
 Stage 2; `operations.mjs` run-time dispatch is not planner code and stays.
 
-## 8. Decisions requested
+## 8. Progress
+
+**Milestone 1, first slice (2026-11-23).** New package
+`internal/testutil/harnessplan`:
+
+- `Load` reads the owner model, execution topology, scheduler resource
+  registry and owner catalog with strict JSON decoding and typed structs for
+  the fields planning uses, then checks the invariants planning depends on:
+  unique rows, registered owners, runner-specific selectors, resolvable
+  resource and runtime profiles, services consistent with PostgreSQL
+  isolation, policy needs and aggregate roots that resolve to operations or
+  target unions, known runtime binaries and preparation operations, required
+  rows, and the capacity policies capture needs. Authored-input schema
+  validation stays with the source checks; the planner does not re-run it on
+  every prepare as the JavaScript planner does.
+- `Capture` and `Capacities` are the single Go definition of the capability
+  snapshot and the scheduler resource mapping, with host detection separate
+  (`DetectHost`, Linux) so the rules are tested over synthetic hosts. The
+  snapshot satisfies `harness_capability_snapshot.v1`. Compatibility branches
+  for historical snapshots are not carried over.
+- Operations whose policy unit is missing get no silent default; target
+  members and operation execution definitions are typed when milestone 2
+  needs them.
+
+Tests: `TestPlannerInputs` (the real inputs load; eight mutations each break
+one invariant) and `TestCapabilityCapture` (policies, CPU bounds, cgroup
+memory, override bounds, unavailable services, schema and digest
+determinism), registered as
+`harness.command_surface.unit.work_graph_planner`. Checks: `plan-lintgo02`,
+`plan-slice05`, `plan-srcgen01`, `plan-srccat01`; all pass.
+
+Not adopted: generating Go validators for the planner's input schemas. They
+use regex lookaheads the RE2-based native validators cannot express; the
+native renderer already whitelists some lookahead patterns and silently drops
+the phase-label exclusions, so native validation is weaker than the
+JavaScript one for 19 patterns in 30 schemas. That is a separate cleanup:
+rewrite each lookahead as a positive `pattern` plus a `not` pattern and
+delete the whitelist.
+
+Next in milestone 1: the runtime's capacity check (`validCapacities` in
+`harnessruntime/plan.go`) uses `Capacities`, then the plan v8 and graph v9
+schemas with explicit residents.
+
+## 9. Decisions requested
 
 - Decided 2026-11-23: Option B (staged Go replacement); Stage 0 tried and
   reverted; TypeScript source parsing removed from the NLSpec; Node kept only
