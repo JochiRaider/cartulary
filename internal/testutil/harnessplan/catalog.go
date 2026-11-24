@@ -23,6 +23,7 @@ type CatalogOwner struct {
 type Row struct {
 	RowID                 string   `json:"row_id"`
 	OwnerID               string   `json:"owner_id"`
+	CollaboratorIDs       []string `json:"collaborator_ids,omitempty"`
 	FamilyID              string   `json:"family_id"`
 	Runner                string   `json:"runner"`
 	Selector              Selector `json:"selector"`

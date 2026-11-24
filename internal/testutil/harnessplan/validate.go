@@ -201,6 +201,37 @@ func (in *Inputs) validate() error {
 			}
 		}
 	}
+	bound := map[string]string{}
+	for _, profile := range in.Cache.Profiles {
+		source := "cache profile " + profile.ProfileID
+		if _, ok := bound["profile:"+profile.ProfileID]; ok {
+			return fail(cacheRegistryPath, "duplicate %s", source)
+		}
+		bound["profile:"+profile.ProfileID] = profile.ProfileID
+		if !slices.Contains([]string{"same_run", "content_addressed"}, profile.Policy) || (profile.DependencyStrategy == "unit_aware") != (profile.UnitInputs != nil) {
+			return fail(cacheRegistryPath, "%s: unknown policy or unit inputs that disagree with its strategy", source)
+		}
+		for _, id := range profile.OperationIDs {
+			if _, ok := owner.Operations[id]; !ok {
+				return fail(cacheRegistryPath, "%s binds unknown operation %s", source, id)
+			}
+		}
+		for _, key := range append(slices.Clone(profile.OperationIDs), profile.RunnerTypes...) {
+			if other, ok := bound[key]; ok {
+				return fail(cacheRegistryPath, "%s and %s both bind %s", source, other, key)
+			}
+			bound[key] = profile.ProfileID
+		}
+	}
+	policies := map[string]string{}
+	for _, profile := range in.Cache.Profiles {
+		policies[profile.ProfileID] = profile.Policy
+	}
+	for id, unit := range owner.PolicyUnits {
+		if profile, ok := bound[id]; unit.CachePolicy != "none" && (!ok || policies[profile] != unit.CachePolicy) {
+			return fail(ownerPath, "policy unit %s has cache policy %s but no cache profile with that policy binds it", id, unit.CachePolicy)
+		}
+	}
 	return nil
 }
 

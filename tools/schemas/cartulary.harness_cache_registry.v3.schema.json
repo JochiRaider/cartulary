@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.harness_cache_registry.v2",
+  "$id": "cartulary.harness_cache_registry.v3",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -9,7 +9,7 @@
   ],
   "properties": {
     "schema_id": {
-      "const": "cartulary.harness_cache_registry.v2"
+      "const": "cartulary.harness_cache_registry.v3"
     },
     "profiles": {
       "type": "array",
@@ -54,6 +54,39 @@
               }
             }
           },
+          "unit_inputs": {
+            "description": "Inputs every unit-aware closure includes beside its selected packages or workspaces: paths (each with everything beneath it) and path prefixes (every path that starts with the prefix).",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "paths",
+              "prefixes"
+            ],
+            "properties": {
+              "paths": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9._@+-][A-Za-z0-9._@+/-]*$",
+                  "not": {
+                    "pattern": "(?:^|/)\\.\\.(?:/|$)"
+                  }
+                }
+              },
+              "prefixes": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9._@+-][A-Za-z0-9._@+/-]*$",
+                  "not": {
+                    "pattern": "(?:^|/)\\.\\.(?:/|$)"
+                  }
+                }
+              }
+            }
+          },
           "requires_vulnerability_database_revision": {
             "type": "boolean"
           },
@@ -75,7 +108,33 @@
               ]
             }
           }
-        }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "dependency_strategy": {
+                  "const": "unit_aware"
+                }
+              },
+              "required": [
+                "dependency_strategy"
+              ]
+            },
+            "then": {
+              "required": [
+                "unit_inputs"
+              ]
+            },
+            "else": {
+              "not": {
+                "required": [
+                  "unit_inputs"
+                ]
+              }
+            }
+          }
+        ]
       }
     }
   }

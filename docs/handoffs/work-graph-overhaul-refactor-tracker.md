@@ -533,11 +533,76 @@ forwarded-input case in `TestPlannerCompilation`. Checks: `make lint
 CHECK=go`, the planner row (executed, cache miss), `source-check`
 `generated` and `catalog`; all pass.
 
-**Remaining milestone 2 slices.** 2d: cache facts (cache profiles, input
-digests, `go list -deps` closures for Go units). 2e: the runtime calls the
-planner in-process for Go-planned slices behind a planner selector, writes
-`plan.json` to the run root, and reads residents by key; that removes the
-compiler subprocess and the plan decode round trip on that path.
+**Milestone 2, slice 2d: cache facts (2026-11-23).** `harnessplan.CacheFacts`
+decides each unit's cache eligibility and, for an eligible unit, its input
+digest and dependency closure; `Prepare` now plans in every cache mode.
+
+- *Registry v3.* A unit-aware profile declares `unit_inputs` (`paths`, each
+  with everything beneath it, and `prefixes`). That replaces the JavaScript
+  closure's hard-coded file list, which now reads the profile too. The
+  registry adds `contracts` wholesale. The JavaScript derivation of a contract
+  root from the owner name is gone because it matched 21 of 66 owners and
+  missed real contract directories. The NLSpec amendment records both changes.
+- *Closures.* Broad profiles close over their registered roots. Go units close
+  over their packages and every repository-local import found by parsing all
+  Go files of each package (all build constraints, tests included) with
+  `go/parser`, plus everything beneath those package directories, the
+  enclosing module's `go.mod` and `go.sum` (a general rule replacing the
+  referencepacks special case), the profile's unit inputs, the selected
+  owners' manifests and the rows' fixture roots. Incomplete knowledge (an
+  unresolved local import, a changed or missing file) selects the profile's
+  broad closure as `broad_fallback`, as the NLSpec requires.
+- *Keys.* The input digest binds the profile, strategy, unit digest, closure
+  digest, platform, toolchain digest and inherited cryptographic environment.
+  The helper-ownership digest is dropped: unit-aware closures already contain
+  that file, and broad profiles declare their roots.
+- *Not ported.* Vulnerability-database revision proof. The only profile that
+  requires it covers `go_vulncheck`, which declares no reusable outputs and so
+  is never reusable. The Go planner reports `freshness_unknown` for such
+  profiles, so the scan always runs, until a scan gains reusable outputs and
+  needs the proof.
+- *Authoring fix.* `harness.projection_sql_check` declared `content_addressed`
+  with no cache profile. Its only shell row ran uncached, and compiling the
+  operation directly would have failed in the JavaScript planner. The policy
+  now declares `none`, and `Load` rejects a cacheable policy unit without a
+  matching profile, an operation bound twice, and unit-aware profiles without
+  unit inputs.
+- *Cost.* Closure digests are assembled from each snapshot entry's canonical
+  JSON, encoded once, instead of re-serializing every closure. Facts for all
+  452 plannable units take 0.45 s (2.8 s before); the snapshot of 9,581 files
+  takes 0.12 s.
+
+Tests: `TestCacheFacts` (a synthetic module: exact closure membership,
+keys that change only with closure changes, broad fallback, nested-module
+manifests, closure digest equal to the generic semantic digest, every
+ineligibility reason, unbound cacheable units), three new `TestPlannerInputs`
+mutations, and normal-mode cases in `TestPlanPreparation` (the planner row's
+closure holds its packages, imports, unit inputs and owner manifest and no
+unrelated product packages; deterministic keys; the scan is never reused).
+Checks: `make lint CHECK=go`; the planner, scheduler-contract, JSON-shape and
+native-runtime rows; the graph-contract row; `source-check` `generated`,
+`schema` and `catalog`; `lint-markdown`; all pass.
+
+Open items found here:
+
+- *Per-unit freshness re-hashing.* The runtime re-hashes every file of an
+  eligible unit's closure at lookup. Across the 227 eligible units above that
+  is about 783,000 file checks, mostly the same shared inputs, although the
+  source snapshot was hashed moments earlier. 2e should verify each snapshot
+  file at most once per run.
+- *Tests that read authored data outside their closure.* Some Go tests read
+  repository files they do not import. The planner's own tests read every
+  family manifest, but the closure holds only the selected owner's, so a cached
+  result can be reused after another owner's manifest changes. The NLSpec lets
+  rows declare extra roots only under `fixtures/`. The structural fix is a row
+  declaration of data roots anywhere in the repository, which needs a spec
+  change.
+
+**Remaining milestone 2 slice.** 2e: the runtime calls the planner
+in-process for Go-planned slices behind a planner selector, writes
+`plan.json` to the run root, reads residents by key and verifies source
+freshness once per file; that removes the compiler subprocess and the plan
+decode round trip on that path.
 
 ## 9. Decisions requested
 

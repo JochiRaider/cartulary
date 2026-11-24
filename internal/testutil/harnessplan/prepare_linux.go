@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -44,8 +45,6 @@ var runIDPattern = regexp.MustCompile(`^[A-Za-z0-9_.-]{1,96}$`)
 // Prepare turns one graph invocation into a validated plan: it resolves the
 // request against its public command, captures the host's capacity and the
 // executable source, compiles the selection and binds the invocation's facts.
-// Cache facts land with overhaul slice 2d; until then a plan is prepared only
-// with cache mode off.
 func Prepare(root string, request Request, now time.Time, pid int) (*Plan, error) {
 	in, err := Load(root)
 	if err != nil {
@@ -63,9 +62,6 @@ func Prepare(root string, request Request, now time.Time, pid int) (*Plan, error
 		return fallback
 	}
 	cacheMode := value(cacheModeInput, "normal")
-	if cacheMode != "off" {
-		return nil, fmt.Errorf("%w: cache mode %s needs cache facts (overhaul slice 2d)", ErrUnsupported, cacheMode)
-	}
 	mode, sessionFile, err := serviceSession(request, inputs)
 	if err != nil {
 		return nil, err
@@ -127,20 +123,33 @@ func Prepare(root string, request Request, now time.Time, pid int) (*Plan, error
 	if err != nil {
 		return nil, err
 	}
-	reason := "mode_off"
-	var cache []CacheFact
-	for _, unit := range graph.Sorted() {
-		cache = append(cache, CacheFact{UnitID: unit.ID, Reason: &reason})
-	}
 	toolchainSum := sha256.Sum256(pins)
+	toolchainDigest := "sha256:" + hex.EncodeToString(toolchainSum[:])
+	var cache []CacheFact
+	var cacheInputs map[string][]int
+	if cacheMode == "off" {
+		reason := "mode_off"
+		for _, unit := range graph.Sorted() {
+			cache = append(cache, CacheFact{UnitID: unit.ID, Reason: &reason})
+		}
+	} else {
+		environment := request.Environment
+		cache, cacheInputs, err = CacheFacts(root, in, graph, source.Inputs, CacheContext{
+			ToolchainDigest: toolchainDigest, Platform: runtime.GOOS + "/" + runtime.GOARCH,
+			FIPSSelector: environment["GOFIPS140"], GoDebug: environment["GODEBUG"], GoToolchain: environment["GOTOOLCHAIN"],
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
 	return Assemble(in, graph, Invocation{
 		RunID: runID, CommandID: resolved.entry.CommandID, Target: request.Target,
 		DeclaredInputs: declared, InputEnvironment: environment, BrowserLaneLimit: int(lanes),
 		Snapshot: snapshot, GoWorkerBudget: budget,
 		SourceInputs: source.Inputs, SourceCommit: source.Commit, SourceState: source.State,
-		ToolchainDigest: "sha256:" + hex.EncodeToString(toolchainSum[:]), CacheMode: cacheMode,
+		ToolchainDigest: toolchainDigest, CacheMode: cacheMode,
 		InstrumentationMode: value(instrumentationModeInput, "off"), InstrumentationPolicy: policy,
-		Host: DetectHostProfile(), Bindings: bindings, Cache: cache, StartedAt: now,
+		Host: DetectHostProfile(), Bindings: bindings, Cache: cache, CacheInputs: cacheInputs, StartedAt: now,
 	})
 }
 

@@ -27,10 +27,12 @@ func TestPlanPreparation(t *testing.T) {
 	// environment builds a runtime environment whose named inputs come from
 	// the Make command line.
 	environment := func(cli map[string]string) map[string]string {
-		values := map[string]string{"NODE_BIN": node, runIDEnvironment: "prepare-test", cacheModeInput: "off"}
-		sources := []string{cacheModeInput + "=cli"}
-		for name, value := range cli {
-			values[name] = value
+		values := map[string]string{"NODE_BIN": node, runIDEnvironment: "prepare-test"}
+		named := map[string]string{cacheModeInput: "off"}
+		maps.Copy(named, cli)
+		var sources []string
+		for _, name := range slices.Sorted(maps.Keys(named)) {
+			values[name] = named[name]
 			sources = append(sources, name+"=cli")
 		}
 		values[makeInputSources] = strings.Join(sources, " ")
@@ -121,6 +123,51 @@ func TestPlanPreparation(t *testing.T) {
 		}
 	})
 
+	t.Run("normal cache mode keys units by their closures", func(t *testing.T) {
+		normal := command(map[string]string{"OWNER": "harness.command_surface", "ROWS": row, cacheModeInput: "normal"})
+		plan, err := Prepare(root, normal, now, 42)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var fact CacheFact
+		for i, unit := range plan.Graph.Sorted() {
+			if len(unit.RowBindings) == 1 && unit.RowBindings[0].RowID == row {
+				fact = plan.Cache[i]
+			}
+		}
+		if !fact.Eligible || *fact.DependencyStrategy != strategyGoPackages {
+			t.Fatalf("planner row fact = %+v", fact)
+		}
+		var closure []string
+		for _, index := range plan.CacheInputs[*fact.DependencyDigest] {
+			closure = append(closure, plan.SourceInputs[index].Path)
+		}
+		for _, member := range []string{"internal/testutil/harnessplan/compile.go", "internal/testutil/harnessschema/schema_generated.go", "go.mod", "tools/harness_cache_registry.json", "tools/test_families/harness.command_surface.json"} {
+			if !slices.Contains(closure, member) {
+				t.Errorf("closure lacks %s", member)
+			}
+		}
+		if slices.ContainsFunc(closure, func(path string) bool { return strings.HasPrefix(path, "internal/modules/") }) {
+			t.Error("closure includes packages the row does not import")
+		}
+		again, err := Prepare(root, normal, now, 42)
+		if err != nil || *again.Cache[0].InputDigest != *plan.Cache[0].InputDigest {
+			t.Fatal("cache keys are not deterministic")
+		}
+
+		vulncheck, err := Prepare(root, Request{Kind: "target", Target: "go-vulncheck", Environment: environment(map[string]string{cacheModeInput: "normal"})}, now, 42)
+		if err != nil {
+			t.Fatal(err)
+		}
+		// The scan declares no reusable outputs (its reports are fresh run
+		// evidence), so it always runs.
+		for i, unit := range vulncheck.Graph.Sorted() {
+			if fact := vulncheck.Cache[i]; unit.ID == "operation:harness.go_vulncheck" && (fact.Eligible || *fact.Reason != "reusable_outputs_incomplete") {
+				t.Errorf("scan fact = %+v", fact)
+			}
+		}
+	})
+
 	t.Run("invalid and unsupported requests are rejected before work", func(t *testing.T) {
 		owned := map[string]string{"OWNER": "harness.command_surface", "ROWS": row}
 		with := func(request Request, change func(map[string]string)) Request {
@@ -132,7 +179,6 @@ func TestPlanPreparation(t *testing.T) {
 			request Request
 			want    error
 		}{
-			"cache facts before slice 2d":  {with(command(owned), func(e map[string]string) { e[cacheModeInput] = "normal" }), ErrUnsupported},
 			"aggregate selection":          {Request{Kind: "aggregate", Target: "check", Environment: environment(nil)}, ErrUnsupported},
 			"unknown command":              {Request{Kind: "command", Target: "no-such-command", Environment: environment(nil)}, ErrSelection},
 			"unknown owner":                {command(map[string]string{"OWNER": "harness.no_such_owner"}), ErrSelection},

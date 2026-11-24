@@ -366,8 +366,8 @@
       "foundation_runtime": true
     },
     {
-      "schema_id": "cartulary.harness_cache_registry.v2",
-      "path": "tools/schemas/cartulary.harness_cache_registry.v2.schema.json",
+      "schema_id": "cartulary.harness_cache_registry.v3",
+      "path": "tools/schemas/cartulary.harness_cache_registry.v3.schema.json",
       "classification": "owner_input",
       "producer": "harness cache registry",
       "validation": "harness.json_shape_check"

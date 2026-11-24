@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 )
 
@@ -92,6 +93,21 @@ func TestPlannerInputs(t *testing.T) {
 			}
 		},
 		"missing capacity policy": func(in *Inputs) { delete(in.Registry.CapacityPolicies, "postgres_lanes") },
+		"cacheable policy without a cache profile": func(in *Inputs) {
+			unit := in.Owner.PolicyUnits["harness.projection_sql_check"]
+			unit.CachePolicy = "content_addressed"
+			in.Owner.PolicyUnits["harness.projection_sql_check"] = unit
+		},
+		"operation bound by two cache profiles": func(in *Inputs) {
+			in.Cache.Profiles[1].OperationIDs = append(slices.Clone(in.Cache.Profiles[1].OperationIDs), in.Cache.Profiles[0].OperationIDs[0])
+		},
+		"unit-aware profile without unit inputs": func(in *Inputs) {
+			for i, profile := range in.Cache.Profiles {
+				if profile.DependencyStrategy == "unit_aware" {
+					in.Cache.Profiles[i].UnitInputs = nil
+				}
+			}
+		},
 	}
 	for name, mutate := range mutations {
 		t.Run("rejects "+name, func(t *testing.T) {

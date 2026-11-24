@@ -70,6 +70,7 @@ export function registerJSONShapeTests() {
       "cartulary.harness_work_graph_owner.v8",
       "cartulary.harness_work_graph_owner.v9",
       "cartulary.harness_work_graph_owner.v10",
+      "cartulary.harness_cache_registry.v2",
       "cartulary.harness_estimate_audit.v1",
       "cartulary.test_family_manifest.v13",
       "cartulary.postgres_fixture_policy_registry.v6",

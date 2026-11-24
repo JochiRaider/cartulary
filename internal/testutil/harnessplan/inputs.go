@@ -25,6 +25,7 @@ const (
 	registryPath        = "tools/scheduler_resource_registry.json"
 	catalogRegistryPath = "tools/test_catalog_owner.json"
 	taskSurfacePath     = "tools/task_surface_owner.json"
+	cacheRegistryPath   = "tools/harness_cache_registry.json"
 	maxInputBytes       = 16 << 20
 )
 
@@ -35,6 +36,7 @@ type Inputs struct {
 	Registry    ResourceRegistry
 	Catalog     Catalog
 	TaskSurface TaskSurface
+	Cache       CacheRegistry
 	// rowIndex finds a catalog row by ID.
 	rowIndex map[string]int
 }
@@ -59,6 +61,9 @@ func Load(root string) (*Inputs, error) {
 		return nil, err
 	}
 	inputs.TaskSurface.projectBrowserLanes(inputs.Topology.BrowserLanePolicy)
+	if err := readDocument(root, cacheRegistryPath, "cartulary.harness_cache_registry.v3", &inputs.Cache); err != nil {
+		return nil, err
+	}
 	catalog, err := loadCatalog(root)
 	if err != nil {
 		return nil, err
@@ -283,4 +288,30 @@ type CapacityPolicy struct {
 	CPUMultiplier         int64  `json:"cpu_multiplier"`
 	MaximumCPUMultiplier  int64  `json:"maximum_cpu_multiplier"`
 	FallbackCPUMultiplier int64  `json:"fallback_cpu_multiplier"`
+}
+
+// CacheRegistry binds operations and runners to cache profiles.
+type CacheRegistry struct {
+	Profiles []CacheProfile `json:"profiles"`
+}
+
+// CacheProfile is one cache policy: what it keys on and which work it covers.
+type CacheProfile struct {
+	ProfileID          string      `json:"profile_id"`
+	Policy             string      `json:"policy"`
+	DependencyStrategy string      `json:"dependency_strategy"`
+	InputRoots         []string    `json:"input_roots"`
+	UnitInputs         *UnitInputs `json:"unit_inputs"`
+	// RequiresVulnerabilityDatabaseRevision makes reuse depend on a proven
+	// vulnerability-database revision.
+	RequiresVulnerabilityDatabaseRevision bool     `json:"requires_vulnerability_database_revision"`
+	OperationIDs                          []string `json:"operation_ids"`
+	RunnerTypes                           []string `json:"runner_types"`
+}
+
+// UnitInputs are the inputs every unit-aware closure contains: paths with
+// everything beneath them, and path prefixes.
+type UnitInputs struct {
+	Paths    []string `json:"paths"`
+	Prefixes []string `json:"prefixes"`
 }

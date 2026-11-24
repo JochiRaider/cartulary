@@ -436,7 +436,7 @@ function assertTypeScriptDependencyClosureContract(context, profile, row, unit) 
 export function registerBoundariesTests() {
   test("cache_registry_identity: cache registry exposes the current test-row profile", async () => {
     const context = createContractTestContext(root);
-    assert.equal(context.cacheRegistry.schema_id, "cartulary.harness_cache_registry.v2");
+    assert.equal(context.cacheRegistry.schema_id, "cartulary.harness_cache_registry.v3");
     assert.ok(context.cacheRegistry.profiles.some((profile) => profile.profile_id === "test_rows"));
   });
 }

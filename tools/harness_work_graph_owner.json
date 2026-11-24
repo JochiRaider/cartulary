@@ -1845,7 +1845,7 @@
       "needs": [
         "harness.sourcecheck_build"
       ],
-      "cache_policy": "content_addressed",
+      "cache_policy": "none",
       "estimated_work_ms": 1500,
       "resource_profile_id": "standard",
       "service_dependencies": [],

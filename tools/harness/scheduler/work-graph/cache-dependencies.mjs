@@ -69,7 +69,9 @@ function checkedSourceText(root, entry) {
   return bytes.toString("utf8");
 }
 
-function commonDependencyPaths(catalog, rows, entries) {
+// The profile declares the inputs every unit-aware closure includes; the
+// selected owners' manifests and fixture roots are added per selection.
+function commonDependencyPaths(profile, catalog, rows, entries) {
   const fixtureRoots = fixtureInputRoots(rows);
   for (const fixtureRoot of fixtureRoots) {
     const members = entries.filter((entry) => under(entry.path, fixtureRoot));
@@ -83,49 +85,14 @@ function commonDependencyPaths(catalog, rows, entries) {
   const ownerManifestByID = new Map(
     catalog.registry.owners.map((owner) => [owner.owner_id, owner.manifest_path]),
   );
-  const exact = new Set([
-    "Makefile",
-    "go.mod",
-    "go.sum",
-    "package.json",
-    "pnpm-lock.yaml",
-    "pnpm-workspace.yaml",
-    "tsconfig.base.json",
-    "tsconfig.json",
-    "tools/execution_topology_manifest.json",
-    "tools/generated_artifact_policy.json",
-    "tools/harness_cache_registry.json",
-    "tools/harness_work_graph_owner.json",
-    "tools/scheduler_resource_registry.json",
-    "tools/task_surface.generated.mk",
-    "tools/task_surface.runtime.generated.mk",
-    "tools/task_surface_manifest.json",
-    "tools/task_surface_owner.json",
-    "tools/test_catalog_owner.json",
-    "tools/toolchain_pins.json",
-    "tools/go_modules.json",
-  ]);
+  const roots = [...profile.unit_inputs.paths, ...fixtureRoots];
   for (const ownerID of selectedOwners) {
     const manifest = ownerManifestByID.get(ownerID);
-    if (manifest) exact.add(manifest);
-    const contractRoot = `contracts/${ownerID.replace(/^[^.]+\./u, "").replaceAll("_", "-")}`;
-    if (entries.some((entry) => under(entry.path, contractRoot))) exact.add(contractRoot);
+    if (manifest) roots.push(manifest);
   }
-  const prefixes = [
-    "internal/testutil/sourcecheck/",
-    "tools/harnessruntime/",
-    "tools/sourcecheck/",
-    "configs/",
-    "scripts/",
-    "tools/harness",
-    "tools/schemas",
-    "tools/test_families/harness.",
-  ];
   return entries.filter((entry) =>
-    exact.has(entry.path) ||
-    fixtureRoots.some((fixtureRoot) => under(entry.path, fixtureRoot)) ||
-    prefixes.some((prefix) => entry.path.startsWith(prefix)) ||
-    /^tools\/(?:generate|render)/u.test(entry.path),
+    roots.some((root) => under(entry.path, root)) ||
+    profile.unit_inputs.prefixes.some((prefix) => entry.path.startsWith(prefix)),
   );
 }
 
@@ -168,7 +135,7 @@ function goImportBatch(root, files, resolverCache) {
   return imports;
 }
 
-function goPackageClosure(root, entries, rows, catalog, resolverCache) {
+function goPackageClosure(root, profile, entries, rows, catalog, resolverCache) {
   const initialPackages = [...new Set(rows.map((row) => normalizedRoot(row.selector.package).replace(/^\.\//u, "")))]
     .sort(compareASCII);
   const cacheKey = closureCacheKey("go", {
@@ -224,7 +191,7 @@ function goPackageClosure(root, entries, rows, catalog, resolverCache) {
   );
   const closure = digestClosure(
     "go_packages",
-    [...commonDependencyPaths(catalog, rows, entries), ...packageEntries],
+    [...commonDependencyPaths(profile, catalog, rows, entries), ...packageEntries],
     { packages: selectedDirectories },
   );
   resolverCache?.set(cacheKey, closure);
@@ -332,7 +299,7 @@ function referencedWorkspaceDependencies(root, workspace, workspaces, entries, b
   return { names: [...new Set(names)].sort(compareASCII), contracts: [...contracts].sort(compareASCII) };
 }
 
-function typescriptWorkspaceClosure(root, entries, rows, catalog, resolverCache) {
+function typescriptWorkspaceClosure(root, profile, entries, rows, catalog, resolverCache) {
   const workspaces = workspaceManifests(root, entries, resolverCache);
   const byName = new Map(workspaces.map((workspace) => [workspace.name, workspace]));
   const selected = new Map();
@@ -385,7 +352,7 @@ function typescriptWorkspaceClosure(root, entries, rows, catalog, resolverCache)
   );
   const closure = digestClosure(
     "typescript_workspaces",
-    [...commonDependencyPaths(catalog, rows, entries), ...workspaceEntries],
+    [...commonDependencyPaths(profile, catalog, rows, entries), ...workspaceEntries],
     { workspaces: selectedWorkspaces.map((workspace) => workspace.root).sort(compareASCII) },
   );
   resolverCache?.set(cacheKey, closure);
@@ -416,10 +383,10 @@ export function resolveCacheDependencyClosure({ root, entries, profile, unit, re
     const runners = new Set(rows.map((row) => row.runner));
     if (runners.size !== 1) throw new Error("selected rows mix dependency models");
     if (runners.has("go")) {
-      return goPackageClosure(root, entries, rows, catalog, resolverCache);
+      return goPackageClosure(root, profile, entries, rows, catalog, resolverCache);
     }
     if (runners.has("vitest")) {
-      return typescriptWorkspaceClosure(root, entries, rows, catalog, resolverCache);
+      return typescriptWorkspaceClosure(root, profile, entries, rows, catalog, resolverCache);
     }
     throw new Error("selected runner has no unit-aware dependency model");
   } catch {

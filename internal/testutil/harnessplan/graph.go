@@ -207,6 +207,13 @@ type FailurePolicy struct {
 // named top-level field removed first. The planner's own types always
 // marshal, so a failure is a programming error.
 func canonicalSum(value any, omit string) string {
+	sum := sha256.Sum256(canonicalBytes(value, omit))
+	return hex.EncodeToString(sum[:])
+}
+
+// canonicalBytes is value's canonical JSON with the named top-level field
+// removed.
+func canonicalBytes(value any, omit string) []byte {
 	data, err := json.Marshal(value)
 	if err != nil {
 		panic(err)
@@ -222,8 +229,7 @@ func canonicalSum(value any, omit string) string {
 	if err != nil {
 		panic(err)
 	}
-	sum := sha256.Sum256(canonical)
-	return hex.EncodeToString(sum[:])
+	return canonical
 }
 
 // digest is the hex SHA-256 of value's canonical JSON, used inside IDs.

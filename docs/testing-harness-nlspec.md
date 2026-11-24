@@ -2408,7 +2408,7 @@ unknown, duplicated, broadened, or inconsistent selection fails before Go
 product work or artifact collation.
 
 **TH-HARNESS-REQ-060**
-The current graph cache registry is `cartulary.harness_cache_registry.v2`.
+The current graph cache registry is `cartulary.harness_cache_registry.v3`.
 Every cacheable unit declares `same_run` or `content_addressed`; every other
 unit declares `none`. The registry binds policy work by canonical `operation_ids`
 and catalog work by `runner_types`; it MUST NOT bind cache eligibility to public
@@ -11803,6 +11803,17 @@ policy unit declares `current_run_evidence_outputs`: the run-root-relative
 outputs its operation publishes beyond row and unit results. No compiler keeps
 its own table of operation outputs. Every operation compiled into a graph has
 a policy unit; there is no default policy.
+
+The cache registry becomes `cartulary.harness_cache_registry.v3`. A unit-aware
+profile declares `unit_inputs`: `paths`, each included with everything beneath
+it, and `prefixes`, which include every path that starts with them. Together
+they are the manifest, lockfile, toolchain, contract, helper, output-schema,
+generator and harness-input classes every unit-aware closure contains. The
+selected owners' manifests and the rows' fixture roots are added per
+selection. No compiler keeps its own list of these inputs or derives contract
+locations from owner names. A broad profile declares no `unit_inputs`. A Go
+package's closure also includes the module manifest and checksum file of the
+module that encloses it.
 
 ## SQL architecture analysis completeness
 

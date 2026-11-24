@@ -681,6 +681,7 @@
       "selector": {
         "package": "./internal/testutil/harnessplan",
         "tests": [
+          "TestCacheFacts",
           "TestCapabilityCapture",
           "TestInputResolution",
           "TestPlanAssembly",
