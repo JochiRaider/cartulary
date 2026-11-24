@@ -242,9 +242,12 @@ func (in *Inputs) commandSelection(entry SurfaceTarget, inputs map[string]resolv
 	if err != nil {
 		return Selection{}, err
 	}
+	// A selection the owner names as explicit runs its explicit-only rows;
+	// any other drops them.
+	explicit := slices.Contains(in.Owner.ExplicitSelections, name)
 	var placed []string
 	for _, id := range dedupe(rows) {
-		if in.row(id).AggregatePlacement != "explicit_only" {
+		if explicit || in.row(id).AggregatePlacement != "explicit_only" {
 			placed = append(placed, id)
 		}
 	}

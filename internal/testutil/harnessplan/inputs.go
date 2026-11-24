@@ -122,20 +122,23 @@ func readBounded(path string) ([]byte, error) {
 
 // Owner is the planning part of the harness work-graph owner model.
 type Owner struct {
-	TierOrder               []string                       `json:"tier_order"`
-	AggregateTiers          map[string]string              `json:"aggregate_tiers"`
-	AggregatePolicyInherits map[string][]string            `json:"aggregate_policy_inherits"`
-	AggregatePolicyRoots    map[string][]string            `json:"aggregate_policy_roots"`
-	TargetMembers           map[string][]TargetMember      `json:"target_members"`
-	PolicyUnits             map[string]PolicyUnit          `json:"policy_units"`
-	Operations              map[string]Operation           `json:"operations"`
-	EvidenceEstimatesMS     map[string]int64               `json:"evidence_estimates_ms"`
-	DefaultTimeoutMS        int64                          `json:"default_timeout_ms"`
-	GoUnitTargetMS          int64                          `json:"go_cohort_packing_bound_ms"`
-	GoHeavyUnitTargetMS     int64                          `json:"postgres_heavy_packing_target_ms"`
-	AgingQuantumMS          int64                          `json:"aging_quantum_ms"`
-	RowExecutionContexts    map[string]RowExecutionContext `json:"row_execution_contexts"`
-	InvocationPolicies      map[string]InvocationPolicy    `json:"invocation_policies"`
+	TierOrder               []string                  `json:"tier_order"`
+	AggregateTiers          map[string]string         `json:"aggregate_tiers"`
+	AggregatePolicyInherits map[string][]string       `json:"aggregate_policy_inherits"`
+	AggregatePolicyRoots    map[string][]string       `json:"aggregate_policy_roots"`
+	TargetMembers           map[string][]TargetMember `json:"target_members"`
+	// ExplicitSelections are the private selections that run their
+	// explicit-only rows.
+	ExplicitSelections   []string                       `json:"explicit_selections"`
+	PolicyUnits          map[string]PolicyUnit          `json:"policy_units"`
+	Operations           map[string]Operation           `json:"operations"`
+	EvidenceEstimatesMS  map[string]int64               `json:"evidence_estimates_ms"`
+	DefaultTimeoutMS     int64                          `json:"default_timeout_ms"`
+	GoUnitTargetMS       int64                          `json:"go_cohort_packing_bound_ms"`
+	GoHeavyUnitTargetMS  int64                          `json:"postgres_heavy_packing_target_ms"`
+	AgingQuantumMS       int64                          `json:"aging_quantum_ms"`
+	RowExecutionContexts map[string]RowExecutionContext `json:"row_execution_contexts"`
+	InvocationPolicies   map[string]InvocationPolicy    `json:"invocation_policies"`
 }
 
 // PolicyUnit is the scheduling policy of one operation that runs as a unit.

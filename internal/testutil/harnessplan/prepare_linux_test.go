@@ -172,6 +172,57 @@ func TestPlanPreparation(t *testing.T) {
 		}
 	})
 
+	t.Run("every graph command plans or names the work it cannot compile yet", func(t *testing.T) {
+		inputs, err := Load(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, target := range inputs.TaskSurface.Targets {
+			recipe := inputs.TaskSurface.MakeRecipes[target.Name]
+			if target.TargetClass != "public" || target.CommandID == "" || target.InputContract != nil &&
+				slices.ContainsFunc(target.InputContract.Inputs, func(input InputDefinition) bool { return input.Required }) {
+				continue
+			}
+			kind := ""
+			_, aggregate := inputs.Owner.AggregateTiers[target.Name]
+			switch {
+			case aggregate:
+				kind = "aggregate"
+			case target.SelectionBinding != nil && recipe.Type == "work_graph":
+				kind = "command"
+			case recipe.OperationID != "" && inputs.projectable(target, SurfaceTarget{}):
+				kind = "target"
+			default:
+				continue
+			}
+			variants := []string{""}
+			if binding := target.SelectionBinding; binding != nil && binding.Kind != "owner_or_suite" {
+				for value := range binding.Variants {
+					variants = append(variants, value)
+				}
+			}
+			for _, value := range variants {
+				cli := map[string]string{}
+				if value != "" {
+					cli[target.SelectionBinding.Input] = value
+				}
+				// Selection and compilation are what vary by command; source
+				// capture and cache facts are covered by the cases above.
+				resolved, err := inputs.resolve(Request{Kind: kind, Target: target.Name, Environment: environment(cli)})
+				if err == nil {
+					var graph *Graph
+					options := Options{CPUTokens: 19, GoVersion: "1.27.4"}
+					if graph, err = Compile(inputs, resolved.selection, options); err == nil && kind != "target" {
+						_, err = inputs.projections(graph, resolved.entry, options)
+					}
+				}
+				if err != nil && !errors.Is(err, ErrUnsupported) && !(value == "" && target.SelectionBinding != nil) {
+					t.Errorf("%s %s %s: %v", kind, target.Name, value, err)
+				}
+			}
+		}
+	})
+
 	t.Run("a public operation command selects its operation", func(t *testing.T) {
 		plan, err := Prepare(root, Request{Kind: "target", Target: "go-vulncheck", Environment: environment(nil)}, now, 42)
 		if err != nil {
@@ -251,6 +302,7 @@ func TestPlanPreparation(t *testing.T) {
 			want    error
 		}{
 			"browser aggregate":            {Request{Kind: "aggregate", Target: "ci", Environment: environment(nil)}, ErrUnsupported},
+			"explicit browser suite":       {Request{Kind: "command", Target: "browser-e2e", Environment: environment(map[string]string{"SUITE": "visual"})}, ErrUnsupported},
 			"unknown command":              {Request{Kind: "command", Target: "no-such-command", Environment: environment(nil)}, ErrSelection},
 			"unknown owner":                {command(map[string]string{"OWNER": "harness.no_such_owner"}), ErrSelection},
 			"row of another owner":         {command(map[string]string{"OWNER": "harness.test_catalog", "ROWS": row}), ErrSelection},

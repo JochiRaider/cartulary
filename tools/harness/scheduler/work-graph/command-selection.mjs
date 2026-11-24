@@ -70,7 +70,8 @@ export function resolveCommandSelection(compiler, target, suppliedInputs) {
     const key = inputs[binding.input];
     const name = binding.kind === "fixed" ? binding.selection : key === undefined ? binding.default_selection : binding.variants[key];
     if (!name) throw new Error(`${target} has no selection for ${binding.input}=${key ?? "<omitted>"}`);
-    explicit = ["harness.suite_browser_visual", "harness.suite_browser_visual_snapshots", "harness.contract_ui_review"].includes(name);
+    // The owner names the private selections that run their explicit-only rows.
+    explicit = compiler.owner.explicit_selections.includes(name);
     selection = resolvePrivateSelection(compiler, name);
   }
   if (!explicit) selection.rows = selection.rows.filter((id) => compiler.catalog.rowByID.get(id).aggregate_placement !== "explicit_only");

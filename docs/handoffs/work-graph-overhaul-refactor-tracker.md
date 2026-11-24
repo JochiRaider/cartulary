@@ -790,6 +790,50 @@ Loading the complete catalog takes 0.95 s.
 
 Milestone 3 is complete: the Go planner plans `test-fast` and `check`.
 
+**Milestone 4 plan.** 4a: remaining command selections. 4b: Playwright title
+paths in the catalog and deletion of the TypeScript parser. 4c: browser
+stages in Go (groups, lane assignment, finalizers, renderer residents, group
+units that carry their rows instead of reading the published graph). 4d:
+measurement rows and performance fixtures. 4e: `ci` and `release-check` end
+to end.
+
+**Milestone 4, slice 4a: commands (2026-11-23).** A probe of every graph
+command and selection variant found three kinds of failure, now resolved or
+assigned:
+
+- *Silently empty visual plans.* The Go command selection dropped
+  explicit-only rows unless OWNER and ROWS were given. `browser-e2e
+  SUITE=visual` and `browser-e2e-visual-update` therefore planned without
+  their (explicit-only) visual rows. The JavaScript planner admitted them
+  through a hard-coded list of three selection names. The owner model now
+  declares `explicit_selections` (the two visual suites and
+  `harness.contract_ui_review`, which each reach explicit-only rows). Both
+  planners read it; any other bound selection still drops explicit-only rows
+  (`SUITE=backend-integration` keeps excluding its five explicit-only Go
+  rows).
+- *Operations without policy units.* `format_frontend`, `format_go`,
+  `harness_runtime_contract`, `harness_fixture_contract`,
+  `protocol_ts_dead_code_check`, `source_surface`, `agent_finalize` and
+  `benchmark_claim_check` now have policy units. Each operation that lists the
+  frontend-install prerequisite needs `harness.frontend_install`. The two Go
+  race-test contract suites take the harness-contract profile and estimate of
+  their sibling suites; the rest take the standard profile and the 1000 ms
+  that applied.
+- *Browser and measurement work* (`ci`, `release-check`, `browser-e2e`
+  suites, `harness-contract SUITE=artifact-consumers`, `test-slice
+  SUITE=backend-integration`) is reported as unsupported until 4b–4d.
+  `release-evidence-verify` and `test-evidence-audit` correctly refuse without
+  their required inputs.
+
+Tests: `TestCommandSelection` (explicit selections run explicit-only rows,
+other selections drop them, an unknown explicit selection is rejected), and a
+case that resolves and compiles every graph command and variant, accepting
+only success or `ErrUnsupported` (1.1 s). Runs (Go planner): `lint
+CHECK=protocol` and `source-check CHECK=surface`, which reach two of the new
+policy units, pass. Checks: `make lint CHECK=go` and `CHECK=scripts`; the
+planner, scheduler-contract, JSON-shape and graph-contract rows;
+`source-check` `generated`, `schema` and `catalog`; all pass.
+
 ## 9. Decisions requested
 
 - Decided 2026-11-23: Option B (staged Go replacement); Stage 0 tried and

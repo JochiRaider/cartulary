@@ -11,6 +11,7 @@
     "aggregate_policy_inherits",
     "aggregate_policy_roots",
     "target_members",
+    "explicit_selections",
     "policy_units",
     "evidence_estimates_ms",
     "default_timeout_ms",
@@ -159,6 +160,15 @@
             }
           ]
         }
+      }
+    },
+    "explicit_selections": {
+      "description": "Private selections that run their explicit-only rows: a command that selects one of them asks for those rows explicitly.",
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^harness\\.[a-z][a-z0-9_]*$"
       }
     },
     "policy_units": {

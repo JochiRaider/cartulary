@@ -187,6 +187,11 @@ func (in *Inputs) validate() error {
 			return fail(ownerPath, "row execution context names unknown row %s", id)
 		}
 	}
+	for _, name := range owner.ExplicitSelections {
+		if _, ok := owner.TargetMembers[name]; !ok {
+			return fail(ownerPath, "explicit selection %s is not a target", name)
+		}
+	}
 	for name, members := range owner.TargetMembers {
 		for _, member := range members {
 			switch {

@@ -685,6 +685,7 @@
         "tests": [
           "TestCacheFacts",
           "TestCapabilityCapture",
+          "TestCommandSelection",
           "TestInputResolution",
           "TestPlanAssembly",
           "TestPlanPreparation",

@@ -11830,6 +11830,12 @@ outputs its operation publishes beyond row and unit results. No compiler keeps
 its own table of operation outputs. Every operation compiled into a graph has
 a policy unit; there is no default policy.
 
+The owner also lists, in `explicit_selections`, the private selections that
+run their explicit-only rows. A command whose selection binding names one of
+them asks for those rows explicitly. Every other bound selection, owner slice
+without exact rows, and aggregate drops explicit-only rows. No compiler keeps
+its own list of such selections.
+
 The cache registry becomes `cartulary.harness_cache_registry.v3`. A unit-aware
 profile declares `unit_inputs`: `paths`, each included with everything beneath
 it, and `prefixes`, which include every path that starts with them. Together
