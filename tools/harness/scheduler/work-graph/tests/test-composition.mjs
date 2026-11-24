@@ -6,7 +6,7 @@ import { validateStaticConfiguration } from "../../../static-analysis/index.mjs"
 import { WorkGraphCompiler } from "../index.mjs";
 import { buildOperationInvocation, operationExecutionDigest, projectOperationBindings } from "../operations.mjs";
 import { policyDependencyRowIDs } from "../policy-rows.mjs";
-import { commandInputContext, selectionFor } from "../preparation.mjs";
+import { selectionFor } from "../preparation.mjs";
 import { buildWorkGraph, unitSemanticDigest } from "../model.mjs";
 import { selectedRows } from "./aggregate-assertions.mjs";
 
@@ -91,37 +91,6 @@ test("installed fixture consumers share graph preparation and cannot start befor
     assert.deepEqual(consumer(row).service_dependencies, []);
     assert.deepEqual(consumer(row).physical_allocations, {});
   }
-});
-test("private input forwarding follows typed metadata including future selectors", () => {
-  const compiler = new WorkGraphCompiler(new URL("../../../../../", import.meta.url).pathname);
-  const surface = structuredClone(compiler.taskSurface);
-  const entry = surface.targets.find((target) => target.name === "harness-contract");
-  const suite = entry.input_contract.inputs.find((input) => input.name === "SUITE");
-  entry.input_contract.inputs.push({ ...suite, name: "FUTURE_SELECTOR", values: ["selected"], default: null });
-  entry.input_contract.inputs.push({ ...suite, name: "RUNTIME_VALUE", values: ["admitted"], default: null,
-    allowed_sources: ["environment"], child_forwarding: "runtime_env" });
-  const flag = surface.targets.find((target) => target.name === "test-slice").input_contract.inputs.find((input) => input.name === "JSON");
-  entry.input_contract.inputs.push({ ...flag, name: "RUNTIME_FLAG", child_forwarding: "runtime_env" });
-  surface.targets.find((target) => target.name === "lint").input_contract.inputs.push({ ...suite,
-    name: "FOREIGN_SELECTOR", values: ["foreign"], default: null });
-  const environment = { SUITE: "runtime", FUTURE_SELECTOR: "selected", FOREIGN_SELECTOR: "foreign",
-    RUNTIME_VALUE: " admitted ", RUNTIME_FLAG: "1", VITEST_MAX_WORKERS: "99",
-    CARTULARY_MAKE_INPUT_SOURCES: "SUITE=cli FUTURE_SELECTOR=cli RUNTIME_VALUE=env RUNTIME_FLAG=env FOREIGN_SELECTOR=env" };
-  const before = { ...environment };
-  const context = commandInputContext(entry, {}, { environment, surface });
-  assert.equal(context.inputs.SUITE, "runtime");
-  assert.equal(context.inputs.FUTURE_SELECTOR, "selected");
-  assert.equal(context.input_environment.forward.RUNTIME_VALUE, "admitted");
-  assert.equal(context.input_environment.forward.RUNTIME_FLAG, "1");
-  assert.equal(commandInputContext(entry, {}, { environment: { ...environment, RUNTIME_FLAG: undefined }, surface }).input_environment.forward.RUNTIME_FLAG, "");
-  for (const name of ["SUITE", "FUTURE_SELECTOR", "FOREIGN_SELECTOR", "VITEST_MAX_WORKERS", "CARTULARY_MAKE_INPUT_SOURCES"]) {
-    assert.ok(context.input_environment.clear.includes(name));
-    assert.equal(Object.hasOwn(context.input_environment.forward, name), false, `${name} cannot leak into private work`);
-  }
-  assert.deepEqual(environment, before, "preparation does not mutate caller inputs");
-  assert.throws(() => commandInputContext(entry, {}, { environment: { ...environment, FUTURE_SELECTOR: "unknown" }, surface }), /FUTURE_SELECTOR/u);
-  entry.input_contract.inputs.find((input) => input.name === "RUNTIME_VALUE").summary_emission = "redacted_value";
-  assert.throws(() => commandInputContext(entry, {}, { environment, surface }), /owned private runtime binding/u);
 });
 test("row bindings close exact outputs and affect physical execution identity", () => {
   const compiler = new WorkGraphCompiler(new URL("../../../../../", import.meta.url).pathname);

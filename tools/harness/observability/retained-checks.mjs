@@ -2,7 +2,7 @@ import path from "node:path";
 import { parseStrictJSON, readRetainedArtifactBytes, validateSchemaSync } from "../contract/index.mjs";
 import { reduceCanonicalUnitIntervals } from "../evidence-accounting/index.mjs";
 import { validateCanonicalRun } from "./canonical-evidence.mjs";
-import { validateExecutionContext } from "./canonical-context.mjs";
+import { loadRetainedPlan } from "./retained-plan.mjs";
 import { validateRetainedCleanup, validateRetainedSelection } from "./retained-selection.mjs";
 import { loadRetainedObservability } from "./observability.mjs";
 
@@ -26,13 +26,11 @@ async function eventsOnly(root) {
 
 function evidenceClosure(root, run) {
   if (run.summary.status !== "pass" || run.summary.failure_class !== null || run.summary.failure_reason !== null) throw new Error("retained invocation did not pass");
-  const context = read(root, "execution-context.json");
   const cleanup = read(root, "cleanup-results.json");
-  validateExecutionContext(context, run, cleanup);
+  const { units } = loadRetainedPlan(root, run, cleanup);
   validateRetainedCleanup(run, cleanup);
   const scan = read(root, "retained-secret-scan.json");
   validateSchemaSync("cartulary.harness_retained_secret_scan.v1", scan);
-  const units = new Map(context.graph.units.map((unit) => [unit.unit_id, unit]));
   validateRetainedSelection(root, run, units, run.targetSummaries.get(run.manifest.target));
 }
 

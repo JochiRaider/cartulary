@@ -1,16 +1,13 @@
 package harnessruntime
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
-
-	"github.com/JochiRaider/cartulary/internal/testutil/harnessschema"
 )
 
 // PreparationDiagnostic is the closed record a rejected graph preparation
-// publishes over the private compiler descriptor instead of a plan
-// (TH-HARNESS-REQ-854). It carries typed facts only, never exception text.
+// reports instead of a plan (TH-HARNESS-REQ-854). It carries typed facts
+// only, never exception text.
 type PreparationDiagnostic struct {
 	FailureReason       string   `json:"failure_reason"`
 	Cause               string   `json:"cause"`
@@ -18,33 +15,11 @@ type PreparationDiagnostic struct {
 	OmittedSubjectCount int      `json:"omitted_subject_count"`
 }
 
-const (
-	preparationDiagnosticSchema       = "cartulary.harness_preparation_diagnostic.v1"
-	maximumPreparationDiagnosticBytes = 4096
-)
-
-// preparationRejection carries a validated diagnostic beside its failure
+// preparationRejection carries a diagnostic beside its failure
 // classification, so the terminal output can render it without text parsing.
 type preparationRejection struct{ diagnostic PreparationDiagnostic }
 
 func (e *preparationRejection) Error() string { return "graph preparation rejected" }
-
-// decodePreparationDiagnostic admits only a schema-valid record within the
-// transport bound; anything else fails closed in the caller.
-func decodePreparationDiagnostic(data []byte) (PreparationDiagnostic, bool) {
-	var diagnostic PreparationDiagnostic
-	if len(data) == 0 || len(data) > maximumPreparationDiagnosticBytes {
-		return diagnostic, false
-	}
-	value, err := harnessschema.Decode(data)
-	if err != nil || harnessschema.Validate(preparationDiagnosticSchema, value) != nil {
-		return diagnostic, false
-	}
-	if json.Unmarshal(data, &diagnostic) != nil {
-		return diagnostic, false
-	}
-	return diagnostic, true
-}
 
 func preparationFailure(diagnostic PreparationDiagnostic) error {
 	return errors.Join(failed("config", diagnostic.FailureReason), &preparationRejection{diagnostic: diagnostic})

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.harness_runtime_plan.v7",
+  "$id": "cartulary.harness_runtime_plan.v9",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -10,29 +10,46 @@
     "projections",
     "capacities",
     "aging_quantum_ms",
-    "bindings",
     "cache",
-    "helper_digest",
-    "preparation",
     "source_inputs",
     "cache_inputs",
     "host_profile",
     "instrumentation_policy_bytes",
-    "input_environment",
     "browser_lane_limit"
   ],
   "properties": {
     "schema_id": {
-      "const": "cartulary.harness_runtime_plan.v7"
+      "const": "cartulary.harness_runtime_plan.v9"
     },
     "graph": {
-      "$ref": "cartulary.harness_execution_context.v3#/properties/graph"
+      "$ref": "cartulary.harness_work_graph.v9"
     },
     "manifest": {
       "$ref": "cartulary.harness_run_manifest.v3"
     },
     "projections": {
-      "$ref": "cartulary.harness_execution_context.v3#/properties/projections"
+      "type": "object",
+      "maxProperties": 16384,
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "command_id",
+          "unit_ids"
+        ],
+        "properties": {
+          "command_id": {
+            "$ref": "cartulary.harness_execution_defs.v1#/$defs/id"
+          },
+          "unit_ids": {
+            "type": "array",
+            "maxItems": 16384,
+            "items": {
+              "$ref": "cartulary.harness_execution_defs.v1#/$defs/id"
+            }
+          }
+        }
+      }
     },
     "capacities": {
       "type": "object",
@@ -45,15 +62,6 @@
     "aging_quantum_ms": {
       "type": "integer",
       "minimum": 1
-    },
-    "bindings": {
-      "type": "object",
-      "maxProperties": 64,
-      "additionalProperties": {
-        "type": "string",
-        "minLength": 1,
-        "maxLength": 4096
-      }
     },
     "cache": {
       "type": "array",
@@ -169,58 +177,39 @@
         }
       }
     },
-    "helper_digest": {
-      "$ref": "cartulary.harness_execution_defs.v1#/$defs/digest"
-    },
-    "preparation": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "clock",
-        "intervals"
-      ],
-      "properties": {
-        "clock": {
-          "$ref": "cartulary.harness_execution_index.v6#/properties/graph_clock"
-        },
-        "intervals": {
-          "type": "array",
-          "maxItems": 7,
-          "items": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": [
-              "phase",
-              "start_ms",
-              "end_ms"
-            ],
-            "properties": {
-              "phase": {
-                "enum": [
-                  "configuration_catalog",
-                  "capability_capture",
-                  "graph_construction",
-                  "source_hashing",
-                  "provenance",
-                  "cache_preparation",
-                  "launch_bindings"
-                ]
-              },
-              "start_ms": {
-                "type": "number",
-                "minimum": 0
-              },
-              "end_ms": {
-                "type": "number",
-                "minimum": 0
-              }
-            }
+    "source_inputs": {
+      "type": "array",
+      "maxItems": 131072,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "kind",
+          "mode",
+          "byte_digest"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "kind": {
+            "enum": [
+              "file",
+              "symlink"
+            ]
+          },
+          "mode": {
+            "type": "string",
+            "pattern": "^[0-7]{4}$"
+          },
+          "byte_digest": {
+            "$ref": "cartulary.harness_execution_defs.v1#/$defs/digest"
           }
         }
       }
-    },
-    "source_inputs": {
-      "$ref": "cartulary.harness_execution_context.v3#/properties/source_inputs"
     },
     "cache_inputs": {
       "type": "object",
@@ -240,45 +229,47 @@
       }
     },
     "host_profile": {
-      "$ref": "cartulary.harness_execution_context.v3#/properties/host_profile"
-    },
-    "instrumentation_policy_bytes": {
-      "$ref": "cartulary.harness_execution_context.v3#/properties/instrumentation_policy_bytes"
-    },
-    "input_environment": {
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "clear",
-        "forward"
+        "platform",
+        "architecture",
+        "kernel_release",
+        "cpu_models"
       ],
       "properties": {
-        "clear": {
+        "platform": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "architecture": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "kernel_release": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "cpu_models": {
           "type": "array",
           "minItems": 1,
           "maxItems": 256,
           "uniqueItems": true,
           "items": {
             "type": "string",
-            "pattern": "^[A-Z][A-Z0-9_]*$",
-            "maxLength": 128
-          }
-        },
-        "forward": {
-          "type": "object",
-          "maxProperties": 128,
-          "propertyNames": {
-            "type": "string",
-            "pattern": "^[A-Z][A-Z0-9_]*$",
-            "maxLength": 128
-          },
-          "additionalProperties": {
-            "type": "string",
-            "maxLength": 4096,
-            "pattern": "^[^\u0000]*$"
+            "minLength": 1,
+            "maxLength": 512
           }
         }
       }
+    },
+    "instrumentation_policy_bytes": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 1048576
     },
     "browser_lane_limit": {
       "type": "integer",

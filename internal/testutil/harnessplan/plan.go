@@ -15,7 +15,7 @@ import (
 )
 
 // PlanSchema is the runtime plan document the planner writes.
-const PlanSchema = "cartulary.harness_runtime_plan.v8"
+const PlanSchema = "cartulary.harness_runtime_plan.v9"
 
 // ErrPlan reports invocation facts that do not form a valid plan.
 var ErrPlan = errors.New("invalid harness runtime plan")
@@ -32,22 +32,27 @@ const (
 )
 
 // Plan is a compiled graph bound to one invocation: everything the runtime
-// needs to execute and publish it.
+// needs to execute and publish it. Its JSON form is the published plan, which
+// omits the launch state (bindings and input environment).
 type Plan struct {
-	SchemaID                   string                `json:"schema_id"`
-	Graph                      *Graph                `json:"graph"`
-	Manifest                   Manifest              `json:"manifest"`
-	InputEnvironment           InputEnvironment      `json:"input_environment"`
+	SchemaID string   `json:"schema_id"`
+	Graph    *Graph   `json:"graph"`
+	Manifest Manifest `json:"manifest"`
+	// InputEnvironment is launch state: the runtime applies it to each unit's
+	// environment, and the published plan never carries it.
+	InputEnvironment           InputEnvironment      `json:"-"`
 	BrowserLaneLimit           int                   `json:"browser_lane_limit"`
 	HostProfile                HostProfile           `json:"host_profile"`
 	InstrumentationPolicyBytes string                `json:"instrumentation_policy_bytes"`
 	Projections                map[string]Projection `json:"projections"`
 	Capacities                 map[string]int64      `json:"capacities"`
 	AgingQuantumMS             int64                 `json:"aging_quantum_ms"`
-	Bindings                   map[string]string     `json:"bindings"`
-	Cache                      []CacheFact           `json:"cache"`
-	SourceInputs               []SourceInput         `json:"source_inputs"`
-	CacheInputs                map[string][]int      `json:"cache_inputs"`
+	// Bindings are private launch state: the runtime binds them when it
+	// starts a unit, and the published plan never carries them.
+	Bindings     map[string]string `json:"-"`
+	Cache        []CacheFact       `json:"cache"`
+	SourceInputs []SourceInput     `json:"source_inputs"`
+	CacheInputs  map[string][]int  `json:"cache_inputs"`
 	// binaries maps each runtime binary ID to the environment name that
 	// carries its path.
 	binaries map[string]string
@@ -234,7 +239,7 @@ func Assemble(in *Inputs, graph *Graph, invocation Invocation) (*Plan, error) {
 }
 
 // validate checks every invariant the runtime relies on before it launches
-// work. A plan read back from a run root is checked the same way.
+// work.
 func (p *Plan) validate() error {
 	fail := func(format string, args ...any) error {
 		return fmt.Errorf("%w: %s", ErrPlan, fmt.Sprintf(format, args...))

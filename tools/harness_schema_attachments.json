@@ -465,14 +465,6 @@
       "validation": "harness.json_shape_check"
     },
     {
-      "schema_id": "cartulary.harness_execution_context.v3",
-      "path": "tools/schemas/cartulary.harness_execution_context.v3.schema.json",
-      "classification": "public_contract",
-      "producer": "native graph execution producer",
-      "validation": "harness.json_shape_check",
-      "foundation_runtime": true
-    },
-    {
       "schema_id": "cartulary.harness_execution_defs.v1",
       "path": "tools/schemas/cartulary.harness_execution_defs.v1.schema.json",
       "classification": "shared_component",
@@ -629,14 +621,6 @@
       "path": "tools/schemas/cartulary.harness_postgres_checkpoints.v2.schema.json",
       "classification": "public_contract",
       "producer": "native owned-service diagnostic collector",
-      "validation": "harness.json_shape_check",
-      "foundation_runtime": true
-    },
-    {
-      "schema_id": "cartulary.harness_preparation_diagnostic.v1",
-      "path": "tools/schemas/cartulary.harness_preparation_diagnostic.v1.schema.json",
-      "classification": "shared_component",
-      "producer": "source-aware graph compiler",
       "validation": "harness.json_shape_check",
       "foundation_runtime": true
     },
@@ -825,16 +809,8 @@
       "foundation_runtime": true
     },
     {
-      "schema_id": "cartulary.harness_runtime_plan.v7",
-      "path": "tools/schemas/cartulary.harness_runtime_plan.v7.schema.json",
-      "classification": "shared_component",
-      "producer": "private graph compiler",
-      "validation": "harness.json_shape_check",
-      "foundation_runtime": true
-    },
-    {
-      "schema_id": "cartulary.harness_runtime_plan.v8",
-      "path": "tools/schemas/cartulary.harness_runtime_plan.v8.schema.json",
+      "schema_id": "cartulary.harness_runtime_plan.v9",
+      "path": "tools/schemas/cartulary.harness_runtime_plan.v9.schema.json",
       "classification": "shared_component",
       "producer": "Go work-graph planner",
       "validation": "harness.json_shape_check",

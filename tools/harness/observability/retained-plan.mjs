@@ -1,11 +1,17 @@
 import { createHash } from "node:crypto";
 import path from "node:path";
 
-import { canonicalJSONString, parseStrictJSON, validateSchemaSync } from "../contract/index.mjs";
-import { assertMachineEvidencePath } from "../contract/artifact-reader.mjs";
+import { lifecyclePolicy } from "../contract/generated/lifecycle-policy.mjs";
+import { assertMachineEvidencePath, canonicalJSONString, parseStrictJSON, readRetainedArtifactBytes, semanticJSONDigest, validateSchemaSync } from "../contract/index.mjs";
 import { retainedGoWorkerBudget } from "../scheduler/work-graph/capability.mjs";
 
-const digest = (value) => `sha256:${createHash("sha256").update(canonicalJSONString(value)).digest("hex")}`;
+// A run publishes the planner's document, without launch bindings, as
+// plan.json before any child starts. Readers take the graph, projections and
+// provenance from it and never recompile a selection.
+export const planDocument = "plan.json";
+export const planSchemaID = "cartulary.harness_runtime_plan.v9";
+
+const digest = (value) => semanticJSONDigest(value);
 const bytesDigest = (value) => `sha256:${createHash("sha256").update(value).digest("hex")}`;
 function same(actual, expected, label) {
   if (canonicalJSONString(actual) !== canonicalJSONString(expected)) throw new Error(`retained ${label} binding does not close`);
@@ -14,21 +20,52 @@ function ordered(values, label) {
   if (values.some((value, index) => index > 0 && values[index - 1] >= value)) throw new Error(`retained ${label} must be sorted and unique`);
 }
 
+/** Read a run's published plan within the plan byte bound and admit its schema. */
+export function readRunPlan(runRoot) {
+  const bytes = readRetainedArtifactBytes(runRoot, planDocument, lifecyclePolicy.limits.plan);
+  const plan = parseStrictJSON(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+  validateSchemaSync(planSchemaID, plan);
+  return plan;
+}
+
+/**
+ * Bind a plan to its run: the plan's manifest is the run manifest and its
+ * graph recomputes to the manifest's graph digest, unit by unit.
+ */
+export function bindRunPlan(plan, manifest) {
+  validateSchemaSync(planSchemaID, plan);
+  same(plan.manifest, manifest, "plan manifest");
+  const { graph } = plan;
+  ordered(graph.units.map((unit) => unit.unit_id), "graph units");
+  for (const unit of graph.units) {
+    const { semantic_digest, ...preimage } = unit;
+    same(digest(preimage), semantic_digest, "unit semantics");
+  }
+  same(digest({ units: graph.units }), graph.graph_digest, "graph");
+  same(graph.graph_digest, manifest.graph_digest, "manifest graph");
+  return plan;
+}
+
+/** Read, bind and validate a run's retained plan: the reader every consumer shares. */
+export function loadRetainedPlan(runRoot, canonical, cleanup) {
+  const plan = readRunPlan(runRoot);
+  return { plan, ...validateRetainedPlan(plan, canonical, cleanup) };
+}
+
 // Validate retained preimages only. Historical qualification never reads the
 // current checkout to fill in missing source, policy, or execution identities.
-export function validateExecutionContext(context, canonical, cleanup) {
-  validateSchemaSync("cartulary.harness_execution_context.v3", context);
+export function validateRetainedPlan(plan, canonical, cleanup) {
   validateSchemaSync("cartulary.harness_cleanup_results.v2", cleanup);
   const { manifest, summary, registrations, targetSummaries } = canonical;
-  same(context.manifest_digest, digest(manifest), "manifest");
+  bindRunPlan(plan, manifest);
   same(cleanup.run_id, manifest.run_id, "cleanup run");
   if (cleanup.results.some((result, index) => result.sequence !== index + 1 || result.outcome !== "completed")) {
     throw new Error("retained cleanup is incomplete");
   }
-  for (const required of ["execution-context.json", "cleanup-results.json"]) {
+  for (const required of [planDocument, "cleanup-results.json"]) {
     if (!summary.artifact_refs.includes(required)) throw new Error(`retained summary omits ${required}`);
   }
-  const source = context.source_inputs;
+  const source = plan.source_inputs;
   ordered(source.map((entry) => entry.path), "source entries");
   for (const entry of source) {
     if (entry.path.includes("\\") || entry.path.includes("\0") || path.posix.isAbsolute(entry.path) ||
@@ -42,26 +79,21 @@ export function validateExecutionContext(context, canonical, cleanup) {
   same(toolchain.byte_digest, manifest.toolchain_digest, "toolchain");
   const policyInput = sourceByPath.get("tools/harness_instrumentation_policy.json");
   if (policyInput?.kind !== "file") throw new Error("retained instrumentation input is missing");
-  same(bytesDigest(context.instrumentation_policy_bytes), policyInput.byte_digest, "instrumentation bytes");
-  const policy = parseStrictJSON(context.instrumentation_policy_bytes);
+  same(bytesDigest(plan.instrumentation_policy_bytes), policyInput.byte_digest, "instrumentation bytes");
+  const policy = parseStrictJSON(plan.instrumentation_policy_bytes);
   validateSchemaSync("cartulary.harness_instrumentation_policy.v5", policy);
   same(digest(policy), manifest.instrumentation.policy_digest, "instrumentation policy");
   const { snapshot_digest, ...capability } = manifest.capability_snapshot;
   same(digest(capability), snapshot_digest, "capability snapshot");
   same(snapshot_digest, manifest.system_digest, "system capacity");
   retainedGoWorkerBudget(manifest);
-  ordered(context.host_profile.cpu_models, "CPU models");
+  ordered(plan.host_profile.cpu_models, "CPU models");
 
-  const { graph, projections } = context;
-  same(digest({ units: graph.units }), graph.graph_digest, "graph");
-  same(graph.graph_digest, manifest.graph_digest, "manifest graph");
-  ordered(graph.units.map((unit) => unit.unit_id), "graph units");
+  const { graph, projections } = plan;
   same(graph.units.map((unit) => unit.unit_id), [...registrations.keys()].sort(), "registered units");
   const units = new Map(graph.units.map((unit) => [unit.unit_id, unit]));
   const rowOwners = new Set();
   for (const unit of graph.units) {
-    const { semantic_digest, ...preimage } = unit;
-    same(digest(preimage), semantic_digest, "unit semantics");
     const registered = registrations.get(unit.unit_id);
     for (const key of ["kind", "needs", "resource_claims", "service_dependencies"]) same(registered[key], unit[key], `unit ${key}`);
     const rows = unit.row_bindings.map((row) => row.row_id);
@@ -92,5 +124,5 @@ export function validateExecutionContext(context, canonical, cleanup) {
   if (!provider) throw new Error("retained provider projection is missing");
   same(provider.command_id, manifest.command_id, "provider command");
   same(provider.unit_ids, graph.units.map((unit) => unit.unit_id), "provider graph");
-  return { systemProfileDigest: digest({ host_profile: context.host_profile, capability_snapshot: manifest.capability_snapshot }) };
+  return { units, systemProfileDigest: digest({ host_profile: plan.host_profile, capability_snapshot: manifest.capability_snapshot }) };
 }

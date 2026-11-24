@@ -5,6 +5,7 @@ package harnessruntime
 import (
 	"encoding/json"
 	"errors"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnessplan"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -42,7 +43,7 @@ func newGraphPublication(plan *Plan, runRoot string) (*graphPublication, error) 
 	if err := harnesslocal.PublishNew(filepath.Join(runRoot, "run-manifest.json"), append(manifest, '\n')); err != nil {
 		return nil, err
 	}
-	if err := writeEvidence(runRoot, plan.published.name, plan.published.schema, plan.published.document, false); err != nil {
+	if err := writeEvidence(runRoot, planDocument, harnessplan.PlanSchema, plan.source, false); err != nil {
 		return nil, err
 	}
 	stream, err := harnesslocal.NewStream(filepath.Join(runRoot, "unit-events.ndjson"), 64*1024)
@@ -454,7 +455,7 @@ func (p *graphPublication) Finish(result graphResult) (map[string]any, error) {
 		}
 	}
 	counts := map[string]int{"total": len(p.plan.facts.Graph.Units), "passed": 0, "failed": 0, "skipped": 0, "cancelled": 0}
-	ids, refs := []string{}, []string{"run-manifest.json", p.plan.published.name, "unit-events.ndjson", "cleanup-results.json"}
+	ids, refs := []string{}, []string{"run-manifest.json", planDocument, "unit-events.ndjson", "cleanup-results.json"}
 	for _, u := range p.plan.facts.Graph.Units {
 		ids = append(ids, u.ID)
 		counts[result.States[u.ID]]++

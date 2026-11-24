@@ -22,7 +22,7 @@ import { formatResourceScopes } from "../resource-presentation.mjs";
 import { exportRetainedObservability, headersFromFile } from "../otel-export-cli.mjs";
 import { hostClaims, processIdentity, transactAdmission } from "../../runtime/host-admission.mjs";
 import { executionRecordsDigest } from "../../runtime/execution-observations.mjs";
-import { canonicalJSONString, parseStrictJSON } from "../../contract/index.mjs";
+import { parseStrictJSON, semanticJSONDigest } from "../../contract/index.mjs";
 import { createResourceAccumulator } from "../resource-accumulator.mjs";
 
 test("strict JSON retains prototype-named members for closed schema rejection", () => {
@@ -552,20 +552,20 @@ test("retained fixture construction is inert and persistence preserves malformed
     first = buildCompleteEvidence(options);
     second = buildCompleteEvidence(options);
   } finally { Object.assign(fs, original); syncBuiltinESMExports(); }
-  first.context.graph.units[0].command.args.push("first-only");
-  assert.deepEqual(second.context.graph.units[0].command.args, []);
+  first.plan.graph.units[0].command.args.push("first-only");
+  assert.deepEqual(second.plan.graph.units[0].command.args, []);
   assert.deepEqual(units[0].command.args, []);
-  first.context.source_inputs[0].byte_digest = digest;
-  assert.notEqual(second.context.source_inputs[0].byte_digest, digest);
+  first.plan.source_inputs[0].byte_digest = digest;
+  assert.notEqual(second.plan.source_inputs[0].byte_digest, digest);
   persistEvidence(dir, second);
   assert.equal((await checkRetainedObservability(dir, "all")).full_validity, true);
   // Serialization must leave a caller-authored broken preimage broken.
-  second.context.manifest_digest = digest;
+  second.plan.manifest.toolchain_digest = digest;
   persistEvidence(dir, second);
-  const file = path.join(dir, "execution-context.json"), bytes = readFileSync(file);
+  const file = path.join(dir, "plan.json"), bytes = readFileSync(file);
   await assert.rejects(checkRetainedObservability(dir, "all"), /manifest binding/u);
   assert.deepEqual(readFileSync(file), bytes);
-  assert.equal(JSON.parse(bytes).manifest_digest, digest);
+  assert.equal(JSON.parse(bytes).manifest.toolchain_digest, digest);
   writeEvidenceFile(dir, "run-manifest.json", '{"run_id":');
   const malformed = readFileSync(path.join(dir, "run-manifest.json"));
   await assert.rejects(checkRetainedObservability(dir, "all"));
@@ -607,9 +607,9 @@ test("complete observability rejects duplicate, unsafe and incomplete evidence a
   const { buildCompleteEvidence, loadFixtureIdentity, persistEvidence, writeEvidenceFile } = await import("./retained-fixture.mjs");
   for (const mutation of [
     (dir, f) => writeEvidenceFile(dir, "cleanup-results.json", { schema_id: "cartulary.harness_cleanup_results.v2", run_id: f.manifest.run_id, results: [] }),
-    (dir, f) => writeEvidenceFile(dir, "execution-context.json", { ...f.context, graph: { ...f.context.graph, units: [...f.context.graph.units, ...f.context.graph.units] } }),
+    (dir, f) => writeEvidenceFile(dir, "plan.json", { ...f.plan, graph: { ...f.plan.graph, units: [...f.plan.graph.units, ...f.plan.graph.units] } }),
     (dir, f) => { rmSync(path.join(dir, "unit-results/a.json")); symlinkSync("/dev/null", path.join(dir, "unit-results/a.json")); },
-    (dir, f) => writeEvidenceFile(dir, "unit-results/a.json", { schema_id: "cartulary.harness_unit_result.v1", unit_id: "a", semantic_digest: f.context.graph.units[0].semantic_digest,
+    (dir, f) => writeEvidenceFile(dir, "unit-results/a.json", { schema_id: "cartulary.harness_unit_result.v1", unit_id: "a", semantic_digest: f.plan.graph.units[0].semantic_digest,
       status: "failed", exit_code: 1, signal: null, failure_class: "harness", failure_reason: "tool_diagnostic_failure", evidence_outputs: [], missing_outputs: [] }),
   ]) {
     const dir = mkdtempSync(path.join(os.tmpdir(), "cartulary-invalid-evidence-"));
@@ -620,12 +620,10 @@ test("complete observability rejects duplicate, unsafe and incomplete evidence a
   for (const budget of [undefined, 0, 1.5, 3, Number.MAX_SAFE_INTEGER + 1]) {
     const dir = temporary(t), f = buildCompleteEvidence({ runID: path.basename(dir), identity: loadFixtureIdentity() }); persistEvidence(dir, f);
     if (budget === undefined) delete f.manifest.go_worker_budget; else f.manifest.go_worker_budget = budget;
-    // Unsafe integers reject during strict JSON decoding, before any digest can
-    // be computed. Other cases must reach schema/semantic budget validation.
-    if (budget !== Number.MAX_SAFE_INTEGER + 1) {
-      f.context.manifest_digest = `sha256:${createHash("sha256").update(canonicalJSONString(f.manifest)).digest("hex")}`;
-    }
-    writeEvidenceFile(dir, "run-manifest.json", f.manifest); writeEvidenceFile(dir, "execution-context.json", f.context);
+    // Unsafe integers reject during strict JSON decoding of the manifest.
+    // Other cases must reach schema/semantic budget validation.
+    f.plan.manifest = structuredClone(f.manifest);
+    writeEvidenceFile(dir, "run-manifest.json", f.manifest); writeEvidenceFile(dir, "plan.json", f.plan);
     await assert.rejects(checkRetainedObservability(dir, "all"), budget === Number.MAX_SAFE_INTEGER + 1
       ? /integer is outside the I-JSON interoperable range/u : /go_worker_budget|Go worker budget/u);
   }
@@ -658,19 +656,31 @@ test("fixture explanation preserves JSON filters, exact invocation and secure re
   assert.notEqual(invoke("--json").status, 0, "journal links reject without following them");
 });
 
-test("complete retained evidence rejects altered context preimages independently of qualification", async (t) => {
+test("complete retained evidence rejects altered plan preimages independently of qualification", async (t) => {
   const { checkRetainedObservability } = await import("../retained-checks.mjs");
   const { buildCompleteEvidence, loadFixtureIdentity, persistEvidence, writeEvidenceFile } = await import("./retained-fixture.mjs");
   for (const mutate of [
-    (f) => { f.context.source_inputs[0].byte_digest = `sha256:${"b".repeat(64)}`; },
-    (f) => { f.context.source_inputs.push(f.context.source_inputs[0]); },
-    (f) => { f.context.instrumentation_policy_bytes += " "; },
-    (f) => { f.context.unrecognized_context = true; },
-    (f) => { f.context.projections["test-slice"].unit_ids = []; },
+    (f) => { f.plan.source_inputs[0].byte_digest = `sha256:${"b".repeat(64)}`; },
+    (f) => { f.plan.source_inputs.push(f.plan.source_inputs[0]); },
+    (f) => { f.plan.instrumentation_policy_bytes += " "; },
+    (f) => { f.plan.unrecognized_field = true; },
+    (f) => { f.plan.bindings = { NODE_BIN: "/private/node" }; },
+    (f) => { f.plan.projections["test-slice"].unit_ids = []; },
+    (f) => { f.plan.graph.units[0].estimated_work_ms += 1; },
   ]) {
     const dir = temporary(t), f = buildCompleteEvidence({ runID: path.basename(dir), identity: loadFixtureIdentity() }); persistEvidence(dir, f);
-    mutate(f); writeEvidenceFile(dir, "execution-context.json", f.context);
+    mutate(f); writeEvidenceFile(dir, "plan.json", f.plan);
     await assert.rejects(checkRetainedObservability(dir, "all"));
+  }
+  // A sealed plan whose unit differs from its registration still rejects.
+  for (const [key, value] of [["kind", "policy"], ["needs", ["z"]], ["resource_claims", { cpu: 2, process: 1 }]]) {
+    const dir = temporary(t), f = buildCompleteEvidence({ runID: path.basename(dir), identity: loadFixtureIdentity() }); persistEvidence(dir, f);
+    const unit = f.plan.graph.units[0];
+    unit[key] = value; delete unit.semantic_digest; unit.semantic_digest = semanticJSONDigest(unit);
+    f.plan.graph.graph_digest = semanticJSONDigest({ units: f.plan.graph.units });
+    f.manifest.graph_digest = f.plan.graph.graph_digest; f.plan.manifest = structuredClone(f.manifest);
+    writeEvidenceFile(dir, "run-manifest.json", f.manifest); writeEvidenceFile(dir, "plan.json", f.plan);
+    await assert.rejects(checkRetainedObservability(dir, "all"), new RegExp(`unit ${key} binding`, "u"));
   }
 });
 
@@ -681,8 +691,8 @@ test("optional completeness is reported independently while every published reco
     await t.test(status, async (t) => {
       const dir = temporary(t), f = buildCompleteEvidence({ runID: path.basename(dir), identity: loadFixtureIdentity() }); persistEvidence(dir, f);
       f.manifest.instrumentation.mode = "basic";
-      f.context.manifest_digest = `sha256:${createHash("sha256").update(canonicalJSONString(f.manifest)).digest("hex")}`;
-      writeEvidenceFile(dir, "run-manifest.json", f.manifest); writeEvidenceFile(dir, "execution-context.json", f.context);
+      f.plan.manifest = structuredClone(f.manifest);
+      writeEvidenceFile(dir, "run-manifest.json", f.manifest); writeEvidenceFile(dir, "plan.json", f.plan);
       if (status !== "absent") {
         const sampled = retainedSamples(t, [{ elapsed_ms: 0, metrics: { rss_bytes: metric(1024) } }]);
         const index = JSON.parse(readFileSync(path.join(sampled.dir, "diagnostics/resource-index.json")));

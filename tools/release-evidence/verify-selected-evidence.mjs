@@ -1,8 +1,8 @@
 import path from "node:path";
 import { parseStrictJSON, readRetainedArtifactBytes, validateSchemaSync } from "../harness/contract/index.mjs";
 import { validateCanonicalRun } from "../harness/observability/canonical-evidence.mjs";
-import { validateExecutionContext } from "../harness/observability/canonical-context.mjs";
-import { validateRetainedCleanup, validateRetainedGraph, validateRetainedSelection } from "../harness/observability/retained-selection.mjs";
+import { loadRetainedPlan } from "../harness/observability/retained-plan.mjs";
+import { validateRetainedCleanup, validateRetainedSelection } from "../harness/observability/retained-selection.mjs";
 import { verifyPackageIdentity } from "./package-identity.mjs";
 
 const read = (root, name) => parseStrictJSON(readRetainedArtifactBytes(root, name, 16 * 1024 ** 2).toString("utf8"));
@@ -40,7 +40,7 @@ export function qualificationRequirements(policy, catalog, compileTarget) {
 }
 
 /** Pure evidence consumption. No runner, command invocation or repair capability. */
-export async function verifySelectedEvidence({ roots, sourceDigest, catalog, required, compileRun, loadRun = validateCanonicalRun, readArtifact = read }) {
+export async function verifySelectedEvidence({ roots, sourceDigest, catalog, required, loadRun = validateCanonicalRun, loadPlan = loadRetainedPlan, readArtifact = read }) {
   if (!Array.isArray(roots) || roots.length === 0 || roots.length > 512 || new Set(roots).size !== roots.length) throw new Error("explicit unique evidence roots are required");
   const observedRows = new Set(), observedOperations = new Set(), packages = [], consumers = new Map(), accepted = [];
   let archiveInspection = false;
@@ -48,16 +48,13 @@ export async function verifySelectedEvidence({ roots, sourceDigest, catalog, req
     const run = await loadRun(root);
     if (run.manifest.source_digest !== sourceDigest) throw new Error("retained source is incompatible");
     if (run.summary.status !== "pass" || run.summary.failure_class !== null || run.summary.failure_reason !== null) throw new Error("retained invocation did not pass");
-    const plan = compileRun(run.manifest);
-    validateRetainedGraph(run, plan);
     const cleanup = readArtifact(root, "cleanup-results.json");
     validateRetainedCleanup(run, cleanup);
-    validateExecutionContext(readArtifact(root, "execution-context.json"), run, cleanup);
+    const { units } = loadPlan(root, run, cleanup);
     const scan = readArtifact(root, "retained-secret-scan.json");
     // This receipt schema admits only a passing scan. Failure or absence cannot
     // supply a receipt; schema admission is the acceptance boundary.
     validateSchemaSync("cartulary.harness_retained_secret_scan.v1", scan);
-    const units = new Map(plan.graph.units.map(unit => [unit.unit_id, unit]));
     const projection = run.targetSummaries.get(run.manifest.target);
     if (!projection) throw new Error("missing public target projection");
     const rows = validateRetainedSelection(root, run, units, projection, catalog.rows);

@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnessplan"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 )
@@ -33,15 +34,10 @@ func observationFixture(t *testing.T) (*Plan, *harnesssession.Runtime, string, m
 	if err != nil {
 		t.Fatal(err)
 	}
-	p := planFixture(t)
-	manifest := p["manifest"].(map[string]any)
-	manifest["instrumentation"].(map[string]any)["mode"] = "basic"
+	source := fixturePlan(t)
 	digest, _ := semanticDigest(policy)
-	manifest["instrumentation"].(map[string]any)["policy_digest"] = digest
-	plan, err := decodePlan(planBytes(t, p))
-	if err != nil {
-		t.Fatal(err)
-	}
+	source.Manifest.Instrumentation = harnessplan.Instrumentation{Mode: "basic", PolicyDigest: digest}
+	plan := adoptFixture(t, source)
 	run := t.TempDir()
 	if err := os.Chmod(run, 0700); err != nil {
 		t.Fatal(err)

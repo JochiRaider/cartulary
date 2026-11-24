@@ -39,8 +39,8 @@ func TestGoPlannerAdoption(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if plan.published.name != "plan.json" || plan.published.schema != harnessplan.PlanSchema || plan.GraphDigest() != source.Graph.Digest {
-			t.Fatalf("published %s %s", plan.published.name, plan.published.schema)
+		if plan.source != source || plan.GraphDigest() != source.Graph.Digest {
+			t.Fatal("the adopted plan does not publish its planner document")
 		}
 		units := plan.facts.Graph.Units
 		if len(units) != len(source.Graph.Units) || len(plan.facts.Cache) != len(units) || plan.facts.Manifest["run_id"] != "adoption-test" {
@@ -52,7 +52,7 @@ func TestGoPlannerAdoption(t *testing.T) {
 				t.Fatal("adopted units are not in ID order")
 			}
 			planned := source.Graph.Units[u.ID]
-			if u.Residents == nil || len(u.Residents) != len(planned.Residents) || u.Physical != nil || !u.FailurePolicy.ContinueIndependent {
+			if u.Residents == nil || len(u.Residents) != len(planned.Residents) || !u.FailurePolicy.ContinueIndependent {
 				t.Fatalf("%s residents %v from %v", u.ID, u.Residents, planned.Residents)
 			}
 			residents += len(u.Residents)

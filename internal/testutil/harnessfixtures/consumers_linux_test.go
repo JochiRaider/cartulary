@@ -23,7 +23,7 @@ func testConsumerAccounting(t *testing.T) {
 			t.Fatal(err)
 		}
 		t.Cleanup(func() { _ = blocker.Release(context.Background()) })
-		work := WorkRequirement{Request: Request{UnitID: "cancelled", Capability: "object_store_namespace", PostgresIsolation: "none", Services: []string{"object_store"}}, Renderer: "none", Physical: map[string]map[string]int64{"object_store": {"memory_mb": 128, "process": 2, "object_store": 1, "port_lane": 1}}, Active: map[string]int64{"cpu": 1, "memory_mb": 64, "process": 1}}
+		work := WorkRequirement{Request: Request{UnitID: "cancelled", Capability: "object_store_namespace", PostgresIsolation: "none", Services: []string{"object_store"}}, Renderer: "none", Residents: []Resident{{Key: "object_store:shared", Claims: map[string]int64{"memory_mb": 128, "process": 2, "object_store": 1, "port_lane": 1}}}, Active: map[string]int64{"cpu": 1, "memory_mb": 64, "process": 1}}
 		if err := p.RegisterConsumers([]WorkRequirement{work}); err != nil {
 			t.Fatal(err)
 		}
@@ -153,7 +153,8 @@ func testConsumerAccounting(t *testing.T) {
 				}
 			}})
 			p.ConfigureAdmission(filepath.Join(root, "admission"), nil, map[string]int64{"cpu": 2, "io": 2, "memory_mb": 2048, "process": 32, "port_lane": 8})
-			work := WorkRequirement{Request: Request{UnitID: "first", Capability: "browser_stack", PostgresIsolation: "exclusive", Services: []string{"postgres"}, RuntimeProfile: "default", Affinity: "lane"}, Renderer: "none", Physical: map[string]map[string]int64{"browser_stack": {"memory_mb": 128, "port_lane": 2}}, Active: map[string]int64{"cpu": 1, "memory_mb": 64, "process": 1}}
+			request := Request{UnitID: "first", Capability: "browser_stack", PostgresIsolation: "exclusive", Services: []string{"postgres"}, RuntimeProfile: "default", Affinity: "lane"}
+			work := WorkRequirement{Request: request, Renderer: "none", Residents: []Resident{{Key: stackKey(request), Claims: map[string]int64{"memory_mb": 128, "port_lane": 2}}}, Active: map[string]int64{"cpu": 1, "memory_mb": 64, "process": 1}}
 			next := work
 			next.Request.UnitID = "never-started"
 			if err := p.RegisterConsumers([]WorkRequirement{work, next}); err != nil {

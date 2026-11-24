@@ -2,7 +2,8 @@ import path from "node:path";
 import { canonicalJSONString, parseStrictJSON, readRetainedArtifactBytes, validateSchemaSync } from "../contract/index.mjs";
 import { targetForCatalogRow } from "../test-catalog/index.mjs";
 import { validateCanonicalRun } from "./canonical-evidence.mjs";
-import { validateRetainedCleanup, validateRetainedGraph, validateRetainedSelection } from "./retained-selection.mjs";
+import { loadRetainedPlan } from "./retained-plan.mjs";
+import { validateRetainedCleanup, validateRetainedSelection } from "./retained-selection.mjs";
 
 const same = (a, b) => canonicalJSONString(a) === canonicalJSONString(b);
 const sorted = (values) => [...values].sort();
@@ -22,9 +23,9 @@ export function ownerEvidencePartitions(catalog, surface, owner) {
   return { rows, partitions: new Map([...partitions].sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0).map(([target, ids]) => [target, sorted(ids)])) };
 }
 
-// The loader and compiler are explicit ports so adversarial retained evidence
-// can be tested without starting work or manufacturing a current checkout.
-export async function auditOwnerEvidence({ manifest, manifestFile, owner, catalog, surface, sourceDigest, compileRun, loadRun = validateCanonicalRun }) {
+// The loaders are explicit ports so adversarial retained evidence can be
+// tested without starting work or manufacturing a current checkout.
+export async function auditOwnerEvidence({ manifest, manifestFile, owner, catalog, surface, sourceDigest, loadRun = validateCanonicalRun, loadPlan = loadRetainedPlan }) {
   validateSchemaSync("cartulary.harness_evidence_root_manifest.v1", manifest);
   if (manifest.owner_id !== owner) throw usage("evidence manifest owner does not match OWNER");
   const { rows, partitions } = ownerEvidencePartitions(catalog, surface, owner);
@@ -55,16 +56,14 @@ export async function auditOwnerEvidence({ manifest, manifestFile, owner, catalo
         if (!publicTargets.has(run.manifest.target)) throw artifact("retained evidence provider is not a public invocation");
         if (run.manifest.source_digest !== sourceDigest) throw artifact("retained source differs from the audited executable snapshot");
         if (run.summary.status !== "pass" || run.summary.failure_class !== null || run.summary.failure_reason !== null) throw artifact("retained invocation did not pass");
-        const plan = compileRun(run.manifest);
-        validateRetainedGraph(run, plan);
         const cleanup = read(runRoot, "cleanup-results.json");
         validateRetainedCleanup(run, cleanup);
-        const units = new Map(plan.graph.units.map((unit) => [unit.unit_id, unit]));
+        const { plan, units } = loadPlan(runRoot, run, cleanup);
         context = { run, plan, units }; loaded.set(runRoot, context);
       }
       const { run, plan, units } = context;
       const projection = run.targetSummaries.get(entry.target);
-      const expectedUnits = plan.projections[entry.target];
+      const expectedUnits = plan.projections[entry.target]?.unit_ids;
       const commandID = targetContracts.get(entry.target)?.command_id ?? run.manifest.command_id;
       if (!projection || !expectedUnits || projection.command_id !== commandID ||
           projection.status !== "pass" || !same(projection.unit_ids, sorted(expectedUnits))) throw artifact("retained target projection does not close its execution contract");

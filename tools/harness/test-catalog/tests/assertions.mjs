@@ -8,7 +8,7 @@ import path from "node:path";
 import { createRowSelectorResolver, discoverRunnerSources, playwrightSelection, validatePostgresFixturePolicy } from "../../test-support/owner-fixtures.mjs";
 import { groupRowsByPerformanceFixture, postgresMigrationDigest, snapshotKey } from "../../performance-fixture/index.mjs";
 import { buildSourceSnapshot, loadSelectedTestRows, loadTestCatalog } from "../index.mjs";
-import { HarnessConfigError, preparationDiagnostic } from "../../contract/index.mjs";
+import { HarnessConfigError } from "../../contract/index.mjs";
 export function assertSourceSnapshotIdentity() {
   const root = mkdtempSync(path.join(tmpdir(), "cartulary-source-identity."));
   const hash = (bytes) => `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
@@ -550,23 +550,3 @@ export function assertFixtureBuilderClosure(context) {
 
 // TH-HARNESS-REQ-854: the diagnostic keeps only closed reasons and causes and
 // bounded subjects; it never carries the error message.
-export function assertPreparationDiagnosticBounds() {
-  const subjects = Array.from({ length: 25 }, (_, index) => `go:./internal/probe:TestProbe${String(index).padStart(2, "0")}`);
-  const coverage = preparationDiagnostic(new HarnessConfigError("private message", { diagnosticCause: "catalog_coverage", subjects: [...subjects, subjects[0], "bad\nsubject", "x".repeat(257)] }));
-  assert.deepEqual(coverage, {
-    schema_id: "cartulary.harness_preparation_diagnostic.v1",
-    failure_reason: "configuration_error",
-    cause: "catalog_coverage",
-    subjects: subjects.slice(0, 20),
-    omitted_subject_count: 7,
-  });
-  assert.ok(!JSON.stringify(coverage).includes("private message"));
-  const usage = preparationDiagnostic(new HarnessConfigError("unknown owner secret", { reason: "usage_error", diagnosticCause: "command_selection" }));
-  assert.deepEqual([usage.failure_reason, usage.cause, usage.subjects, usage.omitted_subject_count], ["usage_error", "command_selection", [], 0]);
-  const untyped = preparationDiagnostic(Object.assign(new Error("/home/private/path"), { failure_reason: "security_finding", diagnostic_cause: "private", diagnostic_subjects: ["leak"] }));
-  assert.deepEqual([untyped.failure_reason, untyped.cause, untyped.subjects], ["configuration_error", "unclassified", []]);
-  const wide = preparationDiagnostic(new HarnessConfigError("wide", { diagnosticCause: "catalog_coverage", subjects: Array.from({ length: 20 }, (_, index) => `${index}`.padEnd(256, "y")) }));
-  assert.ok(Buffer.byteLength(JSON.stringify(wide)) <= 4096);
-  assert.equal(wide.subjects.length + wide.omitted_subject_count, 20);
-  assert.ok(wide.omitted_subject_count > 0);
-}

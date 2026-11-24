@@ -4373,7 +4373,8 @@ claim publication.
 | ----------------------------------------------- | ------------------------------------------------------------------------- | ----------------- | ------------------------ | ----------------------------------------- |
 | `cartulary.harness_artifact_ref.v1`             | `tools/schemas/cartulary.harness_artifact_ref.v1.schema.json`             | present           | Shared schema component  | Whenever a current schema declares structured retained harness artifact references. |
 | `cartulary.tool_run_summary.v5`                 | `tools/schemas/cartulary.tool_run_summary.v5.schema.json`                 | present           | Centralized wrappers     | Before wrapper exits.                     |
-| `cartulary.harness_work_graph.v8`               | `tools/schemas/cartulary.harness_work_graph.v8.schema.json`               | present           | Graph compiler           | Before any child work.                    |
+| `cartulary.harness_work_graph.v9`               | `tools/schemas/cartulary.harness_work_graph.v9.schema.json`               | present           | Go planner               | Before any child work.                    |
+| `cartulary.harness_runtime_plan.v9`             | `tools/schemas/cartulary.harness_runtime_plan.v9.schema.json`             | present           | Go planner               | Before publication and retained reads.    |
 | `cartulary.harness_capacity_override.v1`        | `tools/schemas/cartulary.harness_capacity_override.v1.schema.json`        | present           | Capability capture       | Before applying a caller override.        |
 | `cartulary.harness_capability_snapshot.v1`      | `tools/schemas/cartulary.harness_capability_snapshot.v1.schema.json`      | present           | Capability capture       | Before scheduler admission.               |
 | `cartulary.harness_cache_record.v2`             | `tools/schemas/cartulary.harness_cache_record.v2.schema.json`             | present           | Graph cache              | Before reuse or retained publication.     |
@@ -4457,7 +4458,7 @@ Missing or malformed attachments make v3 nonconforming. A schema absent from
 this table is unsupported current input; old retained JSON remains manually
 inspectable only.
 
-Owner slices compile directly to `cartulary.harness_work_graph.v8` and accept no
+Owner slices compile directly to `cartulary.harness_work_graph.v9` and accept no
 separate retained-plan schema. Validation covers owner and selection mode,
 requested and resolved rows, target/command consistency, unit identity and
 semantic digests, dependency closure, resource claims, runtime binaries,
@@ -4703,7 +4704,7 @@ The owner-first schema families are `cartulary.requirement_registry.v1`,
 `cartulary.requirement_catalog.v1`, `cartulary.verification_registry.v3`,
 `cartulary.verification_contract.v3`, `cartulary.test_owner_registry.v1`,
 `cartulary.test_family_manifest.v14`, `cartulary.test_runner_registry.v3`,
-`cartulary.harness_work_graph.v8`, `cartulary.harness_target_plan.v7`,
+`cartulary.harness_work_graph.v9`, `cartulary.harness_target_plan.v7`,
 `cartulary.harness_row_result.v6`, `cartulary.harness_test_failure.v4`,
 `cartulary.harness_unit_result.v1`,
 `cartulary.harness_run_manifest.v3`, `cartulary.harness_unit_event.v4`,
@@ -4801,13 +4802,13 @@ Verified by: TH-HARNESS-AC-067, TH-HARNESS-AC-071
 
 **TH-HARNESS-REQ-277**
 The required current graph and evidence schema attachments are
-`cartulary.harness_work_graph.v8`,
+`cartulary.harness_work_graph.v9`,
 `cartulary.harness_capability_snapshot.v1`,
 `cartulary.harness_capacity_override.v1`,
 `cartulary.harness_cache_record.v2`,
 `cartulary.harness_fixture_lease.v5`,
 `cartulary.harness_run_manifest.v3`,
-`cartulary.harness_execution_context.v3`,
+`cartulary.harness_runtime_plan.v9`,
 `cartulary.harness_unit_event.v4`,
 `cartulary.harness_run_summary.v1`,
 and `cartulary.harness_target_summary.v1`. Historical scheduler,
@@ -4825,22 +4826,25 @@ declared inputs, source, toolchain, system and graph digests, the immutable
 capability snapshot, resolved Go worker budget, cache mode, and start time. Its graph digest is computed
 from the fully resolved work graph before child execution. A missing,
 mismatched, mutable, or superseded manifest makes the run artifact-incomplete.
-The execution producer also publishes one immutable `execution-context.json`
-(`cartulary.harness_execution_context.v3`) before any child starts. It retains
-only the validated resolved graph, target projections, source-entry digest
-preimage, manifest semantic digest, bounded host profile (OS, architecture,
-kernel release, CPU models), and exact instrumentation-policy JSON bytes.
-Private launch bindings and credentials MUST NOT be retained. This is canonical
-execution evidence, not a diagnostic export. The private preparation protocol is
-`cartulary.harness_runtime_plan.v7`; retired v1 through v6 plans are rejected.
+The execution producer also publishes one immutable `plan.json`
+(`cartulary.harness_runtime_plan.v9`) before any child starts. It is the
+planner's document without its launch state: the validated resolved graph,
+target projections, the run manifest, source-entry digest preimage, bounded
+host profile (OS, architecture, kernel release, CPU models), exact
+instrumentation-policy JSON bytes, capacity facts and cache facts. Launch
+bindings, the unit input-forwarding policy and credentials MUST NOT be
+retained. This is canonical execution evidence, not a diagnostic export.
+`execution-context.json` and plan versions v1 through v8 are retired and not
+accepted.
 
-Retained readers MUST reconstruct graph and unit digests, source and toolchain
-bindings, capability and instrumentation digests, membership and workload identity
-from that context, and timing from canonical events. Policy bytes MUST match their
-retained source-entry byte digest before semantic validation. Missing context,
-altered bindings, unknown fields or incomplete cleanup cannot establish complete
-evidence. Readers MUST NOT reconstruct missing historical context from the current
-checkout.
+Retained readers MUST require the plan's manifest to equal `run-manifest.json`
+and MUST reconstruct graph and unit digests, source and toolchain bindings,
+capability and instrumentation digests, membership and workload identity from
+that plan, and timing from canonical events. Policy bytes MUST match their
+retained source-entry byte digest before semantic validation. A missing plan,
+altered bindings, unknown fields or incomplete cleanup cannot establish
+complete evidence. Readers MUST NOT recompile a selection or reconstruct
+missing historical context from the current checkout.
 Verified by: TH-HARNESS-AC-073, TH-HARNESS-AC-074
 
 **TH-HARNESS-REQ-279**
@@ -6259,7 +6263,7 @@ Verified by: TH-HARNESS-AC-063, TH-HARNESS-AC-065
 The planner MUST sort resolved rows by `row_id`, construct deterministic work
 unit and dependency IDs, derive exact runtime-binary prerequisites from the
 authored execution topology, and validate an immutable
-`cartulary.harness_work_graph.v8` before setup. The same semantic inputs MUST
+`cartulary.harness_work_graph.v9` before setup. The same semantic inputs MUST
 produce byte-identical graph bytes.
 Verified by: TH-HARNESS-AC-063, TH-HARNESS-AC-071
 
@@ -6394,8 +6398,8 @@ projections.
 The canonical scheduler projection schema is `cartulary.scheduler_manifest.v3`.
 `tools/scheduler_manifest.json` contains generated selector-to-graph bindings;
 it does not contain family-specific scheduler policies or expanded runtime work
-units. Runtime execution accepts only `cartulary.harness_work_graph.v8` from the
-single compiler. Non-current scheduler and graph schema IDs are unsupported.
+units. Runtime execution accepts only `cartulary.harness_work_graph.v9` from the
+in-process Go planner. Non-current scheduler and graph schema IDs are unsupported.
 
 The v3 scheduler manifest contains only:
 
@@ -6406,7 +6410,7 @@ The v3 scheduler manifest contains only:
 | `schedules` | array | yes | Empty in v3; phase/family runtime schedules are unsupported. |
 
 Public, aggregate, direct, leaf, browser, backend, and owner-slice execution all
-compile to `cartulary.harness_work_graph.v8`. The graph fields and validation
+compile to `cartulary.harness_work_graph.v9`. The graph fields and validation
 rules are closed by TH-HARNESS-REQ-801. Target names and command IDs MUST NOT be
 overloaded to infer omitted selection metadata. Every resolved row maps to one
 canonical row result and at least one target projection.
@@ -7746,11 +7750,13 @@ closed execution-stage/cause diagnostic alongside their existing normalized
 failure. It MUST exclude raw errors, paths, tokens and process identities, and
 MUST NOT replace the child exit or relax admission and cleanup boundaries.
 
-Node owns source-aware compilation, graph modeling and selector validation, row
-runners, runner-specific report adaptation and offline analysis. The compiler
-MUST exit and be reaped before any graph unit launches; its catalog,
-closures and caches MUST NOT remain in a resident graph coordinator. Node rows
-continue validating their current selected inputs. Full public source preflight
+The Go planner owns source-aware compilation, graph modeling and selector
+validation for execution. It runs inside the runtime before any graph unit
+launches and keeps no catalog, closures or caches once the plan is adopted.
+Node owns row runners, runner-specific report adaptation and offline analysis,
+and keeps its graph compiler only for diagnostic and maintenance tools until
+the Go planner's command-line entry points replace them. Node rows continue
+validating their current selected inputs. Full public source preflight
 MUST NOT be replaced by metadata-only fixture access.
 Verified by: TH-HARNESS-AC-147
 
@@ -7868,20 +7874,19 @@ cleanup headroom and exclusive-measurement contracts. No independent planner or
 pool default may override the topology. The dedicated UI-Review owner uses its
 single dedicated renderer lifetime.
 
-`cartulary.harness_runtime_plan.v7` carries the existing graph, projections,
-provenance, capacity facts, validated launch bindings and cache inputs from the
-source-aware compiler over an inherited private descriptor. It is limited to
-33,554,432 bytes. The runtime MUST reject malformed/unknown versions, invalid
-identities, graph/digest/reference closure failures, incomplete publication and
-exhaustion before workload launch. No source object graph, callable behavior or
-credentials may be retained as plan facts. The public surface MUST NOT accept
-arbitrary executable plans or command strings. Runtime credentials remain under
-existing private ownership and redaction boundaries.
+The runtime plans in process with the Go planner; no plan crosses a process
+boundary. The plan carries the graph, projections, provenance, capacity facts,
+validated launch bindings and cache inputs. The planner MUST reject invalid
+identities, graph, digest or reference closure failures and exhaustion before
+workload launch. Retained readers admit a published plan of at most
+33,554,432 bytes. No source object graph, callable behavior or credentials may
+be retained as plan facts. The public surface MUST NOT accept arbitrary
+executable plans or command strings. Runtime credentials remain under existing
+private ownership and redaction boundaries.
 
-A compiler that rejects preparation MUST instead publish exactly one
-`cartulary.harness_preparation_diagnostic.v1` record over the same descriptor
-and exit `2`. The record contains `schema_id`, `failure_reason`, `cause`,
-`subjects` and `omitted_subject_count`, and nothing else:
+A planner that rejects preparation MUST instead report exactly one closed
+preparation diagnostic. It contains `failure_reason`, `cause`, `subjects` and
+`omitted_subject_count`, and nothing else:
 
 - `failure_reason` is `configuration_error` or `usage_error`, and preserves a
   usage rejection (TH-HARNESS-REQ-305);
@@ -7901,10 +7906,10 @@ and exit `2`. The record contains `schema_id`, `failure_reason`, `cause`,
   `omitted_subject_count`;
 - the encoded record is at most 4,096 bytes.
 
-The record MUST NOT carry exception text, filesystem paths outside the
+The diagnostic MUST NOT carry exception text, filesystem paths outside the
 repository, environment values or credentials. An error without a typed cause
-publishes `cause=unclassified` with no subjects. The runtime validates the
-record before use. A malformed, oversized, unknown or missing record fails
+reports `cause=unclassified`; its one subject is the planner's message, which
+names only authored identifiers. A failure that carries no diagnostic fails
 closed as `configuration_error` with no subjects.
 
 The plan projects the task-surface owner's typed input forwarding into a bounded
@@ -7912,8 +7917,9 @@ private environment policy. Before unit dispatch, runtime clears all registered
 target-local inputs and the enclosing Make input-source marker, then applies
 only the selected command's admitted runtime forwarding. Selection and view
 controls cannot leak into private children. Canonical unit arguments and owned
-fixture-selection bindings remain separate. This policy is not retained in the
-execution context and cannot carry credentials or become another input registry.
+fixture-selection bindings remain separate. This policy is launch state: it is
+not retained in the published plan and cannot carry credentials or become
+another input registry.
 
 Private lifecycle interfaces carry only closed owner operations, bounded request
 IDs, existing run/session/lease proof and closed outcomes. A frame is limited to
@@ -11857,8 +11863,7 @@ A resident's scope may also be `attached`: the allocation belongs to a borrowed
 persistent service session, so the run neither creates nor charges it. In
 attach mode the shared PostgreSQL generation and the shared object store are
 attached; a unit's own generation stays unit-scoped. Host admission holds a
-Go-planned unit's residents by the keys the plan names and derives them only
-for JavaScript-planned units.
+unit's residents by the keys the plan names.
 
 A Go unit names its rows in its command (`--row-ids`), so its child never
 reads or revalidates the published graph. Every argument stays within 32 KiB.
@@ -11983,6 +11988,27 @@ allocates the named cluster instead of deriving one. A measurement-class Go
 row runs alone under TH-HARNESS-REQ-865. A runner unit's timeout is its
 resource profile's `runner_timeout_ms`, or the owner's default when the
 profile declares none.
+
+### Switch — 2026-11-24
+
+The runtime now plans every invocation, nested ones included, with the Go
+planner. The planner selector, the Node compiler process and its private
+descriptor, the runtime's `prepare` subcommand, `execution-context.json` and
+retained-run recompilation are removed. Every unit names its rows in its
+command (`--row-ids`, or `--rows` for a browser group), so no child reads or
+revalidates the published graph. Host admission holds every unit's residents
+by the keys its plan names. Only the review owner's dedicated borrower, which
+no plan names, derives its residents from the topology's physical claims.
+
+The published plan becomes `cartulary.harness_runtime_plan.v9`: plan v8
+without `bindings` and `input_environment`, which are launch state
+(TH-HARNESS-REQ-278). Graph v9 and plan v9 are closed. Retained readers read
+`plan.json`, require its manifest to equal `run-manifest.json` and recompute
+its unit and graph digests. Runs planned before the switch can no longer be
+verified or finalized; release evidence already requires the current source
+digest. Node keeps its graph compiler only for diagnostic and maintenance
+tools until the Go planner's command-line entry points replace them
+(TH-HARNESS-REQ-852).
 
 ## SQL architecture analysis completeness
 

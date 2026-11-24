@@ -7,12 +7,12 @@ import (
 	"testing"
 )
 
-func TestPhysicalResidents(t *testing.T) {
+func TestDedicatedResidents(t *testing.T) {
 	claims := map[string]int64{"memory_mb": 256}
 	physical := map[string]map[string]int64{"object_store": claims, "postgres": claims, "browser_stack": claims}
 	residents := func(mode string, request Request) []Resident {
 		p := &Production{Options: ProductionOptions{Environment: map[string]string{"CARTULARY_TEST_SERVICES_MODE": mode}}}
-		return p.physicalResidents(WorkRequirement{Request: request, Physical: physical})
+		return p.dedicatedResidents(request, physical)
 	}
 	keys := func(residents []Resident) []string {
 		var result []string

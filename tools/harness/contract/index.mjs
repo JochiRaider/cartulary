@@ -60,7 +60,6 @@ export {
 } from "./semantic-json.mjs";
 
 export { browserFixtureDiagnostic } from "./browser-fixture-diagnostic.mjs";
-export { preparationDiagnostic, preparationDiagnosticSchemaID, maximumPreparationDiagnosticBytes } from "./preparation-diagnostic.mjs";
 export { maximumPhasesPerUnit, phases as instrumentationPhases, signals as instrumentationSignals } from "./generated/instrumentation-definitions.mjs";
 
 export { normalizeRuntimeBinaryEntries } from "./runtime-binary-registry.mjs";

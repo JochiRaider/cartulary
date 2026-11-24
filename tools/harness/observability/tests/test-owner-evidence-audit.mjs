@@ -54,13 +54,13 @@ function fixture(t, target = "test-slice") {
     terminal: new Map(units.map((unit) => [unit.unit_id, { status: "passed" }])),
     targetSummaries: new Map([[target, projection]]),
   };
-  const plan = { graph: { graph_digest: digest, units }, projections: { [target]: units.map((unit) => unit.unit_id) } };
+  const plan = { graph: { graph_digest: digest, units }, projections: { [target]: { command_id: commandID(target), unit_ids: units.map((unit) => unit.unit_id) } } };
   const options = {
     owner, manifestFile: path.join(root, "manifest.json"), sourceDigest: digest,
     manifest: { schema_id: "cartulary.harness_evidence_root_manifest.v1", owner_id: owner, entries: [{ target, run_root: "run" }] },
     surface: { targets: ["test-slice", "service-backed-test-slice", "backend-unit", "browser-e2e-measurement"].map((name) => ({ name, command_id: commandID(name), target_class: "public" })) },
     catalog: { rows, test_catalog_digest: digest, verification: { routing_digest: digest } },
-    compileRun: () => plan, loadRun: async (requested) => { assert.equal(requested, path.join(root, "run")); return run; },
+    loadPlan: () => ({ plan, units: new Map(plan.graph.units.map((unit) => [unit.unit_id, unit])) }), loadRun: async (requested) => { assert.equal(requested, path.join(root, "run")); return run; },
   };
   return { root, options, run, plan, rows, units, projection, cleanup, rowResult, unitResult, save };
 }
@@ -91,10 +91,10 @@ test("owner audit attributes shared Go execution to each logical target and pres
   f.save(`unit-results/${unit.unit_id}.json`, f.unitResult(unit));
   f.projection.unit_ids = [unit.unit_id];
   f.projection.evidence_refs = unit.current_run_evidence_outputs;
-  f.plan.projections["backend-unit"] = [unit.unit_id];
+  f.plan.projections["backend-unit"].unit_ids = [unit.unit_id];
   const integration = { ...f.projection, target: "backend-integration", command_id: "cartulary.harness.command.backend_integration.v1" };
   f.run.targetSummaries.set(integration.target, integration);
-  f.plan.projections[integration.target] = [unit.unit_id];
+  f.plan.projections[integration.target] = { command_id: integration.command_id, unit_ids: [unit.unit_id] };
   f.run.manifest.target = "ci";
   f.options.surface.targets.push(
     { name: "ci", command_id: "cartulary.harness.command.ci.v1", target_class: "public" },
@@ -152,7 +152,7 @@ test("visual child evidence admits the complete partition and rejects incompatib
   for (const [name, corrupt] of [
     ["valid", null],
     ["missing projection", (f) => f.run.targetSummaries.delete("browser-e2e-visual")],
-    ["missing compiled projection", (f) => { delete f.plan.projections["browser-e2e-visual"]; }],
+    ["missing planned projection", (f) => { delete f.plan.projections["browser-e2e-visual"]; }],
     ["failed projection", (f) => { f.projection.status = "fail"; }],
     ["cancelled projection", (f) => { f.projection.status = "cancelled"; }],
     ["wrong source", (f) => { f.run.manifest.source_digest = foreign; }],
@@ -168,7 +168,7 @@ test("visual child evidence admits the complete partition and rejects incompatib
     const provider = { name: "browser-e2e", command_id: "cartulary.harness.command.browser_e2e.v1", target_class: "public" };
     f.options.surface.targets.push(provider, { name: "browser-e2e-visual", command_id: f.projection.command_id, target_class: "internal_helper" });
     Object.assign(f.run.manifest, { target: provider.name, command_id: provider.command_id, declared_inputs: { SUITE: "visual" } });
-    f.plan.projections[provider.name] = ["u0", "u1"];
+    f.plan.projections[provider.name] = { command_id: provider.command_id, unit_ids: ["u0", "u1"] };
     f.run.targetSummaries.set(provider.name, { ...f.projection, target: provider.name, command_id: provider.command_id });
     for (const row of f.rows) {
       Object.assign(row, { runner: "playwright", selector: { stage: "visual" }, evidence_class: "visual", runtime_profile_id: "default" });
@@ -231,7 +231,6 @@ test("owner audit rejects ambiguous and incomplete input partitions before readi
 test("owner audit rejects incompatible source, selection, results, cleanup and profiles", async (t) => {
   const mutations = [
     (f) => { f.run.manifest.source_digest = foreign; },
-    (f) => { f.run.manifest.graph_digest = foreign; },
     (f) => { f.run.manifest.declared_inputs.ROWS = f.rows[0].row_id; },
     (f) => { f.run.manifest.declared_inputs.SERVICE_BACKED_ONLY = "1"; },
     (f) => { f.run.summary.status = "fail"; },
@@ -240,10 +239,6 @@ test("owner audit rejects incompatible source, selection, results, cleanup and p
     (f) => { f.run.terminal.get("u0").status = "cancelled"; },
     (f) => { f.run.terminal.delete("u0"); },
     (f) => { f.run.registrations.get("u0").row_ids = []; },
-    (f) => { f.run.registrations.get("u0").kind = "policy"; },
-    (f) => { f.run.registrations.get("u0").needs = ["u1"]; },
-    (f) => { f.run.registrations.get("u0").resource_claims = { cpu: 2 }; },
-    (f) => { f.run.registrations.get("u0").service_dependencies = ["postgres"]; },
     (f) => { f.units[0].row_bindings[0].runner = "vitest"; },
     (f) => { f.projection.unit_ids = ["u0"]; },
     (f) => { f.projection.evidence_refs = []; },

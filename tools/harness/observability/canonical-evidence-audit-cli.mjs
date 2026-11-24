@@ -4,7 +4,6 @@ import path from "node:path";
 import { parseStrictJSON, readRetainedArtifactBytes, resolveRetainedArtifactIdentity, validateSchemaSync } from "../contract/index.mjs";
 import { atomicLocalFile } from "../runtime/secure-local-files.mjs";
 import { buildSourceSnapshot, loadTestCatalog } from "../test-catalog/index.mjs";
-import { compileRetainedRun } from "../scheduler/work-graph/index.mjs";
 import { auditOwnerEvidence } from "./owner-evidence-audit.mjs";
 
 const root = path.resolve(import.meta.dirname, "../../..");
@@ -40,7 +39,7 @@ try {
     CARTULARY_MAKE_INPUT_SOURCES: "OWNER=cli EVIDENCE_ROOTS_FILE=cli",
   });
   output = path.join(identity.run_root, "test-evidence-audit/audit.json");
-  const report = await auditOwnerEvidence({ manifest, manifestFile, owner: options.owner, catalog, surface, sourceDigest, compileRun: (value) => compileRetainedRun(root, value) });
+  const report = await auditOwnerEvidence({ manifest, manifestFile, owner: options.owner, catalog, surface, sourceDigest });
   if (buildSourceSnapshot(root).digest !== sourceDigest) throw Object.assign(new Error("executable source changed during audit"), { exit_code: 11 });
   publish(report);
   process.stdout.write(`[EVIDENCE] status=pass owner=${options.owner} rows=${report.accepted.reduce((sum, entry) => sum + entry.row_ids.length, 0)} partitions=${report.accepted.length} unused=${report.unused_inputs.length} artifact=test-evidence-audit/audit.json\n`);

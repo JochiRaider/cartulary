@@ -24,20 +24,19 @@ type WorkRequirement struct {
 	// keys its plan names. Attached residents belong to a persistent service
 	// session and are not charged.
 	Residents []Resident
-	// Physical carries a JavaScript-planned unit's allocations by service;
-	// admission derives residents from it when Residents is nil. It also
-	// supplies the renderer slot's claims. It is removed when the runtime
-	// accepts only planner-named residents.
-	Physical    map[string]map[string]int64
-	Active      map[string]int64
-	Exclusive   bool
-	Diagnostics bool
+	// RendererClaims are the claims of the renderer slot admission assigns;
+	// nil uses the topology's renderer claims.
+	RendererClaims map[string]int64
+	Active         map[string]int64
+	Exclusive      bool
+	Diagnostics    bool
 }
 
-// physicalResidents derives a JavaScript-planned unit's residents from its
-// physical allocations: the shared object store, its PostgreSQL generation
-// and its browser stack. An attached session holds the shared allocations.
-func (p *Production) physicalResidents(requirement WorkRequirement) []Resident {
+// dedicatedResidents are the residents of the review owner's single
+// borrower, which no plan names: the shared object store, its PostgreSQL
+// generation and its browser stack, under the topology's claims. An attached
+// session holds the shared allocations.
+func (p *Production) dedicatedResidents(request Request, physical map[string]map[string]int64) []Resident {
 	attached := p.Options.Environment["CARTULARY_TEST_SERVICES_MODE"] == "attach"
 	var residents []Resident
 	shared := func(key string, claims map[string]int64) {
@@ -47,18 +46,18 @@ func (p *Production) physicalResidents(requirement WorkRequirement) []Resident {
 		}
 		residents = append(residents, Resident{Key: key, Scope: scope, Claims: claims})
 	}
-	if claims := requirement.Physical["object_store"]; len(claims) != 0 {
+	if claims := physical["object_store"]; len(claims) != 0 {
 		shared("object_store:shared", claims)
 	}
-	if claims := requirement.Physical["postgres"]; len(claims) != 0 {
-		if requirement.Request.PostgresIsolation == "exclusive" {
-			residents = append(residents, Resident{Key: clusterKey(requirement.Request), Claims: claims})
+	if claims := physical["postgres"]; len(claims) != 0 {
+		if request.PostgresIsolation == "exclusive" {
+			residents = append(residents, Resident{Key: clusterKey(request), Claims: claims})
 		} else {
-			shared(clusterKey(requirement.Request), claims)
+			shared(clusterKey(request), claims)
 		}
 	}
-	if requirement.Request.Capability == "browser_stack" {
-		residents = append(residents, Resident{Key: stackKey(requirement.Request), Claims: requirement.Physical["browser_stack"]})
+	if request.Capability == "browser_stack" {
+		residents = append(residents, Resident{Key: stackKey(request), Claims: physical["browser_stack"]})
 	}
 	return residents
 }
@@ -112,9 +111,6 @@ func (p *Production) Admit(ctx context.Context, requirement WorkRequirement) (*h
 	records := []*residentRecord{}
 	residents := []harnessadmission.Resident{}
 	held := requirement.Residents
-	if held == nil {
-		held = p.physicalResidents(requirement)
-	}
 	reserve := func() error {
 		var err error
 		// A request waiting for a renderer must not pin an idle stack that
@@ -150,7 +146,7 @@ func (p *Production) Admit(ctx context.Context, requirement WorkRequirement) (*h
 			}
 		}
 		if err == nil && work.slot != nil {
-			claims := requirement.Physical["renderer"]
+			claims := requirement.RendererClaims
 			if len(claims) == 0 {
 				var physical map[string]map[string]int64
 				if physical, err = p.physicalClaims(); err == nil {
@@ -304,7 +300,7 @@ func (p *Production) ConfigureDedicated(parent *string, capacities map[string]in
 	if err != nil {
 		return WorkRequirement{}, err
 	}
-	work := WorkRequirement{Request: request, Renderer: "dedicated", Diagnostics: diagnostics, Physical: physical, Active: map[string]int64{"cpu": 1, "io": 1, "memory_mb": 512, "process": 1}}
+	work := WorkRequirement{Request: request, Renderer: "dedicated", Diagnostics: diagnostics, Residents: p.dedicatedResidents(request, physical), Active: map[string]int64{"cpu": 1, "io": 1, "memory_mb": 512, "process": 1}}
 	p.ConfigureAdmission("", parent, capacities)
 	return work, nil
 }
@@ -339,7 +335,7 @@ func (p *Production) retireIdleStacks(ctx context.Context, retirement Retirement
 }
 
 // physicalClaims are the topology's resident claims per physical allocation
-// kind, read once. A Go plan names its residents but leaves the renderer slot,
+// kind, read once. A plan names its residents but leaves the renderer slot,
 // which admission assigns, to these claims.
 func (p *Production) physicalClaims() (map[string]map[string]int64, error) {
 	p.physicalOnce.Do(func() {

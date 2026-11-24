@@ -5,15 +5,12 @@ import path from "node:path";
 import { packInvocationCohorts } from "../cohorts.mjs";
 import { planGoLPTShards } from "../../../backend/go-lpt-shards.mjs";
 import { operationExecutionDigest } from "../operations.mjs";
-import { selectionFor } from "../preparation.mjs";
 import { loadSchedulerResourceRegistry } from "../../scheduler-resources.mjs";
 
 import {
   WorkGraphCompiler,
-  availableGoWorkerBudget,
   captureCapabilitySnapshot,
   resourceCapacities,
-  compileRetainedRun,
   assertFixtureServiceDependencies,
   assertServiceDependencies,
   buildWorkGraph,
@@ -80,54 +77,6 @@ function assertSizedGoPartition(units, rowIDs, fixture) {
     assert.equal(entry.command.environment.GOMAXPROCS, String(entry.resource_claims.cpu));
   }
 }
-
-test("retained selection preserves inherited capacity independently of reader environment", () => {
-  assert.equal(availableGoWorkerBudget(19, {}), 19);
-  assert.equal(availableGoWorkerBudget(19, { CARTULARY_UNIT_CPU_TOKENS: "4" }), 19, "unleased ambient values cannot alter planning");
-  const parent = { CARTULARY_HOST_ADMISSION_LEASE: "opaque-parent", CARTULARY_UNIT_CPU_TOKENS: "4" };
-  assert.equal(availableGoWorkerBudget(19, parent), 4);
-  assert.equal(availableGoWorkerBudget(2, parent), 2);
-  for (const budget of [undefined, "", "0", "-1", "1.5", "4x", "9007199254740992"]) {
-    assert.throws(() => availableGoWorkerBudget(19, { ...parent, CARTULARY_UNIT_CPU_TOKENS: budget }), /inherited Go CPU budget/u);
-  }
-  const retainedInputs = { OWNER: "platform.telemetry" };
-  const nested = new WorkGraphCompiler(root, { targetInputs: { "test-slice": retainedInputs } });
-  nested.availableGoLanes = 4;
-  nested.availablePostgresLanes = 2;
-  const retainedManifest = {
-    target: "test-slice",
-    command_id: nested.taskSurface.targets.find((entry) => entry.name === "test-slice").command_id,
-    declared_inputs: retainedInputs,
-    capability_snapshot: { cpu_tokens: 19, postgres_lanes: 2,
-      memory_bytes: 32 * 1024 ** 3, process_slots: 4096, io_tokens: 32,
-      object_store_lanes: 8, port_lanes: 32, writable_volume: true,
-      services: { browser: true, object_store: true, postgres: true, service_stack: true } },
-    go_worker_budget: 4,
-  };
-  nested.capacities = Object.fromEntries(resourceCapacities(retainedManifest.capability_snapshot));
-  assert.deepEqual(compileRetainedRun(root, retainedManifest), selectionFor({ selection: "command", target: "test-slice" }, nested), "retained owner selection must reconstruct its inherited worker budget, not physical host capacity");
-  const savedEnvironment = { lease: process.env.CARTULARY_HOST_ADMISSION_LEASE, budget: process.env.CARTULARY_UNIT_CPU_TOKENS };
-  try {
-    process.env.CARTULARY_HOST_ADMISSION_LEASE = "unrelated-reader-parent";
-    process.env.CARTULARY_UNIT_CPU_TOKENS = "invalid-reader-budget";
-    const row = nested.catalog.rows.find((value) => value.owner_id === "platform.telemetry");
-    for (const selection of [retainedInputs, { ...retainedInputs, ROWS: row.row_id }]) {
-      for (const budget of [2, 4, 19]) {
-        nested.targetInputs["test-slice"] = selection;
-        nested.availableGoLanes = budget;
-        assert.deepEqual(compileRetainedRun(root, { ...retainedManifest, declared_inputs: selection, go_worker_budget: budget }),
-          selectionFor({ selection: "command", target: "test-slice" }, nested), "direct and nested retained graphs preserve exact rows and worker claims independently of reader environment");
-      }
-    }
-    for (const budget of [undefined, null, "4", 0, -1, 1.5, 20, Number.MAX_SAFE_INTEGER + 1]) {
-      assert.throws(() => compileRetainedRun(root, { ...retainedManifest, go_worker_budget: budget }), /retained Go worker budget/u);
-    }
-  } finally {
-    for (const [name, value] of [["CARTULARY_HOST_ADMISSION_LEASE", savedEnvironment.lease], ["CARTULARY_UNIT_CPU_TOKENS", savedEnvironment.budget]]) {
-      if (value === undefined) delete process.env[name]; else process.env[name] = value;
-    }
-  }
-});
 
 test("shell identity and audit inputs bind only their selected operation", () => {
   const compiler = new WorkGraphCompiler(root);

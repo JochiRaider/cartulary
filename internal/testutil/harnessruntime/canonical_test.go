@@ -6,9 +6,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnessplan"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
-	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -200,28 +200,14 @@ func TestRuntimeCanonicalNodeParity(t *testing.T) {
 func TestRuntimeRequiredPublication(t *testing.T) {
 	for _, stage := range []string{"admission", "acquisition", "cancelled"} {
 		t.Run("prelaunch unit is readable by dependent finalizer "+stage, func(t *testing.T) {
-			fixture := planFixture(t)
-			graph := fixture["graph"].(map[string]any)
-			a := graph["units"].([]any)[0].(map[string]any)
-			b := maps.Clone(a)
-			b["unit_id"], b["needs"] = "unit:b", []any{"unit:a"}
-			b["current_run_evidence_outputs"] = []any{"unit-results/unit-b.json"}
-			a["failure_policy"] = map[string]any{"block_descendants": false, "continue_independent": true, "aggregate_effect": "required"}
+			a, b := fixtureUnit("unit:a"), fixtureUnit("unit:b", "unit:a")
+			a.FailurePolicy.BlockDescendants = false
 			if stage == "acquisition" {
-				a["fixture_lease"], a["postgres_isolation"] = "postgres_dedicated", "exclusive"
-				a["service_dependencies"] = []any{"postgres"}
-				a["physical_allocations"] = map[string]any{"postgres": map[string]any{"memory_mb": 1, "process": 1, "postgres": 1, "port_lane": 1, "volume": 1}}
+				a.FixtureLease, a.PostgresIsolation = "postgres_dedicated", "exclusive"
+				a.ServiceDependencies = []string{"postgres"}
+				a.Residents = []harnessplan.Resident{{Key: "postgres:unit:a", Scope: harnessplan.ScopeUnit, Claims: map[string]int64{"memory_mb": 1, "process": 1, "postgres": 1, "port_lane": 1, "volume": 1}}}
 			}
-			graph["units"] = []any{a, b}
-			fixture["projections"].(map[string]any)["test-slice"].(map[string]any)["unit_ids"] = []any{"unit:a", "unit:b"}
-			cache := maps.Clone(fixture["cache"].([]any)[0].(map[string]any))
-			cache["unit_id"] = "unit:b"
-			fixture["cache"] = append(fixture["cache"].([]any), cache)
-			rehashPlan(t, fixture)
-			p, err := decodePlan(planBytes(t, fixture))
-			if err != nil {
-				t.Fatal(err)
-			}
+			p := planFixture(t, a, b)
 			root := t.TempDir()
 			if err := os.Chmod(root, 0700); err != nil {
 				t.Fatal(err)
@@ -264,10 +250,7 @@ func TestRuntimeRequiredPublication(t *testing.T) {
 		})
 	}
 	t.Run("cleanup failures retain separate safe causes after terminal publication", func(t *testing.T) {
-		p, err := decodePlan(planBytes(t, planFixture(t)))
-		if err != nil {
-			t.Fatal(err)
-		}
+		p := planFixture(t)
 		root := t.TempDir()
 		if err := os.Chmod(root, 0700); err != nil {
 			t.Fatal(err)
@@ -359,24 +342,11 @@ func TestRuntimeRequiredPublication(t *testing.T) {
 		})
 	}
 	t.Run("dependency rows publish before consumers without replacing root failure", func(t *testing.T) {
-		fixture := planFixture(t)
-		graph := fixture["graph"].(map[string]any)
-		a := graph["units"].([]any)[0].(map[string]any)
-		b := maps.Clone(a)
 		rowID := "harness.command_surface.unit.scheduler_smoke"
-		b["unit_id"], b["needs"] = "unit:b", []any{"unit:a"}
-		b["row_bindings"] = []any{map[string]any{"row_id": rowID, "runner": "go"}}
-		b["current_run_evidence_outputs"] = []any{"rows/" + rowID + ".json", "unit-results/unit-b.json"}
-		graph["units"] = []any{a, b}
-		fixture["projections"].(map[string]any)["test-slice"].(map[string]any)["unit_ids"] = []any{"unit:a", "unit:b"}
-		cache := maps.Clone(fixture["cache"].([]any)[0].(map[string]any))
-		cache["unit_id"] = "unit:b"
-		fixture["cache"] = append(fixture["cache"].([]any), cache)
-		rehashPlan(t, fixture)
-		p, err := decodePlan(planBytes(t, fixture))
-		if err != nil {
-			t.Fatal(err)
-		}
+		b := fixtureUnit("unit:b", "unit:a")
+		b.RowBindings = []harnessplan.RowBinding{{RowID: rowID, Runner: "go"}}
+		b.EvidenceOutputs = []string{"rows/" + rowID + ".json"}
+		p := planFixture(t, fixtureUnit("unit:a"), b)
 		root := t.TempDir()
 		if err := os.Chmod(root, 0700); err != nil {
 			t.Fatal(err)
@@ -499,15 +469,11 @@ func TestRuntimeRequiredPublication(t *testing.T) {
 		}
 	})
 	t.Run("cache_cancellation_publishes_terminal_without_execution", func(t *testing.T) {
-		fixture := planFixture(t)
 		rowID := "harness.command_surface.unit.scheduler_smoke"
-		fixture["graph"].(map[string]any)["units"].([]any)[0].(map[string]any)["row_bindings"] = []any{map[string]any{"row_id": rowID, "runner": "go"}}
-		fixture["graph"].(map[string]any)["units"].([]any)[0].(map[string]any)["current_run_evidence_outputs"] = []any{"rows/" + rowID + ".json", "unit-results/unit-a.json"}
-		rehashPlan(t, fixture)
-		p, err := decodePlan(planBytes(t, fixture))
-		if err != nil {
-			t.Fatal(err)
-		}
+		a := fixtureUnit("unit:a")
+		a.RowBindings = []harnessplan.RowBinding{{RowID: rowID, Runner: "go"}}
+		a.EvidenceOutputs = []string{"rows/" + rowID + ".json"}
+		p := planFixture(t, a)
 		root := t.TempDir()
 		if err := os.Chmod(root, 0700); err != nil {
 			t.Fatal(err)
@@ -540,10 +506,7 @@ func TestRuntimeRequiredPublication(t *testing.T) {
 			}
 		}
 	})
-	p, err := decodePlan(planBytes(t, planFixture(t)))
-	if err != nil {
-		t.Fatal(err)
-	}
+	p := planFixture(t)
 	root := t.TempDir()
 	if err := os.Chmod(root, 0700); err != nil {
 		t.Fatal(err)
@@ -553,22 +516,24 @@ func TestRuntimeRequiredPublication(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer publisher.Abort()
-	contextBytes, err := os.ReadFile(filepath.Join(root, "execution-context.json"))
+	planBytes, err := os.ReadFile(filepath.Join(root, planDocument))
 	if err != nil {
-		t.Fatal("context was not published before child execution", err)
+		t.Fatal("plan was not published before child execution", err)
 	}
 	var retained map[string]any
-	if err := json.Unmarshal(contextBytes, &retained); err != nil {
+	if err := json.Unmarshal(planBytes, &retained); err != nil {
 		t.Fatal(err)
 	}
-	if retained["manifest_digest"] != p.published.document.(map[string]any)["manifest_digest"] || retained["graph"] == nil || retained["projections"] == nil || len(retained["source_inputs"].([]any)) == 0 {
-		t.Fatal("incomplete retained execution context")
+	manifest, _ := json.Marshal(p.facts.Manifest)
+	retainedManifest, _ := json.Marshal(retained["manifest"])
+	if retained["schema_id"] != harnessplan.PlanSchema || string(retainedManifest) != string(manifest) || retained["graph"] == nil || retained["projections"] == nil || len(retained["source_inputs"].([]any)) == 0 {
+		t.Fatal("incomplete retained plan")
 	}
-	if strings.Contains(string(contextBytes), "/private/node") || retained["bindings"] != nil || retained["cache_inputs"] != nil || retained["input_environment"] != nil {
+	if strings.Contains(string(planBytes), "/private/node") || retained["bindings"] != nil || retained["input_environment"] != nil {
 		t.Fatal("private launch state was retained")
 	}
-	if err := writeEvidence(root, "execution-context.json", "cartulary.harness_execution_context.v3", retained, false); err == nil {
-		t.Fatal("immutable context was replaced")
+	if err := writeEvidence(root, planDocument, harnessplan.PlanSchema, retained, false); err == nil {
+		t.Fatal("immutable plan was replaced")
 	}
 	publisher.Forbidden = func() ([]string, error) { return []string{"private-sentinel"}, nil }
 	prefixes := make(chan string, len(p.facts.Graph.Units))

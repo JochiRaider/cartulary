@@ -23,6 +23,24 @@ type Graph struct {
 	Digest string
 }
 
+// NewGraph builds a closed graph from units: every need resolves inside the
+// graph and the needs are acyclic. It puts each unit in canonical form and
+// computes the unit and graph digests.
+func NewGraph(units ...*Unit) (*Graph, error) {
+	g := &Graph{Units: make(map[string]*Unit, len(units))}
+	for _, unit := range units {
+		if _, ok := g.Units[unit.ID]; ok {
+			return nil, fmt.Errorf("%w: duplicate unit %s", ErrSelection, unit.ID)
+		}
+		g.Units[unit.ID] = unit
+	}
+	if err := g.validate(); err != nil {
+		return nil, err
+	}
+	g.finalize()
+	return g, nil
+}
+
 // Sorted returns the units in ID order.
 func (g *Graph) Sorted() []*Unit {
 	units := make([]*Unit, 0, len(g.Units))

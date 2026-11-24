@@ -32,7 +32,6 @@ import { resolveBrowserBatchPartition } from "./browser-batch-manifest.mjs";
 import { readLocalFile } from "../runtime/secure-local-files.mjs";
 import { publishRowResult } from "../execution/runners/row-results.mjs";
 import { browserCohort } from "./browser-cohorts.mjs";
-import { readPublishedUnit } from "../execution/runners/unit-selection.mjs";
 import { attachmentAssignments } from "./browser-session-evidence.mjs";
 import { collectFrontendMeasurementObservations } from "./frontend-measurement-evidence.mjs";
 import { readRendererAttachment } from "./renderer-attachment.mjs";
@@ -43,7 +42,7 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(scriptDir, "../../..");
 
 function usage() {
-  return "usage: browser-catalog-group-cli.mjs --manifest <path> --stage <stage> --partition <partition> --group <group> [--rows <row-id,...>]";
+  return "usage: browser-catalog-group-cli.mjs --manifest <path> --stage <stage> --partition <partition> --group <group> --rows <row-id,...>";
 }
 
 function parseArgs(argv) {
@@ -57,7 +56,7 @@ function parseArgs(argv) {
     else if (arg === "--rows") options.rows = (argv[++index] ?? "").split(",").filter(Boolean);
     else throw new Error(usage());
   }
-  if (!options.manifest || !options.stage || !options.partition || !options.group) throw new Error(usage());
+  if (!options.manifest || !options.stage || !options.partition || !options.group || !options.rows.length) throw new Error(usage());
   return options;
 }
 
@@ -229,23 +228,10 @@ async function main() {
   const { partition, invocationPolicy } = resolveBrowserBatchPartition(manifest, options.partition);
   if (partition.stageName !== options.stage) throw new Error("browser execution stage mismatch");
   const catalog = loadTestCatalog(root);
-  let group;
-  if (options.rows.length) {
-    // A Go-planned group names its rows and its cohort in its own command;
-    // the cohort is validated against the partition, never re-read from the
-    // published graph.
-    if (!/^cohort-[a-f0-9]{64}$/u.test(options.group)) throw new Error("invalid browser cohort identity");
-    group = { ...browserCohort(partition, options.rows.map((id) => catalog.rowByID.get(id)), invocationPolicy), name: options.group };
-  } else {
-    const unit = readPublishedUnit(runRoot(), process.env.CARTULARY_TEST_RUN_ID, process.env.CARTULARY_WORK_UNIT_ID);
-    if (unit.command.args[0] !== "tools/harness/browser/browser-catalog-group-cli.mjs" ||
-        JSON.stringify(unit.command.args.slice(1)) !== JSON.stringify(process.argv.slice(2)) ||
-        !unit.row_bindings?.length || unit.row_bindings.some((row) => row.runner !== "playwright")) {
-      throw new Error("browser selection requires its exact published work unit");
-    }
-    group = browserCohort(partition, unit.row_bindings.map(({ row_id }) => catalog.rowByID.get(row_id)), invocationPolicy);
-    if (group.name !== options.group) throw new Error("browser cohort identity does not bind selected rows and policy");
-  }
+  // A group names its rows and its cohort in its own command; the cohort is
+  // validated against the partition, never read from the published plan.
+  if (!/^cohort-[a-f0-9]{64}$/u.test(options.group)) throw new Error("invalid browser cohort identity");
+  const group = { ...browserCohort(partition, options.rows.map((id) => catalog.rowByID.get(id)), invocationPolicy), name: options.group };
   validateCurrentSessionAttachment();
   const attachedSessionID =
     process.env.CARTULARY_BROWSER_SESSION_GROUP?.trim() ?? "";

@@ -4,19 +4,6 @@ const same = (a, b) => canonicalJSONString(a) === canonicalJSONString(b);
 const sorted = (values) => [...values].sort();
 const read = (root, relative) => parseStrictJSON(readRetainedArtifactBytes(root, relative, 16 * 1024 ** 2).toString("utf8"));
 
-// Selection fidelity is checked against a compiled owner contract, independently
-// of the retained summary's internally consistent counts.
-export function validateRetainedGraph(run, plan) {
-  if (plan.graph.graph_digest !== run.manifest.graph_digest) throw new Error("retained graph differs from the current selection and profiles");
-  if (!same(sorted(run.registrations.keys()), plan.graph.units.map((unit) => unit.unit_id))) throw new Error("retained registration roster differs from the current graph");
-  for (const unit of plan.graph.units) {
-    const registration = run.registrations.get(unit.unit_id);
-    for (const key of ["kind", "needs", "resource_claims", "service_dependencies"]) {
-      if (!same(registration[key], unit[key])) throw new Error(`retained registration ${key} differs from the current graph`);
-    }
-  }
-}
-
 export function validateRetainedCleanup(run, cleanup) {
   validateSchemaSync("cartulary.harness_cleanup_results.v2", cleanup);
   if (cleanup.run_id !== run.manifest.run_id || cleanup.results.some((result) => result.outcome !== "completed")) throw new Error("retained cleanup did not complete");

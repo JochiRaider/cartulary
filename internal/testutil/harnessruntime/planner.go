@@ -11,11 +11,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessplan"
 )
 
-// plannerSelector selects the Go planner for one invocation while the
-// JavaScript compiler remains the default (work-graph overhaul, Stage 1).
-// The selector is removed when the runtime accepts only Go plans.
-const plannerSelector = "CARTULARY_HARNESS_PLANNER"
-
 // adoptPlan binds a validated Go plan to the runtime's execution model. The
 // plan itself is the published run-root document; units receive their
 // launch environment with runtime binaries bound.
@@ -72,7 +67,7 @@ func adoptPlan(source *harnessplan.Plan) (*Plan, error) {
 		}
 		facts.Graph.Units = append(facts.Graph.Units, adopted)
 	}
-	return &Plan{facts: facts, published: publishedPlan{name: "plan.json", schema: harnessplan.PlanSchema, document: source}}, nil
+	return &Plan{facts: facts, source: source}, nil
 }
 
 // planRequest reads the runtime's graph arguments as a planner request.
@@ -104,9 +99,9 @@ func planRequest(args []string, environment map[string]string) (harnessplan.Requ
 	return request, nil
 }
 
-// plannerFailure classifies a Go planner rejection as the closed preparation
-// diagnostic the JavaScript compiler publishes. The planner's messages are
-// built from authored identifiers, so the message is the single subject.
+// plannerFailure classifies a planner rejection as a closed preparation
+// diagnostic (TH-HARNESS-REQ-854). The planner's messages are built from
+// authored identifiers, so the message is the single subject.
 func plannerFailure(err error) error {
 	diagnostic := PreparationDiagnostic{FailureReason: "configuration_error", Cause: "unclassified", Subjects: []string{}}
 	switch {

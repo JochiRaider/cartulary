@@ -67,11 +67,7 @@ function fixture(t, failedOperation = null) {
     else writeEvidenceFile(directory, `${name}/artifacts/package.json`, receipt);
     return {directory, name, unit, evidence, projections};
   });
-  const options = {roots: runs.map(run => run.directory), sourceDigest: runs[0].evidence.manifest.source_digest, catalog: {rows: []}, required: {row_ids: [], operation_ids: runs.map(run => run.unit.unit_id.slice("operation:".length))},
-    compileRun: manifest => {
-      const run = runs.find(run => run.evidence.manifest.run_id === manifest.run_id);
-      return {graph: run.evidence.context.graph, projections: Object.fromEntries(Object.entries(run.projections).map(([name, value]) => [name, value.unit_ids]))};
-    }};
+  const options = {roots: runs.map(run => run.directory), sourceDigest: runs[0].evidence.manifest.source_digest, catalog: {rows: []}, required: {row_ids: [], operation_ids: runs.map(run => run.unit.unit_id.slice("operation:".length))}};
   const save = (name, value) => {
     const owner = name.split("/")[0];
     const run = runs.find(run => run.name === owner) ?? runs[0];

@@ -31,10 +31,8 @@ type RunResult struct {
 	CleanupDiagnostic *harnesssession.CleanupDiagnostic
 }
 
-// Run accepts only ordinary graph selectors. Prepare owns their interpretation;
-// no external executable plan or shell fragment exists. During the work-graph
-// overhaul the temporary CARTULARY_HARNESS_PLANNER=go selector plans the
-// invocation with the in-process Go planner instead of the Node compiler.
+// Run accepts only ordinary graph selectors. The in-process Go planner owns
+// their interpretation; no external executable plan or shell fragment exists.
 // A top-level graph reports the dead runs it recovers before admitting work on
 // stderr; nested graphs run inside an outer graph that already did so.
 func Run(ctx context.Context, root, binary string, args, environment []string, stderr io.Writer) (report *RunResult, code int, resultErr error) {
@@ -95,16 +93,7 @@ func Run(ctx context.Context, root, binary string, args, environment []string, s
 	if env["CARTULARY_TEST_RUN_ID"] == "" {
 		env["CARTULARY_TEST_RUN_ID"] = fmt.Sprintf("%s-p%d", time.Now().UTC().Format("20060102T150405000Z"), os.Getpid())
 	}
-	input := []string{}
-	for k, v := range env {
-		input = append(input, k+"="+v)
-	}
-	var plan *Plan
-	if env[plannerSelector] == "go" {
-		plan, err = prepareInProcess(root, args, env, mode, imposedCacheMode)
-	} else {
-		plan, err = Prepare(ctx, root, args, input)
-	}
+	plan, err := prepare(root, args, env, mode, imposedCacheMode)
 	if err != nil {
 		var lifecycle *failure
 		if errors.As(err, &lifecycle) && lifecycle.Reason == "cleanup_error" {
@@ -184,9 +173,6 @@ func Run(ctx context.Context, root, binary string, args, environment []string, s
 	}
 	publication.Forbidden = runtime.ForbiddenValues
 	child := plan.unitEnvironment(env)
-	// The planner selector chooses this invocation's planner only; nested
-	// commands keep the default.
-	delete(child, plannerSelector)
 	for _, k := range []string{"CARTULARY_TEST_SERVICES_MODE", "CARTULARY_TEST_SERVICES_PERSISTENT_BORROWER", "CARTULARY_TEST_SERVICES_SESSION_FILE", "HARNESS_DIAGNOSTICS", "HARNESS_ACCOUNTING", "MAKEFLAGS", "MAKEOVERRIDES", "MFLAGS"} {
 		delete(child, k)
 	}

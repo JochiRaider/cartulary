@@ -167,7 +167,7 @@ rows (no placement justification).
    into the verifier's policy, which reads the `ci` root's recovery row; the
    gate keeps its source, supply-chain and compatibility checks.
 4. **Stage 2b** (work-graph tracker): the Go planner by default and readers on
-   `plan.json`, so the verifier stops recompiling plans.
+   `plan.json`, so the verifier stops recompiling plans. Done 2026-11-24.
 5. **S4 Verifier and policy v2 (R1, R4).** Required roots by command (`ci`,
    `release-check`, `release-measure`), each complete and passing, one source
    digest and toolchain, every active measurement predicate, one package

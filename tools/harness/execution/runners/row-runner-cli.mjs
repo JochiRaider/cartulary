@@ -13,17 +13,15 @@ import { runPrivateCapturedProcess } from "../../runtime/private-child-process.m
 import { adaptGoInvocationFile, buildGoInvocations, goExecutionEnvironment, retainGoTestDurations } from "./go.mjs";
 import { adaptShellInvocation, buildShellInvocations } from "./shell.mjs";
 import { publishRowResult } from "./row-results.mjs";
-import { readUnitSelection } from "./unit-selection.mjs";
 import { adaptVitestInvocationFile, buildVitestInvocations, vitestInvocationFailure } from "./vitest.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
 
 function usage() {
-  return "usage: row-runner-cli.mjs --row-id <row-id> | --row-ids <row-id,...> | --unit-rows";
+  return "usage: row-runner-cli.mjs --row-id <row-id> | --row-ids <row-id,...>";
 }
 
 function parseArgs(argv) {
-  if (argv.length === 1 && argv[0] === "--unit-rows") return readUnitSelection(runRoot(), process.env.CARTULARY_TEST_RUN_ID, process.env.CARTULARY_WORK_UNIT_ID);
   if (argv.length !== 2 || !new Set(["--row-id", "--row-ids"]).has(argv[0]) || !argv[1]) {
     throw new Error(usage());
   }

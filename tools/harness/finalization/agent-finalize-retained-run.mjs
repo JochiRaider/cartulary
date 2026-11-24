@@ -4,10 +4,10 @@ import path from "node:path";
 
 import { assertMachineEvidencePath, canonicalJSONString, openDirectory, parseStrictJSON, readRetainedArtifactBytes, validateSchemaSync } from "../contract/index.mjs";
 import { buildSourceSnapshot, loadTestCatalog } from "../test-catalog/index.mjs";
-import { captureCapabilitySnapshot, compileRetainedRun } from "../scheduler/work-graph/index.mjs";
+import { captureCapabilitySnapshot } from "../scheduler/work-graph/index.mjs";
 import { validateCanonicalRun } from "../observability/canonical-evidence.mjs";
-import { validateExecutionContext } from "../observability/canonical-context.mjs";
-import { validateRetainedCleanup, validateRetainedGraph, validateRetainedSelection } from "../observability/retained-selection.mjs";
+import { loadRetainedPlan } from "../observability/retained-plan.mjs";
+import { validateRetainedCleanup, validateRetainedSelection } from "../observability/retained-selection.mjs";
 
 const read = (root, relative) => parseStrictJSON(readRetainedArtifactBytes(root, relative, 16 * 1024 ** 2).toString("utf8"));
 const same = (a, b) => canonicalJSONString(a) === canonicalJSONString(b);
@@ -28,7 +28,7 @@ function preflightFailure(actionID, reason, failureClass = "artifact") {
 // or making a synthetic checkout into an executable input.
 export function createRetainedRunPreflight({ allowOlderResultsDir, relToRepo, repoRoot, resultsDirInput }, ports = {}) {
   const sourceSnapshot = ports.sourceSnapshot ?? buildSourceSnapshot(repoRoot);
-  const compileRun = ports.compileRun ?? ((manifest) => compileRetainedRun(repoRoot, manifest));
+  const loadPlan = ports.loadPlan ?? loadRetainedPlan;
   const currentIdentity = { source_snapshot_digest: sourceSnapshot.digest };
   const validations = new Map();
   let current;
@@ -70,24 +70,24 @@ export function createRetainedRunPreflight({ allowOlderResultsDir, relToRepo, re
       if (!same(manifest, run.manifest)) throw new Error("retained manifest changed during preflight");
       if (run.summary.status !== "pass" || run.summary.failure_class !== null || run.summary.failure_reason !== null ||
           [...run.terminal.values()].some((event) => event.status !== "passed")) throw new Error("canonical retained root does not record a completely passing check run");
-      const context = read(resolved, "execution-context.json"), cleanup = read(resolved, "cleanup-results.json");
-      validateExecutionContext(context, run, cleanup);
+      const cleanup = read(resolved, "cleanup-results.json");
+      const { plan, units } = loadPlan(resolved, run, cleanup);
       validateRetainedCleanup(run, cleanup);
       const scan = read(resolved, "retained-secret-scan.json");
       validateSchemaSync("cartulary.harness_retained_secret_scan.v1", scan);
       // The scanner owns this policy identity; instrumentation has a separate policy.
       const contract = currentContract();
-      if (!same(context.host_profile, contract.host) || !same(manifest.capability_snapshot, contract.capability)) throw new Error("retained system and capacity differ from the current host");
-      const plan = compileRun(manifest);
-      validateRetainedGraph(run, plan);
-      if (!same([...run.targetSummaries.keys()].sort(), Object.keys(plan.projections).sort())) throw new Error("retained target roster differs from the complete current check");
+      if (!same(plan.host_profile, contract.host) || !same(manifest.capability_snapshot, contract.capability)) throw new Error("retained system and capacity differ from the current host");
+      // The source digest is the current one, so the retained plan is the
+      // current check's plan; every projection must have passed under the
+      // current command identity.
       const commands = new Map(contract.surface.targets.map((entry) => [entry.name, entry.command_id]));
-      for (const [target, ids] of Object.entries(plan.projections)) {
+      for (const target of Object.keys(plan.projections)) {
         const projection = run.targetSummaries.get(target);
         if (projection.status !== "pass" || projection.failure_class !== null || projection.failure_reason !== null ||
-            projection.command_id !== (commands.get(target) ?? manifest.command_id) || !same(projection.unit_ids, [...ids].sort())) throw new Error("retained target projection differs from the complete current check");
+            projection.command_id !== (commands.get(target) ?? manifest.command_id)) throw new Error("retained target projection differs from the complete current check");
       }
-      validateRetainedSelection(resolved, run, new Map(plan.graph.units.map((unit) => [unit.unit_id, unit])), run.targetSummaries.get("check"), contract.catalog.rows);
+      validateRetainedSelection(resolved, run, units, run.targetSummaries.get("check"), contract.catalog.rows);
       for (const reference of ["run-manifest.json", "unit-events.ndjson"]) {
         if (!run.summary.artifact_refs.includes(reference)) throw new Error(`canonical retained run summary omits ${reference}`);
       }

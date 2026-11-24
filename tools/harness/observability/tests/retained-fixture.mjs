@@ -5,7 +5,7 @@ import path from "node:path";
 import { atomicLocalFile } from "../../runtime/secure-local-files.mjs";
 import { executionRecordsDigest } from "../../runtime/execution-observations.mjs";
 const digest = `sha256:${"a".repeat(64)}`;
-export const buildEvidenceUnit = (id, rows = []) => ({ unit_id: id, owner_id: "harness.evidence_accounting", kind: "runner", command: { executable: "true", args: [], environment: {} }, needs: [], resource_claims: { cpu: 1, process: 1 }, fixture_lease: "none", postgres_isolation: "none", renderer_requirement: "none", physical_allocations: {}, service_dependencies: [], cache_policy: "none", timeout_ms: 1000, shared_locks: [], exclusive_locks: [], reusable_artifact_outputs: [], row_bindings: rows.map(({ row_id, runner }) => ({ row_id, runner })), current_run_evidence_outputs: [...rows.map((row) => `rows/${row.row_id}.json`), `unit-results/${id}.json`], failure_policy: { block_descendants: true, continue_independent: true, aggregate_effect: "required" }, estimated_work_ms: 10 });
+export const buildEvidenceUnit = (id, rows = []) => ({ unit_id: id, owner_id: "harness.evidence_accounting", kind: "runner", command: { executable: "true", args: [], environment: {} }, needs: [], resource_claims: { cpu: 1, process: 1 }, residents: [], fixture_lease: "none", postgres_isolation: "none", service_dependencies: [], cache_policy: "none", timeout_ms: 1000, shared_locks: [], exclusive_locks: [], reusable_artifact_outputs: [], runtime_binary_ids: [], row_bindings: rows.map(({ row_id, runner }) => ({ row_id, runner })), current_run_evidence_outputs: [...rows.map((row) => `rows/${row.row_id}.json`), `unit-results/${id}.json`], failure_policy: { block_descendants: true }, estimated_work_ms: 10 });
 // Minimal reader fixture: one independent unit with a literal 0..10 ms timeline.
 // Caller-owned units/projections stay explicit; this is not an execution simulator.
 export function buildReaderEvidence({ runID, target = "test-slice", commandID,
@@ -113,7 +113,7 @@ export function buildCompleteEvidence({ runID, target = "test-slice", identity, 
   const projectionInputs = structuredClone(projections ?? { [target]: { command_id: commandID, unit_ids: selected.map((unit) => unit.unit_id) } });
   const fixture = buildReaderEvidence({ runID, target, commandID, units: selected, projections: projectionInputs, outcomes });
   const { manifest, summary, files } = fixture;
-  const graph = { schema_id: "cartulary.harness_work_graph.v8", selector: "fixture", units: selected, graph_digest: hash({ units: selected }) };
+  const graph = { schema_id: "cartulary.harness_work_graph.v9", units: selected, graph_digest: hash({ units: selected }) };
   delete manifest.capability_snapshot.snapshot_digest;
   manifest.capability_snapshot.snapshot_digest = hash(manifest.capability_snapshot);
   Object.assign(manifest, { declared_inputs: structuredClone(declaredInputs), cache_mode: cacheMode, started_at: startedAt,
@@ -121,9 +121,13 @@ export function buildCompleteEvidence({ runID, target = "test-slice", identity, 
     toolchain_digest: sourceInputs.find((input) => input.path === "tools/toolchain_pins.json").byte_digest,
     system_digest: manifest.capability_snapshot.snapshot_digest, graph_digest: graph.graph_digest,
     instrumentation: { mode: "off", policy_digest: hash(JSON.parse(policyBytes)) } });
-  const context = { schema_id: "cartulary.harness_execution_context.v3", manifest_digest: hash(manifest), graph,
-    projections: projectionInputs, source_inputs: sourceInputs, host_profile: host, instrumentation_policy_bytes: policyBytes };
-  files["execution-context.json"] = context;
+  const plan = { schema_id: "cartulary.harness_runtime_plan.v9", graph, manifest: structuredClone(manifest), projections: projectionInputs,
+    capacities: { cpu: 2, io: 1, memory_mb: 1, process: 2 }, aging_quantum_ms: 1000,
+    cache: selected.map((unit) => ({ unit_id: unit.unit_id, eligible: false, reason: "mode_off", profile_id: null, policy: null,
+      input_digest: null, dependency_strategy: null, vulnerability_database_revision: null, dependency_digest: null })),
+    source_inputs: sourceInputs, cache_inputs: {}, host_profile: host, instrumentation_policy_bytes: policyBytes,
+    browser_lane_limit: 1 };
+  files["plan.json"] = plan;
   files["cleanup-results.json"] = buildCleanupResults(runID, selected);
   for (const unit of selected) files[`unit-results/${unit.unit_id}.json`] = buildUnitResult(unit, outcomes[unit.unit_id]);
   for (const row of rows) {
@@ -138,7 +142,7 @@ export function buildCompleteEvidence({ runID, target = "test-slice", identity, 
   }
   delete files["diagnostics/execution-index.json"];
   summary.artifact_refs = Object.keys(files).sort();
-  return { ...fixture, context };
+  return { ...fixture, plan };
 }
 
 // Serialization deliberately preserves caller-supplied bytes and identities.

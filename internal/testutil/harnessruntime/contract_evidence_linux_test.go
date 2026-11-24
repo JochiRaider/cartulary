@@ -142,10 +142,7 @@ func TestRuntimeContractEvidenceGate(t *testing.T) {
 		}
 	})
 	t.Run("run gate fails the published run and lists the violation", func(t *testing.T) {
-		p, err := decodePlan(planBytes(t, planFixture(t)))
-		if err != nil {
-			t.Fatal(err)
-		}
+		p := planFixture(t)
 		root := privateRunRoot(t)
 		writeContractStream(t, root, map[string]string{"41.jsonl": violation + "\n" + violation + "\n"})
 		publisher, err := newGraphPublication(p, root)
@@ -181,10 +178,7 @@ func TestRuntimeContractEvidenceGate(t *testing.T) {
 		}
 	})
 	t.Run("server fatal fails the run while the failing test keeps its own failure", func(t *testing.T) {
-		p, err := decodePlan(planBytes(t, planFixture(t)))
-		if err != nil {
-			t.Fatal(err)
-		}
+		p := planFixture(t)
 		root := privateRunRoot(t)
 		writeContractStream(t, root, map[string]string{"41.jsonl": violation + "\n" + fatal + "\n"})
 		publisher, err := newGraphPublication(p, root)
@@ -373,10 +367,7 @@ func TestRuntimeErrorCodeCoverageReport(t *testing.T) {
 		}
 	})
 	t.Run("the published run summary carries the totals", func(t *testing.T) {
-		p, err := decodePlan(planBytes(t, planFixture(t)))
-		if err != nil {
-			t.Fatal(err)
-		}
+		p := planFixture(t)
 		root := privateRunRoot(t)
 		writeContractStream(t, root, map[string]string{"41.jsonl": emission("getThing", 404, "thing_not_found", 41)})
 		publisher, err := newGraphPublication(p, root)

@@ -17,17 +17,15 @@ function fixture(parent, name, second = 0) {
     rows: [row], units: [buildEvidenceUnit("a", [row])], cacheMode: "normal",
     startedAt: new Date(Date.UTC(2026, 9, 16, 0, 0, second)).toISOString() });
   persistEvidence(root, evidence);
-  const { manifest, context } = evidence;
-  const graph = context.graph;
+  const { manifest, plan } = evidence;
   const save = (relative, value) => writeEvidenceFile(root, relative, value);
   const alter = (relative, mutate) => {
     const value = JSON.parse(fs.readFileSync(path.join(root, relative), "utf8"));
     mutate(value); save(relative, value);
   };
-  const plan = { graph: structuredClone(graph), projections: { check: ["a"] } };
-  const ports = { sourceSnapshot: { digest: manifest.source_digest }, catalog: { rows: [row] }, surface: { targets: [{ name: "check", command_id: manifest.command_id }] }, capability: manifest.capability_snapshot, host: context.host_profile, compileRun: () => plan };
+  const ports = { sourceSnapshot: { digest: manifest.source_digest }, catalog: { rows: [row] }, surface: { targets: [{ name: "check", command_id: manifest.command_id }] }, capability: manifest.capability_snapshot, host: plan.host_profile };
   const options = { allowOlderResultsDir: false, relToRepo: (value) => path.relative(parent, value), repoRoot: repository, resultsDirInput: root };
-  return { root, row, plan, ports, options, save, alter, preflight: () => createRetainedRunPreflight(options, ports) };
+  return { root, row, ports, options, save, alter, preflight: () => createRetainedRunPreflight(options, ports) };
 }
 
 export async function assertRetainedFinalizerPreflight() {
@@ -40,9 +38,8 @@ export async function assertRetainedFinalizerPreflight() {
     target.target = "backend-integration-support";
     target.workload_digest = hash({ target: target.target, evidence_outputs: [`rows/${internal.row.row_id}.json`] });
     internal.save(`target-summaries/${target.target}.json`, target);
-    internal.alter("execution-context.json", (x) => { x.projections[target.target] = { command_id: target.command_id, unit_ids: ["a"] }; });
+    internal.alter("plan.json", (x) => { x.projections[target.target] = { command_id: target.command_id, unit_ids: ["a"] }; });
     internal.alter("run-summary.json", (x) => { x.artifact_refs.push(`target-summaries/${target.target}.json`); });
-    internal.plan.projections[target.target] = ["a"];
     internal.ports.surface.targets.push({ name: target.target, target_class: "check_internal" });
     assert.equal((await internal.preflight().validate(internal.root, "scheduler_drift_validation")).ok, true);
     const mutations = [
@@ -52,8 +49,9 @@ export async function assertRetainedFinalizerPreflight() {
       ["source", (f) => { f.ports.sourceSnapshot = { digest: `sha256:${"b".repeat(64)}` }; }],
       ["host", (f) => { f.ports.host = { ...f.ports.host, kernel_release: "foreign" }; }],
       ["capacity", (f) => { f.ports.capability = { ...f.ports.capability, cpu_tokens: 1 }; }],
-      ["partial-graph", (f) => { f.plan.graph = { ...f.plan.graph, graph_digest: `sha256:${"b".repeat(64)}` }; }],
-      ["partial-target", (f) => { f.plan.projections.check = []; }],
+      ["plan-graph", (f) => f.alter("plan.json", (x) => { x.graph.graph_digest = `sha256:${"b".repeat(64)}`; })],
+      ["plan-unit", (f) => f.alter("plan.json", (x) => { x.graph.units[0].estimated_work_ms += 1; })],
+      ["plan-target", (f) => f.alter("plan.json", (x) => { x.projections.check.unit_ids = []; })],
       ["command", (f) => { f.ports.surface.targets[0].command_id = "cartulary.harness.command.foreign.v1"; }],
       ["unit-semantic", (f) => f.alter("unit-results/a.json", (x) => { x.semantic_digest = `sha256:${"b".repeat(64)}`; })],
       ["unit-exit", (f) => f.alter("unit-results/a.json", (x) => { x.exit_code = null; })],
@@ -66,7 +64,8 @@ export async function assertRetainedFinalizerPreflight() {
       ["failed-row", (f) => f.alter(`rows/${f.row.row_id}.json`, (x) => { x.terminal_state = "failed"; x.exit_code = 1; x.failure_class = "product"; x.failure_reason = "test_assertion_failure"; })],
       ["cancelled-row", (f) => f.alter(`rows/${f.row.row_id}.json`, (x) => { x.terminal_state = "cancelled"; x.exit_code = 130; })],
       ["missing-row", (f) => fs.unlinkSync(path.join(f.root, `rows/${f.row.row_id}.json`))],
-      ["context", (f) => f.alter("execution-context.json", (x) => { x.manifest_digest = `sha256:${"b".repeat(64)}`; })],
+      ["plan-manifest", (f) => f.alter("plan.json", (x) => { x.manifest.toolchain_digest = `sha256:${"b".repeat(64)}`; })],
+      ["plan-bindings", (f) => f.alter("plan.json", (x) => { x.bindings = { NODE_BIN: "/private/node" }; })],
       ["cleanup", (f) => f.alter("cleanup-results.json", (x) => { x.results = []; })],
       ["scan-policy", (f) => f.alter("retained-secret-scan.json", (x) => { x.policy_digest = "invalid"; })],
       ["failed-scan", (f) => f.alter("retained-secret-scan.json", (x) => { x.status = "fail"; })],

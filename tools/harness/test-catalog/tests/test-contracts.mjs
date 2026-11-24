@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import test from "node:test";
 import { resolveRowSelector } from "../../test-support/owner-fixtures.mjs";
 import { createContractTestContext } from "../../tests/contract-test-context.mjs";
-import { assertPostgresCatalogClosure, assertPostgresPolicyFixtures, assertFixtureBuilderClosure, assertPreparationDiagnosticBounds, assertSelectorResolutionScope, assertPrivateRowSelection, assertSourceSnapshotIdentity } from "./assertions.mjs";
+import { assertPostgresCatalogClosure, assertPostgresPolicyFixtures, assertFixtureBuilderClosure, assertSelectorResolutionScope, assertPrivateRowSelection, assertSourceSnapshotIdentity } from "./assertions.mjs";
 const root = path.resolve(import.meta.dirname, "../../../..");
 const tiers = ["fast", "standard", "full", "release"];
 function assertGoSelectorBuildContextContract() {
@@ -80,9 +80,6 @@ export function registerEvidenceTests() {
   test("catalog_selector_scope: selector facts refresh between loads and preserve path checks", async () => {
     const context = createContractTestContext(root);
     assertSelectorResolutionScope(context);
-  });
-  test("preparation_diagnostic_bounds: a rejected preparation publishes only closed, bounded facts", async () => {
-    assertPreparationDiagnosticBounds();
   });
   test("active_owner_row_coverage: every active owner retains current row coverage", async () => {
     const context = createContractTestContext(root);

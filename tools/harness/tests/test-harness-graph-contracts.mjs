@@ -9,4 +9,3 @@ import "../diagnostics/tests/test-plan-inputs.mjs";
 import "../diagnostics/tests/test-canonical-target-plan.mjs";
 
 import "../scheduler/work-graph/tests/test-compilation.mjs";
-import "../execution/tests/test-unit-selection.mjs";

@@ -1167,6 +1167,25 @@ kind already plans in Go; `ErrUnsupported` is gone.
    planner. Helper-ownership and import-boundary manifests drop the removed
    owners.
 
+**2b result (2026-11-24).** Done ahead of 2a, which only the diagnostic
+and maintenance tools need. `Run` plans every invocation in Go; the selector,
+`Prepare`/`receiveCompiler`, the v7 decoder, the `prepare` subcommand,
+`prepare-cli.mjs`, `prepare-plan.mjs`, `compileRetainedRun`, the pipe
+diagnostic and `unit-selection.mjs` are deleted. One Node reader
+(`observability/retained-plan.mjs`) binds `plan.json` to the run manifest
+for retained checks, agent-finalize, the owner audit, `release-evidence-verify`
+and the SeaweedFS gate. `explain-run` needed no port: it reads no graph
+fields. Admission takes residents only from the plan; `WorkRequirement.Physical`
+became `RendererClaims`, and only the review owner's dedicated borrower names
+its residents from the topology. The broker's cluster-key derivation stays:
+the fixture owner still uses it for that borrower and for tests. While
+porting, `plan.json` turned out to retain launch bindings (absolute binary
+paths) and the input-forwarding policy, which REQ-278 forbids; the published
+plan became `cartulary.harness_runtime_plan.v9` without them. Verified by the
+native-runtime, planner, scheduler, fixture, review, boundary-lifecycle,
+routing, evidence, schema, owner-boundary, registry, scheduler-contract,
+package-readiness and SeaweedFS-evidence rows.
+
 **Verification.** 2a: the planner, native-runtime and new-CLI rows, the
 local-session and UI-review suites, `source-check` `generated`, `schema` and
 `catalog`. 2b: each moved reader's rows, the retained-run and boundary rows,

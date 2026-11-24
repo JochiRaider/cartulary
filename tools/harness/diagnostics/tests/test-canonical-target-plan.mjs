@@ -7,7 +7,7 @@ import { syncBuiltinESMExports } from "node:module";
 import { createScratch } from "../../test-support/scratch.mjs";
 import { assertHarnessTierRouting } from "../../scheduler/work-graph/tests/tier-selection.mjs";
 import { assertBlockingPolicy, assertSmokeContexts, assertAssuranceUnions, assertAggregateResources } from "../../scheduler/work-graph/tests/aggregate-assertions.mjs";
-import { WorkGraphCompiler, compileRetainedRun, selectionFor } from "../../scheduler/work-graph/index.mjs";
+import { WorkGraphCompiler, selectionFor } from "../../scheduler/work-graph/index.mjs";
 import { buildTargetPlan, renderTargetPlan } from "../target-plan.mjs";
 
 const root = path.resolve(import.meta.dirname, "../../../..");
@@ -23,15 +23,11 @@ function assertComposition(target, supplied = {}) {
   const execution = selectionFor({ selection: recipe.selection ?? "target", target,
     owner: supplied.OWNER, rows: supplied.ROWS?.split(",") ?? recipe.row_ids,
     serviceBackedOnly: recipe.service_backed_only === true }, compiler);
-  const replay = compileRetainedRun(root, { target, command_id: plan.command_id, declared_inputs: plan.inputs,
-    capability_snapshot: plan.capability_snapshot, go_worker_budget: plan.go_worker_budget });
   assert.equal(plan.schema_id, "cartulary.harness_target_plan.v7");
-  for (const expected of [execution, replay]) {
-    assert.equal(plan.graph_digest, expected.graph.graph_digest, `${target}: graph identity`);
-    assert.deepEqual(plan.projections, expected.projections, `${target}: every projection and member`);
-    assert.deepEqual(plan.units.map((unit) => [unit.unit_id, unit.semantic_digest]),
-      expected.graph.units.map((unit) => [unit.unit_id, unit.semantic_digest]));
-  }
+  assert.equal(plan.graph_digest, execution.graph.graph_digest, `${target}: graph identity`);
+  assert.deepEqual(plan.projections, execution.projections, `${target}: every projection and member`);
+  assert.deepEqual(plan.units.map((unit) => [unit.unit_id, unit.semantic_digest]),
+    execution.graph.units.map((unit) => [unit.unit_id, unit.semantic_digest]));
   assert.deepEqual(plan, buildTargetPlan(root, target, supplied), `${target}: deterministic plan`);
   assert.ok(plan.go_worker_budget > 0 && plan.go_worker_budget <= plan.capability_snapshot.cpu_tokens);
   const byID = new Map(plan.units.map((unit) => [unit.unit_id, unit]));

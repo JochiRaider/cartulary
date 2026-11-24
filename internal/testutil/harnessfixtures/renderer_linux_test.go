@@ -77,7 +77,8 @@ func testRendererOwnership(t *testing.T) {
 		admissionRoot := filepath.Join(root, "admission")
 		requests := []WorkRequirement{}
 		for i := range 2 {
-			request := WorkRequirement{Request: Request{PostgresIsolation: "exclusive", Services: []string{"postgres", "object_store"}, Capability: "browser_stack", UnitID: fmt.Sprintf("seed-%d", i), Affinity: fmt.Sprintf("stack-%d", i), RuntimeProfile: "default"}, Renderer: "none", Physical: map[string]map[string]int64{"browser_stack": {"port_lane": 2, "memory_mb": 128, "process": 1}, "renderer": {"process": 1}}, Active: map[string]int64{"cpu": 1, "io": 1, "memory_mb": 64, "process": 1}}
+			request := WorkRequirement{Request: Request{PostgresIsolation: "exclusive", Services: []string{"postgres", "object_store"}, Capability: "browser_stack", UnitID: fmt.Sprintf("seed-%d", i), Affinity: fmt.Sprintf("stack-%d", i), RuntimeProfile: "default"}, Renderer: "none", RendererClaims: map[string]int64{"process": 1}, Active: map[string]int64{"cpu": 1, "io": 1, "memory_mb": 64, "process": 1}}
+			request.Residents = []Resident{{Key: stackKey(request.Request), Claims: map[string]int64{"port_lane": 2, "memory_mb": 128, "process": 1}}}
 			requests = append(requests, request)
 			request.Request.UnitID = fmt.Sprintf("waiter-%d", i)
 			request.Renderer = policy
@@ -234,7 +235,8 @@ func testRendererOwnership(t *testing.T) {
 		owner := NewProduction(ProductionOptions{BrowserLaneLimit: 4, Root: root, RunRoot: run, Runtime: runtime}, Options{})
 		requests := []WorkRequirement{}
 		for i := range 8 {
-			requests = append(requests, WorkRequirement{Request: Request{PostgresIsolation: "exclusive", Services: []string{"object_store", "postgres"}, Capability: "browser_stack", UnitID: fmt.Sprintf("unit-%d", i), Affinity: fmt.Sprintf("stack-%d", i)}, Renderer: "none", Physical: map[string]map[string]int64{"browser_stack": {"port_lane": 2, "memory_mb": 384, "process": 4}}, Active: map[string]int64{"cpu": 1, "io": 1, "process": 1, "memory_mb": 64}})
+			request := Request{PostgresIsolation: "exclusive", Services: []string{"object_store", "postgres"}, Capability: "browser_stack", UnitID: fmt.Sprintf("unit-%d", i), Affinity: fmt.Sprintf("stack-%d", i)}
+			requests = append(requests, WorkRequirement{Request: request, Renderer: "none", Residents: []Resident{{Key: stackKey(request), Claims: map[string]int64{"port_lane": 2, "memory_mb": 384, "process": 4}}}, Active: map[string]int64{"cpu": 1, "io": 1, "process": 1, "memory_mb": 64}})
 		}
 		requests[7].Active["port_lane"] = 1
 		owner.ConfigureAdmission(filepath.Join(root, "admission"), nil, map[string]int64{"cpu": 2, "io": 2, "memory_mb": 8192, "process": 128, "port_lane": 16})

@@ -2,7 +2,7 @@ import path from "node:path";
 import { parseStrictJSON, readRetainedArtifactBytes, resolveRetainedArtifactIdentity, validateSchemaSync } from "../harness/contract/index.mjs";
 import { atomicLocalFile } from "../harness/runtime/secure-local-files.mjs";
 import { buildSourceSnapshot, loadTestCatalog } from "../harness/test-catalog/index.mjs";
-import { compileRetainedRun, WorkGraphCompiler } from "../harness/scheduler/work-graph/index.mjs";
+import { WorkGraphCompiler } from "../harness/scheduler/work-graph/index.mjs";
 import { qualificationRequirements, resolveEvidenceRoots, verifySelectedEvidence } from "./verify-selected-evidence.mjs";
 
 const root = path.resolve(import.meta.dirname, "../..");
@@ -16,8 +16,7 @@ try {
   const catalog = loadTestCatalog(root);
   const required = qualificationRequirements(policy, catalog, target => compiler.compileTarget(target));
   const sourceDigest = buildSourceSnapshot(root).digest;
-  const report = await verifySelectedEvidence({roots: resolveEvidenceRoots(manifest, file), sourceDigest, catalog,
-    required, compileRun: value => compileRetainedRun(root, value)});
+  const report = await verifySelectedEvidence({roots: resolveEvidenceRoots(manifest, file), sourceDigest, catalog, required});
   if (buildSourceSnapshot(root).digest !== sourceDigest) throw new Error("source changed during evidence verification");
   const identity = resolveRetainedArtifactIdentity("release-evidence-verify", {...process.env, EVIDENCE_ROOTS_FILE: args[1], CARTULARY_MAKE_INPUT_SOURCES: "EVIDENCE_ROOTS_FILE=cli"});
   validateSchemaSync(report.schema_id, report);

@@ -305,7 +305,7 @@ process.stdout.write(JSON.stringify(environment));
 				}
 				works := []harnessfixtures.WorkRequirement{}
 				for _, unit := range []string{"suite-a:one", "suite-b:two", "suite-c:interrupted"} {
-					works = append(works, harnessfixtures.WorkRequirement{Request: harnessfixtures.Request{PostgresIsolation: "none", UnitID: unit, Capability: "none", RuntimeProfile: "default"}, Renderer: "pooled", Physical: map[string]map[string]int64{"renderer": {"browser_stack": 1, "memory_mb": 512, "process": 2, "port_lane": 1}}, Active: map[string]int64{"cpu": 1, "io": 1, "memory_mb": 512, "process": 1}})
+					works = append(works, harnessfixtures.WorkRequirement{Request: harnessfixtures.Request{PostgresIsolation: "none", UnitID: unit, Capability: "none", RuntimeProfile: "default"}, Renderer: "pooled", RendererClaims: map[string]int64{"browser_stack": 1, "memory_mb": 512, "process": 2, "port_lane": 1}, Active: map[string]int64{"cpu": 1, "io": 1, "memory_mb": 512, "process": 1}})
 				}
 				owner.ConfigureAdmission("", parent, capacities)
 				if err := owner.RegisterConsumers(works); err != nil {

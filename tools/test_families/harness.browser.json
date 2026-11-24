@@ -2551,14 +2551,14 @@
       "selector": {
         "package": "./internal/testutil/harnessfixtures",
         "tests": [
+          "TestDedicatedResidents",
           "TestFixtureBrokerConcurrency",
           "TestFixtureBrokerFaults",
           "TestFixtureBrowserAdapter",
           "TestFixtureCommandLifecycle",
           "TestFixtureProxyLifecycle",
           "TestFixtureRecovery",
-          "TestFixtureSuiteOwner",
-          "TestPhysicalResidents"
+          "TestFixtureSuiteOwner"
         ]
       },
       "evidence_class": "unit",

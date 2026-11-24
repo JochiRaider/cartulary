@@ -68,7 +68,6 @@
       "tools/harness/observability/canonical-evidence.mjs",
       "tools/harness/output/test-output.mjs",
       "tools/harness/readiness/diagnose-inotify.mjs",
-      "tools/harness/scheduler/work-graph/prepare-cli.mjs",
       "tools/harness/static-analysis/font-bundle-check-cli.mjs",
       "tools/harness/static-analysis/govulncheck-findings.mjs",
       "tools/harness/test-support/harness-artifact-assert.mjs",

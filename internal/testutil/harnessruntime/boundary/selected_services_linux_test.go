@@ -85,7 +85,7 @@ func TestNativeSelectedServiceLifecycle(t *testing.T) {
 					} `json:"units"`
 				} `json:"graph"`
 			}
-			readSelectedBoundaryJSON(t, filepath.Join(run, "execution-context.json"), &retained)
+			readSelectedBoundaryJSON(t, filepath.Join(run, "plan.json"), &retained)
 			for _, unit := range retained.Graph.Units {
 				if strings.HasPrefix(unit.ID, "go:") && unit.Claims["cpu"] > budget {
 					t.Fatal("child Go execution exceeds its enclosing worker budget")
