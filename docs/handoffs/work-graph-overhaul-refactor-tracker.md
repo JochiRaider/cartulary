@@ -373,9 +373,28 @@ JavaScript one for 19 patterns in 30 schemas. That is a separate cleanup:
 rewrite each lookahead as a positive `pattern` plus a `not` pattern and
 delete the whitelist.
 
-Next in milestone 1: the runtime's capacity check (`validCapacities` in
-`harnessruntime/plan.go`) uses `Capacities`, then the plan v8 and graph v9
-schemas with explicit residents.
+**Milestone 1, second slice.** The runtime validates plan capacities through
+`harnessplan.Capacities` (`7887d4d45`); its own mapping and the branch for
+snapshots recorded before heavy lanes existed are gone. Checks: `cap-lintgo01`,
+`cap-slice02` (native runtime, scheduler and planner rows, including the
+preparation parity test that decodes a real prepared plan); all pass.
+
+**Plan v8 and graph v9 design.** The schemas land with the Go producer in
+milestone 2, so no schema exists without a writer. The contract:
+
+| Field | v9/v8 | Reason |
+| --- | --- | --- |
+| Unit `physical_allocations` (service to claims) | Replaced by `residents`: key, scope and claims per resident | The planner names each resident once (`postgres:unit:<unit>`, `postgres:shared`, `object_store:shared`, browser stacks, renderer slots, measurement generations) with its scope: `unit` (retired with the unit), `graph` (retired after its last consumer) or `attached` (held by a persistent owner, not charged). The runtime and host admission read these instead of re-deriving keys (`clusterKey`), the root of the Stage 0 failure. A key has the same claims wherever it appears |
+| Unit ID | Digest of the unit's row set and execution contract | Independent of packing results and estimates |
+| `current_run_evidence_outputs` | Kept; row identity comes only from `row_bindings` | Readers stop parsing row IDs back out of `rows/<id>.json` paths |
+| Command environment | Binding names, not absolute paths | Checkout and binary paths are bound at launch, so identity does not depend on the checkout location |
+| Claims, locks, needs, timeout, estimate, fixture lease, services, PostgreSQL isolation, cache and failure policy, renderer, browser keys, semantic digest | Kept | Required by scheduling and execution |
+| Plan `host_profile` | Go host facts (`amd64`) | Node strings dropped |
+| Plan graph, manifest, projections, capacities, aging quantum, bindings, input environment, cache facts and source inputs, helper digest, preparation intervals, browser lane limit | Kept | Required by the runtime |
+| Plan location | Written to the run root as `plan.json` | Retained-run readers use it instead of recompiling |
+
+Milestone 1 is complete apart from this contract's schemas, which move to
+milestone 2 with their producer.
 
 ## 9. Decisions requested
 
