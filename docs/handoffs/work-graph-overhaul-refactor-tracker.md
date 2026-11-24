@@ -1025,8 +1025,139 @@ Runs and checks: the owner-boundaries row, `harness-contract SUITE=ui-review`
 and the application fixture row pass (Go planner). `make lint CHECK=go`;
 `source-check` `catalog` and `generated`; the admission, native-session,
 native-fixtures, fixture-broker, nested-cancellation, native-runtime and
-scheduler-smoke rows; `make lint-markdown`: all pass. The aggregate rerun
-waits for the owner's go-ahead.
+scheduler-smoke rows; `make lint-markdown`: all pass.
+
+**Rerun (2026-11-24, `73ce7cb85`, run `20261124T112817Z-p93015`).** The
+graph ran to completion in 78.6 minutes, with no startup recovery and no
+unsatisfiable admission. 582 of 586 units passed; three failed, and
+`release_readiness_evidence` was skipped behind them.
+
+- *`frontend_fallow_static`: pre-existing.* Five unused exports in
+  `apps/web` (`reconnectBaseDelayMs`, `reconnectMaxDelayMs`,
+  `publicErrorCode`, `publicErrorStatusText`, `HistoryActionOperation`)
+  arrived on `main` in `353e4a99f`. This branch changes no application code.
+- *`harness_scheduler_contract`: shared tool rebuilt mid-run.*
+  `content_cache_security_and_closure` got `broad_fallback` where it expects
+  `go_packages`; the row passes alone. The failing resolution ran at
+  12:30:15Z, the second at which a nested Make invocation inside the run
+  rebuilt the shared `.cache/cartulary/toolbin/cartulary-harness` with
+  different bytes. The resolver executes that binary (`inspect-go`) and turns
+  any error into the broad fallback. Nested Make rebuilt the binary four
+  times during the run (12:29:27Z, 12:30:15Z, 12:45:59Z and 12:46:00Z), under
+  four cache keys. Twenty probe resolutions beside a cold server build and
+  the routing contract did not reproduce the failure. The fault class is a
+  run's nested commands replacing shared tool binaries that the run's units
+  are executing.
+- *`seaweedfs_release_gate`: two faults.* The occurrence inventory reads every
+  repository source through a 64 MiB bound, and three tracked reference-pack
+  containers are 95 MB (`main`, `8501d4449`), so generation throws before
+  writing a summary (pre-existing). Its recovery admission reads
+  `execution-context.json`, which a Go-planned run does not publish (caused
+  by the planner switch; a Stage 2b reader).
+
+### Stage 2 scope: Go planner by default, JavaScript planner deleted
+
+**Entry condition.** The Go-planned `release-check` (slice 4e, which also
+covers `ci`) passes, or fails only on causes outside planning. Every selection
+kind already plans in Go; `ErrUnsupported` is gone.
+
+**Current state (2026-11-24 inventory).**
+
+- *Selector.* `CARTULARY_HARNESS_PLANNER=go` chooses `prepareInProcess` in
+  `harnessruntime.Run`. Otherwise `Prepare` spawns Node
+  (`tools/harness/scheduler/work-graph/prepare-cli.mjs`) and `plan.go`
+  adopts its v7 plan and publishes `execution-context.json`. Nested graphs
+  never inherit the selector, so every nested command still plans in
+  JavaScript.
+- *Planner package.* `tools/harness/scheduler/work-graph` (20 modules, 3,317
+  lines; 9 test files, 2,187 lines), plus planner-only helpers outside it:
+  `backend/go-lpt-shards.mjs`, `browser/browser-cohorts.mjs` and
+  `scheduler/adapters/browser.mjs`.
+- *Not planner code that lives in the package.* `operations.mjs` (operation
+  definitions, environments and digests) is run-time dispatch for
+  `operation-runner-cli`, the shell runner, agent-finalize and three
+  generators. `policy-rows.mjs` serves the OTel conformance check.
+  `capability.mjs` gives JavaScript admission clients (the local service
+  session and the UI-review adapter) their host capacities. `cohorts.mjs`
+  `rowEstimateMs` serves the estimate audit.
+- *Recompiling readers.* `release-evidence-verify`, `agent-finalize`
+  retained runs and `test-evidence-audit` rebuild a run's plan with
+  `compileRetainedRun` and compare it to the retained graph.
+- *JS-plan readers.* `explain-run`, retained checks, canonical context, the
+  SeaweedFS release gate's recovery admission and the row runner's
+  `--unit-rows` path read `execution-context.json` or revalidate the v8 graph
+  (`validateWorkGraph`).
+- *Planning-only consumers.* The `target-plan` diagnostic and the
+  task-surface report's scheduler-growth budget call `WorkGraphCompiler`.
+- *Go code that exists only for JavaScript plans.* `harnessruntime`
+  `Prepare`/`receiveCompiler` and the v7 adoption in `plan.go` (about 620
+  lines with `prepare_linux.go`), the `prepare` subcommand, resident
+  derivation from `Physical` (`physicalResidents`), the broker's cluster-key
+  derivation when no planner key is given, and the JS row runner's
+  `--unit-rows` mode.
+- *Tests.* 36 JavaScript test files import the planner. Eleven operations run
+  them (graph, scheduler, command-surface and boundary contracts, browser lane
+  policy, UI-review lifecycle, artifacts and presentation, execution topology,
+  release readiness and object-store evidence). Retained-run fixtures
+  (`retained-fixture.mjs`, `retained-finalizer-cases.mjs`,
+  `canonical_test.go`, the selected-services boundary test) build
+  `execution-context.json` runs.
+
+**Slices.**
+
+1. *2a: Go entry points for the remaining consumers.*
+   `cartulary-harness plan <graph arguments>` prints the plan v8 document the
+   runtime would execute, for the `target-plan` diagnostic.
+   `cartulary-harness capacities` prints the capability snapshot and scheduler
+   capacities through `harnessplan.Capture`, for the local service session
+   and the UI-review adapter. The scheduler-growth budget becomes a Go test
+   over a `release-check` plan with a fixed capability snapshot, and leaves the
+   task-surface report. `policy-rows.mjs`, and `rowEstimateMs` with the
+   estimate audit, move to their consuming owners; `operations.mjs` moves to
+   the execution owner unchanged. No behaviour change.
+2. *2b: Cutover.* `Run` always plans in Go; the selector, `Prepare`, v7
+   adoption, the `prepare` subcommand, `execution-context.json` publication,
+   resident derivation and cluster-key derivation are deleted. Every reader
+   takes `plan.json`, validated against the manifest's graph digest:
+   `explain-run`, retained checks, canonical context, agent-finalize,
+   `test-evidence-audit`, `release-evidence-verify` and the SeaweedFS gate.
+   Recompilation is removed, as the NLSpec amendment already requires. The row
+   runner drops `--unit-rows` and per-child graph revalidation. Retained-run
+   fixtures are re-authored as Go-planned runs. The NLSpec's
+   execution-context section and the planner amendment are rewritten for the
+   switch, and REQ-852's Node ownership clause names Go. Plan v8 and graph v9
+   are closed at the switch.
+3. *2c: Deletion.* `tools/harness/scheduler/work-graph`, the planner-only
+   helpers, compile-time browser lane chaining, the plan v7, graph v8,
+   execution-context v3 and shard-plan schemas, their generated validators
+   and schema attachments, and the topology backing-script entries. The
+   eleven contract operations keep only assertions about behaviour the Go
+   planner or runtime owns; planner-internal JavaScript cases go with the
+   planner. Helper-ownership and import-boundary manifests drop the removed
+   owners.
+
+**Verification.** 2a: the planner, native-runtime and new-CLI rows, the
+local-session and UI-review suites, `source-check` `generated`, `schema` and
+`catalog`. 2b: each moved reader's rows, the retained-run and boundary rows,
+then one diagnostic `make check`, because the default planner changes for
+every command, nested ones included. 2c: the affected harness-contract suites,
+`make generate`, the source checks and `lint`. `ci` and `release-check` are
+not rerun for Stage 2; the 4e run already covers the Go plans they execute.
+
+**Risks.**
+
+- Nested commands inside contract tests switch planners at 2b. Assertions on
+  JavaScript unit IDs, cohort names or shard files fail and must be rewritten
+  against the Go plan or deleted, not preserved.
+- `explain-run` (1,136 lines) reads graph v8 fields; it must be moved to v9
+  (residents, no graph selector, three-field failure policy), not shimmed.
+- Retained runs planned before the switch can no longer be verified or
+  finalized. Release evidence already requires the current source digest, so
+  no current acceptance path depends on them.
+- Cache identity breaks once for default (non-selector) runs.
+
+**Not in Stage 2.** Scheduler redesign (one admission decision, capacity-based
+browser lanes, overlapping measurement with builds): Stage 3.
 
 ## 9. Decisions requested
 
