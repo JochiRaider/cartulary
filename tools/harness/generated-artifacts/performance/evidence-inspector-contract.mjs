@@ -15,7 +15,9 @@ export function validateEvidenceInspectorCapabilities(contract, viewSchema, poli
     throw new Error("Evidence inspector sampling differs from its measurement policy");
   }
   const fixture = contract.fixture;
-  if (fixture.object_count !== fixture.evidence_rows || fixture.object_count * fixture.object_bytes !== fixture.total_object_bytes ||
+  const unlinked = fixture.evidence_rows - fixture.linked_evidence_count;
+  if (fixture.object_count !== fixture.evidence_rows || unlinked < 1 ||
+    fixture.linked_evidence_count * fixture.linked_object_bytes + unlinked * fixture.unlinked_object_bytes !== fixture.total_object_bytes ||
     fixture.linked_evidence_count !== contract.workload.preview_preflight_records) {
     throw new Error("Evidence inspector physical population or preview qualification diverged");
   }
@@ -23,7 +25,7 @@ export function validateEvidenceInspectorCapabilities(contract, viewSchema, poli
 
 export function renderEvidenceInspectorContract(root) {
   const inputs = [
-    ["contracts/performance/ac045.v2.json", "cartulary.performance_evidence_inspector_contract.v1"],
+    ["contracts/performance/ac045.v3.json", "cartulary.performance_evidence_inspector_contract.v2"],
     ["contracts/view-schemas/cartulary.view.timeline.v2.json", "cartulary.view_schema_source.v1"],
     ["tools/measurement_policy_owner.json", "cartulary.measurement_policy.v1"],
   ].map(([relative, schemaID]) => {

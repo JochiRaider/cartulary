@@ -233,7 +233,7 @@ test("verification proof binds active work cancellation and local draft", async 
     const { collect, collectWrittenSummary, persist } = measurementContext(t);
     const evidenceInspectorObservation = buildEvidenceInspectorObservation();
     const syntheticProofObservations = [];
-    const verificationContract = JSON.parse(readFileSync(path.join(root, "contracts/performance/evidence-verification.v1.json"), "utf8"));
+    const verificationContract = JSON.parse(readFileSync(path.join(root, "contracts/performance/evidence-verification.v2.json"), "utf8"));
     const verificationProfile = activePerformanceFixtureProfile(loadPerformanceFixtureSnapshotRegistry(root), verificationContract.fixture_profile_id);
     const verificationObservation = { ...evidenceInspectorObservation, criterion_id: "AC-016", predicate_id: verificationContract.predicate_id,
         measurement_policy_id: verificationContract.measurement_policy_id, threshold_ms: 1000, warmup_samples: 0, measured_samples: 1,

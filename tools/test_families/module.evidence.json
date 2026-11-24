@@ -2639,7 +2639,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "fixture_profile_id": "evidence_heavy_snapshot_v2",
+      "fixture_profile_id": "evidence_heavy_snapshot_v3",
       "aggregate_placement": "explicit_only",
       "service_dependencies": [
         "object_store",

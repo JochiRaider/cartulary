@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.performance_evidence_inspector_contract.v1",
+  "$id": "cartulary.performance_evidence_inspector_contract.v2",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -25,10 +25,10 @@
   ],
   "properties": {
     "schema_id": {
-      "const": "cartulary.performance_evidence_inspector_contract.v1"
+      "const": "cartulary.performance_evidence_inspector_contract.v2"
     },
     "contract_id": {
-      "const": "cartulary.performance.ac045.v2"
+      "const": "cartulary.performance.ac045.v3"
     },
     "criterion_id": {
       "const": "AC-045"
@@ -98,7 +98,8 @@
         "timeline_rows",
         "evidence_rows",
         "object_count",
-        "object_bytes",
+        "linked_object_bytes",
+        "unlinked_object_bytes",
         "total_object_bytes",
         "content_type",
         "image_width",
@@ -111,7 +112,7 @@
       ],
       "properties": {
         "fixture_id": {
-          "const": "cartulary.perf.evidence_heavy.v2"
+          "const": "cartulary.perf.evidence_heavy.v3"
         },
         "seed": {
           "const": 20260405
@@ -125,11 +126,14 @@
         "object_count": {
           "const": 10000
         },
-        "object_bytes": {
+        "linked_object_bytes": {
           "const": 2097152
         },
+        "unlinked_object_bytes": {
+          "const": 4096
+        },
         "total_object_bytes": {
-          "const": 20971520000
+          "const": 250265600
         },
         "content_type": {
           "const": "image/png"

@@ -26,7 +26,7 @@ func TestBrowserFixturePreparationUsesAdmittedPopulationBudget(t *testing.T) {
 	}{
 		{"", 2 * time.Minute},
 		{"timeline_large_grid_snapshot_v2", 2 * time.Minute},
-		{"evidence_heavy_snapshot_v2", 15 * time.Minute},
+		{"evidence_heavy_snapshot_v3", 15 * time.Minute},
 	} {
 		t.Run(tc.id, func(t *testing.T) {
 			actual, err := browserFixturePreparationTimeout(map[string]string{"CARTULARY_FIXTURE_PROFILE_ID": tc.id})

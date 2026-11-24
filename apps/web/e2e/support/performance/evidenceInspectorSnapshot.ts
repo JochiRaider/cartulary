@@ -10,7 +10,7 @@ import { atJsonOrigin } from "../transport/publicJsonClient";
 import { queryViewRows } from "../workbook/query";
 import { parseFixtureRuntimeBundle } from "./runtimeBundle";
 
-export const evidenceInspectorProfileId = "evidence_heavy_snapshot_v2";
+export const evidenceInspectorProfileId = "evidence_heavy_snapshot_v3";
 export type EvidenceInspectorTarget = {
   record_id: string;
   row_version: number;
@@ -143,7 +143,7 @@ export async function prepareEvidenceInspectorSnapshot(page: Page) {
       handle.incident_id !== incidentId ||
       handle.handle_kind !== "preview" ||
       handle.content_type !== contract.fixture.content_type ||
-      handle.size_bytes !== contract.fixture.object_bytes ||
+      handle.size_bytes !== contract.fixture.linked_object_bytes ||
       !handle.sha256 ||
       !/^[a-f0-9]{64}$/u.test(handle.sha256)
     )
@@ -162,7 +162,7 @@ export async function prepareEvidenceInspectorSnapshot(page: Page) {
       });
       if (
         response.status() !== 200 ||
-        body.length !== contract.fixture.object_bytes ||
+        body.length !== contract.fixture.linked_object_bytes ||
         createHash("sha256").update(body).digest("hex") !== handle.sha256 ||
         body.subarray(0, 8).toString("hex") !== "89504e470d0a1a0a" ||
         body.readUInt32BE(16) !== 2 ||

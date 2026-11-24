@@ -39,7 +39,7 @@ func NewProduction(
 	if err != nil {
 		return nil, err
 	}
-	if profile.FixtureProfileID == "evidence_heavy_snapshot_v2" {
+	if profile.FixtureProfileID == "evidence_heavy_snapshot_v3" {
 		return newEvidenceHeavyProduction(pool, actor, profile, owners)
 	}
 	authApplication, err := authfixture.NewProductionApplication(pool, actor)

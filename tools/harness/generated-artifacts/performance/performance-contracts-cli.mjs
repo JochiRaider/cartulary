@@ -43,8 +43,8 @@ try {
         loadPerformanceContracts({
           performancePath, policyPath,
           referencePackProgressPath: path.join(root, "contracts/performance/reference-pack-progress.v1.json"),
-          evidenceVerificationPath: path.join(root, "contracts/performance/evidence-verification.v1.json"),
-          evidenceInspectorPath: path.join(root, "contracts/performance/ac045.v2.json"),
+          evidenceVerificationPath: path.join(root, "contracts/performance/evidence-verification.v2.json"),
+          evidenceInspectorPath: path.join(root, "contracts/performance/ac045.v3.json"),
           pastePath: path.join(root, "contracts/performance/ac003.v2.json"),
           fixturePath: path.join(root, "contracts/performance/large-grid.v1.json"),
           viewChangePath: path.join(root, "contracts/performance/ac044.v1.json"),

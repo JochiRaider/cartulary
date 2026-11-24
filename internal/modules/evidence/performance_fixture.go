@@ -38,11 +38,19 @@ func NewPerformanceFixtureContribution(db dbport.DB, objects objectstore.TypedSt
 type PerformanceFixtureCommand struct {
 	ActorUserID uuid.UUID
 	IncidentID  uuid.UUID
-	Count       int
+	// Segments create records in order; titles and filename hints number the
+	// whole population from one.
+	Segments    []PerformanceFixtureSegment
 	TitlePrefix string
-	Payload     []byte
 	ContentType string
 	Now         time.Time
+}
+
+// PerformanceFixtureSegment creates Count consecutive records whose distinct
+// objects all hold Payload.
+type PerformanceFixtureSegment struct {
+	Count   int
+	Payload []byte
 }
 
 type PerformanceFixtureResult struct {
@@ -56,7 +64,14 @@ type PerformanceFixtureResult struct {
 // for every envelope, association, lifecycle, revision and projection. It does
 // not simulate a historical upload lease or mint access handles.
 func (contribution *PerformanceFixtureContribution) CreatePerformanceFixtureRecords(ctx context.Context, command PerformanceFixtureCommand) (PerformanceFixtureResult, error) {
-	if contribution == nil || contribution.source == nil || command.ActorUserID == uuid.Nil || command.IncidentID == uuid.Nil || command.Now.IsZero() || command.Count < 1 || command.Count > 10000 || len(command.Payload) == 0 || len(command.Payload) > 2<<20 || strings.TrimSpace(command.TitlePrefix) == "" || len(command.TitlePrefix) > 160 || command.ContentType != "image/png" {
+	total := 0
+	for _, segment := range command.Segments {
+		if segment.Count < 1 || len(segment.Payload) == 0 || len(segment.Payload) > 2<<20 {
+			return PerformanceFixtureResult{}, errors.New("evidence performance fixture command is invalid")
+		}
+		total += segment.Count
+	}
+	if contribution == nil || contribution.source == nil || command.ActorUserID == uuid.Nil || command.IncidentID == uuid.Nil || command.Now.IsZero() || total < 1 || total > 10000 || strings.TrimSpace(command.TitlePrefix) == "" || len(command.TitlePrefix) > 160 || command.ContentType != "image/png" {
 		return PerformanceFixtureResult{}, errors.New("evidence performance fixture command is invalid")
 	}
 	runtime := contribution
@@ -67,66 +82,79 @@ func (contribution *PerformanceFixtureContribution) CreatePerformanceFixtureReco
 	if existing != 0 {
 		return PerformanceFixtureResult{}, errors.New("evidence performance fixture requires an empty Evidence population")
 	}
-	// Freeze caller-owned bytes for the complete population.
-	payload := bytes.Clone(command.Payload)
-	config, err := png.DecodeConfig(bytes.NewReader(payload))
-	if err != nil || config.Width != 2 || config.Height != 2 {
-		return PerformanceFixtureResult{}, errors.New("evidence fixture payload requires a bounded 2 by 2 PNG image")
+	// Freeze caller-owned bytes and prove every payload before any write.
+	type preparedSegment struct {
+		count   int
+		payload []byte
+		sha     string
 	}
-	if _, err := png.Decode(bytes.NewReader(payload)); err != nil {
-		return PerformanceFixtureResult{}, errors.New("evidence fixture PNG payload is incomplete")
+	segments := make([]preparedSegment, 0, len(command.Segments))
+	for _, segment := range command.Segments {
+		payload := bytes.Clone(segment.Payload)
+		config, err := png.DecodeConfig(bytes.NewReader(payload))
+		if err != nil || config.Width != 2 || config.Height != 2 {
+			return PerformanceFixtureResult{}, errors.New("evidence fixture payload requires a bounded 2 by 2 PNG image")
+		}
+		if _, err := png.Decode(bytes.NewReader(payload)); err != nil {
+			return PerformanceFixtureResult{}, errors.New("evidence fixture PNG payload is incomplete")
+		}
+		digest := sha256.Sum256(payload)
+		segments = append(segments, preparedSegment{count: segment.Count, payload: payload, sha: hex.EncodeToString(digest[:])})
 	}
-	digest := sha256.Sum256(payload)
-	sha := hex.EncodeToString(digest[:])
 	now := command.Now.UTC()
-	result := PerformanceFixtureResult{RecordIDs: make([]uuid.UUID, 0, command.Count)}
-	for i := 0; i < command.Count; i++ {
-		if err := ctx.Err(); err != nil {
-			return PerformanceFixtureResult{}, err
-		}
-		blobID := uuid.New()
-		key, err := blobref.ObjectBlobStorageKey(command.IncidentID, blobID, uuid.New())
-		if err != nil {
-			return PerformanceFixtureResult{}, err
-		}
-		put, err := runtime.objectStore.Put(ctx, objectstore.PutObjectRequest{Key: key, Body: bytes.NewReader(payload), Size: int64(len(payload)), ContentType: command.ContentType, Purpose: objectstore.PurposeProductUpload})
-		if err != nil {
-			return PerformanceFixtureResult{}, fmt.Errorf("write Evidence fixture object: %w", err)
-		}
-		if put.SizeBytes != int64(len(payload)) {
-			return PerformanceFixtureResult{}, errors.New("evidence fixture object write size diverged")
-		}
-		// This is an explicit fixture prestate, not fabricated upload provenance.
-		// The available metadata is bound to the bytes just written; the shared
-		// snapshot owner independently hashes and verifies the complete population.
-		_, err = runtime.postgres.Exec(ctx, `INSERT INTO object_blobs (
+	result := PerformanceFixtureResult{RecordIDs: make([]uuid.UUID, 0, total)}
+	i := 0
+	for _, segment := range segments {
+		payload, sha := segment.payload, segment.sha
+		for range segment.count {
+			if err := ctx.Err(); err != nil {
+				return PerformanceFixtureResult{}, err
+			}
+			blobID := uuid.New()
+			key, err := blobref.ObjectBlobStorageKey(command.IncidentID, blobID, uuid.New())
+			if err != nil {
+				return PerformanceFixtureResult{}, err
+			}
+			put, err := runtime.objectStore.Put(ctx, objectstore.PutObjectRequest{Key: key, Body: bytes.NewReader(payload), Size: int64(len(payload)), ContentType: command.ContentType, Purpose: objectstore.PurposeProductUpload})
+			if err != nil {
+				return PerformanceFixtureResult{}, fmt.Errorf("write Evidence fixture object: %w", err)
+			}
+			if put.SizeBytes != int64(len(payload)) {
+				return PerformanceFixtureResult{}, errors.New("evidence fixture object write size diverged")
+			}
+			// This is an explicit fixture prestate, not fabricated upload provenance.
+			// The available metadata is bound to the bytes just written; the shared
+			// snapshot owner independently hashes and verifies the complete population.
+			_, err = runtime.postgres.Exec(ctx, `INSERT INTO object_blobs (
  object_blob_id,incident_id,created_by_user_id,storage_key,upload_state,
  byte_size,filename_hint,content_type_hint,expected_sha256_hex,
  observed_size,observed_content_type,observed_sha256_hex,
  target_expires_at,pending_expires_at,finalized_at,created_at,updated_at
  ) VALUES ($1,$2,$3,$4,'available',$5,$6,$7,$8,$5,$7,$8,$9,$10,$11,$11,$11)`,
-			blobID, command.IncidentID, command.ActorUserID, key, int64(len(payload)), fmt.Sprintf("fixture-%05d.png", i+1), command.ContentType, sha, now.Add(time.Hour), now.Add(24*time.Hour), now)
-		if err != nil {
-			return PerformanceFixtureResult{}, fmt.Errorf("materialize Evidence fixture blob metadata: %w", err)
+				blobID, command.IncidentID, command.ActorUserID, key, int64(len(payload)), fmt.Sprintf("fixture-%05d.png", i+1), command.ContentType, sha, now.Add(time.Hour), now.Add(24*time.Hour), now)
+			if err != nil {
+				return PerformanceFixtureResult{}, fmt.Errorf("materialize Evidence fixture blob metadata: %w", err)
+			}
+			body, err := json.Marshal(map[string]any{"client_txn_id": uuid.NewString(), "evidence.title": fmt.Sprintf("%s %05d", command.TitlePrefix, i+1), "evidence.lifecycle_state": "available", "evidence.initial_object_blob_id": blobID.String()})
+			if err != nil {
+				return PerformanceFixtureResult{}, err
+			}
+			admission, failure := AdmitCreateJSON(bytes.NewReader(body))
+			if failure != nil {
+				return PerformanceFixtureResult{}, errors.New("evidence fixture create admission failed")
+			}
+			created, err := runtime.source.MutationContribution().Create(ctx, CreateCommand{ActorUserID: command.ActorUserID, IncidentID: command.IncidentID, Admission: admission, RequestID: uuid.NewString(), Now: now})
+			if err != nil {
+				return PerformanceFixtureResult{}, fmt.Errorf("create Evidence fixture record: %w", err)
+			}
+			if created.Outcome != MutationOutcomeCreated || created.RecordID == uuid.Nil || created.RowVersion != 1 {
+				return PerformanceFixtureResult{}, errors.New("evidence fixture create returned an invalid identity")
+			}
+			result.RecordIDs = append(result.RecordIDs, created.RecordID)
+			result.ObjectCount++
+			result.TotalBytes += int64(len(payload))
+			i++
 		}
-		body, err := json.Marshal(map[string]any{"client_txn_id": uuid.NewString(), "evidence.title": fmt.Sprintf("%s %05d", command.TitlePrefix, i+1), "evidence.lifecycle_state": "available", "evidence.initial_object_blob_id": blobID.String()})
-		if err != nil {
-			return PerformanceFixtureResult{}, err
-		}
-		admission, failure := AdmitCreateJSON(bytes.NewReader(body))
-		if failure != nil {
-			return PerformanceFixtureResult{}, errors.New("evidence fixture create admission failed")
-		}
-		created, err := runtime.source.MutationContribution().Create(ctx, CreateCommand{ActorUserID: command.ActorUserID, IncidentID: command.IncidentID, Admission: admission, RequestID: uuid.NewString(), Now: now})
-		if err != nil {
-			return PerformanceFixtureResult{}, fmt.Errorf("create Evidence fixture record: %w", err)
-		}
-		if created.Outcome != MutationOutcomeCreated || created.RecordID == uuid.Nil || created.RowVersion != 1 {
-			return PerformanceFixtureResult{}, errors.New("evidence fixture create returned an invalid identity")
-		}
-		result.RecordIDs = append(result.RecordIDs, created.RecordID)
-		result.ObjectCount++
-		result.TotalBytes += int64(len(payload))
 	}
 	return result, nil
 }

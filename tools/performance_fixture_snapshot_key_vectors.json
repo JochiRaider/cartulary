@@ -2,17 +2,17 @@
   "schema_id": "cartulary.performance_fixture_snapshot_key_vectors.v1",
   "vectors": [
     {
-      "name": "evidence_heavy_snapshot_v2",
+      "name": "evidence_heavy_snapshot_v3",
       "input": {
         "schema_id": "cartulary.performance_fixture_snapshot_key.v2",
-        "fixture_profile_id": "evidence_heavy_snapshot_v2",
+        "fixture_profile_id": "evidence_heavy_snapshot_v3",
         "migration_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
         "source_contract_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-        "fixture_version": "cartulary.perf.evidence_heavy.v2",
+        "fixture_version": "cartulary.perf.evidence_heavy.v3",
         "seed": 20260405
       },
-      "canonical_json": "{\"fixture_profile_id\":\"evidence_heavy_snapshot_v2\",\"fixture_version\":\"cartulary.perf.evidence_heavy.v2\",\"migration_digest\":\"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\",\"schema_id\":\"cartulary.performance_fixture_snapshot_key.v2\",\"seed\":20260405,\"source_contract_digest\":\"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\"}",
-      "snapshot_key": "87435de81f40cc80c4872617c6c7ae80677a1b1d6918a6c76968e9073b3ecbd0"
+      "canonical_json": "{\"fixture_profile_id\":\"evidence_heavy_snapshot_v3\",\"fixture_version\":\"cartulary.perf.evidence_heavy.v3\",\"migration_digest\":\"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\",\"schema_id\":\"cartulary.performance_fixture_snapshot_key.v2\",\"seed\":20260405,\"source_contract_digest\":\"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\"}",
+      "snapshot_key": "aec7fc6f3a8cb44d07d9662190d814385358ad19d2c8957387f1b516589e8b72"
     },
     {
       "name": "timeline_large_grid_import_snapshot_v1",

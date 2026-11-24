@@ -53,7 +53,7 @@ test("Evidence inspector observation and retained proof reject extra private fie
     const { collect, collectWrittenSummary, persist } = measurementContext(t);
     const evidenceInspectorObservation = buildEvidenceInspectorObservation();
     assert.equal(collect(evidenceInspectorObservation).length, 1, "collection admits only the exact Evidence target and item identities");
-    const evidenceProfile = activePerformanceFixtureProfile(loadPerformanceFixtureSnapshotRegistry(root), "evidence_heavy_snapshot_v2");
+    const evidenceProfile = activePerformanceFixtureProfile(loadPerformanceFixtureSnapshotRegistry(root), "evidence_heavy_snapshot_v3");
     const evidenceSummary = persist({ profile: evidenceProfile, rowID: "module.timeline.measurement.evidence_inspector_v2", observationOverrides: evidenceInspectorObservation });
     assert.equal(collectWrittenSummary(evidenceSummary, value => validateProfileMeasurementObservation(root, evidenceProfile, value)).length, 1);
     for (const extra of [{ record_id: "00000000-0000-0000-0000-000000000001" }, { payload: "private" }]) {

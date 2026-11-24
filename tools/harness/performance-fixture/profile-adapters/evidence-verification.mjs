@@ -3,8 +3,8 @@ import { canonicalJSONString, validateSchemaSync } from "../../contract/index.mj
 import { readPerformanceContract } from "./large-grid.mjs";
 
 export function validateEvidenceVerificationObservation(root, profile, observation) {
-  const contract = readPerformanceContract(root, "contracts/performance/evidence-verification.v1.json", "cartulary.performance_evidence_verification_contract.v1");
-  const shared = readPerformanceContract(root, "contracts/performance/ac045.v2.json", "cartulary.performance_evidence_inspector_contract.v1");
+  const contract = readPerformanceContract(root, "contracts/performance/evidence-verification.v2.json", "cartulary.performance_evidence_verification_contract.v2");
+  const shared = readPerformanceContract(root, "contracts/performance/ac045.v3.json", "cartulary.performance_evidence_inspector_contract.v2");
   const digest = `sha256:${createHash("sha256").update(canonicalJSONString(shared.fixture)).digest("hex")}`;
   if (profile.fixture_profile_id !== contract.fixture_profile_id || observation.fixture_profile_id !== profile.fixture_profile_id ||
       contract.fixture_contract_id !== shared.contract_id || observation.criterion_id !== contract.criterion_ids[0] ||

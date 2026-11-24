@@ -1296,36 +1296,6 @@
       ]
     },
     {
-      "target": "browser-e2e-measurement",
-      "kind": "measurement",
-      "execution_stage": "measurement",
-      "frontend_artifact_id": "measurement",
-      "scheduler_needs": [],
-      "workers": "1",
-      "state_scope": "measurement",
-      "project": "chromium",
-      "config": "playwright.config.ts",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "browser_measurement_quiet",
-      "fixture_capability": "browser_stack",
-      "service_requirement": "test-services",
-      "service_dependencies": [
-        "object_store",
-        "postgres"
-      ],
-      "postgres_isolation": "exclusive",
-      "preparation_operations": [],
-      "fixture_profile_id": "evidence_heavy_snapshot_v2",
-      "name": "partition-5a5e85216417a596d6ce8f2ea576d5c2893ef79943ffaec1de797979d0366566",
-      "browser_session_group": "partition-5a5e85216417a596d6ce8f2ea576d5c2893ef79943ffaec1de797979d0366566",
-      "selected_row_ids": [
-        "module.timeline.measurement.evidence_inspector_v2"
-      ],
-      "specs": [
-        "apps/web/e2e/measurement/evidence-inspector.spec.ts"
-      ]
-    },
-    {
       "target": "browser-e2e-webserver-backed",
       "kind": "duration_balanced_specs",
       "execution_stage": "webserver-backed",
@@ -1352,6 +1322,36 @@
       ],
       "specs": [
         "apps/web/e2e/restore.spec.ts"
+      ]
+    },
+    {
+      "target": "browser-e2e-measurement",
+      "kind": "measurement",
+      "execution_stage": "measurement",
+      "frontend_artifact_id": "measurement",
+      "scheduler_needs": [],
+      "workers": "1",
+      "state_scope": "measurement",
+      "project": "chromium",
+      "config": "playwright.config.ts",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_measurement_quiet",
+      "fixture_capability": "browser_stack",
+      "service_requirement": "test-services",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive",
+      "preparation_operations": [],
+      "fixture_profile_id": "evidence_heavy_snapshot_v3",
+      "name": "partition-6cee4166823ebc56c89af970542ad035b77086c6fec3a5460e591a1a1a4a2c99",
+      "browser_session_group": "partition-6cee4166823ebc56c89af970542ad035b77086c6fec3a5460e591a1a1a4a2c99",
+      "selected_row_ids": [
+        "module.evidence.measurement.verification_progress"
+      ],
+      "specs": [
+        "apps/web/e2e/measurement/evidence-verification.spec.ts"
       ]
     },
     {
@@ -1648,6 +1648,36 @@
       ],
       "specs": [
         "apps/web/e2e/measurement/timeline-grid.spec.ts"
+      ]
+    },
+    {
+      "target": "browser-e2e-measurement",
+      "kind": "measurement",
+      "execution_stage": "measurement",
+      "frontend_artifact_id": "measurement",
+      "scheduler_needs": [],
+      "workers": "1",
+      "state_scope": "measurement",
+      "project": "chromium",
+      "config": "playwright.config.ts",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_measurement_quiet",
+      "fixture_capability": "browser_stack",
+      "service_requirement": "test-services",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive",
+      "preparation_operations": [],
+      "fixture_profile_id": "evidence_heavy_snapshot_v3",
+      "name": "partition-aefc2b7f6e6070e8eee1ef677be65ef908b6cae7c2ff1ed8f19abbd2fd5b6896",
+      "browser_session_group": "partition-aefc2b7f6e6070e8eee1ef677be65ef908b6cae7c2ff1ed8f19abbd2fd5b6896",
+      "selected_row_ids": [
+        "module.timeline.measurement.evidence_inspector_v2"
+      ],
+      "specs": [
+        "apps/web/e2e/measurement/evidence-inspector.spec.ts"
       ]
     },
     {
@@ -2064,36 +2094,6 @@
       ],
       "specs": [
         "apps/web/e2e/measurement/network-flow-grid.spec.ts"
-      ]
-    },
-    {
-      "target": "browser-e2e-measurement",
-      "kind": "measurement",
-      "execution_stage": "measurement",
-      "frontend_artifact_id": "measurement",
-      "scheduler_needs": [],
-      "workers": "1",
-      "state_scope": "measurement",
-      "project": "chromium",
-      "config": "playwright.config.ts",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "browser_measurement_quiet",
-      "fixture_capability": "browser_stack",
-      "service_requirement": "test-services",
-      "service_dependencies": [
-        "object_store",
-        "postgres"
-      ],
-      "postgres_isolation": "exclusive",
-      "preparation_operations": [],
-      "fixture_profile_id": "evidence_heavy_snapshot_v2",
-      "name": "partition-f3aae87c6d7e536c98ed51a8810ccc5abaade942cded5122d4a5e94dd3052f57",
-      "browser_session_group": "partition-f3aae87c6d7e536c98ed51a8810ccc5abaade942cded5122d4a5e94dd3052f57",
-      "selected_row_ids": [
-        "module.evidence.measurement.verification_progress"
-      ],
-      "specs": [
-        "apps/web/e2e/measurement/evidence-verification.spec.ts"
       ]
     },
     {
@@ -2780,9 +2780,9 @@
           ]
         },
         {
-          "partition": "partition-5a5e85216417a596d6ce8f2ea576d5c2893ef79943ffaec1de797979d0366566",
+          "partition": "partition-6cee4166823ebc56c89af970542ad035b77086c6fec3a5460e591a1a1a4a2c99",
           "selected_row_ids": [
-            "module.timeline.measurement.evidence_inspector_v2"
+            "module.evidence.measurement.verification_progress"
           ]
         },
         {
@@ -2831,6 +2831,12 @@
           "partition": "partition-a67df182b49585870fa07db5f262dfdac914cd8e65603db596651637584245b5",
           "selected_row_ids": [
             "module.timeline.measurement.timeline_summary_enter_focus_satisfies_the_paint_d03cf54e95"
+          ]
+        },
+        {
+          "partition": "partition-aefc2b7f6e6070e8eee1ef677be65ef908b6cae7c2ff1ed8f19abbd2fd5b6896",
+          "selected_row_ids": [
+            "module.timeline.measurement.evidence_inspector_v2"
           ]
         },
         {
@@ -2903,12 +2909,6 @@
           "partition": "partition-f1e33da38f1cd52895af36acd59e5ae938e8eb44531f9e6d89d9b1b89e42916e",
           "selected_row_ids": [
             "module.networkflow.measurement.network_flow_selector_covers_the_actual_accepted_f68f4c7a57"
-          ]
-        },
-        {
-          "partition": "partition-f3aae87c6d7e536c98ed51a8810ccc5abaade942cded5122d4a5e94dd3052f57",
-          "selected_row_ids": [
-            "module.evidence.measurement.verification_progress"
           ]
         }
       ],

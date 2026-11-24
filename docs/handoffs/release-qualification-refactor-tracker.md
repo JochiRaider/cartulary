@@ -244,15 +244,29 @@ row: the gate's declared, owner-justified policy dependency
 which REQ-800 permits. It runs beside the 441 s package smoke, so it adds no
 wall time. S3 is closed without a change.
 
-## 9. Open question: the evidence-heavy fixture
+## 9. Evidence-heavy fixture v3 (decided 2026-11-24)
 
-Core 04 REQ-04-157 defines `cartulary.perf.evidence_heavy.v2` as 10,000
-Evidence records with 10,000 distinct 2,097,152-byte PNG objects (21 GB, no
-sparse or shared objects). Two predicates use it: AC-045 (inspector metadata
-shell) and AC-016/AC-046 (verification progress and cancel). Their measured
-steps read only the 100 linked objects (preview preflight) and one new upload;
-the other 9,900 objects are never read. Per release run the fixture costs a
-566 s build and two 21 GB restores (about 238 s each, inside the quiet
-window). Proposed v3: keep the counts and real objects, shrink the 9,900
-unlinked objects to small complete PNGs (about 250 MB in total). Needs a
-Core 04 amendment; awaiting the owner.
+The owner chose the count-faithful v3 fixture. Core 04 REQ-04-157 now defines
+`cartulary.perf.evidence_heavy.v3`: 5,000 Timeline rows and 10,000 Evidence
+records with 10,000 distinct complete 2x2 PNG objects; the first 100 in
+construction order (the linked records) keep 2,097,152 bytes and the other
+9,900 hold 4,096 bytes (250,265,600 bytes in total, from about 21 GB). v2 is
+retired because its measured steps read only the 100 linked objects and one
+new upload. The predicate IDs stay; the fixture ID, the contracts (`ac045.v3`
+with schema v2, `evidence-verification.v2` with schema v2), the snapshot profile
+(`evidence_heavy_snapshot_v3`) and the evidence contribution
+(`evidence.objects.v2`) change. The evidence owner's fixture command takes
+ordered segments, so the linked records come first, and the validator checks
+each record's size and digest by class.
+
+Measured (`20261124T150150Z-p82659`, `20261124T150949Z-p91922`, both rows
+pass): a session's stack acquisition fell from 239 s (v2 sequential) and 83 s
+(v2 with parallel restore) to 16–17 s, about 445 s off the quiet window per
+release against the original. The snapshot build fell from 512–566 s to
+287–373 s; the remaining time is the 10,000 sequential evidence-record
+mutations (265–349 s), not object bytes.
+
+Checks: `lint` `go`, `types`, `frontend` and `scripts`; `source-check`
+`generated`, `schema` and `catalog`; the JSON-shape assertions; nine
+`harness.browser` fixture rows, including the evidence object and inspector
+integration tests; and the two evidence-heavy measurement rows.

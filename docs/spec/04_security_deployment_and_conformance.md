@@ -1560,13 +1560,15 @@ Construction timing, batch counts, batch sizes, and other build diagnostics are
 non-semantic: they MUST NOT enter a contribution receipt, snapshot key, or
 semantic validation digest.
 
-`cartulary.perf.evidence_heavy.v2` uses seed `20260405`, exactly 5,000 Timeline
+`cartulary.perf.evidence_heavy.v3` uses seed `20260405`, exactly 5,000 Timeline
 rows and 10,000 available Evidence records, each associated with a distinct
-available object blob containing a complete deterministic 2 by 2 PNG of exactly
-2,097,152 bytes. A valid PNG ancillary text chunk supplies the synthetic payload
-mass. The physical population is 10,000 independently addressable objects and
-20,971,520,000 bytes; sparse files, shared object keys, fake size metadata and
-stubbed byte reads MUST NOT satisfy this fixture. The Evidence titles are
+available object blob containing a complete deterministic 2 by 2 PNG. The first
+100 Evidence records in construction order carry objects of exactly 2,097,152
+bytes; the other 9,900 carry objects of exactly 4,096 bytes. A valid PNG
+ancillary text chunk supplies the synthetic payload mass. The physical population
+is 10,000 independently addressable objects and 250,265,600 bytes; sparse files,
+shared object keys, fake size metadata and stubbed byte reads MUST NOT satisfy
+this fixture. The Evidence titles are
 `Performance Evidence NNNNN`, with a one-based five-digit ordinal. The Timeline
 row titled `Evidence inspector performance target` is linked to the first 100
 Evidence records in construction order; all other Timeline rows have no
@@ -1589,7 +1591,12 @@ No raw access handle, URL, object key, credential or binary payload belongs in
 retained measurement evidence. The immutable build and clone proofs establish
 the complete physical population independently of this preview-access check.
 The prior `cartulary.perf.evidence_heavy.v1` fixture is retired; its ambiguous
-binary workload and optional stubbing cannot qualify v2. These fixtures define
+binary workload and optional stubbing cannot qualify v3. The
+`cartulary.perf.evidence_heavy.v2` fixture is also retired: its measured steps
+read only the 100 linked objects and one new upload, so its other 9,900 objects
+of 2,097,152 bytes (about 21 GB) added construction and restoration cost without
+exercising measured behaviour. v3 keeps every count, link and complete object;
+only the unread objects are smaller. These fixtures define
 product-supported shape and load independently of any Core 05 publication
 environment.
 Profiles: base
@@ -1619,7 +1626,7 @@ remains rendered, visible, and anchored on the second frame.
 | `perf.import_xlsx_apply.responsive.v2` | `AC-027`, `AC-046` | The Import owner accepts applying the single reviewed XLSX unit below, before its mandatory current-session preflight. | Same apply-job progress-or-success and grid-interaction predicate, independently measured. | `cartulary.perf.large_grid.v1`; one observation <=1,000 ms |
 | `perf.reporting_snapshot.visible_with_cancel.v1` | `AC-030`, `AC-046` | The Reporting owner accepts `Create snapshot` for the prepared incident, before dispatch. | The exact admitted snapshot Job has visible progress and an enabled cancel action while the target Timeline editor visibly accepts the prescribed text. | `cartulary.perf.large_grid.v1`; one observation <=1,000 ms |
 | `perf.reporting_render.visible_with_cancel.v1` | `AC-030`, `AC-046` | The Reporting owner accepts `Render internal report`, before verifying its prepared immutable snapshot. | The exact admitted report Job has visible progress and an enabled cancel action while the target Timeline editor visibly accepts the prescribed text. | `cartulary.perf.large_grid.v1`; one observation <=1,000 ms |
-| `perf.evidence_verification.visible_with_cancel.v1` | `AC-016`, `AC-046` | The Evidence owner accepts verification after the prepared single file finishes its ordinary transfer. | The admitted verification Job has visible progress and enabled cancellation while a different Timeline row accepts the prescribed text on two consecutive frames. | `cartulary.perf.evidence_heavy.v2`; one observation <=1,000 ms |
+| `perf.evidence_verification.visible_with_cancel.v1` | `AC-016`, `AC-046` | The Evidence owner accepts verification after the prepared single file finishes its ordinary transfer. | The admitted verification Job has visible progress and enabled cancellation while a different Timeline row accepts the prescribed text on two consecutive frames. | `cartulary.perf.evidence_heavy.v3`; one observation <=1,000 ms |
 | `perf.reference_pack_import.visible_with_cancel.v1` | `AC-033`, `AC-046` | The Reference Pack owner accepts the prepared bundle import below, before request capture or transmission. | The exact admitted Job has visible progress and enabled cancellation in deployment administration while the companion Timeline page accepts the prescribed edit. | `cartulary.perf.large_grid.v1`; one observation <=1,000 ms |
 | `perf.reference_pack_reverify.visible_with_cancel.v1` | `AC-033`, `AC-046` | The Reference Pack owner accepts reverify of the prepared version below, before its mandatory current-version preflight. | Same progress/cancel/edit predicate, independently measured for reverify. | `cartulary.perf.large_grid.v1`; one observation <=1,000 ms |
 | `perf.reference_pack_refresh.visible_with_cancel.v1` | `AC-033`, `AC-046` | The Reference Pack owner accepts refresh of the single prepared selected pack key below. | Same progress/cancel/edit predicate, independently measured for the exact refresh cohort. | `cartulary.perf.large_grid.v1`; one observation <=1,000 ms |
@@ -1633,7 +1640,7 @@ remains rendered, visible, and anchored on the second frame.
 | `perf.timeline_filter.stable_viewport.v1` | `AC-044` | Default Timeline; the filter workload below is accepted. | The Core 04 stable viewport is visible. | `cartulary.perf.large_grid.v1`; independent p95 |
 | `perf.timeline_group.first_useful_viewport.v1` | `AC-044` | Default Timeline; the group workload below is accepted. | The Core 04 first useful viewport is visible. | `cartulary.perf.large_grid.v1`; independent p95 |
 | `perf.timeline_group.stable_viewport.v1` | `AC-044` | Default Timeline; the group workload below is accepted. | The Core 04 stable viewport is visible. | `cartulary.perf.large_grid.v1`; independent p95 |
-| `perf.evidence_inspector.metadata_shell.v2` | `AC-045` | The inspector is closed on the selected 100-link target; the product accepts the ordinary inspector-open action. | The target summary, attached and linked counts of 100, and first five Evidence items satisfy the metadata-shell workload below on two consecutive frames in the clipped inspector viewport. | `cartulary.perf.evidence_heavy.v2`; p95 <=300 ms |
+| `perf.evidence_inspector.metadata_shell.v2` | `AC-045` | The inspector is closed on the selected 100-link target; the product accepts the ordinary inspector-open action. | The target summary, attached and linked counts of 100, and first five Evidence items satisfy the metadata-shell workload below on two consecutive frames in the clipped inspector viewport. | `cartulary.perf.evidence_heavy.v3`; p95 <=300 ms |
 | `perf.anchor_stability_under_live_updates.v2` | `AC-047` | The deterministic live-update trace begins while an analyst holds an edit anchored to one `record_id`. | The edit remains on that record throughout scrolling, sorting, filtering, grouping, and live updates, and viewport stabilization avoids a full-sheet rerender. | `cartulary.perf.large_grid.v1`; seeded pass/fail scenario |
 
 The Evidence verification contract carries the ordered criterion IDs
@@ -1642,7 +1649,7 @@ label. One qualifying observation supplies this shared timed obligation without
 duplicate execution. Other functional or timed mechanisms in either criterion
 retain their independent obligations.
 
-The Evidence verification predicate uses the exact evidence-heavy v2 population
+The Evidence verification predicate uses the exact evidence-heavy v3 population
 and ordinary single foreground editor described in REQ-04-157, including its
 complete preview-access preflight. In the default Timeline view, the lowest
 record identifier is the upload source and the next-lowest identifier is the
@@ -1652,7 +1659,7 @@ collapsed, density is default, and the viewport is 1920 by 1080 CSS pixels at
 device scale factor 1.
 
 One file, `verification-workload.png`, contains the same complete 2,097,152-byte
-PNG as the fixture's available objects. The ordinary row-local file paste sends
+PNG as the fixture's 100 linked objects. The ordinary row-local file paste sends
 one newly admitted slot and its single-use authenticated transfer. A synthesized
 File clipboard event is permitted and MUST be identified as such. This is not
 platform-clipboard interoperability evidence. Timing starts at the product's

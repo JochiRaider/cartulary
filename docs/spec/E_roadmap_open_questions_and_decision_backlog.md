@@ -249,7 +249,7 @@ This revision closes the performance question with two reference fixtures rather
 
 - 5,000 timeline rows
 - 10,000 evidence records
-- tens of GB of binary evidence stored in object storage
+- 10,000 complete evidence objects in object storage; Core 04 `cartulary.perf.evidence_heavy.v3` keeps the 100 linked objects at 2,097,152 bytes and the rest at 4,096 bytes (about 250 MB), since measured steps read only the linked objects
 - at least one timeline row linked to 100 evidence records
 - Core 05 now allows stubbed evidence blobs for throughput tests while still requiring real evidence metadata, counts, attachment state, and preview handles
 

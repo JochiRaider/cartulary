@@ -40,8 +40,8 @@
           "user_id"
         ]
       },
-      "fixture_profile_id": "evidence_heavy_snapshot_v2",
-      "fixture_version": "cartulary.perf.evidence_heavy.v2",
+      "fixture_profile_id": "evidence_heavy_snapshot_v3",
+      "fixture_version": "cartulary.perf.evidence_heavy.v3",
       "seed": 20260405,
       "verification_bindings": [
         {
@@ -55,14 +55,14 @@
       ],
       "source_contract_refs": [
         {
-          "path": "contracts/performance/ac045.v2.json",
-          "schema_id": "cartulary.performance_evidence_inspector_contract.v1",
-          "contract_id": "cartulary.performance.ac045.v2"
+          "path": "contracts/performance/ac045.v3.json",
+          "schema_id": "cartulary.performance_evidence_inspector_contract.v2",
+          "contract_id": "cartulary.performance.ac045.v3"
         },
         {
-          "path": "contracts/performance/evidence-verification.v1.json",
-          "schema_id": "cartulary.performance_evidence_verification_contract.v1",
-          "contract_id": "cartulary.performance.evidence_verification.v1"
+          "path": "contracts/performance/evidence-verification.v2.json",
+          "schema_id": "cartulary.performance_evidence_verification_contract.v2",
+          "contract_id": "cartulary.performance.evidence_verification.v2"
         },
         {
           "path": "contracts/projection-providers/index.json",
@@ -87,7 +87,7 @@
           "version": "auth.foreground_analyst.v1",
           "dependencies": [],
           "source_contract_ids": [
-            "cartulary.performance.ac045.v2"
+            "cartulary.performance.ac045.v3"
           ],
           "expected_receipt_counts": [
             {
@@ -108,7 +108,7 @@
             "auth.foreground_analyst.v1"
           ],
           "source_contract_ids": [
-            "cartulary.performance.ac045.v2"
+            "cartulary.performance.ac045.v3"
           ],
           "expected_receipt_counts": [
             {
@@ -126,14 +126,14 @@
           ]
         },
         {
-          "contribution_id": "evidence.objects.v1",
+          "contribution_id": "evidence.objects.v2",
           "owner_id": "module.evidence",
-          "version": "evidence.objects.v1",
+          "version": "evidence.objects.v2",
           "dependencies": [
             "incidents.evidence_workspace.v1"
           ],
           "source_contract_ids": [
-            "cartulary.performance.ac045.v2",
+            "cartulary.performance.ac045.v3",
             "cartulary.view.evidence.v1"
           ],
           "expected_receipt_counts": [
@@ -147,7 +147,7 @@
             },
             {
               "count_id": "total_object_bytes",
-              "exact": 20971520000
+              "exact": 250265600
             }
           ]
         },
@@ -156,10 +156,10 @@
           "owner_id": "module.timeline",
           "version": "timeline.evidence_inspector.v1",
           "dependencies": [
-            "evidence.objects.v1"
+            "evidence.objects.v2"
           ],
           "source_contract_ids": [
-            "cartulary.performance.ac045.v2",
+            "cartulary.performance.ac045.v3",
             "cartulary.view.timeline.v2"
           ],
           "expected_receipt_counts": [
@@ -181,7 +181,7 @@
             "timeline.evidence_inspector.v1"
           ],
           "source_contract_ids": [
-            "cartulary.performance.ac045.v2",
+            "cartulary.performance.ac045.v3",
             "cartulary.projection_provider_manifest.v4",
             "cartulary.view.evidence.v1",
             "cartulary.view.timeline.v2"
@@ -201,7 +201,7 @@
             "projections.evidence_timeline.v1"
           ],
           "source_contract_ids": [
-            "cartulary.performance.ac045.v2"
+            "cartulary.performance.ac045.v3"
           ],
           "expected_receipt_counts": [
             {
@@ -243,7 +243,7 @@
           },
           {
             "expectation_id": "total_object_bytes",
-            "exact": 20971520000
+            "exact": 250265600
           }
         ],
         "conditions": [
@@ -286,7 +286,7 @@
       ],
       "object_population": {
         "object_count": 10000,
-        "total_bytes": 20971520000
+        "total_bytes": 250265600
       },
       "cleanup_policy": {
         "template_owner": "suite",

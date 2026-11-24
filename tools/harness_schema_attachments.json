@@ -1225,15 +1225,15 @@
       "validation": "harness.json_shape_check"
     },
     {
-      "schema_id": "cartulary.performance_evidence_inspector_contract.v1",
-      "path": "tools/schemas/cartulary.performance_evidence_inspector_contract.v1.schema.json",
+      "schema_id": "cartulary.performance_evidence_inspector_contract.v2",
+      "path": "tools/schemas/cartulary.performance_evidence_inspector_contract.v2.schema.json",
       "classification": "owner_input",
       "producer": "Core 04 Evidence inspector workload projection",
       "validation": "harness.json_shape_check"
     },
     {
-      "schema_id": "cartulary.performance_evidence_verification_contract.v1",
-      "path": "tools/schemas/cartulary.performance_evidence_verification_contract.v1.schema.json",
+      "schema_id": "cartulary.performance_evidence_verification_contract.v2",
+      "path": "tools/schemas/cartulary.performance_evidence_verification_contract.v2.schema.json",
       "classification": "owner_input",
       "producer": "Evidence verification measurement projection",
       "validation": "harness.json_shape_check"

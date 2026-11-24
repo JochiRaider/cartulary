@@ -226,7 +226,7 @@ it("requires fresh metadata and five exact visible Evidence bindings across two 
 
 it("binds private fixture credentials to their exact profile and account cardinality", () => {
   const expected = {
-    fixtureProfileId: "evidence_heavy_snapshot_v2",
+    fixtureProfileId: "evidence_heavy_snapshot_v3",
     snapshotKey: "a".repeat(64),
     credentialSetId: "foreground_analysts",
     accountCount: 1,

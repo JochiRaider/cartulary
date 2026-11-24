@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"image/png"
 	"io"
 	"testing"
@@ -51,14 +52,29 @@ func TestEvidenceFixtureUsesRealObjectsAndOwnerMutations_Integration(t *testing.
 	if err != nil || decoded.Bounds().Dx() != 2 || decoded.Bounds().Dy() != 2 {
 		t.Fatal("synthetic payload is not a complete decodable PNG")
 	}
-	payload := bytes.NewBuffer(data)
-	command := evidence.PerformanceFixtureCommand{ActorUserID: actor.ID, IncidentID: incident.ID, Count: 3, TitlePrefix: "Performance Evidence", Payload: payload.Bytes(), ContentType: "image/png", Now: time.Now().UTC()}
+	small, err := evidencefixture.ImagePayload(4096)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Two linked-size objects come first in construction order, then one small one.
+	payloads := [][]byte{data, data, small}
+	segments := []evidence.PerformanceFixtureSegment{{Count: 2, Payload: data}, {Count: 1, Payload: small}}
+	command := evidence.PerformanceFixtureCommand{ActorUserID: actor.ID, IncidentID: incident.ID, Segments: segments, TitlePrefix: "Performance Evidence", ContentType: "image/png", Now: time.Now().UTC()}
 	// Reject malformed construction before any object or source mutation.
 	for _, mutate := range []func(*evidence.PerformanceFixtureCommand){
-		func(c *evidence.PerformanceFixtureCommand) { c.Count = 0 },
-		func(c *evidence.PerformanceFixtureCommand) { c.Count = 10001 },
-		func(c *evidence.PerformanceFixtureCommand) { c.Payload = []byte("not a PNG") },
-		func(c *evidence.PerformanceFixtureCommand) { c.Payload = c.Payload[:len(c.Payload)-1] },
+		func(c *evidence.PerformanceFixtureCommand) { c.Segments = nil },
+		func(c *evidence.PerformanceFixtureCommand) {
+			c.Segments = []evidence.PerformanceFixtureSegment{{Count: 0, Payload: data}}
+		},
+		func(c *evidence.PerformanceFixtureCommand) {
+			c.Segments = []evidence.PerformanceFixtureSegment{{Count: 10000, Payload: data}, {Count: 1, Payload: small}}
+		},
+		func(c *evidence.PerformanceFixtureCommand) {
+			c.Segments = []evidence.PerformanceFixtureSegment{{Count: 1, Payload: data}, {Count: 1, Payload: []byte("not a PNG")}}
+		},
+		func(c *evidence.PerformanceFixtureCommand) {
+			c.Segments = []evidence.PerformanceFixtureSegment{{Count: 1, Payload: data[:len(data)-1]}}
+		},
 		func(c *evidence.PerformanceFixtureCommand) { c.ContentType = "text/plain" },
 	} {
 		candidate := command
@@ -80,11 +96,12 @@ func TestEvidenceFixtureUsesRealObjectsAndOwnerMutations_Integration(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.ObjectCount != 3 || len(result.RecordIDs) != 3 || result.TotalBytes != int64(3*payload.Len()) {
+	if result.ObjectCount != 3 || len(result.RecordIDs) != 3 || result.TotalBytes != int64(2*len(data)+len(small)) {
 		t.Fatal("fixture result has wrong population")
 	}
-	digest := sha256.Sum256(payload.Bytes())
 	for i, id := range result.RecordIDs {
+		payload := payloads[i]
+		digest := sha256.Sum256(payload)
 		var title, lifecycle, upload, key, sha, contentType string
 		var version, size, observed int64
 		if err := harness.DB.QueryRow(ctx, `SELECT e.title,e.lifecycle_state,b.upload_state,r.row_version,b.storage_key,b.byte_size,b.observed_size,b.observed_sha256_hex,b.observed_content_type
@@ -92,7 +109,7 @@ func TestEvidenceFixtureUsesRealObjectsAndOwnerMutations_Integration(t *testing.
  WHERE e.record_id=$1 AND e.incident_id=$2`, id, incident.ID).Scan(&title, &lifecycle, &upload, &version, &key, &size, &observed, &sha, &contentType); err != nil {
 			t.Fatal(err)
 		}
-		if title == "" || lifecycle != "available" || upload != "available" || version != 1 || size != int64(payload.Len()) || observed != size || sha != hex.EncodeToString(digest[:]) || contentType != "image/png" {
+		if title != fmt.Sprintf("Performance Evidence %05d", i+1) || lifecycle != "available" || upload != "available" || version != 1 || size != int64(len(payload)) || observed != size || sha != hex.EncodeToString(digest[:]) || contentType != "image/png" {
 			t.Fatalf("record %d is not a coherent available Evidence envelope", i)
 		}
 		var projectionVersion, revisionVersion int64
@@ -111,7 +128,7 @@ func TestEvidenceFixtureUsesRealObjectsAndOwnerMutations_Integration(t *testing.
 		}
 		actual, err := io.ReadAll(body)
 		closeErr := body.Close()
-		if err != nil || closeErr != nil || !bytes.Equal(actual, payload.Bytes()) || info.ContentType != contentType {
+		if err != nil || closeErr != nil || !bytes.Equal(actual, payload) || info.ContentType != contentType {
 			t.Fatal("object bytes differ from source metadata")
 		}
 	}

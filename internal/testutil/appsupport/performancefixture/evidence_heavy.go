@@ -32,7 +32,8 @@ type evidenceHeavyWorkload struct {
 	TimelineRows        int    `json:"timeline_rows"`
 	EvidenceRows        int    `json:"evidence_rows"`
 	ObjectCount         int    `json:"object_count"`
-	ObjectBytes         int    `json:"object_bytes"`
+	LinkedObjectBytes   int    `json:"linked_object_bytes"`
+	UnlinkedObjectBytes int    `json:"unlinked_object_bytes"`
 	TotalObjectBytes    int64  `json:"total_object_bytes"`
 	TitlePrefix         string `json:"evidence_title_prefix"`
 	TargetSummary       string `json:"target_summary"`
@@ -41,7 +42,7 @@ type evidenceHeavyWorkload struct {
 }
 
 func evidenceHeavyContract(profile performancefixtureprofile.Profile) (evidenceHeavyWorkload, error) {
-	artifact, ok := contractperformance.Index["contracts/performance/ac045.v2.json"]
+	artifact, ok := contractperformance.Index["contracts/performance/ac045.v3.json"]
 	if !ok {
 		return evidenceHeavyWorkload{}, errors.New("evidence inspector contract projection is unavailable")
 	}
@@ -60,12 +61,13 @@ func evidenceHeavyContract(profile performancefixtureprofile.Profile) (evidenceH
 			bound = true
 		}
 	}
-	if document.SchemaID != "cartulary.performance_evidence_inspector_contract.v1" || document.ContractID != "cartulary.performance.ac045.v2" || !bound ||
+	if document.SchemaID != "cartulary.performance_evidence_inspector_contract.v2" || document.ContractID != "cartulary.performance.ac045.v3" || !bound ||
 		profile.FixtureVersion != w.FixtureID || profile.Seed != w.Seed ||
 		profile.ObjectPopulation.ObjectCount != w.ObjectCount || profile.ObjectPopulation.TotalBytes != w.TotalObjectBytes ||
-		w.TimelineRows < 2 || w.EvidenceRows < 1 || w.EvidenceRows > 10000 || w.LinkedEvidenceCount < 65 || w.LinkedEvidenceCount > 100 || w.LinkedEvidenceCount > w.EvidenceRows ||
-		w.ObjectBytes < 256 || w.ObjectBytes > 2*1024*1024 || w.AnalystSessions != 1 || w.TargetSummary == "" || w.TitlePrefix == "" ||
-		w.ObjectCount != w.EvidenceRows || int64(w.ObjectCount)*int64(w.ObjectBytes) != w.TotalObjectBytes ||
+		w.TimelineRows < 2 || w.EvidenceRows < 1 || w.EvidenceRows > 10000 || w.LinkedEvidenceCount < 65 || w.LinkedEvidenceCount > 100 || w.LinkedEvidenceCount >= w.EvidenceRows ||
+		w.LinkedObjectBytes < 256 || w.LinkedObjectBytes > 2*1024*1024 || w.UnlinkedObjectBytes < 256 || w.UnlinkedObjectBytes > w.LinkedObjectBytes ||
+		w.AnalystSessions != 1 || w.TargetSummary == "" || w.TitlePrefix == "" || w.ObjectCount != w.EvidenceRows ||
+		int64(w.LinkedEvidenceCount)*int64(w.LinkedObjectBytes)+int64(w.EvidenceRows-w.LinkedEvidenceCount)*int64(w.UnlinkedObjectBytes) != w.TotalObjectBytes ||
 		len(profile.RuntimeCredentialSets) != 1 || profile.RuntimeCredentialSets[0].SetID != "foreground_analysts" ||
 		profile.RuntimeCredentialSets[0].CredentialKind != "email_password" || profile.RuntimeCredentialSets[0].AccountCount != w.AnalystSessions {
 		return evidenceHeavyWorkload{}, errors.New("evidence inspector profile differs from its exact workload")
@@ -121,7 +123,12 @@ func newEvidenceHeavyProduction(pool dbport.DB, actor authn.UserRecord, profile 
 	if err != nil {
 		return nil, err
 	}
-	evidence, err := evidencefixture.New(owners.Evidence, actor.ID, byOwner["module.evidence"], workload.ObjectBytes, workload.TitlePrefix)
+	// The linked records come first in construction order and keep the full
+	// object size their preview preflight reads; the unread rest are small.
+	evidence, err := evidencefixture.New(owners.Evidence, actor.ID, byOwner["module.evidence"], []evidencefixture.Segment{
+		{Count: workload.LinkedEvidenceCount, ObjectBytes: workload.LinkedObjectBytes},
+		{Count: workload.EvidenceRows - workload.LinkedEvidenceCount, ObjectBytes: workload.UnlinkedObjectBytes},
+	}, workload.TitlePrefix)
 	if err != nil {
 		return nil, err
 	}
@@ -220,16 +227,22 @@ func (v *evidenceHeavyValidator) Validate(ctx context.Context, state *fixture.Bu
 	if err := v.pool.QueryRow(ctx, `SELECT COUNT(*) FROM timeline_grid_projection p JOIN records r USING(record_id) WHERE p.incident_id=$1 AND p.record_id=$2 AND p.row_version=$3 AND r.row_version=$3 AND p.activity_synopsis_text=$4 AND p.evidence_count=$5 AND p.has_evidence AND jsonb_array_length(p.attached_evidence_refs)=$5`, incidentID, target.RecordID, target.RowVersion, target.Summary, v.workload.LinkedEvidenceCount).Scan(&exactTarget); err != nil {
 		return fixture.SemanticValidation{}, err
 	}
-	payload, err := evidencefixture.ImagePayload(v.workload.ObjectBytes)
-	if err != nil {
-		return fixture.SemanticValidation{}, err
+	digests := [2]string{}
+	for i, size := range []int{v.workload.LinkedObjectBytes, v.workload.UnlinkedObjectBytes} {
+		payload, err := evidencefixture.ImagePayload(size)
+		if err != nil {
+			return fixture.SemanticValidation{}, err
+		}
+		digest := sha256.Sum256(payload)
+		digests[i] = hex.EncodeToString(digest[:])
 	}
-	digest := sha256.Sum256(payload)
 	if err := v.pool.QueryRow(ctx, `SELECT COUNT(*) FROM evidence e JOIN records r USING(record_id) JOIN object_blobs b ON b.object_blob_id=e.object_blob_id JOIN evidence_grid_projection p ON p.record_id=e.record_id
  WHERE e.incident_id=$1 AND e.record_id=ANY($2::uuid[]) AND r.deleted_at IS NULL AND r.row_version=1 AND p.row_version=1
  AND e.lifecycle_state='available' AND p.lifecycle_state='available' AND b.upload_state='available' AND p.upload_state='available'
- AND b.byte_size=$3 AND b.observed_size=$3 AND b.observed_content_type='image/png' AND b.observed_sha256_hex=$4 AND b.expected_sha256_hex=$4
- AND p.title=e.title AND p.blob_hash=$4 AND p.linked_record_count=CASE WHEN e.record_id=ANY($5::uuid[]) THEN 1 ELSE 0 END`, incidentID, ids, v.workload.ObjectBytes, hex.EncodeToString(digest[:]), linkedIDs).Scan(&exactEvidence); err != nil {
+ AND b.byte_size=CASE WHEN e.record_id=ANY($5::uuid[]) THEN $3::bigint ELSE $6::bigint END AND b.observed_size=b.byte_size AND b.observed_content_type='image/png'
+ AND b.observed_sha256_hex=CASE WHEN e.record_id=ANY($5::uuid[]) THEN $4::text ELSE $7::text END AND b.expected_sha256_hex=b.observed_sha256_hex
+ AND p.title=e.title AND p.blob_hash=b.observed_sha256_hex AND p.linked_record_count=CASE WHEN e.record_id=ANY($5::uuid[]) THEN 1 ELSE 0 END`,
+		incidentID, ids, v.workload.LinkedObjectBytes, digests[0], linkedIDs, v.workload.UnlinkedObjectBytes, digests[1]).Scan(&exactEvidence); err != nil {
 		return fixture.SemanticValidation{}, err
 	}
 	return fixture.SemanticValidation{Counts: counts, Conditions: map[string]bool{

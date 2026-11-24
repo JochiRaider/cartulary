@@ -40,9 +40,9 @@ func TestEvidenceInspectorFixturePreservesOwnerAttachments_Integration(t *testin
 		t.Fatal(err)
 	}
 	// These are physical objects, but deliberately small: this test qualifies
-	// owner construction and attachment scale, not the 20,971,520,000-byte performance load.
-	descriptor := fixture.Descriptor{ContributionID: "evidence.objects.v1", Version: "evidence.objects.v1", OwnerID: "module.evidence", ExpectedCounts: map[string]int{"evidence_records": 100, "object_blobs": 100, "total_object_bytes": 25600}}
-	evidenceProvider, err := evidencefixture.New(owners.Evidence, actor.ID, descriptor, 256, "Inspector Evidence")
+	// owner construction and attachment scale, not the 250,265,600-byte performance load.
+	descriptor := fixture.Descriptor{ContributionID: "evidence.objects.v2", Version: "evidence.objects.v2", OwnerID: "module.evidence", ExpectedCounts: map[string]int{"evidence_records": 100, "object_blobs": 100, "total_object_bytes": 25600}}
+	evidenceProvider, err := evidencefixture.New(owners.Evidence, actor.ID, descriptor, []evidencefixture.Segment{{Count: 100, ObjectBytes: 256}}, "Inspector Evidence")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -89,7 +89,7 @@ func TestEvidenceInspectorFixturePreservesOwnerAttachments_Integration(t *testin
 	}
 	inspectorProvider, err := timelinefixture.NewInspectorProvider(application, evidenceProvider, fixture.Descriptor{
 		ContributionID: "timeline.evidence_inspector.v1", Version: "timeline.evidence_inspector.v1", OwnerID: "module.timeline",
-		Dependencies: []string{"evidence.objects.v1"}, ExpectedCounts: map[string]int{"timeline_rows": timelineRows, "attached_evidence": 100},
+		Dependencies: []string{"evidence.objects.v2"}, ExpectedCounts: map[string]int{"timeline_rows": timelineRows, "attached_evidence": 100},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -142,7 +142,7 @@ func TestEvidenceInspectorFixturePreservesOwnerAttachments_Integration(t *testin
 		t.Fatalf("attachment mutation history = %d", got)
 	}
 	validator := evidenceHeavyValidator{pool: harness.DB, evidence: evidenceProvider, timeline: inspectorProvider, workload: evidenceHeavyWorkload{
-		TimelineRows: timelineRows, EvidenceRows: 100, ObjectCount: 100, ObjectBytes: 256, TotalObjectBytes: 25600,
+		TimelineRows: timelineRows, EvidenceRows: 100, ObjectCount: 100, LinkedObjectBytes: 256, UnlinkedObjectBytes: 256, TotalObjectBytes: 25600,
 		TargetSummary: target.Summary, LinkedEvidenceCount: 100,
 	}}
 	before, err := validator.Validate(ctx, state)
@@ -273,9 +273,9 @@ func TestEvidenceInspectorFixturePreservesOwnerAttachments_Integration(t *testin
 	}
 	other := appsupport.CreateIncidentInStore(t, harness.DB, actor, uuid.NewString(), "IR-OTHER-FIXTURE", "Unrelated fixture")
 	otherEvidence, err := evidencefixture.New(owners.Evidence, actor.ID, fixture.Descriptor{
-		ContributionID: "evidence.objects.v1", Version: "evidence.objects.v1", OwnerID: "module.evidence",
+		ContributionID: "evidence.objects.v2", Version: "evidence.objects.v2", OwnerID: "module.evidence",
 		ExpectedCounts: map[string]int{"evidence_records": 1, "object_blobs": 1, "total_object_bytes": 256},
-	}, 256, "Other Evidence")
+	}, []evidencefixture.Segment{{Count: 1, ObjectBytes: 256}}, "Other Evidence")
 	if err != nil {
 		t.Fatal(err)
 	}

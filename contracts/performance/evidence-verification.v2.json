@@ -1,8 +1,8 @@
 {
-  "schema_id": "cartulary.performance_evidence_verification_contract.v1",
-  "contract_id": "cartulary.performance.evidence_verification.v1",
-  "fixture_contract_id": "cartulary.performance.ac045.v2",
-  "fixture_profile_id": "evidence_heavy_snapshot_v2",
+  "schema_id": "cartulary.performance_evidence_verification_contract.v2",
+  "contract_id": "cartulary.performance.evidence_verification.v2",
+  "fixture_contract_id": "cartulary.performance.ac045.v3",
+  "fixture_profile_id": "evidence_heavy_snapshot_v3",
   "measurement_policy_id": "cartulary.measurement.single_observation.v1",
   "warmup_passes": 0,
   "measured_samples": 1,

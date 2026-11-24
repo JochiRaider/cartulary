@@ -15,7 +15,7 @@ import { validateReferencePackProgressObservation } from "./reference-pack-progr
 const observationValidators = new Map([
   ["timeline_large_grid_reporting_snapshot_v1", validateReportingProgressObservation],
   ["timeline_large_grid_import_snapshot_v1", validateImportProgressObservation],
-  ["evidence_heavy_snapshot_v2", (root, profile, observation) => {
+  ["evidence_heavy_snapshot_v3", (root, profile, observation) => {
     if (observation.predicate_id === "perf.evidence_verification.visible_with_cancel.v1") validateEvidenceVerificationObservation(root, profile, observation);
     else validateEvidenceInspectorObservation(root, profile, observation);
   }],

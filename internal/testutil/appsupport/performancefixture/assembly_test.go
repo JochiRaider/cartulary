@@ -328,17 +328,18 @@ func semanticCountsForTest(profile performancefixtureprofile.Profile) map[string
 func TestEvidenceHeavyContractRejectsIncompatibleProfiles(t *testing.T) {
 	newProfile := func() performancefixtureprofile.Profile {
 		return performancefixtureprofile.Profile{
-			FixtureProfileID: "evidence_heavy_snapshot_v2", FixtureVersion: "cartulary.perf.evidence_heavy.v2", Seed: 20260405,
-			SourceContractRefs:    []performancefixtureprofile.SourceContractRef{{SchemaID: "cartulary.performance_evidence_inspector_contract.v1", ContractID: "cartulary.performance.ac045.v2"}},
+			FixtureProfileID: "evidence_heavy_snapshot_v3", FixtureVersion: "cartulary.perf.evidence_heavy.v3", Seed: 20260405,
+			SourceContractRefs:    []performancefixtureprofile.SourceContractRef{{SchemaID: "cartulary.performance_evidence_inspector_contract.v2", ContractID: "cartulary.performance.ac045.v3"}},
 			RuntimeCredentialSets: []performancefixtureprofile.RuntimeCredentialSet{{SetID: "foreground_analysts", CredentialKind: "email_password", AccountCount: 1}},
-			ObjectPopulation:      performancefixtureprofile.ObjectPopulation{ObjectCount: 10000, TotalBytes: 20971520000},
+			ObjectPopulation:      performancefixtureprofile.ObjectPopulation{ObjectCount: 10000, TotalBytes: 250265600},
 		}
 	}
 	workload, err := evidenceHeavyContract(newProfile())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if workload.EvidenceRows != 10000 || workload.TimelineRows != 5000 || workload.LinkedEvidenceCount != 100 {
+	if workload.EvidenceRows != 10000 || workload.TimelineRows != 5000 || workload.LinkedEvidenceCount != 100 ||
+		workload.LinkedObjectBytes != 2097152 || workload.UnlinkedObjectBytes != 4096 {
 		t.Fatal("wrong generated workload")
 	}
 	for name, mutate := range map[string]func(*performancefixtureprofile.Profile){
@@ -346,8 +347,12 @@ func TestEvidenceHeavyContractRejectsIncompatibleProfiles(t *testing.T) {
 		"retired source": func(p *performancefixtureprofile.Profile) {
 			p.SourceContractRefs[0].ContractID = "cartulary.performance.ac045.v1"
 		},
-		"wrong schema":           func(p *performancefixtureprofile.Profile) { p.SourceContractRefs[0].SchemaID = "unknown" },
-		"retired fixture":        func(p *performancefixtureprofile.Profile) { p.FixtureVersion = "cartulary.perf.evidence_heavy.v1" },
+		"wrong schema":       func(p *performancefixtureprofile.Profile) { p.SourceContractRefs[0].SchemaID = "unknown" },
+		"retired fixture":    func(p *performancefixtureprofile.Profile) { p.FixtureVersion = "cartulary.perf.evidence_heavy.v1" },
+		"retired v2 fixture": func(p *performancefixtureprofile.Profile) { p.FixtureVersion = "cartulary.perf.evidence_heavy.v2" },
+		"retired v2 source": func(p *performancefixtureprofile.Profile) {
+			p.SourceContractRefs[0].ContractID = "cartulary.performance.ac045.v2"
+		},
 		"seed":                   func(p *performancefixtureprofile.Profile) { p.Seed++ },
 		"count":                  func(p *performancefixtureprofile.Profile) { p.ObjectPopulation.ObjectCount-- },
 		"bytes":                  func(p *performancefixtureprofile.Profile) { p.ObjectPopulation.TotalBytes-- },

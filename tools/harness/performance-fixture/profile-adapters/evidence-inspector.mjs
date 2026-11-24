@@ -3,9 +3,9 @@ import { canonicalJSONString, validateSchemaSync } from "../../contract/index.mj
 import { readPerformanceContract } from "./large-grid.mjs";
 
 export function validateEvidenceInspectorObservation(root, profile, observation) {
-  const contract=readPerformanceContract(root,"contracts/performance/ac045.v2.json","cartulary.performance_evidence_inspector_contract.v1");
+  const contract=readPerformanceContract(root,"contracts/performance/ac045.v3.json","cartulary.performance_evidence_inspector_contract.v2");
   const digest=`sha256:${createHash("sha256").update(canonicalJSONString(contract.fixture)).digest("hex")}`;
-  if (profile.fixture_profile_id!=="evidence_heavy_snapshot_v2" || observation.fixture_profile_id!==profile.fixture_profile_id ||
+  if (profile.fixture_profile_id!=="evidence_heavy_snapshot_v3" || observation.fixture_profile_id!==profile.fixture_profile_id ||
       observation.criterion_id!==contract.criterion_id || observation.predicate_id!==contract.predicate_id ||
       observation.fixture_id!==contract.fixture.fixture_id || observation.fixture_digest!==digest ||
       observation.measurement_policy_id!==contract.measurement_policy_id || observation.threshold_ms!==contract.threshold_ms ||

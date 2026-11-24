@@ -8,11 +8,11 @@ import test from "node:test";
 import { buildEvidenceInspectorObservation } from "./measurement-observations.mjs";
 const root = path.resolve(import.meta.dirname, "../../../..");
 test("Evidence inspector contract binds workload and view capabilities", async (t) => {
-    const contract = JSON.parse(readFileSync(path.join(root, "contracts/performance/ac045.v2.json"), "utf8"));
+    const contract = JSON.parse(readFileSync(path.join(root, "contracts/performance/ac045.v3.json"), "utf8"));
     const view = JSON.parse(readFileSync(path.join(root, "contracts/view-schemas/cartulary.view.timeline.v2.json"), "utf8"));
     const policy = JSON.parse(readFileSync(path.join(root, "tools/measurement_policy_owner.json"), "utf8"));
     const validate = (value) => {
-        validateSchemaSync("cartulary.performance_evidence_inspector_contract.v1", value);
+        validateSchemaSync("cartulary.performance_evidence_inspector_contract.v2", value);
         validateEvidenceInspectorCapabilities(value, view, policy);
     };
     validate(contract);
@@ -20,7 +20,7 @@ test("Evidence inspector contract binds workload and view capabilities", async (
         (value) => { value.predicate_id = "perf.evidence_inspector.metadata_shell.v1"; },
         (value) => { value.fixture.fixture_id = "cartulary.perf.evidence_heavy.v1"; },
         (value) => { value.fixture.object_count = 9999; },
-        (value) => { value.fixture.object_bytes = 0; },
+        (value) => { value.fixture.linked_object_bytes = 0; },
         (value) => { value.fixture.total_object_bytes--; },
         (value) => { value.fixture.stub_blob_bytes = true; },
         (value) => { value.workload.preview_preflight_records = 5; },
@@ -44,8 +44,8 @@ test("Evidence inspector contract binds workload and view capabilities", async (
     assert.throws(() => validateEvidenceInspectorCapabilities(contract, view, { ...policy, measured_samples: 99 }), /sampling differs/u);
 });
 test("Evidence inspector proof admits exact samples and rejects malformed identities and timing", async (t) => {
-    const contract = JSON.parse(readFileSync(path.join(root, "contracts/performance/ac045.v2.json"), "utf8"));
-    const profile = { fixture_profile_id: "evidence_heavy_snapshot_v2" };
+    const contract = JSON.parse(readFileSync(path.join(root, "contracts/performance/ac045.v3.json"), "utf8"));
+    const profile = { fixture_profile_id: "evidence_heavy_snapshot_v3" };
     const observation = buildEvidenceInspectorObservation();
     const validate = value => { validateSchemaSync(value.schema_id, value); validateProfileMeasurementObservation(root, profile, value); };
     validate(observation);

@@ -2,7 +2,7 @@
   "schema_id": "cartulary.performance_fixture_builder_policy.v2",
   "builders": [
     {
-      "fixture_profile_id": "evidence_heavy_snapshot_v2",
+      "fixture_profile_id": "evidence_heavy_snapshot_v3",
       "runtime_profile_id": "default",
       "resource_profile_id": "performance_fixture_builder",
       "fixture_capability": "postgres_dedicated",

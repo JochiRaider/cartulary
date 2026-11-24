@@ -50,9 +50,9 @@ export function validateViewChangeCapabilities(contract, viewSchema) {
 }
 
 export function loadPerformanceContracts({ performancePath, policyPath, pastePath, fixturePath, viewChangePath, viewSchemaPath, presencePath, historyPath, anchorPath, importDiscoveryPath, importApplyPath, reportingProgressPath, evidenceVerificationPath, evidenceInspectorPath, referencePackProgressPath }) {
-  const evidenceVerification = loadJSON(evidenceVerificationPath, "cartulary.performance_evidence_verification_contract.v1");
-  const evidenceInspector = loadJSON(evidenceInspectorPath, "cartulary.performance_evidence_inspector_contract.v1");
-  if (evidenceVerification.value.fixture_contract_id !== evidenceInspector.value.contract_id || evidenceVerification.value.workload.object_bytes !== evidenceInspector.value.fixture.object_bytes || evidenceVerification.value.workload.preview_preflight_records !== evidenceInspector.value.fixture.linked_evidence_count) throw new Error("Evidence verification fixture binding differs from its owner");
+  const evidenceVerification = loadJSON(evidenceVerificationPath, "cartulary.performance_evidence_verification_contract.v2");
+  const evidenceInspector = loadJSON(evidenceInspectorPath, "cartulary.performance_evidence_inspector_contract.v2");
+  if (evidenceVerification.value.fixture_contract_id !== evidenceInspector.value.contract_id || evidenceVerification.value.workload.object_bytes !== evidenceInspector.value.fixture.linked_object_bytes || evidenceVerification.value.workload.preview_preflight_records !== evidenceInspector.value.fixture.linked_evidence_count) throw new Error("Evidence verification fixture binding differs from its owner");
   const referencePackProgress = loadJSON(referencePackProgressPath, "cartulary.performance_reference_pack_progress_contract.v1");
   const reportingProgress = loadJSON(reportingProgressPath, "cartulary.performance_reporting_progress_contract.v1");
   const importDiscovery = loadJSON(importDiscoveryPath, "cartulary.performance_import_discovery_contract.v2");

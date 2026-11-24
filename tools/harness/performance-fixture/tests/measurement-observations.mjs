@@ -4,8 +4,8 @@ import path from "node:path";
 import { canonicalJSONString } from "../../contract/index.mjs";
 const root = path.resolve(import.meta.dirname, "../../../..");
 export function buildEvidenceInspectorObservation() {
-    const contract = JSON.parse(readFileSync(path.join(root, "contracts/performance/ac045.v2.json"), "utf8"));
-    const profile = { fixture_profile_id: "evidence_heavy_snapshot_v2" };
+    const contract = JSON.parse(readFileSync(path.join(root, "contracts/performance/ac045.v3.json"), "utf8"));
+    const profile = { fixture_profile_id: "evidence_heavy_snapshot_v3" };
     const sample = (index) => ({ sample_index: index, warmup: index === 0, total_ms: 100, accepted_at: index * 1000 + 10, metadata_started_at: index * 1000 + 11, metadata_completed_at: index * 1000 + 50, first_frame_at: index * 1000 + 90, second_frame_at: index * 1000 + 110 });
     const proof = { schema_id: "cartulary.evidence_inspector_measurement_proof.v1", kind: "evidence_inspector", consecutive_frames: 2, all_content_visible: true, bindings_stable: true, fresh_metadata_each_open: true,
         target: { record_id: "00000000-0000-0000-0000-000000000100", row_version: 2 },
