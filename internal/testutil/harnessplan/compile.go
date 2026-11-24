@@ -47,7 +47,7 @@ func Compile(in *Inputs, selection Selection, options Options) (*Graph, error) {
 		return nil, fmt.Errorf("%w: compilation needs CPU tokens and a Go version", ErrSelection)
 	}
 	c := &compiler{in: in, options: options, units: map[string]*Unit{}, targets: map[string][]string{}, rows: map[string]*Row{}, shellRows: map[string][]*Row{},
-		selected: map[string]bool{}, forwarded: selection.Forwarded}
+		selected: map[string]bool{}, forwarded: selection.Forwarded, assigned: map[string]string{}, planned: map[string]plannedUnit{}}
 	for i := range in.Catalog.Rows {
 		row := &in.Catalog.Rows[i]
 		c.rows[row.RowID] = row
@@ -60,6 +60,16 @@ func Compile(in *Inputs, selection Selection, options Options) (*Graph, error) {
 	}
 	for _, target := range selection.Targets {
 		c.selected[target] = true
+	}
+	// Every Go and Vitest row the selection reaches is packed in one pass, so
+	// a row reached twice (selected, required by a policy, named by a union)
+	// is bound to exactly one unit.
+	reached, err := c.reach(selection)
+	if err != nil {
+		return nil, err
+	}
+	if err := c.assign(reached); err != nil {
+		return nil, err
 	}
 	for _, target := range dedupe(selection.Targets) {
 		if _, err := c.target(target, nil); err != nil {
@@ -88,6 +98,122 @@ type compiler struct {
 	shellRows map[string][]*Row // operation -> shell rows that report it
 	selected  map[string]bool   // operations and unions named by the selection
 	forwarded map[string]string // inputs forwarded to selected operations
+	// assigned binds each reached Go and Vitest row to its planned unit;
+	// planned holds each planned unit's contract key, contract and rows.
+	assigned map[string]string
+	planned  map[string]plannedUnit
+}
+
+// plannedUnit is a runner unit whose rows are assigned but which is built
+// only when something needs it.
+type plannedUnit struct {
+	contract contract
+	rows     []*Row
+}
+
+// reach collects every row the selection reaches: its rows, union members,
+// policies' required rows, and the rows reached through the targets that
+// rows and policies wait for. It compiles nothing.
+func (c *compiler) reach(selection Selection) ([]*Row, error) {
+	var rows []*Row
+	seenRows, seenTargets := map[string]bool{}, map[string]bool{}
+	var walkTarget func(string) error
+	addRow := func(id string) error {
+		row, ok := c.rows[id]
+		if !ok {
+			return fmt.Errorf("%w: unknown row %s", ErrSelection, id)
+		}
+		if seenRows[id] {
+			return nil
+		}
+		seenRows[id] = true
+		if row.Runner == RunnerShell {
+			return walkTarget(row.Selector.OperationID)
+		}
+		rows = append(rows, row)
+		if row.Runner != RunnerGo && row.Runner != RunnerVitest {
+			return nil
+		}
+		targets := append(slices.Clone(row.PreparationOperations), c.in.Owner.InvocationPolicies[row.Runner].PreparationOperations...)
+		if len(row.ServiceDependencies) != 0 {
+			targets = append(targets, "harness.test_service_images")
+		}
+		for _, binary := range c.in.Topology.RuntimeBinaries {
+			if slices.Contains(row.RuntimeBinaryIDs, binary.ID) {
+				targets = append(targets, binary.ProducerOperation)
+			}
+		}
+		for _, target := range targets {
+			if err := walkTarget(target); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	walkPolicy := func(name string) error {
+		policy, ok := c.in.Owner.PolicyUnits[name]
+		if !ok {
+			return nil
+		}
+		for _, need := range policy.Needs {
+			if err := walkTarget(need); err != nil {
+				return err
+			}
+		}
+		for _, required := range policy.RequiredRows {
+			if err := addRow(required.RowID); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	walkTarget = func(name string) error {
+		if seenTargets[name] {
+			return nil
+		}
+		seenTargets[name] = true
+		if members, ok := c.in.Owner.TargetMembers[name]; ok {
+			for _, member := range members {
+				var err error
+				switch {
+				case member.RowID != "":
+					err = addRow(member.RowID)
+				case member.Catalog != nil:
+					for _, id := range c.in.catalogRows(*member.Catalog) {
+						if err = addRow(id); err != nil {
+							break
+						}
+					}
+				case member.OperationID != "":
+					err = walkTarget(member.OperationID)
+				default:
+					err = walkTarget(member.Name)
+				}
+				if err != nil {
+					return err
+				}
+			}
+			return walkPolicy(name)
+		}
+		if _, ok := c.in.Owner.Operations[name]; ok {
+			for _, row := range c.shellRows[name] {
+				seenRows[row.RowID] = true
+			}
+			return walkPolicy(name)
+		}
+		return fmt.Errorf("%w: unknown target %s", ErrSelection, name)
+	}
+	for _, target := range dedupe(selection.Targets) {
+		if err := walkTarget(target); err != nil {
+			return nil, err
+		}
+	}
+	for _, id := range dedupe(selection.Rows) {
+		if err := addRow(id); err != nil {
+			return nil, err
+		}
+	}
+	return rows, nil
 }
 
 // target compiles an operation or a private union and returns its end units:
@@ -296,35 +422,72 @@ func (c *compiler) operation(id string, stack []string) (string, error) {
 	return unitID, nil
 }
 
-// compileRows compiles catalog rows and returns the IDs of their units.
+// compileRows compiles catalog rows and returns the IDs of their units: a
+// shell row's operation unit, or the planned unit a runner row is assigned to.
 func (c *compiler) compileRows(ids []string, stack []string) ([]string, error) {
-	var runnerRows []*Row
 	var units []string
 	for _, id := range dedupe(ids) {
 		row, ok := c.rows[id]
 		if !ok {
 			return nil, fmt.Errorf("%w: unknown row %s", ErrSelection, id)
 		}
+		var unit string
+		var err error
+		if row.Runner == RunnerShell {
+			unit, err = c.operation(row.Selector.OperationID, stack)
+		} else if planned, ok := c.assigned[id]; ok {
+			unit, err = c.runnerUnit(planned, stack)
+		} else {
+			err = fmt.Errorf("%w: row %s was compiled without being reached", ErrSelection, id)
+		}
+		if err != nil {
+			return nil, err
+		}
+		units = append(units, unit)
+	}
+	return dedupe(units), nil
+}
+
+// assign packs the reached Go and Vitest rows into planned units.
+func (c *compiler) assign(rows []*Row) error {
+	var runnerRows []*Row
+	for _, row := range rows {
 		switch {
-		case row.Runner == RunnerShell:
-			unit, err := c.operation(row.Selector.OperationID, stack)
-			if err != nil {
-				return nil, err
-			}
-			units = append(units, unit)
 		case row.Runner == RunnerGo && (row.FixtureProfileID != "" || row.EvidenceClass == "measurement"):
-			return nil, fmt.Errorf("%w: measurement row %s", ErrUnsupported, id)
+			return fmt.Errorf("%w: measurement row %s", ErrUnsupported, row.RowID)
 		case row.Runner == RunnerGo, row.Runner == RunnerVitest:
 			runnerRows = append(runnerRows, row)
 		default:
-			return nil, fmt.Errorf("%w: %s row %s", ErrUnsupported, row.Runner, id)
+			return fmt.Errorf("%w: %s row %s", ErrUnsupported, row.Runner, row.RowID)
 		}
 	}
-	runnerUnits, err := c.runnerUnits(runnerRows, stack)
-	if err != nil {
-		return nil, err
+	groups := map[string][]*Row{}
+	contracts := map[string]contract{}
+	for _, row := range runnerRows {
+		contract, err := c.contract(row)
+		if err != nil {
+			return err
+		}
+		key := digest(contract)
+		groups[key] = append(groups[key], row)
+		contracts[key] = contract
 	}
-	return dedupe(append(units, runnerUnits...)), nil
+	for _, key := range slices.Sorted(maps.Keys(groups)) {
+		contract := contracts[key]
+		for _, bin := range c.split(c.items(groups[key], contract), contract) {
+			rowIDs := make([]string, len(bin))
+			for i, row := range bin {
+				rowIDs[i] = row.RowID
+			}
+			slices.Sort(rowIDs)
+			id := contract.Runner + ":" + key[:16] + ":" + digest(rowIDs)[:12]
+			c.planned[id] = plannedUnit{contract: contract, rows: bin}
+			for _, row := range rowIDs {
+				c.assigned[row] = id
+			}
+		}
+	}
+	return nil
 }
 
 // contract is everything that must be equal for rows to share a runner
@@ -354,32 +517,6 @@ type contract struct {
 type item struct {
 	rows []*Row
 	work int64
-}
-
-func (c *compiler) runnerUnits(rows []*Row, stack []string) ([]string, error) {
-	groups := map[string][]*Row{}
-	contracts := map[string]contract{}
-	for _, row := range rows {
-		contract, err := c.contract(row)
-		if err != nil {
-			return nil, err
-		}
-		key := digest(contract)
-		groups[key] = append(groups[key], row)
-		contracts[key] = contract
-	}
-	var ids []string
-	for _, key := range slices.Sorted(maps.Keys(groups)) {
-		contract := contracts[key]
-		for _, bin := range c.split(c.items(groups[key], contract), contract) {
-			id, err := c.runnerUnit(key, contract, bin, stack)
-			if err != nil {
-				return nil, err
-			}
-			ids = append(ids, id)
-		}
-	}
-	return ids, nil
 }
 
 func (c *compiler) contract(row *Row) (contract, error) {
@@ -496,9 +633,13 @@ func (c *compiler) estimate(row Row) int64 {
 	return c.in.Owner.EvidenceEstimatesMS[row.EvidenceClass]
 }
 
-// runnerUnit builds one Go or Vitest unit. Its ID is the digest of its
-// contract and row set.
-func (c *compiler) runnerUnit(key string, contract contract, rows []*Row, stack []string) (string, error) {
+// runnerUnit builds a planned Go or Vitest unit. Its ID is the digest of
+// its contract and row set.
+func (c *compiler) runnerUnit(id string, stack []string) (string, error) {
+	if _, ok := c.units[id]; ok {
+		return id, nil
+	}
+	contract, rows := c.planned[id].contract, c.planned[id].rows
 	rowIDs := make([]string, len(rows))
 	owners := map[string]bool{}
 	work := int64(0)
@@ -508,10 +649,6 @@ func (c *compiler) runnerUnit(key string, contract contract, rows []*Row, stack 
 		work += c.estimate(*row)
 	}
 	slices.Sort(rowIDs)
-	id := contract.Runner + ":" + key[:16] + ":" + digest(rowIDs)[:12]
-	if _, ok := c.units[id]; ok {
-		return id, nil
-	}
 	var needs []string
 	targets := slices.Clone(contract.PreparationOperations)
 	if len(contract.ServiceDependencies) != 0 {

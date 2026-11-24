@@ -165,6 +165,9 @@ type Invocation struct {
 	Cache       []CacheFact
 	CacheInputs map[string][]int
 	StartedAt   time.Time
+	// Projections are the targets a command or aggregate graph reports on
+	// besides the selected command itself.
+	Projections map[string]Projection
 }
 
 // Assemble binds a compiled graph to one invocation and validates the result.
@@ -194,7 +197,7 @@ func Assemble(in *Inputs, graph *Graph, invocation Invocation) (*Plan, error) {
 		BrowserLaneLimit:           invocation.BrowserLaneLimit,
 		HostProfile:                invocation.Host,
 		InstrumentationPolicyBytes: string(invocation.InstrumentationPolicy),
-		Projections:                map[string]Projection{invocation.Target: {CommandID: invocation.CommandID, UnitIDs: ids}},
+		Projections:                map[string]Projection{},
 		Capacities:                 invocation.Snapshot.Capacities(),
 		AgingQuantumMS:             in.Owner.AgingQuantumMS,
 		Bindings:                   maps.Clone(invocation.Bindings),
@@ -203,6 +206,8 @@ func Assemble(in *Inputs, graph *Graph, invocation Invocation) (*Plan, error) {
 		CacheInputs:                maps.Clone(invocation.CacheInputs),
 		binaries:                   map[string]string{},
 	}
+	maps.Copy(plan.Projections, invocation.Projections)
+	plan.Projections[invocation.Target] = Projection{CommandID: invocation.CommandID, UnitIDs: ids}
 	for _, binary := range in.Topology.RuntimeBinaries {
 		plan.binaries[binary.ID] = binary.ConsumerEnv
 	}

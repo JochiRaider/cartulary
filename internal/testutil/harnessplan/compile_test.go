@@ -154,6 +154,21 @@ func TestPlannerCompilation(t *testing.T) {
 		}
 	})
 
+	t.Run("a row reached twice is bound once", func(t *testing.T) {
+		// The suite union selects every backend unit row; selecting one of
+		// them directly as well must not plan it twice.
+		suite := rowsWhere(func(row Row) bool {
+			return row.Runner == RunnerGo && goSuite(row) == "unit" && row.FixtureProfileID == "" && row.EvidenceClass != "measurement"
+		})
+		graph, err := Compile(inputs, Selection{Rows: suite[:1], Targets: []string{"harness.suite_backend_unit"}}, options)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := bound(graph); got[suite[0]] == "" {
+			t.Fatalf("%s is not bound", suite[0])
+		}
+	})
+
 	t.Run("forwarded inputs reach only the selected operations", func(t *testing.T) {
 		graph, err := Compile(inputs, Selection{Targets: []string{"harness.go_vulncheck"}, Forwarded: map[string]string{"GOVULNCHECK_DB": "/db"}}, options)
 		if err != nil {

@@ -12,8 +12,17 @@ import (
 // TaskSurface is the planning part of the authored task surface: the public
 // commands, their input contracts and selection bindings.
 type TaskSurface struct {
-	Targets     []SurfaceTarget       `json:"targets"`
-	MakeRecipes map[string]MakeRecipe `json:"make_recipes"`
+	Targets       []SurfaceTarget       `json:"targets"`
+	MakeRecipes   map[string]MakeRecipe `json:"make_recipes"`
+	HarnessChecks []HarnessCheck        `json:"harness_checks"`
+}
+
+// HarnessCheck is a private harness check; a gate smoke role marks the checks
+// an aggregate reports on when its graph contains them.
+type HarnessCheck struct {
+	Name          string       `json:"name"`
+	GateSmokeRole string       `json:"gate_smoke_role"`
+	Selection     TargetMember `json:"selection"`
 }
 
 // SurfaceTarget is one Make target.
@@ -23,6 +32,12 @@ type SurfaceTarget struct {
 	TargetClass      string            `json:"target_class"`
 	InputContract    *InputContract    `json:"input_contract"`
 	SelectionBinding *SelectionBinding `json:"selection_binding"`
+	SideEffects      []SideEffect      `json:"side_effects"`
+}
+
+// SideEffect is a class of effect a command has beyond its evidence.
+type SideEffect struct {
+	Class string `json:"class"`
 }
 
 // InputContract declares a command's inputs and the constraints between them.
@@ -63,10 +78,14 @@ type SelectionBinding struct {
 	Selection        string            `json:"selection"`
 	DefaultSelection string            `json:"default_selection"`
 	Variants         map[string]string `json:"variants"`
+	// BrowserMode is set for bindings that run browser stages in a mode of
+	// their own (snapshot updates).
+	BrowserMode string `json:"browser_mode"`
 }
 
-// MakeRecipe is how a public target runs; an operation recipe names the
-// operation the target executes.
+// MakeRecipe is how a public target runs: a work-graph recipe selects
+// through the command's binding; an operation recipe names the operation the
+// target executes.
 type MakeRecipe struct {
 	Type        string `json:"type"`
 	OperationID string `json:"operation_id"`

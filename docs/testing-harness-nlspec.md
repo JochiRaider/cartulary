@@ -11862,6 +11862,25 @@ the graph without parsing sources. The Vitest profile's `unit_inputs` add the
 runner's own configuration and setup files, which every Vitest invocation
 loads whatever workspace its files belong to.
 
+An aggregate selects every row placed at or below its tier and the policy
+roots of the aggregate and of every aggregate it inherits. The planner first
+collects every row a selection reaches. That covers selected rows, union
+members, policies' required rows, and rows reached through the operations
+rows and policies wait for. It packs all of them in one pass, so a row
+reached more than once is bound to exactly one unit.
+
+A command or aggregate plan projects what it reports on, each projection
+closed under needs. It projects the suite of every bound row (a Go row's
+`backend-<suite>`, `frontend-unit`, or a shell row's operation) and every
+operation. It also projects every other public command and gate smoke check
+whose own plan the graph contains: every row the candidate binds is bound
+here, and every operation unit the candidate compiles is here with an
+identical semantic digest. A candidate the planner cannot compile is not
+contained. Aggregates, owner slices, browser modes, commands with required
+inputs and commands that write authored sources are never candidates. A
+projected public command carries its own command ID; every other projection
+carries the selected command's.
+
 ## SQL architecture analysis completeness
 
 Architecture checks that inspect SQL embedded in Go MUST use Go AST analysis for

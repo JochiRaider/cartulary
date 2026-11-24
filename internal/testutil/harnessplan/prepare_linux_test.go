@@ -129,6 +129,49 @@ func TestPlanPreparation(t *testing.T) {
 		}
 	})
 
+	t.Run("aggregates plan their tier and report on what they contain", func(t *testing.T) {
+		inputs, err := Load(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, aggregate := range []string{"test-fast", "check"} {
+			plan, err := Prepare(root, Request{Kind: "aggregate", Target: aggregate, Environment: environment(nil)}, now, 42)
+			if err != nil {
+				t.Fatalf("%s: %v", aggregate, err)
+			}
+			rank := slices.Index(inputs.Owner.TierOrder, inputs.Owner.AggregateTiers[aggregate])
+			bound := map[string]bool{}
+			for _, unit := range plan.Graph.Units {
+				for _, binding := range unit.RowBindings {
+					bound[binding.RowID] = true
+				}
+			}
+			for _, row := range inputs.Catalog.Rows {
+				placement := slices.Index(inputs.Owner.TierOrder, row.AggregatePlacement)
+				if placement >= 0 && placement <= rank && !bound[row.RowID] {
+					t.Fatalf("%s does not run tier row %s", aggregate, row.RowID)
+				}
+				if row.AggregatePlacement == "explicit_only" && bound[row.RowID] {
+					t.Fatalf("%s runs explicit-only row %s", aggregate, row.RowID)
+				}
+			}
+			for _, root := range inputs.Owner.AggregatePolicyRoots[aggregate] {
+				if _, ok := plan.Projections[root]; !ok && inputs.Owner.Operations[root].Kind != "" {
+					t.Fatalf("%s lacks a projection for its root %s", aggregate, root)
+				}
+			}
+			for _, suite := range []string{"backend-unit", "frontend-unit"} {
+				projection, ok := plan.Projections[suite]
+				if !ok || projection.CommandID != plan.Manifest.CommandID {
+					t.Fatalf("%s lacks the %s suite projection", aggregate, suite)
+				}
+			}
+			if len(plan.Projections[aggregate].UnitIDs) != len(plan.Graph.Units) {
+				t.Fatalf("%s projection does not cover the graph", aggregate)
+			}
+		}
+	})
+
 	t.Run("a public operation command selects its operation", func(t *testing.T) {
 		plan, err := Prepare(root, Request{Kind: "target", Target: "go-vulncheck", Environment: environment(nil)}, now, 42)
 		if err != nil {
@@ -207,7 +250,7 @@ func TestPlanPreparation(t *testing.T) {
 			request Request
 			want    error
 		}{
-			"aggregate selection":          {Request{Kind: "aggregate", Target: "check", Environment: environment(nil)}, ErrUnsupported},
+			"browser aggregate":            {Request{Kind: "aggregate", Target: "ci", Environment: environment(nil)}, ErrUnsupported},
 			"unknown command":              {Request{Kind: "command", Target: "no-such-command", Environment: environment(nil)}, ErrSelection},
 			"unknown owner":                {command(map[string]string{"OWNER": "harness.no_such_owner"}), ErrSelection},
 			"row of another owner":         {command(map[string]string{"OWNER": "harness.test_catalog", "ROWS": row}), ErrSelection},

@@ -106,9 +106,16 @@ func Prepare(root string, request Request, now time.Time, pid int) (*Plan, error
 	if err := json.Unmarshal(pins, &toolchain); err != nil || toolchain.GoVersion == "" {
 		return nil, fmt.Errorf("%w: %s has no go_version", ErrInput, toolchainPinsPath)
 	}
-	graph, err := Compile(in, resolved.selection, Options{CPUTokens: budget, GoVersion: toolchain.GoVersion, GoShuffleSeed: value("GO_SHUFFLE_SEED", ""), AttachedServices: mode == "attach"})
+	options := Options{CPUTokens: budget, GoVersion: toolchain.GoVersion, GoShuffleSeed: value("GO_SHUFFLE_SEED", ""), AttachedServices: mode == "attach"}
+	graph, err := Compile(in, resolved.selection, options)
 	if err != nil {
 		return nil, err
+	}
+	var projections map[string]Projection
+	if request.Kind == "command" || request.Kind == "aggregate" {
+		if projections, err = in.projections(graph, resolved.entry, options); err != nil {
+			return nil, err
+		}
 	}
 	bindings, err := launchBindings(root, in, request.Environment, mode, sessionFile)
 	if err != nil {
@@ -156,7 +163,7 @@ func Prepare(root string, request Request, now time.Time, pid int) (*Plan, error
 		SourceInputs: source.Inputs, SourceCommit: source.Commit, SourceState: source.State,
 		ToolchainDigest: toolchainDigest, CacheMode: cacheMode,
 		InstrumentationMode: instrumentation, InstrumentationPolicy: policy,
-		Host: DetectHostProfile(), Bindings: bindings, Cache: cache, CacheInputs: cacheInputs, StartedAt: now,
+		Host: DetectHostProfile(), Bindings: bindings, Cache: cache, CacheInputs: cacheInputs, StartedAt: now, Projections: projections,
 	})
 }
 

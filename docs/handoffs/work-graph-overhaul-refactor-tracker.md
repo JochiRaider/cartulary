@@ -716,6 +716,51 @@ JSON-shape rows; every `harness.test_catalog` row; `source-check`
 only on the known `installed-readiness.mjs` import (task_77d37cee); its
 owner-schema test passes.
 
+**Milestone 3, slice 3b: aggregates (2026-11-23).**
+
+- *Selection.* `--selection aggregate` (and a `target` request for an
+  aggregate) selects every row placed at or below the tier plus the policy
+  roots of the aggregate and every aggregate it inherits.
+- *One packing pass.* Compilation now first walks the selection for every row
+  it reaches: selected rows, union members, policies' required rows, and rows
+  reached through the operations rows and policies wait for. It packs all
+  Go and Vitest rows once, then builds units on demand. Before, a row reached
+  twice (for example in the tier and in a policy's required rows) was compiled
+  in separate calls and could land in two units.
+- *Projections.* Command and aggregate plans project row suites
+  (`backend-<suite>`, `frontend-unit`), every operation, and every other
+  public command and gate smoke check whose own plan the graph contains:
+  every candidate row is bound here, and every candidate operation unit is
+  here with an identical digest. Each projection is closed under needs.
+  Containment by row binding replaces the JavaScript planner's comparison of
+  separately packed units, which could never match a packed row; a
+  gate-smoke check that names a row is now projected whenever its row runs.
+  Go integration-support rows report under `backend-integration`, the suite
+  `SUITE=backend-integration` selects.
+
+Runs (Go planner, `CARTULARY_HARNESS_PLANNER=go`):
+
+- `make test-fast` passed: 180 units (168 Go, 8 Vitest, 4 operations), all
+  1213 rows passed in 113.5 s graph time. Every cacheable unit missed because
+  the Go planner's cache keys are new.
+- `make check` passed: 367 units (311 Go, 13 Vitest, 43 operations) and 58
+  projections, including the contained public commands (`lint`,
+  `go-vulncheck`, `go-gosec-targeted`, `go-error-declaration-check`,
+  `migration-drift`, `otel-conformance`) and the three gate smoke checks. All
+  1891 rows passed in 856.6 s graph time (14 min 24 s for the whole command),
+  with 144 cache hits partly warmed by the `test-fast` run.
+
+This is one partly warm run. The JavaScript-planned `check` runs recorded on
+2026-11-22 took 1077–1352 s and were insensitive to cache hits; no
+JavaScript-planned `check` was run under the same cache state for comparison.
+Preparing the `check` plan in Go takes 0.89 s (6.5 MB, 197 cache-eligible
+units).
+
+Tests: aggregate preparation for `test-fast` and `check` (every tier row
+bound, no explicit-only row, a projection for every root operation, suite
+projections, the aggregate's projection covering the graph); a row reached
+both directly and through a union is bound once; `ci` reports unsupported.
+
 ## 9. Decisions requested
 
 - Decided 2026-11-23: Option B (staged Go replacement); Stage 0 tried and

@@ -97,7 +97,7 @@ func (in *Inputs) resolve(request Request) (command, error) {
 	case "command":
 		resolved.selection, err = in.commandSelection(entry, inputs)
 	case "aggregate":
-		return command{}, fmt.Errorf("%w: aggregate selections (milestone 3)", ErrUnsupported)
+		resolved.selection, err = in.aggregateSelection(request.Target)
 	default:
 		return fail("unknown selection kind %q", request.Kind)
 	}
@@ -171,7 +171,7 @@ func (in *Inputs) targetSelection(name string, entry SurfaceTarget, inputs map[s
 		return Selection{}, fmt.Errorf("%w: unknown public command %s", ErrSelection, name)
 	}
 	if _, ok := in.Owner.AggregateTiers[name]; ok {
-		return Selection{}, fmt.Errorf("%w: aggregate %s (milestone 3)", ErrUnsupported, name)
+		return in.aggregateSelection(name)
 	}
 	if entry.SelectionBinding != nil {
 		return in.commandSelection(entry, inputs)
@@ -180,6 +180,36 @@ func (in *Inputs) targetSelection(name string, entry SurfaceTarget, inputs map[s
 		return Selection{Targets: []string{recipe.OperationID}, Forwarded: forwardedInputs(entry, inputs)}, nil
 	}
 	return Selection{}, fmt.Errorf("%w: command %s has no execution selection", ErrSelection, name)
+}
+
+// aggregateSelection selects an aggregate's tier: every row placed at or
+// below the tier, and the policy roots of the aggregate and of the
+// aggregates it inherits.
+func (in *Inputs) aggregateSelection(name string) (Selection, error) {
+	tier, ok := in.Owner.AggregateTiers[name]
+	if !ok {
+		return Selection{}, fmt.Errorf("%w: %s is not an aggregate", ErrSelection, name)
+	}
+	rank := slices.Index(in.Owner.TierOrder, tier)
+	var rows []string
+	for _, row := range in.Catalog.Rows {
+		if placement := slices.Index(in.Owner.TierOrder, row.AggregatePlacement); placement >= 0 && placement <= rank {
+			rows = append(rows, row.RowID)
+		}
+	}
+	var roots []string
+	pending, seen := []string{name}, map[string]bool{}
+	for len(pending) != 0 {
+		aggregate := pending[0]
+		pending = pending[1:]
+		if seen[aggregate] {
+			continue
+		}
+		seen[aggregate] = true
+		roots = append(roots, in.Owner.AggregatePolicyRoots[aggregate]...)
+		pending = append(pending, in.Owner.AggregatePolicyInherits[aggregate]...)
+	}
+	return Selection{Rows: rows, Targets: dedupe(roots)}, nil
 }
 
 // commandSelection resolves a command's selection binding: an owner slice
