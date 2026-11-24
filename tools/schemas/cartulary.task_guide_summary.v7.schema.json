@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.task_guide_summary.v6",
+  "$id": "cartulary.task_guide_summary.v7",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -19,7 +19,7 @@
   ],
   "properties": {
     "schema_id": {
-      "const": "cartulary.task_guide_summary.v6"
+      "const": "cartulary.task_guide_summary.v7"
     },
     "evidence_epoch": {
       "const": "cartulary.test_evidence.nlspec.v1"
@@ -209,7 +209,9 @@
         "type": "string",
         "enum": [
           "make browser-e2e SUITE=visual",
-          "make harness-contract SUITE=ui-review"
+          "make harness-contract SUITE=ui-review",
+          "make release-check",
+          "make release-measure"
         ]
       }
     }

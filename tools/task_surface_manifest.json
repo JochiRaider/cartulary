@@ -96,6 +96,7 @@
       "package-release",
       "release-check",
       "release-evidence-verify",
+      "release-measure",
       "seaweedfs-compatibility",
       "seaweedfs-release-gate",
       "source-check",
@@ -671,7 +672,11 @@
         },
         {
           "target": "release-check",
-          "description": "run check, extended harness, frontend readiness, release artifacts, build verification, and release-readiness aggregation"
+          "description": "qualify release-only work: package producer and consumers, supply chain, cryptographic policy and SeaweedFS"
+        },
+        {
+          "target": "release-measure",
+          "description": "run the quiet measurement campaign for the timed conformance criteria"
         },
         {
           "target": "seaweedfs-compatibility",
@@ -962,7 +967,82 @@
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
-      "selection": "aggregate",
+      "selection": "command",
+      "test_target": "self",
+      "binding_names": [
+        "ACTION",
+        "BENCHMARK_MANIFEST",
+        "BIOME_CHECK_FLAGS",
+        "BIOME_SCRIPT_CHECK_FLAGS",
+        "BUILT_AT",
+        "CARTULARY_CLEANUP_DRY_RUN",
+        "CARTULARY_DESTRUCTIVE_CONFIRM",
+        "CARTULARY_TEST_RESULTS_DIR",
+        "CARTULARY_TEST_RUN_ID",
+        "CONFIG_FILE",
+        "CURDIR",
+        "CYCLONEDX_GOMOD_BIN",
+        "EMBEDDED_BROWSER_BOOTSTRAP",
+        "EMBEDDED_CLIENT_ASSET_MANIFEST",
+        "EMBEDDED_CLIENT_SUPPORT_REGISTRY",
+        "EMBEDDED_EXTENSION_INTEGRITY",
+        "EMBEDDED_EXTENSION_INTEGRITY_DIGEST",
+        "EMBEDDED_WEB_ASSET_ARCHIVE",
+        "EMBEDDED_WEB_ASSET_READY_STAMP",
+        "EMBEDDED_WEB_ASSET_STAMP",
+        "FOUNDATION_SCHEMA_VALIDATORS",
+        "FRONTEND_INSTALL_STAMP",
+        "FRONTEND_TOOLCHAIN_STAMP",
+        "GO",
+        "GOOSE_BIN",
+        "GOSEC_BIN",
+        "GOVULNCHECK_BIN",
+        "GO_CACHE_DIR",
+        "GO_MOD_CACHE_DIR",
+        "GO_TMP_DIR",
+        "GO_TOOLCHAIN",
+        "HARNESS_RUNTIME_BIN",
+        "INPUT",
+        "LICENSE_REPORT_ARTIFACT",
+        "MAKE",
+        "MIGRATE_BIN",
+        "MODULE",
+        "NODE_BIN",
+        "NODE_RUNTIME_DIR",
+        "NODE_VERSION",
+        "OBJECT_STORE_BUCKET",
+        "OPERATOR_BIN",
+        "PATH",
+        "PLAYWRIGHT_INSTALL_STAMP",
+        "PNPM",
+        "PNPM_VERSION",
+        "POSTGRES_BASELINE_PROFILE",
+        "REPORT_RENDERER_RECEIPT",
+        "RESULTS_DIR",
+        "REVIEW_PROFILE",
+        "RUN_STEP_SCRIPT",
+        "SBOM_ARTIFACT",
+        "SERVER_BIN",
+        "SERVER_HARNESS_BIN",
+        "SHELLCHECK_BIN",
+        "SHELLCHECK_VERSION",
+        "SOURCECHECK_BIN",
+        "SOURCE_DIR",
+        "SOURCE_LOCK",
+        "SQLC_BIN",
+        "STATICCHECK_BIN",
+        "SYFT_BIN",
+        "TEST_SERVICES_BIN",
+        "WEB_DIST_INDEX"
+      ]
+    },
+    "release-measure": {
+      "prerequisites": [
+        "$(NODE_BIN)",
+        "$(HARNESS_RUNTIME_BIN)"
+      ],
+      "type": "work_graph",
+      "selection": "command",
       "test_target": "self",
       "binding_names": [
         "ACTION",
@@ -3673,7 +3753,7 @@
         "raw_stream_policy": "never_default",
         "summary_schema": "cartulary.harness_run_summary.v1"
       },
-      "command_id": "cartulary.harness.command.release_check.v4",
+      "command_id": "cartulary.harness.command.release_check.v5",
       "semantic_behaviors": [
         {
           "behavior": "evidence_normalization",
@@ -3804,9 +3884,98 @@
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
-          },
+          }
+        ]
+      },
+      "selection_binding": {
+        "kind": "fixed",
+        "selection": "harness.release_qualification"
+      }
+    },
+    {
+      "name": "release-measure",
+      "backing_scripts": [
+        "tools/harness/execution/runners/row-runner-cli.mjs",
+        "tools/harnessruntime/main.go",
+        "tools/harness/scheduler/work-graph/index.mjs",
+        "tools/harness/runtime/cleanup-results.mjs",
+        "tools/harness/browser/browser-acquisition.mjs"
+      ],
+      "output_policy": {
+        "output_class": "aggregate_summary_with_artifacts",
+        "artifact_policy": "run_and_target_summaries",
+        "success_budget": {
+          "stdout_lines": 5,
+          "stdout_bytes": 1500,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.harness_run_summary.v1"
+      },
+      "command_id": "cartulary.harness.command.release_measure.v1",
+      "semantic_behaviors": [
+        {
+          "behavior": "evidence_normalization",
+          "owner_section": "Section 8"
+        },
+        {
+          "behavior": "failure_normalization",
+          "owner_section": "Section 9"
+        },
+        {
+          "behavior": "scheduler_orchestration",
+          "owner_section": "Section 10"
+        }
+      ],
+      "target_class": "public",
+      "default_inclusion_sets": [
+        "release-measure"
+      ],
+      "lifecycle_state": "public_active",
+      "family_id": "aggregates_gates",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "run_and_target_summaries"
+        },
+        {
+          "class": "service_start",
+          "owner_section": "Section 11",
+          "ownership_mode": "harness_owned",
+          "lifecycle_machine": "service lifecycle from Section 11"
+        },
+        {
+          "class": "service_resource_mutation",
+          "owner_section": "Section 11",
+          "ownership_mode": "harness_owned",
+          "resource_families": [
+            "scratch databases",
+            "object buckets or prefixes",
+            "fixture resources",
+            "runtime roots"
+          ],
+          "lifecycle_machine": "fixture and service lifecycle from Section 11"
+        },
+        {
+          "class": "runtime_reset",
+          "owner_section": "Section 12",
+          "predicates_section": "Section 12"
+        }
+      ],
+      "input_contract": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": [
           {
-            "name": "BROWSER_LANES",
+            "name": "CARTULARY_HARNESS_CACHE_MODE",
             "binding": "make_variable",
             "allowed_sources": [
               "make_command_line",
@@ -3814,17 +3983,79 @@
               "makefile_default"
             ],
             "required": false,
-            "type": "positive_integer",
-            "default": 4,
-            "empty_string": "invalid",
+            "type": "enum",
+            "values": [
+              "normal",
+              "cold",
+              "off"
+            ],
+            "default": "normal",
+            "empty_string": "omitted",
             "normalization": "trim",
             "invalid_reason": "usage_error",
             "summary_emission": "value",
-            "child_forwarding": "runtime_env",
-            "min": 1,
-            "max": 6
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "CARTULARY_HARNESS_CAPACITY_OVERRIDE",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "path",
+            "default": null,
+            "empty_string": "omitted",
+            "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_ACCOUNTING",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "required"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
           }
         ]
+      },
+      "selection_binding": {
+        "kind": "fixed",
+        "selection": "harness.release_measurement"
       }
     },
     {
@@ -4250,8 +4481,7 @@
       ],
       "target_class": "public",
       "default_inclusion_sets": [
-        "ci",
-        "release-check"
+        "ci"
       ],
       "lifecycle_state": "public_active",
       "family_id": "browser_e2e",
@@ -4383,7 +4613,6 @@
             "values": [
               "functional",
               "stateful",
-              "measurement",
               "accessibility",
               "visual",
               "support"
@@ -4454,7 +4683,6 @@
         "variants": {
           "functional": "harness.suite_browser_functional",
           "stateful": "harness.suite_browser_stateful",
-          "measurement": "harness.suite_browser_measurement",
           "accessibility": "harness.suite_browser_accessibility",
           "visual": "harness.suite_browser_visual",
           "support": "harness.suite_browser_support"
@@ -4754,8 +4982,7 @@
       ],
       "target_class": "public",
       "default_inclusion_sets": [
-        "ci",
-        "release-check"
+        "ci"
       ],
       "lifecycle_state": "public_active",
       "family_id": "static_analysis_security",
@@ -6388,8 +6615,7 @@
       ],
       "target_class": "public",
       "default_inclusion_sets": [
-        "ci",
-        "release-check"
+        "ci"
       ],
       "lifecycle_state": "public_active",
       "family_id": "static_analysis_security",
@@ -6533,8 +6759,7 @@
       ],
       "target_class": "public",
       "default_inclusion_sets": [
-        "ci",
-        "release-check"
+        "ci"
       ],
       "lifecycle_state": "public_active",
       "family_id": "static_analysis_security",
@@ -7063,8 +7288,7 @@
       ],
       "target_class": "public",
       "default_inclusion_sets": [
-        "ci",
-        "release-check"
+        "ci"
       ],
       "lifecycle_state": "public_active",
       "family_id": "builds",

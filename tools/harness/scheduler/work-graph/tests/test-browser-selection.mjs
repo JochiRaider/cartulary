@@ -14,7 +14,9 @@ test("browser suites project all groups and retained visual finalizers", async (
         "browser-e2e-visual",
     ]) {
         const suite = ({ "browser-e2e-webserver-backed": "functional", "browser-e2e-a11y": "accessibility" })[target] ?? target.slice("browser-e2e-".length);
-        const graph = compiler.compileCommand("browser-e2e", { SUITE: suite }).graph;
+        const graph = target === "browser-e2e-measurement"
+            ? compiler.compileCommand("release-measure", {}).graph
+            : compiler.compileCommand("browser-e2e", { SUITE: suite }).graph;
         assert.ok(graph.units.some((unit) => unit.unit_id.startsWith("browser_group:")), `${target} must expose browser groups as units`);
         assert.ok(graph.units.some((unit) => unit.unit_id.startsWith("browser_target_summary:")), `${target} must expose its summary projection as a unit`);
         assert.equal(graph.units.some((unit) => unit.command.args.some((arg) => arg.includes("run-browser-e2e-batch"))), false);
@@ -165,10 +167,12 @@ test("measurement selections bind one builder and quiet consumers with post-clea
         for (const graph of [
             compiler.compile({ kind: "rows", row_ids: [profiledRowIDs[0]] }),
             compiler.compile({ kind: "rows", row_ids: profiledRowIDs }),
-            ...owners.map(owner_id => compiler.compile({ kind: "owner", owner_id })),
-            compiler.compile({ kind: "aggregate", target: "release-check" }),
+            compiler.compileCommand("release-measure", {}).graph,
         ])
-            assert.deepEqual(fixtureIdentity(graph), expectedFixtureIdentity, "direct, row, owner and release routes must preserve each fixture identity");
+            assert.deepEqual(fixtureIdentity(graph), expectedFixtureIdentity, "direct, row and release-measure routes must preserve each fixture identity");
+        // Measurement rows are explicit-only: owner slices build no snapshot.
+        for (const owner_id of owners)
+            assert.equal(compiler.compile({ kind: "owner", owner_id }).units.some(unit => unit.kind === "fixture_builder" && unit.fixture_profile_id === profile.fixture_profile_id), false, owner_id);
     }
     const measurementSummaries = measurement.units.filter((entry) => entry.unit_id.startsWith("browser_measurement_summary:measurement:"));
     assert.equal(measurementSummaries.length, activeFixtureProfiles.reduce((count, profile) => count + profile.verification_bindings.length, 0), "each admitted measurement row has one post-cleanup summary finalizer");

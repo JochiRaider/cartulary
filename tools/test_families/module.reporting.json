@@ -804,7 +804,7 @@
       "status": "active",
       "fixture_capability": "browser_stack",
       "fixture_profile_id": "timeline_large_grid_reporting_snapshot_v1",
-      "aggregate_placement": "release",
+      "aggregate_placement": "explicit_only",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -843,7 +843,7 @@
       "status": "active",
       "fixture_capability": "browser_stack",
       "fixture_profile_id": "timeline_large_grid_reporting_snapshot_v1",
-      "aggregate_placement": "release",
+      "aggregate_placement": "explicit_only",
       "service_dependencies": [
         "object_store",
         "postgres"

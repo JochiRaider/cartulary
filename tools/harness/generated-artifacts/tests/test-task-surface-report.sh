@@ -77,7 +77,7 @@ assert_contains "$valid_output" "compact help count:" "current report compact he
 assert_contains "$valid_output" "scheduler growth:" "current report scheduler growth summary"
 assert_contains "$valid_output" "scratch_compiles_byte_identical: true" "scheduler generation determinism gate"
 [[ "$valid_output" =~ work_unit_count:\ [1-9][0-9]* ]] || fail "scheduler growth must measure actual nonempty compiled work"
-assert_contains "$valid_output" '"target":"release-check"' "scheduler growth names its planning selection"
+assert_contains "$valid_output" '"target":"ci"' "scheduler growth names its planning selection"
 assert_contains "$valid_output" "help tier counts:" "current report help tier summary"
 mapfile -t expected_count_lines < <("$NODE_BIN" - "$ROOT_DIR/tools/task_surface_manifest.json" <<'EOF'
 const { readFileSync } = require("node:fs");

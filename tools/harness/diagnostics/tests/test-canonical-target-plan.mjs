@@ -46,7 +46,7 @@ function assertComposition(target, supplied = {}) {
 test("aggregate planning, execution and replay preserve policy, contexts and resources", async (t) => {
   const plans = new Map();
   let matrixCompiler;
-  for (const target of ["test-fast", "check", "ci", "release-check"]) {
+  for (const target of ["test-fast", "check", "ci"]) {
     await t.test(`${target} planning has the complete execution and retained projection union`, () => {
       const { plan, compiler, execution } = assertComposition(target);
       plans.set(target, execution);
@@ -58,7 +58,7 @@ test("aggregate planning, execution and replay preserve policy, contexts and res
         if (unit.service_dependencies.includes("postgres")) assert.ok(unit.resource_claims.postgres > 0);
       }
       if (target !== "test-fast") assert.ok(plan.units.some((unit) => unit.fixture_capability.startsWith("postgres_")));
-      if (["ci", "release-check"].includes(target)) {
+      if (target === "ci") {
         const gate = "operation:harness.frontend_fallow_static";
         assert.ok(plan.projections["frontend-fallow-static"].includes(gate));
         assert.ok(plan.projections[target].includes(gate));
@@ -70,7 +70,9 @@ test("aggregate planning, execution and replay preserve policy, contexts and res
   assertBlockingPolicy(matrixCompiler, plans);
   assertSmokeContexts(matrixCompiler, plans);
   assertAssuranceUnions(matrixCompiler, plans);
-  assertAggregateResources(plans);
+  // Release qualification is a command, not an aggregate tier.
+  const { execution: release } = assertComposition("release-check");
+  assertAggregateResources(plans, release);
 });
 
 test("direct planning preserves independently expected schema projections", () => {

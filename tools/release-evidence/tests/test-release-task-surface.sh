@@ -8,10 +8,10 @@ import { mkdtempSync, writeFileSync, readFileSync, existsSync, rmSync } from 'no
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { WorkGraphCompiler } from './tools/harness/scheduler/work-graph/index.mjs';
+import { WorkGraphCompiler, selectionFor } from './tools/harness/scheduler/work-graph/index.mjs';
 import { buildOperationInvocation } from './tools/harness/scheduler/work-graph/operations.mjs';
 const compiler = new WorkGraphCompiler(process.cwd());
-const plan = compiler.compileAggregatePlan('release-check');
+const plan = selectionFor({ selection: 'command', target: 'release-check' }, compiler);
 const producer = 'operation:harness.release_inventory_artifacts';
 assert.equal(plan.graph.units.filter((unit) => unit.unit_id === producer).length, 1, 'one inventory producer serves both consumers');
 for (const id of ['harness.license_report', 'harness.sbom']) {

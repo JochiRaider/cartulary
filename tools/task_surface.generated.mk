@@ -28,6 +28,7 @@ else
   check \
   ci \
   release-check \
+  release-measure \
   test-slice \
   browser-e2e \
   browser-e2e-visual-update \
@@ -224,7 +225,8 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'' \
 	'release:' \
 	'  make ci                             run the provider-neutral CI entrypoint' \
-	'  make release-check                  run check, extended harness, frontend readiness, release artifacts, build verification, and release-readiness aggregation' \
+	'  make release-check                  qualify release-only work: package producer and consumers, supply chain, cryptographic policy and SeaweedFS' \
+	'  make release-measure                run the quiet measurement campaign for the timed conformance criteria' \
 	'  make seaweedfs-compatibility        run the full SeaweedFS S3 compatibility profile' \
 	'  make seaweedfs-release-gate         enforce the strict SeaweedFS S3 release gate' \
 	'  make build' \
@@ -249,12 +251,14 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'  side effects: retained_artifacts, service_start, service_resource_mutation, runtime_reset' \
 	'ci inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off), BROWSER_LANES=positive_integer (default 4)' \
 	'  side effects: retained_artifacts, service_start, service_resource_mutation, runtime_reset' \
-	'release-check inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off), BROWSER_LANES=positive_integer (default 4)' \
+	'release-check inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off)' \
+	'  side effects: retained_artifacts, service_start, service_resource_mutation, runtime_reset' \
+	'release-measure inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off)' \
 	'  side effects: retained_artifacts, service_start, service_resource_mutation, runtime_reset' \
 	'test-slice inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), JSON=exact_1_bool (default false), OWNER=owner_id (optional), ROWS=row_ids (optional), VITEST_MAX_WORKERS=positive_integer (default 4), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off), SUITE=backend-unit|backend-store|backend-integration|backend-process|frontend-unit (optional), SCOPE=all|services (default all), \
 	  CARTULARY_TEST_SERVICES_MODE=owned|attach (default owned), CARTULARY_TEST_SERVICES_SESSION_FILE=path (optional), BROWSER_LANES=positive_integer (default 4), GO_SHUFFLE_SEED=positive_integer (optional)' \
 	'  side effects: retained_artifacts, service_start, service_resource_mutation, runtime_reset' \
-	'browser-e2e inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off), SUITE=functional|stateful|measurement|accessibility|visual|support (required), CARTULARY_TEST_SERVICES_MODE=owned|attach (default owned), CARTULARY_TEST_SERVICES_SESSION_FILE=path (optional), BROWSER_LANES=positive_integer (default 4)' \
+	'browser-e2e inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off), SUITE=functional|stateful|accessibility|visual|support (required), CARTULARY_TEST_SERVICES_MODE=owned|attach (default owned), CARTULARY_TEST_SERVICES_SESSION_FILE=path (optional), BROWSER_LANES=positive_integer (default 4)' \
 	'  side effects: retained_artifacts, service_start, service_resource_mutation, runtime_reset' \
 	'browser-e2e-visual-update inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off), BROWSER_LANES=positive_integer (default 4)' \
 	'  side effects: retained_artifacts, authored_source_write, service_start, service_resource_mutation, runtime_reset' \
@@ -418,11 +422,20 @@ ci:
 release-check: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 release-check: export CARTULARY_TEST_TARGET ?= release-check
 release-check:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
+	$(Q)test -x "$(NODE_BIN)" || { echo "installed Node runtime required; run make bootstrap PART=node" >&2; exit 2; }
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,release-check)
 	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) BROWSER_LANES="$(BROWSER_LANES)" CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,BROWSER_LANES CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE \
-	  HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection aggregate --target release-check
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS)" \
+	  $(TASK_SURFACE_GRAPH_RUNTIME) --selection command --target release-check
+
+release-measure: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+release-measure: export CARTULARY_TEST_TARGET ?= release-measure
+release-measure:
+	$(Q)test -x "$(NODE_BIN)" || { echo "installed Node runtime required; run make bootstrap PART=node" >&2; exit 2; }
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,release-measure)
+	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS)" \
+	  $(TASK_SURFACE_GRAPH_RUNTIME) --selection command --target release-measure
 
 test-slice: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 test-slice: export CARTULARY_TEST_TARGET ?= test-slice

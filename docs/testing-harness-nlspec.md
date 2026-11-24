@@ -178,9 +178,11 @@ shared architecture those sections implement.
 
 **TH-HARNESS-REQ-800**
 Every active test-family row MUST declare exactly one `aggregate_placement` from the
-closed set `fast`, `standard`, `full`, `release`, or `explicit_only`.
-The first four placements retain their ordered aggregate tiers. `explicit_only`
-is an exclusion, not a fifth tier. Aggregates and broad owner/suite selectors
+closed set `fast`, `standard`, `full`, or `explicit_only`.
+The first three placements retain their ordered aggregate tiers. `explicit_only`
+is an exclusion, not a fourth tier. Measurement rows and the release package rows
+are `explicit_only`: `release-measure` and `release-check` authorize them through
+their fixed selections. Aggregates and broad owner/suite selectors
 MUST exclude it before readiness expansion. Policy dependencies MUST NOT
 reintroduce explicit-only rows; such an edge is a configuration error before
 provisioning. The catalog MUST reject `minimum_tier`, `default_check`, inferred
@@ -192,7 +194,8 @@ use `explicit_only`, including native review qualification. Only the dedicated
 `test-slice OWNER=… ROWS=…` selections authorize those rows. Visual validation
 includes screenshot assertions and its five support rows. Snapshot update selects
 only snapshot-producing rows. `browser-e2e SUITE=all` is retired without an alias.
-`test-fast`, `check`, `ci` and `release-check` MUST NOT run Visual or UI-Review.
+`test-fast`, `check`, `ci`, `release-check` and `release-measure` MUST NOT run
+Visual or UI-Review.
 General schema, catalog, admission, cleanup and shared lifecycle safety checks
 remain in their ordinary gates. A passing release gate establishes only its
 selected assurance scope; it MUST NOT imply Visual or UI-Review qualification.
@@ -297,17 +300,21 @@ registered golden. Committed-golden resolution belongs to visual reconciliation
 and to the golden-manifest shape check, which requires every registry golden path
 to appear in the golden manifest.
 
-The four aggregate policies are closed:
+The three aggregate policies are closed:
 
 | Entry point | Catalog row selection | Additional policy work |
 | --- | --- | --- |
 | `test-fast` | `fast` | Readiness required by selected fast work only. |
 | `check` | `fast` and `standard` | Blocking source, static, boundary, security and evidence checks, and exactly the three smoke roles in REQ-053. Builds follow selected consumers. |
 | `ci` | `fast`, `standard`, and `full` | Inherited blocking policy, production build qualification, advisory analysis and required harness contracts. |
-| `release-check` | all four tiers | CI policy plus release, build, compatibility, browser, accessibility, measurement, SBOM, license, and release-evidence work. |
 
-These are alternative scopes. Each invocation compiles one union graph; CI and
-release MUST NOT recursively invoke lower gates. There is no comprehensive
+These are alternative scopes. Each invocation compiles one union graph and MUST
+NOT recursively invoke lower gates. Release qualification is not an aggregate:
+`release-check` selects release-only work (the package producer and consumers,
+supply chain, cryptographic policy and SeaweedFS) and `release-measure` selects
+the quiet measurement campaign, each through a fixed selection with no catalog
+tier, and `release-evidence-verify` decides a release from their retained roots
+and a passing `ci` root. There is no comprehensive
 tests-only aggregate. Required policy dependencies MAY exceed the ordinary gate
 tier only through exact declared row IDs with an owner-backed justification.
 An owner-wide selector MUST NOT define a policy dependency. Adding an unrelated
@@ -2404,7 +2411,7 @@ command-surface, evidence-accounting, and catalog regression suites; and shared
 test-utils self-tests MUST have aggregate placement `full`. Raw Go groups testing
 configuration fixtures, suite services and failure helpers, integration helpers,
 and process helpers follow the same placement. These suites MUST remain
-reachable through `ci`, and `release-check` and their direct selectors.
+reachable through `ci` and their direct selectors.
 
 This policy MUST NOT remove current-artifact schema or catalog validation,
 generated drift or generated-artifact policy checks, migration integrity,
@@ -2435,7 +2442,7 @@ Every cacheable unit declares `same_run` or `content_addressed`; every other
 unit declares `none`. The registry binds policy work by canonical `operation_ids`
 and catalog work by `runner_types`; it MUST NOT bind cache eligibility to public
 command spelling. An operation or runner context absent from the registry is
-ineligible. The work-graph owner uses `cartulary.harness_work_graph_owner.v11`
+ineligible. The work-graph owner uses `cartulary.harness_work_graph_owner.v12`
 with closed operation definitions; task-surface bindings cannot override them. The
 retired scheduler-input-stamp and finalizer-action-cache families are not valid
 v3 inputs, and current commands MUST NOT read or translate them.
@@ -2569,8 +2576,8 @@ Verified by: TH-HARNESS-AC-022, TH-HARNESS-AC-028, TH-HARNESS-AC-029
 
 **TH-HARNESS-REQ-056**
 The default local `check` graph MUST exclude ordinary browser measurement
-evidence. `browser-e2e SUITE=measurement` remains an explicit public selection and is
-selected only by a tier or aggregate policy that requires it.
+evidence. `release-measure` is the only public selection of measurement rows; no
+aggregate selects them.
 
 Default local `make check` MUST NOT schedule current full visual or
 accessibility browser work. Direct browser commands and aggregates whose tier
@@ -3290,25 +3297,26 @@ database evidence retain separate unit, resource, lease, and artifact identities
 | `test-run-status` | `cartulary.harness.command.test_run_status.v1` | `help_discovery` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 8.9) | `none` | `public_active` | Exact-invocation live observation; target-local JSON and bounded waiting. |
 | `harness-observability-check` | `cartulary.harness.command.harness_observability_check.v3` | `generated_drift` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 4), `security_boundary` (Section 15) | `none` | `public_active` | Read-only exact retained evidence; `CHECK=all` or a scoped events/timing/evidence/diagnostics view. |
 | `harness-otel-export` | `cartulary.harness.command.harness_otel_export.v1` | `help_discovery` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 4), `security_boundary` (Section 15) | `external_network` | `public_active` | Explicit post-run OTLP export; ordinary harness commands never invoke it. |
-| `frontend-fallow-static` | `cartulary.harness.command.frontend_fallow_static.v2` | `static_analysis_security` | `ci`, `release-check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` | Direct global Fallow static gate. Emits `cartulary.fallow_static_summary.v2`; Fallow Runtime and Fallow security scans are not selected. |
+| `frontend-fallow-static` | `cartulary.harness.command.frontend_fallow_static.v2` | `static_analysis_security` | `ci` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` | Direct global Fallow static gate. Emits `cartulary.fallow_static_summary.v2`; Fallow Runtime and Fallow security scans are not selected. |
 | `lint-markdown` | `cartulary.harness.command.lint_markdown.v2` | `static_analysis_security` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 4) | `authored_source_write` | `public_active` | Direct Biome Markdown lint with safe automatic fixes; generated ledgers remain generator-owned. |
-| `harness-contract` | `cartulary.harness.command.harness_contract.v4` | `static_analysis_security` | `ci`, `release-check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` | Default `SUITE=contract`; exact named presets under REQ-082; CI uses the default contract union. |
+| `harness-contract` | `cartulary.harness.command.harness_contract.v4` | `static_analysis_security` | `ci` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` | Default `SUITE=contract`; exact named presets under REQ-082; CI uses the default contract union. |
 | `format` | `cartulary.harness.command.format.v2` | `formatting` | `helper_only` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `authored_source_write` | `public_active` |  |
-| `browser-e2e` | `cartulary.harness.command.browser_e2e.v4` | `browser_e2e` | `ci`, `release-check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `service_start`, `service_resource_mutation`, `runtime_reset` | `public_active` | Requires explicit `SUITE`; direct suites are complete and never aggregate-tier filtered. |
+| `browser-e2e` | `cartulary.harness.command.browser_e2e.v4` | `browser_e2e` | `ci` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `service_start`, `service_resource_mutation`, `runtime_reset` | `public_active` | Requires explicit `SUITE`; direct suites are complete and never aggregate-tier filtered. |
 | `browser-e2e-visual-update` | `cartulary.harness.command.browser_e2e_visual_update.v3` | `browser_e2e` | `helper_only` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `authored_source_write`, `service_start`, `service_resource_mutation`, `runtime_reset` | `public_active` | Helper-only refresh command for committed Playwright visual goldens. It runs the same visual stack and row selection as `browser-e2e SUITE=visual` with snapshot-update mode, mutates only authored snapshot PNGs under the visual spec snapshot directory, and MUST NOT be selected by `check`, `ci`, or release gates. |
 | `test-fast` | `cartulary.harness.command.test_fast.v4` | `aggregates_gates` | `test-fast` | `aggregate_summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `service_start`, `service_resource_mutation`, `runtime_reset` | `public_active` | Fast rows with only their required preparation. |
 | `lint` | `cartulary.harness.command.lint.v3` | `aggregates_gates` | `helper_only` | `aggregate_summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` | Default `CHECK=standard` retains the blocking lint union; explicit protocol checks keep their aggregate placement. Go vet and Staticcheck under `CHECK=go` MUST scan authored root packages and the `tools/go-analysis` module separately with the pinned tools. Failed or empty discovery and lint findings in either module fail the corresponding check. |
 | `go-vulncheck` | `cartulary.harness.command.go_vulncheck.v2` | `static_analysis_security` | `check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `security_boundary` (Section 15), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` | Runs Govulncheck with structured JSON output and retains `govulncheck-findings.json` with schema ID `cartulary.govulncheck_findings.v1`. Symbol-reachable vulnerability findings are blocking `security_finding` failures; package-only and module-only findings are retained as diagnostic security evidence unless a later profile promotes them. |
 | `go-gosec-targeted` | `cartulary.harness.command.go_gosec_targeted.v2` | `static_analysis_security` | `check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `security_boundary` (Section 15), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` |  |
-| `go-gosec-audit` | `cartulary.harness.command.go_gosec_audit.v2` | `static_analysis_security` | `ci`, `release-check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `security_boundary` (Section 15), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` | Advisory no-fail audit evidence. It MUST NOT be selected by default local `check`. |
+| `go-gosec-audit` | `cartulary.harness.command.go_gosec_audit.v2` | `static_analysis_security` | `ci` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `security_boundary` (Section 15), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` | Advisory no-fail audit evidence. It MUST NOT be selected by default local `check`. |
 | `go-error-declaration-audit` | `cartulary.harness.command.go_error_declaration_audit.v1` | `static_analysis_security` | `helper_only` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` | Advisory static error-declaration audit (TH-HARNESS-REQ-867). Findings never fail it; it MUST NOT be selected by `check`, CI or a finalizer. |
 | `go-error-declaration-check` | `cartulary.harness.command.go_error_declaration_check.v1` | `static_analysis_security` | `check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` | Qualified operation/status/code check (TH-HARNESS-REQ-868). |
 | `check` | `cartulary.harness.command.check.v4` | `aggregates_gates` | `check` | `scheduler_summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `scheduler_orchestration` (Section 10), `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `service_start`, `service_resource_mutation`, `runtime_reset` | `public_active` | Fast/standard rows, blocking source/static/security/evidence checks, three smoke roles and consumer-driven builds. |
 | `ci` | `cartulary.harness.command.ci.v5` | `aggregates_gates` | `ci` | `aggregate_summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `service_start`, `service_resource_mutation`, `runtime_reset` | `public_active` | Full-tier row union, inherited blocking policy, production build qualification, advisory analysis and harness contracts. |
-| `release-check` | `cartulary.harness.command.release_check.v4` | `aggregates_gates` | `release-check` | `aggregate_summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `service_start`, `service_resource_mutation`, `runtime_reset` | `public_active` | All tiers and inherited CI policy, shared package/inventory production, installed-package scenarios and release/security evidence. |
+| `release-check` | `cartulary.harness.command.release_check.v5` | `aggregates_gates` | `release-check` | `aggregate_summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `service_start`, `service_resource_mutation`, `runtime_reset` | `public_active` | Release-only work through `harness.release_qualification`: one package producer and its archive, startup, Reference Pack and recovery consumers, credential capacity, SBOM, licence, cryptographic policy and SeaweedFS. No catalog tier. |
+| `release-measure` | `cartulary.harness.command.release_measure.v1` | `aggregates_gates` | `release-measure` | `aggregate_summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `service_start`, `service_resource_mutation`, `runtime_reset` | `public_active` | The quiet measurement campaign through `harness.release_measurement`: every active measurement row with its snapshot builders. No catalog tier. |
 | `seaweedfs-compatibility` | `cartulary.harness.command.seaweedfs_compatibility.v2` | `local_services_dev` | `release-check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `service_start`, `service_resource_mutation` | `public_active` | Runs the dedicated SeaweedFS S3 compatibility profile and emits the full `SWFS-COMP-*` report outside `services-up` as a command-specific retained artifact. |
 | `seaweedfs-release-gate` | `cartulary.harness.command.seaweedfs_release_gate.v2` | `static_analysis_security` | `release-check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `security_boundary` (Section 15), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` | Runs current SeaweedFS compatibility and enforces the strict SeaweedFS release gate from current-run compatibility, backup-integrity, redaction, storage-ref owner, security, license, and occurrence evidence. The release-gate summary is a command-specific retained artifact. |
-| `build` | `cartulary.harness.command.build.v3` | `builds` | `ci`, `release-check` | `aggregate_summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `build_outputs` | `public_active` | Default `COMPONENT=production`; selected consumers acquire only exact component producers. |
+| `build` | `cartulary.harness.command.build.v3` | `builds` | `ci` | `aggregate_summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `build_outputs` | `public_active` | Default `COMPONENT=production`; selected consumers acquire only exact component producers. |
 | `clean` | `cartulary.harness.command.clean.v2` | `cleanup` | `helper_only` | `destructive_human` | none | `destructive_safety` (Section 13), `failure_normalization` (Section 9) | `destructive_cleanup` | `public_active` |  |
 | `distclean` | `cartulary.harness.command.distclean.v2` | `cleanup` | `helper_only` | `destructive_human` | none | `destructive_safety` (Section 13), `failure_normalization` (Section 9) | `destructive_cleanup` | `public_active` |  |
 | `cryptographic-policy-assessment` | `cartulary.harness.command.cryptographic_policy_assessment.v1` | `static_analysis_security` | `helper_only` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `security_boundary` (Section 8), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` | Checks the pinned Go cryptographic module and production build policy against Core 04; retains module, toolchain, build and policy evidence without claiming certification. |
@@ -3655,7 +3663,7 @@ exception exists in the adopted profile.
 Verified by: TH-HARNESS-AC-064, TH-HARNESS-AC-068
 
 **TH-HARNESS-REQ-119**
-`VITEST_MAX_WORKERS` defaults to decimal `4` and accepts only a base-10 integer from `1` through `16`. `BROWSER_LANES` defaults to the topology-owned decimal `4` and accepts `1..6`. It is available on test-fast, check, ci, release-check, test-slice, browser-e2e and browser-e2e-visual-update. Validation occurs even when the selection contains no matching runner. A valid unused value MUST remain recorded in `declared_inputs` and MUST NOT change another runner or scheduler resource limit.
+`VITEST_MAX_WORKERS` defaults to decimal `4` and accepts only a base-10 integer from `1` through `16`. `BROWSER_LANES` defaults to the topology-owned decimal `4` and accepts `1..6`. It is available on test-fast, check, ci, test-slice, browser-e2e and browser-e2e-visual-update. Validation occurs even when the selection contains no matching runner. A valid unused value MUST remain recorded in `declared_inputs` and MUST NOT change another runner or scheduler resource limit.
 Verified by: TH-HARNESS-AC-064
 
 **TH-HARNESS-REQ-120**
@@ -3847,7 +3855,7 @@ Verified by: TH-HARNESS-AC-002, TH-HARNESS-AC-029
 | `bootstrap` | `PART` | `enum` | no | make command line | none | omitted | `invalid` | `trim` | `node`, `go`, `frontend`, `browser`, `test-images` | `usage_error`, exit `2` | `value` | `argv` |
 | `test-slice` | `SUITE` | `enum` | no | make command line | none | omitted | `invalid` | `trim` | `backend-unit`, `backend-store`, `backend-integration`, `backend-process`, `frontend-unit` | `usage_error`, exit `2` | `value` | `argv` |
 | `test-slice` | `SCOPE` | `enum` | no | make command line | `all` | use `all` | `invalid` | `trim` | `all`, `services` | `usage_error`, exit `2` | `value` | `argv` |
-| `browser-e2e` | `SUITE` | `enum` | yes | make command line | none | missing required input | `invalid` | `trim` | `all`, `functional`, `stateful`, `measurement`, `accessibility`, `visual`, `support` | `usage_error`, exit `2` | `value` | `argv` |
+| `browser-e2e` | `SUITE` | `enum` | yes | make command line | none | missing required input | `invalid` | `trim` | `all`, `functional`, `stateful`, `accessibility`, `visual`, `support` | `usage_error`, exit `2` | `value` | `argv` |
 | `harness-contract` | `SUITE` | `enum` | no | make command line | `contract` | use `contract` | `invalid` | `trim` | `contract`, `smoke`, `execution`, `regression`, `lifecycle`, `full`, `runtime`, `fixtures`, `runtime-boundary`, `artifact-consumers`, `ui-review` | `usage_error`, exit `2` | `value` | `argv` |
 | `lint` | `CHECK` | `enum` | no | make command line | `standard` | use `standard` | `invalid` | `trim` | `standard`, `go`, `types`, `frontend`, `scripts`, `shell`, `frontend-boundary`, `backend-boundary`, `protocol` | `usage_error`, exit `2` | `value` | `argv` |
 | `source-check` | `CHECK` | `enum` | no | make command line | `all` | use `all` | `invalid` | `trim` | `all`, `generated`, `schema`, `catalog`, `surface`, `identity`, `toolchain`, `migration-input` | `usage_error`, exit `2` | `value` | `argv` |
@@ -4239,7 +4247,7 @@ resolve_output_mode(CARTULARY_OUTPUT_MODE, VERBOSE, CI_VERBOSE, CI, target):
 | ---------------------------------- | ------------------------------------------------------------------------------------------------- | ------------------: | ------------------------------------------------------- | ------------------------------------------------------------------------------------- | --------------------------------------------------------- | ---------------------------------------------------------------------- |
 | `summary_with_artifacts`           | Leaf, toolchain, non-aggregate build/lint child, drift, browser-stage, and formatting targets |                 yes | One JSON object using the target registry's stable summary schema plus LF | Empty after wrapper starts; pre-wrapper diagnostics allowed only before JSON emission | Graph-backed targets retain the canonical run artifact set; unchanged wrapper targets retain their declared tool summary | Same declared schema with failure fields and nonzero exit              |
 | `service_summary`                  | `services-up`, `services-down`, `db-migrate`, `db-reset`, `postgres-baseline-reset`, `object-store-reset`, reusable-service lifecycle and recovery commands |                 yes | One `cartulary.tool_run_summary.v5` JSON object plus LF | Empty after wrapper starts                                                            | Tool-run summary and service diagnostics for service-owning rows | Same schema with service failure fields                                |
-| `aggregate_summary_with_artifacts` | `test-fast`, `lint`, `ci`, `release-check`, `build`                                       |                 yes | One `cartulary.harness_run_summary.v1` JSON object plus LF | Empty after wrapper starts                                                          | Canonical run manifest, unit events, run summary, target summaries, and unit/row results | Same schema with primary graph or unit failure                         |
+| `aggregate_summary_with_artifacts` | `test-fast`, `lint`, `ci`, `release-check`, `release-measure`, `build`                    |                 yes | One `cartulary.harness_run_summary.v1` JSON object plus LF | Empty after wrapper starts                                                          | Canonical run manifest, unit events, run summary, target summaries, and unit/row results | Same schema with primary graph or unit failure                         |
 | `scheduler_summary_with_artifacts` | `check`, `test-slice`                                                |                 yes | One `cartulary.harness_run_summary.v1` JSON object plus LF | Empty after wrapper starts; no scheduler progress prose                               | Canonical run manifest, unit events, run summary, target summaries, and unit/row results | Same schema with graph, resource, or child failure                      |
 | `machine_stdout_json`              | `test-services-session-status`                           |                 yes | One closed target JSON value plus LF                    | Empty on success                                                                      | None unless target declares artifacts                     | Invalid input exits `2`; error JSON only when Section 7.4 declares it |
 | `human_summary`                    | `help`, `help ALL=1`, text discovery/explanation targets                                            |                  no | Empty                                                   | Bounded diagnostic allowed on failure                                                 | None unless target row declares diagnostic artifacts      | `machine` rejected as `usage_error`, exit `2`                          |
@@ -4396,7 +4404,7 @@ claim publication.
 | `cartulary.test_owner_registry.v1`              | `tools/schemas/cartulary.test_owner_registry.v1.schema.json`              | present           | Test catalog owner       | Before owner manifest loading. |
 | `cartulary.test_family_manifest.v14`             | `tools/schemas/cartulary.test_family_manifest.v14.schema.json`             | present           | Test family owners       | Before selection, topology generation, or audit. |
 | `cartulary.test_runner_registry.v3`             | `tools/schemas/cartulary.test_runner_registry.v3.schema.json`             | present           | Runner registry          | Before selector resolution or adapter invocation. |
-| `cartulary.task_guide_summary.v6`               | `tools/schemas/cartulary.task_guide_summary.v6.schema.json`               | present           | Task guidance            | Before target-local JSON output. |
+| `cartulary.task_guide_summary.v7`               | `tools/schemas/cartulary.task_guide_summary.v7.schema.json`               | present           | Task guidance            | Before target-local JSON output. |
 | `cartulary.test_catalog_check_summary.v2`       | `tools/schemas/cartulary.test_catalog_check_summary.v2.schema.json`       | present           | Catalog validator        | Before private catalog-check success. |
 | `cartulary.executable_input_policy.v1`          | `tools/schemas/cartulary.executable_input_policy.v1.schema.json`          | present           | Executable input boundary owner | Before executable-input policy validation. |
 | `cartulary.govulncheck_findings.v1`             | `tools/schemas/cartulary.govulncheck_findings.v1.schema.json`             | present           | Govulncheck wrapper      | Before failure classification or target-summary security rollup consumes findings. |
@@ -4699,7 +4707,7 @@ The owner-first schema families are `cartulary.requirement_registry.v1`,
 `cartulary.harness_unit_result.v1`,
 `cartulary.harness_run_manifest.v3`, `cartulary.harness_unit_event.v4`,
 `cartulary.harness_run_summary.v1`, `cartulary.harness_target_summary.v1`,
-`cartulary.task_guide_summary.v6`, and
+`cartulary.task_guide_summary.v7`, and
 `cartulary.test_catalog_check_summary.v2`. Each required current attachment
 rejects old-family schema IDs.
 Verified by: TH-HARNESS-AC-062, TH-HARNESS-AC-071
@@ -4775,7 +4783,7 @@ retain their recorded reuse status and MUST NOT become fresh observations.
 Verified by: TH-HARNESS-AC-066
 
 **TH-HARNESS-REQ-274**
-`cartulary.task_guide_summary.v6` exposes owner, exact row guidance, family,
+`cartulary.task_guide_summary.v7` exposes owner, exact row guidance, family,
 runner, evidence, tier and fixture coverage distributions, focused owner slices,
 applicable source checks, broader gates, and the release gate when required.
 It has no role or delivery-phase selector. The predecessor owner-explanation
@@ -11225,10 +11233,10 @@ remain additional obligations.
 | `browser` | The Playwright stage's webserver-backed, stateful, or support projection from a public invocation. |
 | `accessibility` | `browser-e2e SUITE=accessibility`. |
 | `visual` | Visual golden digest validation and `browser-e2e SUITE=visual`. |
-| `measurement` | `browser-e2e SUITE=measurement`; informative unless an active claim authorizes publication. |
+| `measurement` | `release-measure`; informative unless an active claim authorizes publication. |
 | `static` | The exact public execution target resolved for the registered static row. |
 | `security` | The exact public execution target resolved for the registered security row. |
-| `release` | The exact registered release-support execution target; project `release-check` remains additional. |
+| `release` | The exact registered release-support execution target; `release-check` selects the release package rows. |
 
 A standalone static or security verification represented without catalog rows
 MUST name one current public target; an unknown or private target is invalid.
@@ -11342,7 +11350,7 @@ Cutover acceptance MUST execute in this order:
 7. Run focused owner slices and catalog, selector, accounting, and audit fixtures.
 8. Run every gate generated by TH-HARNESS-REQ-668, including frontend, browser, accessibility, visual, measurement, security, and release row evidence.
 9. Run `make agent-finalize` without retained-run maintenance when no eligible full warm root exists.
-10. Produce one successful full warm `make check` root, run `make agent-finalize RESULTS_DIR=<that-exact-root>`, repeat the broad verification affected by finalization, and run `make release-check`.
+10. Produce one successful full warm `make check` root, run `make agent-finalize RESULTS_DIR=<that-exact-root>`, repeat the broad verification affected by finalization, run `make release-check` and `make release-measure`, and verify their roots with a passing `ci` root through `make release-evidence-verify`.
 11. Confirm zero active v1 targets, inputs, schema readers, catalog readers, artifact writers, generated drift, and unresolved migration items.
 
 A later step at the same source version MUST NOT compensate for an earlier
@@ -12166,3 +12174,29 @@ to restore qualification. Zero-iteration and early-exit paths MUST participate i
 post-loop handling. Immutable per-iteration construction and ordinary bound data
 remain supported; general iteration-count, heap and fixed-point inference are not
 required. Discovering a syntax node does not establish its execution-time values.
+
+## Release qualification amendment — 2026-11-24
+
+The owner adopted an evidence-composed release (decisions R1–R5 in
+`docs/handoffs/release-qualification-refactor-tracker.md`). Correctness work and
+the quiet measurement campaign need opposite host states, so they run as
+separate commands, and each runs once per source digest:
+
+- `ci` keeps its aggregate scope; no aggregate selects measurement rows.
+- `release-check` selects only release-only work through
+  `harness.release_qualification`. It no longer inherits `ci` and has no catalog
+  tier.
+- `release-measure` selects every active measurement row, with its snapshot
+  builders, through `harness.release_measurement`.
+- `release-evidence-verify` is the release decision. It consumes a passing `ci`
+  root and the `release-check` and `release-measure` roots for one source digest
+  and one package identity, and launches nothing.
+- A thin `make release` MAY run missing stages with explicit run IDs and then
+  call the verifier; it has no graph of its own.
+
+The `release` aggregate placement is retired (TH-HARNESS-REQ-800). Until the
+qualification policy, verifier and `make release` slices land, the targeted
+release amendment's verifier contract above stays in force, and the
+credential-capacity assessment and SeaweedFS recovery admission keep their
+current `release-check` placement.
+

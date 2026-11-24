@@ -178,6 +178,44 @@ rows (no placement justification).
    paths that no throughput graph uses any more.
 8. **S7 One real release**, with the owner's go-ahead.
 
+### S1 result (2026-11-24)
+
+- **Rows.** 34 measurement rows and the 4 release package rows are
+  `explicit_only`; the 7 telemetry rows are `full`. The `release` placement is
+  retired: work-graph owner schema v12 drops it from `tier_order` and drops
+  `release-check` from the aggregate maps (v11 retired). The family-manifest
+  schema v14 still lists `release` in its enum; validation rejects it, and the
+  enum goes in S6.
+- **Selections.** `harness.release_qualification` (package archive, startup,
+  Reference Pack, recovery and credential capacity; SBOM; licence;
+  cryptographic policy; SeaweedFS compatibility and gate; release readiness;
+  the four package rows) and `harness.release_measurement` (the measurement
+  suite) are explicit selections, as are the `package_*` selections, because
+  the package operations declare the explicit-only package rows as policy
+  dependencies (REQ-800). `harness.suite_browser_support` moved to the `ci`
+  roots.
+- **Commands.** `release-check` v5 uses the fixed selection, drops
+  `BROWSER_LANES` and no longer inherits `ci`; `release-measure` v1 is new.
+  `browser-e2e SUITE=measurement` is removed. Five `ci` commands drop
+  `release-check` from their inclusion sets. `release_readiness_evidence` now
+  needs only release work (package consumers, credential capacity,
+  cryptographic policy, SBOM, licence, SeaweedFS gate), not `contract_default`,
+  `go_gosec_audit` or the browser-support suite.
+- **Plans** (JavaScript target plans): `ci` 501 units with no measurement;
+  `release-check` 28 units (release operations and builds, the four package
+  rows, and the recovery row the SeaweedFS gate still needs until S3);
+  `release-measure` 78 units (33 sessions, 29 summaries, 4 snapshot builders and
+  their builds).
+- **Task guides.** Schema v7 adds `make release-measure` and
+  `make release-check` to the explicit commands. Scheduler growth now measures
+  `ci`, the largest graph.
+- **Checks.** `lint` `go` and `scripts`; `source-check` `catalog`, `schema` and
+  `generated`; the Go planner, native-runtime and scheduler-smoke rows; the
+  browser lane policy row; `harness-contract SUITE=contract` and
+  `SUITE=regression`, whose three failing rows (routing contract, package
+  readiness contract, planner preparation) were fixed and rerun alone: all
+  pass.
+
 ## 9. Open question: the evidence-heavy fixture
 
 Core 04 REQ-04-157 defines `cartulary.perf.evidence_heavy.v2` as 10,000

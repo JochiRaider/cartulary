@@ -948,8 +948,8 @@
       "validation": "harness.json_shape_check"
     },
     {
-      "schema_id": "cartulary.harness_work_graph_owner.v11",
-      "path": "tools/schemas/cartulary.harness_work_graph_owner.v11.schema.json",
+      "schema_id": "cartulary.harness_work_graph_owner.v12",
+      "path": "tools/schemas/cartulary.harness_work_graph_owner.v12.schema.json",
       "classification": "owner_input",
       "producer": "harness graph owner",
       "validation": "harness.json_shape_check"
@@ -1524,8 +1524,8 @@
       "validation": "harness.json_shape_check"
     },
     {
-      "schema_id": "cartulary.task_guide_summary.v6",
-      "path": "tools/schemas/cartulary.task_guide_summary.v6.schema.json",
+      "schema_id": "cartulary.task_guide_summary.v7",
+      "path": "tools/schemas/cartulary.task_guide_summary.v7.schema.json",
       "classification": "public_contract",
       "producer": "owner task guidance",
       "validation": "harness.json_shape_check"

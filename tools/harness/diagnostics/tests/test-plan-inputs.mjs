@@ -43,8 +43,9 @@ test("planning validates exact declared input files through the execution resolv
   assert.ok(guide.rows.some((row) => row.row_id.endsWith("native_runtime") && row.aggregate_placement === "full"));
   assert.equal(Object.hasOwn(guide, "role"), false);
   for (const [owner, commands] of [
-    ["module.networkflow", ["make browser-e2e SUITE=visual"]],
+    ["module.networkflow", ["make browser-e2e SUITE=visual", "make release-measure"]],
     ["harness.browser", ["make browser-e2e SUITE=visual", "make harness-contract SUITE=ui-review"]],
+    ["harness.release", ["make release-check"]],
   ]) {
     const explicitGuide = buildOwnerTaskGuide(root, owner);
     validateSchemaSync(explicitGuide.schema_id, explicitGuide);

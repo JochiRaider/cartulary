@@ -35,7 +35,7 @@ const generatedMakePath = resolvePath(
 );
 
 const validTargetClasses = new Set(["public", "check_internal", "internal_helper"]);
-const validDefaultInclusionSets = new Set(["test", "check", "ci", "release-check", "helper_only"]);
+const validDefaultInclusionSets = new Set(["test", "check", "ci", "release-check", "release-measure", "helper_only"]);
 const retiredRootRunnerHelperPattern =
   /^\s*(RUN_(?:GO|PLAYWRIGHT|VITEST)(?:_MANIFEST)?_PHASE(?:_SCRIPT)?)\s*(?::=|\?=|\+=|=)/;
 const targetOwnedPhaseTargetsPattern = /^\s*TARGET_OWNED_PHASE_TARGETS\s*(?::=|\?=|\+=|=)/;

@@ -142,7 +142,7 @@ test("persistent lifecycle borrowing does not reserve the owner's physical capac
 
 test("topology resolves four or six lanes and rejects invalid public controls", () => {
   const compiler = new WorkGraphCompiler(root);
-  for (const target of ["test-fast", "check", "ci", "release-check", "test-slice", "browser-e2e", "browser-e2e-visual-update"]) {
+  for (const target of ["test-fast", "check", "ci", "test-slice", "browser-e2e", "browser-e2e-visual-update"]) {
     const scope = target === "test-slice" ? { OWNER: "harness.browser" } : target === "browser-e2e" ? { SUITE: "functional" } : {};
     assert.equal(resolveCommandInputs(target, scope, compiler.taskSurface).BROWSER_LANES, "4");
     assert.equal(resolveCommandInputs(target, { ...scope, BROWSER_LANES: "6" }, compiler.taskSurface).BROWSER_LANES, "6");
@@ -175,7 +175,7 @@ test("explicit-only rows stay outside aggregates and broad selections", () => {
   const legacy = { ...compiler.catalog.rows[0], minimum_tier: "fast" };
   delete legacy.aggregate_placement;
   assert.throws(() => validateSchemaSync("cartulary.test_family_manifest.v14", { schema_id: "cartulary.test_family_manifest.v14", owner_id: legacy.owner_id, rows: [legacy] }));
-  for (const target of ["test-fast", "check", "ci", "release-check"]) {
+  for (const target of ["test-fast", "check", "ci"]) {
     const selected = rowIDs(compiler.compileAggregate(target));
     assert.ok(excluded.every((row) => !selected.includes(row.row_id)), target);
   }

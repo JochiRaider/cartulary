@@ -27,6 +27,7 @@ const validDefaultInclusionSets = new Set([
   "check",
   "ci",
   "release-check",
+  "release-measure",
   "helper_only",
 ]);
 const validFamilyIDs = new Set([

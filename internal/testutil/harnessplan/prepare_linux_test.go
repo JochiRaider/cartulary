@@ -134,7 +134,7 @@ func TestPlanPreparation(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, aggregate := range []string{"test-fast", "check", "release-check"} {
+		for _, aggregate := range []string{"test-fast", "check", "ci"} {
 			plan, err := Prepare(root, Request{Kind: "aggregate", Target: aggregate, Environment: environment(nil)}, now, 42)
 			if err != nil {
 				t.Fatalf("%s: %v", aggregate, err)
@@ -168,6 +168,62 @@ func TestPlanPreparation(t *testing.T) {
 			}
 			if len(plan.Projections[aggregate].UnitIDs) != len(plan.Graph.Units) {
 				t.Fatalf("%s projection does not cover the graph", aggregate)
+			}
+		}
+	})
+
+	// Release qualification is not an aggregate: release-check runs only the
+	// release package rows among catalog rows, release-measure runs every
+	// measurement row, and no aggregate runs a measurement row.
+	t.Run("release commands select only their release work", func(t *testing.T) {
+		inputs, err := Load(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		bound := func(plan *Plan) map[string]bool {
+			rows := map[string]bool{}
+			for _, unit := range plan.Graph.Units {
+				for _, binding := range unit.RowBindings {
+					rows[binding.RowID] = true
+				}
+			}
+			return rows
+		}
+		release, err := Prepare(root, Request{Kind: "command", Target: "release-check", Environment: environment(nil)}, now, 42)
+		if err != nil {
+			t.Fatal(err)
+		}
+		measure, err := Prepare(root, Request{Kind: "command", Target: "release-measure", Environment: environment(nil)}, now, 42)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ci, err := Prepare(root, Request{Kind: "aggregate", Target: "ci", Environment: environment(nil)}, now, 42)
+		if err != nil {
+			t.Fatal(err)
+		}
+		releaseRows, measureRows, ciRows := bound(release), bound(measure), bound(ci)
+		packageRows := 0
+		for _, row := range inputs.Catalog.Rows {
+			measurement := row.Runner == "playwright" && row.EvidenceClass == "measurement"
+			if measurement != measureRows[row.RowID] {
+				t.Fatalf("release-measure selection of %s is %t, want %t", row.RowID, measureRows[row.RowID], measurement)
+			}
+			if measurement && ciRows[row.RowID] {
+				t.Fatalf("ci runs measurement row %s", row.RowID)
+			}
+			if row.OwnerID == "harness.release" && row.AggregatePlacement == "explicit_only" {
+				packageRows++
+				if !releaseRows[row.RowID] || ciRows[row.RowID] {
+					t.Fatalf("release package row %s belongs to release-check only", row.RowID)
+				}
+			}
+		}
+		if packageRows == 0 {
+			t.Fatal("the catalog has no release package rows")
+		}
+		for _, unit := range release.Graph.Units {
+			if slices.Contains(unit.ExclusiveLocks, "host_activity") && unit.ID != "operation:harness.credential_capacity_assessment" {
+				t.Fatalf("release-check carries quiet unit %s", unit.ID)
 			}
 		}
 	})

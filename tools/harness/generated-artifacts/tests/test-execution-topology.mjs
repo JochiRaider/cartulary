@@ -6,7 +6,7 @@ import path from "node:path";
 
 import { validateSchemaSync } from "../../contract/index.mjs";
 import { workspaceLayout } from "../../../workspace_layout.generated.mjs";
-import { WorkGraphCompiler } from "../../scheduler/work-graph/index.mjs";
+import { WorkGraphCompiler, selectionFor } from "../../scheduler/work-graph/index.mjs";
 
 const root = path.resolve(import.meta.dirname, "../../../..");
 const topology = JSON.parse(readFileSync(path.join(root, "tools/execution_topology_manifest.json"), "utf8"));
@@ -56,9 +56,11 @@ for (const retired of [
 assert.deepEqual(scheduler.schedules, []);
 assert.equal(scheduler.generated.source_authoring.work_graph, "tools/harness_work_graph_owner.json");
 const compiler = new WorkGraphCompiler(root);
-for (const target of ["test-fast", "check", "ci", "release-check"]) {
-  const first = compiler.compileAggregatePlan(target);
-  const second = compiler.compileAggregatePlan(target);
+for (const target of ["test-fast", "check", "ci", "release-check", "release-measure"]) {
+  const compile = () => compiler.compileAggregatePlan(target);
+  const command = () => selectionFor({ selection: "command", target }, compiler);
+  const first = compiler.owner.aggregate_tiers[target] ? compile() : command();
+  const second = compiler.owner.aggregate_tiers[target] ? compile() : command();
   assert.deepEqual(first, second, `${target} compilation must be deterministic`);
   assert.ok(first.graph.units.length > 0);
 }

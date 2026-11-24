@@ -187,30 +187,25 @@ test("blocking Fallow configuration validation stays read-only and rejects missi
 });
 
 
-test("aggregate browser selection preserves tier rows without stage expansion or excluded preparation", () => {
+test("aggregates exclude measurement rows and never reach their preparation", () => {
   const compiler = new WorkGraphCompiler(new URL("../../../../../", import.meta.url).pathname);
   const measurement = compiler.catalog.rows.filter((row) => row.runner === "playwright" && compiler.rowTargets.get(row.row_id) === "browser-e2e-measurement");
-  const full = measurement.filter((row) => row.aggregate_placement === "full").map((row) => row.row_id).sort();
-  const release = measurement.filter((row) => row.aggregate_placement === "release").map((row) => row.row_id).sort();
-  assert.ok(full.length > 0);
-  assert.ok(release.length > 0);
-  assert.deepEqual(selectedRows(compiler.compileTarget("harness.suite_browser_measurement")), [...full, ...release].sort());
-  for (const rowID of release)
-    compiler.catalog.rowByID.get(rowID).preparation_operations = ["forbidden-excluded-producer"];
+  const ids = measurement.map((row) => row.row_id).sort();
+  assert.ok(ids.length > 0);
+  assert.ok(measurement.every((row) => row.aggregate_placement === "explicit_only"), "release-measure alone selects measurement rows");
+  assert.deepEqual(selectedRows(compiler.compileTarget("harness.suite_browser_measurement")), ids);
+  for (const row of measurement)
+    row.preparation_operations = ["forbidden-excluded-producer"];
   const graph = compiler.compileAggregate("ci");
-  assert.deepEqual(selectedRows(graph).filter((id) => measurement.some((row) => row.row_id === id)), full);
-  for (const unit of graph.units) {
-    const filter = (unit.row_bindings ?? []).filter((row) => row.runner === "playwright");
-    assert.ok(filter.every(({ row_id }) => !release.includes(row_id)), "runner receives the exact admitted rows");
-  }
-  assert.throws(() => compiler.compileRows([release[0]]), /unknown harness operation forbidden-excluded-producer/u, "negative preparation fixture reaches its boundary when explicitly selected");
+  assert.deepEqual(selectedRows(graph).filter((id) => ids.includes(id)), [], "ci selects no measurement row");
+  assert.throws(() => compiler.compileRows([ids[0]]), /unknown harness operation forbidden-excluded-producer/u, "negative preparation fixture reaches its boundary when explicitly selected");
 });
 test("conformance dependencies preserve required security rows without following owner growth", () => {
   const compiler = new WorkGraphCompiler(new URL("../../../../../", import.meta.url).pathname);
   const ids = policyDependencyRowIDs(compiler.owner, "harness.otel_conformance", compiler.catalog.rows);
   assert.equal(ids.length, 11);
   assert.throws(() => policyDependencyRowIDs(compiler.owner, "otel-conformance", compiler.catalog.rows), /unknown policy operation/u);
-  assert.equal(ids.filter((id) => compiler.catalog.rowByID.get(id).aggregate_placement === "release").length, 7);
+  assert.equal(ids.filter((id) => compiler.catalog.rowByID.get(id).aggregate_placement === "full").length, 7);
   const before = compiler.compileTarget("otel-conformance");
   assert.deepEqual(selectedRows(before), ids);
   const source = compiler.catalog.rowByID.get(ids[0]);

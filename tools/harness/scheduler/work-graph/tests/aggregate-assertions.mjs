@@ -20,7 +20,7 @@ export function assertBlockingPolicy(compiler, plans) {
     if (target === "test-fast")
       assert.deepEqual(compiler.aggregatePolicyRoots(target), []);
     for (const name of ["frontend-fallow-static", "go-gosec-audit", "harness.deployable_shape", "build"]) {
-      if (["ci", "release-check"].includes(target))
+      if (target === "ci")
         assert.ok(plan.projections[name]?.length > 0, `${target}: ${name}`);
     }
   }
@@ -130,19 +130,19 @@ export function assertAssuranceUnions(compiler, plans) {
   assert.equal(compiler.taskSurface.make_recipes["test"], undefined, "the removed aggregate cannot become another policy");
 }
 
-export function assertAggregateResources(plans) {
-  for (const graphTarget of ["test-fast", "check", "ci", "release-check"]) {
+export function assertAggregateResources(plans, release) {
+  for (const graphTarget of ["test-fast", "check", "ci"]) {
     const graph = plans.get(graphTarget).graph;
     assert.equal(
       graph.units.some((entry) =>
-        ["test-fast", "check", "ci", "release-check"].includes(
+        ["test-fast", "check", "ci", "release-check", "release-measure"].includes(
           entry.command.args.at(-1),
         )),
       false,
       `${graphTarget} must not invoke a nested aggregate`,
     );
   }
-  const releaseGraph = plans.get("release-check").graph;
+  const releaseGraph = release.graph;
   for (const entry of releaseGraph.units) {
     if (Object.keys(entry.resource_claims).length === 0) continue;
     assert.equal(

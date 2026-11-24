@@ -15,11 +15,12 @@ import "./test-package-deployment-lifecycle.mjs";
 import "./test-package-qualification.mjs";
 import path from "node:path";
 
-import { WorkGraphCompiler } from "../../harness/scheduler/work-graph/index.mjs";
+import { WorkGraphCompiler, selectionFor } from "../../harness/scheduler/work-graph/index.mjs";
 
 const root = path.resolve(import.meta.dirname, "../../..");
 const compiler = new WorkGraphCompiler(root);
-const plan = compiler.compileAggregatePlan("release-check");
+// release-check is a command with a fixed release-only selection, not an aggregate.
+const plan = selectionFor({ selection: "command", target: "release-check" }, compiler);
 assert.ok(plan.projections["release-check"].length > 0);
 assert.ok(plan.projections["harness.release_readiness_evidence"].length > 0);
 assert.equal(plan.graph.units.filter((unit) => unit.unit_id === "operation:harness.release_readiness_evidence").length, 1);
@@ -36,10 +37,9 @@ const registrarOperations = Object.entries(compiler.owner.operations)
   .filter(([, operation]) => operation.execution.command?.some(arg => arg.endsWith("/test-release-readiness-evidence.mjs")))
   .map(([id]) => id);
 assert.deepEqual(registrarOperations, ["harness.assurance_release_readiness_evidence"], "one readiness registrar operation");
-for (const graph of [plan.graph, compiler.compileTarget("harness.contract_regression")]) {
-  const executions = graph.units.filter(unit => unit.row_bindings.some(binding => binding.row_id === readinessRow));
-  assert.deepEqual(executions, [canonical], "readiness assertions execute once through their canonical static row");
-}
+const regression = compiler.compileTarget("harness.contract_regression");
+assert.deepEqual(regression.units.filter(unit => unit.row_bindings.some(binding => binding.row_id === readinessRow)), [canonical], "readiness assertions execute once through their canonical static row");
+assert.equal(plan.graph.units.some(unit => unit.row_bindings.some(binding => binding.row_id === readinessRow)), false, "release-check runs no ci self-test rows");
 
 const units = new Map(plan.graph.units.map((unit) => [unit.unit_id, unit]));
 const readinessClosure = new Set();

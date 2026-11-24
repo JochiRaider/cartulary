@@ -4,7 +4,7 @@ import { WorkGraphCompiler } from "../scheduler/work-graph/index.mjs";
 // Planning only: fixed inputs make structural measurements independent of the
 // invoking machine's available capacity. No compiled work is executed.
 export const schedulerGrowthProfile = Object.freeze({
-  target: "release-check",
+  target: "ci",
   go_workers: 4,
   postgres_lanes: 4,
   browser_lanes: 4,

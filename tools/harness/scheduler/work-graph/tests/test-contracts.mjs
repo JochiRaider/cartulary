@@ -10,7 +10,7 @@ function readJSON(relative) {
 }
 export function registerBoundariesTests() {
   test("work_graph_owner_validation: work graph owner validates against its current schema", async () => {
-    validateSchemaSync("cartulary.harness_work_graph_owner.v11", readJSON("tools/harness_work_graph_owner.json"));
+    validateSchemaSync("cartulary.harness_work_graph_owner.v12", readJSON("tools/harness_work_graph_owner.json"));
   });
 }
 export function registerCommandSurfaceTests() {

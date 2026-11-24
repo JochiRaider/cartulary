@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.harness_work_graph_owner.v11",
+  "$id": "cartulary.harness_work_graph_owner.v12",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -25,7 +25,7 @@
   ],
   "properties": {
     "schema_id": {
-      "const": "cartulary.harness_work_graph_owner.v11"
+      "const": "cartulary.harness_work_graph_owner.v12"
     },
     "capacity_override_input": {
       "const": "CARTULARY_HARNESS_CAPACITY_OVERRIDE"
@@ -34,8 +34,7 @@
       "const": [
         "fast",
         "standard",
-        "full",
-        "release"
+        "full"
       ]
     },
     "aggregate_tiers": {
@@ -44,8 +43,7 @@
       "required": [
         "test-fast",
         "check",
-        "ci",
-        "release-check"
+        "ci"
       ],
       "properties": {
         "test-fast": {
@@ -56,9 +54,6 @@
         },
         "ci": {
           "const": "full"
-        },
-        "release-check": {
-          "const": "release"
         }
       }
     },
@@ -794,8 +789,7 @@
       "required": [
         "test-fast",
         "check",
-        "ci",
-        "release-check"
+        "ci"
       ],
       "properties": {
         "test-fast": {
@@ -805,9 +799,6 @@
           "$ref": "#/$defs/target_list"
         },
         "ci": {
-          "$ref": "#/$defs/target_list"
-        },
-        "release-check": {
           "$ref": "#/$defs/target_list"
         }
       }
@@ -829,8 +820,7 @@
       "required": [
         "test-fast",
         "check",
-        "ci",
-        "release-check"
+        "ci"
       ],
       "properties": {
         "test-fast": {
@@ -848,13 +838,6 @@
           }
         },
         "ci": {
-          "type": "array",
-          "uniqueItems": true,
-          "items": {
-            "$ref": "#/$defs/operation_id"
-          }
-        },
-        "release-check": {
           "type": "array",
           "uniqueItems": true,
           "items": {

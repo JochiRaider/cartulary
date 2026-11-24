@@ -45,7 +45,7 @@ export function registerJSONShapeTests() {
       ["tools/execution_topology_manifest.json", "cartulary.execution_topology.v16"],
       ["tools/scheduler_manifest.json", "cartulary.scheduler_manifest.v3"],
       ["tools/browser_e2e_batch_manifest.json", "cartulary.browser_e2e_batch_manifest.v16"],
-      ["tools/harness_work_graph_owner.json", "cartulary.harness_work_graph_owner.v11"],
+      ["tools/harness_work_graph_owner.json", "cartulary.harness_work_graph_owner.v12"],
     ]) {
       const value = JSON.parse(readFileSync(path.join(root, file), "utf8"));
       assert.equal(value.schema_id, schemaID);
@@ -57,7 +57,7 @@ export function registerJSONShapeTests() {
     const attachments = JSON.parse(readFileSync(path.join(root, "tools/harness_schema_attachments.json"), "utf8"));
     for (const retired of [
       "cartulary.test_family_manifest.v9", "cartulary.postgres_fixture_policy_registry.v2",
-      "cartulary.task_guide_summary.v4", "cartulary.harness_target_plan.v5",
+      "cartulary.task_guide_summary.v4", "cartulary.task_guide_summary.v6", "cartulary.harness_target_plan.v5",
       "cartulary.harness_work_graph_owner.v4", "cartulary.execution_topology.v13",
       "cartulary.harness_runtime_plan.v5", "cartulary.harness_renderer_event.v1",
       "cartulary.scheduler_resource_registry.v6",
@@ -70,6 +70,7 @@ export function registerJSONShapeTests() {
       "cartulary.harness_work_graph_owner.v8",
       "cartulary.harness_work_graph_owner.v9",
       "cartulary.harness_work_graph_owner.v10",
+      "cartulary.harness_work_graph_owner.v11",
       "cartulary.harness_cache_registry.v2",
       "cartulary.harness_estimate_audit.v1",
       "cartulary.test_family_manifest.v13",

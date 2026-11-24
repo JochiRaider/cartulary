@@ -96,12 +96,12 @@ export function assertHarnessTierRouting(context, plans) {
   for (const rowID of fullTierSelfTests) {
     assert.equal(compiler.catalog.rowByID.get(rowID)?.aggregate_placement, "full", rowID);
   }
-  for (const target of ["test-fast", "check", "ci", "release-check"]) {
+  for (const target of ["test-fast", "check", "ci"]) {
     const plan = plans.get(target);
     validateWorkGraph(plan.graph);
     const selected = rowIDs(plan.graph);
     assert.equal(new Set(selected).size, selected.length, `${target}: unique row evidence`);
-    const includesFull = ["ci", "release-check"].includes(target);
+    const includesFull = target === "ci";
     for (const rowID of fullTierSelfTests) {
       assert.equal(selected.includes(rowID), includesFull, `${target}: ${rowID}`);
     }
@@ -186,7 +186,7 @@ export function assertCatalogTierSelection(context) {
     ["harness.command_surface.process.processtest_helper_contract", "fast"],
     ["harness.command_surface.unit.configtest_helper_contract", "standard"],
     ["harness.command_surface.unit.embedded_asset_layout", "full"],
-    ["harness.browser.integration.postgres_transaction_isolation", "release"],
+    ["harness.browser.integration.postgres_transaction_isolation", "full"],
     ["harness.command_surface.unit.native_runtime", "explicit_only"],
   ];
   const rows = placements.map(([id, placement]) => ({ ...compiler.catalog.rowByID.get(id), aggregate_placement: placement }));
@@ -202,18 +202,21 @@ export function assertCatalogTierSelection(context) {
   const expectedSelections = [
     ["test-fast", ["harness.command_surface.process.processtest_helper_contract"]],
     ["check", ["harness.command_surface.process.processtest_helper_contract", "harness.command_surface.unit.configtest_helper_contract"]],
-    ["ci", ["harness.command_surface.process.processtest_helper_contract", "harness.command_surface.unit.configtest_helper_contract", "harness.command_surface.unit.embedded_asset_layout"]],
-    ["release-check", ["harness.command_surface.process.processtest_helper_contract", "harness.command_surface.unit.configtest_helper_contract", "harness.command_surface.unit.embedded_asset_layout", "harness.browser.integration.postgres_transaction_isolation"]],
+    ["ci", ["harness.command_surface.process.processtest_helper_contract", "harness.command_surface.unit.configtest_helper_contract", "harness.command_surface.unit.embedded_asset_layout", "harness.browser.integration.postgres_transaction_isolation"]],
   ];
   for (const [target, expected] of expectedSelections) {
     const plan = compiler.compileAggregatePlan(target);
     assert.deepEqual(plan, compiler.compileAggregatePlan(target), `${target}: deterministic`);
     validateWorkGraph(plan.graph);
     assert.deepEqual(rowIDs(plan.graph), expected.toSorted());
-    assert.equal(plan.graph.units.some((unit) => unit.unit_id === "operation:harness.test_service_images"), target === "release-check", `${target}: excluded service rows cannot introduce readiness`);
+    assert.equal(plan.graph.units.some((unit) => unit.unit_id === "operation:harness.test_service_images"), target === "ci", `${target}: excluded service rows cannot introduce readiness`);
   }
   const explicit = "harness.command_surface.unit.native_runtime";
   assert.deepEqual(rowIDs(compiler.compileRows([explicit])), [explicit], "explicit selection ignores aggregate tier");
+  // The release tier is retired; release work has no catalog tier.
+  rows[3].aggregate_placement = "release";
+  assert.throws(() => compiler.compileAggregatePlan("ci"), /invalid aggregate placement/u);
+  rows[3].aggregate_placement = "full";
   rows[0].aggregate_placement = "unknown_future_tier";
   assert.throws(() => compiler.compileAggregatePlan("ci"), /invalid aggregate placement/u);
 }

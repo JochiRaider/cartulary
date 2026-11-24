@@ -34,7 +34,7 @@ function ownerProjection(root, ownerID) {
 }
 
 function broaderCommands(projection) {
-  const gate = { fast: "test-fast", standard: "check", full: "ci", release: "release-check" };
+  const gate = { fast: "test-fast", standard: "check", full: "ci" };
   return [...new Set(projection.rows.filter((row) => row.aggregate_placement !== "explicit_only").map((row) => `make ${gate[row.aggregate_placement]}`))].sort(asciiCompare);
 }
 
@@ -42,7 +42,7 @@ export function buildOwnerTaskGuide(root, ownerID) {
   const projection = ownerProjection(root, ownerID);
   const owner = readOperationOwner(root);
   const explicitCommands = [];
-  for (const [selection, command] of [["harness.suite_browser_visual", "make browser-e2e SUITE=visual"], ["harness.contract_ui_review", "make harness-contract SUITE=ui-review"]]) {
+  for (const [selection, command] of [["harness.suite_browser_visual", "make browser-e2e SUITE=visual"], ["harness.contract_ui_review", "make harness-contract SUITE=ui-review"], ["harness.release_measurement", "make release-measure"], ["harness.release_qualification", "make release-check"]]) {
     const resolved = resolvePrivateSelection({ owner, catalog: projection.catalog }, selection);
     if (projection.rows.some((row) => row.aggregate_placement === "explicit_only" &&
       (resolved.rows.includes(row.row_id) || resolved.operations.includes(row.selector.operation_id)))) explicitCommands.push(command);
@@ -57,7 +57,7 @@ export function buildOwnerTaskGuide(root, ownerID) {
   }
   const releaseRequired = evidenceClasses.has("release");
   return {
-    schema_id: "cartulary.task_guide_summary.v6",
+    schema_id: "cartulary.task_guide_summary.v7",
     evidence_epoch: projection.catalog.summary.evidence_epoch,
     owner_id: projection.owner.owner_id,
     test_catalog_digest: projection.catalog.summary.test_catalog_digest,

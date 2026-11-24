@@ -5788,7 +5788,7 @@
       "status": "active",
       "fixture_capability": "browser_stack",
       "fixture_profile_id": "timeline_large_grid_snapshot_v2",
-      "aggregate_placement": "release",
+      "aggregate_placement": "explicit_only",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -5826,7 +5826,7 @@
       "status": "active",
       "fixture_capability": "browser_stack",
       "fixture_profile_id": "timeline_large_grid_snapshot_v2",
-      "aggregate_placement": "release",
+      "aggregate_placement": "explicit_only",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -5864,7 +5864,7 @@
       "status": "active",
       "fixture_capability": "browser_stack",
       "fixture_profile_id": "timeline_large_grid_snapshot_v2",
-      "aggregate_placement": "release",
+      "aggregate_placement": "explicit_only",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -5902,7 +5902,7 @@
       "status": "active",
       "fixture_capability": "browser_stack",
       "fixture_profile_id": "timeline_large_grid_snapshot_v2",
-      "aggregate_placement": "release",
+      "aggregate_placement": "explicit_only",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -5940,7 +5940,7 @@
       "status": "active",
       "fixture_capability": "browser_stack",
       "fixture_profile_id": "timeline_large_grid_snapshot_v2",
-      "aggregate_placement": "release",
+      "aggregate_placement": "explicit_only",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -5978,7 +5978,7 @@
       "status": "active",
       "fixture_capability": "browser_stack",
       "fixture_profile_id": "timeline_large_grid_snapshot_v2",
-      "aggregate_placement": "release",
+      "aggregate_placement": "explicit_only",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -6016,7 +6016,7 @@
       "status": "active",
       "fixture_capability": "browser_stack",
       "fixture_profile_id": "timeline_large_grid_snapshot_v2",
-      "aggregate_placement": "release",
+      "aggregate_placement": "explicit_only",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -6054,7 +6054,7 @@
       "status": "active",
       "fixture_capability": "browser_stack",
       "fixture_profile_id": "timeline_large_grid_snapshot_v2",
-      "aggregate_placement": "release",
+      "aggregate_placement": "explicit_only",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -6093,7 +6093,7 @@
       "status": "active",
       "fixture_capability": "browser_stack",
       "fixture_profile_id": "evidence_heavy_snapshot_v2",
-      "aggregate_placement": "release",
+      "aggregate_placement": "explicit_only",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -6131,7 +6131,7 @@
       "status": "active",
       "fixture_capability": "browser_stack",
       "fixture_profile_id": "timeline_large_grid_snapshot_v2",
-      "aggregate_placement": "release",
+      "aggregate_placement": "explicit_only",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -6169,7 +6169,7 @@
       "status": "active",
       "fixture_capability": "browser_stack",
       "fixture_profile_id": "timeline_large_grid_snapshot_v2",
-      "aggregate_placement": "release",
+      "aggregate_placement": "explicit_only",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -6207,7 +6207,7 @@
       "status": "active",
       "fixture_capability": "browser_stack",
       "fixture_profile_id": "timeline_large_grid_snapshot_v2",
-      "aggregate_placement": "release",
+      "aggregate_placement": "explicit_only",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -6245,7 +6245,7 @@
       "status": "active",
       "fixture_capability": "browser_stack",
       "fixture_profile_id": "timeline_large_grid_snapshot_v2",
-      "aggregate_placement": "release",
+      "aggregate_placement": "explicit_only",
       "service_dependencies": [
         "object_store",
         "postgres"

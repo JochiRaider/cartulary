@@ -62,8 +62,12 @@ test("owner and suite selection rejects conflicts and preserves support evidence
 
 test("browser selection requires a suite and selects its rows and static prerequisites exactly once", () => {
   const compiler = new WorkGraphCompiler(root);
-  const variants = Object.fromEntries(["functional", "stateful", "measurement", "accessibility", "visual", "support"].map((name) => [name, `harness.suite_browser_${name}`]));
+  const variants = Object.fromEntries(["functional", "stateful", "accessibility", "visual", "support"].map((name) => [name, `harness.suite_browser_${name}`]));
   assert.throws(() => resolveCommandInputs("browser-e2e", {}, compiler.taskSurface), /required/u);
+  // Measurement is release-measure's selection, not a browser-e2e suite.
+  assert.throws(() => compiler.compileCommand("browser-e2e", { SUITE: "measurement" }), /SUITE must be one of/u);
+  const measured = rows(compiler.compileCommand("release-measure", {}).graph);
+  assert.deepEqual(measured, compiler.catalog.rows.filter((row) => row.runner === "playwright" && row.selector.stage === "measurement").map((row) => row.row_id).sort());
   for (const suite of Object.keys(variants)) {
     const graph = compiler.compileCommand("browser-e2e", { SUITE: suite }).graph;
     const selected = rows(graph);

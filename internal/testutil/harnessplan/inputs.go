@@ -74,7 +74,7 @@ var ErrInput = errors.New("invalid harness planning input")
 // Load reads and validates every authored planning input under root.
 func Load(root string) (*Inputs, error) {
 	inputs := &Inputs{}
-	if err := readDocument(root, ownerPath, "cartulary.harness_work_graph_owner.v11", &inputs.Owner); err != nil {
+	if err := readDocument(root, ownerPath, "cartulary.harness_work_graph_owner.v12", &inputs.Owner); err != nil {
 		return nil, err
 	}
 	if err := readDocument(root, topologyPath, "cartulary.execution_topology.v16", &inputs.Topology); err != nil {
