@@ -148,6 +148,31 @@ VALUES ($1,$2,$3,$4,'café',CASE WHEN $5 THEN now() END,CASE WHEN $5 THEN $3::uu
 		}
 	})
 
+	t.Run("Network Flow rows keep their table", func(t *testing.T) {
+		seed, err := os.ReadFile("../../../fixtures/network-flow-validation/v1/restore.sql")
+		if err != nil {
+			t.Fatal(err)
+		}
+		target, pool := newTarget(t, "row-table-key")
+		err = target.WithAtomicRestore(t.Context(), nil, func(m recovery.VNextRestoreMutation) error {
+			tx := recovery.RestoreMutationTransactionForTest(m)
+			if _, err := tx.Exec(t.Context(), string(seed)); err != nil {
+				return err
+			}
+			// Triggers are off during restore, so nothing stops a row from
+			// naming a creator its table does not have.
+			_, err := tx.Exec(t.Context(), `UPDATE network_flow_rows SET created_by_user_id='18600000-0000-4000-8000-000000000099'`)
+			return err
+		})
+		if !errors.Is(err, recovery.ErrVNextBackup) || !strings.Contains(err.Error(), "restored Network Flow row without its table") {
+			t.Fatalf("restore admitted a row without its table or returned an unexpected error: %v", err)
+		}
+		var rows int
+		if err := pool.QueryRow(t.Context(), `SELECT count(*) FROM network_flow_rows`).Scan(&rows); err != nil || rows != 0 {
+			t.Fatal("invalid restore published rows", rows, err)
+		}
+	})
+
 	target, pool := newTarget(t, "foreign-key")
 	err := target.WithAtomicRestore(t.Context(), nil, func(m recovery.VNextRestoreMutation) error {
 		tx := recovery.RestoreMutationTransactionForTest(m)

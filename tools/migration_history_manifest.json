@@ -182,6 +182,12 @@
       "filename": "00030_timeline_tag_labels.sql",
       "sha256": "baec19bd4a0c938f24903219a69a05b0c27a5ca2161f698394a28f4a749639b3",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 31,
+      "filename": "00031_network_flow_row_table_key.sql",
+      "sha256": "1e2fa03a4e1866c85f4b492ede44c88f8355f22669f9c5230f3b0ab03fb09bcc",
+      "historical_phase_shaped": false
     }
   ]
 }

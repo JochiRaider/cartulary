@@ -101,6 +101,7 @@
     "module.networkflow.integration.graph_result_cleanup",
     "module.networkflow.integration.resource_intent_failure_rolls_back_source_mutation_8a4c3d2e1f",
     "module.networkflow.integration.rewritten_row_check_predicates_match_the_legacy_06637f98eb",
+    "module.networkflow.integration.statement_triggers_tie_rows_to_their_table_and_c_8c58ee8db3",
     "module.networkflow.store.graph_view_declaration_persistence",
     "module.networkflow.store.network_flow_selector_covers_only_active_and_sof_400db83232",
     "module.parties.idempotency.party_replay_storage_preserves_semantic_results_478b92a552",

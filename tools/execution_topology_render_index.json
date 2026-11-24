@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 3,
-  "input_digest": "sha256:c3649e167c582fcca2fe03821d74566340a129c45d3094f67612a0576e7a7ebb",
+  "input_digest": "sha256:9248c352f65e8ea69fd0e05fc50339c2eaabed1c8d2ec2b3d69e9ca6a4d4bbef",
   "inputs": [
     {
       "path": "contracts/performance/ac003.v2.json",
@@ -1297,7 +1297,7 @@
     {
       "path": "tools/postgres_fixture_policy_registry.json",
       "role": "postgres_fixture_policy_registry",
-      "hash": "sha256:5aee3f29ff0f66677beb01cc84c419a613b0c9a5cbfefb04e9c873949d9f3a01"
+      "hash": "sha256:d210aa9e701716c6e041ba0ddfd83f861ad80de51d5346610202072c419f8fa5"
     },
     {
       "path": "tools/scheduler_resource_registry.json",
@@ -1442,7 +1442,7 @@
     {
       "path": "tools/test_families/module.networkflow.json",
       "role": "test_family_manifest",
-      "hash": "sha256:6aa856233b909730370363bf2ac3ed2723e29223311298d8bf1a15a65e6b5c4f"
+      "hash": "sha256:b122f954bb62feb1eb66a649ca360ba512e9ac20bda8d709da5733e89a76eafb"
     },
     {
       "path": "tools/test_families/module.parties.json",

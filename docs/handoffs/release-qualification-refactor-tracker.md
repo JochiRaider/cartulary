@@ -239,6 +239,16 @@ rows (no placement justification).
      about 15 s to 13 s alone; under `ci` load, from about 30 s to about 27 s.
      That is under the budget, but with a thin margin.
 
+   **Row-key migration done (2026-11-24).** `00031_network_flow_row_table_key.sql`
+   (Network Flow owned, as approved): it replaces the per-row key with
+   statement triggers (insert check under `FOR KEY SHARE`, cascade on table
+   delete, table-key and `TRUNCATE` guards, all SQLSTATE 23503 under
+   `network_flow_rows_table_key`). It drops the creator-scope index and adds
+   `network_flow_rows_belong_to_tables_v1()`, which Recovery runs after a
+   restore with triggers disabled. The NF-REQ-171a row now takes 19.7 s alone
+   (from 22.3 s); its write pass is 12.9 s (from 15.3 s). The single-pass
+   apply awaits the owner's approval of its spec amendment.
+
 ### S1 result (2026-11-24)
 
 - **Rows.** 34 measurement rows and the 4 release package rows are

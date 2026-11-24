@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
@@ -141,9 +142,9 @@ func TestNetworkFlowRowCheckPredicateEquivalence_Integration(t *testing.T) {
 			{"long_normalized_digest", "network_flow_rows_sha_ck", `normalized_row_digest_sha256 := '` + valid + `0'`, "23514"},
 			{"uppercase_fingerprint", "network_flow_rows_sha_ck", `mapping_fingerprint := '` + strings.ToUpper(valid) + `'`, "23514"},
 			{"short_evidence_hash", "network_flow_rows_direction_evidence_ck", `direction_evidence := jsonb_set(direction_evidence,'{inputs,1,raw_value_sha256}',to_jsonb('` + short + `'::text))`, "23514"},
-			// The composite table key still proves the row's incident after the
-			// incident-only foreign key is removed.
-			{"foreign_incident", "network_flow_rows_table_creator_fkey", `incident_id := '00000000-0000-4000-8000-000000000999'`, "23503"},
+			// The row-to-table key still proves the row's incident.
+			{"foreign_incident", "network_flow_rows_table_key", `incident_id := '00000000-0000-4000-8000-000000000999'`, "23503"},
+			{"unknown_table", "network_flow_rows_table_key", `network_flow_table_id := 'nft_` + strings.Repeat("e", 32) + `'`, "23503"},
 		} {
 			t.Run(tc.name, func(t *testing.T) {
 				assertRowInsertRejected(t, h.DB, table.TableID, tc.assignments, tc.code, tc.constraint)
@@ -221,17 +222,14 @@ func TestNetworkFlowRowCheckPredicateEquivalence_Integration(t *testing.T) {
 	t.Run("creator_key", func(t *testing.T) {
 		// The other user exists, so only the creator column of the composite
 		// table key can reject a row whose creator is not its table's creator.
-		assertRowInsertRejected(t, h.DB, table.TableID, `created_by_user_id := '`+other.ID.String()+`'::uuid`, "23503", "network_flow_rows_table_creator_fkey")
+		assertRowInsertRejected(t, h.DB, table.TableID, `created_by_user_id := '`+other.ID.String()+`'::uuid`, "23503", "network_flow_rows_table_key")
 		// Nor can the table's creator move away from its rows'.
-		assertStatementRejected(t, h.DB, "23503", "network_flow_rows_table_creator_fkey", `UPDATE network_flow_tables SET created_by_user_id=$2 WHERE network_flow_table_id=$1`, table.TableID, other.ID)
+		assertStatementRejected(t, h.DB, "23503", "network_flow_rows_table_key", `UPDATE network_flow_tables SET created_by_user_id=$2 WHERE network_flow_table_id=$1`, table.TableID, other.ID)
 	})
 	t.Run("deletion_semantics", func(t *testing.T) {
-		// Before: rows and tables each held their creator with NO ACTION, and
-		// table or incident removal cascaded to rows. After: only the table holds
-		// the creator, and the composite key cascades from the table.
-		assertForeignKeys(t, h.DB, "network_flow_rows", map[string]string{
-			"network_flow_rows_table_creator_fkey": "network_flow_tables(incident_id,network_flow_table_id,created_by_user_id) delete=c update=a",
-		}, true)
+		// Only the table holds the creator. Rows carry no foreign key: statement
+		// triggers tie them to their table and cascade table removal to them.
+		assertForeignKeys(t, h.DB, "network_flow_rows", map[string]string{}, true)
 		assertForeignKeys(t, h.DB, "network_flow_tables", map[string]string{
 			"network_flow_tables_created_by_user_id_fkey": "users(created_by_user_id) delete=a update=a",
 			"network_flow_tables_incident_id_fkey":        "incidents(incident_id) delete=c update=a",
@@ -270,17 +268,20 @@ func TestNetworkFlowRowCheckPredicateEquivalence_Integration(t *testing.T) {
 	})
 }
 
+// flowRowColumns are network_flow_rows' columns in COPY order.
+var flowRowColumns = []string{"network_flow_row_id", "network_flow_table_id", "incident_id", "source_row_number",
+	"source_row_digest_sha256", "normalized_row_digest_sha256", "mapping_fingerprint",
+	"flow_start_utc", "flow_end_utc", "endpoint_a_ip", "endpoint_b_ip", "endpoint_a_port", "endpoint_b_port", "ip_protocol",
+	"bytes_count", "packets_count", "exporter_id", "input_interface", "output_interface",
+	"tcp_flags", "application_label", "unmapped_raw", "observation_source_ref", "created_at", "created_by_user_id",
+	"direction_kind", "from_endpoint", "direction_reason", "direction_evidence"}
+
 // assertRowInsertRejected copies the table's first row with one assignment
 // changed, under a savepoint, and requires the named constraint to reject it.
 func assertRowInsertRejected(t *testing.T, db dbport.DB, tableID, assignment, code, constraint string) {
 	t.Helper()
 	column, expression, _ := strings.Cut(assignment, " := ")
-	columns := []string{"network_flow_row_id", "network_flow_table_id", "incident_id", "source_row_number",
-		"source_row_digest_sha256", "normalized_row_digest_sha256", "mapping_fingerprint",
-		"flow_start_utc", "flow_end_utc", "endpoint_a_ip", "endpoint_b_ip", "endpoint_a_port", "endpoint_b_port", "ip_protocol",
-		"bytes_count", "packets_count", "exporter_id", "input_interface", "output_interface",
-		"tcp_flags", "application_label", "unmapped_raw", "observation_source_ref", "created_at", "created_by_user_id",
-		"direction_kind", "from_endpoint", "direction_reason", "direction_evidence"}
+	columns := flowRowColumns
 	selected := make([]string, len(columns))
 	for i, name := range columns {
 		switch name {
@@ -353,4 +354,73 @@ SELECT k.conname::text,
 	if fmt.Sprint(got) != fmt.Sprint(want) {
 		t.Errorf("%s foreign keys = %v, want %v", table, got, want)
 	}
+}
+
+// TestNetworkFlowRowTableKey_Integration proves the statement-level row-to-table
+// key: a multi-row statement and COPY are checked as a whole, truncating tables
+// alone cannot leave rows, and Recovery's owner predicate finds a row without
+// its table. The row check test covers the cascade from table removal.
+func TestNetworkFlowRowTableKey_Integration(t *testing.T) {
+	h, actor, incident := startNetworkFlowStoreTest(t, "row-table-key")
+	store := newTestNetworkFlowStore(t, h.DB, revisionsupport.MustAppender(t))
+	table := createTestTable(t, h.DB, store, actor.ID, incident, "key.csv", nil, 1)
+	t.Run("statements_are_checked_as_a_whole", func(t *testing.T) {
+		// One foreign row beside a valid copy rejects the whole statement.
+		assertStatementRejected(t, h.DB, "23503", "network_flow_rows_table_key", `INSERT INTO network_flow_rows SELECT (jsonb_populate_record(NULL::network_flow_rows, to_jsonb(r) || jsonb_build_object('network_flow_row_id', 'nfr_' || repeat(x.c, 64), 'source_row_number', r.source_row_number + x.n, 'network_flow_table_id', x.t))).* FROM network_flow_rows r CROSS JOIN (VALUES ('a', 1000, $1::text), ('b', 2000, 'nft_' || repeat('e', 32))) x(c, n, t) WHERE r.network_flow_table_id=$1`, table.TableID)
+		tx, err := h.DB.BeginTx(t.Context(), pgx.TxOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = tx.CopyFrom(t.Context(), pgx.Identifier{"network_flow_rows"}, flowRowColumns, pgx.CopyFromRows([][]any{foreignRowValues(t, h.DB, table.TableID)}))
+		_ = tx.Rollback(t.Context())
+		var pgErr *pgconn.PgError
+		if !errors.As(err, &pgErr) || pgErr.Code != "23503" || pgErr.ConstraintName != "network_flow_rows_table_key" {
+			t.Fatalf("COPY of a row without its table: err=%v", err)
+		}
+	})
+	t.Run("tables_cannot_be_truncated_from_under_rows", func(t *testing.T) {
+		// TRUNCATE refuses to run while the fixture's deferred trigger events
+		// are pending, so fire them first.
+		if _, err := h.DB.Exec(t.Context(), `SET CONSTRAINTS ALL IMMEDIATE`); err != nil {
+			t.Fatal(err)
+		}
+		assertStatementRejected(t, h.DB, "23503", "network_flow_rows_table_key", `TRUNCATE network_flow_tables CASCADE`)
+	})
+	t.Run("recovery_predicate_finds_a_row_without_its_table", func(t *testing.T) {
+		withSavepoint(t, h.DB, "row_key_restore", func() {
+			var valid bool
+			if err := h.DB.QueryRow(t.Context(), `SELECT public.network_flow_rows_belong_to_tables_v1()`).Scan(&valid); err != nil || !valid {
+				t.Fatalf("intact rows: valid=%v err=%v", valid, err)
+			}
+			// A restore loads with triggers disabled; simulate one orphan.
+			if _, err := h.DB.Exec(t.Context(), `SET LOCAL session_replication_role = replica`); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := h.DB.Exec(t.Context(), `DELETE FROM network_flow_rejected_row_diagnostics WHERE network_flow_table_id=$1`, table.TableID); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := h.DB.Exec(t.Context(), `DELETE FROM network_flow_tables WHERE network_flow_table_id=$1`, table.TableID); err != nil {
+				t.Fatal(err)
+			}
+			if err := h.DB.QueryRow(t.Context(), `SELECT public.network_flow_rows_belong_to_tables_v1()`).Scan(&valid); err != nil || valid {
+				t.Fatalf("orphaned rows: valid=%v err=%v", valid, err)
+			}
+		})
+	})
+}
+
+// foreignRowValues is the table's first row, renamed and pointed at a table
+// that does not exist, in COPY column order.
+func foreignRowValues(t *testing.T, db dbport.DB, tableID string) []any {
+	t.Helper()
+	values := make([]any, len(flowRowColumns))
+	pointers := make([]any, len(values))
+	for i := range values {
+		pointers[i] = &values[i]
+	}
+	if err := db.QueryRow(t.Context(), `SELECT `+strings.Join(flowRowColumns, ",")+` FROM network_flow_rows WHERE network_flow_table_id=$1 ORDER BY source_row_number LIMIT 1`, tableID).Scan(pointers...); err != nil {
+		t.Fatal(err)
+	}
+	values[0], values[1] = "nfr_"+strings.Repeat("f", 64), "nft_"+strings.Repeat("e", 32)
+	return values
 }

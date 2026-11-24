@@ -101,6 +101,15 @@ func validateRestoredPostgresRows(ctx context.Context, tx pgx.Tx) error {
 	if !valid {
 		return fmt.Errorf("%w: restored revision history order", ErrVNextBackup)
 	}
+	// Network Flow ties rows to their table with statement triggers, which a
+	// restore with triggers disabled never fires; its owner predicate proves
+	// the relation the generic foreign-key check no longer covers.
+	if err := tx.QueryRow(ctx, `SELECT public.network_flow_rows_belong_to_tables_v1()`).Scan(&valid); err != nil {
+		return fmt.Errorf("validate restored Network Flow rows: %w", err)
+	}
+	if !valid {
+		return fmt.Errorf("%w: restored Network Flow row without its table", ErrVNextBackup)
+	}
 	valid, err = linkfacts.TimelineTagLabelsAreCanonicalTx(ctx, tx)
 	if err != nil {
 		return fmt.Errorf("validate restored Timeline tag labels: %w", err)
