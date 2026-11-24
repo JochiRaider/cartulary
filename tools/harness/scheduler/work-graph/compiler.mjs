@@ -133,22 +133,10 @@ function boundedGoClaims(claims, requestedParallelism, availablePostgresLanes) {
   };
 }
 
-function policyEvidenceOutputs(target) {
-  if (target === "seaweedfs-compatibility") return ["seaweedfs-compatibility/object-store-compatibility-report.json"];
-  if (target === "seaweedfs-release-gate") return [`${target}/artifacts/release-gate-summary.json`];
-  if (target === "visual-registry-check") return ["visual-registry/visual-fixture-matrix.json", "visual-registry/visual-registry-metadata.json"];
-  if (target === "release-evidence-verify") return ["release-evidence-verify/closure.json"];
-  if (target === "test-evidence-audit") return ["test-evidence-audit/audit.json"];
-  if (target === "build-web" || target === "build-web-measurement") {
-    return [`${target}/frontend-artifact.json`];
-  }
-  if (target === "go-vulncheck") {
-    return [
-      "unit-artifacts/operation-harness.go_vulncheck/govulncheck-findings.json",
-      "unit-artifacts/operation-harness.go_vulncheck/govulncheck-output.jsonstream",
-    ];
-  }
-  return [];
+// A policy unit declares the evidence its operation publishes beyond row and
+// unit results.
+function policyEvidenceOutputs(owner, operationID) {
+  return owner.policy_units[operationID]?.current_run_evidence_outputs ?? [];
 }
 
 function rowUnit(row, target, owner, topology, needs, runtimeEnvironment) {
@@ -170,7 +158,7 @@ function rowUnit(row, target, owner, topology, needs, runtimeEnvironment) {
     cache_policy: rowCachePolicy(row),
     timeout_ms: owner.default_timeout_ms,
     current_run_evidence_outputs: [`rows/${row.row_id}.json`,
-      ...(row.runner === "shell" ? policyEvidenceOutputs(operationDefinition(owner, row.selector.operation_id).report_key) : [])].sort(compareASCII),
+      ...(row.runner === "shell" ? policyEvidenceOutputs(owner, row.selector.operation_id) : [])].sort(compareASCII),
     row_bindings: [{ row_id: row.row_id, runner: row.runner }],
     failure_policy: {
       block_descendants: true,
@@ -680,7 +668,7 @@ export class WorkGraphCompiler {
         timeout_ms: Object.hasOwn(policy ?? {}, "timeout_ms")
           ? policy.timeout_ms
           : this.owner.default_timeout_ms,
-        current_run_evidence_outputs: policyEvidenceOutputs(operation.report_key),
+        current_run_evidence_outputs: policyEvidenceOutputs(this.owner, operationID),
         reusable_artifact_outputs: policy?.reusable_artifact_outputs ?? [],
         failure_policy: {
           block_descendants: true,

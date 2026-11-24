@@ -2413,7 +2413,7 @@ Every cacheable unit declares `same_run` or `content_addressed`; every other
 unit declares `none`. The registry binds policy work by canonical `operation_ids`
 and catalog work by `runner_types`; it MUST NOT bind cache eligibility to public
 command spelling. An operation or runner context absent from the registry is
-ineligible. The work-graph owner uses `cartulary.harness_work_graph_owner.v10`
+ineligible. The work-graph owner uses `cartulary.harness_work_graph_owner.v11`
 with closed operation definitions; task-surface bindings cannot override them. The
 retired scheduler-input-stamp and finalizer-action-cache families are not valid
 v3 inputs, and current commands MUST NOT read or translate them.
@@ -11746,6 +11746,63 @@ in the transitive application import/embedding closure. Negative fixtures cover
 both dependency directions and archive input admission. These helper results
 supplement independently selected product tests.
 
+## Go work-graph planner amendment — 2026-11-23
+
+A Go work-graph planner replaces the JavaScript graph compiler in stages. Until
+the runtime switches to it, the JavaScript compiler remains the only producer of
+executed plans (`cartulary.harness_runtime_plan.v7` carrying
+`cartulary.harness_work_graph.v8`). The Go planner is verified on its own
+correctness: every selected row bound to exactly one unit, every need resolved
+and acyclic, each unit waiting for the producers its rows require, and
+footprints and residents that follow the declared services and fixture leases.
+Its output is never compared with the JavaScript compiler's. At the switch the
+runtime accepts only the Go planner's plan, and the JavaScript compiler, its
+selector resolution and retained-run recompilation are removed. As each
+selection kind moves, the Go planner replaces Node as the owner of graph
+compilation, graph modeling and selector validation assigned by
+TH-HARNESS-REQ-852. Node keeps running Vitest and Playwright and adapting their
+reports.
+
+The Go planner's graph is `cartulary.harness_work_graph.v9` and its plan is
+`cartulary.harness_runtime_plan.v8`. Both admit additive fields until the
+switch and are closed from then on. Graph v9 changes v8 and the closed field
+list of TH-HARNESS-REQ-801 as follows:
+
+- `residents` replaces `physical_allocations`. Each resident is one physical
+  allocation a unit's fixture creates or borrows. It has a stable `key`, a
+  `scope` and its resident `claims`. Scope `unit` means the allocation is
+  created for the unit and retired with it. Scope `graph` means it is shared by
+  the graph's consumers and retired after the last of them. A key carries the
+  same claims everywhere it appears. A unit without a fixture lease has no
+  residents. The runtime and host admission charge residents by key under
+  TH-HARNESS-REQ-803; they never re-derive allocation identity from services or
+  isolation.
+- `failure_policy` contains only `block_descendants`. Independent work always
+  continues, so `continue_independent` and `aggregate_effect` are removed.
+- `runtime_binary_ids` lists the runtime binaries a unit consumes. The runtime
+  binds their paths at launch. Commands and unit identity contain no checkout
+  or binary paths.
+- The graph-level `selector` is removed; `graph_digest` identifies the graph.
+- A unit ID is a digest of the unit's execution contract and row set. Units
+  of other contracts, and estimates that leave the row set unchanged, do not
+  change it.
+- `current_run_evidence_outputs` holds each bound row's `rows/<row_id>.json`,
+  the unit result `unit-results/<unit>.json` and the outputs declared by the
+  unit's policy. Row identity is read only from `row_bindings`.
+- Renderer, browser-affinity, fixture-profile and snapshot fields are added
+  when the planner compiles browser, fixture-profile and measurement work.
+
+Plan v8 changes v7 as follows. It carries graph v9. `host_profile` reports the
+Go host facts: operating system, architecture, kernel release and CPU models.
+`helper_digest` and `preparation` are removed because the runtime measures
+preparation itself. The plan is written to the run root as `plan.json`.
+Retained-run readers read that file and never recompile a selection.
+
+The work-graph owner becomes `cartulary.harness_work_graph_owner.v11`. Each
+policy unit declares `current_run_evidence_outputs`: the run-root-relative
+outputs its operation publishes beyond row and unit results. No compiler keeps
+its own table of operation outputs. Every operation compiled into a graph has
+a policy unit; there is no default policy.
 
 ## SQL architecture analysis completeness
 

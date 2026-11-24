@@ -833,6 +833,14 @@
       "foundation_runtime": true
     },
     {
+      "schema_id": "cartulary.harness_runtime_plan.v8",
+      "path": "tools/schemas/cartulary.harness_runtime_plan.v8.schema.json",
+      "classification": "shared_component",
+      "producer": "Go work-graph planner",
+      "validation": "harness.json_shape_check",
+      "foundation_runtime": true
+    },
+    {
       "schema_id": "cartulary.harness_runtime_resource.v2",
       "path": "tools/schemas/cartulary.harness_runtime_resource.v2.schema.json",
       "classification": "shared_component",
@@ -933,8 +941,15 @@
       "validation": "harness.json_shape_check"
     },
     {
-      "schema_id": "cartulary.harness_work_graph_owner.v10",
-      "path": "tools/schemas/cartulary.harness_work_graph_owner.v10.schema.json",
+      "schema_id": "cartulary.harness_work_graph.v9",
+      "path": "tools/schemas/cartulary.harness_work_graph.v9.schema.json",
+      "classification": "public_contract",
+      "producer": "Go work-graph planner",
+      "validation": "harness.json_shape_check"
+    },
+    {
+      "schema_id": "cartulary.harness_work_graph_owner.v11",
+      "path": "tools/schemas/cartulary.harness_work_graph_owner.v11.schema.json",
       "classification": "owner_input",
       "producer": "harness graph owner",
       "validation": "harness.json_shape_check"

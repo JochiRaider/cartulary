@@ -438,6 +438,62 @@ balanced units; shell rows under the operation's policy; unsupported and
 invalid selections). Checks: `m2-lintgo01`, `m2-slice02`, `m2-srccat01`,
 `m2-srcgen01`, `m2-srcjson01`; all pass.
 
+**Milestone 2, slice 2b: the plan document (2026-11-23).** The NLSpec gains
+the "Go work-graph planner amendment — 2026-11-23" (staged replacement,
+REQ-852's Node ownership moving to Go per selection kind, graph v9, plan v8,
+owner v11). Schemas `cartulary.harness_work_graph.v9` and
+`cartulary.harness_runtime_plan.v8` are attached with Go validators; both
+admit additive fields until the switch.
+
+- *Graph v9.* `residents` replaces `physical_allocations`; `failure_policy`
+  keeps only `block_descendants` (`continue_independent` was always true and
+  `aggregate_effect` had no reader); `runtime_binary_ids` is added; the
+  graph-level `selector` is gone. Renderer, affinity, fixture-profile and
+  snapshot fields return with the milestones that compile that work.
+- *Finalization.* `Compile` canonicalizes every unit (sorted sets, empty
+  lists instead of null, the unit result `unit-results/<unit>.json` in the
+  evidence outputs) and computes unit and graph digests with one helper, which
+  the capability snapshot digest now shares.
+- *Plan v8.* `Assemble` binds a graph to an invocation's facts (run identity,
+  declared inputs and input environment, snapshot, Go worker budget, source
+  inputs and provenance, cache mode and facts, instrumentation, host profile,
+  launch bindings) and computes the manifest digests. `Plan.validate` holds
+  the invariants the runtime's v7 decoder checks today (digests, modes, worker
+  budget, lane limit, input environment, capacities, footprints including
+  residents, evidence and artifact outputs, projections, cache facts) so the
+  runtime and retained-run readers share one check. `helper_digest` and
+  `preparation` are dropped.
+- *Owner v11.* Each policy unit declares `current_run_evidence_outputs`. The
+  JavaScript compiler's hard-coded table of operation outputs is deleted and
+  it reads the owner instead. `harness.test_evidence_audit` and
+  `harness.release_evidence_verify` get policy units with the values the
+  JavaScript default supplied (standard profile, no needs or services, no
+  cache, 1000 ms), so no operation that declares evidence relies on a default.
+- *Fix to 2a.* Residents follow the fixture lease: a unit without one (the
+  standup and credential-capacity operations and three browser PostgreSQL
+  rows) manages or attaches to its services itself and has no residents, as
+  in the v8 model.
+
+Tests: `TestPlannerCompilation` adds canonical-unit, identity-alone and
+policy-evidence cases and checks lease-bound residents; `TestPlanAssembly`
+validates a plan against the generated v8 validator and rejects thirteen
+invalid invocations, each on its intended invariant. Checks: `make lint
+CHECK=go`; the planner, JSON-shape and native-runtime rows; the graph-contract
+row (`harness.test_catalog.behavior.routing_contract`); `source-check`
+`generated`, `schema` and `catalog`; `lint-markdown`; all pass. The
+owner-boundaries row passes its owner-schema test but fails on private browser
+imports in `installed-readiness.mjs` from `a5df06952` (on main, unrelated;
+tracked as its own task).
+
+**Remaining milestone 2 slices.** 2c: preparation facts in Go (task-surface
+command inputs and input environment, run identity, source snapshot and
+provenance, launch bindings, host profile, Go worker budget) and a
+`harnessplan.Prepare` entry point. 2d: cache facts (cache profiles, input
+digests, `go list -deps` closures for Go units). 2e: the runtime calls the
+planner in-process for Go-planned slices behind a planner selector, writes
+`plan.json` to the run root, and reads residents by key; that removes the
+compiler subprocess and the plan decode round trip on that path.
+
 ## 9. Decisions requested
 
 - Decided 2026-11-23: Option B (staged Go replacement); Stage 0 tried and

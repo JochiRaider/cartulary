@@ -42,7 +42,7 @@ var ErrInput = errors.New("invalid harness planning input")
 // Load reads and validates every authored planning input under root.
 func Load(root string) (*Inputs, error) {
 	inputs := &Inputs{}
-	if err := readDocument(root, ownerPath, "cartulary.harness_work_graph_owner.v10", &inputs.Owner); err != nil {
+	if err := readDocument(root, ownerPath, "cartulary.harness_work_graph_owner.v11", &inputs.Owner); err != nil {
 		return nil, err
 	}
 	if err := readDocument(root, topologyPath, "cartulary.execution_topology.v16", &inputs.Topology); err != nil {
@@ -133,6 +133,9 @@ type PolicyUnit struct {
 	RequiredRows            []RequiredRow    `json:"required_rows,omitempty"`
 	FixtureLease            string           `json:"fixture_lease,omitempty"`
 	ReusableArtifactOutputs []ArtifactOutput `json:"reusable_artifact_outputs,omitempty"`
+	// EvidenceOutputs are the run-root-relative outputs the operation
+	// publishes beyond its row and unit results.
+	EvidenceOutputs []string `json:"current_run_evidence_outputs,omitempty"`
 }
 
 // RequiredRow is a catalog row an operation requires whatever the aggregate

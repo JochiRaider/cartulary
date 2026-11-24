@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.harness_work_graph_owner.v10",
+  "schema_id": "cartulary.harness_work_graph_owner.v11",
   "capacity_override_input": "CARTULARY_HARNESS_CAPACITY_OVERRIDE",
   "tier_order": [
     "fast",
@@ -597,7 +597,10 @@
       "estimated_work_ms": 5000,
       "resource_profile_id": "standard",
       "service_dependencies": [],
-      "postgres_isolation": "none"
+      "postgres_isolation": "none",
+      "current_run_evidence_outputs": [
+        "build-web/frontend-artifact.json"
+      ]
     },
     "harness.codegen_toolchain": {
       "needs": [
@@ -715,7 +718,11 @@
       "estimated_work_ms": 8000,
       "resource_profile_id": "standard",
       "service_dependencies": [],
-      "postgres_isolation": "none"
+      "postgres_isolation": "none",
+      "current_run_evidence_outputs": [
+        "unit-artifacts/operation-harness.go_vulncheck/govulncheck-findings.json",
+        "unit-artifacts/operation-harness.go_vulncheck/govulncheck-output.jsonstream"
+      ]
     },
     "harness.goose_toolchain": {
       "needs": [
@@ -963,7 +970,10 @@
       "service_dependencies": [
         "object_store"
       ],
-      "postgres_isolation": "none"
+      "postgres_isolation": "none",
+      "current_run_evidence_outputs": [
+        "seaweedfs-compatibility/object-store-compatibility-report.json"
+      ]
     },
     "harness.seaweedfs_release_gate": {
       "needs": [
@@ -981,6 +991,9 @@
           "row_id": "module.recovery.process.canonical_operator_process_evidence_maps_the_imp_9808fdd4e9",
           "rationale": "Current canonical backup creation/inspection, restore and latest/due verification with real operator effects and safe-output assertions."
         }
+      ],
+      "current_run_evidence_outputs": [
+        "seaweedfs-release-gate/artifacts/release-gate-summary.json"
       ]
     },
     "harness.semantic_identity_check": {
@@ -1075,7 +1088,10 @@
       "estimated_work_ms": 5000,
       "resource_profile_id": "standard",
       "service_dependencies": [],
-      "postgres_isolation": "none"
+      "postgres_isolation": "none",
+      "current_run_evidence_outputs": [
+        "build-web-measurement/frontend-artifact.json"
+      ]
     },
     "harness.protocol_ts_browser_artifact_reachability": {
       "needs": [
@@ -1951,7 +1967,33 @@
       "estimated_work_ms": 1500,
       "resource_profile_id": "standard",
       "service_dependencies": [],
-      "postgres_isolation": "none"
+      "postgres_isolation": "none",
+      "current_run_evidence_outputs": [
+        "visual-registry/visual-fixture-matrix.json",
+        "visual-registry/visual-registry-metadata.json"
+      ]
+    },
+    "harness.release_evidence_verify": {
+      "needs": [],
+      "cache_policy": "none",
+      "estimated_work_ms": 1000,
+      "resource_profile_id": "standard",
+      "service_dependencies": [],
+      "postgres_isolation": "none",
+      "current_run_evidence_outputs": [
+        "release-evidence-verify/closure.json"
+      ]
+    },
+    "harness.test_evidence_audit": {
+      "needs": [],
+      "cache_policy": "none",
+      "estimated_work_ms": 1000,
+      "resource_profile_id": "standard",
+      "service_dependencies": [],
+      "postgres_isolation": "none",
+      "current_run_evidence_outputs": [
+        "test-evidence-audit/audit.json"
+      ]
     }
   },
   "evidence_estimates_ms": {

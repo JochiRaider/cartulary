@@ -69,6 +69,7 @@ func Compile(in *Inputs, selection Selection, options Options) (*Graph, error) {
 	if err := graph.validate(); err != nil {
 		return nil, err
 	}
+	graph.finalize()
 	return graph, nil
 }
 
@@ -263,9 +264,10 @@ func (c *compiler) operation(id string, stack []string) (string, error) {
 	}
 	unit := &Unit{
 		ID: unitID, OwnerID: "harness.command_surface", Kind: operation.Kind, Needs: needs, Claims: claims,
-		Residents: c.residents(unitID, policy.ServiceDependencies, policy.PostgresIsolation), FixtureLease: lease,
+		Residents: c.residents(unitID, lease, policy.ServiceDependencies, policy.PostgresIsolation), FixtureLease: lease,
 		ServiceDependencies: slices.Clone(policy.ServiceDependencies), PostgresIsolation: policy.PostgresIsolation,
 		CachePolicy: policy.CachePolicy, TimeoutMS: timeout, ArtifactOutputs: policy.ReusableArtifactOutputs,
+		EvidenceOutputs: slices.Clone(policy.EvidenceOutputs), FailurePolicy: FailurePolicy{BlockDescendants: true},
 		EstimatedWorkMS: policy.EstimatedWorkMS,
 		Command: Command{Executable: "node", Args: []string{"tools/harness/execution/operation-runner-cli.mjs", id}, Environment: map[string]string{
 			"CARTULARY_TEST_TARGET":                  operation.ReportKey,
@@ -491,11 +493,11 @@ func (c *compiler) goUnit(key string, contract goContract, rows []*Row, stack []
 	environment["CARTULARY_GO_SHUFFLE_SEED"] = c.options.GoShuffleSeed
 	unit := &Unit{
 		ID: id, OwnerID: "harness.backend", Kind: "runner", Needs: dedupe(needs), Claims: claims,
-		Residents: c.residents(id, contract.ServiceDependencies, contract.PostgresIsolation), FixtureLease: contract.FixtureCapability,
+		Residents: c.residents(id, contract.FixtureCapability, contract.ServiceDependencies, contract.PostgresIsolation), FixtureLease: contract.FixtureCapability,
 		ServiceDependencies: contract.ServiceDependencies, PostgresIsolation: contract.PostgresIsolation, CachePolicy: contract.CachePolicy,
 		TimeoutMS: c.in.Owner.DefaultTimeoutMS, RuntimeBinaryIDs: contract.RuntimeBinaryIDs,
-		EstimatedWorkMS: policy.StartupMS + work + policy.CleanupMS,
-		Command:         Command{Executable: "node", Args: []string{"tools/harness/execution/runners/row-runner-cli.mjs", "--unit-rows"}, Environment: environment},
+		FailurePolicy: FailurePolicy{BlockDescendants: true}, EstimatedWorkMS: policy.StartupMS + work + policy.CleanupMS,
+		Command: Command{Executable: "node", Args: []string{"tools/harness/execution/runners/row-runner-cli.mjs", "--unit-rows"}, Environment: environment},
 	}
 	for _, row := range rowIDs {
 		unit.RowBindings = append(unit.RowBindings, RowBinding{RowID: row, Runner: RunnerGo})
@@ -547,11 +549,15 @@ func (c *compiler) claims(profileID string, services []string) (map[string]int64
 	return claims, nil
 }
 
-// residents names the physical allocations a unit's services create: its
-// own PostgreSQL generation, or the shared generation, and the shared
-// object store.
-func (c *compiler) residents(unitID string, services []string, isolation string) []Resident {
+// residents names the physical allocations a unit's fixture lease creates
+// or borrows: its own PostgreSQL generation, or the shared generation, and
+// the shared object store. A unit without a fixture lease manages or
+// attaches to its services itself and has no residents.
+func (c *compiler) residents(unitID, lease string, services []string, isolation string) []Resident {
 	var residents []Resident
+	if lease == "none" {
+		return nil
+	}
 	physical := c.in.Topology.PhysicalResourceClaims
 	if slices.Contains(services, "object_store") {
 		residents = append(residents, Resident{Key: "object_store:shared", Scope: ScopeGraph, Claims: maps.Clone(physical["object_store"])})

@@ -82,6 +82,12 @@ func TestPlannerCompilation(t *testing.T) {
 			for _, resident := range unit.Residents {
 				keys[resident.Key] = resident.Scope
 			}
+			if unit.FixtureLease == "none" {
+				if len(keys) != 0 {
+					t.Fatalf("%s has no fixture lease but holds residents %v", unit.ID, keys)
+				}
+				continue
+			}
 			switch unit.PostgresIsolation {
 			case "exclusive":
 				if keys["postgres:unit:"+unit.ID] != ScopeUnit {
@@ -97,6 +103,53 @@ func TestPlannerCompilation(t *testing.T) {
 			}
 			if !slices.Contains(unit.Needs, "operation:harness.test_service_images") {
 				t.Fatalf("%s does not wait for the service images", unit.ID)
+			}
+		}
+	})
+
+	t.Run("units are canonical and identified by their own contract", func(t *testing.T) {
+		rows := rowsWhere(plannable)
+		graph, err := Compile(inputs, Selection{Rows: rows}, options)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, unit := range graph.Units {
+			if unit.SemanticDigest != semanticDigest(unit, "semantic_digest") {
+				t.Fatalf("%s semantic digest does not cover the unit", unit.ID)
+			}
+			if !slices.Contains(unit.EvidenceOutputs, unit.ResultPath()) || !slices.IsSorted(unit.EvidenceOutputs) {
+				t.Fatalf("%s evidence outputs %v lack its result or are unsorted", unit.ID, unit.EvidenceOutputs)
+			}
+			if !unit.FailurePolicy.BlockDescendants {
+				t.Fatalf("%s does not block its descendants", unit.ID)
+			}
+		}
+		// A row whose contract is shared with no other selected row compiles
+		// to the same unit alone as in the full selection.
+		for _, unit := range graph.Units {
+			if !strings.HasPrefix(unit.ID, "go:") || len(unit.RowBindings) != 1 {
+				continue
+			}
+			alone, err := Compile(inputs, Selection{Rows: []string{unit.RowBindings[0].RowID}}, options)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if other, ok := alone.Units[unit.ID]; !ok || other.SemanticDigest != unit.SemanticDigest {
+				t.Fatalf("%s changes identity when compiled alone", unit.ID)
+			}
+			break
+		}
+	})
+
+	t.Run("policy evidence outputs come from the policy unit", func(t *testing.T) {
+		graph, err := Compile(inputs, Selection{Target: "harness.go_vulncheck"}, options)
+		if err != nil {
+			t.Fatal(err)
+		}
+		unit := graph.Units["operation:harness.go_vulncheck"]
+		for _, output := range inputs.Owner.PolicyUnits["harness.go_vulncheck"].EvidenceOutputs {
+			if !slices.Contains(unit.EvidenceOutputs, output) {
+				t.Fatalf("operation unit lacks its policy's evidence output %s: %v", output, unit.EvidenceOutputs)
 			}
 		}
 	})

@@ -1,11 +1,9 @@
 package harnessplan
 
 import (
-	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 
-	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessschema"
 )
 
@@ -170,11 +168,7 @@ func Capture(host Host, registry ResourceRegistry, override *CapacityOverride) (
 		"services":             source(override.Services != nil, "host"),
 		"writable_volume":      source(override.WritableVolume != nil, "host"),
 	}
-	digest, err := semanticDigest(s)
-	if err != nil {
-		return s, err
-	}
-	s.SnapshotDigest = digest
+	s.SnapshotDigest = semanticDigest(s, "snapshot_digest")
 	return s, nil
 }
 
@@ -205,24 +199,4 @@ func (s CapabilitySnapshot) Capacities() map[string]int64 {
 		"service_stack":  service("service_stack", s.PortLanes),
 		"volume":         volume,
 	}
-}
-
-// semanticDigest is the digest of value's canonical JSON with the snapshot
-// digest field cleared.
-func semanticDigest(s CapabilitySnapshot) (string, error) {
-	s.SnapshotDigest = ""
-	data, err := json.Marshal(s)
-	if err != nil {
-		return "", err
-	}
-	var document map[string]any
-	if err := json.Unmarshal(data, &document); err != nil {
-		return "", err
-	}
-	delete(document, "snapshot_digest")
-	canonical, err := canonicaljson.Marshal(document)
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("sha256:%x", sha256.Sum256(canonical)), nil
 }
