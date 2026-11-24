@@ -621,6 +621,7 @@ function resolveSelectors(root, rows, { runners, operationIDs }, complete = fals
       subjects: overlapping.sort(asciiCompare),
     });
   }
+  resolveSelector.assertTitlePaths(selectors);
   if (complete) resolveSelector.assertSourceCoverage(runners, selectors);
   return [...selectors].filter((selector) => !selector.startsWith("playwright-source:")).length;
 }

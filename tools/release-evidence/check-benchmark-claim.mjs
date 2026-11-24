@@ -23,7 +23,7 @@ import {
   validateProfileMeasurementObservation,
 } from "../harness/performance-fixture/index.mjs";
 import { adaptPlaywrightReport } from "../harness/execution/runners/playwright.mjs";
-import { loadTestCatalog, resolvePlaywrightSelection } from "../harness/test-catalog/index.mjs";
+import { loadTestCatalog, playwrightSelection } from "../harness/test-catalog/index.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const defaultManifest = path.join(repoRoot, ".cartulary/benchmark/benchmark_manifest.json");
@@ -198,7 +198,7 @@ export function validateBenchmarkManifest(manifest, manifestDir, { root = repoRo
             entry.lease.artifact.predicate_id !== summary.rollup.predicate_id) throw new Error("measurement did not qualify");
         validateBuild(fixture, entry.build.artifact, entry.lease.artifact, migrationDigest);
         const report = readReference(runRoot, measurement.report, null, reportLimit).value;
-        const selected = resolvePlaywrightSelection(root, [row]);
+        const selected = playwrightSelection([row]);
         if (adaptPlaywrightReport([row], report, 0, null, selected)[0].terminal_state !== "passed") {
           throw new Error("browser result differs from its exact catalog selection");
         }

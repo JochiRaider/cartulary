@@ -5,7 +5,7 @@ import fs, { chmodSync, copyFileSync, mkdirSync, mkdtempSync, readFileSync, read
 import { syncBuiltinESMExports } from "node:module";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { createRowSelectorResolver, discoverRunnerSources, validatePostgresFixturePolicy } from "../../test-support/owner-fixtures.mjs";
+import { createRowSelectorResolver, discoverRunnerSources, playwrightSelection, validatePostgresFixturePolicy } from "../../test-support/owner-fixtures.mjs";
 import { groupRowsByPerformanceFixture, postgresMigrationDigest, snapshotKey } from "../../performance-fixture/index.mjs";
 import { buildSourceSnapshot, loadSelectedTestRows, loadTestCatalog } from "../index.mjs";
 import { HarnessConfigError, preparationDiagnostic } from "../../contract/index.mjs";
@@ -403,19 +403,30 @@ function assertSourceDiscoveryBoundary() {
     const browserFile = "apps/web/e2e/fixture.spec.ts";
     const browserRunner = { runner: "playwright", approved_roots: ["apps/web/e2e"], project_ids: ["chromium"], stages: ["measurement"] };
     const browserSelection = { row: { row_id: "fixture.browser", runner: "playwright", selector: { file: browserFile, project_id: "chromium", stage: "measurement", titles: ["outer same"], scenario_ids: ["fixture_case"] } }, runner: browserRunner, taskSurfaceCommandIDs: new Set() };
-    const resolveBrowser = (source, title = "outer same") => {
-      write(browserFile, `import { test } from "@playwright/test"; ${source}`);
-      return createRowSelectorResolver(root)({ ...browserSelection, row: { ...browserSelection.row, selector: { ...browserSelection.row.selector, titles: [title] } } });
-    };
-    assert.deepEqual(resolveBrowser('test.describe("outer", () => { test("same", { tag: "@fast" }, () => {}); });'), [
-      "playwright:chromium:measurement:fixture_case", `playwright-source:chromium:${browserFile}:outer same`,
+    // Playwright titles are exact title paths ("suite › test"); the catalog
+    // admits them without reading the spec source.
+    write(browserFile, "test.describe(runtimeTitle(), () => {});\n");
+    const resolveBrowser = (title) => createRowSelectorResolver(root)({ ...browserSelection, row: { ...browserSelection.row, selector: { ...browserSelection.row.selector, titles: [title] } } });
+    assert.deepEqual(resolveBrowser("outer \u203a same"), [
+      "playwright:chromium:measurement:fixture_case", `playwright-source:chromium:${browserFile}:outer \u203a same`,
     ]);
-    for (const title of [" leading", "trailing ", "line\nbreak", "delimiter › component"]) {
-      assert.throws(() => resolveBrowser(`test(${JSON.stringify(title)}, () => {});`, title), /test-list interface/u);
+    assert.deepEqual(playwrightSelection([{ ...browserSelection.row, selector: { ...browserSelection.row.selector, titles: ["outer \u203a same"] } }]),
+      [{ row_id: "fixture.browser", project_id: "chromium", file: browserFile, title_path: ["outer", "same"] }]);
+    for (const title of [" leading", "trailing ", "line\nbreak", "delimiter\u203acomponent", "empty \u203a  \u203a part"]) {
+      assert.throws(() => resolveBrowser(title), /exact Playwright title path/u);
     }
-    assert.throws(() => resolveBrowser('test("outer", () => {}); test.describe("outer", () => { test("child", () => {}); });', "outer"), /suite prefix/u);
-    write("apps/web/e2e/suites/register.ts", 'import { test } from "@playwright/test"; export function registerSharedSuite() { test("shared", () => {}); }');
-    assert.throws(() => resolveBrowser('import { registerSharedSuite } from "./suites/register"; registerSharedSuite();', "shared"), /imported registration suites/u);
+    // A cataloged path that is a suite prefix of another would select it too.
+    const prefixResolver = createRowSelectorResolver(root);
+    const prefixed = new Set([...resolveBrowser("outer"), ...resolveBrowser("outer \u203a child")]);
+    assert.throws(() => prefixResolver.assertTitlePaths(prefixed), /suite prefix/u);
+    prefixResolver.assertTitlePaths(new Set(resolveBrowser("outer \u203a same")));
+    // Playwright coverage is per file.
+    const browserRunners = new Map([["playwright", browserRunner]]);
+    assert.throws(() => prefixResolver.assertSourceCoverage(browserRunners, new Set()), (error) => {
+      assert.deepEqual(error.diagnostic_subjects, [`playwright-source:chromium:${browserFile}`]);
+      return true;
+    });
+    prefixResolver.assertSourceCoverage(browserRunners, new Set(resolveBrowser("outer \u203a same")));
     symlinkSync("fixture", path.join(root, "internal/linked"));
     assert.throws(() => discoverRunnerSources(root, go), /symbolic link/u);
     assert.throws(() => discoverRunnerSources(root, { ...go, approved_roots: ["internal/../outside"] }), /invalid discovery root/u);

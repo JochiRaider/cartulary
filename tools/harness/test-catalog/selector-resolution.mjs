@@ -1,4 +1,3 @@
-import { createRequire } from "node:module";
 import { lstatSync, readFileSync, readdirSync, realpathSync } from "node:fs";
 import path from "node:path";
 import { HarnessConfigError } from "../contract/index.mjs";
@@ -6,7 +5,6 @@ import { readExecutableRepositoryJSON } from "./restricted-input-boundary.mjs";
 import { goRunnerBuildContext } from "./go-build-context.mjs";
 import { discoverRunnerSources, excludedSourcePath, frontendSourceProject, sourceExclusionPolicy } from "./source-discovery.mjs";
 
-const requireFromWeb = createRequire(new URL("../../../apps/web/package.json", import.meta.url));
 
 const goOperatingSystems = new Set([
   "aix",
@@ -103,401 +101,37 @@ function containedFile(root, relativePath, approvedRoots, label, scope) {
   ) {
     throw new Error(`${label} is outside approved runner roots`);
   }
-  const source = scope?.sources.get(lexical) ?? readFileSync(lexical, "utf8");
-  scope?.sources.set(lexical, source);
-  return { lexical, source };
+  return { lexical };
 }
 
-function staticString(node, ts, bindings = new Map(), seen = new Set()) {
-  while (
-    ts.isAsExpression(node) ||
-    ts.isSatisfiesExpression(node) ||
-    ts.isTypeAssertionExpression(node) ||
-    ts.isParenthesizedExpression(node)
-  ) {
-    node = node.expression;
+// A Playwright title is its title path in Playwright's display form: suite
+// components and the test title joined by " › ". No component may contain
+// the separator, so the path is exact and needs no source parsing.
+const playwrightSeparator = " \u203a ";
+
+export function playwrightTitlePath(title, label = "Playwright title") {
+  const parts = String(title).split(playwrightSeparator);
+  if (parts.some((part) => !part || part.trim() !== part || /[\r\n\u203a]/u.test(part))) {
+    throw new Error(`${label} ${JSON.stringify(title)} is not an exact Playwright title path`);
   }
-  if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
-    return node.text;
-  }
-  if (ts.isIdentifier(node) && bindings.has(node.text) && !seen.has(bindings.get(node.text))) {
-    const binding = bindings.get(node.text);
-    if (!binding.node) return null;
-    return staticString(
-      binding.node,
-      ts,
-      binding.bindings,
-      new Set([...seen, binding]),
-    );
-  }
-  if (ts.isElementAccessExpression(node)) {
-    const collection = staticValue(node.expression, ts, bindings, seen);
-    const index = node.argumentExpression
-      ? staticValue(node.argumentExpression, ts, bindings, seen)
-      : undefined;
-    if (Array.isArray(collection) && Number.isInteger(index)) {
-      return typeof collection[index] === "string" ? collection[index] : null;
-    }
-  }
-  if (
-    ts.isBinaryExpression(node) &&
-    node.operatorToken.kind === ts.SyntaxKind.PlusToken
-  ) {
-    const left = staticString(node.left, ts, bindings, seen);
-    const right = staticString(node.right, ts, bindings, seen);
-    return left === null || right === null ? null : left + right;
-  }
-  return null;
+  return parts;
 }
 
-function staticValue(node, ts, bindings = new Map(), seen = new Set()) {
-  while (
-    ts.isAsExpression(node) ||
-    ts.isSatisfiesExpression(node) ||
-    ts.isTypeAssertionExpression(node) ||
-    ts.isParenthesizedExpression(node)
-  ) {
-    node = node.expression;
-  }
-  if (ts.isIdentifier(node) && bindings.has(node.text) && !seen.has(bindings.get(node.text))) {
-    const binding = bindings.get(node.text);
-    if (!binding.node) return undefined;
-    return staticValue(
-      binding.node,
-      ts,
-      binding.bindings,
-      new Set([...seen, binding]),
-    );
-  }
-  const string = staticString(node, ts, bindings, seen);
-  if (string !== null) return string;
-  if (ts.isNumericLiteral(node)) return Number(node.text);
-  if (ts.isPrefixUnaryExpression(node) && [ts.SyntaxKind.MinusToken, ts.SyntaxKind.PlusToken].includes(node.operator)) {
-    const value = staticValue(node.operand, ts, bindings, seen);
-    if (typeof value === "number") return node.operator === ts.SyntaxKind.MinusToken ? -value : value;
-  }
-  if (
-    ts.isPropertyAccessExpression(node) &&
-    ts.isIdentifier(node.expression) &&
-    node.expression.text === "Number" &&
-    node.name.text === "NaN"
-  ) return Number.NaN;
-  if (node.kind === ts.SyntaxKind.TrueKeyword) return true;
-  if (node.kind === ts.SyntaxKind.FalseKeyword) return false;
-  if (node.kind === ts.SyntaxKind.NullKeyword) return null;
-  if (ts.isArrayLiteralExpression(node)) {
-    return node.elements.map((element) => staticValue(element, ts, bindings, seen));
-  }
-  if (ts.isObjectLiteralExpression(node)) {
-    const result = {};
-    for (const property of node.properties) {
-      if (!ts.isPropertyAssignment(property)) return undefined;
-      const key = property.name && ts.isIdentifier(property.name)
-        ? property.name.text
-        : property.name && staticString(property.name, ts);
-      if (key === null) return undefined;
-      const value = staticValue(property.initializer, ts, bindings, seen);
-      if (value !== undefined) result[key] = value;
-    }
-    return result;
-  }
-  return undefined;
+// The test's own title, as Playwright reports it for a spec.
+export function playwrightLeafTitle(title) {
+  return playwrightTitlePath(title).at(-1);
 }
 
-function formatEachTitle(template, row, index) {
-  const values = Array.isArray(row) ? row : [row];
-  let cursor = 0;
-  // The pinned runner owns primitive formatting and quoted display. Discovery
-  // invokes that pure formatter, never the test module or its fixture code.
-  const { format, objDisplay } = requireFromWeb("@vitest/utils/display");
-  if (/%(?![sdif#$])/u.test(template)) throw new Error(`unsupported parameter formatter in test title ${JSON.stringify(template)}`);
-  return template.replace(/%([sdif#$])|\$([$\w.]+)/gu, (match, token, key) => {
-    if (token === "#") return String(index);
-    if (token === "$") return String(index + 1);
-    if (token) {
-      const value = values[cursor++];
-      if (value === undefined || (value !== null && typeof value === "object")) throw new Error(`unresolved primitive parameter in test title ${JSON.stringify(template)}`);
-      // The pinned runner preserves negative zero for %f before formatting.
-      return token === "f" && Object.is(value, -0) ? "-0" : format(`%${token}`, value);
-    }
-    if (!row || typeof row !== "object" || Array.isArray(row)) return match;
-    const value = row[key];
-    if (!Object.hasOwn(row, key) || (value !== null && typeof value === "object") || value === undefined)
-      throw new Error(`unresolved named parameter ${key} in test title`);
-    return objDisplay(value);
+// The exact test-list selection of Playwright rows, from their catalog titles.
+export function playwrightSelection(rows) {
+  return rows.flatMap((row) => {
+    if (row.runner !== "playwright") throw new Error("browser selection requires Playwright rows");
+    return row.selector.titles.map((title) => ({
+      row_id: row.row_id, project_id: row.selector.project_id, file: row.selector.file,
+      title_path: playwrightTitlePath(title, row.row_id),
+    }));
   });
 }
-
-function expandedEachTitles(expression, template, ts, bindings) {
-  if (!ts.isCallExpression(expression)) return null;
-  const name = calleeName(expression.expression, ts);
-  if (!name.endsWith(".each") || expression.arguments.length !== 1) return null;
-  const rows = staticValue(expression.arguments[0], ts, bindings);
-  if (!Array.isArray(rows) || rows.length === 0 || rows.includes(undefined)) return null;
-  return rows.map((row, index) => formatEachTitle(template, row, index));
-}
-
-function calleeName(expression, ts) {
-  if (ts.isIdentifier(expression)) {
-    return expression.text;
-  }
-  if (ts.isPropertyAccessExpression(expression)) {
-    const owner = calleeName(expression.expression, ts);
-    return owner ? `${owner}.${expression.name.text}` : "";
-  }
-  if (ts.isElementAccessExpression(expression)) {
-    const owner = calleeName(expression.expression, ts);
-    return owner ? `${owner}.[computed]` : "";
-  }
-  if (ts.isCallExpression(expression)) {
-    return calleeName(expression.expression, ts);
-  }
-  return "";
-}
-
-function registrationSuiteSources(root, file, sourceFile, ts, scope) {
-  const suiteSources = [];
-  for (const statement of sourceFile.statements) {
-    if (
-      !ts.isImportDeclaration(statement) ||
-      !ts.isStringLiteral(statement.moduleSpecifier) ||
-      !statement.moduleSpecifier.text.startsWith(".") ||
-      !statement.importClause ||
-      !statement.importClause.namedBindings ||
-      !ts.isNamedImports(statement.importClause.namedBindings) ||
-      !statement.importClause.namedBindings.elements.some((element) =>
-        /^register[A-Za-z0-9]+Suite$/u.test(element.name.text) || /^register[A-Za-z0-9]+Suite$/u.test((element.propertyName ?? element.name).text),
-      )
-    ) {
-      continue;
-    }
-    const importerDirectory = path.posix.dirname(file);
-    const importBase = path.posix.normalize(
-      path.posix.join(importerDirectory, statement.moduleSpecifier.text),
-    );
-    if (!importBase.startsWith(`${importerDirectory}/`)) {
-      throw new Error(
-        `${file}.registration_suite ${statement.moduleSpecifier.text} must remain beneath the selector directory`,
-      );
-    }
-    const candidates = /\.[cm]?[jt]sx?$/u.test(importBase)
-      ? [importBase]
-      : [`${importBase}.ts`, `${importBase}.tsx`];
-    for (const entry of candidates) assertSourceBoundary(entry, [importerDirectory], `${file}.registration_suite`);
-    const candidate = candidates.find((entry) => sourcePathExists(root, entry, `${file}.registration_suite`));
-    if (candidate === undefined) {
-      throw new Error(
-        `${file}.registration_suite ${statement.moduleSpecifier.text} does not resolve to TypeScript source`,
-      );
-    }
-    const contained = containedFile(
-      root,
-      candidate,
-      [importerDirectory],
-      `${file}.registration_suite`,
-      scope,
-    );
-    for (const element of statement.importClause.namedBindings.elements) {
-      const localName = element.name.text;
-      const exportName = (element.propertyName ?? element.name).text;
-      if (!/^register[A-Za-z0-9]+Suite$/u.test(localName) && !/^register[A-Za-z0-9]+Suite$/u.test(exportName)) continue;
-      const calls = [];
-      const collect = (node) => {
-        if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === localName) calls.push(node);
-        ts.forEachChild(node, collect);
-      };
-      collect(sourceFile);
-      const topLevel = sourceFile.statements.filter((entry) => ts.isExpressionStatement(entry) && calls.includes(entry.expression));
-      if (calls.length !== 1 || topLevel.length !== 1 || calls[0].arguments.length !== 0)
-        throw new Error(`${file}: registration suite ${localName} must have exactly one unconditional top-level zero-argument call`);
-      suiteSources.push({ file: candidate, source: contained.source, exportName });
-    }
-  }
-  return suiteSources;
-}
-
-export function registrationSuiteFiles(root, file, source) {
-  const ts = requireFromWeb("typescript");
-  const scriptKind = file.endsWith("x") ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
-  const sourceFile = ts.createSourceFile(
-    file,
-    source,
-    ts.ScriptTarget.Latest,
-    false,
-    scriptKind,
-  );
-  return registrationSuiteSources(root, file, sourceFile, ts).map(
-    (suite) => suite.file,
-  );
-}
-
-function testTitles(root, file, source, scope, exportName = null) {
-  const cacheKey = JSON.stringify([file, exportName]);
-  if (scope.titles.has(cacheKey)) return scope.titles.get(cacheKey);
-  const ts = requireFromWeb("typescript");
-  const scriptKind = file.endsWith("x") ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
-  const sourceFile = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, scriptKind);
-  const aliases = new Map(["it", "test", "describe", "suite"].map((name) => [name, name]));
-  for (const statement of sourceFile.statements) {
-    if (!ts.isImportDeclaration(statement)) continue;
-    const bindings = statement.importClause?.namedBindings;
-    if (bindings && ts.isNamedImports(bindings)) {
-      for (const item of bindings.elements) {
-        const imported = (item.propertyName ?? item.name).text;
-        if (["it", "test", "describe", "suite"].includes(imported)) aliases.set(item.name.text, imported);
-      }
-    } else if (bindings && ts.isNamespaceImport(bindings) && statement.moduleSpecifier.text === "vitest") {
-      aliases.set(bindings.name.text, "vitest");
-    }
-  }
-  function canonicalName(expression, bindings, seen = new Set()) {
-    const parts = calleeName(expression, ts).split(".");
-    let canonical;
-    const binding = bindings.get(parts[0]);
-    if (binding && !seen.has(binding)) {
-      seen.add(binding);
-      if (binding.node && (ts.isIdentifier(binding.node) || ts.isPropertyAccessExpression(binding.node))) {
-        const candidate = canonicalName(binding.node, binding.bindings, seen);
-        if (/^(?:it|test|describe|suite|vitest)(?:\.(?:it|test|describe|suite|each|only|skip|todo|concurrent|sequential|serial|parallel|fails))*$/u.test(candidate)) canonical = candidate;
-      }
-      else if (binding.node && ts.isCallExpression(binding.node)) {
-        const factory = canonicalName(binding.node.expression, binding.bindings, seen);
-        if (factory === "test.extend") canonical = "test";
-      }
-      if (!canonical && aliases.has(parts[0])) throw new Error(`${file}: unresolved runner binding ${parts[0]}`);
-    } else canonical = aliases.get(parts[0]);
-    if (!canonical) return "";
-    const resolved = [canonical, ...parts.slice(1)];
-    return (resolved.length > 1 ? resolved.filter((part) => part !== "vitest") : resolved).join(".");
-  }
-  const matches = new Map();
-  const fullTitles = new Map();
-  const titlePaths = new Map();
-  let testIdentity = 0;
-  let matchedExport = false;
-  function record(candidate, identity, fullTitle, titlePath) {
-    if (!titlePaths.has(fullTitle)) titlePaths.set(fullTitle, new Map());
-    titlePaths.get(fullTitle).set(JSON.stringify(titlePath), titlePath);
-    if (!fullTitles.has(candidate)) fullTitles.set(candidate, new Set());
-    fullTitles.get(candidate).add(fullTitle);
-    if (!matches.has(candidate)) matches.set(candidate, new Set());
-    matches.get(candidate).add(identity);
-  }
-  function visit(node, ancestors, inherited, allowed) {
-    let bindings = inherited;
-    if (ts.isImportDeclaration(node) || ts.isTypeNode(node) || ts.isInterfaceDeclaration(node) || ts.isTypeAliasDeclaration(node)) return;
-    if (ts.isSourceFile(node) || ts.isBlock(node)) {
-      bindings = new Map(inherited);
-      for (const statement of node.statements) {
-        if (!ts.isVariableStatement(statement)) continue;
-        for (const declaration of statement.declarationList.declarations) {
-          if (!ts.isIdentifier(declaration.name)) continue;
-          bindings.set(declaration.name.text, { node: null, bindings });
-          if ((statement.declarationList.flags & ts.NodeFlags.Const) && declaration.initializer)
-            bindings.set(declaration.name.text, { node: declaration.initializer, bindings });
-        }
-      }
-      for (const statement of node.statements) visit(statement, ancestors, bindings, allowed);
-      return;
-    }
-    if (ts.isVariableDeclaration(node)) {
-      if (!node.initializer) return;
-      const runner = canonicalName(node.initializer, bindings);
-      if (runner) {
-        if (!ts.isIdentifier(node.name) || !ts.isVariableDeclarationList(node.parent ?? {}) || !(node.parent.flags & ts.NodeFlags.Const)) {
-          throw new Error(`${file}: runner aliases must use a simple constant binding`);
-        }
-        // A literal alias or the supported Playwright fixture extension retains
-        // the same registration API. Object destructuring and API escapes do not.
-        if (ts.isIdentifier(node.initializer) || ts.isPropertyAccessExpression(node.initializer)) return;
-      }
-      visit(node.initializer, ancestors, bindings, false);
-      return;
-    }
-    if (ts.isFunctionDeclaration(node) && exportName && node.name?.text === exportName) {
-      if (matchedExport || !node.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword) || node.parameters.length || !node.body)
-        throw new Error(`${file}: unsupported registration suite export ${exportName}`);
-      matchedExport = true;
-      visit(node.body, ancestors, bindings, true);
-      return;
-    }
-    if (ts.isCallExpression(node)) {
-      const name = canonicalName(node.expression, bindings);
-      const segments = name.split(".");
-      const base = segments[0];
-      const isSuite = ["describe", "suite"].includes(base) || (base === "test" && segments[1] === "describe");
-      const isTest = ["it", "test"].includes(base) && !isSuite;
-      const controls = ["configure", "beforeEach", "afterEach", "beforeAll", "afterAll", "use", "setTimeout", "extend", "step", "info", "fail", "slow"];
-      const isControl = segments.some((segment) => controls.includes(segment));
-      if ((isSuite || isTest) && !isControl) {
-        if (!allowed) throw new Error(`${file}:${sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1}: unsupported conditional or indirect test registration ${name}`);
-        const modifiers = ["it", "test", "describe", "suite", "each", "only", "skip", "todo", "concurrent", "sequential", "serial", "parallel", "fails"];
-        if (!segments.every((segment) => modifiers.includes(segment))) throw new Error(`${file}: unsupported test registration modifier ${name}`);
-        const title = node.arguments[0] ? staticString(node.arguments[0], ts, bindings) : null;
-        if (title === null) throw new Error(`${file}: unresolved ${isSuite ? "suite" : "test"} registration title`);
-        if (isSuite) {
-          if (segments.includes("each")) throw new Error(`${file}: parameterized suite registration is unsupported`);
-          const callback = [...node.arguments].reverse().find((argument) => ts.isArrowFunction(argument) || ts.isFunctionExpression(argument));
-          if (!callback || callback.parameters.length) throw new Error(`${file}: unsupported suite callback`);
-          visit(callback.body, [...ancestors, title], bindings, true);
-        } else {
-          const expanded = segments.includes("each") ? expandedEachTitles(node.expression, title, ts, bindings) : [title];
-          if (expanded === null) throw new Error(`${file}: unresolved parameterized test registration ${JSON.stringify(title)}`);
-          for (const expandedTitle of expanded) {
-            const fullTitle = [...ancestors, expandedTitle].join(" ");
-            const identity = testIdentity++;
-            record(expandedTitle, identity, fullTitle, [...ancestors, expandedTitle]);
-            record(fullTitle, identity, fullTitle, [...ancestors, expandedTitle]);
-          }
-        }
-        return;
-      }
-      if (isControl) {
-        for (const argument of node.arguments) visit(argument, ancestors, bindings, false);
-        return;
-      }
-    }
-    if (ts.isPropertyAccessExpression(node)) {
-      // Property names are not references to imported runner bindings (for
-      // example a regular expression's .test method).
-      visit(node.expression, ancestors, bindings, false);
-      return;
-    }
-    if (ts.isPropertyAssignment(node) || ts.isParameter(node)) {
-      if (node.initializer) visit(node.initializer, ancestors, bindings, false);
-      return;
-    }
-    if (ts.isIdentifier(node) && canonicalName(node, bindings))
-      throw new Error(`${file}:${sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1}: unsupported indirect use of the test registration API`);
-    // Only an expression statement preserves unconditional registration. Calls,
-    // helper functions and control flow are inspected to reject hidden tests,
-    // never interpreted as if their callbacks necessarily execute once.
-    const childAllowed = allowed && ts.isExpressionStatement(node);
-    ts.forEachChild(node, (child) => visit(child, ancestors, bindings, childAllowed));
-  }
-  visit(sourceFile, [], new Map(), exportName === null);
-  if (exportName && !matchedExport) throw new Error(`${file}: missing registration suite export ${exportName}`);
-  const counts = new Map([...matches].map(([candidate, identities]) => [candidate, identities.size]));
-  const registrationSuites = registrationSuiteSources(root, file, sourceFile, ts, scope);
-  for (const suite of registrationSuites) {
-    const imported = testTitles(root, suite.file, suite.source, scope, suite.exportName);
-    for (const [full, paths] of imported.titlePaths) {
-      if (!titlePaths.has(full)) titlePaths.set(full, new Map());
-      for (const [key, value] of paths) titlePaths.get(full).set(key, value);
-    }
-    for (const [title, count] of imported) {
-      counts.set(title, (counts.get(title) ?? 0) + count);
-      if (!fullTitles.has(title)) fullTitles.set(title, new Set());
-      for (const full of imported.fullTitles.get(title)) fullTitles.get(title).add(full);
-    }
-  }
-  counts.fullTitles = fullTitles;
-  counts.titlePaths = titlePaths;
-  counts.hasRegistrationSuites = registrationSuites.length !== 0;
-  scope.titles.set(cacheKey, counts);
-  return counts;
-}
-
 
 function packageDirectory(root, packagePath, approvedRoots, label) {
   if (!packagePath.startsWith("./") || /[*?{}[\]\\]/u.test(packagePath)) {
@@ -701,14 +335,10 @@ function resolveScopedRowSelector({ root, row, runner, operationIDs }, scope) {
     return row.selector.titles.map((title) => `vitest:${row.selector.project_id}:${row.selector.file}:${title}`);
   }
   if (row.runner === "playwright") {
-    const { source } = containedFile(root, row.selector.file, runner.approved_roots, `${label}.file`, scope);
-    const titles = testTitles(root, row.selector.file, source, scope);
-    for (const title of row.selector.titles) {
-      if ((titles.get(title) ?? 0) !== 1) {
-        throw new Error(`${label}.titles ${JSON.stringify(title)} must resolve exactly once`);
-      }
-    }
-    for (const title of row.selector.titles) playwrightTitlePath(titles, title, label);
+    // Titles are exact title paths; the pinned runner fails a path it does
+    // not report exactly once and any test it runs outside the selection.
+    containedFile(root, row.selector.file, runner.approved_roots, `${label}.file`, scope);
+    for (const title of row.selector.titles) playwrightTitlePath(title, `${label}.titles`);
     if (!runner.project_ids.includes(row.selector.project_id)) {
       throw new Error(`${label}.project_id is not registered`);
     }
@@ -721,7 +351,7 @@ function resolveScopedRowSelector({ root, row, runner, operationIDs }, scope) {
     return row.selector.scenario_ids.map(
       (scenarioID) => `playwright:${row.selector.project_id}:${row.selector.stage}:${scenarioID}`,
     ).concat(row.selector.titles.map((title) =>
-      `playwright-source:${row.selector.project_id}:${row.selector.file}:${[...titles.fullTitles.get(title)][0]}`,
+      `playwright-source:${row.selector.project_id}:${row.selector.file}:${title}`,
     ));
   }
   if (row.runner === "shell") {
@@ -738,10 +368,25 @@ function resolveScopedRowSelector({ root, row, runner, operationIDs }, scope) {
 // imported registration suites and changed toolchain pins without invalidation
 // heuristics or process-global source retention. Path checks remain per selector.
 export function createRowSelectorResolver(root) {
-  const scope = { packages: new Map(), sources: new Map(), titles: new Map(), goContext: null };
+  const scope = { packages: new Map(), goContext: null };
   const resolve = (options) => resolveScopedRowSelector({ ...options, root }, scope);
-  // Go coverage is per test symbol and Playwright coverage per registered
-  // title; Vitest coverage is per file: every discovered test file has a row.
+  // An exact Playwright test-list line that names a suite prefix of another
+  // cataloged path would select that path's tests too.
+  resolve.assertTitlePaths = (selected) => {
+    const paths = Map.groupBy([...selected].filter((key) => key.startsWith("playwright-source:")).map((key) => {
+      const [, project, file, ...title] = key.split(":");
+      return { scope: `${project}:${file}`, path: playwrightTitlePath(title.join(":")) };
+    }), (entry) => entry.scope);
+    for (const [scope, entries] of paths) {
+      for (const entry of entries) {
+        if (entries.some((other) => other.path.length > entry.path.length && entry.path.every((part, index) => other.path[index] === part))) {
+          throw new Error(`${scope}: Playwright title path ${JSON.stringify(entry.path)} is a suite prefix of another cataloged path`);
+        }
+      }
+    }
+  };
+  // Go coverage is per test symbol; Vitest and Playwright coverage is per
+  // file: every discovered test file has a row.
   resolve.assertSourceCoverage = (runners, selected) => {
     const missing = [];
     for (const runner of runners.values()) {
@@ -757,17 +402,11 @@ export function createRowSelectorResolver(root) {
             if (count !== 1 || !selected.has(`go:${packageName}:${symbol}`)) missing.push(`go:${packageName}:${symbol}`);
           }
         }
-      } else if (runner.runner === "vitest") {
-        const covered = new Set([...selected].filter((key) => key.startsWith("vitest:")).map((key) => key.split(":")[2]));
-        for (const file of files) if (!covered.has(file)) missing.push(`vitest:${frontendSourceProject(file)}:${file}`);
       } else {
+        const prefix = runner.runner === "vitest" ? "vitest:" : "playwright-source:";
+        const covered = new Set([...selected].filter((key) => key.startsWith(prefix)).map((key) => key.split(":")[2]));
         for (const file of files) {
-          const { source } = containedFile(root, file, runner.approved_roots, "source coverage", scope);
-          const titles = testTitles(root, file, source, scope);
-          for (const title of new Set([...titles.fullTitles.values()].flatMap((values) => [...values]))) {
-            const key = `playwright-source:chromium:${file}:${title}`;
-            if (!selected.has(key)) missing.push(key);
-          }
+          if (!covered.has(file)) missing.push(runner.runner === "vitest" ? `vitest:${frontendSourceProject(file)}:${file}` : `playwright-source:chromium:${file}`);
         }
       }
     }
@@ -794,35 +433,4 @@ export function assertSortedUnique(values, label) {
   if (new Set(values).size !== values.length) {
     throw new Error(`${label} must not contain duplicates`);
   }
-}
-
-function playwrightTitlePath(facts, title, label) {
-  if (facts.hasRegistrationSuites) throw new Error(`${label}: Playwright imported registration suites are outside the exact test-list profile`);
-  const full = [...(facts.fullTitles.get(title) ?? [])];
-  const paths = full.length === 1 ? [...facts.titlePaths.get(full[0]).values()] : [];
-  if (facts.get(title) !== 1 || paths.length !== 1) throw new Error(`${label}: browser title must resolve exactly once`);
-  const selected = paths[0];
-  if (selected.some(part => !part || part.trim() !== part || /[\r\n\u203a]/u.test(part))) {
-    throw new Error(`${label}: browser title cannot be represented by the pinned exact test-list interface`);
-  }
-  const prefixMatches = [...facts.titlePaths.values()].flatMap(values => [...values.values()])
-    .filter(parts => selected.length <= parts.length && selected.every((part, index) => parts[index] === part));
-  if (prefixMatches.length !== 1) throw new Error(`${label}: browser test-list identity overlaps a suite prefix`);
-  return selected;
-}
-
-// Ephemeral runner selection derived from the existing catalog, never another
-// execution inventory. Preserve suite components for Playwright's test-list API.
-export function resolvePlaywrightSelection(root, rows) {
-  const runner = readExecutableRepositoryJSON(root, "tools/test_runner_registry.json").runners.find(entry => entry.runner === "playwright");
-  const scope = { sources: new Map(), titles: new Map() };
-  return rows.flatMap(row => {
-    if (row.runner !== "playwright") throw new Error("browser selection requires Playwright rows");
-    const { source } = containedFile(root, row.selector.file, runner.approved_roots, row.row_id, scope);
-    const facts = testTitles(root, row.selector.file, source, scope);
-    return row.selector.titles.map(title => ({
-      row_id: row.row_id, project_id: row.selector.project_id, file: row.selector.file,
-      title_path: playwrightTitlePath(facts, title, row.row_id),
-    }));
-  });
 }

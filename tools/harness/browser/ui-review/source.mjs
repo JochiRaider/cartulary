@@ -2,6 +2,7 @@ import path from "node:path";
 import { freeze } from "./immutable.mjs";
 import { artifact } from "./bundles.mjs";
 import { parseStrictJSON, validateSchemaSync } from "../../contract/index.mjs";
+import { playwrightLeafTitle } from "../../test-catalog/selector-resolution.mjs";
 import { digest, inputPath, readInput } from "./input-files.mjs";
 import { limits, ReviewFailure } from "./contract.mjs";
 import { repoRoot } from "./policy.mjs";
@@ -29,7 +30,7 @@ export function catalogRow(binding, read = readJSON) {
   const row = one(family.rows.filter((entry) => entry.row_id === binding.row_id && entry.owner_id === binding.owner_id && entry.status === "active" && entry.runner === "playwright" && entry.selector.stage === "visual"));
   const index = row.selector.scenario_ids.indexOf(binding.scenario_id);
   if (index < 0) throw new ReviewFailure("invalid_artifact");
-  return { row, title: row.selector.titles[index] };
+  return { row, title: playwrightLeafTitle(row.selector.titles[index]) };
 }
 function pageBinding(mode, profile, binding) {
   if (binding === null) return null;

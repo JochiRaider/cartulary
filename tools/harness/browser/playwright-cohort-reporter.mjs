@@ -5,7 +5,7 @@ import { atomicLocalFile } from "../runtime/secure-local-files.mjs";
 import { readPublishedUnit } from "../execution/runners/unit-selection.mjs";
 import { publishRowResult } from "../execution/runners/row-results.mjs";
 import { adaptPlaywrightReport, playwrightReportMaximumBytes } from "../execution/runners/playwright.mjs";
-import { loadTestCatalog, resolvePlaywrightSelection } from "../test-catalog/index.mjs";
+import { loadTestCatalog, playwrightSelection } from "../test-catalog/index.mjs";
 
 // Public Reporter callbacks are delivered after test fixtures and applicable
 // afterAll hooks settle. Worker/global teardown errors are invocation failures
@@ -73,6 +73,6 @@ export default class PlaywrightCohortReporter extends PlaywrightCohortCollector 
     const rows = unit.row_bindings.map(({ row_id }) => catalog.rowByID.get(row_id));
     const checkpointFile = path.join(runRoot, unit.command.environment.CARTULARY_TEST_TARGET,
       "browser-groups", group, "playwright-checkpoint.json");
-    super({ rows, selection: resolvePlaywrightSelection(root, rows), runRoot, checkpointFile });
+    super({ rows, selection: playwrightSelection(rows), runRoot, checkpointFile });
   }
 }

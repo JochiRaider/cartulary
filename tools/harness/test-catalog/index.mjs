@@ -20,7 +20,7 @@ export {
 export { buildSourceSnapshot, executableProvenance } from "./source-snapshot.mjs";
 export { requiredServicesForFixture, assertFixtureServiceDependencies, assertPostgresIsolation } from "./service-dependencies.mjs";
 export { executableInputPathspec, executableRepositoryPaths, inspectExecutableRepositoryPath, isDocumentationOnlyPath, restrictedExecutableInputRoots, validateExecutableInputPolicy } from "./restricted-input-boundary.mjs";
-export { resolvePlaywrightSelection } from "./selector-resolution.mjs";
+export { playwrightLeafTitle, playwrightSelection, playwrightTitlePath } from "./selector-resolution.mjs";
 export { goRunnerBuildContext } from "./go-build-context.mjs";
 export { createValidatedContext } from "./validated-context.mjs";
 export { goModuleSelection, validateIndependentGoModule } from "./go-modules.mjs";

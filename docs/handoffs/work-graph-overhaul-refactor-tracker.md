@@ -834,6 +834,41 @@ policy units, pass. Checks: `make lint CHECK=go` and `CHECK=scripts`; the
 planner, scheduler-contract, JSON-shape and graph-contract rows;
 `source-check` `generated`, `schema` and `catalog`; all pass.
 
+**Milestone 4, slice 4b: Playwright title paths (2026-11-23).** The harness no
+longer parses TypeScript or JavaScript test sources.
+
+- *Representation.* A Playwright title is its title path in Playwright's
+  display form, components joined by ` › `. 709 of 710 cataloged Playwright
+  titles were top-level tests, whose path is the title itself. The one nested
+  test (`web.design.visual.account_menu_root_and_nested_viewport_states`)
+  now authors `Account navigation presentation › Capture …`. The catalog keeps
+  one field; no schema change.
+- *Readers.* `playwrightSelection(rows)` splits titles into exact test-list
+  paths for the cohort reporter, the browser group CLI and the benchmark claim
+  check. Places that compare with Playwright's own test title (visual capture
+  selection, visual reconciliation, UI-review import, the visual registry
+  check) use the path's last part (`playwrightLeafTitle`), so they keep
+  matching nested tests.
+- *Catalog.* Playwright rows are admitted by file, registered project and
+  stage, scenario pairing and valid title paths. A cataloged path that is a
+  suite prefix of another in the same file and project is rejected. Coverage
+  is per file. The runner already fails a path it does not report exactly once
+  and any identity it runs outside its selection. Detecting imported
+  registration suites needed source parsing, so that NLSpec clause is
+  replaced by the runner's exact-identity accounting.
+- *Deleted.* The TypeScript registration parser (about 400 lines of
+  `selector-resolution.mjs`, its `typescript` loader and
+  `resolvePlaywrightSelection`), and the generate-drift scratch copy's walk of
+  registration-suite files. The metadata fixture test now asserts that loading
+  the complete catalog reads no TypeScript source.
+
+Runs: the migrated visual row in a real browser (`make test-slice
+OWNER=web.design ROWS=…account_menu_root…`) passes through the split
+test-list path and the leaf-title capture match. Checks: `make lint
+CHECK=scripts`; every `harness.test_catalog` row; the registry-parity,
+generate-drift and Playwright-adapter rows; `source-check` `generated` and
+`catalog`; all pass.
+
 ## 9. Decisions requested
 
 - Decided 2026-11-23: Option B (staged Go replacement); Stage 0 tried and

@@ -252,8 +252,14 @@ The harness does not parse TypeScript or JavaScript test sources. A Vitest or
 Playwright row carries the exact full titles it selects as authored catalog
 data, and the pinned runner resolves them when it executes the file: a selected
 title the runner does not collect exactly once is a configuration failure, not
-omitted coverage. Runtime profile routing belongs in catalog execution context,
-not environment-dependent registration guards.
+omitted coverage. A Playwright title is its suite/test title path written in
+Playwright's display form: components joined by ` › `, each non-empty, without
+surrounding whitespace, line breaks or the separator. A top-level test's title
+is its own title. The exact test-list identity is split from that form. A
+cataloged path that is a suite prefix of another cataloged path in the same
+file and project is a configuration failure, and the runner fails any
+executed identity outside its selection. Runtime profile routing belongs in
+catalog execution context, not environment-dependent registration guards.
 Playwright logical scenario IDs
 and physical project/file/full-title identities MUST both be unique; changing a
 scenario ID cannot authorize duplicate execution of the same test. Distinct
@@ -2675,7 +2681,7 @@ structured diagnostics, not classify by matching
 human error strings. One failed cleanup step MUST NOT prevent independent owned
 resources from being retired; repeated finalization MUST be idempotent.
 
-The Playwright result adapter MUST join observations by exact normalized selector file, project ID and full suite/test title path authored in the catalog row. Execution MUST use the pinned Playwright exact test-list interface, derived from those catalog identities; substring or suffix title filters are forbidden. Unrepresentable test-list components, imported Playwright registration suites whose source location differs from the spec entrypoint, or a selected test path that is also a suite prefix MUST fail configuration preflight. Shared fixture and test-body helpers remain supported. Unexpected executed identities are accounting failures, even when every selected test passed. Zero observations, multiple observations, aggregate process success without selector observations, and an unauthorized Playwright skip are accounting failures; a product assertion failure MUST remain a product failure. Reports, stdout, and stderr MUST be retained through the redaction boundary, and only exact selector observations may close catalog rows.
+The Playwright result adapter MUST join observations by exact normalized selector file, project ID and full suite/test title path authored in the catalog row. Execution MUST use the pinned Playwright exact test-list interface, derived from those catalog identities; substring or suffix title filters are forbidden. Unrepresentable test-list components, or a cataloged test path that is also a suite prefix of another cataloged path, MUST fail configuration preflight. Shared fixture and test-body helpers remain supported. Unexpected executed identities are accounting failures, even when every selected test passed. Zero observations, multiple observations, aggregate process success without selector observations, and an unauthorized Playwright skip are accounting failures; a product assertion failure MUST remain a product failure. Reports, stdout, and stderr MUST be retained through the redaction boundary, and only exact selector observations may close catalog rows.
 
 Ordinary Playwright configuration MUST set `updateSnapshots=none`. Missing
 goldens therefore fail ordinary visual validation. Snapshot mutation is

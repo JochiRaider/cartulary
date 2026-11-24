@@ -1,5 +1,6 @@
 import { readLocalFile, listLocalDirectory } from "../runtime/secure-local-files.mjs";
 import { validateSchemaSync } from "../contract/index.mjs";
+import { playwrightLeafTitle } from "../test-catalog/selector-resolution.mjs";
 import { createHash } from "node:crypto";
 import {
   existsSync,
@@ -118,7 +119,8 @@ function catalogCaptureEntries(catalog) {
       project_id: row.selector.project_id,
       row_id: row.row_id,
       scenario_id: scenarioIDs[index],
-      title,
+      // Captures report Playwright's own test title, the path's last part.
+      title: playwrightLeafTitle(title),
     }));
   });
 }

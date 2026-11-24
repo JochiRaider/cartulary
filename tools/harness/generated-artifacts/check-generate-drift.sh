@@ -82,7 +82,6 @@ catalog_selector_inputs() {
   "$node_bin" - "$ROOT_DIR" <<'NODE'
 const fs = require("node:fs");
 const path = require("node:path");
-const { pathToFileURL } = require("node:url");
 
 const [repoRoot] = process.argv.slice(2);
 (async () => {
@@ -90,7 +89,6 @@ const [repoRoot] = process.argv.slice(2);
     fs.readFileSync(path.join(repoRoot, "tools/test_catalog_owner.json"), "utf8"),
   );
   const inputs = new Set();
-  const selectorFiles = new Set();
   for (const owner of ownerRegistry.owners ?? []) {
     const manifest = JSON.parse(
       fs.readFileSync(path.join(repoRoot, owner.manifest_path), "utf8"),
@@ -108,30 +106,11 @@ const [repoRoot] = process.argv.slice(2);
           throw new Error(`unsafe catalog selector input ${candidate}`);
         }
         inputs.add(normalized);
-        if (candidate === row.selector?.file) selectorFiles.add(normalized);
       }
     }
   }
-  const selectorResolutionURL = pathToFileURL(
-    path.join(
-      repoRoot,
-      "tools/harness/test-catalog/selector-resolution.mjs",
-    ),
-  ).href;
-  const { registrationSuiteFiles } = await import(selectorResolutionURL);
-  const pending = [...selectorFiles];
-  while (pending.length > 0) {
-    const selectorFile = pending.pop();
-    const source = fs.readFileSync(path.join(repoRoot, selectorFile), "utf8");
-    for (const suiteFile of registrationSuiteFiles(
-      repoRoot,
-      selectorFile,
-      source,
-    )) {
-      if (!inputs.has(suiteFile)) pending.push(suiteFile);
-      inputs.add(suiteFile);
-    }
-  }
+  // The catalog admits selector files without reading their registrations,
+  // so the scratch copy needs only the files rows name.
   for (const input of [...inputs].sort((left, right) => left.localeCompare(right))) {
     console.log(input);
   }

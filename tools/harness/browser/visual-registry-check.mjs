@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { atomicLocalFile } from "../runtime/secure-local-files.mjs";
+import { playwrightLeafTitle } from "../test-catalog/selector-resolution.mjs";
 
 const expectedFixtureIDs = [
   "visual.fixture.claimed_network_analysis_workspace_states",
@@ -63,7 +64,7 @@ for (const fixture of registry.fixtures) {
   for (const rowID of fixture.catalog_row_ids) {
     assert.equal(catalogRows.get(rowID)?.status, "active", `${fixture.fixture_id} catalog row ${rowID} must be an active routed row`);
   }
-  const scenarioRows = fixture.catalog_row_ids.filter((rowID) => catalogRows.get(rowID).selector?.titles?.includes(fixture.playwright_scenario_title));
+  const scenarioRows = fixture.catalog_row_ids.filter((rowID) => (catalogRows.get(rowID).selector?.titles ?? []).map((title) => playwrightLeafTitle(title)).includes(fixture.playwright_scenario_title));
   assert.equal(scenarioRows.length, 1, `${fixture.fixture_id} scenario title must be routed by exactly one of its catalog rows`);
   assert.deepEqual(Object.keys(fixture.capture_profiles).sort(), [...fixture.golden_artifacts].sort());
   for (const profile of Object.values(fixture.capture_profiles)) {

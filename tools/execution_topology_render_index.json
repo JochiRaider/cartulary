@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 3,
-  "input_digest": "sha256:ced67bcc33f8ef7817ebef515f7abb73ccc43319232ba97a68232b9de60c1bcb",
+  "input_digest": "sha256:3598bb086f36fe5769983f17e41e53739fc631c6cae6c0dba4a38aa15c4137c1",
   "inputs": [
     {
       "path": "contracts/performance/ac003.v2.json",
@@ -462,7 +462,7 @@
     {
       "path": "tools/harness/browser/browser-catalog-group-cli.mjs",
       "role": "renderer_source",
-      "hash": "sha256:d2a97206d39cc6bbec8caee9faf3c24b8869dd2010b76049b42b3067d11d4c1f"
+      "hash": "sha256:46b749510d3438e2edb9dbe95cd676a1079fae0d7132522992ae89e311280410"
     },
     {
       "path": "tools/harness/browser/browser-cohorts.mjs",
@@ -552,7 +552,7 @@
     {
       "path": "tools/harness/browser/frontend-visual-reconciliation.mjs",
       "role": "renderer_source",
-      "hash": "sha256:d226358a71e8255d89fc9ab812424644f600c3833d8b2033301c3e966394bbd2"
+      "hash": "sha256:abd691fc23b3ed430c6090eb7133815d8a1e5cb064a2ba3da5cc7d03b179f36f"
     },
     {
       "path": "tools/harness/browser/index.mjs",
@@ -562,7 +562,7 @@
     {
       "path": "tools/harness/browser/playwright-cohort-reporter.mjs",
       "role": "renderer_source",
-      "hash": "sha256:8c5e958b2ae7af5ffec027c87f622d9ce5023cb3499b6c624f4350c8080904be"
+      "hash": "sha256:3e0d2b1d4e846eccbed6409891e5117d785c32dcda88f978410355cbf9a9b405"
     },
     {
       "path": "tools/harness/browser/playwright-output-cleanup.mjs",
@@ -767,7 +767,7 @@
     {
       "path": "tools/harness/browser/ui-review/source.mjs",
       "role": "renderer_source",
-      "hash": "sha256:c41873d5333e67d5eb202057c19bab3485a742155ba43c05d00bd8b470868adf"
+      "hash": "sha256:a875fa40bd6e4d3cf6de231cc89864a39f548f4a80c86cbddb2efc5608eb29d4"
     },
     {
       "path": "tools/harness/browser/ui-review/toolchain.mjs",
@@ -782,7 +782,7 @@
     {
       "path": "tools/harness/browser/visual-registry-check.mjs",
       "role": "renderer_source",
-      "hash": "sha256:7fa8e9328cb27fef03e0c248793566c30a3105c08a83900a87b0ae4700dc619e"
+      "hash": "sha256:29d4d73b36a31eba9c6901ebcea3b18678fcc36fa89ef1e3ad798af7e9bfc310"
     },
     {
       "path": "tools/harness/browser/visual-renderer-lease.mjs",
@@ -1332,7 +1332,7 @@
     {
       "path": "tools/harness/test-catalog/index.mjs",
       "role": "renderer_source",
-      "hash": "sha256:86b0b3b22b3be870ec433cedd80e3da4b91f05ffd9ca9cd5a4406eae646b7d19"
+      "hash": "sha256:03dbc96ec14a959751f88eb7d85cc500a0a3095c6629dce04119e44e67bd2b3e"
     },
     {
       "path": "tools/harness/test-catalog/postgres-fixture-policy.mjs",
@@ -1357,7 +1357,7 @@
     {
       "path": "tools/harness/test-catalog/selector-resolution.mjs",
       "role": "renderer_source",
-      "hash": "sha256:b84e4d1bf85e01a1ffd917241b7ded24b75e9e180d504b6ba9fe590e6aed93ea"
+      "hash": "sha256:9e276fe83a7d04c4f8157e3339d3e1d7487ddc8b8ba61e8eebce5a4cbfce30e8"
     },
     {
       "path": "tools/harness/test-catalog/semantic-identity-check-cli.mjs",
@@ -1387,7 +1387,7 @@
     {
       "path": "tools/harness/test-catalog/test-catalog.mjs",
       "role": "renderer_source",
-      "hash": "sha256:a1d13b8563bda02baf09334122317fad4f976f275e2f837bdba40eacac37003f"
+      "hash": "sha256:aa30705fbeb7f076795eeee32861f6d112e0b33072277e4e6d6ea32a6a76ddbb"
     },
     {
       "path": "tools/harness/test-catalog/validated-context.mjs",
@@ -1747,7 +1747,7 @@
     {
       "path": "tools/test_families/web.design.json",
       "role": "test_family_manifest",
-      "hash": "sha256:53c2cfe807772e81e0864fc134d4d92e40d99f0bbf66f673e92ce21cf13b11f3"
+      "hash": "sha256:8289547ec030154b1b3c57d21e011af7d18b6b3847698d9dd774ef59ca428ca2"
     },
     {
       "path": "tools/test_families/web.networkflow.json",
