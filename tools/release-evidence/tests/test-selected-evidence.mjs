@@ -130,5 +130,8 @@ test("release closure requires explicit roots and its Make selection launches no
   assert.deepEqual(graph.units[0].row_bindings, []);
   const qualification = compiler.compileCommand("package-inspect", {CHECK: "all"}).graph;
   assert.equal(qualification.units.filter(unit => unit.unit_id === "operation:harness.package_release").length, 1);
-  assert.ok(qualification.units.some(unit => unit.unit_id === "operation:harness.credential_capacity_assessment"));
+  for (const consumer of ["package_inspect", "standup_package_smoke", "standup_reference_pack_smoke", "standup_operational_recovery_smoke"])
+    assert.ok(qualification.units.some(unit => unit.unit_id === `operation:harness.${consumer}` || unit.command.environment.CARTULARY_TEST_TARGET === `harness.${consumer}`), consumer);
+  // Credential capacity is quiet measurement in release-measure, against a named release-check package.
+  assert.equal(qualification.units.some(unit => unit.unit_id === "operation:harness.credential_capacity_assessment"), false);
 });

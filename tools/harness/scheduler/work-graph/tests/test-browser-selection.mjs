@@ -15,7 +15,7 @@ test("browser suites project all groups and retained visual finalizers", async (
     ]) {
         const suite = ({ "browser-e2e-webserver-backed": "functional", "browser-e2e-a11y": "accessibility" })[target] ?? target.slice("browser-e2e-".length);
         const graph = target === "browser-e2e-measurement"
-            ? compiler.compileCommand("release-measure", {}).graph
+            ? compiler.compileCommand("release-measure", { RELEASE_RESULTS_DIR: "/results/release-run" }).graph
             : compiler.compileCommand("browser-e2e", { SUITE: suite }).graph;
         assert.ok(graph.units.some((unit) => unit.unit_id.startsWith("browser_group:")), `${target} must expose browser groups as units`);
         assert.ok(graph.units.some((unit) => unit.unit_id.startsWith("browser_target_summary:")), `${target} must expose its summary projection as a unit`);
@@ -167,7 +167,7 @@ test("measurement selections bind one builder and quiet consumers with post-clea
         for (const graph of [
             compiler.compile({ kind: "rows", row_ids: [profiledRowIDs[0]] }),
             compiler.compile({ kind: "rows", row_ids: profiledRowIDs }),
-            compiler.compileCommand("release-measure", {}).graph,
+            compiler.compileCommand("release-measure", { RELEASE_RESULTS_DIR: "/results/release-run" }).graph,
         ])
             assert.deepEqual(fixtureIdentity(graph), expectedFixtureIdentity, "direct, row and release-measure routes must preserve each fixture identity");
         // Measurement rows are explicit-only: owner slices build no snapshot.

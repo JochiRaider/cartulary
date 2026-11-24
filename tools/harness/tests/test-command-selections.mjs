@@ -66,7 +66,7 @@ test("browser selection requires a suite and selects its rows and static prerequ
   assert.throws(() => resolveCommandInputs("browser-e2e", {}, compiler.taskSurface), /required/u);
   // Measurement is release-measure's selection, not a browser-e2e suite.
   assert.throws(() => compiler.compileCommand("browser-e2e", { SUITE: "measurement" }), /SUITE must be one of/u);
-  const measured = rows(compiler.compileCommand("release-measure", {}).graph);
+  const measured = rows(compiler.compileCommand("release-measure", { RELEASE_RESULTS_DIR: "/results/release-run" }).graph);
   assert.deepEqual(measured, compiler.catalog.rows.filter((row) => row.runner === "playwright" && row.selector.stage === "measurement").map((row) => row.row_id).sort());
   for (const suite of Object.keys(variants)) {
     const graph = compiler.compileCommand("browser-e2e", { SUITE: suite }).graph;

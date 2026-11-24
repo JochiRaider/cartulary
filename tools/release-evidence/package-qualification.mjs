@@ -8,7 +8,7 @@ import { createLaunchContext } from "../harness/runtime/launch-context.mjs";
 import { borrowRuntime } from "../harness/runtime/session-client.mjs";
 import { runPrivateCapturedProcess } from "../harness/runtime/private-child-process.mjs";
 import { atomicLocalFile } from "../harness/runtime/secure-local-files.mjs";
-import { packageRunContext, readPackageReceipt } from "./package-identity.mjs";
+import { packageReceiptRoot, packageRunContext, readPackageReceipt } from "./package-identity.mjs";
 import { reservePackageDeployment } from "./package-qualification-allocation.mjs";
 
 const repoRoot = path.resolve(import.meta.dirname, "../..");
@@ -24,7 +24,7 @@ function cleanupFailure(cause) {
 export async function qualifyPackage(mode, { environment = process.env, workflowRoot = repoRoot } = {}) {
  const selected = Object.hasOwn(qualifications, mode) ? qualifications[mode] : null;
  if (!selected) throw new CommandFailure("invalid package qualification", { failure_class: "config", failure_reason: "usage_error" });
- const { runRoot } = packageRunContext(environment), receipt = readPackageReceipt(runRoot);
+ const { runRoot } = packageRunContext(environment), receipt = readPackageReceipt(packageReceiptRoot(environment));
  const runtime = borrowRuntime({ repoRoot, runRoot, environment });
  const cancellation = new AbortController();
  const interrupt = () => cancellation.abort();

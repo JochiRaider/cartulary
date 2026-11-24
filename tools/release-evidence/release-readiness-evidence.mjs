@@ -13,7 +13,9 @@ export function validateLiveReleaseReadiness(environment = process.env) {
   // identity after its consumers finish; canonical summaries publish afterward.
   const producer = readPackageReceipt(runRoot);
   const consumers = [];
-  for (const consumer of ["standup-package-smoke", "standup-reference-pack-smoke", "standup-operational-recovery-smoke", "credential-capacity-assessment"]) {
+  // Credential capacity consumes this package from release-measure; the
+  // release verifier binds that consumer across roots.
+  for (const consumer of ["standup-package-smoke", "standup-reference-pack-smoke", "standup-operational-recovery-smoke"]) {
     const receipt = readPackageReceipt(runRoot, `${consumer}/artifacts/package.json`);
     consumers.push([consumer, receipt]);
   }

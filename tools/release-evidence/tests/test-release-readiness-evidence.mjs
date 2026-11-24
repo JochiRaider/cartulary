@@ -64,15 +64,23 @@ for (const target of ["standup-package-smoke", "standup-operational-recovery-smo
   assert.ok(unit.needs.includes("operation:harness.package_release"), "qualify the immutable producer output");
 }
 
-for (const target of ["credential-capacity-assessment", "cryptographic-policy-assessment"]) {
-  assert.ok(readinessClosure.has(`operation:harness.${target.replaceAll("-", "_")}`), "release readiness must require current cryptographic and fixed-capacity evidence");
-  assert.ok(plan.projections["release-check"].includes(`operation:harness.${target.replaceAll("-", "_")}`));
-  assert.equal(units.get(`operation:harness.${target.replaceAll("-", "_")}`).cache_policy,"none");
-}
-assert.ok(units.get("operation:harness.credential_capacity_assessment").needs.includes("operation:harness.package_release"));
-for (const candidate of [plan.graph, new WorkGraphCompiler(root, { targetInputs: { "package-inspect": { CHECK: "all" } } }).compileTarget("package-inspect")]) {
-  const capacity = candidate.units.find(unit => unit.unit_id === "operation:harness.credential_capacity_assessment");
-  assert.ok(capacity, "package qualification includes credential capacity");
-  assert.deepEqual(capacity.shared_locks, []);
-  assert.deepEqual(capacity.exclusive_locks, ["host_activity"], "credential measurement excludes all other host-active graph work");
-}
+const cryptographic = "operation:harness.cryptographic_policy_assessment";
+assert.ok(readinessClosure.has(cryptographic), "release readiness must require current cryptographic evidence");
+assert.ok(plan.projections["release-check"].includes(cryptographic));
+assert.equal(units.get(cryptographic).cache_policy, "none");
+// Credential capacity is quiet measurement: it runs in release-measure against
+// the package of a named release-check root, never beside release work.
+const capacityID = "operation:harness.credential_capacity_assessment";
+assert.equal(units.has(capacityID), false, "release-check carries no quiet credential measurement");
+const packageInspection = new WorkGraphCompiler(root, { targetInputs: { "package-inspect": { CHECK: "all" } } }).compileTarget("package-inspect");
+assert.equal(packageInspection.units.some(unit => unit.unit_id === capacityID), false, "package inspection selects only same-run consumers");
+const measureCompiler = new WorkGraphCompiler(root);
+measureCompiler.targetInputs["release-measure"] = { RELEASE_RESULTS_DIR: "/results/release-run" };
+const measure = selectionFor({ selection: "command", target: "release-measure" }, measureCompiler);
+const capacity = measure.graph.units.find(unit => unit.unit_id === capacityID);
+assert.ok(capacity, "release-measure includes credential capacity");
+assert.deepEqual(capacity.needs, [], "credential capacity consumes the named release-check package");
+assert.equal(measure.graph.units.some(unit => unit.unit_id === "operation:harness.package_release"), false);
+assert.equal(capacity.cache_policy, "none");
+assert.deepEqual(capacity.shared_locks, []);
+assert.deepEqual(capacity.exclusive_locks, ["host_activity"], "credential measurement excludes all other host-active graph work");

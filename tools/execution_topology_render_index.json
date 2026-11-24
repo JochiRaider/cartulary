@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 3,
-  "input_digest": "sha256:238885313f749baf6ead9a541eb9c4d38407fccdbb6c42528ca568b1e6716f82",
+  "input_digest": "sha256:460e818e1adaf71226e3bace8d9eabf1c5fcb92fed031dcedf97cb31ef72f0a7",
   "inputs": [
     {
       "path": "contracts/performance/ac003.v2.json",
@@ -1422,7 +1422,7 @@
     {
       "path": "tools/task_surface_owner.json",
       "role": "task_surface_owner",
-      "hash": "sha256:7073a809ddb7792c6d5832f85a92c8d12a5cebc5ef33ff89c761bd16f962a659"
+      "hash": "sha256:63932af85785fe6e7f12fc307b366f9506e6d67bbdf885e45a8ef91e623fab8a"
     },
     {
       "path": "tools/test_catalog_owner.json",
@@ -1768,10 +1768,10 @@
   "outputs": {
     "tools/browser_e2e_batch_manifest.json": "sha256:a81cba3f927e09b8b612f24434f5cd426fbdb026e58ede6ef8d27f05e9ade144",
     "tools/scheduler_manifest.json": "sha256:e0a6b0776d9b0a783d99264afa25a10636cec566aeb8d44f52580b6131eb5e4d",
-    "tools/task_surface_manifest.json": "sha256:9fcc1d0de1b926cffe3bf1633cb346c1472bbbcce4ec856e8ef8b039e49e8636",
-    "tools/task_surface.generated.mk": "sha256:cc41485f5ee1ee481222b2730ebe8074c4637f238d0a700eb4b61a917ff5f82f",
-    "tools/task_surface.help-all.generated.json": "sha256:81dd344358db1676bcf864c90ee85e8d87c085f0517dd78185a6940e8947a798",
+    "tools/task_surface_manifest.json": "sha256:ca813b3b0b7b763ea12cd1fe4f19caf94884f076fa4de6665b430f3846ed6300",
+    "tools/task_surface.generated.mk": "sha256:b932fb1c29dbd38364012abe06d6abeacf66e97468a95c719e0c916fb11b3e02",
+    "tools/task_surface.help-all.generated.json": "sha256:10ae57f2e993d239ffd9cbb81229ea604e49997e8911dc9789b8f29a7607c82a",
     "tools/task_surface.help.generated.json": "sha256:5063c6e0fad8314affe184113c10f01c7f5efa037dea36b51d3f8cf19cf4e441",
-    "tools/task_surface.runtime.generated.mk": "sha256:0af3a0331c3fcd2f7b2e9a12f6cb0cf57112dda7a4d3ea8304d4a311dcdc14cb"
+    "tools/task_surface.runtime.generated.mk": "sha256:d8dc2c4a068a657b38c963f66453cd8888116b724b5d41a7db650b098646e7a3"
   }
 }

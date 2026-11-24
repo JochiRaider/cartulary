@@ -6,7 +6,7 @@ import childProcess from "node:child_process";
 import { syncBuiltinESMExports } from "node:module";
 import { createScratch } from "../../harness/test-support/scratch.mjs";
 import { buildReaderEvidence, writeEvidenceFile } from "../../harness/observability/tests/retained-fixture.mjs";
-import { packageRunContext, publishPackageEvidence, readPackageJSON, readPackageReceipt, validatePackageReceipt, verifyPackageIdentity } from "../package-identity.mjs";
+import { packageReceiptRoot, packageRunContext, publishPackageEvidence, readPackageJSON, readPackageReceipt, validatePackageReceipt, verifyPackageIdentity } from "../package-identity.mjs";
 import { validateLiveReleaseReadiness } from "../release-readiness-evidence.mjs";
 import { unpack } from "../package-release.mjs";
 
@@ -105,7 +105,7 @@ test("package run context and live readiness require exact current typed evidenc
  assert.throws(() => packageRunContext(env), /^Error: package run identity mismatch$/u);
  writeEvidenceFile(runRoot, "run-manifest.json", m);
  publishPackageEvidence(runRoot, "package", receipt());
- const consumers = ["standup-package-smoke", "standup-reference-pack-smoke", "standup-operational-recovery-smoke", "credential-capacity-assessment"];
+ const consumers = ["standup-package-smoke", "standup-reference-pack-smoke", "standup-operational-recovery-smoke"];
  for (const name of consumers) writeEvidenceFile(runRoot, `${name}/artifacts/package.json`, receipt());
  validateLiveReleaseReadiness(env);
  assert.throws(() => validateLiveReleaseReadiness({ ...env, CARTULARY_HARNESS_GRAPH_CHILD: "0" }), /private graph operation/u);
@@ -119,6 +119,34 @@ test("package run context and live readiness require exact current typed evidenc
   writeEvidenceFile(runRoot, relative, receipt());
  }
  validateLiveReleaseReadiness(env);
+});
+
+test("a consumer reads its own package or a named passing release-check of the same source", t => {
+ const parent = createScratch(t, "cartulary-package-receipt-root-");
+ const env = { CARTULARY_TEST_RESULTS_DIR: parent, CARTULARY_TEST_RUN_ID: "measure-fixture" };
+ const runRoot = path.join(parent, env.CARTULARY_TEST_RUN_ID);
+ writeEvidenceFile(runRoot, "run-manifest.json", manifest(env.CARTULARY_TEST_RUN_ID));
+ assert.equal(packageReceiptRoot(env), runRoot, "without a named root the run consumes its own package");
+ const releaseRoot = path.join(parent, "release-fixture");
+ const release = buildReaderEvidence({ runID: "release-fixture", target: "release-check", commandID: "cartulary.harness.command.release_check.v5" });
+ const named = { ...env, RELEASE_RESULTS_DIR: releaseRoot };
+ assert.throws(() => packageReceiptRoot(named), /admission failed/u, "an absent root cannot supply a package");
+ writeEvidenceFile(releaseRoot, "run-manifest.json", release.manifest);
+ writeEvidenceFile(releaseRoot, "run-summary.json", release.summary);
+ assert.equal(packageReceiptRoot(named), releaseRoot);
+ for (const [manifestChange, summaryChange] of [
+  [m => { m.source_digest = `sha256:${"f".repeat(64)}`; }, () => {}],
+  [m => { m.target = "ci"; }, () => {}],
+  [() => {}, v => { v.target = "ci"; }],
+ ]) {
+  const m = structuredClone(release.manifest), v = structuredClone(release.summary);
+  manifestChange(m); summaryChange(v);
+  writeEvidenceFile(releaseRoot, "run-manifest.json", m); writeEvidenceFile(releaseRoot, "run-summary.json", v);
+  assert.throws(() => packageReceiptRoot(named), /not a passing release-check|admission failed/u);
+ }
+ const failed = buildReaderEvidence({ runID: "release-fixture", target: "release-check", commandID: "cartulary.harness.command.release_check.v5", outcomes: { a: "failed" } });
+ writeEvidenceFile(releaseRoot, "run-manifest.json", failed.manifest); writeEvidenceFile(releaseRoot, "run-summary.json", failed.summary);
+ assert.throws(() => packageReceiptRoot(named), /not a passing release-check/u, "a failed release-check supplies no package");
 });
 
 test("unpack rejects malformed receipt before any extractor executes", t => {

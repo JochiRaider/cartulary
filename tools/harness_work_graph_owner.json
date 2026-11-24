@@ -312,10 +312,7 @@
       "harness.package_archive",
       "harness.package_startup",
       "harness.package_reference_pack",
-      "harness.package_recovery",
-      {
-        "operation_id": "harness.credential_capacity_assessment"
-      }
+      "harness.package_recovery"
     ],
     "harness.contract_regression": [
       "harness.assurance_execution_topology",
@@ -522,9 +519,6 @@
       "harness.package_reference_pack",
       "harness.package_recovery",
       {
-        "operation_id": "harness.credential_capacity_assessment"
-      },
-      {
         "operation_id": "harness.sbom"
       },
       {
@@ -556,7 +550,10 @@
       }
     ],
     "harness.release_measurement": [
-      "harness.suite_browser_measurement"
+      "harness.suite_browser_measurement",
+      {
+        "operation_id": "harness.credential_capacity_assessment"
+      }
     ]
   },
   "explicit_selections": [
@@ -965,7 +962,6 @@
     },
     "harness.release_readiness_evidence": {
       "needs": [
-        "harness.credential_capacity_assessment",
         "harness.cryptographic_policy_assessment",
         "harness.license_report",
         "harness.package_inspect",
@@ -1167,9 +1163,7 @@
       "postgres_isolation": "none"
     },
     "harness.credential_capacity_assessment": {
-      "needs": [
-        "harness.package_release"
-      ],
+      "needs": [],
       "cache_policy": "none",
       "estimated_work_ms": 180000,
       "resource_profile_id": "credential_capacity_quiet",

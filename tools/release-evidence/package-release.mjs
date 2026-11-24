@@ -10,7 +10,7 @@ import { CommandFailure, reportCommandFailure } from "../harness/runtime/command
 import { borrowRuntime } from "../harness/runtime/session-client.mjs";
 import { reservePackageResources } from "./package-resources.mjs";
 import { stageRendererInstallation } from "../report-renderer/stage-installation.mjs";
-import { packageRunContext, publishPackageEvidence, readPackageJSON, readPackageReceipt } from "./package-identity.mjs";
+import { packageReceiptRoot, packageRunContext, publishPackageEvidence, readPackageJSON, readPackageReceipt } from "./package-identity.mjs";
 import { hashPackageFile as hashFile, preparePackageArchiveDirectory, publishPackageArchive, withVerifiedPackageArchive } from "./package-archive.mjs";
 
 const root = path.resolve(import.meta.dirname, "../..");
@@ -184,7 +184,7 @@ function extractPackage(destination, receipt, runtime, archiveRoot) {
   return { release, receipt };
 }
 export function unpack(destination, { archiveRoot = packageArchiveRoot } = {}) {
-  const { runRoot } = packageRunContext(), receipt = readPackageReceipt(runRoot);
+  const { runRoot } = packageRunContext(), receipt = readPackageReceipt(packageReceiptRoot());
   const runtime = borrowRuntime({ repoRoot: root, runRoot });
   let primary;
   try { return extractPackage(destination, receipt, runtime, archiveRoot); }

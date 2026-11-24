@@ -216,6 +216,21 @@ rows (no placement justification).
   readiness contract, planner preparation) were fixed and rerun alone: all
   pass.
 
+### S2 result (2026-11-24)
+
+Credential capacity is quiet measurement and now runs in `release-measure`.
+`release-measure` and the standalone `credential-capacity-assessment` take a
+required `RELEASE_RESULTS_DIR` (forwarded to units); `packageReceiptRoot`
+accepts it only as a passing `release-check` run of the same source digest and
+otherwise reads the run's own package. The package archive already lives in
+the shared, receipt-verified store and installation loads the images from it,
+so consumers needed no other change. `package-inspect CHECK=all` keeps the
+four same-run consumers; `release_readiness_evidence` checks those three
+standup consumers, and the cross-root binding of credential capacity is S4's
+verifier work. `release-check` now carries no quiet unit. Checks: `lint`
+`go` and `scripts`; `source-check` `generated` and `schema`; the Go planner,
+package readiness contract and routing contract rows: all pass.
+
 ## 9. Open question: the evidence-heavy fixture
 
 Core 04 REQ-04-157 defines `cartulary.perf.evidence_heavy.v2` as 10,000

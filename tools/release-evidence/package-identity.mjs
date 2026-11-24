@@ -21,6 +21,23 @@ export function packageRunContext(environment = process.env) {
   return { runRoot, manifest };
 }
 
+// A consumer reads the package its own run produced, unless the run names a
+// passing release-check root for the same source (release-measure's
+// RELEASE_RESULTS_DIR); it then consumes that root's package.
+export function packageReceiptRoot(environment = process.env) {
+  const { runRoot, manifest } = packageRunContext(environment);
+  const named = environment.RELEASE_RESULTS_DIR;
+  if (named === undefined || named === "") return runRoot;
+  const releaseRoot = path.resolve(named);
+  const release = readPackageJSON(releaseRoot, "run-manifest.json", "cartulary.harness_run_manifest.v3");
+  const summary = readPackageJSON(releaseRoot, "run-summary.json", "cartulary.harness_run_summary.v1");
+  if (release.target !== "release-check" || summary.status !== "pass" || summary.target !== "release-check" ||
+      release.source_digest !== manifest.source_digest) {
+    throw new Error("package root is not a passing release-check of the current source");
+  }
+  return releaseRoot;
+}
+
 export function validatePackageReceipt(receipt) {
   validateSchemaSync("cartulary.local_release_receipt.v1", receipt);
   if (receipt.archive !== `${receipt.manifest_sha256}.tar` ||

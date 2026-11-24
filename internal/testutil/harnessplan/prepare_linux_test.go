@@ -193,7 +193,7 @@ func TestPlanPreparation(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		measure, err := Prepare(root, Request{Kind: "command", Target: "release-measure", Environment: environment(nil)}, now, 42)
+		measure, err := Prepare(root, Request{Kind: "command", Target: "release-measure", Environment: environment(map[string]string{"RELEASE_RESULTS_DIR": "/results/release-run"})}, now, 42)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -222,9 +222,22 @@ func TestPlanPreparation(t *testing.T) {
 			t.Fatal("the catalog has no release package rows")
 		}
 		for _, unit := range release.Graph.Units {
-			if slices.Contains(unit.ExclusiveLocks, "host_activity") && unit.ID != "operation:harness.credential_capacity_assessment" {
+			if slices.Contains(unit.ExclusiveLocks, "host_activity") {
 				t.Fatalf("release-check carries quiet unit %s", unit.ID)
 			}
+		}
+		capacity := false
+		for _, unit := range measure.Graph.Units {
+			capacity = capacity || unit.ID == "operation:harness.credential_capacity_assessment"
+			if unit.ID == "operation:harness.package_release" {
+				t.Fatal("release-measure must consume release-check's package, not produce one")
+			}
+		}
+		if !capacity {
+			t.Fatal("release-measure lacks the credential-capacity assessment")
+		}
+		if _, err := Prepare(root, Request{Kind: "command", Target: "release-measure", Environment: environment(nil)}, now, 42); err == nil {
+			t.Fatal("release-measure planned without the release-check root its package comes from")
 		}
 	})
 
