@@ -1,5 +1,4 @@
 import path from "node:path";
-import { resolveVitestTitles } from "../../test-catalog/index.mjs";
 import { primaryPublicFailure, publicExitCodeForFailure, secureWriteFile, validateSchemaSync } from "../../contract/index.mjs";
 import {
   diagnosticFailure, failureDetailsSchemaID, readVitestJSON,
@@ -9,12 +8,12 @@ import {
 export function buildVitestInvocations(root, rows, runRoot) {
   if (!rows.length || new Set(rows.map((row) => row.selector.project_id)).size !== 1 ||
     rows.length > 1 && rows.some((row) => row.process_isolation === "exclusive" || row.fixture_capability === "managed_process")) throw new Error("Vitest unit must be one compatible project cohort");
-  const exactTitles = resolveVitestTitles(root, rows);
   const sortedRows = [...rows].sort((a, b) => a.row_id < b.row_id ? -1 : a.row_id > b.row_id ? 1 : 0);
   const files = new Map();
   for (const row of sortedRows) {
     const file = files.get(row.selector.file) ?? { file: row.selector.file, rows: [] };
-    file.rows.push({ row_id: row.row_id, selectors: exactTitles.get(row.row_id) });
+    // Rows carry exact full titles; the runner selects them by exact name.
+    file.rows.push({ row_id: row.row_id, selectors: row.selector.titles });
     files.set(file.file, file);
   }
   const request = { schema_id: "cartulary.vitest_invocation.v1", project: rows[0].selector.project_id,

@@ -691,7 +691,16 @@ function resolveScopedRowSelector({ root, row, runner, operationIDs }, scope) {
     }
     return row.selector.tests.map((symbol) => `go:${row.selector.package}:${symbol}`);
   }
-  if (row.runner === "vitest" || row.runner === "playwright") {
+  if (row.runner === "vitest") {
+    // Rows carry exact full titles. The pinned runner selects them by exact
+    // name and fails a title it does not collect exactly once, so the catalog
+    // admits the file and project without parsing the source.
+    containedFile(root, row.selector.file, runner.approved_roots, `${label}.file`, scope);
+    if (runner.project_ids && !runner.project_ids.includes(row.selector.project_id)) throw new Error(`${label}.project_id is not registered`);
+    if (row.selector.project_id !== frontendSourceProject(row.selector.file)) throw new Error(`${label}.project_id does not run ${row.selector.file}`);
+    return row.selector.titles.map((title) => `vitest:${row.selector.project_id}:${row.selector.file}:${title}`);
+  }
+  if (row.runner === "playwright") {
     const { source } = containedFile(root, row.selector.file, runner.approved_roots, `${label}.file`, scope);
     const titles = testTitles(root, row.selector.file, source, scope);
     for (const title of row.selector.titles) {
@@ -699,25 +708,21 @@ function resolveScopedRowSelector({ root, row, runner, operationIDs }, scope) {
         throw new Error(`${label}.titles ${JSON.stringify(title)} must resolve exactly once`);
       }
     }
-    if (row.runner === "playwright") {
-      for (const title of row.selector.titles) playwrightTitlePath(titles, title, label);
-      if (!runner.project_ids.includes(row.selector.project_id)) {
-        throw new Error(`${label}.project_id is not registered`);
-      }
-      if (!runner.stages.includes(row.selector.stage)) {
-        throw new Error(`${label}.stage is not registered`);
-      }
-      if (row.selector.scenario_ids.length !== row.selector.titles.length) {
-        throw new Error(`${label} scenario_ids and titles must have equal length`);
-      }
-      return row.selector.scenario_ids.map(
-        (scenarioID) => `playwright:${row.selector.project_id}:${row.selector.stage}:${scenarioID}`,
-      ).concat(row.selector.titles.map((title) =>
-        `playwright-source:${row.selector.project_id}:${row.selector.file}:${[...titles.fullTitles.get(title)][0]}`,
-      ));
+    for (const title of row.selector.titles) playwrightTitlePath(titles, title, label);
+    if (!runner.project_ids.includes(row.selector.project_id)) {
+      throw new Error(`${label}.project_id is not registered`);
     }
-    if (runner.project_ids && !runner.project_ids.includes(row.selector.project_id)) throw new Error(`${label}.project_id is not registered`);
-    return row.selector.titles.map((title) => `vitest:${row.selector.project_id ?? ""}:${row.selector.file}:${[...titles.fullTitles.get(title)][0]}`);
+    if (!runner.stages.includes(row.selector.stage)) {
+      throw new Error(`${label}.stage is not registered`);
+    }
+    if (row.selector.scenario_ids.length !== row.selector.titles.length) {
+      throw new Error(`${label} scenario_ids and titles must have equal length`);
+    }
+    return row.selector.scenario_ids.map(
+      (scenarioID) => `playwright:${row.selector.project_id}:${row.selector.stage}:${scenarioID}`,
+    ).concat(row.selector.titles.map((title) =>
+      `playwright-source:${row.selector.project_id}:${row.selector.file}:${[...titles.fullTitles.get(title)][0]}`,
+    ));
   }
   if (row.runner === "shell") {
     if (!operationIDs.has(row.selector.operation_id)) {
@@ -735,11 +740,8 @@ function resolveScopedRowSelector({ root, row, runner, operationIDs }, scope) {
 export function createRowSelectorResolver(root) {
   const scope = { packages: new Map(), sources: new Map(), titles: new Map(), goContext: null };
   const resolve = (options) => resolveScopedRowSelector({ ...options, root }, scope);
-  resolve.frontendTitles = (file, runner) => {
-    const { source } = containedFile(root, file, runner.approved_roots, "source registration", scope);
-    const facts = testTitles(root, file, source, scope);
-    return new Set([...facts.fullTitles.values()].flatMap((values) => [...values]));
-  };
+  // Go coverage is per test symbol and Playwright coverage per registered
+  // title; Vitest coverage is per file: every discovered test file has a row.
   resolve.assertSourceCoverage = (runners, selected) => {
     const missing = [];
     for (const runner of runners.values()) {
@@ -755,14 +757,15 @@ export function createRowSelectorResolver(root) {
             if (count !== 1 || !selected.has(`go:${packageName}:${symbol}`)) missing.push(`go:${packageName}:${symbol}`);
           }
         }
+      } else if (runner.runner === "vitest") {
+        const covered = new Set([...selected].filter((key) => key.startsWith("vitest:")).map((key) => key.split(":")[2]));
+        for (const file of files) if (!covered.has(file)) missing.push(`vitest:${frontendSourceProject(file)}:${file}`);
       } else {
         for (const file of files) {
           const { source } = containedFile(root, file, runner.approved_roots, "source coverage", scope);
           const titles = testTitles(root, file, source, scope);
           for (const title of new Set([...titles.fullTitles.values()].flatMap((values) => [...values]))) {
-            const key = runner.runner === "vitest"
-              ? `vitest:${frontendSourceProject(file)}:${file}:${title}`
-              : `playwright-source:chromium:${file}:${title}`;
+            const key = `playwright-source:chromium:${file}:${title}`;
             if (!selected.has(key)) missing.push(key);
           }
         }
@@ -792,22 +795,6 @@ export function assertSortedUnique(values, label) {
     throw new Error(`${label} must not contain duplicates`);
   }
 }
-
-// Resolve catalog selectors once per invocation to full names, using the same
-// source facts as catalog overlap validation. No suffix-based runtime selection.
-export function resolveVitestTitles(root, rows) {
-  const runner = readExecutableRepositoryJSON(root, "tools/test_runner_registry.json").runners.find((entry) => entry.runner === "vitest");
-  const scope = { sources: new Map(), titles: new Map() };
-  return new Map(rows.map((row) => {
-    const { source } = containedFile(root, row.selector.file, runner.approved_roots, row.row_id, scope);
-    const facts = testTitles(root, row.selector.file, source, scope);
-    return [row.row_id, row.selector.titles.map((title) => {
-      if (facts.get(title) !== 1) throw new Error(`${row.row_id}: selected Vitest title must resolve exactly once`);
-      return [...facts.fullTitles.get(title)][0];
-    })];
-  }));
-}
-
 
 function playwrightTitlePath(facts, title, label) {
   if (facts.hasRegistrationSuites) throw new Error(`${label}: Playwright imported registration suites are outside the exact test-list profile`);

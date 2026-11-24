@@ -5,7 +5,6 @@ import { semanticJSONDigest, resolveCommandInputs } from "../../contract/index.m
 import {
   loadTestCatalog,
   goRunnerBuildContext,
-  resolveVitestTitles,
   targetForCatalogRow,
 } from "../../test-catalog/index.mjs";
 import { packInvocationCohorts, rowEstimateMs } from "./cohorts.mjs";
@@ -402,7 +401,6 @@ export class WorkGraphCompiler {
       (row) => row.runner !== "go" && row.runner !== "playwright" && row.runner !== "vitest",
     );
     const vitestGroups = new Map();
-    const exactVitestTitles = resolveVitestTitles(this.root, rows.filter((row) => row.runner === "vitest"));
     for (const row of rows.filter((row) => row.runner === "vitest")) {
       const base = rowUnit(row, this.rowTargets.get(row.row_id), this.owner, this.topology, needsForRow(row), runtimeEnvironmentForRow(row));
       const { CARTULARY_TEST_ROWS: _selection, ...environment } = base.command.environment;
@@ -429,7 +427,7 @@ export class WorkGraphCompiler {
         const selectedRows = cohort.items.flatMap((item) => item.rows).sort((a, b) => compareASCII(a.row_id, b.row_id));
         const ids = selectedRows.map((row) => row.row_id);
         const selections = selectedRows.map((row) => ({ row_id: row.row_id, project: row.selector.project_id,
-          file: row.selector.file, titles: exactVitestTitles.get(row.row_id) }));
+          file: row.selector.file, titles: row.selector.titles }));
         const claims = { ...base.resource_claims };
         const { CARTULARY_TEST_ROWS: _selection, ...environment } = base.command.environment;
         for (const [resource, amount] of Object.entries(vitestPolicy.coordinator_claims)) claims[resource] = (claims[resource] ?? 0) + amount;

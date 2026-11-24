@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 3,
-  "input_digest": "sha256:65d786afaa79a7f9dcdaebb12f10f669de9547f25db76657f7e82f3cd41aecc6",
+  "input_digest": "sha256:f2e7893f2ad92205d835f3187d151e885db71a92ef90844243887f5c6d72bd59",
   "inputs": [
     {
       "path": "contracts/performance/ac003.v2.json",
@@ -972,7 +972,7 @@
     {
       "path": "tools/harness/execution/runners/vitest.mjs",
       "role": "renderer_source",
-      "hash": "sha256:5a64af31b064bdcb783270d58c185ba4f16fa7a709881978d8325b21266988ab"
+      "hash": "sha256:3c42a6acc3d31425229e97a6429bd4f36d7cb1d53bf954cfa938caf02f68d154"
     },
     {
       "path": "tools/harness/execution/summary-topology.mjs",
@@ -1252,7 +1252,7 @@
     {
       "path": "tools/harness/scheduler/work-graph/compiler.mjs",
       "role": "renderer_source",
-      "hash": "sha256:a2f4232b89a7ba162f10c63b3e0c91c674604247f98d0fd41cde0275ed33e30f"
+      "hash": "sha256:0757e6cadc6e5d593844be7d2975204399974a16a5f7281c1cba15285acd8bed"
     },
     {
       "path": "tools/harness/scheduler/work-graph/index.mjs",
@@ -1332,7 +1332,7 @@
     {
       "path": "tools/harness/test-catalog/index.mjs",
       "role": "renderer_source",
-      "hash": "sha256:c57ab7935b08fb711da6805a54293a8fdc6d171046207da703a63651e2815f05"
+      "hash": "sha256:86b0b3b22b3be870ec433cedd80e3da4b91f05ffd9ca9cd5a4406eae646b7d19"
     },
     {
       "path": "tools/harness/test-catalog/postgres-fixture-policy.mjs",
@@ -1357,7 +1357,7 @@
     {
       "path": "tools/harness/test-catalog/selector-resolution.mjs",
       "role": "renderer_source",
-      "hash": "sha256:43d40f33da2b8daa646db591b63e6ec6d107842596dbfba06fc18323ffd645fd"
+      "hash": "sha256:b84e4d1bf85e01a1ffd917241b7ded24b75e9e180d504b6ba9fe590e6aed93ea"
     },
     {
       "path": "tools/harness/test-catalog/semantic-identity-check-cli.mjs",

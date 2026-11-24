@@ -760,6 +760,36 @@ bound, no explicit-only row, a projection for every root operation, suite
 projections, the aggregate's projection covering the graph); a row reached
 both directly and through a union is bound once; `ci` reports unsupported.
 
+**Milestone 3, slice 3c: no TypeScript parsing for Vitest (2026-11-23).**
+
+- *Titles pass through.* The catalog admits a Vitest row by its file (contained
+  in the runner's approved roots, no symbolic links), its registered project,
+  and the project that runs that file. It does not read the source.
+  `resolveVitestTitles` is deleted; the JavaScript planner and the Vitest
+  runner use the authored titles. The runner selects them by an anchored
+  exact-name pattern and fails a row whose title it does not collect exactly
+  once (`missing or ambiguous observations`), so a misauthored title fails
+  when its file runs. Overlap detection still compares exact full titles.
+- *File-level completeness.* Every discovered Vitest test file has a catalog
+  row. A test added to a file that already has a row is no longer detected,
+  the risk recorded with the Stage 1 scope.
+- *Tests.* The catalog assertions replace the Vitest parser cases with
+  pass-through, project-mismatch and file-level coverage cases. The Vitest
+  adapter fixture rows author exact full titles (`scope one`).
+- *Playwright stays parsed until milestone 4.* Its reporter needs title paths
+  split into suite components for Playwright's exact test-list interface, and
+  only the parser supplies them today. Milestone 4 moves title paths into the
+  catalog and deletes the parser with the browser work.
+
+Checks: the registry-parity row (Vitest adapter and catalog assertions),
+every `harness.test_catalog` row, JavaScript- and Go-planned `web.application`
+(95 Vitest rows), `make lint CHECK=scripts`, `source-check` `catalog` and
+`generated` (after regenerating the render index); all pass. The
+owner-boundaries row fails only on the known `installed-readiness.mjs` import.
+Loading the complete catalog takes 0.95 s.
+
+Milestone 3 is complete: the Go planner plans `test-fast` and `check`.
+
 ## 9. Decisions requested
 
 - Decided 2026-11-23: Option B (staged Go replacement); Stage 0 tried and

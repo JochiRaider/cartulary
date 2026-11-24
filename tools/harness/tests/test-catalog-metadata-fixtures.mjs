@@ -4,7 +4,7 @@ import { syncBuiltinESMExports } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
-import { goRunnerBuildContext, loadTestCatalog, resolvePlaywrightSelection, resolveVitestTitles, restrictedExecutableInputRoots } from "../test-catalog/index.mjs";
+import { goRunnerBuildContext, loadTestCatalog, resolvePlaywrightSelection, restrictedExecutableInputRoots } from "../test-catalog/index.mjs";
 import { createContractTestContext } from "./contract-test-context.mjs";
 import { loadCatalogMetadata, sourceExclusionPolicy } from "../test-support/owner-fixtures.mjs";
 import { createScratch } from "../test-support/scratch.mjs";
@@ -112,7 +112,6 @@ test("support metadata uses the same strict admission as catalog owner inputs", 
   assert.equal(goRunnerBuildContext(fixture).environment.GOOS, "linux");
   assert.equal(sourceExclusionPolicy(fixture)("internal/gen/example.go"), true);
   assert.ok(restrictedExecutableInputRoots(fixture).length > 0);
-  assert.deepEqual(resolveVitestTitles(fixture, []), new Map());
   assert.deepEqual(resolvePlaywrightSelection(fixture, []), []);
 
   for (const [name, consume] of [
@@ -120,7 +119,6 @@ test("support metadata uses the same strict admission as catalog owner inputs", 
     ["go_modules", () => goRunnerBuildContext(fixture)],
     ["generated_artifact_policy", () => sourceExclusionPolicy(fixture)],
     ["executable_input_policy", () => restrictedExecutableInputRoots(fixture)],
-    ["test_runner_registry", () => resolveVitestTitles(fixture, [])],
     ["test_runner_registry", () => resolvePlaywrightSelection(fixture, [])],
   ]) {
     const file = path.join(fixture, `tools/${name}.json`);

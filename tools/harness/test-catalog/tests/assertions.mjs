@@ -308,28 +308,18 @@ export function assertSelectorResolutionScope(context) {
     renameSync(packageRoot, `${packageRoot}-original`);
     symlinkSync(`${packageRoot}-original`, packageRoot);
     assert.throws(() => resolveGo(goSelection), /symbolic link/u);
+    // Vitest rows carry exact full titles; the catalog admits the file and
+    // project without reading registrations, so a title passes through as is.
     const main = path.join(webDirectory, "scope.test.ts"), suite = path.join(webDirectory, "suite/register.ts");
     mkdirSync(path.dirname(suite));
     writeFileSync(main, 'import { registerFixtureSuite } from "./suite/register";\nregisterFixtureSuite();\n');
-    writeFileSync(suite, 'export function registerFixtureSuite() { it("before", () => {}); }\n');
-    const webSelection = (title) => ({ row: { row_id: "fixture.web", runner: "vitest", selector: { file: path.relative(directory, main), titles: [title] } }, runner: { approved_roots: ["apps/web"] }, taskSurfaceCommandIDs: new Set() });
+    writeFileSync(suite, 'export function registerFixtureSuite() { it(runtimeTitle(), () => {}); }\n');
+    const webSelection = (title) => ({ row: { row_id: "fixture.web", runner: "vitest", selector: { file: path.relative(directory, main), project_id: "browser-unit", titles: [title] } }, runner: { approved_roots: ["apps/web"] }, taskSurfaceCommandIDs: new Set() });
     const resolveWeb = createRowSelectorResolver(directory);
-    assert.deepEqual(resolveWeb(webSelection("before")), [`vitest::${path.relative(directory, main)}:before`]);
-    // Only the imported suite changes. Main-source-keyed global caches are stale.
-    writeFileSync(suite, 'export function registerFixtureSuite() { it("after", () => {}); }\n');
-    assert.deepEqual(createRowSelectorResolver(directory)(webSelection("after")), [`vitest::${path.relative(directory, main)}:after`]);
-    assert.throws(() => createRowSelectorResolver(directory)(webSelection("before")), /must resolve exactly once/u);
-    for (const calls of ["", "registerFixtureSuite(); registerFixtureSuite();", "if (enabled) registerFixtureSuite();", "registerFixtureSuite(options);"]) {
-      writeFileSync(main, `import { registerFixtureSuite } from "./suite/register";\n${calls}`);
-      assert.throws(() => createRowSelectorResolver(directory)(webSelection("after")), /exactly one unconditional/u);
-    }
-    writeFileSync(main, 'import { registerFixtureSuite as install } from "./suite/register"; install();');
-    assert.deepEqual(createRowSelectorResolver(directory)(webSelection("after")), [`vitest::${path.relative(directory, main)}:after`]);
-    writeFileSync(suite, 'export function wrongExport() { it("after", () => {}); }');
-    assert.throws(() => createRowSelectorResolver(directory)(webSelection("after")), /indirect test registration|missing registration suite/u);
+    assert.deepEqual(resolveWeb(webSelection("suite registered title")), [`vitest:browser-unit:${path.relative(directory, main)}:suite registered title`]);
     rmSync(main);
     symlinkSync(suite, main);
-    assert.throws(() => resolveWeb(webSelection("before")), /symbolic link/u);
+    assert.throws(() => resolveWeb(webSelection("suite registered title")), /symbolic link/u);
   }
   finally {
     rmSync(directory, { recursive: true, force: true });
@@ -381,8 +371,16 @@ function assertSourceDiscoveryBoundary() {
     write("internal/fixture/bare_test.go", "package fixture\nfunc Test() {}\nfunc TestlowerHelper() {}\n");
     assert.throws(() => createRowSelectorResolver(root).assertSourceCoverage(runners, selected), /go:.\/internal\/fixture:Test(?:\n|$)/u);
     rmSync(path.join(root, "internal/fixture/bare_test.go"));
+    // Vitest coverage is per file: a file with any cataloged title is
+    // covered, and a discovered file without a row is not.
     selected.delete(keys[1]);
-    assert.throws(() => resolver.assertSourceCoverage(runners, selected), /suite row beta/u);
+    resolver.assertSourceCoverage(runners, selected);
+    selected.delete(keys[0]);
+    assert.throws(() => resolver.assertSourceCoverage(runners, selected), (error) => {
+      assert.deepEqual(error.diagnostic_subjects, ["vitest:browser-unit:apps/web/src/fixture.test.ts"]);
+      return true;
+    });
+    assert.throws(() => resolver({ ...selection, row: { ...selection.row, selector: { ...selection.row.selector, project_id: "node-unit" } } }), /does not run/u);
     const old = fs.lstatSync;
     fs.lstatSync = (file, ...args) => {
       if (String(file).includes("/docs") || String(file).endsWith(".md"))
@@ -402,36 +400,6 @@ function assertSourceDiscoveryBoundary() {
       fs.lstatSync = old;
       syncBuiltinESMExports();
     }
-    for (const source of ['it(runtimeTitle(), () => {});', 'it.each(runtimeRows())("row %s", () => {});', 'describe(runtimeTitle(), () => { it("child", () => {}); });']) {
-      write("apps/web/src/fixture.test.ts", source);
-      assert.throws(() => createRowSelectorResolver(root)(selection), /unresolved/u);
-    }
-    const resolveTitles = (source, titles) => {
-      write("apps/web/src/fixture.test.ts", source);
-      return createRowSelectorResolver(root)({ ...selection, row: { ...selection.row, selector: { ...selection.row.selector, titles } } });
-    };
-    assert.deepEqual(resolveTitles('import { it as check, describe as group } from "vitest"; const prefix = "outer"; const title = prefix; group("suite", () => { const prefix = "inner"; check(title, () => {}); });', ["suite outer"]), ["vitest:browser-unit:apps/web/src/fixture.test.ts:suite outer"]);
-    assert.deepEqual(resolveTitles('import { it as check } from "vitest"; const another = check; another("aliased", () => {});', ["aliased"]), ["vitest:browser-unit:apps/web/src/fixture.test.ts:aliased"]);
-    assert.deepEqual(resolveTitles('it.each([["12.5units", "$untouched"]])("%i %s %# %$", () => {});', ["12 $untouched 0 1"]), ["vitest:browser-unit:apps/web/src/fixture.test.ts:12 $untouched 0 1"]);
-    for (const source of [
-      'if (enabled) it("hidden", () => {});',
-      'function registerHidden() { it("hidden", () => {}); }',
-      '[1, 2].forEach(() => it("hidden", () => {}));',
-      'it.skipIf(enabled)("hidden", () => {});',
-      'it.for([1])("hidden", () => {});',
-      'it.each([1])("hidden %o", () => {});',
-      'it.each([1])("hidden %% %s", () => {});',
-      'it.each([{ value: "known" }])("hidden $missing", () => {});',
-      'let title = "hidden"; it(title, () => {});',
-      'const it = unknownFactory(); it("hidden", () => {});',
-      'it["each"]([1])("hidden", () => {});',
-      'const { only: check } = it; check("hidden", () => {});',
-      'const holder = { register: it }; holder.register("hidden", () => {});',
-      'registerUnknown(it);',
-    ])
-      assert.throws(() => resolveTitles(source, ["hidden"]), /unsupported|unresolved|runner aliases/u);
-    write("apps/web/src/fixture.test.ts", 'it("duplicate", () => {}); it("duplicate", () => {});');
-    assert.throws(() => createRowSelectorResolver(root)({ ...selection, row: { ...selection.row, selector: { ...selection.row.selector, titles: ["duplicate"] } } }), /exactly once/u);
     const browserFile = "apps/web/e2e/fixture.spec.ts";
     const browserRunner = { runner: "playwright", approved_roots: ["apps/web/e2e"], project_ids: ["chromium"], stages: ["measurement"] };
     const browserSelection = { row: { row_id: "fixture.browser", runner: "playwright", selector: { file: browserFile, project_id: "chromium", stage: "measurement", titles: ["outer same"], scenario_ids: ["fixture_case"] } }, runner: browserRunner, taskSurfaceCommandIDs: new Set() };

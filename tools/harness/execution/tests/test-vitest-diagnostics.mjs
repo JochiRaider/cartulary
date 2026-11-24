@@ -244,8 +244,9 @@ describe('right', () => { test('same name', () => expect(2).toBe(2)); });`);
   const groupedConfig = path.join(groupedFixture, "vite.config.mjs");
   writeFileSync(groupedConfig, `export default ${JSON.stringify({ root: groupedFixture, test: { name: "harness-node", include: [path.relative(groupedFixture, firstFile), path.relative(groupedFixture, secondFile)], environment: "node" } })};`);
   const groupedRows = [
-    ...["one", "two"].map((title) => ({ row_id: `fixture.${title}`, runner: "vitest", fixture_capability: "none", selector: { file: relative(firstFile), project_id: "harness-node", titles: [title] } })),
-    { row_id: "fixture.independent", runner: "vitest", fixture_capability: "none", selector: { file: relative(secondFile), project_id: "harness-node", titles: ["independent"] } },
+    // Rows author exact full titles (suite components included).
+    ...["one", "two"].map((title) => ({ row_id: `fixture.${title}`, runner: "vitest", fixture_capability: "none", selector: { file: relative(firstFile), project_id: "harness-node", titles: [`scope ${title}`] } })),
+    { row_id: "fixture.independent", runner: "vitest", fixture_capability: "none", selector: { file: relative(secondFile), project_id: "harness-node", titles: ["scope independent"] } },
   ];
   for (const reverse of [false, true]) {
     const [grouped] = buildVitestInvocations(root, groupedRows, path.join(output, `cohort-${reverse}`));
