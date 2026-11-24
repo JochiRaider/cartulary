@@ -20,14 +20,14 @@ func assertCanonicalRowConstruction(t *testing.T) {
 		ActorUserID:              uuid.MustParse("22222222-2222-4222-8222-222222222222"),
 		ImportSessionID:          uuid.MustParse("33333333-3333-4333-8333-333333333333"),
 		ImportUnitID:             uuid.MustParse("44444444-4444-4444-8444-444444444444"),
-		CommittedSourceID:        uuid.MustParse("55555555-5555-4555-8555-555555555555"), SourceInterpretationSHA256: strings.Repeat("6", 64),
-		SourceContentSHA256: strings.Repeat("2", 64), MappingFingerprint: strings.Repeat("3", 64),
+		CommittedSourceID:        uuid.MustParse("55555555-5555-4555-8555-555555555555"),
+		SourceContentSHA256:      strings.Repeat("2", 64), MappingFingerprint: strings.Repeat("3", 64),
 		SourceFilenameDigest: strings.Repeat("5", 64), SourceFilenameDigestKeyID: "constructor-test",
 		SourceProfileID: sourceProfileCiscoSNANetFlowCSV, ParserProfileID: parserProfileRFC4180HeaderedCSV,
-		RowCountAccepted: 1, Now: time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC),
-		VisitRows: func(rowSourceGate, func(normalizedRow) error) error {
-			t.Fatal("invalid context invoked row visitor")
-			return nil
+		Now: time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC),
+		ImportRows: func(rowSourceGate, func(normalizedRow) error) (importSummary, error) {
+			t.Fatal("invalid context invoked the import pass")
+			return importSummary{}, nil
 		},
 	}
 	t.Run("invalid context rejected before transaction access", func(t *testing.T) {
@@ -37,7 +37,7 @@ func assertCanonicalRowConstruction(t *testing.T) {
 			"session":          func(p *createTableParams) { p.ImportSessionID = uuid.Nil },
 			"unit":             func(p *createTableParams) { p.ImportUnitID = uuid.Nil },
 			"committed source": func(p *createTableParams) { p.CommittedSourceID = uuid.Nil },
-			"interpretation":   func(p *createTableParams) { p.SourceInterpretationSHA256 = "bad" },
+			"import pass":      func(p *createTableParams) { p.ImportRows = nil },
 			"source digest":    func(p *createTableParams) { p.SourceContentSHA256 = "invalid" },
 			"mapping digest":   func(p *createTableParams) { p.MappingFingerprint = strings.Repeat("A", 64) },
 			"filename digest":  func(p *createTableParams) { p.SourceFilenameDigest = "" },

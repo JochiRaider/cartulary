@@ -1,7 +1,6 @@
 package networkflow
 
 import (
-	"context"
 	"encoding/json"
 	"github.com/JochiRaider/cartulary/internal/modules/imports"
 	"reflect"
@@ -158,25 +157,18 @@ func testOrientationImportBoundaries(t *testing.T) {
 			stream := &applySourceFixture{source: source, capability: capability}
 			f := &importFacade{sourceStore: stream, limits: defaultLimits()}
 			request := imports.ExtensionImportApplyRequest{SourceCapability: capability, ExpectedSourceContentSHA256: parsed.SourceContentSHA256, MappingFingerprint: fingerprint}
-			var previous importValidationSummary
-			for pass := 0; pass < 2; pass++ {
-				seen := 0
-				summary, err := f.validateImportPass(context.Background(), nil, request, mapping, pass == 0, func(actual normalizedRow) error {
-					seen++
-					if !reflect.DeepEqual(actual, row) {
-						t.Fatal("preview/apply derivation diverged")
-					}
-					return nil
-				})
-				if err != nil || seen != 1 || summary.Accepted != 1 || summary.Rejected != 0 {
-					t.Fatalf("bounded apply: %v %#v", err, summary)
+			seen := 0
+			summary, err := validateImportFixture(f, request, mapping, func(actual normalizedRow) error {
+				seen++
+				if !reflect.DeepEqual(actual, row) {
+					t.Fatal("preview/apply derivation diverged")
 				}
-				if pass == 1 && !summary.agrees(previous) {
-					t.Fatal("apply passes diverged")
-				}
-				previous = summary
+				return nil
+			})
+			if err != nil || seen != 1 || summary.Accepted != 1 || summary.Rejected != 0 {
+				t.Fatalf("bounded apply: %v %#v", err, summary)
 			}
-			if stream.opens != 2 || stream.closes != 2 {
+			if stream.opens != 1 || stream.closes != 1 {
 				t.Fatal("source streams leaked")
 			}
 			if tc.name == "reverse" {

@@ -50,8 +50,8 @@ func (s *store) CreateTable(ctx context.Context, fixture createTableFixtureParam
 		digest.Write(raw)
 	}
 	params := createTableParams{
-		SourceRawCellScalarLimit: s.limits.MaxRawCellScalarLength,
-		CommittedSourceID:        imports.CommittedSourceID(fixture.ImportUnitID), SourceInterpretationSHA256: hex.EncodeToString(digest.Sum(nil)),
+		SourceRawCellScalarLimit:  s.limits.MaxRawCellScalarLength,
+		CommittedSourceID:         imports.CommittedSourceID(fixture.ImportUnitID),
 		IncidentID:                fixture.IncidentID,
 		ActorUserID:               fixture.ActorUserID,
 		ImportSessionID:           fixture.ImportSessionID,
@@ -66,18 +66,20 @@ func (s *store) CreateTable(ctx context.Context, fixture createTableFixtureParam
 		SourceProfileID:           fixture.SourceProfileID,
 		ParserProfileID:           fixture.ParserProfileID,
 		DisplayNameOverride:       fixture.DisplayNameOverride,
-		RowCountRejected:          fixture.RowCountRejected,
-		Diagnostics:               fixture.Diagnostics,
-		DiagnosticsTruncated:      fixture.DiagnosticsTruncated,
 		Now:                       fixture.Now,
-		RowCountAccepted:          int64(len(ordered)),
-		VisitRows: func(_ rowSourceGate, visit func(normalizedRow) error) error {
+		ImportRows: func(_ rowSourceGate, visit func(normalizedRow) error) (importSummary, error) {
 			for _, row := range ordered {
 				if err := visit(row); err != nil {
-					return err
+					return importSummary{}, err
 				}
 			}
-			return nil
+			return importSummary{
+				RowCountAccepted:           int64(len(ordered)),
+				RowCountRejected:           fixture.RowCountRejected,
+				SourceInterpretationSHA256: hex.EncodeToString(digest.Sum(nil)),
+				Diagnostics:                fixture.Diagnostics,
+				DiagnosticsTruncated:       fixture.DiagnosticsTruncated,
+			}, nil
 		},
 	}
 

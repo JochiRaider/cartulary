@@ -246,8 +246,18 @@ rows (no placement justification).
    `network_flow_rows_table_key`). It drops the creator-scope index and adds
    `network_flow_rows_belong_to_tables_v1()`, which Recovery runs after a
    restore with triggers disabled. The NF-REQ-171a row now takes 19.7 s alone
-   (from 22.3 s); its write pass is 12.9 s (from 15.3 s). The single-pass
-   apply awaits the owner's approval of its spec amendment.
+   (from 22.3 s); its write pass is 12.9 s (from 15.3 s).
+
+   **Single-pass apply done (2026-11-24).** The owner approved the Network
+   Flow amendment (§9.2, NF-REQ-057, NF-REQ-062a, §1 status note). Apply now
+   opens the protected source once. `CreateTableTx` inserts the table
+   unpublished, runs one validating pass that copies the accepted rows, then
+   writes the diagnostics and publishes the table with the pass's counts and
+   interpretation digest. A rejected unit rolls back. NF-FIX-023 is now at
+   revision 7: it drops the five cases that changed a second source open.
+   The NF-REQ-171a row now reads the source once in 13.5 s (from 4.1 s plus
+   12.9 s) and takes 16.1 s alone (from 19.7 s). It has not been measured
+   under `ci` load yet.
 
 ### S1 result (2026-11-24)
 

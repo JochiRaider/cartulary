@@ -83,7 +83,7 @@ func validatedRowImportContext(params createTableParams) (rowImportContext, erro
 	profile, knownProfile := mappingSourceProfile(params.SourceProfileID)
 	now := params.Now.UTC()
 	if params.IncidentID == uuid.Nil || params.ActorUserID == uuid.Nil || params.ImportSessionID == uuid.Nil || params.ImportUnitID == uuid.Nil || params.CommittedSourceID == uuid.Nil ||
-		!validLowerSHA256(params.SourceInterpretationSHA256) || params.SourceRawCellScalarLimit < 1 || params.SourceRawCellScalarLimit > 16384 ||
+		params.ImportRows == nil || params.SourceRawCellScalarLimit < 1 || params.SourceRawCellScalarLimit > 16384 ||
 		!validLowerSHA256(params.SourceContentSHA256) || !validLowerSHA256(params.MappingFingerprint) ||
 		!validLowerSHA256(params.SourceFilenameDigest) || !safeKeyIDPattern.MatchString(params.SourceFilenameDigestKeyID) ||
 		!knownProfile || profile.ConformanceStatus != "required_v1" || params.ParserProfileID == "" || params.ParserProfileID != profile.ParserProfileID ||

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -131,34 +132,45 @@ type rejectedRowDiagnostic struct {
 }
 
 type createTableParams struct {
-	IncidentID                 uuid.UUID
-	ActorUserID                uuid.UUID
-	ImportSessionID            uuid.UUID
-	ImportUnitID               uuid.UUID
-	CommittedSourceID          uuid.UUID
-	SourceInterpretationSHA256 string
-	SourceRawCellScalarLimit   int64
-	ClientTxnID                string
-	RequestID                  string
-	SourceContentSHA256        string
-	OriginalFilename           string
-	SourceFilenameDigest       string
-	SourceFilenameDigestKeyID  string
-	MappingFingerprint         string
-	SourceProfileID            string
-	ParserProfileID            string
-	DisplayNameOverride        *string
-	RowCountAccepted           int64
-	// VisitRows produces the accepted rows in source order while COPY consumes
-	// earlier ones. Any statement it needs runs through gate, which hands it the
-	// borrowed connection between COPY statements. Callers outside the import
-	// copy may pass a nil gate.
-	VisitRows            func(gate rowSourceGate, visit func(normalizedRow) error) error
-	RowCountRejected     int64
-	Diagnostics          []rejectedRowDiagnostic
-	DiagnosticsTruncated bool
-	Now                  time.Time
+	IncidentID                uuid.UUID
+	ActorUserID               uuid.UUID
+	ImportSessionID           uuid.UUID
+	ImportUnitID              uuid.UUID
+	CommittedSourceID         uuid.UUID
+	SourceRawCellScalarLimit  int64
+	ClientTxnID               string
+	RequestID                 string
+	SourceContentSHA256       string
+	OriginalFilename          string
+	SourceFilenameDigest      string
+	SourceFilenameDigestKeyID string
+	MappingFingerprint        string
+	SourceProfileID           string
+	ParserProfileID           string
+	DisplayNameOverride       *string
+	// ImportRows runs the import's single validating pass (§9.2). It hands
+	// each accepted row to visit in source order while COPY consumes earlier
+	// ones, and returns the pass's summary. Any statement it needs runs
+	// through gate, which hands it the borrowed connection between COPY
+	// statements. Callers outside the import copy may pass a nil gate.
+	ImportRows func(gate rowSourceGate, visit func(normalizedRow) error) (importSummary, error)
+	Now        time.Time
 }
+
+// importSummary is what an import's single pass learns about its table:
+// publication writes it, together with the final display name.
+type importSummary struct {
+	RowCountAccepted           int64
+	RowCountRejected           int64
+	SourceInterpretationSHA256 string
+	Diagnostics                []rejectedRowDiagnostic
+	DiagnosticsTruncated       bool
+}
+
+// unpublishedSummary stands in for the pass's summary while the table is
+// unpublished. It satisfies the table's checks, and publication replaces it
+// before the creating transaction can commit.
+var unpublishedSummary = importSummary{RowCountAccepted: 1, SourceInterpretationSHA256: strings.Repeat("0", 64)}
 
 type renameTableParams struct {
 	IncidentID       uuid.UUID
@@ -200,18 +212,17 @@ func newStore(pool dbport.DB, limits EffectiveLimits, options ...storeOption) *s
 	return store
 }
 
-// CreateTableTx copies an import's accepted rows before it takes the incident
-// lock (REQ-03-168). Until commit, the new table and its rows are invisible to
-// every other transaction, and the provisional display name equal to the
-// table's own unique ID contends on no active name. Publication then takes the
-// incident lock, which serializes it with every other incident-scoped Network
-// Flow mutation, to recheck the retained-table limits against committed state,
-// allocate the final display name, and append the audit event. The unlocked
+// CreateTableTx runs an import's single pass (NF-REQ-062a) before it takes the
+// incident lock (REQ-03-168). It inserts the table unpublished, copies the
+// rows the pass accepts and inserts the retained diagnostics. Until commit,
+// the new table and its rows are invisible to every other transaction, and
+// the provisional display name equal to the table's own unique ID contends on
+// no active name. Publication then takes the incident lock, which serializes
+// it with every other incident-scoped Network Flow mutation, to recheck the
+// retained-table limits against committed state, allocate the final display
+// name, write the pass's summary, and append the audit event. The unlocked
 // prechecks only fail fast; the locked checks are authoritative.
 func (s *store) CreateTableTx(ctx context.Context, tx pgx.Tx, params createTableParams) (tableRecord, error) {
-	if params.RowCountAccepted <= 0 || params.VisitRows == nil {
-		return tableRecord{}, errNoAcceptedRows
-	}
 	rowContext, err := validatedRowImportContext(params)
 	if err != nil {
 		return tableRecord{}, err
@@ -225,7 +236,7 @@ func (s *store) CreateTableTx(ctx context.Context, tx pgx.Tx, params createTable
 	tableID, err := s.insertUnpublishedTableTx(ctx, tx, insertTableParams{
 		IncidentID:                 params.IncidentID,
 		CommittedSourceID:          params.CommittedSourceID,
-		SourceInterpretationSHA256: params.SourceInterpretationSHA256,
+		SourceInterpretationSHA256: unpublishedSummary.SourceInterpretationSHA256,
 		SourceRawCellScalarLimit:   params.SourceRawCellScalarLimit,
 		SourceContentSHA256:        params.SourceContentSHA256,
 		SourceFilenameDisplay:      sourceFilenameDisplay,
@@ -234,19 +245,26 @@ func (s *store) CreateTableTx(ctx context.Context, tx pgx.Tx, params createTable
 		MappingFingerprint:         params.MappingFingerprint,
 		SourceProfileID:            params.SourceProfileID,
 		ParserProfileID:            parserProfileID,
-		RowCountAccepted:           params.RowCountAccepted,
-		RowCountRejected:           params.RowCountRejected,
-		DiagnosticsTruncated:       params.DiagnosticsTruncated,
+		RowCountAccepted:           unpublishedSummary.RowCountAccepted,
+		RowCountRejected:           unpublishedSummary.RowCountRejected,
+		DiagnosticsTruncated:       unpublishedSummary.DiagnosticsTruncated,
 		CreatedByUserID:            params.ActorUserID,
 		CreatedAt:                  now,
 	})
 	if err != nil {
 		return tableRecord{}, err
 	}
-	if err := insertRowsTx(ctx, tx, tableID, params, rowContext); err != nil {
+	summary, err := insertRowsTx(ctx, tx, tableID, params, rowContext)
+	if err != nil {
 		return tableRecord{}, err
 	}
-	if err := insertDiagnosticsTx(ctx, tx, tableID, params, now); err != nil {
+	if summary.RowCountAccepted <= 0 {
+		return tableRecord{}, errNoAcceptedRows
+	}
+	if summary.RowCountRejected < 0 || !validLowerSHA256(summary.SourceInterpretationSHA256) {
+		return tableRecord{}, errInvalidImportContext
+	}
+	if err := insertDiagnosticsTx(ctx, tx, tableID, params.IncidentID, summary.Diagnostics, now); err != nil {
 		return tableRecord{}, err
 	}
 	if err := s.lockIncidentTx(ctx, tx, params.IncidentID); err != nil {
@@ -256,7 +274,7 @@ func (s *store) CreateTableTx(ctx context.Context, tx pgx.Tx, params createTable
 	if err != nil {
 		return tableRecord{}, err
 	}
-	table, err := publishTableDisplayNameTx(ctx, tx, params.IncidentID, tableID, displayName)
+	table, err := publishTableTx(ctx, tx, params.IncidentID, tableID, displayName, summary)
 	if err != nil {
 		return tableRecord{}, err
 	}
@@ -527,17 +545,22 @@ func (s *store) insertUnpublishedTableTx(ctx context.Context, tx pgx.Tx, params 
 	return "", errIDGenerationFailed
 }
 
-// publishTableDisplayNameTx assigns the final name of a table created in this
-// transaction. It is part of creation, so the version and timestamps stay.
-func publishTableDisplayNameTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, tableID string, displayName string) (tableRecord, error) {
+// publishTableTx assigns the final name and the pass's summary to a table
+// created in this transaction. It is part of creation, so the version and
+// timestamps stay.
+func publishTableTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, tableID string, displayName string, summary importSummary) (tableRecord, error) {
 	table, err := scanTable(tx.QueryRow(ctx, `
 UPDATE network_flow_tables
-   SET display_name = $3
+   SET display_name = $3,
+       row_count_accepted = $4,
+       row_count_rejected = $5,
+       diagnostics_truncated = $6,
+       source_interpretation_sha256 = $7
  WHERE incident_id = $1
    AND network_flow_table_id = $2
    AND table_version = 1
    AND table_status = 'active'
-RETURNING `+tableColumnList(), incidentID, tableID, displayName))
+RETURNING `+tableColumnList(), incidentID, tableID, displayName, summary.RowCountAccepted, summary.RowCountRejected, summary.DiagnosticsTruncated, summary.SourceInterpretationSHA256))
 	if err != nil {
 		return tableRecord{}, fmt.Errorf("publish network flow table: %w", err)
 	}
@@ -604,18 +627,21 @@ RETURNING `+tableColumnList(), incidentID, tableID, now)
 	return s.resolveTableAuthor(ctx, tx, table)
 }
 
-// insertRowsTx streams the accepted rows into COPY while the second validation
-// pass is still producing them (rowCopyPipeline), so row production and
-// PostgreSQL's insert work overlap instead of alternating per batch.
-func insertRowsTx(ctx context.Context, tx pgx.Tx, tableID string, params createTableParams, rowContext rowImportContext) error {
+// insertRowsTx streams the accepted rows into COPY while the import's single
+// pass is still producing them (rowCopyPipeline), so validation and
+// PostgreSQL's insert work overlap instead of alternating per batch. It
+// returns the pass's summary, whose accepted count must equal the rows copied.
+func insertRowsTx(ctx context.Context, tx pgx.Tx, tableID string, params createTableParams, rowContext rowImportContext) (importSummary, error) {
 	var count, lastRow int64
+	var summary importSummary
 	pipeline := newRowCopyPipeline()
 	err := pipeline.run(ctx, tx, retainedFlowRowColumns, func(gate rowSourceGate) error {
-		return params.VisitRows(gate, func(normalized normalizedRow) error {
+		var err error
+		summary, err = params.ImportRows(gate, func(normalized normalizedRow) error {
 			if err := ctx.Err(); err != nil {
 				return err
 			}
-			if normalized.SourceRowNumber <= lastRow || count >= params.RowCountAccepted {
+			if normalized.SourceRowNumber <= lastRow {
 				return errSourceChanged
 			}
 			lastRow = normalized.SourceRowNumber
@@ -627,14 +653,15 @@ func insertRowsTx(ctx context.Context, tx pgx.Tx, tableID string, params createT
 			arguments := retainedFlowRowValues(row)
 			return pipeline.push(arguments, retainedFlowRowSize(arguments))
 		})
+		return err
 	})
 	if err != nil {
-		return err
+		return importSummary{}, err
 	}
-	if count != params.RowCountAccepted {
-		return errSourceChanged
+	if count != summary.RowCountAccepted {
+		return importSummary{}, errSourceChanged
 	}
-	return nil
+	return summary, nil
 }
 
 var retainedFlowRowColumns = []string{
@@ -666,8 +693,8 @@ func retainedFlowRowSize(arguments []any) int {
 	return size
 }
 
-func insertDiagnosticsTx(ctx context.Context, tx pgx.Tx, tableID string, params createTableParams, now time.Time) error {
-	ordered := append([]rejectedRowDiagnostic(nil), params.Diagnostics...)
+func insertDiagnosticsTx(ctx context.Context, tx pgx.Tx, tableID string, incidentID uuid.UUID, diagnostics []rejectedRowDiagnostic, now time.Time) error {
+	ordered := append([]rejectedRowDiagnostic(nil), diagnostics...)
 	sort.SliceStable(ordered, func(i, j int) bool {
 		return compareDiagnostics(ordered[i], ordered[j]) < 0
 	})
@@ -685,7 +712,7 @@ INSERT INTO network_flow_rejected_row_diagnostics (
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13::jsonb, $14, $15, $16, $17, $18
 )
-`, diagnostic.DiagnosticID, tableID, params.IncidentID, diagnostic.SourceRowNumber, diagnostic.SourceColumnOrdinal, diagnostic.RawHeaderSHA256, diagnostic.FieldKey, diagnostic.ErrorCode, diagnostic.ReasonCode, diagnostic.SafeSample, diagnostic.RawValueSHA256, diagnostic.MessageKey, string(messageArgs), diagnostic.Message, diagnostic.LimitName, diagnostic.LimitValue, diagnostic.ActualValue, now); err != nil {
+`, diagnostic.DiagnosticID, tableID, incidentID, diagnostic.SourceRowNumber, diagnostic.SourceColumnOrdinal, diagnostic.RawHeaderSHA256, diagnostic.FieldKey, diagnostic.ErrorCode, diagnostic.ReasonCode, diagnostic.SafeSample, diagnostic.RawValueSHA256, diagnostic.MessageKey, string(messageArgs), diagnostic.Message, diagnostic.LimitName, diagnostic.LimitValue, diagnostic.ActualValue, now); err != nil {
 			return fmt.Errorf("insert network flow rejected-row diagnostic %s: %w", diagnostic.DiagnosticID, err)
 		}
 	}

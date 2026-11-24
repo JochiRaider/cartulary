@@ -465,16 +465,13 @@ func AssertImportRuntime(t *testing.T) {
 	valid := "2026-07-13T12:00:00Z,2026-07-13T12:01:00Z,192.0.2.10,198.51.100.2,443,51515,TCP,18446744073709551615,12,=1+1"
 	invalid := "2026-07-13T12:00:00Z,2026-07-13T12:01:00Z,192.168.001.010,198.51.100.2,443,51515,TCP,1,1,invalid"
 	facade, request, _ := streamingApplySourceFixture(t, header+"\n"+valid+"\n"+invalid+"\n", defaultLimits())
-	prepared, err := facade.prepareImportApply(context.Background(), nil, request)
+	accepted := []normalizedRow{}
+	summary, err := applyPass(context.Background(), facade, request, func(row normalizedRow) error { accepted = append(accepted, row); return nil })
 	if err != nil {
 		t.Fatal(err)
 	}
-	accepted := []normalizedRow{}
-	if err := prepared.params.VisitRows(nil, func(row normalizedRow) error { accepted = append(accepted, row); return nil }); err != nil {
-		t.Fatal(err)
-	}
-	if len(accepted) != 1 || prepared.params.RowCountAccepted != 1 || prepared.params.RowCountRejected != 1 || len(prepared.params.Diagnostics) != 1 || prepared.params.DiagnosticsTruncated {
-		t.Fatalf("partial streaming import accounting: accepted=%d params=%#v", len(accepted), prepared.params)
+	if len(accepted) != 1 || summary.RowCountAccepted != 1 || summary.RowCountRejected != 1 || len(summary.Diagnostics) != 1 || summary.DiagnosticsTruncated {
+		t.Fatalf("partial streaming import accounting: accepted=%d summary=%#v", len(accepted), summary)
 	}
 	if accepted[0].ExporterID != nil || accepted[0].InputInterface != nil || accepted[0].OutputInterface != nil {
 		t.Fatalf("omitted nullable public fields must remain null: %#v", accepted[0])
@@ -483,9 +480,9 @@ func AssertImportRuntime(t *testing.T) {
 		t.Fatalf("formula-like unmapped value must remain inert data: %s", accepted[0].UnmappedRaw)
 	}
 	facade, request, _ = streamingApplySourceFixture(t, header+"\n"+invalid+"\n", defaultLimits())
-	prepared, err = facade.prepareImportApply(context.Background(), nil, request)
+	_, err = applyPass(context.Background(), facade, request, nil)
 	var owner *networkFlowImportOwnerError
-	if !errors.As(err, &owner) || owner.ownerCode != "network_flow_all_rows_rejected" || prepared.params.VisitRows != nil || owner.safeDetails["row_count_rejected"] != int64(1) || len(owner.safeDetails["diagnostics_sample"].([]map[string]any)) != 1 {
+	if !errors.As(err, &owner) || owner.ownerCode != "network_flow_all_rows_rejected" || owner.safeDetails["row_count_rejected"] != int64(1) || len(owner.safeDetails["diagnostics_sample"].([]map[string]any)) != 1 {
 		t.Fatalf("all-rejected source did not fail through production apply: %v", err)
 	}
 

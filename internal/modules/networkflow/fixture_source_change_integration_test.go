@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"strings"
 	"sync"
@@ -18,11 +17,12 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+// Apply opens the protected source once (§9.2); pass 1 changes what that
+// open returns, and pass 0 changes the apply request itself.
 type publicationSourceChangeCase struct {
-	Kind     string `json:"kind"`
-	Pass     int    `json:"pass"`
-	Source   string `json:"source,omitempty"`
-	Filename string `json:"filename,omitempty"`
+	Kind   string `json:"kind"`
+	Pass   int    `json:"pass"`
+	Source string `json:"source,omitempty"`
 }
 
 // This adapter changes only the existing owner-facing ports, after the real
@@ -75,8 +75,6 @@ func (s *publicationSourceChange) OpenSourceStreamTx(ctx context.Context, tx pgx
 			return stream, err
 		}
 		stream.Reader = io.NopCloser(bytes.NewReader(s.replacement))
-	case "filename":
-		stream.OriginalFilename = s.active.Filename
 	}
 	return stream, nil
 }
@@ -132,25 +130,8 @@ func (r *publicationFixtureRuntime) armSourceChange(bundle *networkflowfixtures.
 	r.source.arm(c, replacement)
 	return nil
 }
-func (r *publicationFixtureRuntime) sourceChangePrivacy(c *publicationSourceChangeCase) error {
-	if c.Filename == "" {
-		return nil
-	}
-	encoded, err := json.Marshal(r.transport)
-	if err != nil {
-		return err
-	}
-	forbidden, err := json.Marshal(c.Filename)
-	if err != nil {
-		return err
-	}
-	if bytes.Contains(encoded, forbidden) {
-		return fmt.Errorf("source replacement filename leaked through a public result")
-	}
-	return nil
-}
 func TestNetworkFlowSourceChangedImportFixtureComparison(t *testing.T) {
-	RunFixtureComparison(t, "NF-FIX-023-import-facade-source-change", 6, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
+	RunFixtureComparison(t, "NF-FIX-023-import-facade-source-change", 7, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
 		return publicationFixtureOutcomes(t, bundle)
 	})
 }

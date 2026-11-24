@@ -418,9 +418,6 @@ func runPublicationBytes(t *testing.T, bundle *networkflowfixtures.Bundle, input
 	r.transport = append(r.transport, map[string]any{"durable_state": durable})
 	if input.SourceChange != nil {
 		outcome["source_change"] = r.source.outcome()
-		if err := r.sourceChangePrivacy(input.SourceChange); err != nil {
-			return nil, err
-		}
 	}
 	if interrupted != nil {
 		outcome["interrupted_attempt"] = interrupted

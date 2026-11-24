@@ -48,7 +48,7 @@ var behavioralFixtureComparisons = map[string]fixtureComparisonRegistration{
 	"NF-FIX-020-atomic-import-commit":        {5, "TestNetworkFlowAtomicImportFixtureComparison"},
 	"NF-FIX-021-preview-boundaries":          {3, "TestNetworkFlowPreviewFixtureComparison"},
 	"NF-FIX-022-timestamp-rulesets":          {5, "TestNetworkFlowTimestampFixtureComparison"},
-	"NF-FIX-023-import-facade-source-change": {6, "TestNetworkFlowSourceChangedImportFixtureComparison"},
+	"NF-FIX-023-import-facade-source-change": {7, "TestNetworkFlowSourceChangedImportFixtureComparison"},
 	"NF-FIX-024-query-normalization-cursors": {8, "TestNetworkFlowQueryNormalizationFixtureComparison"},
 	"NF-FIX-025-graph-contributors":          {6, "TestNetworkFlowContributorsFixtureComparison"},
 	"NF-FIX-026-audit-and-replay":            {8, "TestNetworkFlowAuditReplayFixtureComparison"},

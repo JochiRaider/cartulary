@@ -230,8 +230,10 @@ func TestApprovedMappingFieldVariants(t *testing.T) {
 			stream := &applySourceFixture{source: source, capability: imports.ImportSourceCapability{SourceStreamRef: "impsrc_" + strings.Repeat("1", 32), SourceContentSHA256: sha256Hex([]byte(source)), SourceMediaType: "text/csv", SourceByteSize: int64(len(source))}}
 			f := &importFacade{sourceStore: stream, limits: defaultLimits(), safeDigester: &queryCompletionProbe{}, now: func() time.Time { return time.Date(2026, 10, 31, 0, 0, 0, 0, time.UTC) }}
 			request := imports.ExtensionImportApplyRequest{SourceCapability: stream.capability, ExpectedSourceContentSHA256: stream.capability.SourceContentSHA256, MappingFingerprint: fingerprint, OwnerMapping: result.OwnerMapping}
-			if prepared, err := f.prepareImportApply(context.Background(), nil, request); err != nil || prepared.params.VisitRows == nil || stream.opens != 1 {
+			if prepared, err := f.prepareImportApply(context.Background(), nil, request); err != nil || prepared.params.ImportRows == nil || stream.opens != 1 {
 				t.Fatalf("valid apply control failed: %v", err)
+			} else {
+				prepared.close()
 			}
 			for _, mutation := range approvedVariantMutations(t, result.OwnerMapping) {
 				t.Run(mutation.name, func(t *testing.T) {
@@ -244,7 +246,7 @@ func TestApprovedMappingFieldVariants(t *testing.T) {
 					request.OwnerMapping = mutation.raw // Keep the valid fingerprint.
 					prepared, err := f.prepareImportApply(context.Background(), nil, request)
 					var owner *networkFlowImportOwnerError
-					if !errors.As(err, &owner) || owner.ownerCode != "network_flow_mapping_invalid" || owner.safeDetails["reason_code"] != mutation.reason || owner.retryable || prepared.params.VisitRows != nil || stream.opens != 0 || stream.closes != 0 {
+					if !errors.As(err, &owner) || owner.ownerCode != "network_flow_mapping_invalid" || owner.safeDetails["reason_code"] != mutation.reason || owner.retryable || prepared.params.ImportRows != nil || stream.opens != 0 || stream.closes != 0 {
 						t.Errorf("apply must reject before source access/publication: opens=%d err=%v", stream.opens, err)
 					}
 				})

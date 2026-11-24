@@ -15,6 +15,11 @@ retained/minimum state 7 replace major 9/state 6 without migration, backfill,
 conversion, dual readers or automatic environment reset. Section 30 owns the
 successor provenance, selected-source and incident-transfer requirements.
 
+On 2026-11-24 the maintainer adopted single-pass import apply (§9.2,
+NF-REQ-057, NF-REQ-062a), so that NF-REQ-171a holds under `check` load.
+Version `10.0.0`, contract major 10, state 7 and every wire contract are
+unchanged.
+
 Version `9.0.0` was adopted by the maintainer's explicit instruction to
 implement the orientation-aware remediation on 2026-11-04. Public major 9,
 state 6 and minimum state 6 replace major 8/state 5; configuration major 2 is
@@ -798,7 +803,7 @@ Each `network_flow_table` MUST use exactly one lifecycle state from Table 8-A.
 `renamed` MUST NOT be a lifecycle state. A table rename is a metadata mutation and audit event only.
 
 **NF-REQ-057**
-A table in `soft_deleted` state MUST NOT be returned by ordinary table query, row query, graph query, or default table list routes. This revision defines no deleted-table inspection route and no non-active table listing mode. Import parsing, mapping validation, and row validation MUST complete before table allocation and MUST NOT expose an addressable `network_flow_table`. Validation followed by streamed insertion under §9.2 requires no separate staging representation. An implementation MUST NOT expose `creating` or `failed` as table lifecycle states.
+A table in `soft_deleted` state MUST NOT be returned by ordinary table query, row query, graph query, or default table list routes. This revision defines no deleted-table inspection route and no non-active table listing mode. Import parsing, mapping validation and row validation MUST NOT expose an addressable `network_flow_table`. A table is allocated only when its import unit commits. The unpublished table that §9.2 inserts inside the borrowed unit transaction is not an allocation, no other transaction can observe it, and it requires no separate staging representation. An implementation MUST NOT expose `creating` or `failed` as table lifecycle states.
 
 **NF-REQ-058**
 A table in `soft_deleted` state MUST NOT appear in the default inner tab strip, MUST NOT be included by `table_scope.mode='all_active_tables'`, and MUST fail table, row, rejected-row, graph, contributor-query, and indicator-link route admission with `network_flow_table_not_active` when the caller references it directly. This failure is returned only after Core authorization and hidden-resource disclosure rules have admitted disclosure of the resource state; otherwise the route MUST return the Core hidden-resource result.
@@ -821,24 +826,29 @@ A CSV import with no data rows after its header MUST create no table and MUST fa
 The owner facade MUST perform table creation through `commit_network_flow_import_unit_v1` as one Core unit of work. This sequence spans owner preparation and Imports transaction finalization; its name does not authorize the owner facade to end the borrowed transaction:
 
 ```text
-commit_network_flow_import_unit_v1(validation_summary, approved_mapping, import_context):
-  require validation_summary.row_count_accepted > 0
-  acquire the Core incident-scoped Network Flow commit lock
+commit_network_flow_import_unit_v1(approved_mapping, import_context):
   reauthorize import_context.actor for import apply
   revalidate source-content identity and approved mapping fingerprint
+  allocate a new network_flow_table_id
+  insert exactly one unpublished network_flow_table with table_version = 1
+  validate the protected source in one pass under §9.2, inserting each
+    accepted immutable row in source_row_number order
+  require the pass's source digest and descriptors to equal the approved ones
+  require validation_summary.row_count_accepted > 0
+  insert retained diagnostics under §12.4
+  acquire the Core incident-scoped Network Flow commit lock
   reject when active_table_count + 1 > network_flow.max_active_tables_per_incident
   reject when retained_table_count + 1 > network_flow.max_retained_tables_per_incident
   determine the final display name under §8.4
-  allocate a new network_flow_table_id
-  insert exactly one active network_flow_table with table_version = 1
-  insert all accepted immutable rows in source_row_number order
-  insert retained diagnostics under §12.4
+  write the validation summary and publish the table as active
   emit the required audit occurrences under §16.2
-  verify insertion agrees with the protected source and validation summary
   return the prepared owner result without committing or rolling back
   Imports: enforce the final cancellation/commit barrier
   Imports: commit all preceding effects and the durable unit outcome atomically
 ```
+
+An implementation MAY reject a table-limit or explicit display-name failure
+before the pass. The check under the commit lock remains authoritative.
 
 If any precommit step fails, Imports MUST roll back the table, rows, diagnostics, audit occurrences, and prepared result publication. Optional retriable preparation artifacts MAY remain under Core import-job retention but MUST NOT be queryable through Network Flow routes; this does not require durable staging. Omission behavior: when Core does not retain failed preparation artifacts, it deletes them under its normal job cleanup. The import unit MUST expose the mapped route error and MUST NOT expose a table ID.
 
@@ -1042,12 +1052,24 @@ The `network_flow.max_rows_per_csv` count is the number of complete logical data
 Preview MUST drain any unparsed tail only as raw bytes to verify source identity.
 CSV, BOM and UTF-8 failures confined to records after the preview boundary MUST
 NOT become preview errors. A raw read, byte-count or source-digest failure still
-prevents successful preview publication. Apply MUST validate all source records
-and enforce the accepted-row limit during validation. It MAY reopen the same
-protected source for bounded insertion after a successful validation pass;
-source, mapping, descriptor and validation-summary disagreement MUST roll back
-the entire borrowed unit transaction. No table is allocated until validation
-has succeeded with at least one accepted row. Imports retains commit ownership.
+prevents successful preview publication.
+
+Apply MUST validate every source record and enforce the accepted-row limit in
+one pass over the protected source, inside the borrowed unit transaction.
+Before the pass, the unit inserts its table unpublished. The pass inserts each
+accepted row as it validates it. After the pass, the unit writes the table's
+validation summary and retained diagnostics, then publishes the table under
+NF-REQ-062a. The entire borrowed unit transaction MUST roll back when any of
+these hold:
+
+- a limit is exceeded;
+- the source is malformed;
+- the source digest, descriptors or mapping disagree with what preview
+  approved;
+- no record is accepted.
+
+A rolled-back unit allocates no table and commits no row or diagnostic.
+Imports retains commit ownership.
 
 **NF-REQ-074**
 The parser MUST retain source column descriptors for every header column in source order. Each descriptor MUST satisfy `source_column_v1` in §10.2.

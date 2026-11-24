@@ -159,8 +159,17 @@ func portableSharedNameFixture(t *testing.T, incidentID, localActor uuid.UUID) i
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer applied.close()
 	params := applied.params
 	rowContext, err := validatedRowImportContext(params)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var normalized []normalizedRow
+	summary, err := params.ImportRows(nil, func(row normalizedRow) error {
+		normalized = append(normalized, row)
+		return nil
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -183,7 +192,7 @@ func portableSharedNameFixture(t *testing.T, incidentID, localActor uuid.UUID) i
 		if index > 0 {
 			committed = uuid.MustParse("55555555-5555-4555-8555-555555555555")
 		}
-		table := tableRecord{TableID: "nft_" + strings.Repeat(string(rune('a'+index)), 32), IncidentID: incidentID, DisplayName: "Shared flow source", TableVersion: 1, TableStatus: status, CommittedSourceID: committed, SourceInterpretationSHA256: params.SourceInterpretationSHA256, SourceRawCellScalarLimit: params.SourceRawCellScalarLimit, SourceContentSHA256: params.SourceContentSHA256, SourceFilenameDisplay: "source.csv", MappingFingerprint: params.MappingFingerprint, SourceProfileID: params.SourceProfileID, ParserProfileID: params.ParserProfileID, RowCountAccepted: 2, CreatedByUserID: request.ActorUserID, CreatedAt: params.Now, UpdatedAt: params.Now}
+		table := tableRecord{TableID: "nft_" + strings.Repeat(string(rune('a'+index)), 32), IncidentID: incidentID, DisplayName: "Shared flow source", TableVersion: 1, TableStatus: status, CommittedSourceID: committed, SourceInterpretationSHA256: summary.SourceInterpretationSHA256, SourceRawCellScalarLimit: params.SourceRawCellScalarLimit, SourceContentSHA256: params.SourceContentSHA256, SourceFilenameDisplay: "source.csv", MappingFingerprint: params.MappingFingerprint, SourceProfileID: params.SourceProfileID, ParserProfileID: params.ParserProfileID, RowCountAccepted: 2, CreatedByUserID: request.ActorUserID, CreatedAt: params.Now, UpdatedAt: params.Now}
 		if status != tableStatusActive {
 			table.TableVersion, table.UpdatedAt, table.DeletedAt = 2, deleted, &deleted
 		}
@@ -191,12 +200,12 @@ func portableSharedNameFixture(t *testing.T, incidentID, localActor uuid.UUID) i
 		rowSource := rowContext
 		rowSource.committedSourceID, rowSource.committedSourceText = committed, committed.String()
 		var rows []flowRow
-		if err := params.VisitRows(nil, func(row normalizedRow) error {
+		for _, row := range normalized {
 			retained, err := rowSource.persistedRow(table.TableID, row)
+			if err != nil {
+				t.Fatal(err)
+			}
 			rows = append(rows, retained)
-			return err
-		}); err != nil {
-			t.Fatal(err)
 		}
 		sort.Slice(rows, func(i, j int) bool { return comparePortableRows(rows[i], rows[j]) < 0 })
 		for _, row := range rows {

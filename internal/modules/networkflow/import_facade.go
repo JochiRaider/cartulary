@@ -3,6 +3,7 @@ package networkflow
 import (
 	"context"
 	"errors"
+	"io"
 	"strings"
 	"time"
 
@@ -175,6 +176,7 @@ func (f *importFacade) applyImportUnitTx(
 	if err != nil {
 		return imports.ExtensionImportApplyResult{}, err
 	}
+	defer prepared.close()
 	table, err := f.store.CreateTableTx(ctx, tx, prepared.params)
 	if err != nil {
 		return imports.ExtensionImportApplyResult{}, storeApplyError(err)
@@ -183,10 +185,17 @@ func (f *importFacade) applyImportUnitTx(
 }
 
 type preparedImportApply struct {
-	params    createTableParams
-	request   imports.ExtensionImportApplyRequest
-	sourceSHA string
-	mapping   approvedMapping
+	params  createTableParams
+	request imports.ExtensionImportApplyRequest
+	mapping approvedMapping
+	source  io.Closer
+}
+
+// close releases the protected source. It never ends the borrowed transaction.
+func (p preparedImportApply) close() {
+	if p.source != nil {
+		_ = p.source.Close()
+	}
 }
 
 func (p preparedImportApply) result(table tableRecord) imports.ExtensionImportApplyResult {
@@ -194,7 +203,7 @@ func (p preparedImportApply) result(table tableRecord) imports.ExtensionImportAp
 		"schema_id":             importApplyResultID,
 		"import_session_id":     p.request.ImportSessionID.String(),
 		"import_unit_id":        p.request.ImportUnitID.String(),
-		"source_content_sha256": p.sourceSHA,
+		"source_content_sha256": p.request.ExpectedSourceContentSHA256,
 		"source_profile_id":     p.mapping.SourceProfileID,
 		"parser_profile_id":     p.mapping.ParserProfileID,
 		"mapping_fingerprint":   p.request.MappingFingerprint,
@@ -210,63 +219,65 @@ func (p preparedImportApply) result(table tableRecord) imports.ExtensionImportAp
 	}
 }
 
+// prepareImportApply opens the protected source and fixes everything the
+// table needs before its single pass (§9.2). The pass runs later, inside
+// CreateTableTx, while COPY inserts the rows it accepts; the source digest it
+// verifies at end of source equals the expected digest stored here.
 func (f *importFacade) prepareImportApply(ctx context.Context, tx pgx.Tx, request imports.ExtensionImportApplyRequest) (preparedImportApply, error) {
 	mapping, err := decodeApprovedMapping(request.OwnerMapping, f.limits)
 	if err != nil {
 		return preparedImportApply{}, facadeError(err)
 	}
-	first, err := f.validateImportPass(ctx, tx, request, mapping, true, nil)
+	stream, err := f.openImportSource(ctx, tx, request)
 	if err != nil {
 		return preparedImportApply{}, err
 	}
-	if first.Accepted == 0 {
-		return preparedImportApply{}, allRowsRejectedOwnerError(first.Rejected, first.Sample, first.DiagnosticCount > int64(len(first.Sample)))
-	}
-	fingerprint := request.MappingFingerprint
-	originalFilename := first.OriginalFilename
-	filenameDisplay := sanitizeSourceFilenameDisplay(originalFilename)
+	prepared := preparedImportApply{request: request, mapping: mapping, source: stream.Reader}
+	filenameDisplay := sanitizeSourceFilenameDisplay(stream.OriginalFilename)
 	filenameDigest, filenameDigestKeyID, err := f.safeDigester.Digest("source_filename", filenameDisplay)
 	if err != nil {
+		prepared.close()
 		return preparedImportApply{}, err
 	}
 	now := f.now()
 	if now.IsZero() {
 		now = time.Now().UTC()
 	}
-	params := createTableParams{
-		IncidentID:                 request.IncidentID,
-		ActorUserID:                request.ActorUserID,
-		ImportSessionID:            request.ImportSessionID,
-		ImportUnitID:               request.ImportUnitID,
-		CommittedSourceID:          imports.CommittedSourceID(request.ImportUnitID),
-		SourceInterpretationSHA256: first.ValidationSHA,
-		SourceRawCellScalarLimit:   f.limits.MaxRawCellScalarLength,
-		ClientTxnID:                request.ClientTxnID,
-		SourceContentSHA256:        first.SourceSHA,
-		OriginalFilename:           originalFilename,
-		SourceFilenameDigest:       filenameDigest,
-		SourceFilenameDigestKeyID:  filenameDigestKeyID,
-		MappingFingerprint:         fingerprint,
-		SourceProfileID:            mapping.SourceProfileID,
-		ParserProfileID:            mapping.ParserProfileID,
-		DisplayNameOverride:        mapping.DisplayNameOverride,
-		RowCountAccepted:           first.Accepted,
-		RowCountRejected:           first.Rejected,
-		Diagnostics:                first.Diagnostics,
-		DiagnosticsTruncated:       first.DiagnosticCount > int64(len(first.Diagnostics)),
-		Now:                        now,
+	prepared.params = createTableParams{
+		IncidentID:                request.IncidentID,
+		ActorUserID:               request.ActorUserID,
+		ImportSessionID:           request.ImportSessionID,
+		ImportUnitID:              request.ImportUnitID,
+		CommittedSourceID:         imports.CommittedSourceID(request.ImportUnitID),
+		SourceRawCellScalarLimit:  f.limits.MaxRawCellScalarLength,
+		ClientTxnID:               request.ClientTxnID,
+		SourceContentSHA256:       request.ExpectedSourceContentSHA256,
+		OriginalFilename:          stream.OriginalFilename,
+		SourceFilenameDigest:      filenameDigest,
+		SourceFilenameDigestKeyID: filenameDigestKeyID,
+		MappingFingerprint:        request.MappingFingerprint,
+		SourceProfileID:           mapping.SourceProfileID,
+		ParserProfileID:           mapping.ParserProfileID,
+		DisplayNameOverride:       mapping.DisplayNameOverride,
+		Now:                       now,
+		ImportRows: func(gate rowSourceGate, visit func(normalizedRow) error) (importSummary, error) {
+			pass, err := f.validateImportSource(ctx, stream.Reader, request, mapping, gate, visit)
+			if err != nil {
+				return importSummary{}, err
+			}
+			if pass.Accepted == 0 {
+				return importSummary{}, allRowsRejectedOwnerError(pass.Rejected, pass.Sample, pass.DiagnosticCount > int64(len(pass.Sample)))
+			}
+			return importSummary{
+				RowCountAccepted:           pass.Accepted,
+				RowCountRejected:           pass.Rejected,
+				SourceInterpretationSHA256: pass.ValidationSHA,
+				Diagnostics:                pass.Diagnostics,
+				DiagnosticsTruncated:       pass.DiagnosticCount > int64(len(pass.Diagnostics)),
+			}, nil
+		},
 	}
-	params.VisitRows = func(gate rowSourceGate, visit func(normalizedRow) error) error {
-		second, err := f.validateImportPassGated(ctx, tx, request, mapping, false, visit, gate)
-		if err != nil {
-			return err
-		}
-		if !first.agrees(second) {
-			return importOwnerError("network_flow_source_changed", nil)
-		}
-		return nil
-	}
-	return preparedImportApply{params: params, request: request, sourceSHA: first.SourceSHA, mapping: mapping}, nil
+	return prepared, nil
 }
 
 func sourceColumnsMatch(approved []sourceColumnDescriptor, actual []sourceColumnDescriptor) bool {

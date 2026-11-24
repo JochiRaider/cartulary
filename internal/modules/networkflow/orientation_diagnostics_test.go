@@ -1,7 +1,6 @@
 package networkflow
 
 import (
-	"context"
 	"reflect"
 	"strings"
 	"testing"
@@ -68,21 +67,14 @@ func TestNetworkFlowOrientationDiagnosticDependencies(t *testing.T) {
 				stream := &applySourceFixture{source: source, capability: capability}
 				f := &importFacade{sourceStore: stream, limits: limits}
 				request := imports.ExtensionImportApplyRequest{SourceCapability: capability, ExpectedSourceContentSHA256: parsed.SourceContentSHA256, MappingFingerprint: fingerprint}
-				var previous importValidationSummary
-				for pass := 0; pass < 2; pass++ {
-					summary, err := f.validateImportPass(context.Background(), nil, request, m, pass == 0, func(normalizedRow) error { t.Fatal("rejected observation reached accepted-row visitor"); return nil })
-					if err != nil || summary.Accepted != 0 || summary.Rejected != 1 || summary.DiagnosticCount != int64(len(diagnostics)) {
-						t.Fatalf("apply: %v %#v", err, summary)
-					}
-					if pass == 0 && !reflect.DeepEqual(summary.Diagnostics, diagnostics[:min(int(cap), len(diagnostics))]) {
-						t.Fatal("retained diagnostic prefix changed")
-					}
-					if pass == 1 && !summary.agrees(previous) {
-						t.Fatal("apply validation transcripts differ")
-					}
-					previous = summary
+				summary, err := validateImportFixture(f, request, m, func(normalizedRow) error { t.Fatal("rejected observation reached accepted-row visitor"); return nil })
+				if err != nil || summary.Accepted != 0 || summary.Rejected != 1 || summary.DiagnosticCount != int64(len(diagnostics)) {
+					t.Fatalf("apply: %v %#v", err, summary)
 				}
-				if stream.opens != 2 || stream.closes != 2 {
+				if !reflect.DeepEqual(summary.Diagnostics, diagnostics[:min(int(cap), len(diagnostics))]) {
+					t.Fatal("retained diagnostic prefix changed")
+				}
+				if stream.opens != 1 || stream.closes != 1 {
 					t.Fatal("source stream leaked")
 				}
 			}
