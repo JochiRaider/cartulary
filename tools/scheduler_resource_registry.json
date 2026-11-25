@@ -30,7 +30,7 @@
     },
     "postgres_heavy_lanes": {
       "source": "fixed_postgres_bounded",
-      "default": 3,
+      "default": 4,
       "minimum": 1
     },
     "postgres_lanes": {

@@ -6491,7 +6491,7 @@ overrides remain subject to the v1 override schema and to the host bounds below.
 | `process_slots` | The effective operating-system process limit (the smaller of the soft per-user process limit and a positive cgroup `pids.max`) with a 25 percent safety margin; four times CPU tokens when no process limit is available. Process slots bound concurrent operating-system processes, including idle resident service processes; CPU contention is bounded by `cpu_tokens`. | Minimum `1`. |
 | `io_tokens` | Two times CPU tokens. | Minimum `1`. |
 | `postgres_lanes` | Sixteen lanes by default. | Minimum `1`; at most CPU tokens. |
-| `postgres_heavy_lanes` | Three lanes by default. | Minimum `1`; at most PostgreSQL lanes. |
+| `postgres_heavy_lanes` | Four lanes by default (three until the G34 re-test of 2026-11-25). | Minimum `1`; at most PostgreSQL lanes. |
 | `object_store_lanes` | Eight lanes by default. | Minimum `1`; at most CPU tokens. |
 | `port_lanes` | Thirty-two lanes by default, including resident listeners. | Minimum `1`; at most twice CPU tokens. |
 | `writable_volume` | Writable-root proof. | Boolean capability. |
