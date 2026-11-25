@@ -146,6 +146,35 @@ func serveControls(listener net.Listener, record *registryRecord, session *Sessi
 	}
 }
 
+// awaitTerminalOwner returns once the controller that published a terminal
+// locator has finished: true when it removed its registry, false when it is
+// proven dead with authority left for exact recovery. The locator precedes
+// the controller's retained scan, private removal and registry removal, so
+// stop must not report a terminal outcome while that owner is still working.
+func awaitTerminalOwner(ctx context.Context, repository, file string, locator Locator, record *registryRecord) (bool, error) {
+	for {
+		alive, err := harnessadmission.Alive(record.Process)
+		if err != nil {
+			return false, errors.Join(err, failure("unsafe_artifact"))
+		}
+		if !alive {
+			return false, nil
+		}
+		timer := time.NewTimer(20 * time.Millisecond)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return false, failure("session_lost")
+		case <-timer.C:
+		}
+		if _, err := resolveRecord(repository, file, locator); errors.Is(err, os.ErrNotExist) {
+			return true, nil
+		} else if err != nil {
+			return false, err
+		}
+	}
+}
+
 func control(ctx context.Context, repository string, q commandRequest, environment map[string]string) (Result, error) {
 	file, locator, err := readLocator(repository, q.Locator)
 	if err != nil {
@@ -172,12 +201,12 @@ func control(ctx context.Context, repository string, q commandRequest, environme
 			}
 			return prior, errors.Join(terminalErr, failure("unsafe_artifact"))
 		}
-		alive, err := harnessadmission.Alive(record.Process)
-		if err != nil || alive {
-			if err == nil && terminalErr == nil && prior.Status == "error" {
-				return prior, nil
-			}
-			return prior, errors.Join(terminalErr, err, failure("unsafe_artifact"))
+		settled, err := awaitTerminalOwner(ctx, repository, file, locator, record)
+		if err != nil {
+			return prior, errors.Join(terminalErr, err)
+		}
+		if settled {
+			return prior, terminalErr
 		}
 		return recoverSession(ctx, repository, file, locator, q.Command, environment)
 	}

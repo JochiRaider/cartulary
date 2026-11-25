@@ -189,6 +189,55 @@ func TestReviewPublication(t *testing.T) {
 			t.Fatal("forged receipt accepted")
 		}
 	})
+	t.Run("stop_waits_for_live_terminal_owner", func(t *testing.T) {
+		// The locator is public before the owner's scan, private removal and
+		// registry removal; stop reports the outcome only after those finish.
+		p, l := publicationFixture(t)
+		l.State = "closed"
+		repository, locator, root := p.record.Repository, p.record.Locator, p.runtime.Root
+		type outcome struct {
+			value    Result
+			err      error
+			rootGone bool
+		}
+		stopped := make(chan outcome, 1)
+		p.fault = func(stage string) error {
+			if stage != "after_locator" {
+				return nil
+			}
+			canceled, cancel := context.WithCancel(context.Background())
+			cancel()
+			if _, err := control(canceled, repository, commandRequest{Command: "ui-review-stop", Locator: locator}, nil); err == nil {
+				t.Fatal("interrupted stop reported a terminal outcome while its owner was live")
+			}
+			if _, err := os.Stat(registryPath(l.Session)); err != nil {
+				t.Fatal("interrupted stop disturbed live ownership", err)
+			}
+			go func() {
+				value, err := control(context.Background(), repository, commandRequest{Command: "ui-review-stop", Locator: locator}, nil)
+				_, statErr := os.Stat(root)
+				stopped <- outcome{value, err, errors.Is(statErr, os.ErrNotExist)}
+			}()
+			select {
+			case early := <-stopped:
+				t.Fatalf("stop returned while its owner was finalizing: %+v", early)
+			case <-time.After(200 * time.Millisecond):
+			}
+			return nil
+		}
+		ref, err := p.Terminal(l, testTerminalReceipt(l), false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		select {
+		case got := <-stopped:
+			if got.err != nil || got.value.Receipt == nil || got.value.Receipt.SHA256 != ref.SHA256 || !got.rootGone {
+				t.Fatal("stop did not report the settled terminal outcome", got.value, got.err, got.rootGone)
+			}
+		case <-time.After(10 * time.Second):
+			t.Fatal("stop did not observe its owner's completion")
+		}
+	})
 	t.Run("scan_failure_keeps_recovery_and_publishes_no_terminal", func(t *testing.T) {
 		p, l := publicationFixture(t)
 		l.State = "closed"
