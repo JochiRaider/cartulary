@@ -1,8 +1,9 @@
 # Release Qualification Redesign Tracker
 
-Status: adopted 2026-11-24 (owner adopted R1–R5); implementation in
-progress on branch `test-efficiency-phase2-plan`. The evidence-heavy fixture
-question (Section 9) is open.
+Status: adopted 2026-11-24 (owner adopted R1–R5); S1–S5 done, S6 done in
+part, and S7 passed on 2026-11-25 (`20261125T160715Z-p42612`) on branch
+`test-efficiency-phase2-plan`. The evidence-heavy fixture question
+(Section 9) is decided.
 
 ## 1. Purpose
 
@@ -518,6 +519,34 @@ rows (no placement justification).
        harness owner boundaries and the generated-artifact policy.
    - **Lesson.** A new Go package or SQL needs the repository-wide static
      rows, not only the rows of the code it touches.
+
+   **Twelfth attempt: S7 passed (2026-11-25, `20261125T160715Z-p42612`).**
+   `make release` ran on `8b50cc566` from a clean tree. All four stages
+   passed and no stall diagnostics were written.
+
+   | Stage | Units | Wall time | Longest work |
+   | --- | ---: | ---: | --- |
+   | `ci` | 502 | 1,660 s | Browser cohorts; the longest took 411 s |
+   | `release-check` | 26 | 497 s | Three package smokes at once; reference pack 384 s |
+   | `release-measure` | 79 | 2,078 s | 33 quiet sessions, one at a time, 1,561 s |
+   | `release-evidence-verify` | 1 | 9 s | Verifier |
+
+   - **Total.** 4,244 s (about 71 minutes), against 4,717 s for the 4e
+     monolith. The stages ran one after another, so `release-measure` did
+     not build its snapshots beside `release-check`.
+   - **Where `release-measure` spends its time.** The evidence-heavy v3
+     snapshot build (381 s, after 130 s of image builds) gates the first
+     quiet session at 512 s. The 33 sessions then run back to back until
+     2,073 s. Credential capacity (127 s) runs beside the snapshot builds.
+   - **The remaining wall-time reductions.** Running `release-measure`'s
+     image and snapshot builds (512 s) beside `release-check` (497 s), as
+     Section 5 proposes, would hide up to about 500 s. Shortening per-session
+     start-up and the serial quiet window (Section 6) would save the most.
+     Moving that window to a second reference host would take it off the
+     release path.
+   - **Still unexplained.** The renderer sandbox flake (eighth attempt) and
+     the IR corpus apply stall (tenth attempt) did not recur. Both now
+     retain diagnostics when they do.
 
 ### S1 result (2026-11-24)
 
