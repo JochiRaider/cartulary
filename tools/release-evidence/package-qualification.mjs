@@ -18,6 +18,21 @@ const qualifications = Object.freeze({
  "credential-capacity": { target: "credential-capacity-assessment", script: "check-standup-package-smoke.sh" },
  recovery: { target: "standup-operational-recovery-smoke", script: "check-standup-operational-recovery-smoke.sh" },
 });
+// A failed scenario's capture stays private: it can hold service logs and
+// fixture credentials. Only these authored, fixed-shape progress and failure
+// lines are retained, which name the failed step without its command output.
+const retainedLines = [
+ /^standup-(?:package|reference-pack|operational-recovery)-smoke failed: [ -~]{1,240}$/u,
+ /^last status for \/[a-z]*: [0-9]{3}$/u,
+ /^package scenario passed: [ -~]{1,160}$/u,
+ /^\{"schema_id":"cartulary\.package_operation_result\.v1","operation":"[a-z-]+","gate":"[a-z_]+","operation_exit_code":[0-9]{1,3},"exit_code":[0-9]{1,3},"restart":"[a-z_]+","cleanup":"[a-z_]+"\}$/u,
+ /^Package platform (?:cleanup )?failed: [ -~]{1,120}$/u,
+ /^package platform command failed: [ -~]{1,480}$/u,
+ /^(?:Error: (?:portable )?package |Error: assessment command failed: |AssertionError \[ERR_ASSERTION\]: )[ -~]{1,240}$/u,
+];
+export function retainedFailureLines(output) {
+ return output.split("\n").filter(line => retainedLines.some(pattern => pattern.test(line))).slice(-24);
+}
 function cleanupFailure(cause) {
  return new CommandFailure("package qualification cleanup failed", { failure_class: "harness", failure_reason: "cleanup_error" }, { cause });
 }
@@ -45,7 +60,7 @@ export async function qualifyPackage(mode, { environment = process.env, workflow
   settled = false;
   result = await runPrivateCapturedProcess("bash", [path.join(workflowRoot, "tools/release-evidence", selected.script)], {
     repoRoot, runRoot, cwd: repoRoot, env: { ...env, ...diagnostic?.environment }, launch, dependencies: allocation.dependencies, signal: cancellation.signal,
-    captureLimitBytes: 16 * 1024 * 1024, tailBytes: 4096,
+    captureLimitBytes: 16 * 1024 * 1024, tailBytes: 64 * 1024,
    });
   settled = true;
   if (cancellation.signal.aborted || result.signal) throw new CommandFailure("package qualification interrupted", { failure_class: "interrupted", failure_reason: "cancelled_or_interrupted" });
@@ -65,8 +80,10 @@ export async function qualifyPackage(mode, { environment = process.env, workflow
   if (allocation) {
    if (settled) failures.push(...await allocation.releaseAll());
    else failures.push(cleanupFailure(new Error("workload settlement unresolved")));
-   try { atomicLocalFile(path.join(artifactDirectory, "cleanup.json"), JSON.stringify({ cleanup: failures.length ? "failed" : "passed", failed_steps: failures.map(value => value.cleanup_step ?? "workload") }) + "\n"); }
-   catch (error) { failures.push(cleanupFailure(error)); }
+   try {
+    atomicLocalFile(path.join(artifactDirectory, "cleanup.json"), JSON.stringify({ cleanup: failures.length ? "failed" : "passed", failed_steps: failures.map(value => value.cleanup_step ?? "workload") }) + "\n");
+    if (result?.status) atomicLocalFile(path.join(artifactDirectory, "failure.json"), JSON.stringify({ exit_status: result.status, stdout: retainedFailureLines(result.stdout), stderr: retainedFailureLines(result.stderr) }) + "\n");
+   } catch (error) { failures.push(cleanupFailure(error)); }
   }
   try { runtime.close(); } catch (error) { failures.push(cleanupFailure(error)); }
   process.off("SIGINT", interrupt); process.off("SIGTERM", interrupt);

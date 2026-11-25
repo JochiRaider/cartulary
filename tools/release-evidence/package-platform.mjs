@@ -209,6 +209,8 @@ if (process.argv[1] && path.resolve(process.argv[1])===fileURLToPath(import.meta
    const failure=reportCommandFailure(path.resolve(import.meta.dirname,"../.."),error,
      error instanceof assert.AssertionError ? {failure_class:"product",failure_reason:"test_assertion_failure"} : {failure_class:"artifact",failure_reason:"artifact_error"});
    process.stderr.write(`Package platform failed: ${failure.failure_class}/${failure.failure_reason}\n`);
+   // command() builds this message only from closed fields, never raw output.
+   if(failure.failure_reason==="child_target_failure") process.stderr.write(`${error.message}\n`);
    if(error.cleanupFailures?.length) process.stderr.write(`Package platform cleanup failed: ${error.cleanupFailures.length} steps\n`);
    process.exitCode=publicExitCodeForFailure(failure);
  }

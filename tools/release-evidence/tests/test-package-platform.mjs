@@ -107,4 +107,9 @@ test("package platform CLI keeps private errors behind fixed typed diagnostics",
   assert.ifError(result.error); assert.equal(result.status, status);
   assert.equal(result.stdout, ""); assert.equal(result.stderr, `Package platform failed: ${diagnostic}\n`);
  }
+ // A failed Docker command reports its closed command summary, never its output.
+ fs.writeFileSync(path.join(bin, "docker"), "#!/bin/sh\necho private-docker-output >&2\necho '{\"gate\":\"serving\",\"reason_code\":\"copy_denied\"}' >&2\nexit 3\n", { mode: 0o700 });
+ const result = childProcess.spawnSync(process.execPath, [path.resolve(import.meta.dirname, "../package-platform.mjs"), "layout", scratch, scratch, "cartulary-pq-11111111-2222-4333-8444-555555555555-source", "a".repeat(64)], { env, encoding: "utf8", timeout: 10000 });
+ assert.ifError(result.error); assert.equal(result.stdout, "");
+ assert.equal(result.stderr, "Package platform failed: harness/child_target_failure\npackage platform command failed: docker cp (status 3; gate serving; reasons copy_denied)\n");
 });

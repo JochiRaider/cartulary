@@ -10,7 +10,7 @@ import { buildReaderEvidence, writeEvidenceFile } from "../../harness/observabil
 import { workspaceLayout } from "../../workspace_layout.generated.mjs";
 import { createDeploymentFixture, borrowedDeploymentID } from "./package-deployment-fixture.mjs";
 import { assertPackageQualificationSource, packageDestinationProject, packageSourceProjectPattern } from "../package-qualification-project.mjs";
-import { qualifyPackage } from "../package-qualification.mjs";
+import { qualifyPackage, retainedFailureLines } from "../package-qualification.mjs";
 const repoRoot = path.resolve(import.meta.dirname, "../../..");
 const source = "cartulary-pq-11111111-2222-4333-8444-555555555555-source";
 
@@ -29,6 +29,32 @@ test("qualification project grammar has one source and one derived destination, 
  for (const project of [source, packageDestinationProject(source)]) assert.match(project, packageDeploymentIdentity);
  for (const value of ["cartularymvpsmoke123", "cartularymvprecoverysmk123", source.replace("-4333-", "-3333-"), source.replace("-8444-", "-7444-"), source + "destination", source.replace("-source", "-destination"), "--all", null]) assert.throws(() => packageDestinationProject(value));
  for (const mode of ["unknown", "__proto__", "constructor", ""]) await assert.rejects(qualifyPackage(mode, { environment: {} }), error => error.failure_reason === "usage_error");
+});
+
+test("a failed scenario retains only authored progress and failure lines", () => {
+ const retained = [
+  "package scenario passed: snapshot pins exact activated set",
+  '{"schema_id":"cartulary.package_operation_result.v1","operation":"start","gate":"public_readiness","operation_exit_code":1,"exit_code":1,"restart":"not_required","cleanup":"succeeded"}',
+  "last status for /healthz: 000",
+  "Package platform failed: harness/child_target_failure",
+  "package platform command failed: client-probe  (status 1; gate unspecified; reasons ): Package client probe failed: handshake timeout",
+  "Error: package readiness did not reach 200",
+  "Error: portable package command failed: package.sh restore status=1 reasons=checksum_mismatch",
+  "AssertionError [ERR_ASSERTION]: snapshot: not_found/",
+  "standup-reference-pack-smoke failed: package initialization failed",
+ ];
+ const discarded = [
+  "postgres-1  | FATAL: password authentication failed for user cartulary",
+  "Error: Command failed: docker compose exec postgres psql",
+  "    at file:///private/run/standup-reference-pack-scenarios.mjs:27:11",
+  "CARTULARY_AUTH_MASTER_KEY=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=",
+  '{"schema_id":"cartulary.package_operation_result.v1","operation":"start","gate":"public_readiness","detail":"private"}',
+  "last status for /readyz: 503 private",
+  "standup-package-smoke failed: \u001b[31mcolour\u001b[0m",
+ ];
+ assert.deepEqual(retainedFailureLines([...discarded, ...retained].join("\n")), retained);
+ const many = Array.from({ length: 30 }, (_, index) => `package scenario passed: step ${index}`);
+ assert.deepEqual(retainedFailureLines(many.join("\n")), many.slice(-24));
 });
 
 const worker = `
@@ -54,6 +80,7 @@ const options=JSON.parse(process.env.PACKAGE_QUALIFICATION_OPTIONS),allocation={
 populateDeploymentFixture(process.env.PACKAGE_DEPLOYMENT_STATE,allocation);
 fs.writeFileSync(options.capture,JSON.stringify({...allocation,temporary:process.env.CARTULARY_PACKAGE_TEMP_DIR,installation:process.env.CARTULARY_PACKAGE_WORK_DIR,mode:process.env.CARTULARY_PACKAGE_QUALIFICATION,pid:process.pid}));
 process.stdout.write("private fixture workflow output");
+if(options.scenario==="failure"){process.stdout.write("\\npackage scenario passed: fixture step\\n");process.stderr.write("private service log line\\nlast status for /readyz: 503\\nError: Command failed: docker private\\nstandup-package-smoke failed: /readyz did not become ready\\n");}
 if(["classified","contradictory"].includes(options.scenario))publishCommandFailure(options.runtime.repoRoot,{failure_class:"artifact",failure_reason:"artifact_error"});
 if(options.scenario==="death"){process.kill(Number(process.env.PACKAGE_QUALIFICATION_OWNER_PID),"SIGKILL");setInterval(()=>{},1000);}
 else if(options.scenario==="interrupt"){process.kill(Number(process.env.PACKAGE_QUALIFICATION_OWNER_PID),"SIGTERM");setInterval(()=>{},1000);}
@@ -121,6 +148,9 @@ test("qualification controller owns all modes before work and joins native recov
      const target = mode === "recovery" ? "standup-operational-recovery-smoke" : mode === "credential-capacity" ? "credential-capacity-assessment" : `standup-${mode}-smoke`;
      const cleanup = JSON.parse(fs.readFileSync(path.join(runRoot, target, "artifacts/cleanup.json")));
      assert.equal(cleanup.cleanup, needsRecovery ? "failed" : "passed");
+     const failureFile = path.join(runRoot, target, "artifacts/failure.json");
+     if (scenario === "failure") assert.deepEqual(JSON.parse(fs.readFileSync(failureFile)), { exit_status: 7, stdout: ["package scenario passed: fixture step"], stderr: ["last status for /readyz: 503", "standup-package-smoke failed: /readyz did not become ready"] });
+     else if (["success", "cleanup", "contradictory"].includes(scenario)) assert.equal(fs.existsSync(failureFile), false, runID);
     }
    }
    if (needsRecovery) {
