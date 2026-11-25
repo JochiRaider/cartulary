@@ -119,7 +119,7 @@ eleven `ci` runs of the release attempts (Section 13.1). Single runs vary by abo
 | G36 | Every test row's cache key includes the whole harness tree, schemas, contracts, scripts and the Makefile, so tooling commits invalidate every cached row | Machine inputs, specification | Phase 4, P4-3 | Open |
 | G37 | Builds on the `ci` critical path (renderer installation 76 s, server harness 56 s) run every time | Machine inputs, implementation | Phase 4, P4-3 | Open |
 | G38 | A browser cohort stops at its first failure, so the rest of its tests report `infrastructure_failed` and their outcomes are lost | Implementation, possibly specification | Phase 4, P4-2 | Open |
-| G39 | Load-dependent defects surface one per `ci` run and are reproduced by hand | Tests, harness, process | Phase 4, P4-4 | Open |
+| G39 | Load-dependent defects surface one per `ci` run and are reproduced by hand | Tests, harness, process | Phase 4, P4-4 | Done: host pressure and stress command (`465a30afe`), wait audit (`bdd8f4e1d`); the 13.2 rows pass `REPEAT=10` under mixed load (13.10) |
 
 ## 5. Gap Remediation Detail
 
@@ -1335,6 +1335,9 @@ Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-am
 | 2026-11-24 to 25 | Release redesign (release-qualification tracker) | Eleven `ci` runs during the release attempts | `20261124T200215Z-p34171.ci` through `20261125T160715Z-p42612.ci` | Graph 1,618–1,735 s; 3 passed. Failures in Section 13.2 |
 | 2026-11-25 | Phase 4 analysis | Unit-event profiles of `check` `-p20922` and `ci` `-p42612`: phase occupancy, lane loads, estimate ratios, cache facts; commit-history simulation of cache invalidation | `20261124T193704Z-p20922`, `20261125T160715Z-p42612.ci`, the plans of the five 2026-11-24 `check` runs | Findings G30–G39 and Section 13. No code change |
 | 2026-11-25 | P4-0 | Reference runs at `c9502cb39`, diagnostics on, cache off | `p40-ref-check01`, `p40-ref-ci01` | **Pass both.** `check` 368/368, graph 691 s; `ci` 502/502, graph 1,791 s. Detail in 13.9 |
+| 2026-11-25 | P4-4 / G39 | Failure-scoped host pressure and `make test-stress` (REQ-870, REQ-871) | Owner rows `harness.command_surface` (native runtime, stress command) | Pass. Committed `465a30afe` |
+| 2026-11-25 | P4-4 / G39 | Stability gate: each 13.2 row `REPEAT=10` with `LOAD=mixed` at `465a30afe` | `p44-gate-{ext,rel,imp,inc,wb,rep}`, repetitions `-r01` to `-r10` | **60 of 60 passed.** Detail in 13.10 |
+| 2026-11-25 | P4-4 / G39 | Wait audit: 31 whole-test hang guards derive from the test deadline (`testdeadline`) | `p44-port-*` (16 owner slices, every row holding a converted guard) | Pass. Committed `bdd8f4e1d` |
 
 ## 12. Phase 2 Plan — `check` Wall Clock
 
@@ -2205,6 +2208,9 @@ tracker has the detail on each failure.
 - **Open defects.** The renderer sandbox flake (1 in 51) and the IR corpus
   apply stall now retain their cause class. Record each recurrence here.
 - **Expected effect.** No wall change; fewer `ci` runs spent finding defects.
+- **Outcome (P4-4).** Delivered as planned; the gate result and the audit
+  inventory are in 13.10. Neither open defect recurred in 20 repetitions of
+  its row under load.
 
 ### 13.5 Workstreams
 
@@ -2214,7 +2220,7 @@ tracker has the detail on each failure.
 | P4-1 | Go phase components | G33, G34 | Estimates refreshed; placement audited; capacity re-tests adopted or rejected through the gate |
 | P4-2 | Browser phase components | G32, G38 | Dynamic lanes adopted after one `ci`; failure policy decided |
 | P4-3 | Daily-development cache | G36, G37, then G35 | Hit rates measured on representative commits; G35 only after D12 |
-| P4-4 | Stability tooling | G39 (host evidence first, then the stress command, wait audit and open defects) | The week's failing rows pass `REPEAT=10` under load |
+| P4-4 | Stability tooling | G39 (host evidence first, then the stress command, wait audit and open defects) | The week's failing rows pass `REPEAT=10` under load. **Done 2026-11-25:** 60 of 60 repetitions passed (13.10) |
 | P4-5 | One admission authority | G30 | Paired `check` and one `ci` |
 | P4-6 | Overlap | G31 | Through the 13.7 gate, or recorded as rejected |
 | P4-7 | Validation and handoff | — | Paired `check`, paired `ci`, Section 3 refreshed |
@@ -2314,4 +2320,49 @@ on `c9502cb39`. Diagnostics add time: the 13.1 `check` without them took 605 s.
   wall (input to G32).
 - **Build estimates.** `build_report_renderer` ran 137 s against a 15 s
   estimate, `build_server_harness` 50–68 s against 5 s (input to G33).
+
+### 13.10 Stability Gate and Wait Audit (P4-4)
+
+Each row that failed `ci` in 13.2 and is still in `ci` ran
+`make test-stress OWNER=<owner> ROWS=<rows> REPEAT=10 LOAD=mixed` at
+`465a30afe`: two busy threads per CPU and four `fdatasync` writers beside every
+repetition, the selected rows executed fresh each time.
+
+| Owner | 13.2 rows | Repetitions passed | Wall per repetition (median, range) |
+| --- | --- | ---: | --- |
+| `module.extensions` | State-admission result precedence | 10/10 | 61 s (57–75) |
+| `harness.release` | Release readiness contract | 10/10 | 277 s (266–283) |
+| `module.imports` | Network Flow row limit; IR corpus import | 10/10 | 181 s (176–222) |
+| `module.incidents` | Membership management live pages | 10/10 | 161 s (154–168) |
+| `module.workbook` | Entity Find editing | 10/10 | 153 s (148–159) |
+| `module.reporting` | Renderer installed sandbox | 10/10 | 260 s (253–272) |
+
+- **All 60 repetitions passed**, so the 13.7 gate's third condition holds at
+  this commit, and no failure window was written. It is a baseline, not an
+  adoption: a change that raises concurrency still needs its own paired runs.
+- **Open defects.** The renderer sandbox and IR corpus rows passed 10 of 10
+  each; neither the sandbox flake nor the apply stall recurred.
+- **Wait audit, Go.** The scan found 297 `context.WithTimeout` calls with a
+  fixed or computed duration (13.4's 199 counted fewer patterns) and, after
+  the conversion, 87 `time.Sleep` calls.
+  - *Converted (31 in 27 files, `bdd8f4e1d`).* Every whole-test hang guard,
+    the first statement of a test or of a function a test runs as a subtest,
+    now derives from the test deadline less a 30 s settlement allowance
+    (`internal/testutil/testdeadline`), as G17g did for process tests; the
+    `httptestx` poll helper uses the same rule.
+  - *Justified as they stand.* 35 sleeps are poll intervals of an
+    observable-state wait, 7 park a helper process, and 45 hold a negative
+    window or pace a fixture; 53 timeouts bound cleanup, 11 already derive
+    from a deadline, 38 are deliberately short probes of timeout behaviour
+    and 7 take a computed duration; two whole-test bounds time a
+    characterization (180 s) and a process harness (30 min).
+  - *Next candidates.* 155 fixed bounds scope a helper, subtest or single
+    call (58 under the test context, 97 under `context.Background` or
+    another parent). A scoped bound fails only when its operation is slow,
+    which `make test-stress` now exposes; convert them owner by owner as
+    stress runs implicate them.
+- **Wait audit, browser.** The 70 explicit timeouts bound observable-state
+  assertions (`toBeVisible`, `toPass`, `poll`); the 64 `test.setTimeout` calls
+  set test budgets; the one fixed wait is a 500 ms negative window proving no
+  further queries arrive. None needs conversion.
 
