@@ -1,11 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.harness_execution_index.v6",
+  "$id": "cartulary.harness_execution_index.v7",
   "type": "object",
   "additionalProperties": false,
   "properties": {
     "schema_id": {
-      "const": "cartulary.harness_execution_index.v6"
+      "const": "cartulary.harness_execution_index.v7"
     },
     "run_id": {
       "type": "string",
@@ -197,7 +197,7 @@
           "type": "array",
           "maxItems": 16384,
           "items": {
-            "$ref": "cartulary.harness_host_admission_record.v3"
+            "$ref": "cartulary.harness_host_admission_record.v4"
           }
         },
         "records_digest": {

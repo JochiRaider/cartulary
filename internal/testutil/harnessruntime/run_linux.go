@@ -388,7 +388,12 @@ func RunWithOptions(ctx context.Context, root, binary string, args, environment 
 			fmt.Fprintf(stderr, "[ADMISSION-UNSATISFIABLE] unit=%s %v\n", u.ID, blocked)
 		}
 		return lease, err
-	}, Terminal: publication.Terminal,
+	}, Admission: newNativeAdmissionPort(ctx, admission, production, func(ctx context.Context, unitID string) context.Context {
+		if diagnostics.enabled {
+			return harnessadmission.WithObservation(ctx, unitID, func() float64 { return float64(monotonicNS()-diagnostics.canonicalEpoch) / 1e6 }, diagnostics.execution.admission)
+		}
+		return ctx
+	}), Terminal: publication.Terminal,
 		Cleanup: recordCleanup, CleanupServices: production.Close, Finalize: func(_ context.Context, unresolved bool, _ []cleanupRecord) error {
 			err := closeRuntime(unresolved)
 			finalized = true

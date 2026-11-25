@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.test_services.local_session.v4",
+  "$id": "cartulary.test_services.local_session.v5",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -24,7 +24,7 @@
   ],
   "properties": {
     "schema_id": {
-      "const": "cartulary.test_services.local_session.v4"
+      "const": "cartulary.test_services.local_session.v5"
     },
     "session_id": {
       "type": "string",
@@ -141,7 +141,7 @@
       "$ref": "cartulary.test_services.lease.v3"
     },
     "resident_allocation": {
-      "$ref": "cartulary.harness_resident_allocation.v2"
+      "$ref": "cartulary.harness_resident_allocation.v3"
     }
   },
   "$defs": {

@@ -61,7 +61,7 @@ export function criticalPathModel(run, execution, target, query) {
   else records = [];
   const total = query.view === "waits" ? selected.reduce((sum, id) => sum + (run.waits.get(id)?.count ?? 0), 0) : records.length;
   return { ids, selected, positions, model: {
-    schema_id: "cartulary.harness_critical_path.v4", run_id: run.manifest.run_id, source_digest: run.manifest.source_digest,
+    schema_id: "cartulary.harness_critical_path.v5", run_id: run.manifest.run_id, source_digest: run.manifest.source_digest,
     graph_digest: run.manifest.graph_digest, target: summary.target, query,
     coverage: { canonical: "complete", allocation_lifecycle: lifecycle?.status ?? "unavailable", allocation_omissions: lifecycle?.omitted_records ?? null, host_admission: admission?.status ?? "unavailable", host_admission_omissions: admission?.omitted_records ?? null },
     path_totals: totals(run, ids, admission), filtered_totals: totals(run, selected, admission), total_count: total,

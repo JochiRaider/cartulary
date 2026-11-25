@@ -3,7 +3,7 @@
   "additionalProperties": false,
   "properties": {
     "schema_id": {
-      "const": "cartulary.harness_critical_path.v4"
+      "const": "cartulary.harness_critical_path.v5"
     },
     "run_id": {
       "type": "string",
@@ -500,7 +500,7 @@
                 "minimum": 0
               },
               "observation": {
-                "$ref": "cartulary.harness_host_admission_record.v3"
+                "$ref": "cartulary.harness_host_admission_record.v4"
               }
             },
             "required": [
@@ -539,5 +539,5 @@
     "limitations"
   ],
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.harness_critical_path.v4"
+  "$id": "cartulary.harness_critical_path.v5"
 }

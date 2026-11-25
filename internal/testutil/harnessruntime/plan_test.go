@@ -42,8 +42,8 @@ func fixturePlan(t *testing.T, units ...*harnessplan.Unit) *harnessplan.Plan {
 		t.Fatal(err)
 	}
 	d := "sha256:" + strings.Repeat("a", 64)
-	snapshot := harnessplan.CapabilitySnapshot{SchemaID: "cartulary.harness_capability_snapshot.v1", CPUTokens: 2, MemoryBytes: 104857600, ProcessSlots: 4, IOTokens: 2,
-		PostgresLanes: 1, PostgresHeavyLanes: 1, ObjectStoreLanes: 1, WritableVolume: true, PortLanes: 1, Services: map[string]bool{}, Sources: map[string]string{}}
+	snapshot := harnessplan.CapabilitySnapshot{SchemaID: "cartulary.harness_capability_snapshot.v2", CPUTokens: 2, MemoryBytes: 104857600, ProcessSlots: 4, IOTokens: 2,
+		PostgresLanes: 1, PostgresGenerations: 1, PostgresHeavyLanes: 1, ObjectStoreLanes: 1, WritableVolume: true, PortLanes: 1, Services: map[string]bool{}, Sources: map[string]string{}}
 	snapshot.SnapshotDigest, _ = semanticDigest(snapshot)
 	sourceInputs := []harnessplan.SourceInput{{Path: "fixture.go", Kind: "file", Mode: "0644", ByteDigest: d}}
 	sourceDigest, _ := semanticDigest(map[string]any{"schema_id": "cartulary.source_snapshot_digest.v2", "entries": sourceInputs})
@@ -65,7 +65,7 @@ func fixturePlan(t *testing.T, units ...*harnessplan.Unit) *harnessplan.Plan {
 		HostProfile:                harnessplan.HostProfile{Platform: "linux", Architecture: "amd64", KernelRelease: "fixture", CPUModels: []string{"fixture"}},
 		InstrumentationPolicyBytes: string(policyBytes),
 		Projections:                map[string]harnessplan.Projection{"test-slice": {CommandID: commandID, UnitIDs: ids}},
-		Capacities: map[string]int64{"cpu": 2, "memory_mb": 100, "process": 4, "io": 2, "postgres": 1, "postgres_heavy": 1, "object_store": 1,
+		Capacities: map[string]int64{"cpu": 2, "memory_mb": 100, "process": 4, "io": 2, "postgres": 1, "postgres_generation": 1, "postgres_heavy": 1, "object_store": 1,
 			"port_lane": 1, "browser_stack": 1, "browser_lane": 1, "service_stack": 1, "volume": 1},
 		AgingQuantumMS: 1000, Bindings: map[string]string{"NODE_BIN": "/private/node"},
 		Cache: cache, SourceInputs: sourceInputs, CacheInputs: map[string][]int{},

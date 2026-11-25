@@ -4,7 +4,9 @@ package harnessruntime
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"slices"
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessadmission"
@@ -73,4 +75,120 @@ func classifyAdmissionFailure(caller context.Context, err error) error {
 		return failed("infra", "resource_conflict")
 	}
 	return failureOf(err)
+}
+
+// nativeAdmissionPort makes the host ledger the graph's admission authority
+// for physical resources (G30): the scheduler evaluates its ranked ready work
+// against one ledger view per decision and transacts only for admissible
+// work, so no unit holds a token or a queue position while it waits.
+type nativeAdmissionPort struct {
+	ctx        context.Context
+	root       string
+	production *harnessfixtures.Production
+	observe    func(context.Context, string) context.Context
+	physical   map[string]bool
+	changes    <-chan struct{}
+}
+
+func newNativeAdmissionPort(ctx context.Context, root string, production *harnessfixtures.Production, observe func(context.Context, string) context.Context) *nativeAdmissionPort {
+	physical := map[string]bool{}
+	for _, resource := range harnessadmission.Resources() {
+		physical[resource] = true
+	}
+	return &nativeAdmissionPort{ctx: ctx, root: root, production: production, observe: observe, physical: physical}
+}
+
+func (p *nativeAdmissionPort) View(ctx context.Context) (admissionView, error) {
+	view, err := harnessadmission.ReadView(ctx, p.root)
+	if err != nil {
+		return nil, err
+	}
+	// The ledger directory exists once it has been read.
+	if p.changes == nil {
+		if changes, err := harnessadmission.Watch(p.ctx, p.root); err == nil {
+			p.changes = changes
+		}
+	}
+	return &nativeAdmissionView{view: view, production: p.production, memo: map[string]nativeEvaluation{}}, nil
+}
+
+func (p *nativeAdmissionPort) TryAdmit(ctx context.Context, u unit) (*hostLease, bool, error) {
+	if p.observe != nil {
+		ctx = p.observe(ctx, u.ID)
+	}
+	lease, finish, granted, err := p.production.TryAdmit(ctx, workRequirement(u))
+	if err != nil || !granted {
+		return nil, false, err
+	}
+	return &hostLease{Token: lease.Token, Bind: lease.Bind, Release: func(ctx context.Context) error {
+		return errors.Join(finish(ctx), lease.Release(ctx))
+	}}, true, nil
+}
+
+func (p *nativeAdmissionPort) Changed() <-chan struct{} { return p.changes }
+func (p *nativeAdmissionPort) Physical(resource string) bool {
+	return p.physical[resource]
+}
+
+type nativeEvaluation struct {
+	admissible bool
+	deficits   []string
+}
+
+// nativeAdmissionView evaluates work against one ledger reading. Work with
+// the same claims and resident identities has the same outcome, so each
+// shape is evaluated once per view.
+type nativeAdmissionView struct {
+	view       *harnessadmission.View
+	production *harnessfixtures.Production
+	memo       map[string]nativeEvaluation
+}
+
+func (v *nativeAdmissionView) Evaluate(u unit) (bool, []string, error) {
+	requirement := workRequirement(u)
+	shape, err := json.Marshal(map[string]any{"active": requirement.Active, "residents": requirement.Residents, "renderer": requirement.Renderer,
+		"renderer_claims": requirement.RendererClaims, "exclusive": requirement.Exclusive})
+	if err != nil {
+		return false, nil, err
+	}
+	// Unit-scoped residents are new for every unit; their keys differ but
+	// their claims decide the outcome.
+	key := string(shape)
+	unitScoped := false
+	for _, resident := range requirement.Residents {
+		unitScoped = unitScoped || resident.Scope == "unit"
+	}
+	if unitScoped {
+		normalized := map[string]any{"active": requirement.Active, "renderer": requirement.Renderer, "exclusive": requirement.Exclusive}
+		residents := []any{}
+		for _, resident := range requirement.Residents {
+			if resident.Scope == "unit" {
+				residents = append(residents, map[string]any{"scope": "unit", "claims": resident.Claims})
+			} else {
+				residents = append(residents, resident)
+			}
+		}
+		normalized["residents"] = residents
+		bytes, err := json.Marshal(normalized)
+		if err != nil {
+			return false, nil, err
+		}
+		key = string(bytes)
+	}
+	if outcome, ok := v.memo[key]; ok {
+		return outcome.admissible, outcome.deficits, nil
+	}
+	evaluation, err := v.production.Evaluate(v.view, requirement)
+	if err != nil {
+		return false, nil, err
+	}
+	deficits := []string{}
+	for resource, amount := range evaluation.Deficits {
+		if amount > 0 {
+			deficits = append(deficits, resource)
+		}
+	}
+	slices.Sort(deficits)
+	v.memo[key] = nativeEvaluation{evaluation.Admissible, deficits}
+	return evaluation.Admissible, deficits, nil
 }

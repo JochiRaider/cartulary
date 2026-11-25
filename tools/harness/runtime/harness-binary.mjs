@@ -36,7 +36,7 @@ export function planInvocation(args, options = {}) {
 /** The host's capability snapshot, the scheduler capacities it maps to and the host profile. */
 export function hostCapacity({ root, override, environment } = {}) {
   const capacity = invoke(["capacities", ...(override ? ["--override", override] : [])], { root, environment });
-  validateSchemaSync("cartulary.harness_capability_snapshot.v1", capacity.capability_snapshot);
+  validateSchemaSync("cartulary.harness_capability_snapshot.v2", capacity.capability_snapshot);
   return capacity;
 }
 

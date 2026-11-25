@@ -60,7 +60,7 @@ func (r *residency) ensure(key string, claims map[string]int64) (*residentRecord
 	if err != nil {
 		return nil, err
 	}
-	record := &residentRecord{Schema: "cartulary.harness_resident_allocation.v2", Root: r.root, Allocation: harnessadmission.Resident{Token: token, Reference: file, Claims: quantities(claims), Capacities: maps.Clone(r.capacities), Parent: r.parent}}
+	record := &residentRecord{Schema: "cartulary.harness_resident_allocation.v3", Root: r.root, Allocation: harnessadmission.Resident{Token: token, Reference: file, Claims: quantities(claims), Capacities: maps.Clone(r.capacities), Parent: r.parent}}
 	directory, err := harnesslocal.PrivateDirectory(filepath.Dir(file))
 	if err != nil {
 		return nil, err
@@ -97,14 +97,14 @@ func readResident(file string) (*residentRecord, error) {
 		return nil, err
 	}
 	value, err := harnessschema.Decode(data)
-	if err != nil || harnessschema.Validate("cartulary.harness_resident_allocation.v2", value) != nil {
+	if err != nil || harnessschema.Validate("cartulary.harness_resident_allocation.v3", value) != nil {
 		return nil, harnesslocal.ErrUnsafe
 	}
 	record := &residentRecord{}
 	if err := json.Unmarshal(data, record); err != nil {
 		return nil, err
 	}
-	if record.Schema != "cartulary.harness_resident_allocation.v2" || record.Allocation.Reference != file {
+	if record.Schema != "cartulary.harness_resident_allocation.v3" || record.Allocation.Reference != file {
 		return nil, harnesslocal.ErrUnsafe
 	}
 	return record, nil

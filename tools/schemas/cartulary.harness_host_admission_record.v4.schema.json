@@ -162,6 +162,10 @@
                   "type": "integer",
                   "minimum": 0
                 },
+                "postgres_generation": {
+                  "type": "integer",
+                  "minimum": 0
+                },
                 "postgres_heavy": {
                   "type": "integer",
                   "minimum": 0
@@ -210,6 +214,10 @@
                   "minimum": 0
                 },
                 "postgres": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "postgres_generation": {
                   "type": "integer",
                   "minimum": 0
                 },
@@ -264,6 +272,10 @@
                   "type": "integer",
                   "minimum": 0
                 },
+                "postgres_generation": {
+                  "type": "integer",
+                  "minimum": 0
+                },
                 "postgres_heavy": {
                   "type": "integer",
                   "minimum": 0
@@ -312,6 +324,10 @@
                   "minimum": 0
                 },
                 "postgres": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "postgres_generation": {
                   "type": "integer",
                   "minimum": 0
                 },
@@ -374,6 +390,10 @@
                         "minimum": 0
                       },
                       "postgres": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "postgres_generation": {
                         "type": "integer",
                         "minimum": 0
                       },
@@ -446,6 +466,10 @@
                         "type": "integer",
                         "minimum": 0
                       },
+                      "postgres_generation": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
                       "postgres_heavy": {
                         "type": "integer",
                         "minimum": 0
@@ -515,6 +539,10 @@
                         "type": "integer",
                         "minimum": 0
                       },
+                      "postgres_generation": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
                       "postgres_heavy": {
                         "type": "integer",
                         "minimum": 0
@@ -581,6 +609,10 @@
                         "minimum": 0
                       },
                       "postgres": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "postgres_generation": {
                         "type": "integer",
                         "minimum": 0
                       },
@@ -844,6 +876,10 @@
                   "type": "integer",
                   "minimum": 0
                 },
+                "postgres_generation": {
+                  "type": "integer",
+                  "minimum": 0
+                },
                 "postgres_heavy": {
                   "type": "integer",
                   "minimum": 0
@@ -892,6 +928,10 @@
                   "minimum": 0
                 },
                 "postgres": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "postgres_generation": {
                   "type": "integer",
                   "minimum": 0
                 },
@@ -954,6 +994,6 @@
       ]
     }
   ],
-  "$id": "cartulary.harness_host_admission_record.v3",
+  "$id": "cartulary.harness_host_admission_record.v4",
   "$schema": "https://json-schema.org/draft/2020-12/schema"
 }

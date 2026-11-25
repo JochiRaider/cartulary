@@ -5,8 +5,8 @@
 package harnessadmission
 
 // resources is the host admission vocabulary: every scheduler registry resource.
-var resources = []string{"browser_stack", "cpu", "io", "memory_mb", "object_store", "port_lane", "postgres", "postgres_heavy", "process", "service_stack", "volume"}
+var resources = []string{"browser_stack", "cpu", "io", "memory_mb", "object_store", "port_lane", "postgres", "postgres_generation", "postgres_heavy", "process", "service_stack", "volume"}
 
 // stateGeneration versions the on-disk admission state and names its root, so a
 // binary of another generation never reads or rewrites this state.
-const stateGeneration = 4
+const stateGeneration = 5

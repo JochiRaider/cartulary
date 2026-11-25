@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.harness_capacity_override.v1",
+  "schema_id": "cartulary.harness_capacity_override.v2",
   "cpu_tokens": 2,
   "memory_bytes": 1073741824,
   "process_slots": 4,

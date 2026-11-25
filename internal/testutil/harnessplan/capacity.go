@@ -8,8 +8,8 @@ import (
 )
 
 const (
-	capabilitySnapshotSchema = "cartulary.harness_capability_snapshot.v1"
-	capacityOverrideSchema   = "cartulary.harness_capacity_override.v1"
+	capabilitySnapshotSchema = "cartulary.harness_capability_snapshot.v2"
+	capacityOverrideSchema   = "cartulary.harness_capacity_override.v2"
 )
 
 // Host is what capture detects about the machine. It is separate from the
@@ -24,16 +24,17 @@ type Host struct {
 
 // CapacityOverride is an authored, bounded override of detected capacity.
 type CapacityOverride struct {
-	CPUTokens          *int64          `json:"cpu_tokens,omitempty"`
-	MemoryBytes        *int64          `json:"memory_bytes,omitempty"`
-	ProcessSlots       *int64          `json:"process_slots,omitempty"`
-	IOTokens           *int64          `json:"io_tokens,omitempty"`
-	PostgresLanes      *int64          `json:"postgres_lanes,omitempty"`
-	PostgresHeavyLanes *int64          `json:"postgres_heavy_lanes,omitempty"`
-	ObjectStoreLanes   *int64          `json:"object_store_lanes,omitempty"`
-	PortLanes          *int64          `json:"port_lanes,omitempty"`
-	WritableVolume     *bool           `json:"writable_volume,omitempty"`
-	Services           map[string]bool `json:"services,omitempty"`
+	CPUTokens           *int64          `json:"cpu_tokens,omitempty"`
+	MemoryBytes         *int64          `json:"memory_bytes,omitempty"`
+	ProcessSlots        *int64          `json:"process_slots,omitempty"`
+	IOTokens            *int64          `json:"io_tokens,omitempty"`
+	PostgresLanes       *int64          `json:"postgres_lanes,omitempty"`
+	PostgresGenerations *int64          `json:"postgres_generations,omitempty"`
+	PostgresHeavyLanes  *int64          `json:"postgres_heavy_lanes,omitempty"`
+	ObjectStoreLanes    *int64          `json:"object_store_lanes,omitempty"`
+	PortLanes           *int64          `json:"port_lanes,omitempty"`
+	WritableVolume      *bool           `json:"writable_volume,omitempty"`
+	Services            map[string]bool `json:"services,omitempty"`
 }
 
 // ReadCapacityOverride reads and validates an override declaration.
@@ -58,19 +59,23 @@ func ReadCapacityOverride(path string) (*CapacityOverride, error) {
 
 // CapabilitySnapshot is the resolved capacity of one invocation's host.
 type CapabilitySnapshot struct {
-	SchemaID           string            `json:"schema_id"`
-	CPUTokens          int64             `json:"cpu_tokens"`
-	MemoryBytes        int64             `json:"memory_bytes"`
-	ProcessSlots       int64             `json:"process_slots"`
-	IOTokens           int64             `json:"io_tokens"`
-	PostgresLanes      int64             `json:"postgres_lanes"`
-	PostgresHeavyLanes int64             `json:"postgres_heavy_lanes"`
-	ObjectStoreLanes   int64             `json:"object_store_lanes"`
-	WritableVolume     bool              `json:"writable_volume"`
-	PortLanes          int64             `json:"port_lanes"`
-	Services           map[string]bool   `json:"services"`
-	Sources            map[string]string `json:"sources"`
-	SnapshotDigest     string            `json:"snapshot_digest"`
+	SchemaID     string `json:"schema_id"`
+	CPUTokens    int64  `json:"cpu_tokens"`
+	MemoryBytes  int64  `json:"memory_bytes"`
+	ProcessSlots int64  `json:"process_slots"`
+	IOTokens     int64  `json:"io_tokens"`
+	// PostgresLanes bound concurrent PostgreSQL work; PostgresGenerations
+	// bound the clusters resident on the host's storage. Each is charged once
+	// (G30): work by the units that use PostgreSQL, clusters by residents.
+	PostgresLanes       int64             `json:"postgres_lanes"`
+	PostgresGenerations int64             `json:"postgres_generations"`
+	PostgresHeavyLanes  int64             `json:"postgres_heavy_lanes"`
+	ObjectStoreLanes    int64             `json:"object_store_lanes"`
+	WritableVolume      bool              `json:"writable_volume"`
+	PortLanes           int64             `json:"port_lanes"`
+	Services            map[string]bool   `json:"services"`
+	Sources             map[string]string `json:"sources"`
+	SnapshotDigest      string            `json:"snapshot_digest"`
 }
 
 // Capture resolves the snapshot from host facts, the authored capacity
@@ -125,6 +130,9 @@ func Capture(host Host, registry ResourceRegistry, override *CapacityOverride) (
 	if s.PostgresLanes, err = resolve("postgres_lanes", override.PostgresLanes, fixed("postgres_lanes"), cpu*p["postgres_lanes"].MaximumCPUMultiplier); err != nil {
 		return s, err
 	}
+	if s.PostgresGenerations, err = resolve("postgres_generations", override.PostgresGenerations, fixed("postgres_generations"), cpu*p["postgres_generations"].MaximumCPUMultiplier); err != nil {
+		return s, err
+	}
 	heavy := max(p["postgres_heavy_lanes"].Minimum, min(p["postgres_heavy_lanes"].Default, s.PostgresLanes))
 	if s.PostgresHeavyLanes, err = resolve("postgres_heavy_lanes", override.PostgresHeavyLanes, heavy, s.PostgresLanes); err != nil {
 		return s, err
@@ -162,6 +170,7 @@ func Capture(host Host, registry ResourceRegistry, override *CapacityOverride) (
 		"memory_bytes":         source(override.MemoryBytes != nil, memorySource),
 		"object_store_lanes":   source(override.ObjectStoreLanes != nil, "fallback"),
 		"port_lanes":           source(override.PortLanes != nil, "host"),
+		"postgres_generations": source(override.PostgresGenerations != nil, "fallback"),
 		"postgres_heavy_lanes": source(override.PostgresHeavyLanes != nil, "fallback"),
 		"postgres_lanes":       source(override.PostgresLanes != nil, "fallback"),
 		"process_slots":        source(override.ProcessSlots != nil, processSource),
@@ -187,16 +196,17 @@ func (s CapabilitySnapshot) Capacities() map[string]int64 {
 		volume = 1
 	}
 	return map[string]int64{
-		"browser_stack":  service("browser", s.PortLanes),
-		"cpu":            s.CPUTokens,
-		"io":             s.IOTokens,
-		"memory_mb":      max(1, s.MemoryBytes/(1<<20)),
-		"object_store":   service("object_store", s.ObjectStoreLanes),
-		"port_lane":      s.PortLanes,
-		"postgres":       service("postgres", s.PostgresLanes),
-		"postgres_heavy": s.PostgresHeavyLanes,
-		"process":        s.ProcessSlots,
-		"service_stack":  service("service_stack", s.PortLanes),
-		"volume":         volume,
+		"browser_stack":       service("browser", s.PortLanes),
+		"cpu":                 s.CPUTokens,
+		"io":                  s.IOTokens,
+		"memory_mb":           max(1, s.MemoryBytes/(1<<20)),
+		"object_store":        service("object_store", s.ObjectStoreLanes),
+		"port_lane":           s.PortLanes,
+		"postgres":            service("postgres", s.PostgresLanes),
+		"postgres_generation": service("postgres", s.PostgresGenerations),
+		"postgres_heavy":      s.PostgresHeavyLanes,
+		"process":             s.ProcessSlots,
+		"service_stack":       service("service_stack", s.PortLanes),
+		"volume":              volume,
 	}
 }

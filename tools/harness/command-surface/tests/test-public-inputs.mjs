@@ -29,8 +29,8 @@ test("real-command assertions forward the published parent diagnostics and rejec
     instrumentation: { mode: "basic", policy_digest: digest },
     cache_mode: "normal", started_at: "2026-10-20T00:00:00.000Z", go_worker_budget: 2,
     capability_snapshot: {
-      schema_id: "cartulary.harness_capability_snapshot.v1", cpu_tokens: 2, memory_bytes: 1024,
-      process_slots: 2, io_tokens: 1, postgres_lanes: 1, object_store_lanes: 1,
+      schema_id: "cartulary.harness_capability_snapshot.v2", cpu_tokens: 2, memory_bytes: 1024,
+      process_slots: 2, io_tokens: 1, postgres_lanes: 1, postgres_generations: 1, object_store_lanes: 1,
       writable_volume: true, port_lanes: 1, services: {}, sources: {}, snapshot_digest: digest,
     },
   };

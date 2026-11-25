@@ -411,6 +411,23 @@ aggregate, and owner-slice selectors. The scheduler MUST:
 7. on cancellation, stop admission, terminate owned process groups, release or
    destroy leases, and publish a partial non-success summary.
 
+Resource fit has one authority (amended 2026-11-25, G30). The graph charges
+only its locks and its graph-local capacities, such as the browser lane limit;
+every physical resource a unit claims, together with the residents it would
+create or borrow, is decided by the host admission ledger of
+TH-HARNESS-REQ-803. For each decision the scheduler reads one ledger view,
+evaluates its ready units in effective-rank order against it, and transacts
+only for a unit the view admits; a unit is admitted, and takes its tokens, only
+when every claim and resident it needs is granted together. A denied unit
+holds no token and no queue position: its wait names the resources it would
+exceed, or `host_admission` when only another owner's queue priority or
+exclusive fence denies it. A cache lookup precedes the ledger, so a reused
+result never reaches host admission. When none of the graph's units runs, its
+top-ranked fitting unit waits in host admission itself, with pressure
+retirement and unsatisfiability detection, because it then holds nothing
+another unit of the graph could use. The scheduler decides again when a unit
+completes and whenever the ledger changes.
+
 One monotonic time snapshot MUST serve each admission decision. Dispatch count
 MUST NOT increase waiting age. Warm fixture affinity MUST NOT precede effective
 rank or the stable unit-ID tie-break; reuse is a fixture lifecycle decision.
@@ -421,7 +438,7 @@ The authored graph, qualified cost model, capability snapshot, and capacity
 override declaration MUST determine admission reproducibly. Live self-tuning is
 outside v3. A scheduler family, shell loop, or nested Make invocation MUST NOT
 encode a second scheduling policy.
-Verified by: TH-HARNESS-AC-084, TH-HARNESS-AC-170
+Verified by: TH-HARNESS-AC-084, TH-HARNESS-AC-170, TH-HARNESS-AC-175
 
 **TH-HARNESS-REQ-803**
 Physical allocations MUST retain resident capacity until exact cleanup proves
@@ -443,7 +460,12 @@ Admission MUST leave capacity for the bounded cleanup process after active work
 drains; resident memory and process occupancy cannot consume that entitlement.
 Persistent local services retain their own durable reservation. Attaching runs
 validate it and MUST NOT create another reservation for the same services.
-Shared host admission preserves an older waiting request's priority while
+A waiting request wakes when the ledger changes, by any process, rather than
+on a fixed polling interval, with a one-second fallback so a dead owner's
+capacity is still reclaimed; a transaction that changes nothing does not
+rewrite the ledger, so it wakes no one (amended 2026-11-25, G16 and G30). A
+single-attempt admission that is denied removes its request at once and keeps
+no queue position. Shared host admission preserves an older waiting request's priority while
 independent active work drains. Later fitting work MUST NOT be admitted ahead of
 that waiter when its admission would increase any of the waiter's current
 deficits, evaluated with the same weighted algorithm and including the later
@@ -604,7 +626,7 @@ and measured consumption. The native admission evaluator is the sole producer
 of decision facts; diagnostic readers MUST NOT duplicate its accounting policy.
 REQ-857 defines the optional bounded observation contract. Diagnostic failure
 MUST NOT affect admission decisions, product outcomes or cleanup authority.
-Verified by: TH-HARNESS-AC-085
+Verified by: TH-HARNESS-AC-085, TH-HARNESS-AC-175
 
 **TH-HARNESS-REQ-804**
 Ordinary PostgreSQL and object-store consumers MUST attach to an explicitly
@@ -1948,7 +1970,7 @@ The explicit local managed-service session commands are
 `cartulary.harness.command.test_services_session_up.v1`,
 `cartulary.harness.command.test_services_session_status.v1`, and
 `cartulary.harness.command.test_services_session_down.v1`. The commands own one
-`cartulary.test_services.local_session.v4` descriptor beneath the external
+`cartulary.test_services.local_session.v5` descriptor beneath the external
 machine-cache root. The descriptor parent is mode `0700`; the descriptor is a
 mode-`0600`, owner-UID regular file reached without symlink traversal. It closes
 the suite/session identity, owner UID, schema, configuration, tool, image and
@@ -4455,7 +4477,7 @@ claim publication.
 | `cartulary.govulncheck_findings.v1`             | `tools/schemas/cartulary.govulncheck_findings.v1.schema.json`             | present           | Govulncheck wrapper      | Before failure classification or target-summary security rollup consumes findings. |
 | `cartulary.test_services.lease.v3`              | `tools/schemas/cartulary.test_services.lease.v3.schema.json`              | present           | Service suite            | Before attach or cleanup relies on lease. |
 | `cartulary.test_services.lifecycle.v3`          | `tools/schemas/cartulary.test_services.lifecycle.v3.schema.json`          | present           | Service suite            | During service lifecycle JSONL validation. |
-| `cartulary.test_services.local_session.v4`      | `tools/schemas/cartulary.test_services.local_session.v4.schema.json`      | present           | Local session manager    | Before status, attachment, or session cleanup. |
+| `cartulary.test_services.local_session.v5`      | `tools/schemas/cartulary.test_services.local_session.v5.schema.json`      | present           | Local session manager    | Before status, attachment, or session cleanup. |
 | `cartulary.test_services.local_session_status.v1` | `tools/schemas/cartulary.test_services.local_session_status.v1.schema.json` | present         | Local session manager    | Before redacted status output. |
 | `cartulary.test_services.scope.v2`              | `tools/schemas/cartulary.test_services.scope.v2.schema.json`              | present           | Service suite            | Before scheduler failure propagation consumes bounded service-suite diagnostics. |
 | `cartulary.object_store_readiness_diagnostic.v1` | `tools/schemas/cartulary.object_store_readiness_diagnostic.v1.schema.json` | present         | Service suite            | Before a known object-store readiness extension is retained or consumed. |
@@ -7284,7 +7306,7 @@ observations MUST NOT add test titles or paths to diagnostic records, double-cou
 canonical runner time, or drive scheduling without reviewed authored cost inputs.
 
 **TH-HARNESS-REQ-844 — Secure execution projection.**
-`diagnostics/execution-index.json`, schema `cartulary.harness_execution_index.v6`,
+`diagnostics/execution-index.json`, schema `cartulary.harness_execution_index.v7`,
 is optional terminal evidence under basic mode. Its closed records are launch,
 allocation, lease, relationship and activity observations. The envelope binds
 run/source/graph/policy identity, records digest, completeness, omitted count
@@ -7721,7 +7743,7 @@ with artifact_error (normalized exit 11). Missing optional diagnostics SHALL rem
 unavailability, not an artifact failure. Existing comparison admission remains
 unchanged; this view SHALL NOT accept comparison inputs.
 
-Response schema `cartulary.harness_critical_path.v4` SHALL bind run, source,
+Response schema `cartulary.harness_critical_path.v5` SHALL bind run, source,
 graph, selected target, normalized query and coverage. It SHALL report total
 filtered records, returned records and nullable next_offset. Units SHALL follow
 the reconstructed target-local dependency path and its existing tie rules.
@@ -11772,6 +11794,7 @@ expected behavior. Failure codes below are normalized wrapper codes.
 | TH-HARNESS-AC-172 | REQ-807 | Go integration rows owning their PostgreSQL generation, a shared-generation transaction or an object-store namespace; process-exclusive, migration, measurement, security, visual and release rows; a changed migration; a release `ci` root with the cache on | The owned-fixture rows are cacheable and their keys hold the test-services helper and the migrated template digest; the other rows stay uncached; a migration change changes the keys; release evidence refuses the cached `ci` root | A shared or process-exclusive fixture row reused, a key that ignores a migration change, or a release `ci` accepted with the cache on fails. |
 | TH-HARNESS-AC-173 | REQ-807 | Go and Vitest units; a change to a runner package or module, to a Node module a Go closure names by a literal path, to an unrelated harness module and to the planning estimates; a computed import inside and outside the declared externals | A Go key holds its packages' closure, the Go runner's package closure and every named repository file with a named module's closure; a Vitest key holds its workspaces and the JavaScript runner's module closure; only changes inside a closure change a key; an undeclared computed import selects the broad closure | A key unchanged by a change inside its closure, a key changed by an unrelated harness module or by the estimates, or an incomplete closure used instead of the broad one fails. |
 | TH-HARNESS-AC-174 | REQ-060 | Two renderer builds with unchanged inputs; a changed renderer source, lockfile or host library; a tampered installation root; `CARTULARY_BUILD_CACHE_DISABLE=1` and `CARTULARY_FORCE_REBUILD=1` | The second unchanged build only republishes the receipt; any changed input or copied library rebuilds and records a new key, and a tampered root is never reused; the disable flag neither reads nor records keys and the force flag rebuilds | A reused installation after an input change, a reuse that skips the integrity check, or a recorded key under the disable flag fails. |
+| TH-HARNESS-AC-175 | REQ-802, REQ-803 | A graph of ready units whose claims and residents exceed the ledger, a cached unit, another owner's older waiting request and exclusive fence, a ledger change by another process, and a graph with no running unit | The scheduler admits only units the ledger view grants with every claim and resident together; a denied unit holds no token and names its deficits or `host_admission`; a cached unit never reaches the ledger; waiters wake on a ledger change; with nothing running the top-ranked fitting unit waits in host admission; PostgreSQL work and generations are each charged once | A token held by a denied unit, a partial grant, a cache hit admitted, a waiter that only polls, or a generation charged twice fails. |
 
 The numerical image cases MUST include transparent pixels, alpha-only differences,
 one-pixel boundaries, and zero/full changed area. Interface fixtures MUST include

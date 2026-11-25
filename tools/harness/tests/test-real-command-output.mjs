@@ -23,8 +23,8 @@ function fixture(t, mode = "machine") {
     toolchain_digest: digest, system_digest: digest, graph_digest: digest,
     instrumentation: { mode: "off", policy_digest: digest }, cache_mode: "normal",
     started_at: "2026-11-11T00:00:00.000Z", go_worker_budget: 1,
-    capability_snapshot: { schema_id: "cartulary.harness_capability_snapshot.v1", cpu_tokens: 1,
-      memory_bytes: 1024, process_slots: 1, io_tokens: 1, postgres_lanes: 1,
+    capability_snapshot: { schema_id: "cartulary.harness_capability_snapshot.v2", cpu_tokens: 1,
+      memory_bytes: 1024, process_slots: 1, io_tokens: 1, postgres_lanes: 1, postgres_generations: 1,
       object_store_lanes: 1, writable_volume: true, port_lanes: 1,
       services: {}, sources: {}, snapshot_digest: digest },
   };

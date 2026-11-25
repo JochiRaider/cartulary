@@ -97,6 +97,27 @@ type hostLease struct {
 	Bind    func(int) error
 	Release func(context.Context) error
 }
+
+// admissionPort is the host ledger as the graph's single admission
+// authority for physical resources (G30). Each scheduling decision reads one
+// view, evaluates ready work in rank order against it and transacts only for
+// work the view admits, so waiting work holds nothing.
+type admissionPort interface {
+	View(context.Context) (admissionView, error)
+	// TryAdmit grants u's claims and residents together, or denies it with no
+	// queue position kept.
+	TryAdmit(context.Context, unit) (*hostLease, bool, error)
+	// Changed signals a ledger change by any process.
+	Changed() <-chan struct{}
+	// Physical reports a resource the ledger charges; the graph charges
+	// only the rest (locks and graph-local capacities such as browser lanes).
+	Physical(string) bool
+}
+type admissionView interface {
+	// Evaluate reports whether u is admissible now and, if not, the
+	// resources it would exceed (none when only queue priority denies it).
+	Evaluate(unit) (bool, []string, error)
+}
 type executionRequest struct {
 	Unit        unit
 	Environment map[string]string
@@ -133,6 +154,7 @@ type enginePorts struct {
 	Cache            graphCache
 	Fixtures         fixtureOwner
 	Admit            func(context.Context, unit) (*hostLease, error)
+	Admission        admissionPort
 	Event            func(map[string]any) error
 	Terminal         func(unit, *unitResult) error
 	CleanupServices  func(context.Context) error
@@ -200,6 +222,13 @@ type graphEngine struct {
 	err                       error
 	stopAdmission             bool
 	deferredCache             []unit
+	// leases are host leases granted at admission; denied holds each ready
+	// unit's deficits at its last evaluation against the host ledger.
+	leases map[string]*hostLease
+	denied map[string][]string
+	// lookups memoize cache lookups made during selection, so a reusable
+	// result completes without host admission.
+	lookups map[string]cacheResult
 }
 
 func executeGraph(ctx context.Context, plan *Plan, ports enginePorts) (graphResult, error) {
@@ -216,6 +245,7 @@ func executeGraph(ctx context.Context, plan *Plan, ports enginePorts) (graphResu
 		byID: map[string]unit{}, ranks: map[string]int64{}, eligibleAt: map[string]int64{}, claims: map[string]int64{},
 		shared: map[string]int{}, exclusive: map[string]bool{}, running: map[string]bool{}, eligible: map[string]bool{}, released: map[string]bool{},
 		waits: map[string]waitDetails{}, activities: map[string]string{}, activityWait: map[string]string{}, starts: map[string]*int64{}, phase: "executing",
+		leases: map[string]*hostLease{}, denied: map[string][]string{}, lookups: map[string]cacheResult{},
 		result: graphResult{States: map[string]string{}, Units: map[string]unitResult{}, Admissions: []string{}, Events: []map[string]any{}, Cleanup: []cleanupRecord{}}}
 	for _, u := range plan.facts.Graph.Units {
 		e.byID[u.ID] = u
@@ -291,6 +321,9 @@ func executeGraph(ctx context.Context, plan *Plan, ports enginePorts) (graphResu
 			for _, m := range terminal {
 				e.complete(m)
 			}
+		case <-e.changes():
+			// Another process, or this graph's own cleanup, changed the
+			// ledger: decide again.
 		case <-ctx.Done():
 			e.stopPending()
 			// Cancellation stays level-triggered; consume a worker message so
@@ -436,9 +469,42 @@ func readyExclusiveWaiters(ready []unit) map[string][]string {
 	return waiters
 }
 func (e *graphEngine) blocking(u unit, barriers map[string][]string) waitDetails {
+	w := e.graphBlocking(u, barriers)
+	if w.reason != "rank" {
+		return w
+	}
+	deficits, denied := e.denied[u.ID]
+	if !denied {
+		return w
+	}
+	if len(deficits) == 0 {
+		// Queue priority or an exclusive fence of another ledger owner.
+		w.reason = "host_admission"
+		return w
+	}
+	w.reason, w.resources = "resources", slices.Clone(deficits)
+	for id := range e.running {
+		for _, r := range deficits {
+			if e.byID[id].Claims[r] > 0 {
+				w.units = append(w.units, id)
+				break
+			}
+		}
+	}
+	slices.Sort(w.units)
+	return w
+}
+
+// graphBlocking is what the graph itself decides: dependencies satisfied,
+// locks and the claims the graph charges. Physical claims belong to the host
+// ledger when one is the authority.
+func (e *graphEngine) graphBlocking(u unit, barriers map[string][]string) waitDetails {
 	w := waitDetails{"rank", []string{}, []string{}}
 	locks := []string{}
 	for r, n := range u.Claims {
+		if e.ports.Admission != nil && e.ports.Admission.Physical(r) {
+			continue
+		}
 		requested := e.claims[r] + n
 		if r == "volume" {
 			requested = max(e.claims[r], n)
@@ -525,12 +591,85 @@ func (e *graphEngine) choose(ready []unit, barriers map[string][]string) *unit {
 		}
 		return strings.Compare(a.ID, b.ID)
 	})
+	if e.ports.Admission == nil {
+		for _, u := range ordered {
+			if e.graphBlocking(u, barriers).reason == "rank" {
+				return &u
+			}
+		}
+		return nil
+	}
+	var view admissionView
+	var fallback *unit
 	for _, u := range ordered {
-		if e.blocking(u, barriers).reason == "rank" {
+		if e.graphBlocking(u, barriers).reason != "rank" {
+			continue
+		}
+		if c, ok := e.lookup(u); !ok {
+			return nil
+		} else if c.Outcome == "hit" {
 			return &u
 		}
+		if fallback == nil {
+			candidate := u
+			fallback = &candidate
+		}
+		if view == nil {
+			var err error
+			if view, err = e.ports.Admission.View(e.ctx); err != nil {
+				e.requiredError(err)
+				return nil
+			}
+		}
+		admissible, deficits, err := view.Evaluate(u)
+		if err != nil {
+			e.requiredError(err)
+			return nil
+		}
+		if !admissible {
+			e.denied[u.ID] = deficits
+			continue
+		}
+		lease, granted, err := e.ports.Admission.TryAdmit(e.ctx, u)
+		if err != nil {
+			// The request cannot be admitted at all; the unit's worker reports
+			// the failure through the blocking admission path.
+			delete(e.denied, u.ID)
+			return &u
+		}
+		if !granted {
+			// The ledger moved since the view: read it again.
+			e.denied[u.ID] = []string{}
+			view = nil
+			continue
+		}
+		delete(e.denied, u.ID)
+		e.leases[u.ID] = lease
+		return &u
+	}
+	// Nothing else of this graph runs, so the top-ranked unit waits in host
+	// admission itself, with pressure retirement and unsatisfiability
+	// detection, and holds nothing another unit of the graph could use.
+	if fallback != nil && len(e.running) == 0 {
+		delete(e.denied, fallback.ID)
+		return fallback
 	}
 	return nil
+}
+
+// changes is the ledger's change signal, or nil without a ledger authority.
+func (e *graphEngine) changes() <-chan struct{} {
+	if e.ports.Admission == nil {
+		return nil
+	}
+	return e.ports.Admission.Changed()
+}
+
+// takeLease hands a unit's worker the host lease its admission granted.
+func (e *graphEngine) takeLease(id string) *hostLease {
+	lease := e.leases[id]
+	delete(e.leases, id)
+	return lease
 }
 func (e *graphEngine) openWait(id string, w waitDetails, at int64) {
 	if prior, ok := e.waits[id]; ok {
@@ -570,6 +709,9 @@ func (e *graphEngine) closeWait(id string, at int64) {
 }
 func (e *graphEngine) reserve(u unit, direction int64) {
 	for k, v := range u.Claims {
+		if e.ports.Admission != nil && e.ports.Admission.Physical(k) {
+			continue
+		}
 		if k == "volume" {
 			e.claims[k] = 0
 			for id := range e.running {
@@ -605,19 +747,34 @@ func (e *graphEngine) directPhase(u unit, name string, operation func() error) e
 	e.emit(e.now(), "phase_finished", u.ID, e.result.States[u.ID], details)
 	return err
 }
-func (e *graphEngine) admit(u unit) {
+
+// lookup performs a unit's cache lookup once; false reports a lookup that
+// ended the decision (cancellation or a required error).
+func (e *graphEngine) lookup(u unit) (cacheResult, bool) {
+	if c, ok := e.lookups[u.ID]; ok {
+		return c, true
+	}
 	c := cacheResult{Outcome: "bypass", Reason: "cache_unconfigured"}
 	if e.ports.Cache != nil {
 		if err := e.directPhase(u, "cache_lookup", func() error { var err error; c, err = e.ports.Cache.Lookup(e.ctx, u); return err }); err != nil {
 			// The unit is still pending. Let ordinary cancellation close its wait
 			// and publish its terminal event instead of aborting required evidence.
-			if e.ctx.Err() != nil && (errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)) {
-				return
+			if !(e.ctx.Err() != nil && (errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded))) {
+				e.requiredError(err)
 			}
-			e.requiredError(err)
-			return
+			return c, false
 		}
 	}
+	e.lookups[u.ID] = c
+	return c, true
+}
+
+func (e *graphEngine) admit(u unit) {
+	c, ok := e.lookup(u)
+	if !ok {
+		return
+	}
+	delete(e.lookups, u.ID)
 	extra := map[string]any{"cache_reason": c.Reason}
 	if c.Profile != "" {
 		extra["cache_profile_id"] = c.Profile
@@ -642,6 +799,7 @@ func (e *graphEngine) admit(u unit) {
 		e.emit(at, "completed", u.ID, "passed", map[string]any{"output_digest": c.OutputDigest})
 		return
 	}
+	delete(e.denied, u.ID)
 	e.result.States[u.ID] = "running"
 	e.result.Units[u.ID] = unitResult{Cache: c}
 	e.activities[u.ID] = "admitted"
@@ -651,7 +809,7 @@ func (e *graphEngine) admit(u unit) {
 	e.emit(at, "admitted", u.ID, "running", nil)
 	e.emit(at, "started", u.ID, "running", nil)
 	e.refreshWaits(at)
-	go e.work(u, c)
+	go e.work(u, c, e.takeLease(u.ID))
 }
 func (e *graphEngine) settleDependencies() {
 	for changed := true; changed; {

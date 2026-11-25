@@ -34,7 +34,7 @@ func (e *graphEngine) workerPhase(u unit, name string, operation func() error) e
 	}
 	return publicationError
 }
-func (e *graphEngine) work(u unit, c cacheResult) {
+func (e *graphEngine) work(u unit, c cacheResult, granted *hostLease) {
 	admittedAt := e.ports.Now()
 	r := unitResult{Status: "failed", Cache: c}
 	defer func() { e.mailbox <- engineMessage{ID: u.ID, At: e.ports.Now(), Result: &r} }()
@@ -70,16 +70,21 @@ func (e *graphEngine) work(u unit, c cacheResult) {
 			defer e.ports.Resume()
 		}
 	}
-	var host *hostLease
-	activity("waiting", "host_admission")
-	err := e.workerPhase(u, "host_admission", func() error {
-		if e.ports.Admit == nil {
-			return nil
-		}
-		var err error
-		host, err = e.ports.Admit(e.ctx, u)
-		return err
-	})
+	// A unit the ledger already admitted carries its lease; otherwise it is
+	// the graph's only candidate and waits in host admission here.
+	host := granted
+	var err error
+	if host == nil {
+		activity("waiting", "host_admission")
+		err = e.workerPhase(u, "host_admission", func() error {
+			if e.ports.Admit == nil {
+				return nil
+			}
+			var err error
+			host, err = e.ports.Admit(e.ctx, u)
+			return err
+		})
+	}
 	// Finalizers receive independent deadlines even when the work was cancelled.
 	finishHost := func() {
 		if host == nil {

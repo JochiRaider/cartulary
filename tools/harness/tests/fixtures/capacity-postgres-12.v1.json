@@ -1,4 +1,4 @@
 {
-  "schema_id": "cartulary.harness_capacity_override.v1",
+  "schema_id": "cartulary.harness_capacity_override.v2",
   "postgres_lanes": 12
 }

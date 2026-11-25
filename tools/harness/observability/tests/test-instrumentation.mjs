@@ -235,8 +235,8 @@ test("retained validation reconstructs path and target fields and rejects tamper
     seq: index + 1, monotonic_ms, event, unit_id: /^(run_|cleanup_)/u.test(event) ? "harness:run" : "a",
     status: ["completed", "run_completed", "cleanup_completed"].includes(event) ? "passed" : "running",
     needs: [], resource_claims: /^(run_|cleanup_)/u.test(event) ? {} : { cpu: 1, process: 1 }, service_dependencies: [], ...extra }));
-  const capability = { schema_id: "cartulary.harness_capability_snapshot.v1", cpu_tokens: 2, memory_bytes: 1024,
-    process_slots: 2, io_tokens: 1, postgres_lanes: 1, object_store_lanes: 1,
+  const capability = { schema_id: "cartulary.harness_capability_snapshot.v2", cpu_tokens: 2, memory_bytes: 1024,
+    process_slots: 2, io_tokens: 1, postgres_lanes: 1, postgres_generations: 1, object_store_lanes: 1,
     writable_volume: true, port_lanes: 1, services: {}, sources: {}, snapshot_digest: digest };
   const manifest = { schema_id: "cartulary.harness_run_manifest.v3", run_id: "synthetic", target: "test-slice",
     command_id: "cartulary.harness.command.test_slice.v2", declared_inputs: {}, source_commit: "a".repeat(40), source_state: "dirty",
@@ -262,7 +262,7 @@ test("retained validation reconstructs path and target fields and rejects tamper
   const records = [{ kind: "activity", local_start_ms: null, local_end_ms: null, anchors: [], ref: "activity:example", activity: "report_parse", unit_id: "a", invocation_id: null,
     allocation_ref: null, clock: "node_monotonic", clock_identity: "clock:example", resolution_ms: 0.000001, duration_ms: 5,
     availability: "available", outcome: "failed" }];
-  atomicLocalFile(path.join(dir, "diagnostics/execution-index.json"), JSON.stringify({ schema_id: "cartulary.harness_execution_index.v6", host_admission: { status: "complete", omitted_records: 0, records: [], records_digest: executionRecordsDigest([]) }, allocation_lifecycle: { status: "complete", omitted_records: 0, omitted_refs: [], records: [], records_digest: executionRecordsDigest([]) }, graph_clock: null,
+  atomicLocalFile(path.join(dir, "diagnostics/execution-index.json"), JSON.stringify({ schema_id: "cartulary.harness_execution_index.v7", host_admission: { status: "complete", omitted_records: 0, records: [], records_digest: executionRecordsDigest([]) }, allocation_lifecycle: { status: "complete", omitted_records: 0, omitted_refs: [], records: [], records_digest: executionRecordsDigest([]) }, graph_clock: null,
     run_id: manifest.run_id, source_digest: digest, graph_digest: digest, policy_digest: digest, status: "complete", omitted_records: 0,
     omitted_refs: [], records, records_digest: executionRecordsDigest(records) }));
   await validateCanonicalRun(dir);
@@ -708,7 +708,7 @@ test("optional completeness is reported independently while every published reco
         writeEvidenceFile(dir, "diagnostics/resource-index.json", index);
         if (status !== "collector_failed") atomicLocalFile(path.join(dir, "diagnostics/resource-samples.ndjson"), readFileSync(path.join(sampled.dir, "diagnostics/resource-samples.ndjson")));
         writeEvidenceFile(dir, "diagnostics/execution-index.json", {
-          schema_id: "cartulary.harness_execution_index.v6", host_admission: { status: "complete", omitted_records: 0, records: [], records_digest: executionRecordsDigest([]) }, allocation_lifecycle: { status: "complete", omitted_records: 0, omitted_refs: [], records: [], records_digest: executionRecordsDigest([]) }, graph_clock: null,
+          schema_id: "cartulary.harness_execution_index.v7", host_admission: { status: "complete", omitted_records: 0, records: [], records_digest: executionRecordsDigest([]) }, allocation_lifecycle: { status: "complete", omitted_records: 0, omitted_refs: [], records: [], records_digest: executionRecordsDigest([]) }, graph_clock: null,
           run_id: f.manifest.run_id, source_digest: f.manifest.source_digest, graph_digest: f.manifest.graph_digest,
           policy_digest: f.manifest.instrumentation.policy_digest, status: "partial", omitted_records: 1,
           omitted_refs: [], records: [], records_digest: executionRecordsDigest([]),

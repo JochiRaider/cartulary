@@ -25,7 +25,7 @@ func TestCapabilityCapture(t *testing.T) {
 		got := snapshot.Capacities()
 		want := map[string]int64{
 			"cpu": 19, "io": 38, "memory_mb": 32768, "process": 95394,
-			"postgres": 16, "postgres_heavy": 4, "object_store": 8, "port_lane": 32,
+			"postgres": 8, "postgres_generation": 8, "postgres_heavy": 4, "object_store": 8, "port_lane": 32,
 			"browser_stack": 32, "service_stack": 32, "volume": 1,
 		}
 		for name, expected := range want {

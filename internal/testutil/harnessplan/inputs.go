@@ -85,7 +85,7 @@ func Load(root string) (*Inputs, error) {
 	if err := readDocument(root, topologyPath, "cartulary.execution_topology.v16", &inputs.Topology); err != nil {
 		return nil, err
 	}
-	if err := readDocument(root, registryPath, "cartulary.scheduler_resource_registry.v9", &inputs.Registry); err != nil {
+	if err := readDocument(root, registryPath, "cartulary.scheduler_resource_registry.v10", &inputs.Registry); err != nil {
 		return nil, err
 	}
 	if err := readDocument(root, taskSurfacePath, "cartulary.task_surface_owner.v4", &inputs.TaskSurface); err != nil {

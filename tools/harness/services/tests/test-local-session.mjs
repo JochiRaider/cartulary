@@ -253,7 +253,7 @@ test("local lifecycle holds its lock and publishes no service until queued admis
 test("nested persistent startup shares its ancestor envelope and retains residency after the ancestor exits", async () => {
   const fixture = sessionFixture();
   const root = path.join(fixture.temporary, "admission");
-  const capacities = hostClaims({ cpu: 2, io: 4, memory_mb: 1536, process: 32, object_store: 1, postgres: 1, port_lane: 2, volume: 1 });
+  const capacities = hostClaims({ cpu: 2, io: 4, memory_mb: 1536, process: 32, object_store: 1, postgres: 1, postgres_generation: 1, port_lane: 2, volume: 1 });
   const leases = [];
   const pendingToken = "c".repeat(32), contenderToken = "d".repeat(32);
   let resident;
@@ -303,8 +303,8 @@ test("nested persistent startup shares its ancestor envelope and retains residen
 
 test("queued physical admission withdraws on cancellation and retains residents until exact release", async () => {
   const root = mkdtempSync(path.join(tmpdir(), "cartulary-session-admission-"));
-  const capacities = hostClaims({ cpu: 2, io: 1, memory_mb: 1024, process: 20, object_store: 1, postgres: 1, port_lane: 2 });
-  const resident = { token: "f".repeat(32), reference: path.join(root, "resident.json"), claims: hostClaims({ memory_mb: 512, process: 10, object_store: 1, postgres: 1, port_lane: 2 }), capacities, parent: null };
+  const capacities = hostClaims({ cpu: 2, io: 1, memory_mb: 1024, process: 20, object_store: 1, postgres_generation: 1, port_lane: 2 });
+  const resident = { token: "f".repeat(32), reference: path.join(root, "resident.json"), claims: hostClaims({ memory_mb: 512, process: 10, object_store: 1, postgres_generation: 1, port_lane: 2 }), capacities, parent: null };
   const leases = [];
   const pending = [];
   const cleanup = new AbortController();
@@ -552,12 +552,12 @@ test("status rejects malformed, permissive, wrong-owner, and symlink descriptors
     linkSync(fixture.sessionFile, alias);
     assert.throws(() => readLocalSessionDescriptor(fixture.sessionFile), /unsafe local file/u);
     rmSync(alias);
-    writeFileSync(fixture.sessionFile, `{"schema_id":"cartulary.test_services.local_session.v4",${bytes.slice(bytes.indexOf("{") + 1)}`);
+    writeFileSync(fixture.sessionFile, `{"schema_id":"cartulary.test_services.local_session.v5",${bytes.slice(bytes.indexOf("{") + 1)}`);
     assert.throws(() => readLocalSessionDescriptor(fixture.sessionFile), /duplicate/u);
     privateJSON(fixture.sessionFile, { ...JSON.parse(bytes), schema_id: "cartulary.test_services.local_session.v2" });
     assert.throws(() => readLocalSessionDescriptor(fixture.sessionFile), /schema|validation/u);
     writeFileSync(fixture.sessionFile, bytes);
-    assert.equal(readLocalSessionDescriptor(fixture.sessionFile).schema_id, "cartulary.test_services.local_session.v4");
+    assert.equal(readLocalSessionDescriptor(fixture.sessionFile).schema_id, "cartulary.test_services.local_session.v5");
     privateDirectory(directory);
     writeFileSync(fixture.sessionFile, "{not-json\n", { mode: 0o600 });
     assert.equal(localSessionStatus({ root: repositoryRoot, binary: fixture.binary, sessionFile: fixture.sessionFile }).state, "invalid");

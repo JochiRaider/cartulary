@@ -27,8 +27,8 @@ export function buildReaderEvidence({ runID, target = "test-slice", commandID,
     seq: index + 1, monotonic_ms, event, unit_id: /^(run_|cleanup_)/u.test(event) ? "harness:run" : unitID,
     status: event === "cleanup_completed" ? "passed" : [terminalEvent, "run_completed"].includes(event) ? outcome : "running",
     needs: [], resource_claims: /^(run_|cleanup_)/u.test(event) ? {} : { cpu: 1, process: 1 }, service_dependencies: [], ...extra }));
-  const capability = { schema_id: "cartulary.harness_capability_snapshot.v1", cpu_tokens: 2, memory_bytes: 1024,
-    process_slots: 2, io_tokens: 1, postgres_lanes: 1, object_store_lanes: 1,
+  const capability = { schema_id: "cartulary.harness_capability_snapshot.v2", cpu_tokens: 2, memory_bytes: 1024,
+    process_slots: 2, io_tokens: 1, postgres_lanes: 1, postgres_generations: 1, object_store_lanes: 1,
     writable_volume: true, port_lanes: 1, services: {}, sources: {}, snapshot_digest: digest };
   const manifest = { schema_id: "cartulary.harness_run_manifest.v3", run_id: runID, target,
     command_id: commandID, declared_inputs: {}, source_commit: "a".repeat(40), source_state: "dirty",
@@ -57,7 +57,7 @@ export function buildReaderEvidence({ runID, target = "test-slice", commandID,
   const records = [{ kind: "activity", local_start_ms: null, local_end_ms: null, anchors: [], ref: "activity:example", activity: "report_parse", unit_id: unitID, invocation_id: null,
     allocation_ref: null, clock: "node_monotonic", clock_identity: "clock:example", resolution_ms: 0.000001, duration_ms: 5,
     availability: "available", outcome: "failed" }];
-  files["diagnostics/execution-index.json"] = { schema_id: "cartulary.harness_execution_index.v6", host_admission: { status: "complete", omitted_records: 0, records: [], records_digest: executionRecordsDigest([]) }, allocation_lifecycle: { status: "complete", omitted_records: 0, omitted_refs: [], records: [], records_digest: executionRecordsDigest([]) }, graph_clock: null,
+  files["diagnostics/execution-index.json"] = { schema_id: "cartulary.harness_execution_index.v7", host_admission: { status: "complete", omitted_records: 0, records: [], records_digest: executionRecordsDigest([]) }, allocation_lifecycle: { status: "complete", omitted_records: 0, omitted_refs: [], records: [], records_digest: executionRecordsDigest([]) }, graph_clock: null,
     run_id: manifest.run_id, source_digest: digest, graph_digest: digest, policy_digest: digest, status: "complete", omitted_records: 0,
     omitted_refs: [], records, records_digest: executionRecordsDigest(records) };
   return { manifest, summary, events, files };

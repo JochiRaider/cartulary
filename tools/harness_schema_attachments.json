@@ -373,16 +373,16 @@
       "validation": "harness.json_shape_check"
     },
     {
-      "schema_id": "cartulary.harness_capability_snapshot.v1",
-      "path": "tools/schemas/cartulary.harness_capability_snapshot.v1.schema.json",
+      "schema_id": "cartulary.harness_capability_snapshot.v2",
+      "path": "tools/schemas/cartulary.harness_capability_snapshot.v2.schema.json",
       "classification": "public_contract",
       "producer": "unified harness scheduler",
       "validation": "harness.json_shape_check",
       "foundation_runtime": true
     },
     {
-      "schema_id": "cartulary.harness_capacity_override.v1",
-      "path": "tools/schemas/cartulary.harness_capacity_override.v1.schema.json",
+      "schema_id": "cartulary.harness_capacity_override.v2",
+      "path": "tools/schemas/cartulary.harness_capacity_override.v2.schema.json",
       "classification": "public_contract",
       "producer": "unified harness capability resolver",
       "validation": "harness.json_shape_check",
@@ -421,8 +421,8 @@
       "foundation_runtime": true
     },
     {
-      "schema_id": "cartulary.harness_critical_path.v4",
-      "path": "tools/schemas/cartulary.harness_critical_path.v4.schema.json",
+      "schema_id": "cartulary.harness_critical_path.v5",
+      "path": "tools/schemas/cartulary.harness_critical_path.v5.schema.json",
       "classification": "public_contract",
       "producer": "harness critical-path diagnostics",
       "validation": "harness.json_shape_check"
@@ -472,8 +472,8 @@
       "validation": "harness.json_shape_check"
     },
     {
-      "schema_id": "cartulary.harness_execution_index.v6",
-      "path": "tools/schemas/cartulary.harness_execution_index.v6.schema.json",
+      "schema_id": "cartulary.harness_execution_index.v7",
+      "path": "tools/schemas/cartulary.harness_execution_index.v7.schema.json",
       "classification": "public_contract",
       "producer": "harness execution diagnostics",
       "validation": "harness.json_shape_check",
@@ -526,8 +526,8 @@
       "validation": "harness.json_shape_check"
     },
     {
-      "schema_id": "cartulary.harness_host_admission_record.v3",
-      "path": "tools/schemas/cartulary.harness_host_admission_record.v3.schema.json",
+      "schema_id": "cartulary.harness_host_admission_record.v4",
+      "path": "tools/schemas/cartulary.harness_host_admission_record.v4.schema.json",
       "classification": "shared_component",
       "producer": "native host admission diagnostics",
       "validation": "harness.json_shape_check",
@@ -697,8 +697,8 @@
       "foundation_runtime": true
     },
     {
-      "schema_id": "cartulary.harness_resident_allocation.v2",
-      "path": "tools/schemas/cartulary.harness_resident_allocation.v2.schema.json",
+      "schema_id": "cartulary.harness_resident_allocation.v3",
+      "path": "tools/schemas/cartulary.harness_resident_allocation.v3.schema.json",
       "classification": "shared_component",
       "producer": "native resource admission owner",
       "validation": "harness.json_shape_check",
@@ -1488,8 +1488,8 @@
       "validation": "harness.json_shape_check"
     },
     {
-      "schema_id": "cartulary.scheduler_resource_registry.v9",
-      "path": "tools/schemas/cartulary.scheduler_resource_registry.v9.schema.json",
+      "schema_id": "cartulary.scheduler_resource_registry.v10",
+      "path": "tools/schemas/cartulary.scheduler_resource_registry.v10.schema.json",
       "classification": "owner_input",
       "producer": "canonical scheduler resource owner",
       "validation": "harness.json_shape_check"
@@ -1665,8 +1665,8 @@
       "validation": "harness.json_shape_check"
     },
     {
-      "schema_id": "cartulary.test_services.local_session.v4",
-      "path": "tools/schemas/cartulary.test_services.local_session.v4.schema.json",
+      "schema_id": "cartulary.test_services.local_session.v5",
+      "path": "tools/schemas/cartulary.test_services.local_session.v5.schema.json",
       "classification": "public_contract",
       "producer": "local service session manager",
       "validation": "harness.json_shape_check"

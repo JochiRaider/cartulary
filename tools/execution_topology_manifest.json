@@ -54,7 +54,7 @@
         "cpu": 2,
         "io": 1,
         "memory_mb": 640,
-        "postgres": 4,
+        "postgres": 2,
         "process": 4
       },
       "runner_timeout_ms": 3600000
@@ -65,7 +65,7 @@
         "cpu": 2,
         "io": 1,
         "memory_mb": 640,
-        "postgres": 2,
+        "postgres": 1,
         "process": 4
       }
     },
@@ -100,7 +100,7 @@
         "memory_mb": 2048,
         "object_store": 1,
         "port_lane": 5,
-        "postgres": 2,
+        "postgres": 1,
         "process": 20
       }
     },
@@ -617,9 +617,9 @@
   "physical_resource_claims": {
     "postgres": {
       "memory_mb": 256,
-      "process": 8,
       "port_lane": 1,
-      "postgres": 1,
+      "postgres_generation": 1,
+      "process": 8,
       "volume": 1
     },
     "object_store": {

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.scheduler_resource_registry.v9",
+  "$id": "cartulary.scheduler_resource_registry.v10",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -12,10 +12,10 @@
   ],
   "properties": {
     "schema_id": {
-      "const": "cartulary.scheduler_resource_registry.v9"
+      "const": "cartulary.scheduler_resource_registry.v10"
     },
     "capacity_override_schema": {
-      "const": "cartulary.harness_capacity_override.v1"
+      "const": "cartulary.harness_capacity_override.v2"
     },
     "capacity_policies": {
       "type": "object",
@@ -26,6 +26,7 @@
         "memory_bytes",
         "object_store_lanes",
         "port_lanes",
+        "postgres_generations",
         "postgres_heavy_lanes",
         "postgres_lanes",
         "process_slots",
@@ -58,6 +59,9 @@
         },
         "writable_volume": {
           "$ref": "#/$defs/writable_root"
+        },
+        "postgres_generations": {
+          "$ref": "#/$defs/fixed_cpu_bounded"
         }
       }
     },

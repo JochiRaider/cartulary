@@ -245,6 +245,7 @@
           "TestAdmissionFailsWhenNoLiveOwnerCanRelieve",
           "TestAdmissionQuietOrdering",
           "TestAdmissionStateRejection",
+          "TestAdmissionViewAndSingleAttempt",
           "TestAdmissionWeightedTree"
         ]
       },

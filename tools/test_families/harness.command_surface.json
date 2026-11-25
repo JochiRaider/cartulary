@@ -625,6 +625,7 @@
           "TestRuntimeGoTemporaryWork",
           "TestRuntimeHostAdmission",
           "TestRuntimeHostPressure",
+          "TestRuntimeLedgerAdmission",
           "TestRuntimeLifecycle",
           "TestRuntimeObservations",
           "TestRuntimePreparationDiagnostic",

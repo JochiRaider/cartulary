@@ -55,6 +55,8 @@ type Resident struct {
 	Parent     *string    `json:"parent"`
 }
 type Request struct {
+	// alive caches process liveness across many evaluations of one view.
+	alive                map[Proof]bool
 	retirementDiagnostic *RetirementDecision
 	diagnostic           *Decision      // Native-only transient capture; never part of the admission protocol or state.
 	blocked              *Unsatisfiable // Native-only transient capture of an ungranted admit's unsatisfiability.
@@ -334,7 +336,10 @@ func Quiet(root string) (bool, error) {
 	return false, nil
 }
 func mutate(s *state, r Request) (bool, error) {
-	alive := map[Proof]bool{}
+	alive := r.alive
+	if alive == nil {
+		alive = map[Proof]bool{}
+	}
 	live := func(p Proof) bool { return alive[p] }
 	for _, l := range s.Leases {
 		for _, p := range append(append([]Proof{}, l.Guards...), l.Process) {
@@ -1006,79 +1011,99 @@ func cleanupHeadroom(resource string) float64 {
 // Transact owns both the kernel mutex and the complete state transition. It
 // never waits for a parent event loop while holding the lock.
 func Transact(ctx context.Context, r Request) (bool, error) {
-	if !filepath.IsAbs(r.Root) || filepath.Clean(r.Root) != r.Root || !tokenPattern.MatchString(r.Token) {
+	if !tokenPattern.MatchString(r.Token) {
 		return false, ErrConflict
 	}
-	directory, err := harnesslocal.PrivateDirectory(r.Root)
+	var value bool
+	err := withState(ctx, r.Root, true, func(s *state) error {
+		var err error
+		value, err = mutate(s, r)
+		return err
+	})
+	return value, err
+}
+
+// withState runs fn on the ledger state under the host-wide mutex and, when
+// write is set, replaces the state with fn's result.
+func withState(ctx context.Context, root string, write bool, fn func(*state) error) error {
+	if !filepath.IsAbs(root) || filepath.Clean(root) != root {
+		return ErrConflict
+	}
+	directory, err := harnesslocal.PrivateDirectory(root)
 	if err != nil {
-		return false, err
+		return err
 	}
 	defer directory.Close()
 	fd, err := syscall.Openat(int(directory.Fd()), "mutex", syscall.O_RDONLY|syscall.O_CREAT|syscall.O_NOFOLLOW|syscall.O_NONBLOCK|syscall.O_CLOEXEC, 0600)
 	if err != nil {
-		return false, err
+		return err
 	}
 	lock := os.NewFile(uintptr(fd), "admission-mutex")
 	defer lock.Close()
 	var stat syscall.Stat_t
 	if err := syscall.Fstat(fd, &stat); err != nil {
-		return false, err
+		return err
 	}
 	if stat.Mode&syscall.S_IFMT != syscall.S_IFREG || stat.Mode&0777 != 0600 || stat.Uid != uint32(os.Getuid()) || stat.Nlink != 1 || stat.Size != 0 {
-		return false, ErrConflict
+		return ErrConflict
 	}
 	for {
 		if err := ctx.Err(); err != nil {
-			return false, err
+			return err
 		}
 		err = syscall.Flock(fd, syscall.LOCK_EX|syscall.LOCK_NB)
 		if err == nil {
 			break
 		}
 		if err != syscall.EWOULDBLOCK && err != syscall.EAGAIN {
-			return false, err
+			return err
 		}
 		select {
 		case <-ctx.Done():
-			return false, ctx.Err()
+			return ctx.Err()
 		case <-time.After(time.Millisecond):
 		}
 	}
 	defer syscall.Flock(fd, syscall.LOCK_UN)
 	current, err := os.Lstat(fmt.Sprintf("/proc/self/fd/%d/mutex", directory.Fd()))
 	if err != nil {
-		return false, err
+		return err
 	}
 	opened, err := lock.Stat()
 	if err != nil || !os.SameFile(current, opened) {
-		return false, ErrConflict
+		return ErrConflict
 	}
-	if err := harnesslocal.CheckDirectory(directory, r.Root); err != nil {
-		return false, err
+	if err := harnesslocal.CheckDirectory(directory, root); err != nil {
+		return err
 	}
 	s, err := readState(directory, false)
 	if err != nil {
-		return false, err
+		return err
 	}
-	value, err := mutate(s, r)
+	before, err := json.Marshal(s)
 	if err != nil {
-		return false, err
+		return err
+	}
+	if err := fn(s); err != nil || !write {
+		return err
 	}
 	data, err := json.Marshal(s)
 	if err != nil || len(data)+1 > 4*1024*1024 {
-		return false, ErrConflict
+		return ErrConflict
+	}
+	// An unchanged ledger is not rewritten, so a retry that changes nothing
+	// wakes no waiter (TH-HARNESS-REQ-803 waiters wake on change).
+	if bytes.Equal(before, data) {
+		return nil
 	}
 	data = append(data, '\n')
 	if err := ctx.Err(); err != nil {
-		return false, err
+		return err
 	}
 	if err := harnesslocal.ReplaceFileAt(directory, "state.json", data); err != nil {
-		return false, err
+		return err
 	}
-	if err := harnesslocal.CheckDirectory(directory, r.Root); err != nil {
-		return false, err
-	}
-	return value, nil
+	return harnesslocal.CheckDirectory(directory, root)
 }
 func Main(args []string, out io.Writer) int {
 	if len(args) != 0 {

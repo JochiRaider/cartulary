@@ -92,7 +92,7 @@ test("planning excludes documentation before filesystem access", () => {
 test("planning capacity comes from declared target inputs, not another command's environment", (t) => {
   const scratch = createScratch(t, "target-plan-capacity-");
   const file = path.join(scratch, "capacity.json");
-  writeFileSync(file, JSON.stringify({ schema_id: "cartulary.harness_capacity_override.v1", cpu_tokens: 1, postgres_lanes: 1 }));
+  writeFileSync(file, JSON.stringify({ schema_id: "cartulary.harness_capacity_override.v2", cpu_tokens: 1, postgres_lanes: 1 }));
   const original = process.env.CARTULARY_HARNESS_CAPACITY_OVERRIDE;
   process.env.CARTULARY_HARNESS_CAPACITY_OVERRIDE = path.join(scratch, "missing-ambient.json");
   try {

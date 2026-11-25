@@ -356,7 +356,7 @@ type HostCapacity struct {
 // for a plan.
 func CaptureHostCapacity(root, overridePath string) (HostCapacity, error) {
 	var registry ResourceRegistry
-	if err := readDocument(root, registryPath, "cartulary.scheduler_resource_registry.v9", &registry); err != nil {
+	if err := readDocument(root, registryPath, "cartulary.scheduler_resource_registry.v10", &registry); err != nil {
 		return HostCapacity{}, err
 	}
 	snapshot, err := captureHost(root, registry, overridePath)

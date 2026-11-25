@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.harness_resident_allocation.v2",
+  "$id": "cartulary.harness_resident_allocation.v3",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -10,7 +10,7 @@
   ],
   "properties": {
     "schema_id": {
-      "const": "cartulary.harness_resident_allocation.v2"
+      "const": "cartulary.harness_resident_allocation.v3"
     },
     "admission_root": {
       "type": "string",
@@ -64,6 +64,7 @@
         "object_store",
         "port_lane",
         "postgres",
+        "postgres_generation",
         "postgres_heavy",
         "process",
         "service_stack",
@@ -101,6 +102,11 @@
           "maximum": 9007199254740991
         },
         "postgres": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "postgres_generation": {
           "type": "integer",
           "minimum": 0,
           "maximum": 9007199254740991

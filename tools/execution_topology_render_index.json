@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 3,
-  "input_digest": "sha256:11fb359f50fb7c37324f2d6d791d18dcaa5b52ad83357af195fdf63b119e0399",
+  "input_digest": "sha256:f32a5baa310475e590574d0c9a9db238791964cdb250364483581c86c23d70e6",
   "inputs": [
     {
       "path": "contracts/performance/ac003.v2.json",
@@ -437,7 +437,7 @@
     {
       "path": "tools/execution_topology_manifest.json",
       "role": "execution_topology",
-      "hash": "sha256:722cc5131af7d949c19ce823de47872e8c45e9082ee110659d00f05507e5b938"
+      "hash": "sha256:d8f7ab6de989eab2b38256d4412eb3d889ff34aa3a9e45b70aeee858d776075f"
     },
     {
       "path": "tools/harness/browser/acquire-process.mjs",
@@ -822,7 +822,7 @@
     {
       "path": "tools/harness/contract/generated/admission-vocabulary.mjs",
       "role": "renderer_source",
-      "hash": "sha256:7a9e2356583306067b44b96c494d5f968e36585a79b0ecd6fc32dc93f7f6c5d8"
+      "hash": "sha256:99258d304f19ccf6469397f0ef737f6c4e5b4d7f73252f962394c96af5612875"
     },
     {
       "path": "tools/harness/contract/generated/instrumentation-definitions.mjs",
@@ -972,7 +972,7 @@
     {
       "path": "tools/harness/generated-artifacts/admission-vocabulary.mjs",
       "role": "renderer_source",
-      "hash": "sha256:a69de4bfbe717959df28a9dd519b3596529ea9c5cdeb8ca99669f4cf339ead77"
+      "hash": "sha256:1107a2c285bac0a775d6ce69a2a0424cfe03f5e187c94c1a3767299450bc626f"
     },
     {
       "path": "tools/harness/generated-artifacts/check-generated-artifact-policy.mjs",
@@ -1187,7 +1187,7 @@
     {
       "path": "tools/harness/scheduler/scheduler-resources.mjs",
       "role": "renderer_source",
-      "hash": "sha256:64dd69c872a7e4aa6f87c12b9a244a0070457c132f75c4cc3e0e4b9d84bb3257"
+      "hash": "sha256:4b674c0538ef2463723bb77b9cf6c4123d6784d4d4aeec961a5683a9b1b623d0"
     },
     {
       "path": "tools/harness/test-catalog/executable-files-cli.mjs",
@@ -1297,7 +1297,7 @@
     {
       "path": "tools/scheduler_resource_registry.json",
       "role": "scheduler_resource_registry",
-      "hash": "sha256:ab89dca2b731db0f5de52b59df13067d0102adb8edfa85ff358c9bcde2ea3323"
+      "hash": "sha256:0f287d6dffaa9262e075ba08c0aaef260af1e09e540e63887694846d459db7a6"
     },
     {
       "path": "tools/task_surface_owner.json",
@@ -1332,12 +1332,12 @@
     {
       "path": "tools/test_families/harness.command_surface.json",
       "role": "test_family_manifest",
-      "hash": "sha256:a47f537cd09aaf05bfec6c0a2d00f9486452ba410d5e98e078687ae07b403d0f"
+      "hash": "sha256:6e221dd24537ee2526a0b76515620d1a0dd1abdb85c263e8b4846784673aefea"
     },
     {
       "path": "tools/test_families/harness.evidence_accounting.json",
       "role": "test_family_manifest",
-      "hash": "sha256:6a9fcbb2e7ab3ae596008e45a932940e0236bf9fa5fef8654c3139403495cab2"
+      "hash": "sha256:8dcd3df2943d38c309d6dec5c8c850059f86bfac05acd212eba91f3114e23a99"
     },
     {
       "path": "tools/test_families/harness.generated_artifacts.json",

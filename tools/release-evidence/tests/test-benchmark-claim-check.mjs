@@ -119,8 +119,8 @@ function packet({ criterion = "AC-043", mutate = {} } = {}) {
   const runManifest = change("runManifest", {
     schema_id: "cartulary.harness_run_manifest.v3", run_id: `synthetic-${ordinal}`, target: "test-slice", command_id: "cartulary.harness.command.test_slice.v2",
     declared_inputs: {}, source_commit: "a".repeat(40), source_state: "clean", source_digest: source, toolchain_digest: source, system_digest: source, graph_digest: source,
-    go_worker_budget: 2, capability_snapshot: { schema_id: "cartulary.harness_capability_snapshot.v1", cpu_tokens: 2, memory_bytes: 1024, process_slots: 2, io_tokens: 1,
-      postgres_lanes: 1, object_store_lanes: 1, writable_volume: true, port_lanes: 1, services: {}, sources: {}, snapshot_digest: source },
+    go_worker_budget: 2, capability_snapshot: { schema_id: "cartulary.harness_capability_snapshot.v2", cpu_tokens: 2, memory_bytes: 1024, process_slots: 2, io_tokens: 1,
+      postgres_lanes: 1, postgres_generations: 1, object_store_lanes: 1, writable_volume: true, port_lanes: 1, services: {}, sources: {}, snapshot_digest: source },
     cache_mode: "off", instrumentation: { mode: "off", policy_digest: source }, started_at: "2026-10-14T00:00:00.000Z",
   });
   const runSummary = change("runSummary", {

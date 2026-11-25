@@ -88,12 +88,74 @@ func (p *Production) ConfigureAdmission(root string, parent *string, capacities 
 
 }
 
+// Admit waits for admission: dedicated owners and nested callers that hold
+// no scheduler of their own.
 func (p *Production) Admit(ctx context.Context, requirement WorkRequirement) (*harnessadmission.Lease, func(context.Context) error, error) {
+	lease, finish, _, err := p.admit(ctx, requirement, false)
+	return lease, finish, err
+}
+
+// TryAdmit makes one admission attempt for a graph scheduler that has ranked
+// this work and found it admissible on a ledger view (G30). Denied work
+// returns its logical reservations and keeps no queue position; granted is
+// false and the error nil.
+func (p *Production) TryAdmit(ctx context.Context, requirement WorkRequirement) (*harnessadmission.Lease, func(context.Context) error, bool, error) {
+	return p.admit(ctx, requirement, true)
+}
+
+// Evaluate decides requirement against one ledger view without reserving a
+// slot or creating a resident record: charged residents count once, the rest
+// are prospective, and a renderer requirement adds one renderer slot.
+func (p *Production) Evaluate(view *harnessadmission.View, requirement WorkRequirement) (harnessadmission.Evaluation, error) {
+	r := p.Options.residency
+	residents := []harnessadmission.Resident{}
+	prospective := func(claims map[string]int64) error {
+		resident, err := harnessadmission.ProspectiveResident(quantities(claims), r.capacities, r.parent)
+		if err == nil {
+			residents = append(residents, resident)
+		}
+		return err
+	}
+	for _, resident := range requirement.Residents {
+		if resident.Scope == ResidentAttached {
+			continue
+		}
+		r.mu.Lock()
+		record := r.allocations[resident.Key]
+		r.mu.Unlock()
+		if record != nil {
+			residents = append(residents, record.Allocation)
+			continue
+		}
+		if err := prospective(resident.Claims); err != nil {
+			return harnessadmission.Evaluation{}, err
+		}
+	}
+	if requirement.Renderer != "none" && requirement.Renderer != "" {
+		claims := requirement.RendererClaims
+		if len(claims) == 0 {
+			physical, err := p.physicalClaims()
+			if err != nil {
+				return harnessadmission.Evaluation{}, err
+			}
+			claims = physical["renderer"]
+		}
+		if err := prospective(claims); err != nil {
+			return harnessadmission.Evaluation{}, err
+		}
+	}
+	return view.Evaluate(quantities(requirement.Active), r.capacities, r.parent, requirement.Exclusive, residents)
+}
+
+// AdmissionRoot is the ledger this production owner admits against.
+func (p *Production) AdmissionRoot() string { return p.Options.residency.root }
+
+func (p *Production) admit(ctx context.Context, requirement WorkRequirement, try bool) (*harnessadmission.Lease, func(context.Context) error, bool, error) {
 	if err := validateServiceRequest(requirement.Request); err != nil {
-		return nil, nil, err
+		return nil, nil, false, err
 	}
 	if err := p.validateConsumer(requirement); err != nil {
-		return nil, nil, err
+		return nil, nil, false, err
 	}
 	r := p.Options.residency
 	work := &admittedWork{requirement: requirement}
@@ -104,7 +166,7 @@ func (p *Production) Admit(ctx context.Context, requirement WorkRequirement) (*h
 		p.retireMu.Unlock()
 		endObservation()
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, false, err
 		}
 	}
 	releaseStack := func() {}
@@ -181,12 +243,18 @@ func (p *Production) Admit(ctx context.Context, requirement WorkRequirement) (*h
 	}
 
 	var err error
-	work.host, err = harnessadmission.AcquireWithPreparedResidents(ctx, r.root, quantities(requirement.Active), r.capacities, r.parent, requirement.Exclusive, func(context.Context) ([]harnessadmission.Resident, error) {
+	prepare := func(context.Context) ([]harnessadmission.Resident, error) {
 		if err := reserve(); err != nil {
 			return nil, err
 		}
 		return residents, nil
-	}, waiting)
+	}
+	granted := true
+	if try {
+		work.host, granted, err = harnessadmission.TryAcquireWithPreparedResidents(ctx, r.root, quantities(requirement.Active), r.capacities, r.parent, requirement.Exclusive, prepare)
+	} else {
+		work.host, err = harnessadmission.AcquireWithPreparedResidents(ctx, r.root, quantities(requirement.Active), r.capacities, r.parent, requirement.Exclusive, prepare, waiting)
+	}
 	finish := func(ctx context.Context) error {
 		defer releaseStack()
 		work.mu.Lock()
@@ -206,21 +274,21 @@ func (p *Production) Admit(ctx context.Context, requirement WorkRequirement) (*h
 		p.workMu.Unlock()
 		return result
 	}
-	if err != nil {
+	if err != nil || !granted {
 		// The admission owner settles its pending request before return. Keep
 		// unstarted slots reusable; their proofs settle with the existing owner.
 		yieldReservations()
-		return nil, nil, err
+		return nil, nil, false, err
 	}
 	for _, record := range records {
 		if err := p.Options.Runtime.RecordResource("resident_allocation", record.Allocation.Reference, "acquired"); err != nil {
-			return work.host, finish, err
+			return work.host, finish, true, err
 		}
 	}
 	p.workMu.Lock()
 	p.work[requirement.Request.UnitID] = work
 	p.workMu.Unlock()
-	return work.host, finish, nil
+	return work.host, finish, true, nil
 }
 
 func (p *Production) Acquire(ctx context.Context, request Request) (*WorkLease, error) {

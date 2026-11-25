@@ -142,6 +142,11 @@ func acquire(ctx context.Context, root string, claims, capacities Quantities, pa
 	// decision unchanged on the next round can never be granted: waiting would
 	// hold the queue position forever (TH-HARNESS-REQ-803).
 	previous := ""
+	// Waiters wake when any process changes the ledger (G16), with a bounded
+	// fallback so a dead owner's capacity is still reclaimed.
+	var changes <-chan struct{}
+	watchCtx, stopWatch := context.WithCancel(ctx)
+	defer stopWatch()
 	for {
 		var admitted bool
 		var blocked Unsatisfiable
@@ -187,10 +192,16 @@ func acquire(ctx context.Context, root string, claims, capacities Quantities, pa
 			}
 			return nil, err
 		}
+		if changes == nil {
+			if watched, err := Watch(watchCtx, root); err == nil {
+				changes = watched
+			}
+		}
 		done := Phase(ctx, "admission_wait")
-		timer := time.NewTimer(50 * time.Millisecond)
+		timer := time.NewTimer(time.Second)
 		select {
 		case <-ctx.Done():
+		case <-changes:
 		case <-timer.C:
 		}
 		timer.Stop()

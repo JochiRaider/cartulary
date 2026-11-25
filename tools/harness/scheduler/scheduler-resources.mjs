@@ -12,6 +12,7 @@ const expectedResources = [
   "object_store",
   "port_lane",
   "postgres",
+  "postgres_generation",
   "postgres_heavy",
   "process",
   "service_stack",
@@ -36,10 +37,10 @@ export function validateSchedulerResourceRegistrySemantics(
   ) {
     throw new Error(`${label} has unexpected fields`);
   }
-  if (registry.schema_id !== "cartulary.scheduler_resource_registry.v9") {
+  if (registry.schema_id !== "cartulary.scheduler_resource_registry.v10") {
     throw new Error(`${label} has the wrong schema ID`);
   }
-  if (registry.capacity_override_schema !== "cartulary.harness_capacity_override.v1") {
+  if (registry.capacity_override_schema !== "cartulary.harness_capacity_override.v2") {
     throw new Error(`${label} must bind the canonical capacity override`);
   }
   if (
@@ -55,6 +56,7 @@ export function validateSchedulerResourceRegistrySemantics(
     "memory_bytes",
     "object_store_lanes",
     "port_lanes",
+    "postgres_generations",
     "postgres_heavy_lanes",
     "postgres_lanes",
     "process_slots",
@@ -72,6 +74,7 @@ export function validateSchedulerResourceRegistrySemantics(
     memory_bytes: "host_memory_cgroup_bounded",
     object_store_lanes: "fixed_cpu_bounded",
     port_lanes: "fixed_cpu_bounded",
+    postgres_generations: "fixed_cpu_bounded",
     postgres_heavy_lanes: "fixed_postgres_bounded",
     postgres_lanes: "fixed_cpu_bounded",
     process_slots: "process_limit_with_margin",
@@ -92,7 +95,7 @@ export function validateSchedulerResourceRegistrySemantics(
       `${label}.capacity_policies.cpu_tokens.safety_margin_percent must be an integer from 0 through 100`,
     );
   }
-  for (const field of ["postgres_lanes", "object_store_lanes", "port_lanes"]) {
+  for (const field of ["postgres_lanes", "postgres_generations", "object_store_lanes", "port_lanes"]) {
     const policy = registry.capacity_policies[field];
     if (!Number.isSafeInteger(policy.default) || policy.default < 1 || policy.default > 1024 ||
         policy.minimum !== 1 || !Number.isSafeInteger(policy.maximum_cpu_multiplier) ||

@@ -68,7 +68,7 @@
       "$ref": "#/$defs/digest"
     },
     "capability_snapshot": {
-      "$ref": "cartulary.harness_capability_snapshot.v1"
+      "$ref": "cartulary.harness_capability_snapshot.v2"
     },
     "go_worker_budget": {
       "type": "integer",
