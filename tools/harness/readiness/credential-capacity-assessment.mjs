@@ -45,7 +45,7 @@ try {
   if (measurement.stdout.trim()) save("observations.json",JSON.parse(measurement.stdout));
   if (measurement.error || measurement.status!==0) throw new Error(measurement.stderr.trim() || "credential measurement failed");
   if (Math.abs(identity.elapsed_wall_ms-identity.elapsed_monotonic_ms)>1000) throw new Error("measurement clock discontinuity invalidated the run");
-  process.stdout.write("credential capacity assessment passed on the fixed WSL2 package profile\n");
+  process.stdout.write("credential capacity assessment passed on the fixed package profile\n");
  }
 } catch(error) {
  save("failure.json",{message:error.message});

@@ -15,7 +15,7 @@ import {CommandFailure, reportCommandFailure} from "../harness/runtime/command-f
 function command(binary,args,options={}) {
   const r=spawnSync(binary,args,{encoding:"utf8",timeout:180000,maxBuffer:16*1024*1024,...options});
   if(r.error || r.status!==0) {
-    const diagnostic = /^Windows boundary probe failed: [a-zA-Z0-9 :_-]+$/.test(r.stderr?.trim() || "") ? `: ${r.stderr.trim()}` : "";
+    const diagnostic = /^Package client probe failed: [a-zA-Z0-9 :_-]+$/.test(r.stderr?.trim() || "") ? `: ${r.stderr.trim()}` : "";
     const reasons = [...`${r.stdout || ""}\n${r.stderr || ""}`.matchAll(/(?:"reason_code"\s*:\s*"|reason_code=)([a-z0-9_]+)/g)].map(match => match[1]);
     const gate=[...`${r.stderr || ""}`.matchAll(/"gate":"([a-z_]+)"/g)].at(-1)?.[1] || "unspecified";
     throw new CommandFailure(`package platform command failed: ${path.basename(binary)} ${args[0] || ""} (status ${r.status}; gate ${gate}; reasons ${[...new Set(reasons)].join(",")})${diagnostic}`,
@@ -71,13 +71,15 @@ export function rendererProbe(work, artifacts, project, image, host, lsm) {
   }
 }
 
-export function windowsProbe(work,origin,credentials={}) {
-  const value=JSON.parse(command(path.join(work,"windows-probe.exe"),[],{input:JSON.stringify({origin,ca:readFileSync(path.join(work,"tls/ca.pem"),"utf8"),...credentials})}));
+// The client probe runs on the host, outside the package's containers, with an
+// empty environment: only the stdin trust and credentials reach it.
+export function clientProbe(work,origin,credentials={}) {
+  const value=JSON.parse(command(path.join(work,"client-probe"),[],{env:{},input:JSON.stringify({origin,ca:readFileSync(path.join(work,"tls/ca.pem"),"utf8"),...credentials})}));
   const policy=pins();
-  assert.equal(value.status,"pass");assert.equal(value.client_os,"windows");
+  assert.equal(value.status,"pass");assert.equal(value.client_os,"linux");
   assert.equal(value.toolchain,policy.go_toolchain);assert.equal(value.module_version,policy.cryptographic_module.service_version);
   assert.equal(value.module_selector,policy.cryptographic_module.selector);assert.equal(value.module_enabled,true);
-  assert.ok(Math.abs(Date.now()-value.unix_ms)<30000,"Windows/guest clock skew exceeds 30 seconds");
+  assert.ok(Math.abs(Date.now()-value.unix_ms)<30000,"client probe clock skew exceeds 30 seconds");
   return value;
 }
 
@@ -104,9 +106,9 @@ async function main() {
  }
  if(operation==="prepare") {
    verifyArchive(go,env);
-   const client=path.join(work,"windows-probe.exe");
-   goOutput(go,["build","-buildvcs=false","-o",client,"./tools/windowsprobe"],{...env,GOOS:"windows",GOARCH:"amd64"});
-   save(artifacts,"windows-client.crypto.json",buildReceipt(go,client,env));
+   const client=path.join(work,"client-probe");
+   goOutput(go,["build","-buildvcs=false","-o",client,"./tools/clientprobe"],{...env,GOOS:"linux",GOARCH:"amd64"});
+   save(artifacts,"client-probe.crypto.json",buildReceipt(go,client,env));
    const renderer=path.join(work,"render-probe");
    goOutput(go,["build","-buildvcs=false","-o",renderer,"./tools/renderprobe"],{...env,GOOS:"linux",GOARCH:"amd64"});
    chmodSync(renderer,0o555);
@@ -134,13 +136,13 @@ async function main() {
      }
    }
    save(artifacts,"environment.json",environment);
-   save(artifacts,"windows-https.json",windowsProbe(work,origin));
+   save(artifacts,"client-https.json",clientProbe(work,origin));
    return;
  }
  const operate=(action)=>command(path.join(work,"release/assets/scripts/package.sh"),[action],{env:{...process.env,CARTULARY_MVP_DIR:work},timeout:300000});
  const stages=[];
  const checkpoint=(stage)=>{stages.push(stage);save(artifacts,"certificate-replacement-progress.json",{completed:stages});};
- const before=windowsProbe(work,origin);
+ const before=clientProbe(work,origin);
  const formatIdentity=()=>compose("exec","-T","--user","postgres","postgres","psql","-U","postgres","-d","cartulary","-Atc","SELECT format_id FROM application_crypto_format");
  const admittedFormat=formatIdentity();
  assert.equal(admittedFormat,"cartulary.application_crypto_format.v1");
@@ -191,13 +193,13 @@ async function main() {
  checkpoint("renewed recovery credential and S3 transport admitted");
  operate("start");
  let after;
- for(let attempt=0;attempt<60;attempt++) {try {after=windowsProbe(work,origin);break;} catch {await delay(1000);}}
- assert.ok(after,"renewed application did not become ready from Windows");
+ for(let attempt=0;attempt<60;attempt++) {try {after=clientProbe(work,origin);break;} catch {await delay(1000);}}
+ assert.ok(after,"renewed application did not become ready for the client probe");
  assert.notEqual(before.leaf_sha256,after.leaf_sha256);
  const appID=compose("ps","-q","app");assert.match(appID,/^[a-f0-9]{64}$/);
  command("docker",["kill","--signal","KILL",appID]);operate("start");
  let restarted;
- for(let attempt=0;attempt<60;attempt++) {try {restarted=windowsProbe(work,origin);break;} catch {await delay(1000);}}
+ for(let attempt=0;attempt<60;attempt++) {try {restarted=clientProbe(work,origin);break;} catch {await delay(1000);}}
  assert.ok(restarted,"owned application did not recover after interruption");
  assert.equal(restarted.leaf_sha256,after.leaf_sha256);assert.equal(formatIdentity(),admittedFormat);
  save(artifacts,"certificate-replacement.json",{before,after,restarted,all_purpose_leaves_replaced:true,wrong_database_certificate_purpose_rejected:true,owned_services_recreated:true,owned_app_interruption_recovered:true,format_identity_preserved:true});

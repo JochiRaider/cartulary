@@ -281,6 +281,30 @@ rows (no placement justification).
      passes.
    - **Not reached.** `release-check` and `release-measure` did not run.
 
+   **Third attempt (2026-11-25, `20261125T001539Z-p82934`).** `ci` passed.
+   `release-check` failed in all three package smokes. Windows Smart App
+   Control blocked the unsigned `windows-probe.exe` that the smokes ran
+   through WSL interop.
+
+   - **The owner's direction.** The owner removed every Windows requirement
+     from the release tests, since the product is not expected to run on a
+     Windows server.
+   - **The client probe.** It is now `tools/clientprobe`, a Make-built Linux
+     helper run on the host, outside the package's containers, with an empty
+     environment and its CA trust on stdin. It keeps the verified TLS 1.3,
+     negative TLS, authenticated WSS, origin rejection and certificate
+     replacement checks, and writes `client-*.json` evidence.
+   - **The platform record.** `reference-platform.mjs` no longer runs
+     `powershell.exe`, `wsl.exe` or `wslinfo`, and no longer requires
+     Windows 11, a WSL2 kernel or Docker Desktop. It records the Ubuntu guest
+     and its Linux x86_64 Docker engine.
+   - **Verification.** The three smoke rows pass in isolation
+     (`20261125T005552Z-p16891`), as do the readiness contract row and
+     `make lint`.
+   - **Pending.** The matching amendment to Testing Harness §13.7, Core 00,
+     Core 04 §1.3 and the Reference Pack verifier paragraph awaits the
+     owner's approval.
+
 ### S1 result (2026-11-24)
 
 - **Rows.** 34 measurement rows and the 4 release package rows are

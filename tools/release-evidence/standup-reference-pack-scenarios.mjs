@@ -2,7 +2,7 @@
 // injection only; no alternate admission, verification, or recovery executor.
 import assert from "node:assert/strict";
 import {assertPackageQualificationSource, packageDestinationProject} from "./package-qualification-project.mjs";
-import {windowsProbe} from "./package-platform.mjs";
+import {clientProbe} from "./package-platform.mjs";
 import { createHash, createHmac, randomUUID } from "node:crypto";
 import { chmodSync, copyFileSync, mkdirSync, readFileSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -160,8 +160,8 @@ const incident = await source.post("/api/v1/incidents", "incident", { incident_k
 const incidentID = id(incident.incident_id);
 const recipient = await source.post(`/api/v1/incidents/${incidentID}/views/cartulary.view.parties.v1/rows`, "report-recipient", {"party.display_name":"Qualification recipient", "party.party_kind":"organization", "party.primary_email":"recipient@example.test"}, {status:201});
 const recipientPartition = `party:${id(recipient.row.record_id)}`;
-writeFileSync(path.join(artifacts,"windows-wss.json"), JSON.stringify(windowsProbe(work,origin,{cookie:source.cookieHeader(),incident:incidentID}),null,2));
-completed("Windows authenticated HTTPS/WSS with isolated trust and origin rejection");
+writeFileSync(path.join(artifacts,"client-wss.json"), JSON.stringify(clientProbe(work,origin,{cookie:source.cookieHeader(),incident:incidentID}),null,2));
+completed("client authenticated HTTPS/WSS with isolated trust and origin rejection");
 const snapshotJob = await source.post("/api/v1/snapshots", "snapshot", { incident_id: incidentID }, { status: 202 });
 const snapshot = id((await source.job(snapshotJob)).result_summary.resource_refs.find((ref) => ref.kind === "snapshot").id);
 const bindingSQL = `SELECT p.request_json->'source_capture'->'reference_packs' FROM reporting_snapshots s JOIN reporting_job_payloads p ON p.job_id=s.create_job_id WHERE s.snapshot_id='${snapshot}'`;
@@ -340,14 +340,14 @@ assert.equal(restoredExportHash,exportHash);
 recovered.operate("start");await recovered.ready();
 assert.equal(recovered.sql("SELECT count(*) FROM backup_sets WHERE consistency_point_at > now()-interval '24 hours'"),"1");
 assert.deepEqual(JSON.parse(recovered.sql(bindingSQL)),JSON.parse(binding));
-copyFileSync(path.join(work,"windows-probe.exe"),path.join(recoveredWork,"windows-probe.exe"));
-// Windows probe uses the independent target's explicitly provisioned TLS trust.
+copyFileSync(path.join(work,"client-probe"),path.join(recoveredWork,"client-probe"));
+// The client probe uses the independent target's explicitly provisioned TLS trust.
 mkdirSync(path.join(recoveredWork,"tls"));copyFileSync(path.join(work,"tls/ca.pem"),path.join(recoveredWork,"tls/ca.pem"));
 // Auth's Recovery contribution invalidates operational sessions. Credentials
 // and the separately held MFA factor establish a new post-restore session.
 assert.equal((await fetch(destinationOrigin+"/api/v1/auth/session",{headers:{Cookie:source.cookieHeader()},signal:AbortSignal.timeout(10000)})).status,401);
 await recovered.request("/api/v1/auth/login",{username:"admin@example.test",password:"ReplaceThisBootstrap1!",second_factor:{kind:"totp",assertion:{code:totp(retainedFactors.get(source))}}});
 assert.equal((await recovered.request("/api/v1/auth/session")).user_id,actor);
-writeFileSync(path.join(artifacts,"source-loss-windows.json"),JSON.stringify(windowsProbe(recoveredWork,destinationOrigin,{cookie:recovered.cookieHeader(),incident:incidentID}),null,2));
+writeFileSync(path.join(artifacts,"source-loss-client.json"),JSON.stringify(clientProbe(recoveredWork,destinationOrigin,{cookie:recovered.cookieHeader(),incident:incidentID}),null,2));
 writeFileSync(path.join(artifacts,"recovery.json"),JSON.stringify({backup_set_id:backup.backup_set_id,restore_result:restored.result,snapshot_id:snapshot,pack_set_id:selected,rendered_releases:renderedReleases,source_services_destroyed:true,source_configuration_removed:true,exact_retry:true,fresh_backup_gate:true,prior_session_rejected:true,fresh_mfa_session:true}));
 completed("source-loss restore preserves historical trust, pins, exports, workbook and exact retry");

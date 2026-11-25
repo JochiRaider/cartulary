@@ -7,7 +7,7 @@ import {chmodSync,copyFileSync,mkdirSync,readFileSync,unlinkSync,writeFileSync} 
 import path from "node:path";
 import {spawnSync} from "node:child_process";
 import {goOutput,pins} from "../harness/readiness/cryptographic-module.mjs";
-import {windowsProbe} from "./package-platform.mjs";
+import {clientProbe} from "./package-platform.mjs";
 
 const [work,project,origin,artifacts]=process.argv.slice(2);
 assertPackageQualificationSource(work,project);
@@ -52,6 +52,6 @@ assert.equal(sql("SELECT count(*) FROM backup_sets"),"0");
 operate(target,"start");
 assert.equal(sql("SELECT count(*) FROM backup_sets WHERE consistency_point_at > now()-interval '24 hours'"),"1");
 assert.equal(JSON.parse(operate(target,"restore-verify-due")).result,"no_op");
-copyFileSync(path.join(work,"windows-probe.exe"),path.join(target,"windows-probe.exe"));mkdirSync(path.join(target,"tls"));copyFileSync(path.join(work,"tls/ca.pem"),path.join(target,"tls/ca.pem"));
-const windows=windowsProbe(target,origin);
-writeFileSync(path.join(artifacts,"portable-source-loss.json"),JSON.stringify({historical_fixture:stale.fixture,backup_set_id:id,source_services_destroyed:true,source_configuration_removed:true,source_retention_expired:true,stale_acknowledgement_required:true,exact_replay:true,fresh_backup_gate:true,windows},null,2)+"\n",{mode:0o600});
+copyFileSync(path.join(work,"client-probe"),path.join(target,"client-probe"));mkdirSync(path.join(target,"tls"));copyFileSync(path.join(work,"tls/ca.pem"),path.join(target,"tls/ca.pem"));
+const client=clientProbe(target,origin);
+writeFileSync(path.join(artifacts,"portable-source-loss.json"),JSON.stringify({historical_fixture:stale.fixture,backup_set_id:id,source_services_destroyed:true,source_configuration_removed:true,source_retention_expired:true,stale_acknowledgement_required:true,exact_replay:true,fresh_backup_gate:true,client},null,2)+"\n",{mode:0o600});

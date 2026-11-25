@@ -1,5 +1,7 @@
-// windowsprobe is a Make-built qualification client. Trust and credentials arrive
-// over stdin and are never installed in Windows or written to evidence.
+// clientprobe is a Make-built qualification client that verifies the
+// package's public HTTPS/WSS boundary from outside its containers. Trust and
+// credentials arrive over stdin and are never installed in a system trust
+// store or written to evidence.
 package main
 
 import (
@@ -35,13 +37,13 @@ func main() {
 	if err := run(); err != nil {
 		// Transport errors may contain request details. Retain only this bounded
 		// classification, never credentials or a raw command/HTTP response.
-		fmt.Fprintln(os.Stderr, "Windows boundary probe failed: "+err.Error())
+		fmt.Fprintln(os.Stderr, "Package client probe failed: "+err.Error())
 		os.Exit(1)
 	}
 }
 
 func run() error {
-	if runtime.GOOS != "windows" || !fips140.Enabled() {
+	if runtime.GOOS != "linux" || !fips140.Enabled() {
 		return errors.New("execution identity")
 	}
 	info, ok := debug.ReadBuildInfo()
@@ -130,7 +132,7 @@ func run() error {
 			"incident_id": in.Incident,
 			"emitted_at":  time.Now().UTC().Format(time.RFC3339Nano),
 			"payload": map[string]any{
-				"client_instance_id": "windows-package-probe",
+				"client_instance_id": "package-client-probe",
 				"presence": map[string]any{
 					"sheet_ref": map[string]any{"kind": "view_schema", "id": "cartulary.view.timeline.v2"},
 					"mode":      "viewing",
