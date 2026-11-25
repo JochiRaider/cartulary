@@ -127,3 +127,20 @@ test("a slow cohort cannot substitute its duration for eligible PostgreSQL rows"
   }]);
   validateSchemaSync(report.schema_id, report);
 });
+
+test("observed estimates replace authored ones in the plan the audit compares against", async () => {
+  const rows = [goRow("observed.row", { estimated_work_ms: 100000 }), goRow("unobserved.row", { evidence_class: "unit" })];
+  const run = syntheticRun({ units: [
+    { id: "go:observed", rows: ["observed.row"], phases: [["runner", 0, 30000]] },
+    { id: "go:unobserved", rows: ["unobserved.row"], phases: [["runner", 0, 1000]] },
+  ] });
+  const report = await auditEstimates({
+    runDir: "/retained/tcr-estimates-fixture", owner, catalogRows: rows, sourceDigest,
+    estimates: { rows: { "observed.row": [20000, 26000, 23000] }, operations: {} },
+    readRow: () => { throw new Error("row timing unavailable"); }, loadRun: async () => run,
+  });
+  // The median observation, 23,000 ms, plus the Go allowance plans 28,250 ms:
+  // 30,000 ms observed is no drift, where the authored 100,000 ms would be.
+  assert.deepEqual(report.findings, []);
+  validateSchemaSync(report.schema_id, report);
+});

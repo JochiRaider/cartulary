@@ -690,6 +690,7 @@
           "TestCapabilityCapture",
           "TestCommandSelection",
           "TestInputResolution",
+          "TestObservedEstimates",
           "TestPlanAssembly",
           "TestPlanGrowth",
           "TestPlanPreparation",

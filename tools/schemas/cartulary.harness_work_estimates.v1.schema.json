@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_work_estimates.v1",
+  "description": "Observed work estimates: each observed catalog row's and operation's most recent observations, written by estimate-refresh from passing retained runs (TH-HARNESS-REQ-865). A planning estimate is the median of its observations.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "runs",
+    "rows",
+    "operations"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.harness_work_estimates.v1"
+    },
+    "runs": {
+      "description": "The folded runs, oldest first; a run is folded once.",
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "run_id",
+          "target",
+          "source_digest"
+        ],
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "target": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "source_digest": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          }
+        }
+      }
+    },
+    "rows": {
+      "$ref": "#/$defs/observations"
+    },
+    "operations": {
+      "$ref": "#/$defs/observations"
+    }
+  },
+  "$defs": {
+    "observations": {
+      "type": "object",
+      "propertyNames": {
+        "minLength": 1,
+        "maxLength": 512
+      },
+      "additionalProperties": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 3,
+        "items": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    }
+  }
+}

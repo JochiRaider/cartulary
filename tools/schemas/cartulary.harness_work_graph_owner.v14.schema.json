@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.harness_work_graph_owner.v13",
+  "$id": "cartulary.harness_work_graph_owner.v14",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -24,7 +24,7 @@
   ],
   "properties": {
     "schema_id": {
-      "const": "cartulary.harness_work_graph_owner.v13"
+      "const": "cartulary.harness_work_graph_owner.v14"
     },
     "capacity_override_input": {
       "const": "CARTULARY_HARNESS_CAPACITY_OVERRIDE"
@@ -673,7 +673,8 @@
           "type": "object",
           "additionalProperties": false,
           "required": [
-            "preparation_operations"
+            "preparation_operations",
+            "unit_target_ms"
           ],
           "properties": {
             "preparation_operations": {
@@ -683,6 +684,11 @@
               "items": {
                 "$ref": "#/$defs/operation_id"
               }
+            },
+            "unit_target_ms": {
+              "description": "Ordinary Playwright work of one partition splits into balanced cohorts of at most this estimate, inside the timeout envelope.",
+              "type": "integer",
+              "minimum": 1000
             }
           }
         }

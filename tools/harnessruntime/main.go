@@ -139,6 +139,32 @@ func run() int {
 		return harnessstress.Main(ctx, root, binary, os.Environ(), os.Stdout, os.Stderr)
 	case "stress-load":
 		return harnessstress.LoadMain(os.Args[2:], os.Stderr)
+	case "estimate-refresh":
+		// TH-HARNESS-REQ-865: fold one passing retained run's observations
+		// into the observed estimates, a reviewed source change.
+		if len(os.Args) != 2 {
+			return 2
+		}
+		root, err := os.Getwd()
+		if err != nil {
+			return 2
+		}
+		run := strings.TrimSpace(os.Getenv("RESULTS_DIR"))
+		if run == "" {
+			fmt.Fprintln(os.Stderr, "failure_class=config failure_reason=usage_error")
+			return 2
+		}
+		if !filepath.IsAbs(run) {
+			run = filepath.Join(root, run)
+		}
+		report, err := harnessplan.RefreshEstimates(root, run)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%v\nfailure_class=config failure_reason=configuration_error\n", err)
+			return 2
+		}
+		fmt.Printf("[ESTIMATES] run_id=%s rows=%d operations=%d pruned_rows=%d pruned_operations=%d file=tools/harness_work_estimates.json\n",
+			report.RunID, report.Rows, report.Operations, report.PrunedRows, report.PrunedOperation)
+		return 0
 	case "review":
 		return harnessreview.Main(os.Args[2:], os.Stdin, os.Stdout)
 	case "session":

@@ -68,6 +68,7 @@ else
   author-test-row-id \
   target-plan \
   explain-run \
+  estimate-refresh \
   test-run-status \
   test-evidence-audit \
   harness-observability-check \
@@ -226,6 +227,8 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'  make source-check                   validate authored and generated source integrity; CHECK selects a boundary' \
 	'  make test-run-recovery-status' \
 	'                                      RESULTS_DIR=<exact-run> resolve exact owner-issued recovery binding without cleanup' \
+	'  make estimate-refresh' \
+	'                                      RESULTS_DIR=<exact-passing-run> fold a passing run'"'"'s observed durations into the planning estimates' \
 	'' \
 	'release:' \
 	'  make ci                             run the provider-neutral CI entrypoint' \
@@ -341,6 +344,8 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'explain-run inputs: RESULTS_DIR=result_selector (required), RUN_ID=run_id (optional), TARGET=retained_target_name (optional), DETAIL=summary|children|logs|progress|accounting|performance|fixtures|critical-path|estimates (default summary), JSON=exact_1_bool (default false), COMPARE_RESULTS_DIR=result_selector (optional), COMPARISON=equivalent|instrumentation (optional), FIXTURE_THRESHOLD_MS=positive_integer (default 30000), FIXTURE_TOP=positive_integer (default 5), \
 	  VIEW=units|waits|allocations|host-admission (optional), UNIT_ID=semantic_text (optional), OFFSET=nonnegative_integer (optional), LIMIT=positive_integer (optional)' \
 	'  side effects: none' \
+	'estimate-refresh inputs: RESULTS_DIR=path (required)' \
+	'  side effects: retained_artifacts, authored_source_write' \
 	'test-run-status inputs: RESULTS_DIR=result_selector (required), RUN_ID=run_id (optional), TARGET=target_name (optional), JSON=exact_1_bool (default false), AFTER_REVISION=positive_integer (optional), WAIT_SECONDS=positive_integer (default 0)' \
 	'  side effects: none' \
 	'test-evidence-audit inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), OWNER=owner_id (required), EVIDENCE_ROOTS_FILE=path (required), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off)' \
@@ -852,6 +857,13 @@ explain-run:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,explain-run)
 	$(Q)$(call RUN_MAKE_NODE_TOOL,explain-run,$(call TASK_SURFACE_ARGV_ENV,RESULTS_DIR RUN_ID TARGET DETAIL JSON COMPARE_RESULTS_DIR COMPARISON FIXTURE_THRESHOLD_MS FIXTURE_TOP VIEW UNIT_ID OFFSET LIMIT),explain-run)
+
+estimate-refresh: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+estimate-refresh:
+	$(Q)$(TASK_SURFACE_NODE_READINESS)
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,estimate-refresh)
+	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
+	$(Q)RESULTS_DIR="$(RESULTS_DIR)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,RESULTS_DIR)" CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-estimate-refresh}" $(RUN_STEP_SCRIPT) "estimate-refresh" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) RESULTS_DIR="$(RESULTS_DIR)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,RESULTS_DIR)" $(HARNESS_RUNTIME_BIN) estimate-refresh
 
 ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
 test-evidence-audit: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)

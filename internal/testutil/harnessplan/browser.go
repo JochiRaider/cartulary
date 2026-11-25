@@ -130,13 +130,13 @@ func (c *compiler) packBrowser(partition *BrowserPartition, rows []*Row) []brows
 	overhead := policy.StartupMS + policy.CleanupMS
 	lifecycle := c.in.Owner.LifecycleEstimatesMS
 	envelope := c.timeout(partition.ResourceProfileID) - max(lifecycle["browser_allocation_acquire"], lifecycle["browser_reset"]) - lifecycle["browser_allocation_release"] - overhead
-	ordered := slices.Clone(rows)
-	cost := func(row *Row) int64 {
-		if row.EstimatedWorkMS > 0 {
-			return row.EstimatedWorkMS
-		}
-		return c.in.Owner.EvidenceEstimatesMS[row.EvidenceClass] * int64(len(row.Selector.Titles))
+	// Cohorts are sized to the Playwright unit target, well inside the
+	// timeout envelope, so accurate estimates leave timeout headroom.
+	if target := c.in.Owner.InvocationPolicies[RunnerPlaywright].UnitTargetMS; target > 0 {
+		envelope = min(envelope, target)
 	}
+	ordered := slices.Clone(rows)
+	cost := func(row *Row) int64 { return c.in.rowEstimate(*row) }
 	slices.SortFunc(ordered, func(a, b *Row) int { return cmp.Or(cmp.Compare(cost(b), cost(a)), strings.Compare(a.RowID, b.RowID)) })
 	total := int64(0)
 	for _, row := range ordered {

@@ -407,7 +407,7 @@ func (c *compiler) operation(id string, stack []string) (string, error) {
 		ServiceDependencies: slices.Clone(policy.ServiceDependencies), PostgresIsolation: policy.PostgresIsolation,
 		CachePolicy: policy.CachePolicy, TimeoutMS: timeout, ArtifactOutputs: policy.ReusableArtifactOutputs,
 		EvidenceOutputs: slices.Clone(policy.EvidenceOutputs), FailurePolicy: FailurePolicy{BlockDescendants: true},
-		EstimatedWorkMS: policy.EstimatedWorkMS,
+		EstimatedWorkMS: c.in.operationEstimate(id),
 		Command: Command{Executable: "node", Args: []string{"tools/harness/execution/operation-runner-cli.mjs", id}, Environment: map[string]string{
 			"CARTULARY_TEST_TARGET":                  operation.ReportKey,
 			"CARTULARY_OPERATION_DIGEST":             "sha256:" + digest(operation.Execution),
@@ -656,12 +656,7 @@ func (c *compiler) unitTarget(contract contract) int64 {
 	return c.in.Owner.GoUnitTargetMS
 }
 
-func (c *compiler) estimate(row Row) int64 {
-	if row.EstimatedWorkMS > 0 {
-		return row.EstimatedWorkMS
-	}
-	return c.in.Owner.EvidenceEstimatesMS[row.EvidenceClass]
-}
+func (c *compiler) estimate(row Row) int64 { return c.in.rowEstimate(row) }
 
 // runnerUnit builds a planned Go or Vitest unit. Its ID is the digest of
 // its contract and row set.

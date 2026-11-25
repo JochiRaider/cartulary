@@ -926,6 +926,13 @@
       "foundation_runtime": true
     },
     {
+      "schema_id": "cartulary.harness_work_estimates.v1",
+      "path": "tools/schemas/cartulary.harness_work_estimates.v1.schema.json",
+      "classification": "owner_input",
+      "producer": "estimate-refresh maintenance command",
+      "validation": "harness.json_shape_check"
+    },
+    {
       "schema_id": "cartulary.harness_work_graph.v9",
       "path": "tools/schemas/cartulary.harness_work_graph.v9.schema.json",
       "classification": "public_contract",
@@ -933,8 +940,8 @@
       "validation": "harness.json_shape_check"
     },
     {
-      "schema_id": "cartulary.harness_work_graph_owner.v13",
-      "path": "tools/schemas/cartulary.harness_work_graph_owner.v13.schema.json",
+      "schema_id": "cartulary.harness_work_graph_owner.v14",
+      "path": "tools/schemas/cartulary.harness_work_graph_owner.v14.schema.json",
       "classification": "owner_input",
       "producer": "harness graph owner",
       "validation": "harness.json_shape_check"

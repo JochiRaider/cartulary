@@ -232,6 +232,11 @@
         "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
       },
       {
+        "target": "estimate-refresh",
+        "owner_section": "Section 11.6",
+        "reason": "Maintenance that folds a retained run's observations into the planning estimates; it executes no test work."
+      },
+      {
         "target": "explain-run",
         "owner_section": "Section 4",
         "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
@@ -272,6 +277,21 @@
         "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
       },
       {
+        "target": "reference-pack-module-check",
+        "owner_section": "Section 4",
+        "reason": "Explicit independent module archive qualification; product verification remains in owner-routed tests."
+      },
+      {
+        "target": "reference-pack-producer-build",
+        "owner_section": "Section 4",
+        "reason": "Producer-only source preparation; product verification remains in owner-routed tests."
+      },
+      {
+        "target": "reference-pack-source",
+        "owner_section": "Section 4",
+        "reason": "Producer-only source preparation; product verification remains in owner-routed tests."
+      },
+      {
         "target": "services-down",
         "owner_section": "Section 4",
         "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
@@ -297,6 +317,16 @@
         "reason": "Owner audits validate caller-selected retained evidence; variable evidence partitions do not define a stable execution workload."
       },
       {
+        "target": "test-run-recover",
+        "owner_section": "Section 11",
+        "reason": "Exact failed-run cleanup has resource-dependent work and never constitutes execution-cost or test acceptance evidence."
+      },
+      {
+        "target": "test-run-recovery-status",
+        "owner_section": "Section 11",
+        "reason": "Read-only exact recovery lookup does not execute test work."
+      },
+      {
         "target": "test-services-session-down",
         "owner_section": "Section 4",
         "reason": "Explicit local session lifecycle is developer acceleration rather than a stable measured test workload."
@@ -310,31 +340,6 @@
         "target": "test-services-session-up",
         "owner_section": "Section 4",
         "reason": "Explicit local session lifecycle is developer acceleration rather than a stable measured test workload."
-      },
-      {
-        "target": "test-run-recover",
-        "owner_section": "Section 11",
-        "reason": "Exact failed-run cleanup has resource-dependent work and never constitutes execution-cost or test acceptance evidence."
-      },
-      {
-        "target": "test-run-recovery-status",
-        "owner_section": "Section 11",
-        "reason": "Read-only exact recovery lookup does not execute test work."
-      },
-      {
-        "target": "reference-pack-producer-build",
-        "owner_section": "Section 4",
-        "reason": "Producer-only source preparation; product verification remains in owner-routed tests."
-      },
-      {
-        "target": "reference-pack-module-check",
-        "owner_section": "Section 4",
-        "reason": "Explicit independent module archive qualification; product verification remains in owner-routed tests."
-      },
-      {
-        "target": "reference-pack-source",
-        "owner_section": "Section 4",
-        "reason": "Producer-only source preparation; product verification remains in owner-routed tests."
       }
     ]
   },
@@ -675,6 +680,11 @@
           "target": "test-run-recovery-status",
           "usage": "RESULTS_DIR=<exact-run>",
           "description": "resolve exact owner-issued recovery binding without cleanup"
+        },
+        {
+          "target": "estimate-refresh",
+          "usage": "RESULTS_DIR=<exact-passing-run>",
+          "description": "fold a passing run's observed durations into the planning estimates"
         }
       ]
     },
@@ -2313,6 +2323,19 @@
       "prerequisites": [],
       "tool_id": "explain-run",
       "operation_id": "harness.explain_run"
+    },
+    "estimate-refresh": {
+      "prerequisites": [
+        "$(HARNESS_RUNTIME_BIN)"
+      ],
+      "type": "step_command",
+      "mode": "command",
+      "env": {},
+      "command": [
+        "$(HARNESS_RUNTIME_BIN)",
+        "estimate-refresh"
+      ],
+      "operation_id": "harness.estimate_refresh"
     },
     "test-run-status": {
       "type": "native_tool",
@@ -9503,6 +9526,83 @@
             "child_forwarding": "argv",
             "min": 1,
             "max": 100
+          }
+        ]
+      }
+    },
+    {
+      "name": "estimate-refresh",
+      "backing_scripts": [
+        "tools/harnessruntime/main.go",
+        "internal/testutil/harnessplan/estimates.go"
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "failure_or_verbose",
+        "summary_schema": "cartulary.tool_run_summary.v5"
+      },
+      "command_id": "cartulary.harness.command.estimate_refresh.v1",
+      "semantic_behaviors": [
+        {
+          "behavior": "scheduler_orchestration",
+          "owner_section": "Section 10"
+        },
+        {
+          "behavior": "failure_normalization",
+          "owner_section": "Section 9"
+        }
+      ],
+      "target_class": "public",
+      "default_inclusion_sets": [
+        "helper_only"
+      ],
+      "lifecycle_state": "public_active",
+      "family_id": "generated_drift",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        },
+        {
+          "class": "authored_source_write",
+          "owner_section": "Section 11",
+          "paths": [
+            "tools/harness_work_estimates.json"
+          ]
+        }
+      ],
+      "input_contract": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": [
+          {
+            "name": "RESULTS_DIR",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": true,
+            "type": "path",
+            "default": null,
+            "empty_string": "invalid",
+            "normalization": "path_token",
+            "invalid_reason": "configuration_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
           }
         ]
       }

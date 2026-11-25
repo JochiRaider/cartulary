@@ -123,8 +123,8 @@ func TestPlannerCompilation(t *testing.T) {
 		if !ok || len(root.Needs) == 0 {
 			t.Fatalf("operation unit missing or without needs: %+v", root)
 		}
-		if root.EstimatedWorkMS != inputs.Owner.PolicyUnits["harness.go_vulncheck"].EstimatedWorkMS {
-			t.Fatal("operation estimate does not come from its policy unit")
+		if root.EstimatedWorkMS != inputs.operationEstimate("harness.go_vulncheck") {
+			t.Fatal("operation estimate is not its planning estimate")
 		}
 	})
 
@@ -311,7 +311,7 @@ func TestPlannerCompilation(t *testing.T) {
 				if runner == RunnerVitest {
 					key = row.Selector.File
 				}
-				items[key] += max(row.EstimatedWorkMS, inputs.Owner.EvidenceEstimatesMS[row.EvidenceClass])
+				items[key] += inputs.rowEstimate(row)
 				largest = max(largest, items[key])
 			}
 			if work > target+largest {
@@ -375,7 +375,7 @@ func TestPlannerCompilation(t *testing.T) {
 			}
 		}
 		unit, ok := graph.Units["operation:"+row.Selector.OperationID]
-		if !ok || len(unit.RowBindings) == 0 || unit.EstimatedWorkMS != inputs.Owner.PolicyUnits[row.Selector.OperationID].EstimatedWorkMS {
+		if !ok || len(unit.RowBindings) == 0 || unit.EstimatedWorkMS != inputs.operationEstimate(row.Selector.OperationID) {
 			t.Fatalf("shell row %s did not bind to its operation under the operation's policy: %+v", row.RowID, unit)
 		}
 	})

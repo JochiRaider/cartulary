@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import { intervalUnion } from "../evidence-accounting/index.mjs";
@@ -16,11 +17,20 @@ const maximumFindingRows = 20;
 const heavyFixtureCapabilities = new Set(["postgres_dedicated", "postgres_migration"]);
 const compareASCII = (left, right) => (left < right ? -1 : left > right ? 1 : 0);
 
-// TH-HARNESS 11.6: a catalog row's reviewed estimate replaces its
-// evidence-class estimate. The audit reports drift against these authored
-// estimates.
-function rowEstimateMs(owner, row) {
-  return row.estimated_work_ms ?? owner.evidence_estimates_ms[row.evidence_class];
+const emptyEstimates = Object.freeze({ rows: {}, operations: {} });
+
+function median(values) {
+  if (!values?.length) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[middle] : Math.floor((sorted[middle - 1] + sorted[middle] + 1) / 2);
+}
+
+// TH-HARNESS-REQ-865: a row's planning estimate is the median of its observed
+// estimates; until it is observed, its reviewed estimate, otherwise its
+// evidence-class estimate. The audit reports drift against these estimates.
+function rowEstimateMs(owner, estimates, row) {
+  return median(estimates.rows[row.row_id]) || (row.estimated_work_ms ?? owner.evidence_estimates_ms[row.evidence_class]);
 }
 
 /** The work-graph owner whose authored estimates the audit checks. */
@@ -28,6 +38,13 @@ export function readEstimateOwner(root) {
   const owner = readOperationOwner(root);
   validateSchemaSync(owner.schema_id, owner);
   return owner;
+}
+
+/** The observed estimates the planner reads. */
+export function readObservedEstimates(root) {
+  const estimates = JSON.parse(readFileSync(path.join(root, "tools/harness_work_estimates.json"), "utf8"));
+  validateSchemaSync(estimates.schema_id, estimates);
+  return estimates;
 }
 
 export function estimateAuditPolicy(owner) {
@@ -42,7 +59,7 @@ export function estimateAuditPolicy(owner) {
 
 // The loader is an explicit port so adversarial and synthetic retained runs
 // can be audited without a current checkout producing them.
-export async function auditEstimates({ runDir, owner, catalogRows, sourceDigest, loadRun = validateCanonicalRun, readRow = readPassedRowResult }) {
+export async function auditEstimates({ runDir, owner, estimates = emptyEstimates, catalogRows, sourceDigest, loadRun = validateCanonicalRun, readRow = readPassedRowResult }) {
   const policy = estimateAuditPolicy(owner);
   const reasons = [];
   let run = null;
@@ -86,13 +103,13 @@ export async function auditEstimates({ runDir, owner, catalogRows, sourceDigest,
     report.unit_count += 1;
     const observed = intervalUnion(intervals);
     const planned = policy.go_startup_ms + policy.go_cleanup_ms +
-      unitRows.reduce((total, row) => total + rowEstimateMs(owner, row), 0);
+      unitRows.reduce((total, row) => total + rowEstimateMs(owner, estimates, row), 0);
     const finding = (code) => findings.push({
       unit_id: unitID, code, observed_ms: observed, planned_ms: planned,
       row_ids: rowIDs.slice(0, maximumFindingRows), row_ids_omitted: Math.max(0, rowIDs.length - maximumFindingRows),
     });
     if (observed > policy.go_cohort_packing_bound_ms) finding("over_packing_bound");
-    const reviewed = unitRows.some((row) => row.estimated_work_ms !== undefined);
+    const reviewed = unitRows.some((row) => row.estimated_work_ms !== undefined || estimates.rows[row.row_id]?.length);
     if (observed > planned * policy.drift_ratio || (reviewed && observed * policy.drift_ratio < planned)) finding("estimate_drift");
     if ((registration.resource_claims?.postgres_heavy ?? 0) > 0 || run.terminal?.get(unitID)?.cache_status === "hit") continue;
     for (const row of unitRows) {
@@ -106,7 +123,7 @@ export async function auditEstimates({ runDir, owner, catalogRows, sourceDigest,
       if (duration !== null && duration <= policy.heavy_lane_threshold_ms) continue;
       findings.push({
         unit_id: unitID, code: duration === null ? "row_timing_unavailable" : "heavy_lane_candidate",
-        observed_ms: duration, planned_ms: rowEstimateMs(owner, row), row_ids: [row.row_id], row_ids_omitted: 0,
+        observed_ms: duration, planned_ms: rowEstimateMs(owner, estimates, row), row_ids: [row.row_id], row_ids_omitted: 0,
       });
     }
   }

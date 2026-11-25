@@ -85,8 +85,10 @@ func (in *Inputs) validate() error {
 	if _, ok := owner.InvocationPolicies[RunnerGo]; !ok {
 		return fail(ownerPath, "missing the go invocation policy")
 	}
-	if owner.InvocationPolicies[RunnerVitest].UnitTargetMS <= 0 {
-		return fail(ownerPath, "the vitest invocation policy needs a positive unit target")
+	for _, runner := range []string{RunnerVitest, RunnerPlaywright} {
+		if owner.InvocationPolicies[runner].UnitTargetMS <= 0 {
+			return fail(ownerPath, "the %s invocation policy needs a positive unit target", runner)
+		}
 	}
 	for runner, policy := range owner.InvocationPolicies {
 		for _, id := range policy.PreparationOperations {

@@ -26,8 +26,8 @@ func TestPlanGrowth(t *testing.T) {
 		bytesPerRowBinding = 384
 		bytesPerDependency = 192
 		// A finalizer carries its group, target and unit mappings beside
-		// its edges.
-		finalizerBytesPerDependency = 384
+		// its edges, each naming a digest-identified cohort.
+		finalizerBytesPerDependency = 448
 	)
 	compile := func() []byte {
 		graph, err := Compile(inputs, selection, options)

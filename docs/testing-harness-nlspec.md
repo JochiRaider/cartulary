@@ -2442,7 +2442,7 @@ Every cacheable unit declares `same_run` or `content_addressed`; every other
 unit declares `none`. The registry binds policy work by canonical `operation_ids`
 and catalog work by `runner_types`; it MUST NOT bind cache eligibility to public
 command spelling. An operation or runner context absent from the registry is
-ineligible. The work-graph owner uses `cartulary.harness_work_graph_owner.v13`
+ineligible. The work-graph owner uses `cartulary.harness_work_graph_owner.v14`
 with closed operation definitions; task-surface bindings cannot override them. The
 retired scheduler-input-stamp and finalizer-action-cache families are not valid
 v3 inputs, and current commands MUST NOT read or translate them.
@@ -3292,6 +3292,7 @@ database evidence retain separate unit, resource, lease, and artifact identities
 | `otel-conformance` | `cartulary.harness.command.otel_conformance.v2` | `backend_frontend_leaf_tests` | `check`, `ci` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `security_boundary` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `service_start`, `service_resource_mutation`, `runtime_reset` | `public_active` | Validates source snapshot, generated constants evidence, emitted telemetry goldens, browser non-export, retained raw capture policy, and telemetry security boundaries. |
 | `target-plan` | `cartulary.harness.command.target_plan.v3` | `help_discovery` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 4) | `none` | `public_active` | Requires `TARGET`; optional typed `INPUTS` file, `DETAIL` and `JSON`; execution-equivalent planning without acquisition. |
 | `explain-run` | `cartulary.harness.command.explain_run.v4` | `help_discovery` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 4) | `none` | `public_active` | Exact retained fixture, duration, critical-path and advisory estimate views; no baseline publication. |
+| `estimate-refresh` | `cartulary.harness.command.estimate_refresh.v1` | `generated_drift` | `helper_only` | `summary_with_artifacts` | none | `scheduler_orchestration` (Section 10), `failure_normalization` (Section 9) | `retained_artifacts`, `authored_source_write` | `public_active` | Requires `RESULTS_DIR`, one exact passing retained run; writes only `tools/harness_work_estimates.json` (TH-HARNESS-REQ-865). |
 | `test-run-status` | `cartulary.harness.command.test_run_status.v1` | `help_discovery` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 8.9) | `none` | `public_active` | Exact-invocation live observation; target-local JSON and bounded waiting. |
 | `harness-observability-check` | `cartulary.harness.command.harness_observability_check.v3` | `generated_drift` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 4), `security_boundary` (Section 15) | `none` | `public_active` | Read-only exact retained evidence; `CHECK=all` or a scoped events/timing/evidence/diagnostics view. |
 | `harness-otel-export` | `cartulary.harness.command.harness_otel_export.v1` | `help_discovery` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 4), `security_boundary` (Section 15) | `external_network` | `public_active` | Explicit post-run OTLP export; ordinary harness commands never invoke it. |
@@ -3832,6 +3833,7 @@ Verified by: TH-HARNESS-AC-002, TH-HARNESS-AC-029
 | `author-test-row-id` | `CLAIM` | `semantic_text` | yes | make command line, environment, makefile default | none | missing required input | `invalid` | `trim` | `semantic_text` | `usage_error`, exit `2` | `value` | `argv` |
 | `author-test-row-id` | `SELECTOR_KEY` | `semantic_text` | yes | make command line, environment, makefile default | none | missing required input | `invalid` | `trim` | `semantic_text` | `usage_error`, exit `2` | `value` | `argv` |
 | `test-run-recover` | `RESULTS_DIR` | `path` | yes | make command line | none | invalid | `invalid` | `path_token` | exact original run directory | `configuration_error`, exit `2` | `redacted_value` | `runtime_env` |
+| `estimate-refresh` | `RESULTS_DIR` | `path` | yes | make command line | none | none | `invalid` | `path_token` | `path` | `configuration_error`, exit `2` | `value` | `runtime_env` |
 | `test-run-recover` | `RUNTIME_ROOT` | `path` | yes | make command line | none | invalid | `invalid` | `path_token` | exact external private runtime directory | `configuration_error`, exit `2` | `redacted_value` | `runtime_env` |
 | `test-run-recover` | `RUNTIME_LEASE_ID` | `semantic_text` | yes | make command line | none | invalid | `invalid` | `trim` | exact opaque lease identifier, native owner validated | `configuration_error`, exit `2` | `redacted_value` | `runtime_env` |
 | `agent-finalize`, `benchmark-claim-check`, `browser-e2e`, `browser-e2e-visual-update`, `build`, `check`, `ci`, `format`, `frontend-fallow-static`, `go-error-declaration-audit`, `go-error-declaration-check`, `go-gosec-audit`, `go-gosec-targeted`, `go-vulncheck`, `harness-contract`, `lint`, `migration-drift`, `openapi-compatibility-check`, `otel-conformance`, `package-inspect`, `release-check`, `seaweedfs-compatibility`, `seaweedfs-release-gate`, `source-check`, `test-evidence-audit`, `test-fast`, `test-slice`, `test-stress` | `CARTULARY_HARNESS_CACHE_MODE` | `enum` | no | make command line, environment, makefile default | `normal` | use `normal` | `omitted` | `trim` | `normal`, `cold`, `off` | `usage_error`, exit `2` | `value` | `runtime_env` |
@@ -8923,11 +8925,15 @@ replacing terminal startup evidence is forbidden.
 **TH-HARNESS-REQ-865 — Work estimates and bounded packing.**
 Authored duration estimates are advisory scheduler planning data only. They MUST NOT become benchmark claims, product performance conformance, timeout policy, or evidence that product behavior is fast enough.
 
-Every work unit MUST carry a positive authored `estimated_work_ms`. Catalog row
-units derive that value from the row's own reviewed `estimated_work_ms` when
-the catalog row declares one, and otherwise from the exact evidence-class
-estimate in the authored work-graph owner; a row estimate MUST be a positive
-integer below the unit timeout. Direct units use their exact target policy;
+Every work unit MUST carry a positive `estimated_work_ms`. A row's planning
+estimate is the median of its observations in
+`tools/harness_work_estimates.json` (schema
+`cartulary.harness_work_estimates.v1`). Until a row is observed, its planning
+estimate is its own reviewed `estimated_work_ms` when the catalog row declares
+one, and otherwise the exact evidence-class estimate in the authored work-graph
+owner, per selected test for a Playwright row. An operation's planning estimate
+is the median of its observations, otherwise its policy unit's estimate. Every
+row estimate MUST be a positive integer below its unit timeout. Direct units use their exact target policy;
 browser group units sum their selected row estimates; compatible Go units sum
 their exact rows before bounded first-fit packing against the work-graph
 owner's authored packing bound. That bound MUST be a positive fraction of the
@@ -8941,13 +8947,29 @@ packer never shares their cohort with another row. Estimates affect rank and
 packing only. They MUST NOT change selection, timeout, failure, cache, fixture,
 or evidence semantics.
 
-Canonical observations MAY inform a later authored estimate change only when
-they come from successful, uncontaminated retained runs whose unit IDs and
-semantic digests match the current source state. Concurrent intervals are
-unioned, not summed. A missing estimate, stale identity, aggregate target
-envelope copied into multiple units, or fixture interval attributed as command
-work is invalid planning input and MUST fail graph compilation rather than
-silently selecting a legacy default.
+Observations enter only through `make estimate-refresh RESULTS_DIR=<run>`,
+which folds one exact passing retained run with a current-epoch plan into the
+estimates file and rewrites it with sorted keys, one entry per line, so the
+refresh reviews as an ordinary source change and the source tree stays the
+plan's only input. A run already folded is refused, and the file keeps each
+row's and operation's three most recent observations and its last 20 folded
+runs. A row's observation is its share of its unit's unioned runner time beyond
+the runner's startup and cleanup allowance, in proportion to the durations its
+runner reported for the unit's rows; an operation's observation is its unit's
+unioned runner time. Units served from the cache, host admission, fixture and
+evidence phases contribute nothing. A refresh whose result would put a
+non-measurement Go row, with the Go allowance, above the packing bound, or any
+row at or above its unit timeout, is refused and names the row, which is then
+split or reclassified. Entries for rows or operations that no longer exist are
+ignored by planning and removed by the next refresh. A missing estimate,
+aggregate target envelope copied into multiple units, or fixture interval
+attributed as command work is invalid planning input and MUST fail graph
+compilation rather than silently selecting a legacy default.
+
+Ordinary Playwright work of one partition is split into balanced cohorts of at
+most the Playwright invocation policy's `unit_target_ms` (300,000 ms, half the
+browser unit timeout), never more than the timeout envelope allows, so accurate
+estimates leave timeout headroom.
 
 `explain-run DETAIL=performance` reports canonical duration observations for an
 exact retained invocation. The retired baseline/drift command families and sole
@@ -8962,7 +8984,7 @@ reject hidden provisioning, measurement work admitted outside its quiet
 profile, unexplained queue or resource intervals, missing holders, fixture
 contamination, or incomplete event/target projection closure. This diagnostic
 has no wall-time, peer-balance, variability or performance-regression threshold.
-Verified by: TH-HARNESS-AC-161
+Verified by: TH-HARNESS-AC-161, TH-HARNESS-AC-168
 
 **TH-HARNESS-REQ-866 — Advisory estimate audit.**
 `explain-run DETAIL=estimates` audits the Go units of one exact retained
@@ -8995,9 +9017,11 @@ omission count. Human output and `JSON=1` output, which is one
 the human view displays at most 20 findings and states the remainder.
 The audit is advisory: it exits `0` whether or not it reports findings, it is
 never part of `check`, CI, a finalizer or a handoff gate (TH-HARNESS-REQ-054),
-and it never writes estimates, owners or retained evidence. An authored
-estimate or profile change that a finding prompts remains a reviewed source
-change under TH-HARNESS-REQ-865.
+and it never writes estimates, owners or retained evidence. Its planned
+estimates are the current planning estimates, observed medians included, so it
+is the drift check for the observed estimates; a row with observations counts
+as reviewed. An estimate refresh or profile change that a finding prompts
+remains a reviewed source change under TH-HARNESS-REQ-865.
 Verified by: TH-HARNESS-AC-162
 
 ### 11.7 Network Flow Fixture Materialization Lifecycle
@@ -11654,6 +11678,7 @@ expected behavior. Failure codes below are normalized wrapper codes.
 | TH-HARNESS-AC-165 | REQ-869 | A Go event stream with nested subtests, pass, fail and skip, a package elapsed time, a secret-bearing name, an over-length name and more than 4,096 observations; basic and off modes; an unwritable destination | Basic mode retains one schema-valid file per Go unit with every observation in terminal-event order, the redacted name and exact omission counts; off mode writes none; row outcomes are identical with and without the file | A missing or reordered observation, invented duration, truncated or unredacted name, file in off mode, or row outcome changed by a diagnostic failure fails. |
 | TH-HARNESS-AC-166 | REQ-870 | A failing and a passing unit; a pressure source that reports all, some or none of the resources; a window longer than the ring; an unwritable log directory | The failing unit retains one schema-valid window covering 30 s before its admission to its terminal instant, with nulls for unreported resources and `truncated` when the ring had rolled; the passing unit retains none; outcomes are identical when writing fails | A window for a passing unit, a sample outside the window, an invented share, or an outcome changed by a diagnostic failure fails. |
 | TH-HARNESS-AC-167 | REQ-871 | A stress run of a slice that passes, one whose second repetition fails, an invalid `REPEAT` or `LOAD`, an existing run ID, and cancellation | Each repetition is a distinct slice run with the cache off; every repetition runs after a failure; the summary validates and lists each repetition; the exit status is `0` only when all passed; usage errors exit `2` before any run; the load process ends with the command | A skipped repetition after a failure, a reused run root, a load process that survives the command, or a zero exit with a failed repetition fails. |
+| TH-HARNESS-AC-168 | REQ-865, REQ-866 | A synthetic passing run with a two-row Go unit, an operation, a cached unit and a retired operation; the same run folded twice; a failed run; a row observed above the packing bound; a full observation history | The fold records each row's duration-proportional share beyond the Go allowance and the operation's runner time, skips the cached unit and the retired operation, keeps three observations, writes a strict sorted document, and leaves the loaded estimates unchanged; the repeated, failed and oversized runs are refused; the planner and the audit use the median observation over the authored prior | A cached or retired unit observed, an unbounded history, a refused run written, or a plan or audit that ignores an observation fails. |
 
 The numerical image cases MUST include transparent pixels, alpha-only differences,
 one-pixel boundaries, and zero/full changed area. Interface fixtures MUST include
@@ -11725,7 +11750,7 @@ retained evidence keep their separate owner-only permission contract.
 | `TH-HARNESS-REQ-800..817` | V3 execution control               | TH-HARNESS-AC-082, TH-HARNESS-AC-083, TH-HARNESS-AC-084, TH-HARNESS-AC-085, TH-HARNESS-AC-086, TH-HARNESS-AC-087, TH-HARNESS-AC-088, TH-HARNESS-AC-089, TH-HARNESS-AC-090, TH-HARNESS-AC-091, TH-HARNESS-AC-094, TH-HARNESS-AC-095, TH-HARNESS-AC-096, TH-HARNESS-AC-097, TH-HARNESS-AC-098, TH-HARNESS-AC-099, TH-HARNESS-AC-100, TH-HARNESS-AC-101 |
 | `TH-HARNESS-REQ-830..851` | Instrumentation and retained diagnostic integrity | TH-HARNESS-AC-137 through TH-HARNESS-AC-144, TH-HARNESS-AC-146, TH-HARNESS-AC-149; individual Verified by clauses give exact mapping. |
 | `TH-HARNESS-REQ-852..855` | Native graph and shared fixture ownership | TH-HARNESS-AC-147, TH-HARNESS-AC-148, TH-HARNESS-AC-149 |
-| `TH-HARNESS-REQ-865..866` | Work estimates and advisory estimate audit | TH-HARNESS-AC-161, TH-HARNESS-AC-162 |
+| `TH-HARNESS-REQ-865..866` | Work estimates, observed estimates and advisory estimate audit | TH-HARNESS-AC-161, TH-HARNESS-AC-162, TH-HARNESS-AC-168 |
 | `TH-HARNESS-REQ-867` | Advisory static error-declaration audit | TH-HARNESS-AC-163 |
 | `TH-HARNESS-REQ-868` | Proven operation error writes | TH-HARNESS-AC-164 |
 | `TH-HARNESS-REQ-869` | Go test duration diagnostics | TH-HARNESS-AC-165 |

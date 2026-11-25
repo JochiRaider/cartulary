@@ -42,6 +42,8 @@ type Inputs struct {
 	Cache       CacheRegistry
 	Browser     BrowserBatch
 	Fixtures    FixtureBuilderPolicy
+	// Estimates are the observed work estimates (TH-HARNESS-REQ-865).
+	Estimates Estimates
 	// MigrationDigest identifies the migrated PostgreSQL template every
 	// populated fixture snapshot is built from. It is the digest the harness
 	// and services binaries embed and verify, not one read under root.
@@ -74,7 +76,7 @@ var ErrInput = errors.New("invalid harness planning input")
 // Load reads and validates every authored planning input under root.
 func Load(root string) (*Inputs, error) {
 	inputs := &Inputs{}
-	if err := readDocument(root, ownerPath, "cartulary.harness_work_graph_owner.v13", &inputs.Owner); err != nil {
+	if err := readDocument(root, ownerPath, "cartulary.harness_work_graph_owner.v14", &inputs.Owner); err != nil {
 		return nil, err
 	}
 	if err := readDocument(root, topologyPath, "cartulary.execution_topology.v16", &inputs.Topology); err != nil {
@@ -96,6 +98,12 @@ func Load(root string) (*Inputs, error) {
 	if err := readDocument(root, fixtureBuilderPath, "cartulary.performance_fixture_builder_policy.v2", &inputs.Fixtures); err != nil {
 		return nil, err
 	}
+	if err := readDocument(root, estimatesPath, EstimatesSchema, &inputs.Estimates); err != nil {
+		return nil, err
+	}
+	if err := inputs.Estimates.validate(); err != nil {
+		return nil, fmt.Errorf("%w: %s: %v", ErrInput, estimatesPath, err)
+	}
 	migrations, err := pgschema.Hash()
 	if err != nil {
 		return nil, fmt.Errorf("%w: migration digest: %v", ErrInput, err)
@@ -112,6 +120,9 @@ func Load(root string) (*Inputs, error) {
 	}
 	if err := inputs.validate(); err != nil {
 		return nil, err
+	}
+	if err := inputs.validateEstimateBounds(); err != nil {
+		return nil, fmt.Errorf("%w: %s: %v", ErrInput, estimatesPath, err)
 	}
 	return inputs, nil
 }

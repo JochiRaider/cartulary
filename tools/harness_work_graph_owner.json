@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.harness_work_graph_owner.v13",
+  "schema_id": "cartulary.harness_work_graph_owner.v14",
   "capacity_override_input": "CARTULARY_HARNESS_CAPACITY_OVERRIDE",
   "tier_order": [
     "fast",
@@ -2503,6 +2503,22 @@
         "type": "node_tool",
         "prerequisites": [],
         "tool_id": "explain-run"
+      },
+      "kind": "policy"
+    },
+    "harness.estimate_refresh": {
+      "report_key": "estimate-refresh",
+      "execution": {
+        "prerequisites": [
+          "$(HARNESS_RUNTIME_BIN)"
+        ],
+        "type": "step_command",
+        "mode": "command",
+        "env": {},
+        "command": [
+          "$(HARNESS_RUNTIME_BIN)",
+          "estimate-refresh"
+        ]
       },
       "kind": "policy"
     },
@@ -6378,7 +6394,8 @@
         "harness.build_server_harness",
         "harness.playwright_install",
         "harness.test_service_images"
-      ]
+      ],
+      "unit_target_ms": 300000
     }
   },
   "lifecycle_estimates_ms": {
