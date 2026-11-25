@@ -368,6 +368,38 @@ rows (no placement justification).
    - **Verification.** The planner row, the moved row, `make generate` and
      both source checks pass.
 
+   **Package smoke diagnostics (2026-11-25, `7df5f0439`).** A failed package
+   scenario now leaves `artifacts/failure.json` with its exit status and only
+   the authored, fixed-shape lines from its output. These are the smoke's
+   failure message, the last health status, the package operation result,
+   the scenarios that passed and the helpers' closed command summaries.
+   Service logs and command output stay private.
+
+   **Eighth attempt (2026-11-25, `20261125T115346Z-p12690`).** `ci` failed
+   after 1,652 s on two load-dependent rows. Neither involves the
+   diagnostics change.
+
+   - **`ui_review_lifecycle`, newly in `ci`.** In the parent supervisor death
+     case, `ui-review-stop` returned the failed outcome while the runtime
+     root still existed. The controller publishes its terminal locator
+     before its retained scan, runtime removal and registry removal. A stop
+     in that window returned at once instead of waiting.
+     - **The fix (`19be2e5a2`).** Stop now waits for the controller to
+       remove its registry or be proven dead. It then returns the recorded
+       outcome or recovers the dead owner's remaining authority. An
+       interrupted wait reports `session_lost` and leaves ownership intact.
+     - **Verification.** A new publication subtest fails on the old code
+       and passes. The native review row and the lifecycle row pass, the
+       lifecycle row also with 48 CPU-bound processes on 24 cores.
+   - **`renderer_installed_sandbox`.** `external_Mermaid_bundles/1` failed
+     as `security_sandbox_violation/render_runtime_unavailable`. That is the
+     renderer's fallback for any unclassified supervisor error, including an
+     unexpected stage failure.
+     - **Status.** The cause is unknown. The row failed once in 51 retained
+       runs and passed alone and with 48 CPU-bound processes (279 s).
+     - **Diagnostics (`ce66d8100`).** Every render assertion now prints the
+       closed supervisor cause, so a recurrence names its class.
+
 ### S1 result (2026-11-24)
 
 - **Rows.** 34 measurement rows and the 4 release package rows are
