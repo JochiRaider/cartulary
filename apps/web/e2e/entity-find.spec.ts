@@ -496,6 +496,9 @@ test("Entity Find borrows exact grid work and gates rejected accepted and supers
       await expect(input(page)).toBeFocused();
       await expect(focusCell(page, f.last, field)).not.toBeFocused();
       expect(replacement.hitCount()).toBe(1);
+      // The saved edit rescans loaded rows; navigation is unavailable until
+      // that recomputation settles.
+      await expect(status(page)).toContainText("1 matching cell");
       await navigate(page);
       const middle = f.rows[1];
       if (!middle) throw new Error("Missing middle entity fixture");
