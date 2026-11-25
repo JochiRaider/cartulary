@@ -436,6 +436,34 @@ rows (no placement justification).
    - **Verification.** The row passes uncached alone (80 s) and with 48
      CPU-bound processes (147 s). Frontend lint passes.
 
+   **Tenth attempt (2026-11-25, `20261125T135442Z-p44999`).** `ci` failed
+   after 1,662 s on one browser test. The entity Find row passed.
+
+   - **The failure.** `module.imports.browser.ir_corpus_import` imports the
+     IR corpus hosts, identities and timeline CSVs through the Import
+     Assistant under `network_flow_claimed`. The hosts and identities apply
+     jobs each finished in 0.4 s. The timeline apply job started at once and
+     then reported `running` with progress 0/1 for the whole 30 s
+     settlement wait. Its `updated_at` never moved, and the server log shows
+     nothing. Playwright then stopped the cohort, so six Network Flow tests
+     were recorded as `infrastructure_failed`.
+   - **Assessment.** A 30 s stall where the others took 0.4 s is a hang, not
+     slowness, so the bound did its job. Every import apply starts by taking
+     `FOR UPDATE` locks on the database-wide reference-pack rows
+     (`reference_pack_key_state`, `reference_pack_current_set`,
+     `reference_pack_registry_usage`). Reference-pack retention, incident
+     retention, coordinator admission and the extension cross-owner backend
+     take the same locks, so one of them could block an apply. No retained
+     evidence shows what this job waited on.
+   - **Isolation.** The row passed in 9 of 10 `ci` runs, alone, and five
+     more times with 48 CPU-bound processes (about 170 s each). A read-only
+     lock watcher ran with those attempts, but its image filter never
+     matched the test Postgres container, which runs by image ID. So no
+     lock data was captured.
+   - **Status.** The cause is unknown. Browser test support has no
+     server-side capture for a stalled job, such as a lock-wait snapshot
+     (allowed by TH-HARNESS-REQ-864) or a goroutine dump.
+
 ### S1 result (2026-11-24)
 
 - **Rows.** 34 measurement rows and the 4 release package rows are
