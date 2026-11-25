@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"strings"
 	"testing"
 )
@@ -38,15 +39,22 @@ func assertStateResultPrecedence(t *testing.T) {
 			plan.InitializationKind = "algorithm"
 			plan.InitializationAlgorithmID = "test_profile.initialize_v1"
 			plan.InitializationAlgorithmDefinitionSHA256 = testDigest("b")
+			// Findings are built before admission: the validator runs under the
+			// runtime's validation deadline, and validating thousands of
+			// findings there would time the fixture instead of the runtime.
+			template := coordinator.StateValidationFailure(plan.ProfileID, "state_validation", plan.FinalValidationAlgorithmID)
+			findings := make([]StartupFinding, test.count)
+			for i := range findings {
+				findings[i] = template
+				findings[i].Details = maps.Clone(template.Details)
+			}
 			runtime := newSyntheticStateRuntime(t, fixture.store, stateRuntimeTestOptions{
 				initializers: map[string]StateInitializer{plan.InitializationAlgorithmID: func(ctx context.Context, _ InitializationContext, write StateWriteCapability) (InitializationResult, error) {
 					return readyInitialization(), putSyntheticMember(ctx, write, "validation-rollback")
 				}},
 				finalValidator: func(context.Context, FinalStateValidationContext, StateReadCapability) (StateValidationResult, error) {
 					result := ValidFinalStateValidationResult()
-					for i := 0; i < test.count; i++ {
-						result.Findings = append(result.Findings, coordinator.StateValidationFailure(plan.ProfileID, "state_validation", plan.FinalValidationAlgorithmID))
-					}
+					result.Findings = append(result.Findings, findings...)
 					if test.count > 0 {
 						result.Status = "invalid"
 					}

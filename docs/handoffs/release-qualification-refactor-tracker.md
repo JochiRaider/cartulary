@@ -325,6 +325,20 @@ rows (no placement justification).
    - **Verification.** The browser row and the four membership Vitest rows
      pass in isolation, as do `make lint` and the generated-artifact check.
 
+   **Fifth attempt (2026-11-25, `20261125T020911Z-p92912`).** `ci` failed on
+   one of 2,644 rows, `module.extensions.integration.managed_service_assertions_for_state_admission_m_55b90ea265`.
+   The membership browser row passed.
+
+   - **The failure was a test-fixture defect.** Two result-precedence
+     subtests built 4,096 or 5,000 schema-validated findings inside the final
+     validator. That validator runs under the test runtime's 1 s validation
+     deadline and 100 ms cancellation grace.
+   - **The evidence.** Under `ci` load, subtests with up to 257 findings took
+     about 0.8 s, while those with 4,096–5,000 took 1.6–1.95 s. The two that
+     exceeded the grace hit the fatal integrity sink.
+   - **The fix.** The findings are now built once, before admission, and the
+     validator only returns copies. The row passes in isolation.
+
 ### S1 result (2026-11-24)
 
 - **Rows.** 34 measurement rows and the 4 release package rows are
