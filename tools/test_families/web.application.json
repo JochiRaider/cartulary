@@ -2298,6 +2298,7 @@
           "Incident membership management ownership distinguishes version conflicts from uncertain writes and requires observed review before another attempt",
           "Incident membership management ownership does not add idempotency to no-op PATCH or reinterpret domain rejections",
           "Incident membership management ownership does not treat absence as a DELETE receipt and handles a real 204 without content",
+          "Incident membership management ownership holds paging until a confirmed write's follow-up refresh settles",
           "Incident membership management ownership invalidates removal confirmation when the observed subject version changes",
           "Incident membership management ownership keeps one draft through reads and close and requires stay or discard to switch",
           "Incident membership management ownership rejects cursor cycles and retains prior rows after ordinary refresh failure",

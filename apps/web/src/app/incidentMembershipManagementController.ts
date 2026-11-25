@@ -194,12 +194,19 @@ export class IncidentMembershipManagementController {
     this.publish({ access: "ready" });
     return true;
   }
+  // A confirmed write's follow-up rereads the first page once its access
+  // check settles. Paging waits for that check, so the follow-up never
+  // discards a page the user requested after the acknowledgement.
   canPage = () =>
     this.current() &&
     this.state.active &&
     this.state.access === "ready" &&
     this.state.page !== null &&
-    this.state.read.kind === "idle";
+    this.state.read.kind === "idle" &&
+    !(
+      this.state.operation.kind === "confirmed" &&
+      this.state.operation.accessRefresh === "pending"
+    );
   refresh = () => this.startRead({ cursor: null, number: 1 }, []);
   next = () => {
     const { page, history } = this.state;

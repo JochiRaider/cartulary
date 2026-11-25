@@ -309,6 +309,22 @@ rows (no placement justification).
      measurement, and the Reference Pack verifier paragraph. Two further
      Testing Harness mentions of WSL2 were aligned with it.
 
+   **Fourth attempt (2026-11-25, `20261125T011207Z-p89370`).** `ci` failed
+   on one browser row, `module.incidents.browser.membership_management_live_pages`.
+   The 26 other rows reported as `infrastructure_failed` were the unrun
+   remainder of its cohort.
+
+   - **The cause was a product race.** After a confirmed membership write,
+     the controller checks access and then reloads the first page. During
+     that check, paging stayed enabled. The test clicked **Next page**, and
+     the follow-up reload then cancelled the page-2 read and returned to
+     page 1. A user doing the same would lose that navigation.
+   - **The fix.** `canPage()` now also waits while the confirmed operation's
+     follow-up access check is pending. A new controller test fails without
+     the fix and passes with it.
+   - **Verification.** The browser row and the four membership Vitest rows
+     pass in isolation, as do `make lint` and the generated-artifact check.
+
 ### S1 result (2026-11-24)
 
 - **Rows.** 34 measurement rows and the 4 release package rows are

@@ -227,6 +227,51 @@ describe("Incident membership management ownership", () => {
     expect(third.payload.client_txn_id).not.toBe(first.payload.client_txn_id);
     expect(third.payload.email).toBe("changed@example.test");
   });
+  it("holds paging until a confirmed write's follow-up refresh settles", async () => {
+    const { controller, list, recover } = setup();
+    list.mockImplementation(async ({ cursor }) =>
+      page(
+        [member({ display_name: cursor ?? "first" })],
+        cursor ? null : "cursor-2",
+      ),
+    );
+    controller.refresh();
+    await settle();
+    await roleEditor(controller);
+    const access = deferred<AuthorizationRecoveryResult>();
+    recover
+      .mockResolvedValueOnce({
+        kind: "authorized",
+        role: "admin",
+        userId: authority.actorId,
+      })
+      .mockImplementationOnce(() => access.promise);
+    controller.submit();
+    await settle();
+    expect(controller.getSnapshot().operation).toMatchObject({
+      kind: "confirmed",
+      accessRefresh: "pending",
+    });
+    expect(controller.canPage()).toBe(false);
+    const reads = list.mock.calls.length;
+    controller.next();
+    await settle();
+    expect(list.mock.calls.length).toBe(reads);
+    access.resolve({
+      kind: "authorized",
+      role: "admin",
+      userId: authority.actorId,
+    });
+    await settle();
+    expect(controller.getSnapshot().page?.position.number).toBe(1);
+    expect(controller.canPage()).toBe(true);
+    controller.next();
+    await settle();
+    expect(controller.getSnapshot().page?.position.number).toBe(2);
+    expect(controller.getSnapshot().page?.rows[0]?.display_name).toBe(
+      "cursor-2",
+    );
+  });
   it("retains acknowledgement when follow-up list and authorization fail", async () => {
     const { controller, list, recover, mutate } = setup();
     await roleEditor(controller);
