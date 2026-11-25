@@ -112,13 +112,13 @@ eleven `ci` runs of the release attempts (Section 13.1). Single runs vary by abo
 | G29 | The 377-row Vitest cohort waits for two CPU tokens until 372–442 s and then ends every run: first-fit backfill starves multi-token claims | Scheduling (REQ-802), coupled to host admission (G4b) | Phase 3 follow-up | Folded into G30 and G31. The Vitest cohort no longer ends `check` (it starts at 333 s and ends at 516 s); the same starvation now delays the `ci` browser chain |
 | G30 | Two admission layers again: PostgreSQL units hold CPU tokens and logical lanes while they wait in host admission, because each generation is charged twice | Specification, machine inputs, implementation | Phase 4, P4-5 | Open; this is Stage 3 of the work-graph tracker |
 | G31 | The `ci` browser chain, its critical path, is eligible at 134 s but starts at 504–540 s | Scheduling (REQ-802, REQ-803) | Phase 4, P4-6 | Open; needs G30 first |
-| G32 | Browser lanes are fixed chains packed from estimates that are about twice the actual time: lane loads 904–1,155 s against an even 1,031 s | Planner, scheduling | Phase 4, P4-2 | Open |
+| G32 | Browser lanes are fixed chains packed from estimates that are about twice the actual time: lane loads 904–1,155 s against an even 1,031 s | Planner, scheduling | Phase 4, P4-2 | Done (`7ebf2d0af`): browser phase −102 s in one diagnostic `ci` (13.12) |
 | G33 | Heavy units start in estimate order, and the estimates have drifted: the longest heavy unit starts at 260 s | Machine inputs, planner | Phase 4, P4-1 | Done (`540af9d6e`): plans use observed estimates; builds start when eligible. `check` wall unchanged, now bound by the heavy lanes and by G30/G31 (13.11) |
 | G34 | Heavy placement and capacities were tuned before G28 cut host flushes by 56% | Measurement, machine inputs | Phase 4, P4-1 | Four heavy lanes adopted through the gate (`d77ba4a25`); placement audit inconclusive, placement unchanged; ten generations re-tested after P4-5 (13.11) |
 | G35 | PostgreSQL-backed rows are never cached, so `check` costs the same for a one-line change as for a full run | Specification, implementation | Phase 4, P4-3 | Open; needs an owner decision |
 | G36 | Every test row's cache key includes the whole harness tree, schemas, contracts, scripts and the Makefile, so tooling commits invalidate every cached row | Machine inputs, specification | Phase 4, P4-3 | Open |
 | G37 | Builds on the `ci` critical path (renderer installation 76 s, server harness 56 s) run every time | Machine inputs, implementation | Phase 4, P4-3 | Open |
-| G38 | A browser cohort stops at its first failure, so the rest of its tests report `infrastructure_failed` and their outcomes are lost | Implementation, possibly specification | Phase 4, P4-2 | Open |
+| G38 | A browser cohort stops at its first failure, so the rest of its tests report `infrastructure_failed` and their outcomes are lost | Implementation, possibly specification | Phase 4, P4-2 | Done (`7ebf2d0af`); not yet exercised by a browser failure (13.12) |
 | G39 | Load-dependent defects surface one per `ci` run and are reproduced by hand | Tests, harness, process | Phase 4, P4-4 | Done: host pressure and stress command (`465a30afe`), wait audit (`bdd8f4e1d`); the 13.2 rows pass `REPEAT=10` under mixed load (13.10) |
 
 ## 5. Gap Remediation Detail
@@ -1339,6 +1339,7 @@ Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-am
 | 2026-11-25 | P4-4 / G39 | Stability gate: each 13.2 row `REPEAT=10` with `LOAD=mixed` at `465a30afe` | `p44-gate-{ext,rel,imp,inc,wb,rep}`, repetitions `-r01` to `-r10` | **60 of 60 passed.** Detail in 13.10 |
 | 2026-11-25 | P4-1 / G33 | Observed estimates and `make estimate-refresh`; folded `p40-ref-check01` and `p40-ref-ci01` (2,604 rows, 80 operations) | `p41-cs`, `p41-ea`, `p41-src`, `p41-lintgo`, `p41-cs4`; diagnostic `check` `p41-g33-check01` | Rows and checks pass. `check` 719 s (reference 691 s). Committed `540af9d6e`. Detail in 13.11 |
 | 2026-11-25 | P4-1 / G34 | Four heavy lanes by override, paired diagnostic `check`; G28 sampler on the first | `p41-heavy4-check01`, `p41-heavy4-check02` | **Pass both:** 706 s and 704 s. Adopted as the default (`d77ba4a25`; `p41-heavy4-cs`, `p41-heavy4-src` pass) |
+| 2026-11-25 | P4-2 / G32, G38 | Browser lanes as a runtime capacity; test-owned cohorts run to completion | `p42-cs2`, `p42-hb`, `p42-src`, `p42-lintgo`, `p42-md`; diagnostic `ci` `p42-ci01` | Targeted rows pass. `ci` 2,647 of 2,648 rows, graph 1,688 s (reference 1,791 s); the failure is the renderer receipt race (13.12). Committed `7ebf2d0af` |
 | 2026-11-25 | P4-4 / G39 | Wait audit: 31 whole-test hang guards derive from the test deadline (`testdeadline`) | `p44-port-*` (16 owner slices, every row holding a converted guard) | Pass. Committed `bdd8f4e1d` |
 
 ## 12. Phase 2 Plan — `check` Wall Clock
@@ -2220,7 +2221,7 @@ tracker has the detail on each failure.
 | --- | --- | --- | --- |
 | P4-0 | Reference runs: one diagnostic `check` and one diagnostic `ci` at HEAD with the cache off, because the 13.1 runs have no pressure samples | — | Both pass; recorded in Section 11. **Done 2026-11-25:** `p40-ref-check01` and `p40-ref-ci01` (13.9) |
 | P4-1 | Go phase components | G33, G34 | Estimates refreshed; placement audited; capacity re-tests adopted or rejected through the gate. **Done 2026-11-25** (13.11): estimates refreshed, four heavy lanes adopted, placement unchanged; the ten-generation re-test moves after P4-5 |
-| P4-2 | Browser phase components | G32, G38 | Dynamic lanes adopted after one `ci`; failure policy decided |
+| P4-2 | Browser phase components | G32, G38 | Dynamic lanes adopted after one `ci`; failure policy decided. **Done 2026-11-25** (13.12): adopted; the `ci` failed one row on the renderer receipt race, fixed in P4-3 |
 | P4-3 | Daily-development cache | G36, G37, then G35 | Hit rates measured on representative commits; G35 only after D12 |
 | P4-4 | Stability tooling | G39 (host evidence first, then the stress command, wait audit and open defects) | The week's failing rows pass `REPEAT=10` under load. **Done 2026-11-25:** 60 of 60 repetitions passed (13.10) |
 | P4-5 | One admission authority | G30 | Paired `check` and one `ci` |
@@ -2409,3 +2410,39 @@ All runs are diagnostic `check` runs with the cache off; each passed 1,893 rows.
   each charge a PostgreSQL lane, so ten generations need 20 lanes, and the
   policy bounds lanes by CPU tokens (19 on this host). P4-5 states
   generations as their own capacity; the re-test runs there.
+
+### 13.12 Browser Phase Components (P4-2)
+
+One diagnostic `ci` with the cache off, `p42-ci01` on `7ebf2d0af`, against the
+P4-0 reference. It ran because G32 changes how browser groups are scheduled,
+which only `ci` exercises.
+
+| Measure | `p40-ref-ci01` | `p42-ci01` |
+| --- | ---: | ---: |
+| Result | Pass, 2,646 rows | Fail, 2,647 of 2,648 rows (renderer receipt race) |
+| Graph wall; browser phase end | 1,791 s; 1,789 s | 1,688 s; 1,687 s |
+| Browser groups; runner time | 29; 3,906 s | 27; 3,848 s |
+| First four ordinary groups started | 600–606 s | 551, 569, 588, 713 s |
+| Stack acquisition, median and total | 8 s; 264 s | 9 s; 291 s |
+
+- **G32 adopted.** Groups now start whenever a lane frees, ranked by their
+  observed estimates; the browser phase ends 102 s earlier with the same
+  runner time, the low end of the 100–120 s expected. Every group acquires a
+  fresh stack: 27 s more acquisition than the reference's reuse, as
+  expected. The first groups still wait from 108 s (eligible) to 551 s for
+  resources the Go phase holds; that is G31.
+- **G38 adopted, not yet exercised.** No browser test failed, so the
+  run-to-completion policy had nothing to show; the next browser failure
+  will report its whole cohort.
+- **The failure is the renderer sandbox defect of 13.2, now explained.**
+  `module.reporting.integration.renderer_installed_sandbox` failed with
+  "candidate toolchain is not bound to its installation". The test binds
+  the installation the receipt names when it starts; at 156 s
+  `harness.assurance_release_readiness_evidence`, whose recipe re-enables
+  Make prerequisites and forces `$(REPORT_RENDERER_RECEIPT)`, rebuilt the
+  renderer and published a receipt naming a different installation, so the
+  test's later renderer loaded another one. Renderer builds are not
+  reproducible (four distinct installation identities from unchanged
+  sources), so every forced rebuild can flip the receipt under a running
+  renderer test. G37's input-keyed reuse makes a repeated build republish
+  the same installation, which removes the flip; P4-3 verifies it.
