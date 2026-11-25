@@ -4178,11 +4178,10 @@ provenance and malformed/unsupported-algorithm rejection remain unchanged.
 No signature substitution, algorithm negotiation or reissued identity is allowed.
 Primitive-only tests, enabled mode, a certificate number or a container image
 label do not establish verifier qualification or specification adoption.
-The active engineering target is the Windows 11 / WSL2 profile in Core 04 and
+The active engineering target is the Linux reference profile in Core 04 and
 the Testing Harness owner. Its complete verifier evidence can establish that
 target's engineering acceptance, but does not by itself close `RP-GATE-010` or
-establish formal CMVP applicability. Native-Linux qualification is indefinitely
-deferred and is not a prerequisite for producing WSL2 engineering evidence.
+establish formal CMVP applicability.
 
 **RP-REQ-262**
 The deployment clock assertion is the current contract in RP-REQ-075: `reference_packs.clock_trusted` defaults to `false`. While false, fresh operator TUF verification and activation MUST reject with `reference_pack_operation_rejected/clock_untrusted`. Packaged Base verification, historical consumption and a zero-cohort refresh remain available; false does not condemn retained content. No time-service health inference or later trusted-time contract is required to configure this explicit assertion.

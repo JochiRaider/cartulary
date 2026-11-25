@@ -301,9 +301,13 @@ rows (no placement justification).
    - **Verification.** The three smoke rows pass in isolation
      (`20261125T005552Z-p16891`), as do the readiness contract row and
      `make lint`.
-   - **Pending.** The matching amendment to Testing Harness §13.7, Core 00,
-     Core 04 §1.3 and the Reference Pack verifier paragraph awaits the
-     owner's approval.
+   - **Spec amendment adopted.** The owner approved it on 2026-11-25. The
+     reference profile is now an Ubuntu x86_64 Linux guest with a Linux
+     x86_64 Docker engine, native or in a virtual machine; Windows is
+     unsupported in any host role. It changes Testing Harness §13.7 and its
+     environment table, Core 00 status, Core 04 §1.3 and the password-work
+     measurement, and the Reference Pack verifier paragraph. Two further
+     Testing Harness mentions of WSL2 were aligned with it.
 
 ### S1 result (2026-11-24)
 

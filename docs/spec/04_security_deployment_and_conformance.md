@@ -207,19 +207,17 @@ number, an image name, a successful build or an enabled-mode flag alone proves
 none of the other requirements. `fips140=only` is diagnostic assessment, not the
 production policy or sufficient qualification evidence.
 
-The current engineering reference target is Windows 11 x64 with WSL2, an Ubuntu
-x86_64 guest and Docker Desktop's WSL2 backend, running the pinned Linux/amd64
-application image. Pure/native Linux deployment and qualification are deferred
-indefinitely and are not a prerequisite for this target's implementation or
-release acceptance. Linux binaries, container userlands and filesystem semantics
-within WSL2 remain in scope; Windows-native application execution is not added.
-Operation is operator-started; Windows startup automation is outside this
-profile. Guest backup timers operate while Docker Desktop is available. After
+The current engineering reference target is an Ubuntu x86_64 Linux guest with a
+Linux x86_64 Docker engine, running the pinned Linux/amd64 application image.
+The guest may run natively or inside a virtual machine; nothing outside the
+guest is required. Windows-native execution is not supported. Operation is
+operator-started; host startup automation is outside this profile. Guest backup
+timers operate while the Docker engine is available. After
 restart the operator MUST check successful-backup age and execute due restore
 verification; downtime does not waive backup freshness or verification limits.
 
-Engineering acceptance MUST identify and validate the actual Windows, WSL,
-guest and container stack. It does not establish formal CMVP applicability to
+Engineering acceptance MUST identify and validate the actual guest, Docker
+engine and container stack. It does not establish formal CMVP applicability to
 that stack. A regulated deployment claim additionally requires an affirmative
 module/security-policy operating-environment disposition from the applicable
 security authority. Until then, formal applicability is unestablished and MUST
@@ -415,9 +413,9 @@ scalar values before derivation. Salt creation uses the module CSPRNG and result
 comparison is constant time. Argon2 and SHA-1 TOTP compatibility are forbidden.
 
 Before performance measurement, the reference acceptance is fixed: an otherwise
-idle Windows 11 / WSL2 reference host, with the measured application container
+idle reference host, with the measured application container
 limited to two logical CPUs by an explicit CPU set and quota, 2 GiB RAM and no
-additional swap. The WSL2 VM retains sufficient memory for isolated dependencies
+additional swap. The guest retains sufficient memory for isolated dependencies
 and the harness; the application limit is not a two-GiB whole-VM requirement.
 Record the exact CPU set, quota, effective memory/swap limits and guest/host load;
 allocated virtual CPUs MUST NOT be described as dedicated physical cores.
@@ -425,11 +423,11 @@ allocated virtual CPUs MUST NOT be described as dedicated physical cores.
 must all complete with p95 end-to-end latency at most 2000 ms. A 64-request
 concurrent overload run MUST maintain the two/eight bounds, reject excess work
 within 250 ms, honor canceled waiters and recover capacity without a leak. Actual
-Windows build, WSL version/kernel, guest, CPU, Docker runtime, module and package
-identities accompany the result. A host sleep, restart or unaccounted resource
+guest, kernel, CPU, Docker runtime, module and package identities accompany the
+result. A host sleep, restart or unaccounted resource
 change invalidates a performance run; changing limits to fit measurements
 requires an owner amendment and a new run. Neither thresholds nor PBKDF2 cost
-are relaxed for WSL2.
+are relaxed for any reference host.
 
 ## 2. Authorization model
 
@@ -641,7 +639,7 @@ Profiles: base
 Verified by: AC-402, AC-427, AC-428
 
 **REQ-04-167**
-The supported WSL2 package MUST read package settings as literal data, reject
+The supported local package MUST read package settings as literal data, reject
 unknown or duplicate keys and unresolved placeholders, and use one admitted
 configuration and overlay selection for all operations. Ambient environment
 values MUST NOT silently override package settings. Application configuration
@@ -4615,7 +4613,7 @@ matching private key must be valid for server authentication under this policy.
 Only RSA keys of at least 2048 bits or P-256/P-384 ECDSA keys are accepted here.
 Private-key PEM is secret material and follows ordinary secret redaction.
 
-The Ubuntu/WSL2 guest and application image use the system PEM bundle at
+The Ubuntu guest and application image use the system PEM bundle at
 `/etc/ssl/certs/ca-certificates.crt`, or the process-local standard
 `SSL_CERT_FILE` binding. The bundle is one bounded no-follow regular-file read
 of at most 16777216 bytes and is immutable for the process lifetime. A nonempty

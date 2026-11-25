@@ -48,9 +48,9 @@ claiming the revised behavior. It does not alter Reference Pack signed bytes or
 method identity, adopt a draft subsystem owner, qualify an operating environment,
 or approve deployment. Source amendment, implementation completion, package
 qualification and production adoption retain separate recorded dispositions.
-The current implementation/release target for this cutover is WSL2 under
-Windows 11; native-Linux deployment and qualification are deferred indefinitely.
-This target decision does not grant formal CMVP applicability to WSL2. The
+The current implementation/release target for this cutover is an Ubuntu x86_64
+Linux host with a Linux Docker engine; Windows is not a target. This target
+decision does not grant formal CMVP applicability to that stack. The
 engineering reference profile and its evidence are owned by Core 04 §1.3 and
 Testing Harness §§13.7–14, independently of formal deployment claims.
 

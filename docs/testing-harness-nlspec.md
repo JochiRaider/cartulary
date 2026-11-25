@@ -3195,7 +3195,7 @@ change another runner's concurrency or scheduler resource limits.
 
 ### Exact local package qualification
 
-The WSL2 local release package MUST have one Make-owned producer and a versioned
+The local release package MUST have one Make-owned producer and a versioned
 `cartulary.local_release_manifest.v1` binding its Linux/amd64 application and
 companion image identities, deployment assets, binary/module receipts and
 content-derived SBOM/license inventory. Installation MUST require no source
@@ -5430,7 +5430,7 @@ zeros. It is unique within its session. A bundle contains exactly:
 Digests identify the qualified toolchain projection and package lock bytes;
 versions are nonempty exact installed-version strings. Seeded preparation and
 installed-state validation follow Section 11.10; cache presence is not installed
-readiness. OS advisory locking uses the supported Linux/WSL2 host primitive;
+readiness. OS advisory locking uses the supported Linux host primitive;
 missing host support fails readiness. Core package versions
 remain available in artifacts mode even though no browser executable is required.
 An analysis bundle records its own producing profile and preserves each parent's
@@ -10388,40 +10388,48 @@ qualification uses enabled mode and supported service/purpose parameters. The
 diagnostic route must be authored in the public task surface before use; runtime
 enforcement cannot depend on a diagnostic result or bypass.
 
-Package engineering qualification runs on Windows 11 x64 with WSL2, Ubuntu
-x86_64 and Docker Desktop's WSL2 backend. Canonical evidence records Windows
-edition/build, WSL version and kernel, guest distribution, CPU/features, effective
-VM and measured-container limits, Docker Desktop/Engine/Compose versions, daemon
-kernel/context, storage filesystem and network mode. It also records the image
-index/resolved Linux platform image, binary hashes, module selector and archive
-digest. Source success or a Debian image label cannot substitute for this record.
+Package engineering qualification runs on an Ubuntu x86_64 Linux guest with a
+Linux x86_64 Docker engine and Docker Compose. The guest may run natively or
+inside a virtual machine. Qualification requires and consults nothing outside
+the guest. Canonical evidence records:
+
+- guest distribution, kernel, CPU/features and guest memory;
+- effective measured-container limits;
+- Docker engine, client and Compose versions, and the daemon kernel and
+  context;
+- storage filesystem;
+- the image index and resolved Linux platform image, binary hashes, module
+  selector and archive digest.
+
+Source success or a Debian image label cannot substitute for this record.
 
 Use the complete acceptance matrix and Core 04's fixed password-work measurement
 parameters on this target. Keep sources, caches, private keys, confined storage,
-recovery staging and service volumes on Linux filesystems in the WSL2/Docker
-environment. Windows-mounted storage is outside the reference profile. Package
-scenarios cover Windows-client HTTPS/WSS, separate Windows/guest trust stores,
-guest/container TLS, certificate replacement and owned-service interruption with
-safe restart/recovery. Guest-browser evidence MUST NOT be labeled Windows-client
-evidence. Windows-client probes use a Make-built test helper with isolated CA
-trust, without changing global Windows trust or firewall settings. Operator-started
-restart scenarios check backup age and execute due verification; guest scheduling
-checks Docker Desktop availability rather than assuming a guest docker.service.
-Runtime identity collection and scenario routing belong to authored
-machine inputs; they MUST NOT consume this specification or a handoff tracker.
+recovery staging and service volumes on Linux filesystems. Package scenarios
+cover:
 
-Normal smoke cleanup MUST NOT shut down the whole WSL VM, reboot Windows or
-modify global trust/firewall settings. Host sleep/shutdown and Windows/WSL/Docker
-update procedures belong in the operational handoff, with revalidation of changed
+- HTTPS and authenticated WSS from a client outside the package's containers;
+- guest/container TLS;
+- certificate replacement;
+- owned-service interruption with safe restart and recovery.
+
+The client probe is a Make-built Linux test helper. Its CA trust arrives on
+stdin; it does not change system trust or firewall settings. Operator-started
+restart scenarios check backup age and execute due verification. Runtime
+identity collection and scenario routing belong to authored machine inputs;
+they MUST NOT consume this specification or a handoff tracker.
+
+Normal smoke cleanup MUST NOT shut down or reboot the host or modify system
+trust or firewall settings. Host sleep, shutdown and OS or Docker update
+procedures belong in the operational handoff, with revalidation of changed
 execution identities. Interrupted performance runs cannot supply acceptance.
 
-One complete final-candidate WSL2 release and all cleanup must pass; historical
-or partial runs cannot be combined into a current success. Native-Linux-only
-deployment and qualification remain indefinitely deferred, outside current
-completion dependencies. Formal CMVP applicability to the exact WSL2 stack
-requires separate supporting authority and MUST be recorded as unestablished
-until obtained; an engineering pass does not imply that claim. Owner adoption
-and customer deployment approval remain separate dispositions.
+One complete final-candidate release and all cleanup must pass; historical or
+partial runs cannot be combined into a current success. Formal CMVP
+applicability to the exact qualified stack requires separate supporting
+authority and MUST be recorded as unestablished until obtained; an engineering
+pass does not imply that claim. Owner adoption and customer deployment approval
+remain separate dispositions.
 
 ## 14. Platform and CI Support
 
@@ -10514,10 +10522,9 @@ Verified by: TH-HARNESS-AC-092
 
 | Environment/tool                                   | Current conformance status                 | Required evidence                                                                                                                             |
 | -------------------------------------------------- | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| Windows 11 x64 / WSL2 Ubuntu x86_64 / Docker Desktop WSL2 backend | required reference profile | Full acceptance matrix, including all three package smokes and one complete final-candidate release; §13.7 environment and boundary evidence. |
-| Pure/native Linux x86_64 with Docker Engine and Docker Compose | deferred indefinitely | No current release dependency or fresh qualification claim; reactivation requires an explicit scope decision. Existing Linux guest/container code is retained for WSL2. |
+| Ubuntu x86_64 Linux guest with Linux x86_64 Docker Engine and Docker Compose, native or in a virtual machine | required reference profile | Full acceptance matrix, including all three package smokes and one complete final-candidate release; §13.7 environment and boundary evidence. |
 | macOS                                              | unsupported for current conformance        | None.                                                                                                                                         |
-| Windows native                                     | unsupported                                | None; use WSL2 profile.                                                                                                                       |
+| Windows (any host role) | unsupported | None. |
 | Hosted CI provider                                 | provider-neutral only                      | `make ci`; no annotation/upload claims.                                                                                                       |
 | Podman/Podman Compose                              | unsupported                                | None.                                                                                                                                         |
 | Docker                                             | required for service-backed targets        | Missing Docker yields `preflight_error`.                                                                                                      |
@@ -10580,8 +10587,8 @@ an unavailable release tool is a visible cleanup failure, not a reason to skip
 independent detail cleanup. No ambient tool fallback is permitted. Start and
 data-producing commands retain the complete core profile.
 
-Current reference execution is Linux/amd64 inside Windows 11 / WSL2, as defined
-in Section 14; pure/native Linux qualification is deferred. Package updates require explicit
+Current reference execution is Linux/amd64 on the Section 14 reference profile.
+Package updates require explicit
 qualification of action, PNG, transparency, accessibility, privacy, and lifecycle
 contracts before changing pins. A browser/image change adopts a new canonical
 renderer identity; unchanged verified font bytes retain their digest.
@@ -11692,7 +11699,7 @@ Adoption of `cartulary.testing_harness.current.v3` adopts only Sections 1 throug
 | Future area                                                 | Current treatment                    | Future adoption requirement                                                                  |
 | ----------------------------------------------------------- | ------------------------------------ | -------------------------------------------------------------------------------------------- |
 | macOS certification                                         | Unsupported for current conformance. | Add platform profile, exact toolchain matrix, and acceptance evidence.                       |
-| Windows-native support                                      | Unsupported for current conformance. | Add platform profile separate from WSL2.                                                     |
+| Windows-native support                                      | Unsupported for current conformance. | Add a separate Windows platform profile.                                                     |
 | Podman/Podman Compose                                       | Unsupported for current conformance. | Add service fixture compatibility profile and cleanup proof.                                 |
 | Hosted CI annotations/uploads/artifact-retention dashboards | Provider-neutral `make ci` only.     | Add provider workflow source and provider-specific contract.                                 |
 | Playwright report/trace/video/screenshot and visual-geometry diagnostic schemas | Diagnostic-only.                     | Adopt exact Playwright version/schema family or wrapper schema.                              |
