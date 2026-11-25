@@ -495,6 +495,30 @@ rows (no placement justification).
      admits future test-only routes under the same predicates. Its list
      does not yet name this route.
 
+   **Eleventh attempt (2026-11-25, `20261125T150239Z-p97887`).** `ci` failed
+   after 1,735 s on `module.records.architecture.boundary`. It was the only
+   failure, and the stall diagnostics change caused it.
+
+   - **The cause.** The backend module boundary check resolves every SQL
+     string where it runs and treats SQL-looking literals as SQL. It scans
+     `internal/platform`, but not `internal/testutil`, where the query
+     previously lived. The route ran `lockwaits.Query` from another
+     package, and the Go statement-kind list held literals such as
+     `"with"`.
+   - **The fix (`e57ed097e`).** `lockwaits` owns and runs its unexported
+     query through `SnapshotDB` and `SnapshotConn`. The query itself
+     reduces leading keywords to the closed kinds, so Go holds no keyword
+     list.
+   - **Verification.**
+     - The boundary row passes.
+     - The route, poll-helper, lock-wait and route-registry rows pass, plus
+       the new lockwaits vocabulary row.
+     - `make lint` (standard), all source checks and the other static scan
+       rows pass: frontend import boundaries, projection SQL ownership,
+       harness owner boundaries and the generated-artifact policy.
+   - **Lesson.** A new Go package or SQL needs the repository-wide static
+     rows, not only the rows of the code it touches.
+
 ### S1 result (2026-11-24)
 
 - **Rows.** 34 measurement rows and the 4 release package rows are
