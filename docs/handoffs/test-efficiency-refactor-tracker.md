@@ -1,8 +1,10 @@
 # Test Execution Efficiency Remediation Plan
 
-**Status.** Active remediation tracker, last updated 2026-11-23. All phase-1 work is committed. Phase 2 ([Section 12](#12-phase-2-plan--check-wall-clock)) landed G7 and G6; G6 brought the `check` graph wall from 1,022–1,157 s to under 900 s. In G17 (phase 3), G17b and G17c landed, G17a was not adopted, and disk stall was identified as the contention the failing tests hit. G17f withdrew A17 and added A18 (WAL compression, −22% container writes), and G17g bounded test-side waits by the test deadline. G17 is closed. G27 (heavy-row test work) is done: graph wall 800–840 s, the best recorded. G28 measured the disk flushes and, with owner-approved options A (session slides persist at most once a minute on every route) and C (Go test temp work in RAM), cut heavy work 14–27% and brought the graph wall to 702–710 s, the best recorded. The run now ends with a late-starting Vitest cohort (G29). `make distclean` on 2026-11-22 deleted every retained run, so the run IDs in Section 11 before that date are a record, not retrievable evidence.
+**Status.** Active remediation tracker, last updated 2026-11-25. Phases 1–3 are closed. The Go-planned `check` has run at 593–626 s graph wall since 2026-11-24 (1,341 s at the 2026-11-22 baseline). The release redesign took quiet measurement out of `ci`, which now runs in 1,618–1,735 s (3,279 s in `ws1-ci01`). Phase 4 ([Section 13](#13-phase-4-plan--daily-check-and-ci)) is the active plan. It targets the two commands used to validate everyday changes, `check` and `ci`, and the stability of `ci`, which passed 3 of its last 11 runs.
 
-The active plan for the remaining `check` wall-clock work is [Section 12](#12-phase-2-plan--check-wall-clock). Original framing: this document authorizes no implementation by itself.
+**Phase 1–3 history (2026-11-23).** All phase-1 work is committed. Phase 2 ([Section 12](#12-phase-2-plan--check-wall-clock)) landed G7 and G6; G6 brought the `check` graph wall from 1,022–1,157 s to under 900 s. In G17 (phase 3), G17b and G17c landed, G17a was not adopted, and disk stall was identified as the contention the failing tests hit. G17f withdrew A17 and added A18 (WAL compression, −22% container writes), and G17g bounded test-side waits by the test deadline. G17 is closed. G27 (heavy-row test work) is done: graph wall 800–840 s, the best recorded. G28 measured the disk flushes and, with owner-approved options A (session slides persist at most once a minute on every route) and C (Go test temp work in RAM), cut heavy work 14–27% and brought the graph wall to 702–710 s, the best recorded. The run now ends with a late-starting Vitest cohort (G29). `make distclean` on 2026-11-22 deleted every retained run, so the run IDs in Section 11 before that date are a record, not retrievable evidence.
+
+The active plan is [Section 13](#13-phase-4-plan--daily-check-and-ci); [Section 12](#12-phase-2-plan--check-wall-clock) keeps the phase-2 record. Original framing: this document authorizes no implementation by itself.
 Each specification amendment in [Section 8](#8-specification-amendment-ledger) needs
 owner approval before its workstream starts. Workstream 0 is the only work that
 needs no new decision.
@@ -58,23 +60,22 @@ Decision rules applied to every gap:
 5. Durability, isolation scope and secret-scan coverage are not traded for speed.
 
 Targets are hypotheses to confirm against measurements, not commitments. "Current"
-is the WS0 reference run `ws0-baseline-check01` (commit `1cd7d19e7`, default 3 heavy
-lanes, passing). The earlier 3-lane override run measured 1,164 s graph wall on the same
-graph, so expect about ±150 s between single runs; compare treatments with two
-repetitions each.
+was refreshed on 2026-11-25 from the Go-planned `check` runs of 2026-11-24 and the
+eleven `ci` runs of the release attempts (Section 13.1). Single runs vary by about
+±30 s for `check` and ±60 s for `ci`; compare treatments with two repetitions each.
 
-| Metric | Current | Target |
+| Metric | Current (2026-11-25) | Target |
 | --- | ---: | ---: |
-| `check` graph wall | 887 s and 889 s (`g6-check01`, `g6-check02`); was 1,022–1,157 s before G6 | ≤ 750 s |
-| `check` outer wall | 899 s and 900 s (`g6-check01`, `g6-check02`) | ≤ 800 s |
+| `check` graph wall, all units run | 593–626 s (seven runs, 2026-11-24); 702–710 s after G28, 887–889 s after G6 | ≤ 500 s |
+| `check` graph wall after a localized product change | Same as a full run: the 124 PostgreSQL-backed units (7,095 s of 8,814 s unit time) are never cached | ≤ 300 s for the median product change (G35) |
+| `ci` graph wall | 1,618–1,735 s (eleven runs, 2026-11-24 to 25); 3,279 s in `ws1-ci01` | ≤ 1,450 s after the component work; ≤ 1,200 s after G31 |
+| `ci` pass rate | 3 of 11; 7 of the 8 failing runs were latent defects that only load exposed | No load-dependent failure in the phase's validation runs; every failure diagnosable from its first occurrence |
+| `check` pass rate | 6 of 7; the seventh was a real privilege defect in a new migration | No load-dependent failure |
 | Post-graph overhead per invocation | 11–12 s (outer minus graph, `g6-check01`, `g6-check02`; was ~60 s, ~121 s before G8) | ≤ 15 s (met) |
-| CPU-only units waiting more than 300 s | 55 and 96 with more than 300 s of `resources` wait (`g6-check01`, `g6-check02`; 119 in `w27-check01`). They queue for CPU tokens while the heavy lanes set the wall. Earlier figures used another definition | 0 |
-| Successful `check` run root | 249 MB and 242 MB (`g6-check01`, `g6-check02`; was 1.1 GB) | ≤ 150 MB |
-| `unit-events.ndjson` per `check` | 185 MB and 178 MB (`g6-check01`, `g6-check02`; 113,002 wait-segment pairs, G9 stage 2) | ≤ 10 MB |
+| Successful run root | 212 MB `check`, 567 MB `ci`; the event log is 190 MB and 345 MB of it (112,286 wait-segment pairs per `check`, G9 stage 2) | ≤ 150 MB `check` |
 | Temporary directories leaked per clean run | 0 (G10; was ~20) | 0 (met) |
-| Retained results | Reset by `make distclean` 2026-11-22; still unbounded | Bounded by an owner-set budget |
-| `ci` graph wall | 3,279 s (`ws1-ci01`; not re-measured) | ≤ 1,500 s |
-| `release-check` wall | Unmeasured | Measured; correctness portion ≤ 1.5 × `check` |
+| Retained results | Still unbounded | Bounded by an owner-set budget |
+| `release-check` wall | 477 s and 497 s in its two passing runs; release work only (release-qualification tracker, S7) | Met |
 
 ## 4. Gap Register
 
@@ -92,10 +93,10 @@ repetitions each.
 | G10 | Temporary-directory leaks, including private keys | Implementation, tests, specification | WS5 | Done (`a5df06952`); zero leaks after the G6 checks |
 | G11 | Unbounded retained-result growth | Specification, implementation | WS5 | Medium |
 | G12 | Go build-cache growth without a budget | Implementation, specification | WS5 | Low |
-| G13 | `release-check` unmeasured; quiet measurement runs inline in aggregates | Measurement, specification, process | WS1, WS6 | Medium (`ci` measured: measurement is 96 s) |
-| G14 | Estimates drift and diagnostics truncate | Machine inputs, implementation | WS1, WS4 | Medium; heavy-row estimates rebalanced (`fb5c7b63d`), little wall effect; estimates predate G6 |
-| G15 | Fallow web dead-code policy fails `ci` on 5 unused exports | Implementation (frontend) | WS0 follow-up | Immediate for a green `ci` |
-| G16 | Admission waiters re-run a full cross-process transaction every 50 ms | Implementation, specification | WS2 | High |
+| G13 | `release-check` unmeasured; quiet measurement runs inline in aggregates | Measurement, specification, process | WS1, WS6 | Closed by the release redesign (2026-11-24): `ci` has no quiet units, and `release-check` (477–497 s) and `release-measure` are measured |
+| G14 | Estimates drift and diagnostics truncate | Machine inputs, implementation | WS1, WS4 | Superseded by G33 (estimate drift) and G9 (event volume) |
+| G15 | Fallow web dead-code policy fails `ci` on 5 unused exports | Implementation (frontend) | WS0 follow-up | Closed: `frontend_fallow_static` passes in the passing `ci` runs |
+| G16 | Admission waiters re-run a full cross-process transaction every 50 ms | Implementation, specification | WS2 | Folded into G30 (one admission authority) |
 | G17 | Heavy-lane critical path: subtest timings are discarded; process tests used fixed hang guards; disk stalls (`guest:io` `full` about 10% of the run) are the binding contention, and template-clone I/O (about 38 of 62 GB per `check`) is unattributed | Specification, machine inputs, implementation, tests | Phase 3 | Closed: G17b, G17c, G17g and A18 committed; G17a not adopted; A17 withdrawn; follow-ups G27 and G28 (Section 5) |
 | G18 | Retained ATT&CK release metadata expires 2026-12-08T20:40:00Z; tests import it against the real clock | Fixtures, tests | Separate task | Urgent (outside efficiency scope) |
 | G19 | `DROP DATABASE` checkpoints can exceed the fixed 35 s cleanup budget under I/O load, poisoning the unit's generation | Specification, implementation | WS2/WS3 | Done: retirement and hardening (`500e3bdda`), retirement event (`a5df06952`); G6 removed most checkpoint backlog |
@@ -108,7 +109,17 @@ repetitions each.
 | G26 | Packing omits PostgreSQL generation acquisition | Specification, machine inputs, implementation | W2-5 | Medium; not implemented, see the G26 decision in Section 12 |
 | G27 | Heavy-lane wall sits in a few long single tests (import workflows, ATT&CK production restore, Network Flow incident transfer, the two bundle round trips) | Tests (module owners) | Phase 3 follow-up | Done: `7a62a435a`, `9f01fdc27`; changed tests −48%, graph wall −50 s (800/840 s); remaining saving lost to disk contention (G28) |
 | G28 | Heavy units spent about 15% of their time waiting on their own synchronous flushes (WAL commits and product file fsyncs); stall follows host flush latency, not guest flush or byte rates | Measurement, product, specification | Phase 3 follow-up | Done: options A and C (`d8654d75a`, `42849a1e7`); graph wall 702–710 s, heavy work −14–27%, host flushes −56% |
-| G29 | The 377-row Vitest cohort waits for two CPU tokens until 372–442 s and then ends every run: first-fit backfill starves multi-token claims | Scheduling (REQ-802), coupled to host admission (G4b) | Phase 3 follow-up | Open: deficit-disjoint backfill tried and reverted (graph +200 s; `b5d0935a8`) |
+| G29 | The 377-row Vitest cohort waits for two CPU tokens until 372–442 s and then ends every run: first-fit backfill starves multi-token claims | Scheduling (REQ-802), coupled to host admission (G4b) | Phase 3 follow-up | Folded into G30 and G31. The Vitest cohort no longer ends `check` (it starts at 333 s and ends at 516 s); the same starvation now delays the `ci` browser chain |
+| G30 | Two admission layers again: PostgreSQL units hold CPU tokens and logical lanes while they wait in host admission, because each generation is charged twice | Specification, machine inputs, implementation | Phase 4, P4-5 | Open; this is Stage 3 of the work-graph tracker |
+| G31 | The `ci` browser chain, its critical path, is eligible at 134 s but starts at 504–540 s | Scheduling (REQ-802, REQ-803) | Phase 4, P4-6 | Open; needs G30 first |
+| G32 | Browser lanes are fixed chains packed from estimates that are about twice the actual time: lane loads 904–1,155 s against an even 1,031 s | Planner, scheduling | Phase 4, P4-2 | Open |
+| G33 | Heavy units start in estimate order, and the estimates have drifted: the longest heavy unit starts at 260 s | Machine inputs, planner | Phase 4, P4-1 | Open |
+| G34 | Heavy placement and capacities were tuned before G28 cut host flushes by 56% | Measurement, machine inputs | Phase 4, P4-1 | Open |
+| G35 | PostgreSQL-backed rows are never cached, so `check` costs the same for a one-line change as for a full run | Specification, implementation | Phase 4, P4-3 | Open; needs an owner decision |
+| G36 | Every test row's cache key includes the whole harness tree, schemas, contracts, scripts and the Makefile, so tooling commits invalidate every cached row | Machine inputs, specification | Phase 4, P4-3 | Open |
+| G37 | Builds on the `ci` critical path (renderer installation 76 s, server harness 56 s) run every time | Machine inputs, implementation | Phase 4, P4-3 | Open |
+| G38 | A browser cohort stops at its first failure, so the rest of its tests report `infrastructure_failed` and their outcomes are lost | Implementation, possibly specification | Phase 4, P4-2 | Open |
+| G39 | Load-dependent defects surface one per `ci` run and are reproduced by hand | Tests, harness, process | Phase 4, P4-4 | Open |
 
 ## 5. Gap Remediation Detail
 
@@ -1231,6 +1242,8 @@ Each amendment lands spec-first in one change with its machine projections, rege
 | D4 | One-time removal of existing leaked directories and old results | WS5 exit | Yes, through the new commands' dry-run then apply. |
 | D5 | Confirm or adjust the Section 3 targets | WS1 exit | Keep, then revise with `ci`/`release-check` data. |
 
+Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-amendments).
+
 **Handoff checklist for the next session.**
 
 - Read this tracker, the [test-operations skill](../../.agents/skills/cartulary-test-ops/SKILL.md) and the NLSpec sections in the amendment ledger.
@@ -1318,6 +1331,9 @@ Each amendment lands spec-first in one change with its machine projections, rege
 | 2026-11-23 | OTel | GO-2026-6974 advisory: OpenTelemetry Go v1.47.0 (log v1, OTLP log exporters v0.23.0), deprecated log/global calls replaced, snapshot and identity tests updated | `otel-bootstrap01`, `otel-vuln02`, `otel-lintgo02`, `otel-telemetry02`, `otel-conformance02`, `otel-slice-srv01`, `otel-slice-nf01`, `otel-srcgen01` | All pass; `govulncheck` has no blocking finding. Committed `578259802` |
 | 2026-11-23 | G29 | Deficit-disjoint logical backfill, then current-deficit form; scheduler rows and one diagnostic `check` each | `g29-slice-sched01`, `g29-check01`, `g29-slice-sched02`, `g29-check02` | Cohort starts at 2–4 s, but graph 899 s and 903 s (from 702–710 s): heavy lanes idle behind host-admission waits. Reverted `b5d0935a8` |
 | 2026-11-23 | G29 | Saved-graph lifecycle test race: assert released restored attempt; transactional job seeding | `race-lintgo01`, `race-slice-nf01`, `race-slice-cs01` | All pass. Committed `408e11948` |
+| 2026-11-24 | Go planner (work-graph tracker) | `check` after the Go planner became the default (slices 3b–4d, Stage 2) | `20261124T022650Z-p16111`, `20261124T161533Z-p41508`, `20261124T171701Z-p83767`, `20261124T180212Z-p90231`, `20261124T185203Z-p57224`, `20261124T193704Z-p20922`, `20261124T212414Z-p1022` | Graph 856 s, then 593–626 s. Six passed; `-p1022` failed one row on a real privilege defect in a new migration. The drop from about 700 s is not attributed to a single change |
+| 2026-11-24 to 25 | Release redesign (release-qualification tracker) | Eleven `ci` runs during the release attempts | `20261124T200215Z-p34171.ci` through `20261125T160715Z-p42612.ci` | Graph 1,618–1,735 s; 3 passed. Failures in Section 13.2 |
+| 2026-11-25 | Phase 4 analysis | Unit-event profiles of `check` `-p20922` and `ci` `-p42612`: phase occupancy, lane loads, estimate ratios, cache facts; commit-history simulation of cache invalidation | `20261124T193704Z-p20922`, `20261125T160715Z-p42612.ci`, the plans of the five 2026-11-24 `check` runs | Findings G30–G39 and Section 13. No code change |
 
 ## 12. Phase 2 Plan — `check` Wall Clock
 
@@ -1888,3 +1904,376 @@ failing tests hit, so G17c and then G17f come next. G17 has since closed (Sectio
 | D8 | Lifecycle "replay": receipt replay or second import | W2-3 | Reference-data owner decides; keep whichever the NLSpec claim names |
 | D9 | Commit plan for the uncommitted work | W2-0 | Logical commits, so W2-1 can bisect |
 | D10 | Four-lane adoption criteria | W2-5 | As stated under G2 |
+
+## 13. Phase 4 Plan — Daily `check` and `ci`
+
+**Status.** Proposed 2026-11-25. The owner set the priority. Developers use
+`check` and `ci` to validate everyday changes, so their wall time and
+stability come before `release-measure`, which runs rarely. Each component is
+improved and measured first. Changes that make phases run concurrently (G31)
+come last, because overlap can introduce instability that targeted tests do
+not show.
+
+### 13.1 Current State
+
+**Evidence.** The profiles come from `check` `20261124T193704Z-p20922`
+(605 s, pass) and `ci` `20261125T160715Z-p42612.ci` (1,660 s, pass). Neither
+ran with diagnostics, so they are read from the phase events in
+`unit-events.ndjson`; Section 11 lists the runs behind the ranges. The host is
+as in Section 1: 24 logical CPUs and 19 CPU tokens.
+
+`check` units by class. Unit time runs from `started` to `completed`, so it
+includes host admission.
+
+| Class | Units | Unit time | Runner | Host admission | Cache |
+| --- | ---: | ---: | ---: | ---: | --- |
+| PostgreSQL-backed Go | 109 | 5,495 s | 1,819 s | 3,380 s | Never (by spec) |
+| Heavy-lane Go | 15 | 1,599 s | 1,509 s | 30 s | Never (by spec) |
+| Plain Go | 186 | 837 s | 801 s | 1 s | 182 eligible |
+| Vitest | 13 | 463 s | 462 s | 0 s | Eligible |
+| Operations | 43 | 420 s | 415 s | 0 s | 2 eligible; builds are not |
+
+`ci` runs 502 units: the same classes, a few more Go units and operations,
+and 29 browser groups with 4,125 s of unit time.
+
+**What bounds `check` (605 s).**
+
+- *0–430 s: PostgreSQL generations.* In every 30 s sample from 30 s to 390 s,
+  7–9 PostgreSQL units waited in host admission while 6–8 ran tests. The
+  logical layer admits 16 PostgreSQL units: the capacity is 16 and each unit
+  claims one lane. Host admission charges each unit's own lane and again its
+  resident generation's lane (`physical_resource_claims.postgres` in the
+  topology manifest), so only 8 run. Units that use the object store are
+  charged the same way: 8 lanes, 2 per unit, so 4 at a time. Units waiting in
+  host admission keep their CPU tokens. All 19 tokens were claimed for 435 s,
+  and plain Go units waited 30,091 unit-seconds for one.
+- *0–604 s: the three heavy lanes.* There are 15 heavy units with 1,599 s of
+  work. An even split is 533 s, longest first on the actual durations is
+  544 s, and the heavy lanes finished at 604 s. Heavy units start in estimate
+  order, but the estimates range from 9% under to 2.5 times the actual time.
+  A unit estimated at 221 s that ran 89 s started first. The longest unit (`network_flow_portability`, 193 s,
+  estimated 176 s) started at 260 s.
+- *After 450 s,* only heavy units run, three and then one.
+
+**What bounds `ci` (1,660 s).**
+
+- *Builds.* Renderer installation (76 s) and then the server harness (56 s)
+  run every time (cache policy `none`). The browser chain becomes eligible at
+  134 s.
+- *Starved critical path.* The four browser lane heads started at
+  504–540 s. Each browser group claims 2 CPU tokens, 2 PostgreSQL lanes and an
+  object-store lane at once. First-fit backfill gives every freed single token
+  to a ready Go unit, the G29 starvation. The spec already forbids this:
+  "Noncritical policy work MUST NOT starve the functional critical path."
+- *Fixed browser lanes.* From 504 s to 1,659 s the browser groups run on four
+  lanes fixed at plan time. The lanes were busy 969, 1,096, 1,155 and 904 s,
+  against an even 1,031 s. The planner packs longest first by estimate, and
+  the estimates are about twice the actual time (actual/estimate 0.26–0.82,
+  median 0.5). Lane 4 sat idle for the last 244 s.
+- *Idle host.* From 690 s, six or fewer units run; from 1,110 s, four or
+  fewer. From 690 s, at most five PostgreSQL-backed units run, browser
+  groups included.
+
+**Cache in daily development.** `check` and `ci` default to cache mode
+`normal`.
+
+- In `check`, 197 of 367 units are cache-eligible, with 1,300 s of the
+  8,814 s unit time. The 124 PostgreSQL-backed units (7,095 s) are
+  ineligible: Section 8.3 of the NLSpec keeps "stateful tests, lifecycle,
+  migration assertions, browser work, measurement, cleanup, destructive
+  safeguards ..." uncached. The builds are ineligible too (policy `none`).
+- The five `check` runs of 2026-11-24 were on successive commits, and each
+  hit 0 or 1 units. No eligible unit kept its input digest from one commit to
+  the next. The `test_rows` profile puts these paths in every closure, 1,092
+  files in all: `tools/harness/**`, `tools/schemas/**`, `tools/generate*`,
+  `contracts`, `configs`, `scripts`, the Makefile and the task-surface files.
+- Over the last 150 commits:
+  - 101 touched those paths and invalidated a median of all 197 eligible
+    units;
+  - 9 product-only commits invalidated a median of 3;
+  - 40 documentation-only commits invalidated none.
+- *Simulation for PostgreSQL-backed rows.* This uses the planner's closure
+  rule (selected packages and their repository-local imports). The closures
+  reach a median of 344 local packages, because integration tests compose the
+  whole server. In the last 800 commits there were 37 product-only Go
+  commits. Under a content-addressed key, those would rerun a median of 10 of
+  the 124 units (about 700 s of the 7,095 s) and a mean of 51. Two in five
+  would still rerun 92–124.
+
+**Run roots.** A `check` root is 212 MB, 190 MB of it the event log (112,286
+wait-segment pairs, G9 stage 2). A `ci` root is 567 MB, with a 345 MB event
+log.
+
+### 13.2 Stability Record
+
+`ci`, eleven runs from 2026-11-24 to 25, three passed. The release-qualification
+tracker has the detail on each failure.
+
+| Run | Failure | Cause | Resolution |
+| --- | --- | --- | --- |
+| `-p34171` | NF-REQ-171a: the 250,000-row commit exceeded its 30 s budget | Capacity margin under load | Row-key migration and single-pass apply; the row now takes 16 s alone |
+| `-p60919` | Release readiness contract | Test runner: a module-level scenario starved by a synchronous test | Registered async test |
+| `-p89370` | Membership management live pages | Product race in paging after a confirmed write | Controller waits for the follow-up access check |
+| `-p92912` | State-admission result precedence | Test fixture built inside a 1 s validation deadline | Fixture built before admission |
+| `-p12690` | UI review stop; renderer sandbox Mermaid bundle | Lifecycle window; unknown | Stop waits for the owner; UI review left `ci`; renderer prints its supervisor cause |
+| `-p61824` | Entity Find editing | Test pressed Enter while a rescan disabled navigation | Waits for the status first |
+| `-p44999` | IR corpus import: the timeline apply job stalled for 30 s | Unknown | Stall diagnostics |
+| `-p97887` | Backend module boundary check | Static rule broken by the stall diagnostics change | Package restructured |
+
+- **Seven of the eight failing runs were load-dependent.** Each row passed
+  alone, and each failure was a real defect in the product, a test or test
+  support, not noise. Load is what exposed them, so the load stays.
+- **Each one cost a `ci` run of about 28 minutes to find.** In three runs the
+  failing browser test stopped its cohort, so 26, 37 and 6 other tests
+  reported `infrastructure_failed` without running.
+- **Every reproduction was manual:** the row alone, then beside 48 CPU-bound
+  processes.
+- **`check`.** Six of the seven Go-planned runs passed; the seventh failed on a
+  real privilege defect in a new migration. Phase 3's load-sensitive
+  Network Flow row limit has not failed since the single-pass apply.
+
+### 13.3 Constraints
+
+- **Coverage.** No row is removed, made `explicit_only` or narrowed to save
+  time.
+- **Isolation.** Every PostgreSQL unit keeps its dedicated generation, and
+  every browser group its stack. No change introduces shared mutable state.
+- **Reliability.** No retries: Playwright retries are already refused, and no
+  Go rerun is added. No durability change (REQ-804). A timeout changes only by
+  deriving it from the test deadline or an observable state. A cache hit must
+  prove its whole key; any doubt is a miss.
+- **Capacity is a physical stability limit.** Raising it needs the paired-run
+  gate in 13.7.
+- **Order.** Components first (P4-1 to P4-4), then the scheduler's structural
+  fix (P4-5), then overlap (P4-6).
+- **Verification** follows the owner's rules: targeted rows for each change;
+  one diagnostic `check` when scheduling or capacity changes; paired runs only
+  to adopt a gap; `ci` only when a change affects browser or `ci`-only work,
+  with the reason stated; no release reruns in this phase.
+
+### 13.4 Gap Detail
+
+#### G30 — One admission authority, capacities stated once
+
+- **Evidence.** 13.1: about 8 PostgreSQL units hold CPU tokens and logical
+  lanes while they wait in host admission for 430 s of every `check`.
+- **Fix.** Stage 3 of the work-graph tracker. One ledger decides admission
+  over a unit's claims and its residents together, and a unit takes no token
+  until every claim, its generation included, is available. Each capacity
+  names the physical thing it bounds and is charged once per resident:
+  `postgres_generations` 8 (today's effective limit of 16 lanes charged
+  twice) and object stores 4. Physical concurrency is unchanged, so the disk
+  load is unchanged. G16's 50 ms polling is redesigned with it: waiters wake
+  on release.
+- **Expected effect.** Little on `check`, which the heavy lanes and the eight
+  generations bound. Plain Go, Vitest and operations finish earlier. In
+  `ci`, browser groups may start as soon as generations free, which is
+  partial overlap; validation must compare browser start times and failures.
+- **Checks.** The scheduling, admission and native-runtime rows, the planner
+  rows, one diagnostic `check`; to adopt, a paired `check` and one `ci`
+  (browser start times change).
+- **Risk.** G29 and Stage 0 each changed one layer and lost 200–270 s. That is
+  why both layers become one, delivered in separately verified slices.
+
+#### G31 — Critical-path reservation
+
+- **Evidence.** The browser chain waits 370–406 s in every `ci`.
+- **Fix, after G30.** The highest-ranked waiting unit reserves resources as
+  they free, and lower-ranked units backfill only beside the reservation.
+- **Expected effect.** The browser chain starts when its builds finish. The
+  Go phase stretches, because four browser stacks hold four of the eight
+  generations; it still ends inside the browser phase. `ci` ≈ builds plus
+  about 1,050 s of browser work, about 1,150–1,250 s.
+- **Risk.** Browser tests, the most load-sensitive, would run beside the
+  PostgreSQL-heavy Go phase. This is the overlap the owner deferred. Adopt
+  only through the 13.7 stability gate.
+
+#### G32 — Browser lanes as a runtime capacity
+
+- **Fix.** Browser lanes become a runtime capacity of stacks (default 4,
+  maximum 6, as today). The planner stops chaining groups; when a stack
+  frees, the scheduler starts the next ready group, longest first. A stack
+  still serves consecutive groups of one execution, so stack reuse is kept.
+  Estimates decide only the order, no longer the assignment.
+- **Expected effect.** The browser phase approaches an even split: about
+  1,155 s → 1,040–1,060 s.
+- **Checks.** The planner browser rows, the scheduler rows, the lane-policy
+  contract, one `ci` (browser scheduling changes).
+
+#### G33 — Estimates from observations
+
+- **Evidence.** Heavy units ran 604 s against 544 s longest-first; browser
+  estimates are about twice the actual time. The authored estimates were last
+  rebalanced on 2026-11-22 (G14), before G27 and G28 changed the heavy rows.
+- **Fix.** A maintenance command refreshes the authored row estimates from
+  named passing runs (median of the observations) and writes them as an
+  ordinary reviewable change. The source tree stays the plan's only input, so
+  plans stay reproducible, and the existing estimate audit becomes the drift
+  check.
+- **Expected effect.** `check` −40 to −60 s; the browser order in G32 also
+  depends on it.
+- **Checks.** The estimate audit, the planner rows, one diagnostic `check`.
+
+#### G34 — Heavy placement and capacity after G28
+
+- **Evidence.** Four heavy lanes were rejected three times on 2026-11-23 for
+  contention failures (the Network Flow row limit, operator restore and an
+  ATT&CK round trip). That was before G28 cut host flushes by 56%, and before
+  the single-pass apply cut the Network Flow row from 22 s to 16 s alone. The
+  limit of eight generations dates from G19 and G5b (2026-11-22).
+- **Fix.**
+  - *Placement audit.* Measure each heavy row's flushes and WAL with the G28
+    sampler, and move rows whose I/O is now ordinary to ordinary generations.
+  - *Re-test capacity.* Try four heavy lanes, and separately ten generations,
+    by capacity override, with paired diagnostic `check` runs for each.
+- **Expected effect.** `check` toward 450–500 s if either holds, nothing if
+  both are rejected.
+- **Risk.** These are the conditions that failed before, so the 13.7 gate
+  applies in full: a single contention failure rejects.
+
+#### G35 — Cache PostgreSQL-backed rows
+
+- **Fix (amendment).** A Go row with a dedicated generation, and optionally an
+  object store, becomes eligible for content-addressed caching. Its key binds
+  today's closure plus the seed template digest (which binds the
+  migrations), the service image digests, the fixture roots and the
+  test-services helper. Everything else in the Section 8.3 list stays
+  uncached: lifecycle, migration assertions, process tests, browser,
+  measurement and destructive safeguards. A row whose outcome depends on
+  wall-clock or host state opts out in the catalog.
+- **Reliability.** Release qualification runs its `ci` with the cache off, so
+  every release still executes every row.
+- **Expected effect.** For the median product change, about 700 s of service
+  work instead of 7,095 s. `check` after a localized change is then bounded
+  by the longest invalidated unit plus the builds: ≤ 300 s. Full runs are
+  unchanged.
+- **Decision.** D12.
+
+#### G36 — Narrow the test-row cache inputs
+
+- **Fix.** The registered broad unit inputs give way to what a row's result
+  depends on: the row runner's own implementation closure (its imports; once
+  the row runner is in Go, the harness binary's package closure), the schemas
+  it writes, the topology and scheduler inputs it reads, the toolchain pins
+  and the selected owner manifests (already included). A check fails when the
+  runner reads a file outside its declared closure, so the key stays
+  closed-world.
+- **Expected effect.** Harness and tooling commits stop invalidating product
+  rows; 101 of the last 150 commits invalidated every eligible unit.
+- **Risk.** An undeclared input gives a stale hit, which is why the closure
+  is derived mechanically and checked.
+
+#### G37 — Reusable build outputs
+
+- **Fix.** `build_report_renderer`, `build_server_harness` and the other builds
+  on the browser path get content-addressed reusable-output contracts. The
+  NLSpec already allows build caches under a cache profile.
+- **Expected effect.** `ci` −76 s when the renderer inputs are unchanged
+  (most commits), and −56 s more when no server input changed. `check` is
+  unaffected, because the builds are not its critical path.
+
+#### G38 — Browser cohorts run to completion
+
+- **Evidence.** `tools/harness/browser/browser-catalog-group-cli.mjs` passes
+  `--max-failures=1`. Three failing `ci` runs left 26, 37 and 6 tests
+  unexecuted.
+- **Fix.** Cohorts whose state is `test_owned` drop `--max-failures=1`: each
+  test owns its state, so one failure cannot poison the next. Cohorts whose
+  tests share state, and harness or stack failures, keep stopping at the
+  first failure.
+- **Expected effect.** No change on passing runs. A failing run reports every
+  failing test, so one `ci` run finds all of a cohort's defects.
+- **Decision.** D14, if the NLSpec requires stop-on-first-failure.
+
+#### G39 — Find load-dependent defects without `ci`
+
+- **Stress command.** `make test-stress ROWS=… REPEAT=N LOAD=<profile>` runs
+  rows repeatedly beside a declared synthetic load (CPU, disk flushes, or
+  both) and records each repetition. This replaces the manual runs beside
+  48 CPU-bound processes. It is a new public target (D15).
+- **Failure-scoped host evidence.** A 1 Hz in-memory ring of host pressure
+  (CPU, I/O and memory PSI). The window around each failed unit is written
+  into its unit logs, so every load-dependent failure carries its load
+  context without `HARNESS_DIAGNOSTICS=basic`.
+- **Wait audit.** Go tests have 84 `time.Sleep` calls and 199
+  fixed-duration `context.WithTimeout` calls; the browser specs set 47
+  explicit timeouts. Classify each one as deadline-derived (the G17g pattern),
+  an observable-state wait, or justified. Fix the rest owner by owner.
+- **Open defects.** The renderer sandbox flake (1 in 51) and the IR corpus
+  apply stall now retain their cause class. Record each recurrence here.
+- **Expected effect.** No wall change; fewer `ci` runs spent finding defects.
+
+### 13.5 Workstreams
+
+| Step | Work | Gaps | Exit |
+| --- | --- | --- | --- |
+| P4-0 | Reference runs: one diagnostic `check` and one diagnostic `ci` at HEAD with the cache off, because the 13.1 runs have no pressure samples | — | Both pass; recorded in Section 11 |
+| P4-1 | Go phase components | G33, G34 | Estimates refreshed; placement audited; capacity re-tests adopted or rejected through the gate |
+| P4-2 | Browser phase components | G32, G38 | Dynamic lanes adopted after one `ci`; failure policy decided |
+| P4-3 | Daily-development cache | G36, G37, then G35 | Hit rates measured on representative commits; G35 only after D12 |
+| P4-4 | Stability tooling | G39 (host evidence first, then the stress command, wait audit and open defects) | The week's failing rows pass `REPEAT=10` under load |
+| P4-5 | One admission authority | G30 | Paired `check` and one `ci` |
+| P4-6 | Overlap | G31 | Through the 13.7 gate, or recorded as rejected |
+| P4-7 | Validation and handoff | — | Paired `check`, paired `ci`, Section 3 refreshed |
+
+P4-1 to P4-4 are independent and can proceed in any order. P4-5 starts after
+P4-1 and P4-2, so the scheduler change is measured on stable components.
+P4-6 comes last.
+
+### 13.6 Expected Effect
+
+| Lever | `check`, full | `check`, localized change | `ci` |
+| --- | ---: | ---: | ---: |
+| G33 | −40 to −60 s | same | small |
+| G34 | 0 to −100 s | same | small until G31 |
+| G32 | — | — | −100 to −120 s |
+| G37 | — | — | −76 to −132 s when unchanged |
+| G36 | — | tooling commits stop invalidating rows | same for `ci`'s cached rows |
+| G35 | — | about 600 s → ≤ 300 s | its Go rows likewise |
+| G30 | 0 to −30 s | — | prerequisite for G31 |
+| G31 | — | — | −300 to −400 s |
+| G38, G39 | — | — | fewer runs to find defects |
+
+**Projection.**
+
+- *`check`, full run:* about 545–565 s after P4-1, and ≤ 500 s only if G34
+  holds.
+- *`check`, localized product change:* ≤ 300 s after G35.
+- *`ci`:* about 1,450–1,500 s after P4-2 and P4-3, and about 1,150–1,250 s
+  after G31.
+
+### 13.7 Validation Protocol and Stability Gate
+
+- **Per change.** Targeted rows, found through `make task-guide`.
+- **Scheduler, capacity or planner change.** One diagnostic `check`
+  (`HARNESS_DIAGNOSTICS=basic`, cache off), compared with the P4-0 reference.
+- **Browser scheduling change.** One diagnostic `ci`, with the reason stated.
+- **Adopting a gap.** Paired runs of the affected command.
+- **Stability gate.** Any change that raises concurrency or overlap (G31,
+  G34) is adopted only if all of these hold:
+  - its paired runs pass;
+  - heavy-unit work and browser runner time grow by no more than 15%;
+  - the rows that failed in 13.2 pass `REPEAT=10` under the stress command's
+    declared load.
+
+### 13.8 Decisions and Amendments
+
+| ID | Decision | Needed by | Recommendation |
+| --- | --- | --- | --- |
+| D11 | Make Stage 3 (one admission authority) phase-4 work, after P4-1 and P4-2 | P4-5 | Approve; it answers the work-graph tracker's open question |
+| D12 | Cache PostgreSQL-backed rows under a key that binds the seed template and service images | P4-3 | Approve, with release `ci` run cache-off |
+| D13 | Narrow test-row cache inputs to the runner's own closure | P4-3 | Approve |
+| D14 | Run test-owned browser cohorts to completion | P4-2 | Approve unless the NLSpec requires stop-on-first-failure |
+| D15 | Add a public stress command | P4-4 | Approve |
+| D16 | Re-test four heavy lanes and ten generations | P4-1 | Approve as measurement; adopt only through the 13.7 gate |
+| D17 | Critical-path reservation, overlapping the browser and Go phases | P4-6 | Decide after the P4-5 measurements |
+
+| ID | Section or requirement | Change | Gap |
+| --- | --- | --- | --- |
+| A22 | Scheduling and host admission (REQ-802, REQ-803) | One admission ledger; capacities per physical resource, charged once | G30 |
+| A23 | REQ-802, REQ-803 | Reservation for the highest-ranked waiter; backfill only beside it | G31 |
+| A24 | Browser lane policy | Lanes are a runtime stack capacity, not a plan-time chain | G32 |
+| A25 | Section 8.3 cache policy | Go rows with dedicated services become cacheable under the extended key | G35 |
+| A26 | Unit-aware closure rules | The runner's implementation closure replaces the registered broad unit inputs | G36 |
+| A27 | Browser failure policy | Test-owned cohorts run to completion | G38, if needed |
+| A28 | Command tables | Stress command | G39 |
