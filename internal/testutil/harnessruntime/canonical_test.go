@@ -344,7 +344,7 @@ func TestRuntimeRequiredPublication(t *testing.T) {
 	t.Run("dependency rows publish before consumers without replacing root failure", func(t *testing.T) {
 		rowID := "harness.command_surface.unit.scheduler_smoke"
 		b := fixtureUnit("unit:b", "unit:a")
-		b.RowBindings = []harnessplan.RowBinding{{RowID: rowID, Runner: "go"}}
+		b.RowBindings = []harnessplan.RowBinding{{RowID: rowID, Runner: "go", Selectors: []string{"TestSchedulerSmoke"}}}
 		b.EvidenceOutputs = []string{"rows/" + rowID + ".json"}
 		p := planFixture(t, fixtureUnit("unit:a"), b)
 		root := t.TempDir()
@@ -471,7 +471,7 @@ func TestRuntimeRequiredPublication(t *testing.T) {
 	t.Run("cache_cancellation_publishes_terminal_without_execution", func(t *testing.T) {
 		rowID := "harness.command_surface.unit.scheduler_smoke"
 		a := fixtureUnit("unit:a")
-		a.RowBindings = []harnessplan.RowBinding{{RowID: rowID, Runner: "go"}}
+		a.RowBindings = []harnessplan.RowBinding{{RowID: rowID, Runner: "go", Selectors: []string{"TestSchedulerSmoke"}}}
 		a.EvidenceOutputs = []string{"rows/" + rowID + ".json"}
 		p := planFixture(t, a)
 		root := t.TempDir()

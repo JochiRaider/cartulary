@@ -35,13 +35,13 @@ function stubPlanner(rows) {
     kind: "runner", needs: [operation.unit_id], resource_claims: { cpu: 2, postgres: 1 }, fixture_lease: "browser_stack",
     fixture_profile_id: "browser_baseline_v1", snapshot_key: "b".repeat(64), service_dependencies: ["object_store", "postgres"],
     current_run_evidence_outputs: rows.map((row) => `rows/${row.row_id}.json`), estimated_work_ms: 2000, semantic_digest: digest("c"),
-    row_bindings: [...rows, ...rows].reverse().map((row) => ({ row_id: row.row_id, runner: row.runner })),
+    row_bindings: [...rows, ...rows].reverse().map((row) => ({ row_id: row.row_id, runner: row.runner, ...(row.runner === "go" ? { selectors: ["TestFixture"] } : {}) })),
   });
   const plan = (args, options) => {
     calls.push({ args, options });
     return {
-      schema_id: "cartulary.harness_runtime_plan.v9",
-      graph: { schema_id: "cartulary.harness_work_graph.v9", graph_digest: digest("d"), units: [operation, runner] },
+      schema_id: "cartulary.harness_runtime_plan.v10",
+      graph: { schema_id: "cartulary.harness_work_graph.v10", graph_digest: digest("d"), units: [operation, runner] },
       manifest: { capability_snapshot: { cpu_tokens: 4, postgres_lanes: 2, snapshot_digest: digest("e") }, go_worker_budget: 3 },
       projections: {
         "test-slice": { command_id: "cartulary.harness.command.test_slice.v5", unit_ids: [operation.unit_id, runner.unit_id] },

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.harness_runtime_plan.v9",
+  "$id": "cartulary.harness_runtime_plan.v10",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -19,10 +19,10 @@
   ],
   "properties": {
     "schema_id": {
-      "const": "cartulary.harness_runtime_plan.v9"
+      "const": "cartulary.harness_runtime_plan.v10"
     },
     "graph": {
-      "$ref": "cartulary.harness_work_graph.v9"
+      "$ref": "cartulary.harness_work_graph.v10"
     },
     "manifest": {
       "$ref": "cartulary.harness_run_manifest.v3"

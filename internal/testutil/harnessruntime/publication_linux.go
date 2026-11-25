@@ -16,6 +16,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/platform/harnessredact"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnessrows"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 )
@@ -242,6 +243,11 @@ func (p *graphPublication) Terminal(u unit, r *unitResult) error {
 			return err
 		}
 	}
+	if r.GoRows != nil {
+		if err := p.publishGoRows(u, r); err != nil {
+			return err
+		}
+	}
 	logRoot := filepath.Join(p.root, "unit-logs", safeUnitName.ReplaceAllString(u.ID, "-"))
 	directory, err := harnesslocal.PrivateDirectory(logRoot)
 	if err != nil {
@@ -280,6 +286,34 @@ func (p *graphPublication) Terminal(u unit, r *unitResult) error {
 		}
 	}
 	return p.writeUnit(u, *r, true, true)
+}
+
+// publishGoRows writes a Go unit's row results and, under basic execution
+// diagnostics, its test durations. Durations are diagnostic: one that cannot
+// be written is reported in the unit's log and changes nothing else.
+func (p *graphPublication) publishGoRows(u unit, r *unitResult) error {
+	settled := r.GoRows
+	stamp := func(at time.Time) string { return at.UTC().Format("2006-01-02T15:04:05.000Z") }
+	for _, outcome := range settled.Outcomes {
+		var diagnostic any
+		if outcome.Diagnostic != nil {
+			diagnostic = outcome.Diagnostic
+		}
+		value := map[string]any{"schema_id": "cartulary.harness_row_result.v6", "row_id": outcome.RowID, "runner": "go",
+			"terminal_state": outcome.TerminalState, "duration_ms": outcome.DurationMS, "exit_code": outcome.ExitCode,
+			"failure_class": nullableString(outcome.FailureClass), "failure_reason": nullableString(outcome.FailureReason), "failure_diagnostic": diagnostic,
+			"started_at": stamp(settled.Started), "finished_at": stamp(settled.Finished), "wall_duration_ms": max(0, settled.Finished.Sub(settled.Started).Milliseconds())}
+		if err := writeEvidence(p.root, "rows/"+outcome.RowID+".json", "cartulary.harness_row_result.v6", value, true); err != nil {
+			return err
+		}
+	}
+	if settled.Durations != nil {
+		document := harnessrows.NewDurationsDocument(u.ID, []harnessrows.Durations{*settled.Durations}, harnessredact.String)
+		if err := writeEvidence(p.root, "unit-logs/row-"+slices.Min(rowIDs(u))+"/go-test-durations.json", harnessrows.DurationsSchema, document, true); err != nil {
+			r.Stderr = append(r.Stderr, "go test durations unavailable (diagnostic_write_failed)\n"...)
+		}
+	}
+	return nil
 }
 func (p *graphPublication) writeUnit(u unit, r unitResult, executed, replace bool) error {
 	evidence := slices.Clone(u.Evidence)

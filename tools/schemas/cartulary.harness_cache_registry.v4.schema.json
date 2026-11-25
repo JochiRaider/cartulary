@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.harness_cache_registry.v3",
+  "$id": "cartulary.harness_cache_registry.v4",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -9,7 +9,7 @@
   ],
   "properties": {
     "schema_id": {
-      "const": "cartulary.harness_cache_registry.v3"
+      "const": "cartulary.harness_cache_registry.v4"
     },
     "profiles": {
       "type": "array",
@@ -55,12 +55,16 @@
             }
           },
           "unit_inputs": {
-            "description": "Inputs every unit-aware closure includes beside its selected packages or workspaces: paths (each with everything beneath it) and path prefixes (every path that starts with the prefix).",
+            "description": "Inputs every unit-aware closure includes beside its selected packages or workspaces: paths (each with everything beneath it), path prefixes, the runner that executes the rows (the static module closure of its JavaScript entries or the import closure of its Go packages), and for a service-backed unit its service paths.",
             "type": "object",
             "additionalProperties": false,
             "required": [
               "paths",
-              "prefixes"
+              "prefixes",
+              "runner_entries",
+              "runner_external_imports",
+              "runner_packages",
+              "service_paths"
             ],
             "properties": {
               "paths": {
@@ -75,6 +79,54 @@
                 }
               },
               "prefixes": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9._@+-][A-Za-z0-9._@+/-]*$",
+                  "not": {
+                    "pattern": "(?:^|/)\\.\\.(?:/|$)"
+                  }
+                }
+              },
+              "runner_entries": {
+                "description": "Row runner entry modules. The planner adds their relative static, literal dynamic and literal require closure; an unresolvable specifier, or a computed import outside runner_external_imports, makes the closure broad.",
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9._@+-][A-Za-z0-9._@+/-]*$",
+                  "not": {
+                    "pattern": "(?:^|/)\\.\\.(?:/|$)"
+                  }
+                }
+              },
+              "runner_external_imports": {
+                "description": "Node modules, of the runner closure or of a module a Go closure names, whose computed imports load only installed packages outside the repository source, which the lockfile already binds.",
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9._@+-][A-Za-z0-9._@+/-]*$",
+                  "not": {
+                    "pattern": "(?:^|/)\\.\\.(?:/|$)"
+                  }
+                }
+              },
+              "runner_packages": {
+                "description": "Go packages of the row runner. The planner adds their repository-local import closure without test files.",
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9._@+-][A-Za-z0-9._@+/-]*$",
+                  "not": {
+                    "pattern": "(?:^|/)\\.\\.(?:/|$)"
+                  }
+                }
+              },
+              "service_paths": {
+                "description": "Paths added to the closure of a unit whose rows depend on services.",
                 "type": "array",
                 "uniqueItems": true,
                 "items": {

@@ -2911,7 +2911,7 @@
           "--test-concurrency=1",
           "./tools/harness/tests/test-harness-command-surface-contracts.mjs",
           "./tools/harness/execution/tests/test-vitest-diagnostics.mjs",
-          "./tools/harness/backend/tests/test-go-row-runner.mjs"
+          "./tools/report-renderer/tests/test-installation-store.mjs"
         ],
         "test_target": "self"
       },

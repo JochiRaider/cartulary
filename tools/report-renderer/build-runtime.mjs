@@ -1,12 +1,11 @@
-import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { createReadStream } from "node:fs";
 import { chmod, copyFile, lstat, mkdir, mkdtemp, open, readFile, readdir, realpath, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
 
 import { restrictedExecutableInputRoots } from "../harness/test-catalog/restricted-input-boundary.mjs";
+import { fileDigest, inventory, publishReceipt, recordKey, reusableInstallation, sha } from "./installation-store.mjs";
 
 // Packaging is an explicit build operation. Rendering never invokes a package
 // manager, discovers host libraries, or copies files from the application tree.
@@ -18,11 +17,9 @@ const excluded = new Set([...restrictedExecutableInputRoots(repository), ".git",
 const omit = (name) => excluded.has(name) || /(?:\.md|\.markdown)$/iu.test(name) || /^readme(?:\.|$)/iu.test(name);
 const output = path.join(repository, "build/report-renderer");
 await mkdir(output, { recursive: true });
-const work = await mkdtemp(path.join(output, ".build-"));
-const root = path.join(work, "root");
+let root;
 const nativeFiles = new Set();
 const run = (program, args, options = {}) => execFileSync(program, args, { encoding: "utf8", maxBuffer: 8 << 20, ...options });
-const sha = (bytes) => createHash("sha256").update(bytes).digest("hex");
 
 async function copyRegular(source, destination) {
   const info = await lstat(source);
@@ -55,28 +52,75 @@ async function copyHostFile(source, destination) {
   await copyRegular(await realpath(source), path.join(root, destination));
 }
 
-async function fileDigest(file) {
-  const digest = createHash("sha256");
-  for await (const bytes of createReadStream(file)) digest.update(bytes);
-  return digest.digest("hex");
+// Build-artifact cache (Testing Harness build cache profiles). An installation
+// is a pure function of its inputs: this script and the Go build helper, the
+// render-sandbox package closure and module files, the renderer package, the
+// lockfile, the toolchain pins, and the host Node, Chromium, bubblewrap and
+// fonts it copies. When those inputs match a recorded key whose installation
+// is intact, and every host library the installation copied is unchanged,
+// the installation is reused instead of rebuilt (installation-store.mjs).
+// CARTULARY_BUILD_CACHE_DISABLE=1 neither reads nor records keys;
+// CARTULARY_FORCE_REBUILD=1 rebuilds and records.
+const cacheDisabled = process.env.CARTULARY_BUILD_CACHE_DISABLE === "1";
+const forceRebuild = process.env.CARTULARY_FORCE_REBUILD === "1";
+const require = createRequire(path.join(repository, "packages/report-renderer/package.json"));
+const { registry: { registry } } = require("playwright-core/lib/coreBundle");
+const chromiumBinary = registry.findExecutable("chromium-headless-shell").executablePathOrDie("javascript");
+
+async function treeDigests(directory, label, skip = () => false) {
+  const entries = [];
+  const walk = async (current) => {
+    for (const entry of (await readdir(current, { withFileTypes: true })).sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))) {
+      const absolute = path.join(current, entry.name);
+      if (skip(entry.name)) continue;
+      if (entry.isDirectory()) await walk(absolute);
+      else if (entry.isFile()) entries.push(`${label}\t${path.relative(directory, absolute)}\t${await fileDigest(absolute)}`);
+      else entries.push(`${label}\t${path.relative(directory, absolute)}\tspecial`);
+    }
+  };
+  await walk(directory);
+  return entries;
 }
 
-async function inventory(directory, prefix = "") {
-  const result = [];
-  for (const entry of await readdir(directory, { withFileTypes: true })) {
-    const relative = prefix ? `${prefix}/${entry.name}` : entry.name;
-    if (entry.name !== entry.name.normalize("NFC") || /[\x00-\x1f\x7f\\]/u.test(entry.name)) throw new Error("invalid runtime inventory path");
-    if (entry.isDirectory()) result.push(...await inventory(path.join(directory, entry.name), relative));
-    else if (entry.isFile()) {
-      const absolute = path.join(directory, entry.name);
-      const info = await lstat(absolute);
-      if (info.nlink !== 1) throw new Error("runtime inventory hard link");
-      result.push({ path: relative, sha256: await fileDigest(absolute) });
-    } else throw new Error("invalid runtime inventory entry");
+async function inputKey() {
+  const material = [];
+  const file = async (label, name) => material.push(`${label}\t${name}\t${await fileDigest(name)}`);
+  for (const name of ["tools/report-renderer/build-runtime.mjs", "tools/harness/test-catalog/restricted-input-boundary.mjs",
+    "tools/harness/backend/build-go-artifact.sh", "pnpm-lock.yaml", "tools/toolchain_pins.json", "go.mod", "go.sum"]) await file("repository", name);
+  material.push(...await treeDigests("packages/report-renderer", "renderer_package", (name) => name === "node_modules"));
+  const go = process.env.GO || "go";
+  material.push(`go_version\t${run(go, ["env", "GOVERSION"]).trim()}`);
+  const listed = run(go, ["list", "-deps", "-f", '{{if not .Standard}}{{.Dir}}{{"\t"}}{{join .GoFiles " "}} {{join .EmbedFiles " "}}{{end}}', "./cmd/render-sandbox"]);
+  for (const line of listed.split("\n").filter(Boolean).sort()) {
+    const [directory, names] = line.split("\t");
+    for (const name of names.split(" ").filter(Boolean).sort()) await file("go_closure", path.relative(repository, path.join(directory, name)));
   }
-  return result.sort((a, b) => Buffer.compare(Buffer.from(a.path), Buffer.from(b.path)));
+  material.push(`node\t${await fileDigest(await realpath(process.execPath))}`);
+  material.push(...await treeDigests(path.dirname(chromiumBinary), "chromium"));
+  material.push(`bwrap\t${await fileDigest(await realpath(run("which", ["bwrap"]).trim()))}`);
+  for (const family of ["Sans", "Serif", "Mono"]) {
+    for (const style of ["Regular", "Bold", "Italic", "BoldItalic"]) {
+      const name = `/usr/share/fonts/truetype/liberation/Liberation${family}-${style}.ttf`;
+      material.push(`font\t${name}\t${await fileDigest(await realpath(name))}`);
+    }
+  }
+  return sha(material.join("\n"));
 }
 
+const key = cacheDisabled ? null : await inputKey();
+if (key && !forceRebuild) {
+  const identity = await reusableInstallation(output, key);
+  if (identity) {
+    const staging = await mkdtemp(path.join(output, ".receipt-"));
+    try { await publishReceipt(output, identity, staging); }
+    finally { await rm(staging, { recursive: true, force: true }); }
+    process.stdout.write(`report renderer installation: ${identity} (reused)\n`);
+    process.exit(0);
+  }
+}
+
+const work = await mkdtemp(path.join(output, ".build-"));
+root = path.join(work, "root");
 try {
   await mkdir(root);
   const binary = path.join(work, "render-sandbox");
@@ -117,13 +161,10 @@ try {
   await copyHostFile(process.execPath, "runtime/node/bin/node");
   await copyRegular("pnpm-lock.yaml", path.join(root, "runtime/workspace-lock.yaml"));
 
-  const require = createRequire(path.join(repository, "packages/report-renderer/package.json"));
-  // The pinned Playwright headless profile uses its separate headless shell.
-  // chromium.executablePath() selects full Chromium, which adds profile IPC
-  // and a different rendering implementation. Use the pinned exported registry
-  // at build time; the installed renderer receives only the bound binary path.
-  const { registry: { registry } } = require("playwright-core/lib/coreBundle");
-  const chromiumBinary = registry.findExecutable("chromium-headless-shell").executablePathOrDie("javascript");
+  // The pinned Playwright headless profile uses its separate headless shell
+  // (chromiumBinary above). chromium.executablePath() selects full Chromium,
+  // which adds profile IPC and a different rendering implementation; the
+  // installed renderer receives only the bound binary path.
   await copyTree(path.dirname(chromiumBinary), path.join(root, "runtime/browser"));
   const browserPath = `runtime/browser/${path.basename(chromiumBinary)}`;
   const bubblewrap = run("which", ["bwrap"]).trim();
@@ -197,9 +238,8 @@ try {
   // Immutable content-addressed roots; the receipt is the sole mutable pointer.
   try { await writeFile(`${destination}.json`, bytes, { flag: "wx" }); }
   catch (error) { if (error.code !== "EEXIST" || await readFile(`${destination}.json`, "utf8") !== bytes) throw error; }
-  const receipt = path.join(work, "installation.json");
-  await writeFile(receipt, JSON.stringify({ schema_id: "cartulary.reporting_runtime_receipt.v1", manifest_sha256: identity, root: `${identity}.root`, manifest: `${identity}.json` }) + "\n");
-  await rename(receipt, path.join(output, "installation.json"));
+  await publishReceipt(output, identity, work);
+  if (key) await recordKey(output, key, identity, work);
   process.stdout.write(`report renderer installation: ${identity}\n`);
 } finally {
   await rm(work, { recursive: true, force: true });

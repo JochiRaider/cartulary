@@ -197,7 +197,7 @@ func (in *Inputs) foldRun(runDir string) (Estimates, RefreshReport, error) {
 		return reject("%s did not pass", runDir)
 	}
 	var plan retainedPlan
-	if err := readJSON(filepath.Join(runDir, "plan.json"), &plan); err != nil || plan.SchemaID != "cartulary.harness_runtime_plan.v9" || plan.Manifest.RunID != summary.RunID {
+	if err := readJSON(filepath.Join(runDir, "plan.json"), &plan); err != nil || plan.SchemaID != PlanSchema || plan.Manifest.RunID != summary.RunID {
 		return reject("%s has no current-epoch plan", runDir)
 	}
 	for _, folded := range in.Estimates.Runs {

@@ -31,7 +31,9 @@ export function composeRelease({ supplied, runID, resultsDir, releaseRoot, runMa
     }
     const stageRunID = `${runID}.${target}`;
     roots[key] = path.join(resultsDir, stageRunID);
-    const inputs = key === "release_measure" ? { RELEASE_RESULTS_DIR: roots.release_check } : {};
+    // A release executes every row: its ci never reuses cached results (D12).
+    const inputs = key === "release_measure" ? { RELEASE_RESULTS_DIR: roots.release_check }
+      : key === "ci" ? { CARTULARY_HARNESS_CACHE_MODE: "off" } : {};
     const status = runMake(target, { runID: stageRunID, inputs });
     report({ stage: target, root: roots[key], status: status === 0 ? "pass" : "fail" });
     if (status !== 0) return { status, failed: target, roots };

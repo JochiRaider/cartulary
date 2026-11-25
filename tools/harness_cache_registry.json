@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.harness_cache_registry.v3",
+  "schema_id": "cartulary.harness_cache_registry.v4",
   "profiles": [
     {
       "profile_id": "build_outputs",
@@ -181,6 +181,7 @@
           "tools/execution_topology_manifest.json",
           "tools/generated_artifact_policy.json",
           "tools/go_modules.json",
+          "tools/harness/contract/generated",
           "tools/scheduler_resource_registry.json",
           "tools/schemas",
           "tools/sourcecheck",
@@ -190,14 +191,23 @@
           "tools/task_surface_owner.json",
           "tools/test_catalog_owner.json",
           "tools/toolchain_pins.json",
+          "tools/workspace_layout.generated.mjs",
           "tsconfig.base.json",
           "tsconfig.json"
         ],
         "prefixes": [
-          "tools/generate",
-          "tools/harness",
-          "tools/render",
+          "tools/harness_",
           "tools/test_families/harness."
+        ],
+        "runner_entries": [],
+        "runner_external_imports": [
+          "tools/harness/browser/visual-renderer-lease.mjs"
+        ],
+        "runner_packages": [
+          "internal/testutil/harnessrows"
+        ],
+        "service_paths": [
+          "tools/testservices"
         ]
       },
       "requires_vulnerability_database_revision": false,
@@ -249,6 +259,7 @@
           "tools/execution_topology_manifest.json",
           "tools/generated_artifact_policy.json",
           "tools/go_modules.json",
+          "tools/harness/contract/generated",
           "tools/scheduler_resource_registry.json",
           "tools/schemas",
           "tools/sourcecheck",
@@ -258,15 +269,22 @@
           "tools/task_surface_owner.json",
           "tools/test_catalog_owner.json",
           "tools/toolchain_pins.json",
+          "tools/workspace_layout.generated.mjs",
           "tsconfig.base.json",
           "tsconfig.json"
         ],
         "prefixes": [
-          "tools/generate",
-          "tools/harness",
-          "tools/render",
+          "tools/harness_",
           "tools/test_families/harness."
-        ]
+        ],
+        "runner_entries": [
+          "tools/harness/execution/runners/row-runner-cli.mjs"
+        ],
+        "runner_external_imports": [
+          "tools/harness/browser/visual-renderer-lease.mjs"
+        ],
+        "runner_packages": [],
+        "service_paths": []
       },
       "requires_vulnerability_database_revision": false,
       "operation_ids": [],

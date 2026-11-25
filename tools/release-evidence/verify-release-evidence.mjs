@@ -49,6 +49,8 @@ async function admitRoot(key, root, { sourceDigest, catalog, commands, loadRun, 
   const run = await loadRun(root, target);
   if (run.manifest.target !== target || run.manifest.command_id !== commands.get(target)) throw new Error(`${key} root is not a ${target} invocation`);
   if (run.manifest.source_digest !== sourceDigest) throw new Error(`${key} root source is incompatible`);
+  // A release executes every row, so its ci reuses no cached result (D12).
+  if (key === "ci" && run.manifest.cache_mode !== "off") throw new Error("ci root reused cached results; a release ci runs with the cache off");
   if (run.summary.status !== "pass" || run.summary.failure_class !== null || run.summary.failure_reason !== null) throw new Error(`${key} root did not pass`);
   const cleanup = readArtifact(root, "cleanup-results.json");
   validateRetainedCleanup(run, cleanup);

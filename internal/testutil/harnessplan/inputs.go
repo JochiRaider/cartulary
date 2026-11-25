@@ -29,6 +29,7 @@ const (
 	cacheRegistryPath   = "tools/harness_cache_registry.json"
 	browserBatchPath    = "tools/browser_e2e_batch_manifest.json"
 	fixtureBuilderPath  = "tools/performance_fixture_builder_policy.json"
+	goModulesPath       = "tools/go_modules.json"
 	maxInputBytes       = 16 << 20
 )
 
@@ -42,6 +43,8 @@ type Inputs struct {
 	Cache       CacheRegistry
 	Browser     BrowserBatch
 	Fixtures    FixtureBuilderPolicy
+	// GoModules are the registered independent Go modules.
+	GoModules GoModules
 	// Estimates are the observed work estimates (TH-HARNESS-REQ-865).
 	Estimates Estimates
 	// MigrationDigest identifies the migrated PostgreSQL template every
@@ -89,7 +92,7 @@ func Load(root string) (*Inputs, error) {
 		return nil, err
 	}
 	inputs.TaskSurface.projectBrowserLanes(inputs.Topology.BrowserLanePolicy)
-	if err := readDocument(root, cacheRegistryPath, "cartulary.harness_cache_registry.v3", &inputs.Cache); err != nil {
+	if err := readDocument(root, cacheRegistryPath, "cartulary.harness_cache_registry.v4", &inputs.Cache); err != nil {
 		return nil, err
 	}
 	if err := readDocument(root, browserBatchPath, "cartulary.browser_e2e_batch_manifest.v16", &inputs.Browser); err != nil {
@@ -97,6 +100,12 @@ func Load(root string) (*Inputs, error) {
 	}
 	if err := readDocument(root, fixtureBuilderPath, "cartulary.performance_fixture_builder_policy.v2", &inputs.Fixtures); err != nil {
 		return nil, err
+	}
+	if err := readDocument(root, goModulesPath, "cartulary.go_modules.v1", &inputs.GoModules); err != nil {
+		return nil, err
+	}
+	if err := inputs.GoModules.validate(root); err != nil {
+		return nil, fmt.Errorf("%w: %s: %v", ErrInput, goModulesPath, err)
 	}
 	if err := readDocument(root, estimatesPath, EstimatesSchema, &inputs.Estimates); err != nil {
 		return nil, err
@@ -378,6 +387,17 @@ type CacheProfile struct {
 type UnitInputs struct {
 	Paths    []string `json:"paths"`
 	Prefixes []string `json:"prefixes"`
+	// RunnerEntries are the row runner's entry modules; their static module
+	// closure joins every unit-aware closure (G36).
+	RunnerEntries []string `json:"runner_entries"`
+	// RunnerExternalImports are closure modules whose computed imports load
+	// only installed packages, which the lockfile binds.
+	RunnerExternalImports []string `json:"runner_external_imports"`
+	// RunnerPackages are the row runner's Go packages; their import closure,
+	// without tests, joins every unit-aware closure (G36).
+	RunnerPackages []string `json:"runner_packages"`
+	// ServicePaths join the closure of a service-backed unit (G35).
+	ServicePaths []string `json:"service_paths"`
 }
 
 // BrowserBatch is the generated browser batch manifest: compatibility

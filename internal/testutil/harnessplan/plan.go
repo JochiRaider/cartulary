@@ -15,7 +15,7 @@ import (
 )
 
 // PlanSchema is the runtime plan document the planner writes.
-const PlanSchema = "cartulary.harness_runtime_plan.v9"
+const PlanSchema = "cartulary.harness_runtime_plan.v10"
 
 // ErrPlan reports invocation facts that do not form a valid plan.
 var ErrPlan = errors.New("invalid harness runtime plan")

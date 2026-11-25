@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 3,
-  "input_digest": "sha256:ec544a9a4cff4d5e9289618188d8961eaf1878e7381dd778a17434fcdd6030a1",
+  "input_digest": "sha256:11fb359f50fb7c37324f2d6d791d18dcaa5b52ad83357af195fdf63b119e0399",
   "inputs": [
     {
       "path": "contracts/performance/ac003.v2.json",
@@ -97,7 +97,7 @@
     {
       "path": "contracts/verification/owners/harness.command_surface.json",
       "role": "verification_owner_contract",
-      "hash": "sha256:c3db5d6a54dc98e7ee670767f0ff03a7c80a8e37a68cf0eb3b1f022dba9fd264"
+      "hash": "sha256:930321a0b5094d8c047d8e2a740445d76241a5b8f4ba7c4b71733358b84d9bfe"
     },
     {
       "path": "contracts/verification/owners/harness.evidence_accounting.json",
@@ -930,11 +930,6 @@
       "hash": "sha256:0a2f3c3d642dbc4ce836d9623f7b97d539a0addd697acd7d2e63f71db0c54be3"
     },
     {
-      "path": "tools/harness/execution/runners/go.mjs",
-      "role": "renderer_source",
-      "hash": "sha256:6a8475bb09200ef2e4be5ffeeabc6c1c7f5b77f54a0361e92793b5cfb414dc4c"
-    },
-    {
       "path": "tools/harness/execution/runners/playwright.mjs",
       "role": "renderer_source",
       "hash": "sha256:d5c13dbdb2ff9f01d4fac2d24d6fbce25e596ef4c385f37c986af8e634fa9f1d"
@@ -947,7 +942,7 @@
     {
       "path": "tools/harness/execution/runners/row-runner-cli.mjs",
       "role": "renderer_source",
-      "hash": "sha256:4125768434d641aa6548153022ba3e26ec58e22c425cd493614aa37e22ef8808"
+      "hash": "sha256:5ac6e796ea7317c9e6b5bcacb012b1fb63dfd0edb873cfe461de630e742d7753"
     },
     {
       "path": "tools/harness/execution/runners/shell.mjs",
@@ -1207,7 +1202,7 @@
     {
       "path": "tools/harness/test-catalog/go-modules.mjs",
       "role": "renderer_source",
-      "hash": "sha256:c2e636fc5550961efd71d2506a29ad1280a37b02302d53b3a6d191fe6dd66495"
+      "hash": "sha256:01717dcd22f7200bed788b7969fa3cf5983f6535e09700c31c18dd3c4a957de6"
     },
     {
       "path": "tools/harness/test-catalog/import-boundary.mjs",
@@ -1217,7 +1212,7 @@
     {
       "path": "tools/harness/test-catalog/index.mjs",
       "role": "renderer_source",
-      "hash": "sha256:03dbc96ec14a959751f88eb7d85cc500a0a3095c6629dce04119e44e67bd2b3e"
+      "hash": "sha256:be5e108515a5ea9eaeddc81ccde1aef260fa55df2d5a875c797c2db385e88eb6"
     },
     {
       "path": "tools/harness/test-catalog/postgres-fixture-policy.mjs",
@@ -1272,7 +1267,7 @@
     {
       "path": "tools/harness/test-catalog/test-catalog.mjs",
       "role": "renderer_source",
-      "hash": "sha256:0a4100a09347ab7eb41671cd9cc6e58429525e88783f79720467367e381a3f44"
+      "hash": "sha256:3e5524e9178bd89f6ab26225c850dea1532e8c0d40ea02330684f46758b589ca"
     },
     {
       "path": "tools/harness/test-catalog/validated-context.mjs",
@@ -1337,12 +1332,12 @@
     {
       "path": "tools/test_families/harness.command_surface.json",
       "role": "test_family_manifest",
-      "hash": "sha256:cd1664ebd422bd430a7c6b911cc3c34db119e7a38427f3969847c321abb29c9b"
+      "hash": "sha256:a47f537cd09aaf05bfec6c0a2d00f9486452ba410d5e98e078687ae07b403d0f"
     },
     {
       "path": "tools/test_families/harness.evidence_accounting.json",
       "role": "test_family_manifest",
-      "hash": "sha256:9e6c930a59f27bd9a8cc5d29b6c514223a44ce40a777545f1807c62efd60fc2f"
+      "hash": "sha256:6a9fcbb2e7ab3ae596008e45a932940e0236bf9fa5fef8654c3139403495cab2"
     },
     {
       "path": "tools/test_families/harness.generated_artifacts.json",
@@ -1647,7 +1642,7 @@
     {
       "path": "tools/test_runner_registry.json",
       "role": "test_runner_registry",
-      "hash": "sha256:6c9d587583d934c0f89da5a82fadc704d58e57c513027cb615a8f163ff545edf"
+      "hash": "sha256:b9b26bb63c638ef65d9a6c8e2f8b32b53d30e3c6d768930f1bfe9ac438611ef8"
     }
   ],
   "outputs": {

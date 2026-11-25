@@ -45,7 +45,7 @@ test("metadata admission rejects linked files and ancestors before reading throu
     "tools/task_surface_owner.json", "contracts/verification/registry.json",
     "tools/postgres_fixture_policy_registry.json",
     "tools/test_families/app.migrate.json", "contracts/verification/owners/app.migrate.json",
-    "tools/harness/execution/runners/go.mjs", "tools/test_families",
+    "internal/testutil/harnessrows/events.go", "tools/test_families",
     "contracts/verification/owners", "contracts/verification", "tools",
   ]) {
     const candidate = path.join(fixture, relative);

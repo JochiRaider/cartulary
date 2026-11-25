@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -54,6 +55,11 @@ type Options struct {
 func Compile(in *Inputs, selection Selection, options Options) (*Graph, error) {
 	if options.CPUTokens < 1 || options.GoVersion == "" {
 		return nil, fmt.Errorf("%w: compilation needs CPU tokens and a Go version", ErrSelection)
+	}
+	if seed := options.GoShuffleSeed; seed != "" {
+		if value, err := strconv.ParseInt(seed, 10, 32); err != nil || value < 1 || strconv.FormatInt(value, 10) != seed {
+			return nil, fmt.Errorf("%w: GO_SHUFFLE_SEED must be an integer from 1 to 2147483647", ErrSelection)
+		}
 	}
 	if options.BrowserLanes < 1 {
 		options.BrowserLanes = int(in.Topology.BrowserLanePolicy.Default)
@@ -577,11 +583,28 @@ func (c *compiler) contract(row *Row) (contract, error) {
 	return result, nil
 }
 
-// rowCachePolicy: only service-free, fixture-free Go and Vitest rows outside
-// the measurement, security, visual and release classes are cacheable.
+// cacheableServiceFixtures are the fixtures whose state a row owns alone: its
+// own PostgreSQL generation, a transaction on the shared one, or its own
+// object-store namespace (TH-HARNESS-REQ-807, amended 2026-11-25).
+var cacheableServiceFixtures = []string{"postgres_dedicated", "postgres_transaction", "object_store_namespace"}
+
+// rowCachePolicy: Go and Vitest rows outside the measurement, security,
+// visual and release classes are cacheable when they are service-free and
+// fixture-free, and Go integration rows also when their only fixture is one
+// they own alone and they are not process-exclusive. Migration, lifecycle,
+// process, browser and destructive work stays uncached; a row whose outcome
+// depends on wall-clock or host state opts out through its row execution
+// context.
 func rowCachePolicy(row Row) string {
-	if (row.Runner == RunnerGo || row.Runner == RunnerVitest) && row.FixtureCapability == "none" && len(row.ServiceDependencies) == 0 &&
-		!slices.Contains([]string{"measurement", "security", "visual", "release"}, row.EvidenceClass) {
+	if row.Runner != RunnerGo && row.Runner != RunnerVitest ||
+		slices.Contains([]string{"measurement", "security", "visual", "release"}, row.EvidenceClass) {
+		return "none"
+	}
+	if row.FixtureCapability == "none" && len(row.ServiceDependencies) == 0 {
+		return "content_addressed"
+	}
+	if row.Runner == RunnerGo && row.EvidenceClass == "integration" && row.ProcessIsolation != "exclusive" &&
+		slices.Contains(cacheableServiceFixtures, row.FixtureCapability) {
 		return "content_addressed"
 	}
 	return "none"
@@ -709,9 +732,7 @@ func (c *compiler) runnerUnit(id string, stack []string) (string, error) {
 	switch contract.Runner {
 	case RunnerGo:
 		maps.Copy(environment, c.goEnvironment(contract.Race))
-		environment["CARTULARY_UNIT_CPU_TOKENS"] = strconv.FormatInt(contract.CPUTokens, 10)
 		environment["GOMAXPROCS"] = strconv.FormatInt(contract.CPUTokens, 10)
-		environment["CARTULARY_GO_SHUFFLE_SEED"] = c.options.GoShuffleSeed
 	case RunnerVitest:
 		environment["CARTULARY_TEST_TARGET"] = "frontend-unit"
 		environment["VITEST_MAX_WORKERS"] = "1"
@@ -728,8 +749,17 @@ func (c *compiler) runnerUnit(id string, stack []string) (string, error) {
 		FailurePolicy: FailurePolicy{BlockDescendants: true}, EstimatedWorkMS: policy.StartupMS + work + policy.CleanupMS,
 		Command: Command{Executable: "node", Args: []string{"tools/harness/execution/runners/row-runner-cli.mjs", "--row-ids", strings.Join(rowIDs, ",")}, Environment: environment},
 	}
+	selectors := map[string][]string{}
+	if contract.Runner == RunnerGo {
+		if unit.Command, err = c.goCommand(contract, rows, claims["cpu"], environment); err != nil {
+			return "", err
+		}
+		for _, row := range rows {
+			selectors[row.RowID] = slices.Clone(row.Selector.Tests)
+		}
+	}
 	for _, row := range rowIDs {
-		unit.RowBindings = append(unit.RowBindings, RowBinding{RowID: row, Runner: contract.Runner})
+		unit.RowBindings = append(unit.RowBindings, RowBinding{RowID: row, Runner: contract.Runner, Selectors: selectors[row]})
 		unit.EvidenceOutputs = append(unit.EvidenceOutputs, "rows/"+row+".json")
 	}
 	c.lock(unit, contract.ResourceProfileID)
@@ -741,12 +771,48 @@ func (c *compiler) runnerUnit(id string, stack []string) (string, error) {
 func (c *compiler) goEnvironment(race bool) map[string]string {
 	environment := map[string]string{
 		"GOOS": "linux", "GOARCH": "amd64", "GOAMD64": "v1", "CGO_ENABLED": "0", "GOFLAGS": "", "GOENV": "off",
-		"GOEXPERIMENT": "", "GOTOOLCHAIN": "go" + c.options.GoVersion, "GOWORK": "off", "GO111MODULE": "on", "CARTULARY_GO_RACE": "0",
+		"GOEXPERIMENT": "", "GOTOOLCHAIN": "go" + c.options.GoVersion, "GOWORK": "off", "GO111MODULE": "on",
 	}
 	if race {
-		environment["CGO_ENABLED"], environment["CARTULARY_GO_RACE"] = "1", "1"
+		environment["CGO_ENABLED"] = "1"
 	}
 	return environment
+}
+
+// goCommand is a Go unit's exact `go test` invocation (TH-HARNESS-REQ-872):
+// its one package, exactly its rows' tests, at most cpu (and never more than
+// 16) packages built at once. A package of a registered independent module
+// runs inside that module with its own requirements.
+func (c *compiler) goCommand(contract contract, rows []*Row, cpu int64, environment map[string]string) (Command, error) {
+	var tests []string
+	for _, row := range rows {
+		tests = append(tests, row.Selector.Tests...)
+	}
+	tests = dedupe(tests)
+	for i, test := range tests {
+		tests[i] = regexp.QuoteMeta(test)
+	}
+	directory, pkg, err := c.in.goModule(contract.Package)
+	if err != nil {
+		return Command{}, err
+	}
+	var args []string
+	if directory != "" {
+		args = append(args, "-C", directory)
+	}
+	args = append(args, "test")
+	if directory != "" {
+		args = append(args, "-mod=readonly")
+	}
+	args = append(args, "-json", "-count=1")
+	if contract.Race {
+		args = append(args, "-race")
+	}
+	if c.options.GoShuffleSeed != "" {
+		args = append(args, "-shuffle="+c.options.GoShuffleSeed)
+	}
+	args = append(args, fmt.Sprintf("-p=%d", min(cpu, 16)), "-run", "^(?:"+strings.Join(tests, "|")+")$", pkg)
+	return Command{Executable: "go", Args: args, Environment: environment}, nil
 }
 
 func fixtureEnvironment(capability string, services []string) map[string]string {

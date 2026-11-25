@@ -13,7 +13,7 @@ import (
 )
 
 // GraphSchema is the work-graph document the planner writes.
-const GraphSchema = "cartulary.harness_work_graph.v9"
+const GraphSchema = "cartulary.harness_work_graph.v10"
 
 // Graph is a compiled work graph: units keyed by ID, every need resolved
 // inside the graph.
@@ -224,6 +224,9 @@ const (
 type RowBinding struct {
 	RowID  string `json:"row_id"`
 	Runner string `json:"runner"`
+	// Selectors are a Go row's exact top-level tests: the runtime attributes
+	// the unit's test events to its rows by them.
+	Selectors []string `json:"selectors,omitempty"`
 }
 
 // FailurePolicy says whether a unit's failure blocks the units that need it.

@@ -214,7 +214,7 @@ parallelism, safety flags and family-to-binary bindings MUST NOT define executio
 policy. Catalog rows and the normalized execution contract own these requirements.
 Raw Go aggregate selectors and package inventories are unsupported.
 Source completeness MUST be derived from the approved roots in
-`cartulary.test_runner_registry.v3`, independently of selected packages or files.
+`cartulary.test_runner_registry.v4`, independently of selected packages or files.
 The Go roots are `cmd`, `internal`, `referencepacks`, `tools/contractgen`, `tools/embedwebassets`,
 `tools/objectstoreprobe`, `tools/openapi-operation-catalog`, and `tools/testservices`.
 The operation-catalog root owns focused explicit-mutation generation tests; it
@@ -1502,7 +1502,7 @@ the complete output set before an all-or-none publish. An invalid entry is
 quarantined by exact proved identity and the unit executes as a miss without
 publishing any cached byte. A concurrent valid entry wins; no reader or writer
 may overwrite it.
-Verified by: TH-HARNESS-AC-089
+Verified by: TH-HARNESS-AC-089, TH-HARNESS-AC-172, TH-HARNESS-AC-173
 
 **TH-HARNESS-REQ-808**
 The v3 retained run contract contains `run-manifest.json`,
@@ -2193,7 +2193,7 @@ Verified by: TH-HARNESS-AC-062, TH-HARNESS-AC-065, TH-HARNESS-AC-069
 ### 3.3 Runner registry and selectors
 
 **TH-HARNESS-REQ-016**
-`tools/test_runner_registry.json` MUST validate as `cartulary.test_runner_registry.v3`. The current runner set and selectors are closed by this table:
+`tools/test_runner_registry.json` MUST validate as `cartulary.test_runner_registry.v4`. The current runner set and selectors are closed by this table. Each runner names its adapter: the Go adapter is the harness runtime's Go row runner under `internal/testutil/harnessrows/` (TH-HARNESS-REQ-872); the others are Node modules under `tools/harness/execution/runners/`.
 
 | Runner | Exact selector contract |
 | --- | --- |
@@ -2442,7 +2442,7 @@ unknown, duplicated, broadened, or inconsistent selection fails before Go
 product work or artifact collation.
 
 **TH-HARNESS-REQ-060**
-The current graph cache registry is `cartulary.harness_cache_registry.v3`.
+The current graph cache registry is `cartulary.harness_cache_registry.v4`.
 Every cacheable unit declares `same_run` or `content_addressed`; every other
 unit declares `none`. The registry binds policy work by canonical `operation_ids`
 and catalog work by `runner_types`; it MUST NOT bind cache eligibility to public
@@ -2538,6 +2538,25 @@ binary whose cache key is otherwise unchanged. Source-snapshot, release, and aud
 provenance remain owned by their retained harness evidence; a cached binary MUST NOT
 silently acquire a second provenance identity from ambient Git metadata.
 
+The isolated report renderer installation is a build-artifact profile with an
+in-place store (amended 2026-11-25, G37). Its installations are immutable,
+content-addressed roots under `build/report-renderer`, and the receipt
+`installation.json` is the only mutable pointer. The build computes an input
+key over its own script and imports, the Go build helper, the
+`./cmd/render-sandbox` package closure with the module files and Go version,
+the renderer package tree without its `node_modules`, the lockfile, the
+toolchain pins, and the host Node executable, Chromium headless shell
+directory, bubblewrap executable and Liberation fonts it copies. When a key
+recorded under `build/report-renderer/keys` names an installation whose
+manifest still has its digest and whose root holds exactly the manifest's
+files, and every host library that installation copied still has its recorded
+digest, the build only republishes the receipt; otherwise it builds and
+records the key, and refuses an existing root that was altered. `CARTULARY_BUILD_CACHE_DISABLE=1`
+neither reads nor records keys and `CARTULARY_FORCE_REBUILD=1` rebuilds and
+records. Application startup still admits the whole receipt-bound
+installation under the Reporting NLSpec, so reuse never bypasses its
+verification.
+
 Cache hits MAY skip only the exact registered semantic unit. They MUST still
 validate and publish every declared current-run output, emit cache events, and
 contribute to the same target projections and aggregate verdict. A cache hit
@@ -2552,9 +2571,23 @@ They execute the unit and emit a miss or bypass event, or fail as
 `configuration_error` or `artifact_error` when execution cannot safely
 continue. The cache mode is `normal`, `cold`, or `off` and is recorded in the
 run manifest. Security findings require the database-revision rule in
-TH-HARNESS-REQ-807. Stateful, lifecycle, migration, browser, measurement,
-cleanup, destructive, drift-verdict, and publication units remain uncached.
-Verified by: TH-HARNESS-AC-000, TH-HARNESS-AC-006, TH-HARNESS-AC-018, TH-HARNESS-AC-019, TH-HARNESS-AC-024, TH-HARNESS-AC-028
+TH-HARNESS-REQ-807. Lifecycle, migration, browser, measurement, cleanup,
+destructive, drift-verdict, and publication units remain uncached. A Go
+integration row whose only fixture is one it owns alone (its own PostgreSQL
+generation, a transaction on the shared generation, or its own object-store
+namespace) and that is not process-exclusive is cacheable (amended
+2026-11-25, G35): its unit-aware key adds the test-services helper and the
+digest of the migrated template its databases are cloned from, and the service
+images are pinned in the test-support packages its Go closure already holds.
+Security, measurement, visual and release rows, migration fixtures, managed
+processes and service-backed Vitest rows stay uncached, and a row whose
+outcome depends on wall-clock or host state opts out through a row execution
+context with cache policy `none`. A release runs its `ci` stage with the cache
+off, and release evidence verification refuses a `ci` root whose cache mode is
+not `off`, so every release still executes every row. A reused service-backed
+row contributes no contract-evidence emissions to the run that reuses it; the
+error-code coverage report describes the rows the run executed.
+Verified by: TH-HARNESS-AC-000, TH-HARNESS-AC-006, TH-HARNESS-AC-018, TH-HARNESS-AC-019, TH-HARNESS-AC-024, TH-HARNESS-AC-028, TH-HARNESS-AC-174
 
 **TH-HARNESS-REQ-070**
 The current `frontend-fallow-static` profile MUST build an effective Fallow configuration from `.fallowrc.json` plus the schema-validated owner input `tools/fallow/reachability_owner.json` using schema ID `cartulary.fallow_reachability_owner.v1`. The effective configuration MUST be retained under the target's run root as `frontend-fallow-static/fallow/resolved-fallowrc.json`, and every Fallow child invocation in the target MUST use that retained configuration. The four authored read-only report invocations (global `dead-code` JSON/SARIF, `dupes`, `health`, and bounded package-surface `dead-code` JSON) MUST start as independent concurrent children after the effective configuration is retained. The parent MUST drain every child before normalization, retain every successfully produced artifact when siblings fail, and normalize reports, logs, warnings, and failures in that authored order so concurrent completion order cannot change output identity or primary-failure selection.
@@ -4383,8 +4416,8 @@ claim publication.
 | ----------------------------------------------- | ------------------------------------------------------------------------- | ----------------- | ------------------------ | ----------------------------------------- |
 | `cartulary.harness_artifact_ref.v1`             | `tools/schemas/cartulary.harness_artifact_ref.v1.schema.json`             | present           | Shared schema component  | Whenever a current schema declares structured retained harness artifact references. |
 | `cartulary.tool_run_summary.v5`                 | `tools/schemas/cartulary.tool_run_summary.v5.schema.json`                 | present           | Centralized wrappers     | Before wrapper exits.                     |
-| `cartulary.harness_work_graph.v9`               | `tools/schemas/cartulary.harness_work_graph.v9.schema.json`               | present           | Go planner               | Before any child work.                    |
-| `cartulary.harness_runtime_plan.v9`             | `tools/schemas/cartulary.harness_runtime_plan.v9.schema.json`             | present           | Go planner               | Before publication and retained reads.    |
+| `cartulary.harness_work_graph.v10`              | `tools/schemas/cartulary.harness_work_graph.v10.schema.json`              | present           | Go planner               | Before any child work.                    |
+| `cartulary.harness_runtime_plan.v10`            | `tools/schemas/cartulary.harness_runtime_plan.v10.schema.json`            | present           | Go planner               | Before publication and retained reads.    |
 | `cartulary.harness_capacity_override.v1`        | `tools/schemas/cartulary.harness_capacity_override.v1.schema.json`        | present           | Capability capture       | Before applying a caller override.        |
 | `cartulary.harness_capability_snapshot.v1`      | `tools/schemas/cartulary.harness_capability_snapshot.v1.schema.json`      | present           | Capability capture       | Before scheduler admission.               |
 | `cartulary.harness_cache_record.v2`             | `tools/schemas/cartulary.harness_cache_record.v2.schema.json`             | present           | Graph cache              | Before reuse or retained publication.     |
@@ -4415,7 +4448,7 @@ claim publication.
 | `cartulary.verification_contract.v3`            | `tools/schemas/cartulary.verification_contract.v3.schema.json`            | present           | Verification owner       | Before catalog compilation or evidence routing. |
 | `cartulary.test_owner_registry.v1`              | `tools/schemas/cartulary.test_owner_registry.v1.schema.json`              | present           | Test catalog owner       | Before owner manifest loading. |
 | `cartulary.test_family_manifest.v15`             | `tools/schemas/cartulary.test_family_manifest.v15.schema.json`             | present           | Test family owners       | Before selection, topology generation, or audit. |
-| `cartulary.test_runner_registry.v3`             | `tools/schemas/cartulary.test_runner_registry.v3.schema.json`             | present           | Runner registry          | Before selector resolution or adapter invocation. |
+| `cartulary.test_runner_registry.v4`             | `tools/schemas/cartulary.test_runner_registry.v4.schema.json`             | present           | Runner registry          | Before selector resolution or adapter invocation. |
 | `cartulary.task_guide_summary.v7`               | `tools/schemas/cartulary.task_guide_summary.v7.schema.json`               | present           | Task guidance            | Before target-local JSON output. |
 | `cartulary.test_catalog_check_summary.v2`       | `tools/schemas/cartulary.test_catalog_check_summary.v2.schema.json`       | present           | Catalog validator        | Before private catalog-check success. |
 | `cartulary.executable_input_policy.v1`          | `tools/schemas/cartulary.executable_input_policy.v1.schema.json`          | present           | Executable input boundary owner | Before executable-input policy validation. |
@@ -4468,7 +4501,7 @@ Missing or malformed attachments make v3 nonconforming. A schema absent from
 this table is unsupported current input; old retained JSON remains manually
 inspectable only.
 
-Owner slices compile directly to `cartulary.harness_work_graph.v9` and accept no
+Owner slices compile directly to `cartulary.harness_work_graph.v10` and accept no
 separate retained-plan schema. Validation covers owner and selection mode,
 requested and resolved rows, target/command consistency, unit identity and
 semantic digests, dependency closure, resource claims, runtime binaries,
@@ -4714,7 +4747,7 @@ The owner-first schema families are `cartulary.requirement_registry.v1`,
 `cartulary.requirement_catalog.v1`, `cartulary.verification_registry.v3`,
 `cartulary.verification_contract.v3`, `cartulary.test_owner_registry.v1`,
 `cartulary.test_family_manifest.v15`, `cartulary.test_runner_registry.v3`,
-`cartulary.harness_work_graph.v9`, `cartulary.harness_target_plan.v7`,
+`cartulary.harness_work_graph.v10`, `cartulary.harness_target_plan.v7`,
 `cartulary.harness_row_result.v6`, `cartulary.harness_test_failure.v4`,
 `cartulary.harness_unit_result.v1`,
 `cartulary.harness_run_manifest.v3`, `cartulary.harness_unit_event.v4`,
@@ -4812,13 +4845,13 @@ Verified by: TH-HARNESS-AC-067, TH-HARNESS-AC-071
 
 **TH-HARNESS-REQ-277**
 The required current graph and evidence schema attachments are
-`cartulary.harness_work_graph.v9`,
+`cartulary.harness_work_graph.v10`,
 `cartulary.harness_capability_snapshot.v1`,
 `cartulary.harness_capacity_override.v1`,
 `cartulary.harness_cache_record.v2`,
 `cartulary.harness_fixture_lease.v5`,
 `cartulary.harness_run_manifest.v3`,
-`cartulary.harness_runtime_plan.v9`,
+`cartulary.harness_runtime_plan.v10`,
 `cartulary.harness_unit_event.v4`,
 `cartulary.harness_run_summary.v1`,
 and `cartulary.harness_target_summary.v1`. Historical scheduler,
@@ -4837,7 +4870,7 @@ capability snapshot, resolved Go worker budget, cache mode, and start time. Its 
 from the fully resolved work graph before child execution. A missing,
 mismatched, mutable, or superseded manifest makes the run artifact-incomplete.
 The execution producer also publishes one immutable `plan.json`
-(`cartulary.harness_runtime_plan.v9`) before any child starts. It is the
+(`cartulary.harness_runtime_plan.v10`) before any child starts. It is the
 planner's document without its launch state: the validated resolved graph,
 target projections, the run manifest, source-entry digest preimage, bounded
 host profile (OS, architecture, kernel release, CPU models), exact
@@ -6275,7 +6308,7 @@ Verified by: TH-HARNESS-AC-063, TH-HARNESS-AC-065
 The planner MUST sort resolved rows by `row_id`, construct deterministic work
 unit and dependency IDs, derive exact runtime-binary prerequisites from the
 authored execution topology, and validate an immutable
-`cartulary.harness_work_graph.v9` before setup. The same semantic inputs MUST
+`cartulary.harness_work_graph.v10` before setup. The same semantic inputs MUST
 produce byte-identical graph bytes.
 Verified by: TH-HARNESS-AC-063, TH-HARNESS-AC-071
 
@@ -6410,7 +6443,7 @@ projections.
 The canonical scheduler projection schema is `cartulary.scheduler_manifest.v3`.
 `tools/scheduler_manifest.json` contains generated selector-to-graph bindings;
 it does not contain family-specific scheduler policies or expanded runtime work
-units. Runtime execution accepts only `cartulary.harness_work_graph.v9` from the
+units. Runtime execution accepts only `cartulary.harness_work_graph.v10` from the
 in-process Go planner. Non-current scheduler and graph schema IDs are unsupported.
 
 The v3 scheduler manifest contains only:
@@ -6422,7 +6455,7 @@ The v3 scheduler manifest contains only:
 | `schedules` | array | yes | Empty in v3; phase/family runtime schedules are unsupported. |
 
 Public, aggregate, direct, leaf, browser, backend, and owner-slice execution all
-compile to `cartulary.harness_work_graph.v9`. The graph fields and validation
+compile to `cartulary.harness_work_graph.v10`. The graph fields and validation
 rules are closed by TH-HARNESS-REQ-801. Target names and command IDs MUST NOT be
 overloaded to infer omitted selection metadata. Every resolved row maps to one
 canonical row result and at least one target projection.
@@ -7385,6 +7418,53 @@ concurrency be judged against the rows that failed.
 
 Verified by: TH-HARNESS-AC-167.
 
+**TH-HARNESS-REQ-872 — Go row runner.**
+The harness runtime runs Go rows itself; no Node process stands between a Go
+unit and `go test`. The planner compiles each Go unit's exact command: `go
+test` over the unit's one package with `-json -count=1`, `-race` under a race
+execution context, `-shuffle=<seed>` when `GO_SHUFFLE_SEED` is set (an integer
+from 1 to 2147483647, otherwise the selection is invalid), `-p` equal to the
+unit's CPU claim and at most 16, and `-run` matching exactly the sorted,
+escaped top-level tests of its rows. A package of a registered independent Go
+module runs with `-C <module root>` and `-mod=readonly`. The planner checks each
+registered module's boundary when it loads its inputs (a registered root, a
+real `go.mod` declaring the registered path, no `replace`), and a package under
+`referencepacks/` outside a registered module fails planning. Each Go row
+binding in the graph names its row's exact tests (`selectors`), so the plan,
+not the catalog, attributes test events to rows. Graph v10 and plan v10 differ
+from v9 only by these selectors: required on Go bindings, absent on others.
+
+At execution the runtime binds `GOCACHE`, `GOMODCACHE` and `GOTMPDIR` from the
+machine paths (`GOTMPDIR` is the invocation's private Go temporary directory),
+an empty `GOROOT`, the `go` binary the preparation owner selected (`GO`, which
+must be absolute), and for packages of the repository's own module the
+explicit test master key fixture, because production key loading has no
+default. A machine path that is not absolute and clean fails the unit with
+`config/configuration_error` before spawn.
+
+The runtime observes the unit's standard output while it runs and settles one
+result per row when it exits, with the event, marker-framing and attribution
+rules of the Go adapter in this specification. Failure markers are decoded by
+the marker producer's own strict decoder, the Go projection of
+`cartulary.harness_test_failure.v4` the encoder validates against: unknown,
+missing or repeated members, trailing data and unregistered values are
+malformed markers. An event line over 1 MiB leaves every outcome unknown: no
+row is settled and the unit fails `artifact/artifact_error`. A unit's outcome
+is its rows' outcomes: it passes when every row passed, whatever the exit
+status, and otherwise fails with the primary failure among its rows.
+Cancellation and timeout settle no row; canonical terminal publication records
+them. The runtime publishes the rows' `cartulary.harness_row_result.v6`
+documents before the unit's logs, adds the bounded failure detail and one
+`[FAIL]` line per failed row to the unit's error log, and retains no standard
+output of a passing unit. Under basic diagnostics it writes the unit's test
+durations (TH-HARNESS-REQ-869).
+
+Rationale: a Node runner for Go rows loaded the whole catalog and its schema
+validators for every unit and made every harness module part of every Go row's
+cache key. The plan already holds what a Go unit needs.
+
+Verified by: TH-HARNESS-AC-171.
+
 ### 10.9 Diagnostic coverage and integrity (instrumentation-3)
 
 These diagnostic requirements remain independent of implementation completion. The current cutover uses execution record v2/index v5,
@@ -7830,7 +7910,9 @@ MUST NOT replace the child exit or relax admission and cleanup boundaries.
 The Go planner owns source-aware compilation, graph modeling and selector
 validation for execution. It runs inside the runtime before any graph unit
 launches and keeps no catalog, closures or caches once the plan is adopted.
-Node owns row runners, runner-specific report adaptation and offline analysis.
+Node owns the Vitest, Playwright and shell row runners, their report
+adaptation and offline analysis; the runtime owns the Go row runner
+(TH-HARNESS-REQ-872).
 Diagnostic and maintenance tools read a plan and host capacity from the
 harness binary (`plan` and `capacities`); Node has no graph compiler. Node rows
 continue validating their current selected inputs. Full public source preflight
@@ -11686,6 +11768,10 @@ expected behavior. Failure codes below are normalized wrapper codes.
 | TH-HARNESS-AC-168 | REQ-865, REQ-866 | A synthetic passing run with a two-row Go unit, an operation, a cached unit and a retired operation; the same run folded twice; a failed run; a row observed above the packing bound; a full observation history | The fold records each row's duration-proportional share beyond the Go allowance and the operation's runner time, skips the cached unit and the retired operation, keeps three observations, writes a strict sorted document, and leaves the loaded estimates unchanged; the repeated, failed and oversized runs are refused; the planner and the audit use the median observation over the authored prior | A cached or retired unit observed, an unbounded history, a refused run written, or a plan or audit that ignores an observation fails. |
 | TH-HARNESS-AC-169 | REQ-806 | A test-owned cohort and a shared-state cohort, each with a failing first test; a stack that fails during a test-owned cohort | The test-owned cohort runs every selected test, reports each outcome, fails and quarantines its allocation at release; the shared-state cohort stops at the first failure and accounts for its unexecuted rows; tests after a stack failure fail at their own fixture setup | A test-owned cohort that stops at its first failure, a shared-state cohort that continues, or a cohort that waits on test deadlines after its stack failed fails. |
 | TH-HARNESS-AC-170 | REQ-802 | A selection with more ordinary browser cohorts than `BROWSER_LANES`, one measurement cohort, and a capacity snapshot | The plan's capacities include `browser_lane` equal to the lane limit; each ordinary cohort claims one lane and its own unit-scoped stack and stack cluster, needs no other browser cohort, and takes no browser session lock; the measurement cohort keeps its quiet exclusive lock and graph-scoped snapshot cluster | A chained browser cohort, a lane claim on a measurement cohort, a shared ordinary stack, or more running ordinary cohorts than lanes fails. |
+| TH-HARNESS-AC-171 | REQ-872 | Go units over passing, failing, skipped and missing tests; typed setup and cleanup markers, split, interleaved, truncated, oversized, conflicting and malformed; an event line over 1 MiB; a race context, a shuffle seed and an independent-module package; an unregistered module package; a relative machine cache path; a nonzero exit with every row passed | Each unit's command is the exact `go test` invocation and its Go bindings carry their tests; rows settle by the adapter's rules and publish as schema-valid results; the unit passes exactly when its rows pass; failure detail and `[FAIL]` lines reach the error log; a passing unit retains no standard output; the master key reaches only the repository's own module; durations are written under basic diagnostics | A broadened `-run`, a missing `-race`, `-shuffle` or `-C`, a row settled from an over-bound stream, a malformed marker attributed, a unit outcome that disagrees with its rows, or a module receiving the test key fails. |
+| TH-HARNESS-AC-172 | REQ-807 | Go integration rows owning their PostgreSQL generation, a shared-generation transaction or an object-store namespace; process-exclusive, migration, measurement, security, visual and release rows; a changed migration; a release `ci` root with the cache on | The owned-fixture rows are cacheable and their keys hold the test-services helper and the migrated template digest; the other rows stay uncached; a migration change changes the keys; release evidence refuses the cached `ci` root | A shared or process-exclusive fixture row reused, a key that ignores a migration change, or a release `ci` accepted with the cache on fails. |
+| TH-HARNESS-AC-173 | REQ-807 | Go and Vitest units; a change to a runner package or module, to a Node module a Go closure names by a literal path, to an unrelated harness module and to the planning estimates; a computed import inside and outside the declared externals | A Go key holds its packages' closure, the Go runner's package closure and every named repository file with a named module's closure; a Vitest key holds its workspaces and the JavaScript runner's module closure; only changes inside a closure change a key; an undeclared computed import selects the broad closure | A key unchanged by a change inside its closure, a key changed by an unrelated harness module or by the estimates, or an incomplete closure used instead of the broad one fails. |
+| TH-HARNESS-AC-174 | REQ-060 | Two renderer builds with unchanged inputs; a changed renderer source, lockfile or host library; a tampered installation root; `CARTULARY_BUILD_CACHE_DISABLE=1` and `CARTULARY_FORCE_REBUILD=1` | The second unchanged build only republishes the receipt; any changed input or copied library rebuilds and records a new key, and a tampered root is never reused; the disable flag neither reads nor records keys and the force flag rebuilds | A reused installation after an input change, a reuse that skips the integrity check, or a recorded key under the disable flag fails. |
 
 The numerical image cases MUST include transparent pixels, alpha-only differences,
 one-pixel boundaries, and zero/full changed area. Interface fixtures MUST include
@@ -11763,6 +11849,7 @@ retained evidence keep their separate owner-only permission contract.
 | `TH-HARNESS-REQ-869` | Go test duration diagnostics | TH-HARNESS-AC-165 |
 | `TH-HARNESS-REQ-870` | Failure-scoped host pressure | TH-HARNESS-AC-166 |
 | `TH-HARNESS-REQ-871` | Stress repetition | TH-HARNESS-AC-167 |
+| `TH-HARNESS-REQ-872` | Go row runner | TH-HARNESS-AC-171 |
 | `TH-HARNESS-REQ-858..864` | Runtime contract guards and evidence | TH-HARNESS-AC-008, TH-HARNESS-AC-154, TH-HARNESS-AC-155, TH-HARNESS-AC-156, TH-HARNESS-AC-157, TH-HARNESS-AC-158, TH-HARNESS-AC-159 |
 
 
@@ -12015,6 +12102,36 @@ package's closure also includes the module manifest and checksum file of the
 module that encloses it. An imported package's tests are left out: Go never
 compiles them into another package's tests, so neither their files nor their
 imports enter the closure.
+
+Cache registry v4 (amended 2026-11-25, G36) replaces the harness-wide inputs
+of the test-row profiles with what a row's result depends on: the runner that
+executes it. `unit_inputs` adds `runner_packages`, Go packages whose
+repository-local import closure without tests the planner adds (the Go row
+runner of TH-HARNESS-REQ-872 for the Go profile), and `runner_entries`, Node
+modules whose module closure it adds: the entry modules and every repository
+module they reach through a relative static import, re-export, literal dynamic
+import or literal `require` (the JavaScript row runner for the Vitest
+profile). Installed modules and packages are bound by the lockfile and
+`go.sum`. A Go closure also holds every repository file that its Go code
+names by a string literal, when the literal is exactly a file of the source
+snapshot, because a test or its support may read or launch it; a named Node
+module brings its module closure. A named directory or a path the code
+computes is covered only by the profile's `paths` and `prefixes`. A computed
+dynamic import in a closure module not listed in `runner_external_imports`,
+or an unresolvable relative specifier, selects the broad closure rather than
+an incomplete key. The other
+`paths` and `prefixes` keep the files the runner and the tests read at run
+time (catalog, owner models, topology, toolchain pins, schemas, generated
+validators, contracts, configurations); generator scripts, renderers and
+harness modules outside the runner closure leave the key. `service_paths` join
+the closure of a service-backed unit. Planning estimates
+(`tools/harness_work_estimates.json`) never enter a closure, because they
+order work without changing a result. The Go row runner reads no catalog:
+its rows, selectors and command come from the plan. The JavaScript row
+runner loads the whole test catalog, but a unit's key holds only the catalog
+owner and its selected owners' manifests: the planner validates the complete catalog before any unit
+runs, so another owner's change cannot alter a reused result without failing
+planning first.
 
 Vitest rows compile to units of one execution contract (project, profiles,
 fixture, services, binaries, preparations, cache policy and isolation). A

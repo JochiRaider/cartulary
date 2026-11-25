@@ -171,3 +171,39 @@ func TestEnvelopeRejectsUnregisteredValues(t *testing.T) {
 		t.Fatal("cleanup accepted an unregistered stage")
 	}
 }
+
+func TestDecodeReadsOnlyWhatEncodeWrites(t *testing.T) {
+	setup := NewEnvelope("infra", "service_readiness_timeout", "s3test", "object_store", "put", 25, "completed")
+	cleanup := NewEnvelope("harness", "cleanup_error", "pgtest", "postgres", "delete", 1, "failed")
+	cleanup.Phase = "cleanup"
+	cleanup.CleanupDiagnostics = []CleanupDiagnostic{{Stage: "forced_drop", Cause: "deadline_exceeded"}}
+	for _, envelope := range []Envelope{setup, cleanup} {
+		encoded, err := Encode(envelope)
+		if err != nil {
+			t.Fatal(err)
+		}
+		decoded, err := Decode([]byte(strings.TrimPrefix(encoded, Marker)))
+		if err != nil || !reflect.DeepEqual(decoded, envelope) {
+			t.Fatalf("round trip %+v: %v", decoded, err)
+		}
+	}
+	encoded, _ := Encode(cleanup)
+	valid := strings.TrimPrefix(encoded, Marker)
+	for label, text := range map[string]string{
+		"unknown member":      strings.Replace(valid, `{`, `{"extra":1,`, 1),
+		"missing member":      strings.Replace(valid, `"prior_failure":false,`, ``, 1),
+		"trailing data":       valid + ` {}`,
+		"null":                `null`,
+		"empty diagnostics":   strings.Replace(valid, `[{"stage":"forced_drop","cause":"deadline_exceeded"}]`, `[]`, 1),
+		"repeated diagnostic": strings.Replace(valid, `[{"stage":"forced_drop","cause":"deadline_exceeded"}]`, `[{"stage":"forced_drop","cause":"deadline_exceeded"},{"stage":"forced_drop","cause":"deadline_exceeded"}]`, 1),
+		"fractional count":    strings.Replace(valid, `"attempt_count":1`, `"attempt_count":1.5`, 1),
+		"unregistered value":  strings.Replace(valid, `"service":"postgres"`, `"service":"private"`, 1),
+	} {
+		if text == valid {
+			t.Fatalf("%s: the fixture did not change", label)
+		}
+		if _, err := Decode([]byte(text)); err == nil {
+			t.Fatalf("%s was accepted", label)
+		}
+	}
+}

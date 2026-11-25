@@ -8,9 +8,9 @@ import (
 
 // TestPlanGrowth bounds the serialized size of every unit of the ci graph
 // under a fixed planning profile, so graph growth stays structural: each
-// unit has a contract allowance, plus linear allowances for its bound rows
-// and its dependency edges. Two compiles of the same inputs are
-// byte-identical.
+// unit has a contract allowance, plus linear allowances for its bound rows,
+// their selected Go tests and its dependency edges. Two compiles of the same
+// inputs are byte-identical.
 func TestPlanGrowth(t *testing.T) {
 	inputs, err := Load(repositoryRoot(t))
 	if err != nil {
@@ -24,7 +24,10 @@ func TestPlanGrowth(t *testing.T) {
 	const (
 		baseBytes          = 4096
 		bytesPerRowBinding = 384
-		bytesPerDependency = 192
+		// A Go unit names each selected test twice: in its row's binding
+		// and in its command's exact -run pattern.
+		bytesPerSelectedTest = 96
+		bytesPerDependency   = 192
 		// A finalizer carries its group, target and unit mappings beside
 		// its edges, each naming a digest-identified cohort.
 		finalizerBytesPerDependency = 448
@@ -47,7 +50,11 @@ func TestPlanGrowth(t *testing.T) {
 			if unit.Kind == "finalizer" {
 				perDependency = finalizerBytesPerDependency
 			}
-			if budget := baseBytes + len(unit.RowBindings)*bytesPerRowBinding + len(unit.Needs)*perDependency; len(size) > budget {
+			tests := 0
+			for _, binding := range unit.RowBindings {
+				tests += len(binding.Selectors)
+			}
+			if budget := baseBytes + len(unit.RowBindings)*bytesPerRowBinding + tests*bytesPerSelectedTest + len(unit.Needs)*perDependency; len(size) > budget {
 				t.Errorf("%s unit %s uses %d bytes; its structural budget is %d", unit.Kind, unit.ID, len(size), budget)
 			}
 		}

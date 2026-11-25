@@ -1,16 +1,14 @@
 #!/usr/bin/env node
 
-import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { goRunnerBuildContext, loadSelectedTestRows, targetForCatalogRow, validateIndependentGoModule } from "../../test-catalog/index.mjs";
-import { primaryPublicFailure, publicExitCodeForFailure, publicExitCodeForFailures, redactString, validateSchemaSync } from "../../contract/index.mjs";
+import { loadSelectedTestRows, targetForCatalogRow } from "../../test-catalog/index.mjs";
+import { primaryPublicFailure, publicExitCodeForFailure, publicExitCodeForFailures, redactString } from "../../contract/index.mjs";
 import { createLaunchContext } from "../../runtime/launch-context.mjs";
 import { beginActivity } from "../../runtime/local-activity.mjs";
 import { createCommandFailureContext, reportCommandFailure } from "../../runtime/command-failure.mjs";
 import { runPrivateCapturedProcess } from "../../runtime/private-child-process.mjs";
-import { adaptGoInvocationFile, buildGoInvocations, goExecutionEnvironment, retainGoTestDurations } from "./go.mjs";
 import { adaptShellInvocation, buildShellInvocations } from "./shell.mjs";
 import { publishRowResult } from "./row-results.mjs";
 import { adaptVitestInvocationFile, buildVitestInvocations, vitestInvocationFailure } from "./vitest.mjs";
@@ -80,28 +78,7 @@ function invocationsForRows(rows) {
   const runners = new Set(rows.map((row) => row.runner));
   if (runners.size !== 1) throw new Error("row runner unit must contain one runner kind");
   const runner = rows[0].runner;
-  const workers = Number.parseInt(
-    runner === "vitest"
-      ? process.env.VITEST_MAX_WORKERS ?? "1"
-      : process.env.CARTULARY_UNIT_CPU_TOKENS ?? "1",
-    10,
-  );
-  if (!Number.isInteger(workers) || workers < 1 || workers > 64) {
-    throw new Error("row runner worker count is invalid");
-  }
-  if (runner === "go") {
-    return {
-      invocations: buildGoInvocations(rows, workers, process.env.GO || "go", { ...goRunnerBuildContext(root), goRace: process.env.CARTULARY_GO_RACE === "1", goShuffleSeed: process.env.CARTULARY_GO_SHUFFLE_SEED || undefined }).map((invocation) => {
-        if (invocation.args[0] === "-C") validateIndependentGoModule(root, invocation.args[1]);
-        return ({
-        ...invocation,
-        // Explicit test credentials: production key loading has no default.
-        environment: { ...goExecutionEnvironment(root), ...invocation.environment,
-          ...(invocation.args[0] === "-C" ? {} : { CARTULARY_AUTH_MASTER_KEY: readFileSync(path.join(root, "internal/testutil/fixtures/auth/master-key.base64"), "utf8").trim() }) },
-      }); }),
-      adapt: adaptGoInvocationFile,
-    };
-  }
+  // Go rows run under the harness runtime's Go row runner (TH-HARNESS-REQ-872).
   if (runner === "vitest") {
     return {
       invocations: buildVitestInvocations(root, rows, runRoot()),
@@ -118,7 +95,7 @@ function invocationsForRows(rows) {
       adapt: adaptShellInvocation,
     };
   }
-  throw new Error(`row runner does not execute ${row.runner} rows`);
+  throw new Error(`row runner does not execute ${runner} rows`);
 }
 
 function canonicalFailure(result) {
@@ -166,7 +143,7 @@ async function main() {
   const { invocations, adapt } = invocationsForRows(rows);
   const startedAt = new Date().toISOString();
   const started = Date.now();
-  const results = [], invocationFailures = [], durations = [];
+  const results = [], invocationFailures = [];
   let cleanupFailed = false;
   for (const invocation of invocations) {
     const execution = await execute(invocation, rows[0].runner);
@@ -174,7 +151,7 @@ async function main() {
       let failureOutput = "";
       const parsing = beginActivity({ repoRoot: root, environment: process.env, launch: execution.launch, activity: "report_parse" });
       try {
-        const adapted = await adapt(invocation, execution, (output) => { failureOutput = output; }, (record) => { durations.push(record); });
+        const adapted = await adapt(invocation, execution, (output) => { failureOutput = output; });
         parsing.finish(adapted.some((row) => row.failure_class === "artifact" || row.failure_class === "harness") ? "failed" : "passed");
         results.push(...adapted);
         if (rows[0].runner === "vitest") {
@@ -195,8 +172,6 @@ async function main() {
       }
     }
   }
-  retainGoTestDurations({ environment: process.env, runRoot: runRoot(), rows, records: durations, redact: redactString,
-    report: (message) => process.stderr.write(message) });
   for (const result of results) {
     publishRowResult(runRoot(), {
       schema_id: "cartulary.harness_row_result.v6",

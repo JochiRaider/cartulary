@@ -103,6 +103,13 @@ test("the release decision rejects foreign, incomplete, failed or mismatched roo
   writeEvidenceFile(f.roots.ci, "cleanup-results.json", cleanup);
   await assert.rejects(verifyReleaseEvidence(f.options), /^Error: retained cleanup did not complete$/u);
   writeEvidenceFile(f.roots.ci, "cleanup-results.json", f.evidence.ci.files["cleanup-results.json"]);
+  // A release ci executes every row: a root that reused cached results is refused (D12).
+  const cached = structuredClone(f.evidence.ci);
+  cached.manifest.cache_mode = "normal";
+  cached.plan.manifest = structuredClone(cached.manifest);
+  persistEvidence(f.roots.ci, cached);
+  await assert.rejects(verifyReleaseEvidence(f.options), /ci root reused cached results/u);
+  persistEvidence(f.roots.ci, f.evidence.ci);
   assert.equal((await verifyReleaseEvidence(f.options)).status, "pass");
 });
 
@@ -142,5 +149,10 @@ test("make release runs each missing stage once, in order, and verifies their ro
   const failed = composeRelease({ supplied: {}, runID: "again", resultsDir: parent, releaseRoot: path.join(parent, "again"),
     runMake: (target) => { stopped.push(target); return target === "release-check" ? 2 : 0; } });
   assert.deepEqual([failed.status, failed.failed, stopped], [2, "release-check", ["ci", "release-check"]]);
+  // The release's own ci runs with the cache off (D12).
+  const inputs = [];
+  composeRelease({ supplied: {}, runID: "fresh", resultsDir: parent, releaseRoot: path.join(parent, "fresh"),
+    runMake: (target, call) => { inputs.push([target, call.inputs]); return 1; } });
+  assert.deepEqual(inputs, [["ci", { CARTULARY_HARNESS_CACHE_MODE: "off" }]]);
 });
 

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.harness_work_graph.v9",
+  "$id": "cartulary.harness_work_graph.v10",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -10,7 +10,7 @@
   ],
   "properties": {
     "schema_id": {
-      "const": "cartulary.harness_work_graph.v9"
+      "const": "cartulary.harness_work_graph.v10"
     },
     "units": {
       "type": "array",
@@ -240,6 +240,33 @@
                   "playwright",
                   "shell"
                 ]
+              },
+              "selectors": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 4096,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "pattern": "^Test[A-Za-z0-9_]*$"
+                }
+              }
+            },
+            "if": {
+              "properties": {
+                "runner": {
+                  "const": "go"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "selectors"
+              ]
+            },
+            "else": {
+              "properties": {
+                "selectors": false
               }
             }
           }

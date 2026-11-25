@@ -29,7 +29,7 @@ function invoke(args, { root = repoRoot, environment = process.env } = {}) {
  */
 export function planInvocation(args, options = {}) {
   const plan = invoke(["plan", ...args], options);
-  validateSchemaSync("cartulary.harness_runtime_plan.v9", plan);
+  validateSchemaSync("cartulary.harness_runtime_plan.v10", plan);
   return plan;
 }
 

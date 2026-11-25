@@ -14,33 +14,50 @@ import (
 func TestCacheFacts(t *testing.T) {
 	root := t.TempDir()
 	files := map[string]string{
-		"go.mod":                          "module example.com/m\n\ngo 1.27\n",
-		"a/a.go":                          "package a\n\nimport (\n\t\"fmt\"\n\t\"example.com/m/b\"\n)\n\nvar _ = fmt.Sprint(b.B)\n",
-		"a/a_test.go":                     "//go:build never\n\npackage a\n\nimport _ \"example.com/m/t\"\n",
-		"a/testdata/input.txt":            "data\n",
-		"b/b.go":                          "package b\n\nconst B = 1\n",
-		"t/t.go":                          "package t\n",
-		"c/c.go":                          "package c\n",
-		"configs/app.json":                "{}\n",
-		"tools/harness_helpers.json":      "{}\n",
-		"tools/other.json":                "{}\n",
-		"tools/test_families/owner.json":  "{}\n",
-		"contracts/probe-owner/case.json": "{}\n",
-		"fixtures/case/input.json":        "{}\n",
-		"fixtures/other/input.json":       "{}\n",
-		"nested/go.mod":                   "module example.com/m/nested\n",
-		"nested/go.sum":                   "\n",
-		"nested/p/p.go":                   "package p\n",
-		"pnpm-workspace.yaml":             "packages:\n  - apps/web\n  - packages/*\nstoreDir: .pnpm-store\n",
-		"apps/web/package.json":           `{"name":"@m/web","dependencies":{"@m/lib":"workspace:*","react":"19"}}`,
-		"apps/web/src/a.test.ts":          "test('a', () => {})\n",
-		"packages/lib/package.json":       `{"name":"@m/lib","devDependencies":{"@m/base":"workspace:*"}}`,
-		"packages/lib/src/lib.test.ts":    "test('lib', () => {})\n",
-		"packages/base/package.json":      `{"name":"@m/base"}`,
-		"packages/base/src/base.ts":       "export const base = 1\n",
-		"packages/other/package.json":     `{"name":"@m/other"}`,
-		"packages/other/src/other.ts":     "export const other = 1\n",
-		"scripts/stray.test.ts":           "test('stray', () => {})\n",
+		"go.mod":                            "module example.com/m\n\ngo 1.27\n",
+		"a/a.go":                            "package a\n\nimport (\n\t\"fmt\"\n\t\"example.com/m/b\"\n)\n\nvar _ = fmt.Sprint(b.B)\n",
+		"a/a_test.go":                       "//go:build never\n\npackage a\n\nimport _ \"example.com/m/t\"\n",
+		"a/testdata/input.txt":              "data\n",
+		"b/b.go":                            "package b\n\nconst B = 1\n",
+		"b/launch.go":                       "package b\n\nconst (\n\tlaunched = \"tools/launch/entry.mjs\"\n\tabsent   = \"tools/launch/absent.mjs\"\n\tdir      = \"tools/launch\"\n\tread     = \"configs2/read.json\"\n)\n",
+		"tools/launch/entry.mjs":            "import { d } from \"./dep.mjs\";\n",
+		"tools/launch/dep.mjs":              "export const d = 1;\n",
+		"tools/launch/unused.mjs":           "export {};\n",
+		"configs2/read.json":                "{}\n",
+		"t/t.go":                            "package t\n",
+		"c/c.go":                            "package c\n",
+		"r/r.go":                            "package r\n\nimport _ \"example.com/m/s\"\n",
+		"r/r_test.go":                       "package r\n\nimport _ \"example.com/m/c\"\n",
+		"s/s.go":                            "package s\n",
+		"configs/app.json":                  "{}\n",
+		"tools/harness_helpers.json":        "{}\n",
+		"tools/other.json":                  "{}\n",
+		"tools/test_families/owner.json":    "{}\n",
+		"contracts/probe-owner/case.json":   "{}\n",
+		"fixtures/case/input.json":          "{}\n",
+		"fixtures/other/input.json":         "{}\n",
+		"nested/go.mod":                     "module example.com/m/nested\n",
+		"nested/go.sum":                     "\n",
+		"nested/p/p.go":                     "package p\n",
+		"pnpm-workspace.yaml":               "packages:\n  - apps/web\n  - packages/*\nstoreDir: .pnpm-store\n",
+		"apps/web/package.json":             `{"name":"@m/web","dependencies":{"@m/lib":"workspace:*","react":"19"}}`,
+		"apps/web/src/a.test.ts":            "test('a', () => {})\n",
+		"packages/lib/package.json":         `{"name":"@m/lib","devDependencies":{"@m/base":"workspace:*"}}`,
+		"packages/lib/src/lib.test.ts":      "test('lib', () => {})\n",
+		"packages/base/package.json":        `{"name":"@m/base"}`,
+		"packages/base/src/base.ts":         "export const base = 1\n",
+		"packages/other/package.json":       `{"name":"@m/other"}`,
+		"packages/other/src/other.ts":       "export const other = 1\n",
+		"scripts/stray.test.ts":             "test('stray', () => {})\n",
+		"tools/runner/cli.mjs":              "import { a } from \"./lib/a.mjs\";\nexport { b } from \"../runner/b\";\nimport \"node:fs\";\nimport x from \"some-package\";\nconst r = requireFrom(\"./gen/index.cjs\");\nawait import(\"./late.mjs\");\n",
+		"tools/runner/lib/a.mjs":            "export const a = 1;\n",
+		"tools/runner/b.mjs":                "export const b = 2;\n",
+		"tools/runner/gen/index.cjs":        "module.exports = require(\"./one.cjs\");\n",
+		"tools/runner/gen/one.cjs":          "module.exports = 1;\n",
+		"tools/runner/late.mjs":             "export {};\n",
+		"tools/runner/unused.mjs":           "export {};\n",
+		"tools/testservices/main.go":        "package main\n",
+		"tools/harness_work_estimates.json": "{}\n",
 	}
 	write := func(relative, content string) {
 		t.Helper()
@@ -85,10 +102,11 @@ func TestCacheFacts(t *testing.T) {
 
 	unitAware := CacheProfile{ProfileID: "test_rows", Policy: "content_addressed", DependencyStrategy: "unit_aware",
 		InputRoots: []string{"a", "b", "c", "go.mod", "t"}, RunnerTypes: []string{RunnerGo},
-		UnitInputs: &UnitInputs{Paths: []string{"configs", "contracts", "go.mod"}, Prefixes: []string{"tools/harness"}}}
+		UnitInputs: &UnitInputs{Paths: []string{"configs", "contracts", "go.mod"}, Prefixes: []string{"tools/harness"},
+			RunnerPackages: []string{"r"}, ServicePaths: []string{"tools/testservices"}}}
 	frontend := CacheProfile{ProfileID: "vitest_rows", Policy: "content_addressed", DependencyStrategy: "unit_aware",
 		InputRoots: []string{"apps", "packages", "scripts"}, RunnerTypes: []string{RunnerVitest},
-		UnitInputs: &UnitInputs{Paths: []string{"pnpm-workspace.yaml"}, Prefixes: []string{}}}
+		UnitInputs: &UnitInputs{Paths: []string{"pnpm-workspace.yaml"}, Prefixes: []string{}, RunnerEntries: []string{"tools/runner/cli.mjs"}}}
 	broad := CacheProfile{ProfileID: "build", Policy: "content_addressed", DependencyStrategy: "broad", InputRoots: []string{"b", "go.mod"}, OperationIDs: []string{"harness.build"}}
 	scan := CacheProfile{ProfileID: "scan", Policy: "content_addressed", DependencyStrategy: "broad", InputRoots: []string{"go.mod"}, OperationIDs: []string{"harness.scan"}, RequiresVulnerabilityDatabaseRevision: true}
 	in := &Inputs{
@@ -134,8 +152,11 @@ func TestCacheFacts(t *testing.T) {
 			t.Fatalf("fact = %+v", fact)
 		}
 		got := paths(snapshot(), inputs[*fact.DependencyDigest])
-		want := []string{"a/a.go", "a/a_test.go", "a/testdata/input.txt", "b/b.go", "configs/app.json", "contracts/probe-owner/case.json",
-			"fixtures/case/input.json", "go.mod", "t/t.go", "tools/harness_helpers.json", "tools/test_families/owner.json"}
+		// Files the Go code names by a literal path join the closure, and a
+		// named Node module brings its module closure; a named directory or
+		// an absent file does not.
+		want := []string{"a/a.go", "a/a_test.go", "a/testdata/input.txt", "b/b.go", "b/launch.go", "configs/app.json", "configs2/read.json", "contracts/probe-owner/case.json",
+			"fixtures/case/input.json", "go.mod", "r/r.go", "s/s.go", "t/t.go", "tools/harness_helpers.json", "tools/launch/dep.mjs", "tools/launch/entry.mjs", "tools/test_families/owner.json"}
 		if !slices.Equal(got, want) {
 			t.Fatalf("closure = %v\nwant      %v", got, want)
 		}
@@ -163,8 +184,9 @@ func TestCacheFacts(t *testing.T) {
 		}
 		for row, want := range map[string][]string{
 			"web.probe.unit.web": {"apps/web/package.json", "apps/web/src/a.test.ts", "packages/base/package.json", "packages/base/src/base.ts",
-				"packages/lib/package.json", "packages/lib/src/lib.test.ts", "pnpm-workspace.yaml"},
-			"web.probe.unit.lib": {"packages/base/package.json", "packages/base/src/base.ts", "packages/lib/package.json", "packages/lib/src/lib.test.ts", "pnpm-workspace.yaml"},
+				"packages/lib/package.json", "packages/lib/src/lib.test.ts", "pnpm-workspace.yaml", "tools/runner/b.mjs", "tools/runner/cli.mjs", "tools/runner/gen/index.cjs", "tools/runner/gen/one.cjs", "tools/runner/late.mjs", "tools/runner/lib/a.mjs"},
+			"web.probe.unit.lib": {"packages/base/package.json", "packages/base/src/base.ts", "packages/lib/package.json", "packages/lib/src/lib.test.ts", "pnpm-workspace.yaml",
+				"tools/runner/b.mjs", "tools/runner/cli.mjs", "tools/runner/gen/index.cjs", "tools/runner/gen/one.cjs", "tools/runner/late.mjs", "tools/runner/lib/a.mjs"},
 		} {
 			facts, inputs, err := facts(vitest(row))
 			if err != nil || *facts[0].DependencyStrategy != strategyWorkspaces || *facts[0].ProfileID != "vitest_rows" {
@@ -225,6 +247,59 @@ func TestCacheFacts(t *testing.T) {
 		}
 	})
 
+	t.Run("a service-backed unit adds its service paths and migration template", func(t *testing.T) {
+		in.MigrationDigest = "sha256:" + digest("migrations-1")
+		in.Catalog.Rows[0].ServiceDependencies = []string{"postgres"}
+		defer func() { in.Catalog.Rows[0].ServiceDependencies = nil }()
+		first, inputs, err := facts(goUnit)
+		if err != nil || !first[0].Eligible {
+			t.Fatalf("fact = %+v, %v", first, err)
+		}
+		if got := paths(snapshot(), inputs[*first[0].DependencyDigest]); !slices.Contains(got, "tools/testservices/main.go") {
+			t.Fatalf("closure %v lacks the service helper", got)
+		}
+		in.MigrationDigest = "sha256:" + digest("migrations-2")
+		second, _, err := facts(goUnit)
+		if err != nil || *second[0].InputDigest == *first[0].InputDigest {
+			t.Fatal("a migration change kept a service-backed key", err)
+		}
+	})
+
+	t.Run("a computed runner import outside the declared externals selects the broad closure", func(t *testing.T) {
+		row := "web.probe.unit.lib"
+		vitestUnit := &Unit{ID: "vitest:" + row, CachePolicy: "content_addressed", RowBindings: []RowBinding{{RowID: row, Runner: RunnerVitest}},
+			EvidenceOutputs: []string{"rows/" + row + ".json"}, SemanticDigest: "sha256:" + digest(row)}
+		write("tools/runner/lib/a.mjs", "export const a = await import(name);\n")
+		defer write("tools/runner/lib/a.mjs", "export const a = 1;\n")
+		computed, _, err := facts(vitestUnit, goUnit)
+		if err != nil || *computed[1].DependencyStrategy != strategyBroadFallback || *computed[0].DependencyStrategy != strategyGoPackages {
+			t.Fatalf("facts = %+v, %v", computed, err)
+		}
+		frontend.UnitInputs.RunnerExternalImports = []string{"tools/runner/lib/a.mjs"}
+		in.Cache.Profiles[1] = frontend
+		defer func() { frontend.UnitInputs.RunnerExternalImports = nil; in.Cache.Profiles[1] = frontend }()
+		declared, _, err := facts(vitestUnit)
+		if err != nil || *declared[0].DependencyStrategy != strategyWorkspaces {
+			t.Fatalf("declared external: %+v, %v", declared, err)
+		}
+	})
+
+	t.Run("a Go runner package change changes Go keys only", func(t *testing.T) {
+		row := "web.probe.unit.lib"
+		vitestUnit := &Unit{ID: "vitest:" + row, CachePolicy: "content_addressed", RowBindings: []RowBinding{{RowID: row, Runner: RunnerVitest}},
+			EvidenceOutputs: []string{"rows/" + row + ".json"}, SemanticDigest: "sha256:" + digest(row)}
+		before, _, err := facts(goUnit, vitestUnit)
+		if err != nil {
+			t.Fatal(err)
+		}
+		write("s/s.go", "package s\n\nconst S = 1\n")
+		defer write("s/s.go", "package s\n")
+		after, _, err := facts(goUnit, vitestUnit)
+		if err != nil || *after[0].InputDigest == *before[0].InputDigest || *after[1].InputDigest != *before[1].InputDigest {
+			t.Fatalf("before %+v after %+v: %v", before, after, err)
+		}
+	})
+
 	t.Run("eligibility follows policy, outputs and freshness", func(t *testing.T) {
 		policyNone := &Unit{ID: "operation:harness.none", CachePolicy: "none"}
 		noOutputs := &Unit{ID: "operation:harness.build", CachePolicy: "content_addressed", EvidenceOutputs: []string{"unit-results/x.json"}}
@@ -238,11 +313,35 @@ func TestCacheFacts(t *testing.T) {
 		}
 		built, inputs, err := facts(buildUnit)
 		if err != nil || !built[0].Eligible || *built[0].DependencyStrategy != strategyBroad ||
-			!slices.Equal(paths(snapshot(), inputs[*built[0].DependencyDigest]), []string{"b/b.go", "go.mod"}) {
+			!slices.Equal(paths(snapshot(), inputs[*built[0].DependencyDigest]), []string{"b/b.go", "b/launch.go", "go.mod"}) {
 			t.Fatalf("broad operation fact = %+v, %v", built, err)
 		}
 		if _, _, err := facts(&Unit{ID: "operation:harness.unbound", CachePolicy: "same_run", ArtifactOutputs: artifact}); !errors.Is(err, ErrInput) {
 			t.Fatalf("a cacheable unit without a profile: %v", err)
 		}
 	})
+}
+
+func TestRowCachePolicy(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		row  Row
+		want string
+	}{
+		{"a fixture-free Go row", Row{Runner: RunnerGo, EvidenceClass: "unit", FixtureCapability: "none"}, "content_addressed"},
+		{"a Vitest row", Row{Runner: RunnerVitest, EvidenceClass: "unit", FixtureCapability: "none"}, "content_addressed"},
+		{"a Go row on its own generation", Row{Runner: RunnerGo, EvidenceClass: "integration", FixtureCapability: "postgres_dedicated", ServiceDependencies: []string{"object_store", "postgres"}}, "content_addressed"},
+		{"a Go row in a shared-generation transaction", Row{Runner: RunnerGo, EvidenceClass: "integration", FixtureCapability: "postgres_transaction", ServiceDependencies: []string{"postgres"}}, "content_addressed"},
+		{"a Go row on its own object-store namespace", Row{Runner: RunnerGo, EvidenceClass: "integration", FixtureCapability: "object_store_namespace", ServiceDependencies: []string{"object_store"}}, "content_addressed"},
+		{"a migration row", Row{Runner: RunnerGo, EvidenceClass: "integration", FixtureCapability: "postgres_migration", ServiceDependencies: []string{"postgres"}}, "none"},
+		{"a process-exclusive row", Row{Runner: RunnerGo, EvidenceClass: "integration", FixtureCapability: "postgres_dedicated", ServiceDependencies: []string{"postgres"}, ProcessIsolation: "exclusive"}, "none"},
+		{"a security row", Row{Runner: RunnerGo, EvidenceClass: "security", FixtureCapability: "postgres_dedicated", ServiceDependencies: []string{"postgres"}}, "none"},
+		{"a measurement row", Row{Runner: RunnerGo, EvidenceClass: "measurement", FixtureCapability: "none"}, "none"},
+		{"a Playwright row", Row{Runner: RunnerPlaywright, EvidenceClass: "browser", FixtureCapability: "browser_stack"}, "none"},
+		{"a service-backed Vitest row", Row{Runner: RunnerVitest, EvidenceClass: "integration", FixtureCapability: "postgres_dedicated", ServiceDependencies: []string{"postgres"}}, "none"},
+	} {
+		if got := rowCachePolicy(tc.row); got != tc.want {
+			t.Errorf("%s: %s, want %s", tc.name, got, tc.want)
+		}
+	}
 }

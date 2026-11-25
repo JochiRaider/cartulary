@@ -23,4 +23,4 @@ export { executableInputPathspec, executableRepositoryPaths, inspectExecutableRe
 export { playwrightLeafTitle, playwrightSelection, playwrightTitlePath } from "./selector-resolution.mjs";
 export { goRunnerBuildContext } from "./go-build-context.mjs";
 export { createValidatedContext } from "./validated-context.mjs";
-export { goModuleSelection, validateIndependentGoModule } from "./go-modules.mjs";
+export { validateIndependentGoModule } from "./go-modules.mjs";

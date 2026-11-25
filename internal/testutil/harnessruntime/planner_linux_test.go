@@ -57,8 +57,8 @@ func TestGoPlannerAdoption(t *testing.T) {
 				t.Fatalf("%s residents %v from %v", u.ID, u.Residents, planned.Residents)
 			}
 			residents += len(u.Residents)
-			if strings.HasPrefix(u.ID, "go:") && (len(u.Command.Args) != 3 || u.Command.Args[1] != "--row-ids") {
-				t.Fatalf("%s command %v does not carry its rows", u.ID, u.Command.Args)
+			if strings.HasPrefix(u.ID, "go:") && (u.Command.Executable != "go" || u.goRows() == nil || !slices.Contains(u.Command.Args, "-run")) {
+				t.Fatalf("%s command %v does not run its rows' tests", u.ID, u.Command)
 			}
 			for _, name := range []string{"CARTULARY_SERVER_BIN", "CARTULARY_MIGRATE_BIN"} {
 				if value, ok := u.Command.Environment[name]; !ok || value != "" && !filepath.IsAbs(value) {

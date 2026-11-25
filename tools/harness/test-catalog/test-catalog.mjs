@@ -19,7 +19,7 @@ import { inspectExecutableRepositoryPath, readExecutableRepositoryJSON } from ".
 const ownerRegistrySchemaID = "cartulary.test_owner_registry.v1";
 const familyManifestSchemaID = "cartulary.test_family_manifest.v15";
 const rowMigrationSchemaID = "cartulary.test_catalog_row_migration.v1";
-const runnerRegistrySchemaID = "cartulary.test_runner_registry.v3";
+const runnerRegistrySchemaID = "cartulary.test_runner_registry.v4";
 export const evidenceEpoch = "cartulary.test_evidence.nlspec.v1";
 const expectedRunners = Object.freeze({
   go: "go_exact_tests",
@@ -31,7 +31,7 @@ const expectedRunnerDefinitions = Object.freeze({
   go: {
     runner: "go",
     selector_kind: "go_exact_tests",
-    adapter_path: "tools/harness/execution/runners/go.mjs",
+    adapter_path: "internal/testutil/harnessrows/events.go",
     approved_roots: ["cmd", "internal", "referencepacks", "tools/contractgen", "tools/embedwebassets", "tools/objectstoreprobe", "tools/openapi-operation-catalog", "tools/reference-pack-modules", "tools/testservices"],
   },
   playwright: {
@@ -205,10 +205,12 @@ function loadRunnerRegistry(root) {
     if (runner.stages) {
       assertSortedUnique(runner.stages, `${registryPath}.${runner.runner}.stages`);
     }
+    // The Go row runner is the harness runtime's (TH-HARNESS-REQ-872); every
+    // other runner's adapter is a Node module.
     assertContainedRegularFile(
       root,
       runner.adapter_path,
-      "tools/harness/execution/runners",
+      runner.runner === "go" ? "internal/testutil/harnessrows" : "tools/harness/execution/runners",
       `${registryPath}.${runner.runner}.adapter_path`,
     );
     byID.set(runner.runner, runner);

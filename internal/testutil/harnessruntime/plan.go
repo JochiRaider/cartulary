@@ -13,6 +13,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessfixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessplan"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnessrows"
 )
 
 var errPlan = errors.New("invalid harness runtime plan")
@@ -38,8 +39,9 @@ type failurePolicy struct {
 	AggregateEffect     string `json:"aggregate_effect"`
 }
 type rowBinding struct {
-	ID     string `json:"row_id"`
-	Runner string `json:"runner"`
+	ID        string   `json:"row_id"`
+	Runner    string   `json:"runner"`
+	Selectors []string `json:"selectors,omitempty"`
 }
 type unit struct {
 	PostgresIsolation string           `json:"postgres_isolation"`
@@ -68,6 +70,22 @@ type unit struct {
 	// Residents are the physical allocations the unit holds, by the keys
 	// its plan names.
 	Residents []harnessfixtures.Resident `json:"-"`
+}
+
+// goRows are the rows of a Go unit, which the runtime runs and settles
+// itself (TH-HARNESS-REQ-872); nil for every other unit.
+func (u unit) goRows() []harnessrows.Row {
+	if len(u.Rows) == 0 || u.Command.Executable != "go" {
+		return nil
+	}
+	rows := make([]harnessrows.Row, len(u.Rows))
+	for i, binding := range u.Rows {
+		if binding.Runner != "go" || len(binding.Selectors) == 0 {
+			return nil
+		}
+		rows[i] = harnessrows.Row{ID: binding.ID, Selectors: binding.Selectors}
+	}
+	return rows
 }
 
 // quiet reports a unit that holds host_activity in exclusive mode: a quiet

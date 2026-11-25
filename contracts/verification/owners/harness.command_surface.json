@@ -61,6 +61,15 @@
       "public_target": "harness-contract"
     },
     {
+      "verification_id": "harness.command_surface.verification.go_row_runner",
+      "behavior_class": "harness",
+      "profile": "support",
+      "evidence_kinds": [
+        "go_test"
+      ],
+      "public_target": "harness-contract"
+    },
+    {
       "verification_id": "harness.command_surface.verification.go_scanner_wrappers",
       "behavior_class": "harness",
       "profile": "support",

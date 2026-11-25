@@ -1,8 +1,12 @@
 package testfailure
 
 import (
+	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
+	"reflect"
 	"testing"
 )
 
@@ -102,6 +106,48 @@ func Encode(e Envelope) (string, error) {
 		return "", fmt.Errorf("encode test failure: %w", err)
 	}
 	return Marker + string(payload), nil
+}
+
+// requiredFields are the members every envelope states, so a decoded zero
+// value is never mistaken for a reported one.
+var requiredFields = []string{"schema_id", "failure_class", "failure_reason", "setup_source", "service", "readiness_stage", "attempt_count", "cleanup_outcome", "phase", "prior_failure"}
+
+// Decode reads one encoded envelope (the text after Marker) as strictly as
+// Encode writes it: no unknown or missing members, no trailing data, at most
+// eight distinct cleanup diagnostics, and every value Validate accepts. The
+// Go row runner uses it to tell a typed failure from a malformed one.
+func Decode(data []byte) (Envelope, error) {
+	var members map[string]json.RawMessage
+	if err := json.Unmarshal(data, &members); err != nil {
+		return Envelope{}, errors.New("malformed test failure envelope")
+	}
+	for _, name := range requiredFields {
+		if _, ok := members[name]; !ok {
+			return Envelope{}, errors.New("incomplete test failure envelope")
+		}
+	}
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	var e Envelope
+	if err := decoder.Decode(&e); err != nil {
+		return Envelope{}, errors.New("malformed test failure envelope")
+	}
+	if _, err := decoder.Token(); err != io.EOF {
+		return Envelope{}, errors.New("trailing test failure data")
+	}
+	if _, ok := members["cleanup_diagnostics"]; ok {
+		if len(e.CleanupDiagnostics) == 0 {
+			return Envelope{}, errors.New("empty cleanup diagnostics")
+		}
+		for i := range e.CleanupDiagnostics {
+			for j := range i {
+				if reflect.DeepEqual(e.CleanupDiagnostics[i], e.CleanupDiagnostics[j]) {
+					return Envelope{}, errors.New("repeated cleanup diagnostic")
+				}
+			}
+		}
+	}
+	return e, e.Validate()
 }
 
 func Fail(t testing.TB, e Envelope) {

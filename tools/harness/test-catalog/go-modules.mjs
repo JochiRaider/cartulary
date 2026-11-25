@@ -32,14 +32,3 @@ export function validateIndependentGoModule(root, directory) {
   const manifest = readFileSync(path.join(root, entry.root, "go.mod"), "utf8");
   if (!manifest.split(/\r?\n/u).includes(`module ${entry.module_path}`) || /^\s*replace\b/mu.test(manifest)) throw new Error("independent module identity or dependency override mismatch");
 }
-
-export function goModuleSelection(packageName, modules) {
-  const relative = packageName.replace(/^\.\//u, "");
-  for (const module of modules) {
-    if (relative === module.root || relative.startsWith(`${module.root}/`)) {
-      return { directory: module.root, package: relative === module.root ? "." : `.${relative.slice(module.root.length)}` };
-    }
-  }
-  if (relative.startsWith("referencepacks/")) throw new Error("unregistered independent Go module selection");
-  return null;
-}

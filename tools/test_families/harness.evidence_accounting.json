@@ -436,6 +436,7 @@
       "selector": {
         "package": "./internal/testutil/testfailure",
         "tests": [
+          "TestDecodeReadsOnlyWhatEncodeWrites",
           "TestEncodeProducesBoundedMarkerWithoutDiagnosticText",
           "TestEnvelopeRejectsUnregisteredValues"
         ]

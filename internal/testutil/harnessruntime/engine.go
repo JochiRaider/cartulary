@@ -68,6 +68,8 @@ type unitResult struct {
 	// AdmittedAt is when the unit's worker began host admission, on the
 	// graph clock; it bounds a failed unit's pressure window.
 	AdmittedAt time.Duration
+	// GoRows are a Go unit's settled rows, published with its evidence.
+	GoRows *goRows
 }
 type cacheResult struct{ Outcome, Reason, Profile, OutputDigest string }
 type graphCache interface {

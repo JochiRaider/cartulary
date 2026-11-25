@@ -130,8 +130,8 @@ export function registerBoundariesTests() {
   });
   test("current_schema_presence: current harness schemas are present", async () => {
     for (const schema of [
-      "cartulary.harness_work_graph.v9.schema.json",
-      "cartulary.harness_runtime_plan.v9.schema.json",
+      "cartulary.harness_work_graph.v10.schema.json",
+      "cartulary.harness_runtime_plan.v10.schema.json",
       "cartulary.harness_run_manifest.v3.schema.json",
       "cartulary.harness_unit_event.v4.schema.json",
       "cartulary.harness_run_summary.v1.schema.json",

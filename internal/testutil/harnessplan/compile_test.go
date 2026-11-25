@@ -2,6 +2,8 @@ package harnessplan
 
 import (
 	"errors"
+	"fmt"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -76,9 +78,9 @@ func TestPlannerCompilation(t *testing.T) {
 			t.Fatal(err)
 		}
 		units := bound(graph)
-		raced, ordinary := graph.Units[units[race]].Command.Environment, graph.Units[units[plain]].Command.Environment
-		if raced["CARTULARY_GO_RACE"] != "1" || raced["CGO_ENABLED"] != "1" || ordinary["CARTULARY_GO_RACE"] != "0" {
-			t.Fatalf("race environment %v / %v", raced, ordinary)
+		raced, ordinary := graph.Units[units[race]].Command, graph.Units[units[plain]].Command
+		if !slices.Contains(raced.Args, "-race") || raced.Environment["CGO_ENABLED"] != "1" || slices.Contains(ordinary.Args, "-race") || ordinary.Environment["CGO_ENABLED"] != "0" {
+			t.Fatalf("race commands %v / %v", raced, ordinary)
 		}
 		seeded := options
 		seeded.GoShuffleSeed = "17"
@@ -91,8 +93,14 @@ func TestPlannerCompilation(t *testing.T) {
 			t.Fatal(err)
 		}
 		unit := shuffled.Units[bound(shuffled)[plain]]
-		if unit.Command.Environment["CARTULARY_GO_SHUFFLE_SEED"] != "17" || shuffled.Digest == unseeded.Digest {
+		if !slices.Contains(unit.Command.Args, "-shuffle=17") || shuffled.Digest == unseeded.Digest {
 			t.Fatal("the shuffle seed does not reach the Go unit's identity")
+		}
+		for _, invalid := range []string{"0", "on", "017", "2147483648"} {
+			seeded.GoShuffleSeed = invalid
+			if _, err := Compile(inputs, Selection{Rows: []string{plain}}, seeded); !errors.Is(err, ErrSelection) {
+				t.Fatalf("shuffle seed %q: %v", invalid, err)
+			}
 		}
 	})
 
@@ -267,17 +275,52 @@ func TestPlannerCompilation(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		modules := 0
 		for _, unit := range graph.Units {
-			if !strings.HasPrefix(unit.ID, "go:") && !strings.HasPrefix(unit.ID, "vitest:") {
-				continue
-			}
-			var rows []string
+			var rows, tests []string
 			for _, binding := range unit.RowBindings {
 				rows = append(rows, binding.RowID)
+				tests = append(tests, binding.Selectors...)
+				if (binding.Runner == RunnerGo) != (len(binding.Selectors) != 0) {
+					t.Fatalf("%s binding %+v", unit.ID, binding)
+				}
 			}
-			if len(unit.Command.Args) != 3 || unit.Command.Args[1] != "--row-ids" || unit.Command.Args[2] != strings.Join(rows, ",") {
-				t.Fatalf("%s command %v does not name its rows", unit.ID, unit.Command.Args)
+			switch {
+			case strings.HasPrefix(unit.ID, "vitest:"):
+				if len(unit.Command.Args) != 3 || unit.Command.Args[1] != "--row-ids" || unit.Command.Args[2] != strings.Join(rows, ",") {
+					t.Fatalf("%s command %v does not name its rows", unit.ID, unit.Command.Args)
+				}
+			case strings.HasPrefix(unit.ID, "go:"):
+				// One package, exactly its rows' tests, under the fixed build context.
+				args := unit.Command.Args
+				pkg := inputs.Catalog.Rows[inputs.rowIndex[rows[0]]].Selector.Package
+				tests = dedupe(tests)
+				for i := range tests {
+					tests[i] = regexp.QuoteMeta(tests[i])
+				}
+				tail := []string{"-json", "-count=1"}
+				if inputs.Owner.RowExecutionContexts[rows[0]].GoRace {
+					tail = append(tail, "-race")
+				}
+				tail = append(tail, fmt.Sprintf("-p=%d", min(unit.Claims["cpu"], 16)), "-run", "^(?:"+strings.Join(tests, "|")+")$")
+				head := []string{"test"}
+				if strings.HasPrefix(pkg, "./referencepacks/") {
+					modules++
+					directory, within, _ := inputs.goModule(pkg)
+					head = []string{"-C", directory, "test", "-mod=readonly"}
+					pkg = within
+				}
+				want := append(append(head, tail...), pkg)
+				if unit.Command.Executable != "go" || !slices.Equal(args, want) || unit.Command.Environment["GOWORK"] != "off" || unit.Command.Environment["GOFLAGS"] != "" {
+					t.Fatalf("%s command %v\nwant %v", unit.ID, unit.Command, want)
+				}
 			}
+		}
+		if modules == 0 {
+			t.Fatal("the catalog needs a Go row of an independent module")
+		}
+		if _, _, err := inputs.goModule("./referencepacks/undeclared/data"); !errors.Is(err, ErrSelection) {
+			t.Fatalf("an unregistered module package: %v", err)
 		}
 	})
 

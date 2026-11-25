@@ -30,7 +30,7 @@ func retainedRun(t *testing.T, units []map[string]any, events []map[string]any, 
 		}
 	}
 	write("run-summary.json", map[string]any{"run_id": "fixture-run", "status": "pass"})
-	write("plan.json", map[string]any{"schema_id": "cartulary.harness_runtime_plan.v9", "graph": map[string]any{"units": units},
+	write("plan.json", map[string]any{"schema_id": "cartulary.harness_runtime_plan.v10", "graph": map[string]any{"units": units},
 		"manifest": map[string]any{"run_id": "fixture-run", "target": "check", "source_digest": "sha256:" + strings.Repeat("a", 64)}})
 	var stream []byte
 	for _, event := range events {

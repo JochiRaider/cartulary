@@ -53,7 +53,7 @@ func adoptPlan(source *harnessplan.Plan) (*Plan, error) {
 			Residents:     make([]harnessfixtures.Resident, 0, len(u.Residents)),
 		}
 		for _, binding := range u.RowBindings {
-			adopted.Rows = append(adopted.Rows, rowBinding{ID: binding.RowID, Runner: binding.Runner})
+			adopted.Rows = append(adopted.Rows, rowBinding{ID: binding.RowID, Runner: binding.Runner, Selectors: slices.Clone(binding.Selectors)})
 		}
 		for _, output := range u.ArtifactOutputs {
 			adopted.Artifacts = append(adopted.Artifacts, artifact{Type: output.ArtifactType, Path: output.RelativePath, Destination: output.DestinationClass, Mode: output.Mode, Producer: output.ProducerIdentity})

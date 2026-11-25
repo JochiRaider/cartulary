@@ -33,9 +33,9 @@ function recoveryFixture() {
   gate.current_run_evidence_outputs = ["unit-results/operation-harness.seaweedfs_release_gate.json"];
   const units = [gate, buildEvidenceUnit("recovery", [row])];
   for (const value of units) { value.shared_locks = ["host_activity"]; value.semantic_digest = hash(value); }
-  const graph = { schema_id: "cartulary.harness_work_graph.v9", units, graph_digest: hash({ units }) };
+  const graph = { schema_id: "cartulary.harness_work_graph.v10", units, graph_digest: hash({ units }) };
   const m = { ...manifest(), graph_digest: graph.graph_digest };
-  const plan = { schema_id: "cartulary.harness_runtime_plan.v9", graph, manifest: structuredClone(m),
+  const plan = { schema_id: "cartulary.harness_runtime_plan.v10", graph, manifest: structuredClone(m),
     projections: {}, capacities: {}, aging_quantum_ms: 1, cache: [], source_inputs: [], cache_inputs: {},
     host_profile: { platform: "linux", architecture: "x64", kernel_release: "fixture", cpu_models: ["fixture"] }, instrumentation_policy_bytes: "{}",
     browser_lane_limit: 1 };

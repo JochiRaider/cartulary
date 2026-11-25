@@ -1,10 +1,10 @@
 {
-  "schema_id": "cartulary.test_runner_registry.v3",
+  "schema_id": "cartulary.test_runner_registry.v4",
   "runners": [
     {
       "runner": "go",
       "selector_kind": "go_exact_tests",
-      "adapter_path": "tools/harness/execution/runners/go.mjs",
+      "adapter_path": "internal/testutil/harnessrows/events.go",
       "approved_roots": [
         "cmd",
         "internal",

@@ -8,7 +8,7 @@ import { assertMachineEvidencePath, canonicalJSONString, parseStrictJSON, readRe
 // plan.json before any child starts. Readers take the graph, projections and
 // provenance from it and never recompile a selection.
 export const planDocument = "plan.json";
-export const planSchemaID = "cartulary.harness_runtime_plan.v9";
+export const planSchemaID = "cartulary.harness_runtime_plan.v10";
 
 const digest = (value) => semanticJSONDigest(value);
 const bytesDigest = (value) => `sha256:${createHash("sha256").update(value).digest("hex")}`;

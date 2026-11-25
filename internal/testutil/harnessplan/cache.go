@@ -56,13 +56,19 @@ type cachePlanner struct {
 	workspaces map[string]workspace
 	// entries holds each snapshot entry's canonical JSON once computed.
 	entries map[int][]byte
+	// runners holds each profile's runner closure, modules each Node entry
+	// module's closure, and literals each Go file's named repository files,
+	// all computed once.
+	runners  map[string]runnerClosure
+	modules  map[string]moduleSet
+	literals map[int][]string
 }
 
 // CacheFacts decides each unit's cache eligibility and, for an eligible unit,
 // its input digest and dependency closure. It returns the facts in unit order
 // and the closures' source indices by dependency digest.
 func CacheFacts(root string, in *Inputs, graph *Graph, source []SourceInput, context CacheContext) ([]CacheFact, map[string][]int, error) {
-	p := &cachePlanner{root: root, in: in, source: source, context: context, closures: map[string]closure{}, imports: map[string][]string{}, entries: map[int][]byte{}}
+	p := &cachePlanner{root: root, in: in, source: source, context: context, closures: map[string]closure{}, imports: map[string][]string{}, entries: map[int][]byte{}, runners: map[string]runnerClosure{}, modules: map[string]moduleSet{}, literals: map[int][]string{}}
 	inputs := map[string][]int{}
 	var facts []CacheFact
 	for _, unit := range graph.Sorted() {
@@ -184,7 +190,7 @@ func (p *cachePlanner) broad(profile *CacheProfile, strategy, reason string) clo
 // fixture roots. An imported package's own tests are not part of what a row
 // runs, so they are left out.
 func (p *cachePlanner) unitClosure(profile *CacheProfile, unit *Unit) (closure, error) {
-	var selected, owners, fixtures []string
+	var selected, owners, fixtures, services []string
 	runner := ""
 	for _, binding := range unit.RowBindings {
 		row := p.in.row(binding.RowID)
@@ -202,9 +208,10 @@ func (p *cachePlanner) unitClosure(profile *CacheProfile, unit *Unit) (closure, 
 		}
 		owners = append(append(owners, row.OwnerID), row.CollaboratorIDs...)
 		fixtures = append(fixtures, row.FixtureInputRoots...)
+		services = append(services, row.ServiceDependencies...)
 	}
-	selected, owners, fixtures = dedupe(selected), dedupe(owners), dedupe(fixtures)
-	key := digest(map[string]any{"profile": profile.ProfileID, "runner": runner, "selected": selected, "owners": owners, "fixtures": fixtures})
+	selected, owners, fixtures, services = dedupe(selected), dedupe(owners), dedupe(fixtures), dedupe(services)
+	key := digest(map[string]any{"profile": profile.ProfileID, "runner": runner, "selected": selected, "owners": owners, "fixtures": fixtures, "services": services})
 	if cached, ok := p.closures[key]; ok {
 		return cached, nil
 	}
@@ -212,7 +219,7 @@ func (p *cachePlanner) unitClosure(profile *CacheProfile, unit *Unit) (closure, 
 	strategy, metadata := strategyGoPackages, map[string]any{}
 	switch runner {
 	case RunnerGo:
-		directories, err := p.packageDirectories(selected)
+		directories, err := p.packageDirectories(selected, true)
 		if err != nil {
 			return closure{}, err
 		}
@@ -257,8 +264,35 @@ func (p *cachePlanner) unitClosure(profile *CacheProfile, unit *Unit) (closure, 
 	for _, root := range profile.UnitInputs.Paths {
 		p.under(root, set)
 	}
+	// A service-backed row's result also depends on the services it ran
+	// against: the migrated template its databases are cloned from, and the
+	// helper that starts and seeds them. Service image pins live in the test
+	// support packages its Go closure already holds.
+	if len(services) != 0 {
+		for _, root := range profile.UnitInputs.ServicePaths {
+			p.under(root, set)
+		}
+		metadata["services"] = services
+		metadata["migration_template_digest"] = p.in.MigrationDigest
+	}
 	for _, prefix := range profile.UnitInputs.Prefixes {
 		p.prefixed(prefix, set)
+	}
+	runnerInputs, err := p.runnerClosure(profile)
+	if err != nil {
+		return closure{}, err
+	}
+	for index := range runnerInputs {
+		set[index] = true
+	}
+	if runner == RunnerGo {
+		if err := p.namedInputs(profile.UnitInputs, set); err != nil {
+			return closure{}, err
+		}
+	}
+	// Planning estimates order work; they never change a result.
+	if index, ok := p.index(estimatesPath); ok {
+		delete(set, index)
 	}
 	manifests := map[string]string{}
 	for _, owner := range p.in.Catalog.Owners {
@@ -402,11 +436,15 @@ func (p *cachePlanner) readWorkspaces() (map[string]workspace, error) {
 
 var moduleLine = regexp.MustCompile(`(?m)^module\s+(\S+)\s*$`)
 
-// packageDirectories follows the repository-local imports from the selected
-// packages: of every Go file (all build constraints) in a selected package,
-// and of every non-test Go file in an imported one, since a package's tests
-// are never compiled into another package's tests.
-func (p *cachePlanner) packageDirectories(packages []string) ([]string, error) {
+// packageDirectories follows the repository-local imports from the given
+// packages: of every Go file (all build constraints) in a given package when
+// tested is set, otherwise of its non-test files, and of every non-test Go
+// file in an imported one, since a package's tests are never compiled into
+// another package's tests.
+func (p *cachePlanner) packageDirectories(packages []string, tested bool) ([]string, error) {
+	if len(packages) == 0 {
+		return nil, nil
+	}
 	goMod, err := p.text("go.mod")
 	if err != nil {
 		return nil, err
@@ -432,7 +470,7 @@ func (p *cachePlanner) packageDirectories(packages []string) ([]string, error) {
 		for _, index := range p.rangeOf(directory + "/") {
 			entry := p.source[index]
 			name := strings.TrimPrefix(entry.Path, directory+"/")
-			if strings.Contains(name, "/") || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") && !slices.Contains(packages, directory) {
+			if strings.Contains(name, "/") || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") && !(tested && slices.Contains(packages, directory)) {
 				continue
 			}
 			if entry.Kind != "file" {

@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"maps"
 	"os"
 	"os/exec"
@@ -20,6 +21,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessadmission"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnessrows"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 	"golang.org/x/sys/unix"
@@ -226,6 +228,13 @@ func (p *processRunner) Execute(ctx context.Context, request executionRequest) (
 			executable = node
 		}
 	}
+	rows := u.goRows()
+	if rows != nil {
+		if executable, err = bindGo(p.Root, environment, u.Command.Args); err != nil {
+			fail(failed("config", "configuration_error"))
+			return
+		}
+	}
 	if !strings.ContainsRune(executable, '/') {
 		found := ""
 		for _, directory := range filepath.SplitList(environment["PATH"]) {
@@ -276,6 +285,12 @@ func (p *processRunner) Execute(ctx context.Context, request executionRequest) (
 	stdout, stderr := &boundedTail{limit: 1048576}, &boundedTail{limit: 1048576}
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
+	// A Go unit's rows are settled from its event stream as it arrives.
+	var stream *harnessrows.Stream
+	if rows != nil {
+		stream = harnessrows.NewStream(rows)
+		cmd.Stdout = io.MultiWriter(stdout, stream)
+	}
 	closeDescriptors, err := inheritWorkspaceAdmission(cmd)
 	if err != nil {
 		result.Stderr = executionDiagnostic("workspace_inherit", err)
@@ -288,6 +303,7 @@ func (p *processRunner) Execute(ctx context.Context, request executionRequest) (
 		fail(failed("interrupted", "cancelled_or_interrupted"))
 		return
 	}
+	started := time.Now()
 	if err = cmd.Start(); err != nil {
 		if u.Command.Executable == "node" {
 			fail(failed("config", "configuration_error"))
@@ -436,6 +452,19 @@ func (p *processRunner) Execute(ctx context.Context, request executionRequest) (
 		} else if terminalErr != nil {
 			fail(failed("harness", "scheduler_accounting_error"))
 			outcome = "failed"
+		} else if stream != nil {
+			// A Go unit's outcome is its rows' outcomes; passing output is
+			// not retained.
+			settled, rowFailure, report := settleGoRows(u, stream, started, time.Now(), environment["CARTULARY_HARNESS_EXECUTION_ENABLED"] == "1")
+			result.GoRows = settled
+			result.Stderr = append(result.Stderr, report...)
+			if rowFailure == nil {
+				result.Status, result.ExitCode, result.Stdout = "passed", 0, nil
+				outcome = "passed"
+			} else {
+				fail(rowFailure)
+				outcome = "failed"
+			}
 		} else if waitErr == nil {
 			result.Status = "passed"
 			outcome = "passed"
