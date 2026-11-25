@@ -417,6 +417,25 @@ rows (no placement justification).
      lifecycle, presentation, workflow and both seeded rows. That includes
      the stop fix from `19be2e5a2`.
 
+   **Ninth attempt (2026-11-25, `20261125T125711Z-p61824`).** `ci` failed
+   after 1,666 s on one browser test. The renderer sandbox row passed this
+   time.
+
+   - **The failure.** In `module.workbook.browser.entity_find_editing`, the
+     superseded-destination step changed the Find term, released a held
+     edit and pressed Enter. The Find input stayed open. The saved edit
+     triggers a rescan of the loaded rows, and design's Workbook Find
+     presentation makes navigation unavailable while that runs. The step
+     did not wait for it, so under load Enter was ignored. Playwright then
+     stopped the cohort, so its other 37 tests were skipped and recorded as
+     `infrastructure_failed`.
+   - **The fix (`9d431d604`).** The step now waits for the matching-cell
+     status before navigating, like every other navigation in the spec.
+     Find applies new rows in a layout effect, in the same commit that shows
+     the saved text, so no window remains.
+   - **Verification.** The row passes uncached alone (80 s) and with 48
+     CPU-bound processes (147 s). Frontend lint passes.
+
 ### S1 result (2026-11-24)
 
 - **Rows.** 34 measurement rows and the 4 release package rows are
