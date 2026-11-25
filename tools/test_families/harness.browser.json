@@ -1391,7 +1391,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "aggregate_placement": "explicit_only",
+      "aggregate_placement": "full",
       "service_dependencies": [],
       "postgres_isolation": "none"
     },

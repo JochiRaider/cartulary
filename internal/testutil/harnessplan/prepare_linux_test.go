@@ -249,6 +249,29 @@ func TestPlanPreparation(t *testing.T) {
 		if !capacity {
 			t.Fatal("release-measure lacks the credential-capacity assessment")
 		}
+		// Every release obligation is decidable: each row it names runs in
+		// ci, release-check or release-measure, the three roots
+		// release-evidence-verify reads.
+		policy, err := os.ReadFile(filepath.Join(root, "contracts/verification/release-qualification.v2.json"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var qualification struct {
+			Obligations []struct {
+				ObligationID string   `json:"obligation_id"`
+				RowIDs       []string `json:"row_ids"`
+			} `json:"obligations"`
+		}
+		if err := json.Unmarshal(policy, &qualification); err != nil || len(qualification.Obligations) == 0 {
+			t.Fatalf("release qualification policy: %v", err)
+		}
+		for _, obligation := range qualification.Obligations {
+			for _, id := range obligation.RowIDs {
+				if !ciRows[id] && !releaseRows[id] && !measureRows[id] {
+					t.Errorf("release obligation %s names row %s, which no release root runs", obligation.ObligationID, id)
+				}
+			}
+		}
 		if _, err := Prepare(root, Request{Kind: "command", Target: "release-measure", Environment: environment(nil)}, now, 42); err == nil {
 			t.Fatal("release-measure planned without the release-check root its package comes from")
 		}

@@ -339,6 +339,35 @@ rows (no placement justification).
    - **The fix.** The findings are now built once, before admission, and the
      validator only returns copies. The row passes in isolation.
 
+   **Sixth attempt (2026-11-25, `20261125T023956Z-p97731`).** `ci` passed
+   (2,644 rows). `release-check` failed only in the reference-pack package
+   smoke, about 69 s into the run, near package startup. The package and
+   recovery smokes passed with the Linux client probe.
+
+   - **No reason was retained.** The qualification controller discards a
+     failed scenario's output, and Docker's event history no longer covered
+     that window.
+   - **Isolation.** The smoke passed on its own (444 s).
+
+   **Seventh attempt (2026-11-25, `20261125T042449Z-p53567`).** This run
+   reused the sixth attempt's passing `ci` root. `release-check` passed
+   (477 s) and `release-measure` passed (2,008 s).
+
+   - **Verification failed on an unreachable obligation.**
+     `release-evidence-verify` reported that obligation
+     `dependencies.maintenance` named
+     `harness.browser.boundary_support.ui_review_lifecycle`, an
+     `explicit_only` row that none of the three roots runs. S4 had kept the
+     obligation while limiting the roots to `ci`, `release-check` and
+     `release-measure`.
+   - **The fix.** The row's tests are self-contained (temporary
+     directories, a loopback server, a disposable browser), so it now sits
+     in the `full` tier and `ci` runs it. The planner test now requires every
+     obligation row to be bound in one of the three release commands. It
+     failed on exactly this row before the change.
+   - **Verification.** The planner row, the moved row, `make generate` and
+     both source checks pass.
+
 ### S1 result (2026-11-24)
 
 - **Rows.** 34 measurement rows and the 4 release package rows are
