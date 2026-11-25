@@ -34,3 +34,10 @@ export function browserCohort(partition, rows, policy) {
     specs: [...new Set(ordered.map((row) => row.selector.file))].sort(),
   };
 }
+
+// A test-owned cohort runs to completion: each test owns its state, so one
+// failure cannot poison the next, and every failing test is reported. A cohort
+// whose tests share state stops at its first failure (A27).
+export function playwrightFailureArguments(cohort) {
+  return cohort.stateScope === "test_owned" ? [] : ["--max-failures=1"];
+}

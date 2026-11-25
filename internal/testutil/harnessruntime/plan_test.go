@@ -66,7 +66,7 @@ func fixturePlan(t *testing.T, units ...*harnessplan.Unit) *harnessplan.Plan {
 		InstrumentationPolicyBytes: string(policyBytes),
 		Projections:                map[string]harnessplan.Projection{"test-slice": {CommandID: commandID, UnitIDs: ids}},
 		Capacities: map[string]int64{"cpu": 2, "memory_mb": 100, "process": 4, "io": 2, "postgres": 1, "postgres_heavy": 1, "object_store": 1,
-			"port_lane": 1, "browser_stack": 1, "service_stack": 1, "volume": 1},
+			"port_lane": 1, "browser_stack": 1, "browser_lane": 1, "service_stack": 1, "volume": 1},
 		AgingQuantumMS: 1000, Bindings: map[string]string{"NODE_BIN": "/private/node"},
 		Cache: cache, SourceInputs: sourceInputs, CacheInputs: map[string][]int{},
 	}

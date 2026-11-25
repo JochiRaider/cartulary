@@ -143,3 +143,17 @@ test("browser reset drain keeps a declared margin above the configured backend s
   assert.ok(policy.backend_drain_margin_ms > 0);
   assert.ok(policy.backend_drain_timeout_ms > policy.backend_shutdown_drain_seconds * 1000 + policy.backend_drain_margin_ms);
 });
+
+test("test-owned cohorts run to completion; shared-state cohorts stop at the first failure", async () => {
+  const { normalizeBrowserBatchStages } = await import("../browser-batch-manifest.mjs");
+  const { browserCohort, playwrightFailureArguments } = await import("../browser-cohorts.mjs");
+  const manifest = JSON.parse(readFileSync(new URL("../../../browser_e2e_batch_manifest.json", import.meta.url), "utf8"));
+  const { rowByID } = loadTestCatalog(root);
+  const scopes = new Set();
+  for (const stage of normalizeBrowserBatchStages(manifest).values()) for (const partition of stage.groups) {
+    const cohort = browserCohort(partition, [rowByID.get(partition.selectedRowIDs[0])], stage.invocationPolicy);
+    scopes.add(partition.stateScope);
+    assert.deepEqual(playwrightFailureArguments(cohort), partition.stateScope === "test_owned" ? [] : ["--max-failures=1"], partition.name);
+  }
+  assert.ok(scopes.has("test_owned") && scopes.size > 1, "fixture covers both policies");
+});

@@ -203,7 +203,7 @@ func Assemble(in *Inputs, graph *Graph, invocation Invocation) (*Plan, error) {
 		HostProfile:                invocation.Host,
 		InstrumentationPolicyBytes: string(invocation.InstrumentationPolicy),
 		Projections:                map[string]Projection{},
-		Capacities:                 invocation.Snapshot.Capacities(),
+		Capacities:                 PlanCapacities(invocation.Snapshot, invocation.BrowserLaneLimit),
 		AgingQuantumMS:             in.Owner.AgingQuantumMS,
 		Bindings:                   maps.Clone(invocation.Bindings),
 		Cache:                      slices.Clone(invocation.Cache),
@@ -269,8 +269,8 @@ func (p *Plan) validate() error {
 			return fail("input environment forwards %s without clearing it", name)
 		}
 	}
-	if !maps.Equal(p.Capacities, m.CapabilitySnapshot.Capacities()) {
-		return fail("capacities are not the snapshot's")
+	if !maps.Equal(p.Capacities, PlanCapacities(m.CapabilitySnapshot, p.BrowserLaneLimit)) {
+		return fail("capacities are not the snapshot's and the browser lane limit")
 	}
 	for i, input := range p.SourceInputs {
 		if !safeRelative(input.Path) || i > 0 && p.SourceInputs[i-1].Path >= input.Path {
@@ -435,4 +435,12 @@ func strictlySorted(values []string) bool {
 		}
 	}
 	return true
+}
+
+// PlanCapacities are the snapshot's capacities plus the graph-local browser
+// lane limit, which only the graph scheduler charges.
+func PlanCapacities(snapshot CapabilitySnapshot, browserLanes int) map[string]int64 {
+	capacities := snapshot.Capacities()
+	capacities[BrowserLaneResource] = int64(browserLanes)
+	return capacities
 }

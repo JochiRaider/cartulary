@@ -421,7 +421,7 @@ The authored graph, qualified cost model, capability snapshot, and capacity
 override declaration MUST determine admission reproducibly. Live self-tuning is
 outside v3. A scheduler family, shell loop, or nested Make invocation MUST NOT
 encode a second scheduling policy.
-Verified by: TH-HARNESS-AC-084
+Verified by: TH-HARNESS-AC-084, TH-HARNESS-AC-170
 
 **TH-HARNESS-REQ-803**
 Physical allocations MUST retain resident capacity until exact cleanup proves
@@ -1209,9 +1209,14 @@ accounted separately from the broker-owned renderer and services. Test completio
 after test fixtures and applicable suite teardown settle. An interrupted worker
 preserves independently settled outcomes; invocation-wide teardown failures
 fail the cohort and quarantine its allocation while preserving independently
-settled test outcomes. A failed test stops its cohort, accounts for
-unexecuted rows, and quarantines the allocation before another cohort is
-admitted. Product tests are never retried. Measurement retains
+settled test outcomes. A failed test stops a cohort whose tests share state,
+accounts for its unexecuted rows, and quarantines the allocation before another
+cohort is admitted. A test-owned cohort runs to completion: each of its tests
+owns its state, so a failure cannot poison the next test, every selected test
+runs and reports its own outcome, and the cohort still fails and quarantines its
+allocation at release. A stack that fails during a test-owned cohort makes each
+remaining test fail at its own fixture setup, so the cohort ends without waiting
+on test deadlines. Product tests are never retried. Measurement retains
 its dedicated lifetime, sampling and quiet admission; visual updates retain
 exclusive promotion ownership in their target finalizer. Stack lanes are broker leases; shell code MUST NOT own
 group order or capacity. One planner normalizes the complete selected ordinary
@@ -1380,7 +1385,7 @@ Stateful, accessibility, visual and support selections retain their effective
 execution requirements and explicit state scopes; their historical suite, file
 and profile labels are not compatibility requirements. No additional scheduler, selection registry or
 resource owner may substitute for the existing catalog/topology and native owner.
-Verified by: TH-HARNESS-AC-088
+Verified by: TH-HARNESS-AC-088, TH-HARNESS-AC-169
 
 Evidence readers MUST distinguish a canonical prelaunch admission failure from
 a launched cohort's missing required evidence. A unit proved not launched need
@@ -11679,6 +11684,8 @@ expected behavior. Failure codes below are normalized wrapper codes.
 | TH-HARNESS-AC-166 | REQ-870 | A failing and a passing unit; a pressure source that reports all, some or none of the resources; a window longer than the ring; an unwritable log directory | The failing unit retains one schema-valid window covering 30 s before its admission to its terminal instant, with nulls for unreported resources and `truncated` when the ring had rolled; the passing unit retains none; outcomes are identical when writing fails | A window for a passing unit, a sample outside the window, an invented share, or an outcome changed by a diagnostic failure fails. |
 | TH-HARNESS-AC-167 | REQ-871 | A stress run of a slice that passes, one whose second repetition fails, an invalid `REPEAT` or `LOAD`, an existing run ID, and cancellation | Each repetition is a distinct slice run with the cache off; every repetition runs after a failure; the summary validates and lists each repetition; the exit status is `0` only when all passed; usage errors exit `2` before any run; the load process ends with the command | A skipped repetition after a failure, a reused run root, a load process that survives the command, or a zero exit with a failed repetition fails. |
 | TH-HARNESS-AC-168 | REQ-865, REQ-866 | A synthetic passing run with a two-row Go unit, an operation, a cached unit and a retired operation; the same run folded twice; a failed run; a row observed above the packing bound; a full observation history | The fold records each row's duration-proportional share beyond the Go allowance and the operation's runner time, skips the cached unit and the retired operation, keeps three observations, writes a strict sorted document, and leaves the loaded estimates unchanged; the repeated, failed and oversized runs are refused; the planner and the audit use the median observation over the authored prior | A cached or retired unit observed, an unbounded history, a refused run written, or a plan or audit that ignores an observation fails. |
+| TH-HARNESS-AC-169 | REQ-806 | A test-owned cohort and a shared-state cohort, each with a failing first test; a stack that fails during a test-owned cohort | The test-owned cohort runs every selected test, reports each outcome, fails and quarantines its allocation at release; the shared-state cohort stops at the first failure and accounts for its unexecuted rows; tests after a stack failure fail at their own fixture setup | A test-owned cohort that stops at its first failure, a shared-state cohort that continues, or a cohort that waits on test deadlines after its stack failed fails. |
+| TH-HARNESS-AC-170 | REQ-802 | A selection with more ordinary browser cohorts than `BROWSER_LANES`, one measurement cohort, and a capacity snapshot | The plan's capacities include `browser_lane` equal to the lane limit; each ordinary cohort claims one lane and its own unit-scoped stack and stack cluster, needs no other browser cohort, and takes no browser session lock; the measurement cohort keeps its quiet exclusive lock and graph-scoped snapshot cluster | A chained browser cohort, a lane claim on a measurement cohort, a shared ordinary stack, or more running ordinary cohorts than lanes fails. |
 
 The numerical image cases MUST include transparent pixels, alpha-only differences,
 one-pixel boundaries, and zero/full changed area. Interface fixtures MUST include
@@ -12054,18 +12061,27 @@ manifest. A row's partition fixes what it can share a browser stack with; its
 stage reports it. Rows of one partition with the same needs form cohorts.
 Rows outside test-owned state run alone. Otherwise the work is split into
 balanced cohorts that fit the resource profile's timeout less allocation
-headroom, and ordinary cohorts are spread over the `BROWSER_LANES` lanes
-while each cohort's work still covers one stack acquisition. Ordinary cohorts
-are placed longest first on the least-loaded lane, and each waits for the
-cohort before it on its lane. The Playwright invocation policy declares the
+headroom, and a partition's ordinary work is split into at least as many
+cohorts as `BROWSER_LANES` allows while each cohort's work still covers one
+stack acquisition. The Playwright invocation policy declares the
 preparations every browser group waits for. A browser group unit names its
 rows and cohort in its command. The group runner hands that cohort to the
-Playwright reporter, and neither reads the published graph. The planner names
-each group's browser stack (`stack:<digest>`) and the PostgreSQL cluster the
-stack owns (`postgres:<stack>`) as residents shared by the cohorts of one
-affinity. The fixture broker uses the named stack key, and host admission
-takes the claims of the renderer slot it assigns from the topology. Every
-stage that reports selected rows gets one target finalizer that waits for
+Playwright reporter, and neither reads the published graph.
+
+Browser lanes are a runtime capacity, not a plan-time chain (amended
+2026-11-25). The plan's capacities add `browser_lane`, the `BROWSER_LANES`
+value, which only the graph scheduler charges; host admission has no such
+resource. Every ordinary browser group claims one `browser_lane`, so at most
+the lane limit of them run at once, and when one finishes the scheduler admits
+the next ready group by rank. No browser group waits for another, and the
+estimates decide only the order. Each group holds its own browser stack
+(`stack:<digest>`) and the PostgreSQL cluster the stack owns
+(`postgres:<stack>`) as `unit` residents, created for it and retired with it;
+a fresh stack costs one acquisition, and reusing a stack between groups saved
+too little to keep a chain for it. A measurement group's snapshot cluster stays
+a `graph` resident. The fixture broker uses the named stack key, and host
+admission takes the claims of the renderer slot it assigns from the topology.
+Every stage that reports selected rows gets one target finalizer that waits for
 their groups.
 
 Populated fixture rows are planned through the performance fixture owner

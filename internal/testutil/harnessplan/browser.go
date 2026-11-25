@@ -19,8 +19,11 @@ const (
 	snapshotBuilderCLI   = "tools/harness/performance-fixture/snapshot-builder-cli.mjs"
 	visualUpdateTarget   = "browser-e2e-visual-update"
 	snapshotUpdateMode   = "snapshot_update"
-	browserLanePrefix    = "browser-"
 	browserLifecycleUnit = "harness.browser"
+	// BrowserLaneResource is the graph-local capacity of concurrently running
+	// ordinary browser groups: the BROWSER_LANES limit. Only the graph
+	// scheduler charges it; host admission has no such resource.
+	BrowserLaneResource = "browser_lane"
 )
 
 // browserCohort is one planned browser group: rows of one partition with the
@@ -33,10 +36,8 @@ type browserCohort struct {
 	needs     []string // targets the rows wait for
 	execution string   // the partition and needs the cohort shares a stack with
 	work      int64    // startup, selected work and cleanup
-	lane      string
-	previous  string // the unit that runs before it on its lane
 	affinity  string
-	stack     string // the browser stack resident the cohort holds
+	stack     string // the browser stack the cohort holds alone
 	estimate  int64
 	fixture   *rowFixture // the populated snapshot a measurement cohort clones
 }
@@ -87,7 +88,7 @@ func (c *compiler) planBrowser(rows []*Row) error {
 			cohorts = append(cohorts, cohort)
 		}
 	}
-	c.laneBrowser(cohorts)
+	c.stackBrowser(cohorts)
 	for _, cohort := range cohorts {
 		c.browser[cohort.id] = cohort
 		for _, row := range cohort.rows {
@@ -182,55 +183,19 @@ func (c *compiler) timeout(profileID string) int64 {
 	return c.in.Owner.DefaultTimeoutMS
 }
 
-// laneBrowser spreads ordinary cohorts over the browser lanes, longest first
-// into the least-loaded lane; a cohort waits for the one before it on its
-// lane, so at most the lane limit of ordinary browser groups run at once.
-// Consecutive cohorts of one execution on a lane reuse its stack.
-func (c *compiler) laneBrowser(cohorts []*browserCohort) {
-	var ordinary []*browserCohort
-	for _, cohort := range cohorts {
-		if cohort.partition.ResourceProfileID == browserOrdinary {
-			ordinary = append(ordinary, cohort)
-		}
-	}
-	slices.SortFunc(ordinary, func(a, b *browserCohort) int {
-		return cmp.Or(cmp.Compare(b.work, a.work), strings.Compare(a.name, b.name))
-	})
-	lanes := min(c.options.BrowserLanes, len(ordinary))
-	loads, last := make([]int64, lanes), make([]string, lanes)
-	for _, cohort := range ordinary {
-		least := 0
-		for i := range loads {
-			if loads[i] < loads[least] {
-				least = i
-			}
-		}
-		cohort.lane = browserLanePrefix + strconv.Itoa(least+1)
-		cohort.previous = last[least]
-		loads[least] += cohort.work
-		last[least] = cohort.id
-	}
+// stackBrowser gives every cohort its own browser stack, created for it and
+// retired with it. Ordinary cohorts are not placed on lanes: each claims one
+// browser lane, so the scheduler runs at most the lane limit of them at once
+// and starts the next ready cohort, by rank, whenever one finishes
+// (TH-HARNESS-REQ-805). A fresh stack costs one acquisition; reusing a stack
+// between cohorts saved too little to keep a plan-time chain for it.
+func (c *compiler) stackBrowser(cohorts []*browserCohort) {
 	lifecycle := c.in.Owner.LifecycleEstimatesMS
-	finalUse := map[string]*browserCohort{}
-	order := slices.Concat(ordinary, slices.DeleteFunc(slices.Clone(cohorts), func(cohort *browserCohort) bool {
-		return cohort.partition.ResourceProfileID == browserOrdinary
-	}))
-	for _, cohort := range order {
-		place := cohort.lane
-		if place == "" {
-			place = cohort.name
-		}
-		cohort.affinity = safeIdentifier(cohort.execution + "-" + place)
+	for _, cohort := range cohorts {
+		cohort.affinity = safeIdentifier(cohort.execution + "-" + cohort.name)
 		cohort.stack = "stack:" + digest(map[string]any{"affinity": cohort.affinity, "stage": cohort.partition.ExecutionStage,
 			"runtime_profile": cohort.partition.RuntimeProfileID, "services": cohort.partition.ServiceDependencies})
-		cohort.estimate = cohort.work + lifecycle["browser_allocation_acquire"]
-		if _, reused := finalUse[cohort.affinity]; reused {
-			cohort.estimate = cohort.work + lifecycle["browser_reset"]
-		}
-		finalUse[cohort.affinity] = cohort
-	}
-	for _, cohort := range finalUse {
-		cohort.estimate += lifecycle["browser_allocation_release"]
+		cohort.estimate = cohort.work + lifecycle["browser_allocation_acquire"] + lifecycle["browser_allocation_release"]
 	}
 }
 
@@ -261,12 +226,6 @@ func (c *compiler) browserUnit(id string, stack []string) (string, error) {
 			return "", err
 		}
 		needs = append(needs, ends...)
-	}
-	if cohort.previous != "" {
-		if _, err := c.browserUnit(cohort.previous, stack); err != nil {
-			return "", err
-		}
-		needs = append(needs, cohort.previous)
 	}
 	if cohort.fixture != nil {
 		builder, err := c.fixtureBuilder(cohort.fixture, stack)
@@ -306,9 +265,6 @@ func (c *compiler) browserUnit(id string, stack []string) (string, error) {
 		"CARTULARY_BROWSER_STACK_KEY":              cohort.stack,
 		"CARTULARY_TEST_TARGET":                    target,
 	}
-	if cohort.lane != "" {
-		environment["CARTULARY_BROWSER_LANE_ID"] = cohort.lane
-	}
 	residents, cluster := c.browserResidents(cohort)
 	if cluster != "" {
 		environment[clusterKeyEnvironment] = cluster
@@ -326,10 +282,12 @@ func (c *compiler) browserUnit(id string, stack []string) (string, error) {
 		environment["CARTULARY_BROWSER_MAINTENANCE_MODE"] = snapshotUpdateMode
 		environment["CARTULARY_PLAYWRIGHT_UPDATE_SNAPSHOTS"] = "1"
 	}
-	shared, exclusive := []string{"host_activity"}, []string{"browser_session:" + cohort.affinity}
+	shared, exclusive := []string{"host_activity"}, []string(nil)
 	renderer := "pooled"
 	if partition.ResourceProfileID == browserQuiet {
-		shared, exclusive, renderer = nil, append(exclusive, "host_activity"), "dedicated"
+		shared, exclusive, renderer = nil, []string{"host_activity"}, "dedicated"
+	} else {
+		claims[BrowserLaneResource] = 1
 	}
 	if partition.Kind == "visual" {
 		shared = append(shared, "browser_snapshots")
@@ -366,7 +324,7 @@ func (c *compiler) browserUnit(id string, stack []string) (string, error) {
 // fixture's snapshot.
 func (c *compiler) browserResidents(cohort *browserCohort) ([]Resident, string) {
 	physical := c.in.Topology.PhysicalResourceClaims
-	residents := []Resident{{Key: cohort.stack, Scope: ScopeGraph, Claims: maps.Clone(physical["browser_stack"])}}
+	residents := []Resident{{Key: cohort.stack, Scope: ScopeUnit, Claims: maps.Clone(physical["browser_stack"])}}
 	shared := ScopeGraph
 	if c.options.AttachedServices {
 		shared = ScopeAttached
@@ -377,11 +335,11 @@ func (c *compiler) browserResidents(cohort *browserCohort) ([]Resident, string) 
 	if !slices.Contains(cohort.partition.ServiceDependencies, "postgres") {
 		return residents, ""
 	}
-	cluster := "postgres:" + cohort.stack
 	if cohort.fixture != nil {
-		cluster = cohort.fixture.cluster
+		return append(residents, Resident{Key: cohort.fixture.cluster, Scope: ScopeGraph, Claims: maps.Clone(physical["postgres"])}), cohort.fixture.cluster
 	}
-	return append(residents, Resident{Key: cluster, Scope: ScopeGraph, Claims: maps.Clone(physical["postgres"])}), cluster
+	cluster := "postgres:" + cohort.stack
+	return append(residents, Resident{Key: cluster, Scope: ScopeUnit, Claims: maps.Clone(physical["postgres"])}), cluster
 }
 
 // fixtureBuilder builds the one unit that constructs and seals a populated

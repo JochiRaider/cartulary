@@ -2,6 +2,7 @@ package harnessplan
 
 import (
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -73,7 +74,7 @@ func TestBrowserPacking(t *testing.T) {
 		}
 	})
 
-	t.Run("ordinary cohorts spread over exactly the requested lanes", func(t *testing.T) {
+	t.Run("ordinary cohorts are unchained, claim one browser lane and hold their own stack", func(t *testing.T) {
 		var ordinary []*Row
 		for i := range inputs.Browser.Partitions {
 			partition := &inputs.Browser.Partitions[i]
@@ -85,19 +86,34 @@ func TestBrowserPacking(t *testing.T) {
 		}
 		for _, lanes := range []int{1, 4, 6} {
 			c := &compiler{in: inputs, options: Options{CPUTokens: 19, GoVersion: "1.27.4", BrowserLanes: lanes},
-				browser: map[string]*browserCohort{}, assigned: map[string]string{}}
+				browser: map[string]*browserCohort{}, assigned: map[string]string{}, units: map[string]*Unit{}, targets: map[string][]string{},
+				rows: map[string]*Row{}, shellRows: map[string][]*Row{}, selected: map[string]bool{}, planned: map[string]plannedUnit{}}
 			if err := c.planBrowser(ordinary); err != nil {
 				t.Fatal(err)
 			}
-			used, cohorts := map[string]bool{}, 0
-			for _, cohort := range c.browser {
-				if cohort.partition.ResourceProfileID == browserOrdinary {
-					cohorts++
-					used[cohort.lane] = true
+			stacks := map[string]string{}
+			for id, cohort := range c.browser {
+				if _, err := c.browserUnit(id, nil); err != nil {
+					t.Fatal(err)
 				}
-			}
-			if want := min(lanes, cohorts); len(used) != want {
-				t.Fatalf("BROWSER_LANES=%d spreads %d cohorts over %d lanes, want %d", lanes, cohorts, len(used), want)
+				unit := c.units[id]
+				if unit.Claims[BrowserLaneResource] != 1 || len(unit.ExclusiveLocks) != 0 {
+					t.Fatalf("%s: lane claim %d, exclusive locks %v", id, unit.Claims[BrowserLaneResource], unit.ExclusiveLocks)
+				}
+				for _, need := range unit.Needs {
+					if strings.HasPrefix(need, "browser_group:") {
+						t.Fatalf("%s waits for browser group %s", id, need)
+					}
+				}
+				if other, ok := stacks[cohort.stack]; ok {
+					t.Fatalf("%s and %s share stack %s", id, other, cohort.stack)
+				}
+				stacks[cohort.stack] = id
+				for _, resident := range unit.Residents {
+					if resident.Key != "object_store:shared" && resident.Scope != ScopeUnit {
+						t.Fatalf("%s: resident %s has scope %s", id, resident.Key, resident.Scope)
+					}
+				}
 			}
 		}
 	})

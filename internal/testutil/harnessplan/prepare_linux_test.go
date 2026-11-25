@@ -388,7 +388,7 @@ func TestPlanPreparation(t *testing.T) {
 			if err != nil {
 				t.Fatalf("%s: %v", suite, err)
 			}
-			groups, finalizers, lanes := 0, 0, map[string]bool{}
+			groups, finalizers := 0, 0
 			for id, unit := range plan.Graph.Units {
 				switch {
 				case strings.HasPrefix(id, "browser_group:"):
@@ -399,8 +399,8 @@ func TestPlanPreparation(t *testing.T) {
 					if unit.Command.Args[len(unit.Command.Args)-2] != "--rows" || !slices.ContainsFunc(unit.Residents, func(r Resident) bool { return strings.HasPrefix(r.Key, "stack:") }) {
 						t.Fatalf("%s group %s lacks its rows or stack: %v %v", suite, id, unit.Command.Args, unit.Residents)
 					}
-					if lane := unit.Command.Environment["CARTULARY_BROWSER_LANE_ID"]; lane != "" {
-						lanes[lane] = true
+					if !slices.Contains(unit.ExclusiveLocks, "host_activity") && unit.Claims[BrowserLaneResource] != 1 {
+						t.Fatalf("%s group %s claims %d browser lanes", suite, id, unit.Claims[BrowserLaneResource])
 					}
 				case strings.HasPrefix(id, "browser_target_summary:"):
 					finalizers++
@@ -409,8 +409,8 @@ func TestPlanPreparation(t *testing.T) {
 					}
 				}
 			}
-			if groups == 0 || finalizers == 0 || len(lanes) > 2 {
-				t.Fatalf("%s: %d groups, %d finalizers, lanes %v", suite, groups, finalizers, lanes)
+			if groups == 0 || finalizers == 0 || plan.Capacities[BrowserLaneResource] != 2 {
+				t.Fatalf("%s: %d groups, %d finalizers, browser lane capacity %d", suite, groups, finalizers, plan.Capacities[BrowserLaneResource])
 			}
 		}
 		update, err := Prepare(root, Request{Kind: "command", Target: "browser-e2e-visual-update", Environment: environment(nil)}, now, 42)

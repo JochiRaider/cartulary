@@ -31,7 +31,7 @@ import { loadTestCatalog, playwrightLeafTitle, playwrightSelection } from "../te
 import { resolveBrowserBatchPartition } from "./browser-batch-manifest.mjs";
 import { readLocalFile } from "../runtime/secure-local-files.mjs";
 import { publishRowResult } from "../execution/runners/row-results.mjs";
-import { browserCohort } from "./browser-cohorts.mjs";
+import { browserCohort, playwrightFailureArguments } from "./browser-cohorts.mjs";
 import { attachmentAssignments } from "./browser-session-evidence.mjs";
 import { collectFrontendMeasurementObservations } from "./frontend-measurement-evidence.mjs";
 import { readRendererAttachment } from "./renderer-attachment.mjs";
@@ -204,7 +204,7 @@ function commandForGroup(rows, selection, group, artifactRoot) {
     "--test-list",
     selectionFile,
   ];
-  args.push("--workers=1", "--max-failures=1");
+  args.push("--workers=1", ...playwrightFailureArguments(group));
   if (group.kind === "visual" && process.env.CARTULARY_PLAYWRIGHT_UPDATE_SNAPSHOTS === "1") {
     args.push("--update-snapshots=changed");
   }
