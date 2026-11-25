@@ -1084,6 +1084,173 @@
       ]
     },
     {
+      "name": "test-stress",
+      "command_id": "cartulary.harness.command.test_stress.v1",
+      "inputs": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": [
+          {
+            "name": "OWNER",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": true,
+            "type": "owner_id",
+            "default": null,
+            "empty_string": "invalid",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "ROWS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": true,
+            "type": "row_ids",
+            "default": null,
+            "empty_string": "invalid",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "REPEAT",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "positive_integer",
+            "default": "10",
+            "empty_string": "invalid",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env",
+            "min": 1,
+            "max": 50
+          },
+          {
+            "name": "LOAD",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "none",
+              "cpu",
+              "io",
+              "mixed"
+            ],
+            "default": "mixed",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "CARTULARY_HARNESS_CACHE_MODE",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "normal",
+              "cold",
+              "off"
+            ],
+            "default": "normal",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          }
+        ]
+      },
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 52,
+          "stdout_bytes": 12000,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "failure_or_verbose",
+        "summary_schema": "cartulary.tool_run_summary.v5"
+      },
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        },
+        {
+          "class": "service_start",
+          "owner_section": "Section 11",
+          "ownership_mode": "harness_owned",
+          "lifecycle_machine": "service lifecycle from Section 11"
+        },
+        {
+          "class": "service_resource_mutation",
+          "owner_section": "Section 11",
+          "ownership_mode": "harness_owned",
+          "resource_families": [
+            "scratch databases",
+            "object buckets or prefixes",
+            "fixture resources",
+            "runtime roots"
+          ],
+          "lifecycle_machine": "fixture and service lifecycle from Section 11"
+        },
+        {
+          "class": "runtime_reset",
+          "owner_section": "Section 12",
+          "predicates_section": "Section 12"
+        }
+      ]
+    },
+    {
       "name": "browser-e2e",
       "command_id": "cartulary.harness.command.browser_e2e.v4",
       "inputs": {

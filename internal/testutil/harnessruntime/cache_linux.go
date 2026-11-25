@@ -69,8 +69,10 @@ type nativeCache struct {
 	// verified records, per source snapshot entry, the file identity at
 	// which this run last proved its content; an entry whose identity is
 	// unchanged is not hashed again.
-	verified     map[int]unix.Stat_t
-	staging      []ownedCacheStage
+	verified map[int]unix.Stat_t
+	staging  []ownedCacheStage
+	// fresh names rows whose units always execute (RunOptions.FreshRows).
+	fresh        map[string]bool
 	Now          func() time.Time
 	BeforeRename func(int) error
 	Fresh        func(context.Context, cacheFact) error
@@ -81,7 +83,7 @@ type nativeCache struct {
 const racyMargin = time.Second
 
 func newNativeCache(plan *Plan, root, run string) *nativeCache {
-	c := &nativeCache{plan: plan, root: root, run: run, mode: plan.facts.Manifest["cache_mode"].(string), facts: map[string]cacheFact{}, sameRun: map[string]string{}, verified: map[int]unix.Stat_t{}, Now: time.Now}
+	c := &nativeCache{plan: plan, root: root, run: run, mode: plan.facts.Manifest["cache_mode"].(string), facts: map[string]cacheFact{}, sameRun: map[string]string{}, verified: map[int]unix.Stat_t{}, fresh: map[string]bool{}, Now: time.Now}
 	for _, fact := range plan.facts.Cache {
 		c.facts[fact.UnitID] = fact
 	}
@@ -181,6 +183,13 @@ func (c *nativeCache) Lookup(ctx context.Context, u unit) (cacheResult, error) {
 		result.Outcome = "bypass"
 		result.Reason = "policy_none"
 		return result, nil
+	}
+	for _, row := range u.Rows {
+		if c.fresh[row.ID] {
+			result.Outcome = "bypass"
+			result.Reason = "fresh_selection"
+			return result, nil
+		}
 	}
 	if !f.Eligible || c.mode == "off" {
 		result.Outcome = "bypass"

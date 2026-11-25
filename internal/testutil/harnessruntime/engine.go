@@ -65,6 +65,9 @@ type unitResult struct {
 	RetainedFixture bool
 	Cleanup         []*failure
 	Cache           cacheResult
+	// AdmittedAt is when the unit's worker began host admission, on the
+	// graph clock; it bounds a failed unit's pressure window.
+	AdmittedAt time.Duration
 }
 type cacheResult struct{ Outcome, Reason, Profile, OutputDigest string }
 type graphCache interface {

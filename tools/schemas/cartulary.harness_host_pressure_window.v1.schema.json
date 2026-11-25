@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_host_pressure_window.v1",
+  "description": "Host pressure around one failed unit, sampled once a second from the kernel's PSI totals (TH-HARNESS-REQ-870). Diagnostic only.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "unit_id",
+    "clock",
+    "interval_ms",
+    "window_start_ms",
+    "window_end_ms",
+    "admitted_ms",
+    "availability",
+    "truncated",
+    "samples"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.harness_host_pressure_window.v1"
+    },
+    "unit_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "clock": {
+      "const": "graph_monotonic"
+    },
+    "interval_ms": {
+      "const": 1000
+    },
+    "window_start_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "window_end_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "admitted_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "availability": {
+      "enum": [
+        "available",
+        "unavailable"
+      ]
+    },
+    "truncated": {
+      "type": "boolean"
+    },
+    "samples": {
+      "type": "array",
+      "maxItems": 3600,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "at_ms",
+          "cpu_some_percent",
+          "io_some_percent",
+          "io_full_percent",
+          "memory_some_percent",
+          "memory_full_percent"
+        ],
+        "properties": {
+          "at_ms": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "cpu_some_percent": {
+            "$ref": "#/$defs/percent"
+          },
+          "io_some_percent": {
+            "$ref": "#/$defs/percent"
+          },
+          "io_full_percent": {
+            "$ref": "#/$defs/percent"
+          },
+          "memory_some_percent": {
+            "$ref": "#/$defs/percent"
+          },
+          "memory_full_percent": {
+            "$ref": "#/$defs/percent"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "percent": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        }
+      ]
+    }
+  }
+}

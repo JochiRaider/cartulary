@@ -534,6 +534,14 @@
       "foundation_runtime": true
     },
     {
+      "schema_id": "cartulary.harness_host_pressure_window.v1",
+      "path": "tools/schemas/cartulary.harness_host_pressure_window.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "native graph runtime",
+      "validation": "harness.json_shape_check",
+      "foundation_runtime": true
+    },
+    {
       "schema_id": "cartulary.harness_instrumentation_definitions.v2",
       "path": "tools/schemas/cartulary.harness_instrumentation_definitions.v2.schema.json",
       "classification": "owner_input",
@@ -844,6 +852,14 @@
       "path": "tools/schemas/cartulary.harness_service_failure_diagnostic.v1.schema.json",
       "classification": "shared_component",
       "producer": "native fixture failure publication",
+      "validation": "harness.json_shape_check",
+      "foundation_runtime": true
+    },
+    {
+      "schema_id": "cartulary.harness_stress_summary.v1",
+      "path": "tools/schemas/cartulary.harness_stress_summary.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "stress command",
       "validation": "harness.json_shape_check",
       "foundation_runtime": true
     },

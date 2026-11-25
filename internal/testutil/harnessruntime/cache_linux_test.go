@@ -218,6 +218,20 @@ func TestRuntimeCacheTransactions(t *testing.T) {
 			t.Fatal("off created cache")
 		}
 	})
+	t.Run("fresh_selection_executes_a_reusable_result", func(t *testing.T) {
+		c, u := nativeCacheFixture(t, "normal")
+		if err := c.Store(ctx, u); err != nil {
+			t.Fatal(err)
+		}
+		if hit, err := c.Lookup(ctx, u); err != nil || hit.Outcome != "hit" {
+			t.Fatalf("stored result not reusable: %+v %v", hit, err)
+		}
+		c.fresh[u.Rows[0].ID] = true
+		hit, err := c.Lookup(ctx, u)
+		if err != nil || hit.Outcome != "bypass" || hit.Reason != "fresh_selection" {
+			t.Fatalf("fresh row reused: %+v %v", hit, err)
+		}
+	})
 	t.Run("cold_reads_bypassed_writes_allowed", func(t *testing.T) {
 		c, u := nativeCacheFixture(t, "cold")
 		if err := c.Store(ctx, u); err != nil {

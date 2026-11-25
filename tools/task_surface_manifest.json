@@ -135,6 +135,11 @@
         "reason": "Read-only diagnostic observation; no retained output or recursive observability."
       },
       {
+        "target": "test-stress",
+        "owner_section": "Section 10.8",
+        "reason": "Thin orchestration: each repetition is its own observed test-slice invocation; the stress command executes no work of its own."
+      },
+      {
         "target": "ui-analyze",
         "owner_section": "Section 15.1",
         "reason": "Private diagnostic review retains structural receipts only and never exports transient detail."
@@ -519,6 +524,11 @@
           "target": "test-slice",
           "description": "run exact owner rows or one named suite",
           "usage": "OWNER=<owner> | SUITE=<suite>"
+        },
+        {
+          "target": "test-stress",
+          "description": "repeat exact owner rows beside a declared synthetic host load",
+          "usage": "OWNER=<owner> ROWS=<rows> [REPEAT=10] [LOAD=mixed|cpu|io|none]"
         },
         {
           "target": "otel-conformance",
@@ -1195,6 +1205,25 @@
         "TEST_SERVICES_BIN",
         "WEB_DIST_INDEX"
       ]
+    },
+    "test-stress": {
+      "prerequisites": [
+        "$(HARNESS_RUNTIME_BIN)",
+        "$(NODE_BIN)",
+        "$(TEST_SERVICES_BIN)"
+      ],
+      "type": "step_command",
+      "mode": "command",
+      "env": {
+        "MAKE": "$(MAKE)",
+        "NODE_BIN": "$(NODE_BIN)",
+        "TEST_SERVICES_BIN": "$(TEST_SERVICES_BIN)"
+      },
+      "command": [
+        "$(HARNESS_RUNTIME_BIN)",
+        "stress"
+      ],
+      "operation_id": "harness.test_stress"
     },
     "browser-e2e": {
       "type": "work_graph",
@@ -4462,6 +4491,198 @@
           "backend-process": "harness.suite_backend_process",
           "frontend-unit": "harness.suite_frontend_unit"
         }
+      }
+    },
+    {
+      "name": "test-stress",
+      "backing_scripts": [
+        "tools/harnessruntime/main.go",
+        "internal/testutil/harnessstress/stress_linux.go",
+        "internal/testutil/harnessstress/load_linux.go"
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 52,
+          "stdout_bytes": 12000,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "failure_or_verbose",
+        "summary_schema": "cartulary.tool_run_summary.v5"
+      },
+      "command_id": "cartulary.harness.command.test_stress.v1",
+      "semantic_behaviors": [
+        {
+          "behavior": "scheduler_orchestration",
+          "owner_section": "Section 10"
+        },
+        {
+          "behavior": "evidence_normalization",
+          "owner_section": "Section 8"
+        },
+        {
+          "behavior": "failure_normalization",
+          "owner_section": "Section 9"
+        }
+      ],
+      "target_class": "public",
+      "default_inclusion_sets": [
+        "helper_only"
+      ],
+      "lifecycle_state": "public_active",
+      "family_id": "test_owner_slices",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        },
+        {
+          "class": "service_start",
+          "owner_section": "Section 11",
+          "ownership_mode": "harness_owned",
+          "lifecycle_machine": "service lifecycle from Section 11"
+        },
+        {
+          "class": "service_resource_mutation",
+          "owner_section": "Section 11",
+          "ownership_mode": "harness_owned",
+          "resource_families": [
+            "scratch databases",
+            "object buckets or prefixes",
+            "fixture resources",
+            "runtime roots"
+          ],
+          "lifecycle_machine": "fixture and service lifecycle from Section 11"
+        },
+        {
+          "class": "runtime_reset",
+          "owner_section": "Section 12",
+          "predicates_section": "Section 12"
+        }
+      ],
+      "input_contract": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": [
+          {
+            "name": "OWNER",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": true,
+            "type": "owner_id",
+            "default": null,
+            "empty_string": "invalid",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "ROWS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": true,
+            "type": "row_ids",
+            "default": null,
+            "empty_string": "invalid",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "REPEAT",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "positive_integer",
+            "default": "10",
+            "empty_string": "invalid",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env",
+            "min": 1,
+            "max": 50
+          },
+          {
+            "name": "LOAD",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "none",
+              "cpu",
+              "io",
+              "mixed"
+            ],
+            "default": "mixed",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "CARTULARY_HARNESS_CACHE_MODE",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "normal",
+              "cold",
+              "off"
+            ],
+            "default": "normal",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          }
+        ]
       }
     },
     {

@@ -6041,6 +6041,28 @@
       },
       "kind": "policy"
     },
+    "harness.test_stress": {
+      "report_key": "test-stress",
+      "execution": {
+        "prerequisites": [
+          "$(HARNESS_RUNTIME_BIN)",
+          "$(NODE_BIN)",
+          "$(TEST_SERVICES_BIN)"
+        ],
+        "type": "step_command",
+        "mode": "command",
+        "env": {
+          "MAKE": "$(MAKE)",
+          "NODE_BIN": "$(NODE_BIN)",
+          "TEST_SERVICES_BIN": "$(TEST_SERVICES_BIN)"
+        },
+        "command": [
+          "$(HARNESS_RUNTIME_BIN)",
+          "stress"
+        ]
+      },
+      "kind": "policy"
+    },
     "harness.reference_pack_producer_build": {
       "report_key": "reference-pack-producer-build",
       "kind": "policy",

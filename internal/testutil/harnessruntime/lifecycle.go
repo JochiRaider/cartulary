@@ -35,6 +35,7 @@ func (e *graphEngine) workerPhase(u unit, name string, operation func() error) e
 	return publicationError
 }
 func (e *graphEngine) work(u unit, c cacheResult) {
+	admittedAt := e.ports.Now()
 	r := unitResult{Status: "failed", Cache: c}
 	defer func() { e.mailbox <- engineMessage{ID: u.ID, At: e.ports.Now(), Result: &r} }()
 	activity := func(name, reason string) { _ = e.send(engineMessage{ID: u.ID, Activity: name, WaitReason: reason}) }
@@ -167,6 +168,7 @@ func (e *graphEngine) work(u unit, c cacheResult) {
 	activity("finalizing", "")
 	finishFixture()
 	finishHost()
+	r.AdmittedAt = admittedAt
 	if e.ports.Terminal != nil {
 		err = e.workerPhase(u, "evidence_write", func() error { return e.ports.Terminal(u, &r) })
 		if err != nil {

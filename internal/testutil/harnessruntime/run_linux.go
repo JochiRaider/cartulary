@@ -35,7 +35,20 @@ type RunResult struct {
 // their interpretation; no external executable plan or shell fragment exists.
 // A top-level graph reports the dead runs it recovers before admitting work on
 // stderr; nested graphs run inside an outer graph that already did so.
-func Run(ctx context.Context, root, binary string, args, environment []string, stderr io.Writer) (report *RunResult, code int, resultErr error) {
+func Run(ctx context.Context, root, binary string, args, environment []string, stderr io.Writer) (*RunResult, int, error) {
+	return RunWithOptions(ctx, root, binary, args, environment, stderr, RunOptions{})
+}
+
+// RunOptions are in-process launch choices that no public input carries.
+type RunOptions struct {
+	// FreshRows always execute: the cache bypasses lookup for every unit that
+	// binds one of them, while other units reuse results as their cache mode
+	// allows (TH-HARNESS-REQ-871).
+	FreshRows []string
+}
+
+// RunWithOptions is Run with in-process launch options.
+func RunWithOptions(ctx context.Context, root, binary string, args, environment []string, stderr io.Writer, options RunOptions) (report *RunResult, code int, resultErr error) {
 	env := map[string]string{}
 	for _, entry := range environment {
 		if k, v, ok := strings.Cut(entry, "="); ok {
@@ -307,6 +320,9 @@ func Run(ctx context.Context, root, binary string, args, environment []string, s
 	}()
 	cache := newNativeCache(plan, root, runRoot)
 	defer cache.Close()
+	for _, row := range options.FreshRows {
+		cache.fresh[row] = true
+	}
 	commands := map[string]string{}
 	for _, unit := range plan.facts.Graph.Units {
 		commands[unit.Command.Environment["CARTULARY_TEST_TARGET"]] = plan.facts.Manifest["command_id"].(string)
@@ -335,7 +351,13 @@ func Run(ctx context.Context, root, binary string, args, environment []string, s
 		return nil, 4, err
 	}
 
-	ports := enginePorts{ConsumerTerminal: production.ConsumerTerminal, Now: func() time.Duration { return time.Duration(monotonicNS() - diagnostics.canonicalEpoch) }, Execute: func(ctx context.Context, r executionRequest) unitResult {
+	graphNow := func() time.Duration { return time.Duration(monotonicNS() - diagnostics.canonicalEpoch) }
+	pressure := newPressureRing(graphNow)
+	pressureCtx, stopPressure := context.WithCancel(ctx)
+	defer stopPressure()
+	go pressure.run(pressureCtx)
+	publication.Pressure = pressure
+	ports := enginePorts{ConsumerTerminal: production.ConsumerTerminal, Now: graphNow, Execute: func(ctx context.Context, r executionRequest) unitResult {
 		artifact := filepath.Join(runRoot, "unit-artifacts", safeUnitName.ReplaceAllString(r.Unit.ID, "-"))
 		d, err := harnesslocal.PrivateDirectory(artifact)
 		if err != nil {

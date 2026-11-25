@@ -595,6 +595,7 @@
           "TestRuntimeFailurePrecedence",
           "TestRuntimeGoTemporaryWork",
           "TestRuntimeHostAdmission",
+          "TestRuntimeHostPressure",
           "TestRuntimeLifecycle",
           "TestRuntimeObservations",
           "TestRuntimePreparationDiagnostic",
@@ -643,6 +644,33 @@
       "preparation_operations": [
         "harness.toolchain_drift"
       ],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "harness.command_surface.unit.stress_command",
+      "owner_id": "harness.command_surface",
+      "family_id": "harness.command_surface.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.command_surface.verification.stress_command"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/harnessstress",
+        "tests": [
+          "TestLoadProfiles",
+          "TestStressLoadEndsWithTheCommand",
+          "TestStressRepetitions"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "full",
+      "service_dependencies": [],
       "postgres_isolation": "none"
     },
     {

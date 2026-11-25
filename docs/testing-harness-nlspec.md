@@ -3288,6 +3288,7 @@ database evidence retain separate unit, resource, lease, and artifact identities
 | `task-guide` | `cartulary.harness.command.task_guide.v3` | `help_discovery` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 4) | `none` | `public_active` | Requires `OWNER`; `DETAIL=summary`, `rows` or `coverage`; no ROLE input. |
 | `author-test-row-id` | `cartulary.harness.command.author_test_row_id.v1` | `help_discovery` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 4) | `none` | `public_active` |  |
 | `test-slice` | `cartulary.harness.command.test_slice.v4` | `test_owner_slices` | `helper_only` | `scheduler_summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `scheduler_orchestration` (Section 10), `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `service_start`, `service_resource_mutation`, `runtime_reset` | `public_active` | Exactly one of `OWNER` or `SUITE`; `ROWS` requires owner; `SCOPE=all` or `services`; exact selected evidence. |
+| `test-stress` | `cartulary.harness.command.test_stress.v1` | `test_owner_slices` | `helper_only` | `summary_with_artifacts` | none | `scheduler_orchestration` (Section 10), `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `service_start`, `service_resource_mutation`, `runtime_reset` | `public_active` | Requires `OWNER` and `ROWS`; `REPEAT` `1..50`, default `10`; `LOAD` `none`, `cpu`, `io` or `mixed`, default `mixed`; each repetition is a `test-slice` run (TH-HARNESS-REQ-871). |
 | `otel-conformance` | `cartulary.harness.command.otel_conformance.v2` | `backend_frontend_leaf_tests` | `check`, `ci` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `security_boundary` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `service_start`, `service_resource_mutation`, `runtime_reset` | `public_active` | Validates source snapshot, generated constants evidence, emitted telemetry goldens, browser non-export, retained raw capture policy, and telemetry security boundaries. |
 | `target-plan` | `cartulary.harness.command.target_plan.v3` | `help_discovery` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 4) | `none` | `public_active` | Requires `TARGET`; optional typed `INPUTS` file, `DETAIL` and `JSON`; execution-equivalent planning without acquisition. |
 | `explain-run` | `cartulary.harness.command.explain_run.v4` | `help_discovery` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 4) | `none` | `public_active` | Exact retained fixture, duration, critical-path and advisory estimate views; no baseline publication. |
@@ -3833,10 +3834,14 @@ Verified by: TH-HARNESS-AC-002, TH-HARNESS-AC-029
 | `test-run-recover` | `RESULTS_DIR` | `path` | yes | make command line | none | invalid | `invalid` | `path_token` | exact original run directory | `configuration_error`, exit `2` | `redacted_value` | `runtime_env` |
 | `test-run-recover` | `RUNTIME_ROOT` | `path` | yes | make command line | none | invalid | `invalid` | `path_token` | exact external private runtime directory | `configuration_error`, exit `2` | `redacted_value` | `runtime_env` |
 | `test-run-recover` | `RUNTIME_LEASE_ID` | `semantic_text` | yes | make command line | none | invalid | `invalid` | `trim` | exact opaque lease identifier, native owner validated | `configuration_error`, exit `2` | `redacted_value` | `runtime_env` |
-| `agent-finalize`, `benchmark-claim-check`, `browser-e2e`, `browser-e2e-visual-update`, `build`, `check`, `ci`, `format`, `frontend-fallow-static`, `go-error-declaration-audit`, `go-error-declaration-check`, `go-gosec-audit`, `go-gosec-targeted`, `go-vulncheck`, `harness-contract`, `lint`, `migration-drift`, `openapi-compatibility-check`, `otel-conformance`, `package-inspect`, `release-check`, `seaweedfs-compatibility`, `seaweedfs-release-gate`, `source-check`, `test-evidence-audit`, `test-fast`, `test-slice` | `CARTULARY_HARNESS_CACHE_MODE` | `enum` | no | make command line, environment, makefile default | `normal` | use `normal` | `omitted` | `trim` | `normal`, `cold`, `off` | `usage_error`, exit `2` | `value` | `runtime_env` |
+| `agent-finalize`, `benchmark-claim-check`, `browser-e2e`, `browser-e2e-visual-update`, `build`, `check`, `ci`, `format`, `frontend-fallow-static`, `go-error-declaration-audit`, `go-error-declaration-check`, `go-gosec-audit`, `go-gosec-targeted`, `go-vulncheck`, `harness-contract`, `lint`, `migration-drift`, `openapi-compatibility-check`, `otel-conformance`, `package-inspect`, `release-check`, `seaweedfs-compatibility`, `seaweedfs-release-gate`, `source-check`, `test-evidence-audit`, `test-fast`, `test-slice`, `test-stress` | `CARTULARY_HARNESS_CACHE_MODE` | `enum` | no | make command line, environment, makefile default | `normal` | use `normal` | `omitted` | `trim` | `normal`, `cold`, `off` | `usage_error`, exit `2` | `value` | `runtime_env` |
 | `agent-finalize`, `benchmark-claim-check`, `browser-e2e`, `browser-e2e-visual-update`, `build`, `check`, `ci`, `format`, `frontend-fallow-static`, `go-error-declaration-audit`, `go-error-declaration-check`, `go-gosec-audit`, `go-gosec-targeted`, `go-vulncheck`, `harness-contract`, `lint`, `migration-drift`, `openapi-compatibility-check`, `otel-conformance`, `package-inspect`, `release-check`, `seaweedfs-compatibility`, `seaweedfs-release-gate`, `source-check`, `test-evidence-audit`, `test-fast`, `test-slice` | `CARTULARY_HARNESS_CAPACITY_OVERRIDE` | `path` | no | make command line, environment, makefile default | none | omitted | `omitted` | `path_token` | `path` | `usage_error`, exit `2` | `value` | `runtime_env` |
 | browser-capable graph commands | `BROWSER_LANES` | `positive_integer` | no | make command line, environment, makefile default | topology `4` | use topology default | `invalid` | `trim` | `1..6` | `usage_error`, exit `2` | `value` | `runtime_env` |
 | `test-slice` | `ROWS` | `row_ids` | no | make command line, environment, makefile default | none | omitted | `invalid` | `trim` | `row_ids` | `usage_error`, exit `2` | `value` | `argv` |
+| `test-stress` | `OWNER` | `owner_id` | yes | make command line | none | none | `invalid` | `trim` | `owner_id` | `usage_error`, exit `2` | `value` | `runtime_env` |
+| `test-stress` | `ROWS` | `row_ids` | yes | make command line | none | none | `invalid` | `trim` | `row_ids` | `usage_error`, exit `2` | `value` | `runtime_env` |
+| `test-stress` | `REPEAT` | `positive_integer` | no | make command line | `10` | use `10` | `invalid` | `trim` | `1..50` | `usage_error`, exit `2` | `value` | `runtime_env` |
+| `test-stress` | `LOAD` | `enum` | no | make command line | `mixed` | use `mixed` | `omitted` | `trim` | `none`, `cpu`, `io`, `mixed` | `usage_error`, exit `2` | `value` | `runtime_env` |
 | `test-slice` | `VITEST_MAX_WORKERS` | `positive_integer` | no | make command line, environment, makefile default | `4` | use `4` | `invalid` | `trim` | `1..16` | `usage_error`, exit `2` | `value` | `runtime_env` |
 | `explain-run`, `test-run-status` | `TARGET` | `target_name` | no | make command line, environment, makefile default | none | omitted | `omitted` | `trim` | `target_name` | `usage_error`, exit `2` | `value` | `argv` |
 | `explain-run`, `harness-observability-check`, `harness-otel-export`, `test-run-status` | `RUN_ID` | `run_id` | no | make command line, environment, makefile default | none | omitted | `omitted` | `trim` | `run_id` | `usage_error`, exit `2` | `value` | `argv` |
@@ -5016,6 +5021,8 @@ Verified by: TH-HARNESS-AC-135
 | Fallow static reports                                | `frontend-fallow-static`                        | `frontend-fallow-static/fallow/*` and `frontend-fallow-static/fallow-static-summary.json` | `cartulary.fallow_static_summary.v2` for the normalized summary; raw JSON, SARIF, Markdown, stdout, stderr, and `resolved-fallowrc.json` files are diagnostic-only | Report names, statuses, issue counts, artifact refs, resolved-config refs, baseline state, and enforcement state in schema-defined order | Retained as run-root artifacts; generated/source roots and Fallow config or baseline inputs are not cleanup candidates. |
 | Vitest failure details                               | Vitest wrappers                                 | `<target>/raw/<row-id>/vitest-failure-details.json` or `unit-logs/<unit-log-id>/vitest-failure-details.json`             | `cartulary.vitest_failure_details.v3`                         | Current invocation identity, runner/log refs, project/file/full-title observations, original errors, kinds, deadlines, and durations | Required for completed Vitest invocations; no legacy fallback. |
 | Go test durations                                    | Canonical Go row runner, basic diagnostics only | `unit-logs/row-<row-id>/go-test-durations.json`                 | `cartulary.harness_go_test_durations.v1`                      | Invocations in execution order; tests and subtests in terminal-event order; nullable package outcome; exact omission count | Retained with the unit logs; diagnostic only, never evidence (TH-HARNESS-REQ-869). |
+| Host pressure window                                 | Native graph runtime, failed units only         | `unit-logs/<unit-log-id>/host-pressure.json`                    | `cartulary.harness_host_pressure_window.v1`                   | Samples in graph-clock order; null shares for unreported resources; `truncated` when the ring rolled | Retained with the unit logs; diagnostic only, never evidence (TH-HARNESS-REQ-870). |
+| Stress summary                                       | `test-stress`                                   | `<stress-run-id>/test-stress/stress-summary.json`; repetitions are sibling run roots `<stress-run-id>-r<NN>` | `cartulary.harness_stress_summary.v1`                         | Repetitions in execution order with run ID, status, exit code, wall duration and sorted failed rows | Retained; explicit maintenance, never product evidence (TH-HARNESS-REQ-871). |
 | Run manifest                                         | Graph runner                                    | `run-manifest.json`                                             | `cartulary.harness_run_manifest.v3`                            | Immutable command, source, system, graph, capacity, cache-mode, and target-projection identity | Retained. |
 | Unit event stream                                    | Graph scheduler                                 | `unit-events.ndjson`                                            | `cartulary.harness_unit_event.v4`                              | `seq` strictly increases with no gaps; stable unit and resource ordering | Retained; sole current timing authority. |
 | Run summary                                          | Canonical evidence projector                    | `run-summary.json`                                              | `cartulary.harness_run_summary.v1`                             | Unit outcomes, interval unions, critical path, resources, cache, and row closure in stable order | Retained. |
@@ -7303,6 +7310,73 @@ function, and Go already reports every subtest's elapsed time in the parse the
 runner performs.
 
 Verified by: TH-HARNESS-AC-165.
+
+**TH-HARNESS-REQ-870 — Failure-scoped host pressure.**
+Every top-level and nested graph SHALL keep, in memory, the host's pressure
+stall information sampled once a second from `/proc/pressure/cpu`, `io` and
+`memory`: for each interval, the share of time during which some, and for
+`io` and `memory` all, non-idle tasks stalled, computed from the kernel's
+cumulative totals. The ring holds the most recent 3,600 samples. It is
+independent of `HARNESS_DIAGNOSTICS` and is never published while units pass.
+
+When a unit fails, its terminal publication SHALL retain
+`unit-logs/<unit-log-id>/host-pressure.json`, schema
+`cartulary.harness_host_pressure_window.v1`: the samples from 30 seconds
+before the unit's admission to its terminal instant on the graph monotonic
+clock, its admission instant, whether earlier samples of that interval had
+already left the ring (`truncated`), and `availability` `unavailable` when the
+host reports no pressure totals. Each sample's shares are null for a resource
+the host does not report. Cancelled and skipped units retain no window.
+
+The window is a runner-independent diagnostic beside the unit's logs. It is not
+part of the secure execution projection (TH-HARNESS-REQ-844), is never exported,
+and MUST NOT feed scheduling, admission, packing, estimates, cache identity,
+row outcomes or required evidence. A failure to build, validate or write it
+leaves the unit's outcome and evidence unchanged. Readers treat an absent file
+as unavailable.
+
+Rationale: load-dependent failures were each found in an aggregate run and
+diagnosed by hand; the window carries the load context of every failure from
+its first occurrence without diagnostic mode.
+
+Verified by: TH-HARNESS-AC-166.
+
+**TH-HARNESS-REQ-871 — Stress repetition.**
+`make test-stress OWNER=<owner> ROWS=<rows> [REPEAT=<n>] [LOAD=<profile>]` runs
+the exact owner slice `REPEAT` times (default 10, at most 50) in sequence beside
+one declared synthetic host load, and reports every repetition. Each repetition
+is an ordinary `test-slice` invocation with its own run root,
+`<run-id>-r<NN>`, and the result cache off, so every repetition executes its
+rows; its failures carry their ordinary evidence and the host pressure window
+of TH-HARNESS-REQ-870. Repetitions continue after a failure, so a run measures a
+failure rate rather than a first failure.
+
+The load runs in its own process group, dies with the command and is stopped
+after the last repetition; its files live under the command's target directory
+and are removed when it stops. A repetition run root that already exists is a
+usage error before any work starts. Load profiles are fixed:
+
+| `LOAD` | Load |
+| --- | --- |
+| `none` | No synthetic load |
+| `cpu` | Two busy threads per logical CPU |
+| `io` | Four writers, each appending 16 KiB and calling `fdatasync` in a loop, each file restarted at 64 MiB |
+| `mixed` (default) | Both `cpu` and `io` |
+
+The command writes `<run-id>/test-stress/stress-summary.json`, schema
+`cartulary.harness_stress_summary.v1`: owner, rows, load and its parameters,
+and each repetition's run ID, status, exit code, wall duration and failed rows.
+It prints one line per repetition and one summary line. It exits `0` only when
+every repetition passed; otherwise it exits with the first failing
+repetition's code. Stress is explicit maintenance: no aggregate, finalizer or
+release gate runs it, and its outcome is not product evidence.
+
+Rationale: load exposed seven of eight `ci` failures in one week, each
+reproduced by hand beside CPU-bound processes. A declared, repeatable load turns
+that reproduction into a command and lets a scheduling change that raises
+concurrency be judged against the rows that failed.
+
+Verified by: TH-HARNESS-AC-167.
 
 ### 10.9 Diagnostic coverage and integrity (instrumentation-3)
 
@@ -11578,6 +11652,8 @@ expected behavior. Failure codes below are normalized wrapper codes.
 | TH-HARNESS-AC-163 | REQ-867 | A fixture program whose handlers produce declared codes, a seeded undeclared constant reached through a forwarding function, and a handler the binding does not root; then the server program | The fixture report lists exactly the seeded code with its producing function and the unrooted operation, the server report validates against its schema, and every finding leaves the exit status `0` | The seeded code is missed, a declared code is reported, a finding changes the exit status, or the audit is selected by `check`, CI or a finalizer. |
 | TH-HARNESS-AC-164 | REQ-868 | Direct and forwarded writes, an admissible conditional write through a typed error, wrong-status and undeclared pairs, infeasible and unresolved paths, and the server program | The clean server has positive proof coverage. Each witnessed mismatch names its writer, operation, status and code. The parameterized and literal reference requests qualify during shadow validation, and losing either individual proof still permits the other to qualify | A missed seeded violation, unsupported path counted as proof, or empty server proof set reported as clean fails. |
 | TH-HARNESS-AC-165 | REQ-869 | A Go event stream with nested subtests, pass, fail and skip, a package elapsed time, a secret-bearing name, an over-length name and more than 4,096 observations; basic and off modes; an unwritable destination | Basic mode retains one schema-valid file per Go unit with every observation in terminal-event order, the redacted name and exact omission counts; off mode writes none; row outcomes are identical with and without the file | A missing or reordered observation, invented duration, truncated or unredacted name, file in off mode, or row outcome changed by a diagnostic failure fails. |
+| TH-HARNESS-AC-166 | REQ-870 | A failing and a passing unit; a pressure source that reports all, some or none of the resources; a window longer than the ring; an unwritable log directory | The failing unit retains one schema-valid window covering 30 s before its admission to its terminal instant, with nulls for unreported resources and `truncated` when the ring had rolled; the passing unit retains none; outcomes are identical when writing fails | A window for a passing unit, a sample outside the window, an invented share, or an outcome changed by a diagnostic failure fails. |
+| TH-HARNESS-AC-167 | REQ-871 | A stress run of a slice that passes, one whose second repetition fails, an invalid `REPEAT` or `LOAD`, an existing run ID, and cancellation | Each repetition is a distinct slice run with the cache off; every repetition runs after a failure; the summary validates and lists each repetition; the exit status is `0` only when all passed; usage errors exit `2` before any run; the load process ends with the command | A skipped repetition after a failure, a reused run root, a load process that survives the command, or a zero exit with a failed repetition fails. |
 
 The numerical image cases MUST include transparent pixels, alpha-only differences,
 one-pixel boundaries, and zero/full changed area. Interface fixtures MUST include
@@ -11653,6 +11729,8 @@ retained evidence keep their separate owner-only permission contract.
 | `TH-HARNESS-REQ-867` | Advisory static error-declaration audit | TH-HARNESS-AC-163 |
 | `TH-HARNESS-REQ-868` | Proven operation error writes | TH-HARNESS-AC-164 |
 | `TH-HARNESS-REQ-869` | Go test duration diagnostics | TH-HARNESS-AC-165 |
+| `TH-HARNESS-REQ-870` | Failure-scoped host pressure | TH-HARNESS-AC-166 |
+| `TH-HARNESS-REQ-871` | Stress repetition | TH-HARNESS-AC-167 |
 | `TH-HARNESS-REQ-858..864` | Runtime contract guards and evidence | TH-HARNESS-AC-008, TH-HARNESS-AC-154, TH-HARNESS-AC-155, TH-HARNESS-AC-156, TH-HARNESS-AC-157, TH-HARNESS-AC-158, TH-HARNESS-AC-159 |
 
 

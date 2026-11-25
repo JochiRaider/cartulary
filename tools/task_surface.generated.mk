@@ -30,6 +30,7 @@ else
   release-check \
   release-measure \
   test-slice \
+  test-stress \
   browser-e2e \
   browser-e2e-visual-update \
   harness-contract \
@@ -175,6 +176,8 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'  make test-fast                      run the narrower local verification loop' \
 	'  make test-slice' \
 	'                                      OWNER=<owner> | SUITE=<suite> run exact owner rows or one named suite' \
+	'  make test-stress' \
+	'                                      OWNER=<owner> ROWS=<rows> [REPEAT=10] [LOAD=mixed|cpu|io|none] repeat exact owner rows beside a declared synthetic host load' \
 	'  make otel-conformance               run OpenTelemetry source, boundary, and golden-path conformance checks' \
 	'  make lint                           run backend, frontend, script, and shell lint/type checks' \
 	'  make frontend-fallow-static         run Fallow static analysis with bounded web and package gates' \
@@ -260,6 +263,8 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'  side effects: retained_artifacts, service_start, service_resource_mutation, runtime_reset' \
 	'test-slice inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), JSON=exact_1_bool (default false), OWNER=owner_id (optional), ROWS=row_ids (optional), VITEST_MAX_WORKERS=positive_integer (default 4), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off), SUITE=backend-unit|backend-store|backend-integration|backend-process|frontend-unit (optional), SCOPE=all|services (default all), \
 	  CARTULARY_TEST_SERVICES_MODE=owned|attach (default owned), CARTULARY_TEST_SERVICES_SESSION_FILE=path (optional), BROWSER_LANES=positive_integer (default 4), GO_SHUFFLE_SEED=positive_integer (optional)' \
+	'  side effects: retained_artifacts, service_start, service_resource_mutation, runtime_reset' \
+	'test-stress inputs: OWNER=owner_id (required), ROWS=row_ids (required), REPEAT=positive_integer (default 10), LOAD=none|cpu|io|mixed (default mixed), CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), HARNESS_DIAGNOSTICS=off|basic (default off)' \
 	'  side effects: retained_artifacts, service_start, service_resource_mutation, runtime_reset' \
 	'browser-e2e inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off), SUITE=functional|stateful|accessibility|visual|support (required), CARTULARY_TEST_SERVICES_MODE=owned|attach (default owned), CARTULARY_TEST_SERVICES_SESSION_FILE=path (optional), BROWSER_LANES=positive_integer (default 4)' \
 	'  side effects: retained_artifacts, service_start, service_resource_mutation, runtime_reset' \
@@ -451,6 +456,14 @@ test-slice:
 	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(call TASK_SURFACE_ARGV_ENV,GO_SHUFFLE_SEED JSON OWNER ROWS SCOPE SUITE) BROWSER_LANES="$(BROWSER_LANES)" CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" CARTULARY_TEST_SERVICES_MODE="$(CARTULARY_TEST_SERVICES_MODE)" CARTULARY_TEST_SERVICES_SESSION_FILE="$(CARTULARY_TEST_SERVICES_SESSION_FILE)" \
 	  HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" VITEST_MAX_WORKERS="$(VITEST_MAX_WORKERS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,BROWSER_LANES CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE CARTULARY_TEST_SERVICES_MODE CARTULARY_TEST_SERVICES_SESSION_FILE GO_SHUFFLE_SEED HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS JSON OWNER ROWS SCOPE SUITE VITEST_MAX_WORKERS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection command \
 	  --target test-slice
+
+test-stress: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+test-stress:
+	$(Q)$(TASK_SURFACE_NODE_READINESS)
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,test-stress)
+	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN) $(TEST_SERVICES_BIN))
+	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" LOAD="$(LOAD)" OWNER="$(OWNER)" REPEAT="$(REPEAT)" ROWS="$(ROWS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE HARNESS_DIAGNOSTICS LOAD OWNER REPEAT ROWS)" CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-test-stress}" $(RUN_STEP_SCRIPT) "test-stress" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) \
+	  CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" LOAD="$(LOAD)" OWNER="$(OWNER)" REPEAT="$(REPEAT)" ROWS="$(ROWS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE HARNESS_DIAGNOSTICS LOAD OWNER REPEAT ROWS)" MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" $(HARNESS_RUNTIME_BIN) stress
 
 browser-e2e: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 browser-e2e: export CARTULARY_TEST_TARGET ?= browser-e2e

@@ -27,7 +27,10 @@ type graphPublication struct {
 	facts     *canonicalFacts
 	events    *harnesslocal.Stream
 	Forbidden func() ([]string, error)
-	closed    bool
+	// Pressure is the graph's host pressure ring; a failed unit retains its
+	// window beside its logs (TH-HARNESS-REQ-870).
+	Pressure *pressureRing
+	closed   bool
 }
 
 func newGraphPublication(plan *Plan, runRoot string) (*graphPublication, error) {
@@ -253,6 +256,11 @@ func (p *graphPublication) Terminal(u unit, r *unitResult) error {
 	// Raw output tails are no longer needed once bounded redacted logs exist.
 	r.Stdout = nil
 	r.Stderr = nil
+	if r.Status == "failed" && p.Pressure != nil {
+		// Diagnostic only: a window that cannot be written leaves the
+		// unit's outcome and evidence unchanged.
+		_ = p.Pressure.writeWindow(logRoot, u.ID, r.AdmittedAt)
+	}
 	if r.Status == "passed" {
 		for _, relative := range u.Evidence {
 			if strings.HasPrefix(relative, "unit-results/") {

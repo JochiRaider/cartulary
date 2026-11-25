@@ -19,6 +19,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessreview"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessruntime"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnessstress"
 	"github.com/JochiRaider/cartulary/internal/testutil/sourcecheck"
 )
 
@@ -120,6 +121,24 @@ func run() int {
 			}
 		}
 		return code
+	case "stress":
+		// TH-HARNESS-REQ-871: repeat an owner slice beside a declared load.
+		if len(os.Args) != 2 {
+			return 2
+		}
+		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+		defer stop()
+		root, err := os.Getwd()
+		if err != nil {
+			return 2
+		}
+		binary, err := os.Executable()
+		if err != nil {
+			return 2
+		}
+		return harnessstress.Main(ctx, root, binary, os.Environ(), os.Stdout, os.Stderr)
+	case "stress-load":
+		return harnessstress.LoadMain(os.Args[2:], os.Stderr)
 	case "review":
 		return harnessreview.Main(os.Args[2:], os.Stdin, os.Stdout)
 	case "session":
