@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/JochiRaider/cartulary/internal/platform/harnessruntime/lockwaits"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
 )
@@ -217,7 +218,7 @@ func TestLockWaitSnapshotNamesBlockedAndBlockingSessions(t *testing.T) {
 		_, err := waiter.ExecContext(ctx, `SELECT /* sentinel-statement-text */ pg_advisory_lock($1), $2::text`, 864, "sentinel-parameter-value")
 		waited <- err
 	}()
-	var snapshot LockWaitSnapshot
+	var snapshot lockwaits.Snapshot
 	for {
 		snapshot, err = SnapshotLockWaits(ctx, db)
 		if err != nil {
@@ -228,7 +229,7 @@ func TestLockWaitSnapshotNamesBlockedAndBlockingSessions(t *testing.T) {
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
-	byPID := map[int64]LockWaitSession{}
+	byPID := map[int64]lockwaits.Session{}
 	for _, session := range snapshot.Sessions {
 		byPID[session.PID] = session
 	}
@@ -255,7 +256,7 @@ func TestLockWaitSnapshotNamesBlockedAndBlockingSessions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var recorded LockWaitSnapshot
+	var recorded lockwaits.Snapshot
 	if err := json.Unmarshal(data, &recorded); err != nil || recorded.Blocked() == 0 {
 		t.Fatalf("recorded snapshot = %s, %v", data, err)
 	}

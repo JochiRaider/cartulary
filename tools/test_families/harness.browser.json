@@ -1118,6 +1118,33 @@
       "postgres_isolation": "none"
     },
     {
+      "row_id": "harness.browser.boundary_support.stall_diagnostics_suite_6beaf141fc",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/e2e/support/runtime/stallDiagnostics.test.ts",
+        "titles": [
+          "stall diagnostics never throws and records why the server view is unavailable",
+          "stall diagnostics records the server's view of a live stall beside the failed test"
+        ],
+        "project_id": "harness-node"
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "full",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
       "row_id": "harness.browser.boundary_support.testcontrolclient_suite_f60081d8f5",
       "owner_id": "harness.browser",
       "family_id": "harness.browser.boundary_support",
@@ -1721,7 +1748,8 @@
       "selector": {
         "package": "./internal/platform/harnessruntime",
         "tests": [
-          "TestResetDatabaseRestoresBootstrapAndPreservesMigrationMetadata"
+          "TestResetDatabaseRestoresBootstrapAndPreservesMigrationMetadata",
+          "TestStallDiagnosticsObserveLockWaitsAndPoolExhaustion"
         ]
       },
       "evidence_class": "integration",
@@ -2282,6 +2310,8 @@
         "package": "./internal/platform/harnessruntime",
         "tests": [
           "TestDatabaseResetFailurePreservesCauseAndExposesOnlyStageAndSQLState",
+          "TestLockWaitCollectionKeepsOnlyClosedVocabulary",
+          "TestStallDiagnosticsRouteRequiresHarnessAuthorization",
           "TestTestRuntimeIdentityRouteDisabledByDefault",
           "TestTestRuntimeIdentityRouteRejectsInvalidHarnessPredicates",
           "TestTestRuntimeIdentityRouteRejectsNonHarnessOriginAndHost",

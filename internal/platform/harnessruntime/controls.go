@@ -14,5 +14,5 @@ func RegisterRoutes(clock *httpapi.TestClock, contributions ...ControlContributi
 	for _, contribution := range contributions {
 		routes = append(routes, contribution.Routes...)
 	}
-	return append(routes, RegisterTestRuntimeIdentityRoute())
+	return append(routes, RegisterTestRuntimeIdentityRoute(), RegisterStallDiagnosticsRoute())
 }

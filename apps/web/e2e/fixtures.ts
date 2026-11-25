@@ -24,6 +24,7 @@ import { loadWorkerAdminManifest } from "./support/auth/workerAdmin";
 import { installOwnedJobs } from "./support/jobs/ownership";
 import { OwnedBrowserScope } from "./support/runtime/cleanup";
 import { apiBase } from "./support/runtime/configuration";
+import { recordStallDiagnostics } from "./support/runtime/stallDiagnostics";
 
 export type SessionTracker = {
   loginProvisionedUser: (
@@ -193,11 +194,22 @@ export const test = base.extend<CartularyTestFixtures, CartularyWorkerFixtures>(
     jobSettlementTimeout: [30_000, { option: true }],
 
     browserScope: [
-      async ({ browser, fixtureProvisioner, jobSettlementTimeout }, use) => {
+      async (
+        { browser, fixtureProvisioner, jobSettlementTimeout },
+        use,
+        testInfo,
+      ) => {
         const scope: OwnedBrowserScope = new OwnedBrowserScope({
           browser,
           initializeContext: (context) =>
-            installOwnedJobs(context, scope, jobSettlementTimeout),
+            installOwnedJobs(context, scope, jobSettlementTimeout, (subject) =>
+              recordStallDiagnostics(
+                context.request,
+                apiBase,
+                testInfo,
+                subject,
+              ),
+            ),
           revokeAllSessions: (userId, reason) =>
             revokeAllSessions(fixtureProvisioner, userId, reason),
           verifyRevokedSession: (snapshot) =>

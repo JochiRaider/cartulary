@@ -1556,6 +1556,14 @@
       "validation": "harness.json_shape_check"
     },
     {
+      "schema_id": "cartulary.test.runtime_stall_diagnostics.v1",
+      "path": "tools/schemas/cartulary.test.runtime_stall_diagnostics.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "runtime stall diagnostics route",
+      "validation": "harness.json_shape_check",
+      "foundation_runtime": true
+    },
+    {
       "schema_id": "cartulary.test_catalog_check_summary.v2",
       "path": "tools/schemas/cartulary.test_catalog_check_summary.v2.schema.json",
       "classification": "public_contract",

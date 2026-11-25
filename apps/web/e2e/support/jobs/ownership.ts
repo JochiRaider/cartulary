@@ -7,6 +7,7 @@ import type {
 import { expect } from "@playwright/test";
 import type { OwnedBrowserScope } from "../runtime/cleanup";
 import { apiBase } from "../runtime/configuration";
+import type { StallSubject } from "../runtime/stallDiagnostics";
 import { publicHttpOperation } from "../transport/publicHttpOperationClient";
 import { atJsonOrigin } from "../transport/publicJsonClient";
 
@@ -108,24 +109,33 @@ export async function installOwnedJobs(
   context: BrowserContext,
   scope: OwnedBrowserScope,
   timeoutMs: number,
+  onStall: (subject: StallSubject) => Promise<void>,
 ) {
   const jobs = new OwnedJobs(async (jobId, headers) => {
-    await expect
-      .poll(
-        async () => {
-          const result = await publicHttpOperation({
-            operationID: "getJob",
-            pathParameters: { job_id: jobId },
-            headers,
-            request: atJsonOrigin(context.request, apiBase),
-          });
-          if (!result.ok)
-            throw new Error("Owned feature job observation failed");
-          return result.payload.data.status;
-        },
-        { timeout: timeoutMs },
-      )
-      .toMatch(/^(succeeded|failed|canceled)$/u);
+    let lastStatus: string | null = null;
+    try {
+      await expect
+        .poll(
+          async () => {
+            const result = await publicHttpOperation({
+              operationID: "getJob",
+              pathParameters: { job_id: jobId },
+              headers,
+              request: atJsonOrigin(context.request, apiBase),
+            });
+            if (!result.ok)
+              throw new Error("Owned feature job observation failed");
+            lastStatus = result.payload.data.status;
+            return lastStatus;
+          },
+          { timeout: timeoutMs },
+        )
+        .toMatch(/^(succeeded|failed|canceled)$/u);
+    } catch (error) {
+      // Record while the job is still unsettled, then keep the failure.
+      await onStall({ kind: "job", job_id: jobId, last_status: lastStatus });
+      throw error;
+    }
   });
   owners.set(context, jobs);
   scope.settleBeforeClosing(() => jobs.settle(), context);

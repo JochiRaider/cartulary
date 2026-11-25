@@ -104,6 +104,7 @@ func TestEveryBoundPublicOperationIsAdmittedCentrally_Integration(t *testing.T) 
 			test(http.MethodPost, "/api/v1/test/runtime/network-flow-auth-transitions"),
 			test(http.MethodPost, "/api/v1/test/runtime/network-flow-faults"),
 			test(http.MethodPost, "/api/v1/test/runtime/network-flow-randomness"),
+			test(http.MethodGet, "/api/v1/test/runtime/stall-diagnostics"),
 			socket,
 		}
 		if got := registry.SupplementaryRoutes(); !reflect.DeepEqual(got, want) {
