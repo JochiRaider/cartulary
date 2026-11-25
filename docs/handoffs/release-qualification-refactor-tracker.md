@@ -256,8 +256,30 @@ rows (no placement justification).
    interpretation digest. A rejected unit rolls back. NF-FIX-023 is now at
    revision 7: it drops the five cases that changed a second source open.
    The NF-REQ-171a row now reads the source once in 13.5 s (from 4.1 s plus
-   12.9 s) and takes 16.1 s alone (from 19.7 s). It has not been measured
-   under `ci` load yet.
+   12.9 s) and takes 16.1 s alone (from 19.7 s).
+
+   **Second attempt (2026-11-24, `20261124T233946Z-p60919`).** `ci` ran
+   alone in 1,661 s and stopped there; 2,643 of 2,644 rows passed. The
+   NF-REQ-171a row passed at 19.5 s under full `ci` load (from 32 to 33 s),
+   with its single source pass at 16.0 s.
+
+   - **The failure was a test defect.** The row was
+     `harness.release.behavior.package_readiness_contract`, and neither
+     Network Flow change touched it. `test-package-operation.mjs` was the only
+     one of the 12 imported files that registered no `test()`. It ran its
+     scenario as module code with a top-level `await`, so the runner started
+     other files' tests during that scenario's release barrier.
+   - **How it failed.** A synchronous test (the qualification controller,
+     63.5 s under load) blocked the event loop, so the barrier was written
+     after the fake `backup create`'s 60 s wait. The child then exited 1. The
+     module-level `finally` also masked any earlier failure. A minimal Node
+     check reproduced the starvation: a 10 ms module-level wait resumed after
+     a 3 s sibling test.
+   - **The fix.** The scenario is now a registered async test, which nothing
+     interleaves with. It always releases and reaps the child, and it
+     reports the first failure. The row passes in isolation, and `make lint`
+     passes.
+   - **Not reached.** `release-check` and `release-measure` did not run.
 
 ### S1 result (2026-11-24)
 
