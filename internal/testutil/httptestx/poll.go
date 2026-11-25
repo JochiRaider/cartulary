@@ -13,6 +13,8 @@ import (
 	"slices"
 	"testing"
 	"time"
+
+	"github.com/JochiRaider/cartulary/internal/testutil/testdeadline"
 )
 
 const (
@@ -81,18 +83,13 @@ func Poll(t testing.TB, target string, options PollOptions, done func(Observatio
 
 // pollSettlement is left between a test-bounded poll's deadline and the
 // test's, so the failure, its evidence and the test's cleanup all fit.
-const pollSettlement = 30 * time.Second
+const pollSettlement = testdeadline.Settlement
 
 // testPollContext bounds a poll by the test's deadline less pollSettlement
 // (TH-HARNESS-REQ-864), never below one second. A test without a deadline
 // keeps only its context.
 func testPollContext(t testing.TB) (context.Context, context.CancelFunc) {
-	if test, ok := t.(interface{ Deadline() (time.Time, bool) }); ok {
-		if deadline, bounded := test.Deadline(); bounded {
-			return context.WithTimeout(t.Context(), max(time.Until(deadline)-pollSettlement, time.Second))
-		}
-	}
-	return context.WithCancel(t.Context())
+	return testdeadline.Context(t)
 }
 
 // PollJob polls the job origin/api/v1/jobs/{jobID} until its status is one of

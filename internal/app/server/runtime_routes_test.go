@@ -13,6 +13,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/networkflow"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/processlifecycle"
+
+	"github.com/JochiRaider/cartulary/internal/testutil/testdeadline"
 )
 
 func TestRouteContributionValidation(t *testing.T) {
@@ -254,7 +256,7 @@ func TestRuntimeShutdownStartsBackgroundClosesAtTheStopRequest(t *testing.T) {
 func TestRuntimeStopRequestClosesAdmission(t *testing.T) {
 	t.Parallel()
 	stop := func(runtime *Runtime) {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		ctx, cancel := testdeadline.Context(t)
 		defer cancel()
 		runtime.beginShutdown(ctx)
 	}

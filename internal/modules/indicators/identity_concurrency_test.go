@@ -15,6 +15,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
+
+	"github.com/JochiRaider/cartulary/internal/testutil/testdeadline"
 )
 
 func TestConcurrentIndicatorFindOrCreateConvergesOnOneActiveIdentity_Integration(t *testing.T) {
@@ -121,7 +123,7 @@ SELECT count(*)
 func TestConcurrentIndicatorCreateReceipts_Integration(t *testing.T) {
 	for _, scenario := range []string{"same key", "distinct keys", "divergent key"} {
 		t.Run(scenario, func(t *testing.T) {
-			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			ctx, cancel := testdeadline.Context(t)
 			defer cancel()
 			harness := appsupport.StartStore(t, "indicator-create-receipts")
 			application := newIndicatorTestApplication(t, harness.DB, revisionsupport.MustAppender(t))

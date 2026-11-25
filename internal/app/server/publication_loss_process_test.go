@@ -13,6 +13,8 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	"github.com/JochiRaider/cartulary/internal/platform/httpruntime"
+
+	"github.com/JochiRaider/cartulary/internal/testutil/testdeadline"
 )
 
 const publicationLossPhaseEnv = "CARTULARY_TEST_PUBLICATION_LOSS_PHASE"
@@ -30,7 +32,7 @@ func TestServerRunnerPublicationLoss_Process(t *testing.T) {
 	}
 	for _, phase := range []string{"prepared", "committed", "serving", "private", "activation_failure"} {
 		t.Run(phase, func(t *testing.T) {
-			ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+			ctx, cancel := testdeadline.Context(t)
 			defer cancel()
 			command := exec.CommandContext(ctx, executable, "-test.run=^TestServerRunnerPublicationLoss_Process$")
 			// t.TempDir uses GOTMPDIR when set; the child exits without cleanups,

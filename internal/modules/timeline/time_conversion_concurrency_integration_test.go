@@ -12,11 +12,13 @@ import (
 	incidentadmission "github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
+
+	"github.com/JochiRaider/cartulary/internal/testutil/testdeadline"
 )
 
 func TestTimelineTimeProfileFirstWriteConcurrency_Integration(t *testing.T) {
 	database := pgtest.Start(t).PrepareIsolatedDatabaseT(t, "timeline-profile-concurrency")
-	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
+	ctx, cancel := testdeadline.Context(t)
 	defer cancel()
 	connect := func() *pgx.Conn {
 		t.Helper()

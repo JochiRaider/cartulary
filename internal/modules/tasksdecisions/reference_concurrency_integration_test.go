@@ -16,6 +16,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
+
+	"github.com/JochiRaider/cartulary/internal/testutil/testdeadline"
 )
 
 func TestTaskDirectReferenceConcurrency_Integration(t *testing.T) {
@@ -35,7 +37,7 @@ func TestTaskDirectReferenceConcurrency_Integration(t *testing.T) {
 		for _, referenceType := range []string{"party", "decision"} {
 			for _, scenario := range []string{"deletion wait", "missing source"} {
 				t.Run(mode+"/"+referenceType+"/"+scenario, func(t *testing.T) {
-					ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
+					ctx, cancel := testdeadline.Context(t)
 					defer cancel()
 					id := uuid.New()
 					field := "task.requester_party_id"

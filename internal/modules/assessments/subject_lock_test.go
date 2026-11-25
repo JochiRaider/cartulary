@@ -19,13 +19,15 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	"github.com/JochiRaider/cartulary/internal/testutil/testdeadline"
 )
 
 func exerciseAssessmentSubjectAdmission(t *testing.T, h *appsupport.ServerHarness, login authcookietest.AuthCookies, incident, actor uuid.UUID) {
 	for _, kind := range []string{"host", "identity"} {
 		for _, change := range []string{"deleted", "merged", "support_deleted"} {
 			t.Run(kind+"/"+change, func(t *testing.T) {
-				ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
+				ctx, cancel := testdeadline.Context(t)
 				defer cancel()
 				subject, survivor := uuid.New(), uuid.New()
 				for _, id := range []uuid.UUID{subject, survivor} {

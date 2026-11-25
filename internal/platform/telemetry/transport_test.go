@@ -32,6 +32,8 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/JochiRaider/cartulary/internal/testutil/testdeadline"
 )
 
 type telemetrySink struct {
@@ -225,7 +227,7 @@ func TestQualifiedTelemetryTransports(t *testing.T) {
 		}
 		for _, selected := range cases {
 			t.Run(selected, func(t *testing.T) {
-				ctx, cancel := context.WithTimeout(t.Context(), 20*time.Second)
+				ctx, cancel := testdeadline.Context(t)
 				defer cancel()
 				command := exec.CommandContext(ctx, executable, "-test.run=^TestQualifiedTelemetryTransports$", "-test.v")
 				for _, entry := range os.Environ() {

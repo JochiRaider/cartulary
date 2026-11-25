@@ -14,6 +14,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/incidentwstest"
 	collabtestprotocol "github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/protocoltest"
 	"github.com/JochiRaider/cartulary/internal/testutil/wstest"
+
+	"github.com/JochiRaider/cartulary/internal/testutil/testdeadline"
 )
 
 func TestIncidentSocketFrameFailureContract_Unit(t *testing.T) {
@@ -26,7 +28,7 @@ func TestIncidentSocketFrameFailureContract_Unit(t *testing.T) {
 		} {
 			for _, family := range []string{"hello", "resume", "presence_update"} {
 				t.Run(family, func(t *testing.T) {
-					ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+					ctx, cancel := testdeadline.Context(t)
 					defer cancel()
 					var conn *wstest.Client
 					if family == "presence_update" {
@@ -62,7 +64,7 @@ func TestIncidentSocketFrameFailureContract_Unit(t *testing.T) {
 	})
 	t.Run("additive client payloads retain canonical presence across all families", func(t *testing.T) {
 		harness, admin, incidentID := setupSocketIncident(t, runtime, "collaboration-additive-payload")
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := testdeadline.Context(t)
 		defer cancel()
 		observer := connectRawHello(t, ctx, harness.Server.HTTP.URL, incidentID, admin.Session.Value)
 		defer observer.CloseNow()
@@ -300,7 +302,7 @@ func TestIncidentSocketFrameFailureContract_Unit(t *testing.T) {
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			harness, admin, incidentID := setupSocketIncident(t, runtime, "collaboration-later-"+strings.ReplaceAll(testCase.name, " ", "-"))
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			ctx, cancel := testdeadline.Context(t)
 			defer cancel()
 			conn := connectRawHello(t, ctx, harness.Server.HTTP.URL, incidentID, admin.Session.Value)
 			defer conn.CloseNow()

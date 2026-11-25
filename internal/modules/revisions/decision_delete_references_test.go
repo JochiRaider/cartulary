@@ -17,12 +17,14 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
+
+	"github.com/JochiRaider/cartulary/internal/testutil/testdeadline"
 )
 
 func requireDecisionDeleteTaskReferences(t *testing.T, h *appsupport.ServerHarness, login authcookietest.AuthCookies, incident, actor uuid.UUID) {
 	for _, variant := range []string{"active scalar", "materialized binding", "done", "canceled", "deleted Task", "null reference", "committed during wait"} {
 		t.Run("Decision delete Task references/"+variant, func(t *testing.T) {
-			ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
+			ctx, cancel := testdeadline.Context(t)
 			defer cancel()
 			decision, task := uuid.New(), uuid.New()
 			envelopetest.SeedRecordEnvelope(t, h.DB, incident, actor, decision, "decision")

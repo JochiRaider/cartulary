@@ -14,6 +14,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	envelopetest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
+
+	"github.com/JochiRaider/cartulary/internal/testutil/testdeadline"
 )
 
 func testCollectionTargetLocking(t *testing.T, db dbport.DB, incident, actor uuid.UUID) {
@@ -23,7 +25,7 @@ func testCollectionTargetLocking(t *testing.T, db dbport.DB, incident, actor uui
 		})
 		for _, scenario := range []string{"hold through completion", "wait for deletion", "missing", "wrong type", "foreign", "deleted"} {
 			t.Run("collection target lock/"+mode+"/"+scenario, func(t *testing.T) {
-				ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+				ctx, cancel := testdeadline.Context(t)
 				defer cancel()
 				source, target := uuid.New(), uuid.New()
 				entitytest.SeedHostRecord(t, db, incident, actor, source, "Collection source", source.String(), "", "")

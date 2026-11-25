@@ -13,6 +13,8 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/records/enveloperead"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
+
+	"github.com/JochiRaider/cartulary/internal/testutil/testdeadline"
 )
 
 // TestRecordTargetClassification_Integration pins the shared REQ-01-705
@@ -20,7 +22,7 @@ import (
 // each mode really holds, and that a database failure is never a
 // classification.
 func TestRecordTargetClassification_Integration(t *testing.T) {
-	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
+	ctx, cancel := testdeadline.Context(t)
 	defer cancel()
 
 	t.Run("presence matrix", func(t *testing.T) {

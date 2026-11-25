@@ -18,6 +18,8 @@ import (
 	"time"
 
 	"golang.org/x/sys/unix"
+
+	"github.com/JochiRaider/cartulary/internal/testutil/testdeadline"
 )
 
 func TestRenderProcessIsolation(t *testing.T) {
@@ -530,7 +532,7 @@ func TestRenderNetworkPolicy(t *testing.T) {
 		t.Run(test.action, func(t *testing.T) {
 			runtime := sandboxFixtureRuntime(t)
 			input, _ := json.Marshal(map[string]string{"action": test.action})
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			ctx, cancel := testdeadline.Context(t)
 			defer cancel()
 			result, err := runtime.Run(ctx, input, []Output{{Path: "result.bin", MaxBytes: 100}})
 			if test.kind == "" {

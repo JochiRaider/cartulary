@@ -22,6 +22,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+
+	"github.com/JochiRaider/cartulary/internal/testutil/testdeadline"
 )
 
 func exerciseMentionTargetAdmission(t *testing.T) {
@@ -32,7 +34,7 @@ func exerciseMentionTargetAdmission(t *testing.T) {
 	for _, kind := range []string{"host", "identity"} {
 		for _, change := range []string{"deleted", "merged", "reresolved_merged"} {
 			t.Run(kind+"/"+change, func(t *testing.T) {
-				ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
+				ctx, cancel := testdeadline.Context(t)
 				defer cancel()
 				target, survivor, source, mention := uuid.New(), uuid.New(), uuid.New(), uuid.New()
 				if change == "reresolved_merged" && target.String() < survivor.String() {

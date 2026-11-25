@@ -44,6 +44,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/reportingfixture"
+
+	"github.com/JochiRaider/cartulary/internal/testutil/testdeadline"
 )
 
 func TestNetworkFlowPaginationRecovery_Integration(t *testing.T) {
@@ -1038,7 +1040,7 @@ SELECT COUNT(*) FROM deployment_admin_audit_events
 			{"target", `UPDATE records SET deleted_at=updated_at,deleted_by_user_id=$2 WHERE record_id=$1`, `UPDATE records SET deleted_at=NULL,deleted_by_user_id=NULL WHERE record_id=$1 AND incident_id=$2`, "network_flow_indicator_link_forbidden", 403},
 		} {
 			t.Run("transaction rechecks "+race.name, func(t *testing.T) {
-				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				ctx, cancel := testdeadline.Context(t)
 				defer cancel()
 				tx, err := harness.Pool.BeginTx(ctx, pgx.TxOptions{})
 				if err != nil {

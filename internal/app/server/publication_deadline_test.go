@@ -18,6 +18,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/extensions"
 	"github.com/JochiRaider/cartulary/internal/platform/httpruntime"
 	"github.com/JochiRaider/cartulary/internal/platform/processlifecycle"
+
+	"github.com/JochiRaider/cartulary/internal/testutil/testdeadline"
 )
 
 type publicationPreparation func(context.Context) error
@@ -138,7 +140,7 @@ func TestServerRunnerPublicationDeadline_Process(t *testing.T) {
 	}
 	for _, phase := range []string{"preparation", "listener", "activation", "blocked_preparation", "blocked_listener", "blocked_activation", "fatal_during_preparation"} {
 		t.Run(phase, func(t *testing.T) {
-			ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+			ctx, cancel := testdeadline.Context(t)
 			defer cancel()
 			command := exec.CommandContext(ctx, executable, "-test.run=^TestServerRunnerPublicationDeadline_Process$")
 			// t.TempDir uses GOTMPDIR when set; the child exits without cleanups,

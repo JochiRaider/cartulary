@@ -19,6 +19,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/google/uuid"
+
+	"github.com/JochiRaider/cartulary/internal/testutil/testdeadline"
 )
 
 func exerciseTimelineAutoTargetAdmission(t *testing.T) {
@@ -30,7 +32,7 @@ func exerciseTimelineAutoTargetAdmission(t *testing.T) {
 		for _, kind := range []string{"host", "identity"} {
 			for _, change := range []string{"deleted", "merged", "alias_removed", "alias_renamed", "ambiguous", "replacement", "stable"} {
 				t.Run(mode+"/"+kind+"/"+change, func(t *testing.T) {
-					ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
+					ctx, cancel := testdeadline.Context(t)
 					defer cancel()
 					target, survivor, source, competingAlias := uuid.New(), uuid.New(), uuid.New(), uuid.New()
 					token := "Candidate-" + target.String()

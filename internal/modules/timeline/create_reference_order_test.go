@@ -15,6 +15,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/google/uuid"
+
+	"github.com/JochiRaider/cartulary/internal/testutil/testdeadline"
 )
 
 func exerciseTimelineCreateReferenceOrder(t *testing.T) {
@@ -33,7 +35,7 @@ func exerciseTimelineCreateReferenceOrder(t *testing.T) {
 	}
 	for _, mode := range []string{"explicit same field", "cross field", "evidence", "automatic", "initially absent", "initially ambiguous"} {
 		t.Run(mode, func(t *testing.T) {
-			ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
+			ctx, cancel := testdeadline.Context(t)
 			defer cancel()
 			low, high := uuid.New(), uuid.New()
 			low[0] = 0x10

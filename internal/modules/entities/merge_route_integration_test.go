@@ -26,6 +26,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 	workbookscenariotest "github.com/JochiRaider/cartulary/internal/testutil/workbookscenariotest"
+
+	"github.com/JochiRaider/cartulary/internal/testutil/testdeadline"
 )
 
 func TestExplicitMergeRoute_Integration(t *testing.T) {
@@ -494,7 +496,7 @@ VALUES ($1, 'host', 'fqdn', 'blocked-host.corp.example.test', $2)
 		}
 		for _, lockedID := range []uuid.UUID{entitytest.CanonicalHostRecordID, entitytest.DuplicateHostRecordID} {
 			t.Run("held envelope "+lockedID.String(), func(t *testing.T) {
-				ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+				ctx, cancel := testdeadline.Context(t)
 				defer cancel()
 				holder, err := harness.Pool.Begin(ctx)
 				if err != nil {

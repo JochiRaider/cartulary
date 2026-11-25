@@ -11,6 +11,8 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
+
+	"github.com/JochiRaider/cartulary/internal/testutil/testdeadline"
 )
 
 func TestTimelineProvenanceCapacityConcurrency_Integration(t *testing.T) {
@@ -31,7 +33,7 @@ func TestTimelineProvenanceCapacityConcurrency_Integration(t *testing.T) {
 	observer := connect(t)
 	for _, variant := range []string{"commit fills capacity", "rollback frees capacity", "same identity replay", "same identity collision"} {
 		t.Run(variant, func(t *testing.T) {
-			ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
+			ctx, cancel := testdeadline.Context(t)
 			defer cancel()
 			incident, actor, record := uuid.New(), uuid.New(), uuid.New()
 			exec := func(sql string, args ...any) {

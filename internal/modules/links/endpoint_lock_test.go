@@ -15,6 +15,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+
+	"github.com/JochiRaider/cartulary/internal/testutil/testdeadline"
 )
 
 func testFreshLinkEndpointLocks(t *testing.T, db dbport.DB, incident, actor uuid.UUID) {
@@ -25,7 +27,7 @@ func testFreshLinkEndpointLocks(t *testing.T, db dbport.DB, incident, actor uuid
 		for _, endpoint := range []string{"source", "target"} {
 			for _, scenario := range []string{"hold through completion", "wait for deletion"} {
 				t.Run("fresh Link lock/"+mode+"/"+endpoint+"/"+scenario, func(t *testing.T) {
-					ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+					ctx, cancel := testdeadline.Context(t)
 					defer cancel()
 					source, target := uuid.New(), uuid.New()
 					source[0], target[0] = 0xf0, 0x10 // Caller order is deliberately opposite canonical lock order.

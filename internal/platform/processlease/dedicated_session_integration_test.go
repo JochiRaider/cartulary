@@ -10,6 +10,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
+
+	"github.com/JochiRaider/cartulary/internal/testutil/testdeadline"
 )
 
 // Leases are held for the process lifetime, so they must not consume the
@@ -18,7 +20,7 @@ import (
 func TestPostgresLeaseSessionsUseDedicatedConnections_Integration(t *testing.T) {
 	harness := pgtest.Start(t)
 	testDB := harness.PrepareIsolatedDatabaseT(t, "process-lease-dedicated-sessions")
-	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
+	ctx, cancel := testdeadline.Context(t)
 	defer cancel()
 	const admittedName = "cartulary-lease-admission-hook"
 	config, err := pgxpool.ParseConfig(testDB.DSN)

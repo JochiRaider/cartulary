@@ -14,13 +14,15 @@ import (
 	workbookstartuppostgres "github.com/JochiRaider/cartulary/internal/modules/workbook/startup/postgres"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/JochiRaider/cartulary/internal/testutil/testdeadline"
 )
 
 func testIncidentMutationClocksAfterAdmission(t *testing.T, pool *pgxpool.Pool) {
 	t.Helper()
 	for _, operation := range []string{"metadata patch", "membership patch", "membership delete"} {
 		t.Run(operation, func(t *testing.T) {
-			ctx, cancel := context.WithTimeout(t.Context(), 20*time.Second)
+			ctx, cancel := testdeadline.Context(t)
 			defer cancel()
 			identity := uuid.NewString()
 			actor := authstoretest.SeedActor(t, pool, authstoretest.ActorAttributes{Email: identity + "-admin@example.test", DisplayName: "Clock admin"})

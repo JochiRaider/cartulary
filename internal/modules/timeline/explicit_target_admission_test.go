@@ -20,6 +20,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	"github.com/JochiRaider/cartulary/internal/testutil/testdeadline"
 )
 
 func exerciseTimelineExplicitTargetAdmission(t *testing.T) {
@@ -31,7 +33,7 @@ func exerciseTimelineExplicitTargetAdmission(t *testing.T) {
 		for _, kind := range []string{"host", "identity"} {
 			for _, change := range []string{"deleted", "merged"} {
 				t.Run(mode+"/"+kind+"/"+change, func(t *testing.T) {
-					ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
+					ctx, cancel := testdeadline.Context(t)
 					defer cancel()
 					target, survivor, source := uuid.New(), uuid.New(), uuid.New()
 					table, stateField, field, linkType := "hosts", "host_state", timelinetest.FieldHostRefs, "observed_on_host"

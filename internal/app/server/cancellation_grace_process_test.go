@@ -17,6 +17,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/httpruntime"
 	"github.com/JochiRaider/cartulary/internal/platform/processlifecycle"
 	"github.com/JochiRaider/cartulary/internal/testutil/referencetest"
+
+	"github.com/JochiRaider/cartulary/internal/testutil/testdeadline"
 )
 
 const graceProcessPhaseEnv = "CARTULARY_TEST_GRACE_PROCESS_PHASE"
@@ -34,7 +36,7 @@ func TestServerRunnerCancellationGrace_Process(t *testing.T) {
 	}
 	for _, phase := range []string{"construction", "serving", "cleanup", "draining", "reference_cleanup"} {
 		t.Run(phase, func(t *testing.T) {
-			ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+			ctx, cancel := testdeadline.Context(t)
 			defer cancel()
 			command := exec.CommandContext(ctx, executable, "-test.run=^TestServerRunnerCancellationGrace_Process$")
 			// t.TempDir uses GOTMPDIR when set; the child exits without cleanups,
@@ -143,7 +145,7 @@ func TestPortableReferenceCleanupGrace_Process(t *testing.T) {
 	}
 	for _, phase := range []string{"portable_source", "portable_workspace"} {
 		t.Run(phase, func(t *testing.T) {
-			ctx, cancel := context.WithTimeout(t.Context(), 45*time.Second)
+			ctx, cancel := testdeadline.Context(t)
 			defer cancel()
 			command := exec.CommandContext(ctx, executable, "-test.run=^TestPortableReferenceCleanupGrace_Process$")
 			// t.TempDir uses GOTMPDIR when set; the child exits without cleanups,

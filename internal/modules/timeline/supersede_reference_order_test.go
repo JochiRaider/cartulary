@@ -16,6 +16,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/google/uuid"
+
+	"github.com/JochiRaider/cartulary/internal/testutil/testdeadline"
 )
 
 func exerciseTimelineSupersedeReferenceOrder(t *testing.T) {
@@ -25,7 +27,7 @@ func exerciseTimelineSupersedeReferenceOrder(t *testing.T) {
 	incident := uuid.MustParse(incidentText)
 	for _, mode := range []string{"lower replacement", "lower source", "replacement superseded during wait"} {
 		t.Run(mode, func(t *testing.T) {
-			ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
+			ctx, cancel := testdeadline.Context(t)
 			defer cancel()
 			low, high := uuid.New(), uuid.New()
 			low[0], high[0] = 0x10, 0xf0

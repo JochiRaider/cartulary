@@ -12,6 +12,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
+
+	"github.com/JochiRaider/cartulary/internal/testutil/testdeadline"
 )
 
 func exerciseHostIdentityWaitingRebase(t *testing.T) {
@@ -21,7 +23,7 @@ func exerciseHostIdentityWaitingRebase(t *testing.T) {
 		{"identity", "cartulary.view.identities.v1", "identity.upn"},
 	} {
 		t.Run(tc.kind, func(t *testing.T) {
-			ctx, cancel := context.WithTimeout(t.Context(), 20*time.Second)
+			ctx, cancel := testdeadline.Context(t)
 			defer cancel()
 			field := tc.kind + ".display_name"
 			row := requireWorkbookCreate(t, h, login, incident, tc.view, map[string]any{"client_txn_id": tc.kind + "-wait-create", field: "Original", tc.identifier: tc.kind + "-wait@example.test"})["row"].(map[string]any)

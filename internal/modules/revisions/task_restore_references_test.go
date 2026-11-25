@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 
@@ -14,12 +13,14 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
+
+	"github.com/JochiRaider/cartulary/internal/testutil/testdeadline"
 )
 
 func requireTaskRestoreReferences(t *testing.T, h *appsupport.ServerHarness, login authcookietest.AuthCookies, incident, actor uuid.UUID) {
 	for _, variant := range []string{"party", "decision", "both", "neither"} {
 		t.Run("Task restore references/"+variant, func(t *testing.T) {
-			ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
+			ctx, cancel := testdeadline.Context(t)
 			defer cancel()
 			var party, decision *uuid.UUID
 			type reference struct {
@@ -146,7 +147,7 @@ func requireTaskRestoreLifecycleBlock(t *testing.T, h *appsupport.ServerHarness,
 		{"active_requires_owner", `UPDATE task_requests SET owner_user_id=NULL WHERE record_id=$1`},
 	} {
 		t.Run("Task restore lifecycle block/"+guard.name, func(t *testing.T) {
-			ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
+			ctx, cancel := testdeadline.Context(t)
 			defer cancel()
 			task := uuid.New()
 			envelopetest.SeedRecordEnvelope(t, h.DB, incident, actor, task, "task_request")
