@@ -464,6 +464,37 @@ rows (no placement justification).
      server-side capture for a stalled job, such as a lock-wait snapshot
      (allowed by TH-HARNESS-REQ-864) or a goroutine dump.
 
+   **Stall diagnostics (2026-11-25, `34dca921d`).** The harness server has a
+   test-only `GET /api/v1/test/runtime/stall-diagnostics` route
+   (`cartulary.test.runtime_stall_diagnostics.v1`). It returns three things:
+
+   - the database pool counters;
+   - the bounded REQ-864 lock-wait snapshot, with its query and closed
+     vocabulary now shared with the Go poll helper in
+     `harnessruntime/lockwaits`;
+   - the aggregated goroutine stacks, as function names and lines only.
+
+   An exhausted pool shows as an unavailable snapshot alongside its
+   counters. When an owned browser job fails to settle within its bound,
+   test support records that view while the job is still unsettled. The
+   record, `stall-diagnostics-<job_id>.json`, goes in the failed test's
+   output directory with the job's last status. Recording never throws.
+
+   - **Verification.**
+     - The route rows cover authorization, method and schema, plus an
+       observed lock wait and an exhausted pool against a real database.
+     - The recorder's vitest suite passes, as do the lock-wait and
+       route-registry rows.
+     - Lint, types, `make generate` and the generated, catalog and schema
+       source checks pass.
+     - A forced-stall run of the IR corpus test, with a temporary 1 ms
+       settlement bound that was not committed, wrote complete records
+       through the live stack.
+     - The unmodified IR corpus row still passes.
+   - **Spec.** TH-HARNESS-REQ-450 lists the runtime-control routes but
+     admits future test-only routes under the same predicates. Its list
+     does not yet name this route.
+
 ### S1 result (2026-11-24)
 
 - **Rows.** 34 measurement rows and the 4 release package rows are
