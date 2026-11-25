@@ -113,8 +113,8 @@ eleven `ci` runs of the release attempts (Section 13.1). Single runs vary by abo
 | G30 | Two admission layers again: PostgreSQL units hold CPU tokens and logical lanes while they wait in host admission, because each generation is charged twice | Specification, machine inputs, implementation | Phase 4, P4-5 | Open; this is Stage 3 of the work-graph tracker |
 | G31 | The `ci` browser chain, its critical path, is eligible at 134 s but starts at 504–540 s | Scheduling (REQ-802, REQ-803) | Phase 4, P4-6 | Open; needs G30 first |
 | G32 | Browser lanes are fixed chains packed from estimates that are about twice the actual time: lane loads 904–1,155 s against an even 1,031 s | Planner, scheduling | Phase 4, P4-2 | Open |
-| G33 | Heavy units start in estimate order, and the estimates have drifted: the longest heavy unit starts at 260 s | Machine inputs, planner | Phase 4, P4-1 | Open |
-| G34 | Heavy placement and capacities were tuned before G28 cut host flushes by 56% | Measurement, machine inputs | Phase 4, P4-1 | Open |
+| G33 | Heavy units start in estimate order, and the estimates have drifted: the longest heavy unit starts at 260 s | Machine inputs, planner | Phase 4, P4-1 | Done (`540af9d6e`): plans use observed estimates; builds start when eligible. `check` wall unchanged, now bound by the heavy lanes and by G30/G31 (13.11) |
+| G34 | Heavy placement and capacities were tuned before G28 cut host flushes by 56% | Measurement, machine inputs | Phase 4, P4-1 | Four heavy lanes adopted through the gate (`d77ba4a25`); placement audit inconclusive, placement unchanged; ten generations re-tested after P4-5 (13.11) |
 | G35 | PostgreSQL-backed rows are never cached, so `check` costs the same for a one-line change as for a full run | Specification, implementation | Phase 4, P4-3 | Open; needs an owner decision |
 | G36 | Every test row's cache key includes the whole harness tree, schemas, contracts, scripts and the Makefile, so tooling commits invalidate every cached row | Machine inputs, specification | Phase 4, P4-3 | Open |
 | G37 | Builds on the `ci` critical path (renderer installation 76 s, server harness 56 s) run every time | Machine inputs, implementation | Phase 4, P4-3 | Open |
@@ -1337,6 +1337,8 @@ Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-am
 | 2026-11-25 | P4-0 | Reference runs at `c9502cb39`, diagnostics on, cache off | `p40-ref-check01`, `p40-ref-ci01` | **Pass both.** `check` 368/368, graph 691 s; `ci` 502/502, graph 1,791 s. Detail in 13.9 |
 | 2026-11-25 | P4-4 / G39 | Failure-scoped host pressure and `make test-stress` (REQ-870, REQ-871) | Owner rows `harness.command_surface` (native runtime, stress command) | Pass. Committed `465a30afe` |
 | 2026-11-25 | P4-4 / G39 | Stability gate: each 13.2 row `REPEAT=10` with `LOAD=mixed` at `465a30afe` | `p44-gate-{ext,rel,imp,inc,wb,rep}`, repetitions `-r01` to `-r10` | **60 of 60 passed.** Detail in 13.10 |
+| 2026-11-25 | P4-1 / G33 | Observed estimates and `make estimate-refresh`; folded `p40-ref-check01` and `p40-ref-ci01` (2,604 rows, 80 operations) | `p41-cs`, `p41-ea`, `p41-src`, `p41-lintgo`, `p41-cs4`; diagnostic `check` `p41-g33-check01` | Rows and checks pass. `check` 719 s (reference 691 s). Committed `540af9d6e`. Detail in 13.11 |
+| 2026-11-25 | P4-1 / G34 | Four heavy lanes by override, paired diagnostic `check`; G28 sampler on the first | `p41-heavy4-check01`, `p41-heavy4-check02` | **Pass both:** 706 s and 704 s. Adopted as the default (`d77ba4a25`; `p41-heavy4-cs`, `p41-heavy4-src` pass) |
 | 2026-11-25 | P4-4 / G39 | Wait audit: 31 whole-test hang guards derive from the test deadline (`testdeadline`) | `p44-port-*` (16 owner slices, every row holding a converted guard) | Pass. Committed `bdd8f4e1d` |
 
 ## 12. Phase 2 Plan — `check` Wall Clock
@@ -2217,7 +2219,7 @@ tracker has the detail on each failure.
 | Step | Work | Gaps | Exit |
 | --- | --- | --- | --- |
 | P4-0 | Reference runs: one diagnostic `check` and one diagnostic `ci` at HEAD with the cache off, because the 13.1 runs have no pressure samples | — | Both pass; recorded in Section 11. **Done 2026-11-25:** `p40-ref-check01` and `p40-ref-ci01` (13.9) |
-| P4-1 | Go phase components | G33, G34 | Estimates refreshed; placement audited; capacity re-tests adopted or rejected through the gate |
+| P4-1 | Go phase components | G33, G34 | Estimates refreshed; placement audited; capacity re-tests adopted or rejected through the gate. **Done 2026-11-25** (13.11): estimates refreshed, four heavy lanes adopted, placement unchanged; the ten-generation re-test moves after P4-5 |
 | P4-2 | Browser phase components | G32, G38 | Dynamic lanes adopted after one `ci`; failure policy decided |
 | P4-3 | Daily-development cache | G36, G37, then G35 | Hit rates measured on representative commits; G35 only after D12 |
 | P4-4 | Stability tooling | G39 (host evidence first, then the stress command, wait audit and open defects) | The week's failing rows pass `REPEAT=10` under load. **Done 2026-11-25:** 60 of 60 repetitions passed (13.10) |
@@ -2366,3 +2368,44 @@ repetition, the selected rows executed fresh each time.
   set test budgets; the one fixed wait is a 500 ms negative window proving no
   further queries arrive. None needs conversion.
 
+### 13.11 Go Phase Components (P4-1)
+
+All runs are diagnostic `check` runs with the cache off; each passed 1,893 rows.
+
+| Measure | `p40-ref-check01` | `p41-g33-check01` (G33) | `p41-heavy4-check01`, `-02` (G33, four heavy lanes) |
+| --- | ---: | ---: | ---: |
+| Graph wall | 691 s | 719 s | 706 s, 704 s |
+| Heavy units; their work | 15; 1,836 s | 13; 1,989 s | 13; 1,979 s, 1,966 s |
+| Heavy lanes end (second-last, last unit) | 616 s, 690 s | 653 s, 718 s | 506 s, 668 s (both) |
+| `build_server_harness` eligible, started | 140 s, 372 s | 127 s, 127 s | 70 s, 70 s; 65 s, 65 s |
+| Ordinary PostgreSQL host-admission wait | 3,799 s | 3,173 s | 3,917 s, 3,944 s |
+
+- **G33 removed the build delay but not the wall.** With observed estimates
+  the server-harness build starts the moment it is eligible, and
+  `build_report_renderer` is planned at its observed 98 s median instead of
+  15 s. Accurate estimates also let the heavy packing target hold more rows,
+  so the heavy rows formed 13 units instead of 15; the three largest started
+  together and heavy work rose 8%, within the gate's 15%. With three heavy
+  lanes the heavy phase (about 663 s of work per lane) ends the run.
+- **Four heavy lanes end the heavy phase by 506 s**, without growing heavy
+  work, but `check` gains only 13–15 s: the run now ends on an ordinary
+  PostgreSQL unit (`app.server.process.a_fresh_process…`, 11 rows, 133 s)
+  that was eligible at 144–147 s and waited 424 s for object-store and
+  PostgreSQL lanes and CPU while shorter units were admitted ahead of it.
+  The last heavy unit (`recovery.process.inactive_current_restore…`) waited
+  the same way. That starvation is G30/G31, so the gain of four lanes
+  appears only after P4-5 and P4-6.
+- **Adoption.** The 13.7 gate holds: paired runs pass, heavy work does not
+  grow against three lanes, and the 13.2 rows pass under load (13.10). Four
+  lanes are the default from `d77ba4a25`; P4-5 and P4-6 measure with them.
+- **Placement audit: inconclusive, placement unchanged.** The G28 sampler's
+  per-database statistics were matched to units by test-process database
+  names and time; only 23 of 122 PostgreSQL units matched, and database
+  tuple writes miss the file and object-store I/O that keeps several rows
+  heavy (bundle round trips, imports). Rows stay where G27 and G28 left
+  them; a placement change needs per-unit I/O evidence the harness does not
+  yet record.
+- **Ten generations moves after P4-5.** Today a unit and its generation
+  each charge a PostgreSQL lane, so ten generations need 20 lanes, and the
+  policy bounds lanes by CPU tokens (19 on this host). P4-5 states
+  generations as their own capacity; the re-test runs there.
