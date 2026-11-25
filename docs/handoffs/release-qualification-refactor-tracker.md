@@ -400,6 +400,23 @@ rows (no placement justification).
      - **Diagnostics (`ce66d8100`).** Every render assertion now prints the
        closed supervisor cause, so a recurrence names its class.
 
+   **Correction (2026-11-25): UI review stays out of release.** The owner
+   confirmed that UI review is an agent skill, not part of the test suite or
+   production. Testing Harness §14 already says UI-Review execution is
+   explicit-only and introduces no CI or release gate. Moving
+   `ui_review_lifecycle` into `full` after the seventh attempt was therefore
+   wrong.
+
+   - **The fix.** The row is `explicit_only` again. Obligation
+     `dependencies.maintenance` no longer names it. The obligation also drops
+     its accessibility-engine clause, which checks the UI review toolchain
+     pins. It keeps the Go dependency-pruning row. The planner guard still
+     rejects any obligation row that no release root runs.
+   - **UI review still works.** All nine UI review rows pass when run
+     explicitly and uncached: native review, artifacts, contract, execution,
+     lifecycle, presentation, workflow and both seeded rows. That includes
+     the stop fix from `19be2e5a2`.
+
 ### S1 result (2026-11-24)
 
 - **Rows.** 34 measurement rows and the 4 release package rows are

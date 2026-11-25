@@ -7,15 +7,13 @@
         "TestingHarness",
         "Core04"
       ],
-      "capability": "Dependency pruning and runtime engine admission",
-      "expectation": "Explicit Go maintenance prunes unused requirements before tool compilation; the actual nested accessibility engine matches its pin without a redundant root dependency",
+      "capability": "Dependency pruning",
+      "expectation": "Explicit Go maintenance prunes unused requirements before tool compilation",
       "owner_ids": [
-        "harness.command_surface",
-        "harness.browser"
+        "harness.command_surface"
       ],
       "row_ids": [
-        "harness.command_surface.behavior.public_registry_parity",
-        "harness.browser.boundary_support.ui_review_lifecycle"
+        "harness.command_surface.behavior.public_registry_parity"
       ]
     },
     {
