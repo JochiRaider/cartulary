@@ -167,7 +167,7 @@ func TestReportingInstalledSandboxRenders(t *testing.T) {
 			input := fixtureTemplateAssetInputForScope(t, scope)
 			rendered, reason, err := renderer.Render(context.Background(), input)
 			if err != nil {
-				t.Fatalf("native declared assets in %s: %s: %v", scope, reason, err)
+				t.Fatalf("native declared assets in %s: %s: %v (supervisor: %v)", scope, reason, err, errors.Unwrap(err))
 			}
 			assertTemplateAssetOutput(t, input, rendered)
 			if scope == ReleaseScopeExternal && rendered.RenderBundle.Manifest.ExternalDeterminismSHA256 == nil {
@@ -189,7 +189,7 @@ func TestReportingInstalledSandboxRenders(t *testing.T) {
 		setCompositionFixtureProfile(t, &input, profile)
 		rendered, reason, err := renderer.Render(context.Background(), input)
 		if err != nil {
-			t.Fatalf("native authored candidate: %s: %v", reason, err)
+			t.Fatalf("native authored candidate: %s: %v (supervisor: %v)", reason, err, errors.Unwrap(err))
 		}
 		if err := validateRenderCandidateBinding(input, rendered); err != nil {
 			t.Fatal(err)
@@ -303,7 +303,7 @@ func testNativeExternalMermaid(t *testing.T, directory, temporaryRoot string) {
 			input := renderCandidateFixture(request, contract, model, digest)
 			rendered, reason, err := renderer.Render(context.Background(), input)
 			if err != nil {
-				t.Fatalf("external Mermaid: %s: %v", reason, err)
+				t.Fatalf("external Mermaid: %s: %v (supervisor: %v)", reason, err, errors.Unwrap(err))
 			}
 			if err := validateRenderCandidateBinding(input, rendered); err != nil {
 				t.Fatal(err)
