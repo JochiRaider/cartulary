@@ -22,20 +22,6 @@ const lockWaitDirectory = "lock-waits"
 
 var lockWaitSequence atomic.Int64
 
-// SnapshotLockWaits reads the blocked sessions of db's current database and
-// the sessions blocking them, blocked sessions first, at most 64.
-func SnapshotLockWaits(ctx context.Context, db *sql.DB) (lockwaits.Snapshot, error) {
-	if db == nil {
-		return lockwaits.Snapshot{}, errors.New("lock-wait snapshot requires a database")
-	}
-	rows, err := db.QueryContext(ctx, lockwaits.Query, lockwaits.SessionLimit)
-	if err != nil {
-		return lockwaits.Snapshot{}, err
-	}
-	defer rows.Close()
-	return lockwaits.Collect(rows, time.Now())
-}
-
 // RecordLockWaits snapshots db's lock waits and writes the snapshot under the
 // run root, resolved by the rule shared with contract evidence and fixture
 // artifacts, as lock-waits/<pid>-<n>.json. It returns the run-root-relative
@@ -45,7 +31,7 @@ func RecordLockWaits(ctx context.Context, db *sql.DB) (string, lockwaits.Snapsho
 }
 
 func recordLockWaitsTo(ctx context.Context, db *sql.DB, lookup func(string) (string, bool)) (string, lockwaits.Snapshot, error) {
-	snapshot, err := SnapshotLockWaits(ctx, db)
+	snapshot, err := lockwaits.SnapshotDB(ctx, db)
 	if err != nil {
 		return "", lockwaits.Snapshot{}, err
 	}

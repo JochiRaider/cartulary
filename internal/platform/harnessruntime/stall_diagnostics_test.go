@@ -3,7 +3,6 @@ package harnessruntime
 import (
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"strings"
 	"testing"
@@ -65,58 +64,6 @@ func TestStallDiagnosticsRouteRequiresHarnessAuthorization(t *testing.T) {
 	requireNoPermissiveTestRuntimeCORS(t, success)
 }
 
-type lockWaitRows struct {
-	rows [][]any
-	err  error
-}
-
-func (r *lockWaitRows) Next() bool { return len(r.rows) > 0 }
-func (r *lockWaitRows) Err() error { return r.err }
-func (r *lockWaitRows) Scan(dest ...any) error {
-	row := r.rows[0]
-	r.rows = r.rows[1:]
-	for i, value := range row {
-		switch target := dest[i].(type) {
-		case *int64:
-			*target = value.(int64)
-		case *string:
-			*target = value.(string)
-		case *int:
-			*target = value.(int)
-		}
-	}
-	return nil
-}
-
-func TestLockWaitCollectionKeepsOnlyClosedVocabulary(t *testing.T) {
-	rows := &lockWaitRows{rows: [][]any{
-		{int64(11), "client backend", "active", "Lock", "transactionid", "update", "12,13", int64(3100), 70},
-		{int64(12), "client backend", "idle in transaction", "Client", "ClientRead", "/* private comment", "", int64(9000), 70},
-		{int64(13), "client backend; DROP", "active", "Lock", "relation\nprivate", "", "", int64(0), 70},
-	}}
-	snapshot, err := lockwaits.Collect(rows, time.Unix(1, 0))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if snapshot.Blocked() != 1 || snapshot.OmittedSessionCount != 67 || snapshot.CapturedAt.Location() != time.UTC {
-		t.Fatalf("snapshot counts = blocked %d omitted %d", snapshot.Blocked(), snapshot.OmittedSessionCount)
-	}
-	first, second, third := snapshot.Sessions[0], snapshot.Sessions[1], snapshot.Sessions[2]
-	if first.StatementKind != "update" || len(first.BlockingPIDs) != 2 || first.BlockingPIDs[1] != 13 {
-		t.Fatalf("blocked session = %#v", first)
-	}
-	if second.StatementKind != "other" || len(second.BlockingPIDs) != 0 {
-		t.Fatalf("an unreadable statement must be other: %#v", second)
-	}
-	if third.BackendType != "other" || third.WaitEvent != "other" || third.StatementKind != "none" {
-		t.Fatalf("names outside the server vocabulary must be other: %#v", third)
-	}
-	failing := &lockWaitRows{err: errors.New("cursor failed")}
-	if _, err := lockwaits.Collect(failing, time.Now()); err == nil {
-		t.Fatal("a failed cursor produced a snapshot")
-	}
-}
-
 // TestStallDiagnosticsObserveLockWaitsAndPoolExhaustion holds a row lock that
 // blocks a second session, then exhausts a one-connection pool: the first is
 // an observed lock wait, the second an unavailable snapshot whose pool
@@ -142,7 +89,8 @@ func TestStallDiagnosticsObserveLockWaitsAndPoolExhaustion(t *testing.T) {
 	}
 	waiterDone := make(chan error, 1)
 	go func() {
-		_, err := sessions.ExecContext(ctx, `UPDATE stall_probe SET id = 1 WHERE id = 1`)
+		// A leading comment hides the keyword: the query reduces it to "other".
+		_, err := sessions.ExecContext(ctx, `/* stall-probe */ UPDATE stall_probe SET id = 1 WHERE id = 1`)
 		waiterDone <- err
 	}()
 
@@ -176,7 +124,7 @@ func TestStallDiagnosticsObserveLockWaitsAndPoolExhaustion(t *testing.T) {
 			blocked = session
 		}
 	}
-	if blocked.StatementKind != "update" || blocked.WaitEventType != "Lock" {
+	if blocked.StatementKind != "other" || blocked.WaitEventType != "Lock" {
 		t.Fatalf("blocked session = %#v", blocked)
 	}
 	if err := holder.Rollback(); err != nil {

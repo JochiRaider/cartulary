@@ -220,7 +220,7 @@ func TestLockWaitSnapshotNamesBlockedAndBlockingSessions(t *testing.T) {
 	}()
 	var snapshot lockwaits.Snapshot
 	for {
-		snapshot, err = SnapshotLockWaits(ctx, db)
+		snapshot, err = lockwaits.SnapshotDB(ctx, db)
 		if err != nil {
 			t.Fatal(err)
 		}

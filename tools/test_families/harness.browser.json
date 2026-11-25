@@ -2310,7 +2310,6 @@
         "package": "./internal/platform/harnessruntime",
         "tests": [
           "TestDatabaseResetFailurePreservesCauseAndExposesOnlyStageAndSQLState",
-          "TestLockWaitCollectionKeepsOnlyClosedVocabulary",
           "TestStallDiagnosticsRouteRequiresHarnessAuthorization",
           "TestTestRuntimeIdentityRouteDisabledByDefault",
           "TestTestRuntimeIdentityRouteRejectsInvalidHarnessPredicates",
@@ -2566,6 +2565,31 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "full",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "harness.browser.unit.lock_wait_snapshot_vocabulary_f8a6df59b8",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/harnessruntime/lockwaits",
+        "tests": [
+          "TestCollectKeepsOnlyServerVocabulary"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "standard",
       "service_dependencies": [],
       "postgres_isolation": "none"
     },

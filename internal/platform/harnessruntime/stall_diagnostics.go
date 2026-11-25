@@ -116,12 +116,7 @@ func observeLockWaits(ctx context.Context, pool *pgxpool.Pool) LockWaitObservati
 		return unavailable("pool_acquire_failed")
 	}
 	defer connection.Release()
-	rows, err := connection.Query(ctx, lockwaits.Query, lockwaits.SessionLimit)
-	if err != nil {
-		return unavailable("query_failed")
-	}
-	defer rows.Close()
-	snapshot, err := lockwaits.Collect(rows, time.Now())
+	snapshot, err := lockwaits.SnapshotConn(ctx, connection)
 	if err != nil {
 		return unavailable("query_failed")
 	}
