@@ -115,10 +115,11 @@ eleven `ci` runs of the release attempts (Section 13.1). Single runs vary by abo
 | G32 | Browser lanes are fixed chains packed from estimates that are about twice the actual time: lane loads 904–1,155 s against an even 1,031 s | Planner, scheduling | Phase 4, P4-2 | Done (`7ebf2d0af`): browser phase −102 s in one diagnostic `ci` (13.12) |
 | G33 | Heavy units start in estimate order, and the estimates have drifted: the longest heavy unit starts at 260 s | Machine inputs, planner | Phase 4, P4-1 | Done (`540af9d6e`): plans use observed estimates; builds start when eligible. `check` wall unchanged, now bound by the heavy lanes and by G30/G31 (13.11) |
 | G34 | Heavy placement and capacities were tuned before G28 cut host flushes by 56% | Measurement, machine inputs | Phase 4, P4-1 | Four heavy lanes adopted through the gate (`d77ba4a25`); placement audit inconclusive, placement unchanged; ten generations re-tested after P4-5 (13.11) |
-| G35 | PostgreSQL-backed rows are never cached, so `check` costs the same for a one-line change as for a full run | Specification, implementation | Phase 4, P4-3 | Open; needs an owner decision |
-| G36 | Every test row's cache key includes the whole harness tree, schemas, contracts, scripts and the Makefile, so tooling commits invalidate every cached row | Machine inputs, specification | Phase 4, P4-3 | Open |
-| G37 | Builds on the `ci` critical path (renderer installation 76 s, server harness 56 s) run every time | Machine inputs, implementation | Phase 4, P4-3 | Open |
+| G35 | PostgreSQL-backed rows are never cached, so `check` costs the same for a one-line change as for a full run | Specification, implementation | Phase 4, P4-3 | Done (`f9bbdc749`, D12): 313 of 366 `check` units cacheable; an unchanged `check` takes 90 s (13.13) |
+| G36 | Every test row's cache key includes the whole harness tree, schemas, contracts, scripts and the Makefile, so tooling commits invalidate every cached row | Machine inputs, specification | Phase 4, P4-3 | Done (`f9bbdc749`): Go rows run from the plan; keys hold the runner's closure. All-invalidating commits 101 → 60 of the last 150; the rest is G40 (13.13) |
+| G37 | Builds on the `ci` critical path (renderer installation 76 s, server harness 56 s) run every time | Machine inputs, implementation | Phase 4, P4-3 | Done (`f9bbdc749`): a reused renderer installation costs 31 s instead of 94–137 s, and repeated builds no longer flip the receipt (13.13) |
 | G38 | A browser cohort stops at its first failure, so the rest of its tests report `infrastructure_failed` and their outcomes are lost | Implementation, possibly specification | Phase 4, P4-2 | Done (`7ebf2d0af`); not yet exercised by a browser failure (13.12) |
+| G40 | Test-row cache keys still hold broad harness inputs (harness owner models, harness test families, schemas, generated validators, task surface), because tests read repository files through paths they compute, which no closure rule can see; 60 of the last 150 commits invalidate every cached unit | Machine inputs, specification, tests | Follow-up after Phase 4 | Open: needs per-package declared run-time inputs and an enforcement mechanism (13.13) |
 | G39 | Load-dependent defects surface one per `ci` run and are reproduced by hand | Tests, harness, process | Phase 4, P4-4 | Done: host pressure and stress command (`465a30afe`), wait audit (`bdd8f4e1d`); the 13.2 rows pass `REPEAT=10` under mixed load (13.10) |
 
 ## 5. Gap Remediation Detail
@@ -1340,6 +1341,7 @@ Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-am
 | 2026-11-25 | P4-1 / G33 | Observed estimates and `make estimate-refresh`; folded `p40-ref-check01` and `p40-ref-ci01` (2,604 rows, 80 operations) | `p41-cs`, `p41-ea`, `p41-src`, `p41-lintgo`, `p41-cs4`; diagnostic `check` `p41-g33-check01` | Rows and checks pass. `check` 719 s (reference 691 s). Committed `540af9d6e`. Detail in 13.11 |
 | 2026-11-25 | P4-1 / G34 | Four heavy lanes by override, paired diagnostic `check`; G28 sampler on the first | `p41-heavy4-check01`, `p41-heavy4-check02` | **Pass both:** 706 s and 704 s. Adopted as the default (`d77ba4a25`; `p41-heavy4-cs`, `p41-heavy4-src` pass) |
 | 2026-11-25 | P4-2 / G32, G38 | Browser lanes as a runtime capacity; test-owned cohorts run to completion | `p42-cs2`, `p42-hb`, `p42-src`, `p42-lintgo`, `p42-md`; diagnostic `ci` `p42-ci01` | Targeted rows pass. `ci` 2,647 of 2,648 rows, graph 1,688 s (reference 1,791 s); the failure is the renderer receipt race (13.12). Committed `7ebf2d0af` |
+| 2026-11-25 | P4-3 / G35, G36, G37 | Go rows run from the plan; runner-closure and named-input keys; cacheable PostgreSQL rows; renderer reuse | `p43-src`, `p43-lintgo`, `p43-lintscripts`, `p43-md`, `p43-cs`, `p43-ea`; `check` with the cache on, `p43-check01` (all misses) and `p43-check02` (repeat) | All pass. `check` 663 s with every row executed, then 90 s with 313 of 313 eligible units reused. Committed `f9bbdc749` |
 | 2026-11-25 | P4-4 / G39 | Wait audit: 31 whole-test hang guards derive from the test deadline (`testdeadline`) | `p44-port-*` (16 owner slices, every row holding a converted guard) | Pass. Committed `bdd8f4e1d` |
 
 ## 12. Phase 2 Plan — `check` Wall Clock
@@ -2024,7 +2026,7 @@ tracker has the detail on each failure.
 | `-p60919` | Release readiness contract | Test runner: a module-level scenario starved by a synchronous test | Registered async test |
 | `-p89370` | Membership management live pages | Product race in paging after a confirmed write | Controller waits for the follow-up access check |
 | `-p92912` | State-admission result precedence | Test fixture built inside a 1 s validation deadline | Fixture built before admission |
-| `-p12690` | UI review stop; renderer sandbox Mermaid bundle | Lifecycle window; unknown | Stop waits for the owner; UI review left `ci`; renderer prints its supervisor cause |
+| `-p12690` | UI review stop; renderer sandbox Mermaid bundle | Lifecycle window; for the renderer, a concurrent forced rebuild republished the receipt under the running test (found in P4-2, 13.12) | Stop waits for the owner; UI review left `ci`; renderer reuse makes repeated builds republish the same installation (G37) |
 | `-p61824` | Entity Find editing | Test pressed Enter while a rescan disabled navigation | Waits for the status first |
 | `-p44999` | IR corpus import: the timeline apply job stalled for 30 s | Unknown | Stall diagnostics |
 | `-p97887` | Backend module boundary check | Static rule broken by the stall diagnostics change | Package restructured |
@@ -2222,7 +2224,7 @@ tracker has the detail on each failure.
 | P4-0 | Reference runs: one diagnostic `check` and one diagnostic `ci` at HEAD with the cache off, because the 13.1 runs have no pressure samples | — | Both pass; recorded in Section 11. **Done 2026-11-25:** `p40-ref-check01` and `p40-ref-ci01` (13.9) |
 | P4-1 | Go phase components | G33, G34 | Estimates refreshed; placement audited; capacity re-tests adopted or rejected through the gate. **Done 2026-11-25** (13.11): estimates refreshed, four heavy lanes adopted, placement unchanged; the ten-generation re-test moves after P4-5 |
 | P4-2 | Browser phase components | G32, G38 | Dynamic lanes adopted after one `ci`; failure policy decided. **Done 2026-11-25** (13.12): adopted; the `ci` failed one row on the renderer receipt race, fixed in P4-3 |
-| P4-3 | Daily-development cache | G36, G37, then G35 | Hit rates measured on representative commits; G35 only after D12 |
+| P4-3 | Daily-development cache | G36, G37, then G35 | Hit rates measured on representative commits; G35 only after D12. **Done 2026-11-25** (13.13) |
 | P4-4 | Stability tooling | G39 (host evidence first, then the stress command, wait audit and open defects) | The week's failing rows pass `REPEAT=10` under load. **Done 2026-11-25:** 60 of 60 repetitions passed (13.10) |
 | P4-5 | One admission authority | G30 | Paired `check` and one `ci` |
 | P4-6 | Overlap | G31 | Through the 13.7 gate, or recorded as rejected |
@@ -2446,3 +2448,42 @@ which only `ci` exercises.
   sources), so every forced rebuild can flip the receipt under a running
   renderer test. G37's input-keyed reuse makes a repeated build republish
   the same installation, which removes the flip; P4-3 verifies it.
+
+### 13.13 Daily-Development Cache (P4-3)
+
+- **Design change from 13.4 (owner-approved).** G36's runner closure was first
+  built as a scan of the JavaScript row runner's imports. That runner loaded
+  the whole catalog for every Go unit, so Go rows moved to a Go row runner
+  inside the harness runtime (TH-HARNESS-REQ-872): the planner emits each Go
+  unit's exact `go test` command and per-row tests, and the runtime settles
+  rows from the event stream. Graph and plan move to v10 and the runner
+  registry to v4. The JavaScript runner keeps Vitest and shell rows.
+- **Correctness addition.** Harness test support launches Node modules by
+  literal path (for example the PostgreSQL resource stop module, reached by
+  182 units), so a Go key also holds every repository file its Go code names
+  by a literal path, with a named module's closure. Without it, narrowing
+  would have reused stale results after such a module changed.
+- **Measured.** `p43-check01`, the first `check` after the change, missed
+  every eligible unit, executed all 1,893 rows through the new runner and
+  passed in 663 s. `p43-check02`, run straight after, reused 313 of 313
+  eligible units; the 53 uncached units (lifecycle, migration, measurement,
+  process and similar work) bound it at 90 s.
+- **Hit rates on representative commits.** Replaying the last 150 commits
+  against these keys: the 44 documentation-only commits invalidate nothing;
+  the 9 product-only commits invalidate a median of 6 of 313 units (mean
+  33); of the 97 commits touching tools, contracts or the Makefile, 60 still
+  invalidate every unit (101 of 150 did before G36). A change to a module's
+  root package reaches 120–177 units, because test support assembles the
+  whole application.
+- **G40.** Those 60 commits change inputs every key still holds: harness
+  owner models and test families, schemas, generated validators and the task
+  surface. Tests read such files through paths they compute, which no
+  closure rule can see, so removing them needs each package to declare what
+  it reads at run time and a way to enforce it. That is a separate change.
+- **G37.** The first build recorded its input key in 94 s; every later build
+  in both runs, including the forced rebuild inside `build_server_harness`,
+  reported the same installation "(reused)". Reuse costs 31 s, mostly hashing
+  the Chromium directory and verifying the 1.4 GB root against its manifest.
+  Because repeated builds now republish the same installation, the receipt
+  race behind the renderer sandbox failure (13.12) cannot flip the
+  installation under a running test.
