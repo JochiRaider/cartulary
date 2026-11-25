@@ -1334,6 +1334,7 @@ Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-am
 | 2026-11-24 | Go planner (work-graph tracker) | `check` after the Go planner became the default (slices 3b–4d, Stage 2) | `20261124T022650Z-p16111`, `20261124T161533Z-p41508`, `20261124T171701Z-p83767`, `20261124T180212Z-p90231`, `20261124T185203Z-p57224`, `20261124T193704Z-p20922`, `20261124T212414Z-p1022` | Graph 856 s, then 593–626 s. Six passed; `-p1022` failed one row on a real privilege defect in a new migration. The drop from about 700 s is not attributed to a single change |
 | 2026-11-24 to 25 | Release redesign (release-qualification tracker) | Eleven `ci` runs during the release attempts | `20261124T200215Z-p34171.ci` through `20261125T160715Z-p42612.ci` | Graph 1,618–1,735 s; 3 passed. Failures in Section 13.2 |
 | 2026-11-25 | Phase 4 analysis | Unit-event profiles of `check` `-p20922` and `ci` `-p42612`: phase occupancy, lane loads, estimate ratios, cache facts; commit-history simulation of cache invalidation | `20261124T193704Z-p20922`, `20261125T160715Z-p42612.ci`, the plans of the five 2026-11-24 `check` runs | Findings G30–G39 and Section 13. No code change |
+| 2026-11-25 | P4-0 | Reference runs at `c9502cb39`, diagnostics on, cache off | `p40-ref-check01`, `p40-ref-ci01` | **Pass both.** `check` 368/368, graph 691 s; `ci` 502/502, graph 1,791 s. Detail in 13.9 |
 
 ## 12. Phase 2 Plan — `check` Wall Clock
 
@@ -1907,7 +1908,9 @@ failing tests hit, so G17c and then G17f come next. G17 has since closed (Sectio
 
 ## 13. Phase 4 Plan — Daily `check` and `ci`
 
-**Status.** Proposed 2026-11-25. The owner set the priority. Developers use
+**Status.** Approved and in execution since 2026-11-25. The owner approved
+D11–D16 as recommended on 2026-11-25; D17 is decided by the 13.7 gate after
+P4-5. Progress is recorded per workstream in 13.5 and Section 11. The owner set the priority. Developers use
 `check` and `ci` to validate everyday changes, so their wall time and
 stability come before `release-measure`, which runs rarely. Each component is
 improved and measured first. Changes that make phases run concurrently (G31)
@@ -2207,7 +2210,7 @@ tracker has the detail on each failure.
 
 | Step | Work | Gaps | Exit |
 | --- | --- | --- | --- |
-| P4-0 | Reference runs: one diagnostic `check` and one diagnostic `ci` at HEAD with the cache off, because the 13.1 runs have no pressure samples | — | Both pass; recorded in Section 11 |
+| P4-0 | Reference runs: one diagnostic `check` and one diagnostic `ci` at HEAD with the cache off, because the 13.1 runs have no pressure samples | — | Both pass; recorded in Section 11. **Done 2026-11-25:** `p40-ref-check01` and `p40-ref-ci01` (13.9) |
 | P4-1 | Go phase components | G33, G34 | Estimates refreshed; placement audited; capacity re-tests adopted or rejected through the gate |
 | P4-2 | Browser phase components | G32, G38 | Dynamic lanes adopted after one `ci`; failure policy decided |
 | P4-3 | Daily-development cache | G36, G37, then G35 | Hit rates measured on representative commits; G35 only after D12 |
@@ -2219,6 +2222,10 @@ tracker has the detail on each failure.
 P4-1 to P4-4 are independent and can proceed in any order. P4-5 starts after
 P4-1 and P4-2, so the scheduler change is measured on stable components.
 P4-6 comes last.
+
+**Execution order (2026-11-25).** P4-0, P4-4, P4-1, P4-2, P4-3, P4-5, P4-6,
+P4-7. P4-4 moved first because G34's capacity re-tests can be adopted only
+through the 13.7 gate, which needs the stress command.
 
 ### 13.6 Expected Effect
 
@@ -2260,12 +2267,12 @@ P4-6 comes last.
 
 | ID | Decision | Needed by | Recommendation |
 | --- | --- | --- | --- |
-| D11 | Make Stage 3 (one admission authority) phase-4 work, after P4-1 and P4-2 | P4-5 | Approve; it answers the work-graph tracker's open question |
-| D12 | Cache PostgreSQL-backed rows under a key that binds the seed template and service images | P4-3 | Approve, with release `ci` run cache-off |
-| D13 | Narrow test-row cache inputs to the runner's own closure | P4-3 | Approve |
-| D14 | Run test-owned browser cohorts to completion | P4-2 | Approve unless the NLSpec requires stop-on-first-failure |
-| D15 | Add a public stress command | P4-4 | Approve |
-| D16 | Re-test four heavy lanes and ten generations | P4-1 | Approve as measurement; adopt only through the 13.7 gate |
+| D11 | Make Stage 3 (one admission authority) phase-4 work, after P4-1 and P4-2 | P4-5 | Approve; it answers the work-graph tracker's open question. **Approved 2026-11-25** |
+| D12 | Cache PostgreSQL-backed rows under a key that binds the seed template and service images | P4-3 | Approve, with release `ci` run cache-off. **Approved 2026-11-25** |
+| D13 | Narrow test-row cache inputs to the runner's own closure | P4-3 | Approve. **Approved 2026-11-25** |
+| D14 | Run test-owned browser cohorts to completion | P4-2 | Approve unless the NLSpec requires stop-on-first-failure. **Approved 2026-11-25** |
+| D15 | Add a public stress command | P4-4 | Approve. **Approved 2026-11-25** |
+| D16 | Re-test four heavy lanes and ten generations | P4-1 | Approve as measurement; adopt only through the 13.7 gate. **Approved 2026-11-25** |
 | D17 | Critical-path reservation, overlapping the browser and Go phases | P4-6 | Decide after the P4-5 measurements |
 
 | ID | Section or requirement | Change | Gap |
@@ -2277,3 +2284,34 @@ P4-6 comes last.
 | A26 | Unit-aware closure rules | The runner's implementation closure replaces the registered broad unit inputs | G36 |
 | A27 | Browser failure policy | Test-owned cohorts run to completion | G38, if needed |
 | A28 | Command tables | Stress command | G39 |
+
+### 13.9 Phase 4 Reference (P4-0)
+
+Both runs used `HARNESS_DIAGNOSTICS=basic` and `CARTULARY_HARNESS_CACHE_MODE=off`
+on `c9502cb39`. Diagnostics add time: the 13.1 `check` without them took 605 s.
+
+| Measure | `check` `p40-ref-check01` | `ci` `p40-ref-ci01` |
+| --- | ---: | ---: |
+| Result | Pass, 368/368 | Pass, 502/502 |
+| Graph wall | 691 s | 1,791 s |
+| Guest pressure: CPU some, I/O full | 5.1%, 7.5% | 4.6%, 5.3% |
+| PostgreSQL units (not heavy): host admission, runner | 3,799 s, 2,132 s | 4,642 s, 2,485 s |
+| Heavy units: work; lanes end | 1,836 s; 690 s (longest first on actual durations: 623 s) | 1,880 s; 745 s |
+| Run root; event log | 242 MB; 174 MB | 621 MB |
+
+- **`check` critical path.** `build_report_renderer` (137 s), then
+  `build_server_harness`, eligible at 140 s but started at 372 s, then a
+  heavy unit (`recovery.process.inactive_current_restore…`), eligible at 422 s,
+  started at 609 s when a heavy lane freed, ending the run at 690 s. Multi-token
+  and scarce-lane starvation (G31) therefore bounds `check` too, not only `ci`.
+- **Heavy order.** Heavy estimates ran 0.49–1.29 of actual; the longest unit
+  (`network_flow_portability`, 206 s) started at 307 s.
+- **`ci` browser phase.** The four lane heads became eligible at 129 s and
+  started at 600–606 s. Lane loads were 984, 1,116, 1,189 and 935 s against an
+  even 1,056 s; browser runner time was a median 0.47 of its estimates
+  (0.16–0.82). Fresh stack acquisition took 8–16 s and a reused stack's reset
+  4 s, so the 11 reuses in a `ci` save about 66 s of lane time, about 16 s of
+  wall (input to G32).
+- **Build estimates.** `build_report_renderer` ran 137 s against a 15 s
+  estimate, `build_server_harness` 50–68 s against 5 s (input to G33).
+
