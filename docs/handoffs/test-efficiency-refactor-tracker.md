@@ -125,7 +125,7 @@ eleven `ci` runs of the release attempts (Section 13.1). Single runs vary by abo
 | G42 | Build-artifact cache keys held per-run locations (each graph run's Go temporary directory, the per-run web source path), so every graph run missed and re-linked shared binaries | Machine inputs, specification | Phase 4, P4-6 | Done: locations leave the keyed command and input directories are keyed by content; proven on a segment (13.15) |
 | G43 | Test rows launch nested graphs and real `make` runs that rebuild shared repository outputs under the Go test's toolchain environment while the outer run uses them; their failures are cut to the first 4 KiB and reclassified as product assertions | Tests, harness, specification | Phase 5 | Open: P5-0 fenced the Go-hosted nested graphs (14.5); P5-2 remains |
 | G44 | Make and the planner both own ordering, freshness, environment and prerequisite skipping: 26 operations re-enter Make, 17 targets carry two recipes chosen by `GRAPH_CHILD`, five freshness mechanisms coexist, and graph-only Make edges run work twice | Machine inputs, implementation, specification | Phase 5 | Open: P5-0 removed the renderer double run (14.5); P5-1 made every test script a row and removed five duplicate operations (14.6); P5-3 remains |
-| G45 | Units inherit the graph process's whole environment (the shell's variables and up to 127 Make exports), minus hand-kept strip lists; harness code reads 478 `CARTULARY_*` names with no declaration, so leaks, stale names and typos fail silently | Machine inputs, implementation, specification | Phase 5, P5-4 | Open: P5-4a registered every harness name and enforces it (14.8); P5-4b made unit environments default-deny (14.9); P5-4c slice 1 made outside launchers explicit (14.11); the review launchers, Go launchers and P5-4d remain |
+| G45 | Units inherit the graph process's whole environment (the shell's variables and up to 127 Make exports), minus hand-kept strip lists; harness code reads 478 `CARTULARY_*` names with no declaration, so leaks, stale names and typos fail silently | Machine inputs, implementation, specification | Phase 5, P5-4 | Open: P5-4a registered every harness name and enforces it (14.8); P5-4b made unit environments default-deny (14.9); P5-4c slices 1 and 2 made the Node outside launchers explicit (14.11, 14.12); the Go launchers and P5-4d remain |
 
 ## 5. Gap Remediation Detail
 
@@ -1354,6 +1354,7 @@ Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-am
 | 2026-11-26 | P5-4a / G45 | Environment registry of every harness `CARTULARY_*` name and its check in `check`, `ci` and `source-check`; one dead mode switch deleted | Registry probes; plans of `check` and `ci`; rows `p54-cs`, `p54-cs2`, `p54-ea`, `p54-hb`; `p54-src2`, `p54-surface`, `p54-lintscripts` | 480 names registered and 8 declared inputs cover all 488 harness names. `check` and `ci` gain only the new check (and its test row in `ci`). All rows and checks pass (14.8) |
 | 2026-11-26 | P5-4b / G45 | Default-deny unit environments derived from the registry; dead strip entries removed | Segments `p57-units`, `p57-planner`, `p57-report`, `p57-pg`, `p57-vitest`, `p57-browser`, `p57-nested`, `p57-strip`; `p57-src2`, `p56-lintgo3`, `p57-lintscripts`; diagnostic `check` `p57-check01` | Every segment passes. A captured unit environment holds 100 names, not 164; 64 shell, agent and desktop variables no longer reach units. `check` passes, 1,894 rows, graph 576 s (14.9) |
 | 2026-11-26 | P5-4c slice 1 / G45 | Explicit child environments for the services session, frontend publication and browser acquisition; launcher scope enforced by the registry check | Segments `p58-*` (two failures found and fixed), `p59-hb`, `p59-browser`, `p59-ea`, `p59-cs`; `p59-src`, `p59-lintscripts` | Every segment passes after the fixes. The registry check holds the three launchers to the rule with no findings (14.11) |
+| 2026-11-26 | P5-4c slice 2 / G45 | Explicit child environments for UI-review preparation and the native review client | Direct preparation tests (52); segment `p60-review` (all eight UI-review rows, including both seeded rows); `p60-cs`, `p60-src`, `p60-lintscripts` | All pass. Five launcher files are now under the registry's `explicit_launchers` scope with no findings (14.12) |
 | 2026-11-25 | P4-4 / G39 | Wait audit: 31 whole-test hang guards derive from the test deadline (`testdeadline`) | `p44-port-*` (16 owner slices, every row holding a converted guard) | Pass. Committed `bdd8f4e1d` |
 
 ## 12. Phase 2 Plan — `check` Wall Clock
@@ -3004,4 +3005,28 @@ Status: redefined by the owner on 2026-11-26; replaces the typed context documen
   and fixture-binding owners, with P5-4d. Top-level tools that hand the
   operator's environment to `docker`, `go` or `package.sh` are left as they
   are, because they do not feed the test population.
+
+### 14.12 Explicit Child Environments (P5-4c, slice 2)
+
+- **Change.** The UI-review chain runs `make ui-review`, then the native
+  client, the Go review driver, the Node adapter, the recipes and finally the
+  operation runner. Its two Node launchers copied their parent's environment
+  and deleted a regular expression of name families. That is default-allow:
+  anything the expression missed, such as shell, agent and editor variables,
+  crossed, and a Go test's `GOROOT` needed its own deletion. Both now use
+  `childEnvironment` and forward one declared set, `reviewForwarded`: the Make
+  variables operation executions name, minus public target inputs, plus
+  `PLAYWRIGHT_BROWSERS_PATH`. The deletion expressions and the `GOROOT` special
+  case are gone. The recipe environment is passed as `recipe`, because it is
+  an explicit object, not the process environment.
+- **Found while converting.** Operation executions name a public review input
+  (`REVIEW_PROFILE`), so the operation-variable set alone would have let it
+  cross. Public inputs reach the native review owner only through its request,
+  so the forwarded set excludes them.
+- **Validation.** All eight UI-review rows pass, including both seeded rows,
+  which drive the whole chain against a live browser stack.
+- **Remaining.** The Go launchers outside the runtime (`harnessaccount`,
+  `harnessreview`, `processtest`, `recoverybrowsertest`, `webstacklisten`).
+  Then single owners for the step-runtime and fixture-binding names, with
+  P5-4d.
 
