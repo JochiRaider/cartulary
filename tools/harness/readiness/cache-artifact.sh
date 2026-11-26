@@ -31,9 +31,11 @@ sha256_file() {
   printf '%s\n' "${record:0:64}"
 }
 
+# append_file_digests records each file's digest under its path relative to
+# base; a file outside base keeps its full path.
 append_file_digests() (
-  local material="$1" label="$2"
-  shift 2
+  local material="$1" label="$2" base="$3"
+  shift 3
   local file display record digest_file index
   local -a batch=() present=()
   digest_file="$(mktemp "$scratch_root/digests.XXXXXX")" || fail "cache temporary allocation failed"
@@ -52,7 +54,7 @@ append_file_digests() (
     index=0
     exec 3<"$digest_file"
     for file in "${batch[@]}"; do
-      display="${file#"$ROOT_DIR"/}"
+      display="${file#"$base"/}"
       if [[ "${present[$index]:-}" == "$file" ]]; then
         IFS= read -r -d '' record <&3 || fail "incomplete cache digest batch"
         [[ "${record:64:2}" == '  ' && "${record:66}" == "$file" && "${record:0:64}" =~ ^[0-9a-f]{64}$ ]] || fail "invalid cache digest batch"
@@ -108,16 +110,25 @@ assert_artifact_path() {
 }
 
 append_file_digest() {
-  append_file_digests "$1" "$2" "$3"
+  append_file_digests "$1" "$2" "$ROOT_DIR" "$3"
 }
 
+# append_dir_digest records one digest over a directory's files. Outputs and
+# artifacts keep their declared repository paths. An input directory (mode
+# "content") is keyed by its files relative to itself, never by where it
+# lives, so a per-run copy of the same tree is the same input.
 append_dir_digest() {
   local material="$1"
   local label="$2"
   local dir="$3"
-  local display
+  local mode="${4:-located}"
+  local display base="$ROOT_DIR"
   local digest_file digest
   display="${dir#"$ROOT_DIR"/}"
+  if [[ "$mode" == "content" ]]; then
+    display="content"
+    base="$dir"
+  fi
   if [[ ! -d "$dir" ]]; then
     printf '%s\t%s\tmissing\n' "$label" "$display" >>"$material" || fail "cache material write failed"
     return
@@ -132,7 +143,7 @@ append_dir_digest() {
   fi
   mapfile -d '' -t files <"$files_file" || fail "cache directory discovery failed"
   rm -f -- "$files_file"
-  append_file_digests "$digest_file" "file" "${files[@]}" || return $?
+  append_file_digests "$digest_file" "file" "$base" "${files[@]}" || return $?
   digest="$(sha256_text_file "$digest_file")" || fail "cache hashing failed"
   printf '%s\t%s\tsha256:%s\n' "$label" "$display" "$digest" >>"$material" || fail "cache material write failed"
   rm -f "$digest_file"
@@ -330,9 +341,9 @@ printf 'helper\tsha256:%s\n' "$helper_digest" >>"$key_material"
 for key in "${key_values[@]}"; do
   printf 'key\t%s\n' "$key" >>"$key_material"
 done
-append_file_digests "$key_material" "input" "${inputs[@]}"
+append_file_digests "$key_material" "input" "$ROOT_DIR" "${inputs[@]}"
 for input_dir in "${input_dirs[@]}"; do
-  append_dir_digest "$key_material" "input-dir" "$input_dir"
+  append_dir_digest "$key_material" "input-dir" "$input_dir" content
 done
 for output in "${outputs[@]}"; do
   printf 'output-contract\tfile\t%s\n' "$(repo_rel "$output")" >>"$key_material"

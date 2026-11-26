@@ -294,8 +294,8 @@ const files = [...Array.from({length:260},(_,i)=>`${dir}/input-${i}`), ...["spac
 let material = `schema_id\tcartulary.harness_cache_record.v2\nscope\tbuild-artifact\nprofile\tbatch\nplatform\t${os.type()}:${os.machine()}\nhelper\tsha256:${hash(readFileSync(script))}\nkey\tfixture=batch\n`;
 for (const file of files) material += `input\t${relative(file)}\tsha256:${hash(readFileSync(file))}\n`;
 material += `input\t${relative(`${dir}/missing`)}\tmissing\n`;
-const member = `file\t${relative(`${dir}/dir/member`)}\tsha256:${hash(readFileSync(`${dir}/dir/member`))}\n`;
-material += `input-dir\t${relative(`${dir}/dir`)}\tsha256:${hash(member)}\noutput-contract\tfile\t${relative(`${dir}/output`)}\ncommand\t${dir}/build\n`;
+const member = `file\tmember\tsha256:${hash(readFileSync(`${dir}/dir/member`))}\n`;
+material += `input-dir\tcontent\tsha256:${hash(member)}\noutput-contract\tfile\t${relative(`${dir}/output`)}\ncommand\t${dir}/build\n`;
 const records = readdirSync(`${dir}/cache/batch`);
 assert.equal(records.length,1);
 const record = JSON.parse(readFileSync(`${dir}/cache/batch/${records[0]}`));
@@ -310,6 +310,32 @@ assert_equals "$(grep -c '^run$' "$BATCH_LOG")" "1" "batched warm reuse"
 printf 'changed output\n' >"$batch_root/output"
 run_batch
 assert_equals "$(grep -c '^run$' "$BATCH_LOG")" "2" "changed output rejects reuse"
+
+# An input directory is keyed by its content, not its location: the same tree
+# under another (for example per-run) path reuses the record, and a changed
+# member does not.
+relocated_root="$TMP_DIR/relocated"
+mkdir -p "$relocated_root/first/tree" "$relocated_root/second/tree"
+printf 'same\n' >"$relocated_root/first/tree/member"
+printf 'same\n' >"$relocated_root/second/tree/member"
+cat >"$relocated_root/build" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'run\n' >>"$RELOCATED_LOG"
+cp "$RELOCATED_INPUT/member" "$RELOCATED_OUTPUT"
+SH
+chmod +x "$relocated_root/build"
+run_relocated() {
+  RELOCATED_LOG="$relocated_root/build.log" RELOCATED_INPUT="$1" RELOCATED_OUTPUT="$relocated_root/output" \
+    "$SCRIPT" --scope build-artifact --profile relocated --cache-dir "$relocated_root/cache" \
+      --input-dir "$1" --output "$relocated_root/output" -- "$relocated_root/build"
+}
+run_relocated "$relocated_root/first/tree"
+run_relocated "$relocated_root/second/tree"
+assert_equals "$(grep -c '^run$' "$relocated_root/build.log")" "1" "relocated identical input directory reuses the record"
+printf 'changed\n' >"$relocated_root/second/tree/member"
+run_relocated "$relocated_root/second/tree"
+assert_equals "$(grep -c '^run$' "$relocated_root/build.log")" "2" "changed input directory member executes command"
 if FAIL_HASH_BATCH=1 run_batch >"$batch_root/failure.log" 2>&1; then
   fail "failed digest batch was accepted"
 fi
@@ -331,7 +357,7 @@ case "$FAULT_STAGE" in
   helper) [[ "$last" != "$CACHE_HELPER" ]] || reject=1 ;;
   input_directory) [[ "$last" != "$FAULT_ROOT/input-dir/member" ]] || reject=1 ;;
   directory_digest)
-    if [[ "${1:-}" != --zero ]] && grep -Fq "/input-dir/member" "$last"; then reject=1; fi ;;
+    if [[ "${1:-}" != --zero ]] && grep -Eq $'^file\tmember\t' "$last"; then reject=1; fi ;;
   output_before) [[ "$last" != "$FAULT_ROOT/output" ]] || reject=1 ;;
   output_after)
     if [[ -f "$FAULT_ROOT/produced" && "$last" == "$FAULT_ROOT/output" ]]; then reject=1; fi ;;

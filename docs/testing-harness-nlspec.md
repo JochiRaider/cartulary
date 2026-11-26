@@ -2565,6 +2565,10 @@ command/profile inputs, helper implementation digests, selected source and
 configuration digests, and every declared output contract needed by the
 profile. Broad timestamp-only caching is invalid. Same-run records exist only
 in the current scheduler invocation and cannot be promoted to retained reuse.
+Locations are not key material (amended 2026-11-26): scratch, cache and
+per-run directories reach a producer through its environment, never through
+its keyed command, and an input directory is keyed by its files relative to
+that directory, so a per-run copy of the same tree is the same input.
 
 Cached Go build-artifact profiles MUST pass `-buildvcs=false`. Git revision and
 dirty-worktree stamping are undeclared repository-state inputs and MUST NOT alter a
