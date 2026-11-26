@@ -483,7 +483,7 @@ func (c *compiler) browserFinalizers() error {
 			SharedLocks: shared, ExclusiveLocks: exclusive, FixtureLease: "none", PostgresIsolation: "none", CachePolicy: "none",
 			TimeoutMS: c.in.Owner.DefaultTimeoutMS, EvidenceOutputs: evidence, FailurePolicy: FailurePolicy{BlockDescendants: true},
 			EstimatedWorkMS: c.in.Owner.LifecycleEstimatesMS["browser_target_finalize"],
-			Command:         Command{Executable: "node", Args: args, Environment: map[string]string{"CARTULARY_DEFER_OBSERVABILITY_FINALIZE": "1"}},
+			Command:         Command{Executable: "node", Args: args, Environment: map[string]string{}},
 		}
 	}
 	return nil

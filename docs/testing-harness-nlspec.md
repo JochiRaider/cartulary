@@ -10701,6 +10701,10 @@ and release inputs, never through Markdown reads. Go build/cache identities and
 semantic fingerprints include the exact toolchain, module selector, module archive
 digest, compiler settings and effective mode. Stale cache entries MUST NOT
 silently supply ordinary, differently pinned or disabled-mode application binaries.
+A Go binary's build key covers every repository file its build reads: the
+non-test Go, cgo, assembly and C sources and the embedded files of each package
+in its import closure under its build tags (amended 2026-11-26, G47). A builder
+receipts the staged binary before publishing either file.
 Build receipts and package results include actual binary hashes and resolved
 build/module identities; caller-provided labels are not substitutes.
 

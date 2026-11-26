@@ -383,9 +383,6 @@ export function writeStepArtifacts(context, details) {
     stepSummarySchemaID,
     summary,
   );
-  if (process.env.CARTULARY_DEFER_TOOL_SUMMARY === "1") {
-    return;
-  }
   const runRootAbs = path.join(resultsRoot, runId);
   const runRoot = relToRepo(runRootAbs);
   const toolSummaryFile = toolSummaryPath(targetRunRoot);

@@ -23,7 +23,9 @@ export function verifyArchive(go, env = process.env) {
   if (digest !== policy.cryptographic_module.archive_sha256) throw new Error("cryptographic module archive digest rejected");
   return { toolchain: identity.GOVERSION, ...policy.cryptographic_module };
 }
-export function buildReceipt(go, binary, env = process.env) {
+// buildReceipt writes the receipt for binary to target, beside the binary unless
+// a builder stages both before publishing them.
+export function buildReceipt(go, binary, env = process.env, target = `${binary}.crypto.json`) {
   const module = verifyArchive(go, env);
   const info = JSON.parse(goOutput(go, ["version", "-m", "-json", binary], env));
   const selectors = info.Settings.filter((s) => s.Key === "GOFIPS140");
@@ -34,7 +36,6 @@ export function buildReceipt(go, binary, env = process.env) {
   validateSchemaSync(receipt.schema_id, receipt);
   // Readers may inspect a receipt while a nested build republishes its binary;
   // rename the complete receipt into place rather than rewriting it.
-  const target = `${binary}.crypto.json`;
   const staging = path.join(path.dirname(target), `.${path.basename(target)}.${process.pid}.tmp`);
   try {
     writeFileSync(staging, `${JSON.stringify(receipt, null, 2)}\n`, { mode: 0o600, flag: "wx" });

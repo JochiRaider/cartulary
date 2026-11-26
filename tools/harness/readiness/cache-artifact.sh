@@ -14,6 +14,9 @@ input_dirs=()
 outputs=()
 output_dirs=()
 key_values=()
+go_packages=()
+go_tags=""
+go_module_dir=""
 command=()
 
 fail() {
@@ -107,6 +110,26 @@ assert_artifact_path() {
     [[ "$parent" != "$candidate" ]] || break
     candidate="$parent"
   done
+}
+
+# go_closure_files lists the files a Go build of the --go-package packages
+# reads from their module (the repository unless --go-module-dir names one): every non-test Go, cgo, assembly and C source and every
+# embedded file of each package in its import closure, under the build's own
+# module and build caches. An imported or embedded file can therefore never be
+# missing from the key, and a test file never enters it (G47).
+go_closure_files() {
+  local go_bin="${GO:?--go-package requires GO}"
+  # shellcheck disable=SC2016 # $d is a Go template variable, not a shell expansion.
+  local template='{{if not .Standard}}{{$d := .Dir}}{{range .GoFiles}}{{$d}}/{{.}}{{"\n"}}{{end}}{{range .CgoFiles}}{{$d}}/{{.}}{{"\n"}}{{end}}{{range .SFiles}}{{$d}}/{{.}}{{"\n"}}{{end}}{{range .CFiles}}{{$d}}/{{.}}{{"\n"}}{{end}}{{range .HFiles}}{{$d}}/{{.}}{{"\n"}}{{end}}{{range .EmbedFiles}}{{$d}}/{{.}}{{"\n"}}{{end}}{{end}}'
+  local -a args=(list -deps -f "$template")
+  if [[ -n "$go_tags" ]]; then args+=(-tags "$go_tags"); fi
+  local listing
+  local module="${go_module_dir:-$ROOT_DIR}"
+  listing="$(cd "$module" && env GOCACHE="${GO_CACHE_DIR:?--go-package requires GO_CACHE_DIR}" \
+    GOMODCACHE="${GO_MOD_CACHE_DIR:?--go-package requires GO_MOD_CACHE_DIR}" GOFLAGS=-mod=readonly \
+    "$go_bin" "${args[@]}" -- "${go_packages[@]}")" || return 1
+  # Module dependencies outside the repository are bound by go.sum.
+  printf '%s\n' "$listing" | awk -v root="$module/" 'index($0, root) == 1' | LC_ALL=C sort -u
 }
 
 append_file_digest() {
@@ -305,6 +328,9 @@ while [[ "$#" -gt 0 ]]; do
     --output) outputs+=("${2:-}"); shift 2 ;;
     --output-dir) output_dirs+=("${2:-}"); shift 2 ;;
     --key) key_values+=("${2:-}"); shift 2 ;;
+    --go-package) go_packages+=("${2:-}"); shift 2 ;;
+    --go-tags) go_tags="${2:-}"; shift 2 ;;
+    --go-module-dir) go_module_dir="${2:-}"; shift 2 ;;
     --) shift; command=("$@"); break ;;
     *) fail "unknown cache-artifact argument: $1" ;;
   esac
@@ -342,6 +368,14 @@ for key in "${key_values[@]}"; do
   printf 'key\t%s\n' "$key" >>"$key_material"
 done
 append_file_digests "$key_material" "input" "$ROOT_DIR" "${inputs[@]}"
+if [[ "${#go_packages[@]}" -gt 0 ]]; then
+  go_inputs=()
+  mapfile -t go_inputs < <(go_closure_files) || fail "Go build closure discovery failed"
+  [[ "${#go_inputs[@]}" -gt 0 ]] || fail "Go build closure discovery found no repository files"
+  printf 'go-package\t%s\n' "${go_packages[@]}" >>"$key_material"
+  printf 'go-tags\t%s\n' "$go_tags" >>"$key_material"
+  append_file_digests "$key_material" "go-input" "$ROOT_DIR" "${go_inputs[@]}"
+fi
 for input_dir in "${input_dirs[@]}"; do
   append_dir_digest "$key_material" "input-dir" "$input_dir" content
 done
@@ -383,12 +417,6 @@ if [[ "$disabled" -eq 0 && "$forced" -eq 0 && -f "$record_file" && ! -L "$record
       exit 0
     fi
   fi
-fi
-
-if [[ "$scope" == "readiness" && "${CARTULARY_READINESS_CHECK_ONLY:-0}" == "1" ]]; then
-  rm -f "$key_material"
-  echo "readiness cache miss for $profile_id; run the public bootstrap or install target" >&2
-  exit 2
 fi
 
 if [[ "${#command[@]}" -eq 0 ]]; then

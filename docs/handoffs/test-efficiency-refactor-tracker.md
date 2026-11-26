@@ -127,7 +127,7 @@ eleven `ci` runs of the release attempts (Section 13.1). Single runs vary by abo
 | G44 | Make and the planner both own ordering, freshness, environment and prerequisite skipping: 26 operations re-enter Make, 17 targets carry two recipes chosen by `GRAPH_CHILD`, five freshness mechanisms coexist, and graph-only Make edges run work twice | Machine inputs, implementation, specification | Phase 5 | Open: P5-0 removed the renderer double run (14.5); P5-1 made every test script a row and removed five duplicate operations (14.6); P5-3 remains |
 | G45 | Units inherit the graph process's whole environment (the shell's variables and up to 127 Make exports), minus hand-kept strip lists; harness code reads 478 `CARTULARY_*` names with no declaration, so leaks, stale names and typos fail silently | Machine inputs, implementation, specification | Phase 5, P5-4 | Open: P5-4a registered every harness name and enforces it (14.8); P5-4b made unit environments default-deny (14.9); P5-4c slices 1 to 3 made every outside launcher explicit (14.11 to 14.13); P5-4d slices 1 to 4 gave 57 names a single owner and enforce it in Node, Go and shell, covering every multi-writer invocation-context, fixture-binding and step-runtime name (14.14 to 14.17); the P5-4d exit is met. Left for P5-3: mode switches, strip lists and the overlay; the environment tidy classified product-derived names, folded fixture identity into the browser binding, replaced the cleanup marker with an argument, deleted the constant Playwright worker names and closed two check blind spots (14.23) |
 | G46 | A runtime whose cleanup fails is preserved for recovery behind a seal while it still holds resources, but startup recovery skips every sealed root on the rule that sealed roots have drained. A stranded `p58-browser` resident held one of the eight PostgreSQL generation slots in every later run | Specification, implementation | Phase 5 | Closed: `p58-browser` recovered, startup recovery decides by resource records, and the eight legacy roots were removed with owner approval (14.19) |
-| G47 | Build-artifact keys come from hand-listed source roots. The server, operator and migrate binaries import 22, 22 and 19 `internal/gen` packages that none of their keys covers, and the server key also omits `db/migrations`, which the server embeds: a migration-only or generator-only change reuses a stale binary | Machine inputs, implementation | Phase 5, P5-3a | Open: fixed first in P5-3a; P5-3b derives keys from the Go package closure (14.24) |
+| G47 | Build-artifact keys come from hand-listed source roots. The server, operator and migrate binaries import 22, 22 and 19 `internal/gen` packages that none of their keys covers, and the server key also omits `db/migrations`, which the server embeds: a migration-only or generator-only change reuses a stale binary | Machine inputs, implementation | Phase 5, P5-3a | Closed: every Go build Make runs is keyed by its import closure from `go list -deps` (14.25) |
 
 ## 5. Gap Remediation Detail
 
@@ -1369,6 +1369,7 @@ Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-am
 | 2026-11-26 | Child CPU budget | The registry's `budget` names (`GOMAXPROCS`) pass to every child that a launcher builds, and never come from the graph's environment; `processtest` helper launches pass their mode explicitly | `p71-generate`, `p71-lintgo`, `p71-lintscripts`, `p71-cs`, `p71-server`, `p71-surface`, `p71-generated`; `p72-lintgo`, `p72-cs`, `p72-server`, `p72-nf`, `p72-browser`, `p72-md` | Pass. `p71-cs` failed the `ci`-only `processtest` row, a P5-4c regression: its helper mode reached the child only by inheritance. It passes after the repair, as do the other seven `ci`-only rows that start processes through `childenv` (14.21) |
 | 2026-11-26 | P5-2 / G43 | The six rows that start nested graphs are `explicit_only` in five explicit `harness-contract` presets; a graph refuses to start beneath an aggregate run of the same repository (D20) | `p73-generate`, `p73-plan-*`, `p73b-plan-*`; `p74-generate`, `p74-lintgo`, `p74-catalog`, `p74-generated`, `p74-runtime`, `p74-refused`, `p74-allowed`, `p74-nested`, `p74-realout`, `p74-lifetime`, `p74-md` | Pass. `ci` plans 2,652 rows in 500 units (2,658 in 506); `check` is unchanged; the presets keep their rows. A stand-in `ci` process refuses a real nested `test-slice`, and a stand-in `harness-contract` allows it (14.22) |
 | 2026-11-26 | Environment tidy / G45 | `product_derived` role for 14 names; fixture identity in `browser_binding`; `cleanup-web-e2e --process-cleanup` replaces its marker; Playwright worker names deleted; the check counts quoted shell assignments and loop-variable writes | `p75-generate`, `p75-format`, `p75-lint*`, `p75-surface`, `p75-catalog`, `p75-identity`, `p75-generated`, `p75-cs`, `p75-hb`, `p75-incidents`, `p75-md`; `p75-plan-measure-old` and `-new` | Pass. The registry holds 477 names (480) and its check has no findings; the new loop rule's one finding is repaired. `release-measure` plans identically before and after (14.23) |
+| 2026-11-26 | P5-3a / G47 | Go build keys are each binary's import closure; receipts are built for the staged binary; the 17 graph-child recipes, 11 unused Makefile variables, one runtime macro and four dead switches removed | `p77-*` (segments, real builds, pre-graph timing), `p78-lintshell`, `p78-lintscripts`, `p78-cache`, `p79-check01` | Pass. Segments found ShellCheck SC2016 on two intended strings and a test cleanup defeated by read-only module files; both repaired. `p79-check01` passed all 1,897 rows in a 543 s graph (14.25) |
 | 2026-11-25 | P4-4 / G39 | Wait audit: 31 whole-test hang guards derive from the test deadline (`testdeadline`) | `p44-port-*` (16 owner slices, every row holding a converted guard) | Pass. Committed `bdd8f4e1d` |
 
 ## 12. Phase 2 Plan — `check` Wall Clock
@@ -2663,7 +2664,7 @@ Status: proposed 2026-11-26 at the owner's request. P5-0, P5-1 and P5-2 done (14
 | P5-1 | Flat catalog: every check is a row with an owner, so any of them runs alone with `ROWS=`; selections list rows and operations, not other selections. **Done 2026-11-26** (14.6): every test script is a row and duplicates are gone; selection nesting stays (14.6) | G44 |
 | P5-2 | Unnest: harness-mechanics probes run as first-class graph rows against private outputs, or move to an explicit harness suite outside `ci`; a source check forbids rows that launch `make` or `graph` against the shared repository | G43 |
 | P5-4 | Declared environment: a registry of every harness variable, default-deny unit environments, one typed unit context document, fixture bindings in that document (14.7) | G43, G45 |
-| P5-3 | Thin Make: Make only admits the workspace and forwards to the harness; build operations become data with declared inputs, environment keys and outputs; one Go content-addressed store replaces `cache-artifact.sh`, the renderer store and web staging; no unit re-enters Make; one toolchain environment from the pins for builds and tests. **Planned 2026-11-26** (14.24): five steps, P5-3a to P5-3e | G44 |
+| P5-3 | Thin Make: Make only admits the workspace and forwards to the harness; build operations become data with declared inputs, environment keys and outputs; one Go content-addressed store replaces `cache-artifact.sh`, the renderer store and web staging; no unit re-enters Make; one toolchain environment from the pins for builds and tests. **Planned 2026-11-26** (14.24): five steps, P5-3a to P5-3e; P5-3a done (14.25) | G44 |
 
 P5-0 is small and removes the hazards seen in `ci`. P5-1 makes segments
 possible for every check. P5-3 is the largest and needs specification
@@ -2688,11 +2689,11 @@ amendments.
 | D21 | Approve P5-4 scope and order (P5-4a to P5-4d); P5-4c redefined by the owner on 2026-11-26 as single-writer ownership (14.10), and P5-4d as single owners (14.14) | Approve P5-4a and P5-4b now; decide P5-4c and P5-4d on P5-4b's measurements. **Approved 2026-11-26** |
 | D22 | How a unit finds its context document | A path in one variable: it survives Make re-entry and child tools; the admission lease keeps its file descriptor. **Approved 2026-11-26** |
 | D23 | P5-4 against P5-2 and P5-3 | P5-4a and P5-4b before P5-2, since unnesting is simpler once children start from a declared environment; mode switches leave with P5-3. **Approved 2026-11-26** |
-| D24 | Where the P5-3 store lives | Repository-local `.cache/cartulary/store`, beside today's caches, so locks and collection stay within one checkout; sharing across worktrees is a later change |
-| D25 | How conventional paths stay valid | Published views swapped by rename: hard links for files and an atomically renamed tree for directories. Never a symbolic link, which the container build would copy as a link |
-| D26 | cgo for shipped binaries | `CGO_ENABLED=0` everywhere, as tests and the package probes already use; adopted only if the release package rows pass |
-| D27 | Checkout-independent binaries | `-trimpath` for product binaries, so a binary's digest does not depend on the checkout path; the one-time digest change is recorded |
-| D28 | Cache controls | Keep the public `CARTULARY_BUILD_CACHE_DISABLE` and `CARTULARY_FORCE_REBUILD` as the store's two controls; fold the readiness, reinstall and static-analysis variants into them |
+| D24 | Where the P5-3 store lives | Repository-local `.cache/cartulary/store`, beside today's caches, so locks and collection stay within one checkout; sharing across worktrees is a later change. **Approved 2026-11-26** |
+| D25 | How conventional paths stay valid | Published views swapped by rename: hard links for files and an atomically renamed tree for directories. Never a symbolic link, which the container build would copy as a link. **Approved 2026-11-26** |
+| D26 | cgo for shipped binaries | `CGO_ENABLED=0` everywhere, as tests and the package probes already use; adopted only if the release package rows pass. **Approved 2026-11-26** |
+| D27 | Checkout-independent binaries | `-trimpath` for product binaries, so a binary's digest does not depend on the checkout path; the one-time digest change is recorded. **Approved 2026-11-26** |
+| D28 | Cache controls | Keep the public `CARTULARY_BUILD_CACHE_DISABLE` and `CARTULARY_FORCE_REBUILD` as the store's two controls; fold the readiness, reinstall and static-analysis variants into them. **Approved 2026-11-26** |
 
 ### 14.5 Fences (P5-0)
 
@@ -3690,7 +3691,8 @@ Decision D20 (owner, 2026-11-26): nested harness probes run in explicit
 
 Status: planned 2026-11-26 at the owner's request. Owner direction: retire as
 much of the Makefile as needed; a thin wrapper is better than a complicated
-one. Decisions D24 to D28 are open.
+one. Approved with D24 to D28 as recommended on 2026-11-26; P5-3a done
+(14.25).
 
 **Problem (G44, G47).** Measured at `db2304ea9`:
 
@@ -3805,3 +3807,75 @@ publishes. `ci` folds into P4-7's final validation.
 - **Bootstrap edits module files.** `install-go-dependencies.sh` can rewrite
   `go.mod` and `go.sum`, which every Go key reads. P5-3c makes bootstrap
   read-only, or makes the edit explicit.
+
+### 14.25 Correctness and Dead Make (P5-3a)
+
+Approved by the owner on 2026-11-26 with P5-3 and D24 to D28 as recommended.
+
+- **Go build keys are the import closure (G47).**
+  - **New option.** `cache-artifact.sh` takes `--go-package` (with `--go-tags`).
+  - **What the key covers.** It keys every repository file the build reads:
+    the non-test Go, cgo, assembly and C sources and the embedded files of each
+    package that `go list -deps` reports. It runs under the build's own module
+    and build caches, read-only.
+  - **Which builds use it.** Every Go build Make runs: the server, harness
+    server, migrate, operator, harness runtime, test services, source check and
+    the embedded-asset generator. The hand-listed root sets and their discovery
+    macro are gone.
+  - **Effect.** The server's key now holds its 31 embedded migration files and
+    40 generated files, and no test file. A test-only edit no longer rebuilds a
+    binary. Listing a closure takes about 0.1 s.
+- **Binary and receipt.**
+  - The build helper writes the receipt for the staged binary, so the receipt
+    check rejects a bad binary before anything is published.
+  - It then renames the binary and the receipt into place back to back, inside
+    the cache lock.
+  - The seven Make rules no longer rewrite the receipt after the cache step,
+    outside the lock. A cache hit already proves the receipt matches its
+    record. One atomic pointer for both files waits for P5-3b's store.
+- **Dead Make removed.**
+  - **The 17 graph-child recipes.** The renderer emits only the graph launch for
+    a graph-entry target, because the graph runs the operation through the
+    operation runner. The generated include lost 195 lines and has no
+    `GRAPH_CHILD` test. The wrapper smoke's two calls now reach the graph
+    launch's preflight, which rejects their overrides with the same exit status.
+  - **Eleven unused Makefile variables and one unused runtime macro.** The
+    variables are the Go and pnpm environments, the owned-stack environment, the
+    step macro, three tool flag sets, `comma` and a duplicate `Q`; the macro is
+    `TASK_SURFACE_GO_ENV`.
+  - **Four mode switches with no reader or no writer.**
+    `TARGET_EVIDENCE_FINALIZE`, `DEFER_OBSERVABILITY_FINALIZE`,
+    `DEFER_TOOL_SUMMARY` and `READINESS_CHECK_ONLY`, with the cache helper's
+    inspect-only branch and its test. The registry holds 16 mode switches and
+    473 names.
+- **Measured pre-graph cost.** A small warm `test-slice` takes 1.3 s of wall time
+  around a 0.2 s graph, so about 1.1 s goes to Make, admission and preflight. A
+  `lint CHECK=go` that rebuilt the harness binary spent 5.5 s outside its graph.
+- **Kept for P5-3c.** `list-build-inputs.sh` now has no production caller; its
+  test, operation and row go with `cache-artifact.sh`.
+- **Specification.** Amended: a Go binary's key covers its import closure, and
+  a builder receipts the staged binary before publishing either file.
+- **Validation.**
+  - **Segments (`p77-*`).**
+    - `make generate`, Go and script lint, and `source-check` for surface,
+      catalog and generated all passed.
+    - Nine command-surface rows passed, among them the wrapper smoke, generate
+      drift, task-surface report and planner. So did two generated-artifact
+      rows and three evidence-accounting rows.
+    - `make build` rebuilt `migrate`, `operator` and `server` on their new
+      keys, then reused all three. `build COMPONENT=server-harness` rebuilt it.
+  - **Two failures, both repaired (`p78-*`).**
+    - ShellCheck rejected the two intended single-quoted `$` strings (SC2016).
+      The Go template now carries a disable directive with its reason, and the
+      test's stub producer is a heredoc.
+    - The cache-artifact row failed after every assertion had passed. Under the
+      unit's `GOFIPS140` setting, `go list` downloaded the module snapshot into
+      the test's empty module cache, read-only, and the cleanup could not delete
+      it. The test now uses the build's caches and makes its scratch writable
+      before removing it.
+  - **`p79-check01`.** All 1,897 rows passed. The graph took 543 s against 577 s
+    at P5-4b, and 617 and 674 s while the leaked PostgreSQL slot held a lane
+    (14.18). Wall time was 555 s.
+    - Artifact units took 87 s (78 s in `p66`). Every Go tool's key includes the
+      whole Makefile, so this change rebuilt the seven tools once.
+    - The renderer's reuse check took 25 s (41 s in `p66`).

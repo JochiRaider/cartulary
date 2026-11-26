@@ -91,14 +91,13 @@ export function renderTaskSurfaceMakeRuntime(manifest) {
     "TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV = $(foreach name,$(TASK_SURFACE_PUBLIC_INPUT_NAMES),-u $(name))",
     'TASK_SURFACE_MACHINE_STATE_ENV = CARTULARY_MACHINE_CACHE_DIR="$(CARTULARY_MACHINE_CACHE_DIR)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" CARTULARY_HARNESS_SCRATCH_ROOT="$(CARTULARY_HARNESS_SCRATCH_ROOT)"',
     'TASK_SURFACE_RUN_ENV = NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_CANONICAL_TASK_SURFACE_MANIFEST)"',
-    'TASK_SURFACE_GO_ENV = GO="$(GO)" $(TASK_SURFACE_MACHINE_STATE_ENV) NODE_BIN="$(NODE_BIN)"',
     'TASK_SURFACE_GRAPH_RUNTIME = MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" "$(HARNESS_RUNTIME_BIN)" graph',
     'TASK_SURFACE_NODE_READINESS = if [ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi',
     'RUN_MAKE_PREREQUISITES = if $(1); then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(2); fi',
     'TASK_SURFACE_PREREQUISITES_NEEDED = [ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ]',
     'RUN_MAKE_NODE_TOOL = env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_IDENTITY_PREPARED=1 CARTULARY_TEST_TARGET="$(1)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,$(TASK_SURFACE_PUBLIC_INPUT_NAMES))" NODE_BIN="$(NODE_BIN)" $(2) ./tools/harness/execution/run-make-node-tool.sh $(3)',
     'RUN_PUBLIC_PREFLIGHT = env $(TASK_SURFACE_LITERAL_INPUT_ENV) CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,$(TASK_SURFACE_PREFLIGHT_INPUT_NAMES))" $(RUN_HARNESS_PREFLIGHT) $(1)',
-    "RUN_TARGET_SUMMARY_COMMAND = env $(TASK_SURFACE_RUN_ENV) CARTULARY_TARGET_EVIDENCE_FINALIZE=1 $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) target-summary $(1) $(2) $(3)",
+    "RUN_TARGET_SUMMARY_COMMAND = env $(TASK_SURFACE_RUN_ENV) $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) target-summary $(1) $(2) $(3)",
     "RUN_TARGET_SUMMARY = $(Q)$(call RUN_TARGET_SUMMARY_COMMAND,$(1),$(2),)",
     "RUN_RETAINED_TARGET_SUMMARY = CARTULARY_OUTPUT_MODE=quiet $(call RUN_TARGET_SUMMARY_COMMAND,$(1),$(2),--quiet-success --suppress-machine-output --preserve-existing-tool-summary)",
     "",
@@ -206,9 +205,10 @@ function shouldEmitRetainedTargetSummary(recipe, entry, manifest) {
 }
 
 function renderMakeRecipe(recipe, manifest) {
+  // A graph-entry target enters its graph. The graph runs the target's
+  // operation through the operation runner, never through this Make target,
+  // so the target needs no second, graph-child recipe.
   if (recipe.graph_entry === true) {
-    const childRecipe = { ...recipe };
-    delete childRecipe.graph_entry;
     const graphRecipe = {
       target: recipe.target,
       prerequisites: ["$(NODE_BIN)", "$(HARNESS_RUNTIME_BIN)"],
@@ -218,13 +218,7 @@ function renderMakeRecipe(recipe, manifest) {
       exports: recipe.exports,
       comments: recipe.comments,
     };
-    return [
-      "ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)",
-      ...renderMakeRecipe(childRecipe, manifest),
-      "else",
-      ...renderMakeRecipe(graphRecipe, manifest),
-      "endif",
-    ];
+    return renderMakeRecipe(graphRecipe, manifest);
   }
   const entry = targetEntryMap(manifest).get(recipe.target);
   // Documentation maintenance uses the installed linter directly, outside the

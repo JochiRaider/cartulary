@@ -34,11 +34,14 @@ mkdir -p "$(dirname "$output")" "$go_cache_dir" "$go_mod_cache_dir" "$go_tmp_dir
 # unit's temporary root is memory-backed). Build beside the output and rename it
 # into place: an exec sees the previous or the new binary, never a partial one.
 staging="$(mktemp "$(dirname "$output")/.$(basename "$output").build.XXXXXX")"
-trap 'rm -f -- "$staging"' EXIT
+receipt_staging="$(mktemp "$(dirname "$output")/.$(basename "$output").crypto.XXXXXX")"
+trap 'rm -f -- "$staging" "$receipt_staging"' EXIT
 CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \
   "$run_step" "$label" -- \
   env GOCACHE="$go_cache_dir" GOMODCACHE="$go_mod_cache_dir" GOTMPDIR="$go_tmp_dir" \
   "$go_bin" build "${go_build_args[@]}" -o "$staging" "$package"
+# The receipt describes the staged binary, so a binary the receipt rejects is
+# never published, and the two are renamed into place back to back.
+"${NODE_BIN:?}" tools/harness/readiness/cryptographic-build-cli.mjs receipt "$staging" "$receipt_staging"
 mv -f -- "$staging" "$output"
-
-"${NODE_BIN:?}" tools/harness/readiness/cryptographic-build-cli.mjs receipt "$output"
+mv -f -- "$receipt_staging" "$output.crypto.json"

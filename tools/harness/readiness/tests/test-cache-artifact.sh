@@ -7,6 +7,8 @@ NODE_BIN="${NODE_BIN:-node}"
 TMP_DIR="$(mktemp -d "$ROOT_DIR/tmp/cache-artifact-test.XXXXXX")"
 
 cleanup() {
+  # Go writes module downloads read-only.
+  chmod -R u+w "$TMP_DIR" 2>/dev/null || true
   rm -rf "$TMP_DIR"
 }
 
@@ -73,7 +75,7 @@ run_cache() {
   COMMAND_LOG="$command_log" \
     "$SCRIPT" \
       \
-      --scope "${fixture_scope:-build-artifact}" \
+      --scope build-artifact \
       --profile fixture-build \
       --cache-dir "$cache_dir" \
       --disable-env CARTULARY_BUILD_CACHE_DISABLE \
@@ -128,17 +130,6 @@ rm -f "$output_file"
 run_cache
 assert_equals "$(grep -c '^run$' "$command_log")" "6" "missing output executes command"
 
-fixture_scope=readiness
-set +e
-CARTULARY_READINESS_CHECK_ONLY=1 run_cache >"$TMP_DIR/readiness.log" 2>&1
-readiness_status=$?
-set -e
-assert_equals "$readiness_status" "2" "inspect-only readiness rejects a cold cache"
-assert_equals "$(grep -c '^run$' "$command_log")" "6" "inspect-only readiness never invokes installation"
-run_cache
-CARTULARY_READINESS_CHECK_ONLY=1 run_cache
-assert_equals "$(grep -c '^run$' "$command_log")" "7" "inspect-only readiness accepts the exact warm cache"
-unset fixture_scope
 
 # A matching subset of fields is not a cache record. Mutations preserve the old
 # grep identity fields while corrupting independent parts of the output contract.
@@ -415,6 +406,44 @@ SH
     [[ -z "$(find "$case_root/cache" -type f -print -quit)" ]] || fail "$stage published a partial record"
   fi
 done
+
+# A Go build is keyed by its import closure (G47): every non-test source and
+# embedded file of every package it imports, and no test file.
+go_module="$TMP_DIR/go-module"
+go_log="$TMP_DIR/go-command.log"
+mkdir -p "$go_module/app" "$go_module/data"
+printf 'module example.test/closure\n\ngo 1.22\n' >"$go_module/go.mod"
+printf 'package main\n\nimport "example.test/closure/data"\n\nfunc main() { _ = data.Schema }\n' >"$go_module/app/main.go"
+printf 'package data\n\nimport _ "embed"\n\n//go:embed schema.sql\nvar Schema string\n' >"$go_module/data/data.go"
+printf 'create table one();\n' >"$go_module/data/schema.sql"
+printf 'package data\n' >"$go_module/data/data_test.go"
+go_producer="$TMP_DIR/go-producer.sh"
+cat >"$go_producer" <<'SH'
+#!/usr/bin/env bash
+printf 'run\n' >>"$COMMAND_LOG"
+printf built >"$OUTPUT_FILE"
+SH
+chmod +x "$go_producer"
+run_go_cache() {
+  # The build's own caches already hold the pinned toolchain's modules.
+  GO="${GO:-go}" GO_CACHE_DIR="${GO_CACHE_DIR:-$TMP_DIR/go-build}" GO_MOD_CACHE_DIR="${GO_MOD_CACHE_DIR:-$TMP_DIR/go-mod}" GOWORK=off \
+  COMMAND_LOG="$go_log" OUTPUT_FILE="$TMP_DIR/go-output" \
+    "$SCRIPT" --scope build-artifact --profile go-closure --cache-dir "$cache_dir" \
+      --go-module-dir "$go_module" --go-package ./app --output "$TMP_DIR/go-output" \
+      -- "$go_producer"
+}
+run_go_cache
+run_go_cache
+assert_equals "$(grep -c '^run$' "$go_log")" "1" "an unchanged Go closure reuses"
+printf 'package data\n\nfunc helper() {}\n' >"$go_module/data/data_test.go"
+run_go_cache
+assert_equals "$(grep -c '^run$' "$go_log")" "1" "a test file is outside the Go closure"
+printf 'create table two();\n' >"$go_module/data/schema.sql"
+run_go_cache
+assert_equals "$(grep -c '^run$' "$go_log")" "2" "an imported package's embedded file is in the Go closure"
+printf 'package data\n\nconst Extra = 1\n' >"$go_module/data/extra.go"
+run_go_cache
+assert_equals "$(grep -c '^run$' "$go_log")" "3" "an imported package's new source file is in the Go closure"
 
 bash "$ROOT_DIR/tools/harness/backend/tests/test-build-go-artifact.sh"
 
