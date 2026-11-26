@@ -125,7 +125,7 @@ eleven `ci` runs of the release attempts (Section 13.1). Single runs vary by abo
 | G42 | Build-artifact cache keys held per-run locations (each graph run's Go temporary directory, the per-run web source path), so every graph run missed and re-linked shared binaries | Machine inputs, specification | Phase 4, P4-6 | Done: locations leave the keyed command and input directories are keyed by content; proven on a segment (13.15) |
 | G43 | Test rows launch nested graphs and real `make` runs that rebuild shared repository outputs under the Go test's toolchain environment while the outer run uses them; their failures are cut to the first 4 KiB and reclassified as product assertions | Tests, harness, specification | Phase 5 | Open: P5-0 fenced the Go-hosted nested graphs (14.5); P5-2 remains |
 | G44 | Make and the planner both own ordering, freshness, environment and prerequisite skipping: 26 operations re-enter Make, 17 targets carry two recipes chosen by `GRAPH_CHILD`, five freshness mechanisms coexist, and graph-only Make edges run work twice | Machine inputs, implementation, specification | Phase 5 | Open: P5-0 removed the renderer double run (14.5); P5-1 made every test script a row and removed five duplicate operations (14.6); P5-3 remains |
-| G45 | Units inherit the graph process's whole environment (the shell's variables and up to 127 Make exports), minus hand-kept strip lists; harness code reads 478 `CARTULARY_*` names with no declaration, so leaks, stale names and typos fail silently | Machine inputs, implementation, specification | Phase 5, P5-4 | Open: P5-4a registered every harness name and enforces it (14.8); P5-4b made unit environments default-deny (14.9); P5-4c and P5-4d remain |
+| G45 | Units inherit the graph process's whole environment (the shell's variables and up to 127 Make exports), minus hand-kept strip lists; harness code reads 478 `CARTULARY_*` names with no declaration, so leaks, stale names and typos fail silently | Machine inputs, implementation, specification | Phase 5, P5-4 | Open: P5-4a registered every harness name and enforces it (14.8); P5-4b made unit environments default-deny (14.9); P5-4c slice 1 made outside launchers explicit (14.11); the review launchers, Go launchers and P5-4d remain |
 
 ## 5. Gap Remediation Detail
 
@@ -1353,6 +1353,7 @@ Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-am
 | 2026-11-26 | P5-1 / G44 | Every test script is a shell row; catalog enforces it; five duplicate operations removed | Catalog probes; plans of `check`, `ci` and `harness-contract SUITE=regression`; rows `p51-cs`, `p51-ea`, `p51-ea2`, `p51-cs2`, `p51-ea3`; `p51-lintscripts`, `p51-md`, `p51-src2` | Catalog 2,774 rows (from 2,754). `check` and `ci` plan the same units (366, 501); each gains only `public_wrapper_smoke` as a row. New rows run alone and pass (14.6) |
 | 2026-11-26 | P5-4a / G45 | Environment registry of every harness `CARTULARY_*` name and its check in `check`, `ci` and `source-check`; one dead mode switch deleted | Registry probes; plans of `check` and `ci`; rows `p54-cs`, `p54-cs2`, `p54-ea`, `p54-hb`; `p54-src2`, `p54-surface`, `p54-lintscripts` | 480 names registered and 8 declared inputs cover all 488 harness names. `check` and `ci` gain only the new check (and its test row in `ci`). All rows and checks pass (14.8) |
 | 2026-11-26 | P5-4b / G45 | Default-deny unit environments derived from the registry; dead strip entries removed | Segments `p57-units`, `p57-planner`, `p57-report`, `p57-pg`, `p57-vitest`, `p57-browser`, `p57-nested`, `p57-strip`; `p57-src2`, `p56-lintgo3`, `p57-lintscripts`; diagnostic `check` `p57-check01` | Every segment passes. A captured unit environment holds 100 names, not 164; 64 shell, agent and desktop variables no longer reach units. `check` passes, 1,894 rows, graph 576 s (14.9) |
+| 2026-11-26 | P5-4c slice 1 / G45 | Explicit child environments for the services session, frontend publication and browser acquisition; launcher scope enforced by the registry check | Segments `p58-*` (two failures found and fixed), `p59-hb`, `p59-browser`, `p59-ea`, `p59-cs`; `p59-src`, `p59-lintscripts` | Every segment passes after the fixes. The registry check holds the three launchers to the rule with no findings (14.11) |
 | 2026-11-25 | P4-4 / G39 | Wait audit: 31 whole-test hang guards derive from the test deadline (`testdeadline`) | `p44-port-*` (16 owner slices, every row holding a converted guard) | Pass. Committed `bdd8f4e1d` |
 
 ## 12. Phase 2 Plan — `check` Wall Clock
@@ -2669,7 +2670,7 @@ amendments.
 | --- | --- | --- |
 | D19 | Approve Phase 5 scope and order (P5-0, P5-1, P5-2, P5-3) | Approve P5-0 now; decide P5-1 to P5-3 after it. **P5-0 and P5-1 approved by the owner 2026-11-26**, with authority to deprecate tests covered elsewhere |
 | D20 | Where harness-mechanics probes run | An explicit harness suite outside `ci`, run when harness code changes |
-| D21 | Approve P5-4 scope and order (P5-4a to P5-4d) | Approve P5-4a and P5-4b now; decide P5-4c and P5-4d on P5-4b's measurements. **Approved 2026-11-26** |
+| D21 | Approve P5-4 scope and order (P5-4a to P5-4d); P5-4c redefined by the owner on 2026-11-26 as single-writer ownership (14.10) | Approve P5-4a and P5-4b now; decide P5-4c and P5-4d on P5-4b's measurements. **Approved 2026-11-26** |
 | D22 | How a unit finds its context document | A path in one variable: it survives Make re-entry and child tools; the admission lease keeps its file descriptor. **Approved 2026-11-26** |
 | D23 | P5-4 against P5-2 and P5-3 | P5-4a and P5-4b before P5-2, since unnesting is simpler once children start from a declared environment; mode switches leave with P5-3. **Approved 2026-11-26** |
 
@@ -2816,7 +2817,7 @@ per unit.
 | --- | --- | --- |
 | P5-4a | Environment registry. An authored `tools/harness_environment_registry.json` lists every name harness Go, Node and shell code reads or writes, with its role, writer and scope (top level, unit, nested). A source check rejects a read of an unregistered name and a registered name that nothing reads. | Every name registered or deleted, including the 337 not yet classified; the source check runs in `check` |
 | P5-4b | Default-deny unit environment. The runtime builds each unit's environment from the registry's unit-scope names, the runner's declared tool variables and its own bindings, never by copying its parent. Nested launches build from the registry's top-level scope. | The 342 `env -u` entries, the remaining strip lists and `CARTULARY_HARNESS_UNIT_OVERLAY` removed; each runner's rows pass on segments, then one `check` |
-| P5-4c | Typed unit context. One `cartulary.harness_unit_context.v1` document per unit, written by the runtime and named by one variable. It extends the launch context with the results root, admission lease, CPU budget, resource dependencies, and cache and diagnostics mode. One loader each in Go and Node; readers of the 52 context names move to it. | The context names leave the registry; each reader group passes on segments, then one `check` |
+| P5-4c | Single-writer ownership (redefined 2026-11-26, 14.10). Every internal harness variable has one owning component that writes it; only the planner and runtime write what the test population sees; components that start their own processes use their own names and build their children's environment explicitly. The registry declares components and writers, and its check rejects write sites outside the owner | Every invocation-context, step-runtime and fixture-binding name has one writer; the check runs in `check` |
 | P5-4d | Fixture bindings in the context. The 105 binding names move into the document, and test support reads them through the loader. Product processes keep receiving `CARTULARY__*` configuration. | The binding names leave the registry |
 
 The nine mode switches leave with P5-3, when no unit re-enters Make.
@@ -2928,4 +2929,79 @@ registry's tool-variable declarations.
 - **Validation.** Segments across every runner (Go, PostgreSQL-backed Go, the
   installed renderer, Vitest, a browser group, nested graphs, shell operations)
   pass. Diagnostic `check` `p57-check01` passes, 1,894 rows, graph 576 s.
+
+### 14.10 P5-4c Redefined: Single-Writer Ownership
+
+Status: redefined by the owner on 2026-11-26; replaces the typed context document.
+
+- **Why.** The context document assumed each context variable had one writer,
+  the runtime's process launcher. A write-site scan found 89 harness variables
+  written by more than one component. The admission lease alone is written by
+  the runtime, the fixture suite, the UI-review driver and the services
+  session, and every child reads it as "the lease I'm under". A launcher that
+  forgets to set its own value silently passes on a grandparent's. The
+  suite-runtime handles belong to the services session but are also written by
+  browser, readiness and review code. Changing how values travel would not fix
+  that; giving each name one writer does.
+- **Rule.** Every internal harness variable has one owning component, and only
+  that component writes it. Only the planner and runtime write what the test
+  population sees. A component that starts its own processes uses its own
+  names, which units never inherit, and builds its children's environment
+  explicitly instead of copying its own (default-deny at every launcher). Public
+  inputs and product configuration stay writable by any launcher, because
+  setting a command's inputs or a product's configuration is what launching it
+  means.
+- **Mechanism.** The registry declares components by path and a writer for each
+  owned name; its check rejects a write site outside the owner. Tests are
+  exempt, since they fake contexts on purpose.
+- **Order.** Invocation context (13 multi-writer names), then step runtime (14),
+  then fixture bindings (28, with P5-4d). Mode switches leave with P5-3.
+
+| Multi-writer names by role | Names | Plan |
+| --- | ---: | --- |
+| Fixture bindings | 28 | One owner each |
+| Product interface | 20 | Any launcher; a single product-launch helper later |
+| Step runtime | 14 | One owner each |
+| Invocation context | 13 | One owner each, first |
+| Mode switches | 8 | Removed by P5-3 |
+| Locations and public inputs | 6 | Any launcher |
+
+### 14.11 Explicit Child Environments (P5-4c, slice 1)
+
+- **What the write sites showed.** Most of the 89 multi-writer names are not
+  rival owners. They are launchers setting a child command's inputs. The
+  services session gives its start and terminate commands its own lease, and
+  browser acquisition gives its cleanup the suite-runtime handle. Each sets
+  the value explicitly, with one meaning. What pollutes is pass-through:
+  `{ ...process.env, ... }` hands a child everything the parent had, so a
+  value another component set reaches processes it was never meant for. The
+  enforceable form of the single-writer rule is therefore: a component that
+  starts processes for another component passes on only process and tool
+  basics, and forwards or sets every harness variable explicitly.
+- **Change.** `childEnvironment` (`tools/harness/runtime/child-environment.mjs`)
+  builds those environments. It passes the registry's inherited basics and the
+  global inputs, the names the launcher forwards (`pass`) and the values it
+  sets (`set`). Libraries that read harness variables from a given environment
+  declare them: `runtimeEnvironment` (the session client and native session
+  command) and `launchEnvironment` (launch contexts). The services session,
+  frontend publication and browser acquisition use it, and the registry's new
+  `explicit_launchers` scope makes the check reject any pass-through in their
+  files. The browser stack's own two spawns run inside the unit and carry an
+  explicit marker. Specification amended.
+- **A collision this removes.** A services session is a standalone suite
+  command and should request the full service scope. Started from inside a
+  unit, it inherited the unit's narrower service selection
+  (`CARTULARY_HARNESS_SERVICE_DEPENDENCIES`) by pass-through.
+- **Hidden dependencies the segments exposed.**
+  - Browser stack retirement needs the group's object-store binding (the
+    `S3TEST` names and the service selection its suite hash covers). It now
+    forwards that binding by name, and the stack no longer fails to clean up.
+  - Recovery records need the session client's run placement and recovery
+    attempt. That interface is now declared as `runtimeEnvironment`.
+- **Remaining.** Slice 2: the UI-review recipes and native client. Then the Go
+  launchers outside the runtime (`harnessaccount`, `harnessreview`,
+  `processtest`, `recoverybrowsertest`, `webstacklisten`). Then the step-runtime
+  and fixture-binding owners, with P5-4d. Top-level tools that hand the
+  operator's environment to `docker`, `go` or `package.sh` are left as they
+  are, because they do not feed the test population.
 
