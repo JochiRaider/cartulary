@@ -111,7 +111,7 @@ eleven `ci` runs of the release attempts (Section 13.1). Single runs vary by abo
 | G28 | Heavy units spent about 15% of their time waiting on their own synchronous flushes (WAL commits and product file fsyncs); stall follows host flush latency, not guest flush or byte rates | Measurement, product, specification | Phase 3 follow-up | Done: options A and C (`d8654d75a`, `42849a1e7`); graph wall 702–710 s, heavy work −14–27%, host flushes −56% |
 | G29 | The 377-row Vitest cohort waits for two CPU tokens until 372–442 s and then ends every run: first-fit backfill starves multi-token claims | Scheduling (REQ-802), coupled to host admission (G4b) | Phase 3 follow-up | Folded into G30 and G31. The Vitest cohort no longer ends `check` (it starts at 333 s and ends at 516 s); the same starvation now delays the `ci` browser chain |
 | G30 | Two admission layers again: PostgreSQL units hold CPU tokens and logical lanes while they wait in host admission, because each generation is charged twice | Specification, machine inputs, implementation | Phase 4, P4-5 | Done (`1862c9c20` to `2237b4519`): paired `check` 577 s and 567 s (from about 705 s); no unit waits in host admission while holding work (13.14) |
-| G31 | The `ci` browser chain, its critical path, is eligible at 134 s but starts at 504–540 s | Scheduling (REQ-802, REQ-803) | Phase 4, P4-6 | Open; needs G30 first |
+| G31 | The `ci` browser chain, its critical path, is eligible at 134 s but starts at 504–540 s | Scheduling (REQ-802, REQ-803) | Phase 4, P4-6 | Done (`36674c969`): adopted (D17); `ci` 1,445 s (from 1,688 s) with browser groups starting at 211 s instead of 551 s; paired `check` 597 s and 591 s (13.15) |
 | G32 | Browser lanes are fixed chains packed from estimates that are about twice the actual time: lane loads 904–1,155 s against an even 1,031 s | Planner, scheduling | Phase 4, P4-2 | Done (`7ebf2d0af`): browser phase −102 s in one diagnostic `ci` (13.12) |
 | G33 | Heavy units start in estimate order, and the estimates have drifted: the longest heavy unit starts at 260 s | Machine inputs, planner | Phase 4, P4-1 | Done (`540af9d6e`): plans use observed estimates; builds start when eligible. `check` wall unchanged, now bound by the heavy lanes and by G30/G31 (13.11) |
 | G34 | Heavy placement and capacities were tuned before G28 cut host flushes by 56% | Measurement, machine inputs | Phase 4, P4-1 | Done: four heavy lanes adopted through the gate (`d77ba4a25`); placement audit inconclusive, placement unchanged; ten generations gave no gain over eight after G30 and are not adopted (13.11, 13.14) |
@@ -121,6 +121,10 @@ eleven `ci` runs of the release attempts (Section 13.1). Single runs vary by abo
 | G38 | A browser cohort stops at its first failure, so the rest of its tests report `infrastructure_failed` and their outcomes are lost | Implementation, possibly specification | Phase 4, P4-2 | Done (`7ebf2d0af`); not yet exercised by a browser failure (13.12) |
 | G39 | Load-dependent defects surface one per `ci` run and are reproduced by hand | Tests, harness, process | Phase 4, P4-4 | Done: host pressure and stress command (`465a30afe`), wait audit (`bdd8f4e1d`); the 13.2 rows pass `REPEAT=10` under mixed load (13.10) |
 | G40 | Test-row cache keys still hold broad harness inputs (harness owner models, harness test families, schemas, generated validators, task surface), because tests read repository files through paths they compute, which no closure rule can see; 60 of the last 150 commits invalidate every cached unit | Machine inputs, specification, tests | Follow-up after Phase 4 | Open: needs per-package declared run-time inputs and an enforcement mechanism (13.13) |
+| G41 | The installed-renderer test read the receipt twice, so a receipt moved by a concurrent build broke it; 13.12 credited G37 with fixing this, which was wrong | Tests | Phase 4, P4-6 | Done: every renderer in the test binds the installation it opened; proven on a segment (13.15) |
+| G42 | Build-artifact cache keys held per-run locations (each graph run's Go temporary directory, the per-run web source path), so every graph run missed and re-linked shared binaries | Machine inputs, specification | Phase 4, P4-6 | Done: locations leave the keyed command and input directories are keyed by content; proven on a segment (13.15) |
+| G43 | Test rows launch nested graphs and real `make` runs that rebuild shared repository outputs under the Go test's toolchain environment while the outer run uses them; their failures are cut to the first 4 KiB and reclassified as product assertions | Tests, harness, specification | Phase 5 (proposed) | Open: inventory and proposal in Section 14 |
+| G44 | Make and the planner both own ordering, freshness, environment and prerequisite skipping: 26 operations re-enter Make, 17 targets carry two recipes chosen by `GRAPH_CHILD`, five freshness mechanisms coexist, and graph-only Make edges run work twice | Machine inputs, implementation, specification | Phase 5 (proposed) | Open: proposal in Section 14 |
 
 ## 5. Gap Remediation Detail
 
@@ -1343,6 +1347,7 @@ Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-am
 | 2026-11-25 | P4-2 / G32, G38 | Browser lanes as a runtime capacity; test-owned cohorts run to completion | `p42-cs2`, `p42-hb`, `p42-src`, `p42-lintgo`, `p42-md`; diagnostic `ci` `p42-ci01` | Targeted rows pass. `ci` 2,647 of 2,648 rows, graph 1,688 s (reference 1,791 s); the failure is the renderer receipt race (13.12). Committed `7ebf2d0af` |
 | 2026-11-25 | P4-3 / G35, G36, G37 | Go rows run from the plan; runner-closure and named-input keys; cacheable PostgreSQL rows; renderer reuse | `p43-src`, `p43-lintgo`, `p43-lintscripts`, `p43-md`, `p43-cs`, `p43-ea`; `check` with the cache on, `p43-check01` (all misses) and `p43-check02` (repeat) | All pass. `check` 663 s with every row executed, then 90 s with 313 of 313 eligible units reused. Committed `f9bbdc749` |
 | 2026-11-25 to 26 | P4-5 / G30 | Host ledger as the admission authority; PostgreSQL work and generations stated once; four defects found and fixed (13.14) | Targeted: `p45-cs`, `p45-ea`, `p45-hb`, `p45-tc`, `p45-rel`, `p45-src2`, `p45-fix*`, `p45-ci-*`, `p45-f-*`, `p45-g-*`. Diagnostic `check`: `p45-check01` to `-05` (graph aborted, defects), `p45-check06` and `-07` (pass); `p45-gen10-check01`, `-02`; `ci` `p45-ci01`, `-02` (failed on the defects) | Paired `check` pass: 577 s and 567 s. Ten generations: 573 s and 558 s, not adopted. Committed `1862c9c20` to `2237b4519` |
+| 2026-11-26 | P4-6 / G31, G41, G42 | Critical-path reservation; renderer test binds one installation; location-free build keys | Gate: `p46-check01`, `p46-check02`, `p46-ci01`, `p46-ci02` (stopped); segments `seg-ontest-before`, `seg-ontest-after`, `seg-cache01`, `seg-cache02`; `fx-lintgo`, `fx-lintscripts`, `fx-md`, `fx-src` | `check` pair pass (597 s, 591 s). `ci01` 2,648 of 2,649 rows, graph 1,445 s; the failure is G41. The owner stopped `ci02` after the same failure. Segments prove both fixes; targeted checks pass (13.15) |
 | 2026-11-25 | P4-4 / G39 | Wait audit: 31 whole-test hang guards derive from the test deadline (`testdeadline`) | `p44-port-*` (16 owner slices, every row holding a converted guard) | Pass. Committed `bdd8f4e1d` |
 
 ## 12. Phase 2 Plan — `check` Wall Clock
@@ -2224,11 +2229,11 @@ tracker has the detail on each failure.
 | --- | --- | --- | --- |
 | P4-0 | Reference runs: one diagnostic `check` and one diagnostic `ci` at HEAD with the cache off, because the 13.1 runs have no pressure samples | — | Both pass; recorded in Section 11. **Done 2026-11-25:** `p40-ref-check01` and `p40-ref-ci01` (13.9) |
 | P4-1 | Go phase components | G33, G34 | Estimates refreshed; placement audited; capacity re-tests adopted or rejected through the gate. **Done 2026-11-25** (13.11): estimates refreshed, four heavy lanes adopted, placement unchanged; the ten-generation re-test moves after P4-5 |
-| P4-2 | Browser phase components | G32, G38 | Dynamic lanes adopted after one `ci`; failure policy decided. **Done 2026-11-25** (13.12): adopted; the `ci` failed one row on the renderer receipt race, fixed in P4-3 |
+| P4-2 | Browser phase components | G32, G38 | Dynamic lanes adopted after one `ci`; failure policy decided. **Done 2026-11-25** (13.12): adopted; the `ci` failed one row on the renderer receipt race, fixed in P4-6 (G41; 13.12's cause was wrong) |
 | P4-3 | Daily-development cache | G36, G37, then G35 | Hit rates measured on representative commits; G35 only after D12. **Done 2026-11-25** (13.13) |
 | P4-4 | Stability tooling | G39 (host evidence first, then the stress command, wait audit and open defects) | The week's failing rows pass `REPEAT=10` under load. **Done 2026-11-25:** 60 of 60 repetitions passed (13.10) |
 | P4-5 | One admission authority | G30 | Paired `check` and one `ci`. **Done 2026-11-26** (13.14): paired `check` pass; by owner decision its `ci` folds into P4-6's paired `ci`, and correctness was validated with targeted rows, `ci`-only rows included |
-| P4-6 | Overlap | G31 | Through the 13.7 gate, or recorded as rejected |
+| P4-6 | Overlap | G31 | Through the 13.7 gate, or recorded as rejected. **Done 2026-11-26** (13.15): adopted; the paired `ci` exposed G41 and G42, both fixed and proven on segments; the passing paired `ci` folds into P4-7 |
 | P4-7 | Validation and handoff | — | Paired `check`, paired `ci`, Section 3 refreshed |
 
 P4-1 to P4-4 are independent and can proceed in any order. P4-5 starts after
@@ -2285,7 +2290,7 @@ through the 13.7 gate, which needs the stress command.
 | D14 | Run test-owned browser cohorts to completion | P4-2 | Approve unless the NLSpec requires stop-on-first-failure. **Approved 2026-11-25** |
 | D15 | Add a public stress command | P4-4 | Approve. **Approved 2026-11-25** |
 | D16 | Re-test four heavy lanes and ten generations | P4-1 | Approve as measurement; adopt only through the 13.7 gate. **Approved 2026-11-25** |
-| D17 | Critical-path reservation, overlapping the browser and Go phases | P4-6 | Decide after the P4-5 measurements |
+| D17 | Critical-path reservation, overlapping the browser and Go phases | P4-6 | **Adopted 2026-11-26** on the `check` pair and `p46-ci01`; the passing paired `ci` moves to P4-7 (13.15) |
 | D18 | Fold P4-5's `ci` into P4-6's paired `ci`; validate P4-5 with targeted rows | P4-5 | **Owner decision 2026-11-26** |
 
 | ID | Section or requirement | Change | Gap |
@@ -2534,3 +2539,127 @@ resource.
   (`module.incidents.browser.membership_management_live_pages`), plus the
   source checks and lints. The `ci` measurement of G30's browser effect
   moves to P4-6's paired `ci`.
+
+### 13.15 Overlap (P4-6)
+
+G31 as planned: when graph units hold the deficits of the highest-ranked
+waiting unit, the scheduler reserves them, and other units start only when
+they claim none of the reserved resources.
+
+| Measure | Reference | P4-6 | Gate |
+| --- | ---: | ---: | --- |
+| `check` graph wall | 577 s, 567 s (`p45-check06`, `-07`) | 597 s, 591 s | Both pass |
+| `check` heavy-unit work | 1,961 s, 1,939 s | 1,964 s, 1,892 s | Within +15% |
+| `ci` graph wall | 1,688 s (`p42-ci01`) | 1,445 s (`p46-ci01`) | — |
+| `ci` first browser group start | 551 s | 211 s | — |
+| `ci` browser runner time | 3,848 s | 4,279 s (+11%) | Within +15% |
+| `ci` heavy-unit work | 2,147 s | 1,848 s | Within +15% |
+| `ci` rows | 2,647 of 2,648 | 2,648 of 2,649 | One failure, G41 |
+
+- **Effect.** `ci` is 243 s faster than P4-2 and 346 s faster than the P4-0
+  reference (1,791 s). This includes G30, whose `ci` measurement folded here
+  (D18). Browser groups start 340 s earlier. `check` is 20 s slower, inside
+  the ±30 s spread. The projection was 1,150–1,250 s; `ci` now ends on the
+  browser phase, whose 4,279 s of runner time over four lanes is about
+  1,070 s, so browser lane capacity bounds it.
+- **G41, the failure.** Both `ci` runs failed
+  `module.reporting.integration.renderer_installed_sandbox`, as P4-2's `ci`
+  had. The test opened the installation the receipt named when it started,
+  then built each renderer by reading the receipt again. In `ci`, the nested
+  graph of `harness.browser.integration.native_graph_observations` runs its
+  own renderer build in the Go test's environment, reuses a different
+  installation (`c9d0…` against `d438…`) and moves the receipt about 8 s after
+  the test starts. 13.12's explanation (a forced rebuild from release
+  readiness) and its claim that G37 removed the race were wrong: every build
+  in these runs reused an installation. Every renderer in the test now binds
+  the installation it opened; production still opens the receipt once at
+  startup. Proof: with the receipt moved 2 s after the test binary starts,
+  HEAD fails with the `ci` message (`seg-ontest-before`) and the fix passes
+  (`seg-ontest-after`). Two earlier replays that moved the receipt at fixed
+  times passed HEAD by luck, so the trigger follows the test process.
+- **G42, found while tracing G41.** Fifteen build profiles put the Go
+  temporary directory on the keyed command, and every graph run creates a new
+  one, so every run missed. `build-server-harness` gained one record per run
+  with an unchanged output digest. `embedded-web-assets` also keyed its
+  per-run web source path. Locations now reach producers through the
+  environment, input directories are keyed by content (specification
+  amended), and the cache test gains a relocation case. Proof: two
+  consecutive runs of `harness.browser.boundary_support.https_trust`. The
+  first wrote one record per Go build profile (new key format), the second
+  none, and its build operations took 10.9 s against 18.6 s.
+- **Left for Phase 5.** During `ci` the nested graph wrote a different server
+  binary (`7117…` against `74e9…`) into the shared path (G43).
+  `build_server_harness` still repeats the renderer reuse check through a Make
+  prerequisite the graph does not model: 8 s on a hit, about 20 s under
+  `check` load (G44).
+- **Gate.** The `check` pair passes and every work limit holds. The `ci` pair
+  did not pass: `ci01` failed on G41 alone, and the owner stopped `ci02` after
+  it failed the same row. G31 is adopted (D17). The passing paired `ci` folds
+  into P4-7's final validation, and the stress condition keeps the 13.10
+  baseline.
+
+## 14. Phase 5 Proposal — Flat Catalog and Thin Make
+
+Status: proposed 2026-11-26 at the owner's request; nothing here is approved.
+
+### 14.1 Findings
+
+- **Nested executions (G43).** Five `ci` rows drive real repository builds
+  from inside a running graph:
+  - `native_graph_observations` (two nested graphs)
+  - `native_selected_service_lifecycle` (four)
+  - `native_nested_cancellation` (`make test-slice`, three modes)
+  - `frontend_artifact_lifetime` (two concurrent `make build`)
+  - the `real_output_*` shell rows
+
+  They inherit the Go test's toolchain environment (`CGO_ENABLED=0`,
+  `GOENV=off`, `GOWORK=off`), so their build keys differ and they rename
+  different binaries over shared outputs that outer units are using. Their
+  failures are reported as the first 4 KiB of output (`%.4096s`) and always
+  classed as product assertions, and their rows are never counted.
+- **Make and planner duplication (G44).**
+  - A `make check` parses the Makefile at least twice (admission re-entry).
+  - The 26 artifact and installation operations run `make -- <files>` again.
+    Each such call re-parses everything and hits FORCE rules that
+    `cache-artifact.sh` keys separately from their Make prerequisites.
+  - Six switches decide whether prerequisites run (`SKIP_PREREQUISITES`,
+    `GRAPH_CHILD`, an unread `GRAPH_ARTIFACT_CHILD`, and others), and 17
+    targets have two recipes chosen by `GRAPH_CHILD`.
+  - Freshness has five owners: planner cache policy, `cache-artifact.sh`,
+    the renderer store, web staging and Make mtimes.
+  - Build profiles and test units use different toolchain environments.
+- **Catalog layering.** There are 2,754 rows, 51 private selections (six
+  contain other selections) and 183 operations. Some checks are policy
+  operations with no row (the build cache test is reachable only through
+  `harness-contract SUITE=regression`), so they cannot be run alone as a
+  segment.
+
+### 14.2 Proposed workstreams
+
+| Step | Work | Gaps |
+| --- | --- | --- |
+| P5-0 | Fences: nested graphs get an allowlisted environment and a private build root instead of the shared repository outputs; `build-go-artifact.sh` publishes the binary and its crypto receipt together; nested failure output keeps the tail and the child's failure class; the graph-only renderer prerequisite of the server harness build goes | G43, G44 |
+| P5-1 | Flat catalog: every check is a row with an owner, so any of them runs alone with `ROWS=`; selections list rows and operations, not other selections | G44 |
+| P5-2 | Unnest: harness-mechanics probes run as first-class graph rows against private outputs, or move to an explicit harness suite outside `ci`; a source check forbids rows that launch `make` or `graph` against the shared repository | G43 |
+| P5-3 | Thin Make: Make only admits the workspace and forwards to the harness; build operations become data with declared inputs, environment keys and outputs; one Go content-addressed store replaces `cache-artifact.sh`, the renderer store and web staging; no unit re-enters Make; one toolchain environment from the pins for builds and tests | G44 |
+
+P5-0 is small and removes the hazards seen in `ci`. P5-1 makes segments
+possible for every check. P5-3 is the largest and needs specification
+amendments.
+
+### 14.3 Constraints
+
+- The NLSpec's public-behavior gate requires specification changes before
+  target identity, `command_id` or task-surface metadata change. Its
+  graph-child clauses encode Make prerequisite semantics.
+- The generated-artifact policy requires the three generated `.mk` files.
+- The execution topology names Make variables (`output_make_variable`).
+- `CARTULARY_MAKE_INPUT_SOURCES` relies on Make's `$(origin)`.
+- Retired Make names are part of the command contract.
+
+### 14.4 Decisions
+
+| ID | Decision | Recommendation |
+| --- | --- | --- |
+| D19 | Approve Phase 5 scope and order (P5-0, P5-1, P5-2, P5-3) | Approve P5-0 now; decide P5-1 to P5-3 after it |
+| D20 | Where harness-mechanics probes run | An explicit harness suite outside `ci`, run when harness code changes |
