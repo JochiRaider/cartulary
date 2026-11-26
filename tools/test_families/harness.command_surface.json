@@ -633,6 +633,7 @@
           "TestRuntimeProcessLifecycle",
           "TestRuntimeProducerInterop",
           "TestRuntimePublicationRollback",
+          "TestRuntimeRefusedEvaluation",
           "TestRuntimeRequiredPublication",
           "TestRuntimeUnitInputEnvironment"
         ]
