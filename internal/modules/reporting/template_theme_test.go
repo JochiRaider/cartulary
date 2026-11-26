@@ -191,12 +191,9 @@ func assertTemplateThemeOutput(t *testing.T, input renderInput, rendered Rendere
 	}
 }
 
-func assertNativeTemplateThemes(t *testing.T, directory, temporaryRoot string) {
+func assertNativeTemplateThemes(t *testing.T, installation *renderprocess.Installation, temporaryRoot string) {
 	t.Helper()
-	renderer, err := NewInstalledRenderer(directory, temporaryRoot)
-	if err != nil {
-		t.Fatal(err)
-	}
+	renderer := newInstallationRenderer(installation, temporaryRoot)
 	for _, scope := range []string{ReleaseScopeInternalReview, ReleaseScopeExternal} {
 		input := fixtureTemplateThemeInput(t, scope)
 		rendered, reason, err := renderer.Render(context.Background(), input)

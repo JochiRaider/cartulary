@@ -40,7 +40,14 @@ func NewInstalledRenderer(directory, temporaryRoot string) (*Renderer, error) {
 	}
 	// OpenInstallation already verifies the complete file set. Avoid repeating
 	// that startup scan; every attempt still verifies before and after rendering.
-	return &Renderer{runtime: &installedRenderRuntime{installation: installation, temporaryRoot: temporaryRoot}}, nil
+	return newInstallationRenderer(installation, temporaryRoot), nil
+}
+
+// newInstallationRenderer binds a renderer to one opened installation. Every
+// render and toolchain snapshot names that installation, even after the
+// receipt, the store's only mutable pointer, names another one.
+func newInstallationRenderer(installation *renderprocess.Installation, temporaryRoot string) *Renderer {
+	return &Renderer{runtime: &installedRenderRuntime{installation: installation, temporaryRoot: temporaryRoot}}
 }
 
 type ToolchainEnvironmentValue struct {

@@ -105,10 +105,7 @@ func TestReportingInstalledSandboxRenders(t *testing.T) {
 		t.Fatal("renderer changed its installation")
 	}
 	t.Run("candidate_pipeline", func(t *testing.T) {
-		renderer, err := NewInstalledRenderer(directory, temporaryRoot)
-		if err != nil {
-			t.Fatal(err)
-		}
+		renderer := newInstallationRenderer(installation, temporaryRoot)
 		contract, _ := ResolveTemplateContract(DefaultTemplateID, DefaultTemplateVersion)
 		model := fixtureStructuredRenderModel(t, []ExportField{
 			{Path: "/incident/status", ContentClass: ContentClassDerivedAnalytic, Value: "open"},
@@ -159,10 +156,7 @@ func TestReportingInstalledSandboxRenders(t *testing.T) {
 		}
 	})
 	t.Run("declared local assets", func(t *testing.T) {
-		renderer, err := NewInstalledRenderer(directory, temporaryRoot)
-		if err != nil {
-			t.Fatal(err)
-		}
+		renderer := newInstallationRenderer(installation, temporaryRoot)
 		for _, scope := range []string{ReleaseScopeInternalReview, ReleaseScopeExternal} {
 			input := fixtureTemplateAssetInputForScope(t, scope)
 			rendered, reason, err := renderer.Render(context.Background(), input)
@@ -175,13 +169,10 @@ func TestReportingInstalledSandboxRenders(t *testing.T) {
 			}
 		}
 	})
-	t.Run("declared local themes", func(t *testing.T) { assertNativeTemplateThemes(t, directory, temporaryRoot) })
-	t.Run("external Mermaid bundles", func(t *testing.T) { testNativeExternalMermaid(t, directory, temporaryRoot) })
+	t.Run("declared local themes", func(t *testing.T) { assertNativeTemplateThemes(t, installation, temporaryRoot) })
+	t.Run("external Mermaid bundles", func(t *testing.T) { testNativeExternalMermaid(t, installation, temporaryRoot) })
 	t.Run("authored presentation uses retained redaction", func(t *testing.T) {
-		renderer, err := NewInstalledRenderer(directory, temporaryRoot)
-		if err != nil {
-			t.Fatal(err)
-		}
+		renderer := newInstallationRenderer(installation, temporaryRoot)
 		input := compositionTextFixture(t, []compositionAuthoredText{{AuthoredTextID: "title", TextRole: "title_override", Body: "Review {{subject:subject:host:record:host-one}}", DisclosurePartitionRef: "public"}}, []compositionDeckOp{{OpID: "title", OpKind: "override_title", OnUnresolved: "fail", Payload: compositionOpPayload{AuthoredTextRef: "title", SectionAnchor: &compositionSectionAnchor{AnchorKind: "section_anchor", DeclarationID: "snapshot"}}}})
 		profile := input.RedactionProfile
 		class := ContentClassSourceEvidence
@@ -211,10 +202,7 @@ func TestReportingInstalledSandboxRenders(t *testing.T) {
 		}
 	})
 	t.Run("mixed manual and auto diagram candidate", func(t *testing.T) {
-		renderer, err := NewInstalledRenderer(directory, temporaryRoot)
-		if err != nil {
-			t.Fatal(err)
-		}
+		renderer := newInstallationRenderer(installation, temporaryRoot)
 		input := manualDiagramRenderInput(t)
 		var previous string
 		previousFiles := map[string]string{}
@@ -268,11 +256,8 @@ func TestReportingInstalledSandboxRenders(t *testing.T) {
 	}
 }
 
-func testNativeExternalMermaid(t *testing.T, directory, temporaryRoot string) {
-	renderer, err := NewInstalledRenderer(directory, temporaryRoot)
-	if err != nil {
-		t.Fatal(err)
-	}
+func testNativeExternalMermaid(t *testing.T, installation *renderprocess.Installation, temporaryRoot string) {
+	renderer := newInstallationRenderer(installation, temporaryRoot)
 	contract, _ := ResolveTemplateContract(DefaultTemplateID, DefaultTemplateVersion)
 	model, digest, err := buildStructuredTestExportModel("00000000-0000-0000-0000-000000000001", fixtureSnapshotID,
 		time.Date(2026, 4, 5, 12, 0, 0, 0, time.UTC), SourceBoundaryTokenPrefix+strings.Repeat("0", 64), ReleaseScopeExternal, nil,
