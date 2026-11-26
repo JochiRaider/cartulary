@@ -179,6 +179,28 @@
       "postgres_isolation": "none"
     },
     {
+      "row_id": "harness.command_surface.behavior.environment_registry",
+      "owner_id": "harness.command_surface",
+      "family_id": "harness.command_surface.behavior",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.command_surface.verification.helper_scripts"
+      ],
+      "runner": "shell",
+      "selector": {
+        "operation_id": "harness.assurance_environment_registry"
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "harness_contract",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "full",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
       "row_id": "harness.command_surface.behavior.generate_drift",
       "owner_id": "harness.command_surface",
       "family_id": "harness.command_surface.behavior",

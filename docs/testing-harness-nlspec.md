@@ -4083,6 +4083,20 @@ Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-002, TH-HARNESS-AC-003
 | `GOVULNCHECK_DB`                                                                                 | security                | optional Govulncheck vulnerability DB path or endpoint token                                                          | omitted; Govulncheck default DB                                                           | Make variable, env, default                     | omitted                                                 | path-token validation                                                                                         | invalid value is `usage_error`, exit `2`                                           | value                                              |
 | `GOVULNCHECK_FLAGS`, `GOVULNCHECK_PATTERNS`                                                      | security                | closed; not public Make target inputs                                                                                 | `-test -json` flags and authored package roots fixed by the public target row and wrapper | raw script only                                  | not applicable                                           | none                                                                                                          | Make command-line use is `usage_error`, exit `2`                                  | none                                               |
 
+**Environment registry (amended 2026-11-26).** Every `CARTULARY_` name (one
+underscore after the prefix) that harness code mentions MUST be a public input
+the task surface declares or be registered in
+`tools/harness_environment_registry.json` with exactly one role:
+`fixture_binding`, `invocation_context`, `location`, `mode_switch`,
+`product_interface`, `step_runtime`, `test_internal` or `tool_option`. The
+registry names the harness and excluded path scopes. Every other admitted
+repository path is product code, and the product owns its `CARTULARY__*`
+configuration and the names only product code mentions. A registered name that
+no harness code mentions is stale. A name that both harness and product code
+mention MUST be a `product_interface`, and only such a name may be one.
+`harness.environment_registry_check` enforces these rules in `check`, `ci` and
+`make source-check` (`CHECK=surface` and `CHECK=all`).
+
 
 ### 5.6 UI review input contract
 

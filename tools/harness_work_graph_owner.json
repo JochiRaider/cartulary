@@ -16,6 +16,7 @@
     "check": [
       "harness.backend_module_boundary_check",
       "harness.contract_smoke",
+      "harness.environment_registry_check",
       "harness.frontend_import_boundary_check",
       "harness.frontend_typecheck",
       "harness.generated_artifact_policy_check",
@@ -39,6 +40,7 @@
       "harness.contract_default",
       "harness.contract_smoke",
       "harness.deployable_shape",
+      "harness.environment_registry_check",
       "harness.frontend_fallow_static",
       "harness.frontend_import_boundary_check",
       "harness.frontend_typecheck",
@@ -363,7 +365,8 @@
       {
         "row_id": "harness.browser.unit.fixture_broker_smoke"
       },
-      "harness.assurance_markdown_biome"
+      "harness.assurance_markdown_biome",
+      "harness.assurance_environment_registry"
     ],
     "harness.contract_execution": [
       "harness.assurance_run_step",
@@ -424,7 +427,8 @@
       "harness.test_catalog_check"
     ],
     "harness.source_surface_selection": [
-      "harness.source_surface"
+      "harness.source_surface",
+      "harness.environment_registry_check"
     ],
     "harness.source_identity_selection": [
       "harness.semantic_identity_check"
@@ -442,7 +446,8 @@
       "harness.source_surface",
       "harness.semantic_identity_check",
       "harness.toolchain_drift",
-      "harness.migration_input_drift"
+      "harness.migration_input_drift",
+      "harness.environment_registry_check"
     ],
     "harness.lint_go": [
       {
@@ -2021,6 +2026,26 @@
       "cache_policy": "none",
       "estimated_work_ms": 1000,
       "resource_profile_id": "standard",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    "harness.environment_registry_check": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 3000,
+      "resource_profile_id": "standard",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    "harness.assurance_environment_registry": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
       "service_dependencies": [],
       "postgres_isolation": "none"
     }
@@ -4142,8 +4167,6 @@
           "-u",
           "CARTULARY_HARNESS_GRAPH_CHILD",
           "-u",
-          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
-          "-u",
           "CARTULARY_MAKE_INPUT_SOURCES",
           "-u",
           "CARTULARY_TEST_TARGET",
@@ -4175,8 +4198,6 @@
           "CARTULARY_HARNESS_SKIP_PREREQUISITES",
           "-u",
           "CARTULARY_HARNESS_GRAPH_CHILD",
-          "-u",
-          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
           "-u",
           "CARTULARY_MAKE_INPUT_SOURCES",
           "-u",
@@ -4214,8 +4235,6 @@
           "-u",
           "CARTULARY_HARNESS_GRAPH_CHILD",
           "-u",
-          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
-          "-u",
           "CARTULARY_MAKE_INPUT_SOURCES",
           "-u",
           "CARTULARY_TEST_TARGET",
@@ -4252,8 +4271,6 @@
           "-u",
           "CARTULARY_HARNESS_GRAPH_CHILD",
           "-u",
-          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
-          "-u",
           "CARTULARY_MAKE_INPUT_SOURCES",
           "-u",
           "CARTULARY_TEST_TARGET",
@@ -4286,8 +4303,6 @@
           "CARTULARY_HARNESS_SKIP_PREREQUISITES",
           "-u",
           "CARTULARY_HARNESS_GRAPH_CHILD",
-          "-u",
-          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
           "-u",
           "CARTULARY_MAKE_INPUT_SOURCES",
           "-u",
@@ -4324,8 +4339,6 @@
           "-u",
           "CARTULARY_HARNESS_GRAPH_CHILD",
           "-u",
-          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
-          "-u",
           "CARTULARY_MAKE_INPUT_SOURCES",
           "-u",
           "CARTULARY_TEST_TARGET",
@@ -4358,8 +4371,6 @@
           "-u",
           "CARTULARY_HARNESS_GRAPH_CHILD",
           "-u",
-          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
-          "-u",
           "CARTULARY_MAKE_INPUT_SOURCES",
           "-u",
           "CARTULARY_TEST_TARGET",
@@ -4391,8 +4402,6 @@
           "CARTULARY_HARNESS_SKIP_PREREQUISITES",
           "-u",
           "CARTULARY_HARNESS_GRAPH_CHILD",
-          "-u",
-          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
           "-u",
           "CARTULARY_MAKE_INPUT_SOURCES",
           "-u",
@@ -4428,8 +4437,6 @@
           "-u",
           "CARTULARY_HARNESS_GRAPH_CHILD",
           "-u",
-          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
-          "-u",
           "CARTULARY_MAKE_INPUT_SOURCES",
           "-u",
           "CARTULARY_TEST_TARGET",
@@ -4462,8 +4469,6 @@
           "-u",
           "CARTULARY_HARNESS_GRAPH_CHILD",
           "-u",
-          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
-          "-u",
           "CARTULARY_MAKE_INPUT_SOURCES",
           "-u",
           "CARTULARY_TEST_TARGET",
@@ -4495,8 +4500,6 @@
           "CARTULARY_HARNESS_SKIP_PREREQUISITES",
           "-u",
           "CARTULARY_HARNESS_GRAPH_CHILD",
-          "-u",
-          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
           "-u",
           "CARTULARY_MAKE_INPUT_SOURCES",
           "-u",
@@ -4534,8 +4537,6 @@
           "-u",
           "CARTULARY_HARNESS_GRAPH_CHILD",
           "-u",
-          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
-          "-u",
           "CARTULARY_MAKE_INPUT_SOURCES",
           "-u",
           "CARTULARY_TEST_TARGET",
@@ -4570,8 +4571,6 @@
           "-u",
           "CARTULARY_HARNESS_GRAPH_CHILD",
           "-u",
-          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
-          "-u",
           "CARTULARY_MAKE_INPUT_SOURCES",
           "-u",
           "CARTULARY_TEST_TARGET",
@@ -4605,8 +4604,6 @@
           "-u",
           "CARTULARY_HARNESS_GRAPH_CHILD",
           "-u",
-          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
-          "-u",
           "CARTULARY_MAKE_INPUT_SOURCES",
           "-u",
           "CARTULARY_TEST_TARGET",
@@ -4638,8 +4635,6 @@
           "CARTULARY_HARNESS_SKIP_PREREQUISITES",
           "-u",
           "CARTULARY_HARNESS_GRAPH_CHILD",
-          "-u",
-          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
           "-u",
           "CARTULARY_MAKE_INPUT_SOURCES",
           "-u",
@@ -4702,8 +4697,6 @@
           "-u",
           "CARTULARY_HARNESS_GRAPH_CHILD",
           "-u",
-          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
-          "-u",
           "CARTULARY_MAKE_INPUT_SOURCES",
           "-u",
           "CARTULARY_TEST_TARGET",
@@ -4739,8 +4732,6 @@
           "CARTULARY_HARNESS_SKIP_PREREQUISITES",
           "-u",
           "CARTULARY_HARNESS_GRAPH_CHILD",
-          "-u",
-          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
           "-u",
           "CARTULARY_MAKE_INPUT_SOURCES",
           "-u",
@@ -4778,8 +4769,6 @@
           "-u",
           "CARTULARY_HARNESS_GRAPH_CHILD",
           "-u",
-          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
-          "-u",
           "CARTULARY_MAKE_INPUT_SOURCES",
           "-u",
           "CARTULARY_TEST_TARGET",
@@ -4812,8 +4801,6 @@
           "-u",
           "CARTULARY_HARNESS_GRAPH_CHILD",
           "-u",
-          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
-          "-u",
           "CARTULARY_MAKE_INPUT_SOURCES",
           "-u",
           "CARTULARY_TEST_TARGET",
@@ -4845,8 +4832,6 @@
           "CARTULARY_HARNESS_SKIP_PREREQUISITES",
           "-u",
           "CARTULARY_HARNESS_GRAPH_CHILD",
-          "-u",
-          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
           "-u",
           "CARTULARY_MAKE_INPUT_SOURCES",
           "-u",
@@ -4902,8 +4887,6 @@
           "-u",
           "CARTULARY_HARNESS_GRAPH_CHILD",
           "-u",
-          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
-          "-u",
           "CARTULARY_MAKE_INPUT_SOURCES",
           "-u",
           "CARTULARY_TEST_TARGET",
@@ -4936,8 +4919,6 @@
           "-u",
           "CARTULARY_HARNESS_GRAPH_CHILD",
           "-u",
-          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
-          "-u",
           "CARTULARY_MAKE_INPUT_SOURCES",
           "-u",
           "CARTULARY_TEST_TARGET",
@@ -4969,8 +4950,6 @@
           "CARTULARY_HARNESS_SKIP_PREREQUISITES",
           "-u",
           "CARTULARY_HARNESS_GRAPH_CHILD",
-          "-u",
-          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
           "-u",
           "CARTULARY_MAKE_INPUT_SOURCES",
           "-u",
@@ -5009,8 +4988,6 @@
           "CARTULARY_HARNESS_SKIP_PREREQUISITES",
           "-u",
           "CARTULARY_HARNESS_GRAPH_CHILD",
-          "-u",
-          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
           "-u",
           "CARTULARY_MAKE_INPUT_SOURCES",
           "-u",
@@ -5065,8 +5042,6 @@
           "-u",
           "CARTULARY_HARNESS_GRAPH_CHILD",
           "-u",
-          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
-          "-u",
           "CARTULARY_MAKE_INPUT_SOURCES",
           "-u",
           "CARTULARY_TEST_TARGET",
@@ -5102,8 +5077,6 @@
           "CARTULARY_HARNESS_SKIP_PREREQUISITES",
           "-u",
           "CARTULARY_HARNESS_GRAPH_CHILD",
-          "-u",
-          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
           "-u",
           "CARTULARY_MAKE_INPUT_SOURCES",
           "-u",
@@ -5286,8 +5259,6 @@
           "-u",
           "CARTULARY_HARNESS_GRAPH_CHILD",
           "-u",
-          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
-          "-u",
           "CARTULARY_MAKE_INPUT_SOURCES",
           "-u",
           "CARTULARY_TEST_TARGET",
@@ -5311,8 +5282,6 @@
           "CARTULARY_HARNESS_SKIP_PREREQUISITES",
           "-u",
           "CARTULARY_HARNESS_GRAPH_CHILD",
-          "-u",
-          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
           "-u",
           "CARTULARY_MAKE_INPUT_SOURCES",
           "-u",
@@ -5348,8 +5317,6 @@
           "-u",
           "CARTULARY_HARNESS_GRAPH_CHILD",
           "-u",
-          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
-          "-u",
           "CARTULARY_MAKE_INPUT_SOURCES",
           "-u",
           "CARTULARY_TEST_TARGET",
@@ -5383,8 +5350,6 @@
           "CARTULARY_HARNESS_SKIP_PREREQUISITES",
           "-u",
           "CARTULARY_HARNESS_GRAPH_CHILD",
-          "-u",
-          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
           "-u",
           "CARTULARY_MAKE_INPUT_SOURCES",
           "-u",
@@ -5420,8 +5385,6 @@
           "-u",
           "CARTULARY_HARNESS_GRAPH_CHILD",
           "-u",
-          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
-          "-u",
           "CARTULARY_MAKE_INPUT_SOURCES",
           "-u",
           "CARTULARY_TEST_TARGET",
@@ -5455,8 +5418,6 @@
           "CARTULARY_HARNESS_SKIP_PREREQUISITES",
           "-u",
           "CARTULARY_HARNESS_GRAPH_CHILD",
-          "-u",
-          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
           "-u",
           "CARTULARY_MAKE_INPUT_SOURCES",
           "-u",
@@ -5492,8 +5453,6 @@
           "-u",
           "CARTULARY_HARNESS_GRAPH_CHILD",
           "-u",
-          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
-          "-u",
           "CARTULARY_MAKE_INPUT_SOURCES",
           "-u",
           "CARTULARY_TEST_TARGET",
@@ -5527,8 +5486,6 @@
           "CARTULARY_HARNESS_SKIP_PREREQUISITES",
           "-u",
           "CARTULARY_HARNESS_GRAPH_CHILD",
-          "-u",
-          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
           "-u",
           "CARTULARY_MAKE_INPUT_SOURCES",
           "-u",
@@ -5564,8 +5521,6 @@
           "-u",
           "CARTULARY_HARNESS_GRAPH_CHILD",
           "-u",
-          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
-          "-u",
           "CARTULARY_MAKE_INPUT_SOURCES",
           "-u",
           "CARTULARY_TEST_TARGET",
@@ -5599,8 +5554,6 @@
           "CARTULARY_HARNESS_SKIP_PREREQUISITES",
           "-u",
           "CARTULARY_HARNESS_GRAPH_CHILD",
-          "-u",
-          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
           "-u",
           "CARTULARY_MAKE_INPUT_SOURCES",
           "-u",
@@ -5636,8 +5589,6 @@
           "-u",
           "CARTULARY_HARNESS_GRAPH_CHILD",
           "-u",
-          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
-          "-u",
           "CARTULARY_MAKE_INPUT_SOURCES",
           "-u",
           "CARTULARY_TEST_TARGET",
@@ -5671,8 +5622,6 @@
           "CARTULARY_HARNESS_SKIP_PREREQUISITES",
           "-u",
           "CARTULARY_HARNESS_GRAPH_CHILD",
-          "-u",
-          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
           "-u",
           "CARTULARY_MAKE_INPUT_SOURCES",
           "-u",
@@ -6114,6 +6063,48 @@
         ],
         "runtime_readiness": "installed_only",
         "tool_id": "release"
+      },
+      "kind": "policy"
+    },
+    "harness.environment_registry_check": {
+      "report_key": "environment-registry-check",
+      "execution": {
+        "type": "step_command",
+        "prerequisites": [
+          "$(NODE_BIN)"
+        ],
+        "mode": "run_step",
+        "step_label": "environment-registry-check",
+        "command": [
+          "$(NODE_BIN)",
+          "./tools/harness/static-analysis/environment-registry-check-cli.mjs"
+        ],
+        "test_target": "self",
+        "graph_entry": true
+      },
+      "kind": "policy"
+    },
+    "harness.assurance_environment_registry": {
+      "report_key": "harness-smoke-environment-registry",
+      "execution": {
+        "type": "step_command",
+        "prerequisites": [
+          "$(FRONTEND_INSTALL_STAMP)",
+          "$(NODE_BIN)"
+        ],
+        "mode": "run_step",
+        "step_label": "harness-environment-registry",
+        "command": [
+          "$(NODE_BIN)",
+          "--test",
+          "--test-concurrency=1",
+          "tools/harness/static-analysis/tests/test-environment-registry.mjs"
+        ],
+        "test_target": "self",
+        "backing_scripts": [
+          "tools/harness/static-analysis/environment-registry.mjs",
+          "tools/harness/static-analysis/tests/test-environment-registry.mjs"
+        ]
       },
       "kind": "policy"
     }
