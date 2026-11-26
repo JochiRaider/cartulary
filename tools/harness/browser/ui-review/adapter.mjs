@@ -94,13 +94,13 @@ export class ReviewAdapter {
   async call(operation, payload) {
     switch (operation) {
       case "initialize": return { facts: await this.initialize(payload) };
-      case "build-web": case "embedded-web-assets": case "build-server-harness": case "build-migrate": case "testservices-build": case "test-service-images": case "playwright-install": this.parentLease = payload.admission_token; this.environment.CARTULARY_HOST_ADMISSION_LEASE = this.parentLease; await buildReviewProducer({ target: operation, root: repoRoot, environment: this.environment, input: this.input, runtime: this.runtime, signal: this.abort.signal }); return { facts: this.facts() };
-      case "seed": this.seeded = await seedReview({ root: repoRoot, runRoot: this.preparationRoot, runtime: this.runtime, environment: payload.environment, input: this.input, sourceDigest: this.sourceDigest, signal: this.abort.signal }); return { facts: this.facts() };
+      case "build-web": case "embedded-web-assets": case "build-server-harness": case "build-migrate": case "testservices-build": case "test-service-images": case "playwright-install": this.parentLease = payload.admission_token; this.environment.CARTULARY_HOST_ADMISSION_LEASE = this.parentLease; await buildReviewProducer({ target: operation, root: repoRoot, recipe: this.environment, input: this.input, runtime: this.runtime, signal: this.abort.signal }); return { facts: this.facts() };
+      case "seed": this.seeded = await seedReview({ root: repoRoot, runRoot: this.preparationRoot, runtime: this.runtime, recipe: payload.environment, input: this.input, sourceDigest: this.sourceDigest, signal: this.abort.signal }); return { facts: this.facts() };
       case "prepare_browser": await this.prepareBrowser(payload); return {};
       case "validate": this.validate(payload.command, payload.request); return {};
       case "execute": return { outcome: await this.execute(payload) };
       case "abort": this.abort.abort(new ReviewFailure("interrupted")); return {};
-      case "check": if (this.seeded) await checkReview({ root: repoRoot, runtime: this.runtime, environment: this.seeded.attached, signal: this.abort.signal }); return {};
+      case "check": if (this.seeded) await checkReview({ root: repoRoot, runtime: this.runtime, recipe: this.seeded.attached, signal: this.abort.signal }); return {};
       case "close": this.store?.close(); this.runtime?.close(); return {};
       default: throw new ReviewFailure("invalid_request");
     }

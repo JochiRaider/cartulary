@@ -81,6 +81,8 @@
   },
   "explicit_launchers": [
     "tools/harness/browser/browser-acquisition.mjs",
+    "tools/harness/browser/review-recipes.mjs",
+    "tools/harness/browser/ui-review/native-client.mjs",
     "tools/harness/readiness/frontend-artifact.mjs",
     "tools/harness/services/local-session.mjs"
   ],

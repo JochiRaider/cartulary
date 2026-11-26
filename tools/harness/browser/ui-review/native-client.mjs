@@ -9,13 +9,15 @@ import { readInput } from "./input-files.mjs";
 import { limits, parseRequest, ReviewFailure } from "./contract.mjs";
 import { emitResult } from "./output.mjs";
 import { repoRoot } from "./policy.mjs";
+import { childEnvironment } from "../../runtime/child-environment.mjs";
+import { reviewForwarded } from "../review-recipes.mjs";
 
+// reviewEnvironment is what the native review owner starts from: the parent's
+// process and tool basics and the names review preparation forwards
+// (TH-HARNESS Section 5.5). Public review inputs, debugging and coverage
+// switches and an enclosing graph's harness context never cross.
 export function reviewEnvironment(environment = process.env) {
-  const copy = { ...environment };
-  for (const name of Object.keys(copy)) {
-    if (/^(?:UI_|REVIEW_PROFILE$|MAKEFLAGS$|MAKEOVERRIDES$|MFLAGS$|NODE_OPTIONS$|NODE_PATH$|NODE_V8_COVERAGE$|DEBUG$|PWDEBUG$|PWTEST_|PLAYWRIGHT_(?!BROWSERS_PATH$)|OTEL_|CARTULARY_(?:MAKE_|HARNESS_|BROWSER_|WEB_E2E_|PGTEST_|S3_)|CARTULARY__)/u.test(name)) delete copy[name];
-  }
-  return copy;
+  return childEnvironment(environment, { pass: reviewForwarded(repoRoot) });
 }
 export function nativeReview(message, { onProgress = () => {}, environment = process.env } = {}) {
   const request = { schema_id: "cartulary.harness_review_command.v1", ...message };
