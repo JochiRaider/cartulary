@@ -59,7 +59,7 @@ export async function buildReviewProducer({ target, root, environment, input, ru
   const [, subject_id, recovery_id] = recipe;
     const context = { phase: "build", subject_id, condition: "child_failed", recovery_id };
     await reviewChild({ root, command: process.execPath, args: ["tools/harness/execution/operation-runner-cli.mjs", operationID], environment: { ...environment, CARTULARY_OPERATION_DIGEST: operationExecutionDigest(operation), CARTULARY_TEST_TARGET: target,
-      CARTULARY_HARNESS_GRAPH_CHILD: "1", CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD: "1", CARTULARY_HARNESS_SKIP_PREREQUISITES: "1" }, signal, output: "ignore",
+      CARTULARY_HARNESS_GRAPH_CHILD: "1", CARTULARY_HARNESS_SKIP_PREREQUISITES: "1" }, signal, output: "ignore",
       context, onChildProcess: (pid) => processRegistration(runtime, pid, JSON.parse(environment.CARTULARY_HARNESS_RESOURCE_DEPENDENCIES)) });
   if (input.preparation_policy === "installed_only" && target === "testservices-build") serviceImageReadiness(environment, root);
   return environment;
