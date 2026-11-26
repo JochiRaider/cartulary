@@ -6,8 +6,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
+
+	"github.com/JochiRaider/cartulary/internal/testutil/goenv"
 )
 
 func goForTest(t *testing.T) string {
@@ -85,6 +88,44 @@ func TestGoBinaryBuildsAndReceipts(t *testing.T) {
 	}
 	if output, err := exec.Command(goForTest(t), "version", "-m", filepath.Join(root, "launcher")).Output(); err != nil || strings.Contains(string(output), "vcs.revision") {
 		t.Fatalf("the build carries VCS stamping: %s, %v", output, err)
+	}
+}
+
+// Every Go producer builds under the pinned Go environment tests run under,
+// whatever Go settings its caller has, so a build started from inside a test
+// keys like one started from a shell (D26: cgo disabled). Binaries trim their
+// source paths (D27).
+func TestGoBuildsUseThePinnedEnvironment(t *testing.T) {
+	pinned, err := goenv.Read(repositoryRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plain := testWorkspace(t)
+	caller := testWorkspace(t, "CGO_ENABLED=1", "GOFLAGS=-tags=other", "GOENV=/elsewhere/go.env", "GOWORK=/elsewhere/go.work", "GOEXPERIMENT=jsonv2", "GOAMD64=v3")
+	module := receiptModule(t)
+	node := receiptNode(t, t.TempDir())
+	var keys []string
+	for _, w := range []*Workspace{plain, caller} {
+		_, env, err := w.goEnvironment()
+		if err != nil {
+			t.Fatal(err)
+		}
+		for name, want := range pinned {
+			if got := environmentValue(env, name); got != want {
+				t.Fatalf("a build sees %s=%q, not the pinned %q", name, got, want)
+			}
+		}
+		key, err := GoBinary{Module: module, Package: "./cmd/launcher", Name: "launcher", Go: goForTest(t), Node: node, Env: env}.Key()
+		if err != nil {
+			t.Fatal(err)
+		}
+		keys = append(keys, key)
+	}
+	if keys[0] != keys[1] {
+		t.Fatal("a caller's Go settings changed a build's key")
+	}
+	if args := (GoBinary{}).buildArgs(); !slices.Contains(args, "-trimpath") || !slices.Contains(args, "-buildvcs=false") {
+		t.Fatalf("build arguments %v", args)
 	}
 }
 

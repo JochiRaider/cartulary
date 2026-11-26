@@ -14,6 +14,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/JochiRaider/cartulary/internal/testutil/goenv"
 	"github.com/JochiRaider/cartulary/internal/testutil/runcontext"
 )
 
@@ -219,6 +220,8 @@ type Workspace struct {
 	Root     string
 	Env      []string
 	registry Registry
+	// pinnedGo is the pinned Go environment builds share with tests.
+	pinnedGo map[string]string
 	layout   map[string]string
 	pins     struct {
 		GoToolchain       string            `json:"go_toolchain"`
@@ -236,7 +239,11 @@ func OpenWorkspace(root string, env []string) (*Workspace, error) {
 	if err != nil {
 		return nil, err
 	}
-	w := &Workspace{Root: root, Env: slices.Clone(env), registry: registry, layout: map[string]string{}}
+	goEnvironment, err := goenv.Read(root)
+	if err != nil {
+		return nil, err
+	}
+	w := &Workspace{Root: root, Env: slices.Clone(env), registry: registry, pinnedGo: goEnvironment, layout: map[string]string{}}
 	var layout struct {
 		Directories []struct {
 			ID   string `json:"id"`
@@ -376,9 +383,12 @@ func (w *Workspace) goTool(d Declaration) (GoTool, error) {
 }
 
 // goEnvironment is the environment Go producers run with: the workspace's
-// environment with the build, module and temporary caches it names.
+// environment, then the pinned Go environment tests run under (D26: cgo
+// disabled) and the build, module and temporary caches it names. The pinned
+// settings come last, so a caller's own Go settings, such as those of a test
+// that starts a nested build, never change a build or its key.
 func (w *Workspace) goEnvironment() (string, []string, error) {
-	env := slices.Clone(w.Env)
+	env := append(slices.Clone(w.Env), goenv.Entries(w.pinnedGo)...)
 	for name, variable := range map[string]string{"GOCACHE": "GO_CACHE_DIR", "GOMODCACHE": "GO_MOD_CACHE_DIR", "GOTMPDIR": "GO_TMP_DIR"} {
 		directory := w.Getenv(variable)
 		if directory == "" {

@@ -148,9 +148,6 @@ func (p *processRunner) Execute(ctx context.Context, request executionRequest) (
 		environment = map[string]string{}
 	}
 	maps.Copy(environment, request.Environment)
-	// The unit's own overlay starts here; NestedEnvironment undoes it.
-	beforeOverlay := maps.Clone(environment)
-	overlay := slices.Collect(maps.Keys(u.Command.Environment))
 	maps.Copy(environment, u.Command.Environment)
 	// Nested planning inherits this admitted unit's envelope, never the host
 	// capacity or a fixture/command override. The lease and budget are one binding.
@@ -234,20 +231,10 @@ func (p *processRunner) Execute(ctx context.Context, request executionRequest) (
 	}
 	rows := u.goRows()
 	if rows != nil {
-		bound := maps.Clone(environment)
 		if executable, err = bindGo(p.Root, environment, u.Command.Args); err != nil {
 			fail(failed("config", "configuration_error"))
 			return
 		}
-		for name, value := range environment {
-			if previous, ok := bound[name]; !ok || previous != value {
-				overlay = append(overlay, name)
-			}
-		}
-	}
-	if environment[unitOverlayKey], err = recordOverlay(beforeOverlay, overlay); err != nil {
-		fail(failed("harness", "scheduler_accounting_error"))
-		return
 	}
 	if !strings.ContainsRune(executable, '/') {
 		found := ""

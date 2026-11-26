@@ -20,7 +20,7 @@ func TestPlanGrowth(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	options := Options{CPUTokens: 4, GoVersion: "1.27.4", BrowserLanes: 4}
+	options := Options{CPUTokens: 4, GoEnvironment: testGoEnvironment, BrowserLanes: 4}
 	const (
 		baseBytes          = 4096
 		bytesPerRowBinding = 384

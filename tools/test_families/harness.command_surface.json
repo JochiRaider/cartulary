@@ -794,6 +794,7 @@
           "TestGeneratedMakeDefaultsMatchProducers",
           "TestGoBinaryBuildsAndReceipts",
           "TestGoBinaryKeyCoversItsImportClosure",
+          "TestGoBuildsUseThePinnedEnvironment",
           "TestGoToolKey",
           "TestNodeArchiveIsVerified",
           "TestNodeRuntimeInstallsFromItsArchive",
@@ -914,6 +915,31 @@
           "TestReadIndexHTMLRejectsMissingFinalPackage",
           "TestReadIndexHTMLUsesArchiveWhenPresent",
           "TestStaticFSUsesArchiveWhenPresent"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "harness.command_surface.unit.go_environment",
+      "owner_id": "harness.command_surface",
+      "family_id": "harness.command_surface.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.command_surface.verification.helper_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/goenv",
+        "tests": [
+          "TestPinnedEnvironment"
         ]
       },
       "evidence_class": "unit",

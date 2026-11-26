@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/JochiRaider/cartulary/internal/testutil/goenv"
 	"github.com/JochiRaider/cartulary/internal/testutil/runcontext"
 )
 
@@ -39,8 +40,9 @@ type Selection struct {
 type Options struct {
 	// CPUTokens bounds a unit's CPU claim (the snapshot's cpu_tokens).
 	CPUTokens int64
-	// GoVersion is the pinned toolchain version (tools/toolchain_pins.json).
-	GoVersion string
+	// GoEnvironment is the pinned Go environment builds and tests share
+	// (goenv, tools/toolchain_pins.json).
+	GoEnvironment map[string]string
 	// GoShuffleSeed, when set, orders Go tests with that seed.
 	GoShuffleSeed string
 	// AttachedServices is set when units borrow a persistent local service
@@ -55,8 +57,8 @@ type Options struct {
 
 // Compile turns a selection into a work graph.
 func Compile(in *Inputs, selection Selection, options Options) (*Graph, error) {
-	if options.CPUTokens < 1 || options.GoVersion == "" {
-		return nil, fmt.Errorf("%w: compilation needs CPU tokens and a Go version", ErrSelection)
+	if options.CPUTokens < 1 || options.GoEnvironment["GOTOOLCHAIN"] == "" {
+		return nil, fmt.Errorf("%w: compilation needs CPU tokens and the pinned Go environment", ErrSelection)
 	}
 	if seed := options.GoShuffleSeed; seed != "" {
 		if value, err := strconv.ParseInt(seed, 10, 32); err != nil || value < 1 || strconv.FormatInt(value, 10) != seed {
@@ -767,16 +769,13 @@ func (c *compiler) runnerUnit(id string, stack []string) (string, error) {
 	return id, nil
 }
 
-// goEnvironment is the fixed Go build context every Go unit runs under.
+// goEnvironment is the pinned Go environment every Go unit runs under, the
+// one store builds use too; a race build enables cgo.
 func (c *compiler) goEnvironment(race bool) map[string]string {
-	environment := map[string]string{
-		"GOOS": "linux", "GOARCH": "amd64", "GOAMD64": "v1", "CGO_ENABLED": "0", "GOFLAGS": "", "GOENV": "off",
-		"GOEXPERIMENT": "", "GOTOOLCHAIN": "go" + c.options.GoVersion, "GOWORK": "off", "GO111MODULE": "on",
-	}
 	if race {
-		environment["CGO_ENABLED"] = "1"
+		return goenv.Race(c.options.GoEnvironment)
 	}
-	return environment
+	return maps.Clone(c.options.GoEnvironment)
 }
 
 // goCommand is a Go unit's exact `go test` invocation (TH-HARNESS-REQ-872):

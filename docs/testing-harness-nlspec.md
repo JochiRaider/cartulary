@@ -2250,8 +2250,11 @@ Linux, `amd64.v1`, the repository-pinned Go release tags, the `gc` compiler tag,
 cgo disabled, and no private or caller-supplied build tags. The adapter MUST
 bind this same context explicitly: `GOOS=linux`, `GOARCH=amd64`, `GOAMD64=v1`,
 `CGO_ENABLED=0`, empty `GOFLAGS` and `GOEXPERIMENT`, `GOENV=off`, `GOWORK=off`,
-`GO111MODULE=on`, and the pinned `GOTOOLCHAIN`. Host settings and Go environment
-files MUST NOT alter source selection. The pinned toolchain's default experiments
+`GO111MODULE=on`, the pinned `GOTOOLCHAIN`, and the pinned cryptographic module
+selector as `GOFIPS140`. This is the pinned Go environment: the toolchain pins
+declare its settings under `go_environment` (amended 2026-11-26, P5-3d), and
+every harness build and test runs under it, a race build with cgo enabled.
+Host settings and Go environment files MUST NOT alter source selection. The pinned toolchain's default experiments
 remain toolchain-owned; first-party `goexperiment.*` constraints are unsupported
 and MUST fail configuration before setup until an explicit experimental context
 is admitted. Cryptographic module and runtime policy remain independently owned.
@@ -2603,6 +2606,11 @@ A cached unit's key covers its result identity (amended 2026-11-26, P5-3b):
 estimates, resource claims, residents, locks, the timeout and a Go unit's CPU
 budget schedule a unit and are not key material.
 
+Go build-artifact producers build under the pinned Go environment, applied
+after the caller's environment, so a caller's own Go settings never change a
+build or its key, and shipped binaries are built with cgo disabled, as they
+are tested (amended 2026-11-26, P5-3d, D26). Every Go binary the store builds
+passes `-trimpath`, so its bytes do not depend on the checkout path (D27).
 Cached Go build-artifact profiles MUST pass `-buildvcs=false`. Git revision and
 dirty-worktree stamping are undeclared repository-state inputs and MUST NOT alter a
 binary whose cache key is otherwise unchanged. Source-snapshot, release, and audit
@@ -3746,15 +3754,12 @@ invalid budgets. Retained reconstruction MUST use this value without consulting
 ambient parent-lease state or substituting current or physical host capacity.
 
 A harness invocation launched from inside a unit, whether a nested graph or a
-public Make command, MUST start from the environment the unit had before its
-own overlay (amended 2026-11-26, G43). The runtime records in
-`CARTULARY_HARNESS_UNIT_OVERLAY` every variable that the unit's planned command
-environment and its Go binding replaced, with the prior value or null, and a
-nested launcher restores them. The nested invocation therefore prepares and
-builds with a top-level invocation's toolchain environment, never its host
-test's fixed Go build context, and its build keys match the enclosing run's.
-The record excludes the scheduler-owned envelope (lease, CPU budget, launch
-context), which the child keeps.
+public Make command, starts from the unit's environment, without the unit's
+fixture secrets (amended 2026-11-26, G43, P5-3d). Builds and tests share the
+pinned Go environment and every build applies it last, so the nested
+invocation builds like a top-level one and its build keys match the enclosing
+run's; nothing the unit replaced needs restoring. It keeps the
+scheduler-owned envelope (lease, CPU budget, launch context).
 
 Native runtime-boundary assurance MUST select the existing catalog rows that
 own its test symbols and retain their resource, fixture, process-isolation and

@@ -7,6 +7,7 @@ import {spawnSync} from "node:child_process";
 import {fileURLToPath} from "node:url";
 import {setTimeout as delay} from "node:timers/promises";
 import {buildReceipt, goOutput, pins, verifyArchive} from "../harness/readiness/cryptographic-module.mjs";
+import {goRunnerBuildContext} from "../harness/test-catalog/index.mjs";
 import {referencePlatform} from "../harness/readiness/reference-platform.mjs";
 import {assertPackagedRendererLayout} from "../report-renderer/stage-installation.mjs";
 import {publicExitCodeForFailure} from "../harness/contract/index.mjs";
@@ -91,8 +92,9 @@ async function main() {
     (operation==="layout" && !/^[a-f0-9]{64}$/.test(origin || ""))) {
    throw new CommandFailure("invalid package platform inputs",{failure_class:"config",failure_reason:"usage_error"});
  }
- const go=process.env.GO || "go", policy=pins();
- const env={...process.env,GOTOOLCHAIN:policy.go_toolchain,GOFIPS140:policy.cryptographic_module.selector,CGO_ENABLED:"0",GOCACHE:process.env.GO_CACHE_DIR,GOMODCACHE:process.env.GO_MOD_CACHE_DIR,GOTMPDIR:process.env.GO_TMP_DIR};
+ const go=process.env.GO || "go";
+ // Probes build under the pinned Go environment every build and test shares.
+ const env={...process.env,...goRunnerBuildContext(process.cwd()).environment,GOCACHE:process.env.GO_CACHE_DIR,GOMODCACHE:process.env.GO_MOD_CACHE_DIR,GOTMPDIR:process.env.GO_TMP_DIR};
  const compose=(...args)=>command("docker",["compose","--project-name",project,"--env-file",path.join(work,".env"),"-f",path.join(work,"release/assets/docker-compose.yml"),...args]);
  if(operation==="layout") {
    const id=origin;assert.match(id,/^[a-f0-9]{64}$/);

@@ -2,13 +2,13 @@ import {chmodSync, mkdirSync, readFileSync, writeFileSync} from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import {spawnSync} from "node:child_process";
-import {buildReceipt, goOutput, pins, verifyArchive} from "./cryptographic-module.mjs";
+import {buildReceipt, goOutput, verifyArchive} from "./cryptographic-module.mjs";
+import {goRunnerBuildContext} from "../test-catalog/index.mjs";
 import {referencePlatform} from "./reference-platform.mjs";
 
 const [operation, work, artifacts, appID, origin] = process.argv.slice(2);
 if (!["prepare","measure"].includes(operation) || !path.isAbsolute(work || "") || !path.isAbsolute(artifacts || "")) throw new Error("invalid capacity assessment invocation");
-const policy = pins();
-const env = {...process.env, GOTOOLCHAIN:policy.go_toolchain, GOFIPS140:policy.cryptographic_module.selector, GODEBUG:"fips140=on", GOOS:"linux", GOARCH:"amd64", CGO_ENABLED:"0", GOCACHE:process.env.GO_CACHE_DIR, GOMODCACHE:process.env.GO_MOD_CACHE_DIR, GOTMPDIR:process.env.GO_TMP_DIR};
+const env = {...process.env, ...goRunnerBuildContext(process.cwd()).environment, GODEBUG:"fips140=on", GOCACHE:process.env.GO_CACHE_DIR, GOMODCACHE:process.env.GO_MOD_CACHE_DIR, GOTMPDIR:process.env.GO_TMP_DIR};
 const go = process.env.GO || "go";
 const client = path.join(work,"capacity-client");
 const save = (name, value) => writeFileSync(path.join(artifacts,name), `${JSON.stringify(value,null,2)}\n`,{mode:0o600});

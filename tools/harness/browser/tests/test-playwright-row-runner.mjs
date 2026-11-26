@@ -291,7 +291,7 @@ process.stdin.on('end', () => process.stderr.write(JSON.stringify({
     assert.deepEqual(ready.environment, {
       GOCACHE: path.join(machine, "build"), GOMODCACHE: path.join(machine, "modules"), GOTMPDIR: path.join(machine, "temporary"), GOROOT: "",
       GOTOOLCHAIN: `go${pins.go_version}`, GOFLAGS: "", GOENV: "off", GOWORK: "off", GOEXPERIMENT: "", GOOS: "linux", GOARCH: "amd64", GOAMD64: "v1",
-      CGO_ENABLED: "0", GO111MODULE: "on", GOPROXY: "off", GOFIPS140: "preserved-crypto-policy",
+      CGO_ENABLED: "0", GO111MODULE: "on", GOPROXY: "off", GOFIPS140: pins.cryptographic_module.selector,
     });
   } finally {
     await fixture.stop();

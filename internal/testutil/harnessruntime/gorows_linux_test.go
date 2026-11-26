@@ -95,41 +95,21 @@ func TestRuntimeGoRows(t *testing.T) {
 			t.Fatalf("result %+v", r)
 		}
 	})
-	t.Run("a nested invocation starts from the environment before the unit overlay", func(t *testing.T) {
+	t.Run("a unit runs under its planned Go environment and the bound caches", func(t *testing.T) {
 		saved := environment["GOFLAGS"]
 		environment["GOFLAGS"] = "-mod=readonly"
 		defer func() { environment["GOFLAGS"] = saved }()
 		u := goUnit()
 		u.Command.Environment = map[string]string{"CGO_ENABLED": "0", "GOFLAGS": "", "GOENV": "off"}
 		_, recorded := run(t, u, "0", pass("TestA"), pass("TestB"))
-		lines := strings.Split(recorded, "\n")
 		inside := map[string]string{}
-		for _, line := range lines[1:] {
+		for _, line := range strings.Split(recorded, "\n")[1:] {
 			if name, value, ok := strings.Cut(line, "="); ok {
 				inside[name] = value
 			}
 		}
-		if inside["CGO_ENABLED"] != "0" || inside["GOFLAGS"] != "" || inside["GOCACHE"] != "/machine/go/build" || inside[unitOverlayKey] == "" {
-			t.Fatalf("the unit does not run under its overlay:\n%s", recorded)
-		}
-		nested, err := NestedEnvironment(lines[1:])
-		if err != nil {
-			t.Fatal(err)
-		}
-		outside := map[string]string{}
-		for _, entry := range nested {
-			name, value, _ := strings.Cut(entry, "=")
-			outside[name] = value
-		}
-		for name, want := range map[string]string{"GOFLAGS": "-mod=readonly", "GOROOT": "/inherited/root", "GO_TMP_DIR": environment["GO_TMP_DIR"], "PATH": inside["PATH"]} {
-			if outside[name] != want {
-				t.Fatalf("nested %s = %q, want %q", name, outside[name], want)
-			}
-		}
-		for _, name := range []string{"CGO_ENABLED", "GOENV", "GOCACHE", "GOMODCACHE", "GOTMPDIR", "CARTULARY_AUTH_MASTER_KEY", "FAKE_RECORD", unitOverlayKey} {
-			if _, ok := outside[name]; ok {
-				t.Fatalf("nested environment keeps the unit's %s", name)
-			}
+		if inside["CGO_ENABLED"] != "0" || inside["GOFLAGS"] != "" || inside["GOENV"] != "off" || inside["GOCACHE"] != "/machine/go/build" {
+			t.Fatalf("the unit does not run under its planned environment:\n%s", recorded)
 		}
 	})
 	t.Run("an independent module runs without the repository's test key", func(t *testing.T) {

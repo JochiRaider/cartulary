@@ -17,6 +17,8 @@ import (
 	"time"
 
 	"golang.org/x/sys/unix"
+
+	"github.com/JochiRaider/cartulary/internal/testutil/goenv"
 )
 
 // Files preparation reads besides the planning inputs.
@@ -91,13 +93,11 @@ func Prepare(root string, request Request, now time.Time, pid int) (*Plan, error
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s: %v", ErrInput, toolchainPinsPath, err)
 	}
-	var toolchain struct {
-		GoVersion string `json:"go_version"`
+	goEnvironment, err := goenv.Parse(pins)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrInput, err)
 	}
-	if err := json.Unmarshal(pins, &toolchain); err != nil || toolchain.GoVersion == "" {
-		return nil, fmt.Errorf("%w: %s has no go_version", ErrInput, toolchainPinsPath)
-	}
-	options := Options{CPUTokens: budget, GoVersion: toolchain.GoVersion, GoShuffleSeed: value("GO_SHUFFLE_SEED", ""), AttachedServices: mode == "attach", BrowserLanes: int(lanes)}
+	options := Options{CPUTokens: budget, GoEnvironment: goEnvironment, GoShuffleSeed: value("GO_SHUFFLE_SEED", ""), AttachedServices: mode == "attach", BrowserLanes: int(lanes)}
 	graph, err := Compile(in, resolved.selection, options)
 	if err != nil {
 		return nil, err
@@ -141,7 +141,7 @@ func Prepare(root string, request Request, now time.Time, pid int) (*Plan, error
 		environment := request.Environment
 		cache, cacheInputs, err = CacheFacts(root, in, graph, source.Inputs, CacheContext{
 			ToolchainDigest: toolchainDigest, Platform: runtime.GOOS + "/" + runtime.GOARCH,
-			FIPSSelector: environment["GOFIPS140"], GoDebug: environment["GODEBUG"], GoToolchain: environment["GOTOOLCHAIN"],
+			FIPSSelector: goEnvironment["GOFIPS140"], GoDebug: environment["GODEBUG"], GoToolchain: goEnvironment["GOTOOLCHAIN"],
 		})
 		if err != nil {
 			return nil, err

@@ -25,6 +25,8 @@ func testWorkspace(t *testing.T, env ...string) *Workspace {
 		t.Fatal(err)
 	}
 	scratch := t.TempDir()
+	// A Go module cache holds read-only files.
+	t.Cleanup(func() { _ = removeTree(scratch) })
 	base := []string{"NODE_BIN=/bin/true", "GO=/bin/true", "NODE_RUNTIME_DIR=/node", "PNPM=/node/bin/pnpm",
 		"GO_CACHE_DIR=" + filepath.Join(scratch, "build"), "GO_MOD_CACHE_DIR=" + filepath.Join(scratch, "mod"), "GO_TMP_DIR=" + filepath.Join(scratch, "tmp")}
 	w, err := OpenWorkspace(root, append(base, env...))

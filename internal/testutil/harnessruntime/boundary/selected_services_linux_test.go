@@ -14,7 +14,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/testutil/harnessruntime"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 )
 
@@ -41,10 +40,9 @@ func TestNativeSelectedServiceLifecycle(t *testing.T) {
 		{"mixed", "backend-integration", []string{"harness.browser.integration.object_store_namespace_lifecycle", "harness.browser.integration.postgres_transaction_isolation", "platform.postgres.integration.fresh_fixture_admission"}, []string{"object_store", "postgres"}},
 	} {
 		t.Run(selection.id, func(t *testing.T) {
-			host, err := harnessruntime.NestedEnvironment(os.Environ())
-			if err != nil {
-				t.Fatal(err)
-			}
+			// Builds share the test's pinned Go environment, so a nested launch
+			// starts from the test's own environment, without its fixture key.
+			host := os.Environ()
 			env := map[string]string{}
 			for _, entry := range host {
 				key, value, ok := strings.Cut(entry, "=")
@@ -53,7 +51,7 @@ func TestNativeSelectedServiceLifecycle(t *testing.T) {
 				}
 				env[key] = value
 			}
-			for _, key := range []string{"MAKEFLAGS", "MAKEOVERRIDES", "MFLAGS", "JSON", "OWNER", "ROWS", "SERVICE_BACKED_ONLY"} {
+			for _, key := range []string{"CARTULARY_AUTH_MASTER_KEY", "MAKEFLAGS", "MAKEOVERRIDES", "MFLAGS", "JSON", "OWNER", "ROWS", "SERVICE_BACKED_ONLY"} {
 				delete(env, key)
 			}
 			env["CARTULARY_TEST_RESULTS_DIR"] = results

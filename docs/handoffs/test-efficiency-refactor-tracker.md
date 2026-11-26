@@ -1375,6 +1375,7 @@ Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-am
 | 2026-11-26 | P5-3c step 2 | Web bundles and embedded assets join the store: `frontend-artifact.mjs build` copies the sealed bundle into the run's private artifact; embedded assets package the run's artifact; bundles always carry source maps (D29); unrecorded roots get a collection grace; three file rules and two scripts removed | `p93-generate`, `p94` (segment), `p95-check01` | Pass. `p95-check01` passed all 1,898 rows in a 513 s graph; the web unit took 3.5 s (6.7 s) reusing its bundle (14.28) |
 | 2026-11-26 | P5-3c step 3 | Installations become producers: the Node runtime with pnpm, the frontend dependencies and the Playwright browsers install in place under receipts, with declared requirements; readiness and static-analysis controls fold into the store's two (D28); bundles carry hidden source maps and the server package leaves them out (D29); four file rules, three scripts and the Node bootstrap smoke removed | `p96-generate`, `p97` (segment), `p98`, `p99-check01` | Pass. `p99-check01` passed all 1,898 rows in a 515 s graph (14.29) |
 | 2026-11-26 | P5-3c step 4 | The renderer builds its launcher through the store and reuses by root seal, with collection; the release inventory and the test service images become producers; every prerequisite names a producer, nothing re-enters Make, and Make has no file rules; `cache-artifact.sh` and four more scripts removed | `p100-generate`, `p101` (segment), `p102`, `p103-check01` | Pass. `p103-check01` passed all 1,898 rows in a 514 s graph; the renderer unit took 3.1 s (20.3 s) (14.30) |
+| 2026-11-26 | P5-3d | One pinned Go environment (`go_environment` in the toolchain pins) for every build and test: the planner, the store, selector resolution, browser fixtures and release scripts read it; builds apply it last; cgo off (D26) and `-trimpath` (D27) for every store-built binary; the unit overlay record and `NestedEnvironment` removed | `p104-generate3`, `p105` (segment, with the release package rows), `p106`, `p107-check01` | Pass. `p107-check01` passed all 1,899 rows in a 577 s graph; the 63 s over `p103` is the one-time rebuild of Go tools and a cold staticcheck cache under the new environment (14.31) |
 | 2026-11-25 | P4-4 / G39 | Wait audit: 31 whole-test hang guards derive from the test deadline (`testdeadline`) | `p44-port-*` (16 owner slices, every row holding a converted guard) | Pass. Committed `bdd8f4e1d` |
 
 ## 12. Phase 2 Plan — `check` Wall Clock
@@ -2669,7 +2670,7 @@ Status: proposed 2026-11-26 at the owner's request. P5-0, P5-1 and P5-2 done (14
 | P5-1 | Flat catalog: every check is a row with an owner, so any of them runs alone with `ROWS=`; selections list rows and operations, not other selections. **Done 2026-11-26** (14.6): every test script is a row and duplicates are gone; selection nesting stays (14.6) | G44 |
 | P5-2 | Unnest: harness-mechanics probes run as first-class graph rows against private outputs, or move to an explicit harness suite outside `ci`; a source check forbids rows that launch `make` or `graph` against the shared repository | G43 |
 | P5-4 | Declared environment: a registry of every harness variable, default-deny unit environments, one typed unit context document, fixture bindings in that document (14.7) | G43, G45 |
-| P5-3 | Thin Make: Make only admits the workspace and forwards to the harness; build operations become data with declared inputs, environment keys and outputs; one Go content-addressed store replaces `cache-artifact.sh`, the renderer store and web staging; no unit re-enters Make; one toolchain environment from the pins for builds and tests. **Planned 2026-11-26** (14.24): five steps, P5-3a to P5-3e; P5-3a done (14.25); P5-3b done (14.26); P5-3c done (14.27 to 14.30) | G44 |
+| P5-3 | Thin Make: Make only admits the workspace and forwards to the harness; build operations become data with declared inputs, environment keys and outputs; one Go content-addressed store replaces `cache-artifact.sh`, the renderer store and web staging; no unit re-enters Make; one toolchain environment from the pins for builds and tests. **Planned 2026-11-26** (14.24): five steps, P5-3a to P5-3e; P5-3a done (14.25); P5-3b done (14.26); P5-3c done (14.27 to 14.30); P5-3d done (14.31) | G44 |
 
 P5-0 is small and removes the hazards seen in `ci`. P5-1 makes segments
 possible for every check. P5-3 is the largest and needs specification
@@ -2696,8 +2697,8 @@ amendments.
 | D23 | P5-4 against P5-2 and P5-3 | P5-4a and P5-4b before P5-2, since unnesting is simpler once children start from a declared environment; mode switches leave with P5-3. **Approved 2026-11-26** |
 | D24 | Where the P5-3 store lives | Repository-local `.cache/cartulary/store`, beside today's caches, so locks and collection stay within one checkout; sharing across worktrees is a later change. **Approved 2026-11-26** |
 | D25 | How conventional paths stay valid | Published views swapped by rename: single-link copies for files and an atomically renamed tree for directories. Never a symbolic link, which the container build would copy as a link. **Approved 2026-11-26**; files changed from hard links to copies in P5-3b, because product code opens its own executable only as a single-link file |
-| D26 | cgo for shipped binaries | `CGO_ENABLED=0` everywhere, as tests and the package probes already use; adopted only if the release package rows pass. **Approved 2026-11-26** |
-| D27 | Checkout-independent binaries | `-trimpath` for product binaries, so a binary's digest does not depend on the checkout path; the one-time digest change is recorded. **Approved 2026-11-26** |
+| D26 | cgo for shipped binaries | `CGO_ENABLED=0` everywhere, as tests and the package probes already use; adopted only if the release package rows pass. **Approved 2026-11-26; adopted in P5-3d (14.31)**: the release package rows passed with cgo-free binaries |
+| D27 | Checkout-independent binaries | `-trimpath` for product binaries, so a binary's digest does not depend on the checkout path; the one-time digest change is recorded. **Approved 2026-11-26; adopted in P5-3d (14.31)** for every store-built Go binary, harness binaries included, since none reads its source paths |
 | D28 | Cache controls | Keep the public `CARTULARY_BUILD_CACHE_DISABLE` and `CARTULARY_FORCE_REBUILD` as the store's two controls; fold the readiness, reinstall and static-analysis variants into them. **Approved 2026-11-26** |
 | D29 | Web bundle flags and the output mode | Bundles always carry source maps, as every default and ci build did; the verbose output mode no longer changes the bundle or the server's embedded archive. Taken in P5-3c step 2 (14.28). **Decided by the owner 2026-11-26: hidden source maps; the production package leaves them out, so the server serves no source** (14.29) |
 
@@ -3698,7 +3699,7 @@ Decision D20 (owner, 2026-11-26): nested harness probes run in explicit
 Status: planned 2026-11-26 at the owner's request. Owner direction: retire as
 much of the Makefile as needed; a thin wrapper is better than a complicated
 one. Approved with D24 to D28 as recommended on 2026-11-26; P5-3a done
-(14.25); P5-3b done (14.26); P5-3c done (14.27 to 14.30).
+(14.25); P5-3b done (14.26); P5-3c done (14.27 to 14.30); P5-3d done (14.31).
 
 **Problem (G44, G47).** Measured at `db2304ea9`:
 
@@ -4421,3 +4422,90 @@ segments and then one `check`:
       runs ShellCheck in full, where the default cache mode reuses its unit.
       The test-service image unit took 1.3 s (0.6 s), which is its per-image
       presence proof.
+
+### 14.31 One Toolchain Environment (P5-3d)
+
+- **One table.** `tools/toolchain_pins.json` now declares the Go settings
+  under `go_environment`: linux/amd64.v1, `CGO_ENABLED=0`, empty `GOFLAGS`
+  and `GOEXPERIMENT`, `GOENV=off`, `GOWORK=off` and `GO111MODULE=on`. With
+  the pinned `GOTOOLCHAIN` and the cryptographic module selector as
+  `GOFIPS140`, this is the pinned Go environment.
+  - **Readers.** A new package, `internal/testutil/goenv`, reads it for the
+    planner and the store. `go-build-context.mjs` reads the same table for
+    selector resolution, browser Go fixtures and the release scripts. Both
+    readers refuse a table that does not declare exactly those settings.
+  - **Before.** The planner, the Node build context and the Playwright
+    runner test each carried their own copy. Three release scripts set
+    `CGO_ENABLED`, `GOTOOLCHAIN` and `GOFIPS140` by hand. Store builds
+    inherited whatever the caller had.
+- **Tests.** Go units take the table from the pins, and race builds enable
+  cgo. The planner's cache context reads `GOTOOLCHAIN` and `GOFIPS140` from
+  the table instead of the caller's environment.
+- **Builds (D26).** Every Go producer appends the table after the caller's
+  environment, so a caller's own Go settings never change a build or its key.
+  - **Before.** Every binary was built with `CGO_ENABLED=1` because a C
+    compiler is present, the shipped server, migrate and operator included.
+  - **Now.** Everything builds with cgo off. sqlc builds and generates
+    without cgo; I checked that before applying the table to Go tools.
+- **Checkout-independent binaries (D27).** Every Go binary the store builds
+  passes `-trimpath`. I applied it to the harness binaries too, not only
+  product binaries, because none reads its own source paths (no
+  `runtime.Caller` or build-info path use) and one build rule is simpler.
+  Every Go binary's digest changes once.
+- **No overlay record.** Builds and tests now share the environment, and
+  every build applies it last. A nested graph or `make` launched from a Go
+  test therefore builds like a top-level invocation without undoing anything.
+  - **Removed.** `CARTULARY_HARNESS_UNIT_OVERLAY`, its recording in the
+    process runner, and `harnessruntime.NestedEnvironment` (`overlay.go`).
+  - **Nested launches.** The three nested launch tests start from their own
+    environment and drop only the fixture's master key.
+- **Specification.** Amended:
+  - the Go build context, which now names the pinned table and covers
+    every build and test;
+  - the Go build-artifact producers clause (D26, D27);
+  - the nested-invocation clause, which no longer has an overlay record.
+- **Not changed.**
+  - The Makefile's `GOTOOLCHAIN` and `GOFIPS140` lines feed only Go commands
+    Make runs directly, such as `go run ./tools/harnessbuild`; P5-3e thins
+    them.
+  - Node settings were already one runtime binding after P5-3c: one runtime,
+    its pnpm, its Corepack home and its `PATH` entry.
+- **Validation.**
+  - **Segment (`p105`).** These passed:
+    - generation, with sqlc rebuilt without cgo;
+    - lint (Go, scripts, shell) and the catalog, identity, generated, schema
+      and toolchain source checks;
+    - `make build` twice, `build COMPONENT=server-harness` and the
+      renderer, all rebuilt once under the new environment;
+    - `doctor`;
+    - 10 command-surface rows (the store, the new `go_environment` row, the
+      native runtime and the planner among them);
+    - the three nested-launch rows, which no longer use the overlay, and the
+      Playwright adapter row;
+    - the routing contract, the cryptographic policy assessment, two
+      reporting renderer rows and both operator recovery rows;
+    - the release package rows: `standup_package`,
+      `operational_recovery_package`, `reference_pack_package` and
+      `package_readiness_contract`, in a 480 s graph.
+  - **Shipped binaries.** `server`, `migrate`, `operator` and
+    `server-harness` report `CGO_ENABLED=0`, `-trimpath=true` and the pinned
+    `GOFIPS140`, and so does the harness runtime. The release package rows
+    passed with them, which meets D26's adoption condition.
+  - **Problems.**
+    - **The surface check.** My new runtime test named the removed overlay
+      variable while asserting its absence, so the check counted it as an
+      unregistered name. The assertion is gone, and the surface and catalog
+      checks and the runtime row passed again (`p106`).
+    - **`credential-capacity-assessment`.** It refuses to run without a
+      release run's results directory, so it cannot run on its own. This is
+      not a failure of this change.
+  - **`p107-check01`.** All 1,899 rows passed (one more: the
+    `go_environment` row), but in a 577 s graph against 514 s in `p103`.
+    - **Cause.** A one-time cost. gosec, goose and govulncheck were first
+      built under the new environment inside the check: gosec 24.5 s (1.9 s),
+      goose 19.0 s (1.5 s). staticcheck's analysis cache was cold (43.0 s,
+      against 6.7 s).
+    - **Contention.** The Go test units overlapped those builds: the
+      backend unit, integration, process and store suites took 15 to 63 s
+      longer each. The critical path is unchanged.
+    - **Next.** The next `check` will show the steady state.

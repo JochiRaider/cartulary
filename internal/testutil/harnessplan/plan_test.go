@@ -20,7 +20,7 @@ func TestPlanAssembly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	graph, err := Compile(inputs, Selection{Targets: []string{"harness.go_vulncheck"}}, Options{CPUTokens: snapshot.CPUTokens, GoVersion: "1.27.4"})
+	graph, err := Compile(inputs, Selection{Targets: []string{"harness.go_vulncheck"}}, Options{CPUTokens: snapshot.CPUTokens, GoEnvironment: testGoEnvironment})
 	if err != nil {
 		t.Fatal(err)
 	}

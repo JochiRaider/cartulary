@@ -9,15 +9,25 @@ import (
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/gen/performancefixtureprofile"
+	"github.com/JochiRaider/cartulary/internal/testutil/goenv"
 	"github.com/JochiRaider/cartulary/internal/testutil/performancefixture"
 )
+
+// testGoEnvironment is the repository's pinned Go environment.
+var testGoEnvironment = func() map[string]string {
+	environment, err := goenv.Read("../../..")
+	if err != nil {
+		panic(err)
+	}
+	return environment
+}()
 
 func TestPlannerCompilation(t *testing.T) {
 	inputs, err := Load(repositoryRoot(t))
 	if err != nil {
 		t.Fatal(err)
 	}
-	options := Options{CPUTokens: 19, GoVersion: "1.27.4"}
+	options := Options{CPUTokens: 19, GoEnvironment: testGoEnvironment}
 	rowsWhere := func(keep func(Row) bool) []string {
 		var ids []string
 		for _, row := range inputs.Catalog.Rows {

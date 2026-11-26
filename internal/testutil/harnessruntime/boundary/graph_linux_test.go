@@ -16,7 +16,6 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessadmission"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
-	"github.com/JochiRaider/cartulary/internal/testutil/harnessruntime"
 )
 
 // This separate Make-owned route exercises real service/browser boundaries.
@@ -37,10 +36,9 @@ func TestNativeGraphServiceObservations(t *testing.T) {
 	// Product migration correctness remains in its independent owner selection.
 	for _, selection := range []struct{ id, owner, row string }{{"postgres", "harness.browser", "harness.browser.integration.postgres_transaction_isolation"}, {"https", "harness.browser", "harness.browser.boundary_support.https_trust"}} {
 		t.Run(selection.id, func(t *testing.T) {
-			host, err := harnessruntime.NestedEnvironment(os.Environ())
-			if err != nil {
-				t.Fatal(err)
-			}
+			// Builds share the test's pinned Go environment, so a nested launch
+			// starts from the test's own environment, without its fixture key.
+			host := os.Environ()
 			env := map[string]string{}
 			for _, entry := range host {
 				k, v, ok := strings.Cut(entry, "=")
@@ -52,7 +50,7 @@ func TestNativeGraphServiceObservations(t *testing.T) {
 				}
 				env[k] = v
 			}
-			for _, k := range []string{"CARTULARY_HARNESS_LAUNCH_CONTEXT", "CARTULARY_HARNESS_COMMAND_FAILURE_CONTEXT", "CARTULARY_HARNESS_INVOCATION_ROOT", "MAKEFLAGS", "MAKEOVERRIDES", "MFLAGS", "JSON", "OWNER", "ROWS", "SERVICE_BACKED_ONLY", "SCOPE", "SUITE"} {
+			for _, k := range []string{"CARTULARY_AUTH_MASTER_KEY", "CARTULARY_HARNESS_LAUNCH_CONTEXT", "CARTULARY_HARNESS_COMMAND_FAILURE_CONTEXT", "CARTULARY_HARNESS_INVOCATION_ROOT", "MAKEFLAGS", "MAKEOVERRIDES", "MFLAGS", "JSON", "OWNER", "ROWS", "SERVICE_BACKED_ONLY", "SCOPE", "SUITE"} {
 				delete(env, k)
 			}
 			env["CARTULARY_TEST_RESULTS_DIR"] = results

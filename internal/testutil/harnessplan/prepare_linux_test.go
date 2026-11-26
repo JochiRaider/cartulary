@@ -374,7 +374,7 @@ func TestPlanPreparation(t *testing.T) {
 				resolved, err := inputs.resolve(Request{Kind: kind, Target: target.Name, Environment: environment(cli)})
 				if err == nil {
 					var graph *Graph
-					options := Options{CPUTokens: 19, GoVersion: "1.27.4"}
+					options := Options{CPUTokens: 19, GoEnvironment: testGoEnvironment}
 					if graph, err = Compile(inputs, resolved.selection, options); err == nil && kind != "target" {
 						_, err = inputs.projections(graph, resolved.entry, options)
 					}

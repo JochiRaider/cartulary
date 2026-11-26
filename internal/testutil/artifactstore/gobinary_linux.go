@@ -59,8 +59,10 @@ type GoBinary struct {
 // ID names the producer in key records.
 func (b GoBinary) ID() string { return "go-binary" }
 
+// buildArgs never stamp VCS state and trim source paths (D27), so a binary's
+// bytes do not depend on the checkout it was built in.
 func (b GoBinary) buildArgs() []string {
-	args := []string{"build", "-buildvcs=false"}
+	args := []string{"build", "-buildvcs=false", "-trimpath"}
 	if b.Tags != "" {
 		args = append(args, "-tags", b.Tags)
 	}

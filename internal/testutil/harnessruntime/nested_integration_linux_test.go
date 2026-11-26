@@ -40,10 +40,9 @@ func TestRuntimeNestedServiceCancellation(t *testing.T) {
 	results = filepath.Join(results, outer, "nested-cancellation")
 	for _, mode := range []string{"summary", "machine", "summary-startup"} {
 		if !t.Run(mode, func(t *testing.T) {
-			host, err := NestedEnvironment(os.Environ())
-			if err != nil {
-				t.Fatal(err)
-			}
+			// Builds share the test's pinned Go environment, so a nested launch
+			// starts from the test's own environment, without its fixture key.
+			host := os.Environ()
 			env := map[string]string{}
 			for _, entry := range host {
 				k, v, ok := strings.Cut(entry, "=")
@@ -52,7 +51,7 @@ func TestRuntimeNestedServiceCancellation(t *testing.T) {
 				}
 				env[k] = v
 			}
-			for _, k := range []string{"MAKEFLAGS", "MAKEOVERRIDES", "MFLAGS", "JSON", "OWNER", "ROWS", "SCOPE", "SUITE", "SERVICE_BACKED_ONLY", "CARTULARY_MAKE_INPUT_SOURCES"} {
+			for _, k := range []string{"CARTULARY_AUTH_MASTER_KEY", "MAKEFLAGS", "MAKEOVERRIDES", "MFLAGS", "JSON", "OWNER", "ROWS", "SCOPE", "SUITE", "SERVICE_BACKED_ONLY", "CARTULARY_MAKE_INPUT_SOURCES"} {
 				delete(env, k)
 			}
 			env["CARTULARY_TEST_RESULTS_DIR"], env["CARTULARY_TEST_RUN_ID"] = results, mode

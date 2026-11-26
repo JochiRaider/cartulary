@@ -3,6 +3,17 @@
   "module_path": "github.com/JochiRaider/cartulary",
   "go_version": "1.27.4",
   "go_toolchain": "go1.27.4",
+  "go_environment": {
+    "GOOS": "linux",
+    "GOARCH": "amd64",
+    "GOAMD64": "v1",
+    "CGO_ENABLED": "0",
+    "GOFLAGS": "",
+    "GOENV": "off",
+    "GOEXPERIMENT": "",
+    "GOWORK": "off",
+    "GO111MODULE": "on"
+  },
   "node_version": "24.15.0",
   "pnpm_version": "10.33.0",
   "biome_version": "2.6.6",

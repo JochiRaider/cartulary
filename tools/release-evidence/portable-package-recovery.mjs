@@ -6,7 +6,8 @@ import {randomUUID} from "node:crypto";
 import {chmodSync,copyFileSync,mkdirSync,readFileSync,unlinkSync,writeFileSync} from "node:fs";
 import path from "node:path";
 import {spawnSync} from "node:child_process";
-import {goOutput,pins} from "../harness/readiness/cryptographic-module.mjs";
+import {goOutput} from "../harness/readiness/cryptographic-module.mjs";
+import {goRunnerBuildContext} from "../harness/test-catalog/index.mjs";
 import {clientProbe} from "./package-platform.mjs";
 
 const [work,project,origin,artifacts]=process.argv.slice(2);
@@ -21,8 +22,8 @@ const command=(binary,args,options={})=>{
 };
 const compose=(directory,name,...args)=>command("docker",["compose","--project-name",name,"--env-file",path.join(directory,".env"),"-f",path.join(directory,"release/assets/docker-compose.yml"),...args],{env:{...process.env,CARTULARY_INSTALLATION_DIR:directory}});
 const operate=(directory,...args)=>command(path.join(directory,"release/assets/scripts/package.sh"),args,{env:{...process.env,CARTULARY_MVP_DIR:directory}});
-const policy=pins(),helper=path.join(work,"historical-input");
-goOutput(process.env.GO || "go",["build","-buildvcs=false","-o",helper,"./tools/packagerecovery"],{...process.env,GOTOOLCHAIN:policy.go_toolchain,GOFIPS140:policy.cryptographic_module.selector,CGO_ENABLED:"0",GOCACHE:process.env.GO_CACHE_DIR,GOMODCACHE:process.env.GO_MOD_CACHE_DIR,GOTMPDIR:process.env.GO_TMP_DIR});
+const helper=path.join(work,"historical-input");
+goOutput(process.env.GO || "go",["build","-buildvcs=false","-o",helper,"./tools/packagerecovery"],{...process.env,...goRunnerBuildContext(process.cwd()).environment,GOCACHE:process.env.GO_CACHE_DIR,GOMODCACHE:process.env.GO_MOD_CACHE_DIR,GOTMPDIR:process.env.GO_TMP_DIR});
 chmodSync(helper,0o755);
 const transfers=path.join(work,"independent-transfers");mkdirSync(transfers,{mode:0o777});chmodSync(transfers,0o777);
 // First verify normal installed export selection before historical fixture input.

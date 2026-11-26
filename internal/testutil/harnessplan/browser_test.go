@@ -27,7 +27,7 @@ func TestBrowserPacking(t *testing.T) {
 
 	t.Run("every partition packs each row once into cohorts that fit their envelope", func(t *testing.T) {
 		for _, lanes := range []int{1, 4, 6} {
-			c := &compiler{in: inputs, options: Options{CPUTokens: 19, GoVersion: "1.27.4", BrowserLanes: lanes}}
+			c := &compiler{in: inputs, options: Options{CPUTokens: 19, GoEnvironment: testGoEnvironment, BrowserLanes: lanes}}
 			for i := range inputs.Browser.Partitions {
 				partition := &inputs.Browser.Partitions[i]
 				rows := make([]*Row, len(partition.SelectedRowIDs))
@@ -85,7 +85,7 @@ func TestBrowserPacking(t *testing.T) {
 			}
 		}
 		for _, lanes := range []int{1, 4, 6} {
-			c := &compiler{in: inputs, options: Options{CPUTokens: 19, GoVersion: "1.27.4", BrowserLanes: lanes},
+			c := &compiler{in: inputs, options: Options{CPUTokens: 19, GoEnvironment: testGoEnvironment, BrowserLanes: lanes},
 				browser: map[string]*browserCohort{}, assigned: map[string]string{}, units: map[string]*Unit{}, targets: map[string][]string{},
 				rows: map[string]*Row{}, shellRows: map[string][]*Row{}, selected: map[string]bool{}, planned: map[string]plannedUnit{}}
 			if err := c.planBrowser(ordinary); err != nil {
