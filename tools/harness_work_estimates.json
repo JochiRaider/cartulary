@@ -2611,7 +2611,6 @@
     "web.workbook.regression.workbookz_mutation_runtime_surface_continuity_97808fe8ae": [1869,5047]
   },
   "operations": {
-    "harness.assurance_bootstrap_node_runtime": [3830],
     "harness.assurance_check_migrations": [1435],
     "harness.assurance_dev_services_lifecycle": [3918],
     "harness.assurance_dev_stack_lifecycle": [9549],

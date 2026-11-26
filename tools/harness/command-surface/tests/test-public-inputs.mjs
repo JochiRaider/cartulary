@@ -139,7 +139,8 @@ test("bootstrap admits a closed selector before installing Node and dispatches o
   for (const [name, all] of [["help", false], ["help-all", true]])
     writeFileSync(path.join(scratch, `tools/task_surface.${name}.generated.json`), JSON.stringify(helpProjection(manifest, { all })));
   const file = path.join(scratch, "Makefile");
-  writeFileSync(file, `${renderTaskSurfaceMakeRuntime(manifest)}\n${renderTaskSurfaceMake(manifest)}\nNODE_BIN := ${node}\nRUN_PUBLIC_PREFLIGHT = printf 'preflight\\n' >> ${events}\nRUN_TARGET_SUMMARY = :\n${node}:\n\tcp ${source} ${node}\n\tprintf 'install\\n' >> ${events}\n`);
+  // The Node runtime producer is the only installation before dispatch.
+  writeFileSync(file, `${renderTaskSurfaceMakeRuntime(manifest)}\n${renderTaskSurfaceMake(manifest)}\nNODE_BIN := ${node}\nRUN_PUBLIC_PREFLIGHT = printf 'preflight\\n' >> ${events}\nRUN_TARGET_SUMMARY = :\nPRODUCE = sh -c '[ "$$1" = node-runtime ] && cp ${source} ${node} && printf "install\\n" >> ${events}' produce\n`);
   const env = { ...process.env };
   for (const key of ["MAKEFLAGS", "MAKEOVERRIDES", "MFLAGS", "GNUMAKEFLAGS", "CARTULARY_TEST_TARGET"])
     delete env[key];

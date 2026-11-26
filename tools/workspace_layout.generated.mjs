@@ -24,7 +24,6 @@ export const workspaceLayout = Object.freeze({
   "toolbin": ".cache/cartulary/toolbin",
   "shellcheck_archives": ".cache/cartulary/shellcheck-archives",
   "frontend_install": ".cache/cartulary/frontend-install",
-  "frontend_toolchain": ".cache/cartulary/frontend-toolchain",
   "playwright": ".cache/cartulary/playwright",
   "test_service_images": ".cache/cartulary/test-service-images",
   "typescript": ".cache/cartulary/typescript",

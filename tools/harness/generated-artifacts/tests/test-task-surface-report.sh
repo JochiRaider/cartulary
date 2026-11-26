@@ -181,13 +181,13 @@ assert.equal(manifest.make_recipes.bootstrap.type, "bootstrap", "bootstrap must 
 const operationOwner = JSON.parse(readFileSync(path.join(root, "tools/harness_work_graph_owner.json"), "utf8"));
 const bootstrap = operationOwner.operations["harness.bootstrap_full"].execution;
 assert.equal(bootstrap.type, "installation");
-for (const file of ["$(FRONTEND_INSTALL_STAMP)", "$(HARNESS_RUNTIME_BIN)", "$(PLAYWRIGHT_INSTALL_STAMP)"]) assert.ok(bootstrap.prerequisites.includes(file), `${file} remains an admitted bootstrap producer`);
+for (const file of ["$(FRONTEND_INSTALL_RECEIPT)", "$(HARNESS_RUNTIME_BIN)", "$(PLAYWRIGHT_INSTALL_RECEIPT)"]) assert.ok(bootstrap.prerequisites.includes(file), `${file} remains an admitted bootstrap producer`);
 assert.ok(bootstrap.command.includes("tools/harness/readiness/install-go-dependencies.sh"));
 const renderedMake = renderTaskSurfaceMake(manifest);
 const renderedRuntime = renderTaskSurfaceMakeRuntime(manifest);
 assert.match(
   renderedRuntime,
-  /^TASK_SURFACE_NODE_READINESS = if \[ "\$\$\{CARTULARY_HARNESS_SKIP_PREREQUISITES:-0\}" != "1" \]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \$\(MAKE\) --silent --no-print-directory \$\(NODE_BIN\); fi$/m,
+  /^TASK_SURFACE_NODE_READINESS = if \[ "\$\$\{CARTULARY_HARNESS_SKIP_PREREQUISITES:-0\}" != "1" \]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \$\(PRODUCE\) node-runtime; fi$/m,
   "shared Node readiness must retain prerequisite admission and child target isolation",
 );
 assert.match(

@@ -1373,6 +1373,7 @@ Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-am
 | 2026-11-26 | P5-3b | The Go artifact store: content-addressed sealed roots, key records and single-link copy views; all seven Go binaries built through `tools/harnessbuild` with import-closure keys; unit cache keys use result identity; `BUILD_GO_ARTIFACT_IMPL` removed | `p80`, `p81` (segments), `p82-check01`, `p83`, `p84` (segments), `p85-check01`, `p86` | Pass. `p82-check01` failed two operator recovery rows with `release_mismatch`: hard-link views broke the product's single-link rule, so views are copies (D25 adjusted). `p85-check01` passed all 1,898 rows in a 518 s graph (14.26) |
 | 2026-11-26 | P5-3c step 1 | The producer registry and `harnessbuild produce`; Go tools and ShellCheck join the Go binaries in the store; artifact bindings and generated recipes run producers instead of re-entering Make; caller-set bindings are provided executables; 15 file rules and the tool bootstrap scripts removed | `p87-generate`, `p88`, `p90`, `p91` (segments), `p92-check01` | Pass. Segments found a stale registry name, a direct run-context write, a renderer caller without producers, a test of the deleted server rule and a shell-lint smoke that cannot have passed since P5-4b; all repaired. `p92-check01` passed all 1,898 rows in a 510 s graph (14.27) |
 | 2026-11-26 | P5-3c step 2 | Web bundles and embedded assets join the store: `frontend-artifact.mjs build` copies the sealed bundle into the run's private artifact; embedded assets package the run's artifact; bundles always carry source maps (D29); unrecorded roots get a collection grace; three file rules and two scripts removed | `p93-generate`, `p94` (segment), `p95-check01` | Pass. `p95-check01` passed all 1,898 rows in a 513 s graph; the web unit took 3.5 s (6.7 s) reusing its bundle (14.28) |
+| 2026-11-26 | P5-3c step 3 | Installations become producers: the Node runtime with pnpm, the frontend dependencies and the Playwright browsers install in place under receipts, with declared requirements; readiness and static-analysis controls fold into the store's two (D28); bundles carry hidden source maps and the server package leaves them out (D29); four file rules, three scripts and the Node bootstrap smoke removed | `p96-generate`, `p97` (segment), `p98`, `p99-check01` | Pass. `p99-check01` passed all 1,898 rows in a 515 s graph (14.29) |
 | 2026-11-25 | P4-4 / G39 | Wait audit: 31 whole-test hang guards derive from the test deadline (`testdeadline`) | `p44-port-*` (16 owner slices, every row holding a converted guard) | Pass. Committed `bdd8f4e1d` |
 
 ## 12. Phase 2 Plan — `check` Wall Clock
@@ -2667,7 +2668,7 @@ Status: proposed 2026-11-26 at the owner's request. P5-0, P5-1 and P5-2 done (14
 | P5-1 | Flat catalog: every check is a row with an owner, so any of them runs alone with `ROWS=`; selections list rows and operations, not other selections. **Done 2026-11-26** (14.6): every test script is a row and duplicates are gone; selection nesting stays (14.6) | G44 |
 | P5-2 | Unnest: harness-mechanics probes run as first-class graph rows against private outputs, or move to an explicit harness suite outside `ci`; a source check forbids rows that launch `make` or `graph` against the shared repository | G43 |
 | P5-4 | Declared environment: a registry of every harness variable, default-deny unit environments, one typed unit context document, fixture bindings in that document (14.7) | G43, G45 |
-| P5-3 | Thin Make: Make only admits the workspace and forwards to the harness; build operations become data with declared inputs, environment keys and outputs; one Go content-addressed store replaces `cache-artifact.sh`, the renderer store and web staging; no unit re-enters Make; one toolchain environment from the pins for builds and tests. **Planned 2026-11-26** (14.24): five steps, P5-3a to P5-3e; P5-3a done (14.25); P5-3b done (14.26); P5-3c steps 1 and 2 of 4 done (14.27, 14.28) | G44 |
+| P5-3 | Thin Make: Make only admits the workspace and forwards to the harness; build operations become data with declared inputs, environment keys and outputs; one Go content-addressed store replaces `cache-artifact.sh`, the renderer store and web staging; no unit re-enters Make; one toolchain environment from the pins for builds and tests. **Planned 2026-11-26** (14.24): five steps, P5-3a to P5-3e; P5-3a done (14.25); P5-3b done (14.26); P5-3c steps 1 to 3 of 4 done (14.27 to 14.29) | G44 |
 
 P5-0 is small and removes the hazards seen in `ci`. P5-1 makes segments
 possible for every check. P5-3 is the largest and needs specification
@@ -2697,7 +2698,7 @@ amendments.
 | D26 | cgo for shipped binaries | `CGO_ENABLED=0` everywhere, as tests and the package probes already use; adopted only if the release package rows pass. **Approved 2026-11-26** |
 | D27 | Checkout-independent binaries | `-trimpath` for product binaries, so a binary's digest does not depend on the checkout path; the one-time digest change is recorded. **Approved 2026-11-26** |
 | D28 | Cache controls | Keep the public `CARTULARY_BUILD_CACHE_DISABLE` and `CARTULARY_FORCE_REBUILD` as the store's two controls; fold the readiness, reinstall and static-analysis variants into them. **Approved 2026-11-26** |
-| D29 | Web bundle flags and the output mode | Bundles always carry source maps, as every default and ci build did; the verbose output mode no longer changes the bundle or the server's embedded archive. **Taken in P5-3c step 2 (14.28); for owner review** |
+| D29 | Web bundle flags and the output mode | Bundles always carry source maps, as every default and ci build did; the verbose output mode no longer changes the bundle or the server's embedded archive. Taken in P5-3c step 2 (14.28). **Decided by the owner 2026-11-26: hidden source maps; the production package leaves them out, so the server serves no source** (14.29) |
 
 ### 14.5 Fences (P5-0)
 
@@ -3696,7 +3697,7 @@ Decision D20 (owner, 2026-11-26): nested harness probes run in explicit
 Status: planned 2026-11-26 at the owner's request. Owner direction: retire as
 much of the Makefile as needed; a thin wrapper is better than a complicated
 one. Approved with D24 to D28 as recommended on 2026-11-26; P5-3a done
-(14.25); P5-3b done (14.26); P5-3c steps 1 and 2 of 4 done (14.27, 14.28).
+(14.25); P5-3b done (14.26); P5-3c steps 1 to 3 of 4 done (14.27 to 14.29).
 
 **Problem (G44, G47).** Measured at `db2304ea9`:
 
@@ -4166,3 +4167,132 @@ segments and then one `check`:
     `p92`); wall time was 525 s. The web unit took 3.5 s (6.7 s), reusing
     the bundle; its time is the run's source-snapshot checks and the copy
     into private staging. The embedded assets took 1.7 s (2.4 s).
+
+### 14.29 Installations (P5-3c, step 3)
+
+- **Installations are producers.** Three registered producers install in
+  place: the Node runtime with the pinned pnpm, the workspace's frontend
+  dependencies and the Playwright browsers. Tools write and read these at
+  fixed paths, so they cannot be immutable store roots.
+  - **Receipts.** A receipt written last beside each installation records
+    what it was installed from, and it is the only key record. A receipt
+    describes what is installed now. A store key record would not: after a
+    switch to another lockfile and back, the old record would claim an
+    installation that was replaced.
+  - **Order.** The registry's new `requires` field orders them: the frontend
+    dependencies need the Node runtime, and the browsers need the frontend
+    dependencies. `produce` runs a selection's requirements first.
+  - **Locks.** Each installs under a lock beside its layout directory. The
+    lockfile update takes the frontend installation's lock.
+  - **Installed-only.** Under the `installed_only` policy, an installation
+    producer installs nothing, and a missing or stale installation fails.
+- **The Node runtime.** A Go producer replaces `bootstrap-node-runtime.sh`
+  and `frontend-toolchain.sh`, and pnpm is now part of the runtime.
+  - **Key.** The release archive's name and committed digest, the pnpm
+    version and the producer source. The digests moved from the script to the
+    registry, Linux only.
+  - **Install.** It extracts the verified archive beside the runtime,
+    prepares pnpm through Corepack, checks both versions, writes the receipt
+    and swaps the directory into place by rename. The archive download is
+    shared with ShellCheck and retries network failures up to three times.
+  - **First run.** The existing runtime had no receipt, so the first
+    `produce` reinstalled it once from the kept archive.
+- **The frontend dependencies.** A Go producer replaces `frontend-install.sh`.
+  - **Receipt.** It is the specification's frontend installation receipt.
+    Its owner, `installed-readiness.mjs`, decides whether it is current (a
+    new `frontend-installation` probe) and publishes it.
+  - **Flags.** The install flags no longer depend on the output mode: always
+    `--reporter=append-only --loglevel=warn`. Before, a verbose run keyed and
+    reinstalled separately.
+  - **Errors.** An outdated lockfile names `make frontend-lockfile-update`.
+- **The Playwright browsers.** `playwright-install.sh` keeps only the install
+  action, which the producer runs as its step.
+  - **Key.** The installed engine's package and browser revisions, the
+    renderer profile, browser trust preparation, the installer and the
+    producer. It no longer covers the whole lockfile, so an unrelated
+    dependency change does not reinstall the browsers.
+  - **Reuse.** It needs the browser readiness proof (Chromium's version,
+    host locking and the renderer image), which replaces the stale-stamp
+    invalidation mode.
+- **Controls (D28).** Removed: `CARTULARY_READINESS_DISABLE_CACHE`,
+  `CARTULARY_FORCE_REINSTALL`, `CARTULARY_READINESS_CACHE_DIR` and the
+  static-analysis variants. Installations, test-service image readiness and
+  the shell-lint cache now use `CARTULARY_BUILD_CACHE_DISABLE` and
+  `CARTULARY_FORCE_REBUILD`.
+- **Make re-entries.**
+  - Public recipes and bootstrap run `$(PRODUCE) node-runtime` instead of
+    `$(MAKE) $(NODE_BIN)`.
+  - Every installation operation and the frontend and Playwright bindings
+    run producers. Graph entry runs `node-runtime frontend-install
+    harness-runtime`.
+  - The browser stack's hidden `make $(FRONTEND_TOOLCHAIN_STAMP)` is gone,
+    because the runtime is current before any graph launches.
+  - Two generated recipes still re-enter Make: the foundation validators and
+    the report renderer, which step 4 moves.
+- **Frontend install before the harness runtime.** Settled: it is a real
+  dependency. The harness's generated validators load `ajv` from the
+  workspace's dependencies.
+- **Source maps (D29).** The owner chose to keep source maps out of the
+  server.
+  - Bundles build with `--sourcemap hidden`. The protocol reachability check
+    still reads the maps from the run's artifact, and the JavaScript no
+    longer references them.
+  - The embedder leaves `.map` files out of the production package, which
+    EXT-REQ-220 permits, so the server no longer serves source code.
+- **Make.** Four file rules go: the Node runtime, frontend toolchain,
+  frontend install and Playwright rules, with 11 variables. The SBOM,
+  validator and renderer rules run producers in their recipes. The Makefile
+  has 133 lines (154). The `frontend_toolchain` layout directory is gone.
+- **Deleted.** `bootstrap-node-runtime.sh`, `frontend-toolchain.sh` and
+  `frontend-install.sh`, with their two shell tests. The
+  `harness-smoke-bootstrap-node-runtime` row, operation and target are gone
+  too.
+  - Their cases are now Go tests in the `artifact_store` row (19 tests):
+    archive verification, retries, reuse, force, concurrency and a failed
+    install keeping the previous runtime; the frontend install's settings,
+    frozen lockfile, receipt order and lockfile failure; Playwright reuse
+    needing its proof.
+  - The foundation validator test that the smoke also ran still runs through
+    the boundary-contracts test.
+  - The renderer identity test now exercises the readiness probe directly.
+  - 14 environment names had no reader left, and the frontend installation's layout name is now registered.
+- **Pin check.** It compares the registry's Node archives with the pinned
+  version instead of the deleted script's default.
+- **Specification.** Amended: installations as producers, their controls and
+  the browser reuse proof; hidden source maps, which the production package
+  leaves out; the frontend readiness boundary row; the Section 5 readiness
+  row removed.
+- **Validation.**
+  - **Segment (`p97`).** These passed:
+    - generation, lint (Go, scripts, shell), and the catalog, identity,
+      generated and toolchain source checks;
+    - `bootstrap PART=node` (0.3 s) and `PART=frontend` (0.4 s), which reused
+      their installations;
+    - `bootstrap PART=browser`, which installed once (2.0 s) and then reused
+      the installation with its proof (0.7 s);
+    - `doctor`;
+    - both web builds, with 11 hidden source maps and no `sourceMappingURL`
+      in the JavaScript;
+    - `make build` twice; the server's archive holds 74 entries and no source
+      map;
+    - `build COMPONENT=server-harness`;
+    - 13 of the 14 command-surface rows, the current-epoch evidence row, three
+      browser rows (with the UI review contract and its renderer proof), the
+      embedder's unit and topology rows, the protocol browser-bundle row
+      (which reads the hidden maps), the routing contract and both operator
+      recovery rows.
+  - **Problems `p97` found.**
+    - **The surface check.** The environment registry kept two names that
+      nothing reads, and it lacked the frontend installation's layout name,
+      which the lockfile update now reads.
+    - **The schema check.** It saw my edit to that registry during its run
+      and reported a stale validated context. Not a defect.
+    - **The public-registry row.** Its bootstrap admission test wrote a fake
+      Make rule for Node. Bootstrap now runs the Node runtime producer, so the
+      fake now stands in for `PRODUCE`.
+  - **`p98`.** The scripts, surface, schema and generated checks passed, and
+    so did both affected command-surface rows.
+  - **`p99-check01`.** All 1,898 rows passed in a 515 s graph (513 s in
+    `p95`). The frontend installation unit took 0.16 s, as before. The
+    Playwright unit took 2.6 s (2.0 s), because it now includes the browser
+    readiness proof.

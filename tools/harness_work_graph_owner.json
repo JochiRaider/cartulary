@@ -335,7 +335,6 @@
       "harness.contract_runtime_boundary",
       "harness.assurance_toolchain_pins",
       "harness.assurance_go_toolchain_readiness",
-      "harness.assurance_bootstrap_node_runtime",
       "harness.assurance_cache_artifact",
       "harness.assurance_cleanup_contract",
       "harness.assurance_capacity_failure_contract",
@@ -1317,16 +1316,6 @@
       "service_dependencies": [],
       "postgres_isolation": "none"
     },
-    "harness.assurance_bootstrap_node_runtime": {
-      "needs": [
-        "harness.frontend_install"
-      ],
-      "cache_policy": "none",
-      "estimated_work_ms": 10000,
-      "resource_profile_id": "harness_contract",
-      "service_dependencies": [],
-      "postgres_isolation": "none"
-    },
     "harness.assurance_cache_artifact": {
       "needs": [
         "harness.frontend_install"
@@ -2139,7 +2128,7 @@
       "report_key": "bootstrap",
       "execution": {
         "prerequisites": [
-          "$(FRONTEND_INSTALL_STAMP)"
+          "$(FRONTEND_INSTALL_RECEIPT)"
         ],
         "type": "step_command",
         "mode": "command",
@@ -2157,7 +2146,7 @@
       "report_key": "browser-design-review",
       "execution": {
         "prerequisites": [
-          "$(FRONTEND_INSTALL_STAMP)",
+          "$(FRONTEND_INSTALL_RECEIPT)",
           "$(HARNESS_RUNTIME_BIN)",
           "$(NODE_BIN)"
         ],
@@ -2428,7 +2417,7 @@
       "report_key": "dev",
       "execution": {
         "prerequisites": [
-          "$(FRONTEND_INSTALL_STAMP)",
+          "$(FRONTEND_INSTALL_RECEIPT)",
           "$(NODE_BIN)",
           "$(REPORT_RENDERER_RECEIPT)",
           "$(HARNESS_RUNTIME_BIN)"
@@ -2518,7 +2507,7 @@
       "report_key": "format-frontend",
       "execution": {
         "prerequisites": [
-          "$(FRONTEND_INSTALL_STAMP)",
+          "$(FRONTEND_INSTALL_RECEIPT)",
           "$(NODE_BIN)"
         ],
         "type": "step_command",
@@ -2559,7 +2548,7 @@
       "execution": {
         "type": "node_tool",
         "prerequisites": [
-          "$(FRONTEND_INSTALL_STAMP)",
+          "$(FRONTEND_INSTALL_RECEIPT)",
           "$(NODE_BIN)"
         ],
         "graph_entry": true,
@@ -2572,7 +2561,7 @@
       "execution": {
         "type": "step_command",
         "prerequisites": [
-          "$(FRONTEND_INSTALL_STAMP)",
+          "$(FRONTEND_INSTALL_RECEIPT)",
           "$(NODE_BIN)"
         ],
         "mode": "run_step",
@@ -2590,7 +2579,7 @@
       "report_key": "frontend-install",
       "execution": {
         "prerequisites": [
-          "$(FRONTEND_INSTALL_STAMP)"
+          "$(FRONTEND_INSTALL_RECEIPT)"
         ],
         "type": "artifact_binding",
         "test_target": "self"
@@ -2601,7 +2590,7 @@
       "report_key": "frontend-lockfile-update",
       "execution": {
         "prerequisites": [
-          "$(FRONTEND_TOOLCHAIN_STAMP)"
+          "$(NODE_BIN)"
         ],
         "type": "step_command",
         "mode": "run_step",
@@ -2609,7 +2598,6 @@
         "env": {
           "PNPM": "$(PNPM)",
           "NODE_BIN": "$(NODE_BIN)",
-          "FRONTEND_INSTALL_STAMP": "$(FRONTEND_INSTALL_STAMP)",
           "PATH": "$(NODE_RUNTIME_DIR)/bin:$(PATH)",
           "COREPACK_HOME": "$(NODE_RUNTIME_DIR)/corepack"
         },
@@ -2625,7 +2613,7 @@
       "report_key": "frontend-typecheck",
       "execution": {
         "prerequisites": [
-          "$(FRONTEND_INSTALL_STAMP)",
+          "$(FRONTEND_INSTALL_RECEIPT)",
           "$(NODE_BIN)"
         ],
         "type": "step_command",
@@ -2846,7 +2834,7 @@
       "execution": {
         "type": "step_command",
         "prerequisites": [
-          "$(FRONTEND_INSTALL_STAMP)",
+          "$(FRONTEND_INSTALL_RECEIPT)",
           "$(HARNESS_RUNTIME_BIN)",
           "$(NODE_BIN)"
         ],
@@ -2891,7 +2879,7 @@
       "execution": {
         "type": "step_command",
         "prerequisites": [
-          "$(FRONTEND_INSTALL_STAMP)",
+          "$(FRONTEND_INSTALL_RECEIPT)",
           "$(HARNESS_RUNTIME_BIN)",
           "$(NODE_BIN)"
         ],
@@ -2914,7 +2902,7 @@
       "execution": {
         "type": "step_command",
         "prerequisites": [
-          "$(FRONTEND_INSTALL_STAMP)",
+          "$(FRONTEND_INSTALL_RECEIPT)",
           "$(HARNESS_RUNTIME_BIN)",
           "$(NODE_BIN)"
         ],
@@ -2936,7 +2924,7 @@
       "execution": {
         "type": "step_command",
         "prerequisites": [
-          "$(FRONTEND_INSTALL_STAMP)",
+          "$(FRONTEND_INSTALL_RECEIPT)",
           "$(HARNESS_RUNTIME_BIN)",
           "$(NODE_BIN)"
         ],
@@ -2965,7 +2953,7 @@
       "execution": {
         "type": "step_command",
         "prerequisites": [
-          "$(FRONTEND_INSTALL_STAMP)",
+          "$(FRONTEND_INSTALL_RECEIPT)",
           "$(HARNESS_RUNTIME_BIN)",
           "$(NODE_BIN)"
         ],
@@ -2986,7 +2974,7 @@
       "execution": {
         "type": "step_command",
         "prerequisites": [
-          "$(FRONTEND_INSTALL_STAMP)",
+          "$(FRONTEND_INSTALL_RECEIPT)",
           "$(HARNESS_RUNTIME_BIN)",
           "$(NODE_BIN)"
         ],
@@ -3016,7 +3004,7 @@
       "execution": {
         "type": "step_command",
         "prerequisites": [
-          "$(FRONTEND_INSTALL_STAMP)",
+          "$(FRONTEND_INSTALL_RECEIPT)",
           "$(HARNESS_RUNTIME_BIN)",
           "$(NODE_BIN)"
         ],
@@ -3046,7 +3034,7 @@
       "execution": {
         "type": "step_command",
         "prerequisites": [
-          "$(FRONTEND_INSTALL_STAMP)",
+          "$(FRONTEND_INSTALL_RECEIPT)",
           "$(HARNESS_RUNTIME_BIN)",
           "$(NODE_BIN)"
         ],
@@ -3067,7 +3055,7 @@
       "execution": {
         "type": "step_command",
         "prerequisites": [
-          "$(FRONTEND_INSTALL_STAMP)",
+          "$(FRONTEND_INSTALL_RECEIPT)",
           "$(HARNESS_RUNTIME_BIN)",
           "$(NODE_BIN)"
         ],
@@ -3097,7 +3085,7 @@
       "execution": {
         "type": "step_command",
         "prerequisites": [
-          "$(FRONTEND_INSTALL_STAMP)",
+          "$(FRONTEND_INSTALL_RECEIPT)",
           "$(HARNESS_RUNTIME_BIN)",
           "$(NODE_BIN)"
         ],
@@ -3117,7 +3105,7 @@
       "execution": {
         "type": "step_command",
         "prerequisites": [
-          "$(FRONTEND_INSTALL_STAMP)",
+          "$(FRONTEND_INSTALL_RECEIPT)",
           "$(HARNESS_RUNTIME_BIN)",
           "$(NODE_BIN)"
         ],
@@ -3138,7 +3126,7 @@
       "execution": {
         "type": "step_command",
         "prerequisites": [
-          "$(FRONTEND_INSTALL_STAMP)",
+          "$(FRONTEND_INSTALL_RECEIPT)",
           "$(HARNESS_RUNTIME_BIN)",
           "$(NODE_BIN)"
         ],
@@ -3158,7 +3146,7 @@
       "execution": {
         "type": "step_command",
         "prerequisites": [
-          "$(FRONTEND_INSTALL_STAMP)",
+          "$(FRONTEND_INSTALL_RECEIPT)",
           "$(HARNESS_RUNTIME_BIN)",
           "$(NODE_BIN)"
         ],
@@ -3179,7 +3167,7 @@
       "execution": {
         "type": "step_command",
         "prerequisites": [
-          "$(FRONTEND_INSTALL_STAMP)",
+          "$(FRONTEND_INSTALL_RECEIPT)",
           "$(HARNESS_RUNTIME_BIN)",
           "$(NODE_BIN)"
         ],
@@ -3199,7 +3187,7 @@
       "execution": {
         "type": "step_command",
         "prerequisites": [
-          "$(FRONTEND_INSTALL_STAMP)",
+          "$(FRONTEND_INSTALL_RECEIPT)",
           "$(HARNESS_RUNTIME_BIN)",
           "$(NODE_BIN)"
         ],
@@ -3221,7 +3209,7 @@
       "execution": {
         "type": "step_command",
         "prerequisites": [
-          "$(FRONTEND_INSTALL_STAMP)",
+          "$(FRONTEND_INSTALL_RECEIPT)",
           "$(HARNESS_RUNTIME_BIN)",
           "$(NODE_BIN)"
         ],
@@ -3243,7 +3231,7 @@
       "execution": {
         "type": "step_command",
         "prerequisites": [
-          "$(FRONTEND_INSTALL_STAMP)",
+          "$(FRONTEND_INSTALL_RECEIPT)",
           "$(HARNESS_RUNTIME_BIN)",
           "$(NODE_BIN)"
         ],
@@ -3262,7 +3250,7 @@
       "report_key": "json-shape-check",
       "execution": {
         "prerequisites": [
-          "$(FRONTEND_INSTALL_STAMP)",
+          "$(FRONTEND_INSTALL_RECEIPT)",
           "$(NODE_BIN)"
         ],
         "type": "step_command",
@@ -3306,7 +3294,7 @@
       "report_key": "lint-biome",
       "execution": {
         "prerequisites": [
-          "$(FRONTEND_INSTALL_STAMP)",
+          "$(FRONTEND_INSTALL_RECEIPT)",
           "$(NODE_BIN)"
         ],
         "type": "step_command",
@@ -3411,7 +3399,7 @@
       "report_key": "lint-scripts",
       "execution": {
         "prerequisites": [
-          "$(FRONTEND_INSTALL_STAMP)",
+          "$(FRONTEND_INSTALL_RECEIPT)",
           "$(NODE_BIN)"
         ],
         "type": "step_command",
@@ -3621,7 +3609,7 @@
       "report_key": "playwright-install",
       "execution": {
         "prerequisites": [
-          "$(PLAYWRIGHT_INSTALL_STAMP)"
+          "$(PLAYWRIGHT_INSTALL_RECEIPT)"
         ],
         "type": "artifact_binding"
       },
@@ -3693,7 +3681,7 @@
       "execution": {
         "type": "step_command",
         "prerequisites": [
-          "$(FRONTEND_INSTALL_STAMP)",
+          "$(FRONTEND_INSTALL_RECEIPT)",
           "$(NODE_BIN)"
         ],
         "mode": "run_step",
@@ -4139,7 +4127,7 @@
       "report_key": "toolchain-drift",
       "execution": {
         "prerequisites": [
-          "$(FRONTEND_INSTALL_STAMP)",
+          "$(FRONTEND_INSTALL_RECEIPT)",
           "$(NODE_BIN)"
         ],
         "type": "step_command",
@@ -4225,40 +4213,6 @@
           "tools/harness/readiness/go-toolchain-readiness.sh",
           "tools/harness/readiness/check-doctor.sh",
           "tools/harness/contract/tests/test-machine-state-config.mjs"
-        ]
-      }
-    },
-    "harness.assurance_bootstrap_node_runtime": {
-      "report_key": "harness-smoke-bootstrap-node-runtime",
-      "kind": "policy",
-      "execution": {
-        "type": "step_command",
-        "mode": "command",
-        "prerequisites": [],
-        "command": [
-          "env",
-          "-u",
-          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
-          "-u",
-          "CARTULARY_HARNESS_GRAPH_CHILD",
-          "-u",
-          "CARTULARY_TEST_TARGET",
-          "-u",
-          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
-          "-u",
-          "VERBOSE",
-          "-u",
-          "CI_VERBOSE",
-          "CARTULARY_OUTPUT_MODE=summary",
-          "bash",
-          "tools/harness/readiness/tests/test-bootstrap-node-runtime.sh"
-        ],
-        "backing_scripts": [
-          "tools/harness/readiness/tests/test-bootstrap-node-runtime.sh",
-          "tools/harness/readiness/tests/test-frontend-install-self-hosting.sh",
-          "tools/harness/contract/tests/test-foundation-schema-validator.mjs",
-          "tools/harness/generated-artifacts/schema-validator-compiler.mjs",
-          "tools/harness/generated-artifacts/generate-foundation-schema-validators.mjs"
         ]
       }
     },
@@ -5114,7 +5068,7 @@
       "execution": {
         "type": "installation",
         "prerequisites": [
-          "$(FRONTEND_INSTALL_STAMP)"
+          "$(FRONTEND_INSTALL_RECEIPT)"
         ]
       }
     },
@@ -5124,7 +5078,7 @@
       "execution": {
         "type": "installation",
         "prerequisites": [
-          "$(PLAYWRIGHT_INSTALL_STAMP)"
+          "$(PLAYWRIGHT_INSTALL_RECEIPT)"
         ]
       }
     },
@@ -5151,12 +5105,12 @@
         "type": "installation",
         "prerequisites": [
           "$(CYCLONEDX_GOMOD_BIN)",
-          "$(FRONTEND_INSTALL_STAMP)",
+          "$(FRONTEND_INSTALL_RECEIPT)",
           "$(GOOSE_BIN)",
           "$(GOSEC_BIN)",
           "$(GOVULNCHECK_BIN)",
           "$(HARNESS_RUNTIME_BIN)",
-          "$(PLAYWRIGHT_INSTALL_STAMP)",
+          "$(PLAYWRIGHT_INSTALL_RECEIPT)",
           "$(SHELLCHECK_BIN)",
           "$(SQLC_BIN)",
           "$(STATICCHECK_BIN)",
@@ -5552,7 +5506,7 @@
       "execution": {
         "type": "step_command",
         "prerequisites": [
-          "$(FRONTEND_INSTALL_STAMP)",
+          "$(FRONTEND_INSTALL_RECEIPT)",
           "$(NODE_BIN)"
         ],
         "mode": "run_step",
@@ -5587,7 +5541,7 @@
         "type": "step_command",
         "mode": "run_step",
         "prerequisites": [
-          "$(FRONTEND_INSTALL_STAMP)",
+          "$(FRONTEND_INSTALL_RECEIPT)",
           "$(HARNESS_RUNTIME_BIN)",
           "$(NODE_BIN)"
         ],
@@ -5616,7 +5570,7 @@
       "execution": {
         "type": "step_command",
         "prerequisites": [
-          "$(FRONTEND_INSTALL_STAMP)",
+          "$(FRONTEND_INSTALL_RECEIPT)",
           "$(HARNESS_RUNTIME_BIN)",
           "$(NODE_BIN)"
         ],
@@ -5846,7 +5800,7 @@
       "execution": {
         "type": "step_command",
         "prerequisites": [
-          "$(FRONTEND_INSTALL_STAMP)",
+          "$(FRONTEND_INSTALL_RECEIPT)",
           "$(NODE_BIN)"
         ],
         "mode": "run_step",
@@ -5889,7 +5843,7 @@
         "type": "step_command",
         "mode": "run_step",
         "prerequisites": [
-          "$(FRONTEND_INSTALL_STAMP)",
+          "$(FRONTEND_INSTALL_RECEIPT)",
           "$(NODE_BIN)"
         ],
         "step_label": "harness-output-contract",
@@ -5993,7 +5947,7 @@
       "execution": {
         "type": "step_command",
         "prerequisites": [
-          "$(FRONTEND_INSTALL_STAMP)",
+          "$(FRONTEND_INSTALL_RECEIPT)",
           "$(NODE_BIN)"
         ],
         "mode": "run_step",

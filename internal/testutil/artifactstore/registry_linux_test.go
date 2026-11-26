@@ -65,6 +65,21 @@ func TestRegisteredProducersPlan(t *testing.T) {
 				t.Fatalf("%s default %q, %v", d.ID, name, err)
 			}
 			continue
+		case "node_runtime", "frontend_install", "playwright":
+			// An installation installs in place under a lock beside its
+			// layout directory; it builds no root.
+			installation, lock, err := w.PlanInstallation(d)
+			if err != nil || installation.ID() != d.ID {
+				t.Fatalf("%s: %v", d.ID, err)
+			}
+			directory, err := w.Directory(d.Directory)
+			if err != nil || lock != directory+".lock" {
+				t.Fatalf("%s lock %s, %v", d.ID, lock, err)
+			}
+			if _, _, err := w.Plan(d); err == nil {
+				t.Fatalf("%s planned a store root", d.ID)
+			}
+			continue
 		}
 		producer, views, err := w.Plan(d)
 		if err != nil {
@@ -125,11 +140,14 @@ func TestRegisteredProducersPlan(t *testing.T) {
 // A declaration carries exactly its kind's fields.
 func TestDeclarationsAreValidatedByKind(t *testing.T) {
 	valid := map[string]Declaration{
-		"go_binary":       {ID: "b", Kind: "go_binary", Binding: "B_BIN", Directory: "binaries", Package: "./cmd/b", Name: "b"},
-		"go_tool":         {ID: "t", Kind: "go_tool", Binding: "T_BIN", Directory: "toolbin", Tool: "sqlc"},
-		"shellcheck":      {ID: "s", Kind: "shellcheck", Binding: "S_BIN", Directory: "toolbin", Archives: map[string]string{"a": "b"}},
-		"web_bundle":      {ID: "w", Kind: "web_bundle", Target: "build-web", Mode: "production", Inputs: []string{"apps/web"}},
-		"embedded_assets": {ID: "e", Kind: "embedded_assets", Binding: "E_ZIP", Directory: "embedded_assets", Source: "build-web", ClientSupport: "c.json"},
+		"go_binary":        {ID: "b", Kind: "go_binary", Binding: "B_BIN", Directory: "binaries", Package: "./cmd/b", Name: "b"},
+		"go_tool":          {ID: "t", Kind: "go_tool", Binding: "T_BIN", Directory: "toolbin", Tool: "sqlc"},
+		"shellcheck":       {ID: "s", Kind: "shellcheck", Binding: "S_BIN", Directory: "toolbin", Archives: map[string]string{"a": "b"}},
+		"web_bundle":       {ID: "w", Kind: "web_bundle", Target: "build-web", Mode: "production", Inputs: []string{"apps/web"}},
+		"embedded_assets":  {ID: "e", Kind: "embedded_assets", Binding: "E_ZIP", Directory: "embedded_assets", Source: "build-web", ClientSupport: "c.json"},
+		"node_runtime":     {ID: "n", Kind: "node_runtime", Binding: "NODE_BIN", Directory: "node_runtime", Archives: map[string]string{"a": "b"}},
+		"frontend_install": {ID: "f", Kind: "frontend_install", Binding: "F", Directory: "frontend_install", Requires: []string{"n"}},
+		"playwright":       {ID: "p", Kind: "playwright", Binding: "P", Directory: "playwright", Label: "playwright-install"},
 	}
 	for kind, d := range valid {
 		if err := d.validate(); err != nil {
@@ -149,11 +167,38 @@ func TestDeclarationsAreValidatedByKind(t *testing.T) {
 		"a bundle without inputs":   {ID: "w", Kind: "web_bundle", Target: "build-web", Mode: "production"},
 		"assets without a source":   {ID: "e", Kind: "embedded_assets", Binding: "E_ZIP", Directory: "embedded_assets", ClientSupport: "c.json"},
 		"a tool with inputs":        {ID: "t", Kind: "go_tool", Binding: "T_BIN", Directory: "toolbin", Tool: "sqlc", Inputs: []string{"x"}},
+		"node without digests":      {ID: "n", Kind: "node_runtime", Binding: "NODE_BIN", Directory: "node_runtime"},
+		"an install with a package": {ID: "f", Kind: "frontend_install", Binding: "F", Directory: "frontend_install", Package: "./x"},
+		"browsers without a view":   {ID: "p", Kind: "playwright"},
 	}
 	for name, d := range invalid {
 		if d.validate() == nil {
 			t.Fatalf("%s was accepted", name)
 		}
+	}
+	// Required producers run first, in the order first reached; an unknown or
+	// circular requirement is refused.
+	registry := Registry{Producers: []Declaration{
+		valid["node_runtime"], valid["frontend_install"],
+		{ID: "p", Kind: "playwright", Binding: "P", Directory: "playwright", Requires: []string{"f"}},
+	}}
+	closure, err := registry.Closure([]string{"p", "n"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var order []string
+	for _, d := range closure {
+		order = append(order, d.ID)
+	}
+	if !slices.Equal(order, []string{"n", "f", "p"}) {
+		t.Fatalf("closure order %v", order)
+	}
+	registry.Producers[0].Requires = []string{"p"}
+	if _, err := registry.Closure([]string{"p"}); err == nil {
+		t.Fatal("a circular requirement was accepted")
+	}
+	if _, err := registry.Closure([]string{"missing"}); err == nil {
+		t.Fatal("an unknown producer was accepted")
 	}
 }
 

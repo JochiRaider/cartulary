@@ -159,8 +159,8 @@ cache_args=(
   --scope static-analysis
   --profile lint-shell
   --cache-dir "$CACHE_DIR"
-  --disable-env CARTULARY_STATIC_ANALYSIS_DISABLE_CACHE
-  --force-env CARTULARY_STATIC_ANALYSIS_FORCE
+  --disable-env CARTULARY_BUILD_CACHE_DISABLE
+  --force-env CARTULARY_FORCE_REBUILD
   --input "$DEFAULT_ROOT_DIR/tools/harness/static-analysis/shellcheck.sh"
   --input "$DEFAULT_ROOT_DIR/tools/harness/static-analysis/shellcheck-runner.sh"
   --input "$DEFAULT_ROOT_DIR/tools/harness/test-catalog/executable-files-cli.mjs"

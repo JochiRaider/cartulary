@@ -23,7 +23,6 @@ LAYOUT_NODE_ARCHIVES := .cache/cartulary/node-archives
 LAYOUT_TOOLBIN := .cache/cartulary/toolbin
 LAYOUT_SHELLCHECK_ARCHIVES := .cache/cartulary/shellcheck-archives
 LAYOUT_FRONTEND_INSTALL := .cache/cartulary/frontend-install
-LAYOUT_FRONTEND_TOOLCHAIN := .cache/cartulary/frontend-toolchain
 LAYOUT_PLAYWRIGHT := .cache/cartulary/playwright
 LAYOUT_TEST_SERVICE_IMAGES := .cache/cartulary/test-service-images
 LAYOUT_TYPESCRIPT := .cache/cartulary/typescript

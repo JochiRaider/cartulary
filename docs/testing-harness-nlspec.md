@@ -2508,7 +2508,7 @@ with closed operation definitions; task-surface bindings cannot override them. T
 retired scheduler-input-stamp and finalizer-action-cache families are not valid
 v3 inputs, and current commands MUST NOT read or translate them.
 
-Embedded web asset preparation is a build-artifact producer in the current profile (amended 2026-11-26, P5-3c). It packages the run's sealed production frontend artifact, resolved by its receipt, and never rebuilds the bundle; its six outputs form one artifact-store root, keyed by the bundle's files, the authored client support source, the embedder's import closure, the module files and the effective `go env` settings. When the embedded output is consumed by Go `//go:embed`, the publisher MUST update the embedded source-tree artifact atomically from Go embed's point of view. It MUST NOT delete or rewrite a directory of hashed frontend assets in place while concurrently scheduled Go compilation can traverse that directory. Harness-only readiness stamps, cache records, and other operational metadata MUST remain outside the embedded content root unless the owning product spec explicitly makes that file served application content.
+Embedded web asset preparation is a build-artifact producer in the current profile (amended 2026-11-26, P5-3c). It packages the run's sealed production frontend artifact, resolved by its receipt, and never rebuilds the bundle; the production package leaves out the bundle's source maps, so the server never serves them; its six outputs form one artifact-store root, keyed by the bundle's files, the authored client support source, the embedder's import closure, the module files and the effective `go env` settings. When the embedded output is consumed by Go `//go:embed`, the publisher MUST update the embedded source-tree artifact atomically from Go embed's point of view. It MUST NOT delete or rewrite a directory of hashed frontend assets in place while concurrently scheduled Go compilation can traverse that directory. Harness-only readiness stamps, cache records, and other operational metadata MUST remain outside the embedded content root unless the owning product spec explicitly makes that file served application content.
 
 Frontend builds are shared build products for browser sessions, bundle-security
 checks, and embedded-asset preparation. Every selected consumer MUST depend on
@@ -2532,7 +2532,9 @@ into that staging: the store renders a bundle once per key. A web bundle's key
 covers every repository file under the bundle's declared input roots, its build
 arguments, the Node and pnpm it runs with, and the `VITE_` settings and
 `NODE_ENV` it sees. Build arguments never depend on how a command reports: a
-bundle always carries source maps. The producer MUST validate and seal the complete directory
+bundle always carries hidden source maps, which the harness's artifact
+analysis reads and its JavaScript does not reference (D29, amended
+2026-11-26). The producer MUST validate and seal the complete directory
 before consumer admission. Compatible consumers in a run share that completed
 artifact; another build MUST NOT replace its bytes. Scheduled consumers MUST NOT
 copy, scan, or serve an actively mutable conventional build output. Conventional
@@ -2665,13 +2667,41 @@ entries: key records unused for 30 days, then roots that no record names
 once an hour has passed since they were sealed, so a caller can still copy a
 root built with the cache disabled, then quarantined roots after 30 days.
 
+Installations are registered producers that install in place (amended
+2026-11-26, P5-3c): the Node runtime with the pinned pnpm, the workspace's
+frontend dependencies, and the Playwright browsers. Tools write and read them
+at fixed paths, so they are not store roots. A receipt written last beside
+each installation records what it was installed from and is its only key
+record, so an installation replaced by another never reuses a stale record.
+A producer's declared requirements run first: the frontend dependencies need
+the Node runtime, and the browsers need the frontend dependencies. Each
+installs under an exclusive lock beside its layout directory.
+
+- The Node runtime's key is its release archive's name and committed digest,
+  the pnpm version and its producer. It extracts the verified archive,
+  prepares pnpm through Corepack, checks both versions, and swaps into place by
+  rename; it is reused while its receipt records the current key.
+- The frontend dependencies install with a frozen lockfile after the
+  workspace's pnpm store and purge settings are checked. Their receipt is the
+  frontend installation receipt, which its readiness owner publishes and
+  validates. Installation flags never depend on the output mode.
+- The browsers' key covers the installed Playwright engine and its browser
+  revisions, the visual renderer profile, the browser trust preparation, the
+  installer and its producer. Reuse also requires the browser readiness proof,
+  as stated for the renderer image below.
+
+The two store controls govern installations too: `CARTULARY_BUILD_CACHE_DISABLE=1`
+or `CARTULARY_FORCE_REBUILD=1` reinstalls. Under the `installed_only`
+preparation policy an installation producer installs nothing, and a missing or
+stale installation fails as configuration.
+
 Cache hits MAY skip only the exact registered semantic unit. They MUST still
 validate and publish every declared current-run output, emit cache events, and
 contribute to the same target projections and aggregate verdict. A cache hit
 MUST NOT bypass service readiness, fixture cleanup, runtime reset, destructive
 guards, failure projection, or publication of canonical current-run evidence.
 
-Test-service image readiness is a readiness cache profile only. Its cache key MUST include the testservices binary digest, image-owner source digests, helper implementation digests, and toolchain pins. A cache hit MUST still prove that every pinned service image named by the testservices helper is locally present before accepting the readiness stamp; missing images invalidate the stamp and force the ordinary image warmup command. Browser installation readiness follows the same rule for the pinned visual renderer image: a cache hit MUST still prove that the image is locally present with its pinned repository digest and platform, and a missing, mismatched, or unprovable image invalidates the stamp so the ordinary browser installation pulls it again. The installed-only browser readiness probe applies the same proof and reports a missing or mismatched image under the browser installation subject `chromium` with the `playwright_install` recovery. This cache profile MUST NOT replace service startup readiness, test service lifecycle evidence, browser reset, cleanup, fixture preparation, or product-conformance evidence.
+Test-service image readiness is a readiness cache profile only, under the store's two controls (amended 2026-11-26, P5-3c). Its cache key MUST include the testservices binary digest, image-owner source digests, helper implementation digests, and toolchain pins. A cache hit MUST still prove that every pinned service image named by the testservices helper is locally present before accepting the readiness stamp; missing images invalidate the stamp and force the ordinary image warmup command. The browser installation follows the same rule for Chromium and the pinned visual renderer image: reuse MUST still pass the browser readiness proof, which shows the image locally present with its pinned repository digest and platform, and a missing, mismatched, or unprovable image installs again, which pulls it. The installed-only browser readiness probe applies the same proof and reports a missing or mismatched image under the browser installation subject `chromium` with the `playwright_install` recovery. This cache profile MUST NOT replace service startup readiness, test service lifecycle evidence, browser reset, cleanup, fixture preparation, or product-conformance evidence.
 
 Cache records that are missing, bypassed, invalid, corrupt, or whose declared
 outputs are missing or digest-mismatched MUST NOT produce success by reuse.
@@ -2915,7 +2945,7 @@ The scheduler helper rows below own harness orchestration only. They MUST NOT de
 | Design-token generation. | `design_token_generation` | Generated-artifact design-token sub-boundary. | `owner_facade` | `contracts/design/tokens.v1.json` machine-registry loading and validation, generated token TypeScript content, machine-input provenance identity, atomic replacement, and generated-artifact drift behavior; executable helpers MUST NOT access `docs/`. |
 | Font asset validation. | `font_asset_validation` | Static-analysis helper boundary. | `owner_facade` | Font manifest validation, vendored font checksum/license checks, local CSS activation checks, and remote-font ban diagnostics. |
 | Frontend unit target execution. | `frontend_target_execution` | Execution helper boundary. | `owner_facade` | `test-slice SUITE=frontend-unit` command behavior, Vitest invocation shape, owner summaries, target summaries, exact selected-row filtering, and public failure mapping. |
-| Frontend toolchain and dependency-install readiness. | `frontend_toolchain_readiness` | Readiness helper boundary. | `owner_facade` | Pinned repo-local Node/pnpm preparation, frozen-lockfile install behavior, readiness cache keys, stamp content, and configuration-error exit mapping. |
+| Frontend toolchain and dependency-install readiness. | `frontend_toolchain_readiness` | Readiness helper boundary. | `owner_facade` | Lockfile update and Playwright package resolution; the Node runtime and frontend installation producers own pinned repo-local Node/pnpm installation, frozen-lockfile install behavior and installation receipts. |
 | Task-surface owner loading, topology, generated drift, schema attachment validation, and generated Make rendering. | `generated_artifact_surface` | Generated-artifact helpers. | `owner_facade` | Authored task-surface ownership, generated artifact source-of-truth parity, schema validation, drift failure mapping, and no hand-editing of generated outputs. |
 | Go effective-toolchain selection and Go-tool installation readiness. | `go_toolchain_readiness` | Readiness helper boundary. | `owner_facade` | Exact effective Go selection, read-only diagnosis, corruption classification, configuration-error exit mapping, private failure-atomic installation staging, and version-scoped external-cache diagnostics. |
 | Harness status and event observations. | `harness_observability` | Observability facade; canonical performance owns event-derived duration accounting. | `owner_facade` | Status publication, exact invocation, interval, resource, contamination and diagnostic evidence closure. |
@@ -4112,7 +4142,6 @@ Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-002, TH-HARNESS-AC-003
 | `GOCACHE`, `GOMODCACHE`, `GOTMPDIR`                                                            | toolchain child env     | exact projections of the resolved Cartulary path variables; inside a graph invocation, `GOTMPDIR` is its private directory beneath `GO_TMP_DIR` | resolved `GO_CACHE_DIR`, `GO_MOD_CACHE_DIR`, and `GO_TMP_DIR` | internal child environment only | invalid | no caller alias translation or fallback | caller Make override is `usage_error`, exit `2`; inherited values are stripped or overwritten | omitted |
 | `GO_TOOLCHAIN`, `GOTOOLCHAIN`                                                                  | toolchain               | exact reviewed Go toolchain token                                                                                     | exact reviewed `go_toolchain` from `tools/toolchain_pins.json`, mirrored in `go.mod` and Make | internal Make projection only                  | invalid                                                 | exact token; `GOTOOLCHAIN` is forced to the repository pin for Make-owned Go work                            | `configuration_error`, exit `2`                                                    | launcher version, exact effective version, and source |
 | `NODE_VERSION`, `PNPM_VERSION`, `NODE_RUNTIME_DIR`, `NODE_BIN`, `PNPM`, `COREPACK_HOME`, `PATH` | toolchain               | version token or filesystem path                                                                                      | Node `24.15.0`, pnpm `10.33.0`, repo-local `.cache/cartulary/node-runtime`                             | Make variable, env, default                     | invalid for paths/versions unless row-specific optional | exact version token; path normalization                                                                       | `configuration_error`, exit `2`                                                    | version and runtime path                           |
-| `CARTULARY_READINESS_CACHE_DIR`, `CARTULARY_READINESS_DISABLE_CACHE`, `CARTULARY_FORCE_REINSTALL` | harness cache           | repo-local path for cache dir; exact `1` for disable or force reinstall                                                | `.cache/cartulary/readiness`; false; false                                                 | Make variable, env, default                     | invalid for path; false for boolean flags                | path normalization; exact string compare for flags                                                           | invalid path is `configuration_error`; non-`1` flags are false                     | cache state and record path only                   |
 | `CARTULARY_BUILD_CACHE_DIR`, `CARTULARY_BUILD_CACHE_DISABLE`, `CARTULARY_FORCE_REBUILD`          | harness cache           | repo-local path for cache dir; exact `1` for disable or force rebuild                                                  | `.cache/cartulary/build-artifacts`; false; false                                           | Make variable, env, default                     | invalid for path; false for boolean flags                | path normalization; exact string compare for flags                                                           | invalid path is `configuration_error`; non-`1` flags are false                     | cache state and record path only                   |
 | `CONFIG_FILE`, `CARTULARY_CONFIG_FILE`                                                          | app runtime             | config file path                                                                                                      | `configs/dev/config.toml` for local/dev/browser targets                                   | Make variable, env, config binding, default     | omitted                                                 | path normalization; `CARTULARY_CONFIG_FILE` wins only inside application runtime when both are passed through | harness invalid path: `configuration_error`; app invalid config: target failure    | path, not file contents                            |
 | `TEST_SERVICES_BIN`, `CARTULARY_TEST_SERVICES_BIN`                                              | service suite           | executable path                                                                                                       | `.cache/cartulary/toolbin/cartulary-test-services`                                                     | Make variable, env, default                     | invalid                                                 | path normalization                                                                                            | `configuration_error`, exit `2`                                                    | normalized path                                    |

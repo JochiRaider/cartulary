@@ -34,7 +34,7 @@ function make(args, env) {
 export async function publicWorkflow({ seeded = false, profile = "default", resultsRoot, runID = "workflow", interrupt = false } = {}) {
   assert.ok(["default", "network_flow_claimed"].includes(profile));
   const privateRoot = mkdtempSync(path.join(os.tmpdir(), "cartulary-public-workflow-"));
-  const env = { ...cleanEnvironment(), PLAYWRIGHT_MCP_CONFIG: "/no-ambient-cli-config", PWTEST_CLI_GLOBAL_CONFIG: "/no-ambient-global-config", PLAYWRIGHT_CLI_SESSION: "unowned-session", CARTULARY_READINESS_CACHE_DIR: path.join(privateRoot, "readiness-cache"), CARTULARY_BUILD_CACHE_DIR: path.join(privateRoot, "build-cache") }, privateRefs = [], manifests = [], sentinel = `review-private-sentinel-${runID}`;
+  const env = { ...cleanEnvironment(), PLAYWRIGHT_MCP_CONFIG: "/no-ambient-cli-config", PWTEST_CLI_GLOBAL_CONFIG: "/no-ambient-global-config", PLAYWRIGHT_CLI_SESSION: "unowned-session", CARTULARY_BUILD_CACHE_DIR: path.join(privateRoot, "build-cache") }, privateRefs = [], manifests = [], sentinel = `review-private-sentinel-${runID}`;
   let server, running, locator, primary, requestIndex = 0, preserveFailure = false, needsStop = false;
   const invoke = async (command, value, extra = []) => {
     let inputs = [];

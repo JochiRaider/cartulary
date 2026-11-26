@@ -539,27 +539,6 @@ require_frontend_preview_artifacts() {
   return 11
 }
 
-browser_prepare_frontend_toolchain() {
-  env \
-    -u CARTULARY_HARNESS_IDENTITY_PREPARED \
-    -u CARTULARY_TEST_RUN_ID \
-    -u CARTULARY_TEST_TARGET \
-    -u CARTULARY_MAKE_INPUT_SOURCES \
-    -u CARTULARY_HARNESS_CACHE_MODE \
-    -u CARTULARY_HARNESS_CAPACITY_OVERRIDE \
-    -u JSON \
-    -u OWNER \
-    -u ROWS \
-    -u SCOPE \
-    -u SUITE \
-    -u BROWSER_LANES \
-    -u VITEST_MAX_WORKERS \
-    MAKEFLAGS= \
-    CARTULARY_FRONTEND_TOOLCHAIN_QUIET=1 \
-    CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \
-    make -s -C "${ROOT_DIR}" --no-print-directory "${FRONTEND_TOOLCHAIN_STAMP:?frontend toolchain producer binding is required}"
-}
-
 bounded_private_failure_message() {
   local label="$1"
   local log_file="$2"
@@ -1741,11 +1720,9 @@ main() {
   record_startup_event "initializing" \
     "initializing browser session ${BROWSER_SESSION_ID} for runtime profile ${RUNTIME_PROFILE_ID}"
 
-  run_timing_span "setup" "browser-e2e frontend toolchain" \
-    browser_prepare_frontend_toolchain
   local pnpm_bin="${PNPM:-${NODE_RUNTIME_DIR}/bin/pnpm}"
   if [[ ! -x "${pnpm_bin}" ]]; then
-    echo "repo-local pnpm was not found at ${pnpm_bin}; run make bootstrap PART=frontend" >&2
+    echo "repo-local pnpm was not found at ${pnpm_bin}; run make bootstrap PART=node" >&2
     return 1
   fi
 

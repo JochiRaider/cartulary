@@ -2,7 +2,7 @@
 # shellcheck shell=bash
 # Shared declarations are consumed by sourced callers.
 # shellcheck disable=SC2034
-CARTULARY_LAYOUT_DIGESTS='94e0ab7c76ae1831b5a7efba7b9934b329356581b2dfd475ac88b1951e4319a2  tools/workspace_layout.json
+CARTULARY_LAYOUT_DIGESTS='0c8284e6dccc4f0d2027e7b029e01cdf585467a42c392a1ad0f1c94cc232e744  tools/workspace_layout.json
 1d16e52b2bf2f26e091dd6b65771e2180257854318c4413617b9e6652c65c603  tools/schemas/cartulary.workspace_layout.v1.schema.json
 e1066bcfecafdae0255a5d737e377b5835c180c1acdea0730b76b1d320357961  tools/harness/workspace/layout.mjs'
 CARTULARY_LAYOUT_SCRATCH='tmp'
@@ -29,7 +29,6 @@ CARTULARY_LAYOUT_NODE_ARCHIVES='.cache/cartulary/node-archives'
 CARTULARY_LAYOUT_TOOLBIN='.cache/cartulary/toolbin'
 CARTULARY_LAYOUT_SHELLCHECK_ARCHIVES='.cache/cartulary/shellcheck-archives'
 CARTULARY_LAYOUT_FRONTEND_INSTALL='.cache/cartulary/frontend-install'
-CARTULARY_LAYOUT_FRONTEND_TOOLCHAIN='.cache/cartulary/frontend-toolchain'
 CARTULARY_LAYOUT_PLAYWRIGHT='.cache/cartulary/playwright'
 CARTULARY_LAYOUT_TEST_SERVICE_IMAGES='.cache/cartulary/test-service-images'
 CARTULARY_LAYOUT_TYPESCRIPT='.cache/cartulary/typescript'
@@ -77,7 +76,6 @@ declare -a CARTULARY_CLEANUP_ENTRIES=(
   'toolbin|distclean|.cache/cartulary/toolbin'
   'shellcheck_archives|distclean|.cache/cartulary/shellcheck-archives'
   'frontend_install|distclean|.cache/cartulary/frontend-install'
-  'frontend_toolchain|distclean|.cache/cartulary/frontend-toolchain'
   'playwright|distclean|.cache/cartulary/playwright'
   'test_service_images|distclean|.cache/cartulary/test-service-images'
   'typescript|distclean|.cache/cartulary/typescript'

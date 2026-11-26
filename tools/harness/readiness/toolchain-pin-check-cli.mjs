@@ -207,16 +207,15 @@ function checkGoMod(root, mismatches, expected) {
   );
 }
 
-function checkBootstrapNodeRuntime(root, mismatches, expected) {
-  const file = "tools/harness/readiness/bootstrap-node-runtime.sh";
-  const script = readRepoFile(root, file);
-  checkEqual(
-    mismatches,
-    file,
-    "NODE_VERSION default",
-    expected.nodeVersion,
-    matchLine(script, /^NODE_VERSION="\$\{NODE_VERSION:-(.+)\}"\s*$/m),
-  );
+// The Node runtime producer installs the pinned release only from an archive
+// with a committed digest, so the registry holds exactly the pinned
+// version's Linux archives.
+function checkNodeRuntimeArchives(root, mismatches, expected) {
+  const file = "tools/harness_producers.json";
+  const runtime = JSON.parse(readRepoFile(root, file)).producers.find((producer) => producer.kind === "node_runtime");
+  const archives = Object.keys(runtime?.archives ?? {}).sort().join(", ");
+  const pinned = ["arm64", "x64"].map((platform) => `node-v${expected.nodeVersion}-linux-${platform}.tar.xz`).join(", ");
+  checkEqual(mismatches, file, "node_runtime archives", pinned, archives);
 }
 
 function main() {
@@ -276,7 +275,7 @@ function main() {
     checkEqual(mismatches, cryptoFile, name, value, matchLine(cryptoSource, new RegExp(`\\b${name}\\s*=\\s*"([^"]+)"`)));
   }
   if (!/^v[0-9]+\.[0-9]+\.[0-9]+-[a-f0-9]{8}$/.test(expected.cryptographicModule.selector) || !/^[a-f0-9]{64}$/.test(expected.cryptographicModule.archive_sha256)) throw new Error("cryptographic module pins must be exact");
-  checkBootstrapNodeRuntime(root, mismatches, expected);
+  checkNodeRuntimeArchives(root, mismatches, expected);
 
   if (mismatches.length > 0) {
     for (const mismatch of mismatches) {

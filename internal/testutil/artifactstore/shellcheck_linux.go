@@ -6,15 +6,12 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"time"
 )
 
 const shellCheckKeySchemaID = "cartulary.shellcheck_key.v1"
@@ -109,47 +106,9 @@ func (s ShellCheck) Build(staging string) error {
 // verifiedArchive returns the kept archive when it has the committed digest,
 // downloading it first when it is missing or altered.
 func (s ShellCheck) verifiedArchive() (string, error) {
-	if err := os.MkdirAll(s.Archives, 0o755); err != nil {
-		return "", err
-	}
-	archive := filepath.Join(s.Archives, s.Archive)
-	if digest, err := fileDigest(archive); err == nil && digest == s.SHA256 {
-		return archive, nil
-	} else if err == nil || !errors.Is(err, os.ErrNotExist) {
-		if err := os.Remove(archive); err != nil && !errors.Is(err, os.ErrNotExist) {
-			return "", err
-		}
-	}
 	releases := s.Releases
 	if releases == "" {
 		releases = shellCheckReleases
 	}
-	temporary, err := os.CreateTemp(s.Archives, "."+s.Archive+".download-")
-	if err != nil {
-		return "", err
-	}
-	defer os.Remove(temporary.Name())
-	client := http.Client{Timeout: 5 * time.Minute}
-	response, err := client.Get(releases + "/v" + s.Version + "/" + s.Archive)
-	if err != nil {
-		temporary.Close()
-		return "", fmt.Errorf("download %s: %w", s.Archive, err)
-	}
-	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		temporary.Close()
-		return "", fmt.Errorf("download %s: %s", s.Archive, response.Status)
-	}
-	sum := sha256.New()
-	_, err = io.Copy(io.MultiWriter(temporary, sum), response.Body)
-	if closeErr := temporary.Close(); err == nil {
-		err = closeErr
-	}
-	if err != nil {
-		return "", fmt.Errorf("download %s: %w", s.Archive, err)
-	}
-	if got := hex.EncodeToString(sum.Sum(nil)); got != s.SHA256 {
-		return "", fmt.Errorf("ShellCheck archive %s has digest %s, not the committed %s; it was not kept", s.Archive, got, s.SHA256)
-	}
-	return archive, os.Rename(temporary.Name(), archive)
+	return verifiedArchive(s.Archives, s.Archive, releases+"/v"+s.Version+"/"+s.Archive, s.SHA256)
 }

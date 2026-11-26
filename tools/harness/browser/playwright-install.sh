@@ -1,26 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# A readiness hit cannot see the Docker store. Before the cache is consulted,
-# drop the stamp unless the pinned renderer image is provably present, so a
-# removed or replaced image forces the ordinary install to pull it again.
-if [[ "${1:-}" == "--invalidate-stale-stamp" ]]; then
-  stamp="${PLAYWRIGHT_INSTALL_STAMP:?PLAYWRIGHT_INSTALL_STAMP is required}"
-  node_bin="${NODE_BIN:?NODE_BIN is required}"
-  if [[ -f "$stamp" ]] && ! "$node_bin" "$(dirname "${BASH_SOURCE[0]}")/../readiness/installed-readiness.mjs" renderer-image >/dev/null 2>&1; then
-    echo "Pinned visual renderer image is not present; reinstalling browser prerequisites." >&2
-    rm -f -- "$stamp"
-  fi
-  exit 0
-fi
-
-stamp="${PLAYWRIGHT_INSTALL_STAMP:?PLAYWRIGHT_INSTALL_STAMP is required}"
-run_step="${RUN_STEP_SCRIPT:?RUN_STEP_SCRIPT is required}"
-node_runtime_dir="${NODE_RUNTIME_DIR:?NODE_RUNTIME_DIR is required}"
+# The Playwright installation producer (internal/testutil/artifactstore) runs
+# this installer as its run step, with the Node runtime first on PATH, and
+# writes the installation receipt after it succeeds. The installer installs
+# Chromium with its native dependencies, pulls the pinned visual renderer
+# image and prepares browser trust.
 node_bin="${NODE_BIN:?NODE_BIN is required}"
 pnpm="${PNPM:?PNPM is required}"
-node_version="${NODE_VERSION:?NODE_VERSION is required}"
-pnpm_version="${PNPM_VERSION:?PNPM_VERSION is required}"
 renderer_identity="$("$node_bin" --input-type=module -e 'import {loadVisualRendererProfile} from "./tools/harness/browser/visual-renderer-profile.mjs"; const p=loadVisualRendererProfile(process.cwd()); console.log(p.container_image, p.platform);')"
 read -r visual_renderer_image visual_renderer_platform <<<"$renderer_identity"
 
@@ -167,32 +154,6 @@ install_visual_renderer_image() {
   fi
 }
 
-if [[ "${CARTULARY_PLAYWRIGHT_INSTALL_CHILD:-0}" == "1" ]]; then
-  run_playwright_install
-  install_visual_renderer_image
-  "$node_bin" tools/harness/browser/browser-trust.mjs prepare
-  exit $?
-fi
-
-mkdir -p "$(dirname "$stamp")"
-"$run_step" "playwright-install" -- \
-  env PATH="${node_runtime_dir}/bin:${PATH}" \
-    COREPACK_HOME="${node_runtime_dir}/corepack" \
-    CARTULARY_PLAYWRIGHT_INSTALL_CHILD=1 \
-    PLAYWRIGHT_INSTALL_STAMP="$stamp" \
-    RUN_STEP_SCRIPT="$run_step" \
-    NODE_RUNTIME_DIR="$node_runtime_dir" \
-    NODE_BIN="$node_bin" \
-    PNPM="$pnpm" \
-    NODE_VERSION="$node_version" \
-    PNPM_VERSION="$pnpm_version" \
-    "$0"
-printf 'node_path=%s\nnode_version=v%s\npnpm_path=%s\npnpm_version=%s\nplaywright_install_args=%s\nnative_dependency_strategy=%s\nvisual_renderer_image=%s\nvisual_renderer_platform=%s\n' \
-  "$node_bin" \
-  "$node_version" \
-  "$pnpm" \
-  "$pnpm_version" \
-  "install --with-deps chromium" \
-  "playwright_with_deps,ubuntu_apt_fallback,ldd_verify" \
-  "$visual_renderer_image" \
-  "$visual_renderer_platform" >"$stamp"
+run_playwright_install
+install_visual_renderer_image
+"$node_bin" tools/harness/browser/browser-trust.mjs prepare

@@ -766,7 +766,7 @@
     "test-fast": {
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(FRONTEND_INSTALL_STAMP)",
+        "$(FRONTEND_INSTALL_RECEIPT)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
@@ -776,7 +776,7 @@
     "check": {
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(FRONTEND_INSTALL_STAMP)",
+        "$(FRONTEND_INSTALL_RECEIPT)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
@@ -786,7 +786,7 @@
     "ci": {
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(FRONTEND_INSTALL_STAMP)",
+        "$(FRONTEND_INSTALL_RECEIPT)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
@@ -799,7 +799,7 @@
     "release-check": {
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(FRONTEND_INSTALL_STAMP)",
+        "$(FRONTEND_INSTALL_RECEIPT)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
@@ -809,7 +809,7 @@
     "release-measure": {
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(FRONTEND_INSTALL_STAMP)",
+        "$(FRONTEND_INSTALL_RECEIPT)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
@@ -820,7 +820,7 @@
       "type": "work_graph",
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(FRONTEND_INSTALL_STAMP)",
+        "$(FRONTEND_INSTALL_RECEIPT)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "selection": "command",
@@ -834,7 +834,7 @@
       "type": "work_graph",
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(FRONTEND_INSTALL_STAMP)",
+        "$(FRONTEND_INSTALL_RECEIPT)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "selection": "command",
@@ -844,7 +844,7 @@
       "type": "work_graph",
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(FRONTEND_INSTALL_STAMP)",
+        "$(FRONTEND_INSTALL_RECEIPT)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "selection": "command",
@@ -854,7 +854,7 @@
       "type": "work_graph",
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(FRONTEND_INSTALL_STAMP)",
+        "$(FRONTEND_INSTALL_RECEIPT)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "selection": "command",
@@ -864,7 +864,7 @@
       "type": "work_graph",
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(FRONTEND_INSTALL_STAMP)",
+        "$(FRONTEND_INSTALL_RECEIPT)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "selection": "command",
@@ -878,7 +878,7 @@
       "type": "work_graph",
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(FRONTEND_INSTALL_STAMP)",
+        "$(FRONTEND_INSTALL_RECEIPT)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "selection": "command",
@@ -888,7 +888,7 @@
       "type": "work_graph",
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(FRONTEND_INSTALL_STAMP)",
+        "$(FRONTEND_INSTALL_RECEIPT)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "selection": "command",
@@ -934,7 +934,7 @@
       "type": "work_graph",
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(FRONTEND_INSTALL_STAMP)",
+        "$(FRONTEND_INSTALL_RECEIPT)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "selection": "command",
@@ -944,7 +944,7 @@
       "type": "work_graph",
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(FRONTEND_INSTALL_STAMP)",
+        "$(FRONTEND_INSTALL_RECEIPT)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "selection": "command",
@@ -1056,7 +1056,7 @@
       "type": "work_graph",
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(FRONTEND_INSTALL_STAMP)",
+        "$(FRONTEND_INSTALL_RECEIPT)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "selection": "command",
@@ -11302,7 +11302,6 @@
         "harness-smoke-work-graph-service-backed-target",
         "harness-smoke-toolchain-pins",
         "harness-smoke-go-toolchain-readiness",
-        "harness-smoke-bootstrap-node-runtime",
         "harness-smoke-cache-artifact",
         "harness-smoke-cleanup-contract",
         "harness-smoke-capacity-failure-contract",
@@ -11358,7 +11357,6 @@
         "harness-smoke-work-graph-service-backed-target",
         "harness-smoke-toolchain-pins",
         "harness-smoke-go-toolchain-readiness",
-        "harness-smoke-bootstrap-node-runtime",
         "harness-smoke-cache-artifact",
         "harness-smoke-cleanup-contract",
         "harness-smoke-capacity-failure-contract",
@@ -11411,16 +11409,6 @@
         "tools/harness/readiness/go-toolchain-readiness.sh",
         "tools/harness/readiness/check-doctor.sh",
         "tools/harness/contract/tests/test-machine-state-config.mjs"
-      ]
-    },
-    {
-      "name": "harness-smoke-bootstrap-node-runtime",
-      "backing_scripts": [
-        "tools/harness/readiness/tests/test-bootstrap-node-runtime.sh",
-        "tools/harness/readiness/tests/test-frontend-install-self-hosting.sh",
-        "tools/harness/contract/tests/test-foundation-schema-validator.mjs",
-        "tools/harness/generated-artifacts/schema-validator-compiler.mjs",
-        "tools/harness/generated-artifacts/generate-foundation-schema-validators.mjs"
       ]
     },
     {

@@ -47,8 +47,9 @@ export function splitProducedPrerequisites(prerequisites, bindings) {
  * The repository-relative path each published producer makes available at
  * when its binding is unset: the file under its layout directory. A Go
  * tool's file is its binary and pinned version, ShellCheck's carries its
- * pinned version, and embedded assets are named by their archive. The
- * store's Workspace.DefaultName applies the same rule.
+ * pinned version, embedded assets are named by their archive, the Node
+ * runtime by its executable and the other installations by their receipts.
+ * The store's Workspace.DefaultName applies the same rule.
  */
 export function producerDefaultPaths(root, registry = readProducerRegistry(root)) {
   const pins = readJSON(root, "tools/toolchain_pins.json");
@@ -69,6 +70,12 @@ export function producerDefaultPaths(root, registry = readProducerRegistry(root)
       name = `shellcheck-v${pins.shellcheck_version}`;
     } else if (producer.kind === "embedded_assets") {
       name = "web-assets.zip";
+    } else if (producer.kind === "node_runtime") {
+      name = "bin/node";
+    } else if (producer.kind === "frontend_install") {
+      name = "proof/installed.v1.json";
+    } else if (producer.kind === "playwright") {
+      name = "installation.json";
     } else {
       throw new Error(`${producer.id}: unknown producer kind ${producer.kind}`);
     }

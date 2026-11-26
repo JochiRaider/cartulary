@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"testing"
 )
 
@@ -89,9 +90,9 @@ func TestWebBundleKey(t *testing.T) {
 			t.Fatalf("%s kept the key", name)
 		}
 	}
-	// Reporting never changes the bundle: the arguments carry source maps
-	// whatever the output mode.
-	if args := bundle.buildArgs(); args[len(args)-3] != "--sourcemap" {
+	// Reporting never changes the bundle: the arguments carry hidden source
+	// maps whatever the output mode.
+	if args := bundle.buildArgs(); !slices.Equal(args[len(args)-4:len(args)-2], []string{"--sourcemap", "hidden"}) {
 		t.Fatalf("build arguments %v", args)
 	}
 }

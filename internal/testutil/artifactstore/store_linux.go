@@ -428,7 +428,13 @@ func (s Store) lock(kind string, parts ...string) (func(), error) {
 		return nil, err
 	}
 	sum := sha256.Sum256([]byte(kind + "\x00" + strings.Join(parts, "\x00")))
-	file, err := os.OpenFile(s.path("locks", kind+"-"+hex.EncodeToString(sum[:16])+".lock"), os.O_RDWR|os.O_CREATE, 0o600)
+	return lockFile(s.path("locks", kind+"-"+hex.EncodeToString(sum[:16])+".lock"))
+}
+
+// lockFile holds an exclusive lock on the file name until the returned
+// function is called.
+func lockFile(name string) (func(), error) {
+	file, err := os.OpenFile(name, os.O_RDWR|os.O_CREATE, 0o600)
 	if err != nil {
 		return nil, err
 	}

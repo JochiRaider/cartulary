@@ -233,7 +233,6 @@ inventory="$inventory_dir/inventory.json"
     GO_MOD_CACHE_DIR="${GO_MOD_CACHE_DIR:?GO_MOD_CACHE_DIR is required}" \
     GO_TMP_DIR="${GO_TMP_DIR:?GO_TMP_DIR is required}" \
     NODE_RUNTIME_DIR="${NODE_RUNTIME_DIR:-$ROOT_DIR/${CARTULARY_LAYOUT_NODE_RUNTIME}}" \
-    CARTULARY_NODE_ARCHIVE_DIR="${CARTULARY_NODE_ARCHIVE_DIR:-$ROOT_DIR/${CARTULARY_LAYOUT_NODE_ARCHIVES}}" \
     NODE_BIN="$node_bin" \
     PNPM="${PNPM:-$ROOT_DIR/${CARTULARY_LAYOUT_NODE_RUNTIME}/bin/pnpm}" \
     bash ./tools/harness/generated-artifacts/render-generated-artifacts.sh

@@ -383,7 +383,10 @@ func writeArchive(sourceDir, sourceIndex, output string, tempDir string) error {
 	}
 	staticEntries := entries[:0]
 	for _, entry := range entries {
-		if entry.name == "index.html" {
+		// Source maps are debug assets: the bundle keeps them for the
+		// harness's artifact analysis, and the production package leaves
+		// them out, so the server never serves them (EXT-REQ-220).
+		if entry.name == "index.html" || !entry.isDir && strings.HasSuffix(entry.name, ".map") {
 			continue
 		}
 		if entry.name != "assets/" && !strings.HasPrefix(entry.name, "assets/") {

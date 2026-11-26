@@ -109,7 +109,7 @@ export function renderTaskSurfaceMakeRuntime(manifest, producers = checkoutProdu
     'TASK_SURFACE_MACHINE_STATE_ENV = CARTULARY_MACHINE_CACHE_DIR="$(CARTULARY_MACHINE_CACHE_DIR)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" CARTULARY_HARNESS_SCRATCH_ROOT="$(CARTULARY_HARNESS_SCRATCH_ROOT)"',
     'TASK_SURFACE_RUN_ENV = NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_CANONICAL_TASK_SURFACE_MANIFEST)"',
     'TASK_SURFACE_GRAPH_RUNTIME = MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" "$(HARNESS_RUNTIME_BIN)" graph',
-    'TASK_SURFACE_NODE_READINESS = if [ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi',
+    'TASK_SURFACE_NODE_READINESS = if [ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(PRODUCE) node-runtime; fi',
     'RUN_MAKE_PREREQUISITES = if $(1); then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(2); fi',
     'RUN_PRODUCERS = if $(1); then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(PRODUCE) $(2); fi',
     'TASK_SURFACE_PREREQUISITES_NEEDED = [ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ]',
@@ -229,7 +229,7 @@ function renderMakeRecipe(recipe, manifest, producers = checkoutProducers()) {
   if (recipe.graph_entry === true) {
     const graphRecipe = {
       target: recipe.target,
-      prerequisites: ["$(NODE_BIN)", "$(FRONTEND_INSTALL_STAMP)", "$(HARNESS_RUNTIME_BIN)"],
+      prerequisites: ["$(NODE_BIN)", "$(FRONTEND_INSTALL_RECEIPT)", "$(HARNESS_RUNTIME_BIN)"],
       type: "work_graph",
       selection: "target",
       test_target: recipe.test_target,
@@ -251,7 +251,7 @@ function renderMakeRecipe(recipe, manifest, producers = checkoutProducers()) {
       `\t$(Q)$(if $(filter-out ${names.join(" ")},$(TASK_SURFACE_COMMAND_LINE_INPUT_NAMES)),echo 'bootstrap received an undeclared input' >&2; exit 2;,:)`,
       ...renderBootstrapSelectorAdmission(entry),
       // Node is the only installation needed to admit and dispatch bootstrap.
-      '\t+$(Q)env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN)',
+      '\t$(Q)env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(PRODUCE) node-runtime',
       `\t$(Q)$(call RUN_PUBLIC_PREFLIGHT,${recipe.target})`,
     ];
     for (const [index, [value, operationID]] of Object.entries(binding.variants).entries()) {
@@ -436,7 +436,7 @@ function renderPreflightPrelude(recipe, entry = null, manifest = null) {
   if (entry?.target_class !== "public") {
     return [];
   }
-  if (recipe.target === "bootstrap-node-runtime" || recipe.preflight_owner === "entrypoint") {
+  if (recipe.preflight_owner === "entrypoint") {
     return [];
   }
   return [`\t$(Q)$(call RUN_PUBLIC_PREFLIGHT,${recipe.target})`];
@@ -446,10 +446,7 @@ function renderNodeReadinessPrelude(recipe, entry = null) {
   if (recipe.type === "native_tool") {
     return [];
   }
-  if (
-    entry?.target_class !== "public" ||
-    recipe.target === "bootstrap-node-runtime"
-  ) {
+  if (entry?.target_class !== "public") {
     return [];
   }
   if (recipe.runtime_readiness === "installed_only" || entry.selection_binding) {

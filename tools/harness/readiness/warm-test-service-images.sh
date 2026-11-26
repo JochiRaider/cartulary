@@ -47,7 +47,7 @@ fi
 
 testservices_bin="${1:-${CARTULARY_TEST_SERVICES_BIN:-$ROOT_DIR/${CARTULARY_LAYOUT_TOOLBIN}/cartulary-test-services}}"
 stamp="${CARTULARY_TEST_SERVICE_IMAGES_STAMP:-$ROOT_DIR/${CARTULARY_LAYOUT_TEST_SERVICE_IMAGES}/warm.stamp}"
-cache_dir="${CARTULARY_READINESS_CACHE_DIR:-$ROOT_DIR/${CARTULARY_LAYOUT_READINESS}}"
+cache_dir="$ROOT_DIR/${CARTULARY_LAYOUT_READINESS}"
 
 images_present() {
   local image
@@ -87,8 +87,8 @@ fi
   --scope readiness \
   --profile test-service-images \
   --cache-dir "$cache_dir" \
-  --disable-env CARTULARY_READINESS_DISABLE_CACHE \
-  --force-env CARTULARY_FORCE_REINSTALL \
+  --disable-env CARTULARY_BUILD_CACHE_DISABLE \
+  --force-env CARTULARY_FORCE_REBUILD \
   --input "$testservices_bin" \
   --input "$ROOT_DIR/tools/testservices/main.go" \
   --input "$ROOT_DIR/internal/testutil/pgtest/pgtest.go" \

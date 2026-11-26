@@ -32,8 +32,8 @@ var (
 // Declaration is one registered producer. It publishes at its default path,
 // a file under the layout directory Directory. Binding names the variable
 // consumers read that path from; a caller that sets it to another path
-// provides that executable itself, and the producer neither builds nor
-// publishes over it.
+// provides that file itself, and the producer neither builds nor publishes
+// over it. An installation's default path is its executable or receipt.
 type Declaration struct {
 	ID        string `json:"id"`
 	Kind      string `json:"kind"`
@@ -42,6 +42,9 @@ type Declaration struct {
 	// Label and Target name the run step a build runs as.
 	Label  string `json:"label,omitempty"`
 	Target string `json:"target,omitempty"`
+	// Requires names the producers that must be current first, such as the
+	// Node runtime a frontend installation runs with.
+	Requires []string `json:"requires,omitempty"`
 	// go_binary: the package, its build tags and the binary's file name.
 	Package string `json:"package,omitempty"`
 	Tags    string `json:"tags,omitempty"`
@@ -50,7 +53,8 @@ type Declaration struct {
 	// directory whose go.mod selects its dependencies.
 	Tool      string `json:"tool,omitempty"`
 	ModuleDir string `json:"module_dir,omitempty"`
-	// shellcheck: the committed SHA-256 of each release archive by name.
+	// shellcheck and node_runtime: the committed SHA-256 of each release
+	// archive by name.
 	Archives map[string]string `json:"archives,omitempty"`
 	// web_bundle: the Vite mode and the repository paths the build reads. A
 	// bundle publishes no view: its root is copied into the run's frontend
@@ -94,7 +98,56 @@ func ReadRegistry(root string) (Registry, error) {
 		}
 		ids[d.ID], bindings[d.Binding] = true, true
 	}
+	for _, d := range r.Producers {
+		for _, required := range d.Requires {
+			if !ids[required] {
+				return r, fmt.Errorf("%s: producer %q requires an unknown producer %q", RegistryPath, d.ID, required)
+			}
+		}
+	}
+	all := make([]string, len(r.Producers))
+	for i, d := range r.Producers {
+		all[i] = d.ID
+	}
+	if _, err := r.Closure(all); err != nil {
+		return r, err
+	}
 	return r, nil
+}
+
+// Closure returns the declarations ids name, each after the producers it
+// requires, in the order first reached.
+func (r Registry) Closure(ids []string) ([]Declaration, error) {
+	var ordered []Declaration
+	state := map[string]int{}
+	var visit func(id string) error
+	visit = func(id string) error {
+		switch state[id] {
+		case 1:
+			return fmt.Errorf("%s: producer %q requires itself", RegistryPath, id)
+		case 2:
+			return nil
+		}
+		d, ok := r.Lookup(id)
+		if !ok {
+			return fmt.Errorf("no registered producer %q", id)
+		}
+		state[id] = 1
+		for _, required := range d.Requires {
+			if err := visit(required); err != nil {
+				return err
+			}
+		}
+		state[id] = 2
+		ordered = append(ordered, d)
+		return nil
+	}
+	for _, id := range ids {
+		if err := visit(id); err != nil {
+			return nil, err
+		}
+	}
+	return ordered, nil
 }
 
 func (d Declaration) validate() error {
@@ -113,11 +166,14 @@ func (d Declaration) validate() error {
 		return errors.New("a step target needs a label")
 	}
 	allowed, known := map[string][]string{
-		"go_binary":       {"package", "tags", "name"},
-		"go_tool":         {"tool", "module_dir"},
-		"shellcheck":      {"archives"},
-		"web_bundle":      {"mode", "inputs"},
-		"embedded_assets": {"source", "client_support"},
+		"go_binary":        {"package", "tags", "name"},
+		"go_tool":          {"tool", "module_dir"},
+		"shellcheck":       {"archives"},
+		"web_bundle":       {"mode", "inputs"},
+		"embedded_assets":  {"source", "client_support"},
+		"node_runtime":     {"archives"},
+		"frontend_install": {},
+		"playwright":       {},
 	}[d.Kind]
 	if !known {
 		return fmt.Errorf("unknown kind %q", d.Kind)
@@ -135,8 +191,8 @@ func (d Declaration) validate() error {
 		return errors.New("a go_binary declares a ./package and a file name")
 	case d.Kind == "go_tool" && d.Tool == "":
 		return errors.New("a go_tool declares a pinned tool")
-	case d.Kind == "shellcheck" && len(d.Archives) == 0:
-		return errors.New("shellcheck declares its archive digests")
+	case (d.Kind == "shellcheck" || d.Kind == "node_runtime") && len(d.Archives) == 0:
+		return fmt.Errorf("%s declares its archive digests", d.Kind)
 	case d.Kind == "web_bundle" && (d.Mode != "production" && d.Mode != "measurement" || len(d.Inputs) == 0 || d.Target == ""):
 		return errors.New("a web_bundle declares its mode, its inputs and its frontend artifact target")
 	case d.Kind == "embedded_assets" && (d.Source == "" || d.ClientSupport == ""):
@@ -164,6 +220,7 @@ type Workspace struct {
 		GoToolchain       string            `json:"go_toolchain"`
 		Tools             map[string]string `json:"tools"`
 		ShellCheckVersion string            `json:"shellcheck_version"`
+		NodeVersion       string            `json:"node_version"`
 		PNPMVersion       string            `json:"pnpm_version"`
 	}
 }
@@ -219,6 +276,12 @@ func (w *Workspace) DefaultName(d Declaration) (string, error) {
 		return tool.Name() + "-" + tool.Version(), nil
 	case "embedded_assets":
 		return EmbeddedAssetNames[0], nil
+	case "node_runtime":
+		return "bin/node", nil
+	case "frontend_install":
+		return "proof/installed.v1.json", nil
+	case "playwright":
+		return "installation.json", nil
 	case "web_bundle":
 		return "", fmt.Errorf("producer %s publishes no view", d.ID)
 	default:
@@ -246,7 +309,8 @@ func (w *Workspace) View(d Declaration) (string, error) {
 // Provided returns the file the caller provides for d: its binding's value
 // when the environment sets it to a path other than d's view. A provided file
 // is never built or published over and must exist: an executable for a
-// program's producer.
+// program's producer, and a regular file for embedded assets or an
+// installation receipt.
 func (w *Workspace) Provided(d Declaration) (string, bool, error) {
 	value := ""
 	if d.Binding != "" {
@@ -263,7 +327,7 @@ func (w *Workspace) Provided(d Declaration) (string, bool, error) {
 		return "", false, err
 	}
 	info, err := os.Stat(value)
-	if err != nil || !info.Mode().IsRegular() || d.Kind != "embedded_assets" && info.Mode().Perm()&0o111 == 0 {
+	if err != nil || !info.Mode().IsRegular() || d.executable() && info.Mode().Perm()&0o111 == 0 {
 		return "", false, fmt.Errorf("%s names %s, which the caller provides, but it is not a usable file", d.Binding, value)
 	}
 	return value, true, nil
@@ -340,9 +404,9 @@ func (w *Workspace) step(d Declaration, env []string) ([]string, func([]string) 
 // Plan returns d's producer and the views it publishes.
 func (w *Workspace) Plan(d Declaration) (Producer, map[string]string, error) {
 	if d.Kind == "web_bundle" {
-		node, runtime, pnpm := w.Getenv("NODE_BIN"), w.Getenv("NODE_RUNTIME_DIR"), w.Getenv("PNPM")
-		if node == "" || runtime == "" || pnpm == "" {
-			return nil, nil, errors.New("NODE_BIN, NODE_RUNTIME_DIR and PNPM are required")
+		node, pnpm, runtime, err := w.nodeTools()
+		if err != nil {
+			return nil, nil, err
 		}
 		return WebBundle{Root: w.Root, Inputs: d.Inputs, Mode: d.Mode, Node: node, PNPM: pnpm, NodeRuntime: runtime, PNPMVersion: w.pins.PNPMVersion, Env: w.Env}, map[string]string{}, nil
 	}
@@ -387,7 +451,7 @@ func (w *Workspace) Plan(d Declaration) (Producer, map[string]string, error) {
 		}
 		tool.Env, tool.Wrap = w.step(d, tool.Env)
 		return tool, map[string]string{tool.Name(): view}, nil
-	default:
+	case "shellcheck":
 		archive, err := ShellCheckArchive(w.pins.ShellCheckVersion)
 		if err != nil {
 			return nil, nil, err
@@ -403,6 +467,77 @@ func (w *Workspace) Plan(d Declaration) (Producer, map[string]string, error) {
 		return ShellCheck{Root: w.Root, Version: w.pins.ShellCheckVersion, Archive: archive, SHA256: digest, Archives: archives},
 			map[string]string{"shellcheck": view}, nil
 	}
+	return nil, nil, fmt.Errorf("producer %s installs in place and builds no root", d.ID)
+}
+
+// executable reports whether d's default path is a program.
+func (d Declaration) executable() bool {
+	return !slices.Contains([]string{"embedded_assets", "frontend_install", "playwright"}, d.Kind)
+}
+
+// IsInstallation reports whether d installs in place instead of building a
+// store root.
+func (d Declaration) IsInstallation() bool {
+	return slices.Contains([]string{"node_runtime", "frontend_install", "playwright"}, d.Kind)
+}
+
+// nodeTools returns the Node executable, the pnpm launcher and their runtime
+// directory: each the environment's value, else the Node runtime's own.
+func (w *Workspace) nodeTools() (node, pnpm, runtime string, err error) {
+	if runtime = w.Getenv("NODE_RUNTIME_DIR"); runtime == "" {
+		if runtime, err = w.Directory("node_runtime"); err != nil {
+			return "", "", "", err
+		}
+	}
+	if node = w.Getenv("NODE_BIN"); node == "" {
+		node = filepath.Join(runtime, "bin", "node")
+	}
+	if pnpm = w.Getenv("PNPM"); pnpm == "" {
+		pnpm = filepath.Join(runtime, "bin", "pnpm")
+	}
+	return node, pnpm, runtime, nil
+}
+
+// PlanInstallation returns installation d and the lock it is installed
+// under: a file beside its layout directory, which the Node runtime replaces
+// as a whole.
+func (w *Workspace) PlanInstallation(d Declaration) (Installation, string, error) {
+	directory, err := w.Directory(d.Directory)
+	if err != nil {
+		return nil, "", err
+	}
+	view, err := w.View(d)
+	if err != nil {
+		return nil, "", err
+	}
+	lock := directory + ".lock"
+	node, pnpm, runtime, err := w.nodeTools()
+	if err != nil {
+		return nil, "", err
+	}
+	switch d.Kind {
+	case "node_runtime":
+		archive, err := NodeArchive(w.pins.NodeVersion)
+		if err != nil {
+			return nil, "", err
+		}
+		digest, ok := d.Archives[archive]
+		if !ok {
+			return nil, "", fmt.Errorf("producer %s has no committed digest for %s", d.ID, archive)
+		}
+		archives, err := w.Directory("node_archives")
+		if err != nil {
+			return nil, "", err
+		}
+		return NodeRuntime{Root: w.Root, Directory: directory, Version: w.pins.NodeVersion, PNPMVersion: w.pins.PNPMVersion,
+			Archive: archive, SHA256: digest, Archives: archives, Env: w.Env}, lock, nil
+	case "frontend_install":
+		return FrontendInstall{Root: w.Root, Receipt: view, Node: node, PNPM: pnpm, NodeRuntime: runtime, Env: w.Env}, lock, nil
+	case "playwright":
+		env, wrap := w.step(d, w.Env)
+		return Playwright{Root: w.Root, Receipt: view, Node: node, PNPM: pnpm, NodeRuntime: runtime, Env: env, Wrap: wrap}, lock, nil
+	}
+	return nil, "", fmt.Errorf("producer %s is not an installation", d.ID)
 }
 
 // IsGo reports whether d builds with the Go toolchain.

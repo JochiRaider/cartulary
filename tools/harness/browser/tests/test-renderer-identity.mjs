@@ -197,32 +197,28 @@ for (const accountingParent of ["", "/fixture/accounting-parent"]) for (const di
   assert.ok(!create.includes("--volume") && !create.includes("--network"));
 }
 
-// A readiness stamp cannot see the Docker store: the install path keeps its
-// stamp only while the pinned image is provably present, so a removed or
-// replaced image forces the ordinary install to pull it again.
-const stampScratch = mkdtempSync(path.join(os.tmpdir(), "cartulary-renderer-stamp-"));
+// An installation receipt cannot see the Docker store: the Playwright
+// installation is reused only while the pinned image is provably present, so
+// a removed or replaced image fails the readiness proof and the producer
+// installs again, which pulls it.
+const proofScratch = mkdtempSync(path.join(os.tmpdir(), "cartulary-renderer-proof-"));
 try {
-  const bin = path.join(stampScratch, "bin");
+  const bin = path.join(proofScratch, "bin");
   mkdirSync(bin);
   writeFileSync(path.join(bin, "docker"), "#!/bin/sh\n[ \"$1 $2\" = \"image inspect\" ] || exit 1\n[ -n \"$FAKE_DOCKER_IMAGE_JSON\" ] || { echo 'Error: No such image' >&2; exit 1; }\nprintf '%s\\n' \"$FAKE_DOCKER_IMAGE_JSON\"\n");
   chmodSync(path.join(bin, "docker"), 0o755);
-  const stamp = path.join(stampScratch, "chromium.stamp");
   const [os_, architecture] = profile.platform.split("/");
-  const invalidate = (image) => spawnSync("bash", ["tools/harness/browser/playwright-install.sh", "--invalidate-stale-stamp"], {
+  const prove = (image) => spawnSync(process.execPath, ["tools/harness/readiness/installed-readiness.mjs", "renderer-image"], {
     cwd: root, encoding: "utf8",
-    env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, PLAYWRIGHT_INSTALL_STAMP: stamp, NODE_BIN: process.execPath, FAKE_DOCKER_IMAGE_JSON: image ? JSON.stringify([image]) : "" },
+    env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, FAKE_DOCKER_IMAGE_JSON: image ? JSON.stringify([image]) : "" },
   });
-  for (const [label, image, kept] of [
+  for (const [label, image, proven] of [
     ["present", { Id: "sha256:pinned", Os: os_, Architecture: architecture, RepoDigests: [profile.container_image] }, true],
     ["missing", null, false],
     ["replaced", { Id: "sha256:other", Os: os_, Architecture: architecture, RepoDigests: ["example/other@sha256:00"] }, false],
   ]) {
-    writeFileSync(stamp, "installed\n");
-    const result = invalidate(image);
-    assert.equal(result.status, 0, `${label}: ${result.stderr}`);
-    assert.equal(existsSync(stamp), kept, `${label}: stamp ${kept ? "dropped" : "kept"}`);
+    const result = prove(image);
+    assert.equal(result.status === 0, proven, `${label}: ${result.stderr}`);
+    if (!proven) assert.match(result.stderr, /subject=chromium .*recovery=playwright_install/u, label);
   }
-  const absent = invalidate(null);
-  assert.equal(absent.status, 0);
-  assert.equal(existsSync(stamp), false, "invalidation created a stamp");
-} finally { rmSync(stampScratch, { recursive: true, force: true }); }
+} finally { rmSync(proofScratch, { recursive: true, force: true }); }

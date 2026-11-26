@@ -371,67 +371,6 @@ if [[ -d "$verification_case_root/private-runtime" ]] &&
   fail "publication verification failure: normal cleanup retained private runtime material"
 fi
 
-# Parent graph selection and scheduling inputs must not leak into the nested
-# readiness Make target, whose public contract does not declare them.
-fake_make_dir="$tmp_dir/fake-make"
-fake_make_log="$tmp_dir/fake-make.log"
-mkdir -p "$fake_make_dir"
-cat >"$fake_make_dir/make" <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-for name in \
-  CARTULARY_HARNESS_IDENTITY_PREPARED \
-  CARTULARY_TEST_RUN_ID \
-  CARTULARY_TEST_TARGET \
-  CARTULARY_MAKE_INPUT_SOURCES \
-  CARTULARY_HARNESS_CACHE_MODE \
-  CARTULARY_HARNESS_CAPACITY_OVERRIDE \
-  JSON \
-  OWNER \
-  ROWS \
-  SCOPE \
-  BROWSER_LANES \
-  VITEST_MAX_WORKERS; do
-  if [[ -n "${!name+x}" ]]; then
-    printf 'leaked %s\n' "$name" >&2
-    exit 91
-  fi
-done
-printf '%s\n' "$*" >"${CARTULARY_FAKE_MAKE_LOG:?}"
-EOF
-chmod 700 "$fake_make_dir/make"
-lifecycle_parent_run_id="${CARTULARY_TEST_RUN_ID:-}"
-export CARTULARY_HARNESS_IDENTITY_PREPARED=1
-export CARTULARY_TEST_RUN_ID=parent-run
-export CARTULARY_TEST_TARGET=test-slice
-export CARTULARY_MAKE_INPUT_SOURCES='CARTULARY_HARNESS_CACHE_MODE=cli OWNER=cli ROWS=cli'
-export CARTULARY_HARNESS_CACHE_MODE=off
-export CARTULARY_HARNESS_CAPACITY_OVERRIDE=cpu_tokens=1
-export JSON=1
-export OWNER=module.timeline
-export ROWS=module.timeline.measurement.timeline_virtualized_grid_render_latency_961a4ec1d3
-export SCOPE=services
-export BROWSER_LANES=1
-export VITEST_MAX_WORKERS=1
-CARTULARY_FAKE_MAKE_LOG="$fake_make_log" PATH="$fake_make_dir:$PATH" \
-  browser_prepare_frontend_toolchain || fail "nested frontend toolchain public-input isolation"
-assert_file_contains "$fake_make_log" 'frontend-toolchain' "nested frontend toolchain invocation"
-unset \
-  CARTULARY_HARNESS_IDENTITY_PREPARED \
-  CARTULARY_TEST_RUN_ID \
-  CARTULARY_TEST_TARGET \
-  CARTULARY_MAKE_INPUT_SOURCES \
-  CARTULARY_HARNESS_CACHE_MODE \
-  CARTULARY_HARNESS_CAPACITY_OVERRIDE \
-  JSON \
-  OWNER \
-  ROWS \
-  SCOPE \
-  BROWSER_LANES \
-  VITEST_MAX_WORKERS
-
-export CARTULARY_TEST_RUN_ID="$lifecycle_parent_run_id"
-
 private_failure_log="$tmp_dir/private-failure.log"
 private_failure_token=opaque-runtime-token-that-must-not-survive
 printf 'startup failed with postgres://user:password@localhost/db and token %s\n' \

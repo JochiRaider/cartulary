@@ -146,8 +146,14 @@ export function serviceImageReadiness(environment, root = repoRoot, runner = spa
 }
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
   try {
+    // The installation producers (internal/testutil/artifactstore) reuse an
+    // installation only when its probe passes: frontend-installation for the
+    // dependencies' receipt, browser for Chromium, host locking and the
+    // pinned renderer image.
     if (process.argv[2] === "invalidate") removePrivateFile(receiptFile(repoRoot));
     else if (process.argv[2] === "publish") publishFrontendInstallation();
+    else if (process.argv[2] === "frontend-installation") validateFrontendInstallation();
+    else if (process.argv[2] === "browser") browserReadiness();
     else if (process.argv[2] === "renderer-image") { rendererImageReadiness(); process.stdout.write("ok pinned visual renderer image\n"); }
     else if (process.argv[2] === "frontend") { coreReadiness(); process.stdout.write("ok installed frontend prerequisites\n"); }
     else if (process.argv[2] === "doctor") { coreReadiness(); frontendBuildReadiness(); browserReadiness(); goReadiness(process.env); dockerReadiness(process.env); process.stdout.write("ok installed UI review prerequisites\n"); }

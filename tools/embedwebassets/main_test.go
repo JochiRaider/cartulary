@@ -168,6 +168,7 @@ func TestWriteArchiveIsDeterministicAndServesRootEntries(t *testing.T) {
 	sourceDir := t.TempDir()
 	mustWriteFile(t, filepath.Join(sourceDir, "index.html"), `<script src="/assets/app.js"></script>`)
 	mustWriteFile(t, filepath.Join(sourceDir, "assets", "app.js"), "console.log('ok');")
+	mustWriteFile(t, filepath.Join(sourceDir, "assets", "app.js.map"), `{"version":3,"sources":["app.ts"]}`)
 
 	first := filepath.Join(t.TempDir(), "web-assets.zip")
 	second := filepath.Join(t.TempDir(), "web-assets.zip")
@@ -202,6 +203,11 @@ func TestWriteArchiveIsDeterministicAndServesRootEntries(t *testing.T) {
 		t.Fatalf("open asset from zip: %v", err)
 	}
 	defer assetBytes.Close()
+	// A bundle's source maps are debug assets the production package leaves
+	// out, so the server never serves them.
+	if _, err := reader.Open("assets/app.js.map"); err == nil {
+		t.Fatal("a source map entered the production package")
+	}
 }
 
 func TestWriteArchiveRejectsSymlinks(t *testing.T) {

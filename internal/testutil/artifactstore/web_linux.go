@@ -27,8 +27,10 @@ var documentationFile = regexp.MustCompile(`(?i)(\.(md|markdown)$|(^|/)readme(\.
 // WebBundle builds one Vite bundle of apps/web. Its key covers every
 // repository file under its input roots, its fixed build arguments, the Node
 // and pnpm it runs with and the VITE_ settings and NODE_ENV it sees. The
-// arguments never depend on how verbosely a command reports: a bundle always
-// carries source maps.
+// arguments never depend on how verbosely a command reports. A bundle always
+// carries hidden source maps (D29): the harness's artifact analysis reads
+// them, its JavaScript does not reference them, and the server's embedded
+// package leaves them out.
 type WebBundle struct {
 	// Root is the repository root; Inputs are the repository paths whose
 	// files the build can read.
@@ -46,7 +48,7 @@ type WebBundle struct {
 func (w WebBundle) ID() string { return "web-bundle" }
 
 func (w WebBundle) buildArgs() []string {
-	args := []string{"--dir", "apps/web", "exec", "vite", "build", "--sourcemap", "--logLevel", "warn"}
+	args := []string{"--dir", "apps/web", "exec", "vite", "build", "--sourcemap", "hidden", "--logLevel", "warn"}
 	if w.Mode != "production" {
 		args = append(args, "--mode", w.Mode)
 	}

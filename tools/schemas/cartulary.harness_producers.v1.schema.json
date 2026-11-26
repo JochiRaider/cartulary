@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "cartulary.harness_producers.v1",
-  "description": "Harness artifact producers (TH-HARNESS build-artifact store, P5-3). Each published producer makes its output available at a binding's path, or at its default file under a workspace layout directory; a web bundle publishes no view, and its root becomes the run's frontend artifact. The artifact store decides whether to build. Go tool modules, the ShellCheck version and the pnpm version come from the toolchain pins.",
+  "description": "Harness artifact producers (TH-HARNESS build-artifact store, P5-3). Each published producer makes its output available at a binding's path, or at its default file under a workspace layout directory; a web bundle publishes no view, and its root becomes the run's frontend artifact. The artifact store decides whether to build. Installations (the Node runtime, the frontend dependencies and the Playwright browsers) install in place under a receipt. Go tool modules, the ShellCheck, Node and pnpm versions come from the toolchain pins.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -33,7 +33,10 @@
               "go_tool",
               "shellcheck",
               "web_bundle",
-              "embedded_assets"
+              "embedded_assets",
+              "node_runtime",
+              "frontend_install",
+              "playwright"
             ]
           },
           "binding": {
@@ -55,6 +58,16 @@
             "description": "The step target a build reports under when the caller names none.",
             "type": "string",
             "pattern": "^[a-z][a-z0-9-]*$"
+          },
+          "requires": {
+            "description": "The producers that must be current first, such as the Node runtime an installation runs with.",
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9-]*$"
+            }
           },
           "package": {
             "type": "string",
@@ -80,11 +93,11 @@
             "pattern": "^[A-Za-z0-9_][A-Za-z0-9_./-]*$"
           },
           "archives": {
-            "description": "The committed SHA-256 of each ShellCheck release archive, by file name.",
+            "description": "The committed SHA-256 of each ShellCheck or Node release archive, by file name.",
             "type": "object",
             "minProperties": 1,
             "propertyNames": {
-              "pattern": "^shellcheck-v[0-9]+\\.[0-9]+\\.[0-9]+\\.linux\\.[a-z0-9_]+\\.tar\\.xz$"
+              "pattern": "^(shellcheck-v[0-9]+\\.[0-9]+\\.[0-9]+\\.linux\\.[a-z0-9_]+|node-v[0-9]+\\.[0-9]+\\.[0-9]+-linux-[a-z0-9]+)\\.tar\\.xz$"
             },
             "additionalProperties": {
               "type": "string",
@@ -454,6 +467,209 @@
               "required": [
                 "label"
               ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "node_runtime"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "binding",
+                "directory",
+                "archives"
+              ],
+              "not": {
+                "anyOf": [
+                  {
+                    "required": [
+                      "package"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "tags"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "name"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "tool"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "module_dir"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "mode"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "inputs"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "source"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "client_support"
+                    ]
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "frontend_install"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "binding",
+                "directory"
+              ],
+              "not": {
+                "anyOf": [
+                  {
+                    "required": [
+                      "package"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "tags"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "name"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "tool"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "module_dir"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "archives"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "mode"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "inputs"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "source"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "client_support"
+                    ]
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "playwright"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "binding",
+                "directory"
+              ],
+              "not": {
+                "anyOf": [
+                  {
+                    "required": [
+                      "package"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "tags"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "name"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "tool"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "module_dir"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "archives"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "mode"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "inputs"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "source"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "client_support"
+                    ]
+                  }
+                ]
+              }
             }
           }
         ]

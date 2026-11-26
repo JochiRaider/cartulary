@@ -7,12 +7,15 @@
 //	harnessbuild produce [--store DIR] [--roots FILE] PRODUCER...
 //
 // Each producer is declared in tools/harness_producers.json and publishes at
-// its default path in the workspace layout. A caller that sets a producer's
-// binding to another path provides that executable, which is checked and
-// kept. The store defaults to the layout's artifact_store directory. With
-// --roots, the sealed root of each producer is written to FILE as a JSON
-// object, for a caller that copies a root, such as the run's frontend
-// artifact.
+// its default path in the workspace layout. The producers a selected one
+// requires run first. A caller that sets a producer's binding to another path
+// provides that file, which is checked and kept. Installations (the Node
+// runtime, the frontend dependencies and the Playwright browsers) install in
+// place under a receipt; under the installed-only preparation policy they
+// install nothing and fail when missing or stale. The store defaults to the
+// layout's artifact_store directory. With --roots, the sealed root of each
+// store producer is written to FILE as a JSON object, for a caller that
+// copies a root, such as the run's frontend artifact.
 package main
 
 import (
@@ -76,15 +79,15 @@ func produce(store, rootsFile string, ids []string) error {
 			return err
 		}
 	}
-	declarations := make([]artifactstore.Declaration, 0, len(ids))
-	for _, id := range ids {
-		d, ok := registry.Lookup(id)
-		if !ok {
-			return fmt.Errorf("no registered producer %q", id)
-		}
-		// A caller that provides the executable at its own path keeps it.
+	selected, err := registry.Closure(ids)
+	if err != nil {
+		return err
+	}
+	declarations := make([]artifactstore.Declaration, 0, len(selected))
+	for _, d := range selected {
+		// A caller that provides the file at its own path keeps it.
 		if _, provided, err := workspace.Provided(d); err != nil {
-			return fmt.Errorf("producer %s: %w", id, err)
+			return fmt.Errorf("producer %s: %w", d.ID, err)
 		} else if !provided {
 			declarations = append(declarations, d)
 		}
@@ -99,8 +102,19 @@ func produce(store, rootsFile string, ids []string) error {
 		Disable: os.Getenv("CARTULARY_BUILD_CACHE_DISABLE") == "1",
 		Force:   os.Getenv("CARTULARY_FORCE_REBUILD") == "1",
 	}
+	installedOnly := os.Getenv("CARTULARY_PREPARATION_POLICY") == "installed_only"
 	produced := map[string]string{}
 	for _, d := range declarations {
+		if d.IsInstallation() {
+			installation, lock, err := workspace.PlanInstallation(d)
+			if err != nil {
+				return fmt.Errorf("producer %s: %w", d.ID, err)
+			}
+			if _, err := artifactstore.Install(installation, lock, controls, installedOnly); err != nil {
+				return fmt.Errorf("producer %s: %w", d.ID, err)
+			}
+			continue
+		}
 		producer, views, err := workspace.Plan(d)
 		if err != nil {
 			return fmt.Errorf("producer %s: %w", d.ID, err)

@@ -238,16 +238,6 @@
       "parent": "cache"
     },
     {
-      "id": "frontend_toolchain",
-      "path": ".cache/cartulary/frontend-toolchain",
-      "tier": "distclean",
-      "state": "current",
-      "producers": [
-        "harness readiness"
-      ],
-      "parent": "cache"
-    },
-    {
       "id": "playwright",
       "path": ".cache/cartulary/playwright",
       "tier": "distclean",

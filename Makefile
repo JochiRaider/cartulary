@@ -56,22 +56,13 @@ GOSEC_AUDIT_SUPPORT_PATTERNS ?=
 SCHEDULER_MANIFEST ?= $(CURDIR)/tools/scheduler_manifest.json
 EXECUTION_TOPOLOGY_MANIFEST ?= $(CURDIR)/tools/execution_topology_manifest.json
 OBJECT_STORE_BUCKET ?= cartulary
-FRONTEND_INSTALL_STAMP ?= $(CURDIR)/$(LAYOUT_FRONTEND_INSTALL)/node-v$(NODE_VERSION)-pnpm-v$(PNPM_VERSION).stamp
-PLAYWRIGHT_INSTALL_STAMP ?= $(CURDIR)/$(LAYOUT_PLAYWRIGHT)/chromium.stamp
-FRONTEND_TOOLCHAIN_STAMP ?= $(CURDIR)/$(LAYOUT_FRONTEND_TOOLCHAIN)/node-v$(NODE_VERSION)-pnpm-v$(PNPM_VERSION).stamp
-CARTULARY_READINESS_CACHE_DIR ?= $(CURDIR)/$(LAYOUT_READINESS)
 CARTULARY_BUILD_CACHE_DIR ?= $(CURDIR)/$(LAYOUT_BUILD_ARTIFACTS)
 RUN_STEP_SCRIPT := $(CURDIR)/tools/harness/execution/run-step.sh
 TEST_OUTPUT_SCRIPT := $(CURDIR)/tools/harness/output/test-output.mjs
 CARTULARY_RUNNER_SCRIPT := $(CURDIR)/tools/harness/execution/cartulary-runner-cli.mjs
 TASK_SURFACE_MANIFEST ?= $(CURDIR)/tools/task_surface_manifest.json
-CACHE_ARTIFACT_SCRIPT := $(CURDIR)/tools/harness/readiness/cache-artifact.sh
-BOOTSTRAP_NODE_RUNTIME_IMPL := tools/harness/readiness/bootstrap-node-runtime.sh
 GO_TOOLCHAIN_READINESS_IMPL := tools/harness/readiness/go-toolchain-readiness.sh
 GO_TOOLCHAIN_READINESS = bash $(GO_TOOLCHAIN_READINESS_IMPL) ensure
-FRONTEND_TOOLCHAIN_IMPL := tools/harness/readiness/frontend-toolchain.sh
-FRONTEND_INSTALL_IMPL := tools/harness/readiness/frontend-install.sh
-PLAYWRIGHT_INSTALL_IMPL := tools/harness/browser/playwright-install.sh
 HARNESS_CONTRACT_CLI := $(CURDIR)/tools/harness/contract/harness-contract-cli.mjs
 FOUNDATION_SCHEMA_VALIDATORS := $(CURDIR)/tools/harness/contract/generated/foundation-schema-validators.cjs
 RUN_HARNESS_PREFLIGHT = $(NODE_BIN) $(HARNESS_CONTRACT_CLI) preflight
@@ -102,7 +93,6 @@ EFFECTIVE_OUTPUT_MODE := summary
 endif
 
 ifneq ($(filter $(EFFECTIVE_OUTPUT_MODE),quiet summary ci machine),)
-PNPM_INSTALL_FLAGS := --reporter=append-only --loglevel=warn
 BIOME_CHECK_FLAGS := --reporter=summary --diagnostic-level=warn
 export NO_COLOR := 1
 export CLICOLOR := 0
@@ -111,42 +101,31 @@ endif
 
 TESTCONTAINERS_GO_VERSION := v0.42.0
 
-FRONTEND_INSTALL_INPUTS := package.json pnpm-lock.yaml pnpm-workspace.yaml apps/web/package.json $(wildcard packages/*/package.json)
-
 # PRODUCE runs producers registered in tools/harness_producers.json through
 # the harness artifact store (P5-3). `go run` needs no prebuilt tool, so it
-# also builds the harness runtime. Each producer publishes at its binding,
-# which the generated include defaults and exports.
-PRODUCE = mkdir -p "$(GO_CACHE_DIR)" "$(GO_MOD_CACHE_DIR)" "$(GO_TMP_DIR)" && env GOCACHE="$(GO_CACHE_DIR)" GOMODCACHE="$(GO_MOD_CACHE_DIR)" GOTMPDIR="$(GO_TMP_DIR)" NODE_BIN="$(NODE_BIN)" GO="$(GO)" RUN_STEP_SCRIPT="$(RUN_STEP_SCRIPT)" "$(GO)" run ./tools/harnessbuild produce
+# also builds the harness runtime and installs the Node runtime. Each
+# producer publishes at its binding, which the generated include defaults and
+# exports.
+PRODUCE = mkdir -p "$(GO_CACHE_DIR)" "$(GO_MOD_CACHE_DIR)" "$(GO_TMP_DIR)" && env GOCACHE="$(GO_CACHE_DIR)" GOMODCACHE="$(GO_MOD_CACHE_DIR)" GOTMPDIR="$(GO_TMP_DIR)" NODE_BIN="$(NODE_BIN)" NODE_RUNTIME_DIR="$(NODE_RUNTIME_DIR)" PNPM="$(PNPM)" GO="$(GO)" RUN_STEP_SCRIPT="$(RUN_STEP_SCRIPT)" "$(GO)" run ./tools/harnessbuild produce
 
 FORCE:
 
 include tools/task_surface.runtime.generated.mk
 include tools/task_surface.generated.mk
 
-$(SBOM_ARTIFACT) $(LICENSE_REPORT_ARTIFACT) &: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) tools/release-evidence/generate-sbom-license-evidence.mjs tools/release-evidence/validate-cyclonedx.mjs tools/release-evidence/validate-license-report.mjs tools/release-evidence/validate-release-sbom.mjs tools/schemas/cartulary.license_report.v2.schema.json go.mod go.sum package.json pnpm-lock.yaml pnpm-workspace.yaml docker-compose.dev.yml $(wildcard apps/web/package.json packages/*/package.json)
+$(SBOM_ARTIFACT) $(LICENSE_REPORT_ARTIFACT) &: tools/release-evidence/generate-sbom-license-evidence.mjs tools/release-evidence/validate-cyclonedx.mjs tools/release-evidence/validate-license-report.mjs tools/release-evidence/validate-release-sbom.mjs tools/schemas/cartulary.license_report.v2.schema.json go.mod go.sum package.json pnpm-lock.yaml pnpm-workspace.yaml docker-compose.dev.yml $(wildcard apps/web/package.json packages/*/package.json)
 	$(Q)$(GO_TOOLCHAIN_READINESS)
-	$(Q)$(PRODUCE) cyclonedx-gomod syft
+	$(Q)$(PRODUCE) frontend-install cyclonedx-gomod syft
 	$(Q)mkdir -p $(RELEASE_ARTIFACT_DIR) $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR) $(GO_TMP_DIR)
 	$(Q)CARTULARY_TEST_TARGET=release-evidence CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "generate SBOM/license evidence" -- env PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" COREPACK_HOME="$(NODE_RUNTIME_DIR)/corepack" GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" NODE_BIN="$(NODE_BIN)" PNPM="$(PNPM)" CYCLONEDX_GOMOD_BIN="$(CYCLONEDX_GOMOD_BIN)" SYFT_BIN="$(SYFT_BIN)" RELEASE_ARTIFACT_DIR="$(RELEASE_ARTIFACT_DIR)" LICENSE_REPORT_ARTIFACT="$(LICENSE_REPORT_ARTIFACT)" SBOM_ARTIFACT="$(SBOM_ARTIFACT)" $(NODE_BIN) ./tools/release-evidence/generate-sbom-license-evidence.mjs
 
-$(NODE_BIN): FORCE tools/harness/readiness/bootstrap-node-runtime.sh $(BOOTSTRAP_NODE_RUNTIME_IMPL) Makefile
-	$(Q)if [ "$${CARTULARY_PREPARATION_POLICY:-}" = "installed_only" ]; then test -x "$(NODE_BIN)"; else NODE_VERSION="$(NODE_VERSION)" NODE_RUNTIME_DIR="$(NODE_RUNTIME_DIR)" ./tools/harness/readiness/bootstrap-node-runtime.sh; fi
-
-$(FOUNDATION_SCHEMA_VALIDATORS): internal/testutil/harnessdiag/testdata/schema-probes.json tools/task_surface_owner.json tools/harness/generated-artifacts/native-command-policy.mjs tools/harness/generated-artifacts/native-schema-validators.mjs tools/harness/generated-artifacts/schema-validator-compiler.mjs $(NODE_BIN) tools/harness/generated-artifacts/generate-foundation-schema-validators.mjs tools/harness/generated-artifacts/generated-transaction.mjs tools/harness/generated-artifacts/instrumentation-definitions.mjs tools/harness/generated-artifacts/instrumentation-shapes.mjs tools/harness/generated-artifacts/admission-vocabulary.mjs tools/harness/generated-artifacts/lifecycle-policy.mjs tools/harness/generated-artifacts/native-runtime-policy.mjs tools/harness/generated-artifacts/redaction-policy.mjs tools/harness/contract/failure-taxonomy.mjs tools/harness/contract/redaction-vocabulary.mjs tools/harness_instrumentation_definitions.json tools/harness_lifecycle_policy.json tools/harness_redaction_manifest.json tools/harness_schema_attachments.json tools/scheduler_resource_registry.json $(wildcard tools/schemas/*.schema.json)
+$(FOUNDATION_SCHEMA_VALIDATORS): internal/testutil/harnessdiag/testdata/schema-probes.json tools/task_surface_owner.json tools/harness/generated-artifacts/native-command-policy.mjs tools/harness/generated-artifacts/native-schema-validators.mjs tools/harness/generated-artifacts/schema-validator-compiler.mjs tools/harness/generated-artifacts/generate-foundation-schema-validators.mjs tools/harness/generated-artifacts/generated-transaction.mjs tools/harness/generated-artifacts/instrumentation-definitions.mjs tools/harness/generated-artifacts/instrumentation-shapes.mjs tools/harness/generated-artifacts/admission-vocabulary.mjs tools/harness/generated-artifacts/lifecycle-policy.mjs tools/harness/generated-artifacts/native-runtime-policy.mjs tools/harness/generated-artifacts/redaction-policy.mjs tools/harness/contract/failure-taxonomy.mjs tools/harness/contract/redaction-vocabulary.mjs tools/harness_instrumentation_definitions.json tools/harness_lifecycle_policy.json tools/harness_redaction_manifest.json tools/harness_schema_attachments.json tools/scheduler_resource_registry.json $(wildcard tools/schemas/*.schema.json)
+	$(Q)$(PRODUCE) node-runtime
 	$(Q)$(NODE_BIN) ./tools/harness/generated-artifacts/generate-foundation-schema-validators.mjs
 
-$(FRONTEND_TOOLCHAIN_STAMP): FORCE $(NODE_BIN) Makefile tools/harness/readiness/frontend-toolchain.sh $(FRONTEND_TOOLCHAIN_IMPL) $(CACHE_ARTIFACT_SCRIPT)
-	$(Q)if [ "$${CARTULARY_PREPARATION_POLICY:-}" = "installed_only" ]; then "$(NODE_BIN)" tools/harness/readiness/installed-readiness.mjs frontend; else $(CACHE_ARTIFACT_SCRIPT) --scope readiness --profile frontend-toolchain --cache-dir "$(CARTULARY_READINESS_CACHE_DIR)" --disable-env CARTULARY_READINESS_DISABLE_CACHE --force-env CARTULARY_FORCE_REINSTALL --input Makefile --input tools/harness/readiness/frontend-toolchain.sh --input $(FRONTEND_TOOLCHAIN_IMPL) --input tools/harness/readiness/cache-artifact.sh --output "$(FRONTEND_TOOLCHAIN_STAMP)" --key "node_version=$(NODE_VERSION)" --key "pnpm_version=$(PNPM_VERSION)" --key "node_bin=$(NODE_BIN)" --key "pnpm=$(PNPM)" -- env NODE_RUNTIME_DIR="$(NODE_RUNTIME_DIR)" NODE_BIN="$(NODE_BIN)" PNPM="$(PNPM)" NODE_VERSION="$(NODE_VERSION)" PNPM_VERSION="$(PNPM_VERSION)" FRONTEND_TOOLCHAIN_STAMP="$(FRONTEND_TOOLCHAIN_STAMP)" ./tools/harness/readiness/frontend-toolchain.sh; fi
-
-$(FRONTEND_INSTALL_STAMP): FORCE $(FRONTEND_INSTALL_INPUTS) $(FRONTEND_TOOLCHAIN_STAMP) tools/harness/readiness/frontend-install.sh $(FRONTEND_INSTALL_IMPL) $(CACHE_ARTIFACT_SCRIPT)
-	$(Q)if [ "$${CARTULARY_PREPARATION_POLICY:-}" = "installed_only" ]; then "$(NODE_BIN)" tools/harness/readiness/installed-readiness.mjs frontend; else CARTULARY_TEST_TARGET="frontend-install" $(CACHE_ARTIFACT_SCRIPT) --scope readiness --profile frontend-install --cache-dir "$(CARTULARY_READINESS_CACHE_DIR)" --disable-env CARTULARY_READINESS_DISABLE_CACHE --force-env CARTULARY_FORCE_REINSTALL $(foreach input,$(FRONTEND_INSTALL_INPUTS),--input "$(input)") --input .npmrc --input tools/harness/readiness/installed-readiness.mjs --input tools/harness/readiness/frontend-install.sh --input $(FRONTEND_INSTALL_IMPL) --input tools/harness/readiness/cache-artifact.sh --output "$(FRONTEND_INSTALL_STAMP)" --output "$(CURDIR)/$(LAYOUT_FRONTEND_INSTALL)/proof/installed.v1.json" --key "node_version=$(NODE_VERSION)" --key "pnpm_version=$(PNPM_VERSION)" --key "pnpm_install_flags=$(PNPM_INSTALL_FLAGS)" -- env PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" COREPACK_HOME="$(NODE_RUNTIME_DIR)/corepack" CI=true FRONTEND_INSTALL_STAMP="$(FRONTEND_INSTALL_STAMP)" PNPM="$(PNPM)" PNPM_INSTALL_FLAGS="$(PNPM_INSTALL_FLAGS)" NODE_BIN="$(NODE_BIN)" NODE_VERSION="$(NODE_VERSION)" PNPM_VERSION="$(PNPM_VERSION)" bash ./tools/harness/readiness/frontend-install.sh; fi
-
-$(PLAYWRIGHT_INSTALL_STAMP): FORCE $(FRONTEND_INSTALL_STAMP) $(FRONTEND_TOOLCHAIN_STAMP) tools/harness/browser/playwright-install.sh $(PLAYWRIGHT_INSTALL_IMPL) $(CACHE_ARTIFACT_SCRIPT)
-	$(Q)if [ "$${CARTULARY_PREPARATION_POLICY:-}" = "installed_only" ]; then "$(NODE_BIN)" tools/harness/readiness/installed-readiness.mjs doctor; else PLAYWRIGHT_INSTALL_STAMP="$(PLAYWRIGHT_INSTALL_STAMP)" NODE_BIN="$(NODE_BIN)" ./tools/harness/browser/playwright-install.sh --invalidate-stale-stamp && $(CACHE_ARTIFACT_SCRIPT) --scope readiness --profile playwright-install --cache-dir "$(CARTULARY_READINESS_CACHE_DIR)" --disable-env CARTULARY_READINESS_DISABLE_CACHE --force-env CARTULARY_FORCE_REINSTALL --input package.json --input pnpm-lock.yaml --input apps/web/package.json --input tools/frontend_visual_renderer_profile.json --input tools/harness/browser/visual-renderer-profile.mjs --input tools/harness/browser/browser-trust.mjs --input tools/toolchain_pins.json --input tools/harness/browser/playwright-install.sh --input $(PLAYWRIGHT_INSTALL_IMPL) --input tools/harness/readiness/cache-artifact.sh --output "$(PLAYWRIGHT_INSTALL_STAMP)" --key "node_version=$(NODE_VERSION)" --key "pnpm_version=$(PNPM_VERSION)" -- env PLAYWRIGHT_INSTALL_STAMP="$(PLAYWRIGHT_INSTALL_STAMP)" RUN_STEP_SCRIPT="$(RUN_STEP_SCRIPT)" NODE_RUNTIME_DIR="$(NODE_RUNTIME_DIR)" NODE_BIN="$(NODE_BIN)" PNPM="$(PNPM)" NODE_VERSION="$(NODE_VERSION)" PNPM_VERSION="$(PNPM_VERSION)" ./tools/harness/browser/playwright-install.sh; fi
-
-$(REPORT_RENDERER_RECEIPT): FORCE $(FRONTEND_INSTALL_STAMP) $(PLAYWRIGHT_INSTALL_STAMP) $(NODE_BIN) tools/report-renderer/build-runtime.mjs
+$(REPORT_RENDERER_RECEIPT): FORCE tools/report-renderer/build-runtime.mjs
 	$(Q)$(GO_TOOLCHAIN_READINESS)
+	$(Q)$(PRODUCE) playwright
 	$(Q)CARTULARY_TEST_TARGET=build-report-renderer CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "build isolated reporting runtime" -- env GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" NODE_BIN="$(NODE_BIN)" PNPM="$(PNPM)" RUN_STEP_SCRIPT="$(RUN_STEP_SCRIPT)" $(NODE_BIN) tools/report-renderer/build-runtime.mjs
 
 endif # workspace admission

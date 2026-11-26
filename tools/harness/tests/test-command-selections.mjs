@@ -23,13 +23,13 @@ test("generated-source validation cannot refresh drift", () => {
   assert.equal(readOperationOwner(root).operations["harness.source_generated"].execution.env.CARTULARY_GENERATE_DRIFT_REFRESH, "0");
 });
 
-test("installation operations make or produce their artifacts before acquisition", () => {
+test("installation operations produce their installations and artifacts before acquisition", () => {
   const owner = readOperationOwner(root);
   const environment = Object.fromEntries(operationBindingNames(owner).map((name) => [name, `/installed/${name}`]));
   Object.assign(environment, { MAKE: "make", CURDIR: root });
   const kind = (invocation) => invocation.command === "make" ? "make"
     : invocation.args.slice(0, 3).join(" ") === "run ./tools/harnessbuild produce" ? "produce" : "command";
-  const expected = { node: ["make"], go: ["make", "command"], frontend: ["make"], browser: ["make"], test_images: ["produce", "command"], full: ["make", "produce", "command"] };
+  const expected = { node: ["produce"], go: ["produce", "command"], frontend: ["produce"], browser: ["produce"], test_images: ["produce", "command"], full: ["produce", "command"] };
   for (const [part, kinds] of Object.entries(expected)) {
     const invocations = buildOperationSequence(owner, `harness.bootstrap_${part}`, environment);
     assert.deepEqual(invocations.map(kind), kinds, part);
@@ -38,16 +38,16 @@ test("installation operations make or produce their artifacts before acquisition
     }
   }
   const go = buildOperationSequence(owner, "harness.bootstrap_go", environment);
-  assert.deepEqual(go[0].args.slice(3), [environment.NODE_BIN]);
+  assert.deepEqual(go[0].args.slice(3), ["node-runtime"]);
   assert.deepEqual(go[1].args.slice(-3), ["bash", "tools/harness/readiness/install-go-dependencies.sh", "--all"]);
-  // Registered producers run through the store with the build's own caches;
-  // everything else stays a Make target, made first.
+  // Registered producers, installations among them, run through the store
+  // with the build's own caches.
   const full = buildOperationSequence(owner, "harness.bootstrap_full", environment);
-  assert.deepEqual(full[0].args.slice(3), [environment.FRONTEND_INSTALL_STAMP, environment.PLAYWRIGHT_INSTALL_STAMP]);
-  assert.deepEqual(full[1].args.slice(3).sort(), ["cyclonedx-gomod", "goose", "gosec", "govulncheck", "harness-runtime", "shellcheck", "sqlc", "staticcheck", "syft"]);
-  assert.equal(full[1].env.GOCACHE, environment.GO_CACHE_DIR);
-  assert.deepEqual(full[1].directories, [environment.GO_CACHE_DIR, environment.GO_MOD_CACHE_DIR, environment.GO_TMP_DIR]);
-  assert.throws(() => buildOperationSequence(owner, "harness.bootstrap_frontend", { ...environment, FRONTEND_INSTALL_STAMP: "retired-wrapper" }), /absolute file targets/u);
+  assert.deepEqual(full[0].args.slice(3).sort(), ["cyclonedx-gomod", "frontend-install", "goose", "gosec", "govulncheck", "harness-runtime", "playwright", "shellcheck", "sqlc", "staticcheck", "syft"]);
+  assert.equal(full[0].env.GOCACHE, environment.GO_CACHE_DIR);
+  assert.deepEqual(full[0].directories, [environment.GO_CACHE_DIR, environment.GO_MOD_CACHE_DIR, environment.GO_TMP_DIR]);
+  // Any other file stays a Make target and must be absolute.
+  assert.throws(() => buildOperationSequence(owner, "harness.release_inventory_artifacts", { ...environment, LICENSE_REPORT_ARTIFACT: "relative" }), /absolute file targets/u);
   assert.throws(() => buildOperationSequence(owner, "harness.bootstrap_full", { ...environment, GO_TOOLCHAIN: undefined }), /binding|template/u);
   assert.throws(() => buildOperationSequence(owner, "harness.bootstrap_test_images", { ...environment, GO_CACHE_DIR: "relative" }), /GO_CACHE_DIR/u);
 });
