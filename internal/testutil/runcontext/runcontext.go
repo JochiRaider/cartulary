@@ -1,11 +1,11 @@
 // Package runcontext is the single Go writer of a harness command's invocation
-// context (TH-HARNESS Section 5.5, single writer): where the run's results go,
-// which run, target and work unit the command reports for, the accounted
-// invocation and host admission it runs under, the operation it executes, the
-// services it selects, the retained resources it depends on and where its
-// public inputs came from. Readers keep reading the names; every writer outside
-// the Make entry point calls this package or its Node form,
-// tools/harness/contract/run-context.mjs.
+// context (TH-HARNESS Section 5.5, single writer): where the run's results and
+// the command's artifacts go, which run, target and work unit it reports for,
+// the accounted invocation and host admission it runs under, the operation it
+// executes, the services it selects, the retained resources it depends on and
+// where its public inputs came from. Readers keep reading the names; every
+// writer outside the Make entry point and the shell step runtime calls this
+// package or its Node form, tools/harness/contract/run-context.mjs.
 //
 // It has no dependencies, so the planner, runtime, fixtures and tools can all
 // use it.
@@ -26,6 +26,7 @@ type Context struct {
 	RunID              string
 	Target             string
 	WorkUnit           string
+	ArtifactDir        string
 	PhysicalOutputRoot string
 	InvocationRoot     string
 	AdmissionLease     string
@@ -40,6 +41,7 @@ func (c Context) Environment() map[string]string {
 		"CARTULARY_TEST_RUN_ID":                  c.RunID,
 		"CARTULARY_TEST_TARGET":                  c.Target,
 		"CARTULARY_WORK_UNIT_ID":                 c.WorkUnit,
+		"CARTULARY_STEP_ARTIFACT_DIR":            c.ArtifactDir,
 		"CARTULARY_HARNESS_PHYSICAL_OUTPUT_ROOT": c.PhysicalOutputRoot,
 		"CARTULARY_HARNESS_INVOCATION_ROOT":      c.InvocationRoot,
 		"CARTULARY_HOST_ADMISSION_LEASE":         c.AdmissionLease,

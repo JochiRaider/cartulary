@@ -241,3 +241,35 @@ test("binding owners write their names: set browser fields, every resource list 
     [name("PGTEST_ISOLATION")]: "shared", [name("PGTEST_ALLOCATION_REF")]: "session:a",
   });
 });
+
+test("shell and Make recipes write a name by assignment, prefix, declaration or default expansion", (t) => {
+  const suite = name("SUITE_ID");
+  const dollar = "$";
+  const { root, paths } = fixture(t, {
+    "tools/owner/session.sh": `export ${suite}="${dollar}1"\n`,
+    "tools/writer.sh": [
+      `${suite}="${dollar}id"`,
+      `${suite}=x run-step "label" -- true`,
+      `  export ${suite}="${dollar}id"`,
+      `local -x ${suite}="${dollar}id"`,
+      `: ${dollar}{${suite}=fallback}`,
+      `value="${dollar}{${suite}:-fallback}"`,
+      `env -u ${suite} make generate`,
+      `# ${suite}=documented`,
+      `echo "set ${suite}=x to choose a suite"`,
+      `run --suite "${dollar}${suite}"`,
+    ].join("\n"),
+    "tools/rules.mk": `\t${dollar}(Q)${suite}=z ${dollar}(RUN_STEP_SCRIPT) "label" -- true\n`,
+    "tools/tests/test-writer.sh": `${suite}=fixture\n`,
+  });
+  const result = inspectEnvironmentRegistry(root, {
+    registry: registry({ invocation_context: [suite] }, { suite_services: { paths: ["tools/owner/**"], names: [suite] } }),
+    declared: new Set(),
+    paths,
+  });
+  const writes = (line) => `${line} writes ${suite}, which suite_services owns; call its function or forward the name`;
+  assert.deepEqual(result.findings, [
+    writes("tools/rules.mk:1"),
+    writes("tools/writer.sh:1"), writes("tools/writer.sh:2"), writes("tools/writer.sh:3"), writes("tools/writer.sh:4"), writes("tools/writer.sh:5"),
+  ]);
+});

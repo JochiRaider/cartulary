@@ -4143,11 +4143,15 @@ value by name:
   preparation and stack): `browserBindingEnvironment` and, in Go, the
   dependency-free `browserbinding` package;
 - a suite process's PostgreSQL allocation: `postgresAllocationEnvironment`
-  and `suiteservices.PostgresAllocation`.
+  and `suiteservices.PostgresAllocation`;
+- a step's summary (label, directory, command, timing, exit status, logs and
+  timing bucket): `step_publish_summary` in the shell step runtime. Callers
+  pass a step's target and timing bucket as `--target` and `--timing-bucket`
+  options of the step runner.
 
 The environment registry check rejects any other write of an owned name in
-Node or Go code outside tests, including a Go write through a constant declared
-for that name. Tests may write owned names, because they fake contexts on
+Node, Go, shell or Make recipe code outside tests, including a Go write
+through a constant declared for that name. Tests may write owned names, because they fake contexts on
 purpose.
 
 

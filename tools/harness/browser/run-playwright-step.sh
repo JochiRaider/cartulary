@@ -62,22 +62,12 @@ end_time="${STEP_END_TIME}"
 duration_ms="${STEP_DURATION_MS}"
 
 set +e
-CARTULARY_STEP_LABEL="$step_label" \
-CARTULARY_STEP_DIR="$step_dir" \
-CARTULARY_STEP_COMMAND="$command_text" \
-CARTULARY_STEP_START_TIME="$start_time" \
-CARTULARY_STEP_END_TIME="$end_time" \
-CARTULARY_STEP_LOGICAL_DURATION_MS="$duration_ms" \
-CARTULARY_STEP_EXECUTED_DURATION_MS="$duration_ms" \
-CARTULARY_STEP_WALL_DURATION_MS="${STEP_WALL_DURATION_MS}" \
-CARTULARY_STEP_EXIT_STATUS="$run_status" \
-CARTULARY_STEP_RUNNER_LOG="$run_report" \
-CARTULARY_STEP_STDOUT_LOG="$stdout_log" \
-CARTULARY_STEP_STDERR_LOG="$stderr_log" \
 CARTULARY_PLAYWRIGHT_OUTPUT_DIR="$output_dir" \
 CARTULARY_WEB_E2E_SERVER_LOG="${CARTULARY_WEB_E2E_SERVER_LOG:-}" \
 CARTULARY_WEB_E2E_WEB_LOG="${CARTULARY_WEB_E2E_WEB_LOG:-}" \
-  NODE_BIN="${NODE_BIN:-}" "${TEST_OUTPUT_HELPER}" playwright-step
+  step_publish_summary playwright-step label="$step_label" dir="$step_dir" command="$command_text" \
+    start_time="$start_time" end_time="$end_time" duration_ms="$duration_ms" wall_duration_ms="${STEP_WALL_DURATION_MS}" \
+    exit_status="$run_status" runner_log="$run_report" stdout_log="$stdout_log" stderr_log="$stderr_log"
 helper_status=$?
 set -e
 

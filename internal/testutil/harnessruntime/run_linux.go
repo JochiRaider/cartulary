@@ -391,8 +391,7 @@ func RunWithOptions(ctx context.Context, root, binary string, args, environment 
 		if r.Environment == nil {
 			r.Environment = map[string]string{}
 		}
-		runcontext.Context{WorkUnit: r.Unit.ID}.Apply(r.Environment)
-		r.Environment["CARTULARY_STEP_ARTIFACT_DIR"] = artifact
+		runcontext.Context{WorkUnit: r.Unit.ID, ArtifactDir: artifact}.Apply(r.Environment)
 		prefix, err := publication.Prefix()
 		if err != nil {
 			return unitResult{Status: "failed", ExitCode: 11, Failure: failed("artifact", "artifact_error")}

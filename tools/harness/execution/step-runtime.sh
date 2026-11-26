@@ -630,6 +630,45 @@ emit_target_summary() {
   NODE_BIN="${NODE_BIN:-}" "${TEST_OUTPUT_HELPER}" target-summary "${CARTULARY_TEST_TARGET}" "${status}"
 }
 
+# step_publish_summary <helper-command> [field=value...] runs the step summary
+# helper with a step's label, directory, command, timing, exit status and logs.
+# It is the only writer of the step summary names (TH-HARNESS Section 5.5,
+# single writer): wrappers pass fields, never the names. A field that is not
+# given is not set; one given empty is set empty. duration_ms sets both the
+# logical and the executed duration. Names specific to one step kind reach the
+# helper from the caller's environment.
+step_publish_summary() {
+  local helper_command="$1"
+  shift
+  local -a assignments=()
+  local argument
+  local value
+  for argument in "$@"; do
+    value="${argument#*=}"
+    case "${argument%%=*}" in
+      label) assignments+=("CARTULARY_STEP_LABEL=${value}") ;;
+      dir) assignments+=("CARTULARY_STEP_DIR=${value}") ;;
+      command) assignments+=("CARTULARY_STEP_COMMAND=${value}") ;;
+      command_argv) assignments+=("CARTULARY_STEP_COMMAND_ARGV=${value}") ;;
+      start_time) assignments+=("CARTULARY_STEP_START_TIME=${value}") ;;
+      end_time) assignments+=("CARTULARY_STEP_END_TIME=${value}") ;;
+      duration_ms) assignments+=("CARTULARY_STEP_LOGICAL_DURATION_MS=${value}" "CARTULARY_STEP_EXECUTED_DURATION_MS=${value}") ;;
+      wall_duration_ms) assignments+=("CARTULARY_STEP_WALL_DURATION_MS=${value}") ;;
+      exit_status) assignments+=("CARTULARY_STEP_EXIT_STATUS=${value}") ;;
+      timing_bucket) assignments+=("CARTULARY_STEP_TIMING_BUCKET=${value}") ;;
+      interrupt_signal) assignments+=("CARTULARY_STEP_INTERRUPT_SIGNAL=${value}") ;;
+      runner_log) assignments+=("CARTULARY_STEP_RUNNER_LOG=${value}") ;;
+      stdout_log) assignments+=("CARTULARY_STEP_STDOUT_LOG=${value}") ;;
+      stderr_log) assignments+=("CARTULARY_STEP_STDERR_LOG=${value}") ;;
+      *)
+        echo "step_publish_summary: unknown field ${argument%%=*}" >&2
+        return 2
+        ;;
+    esac
+  done
+  env "${assignments[@]}" NODE_BIN="${NODE_BIN:-}" "${TEST_OUTPUT_HELPER}" "${helper_command}"
+}
+
 emit_report_step_summary() {
   if [[ "$#" -ne 8 ]]; then
     echo "emit_report_step_summary requires <helper-command> <label> <command-text> <start-time> <end-time> <duration-ms> <wall-duration-ms> <exit-status>" >&2
@@ -653,18 +692,10 @@ emit_report_step_summary() {
   step_dir="$(prepare_step_artifact_dir "$step")"
 
   set +e
-  CARTULARY_STEP_LABEL="$step" \
-  CARTULARY_STEP_DIR="$step_dir" \
-  CARTULARY_STEP_COMMAND="$command_text" \
-  CARTULARY_STEP_START_TIME="$start_time" \
-  CARTULARY_STEP_END_TIME="$end_time" \
-  CARTULARY_STEP_LOGICAL_DURATION_MS="$duration_ms" \
-  CARTULARY_STEP_EXECUTED_DURATION_MS="$duration_ms" \
-  CARTULARY_STEP_WALL_DURATION_MS="$wall_duration_ms" \
-  CARTULARY_STEP_EXIT_STATUS="$exit_status" \
-  CARTULARY_STEP_TIMING_BUCKET="${CARTULARY_STEP_TIMING_BUCKET:-}" \
-  CARTULARY_STEP_INTERRUPT_SIGNAL="${CARTULARY_STEP_INTERRUPT_SIGNAL:-}" \
-    NODE_BIN="${NODE_BIN:-}" "${TEST_OUTPUT_HELPER}" "${helper_command}"
+  step_publish_summary "${helper_command}" label="$step" dir="$step_dir" command="$command_text" \
+    start_time="$start_time" end_time="$end_time" duration_ms="$duration_ms" wall_duration_ms="$wall_duration_ms" \
+    exit_status="$exit_status" timing_bucket="${CARTULARY_STEP_TIMING_BUCKET:-}" \
+    interrupt_signal="${CARTULARY_STEP_INTERRUPT_SIGNAL:-}"
   helper_status=$?
   set -e
 
@@ -677,8 +708,23 @@ emit_report_step_summary() {
 }
 
 run_step_command() {
+  # --target and --timing-bucket set the step's report target and timing
+  # bucket for the step and everything it runs, nested steps included, and
+  # are restored when it returns. Callers pass them here rather than setting
+  # the step runtime's names themselves (TH-HARNESS Section 5.5).
+  while [[ "${1:-}" == --target || "${1:-}" == --timing-bucket ]]; do
+    if [[ "$#" -lt 2 ]]; then
+      echo "run_step_command: $1 requires a value" >&2
+      return 2
+    fi
+    case "$1" in
+      --target) local -x CARTULARY_TEST_TARGET="$2" ;;
+      --timing-bucket) local -x CARTULARY_STEP_TIMING_BUCKET="$2" ;;
+    esac
+    shift 2
+  done
   if [[ "$#" -lt 2 ]]; then
-    echo "run_step_command requires <label> <command...>" >&2
+    echo "run_step_command requires [--target <target>] [--timing-bucket <bucket>] <label> <command...>" >&2
     return 2
   fi
 
@@ -732,20 +778,9 @@ run_step_command() {
   duration_ms="${STEP_DURATION_MS}"
 
   set +e
-  CARTULARY_STEP_LABEL="$step" \
-  CARTULARY_STEP_DIR="$step_dir" \
-  CARTULARY_STEP_COMMAND="$command_text" \
-  CARTULARY_STEP_COMMAND_ARGV="$command_argv_json" \
-  CARTULARY_STEP_START_TIME="$start_time" \
-  CARTULARY_STEP_END_TIME="$end_time" \
-  CARTULARY_STEP_LOGICAL_DURATION_MS="$duration_ms" \
-  CARTULARY_STEP_EXECUTED_DURATION_MS="$duration_ms" \
-  CARTULARY_STEP_WALL_DURATION_MS="${STEP_WALL_DURATION_MS}" \
-  CARTULARY_STEP_EXIT_STATUS="$status" \
-  CARTULARY_STEP_TIMING_BUCKET="${CARTULARY_STEP_TIMING_BUCKET:-}" \
-  CARTULARY_STEP_STDOUT_LOG="$stdout_log" \
-  CARTULARY_STEP_STDERR_LOG="$stderr_log" \
-    NODE_BIN="${NODE_BIN:-}" "${TEST_OUTPUT_HELPER}" shell-step
+  step_publish_summary shell-step label="$step" dir="$step_dir" command="$command_text" command_argv="$command_argv_json" \
+    start_time="$start_time" end_time="$end_time" duration_ms="$duration_ms" wall_duration_ms="${STEP_WALL_DURATION_MS}" \
+    exit_status="$status" timing_bucket="${CARTULARY_STEP_TIMING_BUCKET:-}" stdout_log="$stdout_log" stderr_log="$stderr_log"
   helper_status=$?
   set -e
 

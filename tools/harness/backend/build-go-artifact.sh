@@ -35,7 +35,7 @@ mkdir -p "$(dirname "$output")" "$go_cache_dir" "$go_mod_cache_dir" "$go_tmp_dir
 # into place: an exec sees the previous or the new binary, never a partial one.
 staging="$(mktemp "$(dirname "$output")/.$(basename "$output").build.XXXXXX")"
 trap 'rm -f -- "$staging"' EXIT
-CARTULARY_TEST_TARGET="$target" CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \
+CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \
   "$run_step" "$label" -- \
   env GOCACHE="$go_cache_dir" GOMODCACHE="$go_mod_cache_dir" GOTMPDIR="$go_tmp_dir" \
   "$go_bin" build "${go_build_args[@]}" -o "$staging" "$package"

@@ -10,6 +10,7 @@ const contextNames = Object.freeze({
   runID: "CARTULARY_TEST_RUN_ID",
   target: "CARTULARY_TEST_TARGET",
   workUnit: "CARTULARY_WORK_UNIT_ID",
+  artifactDir: "CARTULARY_STEP_ARTIFACT_DIR",
   physicalOutputRoot: "CARTULARY_HARNESS_PHYSICAL_OUTPUT_ROOT",
   invocationRoot: "CARTULARY_HARNESS_INVOCATION_ROOT",
   admissionLease: "CARTULARY_HOST_ADMISSION_LEASE",

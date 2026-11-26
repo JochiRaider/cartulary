@@ -35,8 +35,9 @@ const asciiCompare = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 // A write of a name in Node or Go code: an assignment, a Setenv, a NAME=value
 // literal, or an object or map key (a switch case is a read). Go code also
 // names a variable through a constant, so a constant declared for an owned name
-// stands for it. Shell is not checked; its writes are prefixes or exports
-// scoped to the command they precede.
+// stands for it. In shell and Make recipes a write is an assignment, a command
+// prefix, an export, local, readonly or declare, or a ${NAME=...} expansion;
+// comment lines and quoted text are not code.
 const writePatterns = (name) => [
   new RegExp(`\\[["'\`]${name}["'\`]\\]\\s*=(?!=)`, "u"), new RegExp(`\\.${name}\\s*=(?!=)`, "u"), new RegExp(`Setenv\\(["']${name}["']`, "u"),
   new RegExp(`["'\`]${name}=`, "u"), new RegExp(`(?<!\\bcase)(?:^|[\\s{,(])["']?${name}["']?\\s*:(?!:)`, "u"),
@@ -46,7 +47,11 @@ const goConstantWritePatterns = (constant) => [
   new RegExp(`\\[(?:\\w+\\.)?${constant}\\]\\s*=(?!=)`, "u"), new RegExp(`Setenv\\((?:\\w+\\.)?${constant}\\b`, "u"),
   new RegExp(`(?<!\\bcase)(?:^|[\\s{,(])(?:\\w+\\.)?${constant}\\s*:(?!=)`, "u"),
 ];
-const writableCode = /\.(?:mjs|cjs|js|ts|tsx|go)$/u;
+const shellWritePattern = (name) => new RegExp(`(?:^|[\\s;&|(){])(?:(?:export|local|readonly|declare)(?:\\s+-[a-zA-Z]+)*\\s+)?${name}=`, "gu");
+const shellCode = /\.(?:sh|bash|mk)$|(?:^|\/)Makefile$/u;
+const insideQuotes = (line, index) => ["\"", "'"].some((quote) => (line.slice(0, index).split(quote).length - 1) % 2 === 1);
+const shellWrites = (line, name) => !/^\s*#/u.test(line) && [...line.matchAll(shellWritePattern(name))].some((match) => !insideQuotes(line, match.index));
+const writableCode = /\.(?:mjs|cjs|js|ts|tsx|go|sh|bash|mk)$|(?:^|\/)Makefile$/u;
 const testCode = /(?:_test\.go|\.test\.(?:mjs|ts|tsx)|\.spec\.ts)$|\/tests\//u;
 const passThrough = [/\.\.\.\s*(?:process\.env|environment|env)\b(?![.\w])/u, /\benv\s*:\s*process\.env\b(?![.\w])/u,
   // Go: a child's Env built from os.Environ() rather than childenv.Build.
@@ -191,7 +196,8 @@ export function inspectEnvironmentRegistry(root, {
       const lines = readFileSync(path.join(root, relative), "utf8").split("\n");
       if (relative.endsWith(".go")) for (const line of lines) if (goConstantDeclaration.exec(line)?.[2] === name) constants.set(goConstantDeclaration.exec(line)[1], name);
       if (!outsideOwner(relative, name)) continue;
-      lines.forEach((line, index) => { if (line.includes(name) && patterns.some((pattern) => pattern.test(line))) findings.push(writeFinding(relative, index, name)); });
+      const writes = shellCode.test(relative) ? (line) => shellWrites(line, name) : (line) => patterns.some((pattern) => pattern.test(line));
+      lines.forEach((line, index) => { if (line.includes(name) && writes(line)) findings.push(writeFinding(relative, index, name)); });
     }
   }
   if (constants.size > 0) {

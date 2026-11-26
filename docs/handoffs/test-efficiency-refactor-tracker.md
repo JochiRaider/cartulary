@@ -125,7 +125,7 @@ eleven `ci` runs of the release attempts (Section 13.1). Single runs vary by abo
 | G42 | Build-artifact cache keys held per-run locations (each graph run's Go temporary directory, the per-run web source path), so every graph run missed and re-linked shared binaries | Machine inputs, specification | Phase 4, P4-6 | Done: locations leave the keyed command and input directories are keyed by content; proven on a segment (13.15) |
 | G43 | Test rows launch nested graphs and real `make` runs that rebuild shared repository outputs under the Go test's toolchain environment while the outer run uses them; their failures are cut to the first 4 KiB and reclassified as product assertions | Tests, harness, specification | Phase 5 | Open: P5-0 fenced the Go-hosted nested graphs (14.5); P5-2 remains |
 | G44 | Make and the planner both own ordering, freshness, environment and prerequisite skipping: 26 operations re-enter Make, 17 targets carry two recipes chosen by `GRAPH_CHILD`, five freshness mechanisms coexist, and graph-only Make edges run work twice | Machine inputs, implementation, specification | Phase 5 | Open: P5-0 removed the renderer double run (14.5); P5-1 made every test script a row and removed five duplicate operations (14.6); P5-3 remains |
-| G45 | Units inherit the graph process's whole environment (the shell's variables and up to 127 Make exports), minus hand-kept strip lists; harness code reads 478 `CARTULARY_*` names with no declaration, so leaks, stale names and typos fail silently | Machine inputs, implementation, specification | Phase 5, P5-4 | Open: P5-4a registered every harness name and enforces it (14.8); P5-4b made unit environments default-deny (14.9); P5-4c slices 1 to 3 made every outside launcher explicit (14.11 to 14.13); P5-4d slices 1 to 3 gave 43 names a single owner and enforce it, covering every invocation-context and fixture-binding name with more than one Node or Go writer (14.14 to 14.16); owners for the 14 step-runtime names remain |
+| G45 | Units inherit the graph process's whole environment (the shell's variables and up to 127 Make exports), minus hand-kept strip lists; harness code reads 478 `CARTULARY_*` names with no declaration, so leaks, stale names and typos fail silently | Machine inputs, implementation, specification | Phase 5, P5-4 | Open: P5-4a registered every harness name and enforces it (14.8); P5-4b made unit environments default-deny (14.9); P5-4c slices 1 to 3 made every outside launcher explicit (14.11 to 14.13); P5-4d slices 1 to 4 gave 57 names a single owner and enforce it in Node, Go and shell, covering every multi-writer invocation-context, fixture-binding and step-runtime name (14.14 to 14.17); the P5-4d exit is met. Left for P5-3: mode switches, strip lists and the overlay |
 
 ## 5. Gap Remediation Detail
 
@@ -1359,6 +1359,7 @@ Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-am
 | 2026-11-26 | P5-4d slice 1 / G45 | Registry `owners` and a write check; owners for the suite-runtime handle, suite attachment and runtime binary names; the review server's copied binary defaults removed | `p62b-generate`, `p62b-lintgo`; segments `p62b-cs`, `p62b-ea`, `p62b-hb-units`, `p62b-hb` (including the seeded default review), `p62b-browser`; `p62b-lintscripts`, `p62b-src` | All pass. The first generate found the new Go test uncataloged; it joined the `suiteservices` helper row (14.14) |
 | 2026-11-26 | P5-4d slice 2 / G45 | `run_context` owner (Node `run-context.mjs`, Go `runcontext`) for the invocation context and results root; owners for the runner script and failure context; 70 write sites converted; a stale guide assertion from P5-1 fixed | `p63-generate`, `p63-lintgo`; segments `p63-cs` (14 rows), `p63-ea` (7), `p63-rel` (3), `p63-hb-native` (15), `p63-hb`, `p63-rep`, `p63-browser`; reruns `p63r-tc`, `p63r-hb`; `p63-lintscripts`, `p63r-src` | All pass. `routing_contract` had failed since P5-1 on a stale assertion; `native_fixture_lifecycle` failed once on a tracked-file edit made during the run (14.15) |
 | 2026-11-26 | P5-4d slice 3 / G45 | `browser_binding` owner (Node `browser-binding.mjs`, Go `browserbinding`); resource dependencies join `run_context`, the PostgreSQL allocation joins `suite_services` | Planner equivalence: `ci` and `release-measure` plans with and without the change (`p64-plan-*`); `p64-generate`, `p64-lintgo`; segments `p64-cs`, `p64-ea`, `p64-hb-native` (16 rows), `p64-hb`, `p64-obj`, `p64-pg`, `p64-browser`; `p64-lintscripts`, `p64-src` | All pass; every unit digest is unchanged. Seven of the 20 names are product secrets that any launcher may set, and five had only one Node or Go writer (14.16) |
+| 2026-11-26 | P5-4d slice 4 / G45 | The registry check reads shell and Make recipes; `step_runtime` owner with one summary writer replacing four copies; `--target` and `--timing-bucket` step-runner options; the step artifact directory joins `run_context` | `p65-generate`, `p65-lintgo`; segments `p65-cs` (8 rows), `p65-ea` (3 step accounting rows), `p65-hb`, `p65-browser`; `p65-lintscripts`, `p65-src` | All pass. Shell checking surfaced nine writes of names already owned; entry points and the browser stack joined owner paths, and three launchers stopped writing the target (14.17) |
 | 2026-11-25 | P4-4 / G39 | Wait audit: 31 whole-test hang guards derive from the test deadline (`testdeadline`) | `p44-port-*` (16 owner slices, every row holding a converted guard) | Pass. Committed `bdd8f4e1d` |
 
 ## 12. Phase 2 Plan — `check` Wall Clock
@@ -3260,3 +3261,69 @@ of 14.10.
   - Shell writers are still not checked. Inside the browser stack, shell
     scripts still set names for their own children; for example
     `start-web-e2e.sh` passes the session lease file to its Node helper.
+
+### 14.17 Single Writers: Step Runtime and Shell (P5-4d, slice 4)
+
+- **What the write sites showed.** Shell writes all 14 step-runtime names,
+  so the check could not see any of them.
+  - **The step protocol was written four times.** `step-runtime.sh` (twice),
+    `run-vitest-step.sh` and `run-playwright-step.sh` each spelled out the
+    same twelve summary names for the summary helper: label, directory,
+    command, start and end, three durations, exit status, runner log and the
+    two output logs.
+  - **The timing bucket.** The browser stack set it as a prefix on its seven
+    timed steps.
+  - **The step artifact directory.** The Go runtime writes it for units and
+    the step runtime for steps.
+- **The check now reads shell and Make recipes.** In those files a write is:
+  - an assignment or a command prefix;
+  - an `export`, `local`, `readonly` or `declare`;
+  - a `${NAME=...}` expansion.
+
+  Comment lines, quoted text and test scripts are not checked. Once shell
+  was checked, nine shell writes of names owned in slices 1 to 3 appeared:
+  - **Entry points.** `admission.sh` creates the accounted invocation root,
+    and `step-runtime.sh` resolves run placement for top-level steps. Both
+    join the `run_context` owner's paths, like the Makefile.
+  - **The browser stack.** `start-web-e2e.sh` and `playwright-owned-stack.sh`
+    canonicalize the runtime profile they receive and pass it, with the
+    session lease file, to their own processes. They join the
+    `browser_binding` owner's paths, because the stack is where the binding
+    takes effect.
+  - **Launchers setting a child's target.**
+    - `build-web-artifact.sh` now passes `--target` to the step runner.
+    - `build-go-artifact.sh` re-set the target it had just read from its own
+      environment, so it no longer sets it.
+    - The generate drift check unsets the inherited target, so the nested
+      `generate` recipe uses its own target, as it declares.
+- **Owners.**
+  - **`step_runtime` (new).** It owns the 12 summary names and the timing
+    bucket, and its only path is `step-runtime.sh`.
+  - **One summary writer.** `step_publish_summary` writes those names from
+    named fields: a field that is not given is not set, and one given empty
+    is set empty. All four writers now call it. Names specific to one step
+    kind, such as the Vitest request or the Playwright output directory, are
+    single-writer and still reach the helper from the caller.
+  - **New step-runner options.** `run_step_command` and `run-step.sh` accept
+    `--target` and `--timing-bucket`. They set them as function-local exports,
+    so nested steps still inherit the enclosing step's bucket and the values
+    are restored on return.
+  - **Artifact directory.** It joins `run_context`: `runcontext.Context`
+    gains `ArtifactDir`, and the Node form gains `artifactDir`.
+- **Validation.** The registry check has no findings, and its tests cover
+  shell writes. Every segment passes:
+  - `make generate`, which runs the changed step runtime at top level;
+  - the build-artifact, generate-drift, capacity-failure, release-task-surface,
+    registry-parity and native-runtime rows;
+  - the Vitest, Playwright and shell step accounting rows;
+  - artifact assurance, the seeded review and native fixture lifecycle;
+  - the incidents browser row;
+  - script lint and the full source-check, whose drift check runs the nested
+    `generate` with the target unset.
+- **Remaining.** Every multi-writer invocation-context, fixture-binding and
+  step-runtime name now has one owner, which meets the P5-4d exit criterion.
+  The check does not see:
+  - a quoted shell assignment such as `env "NAME=value"`;
+  - a write through a variable key.
+
+  The seven product secrets keep a misfiled `fixture_binding` role.

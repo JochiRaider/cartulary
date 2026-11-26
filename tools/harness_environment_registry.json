@@ -92,7 +92,9 @@
     "browser_binding": {
       "paths": [
         "internal/testutil/browserbinding/**",
-        "tools/harness/browser/browser-binding.mjs"
+        "tools/harness/browser/browser-binding.mjs",
+        "tools/harness/browser/playwright-owned-stack.sh",
+        "tools/harness/browser/start-web-e2e.sh"
       ],
       "names": [
         "CARTULARY_BROWSER_ACQUISITION_FILE",
@@ -116,7 +118,9 @@
         "Makefile",
         "internal/testutil/runcontext/**",
         "tools/harness/contract/run-context.mjs",
-        "tools/harness/generated-artifacts/task-surface/make-renderer.mjs"
+        "tools/harness/execution/step-runtime.sh",
+        "tools/harness/generated-artifacts/task-surface/make-renderer.mjs",
+        "tools/harness/workspace/admission.sh"
       ],
       "names": [
         "CARTULARY_HARNESS_INVOCATION_ROOT",
@@ -126,6 +130,7 @@
         "CARTULARY_HOST_ADMISSION_LEASE",
         "CARTULARY_MAKE_INPUT_SOURCES",
         "CARTULARY_OPERATION_DIGEST",
+        "CARTULARY_STEP_ARTIFACT_DIR",
         "CARTULARY_TEST_RESULTS_DIR",
         "CARTULARY_TEST_RUN_ID",
         "CARTULARY_TEST_TARGET",
@@ -174,6 +179,26 @@
         "CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID",
         "CARTULARY_HARNESS_SUITE_RUNTIME_ROOT",
         "CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID"
+      ]
+    },
+    "step_runtime": {
+      "paths": [
+        "tools/harness/execution/step-runtime.sh"
+      ],
+      "names": [
+        "CARTULARY_STEP_COMMAND",
+        "CARTULARY_STEP_DIR",
+        "CARTULARY_STEP_END_TIME",
+        "CARTULARY_STEP_EXECUTED_DURATION_MS",
+        "CARTULARY_STEP_EXIT_STATUS",
+        "CARTULARY_STEP_LABEL",
+        "CARTULARY_STEP_LOGICAL_DURATION_MS",
+        "CARTULARY_STEP_RUNNER_LOG",
+        "CARTULARY_STEP_START_TIME",
+        "CARTULARY_STEP_STDERR_LOG",
+        "CARTULARY_STEP_STDOUT_LOG",
+        "CARTULARY_STEP_TIMING_BUCKET",
+        "CARTULARY_STEP_WALL_DURATION_MS"
       ]
     },
     "suite_services": {

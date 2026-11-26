@@ -223,9 +223,8 @@ inventory="$inventory_dir/inventory.json"
 
 (
   cd "$render_root"
-  env -u CARTULARY_HARNESS_IDENTITY_PREPARED -u CARTULARY_MAKE_INPUT_SOURCES \
+  env -u CARTULARY_HARNESS_IDENTITY_PREPARED -u CARTULARY_MAKE_INPUT_SOURCES -u CARTULARY_TEST_TARGET \
     MAKEFLAGS= MAKEOVERRIDES= \
-    CARTULARY_TEST_TARGET=generate \
     CARTULARY_GENERATION_SCRATCH_ROOT="$render_root" \
     RUN_STEP_SCRIPT="$render_root/tools/harness/execution/run-step.sh" \
     SQLC_BIN="$sqlc_bin" \
