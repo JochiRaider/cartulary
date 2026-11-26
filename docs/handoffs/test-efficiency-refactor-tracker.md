@@ -110,17 +110,17 @@ eleven `ci` runs of the release attempts (Section 13.1). Single runs vary by abo
 | G27 | Heavy-lane wall sits in a few long single tests (import workflows, ATT&CK production restore, Network Flow incident transfer, the two bundle round trips) | Tests (module owners) | Phase 3 follow-up | Done: `7a62a435a`, `9f01fdc27`; changed tests −48%, graph wall −50 s (800/840 s); remaining saving lost to disk contention (G28) |
 | G28 | Heavy units spent about 15% of their time waiting on their own synchronous flushes (WAL commits and product file fsyncs); stall follows host flush latency, not guest flush or byte rates | Measurement, product, specification | Phase 3 follow-up | Done: options A and C (`d8654d75a`, `42849a1e7`); graph wall 702–710 s, heavy work −14–27%, host flushes −56% |
 | G29 | The 377-row Vitest cohort waits for two CPU tokens until 372–442 s and then ends every run: first-fit backfill starves multi-token claims | Scheduling (REQ-802), coupled to host admission (G4b) | Phase 3 follow-up | Folded into G30 and G31. The Vitest cohort no longer ends `check` (it starts at 333 s and ends at 516 s); the same starvation now delays the `ci` browser chain |
-| G30 | Two admission layers again: PostgreSQL units hold CPU tokens and logical lanes while they wait in host admission, because each generation is charged twice | Specification, machine inputs, implementation | Phase 4, P4-5 | Open; this is Stage 3 of the work-graph tracker |
+| G30 | Two admission layers again: PostgreSQL units hold CPU tokens and logical lanes while they wait in host admission, because each generation is charged twice | Specification, machine inputs, implementation | Phase 4, P4-5 | Done (`1862c9c20` to `2237b4519`): paired `check` 577 s and 567 s (from about 705 s); no unit waits in host admission while holding work (13.14) |
 | G31 | The `ci` browser chain, its critical path, is eligible at 134 s but starts at 504–540 s | Scheduling (REQ-802, REQ-803) | Phase 4, P4-6 | Open; needs G30 first |
 | G32 | Browser lanes are fixed chains packed from estimates that are about twice the actual time: lane loads 904–1,155 s against an even 1,031 s | Planner, scheduling | Phase 4, P4-2 | Done (`7ebf2d0af`): browser phase −102 s in one diagnostic `ci` (13.12) |
 | G33 | Heavy units start in estimate order, and the estimates have drifted: the longest heavy unit starts at 260 s | Machine inputs, planner | Phase 4, P4-1 | Done (`540af9d6e`): plans use observed estimates; builds start when eligible. `check` wall unchanged, now bound by the heavy lanes and by G30/G31 (13.11) |
-| G34 | Heavy placement and capacities were tuned before G28 cut host flushes by 56% | Measurement, machine inputs | Phase 4, P4-1 | Four heavy lanes adopted through the gate (`d77ba4a25`); placement audit inconclusive, placement unchanged; ten generations re-tested after P4-5 (13.11) |
+| G34 | Heavy placement and capacities were tuned before G28 cut host flushes by 56% | Measurement, machine inputs | Phase 4, P4-1 | Done: four heavy lanes adopted through the gate (`d77ba4a25`); placement audit inconclusive, placement unchanged; ten generations gave no gain over eight after G30 and are not adopted (13.11, 13.14) |
 | G35 | PostgreSQL-backed rows are never cached, so `check` costs the same for a one-line change as for a full run | Specification, implementation | Phase 4, P4-3 | Done (`f9bbdc749`, D12): 313 of 366 `check` units cacheable; an unchanged `check` takes 90 s (13.13) |
 | G36 | Every test row's cache key includes the whole harness tree, schemas, contracts, scripts and the Makefile, so tooling commits invalidate every cached row | Machine inputs, specification | Phase 4, P4-3 | Done (`f9bbdc749`): Go rows run from the plan; keys hold the runner's closure. All-invalidating commits 101 → 60 of the last 150; the rest is G40 (13.13) |
 | G37 | Builds on the `ci` critical path (renderer installation 76 s, server harness 56 s) run every time | Machine inputs, implementation | Phase 4, P4-3 | Done (`f9bbdc749`): a reused renderer installation costs 31 s instead of 94–137 s, and repeated builds no longer flip the receipt (13.13) |
 | G38 | A browser cohort stops at its first failure, so the rest of its tests report `infrastructure_failed` and their outcomes are lost | Implementation, possibly specification | Phase 4, P4-2 | Done (`7ebf2d0af`); not yet exercised by a browser failure (13.12) |
-| G40 | Test-row cache keys still hold broad harness inputs (harness owner models, harness test families, schemas, generated validators, task surface), because tests read repository files through paths they compute, which no closure rule can see; 60 of the last 150 commits invalidate every cached unit | Machine inputs, specification, tests | Follow-up after Phase 4 | Open: needs per-package declared run-time inputs and an enforcement mechanism (13.13) |
 | G39 | Load-dependent defects surface one per `ci` run and are reproduced by hand | Tests, harness, process | Phase 4, P4-4 | Done: host pressure and stress command (`465a30afe`), wait audit (`bdd8f4e1d`); the 13.2 rows pass `REPEAT=10` under mixed load (13.10) |
+| G40 | Test-row cache keys still hold broad harness inputs (harness owner models, harness test families, schemas, generated validators, task surface), because tests read repository files through paths they compute, which no closure rule can see; 60 of the last 150 commits invalidate every cached unit | Machine inputs, specification, tests | Follow-up after Phase 4 | Open: needs per-package declared run-time inputs and an enforcement mechanism (13.13) |
 
 ## 5. Gap Remediation Detail
 
@@ -1342,6 +1342,7 @@ Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-am
 | 2026-11-25 | P4-1 / G34 | Four heavy lanes by override, paired diagnostic `check`; G28 sampler on the first | `p41-heavy4-check01`, `p41-heavy4-check02` | **Pass both:** 706 s and 704 s. Adopted as the default (`d77ba4a25`; `p41-heavy4-cs`, `p41-heavy4-src` pass) |
 | 2026-11-25 | P4-2 / G32, G38 | Browser lanes as a runtime capacity; test-owned cohorts run to completion | `p42-cs2`, `p42-hb`, `p42-src`, `p42-lintgo`, `p42-md`; diagnostic `ci` `p42-ci01` | Targeted rows pass. `ci` 2,647 of 2,648 rows, graph 1,688 s (reference 1,791 s); the failure is the renderer receipt race (13.12). Committed `7ebf2d0af` |
 | 2026-11-25 | P4-3 / G35, G36, G37 | Go rows run from the plan; runner-closure and named-input keys; cacheable PostgreSQL rows; renderer reuse | `p43-src`, `p43-lintgo`, `p43-lintscripts`, `p43-md`, `p43-cs`, `p43-ea`; `check` with the cache on, `p43-check01` (all misses) and `p43-check02` (repeat) | All pass. `check` 663 s with every row executed, then 90 s with 313 of 313 eligible units reused. Committed `f9bbdc749` |
+| 2026-11-25 to 26 | P4-5 / G30 | Host ledger as the admission authority; PostgreSQL work and generations stated once; four defects found and fixed (13.14) | Targeted: `p45-cs`, `p45-ea`, `p45-hb`, `p45-tc`, `p45-rel`, `p45-src2`, `p45-fix*`, `p45-ci-*`, `p45-f-*`, `p45-g-*`. Diagnostic `check`: `p45-check01` to `-05` (graph aborted, defects), `p45-check06` and `-07` (pass); `p45-gen10-check01`, `-02`; `ci` `p45-ci01`, `-02` (failed on the defects) | Paired `check` pass: 577 s and 567 s. Ten generations: 573 s and 558 s, not adopted. Committed `1862c9c20` to `2237b4519` |
 | 2026-11-25 | P4-4 / G39 | Wait audit: 31 whole-test hang guards derive from the test deadline (`testdeadline`) | `p44-port-*` (16 owner slices, every row holding a converted guard) | Pass. Committed `bdd8f4e1d` |
 
 ## 12. Phase 2 Plan — `check` Wall Clock
@@ -2226,7 +2227,7 @@ tracker has the detail on each failure.
 | P4-2 | Browser phase components | G32, G38 | Dynamic lanes adopted after one `ci`; failure policy decided. **Done 2026-11-25** (13.12): adopted; the `ci` failed one row on the renderer receipt race, fixed in P4-3 |
 | P4-3 | Daily-development cache | G36, G37, then G35 | Hit rates measured on representative commits; G35 only after D12. **Done 2026-11-25** (13.13) |
 | P4-4 | Stability tooling | G39 (host evidence first, then the stress command, wait audit and open defects) | The week's failing rows pass `REPEAT=10` under load. **Done 2026-11-25:** 60 of 60 repetitions passed (13.10) |
-| P4-5 | One admission authority | G30 | Paired `check` and one `ci` |
+| P4-5 | One admission authority | G30 | Paired `check` and one `ci`. **Done 2026-11-26** (13.14): paired `check` pass; by owner decision its `ci` folds into P4-6's paired `ci`, and correctness was validated with targeted rows, `ci`-only rows included |
 | P4-6 | Overlap | G31 | Through the 13.7 gate, or recorded as rejected |
 | P4-7 | Validation and handoff | — | Paired `check`, paired `ci`, Section 3 refreshed |
 
@@ -2285,6 +2286,7 @@ through the 13.7 gate, which needs the stress command.
 | D15 | Add a public stress command | P4-4 | Approve. **Approved 2026-11-25** |
 | D16 | Re-test four heavy lanes and ten generations | P4-1 | Approve as measurement; adopt only through the 13.7 gate. **Approved 2026-11-25** |
 | D17 | Critical-path reservation, overlapping the browser and Go phases | P4-6 | Decide after the P4-5 measurements |
+| D18 | Fold P4-5's `ci` into P4-6's paired `ci`; validate P4-5 with targeted rows | P4-5 | **Owner decision 2026-11-26** |
 
 | ID | Section or requirement | Change | Gap |
 | --- | --- | --- | --- |
@@ -2487,3 +2489,48 @@ which only `ci` exercises.
   Because repeated builds now republish the same installation, the receipt
   race behind the renderer sandbox failure (13.12) cannot flip the
   installation under a running test.
+
+### 13.14 One Admission Authority (P4-5)
+
+G30 as planned: the scheduler evaluates its ranked ready units against one
+ledger view and transacts only for units the view admits, so a waiting unit
+holds no token; waiters wake on ledger changes; and PostgreSQL work (8 lanes)
+and generations (8, charged by resident clusters) are stated once instead of
+16 lanes charged twice. Registry v10, capability snapshot v2, override v2,
+resident allocation v3, local session v5, host admission record v4,
+execution index v7 and critical path v5 carry the new `postgres_generation`
+resource.
+
+| Measure | P4-1, four heavy lanes | `p45-check06`, `-07` | `p45-gen10-check01`, `-02` (ten generations) |
+| --- | ---: | ---: | ---: |
+| Graph wall | 706 s, 704 s | 577 s, 567 s | 573 s, 558 s |
+| Heavy units' work; heavy lanes end | 1,979 s, 1,966 s; 668 s | 1,961 s, 1,939 s; 552 s, 556 s | 1,958 s, 1,915 s; 510 s, 545 s |
+| Time units spent inside host admission | 3,917 s, 3,944 s | 0 s, 0 s | 0 s, 0 s |
+
+- **`check` −130 s.** Units no longer hold CPU and lanes while they wait,
+  so long ordinary units start when their resources free. The run now ends
+  when PostgreSQL generation throughput runs out: its last unit
+  (`schema_bootstrap`, 17 s) waited for generations behind higher-ranked
+  work. Heavy work did not grow.
+- **Ten generations not adopted.** They changed nothing measurable after
+  G30 (573 s and 558 s against 577 s and 567 s); eight stay, and G34 is
+  closed.
+- **Defects found, all fixed with targeted tests.** The first diagnostic
+  runs aborted (`harness/fixture_error`) whenever generations ran short:
+  a unit denied for capacity held only through another unit's resident, or
+  outside the graph, published a wait no event vocabulary allows. Holders now
+  include residents; otherwise one unit waits in host admission, where
+  pressure retirement frees idle generations, and the rest wait by rank. A
+  ledger evaluation error now fails only its unit. Each single admission
+  attempt is now its unit's `host_admission` phase, so diagnostic evidence
+  validates. The JavaScript registry validator and the resident and
+  observation schemas gained the new resource. A selected-service boundary
+  test now asks for fresh execution (`--fresh`), because G35 made its probe
+  rows cacheable.
+- **Correctness validation (D18).** Targeted rows: the runtime, scheduler,
+  admission, fixture, session, observation and collection rows, the nested
+  graph and service boundary rows, the release and Playwright adapter rows,
+  and one real browser group under diagnostics
+  (`module.incidents.browser.membership_management_live_pages`), plus the
+  source checks and lints. The `ci` measurement of G30's browser effect
+  moves to P4-6's paired `ci`.
