@@ -124,7 +124,7 @@ eleven `ci` runs of the release attempts (Section 13.1). Single runs vary by abo
 | G41 | The installed-renderer test read the receipt twice, so a receipt moved by a concurrent build broke it; 13.12 credited G37 with fixing this, which was wrong | Tests | Phase 4, P4-6 | Done: every renderer in the test binds the installation it opened; proven on a segment (13.15) |
 | G42 | Build-artifact cache keys held per-run locations (each graph run's Go temporary directory, the per-run web source path), so every graph run missed and re-linked shared binaries | Machine inputs, specification | Phase 4, P4-6 | Done: locations leave the keyed command and input directories are keyed by content; proven on a segment (13.15) |
 | G43 | Test rows launch nested graphs and real `make` runs that rebuild shared repository outputs under the Go test's toolchain environment while the outer run uses them; their failures are cut to the first 4 KiB and reclassified as product assertions | Tests, harness, specification | Phase 5 | Open: P5-0 fenced the Go-hosted nested graphs (14.5); P5-2 remains |
-| G44 | Make and the planner both own ordering, freshness, environment and prerequisite skipping: 26 operations re-enter Make, 17 targets carry two recipes chosen by `GRAPH_CHILD`, five freshness mechanisms coexist, and graph-only Make edges run work twice | Machine inputs, implementation, specification | Phase 5 | Open: P5-0 removed the renderer double run (14.5); P5-1 and P5-3 remain |
+| G44 | Make and the planner both own ordering, freshness, environment and prerequisite skipping: 26 operations re-enter Make, 17 targets carry two recipes chosen by `GRAPH_CHILD`, five freshness mechanisms coexist, and graph-only Make edges run work twice | Machine inputs, implementation, specification | Phase 5 | Open: P5-0 removed the renderer double run (14.5); P5-1 made every test script a row and removed five duplicate operations (14.6); P5-3 remains |
 
 ## 5. Gap Remediation Detail
 
@@ -1349,6 +1349,7 @@ Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-am
 | 2026-11-25 to 26 | P4-5 / G30 | Host ledger as the admission authority; PostgreSQL work and generations stated once; four defects found and fixed (13.14) | Targeted: `p45-cs`, `p45-ea`, `p45-hb`, `p45-tc`, `p45-rel`, `p45-src2`, `p45-fix*`, `p45-ci-*`, `p45-f-*`, `p45-g-*`. Diagnostic `check`: `p45-check01` to `-05` (graph aborted, defects), `p45-check06` and `-07` (pass); `p45-gen10-check01`, `-02`; `ci` `p45-ci01`, `-02` (failed on the defects) | Paired `check` pass: 577 s and 567 s. Ten generations: 573 s and 558 s, not adopted. Committed `1862c9c20` to `2237b4519` |
 | 2026-11-26 | P4-6 / G31, G41, G42 | Critical-path reservation; renderer test binds one installation; location-free build keys | Gate: `p46-check01`, `p46-check02`, `p46-ci01`, `p46-ci02` (stopped); segments `seg-ontest-before`, `seg-ontest-after`, `seg-cache01`, `seg-cache02`; `fx-lintgo`, `fx-lintscripts`, `fx-md`, `fx-src` | `check` pair pass (597 s, 591 s). `ci01` 2,648 of 2,649 rows, graph 1,445 s; the failure is G41. The owner stopped `ci02` after the same failure. Segments prove both fixes; targeted checks pass (13.15) |
 | 2026-11-26 | P5-0 / G43, G44 | Nested launches undo the unit overlay; graph-only renderer prerequisite removed; nested failures keep their tail and class; Go build failures keep compiler output | Segments `p50-nested-before`, `p50-nested-after2`, `p50-nested-warm`, `p50-nested-steady`; rows `p50-units`, `p50-nest2`; `p50-lintgo`, `p50-md`, `p50-src` | HEAD's nested graph moved the receipt, replaced the shared server-harness binary and missed three build caches; fenced, it changes nothing in steady state. All rows and checks pass (14.5) |
+| 2026-11-26 | P5-1 / G44 | Every test script is a shell row; catalog enforces it; five duplicate operations removed | Catalog probes; plans of `check`, `ci` and `harness-contract SUITE=regression`; rows `p51-cs`, `p51-ea`, `p51-ea2`, `p51-cs2`, `p51-ea3`; `p51-lintscripts`, `p51-md`, `p51-src2` | Catalog 2,774 rows (from 2,754). `check` and `ci` plan the same units (366, 501); each gains only `public_wrapper_smoke` as a row. New rows run alone and pass (14.6) |
 | 2026-11-25 | P4-4 / G39 | Wait audit: 31 whole-test hang guards derive from the test deadline (`testdeadline`) | `p44-port-*` (16 owner slices, every row holding a converted guard) | Pass. Committed `bdd8f4e1d` |
 
 ## 12. Phase 2 Plan — `check` Wall Clock
@@ -2601,7 +2602,7 @@ they claim none of the reserved resources.
 
 ## 14. Phase 5 Proposal — Flat Catalog and Thin Make
 
-Status: proposed 2026-11-26 at the owner's request. P5-0 approved and done (14.5); P5-1 to P5-3 await D19.
+Status: proposed 2026-11-26 at the owner's request. P5-0 and P5-1 approved and done (14.5, 14.6); P5-2 and P5-3 await D19.
 
 ### 14.1 Findings
 
@@ -2640,7 +2641,7 @@ Status: proposed 2026-11-26 at the owner's request. P5-0 approved and done (14.5
 | Step | Work | Gaps |
 | --- | --- | --- |
 | P5-0 | Fences: nested graphs get an allowlisted environment and a private build root instead of the shared repository outputs; `build-go-artifact.sh` publishes the binary and its crypto receipt together; nested failure output keeps the tail and the child's failure class; the graph-only renderer prerequisite of the server harness build goes. **Done 2026-11-26** (14.5): the environment fence made the private build root unnecessary, and the binary and receipt pairing moved to P5-3 | G43, G44 |
-| P5-1 | Flat catalog: every check is a row with an owner, so any of them runs alone with `ROWS=`; selections list rows and operations, not other selections | G44 |
+| P5-1 | Flat catalog: every check is a row with an owner, so any of them runs alone with `ROWS=`; selections list rows and operations, not other selections. **Done 2026-11-26** (14.6): every test script is a row and duplicates are gone; selection nesting stays (14.6) | G44 |
 | P5-2 | Unnest: harness-mechanics probes run as first-class graph rows against private outputs, or move to an explicit harness suite outside `ci`; a source check forbids rows that launch `make` or `graph` against the shared repository | G43 |
 | P5-3 | Thin Make: Make only admits the workspace and forwards to the harness; build operations become data with declared inputs, environment keys and outputs; one Go content-addressed store replaces `cache-artifact.sh`, the renderer store and web staging; no unit re-enters Make; one toolchain environment from the pins for builds and tests | G44 |
 
@@ -2662,7 +2663,7 @@ amendments.
 
 | ID | Decision | Recommendation |
 | --- | --- | --- |
-| D19 | Approve Phase 5 scope and order (P5-0, P5-1, P5-2, P5-3) | Approve P5-0 now; decide P5-1 to P5-3 after it. **P5-0 approved by the owner 2026-11-26** |
+| D19 | Approve Phase 5 scope and order (P5-0, P5-1, P5-2, P5-3) | Approve P5-0 now; decide P5-1 to P5-3 after it. **P5-0 and P5-1 approved by the owner 2026-11-26**, with authority to deprecate tests covered elsewhere |
 | D20 | Where harness-mechanics probes run | An explicit harness suite outside `ci`, run when harness code changes |
 
 ### 14.5 Fences (P5-0)
@@ -2704,4 +2705,57 @@ The nested https graph took 28.8 s against 46.3 s. The rows whose launch code
 changed pass (`p50-nest2`, `p50-units`). Not exercised: the nested launch
 sites' failure reporting, which needs a failing nested graph; compilation
 covers it.
+
+### 14.6 Flat Catalog (P5-1)
+
+Approved by the owner on 2026-11-26, with authority to deprecate tests covered
+elsewhere.
+
+- **Every test script is a row.** 99 of 150 policy operations had no row. Of
+  those, 23 ran repository test scripts: `make test-slice … ROWS=` could not
+  reach them, and their failures were operation failures, not row results. 20
+  now have shell rows with the existing operation binding. 19 are
+  `explicit_only`, because they ran only in the explicit `harness-contract`
+  suites, and their suites keep running them. `public_wrapper_smoke` is
+  `standard`, because it already ran in `check` and `ci` through
+  `contract_smoke`. Owners follow the existing bound rows: 15 in
+  `harness.command_surface`, two each in `harness.evidence_accounting` and
+  `harness.generated_artifacts`, and one in `harness.release`. One shell
+  verification, `harness.command_surface.verification.helper_scripts`, covers
+  the harness helper scripts. Of the other 76 unbound operations, four run
+  `go test` directly (below); the rest are commands (lints, static analysis,
+  builds, dev and db tools) that keep their own public targets.
+- **Enforced.** The catalog's source coverage now includes the shell runner,
+  which it skipped before. Every operation that runs a `tests/test-*.sh` or
+  `tests/test-*.mjs` script must be selected by exactly one shell row. Two
+  operations may run the same script only for different cases: environment
+  assignments other than output presentation, or arguments after the script.
+  Violations are `catalog_coverage` failures (specification amended).
+- **Duplicates removed.** Five operations re-ran tests that cataloged rows or
+  bound operations already run:
+  - `assurance_observability`, `assurance_agent_finalize` and
+    `assurance_canonical_evidence` ran the same files as the `ci` operations
+    `harness_observation_contract` and `harness_evidence_contract`;
+  - `assurance_fixture_broker_matrix` and
+    `assurance_work_graph_scheduler_matrix` ran Go tests that the rows
+    `harness.browser.unit.native_fixtures` and
+    `harness.command_surface.unit.native_runtime` select.
+
+  `contract_regression` now lists the covering operations and rows, so the
+  regression suite keeps its coverage (49 planned units).
+- **Unchanged composition.** `check` and `ci` plan the same 366 and 501 units
+  as before. Their only new row is `public_wrapper_smoke`, bound to a unit they
+  already ran.
+- **Kept.** `harness_fixture_contract` and `harness_runtime_contract` run whole
+  harness packages under `-race`. That coverage exists nowhere else, so these
+  are not duplicates, but they are tests outside the catalog. The catalog
+  already has a per-row race context (`go_race`); a selection-level race
+  context would let these suites select rows instead.
+- **Selection nesting stays.** Six selections contain other selections. They
+  compose lists at plan time and create no nested execution, so expanding them
+  would duplicate member lists without removing a hazard.
+
+Segments: the cache test and `public_wrapper_smoke` each ran alone through
+their new rows and passed (`p51-cs`). The catalog's own test rows, which hold
+the new shell-coverage test, pass (`p51-ea`, `p51-ea2`).
 
