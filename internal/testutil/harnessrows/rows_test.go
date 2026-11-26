@@ -347,6 +347,19 @@ func TestGoRowFailureDetails(t *testing.T) {
 	if result, _ := stream(rowA, event{"Action": "pass", "Test": "TestA"}); result.FailureDetails != "" {
 		t.Fatalf("a passing stream rendered details %q", result.FailureDetails)
 	}
+	// A test binary that fails to build reports no row; its compiler output
+	// is the detail.
+	result, err = stream(rowA,
+		event{"ImportPath": "example/fixture [example/fixture.test]", "Action": "build-output", "Output": strings.Repeat("noise\n", 1000)},
+		event{"ImportPath": "example/fixture [example/fixture.test]", "Action": "build-output", "Output": "fixture_test.go:3:2: undefined: missing\n"},
+		event{"ImportPath": "example/fixture [example/fixture.test]", "Action": "build-fail"},
+		event{"Action": "fail", "Package": "example/fixture", "FailedBuild": "example/fixture [example/fixture.test]"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Outcomes[0].FailureReason != "missing_selector_result" || !strings.HasPrefix(result.FailureDetails, "[GO BUILD FAILURE]") || !strings.Contains(result.FailureDetails, "undefined: missing") || len(result.FailureDetails) > 4200 {
+		t.Fatalf("build failure details %q, outcome %+v", result.FailureDetails, result.Outcomes[0])
+	}
 }
 
 // TH-HARNESS-AC-165: Go test durations come from the outcome parse, keep

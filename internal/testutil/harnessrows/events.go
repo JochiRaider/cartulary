@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"math"
+	"slices"
 	"strings"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/testfailure"
@@ -71,6 +72,10 @@ type Stream struct {
 	packageElapsed *int64
 
 	details failureDetails
+	// build keeps the last 4 KiB of compiler output when the test binary
+	// fails to build; no row then reports a result.
+	build       []byte
+	buildFailed bool
 }
 
 // NewStream observes an invocation of rows.
@@ -120,6 +125,16 @@ func (s *Stream) event(line []byte) {
 		return
 	}
 	action, _ := fields["Action"].(string)
+	switch action {
+	case "build-output":
+		output, _ := fields["Output"].(string)
+		s.build = append(s.build, output...)
+		s.build = slices.Clone(s.build[max(0, len(s.build)-detailTailBytes):])
+		return
+	case "build-fail":
+		s.buildFailed = true
+		return
+	}
 	pkg, _ := fields["Package"].(string)
 	if s.packageName == "" && pkg != "" {
 		s.packageName = pkg
@@ -246,5 +261,9 @@ func (s *Stream) Finish(packagePath string) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
-	return Result{Outcomes: outcomes, FailureDetails: s.details.render(s.order, s.terminal), Durations: s.durations(packagePath)}, nil
+	details := s.details.render(s.order, s.terminal)
+	if s.buildFailed {
+		details = "[GO BUILD FAILURE] last 4 KiB of compiler output\n" + strings.ToValidUTF8(string(s.build), "\uFFFD") + "\n" + details
+	}
+	return Result{Outcomes: outcomes, FailureDetails: details, Durations: s.durations(packagePath)}, nil
 }
