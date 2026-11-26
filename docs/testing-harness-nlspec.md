@@ -3626,6 +3626,17 @@ capacity. Execution admission and retained readers MUST reject missing or
 invalid budgets. Retained reconstruction MUST use this value without consulting
 ambient parent-lease state or substituting current or physical host capacity.
 
+A harness invocation launched from inside a unit, whether a nested graph or a
+public Make command, MUST start from the environment the unit had before its
+own overlay (amended 2026-11-26, G43). The runtime records in
+`CARTULARY_HARNESS_UNIT_OVERLAY` every variable that the unit's planned command
+environment and its Go binding replaced, with the prior value or null, and a
+nested launcher restores them. The nested invocation therefore prepares and
+builds with a top-level invocation's toolchain environment, never its host
+test's fixed Go build context, and its build keys match the enclosing run's.
+The record excludes the scheduler-owned envelope (lease, CPU budget, launch
+context), which the child keeps.
+
 Native runtime-boundary assurance MUST select the existing catalog rows that
 own its test symbols and retain their resource, fixture, process-isolation and
 per-invocation deadline contracts. Direct assurance and aggregate selections
@@ -7496,7 +7507,10 @@ Cancellation and timeout settle no row; canonical terminal publication records
 them. The runtime publishes the rows' `cartulary.harness_row_result.v6`
 documents before the unit's logs, adds the bounded failure detail and one
 `[FAIL]` line per failed row to the unit's error log, and retains no standard
-output of a passing unit. Under basic diagnostics it writes the unit's test
+output of a passing unit. When the test binary fails to build, no row reports a
+result and each settles `infra/missing_selector_result`; the detail then
+begins with the last 4 KiB of the compiler output under `[GO BUILD FAILURE]`
+(amended 2026-11-26). Under basic diagnostics it writes the unit's test
 durations (TH-HARNESS-REQ-869).
 
 Rationale: a Node runner for Go rows loaded the whole catalog and its schema

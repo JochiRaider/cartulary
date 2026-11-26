@@ -123,8 +123,8 @@ eleven `ci` runs of the release attempts (Section 13.1). Single runs vary by abo
 | G40 | Test-row cache keys still hold broad harness inputs (harness owner models, harness test families, schemas, generated validators, task surface), because tests read repository files through paths they compute, which no closure rule can see; 60 of the last 150 commits invalidate every cached unit | Machine inputs, specification, tests | Follow-up after Phase 4 | Open: needs per-package declared run-time inputs and an enforcement mechanism (13.13) |
 | G41 | The installed-renderer test read the receipt twice, so a receipt moved by a concurrent build broke it; 13.12 credited G37 with fixing this, which was wrong | Tests | Phase 4, P4-6 | Done: every renderer in the test binds the installation it opened; proven on a segment (13.15) |
 | G42 | Build-artifact cache keys held per-run locations (each graph run's Go temporary directory, the per-run web source path), so every graph run missed and re-linked shared binaries | Machine inputs, specification | Phase 4, P4-6 | Done: locations leave the keyed command and input directories are keyed by content; proven on a segment (13.15) |
-| G43 | Test rows launch nested graphs and real `make` runs that rebuild shared repository outputs under the Go test's toolchain environment while the outer run uses them; their failures are cut to the first 4 KiB and reclassified as product assertions | Tests, harness, specification | Phase 5 (proposed) | Open: inventory and proposal in Section 14 |
-| G44 | Make and the planner both own ordering, freshness, environment and prerequisite skipping: 26 operations re-enter Make, 17 targets carry two recipes chosen by `GRAPH_CHILD`, five freshness mechanisms coexist, and graph-only Make edges run work twice | Machine inputs, implementation, specification | Phase 5 (proposed) | Open: proposal in Section 14 |
+| G43 | Test rows launch nested graphs and real `make` runs that rebuild shared repository outputs under the Go test's toolchain environment while the outer run uses them; their failures are cut to the first 4 KiB and reclassified as product assertions | Tests, harness, specification | Phase 5 | Open: P5-0 fenced the Go-hosted nested graphs (14.5); P5-2 remains |
+| G44 | Make and the planner both own ordering, freshness, environment and prerequisite skipping: 26 operations re-enter Make, 17 targets carry two recipes chosen by `GRAPH_CHILD`, five freshness mechanisms coexist, and graph-only Make edges run work twice | Machine inputs, implementation, specification | Phase 5 | Open: P5-0 removed the renderer double run (14.5); P5-1 and P5-3 remain |
 
 ## 5. Gap Remediation Detail
 
@@ -1348,6 +1348,7 @@ Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-am
 | 2026-11-25 | P4-3 / G35, G36, G37 | Go rows run from the plan; runner-closure and named-input keys; cacheable PostgreSQL rows; renderer reuse | `p43-src`, `p43-lintgo`, `p43-lintscripts`, `p43-md`, `p43-cs`, `p43-ea`; `check` with the cache on, `p43-check01` (all misses) and `p43-check02` (repeat) | All pass. `check` 663 s with every row executed, then 90 s with 313 of 313 eligible units reused. Committed `f9bbdc749` |
 | 2026-11-25 to 26 | P4-5 / G30 | Host ledger as the admission authority; PostgreSQL work and generations stated once; four defects found and fixed (13.14) | Targeted: `p45-cs`, `p45-ea`, `p45-hb`, `p45-tc`, `p45-rel`, `p45-src2`, `p45-fix*`, `p45-ci-*`, `p45-f-*`, `p45-g-*`. Diagnostic `check`: `p45-check01` to `-05` (graph aborted, defects), `p45-check06` and `-07` (pass); `p45-gen10-check01`, `-02`; `ci` `p45-ci01`, `-02` (failed on the defects) | Paired `check` pass: 577 s and 567 s. Ten generations: 573 s and 558 s, not adopted. Committed `1862c9c20` to `2237b4519` |
 | 2026-11-26 | P4-6 / G31, G41, G42 | Critical-path reservation; renderer test binds one installation; location-free build keys | Gate: `p46-check01`, `p46-check02`, `p46-ci01`, `p46-ci02` (stopped); segments `seg-ontest-before`, `seg-ontest-after`, `seg-cache01`, `seg-cache02`; `fx-lintgo`, `fx-lintscripts`, `fx-md`, `fx-src` | `check` pair pass (597 s, 591 s). `ci01` 2,648 of 2,649 rows, graph 1,445 s; the failure is G41. The owner stopped `ci02` after the same failure. Segments prove both fixes; targeted checks pass (13.15) |
+| 2026-11-26 | P5-0 / G43, G44 | Nested launches undo the unit overlay; graph-only renderer prerequisite removed; nested failures keep their tail and class; Go build failures keep compiler output | Segments `p50-nested-before`, `p50-nested-after2`, `p50-nested-warm`, `p50-nested-steady`; rows `p50-units`, `p50-nest2`; `p50-lintgo`, `p50-md`, `p50-src` | HEAD's nested graph moved the receipt, replaced the shared server-harness binary and missed three build caches; fenced, it changes nothing in steady state. All rows and checks pass (14.5) |
 | 2026-11-25 | P4-4 / G39 | Wait audit: 31 whole-test hang guards derive from the test deadline (`testdeadline`) | `p44-port-*` (16 owner slices, every row holding a converted guard) | Pass. Committed `bdd8f4e1d` |
 
 ## 12. Phase 2 Plan — `check` Wall Clock
@@ -2600,7 +2601,7 @@ they claim none of the reserved resources.
 
 ## 14. Phase 5 Proposal — Flat Catalog and Thin Make
 
-Status: proposed 2026-11-26 at the owner's request; nothing here is approved.
+Status: proposed 2026-11-26 at the owner's request. P5-0 approved and done (14.5); P5-1 to P5-3 await D19.
 
 ### 14.1 Findings
 
@@ -2638,7 +2639,7 @@ Status: proposed 2026-11-26 at the owner's request; nothing here is approved.
 
 | Step | Work | Gaps |
 | --- | --- | --- |
-| P5-0 | Fences: nested graphs get an allowlisted environment and a private build root instead of the shared repository outputs; `build-go-artifact.sh` publishes the binary and its crypto receipt together; nested failure output keeps the tail and the child's failure class; the graph-only renderer prerequisite of the server harness build goes | G43, G44 |
+| P5-0 | Fences: nested graphs get an allowlisted environment and a private build root instead of the shared repository outputs; `build-go-artifact.sh` publishes the binary and its crypto receipt together; nested failure output keeps the tail and the child's failure class; the graph-only renderer prerequisite of the server harness build goes. **Done 2026-11-26** (14.5): the environment fence made the private build root unnecessary, and the binary and receipt pairing moved to P5-3 | G43, G44 |
 | P5-1 | Flat catalog: every check is a row with an owner, so any of them runs alone with `ROWS=`; selections list rows and operations, not other selections | G44 |
 | P5-2 | Unnest: harness-mechanics probes run as first-class graph rows against private outputs, or move to an explicit harness suite outside `ci`; a source check forbids rows that launch `make` or `graph` against the shared repository | G43 |
 | P5-3 | Thin Make: Make only admits the workspace and forwards to the harness; build operations become data with declared inputs, environment keys and outputs; one Go content-addressed store replaces `cache-artifact.sh`, the renderer store and web staging; no unit re-enters Make; one toolchain environment from the pins for builds and tests | G44 |
@@ -2661,5 +2662,46 @@ amendments.
 
 | ID | Decision | Recommendation |
 | --- | --- | --- |
-| D19 | Approve Phase 5 scope and order (P5-0, P5-1, P5-2, P5-3) | Approve P5-0 now; decide P5-1 to P5-3 after it |
+| D19 | Approve Phase 5 scope and order (P5-0, P5-1, P5-2, P5-3) | Approve P5-0 now; decide P5-1 to P5-3 after it. **P5-0 approved by the owner 2026-11-26** |
 | D20 | Where harness-mechanics probes run | An explicit harness suite outside `ci`, run when harness code changes |
+
+### 14.5 Fences (P5-0)
+
+Approved by the owner on 2026-11-26 (D19, P5-0 only).
+
+- **Nested environment.** The runtime records in
+  `CARTULARY_HARNESS_UNIT_OVERLAY` what each unit's own overlay replaced: its
+  planned command environment and, for Go units, the runtime's Go binding.
+  `harnessruntime.NestedEnvironment` undoes it. The three Go-hosted nested
+  launches (`native_graph_observations`, `native_selected_service_lifecycle`,
+  `native_nested_cancellation`) start from it instead of their test's
+  `CGO_ENABLED=0`, `GOENV=off` Go build context. Their builds therefore key
+  like the enclosing run's and are cache hits. This replaces the planned
+  private build root: a nested build with matching keys writes nothing, so a
+  second output tree is unnecessary. Specification amended.
+- **Renderer prerequisite.** In graph-child mode the server-harness build no
+  longer re-runs the renderer build through Make; the graph already orders it.
+- **Nested failures.** The nested launch sites report the last 4 KiB of
+  output (they printed the first 4 KiB) and the nested run's own failure class
+  and reason. While running these segments, a compile error in a boundary test
+  surfaced only as `infra/missing_selector_result`, with the compiler text
+  left in the unit's standard output. The Go row runner now puts the last
+  4 KiB of compiler output at the head of the failure detail
+  (`[GO BUILD FAILURE]`). Specification amended.
+- **Moved to P5-3.** Publishing a binary and its cryptographic receipt as one
+  unit needs a single pointer over a content-addressed directory, which is
+  P5-3's store. With the environment fence, no nested build republishes them
+  during a run.
+
+`native_graph_observations`, one row with two nested graphs:
+
+| Segment | Renderer receipt | Shared server-harness binary | New build cache records | Nested server-harness build |
+| --- | --- | --- | --- | --- |
+| `p50-nested-before` (HEAD) | Moved to `c9d0…` | Replaced (`101da0…` → `dd659a…`) | `build-migrate`, `build-server-harness`, `testservices-build`: one each | 9.6 s; re-ran the renderer |
+| `p50-nested-steady` (fenced, second run) | Stayed `d438…` | Unchanged | None | 1.1 s |
+
+The nested https graph took 28.8 s against 46.3 s. The rows whose launch code
+changed pass (`p50-nest2`, `p50-units`). Not exercised: the nested launch
+sites' failure reporting, which needs a failing nested graph; compilation
+covers it.
+
