@@ -20,12 +20,13 @@ function fixture(t, files) {
   return { root, paths: Object.keys(files).sort() };
 }
 
-function registry(roles = {}) {
+function registry(roles = {}, owners = {}) {
   return {
     schema_id: "cartulary.harness_environment_registry.v1",
     scopes: { excluded: ["notes/**", "**/*.generated.*"], harness: ["tools/**", "**/*_test.go"] },
     inherited: { names: ["HOME", "PATH"], prefixes: ["LC_"] },
     explicit_launchers: ["tools/launcher.go", "tools/launcher.mjs"],
+    owners,
     roles: Object.fromEntries(environmentRoles.map((role) => [role, roles[role] ?? []])),
   };
 }
@@ -99,7 +100,12 @@ test("the registry's shape is closed and inherited names are not harness names",
   const write = (registryValue) => fixture(t, { "tools/harness_environment_registry.json": JSON.stringify(registryValue) }).root;
   const valid = { ...registry(), inherited: { names: ["HOME", "PATH"], prefixes: ["LC_"] } };
   assert.doesNotThrow(() => readEnvironmentRegistry(write(valid)));
-  assert.throws(() => readEnvironmentRegistry(write({ ...valid, extra: true })), /exactly schema_id, scopes, inherited, explicit_launchers and roles/u);
+  assert.throws(() => readEnvironmentRegistry(write({ ...valid, extra: true })), /exactly schema_id, scopes, inherited, explicit_launchers, owners and roles/u);
+  const owner = (names) => ({ paths: ["tools/owner/**"], names });
+  assert.doesNotThrow(() => readEnvironmentRegistry(write({ ...valid, owners: { suite: owner([name("SUITE_ID")]) } })));
+  assert.throws(() => readEnvironmentRegistry(write({ ...valid, owners: { suite: { ...owner([]), extra: [] } } })), /owners\.suite must hold exactly paths and names/u);
+  assert.throws(() => readEnvironmentRegistry(write({ ...valid, owners: { suite: owner([name("SUITE_ID"), name("CALL_MODE")]) } })), /ASCII-sorted/u);
+  assert.throws(() => readEnvironmentRegistry(write({ ...valid, owners: { a: owner([name("SUITE_ID")]), b: owner([name("SUITE_ID")]) } })), /has two owners: a and b/u);
   assert.throws(() => readEnvironmentRegistry(write({ ...valid, inherited: { names: ["PATH", "HOME"], prefixes: [] } })), /inherited\.names must be ASCII-sorted/u);
   assert.throws(() => readEnvironmentRegistry(write({ ...valid, inherited: { names: [name("RUN_ID")], prefixes: [] } })), /not a valid name/u);
   assert.throws(() => readEnvironmentRegistry(write({ ...valid, inherited: { names: [], prefixes: ["LC"] } })), /not a valid name/u);
@@ -155,3 +161,58 @@ test("a Go launcher builds a child's environment with childenv, never from os.En
   ]);
 });
 
+
+test("only an owned name's owner writes it; others read or forward it", (t) => {
+  const suite = name("SUITE_ID");
+  const { root, paths } = fixture(t, {
+    "tools/owner/attach.mjs": `export const attach = (id) => ({ ${suite}: id });\n`,
+    "tools/writer.mjs": [
+      `env["${suite}"] = id;`,
+      `process.env.${suite} = id;`,
+      `spawn(a, [], { env: { ${suite}: id } });`,
+      `run(["${suite}=1"]);`,
+      `const value = env.${suite} === id;`,
+      `childEnvironment(env, { pass: ["${suite}"] });`,
+      `switch (key) { case "${suite}": break; }`,
+    ].join("\n"),
+    "tools/writer.go": [
+      `environment["${suite}"] = id`,
+      `os.Setenv("${suite}", id)`,
+      `return map[string]string{"${suite}": id}`,
+      `value := environment["${suite}"]`,
+      `case "${suite}":`,
+    ].join("\n"),
+    "tools/writer_test.go": `t.Setenv("${suite}", "fixture")\n`,
+  });
+  const result = inspectEnvironmentRegistry(root, {
+    registry: registry({ invocation_context: [suite] }, { suite_services: { paths: ["tools/owner/**"], names: [suite] } }),
+    declared: new Set(),
+    paths,
+  });
+  const writes = (line) => `${line} writes ${suite}, which suite_services owns; call its function or forward the name`;
+  assert.deepEqual(result.findings, [
+    writes("tools/writer.go:1"), writes("tools/writer.go:2"), writes("tools/writer.go:3"),
+    writes("tools/writer.mjs:1"), writes("tools/writer.mjs:2"), writes("tools/writer.mjs:3"), writes("tools/writer.mjs:4"),
+  ]);
+});
+
+test("a Go constant for an owned name stands for it wherever it is written", (t) => {
+  const suite = name("SUITE_ID");
+  const { root, paths } = fixture(t, {
+    "tools/owner/env.go": `const SuiteIDEnv = "${suite}"\n\nfunc Attach(id string) map[string]string { return map[string]string{SuiteIDEnv: id} }\n`,
+    "tools/consumer.go": [
+      "environment[owner.SuiteIDEnv] = id",
+      "return map[string]string{owner.SuiteIDEnv: id}",
+      "os.Setenv(owner.SuiteIDEnv, id)",
+      "value := environment[owner.SuiteIDEnv]",
+      "case owner.SuiteIDEnv:",
+      "maps.Copy(environment, owner.Attach(id))",
+    ].join("\n"),
+  });
+  const result = inspectEnvironmentRegistry(root, {
+    registry: registry({ invocation_context: [suite] }, { suite_services: { paths: ["tools/owner/**"], names: [suite] } }),
+    declared: new Set(),
+    paths,
+  });
+  assert.deepEqual(result.findings, [1, 2, 3].map((line) => `tools/consumer.go:${line} writes ${suite}, which suite_services owns; call its function or forward the name`));
+});

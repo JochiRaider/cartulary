@@ -440,6 +440,7 @@
       "selector": {
         "package": "./internal/testutil/suiteservices",
         "tests": [
+          "TestAttachmentEnvironmentOmitsUnsetModes",
           "TestBucketReservationRetainsUncertainCreateWithoutCountingSuccess",
           "TestCheckServiceDependenciesAllowsExplicitDirectInvocation",
           "TestCheckServiceDependenciesRejectsMalformedAssignment",

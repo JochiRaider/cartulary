@@ -32,6 +32,22 @@ const asciiCompare = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 // parent environment; childEnvironment is the only permitted route. A spawn of
 // the unit's own fixture process (it runs inside the unit) is marked on its
 // line with unitFixtureMarker.
+// A write of a name in Node or Go code: an assignment, a Setenv, a NAME=value
+// literal, or an object or map key (a switch case is a read). Go code also
+// names a variable through a constant, so a constant declared for an owned name
+// stands for it. Shell is not checked; its writes are prefixes or exports
+// scoped to the command they precede.
+const writePatterns = (name) => [
+  new RegExp(`\\[["'\`]${name}["'\`]\\]\\s*=(?!=)`, "u"), new RegExp(`\\.${name}\\s*=(?!=)`, "u"), new RegExp(`Setenv\\(["']${name}["']`, "u"),
+  new RegExp(`["'\`]${name}=`, "u"), new RegExp(`(?<!\\bcase)(?:^|[\\s{,(])["']?${name}["']?\\s*:(?!:)`, "u"),
+];
+const goConstantDeclaration = /^\s*(?:const\s+)?([A-Za-z_]\w*)\s*=\s*"([A-Z][A-Z0-9_]*)"/u;
+const goConstantWritePatterns = (constant) => [
+  new RegExp(`\\[(?:\\w+\\.)?${constant}\\]\\s*=(?!=)`, "u"), new RegExp(`Setenv\\((?:\\w+\\.)?${constant}\\b`, "u"),
+  new RegExp(`(?<!\\bcase)(?:^|[\\s{,(])(?:\\w+\\.)?${constant}\\s*:(?!=)`, "u"),
+];
+const writableCode = /\.(?:mjs|cjs|js|ts|tsx|go)$/u;
+const testCode = /(?:_test\.go|\.test\.(?:mjs|ts|tsx)|\.spec\.ts)$|\/tests\//u;
 const passThrough = [/\.\.\.\s*(?:process\.env|environment|env)\b(?![.\w])/u, /\benv\s*:\s*process\.env\b(?![.\w])/u,
   // Go: a child's Env built from os.Environ() rather than childenv.Build.
   /append\(\s*os\.Environ\(\)/u, /range\s+os\.Environ\(\)/u, /\bEnv\s*=\s*os\.Environ\(\)/u];
@@ -69,7 +85,19 @@ function requireStringList(value, label, { sorted = false, pattern } = {}) {
 export function readEnvironmentRegistry(root) {
   const registry = JSON.parse(readFileSync(path.join(root, environmentRegistryPath), "utf8"));
   const keys = Object.keys(registry ?? {}).sort(asciiCompare);
-  if (JSON.stringify(keys) !== JSON.stringify(["explicit_launchers", "inherited", "roles", "schema_id", "scopes"])) throw new Error(`${environmentRegistryPath} must hold exactly schema_id, scopes, inherited, explicit_launchers and roles`);
+  if (JSON.stringify(keys) !== JSON.stringify(["explicit_launchers", "inherited", "owners", "roles", "schema_id", "scopes"])) throw new Error(`${environmentRegistryPath} must hold exactly schema_id, scopes, inherited, explicit_launchers, owners and roles`);
+  // owners name the one component that writes each owned name; everything
+  // else calls that component's function or forwards the name unchanged.
+  const ownedBy = new Map();
+  for (const [component, owner] of Object.entries(registry.owners ?? {})) {
+    if (!/^[a-z][a-z0-9_]*$/u.test(component) || JSON.stringify(Object.keys(owner ?? {}).sort(asciiCompare)) !== JSON.stringify(["names", "paths"])) throw new Error(`owners.${component} must hold exactly paths and names`);
+    requireStringList(owner.paths, `owners.${component}.paths`, { sorted: true });
+    requireStringList(owner.names, `owners.${component}.names`, { sorted: true, pattern: exactName });
+    for (const name of owner.names) {
+      if (ownedBy.has(name)) throw new Error(`${name} has two owners: ${ownedBy.get(name)} and ${component}`);
+      ownedBy.set(name, component);
+    }
+  }
   // explicit_launchers are the files of components that start processes for
   // other components; they build every child environment with childEnvironment.
   requireStringList(registry.explicit_launchers, "explicit_launchers", { sorted: true });
@@ -152,6 +180,33 @@ export function inspectEnvironmentRegistry(root, {
   }
   for (const [name, role] of roleOf) {
     if ((mentions.get(name)?.harness.size ?? 0) === 0) findings.push(`${name} (${role}) is stale: no harness code mentions it`);
+  }
+  const ownerOf = new Map(Object.entries(registry.owners).flatMap(([component, owner]) => owner.names.map((name) => [name, { component, paths: owner.paths.map(globPattern) }])));
+  const outsideOwner = (relative, name) => writableCode.test(relative) && !testCode.test(relative) && !ownerOf.get(name).paths.some((pattern) => pattern.test(relative));
+  const writeFinding = (relative, index, name) => `${relative}:${index + 1} writes ${name}, which ${ownerOf.get(name).component} owns; call its function or forward the name`;
+  const constants = new Map();
+  for (const [name] of ownerOf) {
+    const patterns = writePatterns(name);
+    for (const relative of [...(mentions.get(name)?.harness ?? [])].sort(asciiCompare)) {
+      const lines = readFileSync(path.join(root, relative), "utf8").split("\n");
+      if (relative.endsWith(".go")) for (const line of lines) if (goConstantDeclaration.exec(line)?.[2] === name) constants.set(goConstantDeclaration.exec(line)[1], name);
+      if (!outsideOwner(relative, name)) continue;
+      lines.forEach((line, index) => { if (line.includes(name) && patterns.some((pattern) => pattern.test(line))) findings.push(writeFinding(relative, index, name)); });
+    }
+  }
+  if (constants.size > 0) {
+    const constantPatterns = [...constants].map(([constant, name]) => ({ constant, name, patterns: goConstantWritePatterns(constant) }));
+    const harness = registry.scopes.harness.map(globPattern);
+    for (const relative of paths ?? executableRepositoryPaths(root, { untracked: true })) {
+      if (!relative.endsWith(".go") || !harness.some((pattern) => pattern.test(relative))) continue;
+      let lines;
+      try { lines = readFileSync(path.join(root, relative), "utf8").split("\n"); }
+      catch (error) { if (error.code === "ENOENT") continue; throw error; }
+      for (const { constant, name, patterns } of constantPatterns) {
+        if (!outsideOwner(relative, name)) continue;
+        lines.forEach((line, index) => { if (line.includes(constant) && patterns.some((pattern) => pattern.test(line))) findings.push(writeFinding(relative, index, name)); });
+      }
+    }
   }
   const launchers = registry.explicit_launchers.map(globPattern);
   for (const relative of paths ?? executableRepositoryPaths(root, { untracked: true })) {

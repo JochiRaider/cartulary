@@ -258,7 +258,7 @@ func (p ProductionOptions) StartSuite(ctx context.Context) (suite *Suite, result
 	}
 	p.Dependencies = []string{resourceRef}
 	environment := serviceEnvironment(p.environment(), nil)
-	environment["CARTULARY_TEST_SUITE_ID"] = strings.ReplaceAll(identifier(), "-", "")[:24]
+	maps.Copy(environment, suiteservices.Attachment{SuiteID: strings.ReplaceAll(identifier(), "-", "")[:24]}.Environment())
 	delete(environment, "CARTULARY_HARNESS_COMMAND_FAILURE_CONTEXT")
 	if p.ServiceDependencies != nil {
 		environment["CARTULARY_HARNESS_SERVICE_DEPENDENCIES"] = strings.Join(p.ServiceDependencies, ",")

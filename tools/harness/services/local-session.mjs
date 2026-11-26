@@ -23,7 +23,8 @@ import { lifecyclePolicy } from "../contract/generated/lifecycle-policy.mjs";
 import { hostCapacity } from "../runtime/harness-binary.mjs";
 import { parseStrictJSON } from "../contract/index.mjs";
 import { atomicLocalFile, readLocalFile } from "../runtime/secure-local-files.mjs";
-import { recoverRuntime, borrowRuntime, createRuntime, runtimeEnvironment } from "../runtime/session-client.mjs";
+import { recoverRuntime, borrowRuntime, createRuntime, runtimeEnvironment, runtimeHandleEnvironment } from "../runtime/session-client.mjs";
+import { suiteAttachmentEnvironment } from "./suite-attachment.mjs";
 
 const descriptorSchemaID = "cartulary.test_services.local_session.v5";
 const borrowerSchemaID = "cartulary.test_services.local_session_borrower.v2";
@@ -537,13 +538,11 @@ export async function createLocalSession({ root, binary, sessionFile, environmen
       CARTULARY_PGTEST_ISOLATION: "shared",
       CARTULARY_PGTEST_ALLOCATION_REF: `session:${sessionID}`,
       CARTULARY_TEST_SERVICES_SESSION_EXPIRES_AT: expiresAt,
-      CARTULARY_TEST_SUITE_ID: sessionID,
+      ...suiteAttachmentEnvironment({ suiteID: sessionID }),
       CARTULARY_TEST_TARGET: "test-services-session-up",
       CARTULARY_TEST_RESULTS_DIR: resultsRoot,
       CARTULARY_TEST_RUN_ID: "session-up",
-      CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: suiteRuntime.root,
-      CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: suiteRuntime.leaseID,
-      CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: "session-up",
+      ...runtimeHandleEnvironment({ root: suiteRuntime.root, leaseID: suiteRuntime.leaseID, runID: "session-up" }),
     };
     try {
       active = await (dependencies.acquireAdmission ?? acquireHostAdmission)({ root: reservation.admission_root, mode: "shared", parent, claims: { cpu: 1, io: 1, memory_mb: 64, process: 1 }, capacities: reservation.allocation.capacities, residents: [reservation.allocation], signal, timeoutMs: lifecyclePolicy.limits.preparation });
@@ -715,14 +714,9 @@ export function attachLocalSession({
       .slice(0, 24);
     const environment = {
       ...descriptor.environment,
-      CARTULARY_TEST_SERVICES_CALL_MODE: "attach",
-      CARTULARY_TEST_SERVICES_LIFECYCLE_MODE: "attach",
-      CARTULARY_TEST_SERVICES_PERSISTENT_BORROWER: "1",
-      CARTULARY_TEST_SUITE_ID: runSuiteID,
+      ...suiteAttachmentEnvironment({ suiteID: runSuiteID, callMode: "attach", lifecycleMode: "attach", persistentBorrower: true }),
       CARTULARY_TEST_TARGET: target,
-      CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: suiteRuntime.root,
-      CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: suiteRuntime.leaseID,
-      CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: runID,
+      ...runtimeHandleEnvironment({ root: suiteRuntime.root, leaseID: suiteRuntime.leaseID, runID }),
     };
     try { suiteRuntime.registerEnvironment(environment); }
     catch (error) {
@@ -780,14 +774,10 @@ export async function stopLocalSession({ root, binary, sessionFile, signal, depe
     writePrivateJSON(leaseFile, descriptor.service_lease);
     const terminateEnvironment = {
       ...descriptor.environment,
-      CARTULARY_TEST_SUITE_ID: descriptor.session_id,
-      CARTULARY_TEST_SERVICES_CALL_MODE: "owned",
-      CARTULARY_TEST_SERVICES_LIFECYCLE_MODE: "owned",
+      ...suiteAttachmentEnvironment({ suiteID: descriptor.session_id, callMode: "owned", lifecycleMode: "owned" }),
       CARTULARY_TEST_RESULTS_DIR: descriptor.service_lease.result_root,
       CARTULARY_TEST_RUN_ID: descriptor.service_lease.run_id,
-      CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: descriptor.runtime_root,
-      CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: descriptor.runtime_lease_id,
-      CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: descriptor.service_lease.run_id,
+      ...runtimeHandleEnvironment({ root: descriptor.runtime_root, leaseID: descriptor.runtime_lease_id, runID: descriptor.service_lease.run_id }),
     };
     const reservation = descriptor.resident_allocation;
     const admission = dependencies.admission ?? transactAdmission;

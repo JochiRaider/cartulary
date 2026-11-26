@@ -39,10 +39,10 @@ func installedEnvironment(repository string) (map[string]string, error) {
 	for _, d := range layout.Directories {
 		paths[d.ID] = filepath.Join(repository, d.Path)
 	}
-	for key, value := range map[string]string{"NODE_BIN": filepath.Join(paths["node_runtime"], "bin/node"), "CARTULARY_TEST_SERVICES_BIN": filepath.Join(paths["toolbin"], "cartulary-test-services"), "CARTULARY_HARNESS_RUNTIME_BIN": filepath.Join(paths["toolbin"], "cartulary-harness"), "CARTULARY_SERVER_HARNESS_BIN": filepath.Join(paths["binaries"], "server-harness"), "CARTULARY_MIGRATE_BIN": filepath.Join(paths["binaries"], "migrate")} {
-		if env[key] == "" {
-			env[key] = value
-		}
+	// The runtime binary paths come from the review's launcher, which sets them
+	// through their single writer (TH-HARNESS Section 5.5).
+	if env["NODE_BIN"] == "" {
+		env["NODE_BIN"] = filepath.Join(paths["node_runtime"], "bin/node")
 	}
 	return env, nil
 }

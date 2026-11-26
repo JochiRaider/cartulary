@@ -125,7 +125,7 @@ eleven `ci` runs of the release attempts (Section 13.1). Single runs vary by abo
 | G42 | Build-artifact cache keys held per-run locations (each graph run's Go temporary directory, the per-run web source path), so every graph run missed and re-linked shared binaries | Machine inputs, specification | Phase 4, P4-6 | Done: locations leave the keyed command and input directories are keyed by content; proven on a segment (13.15) |
 | G43 | Test rows launch nested graphs and real `make` runs that rebuild shared repository outputs under the Go test's toolchain environment while the outer run uses them; their failures are cut to the first 4 KiB and reclassified as product assertions | Tests, harness, specification | Phase 5 | Open: P5-0 fenced the Go-hosted nested graphs (14.5); P5-2 remains |
 | G44 | Make and the planner both own ordering, freshness, environment and prerequisite skipping: 26 operations re-enter Make, 17 targets carry two recipes chosen by `GRAPH_CHILD`, five freshness mechanisms coexist, and graph-only Make edges run work twice | Machine inputs, implementation, specification | Phase 5 | Open: P5-0 removed the renderer double run (14.5); P5-1 made every test script a row and removed five duplicate operations (14.6); P5-3 remains |
-| G45 | Units inherit the graph process's whole environment (the shell's variables and up to 127 Make exports), minus hand-kept strip lists; harness code reads 478 `CARTULARY_*` names with no declaration, so leaks, stale names and typos fail silently | Machine inputs, implementation, specification | Phase 5, P5-4 | Open: P5-4a registered every harness name and enforces it (14.8); P5-4b made unit environments default-deny (14.9); P5-4c slices 1 to 3 made every outside launcher explicit (14.11 to 14.13); single owners for step-runtime and fixture-binding names remain, with P5-4d |
+| G45 | Units inherit the graph process's whole environment (the shell's variables and up to 127 Make exports), minus hand-kept strip lists; harness code reads 478 `CARTULARY_*` names with no declaration, so leaks, stale names and typos fail silently | Machine inputs, implementation, specification | Phase 5, P5-4 | Open: P5-4a registered every harness name and enforces it (14.8); P5-4b made unit environments default-deny (14.9); P5-4c slices 1 to 3 made every outside launcher explicit (14.11 to 14.13); P5-4d slice 1 gave 14 names a single owner and enforces it (14.14); owners for the remaining invocation-context, fixture-binding and step-runtime names remain |
 
 ## 5. Gap Remediation Detail
 
@@ -1356,6 +1356,7 @@ Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-am
 | 2026-11-26 | P5-4c slice 1 / G45 | Explicit child environments for the services session, frontend publication and browser acquisition; launcher scope enforced by the registry check | Segments `p58-*` (two failures found and fixed), `p59-hb`, `p59-browser`, `p59-ea`, `p59-cs`; `p59-src`, `p59-lintscripts` | Every segment passes after the fixes. The registry check holds the three launchers to the rule with no findings (14.11) |
 | 2026-11-26 | P5-4c slice 2 / G45 | Explicit child environments for UI-review preparation and the native review client | Direct preparation tests (52); segment `p60-review` (all eight UI-review rows, including both seeded rows); `p60-cs`, `p60-src`, `p60-lintscripts` | All pass. Five launcher files are now under the registry's `explicit_launchers` scope with no findings (14.12) |
 | 2026-11-26 | P5-4c slice 3 / G45 | Go test support starts product processes with `childenv.Build`; the check covers Go launchers | Segments `p61-cs`, `p61-app-server` (18 rows), `p61-module-recovery` (5 rows, including the restore browser rows), `p61-module-extensions`, `p61-module-networkflow`; `p61-lintgo2`, `p61-lintscripts`, `p61-src2` | All pass after removing a helper the change left unused (14.13) |
+| 2026-11-26 | P5-4d slice 1 / G45 | Registry `owners` and a write check; owners for the suite-runtime handle, suite attachment and runtime binary names; the review server's copied binary defaults removed | `p62b-generate`, `p62b-lintgo`; segments `p62b-cs`, `p62b-ea`, `p62b-hb-units`, `p62b-hb` (including the seeded default review), `p62b-browser`; `p62b-lintscripts`, `p62b-src` | All pass. The first generate found the new Go test uncataloged; it joined the `suiteservices` helper row (14.14) |
 | 2026-11-25 | P4-4 / G39 | Wait audit: 31 whole-test hang guards derive from the test deadline (`testdeadline`) | `p44-port-*` (16 owner slices, every row holding a converted guard) | Pass. Committed `bdd8f4e1d` |
 
 ## 12. Phase 2 Plan — `check` Wall Clock
@@ -2672,7 +2673,7 @@ amendments.
 | --- | --- | --- |
 | D19 | Approve Phase 5 scope and order (P5-0, P5-1, P5-2, P5-3) | Approve P5-0 now; decide P5-1 to P5-3 after it. **P5-0 and P5-1 approved by the owner 2026-11-26**, with authority to deprecate tests covered elsewhere |
 | D20 | Where harness-mechanics probes run | An explicit harness suite outside `ci`, run when harness code changes |
-| D21 | Approve P5-4 scope and order (P5-4a to P5-4d); P5-4c redefined by the owner on 2026-11-26 as single-writer ownership (14.10) | Approve P5-4a and P5-4b now; decide P5-4c and P5-4d on P5-4b's measurements. **Approved 2026-11-26** |
+| D21 | Approve P5-4 scope and order (P5-4a to P5-4d); P5-4c redefined by the owner on 2026-11-26 as single-writer ownership (14.10), and P5-4d as single owners (14.14) | Approve P5-4a and P5-4b now; decide P5-4c and P5-4d on P5-4b's measurements. **Approved 2026-11-26** |
 | D22 | How a unit finds its context document | A path in one variable: it survives Make re-entry and child tools; the admission lease keeps its file descriptor. **Approved 2026-11-26** |
 | D23 | P5-4 against P5-2 and P5-3 | P5-4a and P5-4b before P5-2, since unnesting is simpler once children start from a declared environment; mode switches leave with P5-3. **Approved 2026-11-26** |
 
@@ -2820,7 +2821,7 @@ per unit.
 | P5-4a | Environment registry. An authored `tools/harness_environment_registry.json` lists every name harness Go, Node and shell code reads or writes, with its role, writer and scope (top level, unit, nested). A source check rejects a read of an unregistered name and a registered name that nothing reads. | Every name registered or deleted, including the 337 not yet classified; the source check runs in `check` |
 | P5-4b | Default-deny unit environment. The runtime builds each unit's environment from the registry's unit-scope names, the runner's declared tool variables and its own bindings, never by copying its parent. Nested launches build from the registry's top-level scope. | The 342 `env -u` entries, the remaining strip lists and `CARTULARY_HARNESS_UNIT_OVERLAY` removed; each runner's rows pass on segments, then one `check` |
 | P5-4c | Single-writer ownership (redefined 2026-11-26, 14.10). Every internal harness variable has one owning component that writes it; only the planner and runtime write what the test population sees; components that start their own processes use their own names and build their children's environment explicitly. The registry declares components and writers, and its check rejects write sites outside the owner | Every invocation-context, step-runtime and fixture-binding name has one writer; the check runs in `check` |
-| P5-4d | Fixture bindings in the context. The 105 binding names move into the document, and test support reads them through the loader. Product processes keep receiving `CARTULARY__*` configuration. | The binding names leave the registry |
+| P5-4d | Single owners (redefined 2026-11-26, 14.14). Each remaining name has one owning component and an owner function; the registry's `owners` section declares them and its check rejects any other write. Product processes keep receiving `CARTULARY__*` configuration. | Every multi-writer invocation-context, fixture-binding and step-runtime name has an owner |
 
 The nine mode switches leave with P5-3, when no unit re-enters Make.
 
@@ -3063,3 +3064,63 @@ Status: redefined by the owner on 2026-11-26; replaces the typed context documen
 - **Remaining in P5-4c.** Single owners for the step-runtime and
   fixture-binding names, taken with P5-4d.
 
+
+### 14.14 Single Writers (P5-4d, slice 1)
+
+Status: P5-4d redefined by the owner on 2026-11-26. Instead of moving fixture
+bindings into a typed document (14.7), it gives each name one writer, the rule
+of 14.10.
+
+- **Mechanism.** The registry gains `owners`. Each component names its paths
+  and the names that only it writes. The registry check rejects any write of
+  an owned name outside the owner's paths in Node or Go code that is not a
+  test. A write is:
+  - a bracket, property or map-key assignment;
+  - a `Setenv`;
+  - a `NAME=value` literal;
+  - in Go, any of these through a constant declared for the name.
+
+  A read, a switch case or forwarding by name is not a write. Shell is not
+  checked, because its writes are prefixes or exports scoped to one command.
+  Specification amended.
+- **Owners.**
+
+  | Component | Owned names | Writer functions | Paths |
+  | --- | --- | --- | --- |
+  | `runtime_session` | Suite-runtime root, lease and run ID (3) | `runtimeHandleEnvironment` | Session client, `harnesssession` |
+  | `suite_services` | Suite ID, call mode, lifecycle mode, persistent borrower (4) | `suiteAttachmentEnvironment`, `suiteservices.Attachment` | Services session, `suiteservices`, `testservices` |
+  | `runtime_binaries` | The seven runtime binary paths (7) | `runtimeBinaryEnvironment`, the planner's launch bindings | Runtime binary registry, `harnessplan`, `Makefile` |
+
+- **What moved.**
+  - These callers now call the owner functions instead of spelling the names:
+    the services session's start, attach and terminate; browser acquisition's
+    two borrows and its cleanup; frontend publication; and the UI-review
+    recipes.
+  - In Go, the managed-suite fixture and its recovery set the suite ID through
+    `suiteservices.Attachment`. `testservices` uses it for its three owned
+    starts.
+- **A second writer removed.** The Go review server filled in its own defaults
+  for four of the seven binary paths. That was a copy of the planner's
+  bindings, and it had no operator, server or sourcecheck path. The native
+  review client launches the review server. It now sets all seven paths
+  through `runtimeBinaryEnvironment`, and the review server only reads them.
+- **Validation.** With the owners declared, the check first found two
+  writers: the managed-suite fixture's suite ID and the review server's
+  defaults. Both are converted, and the check now passes with no findings.
+  The owner scan adds about 0.1 to 0.4 s to the check's 3 to 4 s. Every
+  segment passes:
+  - the registry and child-environment rows, with two new owner tests;
+  - the `suiteservices` helper row, with a new `Attachment` test, and current
+    epoch evidence;
+  - the native fixture, native review, test-services lifecycle and broker
+    smoke rows;
+  - local session, UI-review lifecycle and execution, artifact assurance and
+    the seeded default review;
+  - the incidents browser row.
+- **Remaining.** By the 2026-11-26 write-site scan, these names still have
+  more than one writer and no owner:
+  - 11 invocation-context names, among them run ID, target, work unit,
+    admission lease and service selection;
+  - 20 fixture bindings: the browser stack, PostgreSQL and object-store
+    allocation, and service-binding leases;
+  - the 14 step-runtime names.

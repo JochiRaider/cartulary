@@ -6,6 +6,8 @@ import { buildSourceSnapshot } from "../test-catalog/index.mjs";
 import { coreReadiness, frontendBuildReadiness, browserReadiness, goReadiness, serviceImageReadiness } from "../readiness/installed-readiness.mjs";
 import { operationBindingNames, operationDefinition, operationExecutionDigest, readOperationOwner } from "../execution/operations.mjs";
 import { childEnvironment } from "../runtime/child-environment.mjs";
+import { runtimeHandleEnvironment } from "../runtime/session-client.mjs";
+import { runtimeBinaryEnvironment } from "../contract/runtime-binary-registry.mjs";
 import { reviewChild } from "./review-child.mjs";
 import { seedDesignReview } from "./design-review-seed.mjs";
 import { CommandFailure } from "../runtime/command-failure.mjs";
@@ -31,14 +33,9 @@ export function reviewForwarded(root) {
 export function recipeEnvironment(root, runRoot, runtime, input, environment = process.env) {
   // Nothing else crosses from the parent: no inherited Go root, presentation
   // mode, public review input or harness context of an enclosing graph.
-  const topology = JSON.parse(readFileSync(path.join(root, "tools/execution_topology_manifest.json")));
-  const base = childEnvironment(environment, { pass: reviewForwarded(root), set: Object.fromEntries(topology.runtime_binaries.map((binary) =>
-    [binary.output_make_variable, path.resolve(root, environment[binary.output_make_variable] || binary.default_output_path)])) });
+  const base = childEnvironment(environment, { pass: reviewForwarded(root), set: runtimeBinaryEnvironment(root, environment) });
   Object.assign(base, { CARTULARY_HARNESS_RESOURCE_DEPENDENCIES: "[]", CARTULARY_PREPARATION_POLICY: input.preparation_policy, CARTULARY_TEST_RESULTS_DIR: path.dirname(runRoot), CARTULARY_TEST_RUN_ID: runtime.runID,
-    CARTULARY_TEST_TARGET: input.presentation === "design" ? "browser-design-review" : "ui-review", CARTULARY_HARNESS_IDENTITY_PREPARED: "1", CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: runtime.root,
-    CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: runtime.leaseID, CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: runtime.runID,
-    CARTULARY_SERVER_HARNESS_BIN: path.join(root, workspaceLayout.binaries, "server-harness"), CARTULARY_MIGRATE_BIN: path.join(root, workspaceLayout.binaries, "migrate"),
-    CARTULARY_TEST_SERVICES_BIN: path.join(root, workspaceLayout.toolbin, "cartulary-test-services"), CARTULARY_HARNESS_RUNTIME_BIN: path.join(root, workspaceLayout.toolbin, "cartulary-harness"),
+    CARTULARY_TEST_TARGET: input.presentation === "design" ? "browser-design-review" : "ui-review", CARTULARY_HARNESS_IDENTITY_PREPARED: "1", ...runtimeHandleEnvironment(runtime),
     NODE_RUNTIME_DIR: path.join(root, workspaceLayout.node_runtime), NODE_BIN: process.execPath, PNPM: path.join(root, workspaceLayout.node_runtime, "bin/pnpm"),
     CARTULARY_BROWSER_RUNTIME_PROFILE_ID: input.profile ?? "network_flow_claimed", CARTULARY_BROWSER_SERVICE_REQUIREMENT: "test-services",
     CARTULARY__NETWORK_FLOW_ACTIVITY__CLAIMED: "false", CARTULARY__ENTERPRISE_AUTHENTICATION__CLAIMED: "false" });

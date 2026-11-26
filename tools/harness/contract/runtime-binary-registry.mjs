@@ -1,4 +1,7 @@
+import { readFileSync } from "node:fs";
 import path from "node:path";
+
+import { workspaceLayout } from "../../workspace_layout.generated.mjs";
 
 const idPattern = /^[a-z][a-z0-9_-]*$/u;
 const makeVariablePattern = /^[A-Z][A-Z0-9_]*$/u;
@@ -118,3 +121,22 @@ export function normalizeRuntimeBinaryEntries(entries = [], options = {}) {
   }
   return records;
 }
+
+// runtimeBinaryEnvironment is the Node form of the planner's runtime binary
+// bindings (internal/testutil/harnessplan prepare): every topology binary under
+// its Make variable and its consumer name, and the test services and harness
+// runtime executables, each from an explicit override or its declared default.
+// It is the only Node writer of the consumer names (TH-HARNESS Section 5.5).
+export function runtimeBinaryEnvironment(root, environment = process.env) {
+  const topology = JSON.parse(readFileSync(path.join(root, "tools/execution_topology_manifest.json"), "utf8"));
+  const result = {};
+  for (const binary of topology.runtime_binaries) {
+    const output = path.resolve(root, environment[binary.output_make_variable] || binary.default_output_path);
+    result[binary.output_make_variable] = output;
+    result[binary.consumer_env] = output;
+  }
+  result.CARTULARY_TEST_SERVICES_BIN = path.resolve(root, environment.CARTULARY_TEST_SERVICES_BIN || environment.TEST_SERVICES_BIN || path.join(workspaceLayout.toolbin, "cartulary-test-services"));
+  result.CARTULARY_HARNESS_RUNTIME_BIN = path.resolve(root, environment.CARTULARY_HARNESS_RUNTIME_BIN || environment.HARNESS_RUNTIME_BIN || path.join(workspaceLayout.toolbin, "cartulary-harness"));
+  return result;
+}
+

@@ -13,6 +13,13 @@ const rejected = (diagnostic = null) => {
   Object.defineProperty(error, "privateDiagnostic", { value: diagnostic });
   return error;
 };
+// runtimeHandleEnvironment is the only writer of the suite-runtime handle names
+// (TH-HARNESS Section 5.5, single writer): the identity borrowRuntime finds a
+// private runtime by.
+export function runtimeHandleEnvironment({ root, leaseID, runID }) {
+  return { CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: root, CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: leaseID, CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: runID };
+}
+
 // runtimeEnvironment is every name a borrowed or created runtime reads from
 // the environment it is given (this client and the native session command).
 // A launcher outside the unit path forwards exactly these by name.

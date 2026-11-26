@@ -11,13 +11,15 @@ import { emitResult } from "./output.mjs";
 import { repoRoot } from "./policy.mjs";
 import { childEnvironment } from "../../runtime/child-environment.mjs";
 import { reviewForwarded } from "../review-recipes.mjs";
+import { runtimeBinaryEnvironment } from "../../contract/runtime-binary-registry.mjs";
 
 // reviewEnvironment is what the native review owner starts from: the parent's
-// process and tool basics and the names review preparation forwards
-// (TH-HARNESS Section 5.5). Public review inputs, debugging and coverage
-// switches and an enclosing graph's harness context never cross.
+// process and tool basics, the names review preparation forwards and the
+// runtime binary paths, set by their single writer (TH-HARNESS Section 5.5).
+// Public review inputs, debugging and coverage switches and an enclosing
+// graph's harness context never cross.
 export function reviewEnvironment(environment = process.env) {
-  return childEnvironment(environment, { pass: reviewForwarded(repoRoot) });
+  return childEnvironment(environment, { pass: reviewForwarded(repoRoot), set: runtimeBinaryEnvironment(repoRoot, environment) });
 }
 export function nativeReview(message, { onProgress = () => {}, environment = process.env } = {}) {
   const request = { schema_id: "cartulary.harness_review_command.v1", ...message };

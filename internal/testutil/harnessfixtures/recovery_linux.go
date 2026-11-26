@@ -131,7 +131,7 @@ func (p ProductionOptions) physicalRecoveryEnvironment(resource harnesssession.R
 			return nil, harnesslocal.ErrUnsafe
 		}
 	}
-	return map[string]string{suiteservices.SuiteIDEnv: lease.SuiteID}, nil
+	return suiteservices.Attachment{SuiteID: lease.SuiteID}.Environment(), nil
 }
 
 func (p ProductionOptions) recoverBrowser(ctx context.Context, resource harnesssession.Resource, resources []harnesssession.Resource) error {

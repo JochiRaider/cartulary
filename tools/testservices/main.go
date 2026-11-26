@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -355,9 +356,7 @@ func runWrappedCommand(args []string, env map[string]string, deps dependencies) 
 	}
 
 	ownedEnv := cloneEnv(env)
-	ownedEnv[suiteservices.SuiteIDEnv] = suiteID
-	ownedEnv[suiteservices.LifecycleModeEnv] = "owned"
-	ownedEnv[suiteservices.CallModeEnv] = "owned"
+	maps.Copy(ownedEnv, suiteservices.Attachment{SuiteID: suiteID, CallMode: "owned", LifecycleMode: "owned"}.Environment())
 
 	deps.recordEvent(ownedEnv, suiteservices.Event{Type: suiteservices.EventWrapperOwnedStart, Details: map[string]any{"postgres_allocation_ref": ownedEnv[suiteservices.PGAllocationRefEnv]}})
 	if err := suiteservices.RecordLifecycleEvent(ownedEnv, suiteservices.LifecycleEventStartServices, ""); err != nil {
@@ -577,9 +576,7 @@ func runStartSuite(args []string, env map[string]string, deps dependencies) (exi
 	}
 
 	ownedEnv := cloneEnv(env)
-	ownedEnv[suiteservices.SuiteIDEnv] = suiteID
-	ownedEnv[suiteservices.LifecycleModeEnv] = "owned"
-	ownedEnv[suiteservices.CallModeEnv] = "owned"
+	maps.Copy(ownedEnv, suiteservices.Attachment{SuiteID: suiteID, CallMode: "owned", LifecycleMode: "owned"}.Environment())
 	startupBase, journal, closeStartup, err := openStartup(context.Background(), ownedEnv, leaseFile, services)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "register suite startup:", err)
@@ -1034,9 +1031,7 @@ func runTerminateSuite(args []string, env map[string]string, deps dependencies) 
 	}
 
 	leaseEnv := cloneEnv(env)
-	leaseEnv[suiteservices.SuiteIDEnv] = lease.SuiteID
-	leaseEnv[suiteservices.LifecycleModeEnv] = "owned"
-	leaseEnv[suiteservices.CallModeEnv] = "owned"
+	maps.Copy(leaseEnv, suiteservices.Attachment{SuiteID: lease.SuiteID, CallMode: "owned", LifecycleMode: "owned"}.Environment())
 	if lease.Target != "" {
 		leaseEnv[suiteservices.TargetEnv] = lease.Target
 	}

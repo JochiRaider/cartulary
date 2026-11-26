@@ -4121,6 +4121,23 @@ components' files, and the environment registry check rejects any spread or
 direct pass of a parent environment in them. A spawn of the unit's own fixture
 process, which runs inside the unit, carries an explicit marker on its line.
 
+A harness variable whose value one component decides has that component as its
+only writer (amended 2026-11-26, owners). The registry's `owners` section names
+each owning component's paths and the names it owns. Other harness code writes
+an owned name only through the owner's function, or forwards the parent's
+value by name:
+
+- the suite-runtime handle: `runtimeHandleEnvironment`;
+- a process's test-services suite attachment: `suiteAttachmentEnvironment`
+  and, in Go, `suiteservices.Attachment`;
+- the runtime binary paths: `runtimeBinaryEnvironment` and the planner's
+  launch bindings.
+
+The environment registry check rejects any other write of an owned name in
+Node or Go code outside tests, including a Go write through a constant declared
+for that name. Tests may write owned names, because they fake contexts on
+purpose.
+
 
 ### 5.6 UI review input contract
 

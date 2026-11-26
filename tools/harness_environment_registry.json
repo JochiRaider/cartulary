@@ -88,6 +88,48 @@
     "tools/harness/readiness/frontend-artifact.mjs",
     "tools/harness/services/local-session.mjs"
   ],
+  "owners": {
+    "runtime_binaries": {
+      "paths": [
+        "Makefile",
+        "internal/testutil/harnessplan/**",
+        "tools/harness/contract/runtime-binary-registry.mjs"
+      ],
+      "names": [
+        "CARTULARY_HARNESS_RUNTIME_BIN",
+        "CARTULARY_MIGRATE_BIN",
+        "CARTULARY_OPERATOR_BIN",
+        "CARTULARY_SERVER_BIN",
+        "CARTULARY_SERVER_HARNESS_BIN",
+        "CARTULARY_SOURCECHECK_BIN",
+        "CARTULARY_TEST_SERVICES_BIN"
+      ]
+    },
+    "runtime_session": {
+      "paths": [
+        "internal/testutil/harnesssession/**",
+        "tools/harness/runtime/session-client.mjs"
+      ],
+      "names": [
+        "CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID",
+        "CARTULARY_HARNESS_SUITE_RUNTIME_ROOT",
+        "CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID"
+      ]
+    },
+    "suite_services": {
+      "paths": [
+        "internal/testutil/suiteservices/**",
+        "tools/harness/services/**",
+        "tools/testservices/**"
+      ],
+      "names": [
+        "CARTULARY_TEST_SERVICES_CALL_MODE",
+        "CARTULARY_TEST_SERVICES_LIFECYCLE_MODE",
+        "CARTULARY_TEST_SERVICES_PERSISTENT_BORROWER",
+        "CARTULARY_TEST_SUITE_ID"
+      ]
+    }
+  },
   "roles": {
     "fixture_binding": [
       "CARTULARY_ASSESSMENT_ORIGIN",
