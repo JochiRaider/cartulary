@@ -127,6 +127,7 @@ eleven `ci` runs of the release attempts (Section 13.1). Single runs vary by abo
 | G44 | Make and the planner both own ordering, freshness, environment and prerequisite skipping: 26 operations re-enter Make, 17 targets carry two recipes chosen by `GRAPH_CHILD`, five freshness mechanisms coexist, and graph-only Make edges run work twice | Machine inputs, implementation, specification | Phase 5 | Open: P5-0 removed the renderer double run (14.5); P5-1 made every test script a row and removed five duplicate operations (14.6); P5-3 remains |
 | G45 | Units inherit the graph process's whole environment (the shell's variables and up to 127 Make exports), minus hand-kept strip lists; harness code reads 478 `CARTULARY_*` names with no declaration, so leaks, stale names and typos fail silently | Machine inputs, implementation, specification | Phase 5, P5-4 | Open: P5-4a registered every harness name and enforces it (14.8); P5-4b made unit environments default-deny (14.9); P5-4c slices 1 to 3 made every outside launcher explicit (14.11 to 14.13); P5-4d slices 1 to 4 gave 57 names a single owner and enforce it in Node, Go and shell, covering every multi-writer invocation-context, fixture-binding and step-runtime name (14.14 to 14.17); the P5-4d exit is met. Left for P5-3: mode switches, strip lists and the overlay; the environment tidy classified product-derived names, folded fixture identity into the browser binding, replaced the cleanup marker with an argument, deleted the constant Playwright worker names and closed two check blind spots (14.23) |
 | G46 | A runtime whose cleanup fails is preserved for recovery behind a seal while it still holds resources, but startup recovery skips every sealed root on the rule that sealed roots have drained. A stranded `p58-browser` resident held one of the eight PostgreSQL generation slots in every later run | Specification, implementation | Phase 5 | Closed: `p58-browser` recovered, startup recovery decides by resource records, and the eight legacy roots were removed with owner approval (14.19) |
+| G47 | Build-artifact keys come from hand-listed source roots. The server, operator and migrate binaries import 22, 22 and 19 `internal/gen` packages that none of their keys covers, and the server key also omits `db/migrations`, which the server embeds: a migration-only or generator-only change reuses a stale binary | Machine inputs, implementation | Phase 5, P5-3a | Open: fixed first in P5-3a; P5-3b derives keys from the Go package closure (14.24) |
 
 ## 5. Gap Remediation Detail
 
@@ -2620,7 +2621,7 @@ they claim none of the reserved resources.
 
 ## 14. Phase 5 Proposal — Flat Catalog and Thin Make
 
-Status: proposed 2026-11-26 at the owner's request. P5-0 and P5-1 approved and done (14.5, 14.6); P5-2 and P5-3 await D19.
+Status: proposed 2026-11-26 at the owner's request. P5-0, P5-1 and P5-2 done (14.5, 14.6, 14.22); P5-4 done (14.7 to 14.21, 14.23); P5-3 planned (14.24).
 
 ### 14.1 Findings
 
@@ -2662,7 +2663,7 @@ Status: proposed 2026-11-26 at the owner's request. P5-0 and P5-1 approved and d
 | P5-1 | Flat catalog: every check is a row with an owner, so any of them runs alone with `ROWS=`; selections list rows and operations, not other selections. **Done 2026-11-26** (14.6): every test script is a row and duplicates are gone; selection nesting stays (14.6) | G44 |
 | P5-2 | Unnest: harness-mechanics probes run as first-class graph rows against private outputs, or move to an explicit harness suite outside `ci`; a source check forbids rows that launch `make` or `graph` against the shared repository | G43 |
 | P5-4 | Declared environment: a registry of every harness variable, default-deny unit environments, one typed unit context document, fixture bindings in that document (14.7) | G43, G45 |
-| P5-3 | Thin Make: Make only admits the workspace and forwards to the harness; build operations become data with declared inputs, environment keys and outputs; one Go content-addressed store replaces `cache-artifact.sh`, the renderer store and web staging; no unit re-enters Make; one toolchain environment from the pins for builds and tests | G44 |
+| P5-3 | Thin Make: Make only admits the workspace and forwards to the harness; build operations become data with declared inputs, environment keys and outputs; one Go content-addressed store replaces `cache-artifact.sh`, the renderer store and web staging; no unit re-enters Make; one toolchain environment from the pins for builds and tests. **Planned 2026-11-26** (14.24): five steps, P5-3a to P5-3e | G44 |
 
 P5-0 is small and removes the hazards seen in `ci`. P5-1 makes segments
 possible for every check. P5-3 is the largest and needs specification
@@ -2687,6 +2688,11 @@ amendments.
 | D21 | Approve P5-4 scope and order (P5-4a to P5-4d); P5-4c redefined by the owner on 2026-11-26 as single-writer ownership (14.10), and P5-4d as single owners (14.14) | Approve P5-4a and P5-4b now; decide P5-4c and P5-4d on P5-4b's measurements. **Approved 2026-11-26** |
 | D22 | How a unit finds its context document | A path in one variable: it survives Make re-entry and child tools; the admission lease keeps its file descriptor. **Approved 2026-11-26** |
 | D23 | P5-4 against P5-2 and P5-3 | P5-4a and P5-4b before P5-2, since unnesting is simpler once children start from a declared environment; mode switches leave with P5-3. **Approved 2026-11-26** |
+| D24 | Where the P5-3 store lives | Repository-local `.cache/cartulary/store`, beside today's caches, so locks and collection stay within one checkout; sharing across worktrees is a later change |
+| D25 | How conventional paths stay valid | Published views swapped by rename: hard links for files and an atomically renamed tree for directories. Never a symbolic link, which the container build would copy as a link |
+| D26 | cgo for shipped binaries | `CGO_ENABLED=0` everywhere, as tests and the package probes already use; adopted only if the release package rows pass |
+| D27 | Checkout-independent binaries | `-trimpath` for product binaries, so a binary's digest does not depend on the checkout path; the one-time digest change is recorded |
+| D28 | Cache controls | Keep the public `CARTULARY_BUILD_CACHE_DISABLE` and `CARTULARY_FORCE_REBUILD` as the store's two controls; fold the readiness, reinstall and static-analysis variants into them |
 
 ### 14.5 Fences (P5-0)
 
@@ -3679,3 +3685,123 @@ Decision D20 (owner, 2026-11-26): nested harness probes run in explicit
   - The five multi-writer mode switches, which leave with P5-3.
   - 183 names appear in only one file and 85 only in tests. Deleting them is
     a separate decision.
+
+### 14.24 Thin Make (P5-3, planned)
+
+Status: planned 2026-11-26 at the owner's request. Owner direction: retire as
+much of the Makefile as needed; a thin wrapper is better than a complicated
+one. Decisions D24 to D28 are open.
+
+**Problem (G44, G47).** Measured at `db2304ea9`:
+
+- **Make runs before the graph four times.** One `make check` parses the
+  Makefile once to take the workspace lock and re-execute itself. Under the
+  lock it parses again for the target, then again for a nested `make` of the
+  Node runtime and again for the harness binary. Each artifact unit in the
+  graph parses it once more.
+- **Most public targets do their work inside Make.** Of the 74 public targets,
+  32 launch the graph and 42 run their leaf work in a Make recipe.
+- **File rules always run.** 23 of the 25 file rules depend on `FORCE`, so
+  freshness is decided inside `cache-artifact.sh`, the bootstrap scripts and
+  the renderer store, not by Make.
+- **26 operations re-enter Make.** The 20 artifact bindings run
+  `make -- <files>`, and the 6 installations do the same for `make bootstrap`.
+- **17 targets carry two recipes chosen by `GRAPH_CHILD`, and the graph uses
+  neither child branch.** Graph units run the operation runner directly. Only
+  the wrapper smoke reaches a child branch, and it expects a preflight failure.
+- **Two owners for ordering, environment and freshness.**
+  - Make file prerequisites repeat the policy units' `needs`.
+  - Make strips 107 names and exports 61 bindings, then the planner builds the
+    unit environment again.
+  - Five toolchain units are both `same_run` in the planner and cached by
+    `cache-artifact.sh`.
+- **Freshness has five mechanisms and none is complete:**
+
+  | Mechanism | Stores | Defect |
+  | --- | --- | --- |
+  | Planner unit cache | Row results and declared outputs | Its build profile is inert: every build unit has cache policy `none`. Unit digests include estimates and resource claims, so an estimate refresh or another host changes keys |
+  | `cache-artifact.sh` | Digest records only; outputs stay at fixed paths | Keys hold absolute command lines and the whole Makefile. No Go binary key covers the `internal/gen` packages it imports, and the server key omits the migrations it embeds, so a migration-only change reuses a stale server (G47). Over 400 stale records per profile, never collected |
+  | Renderer store | Immutable content-addressed roots and a receipt pointer | The right model, but its key includes `build-go-artifact.sh`, the whole pins file and package tests, and misses Go settings. Reuse re-hashes the installation (20 to 42 s); no lock |
+  | Web build | A per-run private build, then a copy to `apps/web/dist` | No reuse: every run rebuilds. Publication leaves a window with no `dist`. Output depends on the unkeyed output mode, which adds sourcemaps |
+  | Go binaries | Binary and `.crypto.json` receipt | Published by two separate renames; every hit rewrites the receipt outside the lock |
+
+- **Builds and tests use different Go environments.**
+  - Tests pin `GOENV`, `GOWORK`, `GOFLAGS`, `CGO_ENABLED=0` and `GOROOT`.
+  - Builds inherit the user's values. Shipped binaries use Go's default cgo
+    setting, on when a C compiler is present.
+  - `GOTOOLCHAIN` becomes `local` under the installed-only policy.
+  - The renderer and receipt subprocesses run without the configured caches.
+- **Cost.** Artifact units took 78 s of unit work in a `check` with nothing to
+  rebuild (`p66-check01`) and 201 s with a renderer rebuild (`p67-check02`).
+  The pre-graph Make passes are not yet measured.
+
+**Target.**
+
+1. **Make is a thin generated wrapper.** One rule per public target records
+   each input's origin and executes the harness. There are no file rules,
+   prerequisites, mode switches or leaf recipes. The harness takes the
+   workspace lock itself, so Make parses once. Public target names, command
+   IDs, input contracts, outputs and exit statuses are unchanged.
+2. **Builds are data.** A producer declares its kind (Go binary, web bundle,
+   embedded assets, renderer installation, Node runtime, frontend install,
+   Playwright, Go tool, ShellCheck, release inventory), its inputs, the
+   environment that enters its key, and its outputs. Inputs are derived where a
+   tool can derive them, such as `go list -deps` with embed files. The runtime
+   runs producers itself, and no unit re-enters Make.
+3. **One content-addressed store.**
+   - It generalizes the renderer store: immutable roots keyed by declared inputs
+     and toolchain identity, with a receipt as the only mutable pointer.
+   - It publishes a multi-file output, such as a binary with its receipt, as
+     one unit.
+   - It takes a lock per key and collects unreferenced roots.
+   - Conventional paths (`build/bin/*`, `apps/web/dist`, the toolbin) are
+     published views of store roots.
+
+   It replaces `cache-artifact.sh`, the renderer's private store, web
+   publication and the readiness stamps.
+4. **One toolchain environment.** The planner derives Go and Node settings from
+   the pins for every build and test. The P5-0 overlay record,
+   `NestedEnvironment`, the 20 mode switches and the 226 strip entries leave.
+
+**Workstreams.**
+
+| Step | Work | Exit |
+| --- | --- | --- |
+| P5-3a | Correctness and dead code, in the current structure. The server, operator and migrate keys gain `internal/gen`, and the server's gains `db/migrations` (G47). A binary and its receipt are published together, inside the lock. Remove what nothing reaches: the 17 child recipes, once the wrapper smoke stops depending on them; unused Makefile variables; switches with no reader or no writer (`TARGET_EVIDENCE_FINALIZE`, `DEFER_OBSERVABILITY_FINALIZE`, `DEFER_TOOL_SUMMARY`, `READINESS_CHECK_ONLY`). Measure the pre-graph Make passes | A test shows a migration-only change rebuilds the server; generated Make shrinks; segments, then one `check` |
+| P5-3b | The store, in Go, with Go binaries as its first producer. Keys come from `go list -deps -json` (Go, embed and cgo files), the module files, the pinned Go settings and the producer's own declaration, not from launcher scripts. Unit keys drop scheduling-only fields (estimates, claims) | Go binaries reuse across runs with exact keys; binary and receipt are atomic; `cache-artifact.sh` serves no Go binary |
+| P5-3c | Every other producer moves to the store: the renderer (its reuse check becomes a sealed-root identity check), embedded assets, the web bundles (cacheable; flags independent of output mode), the Node runtime, frontend install, Playwright, Go tools and ShellCheck. Artifact-binding and installation operations become producer operations, and `make bootstrap` runs them through the harness | `cache-artifact.sh` and the 25 file rules deleted; 26 Make re-entries become 0; one `check` |
+| P5-3d | One toolchain environment from the pins for Go and Node builds and tests (D26, D27); `NestedEnvironment` and the overlay record removed | One environment table for builds and tests; release package rows pass |
+| P5-3e | The thin wrapper. The 42 targets that run leaf work in Make run through the harness's command entry. The harness takes the workspace lock. The generated Make keeps only input-origin capture and one `exec`. The mode switches and strip entries are deleted | Make parses once per command; the generated include and Makefile are small; one `check`, then `ci` with P4-7 |
+
+**Order.** P5-3a first: it fixes a correctness gap and shrinks what later
+steps move. P5-3b and P5-3c depend on each other's store. P5-3d needs P5-3b's
+producer environment. P5-3e needs P5-3c, because Make keeps its file rules
+until no unit asks for them. Each step is proven on segments of the producers
+and rows it touches; a build producer is also proven by planning `check`,
+`ci` and `release-measure` before and after and by the digests of what it
+publishes. `ci` folds into P4-7's final validation.
+
+**Specification.** Amend, step by step:
+
+- the producer clauses that distinguish direct and graph-child invocation
+  (REQ-817, frontend producers): every invocation enters the graph;
+- the renderer store clause (REQ-060) and AC-028: one store and its controls;
+- the cache inputs in Section 5;
+- the `builds` row, whose outputs come from Make variables, and the
+  execution topology's `output_make_variable`;
+- the task-surface Make binding profiles (REQ-069).
+
+`CARTULARY_MAKE_INPUT_SOURCES` stays: only Make knows an input's origin.
+
+**Risks.**
+
+- **Breadth.** Every build path changes. Producers move one at a time, each
+  with plan and output-digest equivalence.
+- **Paths other tools read.** The container build, release packaging, the
+  `CARTULARY_*_BIN` bindings and developers use `build/bin/*` and
+  `apps/web/dist`. Those stay as published views (D25).
+- **Developer commands.** `make dev`, `make services-up` and `make build` keep
+  their names and behavior.
+- **Bootstrap edits module files.** `install-go-dependencies.sh` can rewrite
+  `go.mod` and `go.sum`, which every Go key reads. P5-3c makes bootstrap
+  read-only, or makes the edit explicit.
