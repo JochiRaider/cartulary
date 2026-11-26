@@ -8,6 +8,9 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
+
+	"github.com/JochiRaider/cartulary/internal/testutil/harnessfixtures"
 )
 
 // fakeLedger is a host ledger for one graph: physical claims are charged on
@@ -26,10 +29,27 @@ type fakeLedger struct {
 func newFakeLedger(capacity map[string]int64) *fakeLedger {
 	return &fakeLedger{capacity: capacity, used: map[string]int64{}, changes: make(chan struct{}, 1)}
 }
+
+// charges are a unit's physical claims with its residents', as the host
+// ledger charges them together.
+func (l *fakeLedger) charges(u unit) map[string]int64 {
+	charges := map[string]int64{}
+	for resource, amount := range u.Claims {
+		if l.Physical(resource) {
+			charges[resource] += amount
+		}
+	}
+	for _, resident := range u.Residents {
+		for resource, amount := range resident.Claims {
+			charges[resource] += amount
+		}
+	}
+	return charges
+}
 func (l *fakeLedger) fits(u unit) []string {
 	deficits := []string{}
-	for resource, amount := range u.Claims {
-		if l.Physical(resource) && l.used[resource]+amount > l.capacity[resource] {
+	for resource, amount := range l.charges(u) {
+		if l.used[resource]+amount > l.capacity[resource] {
 			deficits = append(deficits, resource)
 		}
 	}
@@ -56,17 +76,14 @@ func (l *fakeLedger) TryAdmit(_ context.Context, u unit) (*hostLease, bool, erro
 	if l.deny || len(l.fits(u)) != 0 {
 		return nil, false, nil
 	}
-	for resource, amount := range u.Claims {
-		if l.Physical(resource) {
-			l.used[resource] += amount
-		}
+	charges := l.charges(u)
+	for resource, amount := range charges {
+		l.used[resource] += amount
 	}
 	return &hostLease{Token: u.ID, Release: func(context.Context) error {
 		l.mu.Lock()
-		for resource, amount := range u.Claims {
-			if l.Physical(resource) {
-				l.used[resource] -= amount
-			}
+		for resource, amount := range charges {
+			l.used[resource] -= amount
 		}
 		l.mu.Unlock()
 		select {
@@ -205,4 +222,62 @@ func TestRuntimeRefusedEvaluation(t *testing.T) {
 	if r.Status != "passed" || !slices.Equal(blocking, []string{"refused"}) || slices.Contains(ledger.tried, "refused") {
 		t.Fatal("refused evaluation", r.Status, blocking, ledger.tried)
 	}
+}
+
+func TestRuntimeResidentHeldWaits(t *testing.T) {
+	generation := func(id string) []harnessfixtures.Resident {
+		return []harnessfixtures.Resident{{Key: "postgres:unit:" + id, Claims: map[string]int64{"postgres_generation": 1}}}
+	}
+	waitOf := func(r graphResult, id string) (string, []string, []string) {
+		for _, event := range r.Events {
+			if event["unit_id"] == id && event["event"] == "wait_started" && event["wait_reason"] != "rank" {
+				return event["wait_reason"].(string), event["blocking_resources"].([]string), event["blocking_unit_ids"].([]string)
+			}
+		}
+		return "", nil, nil
+	}
+	t.Run("a running unit holding the resource through its resident is the holder", func(t *testing.T) {
+		holder, waiter := engineUnit("holder", 20), engineUnit("waiter", 10)
+		holder.Residents, waiter.Residents = generation("holder"), generation("waiter")
+		p := enginePlan(holder, waiter)
+		ledger := newFakeLedger(map[string]int64{"cpu": 2, "postgres_generation": 1})
+		release := make(chan struct{})
+		r := boundedGraph(t, p, enginePorts{RetainEvents: true, Admission: ledger, Execute: func(ctx context.Context, req executionRequest) unitResult {
+			if req.Unit.ID == "holder" {
+				select {
+				case <-release:
+				case <-time.After(200 * time.Millisecond):
+				}
+			}
+			return unitResult{Status: "passed"}
+		}})
+		close(release)
+		reason, resources, units := waitOf(r, "waiter")
+		if r.Status != "passed" || reason != "resources" || !slices.Equal(resources, []string{"postgres_generation"}) || !slices.Equal(units, []string{"holder"}) {
+			t.Fatal(r.Status, reason, resources, units)
+		}
+	})
+	t.Run("capacity no running unit holds sends one unit to host admission and the rest wait by rank", func(t *testing.T) {
+		first, second := engineUnit("first", 20), engineUnit("second", 10)
+		first.Residents, second.Residents = generation("first"), generation("second")
+		p := enginePlan(first, second)
+		ledger := newFakeLedger(map[string]int64{"cpu": 2, "postgres_generation": 1})
+		ledger.used["postgres_generation"] = 1
+		var waited []string
+		var mu sync.Mutex
+		r := boundedGraph(t, p, enginePorts{RetainEvents: true, Admission: ledger,
+			Admit: func(ctx context.Context, u unit) (*hostLease, error) {
+				mu.Lock()
+				waited = append(waited, u.ID)
+				mu.Unlock()
+				return &hostLease{Token: strings.Repeat("a", 32), Release: func(context.Context) error { return nil }}, nil
+			},
+			Execute: func(context.Context, executionRequest) unitResult { return unitResult{Status: "passed"} }})
+		// While first waits and then runs it holds the generation through
+		// its resident, so second waits on it by name.
+		reason, resources, units := waitOf(r, "second")
+		if r.Status != "passed" || !slices.Equal(waited, []string{"first", "second"}) || reason != "resources" || !slices.Equal(resources, []string{"postgres_generation"}) || !slices.Equal(units, []string{"first"}) {
+			t.Fatal(r.Status, waited, reason, resources, units)
+		}
+	})
 }

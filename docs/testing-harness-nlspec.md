@@ -419,9 +419,13 @@ TH-HARNESS-REQ-803. For each decision the scheduler reads one ledger view,
 evaluates its ready units in effective-rank order against it, and transacts
 only for a unit the view admits; a unit is admitted, and takes its tokens, only
 when every claim and resident it needs is granted together. A denied unit
-holds no token and no queue position: its wait names the resources it would
-exceed, or `host_admission` when only another owner's queue priority or
-exclusive fence denies it. A unit whose request the ledger refuses to
+holds no token and no queue position, and its wait names the resources it
+would exceed and the running units that hold them, through their claims or
+their residents. When no running unit of the graph holds what a denied unit
+lacks (the capacity sits in idle residents or with another owner, or only
+another owner's queue priority or exclusive fence denies it), the
+highest-ranked such unit waits in host admission, where queue priority and
+pressure retirement of idle residents apply, and the others wait by rank. A unit whose request the ledger refuses to
 evaluate goes to its own waiting admission, which admits it or fails that
 unit alone; the graph never fails for one unit's request. A cache lookup
 precedes the ledger, so a reused result never reaches host admission. When none of the graph's units runs, its

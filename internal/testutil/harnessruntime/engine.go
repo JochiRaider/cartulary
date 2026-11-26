@@ -235,6 +235,9 @@ type graphEngine struct {
 	// lookups memoize cache lookups made during selection, so a reusable
 	// result completes without host admission.
 	lookups map[string]cacheResult
+	// hostWaiter is the one unit waiting in host admission for capacity no
+	// unit of this graph holds.
+	hostWaiter string
 }
 
 func executeGraph(ctx context.Context, plan *Plan, ports enginePorts) (graphResult, error) {
@@ -480,25 +483,46 @@ func (e *graphEngine) blocking(u unit, barriers map[string][]string) waitDetails
 		return w
 	}
 	deficits, denied := e.denied[u.ID]
-	if !denied {
+	if !denied || len(deficits) == 0 {
 		return w
 	}
-	if len(deficits) == 0 {
-		// Queue priority or an exclusive fence of another ledger owner.
-		w.reason = "host_admission"
+	// A running unit holds a deficit resource through its own claims or a
+	// resident it holds. A unit whose deficit no running unit holds waits by
+	// rank behind the graph's host waiter (see choose).
+	w.units = e.holders(deficits)
+	if len(w.units) == 0 {
 		return w
 	}
 	w.reason, w.resources = "resources", slices.Clone(deficits)
+	return w
+}
+
+// holders are the running units that hold any of resources, sorted.
+func (e *graphEngine) holders(resources []string) []string {
+	units := []string{}
 	for id := range e.running {
-		for _, r := range deficits {
-			if e.byID[id].Claims[r] > 0 {
-				w.units = append(w.units, id)
-				break
+		if claimsAny(e.byID[id], resources) {
+			units = append(units, id)
+		}
+	}
+	slices.Sort(units)
+	return units
+}
+
+// claimsAny reports whether u, or a resident it holds, claims any of
+// resources.
+func claimsAny(u unit, resources []string) bool {
+	for _, resource := range resources {
+		if u.Claims[resource] > 0 {
+			return true
+		}
+		for _, resident := range u.Residents {
+			if resident.Claims[resource] > 0 {
+				return true
 			}
 		}
 	}
-	slices.Sort(w.units)
-	return w
+	return false
 }
 
 // graphBlocking is what the graph itself decides: dependencies satisfied,
@@ -637,7 +661,20 @@ func (e *graphEngine) choose(ready []unit, barriers map[string][]string) *unit {
 			return &u
 		}
 		if !v.admissible {
-			e.denied[u.ID] = v.deficits
+			if len(e.holders(v.deficits)) != 0 {
+				e.denied[u.ID] = v.deficits
+				continue
+			}
+			// Nothing this graph runs holds what u lacks: idle residents,
+			// another owner's allocations, its queue priority or fence. The
+			// highest-ranked such unit waits in host admission, where pressure
+			// retirement and queue priority apply; the rest wait by rank.
+			if e.hostWaiter == "" {
+				delete(e.denied, u.ID)
+				e.hostWaiter = u.ID
+				return &u
+			}
+			e.denied[u.ID] = nil
 			continue
 		}
 		lease, granted, err := e.ports.Admission.TryAdmit(e.ctx, u)
@@ -878,6 +915,9 @@ func (e *graphEngine) receive(m engineMessage) {
 		e.recordCleanup(*m.Cleanup)
 	}
 	if m.Activity != "" {
+		if m.ID == e.hostWaiter && (m.Activity != "waiting" || m.WaitReason != "host_admission") {
+			e.hostWaiter = ""
+		}
 		e.activities[m.ID] = m.Activity
 		e.activityWait[m.ID] = m.WaitReason
 		if m.Activity == "executing" {
@@ -900,6 +940,9 @@ func (e *graphEngine) complete(m engineMessage) {
 	}
 	u := e.byID[m.ID]
 	delete(e.running, m.ID)
+	if m.ID == e.hostWaiter {
+		e.hostWaiter = ""
+	}
 	e.reserve(u, -1)
 	r := *m.Result
 	e.result.States[m.ID] = r.Status

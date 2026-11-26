@@ -635,6 +635,7 @@
           "TestRuntimePublicationRollback",
           "TestRuntimeRefusedEvaluation",
           "TestRuntimeRequiredPublication",
+          "TestRuntimeResidentHeldWaits",
           "TestRuntimeUnitInputEnvironment"
         ]
       },
