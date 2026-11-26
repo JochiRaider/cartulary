@@ -125,6 +125,7 @@ eleven `ci` runs of the release attempts (Section 13.1). Single runs vary by abo
 | G42 | Build-artifact cache keys held per-run locations (each graph run's Go temporary directory, the per-run web source path), so every graph run missed and re-linked shared binaries | Machine inputs, specification | Phase 4, P4-6 | Done: locations leave the keyed command and input directories are keyed by content; proven on a segment (13.15) |
 | G43 | Test rows launch nested graphs and real `make` runs that rebuild shared repository outputs under the Go test's toolchain environment while the outer run uses them; their failures are cut to the first 4 KiB and reclassified as product assertions | Tests, harness, specification | Phase 5 | Open: P5-0 fenced the Go-hosted nested graphs (14.5); P5-2 remains |
 | G44 | Make and the planner both own ordering, freshness, environment and prerequisite skipping: 26 operations re-enter Make, 17 targets carry two recipes chosen by `GRAPH_CHILD`, five freshness mechanisms coexist, and graph-only Make edges run work twice | Machine inputs, implementation, specification | Phase 5 | Open: P5-0 removed the renderer double run (14.5); P5-1 made every test script a row and removed five duplicate operations (14.6); P5-3 remains |
+| G45 | Units inherit the graph process's whole environment (the shell's variables and up to 127 Make exports), minus hand-kept strip lists; harness code reads 478 `CARTULARY_*` names with no declaration, so leaks, stale names and typos fail silently | Machine inputs, implementation, specification | Phase 5, P5-4 (planned) | Open: plan in 14.7 |
 
 ## 5. Gap Remediation Detail
 
@@ -2643,6 +2644,7 @@ Status: proposed 2026-11-26 at the owner's request. P5-0 and P5-1 approved and d
 | P5-0 | Fences: nested graphs get an allowlisted environment and a private build root instead of the shared repository outputs; `build-go-artifact.sh` publishes the binary and its crypto receipt together; nested failure output keeps the tail and the child's failure class; the graph-only renderer prerequisite of the server harness build goes. **Done 2026-11-26** (14.5): the environment fence made the private build root unnecessary, and the binary and receipt pairing moved to P5-3 | G43, G44 |
 | P5-1 | Flat catalog: every check is a row with an owner, so any of them runs alone with `ROWS=`; selections list rows and operations, not other selections. **Done 2026-11-26** (14.6): every test script is a row and duplicates are gone; selection nesting stays (14.6) | G44 |
 | P5-2 | Unnest: harness-mechanics probes run as first-class graph rows against private outputs, or move to an explicit harness suite outside `ci`; a source check forbids rows that launch `make` or `graph` against the shared repository | G43 |
+| P5-4 | Declared environment: a registry of every harness variable, default-deny unit environments, one typed unit context document, fixture bindings in that document (14.7) | G43, G45 |
 | P5-3 | Thin Make: Make only admits the workspace and forwards to the harness; build operations become data with declared inputs, environment keys and outputs; one Go content-addressed store replaces `cache-artifact.sh`, the renderer store and web staging; no unit re-enters Make; one toolchain environment from the pins for builds and tests | G44 |
 
 P5-0 is small and removes the hazards seen in `ci`. P5-1 makes segments
@@ -2665,6 +2667,9 @@ amendments.
 | --- | --- | --- |
 | D19 | Approve Phase 5 scope and order (P5-0, P5-1, P5-2, P5-3) | Approve P5-0 now; decide P5-1 to P5-3 after it. **P5-0 and P5-1 approved by the owner 2026-11-26**, with authority to deprecate tests covered elsewhere |
 | D20 | Where harness-mechanics probes run | An explicit harness suite outside `ci`, run when harness code changes |
+| D21 | Approve P5-4 scope and order (P5-4a to P5-4d) | Approve P5-4a and P5-4b now; decide P5-4c and P5-4d on P5-4b's measurements |
+| D22 | How a unit finds its context document | A path in one variable: it survives Make re-entry and child tools; the admission lease keeps its file descriptor |
+| D23 | P5-4 against P5-2 and P5-3 | P5-4a and P5-4b before P5-2, since unnesting is simpler once children start from a declared environment; mode switches leave with P5-3 |
 
 ### 14.5 Fences (P5-0)
 
@@ -2758,4 +2763,79 @@ elsewhere.
 Segments: the cache test and `public_wrapper_smoke` each ran alone through
 their new rows and passed (`p51-cs`). The catalog's own test rows, which hold
 the new shell-coverage test, pass (`p51-ea`, `p51-ea2`).
+
+### 14.7 Declared Environment (P5-4, planned)
+
+Status: planned 2026-11-26 at the owner's request; awaits D21 to D23.
+
+**Problem (G45).** A unit's environment starts as a copy of the graph
+process's environment. That copy holds the user's shell (72 variables on the
+reference host) and up to 127 names Make exports. The planner then clears the
+public inputs, and the runtime adds its own variables. Harness code reads
+these names:
+
+| Role | Names | References |
+| --- | ---: | ---: |
+| Harness context (run identity, results root, lease, suite runtime, fixture identity, failure context) | 52 | 2,063 |
+| Fixture and service bindings (PostgreSQL, object store, browser stacks, test services) | 105 | 801 |
+| Product configuration (`CARTULARY__*`) | 97 | 486 |
+| Mode switches (graph child, skip prerequisites, suppress child success, preparation policy, build-cache switches) | 9 | 418 |
+| Not yet classified (step runtime, readiness, layout, visual renderer, dev stack, release packaging) | 337 | 1,718 |
+
+Consequences already seen in this phase:
+
+- The Go test environment leaked into nested builds (G43).
+- The owner keeps 342 `env -u` entries by hand.
+- Each nested launch site kept its own strip list; P5-0 replaced them with
+  an overlay record, which is one more variable.
+- Mode switches make one Make target two programs.
+- An unread or misspelled name does nothing and reports nothing.
+
+The specification already closes public inputs: undeclared public inputs must
+not reach children (`child_forwarding`). P5-4 extends that rule to every
+harness variable.
+
+**Target.** Environment variables remain at three boundaries only:
+
+1. Public inputs of `make <target>`, already declared.
+2. Variables that external tools read themselves (`PATH`, `HOME`, `LANG`,
+   `GOCACHE`, `GOFLAGS`, `PLAYWRIGHT_BROWSERS_PATH`, `NODE_OPTIONS`).
+3. Product configuration (`CARTULARY__*`) for product processes that tests
+   start.
+
+Everything the harness passes to its own code travels in one typed document
+per unit.
+
+**Workstreams.**
+
+| Step | Work | Exit |
+| --- | --- | --- |
+| P5-4a | Environment registry. An authored `tools/harness_environment_registry.json` lists every name harness Go, Node and shell code reads or writes, with its role, writer and scope (top level, unit, nested). A source check rejects a read of an unregistered name and a registered name that nothing reads. | Every name registered or deleted, including the 337 not yet classified; the source check runs in `check` |
+| P5-4b | Default-deny unit environment. The runtime builds each unit's environment from the registry's unit-scope names, the runner's declared tool variables and its own bindings, never by copying its parent. Nested launches build from the registry's top-level scope. | The 342 `env -u` entries, the remaining strip lists and `CARTULARY_HARNESS_UNIT_OVERLAY` removed; each runner's rows pass on segments, then one `check` |
+| P5-4c | Typed unit context. One `cartulary.harness_unit_context.v1` document per unit, written by the runtime and named by one variable. It extends the launch context with the results root, admission lease, CPU budget, resource dependencies, and cache and diagnostics mode. One loader each in Go and Node; readers of the 52 context names move to it. | The context names leave the registry; each reader group passes on segments, then one `check` |
+| P5-4d | Fixture bindings in the context. The 105 binding names move into the document, and test support reads them through the loader. Product processes keep receiving `CARTULARY__*` configuration. | The binding names leave the registry |
+
+The nine mode switches leave with P5-3, when no unit re-enters Make.
+
+**Order and validation.** P5-4a comes first because it measures and freezes
+the surface. P5-4b is small and removes the leak class. P5-4c and P5-4d are
+wide but mechanical. Every slice is proven on segments first: the rows of each
+runner it touches, then one `check` at the end of P5-4b and of P5-4c. `ci`
+folds into P4-7's final validation.
+
+**Risks.**
+
+- A unit that silently relies on an inherited variable fails under
+  default-deny. The registry's source check finds static reads. A diagnostic
+  mode that records each name the runtime withheld finds dynamic ones, such as
+  names built at run time or read by child tools.
+- Tools that read their own variables (`go`, `node`, `pnpm`, Playwright,
+  Docker) need those names declared per runner.
+- Until P5-3, operation units re-enter Make, so Make's exported variables
+  remain a declared scope.
+
+**Specification.** Amend the public-input forwarding rule (Section 5.5) to
+cover every harness name, the Go row runner's binding (REQ-872) and the launch
+context. Add the `cartulary.harness_unit_context.v1` schema and the runner
+registry's tool-variable declarations.
 
