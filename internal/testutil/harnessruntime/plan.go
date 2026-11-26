@@ -119,8 +119,10 @@ type cacheFact struct {
 	Vulnerability    *string `json:"vulnerability_database_revision"`
 }
 type inputEnvironment struct {
-	Clear   []string          `json:"clear"`
-	Forward map[string]string `json:"forward"`
+	Inherit         []string          `json:"inherit"`
+	InheritPrefixes []string          `json:"inherit_prefixes"`
+	Clear           []string          `json:"clear"`
+	Forward         map[string]string `json:"forward"`
 }
 type planWire struct {
 	BrowserLaneLimit int                   `json:"browser_lane_limit"`
@@ -150,9 +152,16 @@ func (p *Plan) UnitCount() int       { return len(p.facts.Graph.Units) }
 
 // The compiler projects typed public input forwarding. Private per-unit
 // arguments and topology bindings are applied afterward by their owning paths.
+// A unit inherits only the declared names (default-deny): an operator's shell,
+// agent and desktop variables never reach it.
 func (p *Plan) unitEnvironment(parent map[string]string) map[string]string {
-	child := make(map[string]string, len(parent)+len(p.facts.InputEnvironment.Forward))
-	maps.Copy(child, parent)
+	child := make(map[string]string, len(p.facts.InputEnvironment.Inherit)+len(p.facts.InputEnvironment.Forward))
+	for name, value := range parent {
+		if _, inherited := slices.BinarySearch(p.facts.InputEnvironment.Inherit, name); inherited ||
+			slices.ContainsFunc(p.facts.InputEnvironment.InheritPrefixes, func(prefix string) bool { return strings.HasPrefix(name, prefix) }) {
+			child[name] = value
+		}
+	}
 	for _, name := range p.facts.InputEnvironment.Clear {
 		delete(child, name)
 	}

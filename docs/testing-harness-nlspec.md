@@ -4097,6 +4097,17 @@ mention MUST be a `product_interface`, and only such a name may be one.
 `harness.environment_registry_check` enforces these rules in `check`, `ci` and
 `make source-check` (`CHECK=surface` and `CHECK=all`).
 
+A unit inherits only declared names from the environment its graph starts in
+(default-deny, amended 2026-11-26). The declared names are the registered names
+outside the `product_interface` and `test_internal` roles, the registry's
+`inherited` process and tool names and name prefixes (such as `PATH`, `HOME`,
+locale, proxy, Docker and Go module-network settings), the task surface's
+global inputs, and the Make variables that operation executions name, which the
+operation runner resolves from its environment. The planner derives this set. The runtime then removes public
+inputs and adds forwarded inputs, plan bindings and its own variables.
+Undeclared variables, such as an operator's shell, agent or desktop settings
+and Go build settings (`GOFLAGS`, `CGO_ENABLED`), never reach a unit.
+
 
 ### 5.6 UI review input contract
 

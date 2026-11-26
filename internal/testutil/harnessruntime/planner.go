@@ -22,14 +22,15 @@ func adoptPlan(source *harnessplan.Plan) (*Plan, error) {
 	}
 	facts := planWire{
 		BrowserLaneLimit: source.BrowserLaneLimit,
-		InputEnvironment: inputEnvironment{Clear: slices.Clone(source.InputEnvironment.Clear), Forward: source.InputEnvironment.Forward},
-		CacheInputs:      source.CacheInputs,
-		Manifest:         manifest,
-		Projections:      map[string]projection{},
-		Capacities:       source.Capacities,
-		AgingMS:          source.AgingQuantumMS,
-		Bindings:         source.Bindings,
-		Graph:            workGraph{Schema: harnessplan.GraphSchema, Digest: source.Graph.Digest},
+		InputEnvironment: inputEnvironment{Inherit: slices.Clone(source.InputEnvironment.Inherit), InheritPrefixes: slices.Clone(source.InputEnvironment.InheritPrefixes),
+			Clear: slices.Clone(source.InputEnvironment.Clear), Forward: source.InputEnvironment.Forward},
+		CacheInputs: source.CacheInputs,
+		Manifest:    manifest,
+		Projections: map[string]projection{},
+		Capacities:  source.Capacities,
+		AgingMS:     source.AgingQuantumMS,
+		Bindings:    source.Bindings,
+		Graph:       workGraph{Schema: harnessplan.GraphSchema, Digest: source.Graph.Digest},
 	}
 	for _, input := range source.SourceInputs {
 		facts.SourceInputs = append(facts.SourceInputs, sourceInput{Path: input.Path, Kind: input.Kind, Mode: input.Mode, Digest: input.ByteDigest})

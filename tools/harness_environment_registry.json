@@ -27,6 +27,58 @@
       "tools/**"
     ]
   },
+  "inherited": {
+    "names": [
+      "CI",
+      "CI_VERBOSE",
+      "CLICOLOR",
+      "DOCKER_CERT_PATH",
+      "DOCKER_CONFIG",
+      "DOCKER_CONTEXT",
+      "DOCKER_HOST",
+      "DOCKER_TLS_VERIFY",
+      "FORCE_COLOR",
+      "GOAUTH",
+      "GOFIPS140",
+      "GOINSECURE",
+      "GONOPROXY",
+      "GONOSUMDB",
+      "GOPRIVATE",
+      "GOPROXY",
+      "GOSUMDB",
+      "GOTOOLCHAIN",
+      "GO_TOOLCHAIN_READY",
+      "HOME",
+      "HTTPS_PROXY",
+      "HTTP_PROXY",
+      "LANG",
+      "LANGUAGE",
+      "LOGNAME",
+      "MAKELEVEL",
+      "NO_COLOR",
+      "NO_PROXY",
+      "PATH",
+      "SHELL",
+      "SSL_CERT_DIR",
+      "SSL_CERT_FILE",
+      "TERM",
+      "TMPDIR",
+      "TZ",
+      "USER",
+      "VERBOSE",
+      "XDG_CACHE_HOME",
+      "XDG_CONFIG_HOME",
+      "XDG_DATA_HOME",
+      "XDG_RUNTIME_DIR",
+      "http_proxy",
+      "https_proxy",
+      "no_proxy"
+    ],
+    "prefixes": [
+      "LC_",
+      "TESTCONTAINERS_"
+    ]
+  },
   "roles": {
     "fixture_binding": [
       "CARTULARY_ASSESSMENT_ORIGIN",

@@ -196,7 +196,8 @@ func commandInputs(in *Inputs, resolved command, root string, bindings map[strin
 			}
 		}
 	}
-	return declared, InputEnvironment{Clear: in.TaskSurface.publicInputNames(), Forward: forward}, nil
+	inherit, prefixes := in.inheritance()
+	return declared, InputEnvironment{Inherit: inherit, InheritPrefixes: prefixes, Clear: in.TaskSurface.publicInputNames(), Forward: forward}, nil
 }
 
 // runIdentity is the run ID Make assigned, or a fresh one.

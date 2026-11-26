@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { environmentRoles, globPattern, inspectEnvironmentRegistry } from "../environment-registry.mjs";
+import { environmentRoles, globPattern, inspectEnvironmentRegistry, readEnvironmentRegistry } from "../environment-registry.mjs";
 
 // Names are assembled so this file mentions no registry name itself.
 const name = (suffix) => `CARTULARY${"_"}${suffix}`;
@@ -23,6 +23,7 @@ function registry(roles = {}) {
   return {
     schema_id: "cartulary.harness_environment_registry.v1",
     scopes: { excluded: ["notes/**", "**/*.generated.*"], harness: ["tools/**", "**/*_test.go"] },
+    inherited: { names: ["HOME", "PATH"], prefixes: ["LC_"] },
     roles: Object.fromEntries(environmentRoles.map((role) => [role, roles[role] ?? []])),
   };
 }
@@ -91,3 +92,14 @@ test("product configuration and partial names are not harness names", (t) => {
   assert.deepEqual(result.findings, []);
   assert.equal(result.summary.harness_names, 0);
 });
+
+test("the registry's shape is closed and inherited names are not harness names", (t) => {
+  const write = (registryValue) => fixture(t, { "tools/harness_environment_registry.json": JSON.stringify(registryValue) }).root;
+  const valid = { ...registry(), inherited: { names: ["HOME", "PATH"], prefixes: ["LC_"] } };
+  assert.doesNotThrow(() => readEnvironmentRegistry(write(valid)));
+  assert.throws(() => readEnvironmentRegistry(write({ ...valid, extra: true })), /exactly schema_id, scopes, inherited and roles/u);
+  assert.throws(() => readEnvironmentRegistry(write({ ...valid, inherited: { names: ["PATH", "HOME"], prefixes: [] } })), /inherited\.names must be ASCII-sorted/u);
+  assert.throws(() => readEnvironmentRegistry(write({ ...valid, inherited: { names: [name("RUN_ID")], prefixes: [] } })), /not a valid name/u);
+  assert.throws(() => readEnvironmentRegistry(write({ ...valid, inherited: { names: [], prefixes: ["LC"] } })), /not a valid name/u);
+});
+

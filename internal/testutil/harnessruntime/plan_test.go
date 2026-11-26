@@ -60,7 +60,8 @@ func fixturePlan(t *testing.T, units ...*harnessplan.Unit) *harnessplan.Plan {
 			DeclaredInputs: map[string]string{}, SourceCommit: strings.Repeat("a", 40), SourceState: "clean", SourceDigest: sourceDigest, ToolchainDigest: d,
 			SystemDigest: snapshot.SnapshotDigest, CapabilitySnapshot: snapshot, GoWorkerBudget: 2, GraphDigest: graph.Digest, CacheMode: "off",
 			StartedAt: "2026-10-11T00:00:00Z", Instrumentation: harnessplan.Instrumentation{Mode: "off", PolicyDigest: policyDigest}},
-		InputEnvironment:           harnessplan.InputEnvironment{Clear: []string{"CARTULARY_MAKE_INPUT_SOURCES"}, Forward: map[string]string{}},
+		InputEnvironment: harnessplan.InputEnvironment{Inherit: []string{"HOME", "PATH", "TMPDIR"}, InheritPrefixes: []string{"LC_"},
+			Clear: []string{"CARTULARY_MAKE_INPUT_SOURCES"}, Forward: map[string]string{}},
 		BrowserLaneLimit:           4,
 		HostProfile:                harnessplan.HostProfile{Platform: "linux", Architecture: "amd64", KernelRelease: "fixture", CPUModels: []string{"fixture"}},
 		InstrumentationPolicyBytes: string(policyBytes),
@@ -90,18 +91,28 @@ func adoptFixture(t *testing.T, source *harnessplan.Plan) *Plan {
 func TestRuntimeUnitInputEnvironment(t *testing.T) {
 	source := fixturePlan(t)
 	source.InputEnvironment = harnessplan.InputEnvironment{
-		Clear:   []string{"CARTULARY_MAKE_INPUT_SOURCES", "FUTURE_SELECTOR", "RUNTIME_VALUE", "SUITE"},
-		Forward: map[string]string{"RUNTIME_VALUE": "admitted"},
+		Inherit:         []string{"CARTULARY_MAKE_INPUT_SOURCES", "HOME", "PATH", "SUITE"},
+		InheritPrefixes: []string{"LC_"},
+		Clear:           []string{"CARTULARY_MAKE_INPUT_SOURCES", "FUTURE_SELECTOR", "RUNTIME_VALUE", "SUITE"},
+		Forward:         map[string]string{"RUNTIME_VALUE": "admitted"},
 	}
 	plan := adoptFixture(t, source)
-	parent := map[string]string{"CARTULARY_MAKE_INPUT_SOURCES": "SUITE=cli", "SUITE": "runtime", "FUTURE_SELECTOR": "selected", "RUNTIME_VALUE": "unvalidated", "PATH": "/owned/path"}
+	parent := map[string]string{"CARTULARY_MAKE_INPUT_SOURCES": "SUITE=cli", "SUITE": "runtime", "FUTURE_SELECTOR": "selected", "RUNTIME_VALUE": "unvalidated", "PATH": "/owned/path",
+		"HOME": "/home/operator", "LC_ALL": "C.UTF-8", "AGENT_TOKEN": "operator secret", "GOFLAGS": "-mod=mod", "CGO_ENABLED": "0"}
 	child := plan.unitEnvironment(parent)
 	for _, name := range []string{"CARTULARY_MAKE_INPUT_SOURCES", "SUITE", "FUTURE_SELECTOR"} {
 		if _, exists := child[name]; exists {
 			t.Fatalf("public control %s escaped", name)
 		}
 	}
-	if child["RUNTIME_VALUE"] != "admitted" || child["PATH"] != "/owned/path" || parent["SUITE"] != "runtime" || parent["RUNTIME_VALUE"] != "unvalidated" {
-		t.Fatal("runtime forwarding or parent preservation failed")
+	// Default-deny: undeclared names stay with the operator.
+	for _, name := range []string{"AGENT_TOKEN", "GOFLAGS", "CGO_ENABLED"} {
+		if _, exists := child[name]; exists {
+			t.Fatalf("undeclared %s reached the unit", name)
+		}
+	}
+	if child["RUNTIME_VALUE"] != "admitted" || child["PATH"] != "/owned/path" || child["HOME"] != "/home/operator" || child["LC_ALL"] != "C.UTF-8" ||
+		parent["SUITE"] != "runtime" || parent["RUNTIME_VALUE"] != "unvalidated" {
+		t.Fatal("runtime forwarding, inheritance or parent preservation failed")
 	}
 }

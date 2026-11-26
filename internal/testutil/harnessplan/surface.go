@@ -12,9 +12,15 @@ import (
 // TaskSurface is the planning part of the authored task surface: the public
 // commands, their input contracts and selection bindings.
 type TaskSurface struct {
+	GlobalInputs  []GlobalInput         `json:"global_inputs"`
 	Targets       []SurfaceTarget       `json:"targets"`
 	MakeRecipes   map[string]MakeRecipe `json:"make_recipes"`
 	HarnessChecks []HarnessCheck        `json:"harness_checks"`
+}
+
+// GlobalInput is an input every target accepts, such as a machine path.
+type GlobalInput struct {
+	Name string `json:"name"`
 }
 
 // HarnessCheck is a private harness check; a gate smoke role marks the checks

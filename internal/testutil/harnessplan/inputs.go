@@ -47,6 +47,8 @@ type Inputs struct {
 	GoModules GoModules
 	// Estimates are the observed work estimates (TH-HARNESS-REQ-865).
 	Estimates Estimates
+	// Environment is the declared harness environment.
+	Environment EnvironmentRegistry
 	// MigrationDigest identifies the migrated PostgreSQL template every
 	// populated fixture snapshot is built from. It is the digest the harness
 	// and services binaries embed and verify, not one read under root.
@@ -99,6 +101,9 @@ func Load(root string) (*Inputs, error) {
 		return nil, err
 	}
 	if err := readDocument(root, fixtureBuilderPath, "cartulary.performance_fixture_builder_policy.v2", &inputs.Fixtures); err != nil {
+		return nil, err
+	}
+	if err := readDocument(root, environmentPath, "cartulary.harness_environment_registry.v1", &inputs.Environment); err != nil {
 		return nil, err
 	}
 	if err := readDocument(root, goModulesPath, "cartulary.go_modules.v1", &inputs.GoModules); err != nil {

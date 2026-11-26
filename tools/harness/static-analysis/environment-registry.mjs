@@ -61,12 +61,19 @@ function requireStringList(value, label, { sorted = false, pattern } = {}) {
 export function readEnvironmentRegistry(root) {
   const registry = JSON.parse(readFileSync(path.join(root, environmentRegistryPath), "utf8"));
   const keys = Object.keys(registry ?? {}).sort(asciiCompare);
-  if (JSON.stringify(keys) !== JSON.stringify(["roles", "schema_id", "scopes"])) throw new Error(`${environmentRegistryPath} must hold exactly schema_id, scopes and roles`);
+  if (JSON.stringify(keys) !== JSON.stringify(["inherited", "roles", "schema_id", "scopes"])) throw new Error(`${environmentRegistryPath} must hold exactly schema_id, scopes, inherited and roles`);
   if (registry.schema_id !== environmentRegistrySchemaID) throw new Error(`${environmentRegistryPath} schema_id must be ${environmentRegistrySchemaID}`);
   const scopeKeys = Object.keys(registry.scopes ?? {}).sort(asciiCompare);
   if (JSON.stringify(scopeKeys) !== JSON.stringify(["excluded", "harness"])) throw new Error(`${environmentRegistryPath} scopes must hold exactly excluded and harness`);
   requireStringList(registry.scopes.excluded, "scopes.excluded");
   requireStringList(registry.scopes.harness, "scopes.harness");
+  // inherited holds the process and tool names (and name prefixes) a unit may
+  // take from the environment its graph starts in; harness names belong in
+  // roles.
+  const inheritedKeys = Object.keys(registry.inherited ?? {}).sort(asciiCompare);
+  if (JSON.stringify(inheritedKeys) !== JSON.stringify(["names", "prefixes"])) throw new Error(`${environmentRegistryPath} inherited must hold exactly names and prefixes`);
+  requireStringList(registry.inherited.names, "inherited.names", { sorted: true, pattern: /^(?!CARTULARY_)[A-Za-z_][A-Za-z0-9_]*$/u });
+  requireStringList(registry.inherited.prefixes, "inherited.prefixes", { sorted: true, pattern: /^(?!CARTULARY_)[A-Za-z][A-Za-z0-9_]*_$/u });
   const roleKeys = Object.keys(registry.roles ?? {});
   if (JSON.stringify(roleKeys) !== JSON.stringify([...environmentRoles])) throw new Error(`${environmentRegistryPath} roles must be exactly ${environmentRoles.join(", ")} in that order`);
   for (const role of environmentRoles) requireStringList(registry.roles[role], `roles.${role}`, { sorted: true, pattern: exactName });

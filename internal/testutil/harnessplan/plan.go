@@ -99,11 +99,14 @@ type Instrumentation struct {
 	PolicyDigest string `json:"policy_digest"`
 }
 
-// InputEnvironment is how a unit's environment differs from the runtime's:
-// every cleared name is removed, then the forwarded values are set.
+// InputEnvironment is how a unit's environment derives from the runtime's:
+// only inherited names (exact or by prefix) are kept, every cleared name is
+// removed, then the forwarded values are set.
 type InputEnvironment struct {
-	Clear   []string          `json:"clear"`
-	Forward map[string]string `json:"forward"`
+	Inherit         []string          `json:"inherit"`
+	InheritPrefixes []string          `json:"inherit_prefixes"`
+	Clear           []string          `json:"clear"`
+	Forward         map[string]string `json:"forward"`
 }
 
 // HostProfile identifies the host the plan was prepared on.
@@ -259,6 +262,13 @@ func (p *Plan) validate() error {
 	}
 	if declared, ok := m.DeclaredInputs["BROWSER_LANES"]; ok && declared != strconv.Itoa(p.BrowserLaneLimit) {
 		return fail("declared BROWSER_LANES %s disagrees with the lane limit %d", declared, p.BrowserLaneLimit)
+	}
+	inherited := p.InputEnvironment.Inherit
+	if !strictlySorted(inherited) || !slices.Contains(inherited, "PATH") || slices.ContainsFunc(inherited, func(name string) bool { return !validEnvironmentName(name) }) {
+		return fail("input environment must inherit a sorted set of valid names including PATH")
+	}
+	if !strictlySorted(p.InputEnvironment.InheritPrefixes) || slices.ContainsFunc(p.InputEnvironment.InheritPrefixes, func(prefix string) bool { return !strings.HasSuffix(prefix, "_") || !validEnvironmentName(prefix) }) {
+		return fail("input environment prefixes must be sorted valid names ending in _")
 	}
 	cleared := p.InputEnvironment.Clear
 	if !strictlySorted(cleared) || !slices.Contains(cleared, makeInputSources) {

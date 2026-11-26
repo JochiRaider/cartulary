@@ -33,7 +33,7 @@ func TestPlanAssembly(t *testing.T) {
 		return Invocation{
 			RunID: "plan-test", CommandID: "cartulary.harness.command.go_vulncheck.v1", Target: "go-vulncheck",
 			DeclaredInputs:   map[string]string{"BROWSER_LANES": "4"},
-			InputEnvironment: InputEnvironment{Clear: []string{"BROWSER_LANES", makeInputSources}, Forward: map[string]string{}},
+			InputEnvironment: InputEnvironment{Inherit: []string{"HOME", "PATH"}, InheritPrefixes: []string{"LC_"}, Clear: []string{"BROWSER_LANES", makeInputSources}, Forward: map[string]string{}},
 			BrowserLaneLimit: 4, Snapshot: snapshot, GoWorkerBudget: 8,
 			SourceInputs: []SourceInput{
 				{Path: "go.mod", Kind: "file", Mode: "0644", ByteDigest: "sha256:" + digest("go.mod")},
