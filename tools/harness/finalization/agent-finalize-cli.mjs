@@ -28,6 +28,7 @@ import { createValidatedContext } from "../test-catalog/index.mjs";
 import { validateSourceShapes } from "../generated-artifacts/index.mjs";
 import { normalizeOutputMode } from "../output/index.mjs";
 import { operationDefinition, operationExecutionDigest, readOperationOwner } from "../execution/operations.mjs";
+import { inputSourcesEnvironment, runContextEnvironment } from "../contract/run-context.mjs";
 
 const schemaID = "cartulary.agent_finalize_summary.v4";
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -387,7 +388,7 @@ async function runOperationSubstep(definition, substep) {
   const operation = operationDefinition(readOperationOwner(repoRoot), operationID);
   const childEnv = {
     ...process.env,
-    CARTULARY_OPERATION_DIGEST: operationExecutionDigest(operation),
+    ...runContextEnvironment({ operationDigest: operationExecutionDigest(operation) }),
     ...(definition.env ?? {}),
     CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
   };
@@ -411,7 +412,7 @@ async function runOperationSubstep(definition, substep) {
   // artifacts can be collected into one finalization result. Complete the
   // prepared identity with the child target instead of leaving a partial
   // parent tuple for the public Make preflight.
-  childEnv.CARTULARY_TEST_TARGET = definition.target;
+  Object.assign(childEnv, runContextEnvironment({ target: definition.target }));
   Object.assign(childEnv, definition.makeVars ?? {});
   const result = await captureFinalizationSubstep({
     command: process.execPath,
@@ -453,7 +454,7 @@ function removeMakeInputSources(env, removedNames) {
     .filter(Boolean)
     .filter((token) => !removed.has(token.split("=", 1)[0]));
   if (tokens.length > 0) {
-    env.CARTULARY_MAKE_INPUT_SOURCES = tokens.join(" ");
+    Object.assign(env, inputSourcesEnvironment(tokens));
   } else {
     delete env.CARTULARY_MAKE_INPUT_SOURCES;
   }

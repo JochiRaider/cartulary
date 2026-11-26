@@ -18,6 +18,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
+	"github.com/JochiRaider/cartulary/internal/testutil/runcontext"
 )
 
 func (p ProductionOptions) browserOperation(ctx context.Context, operation string, args []string, environment map[string]string) (map[string]any, error) {
@@ -131,9 +132,10 @@ func (b *browserProvider) Acquire(ctx context.Context, request Request) (allocat
 		return errors.Join(harnesssession.RemoveOwnedTree(directory, root), directory.Close())
 	}
 	environment := serviceEnvironment(p.environment(), suite.Environment)
-	for key, value := range map[string]string{"CARTULARY_WORK_UNIT_ID": request.UnitID, "CARTULARY_BROWSER_STAGE": request.BrowserStage, "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": profile, "CARTULARY_BROWSER_SERVICE_REQUIREMENT": "test-services", "CARTULARY_BROWSER_SESSION_GROUP": session, "CARTULARY_WEB_E2E_PRIVATE_SESSION_ROOT": root, "CARTULARY_HARNESS_ALLOCATION_REF": request.AllocationRef} {
+	for key, value := range map[string]string{"CARTULARY_BROWSER_STAGE": request.BrowserStage, "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": profile, "CARTULARY_BROWSER_SERVICE_REQUIREMENT": "test-services", "CARTULARY_BROWSER_SESSION_GROUP": session, "CARTULARY_WEB_E2E_PRIVATE_SESSION_ROOT": root, "CARTULARY_HARNESS_ALLOCATION_REF": request.AllocationRef} {
 		environment[key] = value
 	}
+	runcontext.Context{WorkUnit: request.UnitID}.Apply(environment)
 	// The creating cohort runs against the allocation's first server generation;
 	// its retained log is labelled with that cohort (TH-HARNESS-REQ-861).
 	if request.Preparation != nil && request.Preparation.Label != "" {
@@ -261,8 +263,7 @@ func (b *browserProvider) Acquire(ctx context.Context, request Request) (allocat
 			for _, key := range []string{"OWNER", "ROWS", "SERVICE_BACKED_ONLY", "CARTULARY_MAKE_INPUT_SOURCES"} {
 				current[key] = ""
 			}
-			current["CARTULARY_WORK_UNIT_ID"] = consumer.UnitID
-			current["CARTULARY_TEST_TARGET"] = preparation.Target
+			runcontext.Context{WorkUnit: consumer.UnitID, Target: preparation.Target}.Apply(current)
 			current["CARTULARY_BROWSER_RESET_DRAIN_TIMEOUT_MS"] = preparation.DrainTimeout
 			_, err = p.browserOperation(step, "reset", []string{preparation.Label}, current)
 			if step.Err() != nil {

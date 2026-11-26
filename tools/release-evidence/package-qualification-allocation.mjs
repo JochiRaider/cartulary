@@ -6,6 +6,7 @@ import { runPrivateCapturedProcess } from "../harness/runtime/private-child-proc
 import { lifecyclePolicy } from "../harness/contract/generated/lifecycle-policy.mjs";
 import { CommandFailure } from "../harness/runtime/command-failure.mjs";
 import { packageDeploymentDocker, packageDeploymentIdentity, packageDeploymentQuery } from "./package-deployment.mjs";
+import { runContextEnvironment } from "../harness/contract/run-context.mjs";
 
 function failed(step, cause) {
  return Object.assign(new CommandFailure("package qualification allocation cleanup failed", {
@@ -44,7 +45,7 @@ export function reservePackageDeployment({ runtime, repoRoot, runRoot, helperIma
   record(candidate);
  }
  privateDirectory(workspace);
- const env = { ...environment, ...runtime.producerEnvironment(), CARTULARY_HARNESS_PHYSICAL_OUTPUT_ROOT: runRoot };
+ const env = { ...environment, ...runtime.producerEnvironment(), ...runContextEnvironment({ physicalOutputRoot: runRoot }) };
  async function retire(id) {
   const candidate = active.get(id);
   if (!candidate) return;

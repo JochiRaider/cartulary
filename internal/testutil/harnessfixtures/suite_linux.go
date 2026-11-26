@@ -18,6 +18,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
+	"github.com/JochiRaider/cartulary/internal/testutil/runcontext"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices/startupproof"
 	"golang.org/x/sys/unix"
@@ -113,7 +114,7 @@ func (p ProductionOptions) command() Command {
 	return func(ctx context.Context, command string, args []string, environment map[string]string) (CommandResult, error) {
 		if token, _ := ctx.Value(activityKey{}).(string); token != "" {
 			environment = maps.Clone(environment)
-			environment["CARTULARY_HOST_ADMISSION_LEASE"] = token
+			runcontext.Context{AdmissionLease: token}.Apply(environment)
 		}
 		return run(ctx, command, args, environment)
 	}
@@ -124,9 +125,7 @@ func (p ProductionOptions) environment() map[string]string {
 		v = map[string]string{}
 	}
 	maps.Copy(v, p.Runtime.Environment())
-	v["CARTULARY_TEST_RESULTS_DIR"] = filepath.Dir(p.RunRoot)
-	v["CARTULARY_TEST_RUN_ID"] = p.Runtime.RunID
-	v["CARTULARY_TEST_TARGET"] = p.Target
+	runcontext.Context{ResultsDir: filepath.Dir(p.RunRoot), RunID: p.Runtime.RunID, Target: p.Target}.Apply(v)
 	v["CARTULARY_HARNESS_RESOURCE_DEPENDENCIES"] = resourceDependencies(p.Dependencies)
 	return v
 }
@@ -261,7 +260,7 @@ func (p ProductionOptions) StartSuite(ctx context.Context) (suite *Suite, result
 	maps.Copy(environment, suiteservices.Attachment{SuiteID: strings.ReplaceAll(identifier(), "-", "")[:24]}.Environment())
 	delete(environment, "CARTULARY_HARNESS_COMMAND_FAILURE_CONTEXT")
 	if p.ServiceDependencies != nil {
-		environment["CARTULARY_HARNESS_SERVICE_DEPENDENCIES"] = strings.Join(p.ServiceDependencies, ",")
+		maps.Copy(environment, runcontext.Services(p.ServiceDependencies))
 	}
 	environment[suiteservices.PGIsolationEnv] = p.PostgresIsolation
 	environment[suiteservices.PGAllocationRefEnv] = p.PostgresAllocation

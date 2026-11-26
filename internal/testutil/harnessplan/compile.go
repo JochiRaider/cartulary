@@ -9,6 +9,8 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/JochiRaider/cartulary/internal/testutil/runcontext"
 )
 
 // ErrSelection reports a selection the planner cannot compile.
@@ -414,11 +416,9 @@ func (c *compiler) operation(id string, stack []string) (string, error) {
 		CachePolicy: policy.CachePolicy, TimeoutMS: timeout, ArtifactOutputs: policy.ReusableArtifactOutputs,
 		EvidenceOutputs: slices.Clone(policy.EvidenceOutputs), FailurePolicy: FailurePolicy{BlockDescendants: true},
 		EstimatedWorkMS: c.in.operationEstimate(id),
-		Command: Command{Executable: "node", Args: []string{"tools/harness/execution/operation-runner-cli.mjs", id}, Environment: map[string]string{
-			"CARTULARY_TEST_TARGET":                  operation.ReportKey,
-			"CARTULARY_OPERATION_DIGEST":             "sha256:" + digest(operation.Execution),
-			"CARTULARY_HARNESS_SERVICE_DEPENDENCIES": strings.Join(policy.ServiceDependencies, ","),
-		}},
+		Command: Command{Executable: "node", Args: []string{"tools/harness/execution/operation-runner-cli.mjs", id}, Environment: runcontext.Context{
+			Target: operation.ReportKey, OperationDigest: "sha256:" + digest(operation.Execution),
+		}.Apply(runcontext.Services(policy.ServiceDependencies))},
 	}
 	if cluster != "" {
 		unit.Command.Environment[clusterKeyEnvironment] = cluster
@@ -734,7 +734,7 @@ func (c *compiler) runnerUnit(id string, stack []string) (string, error) {
 		maps.Copy(environment, c.goEnvironment(contract.Race))
 		environment["GOMAXPROCS"] = strconv.FormatInt(contract.CPUTokens, 10)
 	case RunnerVitest:
-		environment["CARTULARY_TEST_TARGET"] = "frontend-unit"
+		runcontext.Context{Target: "frontend-unit"}.Apply(environment)
 		environment["VITEST_MAX_WORKERS"] = "1"
 	}
 	owner := "harness.command_surface"
@@ -816,10 +816,8 @@ func (c *compiler) goCommand(contract contract, rows []*Row, cpu int64, environm
 }
 
 func fixtureEnvironment(capability string, services []string) map[string]string {
-	environment := map[string]string{
-		"CARTULARY_FIXTURE_CAPABILITY":           capability,
-		"CARTULARY_HARNESS_SERVICE_DEPENDENCIES": strings.Join(services, ","),
-	}
+	environment := runcontext.Services(services)
+	environment["CARTULARY_FIXTURE_CAPABILITY"] = capability
 	switch capability {
 	case "postgres_transaction":
 		environment["CARTULARY_POSTGRES_FIXTURE_POLICY_DEFAULT"] = "transaction"

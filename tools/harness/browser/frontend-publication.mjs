@@ -4,6 +4,7 @@ import { spawn } from "../workspace/child-process.mjs";
 import { parseStrictJSON, redactString } from "../contract/index.mjs";
 import { ownedProcess, stopOwnedProcess } from "../runtime/owned-process.mjs";
 import { borrowRuntime } from "../runtime/session-client.mjs";
+import { runContextEnvironment } from "../contract/run-context.mjs";
 
 const repository = path.resolve(import.meta.dirname, "../../..");
 const retainedInputs = new Set(["CARTULARY_HOST_ADMISSION_LEASE", "CARTULARY_UNIT_CPU_TOKENS", "CARTULARY_HARNESS_CACHE_MODE"]);
@@ -25,8 +26,7 @@ export function startFrontendPublication(measurement, { environment = process.en
   const results = path.join(parentRoot, "frontend-publications");
   const child = spawn("make", ["build", measurement ? "COMPONENT=web-measurement" : "COMPONENT=web"], {
     cwd: repository, detached: true, stdio: ["ignore", "pipe", "pipe"],
-    env: { ...frontendPublicationEnvironment(environment), CARTULARY_TEST_RUN_ID: runID,
-      CARTULARY_TEST_RESULTS_DIR: results, CARTULARY_OUTPUT_MODE: "ci",
+    env: { ...frontendPublicationEnvironment(environment), ...runContextEnvironment({ runID, resultsDir: results }), CARTULARY_OUTPUT_MODE: "ci",
       CARTULARY_HARNESS_CACHE_MODE: environment.CARTULARY_HARNESS_CACHE_MODE || "normal" },
   });
   let output = "", outputBytes = 0, outputTruncated = false;

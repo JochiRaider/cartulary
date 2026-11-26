@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"maps"
 	"time"
+
+	"github.com/JochiRaider/cartulary/internal/testutil/runcontext"
 )
 
 func (e *graphEngine) send(m engineMessage) error {
@@ -144,7 +146,7 @@ func (e *graphEngine) work(u unit, c cacheResult, granted *hostLease) {
 	}
 	environment := map[string]string{}
 	if host != nil {
-		environment["CARTULARY_HOST_ADMISSION_LEASE"] = host.Token
+		runcontext.Context{AdmissionLease: host.Token}.Apply(environment)
 	}
 	if lease != nil {
 		maps.Copy(environment, lease.Environment)

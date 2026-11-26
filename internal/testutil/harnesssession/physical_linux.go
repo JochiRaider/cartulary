@@ -10,12 +10,12 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessadmission"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
 	"github.com/JochiRaider/cartulary/internal/testutil/objectstoreproxy"
+	"github.com/JochiRaider/cartulary/internal/testutil/runcontext"
 	"golang.org/x/sys/unix"
 	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"slices"
 	"syscall"
 	"time"
 )
@@ -77,12 +77,8 @@ func (runtime *Runtime) stopResource(ctx context.Context, root, runRoot string, 
 	cmd.Dir = root
 	env := maps.Clone(environment)
 	maps.Copy(env, runtime.Environment())
-	env["CARTULARY_TEST_RESULTS_DIR"] = filepath.Dir(runRoot)
-	env["CARTULARY_HARNESS_PHYSICAL_OUTPUT_ROOT"] = runRoot
-	env["CARTULARY_TEST_RUN_ID"] = runtime.RunID
-	for _, k := range slices.Sorted(maps.Keys(env)) {
-		cmd.Env = append(cmd.Env, k+"="+env[k])
-	}
+	runcontext.Context{ResultsDir: filepath.Dir(runRoot), PhysicalOutputRoot: runRoot, RunID: runtime.RunID}.Apply(env)
+	cmd.Env = runcontext.Entries(env)
 	cmd.Stdin = bytes.NewReader(data)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true, Pdeathsig: syscall.SIGKILL}
 	cmd.WaitDelay = time.Second

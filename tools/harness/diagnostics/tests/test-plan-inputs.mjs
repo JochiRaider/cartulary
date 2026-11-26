@@ -36,17 +36,24 @@ test("planning validates exact declared input files through the execution resolv
   }
   symlinkSync(file, path.join(scratch, "linked.json"));
   assert.throws(() => readPlanInputs(root, path.join(scratch, "linked.json")));
-  const ports = { plan: unreachable, surface: loadExecutionTopology({ root }).taskSurface, catalog: loadTestCatalog(root) };
+  const catalog = loadTestCatalog(root);
+  const ports = { plan: unreachable, surface: loadExecutionTopology({ root }).taskSurface, catalog };
   for (const invalid of [{ ARGS: "--unsafe" }, { COMPONENT: "unknown" }, { COMPONENT: 1 }]) {
     assert.throws(() => buildTargetPlan(root, "build", invalid, ports), /must (?:not )?be|not declared/u);
   }
-  const guide = buildOwnerTaskGuide(root, "harness.command_surface", { plan: unreachable });
+  // Explicit-only rows that no explicit command binds are listed by no command.
+  const guide = buildOwnerTaskGuide(root, "harness.command_surface", { plan: () => ({ graph: { units: [] } }) });
   validateSchemaSync(guide.schema_id, guide);
   assert.equal(guide.rows.length, guide.coverage.row_count);
   assert.ok(guide.rows.some((row) => row.row_id.endsWith("scheduler_smoke") && row.aggregate_placement === "fast"));
   assert.ok(guide.rows.some((row) => row.row_id.endsWith("native_runtime") && row.aggregate_placement === "full"));
   assert.deepEqual(guide.explicit_commands, []);
   assert.equal(Object.hasOwn(guide, "role"), false);
+  // An owner without explicit-only rows never plans an explicit command.
+  const explicitOwners = new Set(catalog.rows.filter((row) => row.aggregate_placement === "explicit_only").map((row) => row.owner_id));
+  const explicitFree = catalog.rows.map((row) => row.owner_id).find((owner) => !explicitOwners.has(owner));
+  assert.ok(explicitFree, "the catalog has an owner without explicit-only rows");
+  assert.deepEqual(buildOwnerTaskGuide(root, explicitFree, { plan: unreachable }).explicit_commands, []);
 });
 
 test("task guides name the explicit commands whose plans bind the owner's explicit-only rows", () => {

@@ -5,6 +5,7 @@ import path from "node:path";
 import test from "node:test";
 
 import { childEnvironment } from "../../runtime/child-environment.mjs";
+import { inputSourcesEnvironment, runContextEnvironment } from "../../contract/run-context.mjs";
 import { environmentRoles, globPattern, inspectEnvironmentRegistry, readEnvironmentRegistry, unitFixtureMarker } from "../environment-registry.mjs";
 
 // Names are assembled so this file mentions no registry name itself.
@@ -215,4 +216,14 @@ test("a Go constant for an owned name stands for it wherever it is written", (t)
     paths,
   });
   assert.deepEqual(result.findings, [1, 2, 3].map((line) => `tools/consumer.go:${line} writes ${suite}, which suite_services owns; call its function or forward the name`));
+});
+
+test("the run context writes only set fields; input sources always write", () => {
+  assert.deepEqual(runContextEnvironment({ resultsDir: "/results", runID: "run", target: "check", workUnit: "", admissionLease: undefined, operationDigest: null }), {
+    [name("TEST_RESULTS_DIR")]: "/results", [name("TEST_RUN_ID")]: "run", [name("TEST_TARGET")]: "check",
+  });
+  assert.deepEqual(runContextEnvironment({}), {});
+  assert.throws(() => runContextEnvironment({ runId: "typo" }), /unknown run context fields: runId/u);
+  assert.deepEqual(inputSourcesEnvironment([]), { [name("MAKE_INPUT_SOURCES")]: "" });
+  assert.deepEqual(inputSourcesEnvironment(["OWNER=cli", "ROWS=cli"]), { [name("MAKE_INPUT_SOURCES")]: "OWNER=cli ROWS=cli" });
 });

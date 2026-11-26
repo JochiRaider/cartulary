@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessdiag"
+	"github.com/JochiRaider/cartulary/internal/testutil/runcontext"
 )
 
 func childExit(err error) int {
@@ -86,7 +87,7 @@ func scoped(args []string, stdout, stderr io.Writer) int {
 	}
 	cmd := exec.Command(args[2], args[3:]...)
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, stdout, stderr
-	cmd.Env = append(os.Environ(), "CARTULARY_HARNESS_INVOCATION_ROOT="+invocation)
+	cmd.Env = append(os.Environ(), runcontext.Entries(runcontext.Context{InvocationRoot: invocation}.Environment())...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true, UseCgroupFD: true, CgroupFD: int(g.commands.Fd())}
 	inheritAdmission(cmd)
 	setupDuration := time.Since(setup)
@@ -169,7 +170,7 @@ func Main(args []string, stdout, stderr io.Writer) int {
 		if err != nil {
 			return 2
 		}
-		if syscall.Exec(command, args[1:], append(os.Environ(), "CARTULARY_HARNESS_INVOCATION_ROOT="+invocation)) != nil {
+		if syscall.Exec(command, args[1:], append(os.Environ(), runcontext.Entries(runcontext.Context{InvocationRoot: invocation}.Environment())...)) != nil {
 			return 2
 		}
 	}

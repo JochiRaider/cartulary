@@ -42,6 +42,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices/startupproof"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/performancefixturelifecycle"
+	"github.com/JochiRaider/cartulary/internal/testutil/runcontext"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 	"github.com/JochiRaider/cartulary/internal/testutil/testcontainersx"
 )
@@ -1032,12 +1033,7 @@ func runTerminateSuite(args []string, env map[string]string, deps dependencies) 
 
 	leaseEnv := cloneEnv(env)
 	maps.Copy(leaseEnv, suiteservices.Attachment{SuiteID: lease.SuiteID, CallMode: "owned", LifecycleMode: "owned"}.Environment())
-	if lease.Target != "" {
-		leaseEnv[suiteservices.TargetEnv] = lease.Target
-	}
-	if lease.RunID != "" {
-		leaseEnv["CARTULARY_TEST_RUN_ID"] = lease.RunID
-	}
+	runcontext.Context{Target: lease.Target, RunID: lease.RunID}.Apply(leaseEnv)
 	// Ordinary retirement belongs to the lease's original output. Recovery is
 	// an explicit, once-claimed native binding, never an ambient environment hint.
 	output := lease.RunRoot
@@ -1056,8 +1052,7 @@ func runTerminateSuite(args []string, env map[string]string, deps dependencies) 
 		}
 		output = recoveryOutput
 	}
-	leaseEnv["CARTULARY_TEST_RESULTS_DIR"] = filepath.Dir(output)
-	leaseEnv["CARTULARY_HARNESS_PHYSICAL_OUTPUT_ROOT"] = output
+	runcontext.Context{ResultsDir: filepath.Dir(output), PhysicalOutputRoot: output}.Apply(leaseEnv)
 
 	status := 0
 	emitCleanupTerminal, err := beginCleanupLifecycleIfNeeded(leaseEnv)

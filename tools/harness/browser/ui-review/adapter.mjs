@@ -17,6 +17,7 @@ import { ArtifactStore } from "./artifact-store.mjs";
 import { limits, emptyCounts, ReviewFailure, failureRecord, parseRequest } from "./contract.mjs";
 import { preparationFailure } from "./failure.mjs";
 import { repoRoot } from "./policy.mjs";
+import { runContextEnvironment } from "../../contract/run-context.mjs";
 
 export class ReviewAdapter {
   constructor(identity) { this.identity = identity; this.abort = new AbortController(); this.parentLease = inheritedHostLease(); }
@@ -94,7 +95,7 @@ export class ReviewAdapter {
   async call(operation, payload) {
     switch (operation) {
       case "initialize": return { facts: await this.initialize(payload) };
-      case "build-web": case "embedded-web-assets": case "build-server-harness": case "build-migrate": case "testservices-build": case "test-service-images": case "playwright-install": this.parentLease = payload.admission_token; this.environment.CARTULARY_HOST_ADMISSION_LEASE = this.parentLease; await buildReviewProducer({ target: operation, root: repoRoot, recipe: this.environment, input: this.input, runtime: this.runtime, signal: this.abort.signal }); return { facts: this.facts() };
+      case "build-web": case "embedded-web-assets": case "build-server-harness": case "build-migrate": case "testservices-build": case "test-service-images": case "playwright-install": this.parentLease = payload.admission_token; Object.assign(this.environment, runContextEnvironment({ admissionLease: this.parentLease })); await buildReviewProducer({ target: operation, root: repoRoot, recipe: this.environment, input: this.input, runtime: this.runtime, signal: this.abort.signal }); return { facts: this.facts() };
       case "seed": this.seeded = await seedReview({ root: repoRoot, runRoot: this.preparationRoot, runtime: this.runtime, recipe: payload.environment, input: this.input, sourceDigest: this.sourceDigest, signal: this.abort.signal }); return { facts: this.facts() };
       case "prepare_browser": await this.prepareBrowser(payload); return {};
       case "validate": this.validate(payload.command, payload.request); return {};

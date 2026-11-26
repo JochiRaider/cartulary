@@ -5,6 +5,7 @@ import { parseStrictJSON, readRetainedArtifactBytes, resolveRetainedArtifactIden
 import { atomicLocalFile } from "../runtime/secure-local-files.mjs";
 import { buildSourceSnapshot, loadTestCatalog } from "../test-catalog/index.mjs";
 import { auditOwnerEvidence } from "./owner-evidence-audit.mjs";
+import { inputSourcesEnvironment } from "../contract/run-context.mjs";
 
 const root = path.resolve(import.meta.dirname, "../../..");
 const usage = () => Object.assign(new Error("usage: canonical-evidence-audit-cli.mjs --owner <owner-id> --evidence-roots-file <path>"), { exit_code: 2 });
@@ -36,7 +37,7 @@ try {
     EVIDENCE_ROOTS_FILE: options.manifest,
     // The dispatcher deliberately removes Make inputs after translating them
     // to argv. These two values were explicitly supplied to this CLI.
-    CARTULARY_MAKE_INPUT_SOURCES: "OWNER=cli EVIDENCE_ROOTS_FILE=cli",
+    ...inputSourcesEnvironment(["OWNER=cli", "EVIDENCE_ROOTS_FILE=cli"]),
   });
   output = path.join(identity.run_root, "test-evidence-audit/audit.json");
   const report = await auditOwnerEvidence({ manifest, manifestFile, owner: options.owner, catalog, surface, sourceDigest });

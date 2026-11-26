@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { resolveRetainedArtifactIdentity, secureMkdir } from "../harness/contract/index.mjs";
 import { atomicLocalFile } from "../harness/runtime/secure-local-files.mjs";
 import { releaseRoots } from "./verify-release-evidence.mjs";
+import { runContextEnvironment } from "../harness/contract/run-context.mjs";
 
 const repoRoot = path.resolve(import.meta.dirname, "../..");
 
@@ -54,8 +55,7 @@ function makeRunner(resultsDir, logRoot) {
     const environment = Object.fromEntries(Object.entries(process.env).filter(([name]) =>
       !/^(?:MAKEFLAGS|MFLAGS|GNUMAKEFLAGS|MAKEOVERRIDES|MAKELEVEL)$/u.test(name) &&
       !/^CARTULARY_(?:TEST|HARNESS|MAKE)_/u.test(name) && !Object.values(stageInputs).includes(name) && name !== "RELEASE_RESULTS_DIR"));
-    environment.CARTULARY_TEST_RUN_ID = runID;
-    environment.CARTULARY_TEST_RESULTS_DIR = resultsDir;
+    Object.assign(environment, runContextEnvironment({ runID, resultsDir }));
     const log = openSync(path.join(logRoot, `${target}.log`), "wx", 0o600);
     try {
       const result = spawnSync(process.env.MAKE || "make", ["--no-print-directory", target, ...Object.entries(inputs).map(([name, value]) => `${name}=${value}`)],

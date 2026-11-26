@@ -125,7 +125,7 @@ eleven `ci` runs of the release attempts (Section 13.1). Single runs vary by abo
 | G42 | Build-artifact cache keys held per-run locations (each graph run's Go temporary directory, the per-run web source path), so every graph run missed and re-linked shared binaries | Machine inputs, specification | Phase 4, P4-6 | Done: locations leave the keyed command and input directories are keyed by content; proven on a segment (13.15) |
 | G43 | Test rows launch nested graphs and real `make` runs that rebuild shared repository outputs under the Go test's toolchain environment while the outer run uses them; their failures are cut to the first 4 KiB and reclassified as product assertions | Tests, harness, specification | Phase 5 | Open: P5-0 fenced the Go-hosted nested graphs (14.5); P5-2 remains |
 | G44 | Make and the planner both own ordering, freshness, environment and prerequisite skipping: 26 operations re-enter Make, 17 targets carry two recipes chosen by `GRAPH_CHILD`, five freshness mechanisms coexist, and graph-only Make edges run work twice | Machine inputs, implementation, specification | Phase 5 | Open: P5-0 removed the renderer double run (14.5); P5-1 made every test script a row and removed five duplicate operations (14.6); P5-3 remains |
-| G45 | Units inherit the graph process's whole environment (the shell's variables and up to 127 Make exports), minus hand-kept strip lists; harness code reads 478 `CARTULARY_*` names with no declaration, so leaks, stale names and typos fail silently | Machine inputs, implementation, specification | Phase 5, P5-4 | Open: P5-4a registered every harness name and enforces it (14.8); P5-4b made unit environments default-deny (14.9); P5-4c slices 1 to 3 made every outside launcher explicit (14.11 to 14.13); P5-4d slice 1 gave 14 names a single owner and enforces it (14.14); owners for the remaining invocation-context, fixture-binding and step-runtime names remain |
+| G45 | Units inherit the graph process's whole environment (the shell's variables and up to 127 Make exports), minus hand-kept strip lists; harness code reads 478 `CARTULARY_*` names with no declaration, so leaks, stale names and typos fail silently | Machine inputs, implementation, specification | Phase 5, P5-4 | Open: P5-4a registered every harness name and enforces it (14.8); P5-4b made unit environments default-deny (14.9); P5-4c slices 1 to 3 made every outside launcher explicit (14.11 to 14.13); P5-4d slices 1 and 2 gave 26 names a single owner and enforce it, including every invocation-context name (14.14, 14.15); owners for the remaining fixture-binding and step-runtime names remain |
 
 ## 5. Gap Remediation Detail
 
@@ -1357,6 +1357,7 @@ Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-am
 | 2026-11-26 | P5-4c slice 2 / G45 | Explicit child environments for UI-review preparation and the native review client | Direct preparation tests (52); segment `p60-review` (all eight UI-review rows, including both seeded rows); `p60-cs`, `p60-src`, `p60-lintscripts` | All pass. Five launcher files are now under the registry's `explicit_launchers` scope with no findings (14.12) |
 | 2026-11-26 | P5-4c slice 3 / G45 | Go test support starts product processes with `childenv.Build`; the check covers Go launchers | Segments `p61-cs`, `p61-app-server` (18 rows), `p61-module-recovery` (5 rows, including the restore browser rows), `p61-module-extensions`, `p61-module-networkflow`; `p61-lintgo2`, `p61-lintscripts`, `p61-src2` | All pass after removing a helper the change left unused (14.13) |
 | 2026-11-26 | P5-4d slice 1 / G45 | Registry `owners` and a write check; owners for the suite-runtime handle, suite attachment and runtime binary names; the review server's copied binary defaults removed | `p62b-generate`, `p62b-lintgo`; segments `p62b-cs`, `p62b-ea`, `p62b-hb-units`, `p62b-hb` (including the seeded default review), `p62b-browser`; `p62b-lintscripts`, `p62b-src` | All pass. The first generate found the new Go test uncataloged; it joined the `suiteservices` helper row (14.14) |
+| 2026-11-26 | P5-4d slice 2 / G45 | `run_context` owner (Node `run-context.mjs`, Go `runcontext`) for the invocation context and results root; owners for the runner script and failure context; 70 write sites converted; a stale guide assertion from P5-1 fixed | `p63-generate`, `p63-lintgo`; segments `p63-cs` (14 rows), `p63-ea` (7), `p63-rel` (3), `p63-hb-native` (15), `p63-hb`, `p63-rep`, `p63-browser`; reruns `p63r-tc`, `p63r-hb`; `p63-lintscripts`, `p63r-src` | All pass. `routing_contract` had failed since P5-1 on a stale assertion; `native_fixture_lifecycle` failed once on a tracked-file edit made during the run (14.15) |
 | 2026-11-25 | P4-4 / G39 | Wait audit: 31 whole-test hang guards derive from the test deadline (`testdeadline`) | `p44-port-*` (16 owner slices, every row holding a converted guard) | Pass. Committed `bdd8f4e1d` |
 
 ## 12. Phase 2 Plan — `check` Wall Clock
@@ -3124,3 +3125,70 @@ of 14.10.
   - 20 fixture bindings: the browser stack, PostgreSQL and object-store
     allocation, and service-binding leases;
   - the 14 step-runtime names.
+
+### 14.15 Single Writers: Invocation Context (P5-4d, slice 2)
+
+- **What the write sites showed.** The 11 invocation-context names had 70
+  write sites in Node and Go. Almost all were launchers giving a child command
+  its context, setting each name by hand:
+  - which run it is and where results go;
+  - which target and work unit it reports for;
+  - which admission lease it runs under;
+  - where its inputs came from.
+
+  Two names already had one writer: the runner script and the runtime's
+  failure context.
+- **Owner.** The new `run_context` owner holds the 10 context names plus the
+  results root, which every one of those sites set alongside the run ID.
+  - The Node writer is `tools/harness/contract/run-context.mjs`. The Go writer
+    is `internal/testutil/runcontext`, a package with no dependencies, so the
+    planner can use it without importing test support.
+  - `Context` writes only the fields that are set, because an empty identity
+    or lease is never meaningful.
+  - The service selection and input sources always write, because an empty
+    list means "none" rather than "inherit". The planner and managed suite
+    rely on that difference.
+  - The generated Make entry point keeps writing the names for top-level
+    commands. Its renderer is in the owner's paths.
+
+  The runner script and the failure context each get their existing writer as
+  owner (`runner_context`, `runtime_failure_scope`).
+- **What moved.** Every other writer now calls the owner:
+  - Go: the planner, runtime, fixtures, review driver, session, stress,
+    accounting and `testservices`;
+  - Node: the services session, browser acquisition, frontend publication,
+    review recipes and adapter, operation runner, runner CLI, finalizer,
+    evidence and release CLIs, and the renderer build.
+
+  Two false positives became simpler code:
+  - the contract's two-entry defaults object is now one constant;
+  - the tool-run summary records its settings from a list of names.
+- **Found by the segments.**
+  - The `routing_contract` row had been failing since P5-1. It runs only in
+    `ci`, so the P5-1 segments did not include it. P5-1 gave the command
+    surface 15 explicit-only rows, but a guide test still assumed the owner
+    had none and therefore planned nothing. The test now uses an
+    explicit-free owner from the catalog for that property.
+  - No explicit command binds those 15 rows, so they run only through
+    `test-slice`. Several of them are nested real-target runs, which are P5-2
+    material.
+  - `native_fixture_lifecycle` failed once because I edited a tracked file
+    while the segment ran. Its fixture compares the prepared frontend's source
+    digest with the tree's current digest. It passes on rerun.
+- **Validation.** The registry check has no findings. Every segment passes:
+  - 14 command-surface rows: the planner, native runtime, stress, scheduler,
+    registry parity, the release task surface, Node bootstrap, pinned tools,
+    three real-output cases and the registry and context rows;
+  - 7 evidence-accounting rows, including both invocation-accounting rows;
+  - 3 release rows;
+  - the routing contract;
+  - 15 native fixture, review and test-services rows;
+  - the browser review chain with the seeded review;
+  - the installed renderer row;
+  - the incidents browser row.
+
+  The renderer installation was reused, so the renderer build's changed line
+  did not run.
+- **Remaining.** By the same scan, 20 fixture bindings (the browser stack,
+  PostgreSQL and object-store allocation, and service-binding leases) and the
+  14 step-runtime names still have more than one writer.

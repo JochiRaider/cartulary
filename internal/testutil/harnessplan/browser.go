@@ -8,6 +8,8 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/JochiRaider/cartulary/internal/testutil/runcontext"
 )
 
 const (
@@ -260,11 +262,11 @@ func (c *compiler) browserUnit(id string, stack []string) (string, error) {
 		"CARTULARY_BROWSER_RESET_DRAIN_TIMEOUT_MS": strconv.FormatInt(reset["backend_drain_timeout_ms"], 10),
 		"CARTULARY_BROWSER_PREPARATION_TIMEOUT_MS": strconv.FormatInt(preparation, 10),
 		"CARTULARY_BROWSER_SERVICE_REQUIREMENT":    partition.ServiceRequirement,
-		"CARTULARY_HARNESS_SERVICE_DEPENDENCIES":   strings.Join(partition.ServiceDependencies, ","),
 		"CARTULARY_BROWSER_SESSION_CONTRACT":       partition.BrowserSessionGroup,
 		"CARTULARY_BROWSER_STACK_KEY":              cohort.stack,
-		"CARTULARY_TEST_TARGET":                    target,
 	}
+	maps.Copy(environment, runcontext.Services(partition.ServiceDependencies))
+	runcontext.Context{Target: target}.Apply(environment)
 	residents, cluster := c.browserResidents(cohort)
 	if cluster != "" {
 		environment[clusterKeyEnvironment] = cluster

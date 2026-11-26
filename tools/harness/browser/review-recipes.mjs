@@ -13,6 +13,7 @@ import { seedDesignReview } from "./design-review-seed.mjs";
 import { CommandFailure } from "../runtime/command-failure.mjs";
 import { ownedProcess } from "../runtime/owned-process.mjs";
 import { execFileSync } from "../workspace/child-process.mjs";
+import { runContextEnvironment } from "../contract/run-context.mjs";
 
 const preparationBuilds = Object.freeze([
   ["build-web", "frontend", "build_web"], ["embedded-web-assets", "embedded_assets", "build_server_harness"],
@@ -34,8 +35,8 @@ export function recipeEnvironment(root, runRoot, runtime, input, environment = p
   // Nothing else crosses from the parent: no inherited Go root, presentation
   // mode, public review input or harness context of an enclosing graph.
   const base = childEnvironment(environment, { pass: reviewForwarded(root), set: runtimeBinaryEnvironment(root, environment) });
-  Object.assign(base, { CARTULARY_HARNESS_RESOURCE_DEPENDENCIES: "[]", CARTULARY_PREPARATION_POLICY: input.preparation_policy, CARTULARY_TEST_RESULTS_DIR: path.dirname(runRoot), CARTULARY_TEST_RUN_ID: runtime.runID,
-    CARTULARY_TEST_TARGET: input.presentation === "design" ? "browser-design-review" : "ui-review", CARTULARY_HARNESS_IDENTITY_PREPARED: "1", ...runtimeHandleEnvironment(runtime),
+  Object.assign(base, { CARTULARY_HARNESS_RESOURCE_DEPENDENCIES: "[]", CARTULARY_PREPARATION_POLICY: input.preparation_policy, 
+    ...runContextEnvironment({ resultsDir: path.dirname(runRoot), runID: runtime.runID, target: input.presentation === "design" ? "browser-design-review" : "ui-review" }), CARTULARY_HARNESS_IDENTITY_PREPARED: "1", ...runtimeHandleEnvironment(runtime),
     NODE_RUNTIME_DIR: path.join(root, workspaceLayout.node_runtime), NODE_BIN: process.execPath, PNPM: path.join(root, workspaceLayout.node_runtime, "bin/pnpm"),
     CARTULARY_BROWSER_RUNTIME_PROFILE_ID: input.profile ?? "network_flow_claimed", CARTULARY_BROWSER_SERVICE_REQUIREMENT: "test-services",
     CARTULARY__NETWORK_FLOW_ACTIVITY__CLAIMED: "false", CARTULARY__ENTERPRISE_AUTHENTICATION__CLAIMED: "false" });
@@ -62,7 +63,7 @@ export async function buildReviewProducer({ target, root, recipe, input, runtime
   const operation = operationDefinition(readOperationOwner(root), operationID);
   const [, subject_id, recovery_id] = build;
     const context = { phase: "build", subject_id, condition: "child_failed", recovery_id };
-    await reviewChild({ root, command: process.execPath, args: ["tools/harness/execution/operation-runner-cli.mjs", operationID], environment: { ...recipe, CARTULARY_OPERATION_DIGEST: operationExecutionDigest(operation), CARTULARY_TEST_TARGET: target,
+    await reviewChild({ root, command: process.execPath, args: ["tools/harness/execution/operation-runner-cli.mjs", operationID], environment: { ...recipe, ...runContextEnvironment({ operationDigest: operationExecutionDigest(operation), target }),
       CARTULARY_HARNESS_GRAPH_CHILD: "1", CARTULARY_HARNESS_SKIP_PREREQUISITES: "1" }, signal, output: "ignore",
       context, onChildProcess: (pid) => processRegistration(runtime, pid, JSON.parse(recipe.CARTULARY_HARNESS_RESOURCE_DEPENDENCIES)) });
   if (input.preparation_policy === "installed_only" && target === "testservices-build") serviceImageReadiness(recipe, root);

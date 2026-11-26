@@ -16,6 +16,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessfixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
+	"github.com/JochiRaider/cartulary/internal/testutil/runcontext"
 )
 
 type reviewInput struct {
@@ -117,7 +118,7 @@ func (d *productionDriver) Prepare(ctx context.Context) (*int, error) {
 			}
 		}
 		environment := maps.Clone(reply.Facts.Environment)
-		environment["CARTULARY_HOST_ADMISSION_LEASE"] = d.admission.Token
+		runcontext.Context{AdmissionLease: d.admission.Token}.Apply(environment)
 		d.fixtures = harnessfixtures.NewProduction(harnessfixtures.ProductionOptions{BrowserLaneLimit: 1, Root: d.root, RunRoot: privateRoot, Target: "ui-review", Runtime: d.runtime, Environment: environment}, harnessfixtures.Options{})
 		acquire, cancel := d.producerContext(ctx)
 		request := harnessfixtures.Request{PostgresIsolation: "exclusive", Services: []string{"object_store", "postgres"}, Capability: "browser_stack", UnitID: "ui-review", Affinity: "design-review-" + *d.input.Profile, BrowserStage: "webserver-backed", RuntimeProfile: *d.input.Profile}
@@ -137,9 +138,8 @@ func (d *productionDriver) Prepare(ctx context.Context) (*int, error) {
 			return nil, preparationError(err, "service_acquisition", "browser_stack")
 		}
 		maps.Copy(environment, d.fixtureLease.Environment)
-		environment["CARTULARY_WORK_UNIT_ID"] = request.UnitID
 		environment["CARTULARY_BROWSER_RUNTIME_PROFILE_ID"] = request.RuntimeProfile
-		environment["CARTULARY_HOST_ADMISSION_LEASE"] = d.fixtureAdmission.Token
+		runcontext.Context{WorkUnit: request.UnitID, AdmissionLease: d.fixtureAdmission.Token}.Apply(environment)
 		reply, err = d.produce(ctx, a, "seed", map[string]any{"environment": environment})
 		if err != nil {
 			return nil, err

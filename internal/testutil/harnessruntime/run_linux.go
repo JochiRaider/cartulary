@@ -21,6 +21,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessfixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
+	"github.com/JochiRaider/cartulary/internal/testutil/runcontext"
 )
 
 // RunResult keeps the published summary separate from resolved presentation inputs.
@@ -113,7 +114,7 @@ func RunWithOptions(ctx context.Context, root, binary string, args, environment 
 		if err != nil {
 			return nil, 2, entryFailureAt("accounting_invocation_identity", failed("config", "configuration_error"))
 		}
-		env["CARTULARY_HARNESS_INVOCATION_ROOT"] = invocation
+		runcontext.Context{InvocationRoot: invocation}.Apply(env)
 		// Independent nested commands may deliberately clear the environment.
 		// The fenced kernel membership proves the outer measurement policy;
 		// ambient variables cannot opt a descendant out of that policy.
@@ -127,7 +128,7 @@ func RunWithOptions(ctx context.Context, root, binary string, args, environment 
 	}
 	diagnostics := newGraphObservation(mode == "basic")
 	if env["CARTULARY_TEST_RUN_ID"] == "" {
-		env["CARTULARY_TEST_RUN_ID"] = fmt.Sprintf("%s-p%d", time.Now().UTC().Format("20060102T150405000Z"), os.Getpid())
+		runcontext.Context{RunID: fmt.Sprintf("%s-p%d", time.Now().UTC().Format("20060102T150405000Z"), os.Getpid())}.Apply(env)
 	}
 	plan, err := prepare(root, args, env, mode, imposedCacheMode)
 	if err != nil {
@@ -225,8 +226,7 @@ func RunWithOptions(ctx context.Context, root, binary string, args, environment 
 	// The graph starts with no fixture consumers. A fixture lease supplies its
 	// exact retained resource references when it extends this environment.
 	child["CARTULARY_HARNESS_RESOURCE_DEPENDENCIES"] = "[]"
-	child["CARTULARY_TEST_RESULTS_DIR"] = results
-	child["CARTULARY_TEST_RUN_ID"] = runID
+	runcontext.Context{ResultsDir: results, RunID: runID}.Apply(child)
 	for _, k := range []string{"CARTULARY_HARNESS_GRAPH_CHILD", "CARTULARY_HARNESS_IDENTITY_PREPARED", "CARTULARY_HARNESS_SKIP_PREREQUISITES", "CARTULARY_SUPPRESS_CHILD_SUCCESS"} {
 		child[k] = "1"
 	}
@@ -247,7 +247,7 @@ func RunWithOptions(ctx context.Context, root, binary string, args, environment 
 		}
 	}
 	// The shared physical owner acquires the union, never a fixed service pair.
-	fixtureEnv["CARTULARY_HARNESS_SERVICE_DEPENDENCIES"] = strings.Join(slices.Sorted(maps.Keys(services)), ",")
+	maps.Copy(fixtureEnv, runcontext.Services(slices.Sorted(maps.Keys(services))))
 	maps.Copy(fixtureEnv, plan.facts.Bindings)
 	declared := plan.facts.Manifest["declared_inputs"].(map[string]any)
 	sources := strings.Fields(env["CARTULARY_MAKE_INPUT_SOURCES"])
@@ -265,7 +265,7 @@ func RunWithOptions(ctx context.Context, root, binary string, args, environment 
 			}
 		}
 	}
-	fixtureEnv["CARTULARY_MAKE_INPUT_SOURCES"] = strings.Join(sources, " ")
+	maps.Copy(fixtureEnv, runcontext.InputSources(sources))
 	var cleanupMu sync.Mutex
 	var fixtureCleanupDiagnostic *harnesssession.CleanupDiagnostic
 	cleanup := []cleanupRecord{}
@@ -391,7 +391,7 @@ func RunWithOptions(ctx context.Context, root, binary string, args, environment 
 		if r.Environment == nil {
 			r.Environment = map[string]string{}
 		}
-		r.Environment["CARTULARY_WORK_UNIT_ID"] = r.Unit.ID
+		runcontext.Context{WorkUnit: r.Unit.ID}.Apply(r.Environment)
 		r.Environment["CARTULARY_STEP_ARTIFACT_DIR"] = artifact
 		prefix, err := publication.Prefix()
 		if err != nil {

@@ -86,10 +86,7 @@ const weakTestRouteTokens = new Set([
   "password",
   "changeme",
 ]);
-const defaultHarnessConfig = Object.freeze({
-  CARTULARY_TEST_RESULTS_DIR: ".cartulary/test-results",
-  CARTULARY_TEST_RUN_ID: null,
-});
+const defaultResultsRootInput = ".cartulary/test-results";
 const exactOneBooleans = Object.freeze([
   "VERBOSE",
   "CI_VERBOSE",
@@ -1214,7 +1211,7 @@ export function resolveHarnessConfig(target, env = process.env, options = {}) {
   const resultRoot = selectedSource(
     env,
     "CARTULARY_TEST_RESULTS_DIR",
-    defaultHarnessConfig.CARTULARY_TEST_RESULTS_DIR,
+    defaultResultsRootInput,
   );
   const runId = selectedSource(
     env,

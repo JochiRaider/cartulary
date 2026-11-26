@@ -4,6 +4,7 @@ import { atomicLocalFile } from "../harness/runtime/secure-local-files.mjs";
 import { buildSourceSnapshot, loadTestCatalog } from "../harness/test-catalog/index.mjs";
 import { loadExecutionTopology } from "../harness/generated-artifacts/execution-topology.mjs";
 import { resolveReleaseRoots, verifyReleaseEvidence } from "./verify-release-evidence.mjs";
+import { inputSourcesEnvironment } from "../harness/contract/run-context.mjs";
 
 const root = path.resolve(import.meta.dirname, "../..");
 try {
@@ -17,7 +18,7 @@ try {
   const report = await verifyReleaseEvidence({roots: resolveReleaseRoots(manifest, file), sourceDigest, catalog,
     surface: loadExecutionTopology({ root }).taskSurface, policy, repoRoot: root});
   if (buildSourceSnapshot(root).digest !== sourceDigest) throw new Error("source changed during evidence verification");
-  const identity = resolveRetainedArtifactIdentity("release-evidence-verify", {...process.env, EVIDENCE_ROOTS_FILE: args[1], CARTULARY_MAKE_INPUT_SOURCES: "EVIDENCE_ROOTS_FILE=cli"});
+  const identity = resolveRetainedArtifactIdentity("release-evidence-verify", {...process.env, EVIDENCE_ROOTS_FILE: args[1], ...inputSourcesEnvironment(["EVIDENCE_ROOTS_FILE=cli"])});
   validateSchemaSync(report.schema_id, report);
   atomicLocalFile(path.join(identity.run_root, "release-evidence-verify/closure.json"), `${JSON.stringify(report, null, 2)}\n`);
   const runs = Object.values(report.roots).map(value => `${value.target}=${value.run_id}`).join(" ");

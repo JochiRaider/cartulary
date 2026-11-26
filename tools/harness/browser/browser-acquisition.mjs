@@ -13,6 +13,7 @@ import { atomicLocalFile, privateDirectory, readLocalFile, removePrivateFile, re
 import { borrowRuntime, runtimeEnvironment, runtimeHandleEnvironment } from "../runtime/session-client.mjs";
 import { suiteAttachmentEnvironment } from "../services/suite-attachment.mjs";
 import { retainServerGeneration } from "./server-log-retention.mjs";
+import { runContextEnvironment } from "../contract/run-context.mjs";
 
 const schemaID = "cartulary.browser_acquisition.v2";
 const bytes = (value) => `${JSON.stringify(value)}\n`;
@@ -393,7 +394,7 @@ async function settle({ file, runtime, root, environment = {}, producerActive = 
         stage = "browser_data_retirement";
         const result = run(path.join(root, `${workspaceLayout.toolbin}/cartulary-test-services`), ["cleanup-web-e2e", "--metadata-file", metadata], {
           cwd: root, env: childEnvironment(environment, { pass: ["CARTULARY_HARNESS_RUNTIME_BIN", ...objectStoreBinding], set: { ...suiteAttachmentEnvironment({ suiteID: owner.suite_id, callMode: "attach" }),
-            CARTULARY_TEST_RESULTS_DIR: resultsRoot, CARTULARY_TEST_RUN_ID: owner.run_id, CARTULARY_TEST_TARGET: suite.target,
+            ...runContextEnvironment({ resultsDir: resultsRoot, runID: owner.run_id, target: suite.target }),
             ...runtimeHandleEnvironment({ root: owner.runtime_root, leaseID: owner.runtime_lease_id, runID: owner.run_id }), CARTULARY_FIXTURE_PROCESS_CLEANUP_COMPLETE: "1" } }),
           timeout: 120000, killSignal: "SIGKILL", stdio: ["ignore", "ignore", "pipe"], maxBuffer: 4096,
         });

@@ -89,6 +89,35 @@
     "tools/harness/services/local-session.mjs"
   ],
   "owners": {
+    "run_context": {
+      "paths": [
+        "Makefile",
+        "internal/testutil/runcontext/**",
+        "tools/harness/contract/run-context.mjs",
+        "tools/harness/generated-artifacts/task-surface/make-renderer.mjs"
+      ],
+      "names": [
+        "CARTULARY_HARNESS_INVOCATION_ROOT",
+        "CARTULARY_HARNESS_PHYSICAL_OUTPUT_ROOT",
+        "CARTULARY_HARNESS_SERVICE_DEPENDENCIES",
+        "CARTULARY_HOST_ADMISSION_LEASE",
+        "CARTULARY_MAKE_INPUT_SOURCES",
+        "CARTULARY_OPERATION_DIGEST",
+        "CARTULARY_TEST_RESULTS_DIR",
+        "CARTULARY_TEST_RUN_ID",
+        "CARTULARY_TEST_TARGET",
+        "CARTULARY_WORK_UNIT_ID"
+      ]
+    },
+    "runner_context": {
+      "paths": [
+        "Makefile",
+        "tools/harness/contract/runner-context.mjs"
+      ],
+      "names": [
+        "CARTULARY_RUNNER_SCRIPT"
+      ]
+    },
     "runtime_binaries": {
       "paths": [
         "Makefile",
@@ -103,6 +132,14 @@
         "CARTULARY_SERVER_HARNESS_BIN",
         "CARTULARY_SOURCECHECK_BIN",
         "CARTULARY_TEST_SERVICES_BIN"
+      ]
+    },
+    "runtime_failure_scope": {
+      "paths": [
+        "internal/testutil/harnessruntime/**"
+      ],
+      "names": [
+        "CARTULARY_HARNESS_COMMAND_FAILURE_CONTEXT"
       ]
     },
     "runtime_session": {

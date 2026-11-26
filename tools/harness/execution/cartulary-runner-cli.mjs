@@ -8,6 +8,7 @@ import {
   publicExitCodeForSummary,
   runnerEnv,
 } from "../contract/index.mjs";
+import { runContextEnvironment } from "../contract/run-context.mjs";
 function usage() {
   process.stderr.write(`usage:
   cartulary-runner.mjs summary-target --target <target> --child-target <target> --status <pass|fail> [--step-label <label>] [--projection <target>]
@@ -97,7 +98,7 @@ function summaryTarget(context, argv) {
     [stepLabel, "--", context.makeBin, "--no-print-directory", childTarget],
     {
       env: runnerEnv(context, {
-        CARTULARY_TEST_TARGET: target,
+        ...runContextEnvironment({ target }),
         CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
       }),
     },

@@ -4,6 +4,7 @@ import path from "node:path";
 import { lifecyclePolicy } from "../contract/generated/lifecycle-policy.mjs";
 import { parseStrictJSON, validateSchemaSync } from "../contract/index.mjs";
 import { workspaceLayout } from "../../workspace_layout.generated.mjs";
+import { inputSourcesEnvironment } from "../contract/run-context.mjs";
 
 const repoRoot = path.resolve(import.meta.dirname, "../../..");
 
@@ -56,6 +57,6 @@ export function planCommand({ root, surface, target, inputs = {}, plan = planInv
   const environment = Object.fromEntries(Object.entries(process.env)
     .filter(([name]) => !publicInputs.has(name) && name !== "CARTULARY_MAKE_INPUT_SOURCES"));
   for (const [name, value] of Object.entries(inputs)) environment[name] = String(value);
-  environment.CARTULARY_MAKE_INPUT_SOURCES = Object.keys(inputs).map((name) => `${name}=cli`).join(" ");
+  Object.assign(environment, inputSourcesEnvironment(Object.keys(inputs).map((name) => `${name}=cli`)));
   return plan(["--selection", selection, "--target", target], { root, environment });
 }

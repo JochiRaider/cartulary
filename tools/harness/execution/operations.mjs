@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { hasMakeNodeTool } from "../command-surface/make-node-tools.mjs";
 import { semanticJSONDigest } from "../contract/index.mjs";
+import { runContextEnvironment } from "../contract/run-context.mjs";
 
 /** Operation definitions belong to the graph owner, independently of command names. */
 export function readOperationOwner(root) {
@@ -83,7 +84,7 @@ function literalToken(token) {
 }
 
 export function operationEnvironment(operation, environment) {
-  const env = { ...environment, CARTULARY_TEST_TARGET: operation.report_key };
+  const env = { ...environment, ...runContextEnvironment({ target: operation.report_key }) };
   for (const [name, value] of Object.entries({ ...operation.execution.exports, ...operation.execution.env })) env[name] = expand(value, environment);
   return env;
 }

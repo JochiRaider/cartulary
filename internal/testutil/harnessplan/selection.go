@@ -5,6 +5,8 @@ import (
 	"maps"
 	"slices"
 	"strings"
+
+	"github.com/JochiRaider/cartulary/internal/testutil/runcontext"
 )
 
 // Request is one graph invocation as the runtime receives it.
@@ -71,7 +73,7 @@ func (in *Inputs) resolve(request Request) (command, error) {
 		environment[name] = selected[name]
 		sources = append(sources, name+"="+originCommandLine)
 	}
-	environment[makeInputSources] = strings.Join(sources, " ")
+	maps.Copy(environment, runcontext.InputSources(sources))
 	inputs, err := resolveInputs(entry, environment)
 	if err != nil {
 		return command{}, err

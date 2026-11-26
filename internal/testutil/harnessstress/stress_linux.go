@@ -27,6 +27,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessruntime"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessschema"
+	"github.com/JochiRaider/cartulary/internal/testutil/runcontext"
 )
 
 const (
@@ -185,19 +186,15 @@ func sliceEnvironment(env map[string]string, owner, rows, runID string) []string
 		delete(child, key)
 	}
 	child["OWNER"], child["ROWS"] = owner, rows
-	child["CARTULARY_TEST_RUN_ID"], child["CARTULARY_TEST_TARGET"] = runID, sliceTarget
+	runcontext.Context{RunID: runID, Target: sliceTarget}.Apply(child)
 	sources := []string{"OWNER=cli", "ROWS=cli"}
 	for _, input := range []string{"CARTULARY_HARNESS_CACHE_MODE", "HARNESS_DIAGNOSTICS"} {
 		if child[input] != "" {
 			sources = append(sources, input+"=cli")
 		}
 	}
-	child["CARTULARY_MAKE_INPUT_SOURCES"] = strings.Join(sources, " ")
-	out := []string{}
-	for _, key := range slices.Sorted(maps.Keys(child)) {
-		out = append(out, key+"="+child[key])
-	}
-	return out
+	maps.Copy(child, runcontext.InputSources(sources))
+	return runcontext.Entries(child)
 }
 
 // failedRows lists the rows of a repetition that did not pass, from its

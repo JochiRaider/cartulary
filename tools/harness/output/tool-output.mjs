@@ -12,6 +12,9 @@ import {
   resolveOutputMode as resolveHarnessOutputMode,
 } from "../contract/index.mjs";
 
+// The invocation settings a tool-run summary records, read from its environment.
+const recordedEnvironment = ["CARTULARY_OUTPUT_MODE", "VERBOSE", "CI_VERBOSE", "CARTULARY_TEST_RESULTS_DIR", "CARTULARY_TEST_RUN_ID"];
+
 export const toolRunSummarySchemaID = "cartulary.tool_run_summary.v5";
 
 const failureClasses = failureClassOrder;
@@ -182,13 +185,7 @@ function commandInfo({
     cwd,
     argv: redactValue(argv),
     make_target: target ?? null,
-    env: redactValue({
-      CARTULARY_OUTPUT_MODE: env.CARTULARY_OUTPUT_MODE ?? null,
-      VERBOSE: env.VERBOSE ?? null,
-      CI_VERBOSE: env.CI_VERBOSE ?? null,
-      CARTULARY_TEST_RESULTS_DIR: env.CARTULARY_TEST_RESULTS_DIR ?? null,
-      CARTULARY_TEST_RUN_ID: env.CARTULARY_TEST_RUN_ID ?? null,
-    }),
+    env: redactValue(Object.fromEntries(recordedEnvironment.map((name) => [name, env[name] ?? null]))),
   };
 }
 

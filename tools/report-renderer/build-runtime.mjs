@@ -6,6 +6,7 @@ import { pathToFileURL } from "node:url";
 
 import { restrictedExecutableInputRoots } from "../harness/test-catalog/restricted-input-boundary.mjs";
 import { fileDigest, inventory, publishReceipt, recordKey, reusableInstallation, sha } from "./installation-store.mjs";
+import { runContextEnvironment } from "../harness/contract/run-context.mjs";
 
 // Packaging is an explicit build operation. Rendering never invokes a package
 // manager, discovers host libraries, or copies files from the application tree.
@@ -124,7 +125,7 @@ root = path.join(work, "root");
 try {
   await mkdir(root);
   const binary = path.join(work, "render-sandbox");
-  run("bash", ["tools/harness/backend/build-go-artifact.sh"], { env: { ...process.env, BUILD_OUTPUT: binary, BUILD_PACKAGE: "./cmd/render-sandbox", BUILD_LABEL: "build renderer confinement launcher", CARTULARY_TEST_TARGET: "build-report-renderer" } });
+  run("bash", ["tools/harness/backend/build-go-artifact.sh"], { env: { ...process.env, BUILD_OUTPUT: binary, BUILD_PACKAGE: "./cmd/render-sandbox", BUILD_LABEL: "build renderer confinement launcher", ...runContextEnvironment({ target: "build-report-renderer" }) } });
   await copyRegular(binary, path.join(root, "bin/cartulary-render-sandbox"));
 
   // Stage only executable package inputs before pnpm inspects its workspace.

@@ -24,6 +24,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessrows"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
+	"github.com/JochiRaider/cartulary/internal/testutil/runcontext"
 	"golang.org/x/sys/unix"
 )
 
@@ -154,7 +155,7 @@ func (p *processRunner) Execute(ctx context.Context, request executionRequest) (
 	// Nested planning inherits this admitted unit's envelope, never the host
 	// capacity or a fixture/command override. The lease and budget are one binding.
 	if request.Host != nil {
-		environment["CARTULARY_HOST_ADMISSION_LEASE"] = request.Host.Token
+		runcontext.Context{AdmissionLease: request.Host.Token}.Apply(environment)
 		environment["CARTULARY_UNIT_CPU_TOKENS"] = fmt.Sprint(u.Claims["cpu"])
 	}
 	result = unitResult{Status: "failed"}
