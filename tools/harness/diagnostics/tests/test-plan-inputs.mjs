@@ -57,7 +57,7 @@ test("planning validates exact declared input files through the execution resolv
 });
 
 test("task guides name the explicit commands whose plans bind the owner's explicit-only rows", () => {
-  const visual = "harness.browser.boundary_support.accessibility_contrast";
+  const visual = "harness.browser.boundary_support.visual_anchor_geometry";
   const review = "harness.browser.boundary_support.ui_review_artifacts";
   const bound = { "browser-e2e": [visual], "harness-contract": [review, "harness.browser.unit.fixture_broker_smoke"],
     "release-measure": ["module.reporting.measurement.render_progress"], "release-check": [] };

@@ -1364,6 +1364,7 @@ Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-am
 | 2026-11-26 | P5-4 close-out | One `check` after P5-4c and P5-4d | `p66-check01`; after the fix, `p66-lintshell` and `p66-cache` | All 1,897 rows pass. One operation failed: ShellCheck SC2034 on a variable that slice 4 left unused in `build-go-artifact.sh`. `lint CHECK=scripts` does not run ShellCheck; `lint CHECK=shell` does. The script now requires the target without assigning it, and the shell lint and build-artifact rows pass. The graph took 617 s (577 s at P5-4b), while unit work fell from 7,559 to 7,438 s. The same units finish last; the renderer ran 22 s longer. It is 20 s past the earlier 576 to 597 s spread, so one sample cannot separate noise from regression (14.17; settled in 14.18) |
 | 2026-11-26 | P5-4 second check / G46 | A second `check` to settle the timing | `p67-check02`; `p67-ac604-1` to `-3` | 1,896 of 1,897 rows pass. `app.server.process.ordinary_shutdown_ac604` failed once (WebSocket close status -1, not 1001) and passed three isolated reruns; it has passed 75 of 76 runs. The graph took 674 s. Not a P5-4 regression: since `p58-browser`, whose cleanup failed, a stranded resident has held one of the eight PostgreSQL generation slots, so PostgreSQL units ran 7 at a time instead of 8 in `p66` and `p67`. This run also rebuilt the report renderer (153 s) because its cache key includes `build-go-artifact.sh`. That delayed the server-harness build to 167 s, so the server-process unit started last and ran to the end of the run (14.18) |
 | 2026-11-26 | G46 repair | Recover `p58-browser`; startup recovery decides by resource records, not the seal (owner-approved spec amendment) | `p68-recover`; `p68-lintgo`, `p68-session`, `p68-fixtures`, `p68-md` | Pass. The ledger holds no residents, so all eight PostgreSQL generation slots are free. Every top-level graph now reports eight legacy October roots as `[RECOVERY-FAIL]`: their records predate the current ledger and boot, and they hold nothing physically. Removing them needs owner approval (14.19) |
+| 2026-11-26 | Never-run rows | Promote the four browser accessibility self-tests from `explicit_only` to `full`; keep the eight on-demand rows (owner decision) | `p69-plan-*` (every graph target and suite); `p69-a11y`; `p70-generate`, `p70-catalog`, `p70-generated`, `p70-routing`, `p70-lintscripts`, `p70-plan-ci`, `p70-plan-check` | Pass. 12 of 2,778 rows were never planned by any target or suite. `ci` now plans the four promoted rows (2,658 rows) in its existing 506 units; `check` is unchanged (14.20) |
 | 2026-11-25 | P4-4 / G39 | Wait audit: 31 whole-test hang guards derive from the test deadline (`testdeadline`) | `p44-port-*` (16 owner slices, every row holding a converted guard) | Pass. Committed `bdd8f4e1d` |
 
 ## 12. Phase 2 Plan — `check` Wall Clock
@@ -3450,3 +3451,39 @@ of 14.10.
   `test-run-recover` cannot settle them either. The owner approved removing
   them, and they were deleted on 2026-11-26. `p69-a11y`, the next graph run,
   reported no recovery failures.
+
+### 14.20 Never-Run Rows
+
+- **Question.** The owner asked to deprecate unused tests.
+- **Method.** Every target and suite that runs a work graph was planned, and
+  their row sets were compared with the catalog (`p69-plan-*`). That covers
+  `check`, `ci`, `test-fast`, `release-check`, `release-measure`, the 11
+  `harness-contract` suites, the five `browser-e2e` suites,
+  `browser-e2e-visual-update` and `package-inspect CHECK=all`.
+  `otel-conformance`, the SeaweedFS gates and `ui-review` run no work graph.
+- **Result.** 12 of 2,778 rows were never planned, all `explicit_only`. None
+  is dead: each is the only row for its test, and no compatibility code or
+  test for retired formats remains.
+  - **Four browser accessibility self-tests:** contrast, accessible names and
+    presentation restoration (Vitest, `harness-node`), and the accessibility
+    observation scenario (Playwright). The helpers they test are used by
+    about 30 accessibility and visual specs each. These tests had not run
+    since they were added on 2026-10-26, and they pass (`p69-a11y`).
+  - **Three spec-required tools:** PostgreSQL transport qualification, reset
+    characterization and delegated-cgroup invocation accounting. The harness
+    spec defines each as an explicit capability.
+  - **Five on-demand evidence rows:** the network-flow import scaling sweep,
+    graph capacity certification, and the Entra, VERIS and Windows
+    real-release imports. They have not been run in this review.
+- **Decision (owner, 2026-11-26).** Promote the four self-tests to `full`,
+  where their 23 siblings run, and keep the other eight as on-demand rows.
+- **Change.** The four rows' placement is `full`. They join units `ci` already
+  runs: the browser batch manifest already partitioned the observation
+  scenario, so only the render index digest changed. A task-guide test used
+  the contrast row as its explicit-only example; it now uses
+  `visual_anchor_geometry`, which `browser-e2e SUITE=visual` plans.
+- **Validation.** All passed: `make generate`, `source-check CHECK=catalog`
+  and `CHECK=generated`, the `harness.test_catalog.behavior.routing_contract`
+  row and `lint CHECK=scripts`. `ci` plans 2,658 rows (2,654 before) in the
+  same 506 units, and `check` is unchanged at 1,897 rows. The rows were not
+  run inside a full `ci`.
