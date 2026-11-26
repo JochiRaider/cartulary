@@ -125,7 +125,7 @@ eleven `ci` runs of the release attempts (Section 13.1). Single runs vary by abo
 | G42 | Build-artifact cache keys held per-run locations (each graph run's Go temporary directory, the per-run web source path), so every graph run missed and re-linked shared binaries | Machine inputs, specification | Phase 4, P4-6 | Done: locations leave the keyed command and input directories are keyed by content; proven on a segment (13.15) |
 | G43 | Test rows launch nested graphs and real `make` runs that rebuild shared repository outputs under the Go test's toolchain environment while the outer run uses them; their failures are cut to the first 4 KiB and reclassified as product assertions | Tests, harness, specification | Phase 5 | Open: P5-0 fenced the Go-hosted nested graphs (14.5); P5-2 remains |
 | G44 | Make and the planner both own ordering, freshness, environment and prerequisite skipping: 26 operations re-enter Make, 17 targets carry two recipes chosen by `GRAPH_CHILD`, five freshness mechanisms coexist, and graph-only Make edges run work twice | Machine inputs, implementation, specification | Phase 5 | Open: P5-0 removed the renderer double run (14.5); P5-1 made every test script a row and removed five duplicate operations (14.6); P5-3 remains |
-| G45 | Units inherit the graph process's whole environment (the shell's variables and up to 127 Make exports), minus hand-kept strip lists; harness code reads 478 `CARTULARY_*` names with no declaration, so leaks, stale names and typos fail silently | Machine inputs, implementation, specification | Phase 5, P5-4 (planned) | Open: plan in 14.7 |
+| G45 | Units inherit the graph process's whole environment (the shell's variables and up to 127 Make exports), minus hand-kept strip lists; harness code reads 478 `CARTULARY_*` names with no declaration, so leaks, stale names and typos fail silently | Machine inputs, implementation, specification | Phase 5, P5-4 | Open: P5-4a registered every harness name and enforces it (14.8); P5-4b to P5-4d remain |
 
 ## 5. Gap Remediation Detail
 
@@ -1351,6 +1351,7 @@ Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-am
 | 2026-11-26 | P4-6 / G31, G41, G42 | Critical-path reservation; renderer test binds one installation; location-free build keys | Gate: `p46-check01`, `p46-check02`, `p46-ci01`, `p46-ci02` (stopped); segments `seg-ontest-before`, `seg-ontest-after`, `seg-cache01`, `seg-cache02`; `fx-lintgo`, `fx-lintscripts`, `fx-md`, `fx-src` | `check` pair pass (597 s, 591 s). `ci01` 2,648 of 2,649 rows, graph 1,445 s; the failure is G41. The owner stopped `ci02` after the same failure. Segments prove both fixes; targeted checks pass (13.15) |
 | 2026-11-26 | P5-0 / G43, G44 | Nested launches undo the unit overlay; graph-only renderer prerequisite removed; nested failures keep their tail and class; Go build failures keep compiler output | Segments `p50-nested-before`, `p50-nested-after2`, `p50-nested-warm`, `p50-nested-steady`; rows `p50-units`, `p50-nest2`; `p50-lintgo`, `p50-md`, `p50-src` | HEAD's nested graph moved the receipt, replaced the shared server-harness binary and missed three build caches; fenced, it changes nothing in steady state. All rows and checks pass (14.5) |
 | 2026-11-26 | P5-1 / G44 | Every test script is a shell row; catalog enforces it; five duplicate operations removed | Catalog probes; plans of `check`, `ci` and `harness-contract SUITE=regression`; rows `p51-cs`, `p51-ea`, `p51-ea2`, `p51-cs2`, `p51-ea3`; `p51-lintscripts`, `p51-md`, `p51-src2` | Catalog 2,774 rows (from 2,754). `check` and `ci` plan the same units (366, 501); each gains only `public_wrapper_smoke` as a row. New rows run alone and pass (14.6) |
+| 2026-11-26 | P5-4a / G45 | Environment registry of every harness `CARTULARY_*` name and its check in `check`, `ci` and `source-check`; one dead mode switch deleted | Registry probes; plans of `check` and `ci`; rows `p54-cs`, `p54-cs2`, `p54-ea`, `p54-hb`; `p54-src2`, `p54-surface`, `p54-lintscripts` | 480 names registered and 8 declared inputs cover all 488 harness names. `check` and `ci` gain only the new check (and its test row in `ci`). All rows and checks pass (14.8) |
 | 2026-11-25 | P4-4 / G39 | Wait audit: 31 whole-test hang guards derive from the test deadline (`testdeadline`) | `p44-port-*` (16 owner slices, every row holding a converted guard) | Pass. Committed `bdd8f4e1d` |
 
 ## 12. Phase 2 Plan — `check` Wall Clock
@@ -2667,9 +2668,9 @@ amendments.
 | --- | --- | --- |
 | D19 | Approve Phase 5 scope and order (P5-0, P5-1, P5-2, P5-3) | Approve P5-0 now; decide P5-1 to P5-3 after it. **P5-0 and P5-1 approved by the owner 2026-11-26**, with authority to deprecate tests covered elsewhere |
 | D20 | Where harness-mechanics probes run | An explicit harness suite outside `ci`, run when harness code changes |
-| D21 | Approve P5-4 scope and order (P5-4a to P5-4d) | Approve P5-4a and P5-4b now; decide P5-4c and P5-4d on P5-4b's measurements |
-| D22 | How a unit finds its context document | A path in one variable: it survives Make re-entry and child tools; the admission lease keeps its file descriptor |
-| D23 | P5-4 against P5-2 and P5-3 | P5-4a and P5-4b before P5-2, since unnesting is simpler once children start from a declared environment; mode switches leave with P5-3 |
+| D21 | Approve P5-4 scope and order (P5-4a to P5-4d) | Approve P5-4a and P5-4b now; decide P5-4c and P5-4d on P5-4b's measurements. **Approved 2026-11-26** |
+| D22 | How a unit finds its context document | A path in one variable: it survives Make re-entry and child tools; the admission lease keeps its file descriptor. **Approved 2026-11-26** |
+| D23 | P5-4 against P5-2 and P5-3 | P5-4a and P5-4b before P5-2, since unnesting is simpler once children start from a declared environment; mode switches leave with P5-3. **Approved 2026-11-26** |
 
 ### 14.5 Fences (P5-0)
 
@@ -2766,7 +2767,7 @@ the new shell-coverage test, pass (`p51-ea`, `p51-ea2`).
 
 ### 14.7 Declared Environment (P5-4, planned)
 
-Status: planned 2026-11-26 at the owner's request; awaits D21 to D23.
+Status: planned 2026-11-26 at the owner's request. D21 to D23 approved as recommended on 2026-11-26; P5-4a done (14.8).
 
 **Problem (G45).** A unit's environment starts as a copy of the graph
 process's environment. That copy holds the user's shell (72 variables on the
@@ -2838,4 +2839,46 @@ folds into P4-7's final validation.
 cover every harness name, the Go row runner's binding (REQ-872) and the launch
 context. Add the `cartulary.harness_unit_context.v1` schema and the runner
 registry's tool-variable declarations.
+
+### 14.8 Environment Registry (P5-4a)
+
+- **Registry.** `tools/harness_environment_registry.json` registers 480
+  `CARTULARY_*` names in eight roles; the task surface's 8 declared public
+  inputs cover the rest of the 488 names harness code mentions.
+
+  | Role | Names |
+  | --- | ---: |
+  | `fixture_binding` | 186 |
+  | `test_internal` | 85 |
+  | `invocation_context` | 49 |
+  | `tool_option` | 43 |
+  | `step_runtime` | 35 |
+  | `location` | 34 |
+  | `product_interface` | 28 |
+  | `mode_switch` | 20 |
+
+  The registry names its harness and excluded path scopes; every other
+  admitted path is product code. Roles are a first classification from name
+  families and where each name is mentioned; P5-4b refines them when the
+  runtime first uses them.
+- **Check.** `harness.environment_registry_check` fails on an unregistered
+  name, a stale registration, a name in two roles, a declared input registered
+  again, or a product boundary mismatch: a name both sides mention must be a
+  `product_interface`, and only such a name. It runs in `check`, `ci` and
+  `make source-check` (`CHECK=surface`, `CHECK=all`); its tests have their own
+  row (`harness.command_surface.behavior.environment_registry`). Specification
+  amended (Section 5.5).
+- **Deleted.** `CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD` was set by the review
+  recipes and stripped by 38 operations, but its only reader was a Make macro
+  the generated surface never emits. The switch, the macro and the 38 strip
+  entries are gone.
+- **Boundary findings.** The run-evidence package
+  `internal/platform/harnessruntime` is harness code compiled only into the
+  harness server profile; it now sits in harness scope. The product reads
+  three harness test hooks (`ENABLE_TEST_ROUTES`, `TEST_RUNTIME_MARKER`,
+  `TEST_ROUTE_TOKEN`); the registry marks them `product_interface`, so the
+  dependency is visible.
+- **Left for P5-4b.** 101 names are mentioned exactly once. Most are knobs read
+  with a default or child markers defined as constants, but each is a
+  candidate for deletion when P5-4b decides which names reach units.
 
