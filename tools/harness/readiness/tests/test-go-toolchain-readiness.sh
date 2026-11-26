@@ -3,7 +3,6 @@ set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../../.." && pwd)"
 READINESS_SCRIPT="${ROOT_DIR}/tools/harness/readiness/go-toolchain-readiness.sh"
-BOOTSTRAP_SCRIPT="${ROOT_DIR}/tools/harness/readiness/bootstrap-go-tool.sh"
 # shellcheck source=tools/harness/test-support/harness-scratch.sh
 source "${ROOT_DIR}/tools/harness/test-support/harness-scratch.sh"
 
@@ -42,18 +41,11 @@ make_fake_go() {
   local local_version="$2"
   local selected_version="$3"
   local selected_status="$4"
-  local install_status="${5:-$selected_status}"
 
   mkdir -p "$dir"
   cat >"$dir/go" <<EOF
 #!/usr/bin/env bash
 set -euo pipefail
-if [[ "\${1:-}" == "-C" ]]; then
-  printf '%s\\n' "\$*" >"${dir}/module-install.log"
-  cd "\$2"
-  shift 2
-  [[ "\${1:-}" == install && "\${2:-}" == -mod=readonly && "\${3:-}" == example.invalid/fake-tool ]] || exit 98
-fi
 if [[ "\${1:-}" == "env" && "\${2:-}" == "GOOS" && "\${3:-}" == "GOARCH" ]]; then
   printf 'linux\namd64\n'
   exit 0
@@ -71,18 +63,6 @@ if [[ "\${1:-}" == "version" ]]; then
     exit "${selected_status}"
   fi
   printf 'go version ${selected_version} linux/amd64\n'
-  exit 0
-fi
-if [[ "\${1:-}" == "install" ]]; then
-  printf 'GOCACHE=%s\nGOMODCACHE=%s\nGOTMPDIR=%s\n' \
-    "\${GOCACHE:-}" "\${GOMODCACHE:-}" "\${GOTMPDIR:-}" >>"${dir}/machine-state.log"
-  if [[ "${install_status}" != "0" ]]; then
-    printf 'simulated install failure\n' >&2
-    exit "${install_status}"
-  fi
-  mkdir -p "\${GOBIN:?}"
-  printf '%s\n' "\${FAKE_TOOL_CONTENT:-${selected_version}}" >"\${GOBIN}/fake-tool"
-  chmod +x "\${GOBIN}/fake-tool"
   exit 0
 fi
 printf 'unsupported fake go invocation: %s\n' "\$*" >&2
@@ -205,141 +185,6 @@ download_status=$?
 set -e
 assert_equals "$download_status" "2" "download failure status"
 assert_contains "$download_output" "Go toolchain readiness failed" "download failure diagnostic"
-
-bootstrap_readiness_dir="$scratch/bootstrap-readiness-failure"
-make_fake_go "$bootstrap_readiness_dir/bin" go1.27.0 go1.27.1 41
-mkdir -p "$bootstrap_readiness_dir/toolbin"
-printf 'old-tool\n' >"$bootstrap_readiness_dir/toolbin/fake-tool-v1"
-set +e
-bootstrap_readiness_output="$({
-  GO="$bootstrap_readiness_dir/bin/go" \
-  GO_TOOLCHAIN=go1.27.1 \
-  TOOLBIN_DIR="$bootstrap_readiness_dir/toolbin" \
-  TOOL_OUTPUT="$bootstrap_readiness_dir/toolbin/fake-tool-v1" \
-  TOOL_MODULE=example.invalid/fake-tool@v1 \
-  TOOL_BINARY_NAME=fake-tool \
-  GO_CACHE_DIR="$bootstrap_readiness_dir/cache/build" \
-  GO_MOD_CACHE_DIR="$bootstrap_readiness_dir/cache/mod" \
-  GO_TMP_DIR="$bootstrap_readiness_dir/cache/tmp" \
-  RUN_STEP_SCRIPT=/bin/false \
-    "$BOOTSTRAP_SCRIPT"
-} 2>&1)"
-bootstrap_readiness_status=$?
-set -e
-assert_equals "$bootstrap_readiness_status" "2" "bootstrap readiness failure status"
-assert_contains "$bootstrap_readiness_output" "Go toolchain readiness failed" "bootstrap readiness failure diagnostic"
-assert_file_contents "$bootstrap_readiness_dir/toolbin/fake-tool-v1" "old-tool" "failed readiness preserves old output"
-
-run_step="$scratch/run-step"
-cat >"$run_step" <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-shift
-[[ "${1:-}" == "--" ]] || exit 99
-shift
-exec "$@"
-EOF
-chmod +x "$run_step"
-
-bootstrap_failure_dir="$scratch/bootstrap-failure"
-make_fake_go "$bootstrap_failure_dir/bin" go1.27.1 go1.27.1 0 41
-mkdir -p "$bootstrap_failure_dir/toolbin"
-printf 'old-tool\n' >"$bootstrap_failure_dir/toolbin/fake-tool-v1"
-set +e
-bootstrap_failure_output="$({
-  GO="$bootstrap_failure_dir/bin/go" \
-  GO_TOOLCHAIN=go1.27.1 \
-  TOOLBIN_DIR="$bootstrap_failure_dir/toolbin" \
-  TOOL_OUTPUT="$bootstrap_failure_dir/toolbin/fake-tool-v1" \
-  TOOL_MODULE=example.invalid/fake-tool@v1 \
-  TOOL_BINARY_NAME=fake-tool \
-  TOOL_LABEL='bootstrap fake tool' \
-  GO_CACHE_DIR="$bootstrap_failure_dir/cache/build" \
-  GO_MOD_CACHE_DIR="$bootstrap_failure_dir/cache/mod" \
-  GO_TMP_DIR="$bootstrap_failure_dir/cache/tmp" \
-  RUN_STEP_SCRIPT="$run_step" \
-    "$BOOTSTRAP_SCRIPT"
-} 2>&1)"
-bootstrap_failure_status=$?
-set -e
-assert_equals "$bootstrap_failure_status" "41" "bootstrap install failure status"
-assert_contains "$bootstrap_failure_output" "simulated install failure" "bootstrap install failure diagnostic"
-assert_file_contents "$bootstrap_failure_dir/toolbin/fake-tool-v1" "old-tool" "failed bootstrap preserves old output"
-if find "$bootstrap_failure_dir/toolbin" -mindepth 1 -maxdepth 1 -type d -name '.fake-tool.install.*' | grep -q .; then
-  fail "failed bootstrap left a staging directory"
-fi
-
-bootstrap_success_dir="$scratch/bootstrap-success"
-make_fake_go "$bootstrap_success_dir/bin" go1.27.1 go1.27.1 0
-mkdir -p "$bootstrap_success_dir/toolbin"
-printf 'old-tool\n' >"$bootstrap_success_dir/toolbin/fake-tool-v1"
-GO="$bootstrap_success_dir/bin/go" \
-GO_TOOLCHAIN=go1.27.1 \
-TOOLBIN_DIR="$bootstrap_success_dir/toolbin" \
-TOOL_OUTPUT="$bootstrap_success_dir/toolbin/fake-tool-v1" \
-TOOL_MODULE=example.invalid/fake-tool@v1 \
-TOOL_BINARY_NAME=fake-tool \
-TOOL_LABEL='bootstrap fake tool' \
-GO_CACHE_DIR="$bootstrap_success_dir/cache/build" \
-GO_MOD_CACHE_DIR="$bootstrap_success_dir/cache/mod" \
-  GO_TMP_DIR="$bootstrap_success_dir/cache/tmp" \
-RUN_STEP_SCRIPT="$run_step" \
-  "$BOOTSTRAP_SCRIPT"
-assert_file_contents "$bootstrap_success_dir/toolbin/fake-tool-v1" "go1.27.1" "successful bootstrap replaces output"
-mkdir -p "$bootstrap_success_dir/analysis-module"
-GO="$bootstrap_success_dir/bin/go" \
-GO_TOOLCHAIN=go1.27.1 \
-TOOLBIN_DIR="$bootstrap_success_dir/toolbin" \
-TOOL_OUTPUT="$bootstrap_success_dir/toolbin/fake-tool-v1" \
-TOOL_MODULE=example.invalid/fake-tool@v1 \
-TOOL_BUILD_MODULE_DIR="$bootstrap_success_dir/analysis-module" \
-TOOL_BINARY_NAME=fake-tool \
-GO_CACHE_DIR="$bootstrap_success_dir/cache/build" \
-GO_MOD_CACHE_DIR="$bootstrap_success_dir/cache/mod" \
-GO_TMP_DIR="$bootstrap_success_dir/cache/tmp" \
-RUN_STEP_SCRIPT="$run_step" \
-  "$BOOTSTRAP_SCRIPT"
-assert_file_contents "$bootstrap_success_dir/bin/module-install.log" \
-  "-C $bootstrap_success_dir/analysis-module install -mod=readonly example.invalid/fake-tool" \
-  "module-backed installation uses the locked graph without changing it"
-if find "$bootstrap_success_dir/toolbin" -mindepth 1 -maxdepth 1 -type d -name '.fake-tool.install.*' | grep -q .; then
-  fail "successful bootstrap left a staging directory"
-fi
-
-concurrent_dir="$scratch/bootstrap-concurrent"
-make_fake_go "$concurrent_dir/bin" go1.27.1 go1.27.1 0
-mkdir -p "$concurrent_dir/toolbin"
-run_concurrent_bootstrap() {
-  local output="$1"
-  local content="$2"
-  GO="$concurrent_dir/bin/go" \
-  GO_TOOLCHAIN=go1.27.1 \
-  TOOLBIN_DIR="$concurrent_dir/toolbin" \
-  TOOL_OUTPUT="$output" \
-  TOOL_MODULE=example.invalid/fake-tool@v1 \
-  TOOL_BINARY_NAME=fake-tool \
-  GO_CACHE_DIR="$concurrent_dir/cache/build" \
-  GO_MOD_CACHE_DIR="$concurrent_dir/cache/mod" \
-  GO_TMP_DIR="$concurrent_dir/cache/tmp" \
-  RUN_STEP_SCRIPT="$run_step" \
-  FAKE_TOOL_CONTENT="$content" \
-    "$BOOTSTRAP_SCRIPT" >/dev/null
-}
-run_concurrent_bootstrap "$concurrent_dir/toolbin/fake-tool-a-v1" "tool-a" &
-concurrent_a_pid=$!
-run_concurrent_bootstrap "$concurrent_dir/toolbin/fake-tool-b-v1" "tool-b" &
-concurrent_b_pid=$!
-concurrent_a_status=0
-concurrent_b_status=0
-wait "$concurrent_a_pid" || concurrent_a_status=$?
-wait "$concurrent_b_pid" || concurrent_b_status=$?
-assert_equals "$concurrent_a_status" "0" "concurrent bootstrap exit A"
-assert_equals "$concurrent_b_status" "0" "concurrent bootstrap exit B"
-assert_file_contents "$concurrent_dir/toolbin/fake-tool-a-v1" "tool-a" "concurrent bootstrap output A"
-assert_file_contents "$concurrent_dir/toolbin/fake-tool-b-v1" "tool-b" "concurrent bootstrap output B"
-if find "$concurrent_dir/toolbin" -mindepth 1 -maxdepth 1 -type d -name '.fake-tool.install.*' | grep -q .; then
-  fail "concurrent bootstrap left a staging directory"
-fi
 
 printf 'go toolchain readiness checks passed\n'
 "${ROOT_DIR}/.cache/cartulary/node-runtime/bin/node" \

@@ -115,7 +115,6 @@ const optionalPathVariables = Object.freeze([
 const versionVariables = Object.freeze([
   "NODE_VERSION",
   "PNPM_VERSION",
-  "SHELLCHECK_VERSION",
 ]);
 const positiveIntegerVariables = Object.freeze([
   "BROWSER_LANES",

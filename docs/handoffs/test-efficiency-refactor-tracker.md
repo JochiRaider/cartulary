@@ -1371,6 +1371,7 @@ Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-am
 | 2026-11-26 | Environment tidy / G45 | `product_derived` role for 14 names; fixture identity in `browser_binding`; `cleanup-web-e2e --process-cleanup` replaces its marker; Playwright worker names deleted; the check counts quoted shell assignments and loop-variable writes | `p75-generate`, `p75-format`, `p75-lint*`, `p75-surface`, `p75-catalog`, `p75-identity`, `p75-generated`, `p75-cs`, `p75-hb`, `p75-incidents`, `p75-md`; `p75-plan-measure-old` and `-new` | Pass. The registry holds 477 names (480) and its check has no findings; the new loop rule's one finding is repaired. `release-measure` plans identically before and after (14.23) |
 | 2026-11-26 | P5-3a / G47 | Go build keys are each binary's import closure; receipts are built for the staged binary; the 17 graph-child recipes, 11 unused Makefile variables, one runtime macro and four dead switches removed | `p77-*` (segments, real builds, pre-graph timing), `p78-lintshell`, `p78-lintscripts`, `p78-cache`, `p79-check01` | Pass. Segments found ShellCheck SC2016 on two intended strings and a test cleanup defeated by read-only module files; both repaired. `p79-check01` passed all 1,897 rows in a 543 s graph (14.25) |
 | 2026-11-26 | P5-3b | The Go artifact store: content-addressed sealed roots, key records and single-link copy views; all seven Go binaries built through `tools/harnessbuild` with import-closure keys; unit cache keys use result identity; `BUILD_GO_ARTIFACT_IMPL` removed | `p80`, `p81` (segments), `p82-check01`, `p83`, `p84` (segments), `p85-check01`, `p86` | Pass. `p82-check01` failed two operator recovery rows with `release_mismatch`: hard-link views broke the product's single-link rule, so views are copies (D25 adjusted). `p85-check01` passed all 1,898 rows in a 518 s graph (14.26) |
+| 2026-11-26 | P5-3c step 1 | The producer registry and `harnessbuild produce`; Go tools and ShellCheck join the Go binaries in the store; artifact bindings and generated recipes run producers instead of re-entering Make; caller-set bindings are provided executables; 15 file rules and the tool bootstrap scripts removed | `p87-generate`, `p88`, `p90`, `p91` (segments), `p92-check01` | Pass. Segments found a stale registry name, a direct run-context write, a renderer caller without producers, a test of the deleted server rule and a shell-lint smoke that cannot have passed since P5-4b; all repaired. `p92-check01` passed all 1,898 rows in a 510 s graph (14.27) |
 | 2026-11-25 | P4-4 / G39 | Wait audit: 31 whole-test hang guards derive from the test deadline (`testdeadline`) | `p44-port-*` (16 owner slices, every row holding a converted guard) | Pass. Committed `bdd8f4e1d` |
 
 ## 12. Phase 2 Plan — `check` Wall Clock
@@ -2665,7 +2666,7 @@ Status: proposed 2026-11-26 at the owner's request. P5-0, P5-1 and P5-2 done (14
 | P5-1 | Flat catalog: every check is a row with an owner, so any of them runs alone with `ROWS=`; selections list rows and operations, not other selections. **Done 2026-11-26** (14.6): every test script is a row and duplicates are gone; selection nesting stays (14.6) | G44 |
 | P5-2 | Unnest: harness-mechanics probes run as first-class graph rows against private outputs, or move to an explicit harness suite outside `ci`; a source check forbids rows that launch `make` or `graph` against the shared repository | G43 |
 | P5-4 | Declared environment: a registry of every harness variable, default-deny unit environments, one typed unit context document, fixture bindings in that document (14.7) | G43, G45 |
-| P5-3 | Thin Make: Make only admits the workspace and forwards to the harness; build operations become data with declared inputs, environment keys and outputs; one Go content-addressed store replaces `cache-artifact.sh`, the renderer store and web staging; no unit re-enters Make; one toolchain environment from the pins for builds and tests. **Planned 2026-11-26** (14.24): five steps, P5-3a to P5-3e; P5-3a done (14.25); P5-3b done (14.26) | G44 |
+| P5-3 | Thin Make: Make only admits the workspace and forwards to the harness; build operations become data with declared inputs, environment keys and outputs; one Go content-addressed store replaces `cache-artifact.sh`, the renderer store and web staging; no unit re-enters Make; one toolchain environment from the pins for builds and tests. **Planned 2026-11-26** (14.24): five steps, P5-3a to P5-3e; P5-3a done (14.25); P5-3b done (14.26); P5-3c step 1 of 4 done (14.27) | G44 |
 
 P5-0 is small and removes the hazards seen in `ci`. P5-1 makes segments
 possible for every check. P5-3 is the largest and needs specification
@@ -3693,7 +3694,7 @@ Decision D20 (owner, 2026-11-26): nested harness probes run in explicit
 Status: planned 2026-11-26 at the owner's request. Owner direction: retire as
 much of the Makefile as needed; a thin wrapper is better than a complicated
 one. Approved with D24 to D28 as recommended on 2026-11-26; P5-3a done
-(14.25); P5-3b done (14.26).
+(14.25); P5-3b done (14.26); P5-3c step 1 of 4 done (14.27).
 
 **Problem (G44, G47).** Measured at `db2304ea9`:
 
@@ -3967,3 +3968,116 @@ Approved by the owner on 2026-11-26 with P5-3 and D24 to D28 as recommended.
       artifact unit; it moves to the store in P5-3c.
   - **After the check (`p86`).** Removing `BUILD_GO_ARTIFACT_IMPL`: the
     surface source check, `make build` and script lint passed.
+
+### 14.27 Producers and Their Registry (P5-3c, step 1)
+
+**Sub-steps.** P5-3c moves every remaining producer into the store. Its
+survey found 20 artifact-binding operations and 6 installations that re-enter
+Make, about 90 operations naming file-rule paths as prerequisites, and eight
+producer scripts. It is split into four committed steps, each proven on
+segments and then one `check`:
+
+| Step | Producers | Deletes |
+| --- | --- | --- |
+| c1 | The producer registry and command; the seven Go binaries, the seven pinned Go tools and ShellCheck | 15 file rules, the Go tool and ShellCheck bootstrap scripts, their Makefile variables and pin-check duplicates |
+| c2 | The web bundles and the embedded assets | Their file rules; `build-web-artifact.sh`, `embed-web-assets.sh` |
+| c3 | The Node runtime, frontend toolchain and install, Playwright | Their file rules; the readiness controls (D28) |
+| c4 | The report renderer and release inventory; `make bootstrap` through producers | `cache-artifact.sh`, `list-build-inputs.sh`, `build-go-artifact.sh`, the last file rules |
+
+**Step 1.**
+
+- **The registry.** `tools/harness_producers.json`
+  (`cartulary.harness_producers.v1`, schema attached) declares each producer:
+  its kind, the binding its output is published at, the layout directory of
+  its default path, its run step, and its kind's fields. Go tool modules and
+  the ShellCheck version come from the toolchain pins; the registry holds only
+  ShellCheck's committed archive digests. It declares 15 producers: 7 Go
+  binaries, 7 Go tools and ShellCheck.
+- **One command.** `go run ./tools/harnessbuild produce <id>...` runs
+  producers through the store. A cached `go run` costs about 0.03 s, so Make,
+  the operation runner and bootstrap all use it, and no prebuilt binary is
+  needed. It applies the Go toolchain readiness owner before a Go build.
+- **New producers.**
+  - **Go tools.** `go install` of the pinned module into staging, or, with a
+    module directory (staticcheck, gosec), `go -C tools/go-analysis install
+    -mod=readonly`. The key: module and version, that directory's go.mod and
+    go.sum, the effective `go env` settings and the producer source.
+  - **ShellCheck.** The release archive is kept under the layout's archive
+    directory and used only with its committed digest; another digest is
+    removed and never extracted. The key: archive name and digest and the
+    producer source.
+- **No Make re-entry for produced bindings.**
+  - An artifact binding whose prerequisite is a registered binding, such as
+    `$(SQLC_BIN)`, runs that producer; other files stay Make targets, made
+    first. 13 of the 20 artifact-binding operations and the producer parts of
+    two installations no longer re-enter Make. The authored prerequisite lists
+    did not change.
+  - The generated recipes do the same through `RUN_PRODUCERS`, among them the
+    harness runtime before every graph launch.
+  - The generated include defaults each binding to its producer's path, from
+    the registry, pins and layout. A Go test checks those defaults against the
+    producer's own. Every rendering of the Make includes reads the checkout's
+    registry, so the task-surface report and the generator agree.
+- **Caller-provided executables.** A producer publishes only at its default
+  path. A caller that sets a binding to another path, as the shell-lint smoke
+  does with a fake ShellCheck, provides that executable: it is checked and
+  kept, never built or overwritten. The old scripts were inconsistent: the
+  ShellCheck bootstrap kept any executable that reported the pinned version,
+  while a Go tool overwrote it. Paths are compared after resolving links, so
+  a checkout reached through a link still matches its defaults.
+- **Make.** 15 file rules go: the seven Go binaries, the seven Go tools and
+  ShellCheck. So do their variables, the `*_TOOL` and `SHELLCHECK_*`
+  copies of pins, `TOOLBIN_DIR`, `GO_TOOLCHAIN_READY` and two prerequisite
+  variables. The Makefile has 187 lines (278).
+- **Deleted.** `bootstrap-go-tool.sh`, `bootstrap-shellcheck.sh` and the
+  `harness-smoke-bootstrap-shellcheck` row, operation and target: their
+  assertions are now Go tests in the `artifact_store` row. The Go toolchain
+  readiness test loses its bootstrap cases. The pin check drops its Makefile
+  tool and ShellCheck script comparisons and checks the pins' form instead.
+  `doctor` reads ShellCheck's version from the pins. Three environment names
+  had no reader left.
+- **Earlier boundary findings repaired.** The `owner_boundaries` row, which
+  is not in `check`, found two imports that bypass an owner's facade:
+  `environment-registry.mjs` (P5-4a) and its test (P5-4d). Both now import
+  the test-catalog and browser facades.
+- **Kept on purpose.** Graph targets still make the frontend install before
+  the harness runtime, as the old harness-runtime rule did; c3 settles it.
+- **Specification.** Amended: registered producers, the registry, the one
+  command, artifact bindings that run producers, and the Go tool and
+  ShellCheck keys.
+- **Validation.**
+  - **First segment (`p88`).** Generation, lint (Go, scripts, shell) and the
+    catalog, identity, generated, schema and toolchain source checks passed.
+    It found four problems:
+    - **The surface check.** The environment registry kept
+      `CARTULARY_LAYOUT_SHELLCHECK_ARCHIVES`, now unread. The producer also
+      wrote `CARTULARY_TEST_TARGET` directly; it now goes through
+      `runcontext`.
+    - **The task-surface report.** It rendered the Make includes without
+      producers and called the generated file stale. Every rendering now reads
+      the checkout's registry.
+    - **The frontend producer test.** It asserted the dependencies of the
+      deleted server rule. It now asserts that the three embedding binaries
+      wait for the embedded assets in the graph.
+    - **The shell-lint smoke.** It sets `SHELLCHECK_BIN` to a fake, which the
+      producer overwrote. That led to caller-provided executables, above.
+  - **`p88-build1`** failed because I edited a frontend build input mid-run;
+    the web build refused the changed source. Not a defect; `p90` reran
+    everything.
+  - **Second segment (`p90`).** Every step passed except the shell-lint
+    smoke. Its fake now reaches the graph unit, but the unit does not inherit
+    the fake's own variables, so the fake carries them in its script. The
+    smoke passed alone (`p91`). The smoke is `explicit_only` and had no
+    recorded run; under default-deny inheritance (P5-4b) it could not have
+    passed before either.
+    - Rows: the `artifact_store` row (12 tests) and 14 more command-surface
+      rows, the execution topology, routing contract and current-epoch
+      evidence rows, both operator recovery rows.
+    - `make build` reused everything in 6.7 s; `build COMPONENT=server-harness`
+      took 9.5 s; `doctor` passed.
+  - **`p92-check01`.** All 1,898 rows passed in a 510 s graph (518 s in
+    `p85`); wall time was 522 s. Nothing was rebuilt.
+    - The six Go binary units took 8.5 s in all (9.3 s in `p85`).
+    - A Go tool unit's reuse takes 1.3 to 1.7 s alone. Two took 6 s while
+      the graph's first units started together, so the six tool units took
+      19.8 s in all (12.0 s).

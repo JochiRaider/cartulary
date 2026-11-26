@@ -6,7 +6,7 @@ import test from "node:test";
 
 import { childEnvironment } from "../../runtime/child-environment.mjs";
 import { inputSourcesEnvironment, resourceDependenciesEnvironment, runContextEnvironment } from "../../contract/run-context.mjs";
-import { browserBindingEnvironment } from "../../browser/browser-binding.mjs";
+import { browserBindingEnvironment } from "../../browser/index.mjs";
 import { postgresAllocationEnvironment } from "../../services/suite-attachment.mjs";
 import { environmentRoles, globPattern, inspectEnvironmentRegistry, readEnvironmentRegistry, unitFixtureMarker } from "../environment-registry.mjs";
 

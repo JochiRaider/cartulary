@@ -46,6 +46,7 @@ export function registerJSONShapeTests() {
       ["tools/scheduler_manifest.json", "cartulary.scheduler_manifest.v3"],
       ["tools/browser_e2e_batch_manifest.json", "cartulary.browser_e2e_batch_manifest.v16"],
       ["tools/harness_work_graph_owner.json", "cartulary.harness_work_graph_owner.v14"],
+      ["tools/harness_producers.json", "cartulary.harness_producers.v1"],
     ]) {
       const value = JSON.parse(readFileSync(path.join(root, file), "utf8"));
       assert.equal(value.schema_id, schemaID);

@@ -86,6 +86,7 @@ copy_minimal_repo() {
   cp "${ROOT_DIR}/tools/task_surface.generated.mk" "${dest}/tools/task_surface.generated.mk"
   cp "${ROOT_DIR}/tools/task_surface.runtime.generated.mk" "${dest}/tools/task_surface.runtime.generated.mk"
   cp "${ROOT_DIR}/tools/workspace_layout.json" "${dest}/tools/workspace_layout.json"
+  cp "${ROOT_DIR}/tools/harness_producers.json" "${dest}/tools/harness_producers.json"
   cp "${ROOT_DIR}"/tools/workspace_layout.generated.* "${dest}/tools/"
   cp "${ROOT_DIR}/tools/task_surface_manifest.json" "${dest}/tools/task_surface_manifest.json"
   cp "${ROOT_DIR}/tools/scheduler_manifest.json" "${dest}/tools/scheduler_manifest.json"
@@ -109,7 +110,6 @@ copy_minimal_repo() {
   cp -R "${ROOT_DIR}/tools/schemas" "${dest}/tools/schemas"
   cp "${ROOT_DIR}/tools/harness/readiness/list-build-inputs.sh" "${dest}/tools/harness/readiness/list-build-inputs.sh"
   cp "${ROOT_DIR}/tools/harness/readiness/bootstrap-node-runtime.sh" "${dest}/tools/harness/readiness/bootstrap-node-runtime.sh"
-  cp "${ROOT_DIR}/tools/harness/readiness/bootstrap-shellcheck.sh" "${dest}/tools/harness/readiness/bootstrap-shellcheck.sh"
   cp "${ROOT_DIR}/tools/harness/readiness/toolchain-pin-check-cli.mjs" "${dest}/tools/harness/readiness/toolchain-pin-check-cli.mjs"
   cp "${ROOT_DIR}/tools/harness/execution/cartulary-runner-cli.mjs" "${dest}/tools/harness/execution/cartulary-runner-cli.mjs"
   cp "${ROOT_DIR}/tools/harness/contract/harness-contract-cli.mjs" "${dest}/tools/harness/contract/harness-contract-cli.mjs"
@@ -250,12 +250,7 @@ testcontainers_go_version="$(pin_value testcontainers_go_version)"
 testcontainers_go_version_alt="$(bump_dotted_version "$testcontainers_go_version")"
 staticcheck_tool="$(pin_value tools.staticcheck)"
 staticcheck_tool_alt="$(bump_tool_spec "$staticcheck_tool")"
-govulncheck_tool="$(pin_value tools.govulncheck)"
-govulncheck_tool_alt="$(bump_tool_spec "$govulncheck_tool")"
-gosec_tool="$(pin_value tools.gosec)"
-gosec_tool_alt="$(bump_tool_spec "$gosec_tool")"
 shellcheck_version="$(pin_value shellcheck_version)"
-shellcheck_version_alt="$(bump_dotted_version "$shellcheck_version")"
 
 mutate_package_node() {
   replace_text "$1/package.json" '"node": "'"$node_version"'"' '"node": "'"$node_version_alt"'"'
@@ -306,29 +301,16 @@ mutate_go_testcontainers() {
   replace_text "$1/go.mod" "github.com/testcontainers/testcontainers-go $testcontainers_go_version" "github.com/testcontainers/testcontainers-go $testcontainers_go_version_alt"
 }
 
-mutate_staticcheck_tool() {
-  replace_text "$1/Makefile" "STATICCHECK_TOOL := $staticcheck_tool" "STATICCHECK_TOOL := $staticcheck_tool_alt"
+mutate_staticcheck_pin() {
+  replace_text "$1/tools/toolchain_pins.json" "\"$staticcheck_tool\"" "\"${staticcheck_tool%@*}@latest\""
 }
 
-mutate_govulncheck_tool() {
-  replace_text "$1/Makefile" "GOVULNCHECK_TOOL := $govulncheck_tool" "GOVULNCHECK_TOOL := $govulncheck_tool_alt"
-}
-
-mutate_gosec_tool() {
-  replace_text "$1/Makefile" "GOSEC_TOOL := $gosec_tool" "GOSEC_TOOL := $gosec_tool_alt"
+mutate_shellcheck_pin() {
+  replace_text "$1/tools/toolchain_pins.json" "\"shellcheck_version\": \"$shellcheck_version\"" "\"shellcheck_version\": \"latest\""
 }
 
 mutate_analysis_tool() {
   replace_text "$1/tools/go-analysis/go.mod" "honnef.co/go/tools ${staticcheck_tool##*@}" "honnef.co/go/tools ${staticcheck_tool_alt##*@}"
-}
-
-mutate_shellcheck_version() {
-  replace_text "$1/Makefile" "SHELLCHECK_VERSION ?= $shellcheck_version" "SHELLCHECK_VERSION ?= $shellcheck_version_alt"
-}
-
-mutate_bootstrap_shellcheck_version() {
-  # shellcheck disable=SC2016
-  replace_text "$1/tools/harness/readiness/bootstrap-shellcheck.sh" 'SHELLCHECK_VERSION="${SHELLCHECK_VERSION:-'"$shellcheck_version"'}"' 'SHELLCHECK_VERSION="${SHELLCHECK_VERSION:-'"$shellcheck_version_alt"'}"'
 }
 
 mutate_renderer_version() {
@@ -398,29 +380,17 @@ expect_drift "go-testcontainers" \
   "go.mod: github.com/testcontainers/testcontainers-go mismatch: expected $testcontainers_go_version, got $testcontainers_go_version_alt" \
   mutate_go_testcontainers
 
-expect_drift "staticcheck-tool" \
-  "Makefile: STATICCHECK_TOOL mismatch: expected $staticcheck_tool, got $staticcheck_tool_alt" \
-  mutate_staticcheck_tool
-
-expect_drift "govulncheck-tool" \
-  "Makefile: GOVULNCHECK_TOOL mismatch: expected $govulncheck_tool, got $govulncheck_tool_alt" \
-  mutate_govulncheck_tool
-
-expect_drift "gosec-tool" \
-  "Makefile: GOSEC_TOOL mismatch: expected $gosec_tool, got $gosec_tool_alt" \
-  mutate_gosec_tool
+expect_drift "staticcheck-pin" \
+  "tools/toolchain_pins.json: tools.staticcheck requires an exact module version" \
+  mutate_staticcheck_pin
 
 expect_drift "analysis-tool" \
   "tools/go-analysis/go.mod: honnef.co/go/tools mismatch" \
   mutate_analysis_tool
 
-expect_drift "shellcheck-version" \
-  "Makefile: SHELLCHECK_VERSION mismatch: expected $shellcheck_version, got $shellcheck_version_alt" \
-  mutate_shellcheck_version
-
-expect_drift "bootstrap-shellcheck-version" \
-  "tools/harness/readiness/bootstrap-shellcheck.sh: SHELLCHECK_VERSION default mismatch: expected $shellcheck_version, got $shellcheck_version_alt" \
-  mutate_bootstrap_shellcheck_version
+expect_drift "shellcheck-pin" \
+  "tools/toolchain_pins.json: shellcheck_version requires an exact version" \
+  mutate_shellcheck_pin
 
 expect_drift "renderer-version" \
   "packages/report-renderer/package.json: dependencies.mermaid mismatch" \

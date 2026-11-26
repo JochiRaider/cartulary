@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { spawnSync } from "../workspace/child-process.mjs";
+import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { reportCommandFailure } from "../runtime/command-failure.mjs";
 import { publicExitCodeForFailure, redactString } from "../contract/index.mjs";
@@ -28,6 +29,7 @@ try {
   }
   let status = 0;
   for (const invocation of invocations) {
+    for (const directory of invocation.directories ?? []) mkdirSync(directory, { recursive: true });
     const child = spawnSync(invocation.command, invocation.args, { env: invocation.env, stdio: "inherit" });
     if (child.error) throw child.error;
     status = child.status ?? 1;

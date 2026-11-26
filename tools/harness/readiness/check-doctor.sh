@@ -101,16 +101,17 @@ else
   print_missing pnpm "run make bootstrap PART=frontend"
 fi
 
+shellcheck_expected="$(sed -n 's/^ *"shellcheck_version": *"\([^"]*\)".*/\1/p' "$ROOT_DIR/tools/toolchain_pins.json")"
 shellcheck_path=""
 if [[ -x "${SHELLCHECK_BIN:-}" ]]; then
   shellcheck_path="$SHELLCHECK_BIN"
 fi
 if [[ -n "$shellcheck_path" ]]; then
   shellcheck_version="$("$shellcheck_path" --version 2>/dev/null | awk -F': ' '$1 == "version" { print $2; exit }')"
-  if [[ "$shellcheck_version" == "${SHELLCHECK_VERSION:-}" ]]; then
+  if [[ -n "$shellcheck_expected" && "$shellcheck_version" == "$shellcheck_expected" ]]; then
     printf 'ok shellcheck: %s %s\n' "$shellcheck_path" "$shellcheck_version"
   else
-    printf 'missing shellcheck: expected %s, found %s at %s\n' "${SHELLCHECK_VERSION:-}" "${shellcheck_version:-unusable}" "$shellcheck_path"
+    printf 'missing shellcheck: expected %s, found %s at %s\n' "${shellcheck_expected:-unpinned}" "${shellcheck_version:-unusable}" "$shellcheck_path"
     fail=2
   fi
 else

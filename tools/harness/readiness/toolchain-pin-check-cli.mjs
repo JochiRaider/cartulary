@@ -67,13 +67,7 @@ function loadExpected(root) {
     nodeVersion: requireString(pins, "node_version", file),
     pnpmVersion: requireString(pins, "pnpm_version", file),
     biomeVersion: requireString(pins, "biome_version", file),
-    sqlcTool: requireString(tools, "sqlc", file),
-    gooseTool: requireString(tools, "goose", file),
-    staticcheckTool: requireString(tools, "staticcheck", file),
-    govulncheckTool: requireString(tools, "govulncheck", file),
-    gosecTool: requireString(tools, "gosec", file),
-    cyclonedxGomodTool: requireString(tools, "cyclonedx_gomod", file),
-    syftTool: requireString(tools, "syft", file),
+    tools: Object.fromEntries(Object.keys(tools).map((name) => [name, requireString(tools, name, file)])),
     shellcheckVersion: requireString(pins, "shellcheck_version", file),
     bubblewrapVersion: requireString(pins, "bubblewrap_version", file),
     testcontainersGoVersion: requireString(
@@ -140,62 +134,6 @@ function checkMakefile(root, mismatches, expected) {
   checkEqual(
     mismatches,
     file,
-    "SQLC_TOOL",
-    expected.sqlcTool,
-    parseMakeVariable(makefile, "SQLC_TOOL"),
-  );
-  checkEqual(
-    mismatches,
-    file,
-    "GOOSE_TOOL",
-    expected.gooseTool,
-    parseMakeVariable(makefile, "GOOSE_TOOL"),
-  );
-  checkEqual(
-    mismatches,
-    file,
-    "STATICCHECK_TOOL",
-    expected.staticcheckTool,
-    parseMakeVariable(makefile, "STATICCHECK_TOOL"),
-  );
-  checkEqual(
-    mismatches,
-    file,
-    "GOVULNCHECK_TOOL",
-    expected.govulncheckTool,
-    parseMakeVariable(makefile, "GOVULNCHECK_TOOL"),
-  );
-  checkEqual(
-    mismatches,
-    file,
-    "GOSEC_TOOL",
-    expected.gosecTool,
-    parseMakeVariable(makefile, "GOSEC_TOOL"),
-  );
-  checkEqual(
-    mismatches,
-    file,
-    "CYCLONEDX_GOMOD_TOOL",
-    expected.cyclonedxGomodTool,
-    parseMakeVariable(makefile, "CYCLONEDX_GOMOD_TOOL"),
-  );
-  checkEqual(
-    mismatches,
-    file,
-    "SYFT_TOOL",
-    expected.syftTool,
-    parseMakeVariable(makefile, "SYFT_TOOL"),
-  );
-  checkEqual(
-    mismatches,
-    file,
-    "SHELLCHECK_VERSION",
-    expected.shellcheckVersion,
-    parseMakeVariable(makefile, "SHELLCHECK_VERSION"),
-  );
-  checkEqual(
-    mismatches,
-    file,
     "TESTCONTAINERS_GO_VERSION",
     expected.testcontainersGoVersion,
     parseMakeVariable(makefile, "TESTCONTAINERS_GO_VERSION"),
@@ -257,7 +195,7 @@ function checkGoMod(root, mismatches, expected) {
     mismatches,
     file,
     "github.com/pressly/goose/v3",
-    expected.gooseTool.split("@")[1],
+    expected.tools.goose?.split("@")[1],
     matchLine(goMod, /^\s*github\.com\/pressly\/goose\/v3\s+(\S+)/m),
   );
   checkEqual(
@@ -281,18 +219,6 @@ function checkBootstrapNodeRuntime(root, mismatches, expected) {
   );
 }
 
-function checkBootstrapShellcheck(root, mismatches, expected) {
-  const file = "tools/harness/readiness/bootstrap-shellcheck.sh";
-  const script = readRepoFile(root, file);
-  checkEqual(
-    mismatches,
-    file,
-    "SHELLCHECK_VERSION default",
-    expected.shellcheckVersion,
-    matchLine(script, /^SHELLCHECK_VERSION="\$\{SHELLCHECK_VERSION:-(.+)\}"\s*$/m),
-  );
-}
-
 function main() {
   const root = parseArgs(process.argv.slice(2));
   const expected = loadExpected(root);
@@ -301,6 +227,15 @@ function main() {
 
   if (!/^[0-9]+\.[0-9]+\.[0-9]+$/.test(expected.biomeVersion)) {
     throw new Error("tools/toolchain_pins.json: biome_version requires an exact version");
+  }
+
+  // Producers read the Go tools and ShellCheck from the pins themselves
+  // (tools/harness_producers.json), so only their form is checked here.
+  for (const [name, module] of Object.entries(expected.tools)) {
+    if (!/^[^@\s]+@v[0-9]+\.[0-9]+\.[0-9]+$/.test(module)) throw new Error(`tools/toolchain_pins.json: tools.${name} requires an exact module version`);
+  }
+  if (!/^[0-9]+\.[0-9]+\.[0-9]+$/.test(expected.shellcheckVersion)) {
+    throw new Error("tools/toolchain_pins.json: shellcheck_version requires an exact version");
   }
 
   if (!/^[0-9]+\.[0-9]+\.[0-9]+$/.test(expected.bubblewrapVersion)) {
@@ -328,7 +263,7 @@ function main() {
   const analysisFile = "tools/go-analysis/go.mod";
   const analysisModule = readRepoFile(root, analysisFile);
   checkEqual(mismatches, analysisFile, "go", expected.goVersion, matchLine(analysisModule, /^go (\S+)$/m));
-  for (const tool of [expected.staticcheckTool, expected.gosecTool]) {
+  for (const tool of [expected.tools.staticcheck, expected.tools.gosec]) {
     const [pkg, version] = tool.split("@");
     const module = pkg.replace(/\/cmd\/[^/]+$/u, "");
     const escaped = module.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -342,7 +277,6 @@ function main() {
   }
   if (!/^v[0-9]+\.[0-9]+\.[0-9]+-[a-f0-9]{8}$/.test(expected.cryptographicModule.selector) || !/^[a-f0-9]{64}$/.test(expected.cryptographicModule.archive_sha256)) throw new Error("cryptographic module pins must be exact");
   checkBootstrapNodeRuntime(root, mismatches, expected);
-  checkBootstrapShellcheck(root, mismatches, expected);
 
   if (mismatches.length > 0) {
     for (const mismatch of mismatches) {

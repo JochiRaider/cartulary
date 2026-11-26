@@ -13,16 +13,6 @@
       "public_target": "harness-contract"
     },
     {
-      "verification_id": "harness.command_surface.verification.bootstrap_shellcheck",
-      "behavior_class": "harness",
-      "profile": "support",
-      "evidence_kinds": [
-        "shell",
-        "static_check"
-      ],
-      "public_target": "harness-contract"
-    },
-    {
       "verification_id": "harness.command_surface.verification.dev_services_lifecycle",
       "behavior_class": "harness",
       "profile": "support",

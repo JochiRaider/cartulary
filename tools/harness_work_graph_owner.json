@@ -336,7 +336,6 @@
       "harness.assurance_toolchain_pins",
       "harness.assurance_go_toolchain_readiness",
       "harness.assurance_bootstrap_node_runtime",
-      "harness.assurance_bootstrap_shellcheck",
       "harness.assurance_cache_artifact",
       "harness.assurance_cleanup_contract",
       "harness.assurance_capacity_failure_contract",
@@ -1319,16 +1318,6 @@
       "postgres_isolation": "none"
     },
     "harness.assurance_bootstrap_node_runtime": {
-      "needs": [
-        "harness.frontend_install"
-      ],
-      "cache_policy": "none",
-      "estimated_work_ms": 10000,
-      "resource_profile_id": "harness_contract",
-      "service_dependencies": [],
-      "postgres_isolation": "none"
-    },
-    "harness.assurance_bootstrap_shellcheck": {
       "needs": [
         "harness.frontend_install"
       ],
@@ -2451,8 +2440,7 @@
           "PNPM": "$(PNPM)",
           "PNPM_VERSION": "$(PNPM_VERSION)",
           "NODE_RUNTIME_DIR": "$(NODE_RUNTIME_DIR)",
-          "SHELLCHECK_BIN": "$(SHELLCHECK_BIN)",
-          "SHELLCHECK_VERSION": "$(SHELLCHECK_VERSION)"
+          "SHELLCHECK_BIN": "$(SHELLCHECK_BIN)"
         },
         "command": [
           "bash",
@@ -4216,7 +4204,6 @@
         "backing_scripts": [
           "tools/harness/readiness/tests/test-go-toolchain-readiness.sh",
           "tools/harness/readiness/go-toolchain-readiness.sh",
-          "tools/harness/readiness/bootstrap-go-tool.sh",
           "tools/harness/readiness/check-doctor.sh",
           "tools/harness/contract/tests/test-machine-state-config.mjs"
         ]
@@ -4253,37 +4240,6 @@
           "tools/harness/contract/tests/test-foundation-schema-validator.mjs",
           "tools/harness/generated-artifacts/schema-validator-compiler.mjs",
           "tools/harness/generated-artifacts/generate-foundation-schema-validators.mjs"
-        ]
-      }
-    },
-    "harness.assurance_bootstrap_shellcheck": {
-      "report_key": "harness-smoke-bootstrap-shellcheck",
-      "kind": "policy",
-      "execution": {
-        "type": "step_command",
-        "mode": "command",
-        "prerequisites": [],
-        "command": [
-          "env",
-          "-u",
-          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
-          "-u",
-          "CARTULARY_HARNESS_GRAPH_CHILD",
-          "-u",
-          "CARTULARY_TEST_TARGET",
-          "-u",
-          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
-          "-u",
-          "VERBOSE",
-          "-u",
-          "CI_VERBOSE",
-          "CARTULARY_OUTPUT_MODE=summary",
-          "bash",
-          "tools/harness/readiness/tests/test-bootstrap-shellcheck.sh"
-        ],
-        "backing_scripts": [
-          "tools/harness/readiness/tests/test-bootstrap-shellcheck.sh",
-          "tools/harness/readiness/bootstrap-shellcheck.sh"
         ]
       }
     },

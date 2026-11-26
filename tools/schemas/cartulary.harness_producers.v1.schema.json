@@ -1,0 +1,227 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_producers.v1",
+  "description": "Harness artifact producers (TH-HARNESS build-artifact store, P5-3). Each producer publishes its output at a binding's path, or at its default file under a workspace layout directory; the artifact store decides whether to build. Go tool modules and the ShellCheck version come from the toolchain pins.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "producers"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.harness_producers.v1"
+    },
+    "producers": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "kind",
+          "binding",
+          "directory"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$"
+          },
+          "kind": {
+            "enum": [
+              "go_binary",
+              "go_tool",
+              "shellcheck"
+            ]
+          },
+          "binding": {
+            "description": "The variable whose value is the published path.",
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]*$"
+          },
+          "directory": {
+            "description": "The workspace layout directory of the default path.",
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "label": {
+            "description": "The run step a build runs as.",
+            "type": "string",
+            "minLength": 1
+          },
+          "target": {
+            "description": "The step target a build reports under when the caller names none.",
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$"
+          },
+          "package": {
+            "type": "string",
+            "pattern": "^\\./[A-Za-z0-9_./-]+$"
+          },
+          "tags": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_,]+$"
+          },
+          "name": {
+            "description": "A Go binary's file name.",
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.-]+$"
+          },
+          "tool": {
+            "description": "A Go tool's key in the toolchain pins.",
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "module_dir": {
+            "description": "The module directory whose go.mod and go.sum select a Go tool's dependencies.",
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_][A-Za-z0-9_./-]*$"
+          },
+          "archives": {
+            "description": "The committed SHA-256 of each ShellCheck release archive, by file name.",
+            "type": "object",
+            "minProperties": 1,
+            "propertyNames": {
+              "pattern": "^shellcheck-v[0-9]+\\.[0-9]+\\.[0-9]+\\.linux\\.[a-z0-9_]+\\.tar\\.xz$"
+            },
+            "additionalProperties": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "go_binary"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "package",
+                "name"
+              ],
+              "not": {
+                "anyOf": [
+                  {
+                    "required": [
+                      "tool"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "module_dir"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "archives"
+                    ]
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "go_tool"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "tool"
+              ],
+              "not": {
+                "anyOf": [
+                  {
+                    "required": [
+                      "package"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "tags"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "name"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "archives"
+                    ]
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "shellcheck"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "archives"
+              ],
+              "not": {
+                "anyOf": [
+                  {
+                    "required": [
+                      "package"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "tags"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "name"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "tool"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "module_dir"
+                    ]
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "if": {
+              "required": [
+                "target"
+              ]
+            },
+            "then": {
+              "required": [
+                "label"
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+}

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-import { executableRepositoryPaths } from "../test-catalog/restricted-input-boundary.mjs";
+import { executableRepositoryPaths } from "../test-catalog/index.mjs";
 
 // The harness environment registry (TH-HARNESS, declared environment, P5-4a).
 // Every CARTULARY_* variable name that harness code mentions is declared here

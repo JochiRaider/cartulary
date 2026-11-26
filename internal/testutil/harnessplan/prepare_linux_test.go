@@ -518,7 +518,7 @@ func TestPlanPreparation(t *testing.T) {
 			"unknown owner":                {command(map[string]string{"OWNER": "harness.no_such_owner"}), ErrSelection},
 			"row of another owner":         {command(map[string]string{"OWNER": "harness.test_catalog", "ROWS": row}), ErrSelection},
 			"no service-backed rows":       {command(map[string]string{"OWNER": "harness.command_surface", "SCOPE": "services"}), ErrSelection},
-			"shuffle seed with shell rows": {command(map[string]string{"OWNER": "harness.command_surface", "ROWS": "harness.command_surface.behavior.bootstrap_shellcheck", "GO_SHUFFLE_SEED": "7"}), ErrSelection},
+			"shuffle seed with shell rows": {command(map[string]string{"OWNER": "harness.command_surface", "ROWS": "harness.command_surface.behavior.cleanup_contract", "GO_SHUFFLE_SEED": "7"}), ErrSelection},
 			"attach outside service scope": {command(map[string]string{"OWNER": "harness.command_surface", "ROWS": row, servicesModeInput: "attach"}), ErrSelection},
 			"session file in owned mode":   {command(map[string]string{"OWNER": "harness.command_surface", "ROWS": row, servicesSessionFileInput: "/tmp/session.json"}), ErrSelection},
 			"reserved service state":       {with(command(owned), func(e map[string]string) { e["CARTULARY_TEST_SERVICES_SUITE_ID"] = "x" }), ErrSelection},

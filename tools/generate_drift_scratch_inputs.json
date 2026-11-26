@@ -193,6 +193,7 @@
     "tools/harness_helper_ownership.json",
     "tools/harness_instrumentation_definitions.json",
     "tools/harness_lifecycle_policy.json",
+    "tools/harness_producers.json",
     "tools/harness_redaction_manifest.json",
     "tools/harness_schema_attachments.json",
     "tools/harness_work_graph_owner.json",

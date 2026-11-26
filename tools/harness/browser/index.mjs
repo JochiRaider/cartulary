@@ -1,5 +1,6 @@
 // Browser harness owner facade.
 
+export { browserBindingEnvironment } from "./browser-binding.mjs";
 export { browserTrustTool } from "./browser-trust.mjs";
 export { referencePackBundle } from "./reference-pack-fixture.mjs";
 export { validateFrontendVisualGoldenManifest } from "./frontend-visual-golden-manifest.mjs";

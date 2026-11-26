@@ -25,28 +25,6 @@
       "postgres_isolation": "none"
     },
     {
-      "row_id": "harness.command_surface.behavior.bootstrap_shellcheck",
-      "owner_id": "harness.command_surface",
-      "family_id": "harness.command_surface.behavior",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "harness.command_surface.verification.bootstrap_shellcheck"
-      ],
-      "runner": "shell",
-      "selector": {
-        "operation_id": "harness.assurance_bootstrap_shellcheck"
-      },
-      "evidence_class": "static",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "harness_contract",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "none",
-      "aggregate_placement": "full",
-      "service_dependencies": [],
-      "postgres_isolation": "none"
-    },
-    {
       "row_id": "harness.command_surface.behavior.build_input_discovery",
       "owner_id": "harness.command_surface",
       "family_id": "harness.command_surface.behavior",
@@ -876,9 +854,14 @@
           "TestCacheControls",
           "TestChangedKeyPublishesItsNewRoot",
           "TestCollect",
+          "TestDeclarationsAreValidatedByKind",
+          "TestGeneratedMakeDefaultsMatchProducers",
           "TestGoBinaryKeyCoversItsImportClosure",
+          "TestGoToolKey",
           "TestProduceSealsReusesAndPublishesViews",
-          "TestPublishRefusesUnverifiedBytes"
+          "TestPublishRefusesUnverifiedBytes",
+          "TestRegisteredProducersPlan",
+          "TestShellCheckArchiveIsVerified"
         ]
       },
       "evidence_class": "unit",

@@ -90,6 +90,29 @@ EOF
   printf '%s\n' "$fake"
 }
 
+# make_baked_shellcheck writes a fake ShellCheck whose argument log, output
+# and status are part of the script. A public Make run executes it inside a
+# graph unit, which inherits only registered names, never the test's own.
+make_baked_shellcheck() {
+  local dir="$1"
+  local args_log="$2"
+  local output="$3"
+  local status="$4"
+  local fake="$dir/tmp/baked-shellcheck"
+
+  mkdir -p "$dir/tmp"
+  # shellcheck disable=SC2016 # The fake's own expansions are written literally.
+  {
+    printf '#!/usr/bin/env bash\n'
+    printf 'printf %%s\\\\n "$@" >%q\n' "$args_log"
+    printf 'if [[ "${1:-}" == "--version" ]]; then printf %%s\\\\n %q %q; exit 0; fi\n' "ShellCheck - shell script analysis tool" "version: 0.11.0"
+    printf 'printf %%s\\\\n %q >&2\n' "$output"
+    printf 'exit %q\n' "$status"
+  } >"$fake"
+  chmod +x "$fake"
+  printf '%s\n' "$fake"
+}
+
 make_counting_shellcheck() {
   local dir="$1"
   local fake="$dir/tmp/counting-shellcheck"
@@ -297,8 +320,8 @@ make_fixture_repo make_strict_repo
 mkdir -p "$make_strict_repo/scripts"
 printf '%s\n' "echo \"\$HOME\"" >"$make_strict_repo/scripts/warn.sh"
 track_all "$make_strict_repo"
-make_strict_shellcheck="$(make_fake_shellcheck "$make_strict_repo")"
 make_strict_args_log="$make_strict_repo/shellcheck-args.log"
+make_strict_shellcheck="$(make_baked_shellcheck "$make_strict_repo" "$make_strict_args_log" "SC2086 simulated finding" 1)"
 make_strict_results="$(cartulary_harness_mktemp_dir lint-shell-public-results.XXXXXX)"
 cleanup_paths+=("$make_strict_results")
 make_strict_run_id="lint-shell-public-strict"
@@ -310,9 +333,6 @@ make_strict_output="$(
     CARTULARY_TEST_RUN_ID="$make_strict_run_id" \
     CARTULARY_SHELLCHECK_ROOT="$make_strict_repo" \
     SHELLCHECK_BIN="$make_strict_shellcheck" \
-    FAKE_SHELLCHECK_ARGS_LOG="$make_strict_args_log" \
-    FAKE_SHELLCHECK_OUTPUT="SC2086 simulated finding" \
-    FAKE_SHELLCHECK_STATUS=1 \
       make -C "$ROOT_DIR" --no-print-directory CARTULARY_HARNESS_CACHE_MODE=off lint CHECK=shell 2>&1
 )"
 make_strict_status=$?

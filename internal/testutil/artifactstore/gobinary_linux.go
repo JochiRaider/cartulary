@@ -145,12 +145,8 @@ func (b GoBinary) Key() (string, error) {
 		}
 		inputs[name] = digest
 	}
-	settings, err := b.run(b.Go, append([]string{"env", "-json"}, goSettings...), b.Env)
+	effective, err := effectiveGoSettings(b.Go, b.Module, b.Env)
 	if err != nil {
-		return "", err
-	}
-	var effective map[string]string
-	if err := json.Unmarshal(settings, &effective); err != nil {
 		return "", err
 	}
 	node, err := b.run(b.Node, []string{"--version"}, b.Env)

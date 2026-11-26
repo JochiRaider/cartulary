@@ -1,63 +1,51 @@
 //go:build linux
 
-// Command harnessbuild produces build artifacts through the harness artifact
-// store (P5-3b). Make runs it with `go run`, which needs no prebuilt binary, so
-// it also builds the harness runtime itself.
+// Command harnessbuild runs registered producers through the harness artifact
+// store (P5-3). Make and the operation runner start it with `go run`, which
+// needs no prebuilt binary, so it also builds the harness runtime itself.
 //
-//	harnessbuild go-binary [--store DIR] --package PATH --output FILE [--tags TAGS] [--label LABEL]
+//	harnessbuild produce [--store DIR] PRODUCER...
 //
-// The store defaults to the workspace layout's artifact_store directory.
-// The binary and its receipt are published at FILE and FILE.crypto.json. With
-// --label and RUN_STEP_SCRIPT, a build runs as that step; a reused root runs
-// none.
+// Each producer is declared in tools/harness_producers.json and publishes at
+// its default path in the workspace layout. A caller that sets a producer's
+// binding to another path provides that executable, which is checked and
+// kept. The store defaults to the layout's artifact_store directory.
 package main
 
 import (
-	"encoding/json"
-	"errors"
 	"flag"
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
+	"slices"
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/artifactstore"
 )
 
-// collection bounds: records unused for 30 days go, and one build removes at
-// most 16 entries.
+// collection bounds: records unused for 30 days go, and one invocation removes
+// at most 16 entries.
 const (
 	collectAge   = 30 * 24 * time.Hour
 	collectLimit = 16
 )
 
+const usage = "usage: harnessbuild produce [--store DIR] PRODUCER..."
+
 func main() { os.Exit(run(os.Args[1:])) }
 
 func run(args []string) int {
-	if len(args) == 0 || args[0] != "go-binary" {
-		fmt.Fprintln(os.Stderr, "usage: harnessbuild go-binary [--store DIR] --package PATH --output FILE [--tags TAGS] [--label LABEL]")
+	if len(args) == 0 || args[0] != "produce" {
+		fmt.Fprintln(os.Stderr, usage)
 		return 2
 	}
-	flags := flag.NewFlagSet("go-binary", flag.ContinueOnError)
+	flags := flag.NewFlagSet("produce", flag.ContinueOnError)
 	store := flags.String("store", "", "artifact store directory")
-	pkg := flags.String("package", "", "package to build")
-	output := flags.String("output", "", "path the binary is published at")
-	tags := flags.String("tags", "", "build tags")
-	label := flags.String("label", "", "step label for a build")
-	if err := flags.Parse(args[1:]); err != nil || flags.NArg() != 0 || *pkg == "" || *output == "" {
-		fmt.Fprintln(os.Stderr, "usage: harnessbuild go-binary [--store DIR] --package PATH --output FILE [--tags TAGS] [--label LABEL]")
+	if err := flags.Parse(args[1:]); err != nil || flags.NArg() == 0 {
+		fmt.Fprintln(os.Stderr, usage)
 		return 2
 	}
-	if *store == "" {
-		directory, err := layoutStore()
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			return 2
-		}
-		*store = directory
-	}
-	if err := goBinary(*store, *pkg, *output, *tags, *label); err != nil {
+	if err := produce(*store, flags.Args()); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		reportFailure()
 		return 1
@@ -65,76 +53,73 @@ func run(args []string) int {
 	return 0
 }
 
-func goBinary(store, pkg, output, tags, label string) error {
-	module, err := os.Getwd()
+func produce(store string, ids []string) error {
+	root, err := os.Getwd()
 	if err != nil {
 		return err
 	}
-	node := os.Getenv("NODE_BIN")
-	if node == "" {
-		return errors.New("NODE_BIN is required")
+	registry, err := artifactstore.ReadRegistry(root)
+	if err != nil {
+		return err
 	}
-	goExecutable := os.Getenv("GO")
-	if goExecutable == "" {
-		goExecutable = "go"
+	workspace, err := artifactstore.OpenWorkspace(root, os.Environ())
+	if err != nil {
+		return err
 	}
-	env := os.Environ()
-	for name, variable := range map[string]string{"GOCACHE": "GO_CACHE_DIR", "GOMODCACHE": "GO_MOD_CACHE_DIR", "GOTMPDIR": "GO_TMP_DIR"} {
-		directory := os.Getenv(variable)
-		if directory == "" {
-			return fmt.Errorf("%s is required", variable)
-		}
-		if err := os.MkdirAll(directory, 0o755); err != nil {
+	if store == "" {
+		if store, err = workspace.Directory("artifact_store"); err != nil {
 			return err
 		}
-		env = append(env, name+"="+directory)
 	}
-	producer := artifactstore.GoBinary{Module: module, Package: pkg, Tags: tags, Name: filepath.Base(output), Go: goExecutable, Node: node, Env: env}
-	if script := os.Getenv("RUN_STEP_SCRIPT"); label != "" && script != "" {
-		if os.Getenv("CARTULARY_TEST_TARGET") == "" {
-			return errors.New("a labelled build requires CARTULARY_TEST_TARGET")
+	declarations := make([]artifactstore.Declaration, 0, len(ids))
+	for _, id := range ids {
+		d, ok := registry.Lookup(id)
+		if !ok {
+			return fmt.Errorf("no registered producer %q", id)
 		}
-		producer.Env = append(producer.Env, "CARTULARY_SUPPRESS_CHILD_SUCCESS=1")
-		producer.Wrap = func(command []string) []string { return append([]string{"bash", script, label, "--"}, command...) }
+		// A caller that provides the executable at its own path keeps it.
+		if _, provided, err := workspace.Provided(d); err != nil {
+			return fmt.Errorf("producer %s: %w", id, err)
+		} else if !provided {
+			declarations = append(declarations, d)
+		}
 	}
-	name := producer.Name
+	if slices.ContainsFunc(declarations, artifactstore.Declaration.IsGo) {
+		if err := ensureGoToolchain(); err != nil {
+			return err
+		}
+	}
 	s := artifactstore.Store{Root: store}
-	if _, err := s.Produce(producer, map[string]string{name: output, name + ".crypto.json": output + ".crypto.json"}, artifactstore.Controls{
+	controls := artifactstore.Controls{
 		Disable: os.Getenv("CARTULARY_BUILD_CACHE_DISABLE") == "1",
 		Force:   os.Getenv("CARTULARY_FORCE_REBUILD") == "1",
-	}); err != nil {
-		return err
+	}
+	for _, d := range declarations {
+		producer, views, err := workspace.Plan(d)
+		if err != nil {
+			return fmt.Errorf("producer %s: %w", d.ID, err)
+		}
+		if _, err := s.Produce(producer, views, controls); err != nil {
+			return fmt.Errorf("producer %s: %w", d.ID, err)
+		}
 	}
 	_, err = s.Collect(time.Now(), collectAge, collectLimit)
 	return err
 }
 
-// layoutStore reads the store's location from the authored workspace layout,
-// so the first build of the harness runtime needs no generated Make include.
-func layoutStore() (string, error) {
-	data, err := os.ReadFile("tools/workspace_layout.json")
-	if err != nil {
-		return "", err
+// ensureGoToolchain applies the Go toolchain readiness owner before a Go
+// build: machine-state paths, cache corruption markers and the pinned
+// toolchain.
+func ensureGoToolchain() error {
+	command := exec.Command("bash", "tools/harness/readiness/go-toolchain-readiness.sh", "ensure")
+	command.Stdout, command.Stderr = os.Stderr, os.Stderr
+	if err := command.Run(); err != nil {
+		return fmt.Errorf("go toolchain readiness: %w", err)
 	}
-	var layout struct {
-		Directories []struct {
-			ID   string `json:"id"`
-			Path string `json:"path"`
-		} `json:"directories"`
-	}
-	if err := json.Unmarshal(data, &layout); err != nil {
-		return "", err
-	}
-	for _, directory := range layout.Directories {
-		if directory.ID == "artifact_store" && directory.Path != "" && !filepath.IsAbs(directory.Path) {
-			return filepath.Abs(directory.Path)
-		}
-	}
-	return "", errors.New("the workspace layout declares no artifact_store directory")
+	return nil
 }
 
-// reportFailure records a build failure in the command's failure context, as
-// the shell build helper did.
+// reportFailure records a build failure in the command's failure context.
 func reportFailure() {
 	if os.Getenv("CARTULARY_HARNESS_COMMAND_FAILURE_CONTEXT") == "" || os.Getenv("NODE_BIN") == "" {
 		return

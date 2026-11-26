@@ -2620,22 +2620,40 @@ records. Application startup still admits the whole receipt-bound
 installation under the Reporting NLSpec, so reuse never bypasses its
 verification.
 
-Go binaries are produced into the harness artifact store (amended 2026-11-26,
-P5-3b), the workspace layout's `artifact_store` directory. A producer's outputs
-form one immutable root named by the digest of its manifest, and a key record
-names the root a producer key built. The paths consumers read, `build/bin/*`
-and the harness tool binaries, are views: single-link copies of the root's
-files, each copied only from bytes with its manifest digest and swapped into
-place by rename under a lock per view, a receipt after its binary. A view is never a hard link, because product code opens its
-own executable only as a single-link file. A root that no longer matches its manifest is rebuilt and quarantined,
-never reused. A Go binary's key covers its declaration (package, tags and
-output names), its import closure, the module files, the effective `go env`
-settings, the Node version, the pinned toolchain and cryptographic module, and
-the receipt writer and producer implementations; it never covers a launcher
-script or a location. `CARTULARY_BUILD_CACHE_DISABLE=1` neither reads nor
-records keys and `CARTULARY_FORCE_REBUILD=1` rebuilds and records. A build
-collects at most 16 entries: key records unused for 30 days, then roots that no
-record names.
+Registered producers build into the harness artifact store (amended
+2026-11-26, P5-3b and P5-3c), the workspace layout's `artifact_store`
+directory. The producer registry `tools/harness_producers.json` declares each
+producer's kind, the binding its output is published at and the layout
+directory of its default path; Go tool modules and the ShellCheck version come
+from the toolchain pins, never from a second copy. Make, the operation runner
+and bootstrap run producers through one command, `go run ./tools/harnessbuild
+produce`, which needs no prebuilt binary. An artifact binding whose
+prerequisite is a registered binding runs that producer instead of re-entering
+Make; a generated public recipe does the same, and the generated Make include
+defaults each binding to its producer's path. A producer publishes only at
+that default path. A caller that sets a binding to any other path provides
+that executable: its producer neither builds nor publishes over it, and the
+path MUST hold an executable file.
+
+A producer's outputs form one immutable root named by the digest of its
+manifest, and a key record names the root a producer key built. The paths
+consumers read, `build/bin/*` and the harness tool binaries, are views:
+single-link copies of the root's files, each copied only from bytes with its
+manifest digest and swapped into place by rename under a lock per view, a
+receipt after its binary. A view is never a hard link, because product code
+opens its own executable only as a single-link file. A root that no longer
+matches its manifest is rebuilt and quarantined, never reused. A Go binary's
+key covers its declaration (package, tags and output names), its import
+closure, the module files, the effective `go env` settings, the Node version,
+the pinned toolchain and cryptographic module, and the receipt writer and
+producer implementations. A Go tool's key covers its pinned module and
+version, the go.mod and go.sum of the module directory it builds from, the
+effective `go env` settings and its producer. ShellCheck's key is its release
+archive's name and committed digest; an archive with another digest is
+removed and never extracted. No key covers a launcher script or a location.
+`CARTULARY_BUILD_CACHE_DISABLE=1` neither reads nor records keys and
+`CARTULARY_FORCE_REBUILD=1` rebuilds and records. A build collects at most 16
+entries: key records unused for 30 days, then roots that no record names.
 
 Cache hits MAY skip only the exact registered semantic unit. They MUST still
 validate and publish every declared current-run output, emit cache events, and

@@ -3,6 +3,7 @@ import path from "node:path";
 import { hasMakeNodeTool } from "../command-surface/make-node-tools.mjs";
 import { semanticJSONDigest } from "../contract/index.mjs";
 import { runContextEnvironment } from "../contract/run-context.mjs";
+import { producerBindings, producerCommand, readProducerRegistry, splitProducedPrerequisites } from "./producers.mjs";
 
 /** Operation definitions belong to the graph owner, independently of command names. */
 export function readOperationOwner(root) {
@@ -89,26 +90,51 @@ export function operationEnvironment(operation, environment) {
   return env;
 }
 
-// Installation is a single lifecycle operation: Make produces its declared
-// files, then an optional acquisition action runs. It never schedules graph work.
+// An artifact binding makes its prerequisites exist. A registered producer's
+// binding runs that producer through the artifact store; any other file is
+// still a Make target. Make runs first, because a producer may read what it
+// makes, such as the Node runtime a receipt is written with.
+function artifactInvocations(operationID, execution, env, environment) {
+  const { producers, files } = splitProducedPrerequisites(execution.prerequisites, producerBindings(readProducerRegistry(environment.CURDIR ?? process.cwd())));
+  const invocations = [];
+  if (files.length > 0) {
+    const targets = files.map((file) => expand(file, environment));
+    if (targets.some((file) => !path.isAbsolute(file) || file.includes("\0") || file.includes("\n"))) {
+      throw new Error(`${operationID}: artifact operations require absolute file targets`);
+    }
+    invocations.push({ command: environment.MAKE || "make", args: ["--silent", "--no-print-directory", "--", ...targets], env });
+  }
+  if (producers.length > 0) {
+    const caches = ["GO_CACHE_DIR", "GO_MOD_CACHE_DIR", "GO_TMP_DIR"].map((name) => {
+      if (typeof env[name] !== "string" || !path.isAbsolute(env[name])) throw new Error(`${operationID}: missing operation binding ${name}`);
+      return env[name];
+    });
+    invocations.push({
+      command: environment.GO || "go",
+      args: [...producerCommand, ...producers],
+      env: { ...env, GOCACHE: caches[0], GOMODCACHE: caches[1], GOTMPDIR: caches[2] },
+      directories: caches,
+    });
+  }
+  return invocations;
+}
+
+// Installation is a single lifecycle operation: its artifacts are made or
+// produced, then an optional acquisition action runs. It never schedules
+// graph work.
 export function buildOperationSequence(owner, operationID, environment) {
   const operation = operationDefinition(owner, operationID);
-  if (operation.execution.type !== "installation") return [buildOperationInvocation(owner, operationID, environment)];
-  const withType = (type) => ({ operations: { [operationID]: { ...operation, execution: { ...operation.execution, type } } } });
-  return [buildOperationInvocation(withType("artifact_binding"), operationID, environment),
-    ...(operation.execution.command ? [buildOperationInvocation(withType("step_command"), operationID, environment)] : [])];
+  const { execution } = operation;
+  if (!["artifact_binding", "installation"].includes(execution.type)) return [buildOperationInvocation(owner, operationID, environment)];
+  const artifacts = artifactInvocations(operationID, execution, operationEnvironment(operation, environment), environment);
+  if (execution.type === "artifact_binding" || !execution.command) return artifacts;
+  const command = { operations: { [operationID]: { ...operation, execution: { ...execution, type: "step_command" } } } };
+  return [...artifacts, buildOperationInvocation(command, operationID, environment)];
 }
 
 export function buildOperationInvocation(owner, operationID, environment) {
   const { execution, report_key: reportKey } = operationDefinition(owner, operationID);
   const env = operationEnvironment({ execution, report_key: reportKey }, environment);
-  if (execution.type === "artifact_binding") {
-    const files = execution.prerequisites.map((file) => expand(file, environment));
-    if (files.some((file) => !path.isAbsolute(file) || file.includes("\0") || file.includes("\n"))) {
-      throw new Error(`${operationID}: artifact operations require absolute file targets`);
-    }
-    return { command: environment.MAKE || "make", args: ["--silent", "--no-print-directory", "--", ...files], env };
-  }
   if (execution.type !== "step_command") {
     throw new Error(`${operationID}: ${execution.type} requires a typed tool invocation`);
   }

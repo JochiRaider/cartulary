@@ -100,7 +100,6 @@
       "key": "go_toolchain_readiness",
       "boundary_group": "readiness",
       "paths": [
-        "tools/harness/readiness/bootstrap-go-tool.sh",
         "tools/harness/readiness/go-toolchain-readiness.sh"
       ],
       "allowed_consumers": [

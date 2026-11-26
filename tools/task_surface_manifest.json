@@ -766,6 +766,7 @@
     "test-fast": {
       "prerequisites": [
         "$(NODE_BIN)",
+        "$(FRONTEND_INSTALL_STAMP)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
@@ -827,7 +828,6 @@
         "SERVER_BIN",
         "SERVER_HARNESS_BIN",
         "SHELLCHECK_BIN",
-        "SHELLCHECK_VERSION",
         "SOURCECHECK_BIN",
         "SOURCE_DIR",
         "SOURCE_LOCK",
@@ -841,6 +841,7 @@
     "check": {
       "prerequisites": [
         "$(NODE_BIN)",
+        "$(FRONTEND_INSTALL_STAMP)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
@@ -902,7 +903,6 @@
         "SERVER_BIN",
         "SERVER_HARNESS_BIN",
         "SHELLCHECK_BIN",
-        "SHELLCHECK_VERSION",
         "SOURCECHECK_BIN",
         "SOURCE_DIR",
         "SOURCE_LOCK",
@@ -916,6 +916,7 @@
     "ci": {
       "prerequisites": [
         "$(NODE_BIN)",
+        "$(FRONTEND_INSTALL_STAMP)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
@@ -980,7 +981,6 @@
         "SERVER_BIN",
         "SERVER_HARNESS_BIN",
         "SHELLCHECK_BIN",
-        "SHELLCHECK_VERSION",
         "SOURCECHECK_BIN",
         "SOURCE_DIR",
         "SOURCE_LOCK",
@@ -994,6 +994,7 @@
     "release-check": {
       "prerequisites": [
         "$(NODE_BIN)",
+        "$(FRONTEND_INSTALL_STAMP)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
@@ -1055,7 +1056,6 @@
         "SERVER_BIN",
         "SERVER_HARNESS_BIN",
         "SHELLCHECK_BIN",
-        "SHELLCHECK_VERSION",
         "SOURCECHECK_BIN",
         "SOURCE_DIR",
         "SOURCE_LOCK",
@@ -1069,6 +1069,7 @@
     "release-measure": {
       "prerequisites": [
         "$(NODE_BIN)",
+        "$(FRONTEND_INSTALL_STAMP)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
@@ -1130,7 +1131,6 @@
         "SERVER_BIN",
         "SERVER_HARNESS_BIN",
         "SHELLCHECK_BIN",
-        "SHELLCHECK_VERSION",
         "SOURCECHECK_BIN",
         "SOURCE_DIR",
         "SOURCE_LOCK",
@@ -1145,6 +1145,7 @@
       "type": "work_graph",
       "prerequisites": [
         "$(NODE_BIN)",
+        "$(FRONTEND_INSTALL_STAMP)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "selection": "command",
@@ -1205,7 +1206,6 @@
         "SERVER_BIN",
         "SERVER_HARNESS_BIN",
         "SHELLCHECK_BIN",
-        "SHELLCHECK_VERSION",
         "SOURCECHECK_BIN",
         "SOURCE_DIR",
         "SOURCE_LOCK",
@@ -1239,6 +1239,7 @@
       "type": "work_graph",
       "prerequisites": [
         "$(NODE_BIN)",
+        "$(FRONTEND_INSTALL_STAMP)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "selection": "command",
@@ -1299,7 +1300,6 @@
         "SERVER_BIN",
         "SERVER_HARNESS_BIN",
         "SHELLCHECK_BIN",
-        "SHELLCHECK_VERSION",
         "SOURCECHECK_BIN",
         "SOURCE_DIR",
         "SOURCE_LOCK",
@@ -1314,6 +1314,7 @@
       "type": "work_graph",
       "prerequisites": [
         "$(NODE_BIN)",
+        "$(FRONTEND_INSTALL_STAMP)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "selection": "command",
@@ -1374,7 +1375,6 @@
         "SERVER_BIN",
         "SERVER_HARNESS_BIN",
         "SHELLCHECK_BIN",
-        "SHELLCHECK_VERSION",
         "SOURCECHECK_BIN",
         "SOURCE_DIR",
         "SOURCE_LOCK",
@@ -1389,6 +1389,7 @@
       "type": "work_graph",
       "prerequisites": [
         "$(NODE_BIN)",
+        "$(FRONTEND_INSTALL_STAMP)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "selection": "command",
@@ -1449,7 +1450,6 @@
         "SERVER_BIN",
         "SERVER_HARNESS_BIN",
         "SHELLCHECK_BIN",
-        "SHELLCHECK_VERSION",
         "SOURCECHECK_BIN",
         "SOURCE_DIR",
         "SOURCE_LOCK",
@@ -1464,6 +1464,7 @@
       "type": "work_graph",
       "prerequisites": [
         "$(NODE_BIN)",
+        "$(FRONTEND_INSTALL_STAMP)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "selection": "command",
@@ -1524,7 +1525,6 @@
         "SERVER_BIN",
         "SERVER_HARNESS_BIN",
         "SHELLCHECK_BIN",
-        "SHELLCHECK_VERSION",
         "SOURCECHECK_BIN",
         "SOURCE_DIR",
         "SOURCE_LOCK",
@@ -1554,6 +1554,7 @@
       "type": "work_graph",
       "prerequisites": [
         "$(NODE_BIN)",
+        "$(FRONTEND_INSTALL_STAMP)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "selection": "command",
@@ -1614,7 +1615,6 @@
         "SERVER_BIN",
         "SERVER_HARNESS_BIN",
         "SHELLCHECK_BIN",
-        "SHELLCHECK_VERSION",
         "SOURCECHECK_BIN",
         "SOURCE_DIR",
         "SOURCE_LOCK",
@@ -1629,6 +1629,7 @@
       "type": "work_graph",
       "prerequisites": [
         "$(NODE_BIN)",
+        "$(FRONTEND_INSTALL_STAMP)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "selection": "command",
@@ -1689,7 +1690,6 @@
         "SERVER_BIN",
         "SERVER_HARNESS_BIN",
         "SHELLCHECK_BIN",
-        "SHELLCHECK_VERSION",
         "SOURCECHECK_BIN",
         "SOURCE_DIR",
         "SOURCE_LOCK",
@@ -1902,6 +1902,7 @@
       "type": "work_graph",
       "prerequisites": [
         "$(NODE_BIN)",
+        "$(FRONTEND_INSTALL_STAMP)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "selection": "command",
@@ -1962,7 +1963,6 @@
         "SERVER_BIN",
         "SERVER_HARNESS_BIN",
         "SHELLCHECK_BIN",
-        "SHELLCHECK_VERSION",
         "SOURCECHECK_BIN",
         "SOURCE_DIR",
         "SOURCE_LOCK",
@@ -1977,6 +1977,7 @@
       "type": "work_graph",
       "prerequisites": [
         "$(NODE_BIN)",
+        "$(FRONTEND_INSTALL_STAMP)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "selection": "command",
@@ -2037,7 +2038,6 @@
         "SERVER_BIN",
         "SERVER_HARNESS_BIN",
         "SHELLCHECK_BIN",
-        "SHELLCHECK_VERSION",
         "SOURCECHECK_BIN",
         "SOURCE_DIR",
         "SOURCE_LOCK",
@@ -2084,8 +2084,7 @@
         "PNPM": "$(PNPM)",
         "PNPM_VERSION": "$(PNPM_VERSION)",
         "NODE_RUNTIME_DIR": "$(NODE_RUNTIME_DIR)",
-        "SHELLCHECK_BIN": "$(SHELLCHECK_BIN)",
-        "SHELLCHECK_VERSION": "$(SHELLCHECK_VERSION)"
+        "SHELLCHECK_BIN": "$(SHELLCHECK_BIN)"
       },
       "command": [
         "bash",
@@ -2408,6 +2407,7 @@
       "type": "work_graph",
       "prerequisites": [
         "$(NODE_BIN)",
+        "$(FRONTEND_INSTALL_STAMP)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "selection": "command",
@@ -2468,7 +2468,6 @@
         "SERVER_BIN",
         "SERVER_HARNESS_BIN",
         "SHELLCHECK_BIN",
-        "SHELLCHECK_VERSION",
         "SOURCECHECK_BIN",
         "SOURCE_DIR",
         "SOURCE_LOCK",
@@ -2648,7 +2647,6 @@
         "SERVER_BIN",
         "SERVER_HARNESS_BIN",
         "SHELLCHECK_BIN",
-        "SHELLCHECK_VERSION",
         "SOURCECHECK_BIN",
         "SOURCE_DIR",
         "SOURCE_LOCK",
@@ -2719,7 +2717,6 @@
         "SERVER_BIN",
         "SERVER_HARNESS_BIN",
         "SHELLCHECK_BIN",
-        "SHELLCHECK_VERSION",
         "SOURCECHECK_BIN",
         "SOURCE_DIR",
         "SOURCE_LOCK",
@@ -2790,7 +2787,6 @@
         "SERVER_BIN",
         "SERVER_HARNESS_BIN",
         "SHELLCHECK_BIN",
-        "SHELLCHECK_VERSION",
         "SOURCECHECK_BIN",
         "SOURCE_DIR",
         "SOURCE_LOCK",
@@ -2861,7 +2857,6 @@
         "SERVER_BIN",
         "SERVER_HARNESS_BIN",
         "SHELLCHECK_BIN",
-        "SHELLCHECK_VERSION",
         "SOURCECHECK_BIN",
         "SOURCE_DIR",
         "SOURCE_LOCK",
@@ -2932,7 +2927,6 @@
         "SERVER_BIN",
         "SERVER_HARNESS_BIN",
         "SHELLCHECK_BIN",
-        "SHELLCHECK_VERSION",
         "SOURCECHECK_BIN",
         "SOURCE_DIR",
         "SOURCE_LOCK",
@@ -3003,7 +2997,6 @@
         "SERVER_BIN",
         "SERVER_HARNESS_BIN",
         "SHELLCHECK_BIN",
-        "SHELLCHECK_VERSION",
         "SOURCECHECK_BIN",
         "SOURCE_DIR",
         "SOURCE_LOCK",
@@ -3074,7 +3067,6 @@
         "SERVER_BIN",
         "SERVER_HARNESS_BIN",
         "SHELLCHECK_BIN",
-        "SHELLCHECK_VERSION",
         "SOURCECHECK_BIN",
         "SOURCE_DIR",
         "SOURCE_LOCK",
@@ -13401,7 +13393,6 @@
         "harness-smoke-toolchain-pins",
         "harness-smoke-go-toolchain-readiness",
         "harness-smoke-bootstrap-node-runtime",
-        "harness-smoke-bootstrap-shellcheck",
         "harness-smoke-cache-artifact",
         "harness-smoke-cleanup-contract",
         "harness-smoke-capacity-failure-contract",
@@ -13458,7 +13449,6 @@
         "harness-smoke-toolchain-pins",
         "harness-smoke-go-toolchain-readiness",
         "harness-smoke-bootstrap-node-runtime",
-        "harness-smoke-bootstrap-shellcheck",
         "harness-smoke-cache-artifact",
         "harness-smoke-cleanup-contract",
         "harness-smoke-capacity-failure-contract",
@@ -13509,7 +13499,6 @@
       "backing_scripts": [
         "tools/harness/readiness/tests/test-go-toolchain-readiness.sh",
         "tools/harness/readiness/go-toolchain-readiness.sh",
-        "tools/harness/readiness/bootstrap-go-tool.sh",
         "tools/harness/readiness/check-doctor.sh",
         "tools/harness/contract/tests/test-machine-state-config.mjs"
       ]
@@ -13522,13 +13511,6 @@
         "tools/harness/contract/tests/test-foundation-schema-validator.mjs",
         "tools/harness/generated-artifacts/schema-validator-compiler.mjs",
         "tools/harness/generated-artifacts/generate-foundation-schema-validators.mjs"
-      ]
-    },
-    {
-      "name": "harness-smoke-bootstrap-shellcheck",
-      "backing_scripts": [
-        "tools/harness/readiness/tests/test-bootstrap-shellcheck.sh",
-        "tools/harness/readiness/bootstrap-shellcheck.sh"
       ]
     },
     {

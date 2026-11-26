@@ -25,6 +25,7 @@ import {
 } from "./task-surface/index.mjs";
 
 import { helpProjection } from "./task-surface/make-renderer.mjs";
+import { producerContext, producerRegistryPath } from "../execution/producers.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..", "..");
@@ -265,6 +266,9 @@ export function collectRenderInputs(options = {}) {
   }
   addRequiredRepoInput(inputs, seen, "task_surface_owner", taskSurfaceOwner);
   addRequiredRepoInput(inputs, seen, "scheduler_resource_registry", "tools/scheduler_resource_registry.json");
+  addRequiredRepoInput(inputs, seen, "producer_registry", producerRegistryPath);
+  addRequiredRepoInput(inputs, seen, "toolchain_pins", "tools/toolchain_pins.json");
+  addRequiredRepoInput(inputs, seen, "workspace_layout", "tools/workspace_layout.json");
   collectCatalogInputs(inputs, seen, path.resolve(options.catalogRoot ?? repoRoot));
   collectRendererSourceInputs(inputs, seen);
   inputs.sort((left, right) => left.path.localeCompare(right.path) || left.role.localeCompare(right.role));
@@ -402,7 +406,8 @@ function renderArtifacts(options) {
       `rendered task surface is invalid:\n${taskSurfaceErrors.map((error) => `  - ${error}`).join("\n")}`,
     );
   }
-  const densityErrors = collectTaskSurfaceMakeDensityErrors(taskSurfaceManifest);
+  const producers = producerContext(repoRoot);
+  const densityErrors = collectTaskSurfaceMakeDensityErrors(taskSurfaceManifest, producers);
   if (densityErrors.length > 0) {
     throw new Error(
       `rendered task surface exceeds generated Make budgets:\n${densityErrors.map((error) => `  - ${error}`).join("\n")}`,
@@ -420,10 +425,10 @@ function renderArtifacts(options) {
       topology.generatedOutputs.browser_e2e_batch_manifest,
       serializeJSON(browserBatchManifest),
     ),
-    outputEntry(topology.generatedOutputs.task_surface_make, renderTaskSurfaceMake(taskSurfaceManifest)),
+    outputEntry(topology.generatedOutputs.task_surface_make, renderTaskSurfaceMake(taskSurfaceManifest, producers)),
     outputEntry(
       topology.generatedOutputs.task_surface_runtime_make,
-      renderTaskSurfaceMakeRuntime(taskSurfaceManifest),
+      renderTaskSurfaceMakeRuntime(taskSurfaceManifest, producers),
     ),
   ];
 }

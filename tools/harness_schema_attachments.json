@@ -641,6 +641,13 @@
       "foundation_runtime": true
     },
     {
+      "schema_id": "cartulary.harness_producers.v1",
+      "path": "tools/schemas/cartulary.harness_producers.v1.schema.json",
+      "classification": "owner_input",
+      "producer": "harness artifact producer owner",
+      "validation": "harness.json_shape_check"
+    },
+    {
       "schema_id": "cartulary.harness_recovery_locator.v1",
       "path": "tools/schemas/cartulary.harness_recovery_locator.v1.schema.json",
       "classification": "shared_component",

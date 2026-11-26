@@ -1,0 +1,144 @@
+{
+  "schema_id": "cartulary.harness_producers.v1",
+  "producers": [
+    {
+      "id": "harness-runtime",
+      "kind": "go_binary",
+      "binding": "HARNESS_RUNTIME_BIN",
+      "directory": "toolbin",
+      "label": "build harness runtime",
+      "target": "harness-runtime-build",
+      "package": "./tools/harnessruntime",
+      "name": "cartulary-harness"
+    },
+    {
+      "id": "sourcecheck",
+      "kind": "go_binary",
+      "binding": "SOURCECHECK_BIN",
+      "directory": "binaries",
+      "label": "build sourcecheck",
+      "target": "sourcecheck-build",
+      "package": "./tools/sourcecheck",
+      "name": "sourcecheck"
+    },
+    {
+      "id": "test-services",
+      "kind": "go_binary",
+      "binding": "TEST_SERVICES_BIN",
+      "directory": "toolbin",
+      "label": "build testservices",
+      "target": "testservices-build",
+      "package": "./tools/testservices",
+      "name": "cartulary-test-services"
+    },
+    {
+      "id": "server",
+      "kind": "go_binary",
+      "binding": "SERVER_BIN",
+      "directory": "binaries",
+      "label": "build server",
+      "target": "build-server",
+      "package": "./cmd/server",
+      "name": "server"
+    },
+    {
+      "id": "server-harness",
+      "kind": "go_binary",
+      "binding": "SERVER_HARNESS_BIN",
+      "directory": "binaries",
+      "label": "build server harness profile",
+      "target": "build-server-harness",
+      "package": "./cmd/server",
+      "tags": "cartulary_harness",
+      "name": "server-harness"
+    },
+    {
+      "id": "migrate",
+      "kind": "go_binary",
+      "binding": "MIGRATE_BIN",
+      "directory": "binaries",
+      "label": "build migrate",
+      "target": "build-migrate",
+      "package": "./cmd/migrate",
+      "name": "migrate"
+    },
+    {
+      "id": "operator",
+      "kind": "go_binary",
+      "binding": "OPERATOR_BIN",
+      "directory": "binaries",
+      "label": "build operator",
+      "target": "build-operator",
+      "package": "./cmd/operator",
+      "name": "operator"
+    },
+    {
+      "id": "sqlc",
+      "kind": "go_tool",
+      "binding": "SQLC_BIN",
+      "directory": "toolbin",
+      "label": "bootstrap sqlc tool",
+      "tool": "sqlc"
+    },
+    {
+      "id": "goose",
+      "kind": "go_tool",
+      "binding": "GOOSE_BIN",
+      "directory": "toolbin",
+      "label": "bootstrap goose tool",
+      "tool": "goose"
+    },
+    {
+      "id": "staticcheck",
+      "kind": "go_tool",
+      "binding": "STATICCHECK_BIN",
+      "directory": "toolbin",
+      "label": "bootstrap staticcheck tool",
+      "tool": "staticcheck",
+      "module_dir": "tools/go-analysis"
+    },
+    {
+      "id": "govulncheck",
+      "kind": "go_tool",
+      "binding": "GOVULNCHECK_BIN",
+      "directory": "toolbin",
+      "label": "bootstrap govulncheck tool",
+      "tool": "govulncheck"
+    },
+    {
+      "id": "gosec",
+      "kind": "go_tool",
+      "binding": "GOSEC_BIN",
+      "directory": "toolbin",
+      "label": "bootstrap gosec tool",
+      "tool": "gosec",
+      "module_dir": "tools/go-analysis"
+    },
+    {
+      "id": "cyclonedx-gomod",
+      "kind": "go_tool",
+      "binding": "CYCLONEDX_GOMOD_BIN",
+      "directory": "toolbin",
+      "label": "bootstrap cyclonedx-gomod tool",
+      "tool": "cyclonedx_gomod"
+    },
+    {
+      "id": "syft",
+      "kind": "go_tool",
+      "binding": "SYFT_BIN",
+      "directory": "toolbin",
+      "label": "bootstrap syft tool",
+      "tool": "syft"
+    },
+    {
+      "id": "shellcheck",
+      "kind": "shellcheck",
+      "binding": "SHELLCHECK_BIN",
+      "directory": "toolbin",
+      "archives": {
+        "shellcheck-v0.11.0.linux.aarch64.tar.xz": "12b331c1d2db6b9eb13cfca64306b1b157a86eb69db83023e261eaa7e7c14588",
+        "shellcheck-v0.11.0.linux.x86_64.tar.xz": "8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198"
+      }
+    }
+  ]
+}

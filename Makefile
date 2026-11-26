@@ -2,8 +2,6 @@ SHELL := /bin/bash
 include tools/harness/workspace/admission.mk
 ifeq ($(workspace_admitted),yes)
 include tools/workspace_layout.generated.mk
-TOOLBIN_DIR ?= $(CURDIR)/$(LAYOUT_TOOLBIN)
-HARNESS_RUNTIME_BIN ?= $(TOOLBIN_DIR)/cartulary-harness
 Q := @
 # A read-only invocation needs only the projected command surface. Do not
 # initialize writer identity, compiler discovery, caches, or build recipes.
@@ -24,7 +22,6 @@ override GOTOOLCHAIN := local
 else
 override GOTOOLCHAIN := $(GO_TOOLCHAIN)
 endif
-override GO_TOOLCHAIN_READY :=
 CONFIG_FILE ?= $(CURDIR)/configs/dev/config.toml
 REVIEW_PROFILE ?= network_flow_claimed
 CARTULARY_MACHINE_CACHE_DIR ?= $(if $(filter /%,$(strip $(XDG_CACHE_HOME))),$(strip $(XDG_CACHE_HOME))/cartulary,$(if $(filter /%,$(strip $(HOME))),$(strip $(HOME))/.cache/cartulary,))
@@ -40,21 +37,7 @@ FIXTURE_TOP ?= 5
 NODE_RUNTIME_DIR ?= $(CURDIR)/$(LAYOUT_NODE_RUNTIME)
 NODE_BIN ?= $(NODE_RUNTIME_DIR)/bin/node
 PNPM ?= $(NODE_RUNTIME_DIR)/bin/pnpm
-SERVER_BIN ?= $(CURDIR)/$(LAYOUT_BINARIES)/server
-SERVER_HARNESS_BIN ?= $(CURDIR)/$(LAYOUT_BINARIES)/server-harness
-MIGRATE_BIN ?= $(CURDIR)/$(LAYOUT_BINARIES)/migrate
-OPERATOR_BIN ?= $(CURDIR)/$(LAYOUT_BINARIES)/operator
 REPORT_RENDERER_RECEIPT := $(CURDIR)/build/report-renderer/installation.json
-SQLC_BIN ?= $(TOOLBIN_DIR)/sqlc-v1.30.0
-GOOSE_BIN ?= $(TOOLBIN_DIR)/goose-v3.27.0
-STATICCHECK_BIN ?= $(TOOLBIN_DIR)/staticcheck-v0.8.1
-GOVULNCHECK_BIN ?= $(TOOLBIN_DIR)/govulncheck-v1.3.0
-GOSEC_BIN ?= $(TOOLBIN_DIR)/gosec-v2.29.0
-CYCLONEDX_GOMOD_BIN ?= $(TOOLBIN_DIR)/cyclonedx-gomod-v1.10.0
-SYFT_BIN ?= $(TOOLBIN_DIR)/syft-v1.44.0
-SHELLCHECK_VERSION ?= 0.11.0
-SHELLCHECK_BIN ?= $(TOOLBIN_DIR)/shellcheck-v$(SHELLCHECK_VERSION)
-SHELLCHECK_ARCHIVE_DIR ?= $(CURDIR)/$(LAYOUT_SHELLCHECK_ARCHIVES)
 GOVULNCHECK_FLAGS ?= -test
 GOVULNCHECK_PATTERNS ?= ./cmd/... ./internal/... ./db/... ./tools/...
 GOVULNCHECK_DB ?=
@@ -70,8 +53,6 @@ GOSEC_AUDIT_RUNTIME_PATTERNS ?= ./cmd/... ./internal/...
 GOSEC_AUDIT_SUPPORT_RULES ?= G122,G301,G302,G303,G304,G305,G306,G307
 GOSEC_AUDIT_SUPPORT_FLAGS ?= -exclude-generated -no-fail -quiet
 GOSEC_AUDIT_SUPPORT_PATTERNS ?=
-SOURCECHECK_BIN ?= $(CURDIR)/$(LAYOUT_BINARIES)/sourcecheck
-TEST_SERVICES_BIN ?= $(TOOLBIN_DIR)/cartulary-test-services
 SCHEDULER_MANIFEST ?= $(CURDIR)/tools/scheduler_manifest.json
 EXECUTION_TOPOLOGY_MANIFEST ?= $(CURDIR)/tools/execution_topology_manifest.json
 OBJECT_STORE_BUCKET ?= cartulary
@@ -86,10 +67,8 @@ CARTULARY_RUNNER_SCRIPT := $(CURDIR)/tools/harness/execution/cartulary-runner-cl
 TASK_SURFACE_MANIFEST ?= $(CURDIR)/tools/task_surface_manifest.json
 CACHE_ARTIFACT_SCRIPT := $(CURDIR)/tools/harness/readiness/cache-artifact.sh
 BOOTSTRAP_NODE_RUNTIME_IMPL := tools/harness/readiness/bootstrap-node-runtime.sh
-BOOTSTRAP_GO_TOOL_IMPL := tools/harness/readiness/bootstrap-go-tool.sh
 GO_TOOLCHAIN_READINESS_IMPL := tools/harness/readiness/go-toolchain-readiness.sh
 GO_TOOLCHAIN_READINESS = bash $(GO_TOOLCHAIN_READINESS_IMPL) ensure
-BOOTSTRAP_SHELLCHECK_IMPL := tools/harness/readiness/bootstrap-shellcheck.sh
 FRONTEND_TOOLCHAIN_IMPL := tools/harness/readiness/frontend-toolchain.sh
 FRONTEND_INSTALL_IMPL := tools/harness/readiness/frontend-install.sh
 PLAYWRIGHT_INSTALL_IMPL := tools/harness/browser/playwright-install.sh
@@ -109,7 +88,7 @@ RELEASE_ARTIFACT_DIR ?= $(CURDIR)/$(LAYOUT_RELEASE_ARTIFACTS)
 LICENSE_REPORT_ARTIFACT ?= $(RELEASE_ARTIFACT_DIR)/license-report.json
 SBOM_ARTIFACT ?= $(RELEASE_ARTIFACT_DIR)/sbom.cyclonedx.json
 BENCHMARK_MANIFEST ?= $(CURDIR)/.cartulary/benchmark/benchmark_manifest.json
-export GO CARTULARY_OUTPUT_MODE VERBOSE CI_VERBOSE CI CARTULARY_TEST_RESULTS_DIR CARTULARY_TEST_RUN_ID CARTULARY_TEST_INVENTORY CARTULARY_MACHINE_CACHE_DIR CARTULARY_HARNESS_SCRATCH_ROOT GO_CACHE_DIR GO_MOD_CACHE_DIR GO_TMP_DIR GOTOOLCHAIN GO_TOOLCHAIN GO_TOOLCHAIN_READY
+export GO CARTULARY_OUTPUT_MODE VERBOSE CI_VERBOSE CI CARTULARY_TEST_RESULTS_DIR CARTULARY_TEST_RUN_ID CARTULARY_TEST_INVENTORY CARTULARY_MACHINE_CACHE_DIR CARTULARY_HARNESS_SCRATCH_ROOT GO_CACHE_DIR GO_MOD_CACHE_DIR GO_TMP_DIR GOTOOLCHAIN GO_TOOLCHAIN
 
 ifneq ($(strip $(CARTULARY_OUTPUT_MODE)),)
 EFFECTIVE_OUTPUT_MODE := $(strip $(CARTULARY_OUTPUT_MODE))
@@ -132,13 +111,6 @@ export CLICOLOR := 0
 export FORCE_COLOR := 0
 endif
 
-SQLC_TOOL := github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0
-GOOSE_TOOL := github.com/pressly/goose/v3/cmd/goose@v3.27.0
-STATICCHECK_TOOL := honnef.co/go/tools/cmd/staticcheck@v0.8.1
-GOVULNCHECK_TOOL := golang.org/x/vuln/cmd/govulncheck@v1.3.0
-GOSEC_TOOL := github.com/securego/gosec/v2/cmd/gosec@v2.29.0
-CYCLONEDX_GOMOD_TOOL := github.com/CycloneDX/cyclonedx-gomod/cmd/cyclonedx-gomod@v1.10.0
-SYFT_TOOL := github.com/anchore/syft/cmd/syft@v1.44.0
 TESTCONTAINERS_GO_VERSION := v0.42.0
 
 FRONTEND_INSTALL_INPUTS := package.json pnpm-lock.yaml pnpm-workspace.yaml apps/web/package.json $(wildcard packages/*/package.json)
@@ -154,20 +126,20 @@ EXTENSION_CLIENT_SUPPORT_SOURCE := $(CURDIR)/contracts/extensions/build/client-s
 EMBEDDED_WEB_ASSET_READY_STAMP := $(CURDIR)/$(LAYOUT_SCRATCH)/frontend-embed/web-assets.ready
 EMBEDDED_WEB_ASSET_STAMP := $(CURDIR)/$(LAYOUT_SCRATCH)/frontend-embed/web-assets.stamp
 
-# GO_BINARY_PRODUCER builds a Go binary through the harness artifact store
-# (P5-3b): `go run` needs no prebuilt tool, so it also builds the harness
-# runtime. $(1) is the step target of a build.
-GO_BINARY_PRODUCER = mkdir -p "$(GO_CACHE_DIR)" "$(GO_MOD_CACHE_DIR)" "$(GO_TMP_DIR)" && env CARTULARY_TEST_TARGET="$(1)" GOCACHE="$(GO_CACHE_DIR)" GOMODCACHE="$(GO_MOD_CACHE_DIR)" GOTMPDIR="$(GO_TMP_DIR)" NODE_BIN="$(NODE_BIN)" GO="$(GO)" RUN_STEP_SCRIPT="$(RUN_STEP_SCRIPT)" $(GO) run ./tools/harnessbuild go-binary
+# PRODUCE runs producers registered in tools/harness_producers.json through
+# the harness artifact store (P5-3). `go run` needs no prebuilt tool, so it
+# also builds the harness runtime. Each producer publishes at its binding,
+# which the generated include defaults and exports.
+PRODUCE = mkdir -p "$(GO_CACHE_DIR)" "$(GO_MOD_CACHE_DIR)" "$(GO_TMP_DIR)" && env GOCACHE="$(GO_CACHE_DIR)" GOMODCACHE="$(GO_MOD_CACHE_DIR)" GOTMPDIR="$(GO_TMP_DIR)" NODE_BIN="$(NODE_BIN)" GO="$(GO)" RUN_STEP_SCRIPT="$(RUN_STEP_SCRIPT)" "$(GO)" run ./tools/harnessbuild produce
 
 FORCE:
 
 include tools/task_surface.runtime.generated.mk
 include tools/task_surface.generated.mk
 
-$(SQLC_BIN) $(GOOSE_BIN) $(STATICCHECK_BIN) $(GOVULNCHECK_BIN) $(GOSEC_BIN) $(CYCLONEDX_GOMOD_BIN) $(SYFT_BIN): override GO_TOOLCHAIN_READY := 1
-
-$(SBOM_ARTIFACT) $(LICENSE_REPORT_ARTIFACT) &: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(CYCLONEDX_GOMOD_BIN) $(SYFT_BIN) tools/release-evidence/generate-sbom-license-evidence.mjs tools/release-evidence/validate-cyclonedx.mjs tools/release-evidence/validate-license-report.mjs tools/release-evidence/validate-release-sbom.mjs tools/schemas/cartulary.license_report.v2.schema.json go.mod go.sum package.json pnpm-lock.yaml pnpm-workspace.yaml docker-compose.dev.yml $(wildcard apps/web/package.json packages/*/package.json)
+$(SBOM_ARTIFACT) $(LICENSE_REPORT_ARTIFACT) &: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) tools/release-evidence/generate-sbom-license-evidence.mjs tools/release-evidence/validate-cyclonedx.mjs tools/release-evidence/validate-license-report.mjs tools/release-evidence/validate-release-sbom.mjs tools/schemas/cartulary.license_report.v2.schema.json go.mod go.sum package.json pnpm-lock.yaml pnpm-workspace.yaml docker-compose.dev.yml $(wildcard apps/web/package.json packages/*/package.json)
 	$(Q)$(GO_TOOLCHAIN_READINESS)
+	$(Q)$(PRODUCE) cyclonedx-gomod syft
 	$(Q)mkdir -p $(RELEASE_ARTIFACT_DIR) $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR) $(GO_TMP_DIR)
 	$(Q)CARTULARY_TEST_TARGET=release-evidence CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "generate SBOM/license evidence" -- env PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" COREPACK_HOME="$(NODE_RUNTIME_DIR)/corepack" GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" NODE_BIN="$(NODE_BIN)" PNPM="$(PNPM)" CYCLONEDX_GOMOD_BIN="$(CYCLONEDX_GOMOD_BIN)" SYFT_BIN="$(SYFT_BIN)" RELEASE_ARTIFACT_DIR="$(RELEASE_ARTIFACT_DIR)" LICENSE_REPORT_ARTIFACT="$(LICENSE_REPORT_ARTIFACT)" SBOM_ARTIFACT="$(SBOM_ARTIFACT)" $(NODE_BIN) ./tools/release-evidence/generate-sbom-license-evidence.mjs
 
@@ -183,51 +155,6 @@ $(FRONTEND_TOOLCHAIN_STAMP): FORCE $(NODE_BIN) Makefile tools/harness/readiness/
 $(FRONTEND_INSTALL_STAMP): FORCE $(FRONTEND_INSTALL_INPUTS) $(FRONTEND_TOOLCHAIN_STAMP) tools/harness/readiness/frontend-install.sh $(FRONTEND_INSTALL_IMPL) $(CACHE_ARTIFACT_SCRIPT)
 	$(Q)if [ "$${CARTULARY_PREPARATION_POLICY:-}" = "installed_only" ]; then "$(NODE_BIN)" tools/harness/readiness/installed-readiness.mjs frontend; else CARTULARY_TEST_TARGET="frontend-install" $(CACHE_ARTIFACT_SCRIPT) --scope readiness --profile frontend-install --cache-dir "$(CARTULARY_READINESS_CACHE_DIR)" --disable-env CARTULARY_READINESS_DISABLE_CACHE --force-env CARTULARY_FORCE_REINSTALL $(foreach input,$(FRONTEND_INSTALL_INPUTS),--input "$(input)") --input .npmrc --input tools/harness/readiness/installed-readiness.mjs --input tools/harness/readiness/frontend-install.sh --input $(FRONTEND_INSTALL_IMPL) --input tools/harness/readiness/cache-artifact.sh --output "$(FRONTEND_INSTALL_STAMP)" --output "$(CURDIR)/$(LAYOUT_FRONTEND_INSTALL)/proof/installed.v1.json" --key "node_version=$(NODE_VERSION)" --key "pnpm_version=$(PNPM_VERSION)" --key "pnpm_install_flags=$(PNPM_INSTALL_FLAGS)" -- env PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" COREPACK_HOME="$(NODE_RUNTIME_DIR)/corepack" CI=true FRONTEND_INSTALL_STAMP="$(FRONTEND_INSTALL_STAMP)" PNPM="$(PNPM)" PNPM_INSTALL_FLAGS="$(PNPM_INSTALL_FLAGS)" NODE_BIN="$(NODE_BIN)" NODE_VERSION="$(NODE_VERSION)" PNPM_VERSION="$(PNPM_VERSION)" bash ./tools/harness/readiness/frontend-install.sh; fi
 
-$(SQLC_BIN): FORCE Makefile tools/harness/readiness/bootstrap-go-tool.sh $(BOOTSTRAP_GO_TOOL_IMPL) $(GO_TOOLCHAIN_READINESS_IMPL) $(CACHE_ARTIFACT_SCRIPT)
-	$(Q)$(GO_TOOLCHAIN_READINESS)
-	$(Q)$(CACHE_ARTIFACT_SCRIPT) --scope readiness --profile go-tool-sqlc --cache-dir "$(CARTULARY_READINESS_CACHE_DIR)" --disable-env CARTULARY_READINESS_DISABLE_CACHE --force-env CARTULARY_FORCE_REINSTALL --input Makefile --input tools/harness/readiness/bootstrap-go-tool.sh --input $(BOOTSTRAP_GO_TOOL_IMPL) --input tools/harness/readiness/cache-artifact.sh --input "$(GO)" --output "$(SQLC_BIN)" --key "tool=$(SQLC_TOOL)" --key "binary=sqlc" -- env GO="$(GO)" TOOLBIN_DIR="$(TOOLBIN_DIR)" TOOL_OUTPUT="$(SQLC_BIN)" TOOL_MODULE="$(SQLC_TOOL)" TOOL_BINARY_NAME="sqlc" TOOL_LABEL="bootstrap sqlc tool" RUN_STEP_SCRIPT="$(RUN_STEP_SCRIPT)" ./tools/harness/readiness/bootstrap-go-tool.sh
-
-$(GOOSE_BIN): FORCE Makefile tools/harness/readiness/bootstrap-go-tool.sh $(BOOTSTRAP_GO_TOOL_IMPL) $(GO_TOOLCHAIN_READINESS_IMPL) $(CACHE_ARTIFACT_SCRIPT)
-	$(Q)$(GO_TOOLCHAIN_READINESS)
-	$(Q)$(CACHE_ARTIFACT_SCRIPT) --scope readiness --profile go-tool-goose --cache-dir "$(CARTULARY_READINESS_CACHE_DIR)" --disable-env CARTULARY_READINESS_DISABLE_CACHE --force-env CARTULARY_FORCE_REINSTALL --input Makefile --input tools/harness/readiness/bootstrap-go-tool.sh --input $(BOOTSTRAP_GO_TOOL_IMPL) --input tools/harness/readiness/cache-artifact.sh --input "$(GO)" --output "$(GOOSE_BIN)" --key "tool=$(GOOSE_TOOL)" --key "binary=goose" -- env GO="$(GO)" TOOLBIN_DIR="$(TOOLBIN_DIR)" TOOL_OUTPUT="$(GOOSE_BIN)" TOOL_MODULE="$(GOOSE_TOOL)" TOOL_BINARY_NAME="goose" TOOL_LABEL="bootstrap goose tool" RUN_STEP_SCRIPT="$(RUN_STEP_SCRIPT)" ./tools/harness/readiness/bootstrap-go-tool.sh
-
-$(STATICCHECK_BIN): FORCE Makefile tools/harness/readiness/bootstrap-go-tool.sh $(BOOTSTRAP_GO_TOOL_IMPL) $(GO_TOOLCHAIN_READINESS_IMPL) $(CACHE_ARTIFACT_SCRIPT)
-	$(Q)$(GO_TOOLCHAIN_READINESS)
-	$(Q)$(CACHE_ARTIFACT_SCRIPT) --scope readiness --profile go-tool-staticcheck --cache-dir "$(CARTULARY_READINESS_CACHE_DIR)" --disable-env CARTULARY_READINESS_DISABLE_CACHE --force-env CARTULARY_FORCE_REINSTALL --input Makefile --input tools/harness/readiness/bootstrap-go-tool.sh --input $(BOOTSTRAP_GO_TOOL_IMPL) --input tools/harness/readiness/cache-artifact.sh --input "$(GO)" --input tools/go-analysis/go.mod --input tools/go-analysis/go.sum --output "$(STATICCHECK_BIN)" --key "tool=$(STATICCHECK_TOOL)" --key "binary=staticcheck" -- env GO="$(GO)" TOOLBIN_DIR="$(TOOLBIN_DIR)" TOOL_OUTPUT="$(STATICCHECK_BIN)" TOOL_BUILD_MODULE_DIR="$(CURDIR)/tools/go-analysis" TOOL_MODULE="$(STATICCHECK_TOOL)" TOOL_BINARY_NAME="staticcheck" TOOL_LABEL="bootstrap staticcheck tool" RUN_STEP_SCRIPT="$(RUN_STEP_SCRIPT)" ./tools/harness/readiness/bootstrap-go-tool.sh
-
-$(GOVULNCHECK_BIN): FORCE Makefile tools/harness/readiness/bootstrap-go-tool.sh $(BOOTSTRAP_GO_TOOL_IMPL) $(GO_TOOLCHAIN_READINESS_IMPL) $(CACHE_ARTIFACT_SCRIPT)
-	$(Q)$(GO_TOOLCHAIN_READINESS)
-	$(Q)$(CACHE_ARTIFACT_SCRIPT) --scope readiness --profile go-tool-govulncheck --cache-dir "$(CARTULARY_READINESS_CACHE_DIR)" --disable-env CARTULARY_READINESS_DISABLE_CACHE --force-env CARTULARY_FORCE_REINSTALL --input Makefile --input tools/harness/readiness/bootstrap-go-tool.sh --input $(BOOTSTRAP_GO_TOOL_IMPL) --input tools/harness/readiness/cache-artifact.sh --input "$(GO)" --output "$(GOVULNCHECK_BIN)" --key "tool=$(GOVULNCHECK_TOOL)" --key "binary=govulncheck" -- env GO="$(GO)" TOOLBIN_DIR="$(TOOLBIN_DIR)" TOOL_OUTPUT="$(GOVULNCHECK_BIN)" TOOL_MODULE="$(GOVULNCHECK_TOOL)" TOOL_BINARY_NAME="govulncheck" TOOL_LABEL="bootstrap govulncheck tool" RUN_STEP_SCRIPT="$(RUN_STEP_SCRIPT)" ./tools/harness/readiness/bootstrap-go-tool.sh
-
-$(GOSEC_BIN): FORCE Makefile tools/harness/readiness/bootstrap-go-tool.sh $(BOOTSTRAP_GO_TOOL_IMPL) $(GO_TOOLCHAIN_READINESS_IMPL) $(CACHE_ARTIFACT_SCRIPT)
-	$(Q)$(GO_TOOLCHAIN_READINESS)
-	$(Q)$(CACHE_ARTIFACT_SCRIPT) --scope readiness --profile go-tool-gosec --cache-dir "$(CARTULARY_READINESS_CACHE_DIR)" --disable-env CARTULARY_READINESS_DISABLE_CACHE --force-env CARTULARY_FORCE_REINSTALL --input Makefile --input tools/harness/readiness/bootstrap-go-tool.sh --input $(BOOTSTRAP_GO_TOOL_IMPL) --input tools/harness/readiness/cache-artifact.sh --input "$(GO)" --input tools/go-analysis/go.mod --input tools/go-analysis/go.sum --output "$(GOSEC_BIN)" --key "tool=$(GOSEC_TOOL)" --key "binary=gosec" -- env GO="$(GO)" TOOLBIN_DIR="$(TOOLBIN_DIR)" TOOL_OUTPUT="$(GOSEC_BIN)" TOOL_BUILD_MODULE_DIR="$(CURDIR)/tools/go-analysis" TOOL_MODULE="$(GOSEC_TOOL)" TOOL_BINARY_NAME="gosec" TOOL_LABEL="bootstrap gosec tool" RUN_STEP_SCRIPT="$(RUN_STEP_SCRIPT)" ./tools/harness/readiness/bootstrap-go-tool.sh
-
-$(CYCLONEDX_GOMOD_BIN): FORCE Makefile tools/harness/readiness/bootstrap-go-tool.sh $(BOOTSTRAP_GO_TOOL_IMPL) $(GO_TOOLCHAIN_READINESS_IMPL) $(CACHE_ARTIFACT_SCRIPT)
-	$(Q)$(GO_TOOLCHAIN_READINESS)
-	$(Q)$(CACHE_ARTIFACT_SCRIPT) --scope readiness --profile go-tool-cyclonedx-gomod --cache-dir "$(CARTULARY_READINESS_CACHE_DIR)" --disable-env CARTULARY_READINESS_DISABLE_CACHE --force-env CARTULARY_FORCE_REINSTALL --input Makefile --input tools/harness/readiness/bootstrap-go-tool.sh --input $(BOOTSTRAP_GO_TOOL_IMPL) --input tools/harness/readiness/cache-artifact.sh --input "$(GO)" --output "$(CYCLONEDX_GOMOD_BIN)" --key "tool=$(CYCLONEDX_GOMOD_TOOL)" --key "binary=cyclonedx-gomod" -- env GO="$(GO)" TOOLBIN_DIR="$(TOOLBIN_DIR)" TOOL_OUTPUT="$(CYCLONEDX_GOMOD_BIN)" TOOL_MODULE="$(CYCLONEDX_GOMOD_TOOL)" TOOL_BINARY_NAME="cyclonedx-gomod" TOOL_LABEL="bootstrap cyclonedx-gomod tool" RUN_STEP_SCRIPT="$(RUN_STEP_SCRIPT)" ./tools/harness/readiness/bootstrap-go-tool.sh
-
-$(SYFT_BIN): FORCE Makefile tools/harness/readiness/bootstrap-go-tool.sh $(BOOTSTRAP_GO_TOOL_IMPL) $(GO_TOOLCHAIN_READINESS_IMPL) $(CACHE_ARTIFACT_SCRIPT)
-	$(Q)$(GO_TOOLCHAIN_READINESS)
-	$(Q)$(CACHE_ARTIFACT_SCRIPT) --scope readiness --profile go-tool-syft --cache-dir "$(CARTULARY_READINESS_CACHE_DIR)" --disable-env CARTULARY_READINESS_DISABLE_CACHE --force-env CARTULARY_FORCE_REINSTALL --input Makefile --input tools/harness/readiness/bootstrap-go-tool.sh --input $(BOOTSTRAP_GO_TOOL_IMPL) --input tools/harness/readiness/cache-artifact.sh --input "$(GO)" --output "$(SYFT_BIN)" --key "tool=$(SYFT_TOOL)" --key "binary=syft" -- env GO="$(GO)" TOOLBIN_DIR="$(TOOLBIN_DIR)" TOOL_OUTPUT="$(SYFT_BIN)" TOOL_MODULE="$(SYFT_TOOL)" TOOL_BINARY_NAME="syft" TOOL_LABEL="bootstrap syft tool" RUN_STEP_SCRIPT="$(RUN_STEP_SCRIPT)" ./tools/harness/readiness/bootstrap-go-tool.sh
-
-$(SHELLCHECK_BIN): FORCE tools/harness/readiness/bootstrap-shellcheck.sh $(BOOTSTRAP_SHELLCHECK_IMPL) Makefile $(CACHE_ARTIFACT_SCRIPT)
-	$(Q)$(CACHE_ARTIFACT_SCRIPT) --scope readiness --profile shellcheck-tool --cache-dir "$(CARTULARY_READINESS_CACHE_DIR)" --disable-env CARTULARY_READINESS_DISABLE_CACHE --force-env CARTULARY_FORCE_REINSTALL --input Makefile --input tools/harness/readiness/bootstrap-shellcheck.sh --input $(BOOTSTRAP_SHELLCHECK_IMPL) --input tools/harness/readiness/cache-artifact.sh --output "$(SHELLCHECK_BIN)" --key "shellcheck_version=$(SHELLCHECK_VERSION)" -- env SHELLCHECK_VERSION="$(SHELLCHECK_VERSION)" TOOLBIN_DIR="$(TOOLBIN_DIR)" SHELLCHECK_BIN="$(SHELLCHECK_BIN)" CARTULARY_SHELLCHECK_ARCHIVE_DIR="$(SHELLCHECK_ARCHIVE_DIR)" ./tools/harness/readiness/bootstrap-shellcheck.sh
-
-$(HARNESS_RUNTIME_BIN): FORCE $(FRONTEND_INSTALL_STAMP) $(NODE_BIN)
-	$(Q)$(GO_TOOLCHAIN_READINESS)
-	$(Q)$(call GO_BINARY_PRODUCER,harness-runtime-build) --package ./tools/harnessruntime --output "$(HARNESS_RUNTIME_BIN)" --label "build harness runtime"
-
-
-
-$(SOURCECHECK_BIN): FORCE $(NODE_BIN)
-	$(Q)$(GO_TOOLCHAIN_READINESS)
-	$(Q)$(call GO_BINARY_PRODUCER,sourcecheck-build) --package ./tools/sourcecheck --output "$(SOURCECHECK_BIN)" --label "build sourcecheck"
-
-$(TEST_SERVICES_BIN): FORCE $(NODE_BIN)
-	$(Q)$(GO_TOOLCHAIN_READINESS)
-	$(Q)$(call GO_BINARY_PRODUCER,testservices-build) --package ./tools/testservices --output "$(TEST_SERVICES_BIN)" --label "build testservices"
-
 $(PLAYWRIGHT_INSTALL_STAMP): FORCE $(FRONTEND_INSTALL_STAMP) $(FRONTEND_TOOLCHAIN_STAMP) tools/harness/browser/playwright-install.sh $(PLAYWRIGHT_INSTALL_IMPL) $(CACHE_ARTIFACT_SCRIPT)
 	$(Q)if [ "$${CARTULARY_PREPARATION_POLICY:-}" = "installed_only" ]; then "$(NODE_BIN)" tools/harness/readiness/installed-readiness.mjs doctor; else PLAYWRIGHT_INSTALL_STAMP="$(PLAYWRIGHT_INSTALL_STAMP)" NODE_BIN="$(NODE_BIN)" ./tools/harness/browser/playwright-install.sh --invalidate-stale-stamp && $(CACHE_ARTIFACT_SCRIPT) --scope readiness --profile playwright-install --cache-dir "$(CARTULARY_READINESS_CACHE_DIR)" --disable-env CARTULARY_READINESS_DISABLE_CACHE --force-env CARTULARY_FORCE_REINSTALL --input package.json --input pnpm-lock.yaml --input apps/web/package.json --input tools/frontend_visual_renderer_profile.json --input tools/harness/browser/visual-renderer-profile.mjs --input tools/harness/browser/browser-trust.mjs --input tools/toolchain_pins.json --input tools/harness/browser/playwright-install.sh --input $(PLAYWRIGHT_INSTALL_IMPL) --input tools/harness/readiness/cache-artifact.sh --output "$(PLAYWRIGHT_INSTALL_STAMP)" --key "node_version=$(NODE_VERSION)" --key "pnpm_version=$(PNPM_VERSION)" -- env PLAYWRIGHT_INSTALL_STAMP="$(PLAYWRIGHT_INSTALL_STAMP)" RUN_STEP_SCRIPT="$(RUN_STEP_SCRIPT)" NODE_RUNTIME_DIR="$(NODE_RUNTIME_DIR)" NODE_BIN="$(NODE_BIN)" PNPM="$(PNPM)" NODE_VERSION="$(NODE_VERSION)" PNPM_VERSION="$(PNPM_VERSION)" ./tools/harness/browser/playwright-install.sh; fi
 
@@ -235,42 +162,24 @@ $(PLAYWRIGHT_INSTALL_STAMP): FORCE $(FRONTEND_INSTALL_STAMP) $(FRONTEND_TOOLCHAI
 # retain their Make prerequisites; public build targets enter the canonical graph.
 ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
 FRONTEND_BUILD_PREREQUISITE :=
-EMBEDDED_BUILD_PREREQUISITES :=
-RENDERER_BUILD_PREREQUISITE :=
 else
 FRONTEND_BUILD_PREREQUISITE := $(WEB_DIST_INDEX)
-EMBEDDED_BUILD_PREREQUISITES := $(EMBEDDED_WEB_ASSET_STAMP) $(EMBEDDED_WEB_ASSET_ARCHIVE) $(EMBEDDED_WEB_ASSET_READY_STAMP)
-RENDERER_BUILD_PREREQUISITE := $(REPORT_RENDERER_RECEIPT)
 endif
 
 $(EMBEDDED_WEB_ASSET_STAMP) $(EMBEDDED_WEB_ASSET_ARCHIVE) $(EMBEDDED_CLIENT_ASSET_MANIFEST) $(EMBEDDED_CLIENT_SUPPORT_REGISTRY) $(EMBEDDED_BROWSER_BOOTSTRAP) $(EMBEDDED_EXTENSION_INTEGRITY) $(EMBEDDED_EXTENSION_INTEGRITY_DIGEST) $(EMBEDDED_WEB_ASSET_READY_STAMP) &: FORCE $(FRONTEND_BUILD_PREREQUISITE) $(EXTENSION_CLIENT_SUPPORT_SOURCE) tools/harness/readiness/embed-web-assets.sh $(CACHE_ARTIFACT_SCRIPT)
 	$(Q)$(GO_TOOLCHAIN_READINESS)
 	$(Q)source_dir="$(CURDIR)/apps/web/dist"; if [ -n "$${CARTULARY_HARNESS_SUITE_RUNTIME_ROOT:-}" ]; then source_dir="$$("$(NODE_BIN)" tools/harness/readiness/frontend-artifact.mjs resolve build-web)" || exit $$?; fi; WEB_DIST_INDEX="$$source_dir/index.html" $(CACHE_ARTIFACT_SCRIPT) --scope build-artifact --profile embedded-web-assets --key "go_toolchain=$(GO_TOOLCHAIN)" --cache-dir "$(CARTULARY_BUILD_CACHE_DIR)" --disable-env CARTULARY_BUILD_CACHE_DISABLE --force-env CARTULARY_FORCE_REBUILD --input-dir "$$source_dir" --input "$(EXTENSION_CLIENT_SUPPORT_SOURCE)" --input tools/harness/readiness/embed-web-assets.sh --input go.mod --input go.sum --input tools/toolchain_pins.json --go-package ./tools/embedwebassets --input tools/harness/readiness/cache-artifact.sh --input "$(GO)" --output "$(EMBEDDED_WEB_ASSET_STAMP)" --output "$(EMBEDDED_WEB_ASSET_ARCHIVE)" --output "$(EMBEDDED_CLIENT_ASSET_MANIFEST)" --output "$(EMBEDDED_CLIENT_SUPPORT_REGISTRY)" --output "$(EMBEDDED_BROWSER_BOOTSTRAP)" --output "$(EMBEDDED_EXTENSION_INTEGRITY)" --output "$(EMBEDDED_EXTENSION_INTEGRITY_DIGEST)" --output "$(EMBEDDED_WEB_ASSET_READY_STAMP)" --output-dir "$(EMBEDDED_WEB_ASSET_DIR)" --key "source=$(WEB_DIST_INDEX)" --key "go=$${GO:-$(GO)}" -- env GO="$(GO)" EMBEDDED_WEB_ASSET_DIR="$(EMBEDDED_WEB_ASSET_DIR)" EMBEDDED_WEB_ASSET_ARCHIVE="$(EMBEDDED_WEB_ASSET_ARCHIVE)" EMBEDDED_CLIENT_ASSET_MANIFEST="$(EMBEDDED_CLIENT_ASSET_MANIFEST)" EMBEDDED_CLIENT_SUPPORT_REGISTRY="$(EMBEDDED_CLIENT_SUPPORT_REGISTRY)" EMBEDDED_BROWSER_BOOTSTRAP="$(EMBEDDED_BROWSER_BOOTSTRAP)" EMBEDDED_EXTENSION_INTEGRITY="$(EMBEDDED_EXTENSION_INTEGRITY)" EMBEDDED_EXTENSION_INTEGRITY_DIGEST="$(EMBEDDED_EXTENSION_INTEGRITY_DIGEST)" EXTENSION_CLIENT_SUPPORT_SOURCE="$(EXTENSION_CLIENT_SUPPORT_SOURCE)" EMBEDDED_WEB_ASSET_STAMP="$(EMBEDDED_WEB_ASSET_STAMP)" EMBEDDED_WEB_ASSET_READY_STAMP="$(EMBEDDED_WEB_ASSET_READY_STAMP)" ./tools/harness/readiness/embed-web-assets.sh
 
-$(SERVER_BIN): FORCE $(EMBEDDED_BUILD_PREREQUISITES) $(NODE_BIN)
-	$(Q)$(GO_TOOLCHAIN_READINESS)
-	$(Q)$(call GO_BINARY_PRODUCER,build-server) --package ./cmd/server --output "$(SERVER_BIN)" --label "build server"
-
-$(SERVER_HARNESS_BIN): FORCE $(RENDERER_BUILD_PREREQUISITE) $(EMBEDDED_BUILD_PREREQUISITES) $(NODE_BIN)
-	$(Q)$(GO_TOOLCHAIN_READINESS)
-	$(Q)$(call GO_BINARY_PRODUCER,build-server-harness) --package ./cmd/server --tags cartulary_harness --output "$(SERVER_HARNESS_BIN)" --label "build server harness profile"
-
-$(MIGRATE_BIN): FORCE $(NODE_BIN)
-	$(Q)$(GO_TOOLCHAIN_READINESS)
-	$(Q)$(call GO_BINARY_PRODUCER,build-migrate) --package ./cmd/migrate --output "$(MIGRATE_BIN)" --label "build migrate"
-
-$(OPERATOR_BIN): FORCE $(EMBEDDED_BUILD_PREREQUISITES) $(NODE_BIN)
-	$(Q)$(GO_TOOLCHAIN_READINESS)
-	$(Q)$(call GO_BINARY_PRODUCER,build-operator) --package ./cmd/operator --output "$(OPERATOR_BIN)" --label "build operator"
-
-$(WEB_DIST_INDEX): FORCE $(FRONTEND_INSTALL_STAMP) $(HARNESS_RUNTIME_BIN) tools/harness/readiness/build-web-artifact.sh $(BUILD_WEB_ARTIFACT_IMPL) $(CACHE_ARTIFACT_SCRIPT) | $(NODE_BIN)
+$(WEB_DIST_INDEX): FORCE $(FRONTEND_INSTALL_STAMP) tools/harness/readiness/build-web-artifact.sh $(BUILD_WEB_ARTIFACT_IMPL) $(CACHE_ARTIFACT_SCRIPT) | $(NODE_BIN)
+	$(Q)$(PRODUCE) harness-runtime
 	$(Q)env RUN_STEP_SCRIPT="$(RUN_STEP_SCRIPT)" NODE_RUNTIME_DIR="$(NODE_RUNTIME_DIR)" PNPM="$(PNPM)" VITE_BUILD_FLAGS="$(VITE_BUILD_FLAGS)" CARTULARY_TEST_TARGET="build-web" ./tools/harness/readiness/build-web-artifact.sh
 
 $(REPORT_RENDERER_RECEIPT): FORCE $(FRONTEND_INSTALL_STAMP) $(PLAYWRIGHT_INSTALL_STAMP) $(NODE_BIN) tools/report-renderer/build-runtime.mjs
 	$(Q)$(GO_TOOLCHAIN_READINESS)
 	$(Q)CARTULARY_TEST_TARGET=build-report-renderer CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "build isolated reporting runtime" -- env GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" NODE_BIN="$(NODE_BIN)" PNPM="$(PNPM)" RUN_STEP_SCRIPT="$(RUN_STEP_SCRIPT)" $(NODE_BIN) tools/report-renderer/build-runtime.mjs
 
-$(CURDIR)/apps/web/dist-measurement/index.html: FORCE $(FRONTEND_INSTALL_STAMP) $(HARNESS_RUNTIME_BIN) tools/harness/readiness/build-web-artifact.sh $(BUILD_WEB_ARTIFACT_IMPL) $(CACHE_ARTIFACT_SCRIPT) | $(NODE_BIN)
+$(CURDIR)/apps/web/dist-measurement/index.html: FORCE $(FRONTEND_INSTALL_STAMP) tools/harness/readiness/build-web-artifact.sh $(BUILD_WEB_ARTIFACT_IMPL) $(CACHE_ARTIFACT_SCRIPT) | $(NODE_BIN)
+	$(Q)$(PRODUCE) harness-runtime
 	$(Q)env RUN_STEP_SCRIPT="$(RUN_STEP_SCRIPT)" NODE_RUNTIME_DIR="$(NODE_RUNTIME_DIR)" PNPM="$(PNPM)" VITE_BUILD_FLAGS="$(VITE_BUILD_FLAGS) --mode measurement" CARTULARY_TEST_TARGET="build-web-measurement" ./tools/harness/readiness/build-web-artifact.sh
 
 endif # workspace admission
