@@ -4109,7 +4109,8 @@ Undeclared variables, such as an operator's shell, agent or desktop settings
 and Go build settings (`GOFLAGS`, `CGO_ENABLED`), never reach a unit.
 
 A harness component that starts processes for another component, outside the
-unit path, builds each child environment with `childEnvironment` (amended
+unit path, builds each child environment with `childEnvironment`, or with
+`childenv.Build` in Go test support that starts product processes (amended
 2026-11-26, single writer). Only the parent's process and tool basics pass
 automatically; the launcher forwards every harness variable the child needs by
 name, or sets it. A library that reads harness variables from an environment it

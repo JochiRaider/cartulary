@@ -32,7 +32,9 @@ const asciiCompare = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 // parent environment; childEnvironment is the only permitted route. A spawn of
 // the unit's own fixture process (it runs inside the unit) is marked on its
 // line with unitFixtureMarker.
-const passThrough = [/\.\.\.\s*(?:process\.env|environment|env)\b(?![.\w])/u, /\benv\s*:\s*process\.env\b(?![.\w])/u];
+const passThrough = [/\.\.\.\s*(?:process\.env|environment|env)\b(?![.\w])/u, /\benv\s*:\s*process\.env\b(?![.\w])/u,
+  // Go: a child's Env built from os.Environ() rather than childenv.Build.
+  /append\(\s*os\.Environ\(\)/u, /range\s+os\.Environ\(\)/u, /\bEnv\s*=\s*os\.Environ\(\)/u];
 export const unitFixtureMarker = "environment: the unit's own fixture process";
 
 // globPattern converts a repository glob (`*` within a segment, `**` across

@@ -19,8 +19,10 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/testutil/childenv"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
+	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 )
 
 // The fixture consumes the declared production operator. It never builds a
@@ -92,18 +94,21 @@ func runOperator(ctx context.Context, runtimeEnv map[string]string, args ...stri
 		return result, errors.New("browser operator executable is unavailable")
 	}
 	command := exec.CommandContext(ctx, bin, args...)
-	for _, pair := range os.Environ() {
-		key, _, _ := strings.Cut(pair, "=")
-		if !strings.HasPrefix(key, "CARTULARY_") {
-			command.Env = append(command.Env, pair)
-		}
-	}
+	// The operator receives the process basics and exactly the secrets and keys
+	// named here; the test's harness context and shell stay out.
+	set := map[string]string{recovery.RecoveryMasterKeyEnv: restoreBrowserRecoveryMasterKey}
 	for key, value := range runtimeEnv {
 		if strings.HasPrefix(key, "CARTULARY_SECRET_") || key == authn.AuthMasterKeyEnv {
-			command.Env = append(command.Env, key+"="+value)
+			set[key] = value
 		}
 	}
-	command.Env = append(command.Env, recovery.RecoveryMasterKeyEnv+"="+restoreBrowserRecoveryMasterKey)
+	root, err := suiteservices.FindRepoRoot()
+	if err != nil {
+		return result, err
+	}
+	if command.Env, err = childenv.Build(root, os.Environ(), nil, set); err != nil {
+		return result, err
+	}
 	var stdout, stderr bytes.Buffer
 	command.Stdout, command.Stderr = &stdout, &stderr
 	err = command.Run()

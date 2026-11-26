@@ -25,7 +25,7 @@ function registry(roles = {}) {
     schema_id: "cartulary.harness_environment_registry.v1",
     scopes: { excluded: ["notes/**", "**/*.generated.*"], harness: ["tools/**", "**/*_test.go"] },
     inherited: { names: ["HOME", "PATH"], prefixes: ["LC_"] },
-    explicit_launchers: ["tools/launcher.mjs"],
+    explicit_launchers: ["tools/launcher.go", "tools/launcher.mjs"],
     roles: Object.fromEntries(environmentRoles.map((role) => [role, roles[role] ?? []])),
   };
 }
@@ -135,6 +135,23 @@ test("an explicit launcher never passes its environment through", (t) => {
     "tools/launcher.mjs:1 passes an environment through; build it with childEnvironment",
     "tools/launcher.mjs:2 passes an environment through; build it with childEnvironment",
     "tools/launcher.mjs:3 passes an environment through; build it with childEnvironment",
+  ]);
+});
+
+test("a Go launcher builds a child's environment with childenv, never from os.Environ", (t) => {
+  const { root, paths } = fixture(t, {
+    "tools/launcher.go": [
+      "cmd.Env = append(os.Environ(), extra...)",
+      "for _, pair := range os.Environ() {",
+      "cmd.Env = os.Environ()",
+      "cmd.Env, err = childenv.Build(root, os.Environ(), nil, set)",
+    ].join("\n"),
+  });
+  const result = inspectEnvironmentRegistry(root, { registry: registry(), declared: new Set(), paths });
+  assert.deepEqual(result.findings, [
+    "tools/launcher.go:1 passes an environment through; build it with childEnvironment",
+    "tools/launcher.go:2 passes an environment through; build it with childEnvironment",
+    "tools/launcher.go:3 passes an environment through; build it with childEnvironment",
   ]);
 });
 

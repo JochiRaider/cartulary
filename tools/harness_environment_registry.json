@@ -80,6 +80,8 @@
     ]
   },
   "explicit_launchers": [
+    "internal/testutil/processtest/processtest.go",
+    "internal/testutil/recoverybrowsertest/operator.go",
     "tools/harness/browser/browser-acquisition.mjs",
     "tools/harness/browser/review-recipes.mjs",
     "tools/harness/browser/ui-review/native-client.mjs",

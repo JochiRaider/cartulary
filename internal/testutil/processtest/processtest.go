@@ -10,13 +10,13 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"sort"
 	"strings"
 	"sync"
 	"syscall"
 	"testing"
 	"time"
 
+	"github.com/JochiRaider/cartulary/internal/testutil/childenv"
 	"github.com/JochiRaider/cartulary/internal/testutil/diagnosticstest"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 	tlstest "github.com/JochiRaider/cartulary/internal/testutil/tlstest/transport"
@@ -141,7 +141,12 @@ func StartServer(t testing.TB, options ServerOptions) *Server {
 	}
 	cmd := exec.Command(command)
 	cmd.Dir = repoRoot
-	cmd.Env = append(os.Environ(), envPairs(finalEnv)...)
+	// The server receives its explicit configuration and the process basics
+	// only; the test unit's harness context and fixture bindings stay out.
+	cmd.Env, err = childenv.Build(repoRoot, os.Environ(), nil, finalEnv)
+	if err != nil {
+		t.Fatalf("build cmd/server environment: %v", err)
+	}
 	cmd.ExtraFiles = []*os.File{listenerFile}
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
@@ -426,19 +431,6 @@ func (s *Server) diagnosticsPayload(t testing.TB) map[string]any {
 		t.Fatalf("invalid structured startup diagnostics on stderr: %v\nstderr:\n%s", err, s.stderr.String())
 	}
 	return payload
-}
-
-func envPairs(env map[string]string) []string {
-	keys := make([]string, 0, len(env))
-	for key := range env {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	pairs := make([]string, 0, len(keys))
-	for _, key := range keys {
-		pairs = append(pairs, key+"="+env[key])
-	}
-	return pairs
 }
 
 func serverCommand(t testing.TB) string {
