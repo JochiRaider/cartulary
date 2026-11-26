@@ -15,6 +15,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessadmission"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessschema"
+	"github.com/JochiRaider/cartulary/internal/testutil/runcontext"
 )
 
 func (p ProductionOptions) attachmentOperation(ctx context.Context, op string) (map[string]any, error) {
@@ -141,6 +142,6 @@ func (p ProductionOptions) AttachSuite(ctx context.Context) (suite *Suite, resul
 	}
 	observationProof = proof
 	p.containerProof(ctx, proof, false)
-	environment["CARTULARY_HARNESS_RESOURCE_DEPENDENCIES"] = resourceDependencies([]string{resourceRef})
+	maps.Copy(environment, runcontext.ResourceDependencies([]string{resourceRef}))
 	return &Suite{Environment: environment, LeaseFile: leaseFile, ResourceRef: resourceRef, ResourceRefs: []string{resourceRef}, Close: close}, nil
 }

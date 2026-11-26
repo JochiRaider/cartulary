@@ -445,6 +445,7 @@
           "TestCheckServiceDependenciesAllowsExplicitDirectInvocation",
           "TestCheckServiceDependenciesRejectsMalformedAssignment",
           "TestCheckServiceDependenciesRejectsOmittedService",
+          "TestPostgresAllocationAlwaysWritesBoth",
           "TestProducerJournalIsBoundedAndRejectsCompletedCorruption",
           "TestProducerJournalRejectsSequenceGapsAndDuplicates",
           "TestProducerJournalRejectsSymlinkDestination",

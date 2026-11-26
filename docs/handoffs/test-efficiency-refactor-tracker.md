@@ -125,7 +125,7 @@ eleven `ci` runs of the release attempts (Section 13.1). Single runs vary by abo
 | G42 | Build-artifact cache keys held per-run locations (each graph run's Go temporary directory, the per-run web source path), so every graph run missed and re-linked shared binaries | Machine inputs, specification | Phase 4, P4-6 | Done: locations leave the keyed command and input directories are keyed by content; proven on a segment (13.15) |
 | G43 | Test rows launch nested graphs and real `make` runs that rebuild shared repository outputs under the Go test's toolchain environment while the outer run uses them; their failures are cut to the first 4 KiB and reclassified as product assertions | Tests, harness, specification | Phase 5 | Open: P5-0 fenced the Go-hosted nested graphs (14.5); P5-2 remains |
 | G44 | Make and the planner both own ordering, freshness, environment and prerequisite skipping: 26 operations re-enter Make, 17 targets carry two recipes chosen by `GRAPH_CHILD`, five freshness mechanisms coexist, and graph-only Make edges run work twice | Machine inputs, implementation, specification | Phase 5 | Open: P5-0 removed the renderer double run (14.5); P5-1 made every test script a row and removed five duplicate operations (14.6); P5-3 remains |
-| G45 | Units inherit the graph process's whole environment (the shell's variables and up to 127 Make exports), minus hand-kept strip lists; harness code reads 478 `CARTULARY_*` names with no declaration, so leaks, stale names and typos fail silently | Machine inputs, implementation, specification | Phase 5, P5-4 | Open: P5-4a registered every harness name and enforces it (14.8); P5-4b made unit environments default-deny (14.9); P5-4c slices 1 to 3 made every outside launcher explicit (14.11 to 14.13); P5-4d slices 1 and 2 gave 26 names a single owner and enforce it, including every invocation-context name (14.14, 14.15); owners for the remaining fixture-binding and step-runtime names remain |
+| G45 | Units inherit the graph process's whole environment (the shell's variables and up to 127 Make exports), minus hand-kept strip lists; harness code reads 478 `CARTULARY_*` names with no declaration, so leaks, stale names and typos fail silently | Machine inputs, implementation, specification | Phase 5, P5-4 | Open: P5-4a registered every harness name and enforces it (14.8); P5-4b made unit environments default-deny (14.9); P5-4c slices 1 to 3 made every outside launcher explicit (14.11 to 14.13); P5-4d slices 1 to 3 gave 43 names a single owner and enforce it, covering every invocation-context and fixture-binding name with more than one Node or Go writer (14.14 to 14.16); owners for the 14 step-runtime names remain |
 
 ## 5. Gap Remediation Detail
 
@@ -1358,6 +1358,7 @@ Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-am
 | 2026-11-26 | P5-4c slice 3 / G45 | Go test support starts product processes with `childenv.Build`; the check covers Go launchers | Segments `p61-cs`, `p61-app-server` (18 rows), `p61-module-recovery` (5 rows, including the restore browser rows), `p61-module-extensions`, `p61-module-networkflow`; `p61-lintgo2`, `p61-lintscripts`, `p61-src2` | All pass after removing a helper the change left unused (14.13) |
 | 2026-11-26 | P5-4d slice 1 / G45 | Registry `owners` and a write check; owners for the suite-runtime handle, suite attachment and runtime binary names; the review server's copied binary defaults removed | `p62b-generate`, `p62b-lintgo`; segments `p62b-cs`, `p62b-ea`, `p62b-hb-units`, `p62b-hb` (including the seeded default review), `p62b-browser`; `p62b-lintscripts`, `p62b-src` | All pass. The first generate found the new Go test uncataloged; it joined the `suiteservices` helper row (14.14) |
 | 2026-11-26 | P5-4d slice 2 / G45 | `run_context` owner (Node `run-context.mjs`, Go `runcontext`) for the invocation context and results root; owners for the runner script and failure context; 70 write sites converted; a stale guide assertion from P5-1 fixed | `p63-generate`, `p63-lintgo`; segments `p63-cs` (14 rows), `p63-ea` (7), `p63-rel` (3), `p63-hb-native` (15), `p63-hb`, `p63-rep`, `p63-browser`; reruns `p63r-tc`, `p63r-hb`; `p63-lintscripts`, `p63r-src` | All pass. `routing_contract` had failed since P5-1 on a stale assertion; `native_fixture_lifecycle` failed once on a tracked-file edit made during the run (14.15) |
+| 2026-11-26 | P5-4d slice 3 / G45 | `browser_binding` owner (Node `browser-binding.mjs`, Go `browserbinding`); resource dependencies join `run_context`, the PostgreSQL allocation joins `suite_services` | Planner equivalence: `ci` and `release-measure` plans with and without the change (`p64-plan-*`); `p64-generate`, `p64-lintgo`; segments `p64-cs`, `p64-ea`, `p64-hb-native` (16 rows), `p64-hb`, `p64-obj`, `p64-pg`, `p64-browser`; `p64-lintscripts`, `p64-src` | All pass; every unit digest is unchanged. Seven of the 20 names are product secrets that any launcher may set, and five had only one Node or Go writer (14.16) |
 | 2026-11-25 | P4-4 / G39 | Wait audit: 31 whole-test hang guards derive from the test deadline (`testdeadline`) | `p44-port-*` (16 owner slices, every row holding a converted guard) | Pass. Committed `bdd8f4e1d` |
 
 ## 12. Phase 2 Plan — `check` Wall Clock
@@ -3192,3 +3193,70 @@ of 14.10.
 - **Remaining.** By the same scan, 20 fixture bindings (the browser stack,
   PostgreSQL and object-store allocation, and service-binding leases) and the
   14 step-runtime names still have more than one writer.
+
+### 14.16 Single Writers: Fixture Bindings (P5-4d, slice 3)
+
+- **What the 20 names turned out to be.** The scan's count of fixture bindings
+  with more than one writer overcounted, in three ways:
+  - **Product secrets.** Seven names (the primary object-store endpoint,
+    credentials, bucket and TLS switch, the primary runtime DSN and a conflict
+    token) are product secrets. The server reads them by a computed name, and
+    the browser stack and dev stack each set them for the server they start.
+    Like product configuration, any launcher may set them. Their
+    `fixture_binding` role is a misfiling, because product code computes
+    their names instead of naming them.
+  - **Shell reads.** Five names had only one Node or Go writer; the scan had
+    counted shell reads with defaults (`${NAME:-}`) as writes. These are the
+    cohort label, acquisition file, session lease file, services binding
+    lease and Playwright worker offset.
+  - **Real second writers.** Eight names did have several: the browser stage,
+    runtime profile, service requirement, session group and reset drain
+    timeout; the resource dependencies; and the PostgreSQL isolation and
+    allocation reference.
+- **Owners.**
+
+  | Component | Owned names | Writer functions | Paths |
+  | --- | --- | --- | --- |
+  | `browser_binding` (new) | The browser stage, runtime and resource profiles, service requirement, session contract and group, stack key, preparation label and timeout, reset drain timeout, cohort label, acquisition file, session lease file and private session root (14) | `browserBindingEnvironment`, `browserbinding.Binding` | `browser-binding.mjs`, `internal/testutil/browserbinding` |
+  | `run_context` | Adds the resource dependencies, an always-written JSON list | `resourceDependenciesEnvironment`, `runcontext.ResourceDependencies` | As before |
+  | `suite_services` | Adds the PostgreSQL isolation and allocation reference, always written together | `postgresAllocationEnvironment`, `suiteservices.PostgresAllocation` | As before |
+
+  The browser binding owns the single-writer browser names too. The planner
+  and fixture write them in the same statements as the contested ones, so
+  each site now builds one binding. `browserbinding` has no dependencies, so
+  the planner can use it.
+- **Write semantics.**
+  - **Browser binding: only set fields.** Every reader treats an empty
+    binding value as unset. All 47 batch partitions set every planner field.
+  - **Resource dependencies and allocation: always written.** The old code
+    wrote empty values there to clear inherited ones.
+- **What moved.**
+  - **Planner.** Its browser units and fixture-snapshot builders.
+  - **Browser fixture.** Its stack environment, cohort label, acquisition
+    file, stack attachment and reset.
+  - **Six resource-dependency sites.** Attachment, proxy, renderer, managed
+    suite (two) and work; the fixtures' private JSON helper is gone.
+  - **Elsewhere.** The runtime's empty list, the review driver's profile,
+    the UI-review recipes, the browser cohort CLI and the services session's
+    allocation.
+- **Planner equivalence.** I planned `ci` and `release-measure` with and
+  without the planner change. Every unit's semantic digest and both graph
+  digests match. The semantic digest covers the unit's command environment.
+  The plans cover 27 `ci` browser groups and 33 measurement groups with their
+  4 fixture-snapshot builders. Fixture-profile cohorts run only in
+  measurement, which is too heavy for a segment.
+- **Validation.** The registry check has no findings. Every segment passes:
+  - the browser-binding, context, registry and planner rows;
+  - the `suiteservices` helper row, with a new allocation test;
+  - 16 native fixture, review and test-services rows, including the
+    object-store namespace lifecycle;
+  - the browser review chain with both seeded reviews;
+  - the object-store proxy's streaming row;
+  - a transaction and a dedicated PostgreSQL row;
+  - the incidents browser row, which exercises the planner's browser
+    binding, the stack fixture, and the renderer and work leases.
+- **Remaining.**
+  - The 14 step-runtime names.
+  - Shell writers are still not checked. Inside the browser stack, shell
+    scripts still set names for their own children; for example
+    `start-web-e2e.sh` passes the session lease file to its Node helper.

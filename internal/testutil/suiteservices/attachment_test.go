@@ -19,3 +19,12 @@ func TestAttachmentEnvironmentOmitsUnsetModes(t *testing.T) {
 		}
 	}
 }
+
+func TestPostgresAllocationAlwaysWritesBoth(t *testing.T) {
+	if got, want := (PostgresAllocation{}).Environment(), map[string]string{PGIsolationEnv: "", PGAllocationRefEnv: ""}; !maps.Equal(got, want) {
+		t.Fatalf("empty allocation wrote %v, want %v", got, want)
+	}
+	if got, want := (PostgresAllocation{Isolation: "shared", Ref: "session:a"}).Environment(), map[string]string{PGIsolationEnv: "shared", PGAllocationRefEnv: "session:a"}; !maps.Equal(got, want) {
+		t.Fatalf("allocation wrote %v, want %v", got, want)
+	}
+}

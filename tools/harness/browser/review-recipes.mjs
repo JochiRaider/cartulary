@@ -13,7 +13,8 @@ import { seedDesignReview } from "./design-review-seed.mjs";
 import { CommandFailure } from "../runtime/command-failure.mjs";
 import { ownedProcess } from "../runtime/owned-process.mjs";
 import { execFileSync } from "../workspace/child-process.mjs";
-import { runContextEnvironment } from "../contract/run-context.mjs";
+import { resourceDependenciesEnvironment, runContextEnvironment } from "../contract/run-context.mjs";
+import { browserBindingEnvironment } from "./browser-binding.mjs";
 
 const preparationBuilds = Object.freeze([
   ["build-web", "frontend", "build_web"], ["embedded-web-assets", "embedded_assets", "build_server_harness"],
@@ -35,10 +36,10 @@ export function recipeEnvironment(root, runRoot, runtime, input, environment = p
   // Nothing else crosses from the parent: no inherited Go root, presentation
   // mode, public review input or harness context of an enclosing graph.
   const base = childEnvironment(environment, { pass: reviewForwarded(root), set: runtimeBinaryEnvironment(root, environment) });
-  Object.assign(base, { CARTULARY_HARNESS_RESOURCE_DEPENDENCIES: "[]", CARTULARY_PREPARATION_POLICY: input.preparation_policy, 
+  Object.assign(base, { ...resourceDependenciesEnvironment([]), CARTULARY_PREPARATION_POLICY: input.preparation_policy, 
     ...runContextEnvironment({ resultsDir: path.dirname(runRoot), runID: runtime.runID, target: input.presentation === "design" ? "browser-design-review" : "ui-review" }), CARTULARY_HARNESS_IDENTITY_PREPARED: "1", ...runtimeHandleEnvironment(runtime),
     NODE_RUNTIME_DIR: path.join(root, workspaceLayout.node_runtime), NODE_BIN: process.execPath, PNPM: path.join(root, workspaceLayout.node_runtime, "bin/pnpm"),
-    CARTULARY_BROWSER_RUNTIME_PROFILE_ID: input.profile ?? "network_flow_claimed", CARTULARY_BROWSER_SERVICE_REQUIREMENT: "test-services",
+    ...browserBindingEnvironment({ runtimeProfile: input.profile ?? "network_flow_claimed", serviceRequirement: "test-services" }),
     CARTULARY__NETWORK_FLOW_ACTIVITY__CLAIMED: "false", CARTULARY__ENTERPRISE_AUTHENTICATION__CLAIMED: "false" });
   if (input.preparation_policy === "installed_only") {
     const pins = JSON.parse(readFileSync(path.join(root, "tools/toolchain_pins.json")));

@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/JochiRaider/cartulary/internal/testutil/browserbinding"
 	"github.com/JochiRaider/cartulary/internal/testutil/browserpki"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessschema"
@@ -132,14 +133,13 @@ func (b *browserProvider) Acquire(ctx context.Context, request Request) (allocat
 		return errors.Join(harnesssession.RemoveOwnedTree(directory, root), directory.Close())
 	}
 	environment := serviceEnvironment(p.environment(), suite.Environment)
-	for key, value := range map[string]string{"CARTULARY_BROWSER_STAGE": request.BrowserStage, "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": profile, "CARTULARY_BROWSER_SERVICE_REQUIREMENT": "test-services", "CARTULARY_BROWSER_SESSION_GROUP": session, "CARTULARY_WEB_E2E_PRIVATE_SESSION_ROOT": root, "CARTULARY_HARNESS_ALLOCATION_REF": request.AllocationRef} {
-		environment[key] = value
-	}
+	browserbinding.Binding{Stage: request.BrowserStage, RuntimeProfile: profile, ServiceRequirement: "test-services", SessionGroup: session, PrivateSessionRoot: root}.Apply(environment)
+	environment["CARTULARY_HARNESS_ALLOCATION_REF"] = request.AllocationRef
 	runcontext.Context{WorkUnit: request.UnitID}.Apply(environment)
 	// The creating cohort runs against the allocation's first server generation;
 	// its retained log is labelled with that cohort (TH-HARNESS-REQ-861).
 	if request.Preparation != nil && request.Preparation.Label != "" {
-		environment["CARTULARY_BROWSER_COHORT_LABEL"] = request.Preparation.Label
+		browserbinding.Binding{CohortLabel: request.Preparation.Label}.Apply(environment)
 	}
 	if profiled {
 		for key, value := range map[string]string{"CARTULARY_FIXTURE_PROFILE_ID": request.FixtureProfile, "CARTULARY_FIXTURE_SNAPSHOT_KEY": request.SnapshotKey, "CARTULARY_FIXTURE_SNAPSHOT_BUILDER_UNIT_ID": request.BuilderUnit, "CARTULARY_FIXTURE_ROW_ID": request.RowID, "CARTULARY_FIXTURE_PREDICATE_ID": request.PredicateID, "CARTULARY_FIXTURE_CLONE_LEASE_ID": request.LeaseID, "CARTULARY_FIXTURE_CLONE_ORDINAL": fmt.Sprint(clone)} {
@@ -192,7 +192,7 @@ func (b *browserProvider) Acquire(ctx context.Context, request Request) (allocat
 	if !ok || len(launch) != 36 || prepared["file"] != file || len(prepared) != 2 {
 		return nil, artifactFailure(harnesslocal.ErrUnsafe)
 	}
-	environment["CARTULARY_BROWSER_ACQUISITION_FILE"] = file
+	browserbinding.Binding{AcquisitionFile: file}.Apply(environment)
 	// Issuance belongs to the native physical owner, before any application
 	// child starts. The shell consumes these files but cannot mint identities.
 	tlsParent, err := harnesslocal.PrivateDirectory(filepath.Join(root, "runtime-root"))
@@ -232,10 +232,8 @@ func (b *browserProvider) Acquire(ctx context.Context, request Request) (allocat
 		}
 		attached[key] = text
 	}
-	attached["CARTULARY_BROWSER_STAGE"] = request.BrowserStage
-	attached["CARTULARY_BROWSER_SESSION_GROUP"] = session
-	attached["CARTULARY_WEB_E2E_SESSION_LEASE_FILE"] = lease
-	attached["CARTULARY_HARNESS_RESOURCE_DEPENDENCIES"] = resourceDependencies([]string{resourceRef})
+	browserbinding.Binding{Stage: request.BrowserStage, SessionGroup: session, SessionLeaseFile: lease}.Apply(attached)
+	maps.Copy(attached, runcontext.ResourceDependencies([]string{resourceRef}))
 	if err := p.Runtime.RegisterEnvironment(attached); err != nil {
 		return nil, artifactFailure(err)
 	}
@@ -264,7 +262,7 @@ func (b *browserProvider) Acquire(ctx context.Context, request Request) (allocat
 				current[key] = ""
 			}
 			runcontext.Context{WorkUnit: consumer.UnitID, Target: preparation.Target}.Apply(current)
-			current["CARTULARY_BROWSER_RESET_DRAIN_TIMEOUT_MS"] = preparation.DrainTimeout
+			browserbinding.Binding{ResetDrainTimeoutMS: preparation.DrainTimeout}.Apply(current)
 			_, err = p.browserOperation(step, "reset", []string{preparation.Label}, current)
 			if step.Err() != nil {
 				return step.Err()

@@ -11,3 +11,10 @@ export function suiteAttachmentEnvironment({ suiteID, callMode, lifecycleMode, p
     ...(persistentBorrower ? { CARTULARY_TEST_SERVICES_PERSISTENT_BORROWER: "1" } : {}),
   };
 }
+
+// postgresAllocationEnvironment is the only Node writer of a suite process's
+// PostgreSQL allocation: its isolation and allocation reference. It always
+// writes both; suiteservices.PostgresAllocation is its Go form.
+export function postgresAllocationEnvironment({ isolation, ref }) {
+  return { CARTULARY_PGTEST_ISOLATION: isolation, CARTULARY_PGTEST_ALLOCATION_REF: ref };
+}

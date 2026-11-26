@@ -20,6 +20,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 	"github.com/JochiRaider/cartulary/internal/testutil/objectstoreproxy"
+	"github.com/JochiRaider/cartulary/internal/testutil/runcontext"
 	"golang.org/x/sys/unix"
 )
 
@@ -300,7 +301,7 @@ func (p *proxyProvider) Acquire(ctx context.Context, _ Request) (allocation *All
 		return nil, err
 	}
 	attached := maps.Clone(suite.Environment)
-	attached["CARTULARY_HARNESS_RESOURCE_DEPENDENCIES"] = resourceDependencies([]string{resourceRef})
+	maps.Copy(attached, runcontext.ResourceDependencies([]string{resourceRef}))
 	maps.Copy(attached, map[string]string{"OBJECT_STORE_ENDPOINT": listen, "SEAWEEDFS_S3_ACCESS_KEY_ID": suite.Environment["CARTULARY_S3TEST_ACCESS_KEY_ID"], "SEAWEEDFS_S3_SECRET_ACCESS_KEY": suite.Environment["CARTULARY_S3TEST_SECRET_ACCESS_KEY"], "OBJECT_STORE_SECURE": "true", "OBJECT_STORE_CORS_ORIGIN": "https://localhost:5173"})
 	if err := options.Runtime.RegisterEnvironment(attached); err != nil {
 		return nil, artifactFailure(err)

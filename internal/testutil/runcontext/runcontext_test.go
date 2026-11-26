@@ -38,6 +38,12 @@ func TestListsAlwaysWrite(t *testing.T) {
 	if got := InputSources([]string{"OWNER=cli", "ROWS=cli"})[name("MAKE_INPUT_SOURCES")]; got != "OWNER=cli ROWS=cli" {
 		t.Fatalf("input sources wrote %q", got)
 	}
+	if got := ResourceDependencies(nil)[name("HARNESS_RESOURCE_DEPENDENCIES")]; got != "[]" {
+		t.Fatalf("no resource dependencies wrote %q", got)
+	}
+	if got := ResourceDependencies([]string{"a", "b"})[name("HARNESS_RESOURCE_DEPENDENCIES")]; got != `["a","b"]` {
+		t.Fatalf("resource dependencies wrote %q", got)
+	}
 	if got := Entries(map[string]string{"B": "2", "A": "1"}); !slices.Equal(got, []string{"A=1", "B=2"}) {
 		t.Fatalf("Entries = %q", got)
 	}

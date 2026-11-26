@@ -1,9 +1,10 @@
 // The single Node writer of a harness command's invocation context (TH-HARNESS
 // Section 5.5, single writer): where the run's results go, which run, target
 // and work unit the command reports for, the accounted invocation and host
-// admission it runs under, the operation it executes and where its public
-// inputs came from. Its Go form is internal/testutil/runcontext. Readers keep
-// reading the names; every writer outside the Make entry point calls this.
+// admission it runs under, the operation it executes, the retained resources it
+// depends on and where its public inputs came from. Its Go form is
+// internal/testutil/runcontext. Readers keep reading the names; every writer
+// outside the Make entry point calls this.
 const contextNames = Object.freeze({
   resultsDir: "CARTULARY_TEST_RESULTS_DIR",
   runID: "CARTULARY_TEST_RUN_ID",
@@ -30,4 +31,11 @@ export function runContextEnvironment(context) {
 // clears an inherited record.
 export function inputSourcesEnvironment(sources) {
   return { CARTULARY_MAKE_INPUT_SOURCES: sources.join(" ") };
+}
+
+// resourceDependenciesEnvironment names the retained resources a command
+// depends on, as a JSON list. It always writes: no references is the empty
+// list, which differs from inheriting a parent's.
+export function resourceDependenciesEnvironment(references) {
+  return { CARTULARY_HARNESS_RESOURCE_DEPENDENCIES: JSON.stringify(references) };
 }

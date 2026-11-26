@@ -24,7 +24,7 @@ import { hostCapacity } from "../runtime/harness-binary.mjs";
 import { parseStrictJSON } from "../contract/index.mjs";
 import { atomicLocalFile, readLocalFile } from "../runtime/secure-local-files.mjs";
 import { recoverRuntime, borrowRuntime, createRuntime, runtimeEnvironment, runtimeHandleEnvironment } from "../runtime/session-client.mjs";
-import { suiteAttachmentEnvironment } from "./suite-attachment.mjs";
+import { postgresAllocationEnvironment, suiteAttachmentEnvironment } from "./suite-attachment.mjs";
 import { runContextEnvironment } from "../contract/run-context.mjs";
 
 const descriptorSchemaID = "cartulary.test_services.local_session.v5";
@@ -536,8 +536,7 @@ export async function createLocalSession({ root, binary, sessionFile, environmen
     const resultFile = path.join(stateRoot, "suite-start-result.json");
     const startEnvironment = {
       CARTULARY_TEST_SERVICES_PERSISTENT_SESSION: "1",
-      CARTULARY_PGTEST_ISOLATION: "shared",
-      CARTULARY_PGTEST_ALLOCATION_REF: `session:${sessionID}`,
+      ...postgresAllocationEnvironment({ isolation: "shared", ref: `session:${sessionID}` }),
       CARTULARY_TEST_SERVICES_SESSION_EXPIRES_AT: expiresAt,
       ...suiteAttachmentEnvironment({ suiteID: sessionID }),
       ...runContextEnvironment({ target: "test-services-session-up", resultsDir: resultsRoot, runID: "session-up" }),

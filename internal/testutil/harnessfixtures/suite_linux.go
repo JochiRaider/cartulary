@@ -94,14 +94,6 @@ type ProductionOptions struct {
 	RecoveryOutput                                               bool
 }
 
-func resourceDependencies(references []string) string {
-	if references == nil {
-		references = []string{}
-	}
-	data, _ := json.Marshal(references)
-	return string(data)
-}
-
 func (p ProductionOptions) command() Command {
 	dependencies := p.Dependencies
 	if dependencies == nil {
@@ -126,7 +118,7 @@ func (p ProductionOptions) environment() map[string]string {
 	}
 	maps.Copy(v, p.Runtime.Environment())
 	runcontext.Context{ResultsDir: filepath.Dir(p.RunRoot), RunID: p.Runtime.RunID, Target: p.Target}.Apply(v)
-	v["CARTULARY_HARNESS_RESOURCE_DEPENDENCIES"] = resourceDependencies(p.Dependencies)
+	maps.Copy(v, runcontext.ResourceDependencies(p.Dependencies))
 	return v
 }
 func (p ProductionOptions) serviceBinary() string {
@@ -262,8 +254,7 @@ func (p ProductionOptions) StartSuite(ctx context.Context) (suite *Suite, result
 	if p.ServiceDependencies != nil {
 		maps.Copy(environment, runcontext.Services(p.ServiceDependencies))
 	}
-	environment[suiteservices.PGIsolationEnv] = p.PostgresIsolation
-	environment[suiteservices.PGAllocationRefEnv] = p.PostgresAllocation
+	maps.Copy(environment, suiteservices.PostgresAllocation{Isolation: p.PostgresIsolation, Ref: p.PostgresAllocation}.Environment())
 	dependencies := append([]string{}, p.residency.reference(p.ServiceKey)...)
 
 	// Recovery authority belongs to the broker and must survive failure before
@@ -437,7 +428,7 @@ func (p ProductionOptions) StartSuite(ctx context.Context) (suite *Suite, result
 	p.containerProof(ctx, map[string]any{"lease": proof, "ownership": "owned", "borrower_file": "", "borrower_id": ""}, false)
 	var once sync.Once
 	var closeErr error
-	admitted["CARTULARY_HARNESS_RESOURCE_DEPENDENCIES"] = resourceDependencies([]string{resourceRef})
+	maps.Copy(admitted, runcontext.ResourceDependencies([]string{resourceRef}))
 	suite = &Suite{Environment: admitted, LeaseFile: leaseFile, ResourceRef: resourceRef, ResourceRefs: []string{resourceRef}, ScopeRef: ref, Close: func(ctx context.Context) error {
 		once.Do(func() { closeErr = p.stopSuite(ctx, leaseFile, environment) })
 		return closeErr

@@ -4134,10 +4134,16 @@ value by name:
   launch bindings;
 - a command's invocation context, which covers its run placement, target and
   work unit, accounted invocation, host admission lease, operation digest,
-  service selection and input sources: `runContextEnvironment` and
-  `inputSourcesEnvironment` (`tools/harness/contract/run-context.mjs`) and, in
-  Go, the dependency-free `runcontext` package. The generated Make entry point
-  writes the same names for top-level commands.
+  service selection, resource dependencies and input sources:
+  `runContextEnvironment`, `inputSourcesEnvironment` and
+  `resourceDependenciesEnvironment` (`tools/harness/contract/run-context.mjs`)
+  and, in Go, the dependency-free `runcontext` package. The generated Make
+  entry point writes the same names for top-level commands;
+- a browser binding (stage, profiles, service requirement, session,
+  preparation and stack): `browserBindingEnvironment` and, in Go, the
+  dependency-free `browserbinding` package;
+- a suite process's PostgreSQL allocation: `postgresAllocationEnvironment`
+  and `suiteservices.PostgresAllocation`.
 
 The environment registry check rejects any other write of an owned name in
 Node or Go code outside tests, including a Go write through a constant declared

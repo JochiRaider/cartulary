@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 3,
-  "input_digest": "sha256:2666570ba42164b449aa9f9acab19ad774fc345b726c239d38f18840c5b27d43",
+  "input_digest": "sha256:40356cfb63392bd28ae1ecbee9b46757de8c364e4f91b84d6a612038ef06b906",
   "inputs": [
     {
       "path": "contracts/performance/ac003.v2.json",
@@ -455,9 +455,14 @@
       "hash": "sha256:cd1eb34aeea75af172edb079cafec7046be8695e1867e65ea77964a44280a1e1"
     },
     {
+      "path": "tools/harness/browser/browser-binding.mjs",
+      "role": "renderer_source",
+      "hash": "sha256:d4df613c1ea15b643a2d468fbc29de756c5cb52ffb4ab90f58015e2561b0bf5e"
+    },
+    {
       "path": "tools/harness/browser/browser-catalog-group-cli.mjs",
       "role": "renderer_source",
-      "hash": "sha256:396cbdf20b97cd163b77931600361c5eeda7ea5ec0e43f5afa4dd6f67fb71a4d"
+      "hash": "sha256:2ed02e1b5fbe90c4bc8b6bb8629917d564fa7d5c1be86cfd01ce41cb31b06026"
     },
     {
       "path": "tools/harness/browser/browser-cohorts.mjs",
@@ -607,7 +612,7 @@
     {
       "path": "tools/harness/browser/review-recipes.mjs",
       "role": "renderer_source",
-      "hash": "sha256:eb5186bf49addb963a4f873b0304347b0238fd0261e6a6f9ff99d7d91c6e734c"
+      "hash": "sha256:16f6be5dc97a7c7188dd377f5c8eeeca186498ed9228775739c8254948c25462"
     },
     {
       "path": "tools/harness/browser/server-log-retention.mjs",
@@ -877,7 +882,7 @@
     {
       "path": "tools/harness/contract/run-context.mjs",
       "role": "renderer_source",
-      "hash": "sha256:3030392987b32ec3237e975c0a8ee952eed767658e307d1a2cc86e4566b6ed19"
+      "hash": "sha256:d153f41316663d9c84090ff43019a3e3e269d7c7790cf43bd738d60771d097b9"
     },
     {
       "path": "tools/harness/contract/runner-context.mjs",
@@ -1337,12 +1342,12 @@
     {
       "path": "tools/test_families/harness.command_surface.json",
       "role": "test_family_manifest",
-      "hash": "sha256:888d12c6267fc517bad515e3ba0d7778140b1835fa1163e940347f5b38078772"
+      "hash": "sha256:a44a40be477f4479f87354691f978e7c110b4c3b2665bb37f9f1654cba85fb29"
     },
     {
       "path": "tools/test_families/harness.evidence_accounting.json",
       "role": "test_family_manifest",
-      "hash": "sha256:ad1bca6b3d495496bb286b0f0fc42f44c0150337c2b86a5259519080fb2baac8"
+      "hash": "sha256:909d295156eced8b669a733eb0602121a8b127fa6e908c0a988ef8083c166dfb"
     },
     {
       "path": "tools/test_families/harness.generated_artifacts.json",

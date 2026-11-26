@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/JochiRaider/cartulary/internal/testutil/browserbinding"
 	"github.com/JochiRaider/cartulary/internal/testutil/runcontext"
 )
 
@@ -253,18 +254,13 @@ func (c *compiler) browserUnit(id string, stack []string) (string, error) {
 		rowIDs[i] = row.RowID
 	}
 	slices.Sort(rowIDs)
-	environment := map[string]string{
-		"BROWSER_E2E_BATCH_MANIFEST":               browserBatchPath,
-		"CARTULARY_BROWSER_STAGE":                  partition.ExecutionStage,
-		"CARTULARY_BROWSER_RUNTIME_PROFILE_ID":     partition.RuntimeProfileID,
-		"CARTULARY_BROWSER_RESOURCE_PROFILE_ID":    partition.ResourceProfileID,
-		"CARTULARY_BROWSER_PREPARATION_LABEL":      cohort.name,
-		"CARTULARY_BROWSER_RESET_DRAIN_TIMEOUT_MS": strconv.FormatInt(reset["backend_drain_timeout_ms"], 10),
-		"CARTULARY_BROWSER_PREPARATION_TIMEOUT_MS": strconv.FormatInt(preparation, 10),
-		"CARTULARY_BROWSER_SERVICE_REQUIREMENT":    partition.ServiceRequirement,
-		"CARTULARY_BROWSER_SESSION_CONTRACT":       partition.BrowserSessionGroup,
-		"CARTULARY_BROWSER_STACK_KEY":              cohort.stack,
-	}
+	environment := browserbinding.Binding{
+		Stage: partition.ExecutionStage, RuntimeProfile: partition.RuntimeProfileID, ResourceProfile: partition.ResourceProfileID,
+		ServiceRequirement: partition.ServiceRequirement, SessionContract: partition.BrowserSessionGroup, StackKey: cohort.stack,
+		PreparationLabel: cohort.name, PreparationTimeoutMS: strconv.FormatInt(preparation, 10),
+		ResetDrainTimeoutMS: strconv.FormatInt(reset["backend_drain_timeout_ms"], 10),
+	}.Environment()
+	environment["BROWSER_E2E_BATCH_MANIFEST"] = browserBatchPath
 	maps.Copy(environment, runcontext.Services(partition.ServiceDependencies))
 	runcontext.Context{Target: target}.Apply(environment)
 	residents, cluster := c.browserResidents(cohort)
@@ -376,8 +372,7 @@ func (c *compiler) fixtureBuilder(fixture *rowFixture, stack []string) (string, 
 		FailurePolicy:   FailurePolicy{BlockDescendants: true}, EstimatedWorkMS: c.in.Owner.LifecycleEstimatesMS["performance_fixture_prepare"],
 		FixtureProfileID: profile, SnapshotKey: fixture.key,
 		Command: Command{Executable: "node", Args: []string{snapshotBuilderCLI, "--fixture-profile", profile, "--snapshot-key", fixture.key},
-			Environment: map[string]string{
-				"CARTULARY_BROWSER_RUNTIME_PROFILE_ID":          builder.RuntimeProfileID,
+			Environment: browserbinding.Binding{RuntimeProfile: builder.RuntimeProfileID}.Apply(map[string]string{
 				"CARTULARY_FIXTURE_BUILDER_RESOURCE_PROFILE_ID": builder.ResourceProfileID,
 				"CARTULARY_FIXTURE_PROFILE_ID":                  profile,
 				"CARTULARY_FIXTURE_SNAPSHOT_KEY":                fixture.key,
@@ -385,7 +380,7 @@ func (c *compiler) fixtureBuilder(fixture *rowFixture, stack []string) (string, 
 				"CARTULARY_FIXTURE_SOURCE_CONTRACT_DIGEST":      fixture.profile.SourceContractDigest,
 				"CARTULARY_FIXTURE_SNAPSHOT_BUILDER_UNIT_ID":    id,
 				clusterKeyEnvironment:                           fixture.cluster,
-			}},
+			})},
 	}
 	return id, nil
 }

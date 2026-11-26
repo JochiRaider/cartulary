@@ -5,7 +5,9 @@ import path from "node:path";
 import test from "node:test";
 
 import { childEnvironment } from "../../runtime/child-environment.mjs";
-import { inputSourcesEnvironment, runContextEnvironment } from "../../contract/run-context.mjs";
+import { inputSourcesEnvironment, resourceDependenciesEnvironment, runContextEnvironment } from "../../contract/run-context.mjs";
+import { browserBindingEnvironment } from "../../browser/browser-binding.mjs";
+import { postgresAllocationEnvironment } from "../../services/suite-attachment.mjs";
 import { environmentRoles, globPattern, inspectEnvironmentRegistry, readEnvironmentRegistry, unitFixtureMarker } from "../environment-registry.mjs";
 
 // Names are assembled so this file mentions no registry name itself.
@@ -226,4 +228,16 @@ test("the run context writes only set fields; input sources always write", () =>
   assert.throws(() => runContextEnvironment({ runId: "typo" }), /unknown run context fields: runId/u);
   assert.deepEqual(inputSourcesEnvironment([]), { [name("MAKE_INPUT_SOURCES")]: "" });
   assert.deepEqual(inputSourcesEnvironment(["OWNER=cli", "ROWS=cli"]), { [name("MAKE_INPUT_SOURCES")]: "OWNER=cli ROWS=cli" });
+});
+
+test("binding owners write their names: set browser fields, every resource list and allocation", () => {
+  assert.deepEqual(browserBindingEnvironment({ runtimeProfile: "default", serviceRequirement: "test-services", stage: "" }), {
+    [name("BROWSER_RUNTIME_PROFILE_ID")]: "default", [name("BROWSER_SERVICE_REQUIREMENT")]: "test-services",
+  });
+  assert.throws(() => browserBindingEnvironment({ profile: "default" }), /unknown browser binding fields: profile/u);
+  assert.deepEqual(resourceDependenciesEnvironment([]), { [name("HARNESS_RESOURCE_DEPENDENCIES")]: "[]" });
+  assert.deepEqual(resourceDependenciesEnvironment(["a", "b"]), { [name("HARNESS_RESOURCE_DEPENDENCIES")]: '["a","b"]' });
+  assert.deepEqual(postgresAllocationEnvironment({ isolation: "shared", ref: "session:a" }), {
+    [name("PGTEST_ISOLATION")]: "shared", [name("PGTEST_ALLOCATION_REF")]: "session:a",
+  });
 });

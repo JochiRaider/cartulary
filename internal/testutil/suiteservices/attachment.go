@@ -25,3 +25,18 @@ func (a Attachment) Environment() map[string]string {
 	}
 	return environment
 }
+
+// PostgresAllocation is the PostgreSQL allocation a suite process works in:
+// its isolation and allocation reference. Environment always writes both, so
+// an empty allocation clears an inherited one.
+type PostgresAllocation struct {
+	Isolation string
+	Ref       string
+}
+
+// Environment is the only Go writer of the allocation names (TH-HARNESS
+// Section 5.5, single writer); postgresAllocationEnvironment in
+// tools/harness/services/suite-attachment.mjs is its Node form.
+func (a PostgresAllocation) Environment() map[string]string {
+	return map[string]string{PGIsolationEnv: a.Isolation, PGAllocationRefEnv: a.Ref}
+}

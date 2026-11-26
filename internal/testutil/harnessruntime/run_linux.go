@@ -225,7 +225,7 @@ func RunWithOptions(ctx context.Context, root, binary string, args, environment 
 	}
 	// The graph starts with no fixture consumers. A fixture lease supplies its
 	// exact retained resource references when it extends this environment.
-	child["CARTULARY_HARNESS_RESOURCE_DEPENDENCIES"] = "[]"
+	maps.Copy(child, runcontext.ResourceDependencies(nil))
 	runcontext.Context{ResultsDir: results, RunID: runID}.Apply(child)
 	for _, k := range []string{"CARTULARY_HARNESS_GRAPH_CHILD", "CARTULARY_HARNESS_IDENTITY_PREPARED", "CARTULARY_HARNESS_SKIP_PREREQUISITES", "CARTULARY_SUPPRESS_CHILD_SUCCESS"} {
 		child[k] = "1"

@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/JochiRaider/cartulary/internal/testutil/browserbinding"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessadmission"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessfixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
@@ -138,7 +139,7 @@ func (d *productionDriver) Prepare(ctx context.Context) (*int, error) {
 			return nil, preparationError(err, "service_acquisition", "browser_stack")
 		}
 		maps.Copy(environment, d.fixtureLease.Environment)
-		environment["CARTULARY_BROWSER_RUNTIME_PROFILE_ID"] = request.RuntimeProfile
+		browserbinding.Binding{RuntimeProfile: request.RuntimeProfile}.Apply(environment)
 		runcontext.Context{WorkUnit: request.UnitID, AdmissionLease: d.fixtureAdmission.Token}.Apply(environment)
 		reply, err = d.produce(ctx, a, "seed", map[string]any{"environment": environment})
 		if err != nil {

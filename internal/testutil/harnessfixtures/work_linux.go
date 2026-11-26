@@ -15,6 +15,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
+	"github.com/JochiRaider/cartulary/internal/testutil/runcontext"
 )
 
 type WorkRequirement struct {
@@ -328,7 +329,7 @@ func (p *Production) Acquire(ctx context.Context, request Request) (*WorkLease, 
 			}
 		}
 		dependencies = append(dependencies, attached["CARTULARY_RENDERER_RESOURCE_REF"])
-		environment["CARTULARY_HARNESS_RESOURCE_DEPENDENCIES"] = resourceDependencies(dependencies)
+		maps.Copy(environment, runcontext.ResourceDependencies(dependencies))
 		rendererRelease = release
 	}
 	var once sync.Once

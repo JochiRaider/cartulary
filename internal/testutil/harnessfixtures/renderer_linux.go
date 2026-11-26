@@ -19,6 +19,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
+	"github.com/JochiRaider/cartulary/internal/testutil/runcontext"
 )
 
 type rendererSlot struct {
@@ -150,7 +151,7 @@ func (r *rendererOwner) borrow(ctx context.Context, slot *rendererSlot, environm
 	p.Dependencies = dependencies
 	env := p.environment()
 	maps.Copy(env, environment)
-	env["CARTULARY_HARNESS_RESOURCE_DEPENDENCIES"] = resourceDependencies(dependencies)
+	maps.Copy(env, runcontext.ResourceDependencies(dependencies))
 	delete(env, "CARTULARY_RENDERER_DIAGNOSTICS")
 	if slot.diagnostics {
 		env["CARTULARY_RENDERER_DIAGNOSTICS"] = "1"

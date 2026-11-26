@@ -89,6 +89,28 @@
     "tools/harness/services/local-session.mjs"
   ],
   "owners": {
+    "browser_binding": {
+      "paths": [
+        "internal/testutil/browserbinding/**",
+        "tools/harness/browser/browser-binding.mjs"
+      ],
+      "names": [
+        "CARTULARY_BROWSER_ACQUISITION_FILE",
+        "CARTULARY_BROWSER_COHORT_LABEL",
+        "CARTULARY_BROWSER_PREPARATION_LABEL",
+        "CARTULARY_BROWSER_PREPARATION_TIMEOUT_MS",
+        "CARTULARY_BROWSER_RESET_DRAIN_TIMEOUT_MS",
+        "CARTULARY_BROWSER_RESOURCE_PROFILE_ID",
+        "CARTULARY_BROWSER_RUNTIME_PROFILE_ID",
+        "CARTULARY_BROWSER_SERVICE_REQUIREMENT",
+        "CARTULARY_BROWSER_SESSION_CONTRACT",
+        "CARTULARY_BROWSER_SESSION_GROUP",
+        "CARTULARY_BROWSER_STACK_KEY",
+        "CARTULARY_BROWSER_STAGE",
+        "CARTULARY_WEB_E2E_PRIVATE_SESSION_ROOT",
+        "CARTULARY_WEB_E2E_SESSION_LEASE_FILE"
+      ]
+    },
     "run_context": {
       "paths": [
         "Makefile",
@@ -99,6 +121,7 @@
       "names": [
         "CARTULARY_HARNESS_INVOCATION_ROOT",
         "CARTULARY_HARNESS_PHYSICAL_OUTPUT_ROOT",
+        "CARTULARY_HARNESS_RESOURCE_DEPENDENCIES",
         "CARTULARY_HARNESS_SERVICE_DEPENDENCIES",
         "CARTULARY_HOST_ADMISSION_LEASE",
         "CARTULARY_MAKE_INPUT_SOURCES",
@@ -160,6 +183,8 @@
         "tools/testservices/**"
       ],
       "names": [
+        "CARTULARY_PGTEST_ALLOCATION_REF",
+        "CARTULARY_PGTEST_ISOLATION",
         "CARTULARY_TEST_SERVICES_CALL_MODE",
         "CARTULARY_TEST_SERVICES_LIFECYCLE_MODE",
         "CARTULARY_TEST_SERVICES_PERSISTENT_BORROWER",
