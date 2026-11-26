@@ -2,6 +2,7 @@ package harnessruntime
 
 import (
 	"context"
+	"errors"
 	"slices"
 	"strings"
 	"sync"
@@ -18,6 +19,8 @@ type fakeLedger struct {
 	changes  chan struct{}
 	tried    []string
 	deny     bool
+	// refuse names units whose evaluation the ledger refuses.
+	refuse map[string]bool
 }
 
 func newFakeLedger(capacity map[string]int64) *fakeLedger {
@@ -34,14 +37,17 @@ func (l *fakeLedger) fits(u unit) []string {
 	return deficits
 }
 func (l *fakeLedger) View(context.Context) (admissionView, error) { return l, nil }
-func (l *fakeLedger) Evaluate(u unit) (bool, []string, error) {
+func (l *fakeLedger) Evaluate(u unit) (verdict, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if l.deny {
-		return false, []string{"cpu"}, nil
+		return verdict{deficits: []string{"cpu"}}, nil
+	}
+	if l.refuse[u.ID] {
+		return verdict{}, errors.New("host admission unavailable")
 	}
 	deficits := l.fits(u)
-	return len(deficits) == 0, deficits, nil
+	return verdict{admissible: len(deficits) == 0, deficits: deficits}, nil
 }
 func (l *fakeLedger) TryAdmit(_ context.Context, u unit) (*hostLease, bool, error) {
 	l.mu.Lock()
@@ -178,3 +184,25 @@ func (hitCache) Lookup(context.Context, unit) (cacheResult, error) {
 	return cacheResult{Outcome: "hit", Reason: "record_valid", Profile: "test_rows", OutputDigest: "sha256:" + strings.Repeat("0", 64)}, nil
 }
 func (hitCache) Store(context.Context, unit) error { return nil }
+
+func TestRuntimeRefusedEvaluation(t *testing.T) {
+	// The ledger refuses to evaluate "refused": it goes to its own blocking
+	// admission, which decides it, instead of failing the whole graph.
+	refused, other := engineUnit("refused", 20), engineUnit("other", 10)
+	p := enginePlan(refused, other)
+	ledger := newFakeLedger(map[string]int64{"cpu": 2})
+	ledger.refuse = map[string]bool{"refused": true}
+	var blocking []string
+	var mu sync.Mutex
+	r := boundedGraph(t, p, enginePorts{RetainEvents: true, Admission: ledger,
+		Admit: func(_ context.Context, u unit) (*hostLease, error) {
+			mu.Lock()
+			blocking = append(blocking, u.ID)
+			mu.Unlock()
+			return &hostLease{Token: strings.Repeat("a", 32), Release: func(context.Context) error { return nil }}, nil
+		},
+		Execute: func(context.Context, executionRequest) unitResult { return unitResult{Status: "passed"} }})
+	if r.Status != "passed" || !slices.Equal(blocking, []string{"refused"}) || slices.Contains(ledger.tried, "refused") {
+		t.Fatal("refused evaluation", r.Status, blocking, ledger.tried)
+	}
+}

@@ -116,7 +116,13 @@ type admissionPort interface {
 type admissionView interface {
 	// Evaluate reports whether u is admissible now and, if not, the
 	// resources it would exceed (none when only queue priority denies it).
-	Evaluate(unit) (bool, []string, error)
+	Evaluate(unit) (verdict, error)
+}
+
+// verdict is one unit's evaluation against a ledger view.
+type verdict struct {
+	admissible bool
+	deficits   []string
 }
 type executionRequest struct {
 	Unit        unit
@@ -621,13 +627,17 @@ func (e *graphEngine) choose(ready []unit, barriers map[string][]string) *unit {
 				return nil
 			}
 		}
-		admissible, deficits, err := view.Evaluate(u)
+		v, err := view.Evaluate(u)
 		if err != nil {
-			e.requiredError(err)
-			return nil
+			// The ledger refuses this request's shape or cannot evaluate it:
+			// the unit's own blocking admission reports that as the unit's
+			// failure, or admits it after retiring idle residents, and the
+			// rest of the graph continues.
+			delete(e.denied, u.ID)
+			return &u
 		}
-		if !admissible {
-			e.denied[u.ID] = deficits
+		if !v.admissible {
+			e.denied[u.ID] = v.deficits
 			continue
 		}
 		lease, granted, err := e.ports.Admission.TryAdmit(e.ctx, u)

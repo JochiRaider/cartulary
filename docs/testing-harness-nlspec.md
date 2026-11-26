@@ -421,8 +421,10 @@ only for a unit the view admits; a unit is admitted, and takes its tokens, only
 when every claim and resident it needs is granted together. A denied unit
 holds no token and no queue position: its wait names the resources it would
 exceed, or `host_admission` when only another owner's queue priority or
-exclusive fence denies it. A cache lookup precedes the ledger, so a reused
-result never reaches host admission. When none of the graph's units runs, its
+exclusive fence denies it. A unit whose request the ledger refuses to
+evaluate goes to its own waiting admission, which admits it or fails that
+unit alone; the graph never fails for one unit's request. A cache lookup
+precedes the ledger, so a reused result never reaches host admission. When none of the graph's units runs, its
 top-ranked fitting unit waits in host admission itself, with pressure
 retirement and unsatisfiability detection, because it then holds nothing
 another unit of the graph could use. The scheduler decides again when a unit
@@ -7411,7 +7413,9 @@ is an ordinary `test-slice` invocation with its own run root,
 `<run-id>-r<NN>`, and the result cache off, so every repetition executes its
 rows; its failures carry their ordinary evidence and the host pressure window
 of TH-HARNESS-REQ-870. Repetitions continue after a failure, so a run measures a
-failure rate rather than a first failure.
+failure rate rather than a first failure. The graph command's `--fresh`
+argument gives the rows a `--rows` selection names the same freshness, for
+harness tests that probe what executing a row does.
 
 The load runs in its own process group, dies with the command and is stopped
 after the last repetition; its files live under the command's target directory

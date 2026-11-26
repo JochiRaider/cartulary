@@ -109,7 +109,7 @@ func (p *nativeAdmissionPort) View(ctx context.Context) (admissionView, error) {
 			p.changes = changes
 		}
 	}
-	return &nativeAdmissionView{view: view, production: p.production, memo: map[string]nativeEvaluation{}}, nil
+	return &nativeAdmissionView{view: view, production: p.production, memo: map[string]verdict{}}, nil
 }
 
 func (p *nativeAdmissionPort) TryAdmit(ctx context.Context, u unit) (*hostLease, bool, error) {
@@ -130,26 +130,21 @@ func (p *nativeAdmissionPort) Physical(resource string) bool {
 	return p.physical[resource]
 }
 
-type nativeEvaluation struct {
-	admissible bool
-	deficits   []string
-}
-
 // nativeAdmissionView evaluates work against one ledger reading. Work with
 // the same claims and resident identities has the same outcome, so each
 // shape is evaluated once per view.
 type nativeAdmissionView struct {
 	view       *harnessadmission.View
 	production *harnessfixtures.Production
-	memo       map[string]nativeEvaluation
+	memo       map[string]verdict
 }
 
-func (v *nativeAdmissionView) Evaluate(u unit) (bool, []string, error) {
+func (v *nativeAdmissionView) Evaluate(u unit) (verdict, error) {
 	requirement := workRequirement(u)
 	shape, err := json.Marshal(map[string]any{"active": requirement.Active, "residents": requirement.Residents, "renderer": requirement.Renderer,
 		"renderer_claims": requirement.RendererClaims, "exclusive": requirement.Exclusive})
 	if err != nil {
-		return false, nil, err
+		return verdict{}, err
 	}
 	// Unit-scoped residents are new for every unit; their keys differ but
 	// their claims decide the outcome.
@@ -171,16 +166,16 @@ func (v *nativeAdmissionView) Evaluate(u unit) (bool, []string, error) {
 		normalized["residents"] = residents
 		bytes, err := json.Marshal(normalized)
 		if err != nil {
-			return false, nil, err
+			return verdict{}, err
 		}
 		key = string(bytes)
 	}
 	if outcome, ok := v.memo[key]; ok {
-		return outcome.admissible, outcome.deficits, nil
+		return outcome, nil
 	}
 	evaluation, err := v.production.Evaluate(v.view, requirement)
 	if err != nil {
-		return false, nil, err
+		return verdict{}, err
 	}
 	deficits := []string{}
 	for resource, amount := range evaluation.Deficits {
@@ -189,6 +184,7 @@ func (v *nativeAdmissionView) Evaluate(u unit) (bool, []string, error) {
 		}
 	}
 	slices.Sort(deficits)
-	v.memo[key] = nativeEvaluation{evaluation.Admissible, deficits}
-	return evaluation.Admissible, deficits, nil
+	outcome := verdict{admissible: evaluation.Admissible, deficits: deficits}
+	v.memo[key] = outcome
+	return outcome, nil
 }

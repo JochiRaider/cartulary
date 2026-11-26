@@ -35,8 +35,31 @@ type RunResult struct {
 // their interpretation; no external executable plan or shell fragment exists.
 // A top-level graph reports the dead runs it recovers before admitting work on
 // stderr; nested graphs run inside an outer graph that already did so.
+//
+// The graph argument --fresh makes the rows a --rows selection names execute
+// whatever the cache holds, as a stress repetition's rows do; harness tests
+// that probe what running a row does (services it starts, evidence it
+// writes) select their probe rows this way.
 func Run(ctx context.Context, root, binary string, args, environment []string, stderr io.Writer) (*RunResult, int, error) {
-	return RunWithOptions(ctx, root, binary, args, environment, stderr, RunOptions{})
+	options := RunOptions{}
+	selection := make([]string, 0, len(args))
+	fresh := false
+	for i := 0; i < len(args); i++ {
+		switch {
+		case args[i] == "--fresh":
+			fresh = true
+			continue
+		case args[i] == "--rows" && i+1 < len(args):
+			options.FreshRows = strings.Split(args[i+1], ",")
+		}
+		selection = append(selection, args[i])
+	}
+	if !fresh {
+		options.FreshRows = nil
+	} else if len(options.FreshRows) == 0 {
+		return nil, 2, entryFailureAt("runtime_plan", failed("config", "usage_error"))
+	}
+	return RunWithOptions(ctx, root, binary, selection, environment, stderr, options)
 }
 
 // RunOptions are in-process launch choices that no public input carries.

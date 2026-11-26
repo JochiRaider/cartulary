@@ -72,7 +72,8 @@ func TestNativeSelectedServiceLifecycle(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 			defer cancel()
 			run := filepath.Join(results, probeID)
-			runInstalledGraph(t, ctx, root, binary, []string{"--selection", "rows", "--target", "harness-contract", "--rows", strings.Join(selection.rows, ",")}, input, run)
+			// The probe rows must execute: a reused result starts no service.
+			runInstalledGraph(t, ctx, root, binary, []string{"--selection", "rows", "--target", "harness-contract", "--rows", strings.Join(selection.rows, ","), "--fresh"}, input, run)
 			budget, err := strconv.Atoi(env["CARTULARY_UNIT_CPU_TOKENS"])
 			if err != nil || budget < 1 || env["CARTULARY_HOST_ADMISSION_LEASE"] == "" {
 				t.Fatal("selected lifecycle test requires its actual parent CPU reservation")
