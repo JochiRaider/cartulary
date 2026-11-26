@@ -3067,8 +3067,6 @@
     {
       "name": "harness-contract",
       "backing_scripts": [
-        "tools/harness/backend/build-go-artifact.sh",
-        "tools/harness/backend/tests/test-build-go-artifact.sh",
         "tools/harness/browser/tests/test-ui-review-contract.mjs",
         "tools/harness/command-surface/tests/test-contracts.mjs",
         "tools/harness/command-surface/tests/test-public-inputs.mjs",
@@ -3084,10 +3082,7 @@
         "tools/harness/observability/tests/test-observability.mjs",
         "tools/harness/output/tests/test-shell-headlines.mjs",
         "tools/harness/performance-fixture/tests/test-evidence-generation.mjs",
-        "tools/harness/readiness/cache-artifact.sh",
         "tools/harness/readiness/tests/test-acquisition-command.mjs",
-        "tools/harness/readiness/tests/test-bootstrap-cache.mjs",
-        "tools/harness/readiness/tests/test-cache-artifact.sh",
         "tools/harness/readiness/tests/test-dev-services-lifecycle.sh",
         "tools/harness/readiness/tests/test-frontend-artifact.mjs",
         "tools/harness/runtime/command-failure-cli.mjs",
@@ -8906,8 +8901,6 @@
     {
       "name": "cryptographic-policy-assessment",
       "backing_scripts": [
-        "tools/harness/backend/build-go-artifact.sh",
-        "tools/harness/backend/tests/test-build-go-artifact.sh",
         "tools/harness/readiness/cryptographic-build-cli.mjs",
         "tools/harness/readiness/cryptographic-module.mjs",
         "tools/harness/readiness/cryptographic-policy-assessment.mjs",
@@ -11302,11 +11295,9 @@
         "harness-smoke-work-graph-service-backed-target",
         "harness-smoke-toolchain-pins",
         "harness-smoke-go-toolchain-readiness",
-        "harness-smoke-cache-artifact",
         "harness-smoke-cleanup-contract",
         "harness-smoke-capacity-failure-contract",
         "harness-smoke-lint-shell",
-        "harness-smoke-build-input-discovery",
         "harness-smoke-check-migrations",
         "harness-smoke-generate-drift",
         "harness-smoke-generated-artifact-policy",
@@ -11357,11 +11348,9 @@
         "harness-smoke-work-graph-service-backed-target",
         "harness-smoke-toolchain-pins",
         "harness-smoke-go-toolchain-readiness",
-        "harness-smoke-cache-artifact",
         "harness-smoke-cleanup-contract",
         "harness-smoke-capacity-failure-contract",
         "harness-smoke-lint-shell",
-        "harness-smoke-build-input-discovery",
         "harness-smoke-check-migrations",
         "harness-smoke-generate-drift",
         "harness-smoke-generated-artifact-policy",
@@ -11412,15 +11401,6 @@
       ]
     },
     {
-      "name": "harness-smoke-cache-artifact",
-      "backing_scripts": [
-        "tools/harness/readiness/tests/test-cache-artifact.sh",
-        "tools/harness/readiness/cache-artifact.sh",
-        "tools/harness/backend/tests/test-build-go-artifact.sh",
-        "tools/harness/backend/build-go-artifact.sh"
-      ]
-    },
-    {
       "name": "harness-smoke-cleanup-contract",
       "backing_scripts": [
         "tools/harness/contract/tests/test-cleanup.mjs"
@@ -11436,14 +11416,7 @@
       "name": "harness-smoke-lint-shell",
       "backing_scripts": [
         "tools/harness/static-analysis/tests/test-lint-shell.sh",
-        "tools/harness/static-analysis/shellcheck.sh",
-        "tools/harness/static-analysis/shellcheck-runner.sh"
-      ]
-    },
-    {
-      "name": "harness-smoke-build-input-discovery",
-      "backing_scripts": [
-        "tools/harness/readiness/tests/test-build-input-discovery.sh"
+        "tools/harness/static-analysis/shellcheck.sh"
       ]
     },
     {

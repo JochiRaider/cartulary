@@ -48,7 +48,8 @@ export function splitProducedPrerequisites(prerequisites, bindings) {
  * when its binding is unset: the file under its layout directory. A Go
  * tool's file is its binary and pinned version, ShellCheck's carries its
  * pinned version, embedded assets are named by their archive, the Node
- * runtime by its executable and the other installations by their receipts.
+ * runtime by its executable, the other installations and the report renderer
+ * by their receipts, and the release inventory by its SBOM.
  * The store's Workspace.DefaultName applies the same rule.
  */
 export function producerDefaultPaths(root, registry = readProducerRegistry(root)) {
@@ -74,8 +75,10 @@ export function producerDefaultPaths(root, registry = readProducerRegistry(root)
       name = "bin/node";
     } else if (producer.kind === "frontend_install") {
       name = "proof/installed.v1.json";
-    } else if (producer.kind === "playwright") {
+    } else if (["playwright", "test_service_images", "report_renderer"].includes(producer.kind)) {
       name = "installation.json";
+    } else if (producer.kind === "release_inventory") {
+      name = "sbom.cyclonedx.json";
     } else {
       throw new Error(`${producer.id}: unknown producer kind ${producer.kind}`);
     }

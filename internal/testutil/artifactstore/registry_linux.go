@@ -166,14 +166,17 @@ func (d Declaration) validate() error {
 		return errors.New("a step target needs a label")
 	}
 	allowed, known := map[string][]string{
-		"go_binary":        {"package", "tags", "name"},
-		"go_tool":          {"tool", "module_dir"},
-		"shellcheck":       {"archives"},
-		"web_bundle":       {"mode", "inputs"},
-		"embedded_assets":  {"source", "client_support"},
-		"node_runtime":     {"archives"},
-		"frontend_install": {},
-		"playwright":       {},
+		"go_binary":           {"package", "tags", "name"},
+		"go_tool":             {"tool", "module_dir"},
+		"shellcheck":          {"archives"},
+		"web_bundle":          {"mode", "inputs"},
+		"embedded_assets":     {"source", "client_support"},
+		"node_runtime":        {"archives"},
+		"frontend_install":    {},
+		"playwright":          {},
+		"test_service_images": {},
+		"report_renderer":     {},
+		"release_inventory":   {},
 	}[d.Kind]
 	if !known {
 		return fmt.Errorf("unknown kind %q", d.Kind)
@@ -213,10 +216,11 @@ func (r Registry) Lookup(id string) (Declaration, bool) {
 // Workspace is what producers read from a checkout and an environment: the
 // layout's directories and the toolchain pins.
 type Workspace struct {
-	Root   string
-	Env    []string
-	layout map[string]string
-	pins   struct {
+	Root     string
+	Env      []string
+	registry Registry
+	layout   map[string]string
+	pins     struct {
 		GoToolchain       string            `json:"go_toolchain"`
 		Tools             map[string]string `json:"tools"`
 		ShellCheckVersion string            `json:"shellcheck_version"`
@@ -225,9 +229,14 @@ type Workspace struct {
 	}
 }
 
-// OpenWorkspace reads the layout and pins of the checkout at root.
+// OpenWorkspace reads the producer registry, layout and pins of the checkout
+// at root.
 func OpenWorkspace(root string, env []string) (*Workspace, error) {
-	w := &Workspace{Root: root, Env: slices.Clone(env), layout: map[string]string{}}
+	registry, err := ReadRegistry(root)
+	if err != nil {
+		return nil, err
+	}
+	w := &Workspace{Root: root, Env: slices.Clone(env), registry: registry, layout: map[string]string{}}
 	var layout struct {
 		Directories []struct {
 			ID   string `json:"id"`
@@ -280,8 +289,10 @@ func (w *Workspace) DefaultName(d Declaration) (string, error) {
 		return "bin/node", nil
 	case "frontend_install":
 		return "proof/installed.v1.json", nil
-	case "playwright":
+	case "playwright", "test_service_images", "report_renderer":
 		return "installation.json", nil
+	case "release_inventory":
+		return "sbom.cyclonedx.json", nil
 	case "web_bundle":
 		return "", fmt.Errorf("producer %s publishes no view", d.ID)
 	default:
@@ -472,13 +483,13 @@ func (w *Workspace) Plan(d Declaration) (Producer, map[string]string, error) {
 
 // executable reports whether d's default path is a program.
 func (d Declaration) executable() bool {
-	return !slices.Contains([]string{"embedded_assets", "frontend_install", "playwright"}, d.Kind)
+	return !slices.Contains([]string{"embedded_assets", "frontend_install", "playwright", "test_service_images", "report_renderer", "release_inventory"}, d.Kind)
 }
 
 // IsInstallation reports whether d installs in place instead of building a
 // store root.
 func (d Declaration) IsInstallation() bool {
-	return slices.Contains([]string{"node_runtime", "frontend_install", "playwright"}, d.Kind)
+	return slices.Contains([]string{"node_runtime", "frontend_install", "playwright", "test_service_images"}, d.Kind)
 }
 
 // nodeTools returns the Node executable, the pnpm launcher and their runtime
@@ -536,13 +547,83 @@ func (w *Workspace) PlanInstallation(d Declaration) (Installation, string, error
 	case "playwright":
 		env, wrap := w.step(d, w.Env)
 		return Playwright{Root: w.Root, Receipt: view, Node: node, PNPM: pnpm, NodeRuntime: runtime, Env: env, Wrap: wrap}, lock, nil
+	case "test_service_images":
+		binary, err := w.Output("test-services")
+		if err != nil {
+			return nil, "", err
+		}
+		env, wrap := w.step(d, w.Env)
+		return TestServiceImages{Root: w.Root, Receipt: view, Binary: binary, Env: env, Wrap: wrap}, lock, nil
 	}
 	return nil, "", fmt.Errorf("producer %s is not an installation", d.ID)
 }
 
+// Output returns the path producer id's output is read at: the file its
+// binding provides, else its default path.
+func (w *Workspace) Output(id string) (string, error) {
+	d, ok := w.registry.Lookup(id)
+	if !ok {
+		return "", fmt.Errorf("no registered producer %q", id)
+	}
+	if provided, ok, err := w.Provided(d); err != nil || ok {
+		return provided, err
+	}
+	return w.View(d)
+}
+
+// PlanInventory returns release inventory d, which reads the scanners its
+// requirements publish.
+func (w *Workspace) PlanInventory(d Declaration) (ReleaseInventory, error) {
+	sbom, err := w.View(d)
+	if err != nil {
+		return ReleaseInventory{}, err
+	}
+	node, pnpm, runtime, err := w.nodeTools()
+	if err != nil {
+		return ReleaseInventory{}, err
+	}
+	goExecutable, env, err := w.goEnvironment()
+	if err != nil {
+		return ReleaseInventory{}, err
+	}
+	cyclonedx, err := w.Output("cyclonedx-gomod")
+	if err != nil {
+		return ReleaseInventory{}, err
+	}
+	syft, err := w.Output("syft")
+	if err != nil {
+		return ReleaseInventory{}, err
+	}
+	env, wrap := w.step(d, env)
+	return ReleaseInventory{Root: w.Root, SBOM: sbom, Node: node, PNPM: pnpm, NodeRuntime: runtime, Go: goExecutable,
+		CycloneDX: cyclonedx, Syft: syft, Env: env, Wrap: wrap}, nil
+}
+
+// PlanRenderer returns report renderer d, whose confinement launcher the
+// store builds.
+func (w *Workspace) PlanRenderer(d Declaration, store Store, controls Controls) (ReportRenderer, error) {
+	directory, err := w.Directory(d.Directory)
+	if err != nil {
+		return ReportRenderer{}, err
+	}
+	node, pnpm, runtime, err := w.nodeTools()
+	if err != nil {
+		return ReportRenderer{}, err
+	}
+	goExecutable, env, err := w.goEnvironment()
+	if err != nil {
+		return ReportRenderer{}, err
+	}
+	sandboxEnv, sandboxWrap := w.step(Declaration{Label: "build renderer confinement launcher", Target: d.Target}, env)
+	env, wrap := w.step(d, env)
+	return ReportRenderer{Root: w.Root, Directory: directory, Store: store, Node: node, PNPM: pnpm, NodeRuntime: runtime, Env: env, Wrap: wrap,
+		Controls: controls, Sandbox: GoBinary{Module: w.Root, Package: "./cmd/render-sandbox", Name: "cartulary-render-sandbox",
+			Go: goExecutable, Node: node, Env: sandboxEnv, Wrap: sandboxWrap}}, nil
+}
+
 // IsGo reports whether d builds with the Go toolchain.
 func (d Declaration) IsGo() bool {
-	return d.Kind == "go_binary" || d.Kind == "go_tool" || d.Kind == "embedded_assets"
+	return slices.Contains([]string{"go_binary", "go_tool", "embedded_assets", "report_renderer", "release_inventory"}, d.Kind)
 }
 
 // frontendArtifact resolves the run's sealed frontend artifact of target

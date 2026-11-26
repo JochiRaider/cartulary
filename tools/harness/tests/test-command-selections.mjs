@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { resolveCommandInputs } from "../contract/index.mjs";
-import path from "node:path";
 import { buildOperationSequence, operationBindingNames, readOperationOwner } from "../execution/operations.mjs";
 import { loadExecutionTopology } from "../generated-artifacts/execution-topology.mjs";
 
@@ -29,13 +28,12 @@ test("installation operations produce their installations and artifacts before a
   Object.assign(environment, { MAKE: "make", CURDIR: root });
   const kind = (invocation) => invocation.command === "make" ? "make"
     : invocation.args.slice(0, 3).join(" ") === "run ./tools/harnessbuild produce" ? "produce" : "command";
-  const expected = { node: ["produce"], go: ["produce", "command"], frontend: ["produce"], browser: ["produce"], test_images: ["produce", "command"], full: ["produce", "command"] };
+  // No installation re-enters Make; only explicit Go dependency maintenance
+  // runs a command after its producers.
+  const expected = { node: ["produce"], go: ["produce", "command"], frontend: ["produce"], browser: ["produce"], test_images: ["produce"], full: ["produce", "command"] };
   for (const [part, kinds] of Object.entries(expected)) {
     const invocations = buildOperationSequence(owner, `harness.bootstrap_${part}`, environment);
     assert.deepEqual(invocations.map(kind), kinds, part);
-    for (const invocation of invocations.filter((entry) => kind(entry) === "make")) {
-      assert.ok(invocation.args.slice(3).every((file) => path.isAbsolute(file)));
-    }
   }
   const go = buildOperationSequence(owner, "harness.bootstrap_go", environment);
   assert.deepEqual(go[0].args.slice(3), ["node-runtime"]);
@@ -46,8 +44,11 @@ test("installation operations produce their installations and artifacts before a
   assert.deepEqual(full[0].args.slice(3).sort(), ["cyclonedx-gomod", "frontend-install", "goose", "gosec", "govulncheck", "harness-runtime", "playwright", "shellcheck", "sqlc", "staticcheck", "syft"]);
   assert.equal(full[0].env.GOCACHE, environment.GO_CACHE_DIR);
   assert.deepEqual(full[0].directories, [environment.GO_CACHE_DIR, environment.GO_MOD_CACHE_DIR, environment.GO_TMP_DIR]);
-  // Any other file stays a Make target and must be absolute.
-  assert.throws(() => buildOperationSequence(owner, "harness.release_inventory_artifacts", { ...environment, LICENSE_REPORT_ARTIFACT: "relative" }), /absolute file targets/u);
+  // A prerequisite that names no registered producer is refused: nothing is
+  // made by Make.
+  const unproduced = structuredClone(owner);
+  unproduced.operations["harness.release_inventory_artifacts"].execution.prerequisites = ["$(LICENSE_REPORT_ARTIFACT)"];
+  assert.throws(() => buildOperationSequence(unproduced, "harness.release_inventory_artifacts", environment), /name no registered producer/u);
   assert.throws(() => buildOperationSequence(owner, "harness.bootstrap_full", { ...environment, GO_TOOLCHAIN: undefined }), /binding|template/u);
   assert.throws(() => buildOperationSequence(owner, "harness.bootstrap_test_images", { ...environment, GO_CACHE_DIR: "relative" }), /GO_CACHE_DIR/u);
 });

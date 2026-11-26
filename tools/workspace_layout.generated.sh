@@ -2,7 +2,7 @@
 # shellcheck shell=bash
 # Shared declarations are consumed by sourced callers.
 # shellcheck disable=SC2034
-CARTULARY_LAYOUT_DIGESTS='0c8284e6dccc4f0d2027e7b029e01cdf585467a42c392a1ad0f1c94cc232e744  tools/workspace_layout.json
+CARTULARY_LAYOUT_DIGESTS='e6d8a883b218c6f5950b6a54ca5c4daf9c647d67ea3b84229f35d83dd7bc22ac  tools/workspace_layout.json
 1d16e52b2bf2f26e091dd6b65771e2180257854318c4413617b9e6652c65c603  tools/schemas/cartulary.workspace_layout.v1.schema.json
 e1066bcfecafdae0255a5d737e377b5835c180c1acdea0730b76b1d320357961  tools/harness/workspace/layout.mjs'
 CARTULARY_LAYOUT_SCRATCH='tmp'
@@ -32,11 +32,8 @@ CARTULARY_LAYOUT_FRONTEND_INSTALL='.cache/cartulary/frontend-install'
 CARTULARY_LAYOUT_PLAYWRIGHT='.cache/cartulary/playwright'
 CARTULARY_LAYOUT_TEST_SERVICE_IMAGES='.cache/cartulary/test-service-images'
 CARTULARY_LAYOUT_TYPESCRIPT='.cache/cartulary/typescript'
-CARTULARY_LAYOUT_READINESS='.cache/cartulary/readiness'
-CARTULARY_LAYOUT_BUILD_ARTIFACTS='.cache/cartulary/build-artifacts'
 CARTULARY_LAYOUT_GRAPH_CACHE='.cache/cartulary/graph-v2'
 CARTULARY_LAYOUT_ARTIFACT_STORE='.cache/cartulary/store'
-CARTULARY_LAYOUT_STATIC_ANALYSIS_CACHE='.cache/cartulary/static-analysis'
 CARTULARY_LAYOUT_ROOT_DEPENDENCIES='node_modules'
 CARTULARY_LAYOUT_ROOT_VITE_DEPENDENCIES='node_modules/.vite'
 CARTULARY_LAYOUT_ROOT_VITE_TEMP_DEPENDENCIES='node_modules/.vite-temp'
@@ -79,11 +76,8 @@ declare -a CARTULARY_CLEANUP_ENTRIES=(
   'playwright|distclean|.cache/cartulary/playwright'
   'test_service_images|distclean|.cache/cartulary/test-service-images'
   'typescript|distclean|.cache/cartulary/typescript'
-  'readiness|distclean|.cache/cartulary/readiness'
-  'build_artifacts|distclean|.cache/cartulary/build-artifacts'
   'graph_cache|distclean|.cache/cartulary/graph-v2'
   'artifact_store|distclean|.cache/cartulary/store'
-  'static_analysis_cache|distclean|.cache/cartulary/static-analysis'
   'root_dependencies|distclean|node_modules'
   'root_vite_dependencies|clean|node_modules/.vite'
   'root_vite_temp_dependencies|clean|node_modules/.vite-temp'

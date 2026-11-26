@@ -212,6 +212,40 @@
       "directory": "embedded_assets",
       "source": "build-web",
       "client_support": "contracts/extensions/build/client-support.json"
+    },
+    {
+      "id": "test-service-images",
+      "kind": "test_service_images",
+      "binding": "TEST_SERVICE_IMAGES_RECEIPT",
+      "directory": "test_service_images",
+      "label": "warm test service images",
+      "requires": [
+        "test-services"
+      ]
+    },
+    {
+      "id": "report-renderer",
+      "kind": "report_renderer",
+      "binding": "REPORT_RENDERER_RECEIPT",
+      "directory": "report_renderer",
+      "label": "build isolated reporting runtime",
+      "target": "build-report-renderer",
+      "requires": [
+        "playwright"
+      ]
+    },
+    {
+      "id": "release-inventory",
+      "kind": "release_inventory",
+      "binding": "SBOM_ARTIFACT",
+      "directory": "release_artifacts",
+      "label": "generate SBOM/license evidence",
+      "target": "release-evidence",
+      "requires": [
+        "frontend-install",
+        "cyclonedx-gomod",
+        "syft"
+      ]
     }
   ]
 }

@@ -1,14 +1,15 @@
 #!/usr/bin/env node
 
 // TH-HARNESS-AC-174: a recorded renderer installation is reused only while
-// its manifest, its root and the host libraries it copied are unchanged.
+// its manifest, its root's seal and the host libraries it copied are
+// unchanged; collection keeps what the receipt or a recent record names.
 import assert from "node:assert/strict";
-import { chmod, mkdir, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, readdir, rename, rm, utimes, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { fileDigest, inventory, publishReceipt, recordKey, reusableInstallation, sha } from "../installation-store.mjs";
+import { collect, fileDigest, inventory, publishReceipt, recordKey, reusableInstallation, seal, sha } from "../installation-store.mjs";
 
 const key = "a".repeat(64);
 
@@ -32,7 +33,7 @@ async function store(t) {
   await rename(staged, path.join(output, `${identity}.root`));
   const work = path.join(scratch, "work");
   await mkdir(work);
-  await recordKey(output, key, identity, work);
+  await recordKey(output, key, identity, await seal(path.join(output, `${identity}.root`)), work);
   const options = { libraryDirectories: [libraries], loader: path.join(libraries, "absent-loader") };
   return { scratch, output, identity, libraries, work, options };
 }
@@ -76,6 +77,43 @@ test("a changed manifest, root or copied host library is not reused", async (t) 
     await writeFile(path.join(output, "keys", `${key}.json`), JSON.stringify({ input_key: key, manifest_sha256: "../escape" }));
     assert.equal(await reusableInstallation(output, key, options), null);
   });
+  await t.test("a record without a seal", async (t) => {
+    const { output, identity, options } = await store(t);
+    await writeFile(path.join(output, "keys", `${key}.json`), JSON.stringify({ input_key: key, manifest_sha256: identity }));
+    assert.equal(await reusableInstallation(output, key, options), null);
+  });
+  await t.test("a mode change", async (t) => {
+    const { output, identity, options } = await store(t);
+    await chmod(path.join(output, `${identity}.root`, "bin/tool"), 0o600);
+    assert.equal(await reusableInstallation(output, key, options), null);
+  });
+});
+
+test("collection keeps named and recent installations", async (t) => {
+  const { output, identity, work } = await store(t);
+  const old = new Date(Date.now() - 2 * 60 * 60 * 1000);
+  const orphan = sha("orphan");
+  await writeFile(path.join(output, `${orphan}.json`), "{}");
+  await mkdir(path.join(output, `${orphan}.root`));
+  await writeFile(path.join(output, `${orphan}.root`, "file"), "orphan");
+  await utimes(path.join(output, `${identity}.json`), old, old);
+  const fresh = sha("fresh");
+  await writeFile(path.join(output, `${fresh}.json`), "{}");
+  await mkdir(path.join(output, `${fresh}.root`));
+  // Recent unnamed installations stay for an hour; a recorded one stays.
+  assert.deepEqual(await collect(output), []);
+  await utimes(path.join(output, `${orphan}.json`), old, old);
+  assert.deepEqual(await collect(output), [`${orphan}.root`]);
+  assert.deepEqual((await readdir(output)).filter((name) => name.startsWith(orphan)), []);
+  // A record unused for 30 days goes, then its installation unless the
+  // receipt names it.
+  const stale = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000);
+  await utimes(path.join(output, "keys", `${key}.json`), stale, stale);
+  await publishReceipt(output, identity, work);
+  assert.deepEqual(await collect(output), [`keys/${key}.json`]);
+  assert.ok((await readdir(output)).includes(`${identity}.root`), "the receipt's installation was collected");
+  await rm(path.join(output, "installation.json"));
+  assert.deepEqual(await collect(output), [`${identity}.root`]);
 });
 
 test("the inventory binds every file by digest in byte order", async (t) => {

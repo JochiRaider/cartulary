@@ -14,7 +14,6 @@ import "../generated-artifacts/tests/test-inspector-layout.mjs";
 import "../static-analysis/tests/test-harness-imports.mjs";
 import "../readiness/tests/test-acquisition-command.mjs";
 import "../contract/tests/test-bootstrap-validator.mjs";
-import "../readiness/tests/test-bootstrap-cache.mjs";
 import "../runtime/tests/test-process-cleanup.mjs";
 import { registerBoundariesTests as registerBackendCLITests } from "../static-analysis/tests/test-backend-boundary-cli.mjs";
 import { registerBoundariesTests as registerBackendAdmissionTests } from "../static-analysis/tests/test-backend-boundary-admission.mjs";

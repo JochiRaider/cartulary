@@ -90,20 +90,12 @@ export function operationEnvironment(operation, environment) {
   return env;
 }
 
-// An artifact binding makes its prerequisites exist. A registered producer's
-// binding runs that producer through the artifact store; any other file is
-// still a Make target. Make runs first, because a producer may read what it
-// makes, such as the Node runtime a receipt is written with.
+// An artifact binding makes its prerequisites exist: each is a registered
+// producer's binding, run through the artifact store. Nothing re-enters Make.
 function artifactInvocations(operationID, execution, env, environment) {
   const { producers, files } = splitProducedPrerequisites(execution.prerequisites, producerBindings(readProducerRegistry(environment.CURDIR ?? process.cwd())));
+  if (files.length > 0) throw new Error(`${operationID}: prerequisites ${files.join(", ")} name no registered producer`);
   const invocations = [];
-  if (files.length > 0) {
-    const targets = files.map((file) => expand(file, environment));
-    if (targets.some((file) => !path.isAbsolute(file) || file.includes("\0") || file.includes("\n"))) {
-      throw new Error(`${operationID}: artifact operations require absolute file targets`);
-    }
-    invocations.push({ command: environment.MAKE || "make", args: ["--silent", "--no-print-directory", "--", ...targets], env });
-  }
   if (producers.length > 0) {
     const caches = ["GO_CACHE_DIR", "GO_MOD_CACHE_DIR", "GO_TMP_DIR"].map((name) => {
       if (typeof env[name] !== "string" || !path.isAbsolute(env[name])) throw new Error(`${operationID}: missing operation binding ${name}`);
@@ -149,10 +141,8 @@ export function buildOperationInvocation(owner, operationID, environment) {
     return [expand(literalToken(token), environment)];
   });
   if (!argv[0]) throw new Error(`${operationID}: missing executable`);
-  if (tokens[0] === "$(MAKE)" || argv[0] === "make") {
-    if (argv.slice(1).some((arg) => !["--silent", "--no-print-directory", "--"].includes(arg) && !path.isAbsolute(arg))) {
-      throw new Error(`${operationID}: Make may produce files only; operation dependencies belong to the graph`);
-    }
+  if (tokens[0] === "$(MAKE)" || path.basename(argv[0]) === "make") {
+    throw new Error(`${operationID}: operations never run Make; producers make artifacts and the graph orders operations`);
   }
   if (execution.mode === "run_step") {
     if (!environment.RUN_STEP_SCRIPT) throw new Error("missing operation binding RUN_STEP_SCRIPT");

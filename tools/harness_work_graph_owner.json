@@ -335,11 +335,9 @@
       "harness.contract_runtime_boundary",
       "harness.assurance_toolchain_pins",
       "harness.assurance_go_toolchain_readiness",
-      "harness.assurance_cache_artifact",
       "harness.assurance_cleanup_contract",
       "harness.assurance_capacity_failure_contract",
       "harness.assurance_lint_shell",
-      "harness.assurance_build_input_discovery",
       "harness.assurance_check_migrations",
       "harness.assurance_generate_drift",
       "harness.assurance_generated_artifact_policy",
@@ -1316,16 +1314,6 @@
       "service_dependencies": [],
       "postgres_isolation": "none"
     },
-    "harness.assurance_cache_artifact": {
-      "needs": [
-        "harness.frontend_install"
-      ],
-      "cache_policy": "none",
-      "estimated_work_ms": 10000,
-      "resource_profile_id": "harness_contract",
-      "service_dependencies": [],
-      "postgres_isolation": "none"
-    },
     "harness.assurance_cleanup_contract": {
       "needs": [
         "harness.frontend_install"
@@ -1347,16 +1335,6 @@
       "postgres_isolation": "none"
     },
     "harness.assurance_lint_shell": {
-      "needs": [
-        "harness.frontend_install"
-      ],
-      "cache_policy": "none",
-      "estimated_work_ms": 10000,
-      "resource_profile_id": "harness_contract",
-      "service_dependencies": [],
-      "postgres_isolation": "none"
-    },
-    "harness.assurance_build_input_discovery": {
       "needs": [
         "harness.frontend_install"
       ],
@@ -2637,7 +2615,6 @@
       "report_key": "generate-artifacts",
       "execution": {
         "prerequisites": [
-          "$(FOUNDATION_SCHEMA_VALIDATORS)",
           "$(NODE_BIN)",
           "$(SQLC_BIN)"
         ],
@@ -3270,7 +3247,6 @@
       "report_key": "license-report",
       "execution": {
         "prerequisites": [
-          "$(LICENSE_REPORT_ARTIFACT)",
           "$(SBOM_ARTIFACT)"
         ],
         "graph_child_skips_prerequisites": true,
@@ -3698,7 +3674,6 @@
       "report_key": "release-inventory-artifacts",
       "execution": {
         "prerequisites": [
-          "$(LICENSE_REPORT_ARTIFACT)",
           "$(SBOM_ARTIFACT)"
         ],
         "type": "artifact_binding",
@@ -3710,7 +3685,6 @@
       "report_key": "sbom",
       "execution": {
         "prerequisites": [
-          "$(LICENSE_REPORT_ARTIFACT)",
           "$(SBOM_ARTIFACT)"
         ],
         "graph_child_skips_prerequisites": true,
@@ -3786,12 +3760,9 @@
       "report_key": "seaweedfs-release-gate",
       "execution": {
         "prerequisites": [
-          "$(LICENSE_REPORT_ARTIFACT)",
           "$(NODE_BIN)",
           "$(SBOM_ARTIFACT)",
-          "$(TEST_SERVICES_BIN)",
-          "tools/release-evidence/seaweedfs-release-evidence.mjs",
-          "tools/seaweedfs_occurrence_classifications.json"
+          "$(TEST_SERVICES_BIN)"
         ],
         "type": "step_command",
         "mode": "run_step",
@@ -4030,23 +4001,10 @@
     "harness.test_service_images": {
       "report_key": "test-service-images",
       "execution": {
-        "backing_scripts": [
-          "tools/harness/readiness/cache-artifact.sh",
-          "tools/harness/readiness/warm-test-service-images.sh",
-          "tools/testservices/main.go",
-          "internal/testutil/pgtest/pgtest.go",
-          "internal/testutil/s3test/s3test.go"
-        ],
         "prerequisites": [
-          "$(TEST_SERVICES_BIN)"
+          "$(TEST_SERVICE_IMAGES_RECEIPT)"
         ],
-        "type": "step_command",
-        "mode": "run_step",
-        "step_label": "warm test service images",
-        "command": [
-          "tools/harness/readiness/warm-test-service-images.sh",
-          "$(TEST_SERVICES_BIN)"
-        ],
+        "type": "artifact_binding",
         "test_target": "self"
       },
       "kind": "policy"
@@ -4216,39 +4174,6 @@
         ]
       }
     },
-    "harness.assurance_cache_artifact": {
-      "report_key": "harness-smoke-cache-artifact",
-      "kind": "policy",
-      "execution": {
-        "type": "step_command",
-        "mode": "command",
-        "prerequisites": [],
-        "command": [
-          "env",
-          "-u",
-          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
-          "-u",
-          "CARTULARY_HARNESS_GRAPH_CHILD",
-          "-u",
-          "CARTULARY_TEST_TARGET",
-          "-u",
-          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
-          "-u",
-          "VERBOSE",
-          "-u",
-          "CI_VERBOSE",
-          "CARTULARY_OUTPUT_MODE=summary",
-          "bash",
-          "tools/harness/readiness/tests/test-cache-artifact.sh"
-        ],
-        "backing_scripts": [
-          "tools/harness/readiness/tests/test-cache-artifact.sh",
-          "tools/harness/readiness/cache-artifact.sh",
-          "tools/harness/backend/tests/test-build-go-artifact.sh",
-          "tools/harness/backend/build-go-artifact.sh"
-        ]
-      }
-    },
     "harness.assurance_cleanup_contract": {
       "report_key": "harness-smoke-cleanup-contract",
       "kind": "policy",
@@ -4336,38 +4261,7 @@
         ],
         "backing_scripts": [
           "tools/harness/static-analysis/tests/test-lint-shell.sh",
-          "tools/harness/static-analysis/shellcheck.sh",
-          "tools/harness/static-analysis/shellcheck-runner.sh"
-        ]
-      }
-    },
-    "harness.assurance_build_input_discovery": {
-      "report_key": "harness-smoke-build-input-discovery",
-      "kind": "policy",
-      "execution": {
-        "type": "step_command",
-        "mode": "command",
-        "prerequisites": [],
-        "command": [
-          "env",
-          "-u",
-          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
-          "-u",
-          "CARTULARY_HARNESS_GRAPH_CHILD",
-          "-u",
-          "CARTULARY_TEST_TARGET",
-          "-u",
-          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
-          "-u",
-          "VERBOSE",
-          "-u",
-          "CI_VERBOSE",
-          "CARTULARY_OUTPUT_MODE=summary",
-          "bash",
-          "tools/harness/readiness/tests/test-build-input-discovery.sh"
-        ],
-        "backing_scripts": [
-          "tools/harness/readiness/tests/test-build-input-discovery.sh"
+          "tools/harness/static-analysis/shellcheck.sh"
         ]
       }
     },
@@ -5088,13 +4982,7 @@
       "execution": {
         "type": "installation",
         "prerequisites": [
-          "$(TEST_SERVICES_BIN)"
-        ],
-        "mode": "command",
-        "command": [
-          "bash",
-          "tools/harness/readiness/warm-test-service-images.sh",
-          "$(TEST_SERVICES_BIN)"
+          "$(TEST_SERVICE_IMAGES_RECEIPT)"
         ]
       }
     },

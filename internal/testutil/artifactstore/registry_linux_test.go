@@ -65,7 +65,17 @@ func TestRegisteredProducersPlan(t *testing.T) {
 				t.Fatalf("%s default %q, %v", d.ID, name, err)
 			}
 			continue
-		case "node_runtime", "frontend_install", "playwright":
+		case "report_renderer", "release_inventory":
+			// The renderer keeps its own installations and the inventory
+			// regenerates; neither builds a store root.
+			if _, _, err := w.Plan(d); err == nil {
+				t.Fatalf("%s planned a store root", d.ID)
+			}
+			if name, err := w.DefaultName(d); err != nil || name == "" {
+				t.Fatalf("%s default %q, %v", d.ID, name, err)
+			}
+			continue
+		case "node_runtime", "frontend_install", "playwright", "test_service_images":
 			// An installation installs in place under a lock beside its
 			// layout directory; it builds no root.
 			installation, lock, err := w.PlanInstallation(d)

@@ -198,15 +198,6 @@ RUN_STEP_SCRIPT := ${process.execPath} ${probe} wrapper
     assert.equal(observation.sources, "RESULTS_DIR=cli RUNTIME_LEASE_ID=cli RUNTIME_ROOT=cli");
   }
 });
-test("build input discovery excludes human material and rejects incomplete or unsafe file sets", () => {
-  const root = path.resolve(import.meta.dirname, "../../../..");
-  execFileSync("bash", ["tools/harness/readiness/tests/test-build-input-discovery.sh"], {
-    cwd: root,
-    env: { ...process.env, NODE_BIN: process.execPath },
-    timeout: 30000,
-    maxBuffer: 8192,
-  });
-});
 test("planning and execution reject oversized exact row inputs before selection", async () => {
   const { resolveCommandInputs, resolveDeclaredTargetInputs } = await import("../../contract/index.mjs");
   const root = path.resolve(import.meta.dirname, "../../../..");

@@ -786,7 +786,6 @@
         "CURDIR",
         "CYCLONEDX_GOMOD_BIN",
         "EMBEDDED_WEB_ASSET_ARCHIVE",
-        "FOUNDATION_SCHEMA_VALIDATORS",
         "FRONTEND_INSTALL_RECEIPT",
         "GO",
         "GOOSE_BIN",
@@ -826,7 +825,8 @@
         "SQLC_BIN",
         "STATICCHECK_BIN",
         "SYFT_BIN",
-        "TEST_SERVICES_BIN"
+        "TEST_SERVICES_BIN",
+        "TEST_SERVICE_IMAGES_RECEIPT"
       ]
     },
     "check": {
@@ -852,7 +852,6 @@
         "CURDIR",
         "CYCLONEDX_GOMOD_BIN",
         "EMBEDDED_WEB_ASSET_ARCHIVE",
-        "FOUNDATION_SCHEMA_VALIDATORS",
         "FRONTEND_INSTALL_RECEIPT",
         "GO",
         "GOOSE_BIN",
@@ -892,7 +891,8 @@
         "SQLC_BIN",
         "STATICCHECK_BIN",
         "SYFT_BIN",
-        "TEST_SERVICES_BIN"
+        "TEST_SERVICES_BIN",
+        "TEST_SERVICE_IMAGES_RECEIPT"
       ]
     },
     "ci": {
@@ -921,7 +921,6 @@
         "CURDIR",
         "CYCLONEDX_GOMOD_BIN",
         "EMBEDDED_WEB_ASSET_ARCHIVE",
-        "FOUNDATION_SCHEMA_VALIDATORS",
         "FRONTEND_INSTALL_RECEIPT",
         "GO",
         "GOOSE_BIN",
@@ -961,7 +960,8 @@
         "SQLC_BIN",
         "STATICCHECK_BIN",
         "SYFT_BIN",
-        "TEST_SERVICES_BIN"
+        "TEST_SERVICES_BIN",
+        "TEST_SERVICE_IMAGES_RECEIPT"
       ]
     },
     "release-check": {
@@ -987,7 +987,6 @@
         "CURDIR",
         "CYCLONEDX_GOMOD_BIN",
         "EMBEDDED_WEB_ASSET_ARCHIVE",
-        "FOUNDATION_SCHEMA_VALIDATORS",
         "FRONTEND_INSTALL_RECEIPT",
         "GO",
         "GOOSE_BIN",
@@ -1027,7 +1026,8 @@
         "SQLC_BIN",
         "STATICCHECK_BIN",
         "SYFT_BIN",
-        "TEST_SERVICES_BIN"
+        "TEST_SERVICES_BIN",
+        "TEST_SERVICE_IMAGES_RECEIPT"
       ]
     },
     "release-measure": {
@@ -1053,7 +1053,6 @@
         "CURDIR",
         "CYCLONEDX_GOMOD_BIN",
         "EMBEDDED_WEB_ASSET_ARCHIVE",
-        "FOUNDATION_SCHEMA_VALIDATORS",
         "FRONTEND_INSTALL_RECEIPT",
         "GO",
         "GOOSE_BIN",
@@ -1093,7 +1092,8 @@
         "SQLC_BIN",
         "STATICCHECK_BIN",
         "SYFT_BIN",
-        "TEST_SERVICES_BIN"
+        "TEST_SERVICES_BIN",
+        "TEST_SERVICE_IMAGES_RECEIPT"
       ]
     },
     "test-slice": {
@@ -1119,7 +1119,6 @@
         "CURDIR",
         "CYCLONEDX_GOMOD_BIN",
         "EMBEDDED_WEB_ASSET_ARCHIVE",
-        "FOUNDATION_SCHEMA_VALIDATORS",
         "FRONTEND_INSTALL_RECEIPT",
         "GO",
         "GOOSE_BIN",
@@ -1159,7 +1158,8 @@
         "SQLC_BIN",
         "STATICCHECK_BIN",
         "SYFT_BIN",
-        "TEST_SERVICES_BIN"
+        "TEST_SERVICES_BIN",
+        "TEST_SERVICE_IMAGES_RECEIPT"
       ]
     },
     "test-stress": {
@@ -1204,7 +1204,6 @@
         "CURDIR",
         "CYCLONEDX_GOMOD_BIN",
         "EMBEDDED_WEB_ASSET_ARCHIVE",
-        "FOUNDATION_SCHEMA_VALIDATORS",
         "FRONTEND_INSTALL_RECEIPT",
         "GO",
         "GOOSE_BIN",
@@ -1244,7 +1243,8 @@
         "SQLC_BIN",
         "STATICCHECK_BIN",
         "SYFT_BIN",
-        "TEST_SERVICES_BIN"
+        "TEST_SERVICES_BIN",
+        "TEST_SERVICE_IMAGES_RECEIPT"
       ]
     },
     "browser-e2e-visual-update": {
@@ -1270,7 +1270,6 @@
         "CURDIR",
         "CYCLONEDX_GOMOD_BIN",
         "EMBEDDED_WEB_ASSET_ARCHIVE",
-        "FOUNDATION_SCHEMA_VALIDATORS",
         "FRONTEND_INSTALL_RECEIPT",
         "GO",
         "GOOSE_BIN",
@@ -1310,7 +1309,8 @@
         "SQLC_BIN",
         "STATICCHECK_BIN",
         "SYFT_BIN",
-        "TEST_SERVICES_BIN"
+        "TEST_SERVICES_BIN",
+        "TEST_SERVICE_IMAGES_RECEIPT"
       ]
     },
     "harness-contract": {
@@ -1336,7 +1336,6 @@
         "CURDIR",
         "CYCLONEDX_GOMOD_BIN",
         "EMBEDDED_WEB_ASSET_ARCHIVE",
-        "FOUNDATION_SCHEMA_VALIDATORS",
         "FRONTEND_INSTALL_RECEIPT",
         "GO",
         "GOOSE_BIN",
@@ -1376,7 +1375,8 @@
         "SQLC_BIN",
         "STATICCHECK_BIN",
         "SYFT_BIN",
-        "TEST_SERVICES_BIN"
+        "TEST_SERVICES_BIN",
+        "TEST_SERVICE_IMAGES_RECEIPT"
       ]
     },
     "lint": {
@@ -1402,7 +1402,6 @@
         "CURDIR",
         "CYCLONEDX_GOMOD_BIN",
         "EMBEDDED_WEB_ASSET_ARCHIVE",
-        "FOUNDATION_SCHEMA_VALIDATORS",
         "FRONTEND_INSTALL_RECEIPT",
         "GO",
         "GOOSE_BIN",
@@ -1442,7 +1441,8 @@
         "SQLC_BIN",
         "STATICCHECK_BIN",
         "SYFT_BIN",
-        "TEST_SERVICES_BIN"
+        "TEST_SERVICES_BIN",
+        "TEST_SERVICE_IMAGES_RECEIPT"
       ]
     },
     "lint-markdown": {
@@ -1483,7 +1483,6 @@
         "CURDIR",
         "CYCLONEDX_GOMOD_BIN",
         "EMBEDDED_WEB_ASSET_ARCHIVE",
-        "FOUNDATION_SCHEMA_VALIDATORS",
         "FRONTEND_INSTALL_RECEIPT",
         "GO",
         "GOOSE_BIN",
@@ -1523,7 +1522,8 @@
         "SQLC_BIN",
         "STATICCHECK_BIN",
         "SYFT_BIN",
-        "TEST_SERVICES_BIN"
+        "TEST_SERVICES_BIN",
+        "TEST_SERVICE_IMAGES_RECEIPT"
       ]
     },
     "migration-drift": {
@@ -1549,7 +1549,6 @@
         "CURDIR",
         "CYCLONEDX_GOMOD_BIN",
         "EMBEDDED_WEB_ASSET_ARCHIVE",
-        "FOUNDATION_SCHEMA_VALIDATORS",
         "FRONTEND_INSTALL_RECEIPT",
         "GO",
         "GOOSE_BIN",
@@ -1589,7 +1588,8 @@
         "SQLC_BIN",
         "STATICCHECK_BIN",
         "SYFT_BIN",
-        "TEST_SERVICES_BIN"
+        "TEST_SERVICES_BIN",
+        "TEST_SERVICE_IMAGES_RECEIPT"
       ]
     },
     "openapi-compatibility-check": {
@@ -1748,7 +1748,6 @@
     },
     "generate": {
       "prerequisites": [
-        "$(FOUNDATION_SCHEMA_VALIDATORS)",
         "$(NODE_BIN)",
         "$(SQLC_BIN)"
       ],
@@ -1812,7 +1811,6 @@
         "CURDIR",
         "CYCLONEDX_GOMOD_BIN",
         "EMBEDDED_WEB_ASSET_ARCHIVE",
-        "FOUNDATION_SCHEMA_VALIDATORS",
         "FRONTEND_INSTALL_RECEIPT",
         "GO",
         "GOOSE_BIN",
@@ -1852,7 +1850,8 @@
         "SQLC_BIN",
         "STATICCHECK_BIN",
         "SYFT_BIN",
-        "TEST_SERVICES_BIN"
+        "TEST_SERVICES_BIN",
+        "TEST_SERVICE_IMAGES_RECEIPT"
       ]
     },
     "build": {
@@ -1878,7 +1877,6 @@
         "CURDIR",
         "CYCLONEDX_GOMOD_BIN",
         "EMBEDDED_WEB_ASSET_ARCHIVE",
-        "FOUNDATION_SCHEMA_VALIDATORS",
         "FRONTEND_INSTALL_RECEIPT",
         "GO",
         "GOOSE_BIN",
@@ -1918,7 +1916,8 @@
         "SQLC_BIN",
         "STATICCHECK_BIN",
         "SYFT_BIN",
-        "TEST_SERVICES_BIN"
+        "TEST_SERVICES_BIN",
+        "TEST_SERVICE_IMAGES_RECEIPT"
       ]
     },
     "frontend-lockfile-update": {
@@ -1982,7 +1981,7 @@
         "SQLC_BIN",
         "STATICCHECK_BIN",
         "SYFT_BIN",
-        "TEST_SERVICES_BIN"
+        "TEST_SERVICE_IMAGES_RECEIPT"
       ]
     },
     "services-up": {
@@ -2298,7 +2297,6 @@
         "CURDIR",
         "CYCLONEDX_GOMOD_BIN",
         "EMBEDDED_WEB_ASSET_ARCHIVE",
-        "FOUNDATION_SCHEMA_VALIDATORS",
         "FRONTEND_INSTALL_RECEIPT",
         "GO",
         "GOOSE_BIN",
@@ -2338,7 +2336,8 @@
         "SQLC_BIN",
         "STATICCHECK_BIN",
         "SYFT_BIN",
-        "TEST_SERVICES_BIN"
+        "TEST_SERVICES_BIN",
+        "TEST_SERVICE_IMAGES_RECEIPT"
       ]
     },
     "seaweedfs-compatibility": {
@@ -2370,12 +2369,9 @@
     },
     "seaweedfs-release-gate": {
       "prerequisites": [
-        "$(LICENSE_REPORT_ARTIFACT)",
         "$(NODE_BIN)",
         "$(SBOM_ARTIFACT)",
-        "$(TEST_SERVICES_BIN)",
-        "tools/release-evidence/seaweedfs-release-evidence.mjs",
-        "tools/seaweedfs_occurrence_classifications.json"
+        "$(TEST_SERVICES_BIN)"
       ],
       "type": "step_command",
       "mode": "run_step",
@@ -2468,7 +2464,6 @@
         "CURDIR",
         "CYCLONEDX_GOMOD_BIN",
         "EMBEDDED_WEB_ASSET_ARCHIVE",
-        "FOUNDATION_SCHEMA_VALIDATORS",
         "FRONTEND_INSTALL_RECEIPT",
         "GO",
         "GOOSE_BIN",
@@ -2508,7 +2503,8 @@
         "SQLC_BIN",
         "STATICCHECK_BIN",
         "SYFT_BIN",
-        "TEST_SERVICES_BIN"
+        "TEST_SERVICES_BIN",
+        "TEST_SERVICE_IMAGES_RECEIPT"
       ]
     },
     "ui-review-status": {
@@ -2529,7 +2525,6 @@
         "CURDIR",
         "CYCLONEDX_GOMOD_BIN",
         "EMBEDDED_WEB_ASSET_ARCHIVE",
-        "FOUNDATION_SCHEMA_VALIDATORS",
         "FRONTEND_INSTALL_RECEIPT",
         "GO",
         "GOOSE_BIN",
@@ -2569,7 +2564,8 @@
         "SQLC_BIN",
         "STATICCHECK_BIN",
         "SYFT_BIN",
-        "TEST_SERVICES_BIN"
+        "TEST_SERVICES_BIN",
+        "TEST_SERVICE_IMAGES_RECEIPT"
       ]
     },
     "ui-browser": {
@@ -2590,7 +2586,6 @@
         "CURDIR",
         "CYCLONEDX_GOMOD_BIN",
         "EMBEDDED_WEB_ASSET_ARCHIVE",
-        "FOUNDATION_SCHEMA_VALIDATORS",
         "FRONTEND_INSTALL_RECEIPT",
         "GO",
         "GOOSE_BIN",
@@ -2630,7 +2625,8 @@
         "SQLC_BIN",
         "STATICCHECK_BIN",
         "SYFT_BIN",
-        "TEST_SERVICES_BIN"
+        "TEST_SERVICES_BIN",
+        "TEST_SERVICE_IMAGES_RECEIPT"
       ]
     },
     "ui-capture": {
@@ -2651,7 +2647,6 @@
         "CURDIR",
         "CYCLONEDX_GOMOD_BIN",
         "EMBEDDED_WEB_ASSET_ARCHIVE",
-        "FOUNDATION_SCHEMA_VALIDATORS",
         "FRONTEND_INSTALL_RECEIPT",
         "GO",
         "GOOSE_BIN",
@@ -2691,7 +2686,8 @@
         "SQLC_BIN",
         "STATICCHECK_BIN",
         "SYFT_BIN",
-        "TEST_SERVICES_BIN"
+        "TEST_SERVICES_BIN",
+        "TEST_SERVICE_IMAGES_RECEIPT"
       ]
     },
     "ui-analyze": {
@@ -2712,7 +2708,6 @@
         "CURDIR",
         "CYCLONEDX_GOMOD_BIN",
         "EMBEDDED_WEB_ASSET_ARCHIVE",
-        "FOUNDATION_SCHEMA_VALIDATORS",
         "FRONTEND_INSTALL_RECEIPT",
         "GO",
         "GOOSE_BIN",
@@ -2752,7 +2747,8 @@
         "SQLC_BIN",
         "STATICCHECK_BIN",
         "SYFT_BIN",
-        "TEST_SERVICES_BIN"
+        "TEST_SERVICES_BIN",
+        "TEST_SERVICE_IMAGES_RECEIPT"
       ]
     },
     "ui-review-report": {
@@ -2773,7 +2769,6 @@
         "CURDIR",
         "CYCLONEDX_GOMOD_BIN",
         "EMBEDDED_WEB_ASSET_ARCHIVE",
-        "FOUNDATION_SCHEMA_VALIDATORS",
         "FRONTEND_INSTALL_RECEIPT",
         "GO",
         "GOOSE_BIN",
@@ -2813,7 +2808,8 @@
         "SQLC_BIN",
         "STATICCHECK_BIN",
         "SYFT_BIN",
-        "TEST_SERVICES_BIN"
+        "TEST_SERVICES_BIN",
+        "TEST_SERVICE_IMAGES_RECEIPT"
       ]
     },
     "ui-review-stop": {
@@ -2834,7 +2830,6 @@
         "CURDIR",
         "CYCLONEDX_GOMOD_BIN",
         "EMBEDDED_WEB_ASSET_ARCHIVE",
-        "FOUNDATION_SCHEMA_VALIDATORS",
         "FRONTEND_INSTALL_RECEIPT",
         "GO",
         "GOOSE_BIN",
@@ -2874,7 +2869,8 @@
         "SQLC_BIN",
         "STATICCHECK_BIN",
         "SYFT_BIN",
-        "TEST_SERVICES_BIN"
+        "TEST_SERVICES_BIN",
+        "TEST_SERVICE_IMAGES_RECEIPT"
       ]
     },
     "clean": {
@@ -4957,8 +4953,6 @@
     {
       "name": "harness-contract",
       "backing_scripts": [
-        "tools/harness/backend/build-go-artifact.sh",
-        "tools/harness/backend/tests/test-build-go-artifact.sh",
         "tools/harness/browser/tests/test-ui-review-contract.mjs",
         "tools/harness/command-surface/tests/test-contracts.mjs",
         "tools/harness/command-surface/tests/test-public-inputs.mjs",
@@ -4974,10 +4968,7 @@
         "tools/harness/observability/tests/test-observability.mjs",
         "tools/harness/output/tests/test-shell-headlines.mjs",
         "tools/harness/performance-fixture/tests/test-evidence-generation.mjs",
-        "tools/harness/readiness/cache-artifact.sh",
         "tools/harness/readiness/tests/test-acquisition-command.mjs",
-        "tools/harness/readiness/tests/test-bootstrap-cache.mjs",
-        "tools/harness/readiness/tests/test-cache-artifact.sh",
         "tools/harness/readiness/tests/test-dev-services-lifecycle.sh",
         "tools/harness/readiness/tests/test-frontend-artifact.mjs",
         "tools/harness/runtime/command-failure-cli.mjs",
@@ -10796,8 +10787,6 @@
     {
       "name": "cryptographic-policy-assessment",
       "backing_scripts": [
-        "tools/harness/backend/build-go-artifact.sh",
-        "tools/harness/backend/tests/test-build-go-artifact.sh",
         "tools/harness/readiness/cryptographic-build-cli.mjs",
         "tools/harness/readiness/cryptographic-module.mjs",
         "tools/harness/readiness/cryptographic-policy-assessment.mjs",
@@ -13192,11 +13181,9 @@
         "harness-smoke-work-graph-service-backed-target",
         "harness-smoke-toolchain-pins",
         "harness-smoke-go-toolchain-readiness",
-        "harness-smoke-cache-artifact",
         "harness-smoke-cleanup-contract",
         "harness-smoke-capacity-failure-contract",
         "harness-smoke-lint-shell",
-        "harness-smoke-build-input-discovery",
         "harness-smoke-check-migrations",
         "harness-smoke-generate-drift",
         "harness-smoke-generated-artifact-policy",
@@ -13247,11 +13234,9 @@
         "harness-smoke-work-graph-service-backed-target",
         "harness-smoke-toolchain-pins",
         "harness-smoke-go-toolchain-readiness",
-        "harness-smoke-cache-artifact",
         "harness-smoke-cleanup-contract",
         "harness-smoke-capacity-failure-contract",
         "harness-smoke-lint-shell",
-        "harness-smoke-build-input-discovery",
         "harness-smoke-check-migrations",
         "harness-smoke-generate-drift",
         "harness-smoke-generated-artifact-policy",
@@ -13302,15 +13287,6 @@
       ]
     },
     {
-      "name": "harness-smoke-cache-artifact",
-      "backing_scripts": [
-        "tools/harness/readiness/tests/test-cache-artifact.sh",
-        "tools/harness/readiness/cache-artifact.sh",
-        "tools/harness/backend/tests/test-build-go-artifact.sh",
-        "tools/harness/backend/build-go-artifact.sh"
-      ]
-    },
-    {
       "name": "harness-smoke-cleanup-contract",
       "backing_scripts": [
         "tools/harness/contract/tests/test-cleanup.mjs"
@@ -13326,14 +13302,7 @@
       "name": "harness-smoke-lint-shell",
       "backing_scripts": [
         "tools/harness/static-analysis/tests/test-lint-shell.sh",
-        "tools/harness/static-analysis/shellcheck.sh",
-        "tools/harness/static-analysis/shellcheck-runner.sh"
-      ]
-    },
-    {
-      "name": "harness-smoke-build-input-discovery",
-      "backing_scripts": [
-        "tools/harness/readiness/tests/test-build-input-discovery.sh"
+        "tools/harness/static-analysis/shellcheck.sh"
       ]
     },
     {

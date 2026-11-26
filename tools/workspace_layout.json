@@ -268,26 +268,6 @@
       "parent": "cache"
     },
     {
-      "id": "readiness",
-      "path": ".cache/cartulary/readiness",
-      "tier": "distclean",
-      "state": "current",
-      "producers": [
-        "harness readiness"
-      ],
-      "parent": "cache"
-    },
-    {
-      "id": "build_artifacts",
-      "path": ".cache/cartulary/build-artifacts",
-      "tier": "distclean",
-      "state": "current",
-      "producers": [
-        "harness readiness"
-      ],
-      "parent": "cache"
-    },
-    {
       "id": "graph_cache",
       "path": ".cache/cartulary/graph-v2",
       "tier": "distclean",
@@ -304,16 +284,6 @@
       "state": "current",
       "producers": [
         "harness artifact store"
-      ],
-      "parent": "cache"
-    },
-    {
-      "id": "static_analysis_cache",
-      "path": ".cache/cartulary/static-analysis",
-      "tier": "distclean",
-      "state": "current",
-      "producers": [
-        "static analysis cache"
       ],
       "parent": "cache"
     },

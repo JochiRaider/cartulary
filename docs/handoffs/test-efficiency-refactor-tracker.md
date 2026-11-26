@@ -1374,6 +1374,7 @@ Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-am
 | 2026-11-26 | P5-3c step 1 | The producer registry and `harnessbuild produce`; Go tools and ShellCheck join the Go binaries in the store; artifact bindings and generated recipes run producers instead of re-entering Make; caller-set bindings are provided executables; 15 file rules and the tool bootstrap scripts removed | `p87-generate`, `p88`, `p90`, `p91` (segments), `p92-check01` | Pass. Segments found a stale registry name, a direct run-context write, a renderer caller without producers, a test of the deleted server rule and a shell-lint smoke that cannot have passed since P5-4b; all repaired. `p92-check01` passed all 1,898 rows in a 510 s graph (14.27) |
 | 2026-11-26 | P5-3c step 2 | Web bundles and embedded assets join the store: `frontend-artifact.mjs build` copies the sealed bundle into the run's private artifact; embedded assets package the run's artifact; bundles always carry source maps (D29); unrecorded roots get a collection grace; three file rules and two scripts removed | `p93-generate`, `p94` (segment), `p95-check01` | Pass. `p95-check01` passed all 1,898 rows in a 513 s graph; the web unit took 3.5 s (6.7 s) reusing its bundle (14.28) |
 | 2026-11-26 | P5-3c step 3 | Installations become producers: the Node runtime with pnpm, the frontend dependencies and the Playwright browsers install in place under receipts, with declared requirements; readiness and static-analysis controls fold into the store's two (D28); bundles carry hidden source maps and the server package leaves them out (D29); four file rules, three scripts and the Node bootstrap smoke removed | `p96-generate`, `p97` (segment), `p98`, `p99-check01` | Pass. `p99-check01` passed all 1,898 rows in a 515 s graph (14.29) |
+| 2026-11-26 | P5-3c step 4 | The renderer builds its launcher through the store and reuses by root seal, with collection; the release inventory and the test service images become producers; every prerequisite names a producer, nothing re-enters Make, and Make has no file rules; `cache-artifact.sh` and four more scripts removed | `p100-generate`, `p101` (segment), `p102`, `p103-check01` | Pass. `p103-check01` passed all 1,898 rows in a 514 s graph; the renderer unit took 3.1 s (20.3 s) (14.30) |
 | 2026-11-25 | P4-4 / G39 | Wait audit: 31 whole-test hang guards derive from the test deadline (`testdeadline`) | `p44-port-*` (16 owner slices, every row holding a converted guard) | Pass. Committed `bdd8f4e1d` |
 
 ## 12. Phase 2 Plan — `check` Wall Clock
@@ -2668,7 +2669,7 @@ Status: proposed 2026-11-26 at the owner's request. P5-0, P5-1 and P5-2 done (14
 | P5-1 | Flat catalog: every check is a row with an owner, so any of them runs alone with `ROWS=`; selections list rows and operations, not other selections. **Done 2026-11-26** (14.6): every test script is a row and duplicates are gone; selection nesting stays (14.6) | G44 |
 | P5-2 | Unnest: harness-mechanics probes run as first-class graph rows against private outputs, or move to an explicit harness suite outside `ci`; a source check forbids rows that launch `make` or `graph` against the shared repository | G43 |
 | P5-4 | Declared environment: a registry of every harness variable, default-deny unit environments, one typed unit context document, fixture bindings in that document (14.7) | G43, G45 |
-| P5-3 | Thin Make: Make only admits the workspace and forwards to the harness; build operations become data with declared inputs, environment keys and outputs; one Go content-addressed store replaces `cache-artifact.sh`, the renderer store and web staging; no unit re-enters Make; one toolchain environment from the pins for builds and tests. **Planned 2026-11-26** (14.24): five steps, P5-3a to P5-3e; P5-3a done (14.25); P5-3b done (14.26); P5-3c steps 1 to 3 of 4 done (14.27 to 14.29) | G44 |
+| P5-3 | Thin Make: Make only admits the workspace and forwards to the harness; build operations become data with declared inputs, environment keys and outputs; one Go content-addressed store replaces `cache-artifact.sh`, the renderer store and web staging; no unit re-enters Make; one toolchain environment from the pins for builds and tests. **Planned 2026-11-26** (14.24): five steps, P5-3a to P5-3e; P5-3a done (14.25); P5-3b done (14.26); P5-3c done (14.27 to 14.30) | G44 |
 
 P5-0 is small and removes the hazards seen in `ci`. P5-1 makes segments
 possible for every check. P5-3 is the largest and needs specification
@@ -3697,7 +3698,7 @@ Decision D20 (owner, 2026-11-26): nested harness probes run in explicit
 Status: planned 2026-11-26 at the owner's request. Owner direction: retire as
 much of the Makefile as needed; a thin wrapper is better than a complicated
 one. Approved with D24 to D28 as recommended on 2026-11-26; P5-3a done
-(14.25); P5-3b done (14.26); P5-3c steps 1 to 3 of 4 done (14.27 to 14.29).
+(14.25); P5-3b done (14.26); P5-3c done (14.27 to 14.30).
 
 **Problem (G44, G47).** Measured at `db2304ea9`:
 
@@ -4293,6 +4294,130 @@ segments and then one `check`:
   - **`p98`.** The scripts, surface, schema and generated checks passed, and
     so did both affected command-surface rows.
   - **`p99-check01`.** All 1,898 rows passed in a 515 s graph (513 s in
-    `p95`). The frontend installation unit took 0.16 s, as before. The
-    Playwright unit took 2.6 s (2.0 s), because it now includes the browser
-    readiness proof.
+    `p95`). The frontend installation unit took 0.46 s (0.63 s) and the
+    Playwright unit 0.83 s (0.83 s), the browser readiness proof included.
+    The renderer unit still took 20.3 s to reuse its installation (19.0 s),
+    which step 4 addresses.
+
+### 14.30 The Renderer, Release Inventory and Last File Rules (P5-3c, step 4)
+
+- **No Make re-entry.** Every artifact prerequisite of an operation or public
+  recipe now names a registered producer. The operation runner refuses one
+  that does not, and refuses any operation that runs Make. The generated Make
+  holds no `$(MAKE)`. This meets the P5-3c exit: 26 Make re-entries become 0.
+  - **Prerequisites.**
+    - The SBOM and license report pairs collapse to `$(SBOM_ARTIFACT)` in four
+      operations.
+    - The SeaweedFS release gate loses two plain source-file prerequisites,
+      which never did anything.
+    - `generate` loses its foundation validators prerequisite.
+  - **Dead code.** `prerequisite_jobs`, which no recipe used, leaves rendering
+    and validation.
+- **Make has no file rules.** The SBOM/license, foundation validator and
+  renderer rules go, with `FORCE`, `GO_TOOLCHAIN_READINESS`,
+  `FOUNDATION_SCHEMA_VALIDATORS`, `REPORT_RENDERER_RECEIPT` and
+  `CARTULARY_BUILD_CACHE_DIR`. The Makefile has 111 lines (133).
+- **The report renderer.** It is now a registered producer, `report-renderer`,
+  which requires the Playwright installation.
+  - **Launcher.** The store builds its confinement launcher,
+    `./cmd/render-sandbox`, as a Go binary. `build-go-artifact.sh` is deleted.
+  - **Key.** The packaging script's key drops the shell build helper, the
+    whole pins file and the package's tests. It gains the launcher's store
+    root and the four pins the script reads.
+  - **Reuse cost.** Reuse used to hash every file of a 1 GB, 31,205-file
+    installation, one stream at a time: about 20 s in each check. The hashing
+    itself takes 0.6 s; the cost was per-file overhead.
+  - **The seal.** A key record now holds the root's seal: each entry's path,
+    mode, size, inode, and modification and change times, taken when the
+    root was sealed. Reuse checks the seal and then the copied host
+    libraries. A root found with other files is set aside instead of failing
+    the build.
+  - **Collection.** It removes key records unused for 30 days, unnamed
+    installations after an hour, and set-aside roots after 30 days. Its first
+    run removed two old installations: 5.8 GB became 3.9 GB.
+  - **Lock.** The producer holds a lock beside the installation directory.
+  - **Measured.** A full build took 36.9 s and reproduced the existing
+    installation's identity, whose root it kept. Reuse took 3.0 s in `build
+    COMPONENT=report-renderer`; 3.1 s in the check (20.3 s).
+- **The release inventory.** A registered producer, `release_inventory`,
+  regenerates the SBOM and license report as a pair each time it is
+  produced. It requires the frontend dependencies and the two pinned scanners.
+  - **No store key.** Its inputs include every Go module's package graph and
+    the installed frontend packages, which no file list captures. The unit's
+    content-addressed planner cache reuses the outputs. The old Make rule
+    keyed on a file list that missed the independent modules.
+  - **Not yet run for real.** The generator needs a run-bound private
+    runtime, so it runs only inside the release qualification graph and the
+    SeaweedFS gate. Both are release tier, so P4-7 validates it. A Go test
+    covers how the producer invokes it.
+- **Test service images.** An installation producer now owns them.
+  - **Key.** Its receipt is keyed by the test-services binary, which compiles
+    in every image reference, and by the producer.
+  - **Reuse.** It needs every pinned image present in Docker.
+  - **Deleted.** `warm-test-service-images.sh`.
+- **Foundation validators.** `generate` regenerates them first, in its own
+  script, instead of through a Make rule.
+- **Shell lint.** The wrapper's private result cache is gone; the lint unit
+  already has a content-addressed planner cache. With the cache off, lint
+  runs ShellCheck in full (15.4 s in the segment).
+- **Bootstrap.** Every `make bootstrap` part now runs producers. Only `PART=go`
+  and the full bootstrap still run a command afterwards: explicit Go
+  dependency maintenance. It edits `go.mod` and `go.sum` on purpose and is no
+  producer's output, which settles the plan's risk note.
+- **Deleted.**
+  - **Scripts.** `cache-artifact.sh`, `build-go-artifact.sh`,
+    `list-build-inputs.sh`, `warm-test-service-images.sh` and
+    `shellcheck-runner.sh`.
+  - **Tests.** `test-cache-artifact.sh`, `test-bootstrap-cache.mjs`,
+    `test-build-go-artifact.sh` and `test-build-input-discovery.sh`, with the
+    `harness-smoke-cache-artifact` and `harness-smoke-build-input-discovery`
+    rows, operations and targets.
+  - **Make input syntax.** The `--lines` mode of `executable-files-cli.mjs`.
+  - **Layout and environment.** The readiness, build-artifact and
+    static-analysis cache directories leave the layout, and 7 environment
+    names had no reader left. The old directories stay on disk (about 10 MB)
+    until a distclean.
+  - **Coverage moved.**
+    - Go tests cover the launcher build and its receipt, which replaces the
+      build helper test that the cryptographic policy assessment also ran.
+    - They also cover the renderer's launcher wiring, the inventory's
+      invocation and the images' reuse.
+    - The renderer store tests cover seals and collection.
+    - The `artifact_store` row has 22 tests.
+- **Specification.** Amended:
+  - the renderer clause (REQ-060) and AC-174;
+  - test service images as an installation;
+  - the release inventory, and no file rules;
+  - the cache controls row and installed-only step 2.
+- **P5-3c complete.** `cache-artifact.sh` and the 25 file rules are deleted,
+  the 26 Make re-entries are 0, and one `check` passed.
+- **Validation.**
+  - **Segment (`p101`).** These passed:
+    - generation, which now refreshes the foundation validators itself;
+    - lint (Go, scripts, shell) and the catalog, identity, generated, schema
+      and toolchain source checks;
+    - `bootstrap PART=test-images`, which installed (1.3 s) and then reused
+      (0.8 s), and `PART=browser`, which reused;
+    - `doctor`;
+    - `build COMPONENT=report-renderer`, a full build (36.9 s) and then
+      reuse by seal (3.0 s);
+    - `make build`;
+    - the cryptographic policy assessment;
+    - 13 command-surface rows, the release inventory contract row, four
+      reporting renderer rows against the sealed installation, and the
+      routing contract.
+  - **Problems `p101` found.**
+    - **The surface check.** The environment registry kept three names that
+      nothing reads: the test-service image layout name and two names of the
+      deleted lint runner.
+    - **Two harness invocation errors of mine.** The browser slice reused a
+      run ID. A direct `produce release-inventory` lacked `GO_TOOLCHAIN` and,
+      once that was set, the run-bound runtime the generator requires.
+  - **`p102`.** The surface and schema checks and both browser rows passed.
+  - **`p103-check01`.** All 1,898 rows passed in a 514 s graph (515 s in
+    `p99`).
+    - **Faster.** The renderer unit took 3.1 s, down from 20.3 s.
+    - **Slower.** Shell lint took 21.2 s (2.6 s): with the cache off it now
+      runs ShellCheck in full, where the default cache mode reuses its unit.
+      The test-service image unit took 1.3 s (0.6 s), which is its per-image
+      presence proof.

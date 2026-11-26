@@ -9,9 +9,6 @@ ROOT_DIR="${CARTULARY_SHELLCHECK_ROOT:-$DEFAULT_ROOT_DIR}"
 NODE_BIN="${NODE_BIN:-node}"
 SHELLCHECK_BIN="${SHELLCHECK_BIN:-${ROOT_DIR}/${CARTULARY_LAYOUT_TOOLBIN}/shellcheck-v0.11.0}"
 LINT_SHELL_STRICT="${LINT_SHELL_STRICT:-0}"
-CACHE_ARTIFACT_SCRIPT="$DEFAULT_ROOT_DIR/tools/harness/readiness/cache-artifact.sh"
-CACHE_DIR="${CARTULARY_STATIC_ANALYSIS_CACHE_DIR:-$ROOT_DIR/.cache/cartulary/static-analysis}"
-CACHE_STAMP="$CACHE_DIR/outputs/lint-shell.ok"
 
 # shellcheck source=tools/harness/generated-artifacts/generated-artifacts.sh
 # shellcheck disable=SC1091
@@ -146,50 +143,5 @@ run_shellcheck_direct() {
   exit 0
 }
 
-if [[ "$LINT_SHELL_STRICT" != "1" ]]; then
-  run_shellcheck_direct
-fi
-
-shellcheck_version="$("$shellcheck_bin" --version 2>/dev/null | tr '\n' ' ' || true)"
-file_list="$(mktemp "${TMPDIR:-/tmp}/cartulary-lint-shell.XXXXXX")"
-trap 'rm -f "$file_list" "$discovery_file"' EXIT
-printf '%s\0' "${shell_files[@]}" >"$file_list"
-
-cache_args=(
-  --scope static-analysis
-  --profile lint-shell
-  --cache-dir "$CACHE_DIR"
-  --disable-env CARTULARY_BUILD_CACHE_DISABLE
-  --force-env CARTULARY_FORCE_REBUILD
-  --input "$DEFAULT_ROOT_DIR/tools/harness/static-analysis/shellcheck.sh"
-  --input "$DEFAULT_ROOT_DIR/tools/harness/static-analysis/shellcheck-runner.sh"
-  --input "$DEFAULT_ROOT_DIR/tools/harness/test-catalog/executable-files-cli.mjs"
-  --input "$DEFAULT_ROOT_DIR/tools/harness/test-catalog/restricted-input-boundary.mjs"
-  --input "$DEFAULT_ROOT_DIR/tools/executable_input_policy.json"
-  --input "$DEFAULT_ROOT_DIR/tools/harness/generated-artifacts/generated-artifacts.sh"
-  --input "$DEFAULT_ROOT_DIR/tools/harness/readiness/cache-artifact.sh"
-  --output "$CACHE_STAMP"
-  --key "shellcheck_bin=$shellcheck_bin"
-  --key "shellcheck_version=$shellcheck_version"
-  --key "strict=$LINT_SHELL_STRICT"
-)
-if [[ -f "$shellcheck_bin" ]]; then
-  cache_args+=(--input "$shellcheck_bin")
-fi
-for rel in "${shell_files[@]}"; do
-  cache_args+=(--input "$ROOT_DIR/$rel")
-done
-
-status=0
-env \
-  CARTULARY_SHELLCHECK_FILE_LIST="$file_list" \
-  CARTULARY_STATIC_CACHE_STAMP="$CACHE_STAMP" \
-  SHELLCHECK_BIN="$shellcheck_bin" \
-  "$CACHE_ARTIFACT_SCRIPT" "${cache_args[@]}" -- "$DEFAULT_ROOT_DIR/tools/harness/static-analysis/shellcheck-runner.sh" || status=$?
-
-if [[ "$status" -eq 0 ]]; then
-  printf '%s files checked\n' "${#shell_files[@]}"
-  exit 0
-fi
-
-exit "$status"
+# The lint unit's planner cache reuses a result; ShellCheck always runs here.
+run_shellcheck_direct

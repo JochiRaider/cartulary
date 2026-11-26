@@ -10,9 +10,12 @@
 // its default path in the workspace layout. The producers a selected one
 // requires run first. A caller that sets a producer's binding to another path
 // provides that file, which is checked and kept. Installations (the Node
-// runtime, the frontend dependencies and the Playwright browsers) install in
-// place under a receipt; under the installed-only preparation policy they
-// install nothing and fail when missing or stale. The store defaults to the
+// runtime, the frontend dependencies, the Playwright browsers and the test
+// service images) install in place under a receipt; under the installed-only
+// preparation policy they install nothing and fail when missing or stale.
+// The report renderer keeps its own content-addressed installations, whose
+// layout the Reporting NLSpec owns, and the release inventory regenerates
+// each time it is produced. The store defaults to the
 // layout's artifact_store directory. With --roots, the sealed root of each
 // store producer is written to FILE as a JSON object, for a caller that
 // copies a root, such as the run's frontend artifact.
@@ -105,12 +108,31 @@ func produce(store, rootsFile string, ids []string) error {
 	installedOnly := os.Getenv("CARTULARY_PREPARATION_POLICY") == "installed_only"
 	produced := map[string]string{}
 	for _, d := range declarations {
-		if d.IsInstallation() {
+		switch {
+		case d.IsInstallation():
 			installation, lock, err := workspace.PlanInstallation(d)
 			if err != nil {
 				return fmt.Errorf("producer %s: %w", d.ID, err)
 			}
 			if _, err := artifactstore.Install(installation, lock, controls, installedOnly); err != nil {
+				return fmt.Errorf("producer %s: %w", d.ID, err)
+			}
+			continue
+		case d.Kind == "report_renderer":
+			renderer, err := workspace.PlanRenderer(d, s, controls)
+			if err == nil {
+				err = renderer.Produce()
+			}
+			if err != nil {
+				return fmt.Errorf("producer %s: %w", d.ID, err)
+			}
+			continue
+		case d.Kind == "release_inventory":
+			inventory, err := workspace.PlanInventory(d)
+			if err == nil {
+				err = inventory.Generate()
+			}
+			if err != nil {
 				return fmt.Errorf("producer %s: %w", d.ID, err)
 			}
 			continue

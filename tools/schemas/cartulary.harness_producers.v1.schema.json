@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "cartulary.harness_producers.v1",
-  "description": "Harness artifact producers (TH-HARNESS build-artifact store, P5-3). Each published producer makes its output available at a binding's path, or at its default file under a workspace layout directory; a web bundle publishes no view, and its root becomes the run's frontend artifact. The artifact store decides whether to build. Installations (the Node runtime, the frontend dependencies and the Playwright browsers) install in place under a receipt. Go tool modules, the ShellCheck, Node and pnpm versions come from the toolchain pins.",
+  "description": "Harness artifact producers (TH-HARNESS build-artifact store, P5-3). Each published producer makes its output available at a binding's path, or at its default file under a workspace layout directory; a web bundle publishes no view, and its root becomes the run's frontend artifact. The artifact store decides whether to build. Installations (the Node runtime, the frontend dependencies, the Playwright browsers and the test service images) install in place under a receipt; the report renderer keeps its own content-addressed installations; the release inventory regenerates each time it is produced. Go tool modules, the ShellCheck, Node and pnpm versions come from the toolchain pins.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -36,7 +36,10 @@
               "embedded_assets",
               "node_runtime",
               "frontend_install",
-              "playwright"
+              "playwright",
+              "test_service_images",
+              "report_renderer",
+              "release_inventory"
             ]
           },
           "binding": {
@@ -608,6 +611,213 @@
               "properties": {
                 "kind": {
                   "const": "playwright"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "binding",
+                "directory"
+              ],
+              "not": {
+                "anyOf": [
+                  {
+                    "required": [
+                      "package"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "tags"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "name"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "tool"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "module_dir"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "archives"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "mode"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "inputs"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "source"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "client_support"
+                    ]
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "test_service_images"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "binding",
+                "directory"
+              ],
+              "not": {
+                "anyOf": [
+                  {
+                    "required": [
+                      "package"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "tags"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "name"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "tool"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "module_dir"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "archives"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "mode"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "inputs"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "source"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "client_support"
+                    ]
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "report_renderer"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "binding",
+                "directory"
+              ],
+              "not": {
+                "anyOf": [
+                  {
+                    "required": [
+                      "package"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "tags"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "name"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "tool"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "module_dir"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "archives"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "mode"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "inputs"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "source"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "client_support"
+                    ]
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "release_inventory"
                 }
               }
             },

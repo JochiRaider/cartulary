@@ -10,8 +10,6 @@ let scratch;
 try {
   for (const dir of [env.GOCACHE, env.GOMODCACHE, env.GOTMPDIR]) mkdirSync(dir, { recursive: true });
   verifyArchive(go, env);
-  const buildHelper = spawnSync("bash", ["tools/harness/backend/tests/test-build-go-artifact.sh"], { env, encoding: "utf8", timeout: 30000 });
-  if (buildHelper.error || buildHelper.status !== 0) throw new Error("build helper identity/receipt regression failed");
   scratch = mkdtempSync(path.join(env.GOTMPDIR, "crypto-assessment-"));
   const pinned = path.join(scratch, "pinned");
   const ordinary = path.join(scratch, "ordinary");

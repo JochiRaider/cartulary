@@ -5,8 +5,7 @@ import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
 
 import { restrictedExecutableInputRoots } from "../harness/test-catalog/restricted-input-boundary.mjs";
-import { fileDigest, inventory, publishReceipt, recordKey, reusableInstallation, sha } from "./installation-store.mjs";
-import { runContextEnvironment } from "../harness/contract/run-context.mjs";
+import { collect, fileDigest, inventory, publishReceipt, recordKey, reusableInstallation, seal, sha } from "./installation-store.mjs";
 
 // Packaging is an explicit build operation. Rendering never invokes a package
 // manager, discovers host libraries, or copies files from the application tree.
@@ -16,6 +15,13 @@ const pins = JSON.parse(await readFile("tools/toolchain_pins.json", "utf8"));
 if (process.versions.node !== pins.node_version) throw new Error("renderer Node pin mismatch");
 const excluded = new Set([...restrictedExecutableInputRoots(repository), ".git", ".bin", ".modules.yaml", ".pnpm-workspace-state-v1.json"]);
 const omit = (name) => excluded.has(name) || /(?:\.md|\.markdown)$/iu.test(name) || /^readme(?:\.|$)/iu.test(name);
+// The renderer package's runtime sources: no installed modules or tests.
+const omitPackage = (name) => omit(name) || name === "node_modules" || /\.(?:test|spec)\.[cm]?[jt]sx?$/u.test(name);
+// The confinement launcher is built by the harness artifact store, which keys
+// it by its import closure, module files and Go settings; its root names it.
+const sandbox = process.env.RENDER_SANDBOX_BIN;
+const sandboxRoot = process.env.RENDER_SANDBOX_ROOT;
+if (!sandbox || !/^[a-f0-9]{64}$/u.test(sandboxRoot ?? "")) throw new Error("the renderer installation needs the launcher from the artifact store; run it through harnessbuild produce report-renderer");
 const output = path.join(repository, "build/report-renderer");
 await mkdir(output, { recursive: true });
 let root;
@@ -40,7 +46,7 @@ async function copyTree(source, destination, omitModules = false) {
   await mkdir(destination, { recursive: true });
   for (const entry of await readdir(source, { withFileTypes: true })) {
     // Exclude before stat, traversal or content access, including dangling links.
-    if (omit(entry.name) || (omitModules && (entry.name === "node_modules" || /\.(?:test|spec)\.[cm]?[jt]sx?$/u.test(entry.name)))) continue;
+    if (omitModules ? omitPackage(entry.name) : omit(entry.name)) continue;
     if (entry.isDirectory()) await copyTree(path.join(source, entry.name), path.join(destination, entry.name), omitModules);
     else if (entry.isFile()) await copyRegular(path.join(source, entry.name), path.join(destination, entry.name));
     else throw new Error("runtime tree contains a link or special entry");
@@ -54,14 +60,14 @@ async function copyHostFile(source, destination) {
 }
 
 // Build-artifact cache (Testing Harness build cache profiles). An installation
-// is a pure function of its inputs: this script and the Go build helper, the
-// render-sandbox package closure and module files, the renderer package, the
-// lockfile, the toolchain pins, and the host Node, Chromium, bubblewrap and
-// fonts it copies. When those inputs match a recorded key whose installation
-// is intact, and every host library the installation copied is unchanged,
-// the installation is reused instead of rebuilt (installation-store.mjs).
-// CARTULARY_BUILD_CACHE_DISABLE=1 neither reads nor records keys;
-// CARTULARY_FORCE_REBUILD=1 rebuilds and records.
+// is a pure function of its inputs: this script and its store, the
+// confinement launcher's store root, the renderer package's runtime sources,
+// the lockfile, the pins it reads, and the host Node, Chromium, bubblewrap
+// and fonts it copies. When those inputs match a recorded key whose
+// installation still has its seal, and every host library the installation
+// copied is unchanged, the installation is reused instead of rebuilt
+// (installation-store.mjs). CARTULARY_BUILD_CACHE_DISABLE=1 neither reads nor
+// records keys; CARTULARY_FORCE_REBUILD=1 rebuilds and records.
 const cacheDisabled = process.env.CARTULARY_BUILD_CACHE_DISABLE === "1";
 const forceRebuild = process.env.CARTULARY_FORCE_REBUILD === "1";
 const require = createRequire(path.join(repository, "packages/report-renderer/package.json"));
@@ -86,16 +92,11 @@ async function treeDigests(directory, label, skip = () => false) {
 async function inputKey() {
   const material = [];
   const file = async (label, name) => material.push(`${label}\t${name}\t${await fileDigest(name)}`);
-  for (const name of ["tools/report-renderer/build-runtime.mjs", "tools/harness/test-catalog/restricted-input-boundary.mjs",
-    "tools/harness/backend/build-go-artifact.sh", "pnpm-lock.yaml", "tools/toolchain_pins.json", "go.mod", "go.sum"]) await file("repository", name);
-  material.push(...await treeDigests("packages/report-renderer", "renderer_package", (name) => name === "node_modules"));
-  const go = process.env.GO || "go";
-  material.push(`go_version\t${run(go, ["env", "GOVERSION"]).trim()}`);
-  const listed = run(go, ["list", "-deps", "-f", '{{if not .Standard}}{{.Dir}}{{"\t"}}{{join .GoFiles " "}} {{join .EmbedFiles " "}}{{end}}', "./cmd/render-sandbox"]);
-  for (const line of listed.split("\n").filter(Boolean).sort()) {
-    const [directory, names] = line.split("\t");
-    for (const name of names.split(" ").filter(Boolean).sort()) await file("go_closure", path.relative(repository, path.join(directory, name)));
-  }
+  for (const name of ["tools/report-renderer/build-runtime.mjs", "tools/report-renderer/installation-store.mjs",
+    "tools/harness/test-catalog/restricted-input-boundary.mjs", "pnpm-lock.yaml"]) await file("repository", name);
+  material.push(`pins\t${JSON.stringify({ node_version: pins.node_version, pnpm_version: pins.pnpm_version, bubblewrap_version: pins.bubblewrap_version, report_renderer: pins.report_renderer })}`);
+  material.push(`render_sandbox_root\t${sandboxRoot}`);
+  material.push(...await treeDigests("packages/report-renderer", "renderer_package", omitPackage));
   material.push(`node\t${await fileDigest(await realpath(process.execPath))}`);
   material.push(...await treeDigests(path.dirname(chromiumBinary), "chromium"));
   material.push(`bwrap\t${await fileDigest(await realpath(run("which", ["bwrap"]).trim()))}`);
@@ -115,6 +116,7 @@ if (key && !forceRebuild) {
     const staging = await mkdtemp(path.join(output, ".receipt-"));
     try { await publishReceipt(output, identity, staging); }
     finally { await rm(staging, { recursive: true, force: true }); }
+    await collect(output);
     process.stdout.write(`report renderer installation: ${identity} (reused)\n`);
     process.exit(0);
   }
@@ -124,9 +126,7 @@ const work = await mkdtemp(path.join(output, ".build-"));
 root = path.join(work, "root");
 try {
   await mkdir(root);
-  const binary = path.join(work, "render-sandbox");
-  run("bash", ["tools/harness/backend/build-go-artifact.sh"], { env: { ...process.env, BUILD_OUTPUT: binary, BUILD_PACKAGE: "./cmd/render-sandbox", BUILD_LABEL: "build renderer confinement launcher", ...runContextEnvironment({ target: "build-report-renderer" }) } });
-  await copyRegular(binary, path.join(root, "bin/cartulary-render-sandbox"));
+  await copyRegular(sandbox, path.join(root, "bin/cartulary-render-sandbox"));
 
   // Stage only executable package inputs before pnpm inspects its workspace.
   // New deploy mode derives a frozen dedicated lock; legacy resolution is not used.
@@ -231,16 +231,23 @@ try {
   const identity = sha(bytes);
   await writeFile(path.join(work, "manifest.json"), bytes);
   const destination = path.join(output, identity);
-  try { await rename(root, path.join(output, `${identity}.root`)); }
+  const installed = path.join(output, `${identity}.root`);
+  try { await rename(root, installed); }
   catch (error) {
     if (!["EEXIST", "ENOTEMPTY"].includes(error.code)) throw error;
-    if (JSON.stringify(await inventory(path.join(output, `${identity}.root`))) !== JSON.stringify(files)) throw new Error("existing runtime installation was altered");
+    // An existing root with these files is this installation. One altered
+    // after sealing is set aside, never reused, and collected later.
+    if (JSON.stringify(await inventory(installed)) !== JSON.stringify(files)) {
+      await rename(installed, path.join(output, `.altered-${identity}-${path.basename(work)}`));
+      await rename(root, installed);
+    }
   }
   // Immutable content-addressed roots; the receipt is the sole mutable pointer.
   try { await writeFile(`${destination}.json`, bytes, { flag: "wx" }); }
   catch (error) { if (error.code !== "EEXIST" || await readFile(`${destination}.json`, "utf8") !== bytes) throw error; }
   await publishReceipt(output, identity, work);
-  if (key) await recordKey(output, key, identity, work);
+  if (key) await recordKey(output, key, identity, await seal(installed), work);
+  await collect(output);
   process.stdout.write(`report renderer installation: ${identity}\n`);
 } finally {
   await rm(work, { recursive: true, force: true });

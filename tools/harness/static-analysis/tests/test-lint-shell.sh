@@ -268,6 +268,8 @@ if [[ "$strict_status" -eq 0 ]]; then
 fi
 assert_contains "$strict_output" "SC2086 simulated finding" "strict mode finding output"
 
+# The lint unit's planner cache reuses a result, so the wrapper keeps no
+# cache of its own: every invocation runs ShellCheck.
 make_fixture_repo cache_repo
 mkdir -p "$cache_repo/scripts"
 printf '%s\n' '#!/usr/bin/env bash' 'echo ok' >"$cache_repo/scripts/good.sh"
@@ -275,11 +277,9 @@ track_all "$cache_repo"
 cache_fake_shellcheck="$(make_counting_shellcheck "$cache_repo")"
 cache_args_log="$cache_repo/shellcheck-args.log"
 cache_run_log="$cache_repo/shellcheck-run.log"
-cache_dir="$cache_repo/static-cache"
 
-run_cached_shellcheck() {
+run_counted_shellcheck() {
   CARTULARY_SHELLCHECK_ROOT="$cache_repo" \
-  CARTULARY_STATIC_ANALYSIS_CACHE_DIR="$cache_dir" \
   SHELLCHECK_BIN="$cache_fake_shellcheck" \
   LINT_SHELL_STRICT=1 \
   FAKE_SHELLCHECK_ARGS_LOG="$cache_args_log" \
@@ -287,34 +287,14 @@ run_cached_shellcheck() {
     "$SCRIPT" 2>&1
 }
 
-cache_first_output="$(run_cached_shellcheck)"
-assert_contains "$cache_first_output" "1 files checked" "lint-shell cache first run output"
-assert_equals "$(count_shellcheck_runs "$cache_run_log")" "1" "lint-shell cache first run executes shellcheck"
-
-cache_second_output="$(run_cached_shellcheck)"
-assert_contains "$cache_second_output" "1 files checked" "lint-shell cache hit output"
-assert_equals "$(count_shellcheck_runs "$cache_run_log")" "1" "lint-shell cache hit skips shellcheck"
-
-printf '%s\n' 'echo changed' >>"$cache_repo/scripts/good.sh"
-cache_input_change_output="$(run_cached_shellcheck)"
-assert_contains "$cache_input_change_output" "1 files checked" "lint-shell cache input-change output"
-assert_equals "$(count_shellcheck_runs "$cache_run_log")" "2" "lint-shell cache input change executes shellcheck"
-
-mapfile -t cache_records < <(find "$cache_dir" -type f -name '*.json' | sort)
-if [[ "${#cache_records[@]}" -eq 0 ]]; then
-  fail "lint-shell cache corrupt fixture: expected cache record"
-fi
-for cache_record in "${cache_records[@]}"; do
-  printf '{bad json\n' >"$cache_record"
+for run in 1 2; do
+  counted_output="$(run_counted_shellcheck)"
+  assert_contains "$counted_output" "1 files checked" "lint-shell run $run output"
+  assert_equals "$(count_shellcheck_runs "$cache_run_log")" "$run" "lint-shell run $run executes shellcheck"
 done
-cache_corrupt_output="$(run_cached_shellcheck)"
-assert_contains "$cache_corrupt_output" "1 files checked" "lint-shell cache corrupt-record output"
-assert_equals "$(count_shellcheck_runs "$cache_run_log")" "3" "lint-shell cache corrupt record executes shellcheck"
-
-rm -f "$cache_dir/outputs/lint-shell.ok"
-cache_missing_output="$(run_cached_shellcheck)"
-assert_contains "$cache_missing_output" "1 files checked" "lint-shell cache missing-output output"
-assert_equals "$(count_shellcheck_runs "$cache_run_log")" "4" "lint-shell cache missing output executes shellcheck"
+if [[ -e "$cache_repo/.cache/cartulary/static-analysis" ]]; then
+  fail "lint-shell wrote a private cache"
+fi
 
 make_fixture_repo make_strict_repo
 mkdir -p "$make_strict_repo/scripts"

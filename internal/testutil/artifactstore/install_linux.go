@@ -96,6 +96,18 @@ func nodeEnvironment(env []string, runtime string) []string {
 		"COREPACK_HOME="+filepath.Join(runtime, "corepack"))
 }
 
+// executableIn resolves name on env's PATH, where the command it names runs,
+// rather than on this process's own.
+func executableIn(env []string, name string) string {
+	for _, directory := range filepath.SplitList(environmentValue(env, "PATH")) {
+		candidate := filepath.Join(directory, name)
+		if info, err := os.Stat(candidate); err == nil && info.Mode().IsRegular() && info.Mode().Perm()&0o111 != 0 {
+			return candidate
+		}
+	}
+	return name
+}
+
 // probe runs a readiness probe and reports whether it succeeded. A probe that
 // cannot start is an error; one that runs and fails means "not current".
 func probe(command *exec.Cmd) (bool, error) {

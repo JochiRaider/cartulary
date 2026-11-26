@@ -108,7 +108,6 @@ copy_minimal_repo() {
   cp "${ROOT_DIR}/tools/toolchain_pins.json" "${dest}/tools/toolchain_pins.json"
   cp -R "${ROOT_DIR}/tools/harness" "${dest}/tools/harness"
   cp -R "${ROOT_DIR}/tools/schemas" "${dest}/tools/schemas"
-  cp "${ROOT_DIR}/tools/harness/readiness/list-build-inputs.sh" "${dest}/tools/harness/readiness/list-build-inputs.sh"
   cp "${ROOT_DIR}/tools/harness/readiness/toolchain-pin-check-cli.mjs" "${dest}/tools/harness/readiness/toolchain-pin-check-cli.mjs"
   cp "${ROOT_DIR}/tools/harness/execution/cartulary-runner-cli.mjs" "${dest}/tools/harness/execution/cartulary-runner-cli.mjs"
   cp "${ROOT_DIR}/tools/harness/contract/harness-contract-cli.mjs" "${dest}/tools/harness/contract/harness-contract-cli.mjs"

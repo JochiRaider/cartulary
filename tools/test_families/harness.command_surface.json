@@ -3,50 +3,6 @@
   "owner_id": "harness.command_surface",
   "rows": [
     {
-      "row_id": "harness.command_surface.behavior.build_input_discovery",
-      "owner_id": "harness.command_surface",
-      "family_id": "harness.command_surface.behavior",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "harness.command_surface.verification.helper_scripts"
-      ],
-      "runner": "shell",
-      "selector": {
-        "operation_id": "harness.assurance_build_input_discovery"
-      },
-      "evidence_class": "static",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "harness_contract",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "none",
-      "aggregate_placement": "explicit_only",
-      "service_dependencies": [],
-      "postgres_isolation": "none"
-    },
-    {
-      "row_id": "harness.command_surface.behavior.cache_artifact",
-      "owner_id": "harness.command_surface",
-      "family_id": "harness.command_surface.behavior",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "harness.command_surface.verification.helper_scripts"
-      ],
-      "runner": "shell",
-      "selector": {
-        "operation_id": "harness.assurance_cache_artifact"
-      },
-      "evidence_class": "static",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "harness_contract",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "none",
-      "aggregate_placement": "explicit_only",
-      "service_dependencies": [],
-      "postgres_isolation": "none"
-    },
-    {
       "row_id": "harness.command_surface.behavior.capacity_failure_contract",
       "owner_id": "harness.command_surface",
       "family_id": "harness.command_surface.behavior",
@@ -836,6 +792,7 @@
           "TestEmbeddedAssetsKey",
           "TestFrontendInstall",
           "TestGeneratedMakeDefaultsMatchProducers",
+          "TestGoBinaryBuildsAndReceipts",
           "TestGoBinaryKeyCoversItsImportClosure",
           "TestGoToolKey",
           "TestNodeArchiveIsVerified",
@@ -844,7 +801,10 @@
           "TestProduceSealsReusesAndPublishesViews",
           "TestPublishRefusesUnverifiedBytes",
           "TestRegisteredProducersPlan",
+          "TestReleaseInventoryGenerates",
+          "TestReportRendererGetsItsLauncherFromTheStore",
           "TestShellCheckArchiveIsVerified",
+          "TestTestServiceImagesReuseNeedsEveryImage",
           "TestWebBundleKey"
         ]
       },

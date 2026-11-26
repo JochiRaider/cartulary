@@ -37,7 +37,6 @@ FIXTURE_TOP ?= 5
 NODE_RUNTIME_DIR ?= $(CURDIR)/$(LAYOUT_NODE_RUNTIME)
 NODE_BIN ?= $(NODE_RUNTIME_DIR)/bin/node
 PNPM ?= $(NODE_RUNTIME_DIR)/bin/pnpm
-REPORT_RENDERER_RECEIPT := $(CURDIR)/build/report-renderer/installation.json
 GOVULNCHECK_FLAGS ?= -test
 GOVULNCHECK_PATTERNS ?= ./cmd/... ./internal/... ./db/... ./tools/...
 GOVULNCHECK_DB ?=
@@ -56,15 +55,11 @@ GOSEC_AUDIT_SUPPORT_PATTERNS ?=
 SCHEDULER_MANIFEST ?= $(CURDIR)/tools/scheduler_manifest.json
 EXECUTION_TOPOLOGY_MANIFEST ?= $(CURDIR)/tools/execution_topology_manifest.json
 OBJECT_STORE_BUCKET ?= cartulary
-CARTULARY_BUILD_CACHE_DIR ?= $(CURDIR)/$(LAYOUT_BUILD_ARTIFACTS)
 RUN_STEP_SCRIPT := $(CURDIR)/tools/harness/execution/run-step.sh
 TEST_OUTPUT_SCRIPT := $(CURDIR)/tools/harness/output/test-output.mjs
 CARTULARY_RUNNER_SCRIPT := $(CURDIR)/tools/harness/execution/cartulary-runner-cli.mjs
 TASK_SURFACE_MANIFEST ?= $(CURDIR)/tools/task_surface_manifest.json
-GO_TOOLCHAIN_READINESS_IMPL := tools/harness/readiness/go-toolchain-readiness.sh
-GO_TOOLCHAIN_READINESS = bash $(GO_TOOLCHAIN_READINESS_IMPL) ensure
 HARNESS_CONTRACT_CLI := $(CURDIR)/tools/harness/contract/harness-contract-cli.mjs
-FOUNDATION_SCHEMA_VALIDATORS := $(CURDIR)/tools/harness/contract/generated/foundation-schema-validators.cjs
 RUN_HARNESS_PREFLIGHT = $(NODE_BIN) $(HARNESS_CONTRACT_CLI) preflight
 
 DEFAULT_CARTULARY_TEST_RESULTS_DIR := $(CURDIR)/$(LAYOUT_TEST_RESULTS)
@@ -108,25 +103,8 @@ TESTCONTAINERS_GO_VERSION := v0.42.0
 # exports.
 PRODUCE = mkdir -p "$(GO_CACHE_DIR)" "$(GO_MOD_CACHE_DIR)" "$(GO_TMP_DIR)" && env GOCACHE="$(GO_CACHE_DIR)" GOMODCACHE="$(GO_MOD_CACHE_DIR)" GOTMPDIR="$(GO_TMP_DIR)" NODE_BIN="$(NODE_BIN)" NODE_RUNTIME_DIR="$(NODE_RUNTIME_DIR)" PNPM="$(PNPM)" GO="$(GO)" RUN_STEP_SCRIPT="$(RUN_STEP_SCRIPT)" "$(GO)" run ./tools/harnessbuild produce
 
-FORCE:
-
 include tools/task_surface.runtime.generated.mk
 include tools/task_surface.generated.mk
-
-$(SBOM_ARTIFACT) $(LICENSE_REPORT_ARTIFACT) &: tools/release-evidence/generate-sbom-license-evidence.mjs tools/release-evidence/validate-cyclonedx.mjs tools/release-evidence/validate-license-report.mjs tools/release-evidence/validate-release-sbom.mjs tools/schemas/cartulary.license_report.v2.schema.json go.mod go.sum package.json pnpm-lock.yaml pnpm-workspace.yaml docker-compose.dev.yml $(wildcard apps/web/package.json packages/*/package.json)
-	$(Q)$(GO_TOOLCHAIN_READINESS)
-	$(Q)$(PRODUCE) frontend-install cyclonedx-gomod syft
-	$(Q)mkdir -p $(RELEASE_ARTIFACT_DIR) $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR) $(GO_TMP_DIR)
-	$(Q)CARTULARY_TEST_TARGET=release-evidence CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "generate SBOM/license evidence" -- env PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" COREPACK_HOME="$(NODE_RUNTIME_DIR)/corepack" GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" NODE_BIN="$(NODE_BIN)" PNPM="$(PNPM)" CYCLONEDX_GOMOD_BIN="$(CYCLONEDX_GOMOD_BIN)" SYFT_BIN="$(SYFT_BIN)" RELEASE_ARTIFACT_DIR="$(RELEASE_ARTIFACT_DIR)" LICENSE_REPORT_ARTIFACT="$(LICENSE_REPORT_ARTIFACT)" SBOM_ARTIFACT="$(SBOM_ARTIFACT)" $(NODE_BIN) ./tools/release-evidence/generate-sbom-license-evidence.mjs
-
-$(FOUNDATION_SCHEMA_VALIDATORS): internal/testutil/harnessdiag/testdata/schema-probes.json tools/task_surface_owner.json tools/harness/generated-artifacts/native-command-policy.mjs tools/harness/generated-artifacts/native-schema-validators.mjs tools/harness/generated-artifacts/schema-validator-compiler.mjs tools/harness/generated-artifacts/generate-foundation-schema-validators.mjs tools/harness/generated-artifacts/generated-transaction.mjs tools/harness/generated-artifacts/instrumentation-definitions.mjs tools/harness/generated-artifacts/instrumentation-shapes.mjs tools/harness/generated-artifacts/admission-vocabulary.mjs tools/harness/generated-artifacts/lifecycle-policy.mjs tools/harness/generated-artifacts/native-runtime-policy.mjs tools/harness/generated-artifacts/redaction-policy.mjs tools/harness/contract/failure-taxonomy.mjs tools/harness/contract/redaction-vocabulary.mjs tools/harness_instrumentation_definitions.json tools/harness_lifecycle_policy.json tools/harness_redaction_manifest.json tools/harness_schema_attachments.json tools/scheduler_resource_registry.json $(wildcard tools/schemas/*.schema.json)
-	$(Q)$(PRODUCE) node-runtime
-	$(Q)$(NODE_BIN) ./tools/harness/generated-artifacts/generate-foundation-schema-validators.mjs
-
-$(REPORT_RENDERER_RECEIPT): FORCE tools/report-renderer/build-runtime.mjs
-	$(Q)$(GO_TOOLCHAIN_READINESS)
-	$(Q)$(PRODUCE) playwright
-	$(Q)CARTULARY_TEST_TARGET=build-report-renderer CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "build isolated reporting runtime" -- env GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" NODE_BIN="$(NODE_BIN)" PNPM="$(PNPM)" RUN_STEP_SCRIPT="$(RUN_STEP_SCRIPT)" $(NODE_BIN) tools/report-renderer/build-runtime.mjs
 
 endif # workspace admission
 

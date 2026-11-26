@@ -2609,22 +2609,29 @@ binary whose cache key is otherwise unchanged. Source-snapshot, release, and aud
 provenance remain owned by their retained harness evidence; a cached binary MUST NOT
 silently acquire a second provenance identity from ambient Git metadata.
 
-The isolated report renderer installation is a build-artifact profile with an
-in-place store (amended 2026-11-25, G37). Its installations are immutable,
-content-addressed roots under `build/report-renderer`, and the receipt
-`installation.json` is the only mutable pointer. The build computes an input
-key over its own script and imports, the Go build helper, the
-`./cmd/render-sandbox` package closure with the module files and Go version,
-the renderer package tree without its `node_modules`, the lockfile, the
-toolchain pins, and the host Node executable, Chromium headless shell
-directory, bubblewrap executable and Liberation fonts it copies. When a key
-recorded under `build/report-renderer/keys` names an installation whose
-manifest still has its digest and whose root holds exactly the manifest's
-files, and every host library that installation copied still has its recorded
-digest, the build only republishes the receipt; otherwise it builds and
-records the key, and refuses an existing root that was altered. `CARTULARY_BUILD_CACHE_DISABLE=1`
-neither reads nor records keys and `CARTULARY_FORCE_REBUILD=1` rebuilds and
-records. Application startup still admits the whole receipt-bound
+The isolated report renderer installation is a registered producer with an
+in-place store (amended 2026-11-25, G37, and 2026-11-26, P5-3c). Its
+installations are immutable, content-addressed roots under
+`build/report-renderer`, and the receipt `installation.json` is the only
+mutable pointer. The harness artifact store builds its confinement launcher,
+`./cmd/render-sandbox`, as a Go binary, and the build holds an exclusive lock
+beside the installation directory. The build computes an input key over its
+own script and store, the launcher's store root, the renderer package's
+runtime sources without `node_modules`, tests or documentation, the lockfile,
+the Node, pnpm, bubblewrap and renderer package pins, and the host Node
+executable, Chromium headless shell directory, bubblewrap executable and
+Liberation fonts it copies. A key record also holds the seal of the root it
+names: a digest of every entry's path, mode, size, inode and modification and
+change times, taken when the root was sealed. When a key recorded under
+`build/report-renderer/keys` names an installation whose manifest still has
+its digest and whose root still has its seal, and every host library that
+installation copied still has its recorded digest, the build only
+republishes the receipt; otherwise it builds and records the key. An existing
+root with other files is set aside, never reused. Collection removes key
+records unused for 30 days, then installations that neither the receipt nor a
+record names once an hour has passed since they were written, and set-aside
+roots after 30 days. `CARTULARY_BUILD_CACHE_DISABLE=1` neither reads nor
+records keys and `CARTULARY_FORCE_REBUILD=1` rebuilds and records. Application startup still admits the whole receipt-bound
 installation under the Reporting NLSpec, so reuse never bypasses its
 verification.
 
@@ -2669,7 +2676,8 @@ root built with the cache disabled, then quarantined roots after 30 days.
 
 Installations are registered producers that install in place (amended
 2026-11-26, P5-3c): the Node runtime with the pinned pnpm, the workspace's
-frontend dependencies, and the Playwright browsers. Tools write and read them
+frontend dependencies, the Playwright browsers and the test service images
+(its clause below). Tools write and read them
 at fixed paths, so they are not store roots. A receipt written last beside
 each installation records what it was installed from and is its only key
 record, so an installation replaced by another never reuses a stale record.
@@ -2695,13 +2703,24 @@ or `CARTULARY_FORCE_REBUILD=1` reinstalls. Under the `installed_only`
 preparation policy an installation producer installs nothing, and a missing or
 stale installation fails as configuration.
 
+The release inventory is a registered producer that regenerates the SBOM and
+license report as a pair each time it is produced (amended 2026-11-26,
+P5-3c). Its inputs include the package graph of every Go module and the
+installed frontend packages, which no file list captures, so the store keeps
+no key for it; its unit's content-addressed cache reuses the two outputs. Its
+requirements are the frontend dependencies and the pinned SBOM scanners.
+
+Every artifact prerequisite of an operation or public recipe names a
+registered producer (amended 2026-11-26, P5-3c). No operation, recipe or
+script re-enters Make to make a file; Make has no file rules.
+
 Cache hits MAY skip only the exact registered semantic unit. They MUST still
 validate and publish every declared current-run output, emit cache events, and
 contribute to the same target projections and aggregate verdict. A cache hit
 MUST NOT bypass service readiness, fixture cleanup, runtime reset, destructive
 guards, failure projection, or publication of canonical current-run evidence.
 
-Test-service image readiness is a readiness cache profile only, under the store's two controls (amended 2026-11-26, P5-3c). Its cache key MUST include the testservices binary digest, image-owner source digests, helper implementation digests, and toolchain pins. A cache hit MUST still prove that every pinned service image named by the testservices helper is locally present before accepting the readiness stamp; missing images invalidate the stamp and force the ordinary image warmup command. The browser installation follows the same rule for Chromium and the pinned visual renderer image: reuse MUST still pass the browser readiness proof, which shows the image locally present with its pinned repository digest and platform, and a missing, mismatched, or unprovable image installs again, which pulls it. The installed-only browser readiness probe applies the same proof and reports a missing or mismatched image under the browser installation subject `chromium` with the `playwright_install` recovery. This cache profile MUST NOT replace service startup readiness, test service lifecycle evidence, browser reset, cleanup, fixture preparation, or product-conformance evidence.
+Test-service image readiness is an installation producer (amended 2026-11-26, P5-3c). Its key MUST include the testservices binary digest, which compiles in every pinned image reference, and its producer. Reuse MUST still prove that every pinned service image named by the testservices helper is locally present; a missing image installs again, which runs the ordinary image warmup. The browser installation follows the same rule for Chromium and the pinned visual renderer image: reuse MUST still pass the browser readiness proof, which shows the image locally present with its pinned repository digest and platform, and a missing, mismatched, or unprovable image installs again, which pulls it. The installed-only browser readiness probe applies the same proof and reports a missing or mismatched image under the browser installation subject `chromium` with the `playwright_install` recovery. This reuse MUST NOT replace service startup readiness, test service lifecycle evidence, browser reset, cleanup, fixture preparation, or product-conformance evidence.
 
 Cache records that are missing, bypassed, invalid, corrupt, or whose declared
 outputs are missing or digest-mismatched MUST NOT produce success by reuse.
@@ -4142,7 +4161,7 @@ Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-002, TH-HARNESS-AC-003
 | `GOCACHE`, `GOMODCACHE`, `GOTMPDIR`                                                            | toolchain child env     | exact projections of the resolved Cartulary path variables; inside a graph invocation, `GOTMPDIR` is its private directory beneath `GO_TMP_DIR` | resolved `GO_CACHE_DIR`, `GO_MOD_CACHE_DIR`, and `GO_TMP_DIR` | internal child environment only | invalid | no caller alias translation or fallback | caller Make override is `usage_error`, exit `2`; inherited values are stripped or overwritten | omitted |
 | `GO_TOOLCHAIN`, `GOTOOLCHAIN`                                                                  | toolchain               | exact reviewed Go toolchain token                                                                                     | exact reviewed `go_toolchain` from `tools/toolchain_pins.json`, mirrored in `go.mod` and Make | internal Make projection only                  | invalid                                                 | exact token; `GOTOOLCHAIN` is forced to the repository pin for Make-owned Go work                            | `configuration_error`, exit `2`                                                    | launcher version, exact effective version, and source |
 | `NODE_VERSION`, `PNPM_VERSION`, `NODE_RUNTIME_DIR`, `NODE_BIN`, `PNPM`, `COREPACK_HOME`, `PATH` | toolchain               | version token or filesystem path                                                                                      | Node `24.15.0`, pnpm `10.33.0`, repo-local `.cache/cartulary/node-runtime`                             | Make variable, env, default                     | invalid for paths/versions unless row-specific optional | exact version token; path normalization                                                                       | `configuration_error`, exit `2`                                                    | version and runtime path                           |
-| `CARTULARY_BUILD_CACHE_DIR`, `CARTULARY_BUILD_CACHE_DISABLE`, `CARTULARY_FORCE_REBUILD`          | harness cache           | repo-local path for cache dir; exact `1` for disable or force rebuild                                                  | `.cache/cartulary/build-artifacts`; false; false                                           | Make variable, env, default                     | invalid for path; false for boolean flags                | path normalization; exact string compare for flags                                                           | invalid path is `configuration_error`; non-`1` flags are false                     | cache state and record path only                   |
+| `CARTULARY_BUILD_CACHE_DISABLE`, `CARTULARY_FORCE_REBUILD`                                       | harness cache           | exact `1` for disable or force rebuild                                                                                 | false; false                                                                               | Make variable, env, default                     | false                                                    | exact string compare                                                                                         | non-`1` flags are false                                                            | cache state only                                   |
 | `CONFIG_FILE`, `CARTULARY_CONFIG_FILE`                                                          | app runtime             | config file path                                                                                                      | `configs/dev/config.toml` for local/dev/browser targets                                   | Make variable, env, config binding, default     | omitted                                                 | path normalization; `CARTULARY_CONFIG_FILE` wins only inside application runtime when both are passed through | harness invalid path: `configuration_error`; app invalid config: target failure    | path, not file contents                            |
 | `TEST_SERVICES_BIN`, `CARTULARY_TEST_SERVICES_BIN`                                              | service suite           | executable path                                                                                                       | `.cache/cartulary/toolbin/cartulary-test-services`                                                     | Make variable, env, default                     | invalid                                                 | path normalization                                                                                            | `configuration_error`, exit `2`                                                    | normalized path                                    |
 | `CARTULARY_OPERATOR_BIN`                                                                         | runtime binary          | scheduler-owned executable path for operator Go tests and browser-owned operator fixtures                                                        | produced by `build COMPONENT=operator` from `OPERATOR_BIN`; current default `operator`              | scheduler/runtime wiring only; not public Make command line | invalid for canonical scheduler-selected operator scenario work | path normalization; existing regular executable file; symlinks rejected | missing, empty, non-regular, non-executable, or caller command-line override is `configuration_error`, exit `2`; build-artifact digest/provenance mismatch is `artifact_error`, exit `11` | source, normalized path, producer target, file digest, build-artifact reference |
@@ -9529,7 +9548,7 @@ algorithm is:
    proof fails as configuration; ordinary review never creates installation proof.
    Optimization cache absence or invalidity alone does not fail readiness.
 2. Build the current run's sealed frontend, embedded assets, server harness,
-   migration binary and test-services helper through existing Make producers in
+   migration binary and test-services helper through registered producers in
    dependency order. Validate actual artifacts, not executable existence alone.
    Nested Make and Go inherit installed-only execution: no package installation,
    automatic toolchain download, browser download or image pull. Missing build
@@ -12017,7 +12036,7 @@ expected behavior. Failure codes below are normalized wrapper codes.
 | TH-HARNESS-AC-171 | REQ-872 | Go units over passing, failing, skipped and missing tests; typed setup and cleanup markers, split, interleaved, truncated, oversized, conflicting and malformed; an event line over 1 MiB; a race context, a shuffle seed and an independent-module package; an unregistered module package; a relative machine cache path; a nonzero exit with every row passed | Each unit's command is the exact `go test` invocation and its Go bindings carry their tests; rows settle by the adapter's rules and publish as schema-valid results; the unit passes exactly when its rows pass; failure detail and `[FAIL]` lines reach the error log; a passing unit retains no standard output; the master key reaches only the repository's own module; durations are written under basic diagnostics | A broadened `-run`, a missing `-race`, `-shuffle` or `-C`, a row settled from an over-bound stream, a malformed marker attributed, a unit outcome that disagrees with its rows, or a module receiving the test key fails. |
 | TH-HARNESS-AC-172 | REQ-807 | Go integration rows owning their PostgreSQL generation, a shared-generation transaction or an object-store namespace; process-exclusive, migration, measurement, security, visual and release rows; a changed migration; a release `ci` root with the cache on | The owned-fixture rows are cacheable and their keys hold the test-services helper and the migrated template digest; the other rows stay uncached; a migration change changes the keys; release evidence refuses the cached `ci` root | A shared or process-exclusive fixture row reused, a key that ignores a migration change, or a release `ci` accepted with the cache on fails. |
 | TH-HARNESS-AC-173 | REQ-807 | Go and Vitest units; a change to a runner package or module, to a Node module a Go closure names by a literal path, to an unrelated harness module and to the planning estimates; a computed import inside and outside the declared externals | A Go key holds its packages' closure, the Go runner's package closure and every named repository file with a named module's closure; a Vitest key holds its workspaces and the JavaScript runner's module closure; only changes inside a closure change a key; an undeclared computed import selects the broad closure | A key unchanged by a change inside its closure, a key changed by an unrelated harness module or by the estimates, or an incomplete closure used instead of the broad one fails. |
-| TH-HARNESS-AC-174 | REQ-060 | Two renderer builds with unchanged inputs; a changed renderer source, lockfile or host library; a tampered installation root; `CARTULARY_BUILD_CACHE_DISABLE=1` and `CARTULARY_FORCE_REBUILD=1` | The second unchanged build only republishes the receipt; any changed input or copied library rebuilds and records a new key, and a tampered root is never reused; the disable flag neither reads nor records keys and the force flag rebuilds | A reused installation after an input change, a reuse that skips the integrity check, or a recorded key under the disable flag fails. |
+| TH-HARNESS-AC-174 | REQ-060 | Two renderer builds with unchanged inputs; a changed renderer source, lockfile or host library; a tampered installation root or a changed mode in it; a record without a seal; unnamed, recorded and stale installations at collection; `CARTULARY_BUILD_CACHE_DISABLE=1` and `CARTULARY_FORCE_REBUILD=1` | The second unchanged build only republishes the receipt; any changed input or copied library rebuilds and records a new key, and a root that lost its seal is never reused; collection keeps what the receipt or a recent record names; the disable flag neither reads nor records keys and the force flag rebuilds | A reused installation after an input change, a reuse that skips the integrity check, or a recorded key under the disable flag fails. |
 | TH-HARNESS-AC-175 | REQ-802, REQ-803 | A graph of ready units whose claims and residents exceed the ledger, a cached unit, another owner's older waiting request and exclusive fence, a ledger change by another process, and a graph with no running unit | The scheduler admits only units the ledger view grants with every claim and resident together; a denied unit holds no token and names its deficits or `host_admission`; a cached unit never reaches the ledger; waiters wake on a ledger change; with nothing running the top-ranked fitting unit waits in host admission; PostgreSQL work and generations are each charged once | A token held by a denied unit, a partial grant, a cache hit admitted, a waiter that only polls, or a generation charged twice fails. |
 | TH-HARNESS-AC-176 | REQ-802 | A ready high-ranked unit the ledger denies and lower-ranked units that do and do not claim the resources it lacks | Lower-ranked units claiming none of the reserved resources are admitted; one claiming a reserved resource waits; the high-ranked unit is admitted when its resources free | A backfill that takes a reserved resource or a reservation that blocks unrelated work fails. |
 
