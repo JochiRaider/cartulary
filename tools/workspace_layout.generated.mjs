@@ -31,6 +31,7 @@ export const workspaceLayout = Object.freeze({
   "readiness": ".cache/cartulary/readiness",
   "build_artifacts": ".cache/cartulary/build-artifacts",
   "graph_cache": ".cache/cartulary/graph-v2",
+  "artifact_store": ".cache/cartulary/store",
   "static_analysis_cache": ".cache/cartulary/static-analysis",
   "root_dependencies": "node_modules",
   "root_vite_dependencies": "node_modules/.vite",

@@ -2591,6 +2591,9 @@ Locations are not key material (amended 2026-11-26): scratch, cache and
 per-run directories reach a producer through its environment, never through
 its keyed command, and an input directory is keyed by its files relative to
 that directory, so a per-run copy of the same tree is the same input.
+A cached unit's key covers its result identity (amended 2026-11-26, P5-3b):
+estimates, resource claims, residents, locks, the timeout and a Go unit's CPU
+budget schedule a unit and are not key material.
 
 Cached Go build-artifact profiles MUST pass `-buildvcs=false`. Git revision and
 dirty-worktree stamping are undeclared repository-state inputs and MUST NOT alter a
@@ -2616,6 +2619,23 @@ neither reads nor records keys and `CARTULARY_FORCE_REBUILD=1` rebuilds and
 records. Application startup still admits the whole receipt-bound
 installation under the Reporting NLSpec, so reuse never bypasses its
 verification.
+
+Go binaries are produced into the harness artifact store (amended 2026-11-26,
+P5-3b), the workspace layout's `artifact_store` directory. A producer's outputs
+form one immutable root named by the digest of its manifest, and a key record
+names the root a producer key built. The paths consumers read, `build/bin/*`
+and the harness tool binaries, are views: single-link copies of the root's
+files, each copied only from bytes with its manifest digest and swapped into
+place by rename under a lock per view, a receipt after its binary. A view is never a hard link, because product code opens its
+own executable only as a single-link file. A root that no longer matches its manifest is rebuilt and quarantined,
+never reused. A Go binary's key covers its declaration (package, tags and
+output names), its import closure, the module files, the effective `go env`
+settings, the Node version, the pinned toolchain and cryptographic module, and
+the receipt writer and producer implementations; it never covers a launcher
+script or a location. `CARTULARY_BUILD_CACHE_DISABLE=1` neither reads nor
+records keys and `CARTULARY_FORCE_REBUILD=1` rebuilds and records. A build
+collects at most 16 entries: key records unused for 30 days, then roots that no
+record names.
 
 Cache hits MAY skip only the exact registered semantic unit. They MUST still
 validate and publish every declared current-run output, emit cache events, and

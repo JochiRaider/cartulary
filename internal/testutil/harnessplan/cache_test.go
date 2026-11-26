@@ -235,6 +235,34 @@ func TestCacheFacts(t *testing.T) {
 		}
 	})
 
+	t.Run("scheduling fields never change a key", func(t *testing.T) {
+		key := func(unit Unit) string {
+			t.Helper()
+			result, _, err := facts(&unit)
+			if err != nil {
+				t.Fatal(err)
+			}
+			return *result[0].InputDigest
+		}
+		base := *goUnit
+		base.Command = Command{Executable: "go", Args: []string{"test", "-json", "-p=1", "-run", "^(?:TestA)$", "./a"}, Environment: map[string]string{"GOMAXPROCS": "1"}}
+		scheduled := base
+		scheduled.EstimatedWorkMS, scheduled.TimeoutMS = 90000, 600000
+		scheduled.Claims = map[string]int64{"cpu": 4, "postgres": 1}
+		scheduled.Residents = []Resident{{Key: "cluster"}}
+		scheduled.SharedLocks, scheduled.ExclusiveLocks = []string{"host_activity"}, []string{"exclusive"}
+		scheduled.SemanticDigest = "sha256:" + digest("another schedule")
+		scheduled.Command = Command{Executable: "go", Args: []string{"test", "-json", "-p=4", "-run", "^(?:TestA)$", "./a"}, Environment: map[string]string{"GOMAXPROCS": "4"}}
+		if key(scheduled) != key(base) {
+			t.Fatal("a scheduling field changed a cache key")
+		}
+		selected := base
+		selected.Command = Command{Executable: "go", Args: []string{"test", "-json", "-p=1", "-run", "^(?:TestB)$", "./a"}, Environment: map[string]string{"GOMAXPROCS": "1"}}
+		if key(selected) == key(base) {
+			t.Fatal("another test selection kept its cache key")
+		}
+	})
+
 	t.Run("incomplete dependency knowledge selects the broad closure", func(t *testing.T) {
 		write("b/b.go", "package b\n\nimport _ \"example.com/m/missing\"\n")
 		defer write("b/b.go", "package b\n\nconst B = 1\n")

@@ -30,6 +30,7 @@ LAYOUT_TYPESCRIPT := .cache/cartulary/typescript
 LAYOUT_READINESS := .cache/cartulary/readiness
 LAYOUT_BUILD_ARTIFACTS := .cache/cartulary/build-artifacts
 LAYOUT_GRAPH_CACHE := .cache/cartulary/graph-v2
+LAYOUT_ARTIFACT_STORE := .cache/cartulary/store
 LAYOUT_STATIC_ANALYSIS_CACHE := .cache/cartulary/static-analysis
 LAYOUT_ROOT_DEPENDENCIES := node_modules
 LAYOUT_ROOT_VITE_DEPENDENCIES := node_modules/.vite

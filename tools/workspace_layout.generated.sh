@@ -2,7 +2,7 @@
 # shellcheck shell=bash
 # Shared declarations are consumed by sourced callers.
 # shellcheck disable=SC2034
-CARTULARY_LAYOUT_DIGESTS='c7a4297dc4df8567a445fc70caa91caf0eb09500fa9960f28e2c174ba65df330  tools/workspace_layout.json
+CARTULARY_LAYOUT_DIGESTS='94e0ab7c76ae1831b5a7efba7b9934b329356581b2dfd475ac88b1951e4319a2  tools/workspace_layout.json
 1d16e52b2bf2f26e091dd6b65771e2180257854318c4413617b9e6652c65c603  tools/schemas/cartulary.workspace_layout.v1.schema.json
 e1066bcfecafdae0255a5d737e377b5835c180c1acdea0730b76b1d320357961  tools/harness/workspace/layout.mjs'
 CARTULARY_LAYOUT_SCRATCH='tmp'
@@ -36,6 +36,7 @@ CARTULARY_LAYOUT_TYPESCRIPT='.cache/cartulary/typescript'
 CARTULARY_LAYOUT_READINESS='.cache/cartulary/readiness'
 CARTULARY_LAYOUT_BUILD_ARTIFACTS='.cache/cartulary/build-artifacts'
 CARTULARY_LAYOUT_GRAPH_CACHE='.cache/cartulary/graph-v2'
+CARTULARY_LAYOUT_ARTIFACT_STORE='.cache/cartulary/store'
 CARTULARY_LAYOUT_STATIC_ANALYSIS_CACHE='.cache/cartulary/static-analysis'
 CARTULARY_LAYOUT_ROOT_DEPENDENCIES='node_modules'
 CARTULARY_LAYOUT_ROOT_VITE_DEPENDENCIES='node_modules/.vite'
@@ -83,6 +84,7 @@ declare -a CARTULARY_CLEANUP_ENTRIES=(
   'readiness|distclean|.cache/cartulary/readiness'
   'build_artifacts|distclean|.cache/cartulary/build-artifacts'
   'graph_cache|distclean|.cache/cartulary/graph-v2'
+  'artifact_store|distclean|.cache/cartulary/store'
   'static_analysis_cache|distclean|.cache/cartulary/static-analysis'
   'root_dependencies|distclean|node_modules'
   'root_vite_dependencies|clean|node_modules/.vite'

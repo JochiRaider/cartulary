@@ -1370,6 +1370,7 @@ Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-am
 | 2026-11-26 | P5-2 / G43 | The six rows that start nested graphs are `explicit_only` in five explicit `harness-contract` presets; a graph refuses to start beneath an aggregate run of the same repository (D20) | `p73-generate`, `p73-plan-*`, `p73b-plan-*`; `p74-generate`, `p74-lintgo`, `p74-catalog`, `p74-generated`, `p74-runtime`, `p74-refused`, `p74-allowed`, `p74-nested`, `p74-realout`, `p74-lifetime`, `p74-md` | Pass. `ci` plans 2,652 rows in 500 units (2,658 in 506); `check` is unchanged; the presets keep their rows. A stand-in `ci` process refuses a real nested `test-slice`, and a stand-in `harness-contract` allows it (14.22) |
 | 2026-11-26 | Environment tidy / G45 | `product_derived` role for 14 names; fixture identity in `browser_binding`; `cleanup-web-e2e --process-cleanup` replaces its marker; Playwright worker names deleted; the check counts quoted shell assignments and loop-variable writes | `p75-generate`, `p75-format`, `p75-lint*`, `p75-surface`, `p75-catalog`, `p75-identity`, `p75-generated`, `p75-cs`, `p75-hb`, `p75-incidents`, `p75-md`; `p75-plan-measure-old` and `-new` | Pass. The registry holds 477 names (480) and its check has no findings; the new loop rule's one finding is repaired. `release-measure` plans identically before and after (14.23) |
 | 2026-11-26 | P5-3a / G47 | Go build keys are each binary's import closure; receipts are built for the staged binary; the 17 graph-child recipes, 11 unused Makefile variables, one runtime macro and four dead switches removed | `p77-*` (segments, real builds, pre-graph timing), `p78-lintshell`, `p78-lintscripts`, `p78-cache`, `p79-check01` | Pass. Segments found ShellCheck SC2016 on two intended strings and a test cleanup defeated by read-only module files; both repaired. `p79-check01` passed all 1,897 rows in a 543 s graph (14.25) |
+| 2026-11-26 | P5-3b | The Go artifact store: content-addressed sealed roots, key records and single-link copy views; all seven Go binaries built through `tools/harnessbuild` with import-closure keys; unit cache keys use result identity; `BUILD_GO_ARTIFACT_IMPL` removed | `p80`, `p81` (segments), `p82-check01`, `p83`, `p84` (segments), `p85-check01`, `p86` | Pass. `p82-check01` failed two operator recovery rows with `release_mismatch`: hard-link views broke the product's single-link rule, so views are copies (D25 adjusted). `p85-check01` passed all 1,898 rows in a 518 s graph (14.26) |
 | 2026-11-25 | P4-4 / G39 | Wait audit: 31 whole-test hang guards derive from the test deadline (`testdeadline`) | `p44-port-*` (16 owner slices, every row holding a converted guard) | Pass. Committed `bdd8f4e1d` |
 
 ## 12. Phase 2 Plan — `check` Wall Clock
@@ -2664,7 +2665,7 @@ Status: proposed 2026-11-26 at the owner's request. P5-0, P5-1 and P5-2 done (14
 | P5-1 | Flat catalog: every check is a row with an owner, so any of them runs alone with `ROWS=`; selections list rows and operations, not other selections. **Done 2026-11-26** (14.6): every test script is a row and duplicates are gone; selection nesting stays (14.6) | G44 |
 | P5-2 | Unnest: harness-mechanics probes run as first-class graph rows against private outputs, or move to an explicit harness suite outside `ci`; a source check forbids rows that launch `make` or `graph` against the shared repository | G43 |
 | P5-4 | Declared environment: a registry of every harness variable, default-deny unit environments, one typed unit context document, fixture bindings in that document (14.7) | G43, G45 |
-| P5-3 | Thin Make: Make only admits the workspace and forwards to the harness; build operations become data with declared inputs, environment keys and outputs; one Go content-addressed store replaces `cache-artifact.sh`, the renderer store and web staging; no unit re-enters Make; one toolchain environment from the pins for builds and tests. **Planned 2026-11-26** (14.24): five steps, P5-3a to P5-3e; P5-3a done (14.25) | G44 |
+| P5-3 | Thin Make: Make only admits the workspace and forwards to the harness; build operations become data with declared inputs, environment keys and outputs; one Go content-addressed store replaces `cache-artifact.sh`, the renderer store and web staging; no unit re-enters Make; one toolchain environment from the pins for builds and tests. **Planned 2026-11-26** (14.24): five steps, P5-3a to P5-3e; P5-3a done (14.25); P5-3b done (14.26) | G44 |
 
 P5-0 is small and removes the hazards seen in `ci`. P5-1 makes segments
 possible for every check. P5-3 is the largest and needs specification
@@ -2690,7 +2691,7 @@ amendments.
 | D22 | How a unit finds its context document | A path in one variable: it survives Make re-entry and child tools; the admission lease keeps its file descriptor. **Approved 2026-11-26** |
 | D23 | P5-4 against P5-2 and P5-3 | P5-4a and P5-4b before P5-2, since unnesting is simpler once children start from a declared environment; mode switches leave with P5-3. **Approved 2026-11-26** |
 | D24 | Where the P5-3 store lives | Repository-local `.cache/cartulary/store`, beside today's caches, so locks and collection stay within one checkout; sharing across worktrees is a later change. **Approved 2026-11-26** |
-| D25 | How conventional paths stay valid | Published views swapped by rename: hard links for files and an atomically renamed tree for directories. Never a symbolic link, which the container build would copy as a link. **Approved 2026-11-26** |
+| D25 | How conventional paths stay valid | Published views swapped by rename: single-link copies for files and an atomically renamed tree for directories. Never a symbolic link, which the container build would copy as a link. **Approved 2026-11-26**; files changed from hard links to copies in P5-3b, because product code opens its own executable only as a single-link file |
 | D26 | cgo for shipped binaries | `CGO_ENABLED=0` everywhere, as tests and the package probes already use; adopted only if the release package rows pass. **Approved 2026-11-26** |
 | D27 | Checkout-independent binaries | `-trimpath` for product binaries, so a binary's digest does not depend on the checkout path; the one-time digest change is recorded. **Approved 2026-11-26** |
 | D28 | Cache controls | Keep the public `CARTULARY_BUILD_CACHE_DISABLE` and `CARTULARY_FORCE_REBUILD` as the store's two controls; fold the readiness, reinstall and static-analysis variants into them. **Approved 2026-11-26** |
@@ -3692,7 +3693,7 @@ Decision D20 (owner, 2026-11-26): nested harness probes run in explicit
 Status: planned 2026-11-26 at the owner's request. Owner direction: retire as
 much of the Makefile as needed; a thin wrapper is better than a complicated
 one. Approved with D24 to D28 as recommended on 2026-11-26; P5-3a done
-(14.25).
+(14.25); P5-3b done (14.26).
 
 **Problem (G44, G47).** Measured at `db2304ea9`:
 
@@ -3879,3 +3880,90 @@ Approved by the owner on 2026-11-26 with P5-3 and D24 to D28 as recommended.
     - Artifact units took 87 s (78 s in `p66`). Every Go tool's key includes the
       whole Makefile, so this change rebuilt the seven tools once.
     - The renderer's reuse check took 25 s (41 s in `p66`).
+
+### 14.26 The Artifact Store and Go Binaries (P5-3b)
+
+- **The store.** `internal/testutil/artifactstore` generalizes the renderer
+  store, at the layout's new `artifact_store` directory
+  (`.cache/cartulary/store`, D24):
+  - **Roots.** A producer's outputs are sealed read-only into one root, named
+    by the digest of its manifest of paths, modes and digests.
+  - **Key records.** A record maps a producer key to its root. A reused record
+    is touched, and a root that no longer matches its manifest is rebuilt and
+    quarantined, never reused.
+  - **Views (D25).** The paths consumers read are single-link copies of the
+    root's files. Each is swapped into place by rename under a lock per view,
+    a receipt after its binary. A copy whose bytes miss the manifest digest
+    is refused, and a current view (one link, the view mode and the manifest
+    digest) is left in place, so a reuse hashes each file twice: the root and
+    the view.
+  - **Why copies.** The first full check published hard links. Two operator
+    recovery rows then failed with `release_mismatch`: product code opens its
+    own executable through `rootedfs`, which admits only single-link files.
+    D25 now says copies.
+  - **Controls (D28).** `CARTULARY_BUILD_CACHE_DISABLE` and
+    `CARTULARY_FORCE_REBUILD` keep their meanings.
+  - **Collection.** A build removes at most 16 entries: key records unused for
+    30 days, then roots that no record names. A collected root's views are
+    copies and stay readable.
+- **The Go binary producer.**
+  - **Key.** It covers the producer's declaration (package, tags and output
+    names), its `go list -deps -json` closure of non-test, cgo, assembly, C,
+    syso and embedded files, and `go.mod` and `go.sum`. It also covers the
+    effective `go env` settings, the Node version, the pinned toolchain and
+    cryptographic module, and the receipt writer and producer sources. No
+    launcher script and no location enters it.
+  - **Build.** It verifies the pinned module, builds into a staging root and
+    writes the receipt there, so the store seals the binary and its receipt as
+    one root.
+- **The pair at its views.** The root holds the binary and its receipt
+  atomically. Views at fixed paths remain two names: they are published under
+  one lock, the receipt last, and the receipt's binary digest exposes a torn
+  pair to any reader that checks it.
+- **Make.** All seven Go binaries go through
+  `go run ./tools/harnessbuild go-binary`: the harness runtime, test services,
+  source check, server, harness server, migrate and operator.
+  - **Bootstrap.** Go caches `go run` builds, so the harness runtime is built
+    through the store without an existing binary. The CLI reads the store's
+    location from the authored layout, because the first build precedes any
+    regeneration of the Make include.
+  - **What remains for P5-3c.** `cache-artifact.sh` builds no Go binary, but
+    still keys the embedded web assets by their generator's closure.
+    `build-go-artifact.sh` now serves only the report renderer's sandbox
+    build, and the Makefile's unused `BUILD_GO_ARTIFACT_IMPL` is removed.
+- **Unit keys.** The planner's cache key now uses a unit's result identity
+  instead of its semantic digest: estimates, resource claims, residents, locks,
+  the timeout and a Go unit's `GOMAXPROCS` and `-p` are left out. The graph's
+  semantic digest is unchanged. Every cached unit misses once.
+- **Specification.** Amended: the store and the Go binary key, and unit keys as
+  result identities.
+- **Validation.**
+  - **Segments (`p80`, `p81`).** `p80` stopped at Go lint on formatting and
+    one deprecated call (`runtime.GOROOT` in the producer test, now
+    `exec.LookPath`). `p81` passed: generation, Go and script lint, the
+    surface, catalog, identity and generated source checks, and ten
+    command-surface rows, among them the new `artifact_store` row, the
+    planner, cache-artifact and the wrapper smoke.
+    - **Builds.** `make build` passed in 8.2 s, and a repeat that reused
+      every binary in 6.4 s. `build COMPONENT=server-harness` took 16 s
+      (43 s at P5-3a).
+  - **`p82-check01`.** 1,896 of 1,898 rows passed in a 512 s graph (543 s in
+    `p79`). The two failures were
+    the operator recovery rows
+    `canonical_operator_process_evidence_maps_the_imp_9808fdd4e9` and
+    `portable_source_loss_restore`, both `release_mismatch`: the hard-link
+    views broke `rootedfs`'s single-link rule. Views became copies.
+  - **Segments after the repair (`p83`, `p84`).** Both recovery rows pass;
+    every published view has one link. Each reuse now hashes a file twice
+    instead of three times: the view is checked against the manifest digest,
+    and a copy is checked while it is written. A new test,
+    `TestPublishRefusesUnverifiedBytes`, joins the `artifact_store` row.
+    A reused `make build` takes 6.4 s.
+  - **`p85-check01`.** All 1,898 rows passed in a 518 s graph; wall time was
+    530 s.
+    - With every binary reused, the five Go binary build units took 9.3 s in
+      all (11.4 s in `p82`; 20.8 s in `p79`, which rebuilt them).
+    - The report renderer's reuse check took 21.6 s and is now the largest
+      artifact unit; it moves to the store in P5-3c.
+  - **After the check (`p86`).** Removing `BUILD_GO_ARTIFACT_IMPL`: the
+    surface source check, `make build` and script lint passed.

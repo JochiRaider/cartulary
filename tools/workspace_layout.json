@@ -308,6 +308,16 @@
       "parent": "cache"
     },
     {
+      "id": "artifact_store",
+      "path": ".cache/cartulary/store",
+      "tier": "distclean",
+      "state": "current",
+      "producers": [
+        "harness artifact store"
+      ],
+      "parent": "cache"
+    },
+    {
       "id": "static_analysis_cache",
       "path": ".cache/cartulary/static-analysis",
       "tier": "distclean",

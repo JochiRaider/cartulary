@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"go/parser"
 	"go/token"
+	"maps"
 	"path"
 	"path/filepath"
 	"regexp"
@@ -117,7 +118,7 @@ func (p *cachePlanner) fact(unit *Unit) (CacheFact, closure, error) {
 		"cache_schema_id":     cacheRecordSchema,
 		"profile_id":          profile.ProfileID,
 		"dependency_strategy": closure.strategy,
-		"unit_digest":         unit.SemanticDigest,
+		"unit_digest":         resultIdentity(unit),
 		"inputs":              closure.digest,
 		"platform":            p.context.Platform,
 		"toolchain_digest":    p.context.ToolchainDigest,
@@ -128,6 +129,24 @@ func (p *cachePlanner) fact(unit *Unit) (CacheFact, closure, error) {
 	fact := CacheFact{UnitID: unit.ID, Eligible: true, ProfileID: &profile.ProfileID, Policy: &profile.Policy,
 		InputDigest: &inputDigest, DependencyStrategy: &closure.strategy, DependencyDigest: &closure.digest}
 	return fact, closure, nil
+}
+
+// resultIdentity digests what a unit's result depends on: the unit without
+// the fields that only schedule it (P5-3b). Estimates, resource claims,
+// residents, locks and the timeout decide when and where a unit runs, and a Go
+// unit's CPU budget (GOMAXPROCS and -p) only how many of its tests run at
+// once. None of them may change its cache key, so an estimate refresh or a
+// host with other capacity keeps every result.
+func resultIdentity(unit *Unit) string {
+	identity := *unit
+	identity.EstimatedWorkMS, identity.TimeoutMS, identity.SemanticDigest = 0, 0, ""
+	identity.Claims, identity.Residents, identity.SharedLocks, identity.ExclusiveLocks = nil, nil, nil, nil
+	if unit.Command.Executable == "go" {
+		identity.Command.Environment = maps.Clone(unit.Command.Environment)
+		delete(identity.Command.Environment, "GOMAXPROCS")
+		identity.Command.Args = slices.DeleteFunc(slices.Clone(unit.Command.Args), func(argument string) bool { return strings.HasPrefix(argument, "-p=") })
+	}
+	return semanticDigest(identity, "")
 }
 
 // profile finds the registered profile of a cacheable unit: its operation's
