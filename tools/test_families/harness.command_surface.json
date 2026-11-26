@@ -759,6 +759,28 @@
       "postgres_isolation": "none"
     },
     {
+      "row_id": "harness.command_surface.behavior.release_task_surface",
+      "owner_id": "harness.command_surface",
+      "family_id": "harness.command_surface.behavior",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.command_surface.verification.public_registry_parity"
+      ],
+      "runner": "shell",
+      "selector": {
+        "operation_id": "harness.assurance_release_task_surface"
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "harness_contract",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "explicit_only",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
       "row_id": "harness.command_surface.behavior.task_surface_report",
       "owner_id": "harness.command_surface",
       "family_id": "harness.command_surface.behavior",

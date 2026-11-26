@@ -125,28 +125,6 @@
       "postgres_isolation": "exclusive"
     },
     {
-      "row_id": "harness.release.behavior.release_task_surface",
-      "owner_id": "harness.release",
-      "family_id": "harness.release.behavior",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "harness.release.verification.package_readiness_contract"
-      ],
-      "runner": "shell",
-      "selector": {
-        "operation_id": "harness.assurance_release_task_surface"
-      },
-      "evidence_class": "static",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "harness_contract",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "none",
-      "aggregate_placement": "explicit_only",
-      "service_dependencies": [],
-      "postgres_isolation": "none"
-    },
-    {
       "row_id": "harness.release.behavior.seaweedfs_evidence_contract",
       "owner_id": "harness.release",
       "family_id": "harness.release.behavior",
