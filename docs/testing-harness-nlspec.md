@@ -2508,7 +2508,7 @@ with closed operation definitions; task-surface bindings cannot override them. T
 retired scheduler-input-stamp and finalizer-action-cache families are not valid
 v3 inputs, and current commands MUST NOT read or translate them.
 
-Embedded web asset preparation is a build-artifact producer in the current profile. When the embedded output is consumed by Go `//go:embed`, the publisher MUST update the embedded source-tree artifact atomically from Go embed's point of view. It MUST NOT delete or rewrite a directory of hashed frontend assets in place while concurrently scheduled Go compilation can traverse that directory. Harness-only readiness stamps, cache records, and other operational metadata MUST remain outside the embedded content root unless the owning product spec explicitly makes that file served application content.
+Embedded web asset preparation is a build-artifact producer in the current profile (amended 2026-11-26, P5-3c). It packages the run's sealed production frontend artifact, resolved by its receipt, and never rebuilds the bundle; its six outputs form one artifact-store root, keyed by the bundle's files, the authored client support source, the embedder's import closure, the module files and the effective `go env` settings. When the embedded output is consumed by Go `//go:embed`, the publisher MUST update the embedded source-tree artifact atomically from Go embed's point of view. It MUST NOT delete or rewrite a directory of hashed frontend assets in place while concurrently scheduled Go compilation can traverse that directory. Harness-only readiness stamps, cache records, and other operational metadata MUST remain outside the embedded content root unless the owning product spec explicitly makes that file served application content.
 
 Frontend builds are shared build products for browser sessions, bundle-security
 checks, and embedded-asset preparation. Every selected consumer MUST depend on
@@ -2526,7 +2526,13 @@ claim acquired before compiler work. A second claim is
 completed. It MUST NOT wait, rebuild, replace, or silently reuse a producer result.
 Consumers use artifact resolution instead. Frontend builds MUST render each
 selected production or measurement profile in a unique current-run private
-staging directory. The producer MUST validate and seal the complete directory
+staging directory. The admitted producer obtains its profile's bundle from the
+harness artifact store (amended 2026-11-26, P5-3c) and copies the sealed root
+into that staging: the store renders a bundle once per key. A web bundle's key
+covers every repository file under the bundle's declared input roots, its build
+arguments, the Node and pnpm it runs with, and the `VITE_` settings and
+`NODE_ENV` it sees. Build arguments never depend on how a command reports: a
+bundle always carries source maps. The producer MUST validate and seal the complete directory
 before consumer admission. Compatible consumers in a run share that completed
 artifact; another build MUST NOT replace its bytes. Scheduled consumers MUST NOT
 copy, scan, or serve an actively mutable conventional build output. Conventional
@@ -2648,12 +2654,16 @@ closure, the module files, the effective `go env` settings, the Node version,
 the pinned toolchain and cryptographic module, and the receipt writer and
 producer implementations. A Go tool's key covers its pinned module and
 version, the go.mod and go.sum of the module directory it builds from, the
-effective `go env` settings and its producer. ShellCheck's key is its release
+effective `go env` settings and its producer. Web bundles and embedded web
+assets are keyed as their clauses below state; a web bundle publishes no view,
+because its root becomes the run's frontend artifact. ShellCheck's key is its release
 archive's name and committed digest; an archive with another digest is
 removed and never extracted. No key covers a launcher script or a location.
 `CARTULARY_BUILD_CACHE_DISABLE=1` neither reads nor records keys and
 `CARTULARY_FORCE_REBUILD=1` rebuilds and records. A build collects at most 16
-entries: key records unused for 30 days, then roots that no record names.
+entries: key records unused for 30 days, then roots that no record names
+once an hour has passed since they were sealed, so a caller can still copy a
+root built with the cache disabled, then quarantined roots after 30 days.
 
 Cache hits MAY skip only the exact registered semantic unit. They MUST still
 validate and publish every declared current-run output, emit cache events, and

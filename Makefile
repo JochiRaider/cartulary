@@ -72,7 +72,6 @@ GO_TOOLCHAIN_READINESS = bash $(GO_TOOLCHAIN_READINESS_IMPL) ensure
 FRONTEND_TOOLCHAIN_IMPL := tools/harness/readiness/frontend-toolchain.sh
 FRONTEND_INSTALL_IMPL := tools/harness/readiness/frontend-install.sh
 PLAYWRIGHT_INSTALL_IMPL := tools/harness/browser/playwright-install.sh
-BUILD_WEB_ARTIFACT_IMPL := tools/harness/readiness/build-web-artifact.sh
 HARNESS_CONTRACT_CLI := $(CURDIR)/tools/harness/contract/harness-contract-cli.mjs
 FOUNDATION_SCHEMA_VALIDATORS := $(CURDIR)/tools/harness/contract/generated/foundation-schema-validators.cjs
 RUN_HARNESS_PREFLIGHT = $(NODE_BIN) $(HARNESS_CONTRACT_CLI) preflight
@@ -105,7 +104,6 @@ endif
 ifneq ($(filter $(EFFECTIVE_OUTPUT_MODE),quiet summary ci machine),)
 PNPM_INSTALL_FLAGS := --reporter=append-only --loglevel=warn
 BIOME_CHECK_FLAGS := --reporter=summary --diagnostic-level=warn
-VITE_BUILD_FLAGS := --logLevel warn --sourcemap
 export NO_COLOR := 1
 export CLICOLOR := 0
 export FORCE_COLOR := 0
@@ -114,17 +112,6 @@ endif
 TESTCONTAINERS_GO_VERSION := v0.42.0
 
 FRONTEND_INSTALL_INPUTS := package.json pnpm-lock.yaml pnpm-workspace.yaml apps/web/package.json $(wildcard packages/*/package.json)
-WEB_DIST_INDEX := $(CURDIR)/$(LAYOUT_WEB_DIST)/index.html
-EMBEDDED_WEB_ASSET_DIR := $(CURDIR)/$(LAYOUT_EMBEDDED_ASSETS)
-EMBEDDED_WEB_ASSET_ARCHIVE := $(EMBEDDED_WEB_ASSET_DIR)/web-assets.zip
-EMBEDDED_CLIENT_ASSET_MANIFEST := $(EMBEDDED_WEB_ASSET_DIR)/client-asset-set-manifest.json
-EMBEDDED_CLIENT_SUPPORT_REGISTRY := $(EMBEDDED_WEB_ASSET_DIR)/client-extension-support-registry.json
-EMBEDDED_BROWSER_BOOTSTRAP := $(EMBEDDED_WEB_ASSET_DIR)/client-bootstrap-template.json
-EMBEDDED_EXTENSION_INTEGRITY := $(EMBEDDED_WEB_ASSET_DIR)/extension-registry-integrity.json
-EMBEDDED_EXTENSION_INTEGRITY_DIGEST := $(EMBEDDED_WEB_ASSET_DIR)/extension-registry-integrity.sha256
-EXTENSION_CLIENT_SUPPORT_SOURCE := $(CURDIR)/contracts/extensions/build/client-support.json
-EMBEDDED_WEB_ASSET_READY_STAMP := $(CURDIR)/$(LAYOUT_SCRATCH)/frontend-embed/web-assets.ready
-EMBEDDED_WEB_ASSET_STAMP := $(CURDIR)/$(LAYOUT_SCRATCH)/frontend-embed/web-assets.stamp
 
 # PRODUCE runs producers registered in tools/harness_producers.json through
 # the harness artifact store (P5-3). `go run` needs no prebuilt tool, so it
@@ -158,29 +145,9 @@ $(FRONTEND_INSTALL_STAMP): FORCE $(FRONTEND_INSTALL_INPUTS) $(FRONTEND_TOOLCHAIN
 $(PLAYWRIGHT_INSTALL_STAMP): FORCE $(FRONTEND_INSTALL_STAMP) $(FRONTEND_TOOLCHAIN_STAMP) tools/harness/browser/playwright-install.sh $(PLAYWRIGHT_INSTALL_IMPL) $(CACHE_ARTIFACT_SCRIPT)
 	$(Q)if [ "$${CARTULARY_PREPARATION_POLICY:-}" = "installed_only" ]; then "$(NODE_BIN)" tools/harness/readiness/installed-readiness.mjs doctor; else PLAYWRIGHT_INSTALL_STAMP="$(PLAYWRIGHT_INSTALL_STAMP)" NODE_BIN="$(NODE_BIN)" ./tools/harness/browser/playwright-install.sh --invalidate-stale-stamp && $(CACHE_ARTIFACT_SCRIPT) --scope readiness --profile playwright-install --cache-dir "$(CARTULARY_READINESS_CACHE_DIR)" --disable-env CARTULARY_READINESS_DISABLE_CACHE --force-env CARTULARY_FORCE_REINSTALL --input package.json --input pnpm-lock.yaml --input apps/web/package.json --input tools/frontend_visual_renderer_profile.json --input tools/harness/browser/visual-renderer-profile.mjs --input tools/harness/browser/browser-trust.mjs --input tools/toolchain_pins.json --input tools/harness/browser/playwright-install.sh --input $(PLAYWRIGHT_INSTALL_IMPL) --input tools/harness/readiness/cache-artifact.sh --output "$(PLAYWRIGHT_INSTALL_STAMP)" --key "node_version=$(NODE_VERSION)" --key "pnpm_version=$(PNPM_VERSION)" -- env PLAYWRIGHT_INSTALL_STAMP="$(PLAYWRIGHT_INSTALL_STAMP)" RUN_STEP_SCRIPT="$(RUN_STEP_SCRIPT)" NODE_RUNTIME_DIR="$(NODE_RUNTIME_DIR)" NODE_BIN="$(NODE_BIN)" PNPM="$(PNPM)" NODE_VERSION="$(NODE_VERSION)" PNPM_VERSION="$(PNPM_VERSION)" ./tools/harness/browser/playwright-install.sh; fi
 
-# Graph producers consume completed predecessor outputs. Standalone file bindings
-# retain their Make prerequisites; public build targets enter the canonical graph.
-ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
-FRONTEND_BUILD_PREREQUISITE :=
-else
-FRONTEND_BUILD_PREREQUISITE := $(WEB_DIST_INDEX)
-endif
-
-$(EMBEDDED_WEB_ASSET_STAMP) $(EMBEDDED_WEB_ASSET_ARCHIVE) $(EMBEDDED_CLIENT_ASSET_MANIFEST) $(EMBEDDED_CLIENT_SUPPORT_REGISTRY) $(EMBEDDED_BROWSER_BOOTSTRAP) $(EMBEDDED_EXTENSION_INTEGRITY) $(EMBEDDED_EXTENSION_INTEGRITY_DIGEST) $(EMBEDDED_WEB_ASSET_READY_STAMP) &: FORCE $(FRONTEND_BUILD_PREREQUISITE) $(EXTENSION_CLIENT_SUPPORT_SOURCE) tools/harness/readiness/embed-web-assets.sh $(CACHE_ARTIFACT_SCRIPT)
-	$(Q)$(GO_TOOLCHAIN_READINESS)
-	$(Q)source_dir="$(CURDIR)/apps/web/dist"; if [ -n "$${CARTULARY_HARNESS_SUITE_RUNTIME_ROOT:-}" ]; then source_dir="$$("$(NODE_BIN)" tools/harness/readiness/frontend-artifact.mjs resolve build-web)" || exit $$?; fi; WEB_DIST_INDEX="$$source_dir/index.html" $(CACHE_ARTIFACT_SCRIPT) --scope build-artifact --profile embedded-web-assets --key "go_toolchain=$(GO_TOOLCHAIN)" --cache-dir "$(CARTULARY_BUILD_CACHE_DIR)" --disable-env CARTULARY_BUILD_CACHE_DISABLE --force-env CARTULARY_FORCE_REBUILD --input-dir "$$source_dir" --input "$(EXTENSION_CLIENT_SUPPORT_SOURCE)" --input tools/harness/readiness/embed-web-assets.sh --input go.mod --input go.sum --input tools/toolchain_pins.json --go-package ./tools/embedwebassets --input tools/harness/readiness/cache-artifact.sh --input "$(GO)" --output "$(EMBEDDED_WEB_ASSET_STAMP)" --output "$(EMBEDDED_WEB_ASSET_ARCHIVE)" --output "$(EMBEDDED_CLIENT_ASSET_MANIFEST)" --output "$(EMBEDDED_CLIENT_SUPPORT_REGISTRY)" --output "$(EMBEDDED_BROWSER_BOOTSTRAP)" --output "$(EMBEDDED_EXTENSION_INTEGRITY)" --output "$(EMBEDDED_EXTENSION_INTEGRITY_DIGEST)" --output "$(EMBEDDED_WEB_ASSET_READY_STAMP)" --output-dir "$(EMBEDDED_WEB_ASSET_DIR)" --key "source=$(WEB_DIST_INDEX)" --key "go=$${GO:-$(GO)}" -- env GO="$(GO)" EMBEDDED_WEB_ASSET_DIR="$(EMBEDDED_WEB_ASSET_DIR)" EMBEDDED_WEB_ASSET_ARCHIVE="$(EMBEDDED_WEB_ASSET_ARCHIVE)" EMBEDDED_CLIENT_ASSET_MANIFEST="$(EMBEDDED_CLIENT_ASSET_MANIFEST)" EMBEDDED_CLIENT_SUPPORT_REGISTRY="$(EMBEDDED_CLIENT_SUPPORT_REGISTRY)" EMBEDDED_BROWSER_BOOTSTRAP="$(EMBEDDED_BROWSER_BOOTSTRAP)" EMBEDDED_EXTENSION_INTEGRITY="$(EMBEDDED_EXTENSION_INTEGRITY)" EMBEDDED_EXTENSION_INTEGRITY_DIGEST="$(EMBEDDED_EXTENSION_INTEGRITY_DIGEST)" EXTENSION_CLIENT_SUPPORT_SOURCE="$(EXTENSION_CLIENT_SUPPORT_SOURCE)" EMBEDDED_WEB_ASSET_STAMP="$(EMBEDDED_WEB_ASSET_STAMP)" EMBEDDED_WEB_ASSET_READY_STAMP="$(EMBEDDED_WEB_ASSET_READY_STAMP)" ./tools/harness/readiness/embed-web-assets.sh
-
-$(WEB_DIST_INDEX): FORCE $(FRONTEND_INSTALL_STAMP) tools/harness/readiness/build-web-artifact.sh $(BUILD_WEB_ARTIFACT_IMPL) $(CACHE_ARTIFACT_SCRIPT) | $(NODE_BIN)
-	$(Q)$(PRODUCE) harness-runtime
-	$(Q)env RUN_STEP_SCRIPT="$(RUN_STEP_SCRIPT)" NODE_RUNTIME_DIR="$(NODE_RUNTIME_DIR)" PNPM="$(PNPM)" VITE_BUILD_FLAGS="$(VITE_BUILD_FLAGS)" CARTULARY_TEST_TARGET="build-web" ./tools/harness/readiness/build-web-artifact.sh
-
 $(REPORT_RENDERER_RECEIPT): FORCE $(FRONTEND_INSTALL_STAMP) $(PLAYWRIGHT_INSTALL_STAMP) $(NODE_BIN) tools/report-renderer/build-runtime.mjs
 	$(Q)$(GO_TOOLCHAIN_READINESS)
 	$(Q)CARTULARY_TEST_TARGET=build-report-renderer CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "build isolated reporting runtime" -- env GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" NODE_BIN="$(NODE_BIN)" PNPM="$(PNPM)" RUN_STEP_SCRIPT="$(RUN_STEP_SCRIPT)" $(NODE_BIN) tools/report-renderer/build-runtime.mjs
-
-$(CURDIR)/apps/web/dist-measurement/index.html: FORCE $(FRONTEND_INSTALL_STAMP) tools/harness/readiness/build-web-artifact.sh $(BUILD_WEB_ARTIFACT_IMPL) $(CACHE_ARTIFACT_SCRIPT) | $(NODE_BIN)
-	$(Q)$(PRODUCE) harness-runtime
-	$(Q)env RUN_STEP_SCRIPT="$(RUN_STEP_SCRIPT)" NODE_RUNTIME_DIR="$(NODE_RUNTIME_DIR)" PNPM="$(PNPM)" VITE_BUILD_FLAGS="$(VITE_BUILD_FLAGS) --mode measurement" CARTULARY_TEST_TARGET="build-web-measurement" ./tools/harness/readiness/build-web-artifact.sh
 
 endif # workspace admission
 

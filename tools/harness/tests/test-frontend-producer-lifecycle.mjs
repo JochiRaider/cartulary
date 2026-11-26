@@ -159,7 +159,12 @@ export function registerFrontendProducerLifecycleTests() {
       const options={repoRoot:root,environment:failed.environment,unitID:"operation:harness.build_web",commandID:"cartulary.harness.command.build.v3"};
       const diagnostic=createCommandFailureContext({...options,launch:createLaunchContext(options)});
       try {
-        const result=spawnSync(process.execPath,["tools/harness/readiness/frontend-artifact.mjs","build","build-web",process.execPath,"tools/harness/tests/frontend-producer-fixture.mjs","compiler-failure"],{cwd:root,env:{...process.env,...failed.environment,...diagnostic.environment},encoding:"utf8",timeout:15000});
+        // The producer runs through the store's command; a failing stand-in
+        // for it is a compiler failure.
+        const failing = path.join(processRoot, "failing-producer");
+        writeFileSync(failing, `#!/bin/sh\nexec ${JSON.stringify(process.execPath)} ${JSON.stringify(path.join(root, "tools/harness/tests/frontend-producer-fixture.mjs"))} compiler-failure\n`, { mode: 0o755 });
+        const caches = Object.fromEntries(["GO_CACHE_DIR", "GO_MOD_CACHE_DIR", "GO_TMP_DIR"].map((name) => [name, path.join(processRoot, "go", name)]));
+        const result=spawnSync(process.execPath,["tools/harness/readiness/frontend-artifact.mjs","build","build-web"],{cwd:root,env:{...process.env,...failed.environment,...diagnostic.environment,...caches,GO:failing},encoding:"utf8",timeout:15000});
         assert.equal(result.status,1,result.stderr);
         assert.equal(diagnostic.read().failure_reason,"tool_diagnostic_failure");
       } finally {diagnostic.close();}

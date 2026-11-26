@@ -855,13 +855,15 @@
           "TestChangedKeyPublishesItsNewRoot",
           "TestCollect",
           "TestDeclarationsAreValidatedByKind",
+          "TestEmbeddedAssetsKey",
           "TestGeneratedMakeDefaultsMatchProducers",
           "TestGoBinaryKeyCoversItsImportClosure",
           "TestGoToolKey",
           "TestProduceSealsReusesAndPublishesViews",
           "TestPublishRefusesUnverifiedBytes",
           "TestRegisteredProducersPlan",
-          "TestShellCheckArchiveIsVerified"
+          "TestShellCheckArchiveIsVerified",
+          "TestWebBundleKey"
         ]
       },
       "evidence_class": "unit",

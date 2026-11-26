@@ -81,18 +81,28 @@ func (b GoBinary) run(name string, args []string, env []string) ([]byte, error) 
 }
 
 // closure lists the repository files of the package's import closure that a
+// build reads.
+func (b GoBinary) closure() ([]string, error) {
+	return goClosure(b.Go, b.Module, b.Package, b.Tags, b.Env)
+}
+
+// goClosure lists the repository files of a package's import closure that a
 // build reads: every non-test source of each kind Go compiles and every
 // embedded file, under the build's own caches and with modules read-only.
-func (b GoBinary) closure() ([]string, error) {
+func goClosure(goExecutable, module, pkg, tags string, env []string) ([]string, error) {
 	args := []string{"list", "-deps", "-json"}
-	if b.Tags != "" {
-		args = append(args, "-tags", b.Tags)
+	if tags != "" {
+		args = append(args, "-tags", tags)
 	}
-	output, err := b.run(b.Go, append(args, "--", b.Package), append(slices.Clone(b.Env), "GOFLAGS=-mod=readonly"))
+	command := exec.Command(goExecutable, append(args, "--", pkg)...)
+	command.Dir, command.Env = module, append(slices.Clone(env), "GOFLAGS=-mod=readonly")
+	var stderr bytes.Buffer
+	command.Stderr = &stderr
+	output, err := command.Output()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("go list %s: %w: %s", pkg, err, strings.TrimSpace(stderr.String()))
 	}
-	module, err := filepath.Abs(b.Module)
+	module, err = filepath.Abs(module)
 	if err != nil {
 		return nil, err
 	}

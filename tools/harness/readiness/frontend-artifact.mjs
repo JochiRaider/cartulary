@@ -14,6 +14,7 @@ import { runPrivateCapturedProcess } from "../runtime/private-child-process.mjs"
 import { borrowRuntime, createRuntime, runtimeEnvironment, runtimeHandleEnvironment } from "../runtime/session-client.mjs";
 import { launchEnvironment } from "../runtime/launch-context.mjs";
 import { buildSourceSnapshot } from "../test-catalog/index.mjs";
+import { producerCommand, readProducerRegistry } from "../execution/producers.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 const digest = (bytes) => `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
@@ -188,8 +189,20 @@ export function sealFrontendArtifact({ repoRoot, runRoot, runtime, profile, stag
   return directory;
 }
 
-async function build(target, command, args) {
+// webProducer names the registered web bundle producer of a frontend target.
+function webProducer(repoRoot, target) {
+  const producers = readProducerRegistry(repoRoot).producers.filter((entry) => entry.kind === "web_bundle" && entry.target === target);
+  if (producers.length !== 1) throw new Error(`frontend target ${target} has no single web bundle producer`);
+  return producers[0].id;
+}
+
+// The artifact store renders a bundle once per key (P5-3c). The run's
+// producer obtains the sealed root through the store, building only when no
+// root has the key, and copies it into the run's private staging, where it is
+// sealed and receipted like any build.
+async function build(target) {
   const profile = artifactProfile(root, target);
+  const producer = webProducer(root, target);
   const runRoot = frontendRunRoot();
   mkdirSync(runRoot, { recursive: true, mode: 0o700 });
   const owned = !process.env.CARTULARY_HARNESS_SUITE_RUNTIME_ROOT;
@@ -207,11 +220,18 @@ async function build(target, command, args) {
       }
     };
     staging = mkdtempSync(runtime.privatePath(`frontend-staging-${profile.id}-`));
+    const rootsFile = `${staging}.roots.json`;
     validateBuildInputs();
-    const produced = await runPrivateCapturedProcess(command, [...args, "--outDir", staging, "--emptyOutDir"], {
+    const caches = Object.fromEntries([["GOCACHE", "GO_CACHE_DIR"], ["GOMODCACHE", "GO_MOD_CACHE_DIR"], ["GOTMPDIR", "GO_TMP_DIR"]].map(([name, variable]) => {
+      const directory = process.env[variable];
+      if (!directory || !path.isAbsolute(directory)) throw new Error(`${variable} is required`);
+      mkdirSync(directory, { recursive: true });
+      return [name, directory];
+    }));
+    const produced = await runPrivateCapturedProcess(process.env.GO || "go", [...producerCommand, "--roots", rootsFile, producer], {
       producer: "private_capture", dependencies: [], cwd: root, repoRoot: root, runRoot,
-      env: childEnvironment(process.env, { pass: [...runtimeEnvironment, ...launchEnvironment, "NODE_BIN", "NODE_RUNTIME_DIR", "PNPM", "VITE_BUILD_FLAGS"],
-        set: runtimeHandleEnvironment(runtime) }),
+      env: childEnvironment(process.env, { pass: [...runtimeEnvironment, ...launchEnvironment, "NODE_BIN", "NODE_RUNTIME_DIR", "PNPM", "GO", "GO_CACHE_DIR", "GO_MOD_CACHE_DIR", "GO_TMP_DIR", "CARTULARY_BUILD_CACHE_DISABLE", "CARTULARY_FORCE_REBUILD"],
+        set: { ...runtimeHandleEnvironment(runtime), ...caches, NODE_BIN: process.env.NODE_BIN || process.execPath } }),
     });
     let productionError;
     try {
@@ -225,6 +245,10 @@ async function build(target, command, args) {
         (productionError.cleanupFailures ??= []).push(error);
       }
     }
+    const sealedRoot = JSON.parse(readFileSync(rootsFile, "utf8"))[producer];
+    rmSync(rootsFile, { force: true });
+    if (typeof sealedRoot !== "string" || !path.isAbsolute(sealedRoot)) throw new Error("the web bundle producer reported no root");
+    cpSync(sealedRoot, staging, { recursive: true });
     validateBuildInputs();
     const directory = sealFrontendArtifact({ repoRoot: root, runRoot, runtime, profile, staging, claim });
     const lockRoot = path.join(root, ".cache/cartulary");
@@ -250,10 +274,10 @@ async function build(target, command, args) {
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const [operation, target, ...args] = process.argv.slice(2);
   try {
-    if (operation === "build") await build(target, args[0], args.slice(1));
+    if (operation === "build" && args.length === 0) await build(target);
     else if (operation === "publish") publishFrontendOutput(args[0], path.join(root, artifactProfile(root, target).path));
     else if (operation === "resolve") process.stdout.write(`${resolveFrontendArtifact(root, target).directory}\n`);
-    else throw new Error("usage: frontend-artifact.mjs build <target> <command> [args...] | resolve <target>");
+    else throw new Error("usage: frontend-artifact.mjs build <target> | resolve <target>");
   } catch (error) {
     const failure = reportCommandFailure(root, error, { failure_class: "artifact", failure_reason: "artifact_error" });
     process.stderr.write(`frontend artifact: ${error.message}\n`);

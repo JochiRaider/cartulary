@@ -22,9 +22,9 @@ export function readProducerRegistry(root) {
   return registry;
 }
 
-/** Maps each producer binding to its producer ID. */
+/** Maps each producer binding to its producer ID; a web bundle has none. */
 export function producerBindings(registry) {
-  return new Map(registry.producers.map((producer) => [producer.binding, producer.id]));
+  return new Map(registry.producers.filter((producer) => producer.binding).map((producer) => [producer.binding, producer.id]));
 }
 
 /**
@@ -44,16 +44,17 @@ export function splitProducedPrerequisites(prerequisites, bindings) {
 }
 
 /**
- * The repository-relative path each producer publishes at when its binding
- * is unset: the file under its layout directory. A Go tool's file is its
- * binary and pinned version, and ShellCheck's carries its pinned version.
- * The store's Workspace.DefaultName applies the same rule.
+ * The repository-relative path each published producer makes available at
+ * when its binding is unset: the file under its layout directory. A Go
+ * tool's file is its binary and pinned version, ShellCheck's carries its
+ * pinned version, and embedded assets are named by their archive. The
+ * store's Workspace.DefaultName applies the same rule.
  */
 export function producerDefaultPaths(root, registry = readProducerRegistry(root)) {
   const pins = readJSON(root, "tools/toolchain_pins.json");
   const layout = new Map(readJSON(root, "tools/workspace_layout.json").directories.map((entry) => [entry.id, entry.path]));
   const defaults = new Map();
-  for (const producer of registry.producers) {
+  for (const producer of registry.producers.filter((entry) => entry.binding)) {
     const directory = layout.get(producer.directory);
     if (directory === undefined) throw new Error(`${producer.id}: the workspace layout declares no ${producer.directory} directory`);
     let name;
@@ -66,6 +67,8 @@ export function producerDefaultPaths(root, registry = readProducerRegistry(root)
       name = `${path.posix.basename(modulePath)}-${version}`;
     } else if (producer.kind === "shellcheck") {
       name = `shellcheck-v${pins.shellcheck_version}`;
+    } else if (producer.kind === "embedded_assets") {
+      name = "web-assets.zip";
     } else {
       throw new Error(`${producer.id}: unknown producer kind ${producer.kind}`);
     }

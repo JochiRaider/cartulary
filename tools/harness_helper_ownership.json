@@ -236,8 +236,6 @@
       "key": "web_build_artifact",
       "boundary_group": "readiness",
       "paths": [
-        "tools/harness/readiness/build-web-artifact.sh",
-        "tools/harness/readiness/embed-web-assets.sh",
         "tools/harness/readiness/frontend-artifact.mjs"
       ],
       "allowed_consumers": []

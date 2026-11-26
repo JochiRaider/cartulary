@@ -34,6 +34,10 @@ const (
 	recordSchemaID   = "cartulary.artifact_store_key.v1"
 )
 
+// unrecordedGrace is how long a root no key record names is kept after it was
+// sealed.
+const unrecordedGrace = time.Hour
+
 // Store is a build-artifact store rooted at Root.
 type Store struct{ Root string }
 
@@ -385,11 +389,24 @@ func (s Store) Collect(now time.Time, maxAge time.Duration, limit int) (int, err
 	roots, _ := os.ReadDir(s.path("objects"))
 	for _, entry := range roots {
 		id := entry.Name()
-		if !entry.IsDir() || strings.HasPrefix(id, ".") || referenced[id] || removed >= limit {
+		if !entry.IsDir() || referenced[id] || removed >= limit {
+			continue
+		}
+		// A quarantined root goes after the record age. An unrecorded root,
+		// such as one built with the cache disabled, stays for a grace period
+		// after sealing, so its caller can still copy it.
+		age := unrecordedGrace
+		manifest := s.path("objects", id+".json")
+		if strings.HasPrefix(id, ".quarantine-") {
+			age, manifest = maxAge, s.RootPath(id)
+		}
+		if info, err := os.Stat(manifest); err == nil && now.Sub(info.ModTime()) <= age {
 			continue
 		}
 		if removeTree(s.RootPath(id)) == nil {
-			_ = os.Remove(s.path("objects", id+".json"))
+			if !strings.HasPrefix(id, ".") {
+				_ = os.Remove(s.path("objects", id+".json"))
+			}
 			removed++
 		}
 	}

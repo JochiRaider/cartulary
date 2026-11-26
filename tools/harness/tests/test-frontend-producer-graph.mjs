@@ -1,11 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { execFileSync, spawnSync } from "../workspace/child-process.mjs";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import os from "node:os";
+import { readFileSync } from "node:fs";
 import path from "node:path";
-import { renderTaskSurfaceMake } from "../generated-artifacts/task-surface/make-renderer.mjs";
-import { validateMakeRecipes } from "../generated-artifacts/task-surface/recipe-validation.mjs";
 import { readOperationOwner } from "../execution/operations.mjs";
 import { loadExecutionTopology } from "../generated-artifacts/execution-topology.mjs";
 
@@ -29,29 +25,15 @@ export function registerFrontendProducerGraphTests() {
       assert.ok(owner.policy_units[operation].needs.includes("harness.embedded_web_assets"), `${operation} waits for the embedded assets`);
     }
 
-    // Exercise generated Make admission using an injected forbidden producer.
-    // The fixture changes the assertion command only; its real prerequisite and
-    // graph-child rendering must exclude production before that assertion runs.
-    const scratch = mkdtempSync(path.join(os.tmpdir(), "frontend-producer-make-"));
-    try {
-      // Ask GNU Make for its resolved dependency graph. Comments, whitespace,
-      // header ordering and variable spelling are not part of this boundary.
-      const artifacts = { WEB_DIST_INDEX: path.join(scratch, "renamed-web"), EMBEDDED_WEB_ASSET_STAMP: path.join(scratch, "renamed-assets") };
-      for (const graph of ["0", "1"]) {
-        const env = { ...process.env, MAKEFLAGS: "", MAKEOVERRIDES: "", MFLAGS: "" };
-        const result = spawnSync("bash", ["tools/harness/workspace/admission.sh", "run", "--", "make", "--no-print-directory", "-qp", "-f", "Makefile", artifacts.EMBEDDED_WEB_ASSET_STAMP, `CARTULARY_HARNESS_GRAPH_CHILD=${graph}`,
-          ...Object.entries(artifacts).map(([key, value]) => `${key}=${value}`),
-        ], { cwd: root, env, encoding: "utf8", maxBuffer: 16 * 1024 * 1024 });
-        assert.ok(result.status === 0 || result.status === 1, result.stderr);
-        const dependencies = (target) => {
-          const line = result.stdout.split("\n").find((entry) => entry.startsWith(`${target}:`));
-          assert.ok(line, `Make omitted ${target}`);
-          return line.slice(target.length + 1).trim().split(/\s+/u);
-        };
-        assert.equal(dependencies(artifacts.EMBEDDED_WEB_ASSET_STAMP).includes(artifacts.WEB_DIST_INDEX), graph === "0", "standalone assets consume web output; graph child never rebuilds upstream work");
-      }
-
-    } finally { rmSync(scratch, { recursive: true, force: true }); }
+    // The web builds and the embedded assets have no Make rule: the graph
+    // runs their producers, and packaging reads the run's frontend artifact.
+    const producers = JSON.parse(readFileSync(path.join(root, "tools/harness_producers.json"), "utf8")).producers;
+    const embedded = producers.find((entry) => entry.kind === "embedded_assets");
+    assert.equal(embedded.source, "build-web", "embedded assets package the production artifact");
+    assert.ok(owner.policy_units["harness.embedded_web_assets"].needs.includes("harness.build_web"), "packaging waits for the production artifact");
+    for (const target of ["build-web", "build-web-measurement"]) {
+      assert.equal(producers.filter((entry) => entry.kind === "web_bundle" && entry.target === target).length, 1, `${target} has one web bundle producer`);
+    }
 
   });
 }

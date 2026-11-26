@@ -191,11 +191,18 @@ func TestCollect(t *testing.T) {
 	if err := os.Chtimes(s.recordPath(p.ID(), key), old, old); err != nil {
 		t.Fatal(err)
 	}
-	if removed, err := s.Collect(time.Now(), time.Hour, 1); err != nil || removed != 1 || !s.verify(orphan.Root) {
+	// A freshly sealed root outlives its record for the grace period.
+	if removed, err := s.Collect(time.Now(), time.Hour, 16); err != nil || removed != 1 || !s.verify(orphan.Root) {
+		t.Fatalf("collection within the grace removed %d, %v", removed, err)
+	}
+	if err := os.Chtimes(filepath.Join(s.Root, "objects", orphan.Root+".json"), old, old); err != nil {
+		t.Fatal(err)
+	}
+	if removed, err := s.Collect(time.Now(), time.Hour, 0); err != nil || removed != 0 || !s.verify(orphan.Root) {
 		t.Fatalf("bounded collection removed %d, %v", removed, err)
 	}
 	if removed, err := s.Collect(time.Now(), time.Hour, 16); err != nil || removed != 1 {
-		t.Fatalf("collection removed %d, %v", removed, err)
+		t.Fatalf("collection after the grace removed %d, %v", removed, err)
 	}
 	if _, err := os.Stat(s.RootPath(orphan.Root)); !os.IsNotExist(err) {
 		t.Fatal("an unreferenced root survived", err)

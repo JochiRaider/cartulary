@@ -100,7 +100,7 @@ func writeExtensionIntegrity(repositoryRoot, manifestPath, supportPath, bootstra
 		return err
 	}
 	defer capability.Close()
-	for _, ref := range []string{"tools/embedwebassets/main.go", "tools/embedwebassets/registry.go", "tools/harness/readiness/embed-web-assets.sh"} {
+	for _, ref := range []string{"internal/testutil/artifactstore/embedded_linux.go", "tools/embedwebassets/main.go", "tools/embedwebassets/registry.go"} {
 		parts := strings.Split(ref, "/")
 		for i := range parts {
 			info, err := capability.Lstat(strings.Join(parts[:i+1], "/"))

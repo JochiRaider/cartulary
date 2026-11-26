@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "cartulary.harness_producers.v1",
-  "description": "Harness artifact producers (TH-HARNESS build-artifact store, P5-3). Each producer publishes its output at a binding's path, or at its default file under a workspace layout directory; the artifact store decides whether to build. Go tool modules and the ShellCheck version come from the toolchain pins.",
+  "description": "Harness artifact producers (TH-HARNESS build-artifact store, P5-3). Each published producer makes its output available at a binding's path, or at its default file under a workspace layout directory; a web bundle publishes no view, and its root becomes the run's frontend artifact. The artifact store decides whether to build. Go tool modules, the ShellCheck version and the pnpm version come from the toolchain pins.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -20,9 +20,7 @@
         "additionalProperties": false,
         "required": [
           "id",
-          "kind",
-          "binding",
-          "directory"
+          "kind"
         ],
         "properties": {
           "id": {
@@ -33,7 +31,9 @@
             "enum": [
               "go_binary",
               "go_tool",
-              "shellcheck"
+              "shellcheck",
+              "web_bundle",
+              "embedded_assets"
             ]
           },
           "binding": {
@@ -90,6 +90,33 @@
               "type": "string",
               "pattern": "^[a-f0-9]{64}$"
             }
+          },
+          "mode": {
+            "description": "A web bundle's Vite mode.",
+            "enum": [
+              "production",
+              "measurement"
+            ]
+          },
+          "inputs": {
+            "description": "The repository paths a web bundle's build reads.",
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_.][A-Za-z0-9_./-]*$"
+            }
+          },
+          "source": {
+            "description": "The frontend artifact target whose bundle embedded assets package.",
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$"
+          },
+          "client_support": {
+            "description": "The authored client support source embedded assets read.",
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_][A-Za-z0-9_./-]*$"
           }
         },
         "allOf": [
@@ -103,6 +130,8 @@
             },
             "then": {
               "required": [
+                "binding",
+                "directory",
                 "package",
                 "name"
               ],
@@ -122,6 +151,26 @@
                     "required": [
                       "archives"
                     ]
+                  },
+                  {
+                    "required": [
+                      "mode"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "inputs"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "source"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "client_support"
+                    ]
                   }
                 ]
               }
@@ -137,6 +186,8 @@
             },
             "then": {
               "required": [
+                "binding",
+                "directory",
                 "tool"
               ],
               "not": {
@@ -160,6 +211,26 @@
                     "required": [
                       "archives"
                     ]
+                  },
+                  {
+                    "required": [
+                      "mode"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "inputs"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "source"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "client_support"
+                    ]
                   }
                 ]
               }
@@ -175,6 +246,8 @@
             },
             "then": {
               "required": [
+                "binding",
+                "directory",
                 "archives"
               ],
               "not": {
@@ -203,6 +276,162 @@
                     "required": [
                       "module_dir"
                     ]
+                  },
+                  {
+                    "required": [
+                      "mode"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "inputs"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "source"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "client_support"
+                    ]
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "web_bundle"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "mode",
+                "inputs",
+                "target"
+              ],
+              "not": {
+                "anyOf": [
+                  {
+                    "required": [
+                      "package"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "tags"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "name"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "tool"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "module_dir"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "archives"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "source"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "client_support"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "binding"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "directory"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "label"
+                    ]
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "embedded_assets"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "binding",
+                "directory",
+                "source",
+                "client_support"
+              ],
+              "not": {
+                "anyOf": [
+                  {
+                    "required": [
+                      "package"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "tags"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "name"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "tool"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "module_dir"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "archives"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "mode"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "inputs"
+                    ]
                   }
                 ]
               }
@@ -212,7 +441,14 @@
             "if": {
               "required": [
                 "target"
-              ]
+              ],
+              "not": {
+                "properties": {
+                  "kind": {
+                    "const": "web_bundle"
+                  }
+                }
+              }
             },
             "then": {
               "required": [

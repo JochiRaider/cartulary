@@ -1372,6 +1372,7 @@ Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-am
 | 2026-11-26 | P5-3a / G47 | Go build keys are each binary's import closure; receipts are built for the staged binary; the 17 graph-child recipes, 11 unused Makefile variables, one runtime macro and four dead switches removed | `p77-*` (segments, real builds, pre-graph timing), `p78-lintshell`, `p78-lintscripts`, `p78-cache`, `p79-check01` | Pass. Segments found ShellCheck SC2016 on two intended strings and a test cleanup defeated by read-only module files; both repaired. `p79-check01` passed all 1,897 rows in a 543 s graph (14.25) |
 | 2026-11-26 | P5-3b | The Go artifact store: content-addressed sealed roots, key records and single-link copy views; all seven Go binaries built through `tools/harnessbuild` with import-closure keys; unit cache keys use result identity; `BUILD_GO_ARTIFACT_IMPL` removed | `p80`, `p81` (segments), `p82-check01`, `p83`, `p84` (segments), `p85-check01`, `p86` | Pass. `p82-check01` failed two operator recovery rows with `release_mismatch`: hard-link views broke the product's single-link rule, so views are copies (D25 adjusted). `p85-check01` passed all 1,898 rows in a 518 s graph (14.26) |
 | 2026-11-26 | P5-3c step 1 | The producer registry and `harnessbuild produce`; Go tools and ShellCheck join the Go binaries in the store; artifact bindings and generated recipes run producers instead of re-entering Make; caller-set bindings are provided executables; 15 file rules and the tool bootstrap scripts removed | `p87-generate`, `p88`, `p90`, `p91` (segments), `p92-check01` | Pass. Segments found a stale registry name, a direct run-context write, a renderer caller without producers, a test of the deleted server rule and a shell-lint smoke that cannot have passed since P5-4b; all repaired. `p92-check01` passed all 1,898 rows in a 510 s graph (14.27) |
+| 2026-11-26 | P5-3c step 2 | Web bundles and embedded assets join the store: `frontend-artifact.mjs build` copies the sealed bundle into the run's private artifact; embedded assets package the run's artifact; bundles always carry source maps (D29); unrecorded roots get a collection grace; three file rules and two scripts removed | `p93-generate`, `p94` (segment), `p95-check01` | Pass. `p95-check01` passed all 1,898 rows in a 513 s graph; the web unit took 3.5 s (6.7 s) reusing its bundle (14.28) |
 | 2026-11-25 | P4-4 / G39 | Wait audit: 31 whole-test hang guards derive from the test deadline (`testdeadline`) | `p44-port-*` (16 owner slices, every row holding a converted guard) | Pass. Committed `bdd8f4e1d` |
 
 ## 12. Phase 2 Plan — `check` Wall Clock
@@ -2666,7 +2667,7 @@ Status: proposed 2026-11-26 at the owner's request. P5-0, P5-1 and P5-2 done (14
 | P5-1 | Flat catalog: every check is a row with an owner, so any of them runs alone with `ROWS=`; selections list rows and operations, not other selections. **Done 2026-11-26** (14.6): every test script is a row and duplicates are gone; selection nesting stays (14.6) | G44 |
 | P5-2 | Unnest: harness-mechanics probes run as first-class graph rows against private outputs, or move to an explicit harness suite outside `ci`; a source check forbids rows that launch `make` or `graph` against the shared repository | G43 |
 | P5-4 | Declared environment: a registry of every harness variable, default-deny unit environments, one typed unit context document, fixture bindings in that document (14.7) | G43, G45 |
-| P5-3 | Thin Make: Make only admits the workspace and forwards to the harness; build operations become data with declared inputs, environment keys and outputs; one Go content-addressed store replaces `cache-artifact.sh`, the renderer store and web staging; no unit re-enters Make; one toolchain environment from the pins for builds and tests. **Planned 2026-11-26** (14.24): five steps, P5-3a to P5-3e; P5-3a done (14.25); P5-3b done (14.26); P5-3c step 1 of 4 done (14.27) | G44 |
+| P5-3 | Thin Make: Make only admits the workspace and forwards to the harness; build operations become data with declared inputs, environment keys and outputs; one Go content-addressed store replaces `cache-artifact.sh`, the renderer store and web staging; no unit re-enters Make; one toolchain environment from the pins for builds and tests. **Planned 2026-11-26** (14.24): five steps, P5-3a to P5-3e; P5-3a done (14.25); P5-3b done (14.26); P5-3c steps 1 and 2 of 4 done (14.27, 14.28) | G44 |
 
 P5-0 is small and removes the hazards seen in `ci`. P5-1 makes segments
 possible for every check. P5-3 is the largest and needs specification
@@ -2696,6 +2697,7 @@ amendments.
 | D26 | cgo for shipped binaries | `CGO_ENABLED=0` everywhere, as tests and the package probes already use; adopted only if the release package rows pass. **Approved 2026-11-26** |
 | D27 | Checkout-independent binaries | `-trimpath` for product binaries, so a binary's digest does not depend on the checkout path; the one-time digest change is recorded. **Approved 2026-11-26** |
 | D28 | Cache controls | Keep the public `CARTULARY_BUILD_CACHE_DISABLE` and `CARTULARY_FORCE_REBUILD` as the store's two controls; fold the readiness, reinstall and static-analysis variants into them. **Approved 2026-11-26** |
+| D29 | Web bundle flags and the output mode | Bundles always carry source maps, as every default and ci build did; the verbose output mode no longer changes the bundle or the server's embedded archive. **Taken in P5-3c step 2 (14.28); for owner review** |
 
 ### 14.5 Fences (P5-0)
 
@@ -3694,7 +3696,7 @@ Decision D20 (owner, 2026-11-26): nested harness probes run in explicit
 Status: planned 2026-11-26 at the owner's request. Owner direction: retire as
 much of the Makefile as needed; a thin wrapper is better than a complicated
 one. Approved with D24 to D28 as recommended on 2026-11-26; P5-3a done
-(14.25); P5-3b done (14.26); P5-3c step 1 of 4 done (14.27).
+(14.25); P5-3b done (14.26); P5-3c steps 1 and 2 of 4 done (14.27, 14.28).
 
 **Problem (G44, G47).** Measured at `db2304ea9`:
 
@@ -4081,3 +4083,86 @@ segments and then one `check`:
     - A Go tool unit's reuse takes 1.3 to 1.7 s alone. Two took 6 s while
       the graph's first units started together, so the six tool units took
       19.8 s in all (12.0 s).
+
+### 14.28 Web Bundles and Embedded Assets (P5-3c, step 2)
+
+- **The per-run artifact stays.** The spec admits one frontend producer per
+  run and profile, building into a private staging directory sealed with a
+  run-bound receipt, and browser consumers attach only that artifact. So the
+  store supplies its content instead of replacing it.
+  - `frontend-artifact.mjs build <target>` runs the target's web bundle
+    producer through `harnessbuild produce --roots`, copies the sealed root
+    into the run's private staging, and seals and receipts it as before. The
+    claim, the source-snapshot checks before and after, and the conventional
+    publication under its lock are unchanged.
+  - The `--roots` option writes each producer's sealed root to a file.
+- **The web bundle producer.** Two registered bundles, production and
+  measurement, each naming its frontend target. A bundle publishes no view.
+  - **Key.** Every tracked or untracked, non-ignored file under its inputs:
+    `apps/web`, the four packages the web imports (`grid-adapter`,
+    `protocol-ts`, `ui-contracts`, `view-contracts`), the root manifest,
+    lockfile, workspace file and TypeScript configs. Documentation is left
+    out. It also covers the build arguments, the Node and pnpm versions, the
+    `VITE_` settings and `NODE_ENV`, and the producer source. Production code
+    imports nothing outside those inputs and uses no glob imports.
+  - **Build.** `pnpm --dir apps/web exec vite build --sourcemap --logLevel
+    warn [--mode measurement]` into staging.
+  - **Source maps (D29).** The flags no longer depend on the output mode.
+    Before, summary, quiet, ci and machine modes added `--sourcemap` and
+    verbose mode did not, so the server's embedded archive held 11 `.map`
+    files or none depending on how `make` was run. Bundles now always carry
+    source maps, as every default and ci build already did.
+- **The embedded assets producer.** It packages the run's sealed production
+  artifact, resolved by its receipt, and never rebuilds the bundle. Its six
+  outputs form one root, published at the layout's embedded asset directory.
+  - **Key.** The bundle's files, the authored client support source, the
+    embedder's import closure, the module files, the effective `go env`
+    settings and the producer source.
+  - **Provenance.** The embedder's `generator_sources` named the deleted
+    `embed-web-assets.sh`; they now name the producer source, which chooses
+    the embedder's inputs (Extensions NLSpec: every byte-affecting generator
+    input).
+  - **Stamps.** The two scratch stamps only Make read are gone.
+- **Store collection.** A root that no key record names is kept for an hour
+  after sealing, so a root built with the cache disabled survives until its
+  caller copies it. Quarantined roots go after 30 days; before, they were
+  never collected.
+- **Shared Go closure.** The Go binary and embedded asset producers share one
+  `go list -deps` closure helper; every Go binary rebuilt once for it.
+- **Operations.** `build_web` and `build_web_measurement` are run steps of
+  `frontend-artifact.mjs build`; the embedded assets bind only their archive.
+  The protocol reachability and OTel conformance operations lose prerequisite
+  entries naming the bundle's conventional output; both already wait for the
+  web build in the graph.
+- **Make.** Three file rules go: the web bundle, the measurement bundle and
+  the embedded assets, with `VITE_BUILD_FLAGS`, the `EMBEDDED_*` and
+  `WEB_DIST_INDEX` variables and the graph-child prerequisite switch. The
+  Makefile has 154 lines (187). `build-web-artifact.sh` and
+  `embed-web-assets.sh` are deleted.
+- **Tests.** Go tests cover the web key (inputs, documentation, ignored
+  files, mode, `VITE_` settings, source maps) and the embedded key (bundle,
+  client support, embedder, a linked entry refused). The compiler-failure
+  case injects its failing stand-in through `GO`. The frontend producer graph
+  test checks the producers and the graph edge instead of the deleted Make
+  rule.
+- **Specification.** Amended: frontend producers obtain bundles from the
+  store, with fixed arguments; embedded asset preparation packages the run's
+  artifact; collection grace.
+- **Validation.**
+  - **Segment (`p94`).** Every step passed:
+    - generation, lint (Go, scripts, shell), and the surface, catalog,
+      identity, generated and schema source checks;
+    - `build COMPONENT=web` and `web-measurement` built through the store
+      (a receipt bound to the run, a `web-bundle` key record, the
+      conventional output published);
+    - `make build` twice: the second reused the web bundle and the embedded
+      assets, which leave an unchanged file in place;
+    - 13 command-surface rows (with the producer lifecycle and graph tests and
+      the web E2E lifecycle), the current-epoch evidence row, both browser
+      artifact rows (frontend publication, artifact lifetime), the embedder's
+      unit row and topology row, the protocol browser-bundle row, the routing
+      contract and both operator recovery rows.
+  - **`p95-check01`.** All 1,898 rows passed in a 513 s graph (510 s in
+    `p92`); wall time was 525 s. The web unit took 3.5 s (6.7 s), reusing
+    the bundle; its time is the run's source-snapshot checks and the copy
+    into private staging. The embedded assets took 1.7 s (2.4 s).

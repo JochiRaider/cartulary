@@ -4,15 +4,19 @@
 // store (P5-3). Make and the operation runner start it with `go run`, which
 // needs no prebuilt binary, so it also builds the harness runtime itself.
 //
-//	harnessbuild produce [--store DIR] PRODUCER...
+//	harnessbuild produce [--store DIR] [--roots FILE] PRODUCER...
 //
 // Each producer is declared in tools/harness_producers.json and publishes at
 // its default path in the workspace layout. A caller that sets a producer's
 // binding to another path provides that executable, which is checked and
-// kept. The store defaults to the layout's artifact_store directory.
+// kept. The store defaults to the layout's artifact_store directory. With
+// --roots, the sealed root of each producer is written to FILE as a JSON
+// object, for a caller that copies a root, such as the run's frontend
+// artifact.
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -30,7 +34,7 @@ const (
 	collectLimit = 16
 )
 
-const usage = "usage: harnessbuild produce [--store DIR] PRODUCER..."
+const usage = "usage: harnessbuild produce [--store DIR] [--roots FILE] PRODUCER..."
 
 func main() { os.Exit(run(os.Args[1:])) }
 
@@ -41,11 +45,12 @@ func run(args []string) int {
 	}
 	flags := flag.NewFlagSet("produce", flag.ContinueOnError)
 	store := flags.String("store", "", "artifact store directory")
+	roots := flags.String("roots", "", "file to write each producer's sealed root to")
 	if err := flags.Parse(args[1:]); err != nil || flags.NArg() == 0 {
 		fmt.Fprintln(os.Stderr, usage)
 		return 2
 	}
-	if err := produce(*store, flags.Args()); err != nil {
+	if err := produce(*store, *roots, flags.Args()); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		reportFailure()
 		return 1
@@ -53,7 +58,7 @@ func run(args []string) int {
 	return 0
 }
 
-func produce(store string, ids []string) error {
+func produce(store, rootsFile string, ids []string) error {
 	root, err := os.Getwd()
 	if err != nil {
 		return err
@@ -94,13 +99,25 @@ func produce(store string, ids []string) error {
 		Disable: os.Getenv("CARTULARY_BUILD_CACHE_DISABLE") == "1",
 		Force:   os.Getenv("CARTULARY_FORCE_REBUILD") == "1",
 	}
+	produced := map[string]string{}
 	for _, d := range declarations {
 		producer, views, err := workspace.Plan(d)
 		if err != nil {
 			return fmt.Errorf("producer %s: %w", d.ID, err)
 		}
-		if _, err := s.Produce(producer, views, controls); err != nil {
+		result, err := s.Produce(producer, views, controls)
+		if err != nil {
 			return fmt.Errorf("producer %s: %w", d.ID, err)
+		}
+		produced[d.ID] = s.RootPath(result.Root)
+	}
+	if rootsFile != "" {
+		data, err := json.Marshal(produced)
+		if err != nil {
+			return err
+		}
+		if err := os.WriteFile(rootsFile, append(data, '\n'), 0o600); err != nil {
+			return err
 		}
 	}
 	_, err = s.Collect(time.Now(), collectAge, collectLimit)

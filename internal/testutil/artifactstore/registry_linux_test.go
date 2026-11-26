@@ -25,7 +25,7 @@ func testWorkspace(t *testing.T, env ...string) *Workspace {
 		t.Fatal(err)
 	}
 	scratch := t.TempDir()
-	base := []string{"NODE_BIN=/bin/true", "GO=/bin/true",
+	base := []string{"NODE_BIN=/bin/true", "GO=/bin/true", "NODE_RUNTIME_DIR=/node", "PNPM=/node/bin/pnpm",
 		"GO_CACHE_DIR=" + filepath.Join(scratch, "build"), "GO_MOD_CACHE_DIR=" + filepath.Join(scratch, "mod"), "GO_TMP_DIR=" + filepath.Join(scratch, "tmp")}
 	w, err := OpenWorkspace(root, append(base, env...))
 	if err != nil {
@@ -47,6 +47,25 @@ func TestRegisteredProducersPlan(t *testing.T) {
 		t.Fatal("the registry declares no producer")
 	}
 	for _, d := range registry.Producers {
+		switch d.Kind {
+		case "web_bundle":
+			// A bundle publishes no view; its root becomes the run's
+			// frontend artifact.
+			if _, views, err := w.Plan(d); err != nil || len(views) != 0 {
+				t.Fatalf("%s: views %v, %v", d.ID, views, err)
+			}
+			continue
+		case "embedded_assets":
+			// Packaging reads the run's frontend artifact, so it plans only
+			// inside a graph.
+			if _, _, err := w.Plan(d); err == nil || !strings.Contains(err.Error(), "graph") {
+				t.Fatalf("%s planned outside a graph: %v", d.ID, err)
+			}
+			if name, err := w.DefaultName(d); err != nil || name != EmbeddedAssetNames[0] {
+				t.Fatalf("%s default %q, %v", d.ID, name, err)
+			}
+			continue
+		}
 		producer, views, err := w.Plan(d)
 		if err != nil {
 			t.Fatalf("%s: %v", d.ID, err)
@@ -106,9 +125,11 @@ func TestRegisteredProducersPlan(t *testing.T) {
 // A declaration carries exactly its kind's fields.
 func TestDeclarationsAreValidatedByKind(t *testing.T) {
 	valid := map[string]Declaration{
-		"go_binary":  {ID: "b", Kind: "go_binary", Binding: "B_BIN", Directory: "binaries", Package: "./cmd/b", Name: "b"},
-		"go_tool":    {ID: "t", Kind: "go_tool", Binding: "T_BIN", Directory: "toolbin", Tool: "sqlc"},
-		"shellcheck": {ID: "s", Kind: "shellcheck", Binding: "S_BIN", Directory: "toolbin", Archives: map[string]string{"a": "b"}},
+		"go_binary":       {ID: "b", Kind: "go_binary", Binding: "B_BIN", Directory: "binaries", Package: "./cmd/b", Name: "b"},
+		"go_tool":         {ID: "t", Kind: "go_tool", Binding: "T_BIN", Directory: "toolbin", Tool: "sqlc"},
+		"shellcheck":      {ID: "s", Kind: "shellcheck", Binding: "S_BIN", Directory: "toolbin", Archives: map[string]string{"a": "b"}},
+		"web_bundle":      {ID: "w", Kind: "web_bundle", Target: "build-web", Mode: "production", Inputs: []string{"apps/web"}},
+		"embedded_assets": {ID: "e", Kind: "embedded_assets", Binding: "E_ZIP", Directory: "embedded_assets", Source: "build-web", ClientSupport: "c.json"},
 	}
 	for kind, d := range valid {
 		if err := d.validate(); err != nil {
@@ -123,6 +144,11 @@ func TestDeclarationsAreValidatedByKind(t *testing.T) {
 		"shellcheck without digest": {ID: "s", Kind: "shellcheck", Binding: "S_BIN", Directory: "toolbin"},
 		"a lowercase binding":       {ID: "t", Kind: "go_tool", Binding: "t_bin", Directory: "toolbin", Tool: "sqlc"},
 		"a target without a label":  {ID: "t", Kind: "go_tool", Binding: "T_BIN", Directory: "toolbin", Tool: "sqlc", Target: "x"},
+		"a bundle with a view":      {ID: "w", Kind: "web_bundle", Binding: "W", Directory: "web_dist", Target: "build-web", Mode: "production", Inputs: []string{"apps/web"}},
+		"a bundle in another mode":  {ID: "w", Kind: "web_bundle", Target: "build-web", Mode: "development", Inputs: []string{"apps/web"}},
+		"a bundle without inputs":   {ID: "w", Kind: "web_bundle", Target: "build-web", Mode: "production"},
+		"assets without a source":   {ID: "e", Kind: "embedded_assets", Binding: "E_ZIP", Directory: "embedded_assets", ClientSupport: "c.json"},
+		"a tool with inputs":        {ID: "t", Kind: "go_tool", Binding: "T_BIN", Directory: "toolbin", Tool: "sqlc", Inputs: []string{"x"}},
 	}
 	for name, d := range invalid {
 		if d.validate() == nil {
@@ -283,6 +309,9 @@ func TestGeneratedMakeDefaultsMatchProducers(t *testing.T) {
 		}
 	}
 	for _, d := range registry.Producers {
+		if d.Binding == "" {
+			continue
+		}
 		view, err := w.View(d)
 		if err != nil {
 			t.Fatal(err)
