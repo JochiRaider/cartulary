@@ -638,6 +638,10 @@ func (e *graphEngine) choose(ready []unit, barriers map[string][]string) *unit {
 	}
 	var view admissionView
 	var fallback *unit
+	// The highest-ranked denied unit reserves the resources it lacks; a
+	// lower-ranked unit backfills only beside that reservation, claiming
+	// none of them (G31, TH-HARNESS-REQ-802 amended 2026-11-25).
+	var reservation []string
 	for _, u := range ordered {
 		if e.graphBlocking(u, barriers).reason != "rank" {
 			continue
@@ -670,6 +674,9 @@ func (e *graphEngine) choose(ready []unit, barriers map[string][]string) *unit {
 		if !v.admissible {
 			if len(e.holders(v.deficits)) != 0 {
 				e.denied[u.ID] = v.deficits
+				if reservation == nil {
+					reservation = v.deficits
+				}
 				continue
 			}
 			// Nothing this graph runs holds what u lacks: idle residents,
@@ -682,6 +689,10 @@ func (e *graphEngine) choose(ready []unit, barriers map[string][]string) *unit {
 				return &u
 			}
 			e.denied[u.ID] = nil
+			continue
+		}
+		if claimsAny(u, reservation) {
+			e.denied[u.ID] = slices.Clone(reservation)
 			continue
 		}
 		// The attempt is the unit's host admission: it runs as a canonical

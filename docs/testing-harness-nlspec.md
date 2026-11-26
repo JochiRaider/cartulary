@@ -403,7 +403,10 @@ aggregate, and owner-slice selectors. The scheduler MUST:
 1. capture one immutable host-capability snapshot;
 2. rank each ready unit by qualified work plus longest estimated downstream path;
 3. admit the highest-ranked resource-fitting unit with stable `unit_id` ties;
-4. backfill with any lower-ranked fitting unit without reserving unheld resources;
+4. backfill with lower-ranked fitting units beside one reservation: the
+   highest-ranked unit the host ledger denies reserves the resources it lacks,
+   and a lower-ranked unit is admitted only when it claims none of them, so
+   freed resources accumulate for the critical path (amended 2026-11-25, G31);
 5. add elapsed monotonic time since first eligibility, rounded down to the
    authored aging quantum, to effective rank so backfill cannot starve work;
 6. block descendants of failed required predecessors while continuing only
@@ -447,7 +450,7 @@ The authored graph, qualified cost model, capability snapshot, and capacity
 override declaration MUST determine admission reproducibly. Live self-tuning is
 outside v3. A scheduler family, shell loop, or nested Make invocation MUST NOT
 encode a second scheduling policy.
-Verified by: TH-HARNESS-AC-084, TH-HARNESS-AC-170, TH-HARNESS-AC-175
+Verified by: TH-HARNESS-AC-084, TH-HARNESS-AC-170, TH-HARNESS-AC-175, TH-HARNESS-AC-176
 
 **TH-HARNESS-REQ-803**
 Physical allocations MUST retain resident capacity until exact cleanup proves
@@ -11806,6 +11809,7 @@ expected behavior. Failure codes below are normalized wrapper codes.
 | TH-HARNESS-AC-173 | REQ-807 | Go and Vitest units; a change to a runner package or module, to a Node module a Go closure names by a literal path, to an unrelated harness module and to the planning estimates; a computed import inside and outside the declared externals | A Go key holds its packages' closure, the Go runner's package closure and every named repository file with a named module's closure; a Vitest key holds its workspaces and the JavaScript runner's module closure; only changes inside a closure change a key; an undeclared computed import selects the broad closure | A key unchanged by a change inside its closure, a key changed by an unrelated harness module or by the estimates, or an incomplete closure used instead of the broad one fails. |
 | TH-HARNESS-AC-174 | REQ-060 | Two renderer builds with unchanged inputs; a changed renderer source, lockfile or host library; a tampered installation root; `CARTULARY_BUILD_CACHE_DISABLE=1` and `CARTULARY_FORCE_REBUILD=1` | The second unchanged build only republishes the receipt; any changed input or copied library rebuilds and records a new key, and a tampered root is never reused; the disable flag neither reads nor records keys and the force flag rebuilds | A reused installation after an input change, a reuse that skips the integrity check, or a recorded key under the disable flag fails. |
 | TH-HARNESS-AC-175 | REQ-802, REQ-803 | A graph of ready units whose claims and residents exceed the ledger, a cached unit, another owner's older waiting request and exclusive fence, a ledger change by another process, and a graph with no running unit | The scheduler admits only units the ledger view grants with every claim and resident together; a denied unit holds no token and names its deficits or `host_admission`; a cached unit never reaches the ledger; waiters wake on a ledger change; with nothing running the top-ranked fitting unit waits in host admission; PostgreSQL work and generations are each charged once | A token held by a denied unit, a partial grant, a cache hit admitted, a waiter that only polls, or a generation charged twice fails. |
+| TH-HARNESS-AC-176 | REQ-802 | A ready high-ranked unit the ledger denies and lower-ranked units that do and do not claim the resources it lacks | Lower-ranked units claiming none of the reserved resources are admitted; one claiming a reserved resource waits; the high-ranked unit is admitted when its resources free | A backfill that takes a reserved resource or a reservation that blocks unrelated work fails. |
 
 The numerical image cases MUST include transparent pixels, alpha-only differences,
 one-pixel boundaries, and zero/full changed area. Interface fixtures MUST include

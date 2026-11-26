@@ -294,3 +294,50 @@ func TestRuntimeResidentHeldWaits(t *testing.T) {
 		}
 	})
 }
+
+func TestRuntimeCriticalPathReservation(t *testing.T) {
+	// The top-ranked unit needs two CPU tokens; two lower-ranked one-token
+	// units would keep taking each freed token if backfill were free.
+	wide, first, second, third := engineUnit("wide", 100), engineUnit("first", 3), engineUnit("second", 2), engineUnit("third", 1)
+	wide.Claims["cpu"] = 2
+	p := enginePlan(wide, first, second, third)
+	p.facts.Capacities["cpu"] = 2
+	ledger := newFakeLedger(map[string]int64{"cpu": 2})
+	// first holds one token from the start, so wide cannot fit at once.
+	ledger.used["cpu"] = 1
+	var order []string
+	var mu sync.Mutex
+	r := boundedGraph(t, p, enginePorts{RetainEvents: true, Admission: ledger, Execute: func(_ context.Context, req executionRequest) unitResult {
+		mu.Lock()
+		order = append(order, req.Unit.ID)
+		mu.Unlock()
+		if req.Unit.ID == "first" {
+			ledger.mu.Lock()
+			ledger.used["cpu"]--
+			ledger.mu.Unlock()
+		}
+		return unitResult{Status: "passed"}
+	}})
+	if r.Status != "passed" || len(order) != 4 {
+		t.Fatal(order, r.Status)
+	}
+	// Only one token is free at first: first fits but claims the reserved
+	// CPU, so nothing backfills, and wide is admitted before any
+	// lower-ranked unit. Without the reservation first would take the token.
+	if r.Admissions[0] != "wide" {
+		t.Fatal("lower-ranked work consumed the reservation", r.Admissions)
+	}
+}
+
+func TestRuntimeReservationCoversResidents(t *testing.T) {
+	// A unit whose own claims avoid the reservation still waits when a
+	// resident it would hold claims a reserved resource.
+	u := engineUnit("generation", 1)
+	if claimsAny(u, []string{"postgres_generation"}) {
+		t.Fatal("a unit without the resource claims it")
+	}
+	u.Residents = []harnessfixtures.Resident{{Key: "postgres:unit:generation", Claims: map[string]int64{"postgres_generation": 1}}}
+	if !claimsAny(u, []string{"postgres_generation"}) || claimsAny(u, []string{"browser_stack"}) {
+		t.Fatal("resident claims are not part of the reservation check")
+	}
+}

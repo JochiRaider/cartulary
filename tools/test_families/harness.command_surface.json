@@ -619,6 +619,7 @@
           "TestRuntimeCanonicalAccounting",
           "TestRuntimeCanonicalNodeParity",
           "TestRuntimeContractEvidenceGate",
+          "TestRuntimeCriticalPathReservation",
           "TestRuntimeErrorCodeCoverageReport",
           "TestRuntimeFailurePrecedence",
           "TestRuntimeGoRows",
@@ -635,6 +636,7 @@
           "TestRuntimePublicationRollback",
           "TestRuntimeRefusedEvaluation",
           "TestRuntimeRequiredPublication",
+          "TestRuntimeReservationCoversResidents",
           "TestRuntimeResidentHeldWaits",
           "TestRuntimeUnitInputEnvironment"
         ]
