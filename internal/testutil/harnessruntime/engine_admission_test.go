@@ -132,6 +132,19 @@ func TestRuntimeLedgerAdmission(t *testing.T) {
 		if !slices.Equal(waitedOn, []string{"postgres"}) {
 			t.Fatal("denied unit's wait does not name its deficit", waitedOn)
 		}
+		// Each single attempt is its unit's host admission phase, so the
+		// admission evidence it produces lies inside a canonical phase.
+		attempted := map[string]bool{}
+		for _, event := range r.Events {
+			if event["event"] == "phase_started" && event["phase"] == "host_admission" {
+				attempted[event["unit_id"].(string)] = true
+			}
+		}
+		for _, id := range ledger.tried {
+			if !attempted[id] {
+				t.Fatal("an admission attempt ran outside a host_admission phase", id)
+			}
+		}
 		facts := newCanonicalFacts(p)
 		for _, event := range r.Events {
 			if err := facts.consume(event); err != nil {

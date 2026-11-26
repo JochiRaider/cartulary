@@ -417,7 +417,10 @@ every physical resource a unit claims, together with the residents it would
 create or borrow, is decided by the host admission ledger of
 TH-HARNESS-REQ-803. For each decision the scheduler reads one ledger view,
 evaluates its ready units in effective-rank order against it, and transacts
-only for a unit the view admits; a unit is admitted, and takes its tokens, only
+only for a unit the view admits, as that unit's `host_admission` phase, so
+its admission evidence lies inside a canonical phase (a ledger that changed
+since the view denies the attempt; after 32 such denials the unit waits in
+host admission instead); a unit is admitted, and takes its tokens, only
 when every claim and resident it needs is granted together. A denied unit
 holds no token and no queue position, and its wait names the resources it
 would exceed and the running units that hold them, through their claims or

@@ -238,7 +238,14 @@ type graphEngine struct {
 	// hostWaiter is the one unit waiting in host admission for capacity no
 	// unit of this graph holds.
 	hostWaiter string
+	// attempts counts each unit's denied single admission attempts.
+	attempts map[string]int
 }
+
+// maximumAdmissionAttempts bounds a unit's single admission attempts that a
+// changed ledger denies; each is a host_admission phase, and a unit's phases
+// are bounded.
+const maximumAdmissionAttempts = 32
 
 func executeGraph(ctx context.Context, plan *Plan, ports enginePorts) (graphResult, error) {
 	if plan == nil || ports.Execute == nil {
@@ -254,7 +261,7 @@ func executeGraph(ctx context.Context, plan *Plan, ports enginePorts) (graphResu
 		byID: map[string]unit{}, ranks: map[string]int64{}, eligibleAt: map[string]int64{}, claims: map[string]int64{},
 		shared: map[string]int{}, exclusive: map[string]bool{}, running: map[string]bool{}, eligible: map[string]bool{}, released: map[string]bool{},
 		waits: map[string]waitDetails{}, activities: map[string]string{}, activityWait: map[string]string{}, starts: map[string]*int64{}, phase: "executing",
-		leases: map[string]*hostLease{}, denied: map[string][]string{}, lookups: map[string]cacheResult{},
+		leases: map[string]*hostLease{}, denied: map[string][]string{}, lookups: map[string]cacheResult{}, attempts: map[string]int{},
 		result: graphResult{States: map[string]string{}, Units: map[string]unitResult{}, Admissions: []string{}, Events: []map[string]any{}, Cleanup: []cleanupRecord{}}}
 	for _, u := range plan.facts.Graph.Units {
 		e.byID[u.ID] = u
@@ -677,7 +684,15 @@ func (e *graphEngine) choose(ready []unit, barriers map[string][]string) *unit {
 			e.denied[u.ID] = nil
 			continue
 		}
-		lease, granted, err := e.ports.Admission.TryAdmit(e.ctx, u)
+		// The attempt is the unit's host admission: it runs as a canonical
+		// phase, so its admission evidence lies inside one.
+		var lease *hostLease
+		var granted bool
+		err = e.directPhase(u, "host_admission", func() error {
+			var err error
+			lease, granted, err = e.ports.Admission.TryAdmit(e.ctx, u)
+			return err
+		})
 		if err != nil {
 			// The request cannot be admitted at all; the unit's worker reports
 			// the failure through the blocking admission path.
@@ -685,7 +700,13 @@ func (e *graphEngine) choose(ready []unit, barriers map[string][]string) *unit {
 			return &u
 		}
 		if !granted {
-			// The ledger moved since the view: read it again.
+			// The ledger moved since the view. After a bounded number of such
+			// races the unit waits in host admission instead of trying again.
+			e.attempts[u.ID]++
+			if e.attempts[u.ID] >= maximumAdmissionAttempts {
+				delete(e.denied, u.ID)
+				return &u
+			}
 			e.denied[u.ID] = []string{}
 			view = nil
 			continue

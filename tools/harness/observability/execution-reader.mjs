@@ -121,8 +121,9 @@ export function validateHostAdmission(section, run) {
   for (const r of section.records) {
     if (Buffer.byteLength(JSON.stringify(r)) > 65536 || !run.registrations.has(r.unit_id)) throw new Error("unknown or oversized host admission record");
     if (r.end_ms < r.start_ms || r.duration_ms > r.end_ms - r.start_ms + 1e-6) throw new Error("invalid host admission duration");
-    const host = [...(run.phases?.values() ?? [])].find((p) => p.unit_id === r.unit_id && p.phase === "host_admission");
-    if (!host || r.start_ms < host.start_ms - 1 || r.end_ms > host.end_ms + 1) throw new Error("host admission observation outside canonical phase");
+    // A unit may make several admission attempts, each its own phase.
+    const phases = [...(run.phases?.values() ?? [])].filter((p) => p.unit_id === r.unit_id && p.phase === "host_admission");
+    if (!phases.some((p) => r.start_ms >= p.start_ms - 1 && r.end_ms <= p.end_ms + 1)) throw new Error("host admission observation outside canonical phase");
     if (r.kind === "decision") {
       if (r.request_ref !== r.decision.request_ref || r.duration_ms !== 0) throw new Error("invalid admission decision identity or duration");
       const old = requests.get(r.request_ref);
@@ -144,7 +145,7 @@ export function validateHostAdmission(section, run) {
     } else if (r.request_ref !== null) throw new Error("unassigned admission record has request identity");
     if (r.kind === "phase") {
       durations.set(r.unit_id, (durations.get(r.unit_id) ?? 0) + r.duration_ms);
-      if (durations.get(r.unit_id) > host.end_ms - host.start_ms + 1) throw new Error("host phase duration exceeds canonical interval");
+      if (durations.get(r.unit_id) > phases.reduce((total, p) => total + p.end_ms - p.start_ms + 1, 0)) throw new Error("host phase duration exceeds canonical interval");
     }
     if (r.kind === "retirement" && (new Set(r.resident_refs).size !== r.resident_refs.length || r.observations !== 1 || Math.abs(r.duration_ms - (r.end_ms-r.start_ms)) > 1e-6)) throw new Error("invalid retirement observation");
     const key = `${r.unit_id}:${r.kind}:${r.phase ?? (r.kind==="retirement_evaluation" ? `${r.request_ref}:${r.evaluation.resident_refs.join(",")}` : r.request_ref) ?? r.resident_refs.join(",")}`;
