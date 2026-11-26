@@ -24,8 +24,10 @@ func testFixturePreservation(t *testing.T) {
 	t.Run("dead_runtimes", testDeadRuntimes)
 }
 
-// Startup recovery admits exactly the dead, unsealed runtimes of its own
-// repository, at any age; live, busy, sealed and foreign roots are not offered.
+// Startup recovery admits exactly the dead runtimes of its own repository that
+// still need recovery, at any age: unsealed roots, and sealed roots whose
+// failed cleanup preserved resource records. Live, busy, drained sealed,
+// corruptly sealed and foreign roots are not offered.
 func testDeadRuntimes(t *testing.T) {
 	scratch, repository := t.TempDir(), t.TempDir()
 	open := func(t *testing.T, repository, id string) *Runtime {
@@ -52,11 +54,20 @@ func testDeadRuntimes(t *testing.T) {
 	stopped := open(t, repository, "stopped")
 	dead(t, stopped)
 	dead(t, open(t, t.TempDir(), "foreign"))
-	sealed := open(t, repository, "sealed")
-	dead(t, sealed)
-	if err := harnesslocal.ReplaceFile(filepath.Join(sealed.Root, "finalizing"), []byte("sealed\n")); err != nil {
+	seal := func(t *testing.T, r *Runtime, state string) {
+		t.Helper()
+		dead(t, r)
+		if err := harnesslocal.ReplaceFile(filepath.Join(r.Root, "finalizing"), []byte(state)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	seal(t, open(t, repository, "sealed"), "sealed\n")
+	stranded := open(t, repository, "stranded")
+	if err := stranded.RecordDependentResource("package_resource", map[string]any{"daemon_id": "fixture-engine", "token": "11111111-2222-4333-8444-555555555555", "role": "postgres"}, "pending", []string{}); err != nil {
 		t.Fatal(err)
 	}
+	seal(t, stranded, "sealed\n")
+	seal(t, open(t, repository, "corrupt"), "open\n")
 	busy := open(t, repository, "busy")
 	dead(t, busy)
 	if err := unix.Flock(int(busy.Directory.Fd()), unix.LOCK_EX); err != nil {
@@ -64,7 +75,8 @@ func testDeadRuntimes(t *testing.T) {
 	}
 	defer unix.Flock(int(busy.Directory.Fd()), unix.LOCK_UN)
 	runtimes, err := DeadRuntimes(repository, scratch)
-	if want := []DeadRuntime{{Root: stopped.Root, RunRoot: stopped.RunRoot, LeaseID: stopped.LeaseID}}; err != nil || !slices.Equal(runtimes, want) {
+	want := []DeadRuntime{{Root: stopped.Root, RunRoot: stopped.RunRoot, LeaseID: stopped.LeaseID}, {Root: stranded.Root, RunRoot: stranded.RunRoot, LeaseID: stranded.LeaseID, Sealed: true}}
+	if err != nil || !slices.Equal(runtimes, want) {
 		t.Fatalf("dead runtimes %+v, %v; want %+v", runtimes, err, want)
 	}
 	if runtimes, err := DeadRuntimes(repository, t.TempDir()); err != nil || len(runtimes) != 0 {

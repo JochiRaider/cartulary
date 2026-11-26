@@ -174,16 +174,44 @@ func testRecoveryCommand(t *testing.T) {
 			t.Fatal(err)
 		}
 		original := stop(failing)
+		// A failed cleanup seals its root before preserving the resources it
+		// could not release; the seal does not prove those resources settled.
+		stranded, _ := open("stranded")
+		pkg := map[string]any{"daemon_id": "fixture-engine", "token": "11111111-2222-4333-8444-555555555555", "role": "postgres"}
+		if err := stranded.RecordDependentResource("package_resource", pkg, "pending", []string{}); err != nil {
+			t.Fatal(err)
+		}
+		drained, _ := open("drained")
+		for _, r := range []*harnesssession.Runtime{stranded, drained} {
+			stop(r)
+			if err := harnesslocal.ReplaceFile(filepath.Join(r.Root, "finalizing"), []byte("sealed\n")); err != nil {
+				t.Fatal(err)
+			}
+		}
+		worker := filepath.Join(t.TempDir(), "physical-worker")
+		if err := os.WriteFile(worker, []byte("#!/bin/sh\n/bin/cat >/dev/null\n"), 0700); err != nil {
+			t.Fatal(err)
+		}
 		var output bytes.Buffer
-		RecoverDeadRuntimes(t.Context(), root, map[string]string{"CARTULARY_HARNESS_SCRATCH_ROOT": scratch}, &output)
+		RecoverDeadRuntimes(t.Context(), root, map[string]string{"CARTULARY_HARNESS_SCRATCH_ROOT": scratch, "NODE_BIN": worker}, &output)
 		report := output.String()
 		if !strings.Contains(report, "[RECOVERED] run_id=stopped resources=0\n") ||
+			!strings.Contains(report, "[RECOVERED] run_id=stranded resources=1\n") ||
 			!strings.Contains(report, "[RECOVERY-FAIL] run_id=failing failure_class=harness failure_reason=cleanup_error recover with: make test-run-recover RESULTS_DIR="+failingRun+"\n") ||
-			strings.Contains(report, "run_id=live") || strings.Contains(report, privateDetail) || strings.Contains(report, proof) {
+			strings.Contains(report, "run_id=live") || strings.Contains(report, "run_id=drained") || strings.Contains(report, privateDetail) || strings.Contains(report, proof) {
 			t.Fatal("startup recovery report", report)
 		}
 		if _, err := os.Stat(stopped.Root); !os.IsNotExist(err) {
 			t.Fatal("dead runtime retained", err)
+		}
+		// Released resources free capacity; the seal stays for exact recovery.
+		if remaining, err := stranded.Resources(4096); err != nil || len(remaining) != 0 {
+			t.Fatal("stranded resources not released", remaining, err)
+		}
+		for _, r := range []*harnesssession.Runtime{stranded, drained} {
+			if data, err := os.ReadFile(filepath.Join(r.Root, "finalizing")); err != nil || string(data) != "sealed\n" {
+				t.Fatal("sealed root not retained", r.RunID, err)
+			}
 		}
 		if _, err := os.Stat(live.Root); err != nil {
 			t.Fatal("live runtime recovered", err)
@@ -198,7 +226,7 @@ func testRecoveryCommand(t *testing.T) {
 		if err := failing.RecordResource("resident_allocation", proof, "released"); err != nil {
 			t.Fatal(err)
 		}
-		for _, r := range []*harnesssession.Runtime{live, failing} {
+		for _, r := range []*harnesssession.Runtime{live, failing, stranded, drained} {
 			if err := r.Close(); err != nil {
 				t.Error(err)
 			}

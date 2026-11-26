@@ -40,7 +40,7 @@ func RecoverRun(ctx context.Context, repository string, environment map[string]s
 		}
 		runtimeRoot, leaseID = locator.Root, locator.LeaseID
 	}
-	outcomes, code, messages := recoverRuntime(ctx, repository, run, runtimeRoot, leaseID, environment)
+	outcomes, code, messages := recoverRuntime(ctx, repository, run, runtimeRoot, leaseID, environment, false)
 	for _, message := range messages {
 		fmt.Fprintln(out, message)
 	}
@@ -52,10 +52,12 @@ func RecoverRun(ctx context.Context, repository string, environment map[string]s
 }
 
 // RecoverDeadRuntimes settles, before a top-level graph admits work, every
-// retained runtime of the repository whose original owner is proven dead. Each
-// root is admitted and cleaned exactly as RecoverRun would; a stopped or killed
-// run therefore never leaves its services or admission capacity charged for
-// later runs. A failure retains that root's exact recovery proof and is
+// retained runtime of the repository whose original owner is proven dead and
+// that still holds resources or was never sealed. Each root is admitted and
+// cleaned exactly as RecoverRun would; a stopped, killed or cleanup-failed run
+// therefore never leaves its services or admission capacity charged for later
+// runs. A sealed root keeps its resource-free seal for exact recovery instead
+// of being removed. A failure retains that root's exact recovery proof and is
 // reported with its explicit recovery command; it does not stop the caller,
 // whose admission still fails rather than waiting on capacity no live owner
 // can release.
@@ -66,7 +68,7 @@ func RecoverDeadRuntimes(ctx context.Context, repository string, environment map
 		return
 	}
 	for _, dead := range runtimes {
-		outcomes, code, messages := recoverRuntime(ctx, repository, dead.RunRoot, dead.Root, dead.LeaseID, environment)
+		outcomes, code, messages := recoverRuntime(ctx, repository, dead.RunRoot, dead.Root, dead.LeaseID, environment, dead.Sealed)
 		if code == 0 {
 			resources := 0
 			for _, kinds := range outcomes {
@@ -85,10 +87,12 @@ func RecoverDeadRuntimes(ctx context.Context, repository string, environment map
 }
 
 // recoverRuntime admits one exact retained runtime for recovery and settles it
-// through the shared cleanup evaluator. Exit codes follow RecoverRun: 2 when
-// ownership or run binding is invalid, 12 when cleanup or settlement is
-// incomplete. Original execution evidence is never rewritten.
-func recoverRuntime(ctx context.Context, repository, run, runtimeRoot, leaseID string, environment map[string]string) (map[string]map[string]int, int, []string) {
+// through the shared cleanup evaluator. Settlement removes the root unless
+// retainSeal keeps a sealed root's terminal authority for exact recovery.
+// Exit codes follow RecoverRun: 2 when ownership or run binding is invalid, 12
+// when cleanup or settlement is incomplete. Original execution evidence is
+// never rewritten.
+func recoverRuntime(ctx context.Context, repository, run, runtimeRoot, leaseID string, environment map[string]string, retainSeal bool) (map[string]map[string]int, int, []string) {
 	outcomes := map[string]map[string]int{}
 	actor, err := harnessadmission.Identity(os.Getpid())
 	if err != nil {
@@ -110,7 +114,11 @@ func recoverRuntime(ctx context.Context, repository, run, runtimeRoot, leaseID s
 	if err := p.Recover(ctx); err != nil {
 		return outcomes, 12, []string{fmt.Sprint(harnesssession.DescribeCleanupFailure(err)), "failure_class=harness failure_reason=cleanup_error recovery incomplete: exact ownership proof retained"}
 	}
-	if err := runtime.Close(); err != nil {
+	settle := runtime.Close
+	if retainSeal {
+		settle = runtime.PreserveRecovery
+	}
+	if err := settle(); err != nil {
 		return outcomes, 12, []string{fmt.Sprint(harnesssession.DescribeCleanupFailure(err)), "failure_class=harness failure_reason=cleanup_error recovery incomplete: runtime settlement not established"}
 	}
 	return outcomes, 0, []string{"recovery complete; original execution result unchanged"}

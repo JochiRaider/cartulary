@@ -8293,12 +8293,15 @@ closed. Ordinary terminal cleanup remains immediate; unresolved resources retain
 exact recovery proof. Before a top-level graph admits work, it MUST recover every
 runtime root bound to its canonical repository whose original owner process is
 proven dead, regardless of age, through the same owner admission, dependency
-evaluator and physical adapters as `test-run-recover`; a stopped or killed run
-therefore never leaves services or admission capacity charged for later runs.
-Nested graphs run inside an outer graph that already recovered. Busy and sealed
-roots, live or uncertain owners and roots of other repositories remain untouched;
-a sealed root drained its resources before sealing and stays available for exact
-recovery. Each
+evaluator and physical adapters as `test-run-recover`; a stopped, killed or
+cleanup-failed run therefore never leaves services or admission capacity charged
+for later runs. Nested graphs run inside an outer graph that already recovered.
+Unresolved resource records, not the finalization seal, decide whether a dead
+root needs recovery: a run whose cleanup fails seals its root before preserving
+the resources it could not release. Recovering a sealed root releases those
+resources and keeps the sealed, resource-free root available for exact recovery.
+Sealed roots without resource records, busy roots, live or uncertain owners and
+roots of other repositories remain untouched. Each
 recovered run is reported on stderr with its resource count. A failed recovery
 retains that root's exact proof, is reported with its explicit
 `make test-run-recover RESULTS_DIR=<run>` command and does not stop the graph,

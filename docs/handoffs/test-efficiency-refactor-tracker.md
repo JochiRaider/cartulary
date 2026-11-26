@@ -126,7 +126,7 @@ eleven `ci` runs of the release attempts (Section 13.1). Single runs vary by abo
 | G43 | Test rows launch nested graphs and real `make` runs that rebuild shared repository outputs under the Go test's toolchain environment while the outer run uses them; their failures are cut to the first 4 KiB and reclassified as product assertions | Tests, harness, specification | Phase 5 | Open: P5-0 fenced the Go-hosted nested graphs (14.5); P5-2 remains |
 | G44 | Make and the planner both own ordering, freshness, environment and prerequisite skipping: 26 operations re-enter Make, 17 targets carry two recipes chosen by `GRAPH_CHILD`, five freshness mechanisms coexist, and graph-only Make edges run work twice | Machine inputs, implementation, specification | Phase 5 | Open: P5-0 removed the renderer double run (14.5); P5-1 made every test script a row and removed five duplicate operations (14.6); P5-3 remains |
 | G45 | Units inherit the graph process's whole environment (the shell's variables and up to 127 Make exports), minus hand-kept strip lists; harness code reads 478 `CARTULARY_*` names with no declaration, so leaks, stale names and typos fail silently | Machine inputs, implementation, specification | Phase 5, P5-4 | Open: P5-4a registered every harness name and enforces it (14.8); P5-4b made unit environments default-deny (14.9); P5-4c slices 1 to 3 made every outside launcher explicit (14.11 to 14.13); P5-4d slices 1 to 4 gave 57 names a single owner and enforce it in Node, Go and shell, covering every multi-writer invocation-context, fixture-binding and step-runtime name (14.14 to 14.17); the P5-4d exit is met. Left for P5-3: mode switches, strip lists and the overlay |
-| G46 | A runtime whose cleanup fails is preserved for recovery behind a seal while it still holds resources, but startup recovery skips every sealed root on the rule that sealed roots have drained. A stranded `p58-browser` resident held one of the eight PostgreSQL generation slots in every later run | Specification, implementation | Phase 5 | Open: the startup-recovery rule needs an owner-approved amendment; the stranded run needs `test-run-recover` (14.18) |
+| G46 | A runtime whose cleanup fails is preserved for recovery behind a seal while it still holds resources, but startup recovery skips every sealed root on the rule that sealed roots have drained. A stranded `p58-browser` resident held one of the eight PostgreSQL generation slots in every later run | Specification, implementation | Phase 5 | Repaired: `p58-browser` recovered, and startup recovery now decides by resource records (14.19). Open: eight legacy October roots fail recovery on every run until removed, which needs owner approval (14.19) |
 
 ## 5. Gap Remediation Detail
 
@@ -1363,6 +1363,7 @@ Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-am
 | 2026-11-26 | P5-4d slice 4 / G45 | The registry check reads shell and Make recipes; `step_runtime` owner with one summary writer replacing four copies; `--target` and `--timing-bucket` step-runner options; the step artifact directory joins `run_context` | `p65-generate`, `p65-lintgo`; segments `p65-cs` (8 rows), `p65-ea` (3 step accounting rows), `p65-hb`, `p65-browser`; `p65-lintscripts`, `p65-src` | All pass. Shell checking surfaced nine writes of names already owned; entry points and the browser stack joined owner paths, and three launchers stopped writing the target (14.17) |
 | 2026-11-26 | P5-4 close-out | One `check` after P5-4c and P5-4d | `p66-check01`; after the fix, `p66-lintshell` and `p66-cache` | All 1,897 rows pass. One operation failed: ShellCheck SC2034 on a variable that slice 4 left unused in `build-go-artifact.sh`. `lint CHECK=scripts` does not run ShellCheck; `lint CHECK=shell` does. The script now requires the target without assigning it, and the shell lint and build-artifact rows pass. The graph took 617 s (577 s at P5-4b), while unit work fell from 7,559 to 7,438 s. The same units finish last; the renderer ran 22 s longer. It is 20 s past the earlier 576 to 597 s spread, so one sample cannot separate noise from regression (14.17; settled in 14.18) |
 | 2026-11-26 | P5-4 second check / G46 | A second `check` to settle the timing | `p67-check02`; `p67-ac604-1` to `-3` | 1,896 of 1,897 rows pass. `app.server.process.ordinary_shutdown_ac604` failed once (WebSocket close status -1, not 1001) and passed three isolated reruns; it has passed 75 of 76 runs. The graph took 674 s. Not a P5-4 regression: since `p58-browser`, whose cleanup failed, a stranded resident has held one of the eight PostgreSQL generation slots, so PostgreSQL units ran 7 at a time instead of 8 in `p66` and `p67`. This run also rebuilt the report renderer (153 s) because its cache key includes `build-go-artifact.sh`. That delayed the server-harness build to 167 s, so the server-process unit started last and ran to the end of the run (14.18) |
+| 2026-11-26 | G46 repair | Recover `p58-browser`; startup recovery decides by resource records, not the seal (owner-approved spec amendment) | `p68-recover`; `p68-lintgo`, `p68-session`, `p68-fixtures`, `p68-md` | Pass. The ledger holds no residents, so all eight PostgreSQL generation slots are free. Every top-level graph now reports eight legacy October roots as `[RECOVERY-FAIL]`: their records predate the current ledger and boot, and they hold nothing physically. Removing them needs owner approval (14.19) |
 | 2026-11-25 | P4-4 / G39 | Wait audit: 31 whole-test hang guards derive from the test deadline (`testdeadline`) | `p44-port-*` (16 owner slices, every row holding a converted guard) | Pass. Committed `bdd8f4e1d` |
 
 ## 12. Phase 2 Plan — `check` Wall Clock
@@ -3400,3 +3401,51 @@ of 14.10.
   close status -1 instead of 1001. It then passed three isolated reruns.
   `wstest.RequireClose` does not print the underlying error, so the run cannot
   show whether the socket first saw a message, a reset or EOF.
+
+### 14.19 Startup Recovery by Resource Records (G46)
+
+- **Recovery.** `make test-run-recover RESULTS_DIR=.cartulary/test-results/p58-browser`
+  (`p68-recover`) passed. The host-admission ledger now holds no residents,
+  and the `p58-browser` runtime root is gone, so all eight PostgreSQL
+  generation slots are free.
+- **Spec amendment (owner-approved).** In REQ-855, resource records, not the
+  finalization seal, now decide whether a dead root needs startup recovery:
+  - A run whose cleanup fails seals its root before preserving the resources
+    it could not release, so a seal does not prove those resources settled.
+  - Recovering a sealed root releases its resources and keeps the sealed,
+    resource-free root for exact recovery. A UI-review root can still hold
+    terminal publication authority after its resources drain, and its own
+    recovery path needs that root.
+  - Sealed roots without resource records stay untouched, as before.
+- **Implementation.**
+  - `harnesssession.DeadRuntimes` offers a dead sealed root only when its
+    validated resource journal is non-empty, and reports the seal. A seal
+    with unexpected content fails closed.
+  - Startup recovery settles a sealed root with `PreserveRecovery` instead of
+    `Close`, so the root stays. Explicit `test-run-recover` still closes and
+    removes it.
+- **Validation.** All passed:
+  - `make lint CHECK=go` (`p68-lintgo`);
+  - `harness.evidence_accounting.behavior.native_session` (`p68-session`):
+    the inspector offers a dead sealed root with a resource record and
+    reports its seal. It omits drained and corruptly sealed roots, as well as
+    live, busy and foreign ones;
+  - `harness.browser.unit.native_fixtures` (`p68-fixtures`): startup recovery
+    releases a sealed root's resource, reports it and keeps the seal. It
+    leaves a drained sealed root alone;
+  - `make lint-markdown` (`p68-md`).
+- **Eight legacy roots now fail on every run.** Since the change, each
+  top-level graph prints eight `[RECOVERY-FAIL]` lines. They come from the
+  October runtimes in `~/.cache/cartulary/harness-scratch/suite-runtime`,
+  which the seal rule used to hide. Current recovery cannot admit them:
+  - **Six fail as unsafe.** Their resident records name the pre-generation
+    ledger `/tmp/cartulary-host-admission-1000` and lack current claims such
+    as `postgres_generation`.
+  - **Two fail at `process_identity`.** Their helper processes were recorded
+    under an earlier boot, which the harness treats as unresolved.
+
+  They hold nothing physically. No ledger, legacy or current, holds their
+  residents. No harness container remains, and every anonymous volume dates
+  from 23 November or later. Their run directories were deleted, so explicit
+  `test-run-recover` cannot settle them either. Removing them is a one-time
+  host cleanup that needs owner approval.

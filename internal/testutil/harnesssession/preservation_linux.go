@@ -318,17 +318,22 @@ func rootProcess(data []byte) (harnessadmission.Proof, error) {
 }
 
 // DeadRuntime is one retained runtime root whose original owner process is
-// proven dead: the exact identity explicit recovery admits.
+// proven dead: the exact identity explicit recovery admits. A sealed root keeps
+// its seal, and with it exact recovery authority, once its resources settle.
 type DeadRuntime struct {
 	Root, RunRoot, LeaseID string
+	Sealed                 bool
 }
 
 // DeadRuntimes lists, in name order, the retained runtime roots bound to the
-// canonical repository whose original owner process is proven dead, with no
-// age requirement. It shares stale-root maintenance's enumeration bound and
-// grants no cleanup authority: recovery still admits each root through its
-// exact ownership proof. Busy and sealed roots, live or unproven owners, roots
-// of other repositories and roots with invalid ownership records are omitted.
+// canonical repository whose original owner process is proven dead and that
+// still need recovery, with no age requirement. Resource records decide, not
+// the seal: a failed cleanup seals its root before preserving the resources
+// it could not release. It shares stale-root maintenance's enumeration bound
+// and grants no cleanup authority: recovery still admits each root through
+// its exact ownership proof. Busy roots, sealed roots without resource
+// records, live or unproven owners, roots of other repositories and roots
+// with invalid ownership or resource records are omitted.
 func DeadRuntimes(repository, scratch string) ([]DeadRuntime, error) {
 	scratch, err := resolveScratch(scratch)
 	if err != nil {
@@ -380,12 +385,23 @@ func DeadRuntimes(repository, scratch string) ([]DeadRuntime, error) {
 			if alive, err := harnessadmission.Alive(proof); err != nil || alive {
 				return nil, err
 			}
-			// A sealed root drained its resources before sealing; it retains only
-			// terminal publication authority for exact explicit recovery.
-			if _, err := harnesslocal.ReadFileAt(d, "finalizing", 16, false); !errors.Is(err, os.ErrNotExist) {
+			dead := &DeadRuntime{Root: path, RunRoot: owner["run_root"].(string), LeaseID: owner["lease_id"].(string)}
+			seal, err := harnesslocal.ReadFileAt(d, "finalizing", 16, false)
+			if errors.Is(err, os.ErrNotExist) {
+				return dead, nil
+			}
+			if err != nil || string(seal) != "sealed\n" {
+				return nil, errors.Join(err, harnesslocal.ErrUnsafe)
+			}
+			// A resource-free sealed root retains only terminal publication or
+			// retained-scan authority, which belongs to exact recovery.
+			runtime := &Runtime{Root: path, RunID: owner["run_id"].(string), LeaseID: dead.LeaseID, Directory: d}
+			resources, err := runtime.resources(4096)
+			if err != nil || len(resources) == 0 {
 				return nil, err
 			}
-			return &DeadRuntime{Root: path, RunRoot: owner["run_root"].(string), LeaseID: owner["lease_id"].(string)}, nil
+			dead.Sealed = true
+			return dead, nil
 		}
 		if unix.Flock(int(d.Fd()), unix.LOCK_EX|unix.LOCK_NB) == nil {
 			if runtime, err := inspect(); err == nil && runtime != nil {
