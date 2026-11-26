@@ -126,6 +126,7 @@ eleven `ci` runs of the release attempts (Section 13.1). Single runs vary by abo
 | G43 | Test rows launch nested graphs and real `make` runs that rebuild shared repository outputs under the Go test's toolchain environment while the outer run uses them; their failures are cut to the first 4 KiB and reclassified as product assertions | Tests, harness, specification | Phase 5 | Open: P5-0 fenced the Go-hosted nested graphs (14.5); P5-2 remains |
 | G44 | Make and the planner both own ordering, freshness, environment and prerequisite skipping: 26 operations re-enter Make, 17 targets carry two recipes chosen by `GRAPH_CHILD`, five freshness mechanisms coexist, and graph-only Make edges run work twice | Machine inputs, implementation, specification | Phase 5 | Open: P5-0 removed the renderer double run (14.5); P5-1 made every test script a row and removed five duplicate operations (14.6); P5-3 remains |
 | G45 | Units inherit the graph process's whole environment (the shell's variables and up to 127 Make exports), minus hand-kept strip lists; harness code reads 478 `CARTULARY_*` names with no declaration, so leaks, stale names and typos fail silently | Machine inputs, implementation, specification | Phase 5, P5-4 | Open: P5-4a registered every harness name and enforces it (14.8); P5-4b made unit environments default-deny (14.9); P5-4c slices 1 to 3 made every outside launcher explicit (14.11 to 14.13); P5-4d slices 1 to 4 gave 57 names a single owner and enforce it in Node, Go and shell, covering every multi-writer invocation-context, fixture-binding and step-runtime name (14.14 to 14.17); the P5-4d exit is met. Left for P5-3: mode switches, strip lists and the overlay |
+| G46 | A runtime whose cleanup fails is preserved for recovery behind a seal while it still holds resources, but startup recovery skips every sealed root on the rule that sealed roots have drained. A stranded `p58-browser` resident held one of the eight PostgreSQL generation slots in every later run | Specification, implementation | Phase 5 | Open: the startup-recovery rule needs an owner-approved amendment; the stranded run needs `test-run-recover` (14.18) |
 
 ## 5. Gap Remediation Detail
 
@@ -1360,7 +1361,8 @@ Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-am
 | 2026-11-26 | P5-4d slice 2 / G45 | `run_context` owner (Node `run-context.mjs`, Go `runcontext`) for the invocation context and results root; owners for the runner script and failure context; 70 write sites converted; a stale guide assertion from P5-1 fixed | `p63-generate`, `p63-lintgo`; segments `p63-cs` (14 rows), `p63-ea` (7), `p63-rel` (3), `p63-hb-native` (15), `p63-hb`, `p63-rep`, `p63-browser`; reruns `p63r-tc`, `p63r-hb`; `p63-lintscripts`, `p63r-src` | All pass. `routing_contract` had failed since P5-1 on a stale assertion; `native_fixture_lifecycle` failed once on a tracked-file edit made during the run (14.15) |
 | 2026-11-26 | P5-4d slice 3 / G45 | `browser_binding` owner (Node `browser-binding.mjs`, Go `browserbinding`); resource dependencies join `run_context`, the PostgreSQL allocation joins `suite_services` | Planner equivalence: `ci` and `release-measure` plans with and without the change (`p64-plan-*`); `p64-generate`, `p64-lintgo`; segments `p64-cs`, `p64-ea`, `p64-hb-native` (16 rows), `p64-hb`, `p64-obj`, `p64-pg`, `p64-browser`; `p64-lintscripts`, `p64-src` | All pass; every unit digest is unchanged. Seven of the 20 names are product secrets that any launcher may set, and five had only one Node or Go writer (14.16) |
 | 2026-11-26 | P5-4d slice 4 / G45 | The registry check reads shell and Make recipes; `step_runtime` owner with one summary writer replacing four copies; `--target` and `--timing-bucket` step-runner options; the step artifact directory joins `run_context` | `p65-generate`, `p65-lintgo`; segments `p65-cs` (8 rows), `p65-ea` (3 step accounting rows), `p65-hb`, `p65-browser`; `p65-lintscripts`, `p65-src` | All pass. Shell checking surfaced nine writes of names already owned; entry points and the browser stack joined owner paths, and three launchers stopped writing the target (14.17) |
-| 2026-11-26 | P5-4 close-out | One `check` after P5-4c and P5-4d | `p66-check01`; after the fix, `p66-lintshell` and `p66-cache` | All 1,897 rows pass. One operation failed: ShellCheck SC2034 on a variable that slice 4 left unused in `build-go-artifact.sh`. `lint CHECK=scripts` does not run ShellCheck; `lint CHECK=shell` does. The script now requires the target without assigning it, and the shell lint and build-artifact rows pass. The graph took 617 s (577 s at P5-4b), while unit work fell from 7,559 to 7,438 s. The same units finish last; the gap is scheduling, with the renderer admitted 22 s later. It is 20 s past the earlier 576 to 597 s spread, so one sample cannot separate noise from regression (14.17) |
+| 2026-11-26 | P5-4 close-out | One `check` after P5-4c and P5-4d | `p66-check01`; after the fix, `p66-lintshell` and `p66-cache` | All 1,897 rows pass. One operation failed: ShellCheck SC2034 on a variable that slice 4 left unused in `build-go-artifact.sh`. `lint CHECK=scripts` does not run ShellCheck; `lint CHECK=shell` does. The script now requires the target without assigning it, and the shell lint and build-artifact rows pass. The graph took 617 s (577 s at P5-4b), while unit work fell from 7,559 to 7,438 s. The same units finish last; the renderer ran 22 s longer. It is 20 s past the earlier 576 to 597 s spread, so one sample cannot separate noise from regression (14.17; settled in 14.18) |
+| 2026-11-26 | P5-4 second check / G46 | A second `check` to settle the timing | `p67-check02`; `p67-ac604-1` to `-3` | 1,896 of 1,897 rows pass. `app.server.process.ordinary_shutdown_ac604` failed once (WebSocket close status -1, not 1001) and passed three isolated reruns; it has passed 75 of 76 runs. The graph took 674 s. Not a P5-4 regression: since `p58-browser`, whose cleanup failed, a stranded resident has held one of the eight PostgreSQL generation slots, so PostgreSQL units ran 7 at a time instead of 8 in `p66` and `p67`. This run also rebuilt the report renderer (153 s) because its cache key includes `build-go-artifact.sh`. That delayed the server-harness build to 167 s, so the server-process unit started last and ran to the end of the run (14.18) |
 | 2026-11-25 | P4-4 / G39 | Wait audit: 31 whole-test hang guards derive from the test deadline (`testdeadline`) | `p44-port-*` (16 owner slices, every row holding a converted guard) | Pass. Committed `bdd8f4e1d` |
 
 ## 12. Phase 2 Plan — `check` Wall Clock
@@ -3333,5 +3335,68 @@ of 14.10.
   `build-go-artifact.sh`. The script now only requires the target. The shell
   lint and build-artifact rows pass, and the full `check` was not repeated.
   The graph took 617 s against 577 s at P5-4b, but unit work fell by 121 s
-  and the same units finish last. One sample cannot tell whether the 40 s is
-  scheduling noise.
+  and the same units finish last. Section 14.18 traces the 40 s to a
+  stranded PostgreSQL generation, not to P5-4.
+
+### 14.18 P5-4 Timing: A Stranded Generation
+
+- **Question.** `p66-check01` took 617 s against 577 s at P5-4b
+  (`p57-check01`). A second check, `p67-check02`, took 674 s.
+- **Not P5-4.** Unit work fell in each run (7,559, 7,438 and 7,145 s), and so
+  did PostgreSQL work (4,312, 4,048 and 3,920 s). The PostgreSQL lanes were
+  busy less of the time:
+
+  | Run | Running PostgreSQL units, steady state | Waiting units are blocked on |
+  | --- | ---: | --- |
+  | `p57-check01` | 8.0 | `postgres` and `postgres_generation`, 8 holders |
+  | `p66-check01` | 7.0 | `postgres_generation` only, 7 holders |
+  | `p67-check02` | 7.0 | `postgres_generation` only, 7 holders |
+
+- **The holder.** Host-admission decisions in `p66` and `p67` show the same
+  generation resident from t = 0 to the end of each run. The host-admission
+  ledger holds three residents owned by the dead process of `p58-browser`, a
+  P5-4c segment run:
+  - an object store;
+  - a PostgreSQL generation;
+  - a browser stack.
+
+  That run's cleanup failed at the `browser_namespace` stage, so its runtime
+  was preserved for recovery. No container or process remains; only the
+  ledger charge does. `make test-run-recovery-status` reports the run as
+  `runtime_bound`.
+- **Why startup recovery missed it.** Every close path fences detail producers
+  first, and fencing writes the `finalizing` seal. That includes the failure
+  path, `PreserveRecovery`, so a preserved runtime is sealed while it still
+  holds resources. Startup recovery skips sealed roots because the spec says
+  "a sealed root drained its resources before sealing". That is false for
+  preserved runtimes. It also conflicts with the same paragraph's rule that a
+  stopped or killed run never leaves admission capacity charged for later
+  runs (G46).
+- **Proposed repair (needs owner approval).** Amend the rule so startup
+  recovery decides by resource records rather than by the seal:
+  - a dead root with unresolved resource records is recovered, even when
+    sealed;
+  - a sealed root with none stays for exact recovery of its publication
+    authority.
+
+  Then run `make test-run-recover RESULTS_DIR=.cartulary/test-results/p58-browser`
+  to release the stranded residents.
+- **The `p67` tail.** `p67` rebuilt the report renderer (153 s) instead of
+  reusing it (20 to 42 s in the runs before and after). Its installation key
+  includes `build-go-artifact.sh`, which the ShellCheck fix changed. The chain
+  that followed:
+  - The server-harness build waits for the renderer, so it finished at 167 s
+    rather than 27 to 49 s.
+  - The server-process unit (`internal/app/serverprocess`, 138 s estimated)
+    depends on that build.
+  - Meanwhile the other PostgreSQL units aged in the queue, and 110
+    lower-ranked units started first.
+  - The server-process unit ran from 566 s to the end of the run.
+
+  Rank aging adds a unit's wait to its rank, so a long unit that becomes
+  eligible late falls behind short units that were eligible earlier.
+- **Flake.** In `p67-check02`,
+  `TestOrdinaryShutdownAC604_Process/job_ignores_cancellation` received WebSocket
+  close status -1 instead of 1001. It then passed three isolated reruns.
+  `wstest.RequireClose` does not print the underlying error, so the run cannot
+  show whether the socket first saw a message, a reset or EOF.
