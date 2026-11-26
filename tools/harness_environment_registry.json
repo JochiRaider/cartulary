@@ -79,6 +79,11 @@
       "TESTCONTAINERS_"
     ]
   },
+  "explicit_launchers": [
+    "tools/harness/browser/browser-acquisition.mjs",
+    "tools/harness/readiness/frontend-artifact.mjs",
+    "tools/harness/services/local-session.mjs"
+  ],
   "roles": {
     "fixture_binding": [
       "CARTULARY_ASSESSMENT_ORIGIN",

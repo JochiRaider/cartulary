@@ -28,6 +28,12 @@ const namePattern = /(?<![A-Za-z0-9_])CARTULARY_(?!_)[A-Z0-9]+(?:_[A-Z0-9]+)*(?!
 const exactName = /^CARTULARY_(?!_)[A-Z0-9]+(?:_[A-Z0-9]+)*$/u;
 const binaryFile = /\.(?:png|jpe?g|gif|webp|ico|pdf|woff2?|ttf|otf|gz|tgz|zip|tar|pack|wasm|sum|der|p12)$/iu;
 const asciiCompare = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+// A launcher passes its environment through by spreading or handing on the
+// parent environment; childEnvironment is the only permitted route. A spawn of
+// the unit's own fixture process (it runs inside the unit) is marked on its
+// line with unitFixtureMarker.
+const passThrough = [/\.\.\.\s*(?:process\.env|environment|env)\b(?![.\w])/u, /\benv\s*:\s*process\.env\b(?![.\w])/u];
+export const unitFixtureMarker = "environment: the unit's own fixture process";
 
 // globPattern converts a repository glob (`*` within a segment, `**` across
 // segments) to an anchored expression.
@@ -61,7 +67,10 @@ function requireStringList(value, label, { sorted = false, pattern } = {}) {
 export function readEnvironmentRegistry(root) {
   const registry = JSON.parse(readFileSync(path.join(root, environmentRegistryPath), "utf8"));
   const keys = Object.keys(registry ?? {}).sort(asciiCompare);
-  if (JSON.stringify(keys) !== JSON.stringify(["inherited", "roles", "schema_id", "scopes"])) throw new Error(`${environmentRegistryPath} must hold exactly schema_id, scopes, inherited and roles`);
+  if (JSON.stringify(keys) !== JSON.stringify(["explicit_launchers", "inherited", "roles", "schema_id", "scopes"])) throw new Error(`${environmentRegistryPath} must hold exactly schema_id, scopes, inherited, explicit_launchers and roles`);
+  // explicit_launchers are the files of components that start processes for
+  // other components; they build every child environment with childEnvironment.
+  requireStringList(registry.explicit_launchers, "explicit_launchers", { sorted: true });
   if (registry.schema_id !== environmentRegistrySchemaID) throw new Error(`${environmentRegistryPath} schema_id must be ${environmentRegistrySchemaID}`);
   const scopeKeys = Object.keys(registry.scopes ?? {}).sort(asciiCompare);
   if (JSON.stringify(scopeKeys) !== JSON.stringify(["excluded", "harness"])) throw new Error(`${environmentRegistryPath} scopes must hold exactly excluded and harness`);
@@ -141,6 +150,16 @@ export function inspectEnvironmentRegistry(root, {
   }
   for (const [name, role] of roleOf) {
     if ((mentions.get(name)?.harness.size ?? 0) === 0) findings.push(`${name} (${role}) is stale: no harness code mentions it`);
+  }
+  const launchers = registry.explicit_launchers.map(globPattern);
+  for (const relative of paths ?? executableRepositoryPaths(root, { untracked: true })) {
+    if (!launchers.some((pattern) => pattern.test(relative))) continue;
+    let text;
+    try { text = readFileSync(path.join(root, relative), "utf8"); }
+    catch (error) { if (error.code === "ENOENT") continue; throw error; }
+    text.split("\n").forEach((line, index) => {
+      if (!line.includes(unitFixtureMarker) && passThrough.some((pattern) => pattern.test(line))) findings.push(`${relative}:${index + 1} passes an environment through; build it with childEnvironment`);
+    });
   }
   const summary = {
     registered: roleOf.size,

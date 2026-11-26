@@ -13,6 +13,14 @@ const rejected = (diagnostic = null) => {
   Object.defineProperty(error, "privateDiagnostic", { value: diagnostic });
   return error;
 };
+// runtimeEnvironment is every name a borrowed or created runtime reads from
+// the environment it is given (this client and the native session command).
+// A launcher outside the unit path forwards exactly these by name.
+export const runtimeEnvironment = Object.freeze([
+  "CARTULARY_HARNESS_PHYSICAL_OUTPUT_ROOT", "CARTULARY_HARNESS_RECOVERY_ATTEMPT", "CARTULARY_HARNESS_RUNTIME_BIN",
+  "CARTULARY_HOST_ADMISSION_LEASE", "CARTULARY_TEST_RESULTS_DIR", "CARTULARY_TEST_RUN_ID",
+]);
+
 function transaction(repository, runRoot, runID, operation, fields, environment) {
   const message = { schema_id: schema, request_id: 1, operation, repository, run_root: runRoot, run_id: runID, ...fields };
   validateSchemaSync(schema, message);

@@ -4108,6 +4108,18 @@ inputs and adds forwarded inputs, plan bindings and its own variables.
 Undeclared variables, such as an operator's shell, agent or desktop settings
 and Go build settings (`GOFLAGS`, `CGO_ENABLED`), never reach a unit.
 
+A harness component that starts processes for another component, outside the
+unit path, builds each child environment with `childEnvironment` (amended
+2026-11-26, single writer). Only the parent's process and tool basics pass
+automatically; the launcher forwards every harness variable the child needs by
+name, or sets it. A library that reads harness variables from an environment it
+is given declares those names, as the runtime session client
+(`runtimeEnvironment`) and launch contexts (`launchEnvironment`) do, so a
+launcher forwards exactly them. The registry's `explicit_launchers` names those
+components' files, and the environment registry check rejects any spread or
+direct pass of a parent environment in them. A spawn of the unit's own fixture
+process, which runs inside the unit, carries an explicit marker on its line.
+
 
 ### 5.6 UI review input contract
 

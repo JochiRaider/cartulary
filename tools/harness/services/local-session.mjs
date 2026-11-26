@@ -1,4 +1,5 @@
 import { spawnSync } from "../workspace/child-process.mjs";
+import { childEnvironment } from "../runtime/child-environment.mjs";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import {
   chmodSync,
@@ -22,7 +23,7 @@ import { lifecyclePolicy } from "../contract/generated/lifecycle-policy.mjs";
 import { hostCapacity } from "../runtime/harness-binary.mjs";
 import { parseStrictJSON } from "../contract/index.mjs";
 import { atomicLocalFile, readLocalFile } from "../runtime/secure-local-files.mjs";
-import { recoverRuntime, borrowRuntime, createRuntime } from "../runtime/session-client.mjs";
+import { recoverRuntime, borrowRuntime, createRuntime, runtimeEnvironment } from "../runtime/session-client.mjs";
 
 const descriptorSchemaID = "cartulary.test_services.local_session.v5";
 const borrowerSchemaID = "cartulary.test_services.local_session_borrower.v2";
@@ -157,7 +158,7 @@ export function localSessionConfigDigest(root) {
 function commandResult(command, args, { cwd, environment = {}, quiet = true } = {}) {
   const result = spawnSync(command, args, {
     cwd,
-    env: { ...process.env, ...environment },
+    env: childEnvironment(process.env, { set: environment }),
     encoding: "utf8",
     stdio: quiet ? ["ignore", "pipe", "pipe"] : "inherit",
   });
@@ -801,7 +802,7 @@ export async function stopLocalSession({ root, binary, sessionFile, signal, depe
     });
     rmSync(leaseFile, { force: true });
     const runRoot = path.join(descriptor.service_lease.result_root, descriptor.service_lease.run_id);
-    const runtime = borrowRuntime({ repoRoot: root, runRoot, environment: { ...process.env, ...terminateEnvironment } });
+    const runtime = borrowRuntime({ repoRoot: root, runRoot, environment: childEnvironment(process.env, { pass: runtimeEnvironment, set: terminateEnvironment }) });
     runtime.record({ kind: "managed_suite", target: runtime.recoveryPath("test-services", "persistent-suite.json"), state: "released" });
     admission({root:reservation.admission_root,operation:"release_resident",token:reservation.allocation.token,reference:reservation.allocation.reference});
     runtime.record({kind:"resident_allocation",target:reservation.allocation.reference,state:"released"});

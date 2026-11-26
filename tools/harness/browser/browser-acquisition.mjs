@@ -1,4 +1,5 @@
 import { workspaceLayout } from "../../workspace_layout.generated.mjs";
+import { childEnvironment } from "../runtime/child-environment.mjs";
 import { spawn, spawnSync } from "../workspace/child-process.mjs";
 import { createHash, randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync } from "node:fs";
@@ -9,7 +10,7 @@ import { CommandFailure, publishCommandFailure, readCommandFailure } from "../ru
 import { drainOwnedProcess, inspectOwnedProcess, ownedProcess, stopOwnedProcess } from "../runtime/owned-process.mjs";
 import { parseCleanupDiagnostic, withCleanupDiagnostic } from "../runtime/cleanup-diagnostic.mjs";
 import { atomicLocalFile, privateDirectory, readLocalFile, removePrivateFile, removePrivateTree } from "../runtime/secure-local-files.mjs";
-import { borrowRuntime } from "../runtime/session-client.mjs";
+import { borrowRuntime, runtimeEnvironment } from "../runtime/session-client.mjs";
 import { retainServerGeneration } from "./server-log-retention.mjs";
 
 const schemaID = "cartulary.browser_acquisition.v2";
@@ -69,14 +70,21 @@ export function readBrowserAcquisition(file, runtime) {
   } catch (cause) { throw invalid(cause); }
 }
 
+// objectStoreBinding is the browser group's object-store fixture binding
+// (internal/testutil/s3test fixtureInputKeys) that retirement forwards to the
+// cleanup child; the binding's suite hash covers every one of these names.
+const objectStoreBinding = ["CARTULARY_S3TEST_ENDPOINT", "CARTULARY_S3TEST_ACCESS_KEY_ID", "CARTULARY_S3TEST_SECRET_ACCESS_KEY",
+  "CARTULARY_S3TEST_SECURE", "CARTULARY_S3TEST_PROBE_BUCKET", "CARTULARY_HARNESS_SERVICE_DEPENDENCIES",
+  "CARTULARY_TEST_SERVICES_LIFECYCLE_MODE", "CARTULARY_TEST_SERVICES_PERSISTENT_BORROWER"];
+
 function resourceFile(file, name) { return path.join(path.dirname(file), name); }
 
 function declareRecoveryFiles(file, files, environment = process.env) {
   const owner = readBrowserAcquisition(file);
   const suite = suiteProof(readLocalFile(owner.suite_lease, { maximum: 1048576 }), owner.run_id);
   const runtime = borrowRuntime({ repoRoot: path.resolve(import.meta.dirname, "../../.."), runRoot: suite.run_root,
-    environment: { ...environment, CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: owner.runtime_root,
-      CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: owner.run_id, CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: owner.runtime_lease_id } });
+    environment: childEnvironment(environment, { pass: runtimeEnvironment, set: { CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: owner.runtime_root,
+      CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: owner.run_id, CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: owner.runtime_lease_id } }) });
   runtime.record({ kind: "browser_stack", target: file, state: "pending", recovery_files: [owner.suite_lease, ...files] });
   runtime.close();
 }
@@ -339,9 +347,9 @@ async function settle({ file, runtime, root, environment = {}, producerActive = 
       stage = "detail_authority";
       if (typeof recoveryResultsRoot !== "string") throw invalid();
       const output = path.join(recoveryResultsRoot, owner.run_id);
-      const writer = borrowRuntime({ repoRoot: root, runRoot: output, environment: { ...environment,
+      const writer = borrowRuntime({ repoRoot: root, runRoot: output, environment: childEnvironment(environment, { pass: runtimeEnvironment, set: {
         CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: owner.runtime_root, CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: owner.runtime_lease_id,
-        CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: owner.run_id } });
+        CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: owner.run_id } }) });
       try { writer.claimRecoveryOutput(); } finally { writer.close(); }
     }
     stage = "recovery_proof";
@@ -384,10 +392,10 @@ async function settle({ file, runtime, root, environment = {}, producerActive = 
         }
         stage = "browser_data_retirement";
         const result = run(path.join(root, `${workspaceLayout.toolbin}/cartulary-test-services`), ["cleanup-web-e2e", "--metadata-file", metadata], {
-          cwd: root, env: { ...environment, CARTULARY_TEST_SUITE_ID: owner.suite_id, CARTULARY_TEST_SERVICES_CALL_MODE: "attach",
+          cwd: root, env: childEnvironment(environment, { pass: ["CARTULARY_HARNESS_RUNTIME_BIN", ...objectStoreBinding], set: { CARTULARY_TEST_SUITE_ID: owner.suite_id, CARTULARY_TEST_SERVICES_CALL_MODE: "attach",
             CARTULARY_TEST_RESULTS_DIR: resultsRoot, CARTULARY_TEST_RUN_ID: owner.run_id, CARTULARY_TEST_TARGET: suite.target,
             CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: owner.runtime_root, CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: owner.runtime_lease_id,
-            CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: owner.run_id, CARTULARY_FIXTURE_PROCESS_CLEANUP_COMPLETE: "1" },
+            CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: owner.run_id, CARTULARY_FIXTURE_PROCESS_CLEANUP_COMPLETE: "1" } }),
           timeout: 120000, killSignal: "SIGKILL", stdio: ["ignore", "ignore", "pipe"], maxBuffer: 4096,
         });
         if (result.error || result.status !== 0) {
@@ -446,7 +454,7 @@ async function launch(file, launchID, command, args) {
   // report workload completion to their direct native acquisition owner.
   const anchor = service ? setInterval(() => {}, 60_000) : null;
   try {
-    const child = spawn(command, args, { stdio: "inherit", env: process.env });
+    const child = spawn(command, args, { stdio: "inherit", env: process.env }); // environment: the unit's own fixture process
     await new Promise((resolve, reject) => { child.once("error", reject); child.once("close", (code, signal) => {
       process.exitCode = code ?? (signal === "SIGINT" ? 130 : signal === "SIGTERM" ? 143 : 1); resolve();
     }); });
@@ -472,7 +480,7 @@ async function spawnService(file, role, logFile, command, args) {
     output = createSecureWriteStream(logFile);
     if (stopping(file)) throw invalid();
     child = spawn(process.execPath, browserAcquisitionLaunchArguments(file, launchID, command, args), {
-      detached: true, stdio: ["ignore", output.fd, output.fd], env: process.env,
+      detached: true, stdio: ["ignore", output.fd, output.fd], env: process.env, // environment: the unit's own fixture process
     });
     // Attach before returning to the event loop, including failed exec/spawn.
     const spawned = new Promise((resolve, reject) => { child.once("spawn", resolve); child.once("error", reject); });

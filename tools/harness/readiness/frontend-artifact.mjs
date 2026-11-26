@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import { childEnvironment } from "../runtime/child-environment.mjs";
 import { execFileSync } from "../workspace/child-process.mjs";
 import {
   chmodSync, cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync,
@@ -10,7 +11,8 @@ import { parseStrictJSON, publicExitCodeForFailure, validateSchemaSync } from ".
 import { CommandFailure, reportCommandFailure } from "../runtime/command-failure.mjs";
 import { loadExecutionTopology } from "../generated-artifacts/execution-topology.mjs";
 import { runPrivateCapturedProcess } from "../runtime/private-child-process.mjs";
-import { borrowRuntime, createRuntime } from "../runtime/session-client.mjs";
+import { borrowRuntime, createRuntime, runtimeEnvironment } from "../runtime/session-client.mjs";
+import { launchEnvironment } from "../runtime/launch-context.mjs";
 import { buildSourceSnapshot } from "../test-catalog/index.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
@@ -208,8 +210,8 @@ async function build(target, command, args) {
     validateBuildInputs();
     const produced = await runPrivateCapturedProcess(command, [...args, "--outDir", staging, "--emptyOutDir"], {
       producer: "private_capture", dependencies: [], cwd: root, repoRoot: root, runRoot,
-      env: { ...process.env, CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: runtime.root,
-        CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: runtime.leaseID, CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: runtime.runID },
+      env: childEnvironment(process.env, { pass: [...runtimeEnvironment, ...launchEnvironment, "NODE_BIN", "NODE_RUNTIME_DIR", "PNPM", "VITE_BUILD_FLAGS"],
+        set: { CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: runtime.root, CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: runtime.leaseID, CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: runtime.runID } }),
     });
     let productionError;
     try {

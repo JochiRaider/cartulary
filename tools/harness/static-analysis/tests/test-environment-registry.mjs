@@ -4,7 +4,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { environmentRoles, globPattern, inspectEnvironmentRegistry, readEnvironmentRegistry } from "../environment-registry.mjs";
+import { childEnvironment } from "../../runtime/child-environment.mjs";
+import { environmentRoles, globPattern, inspectEnvironmentRegistry, readEnvironmentRegistry, unitFixtureMarker } from "../environment-registry.mjs";
 
 // Names are assembled so this file mentions no registry name itself.
 const name = (suffix) => `CARTULARY${"_"}${suffix}`;
@@ -24,6 +25,7 @@ function registry(roles = {}) {
     schema_id: "cartulary.harness_environment_registry.v1",
     scopes: { excluded: ["notes/**", "**/*.generated.*"], harness: ["tools/**", "**/*_test.go"] },
     inherited: { names: ["HOME", "PATH"], prefixes: ["LC_"] },
+    explicit_launchers: ["tools/launcher.mjs"],
     roles: Object.fromEntries(environmentRoles.map((role) => [role, roles[role] ?? []])),
   };
 }
@@ -97,9 +99,42 @@ test("the registry's shape is closed and inherited names are not harness names",
   const write = (registryValue) => fixture(t, { "tools/harness_environment_registry.json": JSON.stringify(registryValue) }).root;
   const valid = { ...registry(), inherited: { names: ["HOME", "PATH"], prefixes: ["LC_"] } };
   assert.doesNotThrow(() => readEnvironmentRegistry(write(valid)));
-  assert.throws(() => readEnvironmentRegistry(write({ ...valid, extra: true })), /exactly schema_id, scopes, inherited and roles/u);
+  assert.throws(() => readEnvironmentRegistry(write({ ...valid, extra: true })), /exactly schema_id, scopes, inherited, explicit_launchers and roles/u);
   assert.throws(() => readEnvironmentRegistry(write({ ...valid, inherited: { names: ["PATH", "HOME"], prefixes: [] } })), /inherited\.names must be ASCII-sorted/u);
   assert.throws(() => readEnvironmentRegistry(write({ ...valid, inherited: { names: [name("RUN_ID")], prefixes: [] } })), /not a valid name/u);
   assert.throws(() => readEnvironmentRegistry(write({ ...valid, inherited: { names: [], prefixes: ["LC"] } })), /not a valid name/u);
+});
+
+test("a child environment carries only basics, forwarded names and set values", () => {
+  const parent = {
+    PATH: "/bin", HOME: "/home/operator", LC_ALL: "C.UTF-8", CARTULARY_MACHINE_CACHE_DIR: "/cache",
+    [name("HOST_ADMISSION_LEASE")]: "unit-lease", [name("HARNESS_SERVICE_DEPENDENCIES")]: "postgres",
+    AGENT_TOKEN: "operator secret", GOFLAGS: "-mod=mod",
+  };
+  const child = childEnvironment(parent, { pass: [name("HOST_ADMISSION_LEASE")], set: { [name("TEST_SUITE_ID")]: "session", HOME: undefined } });
+  assert.deepEqual(child, {
+    PATH: "/bin", LC_ALL: "C.UTF-8", CARTULARY_MACHINE_CACHE_DIR: "/cache",
+    [name("HOST_ADMISSION_LEASE")]: "unit-lease", [name("TEST_SUITE_ID")]: "session",
+  });
+});
+
+test("an explicit launcher never passes its environment through", (t) => {
+  const { root, paths } = fixture(t, {
+    "tools/launcher.mjs": [
+      "spawn(a, [], { env: { ...process.env, X: 1 } });",
+      "spawn(b, [], { env: process.env });",
+      "run({ environment: { ...environment, Y: 2 } });",
+      `spawn(c, [], { env: process.env }); // ${unitFixtureMarker}`,
+      "spawn(d, [], { env: childEnvironment(process.env, { set: { Z: 3 } }) });",
+      "const local = { ...descriptor.environment, ...startEnvironment };",
+    ].join("\n"),
+    "tools/other.mjs": "spawn(e, [], { env: { ...process.env } });\n",
+  });
+  const result = inspectEnvironmentRegistry(root, { registry: registry(), declared: new Set(), paths });
+  assert.deepEqual(result.findings, [
+    "tools/launcher.mjs:1 passes an environment through; build it with childEnvironment",
+    "tools/launcher.mjs:2 passes an environment through; build it with childEnvironment",
+    "tools/launcher.mjs:3 passes an environment through; build it with childEnvironment",
+  ]);
 });
 

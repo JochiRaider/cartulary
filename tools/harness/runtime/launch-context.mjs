@@ -5,6 +5,10 @@ import { executionObservation } from "./execution-observations.mjs";
 
 export const launchContextKey = "CARTULARY_HARNESS_LAUNCH_CONTEXT";
 
+// launchEnvironment is every name a launch context reads from the environment
+// it is given; a launcher outside the unit path forwards exactly these.
+export const launchEnvironment = Object.freeze(["CARTULARY_HARNESS_EXECUTION_ENABLED", launchContextKey, "CARTULARY_TEST_RUN_ID"]);
+
 export function readLaunchContext(environment) {
   if (!environment[launchContextKey]) return null;
   const context = parseStrictJSON(environment[launchContextKey]);
