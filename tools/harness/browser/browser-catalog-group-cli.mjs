@@ -296,8 +296,6 @@ async function main() {
         // The cohort reporter reads its cohort from here.
         CARTULARY_BROWSER_COHORT: group.name,
         CARTULARY_BROWSER_COHORT_ROWS: group.selectedRowIDs.join(","),
-        CARTULARY_PLAYWRIGHT_WORKER_COUNT: "1",
-        CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET: "0",
         ...browserBindingEnvironment({ runtimeProfile: group.runtimeProfileID }),
         CARTULARY_VISUAL_SELECTED_CASES: group.kind === "visual" ? JSON.stringify(rows.flatMap((row) => row.selector.titles.map((title, index) => ({ row_id: row.row_id, scenario_id: row.selector.scenario_ids[index], file: row.selector.file, title: playwrightLeafTitle(title), project_id: row.selector.project_id })))) : "[]",
         CARTULARY_VISUAL_SNAPSHOT_ROOT: visualSnapshotScratch(target),

@@ -247,7 +247,7 @@ func main() {
 
 func run(args []string, env map[string]string, deps dependencies) int {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "usage: testservices run -- <command> [args...] | start-suite --env-file <path> --lease-file <path> --result-file <path> | schema-hash | build-performance-fixture <flags> | record-lifecycle --env-file <path> --event <event> [--child-key <key>] | prepare-web-e2e --env-file <path> --metadata-file <path> | reset-web-e2e --credential-root <path> --bootstrap-manifest <path> --metadata-file <path> --reset-id <id> --result-file <path> | cleanup-web-e2e --metadata-file <path> | terminate-suite --lease <path> | images | warm-images")
+		fmt.Fprintln(os.Stderr, "usage: testservices run -- <command> [args...] | start-suite --env-file <path> --lease-file <path> --result-file <path> | schema-hash | build-performance-fixture <flags> | record-lifecycle --env-file <path> --event <event> [--child-key <key>] | prepare-web-e2e --env-file <path> --metadata-file <path> | reset-web-e2e --credential-root <path> --bootstrap-manifest <path> --metadata-file <path> --reset-id <id> --result-file <path> | cleanup-web-e2e --metadata-file <path> --process-cleanup complete|incomplete | terminate-suite --lease <path> | images | warm-images")
 		return 2
 	}
 
@@ -962,7 +962,7 @@ func beginCleanupLifecycleIfNeeded(env map[string]string) (bool, error) {
 }
 
 func runCleanupWebE2E(args []string, env map[string]string, deps dependencies) int {
-	metadataFile, err := parseCleanupWebE2EArgs(args)
+	metadataFile, processClean, err := parseCleanupWebE2EArgs(args)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 2
@@ -990,7 +990,7 @@ func runCleanupWebE2E(args []string, env map[string]string, deps dependencies) i
 		}
 	}
 	if metadata.FixtureProfileID != "" {
-		if err := cleanupPerformanceFixtureLease(cleanupCtx, deps, env, metadata); err != nil {
+		if err := cleanupPerformanceFixtureLease(cleanupCtx, deps, env, metadata, processClean); err != nil {
 			writeBrowserCleanupFailure(os.Stderr, "browser_clone", err)
 			deps.refreshSummary(env)
 			return 1
@@ -1201,19 +1201,25 @@ func parseRecordLifecycleArgs(args []string) (string, string, string, error) {
 	return strings.TrimSpace(values["--env-file"]), event, strings.TrimSpace(values["--child-key"]), nil
 }
 
-func parseCleanupWebE2EArgs(args []string) (string, error) {
+// parseCleanupWebE2EArgs reads the metadata file and whether the caller
+// stopped the browser processes using the fixture before its data is removed.
+func parseCleanupWebE2EArgs(args []string) (string, bool, error) {
 	values, err := parseFlagPairs(args, map[string]struct{}{
-		"--metadata-file": {},
+		"--metadata-file":   {},
+		"--process-cleanup": {},
 	})
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
 	metadataFile := strings.TrimSpace(values["--metadata-file"])
-	if metadataFile == "" {
-		return "", errors.New("usage: testservices cleanup-web-e2e --metadata-file <path>")
+	processCleanup := strings.TrimSpace(values["--process-cleanup"])
+	if metadataFile == "" || processCleanup != "complete" && processCleanup != "incomplete" {
+		return "", false, errors.New(cleanupWebE2EUsage)
 	}
-	return metadataFile, nil
+	return metadataFile, processCleanup == "complete", nil
 }
+
+const cleanupWebE2EUsage = "usage: testservices cleanup-web-e2e --metadata-file <path> --process-cleanup complete|incomplete"
 
 func parseStartSuiteArgs(args []string) (string, string, string, error) {
 	values, err := parseFlagPairs(args, map[string]struct{}{

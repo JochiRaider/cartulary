@@ -111,8 +111,6 @@ describe("session presentation", () => {
 const envNames = [
   "CARTULARY_BROWSER_GROUP_KIND",
   "CARTULARY_BROWSER_SESSION_GROUP",
-  "CARTULARY_PLAYWRIGHT_WORKER_COUNT",
-  "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET",
 ] as const;
 
 const originalEnv = Object.fromEntries(
@@ -137,47 +135,8 @@ function clearWorkerEnv() {
 }
 
 describe("workerAdminIndexForParallelIndex", () => {
-  it("rejects missing owned worker bindings", () => {
-    clearWorkerEnv();
-    expect(() => workerAdminIndexForParallelIndex(0)).toThrow(
-      "owned browser worker offset must be exactly zero",
-    );
-  });
-  it("rejects nonzero worker offsets", () => {
-    clearWorkerEnv();
-    process.env.CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET = "4";
-    process.env.CARTULARY_PLAYWRIGHT_WORKER_COUNT = "1";
-    expect(() => workerAdminIndexForParallelIndex(0)).toThrow(
-      "owned browser worker offset must be exactly zero",
-    );
-  });
-  it("requires an owned worker count", () => {
-    clearWorkerEnv();
-    process.env.CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET = "0";
-    expect(() => workerAdminIndexForParallelIndex(0)).toThrow(
-      "owned browser worker count must be exactly one",
-    );
-  });
-  it("rejects widened worker counts", () => {
-    clearWorkerEnv();
-    process.env.CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET = "0";
-    process.env.CARTULARY_PLAYWRIGHT_WORKER_COUNT = "2";
-    expect(() => workerAdminIndexForParallelIndex(0)).toThrow(
-      "owned browser worker count must be exactly one",
-    );
-  });
-  it("rejects malformed worker offsets", () => {
-    clearWorkerEnv();
-    process.env.CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET = "01";
-    process.env.CARTULARY_PLAYWRIGHT_WORKER_COUNT = "1";
-    expect(() => workerAdminIndexForParallelIndex(0)).toThrow(
-      "owned browser worker offset must be exactly zero",
-    );
-  });
   it("rejects parallel indices outside the single owned slot", () => {
     clearWorkerEnv();
-    process.env.CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET = "0";
-    process.env.CARTULARY_PLAYWRIGHT_WORKER_COUNT = "1";
     for (const index of [-1, 1, 0.5, Number.NaN])
       expect(() => workerAdminIndexForParallelIndex(index)).toThrow(
         "owned browser parallel index must be exactly zero",
@@ -185,8 +144,6 @@ describe("workerAdminIndexForParallelIndex", () => {
   });
   it("uses the single owned worker account", () => {
     clearWorkerEnv();
-    process.env.CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET = "0";
-    process.env.CARTULARY_PLAYWRIGHT_WORKER_COUNT = "1";
     expect(workerAdminIndexForParallelIndex(0)).toBe(0);
   });
 });

@@ -1395,7 +1395,13 @@ func TestCleanupWebE2ERetiresDatabaseAndClearsOwnedBucket(t *testing.T) {
 	activeEnv[suiteservices.SuiteIDEnv] = "suite-web-e2e-cleanup"
 	activeEnv[suiteservices.TargetEnv] = "browser-e2e-webserver-backed"
 
-	status := run([]string{"cleanup-web-e2e", "--metadata-file", metadataFile}, activeEnv, deps.dependencies)
+	// The caller states whether it stopped the fixture's browser processes.
+	for _, args := range [][]string{{"--metadata-file", metadataFile}, {"--metadata-file", metadataFile, "--process-cleanup", "maybe"}} {
+		if status := run(append([]string{"cleanup-web-e2e"}, args...), activeEnv, deps.dependencies); status != 2 {
+			t.Fatalf("cleanup without a process-cleanup state: got %d want 2", status)
+		}
+	}
+	status := run([]string{"cleanup-web-e2e", "--metadata-file", metadataFile, "--process-cleanup", "complete"}, activeEnv, deps.dependencies)
 	if status != 0 {
 		t.Fatalf("unexpected cleanup status: got %d want 0", status)
 	}

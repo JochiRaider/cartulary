@@ -186,7 +186,7 @@ for (const recovery of [false, true]) test(`browser fixture retirement binds ${r
     run: (command, args, options) => {
       calls++;
       assert.equal(command, path.join(root, ".cache/cartulary/toolbin/cartulary-test-services"));
-      assert.deepEqual(args, ["cleanup-web-e2e", "--metadata-file", metadata]);
+      assert.deepEqual(args, ["cleanup-web-e2e", "--metadata-file", metadata, "--process-cleanup", "complete"]);
       assert.equal(options.env.CARTULARY_TEST_RUN_ID, f.runtime.runID);
       assert.equal(options.env.CARTULARY_TEST_SUITE_ID, suite.suite_id);
       assert.equal(options.env.CARTULARY_TEST_TARGET, suite.target);

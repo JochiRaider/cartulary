@@ -4101,18 +4101,24 @@ underscore after the prefix) that harness code mentions MUST be a public input
 the task surface declares or be registered in
 `tools/harness_environment_registry.json` with exactly one role:
 `fixture_binding`, `invocation_context`, `location`, `mode_switch`,
-`product_interface`, `step_runtime`, `test_internal` or `tool_option`. The
+`product_derived`, `product_interface`, `step_runtime`, `test_internal` or
+`tool_option`. The
 registry names the harness and excluded path scopes. Every other admitted
 repository path is product code, and the product owns its `CARTULARY__*`
 configuration and the names only product code mentions. A registered name that
 no harness code mentions is stale. A name that both harness and product code
-mention MUST be a `product_interface`, and only such a name may be one.
+mention MUST be a `product_interface`, and only such a name may be one. A
+`product_derived` name is product configuration that the product reads under a
+name it derives from a service or secret reference, such as an object-store
+endpoint or a key-ring secret, so product code never spells it (amended
+2026-11-26). Like a `product_interface`, any launcher may set it for the product
+process it starts.
 `harness.environment_registry_check` enforces these rules in `check`, `ci` and
 `make source-check` (`CHECK=surface` and `CHECK=all`).
 
 A unit inherits only declared names from the environment its graph starts in
 (default-deny, amended 2026-11-26). The declared names are the registered names
-outside the `product_interface` and `test_internal` roles, the registry's
+outside the `product_derived`, `product_interface` and `test_internal` roles, the registry's
 `inherited` process and tool names and name prefixes (such as `PATH`, `HOME`,
 locale, proxy, Docker and Go module-network settings), the task surface's
 global inputs, and the Make variables that operation executions name, which the
@@ -4157,8 +4163,10 @@ value by name:
   and, in Go, the dependency-free `runcontext` package. The generated Make
   entry point writes the same names for top-level commands;
 - a browser binding (stage, profiles, service requirement, session,
-  preparation and stack): `browserBindingEnvironment` and, in Go, the
-  dependency-free `browserbinding` package;
+  preparation and stack, and a performance-fixture cohort's snapshot clone:
+  profile, snapshot, builder, row, predicate, clone lease and ordinal):
+  `browserBindingEnvironment` and, in Go, the dependency-free `browserbinding`
+  package;
 - a suite process's PostgreSQL allocation: `postgresAllocationEnvironment`
   and `suiteservices.PostgresAllocation`;
 - a step's summary (label, directory, command, timing, exit status, logs and
@@ -4168,7 +4176,9 @@ value by name:
 
 The environment registry check rejects any other write of an owned name in
 Node, Go, shell or Make recipe code outside tests, including a Go write
-through a constant declared for that name. Tests may write owned names, because they fake contexts on
+through a constant declared for that name, a quoted shell assignment word such
+as `env "NAME=value"` or an array element, and a Go or Node loop over a literal
+list of names that assigns through its loop variable (amended 2026-11-26). Tests may write owned names, because they fake contexts on
 purpose.
 
 

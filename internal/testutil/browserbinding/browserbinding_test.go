@@ -23,3 +23,16 @@ func TestBindingWritesOnlySetFields(t *testing.T) {
 		t.Fatalf("an empty binding wrote %v", got)
 	}
 }
+
+// A performance-fixture cohort's snapshot clone travels in the binding; the
+// first clone's ordinal is "0", which is a set value.
+func TestBindingCarriesTheFixtureSnapshot(t *testing.T) {
+	got := Binding{FixtureProfile: "timeline", SnapshotKey: "key", SnapshotBuilderUnit: "builder", FixtureRow: "row", FixturePredicate: "p95", CloneLease: "lease", CloneOrdinal: "0"}.Environment()
+	want := map[string]string{
+		name("FIXTURE_PROFILE_ID"): "timeline", name("FIXTURE_SNAPSHOT_KEY"): "key", name("FIXTURE_SNAPSHOT_BUILDER_UNIT_ID"): "builder",
+		name("FIXTURE_ROW_ID"): "row", name("FIXTURE_PREDICATE_ID"): "p95", name("FIXTURE_CLONE_LEASE_ID"): "lease", name("FIXTURE_CLONE_ORDINAL"): "0",
+	}
+	if !maps.Equal(got, want) {
+		t.Fatalf("Environment() = %v, want %v", got, want)
+	}
+}

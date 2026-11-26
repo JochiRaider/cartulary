@@ -392,10 +392,10 @@ async function settle({ file, runtime, root, environment = {}, producerActive = 
           privateDirectory(output);
         }
         stage = "browser_data_retirement";
-        const result = run(path.join(root, `${workspaceLayout.toolbin}/cartulary-test-services`), ["cleanup-web-e2e", "--metadata-file", metadata], {
+        const result = run(path.join(root, `${workspaceLayout.toolbin}/cartulary-test-services`), ["cleanup-web-e2e", "--metadata-file", metadata, "--process-cleanup", "complete"], {
           cwd: root, env: childEnvironment(environment, { pass: ["CARTULARY_HARNESS_RUNTIME_BIN", ...objectStoreBinding], set: { ...suiteAttachmentEnvironment({ suiteID: owner.suite_id, callMode: "attach" }),
             ...runContextEnvironment({ resultsDir: resultsRoot, runID: owner.run_id, target: suite.target }),
-            ...runtimeHandleEnvironment({ root: owner.runtime_root, leaseID: owner.runtime_lease_id, runID: owner.run_id }), CARTULARY_FIXTURE_PROCESS_CLEANUP_COMPLETE: "1" } }),
+            ...runtimeHandleEnvironment({ root: owner.runtime_root, leaseID: owner.runtime_lease_id, runID: owner.run_id }) } }),
           timeout: 120000, killSignal: "SIGKILL", stdio: ["ignore", "ignore", "pipe"], maxBuffer: 4096,
         });
         if (result.error || result.status !== 0) {

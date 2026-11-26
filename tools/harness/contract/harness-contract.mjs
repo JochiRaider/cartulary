@@ -124,7 +124,6 @@ const positiveIntegerVariables = Object.freeze([
 ]);
 const boundedPositiveIntegerVariables = Object.freeze({
   CARTULARY_TEST_SERVICES_WEB_E2E_CLEANUP_WORKERS: { min: 1, max: 16 },
-  CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET: { min: 0, max: 1024 },
   CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS: { min: 1, max: 999999999 },
 });
 const autoOrPositiveIntegerVariables = Object.freeze([]);

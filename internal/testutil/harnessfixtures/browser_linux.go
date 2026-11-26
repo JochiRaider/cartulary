@@ -142,9 +142,8 @@ func (b *browserProvider) Acquire(ctx context.Context, request Request) (allocat
 		browserbinding.Binding{CohortLabel: request.Preparation.Label}.Apply(environment)
 	}
 	if profiled {
-		for key, value := range map[string]string{"CARTULARY_FIXTURE_PROFILE_ID": request.FixtureProfile, "CARTULARY_FIXTURE_SNAPSHOT_KEY": request.SnapshotKey, "CARTULARY_FIXTURE_SNAPSHOT_BUILDER_UNIT_ID": request.BuilderUnit, "CARTULARY_FIXTURE_ROW_ID": request.RowID, "CARTULARY_FIXTURE_PREDICATE_ID": request.PredicateID, "CARTULARY_FIXTURE_CLONE_LEASE_ID": request.LeaseID, "CARTULARY_FIXTURE_CLONE_ORDINAL": fmt.Sprint(clone)} {
-			environment[key] = value
-		}
+		browserbinding.Binding{FixtureProfile: request.FixtureProfile, SnapshotKey: request.SnapshotKey, SnapshotBuilderUnit: request.BuilderUnit,
+			FixtureRow: request.RowID, FixturePredicate: request.PredicateID, CloneLease: request.LeaseID, CloneOrdinal: fmt.Sprint(clone)}.Apply(environment)
 	}
 	file := filepath.Join(root, "acquisition", "owner.json")
 	resourceRef, err := p.Runtime.ResourceReference("browser_stack", file)
@@ -258,9 +257,10 @@ func (b *browserProvider) Acquire(ctx context.Context, request Request) (allocat
 			defer done()
 			current := maps.Clone(environment)
 			maps.Copy(current, attached)
-			for _, key := range []string{"OWNER", "ROWS", "SERVICE_BACKED_ONLY", "CARTULARY_MAKE_INPUT_SOURCES"} {
+			for _, key := range []string{"OWNER", "ROWS", "SERVICE_BACKED_ONLY"} {
 				current[key] = ""
 			}
+			maps.Copy(current, runcontext.InputSources(nil))
 			runcontext.Context{WorkUnit: consumer.UnitID, Target: preparation.Target}.Apply(current)
 			browserbinding.Binding{ResetDrainTimeoutMS: preparation.DrainTimeout}.Apply(current)
 			_, err = p.browserOperation(step, "reset", []string{preparation.Label}, current)

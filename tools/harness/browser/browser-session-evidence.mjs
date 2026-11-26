@@ -22,6 +22,7 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 import { readBrowserTrustBundle } from "./browser-trust.mjs";
+import { browserBindingEnvironment } from "./browser-binding.mjs";
 
 import { resolveBrowserFrontendArtifact } from "../generated-artifacts/execution-topology.mjs";
 import { resolveFrontendArtifact } from "../readiness/frontend-artifact.mjs";
@@ -865,13 +866,12 @@ export function attachmentAssignments(stackPath) {
     CARTULARY_WEB_E2E_STACK_SHA256: sha256File(resolvedStack),
     ...(stack.performance_fixture
       ? {
-          CARTULARY_FIXTURE_PROFILE_ID: stack.performance_fixture.fixture_profile_id,
-          CARTULARY_FIXTURE_SNAPSHOT_KEY: stack.performance_fixture.snapshot_key,
-          CARTULARY_FIXTURE_SNAPSHOT_BUILDER_UNIT_ID:
-            stack.performance_fixture.builder_unit_id,
-          CARTULARY_FIXTURE_CLONE_ORDINAL: String(
-            stack.performance_fixture.clone_ordinal,
-          ),
+          ...browserBindingEnvironment({
+            fixtureProfile: stack.performance_fixture.fixture_profile_id,
+            snapshotKey: stack.performance_fixture.snapshot_key,
+            snapshotBuilderUnit: stack.performance_fixture.builder_unit_id,
+            cloneOrdinal: String(stack.performance_fixture.clone_ordinal),
+          }),
           CARTULARY_PERFORMANCE_FIXTURE_RUNTIME_BUNDLE:
             requiredEnv("CARTULARY_PERFORMANCE_FIXTURE_RUNTIME_BUNDLE"),
         }

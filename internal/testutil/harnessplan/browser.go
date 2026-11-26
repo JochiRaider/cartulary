@@ -268,13 +268,8 @@ func (c *compiler) browserUnit(id string, stack []string) (string, error) {
 		environment[clusterKeyEnvironment] = cluster
 	}
 	if fixture := cohort.fixture; fixture != nil {
-		maps.Copy(environment, map[string]string{
-			"CARTULARY_FIXTURE_PROFILE_ID":               fixture.profile.FixtureProfileID,
-			"CARTULARY_FIXTURE_SNAPSHOT_KEY":             fixture.key,
-			"CARTULARY_FIXTURE_SNAPSHOT_BUILDER_UNIT_ID": fixture.builderID,
-			"CARTULARY_FIXTURE_ROW_ID":                   rowIDs[0],
-			"CARTULARY_FIXTURE_PREDICATE_ID":             fixture.predicate,
-		})
+		browserbinding.Binding{FixtureProfile: fixture.profile.FixtureProfileID, SnapshotKey: fixture.key, SnapshotBuilderUnit: fixture.builderID,
+			FixtureRow: rowIDs[0], FixturePredicate: fixture.predicate}.Apply(environment)
 	}
 	if c.options.BrowserMode == snapshotUpdateMode {
 		environment["CARTULARY_BROWSER_MAINTENANCE_MODE"] = snapshotUpdateMode
@@ -372,13 +367,10 @@ func (c *compiler) fixtureBuilder(fixture *rowFixture, stack []string) (string, 
 		FailurePolicy:   FailurePolicy{BlockDescendants: true}, EstimatedWorkMS: c.in.Owner.LifecycleEstimatesMS["performance_fixture_prepare"],
 		FixtureProfileID: profile, SnapshotKey: fixture.key,
 		Command: Command{Executable: "node", Args: []string{snapshotBuilderCLI, "--fixture-profile", profile, "--snapshot-key", fixture.key},
-			Environment: browserbinding.Binding{RuntimeProfile: builder.RuntimeProfileID}.Apply(map[string]string{
+			Environment: browserbinding.Binding{RuntimeProfile: builder.RuntimeProfileID, FixtureProfile: profile, SnapshotKey: fixture.key, SnapshotBuilderUnit: id}.Apply(map[string]string{
 				"CARTULARY_FIXTURE_BUILDER_RESOURCE_PROFILE_ID": builder.ResourceProfileID,
-				"CARTULARY_FIXTURE_PROFILE_ID":                  profile,
-				"CARTULARY_FIXTURE_SNAPSHOT_KEY":                fixture.key,
 				"CARTULARY_FIXTURE_MIGRATION_DIGEST":            c.in.MigrationDigest,
 				"CARTULARY_FIXTURE_SOURCE_CONTRACT_DIGEST":      fixture.profile.SourceContractDigest,
-				"CARTULARY_FIXTURE_SNAPSHOT_BUILDER_UNIT_ID":    id,
 				clusterKeyEnvironment:                           fixture.cluster,
 			})},
 	}

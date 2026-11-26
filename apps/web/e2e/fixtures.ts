@@ -381,12 +381,6 @@ async function pageAuthStorageState(page: Page): Promise<StorageState> {
 }
 
 export function workerAdminIndexForParallelIndex(parallelIndex: number) {
-  if (process.env.CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET !== "0") {
-    throw new Error("owned browser worker offset must be exactly zero");
-  }
-  if (process.env.CARTULARY_PLAYWRIGHT_WORKER_COUNT !== "1") {
-    throw new Error("owned browser worker count must be exactly one");
-  }
   if (parallelIndex !== 0) {
     throw new Error("owned browser parallel index must be exactly zero");
   }

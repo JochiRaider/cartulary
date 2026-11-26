@@ -823,8 +823,11 @@ cleanup() {
   fi
 
   if [[ -x "${TEST_SERVICES_BIN}" && -f "${TEST_SERVICES_METADATA_FILE}" ]]; then
-    CARTULARY_FIXTURE_PROCESS_CLEANUP_COMPLETE="${process_cleanup_complete}" \
-      "${TEST_SERVICES_BIN}" cleanup-web-e2e --metadata-file "${TEST_SERVICES_METADATA_FILE}" || cleanup_status=$?
+    local process_cleanup=incomplete
+    if [[ "${process_cleanup_complete}" -eq 1 ]]; then
+      process_cleanup=complete
+    fi
+    "${TEST_SERVICES_BIN}" cleanup-web-e2e --metadata-file "${TEST_SERVICES_METADATA_FILE}" --process-cleanup "${process_cleanup}" || cleanup_status=$?
     if [[ "${cleanup_status}" -eq 0 ]]; then
       rm -f -- "${TEST_SERVICES_METADATA_FILE}" || cleanup_status=$?
     fi

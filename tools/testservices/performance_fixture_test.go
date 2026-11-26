@@ -93,7 +93,6 @@ func TestPerformanceFixtureCleanupIsActiveCompleteAndIdempotentlyOwned(t *testin
 	authorizeSuiteEnv(env)
 	env[suiteservices.SuiteIDEnv] = "suite-performance-cleanup"
 	env[suiteservices.TargetEnv] = "browser-e2e-measurement"
-	env["CARTULARY_FIXTURE_PROCESS_CLEANUP_COMPLETE"] = "1"
 	profile := performanceFixtureTestProfile(t)
 	runtimeRoot := filepath.Join(t.TempDir(), "private-runtime")
 	bundle, err := fixture.GenerateRuntimeBundle(profile, performanceFixtureTestKey)
@@ -140,7 +139,7 @@ func TestPerformanceFixtureCleanupIsActiveCompleteAndIdempotentlyOwned(t *testin
 		bucketCleaned = true
 		return nil
 	}
-	if status := run([]string{"cleanup-web-e2e", "--metadata-file", metadataFile}, env, deps.dependencies); status != 0 {
+	if status := run([]string{"cleanup-web-e2e", "--metadata-file", metadataFile, "--process-cleanup", "complete"}, env, deps.dependencies); status != 0 {
 		t.Fatalf("active performance fixture cleanup status = %d", status)
 	}
 	if !sessionCleaned || !databaseCleaned || !bucketCleaned {
@@ -161,7 +160,7 @@ func TestPerformanceFixtureCleanupIsActiveCompleteAndIdempotentlyOwned(t *testin
 	if artifact.CleanupState != "complete" || !artifact.cleanupComplete("credential_copy") || !artifact.cleanupComplete("database") || !artifact.cleanupComplete("bucket") || !artifact.cleanupComplete("session") || !artifact.cleanupComplete("process") {
 		t.Fatalf("incomplete lease artifact: %#v", artifact)
 	}
-	if status := run([]string{"cleanup-web-e2e", "--metadata-file", metadataFile}, env, deps.dependencies); status != 0 {
+	if status := run([]string{"cleanup-web-e2e", "--metadata-file", metadataFile, "--process-cleanup", "complete"}, env, deps.dependencies); status != 0 {
 		t.Fatalf("repeated owned cleanup status = %d", status)
 	}
 	repeated, err := os.ReadFile(artifactFile)
@@ -169,7 +168,7 @@ func TestPerformanceFixtureCleanupIsActiveCompleteAndIdempotentlyOwned(t *testin
 		t.Fatalf("repeated cleanup rewrote its immutable evidence: %v", err)
 	}
 	metadata.CloneLeaseID = "different-lease"
-	if err := cleanupPerformanceFixtureLease(context.Background(), deps.dependencies, env, metadata); err == nil {
+	if err := cleanupPerformanceFixtureLease(context.Background(), deps.dependencies, env, metadata, true); err == nil {
 		t.Fatal("different lease identity reused retained cleanup evidence")
 	}
 
@@ -180,7 +179,6 @@ func TestPerformanceFixtureCleanupRetainsFailureAndContinuesIndependentCleanup(t
 	env := cloneEnv(deps.env)
 	authorizeSuiteEnv(env)
 	env[suiteservices.SuiteIDEnv] = "suite-performance-cleanup-failure"
-	env["CARTULARY_FIXTURE_PROCESS_CLEANUP_COMPLETE"] = "1"
 	profile := performanceFixtureTestProfile(t)
 	runtimeRoot := filepath.Join(t.TempDir(), "private-runtime")
 	bundle, err := fixture.GenerateRuntimeBundle(profile, performanceFixtureTestKey)
@@ -211,7 +209,7 @@ func TestPerformanceFixtureCleanupRetainsFailureAndContinuesIndependentCleanup(t
 		bucketAttempted = true
 		return nil
 	}
-	if err := cleanupPerformanceFixtureLease(context.Background(), deps.dependencies, env, metadata); err == nil {
+	if err := cleanupPerformanceFixtureLease(context.Background(), deps.dependencies, env, metadata, true); err == nil {
 		t.Fatal("injected cleanup failure was accepted")
 	}
 	if !bucketAttempted {
@@ -234,7 +232,7 @@ func TestPerformanceFixtureCleanupRetainsFailureAndContinuesIndependentCleanup(t
 	}
 	deps.cleanupWebE2EDB = func(context.Context, webE2EMetadata, map[string]string) error { return nil }
 	bucketAttempted = false
-	if err := cleanupPerformanceFixtureLease(context.Background(), deps.dependencies, env, metadata); err == nil {
+	if err := cleanupPerformanceFixtureLease(context.Background(), deps.dependencies, env, metadata, true); err == nil {
 		t.Fatal("successful retry erased an earlier cleanup failure")
 	}
 	if !bucketAttempted {
@@ -246,8 +244,7 @@ func TestPerformanceFixtureCleanupRetainsFailureAndContinuesIndependentCleanup(t
 	}
 
 	metadata.RowID = "module.timeline.measurement.incomplete_process_row"
-	env["CARTULARY_FIXTURE_PROCESS_CLEANUP_COMPLETE"] = "0"
-	if err := cleanupPerformanceFixtureLease(context.Background(), deps.dependencies, env, metadata); err == nil {
+	if err := cleanupPerformanceFixtureLease(context.Background(), deps.dependencies, env, metadata, false); err == nil {
 		t.Fatal("incomplete process cleanup returned success")
 	}
 

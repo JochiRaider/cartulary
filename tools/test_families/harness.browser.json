@@ -462,12 +462,7 @@
           "session presentation forwards upstream failures and malformed sessions without fabricating memberships or exposing private text",
           "session presentation reports transport failure safely and aborts the intercepted request",
           "session presentation validates successful sessions before preserving unrelated fields and rewriting presentation",
-          "workerAdminIndexForParallelIndex rejects malformed worker offsets",
-          "workerAdminIndexForParallelIndex rejects missing owned worker bindings",
-          "workerAdminIndexForParallelIndex rejects nonzero worker offsets",
           "workerAdminIndexForParallelIndex rejects parallel indices outside the single owned slot",
-          "workerAdminIndexForParallelIndex rejects widened worker counts",
-          "workerAdminIndexForParallelIndex requires an owned worker count",
           "workerAdminIndexForParallelIndex uses the single owned worker account"
         ],
         "project_id": "harness-node"

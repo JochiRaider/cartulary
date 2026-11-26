@@ -51,7 +51,6 @@ func TestPerformanceFixtureSnapshotBuilderCreatesFourIsolatedCleanableClones_Int
 	env[suiteservices.S3SecretKeyEnv] = objectStoreHarness.SecretKey
 	env[suiteservices.S3SecureEnv] = "true"
 	env["SSL_CERT_FILE"] = objectStoreHarness.RootCertificatePath()
-	env["CARTULARY_FIXTURE_PROCESS_CLEANUP_COMPLETE"] = "1"
 	profile := lifecycleTestProfile(t)
 	profile.ObjectPopulation = performancefixtureprofile.ObjectPopulation{ObjectCount: 1, TotalBytes: 13}
 	args := BuildArgs{
@@ -237,7 +236,7 @@ func TestPerformanceFixtureSnapshotBuilderCreatesFourIsolatedCleanableClones_Int
 			},
 		}
 		for attempt := 0; attempt < 2; attempt++ {
-			if err := cleanupLeaseWithProfile(ctx, env, profile, metadata, ports); err != nil {
+			if err := cleanupLeaseWithProfile(ctx, env, profile, metadata, true, ports); err != nil {
 				t.Fatalf("cleanup clone %d attempt %d: %v", index+1, attempt+1, err)
 			}
 		}

@@ -18,6 +18,10 @@ export const environmentRoles = Object.freeze([
   "invocation_context", // run identity, results root, lease, budget and failure context
   "location", // a machine, cache, scratch or layout path
   "mode_switch", // a flag that changes what a command or recipe does
+  // product configuration the harness sets for a product process it starts,
+  // which the product reads under a name it derives from a service or secret
+  // reference, so product code never spells it
+  "product_derived",
   "product_interface", // a name product code reads that the harness sets
   "step_runtime", // the run-step wrapper's protocol with its child
   "test_internal", // a name a test sets for its own child process or fixture
@@ -48,9 +52,37 @@ const goConstantWritePatterns = (constant) => [
   new RegExp(`(?<!\\bcase)(?:^|[\\s{,(])(?:\\w+\\.)?${constant}\\s*:(?!=)`, "u"),
 ];
 const shellWritePattern = (name) => new RegExp(`(?:^|[\\s;&|(){])(?:(?:export|local|readonly|declare)(?:\\s+-[a-zA-Z]+)*\\s+)?${name}=`, "gu");
+// A quoted word that is an assignment, such as env "NAME=value" or an array
+// element ("NAME=value"), writes the name unless the line only prints it.
+const shellQuotedWritePattern = (name) => new RegExp(`(?:^|[\\s(])["']${name}=`, "u");
+const shellPrints = /^\s*(?:echo|printf)\b/u;
 const shellCode = /\.(?:sh|bash|mk)$|(?:^|\/)Makefile$/u;
 const insideQuotes = (line, index) => ["\"", "'"].some((quote) => (line.slice(0, index).split(quote).length - 1) % 2 === 1);
-const shellWrites = (line, name) => !/^\s*#/u.test(line) && [...line.matchAll(shellWritePattern(name))].some((match) => !insideQuotes(line, match.index));
+const shellWrites = (line, name) => !/^\s*#/u.test(line) && ([...line.matchAll(shellWritePattern(name))].some((match) => !insideQuotes(line, match.index)) ||
+  (!shellPrints.test(line) && shellQuotedWritePattern(name).test(line)));
+// A loop over a literal list of names that assigns through its loop variable
+// writes every listed name: for _, k := range []string{...} { m[k] = v } in Go,
+// for (const k of [...]) m[k] = v in Node.
+const loopHeaders = [/\bfor\s+(?:\w+\s*,\s*)?(\w+)\s*:=\s*range\s+\[\]string\{/u, /\bfor\s*\(\s*(?:const|let)\s+(\w+)\s+of\s+\[/u];
+function listLoopWrites(lines, name) {
+  const writes = [];
+  lines.forEach((line, index) => {
+    if (!line.includes(`"${name}"`) && !line.includes(`'${name}'`)) return;
+    const variable = loopHeaders.map((pattern) => pattern.exec(line)?.[1]).find(Boolean);
+    if (!variable) return;
+    const indent = line.length - line.trimStart().length;
+    const assignment = new RegExp(`\\[\\s*${variable}\\s*\\]\\s*=(?!=)`, "u");
+    for (let next = index; next < lines.length; next++) {
+      const body = lines[next];
+      if (next > index && body.trim() !== "" && body.length - body.trimStart().length <= indent) break;
+      if (assignment.test(body)) {
+        writes.push(index);
+        break;
+      }
+    }
+  });
+  return writes;
+}
 const writableCode = /\.(?:mjs|cjs|js|ts|tsx|go|sh|bash|mk)$|(?:^|\/)Makefile$/u;
 const testCode = /(?:_test\.go|\.test\.(?:mjs|ts|tsx)|\.spec\.ts)$|\/tests\//u;
 const passThrough = [/\.\.\.\s*(?:process\.env|environment|env)\b(?![.\w])/u, /\benv\s*:\s*process\.env\b(?![.\w])/u,
@@ -203,7 +235,9 @@ export function inspectEnvironmentRegistry(root, {
       if (relative.endsWith(".go")) for (const line of lines) if (goConstantDeclaration.exec(line)?.[2] === name) constants.set(goConstantDeclaration.exec(line)[1], name);
       if (!outsideOwner(relative, name)) continue;
       const writes = shellCode.test(relative) ? (line) => shellWrites(line, name) : (line) => patterns.some((pattern) => pattern.test(line));
-      lines.forEach((line, index) => { if (line.includes(name) && writes(line)) findings.push(writeFinding(relative, index, name)); });
+      const written = new Set(lines.flatMap((line, index) => (line.includes(name) && writes(line) ? [index] : [])));
+      if (!shellCode.test(relative)) for (const index of listLoopWrites(lines, name)) written.add(index);
+      for (const index of [...written].sort((a, b) => a - b)) findings.push(writeFinding(relative, index, name));
     }
   }
   if (constants.size > 0) {

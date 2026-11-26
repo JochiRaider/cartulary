@@ -872,6 +872,7 @@
       "selector": {
         "package": "./internal/testutil/browserbinding",
         "tests": [
+          "TestBindingCarriesTheFixtureSnapshot",
           "TestBindingWritesOnlySetFields"
         ]
       },

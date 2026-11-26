@@ -22,13 +22,6 @@ const actionTimeoutMs = 15_000;
 const navigationTimeoutMs = 30_000;
 const expectTimeoutMs = 10_000;
 
-if (
-  process.env.CARTULARY_PLAYWRIGHT_WORKER_COUNT !== "1" ||
-  process.env.CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET !== "0"
-) {
-  throw new Error("Playwright requires one owned worker at offset zero");
-}
-
 function requireValidatedAttachment(): void {
   if (
     process.env.CARTULARY_WEB_E2E_ATTACHMENT_VALIDATED !== "1" ||

@@ -133,9 +133,9 @@ func preparePerformanceWebE2EFixture(ctx context.Context, env map[string]string)
 	}, nil
 }
 
-func cleanupPerformanceFixtureLease(ctx context.Context, deps dependencies, env map[string]string, metadata webE2EMetadata) error {
+func cleanupPerformanceFixtureLease(ctx context.Context, deps dependencies, env map[string]string, metadata webE2EMetadata, processClean bool) error {
 	lease := lifecycleMetadata(metadata)
-	return performancefixturelifecycle.CleanupLease(ctx, env, lease, performancefixturelifecycle.CleanupPorts{
+	return performancefixturelifecycle.CleanupLease(ctx, env, lease, processClean, performancefixturelifecycle.CleanupPorts{
 		CleanupSessions: deps.cleanupWebE2ESessions,
 		DetectLeaks: func(ctx context.Context, _ performancefixturelifecycle.LeaseMetadata, env map[string]string) error {
 			return deps.detectWebE2ELeaks(ctx, []webE2EMetadata{metadata}, env)
@@ -153,9 +153,9 @@ func cleanupPreparedWebE2EFixture(ctx context.Context, deps dependencies, env ma
 	if metadata.FixtureProfileID == "" {
 		return cleanupWebE2EFixture(ctx, deps, env, metadata)
 	}
-	cleanupEnv := cloneEnv(env)
-	cleanupEnv["CARTULARY_FIXTURE_PROCESS_CLEANUP_COMPLETE"] = "1"
-	return cleanupPerformanceFixtureLease(ctx, deps, cleanupEnv, metadata)
+	// A preparation that fails before any browser process starts has none
+	// left to stop.
+	return cleanupPerformanceFixtureLease(ctx, deps, env, metadata, true)
 }
 
 func writeFailedPerformanceFixtureCloneArtifact(env map[string]string, failureCode string, preparationErr error) error {

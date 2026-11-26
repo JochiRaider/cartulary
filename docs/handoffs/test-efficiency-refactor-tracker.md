@@ -125,7 +125,7 @@ eleven `ci` runs of the release attempts (Section 13.1). Single runs vary by abo
 | G42 | Build-artifact cache keys held per-run locations (each graph run's Go temporary directory, the per-run web source path), so every graph run missed and re-linked shared binaries | Machine inputs, specification | Phase 4, P4-6 | Done: locations leave the keyed command and input directories are keyed by content; proven on a segment (13.15) |
 | G43 | Test rows launch nested graphs and real `make` runs that rebuild shared repository outputs under the Go test's toolchain environment while the outer run uses them; their failures are cut to the first 4 KiB and reclassified as product assertions | Tests, harness, specification | Phase 5 | Closed: P5-0 fenced the Go-hosted nested graphs (14.5); P5-2 moved the six nesting rows to explicit presets and refuses a graph beneath an aggregate run of the same repository (14.22) |
 | G44 | Make and the planner both own ordering, freshness, environment and prerequisite skipping: 26 operations re-enter Make, 17 targets carry two recipes chosen by `GRAPH_CHILD`, five freshness mechanisms coexist, and graph-only Make edges run work twice | Machine inputs, implementation, specification | Phase 5 | Open: P5-0 removed the renderer double run (14.5); P5-1 made every test script a row and removed five duplicate operations (14.6); P5-3 remains |
-| G45 | Units inherit the graph process's whole environment (the shell's variables and up to 127 Make exports), minus hand-kept strip lists; harness code reads 478 `CARTULARY_*` names with no declaration, so leaks, stale names and typos fail silently | Machine inputs, implementation, specification | Phase 5, P5-4 | Open: P5-4a registered every harness name and enforces it (14.8); P5-4b made unit environments default-deny (14.9); P5-4c slices 1 to 3 made every outside launcher explicit (14.11 to 14.13); P5-4d slices 1 to 4 gave 57 names a single owner and enforce it in Node, Go and shell, covering every multi-writer invocation-context, fixture-binding and step-runtime name (14.14 to 14.17); the P5-4d exit is met. Left for P5-3: mode switches, strip lists and the overlay |
+| G45 | Units inherit the graph process's whole environment (the shell's variables and up to 127 Make exports), minus hand-kept strip lists; harness code reads 478 `CARTULARY_*` names with no declaration, so leaks, stale names and typos fail silently | Machine inputs, implementation, specification | Phase 5, P5-4 | Open: P5-4a registered every harness name and enforces it (14.8); P5-4b made unit environments default-deny (14.9); P5-4c slices 1 to 3 made every outside launcher explicit (14.11 to 14.13); P5-4d slices 1 to 4 gave 57 names a single owner and enforce it in Node, Go and shell, covering every multi-writer invocation-context, fixture-binding and step-runtime name (14.14 to 14.17); the P5-4d exit is met. Left for P5-3: mode switches, strip lists and the overlay; the environment tidy classified product-derived names, folded fixture identity into the browser binding, replaced the cleanup marker with an argument, deleted the constant Playwright worker names and closed two check blind spots (14.23) |
 | G46 | A runtime whose cleanup fails is preserved for recovery behind a seal while it still holds resources, but startup recovery skips every sealed root on the rule that sealed roots have drained. A stranded `p58-browser` resident held one of the eight PostgreSQL generation slots in every later run | Specification, implementation | Phase 5 | Closed: `p58-browser` recovered, startup recovery decides by resource records, and the eight legacy roots were removed with owner approval (14.19) |
 
 ## 5. Gap Remediation Detail
@@ -1367,6 +1367,7 @@ Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-am
 | 2026-11-26 | Never-run rows | Promote the four browser accessibility self-tests from `explicit_only` to `full`; keep the eight on-demand rows (owner decision) | `p69-plan-*` (every graph target and suite); `p69-a11y`; `p70-generate`, `p70-catalog`, `p70-generated`, `p70-routing`, `p70-lintscripts`, `p70-plan-ci`, `p70-plan-check` | Pass. 12 of 2,778 rows were never planned by any target or suite. `ci` now plans the four promoted rows (2,658 rows) in its existing 506 units; `check` is unchanged (14.20) |
 | 2026-11-26 | Child CPU budget | The registry's `budget` names (`GOMAXPROCS`) pass to every child that a launcher builds, and never come from the graph's environment; `processtest` helper launches pass their mode explicitly | `p71-generate`, `p71-lintgo`, `p71-lintscripts`, `p71-cs`, `p71-server`, `p71-surface`, `p71-generated`; `p72-lintgo`, `p72-cs`, `p72-server`, `p72-nf`, `p72-browser`, `p72-md` | Pass. `p71-cs` failed the `ci`-only `processtest` row, a P5-4c regression: its helper mode reached the child only by inheritance. It passes after the repair, as do the other seven `ci`-only rows that start processes through `childenv` (14.21) |
 | 2026-11-26 | P5-2 / G43 | The six rows that start nested graphs are `explicit_only` in five explicit `harness-contract` presets; a graph refuses to start beneath an aggregate run of the same repository (D20) | `p73-generate`, `p73-plan-*`, `p73b-plan-*`; `p74-generate`, `p74-lintgo`, `p74-catalog`, `p74-generated`, `p74-runtime`, `p74-refused`, `p74-allowed`, `p74-nested`, `p74-realout`, `p74-lifetime`, `p74-md` | Pass. `ci` plans 2,652 rows in 500 units (2,658 in 506); `check` is unchanged; the presets keep their rows. A stand-in `ci` process refuses a real nested `test-slice`, and a stand-in `harness-contract` allows it (14.22) |
+| 2026-11-26 | Environment tidy / G45 | `product_derived` role for 14 names; fixture identity in `browser_binding`; `cleanup-web-e2e --process-cleanup` replaces its marker; Playwright worker names deleted; the check counts quoted shell assignments and loop-variable writes | `p75-generate`, `p75-format`, `p75-lint*`, `p75-surface`, `p75-catalog`, `p75-identity`, `p75-generated`, `p75-cs`, `p75-hb`, `p75-incidents`, `p75-md`; `p75-plan-measure-old` and `-new` | Pass. The registry holds 477 names (480) and its check has no findings; the new loop rule's one finding is repaired. `release-measure` plans identically before and after (14.23) |
 | 2026-11-25 | P4-4 / G39 | Wait audit: 31 whole-test hang guards derive from the test deadline (`testdeadline`) | `p44-port-*` (16 owner slices, every row holding a converted guard) | Pass. Committed `bdd8f4e1d` |
 
 ## 12. Phase 2 Plan — `check` Wall Clock
@@ -3605,3 +3606,76 @@ Decision D20 (owner, 2026-11-26): nested harness probes run in explicit
 
   No aggregate run was repeated. Retained evidence shows no nested graph in
   `check`, and in `ci` only from the six moved rows.
+
+### 14.23 Environment Tidy (P5-4 follow-up)
+
+- **What remained.** A write-site scan after P5-4d and the budget repair found
+  no owner for names that more than one component writes. Apart from the five
+  mode switches that P5-3 removes, they fell into four groups.
+- **Product configuration under derived names.** Fourteen registered names are
+  configuration that the product reads under a name it derives from a
+  reference, such as `CARTULARY_S3_<ref>_ENDPOINT` from an object-store
+  service reference or `CARTULARY_SECRET_<name>` from a key-ring secret:
+  - the primary migration and runtime DSNs;
+  - six primary object-store names;
+  - six secrets.
+
+  Product code never spells them, so the check could not file them as
+  `product_interface`, and they sat in `fixture_binding`. They now have the
+  role `product_derived`. Like a product interface, any launcher may set one
+  for the product process it starts, and no unit inherits one from its
+  graph's environment. The check rejects a `product_derived` name that product
+  code spells. Specification amended (Section 5.5).
+- **Performance-fixture identity.** The planner, the Go browser fixture and the
+  session-evidence module each wrote a cohort's snapshot names:
+  - the profile, snapshot key, builder unit, row and predicate;
+  - the clone lease and ordinal.
+
+  They join the `browser_binding` owner as seven fields of its Go `Binding`
+  and Node `browserBindingEnvironment`, which write only set values. Every
+  reader trims and treats an empty value as unset, and a populated fixture
+  always has a profile, key, builder and exactly one predicate. So the
+  environments the planner writes are unchanged.
+- **The cleanup marker becomes an argument.** Two launchers told
+  `cartulary-test-services cleanup-web-e2e` through
+  `CARTULARY_FIXTURE_PROCESS_CLEANUP_COMPLETE` whether the browser processes
+  using a fixture had stopped, and the service set the same marker in its own
+  copy of the environment. The command now takes a required
+  `--process-cleanup complete|incomplete` and passes it as a parameter to the
+  lease cleanup, and the name is gone.
+- **Constant Playwright worker names are deleted.**
+  `CARTULARY_PLAYWRIGHT_WORKER_COUNT` and `_INDEX_OFFSET` were written by two
+  launchers. Every reader only checked that they were `1` and `0`, and the
+  configuration already fixes one worker. The names, their readers and five
+  Vitest cases that tested those readers are removed, and the configuration
+  and parallel-index checks remain. The registry holds 477 names (480 before).
+- **The check's blind spots.** The registry check now also counts as a write:
+  - a quoted shell assignment word, such as `env "NAME=value"` or an array
+    element, unless the line only prints it;
+  - a Go or Node loop over a literal list of names that assigns through its
+    loop variable.
+
+  The loop rule found one real violation: the browser fixture cleared the
+  input-sources name, which `run_context` owns, through a loop. It now calls
+  `runcontext.InputSources`. Specification amended.
+- **Validation.** All passed (`p75-*`):
+  - `make generate`, `make format`;
+  - `lint` for Go, scripts, shell, types and frontend;
+  - `source-check` for surface (the registry check, with no findings),
+    catalog, identity and generated;
+  - the registry, browser-binding, planner and owned-stack lifecycle rows;
+  - the test-services lifecycle contract, with the new argument rules;
+  - the performance-fixture lifecycle unit and integration rows;
+  - the trimmed Vitest fixture suite and the UI-review lifecycle, which runs
+    the browser acquisition's retirement call;
+  - the incidents browser row, which stops a real stack through the new
+    cleanup argument;
+  - `lint-markdown`.
+
+  Planner equivalence: `release-measure` planned on the committed code and on
+  this change has the same graph digest and the same semantic digest for all
+  79 units, 62 of them fixture cohorts or builders.
+- **Remaining.**
+  - The five multi-writer mode switches, which leave with P5-3.
+  - 183 names appear in only one file and 85 only in tests. Deleting them is
+    a separate decision.

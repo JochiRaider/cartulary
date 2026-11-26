@@ -199,15 +199,18 @@ func prepareWithProfile(ctx context.Context, env map[string]string, profile perf
 	}, nil
 }
 
-func CleanupLease(ctx context.Context, env map[string]string, metadata LeaseMetadata, ports CleanupPorts) error {
+// CleanupLease retires a clone lease. processClean reports that the browser
+// processes using the clone stopped before its data is removed; the caller
+// that stopped them passes it as a command argument.
+func CleanupLease(ctx context.Context, env map[string]string, metadata LeaseMetadata, processClean bool, ports CleanupPorts) error {
 	profile, err := ResolveProfile(metadata.FixtureProfileID)
 	if err != nil {
 		return err
 	}
-	return cleanupLeaseWithProfile(ctx, env, profile, metadata, ports)
+	return cleanupLeaseWithProfile(ctx, env, profile, metadata, processClean, ports)
 }
 
-func cleanupLeaseWithProfile(ctx context.Context, env map[string]string, profile performancefixtureprofile.Profile, metadata LeaseMetadata, ports CleanupPorts) error {
+func cleanupLeaseWithProfile(ctx context.Context, env map[string]string, profile performancefixtureprofile.Profile, metadata LeaseMetadata, processClean bool, ports CleanupPorts) error {
 	if ports.CleanupSessions == nil || ports.DetectLeaks == nil || ports.CleanupDatabase == nil || ports.CleanupBucket == nil {
 		return errors.New("performance fixture cleanup ports are incomplete")
 	}
@@ -215,7 +218,6 @@ func cleanupLeaseWithProfile(ctx context.Context, env map[string]string, profile
 	if err != nil {
 		return err
 	}
-	processClean := env["CARTULARY_FIXTURE_PROCESS_CLEANUP_COMPLETE"] == "1"
 	artifact := leaseArtifact{
 		SchemaID:          profile.ArtifactPolicy.LeaseSchemaID,
 		ObjectSnapshot:    metadata.ObjectSnapshot,

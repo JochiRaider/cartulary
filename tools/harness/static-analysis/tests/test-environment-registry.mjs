@@ -64,16 +64,19 @@ test("every harness name is registered or declared, and nothing registered is st
 
 test("a name both sides mention must be a product interface, and only then", (t) => {
   const { root, paths } = fixture(t, {
-    "tools/stack.sh": `export ${name("HTTP_PORT")}=1 ${name("SHARED")}=2 ${name("CLAIMED")}=3\n`,
-    "internal/app/server.go": `os.Getenv("${name("HTTP_PORT")}"); os.Getenv("${name("SHARED")}")\n`,
+    "tools/stack.sh": `export ${name("HTTP_PORT")}=1 ${name("SHARED")}=2 ${name("CLAIMED")}=3 ${name("S3_OBJECT_PRIMARY_ENDPOINT")}=4 ${name("NAMED")}=5\n`,
+    "internal/app/server.go": `os.Getenv("${name("HTTP_PORT")}"); os.Getenv("${name("SHARED")}"); os.Getenv("${name("NAMED")}")\n`,
   });
+  // A derived name is one product code builds from a reference, so it never
+  // spells it; a spelled name is a product interface.
   const result = inspectEnvironmentRegistry(root, {
-    registry: registry({ product_interface: [name("CLAIMED"), name("HTTP_PORT")], tool_option: [name("SHARED")] }),
+    registry: registry({ product_derived: [name("NAMED"), name("S3_OBJECT_PRIMARY_ENDPOINT")], product_interface: [name("CLAIMED"), name("HTTP_PORT")], tool_option: [name("SHARED")] }),
     declared: new Set(),
     paths,
   });
   assert.deepEqual(result.findings, [
     `${name("CLAIMED")} is a product_interface that no product code mentions`,
+    `${name("NAMED")} is product_derived but product code mentions it (internal/app/server.go)`,
     `${name("SHARED")} is tool_option but product code mentions it (internal/app/server.go)`,
   ]);
 });
@@ -239,6 +242,9 @@ test("binding owners write their names: set browser fields, every resource list 
     [name("BROWSER_RUNTIME_PROFILE_ID")]: "default", [name("BROWSER_SERVICE_REQUIREMENT")]: "test-services",
   });
   assert.throws(() => browserBindingEnvironment({ profile: "default" }), /unknown browser binding fields: profile/u);
+  assert.deepEqual(browserBindingEnvironment({ fixtureProfile: "timeline", snapshotKey: "key", cloneOrdinal: "0", fixturePredicate: "" }), {
+    [name("FIXTURE_PROFILE_ID")]: "timeline", [name("FIXTURE_SNAPSHOT_KEY")]: "key", [name("FIXTURE_CLONE_ORDINAL")]: "0",
+  });
   assert.deepEqual(resourceDependenciesEnvironment([]), { [name("HARNESS_RESOURCE_DEPENDENCIES")]: "[]" });
   assert.deepEqual(resourceDependenciesEnvironment(["a", "b"]), { [name("HARNESS_RESOURCE_DEPENDENCIES")]: '["a","b"]' });
   assert.deepEqual(postgresAllocationEnvironment({ isolation: "shared", ref: "session:a" }), {
@@ -262,6 +268,9 @@ test("shell and Make recipes write a name by assignment, prefix, declaration or 
       `# ${suite}=documented`,
       `echo "set ${suite}=x to choose a suite"`,
       `run --suite "${dollar}${suite}"`,
+      `env "${suite}=${dollar}id" make check`,
+      `args+=("${suite}=${dollar}id")`,
+      `printf '%s\\n' "${suite}=x"`,
     ].join("\n"),
     "tools/rules.mk": `\t${dollar}(Q)${suite}=z ${dollar}(RUN_STEP_SCRIPT) "label" -- true\n`,
     "tools/tests/test-writer.sh": `${suite}=fixture\n`,
@@ -274,6 +283,36 @@ test("shell and Make recipes write a name by assignment, prefix, declaration or 
   const writes = (line) => `${line} writes ${suite}, which suite_services owns; call its function or forward the name`;
   assert.deepEqual(result.findings, [
     writes("tools/rules.mk:1"),
-    writes("tools/writer.sh:1"), writes("tools/writer.sh:2"), writes("tools/writer.sh:3"), writes("tools/writer.sh:4"), writes("tools/writer.sh:5"),
+    writes("tools/writer.sh:1"), writes("tools/writer.sh:11"), writes("tools/writer.sh:12"),
+    writes("tools/writer.sh:2"), writes("tools/writer.sh:3"), writes("tools/writer.sh:4"), writes("tools/writer.sh:5"),
   ]);
+});
+
+test("a loop over a literal list of names writes each one it assigns through its variable", (t) => {
+  const suite = name("SUITE_ID");
+  const { root, paths } = fixture(t, {
+    "tools/loops.go": [
+      `for _, key := range []string{"OWNER", "${suite}"} {`,
+      `\tenvironment[key] = ""`,
+      `}`,
+      `for _, key := range []string{"${suite}"} {`,
+      `\tif environment[key] != "" {`,
+      `\t\treturn key`,
+      `\t}`,
+      `}`,
+    ].join("\n"),
+    "tools/loops.mjs": [
+      `for (const key of ["${suite}"]) env[key] = "";`,
+      `for (const key of ["${suite}"]) {`,
+      `  if (env[key] === id) found = key;`,
+      `}`,
+    ].join("\n"),
+  });
+  const result = inspectEnvironmentRegistry(root, {
+    registry: registry({ invocation_context: [suite] }, { suite_services: { paths: ["tools/owner/**"], names: [suite] } }),
+    declared: new Set(),
+    paths,
+  });
+  const writes = (line) => `${line} writes ${suite}, which suite_services owns; call its function or forward the name`;
+  assert.deepEqual(result.findings, [writes("tools/loops.go:1"), writes("tools/loops.mjs:1")]);
 });
