@@ -3,6 +3,9 @@
 // operator (TH-HARNESS Section 5.5, single writer). The child receives only:
 //   - the parent's process and tool basics: the environment registry's
 //     inherited names and prefixes and the task surface's global inputs;
+//   - the parent's resource budget: the registry's budget names, such as the
+//     Go CPU limit the plan gave its unit, so the child runs within that
+//     unit's CPU claim (TH-HARNESS-REQ-379);
 //   - the harness names the launcher forwards by name;
 //   - the values the launcher sets.
 //
@@ -44,6 +47,7 @@ func load(root string) (basics, error) {
 			Names    []string `json:"names"`
 			Prefixes []string `json:"prefixes"`
 		} `json:"inherited"`
+		Budget []string `json:"budget"`
 	}
 	var surface struct {
 		GlobalInputs []struct {
@@ -60,7 +64,7 @@ func load(root string) (basics, error) {
 		}
 	}
 	loaded := basics{names: map[string]bool{}, prefixes: slices.Clone(registry.Inherited.Prefixes)}
-	for _, name := range registry.Inherited.Names {
+	for _, name := range slices.Concat(registry.Inherited.Names, registry.Budget) {
 		loaded.names[name] = true
 	}
 	for _, input := range surface.GlobalInputs {

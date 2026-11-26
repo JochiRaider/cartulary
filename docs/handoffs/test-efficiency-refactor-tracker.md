@@ -1365,6 +1365,7 @@ Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-am
 | 2026-11-26 | P5-4 second check / G46 | A second `check` to settle the timing | `p67-check02`; `p67-ac604-1` to `-3` | 1,896 of 1,897 rows pass. `app.server.process.ordinary_shutdown_ac604` failed once (WebSocket close status -1, not 1001) and passed three isolated reruns; it has passed 75 of 76 runs. The graph took 674 s. Not a P5-4 regression: since `p58-browser`, whose cleanup failed, a stranded resident has held one of the eight PostgreSQL generation slots, so PostgreSQL units ran 7 at a time instead of 8 in `p66` and `p67`. This run also rebuilt the report renderer (153 s) because its cache key includes `build-go-artifact.sh`. That delayed the server-harness build to 167 s, so the server-process unit started last and ran to the end of the run (14.18) |
 | 2026-11-26 | G46 repair | Recover `p58-browser`; startup recovery decides by resource records, not the seal (owner-approved spec amendment) | `p68-recover`; `p68-lintgo`, `p68-session`, `p68-fixtures`, `p68-md` | Pass. The ledger holds no residents, so all eight PostgreSQL generation slots are free. Every top-level graph now reports eight legacy October roots as `[RECOVERY-FAIL]`: their records predate the current ledger and boot, and they hold nothing physically. Removing them needs owner approval (14.19) |
 | 2026-11-26 | Never-run rows | Promote the four browser accessibility self-tests from `explicit_only` to `full`; keep the eight on-demand rows (owner decision) | `p69-plan-*` (every graph target and suite); `p69-a11y`; `p70-generate`, `p70-catalog`, `p70-generated`, `p70-routing`, `p70-lintscripts`, `p70-plan-ci`, `p70-plan-check` | Pass. 12 of 2,778 rows were never planned by any target or suite. `ci` now plans the four promoted rows (2,658 rows) in its existing 506 units; `check` is unchanged (14.20) |
+| 2026-11-26 | Child CPU budget | The registry's `budget` names (`GOMAXPROCS`) pass to every child that a launcher builds, and never come from the graph's environment; `processtest` helper launches pass their mode explicitly | `p71-generate`, `p71-lintgo`, `p71-lintscripts`, `p71-cs`, `p71-server`, `p71-surface`, `p71-generated`; `p72-lintgo`, `p72-cs`, `p72-server`, `p72-nf`, `p72-browser`, `p72-md` | Pass. `p71-cs` failed the `ci`-only `processtest` row, a P5-4c regression: its helper mode reached the child only by inheritance. It passes after the repair, as do the other seven `ci`-only rows that start processes through `childenv` (14.21) |
 | 2026-11-25 | P4-4 / G39 | Wait audit: 31 whole-test hang guards derive from the test deadline (`testdeadline`) | `p44-port-*` (16 owner slices, every row holding a converted guard) | Pass. Committed `bdd8f4e1d` |
 
 ## 12. Phase 2 Plan — `check` Wall Clock
@@ -3487,3 +3488,57 @@ of 14.10.
   row and `lint CHECK=scripts`. `ci` plans 2,658 rows (2,654 before) in the
   same 506 units, and `check` is unchanged at 1,897 rows. The rows were not
   run inside a full `ci`.
+
+### 14.21 Child CPU Budget (P5-4 follow-up)
+
+- **Defect.** Since P5-4c, a product process that a Go unit starts through
+  `childenv.Build` received only the registry's `inherited` names. The plan
+  binds `GOMAXPROCS` to a Go unit's CPU tokens, and that binding was dropped.
+  The server or operator child therefore ran on every host CPU while its unit
+  claimed only its tokens, against REQ-379: "Each child claims exactly its
+  scheduler-owned `GOMAXPROCS` CPU budget."
+- **Why not `inherited`.** The planner reads the same list to decide what a
+  unit takes from its graph's environment. Adding `GOMAXPROCS` there would let
+  an operator's shell value reach every non-Go unit.
+- **Repair.** The registry gains `budget`, which lists `GOMAXPROCS`:
+  - A unit never takes a budget name from its graph's environment.
+  - Both child builders, Go `childenv.Build` and Node `childEnvironment`,
+    keep the parent's value, so a process a unit starts runs within the
+    unit's CPU claim.
+  - The registry check validates the list and rejects a budget name that is
+    also inherited. Specification amended (Section 5.5).
+- **Tests.** The child-environment tests in Go and Node expect the budget to
+  pass and the Go build context not to. The planner's preparation test asserts
+  that a real plan never inherits `GOMAXPROCS`. The registry tests cover the
+  new shape rules.
+- **A second P5-4c regression.** The segment failed
+  `harness.command_surface.process.processtest_helper_contract`, a `ci`-only
+  row:
+  - Its tests set the helper mode with `t.Setenv` and relied on the started
+    process inheriting it.
+  - Under P5-4c's explicit child environments the marker is withheld, so the
+    child test binary ran the whole suite instead of serving, and two tests
+    timed out.
+  - Every launch now passes its helper mode explicitly.
+
+  No segment after P5-4c ran this row, because `check` does not select it.
+- **`ci`-only launcher rows.** Eight `full` rows start processes through
+  `childenv` and had not run since P5-4c: this row, four `app.server` process
+  smokes, the packaged network-flow server and two recovery-browser rows.
+  All eight pass with the repair (`p72-cs`, `p72-server`, `p72-nf`,
+  `p72-browser`). One of the recovery-browser rows runs in-process lifecycle
+  tests and starts no child.
+- **Validation.** All passed:
+  - `make generate`, which changed nothing (`p71-generate`);
+  - `lint CHECK=go` and `lint CHECK=scripts` (`p71-lintgo`,
+    `p71-lintscripts`, `p72-lintgo`);
+  - the child-environment, registry and planner rows (`p71-cs`);
+  - the AC-604 shutdown row (`p71-server`);
+  - `source-check CHECK=surface` and `CHECK=generated` (`p71-surface`,
+    `p71-generated`);
+  - `lint-markdown` (`p72-md`).
+
+  The repaired `processtest` row passes (`p72-cs`). The rest of `ci` has not
+  run since P5-4b, so other `ci`-only rows could hide the same inherited-marker
+  pattern. The eight rows above are the ones that start processes through
+  `childenv`.

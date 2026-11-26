@@ -90,7 +90,7 @@ function requireStringList(value, label, { sorted = false, pattern } = {}) {
 export function readEnvironmentRegistry(root) {
   const registry = JSON.parse(readFileSync(path.join(root, environmentRegistryPath), "utf8"));
   const keys = Object.keys(registry ?? {}).sort(asciiCompare);
-  if (JSON.stringify(keys) !== JSON.stringify(["explicit_launchers", "inherited", "owners", "roles", "schema_id", "scopes"])) throw new Error(`${environmentRegistryPath} must hold exactly schema_id, scopes, inherited, explicit_launchers, owners and roles`);
+  if (JSON.stringify(keys) !== JSON.stringify(["budget", "explicit_launchers", "inherited", "owners", "roles", "schema_id", "scopes"])) throw new Error(`${environmentRegistryPath} must hold exactly schema_id, scopes, inherited, budget, explicit_launchers, owners and roles`);
   // owners name the one component that writes each owned name; everything
   // else calls that component's function or forwards the name unchanged.
   const ownedBy = new Map();
@@ -118,6 +118,12 @@ export function readEnvironmentRegistry(root) {
   if (JSON.stringify(inheritedKeys) !== JSON.stringify(["names", "prefixes"])) throw new Error(`${environmentRegistryPath} inherited must hold exactly names and prefixes`);
   requireStringList(registry.inherited.names, "inherited.names", { sorted: true, pattern: /^(?!CARTULARY_)[A-Za-z_][A-Za-z0-9_]*$/u });
   requireStringList(registry.inherited.prefixes, "inherited.prefixes", { sorted: true, pattern: /^(?!CARTULARY_)[A-Za-z][A-Za-z0-9_]*_$/u });
+  // budget holds the names the plan binds as a unit's resource budget, such
+  // as its Go CPU limit. A unit never takes them from its graph's environment,
+  // and every child launcher keeps its parent's value, so a process a unit
+  // starts runs within the unit's budget.
+  requireStringList(registry.budget, "budget", { sorted: true, pattern: /^(?!CARTULARY_)[A-Za-z_][A-Za-z0-9_]*$/u });
+  for (const budgeted of registry.budget) if (registry.inherited.names.includes(budgeted)) throw new Error(`${budgeted} is a budget name; remove it from inherited.names`);
   const roleKeys = Object.keys(registry.roles ?? {});
   if (JSON.stringify(roleKeys) !== JSON.stringify([...environmentRoles])) throw new Error(`${environmentRegistryPath} roles must be exactly ${environmentRoles.join(", ")} in that order`);
   for (const role of environmentRoles) requireStringList(registry.roles[role], `roles.${role}`, { sorted: true, pattern: exactName });

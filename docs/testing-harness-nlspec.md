@@ -4112,7 +4112,11 @@ A harness component that starts processes for another component, outside the
 unit path, builds each child environment with `childEnvironment`, or with
 `childenv.Build` in Go test support that starts product processes (amended
 2026-11-26, single writer). Only the parent's process and tool basics pass
-automatically; the launcher forwards every harness variable the child needs by
+automatically, together with the parent's resource budget: the registry's
+`budget` names, such as `GOMAXPROCS`, which the plan binds for a unit. A
+process a unit starts therefore runs within the unit's CPU claim (REQ-379),
+while a unit never takes a budget name from its graph's environment. The
+launcher forwards every harness variable the child needs by
 name, or sets it. A library that reads harness variables from an environment it
 is given declares those names, as the runtime session client
 (`runtimeEnvironment`) and launch contexts (`launchEnvironment`) do, so a

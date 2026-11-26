@@ -30,7 +30,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestStartServerFinalizesEnvironmentFromInheritedListener(t *testing.T) {
-	configureHelperProcess(t, "ready")
+	helper := configureHelperProcess(t, "ready")
 	callerEnv := map[string]string{
 		"CALLER_OWNED":    "original",
 		httpAddrEnv:       "127.0.0.1:0",
@@ -85,7 +85,7 @@ func TestStartServerFinalizesEnvironmentFromInheritedListener(t *testing.T) {
 		// observation made immediately after the inner scope returns.
 		t.Cleanup(func() { scoped.Stop(t) })
 		t.Run("acquire", func(t *testing.T) {
-			scoped = StartServer(t, ServerOptions{})
+			scoped = StartServer(t, ServerOptions{Env: helper})
 			scoped.WaitForReady(t)
 		})
 		if scoped == nil || !scoped.processExited() || scoped.group.alive() {
@@ -103,7 +103,7 @@ func TestStartServerFinalizesEnvironmentFromInheritedListener(t *testing.T) {
 					t.Fatalf("finalization failure got %v want %q", recovered, failure)
 				}
 			}()
-			StartServer(t, ServerOptions{FinalizeEnv: func(_ map[string]string, baseURL string) {
+			StartServer(t, ServerOptions{Env: helper, FinalizeEnv: func(_ map[string]string, baseURL string) {
 				address = strings.TrimPrefix(baseURL, "https://")
 				panic(failure)
 			}})
@@ -186,8 +186,7 @@ func TestResolveRepoRootHasNoFallback(t *testing.T) {
 }
 
 func TestWaitForExitIsRepeatableAndBroadcast(t *testing.T) {
-	configureHelperProcess(t, "exit-error")
-	server := StartServer(t, ServerOptions{})
+	server := StartServer(t, ServerOptions{Env: configureHelperProcess(t, "exit-error")})
 
 	const waiterCount = 8
 	results := make(chan error, waiterCount)
@@ -220,8 +219,7 @@ func TestWaitForExitIsRepeatableAndBroadcast(t *testing.T) {
 }
 
 func TestStopIsIdempotentAndConcurrent(t *testing.T) {
-	configureHelperProcess(t, "ready")
-	server := StartServer(t, ServerOptions{})
+	server := StartServer(t, ServerOptions{Env: configureHelperProcess(t, "ready")})
 	server.WaitForReady(t)
 
 	const stopperCount = 8
@@ -251,8 +249,7 @@ func TestStopIsIdempotentAndConcurrent(t *testing.T) {
 }
 
 func TestStopAfterNaturalExit(t *testing.T) {
-	configureHelperProcess(t, "exit-zero")
-	server := StartServer(t, ServerOptions{})
+	server := StartServer(t, ServerOptions{Env: configureHelperProcess(t, "exit-zero")})
 	if err := server.WaitForExit(t); err != nil {
 		t.Fatalf("natural helper exit: %v", err)
 	}
@@ -261,8 +258,7 @@ func TestStopAfterNaturalExit(t *testing.T) {
 }
 
 func TestStopForcesIgnoredSIGTERMWithinTotalBound(t *testing.T) {
-	configureHelperProcess(t, "ignore-term")
-	server := StartServer(t, ServerOptions{})
+	server := StartServer(t, ServerOptions{Env: configureHelperProcess(t, "ignore-term")})
 	server.WaitForReady(t)
 
 	started := time.Now()
@@ -282,8 +278,7 @@ func TestStopForcesIgnoredSIGTERMWithinTotalBound(t *testing.T) {
 }
 
 func TestStopTerminatesProcessGroupDescendants(t *testing.T) {
-	configureHelperProcess(t, "descendant")
-	server := StartServer(t, ServerOptions{})
+	server := StartServer(t, ServerOptions{Env: configureHelperProcess(t, "descendant")})
 	server.WaitForReady(t)
 	descendantPID := waitForDescendantPID(t, server)
 
@@ -300,8 +295,7 @@ func TestStopTerminatesProcessGroupDescendants(t *testing.T) {
 }
 
 func TestProcessOutputIsRetainedAfterExit(t *testing.T) {
-	configureHelperProcess(t, "exit-output")
-	server := StartServer(t, ServerOptions{})
+	server := StartServer(t, ServerOptions{Env: configureHelperProcess(t, "exit-output")})
 	if err := server.WaitForExit(t); err != nil {
 		t.Fatalf("output helper exit: %v", err)
 	}
@@ -335,14 +329,17 @@ func TestDiagnosticsJSONRequiresExactlyOneJSONObject(t *testing.T) {
 	}
 }
 
-func configureHelperProcess(t testing.TB, mode string) {
+// configureHelperProcess makes this test binary the server command and returns
+// the environment that selects its helper mode. A started server receives only
+// the environment its launcher names, so every StartServer passes the mode.
+func configureHelperProcess(t testing.TB, mode string) map[string]string {
 	t.Helper()
 	executable, err := os.Executable()
 	if err != nil {
 		t.Fatalf("resolve processtest helper executable: %v", err)
 	}
 	t.Setenv(serverHarnessBinEnv, executable)
-	t.Setenv(helperModeEnv, mode)
+	return map[string]string{helperModeEnv: mode}
 }
 
 func runHelperProcess(mode string) int {

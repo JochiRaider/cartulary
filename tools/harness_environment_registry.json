@@ -79,6 +79,9 @@
       "TESTCONTAINERS_"
     ]
   },
+  "budget": [
+    "GOMAXPROCS"
+  ],
   "explicit_launchers": [
     "internal/testutil/processtest/processtest.go",
     "internal/testutil/recoverybrowsertest/operator.go",

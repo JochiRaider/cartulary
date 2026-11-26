@@ -86,6 +86,10 @@ func TestPlanPreparation(t *testing.T) {
 		if _, forwarded := plan.InputEnvironment.Forward["OWNER"]; forwarded {
 			t.Fatal("a selection control reached the unit environment")
 		}
+		// A unit's CPU budget comes from its plan, never from the operator's shell.
+		if slices.Contains(plan.InputEnvironment.Inherit, "GOMAXPROCS") {
+			t.Fatal("a unit inherits a budget name from its graph's environment")
+		}
 		if plan.Bindings["NODE_BIN"] != node || plan.Bindings[servicesModeInput] != "owned" || !filepath.IsAbs(plan.Bindings["CARTULARY_SERVER_BIN"]) {
 			t.Fatalf("bindings = %v", plan.Bindings)
 		}

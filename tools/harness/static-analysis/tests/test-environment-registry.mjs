@@ -28,6 +28,7 @@ function registry(roles = {}, owners = {}) {
     schema_id: "cartulary.harness_environment_registry.v1",
     scopes: { excluded: ["notes/**", "**/*.generated.*"], harness: ["tools/**", "**/*_test.go"] },
     inherited: { names: ["HOME", "PATH"], prefixes: ["LC_"] },
+    budget: ["GOMAXPROCS"],
     explicit_launchers: ["tools/launcher.go", "tools/launcher.mjs"],
     owners,
     roles: Object.fromEntries(environmentRoles.map((role) => [role, roles[role] ?? []])),
@@ -103,7 +104,9 @@ test("the registry's shape is closed and inherited names are not harness names",
   const write = (registryValue) => fixture(t, { "tools/harness_environment_registry.json": JSON.stringify(registryValue) }).root;
   const valid = { ...registry(), inherited: { names: ["HOME", "PATH"], prefixes: ["LC_"] } };
   assert.doesNotThrow(() => readEnvironmentRegistry(write(valid)));
-  assert.throws(() => readEnvironmentRegistry(write({ ...valid, extra: true })), /exactly schema_id, scopes, inherited, explicit_launchers, owners and roles/u);
+  assert.throws(() => readEnvironmentRegistry(write({ ...valid, extra: true })), /exactly schema_id, scopes, inherited, budget, explicit_launchers, owners and roles/u);
+  assert.throws(() => readEnvironmentRegistry(write({ ...valid, budget: [name("CPU_TOKENS")] })), /budget entry .* is not a valid name/u);
+  assert.throws(() => readEnvironmentRegistry(write({ ...valid, inherited: { names: ["GOMAXPROCS", "HOME"], prefixes: [] } })), /GOMAXPROCS is a budget name; remove it from inherited\.names/u);
   const owner = (names) => ({ paths: ["tools/owner/**"], names });
   assert.doesNotThrow(() => readEnvironmentRegistry(write({ ...valid, owners: { suite: owner([name("SUITE_ID")]) } })));
   assert.throws(() => readEnvironmentRegistry(write({ ...valid, owners: { suite: { ...owner([]), extra: [] } } })), /owners\.suite must hold exactly paths and names/u);
@@ -118,11 +121,12 @@ test("a child environment carries only basics, forwarded names and set values", 
   const parent = {
     PATH: "/bin", HOME: "/home/operator", LC_ALL: "C.UTF-8", CARTULARY_MACHINE_CACHE_DIR: "/cache",
     [name("HOST_ADMISSION_LEASE")]: "unit-lease", [name("HARNESS_SERVICE_DEPENDENCIES")]: "postgres",
-    AGENT_TOKEN: "operator secret", GOFLAGS: "-mod=mod",
+    AGENT_TOKEN: "operator secret", GOFLAGS: "-mod=mod", GOMAXPROCS: "2",
   };
   const child = childEnvironment(parent, { pass: [name("HOST_ADMISSION_LEASE")], set: { [name("TEST_SUITE_ID")]: "session", HOME: undefined } });
+  // The child keeps its unit's CPU budget but not the unit's Go build context.
   assert.deepEqual(child, {
-    PATH: "/bin", LC_ALL: "C.UTF-8", CARTULARY_MACHINE_CACHE_DIR: "/cache",
+    PATH: "/bin", LC_ALL: "C.UTF-8", CARTULARY_MACHINE_CACHE_DIR: "/cache", GOMAXPROCS: "2",
     [name("HOST_ADMISSION_LEASE")]: "unit-lease", [name("TEST_SUITE_ID")]: "session",
   });
 });
