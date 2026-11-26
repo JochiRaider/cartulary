@@ -1360,6 +1360,7 @@ Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-am
 | 2026-11-26 | P5-4d slice 2 / G45 | `run_context` owner (Node `run-context.mjs`, Go `runcontext`) for the invocation context and results root; owners for the runner script and failure context; 70 write sites converted; a stale guide assertion from P5-1 fixed | `p63-generate`, `p63-lintgo`; segments `p63-cs` (14 rows), `p63-ea` (7), `p63-rel` (3), `p63-hb-native` (15), `p63-hb`, `p63-rep`, `p63-browser`; reruns `p63r-tc`, `p63r-hb`; `p63-lintscripts`, `p63r-src` | All pass. `routing_contract` had failed since P5-1 on a stale assertion; `native_fixture_lifecycle` failed once on a tracked-file edit made during the run (14.15) |
 | 2026-11-26 | P5-4d slice 3 / G45 | `browser_binding` owner (Node `browser-binding.mjs`, Go `browserbinding`); resource dependencies join `run_context`, the PostgreSQL allocation joins `suite_services` | Planner equivalence: `ci` and `release-measure` plans with and without the change (`p64-plan-*`); `p64-generate`, `p64-lintgo`; segments `p64-cs`, `p64-ea`, `p64-hb-native` (16 rows), `p64-hb`, `p64-obj`, `p64-pg`, `p64-browser`; `p64-lintscripts`, `p64-src` | All pass; every unit digest is unchanged. Seven of the 20 names are product secrets that any launcher may set, and five had only one Node or Go writer (14.16) |
 | 2026-11-26 | P5-4d slice 4 / G45 | The registry check reads shell and Make recipes; `step_runtime` owner with one summary writer replacing four copies; `--target` and `--timing-bucket` step-runner options; the step artifact directory joins `run_context` | `p65-generate`, `p65-lintgo`; segments `p65-cs` (8 rows), `p65-ea` (3 step accounting rows), `p65-hb`, `p65-browser`; `p65-lintscripts`, `p65-src` | All pass. Shell checking surfaced nine writes of names already owned; entry points and the browser stack joined owner paths, and three launchers stopped writing the target (14.17) |
+| 2026-11-26 | P5-4 close-out | One `check` after P5-4c and P5-4d | `p66-check01`; after the fix, `p66-lintshell` and `p66-cache` | All 1,897 rows pass. One operation failed: ShellCheck SC2034 on a variable that slice 4 left unused in `build-go-artifact.sh`. `lint CHECK=scripts` does not run ShellCheck; `lint CHECK=shell` does. The script now requires the target without assigning it, and the shell lint and build-artifact rows pass. The graph took 617 s (577 s at P5-4b), while unit work fell from 7,559 to 7,438 s. The same units finish last; the gap is scheduling, with the renderer admitted 22 s later. It is 20 s past the earlier 576 to 597 s spread, so one sample cannot separate noise from regression (14.17) |
 | 2026-11-25 | P4-4 / G39 | Wait audit: 31 whole-test hang guards derive from the test deadline (`testdeadline`) | `p44-port-*` (16 owner slices, every row holding a converted guard) | Pass. Committed `bdd8f4e1d` |
 
 ## 12. Phase 2 Plan — `check` Wall Clock
@@ -3327,3 +3328,10 @@ of 14.10.
   - a write through a variable key.
 
   The seven product secrets keep a misfiled `fixture_binding` role.
+- **Close-out check.** `p66-check01` passed all 1,897 rows. It failed one
+  operation: ShellCheck found the `target` variable this slice left unused in
+  `build-go-artifact.sh`. The script now only requires the target. The shell
+  lint and build-artifact rows pass, and the full `check` was not repeated.
+  The graph took 617 s against 577 s at P5-4b, but unit work fell by 121 s
+  and the same units finish last. One sample cannot tell whether the 40 s is
+  scheduling noise.
