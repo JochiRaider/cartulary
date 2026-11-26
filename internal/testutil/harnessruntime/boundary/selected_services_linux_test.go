@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/JochiRaider/cartulary/internal/testutil/harnessruntime"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 )
 
@@ -40,8 +41,12 @@ func TestNativeSelectedServiceLifecycle(t *testing.T) {
 		{"mixed", "backend-integration", []string{"harness.browser.integration.object_store_namespace_lifecycle", "harness.browser.integration.postgres_transaction_isolation", "platform.postgres.integration.fresh_fixture_admission"}, []string{"object_store", "postgres"}},
 	} {
 		t.Run(selection.id, func(t *testing.T) {
+			host, err := harnessruntime.NestedEnvironment(os.Environ())
+			if err != nil {
+				t.Fatal(err)
+			}
 			env := map[string]string{}
-			for _, entry := range os.Environ() {
+			for _, entry := range host {
 				key, value, ok := strings.Cut(entry, "=")
 				if !ok || (strings.HasPrefix(key, "CARTULARY_HARNESS_") && key != "CARTULARY_HARNESS_NESTED_LIFECYCLE") || strings.HasPrefix(key, "CARTULARY_TEST_SERVICES_") || strings.HasPrefix(key, "CARTULARY_PGTEST_") || strings.HasPrefix(key, "CARTULARY_S3TEST_") {
 					continue

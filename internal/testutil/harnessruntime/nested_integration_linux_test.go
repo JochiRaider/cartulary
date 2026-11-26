@@ -40,8 +40,12 @@ func TestRuntimeNestedServiceCancellation(t *testing.T) {
 	results = filepath.Join(results, outer, "nested-cancellation")
 	for _, mode := range []string{"summary", "machine", "summary-startup"} {
 		if !t.Run(mode, func(t *testing.T) {
+			host, err := NestedEnvironment(os.Environ())
+			if err != nil {
+				t.Fatal(err)
+			}
 			env := map[string]string{}
-			for _, entry := range os.Environ() {
+			for _, entry := range host {
 				k, v, ok := strings.Cut(entry, "=")
 				if !ok || strings.HasPrefix(k, "CARTULARY_HARNESS_") || strings.HasPrefix(k, "CARTULARY_TEST_SERVICES_") || strings.HasPrefix(k, "CARTULARY_PGTEST_") || strings.HasPrefix(k, "CARTULARY_S3TEST_") {
 					continue
@@ -71,7 +75,7 @@ func TestRuntimeNestedServiceCancellation(t *testing.T) {
 			for !acquired {
 				select {
 				case <-done:
-					t.Fatalf("nested command ended before cancellation: %+v stderr=%.4096s retained=%s", outcome, outcome.Stderr, run)
+					t.Fatalf("nested command ended before cancellation: %+v; %s; stderr tail:\n%s\nretained=%s", outcome, nestedRunFailure(run), stderrTail(outcome.Stderr), run)
 				case <-deadline:
 					cancel()
 					<-done
@@ -112,7 +116,7 @@ func TestRuntimeNestedServiceCancellation(t *testing.T) {
 			<-done
 			r := outcome
 			if r.Status != "cancelled" || len(r.Cleanup) != 0 {
-				t.Fatalf("nested settlement failed: %+v stderr=%.4096s retained=%s", r, r.Stderr, run)
+				t.Fatalf("nested settlement failed: %+v; %s; stderr tail:\n%s\nretained=%s", r, nestedRunFailure(run), stderrTail(r.Stderr), run)
 			}
 			read := func(name string, out any) {
 				data, err := harnesslocal.ReadFile(filepath.Join(run, name), 16*1024*1024, false)
@@ -166,4 +170,27 @@ func TestRuntimeNestedServiceCancellation(t *testing.T) {
 			return
 		}
 	}
+}
+
+// nestedRunFailure names the nested run's own failure class and reason; the
+// outer row reports every nested failure as a test assertion.
+func nestedRunFailure(run string) string {
+	data, err := os.ReadFile(filepath.Join(run, "run-summary.json"))
+	var summary struct {
+		Class  string `json:"failure_class"`
+		Reason string `json:"failure_reason"`
+	}
+	if err != nil || json.Unmarshal(data, &summary) != nil {
+		return "nested run summary unavailable"
+	}
+	return "nested failure_class=" + summary.Class + " failure_reason=" + summary.Reason
+}
+
+// stderrTail keeps the last 4 KiB of a nested command's stderr, where its
+// failure summary is printed.
+func stderrTail(stderr []byte) []byte {
+	if len(stderr) > 4096 {
+		return stderr[len(stderr)-4096:]
+	}
+	return stderr
 }

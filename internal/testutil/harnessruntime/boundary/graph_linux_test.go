@@ -16,6 +16,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessadmission"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnessruntime"
 )
 
 // This separate Make-owned route exercises real service/browser boundaries.
@@ -36,8 +37,12 @@ func TestNativeGraphServiceObservations(t *testing.T) {
 	// Product migration correctness remains in its independent owner selection.
 	for _, selection := range []struct{ id, owner, row string }{{"postgres", "harness.browser", "harness.browser.integration.postgres_transaction_isolation"}, {"https", "harness.browser", "harness.browser.boundary_support.https_trust"}} {
 		t.Run(selection.id, func(t *testing.T) {
+			host, err := harnessruntime.NestedEnvironment(os.Environ())
+			if err != nil {
+				t.Fatal(err)
+			}
 			env := map[string]string{}
-			for _, entry := range os.Environ() {
+			for _, entry := range host {
 				k, v, ok := strings.Cut(entry, "=")
 				if !ok {
 					continue
@@ -100,13 +105,36 @@ func runInstalledGraph(t *testing.T, ctx context.Context, root, binary string, a
 	}
 	defer closeDescriptors()
 	if out, err := child.CombinedOutput(); err != nil {
-		t.Fatalf("installed native graph: %v %.4096s retained=%s", err, out, run)
+		t.Fatalf("installed native graph: %v; %s; output tail:\n%s\nretained=%s", err, nestedFailure(run), outputTail(out), run)
 	}
 	data, err := harnesslocal.ReadFile(filepath.Join(run, "run-summary.json"), 16*1024*1024, false)
 	var summary struct {
 		Status string `json:"status"`
 	}
 	if err != nil || json.Unmarshal(data, &summary) != nil || summary.Status != "pass" {
-		t.Fatalf("installed native graph lacks a passing summary: %v retained=%s", err, run)
+		t.Fatalf("installed native graph lacks a passing summary: %v; %s; retained=%s", err, nestedFailure(run), run)
 	}
+}
+
+// nestedFailure names the nested run's own failure class and reason; the
+// outer row reports every nested failure as a test assertion.
+func nestedFailure(run string) string {
+	data, err := os.ReadFile(filepath.Join(run, "run-summary.json"))
+	var summary struct {
+		Class  string `json:"failure_class"`
+		Reason string `json:"failure_reason"`
+	}
+	if err != nil || json.Unmarshal(data, &summary) != nil {
+		return "nested run summary unavailable"
+	}
+	return "nested failure_class=" + summary.Class + " failure_reason=" + summary.Reason
+}
+
+// outputTail keeps the last 4 KiB of a nested command's output, where its
+// failure summary is printed.
+func outputTail(out []byte) []byte {
+	if len(out) > 4096 {
+		return out[len(out)-4096:]
+	}
+	return out
 }
