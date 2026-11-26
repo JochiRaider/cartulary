@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 3,
-  "input_digest": "sha256:e9c4c4323aefcf333199e4608d438bd32564d716e9d6b8b9e99e716388f87dd5",
+  "input_digest": "sha256:b444801021685649c1d5a1ac5c624fe07051f1adb4512302193d215c76620c2d",
   "inputs": [
     {
       "path": "contracts/performance/ac003.v2.json",
@@ -97,7 +97,7 @@
     {
       "path": "contracts/verification/owners/harness.command_surface.json",
       "role": "verification_owner_contract",
-      "hash": "sha256:930321a0b5094d8c047d8e2a740445d76241a5b8f4ba7c4b71733358b84d9bfe"
+      "hash": "sha256:b92f7fff0e63e1a4044a0f3616ab8c3f3ff7e534ff727a0bb2daa3a68adc6518"
     },
     {
       "path": "contracts/verification/owners/harness.evidence_accounting.json",
@@ -1237,7 +1237,7 @@
     {
       "path": "tools/harness/test-catalog/selector-resolution.mjs",
       "role": "renderer_source",
-      "hash": "sha256:9e276fe83a7d04c4f8157e3339d3e1d7487ddc8b8ba61e8eebce5a4cbfce30e8"
+      "hash": "sha256:1f7611a7632045e705cedda6d2b0cd7e04c561d91bc959da5eb3013406ac355c"
     },
     {
       "path": "tools/harness/test-catalog/semantic-identity-check-cli.mjs",
@@ -1332,22 +1332,22 @@
     {
       "path": "tools/test_families/harness.command_surface.json",
       "role": "test_family_manifest",
-      "hash": "sha256:359c158b754f4157bf648b1cf8a76d34d4541eed0767b1a32fcf4e925f9e86e3"
+      "hash": "sha256:dd055f1b88ac11474af08d4dd6c3ad05e4aad60980c7eecb4b4286d22c08a1e4"
     },
     {
       "path": "tools/test_families/harness.evidence_accounting.json",
       "role": "test_family_manifest",
-      "hash": "sha256:8dcd3df2943d38c309d6dec5c8c850059f86bfac05acd212eba91f3114e23a99"
+      "hash": "sha256:7ea5cadbcf4bf2bb9a04fee86f0e98843274a522853adcb15fa06a977f3c9efe"
     },
     {
       "path": "tools/test_families/harness.generated_artifacts.json",
       "role": "test_family_manifest",
-      "hash": "sha256:5f54972ddcf602d016b7d8d3af70d8e7614d3a11c58c46a9946577d192138a7d"
+      "hash": "sha256:31e04eadefacbf491192be266f476b083cffffd1245187fe1892c809955eff46"
     },
     {
       "path": "tools/test_families/harness.release.json",
       "role": "test_family_manifest",
-      "hash": "sha256:bffbda3a73b4dd14b43266d667e97986820031990baebc70abf1bad78e0a318c"
+      "hash": "sha256:17d4503b43a42fc6f1dbb4c080de82d71b0f41d53428d71b341f8dfd669bd0b2"
     },
     {
       "path": "tools/test_families/harness.test_catalog.json",

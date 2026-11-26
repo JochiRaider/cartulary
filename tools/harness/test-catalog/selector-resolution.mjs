@@ -389,8 +389,15 @@ export function createRowSelectorResolver(root) {
   // file: every discovered test file has a row.
   resolve.assertSourceCoverage = (runners, selected) => {
     const missing = [];
+    const details = new Map();
     for (const runner of runners.values()) {
-      if (runner.runner === "shell") continue;
+      if (runner.runner === "shell") {
+        for (const { subject, detail } of shellCoverageGaps(root, selected)) {
+          if (!details.has(subject)) missing.push(subject);
+          details.set(subject, [details.get(subject), detail].filter(Boolean).join("; "));
+        }
+        continue;
+      }
       const files = discoverRunnerSources(root, runner);
       if (runner.runner === "go") {
         const packages = [...new Set(files.map((file) => `./${path.posix.dirname(file)}`))];
@@ -412,13 +419,44 @@ export function createRowSelectorResolver(root) {
     }
     if (missing.length) {
       missing.sort(asciiCompare);
-      throw new HarnessConfigError(`${missing.length} source tests are not cataloged exactly once:\n${missing.join("\n")}`, {
+      throw new HarnessConfigError(`${missing.length} source tests are not cataloged exactly once:\n${missing.map((subject) => details.get(subject) ?? subject).join("\n")}`, {
         diagnosticCause: "catalog_coverage",
         subjects: missing,
       });
     }
   };
   return resolve;
+}
+
+// Shell coverage is per test-script case. A repository test script is a
+// `tests/test-*.sh` or `tests/test-*.mjs` file. Every operation that runs one
+// is selected by a shell row, so no test runs only inside an operation, and
+// no two operations run the same script for the same case: its environment
+// assignments other than output presentation, and the arguments after it.
+const presentationVariables = new Set(["CARTULARY_OUTPUT_MODE", "VERBOSE", "CI_VERBOSE"]);
+const testScriptPattern = /(?:^|\/)tests\/test-[^/]+\.(?:sh|mjs)$/u;
+
+export function shellCoverageGaps(root, selected) {
+  const { operations } = readExecutableRepositoryJSON(root, "tools/harness_work_graph_owner.json");
+  const gaps = [];
+  const cases = new Map();
+  for (const operationID of Object.keys(operations).sort(asciiCompare)) {
+    const command = (operations[operationID].execution?.command ?? []).filter((token) => typeof token === "string");
+    const scripts = command.flatMap((token, index) => (testScriptPattern.test(token) ? [index] : []));
+    if (scripts.length === 0) continue;
+    const subject = `shell:${operationID}`;
+    if (!selected.has(subject)) gaps.push({ subject, detail: `${subject} runs a test script but no shell row selects it` });
+    const assignments = command
+      .filter((token) => /^[A-Z][A-Z0-9_]*=/u.test(token) && !presentationVariables.has(token.slice(0, token.indexOf("="))))
+      .sort(asciiCompare);
+    for (const [position, index] of scripts.entries()) {
+      const script = command[index].replace(/^\.\//u, "");
+      const key = JSON.stringify([script, assignments, command.slice(index + 1, scripts[position + 1] ?? command.length)]);
+      if (cases.has(key)) gaps.push({ subject, detail: `${subject} repeats ${script} from shell:${cases.get(key)}` });
+      else cases.set(key, operationID);
+    }
+  }
+  return gaps;
 }
 
 export function resolveRowSelector({ root, ...options }) {

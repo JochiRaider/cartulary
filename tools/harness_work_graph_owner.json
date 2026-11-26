@@ -325,7 +325,7 @@
     "harness.contract_regression": [
       "harness.assurance_execution_topology",
       "harness.assurance_task_surface_report",
-      "harness.assurance_agent_finalize",
+      "harness.harness_evidence_contract",
       "harness.assurance_run_step",
       "harness.assurance_run_vitest_step",
       "harness.assurance_run_playwright_step",
@@ -350,11 +350,14 @@
       "harness.assurance_sbom_license_evidence",
       "harness.assurance_seaweedfs_release_evidence",
       "harness.assurance_make_node_tools",
-      "harness.assurance_canonical_evidence",
       "harness.browser_assurance_contract",
-      "harness.assurance_work_graph_scheduler_matrix",
-      "harness.assurance_fixture_broker_matrix",
-      "harness.assurance_observability",
+      {
+        "row_id": "harness.command_surface.unit.native_runtime"
+      },
+      {
+        "row_id": "harness.browser.unit.native_fixtures"
+      },
+      "harness.harness_observation_contract",
       "harness.assurance_frontend_import_boundaries",
       "harness.assurance_fallow_static",
       {
@@ -1415,16 +1418,6 @@
       "service_dependencies": [],
       "postgres_isolation": "none"
     },
-    "harness.assurance_observability": {
-      "needs": [
-        "harness.frontend_install"
-      ],
-      "cache_policy": "none",
-      "estimated_work_ms": 10000,
-      "resource_profile_id": "harness_contract",
-      "service_dependencies": [],
-      "postgres_isolation": "none"
-    },
     "harness.assurance_release_task_surface": {
       "needs": [
         "harness.frontend_install"
@@ -1475,16 +1468,6 @@
       "service_dependencies": [],
       "postgres_isolation": "none"
     },
-    "harness.assurance_agent_finalize": {
-      "needs": [
-        "harness.frontend_install"
-      ],
-      "cache_policy": "none",
-      "estimated_work_ms": 10000,
-      "resource_profile_id": "harness_contract",
-      "service_dependencies": [],
-      "postgres_isolation": "none"
-    },
     "harness.assurance_make_node_tools": {
       "needs": [
         "harness.frontend_install"
@@ -1505,37 +1488,7 @@
       "service_dependencies": [],
       "postgres_isolation": "none"
     },
-    "harness.assurance_canonical_evidence": {
-      "needs": [
-        "harness.frontend_install"
-      ],
-      "cache_policy": "none",
-      "estimated_work_ms": 10000,
-      "resource_profile_id": "harness_contract",
-      "service_dependencies": [],
-      "postgres_isolation": "none"
-    },
     "harness.assurance_run_step": {
-      "needs": [
-        "harness.frontend_install"
-      ],
-      "cache_policy": "none",
-      "estimated_work_ms": 10000,
-      "resource_profile_id": "harness_contract",
-      "service_dependencies": [],
-      "postgres_isolation": "none"
-    },
-    "harness.assurance_fixture_broker_matrix": {
-      "needs": [
-        "harness.frontend_install"
-      ],
-      "cache_policy": "none",
-      "estimated_work_ms": 10000,
-      "resource_profile_id": "harness_contract",
-      "service_dependencies": [],
-      "postgres_isolation": "none"
-    },
-    "harness.assurance_work_graph_scheduler_matrix": {
       "needs": [
         "harness.frontend_install"
       ],
@@ -4638,44 +4591,6 @@
         ]
       }
     },
-    "harness.assurance_observability": {
-      "report_key": "harness-smoke-observability",
-      "kind": "policy",
-      "execution": {
-        "type": "step_command",
-        "mode": "command",
-        "prerequisites": [],
-        "command": [
-          "env",
-          "-u",
-          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
-          "-u",
-          "CARTULARY_HARNESS_GRAPH_CHILD",
-          "-u",
-          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
-          "-u",
-          "CARTULARY_MAKE_INPUT_SOURCES",
-          "-u",
-          "CARTULARY_TEST_TARGET",
-          "-u",
-          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
-          "-u",
-          "VERBOSE",
-          "-u",
-          "CI_VERBOSE",
-          "CARTULARY_OUTPUT_MODE=summary",
-          "$(NODE_BIN)",
-          "--test",
-          "tools/harness/observability/tests/test-observability.mjs"
-        ],
-        "backing_scripts": [
-          "tools/harness/observability/tests/test-observability.mjs",
-          "tools/harness/observability/observability.mjs",
-          "tools/harness/observability/observability-check-cli.mjs",
-          "tools/harness/observability/otel-export-cli.mjs"
-        ]
-      }
-    },
     "harness.assurance_release_task_surface": {
       "report_key": "harness-smoke-release-task-surface",
       "kind": "policy",
@@ -4883,40 +4798,6 @@
         ]
       }
     },
-    "harness.assurance_agent_finalize": {
-      "report_key": "harness-smoke-agent-finalize",
-      "kind": "policy",
-      "execution": {
-        "type": "step_command",
-        "mode": "command",
-        "prerequisites": [],
-        "command": [
-          "env",
-          "-u",
-          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
-          "-u",
-          "CARTULARY_HARNESS_GRAPH_CHILD",
-          "-u",
-          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
-          "-u",
-          "CARTULARY_MAKE_INPUT_SOURCES",
-          "-u",
-          "CARTULARY_TEST_TARGET",
-          "-u",
-          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
-          "-u",
-          "VERBOSE",
-          "-u",
-          "CI_VERBOSE",
-          "CARTULARY_OUTPUT_MODE=summary",
-          "$(NODE_BIN)",
-          "tools/harness/tests/test-agent-finalize.mjs"
-        ],
-        "backing_scripts": [
-          "tools/harness/tests/test-agent-finalize.mjs"
-        ]
-      }
-    },
     "harness.assurance_make_node_tools": {
       "report_key": "harness-smoke-make-node-tools",
       "kind": "policy",
@@ -4985,40 +4866,6 @@
         ]
       }
     },
-    "harness.assurance_canonical_evidence": {
-      "report_key": "harness-smoke-canonical-evidence",
-      "kind": "policy",
-      "execution": {
-        "type": "step_command",
-        "mode": "command",
-        "prerequisites": [],
-        "command": [
-          "env",
-          "-u",
-          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
-          "-u",
-          "CARTULARY_HARNESS_GRAPH_CHILD",
-          "-u",
-          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
-          "-u",
-          "CARTULARY_MAKE_INPUT_SOURCES",
-          "-u",
-          "CARTULARY_TEST_TARGET",
-          "-u",
-          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
-          "-u",
-          "VERBOSE",
-          "-u",
-          "CI_VERBOSE",
-          "CARTULARY_OUTPUT_MODE=summary",
-          "$(NODE_BIN)",
-          "tools/harness/tests/test-harness-evidence-contracts.mjs"
-        ],
-        "backing_scripts": [
-          "tools/harness/tests/test-harness-evidence-contracts.mjs"
-        ]
-      }
-    },
     "harness.assurance_run_step": {
       "report_key": "harness-smoke-run-step",
       "kind": "policy",
@@ -5038,90 +4885,6 @@
           "tools/harness/output/tests/test-summary-accounting.mjs",
           "tools/harness/output/tests/test-step-process.mjs",
           "tools/harness/output/tests/test-output-diagnostics.mjs"
-        ]
-      }
-    },
-    "harness.assurance_fixture_broker_matrix": {
-      "report_key": "harness-smoke-fixture-broker-matrix",
-      "kind": "policy",
-      "execution": {
-        "type": "step_command",
-        "mode": "command",
-        "prerequisites": [],
-        "command": [
-          "env",
-          "-u",
-          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
-          "-u",
-          "CARTULARY_HARNESS_GRAPH_CHILD",
-          "-u",
-          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
-          "-u",
-          "CARTULARY_MAKE_INPUT_SOURCES",
-          "-u",
-          "CARTULARY_TEST_TARGET",
-          "-u",
-          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
-          "-u",
-          "VERBOSE",
-          "-u",
-          "CI_VERBOSE",
-          "CARTULARY_OUTPUT_MODE=summary",
-          "env",
-          "GOCACHE=$(GO_CACHE_DIR)",
-          "GOMODCACHE=$(GO_MOD_CACHE_DIR)",
-          "GOTMPDIR=$(GO_TMP_DIR)",
-          "$(GO)",
-          "test",
-          "-count=1",
-          "-run",
-          "^TestFixtureBroker(Concurrency|Faults)$",
-          "./internal/testutil/harnessfixtures"
-        ],
-        "backing_scripts": [
-          "internal/testutil/harnessfixtures/broker_test.go"
-        ]
-      }
-    },
-    "harness.assurance_work_graph_scheduler_matrix": {
-      "report_key": "harness-smoke-work-graph-scheduler-matrix",
-      "kind": "policy",
-      "execution": {
-        "type": "step_command",
-        "mode": "command",
-        "prerequisites": [],
-        "command": [
-          "env",
-          "-u",
-          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
-          "-u",
-          "CARTULARY_HARNESS_GRAPH_CHILD",
-          "-u",
-          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
-          "-u",
-          "CARTULARY_MAKE_INPUT_SOURCES",
-          "-u",
-          "CARTULARY_TEST_TARGET",
-          "-u",
-          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
-          "-u",
-          "VERBOSE",
-          "-u",
-          "CI_VERBOSE",
-          "CARTULARY_OUTPUT_MODE=summary",
-          "env",
-          "GOCACHE=$(GO_CACHE_DIR)",
-          "GOMODCACHE=$(GO_MOD_CACHE_DIR)",
-          "GOTMPDIR=$(GO_TMP_DIR)",
-          "$(GO)",
-          "test",
-          "-count=1",
-          "-run",
-          "TestRuntimeFailurePrecedence",
-          "./internal/testutil/harnessruntime"
-        ],
-        "backing_scripts": [
-          "internal/testutil/harnessruntime/engine_test.go"
         ]
       }
     },

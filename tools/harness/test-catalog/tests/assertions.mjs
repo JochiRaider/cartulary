@@ -324,6 +324,50 @@ export function assertSelectorResolutionScope(context) {
     rmSync(directory, { recursive: true, force: true });
   }
   assertSourceDiscoveryBoundary();
+  assertShellCoverage();
+}
+// Every operation that runs a repository test script is selected by a shell
+// row, and no two operations run the same script for the same case.
+function assertShellCoverage() {
+  const root = mkdtempSync(path.join(tmpdir(), "cartulary-shell-coverage."));
+  const operation = (...command) => ({ execution: { type: "step_command", command } });
+  const owner = (operations) => {
+    mkdirSync(path.join(root, "tools"), { recursive: true });
+    writeFileSync(path.join(root, "tools/harness_work_graph_owner.json"), JSON.stringify({ operations }));
+  };
+  const shell = new Map([["shell", { runner: "shell", approved_roots: ["tools"] }]]);
+  try {
+    owner({
+      "harness.lint": operation("bash", "tools/lint.sh"),
+      "harness.bound": operation("env", "CARTULARY_OUTPUT_MODE=summary", "bash", "tools/harness/tests/test-bound.sh"),
+      "harness.case_a": operation("bash", "tools/harness/tests/test-cases.sh", "a"),
+      "harness.case_b": operation("bash", "tools/harness/tests/test-cases.sh", "b"),
+      "harness.profile_x": operation("env", "PROFILE=x", "$(NODE_BIN)", "--test", "./tools/harness/tests/test-profile.mjs"),
+      "harness.profile_y": operation("env", "PROFILE=y", "$(NODE_BIN)", "--test", "./tools/harness/tests/test-profile.mjs"),
+    });
+    const selected = new Set(["shell:harness.bound", "shell:harness.case_a", "shell:harness.case_b", "shell:harness.profile_x", "shell:harness.profile_y"]);
+    createRowSelectorResolver(root).assertSourceCoverage(shell, selected);
+    selected.delete("shell:harness.case_b");
+    assert.throws(() => createRowSelectorResolver(root).assertSourceCoverage(shell, selected), (error) => {
+      assert.equal(error.diagnostic_cause, "catalog_coverage");
+      assert.deepEqual(error.diagnostic_subjects, ["shell:harness.case_b"]);
+      return true;
+    });
+    selected.add("shell:harness.case_b");
+    // Runner flags and output presentation do not make a second case.
+    owner({
+      "harness.bound": operation("$(NODE_BIN)", "--test", "./tools/harness/tests/test-bound.mjs", "./tools/harness/tests/test-other.mjs"),
+      "harness.again": operation("env", "VERBOSE=1", "CARTULARY_OUTPUT_MODE=summary", "$(NODE_BIN)", "tools/harness/tests/test-other.mjs"),
+    });
+    assert.throws(() => createRowSelectorResolver(root).assertSourceCoverage(shell, new Set(["shell:harness.bound", "shell:harness.again"])), (error) => {
+      assert.deepEqual(error.diagnostic_subjects, ["shell:harness.bound"]);
+      assert.match(error.message, /shell:harness\.bound repeats tools\/harness\/tests\/test-other\.mjs from shell:harness\.again/u);
+      return true;
+    });
+  }
+  finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 }
 function assertSourceDiscoveryBoundary() {
   const root = mkdtempSync(path.join(tmpdir(), "cartulary-source-discovery."));

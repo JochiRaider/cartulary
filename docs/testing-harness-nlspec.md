@@ -188,6 +188,15 @@ reintroduce explicit-only rows; such an edge is a configuration error before
 provisioning. The catalog MUST reject `minimum_tier`, `default_check`, inferred
 placements and implicit fallbacks.
 
+Every operation that runs a repository test script (a `tests/test-*.sh` or
+`tests/test-*.mjs` file) MUST be selected by exactly one shell row, so no test
+runs only inside an operation or a selection and every test can run alone
+through an exact `test-slice OWNER=… ROWS=…` selection (amended 2026-11-26).
+Two operations MAY run the same script only for different cases: different
+environment assignments other than output presentation, or different arguments
+after the script. A violation is a `catalog_coverage` failure whose subject is
+the operation's `shell:` selector key.
+
 All product Visual rows, Visual-specific support rows and UI-Review rows MUST
 use `explicit_only`, including native review qualification. Only the dedicated
 `make browser-e2e SUITE=visual`, `make harness-contract SUITE=ui-review`, and exact
