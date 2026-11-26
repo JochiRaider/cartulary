@@ -125,7 +125,7 @@ eleven `ci` runs of the release attempts (Section 13.1). Single runs vary by abo
 | G42 | Build-artifact cache keys held per-run locations (each graph run's Go temporary directory, the per-run web source path), so every graph run missed and re-linked shared binaries | Machine inputs, specification | Phase 4, P4-6 | Done: locations leave the keyed command and input directories are keyed by content; proven on a segment (13.15) |
 | G43 | Test rows launch nested graphs and real `make` runs that rebuild shared repository outputs under the Go test's toolchain environment while the outer run uses them; their failures are cut to the first 4 KiB and reclassified as product assertions | Tests, harness, specification | Phase 5 | Open: P5-0 fenced the Go-hosted nested graphs (14.5); P5-2 remains |
 | G44 | Make and the planner both own ordering, freshness, environment and prerequisite skipping: 26 operations re-enter Make, 17 targets carry two recipes chosen by `GRAPH_CHILD`, five freshness mechanisms coexist, and graph-only Make edges run work twice | Machine inputs, implementation, specification | Phase 5 | Open: P5-0 removed the renderer double run (14.5); P5-1 made every test script a row and removed five duplicate operations (14.6); P5-3 remains |
-| G45 | Units inherit the graph process's whole environment (the shell's variables and up to 127 Make exports), minus hand-kept strip lists; harness code reads 478 `CARTULARY_*` names with no declaration, so leaks, stale names and typos fail silently | Machine inputs, implementation, specification | Phase 5, P5-4 | Open: P5-4a registered every harness name and enforces it (14.8); P5-4b to P5-4d remain |
+| G45 | Units inherit the graph process's whole environment (the shell's variables and up to 127 Make exports), minus hand-kept strip lists; harness code reads 478 `CARTULARY_*` names with no declaration, so leaks, stale names and typos fail silently | Machine inputs, implementation, specification | Phase 5, P5-4 | Open: P5-4a registered every harness name and enforces it (14.8); P5-4b made unit environments default-deny (14.9); P5-4c and P5-4d remain |
 
 ## 5. Gap Remediation Detail
 
@@ -1352,6 +1352,7 @@ Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-am
 | 2026-11-26 | P5-0 / G43, G44 | Nested launches undo the unit overlay; graph-only renderer prerequisite removed; nested failures keep their tail and class; Go build failures keep compiler output | Segments `p50-nested-before`, `p50-nested-after2`, `p50-nested-warm`, `p50-nested-steady`; rows `p50-units`, `p50-nest2`; `p50-lintgo`, `p50-md`, `p50-src` | HEAD's nested graph moved the receipt, replaced the shared server-harness binary and missed three build caches; fenced, it changes nothing in steady state. All rows and checks pass (14.5) |
 | 2026-11-26 | P5-1 / G44 | Every test script is a shell row; catalog enforces it; five duplicate operations removed | Catalog probes; plans of `check`, `ci` and `harness-contract SUITE=regression`; rows `p51-cs`, `p51-ea`, `p51-ea2`, `p51-cs2`, `p51-ea3`; `p51-lintscripts`, `p51-md`, `p51-src2` | Catalog 2,774 rows (from 2,754). `check` and `ci` plan the same units (366, 501); each gains only `public_wrapper_smoke` as a row. New rows run alone and pass (14.6) |
 | 2026-11-26 | P5-4a / G45 | Environment registry of every harness `CARTULARY_*` name and its check in `check`, `ci` and `source-check`; one dead mode switch deleted | Registry probes; plans of `check` and `ci`; rows `p54-cs`, `p54-cs2`, `p54-ea`, `p54-hb`; `p54-src2`, `p54-surface`, `p54-lintscripts` | 480 names registered and 8 declared inputs cover all 488 harness names. `check` and `ci` gain only the new check (and its test row in `ci`). All rows and checks pass (14.8) |
+| 2026-11-26 | P5-4b / G45 | Default-deny unit environments derived from the registry; dead strip entries removed | Segments `p57-units`, `p57-planner`, `p57-report`, `p57-pg`, `p57-vitest`, `p57-browser`, `p57-nested`, `p57-strip`; `p57-src2`, `p56-lintgo3`, `p57-lintscripts`; diagnostic `check` `p57-check01` | Every segment passes. A captured unit environment holds 100 names, not 164; 64 shell, agent and desktop variables no longer reach units. `check` passes, 1,894 rows, graph 576 s (14.9) |
 | 2026-11-25 | P4-4 / G39 | Wait audit: 31 whole-test hang guards derive from the test deadline (`testdeadline`) | `p44-port-*` (16 owner slices, every row holding a converted guard) | Pass. Committed `bdd8f4e1d` |
 
 ## 12. Phase 2 Plan — `check` Wall Clock
@@ -2724,9 +2725,11 @@ elsewhere.
   `explicit_only`, because they ran only in the explicit `harness-contract`
   suites, and their suites keep running them. `public_wrapper_smoke` is
   `standard`, because it already ran in `check` and `ci` through
-  `contract_smoke`. Owners follow the existing bound rows: 15 in
-  `harness.command_surface`, two each in `harness.evidence_accounting` and
-  `harness.generated_artifacts`, and one in `harness.release`. One shell
+  `contract_smoke`. Owners follow the existing bound rows: 16 in
+  `harness.command_surface` (the release task-surface test moved there in
+  P5-4b, because explicit-only `harness.release` rows are release package
+  rows), and two each in `harness.evidence_accounting` and
+  `harness.generated_artifacts`. One shell
   verification, `harness.command_surface.verification.helper_scripts`, covers
   the harness helper scripts. Of the other 76 unbound operations, four run
   `go test` directly (below); the rest are commands (lints, static analysis,
@@ -2767,7 +2770,7 @@ the new shell-coverage test, pass (`p51-ea`, `p51-ea2`).
 
 ### 14.7 Declared Environment (P5-4, planned)
 
-Status: planned 2026-11-26 at the owner's request. D21 to D23 approved as recommended on 2026-11-26; P5-4a done (14.8).
+Status: planned 2026-11-26 at the owner's request. D21 to D23 approved as recommended on 2026-11-26; P5-4a and P5-4b done (14.8, 14.9).
 
 **Problem (G45).** A unit's environment starts as a copy of the graph
 process's environment. That copy holds the user's shell (72 variables on the
@@ -2881,4 +2884,48 @@ registry's tool-variable declarations.
 - **Left for P5-4b.** 101 names are mentioned exactly once. Most are knobs read
   with a default or child markers defined as constants, but each is a
   candidate for deletion when P5-4b decides which names reach units.
+
+### 14.9 Default-Deny Unit Environment (P5-4b)
+
+- **Change.** A unit inherits only declared names from the environment its graph
+  starts in. The planner derives the set and passes it with the launch state;
+  the runtime filters before it clears public inputs and adds forwarded inputs,
+  bindings and its own variables. The set is:
+  - registered names outside `product_interface` and `test_internal`, so an
+    operator's shell cannot inject product configuration or test markers;
+  - the registry's new `inherited` process and tool names (44) and prefixes
+    (`LC_`, `TESTCONTAINERS_`);
+  - the task surface's global inputs;
+  - the Make variables operation executions name.
+
+  Specification amended (Section 5.5).
+- **Measured.** A unit captured from a live run had 164 variables before and
+  100 after. Of the 72 shell variables, 8 still reach it (`HOME`, `LANG`,
+  `LOGNAME`, `PATH`, `SHELL`, `TERM`, `USER`, `XDG_RUNTIME_DIR`). The 64
+  withheld include the coding agent's variables, among them a messaging token
+  and the user's email address, which every test process had received.
+- **Defects found on segments.**
+  - The first attempt failed every run within 2 s. The operation runner
+    resolves the Make variables an operation's execution names from its
+    environment, and a recipe's bindings do not cover all of them. They are
+    now inherited, derived from the same owner data the Make renderer exports.
+  - The planner row caught a P5-1 regression: explicit-only `harness.release`
+    rows are release package rows, so the release task-surface row moved to
+    `harness.command_surface`.
+- **Strip entries.** The 38 `-u CARTULARY_MAKE_INPUT_SOURCES` entries were dead:
+  the plan clears that name before any unit sees it. They are removed.
+- **Plan correction.** 14.7 expected P5-4b to remove all strip entries and the
+  P5-0 overlay record. Both stay:
+  - The 226 remaining entries strip the runtime's own mode switches
+    (`GRAPH_CHILD`, `SKIP_PREREQUISITES`, `SUPPRESS_CHILD_SUCCESS`) and
+    inherited declared names (`CARTULARY_TEST_TARGET`, `VERBOSE`,
+    `CI_VERBOSE`) before a unit runs `make` again.
+  - A nested `make` launched from a Go test still starts from that test's
+    process, so the overlay record keeps its `CGO_ENABLED=0` context out of
+    nested builds.
+
+  Both leave with P5-3, when no unit re-enters Make.
+- **Validation.** Segments across every runner (Go, PostgreSQL-backed Go, the
+  installed renderer, Vitest, a browser group, nested graphs, shell operations)
+  pass. Diagnostic `check` `p57-check01` passes, 1,894 rows, graph 576 s.
 
