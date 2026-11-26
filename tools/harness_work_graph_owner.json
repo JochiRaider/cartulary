@@ -570,6 +570,11 @@
     ]
   },
   "explicit_selections": [
+    "harness.contract_artifact_consumers",
+    "harness.contract_execution",
+    "harness.contract_full",
+    "harness.contract_regression",
+    "harness.contract_runtime_boundary",
     "harness.contract_ui_review",
     "harness.package_all",
     "harness.package_archive",

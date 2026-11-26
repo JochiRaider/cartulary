@@ -2412,6 +2412,19 @@ Harness assurance is exposed through the closed `harness-contract SUITE` presets
 in REQ-082. There are no callable private Make smoke wrappers. Execution and
 lifecycle presets remain explicit selections outside default local `check`.
 
+Nested harness probes (amended 2026-11-26, P5-2) run only from explicit
+selections. A row whose test starts a graph, including a public build, in the
+shared repository is an `explicit_only` row of a `harness-contract` preset that
+the work-graph owner lists in `explicit_selections` (`runtime-boundary`,
+`artifact-consumers`, `execution`, `regression` and `full`). No `test-fast`,
+`check` or `ci` row starts one. A graph whose process ancestry holds an
+aggregate graph (`--selection aggregate`) working in the same repository stops
+before planning with `config/configuration_error` at stage `nested_aggregate`
+and prints `[NESTED-REFUSED] enclosing_target=<target>`. The runtime decides from
+the process table, not from inherited environment, because launchers of nested
+commands clear their children's environments. A graph in another directory,
+such as a scratch fixture repository, is unaffected.
+
 Installed harness self-tests MUST consume compatible immutable prepared
 executables and artifacts through the existing graph dependency model. Ordinary
 variants MUST NOT repeat producer preparation merely to establish their own
@@ -7748,6 +7761,7 @@ failure. Stage attribution SHALL NOT be inferred from duration or error text.
 | Stage | Rejected boundary |
 | --- | --- |
 | `nested_lifecycle` | Joining the inherited native lifecycle |
+| `nested_aggregate` | A graph beneath an aggregate run of the same repository |
 | `diagnostic_mode` | Diagnostic mode validation |
 | `accounting_membership` | Resolving fenced accounting membership |
 | `accounting_required_scope` | Required accounting without a proven scope |

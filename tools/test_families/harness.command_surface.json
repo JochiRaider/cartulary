@@ -658,7 +658,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "aggregate_placement": "full",
+      "aggregate_placement": "explicit_only",
       "service_dependencies": [],
       "postgres_isolation": "none"
     },
@@ -680,7 +680,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "aggregate_placement": "full",
+      "aggregate_placement": "explicit_only",
       "service_dependencies": [],
       "postgres_isolation": "none"
     },
@@ -1036,7 +1036,9 @@
       "selector": {
         "package": "./internal/testutil/harnessruntime",
         "tests": [
+          "TestEnclosingAggregate",
           "TestGoPlannerAdoption",
+          "TestProcTable",
           "TestRuntimeBrowserFailureContinuation",
           "TestRuntimeCacheFreshness",
           "TestRuntimeCacheTransactions",

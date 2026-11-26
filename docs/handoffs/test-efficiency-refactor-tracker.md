@@ -123,7 +123,7 @@ eleven `ci` runs of the release attempts (Section 13.1). Single runs vary by abo
 | G40 | Test-row cache keys still hold broad harness inputs (harness owner models, harness test families, schemas, generated validators, task surface), because tests read repository files through paths they compute, which no closure rule can see; 60 of the last 150 commits invalidate every cached unit | Machine inputs, specification, tests | Follow-up after Phase 4 | Open: needs per-package declared run-time inputs and an enforcement mechanism (13.13) |
 | G41 | The installed-renderer test read the receipt twice, so a receipt moved by a concurrent build broke it; 13.12 credited G37 with fixing this, which was wrong | Tests | Phase 4, P4-6 | Done: every renderer in the test binds the installation it opened; proven on a segment (13.15) |
 | G42 | Build-artifact cache keys held per-run locations (each graph run's Go temporary directory, the per-run web source path), so every graph run missed and re-linked shared binaries | Machine inputs, specification | Phase 4, P4-6 | Done: locations leave the keyed command and input directories are keyed by content; proven on a segment (13.15) |
-| G43 | Test rows launch nested graphs and real `make` runs that rebuild shared repository outputs under the Go test's toolchain environment while the outer run uses them; their failures are cut to the first 4 KiB and reclassified as product assertions | Tests, harness, specification | Phase 5 | Open: P5-0 fenced the Go-hosted nested graphs (14.5); P5-2 remains |
+| G43 | Test rows launch nested graphs and real `make` runs that rebuild shared repository outputs under the Go test's toolchain environment while the outer run uses them; their failures are cut to the first 4 KiB and reclassified as product assertions | Tests, harness, specification | Phase 5 | Closed: P5-0 fenced the Go-hosted nested graphs (14.5); P5-2 moved the six nesting rows to explicit presets and refuses a graph beneath an aggregate run of the same repository (14.22) |
 | G44 | Make and the planner both own ordering, freshness, environment and prerequisite skipping: 26 operations re-enter Make, 17 targets carry two recipes chosen by `GRAPH_CHILD`, five freshness mechanisms coexist, and graph-only Make edges run work twice | Machine inputs, implementation, specification | Phase 5 | Open: P5-0 removed the renderer double run (14.5); P5-1 made every test script a row and removed five duplicate operations (14.6); P5-3 remains |
 | G45 | Units inherit the graph process's whole environment (the shell's variables and up to 127 Make exports), minus hand-kept strip lists; harness code reads 478 `CARTULARY_*` names with no declaration, so leaks, stale names and typos fail silently | Machine inputs, implementation, specification | Phase 5, P5-4 | Open: P5-4a registered every harness name and enforces it (14.8); P5-4b made unit environments default-deny (14.9); P5-4c slices 1 to 3 made every outside launcher explicit (14.11 to 14.13); P5-4d slices 1 to 4 gave 57 names a single owner and enforce it in Node, Go and shell, covering every multi-writer invocation-context, fixture-binding and step-runtime name (14.14 to 14.17); the P5-4d exit is met. Left for P5-3: mode switches, strip lists and the overlay |
 | G46 | A runtime whose cleanup fails is preserved for recovery behind a seal while it still holds resources, but startup recovery skips every sealed root on the rule that sealed roots have drained. A stranded `p58-browser` resident held one of the eight PostgreSQL generation slots in every later run | Specification, implementation | Phase 5 | Closed: `p58-browser` recovered, startup recovery decides by resource records, and the eight legacy roots were removed with owner approval (14.19) |
@@ -1366,6 +1366,7 @@ Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-am
 | 2026-11-26 | G46 repair | Recover `p58-browser`; startup recovery decides by resource records, not the seal (owner-approved spec amendment) | `p68-recover`; `p68-lintgo`, `p68-session`, `p68-fixtures`, `p68-md` | Pass. The ledger holds no residents, so all eight PostgreSQL generation slots are free. Every top-level graph now reports eight legacy October roots as `[RECOVERY-FAIL]`: their records predate the current ledger and boot, and they hold nothing physically. Removing them needs owner approval (14.19) |
 | 2026-11-26 | Never-run rows | Promote the four browser accessibility self-tests from `explicit_only` to `full`; keep the eight on-demand rows (owner decision) | `p69-plan-*` (every graph target and suite); `p69-a11y`; `p70-generate`, `p70-catalog`, `p70-generated`, `p70-routing`, `p70-lintscripts`, `p70-plan-ci`, `p70-plan-check` | Pass. 12 of 2,778 rows were never planned by any target or suite. `ci` now plans the four promoted rows (2,658 rows) in its existing 506 units; `check` is unchanged (14.20) |
 | 2026-11-26 | Child CPU budget | The registry's `budget` names (`GOMAXPROCS`) pass to every child that a launcher builds, and never come from the graph's environment; `processtest` helper launches pass their mode explicitly | `p71-generate`, `p71-lintgo`, `p71-lintscripts`, `p71-cs`, `p71-server`, `p71-surface`, `p71-generated`; `p72-lintgo`, `p72-cs`, `p72-server`, `p72-nf`, `p72-browser`, `p72-md` | Pass. `p71-cs` failed the `ci`-only `processtest` row, a P5-4c regression: its helper mode reached the child only by inheritance. It passes after the repair, as do the other seven `ci`-only rows that start processes through `childenv` (14.21) |
+| 2026-11-26 | P5-2 / G43 | The six rows that start nested graphs are `explicit_only` in five explicit `harness-contract` presets; a graph refuses to start beneath an aggregate run of the same repository (D20) | `p73-generate`, `p73-plan-*`, `p73b-plan-*`; `p74-generate`, `p74-lintgo`, `p74-catalog`, `p74-generated`, `p74-runtime`, `p74-refused`, `p74-allowed`, `p74-nested`, `p74-realout`, `p74-lifetime`, `p74-md` | Pass. `ci` plans 2,652 rows in 500 units (2,658 in 506); `check` is unchanged; the presets keep their rows. A stand-in `ci` process refuses a real nested `test-slice`, and a stand-in `harness-contract` allows it (14.22) |
 | 2026-11-25 | P4-4 / G39 | Wait audit: 31 whole-test hang guards derive from the test deadline (`testdeadline`) | `p44-port-*` (16 owner slices, every row holding a converted guard) | Pass. Committed `bdd8f4e1d` |
 
 ## 12. Phase 2 Plan — `check` Wall Clock
@@ -2681,7 +2682,7 @@ amendments.
 | ID | Decision | Recommendation |
 | --- | --- | --- |
 | D19 | Approve Phase 5 scope and order (P5-0, P5-1, P5-2, P5-3) | Approve P5-0 now; decide P5-1 to P5-3 after it. **P5-0 and P5-1 approved by the owner 2026-11-26**, with authority to deprecate tests covered elsewhere |
-| D20 | Where harness-mechanics probes run | An explicit harness suite outside `ci`, run when harness code changes |
+| D20 | Where harness-mechanics probes run | An explicit harness suite outside `ci`, run when harness code changes. **Decided by the owner 2026-11-26: explicit `harness-contract` presets** (14.22) |
 | D21 | Approve P5-4 scope and order (P5-4a to P5-4d); P5-4c redefined by the owner on 2026-11-26 as single-writer ownership (14.10), and P5-4d as single owners (14.14) | Approve P5-4a and P5-4b now; decide P5-4c and P5-4d on P5-4b's measurements. **Approved 2026-11-26** |
 | D22 | How a unit finds its context document | A path in one variable: it survives Make re-entry and child tools; the admission lease keeps its file descriptor. **Approved 2026-11-26** |
 | D23 | P5-4 against P5-2 and P5-3 | P5-4a and P5-4b before P5-2, since unnesting is simpler once children start from a declared environment; mode switches leave with P5-3. **Approved 2026-11-26** |
@@ -3542,3 +3543,65 @@ of 14.10.
   run since P5-4b, so other `ci`-only rows could hide the same inherited-marker
   pattern. The eight rows above are the ones that start processes through
   `childenv`.
+
+### 14.22 Unnesting (P5-2)
+
+Decision D20 (owner, 2026-11-26): nested harness probes run in explicit
+`harness-contract` presets, outside `ci`.
+
+- **What nests.** The last retained `ci` with diagnostics (`p46-ci01`) holds
+  nested run manifests from exactly six rows, and `p67-check02` holds none:
+
+  | Row | Nested graphs it starts |
+  | --- | --- |
+  | `native_graph_observations` | two `test-slice` |
+  | `native_nested_cancellation` | three `test-slice` |
+  | `native_selected_service_lifecycle` | four `harness-contract` |
+  | `frontend_artifact_lifetime` | two concurrent `make build` |
+  | `real_output_owner_json` | one `test-slice` |
+  | `real_output_source_schema` | one `source-check` |
+
+  Other tests call `make` read-only (status, `target-plan`, `-q`, help, retired
+  targets) or in scratch fixture repositories, and the physical-fixture
+  lifecycle tests start fixtures without a graph. They stay where they are.
+  `real_output_invalid_usage` starts no graph and stays in `ci`.
+- **Moved.** The six rows are `explicit_only`. Each was already a member of an
+  explicit preset, but a selection drops explicit-only rows unless the owner
+  lists it in `explicit_selections`. The owner now lists `runtime-boundary`,
+  `artifact-consumers`, `execution`, `regression` and `full`. Those five
+  presets select no other explicit-only rows, and the presets plan the rows
+  they planned before (5, 2, 10, 40 and 57). `ci` plans 2,652 rows in 500
+  units (2,658 in 506), and `check` is unchanged.
+- **Guard.** The planned source check would have relied on text patterns: a
+  scan of every row's sources found ten hits that are messages, scratch
+  Makefiles or read-only calls, and a Playwright fixture that no file-level
+  rule can see. The runtime decides exactly instead. A graph whose process
+  ancestry holds an aggregate graph (`cartulary-harness graph --selection
+  aggregate`) working in the same repository stops before planning with
+  `config/configuration_error` at the new stage `nested_aggregate` and prints
+  `[NESTED-REFUSED] enclosing_target=<target>`. It reads the process table,
+  not the environment, because nested launchers clear their children's
+  environments. A graph under `test-slice`, an explicit preset or
+  `agent-finalize`, or in a scratch repository, is unaffected. Only the
+  runtime binary calls `Run`, so no test graph runs in-process. Specification
+  amended (the `harness-contract` presets and the startup stage table).
+- **Trade-off.** A row that nests but is placed in a daily lane passes its own
+  segment and fails in `check` or `ci`, with the refusal line naming the cause.
+- **Validation.** All passed (`p74-*`):
+  - `make generate`, `lint CHECK=go`, and `source-check CHECK=catalog` and
+    `CHECK=generated`;
+  - the runtime row, with the new ancestry tests: a fixed process table covers
+    `ci`, `check`, an explicit suite, another repository, another program, a
+    top-level graph, an exited ancestor and a cyclic ancestry, and a fake
+    `/proc` covers the parser;
+  - a stand-in process with the argument vector of a `ci` aggregate graph,
+    which runs a real `make test-slice`: the nested graph stops with exit 2,
+    `[NESTED-REFUSED] enclosing_target=ci` and stage `nested_aggregate`
+    (`p74-refused`). The same stand-in naming `harness-contract` lets it run
+    (`p74-allowed`);
+  - the six moved rows under `test-slice`, whose nested graphs start
+    (`p74-nested`, `p74-realout`, `p74-lifetime`);
+  - `lint-markdown`.
+
+  No aggregate run was repeated. Retained evidence shows no nested graph in
+  `check`, and in `ci` only from the six moved rows.

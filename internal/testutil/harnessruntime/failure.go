@@ -26,7 +26,7 @@ func PublicFailureStage(err error) string {
 	var entry *entryFailure
 	if errors.As(err, &entry) {
 		switch entry.stage {
-		case "nested_lifecycle", "diagnostic_mode", "accounting_membership",
+		case "nested_lifecycle", "nested_aggregate", "diagnostic_mode", "accounting_membership",
 			"accounting_required_scope", "accounting_executable_identity",
 			"accounting_invocation_identity", "runtime_plan":
 			return entry.stage

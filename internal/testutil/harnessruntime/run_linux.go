@@ -90,6 +90,18 @@ func RunWithOptions(ctx context.Context, root, binary string, args, environment 
 	nestedClean := true
 	defer func() { settleNested(nestedClean) }()
 	delete(env, nestedContextKey)
+	// Nested harness probes run from explicit selections only: a graph
+	// beneath an aggregate run of the same repository stops before planning.
+	repository, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		return nil, 2, entryFailureAt("nested_aggregate", failed("config", "configuration_error"))
+	}
+	if outer, err := enclosingAggregate(procTable{root: "/proc"}, os.Getpid(), filepath.Base(binary), repository); err != nil || outer != "" {
+		if outer != "" {
+			fmt.Fprintf(stderr, "[NESTED-REFUSED] enclosing_target=%s a graph cannot start inside an aggregate run of the same repository; nested harness probes are explicit-only rows of harness-contract presets\n", outer)
+		}
+		return nil, 2, entryFailureAt("nested_aggregate", failed("config", "configuration_error"))
+	}
 	mode := env["HARNESS_DIAGNOSTICS"]
 	if mode == "" {
 		mode = "off"
