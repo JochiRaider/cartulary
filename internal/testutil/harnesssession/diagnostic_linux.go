@@ -95,9 +95,11 @@ func diagnosticMember(scope diagnosticScope, pid int) (processState, bool, int64
 }
 
 // Procfs can deny environ access briefly while exec/exit replaces the mm.
-// Reobserve the exact identity inside a bounded proof-read window. This never
-// accepts inaccessible proof, changes the diagnostic sampling interval, or
-// carries discovery authority across an identity change.
+// Reobserve the exact identity inside a bounded proof-read window. Inaccessible
+// proof is never evidence that a process is unrelated: it is accepted only as
+// settlement, when the process can no longer act (diagnosticReadSettled). This
+// never changes the diagnostic sampling interval or carries discovery
+// authority across an identity change.
 func scopedMember(scope diagnosticScope, pid int, marker string) (processState, bool, int64, error) {
 	anchor, err := readProcess(pid)
 	if err != nil {
@@ -215,9 +217,29 @@ func readScopedMember(scope diagnosticScope, pid int, marker string) (found proc
 // A process can exit between stat and environ; Linux may then return EACCES
 // while dismantling its mm. Only renewed absence or the same dead identity
 // resolves that read failure. A live inaccessible or replaced PID stays unsafe.
+// diagnosticReadSettled reports that a process whose proof could not be read
+// can no longer act in a scope: it is gone, or the same process has exited
+// (exitSettled).
 func diagnosticReadSettled(previous processState) bool {
 	current, err := readProcess(previous.PID)
-	return processGone(err) || err == nil && sameProcess(previous.ProcessProof, current.ProcessProof) && (current.state == "Z" || current.state == "X")
+	if processGone(err) {
+		return true
+	}
+	if err != nil || !sameProcess(previous.ProcessProof, current.ProcessProof) {
+		return false
+	}
+	_, exeErr := os.Readlink(fmt.Sprintf("/proc/%d/exe", previous.PID))
+	return exitSettled(current.state, exeErr)
+}
+
+// exitSettled reports whether a process can no longer run user code: it is a
+// zombie or dead, or it is exiting and has already released its address
+// space, which procfs shows as a missing executable link while the task still
+// reports a running state. Under load that window outlasts the proof-read
+// retry. A live process whose proof is only inaccessible keeps its executable
+// (its link is denied, not missing) and is never settled.
+func exitSettled(state string, exeErr error) bool {
+	return state == "Z" || state == "X" || errors.Is(exeErr, os.ErrNotExist)
 }
 
 func inspectDiagnostic(scope diagnosticScope) (DiagnosticInspection, []processState, error) {

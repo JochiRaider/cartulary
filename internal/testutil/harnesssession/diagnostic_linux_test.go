@@ -9,6 +9,7 @@ import (
 	"errors"
 	"os"
 	"os/exec"
+	"syscall"
 	"testing"
 	"time"
 
@@ -43,6 +44,32 @@ func testDiagnosticAuthority(t *testing.T) {
 		self.Start = "0"
 		if diagnosticReadSettled(self) {
 			t.Fatal("reused live identity treated as settled")
+		}
+	})
+	t.Run("exit_settlement_requires_a_released_address_space", func(t *testing.T) {
+		released := &os.PathError{Op: "readlink", Path: "/proc/1/exe", Err: syscall.ENOENT}
+		denied := &os.PathError{Op: "readlink", Path: "/proc/1/exe", Err: syscall.EACCES}
+		for _, c := range []struct {
+			state   string
+			exeErr  error
+			settled bool
+		}{
+			{"Z", nil, true}, {"X", nil, true},
+			{"R", released, true}, {"S", released, true},
+			{"R", nil, false}, {"S", nil, false}, {"D", nil, false},
+			{"R", denied, false}, {"S", denied, false},
+		} {
+			if got := exitSettled(c.state, c.exeErr); got != c.settled {
+				t.Fatalf("exitSettled(%q, %v) = %v, want %v", c.state, c.exeErr, got, c.settled)
+			}
+		}
+		// A live process keeps its executable link, so it never settles.
+		self, err := readProcess(os.Getpid())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if diagnosticReadSettled(self) {
+			t.Fatal("live process with its address space treated as settled")
 		}
 	})
 	t.Run("scope_requires_exact_journal_and_current_boot", func(t *testing.T) {
