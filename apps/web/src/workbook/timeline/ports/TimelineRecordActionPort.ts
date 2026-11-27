@@ -42,6 +42,15 @@ export interface TimelineRecordActionPort {
     signal: AbortSignal,
   ): Promise<TimelineCaptureOutcome>;
 }
+/**
+ * One reviewed Timeline action's presentation and preparation.
+ *
+ * `isCurrent` and `matchesReview` describe the attached presentation that
+ * shows the review. They gate admission and authoring preparation only: an
+ * admitted action keeps its owner lifetime when that presentation detaches
+ * (Core 03 REQ-03-100, REQ-03-311). `prepare` therefore must not consult
+ * presentation attachment.
+ */
 export type TimelineCaptureBinding = Readonly<{
   isCurrent: () => boolean;
   matchesReview: () => boolean;

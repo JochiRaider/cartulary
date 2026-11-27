@@ -8615,8 +8615,9 @@
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.actionSequencing.test.tsx",
         "titles": [
-          "Timeline workbook action sequencing fences a changed inspector selection while Timeline action preparation waits",
+          "Timeline workbook action sequencing keeps a newer inspector selection when stale Timeline action preparation fails",
           "Timeline workbook action sequencing keeps action result row versions ahead of stale projection reloads",
+          "Timeline workbook action sequencing keeps an admitted supersession when Recovery detaches the inspector during preparation",
           "Timeline workbook action sequencing requires a second Mark reviewed click after a queued material edit commits",
           "Timeline workbook action sequencing sends Timeline actions with the current row version after earlier workbook mutations",
           "Timeline workbook action sequencing waits for a pending material autosave before supersede dispatch"

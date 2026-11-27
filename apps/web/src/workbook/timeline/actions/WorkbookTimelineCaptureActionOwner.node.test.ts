@@ -203,25 +203,36 @@ it("Timeline invalidates admission for authority closure state and stale reviewe
   f.owner.acceptVersion(f.review.target.recordId, 5);
   expect(f.owner.submit(f.review, f.binding)).toBe(false);
 });
-it("Timeline preserves preparation drafts and cancels changed selection before dispatch", async () => {
-  for (const change of ["selection", "session", "missing"]) {
+it("Timeline admitted preparation survives presentation detachment and authority or missing rows fence it", async () => {
+  for (const change of ["detached", "session", "missing"]) {
     const f = fixture(),
       pending = deferred<
         ReturnType<typeof timelineCaptureReview>["target"] | null
       >();
-    let current = true;
-    f.owner.submit(f.review, {
-      ...f.binding,
-      isCurrent: () => current,
-      prepare: () => pending.promise,
-    });
-    if (change === "selection") current = false;
+    let attached = true;
+    expect(
+      f.owner.submit(f.review, {
+        ...f.binding,
+        isCurrent: () => attached,
+        matchesReview: () => attached,
+        prepare: () => pending.promise,
+      }),
+    ).toBe(true);
+    if (change === "detached") attached = false;
     if (change === "session")
       f.owner.setAuthority({
         ...f.review.authority,
         sessionIdentity: "replacement",
       });
     pending.resolve(change === "missing" ? null : f.review.target);
+    if (change === "detached") {
+      await vi.waitFor(() =>
+        expect(f.owner.getSnapshot().entries[0]?.phase).toBe("acknowledged"),
+      );
+      expect(f.send).toHaveBeenCalledTimes(1);
+      expect(f.ids.create).toHaveBeenCalledTimes(1);
+      continue;
+    }
     await vi.waitFor(() =>
       expect(f.owner.getSnapshot().entries[0]?.phase).toBe(
         "preparation_failed",
@@ -230,6 +241,19 @@ it("Timeline preserves preparation drafts and cancels changed selection before d
     expect(f.send).not.toHaveBeenCalled();
     expect(f.ids.create).not.toHaveBeenCalled();
   }
+  const f = fixture(),
+    pending = deferred<typeof f.review.target>();
+  let attached = true;
+  const authoring = f.owner.prepareReview(
+    f.review,
+    { ...f.binding, isCurrent: () => attached, prepare: () => pending.promise },
+    new AbortController().signal,
+  );
+  attached = false;
+  pending.resolve(f.review.target);
+  expect(await authoring).toBe(false);
+  expect(f.owner.getSnapshot().entries).toEqual([]);
+  expect(f.ids.create).not.toHaveBeenCalled();
 });
 it("Timeline replays exactly after lost transport without fresh state or version eligibility", async () => {
   const base = timelineCaptureReview();

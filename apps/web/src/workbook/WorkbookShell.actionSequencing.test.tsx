@@ -117,11 +117,13 @@ describe("Timeline workbook action sequencing", () => {
     let replacement: string | null = null;
     const initial = state;
     let patchGate: Promise<unknown> | null = null;
+    let queryGate: Promise<unknown> | null = null;
     let staleQueries = 0;
     fetchMock.mockImplementation(async (input, init) => {
       const url = String(input),
         method = init?.method ?? "GET";
       if (url.endsWith("/query")) {
+        if (queryGate !== null) await queryGate;
         const row = staleQueries-- > 0 ? initial : state;
         return successEnvelope({
           incident_id: incidentId,
@@ -207,6 +209,9 @@ describe("Timeline workbook action sequencing", () => {
     return {
       gatePatch: (promise: Promise<unknown>) => {
         patchGate = promise;
+      },
+      gateQueries: (promise: Promise<unknown>) => {
+        queryGate = promise;
       },
       staleNextQueries: (count: number) => {
         staleQueries = count;
@@ -386,7 +391,47 @@ describe("Timeline workbook action sequencing", () => {
     ).not.toHaveProperty("reason");
     await version(4);
   });
-  it("fences a changed inspector selection while Timeline action preparation waits", async () => {
+  it("keeps an admitted supersession when Recovery detaches the inspector during preparation", async () => {
+    const pending = deferred<void>(),
+      state = service();
+    renderWorkbook();
+    await authorSupersession();
+    const confirmButton = await screen.findByTestId(
+      timelineCaptureActionTestId("confirm", recordId),
+    );
+    state.gateQueries(pending.promise);
+    fireEvent.click(confirmButton);
+    fireEvent.click(
+      await screen.findByRole("button", { name: /^Recovery \(/ }),
+    );
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Timeline action ·/ }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByTestId(timelineCaptureActionTestId("editor", recordId)),
+      ).toBeNull(),
+    );
+    expect(timelineRecordActionCalls(fetchMock, "supersede")).toHaveLength(0);
+    pending.resolve();
+    await waitForTimelineRecordActionCalls(fetchMock, "supersede", 1);
+    expect(
+      extractTimelineRecordActionBody(fetchMock, "supersede"),
+    ).toMatchObject({
+      base_row_version: 1,
+      reason,
+      replacement_record_id: replacementId,
+    });
+    // The acknowledged receipt is retained; this fixture's History read
+    // cannot finish reconciliation, so a refresh may still be pending.
+    await waitFor(() =>
+      expect(
+        screen.getByTestId(timelineCaptureActionTestId("result", recordId))
+          .textContent,
+      ).toMatch(/^Timeline supersession completed\./),
+    );
+  });
+  it("keeps a newer inspector selection when stale Timeline action preparation fails", async () => {
     const pending = deferred<void>(),
       state = service("enriched", 2);
     state.gatePatch(pending.promise);

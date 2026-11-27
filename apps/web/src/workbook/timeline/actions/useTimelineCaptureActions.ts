@@ -156,11 +156,12 @@ export function useTimelineCaptureActions(options: {
   ): TimelineCaptureBinding {
     const expectedOrigin = origin.current;
     const expectedGeneration = originGeneration.current;
+    // Preparation reads this mounted surface's committed rows and drafts.
+    const available = () => alive.current && !current.current.concealed;
     const isCurrent = () =>
-      alive.current &&
+      available() &&
       originGeneration.current === expectedGeneration &&
       origin.current === expectedOrigin &&
-      !current.current.concealed &&
       !current.current.deleted &&
       current.current.isOpen &&
       current.current.selectedId === review.target.recordId;
@@ -172,12 +173,12 @@ export function useTimelineCaptureActions(options: {
           review.target.rowVersion,
       prepare: async (signal) => {
         await earlier;
-        if (signal.aborted || !isCurrent()) return null;
+        if (signal.aborted || !available()) return null;
         const committed = await current.current.waitForIdle(
           review.target.recordId,
           { signal, refreshIfMissing: false },
         );
-        if (!committed?.row?.rawRow || signal.aborted || !isCurrent())
+        if (!committed?.row?.rawRow || signal.aborted || !available())
           return null;
         const live =
           current.current.rowsRef.current.find(

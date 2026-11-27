@@ -213,17 +213,13 @@ export class WorkbookTimelineCaptureActionOwner
         this.acceptVersion(row.recordId, row.rowVersion);
     return result;
   }
-  private current(
-    review: TimelineCaptureReview,
-    binding: TimelineCaptureBinding,
-  ) {
+  /** The reviewed authority, generation and row versions still admit the action. */
+  private admissible(review: TimelineCaptureReview) {
     return (
       this.canSubmit() &&
       timelineCaptureReviewValid(review) &&
       review.authorityGeneration === this.generation &&
       JSON.stringify(review.authority) === JSON.stringify(this.authority) &&
-      binding.isCurrent() &&
-      binding.matchesReview() &&
       [
         review.target,
         ...(review.replacement ? [review.replacement] : []),
@@ -234,6 +230,10 @@ export class WorkbookTimelineCaptureActionOwner
       )
     );
   }
+  /** The presentation that reviewed the action still shows that review. */
+  private attached(binding: TimelineCaptureBinding) {
+    return binding.isCurrent() && binding.matchesReview();
+  }
   private reserve(
     review: TimelineCaptureReview,
     binding: TimelineCaptureBinding,
@@ -241,7 +241,8 @@ export class WorkbookTimelineCaptureActionOwner
   ) {
     if (
       !this.port ||
-      !this.current(review, binding) ||
+      !this.admissible(review) ||
+      !this.attached(binding) ||
       this.blocksRecord(review.target.recordId)
     )
       return null;
@@ -270,6 +271,11 @@ export class WorkbookTimelineCaptureActionOwner
   ) {
     const entry = this.entries.get(key);
     if (!entry) return false;
+    // An authoring review belongs to its presentation. Once admitted, the
+    // action survives detachment: only authority and versions can fence it.
+    const authoring = this.authoringPreparations.has(key);
+    const current = () =>
+      this.admissible(entry.review) && (!authoring || this.attached(binding));
     const observation = this.observe(async (observedSignal) => {
       const row = await binding.prepare(observedSignal);
       if (entry.review.replacement) {
@@ -304,7 +310,7 @@ export class WorkbookTimelineCaptureActionOwner
         row?.recordId === entry.review.target.recordId &&
         row.rowVersion === entry.review.target.rowVersion &&
         row.captureState === entry.review.target.captureState &&
-        this.current(entry.review, binding)
+        current()
       );
     });
     const cancel = () => observation.cancel();
@@ -315,11 +321,7 @@ export class WorkbookTimelineCaptureActionOwner
     signal?.removeEventListener("abort", cancel);
     this.preparations.delete(key);
     if (this.entries.get(key) !== entry) return false;
-    if (
-      result.kind !== "completed" ||
-      !result.value ||
-      !this.current(entry.review, binding)
-    ) {
+    if (result.kind !== "completed" || !result.value || !current()) {
       this.update(key, {
         phase: "preparation_failed",
         failure: preparationFailure,
@@ -354,7 +356,14 @@ export class WorkbookTimelineCaptureActionOwner
   private async dispatchPrepared(key: number, binding: TimelineCaptureBinding) {
     if (!(await this.prepare(key, binding))) return;
     const entry = this.entries.get(key);
-    if (!entry || !this.port || !this.current(entry.review, binding)) return;
+    if (!entry || !this.port) return;
+    if (!this.admissible(entry.review)) {
+      this.update(key, {
+        phase: "preparation_failed",
+        failure: preparationFailure,
+      });
+      return;
+    }
     try {
       const attempt = freeze(
         this.port.capture(entry.review, this.ids.create("timeline-capture")),
