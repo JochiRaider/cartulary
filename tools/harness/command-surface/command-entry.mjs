@@ -171,7 +171,7 @@ export function toolInvocation(target, env, { manifest, root = repositoryRoot })
   for (const name of machineStateNames) {
     if (Object.hasOwn(env, name)) tool[name] = env[name];
   }
-  Object.assign(tool, { CARTULARY_HARNESS_IDENTITY_PREPARED: "1", NODE_BIN: env.NODE_BIN ?? "" }, runContextEnvironment({ target }), originsOf(publicNames, sources));
+  Object.assign(tool, { NODE_BIN: env.NODE_BIN ?? "" }, runContextEnvironment({ target, prepared: true }), originsOf(publicNames, sources));
   for (const name of toolInputNames(entry, recipe.tool_id)) tool[name] = forwardedValue(name, env, root);
   return { command: path.join(root, "tools/harness/execution/run-make-node-tool.sh"), args: [recipe.tool_id], env: tool, recipe };
 }

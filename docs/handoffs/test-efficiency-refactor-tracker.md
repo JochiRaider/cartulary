@@ -5499,7 +5499,40 @@ Section 9 applies.
     - The native session row passed.
     - Under the same induced churn, the workflow row passes 10 of 10
       (`scan-churn`).
-- **Next.**
-  - **P6-2d.** `IDENTITY_PREPARED`.
-  - **P6-2e.** The single-pair switches and the reclassification, then one
-    `check`.
+- **P6-2d: `IDENTITY_PREPARED` becomes run-context data.** This departs
+  from 15.2, which planned to delete it.
+  - **Why it stays.** It is not a path switch. It seals the
+    `{result_root, run_id, target}` tuple an executor established, so a
+    command nested in that run reuses it:
+    - a tool launched by the entry resolves the run root the entry's preflight
+      created;
+    - a step's children do the same;
+    - an assurance test's nested `make` writes into its unit's run.
+
+    Deleting it would leave a nested public preflight no way to tell its own
+    run from a fresh one with the same identity, and it would refuse its
+    enclosing run root. Any replacement recreates the same field.
+  - **What changed.** The seal is a typed field of both run-context owners:
+    `runContextEnvironment({ prepared: true })` in Node, and
+    `runcontext.Context{Prepared: true}` in Go. It is written only with the
+    identity it vouches for. The graph runtime, the entry's tool launches and
+    the UI review now write it through the owners. The shell step runtime is
+    already an owner path.
+  - **Registry.** It moved from `mode_switch` to `invocation_context` under
+    the `run_context` owner, so the registry check rejects any other writer.
+    TH-HARNESS-REQ-158 is amended to say so.
+  - **Proof.**
+    - A new Go owner test passed, and the Node owner rejects any value but
+      `true`.
+    - Generate, lint and source checks passed. The first generate caught the
+      new Go test uncataloged; it joined the `run_context` row.
+    - **Segment (`p6-2d`).** All 32 rows passed: run context, command surface,
+      evidence accounting (with the native session row), the eight UI-review
+      rows, all of `harness.generated_artifacts` and a browser row.
+    - `task-guide` and `frontend-fallow-static` also passed.
+- **Next.** P6-2e: the single-pair switches and the reclassification. Six
+  names keep the `mode_switch` role:
+  - `BUILD_CACHE_DISABLE`, `FORCE_REBUILD` and `GENERATE_DRIFT_REFRESH`;
+  - `HARNESS_EXECUTION_ENABLED`, `OUTPUT_MODE` and `PREPARATION_POLICY`.
+
+  Then one `check`.

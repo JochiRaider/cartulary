@@ -37,7 +37,7 @@ export function recipeEnvironment(root, runRoot, runtime, input, environment = p
   // mode, public review input or harness context of an enclosing graph.
   const base = childEnvironment(environment, { pass: reviewForwarded(root), set: runtimeBinaryEnvironment(root, environment) });
   Object.assign(base, { ...resourceDependenciesEnvironment([]), CARTULARY_PREPARATION_POLICY: input.preparation_policy, 
-    ...runContextEnvironment({ resultsDir: path.dirname(runRoot), runID: runtime.runID, target: input.presentation === "design" ? "browser-design-review" : "ui-review" }), CARTULARY_HARNESS_IDENTITY_PREPARED: "1", ...runtimeHandleEnvironment(runtime),
+    ...runContextEnvironment({ resultsDir: path.dirname(runRoot), runID: runtime.runID, target: input.presentation === "design" ? "browser-design-review" : "ui-review", prepared: true }), ...runtimeHandleEnvironment(runtime),
     NODE_RUNTIME_DIR: path.join(root, workspaceLayout.node_runtime), NODE_BIN: process.execPath, PNPM: path.join(root, workspaceLayout.node_runtime, "bin/pnpm"),
     ...browserBindingEnvironment({ runtimeProfile: input.profile ?? "network_flow_claimed", serviceRequirement: "test-services" }),
     CARTULARY__NETWORK_FLOW_ACTIVITY__CLAIMED: "false", CARTULARY__ENTERPRISE_AUTHENTICATION__CLAIMED: "false" });

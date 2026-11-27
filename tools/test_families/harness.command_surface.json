@@ -1075,7 +1075,8 @@
         "package": "./internal/testutil/runcontext",
         "tests": [
           "TestContextWritesOnlySetFields",
-          "TestListsAlwaysWrite"
+          "TestListsAlwaysWrite",
+          "TestPreparedSealsTheIdentityItWritesWith"
         ]
       },
       "evidence_class": "unit",

@@ -15,16 +15,21 @@ const contextNames = Object.freeze({
   invocationRoot: "CARTULARY_HARNESS_INVOCATION_ROOT",
   admissionLease: "CARTULARY_HOST_ADMISSION_LEASE",
   operationDigest: "CARTULARY_OPERATION_DIGEST",
+  prepared: "CARTULARY_HARNESS_IDENTITY_PREPARED",
 });
 
 // runContextEnvironment writes only the fields that are set: an empty value is
 // never a meaningful context, so a writer that means "none" removes the name.
+// prepared: true seals the run identity (results directory, run and target) an
+// executor established, so a command nested in that run reuses it
+// (TH-HARNESS-REQ-158); its only value is true.
 export function runContextEnvironment(context) {
   const unknown = Object.keys(context).filter((field) => !Object.hasOwn(contextNames, field));
   if (unknown.length > 0) throw new Error(`unknown run context fields: ${unknown.join(", ")}`);
+  if (context.prepared !== undefined && context.prepared !== true) throw new Error("run context prepared is only ever true");
   return Object.fromEntries(Object.entries(contextNames)
     .filter(([field]) => context[field] !== undefined && context[field] !== null && context[field] !== "")
-    .map(([field, name]) => [name, String(context[field])]));
+    .map(([field, name]) => [name, field === "prepared" ? "1" : String(context[field])]));
 }
 
 // inputSourcesEnvironment records where each public input came from as

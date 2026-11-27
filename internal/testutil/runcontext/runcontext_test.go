@@ -25,6 +25,17 @@ func TestContextWritesOnlySetFields(t *testing.T) {
 	}
 }
 
+func TestPreparedSealsTheIdentityItWritesWith(t *testing.T) {
+	got := Context{ResultsDir: "/results", RunID: "run", Target: "check", Prepared: true}.Environment()
+	want := map[string]string{name("TEST_RESULTS_DIR"): "/results", name("TEST_RUN_ID"): "run", name("TEST_TARGET"): "check", name("HARNESS_IDENTITY_PREPARED"): "1"}
+	if !maps.Equal(got, want) {
+		t.Fatalf("Environment() = %v, want %v", got, want)
+	}
+	if _, ok := (Context{RunID: "run"}).Environment()[name("HARNESS_IDENTITY_PREPARED")]; ok {
+		t.Fatal("an unprepared context wrote the seal")
+	}
+}
+
 func TestListsAlwaysWrite(t *testing.T) {
 	if got := Services(nil)[name("HARNESS_SERVICE_DEPENDENCIES")]; got != "" {
 		t.Fatalf("no services wrote %q", got)

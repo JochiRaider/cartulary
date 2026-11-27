@@ -31,6 +31,10 @@ type Context struct {
 	InvocationRoot     string
 	AdmissionLease     string
 	OperationDigest    string
+	// Prepared seals the run identity (results directory, run and target) an
+	// executor established, so a command nested in that run reuses it
+	// (TH-HARNESS-REQ-158).
+	Prepared bool
 }
 
 // Environment returns c as environment entries.
@@ -50,6 +54,9 @@ func (c Context) Environment() map[string]string {
 		if value != "" {
 			environment[name] = value
 		}
+	}
+	if c.Prepared {
+		environment["CARTULARY_HARNESS_IDENTITY_PREPARED"] = "1"
 	}
 	return environment
 }

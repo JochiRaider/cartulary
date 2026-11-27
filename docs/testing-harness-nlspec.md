@@ -4496,7 +4496,9 @@ Verified by: TH-HARNESS-AC-066, TH-HARNESS-AC-067
 Prepared artifact identity is atomic. A child MAY reuse prepared identity only when
 `CARTULARY_HARNESS_IDENTITY_PREPARED=1` and the complete normalized
 `{result_root, run_id, target}` tuple is present and validates before any artifact
-write. A partial tuple, a marker value other than exact `1`, an undeclared target,
+write. The seal is run-context data, not a mode switch: only the run-context
+owners (and the shell step runtime, which establishes a step's run context)
+write it, with the identity it vouches for (amended 2026-11-27, P6-2). A partial tuple, a marker value other than exact `1`, an undeclared target,
 or a target mismatch MUST fail closed with `configuration_error`, exit `2`, before
 artifact creation.
 
