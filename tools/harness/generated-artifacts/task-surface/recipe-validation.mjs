@@ -28,15 +28,11 @@ const ownerCommandTargets = new Set([
 const makeRecipeValidators = Object.freeze({
   bootstrap: validateBootstrapRecipe,
   ui_review: validateUIReviewRecipe,
-  artifact_binding: validateArtifactBindingRecipe,
-  aggregate: validateAggregateRecipe,
-  readiness_projection: validateReadinessProjectionRecipe,
   cleanup: validateCleanupRecipe,
   print_help: validatePrintHelpRecipe,
   work_graph: validateWorkGraphRecipe,
   step_command: validateStepCommandRecipe,
   owner_command: validateOwnerCommandRecipe,
-  summary_target: validateSummaryTargetRecipe,
   node_tool: validateNodeToolRecipe,
   native_tool: validateNativeToolRecipe,
 });
@@ -62,11 +58,8 @@ function recipeCanProduceArtifactPolicy(target, recipe, artifactPolicy) {
   if (artifactPolicy === "tool_run_summary") {
     return (
       recipe.type === "bootstrap" ||
-      recipe.type === "artifact_binding" ||
-      recipe.type === "aggregate" ||
       recipe.type === "node_tool" ||
       recipe.type === "work_graph" ||
-      recipe.type === "summary_target" ||
       recipe.type === "owner_command" ||
       recipe.type === "step_command"
     );
@@ -155,18 +148,6 @@ export function validateMakeRecipes(errors, targets, sequences, recipes) {
     ) {
       errors.push(`${label}.success_summary must be a boolean`);
     }
-    if (
-      recipe.graph_child_skips_prerequisites !== undefined &&
-      typeof recipe.graph_child_skips_prerequisites !== "boolean"
-    ) {
-      errors.push(`${label}.graph_child_skips_prerequisites must be a boolean`);
-    }
-    if (
-      recipe.graph_child_skips_prerequisites === true &&
-      (!Array.isArray(recipe.prerequisites) || recipe.prerequisites.length === 0)
-    ) {
-      errors.push(`${label}.graph_child_skips_prerequisites requires prerequisites`);
-    }
     if (recipe.graph_entry !== undefined) {
       if (recipe.graph_entry !== true) {
         errors.push(`${label}.graph_entry must be true when present`);
@@ -206,43 +187,11 @@ export function validateMakeRecipes(errors, targets, sequences, recipes) {
   }
 }
 
-function validateArtifactBindingRecipe({ errors, recipe, label }) {
-  if (!Array.isArray(recipe.prerequisites) || recipe.prerequisites.length === 0) {
-    errors.push(`${label}.prerequisites must name at least one artifact producer`);
-  }
-}
-
-function validateAggregateRecipe({ errors, recipe, label, targets }) {
-  if (!Array.isArray(recipe.prerequisites) || recipe.prerequisites.length === 0) {
-    errors.push(`${label}.prerequisites must name at least one aggregate child`);
-    return;
-  }
-  for (const child of recipe.prerequisites) {
-    if (!targets.has(child)) {
-      errors.push(`${label}.prerequisites references unknown aggregate child ${child}`);
-    }
-  }
-}
-
-function validateReadinessProjectionRecipe({ errors, target, recipe, label, targets }) {
-  if (targets.get(target)?.target_class === "public") {
-    errors.push(`${label} readiness_projection must remain internal`);
-  }
-  if (!Array.isArray(recipe.prerequisites) || recipe.prerequisites.length !== 1) {
-    errors.push(`${label}.prerequisites must name exactly one readiness producer`);
-    return;
-  }
-  if (!targets.has(recipe.prerequisites[0])) {
-    errors.push(`${label}.prerequisites references unknown readiness producer ${recipe.prerequisites[0]}`);
-  }
-}
-
 function recipeRequiresNodeRuntime(recipe) {
   if (
     [
       "make_node_tool",
       "owner_command",
-      "summary_target",
       "work_graph",
     ].includes(recipe.type)
   ) {
@@ -250,9 +199,6 @@ function recipeRequiresNodeRuntime(recipe) {
   }
   if (recipe.type !== "step_command") {
     return false;
-  }
-  if (recipe.mode === "node") {
-    return true;
   }
   return (recipe.command ?? []).includes("$(NODE_BIN)");
 }
@@ -295,19 +241,13 @@ function validatePrintHelpRecipe({ errors, recipe, label }) {
 }
 
 function validateStepCommandRecipe({ errors, recipe, label, helpers }) {
-  if (!["run_step", "node", "command"].includes(recipe.mode)) {
-    errors.push(`${label}.mode must be run_step, node, or command`);
+  // The command entry runs a step command's operation directly or under the
+  // step runner (P5-3e).
+  if (!["run_step", "command"].includes(recipe.mode)) {
+    errors.push(`${label}.mode must be run_step or command`);
   }
-  if (recipe.allow_success_log !== undefined) {
-    errors.push(`${label}.allow_success_log is obsolete`);
-  }
-  if (
-    recipe.failure_note !== undefined &&
-    (typeof recipe.failure_note !== "string" ||
-      !makeValuePattern.test(recipe.failure_note) ||
-      recipe.failure_note.trim() === "")
-  ) {
-    errors.push(`${label}.failure_note must be a safe non-empty Make value`);
+  for (const field of ["allow_success_log", "failure_note"]) {
+    if (recipe[field] !== undefined) errors.push(`${label}.${field} is obsolete`);
   }
   helpers.validateEnvEntries(errors, recipe.env, `${label}.env`);
   if (recipe.service_resolution !== undefined) {
@@ -338,46 +278,6 @@ function validateStepCommandRecipe({ errors, recipe, label, helpers }) {
     (typeof recipe.step_label !== "string" || recipe.step_label.trim() === "")
   ) {
     errors.push(`${label}.step_label must be a non-empty string for run_step`);
-  }
-  if (recipe.mode === "node") {
-    if (
-      typeof recipe.script !== "string" ||
-      !makeTokenPattern.test(recipe.script)
-    ) {
-      errors.push(`${label}.script must be a safe node script token`);
-    } else {
-      helpers.validateScriptTokenExists(
-        errors,
-        recipe.script,
-        `${label}.script`,
-      );
-    }
-  }
-}
-
-function validateSummaryTargetRecipe({ errors, recipe, label, targets }) {
-  if (typeof recipe.child_target !== "string" || !targets.has(recipe.child_target)) {
-    errors.push(
-      `${label}.child_target references unknown target ${JSON.stringify(recipe.child_target)}`,
-    );
-  }
-  if (recipe.status !== undefined && !["pass", "fail"].includes(recipe.status)) {
-    errors.push(`${label}.status must be pass or fail`);
-  }
-  if (
-    recipe.step_label !== undefined &&
-    (typeof recipe.step_label !== "string" ||
-      !makeValuePattern.test(recipe.step_label) ||
-      recipe.step_label.trim() === "")
-  ) {
-    errors.push(`${label}.step_label must be a safe non-empty Make value`);
-  }
-  if (
-    recipe.projection !== undefined &&
-    (typeof recipe.projection !== "string" ||
-      !makeTargetPattern.test(recipe.projection))
-  ) {
-    errors.push(`${label}.projection must be a safe target token`);
   }
 }
 

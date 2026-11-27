@@ -113,6 +113,7 @@ const [root] = process.argv.slice(2);
 const manifest = JSON.parse(readFileSync(path.join(root, "tools/task_surface_manifest.json"), "utf8"));
 const {
   collectTaskSurfaceManifestErrors,
+  entryRecipeFamily,
   helpAllLines,
   makeRecipeEntries,
   renderTaskSurfaceMake,
@@ -185,11 +186,8 @@ for (const file of ["$(FRONTEND_INSTALL_RECEIPT)", "$(HARNESS_RUNTIME_BIN)", "$(
 assert.ok(bootstrap.command.includes("tools/harness/readiness/install-go-dependencies.sh"));
 const renderedMake = renderTaskSurfaceMake(manifest);
 const renderedRuntime = renderTaskSurfaceMakeRuntime(manifest);
-assert.match(
-  renderedRuntime,
-  /^TASK_SURFACE_NODE_READINESS = if \[ "\$\$\{CARTULARY_HARNESS_SKIP_PREREQUISITES:-0\}" != "1" \]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \$\(PRODUCE\) node-runtime; fi$/m,
-  "shared Node readiness must retain prerequisite admission and child target isolation",
-);
+assert.match(renderedRuntime, /^RUN_ADMITTED = bash tools\/harness\/workspace\/admission\.sh run --$/m,
+  "a managed recipe takes workspace admission itself, so Make parses once");
 assert.match(
   renderedRuntime,
   /TASK_SURFACE_MACHINE_STATE_ENV = CARTULARY_MACHINE_CACHE_DIR="\$\(CARTULARY_MACHINE_CACHE_DIR\)" GO_CACHE_DIR="\$\(GO_CACHE_DIR\)" GO_MOD_CACHE_DIR="\$\(GO_MOD_CACHE_DIR\)" GO_TMP_DIR="\$\(GO_TMP_DIR\)" CARTULARY_HARNESS_SCRATCH_ROOT="\$\(CARTULARY_HARNESS_SCRATCH_ROOT\)"/,
@@ -197,19 +195,19 @@ assert.match(
 );
 assert.match(
   renderedMake.replace(/\\\r?\n[ \t]*/gu, ""),
-  /test-slice:\n[^\n]*\n\t\$\(Q\)\$\(call RUN_COMMAND_ENTRY,test-slice,[^\n]*\n\n/,
-  "a work-graph recipe is the Node runtime and one command entry call",
+  /\ntest-slice:\n\t\$\(Q\)\$\(call RUN_COMMAND_ENTRY,test-slice,installed,[^\n]*\n\n/,
+  "a work-graph target with a selector is one admitted command entry call on the installed runtime",
 );
-assert.match(renderedRuntime, /^RUN_COMMAND_ENTRY = env \$\(TASK_SURFACE_COMMAND_ENV\) \$\(2\) \$\(NODE_BIN\) tools\/harness\/command-surface\/command-entry\.mjs \$\(1\)$/m,
-  "the command entry receives each public input with its origin");
-for (const target of manifest.targets.filter((entry) =>
-  entry.target_class === "public" && !["none", "ui_review_receipts"].includes(entry.output_policy.artifact_policy))) {
-  const escapedTarget = target.name.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
-  assert.match(
-    renderedMake,
-    new RegExp(`^${escapedTarget}: export CARTULARY_TEST_RUN_ID := \\$\\(CARTULARY_TEST_RUN_ID\\)$`, "mu"),
-    `${target.name} must freeze its public retained run identity at target scope`,
-  );
+assert.match(renderedRuntime, /^RUN_COMMAND_ENTRY = env \$\(TASK_SURFACE_COMMAND_ENV\) \$\(3\) \$\(RUN_ADMITTED\) \$\(TASK_SURFACE_COMMAND_ENTRY\) \$\(2\) \$\(1\)$/m,
+  "the admitted command entry receives each public input with its origin");
+// One rule per target: the entry sets each target's exports and run
+// identity, so no target-scope variable remains.
+const flatMake = renderedMake.replace(/\\\r?\n[ \t]*/gu, "");
+for (const recipe of makeRecipeEntries(manifest).filter((value) => ["graph", "step", "tool"].includes(entryRecipeFamily(value, value.target)))) {
+  const escapedTarget = recipe.target.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+  assert.match(flatMake, new RegExp(`(?:^|\\n\\n)${escapedTarget}:\\n\\t\\$\\(Q\\)\\$\\(call RUN_COMMAND_ENTRY,${escapedTarget},(?:install|installed),[^\\n]*\\n\\n`, "u"),
+    `${recipe.target} is one rule with one admitted command entry call`);
+  assert.doesNotMatch(flatMake, new RegExp(`^${escapedTarget}: `, "mu"), `${recipe.target} has no target-scope variable`);
 }
 for (const target of manifest.targets.filter((entry) => entry.output_policy?.artifact_policy === "ui_review_receipts")) {
   const recipe = manifest.make_recipes[target.name];
@@ -232,7 +230,7 @@ assert.match(
   "help-all must advertise cleanup dry-run usage",
 );
 const helpRecipe = renderedMake.slice(renderedMake.indexOf("\nhelp:"), renderedMake.indexOf("\ntask-guide:"));
-assert.doesNotMatch(helpRecipe, /TASK_SURFACE_NODE_READINESS|RUN_PUBLIC_PREFLIGHT|RUN_MAKE_PREREQUISITES/, "help must perform no installation or build preparation");
+assert.doesNotMatch(helpRecipe, /RUN_COMMAND_ENTRY|RUN_ADMITTED|PRODUCE/, "help must take no admission and perform no installation or build preparation");
 assert.match(helpRecipe, /TASK_SURFACE_HELP_ALL_SELECTED/, "help uses its declared ALL selector");
 assert.match(renderedMake, /\$\(call RUN_COMMAND_ENTRY,migration-drift,/, "migration drift enters its graph through the command entry");
 for (const retired of ["help-all", "frontend-install", "frontend-typecheck", "bootstrap-tool-installations", "deployable-shape"]) assert.doesNotMatch(renderedMake, new RegExp(`^${retired}:`, "m"), "private producers cannot remain public Make wrappers");

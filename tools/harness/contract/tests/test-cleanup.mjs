@@ -279,12 +279,10 @@ wait "$descendant"`);
 test("default Make identity is stable across child environments and honors caller identity", (t) => {
   const f = fixture(t);
   f.write("Makefile", `${readFileSync(path.join(f.root, "Makefile"), "utf8")}
-ifeq ($(workspace_admitted),yes)
 .PHONY: identity-probe
 identity-probe:
 	@printf '%s\\n' '$(CARTULARY_TEST_RUN_ID)' "$$CARTULARY_TEST_RUN_ID"
 	@printf '%s\\n' '$(CARTULARY_TEST_RUN_ID)' "$$CARTULARY_TEST_RUN_ID"
-endif
 `);
   for (const [args, environment, expected] of [
     [[], {}, null], [[], { CARTULARY_TEST_RUN_ID: "inherited-identity" }, "inherited-identity"],
@@ -401,10 +399,12 @@ test("managed Node descendants retain admission after parent death", async (t) =
   success(f.run(["clean"]));
 });
 
-test("Make prerequisite work and concurrent cleanup participate in admission", async (t) => {
+test("a recipe's admitted command and concurrent cleanup participate in admission", async (t) => {
   const f = fixture(t);
   const makefile = readFileSync(path.join(f.root, "Makefile"), "utf8");
-  f.write("Makefile", `${makefile}\nifeq ($(workspace_admitted),yes)\n.PHONY: admission-fixture\nadmission-fixture: tmp/prepared\ntmp/prepared:\n\t@mkdir -p tmp; echo ready; while ! test -e release; do sleep 0.05; done; touch tmp/prepared\nendif\n`);
+  // Make parses once; the recipe's command takes shared admission through the
+  // same macro every managed recipe uses.
+  f.write("Makefile", `${makefile}\n.PHONY: admission-fixture\nadmission-fixture:\n\t@$(RUN_ADMITTED) bash -c 'mkdir -p tmp; echo ready; while ! test -e release; do sleep 0.05; done; touch tmp/prepared'\n`);
   const builder = f.start("make", ["--no-print-directory", "admission-fixture"], { cwd: f.root, stdio: ["ignore", "pipe", "pipe"] }); await ready(builder);
   rejected(f.run(["clean"]), "resource_conflict");
   const exited = once(builder, "exit"); f.write("release"); await exited;

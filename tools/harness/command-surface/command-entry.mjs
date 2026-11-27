@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 // The harness command entry (P5-3e). A public target's recipe runs it once,
-// after the Node runtime. Make passes only what Make alone knows: each public
-// input's value and origin (CARTULARY_MAKE_INPUT_SOURCES). The entry admits
-// the inputs, produces the target's producers and runs the target with the
-// process tree and environment its Make recipe used to assemble:
+// under workspace admission and after the Node runtime
+// (command-entry.sh). Make passes only what Make alone knows: each public
+// input's value and origin (CARTULARY_MAKE_INPUT_SOURCES). The entry sets the
+// target's own exports, admits the inputs, produces the target's producers
+// and runs the target with the process tree and environment its Make recipe
+// used to assemble:
 //
 // - a graph target launches its graph;
 // - a step command runs its operation's command, through the step runner
@@ -57,7 +59,7 @@ export function publicRecipe(manifest, target) {
 }
 
 // recipeProducers are the producers a recipe needs besides the Node runtime,
-// which its recipe produces before the entry runs.
+// which the admitted launcher readies before the entry runs.
 export function recipeProducers(root, recipe) {
   const prerequisites = (recipe.prerequisites ?? []).filter((prerequisite) => prerequisite !== "$(NODE_BIN)");
   const { producers, files } = splitProducedPrerequisites(prerequisites, producerBindings(readProducerRegistry(root)));
@@ -73,6 +75,17 @@ function expandMakeValue(value, env, root) {
 
 function forwardedValue(name, env, root) {
   return canonicalInputPaths[name] ? path.join(root, canonicalInputPaths[name]) : env[name] ?? "";
+}
+
+// targetEnvironment is env with the target's own exports, which its Make
+// rule used to set: the recipe's exports, and the target as its run context
+// unless a public target invoked it.
+export function targetEnvironment(target, env, { manifest, root = repositoryRoot }) {
+  const recipe = manifest.make_recipes[target] ?? {};
+  const result = { ...env };
+  for (const [name, value] of Object.entries(recipe.exports ?? {})) result[name] = expandMakeValue(value, env, root);
+  if (recipe.test_target === "self" && !Object.hasOwn(env, "CARTULARY_TEST_TARGET")) Object.assign(result, runContextEnvironment({ target }));
+  return result;
 }
 
 // graphLaunch returns the graph runtime invocation for target: the entry's
@@ -205,11 +218,12 @@ function targetSummary(target, status, env, root) {
   });
 }
 
-export async function runCommandEntry(target, env = process.env, root = repositoryRoot) {
+export async function runCommandEntry(target, inherited = process.env, root = repositoryRoot) {
   // Generation and the source checks validate the manifest; the preflight
   // admits the inputs. The entry only reads it.
   const manifest = JSON.parse(readFileSync(defaultTaskSurfaceManifestPath, "utf8"));
   const { family, recipe } = publicRecipe(manifest, target);
+  const env = targetEnvironment(target, inherited, { manifest, root });
   if (recipe.preflight_owner !== "entrypoint") preflightPublicTarget(target, env);
   const produced = produce(root, recipeProducers(root, recipe), env);
   if (produced !== 0) return produced;

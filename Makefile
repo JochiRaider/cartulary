@@ -1,6 +1,5 @@
 SHELL := /bin/bash
 include tools/harness/workspace/admission.mk
-ifeq ($(workspace_admitted),yes)
 include tools/workspace_layout.generated.mk
 Q := @
 # A read-only invocation needs only the projected command surface. Do not
@@ -10,8 +9,6 @@ include tools/task_surface.runtime.generated.mk
 include tools/task_surface.generated.mk
 else
 .DEFAULT_GOAL := help
-
-.SECONDEXPANSION:
 
 GO ?= $(shell if command -v go >/dev/null 2>&1; then command -v go; elif [ -x /usr/local/go/bin/go ]; then printf /usr/local/go/bin/go; fi)
 override GO_TOOLCHAIN := go1.27.4
@@ -56,11 +53,7 @@ SCHEDULER_MANIFEST ?= $(CURDIR)/tools/scheduler_manifest.json
 EXECUTION_TOPOLOGY_MANIFEST ?= $(CURDIR)/tools/execution_topology_manifest.json
 OBJECT_STORE_BUCKET ?= cartulary
 RUN_STEP_SCRIPT := $(CURDIR)/tools/harness/execution/run-step.sh
-TEST_OUTPUT_SCRIPT := $(CURDIR)/tools/harness/output/test-output.mjs
-CARTULARY_RUNNER_SCRIPT := $(CURDIR)/tools/harness/execution/cartulary-runner-cli.mjs
 TASK_SURFACE_MANIFEST ?= $(CURDIR)/tools/task_surface_manifest.json
-HARNESS_CONTRACT_CLI := $(CURDIR)/tools/harness/contract/harness-contract-cli.mjs
-RUN_HARNESS_PREFLIGHT = $(NODE_BIN) $(HARNESS_CONTRACT_CLI) preflight
 
 DEFAULT_CARTULARY_TEST_RESULTS_DIR := $(CURDIR)/$(LAYOUT_TEST_RESULTS)
 CARTULARY_OUTPUT_MODE ?=
@@ -96,16 +89,7 @@ endif
 
 TESTCONTAINERS_GO_VERSION := v0.42.0
 
-# PRODUCE runs producers registered in tools/harness_producers.json through
-# the harness artifact store (P5-3). `go run` needs no prebuilt tool, so it
-# also builds the harness runtime and installs the Node runtime. Each
-# producer publishes at its binding, which the generated include defaults and
-# exports.
-PRODUCE = mkdir -p "$(GO_CACHE_DIR)" "$(GO_MOD_CACHE_DIR)" "$(GO_TMP_DIR)" && env GOCACHE="$(GO_CACHE_DIR)" GOMODCACHE="$(GO_MOD_CACHE_DIR)" GOTMPDIR="$(GO_TMP_DIR)" NODE_BIN="$(NODE_BIN)" NODE_RUNTIME_DIR="$(NODE_RUNTIME_DIR)" PNPM="$(PNPM)" GO="$(GO)" RUN_STEP_SCRIPT="$(RUN_STEP_SCRIPT)" "$(GO)" run ./tools/harnessbuild produce
-
 include tools/task_surface.runtime.generated.mk
 include tools/task_surface.generated.mk
-
-endif # workspace admission
 
 endif # managed writer configuration

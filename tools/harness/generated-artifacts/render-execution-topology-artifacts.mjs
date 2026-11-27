@@ -425,7 +425,7 @@ function renderArtifacts(options) {
       topology.generatedOutputs.browser_e2e_batch_manifest,
       serializeJSON(browserBatchManifest),
     ),
-    outputEntry(topology.generatedOutputs.task_surface_make, renderTaskSurfaceMake(taskSurfaceManifest, producers)),
+    outputEntry(topology.generatedOutputs.task_surface_make, renderTaskSurfaceMake(taskSurfaceManifest)),
     outputEntry(
       topology.generatedOutputs.task_surface_runtime_make,
       renderTaskSurfaceMakeRuntime(taskSurfaceManifest, producers),

@@ -266,6 +266,13 @@ export function assertPrivateRowSelection(context) {
     rmSync(fixture, { recursive: true, force: true });
   }
 }
+// fixtureGoPins is a pins file for a fixture checkout: this checkout's pinned
+// Go environment and cryptographic module at version.
+function fixtureGoPins(version) {
+  const pins = JSON.parse(readFileSync(path.resolve(import.meta.dirname, "../../../../tools/toolchain_pins.json"), "utf8"));
+  return JSON.stringify({ go_version: version, go_toolchain: `go${version}`, go_environment: pins.go_environment, cryptographic_module: pins.cryptographic_module });
+}
+
 export function assertSelectorResolutionScope(context) {
   const directory = mkdtempSync(path.join(tmpdir(), "cartulary-selector-scope."));
   const webDirectory = path.join(directory, "apps/web/src");
@@ -275,7 +282,7 @@ export function assertSelectorResolutionScope(context) {
     mkdirSync(tools);
     mkdirSync(packageRoot, { recursive: true });
     const pins = path.join(tools, "toolchain_pins.json");
-    writeFileSync(pins, JSON.stringify({ go_version: "1.27.2" }));
+    writeFileSync(pins, fixtureGoPins("1.27.2"));
     writeFileSync(path.join(tools, "generated_artifact_policy.json"), JSON.stringify({ generated_roots: [], generated_files: [] }));
     const source = path.join(packageRoot, "fixture_test.go");
     writeFileSync(source, "//go:build go1.27\n\npackage fixture\nfunc TestCurrent() {}\n");
@@ -295,9 +302,9 @@ export function assertSelectorResolutionScope(context) {
     }
     writeFileSync(source, "//go:build go1.27\n\npackage fixture\nfunc TestCurrent() {}\n");
     // A new load must observe pin changes, not a process-global build context.
-    writeFileSync(pins, JSON.stringify({ go_version: "1.26.0" }));
+    writeFileSync(pins, fixtureGoPins("1.26.0"));
     assert.throws(() => createRowSelectorResolver(directory)(goSelection), /excluded from the Go runner build context/u);
-    writeFileSync(pins, JSON.stringify({ go_version: "1.27.2" }));
+    writeFileSync(pins, fixtureGoPins("1.27.2"));
     writeFileSync(path.join(packageRoot, "duplicate_test.go"), "package fixture\nfunc TestCurrent() {}\n");
     assert.throws(() => createRowSelectorResolver(directory)(goSelection), /must resolve exactly once/u);
     rmSync(path.join(packageRoot, "duplicate_test.go"));
@@ -380,7 +387,7 @@ function assertSourceDiscoveryBoundary() {
   const selection = { row: { row_id: "fixture.web", runner: "vitest", selector: { file: "apps/web/src/fixture.test.ts", project_id: "browser-unit", titles: ["suite row alpha", "suite row beta"] } }, runner: web, taskSurfaceCommandIDs: new Set() };
   try {
     write("tools/generated_artifact_policy.json", JSON.stringify({ generated_roots: [{ path: "internal/projected" }], generated_files: [{ path: "internal/fixture/generated_test.go" }] }));
-    write("tools/toolchain_pins.json", JSON.stringify({ go_version: "1.27.2" }));
+    write("tools/toolchain_pins.json", fixtureGoPins("1.27.2"));
     write("internal/fixture/new_test.go", "package fixture\nfunc TestNew() {}\nfunc TestMain() {}\n");
     symlinkSync("/unreachable-discovery-sentinel", path.join(root, "internal/fixture/generated_test.go"));
     write("internal/fixture/excluded_windows_test.go", "package fixture\nfunc TestWindows() {}\n");

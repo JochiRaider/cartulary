@@ -100,7 +100,7 @@ test("complete help exposes contracts without runtime preparation and rejects un
   for (const [name, all] of [["help", false], ["help-all", true]])
     writeFileSync(path.join(scratch, `tools/task_surface.${name}.generated.json`), JSON.stringify(helpProjection(manifest, { all })));
   const file = path.join(scratch, "Makefile");
-  writeFileSync(file, `${renderTaskSurfaceMakeRuntime(manifest)}\n${renderTaskSurfaceMake(manifest)}\nNODE_BIN := /absent/node\nTASK_SURFACE_NODE_READINESS = exit 99\nRUN_PUBLIC_PREFLIGHT = exit 98\n`);
+  writeFileSync(file, `${renderTaskSurfaceMakeRuntime(manifest)}\n${renderTaskSurfaceMake(manifest)}\nNODE_BIN := /absent/node\nRUN_ADMITTED = exit 99;\nTASK_SURFACE_COMMAND_ENTRY = exit 98;\n`);
   const env = { ...process.env, CARTULARY_OUTPUT_MODE: "summary" };
   for (const key of ["MAKEFLAGS", "MAKEOVERRIDES", "MFLAGS", "GNUMAKEFLAGS", "CARTULARY_TEST_TARGET"])
     delete env[key];
@@ -136,14 +136,20 @@ test("bootstrap admits a closed selector before installing Node and dispatches o
   const node = path.join(scratch, "node");
   const source = path.join(scratch, "fake-node");
   writeFileSync(source, `#!/bin/sh\nprintf '%s\\n' "$*" >> '${events}'\nprintf 'PART=%s|%s\\n' "$PART" "$CARTULARY_MAKE_INPUT_SOURCES" >> '${events}'\n`, { mode: 0o700 });
+  // The admitted launcher's Node producer is the only installation before
+  // dispatch; this go stands in for the artifact store.
+  const go = path.join(scratch, "go");
+  writeFileSync(go, `#!/bin/sh\n[ "$*" = "run ./tools/harnessbuild produce node-runtime" ] && cp '${source}' '${node}' && printf 'install\\n' >> '${events}'\n`, { mode: 0o700 });
   mkdirSync(path.join(scratch, "tools"));
   for (const [name, all] of [["help", false], ["help-all", true]])
     writeFileSync(path.join(scratch, `tools/task_surface.${name}.generated.json`), JSON.stringify(helpProjection(manifest, { all })));
   const file = path.join(scratch, "Makefile");
-  // The Node runtime producer is the only installation before dispatch.
-  writeFileSync(file, `${renderTaskSurfaceMakeRuntime(manifest)}\n${renderTaskSurfaceMake(manifest)}\nNODE_BIN := ${node}\nPRODUCE = sh -c '[ "$$1" = node-runtime ] && cp ${source} ${node} && printf "install\\n" >> ${events}' produce\n`);
+  // The real admission and launcher run from the checkout.
+  writeFileSync(file, `${renderTaskSurfaceMakeRuntime(manifest)}\n${renderTaskSurfaceMake(manifest)}\nNODE_BIN := ${node}\nGO := ${go}\n` +
+    ["GO_CACHE_DIR", "GO_MOD_CACHE_DIR", "GO_TMP_DIR"].map((name) => `${name} := ${path.join(scratch, name)}\n`).join("") +
+    `RUN_ADMITTED := bash ${path.join(root, "tools/harness/workspace/admission.sh")} run --\nTASK_SURFACE_COMMAND_ENTRY := bash ${path.join(root, "tools/harness/command-surface/command-entry.sh")}\n`);
   const env = { ...process.env };
-  for (const key of ["MAKEFLAGS", "MAKEOVERRIDES", "MFLAGS", "GNUMAKEFLAGS", "CARTULARY_TEST_TARGET"])
+  for (const key of ["MAKEFLAGS", "MAKEOVERRIDES", "MFLAGS", "GNUMAKEFLAGS", "CARTULARY_TEST_TARGET", "CARTULARY_HARNESS_SKIP_PREREQUISITES"])
     delete env[key];
   const invoke = (args, overrides = {}) => spawnSync("make", ["--silent", "--no-print-directory", "-f", file, "bootstrap", ...args], { cwd: scratch, env: { ...env, ...overrides }, encoding: "utf8", timeout: 10000 });
   for (const args of [["PART="], ["PART=unknown"], ["PART=node frontend"], ["PART=$(shell touch injected)"], ["UNDECLARED=1"]]) {
@@ -161,7 +167,7 @@ test("bootstrap admits a closed selector before installing Node and dispatches o
     // The command entry runs once, after Node, and selects only the
     // command-line selector's operation; an inherited PART selects nothing.
     const [install, call, selector] = readFileSync(events, "utf8").trim().split("\n");
-    assert.deepEqual([install, call], ["install", "tools/harness/command-surface/command-entry.mjs bootstrap"]);
+    assert.deepEqual([install, call], ["install", `${path.join(root, "tools/harness/command-surface/command-entry.mjs")} bootstrap`]);
     const [value, sources] = selector.slice("PART=".length).split("|");
     assert.equal(bootstrapOperation("bootstrap", { PART: value, CARTULARY_MAKE_INPUT_SOURCES: sources }, { manifest }), operation, part ?? "default");
   }
@@ -190,16 +196,19 @@ if(stage==='wrapper'){const args=process.argv.slice(process.argv.indexOf('--')+1
   const file = path.join(scratch, "Makefile");
   writeFileSync(file, `${renderTaskSurfaceMakeRuntime(manifest)}
 ${renderTaskSurfaceMake(manifest)}
-TASK_SURFACE_NODE_READINESS = :
 NODE_BIN := ${entryNode}
+RUN_ADMITTED := bash ${path.join(root, "tools/harness/workspace/admission.sh")} run --
+TASK_SURFACE_COMMAND_ENTRY := bash ${path.join(root, "tools/harness/command-surface/command-entry.sh")}
 `);
   const values = ["/fixture/result with space", "/fixture/runtime 'quote' $dollar `literal`", "139eb0d9-ba96-4ce6-8f64-a8d5973e20b0"];
   const env = { ...process.env };
   for (const key of ["MAKEFLAGS", "MAKEOVERRIDES", "MFLAGS", "GNUMAKEFLAGS", "CARTULARY_TEST_TARGET"])
     delete env[key];
+  // The Node runtime is a fixture: the launcher skips its producer.
+  env.CARTULARY_HARNESS_SKIP_PREREQUISITES = "1";
   execFileSync("make", ["--silent", "--no-print-directory", "-f", file, "test-run-recover", ...["RESULTS_DIR", "RUNTIME_ROOT", "RUNTIME_LEASE_ID"].map((key, index) => `${key}=${values[index]}`)], { cwd: scratch, env, encoding: "utf8", timeout: 10000 });
   const call = JSON.parse(readFileSync(recorded, "utf8"));
-  assert.deepEqual(call.args, ["tools/harness/command-surface/command-entry.mjs", "test-run-recover"]);
+  assert.deepEqual(call.args, [path.join(root, "tools/harness/command-surface/command-entry.mjs"), "test-run-recover"]);
   const wrapper = path.join(scratch, "run-step");
   writeFileSync(wrapper, `#!/bin/sh\nexec ${JSON.stringify(process.execPath)} ${JSON.stringify(probe)} wrapper "$@"\n`, { mode: 0o700 });
   const invocation = stepInvocation("test-run-recover", { ...call.env, NODE_BIN: process.execPath, RUN_STEP_SCRIPT: wrapper }, { manifest, root });

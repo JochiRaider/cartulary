@@ -3628,16 +3628,27 @@ Every Make-owned public wrapper that is not `interactive_raw` MUST execute this 
 A target MAY skip a step only when its output class or target row explicitly declares that the step does not apply. A skipped step MUST NOT be implemented as an implicit child-command side effect.
 
 A public graph target, step command, Node tool or owner tool has a generated
-recipe of that Node readiness precondition and one call of the harness command
-entry, `tools/harness/command-surface/command-entry.mjs` (amended 2026-11-26,
-P5-3e). Bootstrap admits its closed selector and undeclared inputs in Make,
-produces the Node runtime and then calls the entry. Make passes only what it
+recipe of one rule with one command: the harness command entry under shared
+workspace admission (amended 2026-11-26, P5-3e). Make parses once. The
+recipe runs `tools/harness/command-surface/command-entry.sh` through
+`tools/harness/workspace/admission.sh`. That admitted launcher satisfies the
+Node readiness precondition, then runs
+`tools/harness/command-surface/command-entry.mjs`:
+
+- it produces the pinned Node runtime, unless a graph child skips
+  prerequisites;
+- for a target with a command-line selector or installed-only readiness, it
+  requires the installed runtime instead.
+
+Bootstrap admits its closed selector and undeclared inputs in Make before
+that call, because both happen before Node exists. Make passes only what it
 alone knows: each public input's value, raw for a literally transported input
 and expanded otherwise, with its origin in `CARTULARY_MAKE_INPUT_SOURCES`. The
-entry runs the shared public preflight in its own process and produces the
-target's registered producers, unless a graph child skips prerequisites. It
-then runs the target with the process tree and environments its recipe
-assembled:
+entry sets the target's own exports, and the target as its run context unless
+a public target invoked it. It runs the shared public preflight in its own
+process and produces the target's registered producers, unless a graph child
+skips prerequisites. It then runs the target with the process tree and
+environments its recipe assembled:
 
 - a graph target launches the graph with every public input stripped except
   its forwarded inputs, each with its origin, and with the resolved
@@ -3651,7 +3662,10 @@ assembled:
   then its target summary.
 
 Help, the Markdown lint, the UI review launcher, the native run-status tool and
-cleanup stay Make recipes: none of them prepares Node.
+cleanup stay Make recipes: none of them prepares Node. The Markdown lint and UI
+review recipes take shared workspace admission for their commands. Help prints
+generated projections and takes none, and neither does the run-status
+observer. Cleanup takes exclusive admission itself.
 
 Every public Make wrapper whose lifecycle invokes repo-owned Node tooling,
 including the shared public preflight, MUST make pinned repo-local Node readiness
@@ -7832,7 +7846,8 @@ success. Optional receipt loss preserves the primary result; required privacy,
 quiescence and cleanup failures retain their existing failure precedence.
 Readers independently validate secure paths, schema, binding, interval order,
 membership and outcomes. Shared outer elapsed time counts once per invocation,
-never once per graph or target. Initial shell/Make startup and receipt publication
+never once per graph or target. Each admitted recipe command is one outer
+invocation (P5-3e). Initial shell/Make startup and receipt publication
 itself remain explicit envelope exclusions. The receipt is not canonical timing
 or export input and cannot establish total invocation cost.
 Verified by: TH-HARNESS-AC-144
@@ -7922,7 +7937,9 @@ Tests SHALL reject unknown stage values and verify classification and exit-statu
 preservation, including wrapped errors and cancellation during preparation.
 
 The existing native harness and workspace admission entry MUST establish one
-fresh delegated cgroup v2 hierarchy for the complete measured child Make command.
+fresh delegated cgroup v2 hierarchy for the complete measured admitted command:
+since P5-3e, a public target's admitted recipe command, which Make parses
+before.
 The child starts inside that hierarchy before its first executable instruction.
 Its preparation, descendants, nested commands, publication, retained-secret scan
 and terminal exit are included. Every owned PostgreSQL, object-store and renderer
@@ -10530,7 +10547,10 @@ removes dependency roots, stores, and installation proofs together.
 **TH-HARNESS-REQ-506**
 Except for the sole-goal read-only observer in Section 8.9, managed Make
 invocations MUST acquire shared worktree admission before any
-preparation, prerequisite, scheduler execution, or write. Admission is a kernel
+preparation, prerequisite, scheduler execution, or write. Make parses once and
+defines no prerequisites: each managed recipe acquires admission for its own
+command, before that command prepares or writes anything (amended 2026-11-26,
+P5-3e). Help only prints generated projections and acquires none. Admission is a kernel
 filesystem lock in that worktree's Git administrative storage, outside cleanup
 candidates and independent of host-capacity accounting. Real cleanup MUST acquire
 nonblocking exclusive admission and fail immediately with `resource_conflict`

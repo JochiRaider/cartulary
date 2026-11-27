@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { bootstrapOperation, graphLaunch, publicRecipe, recipeProducers, stepInvocation, toolInvocation } from "../command-entry.mjs";
+import { bootstrapOperation, graphLaunch, publicRecipe, recipeProducers, stepInvocation, targetEnvironment, toolInvocation } from "../command-entry.mjs";
 
 const root = path.resolve(import.meta.dirname, "../../../..");
 const manifest = JSON.parse(readFileSync(path.join(root, "tools/task_surface_manifest.json"), "utf8"));
@@ -14,6 +14,19 @@ const base = {
   PATH: "/usr/bin", HOME: "/home/fixture", HARNESS_RUNTIME_BIN: "/toolbin/cartulary-harness", MAKE: "make", NODE_BIN: "/node/bin/node",
   TEST_SERVICES_BIN: "/toolbin/cartulary-test-services", GO_CACHE_DIR: "/machine/go/build", CARTULARY_MACHINE_CACHE_DIR: "/machine",
 };
+
+test("the entry sets each target's own exports and run context, as its Make rule did", () => {
+  const ci = targetEnvironment("ci", { ...base, CI: "0" }, { manifest, root });
+  assert.equal(ci.CI, "1");
+  assert.equal(ci.CARTULARY_TEST_TARGET, "ci");
+  // A target that reports for itself keeps the public target that invoked it.
+  assert.equal(targetEnvironment("check", { ...base, CARTULARY_TEST_TARGET: "release-check" }, { manifest, root }).CARTULARY_TEST_TARGET, "release-check");
+  const gate = targetEnvironment("seaweedfs-release-gate", { ...base, CARTULARY_TEST_RUN_ID: "run-1" }, { manifest, root });
+  assert.equal(gate.CARTULARY_ALLOW_EXISTING_RUN_ROOT, "1");
+  assert.equal(gate.CARTULARY_TEST_RUN_ID, "run-1");
+  // Other targets report for whichever target invoked them.
+  assert.equal(Object.hasOwn(targetEnvironment("doctor", base, { manifest, root }), "CARTULARY_TEST_TARGET"), false);
+});
 
 test("a graph launch keeps only the target's forwarded inputs, with their origins", () => {
   const env = { ...base, OWNER: "harness.command_surface", ROWS: "harness.command_surface.unit.go_environment", BROWSER_LANES: "4",
