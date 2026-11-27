@@ -230,7 +230,7 @@ async function build(target) {
     }));
     const produced = await runPrivateCapturedProcess(process.env.GO || "go", [...producerCommand, "--roots", rootsFile, producer], {
       producer: "private_capture", dependencies: [], cwd: root, repoRoot: root, runRoot,
-      env: childEnvironment(process.env, { pass: [...runtimeEnvironment, ...launchEnvironment, "NODE_BIN", "NODE_RUNTIME_DIR", "PNPM", "GO", "GO_CACHE_DIR", "GO_MOD_CACHE_DIR", "GO_TMP_DIR", "CARTULARY_BUILD_CACHE_DISABLE", "CARTULARY_FORCE_REBUILD"],
+      env: childEnvironment(process.env, { pass: [...runtimeEnvironment, ...launchEnvironment, "NODE_BIN", "NODE_RUNTIME_DIR", "PNPM", "GO", "GO_CACHE_DIR", "GO_MOD_CACHE_DIR", "GO_TMP_DIR"],
         set: { ...runtimeHandleEnvironment(runtime), ...caches, NODE_BIN: process.env.NODE_BIN || process.execPath } }),
     });
     let productionError;

@@ -131,7 +131,7 @@ each.
 | G45 | Units inherit the graph process's whole environment (the shell's variables and up to 127 Make exports), minus hand-kept strip lists; harness code reads 478 `CARTULARY_*` names with no declaration, so leaks, stale names and typos fail silently | Machine inputs, implementation, specification | Phase 5, P5-4 | Open: P5-4a registered every harness name and enforces it (14.8); P5-4b made unit environments default-deny (14.9); P5-4c slices 1 to 3 made every outside launcher explicit (14.11 to 14.13); P5-4d slices 1 to 4 gave 57 names a single owner and enforce it in Node, Go and shell, covering every multi-writer invocation-context, fixture-binding and step-runtime name (14.14 to 14.17); the P5-4d exit is met. P5-3 removed the overlay (14.31) and the strip lists except the UI-review recipes' public-input strip (14.32); left: that strip and the mode switches that still have readers (14.32); the environment tidy classified product-derived names, folded fixture identity into the browser binding, replaced the cleanup marker with an argument, deleted the constant Playwright worker names and closed two check blind spots (14.23) |
 | G46 | A runtime whose cleanup fails is preserved for recovery behind a seal while it still holds resources, but startup recovery skips every sealed root on the rule that sealed roots have drained. A stranded `p58-browser` resident held one of the eight PostgreSQL generation slots in every later run | Specification, implementation | Phase 5 | Closed: `p58-browser` recovered, startup recovery decides by resource records, and the eight legacy roots were removed with owner approval (14.19) |
 | G47 | Build-artifact keys come from hand-listed source roots. The server, operator and migrate binaries import 22, 22 and 19 `internal/gen` packages that none of their keys covers, and the server key also omits `db/migrations`, which the server embeds: a migration-only or generator-only change reuses a stale binary | Machine inputs, implementation | Phase 5, P5-3a | Closed: every Go build Make runs is keyed by its import closure from `go list -deps` (14.25) |
-| G48 | Ambient mode switches select between three execution paths; four are set for every unit and 30 operations strip them again | Specification, implementation, tests | Phase 6, P6-2 | Open (15.2) |
+| G48 | Ambient mode switches select between three execution paths; four are set for every unit and 30 operations strip them again | Specification, implementation, tests | Phase 6, P6-2 | Closed: the `mode_switch` role is gone; residual test isolation noted in 15.7 |
 | G49 | UI-review recipes bypass the command entry and keep a public-input strip list; entry tools are not default-deny | Specification, implementation, tests | Phase 6, P6-3 | Open (15.2) |
 | G50 | 449 registered environment names, many used in one file; browser-stack secrets cross a shell boundary as environment variables | Implementation, tests, machine inputs | Phase 6, P6-4 | Open (15.2) |
 | G51 | A cached one-row slice costs 1.85 s, mostly planning and a `go run` producer call; the frontend installation is produced twice | Implementation, specification | Phase 6, P6-5 | Open (15.2) |
@@ -1391,6 +1391,7 @@ Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-am
 | 2026-11-27 | P4-7 | Segments for the `ci`-only rows; two paired `check` runs; five `ci` runs, three failed and then the passing pair; five defects fixed: Find navigation during a follow-up rescan (`5b50fefb7`), Vitest teardown attribution and the cleanup-test races (`e02cece8b`), admitted Timeline actions cancelled by presentation detachment (`6bd99b2e5`), and a fixed 30 s Go parse timeout (`0cd0e8dc8`) | `p123` (segment), `p47-check01`, `p47-check02`, `p47-ci01`, `p47-ci02`; `p124`, `p125`, `p129`; `p130` to `p136`; `p48-check01`, `p48-check02`, `p48-ci01`; `p138`; `p49-ci01`, `p49-ci02` | Pass. `p48` passed all 1,899 rows in 520 s graphs; `p49` passed all 2,652 rows in 1,328 s and 1,361 s graphs. Section 3 refreshed (13.16) |
 | 2026-11-27 | P4-7 follow-up | Admitted Timeline mention operations and capture and mention preparation survive presentation detachment and sheet switches (`02ba63702`) | `p140`, `p141`, `p142` (segment), `p143`, `p144` | Pass. 32 targeted rows, lint, types, boundaries, generated and catalog checks (13.17) |
 | 2026-11-27 | Phase 6 plan | Traced the five Phase 5 residuals and proposed Phase 6 (P6-0 to P6-6, G48 to G52, D30 to D34) | `p147` (startup timing), registry and work-graph scans | Proposed; awaiting the owner's decisions (15.5) |
+| 2026-11-27 | P6-1, P6-2 / G48, G52, G53 | Release inventory rows in `ci`; four mode switches removed; one became run-context data, two producer arguments, two reclassified; the diagnostic scan race fixed | `p6-1-*`, `p6-2a`, `p6-2b`, `p6-2c`, `p6-2d`, `p6-2e` (segments), `scan-churn`, `p6-2-check01`, `p6-2-check02` | Pass. `p6-2-check02` passed all 1,899 rows in a 579 s graph; the `mode_switch` role is deleted (15.6, 15.7) |
 | 2026-11-25 | P4-4 / G39 | Wait audit: 31 whole-test hang guards derive from the test deadline (`testdeadline`) | `p44-port-*` (16 owner slices, every row holding a converted guard) | Pass. Committed `bdd8f4e1d` |
 
 ## 12. Phase 2 Plan — `check` Wall Clock
@@ -5017,7 +5018,7 @@ statuses are unchanged.
 
 ## 15. Phase 6 Plan — Phase 5 Residuals
 
-Status: proposed 2026-11-27 at the owner's request; D30 to D34 approved as recommended the same day (15.5). P6-0 and P6-1 done (15.6); P6-2 in progress (15.7). It
+Status: proposed 2026-11-27 at the owner's request; D30 to D34 approved as recommended the same day (15.5). P6-0 and P6-1 done (15.6); P6-2 done (15.7). It
 removes the five items Phase 5 left open (G48 to G52). Each fix aims for the
 cleanest lasting structure: behavior that exists only for compatibility goes,
 rather than being carried forward.
@@ -5395,7 +5396,7 @@ Section 9 applies.
 - **Checks.** `make generate` and `source-check` `catalog` and `generated`
   passed. 14.30's claim is corrected.
 
-### 15.7 Mode Switches (P6-2, in progress)
+### 15.7 Mode Switches (P6-2, done)
 
 - **P6-2a: dead step wrappers (`74ed3e48e`).** `run-vitest-step.sh` and
   `run-playwright-step.sh` had no caller except their own smoke tests; the
@@ -5530,9 +5531,49 @@ Section 9 applies.
       evidence accounting (with the native session row), the eight UI-review
       rows, all of `harness.generated_artifacts` and a browser row.
     - `task-guide` and `frontend-fallow-static` also passed.
-- **Next.** P6-2e: the single-pair switches and the reclassification. Six
-  names keep the `mode_switch` role:
-  - `BUILD_CACHE_DISABLE`, `FORCE_REBUILD` and `GENERATE_DRIFT_REFRESH`;
-  - `HARNESS_EXECUTION_ENABLED`, `OUTPUT_MODE` and `PREPARATION_POLICY`.
-
-  Then one `check`.
+- **P6-2e: the last six names; the role is deleted.**
+  - **`GENERATE_DRIFT_REFRESH`.** It was the script's existing `--refresh`
+    argument in disguise. `generated_refresh` passes `--refresh`;
+    `source_generated` and agent-finalize set nothing.
+  - **`BUILD_CACHE_DISABLE` and `FORCE_REBUILD` (D31).** D31's premise half
+    held: `make distclean` forces a rebuild only coarsely, and nothing
+    replaced "neither read nor record keys". So D31's own fallback applies.
+    The store's controls are `harnessbuild produce --no-cache` and `--force`,
+    and the producer passes them to the renderer build as arguments. Both
+    were exercised on `node-runtime`. This supersedes D28's environment form.
+  - **`HARNESS_EXECUTION_ENABLED`.** It is run-context data: `executionObserved`
+    in Node and `ExecutionObserved` in Go. The runtime and the
+    execution-channel fixture write it through the owners. The registry
+    check caught the fixture's direct write.
+  - **Reclassified, departing from 15.2.**
+    - `OUTPUT_MODE` is a `tool_option`: an operator's presentation knob read
+      with a default. Making it a task-surface global input would change
+      public-input stripping for no gain.
+    - `PREPARATION_POLICY` is single-writer `invocation_context`. The review
+      decides it for its whole preparation subtree, including Make's
+      `GOTOOLCHAIN` and `testcontainersx` library code, which an argument
+      cannot reach.
+  - **The `mode_switch` role is deleted** from the registry, its check and
+    the specification, which now states that a behavior flag is an argument
+    or single-owner run context.
+  - **Residual test isolation.** 31 assurance operations still start with
+    `env -u CARTULARY_TEST_TARGET VERBOSE CI_VERBOSE`. These are not
+    switches: the target is run context and the other two are inherited
+    presentation inputs. The tests strip them so a nested `make` behaves as
+    if run standalone. Moving that into the tests that nest `make` is
+    follow-up work.
+- **P6-2 exit.**
+  - Lint, source checks and the segment passed: 21 rows, including the whole
+    `harness.evidence_accounting` owner.
+  - **First `check` (`p6-2-check01`).** It failed two units: generated drift
+    and the JSON-shape check. I had edited `run-context.mjs` and the fixture
+    after the last `make generate`, so the topology index was stale. After
+    regeneration, the 14 generated-artifact rows and both source checks
+    passed. Its graph also rebuilt the report renderer once (129 s), because
+    `build-runtime.mjs` is part of the renderer's key.
+  - **Second `check` (`p6-2-check02`).** All 1,899 rows passed in a 579 s
+    graph (589 s outer).
+    - **Timing.** The critical path and slowest units match P4-7's 520 s
+      pair. Unit time is about 8% higher across the board, including Go test
+      units that P6-2 does not touch. One run cannot attribute that; P6-6's
+      paired runs will.

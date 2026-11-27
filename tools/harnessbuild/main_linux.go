@@ -40,7 +40,7 @@ const (
 	collectLimit = 16
 )
 
-const usage = "usage: harnessbuild produce [--store DIR] [--roots FILE] PRODUCER..."
+const usage = "usage: harnessbuild produce [--store DIR] [--roots FILE] [--no-cache] [--force] PRODUCER..."
 
 func main() { os.Exit(run(os.Args[1:])) }
 
@@ -52,11 +52,14 @@ func run(args []string) int {
 	flags := flag.NewFlagSet("produce", flag.ContinueOnError)
 	store := flags.String("store", "", "artifact store directory")
 	roots := flags.String("roots", "", "file to write each producer's sealed root to")
+	noCache := flags.Bool("no-cache", false, "neither read nor record store keys")
+	force := flags.Bool("force", false, "rebuild and record, ignoring a recorded key")
 	if err := flags.Parse(args[1:]); err != nil || flags.NArg() == 0 {
 		fmt.Fprintln(os.Stderr, usage)
 		return 2
 	}
-	if err := produce(*store, *roots, flags.Args()); err != nil {
+	controls := artifactstore.Controls{Disable: *noCache, Force: *force}
+	if err := produce(*store, *roots, controls, flags.Args()); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		reportFailure()
 		return 1
@@ -64,7 +67,7 @@ func run(args []string) int {
 	return 0
 }
 
-func produce(store, rootsFile string, ids []string) error {
+func produce(store, rootsFile string, controls artifactstore.Controls, ids []string) error {
 	root, err := os.Getwd()
 	if err != nil {
 		return err
@@ -101,10 +104,6 @@ func produce(store, rootsFile string, ids []string) error {
 		}
 	}
 	s := artifactstore.Store{Root: store}
-	controls := artifactstore.Controls{
-		Disable: os.Getenv("CARTULARY_BUILD_CACHE_DISABLE") == "1",
-		Force:   os.Getenv("CARTULARY_FORCE_REBUILD") == "1",
-	}
 	installedOnly := os.Getenv("CARTULARY_PREPARATION_POLICY") == "installed_only"
 	produced := map[string]string{}
 	for _, d := range declarations {

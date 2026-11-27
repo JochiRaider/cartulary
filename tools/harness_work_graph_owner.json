@@ -4678,10 +4678,7 @@
           "./tools/harness/generated-artifacts/check-generate-drift.sh"
         ],
         "test_target": "self",
-        "graph_entry": true,
-        "env": {
-          "CARTULARY_GENERATE_DRIFT_REFRESH": "0"
-        }
+        "graph_entry": true
       },
       "kind": "policy"
     },
@@ -4695,13 +4692,11 @@
         "mode": "run_step",
         "step_label": "generate-drift",
         "command": [
-          "./tools/harness/generated-artifacts/check-generate-drift.sh"
+          "./tools/harness/generated-artifacts/check-generate-drift.sh",
+          "--refresh"
         ],
         "test_target": "self",
-        "graph_entry": true,
-        "env": {
-          "CARTULARY_GENERATE_DRIFT_REFRESH": "1"
-        }
+        "graph_entry": true
       },
       "kind": "policy"
     },

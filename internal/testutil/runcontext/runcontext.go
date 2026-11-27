@@ -35,7 +35,14 @@ type Context struct {
 	// executor established, so a command nested in that run reuses it
 	// (TH-HARNESS-REQ-158).
 	Prepared bool
+	// ExecutionObserved asks the command's units and fixtures to record
+	// execution observations, as basic diagnostics do.
+	ExecutionObserved bool
 }
+
+// ExecutionObservedName is the name ExecutionObserved writes, for a writer that
+// removes an inherited observation request.
+const ExecutionObservedName = "CARTULARY_HARNESS_EXECUTION_ENABLED"
 
 // Environment returns c as environment entries.
 func (c Context) Environment() map[string]string {
@@ -57,6 +64,9 @@ func (c Context) Environment() map[string]string {
 	}
 	if c.Prepared {
 		environment["CARTULARY_HARNESS_IDENTITY_PREPARED"] = "1"
+	}
+	if c.ExecutionObserved {
+		environment[ExecutionObservedName] = "1"
 	}
 	return environment
 }

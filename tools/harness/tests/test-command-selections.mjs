@@ -19,7 +19,9 @@ test("selection inputs resolve canonically and selectors require their declared 
 });
 
 test("generated-source validation cannot refresh drift", () => {
-  assert.equal(readOperationOwner(root).operations["harness.source_generated"].execution.env.CARTULARY_GENERATE_DRIFT_REFRESH, "0");
+  const { operations } = readOperationOwner(root);
+  assert.equal(operations["harness.source_generated"].execution.command.includes("--refresh"), false);
+  assert.equal(operations["harness.generated_refresh"].execution.command.at(-1), "--refresh");
 });
 
 test("installation operations produce their installations and artifacts before acquisition", () => {

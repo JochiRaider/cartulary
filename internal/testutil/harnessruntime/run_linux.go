@@ -243,11 +243,8 @@ func RunWithOptions(ctx context.Context, root, binary string, args, environment 
 	// receives this publisher's complete-record prefix below.
 	delete(child, "CARTULARY_HARNESS_LIVE_UNIT_EVENTS_FILE")
 	delete(child, "CARTULARY_HARNESS_UNIT_EVENT_PREFIX")
-	if mode == "basic" {
-		child["CARTULARY_HARNESS_EXECUTION_ENABLED"] = "1"
-	} else {
-		delete(child, "CARTULARY_HARNESS_EXECUTION_ENABLED")
-	}
+	delete(child, runcontext.ExecutionObservedName)
+	runcontext.Context{ExecutionObserved: mode == "basic"}.Apply(child)
 	fixtureEnv := maps.Clone(child)
 	services := map[string]bool{}
 	for _, unit := range plan.facts.Graph.Units {

@@ -9,9 +9,6 @@ ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../.." && pwd)"
 source "$ROOT_DIR/tools/harness/test-support/harness-scratch.sh"
 SCRATCH_INPUT_MANIFEST="${GENERATE_DRIFT_SCRATCH_INPUT_MANIFEST:-tools/generate_drift_scratch_inputs.json}"
 mode="check"
-if [[ "${CARTULARY_GENERATE_DRIFT_REFRESH:-}" == "1" ]]; then
-  mode="refresh"
-fi
 if [[ "${1:-}" == "--refresh" ]]; then
   mode="refresh"
   shift

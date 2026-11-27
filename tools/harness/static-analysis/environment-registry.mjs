@@ -17,7 +17,6 @@ export const environmentRoles = Object.freeze([
   "fixture_binding", // a prepared service, fixture or browser stack handed to a test
   "invocation_context", // run identity, results root, lease, budget and failure context
   "location", // a machine, cache, scratch or layout path
-  "mode_switch", // a flag that changes what a command or recipe does
   // product configuration the harness sets for a product process it starts,
   // which the product reads under a name it derives from a service or secret
   // reference, so product code never spells it

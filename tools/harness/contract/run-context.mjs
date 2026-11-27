@@ -16,20 +16,26 @@ const contextNames = Object.freeze({
   admissionLease: "CARTULARY_HOST_ADMISSION_LEASE",
   operationDigest: "CARTULARY_OPERATION_DIGEST",
   prepared: "CARTULARY_HARNESS_IDENTITY_PREPARED",
+  executionObserved: "CARTULARY_HARNESS_EXECUTION_ENABLED",
 });
+// Flags whose only value is true; a writer that means false omits them.
+const flagFields = new Set(["prepared", "executionObserved"]);
 
 // runContextEnvironment writes only the fields that are set: an empty value is
 // never a meaningful context, so a writer that means "none" removes the name.
 // prepared: true seals the run identity (results directory, run and target) an
 // executor established, so a command nested in that run reuses it
-// (TH-HARNESS-REQ-158); its only value is true.
+// (TH-HARNESS-REQ-158). executionObserved: true asks units and fixtures to record
+// execution observations, as basic diagnostics do.
 export function runContextEnvironment(context) {
   const unknown = Object.keys(context).filter((field) => !Object.hasOwn(contextNames, field));
   if (unknown.length > 0) throw new Error(`unknown run context fields: ${unknown.join(", ")}`);
-  if (context.prepared !== undefined && context.prepared !== true) throw new Error("run context prepared is only ever true");
+  for (const field of flagFields) {
+    if (context[field] !== undefined && context[field] !== true) throw new Error(`run context ${field} is only ever true`);
+  }
   return Object.fromEntries(Object.entries(contextNames)
     .filter(([field]) => context[field] !== undefined && context[field] !== null && context[field] !== "")
-    .map(([field, name]) => [name, field === "prepared" ? "1" : String(context[field])]));
+    .map(([field, name]) => [name, flagFields.has(field) ? "1" : String(context[field])]));
 }
 
 // inputSourcesEnvironment records where each public input came from as

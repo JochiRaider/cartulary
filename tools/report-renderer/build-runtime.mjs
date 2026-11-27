@@ -66,10 +66,10 @@ async function copyHostFile(source, destination) {
 // and fonts it copies. When those inputs match a recorded key whose
 // installation still has its seal, and every host library the installation
 // copied is unchanged, the installation is reused instead of rebuilt
-// (installation-store.mjs). CARTULARY_BUILD_CACHE_DISABLE=1 neither reads nor
-// records keys; CARTULARY_FORCE_REBUILD=1 rebuilds and records.
-const cacheDisabled = process.env.CARTULARY_BUILD_CACHE_DISABLE === "1";
-const forceRebuild = process.env.CARTULARY_FORCE_REBUILD === "1";
+// (installation-store.mjs). The producer passes the store's controls:
+// --no-cache neither reads nor records keys; --force rebuilds and records.
+const cacheDisabled = process.argv.includes("--no-cache");
+const forceRebuild = process.argv.includes("--force");
 const require = createRequire(path.join(repository, "packages/report-renderer/package.json"));
 const { registry: { registry } } = require("playwright-core/lib/coreBundle");
 const chromiumBinary = registry.findExecutable("chromium-headless-shell").executablePathOrDie("javascript");

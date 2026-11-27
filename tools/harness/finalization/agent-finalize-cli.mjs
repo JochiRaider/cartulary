@@ -59,7 +59,6 @@ const actionRegistry = [
         commandKind: "operation",
         requiresResultsDir: false,
         mutatesRepo: true,
-        env: { CARTULARY_GENERATE_DRIFT_REFRESH: "1" },
       },
       {
         id: "refreshed-source-validation",

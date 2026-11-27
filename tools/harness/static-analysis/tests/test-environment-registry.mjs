@@ -84,13 +84,13 @@ test("a name both sides mention must be a product interface, and only then", (t)
 test("a name has one role and a declared input is not registered again", (t) => {
   const { root, paths } = fixture(t, { "tools/a.sh": `${name("TWICE")} ${name("PUBLIC")}\n` });
   const result = inspectEnvironmentRegistry(root, {
-    registry: registry({ mode_switch: [name("TWICE")], tool_option: [name("PUBLIC"), name("TWICE")] }),
+    registry: registry({ location: [name("TWICE")], tool_option: [name("PUBLIC"), name("TWICE")] }),
     declared: new Set([name("PUBLIC")]),
     paths,
   });
   assert.deepEqual(result.findings, [
     `${name("PUBLIC")} is a declared public input; remove it from roles.tool_option`,
-    `${name("TWICE")} is registered as both mode_switch and tool_option`,
+    `${name("TWICE")} is registered as both location and tool_option`,
   ]);
 });
 

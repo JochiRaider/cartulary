@@ -46,6 +46,12 @@ func (r ReportRenderer) Produce() error {
 		return fmt.Errorf("the confinement launcher: %w", err)
 	}
 	argv := []string{r.Node, "tools/report-renderer/build-runtime.mjs"}
+	if r.Controls.Disable {
+		argv = append(argv, "--no-cache")
+	}
+	if r.Controls.Force {
+		argv = append(argv, "--force")
+	}
 	if r.Wrap != nil {
 		argv = r.Wrap(argv)
 	}
