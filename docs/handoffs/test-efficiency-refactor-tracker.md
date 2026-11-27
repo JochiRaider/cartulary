@@ -1379,6 +1379,7 @@ Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-am
 | 2026-11-26 | P5-3e step 1 | The harness command entry: every graph target's recipe is the Node runtime and one entry call, which admits the inputs in process, produces the target's producers and launches the graph with the environment Make used to assemble; renderer and entry share one input module | `p109-generate2`, `p110` (segment), `p111`, `p112-check01` | Pass. `p112-check01` passed all 1,899 rows in a 559 s graph; a one-row slice takes 0.9 s (1.24 s). Go rows ran 5 to 10% slower than in `p103`, but the same slice is as slow at the pre-P5-3d commit: the machine, not this work (14.32) |
 | 2026-11-26 | P5-3e step 2 | The step commands, Node and owner tools and bootstrap run through the command entry: 62 of 74 public recipes are the Node runtime and one entry call; help, the Markdown lint, the run-status tool, UI review and cleanup stay in Make; the entry writes the target through `run_context` | `p116` (segment), `p117`, `p118-check01` | Pass. `p118-check01` passed all 1,899 rows in a 567 s graph. One `reference_pack_package` failure in `p116` (the destination's migration gate) did not reproduce (14.32) |
 | 2026-11-26 | P5-3e step 3 | Make parses once: each managed recipe takes shared admission for its own command, and the admitted launcher readies Node before the entry; every entry target is one rule with one call; the entry sets target exports; the dead renderer branches and four recipe types go. Fixes a P5-3d fixture regression in a `full`-tier row | `p120` (segment), `p121` (owner slices, 70 rows), `p122-check01` | Pass. `p122-check01` passed all 1,899 rows in a 570 s graph; `make help` takes 8 ms (37 ms) (14.32) |
+| 2026-11-27 | P4-7 (in progress) | Segments for the `ci`-only rows; the paired `check`; two failed `ci` runs and their four defects: Find navigation during a follow-up rescan (`5b50fefb7`), Vitest teardown attribution and three cleanup-test races (`e02cece8b`), and admitted Timeline actions cancelled by presentation detachment (`6bd99b2e5`) | `p123` (segment), `p47-check01`, `p47-check02`, `p47-ci01`, `p47-ci02`; `p124`, `p125`, `p129`; `p130` to `p136` | The `check` pair passed all 1,899 rows in 538 s and 544 s graphs. Both `ci` runs failed; each defect is fixed and proven on segments and under stress. The paired runs repeat on the final commit (13.16) |
 | 2026-11-25 | P4-4 / G39 | Wait audit: 31 whole-test hang guards derive from the test deadline (`testdeadline`) | `p44-port-*` (16 owner slices, every row holding a converted guard) | Pass. Committed `bdd8f4e1d` |
 
 ## 12. Phase 2 Plan — `check` Wall Clock
@@ -2677,23 +2678,60 @@ so the `ci`-only rows were proven on segments first.
     a fixed 30 s spawn guard, was wrong and was reverted.
   - **`module.workbook.accessibility.timeline_capture_actions`.** Confirm on
     a reviewed Timeline supersession reported "needs another review. No
-    action was sent" (`preparation_failed`) within 300 ms. The preparation's
-    replacement-row read returned 200. The binding then checks several
-    things, and the trace records none of them, so the failed check is
-    unknown:
-    - the editor's origin and its generation;
-    - the open inspector and selected row;
-    - drafts and pending history;
-    - the row versions.
+    action was sent" (`preparation_failed`).
+    - **Cause: a product defect.** Confirm admits the action. The owner
+      reserves it, and Recovery lists it as in progress. Preparation then
+      waits for earlier saves and reads the replacement row. Afterwards it
+      re-checked the presentation:
+      - the inspector still open, with the same origin and selection;
+      - the editor still showing the review.
 
-    Earlier in the same test, the same preparation passed after Review.
-    Between the two came viewport changes, 200% zoom, text spacing and an
-    axe audit. The row passed 10 of 10 under mixed load (`p125`) and in
-    `p47-ci01` and `p123`. Undiagnosed.
+      The test opens Recovery right after Confirm, and opening Recovery
+      detaches the inspector. In `p47-ci02` the replacement read took 78 ms,
+      and the Recovery click came 76 ms after Confirm, inside the read. Core
+      03 forbids cancelling here. REQ-03-100: a presentation attachment
+      supplies presentation effects, not the lifetime of admitted work.
+      REQ-03-311: opening another destination must not cancel an admitted
+      operation.
+    - **Diagnosis (`p130`).** Temporary instrumentation named each failed
+      check. A reproduction delayed the read by 400 ms and failed the same
+      way. Authority, generation, review, versions, the committed row and
+      the replacement all passed. Only the presentation checks failed: the
+      inspector had closed, the origin had changed and the editor's review
+      was gone.
+    - **Fix (`6bd99b2e5`).**
+      - Admission still requires the presentation to show the review.
+      - A Review press admits nothing, so its preparation stays bound to
+        the presentation.
+      - After admission, preparation checks only authority, generation, row
+        versions, drafts, pending History and that the surface is mounted
+        and readable.
+
+      The owner test's selection case had expected a selection change after
+      admission to cancel the action; it now expects dispatch. The shell
+      test "fences a changed inspector selection" is renamed for what it
+      verifies: the newer selection is kept while the stale action fails on
+      its row version.
+    - **Tests.** A jsdom regression holds the replacement read, opens
+      Recovery and expects the supersession to be sent and acknowledged.
+      That regression and the owner case both fail without the fix (`p131`).
+    - **Proof.**
+      - **Segment (`p132`, `p134`).** These passed:
+        - frontend lint, types and the generated and catalog checks;
+        - the four capture Vitest rows and the shell row;
+        - the accessibility and visual capture rows;
+        - seven Timeline capture and supersession browser rows.
+      - **The reproduction (`p135`).** With the fix, the 400 ms
+        reproduction passes.
+      - **Stress (`p136`).** The row passes `REPEAT=10` under mixed load.
+    - **Known gaps.** Not in this change:
+      - Mention resolution has the same presentation-bound preparation.
+      - Both owners still end preparation when the Timeline surface
+        unmounts, because preparation reads surface-scoped ports.
 - **Remaining.**
-  - Decide how to handle the Timeline capture failure.
-  - Run the paired `check` and paired `ci` on the final commit: the Vitest
-    fix changes every Vitest row.
+  - Run the paired `check` and paired `ci` on the final commit. The Vitest
+    fix changes every Vitest row, and the capture fix changes the Timeline
+    frontend.
   - Refresh Section 3.
 
 ## 14. Phase 5 Proposal — Flat Catalog and Thin Make
