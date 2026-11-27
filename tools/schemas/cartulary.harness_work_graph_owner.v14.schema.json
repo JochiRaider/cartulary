@@ -483,9 +483,6 @@
               "success_summary": {
                 "type": "boolean"
               },
-              "graph_child_skips_prerequisites": {
-                "type": "boolean"
-              },
               "runtime_readiness": {
                 "const": "installed_only"
               },

@@ -1513,7 +1513,7 @@ start_backend_ready() {
     return "${backend_start_status}"
   fi
 
-  run_step_command --timing-bucket server_startup "browser-e2e startup backend ready" browser_wait_backend_ready
+  browser_wait_backend_ready
   BACKEND_READY_AT="$(step_now_utc)"
   if [[ "${SESSION_MODE}" != "reset" ]]; then
     record_startup_event "backend_ready" "backend ready at ${API_ORIGIN}"
@@ -1726,19 +1726,19 @@ main() {
     return 1
   fi
 
-  run_step_command --timing-bucket setup "browser-e2e allocate ports" resolve_owned_stack_ports || return $?
-  run_step_command --timing-bucket setup "browser-e2e prepare test route token" prepare_test_route_token || return $?
+  resolve_owned_stack_ports || return $?
+  prepare_test_route_token || return $?
   AUTH_MASTER_KEY="$(dd if=/dev/urandom bs=32 count=1 status=none | base64 | tr -d '\n')"
 	REVISIONS_CONFLICT_TOKEN_SECRET="$(dd if=/dev/urandom bs=32 count=1 status=none | base64 | tr '+/' '-_' | tr -d '=\n')"
-  run_step_command --timing-bucket frontend_startup "browser-e2e validate frontend preview artifact" require_frontend_preview_artifacts || return $?
+  require_frontend_preview_artifacts || return $?
 
-  run_step_command --timing-bucket service_wait "browser-e2e startup services" browser_start_services || return $?
-  run_step_command --timing-bucket migration "browser-e2e startup database" browser_prepare_database || return $?
+  browser_start_services || return $?
+  browser_prepare_database || return $?
   prepare_browser_tls || return $?
   write_backend_restart_secrets || return $?
   mark_backend_generation 1 "${CARTULARY_BROWSER_COHORT_LABEL:-unassigned}" || return $?
   start_backend_ready || return $?
-  run_step_command --timing-bucket frontend_startup "browser-e2e startup frontend ready" start_frontend_preview_ready "${pnpm_bin}" || return $?
+  start_frontend_preview_ready "${pnpm_bin}" || return $?
   FRONTEND_READY_AT="$(step_now_utc)"
   record_startup_event "frontend_ready" "frontend ready at ${PUBLIC_ORIGIN}"
   run_timing_span "setup" "browser-e2e finalize startup diagnostics" finalize_startup_ready || return $?

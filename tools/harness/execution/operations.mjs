@@ -114,24 +114,27 @@ function artifactInvocations(operationID, execution, env, environment) {
 // Installation is a single lifecycle operation: its artifacts are made or
 // produced, then an optional acquisition action runs. It never schedules
 // graph work.
-export function buildOperationSequence(owner, operationID, environment) {
+// capture is true only when this process owns the operation's output and
+// result, as bootstrap and agent-finalize do. A graph unit or another executor
+// owns them itself, so its commands run bare.
+export function buildOperationSequence(owner, operationID, environment, { capture = true } = {}) {
   const operation = operationDefinition(owner, operationID);
   const { execution } = operation;
-  if (!["artifact_binding", "installation"].includes(execution.type)) return [buildOperationInvocation(owner, operationID, environment)];
+  if (!["artifact_binding", "installation"].includes(execution.type)) return [buildOperationInvocation(owner, operationID, environment, { capture })];
   const artifacts = artifactInvocations(operationID, execution, operationEnvironment(operation, environment), environment);
   if (execution.type === "artifact_binding" || !execution.command) return artifacts;
   const command = { operations: { [operationID]: { ...operation, execution: { ...execution, type: "step_command" } } } };
-  return [...artifacts, buildOperationInvocation(command, operationID, environment)];
+  return [...artifacts, buildOperationInvocation(command, operationID, environment, { capture })];
 }
 
-export function buildOperationInvocation(owner, operationID, environment) {
+export function buildOperationInvocation(owner, operationID, environment, { capture = true } = {}) {
   const { execution, report_key: reportKey } = operationDefinition(owner, operationID);
   const env = operationEnvironment({ execution, report_key: reportKey }, environment);
   if (execution.type !== "step_command") {
     throw new Error(`${operationID}: ${execution.type} requires a typed tool invocation`);
   }
   const argv = operationArgv(operationID, execution, environment);
-  if (execution.mode === "run_step") {
+  if (execution.mode === "run_step" && capture) {
     if (!environment.RUN_STEP_SCRIPT) throw new Error("missing operation binding RUN_STEP_SCRIPT");
     return { command: "bash", args: [environment.RUN_STEP_SCRIPT, execution.step_label, "--", ...argv], env };
   }

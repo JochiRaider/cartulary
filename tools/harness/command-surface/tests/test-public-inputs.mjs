@@ -149,7 +149,7 @@ test("bootstrap admits a closed selector before installing Node and dispatches o
     ["GO_CACHE_DIR", "GO_MOD_CACHE_DIR", "GO_TMP_DIR"].map((name) => `${name} := ${path.join(scratch, name)}\n`).join("") +
     `RUN_ADMITTED := bash ${path.join(root, "tools/harness/workspace/admission.sh")} run --\nTASK_SURFACE_COMMAND_ENTRY := bash ${path.join(root, "tools/harness/command-surface/command-entry.sh")}\n`);
   const env = { ...process.env };
-  for (const key of ["MAKEFLAGS", "MAKEOVERRIDES", "MFLAGS", "GNUMAKEFLAGS", "CARTULARY_TEST_TARGET", "CARTULARY_HARNESS_SKIP_PREREQUISITES"])
+  for (const key of ["MAKEFLAGS", "MAKEOVERRIDES", "MFLAGS", "GNUMAKEFLAGS", "CARTULARY_TEST_TARGET"])
     delete env[key];
   const invoke = (args, overrides = {}) => spawnSync("make", ["--silent", "--no-print-directory", "-f", file, "bootstrap", ...args], { cwd: scratch, env: { ...env, ...overrides }, encoding: "utf8", timeout: 10000 });
   for (const args of [["PART="], ["PART=unknown"], ["PART=node frontend"], ["PART=$(shell touch injected)"], ["UNDECLARED=1"]]) {
@@ -193,10 +193,14 @@ if(stage==='wrapper'){const args=process.argv.slice(process.argv.indexOf('--')+1
   const recorded = path.join(scratch, "entry.json");
   const entryNode = path.join(scratch, "node");
   writeFileSync(entryNode, `#!${process.execPath}\nrequire('node:fs').writeFileSync(${JSON.stringify(recorded)}, JSON.stringify({ args: process.argv.slice(2), env: process.env }));\n`, { mode: 0o700 });
+  // The Node runtime is a fixture, so its producer is a stand-in that does nothing.
+  const entryGo = path.join(scratch, "go");
+  writeFileSync(entryGo, "#!/bin/sh\nexit 0\n", { mode: 0o700 });
   const file = path.join(scratch, "Makefile");
   writeFileSync(file, `${renderTaskSurfaceMakeRuntime(manifest)}
 ${renderTaskSurfaceMake(manifest)}
 NODE_BIN := ${entryNode}
+GO := ${entryGo}
 RUN_ADMITTED := bash ${path.join(root, "tools/harness/workspace/admission.sh")} run --
 TASK_SURFACE_COMMAND_ENTRY := bash ${path.join(root, "tools/harness/command-surface/command-entry.sh")}
 `);
@@ -204,8 +208,6 @@ TASK_SURFACE_COMMAND_ENTRY := bash ${path.join(root, "tools/harness/command-surf
   const env = { ...process.env };
   for (const key of ["MAKEFLAGS", "MAKEOVERRIDES", "MFLAGS", "GNUMAKEFLAGS", "CARTULARY_TEST_TARGET"])
     delete env[key];
-  // The Node runtime is a fixture: the launcher skips its producer.
-  env.CARTULARY_HARNESS_SKIP_PREREQUISITES = "1";
   execFileSync("make", ["--silent", "--no-print-directory", "-f", file, "test-run-recover", ...["RESULTS_DIR", "RUNTIME_ROOT", "RUNTIME_LEASE_ID"].map((key, index) => `${key}=${values[index]}`)], { cwd: scratch, env, encoding: "utf8", timeout: 10000 });
   const call = JSON.parse(readFileSync(recorded, "utf8"));
   assert.deepEqual(call.args, [path.join(root, "tools/harness/command-surface/command-entry.mjs"), "test-run-recover"]);

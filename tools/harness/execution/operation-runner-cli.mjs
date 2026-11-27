@@ -9,9 +9,14 @@ import { buildMakeNodeToolInvocation, buildMakeNodeToolChildEnv } from "../comma
 
 // Executes exactly one already-scheduled operation. It never acquires graph
 // dependencies or starts another graph. Cancellation belongs to the native owner.
+// By default its caller (a graph unit or another executor) owns the output and
+// the result, so the commands run bare. --report makes this process the owner:
+// step commands run under the step runner and a target summary follows.
 try {
-  const [operationID, ...extra] = process.argv.slice(2);
-  if (!operationID || extra.length) throw new Error("usage: operation-runner-cli.mjs <operation-id>");
+  const argv = process.argv.slice(2);
+  const report = argv[0] === "--report";
+  const [operationID, ...extra] = report ? argv.slice(1) : argv;
+  if (!operationID || extra.length) throw new Error("usage: operation-runner-cli.mjs [--report] <operation-id>");
   const owner = readOperationOwner(process.cwd());
   const operation = operationDefinition(owner, operationID);
   if (process.env.CARTULARY_OPERATION_DIGEST && process.env.CARTULARY_OPERATION_DIGEST !== operationExecutionDigest(operation)) {
@@ -25,7 +30,7 @@ try {
     const tool = buildMakeNodeToolInvocation(recipe.tool_id, env);
     invocations = [{ command: process.execPath, args: [tool.script, ...tool.args], env: buildMakeNodeToolChildEnv(recipe.tool_id, env) }];
   } else {
-    invocations = buildOperationSequence(owner, operationID, environment);
+    invocations = buildOperationSequence(owner, operationID, environment, { capture: report });
   }
   let status = 0;
   for (const invocation of invocations) {
@@ -35,7 +40,7 @@ try {
     status = child.status ?? 1;
     if (status !== 0) break;
   }
-  if (status === 0 && (recipe.success_summary || recipe.type === "artifact_binding" && recipe.test_target === "self")) {
+  if (report && status === 0 && (recipe.success_summary || recipe.type === "artifact_binding" && recipe.test_target === "self")) {
     const summary = spawnSync(process.execPath, [path.resolve("tools/harness/execution/cartulary-runner-cli.mjs"), "target-summary", operation.report_key, "pass"], { env: invocations.at(-1).env, stdio: "inherit" });
     if (summary.error) throw summary.error;
     status = summary.status ?? 1;

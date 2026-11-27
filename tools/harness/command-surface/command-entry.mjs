@@ -188,9 +188,9 @@ export function bootstrapOperation(target, env, { manifest }) {
 }
 
 // produce runs the producers through the artifact store, as the Make
-// recipe's producer step did; a graph child that skips prerequisites skips it.
+// recipe's producer step did.
 function produce(root, producers, env) {
-  if (producers.length === 0 || env.CARTULARY_HARNESS_SKIP_PREREQUISITES === "1") return 0;
+  if (producers.length === 0) return 0;
   const caches = { GOCACHE: env.GO_CACHE_DIR, GOMODCACHE: env.GO_MOD_CACHE_DIR, GOTMPDIR: env.GO_TMP_DIR };
   for (const directory of Object.values(caches)) mkdirSync(directory, { recursive: true });
   const produceEnv = { ...env, ...caches, CARTULARY_SUPPRESS_CHILD_SUCCESS: "1" };
@@ -229,7 +229,7 @@ export async function runCommandEntry(target, inherited = process.env, root = re
   if (produced !== 0) return produced;
   if (family === "bootstrap") {
     const operation = bootstrapOperation(target, env, { manifest });
-    const status = await run(env.NODE_BIN || process.execPath, [path.join(root, "tools/harness/execution/operation-runner-cli.mjs"), operation], env);
+    const status = await run(env.NODE_BIN || process.execPath, [path.join(root, "tools/harness/execution/operation-runner-cli.mjs"), "--report", operation], env);
     return status === 0 ? targetSummary(target, "pass", env, root) : status;
   }
   const invocation = { graph: graphLaunch, step: stepInvocation, tool: toolInvocation }[family](target, env, { manifest, root });

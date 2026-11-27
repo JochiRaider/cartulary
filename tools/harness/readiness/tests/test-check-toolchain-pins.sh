@@ -429,12 +429,24 @@ fs.writeFileSync(file, `${JSON.stringify(owner, null, 2)}\n`);
 EOF
 git -C "${preflight_dir}" add --all
 preflight_log="${preflight_dir}/toolchain-drift-preflight.log"
+# The source-mutated checkout is not prepared, so its producer runs are a
+# stand-in that does nothing; every other Go command is the real toolchain.
+preflight_go_dir="$(cartulary_harness_mktemp_dir "toolchain-pins-go.XXXXXX")"
+cleanup_paths+=("${preflight_go_dir}")
+preflight_go="${preflight_go_dir}/go"
+real_go="$(command -v "${GO:-go}")"
+cat >"${preflight_go}" <<GO_STANDIN
+#!/usr/bin/env bash
+if [[ "\${1:-}" == run && "\${2:-}" == ./tools/harnessbuild && "\${3:-}" == produce ]]; then exit 0; fi
+exec "${real_go}" "\$@"
+GO_STANDIN
+chmod 0700 "${preflight_go}"
 
 set +e
 env -u CARTULARY_HARNESS_IDENTITY_PREPARED -u CARTULARY_TEST_TARGET \
   CARTULARY_TEST_RESULTS_DIR="${preflight_results_root}" \
   CARTULARY_TEST_RUN_ID="${preflight_run_id}" \
-  CARTULARY_HARNESS_SKIP_PREREQUISITES=1 \
+  GO="${preflight_go}" \
   NODE_BIN="${NODE_BIN}" \
   make --no-print-directory -C "${preflight_dir}" \
   source-check CHECK=toolchain \

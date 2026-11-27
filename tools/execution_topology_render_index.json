@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 3,
-  "input_digest": "sha256:27d77b06f56182520d631d90348c04e09c6be7f3cc9304e277818ababfe92692",
+  "input_digest": "sha256:ac8fca47726cdb59eae7156d902e7c0693259485a7f8c2c81931ae8647905bf8",
   "inputs": [
     {
       "path": "contracts/performance/ac003.v2.json",
@@ -617,7 +617,7 @@
     {
       "path": "tools/harness/browser/review-recipes.mjs",
       "role": "renderer_source",
-      "hash": "sha256:16f6be5dc97a7c7188dd377f5c8eeeca186498ed9228775739c8254948c25462"
+      "hash": "sha256:f300e2ffc2f346ac58b319f333656f144a1b71dcdd422fe27b0a5fb6839c0bde"
     },
     {
       "path": "tools/harness/browser/server-log-retention.mjs",
@@ -892,7 +892,7 @@
     {
       "path": "tools/harness/contract/runner-context.mjs",
       "role": "renderer_source",
-      "hash": "sha256:e4396ddb7e81dae188cd165d984c9f599e9e5c7d6b5df335af352b2221eac109"
+      "hash": "sha256:b0848faa2717bed6622bfb1f55475e247bac46ad5fa5ee38978f86758c3fdc40"
     },
     {
       "path": "tools/harness/contract/runtime-binary-registry.mjs",
@@ -922,7 +922,7 @@
     {
       "path": "tools/harness/execution/cartulary-runner-cli.mjs",
       "role": "renderer_source",
-      "hash": "sha256:ff0fb2088e47232ee0ad97cc9249e509b5aa9c7fa17a1fed2425afcf54ffe9fe"
+      "hash": "sha256:6eaa917594f220cbe8ffda26edbfd2d4d7ae0624d91f23f736b46b6d9a94e1ad"
     },
     {
       "path": "tools/harness/execution/catalog-check-cli.mjs",
@@ -932,12 +932,12 @@
     {
       "path": "tools/harness/execution/operation-runner-cli.mjs",
       "role": "renderer_source",
-      "hash": "sha256:f09017c3a7ef94e02a86442550a47158464606069470878403b81863f2b09a37"
+      "hash": "sha256:9b778e2fc24e14f5df6c265f1497fed22a06575c0b899a3218217ff7842222a3"
     },
     {
       "path": "tools/harness/execution/operations.mjs",
       "role": "renderer_source",
-      "hash": "sha256:4fae91b00c02364d62e5b867d748a0e0df32a41f7d41ffdbb690ba1457a5ec3f"
+      "hash": "sha256:e902b046089fa8c0c878ca897fd8119a2ae5277f175d428338e93dfd608bf919"
     },
     {
       "path": "tools/harness/execution/producers.mjs",

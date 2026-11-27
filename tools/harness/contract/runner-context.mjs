@@ -53,7 +53,6 @@ export function createRunnerContext(options = {}) {
     goTmpDir: machineState.GO_TMP_DIR.value,
     makeBin: process.env.MAKE_BIN || process.env.MAKE || "make",
     runnerScript: envPath("CARTULARY_RUNNER_SCRIPT", "tools/harness/execution/cartulary-runner-cli.mjs", repoRoot),
-    runStepScript: envPath("RUN_STEP_SCRIPT", "tools/harness/execution/run-step.sh", repoRoot),
     schedulerManifest: envPath(
       "SCHEDULER_MANIFEST",
       "tools/scheduler_manifest.json",

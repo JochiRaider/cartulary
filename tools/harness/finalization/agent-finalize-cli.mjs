@@ -416,7 +416,7 @@ async function runOperationSubstep(definition, substep) {
   Object.assign(childEnv, definition.makeVars ?? {});
   const result = await captureFinalizationSubstep({
     command: process.execPath,
-    args: [path.join(repoRoot, "tools/harness/execution/operation-runner-cli.mjs"), operationID],
+    args: [path.join(repoRoot, "tools/harness/execution/operation-runner-cli.mjs"), "--report", operationID],
     repoRoot, runRoot: runRootAbs(), env: childEnv,
     logDirectory: childStepDir(definition.target),
   });

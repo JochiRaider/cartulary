@@ -3,8 +3,7 @@
 # under workspace admission with each public input's value and origin. It
 # readies the Node runtime, then runs the harness command entry.
 #
-#   install    produce the pinned Node runtime, unless a graph child skips
-#              prerequisites;
+#   install    produce the pinned Node runtime;
 #   installed  require the installed runtime.
 set -euo pipefail
 
@@ -12,12 +11,10 @@ root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../.." && pwd)"
 [[ $# == 2 && -n "$2" ]] || { echo 'usage: command-entry.sh install|installed <target>' >&2; exit 2; }
 case "$1" in
   install)
-    if [[ "${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != 1 ]]; then
-      mkdir -p -- "$GO_CACHE_DIR" "$GO_MOD_CACHE_DIR" "$GO_TMP_DIR"
-      (cd -- "$root" && env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \
-        GOCACHE="$GO_CACHE_DIR" GOMODCACHE="$GO_MOD_CACHE_DIR" GOTMPDIR="$GO_TMP_DIR" \
-        "${GO:-go}" run ./tools/harnessbuild produce node-runtime)
-    fi
+    mkdir -p -- "$GO_CACHE_DIR" "$GO_MOD_CACHE_DIR" "$GO_TMP_DIR"
+    (cd -- "$root" && env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \
+      GOCACHE="$GO_CACHE_DIR" GOMODCACHE="$GO_MOD_CACHE_DIR" GOTMPDIR="$GO_TMP_DIR" \
+      "${GO:-go}" run ./tools/harnessbuild produce node-runtime)
     ;;
   installed)
     [[ -x "$NODE_BIN" ]] || { echo 'installed Node runtime required; run make bootstrap PART=node' >&2; exit 2; }

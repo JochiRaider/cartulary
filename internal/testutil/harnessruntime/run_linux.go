@@ -239,7 +239,7 @@ func RunWithOptions(ctx context.Context, root, binary string, args, environment 
 	// exact retained resource references when it extends this environment.
 	maps.Copy(child, runcontext.ResourceDependencies(nil))
 	runcontext.Context{ResultsDir: results, RunID: runID}.Apply(child)
-	for _, k := range []string{"CARTULARY_HARNESS_GRAPH_CHILD", "CARTULARY_HARNESS_IDENTITY_PREPARED", "CARTULARY_HARNESS_SKIP_PREREQUISITES", "CARTULARY_SUPPRESS_CHILD_SUCCESS"} {
+	for _, k := range []string{"CARTULARY_HARNESS_IDENTITY_PREPARED", "CARTULARY_SUPPRESS_CHILD_SUCCESS"} {
 		child[k] = "1"
 	}
 	// A nested graph cannot inherit its parent's event authority. Each launch

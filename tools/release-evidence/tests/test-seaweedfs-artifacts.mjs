@@ -182,16 +182,9 @@ test("SeaweedFS compatibility requires both exact current artifacts without hist
   const current = readCurrentSeaweedfsCompatibility(context);
   assert.deepEqual(current.report, report()); assert.deepEqual(current.unit, unit());
   assert.deepEqual(current.evidence_refs, ["unit-results/operation-harness.seaweedfs_compatibility.json", "seaweedfs-compatibility/object-store-compatibility-report.json"]);
-  const oldSkip = process.env.CARTULARY_HARNESS_SKIP_PREREQUISITES;
-  try {
-    process.env.CARTULARY_HARNESS_SKIP_PREREQUISITES = "1";
-    assert.deepEqual(readCurrentSeaweedfsCompatibility(context), current, "completed canonical evidence determines qualification");
-    fs.unlinkSync(path.join(root, current.evidence_refs[0]));
-    assert.throws(() => readCurrentSeaweedfsCompatibility(context), /admission failed/u, "environment cannot invent missing evidence");
-  } finally {
-    if (oldSkip === undefined) delete process.env.CARTULARY_HARNESS_SKIP_PREREQUISITES;
-    else process.env.CARTULARY_HARNESS_SKIP_PREREQUISITES = oldSkip;
-  }
+  assert.deepEqual(readCurrentSeaweedfsCompatibility(context), current, "completed canonical evidence determines qualification");
+  fs.unlinkSync(path.join(root, current.evidence_refs[0]));
+  assert.throws(() => readCurrentSeaweedfsCompatibility(context), /admission failed/u, "missing canonical evidence cannot qualify");
 });
 
 test("SeaweedFS summary keeps policy inventory distinct and blocks every missing or failed boundary", () => {

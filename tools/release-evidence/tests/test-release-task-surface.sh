@@ -38,7 +38,7 @@ try {
       if (bytes !== null) writeFileSync(file, bytes);
       // Execute only the already-scheduled consumer. A warm inventory cache must
       // neither repair malformed evidence nor create a missing artifact.
-      const invocation = buildOperationInvocation(owner, operation, { ...env, NODE_BIN: process.execPath, RUN_STEP_SCRIPT: path.resolve('tools/harness/execution/run-step.sh'), CARTULARY_HARNESS_GRAPH_CHILD: '1', LICENSE_REPORT_ARTIFACT: file, SBOM_ARTIFACT: file });
+      const invocation = buildOperationInvocation(owner, operation, { ...env, NODE_BIN: process.execPath, LICENSE_REPORT_ARTIFACT: file, SBOM_ARTIFACT: file }, { capture: false });
       const result = spawnSync(invocation.command, invocation.args, { env: invocation.env, encoding: 'utf8' });
       assert.ifError(result.error);
       assert.equal(result.status === 0, scenario === 'valid', `${label} ${scenario}: ${result.stderr}`);

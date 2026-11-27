@@ -91,7 +91,7 @@ test("package evidence is a strict bounded no-link snapshot and publication pres
 
 test("package run context requires exact current typed evidence", t => {
  const parent = createScratch(t, "cartulary-package-current-");
- const env = { CARTULARY_TEST_RESULTS_DIR: parent, CARTULARY_TEST_RUN_ID: "package-fixture", CARTULARY_HARNESS_GRAPH_CHILD: "1" };
+ const env = { CARTULARY_TEST_RESULTS_DIR: parent, CARTULARY_TEST_RUN_ID: "package-fixture" };
  const runRoot = path.join(parent, env.CARTULARY_TEST_RUN_ID), m = manifest(env.CARTULARY_TEST_RUN_ID);
  assert.throws(() => packageRunContext(env), /admission failed/u);
  writeEvidenceFile(runRoot, "run-manifest.json", m);

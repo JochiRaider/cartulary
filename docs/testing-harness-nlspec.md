@@ -2029,10 +2029,9 @@ Verified by: TH-HARNESS-AC-100
 `.cartulary/release-artifacts/sbom.cyclonedx.json` and
 `.cartulary/release-artifacts/license-report.json` pair. The producer MUST
 publish exactly those two mode-`0644` files as one complete reusable artifact
-set. `sbom` and `license-report` are non-cacheable validation consumers: direct
-invocation first requires the producer, while graph-child invocation relies on
-its explicit producer edge and MUST NOT execute target-local production
-prerequisites. Each consumer still emits fresh current-run evidence.
+set. `sbom` and `license-report` are non-cacheable validation consumers: they
+rely on the producer's explicit graph edge and never produce the inventory
+themselves. Each consumer still emits fresh current-run evidence.
 
 Canonical SBOM and license-report bytes MUST be deterministic for their
 semantic inputs. The SBOM serial identity is derived from a `sha256:<hex>`
@@ -2517,11 +2516,9 @@ Frontend builds are shared build products for browser sessions, bundle-security
 checks, and embedded-asset preparation. Every selected consumer MUST depend on
 the exact profile's canonical producer, including shell rows, direct targets,
 owner slices, and aggregates. Command dependencies declared by the work-graph
-owner apply before graph union and deduplication. Graph-child consumers MUST
-resolve the completed artifact without executing target-local production
-prerequisites. Standalone frontend build and bundle-security commands MUST enter
-the same canonical graph. A skipped Make prerequisite MUST have its equivalent
-producer dependency represented in that graph.
+owner apply before graph union and deduplication. Graph consumers MUST resolve
+the completed artifact without producing it themselves. Standalone frontend
+build and bundle-security commands MUST enter the same canonical graph.
 
 Each run/profile admits exactly one producer through an exclusive private-runtime
 claim acquired before compiler work. A second claim is
@@ -3642,8 +3639,7 @@ recipe runs `tools/harness/command-surface/command-entry.sh` through
 Node readiness precondition, then runs
 `tools/harness/command-surface/command-entry.mjs`:
 
-- it produces the pinned Node runtime, unless a graph child skips
-  prerequisites;
+- it produces the pinned Node runtime;
 - for a target with a command-line selector or installed-only readiness, it
   requires the installed runtime instead.
 
@@ -3653,9 +3649,8 @@ alone knows: each public input's value, raw for a literally transported input
 and expanded otherwise, with its origin in `CARTULARY_MAKE_INPUT_SOURCES`. The
 entry sets the target's own exports, and the target as its run context unless
 a public target invoked it. It runs the shared public preflight in its own
-process and produces the target's registered producers, unless a graph child
-skips prerequisites. It then runs the target with the process tree and
-environments its recipe assembled:
+process and produces the target's registered producers. It then runs the
+target with the process tree and environments its recipe assembled:
 
 - a graph target launches the graph with every public input stripped except
   its forwarded inputs, each with its origin, and with the resolved
@@ -6780,12 +6775,14 @@ that bound and digest. Runtime-binary, readiness, migration, fixture, browser,
 reset, evidence, and finalizer relationships are exact graph producer edges;
 ambient Make order and recursive prerequisites are not execution topology.
 
-A Make child selected as a graph unit receives prepared run identity and may
-skip only prerequisites already represented by exact graph dependencies. Direct
-public invocation retains its normal prerequisites. The graph runner owns child
+A graph unit runs its operation's commands bare: the graph runner owns child
 stdout/stderr capture, event timing, failure classification, unit results, and
-target projections; a child MUST NOT emit a second scheduler or aggregate
-summary for the same interval.
+target projections, and a unit MUST NOT emit a second scheduler or aggregate
+summary for the same interval (amended 2026-11-27, P6-2). The operation runner
+owns an operation's capture and target summary only when its caller passes
+`--report`, as bootstrap and agent-finalize do. No unit or child process
+changes behavior because of an ambient mode switch inherited from its parent;
+an executor passes behavior as arguments or typed run context.
 
 Estimated work is advisory scheduling input only. It is not a resource claim,
 timeout, benchmark claim, or product performance threshold.
