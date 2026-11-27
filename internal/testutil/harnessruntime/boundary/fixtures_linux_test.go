@@ -24,6 +24,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/JochiRaider/cartulary/internal/testutil/fixtureartifacts"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessadmission"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessfixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
@@ -85,11 +86,11 @@ func testNativeFixturePhysicalLifecycle(t *testing.T, variants []string) {
 	if node == "" {
 		t.Fatal("Make-owned Node required")
 	}
-	results := os.Getenv("CARTULARY_TEST_RESULTS_DIR")
-	if !filepath.IsAbs(results) {
-		results = filepath.Join(root, results)
+	unit, err := fixtureartifacts.SelectedUnitRoot()
+	if err != nil {
+		t.Fatal(err)
 	}
-	results = filepath.Join(results, os.Getenv("CARTULARY_TEST_RUN_ID"), "physical-fixtures")
+	results := filepath.Join(unit, "physical-fixtures")
 	for _, variant := range variants {
 		t.Run(variant, func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)

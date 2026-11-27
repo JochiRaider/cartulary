@@ -20,7 +20,10 @@ try {
   mkdirSync(fixture, { recursive: true, mode: 0o700 });
   mkdirSync(groupedFixture, { recursive: true, mode: 0o700 });
   const runRoot = path.resolve(root, process.env.CARTULARY_TEST_RESULTS_DIR, process.env.CARTULARY_TEST_RUN_ID);
-  const output = path.join(runRoot, "vitest-diagnostics-contract", randomUUID());
+  // Test evidence lives in the executing unit's directory (TH-HARNESS-REQ-874).
+  const unitRoot = process.env.CARTULARY_STEP_ARTIFACT_DIR ?? "";
+  if (path.dirname(unitRoot) !== path.join(runRoot, "unit-artifacts")) throw new Error("vitest diagnostics contract requires its unit directory");
+  const output = path.join(unitRoot, "vitest-diagnostics-contract", randomUUID());
   mkdirSync(output, { recursive: true, mode: 0o700 });
   ownedRuntime = process.env.CARTULARY_HARNESS_SUITE_RUNTIME_ROOT ? null : createRuntime({ repoRoot: root, runRoot, runID: process.env.CARTULARY_TEST_RUN_ID });
   const fixtureEnvironment = { ...process.env, ...(ownedRuntime ? {

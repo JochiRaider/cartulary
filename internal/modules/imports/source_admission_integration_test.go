@@ -133,7 +133,7 @@ func sourceAdmissionHarness(t *testing.T, overrides map[string]string) (*appsupp
 	timing := &sourceAdmissionTiming{}
 	if t.Name() == networkFlowDefaultLimitTestName {
 		t.Cleanup(func() {
-			root, err := fixtureartifacts.SelectedRunRoot()
+			root, err := fixtureartifacts.SelectedUnitRoot()
 			if err != nil {
 				t.Error(err)
 				return

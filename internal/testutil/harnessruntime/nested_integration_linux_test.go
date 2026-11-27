@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/JochiRaider/cartulary/internal/testutil/fixtureartifacts"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
@@ -30,14 +31,12 @@ func TestRuntimeNestedServiceCancellation(t *testing.T) {
 	defer func() { settle(clean) }()
 	_, file, _, _ := runtime.Caller(0)
 	root := filepath.Clean(filepath.Join(filepath.Dir(file), "../../.."))
-	results, outer := os.Getenv("CARTULARY_TEST_RESULTS_DIR"), os.Getenv("CARTULARY_TEST_RUN_ID")
-	if results == "" || outer == "" {
-		t.Fatal("Make-owned retained identity required")
+	// Nested runs retain under this unit's own directory (TH-HARNESS-REQ-874).
+	unit, err := fixtureartifacts.SelectedUnitRoot()
+	if err != nil {
+		t.Fatal("Make-owned retained identity required: ", err)
 	}
-	if !filepath.IsAbs(results) {
-		results = filepath.Join(root, results)
-	}
-	results = filepath.Join(results, outer, "nested-cancellation")
+	results := filepath.Join(unit, "nested-cancellation")
 	for _, mode := range []string{"summary", "machine", "summary-startup"} {
 		if !t.Run(mode, func(t *testing.T) {
 			// Builds share the test's pinned Go environment, so a nested launch

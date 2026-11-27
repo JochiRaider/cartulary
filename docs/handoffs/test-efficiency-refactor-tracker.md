@@ -1,6 +1,6 @@
 # Test Execution Efficiency Remediation Plan
 
-**Status.** Active remediation tracker, last updated 2026-11-27. Phase 7 ([Section 16](#16-phase-7-plan--run-root-size-and-wall-time-margin)) is approved (D35 to D41) and under way; P7-0, P7-1 and P7-2a are done (16.6 to 16.8). Phase 6 ([Section 15](#15-phase-6-plan--phase-5-residuals)) is complete and handed off (15.11); Phases 1–5 are closed. Earlier status follows. Phases 1–3 are closed. The Go-planned `check` has run at 593–626 s graph wall since 2026-11-24 (1,341 s at the 2026-11-22 baseline). The release redesign took quiet measurement out of `ci`, which now runs in 1,618–1,735 s (3,279 s in `ws1-ci01`). Phase 4 ([Section 13](#13-phase-4-plan--daily-check-and-ci)) is the active plan. It targets the two commands used to validate everyday changes, `check` and `ci`, and the stability of `ci`, which passed 3 of its last 11 runs.
+**Status.** Active remediation tracker, last updated 2026-11-27. Phase 7 ([Section 16](#16-phase-7-plan--run-root-size-and-wall-time-margin)) is approved (D35 to D41) and under way; P7-0 to P7-2 are done (16.6 to 16.9). Phase 6 ([Section 15](#15-phase-6-plan--phase-5-residuals)) is complete and handed off (15.11); Phases 1–5 are closed. Earlier status follows. Phases 1–3 are closed. The Go-planned `check` has run at 593–626 s graph wall since 2026-11-24 (1,341 s at the 2026-11-22 baseline). The release redesign took quiet measurement out of `ci`, which now runs in 1,618–1,735 s (3,279 s in `ws1-ci01`). Phase 4 ([Section 13](#13-phase-4-plan--daily-check-and-ci)) is the active plan. It targets the two commands used to validate everyday changes, `check` and `ci`, and the stability of `ci`, which passed 3 of its last 11 runs.
 
 **Phase 1–3 history (2026-11-23).** All phase-1 work is committed. Phase 2 ([Section 12](#12-phase-2-plan--check-wall-clock)) landed G7 and G6; G6 brought the `check` graph wall from 1,022–1,157 s to under 900 s. In G17 (phase 3), G17b and G17c landed, G17a was not adopted, and disk stall was identified as the contention the failing tests hit. G17f withdrew A17 and added A18 (WAL compression, −22% container writes), and G17g bounded test-side waits by the test deadline. G17 is closed. G27 (heavy-row test work) is done: graph wall 800–840 s, the best recorded. G28 measured the disk flushes and, with owner-approved options A (session slides persist at most once a minute on every route) and C (Go test temp work in RAM), cut heavy work 14–27% and brought the graph wall to 702–710 s, the best recorded. The run now ends with a late-starting Vitest cohort (G29). `make distclean` on 2026-11-22 deleted every retained run, so the run IDs in Section 11 before that date are a record, not retrievable evidence.
 
@@ -1400,6 +1400,7 @@ Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-am
 | 2026-11-27 | P7-0 | Post-graph time split; readers of wait events and of raw Playwright, Fallow and fixture output inventoried; the 16.1 scan inference corrected | `p7-0-split-check` (timed runtime), scan copies of `p6-6-check02` and `p6-6-ci04` | Recorded (16.6) |
 | 2026-11-27 | P7-1 / G56 | Wait segments change only with their reason; `wait_ended` carries bounded attribution; unit events v5 and critical path v6; every reader cut over | Same-run v4-to-v5 conversion of `p6-6-check02` and `p6-6-ci04`; `p7-1-seg-contract`, `p7-1-seg-cmd`, `p7-1-seg-ev`, `p7-1-seg-browser`, `p7-1-check01`, `p7-1-seg-lintgo`, `p7-1-seg-cmd2` | Pass after a format fix. Event log 270 to 3.2 MB, root 317 to 65 MB, 4.5 s outside the graph (16.7) |
 | 2026-11-27 | P7-2a / G57 | `HARNESS_DIAGNOSTICS=raw`; passing cohorts and Fallow keep only normalized evidence; checkpoint removed once the report parses; browser group result v12, Fallow summary v3 | `p7-2a-seg-regression`, `-contract`, `-adapter`, `-uireview`, `-cmd`, `-ev`, `-browser`, `-browser-raw`, `-fallow`, `-fallow-raw` | Pass. Browser slice 13 to 3.1 MB, Fallow 23 to 2.1 MB (16.8) |
+| 2026-11-27 | P7-2b / G58 | Closed run-root top level enforced by the runtime; fixture copies and test evidence under `unit-artifacts/<unit>/`; Node Network Flow comparisons release inputs after a pass; target-less nested steps stay in their enclosing step; the P7-2a registry entry added | `p7-2b-seg-*` (16 segments and their rechecks), `p7-2-check01` | Pass after the registry fix. `check` root 64 MB with only declared entries (16.9) |
 | 2026-11-27 | P6-1, P6-2 / G48, G52, G53 | Release inventory rows in `ci`; four mode switches removed; one became run-context data, two producer arguments, two reclassified; the diagnostic scan race fixed | `p6-1-*`, `p6-2a`, `p6-2b`, `p6-2c`, `p6-2d`, `p6-2e` (segments), `scan-churn`, `p6-2-check01`, `p6-2-check02` | Pass. `p6-2-check02` passed all 1,899 rows in a 579 s graph; the `mode_switch` role is deleted (15.6, 15.7) |
 | 2026-11-25 | P4-4 / G39 | Wait audit: 31 whole-test hang guards derive from the test deadline (`testdeadline`) | `p44-port-*` (16 owner slices, every row holding a converted guard) | Pass. Committed `bdd8f4e1d` |
 
@@ -6490,3 +6491,68 @@ P7-2 is split in two. P7-2a is G57; P7-2b is G58 (16.9).
     v12; both stages keep their reports. No forced producer failure ran
     either: failures keep everything because the code path that removes raw
     output is skipped.
+
+### 16.9 Closed Run-Root Layout (P7-2b, done)
+
+- **Specification.** TH-HARNESS-REQ-874 (new) closes the top level. It holds:
+  - seven run-level files and nine run-level directories;
+  - a directory for each projected target, each unit's report target, and
+    the first component of each declared unit evidence output.
+
+  Everything else a unit writes lives in its own `unit-artifacts/<unit>/`, the
+  directory the runtime already gives every unit in
+  `CARTULARY_STEP_ARTIFACT_DIR`. AC-178 covers it, and the Network Flow
+  fixture row follows.
+- **Placement.** G58 proposed `<run>/<target>/fixtures/`. The unit directory
+  is more exact: a unit, not a target, produces this evidence, and a unit can
+  serve several targets.
+- **One rule in each language.** `fixtureartifacts.SelectedUnitRoot` in Go
+  and `selectedUnitRoot` in Node resolve the directory and reject a missing
+  or foreign one. `SelectedRunRoot` is gone.
+  - Network Flow comparisons in Go and Node now share one contract: they
+    materialize under `fixtures/`, and after a pass they keep the summary
+    with its digests and release inputs and produced bytes. The Node owner
+    used to keep everything after a pass; that was 38 MB per `ci`, 35 MB of
+    it NF-FIX-029.
+  - The IR fixture owner follows the same rule.
+  - Eleven test-level writers move under the unit directory: generic
+    endpoints, job attempts, source-admission passes, scaling evidence,
+    catalog state, revisions paging, physical fixtures, the Vitest
+    diagnostics contract, and three nested-run probes.
+  - Step runtime places a target-less step that runs inside a unit or step
+    of the same run in that enclosing directory. This removes `adhoc/`,
+    which the generated-artifact drift check's render wrote. The
+    same-run condition matters: the run-step assurance runs target-less
+    steps against its own results roots and expects `adhoc/` there.
+- **Enforcement.** After evidence publication the runtime checks the top
+  level (`checkRunRootLayout`) and fails an undeclared entry as
+  `artifact/artifact_error`, naming up to eight. A simulation over the
+  retained `check`, `ci` and `release-check` roots, applying the same rules,
+  found nothing undeclared beyond the writers moved here.
+- **P7-2a correction.** `CARTULARY_HARNESS_RAW_OUTPUT` was missing from the
+  environment registry. P7-2a's segments did not include the registry check,
+  which is a `check` unit; `p7-2-check01` found it, and it is now registered.
+- **Tests.** `TestRunRootLayout` (new) accepts the declared names and rejects
+  a fixture copy, `adhoc` and a test record. The Node fixture-support test
+  checks sealing during the comparison and release after it.
+- **Proof.**
+  - **Segments**, all passing:
+    - the shell and type lints;
+    - owner slices for every Go and Node row that calls a moved helper:
+      `harness.browser`, `module.database_migrations`, `module.imports`,
+      `module.incidentbundles`, `module.networkflow` (with two browser rows,
+      one of them NF-FIX-029), `module.recovery`, `module.reference_data`,
+      `module.revisions`, `module.timeline`, `web.networkflow`,
+      `harness.command_surface` and `harness.generated_artifacts`;
+    - `harness-contract` `SUITE=contract`, `regression` and `execution`;
+    - `source-check` `CHECK=surface` (the registry) and `CHECK=generated`
+      (the drift render, now under its unit).
+
+    No segment root had an undeclared entry. The only retained inputs were
+    the five deliberate failure cases of the Node admission test.
+  - **`p7-2-check01`.** 371 of 372 units passed in a 483 s graph, with a
+    64 MB root. Its top level held only declared entries, and the layout
+    check raised nothing. The one failure was the registry check's two
+    findings: the unregistered name, and a first version of the drift fix
+    that wrote a run-context name from a script. Both were fixed and
+    rechecked alone; no second `check` was run.

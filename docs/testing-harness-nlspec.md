@@ -5444,7 +5444,7 @@ Verified by: TH-HARNESS-AC-135
 | Network Flow audit-assertion-control response        | Network Flow audit-assertion-control route      | Network Flow fixture transcript or target-owned audit-assertion-control dir | `cartulary.test.network_flow_audit_assertion_control.v2`     | Assertion ID, assertion kind, event code, operation ref, actor ref, incident ref, resource kind/ref, baseline count, expected final count, optional correlation key, and `consume_once=true` | Retained only by the target or fixture transcript that arms exact-count or replay-silence assertions; never product audit evidence by itself. |
 | Frontend accessibility summary                       | Browser accessibility target                    | `browser-e2e-a11y/accessibility/frontend-accessibility-summary.json` | `cartulary.frontend_accessibility_summary.v4`                  | Active `rows[]`, `scenarios[]`, `keyboard_matrix[]`, `state_communication_checks[]`, `contrast_checks[]`, `violations[]`, and `artifact_refs[]` in schema-defined order | Retained for browser target.                                 |
 | Release closure                                      | `release-evidence-verify`                       | `release-evidence-verify/closure.json`                              | `cartulary.release_evidence_closure.v2`                        | The three admitted roots (target, run ID, graph digest, row count), source and toolchain digests, package identity and obligation IDs | Retained in the verifier's own invocation root; the release commands publish no readiness projection. |
-| Network Flow fixture manifest                        | Network Flow fixture manifest validator         | `fixtures/network-flow/<fixture_id>/manifest.json`                  | `cartulary.network_flow_fixture_manifest.v2`                   | Fixture identity, source files, expected artifacts, transcript files, per-file SHA-256 values, and aggregate bundle hashes in canonical sorted order | Source fixture roots are committed and immutable after freeze; run-local materializations are retained under the selected target's run root. |
+| Network Flow fixture manifest                        | Network Flow fixture manifest validator         | `fixtures/network-flow/<fixture_id>/manifest.json`                  | `cartulary.network_flow_fixture_manifest.v2`                   | Fixture identity, source files, expected artifacts, transcript files, per-file SHA-256 values, and aggregate bundle hashes in canonical sorted order | Source fixture roots are committed and immutable after freeze; run-local materializations live under the executing unit's `unit-artifacts/<unit>/fixtures/`, keeping inputs and produced bytes only for a failed or blocked comparison (TH-HARNESS-REQ-874). |
 | Generated manifest summaries                         | Generation/drift scripts                        | tool-specific target dirs                                       | JSON schemas declared by generated artifacts                  | Unknown fields rejected where shape tools enforce closure                             | Generated files remain checked in; summaries retained.       |
 | Logs                                                 | Shell, Go, scheduler, browser, service wrappers | target log dirs                                                 | diagnostic-only unless producer declares schema               | Logs are text after redaction; empty logs may be omitted                              | Retained unless cleanup removes result root.                 |
 | Coverage reports                                     | Go/frontend/test tools                          | tool-specific coverage paths                                    | diagnostic-only                                               | No current schema-owned field contract; retained only as tool diagnostic output       | Removed by `make clean` when under registered paths.         |
@@ -7876,6 +7876,33 @@ Rationale: retained data must earn its bytes. Raw reports duplicate normalized
 evidence on success, and raw Playwright reports are secret-bearing.
 
 Verified by: TH-HARNESS-AC-177.
+
+**TH-HARNESS-REQ-874 — Closed run-root layout.**
+A graph run root's top level is a closed set:
+
+- the run-level files `run-manifest.json`, `plan.json`, `unit-events.ndjson`,
+  `run-summary.json`, `retained-secret-scan.json`, `cleanup-results.json` and
+  `error-code-coverage.json`;
+- the run-level directories `_shared`, `diagnostics`, `rows`,
+  `target-summaries`, `unit-artifacts`, `unit-logs`, `unit-results`,
+  `contract-evidence` and `performance-fixtures`;
+- a directory named by a target the plan projects, by the report target in a
+  unit's command, or by the first component of a unit's declared current-run
+  evidence output.
+
+Everything else a unit writes for itself, including fixture materializations,
+test evidence records and the result roots of nested probe runs, lives in its
+own `unit-artifacts/<unit>/`, the directory the runtime names in
+`CARTULARY_STEP_ARTIFACT_DIR`. The fixture owners in Go
+(`fixtureartifacts.SelectedUnitRoot`) and Node (`selectedUnitRoot`) resolve it
+and reject a missing or foreign directory. Network Flow and IR fixture
+comparisons materialize under its `fixtures/`; after a pass they keep their
+comparison summary or record with digests and release the materialized inputs
+and produced bytes, and a failed or blocked comparison keeps them. After
+evidence publication, the runtime rejects any other top-level entry as
+`artifact/artifact_error`, naming it.
+
+Verified by: TH-HARNESS-AC-178.
 
 ### 10.9 Diagnostic coverage and integrity (instrumentation-3)
 
@@ -12207,6 +12234,7 @@ expected behavior. Failure codes below are normalized wrapper codes.
 | TH-HARNESS-AC-175 | REQ-802, REQ-803 | A graph of ready units whose claims and residents exceed the ledger, a cached unit, another owner's older waiting request and exclusive fence, a ledger change by another process, and a graph with no running unit | The scheduler admits only units the ledger view grants with every claim and resident together; a denied unit holds no token and names its deficits or `host_admission`; a cached unit never reaches the ledger; waiters wake on a ledger change; with nothing running the top-ranked fitting unit waits in host admission; PostgreSQL work and generations are each charged once | A token held by a denied unit, a partial grant, a cache hit admitted, a waiter that only polls, or a generation charged twice fails. |
 | TH-HARNESS-AC-176 | REQ-802 | A ready high-ranked unit the ledger denies and lower-ranked units that do and do not claim the resources it lacks | Lower-ranked units claiming none of the reserved resources are admitted; one claiming a reserved resource waits; the high-ranked unit is admitted when its resources free | A backfill that takes a reserved resource or a reservation that blocks unrelated work fails. |
 | TH-HARNESS-AC-177 | REQ-873 | Passing, failing and raw-diagnostics cohorts of each Playwright stage; a report that does not parse; passing, failing and raw-diagnostics Fallow targets | A passing cohort outside `visual` and `measurement` retains no report, checkpoint or Playwright output and records a null report; visual and measurement cohorts and failed cohorts keep them; the checkpoint survives only when the report did not parse; a passing Fallow target keeps only its summary and resolved configurations and records `discarded`; a failure or raw request keeps every raw file | A passing cohort or Fallow target that retains raw output without a raw request, a consumer that reads a removed report, or a failure that loses its raw output fails. |
+| TH-HARNESS-AC-178 | REQ-874 | Retained `check`, `ci` and `release-check` roots; a top-level fixture copy, test record or nested result root; a passing, failing and blocked Network Flow comparison in Go and Node; a unit without its artifact directory | Only declared entries remain at the top level; unit evidence and fixture copies sit under `unit-artifacts/<unit>/`; a pass keeps its summary and releases inputs and produced bytes; a failure or block keeps them; an undeclared entry fails the run as `artifact_error` naming it; a missing unit directory is rejected | An undeclared top-level entry that passes, a pass that retains its materialized inputs, or a failure that loses them fails. |
 
 The numerical image cases MUST include transparent pixels, alpha-only differences,
 one-pixel boundaries, and zero/full changed area. Interface fixtures MUST include
@@ -12286,6 +12314,7 @@ retained evidence keep their separate owner-only permission contract.
 | `TH-HARNESS-REQ-871` | Stress repetition | TH-HARNESS-AC-167 |
 | `TH-HARNESS-REQ-872` | Go row runner | TH-HARNESS-AC-171 |
 | `TH-HARNESS-REQ-873` | Retention by outcome | TH-HARNESS-AC-177 |
+| `TH-HARNESS-REQ-874` | Closed run-root layout | TH-HARNESS-AC-178 |
 | `TH-HARNESS-REQ-858..864` | Runtime contract guards and evidence | TH-HARNESS-AC-008, TH-HARNESS-AC-154, TH-HARNESS-AC-155, TH-HARNESS-AC-156, TH-HARNESS-AC-157, TH-HARNESS-AC-158, TH-HARNESS-AC-159 |
 
 

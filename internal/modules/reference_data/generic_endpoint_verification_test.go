@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data/internal/packformat"
+	"github.com/JochiRaider/cartulary/internal/testutil/fixtureartifacts"
 	"github.com/JochiRaider/cartulary/internal/testutil/referencepackfixture"
-	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 	"github.com/JochiRaider/cartulary/referencepacks/format/canonicaljson"
 	"github.com/JochiRaider/cartulary/referencepacks/format/dataset"
 	"github.com/JochiRaider/cartulary/referencepacks/format/publication"
@@ -53,11 +53,10 @@ func TestGenericSignedEndpointSemantics_Unit(t *testing.T) {
 		}
 		return b
 	}
-	artifactRoot, err := suiteservices.ResolveResultsRoot(nil)
+	artifacts, err := fixtureartifacts.SelectedUnitRoot()
 	if err != nil {
 		t.Fatal("generic endpoint fixture requires Harness artifacts", err)
 	}
-	artifacts := filepath.Join(artifactRoot, suiteservices.ResolveRunID(nil))
 	for _, mode := range []string{"valid", "dangling source", "dangling target", "duplicate relationship", "replacement cycle"} {
 		t.Run(mode, func(t *testing.T) {
 			m, err := packformat.DecodeManifest(read("manifest.json"), true)

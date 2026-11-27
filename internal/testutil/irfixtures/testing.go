@@ -11,19 +11,20 @@ import (
 )
 
 // ForTest records the admitted inputs' digests and an assertion disposition under
-// the already selected harness run, and keeps the admitted copy only when the
-// test fails. The harness row remains the test authority.
+// the executing unit's fixtures directory, and keeps the admitted copy only when
+// the test fails. The harness row remains the test authority.
 // Calling this helper during source discovery is neither needed nor supported.
 func ForTest(t testing.TB, fixtureRoot string) *Corpus {
 	t.Helper()
-	runRoot, err := fixtureartifacts.SelectedRunRoot()
+	unit, err := fixtureartifacts.SelectedUnitRoot()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := fixtureartifacts.SecureDirectory(runRoot); err != nil {
+	evidenceRoot := filepath.Join(unit, "fixtures")
+	if err := fixtureartifacts.SecureDirectory(evidenceRoot); err != nil {
 		t.Fatal(err)
 	}
-	workspace, err := os.MkdirTemp(runRoot, "ir-incident-")
+	workspace, err := os.MkdirTemp(evidenceRoot, "ir-incident-")
 	if err != nil {
 		t.Fatal(err)
 	}

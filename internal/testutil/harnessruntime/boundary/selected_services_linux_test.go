@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/JochiRaider/cartulary/internal/testutil/fixtureartifacts"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 )
 
@@ -22,14 +23,12 @@ import (
 func TestNativeSelectedServiceLifecycle(t *testing.T) {
 	_, file, _, _ := runtime.Caller(0)
 	root := filepath.Clean(filepath.Join(filepath.Dir(file), "../../../.."))
-	results, outer := os.Getenv("CARTULARY_TEST_RESULTS_DIR"), os.Getenv("CARTULARY_TEST_RUN_ID")
-	if results == "" || outer == "" {
-		t.Fatal("Make-owned retained identity required")
+	// Nested runs retain under this unit's own directory (TH-HARNESS-REQ-874).
+	unit, err := fixtureartifacts.SelectedUnitRoot()
+	if err != nil {
+		t.Fatal("Make-owned retained identity required: ", err)
 	}
-	if !filepath.IsAbs(results) {
-		results = filepath.Join(root, results)
-	}
-	results = filepath.Join(results, outer, "selected-service-boundary")
+	results := filepath.Join(unit, "selected-service-boundary")
 	for _, selection := range []struct {
 		id, target     string
 		rows, services []string

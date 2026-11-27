@@ -62,13 +62,13 @@ func runFixtureComparison(t *testing.T, id string, revision int, compare func(*n
 	if !ok || registration.Revision != revision || strings.SplitN(t.Name(), "/", 2)[0] != registration.TestName {
 		t.Fatalf("unregistered fixture comparison: %s revision %d test %s", id, revision, t.Name())
 	}
-	runRoot, err := networkflowfixtures.SelectedRunRoot()
+	evidenceRoot, err := networkflowfixtures.SelectedEvidenceRoot()
 	if err != nil {
 		t.Fatal(err)
 	}
 	summary, err := networkflowfixtures.Run(networkflowfixtures.Config{
-		CorpusRoot: filepath.Join(RepoRoot(t), "fixtures", "network-flow"),
-		RunRoot:    runRoot, FixtureID: id, Revision: revision,
+		CorpusRoot:   filepath.Join(RepoRoot(t), "fixtures", "network-flow"),
+		EvidenceRoot: evidenceRoot, FixtureID: id, Revision: revision,
 	}, func(bundle *networkflowfixtures.Bundle) error {
 		outcomes, err := compare(bundle)
 		if err != nil {

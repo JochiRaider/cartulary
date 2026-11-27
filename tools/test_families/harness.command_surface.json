@@ -1026,6 +1026,7 @@
           "TestEnclosingAggregate",
           "TestGoPlannerAdoption",
           "TestProcTable",
+          "TestRunRootLayout",
           "TestRuntimeBrowserFailureContinuation",
           "TestRuntimeCacheFreshness",
           "TestRuntimeCacheTransactions",

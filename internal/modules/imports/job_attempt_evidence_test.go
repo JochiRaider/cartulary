@@ -517,7 +517,7 @@ func (r *jobAttemptRecorder) finish(job map[string]any) {
 	r.evidence.PayloadPathsAfterBegin = r.memberReads.latePayloadsForOperation(r.jobID)
 	name := "job-attempts-" + r.jobID + ".json"
 	location := "not recorded"
-	if root, err := fixtureartifacts.SelectedRunRoot(); err != nil {
+	if root, err := fixtureartifacts.SelectedUnitRoot(); err != nil {
 		location = "not recorded: " + boundedJobAttemptError(err)
 	} else if data, err := json.MarshalIndent(r.evidence, "", "  "); err != nil {
 		location = "not recorded: " + boundedJobAttemptError(err)

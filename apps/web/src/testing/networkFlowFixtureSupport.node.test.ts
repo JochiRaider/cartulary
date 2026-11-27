@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import {
   chmodSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
@@ -18,7 +19,7 @@ import {
   decodeFixtureJSON,
   FixtureExecutionError,
   runNetworkFlowFixture,
-  selectedFixtureRunRoot,
+  selectedFixtureEvidenceRoot,
 } from "../../../../tools/harness/fixtures/network-flow.mjs";
 
 const fixtureID = "NF-FIX-999-admission-controls";
@@ -141,8 +142,8 @@ async function failedRun(
 }
 
 it("Node fixture admission seals verified inputs and retains bounded comparison evidence", async () => {
-  const runRoot = selectedFixtureRunRoot();
-  const corpus = mkdtempSync(path.join(runRoot, "node-fixture-controls-"));
+  const evidenceRoot = selectedFixtureEvidenceRoot();
+  const corpus = mkdtempSync(path.join(evidenceRoot, "node-fixture-controls-"));
   const config = { fixtureID, revision: 1, corpusRoot: corpus };
   function reset(): Seed {
     rmSync(path.join(corpus, fixtureID), { recursive: true, force: true });
@@ -347,7 +348,19 @@ it("Node fixture admission seals verified inputs and retains bounded comparison 
 
     const value = reset();
     publish(value);
+    const before = new Set(readdirSync(evidenceRoot));
+    let workspace = "";
     const result = await runNetworkFlowFixture(config, (bundle) => {
+      const added = readdirSync(evidenceRoot).filter(
+        (entry) => entry.startsWith(fixtureID + "-") && !before.has(entry),
+      );
+      expect(added).toHaveLength(1);
+      workspace = path.join(evidenceRoot, added[0] ?? "");
+      const inputs = path.join(workspace, "inputs");
+      expect(statSync(inputs).mode & 0o777).toBe(0o500);
+      expect(
+        statSync(path.join(inputs, "source/controls.csv")).mode & 0o777,
+      ).toBe(0o400);
       writeFileSync(
         path.join(value.root, "source/controls.csv"),
         "changed source",
@@ -363,18 +376,14 @@ it("Node fixture admission seals verified inputs and retains bounded comparison 
     expect(result.summary.manifest_sha256).toBe(
       hash(readFileSync(path.join(value.root, "manifest.json"))),
     );
-    const inputs = path.join(
-      runRoot,
-      result.summary.materialized_input_root ?? "",
-    );
-    expect(statSync(inputs).mode & 0o777).toBe(0o500);
-    expect(
-      statSync(path.join(inputs, "source/controls.csv")).mode & 0o777,
-    ).toBe(0o400);
+    // A pass keeps the digests and releases the materialized bytes.
+    expect(result.summary.materialized_input_root).toBeNull();
+    expect(existsSync(path.join(workspace, "inputs"))).toBe(false);
+    expect(existsSync(path.join(workspace, "produced"))).toBe(false);
     expect(result.summary.produced_artifacts).toEqual([
       {
         logical_path: path.relative(
-          runRoot,
+          evidenceRoot,
           path.join(path.dirname(result.summaryPath), "produced/actual.json"),
         ),
         size_bytes: 3,
@@ -418,22 +427,17 @@ it("Node fixture admission seals verified inputs and retains bounded comparison 
       ),
     );
     expect(new Set(parallel.map((item) => item.summaryPath)).size).toBe(2);
-    expect(
-      new Set(parallel.map((item) => item.summary.materialized_input_root))
-        .size,
-    ).toBe(2);
 
-    const previous = new Set(readdirSync(runRoot));
+    const previous = new Set(readdirSync(evidenceRoot));
     let publicationDirectory = "";
     await expect(
       runNetworkFlowFixture(config, () => {
-        const added = readdirSync(runRoot).filter(
-          (entry) =>
-            entry.startsWith(fixtureID + "-node-") && !previous.has(entry),
+        const added = readdirSync(evidenceRoot).filter(
+          (entry) => entry.startsWith(fixtureID + "-") && !previous.has(entry),
         );
         expect(added).toHaveLength(1);
         publicationDirectory = path.join(
-          runRoot,
+          evidenceRoot,
           added[0] ?? "",
           "comparison-summary.json",
         );

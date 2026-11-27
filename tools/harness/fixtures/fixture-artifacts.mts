@@ -11,6 +11,7 @@ import {
   readdirSync,
   readSync,
   realpathSync,
+  rmSync,
   statSync,
   writeSync,
 } from "node:fs";
@@ -134,6 +135,47 @@ export function copyVerified(root: string, file: FileRecord, inputs: string): vo
   } finally {
     closeSync(source);
   }
+}
+
+// The executing unit's evidence directory, unit-artifacts/<unit> under the
+// selected run (TH-HARNESS-REQ-874). Fixture copies and test evidence a unit
+// writes belong there, never at the run root's top level. The Go form is
+// fixtureartifacts.SelectedUnitRoot.
+export function selectedUnitRoot(
+  repoRoot: string,
+  environment: NodeJS.ProcessEnv = process.env,
+): string {
+  const id = environment.CARTULARY_TEST_RUN_ID ?? "";
+  const results = environment.CARTULARY_TEST_RESULTS_DIR;
+  if (!safePath(id) || id.includes("/") || !results)
+    throw new Error("Fixture execution requires a selected harness run");
+  const run = path.resolve(repoRoot, results, id);
+  const unit = environment.CARTULARY_STEP_ARTIFACT_DIR ?? "";
+  if (
+    !path.isAbsolute(unit) ||
+    path.normalize(unit) !== unit ||
+    path.dirname(unit) !== path.join(run, "unit-artifacts")
+  )
+    throw new Error(
+      "Fixture execution requires the executing unit's artifact directory",
+    );
+  return unit;
+}
+
+// Releases a materialization after a passing comparison. Sealed directories
+// are reopened without following links; the Go form is
+// fixtureartifacts.ReleaseTree.
+export function releaseTree(directory: string): void {
+  const pending = [directory];
+  while (pending.length > 0) {
+    const current = pending.pop() ?? "";
+    const info = lstatSync(current, { throwIfNoEntry: false });
+    if (!info || !info.isDirectory()) continue;
+    chmodSync(current, 0o700);
+    for (const entry of readdirSync(current, { withFileTypes: true }))
+      if (entry.isDirectory()) pending.push(path.join(current, entry.name));
+  }
+  rmSync(directory, { recursive: true, force: true });
 }
 
 export function seal(directory: string): void {

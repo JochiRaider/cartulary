@@ -45,12 +45,13 @@ type Manifest struct {
 }
 
 // Config requires the revision selected by the executable fixture registry.
-// RunRoot is the already selected invocation root, never a global scratch path.
+// EvidenceRoot is the executing unit's fixture directory (SelectedEvidenceRoot),
+// never a global scratch path; summary paths are relative to it.
 type Config struct {
-	CorpusRoot string
-	RunRoot    string
-	FixtureID  string
-	Revision   int
+	CorpusRoot   string
+	EvidenceRoot string
+	FixtureID    string
+	Revision     int
 }
 
 type Summary struct {
@@ -67,16 +68,23 @@ type Summary struct {
 }
 
 type Bundle struct {
-	Manifest   Manifest
-	inputRoot  string
-	outputRoot string
-	runRoot    string
-	files      map[string]File
-	artifacts  []File
+	Manifest     Manifest
+	inputRoot    string
+	outputRoot   string
+	evidenceRoot string
+	files        map[string]File
+	artifacts    []File
 }
 
-// SelectedRunRoot uses the shared artifact-admission run boundary.
-func SelectedRunRoot() (string, error) { return fixtureartifacts.SelectedRunRoot() }
+// SelectedEvidenceRoot is where the executing unit materializes fixture
+// comparisons: fixtures/ under its own unit directory (TH-HARNESS-REQ-874).
+func SelectedEvidenceRoot() (string, error) {
+	unit, err := fixtureartifacts.SelectedUnitRoot()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(unit, "fixtures"), nil
+}
 
 // Run admits every byte before invoking compare. A failing callback, including
 // testing.Fatal's Goexit, retains a failed summary. Evidence publication failures
@@ -85,10 +93,10 @@ func Run(config Config, compare func(*Bundle) error) (summaryPath string, err er
 	if !fixtureIDPattern.MatchString(config.FixtureID) || len(config.FixtureID) > 120 || config.Revision < 1 || compare == nil {
 		return "", errors.New("invalid fixture execution configuration")
 	}
-	if err := fixtureartifacts.SecureDirectory(config.RunRoot); err != nil {
+	if err := fixtureartifacts.SecureDirectory(config.EvidenceRoot); err != nil {
 		return "", err
 	}
-	workspace, err := os.MkdirTemp(config.RunRoot, config.FixtureID+"-")
+	workspace, err := os.MkdirTemp(config.EvidenceRoot, config.FixtureID+"-")
 	if err != nil {
 		return "", err
 	}
@@ -228,12 +236,12 @@ func admit(config Config, workspace string, summary *Summary) (*Bundle, error) {
 	}); err != nil {
 		return nil, err
 	}
-	relative, err := filepath.Rel(config.RunRoot, inputs)
+	relative, err := filepath.Rel(config.EvidenceRoot, inputs)
 	if err != nil {
 		return nil, err
 	}
 	summary.InputRoot = &relative
-	return &Bundle{Manifest: manifest, inputRoot: inputs, outputRoot: outputs, runRoot: config.RunRoot, files: listed, artifacts: []File{}}, nil
+	return &Bundle{Manifest: manifest, inputRoot: inputs, outputRoot: outputs, evidenceRoot: config.EvidenceRoot, files: listed, artifacts: []File{}}, nil
 }
 
 func (b *Bundle) Read(path string) ([]byte, error) {
@@ -267,7 +275,7 @@ func (b *Bundle) Record(name string, data []byte) error {
 	if err := errors.Join(writeErr, file.Close()); err != nil {
 		return err
 	}
-	relative, err := filepath.Rel(b.runRoot, path)
+	relative, err := filepath.Rel(b.evidenceRoot, path)
 	if err != nil {
 		return err
 	}

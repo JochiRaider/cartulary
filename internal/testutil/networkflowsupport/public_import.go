@@ -22,12 +22,12 @@ import (
 // same committed provenance as production, without manufacturing workflow rows.
 func SeedGraphSource(t testing.TB, client *http.Client, origin string, login authcookietest.AuthCookies, incident string) string {
 	t.Helper()
-	runRoot, err := networkflowfixtures.SelectedRunRoot()
+	evidenceRoot, err := networkflowfixtures.SelectedEvidenceRoot()
 	if err != nil {
 		t.Fatal(err)
 	}
 	var table string
-	summary, err := networkflowfixtures.Run(networkflowfixtures.Config{CorpusRoot: fixtures.Path("../../..", "fixtures", "network-flow"), RunRoot: runRoot, FixtureID: "NF-FIX-001-cisco-sna-minimal", Revision: 11}, func(bundle *networkflowfixtures.Bundle) error {
+	summary, err := networkflowfixtures.Run(networkflowfixtures.Config{CorpusRoot: fixtures.Path("../../..", "fixtures", "network-flow"), EvidenceRoot: evidenceRoot, FixtureID: "NF-FIX-001-cisco-sna-minimal", Revision: 11}, func(bundle *networkflowfixtures.Bundle) error {
 		input, err := bundle.Read("source/cases.json")
 		if err != nil {
 			return err

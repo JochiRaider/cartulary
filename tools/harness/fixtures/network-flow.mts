@@ -15,9 +15,11 @@ import {
   copyVerified,
   digest,
   openRegular,
+  releaseTree,
   safePath,
   seal,
   secureDirectory,
+  selectedUnitRoot,
   type FileRecord,
 } from "./fixture-artifacts.mjs";
 
@@ -90,12 +92,11 @@ function validate(schema: string, value: unknown): void {
   if (!validator?.(value))
     throw new Error("Fixture schema validation failed: " + schema);
 }
-export function selectedFixtureRunRoot(): string {
-  const id = process.env.CARTULARY_TEST_RUN_ID ?? "";
-  const results = process.env.CARTULARY_TEST_RESULTS_DIR;
-  if (!safePath(id) || id.includes("/") || !results)
-    throw new Error("Fixture execution requires a selected harness run");
-  const root = path.resolve(repoRoot, results, id);
+// Where the executing unit materializes fixture comparisons: fixtures/ under
+// its own unit directory (TH-HARNESS-REQ-874). Summary paths are relative to
+// it.
+export function selectedFixtureEvidenceRoot(): string {
+  const root = path.join(selectedUnitRoot(repoRoot), "fixtures");
   secureDirectory(root, true);
   return root;
 }
@@ -136,7 +137,7 @@ async function admit(
   fixtureID: string,
   revision: number,
   workspace: string,
-  runRoot: string,
+  evidenceRoot: string,
   summary: FixtureExecutionSummary,
 ): Promise<NetworkFlowFixture> {
   const root = path.join(corpus, fixtureID);
@@ -223,7 +224,7 @@ async function admit(
   }
   seal(inputs);
   summary.materialized_input_root = path
-    .relative(runRoot, inputs)
+    .relative(evidenceRoot, inputs)
     .split(path.sep)
     .join("/");
   return {
@@ -248,7 +249,7 @@ async function admit(
       writeFileSync(filename, bytes, { flag: "wx", mode: 0o600 });
       summary.produced_artifacts.push({
         logical_path: path
-          .relative(runRoot, filename)
+          .relative(evidenceRoot, filename)
           .split(path.sep)
           .join("/"),
         size_bytes: bytes.length,
@@ -269,10 +270,8 @@ export async function runNetworkFlowFixture(
     config.revision < 1
   )
     throw new Error("Invalid fixture configuration");
-  const runRoot = selectedFixtureRunRoot();
-  const workspace = mkdtempSync(
-    path.join(runRoot, config.fixtureID + "-node-"),
-  );
+  const evidenceRoot = selectedFixtureEvidenceRoot();
+  const workspace = mkdtempSync(path.join(evidenceRoot, config.fixtureID + "-"));
   const summaryPath = path.join(workspace, "comparison-summary.json");
   const summary: FixtureExecutionSummary = {
     schema_id: summarySchema,
@@ -294,7 +293,7 @@ export async function runNetworkFlowFixture(
       config.fixtureID,
       config.revision,
       workspace,
-      runRoot,
+      evidenceRoot,
       summary,
     );
     summary.failure_phase = "comparison";
@@ -306,6 +305,18 @@ export async function runNetworkFlowFixture(
     failure = error;
     if (error instanceof DraftFixtureError)
       summary.comparison_status = "blocked";
+  }
+  // A pass keeps the digests; only a failed or blocked comparison keeps the
+  // materialized inputs and produced bytes for diagnosis (TH-HARNESS-REQ-874).
+  if (!failed) {
+    try {
+      releaseTree(path.join(workspace, "inputs"));
+      releaseTree(path.join(workspace, "produced"));
+      summary.materialized_input_root = null;
+    } catch (error) {
+      failed = true;
+      failure = error;
+    }
   }
   try {
     validate(summarySchema, summary);

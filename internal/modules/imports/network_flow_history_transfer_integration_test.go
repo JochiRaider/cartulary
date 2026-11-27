@@ -20,7 +20,7 @@ import (
 // The small rejection fixture isolates historical transport from corpus totals.
 // Import, catalog changes, graph selection and transfer use public operations.
 func TestNetworkFlowHistoricalTransferPreservesDiagnosticsAndOtherIncidents_Integration(t *testing.T) {
-	runRoot, err := networkflowfixtures.SelectedRunRoot()
+	evidenceRoot, err := networkflowfixtures.SelectedEvidenceRoot()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -28,7 +28,7 @@ func TestNetworkFlowHistoricalTransferPreservesDiagnosticsAndOtherIncidents_Inte
 	if err != nil {
 		t.Fatal(err)
 	}
-	summary, err := networkflowfixtures.Run(networkflowfixtures.Config{CorpusRoot: root, RunRoot: runRoot, FixtureID: "NF-FIX-004-rejected-rows", Revision: 9}, func(fixture *networkflowfixtures.Bundle) error {
+	summary, err := networkflowfixtures.Run(networkflowfixtures.Config{CorpusRoot: root, EvidenceRoot: evidenceRoot, FixtureID: "NF-FIX-004-rejected-rows", Revision: 9}, func(fixture *networkflowfixtures.Bundle) error {
 		source, err := fixture.Read("source/partial-rejection.csv")
 		if err != nil {
 			return err

@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
+	"github.com/JochiRaider/cartulary/internal/testutil/fixtureartifacts"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -214,11 +214,11 @@ func TestHistoryBoundedProjectionAndCoalescing_Integration(t *testing.T) {
 	if measurement.dependencies != 2 {
 		t.Fatalf("selected change-set dependency count: %+v", measurement)
 	}
-	root, err := suiteservices.ResolveResultsRoot(nil)
+	unit, err := fixtureartifacts.SelectedUnitRoot()
 	if err != nil {
 		t.Fatal(err)
 	}
-	directory := filepath.Join(root, suiteservices.ResolveRunID(nil), "module.revisions")
+	directory := filepath.Join(unit, "module.revisions")
 	if err := os.MkdirAll(directory, 0o700); err != nil {
 		t.Fatal(err)
 	}

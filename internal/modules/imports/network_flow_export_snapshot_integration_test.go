@@ -89,12 +89,12 @@ func TestNetworkFlowExportUsesOneSnapshotDuringConcurrentMutations_Integration(t
 	// Import a distinct successful source, then resolve all-active refresh intent.
 	sourceID := irCommittedSources(t, c.origin, login, id)[0]["committed_source_id"].(string)
 	sourcePath := "/api/v1/incidents/" + id + "/committed-sources/" + sourceID
-	runRoot, err := networkflowfixtures.SelectedRunRoot()
+	evidenceRoot, err := networkflowfixtures.SelectedEvidenceRoot()
 	if err != nil {
 		t.Fatal(err)
 	}
 	var mapping json.RawMessage
-	_, err = networkflowfixtures.Run(networkflowfixtures.Config{CorpusRoot: fixtures.Path("../../..", "fixtures", "network-flow"), RunRoot: runRoot, FixtureID: "NF-FIX-001-cisco-sna-minimal", Revision: 11}, func(bundle *networkflowfixtures.Bundle) error {
+	_, err = networkflowfixtures.Run(networkflowfixtures.Config{CorpusRoot: fixtures.Path("../../..", "fixtures", "network-flow"), EvidenceRoot: evidenceRoot, FixtureID: "NF-FIX-001-cisco-sna-minimal", Revision: 11}, func(bundle *networkflowfixtures.Bundle) error {
 		raw, err := bundle.Read("source/cases.json")
 		if err != nil {
 			return err

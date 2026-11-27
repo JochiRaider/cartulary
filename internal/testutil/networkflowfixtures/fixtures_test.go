@@ -45,9 +45,9 @@ func read(t *testing.T, path string) []byte {
 // malformed bytes under test control. Digests are authored from the frame rule.
 func fixture(t *testing.T) (Config, map[string]any) {
 	t.Helper()
-	config := Config{CorpusRoot: t.TempDir(), RunRoot: t.TempDir(), FixtureID: testFixtureID, Revision: 3}
+	config := Config{CorpusRoot: t.TempDir(), EvidenceRoot: t.TempDir(), FixtureID: testFixtureID, Revision: 3}
 	t.Cleanup(func() {
-		_ = filepath.WalkDir(config.RunRoot, func(path string, entry fs.DirEntry, err error) error {
+		_ = filepath.WalkDir(config.EvidenceRoot, func(path string, entry fs.DirEntry, err error) error {
 			if err != nil {
 				return err
 			}
@@ -279,8 +279,8 @@ func TestFixtureExecution(t *testing.T) {
 			t.Fatalf("wrong failure: %+v", s)
 		}
 		// A failure keeps the complete workspace for diagnosis.
-		input := filepath.Join(config.RunRoot, *s.InputRoot)
-		if !strings.HasPrefix(input, config.RunRoot+string(filepath.Separator)) {
+		input := filepath.Join(config.EvidenceRoot, *s.InputRoot)
+		if !strings.HasPrefix(input, config.EvidenceRoot+string(filepath.Separator)) {
 			t.Fatal("escaped run root")
 		}
 		for _, retained := range []string{input, filepath.Join(filepath.Dir(path), "produced")} {
@@ -341,9 +341,9 @@ func TestFixtureExecution(t *testing.T) {
 	t.Run("run root symlink", func(t *testing.T) {
 		config, _ := fixture(t)
 		outside := t.TempDir()
-		link := filepath.Join(config.RunRoot, "link")
+		link := filepath.Join(config.EvidenceRoot, "link")
 		requireNoError(t, os.Symlink(outside, link))
-		config.RunRoot = filepath.Join(link, "must-not-exist")
+		config.EvidenceRoot = filepath.Join(link, "must-not-exist")
 		_, err := Run(config, func(*Bundle) error { t.Fatal("callback after unsafe run root"); return nil })
 		if err == nil {
 			t.Fatal("run symlink admitted")

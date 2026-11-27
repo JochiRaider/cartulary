@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/JochiRaider/cartulary/internal/testutil/fixtureartifacts"
 )
 
 // captureCatalogState preserves semantic endpoint evidence from a harness-owned
@@ -79,12 +81,11 @@ func captureCatalogState(t *testing.T, db *sql.DB) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	root := os.Getenv("CARTULARY_TEST_RESULTS_DIR")
-	runID := os.Getenv("CARTULARY_TEST_RUN_ID")
-	if root == "" || runID == "" || filepath.Base(runID) != runID {
-		t.Fatal("catalog evidence requires the Make harness run identity")
+	unit, err := fixtureartifacts.SelectedUnitRoot()
+	if err != nil {
+		t.Fatal("catalog evidence requires the Make harness unit directory: ", err)
 	}
-	path := filepath.Join(root, runID, "postgres-catalog-state.json")
+	path := filepath.Join(unit, "postgres-catalog-state.json")
 	if err := os.WriteFile(path, append(encoded, '\n'), 0o600); err != nil {
 		t.Fatal(err)
 	}

@@ -385,6 +385,14 @@ ensure_target_artifact_dir() {
   results_root="$(resolve_results_root)"
   run_id="$(resolve_test_run_id)"
   target="$(resolve_test_target)"
+  # A target-less step inside a unit or another step of the same run keeps its
+  # records in that enclosing directory: the run root's top level is closed
+  # (TH-HARNESS-REQ-874).
+  if [[ "${target}" == "adhoc" && "${CARTULARY_STEP_ARTIFACT_DIR:-}" == "${results_root}/${run_id}/"?* ]]; then
+    step_secure_mkdir "${CARTULARY_STEP_ARTIFACT_DIR}/adhoc"
+    printf '%s\n' "${CARTULARY_STEP_ARTIFACT_DIR}/adhoc"
+    return
+  fi
   step_secure_mkdir "${results_root}/${run_id}" "${results_root}/${run_id}/${target}"
   printf '%s\n' "${results_root}/${run_id}/${target}"
 }

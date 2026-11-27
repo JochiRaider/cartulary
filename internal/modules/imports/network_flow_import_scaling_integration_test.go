@@ -350,7 +350,7 @@ func TestNetworkFlowImportScalingSweep(t *testing.T) {
 	}
 	var evidenceMu sync.Mutex
 	t.Cleanup(func() {
-		root, err := fixtureartifacts.SelectedRunRoot()
+		root, err := fixtureartifacts.SelectedUnitRoot()
 		if err != nil {
 			t.Logf("scaling evidence not retained: %v", err)
 			return

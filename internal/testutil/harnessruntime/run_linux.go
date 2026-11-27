@@ -460,7 +460,7 @@ func RunWithOptions(ctx context.Context, root, binary string, args, environment 
 	report = &RunResult{Summary: summary, JSONOutput: declared["JSON"] == "1"}
 	diagnostics.mark("evidence_publication")
 	scanned = true
-	err = diagnostics.scan(secrets)
+	err = errors.Join(checkRunRootLayout(runRoot, plan), diagnostics.scan(secrets))
 	if result.Status != "passed" {
 		code = failureExitCode(result.Failure, "")
 		if summary["status"] == "cancelled" {
