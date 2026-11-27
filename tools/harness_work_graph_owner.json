@@ -5163,7 +5163,8 @@
           "tools/harness/browser/tests/test-measurement-proofs.mjs",
           "tools/harness/browser/tests/test-measurement-scheduler.mjs",
           "tools/harness/browser/tests/test-visual-contracts.mjs",
-          "tools/harness/browser/tests/test-visual-promotion.mjs"
+          "tools/harness/browser/tests/test-visual-promotion.mjs",
+          "tools/harness/browser/tests/test-web-e2e-session.mjs"
         ],
         "step_label": "harness-browser-assurance-contract",
         "test_target": "self"

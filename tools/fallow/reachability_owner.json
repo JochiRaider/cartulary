@@ -55,6 +55,7 @@
       "tools/harness/browser/browser-runtime-profile.mjs",
       "tools/harness/browser/browser-session-evidence.mjs",
       "tools/harness/browser/browser-target-finalizer-cli.mjs",
+      "tools/harness/browser/web-e2e-session-cli.mjs",
       "tools/harness/contract/generated/foundation-schema-validators.cjs",
       "tools/harness/contract/harness-contract-cli.mjs",
       "tools/harness/diagnostics/vitest-collector.mjs",
