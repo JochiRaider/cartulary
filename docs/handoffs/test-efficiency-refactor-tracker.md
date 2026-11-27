@@ -1383,6 +1383,7 @@ Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-am
 | 2026-11-26 | P5-3e step 2 | The step commands, Node and owner tools and bootstrap run through the command entry: 62 of 74 public recipes are the Node runtime and one entry call; help, the Markdown lint, the run-status tool, UI review and cleanup stay in Make; the entry writes the target through `run_context` | `p116` (segment), `p117`, `p118-check01` | Pass. `p118-check01` passed all 1,899 rows in a 567 s graph. One `reference_pack_package` failure in `p116` (the destination's migration gate) did not reproduce (14.32) |
 | 2026-11-26 | P5-3e step 3 | Make parses once: each managed recipe takes shared admission for its own command, and the admitted launcher readies Node before the entry; every entry target is one rule with one call; the entry sets target exports; the dead renderer branches and four recipe types go. Fixes a P5-3d fixture regression in a `full`-tier row | `p120` (segment), `p121` (owner slices, 70 rows), `p122-check01` | Pass. `p122-check01` passed all 1,899 rows in a 570 s graph; `make help` takes 8 ms (37 ms) (14.32) |
 | 2026-11-27 | P4-7 | Segments for the `ci`-only rows; two paired `check` runs; five `ci` runs, three failed and then the passing pair; five defects fixed: Find navigation during a follow-up rescan (`5b50fefb7`), Vitest teardown attribution and the cleanup-test races (`e02cece8b`), admitted Timeline actions cancelled by presentation detachment (`6bd99b2e5`), and a fixed 30 s Go parse timeout (`0cd0e8dc8`) | `p123` (segment), `p47-check01`, `p47-check02`, `p47-ci01`, `p47-ci02`; `p124`, `p125`, `p129`; `p130` to `p136`; `p48-check01`, `p48-check02`, `p48-ci01`; `p138`; `p49-ci01`, `p49-ci02` | Pass. `p48` passed all 1,899 rows in 520 s graphs; `p49` passed all 2,652 rows in 1,328 s and 1,361 s graphs. Section 3 refreshed (13.16) |
+| 2026-11-27 | P4-7 follow-up | Admitted Timeline mention operations and capture and mention preparation survive presentation detachment and sheet switches (`02ba63702`) | `p140`, `p141`, `p142` (segment), `p143`, `p144` | Pass. 32 targeted rows, lint, types, boundaries, generated and catalog checks (13.17) |
 | 2026-11-25 | P4-4 / G39 | Wait audit: 31 whole-test hang guards derive from the test deadline (`testdeadline`) | `p44-port-*` (16 owner slices, every row holding a converted guard) | Pass. Committed `bdd8f4e1d` |
 
 ## 12. Phase 2 Plan — `check` Wall Clock
@@ -2727,7 +2728,7 @@ so the `ci`-only rows were proven on segments first.
       - **The reproduction (`p135`).** With the fix, the 400 ms
         reproduction passes.
       - **Stress (`p136`).** The row passes `REPEAT=10` under mixed load.
-    - **Known gaps.** Not in this change:
+    - **Known gaps.** Not in this change; both are closed in 13.17:
       - Mention resolution has the same presentation-bound preparation.
       - Both owners still end preparation when the Timeline surface
         unmounts, because preparation reads surface-scoped ports.
@@ -2769,7 +2770,63 @@ so the `ci`-only rows were proven on segments first.
     event log is most of it. The 150 MB target is not met.
   - `ci` spends 28 to 32 s outside the graph, against 10 to 13 s for
     `check`; that time is not yet split into before and after the graph.
-  - The Timeline known gaps above are open as a separate task.
+  - The Timeline known gaps above are closed in 13.17.
+
+### 13.17 Timeline Follow-up: Retained Preparation (done)
+
+13.16 left two Timeline gaps after `6bd99b2e5`. `02ba63702` closes both.
+Core 03 requires that explicit sheet switching "allow presentation to detach
+while retaining admitted work". REQ-03-100 makes dispatch capability belong to
+the retained runtime, independently of mounted surface callbacks.
+
+- **Mention operations.** The mention owner rechecked the presentation after
+  preparation, as the capture owner had.
+  - Admission still requires the presentation to show the review.
+  - After admission, authority, the reviewed intent and the mention version
+    fence resolution and creation preparation. Presentation does not.
+  - The owner test's selection case had expected detachment to cancel an
+    admitted operation. It now has its own case, which expects dispatch.
+- **Linking after creation is unchanged.** Linking a created entity is a later
+  admission. Core 03 §8.1 says presentation detachment "withdraws linking
+  readiness until renewed local review" for Evidence linking. The mention
+  flow follows the same rule: detachment during creation keeps the entity
+  and waits for renewed review.
+- **Sheet switches.** Preparation read the mounted surface's committed-version
+  ledger, rows and draft registry, so it stopped when Timeline unmounted. The
+  retained Timeline mutation owner now provides committed-record evidence
+  (`retainedRecords`):
+  - It waits for earlier writes to the record. It shares the surface's wait,
+    so the publication and authority checks are identical.
+  - An attached surface lends its committed rows. A detached owner uses its
+    retained rows or retained accepted patches.
+  - The unsaved-authoring check reads the retained draft store.
+
+  Both hooks' bindings prepare through it and check presentation only at
+  admission. A capture whose row has advanced still refreshes the surface, if
+  one is mounted.
+- **Tests.**
+  - **Mention owner.** An admitted operation survives detachment, and a
+    detached presentation admits nothing. A creation admitted before
+    detachment is created, and its link waits for renewed review.
+  - **Mention hook.** An operation admitted before the surface unmounts is
+    sent and accepted.
+  - **Mutation owner.** The committed-record wait holds for an in-flight
+    patch and cancels on abort. After detachment it resolves with the
+    retained accepted row.
+- **Proof.**
+  - Lint `frontend`, `types` and `frontend-boundary`, `make format`,
+    `make generate`, and `source-check` `generated` and `catalog` passed
+    (`p140`, `p141`, `p143`).
+  - **Segment (`p142`).** All 32 rows passed:
+    - 23 Vitest rows across `web.workbook`, `module.timeline`,
+      `module.evidence` and `module.workbook`;
+    - 9 browser rows: mention resolution, dismissal, candidate and creation
+      recovery, the stateful mention lifecycle, the Timeline reviewer and
+      auto-resolution flows, and the destination-handoff supersession.
+  - **Recheck (`p144`).** After a final refactor with no behavior change,
+    lint, types and the 7 owner and shell rows passed again.
+- **Not run.** `check` and `ci`. The change is frontend-only and its affected
+  rows passed in isolation; the next `ci` includes them.
 
 ## 14. Phase 5 Proposal — Flat Catalog and Thin Make
 
