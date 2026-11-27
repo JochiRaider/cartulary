@@ -50,6 +50,7 @@ import {
   holdBrowserRequest,
   installOwnedRoute,
 } from "./support/transport/requestInterception";
+import { navigateFind } from "./support/workbook/find";
 import { switchOrdinarySheet } from "./support/workbook/ordinaryCreate";
 import {
   createViewRow,
@@ -211,8 +212,7 @@ async function navigate(
   page: Page,
   direction: "Enter" | "Shift+Enter" = "Enter",
 ) {
-  await input(page).press(direction);
-  await expect(input(page)).toHaveCount(0);
+  await navigateFind(input(page), direction);
 }
 async function noNativeFindCapture(target: Locator) {
   return target.evaluate((element) =>

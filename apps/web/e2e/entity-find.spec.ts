@@ -50,6 +50,7 @@ import {
   installOwnedRoute,
   removeOwnedRoute,
 } from "./support/transport/requestInterception";
+import { navigateFind } from "./support/workbook/find";
 import {
   commitOrdinary,
   ordinaryField,
@@ -237,9 +238,11 @@ async function find(page: Page, term: string, count: number) {
       : "No matches in loaded rows.",
   );
 }
-async function navigate(page: Page, direction = "Enter") {
-  await input(page).press(direction);
-  await expect(input(page)).toHaveCount(0);
+async function navigate(
+  page: Page,
+  direction: "Enter" | "Shift+Enter" = "Enter",
+) {
+  await navigateFind(input(page), direction);
 }
 function observe(page: Page, incident: string) {
   const requests: string[] = [];
