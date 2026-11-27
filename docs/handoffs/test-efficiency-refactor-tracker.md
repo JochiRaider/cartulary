@@ -1,6 +1,6 @@
 # Test Execution Efficiency Remediation Plan
 
-**Status.** Active remediation tracker, last updated 2026-11-27. Phase 7 ([Section 16](#16-phase-7-plan--run-root-size-and-wall-time-margin)) is approved (D35 to D41) and under way; P7-0 to P7-2 are done (16.6 to 16.9). Phase 6 ([Section 15](#15-phase-6-plan--phase-5-residuals)) is complete and handed off (15.11); Phases 1–5 are closed. Earlier status follows. Phases 1–3 are closed. The Go-planned `check` has run at 593–626 s graph wall since 2026-11-24 (1,341 s at the 2026-11-22 baseline). The release redesign took quiet measurement out of `ci`, which now runs in 1,618–1,735 s (3,279 s in `ws1-ci01`). Phase 4 ([Section 13](#13-phase-4-plan--daily-check-and-ci)) is the active plan. It targets the two commands used to validate everyday changes, `check` and `ci`, and the stability of `ci`, which passed 3 of its last 11 runs.
+**Status.** Active remediation tracker, last updated 2026-11-27. Phase 7 ([Section 16](#16-phase-7-plan--run-root-size-and-wall-time-margin)) is approved (D35 to D41) and under way; P7-0 to P7-3 are done (16.6 to 16.10). Phase 6 ([Section 15](#15-phase-6-plan--phase-5-residuals)) is complete and handed off (15.11); Phases 1–5 are closed. Earlier status follows. Phases 1–3 are closed. The Go-planned `check` has run at 593–626 s graph wall since 2026-11-24 (1,341 s at the 2026-11-22 baseline). The release redesign took quiet measurement out of `ci`, which now runs in 1,618–1,735 s (3,279 s in `ws1-ci01`). Phase 4 ([Section 13](#13-phase-4-plan--daily-check-and-ci)) is the active plan. It targets the two commands used to validate everyday changes, `check` and `ci`, and the stability of `ci`, which passed 3 of its last 11 runs.
 
 **Phase 1–3 history (2026-11-23).** All phase-1 work is committed. Phase 2 ([Section 12](#12-phase-2-plan--check-wall-clock)) landed G7 and G6; G6 brought the `check` graph wall from 1,022–1,157 s to under 900 s. In G17 (phase 3), G17b and G17c landed, G17a was not adopted, and disk stall was identified as the contention the failing tests hit. G17f withdrew A17 and added A18 (WAL compression, −22% container writes), and G17g bounded test-side waits by the test deadline. G17 is closed. G27 (heavy-row test work) is done: graph wall 800–840 s, the best recorded. G28 measured the disk flushes and, with owner-approved options A (session slides persist at most once a minute on every route) and C (Go test temp work in RAM), cut heavy work 14–27% and brought the graph wall to 702–710 s, the best recorded. The run now ends with a late-starting Vitest cohort (G29). `make distclean` on 2026-11-22 deleted every retained run, so the run IDs in Section 11 before that date are a record, not retrievable evidence.
 
@@ -1401,6 +1401,7 @@ Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-am
 | 2026-11-27 | P7-1 / G56 | Wait segments change only with their reason; `wait_ended` carries bounded attribution; unit events v5 and critical path v6; every reader cut over | Same-run v4-to-v5 conversion of `p6-6-check02` and `p6-6-ci04`; `p7-1-seg-contract`, `p7-1-seg-cmd`, `p7-1-seg-ev`, `p7-1-seg-browser`, `p7-1-check01`, `p7-1-seg-lintgo`, `p7-1-seg-cmd2` | Pass after a format fix. Event log 270 to 3.2 MB, root 317 to 65 MB, 4.5 s outside the graph (16.7) |
 | 2026-11-27 | P7-2a / G57 | `HARNESS_DIAGNOSTICS=raw`; passing cohorts and Fallow keep only normalized evidence; checkpoint removed once the report parses; browser group result v12, Fallow summary v3 | `p7-2a-seg-regression`, `-contract`, `-adapter`, `-uireview`, `-cmd`, `-ev`, `-browser`, `-browser-raw`, `-fallow`, `-fallow-raw` | Pass. Browser slice 13 to 3.1 MB, Fallow 23 to 2.1 MB (16.8) |
 | 2026-11-27 | P7-2b / G58 | Closed run-root top level enforced by the runtime; fixture copies and test evidence under `unit-artifacts/<unit>/`; Node Network Flow comparisons release inputs after a pass; target-less nested steps stay in their enclosing step; the P7-2a registry entry added | `p7-2b-seg-*` (16 segments and their rechecks), `p7-2-check01` | Pass after the registry fix. `check` root 64 MB with only declared entries (16.9) |
+| 2026-11-27 | P7-3 / G59 | Post-graph time measured after G56 to G58; `ci` projected from its retained composition; no remedy needed | `p7-0-split-check`, `p7-2-check01`, `p6-6-ci04` | `check` 11.1 to 4.5 s outside the graph; `ci` projected 30 to about 6 s, confirmed in P7-6 (16.10) |
 | 2026-11-27 | P6-1, P6-2 / G48, G52, G53 | Release inventory rows in `ci`; four mode switches removed; one became run-context data, two producer arguments, two reclassified; the diagnostic scan race fixed | `p6-1-*`, `p6-2a`, `p6-2b`, `p6-2c`, `p6-2d`, `p6-2e` (segments), `scan-churn`, `p6-2-check01`, `p6-2-check02` | Pass. `p6-2-check02` passed all 1,899 rows in a 579 s graph; the `mode_switch` role is deleted (15.6, 15.7) |
 | 2026-11-25 | P4-4 / G39 | Wait audit: 31 whole-test hang guards derive from the test deadline (`testdeadline`) | `p44-port-*` (16 owner slices, every row holding a converted guard) | Pass. Committed `bdd8f4e1d` |
 
@@ -6556,3 +6557,33 @@ P7-2 is split in two. P7-2a is G57; P7-2b is G58 (16.9).
     findings: the unregistered name, and a first version of the drift fix
     that wrote a run-context name from a script. Both were fixed and
     rechecked alone; no second `check` was run.
+
+### 16.10 Post-Graph Time (P7-3, done)
+
+G59 measured after G56 to G58, with P7-0's method: the run's terminal
+receipt gives the scan interval, and file times give the publication phases.
+
+| Interval | `p7-0-split-check` | `p7-2-check01` |
+| --- | ---: | ---: |
+| Graph | 511.5 s | 482.9 s |
+| Graph end to the run summary and invocation envelope | 3.6 s | 2.0 s |
+| Retained secret scan | 6.8 s | 1.6 s |
+| Everything else (Make, entry, prepare, receipt) | about 0.7 s | about 0.9 s |
+| **Outside the graph** | **11.1 s** | **4.5 s** |
+| Run root (bytes) | 313 MB | 48 MB |
+
+- **`ci` projection.** `p6-6-ci04` spent 30.0 s outside the graph: 24.7 s
+  scanning 787 MB, and 4.4 s of publication. The scan cost per byte is
+  higher in `ci` (0.031 s per MB against `check`'s 0.022) because it
+  registers more secrets. Removing what G56 to G58 remove from that root:
+  - the event log falls from 537 MB to 5.1 MB, by the 16.7 conversion;
+  - checkpoints, reports, Playwright output, top-level fixture copies and
+    raw Fallow reports, 187 MB in all, are gone.
+
+  That leaves about 68 MB: about 2.1 s of scan and 2.5 to 3 s of
+  publication, so about 6 s outside the graph. The event log projection is
+  under D38's 20 MB, and the root under its 200 MB, indeed under 150 MB.
+- **Decision.** Both commands are well under the 15 s exit, so neither
+  remedy runs. A scan independent of the secret count, and scanning at
+  publication time, stay unneeded options; G59 records the measurement that
+  would reopen them. P7-6's paired `ci` confirms the projection.
