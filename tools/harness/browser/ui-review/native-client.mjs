@@ -10,7 +10,7 @@ import { limits, parseRequest, ReviewFailure } from "./contract.mjs";
 import { emitResult } from "./output.mjs";
 import { repoRoot } from "./policy.mjs";
 import { childEnvironment } from "../../runtime/child-environment.mjs";
-import { reviewForwarded } from "../review-recipes.mjs";
+import { reviewForwarded } from "../review-forwarding.mjs";
 import { runtimeBinaryEnvironment } from "../../contract/runtime-binary-registry.mjs";
 
 // reviewEnvironment is what the native review owner starts from: the parent's

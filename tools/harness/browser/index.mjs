@@ -9,4 +9,4 @@ export { createBrowserFixtureProcess, createGoBrowserFixtureProcess, fixtureLife
 
 export { loadVisualRendererProfile, recoverVisualRenderer, verifyRendererImage } from "./visual-renderer-lease.mjs";
 
-export { reviewForwarded } from "./review-recipes.mjs";
+export { reviewForwarded } from "./review-forwarding.mjs";

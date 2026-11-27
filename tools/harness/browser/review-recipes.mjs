@@ -4,7 +4,7 @@ import { readFileSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import { buildSourceSnapshot } from "../test-catalog/index.mjs";
 import { coreReadiness, frontendBuildReadiness, browserReadiness, goReadiness, serviceImageReadiness } from "../readiness/installed-readiness.mjs";
-import { operationBindingNames, operationDefinition, operationExecutionDigest, readOperationOwner } from "../execution/operations.mjs";
+import { operationDefinition, operationExecutionDigest, readOperationOwner } from "../execution/operations.mjs";
 import { childEnvironment } from "../runtime/child-environment.mjs";
 import { runtimeHandleEnvironment } from "../runtime/session-client.mjs";
 import { runtimeBinaryEnvironment } from "../contract/runtime-binary-registry.mjs";
@@ -15,6 +15,7 @@ import { ownedProcess } from "../runtime/owned-process.mjs";
 import { execFileSync } from "../workspace/child-process.mjs";
 import { resourceDependenciesEnvironment, runContextEnvironment } from "../contract/run-context.mjs";
 import { browserBindingEnvironment } from "./browser-binding.mjs";
+import { reviewForwarded } from "./review-forwarding.mjs";
 
 const preparationBuilds = Object.freeze([
   ["build-web", "frontend", "build_web"], ["embedded-web-assets", "embedded_assets", "build_server_harness"],
@@ -22,16 +23,6 @@ const preparationBuilds = Object.freeze([
   ["testservices-build", "test_services", "testservices_build"],
   ["test-service-images", "test_service_images", "test_service_images"], ["playwright-install", "chromium", "playwright_install"],
 ]);
-// reviewForwarded is what review preparation forwards from its parent by name:
-// the Make variables operation executions name (the operation runner resolves
-// them) except public target inputs, which reach review only through its
-// request, and Playwright's own browser location. Everything else a recipe
-// child receives is a process or tool basic, or set below (TH-HARNESS 5.5).
-export function reviewForwarded(root) {
-  const manifest = JSON.parse(readFileSync(path.join(root, "tools/task_surface_manifest.json"), "utf8"));
-  const publicInputs = new Set(manifest.targets.flatMap((target) => target.input_contract?.inputs ?? []).map((input) => input.name));
-  return [...operationBindingNames(readOperationOwner(root)).filter((name) => !publicInputs.has(name)), "PLAYWRIGHT_BROWSERS_PATH"];
-}
 export function recipeEnvironment(root, runRoot, runtime, input, environment = process.env) {
   // Nothing else crosses from the parent: no inherited Go root, presentation
   // mode, public review input or harness context of an enclosing graph.
