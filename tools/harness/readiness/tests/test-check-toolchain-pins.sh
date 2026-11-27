@@ -424,7 +424,10 @@ replace_text "${preflight_dir}/package.json" '"node": "'"$node_version"'"' '"nod
 const fs = require("node:fs");
 const [file] = process.argv.slice(2);
 const owner = JSON.parse(fs.readFileSync(file, "utf8"));
+// The drift check runs alone, without the frontend installation it would
+// otherwise name and wait for.
 owner.policy_units["harness.toolchain_drift"].needs = [];
+owner.operations["harness.toolchain_drift"].execution.prerequisites = ["$(NODE_BIN)"];
 fs.writeFileSync(file, `${JSON.stringify(owner, null, 2)}\n`);
 EOF
 git -C "${preflight_dir}" add --all

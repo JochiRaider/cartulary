@@ -217,8 +217,11 @@ func (r Registry) Lookup(id string) (Declaration, bool) {
 // Workspace is what producers read from a checkout and an environment: the
 // layout's directories and the toolchain pins.
 type Workspace struct {
-	Root     string
-	Env      []string
+	Root string
+	Env  []string
+	// GoReady, when set, readies the Go toolchain before a Go binary's first
+	// Go command.
+	GoReady  func() error
 	registry Registry
 	// pinnedGo is the pinned Go environment builds share with tests.
 	pinnedGo map[string]string
@@ -459,7 +462,7 @@ func (w *Workspace) Plan(d Declaration) (Producer, map[string]string, error) {
 			return nil, nil, errors.New("NODE_BIN is required")
 		}
 		env, wrap := w.step(d, env)
-		return GoBinary{Module: w.Root, Package: d.Package, Tags: d.Tags, Name: d.Name, Go: goExecutable, Node: node, Env: env, Wrap: wrap},
+		return GoBinary{Module: w.Root, Package: d.Package, Tags: d.Tags, Name: d.Name, Go: goExecutable, Node: node, Env: env, Wrap: wrap, Ready: w.GoReady},
 			map[string]string{d.Name: view, d.Name + ".crypto.json": view + ".crypto.json"}, nil
 	case "go_tool":
 		tool, err := w.goTool(d)

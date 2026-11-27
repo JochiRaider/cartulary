@@ -3,7 +3,7 @@ import path from "node:path";
 import { hasMakeNodeTool } from "../command-surface/make-node-tools.mjs";
 import { semanticJSONDigest } from "../contract/index.mjs";
 import { runContextEnvironment } from "../contract/run-context.mjs";
-import { producerBindings, producerCommand, readProducerRegistry, splitProducedPrerequisites } from "./producers.mjs";
+import { producerBindings, producerInvocation, readProducerRegistry, splitProducedPrerequisites } from "./producers.mjs";
 
 /** Operation definitions belong to the graph owner, independently of command names. */
 export function readOperationOwner(root) {
@@ -102,8 +102,7 @@ function artifactInvocations(operationID, execution, env, environment) {
       return env[name];
     });
     invocations.push({
-      command: environment.GO || "go",
-      args: [...producerCommand, ...producers],
+      ...producerInvocation(environment.CURDIR ?? process.cwd(), environment, producers),
       env: { ...env, GOCACHE: caches[0], GOMODCACHE: caches[1], GOTMPDIR: caches[2] },
       directories: caches,
     });

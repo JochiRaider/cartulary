@@ -107,6 +107,9 @@ func Compile(in *Inputs, selection Selection, options Options) (*Graph, error) {
 	if err := c.browserFinalizers(); err != nil {
 		return nil, err
 	}
+	if err := c.waitForProducers(); err != nil {
+		return nil, err
+	}
 	graph := &Graph{Units: c.units}
 	if err := graph.validate(); err != nil {
 		return nil, err

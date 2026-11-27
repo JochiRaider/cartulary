@@ -142,7 +142,7 @@ func Prepare(root string, request Request, now time.Time, pid int) (*Plan, error
 		cache, cacheInputs, err = CacheFacts(root, in, graph, source.Inputs, CacheContext{
 			ToolchainDigest: toolchainDigest, Platform: runtime.GOOS + "/" + runtime.GOARCH,
 			FIPSSelector: goEnvironment["GOFIPS140"], GoDebug: environment["GODEBUG"], GoToolchain: goEnvironment["GOTOOLCHAIN"],
-		})
+		}, source.Memoized)
 		if err != nil {
 			return nil, err
 		}

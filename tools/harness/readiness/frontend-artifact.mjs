@@ -14,7 +14,7 @@ import { runPrivateCapturedProcess } from "../runtime/private-child-process.mjs"
 import { borrowRuntime, createRuntime, runtimeEnvironment, runtimeHandleEnvironment } from "../runtime/session-client.mjs";
 import { launchEnvironment } from "../runtime/launch-context.mjs";
 import { buildSourceSnapshot } from "../test-catalog/index.mjs";
-import { producerCommand, readProducerRegistry } from "../execution/producers.mjs";
+import { producerInvocation, readProducerRegistry } from "../execution/producers.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 const digest = (bytes) => `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
@@ -228,7 +228,8 @@ async function build(target) {
       mkdirSync(directory, { recursive: true });
       return [name, directory];
     }));
-    const produced = await runPrivateCapturedProcess(process.env.GO || "go", [...producerCommand, "--roots", rootsFile, producer], {
+    const launcher = producerInvocation(root, process.env, ["--roots", rootsFile, producer]);
+    const produced = await runPrivateCapturedProcess(launcher.command, launcher.args, {
       producer: "private_capture", dependencies: [], cwd: root, repoRoot: root, runRoot,
       env: childEnvironment(process.env, { pass: [...runtimeEnvironment, ...launchEnvironment, "NODE_BIN", "NODE_RUNTIME_DIR", "PNPM", "GO", "GO_CACHE_DIR", "GO_MOD_CACHE_DIR", "GO_TMP_DIR"],
         set: { ...runtimeHandleEnvironment(runtime), ...caches, NODE_BIN: process.env.NODE_BIN || process.execPath } }),

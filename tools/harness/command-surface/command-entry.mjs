@@ -20,7 +20,7 @@ import { HarnessConfigError, preflightPublicTarget } from "../contract/index.mjs
 import { inputSourcesEnvironment, runContextEnvironment } from "../contract/run-context.mjs";
 import { operationArgv, operationBindingNames, readOperationOwner } from "../execution/operations.mjs";
 import { childEnvironment } from "../runtime/child-environment.mjs";
-import { producerBindings, producerCommand, readProducerRegistry, splitProducedPrerequisites } from "../execution/producers.mjs";
+import { producerBindings, producerInvocation, readProducerRegistry, splitProducedPrerequisites } from "../execution/producers.mjs";
 import {
   canonicalInputPaths, defaultTaskSurfaceManifestPath, entryRecipeFamily, graphForwardedInputNames, machineStateNames, publicMakeInputNames,
   requiresLiteralMakeTransport, stepForwardedInputNames, toolInputNames,
@@ -31,8 +31,10 @@ const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url))
 // The bindings a graph launch keeps after the public inputs are stripped.
 const launchBindings = ["MAKE", "NODE_BIN", "TEST_SERVICES_BIN"];
 
-// A graph-entry operation target needs what every graph launch needs.
-const graphEntryPrerequisites = Object.freeze(["$(NODE_BIN)", "$(FRONTEND_INSTALL_RECEIPT)", "$(HARNESS_RUNTIME_BIN)"]);
+// A graph-entry operation target needs what every graph launch needs: the
+// runtime that plans and runs it. The graph produces everything its units use
+// (P6-5).
+const graphEntryPrerequisites = Object.freeze(["$(NODE_BIN)", "$(HARNESS_RUNTIME_BIN)"]);
 
 function parseSources(text = "") {
   return new Map(text.split(/\s+/u).filter(Boolean).map((entry) => {
@@ -222,7 +224,8 @@ function produce(root, producers, env) {
   for (const directory of Object.values(caches)) mkdirSync(directory, { recursive: true });
   const produceEnv = { ...env, ...caches };
   delete produceEnv.CARTULARY_TEST_TARGET;
-  const result = spawnSync(env.GO || "go", [...producerCommand, ...producers], { cwd: root, env: produceEnv, stdio: ["ignore", "pipe", "pipe"], maxBuffer: 64 * 1024 * 1024 });
+  const launcher = producerInvocation(root, produceEnv, producers);
+  const result = spawnSync(launcher.command, launcher.args, { cwd: root, env: produceEnv, stdio: ["ignore", "pipe", "pipe"], maxBuffer: 64 * 1024 * 1024 });
   if (result.error) throw result.error;
   const status = result.status ?? 1;
   if (status !== 0) {

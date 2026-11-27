@@ -217,3 +217,30 @@ func TestCollect(t *testing.T) {
 		t.Fatalf("objects %v", entries)
 	}
 }
+
+// A published executable is current exactly when the root recorded for its
+// producer's current key holds its bytes (P6-5): the launcher's self-check.
+func TestHoldsNamesTheCurrentRoot(t *testing.T) {
+	s, views := fixture(t)
+	p := &fakeProducer{content: "one"}
+	produce(t, s, p, views, Controls{})
+	if !s.Holds(p, "tool", views["tool"]) {
+		t.Fatal("the published executable of the current key is not held")
+	}
+	// Its sources changed: the current key has no root yet.
+	p.content = "two"
+	if s.Holds(p, "tool", views["tool"]) {
+		t.Fatal("a stale executable is held")
+	}
+	produce(t, s, p, views, Controls{})
+	if !s.Holds(p, "tool", views["tool"]) {
+		t.Fatal("the republished executable is not held")
+	}
+	// Other bytes at the path, or a name the root lacks, are not held.
+	if err := os.WriteFile(views["tool"], []byte("altered"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if s.Holds(p, "tool", views["tool"]) || s.Holds(p, "absent", views["tool.crypto.json"]) {
+		t.Fatal("bytes the root does not hold are held")
+	}
+}

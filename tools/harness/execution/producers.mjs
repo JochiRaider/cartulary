@@ -1,12 +1,33 @@
-import { readFileSync } from "node:fs";
+import { accessSync, constants, readFileSync } from "node:fs";
 import path from "node:path";
 
 // The authored producer registry (P5-3): each producer publishes its output at
-// a binding's path. The store, through `go run ./tools/harnessbuild produce`,
-// decides whether to build; Make and the operation runner only name producers.
+// a binding's path. The store, through `harnessbuild produce`, decides whether
+// to build; Make and the operation runner only name producers.
 export const producerRegistryPath = "tools/harness_producers.json";
 export const producerRegistrySchemaID = "cartulary.harness_producers.v1";
-export const producerCommand = ["run", "./tools/harnessbuild", "produce"];
+
+// The launcher is itself a producer (P6-5). Its published executable checks
+// that it is current and otherwise hands the command to `go run`.
+const launcherBinding = "HARNESSBUILD_BIN";
+
+/**
+ * The command that runs `harnessbuild produce` with args: the published
+ * launcher at its default path when there is one, else `go run` of its
+ * sources, which publishes it for the next call.
+ */
+export function producerInvocation(root, env, args) {
+  const resident = producerDefaultPaths(root).get(launcherBinding);
+  try {
+    if (resident) {
+      accessSync(path.join(root, resident), constants.X_OK);
+      return { command: path.join(root, resident), args: ["produce", ...args] };
+    }
+  } catch {
+    // Not published yet.
+  }
+  return { command: env.GO || "go", args: ["run", "./tools/harnessbuild", "produce", ...args] };
+}
 
 const bindingTemplate = /^\$\(([A-Z][A-Z0-9_]*)\)$/u;
 

@@ -7,6 +7,7 @@ GOOSE_BIN ?= $(CURDIR)/.cache/cartulary/toolbin/goose-v3.27.0
 GOSEC_BIN ?= $(CURDIR)/.cache/cartulary/toolbin/gosec-v2.29.0
 GOVULNCHECK_BIN ?= $(CURDIR)/.cache/cartulary/toolbin/govulncheck-v1.3.0
 HARNESS_RUNTIME_BIN ?= $(CURDIR)/.cache/cartulary/toolbin/cartulary-harness
+HARNESSBUILD_BIN ?= $(CURDIR)/.cache/cartulary/toolbin/cartulary-harnessbuild
 MIGRATE_BIN ?= $(CURDIR)/build/bin/migrate
 NODE_BIN ?= $(CURDIR)/.cache/cartulary/node-runtime/bin/node
 OPERATOR_BIN ?= $(CURDIR)/build/bin/operator

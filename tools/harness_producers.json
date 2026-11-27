@@ -31,6 +31,14 @@
       ]
     },
     {
+      "id": "harnessbuild",
+      "kind": "go_binary",
+      "binding": "HARNESSBUILD_BIN",
+      "directory": "toolbin",
+      "package": "./tools/harnessbuild",
+      "name": "cartulary-harnessbuild"
+    },
+    {
       "id": "harness-runtime",
       "kind": "go_binary",
       "binding": "HARNESS_RUNTIME_BIN",

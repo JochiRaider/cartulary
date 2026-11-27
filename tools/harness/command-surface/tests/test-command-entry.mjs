@@ -53,7 +53,9 @@ test("a graph launch keeps only the target's forwarded inputs, with their origin
   assert.deepEqual(graphLaunch("check", env, { manifest, root }).args, ["graph", "--selection", "aggregate", "--target", "check"]);
   const gate = graphLaunch("seaweedfs-release-gate", env, { manifest, root });
   assert.deepEqual(gate.args, ["graph", "--selection", "target", "--target", "seaweedfs-release-gate"]);
-  assert.deepEqual(recipeProducers(root, gate.recipe), ["frontend-install", "harness-runtime"]);
+  // A graph launch produces only the runtime; the graph produces what its
+  // units use (P6-5).
+  assert.deepEqual(recipeProducers(root, gate.recipe), ["harness-runtime"]);
 });
 
 test("a canonical input is the checkout's own file, and only graph targets launch", () => {

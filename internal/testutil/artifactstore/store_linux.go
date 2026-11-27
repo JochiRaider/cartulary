@@ -90,7 +90,7 @@ func (s Store) RootPath(id string) string { return s.path("objects", id) }
 // still verifies, otherwise a root p builds and the store seals. views maps a
 // root file's path to the path it is published at.
 func (s Store) Produce(p Producer, views map[string]string, controls Controls) (Result, error) {
-	key, err := p.Key()
+	key, err := s.key(p, controls)
 	if err != nil {
 		return Result{}, fmt.Errorf("artifact key for %s: %w", p.ID(), err)
 	}
@@ -122,6 +122,46 @@ func (s Store) Produce(p Producer, views map[string]string, controls Controls) (
 		}
 	}
 	return Result{Root: id}, s.publish(id, views)
+}
+
+// Holds reports whether the root recorded for p's current key holds a file
+// named name with the content of the file at path, so a published executable
+// can tell that it is current without building (P6-5).
+func (s Store) Holds(p Producer, name, path string) bool {
+	key, err := s.key(p, Controls{})
+	if err != nil {
+		return false
+	}
+	id, ok := s.lookup(p.ID(), key)
+	if !ok {
+		return false
+	}
+	m, err := s.manifest(id)
+	if err != nil {
+		return false
+	}
+	for _, file := range m.Files {
+		if file.Path == name {
+			digest, err := fileDigest(path)
+			return err == nil && digest == file.SHA256
+		}
+	}
+	return false
+}
+
+// memoKeyer is a producer whose key can come from a memo of what its
+// commands report, kept in the store (P6-5).
+type memoKeyer interface {
+	MemoKey(directory string) (string, error)
+}
+
+// key is p's key, through its memo unless the caller disables or overrides
+// the store.
+func (s Store) key(p Producer, controls Controls) (string, error) {
+	if memo, ok := p.(memoKeyer); ok && !controls.Disable && !controls.Force {
+		return memo.MemoKey(s.path("memo"))
+	}
+	return p.Key()
 }
 
 func (s Store) stage() (string, error) {
@@ -368,6 +408,13 @@ func current(view string, mode fs.FileMode, digest string) bool {
 // at most limit entries in all, so a build never waits on a long sweep.
 func (s Store) Collect(now time.Time, maxAge time.Duration, limit int) (int, error) {
 	removed := 0
+	// A memo unused for maxAge goes; a used one is touched.
+	memos, _ := filepath.Glob(s.path("memo", "*", "*.json"))
+	for _, name := range memos {
+		if info, err := os.Stat(name); err == nil && now.Sub(info.ModTime()) > maxAge && removed < limit && os.Remove(name) == nil {
+			removed++
+		}
+	}
 	referenced := map[string]bool{}
 	records, _ := filepath.Glob(s.path("keys", "*", "*.json"))
 	for _, name := range records {

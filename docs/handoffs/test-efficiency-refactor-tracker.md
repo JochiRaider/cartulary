@@ -134,7 +134,7 @@ each.
 | G48 | Ambient mode switches select between three execution paths; four are set for every unit and 30 operations strip them again | Specification, implementation, tests | Phase 6, P6-2 | Closed: the `mode_switch` role is gone; residual test isolation noted in 15.7 |
 | G49 | UI-review recipes bypass the command entry and keep a public-input strip list; entry tools are not default-deny | Specification, implementation, tests | Phase 6, P6-3 | Closed (15.8) |
 | G50 | 449 registered environment names, many used in one file; browser-stack secrets cross a shell boundary as environment variables | Implementation, tests, machine inputs | Phase 6, P6-4 | Closed (15.9) |
-| G51 | A cached one-row slice costs 1.85 s, mostly planning and a `go run` producer call; the frontend installation is produced twice | Implementation, specification | Phase 6, P6-5 | Open (15.2) |
+| G51 | A cached one-row slice costs 1.85 s, mostly planning and a `go run` producer call; the frontend installation is produced twice | Implementation, specification | Phase 6, P6-5 | Closed (15.10) |
 | G52 | The release inventory producer has never run and has no isolated entry; 14.30 misstates its validation | Tests, documentation | Phase 6, P6-1 | Open (15.2) |
 | G53 | The diagnostic scope scan reported a scope unresolved when it caught any same-user process mid-exit for over 10 ms, failing UI-review diagnostics under load | Implementation, tests | Phase 6, found in P6-2c | Closed: an exiting process with no address space settles like a zombie (`7e639c3d2`, 15.7) |
 
@@ -5018,7 +5018,7 @@ statuses are unchanged.
 
 ## 15. Phase 6 Plan — Phase 5 Residuals
 
-Status: proposed 2026-11-27 at the owner's request; D30 to D34 approved as recommended the same day (15.5). P6-0 and P6-1 done (15.6); P6-2 done (15.7); P6-3 done (15.8); P6-4 done (15.9). It
+Status: proposed 2026-11-27 at the owner's request; D30 to D34 approved as recommended the same day (15.5). P6-0 and P6-1 done (15.6); P6-2 done (15.7); P6-3 done (15.8); P6-4 done (15.9); P6-5 done (15.10). It
 removes the five items Phase 5 left open (G48 to G52). Each fix aims for the
 cleanest lasting structure: behavior that exists only for compatibility goes,
 rather than being carried forward.
@@ -5701,3 +5701,106 @@ declared public, product or operator input.
     artifact assurance, the UI-review contract, both seeded review profiles
     and the native fixture lifecycle; and one evidence and one timeline
     browser row on a real stack.
+
+### 15.10 Startup (P6-5, done)
+
+A cached one-row slice went from 1.79 s to 0.76 s outer (median of five warm
+runs, `web.workbook.regression.timeline_capture_characterization`, the 15.1
+row). Each interval meets its D34 target:
+
+| Interval | Before | After | Target |
+| --- | --- | --- | --- |
+| Before the graph: Make, admission, entry, preflight, producers | 0.46 s | 0.14 s | ≤ 0.15 s |
+| `runtime_prepare` | 0.90 s | 0.26 s | ≤ 0.3 s |
+| Graph execution | 0.31 s | 0.26 s | — |
+| Outer | 1.79 s | 0.76 s | ≤ 0.8 s |
+
+Profiling showed a different cost split from 15.1: on this Vitest row
+`runtime_prepare` was 0.85 s, almost all of it repeated whole-tree work.
+
+- **Planner scan memo.** Each plan regex-scanned the JavaScript row
+  runner's ~350 modules, the generated schema validators among them, to
+  find their imports: 0.6 s on one core. The planner now keeps each scan by
+  the file's content digest and the scanning rules' identity, so a closure
+  reads only changed files. Prepare fell from 0.85 s to 0.23 s.
+- **Source digest memo.** Every graph hashed all 9,600 snapshot files,
+  1.76 GB, mostly reference-pack fixtures: 0.8 s of CPU, 0.1 s of wall. The
+  snapshot now keeps each regular file's digest with its stat identity, as
+  Git's index does, and uses it while the identity is unchanged. A digest is
+  kept only for a file whose change time is two seconds older than the
+  capture, so a later change always moves it. Capture fell to 0.065 s.
+- Both memos live in the graph cache directory and are used only when Git
+  ignores it, so a memo can never become a source input. A test checkout
+  without that ignore keeps none.
+- **Resident launcher.** `harnessbuild` is now the registered producer
+  `harnessbuild`. A launcher runs its published executable. That executable
+  checks that the store root for its current key holds its own bytes, and
+  otherwise hands the same arguments to `go run`. A compiled run publishes it
+  for the next one.
+  - The Node callers (the entry, the operation runner and the frontend
+    artifact) share `producerInvocation`.
+  - A source change makes the next run rebuild and republish it (2.0 s
+    once). Restoring the source reuses the earlier root with no build.
+- **Go binary key memo.** A Go binary's key ran `go list -deps`, `go env` and
+  `node --version` on every check, about 0.2 s. A memo per build environment
+  now records what they read:
+  - the executables' stat identities and the build variables;
+  - the Go configuration and workspace files;
+  - every closure directory's listing, test files aside, and each directory
+    down to an embedded file;
+  - the digest of every file in them.
+
+  It answers the key while all of that is unchanged, and is kept only when it
+  all settled before the commands ran. The key itself is unchanged.
+  `--no-cache` and `--force` bypass it.
+- **Lazy toolchain readiness.** Go toolchain readiness runs before a
+  producer's first Go command, not before every Go producer, so an answered
+  key runs no Go at all. The warm producer call is now 0.05 s, with no Go
+  subprocess, against 0.37 s.
+- **One producer owner.** Graph recipes and graph-entry operations no longer
+  name the frontend installation receipt. The entry produces only the
+  harness runtime; the graph's `harness.frontend_install` unit owns the
+  frontend installation.
+  - A new planner guard rejects an operation that names an artifact binding
+    without waiting for its producer.
+  - The guard found two real gaps that the entry's duplicate production had
+    hidden: the seven UI-review operations never waited for the frontend
+    installation (they now need it), and `credential_capacity_assessment`
+    named the server, migrate, operator, renderer and Syft artifacts that its
+    script never uses. Its declared design consumes release-check's package
+    as a lone quiet unit, so the stale prerequisites were removed rather
+    than built.
+- **Plans.** `check`, `ci` and `release-check` keep their units, needs and
+  structure. The only digest changes are the two Go units whose test lists
+  gained the three new tests.
+- **Specification.** Amended: the store section (the launcher, lazy
+  readiness, the key memo), the command entry (one producer owner and the
+  guard) and the cache paragraph (the planner memos).
+- **Tests.**
+  - `TestCacheFacts` adds file-scan memo reuse and invalidation;
+    `TestSourceSnapshot` adds the digest memo and its absence where Git does
+    not ignore the cache.
+  - `TestOperationsWaitForTheirProducers` (new) covers the guard.
+  - `TestGoBinaryKeyMemo` (new) covers source edits, constrained files,
+    embedded files and directories, `go.sum`, `go.work` and the build
+    environment, each with no command on the second check;
+    `TestHoldsNamesTheCurrentRoot` (new) covers the launcher's self-check.
+  - The installation test accepts both launcher forms.
+  - Two fixtures follow the single owner: the command-entry test expects
+    only the runtime from a graph launch, and the toolchain-pins fixture that
+    runs the drift check alone drops the receipt with the need.
+- **Proof.**
+  - Generate, `lint CHECK=go`, `scripts` and `shell`, `source-check`
+    `generated`, `surface`, `catalog` and `schema`, and the Markdown lint
+    passed.
+  - **Segment (`p6-5-*`, six owner slices).** 21 rows passed: the planner,
+    artifact store and native runtime units; public registry parity; the
+    task-surface report; the toolchain pins; the environment registry; the
+    routing and current-epoch evidence contracts; all eight UI-review rows
+    and the native fixture lifecycle; browser artifact assurance; the
+    timing row; and one evidence browser row on a real stack. The first run
+    failed the two fixture rows above; after the fixture updates both passed.
+  - **`check` (`p6-5-check01`).** Passed: 372 units and 1,899 rows in a
+    505 s graph, against 579 s for `p6-2-check02` and 520 s for P4-7.
+  - Timing: six warm slices at 0.75 to 0.78 s. The stale-launcher probe
+    rebuilt once and the restored source reused its root.

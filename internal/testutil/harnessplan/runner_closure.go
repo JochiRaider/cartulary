@@ -24,6 +24,7 @@ var (
 	moduleDynamic  = regexp.MustCompile(`\bimport\(\s*["']([^"']+)["']\s*\)`)
 	moduleRequire  = regexp.MustCompile(`\brequire\w*\(\s*["']([^"']+)["']\s*[,)]`)
 	moduleComputed = regexp.MustCompile(`\bimport\(\s*[^"'\s)]`)
+	modulePatterns = []*regexp.Regexp{moduleFrom, moduleBare, moduleDynamic, moduleRequire}
 )
 
 type runnerClosure struct {
@@ -98,25 +99,19 @@ func (p *cachePlanner) resolveModules(entry string, externals []string) (map[int
 			continue
 		}
 		set[index] = true
-		source, err := p.text(module)
+		scan, err := p.moduleScan(index)
 		if err != nil {
 			return nil, err
 		}
-		if moduleComputed.MatchString(source) && !slices.Contains(externals, module) {
+		if scan.Computed && !slices.Contains(externals, module) {
 			return nil, fmt.Errorf("module %s has a computed import", module)
 		}
-		for _, pattern := range []*regexp.Regexp{moduleFrom, moduleBare, moduleDynamic, moduleRequire} {
-			for _, match := range pattern.FindAllStringSubmatch(source, -1) {
-				specifier := match[1]
-				if !strings.HasPrefix(specifier, "./") && !strings.HasPrefix(specifier, "../") {
-					continue
-				}
-				resolved, ok := p.resolveModule(path.Join(path.Dir(module), specifier))
-				if !ok {
-					return nil, fmt.Errorf("module %s imports unresolvable %s", module, specifier)
-				}
-				pending = append(pending, resolved)
+		for _, specifier := range scan.Specifiers {
+			resolved, ok := p.resolveModule(path.Join(path.Dir(module), specifier))
+			if !ok {
+				return nil, fmt.Errorf("module %s imports unresolvable %s", module, specifier)
 			}
+			pending = append(pending, resolved)
 		}
 	}
 	return set, nil
@@ -142,13 +137,13 @@ func (p *cachePlanner) namedInputs(inputs *UnitInputs, set map[int]bool) error {
 	for _, index := range files {
 		literals, ok := p.literals[index]
 		if !ok {
-			source, err := p.text(p.source[index].Path)
+			candidates, err := p.goLiterals(index)
 			if err != nil {
 				return err
 			}
-			for _, match := range goPathLiteral.FindAllStringSubmatch(source, -1) {
-				if target, ok := p.index(match[1]); ok && p.source[target].Kind == "file" {
-					literals = append(literals, match[1])
+			for _, candidate := range candidates {
+				if target, ok := p.index(candidate); ok && p.source[target].Kind == "file" {
+					literals = append(literals, candidate)
 				}
 			}
 			p.literals[index] = literals

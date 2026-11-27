@@ -73,8 +73,14 @@ func TestCacheFacts(t *testing.T) {
 		t.Helper()
 		var inputs []SourceInput
 		err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
-			if err != nil || d.IsDir() {
+			if err != nil {
 				return err
+			}
+			if d.IsDir() {
+				if d.Name() == ".cache" {
+					return filepath.SkipDir // machine state, as Git ignores it
+				}
+				return nil
 			}
 			data, err := os.ReadFile(path)
 			if err != nil {
@@ -132,7 +138,7 @@ func TestCacheFacts(t *testing.T) {
 		for _, unit := range units {
 			graph.Units[unit.ID] = unit
 		}
-		return CacheFacts(root, in, graph, snapshot(), CacheContext{ToolchainDigest: "sha256:" + digest("toolchain"), Platform: "linux/amd64"})
+		return CacheFacts(root, in, graph, snapshot(), CacheContext{ToolchainDigest: "sha256:" + digest("toolchain"), Platform: "linux/amd64"}, false)
 	}
 	paths := func(source []SourceInput, indices []int) []string {
 		var result []string
@@ -325,6 +331,55 @@ func TestCacheFacts(t *testing.T) {
 		after, _, err := facts(goUnit, vitestUnit)
 		if err != nil || *after[0].InputDigest == *before[0].InputDigest || *after[1].InputDigest != *before[1].InputDigest {
 			t.Fatalf("before %+v after %+v: %v", before, after, err)
+		}
+	})
+
+	t.Run("file scans are kept by content digest", func(t *testing.T) {
+		row := "web.probe.unit.lib"
+		vitestUnit := &Unit{ID: "vitest:" + row, CachePolicy: "content_addressed", RowBindings: []RowBinding{{RowID: row, Runner: RunnerVitest}},
+			EvidenceOutputs: []string{"rows/" + row + ".json"}, SemanticDigest: "sha256:" + digest(row)}
+		memoized := func() ([]CacheFact, map[string][]int) {
+			t.Helper()
+			result, inputs, err := CacheFacts(root, in, &Graph{Units: map[string]*Unit{vitestUnit.ID: vitestUnit}}, snapshot(),
+				CacheContext{ToolchainDigest: "sha256:" + digest("toolchain"), Platform: "linux/amd64"}, true)
+			if err != nil {
+				t.Fatal(err)
+			}
+			return result, inputs
+		}
+		plain, _, err := facts(vitestUnit)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if first, _ := memoized(); *first[0].InputDigest != *plain[0].InputDigest {
+			t.Fatal("a memoized scan changed a key")
+		}
+		// The memo holds the runner entry's scan; a recorded scan is used for
+		// the same bytes.
+		source := snapshot()
+		index := slices.IndexFunc(source, func(input SourceInput) bool { return input.Path == "tools/runner/cli.mjs" })
+		scans := loadSourceScans(root, true)
+		if _, ok := scans.Modules[source[index].ByteDigest]; !ok {
+			t.Fatal("the runner entry's scan was not kept")
+		}
+		scans.Modules[source[index].ByteDigest], scans.changed = moduleScan{Specifiers: []string{"./lib/a.mjs"}}, true
+		scans.save(root, source)
+		reused, inputs := memoized()
+		if got := paths(snapshot(), inputs[*reused[0].DependencyDigest]); slices.Contains(got, "tools/runner/b.mjs") {
+			t.Fatalf("the recorded scan was not used: %v", got)
+		}
+		// Other bytes are scanned again, and another scanner discards the memo.
+		write("tools/runner/cli.mjs", files["tools/runner/cli.mjs"]+"// changed\n")
+		defer write("tools/runner/cli.mjs", files["tools/runner/cli.mjs"])
+		rescanned, inputs := memoized()
+		if got := paths(snapshot(), inputs[*rescanned[0].DependencyDigest]); !slices.Contains(got, "tools/runner/b.mjs") {
+			t.Fatalf("changed bytes reused a scan: %v", got)
+		}
+		scans = loadSourceScans(root, true)
+		scans.Scanner, scans.changed = "another", true
+		scans.save(root, snapshot())
+		if len(loadSourceScans(root, true).Modules) != 0 {
+			t.Fatal("a memo from another scanner was used")
 		}
 	})
 

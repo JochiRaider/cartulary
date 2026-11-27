@@ -2646,8 +2646,16 @@ directory. The producer registry `tools/harness_producers.json` declares each
 producer's kind, the binding its output is published at and the layout
 directory of its default path; Go tool modules and the ShellCheck version come
 from the toolchain pins, never from a second copy. Make, the operation runner
-and bootstrap run producers through one command, `go run ./tools/harnessbuild
-produce`, which needs no prebuilt binary. An artifact binding whose
+and bootstrap run producers through one command, `harnessbuild produce`
+(amended 2026-11-27, P6-5). The command is itself the registered producer
+`harnessbuild`: a launcher runs its published executable, which first checks
+that the root recorded for its own current key holds its bytes and otherwise
+hands the same arguments to `go run ./tools/harnessbuild produce`. Before the
+executable is published, the launcher runs `go run` directly; a run that is
+not the published executable publishes it afterwards when the Node runtime
+its receipt needs is present. The Go toolchain readiness owner runs before a
+producer's first Go command, so a producer whose key and root the store
+answers runs none. An artifact binding whose
 prerequisite is a registered binding runs that producer instead of re-entering
 Make; a generated public recipe does the same, and the generated Make include
 defaults each binding to its producer's path. A producer publishes only at
@@ -2666,7 +2674,17 @@ matches its manifest is rebuilt and quarantined, never reused. A Go binary's
 key covers its declaration (package, tags and output names), its import
 closure, the module files, the effective `go env` settings, the Node version,
 the pinned toolchain and cryptographic module, and the receipt writer and
-producer implementations. A Go tool's key covers its pinned module and
+producer implementations. A key memo in the store answers the closure, the
+settings and the Node version without running Go or Node (amended
+2026-11-27, P6-5). It records, per build environment, what those commands read:
+the resolved Go and Node executables' stat identities; the build variables;
+the Go configuration and workspace files; the listing of every closure
+directory and of each directory from a package down to an embedded file,
+test files aside; and the digest of every file in them. It is used only while
+all of that is unchanged, and it is kept only when every recorded file and
+directory last changed more than two seconds before the commands ran. The key
+is the same either way. `--no-cache` and `--force` compute the key without the
+memo, and collection removes a memo unused for 30 days. A Go tool's key covers its pinned module and
 version, the go.mod and go.sum of the module directory it builds from, the
 effective `go env` settings and its producer. Web bundles and embedded web
 assets are keyed as their clauses below state; a web bundle publishes no view,
@@ -3650,8 +3668,13 @@ alone knows: each public input's value, raw for a literally transported input
 and expanded otherwise, with its origin in `CARTULARY_MAKE_INPUT_SOURCES`. The
 entry sets the target's own exports, and the target as its run context unless
 a public target invoked it. It runs the shared public preflight in its own
-process and produces the target's registered producers. It then runs the
-target with the process tree and environments its recipe assembled:
+process and produces the target's registered producers. A graph target's
+only producer is the harness runtime that plans and runs it: the graph
+produces everything its units use, such as the frontend installation, so no
+output has two producers (amended 2026-11-27, P6-5). The planner rejects an
+operation that names an artifact binding without waiting, directly or through
+its needs, for the operation that produces it. It then runs the target with
+the process tree and environments its recipe assembled:
 
 - a graph target launches the graph with every public input stripped except
   its forwarded inputs, each with its origin, and with the resolved
@@ -12484,6 +12507,18 @@ runner loads the whole test catalog, but a unit's key holds only the catalog
 owner and its selected owners' manifests: the planner validates the complete catalog before any unit
 runs, so another owner's change cannot alter a reused result without failing
 planning first.
+
+The planner keeps two memos in the checkout's graph cache directory
+(`.cache/cartulary/graph-v2`) when Git ignores it, so a memo never becomes a
+source input (amended 2026-11-27, P6-5). The source snapshot keeps each
+regular file's digest with its stat identity (device, inode, mode, size,
+modification and change times), as Git's index does, and uses it while the
+identity is unchanged; a digest is kept only when the file's change time is
+more than two seconds older than the capture, so any later change moves the
+change time. The closure scans keep each Node module's relative specifiers and
+computed-import finding, and each Go file's path-shaped literals, by the
+file's content digest and the scanning rules' identity. Neither memo is an
+input to a key, and every closure and digest is the one a full scan gives.
 
 Vitest rows compile to units of one execution contract (project, profiles,
 fixture, services, binaries, preparations, cache policy and isolation). A

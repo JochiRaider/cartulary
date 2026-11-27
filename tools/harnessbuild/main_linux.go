@@ -1,8 +1,12 @@
 //go:build linux
 
 // Command harnessbuild runs registered producers through the harness artifact
-// store (P5-3). Make and the operation runner start it with `go run`, which
-// needs no prebuilt binary, so it also builds the harness runtime itself.
+// store (P5-3). It is itself the registered producer "harnessbuild" (P6-5):
+// launchers run its published executable, which first checks that the store
+// root for its current key holds its own bytes and otherwise hands the same
+// command to `go run ./tools/harnessbuild`. A run that is not the published
+// executable publishes it afterwards, so only the first run after a change to
+// its sources compiles it. It also builds the harness runtime itself.
 //
 //	harnessbuild produce [--store DIR] [--roots FILE] PRODUCER...
 //
@@ -28,10 +32,15 @@ import (
 	"os"
 	"os/exec"
 	"slices"
+	"sync"
+	"syscall"
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/artifactstore"
 )
+
+// launcherID is this command's own producer.
+const launcherID = "harnessbuild"
 
 // collection bounds: records unused for 30 days go, and one invocation removes
 // at most 16 entries.
@@ -59,7 +68,7 @@ func run(args []string) int {
 		return 2
 	}
 	controls := artifactstore.Controls{Disable: *noCache, Force: *force}
-	if err := produce(*store, *roots, controls, flags.Args()); err != nil {
+	if err := produce(*store, *roots, controls, flags.Args(), args); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		reportFailure()
 		return 1
@@ -67,7 +76,7 @@ func run(args []string) int {
 	return 0
 }
 
-func produce(store, rootsFile string, controls artifactstore.Controls, ids []string) error {
+func produce(store, rootsFile string, controls artifactstore.Controls, ids, args []string) error {
 	root, err := os.Getwd()
 	if err != nil {
 		return err
@@ -80,9 +89,26 @@ func produce(store, rootsFile string, controls artifactstore.Controls, ids []str
 	if err != nil {
 		return err
 	}
+	// The Go toolchain is readied once, before the first Go command; a Go
+	// binary whose key and root the store answers runs none.
+	workspace.GoReady = sync.OnceValue(ensureGoToolchain)
 	if store == "" {
 		if store, err = workspace.Directory("artifact_store"); err != nil {
 			return err
+		}
+	}
+	s := artifactstore.Store{Root: store}
+	launcher, resident, err := residentLauncher(workspace, registry)
+	if err != nil {
+		return err
+	}
+	if resident {
+		producer, _, err := workspace.Plan(launcher)
+		if err != nil {
+			return err
+		}
+		if executable, err := os.Executable(); err != nil || !s.Holds(producer, launcher.Name, executable) {
+			return compileAndRun(workspace, args)
 		}
 	}
 	selected, err := registry.Closure(ids)
@@ -98,12 +124,11 @@ func produce(store, rootsFile string, controls artifactstore.Controls, ids []str
 			declarations = append(declarations, d)
 		}
 	}
-	if slices.ContainsFunc(declarations, artifactstore.Declaration.IsGo) {
-		if err := ensureGoToolchain(); err != nil {
+	if slices.ContainsFunc(declarations, func(d artifactstore.Declaration) bool { return d.IsGo() && d.Kind != "go_binary" }) {
+		if err := workspace.GoReady(); err != nil {
 			return err
 		}
 	}
-	s := artifactstore.Store{Root: store}
 	installedOnly := os.Getenv("CARTULARY_PREPARATION_POLICY") == "installed_only"
 	produced := map[string]string{}
 	for _, d := range declarations {
@@ -155,8 +180,54 @@ func produce(store, rootsFile string, controls artifactstore.Controls, ids []str
 			return err
 		}
 	}
+	// A compiled run publishes the launcher for the next one. It needs the
+	// Node runtime for the binary's receipt, so the run that installs Node
+	// leaves it to a later run.
+	if !resident && !controls.Disable && workspace.Getenv("NODE_BIN") != "" && !slices.Contains(ids, launcherID) {
+		producer, views, err := workspace.Plan(launcher)
+		if err != nil {
+			return fmt.Errorf("producer %s: %w", launcherID, err)
+		}
+		if _, err := s.Produce(producer, views, artifactstore.Controls{}); err != nil {
+			return fmt.Errorf("producer %s: %w", launcherID, err)
+		}
+	}
 	_, err = s.Collect(time.Now(), collectAge, collectLimit)
 	return err
+}
+
+// residentLauncher returns the launcher's declaration and whether this
+// process is its published executable.
+func residentLauncher(workspace *artifactstore.Workspace, registry artifactstore.Registry) (artifactstore.Declaration, bool, error) {
+	launcher, ok := registry.Lookup(launcherID)
+	if !ok {
+		return launcher, false, fmt.Errorf("the producer registry declares no %s producer", launcherID)
+	}
+	view, err := workspace.View(launcher)
+	if err != nil {
+		return launcher, false, err
+	}
+	executable, err := os.Executable()
+	if err != nil {
+		return launcher, false, nil
+	}
+	published, errPublished := os.Stat(view)
+	running, errRunning := os.Stat(executable)
+	return launcher, errPublished == nil && errRunning == nil && os.SameFile(published, running), nil
+}
+
+// compileAndRun replaces this stale launcher with `go run` of the current
+// sources and the same arguments.
+func compileAndRun(workspace *artifactstore.Workspace, args []string) error {
+	goExecutable := workspace.Getenv("GO")
+	if goExecutable == "" {
+		goExecutable = "go"
+	}
+	resolved, err := exec.LookPath(goExecutable)
+	if err != nil {
+		return err
+	}
+	return syscall.Exec(resolved, append([]string{goExecutable, "run", "./tools/harnessbuild"}, args...), os.Environ())
 }
 
 // ensureGoToolchain applies the Go toolchain readiness owner before a Go

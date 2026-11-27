@@ -63,13 +63,17 @@ type cachePlanner struct {
 	runners  map[string]runnerClosure
 	modules  map[string]moduleSet
 	literals map[int][]string
+	// scans memoizes file scans by content digest across plans.
+	scans *sourceScans
 }
 
 // CacheFacts decides each unit's cache eligibility and, for an eligible unit,
 // its input digest and dependency closure. It returns the facts in unit order
-// and the closures' source indices by dependency digest.
-func CacheFacts(root string, in *Inputs, graph *Graph, source []SourceInput, context CacheContext) ([]CacheFact, map[string][]int, error) {
-	p := &cachePlanner{root: root, in: in, source: source, context: context, closures: map[string]closure{}, imports: map[string][]string{}, entries: map[int][]byte{}, runners: map[string]runnerClosure{}, modules: map[string]moduleSet{}, literals: map[int][]string{}}
+// and the closures' source indices by dependency digest. With memoize, file
+// scans are kept in the graph cache by content digest.
+func CacheFacts(root string, in *Inputs, graph *Graph, source []SourceInput, context CacheContext, memoize bool) ([]CacheFact, map[string][]int, error) {
+	p := &cachePlanner{root: root, in: in, source: source, context: context, closures: map[string]closure{}, imports: map[string][]string{}, entries: map[int][]byte{}, runners: map[string]runnerClosure{}, modules: map[string]moduleSet{}, literals: map[int][]string{}, scans: loadSourceScans(root, memoize)}
+	defer p.scans.save(root, source)
 	inputs := map[string][]int{}
 	var facts []CacheFact
 	for _, unit := range graph.Sorted() {

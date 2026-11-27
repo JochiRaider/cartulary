@@ -1797,7 +1797,9 @@
       "postgres_isolation": "none"
     },
     "harness.harness_ui_review_artifacts": {
-      "needs": [],
+      "needs": [
+        "harness.frontend_install"
+      ],
       "cache_policy": "none",
       "estimated_work_ms": 1500,
       "resource_profile_id": "ui_review_browser",
@@ -1805,7 +1807,9 @@
       "postgres_isolation": "none"
     },
     "harness.harness_ui_review_execution": {
-      "needs": [],
+      "needs": [
+        "harness.frontend_install"
+      ],
       "cache_policy": "none",
       "estimated_work_ms": 1500,
       "resource_profile_id": "ui_review_parallel",
@@ -1813,7 +1817,9 @@
       "postgres_isolation": "none"
     },
     "harness.harness_ui_review_lifecycle": {
-      "needs": [],
+      "needs": [
+        "harness.frontend_install"
+      ],
       "cache_policy": "none",
       "estimated_work_ms": 1500,
       "resource_profile_id": "ui_review_browser",
@@ -1821,7 +1827,9 @@
       "postgres_isolation": "none"
     },
     "harness.harness_ui_review_presentation": {
-      "needs": [],
+      "needs": [
+        "harness.frontend_install"
+      ],
       "cache_policy": "none",
       "estimated_work_ms": 1500,
       "resource_profile_id": "ui_review_browser",
@@ -1829,7 +1837,9 @@
       "postgres_isolation": "none"
     },
     "harness.harness_ui_review_seeded_default": {
-      "needs": [],
+      "needs": [
+        "harness.frontend_install"
+      ],
       "cache_policy": "none",
       "estimated_work_ms": 5000,
       "resource_profile_id": "harness_installed_browser",
@@ -1837,7 +1847,9 @@
       "postgres_isolation": "none"
     },
     "harness.harness_ui_review_seeded_network_flow_claimed": {
-      "needs": [],
+      "needs": [
+        "harness.frontend_install"
+      ],
       "cache_policy": "none",
       "estimated_work_ms": 5000,
       "resource_profile_id": "harness_installed_browser",
@@ -1845,7 +1857,9 @@
       "postgres_isolation": "none"
     },
     "harness.harness_ui_review_workflow": {
-      "needs": [],
+      "needs": [
+        "harness.frontend_install"
+      ],
       "cache_policy": "none",
       "estimated_work_ms": 1500,
       "resource_profile_id": "ui_review_browser_pair",
@@ -2268,12 +2282,7 @@
       "execution": {
         "type": "step_command",
         "prerequisites": [
-          "$(MIGRATE_BIN)",
-          "$(NODE_BIN)",
-          "$(OPERATOR_BIN)",
-          "$(REPORT_RENDERER_RECEIPT)",
-          "$(SERVER_BIN)",
-          "$(SYFT_BIN)"
+          "$(NODE_BIN)"
         ],
         "mode": "run_step",
         "step_label": "credential-capacity-assessment",

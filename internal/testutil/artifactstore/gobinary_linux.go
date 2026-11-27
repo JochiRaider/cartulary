@@ -7,9 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -54,6 +52,16 @@ type GoBinary struct {
 	Env      []string
 	// Wrap, when set, wraps the build command, such as in a run step.
 	Wrap func(command []string) []string
+	// Ready, when set, readies the Go toolchain before the first Go command;
+	// a key the memo answers runs none (P6-5).
+	Ready func() error
+}
+
+func (b GoBinary) ready() error {
+	if b.Ready == nil {
+		return nil
+	}
+	return b.Ready()
 }
 
 // ID names the producer in key records.
@@ -92,70 +100,18 @@ func (b GoBinary) closure() ([]string, error) {
 // build reads: every non-test source of each kind Go compiles and every
 // embedded file, under the build's own caches and with modules read-only.
 func goClosure(goExecutable, module, pkg, tags string, env []string) ([]string, error) {
-	args := []string{"list", "-deps", "-json"}
-	if tags != "" {
-		args = append(args, "-tags", tags)
-	}
-	command := exec.Command(goExecutable, append(args, "--", pkg)...)
-	command.Dir, command.Env = module, append(slices.Clone(env), "GOFLAGS=-mod=readonly")
-	var stderr bytes.Buffer
-	command.Stderr = &stderr
-	output, err := command.Output()
-	if err != nil {
-		return nil, fmt.Errorf("go list %s: %w: %s", pkg, err, strings.TrimSpace(stderr.String()))
-	}
-	module, err = filepath.Abs(module)
-	if err != nil {
-		return nil, err
-	}
-	files := []string{}
-	decoder := json.NewDecoder(bytes.NewReader(output))
-	for {
-		var p struct {
-			Dir                                                 string
-			Standard                                            bool
-			GoFiles, CgoFiles, CFiles, CXXFiles, MFiles, HFiles []string
-			FFiles, SFiles, SwigFiles, SwigCXXFiles, SysoFiles  []string
-			EmbedFiles                                          []string
-		}
-		if err := decoder.Decode(&p); errors.Is(err, io.EOF) {
-			break
-		} else if err != nil {
-			return nil, err
-		}
-		if p.Standard || !strings.HasPrefix(p.Dir+string(filepath.Separator), module+string(filepath.Separator)) {
-			continue
-		}
-		for _, group := range [][]string{p.GoFiles, p.CgoFiles, p.CFiles, p.CXXFiles, p.MFiles, p.HFiles, p.FFiles, p.SFiles, p.SwigFiles, p.SwigCXXFiles, p.SysoFiles, p.EmbedFiles} {
-			for _, name := range group {
-				relative, err := filepath.Rel(module, filepath.Join(p.Dir, name))
-				if err != nil {
-					return nil, err
-				}
-				files = append(files, filepath.ToSlash(relative))
-			}
-		}
-	}
-	slices.Sort(files)
-	return slices.Compact(files), nil
+	detail, err := goClosureDetail(goExecutable, module, pkg, tags, env)
+	return detail.files, err
 }
 
 // Key digests everything the binary and its receipt depend on.
 func (b GoBinary) Key() (string, error) {
+	if err := b.ready(); err != nil {
+		return "", err
+	}
 	closure, err := b.closure()
 	if err != nil {
 		return "", err
-	}
-	if len(closure) == 0 {
-		return "", fmt.Errorf("%s has no repository files", b.Package)
-	}
-	inputs := map[string]string{}
-	for _, name := range slices.Concat([]string{"go.mod", "go.sum", producerImplementation}, receiptWriter, closure) {
-		digest, err := fileDigest(filepath.Join(b.Module, filepath.FromSlash(name)))
-		if err != nil {
-			return "", err
-		}
-		inputs[name] = digest
 	}
 	effective, err := effectiveGoSettings(b.Go, b.Module, b.Env)
 	if err != nil {
@@ -164,6 +120,31 @@ func (b GoBinary) Key() (string, error) {
 	node, err := b.run(b.Node, []string{"--version"}, b.Env)
 	if err != nil {
 		return "", err
+	}
+	return b.keyFrom(closure, effective, strings.TrimSpace(string(node)), nil)
+}
+
+// keyFrom digests the key's parts: the closure, the effective Go settings,
+// the Node version, and the digest of each input file, taken from known by
+// absolute path when present.
+func (b GoBinary) keyFrom(closure []string, effective map[string]string, nodeVersion string, known map[string]string) (string, error) {
+	if len(closure) == 0 {
+		return "", fmt.Errorf("%s has no repository files", b.Package)
+	}
+	module, err := filepath.Abs(b.Module)
+	if err != nil {
+		return "", err
+	}
+	inputs := map[string]string{}
+	for _, name := range slices.Concat([]string{"go.mod", "go.sum", producerImplementation}, receiptWriter, closure) {
+		file := filepath.Join(module, filepath.FromSlash(name))
+		digest, ok := known[file]
+		if !ok {
+			if digest, err = fileDigest(file); err != nil {
+				return "", err
+			}
+		}
+		inputs[name] = digest
 	}
 	pins, err := os.ReadFile(filepath.Join(b.Module, "tools/toolchain_pins.json"))
 	if err != nil {
@@ -178,7 +159,7 @@ func (b GoBinary) Key() (string, error) {
 	}
 	data, err := json.Marshal(map[string]any{
 		"schema_id": goBinaryKeySchemaID, "producer": b.ID(), "package": b.Package, "tags": b.Tags, "name": b.Name,
-		"outputs": []string{b.Name, b.Name + ".crypto.json"}, "node_version": strings.TrimSpace(string(node)),
+		"outputs": []string{b.Name, b.Name + ".crypto.json"}, "node_version": nodeVersion,
 		"build_arguments": b.buildArgs(), "settings": effective, "inputs": inputs,
 		"go_toolchain": pinned.GoToolchain, "cryptographic_module": pinned.CryptographicModule,
 	})
@@ -193,6 +174,9 @@ func (b GoBinary) Key() (string, error) {
 // staging and writes its receipt beside it, so a binary the receipt rejects
 // never reaches a root.
 func (b GoBinary) Build(staging string) error {
+	if err := b.ready(); err != nil {
+		return err
+	}
 	env := append(slices.Clone(b.Env), "GO="+b.Go)
 	if _, err := b.run(b.Node, []string{"tools/harness/readiness/cryptographic-build-cli.mjs", "verify"}, env); err != nil {
 		return err

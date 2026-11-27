@@ -32,7 +32,10 @@ var documentationName = regexp.MustCompile(`(?i)(\.(md|markdown)$|^readme(\.|$))
 // documentation roots, with its mode and content digest.
 type SourceSnapshot struct {
 	Inputs []SourceInput
-	Commit string
+	// Memoized says Git ignores the graph cache directory, so the planner
+	// keeps its memos there; the snapshot used its digest memo.
+	Memoized bool
+	Commit   string
 	// State is "clean" when the executable boundary has no changes.
 	State string
 }
@@ -72,6 +75,7 @@ func CaptureSource(root string) (SourceSnapshot, error) {
 		}
 	}
 	paths = dedupe(paths)
+	memo := openDigestMemo(root)
 	inputs := make([]*SourceInput, len(paths))
 	errs := make([]error, len(paths))
 	work := make(chan int)
@@ -82,7 +86,7 @@ func CaptureSource(root string) (SourceSnapshot, error) {
 			defer wait.Done()
 			buffer := make([]byte, 64<<10)
 			for i := range work {
-				inputs[i], errs[i] = sourceInput(root, paths[i], buffer)
+				inputs[i], errs[i] = sourceInput(root, paths[i], buffer, memo)
 			}
 		}()
 	}
@@ -91,7 +95,7 @@ func CaptureSource(root string) (SourceSnapshot, error) {
 	}
 	close(work)
 	wait.Wait()
-	snapshot := SourceSnapshot{}
+	snapshot := SourceSnapshot{Memoized: memo != nil}
 	for i, input := range inputs {
 		if errs[i] != nil {
 			return fail("%s: %v", paths[i], errs[i])
@@ -100,6 +104,7 @@ func CaptureSource(root string) (SourceSnapshot, error) {
 			snapshot.Inputs = append(snapshot.Inputs, *input)
 		}
 	}
+	memo.save()
 	commit, err := git(root, "rev-parse", "HEAD")
 	if err != nil {
 		return fail("cannot read HEAD: %v", err)
@@ -127,8 +132,9 @@ func documentation(relative string, restricted []string) bool {
 
 // sourceInput hashes one repository path. A path Git lists but the worktree
 // no longer has is omitted; an ancestor that is not a directory, or a file
-// that changes while it is hashed, fails the snapshot.
-func sourceInput(root, relative string, buffer []byte) (*SourceInput, error) {
+// that changes while it is hashed, fails the snapshot. A regular file whose
+// stat identity the memo recorded after it settled keeps its digest.
+func sourceInput(root, relative string, buffer []byte, memo *digestMemo) (*SourceInput, error) {
 	if !safeRelative(relative) {
 		return nil, errors.New("path is not normalized")
 	}
@@ -161,6 +167,10 @@ func sourceInput(root, relative string, buffer []byte) (*SourceInput, error) {
 	default:
 		return nil, errors.New("not a regular file or symbolic link")
 	}
+	if digest, ok := memo.lookup(relative, identityOf(stat)); ok {
+		input.Kind, input.ByteDigest = "file", digest
+		return input, nil
+	}
 	descriptor, err := unix.Open(absolute, unix.O_RDONLY|unix.O_NOFOLLOW|unix.O_NONBLOCK|unix.O_CLOEXEC, 0)
 	if err != nil {
 		return nil, err
@@ -180,6 +190,7 @@ func sourceInput(root, relative string, buffer []byte) (*SourceInput, error) {
 		return nil, errors.New("file changed during hashing")
 	}
 	input.Kind, input.ByteDigest = "file", "sha256:"+hex.EncodeToString(hash.Sum(nil))
+	memo.remember(relative, identityOf(opened), input.ByteDigest)
 	return input, nil
 }
 

@@ -766,7 +766,6 @@
     "test-fast": {
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(FRONTEND_INSTALL_RECEIPT)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
@@ -832,7 +831,6 @@
     "check": {
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(FRONTEND_INSTALL_RECEIPT)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
@@ -898,7 +896,6 @@
     "ci": {
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(FRONTEND_INSTALL_RECEIPT)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
@@ -967,7 +964,6 @@
     "release-check": {
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(FRONTEND_INSTALL_RECEIPT)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
@@ -1033,7 +1029,6 @@
     "release-measure": {
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(FRONTEND_INSTALL_RECEIPT)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
@@ -1100,7 +1095,6 @@
       "type": "work_graph",
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(FRONTEND_INSTALL_RECEIPT)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "selection": "command",
@@ -1185,7 +1179,6 @@
       "type": "work_graph",
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(FRONTEND_INSTALL_RECEIPT)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "selection": "command",
@@ -1251,7 +1244,6 @@
       "type": "work_graph",
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(FRONTEND_INSTALL_RECEIPT)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "selection": "command",
@@ -1317,7 +1309,6 @@
       "type": "work_graph",
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(FRONTEND_INSTALL_RECEIPT)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "selection": "command",
@@ -1383,7 +1374,6 @@
       "type": "work_graph",
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(FRONTEND_INSTALL_RECEIPT)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "selection": "command",
@@ -1464,7 +1454,6 @@
       "type": "work_graph",
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(FRONTEND_INSTALL_RECEIPT)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "selection": "command",
@@ -1530,7 +1519,6 @@
       "type": "work_graph",
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(FRONTEND_INSTALL_RECEIPT)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "selection": "command",
@@ -1792,7 +1780,6 @@
       "type": "work_graph",
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(FRONTEND_INSTALL_RECEIPT)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "selection": "command",
@@ -1858,7 +1845,6 @@
       "type": "work_graph",
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(FRONTEND_INSTALL_RECEIPT)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "selection": "command",
@@ -2278,7 +2264,6 @@
       "type": "work_graph",
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(FRONTEND_INSTALL_RECEIPT)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "selection": "command",
@@ -2407,12 +2392,7 @@
     "credential-capacity-assessment": {
       "type": "step_command",
       "prerequisites": [
-        "$(MIGRATE_BIN)",
-        "$(NODE_BIN)",
-        "$(OPERATOR_BIN)",
-        "$(REPORT_RENDERER_RECEIPT)",
-        "$(SERVER_BIN)",
-        "$(SYFT_BIN)"
+        "$(NODE_BIN)"
       ],
       "mode": "run_step",
       "step_label": "credential-capacity-assessment",

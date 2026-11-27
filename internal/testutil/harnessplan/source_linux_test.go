@@ -3,12 +3,16 @@
 package harnessplan
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
+	"time"
 )
 
 func TestSourceSnapshot(t *testing.T) {
@@ -60,6 +64,11 @@ func TestSourceSnapshot(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		// Git does not ignore the graph cache here, so no memo is kept: it
+		// would become a source input itself.
+		if _, err := os.Stat(filepath.Join(root, GraphCacheDirectory)); snapshot.Memoized || !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("memoized %v, graph cache %v", snapshot.Memoized, err)
+		}
 		var paths []string
 		kinds := map[string]SourceInput{}
 		for _, input := range snapshot.Inputs {
@@ -92,6 +101,54 @@ func TestSourceSnapshot(t *testing.T) {
 		write("guide.md", "# changed guide\n", 0o644)
 		if snapshot, err := CaptureSource(root); err != nil || snapshot.State != "clean" {
 			t.Fatalf("documentation changed the executable state: %s, %v", snapshot.State, err)
+		}
+	})
+
+	t.Run("a settled file keeps its digest until its identity changes", func(t *testing.T) {
+		defer func(margin time.Duration) { settleMargin = margin }(settleMargin)
+		settleMargin = -time.Hour // every file counts as settled
+		write(".gitignore", "ignored.go\n.cache/\n", 0o644)
+		write("memo.txt", "one\n", 0o644)
+		digestOf := func(snapshot SourceSnapshot) string {
+			for _, input := range snapshot.Inputs {
+				if input.Path == "memo.txt" {
+					return input.ByteDigest
+				}
+			}
+			t.Fatal("memo.txt is not in the snapshot")
+			return ""
+		}
+		first, err := CaptureSource(root)
+		if err != nil || !first.Memoized {
+			t.Fatalf("memoized %v, %v", first.Memoized, err)
+		}
+		// A recorded digest is used while the file's identity is unchanged.
+		memo := filepath.Join(root, GraphCacheDirectory, digestMemoName)
+		data, err := os.ReadFile(memo)
+		if err != nil {
+			t.Fatal(err)
+		}
+		forged := "sha256:" + strings.Repeat("0", 64)
+		if err := os.WriteFile(memo, []byte(strings.Replace(string(data), digestOf(first), forged, 1)), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if second, err := CaptureSource(root); err != nil || digestOf(second) != forged {
+			t.Fatalf("the memo was not consulted: %v", err)
+		}
+		// A change with the same size and modification time still moves the
+		// change time, so the file is hashed again.
+		info, err := os.Stat(filepath.Join(root, "memo.txt"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		write("memo.txt", "two\n", 0o644)
+		if err := os.Chtimes(filepath.Join(root, "memo.txt"), info.ModTime(), info.ModTime()); err != nil {
+			t.Fatal(err)
+		}
+		third, err := CaptureSource(root)
+		sum := sha256.Sum256([]byte("two\n"))
+		if err != nil || digestOf(third) != "sha256:"+hex.EncodeToString(sum[:]) {
+			t.Fatalf("a changed file kept its recorded digest: %v", err)
 		}
 	})
 
