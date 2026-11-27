@@ -1,7 +1,11 @@
 export {
+  canonicalInputPaths,
   collectTaskSurfaceManifestErrors,
   defaultTaskSurfaceManifestPath,
+  graphForwardedInputNames,
   loadTaskSurfaceManifest,
+  machineStateNames,
+  publicMakeInputNames,
   makeRecipeEntries,
   renderTaskSurfaceMake,
   repoRoot,

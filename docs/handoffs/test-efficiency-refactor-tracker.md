@@ -1376,6 +1376,7 @@ Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-am
 | 2026-11-26 | P5-3c step 3 | Installations become producers: the Node runtime with pnpm, the frontend dependencies and the Playwright browsers install in place under receipts, with declared requirements; readiness and static-analysis controls fold into the store's two (D28); bundles carry hidden source maps and the server package leaves them out (D29); four file rules, three scripts and the Node bootstrap smoke removed | `p96-generate`, `p97` (segment), `p98`, `p99-check01` | Pass. `p99-check01` passed all 1,898 rows in a 515 s graph (14.29) |
 | 2026-11-26 | P5-3c step 4 | The renderer builds its launcher through the store and reuses by root seal, with collection; the release inventory and the test service images become producers; every prerequisite names a producer, nothing re-enters Make, and Make has no file rules; `cache-artifact.sh` and four more scripts removed | `p100-generate`, `p101` (segment), `p102`, `p103-check01` | Pass. `p103-check01` passed all 1,898 rows in a 514 s graph; the renderer unit took 3.1 s (20.3 s) (14.30) |
 | 2026-11-26 | P5-3d | One pinned Go environment (`go_environment` in the toolchain pins) for every build and test: the planner, the store, selector resolution, browser fixtures and release scripts read it; builds apply it last; cgo off (D26) and `-trimpath` (D27) for every store-built binary; the unit overlay record and `NestedEnvironment` removed | `p104-generate3`, `p105` (segment, with the release package rows), `p106`, `p107-check01` | Pass. `p107-check01` passed all 1,899 rows in a 577 s graph; the 63 s over `p103` is the one-time rebuild of Go tools and a cold staticcheck cache under the new environment (14.31) |
+| 2026-11-26 | P5-3e step 1 | The harness command entry: every graph target's recipe is the Node runtime and one entry call, which admits the inputs in process, produces the target's producers and launches the graph with the environment Make used to assemble; renderer and entry share one input module | `p109-generate2`, `p110` (segment), `p111`, `p112-check01` | Pass. `p112-check01` passed all 1,899 rows in a 559 s graph; a one-row slice takes 0.9 s (1.24 s). Go rows ran 5 to 10% slower than in `p103`, but the same slice is as slow at the pre-P5-3d commit: the machine, not this work (14.32) |
 | 2026-11-25 | P4-4 / G39 | Wait audit: 31 whole-test hang guards derive from the test deadline (`testdeadline`) | `p44-port-*` (16 owner slices, every row holding a converted guard) | Pass. Committed `bdd8f4e1d` |
 
 ## 12. Phase 2 Plan — `check` Wall Clock
@@ -2670,7 +2671,7 @@ Status: proposed 2026-11-26 at the owner's request. P5-0, P5-1 and P5-2 done (14
 | P5-1 | Flat catalog: every check is a row with an owner, so any of them runs alone with `ROWS=`; selections list rows and operations, not other selections. **Done 2026-11-26** (14.6): every test script is a row and duplicates are gone; selection nesting stays (14.6) | G44 |
 | P5-2 | Unnest: harness-mechanics probes run as first-class graph rows against private outputs, or move to an explicit harness suite outside `ci`; a source check forbids rows that launch `make` or `graph` against the shared repository | G43 |
 | P5-4 | Declared environment: a registry of every harness variable, default-deny unit environments, one typed unit context document, fixture bindings in that document (14.7) | G43, G45 |
-| P5-3 | Thin Make: Make only admits the workspace and forwards to the harness; build operations become data with declared inputs, environment keys and outputs; one Go content-addressed store replaces `cache-artifact.sh`, the renderer store and web staging; no unit re-enters Make; one toolchain environment from the pins for builds and tests. **Planned 2026-11-26** (14.24): five steps, P5-3a to P5-3e; P5-3a done (14.25); P5-3b done (14.26); P5-3c done (14.27 to 14.30); P5-3d done (14.31) | G44 |
+| P5-3 | Thin Make: Make only admits the workspace and forwards to the harness; build operations become data with declared inputs, environment keys and outputs; one Go content-addressed store replaces `cache-artifact.sh`, the renderer store and web staging; no unit re-enters Make; one toolchain environment from the pins for builds and tests. **Planned 2026-11-26** (14.24): five steps, P5-3a to P5-3e; P5-3a done (14.25); P5-3b done (14.26); P5-3c done (14.27 to 14.30); P5-3d done (14.31); P5-3e step 1 of 3 done (14.32) | G44 |
 
 P5-0 is small and removes the hazards seen in `ci`. P5-1 makes segments
 possible for every check. P5-3 is the largest and needs specification
@@ -3699,7 +3700,7 @@ Decision D20 (owner, 2026-11-26): nested harness probes run in explicit
 Status: planned 2026-11-26 at the owner's request. Owner direction: retire as
 much of the Makefile as needed; a thin wrapper is better than a complicated
 one. Approved with D24 to D28 as recommended on 2026-11-26; P5-3a done
-(14.25); P5-3b done (14.26); P5-3c done (14.27 to 14.30); P5-3d done (14.31).
+(14.25); P5-3b done (14.26); P5-3c done (14.27 to 14.30); P5-3d done (14.31); P5-3e step 1 of 3 done (14.32).
 
 **Problem (G44, G47).** Measured at `db2304ea9`:
 
@@ -4509,3 +4510,107 @@ segments and then one `check`:
       backend unit, integration, process and store suites took 15 to 63 s
       longer each. The critical path is unchanged.
     - **Next.** The next `check` will show the steady state.
+
+### 14.32 The Thin Wrapper (P5-3e)
+
+**Survey.** Measured after P5-3d:
+
+- 74 public targets. 32 launch the graph and 42 run leaf work in a Make
+  recipe: 26 step commands, 6 node tools, 4 owner commands, 7 UI review
+  commands, bootstrap, help, test-run-status and two cleanups.
+- A graph recipe is four shell steps: the Node runtime producer, the Node
+  preflight, the target's producers, then the graph launch. Their environment
+  is assembled in Make: a `-u` strip of every public input, the machine
+  state, each forwarded input with its origin, and the runtime binding.
+- `admission.mk` re-executes Make under the workspace lock, so every command
+  parses Make twice. A Make parse costs about 40 ms. A one-row slice spends
+  about 1 s before its 0.25 s graph starts; most of that is the two `go run`
+  producer calls and the Node preflight.
+- Nothing re-enters Make any more. The mode switches (`GRAPH_CHILD`,
+  `SKIP_PREREQUISITES`, `SUPPRESS_CHILD_SUCCESS`) are still read by the
+  runtime, the review recipes, the step runtime and output.
+
+**Steps.** Each is proven on segments and then one `check`:
+
+| Step | Work | Exit |
+| --- | --- | --- |
+| e1 | A harness command entry, `tools/harness/command-surface/command-entry.mjs`. Every graph target's recipe runs it once after the Node runtime: it admits the inputs (the preflight, in process), produces the target's producers and launches the graph with the environment Make used to assemble | The 32 graph recipes are two lines; no graph recipe assembles an environment |
+| e2 | The other recipe families through the same entry: step commands and operations through the operation runner, node and owner tools, bootstrap, help, UI review, test-run-status and cleanup | Every public recipe is the Node runtime plus one entry call |
+| e3 | The entry takes the workspace lock through `admission.sh`, and Make parses once. `admission.mk` stops re-executing Make. The strip lists, `TASK_SURFACE_PREREQUISITES_NEEDED` and the unread mode switches go. The renderer shrinks to one rule per target | Make parses once per command; generated Make is small; one `check`, then `ci` with P4-7 |
+
+**Kept.** `CARTULARY_MAKE_INPUT_SOURCES`: only Make knows where an input
+came from, so it still passes each public input's value and origin to the
+entry. Public target names, command IDs, input contracts, outputs and exit
+statuses are unchanged.
+
+**Step e1.**
+
+- **The entry.** `tools/harness/command-surface/command-entry.mjs` runs a
+  public graph target.
+  - **Admission.** It runs the shared public preflight in its own process:
+    one Node start fewer than the separate preflight command.
+  - **Producers.** It produces the target's registered producers, unless a
+    graph child skips prerequisites.
+  - **Launch.** It launches the graph with the environment the recipe used to
+    assemble in Make: no public input but the target's forwarded ones, each
+    with its origin (written through `run_context`'s
+    `inputSourcesEnvironment`); the resolved machine state; and the `MAKE`,
+    `NODE_BIN` and `TEST_SERVICES_BIN` bindings.
+  - **Errors.** It reports configuration failures as the contract CLI did,
+    with the same `[FAIL]` line and exit code 2.
+- **Shared rules.** The renderer and the entry share one module,
+  `task-surface/inputs.mjs`: the public and literal input names, the
+  forwarded inputs, the canonical input paths and the machine-state names.
+- **The 32 graph recipes** are now the Node runtime and one
+  `$(call RUN_COMMAND_ENTRY,<target>,<expanded forwarded inputs>)`. The
+  generated include adds `TASK_SURFACE_COMMAND_ENV`, which carries each
+  public input's value and origin, and drops `TASK_SURFACE_GRAPH_RUNTIME`.
+  The generated bindings file has 871 lines (968).
+- **Manifest reads.** The entry reads the generated manifest without
+  validating it again. Full validation costs 0.66 s, and generation and the
+  source checks already own it.
+- **Measured.** A one-row slice takes 0.9 s end to end (1.24 s); its graph
+  takes 0.08 s.
+- **Tests.** A command-entry test covers the launch environment (forwarded
+  inputs and their origins, stripped inputs, machine state, bindings,
+  selections, canonical paths, graph-entry producers) and the refusals. The
+  task-surface report asserts the new recipe shape. An invalid `SUITE` is
+  still refused with the same config error and exit code 2.
+- **Specification.** Amended: a graph target's recipe is the Node readiness
+  precondition and one command-entry call.
+- **Validation.**
+  - **Segment (`p110`).** These passed:
+    - generation, lint (Go, scripts, shell), and the catalog, identity,
+      generated and toolchain source checks;
+    - `migration-drift` and `build COMPONENT=server-harness`, both graph
+      targets now run through the entry;
+    - nine command-surface rows (with the public registry parity, the
+      wrapper smoke and the new entry tests), the routing contract and the
+      nested-cancellation row.
+  - **Problems `p110` found.**
+    - **The surface check.** The single-writer rule flagged the entry for
+      writing `CARTULARY_MAKE_INPUT_SOURCES`, which `run_context` owns. The
+      entry now uses its `inputSourcesEnvironment`.
+    - **The schema check.** It saw that edit made during its run (a stale
+      validated context). Not a defect.
+  - **`p111`.** The surface, schema and scripts checks and the two entry rows
+    passed.
+  - **`p112-check01`.** All 1,899 rows passed in a 559 s graph. The Go tools
+    were reused again: gosec 2.0 s, goose 1.4 s, staticcheck 6.0 s.
+  - **Finding: slower Go rows, not from this work.** Since P5-3d (`p107`,
+    `p112`), Go rows in every module took 5 to 10% longer than in `p103`:
+    543 s for the incident bundle rows against 494 s. That put the graph at
+    about 559 s against 514 s. The isolated `module.incidentbundles` slice
+    takes 140 s in all of these cases:
+    - with the cgo-free test-services broker or one built with cgo;
+    - with the cgo-free harness runtime or one built with cgo, without
+      `-trimpath`.
+
+    - at the pre-P5-3d commit (`28ebd924f`, checked out in place): 145.6 s
+      and 141.8 s.
+
+    So neither P5-3d nor this step slowed the Go rows. Go tests ran under
+    the same Go settings before and after (`CGO_ENABLED=0`, and `GOFIPS140`
+    was already inherited), and the same slice is as slow at the earlier
+    commit. The machine ran slower in the evening than when `p103` ran.
+    Graph-time comparisons need checks run close together.

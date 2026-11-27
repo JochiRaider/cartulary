@@ -197,9 +197,11 @@ assert.match(
 );
 assert.match(
   renderedMake.replace(/\\\r?\n[ \t]*/gu, ""),
-  /test-slice:[\s\S]*?env \$\(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV\) \$\(TASK_SURFACE_MACHINE_STATE_ENV\)[\s\S]*?\$\(TASK_SURFACE_GRAPH_RUNTIME\) --selection command --target test-slice/,
-  "work-graph recipes must restore resolved machine-state paths after stripping public inputs",
+  /test-slice:\n[^\n]*\n\t\$\(Q\)\$\(call RUN_COMMAND_ENTRY,test-slice,[^\n]*\n\n/,
+  "a work-graph recipe is the Node runtime and one command entry call",
 );
+assert.match(renderedRuntime, /^RUN_COMMAND_ENTRY = env \$\(TASK_SURFACE_COMMAND_ENV\) \$\(2\) \$\(NODE_BIN\) tools\/harness\/command-surface\/command-entry\.mjs \$\(1\)$/m,
+  "the command entry receives each public input with its origin");
 for (const target of manifest.targets.filter((entry) =>
   entry.target_class === "public" && !["none", "ui_review_receipts"].includes(entry.output_policy.artifact_policy))) {
   const escapedTarget = target.name.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
@@ -232,7 +234,7 @@ assert.match(
 const helpRecipe = renderedMake.slice(renderedMake.indexOf("\nhelp:"), renderedMake.indexOf("\ntask-guide:"));
 assert.doesNotMatch(helpRecipe, /TASK_SURFACE_NODE_READINESS|RUN_PUBLIC_PREFLIGHT|RUN_MAKE_PREREQUISITES/, "help must perform no installation or build preparation");
 assert.match(helpRecipe, /TASK_SURFACE_HELP_ALL_SELECTED/, "help uses its declared ALL selector");
-assert.match(renderedMake, /--selection command --target migration-drift/, "migration drift resolves its exact command binding");
+assert.match(renderedMake, /\$\(call RUN_COMMAND_ENTRY,migration-drift,/, "migration drift enters its graph through the command entry");
 for (const retired of ["help-all", "frontend-install", "frontend-typecheck", "bootstrap-tool-installations", "deployable-shape"]) assert.doesNotMatch(renderedMake, new RegExp(`^${retired}:`, "m"), "private producers cannot remain public Make wrappers");
 const longTarget = "synthetic-help-target-name-longer-than-command-column";
 const usageTarget = "synthetic-help-usage";

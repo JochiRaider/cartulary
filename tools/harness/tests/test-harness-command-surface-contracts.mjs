@@ -6,6 +6,7 @@ import { registerFrontendProducerGraphTests } from "./test-frontend-producer-gra
 import { registerFrontendProducerLifecycleTests } from "./test-frontend-producer-lifecycle.mjs";
 import { registerCommandFailureTests } from "./test-command-failure.mjs";
 import "../command-surface/tests/test-public-inputs.mjs";
+import "../command-surface/tests/test-command-entry.mjs";
 
 registerCommandSurfaceCommandSurfaceTests();
 registerTestCatalogCommandSurfaceTests();

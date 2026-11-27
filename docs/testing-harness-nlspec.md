@@ -3627,6 +3627,17 @@ Every Make-owned public wrapper that is not `interactive_raw` MUST execute this 
 
 A target MAY skip a step only when its output class or target row explicitly declares that the step does not apply. A skipped step MUST NOT be implemented as an implicit child-command side effect.
 
+A public graph target's generated recipe is that Node readiness precondition
+and one call of the harness command entry,
+`tools/harness/command-surface/command-entry.mjs` (amended 2026-11-26,
+P5-3e). Make passes only what it alone knows: each public input's value, raw
+for a literally transported input and expanded otherwise, with its origin in
+`CARTULARY_MAKE_INPUT_SOURCES`. The entry runs the shared public preflight in
+its own process and produces the target's registered producers, unless a
+graph child skips prerequisites. It then launches the graph with every public
+input stripped except the target's forwarded inputs, each with its origin,
+and with the resolved machine-state locations and the launch bindings.
+
 Every public Make wrapper whose lifecycle invokes repo-owned Node tooling,
 including the shared public preflight, MUST make pinned repo-local Node readiness
 an explicit generated precondition before semantic behavior begins.

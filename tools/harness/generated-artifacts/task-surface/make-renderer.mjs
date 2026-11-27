@@ -1,6 +1,7 @@
 import { nativeTool } from "../../command-surface/native-tools.mjs";
 import { operationBindingNames } from "../../execution/operations.mjs";
 import { producerContext, splitProducedPrerequisites } from "../../execution/producers.mjs";
+import { graphForwardedInputNames, literalMakeInputNames, machineStateNames, publicMakeInputNames, requiresLiteralMakeTransport, runtimeForwardedInputNames } from "./inputs.mjs";
 import { makeNodeToolResultDirMakeEnvVars, makeNodeToolRuntimeEnvVars } from "../../command-surface/make-node-tools.mjs";
 import {
   canonicalInternalMakeValues, compactHelpEntries, globalInputEntries, harnessCheckEntryMap, harnessCheckEntries, helpTiers, makeIdentifier, makeRecipeEntries, nonCanonicalPublicMakeVariables, restrictedInternalMakeVariables, retiredPublicMakeVariables, sequenceDefinition, targetEntries, targetEntryMap,
@@ -106,9 +107,13 @@ export function renderTaskSurfaceMakeRuntime(manifest, producers = checkoutProdu
     "TASK_SURFACE_COMMAND_LINE_INPUT_NAMES = $(filter-out GNUMAKEFLAGS MAKEFLAGS MFLAGS MAKEOVERRIDES,$(foreach name,$(.VARIABLES),$(if $(findstring command line,$(origin $(name))),$(name))))",
     "TASK_SURFACE_PREFLIGHT_INPUT_NAMES = $(sort $(TASK_SURFACE_PUBLIC_INPUT_NAMES) $(TASK_SURFACE_COMMAND_LINE_INPUT_NAMES))",
     "TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV = $(foreach name,$(TASK_SURFACE_PUBLIC_INPUT_NAMES),-u $(name))",
-    'TASK_SURFACE_MACHINE_STATE_ENV = CARTULARY_MACHINE_CACHE_DIR="$(CARTULARY_MACHINE_CACHE_DIR)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" CARTULARY_HARNESS_SCRATCH_ROOT="$(CARTULARY_HARNESS_SCRATCH_ROOT)"',
+    `TASK_SURFACE_MACHINE_STATE_ENV = ${machineStateNames.map((name) => `${name}="$(${name})"`).join(" ")}`,
     'TASK_SURFACE_RUN_ENV = NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_CANONICAL_TASK_SURFACE_MANIFEST)"',
-    'TASK_SURFACE_GRAPH_RUNTIME = MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" "$(HARNESS_RUNTIME_BIN)" graph',
+    // The command entry admits a public target's inputs, produces its
+    // producers and runs it (P5-3e). Make passes what only it knows: each
+    // public input's value and origin.
+    'TASK_SURFACE_COMMAND_ENV = $(TASK_SURFACE_LITERAL_INPUT_ENV) CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,$(TASK_SURFACE_PREFLIGHT_INPUT_NAMES))" $(TASK_SURFACE_MACHINE_STATE_ENV) MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" NODE_RUNTIME_DIR="$(NODE_RUNTIME_DIR)" PNPM="$(PNPM)" GO="$(GO)" RUN_STEP_SCRIPT="$(RUN_STEP_SCRIPT)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" HARNESS_RUNTIME_BIN="$(HARNESS_RUNTIME_BIN)"',
+    'RUN_COMMAND_ENTRY = env $(TASK_SURFACE_COMMAND_ENV) $(2) $(NODE_BIN) tools/harness/command-surface/command-entry.mjs $(1)',
     'TASK_SURFACE_NODE_READINESS = if [ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(PRODUCE) node-runtime; fi',
     'RUN_PRODUCERS = if $(1); then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(PRODUCE) $(2); fi',
     'TASK_SURFACE_PREREQUISITES_NEEDED = [ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ]',
@@ -334,17 +339,16 @@ function renderMakeRecipe(recipe, manifest, producers = checkoutProducers()) {
     ];
   }
   if (recipe.type === "work_graph") {
-    const forwarded = runtimeForwardedInputEnvEntries(entry, { includeArgv: true });
-    const selectionArgs =
-      recipe.selection === "owner"
-        ? `--selection owner --target ${recipe.target} --owner "$(OWNER)" $(if $(strip $(ROWS)),--rows "$(ROWS)",)${recipe.service_backed_only === true ? " --service-backed-only" : ""}`
-        : `--selection ${recipe.selection} --target ${recipe.target}${recipe.selection === "rows" ? ` --rows ${recipe.row_ids.join(",")}` : ""}`;
+    // The entry admits the inputs, produces the producers and launches the
+    // graph; Make only adds each forwarded input's expanded value.
+    const inputs = new Map((entry?.input_contract?.inputs ?? []).map((input) => [input.name, input]));
+    const expanded = graphForwardedInputNames(entry).filter((name) => !requiresLiteralMakeTransport(inputs.get(name)))
+      .map((name) => `${name}="${makeVariableValue(name)}"`);
     return [
       ...prefix,
       ...header,
-      ...publicPrelude,
-      ...prerequisitePrelude,
-      `\t$(Q)env ${envStripArgsForTarget(entry, manifest)} $(TASK_SURFACE_MACHINE_STATE_ENV) ${forwarded.join(" ")} $(TASK_SURFACE_GRAPH_RUNTIME) ${selectionArgs}`,
+      ...nodeReadinessPrelude,
+      `\t$(Q)$(call RUN_COMMAND_ENTRY,${recipe.target},${expanded.join(" ")})`,
     ];
   }
   if (recipe.type === "step_command") {
@@ -506,51 +510,6 @@ function renderRecipePrefix(recipe, entry = null) {
   return lines;
 }
 
-function publicMakeInputNames(manifest) {
-  const names = new Set([
-    ...restrictedInternalMakeVariables,
-    ...nonCanonicalPublicMakeVariables,
-    ...retiredPublicMakeVariables,
-    ...globalInputEntries(manifest).map((input) => input.name),
-  ]);
-  for (const entry of targetEntries(manifest ?? { targets: [] })) {
-    if (entry.target_class !== "public") {
-      continue;
-    }
-    for (const input of entry.input_contract?.inputs ?? []) {
-      names.add(input.name);
-    }
-  }
-  return Array.from(names).sort((left, right) => left.localeCompare(right));
-}
-
-function requiresLiteralMakeTransport(input) {
-  if (input?.name?.startsWith("UI_")) return true;
-  if (input?.child_forwarding === "argv") return true;
-  return (
-    input?.binding === "make_variable" &&
-    input?.summary_emission === "redacted_value" &&
-    Array.isArray(input?.allowed_sources) &&
-    input.allowed_sources.length === 1 &&
-    input.allowed_sources[0] === "make_command_line"
-  );
-}
-
-function literalMakeInputNames(manifest) {
-  const names = new Set();
-  for (const entry of targetEntries(manifest ?? { targets: [] })) {
-    if (entry.target_class !== "public") {
-      continue;
-    }
-    for (const input of entry.input_contract?.inputs ?? []) {
-      if (requiresLiteralMakeTransport(input)) {
-        names.add(input.name);
-      }
-    }
-  }
-  return Array.from(names).sort((left, right) => left.localeCompare(right));
-}
-
 function inputEntriesForTarget(entry = null) {
   return (entry?.input_contract?.inputs ?? []).map((input) => input.name);
 }
@@ -572,16 +531,6 @@ function normalizeInternalMakeReferences(value) {
     normalized = normalized.replaceAll(`$(${name})`, replacement);
   }
   return normalized;
-}
-
-function runtimeForwardedInputNames(entry = null) {
-  return new Set(
-    (entry?.input_contract?.inputs ?? [])
-      .filter((input) =>
-        ["runtime_env", "argv_and_runtime_env"].includes(input.child_forwarding),
-      )
-      .map((input) => input.name),
-  );
 }
 
 function runtimeForwardedInputEnvEntries(entry = null, { includeArgv = false } = {}) {
