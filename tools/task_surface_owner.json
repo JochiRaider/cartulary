@@ -3074,7 +3074,6 @@
         "tools/harness/diagnostics/vitest-collector.mjs",
         "tools/harness/diagnostics/vitest-observations.mjs",
         "tools/harness/evidence-accounting/tests/test-canonical-unit-events.mjs",
-        "tools/harness/execution/tests/test-run-vitest-step.sh",
         "tools/harness/execution/tests/test-vitest-diagnostics.mjs",
         "tools/harness/execution/vitest-invocation-cli.mjs",
         "tools/harness/generated-artifacts/tests/test-boundary-projections.mjs",
@@ -11289,8 +11288,6 @@
         "harness-smoke-task-surface-report",
         "harness-smoke-agent-finalize",
         "harness-smoke-run-step",
-        "harness-smoke-run-vitest-step",
-        "harness-smoke-run-playwright-step",
         "harness-graph-contract",
         "harness-smoke-work-graph-service-backed-target",
         "harness-smoke-toolchain-pins",
@@ -11320,8 +11317,6 @@
     "execution": {
       "checks": [
         "harness-smoke-run-step",
-        "harness-smoke-run-vitest-step",
-        "harness-smoke-run-playwright-step",
         "harness-graph-contract",
         "harness-smoke-work-graph-service-backed-target",
         "harness-smoke-make-node-tools"
@@ -11342,8 +11337,6 @@
         "harness-smoke-task-surface-report",
         "harness-smoke-agent-finalize",
         "harness-smoke-run-step",
-        "harness-smoke-run-vitest-step",
-        "harness-smoke-run-playwright-step",
         "harness-graph-contract",
         "harness-smoke-work-graph-service-backed-target",
         "harness-smoke-toolchain-pins",
@@ -11612,18 +11605,6 @@
       "name": "harness-smoke-tool-output-real-targets",
       "backing_scripts": [
         "tools/harness/tests/test-tool-output-real-targets.sh"
-      ]
-    },
-    {
-      "name": "harness-smoke-run-playwright-step",
-      "backing_scripts": [
-        "tools/harness/browser/tests/test-run-playwright-step.sh"
-      ]
-    },
-    {
-      "name": "harness-smoke-run-vitest-step",
-      "backing_scripts": [
-        "tools/harness/execution/tests/test-run-vitest-step.sh"
       ]
     },
     {

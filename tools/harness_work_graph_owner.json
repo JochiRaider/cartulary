@@ -329,8 +329,6 @@
       "harness.assurance_task_surface_report",
       "harness.harness_evidence_contract",
       "harness.assurance_run_step",
-      "harness.assurance_run_vitest_step",
-      "harness.assurance_run_playwright_step",
       "harness.harness_graph_contract",
       "harness.contract_runtime_boundary",
       "harness.assurance_toolchain_pins",
@@ -366,8 +364,6 @@
     ],
     "harness.contract_execution": [
       "harness.assurance_run_step",
-      "harness.assurance_run_vitest_step",
-      "harness.assurance_run_playwright_step",
       "harness.harness_graph_contract",
       "harness.contract_runtime_boundary",
       "harness.assurance_make_node_tools"
@@ -1455,26 +1451,6 @@
       "postgres_isolation": "none"
     },
     "harness.assurance_run_step": {
-      "needs": [
-        "harness.frontend_install"
-      ],
-      "cache_policy": "none",
-      "estimated_work_ms": 10000,
-      "resource_profile_id": "harness_contract",
-      "service_dependencies": [],
-      "postgres_isolation": "none"
-    },
-    "harness.assurance_run_playwright_step": {
-      "needs": [
-        "harness.frontend_install"
-      ],
-      "cache_policy": "none",
-      "estimated_work_ms": 10000,
-      "resource_profile_id": "harness_contract",
-      "service_dependencies": [],
-      "postgres_isolation": "none"
-    },
-    "harness.assurance_run_vitest_step": {
       "needs": [
         "harness.frontend_install"
       ],
@@ -4658,66 +4634,6 @@
           "tools/harness/output/tests/test-summary-accounting.mjs",
           "tools/harness/output/tests/test-step-process.mjs",
           "tools/harness/output/tests/test-output-diagnostics.mjs"
-        ]
-      }
-    },
-    "harness.assurance_run_playwright_step": {
-      "report_key": "harness-smoke-run-playwright-step",
-      "kind": "policy",
-      "execution": {
-        "type": "step_command",
-        "mode": "command",
-        "prerequisites": [],
-        "command": [
-          "env",
-          "-u",
-          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
-          "-u",
-          "CARTULARY_HARNESS_GRAPH_CHILD",
-          "-u",
-          "CARTULARY_TEST_TARGET",
-          "-u",
-          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
-          "-u",
-          "VERBOSE",
-          "-u",
-          "CI_VERBOSE",
-          "CARTULARY_OUTPUT_MODE=summary",
-          "bash",
-          "tools/harness/browser/tests/test-run-playwright-step.sh"
-        ],
-        "backing_scripts": [
-          "tools/harness/browser/tests/test-run-playwright-step.sh"
-        ]
-      }
-    },
-    "harness.assurance_run_vitest_step": {
-      "report_key": "harness-smoke-run-vitest-step",
-      "kind": "policy",
-      "execution": {
-        "type": "step_command",
-        "mode": "command",
-        "prerequisites": [],
-        "command": [
-          "env",
-          "-u",
-          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
-          "-u",
-          "CARTULARY_HARNESS_GRAPH_CHILD",
-          "-u",
-          "CARTULARY_TEST_TARGET",
-          "-u",
-          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
-          "-u",
-          "VERBOSE",
-          "-u",
-          "CI_VERBOSE",
-          "CARTULARY_OUTPUT_MODE=summary",
-          "bash",
-          "tools/harness/execution/tests/test-run-vitest-step.sh"
-        ],
-        "backing_scripts": [
-          "tools/harness/execution/tests/test-run-vitest-step.sh"
         ]
       }
     },

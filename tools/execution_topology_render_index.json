@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 3,
-  "input_digest": "sha256:6c572b39082c4ba55a57e5b3052be852a7e8e54d044668960866b0c8df38878a",
+  "input_digest": "sha256:27d77b06f56182520d631d90348c04e09c6be7f3cc9304e277818ababfe92692",
   "inputs": [
     {
       "path": "contracts/performance/ac003.v2.json",
@@ -1327,7 +1327,7 @@
     {
       "path": "tools/task_surface_owner.json",
       "role": "task_surface_owner",
-      "hash": "sha256:9ef17e54292d79a137af172a88862f19cc60bc5805dab58bf7bbd0bbd70ff170"
+      "hash": "sha256:b883afe549c884945e70be764b8f2adc2d35f54e89e65356896622bb6976f599"
     },
     {
       "path": "tools/test_catalog_owner.json",
@@ -1362,7 +1362,7 @@
     {
       "path": "tools/test_families/harness.evidence_accounting.json",
       "role": "test_family_manifest",
-      "hash": "sha256:909d295156eced8b669a733eb0602121a8b127fa6e908c0a988ef8083c166dfb"
+      "hash": "sha256:fc5f47d6c85d6ef1fee4a47ef8f20d3b606c0789158aab5ef170b607f55f3aa7"
     },
     {
       "path": "tools/test_families/harness.generated_artifacts.json",
@@ -1683,7 +1683,7 @@
   "outputs": {
     "tools/browser_e2e_batch_manifest.json": "sha256:f363cc5429620b6b46ee90a06542c235be8c7f5ab2b500847685e6783b3814d4",
     "tools/scheduler_manifest.json": "sha256:e0a6b0776d9b0a783d99264afa25a10636cec566aeb8d44f52580b6131eb5e4d",
-    "tools/task_surface_manifest.json": "sha256:ba9893979c5cf93777f0489c978163431936413aa30858607d015893602fdf69",
+    "tools/task_surface_manifest.json": "sha256:b605b193a54fbdf25d218ed2f6d4b2252c130d4732dcb4cc5b089b304e6228d9",
     "tools/task_surface.generated.mk": "sha256:bb399e90c84fa826ce3277bfcc22b313c09d26531a307230da96afecb60d13c2",
     "tools/task_surface.help-all.generated.json": "sha256:7f2c921534164cc6454cd47f206697f5e4b82af9fb9114f1965fb8a42b61d27e",
     "tools/task_surface.help.generated.json": "sha256:5063c6e0fad8314affe184113c10f01c7f5efa037dea36b51d3f8cf19cf4e441",

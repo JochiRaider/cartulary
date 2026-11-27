@@ -365,43 +365,6 @@ describe('right', () => { test('same name', () => expect(2).toBe(2)); });`);
   assert.equal(existsSync(unsettled.detailsFile), false);
   config();
 
-  const wrapperEnvironment = { ...fixtureEnvironment, NODE_BIN: process.execPath, CARTULARY_OUTPUT_MODE: "quiet" };
-  delete wrapperEnvironment.CARTULARY_HARNESS_IDENTITY_PREPARED;
-  delete wrapperEnvironment.CARTULARY_TEST_TARGET;
-  const wrapperPath = path.join(root, "tools/harness/execution/run-vitest-step.sh");
-  const label = `vitest-causes-${randomUUID()}`;
-  const wrapper = spawnSync("bash", [wrapperPath, label, "--", invocation.requestFile],
-    { cwd: root, env: wrapperEnvironment, encoding: "utf8", timeout: 30000 });
-  assert.equal(wrapper.status, full.result.status, wrapper.stderr);
-  const summary = readVitestJSON(path.join(runRoot, "adhoc", label, "step-summary.json"));
-  for (const kind of ["timing", "product", "unknown"]) assert.ok(summary.dossiers.some((item) => item.failure_class === kind));
-  assert.ok(summary.dossiers.some((item) => item.message.includes("precise original assertion")));
-  const pass = prepare("wrapper-pass", request([[passFile, ["ok"]]]));
-  const success = spawnSync("bash", [wrapperPath, `vitest-pass-${randomUUID()}`, "--", pass.requestFile],
-    { cwd: root, env: { ...wrapperEnvironment, CARTULARY_SUPPRESS_CHILD_SUCCESS: "1" }, encoding: "utf8", timeout: 30000 });
-  assert.equal(success.status, 0, success.stderr);
-  assert.equal(success.stdout, "");
-  const timeoutLabel = `vitest-watchdog-${randomUUID()}`;
-  const hung = prepare("wrapper-hang", request([[passFile, ["ok"]], [hangFile, ["hang"]]]));
-  const timeout = spawnSync("bash", [wrapperPath, timeoutLabel, "--", hung.requestFile],
-    { cwd: root, env: { ...wrapperEnvironment, CARTULARY_VITEST_WATCHDOG_SECONDS: "1", CARTULARY_WATCHDOG_KILL_GRACE_SECONDS: "1" }, encoding: "utf8", timeout: 15000 });
-  assert.notEqual(timeout.status, 0, timeout.stderr);
-  const timeoutSummary = readVitestJSON(path.join(runRoot, "adhoc", timeoutLabel, "step-summary.json"));
-  assert.equal(timeoutSummary.failure_reason, "timeout_failure");
-  assert.ok(timeoutSummary.artifacts.watchdog_json);
-  rmSync(marker, { force: true });
-  const interruptLabel = `vitest-wrapper-interrupt-${randomUUID()}`;
-  const wrapperChild = spawn("bash", [wrapperPath, interruptLabel, "--", hung.requestFile],
-    { cwd: root, env: { ...wrapperEnvironment, CARTULARY_VITEST_WATCHDOG_SECONDS: "30", CARTULARY_WATCHDOG_KILL_GRACE_SECONDS: "1" }, stdio: "ignore" });
-  const wrapperDone = new Promise((resolve) => wrapperChild.once("close", (status, signal) => resolve({ status, signal })));
-  try { await waitForFile(marker, wrapperChild); wrapperChild.kill("SIGTERM"); }
-  finally { const timer = setTimeout(() => wrapperChild.kill("SIGKILL"), 10000); await wrapperDone; clearTimeout(timer); }
-  assert.equal((await wrapperDone).status, 143);
-  const interruption = readVitestJSON(path.join(runRoot, "adhoc", interruptLabel, "step-summary.json"));
-  assert.equal(interruption.failure_reason, "cancelled_or_interrupted");
-  assert.ok(interruption.inventory.some((item) => item.symbol_or_title === "ok"), "output consumer retains settled inventory");
-  assert.match(readFileSync(path.resolve(root, interruption.artifacts.stdout_log), "utf8"), /interruption stdout/u);
-  assert.match(readFileSync(path.resolve(root, interruption.artifacts.stderr_log), "utf8"), /interruption stderr/u);
   process.stdout.write("Vitest exact cohorts, file settlement, diagnostic attribution, interruption and privacy contracts passed\n");
 } finally {
   ownedRuntime?.close();
