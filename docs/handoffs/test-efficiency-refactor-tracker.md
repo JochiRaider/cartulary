@@ -1,6 +1,6 @@
 # Test Execution Efficiency Remediation Plan
 
-**Status.** Active remediation tracker, last updated 2026-11-25. Phases 1–3 are closed. The Go-planned `check` has run at 593–626 s graph wall since 2026-11-24 (1,341 s at the 2026-11-22 baseline). The release redesign took quiet measurement out of `ci`, which now runs in 1,618–1,735 s (3,279 s in `ws1-ci01`). Phase 4 ([Section 13](#13-phase-4-plan--daily-check-and-ci)) is the active plan. It targets the two commands used to validate everyday changes, `check` and `ci`, and the stability of `ci`, which passed 3 of its last 11 runs.
+**Status.** Active remediation tracker, last updated 2026-11-27. Phase 6 ([Section 15](#15-phase-6-plan--phase-5-residuals)) is complete and handed off (15.11); Phases 1–5 are closed. Earlier status follows. Phases 1–3 are closed. The Go-planned `check` has run at 593–626 s graph wall since 2026-11-24 (1,341 s at the 2026-11-22 baseline). The release redesign took quiet measurement out of `ci`, which now runs in 1,618–1,735 s (3,279 s in `ws1-ci01`). Phase 4 ([Section 13](#13-phase-4-plan--daily-check-and-ci)) is the active plan. It targets the two commands used to validate everyday changes, `check` and `ci`, and the stability of `ci`, which passed 3 of its last 11 runs.
 
 **Phase 1–3 history (2026-11-23).** All phase-1 work is committed. Phase 2 ([Section 12](#12-phase-2-plan--check-wall-clock)) landed G7 and G6; G6 brought the `check` graph wall from 1,022–1,157 s to under 900 s. In G17 (phase 3), G17b and G17c landed, G17a was not adopted, and disk stall was identified as the contention the failing tests hit. G17f withdrew A17 and added A18 (WAL compression, −22% container writes), and G17g bounded test-side waits by the test deadline. G17 is closed. G27 (heavy-row test work) is done: graph wall 800–840 s, the best recorded. G28 measured the disk flushes and, with owner-approved options A (session slides persist at most once a minute on every route) and C (Go test temp work in RAM), cut heavy work 14–27% and brought the graph wall to 702–710 s, the best recorded. The run now ends with a late-starting Vitest cohort (G29). `make distclean` on 2026-11-22 deleted every retained run, so the run IDs in Section 11 before that date are a record, not retrievable evidence.
 
@@ -60,25 +60,28 @@ Decision rules applied to every gap:
 5. Durability, isolation scope and secret-scan coverage are not traded for speed.
 
 Targets are hypotheses to confirm against measurements, not commitments. "Current"
-was refreshed on 2026-11-27 from the final P4-7 runs (13.16): the paired `check`
-at `eed54855e` (`p48-check01`, `p48-check02`), the paired `ci` at
-`0cd0e8dc8` (`p49-ci01`, `p49-ci02`) and the failed P4-7 `ci` runs. Rows
-marked "not re-measured" keep their 2026-11-25 values. Single runs vary by about
+was refreshed on 2026-11-27 from the Phase 6 validation (15.11): the paired
+`check` (`p6-5-check01`, `p6-6-check02`), the paired `ci` at `3f9139070`
+(`p6-6-ci03`, `p6-6-ci04`), `release-check` at `2947948a4`
+(`p6-6-release02`) and the failed runs before them. Rows marked "not
+re-measured" keep their earlier values. Single runs vary by about
 ±30 s for `check` and ±60 s for `ci`; compare treatments with two repetitions
 each.
 
-| Metric | Current (2026-11-27) | Target |
+| Metric | Current (2026-11-27, Phase 6) | Target |
 | --- | ---: | ---: |
-| `check` graph wall, all units run | 520 s and 520 s, 1,899 rows (`p48`); 538 s and 544 s at `4dd0b3b98` (`p47`); 593–626 s on 2026-11-24 | ≤ 500 s |
-| `check` graph wall after a localized product change | Not re-measured. On 2026-11-25 a localized change ran as long as a full run: the 124 PostgreSQL-backed units (7,095 s of 8,814 s unit time) were never cached | ≤ 300 s for the median product change (G35) |
-| `ci` graph wall | 1,328 s and 1,361 s, 2,652 rows (`p49`); 1,618–1,735 s on 2026-11-24 to 25 | ≤ 1,450 s after the component work (met); ≤ 1,200 s after G31 |
-| `ci` pass rate | 2 of 5 in P4-7. The three failures came from five latent defects that only load exposed: a Find test race, Vitest teardown attribution, races in one cleanup test, a product defect that cancelled admitted Timeline actions, and a fixed 30 s parse timeout. All but the Timeline defect were diagnosable from their first occurrence; it needed temporary instrumentation | No load-dependent failure in the phase's validation runs; every failure diagnosable from its first occurrence |
-| `check` pass rate | 4 of 4 in P4-7 (`p47`, `p48`) | No load-dependent failure (met in P4-7) |
-| Post-graph overhead per invocation | `check` 10–13 s (outer minus graph, `p47`, `p48`); `ci` 28–32 s (`p47`, `p48-ci01`, `p49`), not yet split into time before and after the graph | ≤ 15 s (met for `check`) |
-| Successful run root | 326–328 MB `check`, 733–764 MB `ci`; the event log is 265 MB and 464–494 MB of it | ≤ 150 MB `check` |
-| Temporary directories leaked per clean run | 0 (no new Go temporary or `/tmp` entries across `p48` and `p49`) | 0 (met) |
+| `check` graph wall, all units run | 505 s and 493 s, 1,899 rows (`p6-5-check01`, `p6-6-check02`); 520 s at P4-7 (`p48`); 579 s at P6-2 | ≤ 500 s (met by one of the pair) |
+| `check` graph wall after a localized product change | Not re-measured. On 2026-11-25 a localized change ran as long as a full run | ≤ 300 s for the median product change (G35) |
+| `ci` graph wall | 1,325 s and 1,310 s, 2,654 rows (`p6-6-ci03`, `p6-6-ci04`); 1,328 s and 1,361 s at P4-7 | ≤ 1,450 s after the component work (met); ≤ 1,200 s after G31 |
+| `ci` pass rate | 2 of 4 in P6-6. Both failures were deterministic defects introduced in Phase 6 or a rare product flake, each fixed and proven in isolation (15.11) | No load-dependent failure in the phase's validation runs; every failure diagnosable from its first occurrence (met) |
+| `check` pass rate | 2 of 2 in P6-6 | No load-dependent failure (met) |
+| `release-check` | 422 s, all 7 release rows and the SeaweedFS gate (`p6-6-release02`); the first run failed on the gate (15.11) | Met |
+| Cached one-row slice, outer | 0.76 s (1.79 s before P6-5, 15.10) | ≤ 0.8 s (met) |
+| Post-graph overhead per invocation | `check` 11–12 s, `ci` 27–30 s (outer minus graph) | ≤ 15 s (met for `check`) |
+| Successful run root | 319–323 MB `check`, 781–798 MB `ci`, 8 MB `release-check`; the event log is 258–261 MB and 513–528 MB of it | ≤ 150 MB `check` |
+| Harness environment registry | 251 names (449 at the Phase 6 baseline, 15.9) | Only crossing names (met) |
+| Temporary directories leaked per clean run | Not re-measured; 0 at P4-7 | 0 |
 | Retained results | Not re-measured; unbounded on 2026-11-25 | Bounded by an owner-set budget |
-| `release-check` wall | Not re-measured: 477 s and 497 s in its two passing runs; release work only (release-qualification tracker, S7) | Met |
 
 ## 4. Gap Register
 
@@ -127,16 +130,18 @@ each.
 | G41 | The installed-renderer test read the receipt twice, so a receipt moved by a concurrent build broke it; 13.12 credited G37 with fixing this, which was wrong | Tests | Phase 4, P4-6 | Done: every renderer in the test binds the installation it opened; proven on a segment (13.15) |
 | G42 | Build-artifact cache keys held per-run locations (each graph run's Go temporary directory, the per-run web source path), so every graph run missed and re-linked shared binaries | Machine inputs, specification | Phase 4, P4-6 | Done: locations leave the keyed command and input directories are keyed by content; proven on a segment (13.15) |
 | G43 | Test rows launch nested graphs and real `make` runs that rebuild shared repository outputs under the Go test's toolchain environment while the outer run uses them; their failures are cut to the first 4 KiB and reclassified as product assertions | Tests, harness, specification | Phase 5 | Closed: P5-0 fenced the Go-hosted nested graphs (14.5); P5-2 moved the six nesting rows to explicit presets and refuses a graph beneath an aggregate run of the same repository (14.22) |
-| G44 | Make and the planner both own ordering, freshness, environment and prerequisite skipping: 26 operations re-enter Make, 17 targets carry two recipes chosen by `GRAPH_CHILD`, five freshness mechanisms coexist, and graph-only Make edges run work twice | Machine inputs, implementation, specification | Phase 5 | Open, residual only: P5-0 removed the renderer double run (14.5); P5-1 made every test script a row and removed five duplicate operations (14.6); P5-3 removed every Make re-entry, the 17 graph-child recipes and every file rule, and moved freshness into one artifact store (14.25 to 14.32). Left: three mode switches still have readers (`GRAPH_CHILD`, `SUPPRESS_CHILD_SUCCESS`, `SKIP_PREREQUISITES`; 14.32) |
-| G45 | Units inherit the graph process's whole environment (the shell's variables and up to 127 Make exports), minus hand-kept strip lists; harness code reads 478 `CARTULARY_*` names with no declaration, so leaks, stale names and typos fail silently | Machine inputs, implementation, specification | Phase 5, P5-4 | Open: P5-4a registered every harness name and enforces it (14.8); P5-4b made unit environments default-deny (14.9); P5-4c slices 1 to 3 made every outside launcher explicit (14.11 to 14.13); P5-4d slices 1 to 4 gave 57 names a single owner and enforce it in Node, Go and shell, covering every multi-writer invocation-context, fixture-binding and step-runtime name (14.14 to 14.17); the P5-4d exit is met. P5-3 removed the overlay (14.31) and the strip lists except the UI-review recipes' public-input strip (14.32); left: that strip and the mode switches that still have readers (14.32); the environment tidy classified product-derived names, folded fixture identity into the browser binding, replaced the cleanup marker with an argument, deleted the constant Playwright worker names and closed two check blind spots (14.23) |
+| G44 | Make and the planner both own ordering, freshness, environment and prerequisite skipping: 26 operations re-enter Make, 17 targets carry two recipes chosen by `GRAPH_CHILD`, five freshness mechanisms coexist, and graph-only Make edges run work twice | Machine inputs, implementation, specification | Phase 5 | Closed: P5-0 removed the renderer double run (14.5); P5-1 made every test script a row and removed five duplicate operations (14.6); P5-3 removed every Make re-entry, the 17 graph-child recipes and every file rule, and moved freshness into one artifact store (14.25 to 14.32); P6-2 removed the last three mode switches (15.7), and P6-5 gave every graph artifact one producer (15.10) |
+| G45 | Units inherit the graph process's whole environment (the shell's variables and up to 127 Make exports), minus hand-kept strip lists; harness code reads 478 `CARTULARY_*` names with no declaration, so leaks, stale names and typos fail silently | Machine inputs, implementation, specification | Phase 5, P5-4 | Closed: P5-4a registered every harness name and enforces it (14.8); P5-4b made unit environments default-deny (14.9); P5-4c slices 1 to 3 made every outside launcher explicit (14.11 to 14.13); P5-4d slices 1 to 4 gave 57 names a single owner and enforce it in Node, Go and shell, covering every multi-writer invocation-context, fixture-binding and step-runtime name (14.14 to 14.17); the P5-4d exit is met. P5-3 removed the overlay (14.31) and the strip lists except the UI-review recipes' public-input strip (14.32); left: that strip and the mode switches that still have readers (14.32); the environment tidy classified product-derived names, folded fixture identity into the browser binding, replaced the cleanup marker with an argument, deleted the constant Playwright worker names and closed two check blind spots (14.23); P6-3 removed the UI-review strip and made entry tools default-deny (15.8), and P6-2 removed the mode switches (15.7) |
 | G46 | A runtime whose cleanup fails is preserved for recovery behind a seal while it still holds resources, but startup recovery skips every sealed root on the rule that sealed roots have drained. A stranded `p58-browser` resident held one of the eight PostgreSQL generation slots in every later run | Specification, implementation | Phase 5 | Closed: `p58-browser` recovered, startup recovery decides by resource records, and the eight legacy roots were removed with owner approval (14.19) |
 | G47 | Build-artifact keys come from hand-listed source roots. The server, operator and migrate binaries import 22, 22 and 19 `internal/gen` packages that none of their keys covers, and the server key also omits `db/migrations`, which the server embeds: a migration-only or generator-only change reuses a stale binary | Machine inputs, implementation | Phase 5, P5-3a | Closed: every Go build Make runs is keyed by its import closure from `go list -deps` (14.25) |
 | G48 | Ambient mode switches select between three execution paths; four are set for every unit and 30 operations strip them again | Specification, implementation, tests | Phase 6, P6-2 | Closed: the `mode_switch` role is gone; residual test isolation noted in 15.7 |
 | G49 | UI-review recipes bypass the command entry and keep a public-input strip list; entry tools are not default-deny | Specification, implementation, tests | Phase 6, P6-3 | Closed (15.8) |
 | G50 | 449 registered environment names, many used in one file; browser-stack secrets cross a shell boundary as environment variables | Implementation, tests, machine inputs | Phase 6, P6-4 | Closed (15.9) |
 | G51 | A cached one-row slice costs 1.85 s, mostly planning and a `go run` producer call; the frontend installation is produced twice | Implementation, specification | Phase 6, P6-5 | Closed (15.10) |
-| G52 | The release inventory producer has never run and has no isolated entry; 14.30 misstates its validation | Tests, documentation | Phase 6, P6-1 | Open (15.2) |
+| G52 | The release inventory producer has never run and has no isolated entry; 14.30 misstates its validation | Tests, documentation | Phase 6, P6-1 | Closed: its rows passed alone (15.6) and in `p6-6-release02` (15.11) |
 | G53 | The diagnostic scope scan reported a scope unresolved when it caught any same-user process mid-exit for over 10 ms, failing UI-review diagnostics under load | Implementation, tests | Phase 6, found in P6-2c | Closed: an exiting process with no address space settles like a zombie (`7e639c3d2`, 15.7) |
+| G54 | Cacheable rows that run a built server, operator or migrate binary were keyed only by their test packages, so a change confined to the binary could replay a stale pass (26 rows); the SeaweedFS release gate rejected every cacheable recovery unit and had been blocked since G35 | Implementation, specification, tests | Phase 6, found in P6-6 | Closed: a unit's key holds each consumed binary's import closure and embedded inputs, and the gate admits keyed reuse (`2947948a4`, 15.11) |
+| G55 | The server wrote Go's raw connection errors to stderr, and the AC-604 process test sent its stop before the server could have read the held request; both failed `ordinary_shutdown_ac604` rarely under load | Implementation, tests | Phase 6, found in P6-6 | Closed: structured server errors and a 100 Continue handshake in the test (`3f9139070`, 15.11) |
 
 ## 5. Gap Remediation Detail
 
@@ -5018,7 +5023,7 @@ statuses are unchanged.
 
 ## 15. Phase 6 Plan — Phase 5 Residuals
 
-Status: proposed 2026-11-27 at the owner's request; D30 to D34 approved as recommended the same day (15.5). P6-0 and P6-1 done (15.6); P6-2 done (15.7); P6-3 done (15.8); P6-4 done (15.9); P6-5 done (15.10). It
+Status: proposed 2026-11-27 at the owner's request; D30 to D34 approved as recommended the same day (15.5). P6-0 and P6-1 done (15.6); P6-2 done (15.7); P6-3 done (15.8); P6-4 done (15.9); P6-5 done (15.10); P6-6 done (15.11). It
 removes the five items Phase 5 left open (G48 to G52). Each fix aims for the
 cleanest lasting structure: behavior that exists only for compatibility goes,
 rather than being carried forward.
@@ -5804,3 +5809,76 @@ Profiling showed a different cost split from 15.1: on this Vitest row
     505 s graph, against 579 s for `p6-2-check02` and 520 s for P4-7.
   - Timing: six warm slices at 0.75 to 0.78 s. The stale-launcher probe
     rebuilt once and the restored source reused its root.
+
+### 15.11 Validation and Handoff (P6-6, done)
+
+P6-6 validated Phase 6 under the Section 9 protocol (`CARTULARY_OUTPUT_MODE=ci`,
+basic diagnostics, cache off, sequential).
+
+- **Paired `check`.** `p6-5-check01` (on the code committed as P6-5) and
+  `p6-6-check02` passed all 1,899 rows in 505 s and 493 s graphs (517 s and
+  504 s outer).
+- **`p6-6-ci01`: one deterministic failure.** `owner_boundaries`, a `ci`-only
+  row, rejected P6-3's import of the private `browser/review-recipes.mjs`
+  from the command entry. P6-3's segment had not included it. Fixed by
+  importing through the browser facade (`0a4bcb889`).
+- **`p6-6-ci02`: three failures.**
+  - **Generated drift.** The facade fix was committed without regenerating,
+    so the render index was stale.
+  - **The planner row's closure went broad.** Re-exporting through the facade
+    pulled the whole review recipe graph into it. `reviewForwarded` now has
+    its own module, which the facade, the recipes and the native review
+    client import (`f0813155c`). The client's own import of the old export
+    was found only by a full UI-review segment.
+  - **`ordinary_shutdown_ac604`, a rare product flake (G55).** The server
+    set no `ErrorLog`, so Go wrote a raw TLS handshake error to stderr ahead
+    of the process's single JSON diagnostic. Its errors are now structured
+    warnings in the server log; a new runtime test fails without the fix.
+    Stress then exposed a second race (1 in 20): the test sent its stop
+    before the server could have read the held request, so the drain found
+    nothing in flight. The request now expects 100 Continue, so the stop
+    follows the handler's first read. It passed 20 of 20 under mixed load
+    (`p6-6-ac604-stress4`), and the `app.server` and
+    `platform.httpruntime` owners passed (`3f9139070`).
+- **Paired `ci` at `3f9139070`.** `p6-6-ci03` and `p6-6-ci04` passed all
+  2,654 rows in 1,325 s and 1,310 s graphs.
+- **`p6-6-release01`: the SeaweedFS gate blocked.** All seven release rows
+  passed. The gate required its recovery row's unit to be uncacheable, which
+  it had not been since G35 made service-backed integration rows cacheable
+  on 2026-11-25; `release-check` had not run since.
+  - **The key gap (G54).** The owner asked that the gate use the cache
+    unless that weakens a guarantee. It did: the recovery row runs the
+    built `operator`, and none of the operator's sources were in its key.
+    26 cacheable rows run a server, operator or migrate binary.
+  - **Fix (`2947948a4`).** A unit's closure now holds each consumed binary's
+    Go import closure without tests, its module files, and, where that
+    closure embeds a generated directory, the producing web bundle's
+    declared inputs and client-support file, all from the producer registry
+    and the workspace layout. The recovery unit's closure grew from 3,654 to
+    5,725 files. The gate admits a result the cache reused under the plan's
+    key for the unit and still rejects an unkeyed reuse.
+  - **Proof.** A seeded cache entry flowed through
+    `make seaweedfs-release-gate` as a real cache hit (`p6-6-key-gate`). A
+    comment-only change in `internal/app/operator` made the next gate run
+    execute the row instead (`p6-6-key-probe`).
+- **`release-check` at `2947948a4` (`p6-6-release02`).** Passed in a 422 s
+  graph: all seven release rows and the gate.
+- **`ci` was not rerun after `2947948a4`.** The protocol runs with the cache
+  off, so the new key code does not run in `ci`, and the gate is not a `ci`
+  unit. Its rows were proven on segments and through the gate.
+- **Section 3** is refreshed from these runs.
+- **Gaps.** G44, G45, G48 to G53 and the new G54 and G55 are closed.
+- **Handoff.**
+  - `check` sits at about 500 s against its 500 s target; `ci` at about
+    1,320 s meets the 1,450 s component target, not the 1,200 s G31 target.
+  - Run roots are unchanged at about 320 MB for `check` and 790 MB for
+    `ci`; the event log is most of each. The 150 MB target is not met.
+  - The browser stack's backend reset path, rewritten in P6-4a, never runs
+    in `check` or `ci`: every cohort gets its own stack (22 stacks, no
+    reuse, in `p6-6-ci01`). It is covered by unit tests only. A row that
+    reuses a stack would exercise it.
+  - The 26 binary-consuming rows now re-run when their binary's code
+    changes, and the server and operator rows also when the frontend
+    changes. That is the price of an exact key.
+  - Follow-up noted in 15.7: 31 assurance operations still strip
+    `CARTULARY_TEST_TARGET`, `VERBOSE` and `CI_VERBOSE` for test isolation.
