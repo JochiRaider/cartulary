@@ -130,6 +130,17 @@ export function buildOperationInvocation(owner, operationID, environment) {
   if (execution.type !== "step_command") {
     throw new Error(`${operationID}: ${execution.type} requires a typed tool invocation`);
   }
+  const argv = operationArgv(operationID, execution, environment);
+  if (execution.mode === "run_step") {
+    if (!environment.RUN_STEP_SCRIPT) throw new Error("missing operation binding RUN_STEP_SCRIPT");
+    return { command: "bash", args: [environment.RUN_STEP_SCRIPT, execution.step_label, "--", ...argv], env };
+  }
+  return { command: argv[0], args: argv.slice(1), env };
+}
+
+// operationArgv is a step command's argument vector with its named bindings
+// expanded from environment; the harness command entry shares it.
+export function operationArgv(operationID, execution, environment) {
   const tokens = execution.mode === "node"
     ? ["$(NODE_BIN)", execution.script, ...(execution.args ?? [])]
     : execution.command;
@@ -144,9 +155,5 @@ export function buildOperationInvocation(owner, operationID, environment) {
   if (tokens[0] === "$(MAKE)" || path.basename(argv[0]) === "make") {
     throw new Error(`${operationID}: operations never run Make; producers make artifacts and the graph orders operations`);
   }
-  if (execution.mode === "run_step") {
-    if (!environment.RUN_STEP_SCRIPT) throw new Error("missing operation binding RUN_STEP_SCRIPT");
-    return { command: "bash", args: [environment.RUN_STEP_SCRIPT, execution.step_label, "--", ...argv], env };
-  }
-  return { command: argv[0], args: argv.slice(1), env };
+  return argv;
 }

@@ -1,3 +1,4 @@
+import { makeNodeToolResultDirMakeEnvVars, makeNodeToolRuntimeEnvVars } from "../../command-surface/make-node-tools.mjs";
 import { globalInputEntries, nonCanonicalPublicMakeVariables, restrictedInternalMakeVariables, retiredPublicMakeVariables, targetEntries } from "./model.mjs";
 
 // How public inputs travel from Make to the harness (P5-3e). The generated
@@ -77,4 +78,42 @@ export function graphForwardedInputNames(entry = null) {
     ...runtimeForwardedInputNames(entry),
     ...(entry?.input_contract?.inputs ?? []).filter((input) => input.child_forwarding === "argv").map((input) => input.name),
   ])].sort(byName);
+}
+
+// stepForwardedInputNames are the inputs a step command's child receives.
+export function stepForwardedInputNames(entry = null) {
+  return [...runtimeForwardedInputNames(entry)].sort(byName);
+}
+
+// toolInputNames are the inputs a Node or owner tool receives: the target's
+// declared inputs and the tool's result-directory and runtime variables.
+export function toolInputNames(entry, toolID) {
+  return [...new Set([
+    ...(entry?.input_contract?.inputs ?? []).map((input) => input.name),
+    ...makeNodeToolResultDirMakeEnvVars(toolID),
+    ...makeNodeToolRuntimeEnvVars(toolID),
+  ])];
+}
+
+// entryRecipeFamily names how the command entry runs a public recipe, or
+// null for a recipe Make still runs itself: help, the UI review launcher,
+// the native status tool, cleanup and the Node-free Markdown lint.
+export function entryRecipeFamily(recipe, target) {
+  if (recipe?.graph_entry === true || recipe?.type === "work_graph") return "graph";
+  if (recipe?.type === "step_command" && ["command", "run_step"].includes(recipe.mode) && target !== "lint-markdown") return "step";
+  if (recipe?.type === "node_tool" || recipe?.type === "owner_command") return "tool";
+  if (recipe?.type === "bootstrap") return "bootstrap";
+  return null;
+}
+
+// entryInputNames are the inputs the entry hands a recipe's child, in the
+// order Make renders them; Make passes the expanded value of each one that
+// does not travel literally.
+export function entryInputNames(entry, recipe) {
+  switch (entryRecipeFamily(recipe, entry?.name)) {
+    case "graph": return graphForwardedInputNames(entry);
+    case "step": return stepForwardedInputNames(entry);
+    case "tool": return toolInputNames(entry, recipe.tool_id);
+    default: return [];
+  }
 }

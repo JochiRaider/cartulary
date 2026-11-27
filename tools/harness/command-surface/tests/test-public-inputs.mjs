@@ -8,6 +8,7 @@ import { classifyShellFailureDetails } from "../../output/test-output/runners/sh
 import { helpProjection, renderTaskSurfaceMake, renderTaskSurfaceMakeRuntime } from "../../generated-artifacts/task-surface/make-renderer.mjs";
 import { projectOperationBindings, readOperationOwner } from "../../execution/operations.mjs";
 import { collectTaskSurfaceManifestErrors } from "../../generated-artifacts/task-surface/index.mjs";
+import { bootstrapOperation, stepInvocation } from "../command-entry.mjs";
 test("native recovery exit retains cleanup classification independently of provider text", () => {
   assert.deepEqual(classifyShellFailureDetails({ target: "test-run-recover", exitStatus: 12 }, [], ["untrusted provider text"], ""), { failure_class: "harness", failure_reason: "cleanup_error" });
 });
@@ -134,13 +135,13 @@ test("bootstrap admits a closed selector before installing Node and dispatches o
   const events = path.join(scratch, "events");
   const node = path.join(scratch, "node");
   const source = path.join(scratch, "fake-node");
-  writeFileSync(source, `#!/bin/sh\nprintf '%s\\n' "$*" >> '${events}'\n`, { mode: 0o700 });
+  writeFileSync(source, `#!/bin/sh\nprintf '%s\\n' "$*" >> '${events}'\nprintf 'PART=%s|%s\\n' "$PART" "$CARTULARY_MAKE_INPUT_SOURCES" >> '${events}'\n`, { mode: 0o700 });
   mkdirSync(path.join(scratch, "tools"));
   for (const [name, all] of [["help", false], ["help-all", true]])
     writeFileSync(path.join(scratch, `tools/task_surface.${name}.generated.json`), JSON.stringify(helpProjection(manifest, { all })));
   const file = path.join(scratch, "Makefile");
   // The Node runtime producer is the only installation before dispatch.
-  writeFileSync(file, `${renderTaskSurfaceMakeRuntime(manifest)}\n${renderTaskSurfaceMake(manifest)}\nNODE_BIN := ${node}\nRUN_PUBLIC_PREFLIGHT = printf 'preflight\\n' >> ${events}\nRUN_TARGET_SUMMARY = :\nPRODUCE = sh -c '[ "$$1" = node-runtime ] && cp ${source} ${node} && printf "install\\n" >> ${events}' produce\n`);
+  writeFileSync(file, `${renderTaskSurfaceMakeRuntime(manifest)}\n${renderTaskSurfaceMake(manifest)}\nNODE_BIN := ${node}\nPRODUCE = sh -c '[ "$$1" = node-runtime ] && cp ${source} ${node} && printf "install\\n" >> ${events}' produce\n`);
   const env = { ...process.env };
   for (const key of ["MAKEFLAGS", "MAKEOVERRIDES", "MFLAGS", "GNUMAKEFLAGS", "CARTULARY_TEST_TARGET"])
     delete env[key];
@@ -157,7 +158,12 @@ test("bootstrap admits a closed selector before installing Node and dispatches o
     rmSync(events, { force: true });
     const result = invoke(part ? [`PART=${part}`] : [], { PART: "node" });
     assert.equal(result.status, 0, result.stderr);
-    assert.deepEqual(readFileSync(events, "utf8").trim().split("\n"), ["install", "preflight", `tools/harness/execution/operation-runner-cli.mjs ${operation}`]);
+    // The command entry runs once, after Node, and selects only the
+    // command-line selector's operation; an inherited PART selects nothing.
+    const [install, call, selector] = readFileSync(events, "utf8").trim().split("\n");
+    assert.deepEqual([install, call], ["install", "tools/harness/command-surface/command-entry.mjs bootstrap"]);
+    const [value, sources] = selector.slice("PART=".length).split("|");
+    assert.equal(bootstrapOperation("bootstrap", { PART: value, CARTULARY_MAKE_INPUT_SOURCES: sources }, { manifest }), operation, part ?? "default");
   }
 });
 test("required and optional literal recovery inputs reach wrapper admission and its physical child", (t) => {
@@ -178,19 +184,26 @@ if(stage==='wrapper'){const args=process.argv.slice(process.argv.indexOf('--')+1
   mkdirSync(path.join(scratch, "tools"));
   for (const [name, all] of [["help", false], ["help-all", true]])
     writeFileSync(path.join(scratch, `tools/task_surface.${name}.generated.json`), JSON.stringify(helpProjection(manifest, { all })));
+  const recorded = path.join(scratch, "entry.json");
+  const entryNode = path.join(scratch, "node");
+  writeFileSync(entryNode, `#!${process.execPath}\nrequire('node:fs').writeFileSync(${JSON.stringify(recorded)}, JSON.stringify({ args: process.argv.slice(2), env: process.env }));\n`, { mode: 0o700 });
   const file = path.join(scratch, "Makefile");
   writeFileSync(file, `${renderTaskSurfaceMakeRuntime(manifest)}
 ${renderTaskSurfaceMake(manifest)}
 TASK_SURFACE_NODE_READINESS = :
-RUN_PUBLIC_PREFLIGHT = :
-NODE_BIN := ${process.execPath}
-RUN_STEP_SCRIPT := ${process.execPath} ${probe} wrapper
+NODE_BIN := ${entryNode}
 `);
   const values = ["/fixture/result with space", "/fixture/runtime 'quote' $dollar `literal`", "139eb0d9-ba96-4ce6-8f64-a8d5973e20b0"];
   const env = { ...process.env };
   for (const key of ["MAKEFLAGS", "MAKEOVERRIDES", "MFLAGS", "GNUMAKEFLAGS", "CARTULARY_TEST_TARGET"])
     delete env[key];
-  const output = execFileSync("make", ["--silent", "--no-print-directory", "-f", file, "test-run-recover", ...["RESULTS_DIR", "RUNTIME_ROOT", "RUNTIME_LEASE_ID"].map((key, index) => `${key}=${values[index]}`)], { cwd: scratch, env, encoding: "utf8", timeout: 10000 });
+  execFileSync("make", ["--silent", "--no-print-directory", "-f", file, "test-run-recover", ...["RESULTS_DIR", "RUNTIME_ROOT", "RUNTIME_LEASE_ID"].map((key, index) => `${key}=${values[index]}`)], { cwd: scratch, env, encoding: "utf8", timeout: 10000 });
+  const call = JSON.parse(readFileSync(recorded, "utf8"));
+  assert.deepEqual(call.args, ["tools/harness/command-surface/command-entry.mjs", "test-run-recover"]);
+  const wrapper = path.join(scratch, "run-step");
+  writeFileSync(wrapper, `#!/bin/sh\nexec ${JSON.stringify(process.execPath)} ${JSON.stringify(probe)} wrapper "$@"\n`, { mode: 0o700 });
+  const invocation = stepInvocation("test-run-recover", { ...call.env, NODE_BIN: process.execPath, RUN_STEP_SCRIPT: wrapper }, { manifest, root });
+  const output = execFileSync(invocation.command, invocation.args, { cwd: scratch, env: invocation.env, encoding: "utf8", timeout: 10000 });
   const observations = output.trim().split("\n").map(line => JSON.parse(line));
   assert.deepEqual(observations.map(value => value.stage), ["wrapper", "child"]);
   for (const observation of observations) {

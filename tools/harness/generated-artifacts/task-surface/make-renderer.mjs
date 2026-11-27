@@ -1,7 +1,7 @@
 import { nativeTool } from "../../command-surface/native-tools.mjs";
 import { operationBindingNames } from "../../execution/operations.mjs";
 import { producerContext, splitProducedPrerequisites } from "../../execution/producers.mjs";
-import { graphForwardedInputNames, literalMakeInputNames, machineStateNames, publicMakeInputNames, requiresLiteralMakeTransport, runtimeForwardedInputNames } from "./inputs.mjs";
+import { entryInputNames, entryRecipeFamily, literalMakeInputNames, machineStateNames, publicMakeInputNames, requiresLiteralMakeTransport, runtimeForwardedInputNames } from "./inputs.mjs";
 import { makeNodeToolResultDirMakeEnvVars, makeNodeToolRuntimeEnvVars } from "../../command-surface/make-node-tools.mjs";
 import {
   canonicalInternalMakeValues, compactHelpEntries, globalInputEntries, harnessCheckEntryMap, harnessCheckEntries, helpTiers, makeIdentifier, makeRecipeEntries, nonCanonicalPublicMakeVariables, restrictedInternalMakeVariables, retiredPublicMakeVariables, sequenceDefinition, targetEntries, targetEntryMap,
@@ -249,22 +249,14 @@ function renderMakeRecipe(recipe, manifest, producers = checkoutProducers()) {
     return [`${recipe.target}:`, `\t$(Q)${recipe.command.join(" ")}`];
   }
   if (recipe.type === "bootstrap") {
-    const binding = entry.selection_binding;
     const names = [...entry.input_contract.inputs.map((input) => input.name), ...globalInputEntries(manifest).map((input) => input.name)];
-    const lines = [...renderRecipePrefix(recipe, entry), `${recipe.target}:`,
+    return [...renderRecipePrefix(recipe, entry), `${recipe.target}:`,
       `\t$(Q)$(if $(filter-out ${names.join(" ")},$(TASK_SURFACE_COMMAND_LINE_INPUT_NAMES)),echo 'bootstrap received an undeclared input' >&2; exit 2;,:)`,
       ...renderBootstrapSelectorAdmission(entry),
       // Node is the only installation needed to admit and dispatch bootstrap.
       '\t$(Q)env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(PRODUCE) node-runtime',
-      `\t$(Q)$(call RUN_PUBLIC_PREFLIGHT,${recipe.target})`,
+      renderCommandEntryCall({ ...recipe, type: "bootstrap" }, entry),
     ];
-    for (const [index, [value, operationID]] of Object.entries(binding.variants).entries()) {
-      lines.push(`${index === 0 ? "ifeq" : "else ifeq"} ($(if $(findstring command line,$(origin ${binding.input})),$(strip $(value ${binding.input})),),${value})`,
-        `\t$(Q)$(NODE_BIN) tools/harness/execution/operation-runner-cli.mjs ${operationID}`);
-    }
-    lines.push("else", `\t$(Q)$(NODE_BIN) tools/harness/execution/operation-runner-cli.mjs ${binding.default_selection}`, "endif",
-      `\t$(call RUN_TARGET_SUMMARY,${recipe.target},pass)`);
-    return lines;
   }
   if (recipe.type === "print_help" && entry?.input_contract?.inputs.some((input) => input.name === "JSON")) {
     const declared = [...entry.input_contract.inputs.map((input) => input.name), ...globalInputEntries(manifest).map((input) => input.name)];
@@ -338,18 +330,10 @@ function renderMakeRecipe(recipe, manifest, producers = checkoutProducers()) {
       `\t$(Q)printf '%s\\n' $(${variable})`,
     ];
   }
-  if (recipe.type === "work_graph") {
-    // The entry admits the inputs, produces the producers and launches the
-    // graph; Make only adds each forwarded input's expanded value.
-    const inputs = new Map((entry?.input_contract?.inputs ?? []).map((input) => [input.name, input]));
-    const expanded = graphForwardedInputNames(entry).filter((name) => !requiresLiteralMakeTransport(inputs.get(name)))
-      .map((name) => `${name}="${makeVariableValue(name)}"`);
-    return [
-      ...prefix,
-      ...header,
-      ...nodeReadinessPrelude,
-      `\t$(Q)$(call RUN_COMMAND_ENTRY,${recipe.target},${expanded.join(" ")})`,
-    ];
+  // The command entry admits the inputs, produces the producers and runs a
+  // graph target, step command, Node tool or owner tool (P5-3e).
+  if (entry?.target_class === "public" && ["graph", "step", "tool"].includes(entryRecipeFamily(recipe, recipe.target))) {
+    return [...prefix, ...header, ...nodeReadinessPrelude, renderCommandEntryCall(recipe, entry)];
   }
   if (recipe.type === "step_command") {
     const emitsRetainedTargetSummary =
@@ -433,6 +417,16 @@ function shouldCentralizePrerequisiteOutput(
     (recipe.prerequisites ?? []).length > 0 &&
     !["cleanup", "print_help"].includes(recipe.type)
   );
+}
+
+// renderCommandEntryCall runs the command entry for recipe. Make adds the
+// expanded value of each input the recipe's child receives that does not
+// travel literally; TASK_SURFACE_COMMAND_ENV carries the rest.
+function renderCommandEntryCall(recipe, entry) {
+  const inputs = new Map((entry?.input_contract?.inputs ?? []).map((input) => [input.name, input]));
+  const expanded = entryInputNames(entry, recipe).filter((name) => !requiresLiteralMakeTransport(inputs.get(name)))
+    .map((name) => `${name}="${makeVariableValue(name)}"`);
+  return `\t$(Q)$(call RUN_COMMAND_ENTRY,${recipe.target},${expanded.join(" ")})`;
 }
 
 function renderPreflightPrelude(recipe, entry = null, manifest = null) {

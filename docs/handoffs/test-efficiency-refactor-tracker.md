@@ -1377,6 +1377,7 @@ Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-am
 | 2026-11-26 | P5-3c step 4 | The renderer builds its launcher through the store and reuses by root seal, with collection; the release inventory and the test service images become producers; every prerequisite names a producer, nothing re-enters Make, and Make has no file rules; `cache-artifact.sh` and four more scripts removed | `p100-generate`, `p101` (segment), `p102`, `p103-check01` | Pass. `p103-check01` passed all 1,898 rows in a 514 s graph; the renderer unit took 3.1 s (20.3 s) (14.30) |
 | 2026-11-26 | P5-3d | One pinned Go environment (`go_environment` in the toolchain pins) for every build and test: the planner, the store, selector resolution, browser fixtures and release scripts read it; builds apply it last; cgo off (D26) and `-trimpath` (D27) for every store-built binary; the unit overlay record and `NestedEnvironment` removed | `p104-generate3`, `p105` (segment, with the release package rows), `p106`, `p107-check01` | Pass. `p107-check01` passed all 1,899 rows in a 577 s graph; the 63 s over `p103` is the one-time rebuild of Go tools and a cold staticcheck cache under the new environment (14.31) |
 | 2026-11-26 | P5-3e step 1 | The harness command entry: every graph target's recipe is the Node runtime and one entry call, which admits the inputs in process, produces the target's producers and launches the graph with the environment Make used to assemble; renderer and entry share one input module | `p109-generate2`, `p110` (segment), `p111`, `p112-check01` | Pass. `p112-check01` passed all 1,899 rows in a 559 s graph; a one-row slice takes 0.9 s (1.24 s). Go rows ran 5 to 10% slower than in `p103`, but the same slice is as slow at the pre-P5-3d commit: the machine, not this work (14.32) |
+| 2026-11-26 | P5-3e step 2 | The step commands, Node and owner tools and bootstrap run through the command entry: 62 of 74 public recipes are the Node runtime and one entry call; help, the Markdown lint, the run-status tool, UI review and cleanup stay in Make; the entry writes the target through `run_context` | `p116` (segment), `p117`, `p118-check01` | Pass. `p118-check01` passed all 1,899 rows in a 567 s graph. One `reference_pack_package` failure in `p116` (the destination's migration gate) did not reproduce (14.32) |
 | 2026-11-25 | P4-4 / G39 | Wait audit: 31 whole-test hang guards derive from the test deadline (`testdeadline`) | `p44-port-*` (16 owner slices, every row holding a converted guard) | Pass. Committed `bdd8f4e1d` |
 
 ## 12. Phase 2 Plan — `check` Wall Clock
@@ -2671,7 +2672,7 @@ Status: proposed 2026-11-26 at the owner's request. P5-0, P5-1 and P5-2 done (14
 | P5-1 | Flat catalog: every check is a row with an owner, so any of them runs alone with `ROWS=`; selections list rows and operations, not other selections. **Done 2026-11-26** (14.6): every test script is a row and duplicates are gone; selection nesting stays (14.6) | G44 |
 | P5-2 | Unnest: harness-mechanics probes run as first-class graph rows against private outputs, or move to an explicit harness suite outside `ci`; a source check forbids rows that launch `make` or `graph` against the shared repository | G43 |
 | P5-4 | Declared environment: a registry of every harness variable, default-deny unit environments, one typed unit context document, fixture bindings in that document (14.7) | G43, G45 |
-| P5-3 | Thin Make: Make only admits the workspace and forwards to the harness; build operations become data with declared inputs, environment keys and outputs; one Go content-addressed store replaces `cache-artifact.sh`, the renderer store and web staging; no unit re-enters Make; one toolchain environment from the pins for builds and tests. **Planned 2026-11-26** (14.24): five steps, P5-3a to P5-3e; P5-3a done (14.25); P5-3b done (14.26); P5-3c done (14.27 to 14.30); P5-3d done (14.31); P5-3e step 1 of 3 done (14.32) | G44 |
+| P5-3 | Thin Make: Make only admits the workspace and forwards to the harness; build operations become data with declared inputs, environment keys and outputs; one Go content-addressed store replaces `cache-artifact.sh`, the renderer store and web staging; no unit re-enters Make; one toolchain environment from the pins for builds and tests. **Planned 2026-11-26** (14.24): five steps, P5-3a to P5-3e; P5-3a done (14.25); P5-3b done (14.26); P5-3c done (14.27 to 14.30); P5-3d done (14.31); P5-3e steps 1 and 2 of 3 done (14.32) | G44 |
 
 P5-0 is small and removes the hazards seen in `ci`. P5-1 makes segments
 possible for every check. P5-3 is the largest and needs specification
@@ -3695,12 +3696,86 @@ Decision D20 (owner, 2026-11-26): nested harness probes run in explicit
   - 183 names appear in only one file and 85 only in tests. Deleting them is
     a separate decision.
 
+**Step e2.**
+
+- **Families.** 62 of the 74 public recipes are now the Node runtime and one
+  entry call. They are the 32 graph targets, the step commands, the Node and
+  owner tools, and bootstrap. The renderer and the entry classify a recipe
+  with one shared function, `entryRecipeFamily` in `task-surface/inputs.mjs`.
+  - **Step commands.** The entry builds the operation's argv with the
+    operation runner's `operationArgv`. It runs that argv in a child that
+    strips every public input and sets the machine state, the forwarded
+    inputs and the recipe's own variables.
+    - A recipe that reports a step runs under the step runner with its
+      forwarded and literal inputs and their origins.
+    - A summarized command keeps the public target that invoked it.
+    - Other recipes run their child directly.
+  - **Tools.** A Node or owner tool runs through `run-make-node-tool.sh`.
+    It gets its inputs, every public input's origin and the target as its
+    run context.
+  - **Bootstrap.** Make still refuses undeclared inputs and admits the
+    closed `PART` selector, because both happen before Node exists. Make
+    then produces the Node runtime. The entry runs the operation the
+    command-line selector names, then the target summary. An inherited
+    `PART` selects nothing.
+  - **Run context.** The entry writes the target through `run_context`'s
+    `runContextEnvironment`, the single writer.
+- **Kept in Make (12).** Help, `lint-markdown`, `test-run-status`, the seven
+  UI review commands, `clean` and `distclean`. None of them prepares Node:
+  - help prints the generated help projection;
+  - the Markdown lint is the documentation-only check;
+  - the status tool is the native runtime binary;
+  - the review commands are the explicit-only agent skill;
+  - cleanup can remove the Node runtime itself.
+
+  The e2 exit said "every public recipe". These 12 are the exceptions, and
+  the specification names them.
+- **Generated Make.** The bindings file has 802 lines (871). The renderer's
+  old step and tool branches are now unused for public targets. Step e3
+  deletes them.
+- **Tests.**
+  - The command-entry test covers the step child, the step runner, inherited
+    identity, the tool launcher and bootstrap selection.
+  - The public-input tests follow the entry. Bootstrap checks the call order
+    and the selected operation. The recovery literal-transport test runs the
+    entry's step with the literal values.
+  - The task-surface report asserts that lifecycle capture runs through the
+    entry.
+- **Specification.** Amended. Every family above runs through the entry, and
+  the specification names the 12 kept recipes.
+- **Validation.**
+  - **Segment (`p116`).** These passed:
+    - generation, lint (Go, scripts, shell), and the catalog, identity,
+      generated, schema and toolchain source checks;
+    - the converted targets run through the entry: `doctor`, the three
+      `bootstrap` parts, `test-services-session-status`, `task-guide`,
+      `target-plan`, `explain-run` and the cryptographic policy assessment;
+    - ten command-surface rows, the native-session evidence row, the routing
+      contract, both recovery process rows and the Markdown lint.
+  - **Problems `p116` found.**
+    - **The surface check.** The single-writer rule flagged two entry lines
+      that wrote `CARTULARY_TEST_TARGET`, which `run_context` owns. They now
+      call `runContextEnvironment`.
+    - **The task-surface report.** It still asserted the old Make rendering
+      of `services-up`'s inherited identity. It now asserts the entry call,
+      and the entry test covers the identity.
+    - **`reference_pack_package`.** The destination deployment's
+      `package.sh start` failed at its migration gate, after nine scenarios
+      had passed. This step does not touch that path, and the row passed when
+      rerun (`p117`, 400 s).
+  - **`p117`.** Generation, the scripts lint and the surface, generated and
+    schema checks passed. Six command-surface rows passed, among them the
+    report, the entry tests and the planner. The reference pack row passed.
+  - **`p118-check01`.** All 1,899 rows passed in a 567 s graph (559 s in
+    `p112-check01`). The command entry changes nothing inside the graph, so
+    the difference is the machine (see e1's finding).
+
 ### 14.24 Thin Make (P5-3, planned)
 
 Status: planned 2026-11-26 at the owner's request. Owner direction: retire as
 much of the Makefile as needed; a thin wrapper is better than a complicated
 one. Approved with D24 to D28 as recommended on 2026-11-26; P5-3a done
-(14.25); P5-3b done (14.26); P5-3c done (14.27 to 14.30); P5-3d done (14.31); P5-3e step 1 of 3 done (14.32).
+(14.25); P5-3b done (14.26); P5-3c done (14.27 to 14.30); P5-3d done (14.31); P5-3e steps 1 and 2 of 3 done (14.32).
 
 **Problem (G44, G47).** Measured at `db2304ea9`:
 

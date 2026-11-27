@@ -1,17 +1,27 @@
 #!/usr/bin/env node
-// The harness command entry (P5-3e). A public graph target's recipe runs it
-// once, after the Node runtime: Make passes only what Make alone knows, each
-// public input's value and origin (CARTULARY_MAKE_INPUT_SOURCES), and the
-// entry admits the inputs, produces the target's producers and launches its
-// graph with the environment the recipe used to assemble in Make.
+// The harness command entry (P5-3e). A public target's recipe runs it once,
+// after the Node runtime. Make passes only what Make alone knows: each public
+// input's value and origin (CARTULARY_MAKE_INPUT_SOURCES). The entry admits
+// the inputs, produces the target's producers and runs the target with the
+// process tree and environment its Make recipe used to assemble:
+//
+// - a graph target launches its graph;
+// - a step command runs its operation's command, through the step runner
+//   when it reports a step;
+// - a Node or owner tool runs through the Make tool launcher;
+// - bootstrap runs its selected installation operation.
 import { spawn, spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { HarnessConfigError, preflightPublicTarget } from "../contract/index.mjs";
-import { inputSourcesEnvironment } from "../contract/run-context.mjs";
+import { inputSourcesEnvironment, runContextEnvironment } from "../contract/run-context.mjs";
+import { operationArgv } from "../execution/operations.mjs";
 import { producerBindings, producerCommand, readProducerRegistry, splitProducedPrerequisites } from "../execution/producers.mjs";
-import { canonicalInputPaths, defaultTaskSurfaceManifestPath, graphForwardedInputNames, machineStateNames, publicMakeInputNames } from "../generated-artifacts/index.mjs";
+import {
+  canonicalInputPaths, defaultTaskSurfaceManifestPath, entryRecipeFamily, graphForwardedInputNames, machineStateNames, publicMakeInputNames,
+  requiresLiteralMakeTransport, stepForwardedInputNames, toolInputNames,
+} from "../generated-artifacts/index.mjs";
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 
@@ -28,30 +38,49 @@ function parseSources(text = "") {
   }));
 }
 
-function graphRecipe(manifest, target) {
+function originsOf(names, sources) {
+  return inputSourcesEnvironment(names.map((name) => `${name}=${sources.get(name) ?? "unset"}`));
+}
+
+// publicRecipe returns target's entry, recipe and how the entry runs it.
+export function publicRecipe(manifest, target) {
   const recipe = manifest.make_recipes[target];
   const entry = manifest.targets.find((candidate) => candidate.name === target);
   if (!recipe || entry?.target_class !== "public") throw new HarnessConfigError(`${target} is not a public target`, { reason: "usage_error" });
+  const family = entryRecipeFamily(recipe, target);
+  if (family === null) throw new HarnessConfigError(`${target} does not run through the command entry`, { reason: "usage_error" });
   // A graph-entry operation target enters its graph like any graph target.
-  if (recipe.graph_entry === true) return { entry, recipe: { type: "work_graph", selection: "target", prerequisites: graphEntryPrerequisites, preflight_owner: recipe.preflight_owner } };
-  if (recipe.type !== "work_graph") throw new HarnessConfigError(`${target} does not launch a graph`, { reason: "usage_error" });
-  return { entry, recipe };
+  if (recipe.graph_entry === true) {
+    return { entry, family, recipe: { type: "work_graph", selection: "target", prerequisites: graphEntryPrerequisites, preflight_owner: recipe.preflight_owner } };
+  }
+  return { entry, family, recipe };
 }
 
-// graphProducers are the producers a graph target needs besides the Node
-// runtime, which its recipe produces before the entry runs.
-export function graphProducers(root, recipe) {
+// recipeProducers are the producers a recipe needs besides the Node runtime,
+// which its recipe produces before the entry runs.
+export function recipeProducers(root, recipe) {
   const prerequisites = (recipe.prerequisites ?? []).filter((prerequisite) => prerequisite !== "$(NODE_BIN)");
   const { producers, files } = splitProducedPrerequisites(prerequisites, producerBindings(readProducerRegistry(root)));
   if (files.length > 0) throw new Error(`prerequisites ${files.join(", ")} name no registered producer`);
   return producers;
 }
 
+// expandMakeValue expands a recipe value's named bindings as Make did: a
+// canonical input is the checkout's own file, and an unset name is empty.
+function expandMakeValue(value, env, root) {
+  return value.replace(/\$\(([A-Z][A-Z0-9_]*)\)/gu, (_, name) => forwardedValue(name, env, root));
+}
+
+function forwardedValue(name, env, root) {
+  return canonicalInputPaths[name] ? path.join(root, canonicalInputPaths[name]) : env[name] ?? "";
+}
+
 // graphLaunch returns the graph runtime invocation for target: the entry's
 // environment without the public inputs, with the machine state, the
 // target's forwarded inputs and their origins, and the launch bindings.
 export function graphLaunch(target, env, { manifest, root = repositoryRoot }) {
-  const { entry, recipe } = graphRecipe(manifest, target);
+  const { entry, family, recipe } = publicRecipe(manifest, target);
+  if (family !== "graph") throw new HarnessConfigError(`${target} does not launch a graph`, { reason: "usage_error" });
   const launch = { ...env };
   for (const name of publicMakeInputNames(manifest)) delete launch[name];
   for (const name of [...machineStateNames, ...launchBindings]) {
@@ -59,8 +88,8 @@ export function graphLaunch(target, env, { manifest, root = repositoryRoot }) {
   }
   const sources = parseSources(env.CARTULARY_MAKE_INPUT_SOURCES);
   const forwarded = graphForwardedInputNames(entry);
-  for (const name of forwarded) launch[name] = canonicalInputPaths[name] ? path.join(root, canonicalInputPaths[name]) : env[name] ?? "";
-  Object.assign(launch, inputSourcesEnvironment(forwarded.map((name) => `${name}=${sources.get(name) ?? "unset"}`)));
+  for (const name of forwarded) launch[name] = forwardedValue(name, env, root);
+  Object.assign(launch, originsOf(forwarded, sources));
   let selection;
   if (recipe.selection === "owner") {
     selection = ["--selection", "owner", "--target", target, "--owner", env.OWNER ?? "",
@@ -70,6 +99,79 @@ export function graphLaunch(target, env, { manifest, root = repositoryRoot }) {
   }
   if (!env.HARNESS_RUNTIME_BIN) throw new HarnessConfigError("HARNESS_RUNTIME_BIN is required");
   return { command: env.HARNESS_RUNTIME_BIN, args: ["graph", ...selection], env: launch, recipe };
+}
+
+// childEnvironmentArgs are the `env` arguments that give a step's child the
+// environment its recipe gave it: no public input, then the machine state,
+// the forwarded inputs with their origins and the recipe's own variables.
+function childEnvironmentArgs(manifest, entry, recipe, env, root) {
+  const sources = parseSources(env.CARTULARY_MAKE_INPUT_SOURCES);
+  const forwarded = stepForwardedInputNames(entry);
+  return [
+    ...publicMakeInputNames(manifest).flatMap((name) => ["-u", name]),
+    ...machineStateNames.map((name) => `${name}=${env[name] ?? ""}`),
+    ...forwarded.map((name) => `${name}=${forwardedValue(name, env, root)}`),
+    ...(forwarded.length > 0 ? Object.entries(originsOf(forwarded, sources)).map(([name, value]) => `${name}=${value}`) : []),
+    ...Object.entries(recipe.env ?? {}).map(([name, value]) => `${name}=${expandMakeValue(value, env, root)}`),
+  ];
+}
+
+// stepInvocation returns a step command's process: its child, wrapped in the
+// step runner when the recipe reports a step. The runner sees the forwarded
+// and literal inputs, as the recipe passed them.
+export function stepInvocation(target, env, { manifest, root = repositoryRoot }) {
+  const { entry, family, recipe } = publicRecipe(manifest, target);
+  if (family !== "step") throw new HarnessConfigError(`${target} is not a step command`, { reason: "usage_error" });
+  const canonical = Object.fromEntries(Object.entries(canonicalInputPaths).map(([name, file]) => [name, path.join(root, file)]));
+  const argv = operationArgv(recipe.operation_id ?? target, recipe, { ...env, ...canonical });
+  const child = ["env", ...childEnvironmentArgs(manifest, entry, recipe, env, root), ...argv];
+  const reportsStep = recipe.mode === "run_step" || entry.output_policy?.summary_schema === "cartulary.tool_run_summary.v5";
+  if (!reportsStep) return { command: child[0], args: child.slice(1), env, recipe };
+  const sources = parseSources(env.CARTULARY_MAKE_INPUT_SOURCES);
+  const forwarded = stepForwardedInputNames(entry);
+  const inputs = new Map((entry.input_contract?.inputs ?? []).map((input) => [input.name, input]));
+  const literal = [...inputs.keys()].filter((name) => requiresLiteralMakeTransport(inputs.get(name)) && !forwarded.includes(name))
+    .sort((left, right) => left.localeCompare(right));
+  const runner = { ...env };
+  for (const name of forwarded) runner[name] = forwardedValue(name, env, root);
+  for (const name of literal) runner[name] = env[name] ?? "";
+  // The recipe recorded the forwarded inputs' origins, then the literal
+  // inputs' origins in their place.
+  const recorded = literal.length > 0 ? literal : forwarded;
+  if (recorded.length > 0) Object.assign(runner, originsOf(recorded, sources));
+  // A command reports for the public target that invoked it, else itself.
+  if (recipe.mode !== "run_step") Object.assign(runner, runContextEnvironment({ target: env.CARTULARY_TEST_TARGET || target }));
+  if (!env.RUN_STEP_SCRIPT) throw new HarnessConfigError("RUN_STEP_SCRIPT is required");
+  return { command: env.RUN_STEP_SCRIPT, args: [recipe.mode === "run_step" ? recipe.step_label : target, "--", ...child], env: runner, recipe };
+}
+
+// toolInvocation returns a Node or owner tool's process: the Make tool
+// launcher with the tool's inputs, every public input's origin and the
+// target as its run context.
+export function toolInvocation(target, env, { manifest, root = repositoryRoot }) {
+  const { entry, family, recipe } = publicRecipe(manifest, target);
+  if (family !== "tool") throw new HarnessConfigError(`${target} is not a Node tool`, { reason: "usage_error" });
+  const sources = parseSources(env.CARTULARY_MAKE_INPUT_SOURCES);
+  const publicNames = publicMakeInputNames(manifest);
+  const tool = { ...env };
+  for (const name of publicNames) delete tool[name];
+  for (const name of machineStateNames) {
+    if (Object.hasOwn(env, name)) tool[name] = env[name];
+  }
+  Object.assign(tool, { CARTULARY_HARNESS_IDENTITY_PREPARED: "1", NODE_BIN: env.NODE_BIN ?? "" }, runContextEnvironment({ target }), originsOf(publicNames, sources));
+  for (const name of toolInputNames(entry, recipe.tool_id)) tool[name] = forwardedValue(name, env, root);
+  return { command: path.join(root, "tools/harness/execution/run-make-node-tool.sh"), args: [recipe.tool_id], env: tool, recipe };
+}
+
+// bootstrapOperation is the installation operation bootstrap selects: the
+// command-line selector's variant, else the default selection.
+export function bootstrapOperation(target, env, { manifest }) {
+  const { entry, family } = publicRecipe(manifest, target);
+  if (family !== "bootstrap") throw new HarnessConfigError(`${target} is not bootstrap`, { reason: "usage_error" });
+  const binding = entry.selection_binding;
+  const sources = parseSources(env.CARTULARY_MAKE_INPUT_SOURCES);
+  const selector = sources.get(binding.input) === "cli" ? (env[binding.input] ?? "").trim() : "";
+  return binding.variants[selector] ?? binding.default_selection;
 }
 
 // produce runs the producers through the artifact store, as the Make
@@ -85,8 +187,8 @@ function produce(root, producers, env) {
   return result.status ?? 1;
 }
 
-// run waits for the launched graph, leaving interrupts to it: Make delivers
-// them to the whole process group.
+// run waits for a child, leaving interrupts to it: Make delivers them to the
+// whole process group.
 function run(command, args, env) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, { cwd: repositoryRoot, env, stdio: "inherit" });
@@ -97,15 +199,27 @@ function run(command, args, env) {
   });
 }
 
+function targetSummary(target, status, env, root) {
+  return run(env.NODE_BIN || process.execPath, [path.join(root, "tools/harness/execution/cartulary-runner-cli.mjs"), "target-summary", target, status], {
+    ...env, TEST_OUTPUT_SCRIPT: path.join(root, "tools/harness/output/test-output.mjs"), TASK_SURFACE_MANIFEST: path.join(root, canonicalInputPaths.TASK_SURFACE_MANIFEST),
+  });
+}
+
 export async function runCommandEntry(target, env = process.env, root = repositoryRoot) {
   // Generation and the source checks validate the manifest; the preflight
   // admits the inputs. The entry only reads it.
   const manifest = JSON.parse(readFileSync(defaultTaskSurfaceManifestPath, "utf8"));
-  const launch = graphLaunch(target, env, { manifest, root });
-  if (launch.recipe.preflight_owner !== "entrypoint") preflightPublicTarget(target, env);
-  const produced = produce(root, graphProducers(root, launch.recipe), env);
+  const { family, recipe } = publicRecipe(manifest, target);
+  if (recipe.preflight_owner !== "entrypoint") preflightPublicTarget(target, env);
+  const produced = produce(root, recipeProducers(root, recipe), env);
   if (produced !== 0) return produced;
-  return run(launch.command, launch.args, launch.env);
+  if (family === "bootstrap") {
+    const operation = bootstrapOperation(target, env, { manifest });
+    const status = await run(env.NODE_BIN || process.execPath, [path.join(root, "tools/harness/execution/operation-runner-cli.mjs"), operation], env);
+    return status === 0 ? targetSummary(target, "pass", env, root) : status;
+  }
+  const invocation = { graph: graphLaunch, step: stepInvocation, tool: toolInvocation }[family](target, env, { manifest, root });
+  return run(invocation.command, invocation.args, invocation.env);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

@@ -220,7 +220,7 @@ for (const target of manifest.targets.filter((entry) => entry.output_policy?.art
     assert.ok(target.input_contract.inputs.some((input) => input.name === "UI_SESSION" && input.required), "finite review commands bind an exact existing locator");
   }
 }
-assert.match(renderedMake, /CARTULARY_TEST_TARGET="\$\$\{CARTULARY_TEST_TARGET:-services-up\}" \$\(RUN_STEP_SCRIPT\) "services-up"/, "lifecycle capture preserves inherited public identity");
+assert.match(renderedMake, /^services-up:\n(?:\t.*\n)*\t\$\(Q\)\$\(call RUN_COMMAND_ENTRY,services-up,/mu, "lifecycle capture runs through the command entry, which keeps inherited public identity");
 assert.match(
   helpAllLines(manifest).join("\n"),
   /target -> owner partition -> semantic row -> artifact/,

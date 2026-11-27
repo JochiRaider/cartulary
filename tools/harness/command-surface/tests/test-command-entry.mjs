@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { graphLaunch, graphProducers } from "../command-entry.mjs";
+import { bootstrapOperation, graphLaunch, publicRecipe, recipeProducers, stepInvocation, toolInvocation } from "../command-entry.mjs";
 
 const root = path.resolve(import.meta.dirname, "../../../..");
 const manifest = JSON.parse(readFileSync(path.join(root, "tools/task_surface_manifest.json"), "utf8"));
@@ -36,7 +36,7 @@ test("a graph launch keeps only the target's forwarded inputs, with their origin
   assert.deepEqual(graphLaunch("check", env, { manifest, root }).args, ["graph", "--selection", "aggregate", "--target", "check"]);
   const gate = graphLaunch("seaweedfs-release-gate", env, { manifest, root });
   assert.deepEqual(gate.args, ["graph", "--selection", "target", "--target", "seaweedfs-release-gate"]);
-  assert.deepEqual(graphProducers(root, gate.recipe), ["frontend-install", "harness-runtime"]);
+  assert.deepEqual(recipeProducers(root, gate.recipe), ["frontend-install", "harness-runtime"]);
 });
 
 test("a canonical input is the checkout's own file, and only graph targets launch", () => {
@@ -48,7 +48,51 @@ test("a canonical input is the checkout's own file, and only graph targets launc
     const launch = graphLaunch(entry.name, { ...base, TASK_SURFACE_MANIFEST: "/elsewhere.json" }, { manifest, root });
     assert.equal(launch.env.TASK_SURFACE_MANIFEST, path.join(root, "tools/task_surface_manifest.json"));
   }
-  assert.throws(() => graphLaunch("help", base, { manifest, root }), /does not launch a graph/u);
+  assert.throws(() => graphLaunch("doctor", base, { manifest, root }), /does not launch a graph/u);
   assert.throws(() => graphLaunch("frontend-install", base, { manifest, root }), /not a public target/u);
   assert.throws(() => graphLaunch("check", { ...base, HARNESS_RUNTIME_BIN: "" }, { manifest, root }), /HARNESS_RUNTIME_BIN/u);
+});
+
+test("a step command runs its child under the step runner with the recipe's environments", () => {
+  const env = { ...base, RUN_STEP_SCRIPT: "/repo/run-step.sh", GO: "/go/bin/go", SQLC_BIN: "/toolbin/sqlc", RUN_STEP_EXTRA: "kept",
+    GO_MOD_CACHE_DIR: "/machine/go/mod", GO_TMP_DIR: "/machine/go/tmp", CARTULARY_MAKE_INPUT_SOURCES: "" };
+  const generate = stepInvocation("generate", env, { manifest, root });
+  assert.equal(generate.command, env.RUN_STEP_SCRIPT);
+  assert.deepEqual(generate.args.slice(0, 3), ["generate", "--", "env"]);
+  assert.equal(generate.env.CARTULARY_TEST_TARGET, "generate");
+  // The child strips every public input, then sets the machine state and
+  // the recipe's own variables, and runs the operation's command.
+  const child = generate.args.slice(3);
+  assert.ok(child.includes("-u") && child.includes("SQLC_BIN=/toolbin/sqlc") && child.includes("GO_CACHE_DIR=/machine/go/build"));
+  assert.deepEqual(child.slice(-2), ["bash", "./tools/harness/generated-artifacts/generate-artifacts.sh"]);
+  // A run-step recipe reports under its step label.
+  const lockfile = stepInvocation("frontend-lockfile-update", env, { manifest, root });
+  assert.equal(lockfile.args[0], manifest.make_recipes["frontend-lockfile-update"].step_label);
+  // A summarized command keeps the public target that invoked it.
+  assert.equal(stepInvocation("services-up", env, { manifest, root }).env.CARTULARY_TEST_TARGET, "services-up");
+  assert.equal(stepInvocation("services-up", { ...env, CARTULARY_TEST_TARGET: "check" }, { manifest, root }).env.CARTULARY_TEST_TARGET, "check");
+  // A recipe without a step summary runs its child directly.
+  assert.equal(stepInvocation("dev", env, { manifest, root }).command, "env");
+});
+
+test("a Node tool runs through the tool launcher with every public input's origin", () => {
+  const env = { ...base, OWNER: "harness.command_surface", JSON: "1", CARTULARY_MAKE_INPUT_SOURCES: "OWNER=cli JSON=cli" };
+  const guide = toolInvocation("task-guide", env, { manifest, root });
+  assert.equal(guide.command, path.join(root, "tools/harness/execution/run-make-node-tool.sh"));
+  assert.deepEqual(guide.args, [manifest.make_recipes["task-guide"].tool_id]);
+  assert.equal(guide.env.OWNER, env.OWNER);
+  assert.equal(guide.env.CARTULARY_TEST_TARGET, "task-guide");
+  assert.equal(guide.env.CARTULARY_HARNESS_IDENTITY_PREPARED, "1");
+  const sources = new Map(guide.env.CARTULARY_MAKE_INPUT_SOURCES.split(" ").map((entry) => entry.split("=")));
+  assert.equal(sources.get("OWNER"), "cli");
+  assert.equal(sources.get("CHECK"), "unset");
+});
+
+test("bootstrap selects only its command-line selector, and Make keeps its Node-free targets", () => {
+  const variants = manifest.targets.find((entry) => entry.name === "bootstrap").selection_binding;
+  assert.equal(bootstrapOperation("bootstrap", { PART: "node", CARTULARY_MAKE_INPUT_SOURCES: "PART=cli" }, { manifest }), variants.variants.node);
+  assert.equal(bootstrapOperation("bootstrap", { PART: "node", CARTULARY_MAKE_INPUT_SOURCES: "PART=env" }, { manifest }), variants.default_selection);
+  for (const target of ["help", "lint-markdown", "test-run-status", "clean", "distclean", "ui-review"]) {
+    assert.throws(() => publicRecipe(manifest, target), /does not run through the command entry/u, target);
+  }
 });
