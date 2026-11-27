@@ -56,6 +56,14 @@ export type MentionOutcome =
       kind: "rejected";
       failure: WorkbookOperationFailure<"resolveEntityMention">;
     }>;
+/**
+ * One reviewed mention operation's presentation and preparation.
+ *
+ * `isCurrent` describes the presentation that shows the review and gates
+ * admission only. An admitted operation keeps its owner lifetime when that
+ * presentation detaches (Core 03 REQ-03-100, REQ-03-311), so `prepare` reads
+ * retained records and never consults presentation attachment.
+ */
 export type MentionBinding = Readonly<{
   isCurrent: () => boolean;
   prepare: (signal: AbortSignal) => Promise<MentionSubject | null>;

@@ -24,6 +24,20 @@ export type TimelineCommittedRecordIdleResult = {
   readonly rowVersion: number;
 };
 
+/**
+ * Committed record evidence that outlives presentation. Admitted record actions
+ * prepare through it, so a sheet switch cannot cancel them (REQ-03-100).
+ */
+export type TimelineRetainedRecordPort = {
+  /** Settles after earlier writes to the record; null when cancelled. */
+  readonly committedRecord: (
+    recordId: string,
+    signal: AbortSignal,
+  ) => Promise<{ readonly row: WorkbookRow | null } | null>;
+  /** Unsaved grid or Inspector authoring differs from the committed row. */
+  readonly hasLocalAuthoring: (committed: WorkbookRow) => boolean;
+};
+
 export type TimelineCommittedInspectorRecords = {
   readonly currentCommittedTimelineRow: (
     recordId: string,

@@ -214,6 +214,44 @@ it("creates from a local draft during query refresh but retains the dependent pa
   });
 });
 
+it("prepares admitted record actions from retained records after an earlier write settles detached", async () => {
+  const f = fixture();
+  f.type(undefined, "First capture");
+  await vi.waitFor(() => expect(f.execute).toHaveBeenCalledOnce());
+  const patch =
+    deferred<Awaited<ReturnType<WorkbookPendingMutationPort["execute"]>>>();
+  f.execute.mockReturnValueOnce(patch.promise);
+  f.type(undefined, "Follow-on authoring");
+  f.acknowledgement.resolve({ kind: "accepted", value: f.receipt });
+  await vi.waitFor(() => expect(f.execute).toHaveBeenCalledTimes(2));
+  expect(f.execute.mock.calls[1]?.[0].unit).toMatchObject({
+    kind: "patch",
+    recordId,
+  });
+  const cancelled = new AbortController();
+  const aborted = f.owner.retainedRecords.committedRecord(
+    recordId,
+    cancelled.signal,
+  );
+  let settled: Awaited<typeof aborted> | undefined;
+  void f.owner.retainedRecords
+    .committedRecord(recordId, new AbortController().signal)
+    .then((value) => {
+      settled = value;
+    });
+  cancelled.abort();
+  await expect(aborted).resolves.toBeNull();
+  f.detach();
+  expect(settled).toBeUndefined();
+  patch.resolve({
+    kind: "accepted",
+    value: { ...f.receipt, row: { ...f.receipt.row, row_version: 2 } },
+  });
+  await vi.waitFor(() => expect(settled).toBeDefined());
+  expect(settled?.row).toMatchObject({ recordId, rowVersion: 2 });
+  expect(settled?.row?.rawRow?.row_version).toBe(2);
+});
+
 it("settles a valid empty capture without clearing authoring added after dispatch", async () => {
   const f = fixture();
   f.owner.fileDrafts.attachEvidence(f.row.key, evidenceId);

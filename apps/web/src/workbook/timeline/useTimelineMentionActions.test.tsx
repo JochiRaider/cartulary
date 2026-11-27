@@ -79,10 +79,11 @@ function setup(review: MentionReview = mentionReview()) {
         value: { candidates: [], nextCursor: null, hasMore: false },
       })),
     },
-    waitForCommittedRecordIdle: vi.fn(async () => ({
-      row: rowsRef.current[0] ?? null,
-      rowVersion: rowsRef.current[0]?.rowVersion ?? 0,
-    })),
+    records: {
+      committedRecord: vi.fn(async () => ({
+        row: rowsRef.current[0] ?? null,
+      })),
+    },
     setInspectorMessage: vi.fn(),
     focusContinuity: {
       beginViewportContinuity: vi.fn(() => ++focusToken),
@@ -257,6 +258,24 @@ describe("Timeline mention actions", () => {
       '"base_mention_row_version":2',
     );
     f.unmount();
+  });
+  it("keeps an admitted mention operation when its surface unmounts during preparation", async () => {
+    const f = setup(mentionReview({ intent: { action: "dismiss_item" } }));
+    let release!: () => void;
+    f.input.earlierSaves.current = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    act(() => f.result.current.act({ action: "dismiss_item" }));
+    expect(f.owner.getSnapshot().entries[0]?.phase).toBe("preparing");
+    f.unmount();
+    release();
+    await flush();
+    expect(f.send).toHaveBeenCalledTimes(1);
+    expect(f.input.records.committedRecord).toHaveBeenCalledTimes(1);
+    expect(f.owner.getSnapshot().entries[0]).toMatchObject({
+      phase: "accepted",
+      receipt: mentionReceipt(f.review),
+    });
   });
   it("retains accepted outcomes on unmount and invalidates a detached create review", async () => {
     const f = setup(mentionReview({ intent: { action: "dismiss_item" } }));
@@ -801,10 +820,9 @@ function completionFixture(
         presentationActive: inspector.snapshot.phase !== "closed",
         selectedTargetId: review.intent.resolvedRecordId ?? "",
         setSelectedTargetId: () => {},
-        waitForCommittedRecordIdle: async () => ({
-          row: rowsRef.current[0] ?? null,
-          rowVersion,
-        }),
+        records: {
+          committedRecord: async () => ({ row: rowsRef.current[0] ?? null }),
+        },
         setInspectorMessage: () => {},
         refreshProjection,
         focusContinuity: continuity.commands,

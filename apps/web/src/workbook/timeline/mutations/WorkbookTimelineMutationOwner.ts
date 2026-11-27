@@ -9,8 +9,10 @@ import { timelineMentionOwnerFor } from "../actions/timelineMentionOwnerFor";
 import { buildAttachedEvidenceCreateRequest } from "../adapters/timelineEvidenceRequestBuilders";
 import { TimelineBulkTagAuthoring } from "../bulk/TimelineBulkTagAuthoring";
 import { createTimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
+import { waitForTimelineRecordEvidence } from "../hooks/useTimelineCommittedRecordIdle";
 import { TimelineCaptureLifecycle } from "../models/TimelineCaptureLifecycle";
 import { projectAcceptedTimelineRow } from "../models/timelineAcceptedProjection";
+import type { TimelineRetainedRecordPort } from "../models/timelineControllerPorts";
 import { inputFocusKey } from "../models/timelineFieldRegistry";
 import { buildCreatePayload } from "../models/timelineMutationIntents";
 import { timelinePendingSavesRefsFor } from "../models/timelinePendingSaves";
@@ -59,6 +61,12 @@ export class WorkbookTimelineMutationOwner {
   readonly fileDrafts: TimelineFileDraftPort;
   readonly capture: TimelineCaptureLifecycle;
   readonly bulkTagAuthoring: TimelineBulkTagAuthoring;
+  /**
+   * Admitted record actions prepare against retained evidence. An attachment
+   * lends its fresher committed rows; detachment cannot cancel the action.
+   */
+  readonly retainedRecords: TimelineRetainedRecordPort;
+  private readonly drafts: ReturnType<typeof createTimelineEditorDraftRegistry>;
   private readonly driver;
   private readonly unregister: () => void;
   private retired = false;
@@ -77,6 +85,16 @@ export class WorkbookTimelineMutationOwner {
     const store = runtime.localDraftsForSurface(timelineViewSchemaId);
     this.capture = new TimelineCaptureLifecycle(store);
     const drafts = createTimelineEditorDraftRegistry(store, this.capture);
+    this.drafts = drafts;
+    this.retainedRecords = {
+      committedRecord: (recordId, signal) =>
+        this.retired
+          ? Promise.resolve(null)
+          : waitForTimelineRecordEvidence(runtime, recordId, signal, () => ({
+              row: this.latestCommittedRow(recordId),
+            })),
+      hasLocalAuthoring: (committed) => this.hasLocalAuthoring(committed),
+    };
     const presentation = () =>
       this.retired ||
       runtime.pendingQueue().model.snapshot().authPaused ||
@@ -395,6 +413,47 @@ export class WorkbookTimelineMutationOwner {
     if (!registration.accepted)
       throw new Error("Timeline mutation owner is already registered.");
     this.unregister = registration.unregister;
+  }
+
+  /** The attached surface's committed row, else the newest retained acceptance. */
+  private latestCommittedRow(recordId: string): WorkbookRow | null {
+    const attached = this.attachment?.read();
+    const mounted = attached?.latestCommittedTimelineRow(recordId);
+    if (mounted) return mounted;
+    const cached = this.runtime.explicitPatches.latestRow(recordId);
+    const patched = cached
+      ? rowFromApi(normalizeTimelineFullRow(cached, "accepted Timeline source"))
+      : null;
+    if (attached) return patched;
+    const retained =
+      this.rows.current.find(
+        (row) => row.recordId === recordId && row.rawRow,
+      ) ?? null;
+    return (retained?.rowVersion ?? 0) > (patched?.rowVersion ?? 0)
+      ? retained
+      : patched;
+  }
+
+  private hasLocalAuthoring(committed: WorkbookRow) {
+    const live =
+      (this.attachment?.read().rowsRef.current ?? this.rows.current).find(
+        (row) => row.recordId === committed.recordId,
+      ) ?? committed;
+    return (["grid", "inspector"] as const).some((surface) => {
+      const materialized = this.drafts.materializeRow(live, { surface });
+      return (
+        Object.entries(materialized.values).some(
+          ([field, value]) =>
+            value !==
+            committed.committedValues[
+              field as keyof typeof materialized.values
+            ],
+        ) ||
+        Object.values(materialized.collectionDrafts).some(
+          (value) => value.trim() !== "",
+        )
+      );
+    });
   }
 
   initialRows = () => {

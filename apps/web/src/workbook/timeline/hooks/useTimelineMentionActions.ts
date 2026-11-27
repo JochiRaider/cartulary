@@ -31,7 +31,7 @@ import type {
 import { commitTimelineProjection } from "../adapters/timelineProjectionCommitAdapter";
 import type {
   DisclosureReviewNavigationScope,
-  TimelineCommittedRecordIdleResult,
+  TimelineRetainedRecordPort,
 } from "../models/timelineControllerPorts";
 import { timelineMentionSubject } from "../models/timelineMentionActionPlan";
 import type { WorkbookRow } from "../models/timelineRowModel";
@@ -88,10 +88,8 @@ type Input = {
     sourceRecordRequirement: TimelineSourceRecordRequirement,
     viewportContinuityToken?: number,
   ) => Promise<void>;
-  readonly waitForCommittedRecordIdle: (
-    id: string,
-    options: { signal: AbortSignal; refreshIfMissing: boolean },
-  ) => Promise<TimelineCommittedRecordIdleResult | null>;
+  /** Admitted preparation reads retained records, never this surface. */
+  readonly records: Pick<TimelineRetainedRecordPort, "committedRecord">;
   readonly setInspectorMessage: (
     feedback: WorkbookInspectorFeedback | null,
   ) => void;
@@ -503,20 +501,22 @@ export function useTimelineMentionActions(input: Input) {
         reviewedIntent();
       return {
         isCurrent,
+        // Preparation reads retained records, so an admitted operation survives
+        // a detached or unmounted presentation (REQ-03-100, REQ-03-311).
         prepare: async (signal) => {
           await earlier;
-          if (signal.aborted || !isCurrent()) return null;
-          const idle = await current.current.waitForCommittedRecordIdle(
+          if (signal.aborted) return null;
+          const idle = await current.current.records.committedRecord(
             expected.sourceRecordId,
-            { signal, refreshIfMissing: false },
+            signal,
           );
-          if (!idle || signal.aborted || !isCurrent()) return null;
+          if (!idle || signal.aborted) return null;
           const row =
             idle.row ??
             (notice
               ? await owner.readSource(expected.sourceRecordId, signal)
               : null);
-          if (!row || signal.aborted || !isCurrent()) return null;
+          if (!row || signal.aborted) return null;
           return currentSubject(row, expected.mentionId, owner);
         },
       };

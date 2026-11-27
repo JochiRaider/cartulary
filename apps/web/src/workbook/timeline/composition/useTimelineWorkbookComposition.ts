@@ -142,6 +142,7 @@ export function useTimelineWorkbookComposition({
     mentionOwner: foundation.ports.mentionOwner,
     mentionCandidates: foundation.ports.mentionCandidates,
     earlierSaves: foundation.refs.pendingSaves.saveQueueRef,
+    retainedRecords: foundation.ports.retainedRecords,
     activeSheetRef: mutation.ports.activeSheetRef,
     foundation: {
       currentCommittedRow:
@@ -351,10 +352,9 @@ export function useTimelineWorkbookComposition({
     concealed: foundation.snapshot.lifecycle.loadAccessLost,
     originKey: runtime.incident.inspectorResetKey,
     rowsRef: foundation.refs.rows,
-    drafts: foundation.refs.editorDraftRegistry,
+    records: foundation.ports.retainedRecords,
     pending: foundation.refs.pendingSaves,
     openHistory: workflow.commands.history.openRowHistory,
-    waitForIdle: mutation.ports.waitForCommittedRecordIdle,
     loadRows: mutation.commands.query.loadRows,
     acceptReceipt: (receipt, baseVersion) => {
       const data = receipt.data;

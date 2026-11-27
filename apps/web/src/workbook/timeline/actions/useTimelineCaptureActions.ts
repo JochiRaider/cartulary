@@ -12,8 +12,7 @@ import {
   workbookInspectorDisabledReasonText,
 } from "../../inspector/presentation/workbookInspectorPresentationModel";
 import type { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
-import type { TimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
-import type { TimelineCommittedRecordIdleResult } from "../models/timelineControllerPorts";
+import type { TimelineRetainedRecordPort } from "../models/timelineControllerPorts";
 import type { TimelinePendingSavesRefs } from "../models/timelinePendingSaves";
 import type { WorkbookRow } from "../models/timelineRowModel";
 import type { TimelineCaptureBinding } from "../ports/TimelineRecordActionPort";
@@ -35,13 +34,10 @@ export function useTimelineCaptureActions(options: {
   readonly concealed: boolean;
   readonly originKey: string;
   readonly rowsRef: { readonly current: WorkbookRow[] };
-  readonly drafts: TimelineEditorDraftRegistry;
+  /** Admitted preparation reads retained records, never this surface. */
+  readonly records: TimelineRetainedRecordPort;
   readonly pending: TimelinePendingSavesRefs;
   readonly openHistory: (id: string) => void;
-  readonly waitForIdle: (
-    id: string,
-    options: { signal: AbortSignal; refreshIfMissing: boolean },
-  ) => Promise<TimelineCommittedRecordIdleResult | null>;
   readonly acceptReceipt: (
     receipt: import("../adapters/timelineCaptureProtocol").TimelineCaptureReceipt,
     baseVersion: number,
@@ -156,10 +152,9 @@ export function useTimelineCaptureActions(options: {
   ): TimelineCaptureBinding {
     const expectedOrigin = origin.current;
     const expectedGeneration = originGeneration.current;
-    // Preparation reads this mounted surface's committed rows and drafts.
-    const available = () => alive.current && !current.current.concealed;
+    const mounted = () => alive.current && !current.current.concealed;
     const isCurrent = () =>
-      available() &&
+      mounted() &&
       originGeneration.current === expectedGeneration &&
       origin.current === expectedOrigin &&
       !current.current.deleted &&
@@ -171,42 +166,20 @@ export function useTimelineCaptureActions(options: {
         matches() &&
         current.current.selectedRow?.rawRow?.row_version ===
           review.target.rowVersion,
+      // Preparation reads retained records, so an admitted action survives a
+      // detached or unmounted presentation (REQ-03-100, REQ-03-311).
       prepare: async (signal) => {
         await earlier;
-        if (signal.aborted || !available()) return null;
-        const committed = await current.current.waitForIdle(
-          review.target.recordId,
-          { signal, refreshIfMissing: false },
-        );
-        if (!committed?.row?.rawRow || signal.aborted || !available())
-          return null;
-        const live =
-          current.current.rowsRef.current.find(
-            (row) => row.recordId === review.target.recordId,
-          ) ?? committed.row;
-        if (!live) return null;
+        if (signal.aborted) return null;
+        const { records, runtime } = current.current;
+        const committed = (
+          await records.committedRecord(review.target.recordId, signal)
+        )?.row;
         if (
-          (["grid", "inspector"] as const).some((surface) => {
-            const materialized = current.current.drafts.materializeRow(live, {
-              surface,
-            });
-            return (
-              Object.entries(materialized.values).some(
-                ([field, value]) =>
-                  value !==
-                  committed.row?.committedValues[
-                    field as keyof typeof materialized.values
-                  ],
-              ) ||
-              Object.values(materialized.collectionDrafts).some(
-                (value) => value.trim() !== "",
-              )
-            );
-          })
-        )
-          return null;
-        if (
-          current.current.runtime.history
+          !committed?.rawRow ||
+          signal.aborted ||
+          records.hasLocalAuthoring(committed) ||
+          runtime.history
             .getSnapshot()
             .some(
               (entry) =>
@@ -216,10 +189,11 @@ export function useTimelineCaptureActions(options: {
         )
           return null;
         const subject = timelineCaptureSubject(
-          committed.row.rawRow,
+          committed.rawRow,
           owner.incidentId,
         );
-        if (subject.rowVersion !== review.target.rowVersion)
+        // A newer row fails this review; show it if the surface is still here.
+        if (subject.rowVersion !== review.target.rowVersion && mounted())
           await current.current.loadRows({
             showLoading: false,
             requireAcceptance: true,

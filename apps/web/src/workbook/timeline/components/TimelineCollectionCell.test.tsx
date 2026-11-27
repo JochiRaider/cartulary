@@ -1041,7 +1041,7 @@ describe("Timeline collection inspection", () => {
         setSelectedTargetId,
         presentationKey: "cell-test",
         presentationActive: true,
-        waitForCommittedRecordIdle: async () => ({ row, rowVersion: 4 }),
+        records: { committedRecord: async () => ({ row }) },
         setInspectorMessage: vi.fn(),
       });
       const panel = tagContract.inspectorConfig.panels.find(

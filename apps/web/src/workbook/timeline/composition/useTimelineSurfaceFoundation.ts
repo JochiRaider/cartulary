@@ -122,6 +122,7 @@ export function useTimelineSurfaceFoundation({
     },
     ports: {
       committedRows: committedRows.commands,
+      retainedRecords: mutationOwner.retainedRecords,
       bulkTag: bulkTagPort,
       bulkTagAuthoring: mutationOwner.bulkTagAuthoring,
       bulkTagReadiness,

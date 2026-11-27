@@ -543,13 +543,13 @@ export class WorkbookTimelineMentionOperationOwner
         ["preparing", "submitting", "uncertain"].includes(entry.phase),
     ).length;
   }
-  private current(review: MentionReview, binding: MentionBinding) {
+  /** The reviewed authority, intent and mention version still admit the action. */
+  private admissible(review: MentionReview) {
     const latest = this.latestMention(review.subject.mentionId);
     return (
       this.canSubmit(review.intent.action) &&
       mentionReviewValid(review) &&
       JSON.stringify(review.authority) === JSON.stringify(this.authority) &&
-      binding.isCurrent() &&
       (!latest || latest.mentionRowVersion <= review.subject.mentionRowVersion)
     );
   }
@@ -564,7 +564,8 @@ export class WorkbookTimelineMentionOperationOwner
   ): number | null {
     if (
       !this.port ||
-      !this.current(review, binding) ||
+      !this.admissible(review) ||
+      !binding.isCurrent() ||
       this.blocksMention(review.subject.mentionId, creationKey)
     )
       return null;
@@ -602,13 +603,15 @@ export class WorkbookTimelineMentionOperationOwner
   private async prepare(key: number, binding: MentionBinding) {
     const entry = this.entries.get(key);
     if (!entry) return;
+    // Presentation admitted the operation. Detachment cannot cancel it: only
+    // authority, the mention version and the committed intent fence it.
     const observation = this.observe(async (signal) => {
       const subject = await binding.prepare(signal);
       return (
         !signal.aborted &&
         subject !== null &&
         sameMentionIntent(entry.attempt.review.subject, subject) &&
-        this.current(entry.attempt.review, binding)
+        this.admissible(entry.attempt.review)
       );
     });
     this.preparations.set(key, observation);
@@ -618,7 +621,7 @@ export class WorkbookTimelineMentionOperationOwner
     if (
       result.kind !== "completed" ||
       !result.value ||
-      !this.current(entry.attempt.review, binding)
+      !this.admissible(entry.attempt.review)
     ) {
       this.update(key, {
         phase: "preparation_failed",
@@ -789,13 +792,13 @@ export class WorkbookTimelineMentionOperationOwner
       (this.authority?.createTypes.includes(type) ?? false)
     );
   }
-  private currentCreate(review: MentionCreateReview, binding: MentionBinding) {
+  /** The reviewed authority and mention version still admit the creation. */
+  private creatable(review: MentionCreateReview) {
     const latest = this.latestMention(review.subject.mentionId);
     return (
       this.canCreate(review.subject.entityType) &&
       review.subject.state === "unresolved" &&
       JSON.stringify(review.authority) === JSON.stringify(this.authority) &&
-      binding.isCurrent() &&
       (!latest || latest.mentionRowVersion <= review.subject.mentionRowVersion)
     );
   }
@@ -805,7 +808,8 @@ export class WorkbookTimelineMentionOperationOwner
   ): boolean {
     if (
       !this.creationPort ||
-      !this.currentCreate(review, binding) ||
+      !this.creatable(review) ||
+      !binding.isCurrent() ||
       this.blocksMention(review.subject.mentionId) ||
       (this.creationForMention(review.subject.mentionId)?.receipt ?? false)
     )
@@ -850,7 +854,7 @@ export class WorkbookTimelineMentionOperationOwner
         !signal.aborted &&
         subject !== null &&
         sameMentionIntent(entry.attempt.review.subject, subject) &&
-        this.currentCreate(entry.attempt.review, binding)
+        this.creatable(entry.attempt.review)
       );
     });
     this.preparations.set(key, observation);
@@ -860,7 +864,7 @@ export class WorkbookTimelineMentionOperationOwner
     if (
       result.kind !== "completed" ||
       !result.value ||
-      !this.currentCreate(entry.attempt.review, binding)
+      !this.creatable(entry.attempt.review)
     ) {
       this.updateCreation(key, {
         phase: "preparation_failed",
@@ -950,11 +954,14 @@ export class WorkbookTimelineMentionOperationOwner
       if (!remaining) this.settle(attempt.id);
       const accepted = this.creations.get(key);
       if (accepted?.receipt) void this.refreshCreation(key);
+      // Linking is a later admission. Detachment withdraws its readiness until
+      // renewed review; the created entity is retained either way.
       if (
         binding &&
         accepted?.receipt &&
         accepted.linkKey === null &&
-        this.currentCreate(attempt.review, binding)
+        this.creatable(attempt.review) &&
+        binding.isCurrent()
       )
         this.linkCreated(key, attempt.review.subject, binding);
     });

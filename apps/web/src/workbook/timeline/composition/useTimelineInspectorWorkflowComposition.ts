@@ -42,6 +42,7 @@ type TimelineInspectorWorkflowCompositionInput = {
   readonly mentionOwner: MentionInput["owner"];
   readonly mentionCandidates: MentionInput["candidatePort"];
   readonly earlierSaves: MentionInput["earlierSaves"];
+  readonly retainedRecords: MentionInput["records"];
   readonly foundation: {
     readonly currentCommittedRow: NonNullable<
       MentionInput["currentCommittedRow"]
@@ -110,6 +111,7 @@ export function useTimelineInspectorWorkflowComposition({
   mentionOwner,
   mentionCandidates,
   earlierSaves,
+  retainedRecords,
   foundation,
   grid,
   incident,
@@ -229,7 +231,7 @@ export function useTimelineInspectorWorkflowComposition({
       }),
     rowsRef: foundation.rowsRef,
     setInspectorMessage: inspector.publishFeedback,
-    waitForCommittedRecordIdle: mutation.waitForCommittedRecordIdle,
+    records: retainedRecords,
   });
   const evidence = useTimelineEvidenceAttach({
     actionContext: {

@@ -85,7 +85,7 @@ it("Mention server search invalidates selection and exposes keyboard reachable u
       setSelectedTargetId,
       presentationKey: "picker",
       presentationActive: true,
-      waitForCommittedRecordIdle: async () => ({ row, rowVersion: 4 }),
+      records: { committedRecord: async () => ({ row }) },
       setInspectorMessage: vi.fn(),
     });
     return <TimelineMentionActionControls actions={actions} />;
@@ -332,7 +332,7 @@ it("Mention retry remains connected and focused while its response is held", asy
       setSelectedTargetId,
       presentationKey: "retry-focus",
       presentationActive: true,
-      waitForCommittedRecordIdle: async () => ({ row, rowVersion: 4 }),
+      records: { committedRecord: async () => ({ row }) },
       setInspectorMessage: vi.fn(),
     });
     return <TimelineMentionActionControls actions={actions} />;
@@ -415,7 +415,7 @@ it("Mention scope replacement retires pending read focus intent", async () => {
       setSelectedTargetId,
       presentationKey: scope,
       presentationActive: true,
-      waitForCommittedRecordIdle: async () => ({ row, rowVersion: 4 }),
+      records: { committedRecord: async () => ({ row }) },
       setInspectorMessage: vi.fn(),
     });
     return <TimelineMentionActionControls actions={actions} />;
@@ -751,7 +751,7 @@ it("Mention restart retains selected observation and search without admitting an
       setSelectedTargetId,
       presentationKey: "stale-selection",
       presentationActive: true,
-      waitForCommittedRecordIdle: async () => ({ row, rowVersion: 4 }),
+      records: { committedRecord: async () => ({ row }) },
       setInspectorMessage: vi.fn(),
     });
     return <TimelineMentionActionControls actions={actions} />;

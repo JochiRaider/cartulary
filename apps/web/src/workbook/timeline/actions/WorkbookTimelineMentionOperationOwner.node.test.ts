@@ -201,16 +201,11 @@ it("Mention operations reserve immutable intent and identity before preceding sa
   expect(f.send.mock.calls[0]?.[0]).toBe(attempt);
   expect(f.owner.getSnapshot().entries[0]?.refresh).toBe("complete");
 });
-it("Mention operations require renewed review after changed intent selection role or mention version", async () => {
-  for (const change of ["version", "selection", "role", "target"] as const) {
+it("Mention operations require renewed review after changed intent role or mention version", async () => {
+  for (const change of ["version", "role", "target"] as const) {
     const f = fixture(),
       barrier = deferred<MentionSubject | null>();
-    let current = true;
-    f.owner.submit(f.review, {
-      prepare: () => barrier.promise,
-      isCurrent: () => current,
-    });
-    if (change === "selection") current = false;
+    f.owner.submit(f.review, { ...f.binding, prepare: () => barrier.promise });
     if (change === "role")
       f.owner.setAuthority({ ...f.review.authority, role: "viewer" });
     barrier.resolve({
@@ -222,6 +217,59 @@ it("Mention operations require renewed review after changed intent selection rol
     expect(f.send).not.toHaveBeenCalled();
     expect(f.owner.getSnapshot().entries[0]?.phase).toBe("preparation_failed");
   }
+});
+it("Mention admitted operations survive presentation detachment while a detached presentation admits nothing", async () => {
+  const f = fixture(),
+    barrier = deferred<MentionSubject | null>();
+  let current = true;
+  expect(
+    f.owner.submit(f.review, {
+      isCurrent: () => current,
+      prepare: () => barrier.promise,
+    }),
+  ).toBe(true);
+  current = false;
+  barrier.resolve(f.review.subject);
+  await flush();
+  expect(f.send).toHaveBeenCalledTimes(1);
+  expect(f.owner.getSnapshot().entries[0]).toMatchObject({
+    phase: "accepted",
+    refresh: "complete",
+  });
+  const detached = fixture();
+  expect(
+    detached.owner.submit(detached.review, {
+      ...detached.binding,
+      isCurrent: () => false,
+    }),
+  ).toBe(false);
+  expect(detached.ids.create).not.toHaveBeenCalled();
+  expect(detached.owner.getSnapshot().entries).toEqual([]);
+});
+it("Mention creation admitted before detachment is created and its link awaits renewed review", async () => {
+  const f = creationFixture(),
+    barrier = deferred<MentionSubject | null>();
+  let current = true;
+  expect(
+    f.owner.createAndResolve(f.createReview, {
+      isCurrent: () => current,
+      prepare: () => barrier.promise,
+    }),
+  ).toBe(true);
+  current = false;
+  barrier.resolve(f.review.subject);
+  await flush();
+  expect(f.create).toHaveBeenCalledTimes(1);
+  expect(f.owner.getSnapshot().creations[0]).toMatchObject({
+    phase: "accepted",
+    receipt: f.createReceipt,
+    linkKey: null,
+  });
+  expect(f.send).not.toHaveBeenCalled();
+  expect(f.owner.linkCreated(1, f.review.subject, f.binding)).toBe(true);
+  await flush();
+  expect(f.send).toHaveBeenCalledTimes(1);
+  expect(f.create).toHaveBeenCalledTimes(1);
 });
 it("Mention operations enforce the complete legal transition and current authorization matrix", () => {
   for (const state of ["unresolved", "resolved", "dismissed"] as const)

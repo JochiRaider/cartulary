@@ -49,7 +49,8 @@ export interface TimelineRecordActionPort {
  * shows the review. They gate admission and authoring preparation only: an
  * admitted action keeps its owner lifetime when that presentation detaches
  * (Core 03 REQ-03-100, REQ-03-311). `prepare` therefore must not consult
- * presentation attachment.
+ * presentation attachment, and reads retained records rather than a mounted
+ * surface.
  */
 export type TimelineCaptureBinding = Readonly<{
   isCurrent: () => boolean;
