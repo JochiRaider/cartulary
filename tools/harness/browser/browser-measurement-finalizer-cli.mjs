@@ -137,7 +137,7 @@ async function main() {
   );
   let group;
   try {
-    group = readArtifact(base, groupResultRelative, "cartulary.browser_group_result.v11");
+    group = readArtifact(base, groupResultRelative, "cartulary.browser_group_result.v12");
   } catch (error) {
     if (error.code === "ENOENT" && schedulerEvidence.dependency_skipped) return;
     throw error;
@@ -222,7 +222,10 @@ async function main() {
   ) {
     throw new Error("measurement artifact finalization order is stale");
   }
+  // Measurement cohorts always retain their report for this finalizer
+  // (TH-HARNESS-REQ-873).
   const reportRelative = group.artifact.artifacts.playwright_report;
+  if (reportRelative === null) throw new Error("measurement group retained no Playwright report");
   const report = contained(base, reportRelative);
   const observations = collectFrontendMeasurementObservations({
     expectedPredicateIDs: [options.predicate],

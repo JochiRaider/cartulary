@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, rmSync } from "node:fs";
+import { chmodSync, existsSync, rmSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { createRunnerContext, validateSchemaSync } from "../../contract/index.mjs";
@@ -13,7 +13,7 @@ function report(name) {
   return { kind: "dead-code", unused_files: [], unused_exports: [], unused_types: [] };
 }
 
-function setup(t) {
+function setup(t, extraEnv = {}) {
   const fixture = createReachabilityFixture(t);
   fixture.write("node_modules/fallow/bin/fallow", "fixture executor owns child execution\n");
   fixture.write("packages/example/src/index.ts", "export const dead = 1;\n");
@@ -21,7 +21,7 @@ function setup(t) {
   owner.blocking_package_surfaces.packages[0].entrypoint = "packages/example/src/index.ts";
   fixture.write("tools/fallow/reachability_owner.json", owner);
   const context = createRunnerContext({ repoRoot: fixture.root });
-  const env = { CARTULARY_MACHINE_CACHE_DIR: context.machineCacheDir, CARTULARY_HARNESS_SCRATCH_ROOT: context.scratchRoot, CARTULARY_TEST_RUN_ID: "tr-fallow-fixture", CARTULARY_OUTPUT_MODE: "summary" };
+  const env = { CARTULARY_MACHINE_CACHE_DIR: context.machineCacheDir, CARTULARY_HARNESS_SCRATCH_ROOT: context.scratchRoot, CARTULARY_TEST_RUN_ID: "tr-fallow-fixture", CARTULARY_OUTPUT_MODE: "summary", ...extraEnv };
   const targetRoot = ".cartulary/test-results/tr-fallow-fixture/frontend-fallow-static";
   const started = [];
   async function run(overrides = {}) {
@@ -32,10 +32,12 @@ function setup(t) {
       if (scenario.reject) throw new Error("fixture launch failed");
       const stdoutFile = path.join(reportRoot, `${name}.stdout.log`);
       const stderrFile = path.join(reportRoot, `${name}.stderr.log`);
-      fixture.write(path.relative(fixture.root, stdoutFile), "");
-      fixture.write(path.relative(fixture.root, stderrFile), scenario.stderr ?? "");
-      if (!scenario.missing) fixture.write(path.relative(fixture.root, outputFile), scenario.data ?? report(name));
-      if (name === "dead-code" && !scenario.missingSARIF) fixture.write(path.relative(fixture.root, path.join(reportRoot, "dead-code.sarif")), scenario.sarif ?? { version: "2.1.0", runs: [] });
+      // Fallow children run under the private process umask.
+      const write = (file, contents) => { fixture.write(path.relative(fixture.root, file), contents); chmodSync(file, 0o600); };
+      write(stdoutFile, "");
+      write(stderrFile, scenario.stderr ?? "");
+      if (!scenario.missing) write(outputFile, scenario.data ?? report(name));
+      if (name === "dead-code" && !scenario.missingSARIF) write(path.join(reportRoot, "dead-code.sarif"), scenario.sarif ?? { version: "2.1.0", runs: [] });
       const exitCode = scenario.exitCode ?? 0;
       return { name, command: scenario.command ?? ["fallow", ...args], outputFile, stdoutFile, stderrFile, status: exitCode === 0 ? "pass" : "fail", exitCode };
     } });
@@ -64,7 +66,24 @@ for (const [name, data] of [
     expectFailure(result, "harness", "tool_diagnostic_failure", 1);
     assert.equal(result.summary.failures.length, 1);
     assert.ok(result.summary.summary_artifacts.some((entry) => entry.role === "fallow_static_summary"));
-    validateSchemaSync("cartulary.fallow_static_summary.v2", fixture.readJSON(`${targetRoot}/fallow-static-summary.json`));
+    validateSchemaSync("cartulary.fallow_static_summary.v3", fixture.readJSON(`${targetRoot}/fallow-static-summary.json`));
+  });
+}
+
+for (const [name, extraEnv, retained] of [["discards", {}, false], ["keeps on a raw request", { CARTULARY_HARNESS_RAW_OUTPUT: "1" }, true]]) {
+  test(`Fallow publication ${name} raw reports on success`, async (t) => {
+    const { run, fixture, targetRoot } = setup(t, extraEnv);
+    const result = await run();
+    assert.equal(result.code, 0, JSON.stringify(result.summary.failures));
+    const summary = fixture.readJSON(`${targetRoot}/fallow-static-summary.json`);
+    validateSchemaSync("cartulary.fallow_static_summary.v3", summary);
+    assert.equal(summary.raw_reports, retained ? "retained" : "discarded");
+    assert.equal(summary.reports.every((report) => (report.artifact === null) === !retained), true);
+    for (const file of ["dead-code.json", "dead-code.sarif", "dead-code.md", "dupes.json", "health.json", "package-surface-dead-code.json"]) {
+      assert.equal(existsSync(path.join(fixture.root, targetRoot, "fallow", file)), retained, file);
+    }
+    for (const role of ["resolved_fallow_config", "package_surface_config"]) assert.ok(summary.artifacts.some((entry) => entry.role === role), role);
+    assert.equal(result.summary.summary_artifacts.some((entry) => entry.role === "dupes_json"), retained);
   });
 }
 

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.browser_group_result.v11",
+  "$id": "cartulary.browser_group_result.v12",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -27,7 +27,7 @@
   ],
   "properties": {
     "schema_id": {
-      "const": "cartulary.browser_group_result.v11"
+      "const": "cartulary.browser_group_result.v12"
     },
     "target_id": {
       "type": "string",
@@ -191,7 +191,10 @@
       ],
       "properties": {
         "playwright_report": {
-          "type": "string",
+          "type": [
+            "string",
+            "null"
+          ],
           "minLength": 1
         },
         "stdout": {

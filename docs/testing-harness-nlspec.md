@@ -69,7 +69,7 @@ publication verdicts, or be cited as product, release, benchmark, or Core 05
 evidence. Same-run sharing is represented by one canonical unit referenced by
 several target projections; it has no secondary helper-artifact identity.
 
-Fallow static-analysis mechanics introduced by `frontend-fallow-static`, `.fallowrc.json`, `tools/fallow/*`, `cartulary.fallow_reachability_owner.v1`, and `cartulary.fallow_static_summary.v2` are harness and implementation-support mechanics only. They MUST NOT define product behavior, MUST NOT replace TypeScript, Biome, frontend import-boundary checks, tests, security scans, generated-artifact drift checks, or harness gates, MUST NOT activate Fallow Runtime behavior, and MUST NOT be cited as Core 05 publication evidence.
+Fallow static-analysis mechanics introduced by `frontend-fallow-static`, `.fallowrc.json`, `tools/fallow/*`, `cartulary.fallow_reachability_owner.v1`, and `cartulary.fallow_static_summary.v3` are harness and implementation-support mechanics only. They MUST NOT define product behavior, MUST NOT replace TypeScript, Biome, frontend import-boundary checks, tests, security scans, generated-artifact drift checks, or harness gates, MUST NOT activate Fallow Runtime behavior, and MUST NOT be cited as Core 05 publication evidence.
 Verified by: TH-HARNESS-AC-013, TH-HARNESS-AC-016, TH-HARNESS-AC-022, TH-HARNESS-AC-026, TH-HARNESS-AC-028
 
 **TH-HARNESS-REQ-002**
@@ -3523,7 +3523,7 @@ database evidence retain separate unit, resource, lease, and artifact identities
 | `test-run-status` | `cartulary.harness.command.test_run_status.v1` | `help_discovery` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 8.9) | `none` | `public_active` | Exact-invocation live observation; target-local JSON and bounded waiting. |
 | `harness-observability-check` | `cartulary.harness.command.harness_observability_check.v3` | `generated_drift` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 4), `security_boundary` (Section 15) | `none` | `public_active` | Read-only exact retained evidence; `CHECK=all` or a scoped events/timing/evidence/diagnostics view. |
 | `harness-otel-export` | `cartulary.harness.command.harness_otel_export.v1` | `help_discovery` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 4), `security_boundary` (Section 15) | `external_network` | `public_active` | Explicit post-run OTLP export; ordinary harness commands never invoke it. |
-| `frontend-fallow-static` | `cartulary.harness.command.frontend_fallow_static.v2` | `static_analysis_security` | `ci` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` | Direct global Fallow static gate. Emits `cartulary.fallow_static_summary.v2`; Fallow Runtime and Fallow security scans are not selected. |
+| `frontend-fallow-static` | `cartulary.harness.command.frontend_fallow_static.v2` | `static_analysis_security` | `ci` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` | Direct global Fallow static gate. Emits `cartulary.fallow_static_summary.v3`; Fallow Runtime and Fallow security scans are not selected. |
 | `lint-markdown` | `cartulary.harness.command.lint_markdown.v2` | `static_analysis_security` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 4) | `authored_source_write` | `public_active` | Direct Biome Markdown lint with safe automatic fixes; generated ledgers remain generator-owned. |
 | `harness-contract` | `cartulary.harness.command.harness_contract.v4` | `static_analysis_security` | `ci` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` | Default `SUITE=contract`; exact named presets under REQ-082; CI uses the default contract union. |
 | `format` | `cartulary.harness.command.format.v2` | `formatting` | `helper_only` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `authored_source_write` | `public_active` |  |
@@ -4646,7 +4646,7 @@ resolve_output_mode(CARTULARY_OUTPUT_MODE, VERBOSE, CI_VERBOSE, CI, target):
 | `interactive_raw`                  | `dev`, `browser-design-review`                                                                                             |                  no | Empty when `machine` requested                          | Diagnostic allowed                                                                    | None                                                      | `machine` rejected as `usage_error`, exit `2`                          |
 | `destructive_human`                | `clean`, `distclean`                                                                              |                  no | Empty when `machine` requested                          | Diagnostic allowed                                                                    | None                                                      | `machine` rejected as `usage_error`, exit `2`                          |
 
-Successful `frontend-fallow-static` `summary` and `quiet` output MUST expose only bounded result and artifact references. Raw Fallow JSON, SARIF, Markdown, stdout, and stderr diagnostics MUST be retained as artifacts rather than emitted in successful summary stdout; `verbose` and `debug` modes MAY expose raw child diagnostics.
+Successful `frontend-fallow-static` `summary` and `quiet` output MUST expose only bounded result and artifact references. Raw Fallow JSON, SARIF, Markdown, stdout, and stderr diagnostics MUST NOT be emitted in successful summary stdout. They are retained as artifacts for a failure or a raw diagnostics request (TH-HARNESS-REQ-873); `verbose` and `debug` modes MAY expose raw child diagnostics.
 
 ### 7.3 Human Output Budgets
 
@@ -4784,7 +4784,7 @@ claim publication.
 | `cartulary.harness_owner_evidence_audit.v1` | `tools/schemas/cartulary.harness_owner_evidence_audit.v1.schema.json` | present | Owner-evidence auditor | Before publishing owner-evidence acceptance. |
 | `cartulary.harness_estimate_audit.v2` | `tools/schemas/cartulary.harness_estimate_audit.v2.schema.json` | present | Advisory estimate audit | Before `explain-run DETAIL=estimates JSON=1` output. |
 | `cartulary.fallow_reachability_owner.v1`        | `tools/schemas/cartulary.fallow_reachability_owner.v1.schema.json`        | present           | Fallow reachability owner | During JSON shape checks and before `frontend-fallow-static` builds its effective config. |
-| `cartulary.fallow_static_summary.v2`            | `tools/schemas/cartulary.fallow_static_summary.v2.schema.json`            | present           | Fallow static target     | Before `frontend-fallow-static` success.  |
+| `cartulary.fallow_static_summary.v3`            | `tools/schemas/cartulary.fallow_static_summary.v3.schema.json`            | present           | Fallow static target     | Before `frontend-fallow-static` success.  |
 | `cartulary.vitest_failure_details.v3`           | `tools/schemas/cartulary.vitest_failure_details.v3.schema.json`           | present           | Vitest wrappers          | Before owner summaries consume failure diagnostics. |
 | `cartulary.vitest_invocation.v1` | `tools/schemas/cartulary.vitest_invocation.v1.schema.json` | present | Vitest row adapter | Before a fresh coordinator admits exact per-file specifications. |
 | `cartulary.vitest_runner_reports.v1` | `tools/schemas/cartulary.vitest_runner_reports.v1.schema.json` | present | Vitest coordinator | Before native reports and settled-file diagnostics are reconciled. |
@@ -4818,7 +4818,7 @@ claim publication.
 | `cartulary.web_e2e_backend_generation.v2`       | `tools/schemas/cartulary.web_e2e_backend_generation.v2.schema.json`       | present           | Browser reset lifecycle  | Before a replacement backend is attached. |
 | `cartulary.browser_startup_event.v2`             | `tools/schemas/cartulary.browser_startup_event.v2.schema.json`             | present           | Browser session lifecycle | For each append-only startup transition. |
 | `cartulary.browser_startup_diagnostics.v3`       | `tools/schemas/cartulary.browser_startup_diagnostics.v3.schema.json`       | present           | Browser session lifecycle | Once at terminal ready or failed state. |
-| `cartulary.browser_group_result.v11`              | `tools/schemas/cartulary.browser_group_result.v11.schema.json`              | present           | Browser evidence adapter | Before browser group evidence is accepted. |
+| `cartulary.browser_group_result.v12`              | `tools/schemas/cartulary.browser_group_result.v12.schema.json`              | present           | Browser evidence adapter | Before browser group evidence is accepted. |
 | `cartulary.browser_target_result.v9`             | `tools/schemas/cartulary.browser_target_result.v9.schema.json`             | present           | Browser evidence finalizer | Before browser target evidence is accepted. |
 | `cartulary.local_object_store_proxy_start_attempt.v2` | `tools/schemas/cartulary.local_object_store_proxy_start_attempt.v2.schema.json` | present | Local development proxy lifecycle | Before a startup attempt is recovered or promoted. |
 | `cartulary.local_object_store_proxy_lease.v2`    | `tools/schemas/cartulary.local_object_store_proxy_lease.v2.schema.json`    | present           | Local development proxy lifecycle | Before reuse or signaling. |
@@ -5406,7 +5406,7 @@ Verified by: TH-HARNESS-AC-135
 | Artifact family                                      | Producer                                        | Path under run root                                             | Schema policy                                                 | Ordering and nullability                                                              | Retention and cleanup                                        |
 | ---------------------------------------------------- | ----------------------------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
 | Tool-run summary                                     | Centralized wrappers                            | `<target>/tool-run-summary.json` or the summary directory closed by the target's Section 8.1 row | `cartulary.tool_run_summary.v5`                               | Required non-null timestamps, target, exit code, output mode, artifact refs, failures | Retained; removed by cleanup only under default result root. |
-| Fallow static reports                                | `frontend-fallow-static`                        | `frontend-fallow-static/fallow/*` and `frontend-fallow-static/fallow-static-summary.json` | `cartulary.fallow_static_summary.v2` for the normalized summary; raw JSON, SARIF, Markdown, stdout, stderr, and `resolved-fallowrc.json` files are diagnostic-only | Report names, statuses, issue counts, artifact refs, resolved-config refs, baseline state, and enforcement state in schema-defined order | Retained as run-root artifacts; generated/source roots and Fallow config or baseline inputs are not cleanup candidates. |
+| Fallow static reports                                | `frontend-fallow-static`                        | `frontend-fallow-static/fallow/*` and `frontend-fallow-static/fallow-static-summary.json` | `cartulary.fallow_static_summary.v3` for the normalized summary; raw JSON, SARIF, Markdown, stdout, stderr, and `resolved-fallowrc.json` files are diagnostic-only | Report names, statuses, issue counts, artifact refs, resolved-config refs, raw-report disposition, baseline state, and enforcement state in schema-defined order | Summary, logs and resolved configurations retained; raw reports retained only for a failure or raw diagnostics (TH-HARNESS-REQ-873); generated/source roots and Fallow config or baseline inputs are not cleanup candidates. |
 | Vitest failure details                               | Vitest wrappers                                 | `<target>/raw/<row-id>/vitest-failure-details.json` or `unit-logs/<unit-log-id>/vitest-failure-details.json`             | `cartulary.vitest_failure_details.v3`                         | Current invocation identity, runner/log refs, project/file/full-title observations, original errors, kinds, deadlines, and durations | Required for completed Vitest invocations; no legacy fallback. |
 | Go test durations                                    | Canonical Go row runner, basic diagnostics only | `unit-logs/row-<row-id>/go-test-durations.json`                 | `cartulary.harness_go_test_durations.v1`                      | Invocations in execution order; tests and subtests in terminal-event order; nullable package outcome; exact omission count | Retained with the unit logs; diagnostic only, never evidence (TH-HARNESS-REQ-869). |
 | Host pressure window                                 | Native graph runtime, failed units only         | `unit-logs/<unit-log-id>/host-pressure.json`                    | `cartulary.harness_host_pressure_window.v1`                   | Samples in graph-clock order; null shares for unreported resources; `truncated` when the ring rolled | Retained with the unit logs; diagnostic only, never evidence (TH-HARNESS-REQ-870). |
@@ -5432,7 +5432,7 @@ Verified by: TH-HARNESS-AC-135
 | Browser startup diagnostics                          | Browser session lifecycle                       | `_shared/test-services/<suite-id>/browser-sessions/<browser-session-id>/startup-diagnostics.json` | `cartulary.browser_startup_diagnostics.v2` | Immutable terminal state, event reference/digest, classification, redaction-safe message, origins, and artifact references | Retained for the session; group and target evidence consume by reference. |
 | Browser stack metadata                               | Browser session lifecycle                       | `_shared/test-services/<suite-id>/browser-sessions/<browser-session-id>/stack-v8.json` | `cartulary.web_e2e_stack.v8` | Immutable suite/session/mode/profile identity, compact service admission, database, object-store namespace, backend/frontend process proofs, build digest, fixture, diagnostic, lease, and readiness bindings | Retained for current-run attach admission. |
 | Browser backend generation                           | Browser reset lifecycle                         | `_shared/test-services/<suite-id>/browser-sessions/<browser-session-id>/backend-generations/<reset-id>.json` | `cartulary.web_e2e_backend_generation.v2` | Reset ID, monotonic generation, unchanged runtime/config identity, base stack reference/digest, and replacement backend process proof | Immutable current-run attachment overlay. |
-| Browser group result                                 | Browser evidence adapter                        | `<target>/browser-groups/<group-id>/browser-group-result.json` | `cartulary.browser_group_result.v11` | Exact selected rows, terminal observations, lease reference, and ordered session artifact references/digests | Retained for target accounting. |
+| Browser group result                                 | Browser evidence adapter                        | `<target>/browser-groups/<group-id>/browser-group-result.json` | `cartulary.browser_group_result.v12` | Exact selected rows, terminal observations, lease reference, and ordered session artifact references/digests | Retained for target accounting. |
 | Browser target result                                | Browser evidence finalizer                      | `<target>/browser-target-result.json` | `cartulary.browser_target_result.v9` | Ordered group-result references/digests and deduplicated session artifact references/digests | Retained for target accounting. |
 | Local object-store proxy attempt, lease, and health  | Local development proxy lifecycle               | owner-only `.cartulary/runtime/object-store-proxy/` state and loopback health endpoint | `cartulary.local_object_store_proxy_start_attempt.v2`, `cartulary.local_object_store_proxy_lease.v2`, `cartulary.local_object_store_proxy_health.v2` | Canonical nonsecret configuration, instance identity, boot-aware process proof, and readiness state | Development-only; never browser or product evidence. |
 | Database reset diagnostic                            | Recovery reset controller                       | `<target>/reset-boundary/<label>.database-reset.json`            | `cartulary.test.database_reset_diagnostic.v2`                 | Reset ID, attempt one, closed stage, nullable SQLSTATE, timeout flag, duration, sorted table/count proofs, and normalized failure | Retained; excludes raw SQL, DSNs, database names, credentials, backend IDs, and raw errors. |
@@ -5449,6 +5449,7 @@ Verified by: TH-HARNESS-AC-135
 | Logs                                                 | Shell, Go, scheduler, browser, service wrappers | target log dirs                                                 | diagnostic-only unless producer declares schema               | Logs are text after redaction; empty logs may be omitted                              | Retained unless cleanup removes result root.                 |
 | Coverage reports                                     | Go/frontend/test tools                          | tool-specific coverage paths                                    | diagnostic-only                                               | No current schema-owned field contract; retained only as tool diagnostic output       | Removed by `make clean` when under registered paths.         |
 | Playwright screenshots, videos, traces, HTML reports | Playwright                                      | Playwright report/test-results dirs                             | diagnostic-only secret-bearing                                | No current schema-owned field contract; retained only as Playwright diagnostic output | Removed by `make clean` when under registered paths.         |
+| Browser cohort reports and output                    | Browser cohort runner                           | `<target>/browser-groups/<group-id>/playwright-report.json`, `playwright-checkpoint.json` and `playwright-output/` | diagnostic-only secret-bearing                                | Redacted JSON report; the checkpoint is the reporter's fallback | Checkpoint removed once the report parses; report and output retained for failed, `visual` and `measurement` cohorts and raw diagnostics only (TH-HARNESS-REQ-873). |
 | Visual snapshots and goldens                         | Browser/fixture tools                           | source and tool-specific dirs                                   | validation-only; helper refresh is owned by `browser-e2e-visual-update` | No current schema-owned diagnostic schema contract; helper refresh writes tool-specific committed PNGs only | Refresh is helper-only and is not validation evidence until `browser-e2e SUITE=visual` passes. |
 
 **TH-HARNESS-REQ-258**
@@ -7325,7 +7326,10 @@ Verified by: TH-HARNESS-AC-108, TH-HARNESS-AC-111
 
 **TH-HARNESS-REQ-830**
 Graph-backed public targets MUST accept command-line-only
-`HARNESS_DIAGNOSTICS=off|basic`, default `off`. Harness-owned real-command output
+`HARNESS_DIAGNOSTICS=off|basic|raw`, default `off`. `raw` is `basic` plus raw tool
+output on success: it asks every unit to keep the raw output that a successful
+unit otherwise discards (TH-HARNESS-REQ-872), and a requirement on `basic`
+diagnostics is met by either level. Harness-owned real-command output
 assertions MUST read the selected mode from the validated, identity-bound parent
 manifest and explicitly forward it as a Make command-line input to their nested
 graph invocations. Clearing inherited
@@ -7693,7 +7697,7 @@ Executable projections and verification MUST NOT depend on Markdown.
 Verified by: TH-HARNESS-AC-138–141.
 
 **TH-HARNESS-REQ-869 — Go test duration diagnostics.**
-Under `HARNESS_DIAGNOSTICS=basic`, a canonical Go row-runner unit SHALL retain
+Under `HARNESS_DIAGNOSTICS=basic` or `raw`, a canonical Go row-runner unit SHALL retain
 `unit-logs/row-<row-id>/go-test-durations.json`, schema
 `cartulary.harness_go_test_durations.v1`, where `<row-id>` is the unit's
 lexically first selected row. For each Go invocation of the unit, in execution
@@ -7840,6 +7844,39 @@ cache key. The plan already holds what a Go unit needs.
 
 Verified by: TH-HARNESS-AC-171.
 
+**TH-HARNESS-REQ-873 — Retention by outcome.**
+A successful unit retains its normalized evidence: row and unit results,
+summaries, logs and bounded reports. Raw tool output that the unit has already
+normalized is retained only for a failure, for a consumer declared to read it
+after the unit, or under `HARNESS_DIAGNOSTICS=raw` (TH-HARNESS-REQ-830). The
+owner of each raw output applies the rule after its own last reader:
+
+- **Playwright.** The reporter's `playwright-checkpoint.json` is the fallback
+  for a report that does not parse. The cohort runner removes it once
+  `playwright-report.json` parses, and keeps it only when it was used. A cohort
+  of the `visual` and `measurement` stages keeps its report and
+  `playwright-output/`, because the visual reconciliation, the UI-review import
+  and the measurement finalizer read them after the cohort. A passing cohort of
+  any other stage removes both after its row results, measurement evidence and
+  group result inputs are complete. Its `cartulary.browser_group_result.v12`
+  then records `artifacts.playwright_report` as `null`. A failed cohort keeps
+  everything.
+- **Fallow.** A passing `frontend-fallow-static` keeps
+  `fallow-static-summary.json`, its report entries, counts and warnings, and both
+  resolved configurations. It removes the raw dead-code JSON, SARIF and
+  Markdown, `dupes.json`, `health.json` and the package-surface report.
+  `cartulary.fallow_static_summary.v3` records `raw_reports` as `retained` or
+  `discarded`; a discarded report's `artifact` is `null` and its artifact
+  lists name only retained files.
+
+A cached success replays the evidence its producer retained, so raw output is
+produced only by a unit that executes.
+
+Rationale: retained data must earn its bytes. Raw reports duplicate normalized
+evidence on success, and raw Playwright reports are secret-bearing.
+
+Verified by: TH-HARNESS-AC-177.
+
 ### 10.9 Diagnostic coverage and integrity (instrumentation-3)
 
 These diagnostic requirements remain independent of implementation completion. The current cutover uses execution record v2/index v5,
@@ -7962,7 +7999,7 @@ Verified by: TH-HARNESS-AC-146
 
 **TH-HARNESS-REQ-856 — Required invocation accounting.** Graph-backed public
 targets MAY request command-line-only `HARNESS_ACCOUNTING=required`; `off` is the
-default. Required accounting requires `HARNESS_DIAGNOSTICS=basic` and disabled
+default. Required accounting requires `HARNESS_DIAGNOSTICS=basic` or `raw` and disabled
 execution-result reuse. It is internal engineering evidence, not Core 05
 qualification. Missing accounting prerequisites MUST reject the request before
 product work; required accounting MUST NOT silently degrade to sampled evidence.
@@ -12169,6 +12206,7 @@ expected behavior. Failure codes below are normalized wrapper codes.
 | TH-HARNESS-AC-174 | REQ-060 | Two renderer builds with unchanged inputs; a changed renderer source, lockfile or host library; a tampered installation root or a changed mode in it; a record without a seal; unnamed, recorded and stale installations at collection; `--no-cache` and `--force` | The second unchanged build only republishes the receipt; any changed input or copied library rebuilds and records a new key, and a root that lost its seal is never reused; collection keeps what the receipt or a recent record names; the disable flag neither reads nor records keys and the force flag rebuilds | A reused installation after an input change, a reuse that skips the integrity check, or a recorded key under the disable flag fails. |
 | TH-HARNESS-AC-175 | REQ-802, REQ-803 | A graph of ready units whose claims and residents exceed the ledger, a cached unit, another owner's older waiting request and exclusive fence, a ledger change by another process, and a graph with no running unit | The scheduler admits only units the ledger view grants with every claim and resident together; a denied unit holds no token and names its deficits or `host_admission`; a cached unit never reaches the ledger; waiters wake on a ledger change; with nothing running the top-ranked fitting unit waits in host admission; PostgreSQL work and generations are each charged once | A token held by a denied unit, a partial grant, a cache hit admitted, a waiter that only polls, or a generation charged twice fails. |
 | TH-HARNESS-AC-176 | REQ-802 | A ready high-ranked unit the ledger denies and lower-ranked units that do and do not claim the resources it lacks | Lower-ranked units claiming none of the reserved resources are admitted; one claiming a reserved resource waits; the high-ranked unit is admitted when its resources free | A backfill that takes a reserved resource or a reservation that blocks unrelated work fails. |
+| TH-HARNESS-AC-177 | REQ-873 | Passing, failing and raw-diagnostics cohorts of each Playwright stage; a report that does not parse; passing, failing and raw-diagnostics Fallow targets | A passing cohort outside `visual` and `measurement` retains no report, checkpoint or Playwright output and records a null report; visual and measurement cohorts and failed cohorts keep them; the checkpoint survives only when the report did not parse; a passing Fallow target keeps only its summary and resolved configurations and records `discarded`; a failure or raw request keeps every raw file | A passing cohort or Fallow target that retains raw output without a raw request, a consumer that reads a removed report, or a failure that loses its raw output fails. |
 
 The numerical image cases MUST include transparent pixels, alpha-only differences,
 one-pixel boundaries, and zero/full changed area. Interface fixtures MUST include
@@ -12247,6 +12285,7 @@ retained evidence keep their separate owner-only permission contract.
 | `TH-HARNESS-REQ-870` | Failure-scoped host pressure | TH-HARNESS-AC-166 |
 | `TH-HARNESS-REQ-871` | Stress repetition | TH-HARNESS-AC-167 |
 | `TH-HARNESS-REQ-872` | Go row runner | TH-HARNESS-AC-171 |
+| `TH-HARNESS-REQ-873` | Retention by outcome | TH-HARNESS-AC-177 |
 | `TH-HARNESS-REQ-858..864` | Runtime contract guards and evidence | TH-HARNESS-AC-008, TH-HARNESS-AC-154, TH-HARNESS-AC-155, TH-HARNESS-AC-156, TH-HARNESS-AC-157, TH-HARNESS-AC-158, TH-HARNESS-AC-159 |
 
 

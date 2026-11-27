@@ -17,16 +17,18 @@ const contextNames = Object.freeze({
   operationDigest: "CARTULARY_OPERATION_DIGEST",
   prepared: "CARTULARY_HARNESS_IDENTITY_PREPARED",
   executionObserved: "CARTULARY_HARNESS_EXECUTION_ENABLED",
+  rawOutput: "CARTULARY_HARNESS_RAW_OUTPUT",
 });
 // Flags whose only value is true; a writer that means false omits them.
-const flagFields = new Set(["prepared", "executionObserved"]);
+const flagFields = new Set(["prepared", "executionObserved", "rawOutput"]);
 
 // runContextEnvironment writes only the fields that are set: an empty value is
 // never a meaningful context, so a writer that means "none" removes the name.
 // prepared: true seals the run identity (results directory, run and target) an
 // executor established, so a command nested in that run reuses it
 // (TH-HARNESS-REQ-158). executionObserved: true asks units and fixtures to record
-// execution observations, as basic diagnostics do.
+// execution observations, as basic diagnostics do. rawOutput: true asks units to
+// keep raw tool output when they succeed, as raw diagnostics do.
 export function runContextEnvironment(context) {
   const unknown = Object.keys(context).filter((field) => !Object.hasOwn(contextNames, field));
   if (unknown.length > 0) throw new Error(`unknown run context fields: ${unknown.join(", ")}`);
@@ -36,6 +38,13 @@ export function runContextEnvironment(context) {
   return Object.fromEntries(Object.entries(contextNames)
     .filter(([field]) => context[field] !== undefined && context[field] !== null && context[field] !== "")
     .map(([field, name]) => [name, flagFields.has(field) ? "1" : String(context[field])]));
+}
+
+// rawOutputRequested reports whether the command's run asked for raw tool
+// output on success (HARNESS_DIAGNOSTICS=raw, TH-HARNESS-REQ-830). Without it a
+// successful unit keeps normalized evidence only.
+export function rawOutputRequested(environment = process.env) {
+  return environment[contextNames.rawOutput] === "1";
 }
 
 // inputSourcesEnvironment records where each public input came from as

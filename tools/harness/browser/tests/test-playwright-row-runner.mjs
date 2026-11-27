@@ -68,7 +68,7 @@ test("Playwright row adapter distinguishes primary asset failure from secondary 
   const assetResult = adapt(row("harness.browser.boundary_support.asset_probe", "assets"), report(broken));
   assert.equal(assetResult.failure_class, "artifact");
   const group = {
-    schema_id: "cartulary.browser_group_result.v11", renderer_borrow: { unit_id:"fixture:group", borrow_id:"11111111-1111-4111-8111-111111111111", allocation_id:"22222222-2222-4222-8222-222222222222", generation:"33333333-3333-4333-8333-333333333333", attestation_ref:"_shared/renderers/22222222-2222-4222-8222-222222222222/renderer-profile-attestation.json", trust_ref:"_shared/renderers/22222222-2222-4222-8222-222222222222/tls-trust-attestation.json" }, target_id: "browser-e2e-visual",
+    schema_id: "cartulary.browser_group_result.v12", renderer_borrow: { unit_id:"fixture:group", borrow_id:"11111111-1111-4111-8111-111111111111", allocation_id:"22222222-2222-4222-8222-222222222222", generation:"33333333-3333-4333-8333-333333333333", attestation_ref:"_shared/renderers/22222222-2222-4222-8222-222222222222/renderer-profile-attestation.json", trust_ref:"_shared/renderers/22222222-2222-4222-8222-222222222222/tls-trust-attestation.json" }, target_id: "browser-e2e-visual",
     stage_id: "visual", group_id: "asset-probe", browser_session_id: "session",
     runtime_profile_id: "default", service_requirement: "test-services",
     fixture_capabilities: ["browser_stack"], service_dependencies: ["postgres"],
@@ -455,7 +455,7 @@ test("browser target finalization preserves typed row failures and cleanup prece
         const directory = path.join(scratch, id, target, "browser-groups", groupID);
         mkdirSync(directory, { recursive: true, mode: 0o700 });
         const group = {
-          schema_id: "cartulary.browser_group_result.v11", renderer_borrow: { unit_id:"fixture:group", borrow_id:"11111111-1111-4111-8111-111111111111", allocation_id:"22222222-2222-4222-8222-222222222222", generation:"33333333-3333-4333-8333-333333333333", attestation_ref:"_shared/renderers/22222222-2222-4222-8222-222222222222/renderer-profile-attestation.json", trust_ref:"_shared/renderers/22222222-2222-4222-8222-222222222222/tls-trust-attestation.json" }, target_id: target,
+          schema_id: "cartulary.browser_group_result.v12", renderer_borrow: { unit_id:"fixture:group", borrow_id:"11111111-1111-4111-8111-111111111111", allocation_id:"22222222-2222-4222-8222-222222222222", generation:"33333333-3333-4333-8333-333333333333", attestation_ref:"_shared/renderers/22222222-2222-4222-8222-222222222222/renderer-profile-attestation.json", trust_ref:"_shared/renderers/22222222-2222-4222-8222-222222222222/tls-trust-attestation.json" }, target_id: target,
           stage_id: "webserver-backed", group_id: groupID, browser_session_id: `session-${index}`,
           runtime_profile_id: "default", service_requirement: "test-services",
           fixture_capabilities: ["browser_stack"], service_dependencies: ["postgres"],
@@ -765,4 +765,15 @@ test("browser target distinguishes canonical non-launch from missing required ru
       assert.equal(existsSync(path.join(directory,target)),false,"unlaunched target published aggregate, reconciliation or promotion");
     }
   }
+});
+
+test("a passing cohort keeps raw Playwright output only where a finalizer reads it or raw output is requested", async () => {
+  const { cohortRetainsRawOutput } = await import("../browser-compatibility.mjs");
+  for (const kind of ["webserver-backed", "duration_balanced_specs", "support", "stateful", "stateful_partition", "a11y"]) {
+    assert.equal(cohortRetainsRawOutput({ exitCode: 0, kind, environment: {} }), false, kind);
+    assert.equal(cohortRetainsRawOutput({ exitCode: 1, kind, environment: {} }), true, kind);
+    assert.equal(cohortRetainsRawOutput({ exitCode: 0, kind, environment: { CARTULARY_HARNESS_RAW_OUTPUT: "1" } }), true, kind);
+  }
+  for (const kind of ["visual", "measurement"]) assert.equal(cohortRetainsRawOutput({ exitCode: 0, kind, environment: {} }), true, kind);
+  assert.throws(() => cohortRetainsRawOutput({ exitCode: 0, kind: "unknown", environment: {} }), /selector-stage/u);
 });

@@ -29,7 +29,7 @@ import { runPrivateCapturedProcess } from "../runtime/private-child-process.mjs"
 import { enforcePrivateProcessUmask } from "../runtime/private-process.mjs";
 import { loadTestCatalog, playwrightLeafTitle, playwrightSelection } from "../test-catalog/index.mjs";
 import { resolveBrowserBatchPartition } from "./browser-batch-manifest.mjs";
-import { readLocalFile } from "../runtime/secure-local-files.mjs";
+import { readLocalFile, removePrivateFile, removePrivateTree } from "../runtime/secure-local-files.mjs";
 import { publishRowResult } from "../execution/runners/row-results.mjs";
 import { browserCohort, playwrightFailureArguments } from "./browser-cohorts.mjs";
 import { attachmentAssignments } from "./browser-session-evidence.mjs";
@@ -37,6 +37,7 @@ import { collectFrontendMeasurementObservations } from "./frontend-measurement-e
 import { readRendererAttachment } from "./renderer-attachment.mjs";
 import { stageVisualSnapshotCandidate } from "./visual-snapshot-promotion.mjs";
 import { removePlaywrightWorkingTraces } from "./playwright-output-cleanup.mjs";
+import { cohortRetainsRawOutput } from "./browser-compatibility.mjs";
 import { browserBindingEnvironment } from "./browser-binding.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -325,12 +326,16 @@ async function main() {
   }
   if (interruptedSignal) child.signal ??= interruptedSignal;
   let report = null;
+  const checkpointPath = path.join(artifactRoot, "playwright-checkpoint.json");
   const parsing = beginActivity({ repoRoot: root, environment: process.env, launch: child.launch, activity: "report_parse" });
   try {
     report = readPlaywrightReport(reportPath);
     secureWriteFile(reportPath, `${JSON.stringify(redactValue(report), null, 2)}\n`);
+    // The checkpoint is the reporter's fallback for a report that does not
+    // parse; once the report parses it only duplicates it (TH-HARNESS-REQ-873).
+    removePrivateFile(checkpointPath);
   } catch {
-    try { report = readPlaywrightReport(path.join(artifactRoot, "playwright-checkpoint.json")); }
+    try { report = readPlaywrightReport(checkpointPath); }
     catch { report = null; }
   }
   let rowResults;
@@ -366,11 +371,19 @@ async function main() {
     ? playwrightGroupExitCode(rowResults, child, report)
     : 11;
   const exitCode = primaryExitCode || (cleanupError ? 12 : 0);
+  // A passing cohort keeps its normalized row and group results. Its raw report
+  // and Playwright output stay only where a finalizer reads them after the
+  // cohort or raw diagnostics are requested (TH-HARNESS-REQ-873).
+  const rawRetained = cohortRetainsRawOutput({ exitCode, kind: group.kind });
+  if (!rawRetained) {
+    removePrivateFile(reportPath);
+    removePrivateTree(path.join(artifactRoot, "playwright-output"));
+  }
   const finishedAt = new Date().toISOString();
   const wallDurationMs = Date.now() - started;
   writeRowResults(rowResults, "playwright", startedAt, finishedAt, wallDurationMs);
   const result = {
-    schema_id: "cartulary.browser_group_result.v11",
+    schema_id: "cartulary.browser_group_result.v12",
     renderer_borrow: { unit_id: rendererLease.unit_id, borrow_id: rendererLease.borrow_id, allocation_id: rendererLease.allocation_id, generation: rendererLease.generation, attestation_ref: rendererLease.attestation_ref, trust_ref: rendererLease.trust_ref },
     target_id: target,
     stage_id: partition.stageName,
@@ -400,7 +413,7 @@ async function main() {
     row_results: rowResults,
     session_artifacts: sessionArtifacts(),
     artifacts: {
-      playwright_report: path.relative(runRoot(), reportPath).replaceAll("\\", "/"),
+      playwright_report: rawRetained ? path.relative(runRoot(), reportPath).replaceAll("\\", "/") : null,
       stdout: path.relative(runRoot(), stdoutPath).replaceAll("\\", "/"),
       stderr: path.relative(runRoot(), stderrPath).replaceAll("\\", "/"),
     },

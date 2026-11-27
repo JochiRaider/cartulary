@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { closeSync, constants, fstatSync, fsyncSync, linkSync, openSync, readSync, renameSync, readdirSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, closeSync, constants, fstatSync, fsyncSync, linkSync, lstatSync, openSync, readSync, renameSync, readdirSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 import { assertMachineEvidencePath, openDirectory } from "../contract/index.mjs";
@@ -36,6 +36,22 @@ export function removePrivateFile(file) {
   } catch (error) { if (error.code !== "ENOENT") throw error; }
   finally { if (descriptor !== undefined) closeSync(descriptor); if (parent !== undefined) closeSync(parent); }
 }
+// Fixture materializations seal their copies (directories 0500, files 0400).
+// Removal reopens each owned sealed directory, never following a link, so the
+// quarantined tree can be deleted.
+function unsealOwnedTree(directory) {
+  const pending = [directory];
+  while (pending.length > 0) {
+    const current = pending.pop();
+    const stat = lstatSync(current);
+    if (!stat.isDirectory()) continue;
+    if (stat.uid !== process.getuid()) throw new Error("unsafe cleanup directory");
+    if ((stat.mode & 0o700) !== 0o700) chmodSync(current, 0o700);
+    for (const entry of readdirSync(current, { withFileTypes: true })) {
+      if (entry.isDirectory()) pending.push(path.join(current, entry.name));
+    }
+  }
+}
 export function removePrivateTree(directory) {
   let parent, leaf, renamed = false, cleanupPath;
   try {
@@ -53,6 +69,7 @@ export function removePrivateTree(directory) {
     try {
       const current = fstatSync(moved);
       if (current.ino !== original.ino || current.dev !== original.dev) throw new Error("cleanup directory changed; ownership proof retained");
+      unsealOwnedTree(quarantine);
       rmSync(quarantine, { recursive: true, force: false });
       fsyncSync(parent);
     } finally { closeSync(moved); }

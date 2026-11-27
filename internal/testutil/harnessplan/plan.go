@@ -162,7 +162,7 @@ type Invocation struct {
 	SourceState      string
 	ToolchainDigest  string
 	CacheMode        string
-	// InstrumentationMode is "off" or "basic"; InstrumentationPolicy is the
+	// InstrumentationMode is "off", "basic" or "raw"; InstrumentationPolicy is the
 	// policy document's bytes.
 	InstrumentationMode   string
 	InstrumentationPolicy []byte
@@ -251,7 +251,7 @@ func (p *Plan) validate() error {
 	if m.GraphDigest != p.Graph.Digest || m.SystemDigest != m.CapabilitySnapshot.SnapshotDigest {
 		return fail("manifest digests do not match the graph and snapshot")
 	}
-	if !slices.Contains([]string{"normal", "cold", "off"}, m.CacheMode) || !slices.Contains([]string{"off", "basic"}, m.Instrumentation.Mode) {
+	if !slices.Contains([]string{"normal", "cold", "off"}, m.CacheMode) || !slices.Contains([]string{"off", "basic", "raw"}, m.Instrumentation.Mode) {
 		return fail("unknown cache or instrumentation mode")
 	}
 	if m.GoWorkerBudget < 1 || m.GoWorkerBudget > m.CapabilitySnapshot.CPUTokens {

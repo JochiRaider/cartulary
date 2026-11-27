@@ -98,7 +98,7 @@ function groupResult(base, groupID, target) {
   }
   const file = path.join(base, relative);
   const result = parseStrictJSON(bytes.toString("utf8"));
-  validateSchemaSync("cartulary.browser_group_result.v11", result);
+  validateSchemaSync("cartulary.browser_group_result.v12", result);
   if (result.group_id !== groupID || result.target_id !== target) throw new Error("browser group result identity mismatch");
   const renderer = readRendererEvidence(base, result, process.env.CARTULARY_TEST_RUN_ID);
   return {

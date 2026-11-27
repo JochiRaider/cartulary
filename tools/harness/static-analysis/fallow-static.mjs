@@ -30,9 +30,11 @@ import {
   buildResolvedFallowConfig,
   defaultFallowReachabilityOwnerPath,
 } from "./fallow-reachability.mjs";
+import { rawOutputRequested } from "../contract/run-context.mjs";
+import { removePrivateFile } from "../runtime/secure-local-files.mjs";
 
 const target = "frontend-fallow-static";
-const fallowSummarySchemaID = "cartulary.fallow_static_summary.v2";
+const fallowSummarySchemaID = "cartulary.fallow_static_summary.v3";
 function nowUTC() {
   return new Date().toISOString();
 }
@@ -393,10 +395,23 @@ export async function runFallowStatic({
       }).exit_code;
     }
 
+    // A passing target keeps the normalized summary, its counts and the
+    // resolved configurations. Raw reports and the rendered Markdown stay only
+    // for a failure or a raw diagnostics request (TH-HARNESS-REQ-873).
+    const rawRetained = failures.length > 0 || rawOutputRequested(env);
+    const rawFiles = new Set([deadCodeJSON, deadCodeSARIF, deadCodeMarkdown, dupesJSON, healthJSON, packageSurfaceJSON]);
+    const retainedArtifact = (file) => rawRetained || !rawFiles.has(file);
+    if (!rawRetained) {
+      for (const file of rawFiles) removePrivateFile(file);
+      for (const report of reports) report.artifact = null;
+      for (let index = summaryArtifacts.length - 1; index >= 0; index--) {
+        if (!retainedArtifact(path.resolve(root, summaryArtifacts[index].path))) summaryArtifacts.splice(index, 1);
+      }
+    }
     // Render the human summary from the same result; never scan a second time
     // or consume Markdown as verification input.
     const deadCodeCounts = collectIssueCounts(deadCodeReport);
-    secureWriteFile(deadCodeMarkdown, [
+    if (rawRetained) secureWriteFile(deadCodeMarkdown, [
       "# Fallow static reachability", "",
       "Detailed findings and actions are retained in dead-code.json.", "",
       "| Rule | Findings |", "| --- | --- |",
@@ -412,7 +427,7 @@ export async function runFallowStatic({
       });
     }
 
-    const fallowArtifacts = artifactFiles.map(([role, artifactPath, kind]) =>
+    const fallowArtifacts = artifactFiles.filter(([, artifactPath]) => retainedArtifact(artifactPath)).map(([role, artifactPath, kind]) =>
       fallowArtifactRef(role, repoRel(root, artifactPath), kind),
     );
     const fallowSummary = {
@@ -436,6 +451,7 @@ export async function runFallowStatic({
         failure_on_issues: true,
       },
       artifacts: fallowArtifacts,
+      raw_reports: rawRetained ? "retained" : "discarded",
       warnings,
       extensions: {
         "cartulary.fallow_reachability": {
@@ -447,7 +463,7 @@ export async function runFallowStatic({
             ...reachability.owner.blocking_web_surface,
             finding_count: webSurfaceFindings.length,
             findings: webSurfaceFindings,
-            report_path: repoRel(root, deadCodeJSON),
+            report_path: rawRetained ? repoRel(root, deadCodeJSON) : null,
           },
           package_surface: {
             blocking: true,
@@ -460,7 +476,7 @@ export async function runFallowStatic({
                 package_name: entry.package_name,
               }),
             ),
-            report_path: repoRel(root, packageSurfaceJSON),
+            report_path: rawRetained ? repoRel(root, packageSurfaceJSON) : null,
           },
         },
       },
@@ -470,7 +486,7 @@ export async function runFallowStatic({
     secureWriteFile(fallowSummaryFile, `${JSON.stringify(fallowSummary, null, 2)}\n`);
     summaryArtifacts.push(
       fileArtifactRef("fallow_static_summary", repoRel(root, fallowSummaryFile), "json"),
-      fileArtifactRef("dead_code_markdown", repoRel(root, deadCodeMarkdown), "markdown"),
+      ...(rawRetained ? [fileArtifactRef("dead_code_markdown", repoRel(root, deadCodeMarkdown), "markdown")] : []),
     );
     return makeToolSummary({ root, env, identity, status: failures.length ? "fail" : "pass",
       startedAt, durationMs: monotonicMs() - startedMs, summaryArtifacts, logArtifacts, failures, warnings,

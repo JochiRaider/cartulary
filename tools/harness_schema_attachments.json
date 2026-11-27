@@ -86,8 +86,8 @@
       "validation": "harness.json_shape_check"
     },
     {
-      "schema_id": "cartulary.browser_group_result.v11",
-      "path": "tools/schemas/cartulary.browser_group_result.v11.schema.json",
+      "schema_id": "cartulary.browser_group_result.v12",
+      "path": "tools/schemas/cartulary.browser_group_result.v12.schema.json",
       "classification": "public_contract",
       "producer": "browser evidence adapter",
       "validation": "harness.json_shape_check"
@@ -202,8 +202,8 @@
       "validation": "harness.json_shape_check"
     },
     {
-      "schema_id": "cartulary.fallow_static_summary.v2",
-      "path": "tools/schemas/cartulary.fallow_static_summary.v2.schema.json",
+      "schema_id": "cartulary.fallow_static_summary.v3",
+      "path": "tools/schemas/cartulary.fallow_static_summary.v3.schema.json",
       "classification": "public_contract",
       "producer": "Fallow wrapper",
       "validation": "harness.json_shape_check"

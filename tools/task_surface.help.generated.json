@@ -56,7 +56,8 @@
             "type": "enum",
             "values": [
               "off",
-              "basic"
+              "basic",
+              "raw"
             ],
             "default": "off",
             "empty_string": "omitted",
@@ -210,7 +211,8 @@
             "type": "enum",
             "values": [
               "off",
-              "basic"
+              "basic",
+              "raw"
             ],
             "default": "off",
             "empty_string": "omitted",
@@ -445,7 +447,8 @@
             "type": "enum",
             "values": [
               "off",
-              "basic"
+              "basic",
+              "raw"
             ],
             "default": "off",
             "empty_string": "omitted",

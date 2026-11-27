@@ -63,7 +63,7 @@ function readEnvelope(runDir, run) {
     envelope = parseStrictJSON(bytes.toString("utf8"), "invocation envelope");
   } catch (error) { if (error.code === "ENOENT") return null; throw error; }
   validateSchemaSync("cartulary.harness_invocation_envelope.v2", envelope);
-  if (run.manifest.instrumentation.mode !== "basic") throw new Error("envelope requires basic diagnostics");
+  if (run.manifest.instrumentation.mode === "off") throw new Error("envelope requires basic diagnostics");
   for (const key of ["run_id", "source_digest", "graph_digest"]) if (envelope[key] !== run.manifest[key]) throw new Error("envelope identity mismatch");
   let end = 0;
   for (const interval of envelope.intervals) {
@@ -80,7 +80,7 @@ function readPostgresCheckpoints(runDir, run) {
     value = parseStrictJSON(readLocalFile(path.join(runDir, "diagnostics/postgres-checkpoints.json"), { maximum: 2 * 1024 * 1024 }).toString("utf8"), "PostgreSQL checkpoint diagnostics");
   } catch (error) { if (error.code === "ENOENT") return null; throw error; }
   validateSchemaSync("cartulary.harness_postgres_checkpoints.v2", value);
-  if (run.manifest.instrumentation.mode !== "basic") throw new Error("checkpoint diagnostics require basic mode");
+  if (run.manifest.instrumentation.mode === "off") throw new Error("checkpoint diagnostics require basic mode");
   for (const key of ["run_id", "source_digest", "graph_digest"]) if (value[key] !== run.manifest[key]) throw new Error("checkpoint diagnostic identity mismatch");
   if (value.policy_digest !== run.manifest.instrumentation.policy_digest) throw new Error("checkpoint diagnostic policy mismatch");
   if (value.services !== value.service_results.length) throw new Error("checkpoint service roster mismatch");

@@ -9,7 +9,7 @@ export function readExecutionIndex(runRoot, run) {
   try { index = parseStrictJSON(readLocalFile(path.join(runRoot, "diagnostics/execution-index.json"), { maximum: 24 * 1024 ** 2 }).toString("utf8")); }
   catch (error) { if (error.code === "ENOENT") return null; throw error; }
   validateSchemaSync("cartulary.harness_execution_index.v7", index);
-  if (run.manifest.instrumentation.mode !== "basic") throw new Error("execution evidence requires basic diagnostics");
+  if (run.manifest.instrumentation.mode === "off") throw new Error("execution evidence requires basic diagnostics");
   for (const key of ["run_id", "source_digest", "graph_digest"]) if (index[key] !== run.manifest[key]) throw new Error("execution identity mismatch");
   if (index.policy_digest !== run.manifest.instrumentation.policy_digest || index.records_digest !== executionRecordsDigest(index.records)) throw new Error("execution digest mismatch");
   const refs = new Set(), launches = new Map();

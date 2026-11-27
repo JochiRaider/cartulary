@@ -1,3 +1,5 @@
+import { rawOutputRequested } from "../contract/run-context.mjs";
+
 export const browserBatchManifestSchemaID = "cartulary.browser_e2e_batch_manifest.v16";
 
 // Execution compatibility is independent of catalog reporting ownership. Keep
@@ -17,6 +19,16 @@ export function browserSelectorStage(kind) {
   const stage = selectorStages.get(kind);
   if (!stage) throw new Error(`browser kind ${kind} has no selector-stage mapping`);
   return stage;
+}
+
+// Stages whose finalizers read a passing cohort's Playwright report and output
+// after the cohort: the visual reconciliation and UI-review import, and the
+// measurement finalizer. Other stages keep them only for a failed cohort or a
+// raw diagnostics request (TH-HARNESS-REQ-873).
+const reportReadingStages = new Set(["visual", "measurement"]);
+
+export function cohortRetainsRawOutput({ exitCode, kind, environment = process.env }) {
+  return exitCode !== 0 || reportReadingStages.has(browserSelectorStage(kind)) || rawOutputRequested(environment);
 }
 
 export function browserPartitionContract(stage, group, runtimeProfile) {

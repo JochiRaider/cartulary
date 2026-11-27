@@ -240,7 +240,7 @@ func publishTerminalReceipts(root string, publish func(string, []byte) error) er
 				return errArtifact
 			}
 		}
-		if manifest["instrumentation"].(object)["mode"] != "basic" {
+		if mode := manifest["instrumentation"].(object)["mode"]; mode != "basic" && mode != "raw" {
 			return errArtifact
 		}
 		summary, _, err := boundObject(filepath.Join(runRoot, "run-summary.json"), "cartulary.harness_run_summary.v1", 16*1024*1024)

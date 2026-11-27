@@ -6848,7 +6848,7 @@ return true
 }
 
 func schema681(v any) bool {
-if !(schemaEqual(v, "off") || schemaEqual(v, "basic")) { return false }
+if !(schemaEqual(v, "off") || schemaEqual(v, "basic") || schemaEqual(v, "raw")) { return false }
 return true
 }
 
@@ -16817,7 +16817,7 @@ return true
 }
 
 func schema1704(v any) bool {
-if !(schemaEqual(v, "off") || schemaEqual(v, "basic")) { return false }
+if !(schemaEqual(v, "off") || schemaEqual(v, "basic") || schemaEqual(v, "raw")) { return false }
 return true
 }
 

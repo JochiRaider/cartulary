@@ -106,7 +106,7 @@ export async function importCanonical(request) {
     if (fixture && !fixture.capture_profiles[capture.expected_golden_path]) throw new ReviewFailure("invalid_artifact");
     if (fixture) for (const [key, value] of Object.entries(fixture.capture_profiles[capture.expected_golden_path] ?? {})) if (capture.capture_profile[key] !== value) throw new ReviewFailure("invalid_artifact");
     const groups = target.group_results.map((ref) => {
-      const group = readJSON(containedFile(root, ref.ref), "cartulary.browser_group_result.v11", ref.sha256).value;
+      const group = readJSON(containedFile(root, ref.ref), "cartulary.browser_group_result.v12", ref.sha256).value;
       readRendererEvidence(root, group, manifest.run_id);
       if (group.target_id !== target.target_id || group.group_id !== ref.group_id || group.browser_session_id !== ref.browser_session_id || group.stage_id !== "visual") throw new ReviewFailure("invalid_artifact");
       return group;
@@ -120,6 +120,8 @@ export async function importCanonical(request) {
     if (stack.browser_session_id !== group.browser_session_id || stack.runtime_profile_id !== group.runtime_profile_id) throw new ReviewFailure("invalid_artifact");
     const receipt = readJSON(containedFile(root, stack.frontend.build_artifact_ref), "cartulary.frontend_build_artifact.v2", stack.frontend.build_receipt_sha256).value;
     if (receipt.run_id !== manifest.run_id || receipt.source_digest !== manifest.source_digest || receipt.toolchain_digest !== manifest.toolchain_digest || receipt.content_digest !== stack.frontend.build_artifact_sha256) throw new ReviewFailure("invalid_artifact");
+    // Visual cohorts always retain their report for this import (TH-HARNESS-REQ-873).
+    if (group.artifacts.playwright_report === null) throw new ReviewFailure("invalid_artifact");
     const report = readJSON(containedFile(root, group.artifacts.playwright_report), undefined, undefined, limits.producerReport).value;
     const result = selectCaptureResult(report, capture, root);
     const attachmentBase = captureAttachmentBase(result, capture, root);

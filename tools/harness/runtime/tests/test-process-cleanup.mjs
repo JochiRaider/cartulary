@@ -244,3 +244,26 @@ test("cleanup evidence retains each failure without leaking private errors", asy
     assert.throws(() => validateSchemaSync("cartulary.harness_cleanup_results.v2", candidate));
   }
 });
+
+test("private tree removal reopens sealed fixture copies without following links", async (t) => {
+  const { chmodSync, existsSync, statSync, symlinkSync } = await import("node:fs");
+  const { removePrivateTree } = await import("../secure-local-files.mjs");
+  const scratch = mkdtempSync(path.join(os.tmpdir(), "sealed-tree-"));
+  chmodSync(scratch, 0o700);
+  const outside = mkdtempSync(path.join(os.tmpdir(), "sealed-tree-outside-"));
+  t.after(() => { for (const dir of [scratch, outside]) { spawnSync("chmod", ["-R", "u+w", dir]); rmSync(dir, { recursive: true, force: true }); } });
+  writeFileSync(path.join(outside, "kept"), "outside");
+  chmodSync(outside, 0o500);
+  // A fixture materialization seals its inputs: directories 0500, files 0400.
+  const tree = path.join(scratch, "playwright-output");
+  const sealed = path.join(tree, "case", "ir-inputs", "nested");
+  mkdirSync(sealed, { recursive: true, mode: 0o700 });
+  writeFileSync(path.join(sealed, "input.csv"), "a,b\n", { mode: 0o400 });
+  symlinkSync(outside, path.join(tree, "case", "link"));
+  for (const dir of [sealed, path.dirname(sealed)]) chmodSync(dir, 0o500);
+  chmodSync(tree, 0o700);
+  removePrivateTree(tree);
+  assert.equal(existsSync(tree), false);
+  assert.equal(readFileSync(path.join(outside, "kept"), "utf8"), "outside");
+  assert.equal(statSync(outside).mode & 0o777, 0o500);
+});

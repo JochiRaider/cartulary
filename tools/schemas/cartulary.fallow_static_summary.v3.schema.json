@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.fallow_static_summary.v2",
+  "$id": "cartulary.fallow_static_summary.v3",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -14,11 +14,12 @@
     "baseline",
     "enforcement",
     "artifacts",
+    "raw_reports",
     "warnings",
     "extensions"
   ],
   "properties": {
-    "schema_id": { "const": "cartulary.fallow_static_summary.v2" },
+    "schema_id": { "const": "cartulary.fallow_static_summary.v3" },
     "target": { "const": "frontend-fallow-static" },
     "generated_at": { "type": "string", "minLength": 1, "format": "date-time" },
     "mode": { "const": "static_reachability_report" },
@@ -73,6 +74,7 @@
       "type": "array",
       "items": { "$ref": "#/$defs/artifact" }
     },
+    "raw_reports": { "enum": ["retained", "discarded"] },
     "warnings": {
       "type": "array",
       "items": { "$ref": "#/$defs/warning" }
@@ -119,7 +121,7 @@
         },
         "status": { "enum": ["pass", "fail"] },
         "exit_code": { "type": "integer" },
-        "artifact": { "$ref": "#/$defs/artifact" },
+        "artifact": { "anyOf": [{ "$ref": "#/$defs/artifact" }, { "type": "null" }] },
         "issue_count": { "$ref": "cartulary.harness.defs.v1#/$defs/non_negative_integer" },
         "by_rule": { "$ref": "#/$defs/counts_by_string" },
         "by_severity": { "$ref": "#/$defs/counts_by_string" },

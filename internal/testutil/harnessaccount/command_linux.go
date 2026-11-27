@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"slices"
 	"strings"
 	"syscall"
 	"time"
@@ -156,7 +157,7 @@ func Main(args []string, stdout, stderr io.Writer) int {
 	if len(args) > 0 && args[0] == "scope" {
 		return scoped(args[1:], stdout, stderr)
 	}
-	if len(args) < 2 || args[0] != "--" || os.Getenv("HARNESS_DIAGNOSTICS") != "basic" || os.Getenv("CARTULARY_HARNESS_CACHE_MODE") != "off" {
+	if len(args) < 2 || args[0] != "--" || !slices.Contains([]string{"basic", "raw"}, os.Getenv("HARNESS_DIAGNOSTICS")) || os.Getenv("CARTULARY_HARNESS_CACHE_MODE") != "off" {
 		return 2
 	}
 	if parent, err := ContainerParent(); err != nil {

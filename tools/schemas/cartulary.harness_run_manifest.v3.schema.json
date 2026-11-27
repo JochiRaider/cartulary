@@ -100,7 +100,8 @@
         "mode": {
           "enum": [
             "off",
-            "basic"
+            "basic",
+            "raw"
           ]
         },
         "policy_digest": {

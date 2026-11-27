@@ -38,11 +38,19 @@ type Context struct {
 	// ExecutionObserved asks the command's units and fixtures to record
 	// execution observations, as basic diagnostics do.
 	ExecutionObserved bool
+	// RawOutput asks the command's units to keep raw tool output, such as
+	// Playwright reports and Fallow reports, even when they succeed, as raw
+	// diagnostics do (TH-HARNESS-REQ-830).
+	RawOutput bool
 }
 
 // ExecutionObservedName is the name ExecutionObserved writes, for a writer that
 // removes an inherited observation request.
 const ExecutionObservedName = "CARTULARY_HARNESS_EXECUTION_ENABLED"
+
+// RawOutputName is the name RawOutput writes, for a writer that removes an
+// inherited request.
+const RawOutputName = "CARTULARY_HARNESS_RAW_OUTPUT"
 
 // Environment returns c as environment entries.
 func (c Context) Environment() map[string]string {
@@ -67,6 +75,9 @@ func (c Context) Environment() map[string]string {
 	}
 	if c.ExecutionObserved {
 		environment[ExecutionObservedName] = "1"
+	}
+	if c.RawOutput {
+		environment[RawOutputName] = "1"
 	}
 	return environment
 }

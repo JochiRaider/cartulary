@@ -276,7 +276,8 @@
         "mode": {
           "enum": [
             "off",
-            "basic"
+            "basic",
+            "raw"
           ]
         },
         "completeness": {
@@ -579,13 +580,15 @@
             "current_mode": {
               "enum": [
                 "off",
-                "basic"
+                "basic",
+                "raw"
               ]
             },
             "reference_mode": {
               "enum": [
                 "off",
-                "basic"
+                "basic",
+                "raw"
               ]
             },
             "current_wall_ms": {

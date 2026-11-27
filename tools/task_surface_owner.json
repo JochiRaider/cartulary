@@ -1281,7 +1281,8 @@
             "type": "enum",
             "values": [
               "off",
-              "basic"
+              "basic",
+              "raw"
             ],
             "default": "off",
             "empty_string": "omitted",
@@ -1460,7 +1461,8 @@
             "type": "enum",
             "values": [
               "off",
-              "basic"
+              "basic",
+              "raw"
             ],
             "default": "off",
             "empty_string": "omitted",
@@ -1639,7 +1641,8 @@
             "type": "enum",
             "values": [
               "off",
-              "basic"
+              "basic",
+              "raw"
             ],
             "default": "off",
             "empty_string": "omitted",
@@ -1818,7 +1821,8 @@
             "type": "enum",
             "values": [
               "off",
-              "basic"
+              "basic",
+              "raw"
             ],
             "default": "off",
             "empty_string": "omitted",
@@ -1983,7 +1987,8 @@
             "type": "enum",
             "values": [
               "off",
-              "basic"
+              "basic",
+              "raw"
             ],
             "default": "off",
             "empty_string": "omitted",
@@ -2235,7 +2240,8 @@
             "type": "enum",
             "values": [
               "off",
-              "basic"
+              "basic",
+              "raw"
             ],
             "default": "off",
             "empty_string": "omitted",
@@ -2585,7 +2591,8 @@
             "type": "enum",
             "values": [
               "off",
-              "basic"
+              "basic",
+              "raw"
             ],
             "default": "off",
             "empty_string": "omitted",
@@ -2734,7 +2741,8 @@
             "type": "enum",
             "values": [
               "off",
-              "basic"
+              "basic",
+              "raw"
             ],
             "default": "off",
             "empty_string": "omitted",
@@ -2995,7 +3003,8 @@
             "type": "enum",
             "values": [
               "off",
-              "basic"
+              "basic",
+              "raw"
             ],
             "default": "off",
             "empty_string": "omitted",
@@ -3198,7 +3207,8 @@
             "type": "enum",
             "values": [
               "off",
-              "basic"
+              "basic",
+              "raw"
             ],
             "default": "off",
             "empty_string": "omitted",
@@ -3381,7 +3391,8 @@
             "type": "enum",
             "values": [
               "off",
-              "basic"
+              "basic",
+              "raw"
             ],
             "default": "off",
             "empty_string": "omitted",
@@ -3620,7 +3631,8 @@
             "type": "enum",
             "values": [
               "off",
-              "basic"
+              "basic",
+              "raw"
             ],
             "default": "off",
             "empty_string": "omitted",
@@ -3809,7 +3821,8 @@
             "type": "enum",
             "values": [
               "off",
-              "basic"
+              "basic",
+              "raw"
             ],
             "default": "off",
             "empty_string": "omitted",
@@ -3951,7 +3964,8 @@
             "type": "enum",
             "values": [
               "off",
-              "basic"
+              "basic",
+              "raw"
             ],
             "default": "off",
             "empty_string": "omitted",
@@ -4115,7 +4129,8 @@
             "type": "enum",
             "values": [
               "off",
-              "basic"
+              "basic",
+              "raw"
             ],
             "default": "off",
             "empty_string": "omitted",
@@ -4275,7 +4290,8 @@
             "type": "enum",
             "values": [
               "off",
-              "basic"
+              "basic",
+              "raw"
             ],
             "default": "off",
             "empty_string": "omitted",
@@ -4416,7 +4432,8 @@
             "type": "enum",
             "values": [
               "off",
-              "basic"
+              "basic",
+              "raw"
             ],
             "default": "off",
             "empty_string": "omitted",
@@ -4553,7 +4570,8 @@
             "type": "enum",
             "values": [
               "off",
-              "basic"
+              "basic",
+              "raw"
             ],
             "default": "off",
             "empty_string": "omitted",
@@ -4689,7 +4707,8 @@
             "type": "enum",
             "values": [
               "off",
-              "basic"
+              "basic",
+              "raw"
             ],
             "default": "off",
             "empty_string": "omitted",
@@ -4830,7 +4849,8 @@
             "type": "enum",
             "values": [
               "off",
-              "basic"
+              "basic",
+              "raw"
             ],
             "default": "off",
             "empty_string": "omitted",
@@ -4871,7 +4891,7 @@
         "tools/harness/static-analysis/fallow-reachability.mjs",
         "tools/harness/static-analysis/fallow-static-cli.mjs",
         "tools/schemas/cartulary.fallow_reachability_owner.v1.schema.json",
-        "tools/schemas/cartulary.fallow_static_summary.v2.schema.json",
+        "tools/schemas/cartulary.fallow_static_summary.v3.schema.json",
         "tools/harness/static-analysis/fallow-policy.mjs",
         "tools/harness/static-analysis/fallow-static.mjs"
       ],
@@ -4974,7 +4994,8 @@
             "type": "enum",
             "values": [
               "off",
-              "basic"
+              "basic",
+              "raw"
             ],
             "default": "off",
             "empty_string": "omitted",
@@ -5221,7 +5242,8 @@
             "type": "enum",
             "values": [
               "off",
-              "basic"
+              "basic",
+              "raw"
             ],
             "default": "off",
             "empty_string": "omitted",
@@ -5363,7 +5385,8 @@
             "type": "enum",
             "values": [
               "off",
-              "basic"
+              "basic",
+              "raw"
             ],
             "default": "off",
             "empty_string": "omitted",
@@ -5510,7 +5533,8 @@
             "type": "enum",
             "values": [
               "off",
-              "basic"
+              "basic",
+              "raw"
             ],
             "default": "off",
             "empty_string": "omitted",
@@ -7785,7 +7809,8 @@
             "type": "enum",
             "values": [
               "off",
-              "basic"
+              "basic",
+              "raw"
             ],
             "default": "off",
             "empty_string": "omitted",
@@ -8180,7 +8205,8 @@
             "type": "enum",
             "values": [
               "off",
-              "basic"
+              "basic",
+              "raw"
             ],
             "default": "off",
             "empty_string": "omitted",
@@ -8346,7 +8372,8 @@
             "type": "enum",
             "values": [
               "off",
-              "basic"
+              "basic",
+              "raw"
             ],
             "default": "off",
             "empty_string": "omitted",
@@ -8517,7 +8544,8 @@
             "type": "enum",
             "values": [
               "off",
-              "basic"
+              "basic",
+              "raw"
             ],
             "default": "off",
             "empty_string": "omitted",
@@ -8710,7 +8738,8 @@
             "type": "enum",
             "values": [
               "off",
-              "basic"
+              "basic",
+              "raw"
             ],
             "default": "off",
             "empty_string": "omitted",
@@ -8851,7 +8880,8 @@
             "type": "enum",
             "values": [
               "off",
-              "basic"
+              "basic",
+              "raw"
             ],
             "default": "off",
             "empty_string": "omitted",
@@ -8994,7 +9024,8 @@
             "type": "enum",
             "values": [
               "off",
-              "basic"
+              "basic",
+              "raw"
             ],
             "default": "off",
             "empty_string": "omitted",
@@ -9199,7 +9230,8 @@
             "type": "enum",
             "values": [
               "off",
-              "basic"
+              "basic",
+              "raw"
             ],
             "default": "off",
             "empty_string": "omitted",
@@ -10671,7 +10703,8 @@
             "type": "enum",
             "values": [
               "off",
-              "basic"
+              "basic",
+              "raw"
             ],
             "default": "off",
             "empty_string": "omitted",
@@ -11609,7 +11642,7 @@
         "tools/fallow/reachability_owner.json",
         "tools/fallow/cartulary-boundaries.rulepack.json",
         "tools/schemas/cartulary.fallow_reachability_owner.v1.schema.json",
-        "tools/schemas/cartulary.fallow_static_summary.v2.schema.json",
+        "tools/schemas/cartulary.fallow_static_summary.v3.schema.json",
         "tools/harness/static-analysis/tests/test-fallow-failures.mjs",
         "tools/harness/static-analysis/fallow-static.mjs"
       ]

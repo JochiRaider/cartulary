@@ -254,58 +254,58 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'  make reference-pack-package' \
 	'                                      ACTION=assemble|envelope|renew INPUT=<typed-json> assemble immutable packs and create or renew signed release or fixture envelopes' \
 	'' \
-	'test-fast inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off), BROWSER_LANES=positive_integer (default 4)' \
+	'test-fast inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic|raw (default off), HARNESS_ACCOUNTING=off|required (default off), BROWSER_LANES=positive_integer (default 4)' \
 	'  side effects: retained_artifacts, service_start, service_resource_mutation, runtime_reset' \
-	'check inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off), BROWSER_LANES=positive_integer (default 4)' \
+	'check inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic|raw (default off), HARNESS_ACCOUNTING=off|required (default off), BROWSER_LANES=positive_integer (default 4)' \
 	'  side effects: retained_artifacts, service_start, service_resource_mutation, runtime_reset' \
-	'ci inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off), BROWSER_LANES=positive_integer (default 4)' \
+	'ci inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic|raw (default off), HARNESS_ACCOUNTING=off|required (default off), BROWSER_LANES=positive_integer (default 4)' \
 	'  side effects: retained_artifacts, service_start, service_resource_mutation, runtime_reset' \
-	'release-check inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off)' \
+	'release-check inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic|raw (default off), HARNESS_ACCOUNTING=off|required (default off)' \
 	'  side effects: retained_artifacts, service_start, service_resource_mutation, runtime_reset' \
-	'release-measure inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off), RELEASE_RESULTS_DIR=result_selector (required)' \
+	'release-measure inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic|raw (default off), HARNESS_ACCOUNTING=off|required (default off), RELEASE_RESULTS_DIR=result_selector (required)' \
 	'  side effects: retained_artifacts, service_start, service_resource_mutation, runtime_reset' \
-	'test-slice inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), JSON=exact_1_bool (default false), OWNER=owner_id (optional), ROWS=row_ids (optional), VITEST_MAX_WORKERS=positive_integer (default 4), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off), SUITE=backend-unit|backend-store|backend-integration|backend-process|frontend-unit (optional), SCOPE=all|services (default all), \
+	'test-slice inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), JSON=exact_1_bool (default false), OWNER=owner_id (optional), ROWS=row_ids (optional), VITEST_MAX_WORKERS=positive_integer (default 4), HARNESS_DIAGNOSTICS=off|basic|raw (default off), HARNESS_ACCOUNTING=off|required (default off), SUITE=backend-unit|backend-store|backend-integration|backend-process|frontend-unit (optional), SCOPE=all|services (default all), \
 	  CARTULARY_TEST_SERVICES_MODE=owned|attach (default owned), CARTULARY_TEST_SERVICES_SESSION_FILE=path (optional), BROWSER_LANES=positive_integer (default 4), GO_SHUFFLE_SEED=positive_integer (optional)' \
 	'  side effects: retained_artifacts, service_start, service_resource_mutation, runtime_reset' \
-	'test-stress inputs: OWNER=owner_id (required), ROWS=row_ids (required), REPEAT=positive_integer (default 10), LOAD=none|cpu|io|mixed (default mixed), CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), HARNESS_DIAGNOSTICS=off|basic (default off)' \
+	'test-stress inputs: OWNER=owner_id (required), ROWS=row_ids (required), REPEAT=positive_integer (default 10), LOAD=none|cpu|io|mixed (default mixed), CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), HARNESS_DIAGNOSTICS=off|basic|raw (default off)' \
 	'  side effects: retained_artifacts, service_start, service_resource_mutation, runtime_reset' \
-	'browser-e2e inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off), SUITE=functional|stateful|accessibility|visual|support (required), CARTULARY_TEST_SERVICES_MODE=owned|attach (default owned), CARTULARY_TEST_SERVICES_SESSION_FILE=path (optional), BROWSER_LANES=positive_integer (default 4)' \
+	'browser-e2e inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic|raw (default off), HARNESS_ACCOUNTING=off|required (default off), SUITE=functional|stateful|accessibility|visual|support (required), CARTULARY_TEST_SERVICES_MODE=owned|attach (default owned), CARTULARY_TEST_SERVICES_SESSION_FILE=path (optional), BROWSER_LANES=positive_integer (default 4)' \
 	'  side effects: retained_artifacts, service_start, service_resource_mutation, runtime_reset' \
-	'browser-e2e-visual-update inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off), BROWSER_LANES=positive_integer (default 4)' \
+	'browser-e2e-visual-update inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic|raw (default off), HARNESS_ACCOUNTING=off|required (default off), BROWSER_LANES=positive_integer (default 4)' \
 	'  side effects: retained_artifacts, authored_source_write, service_start, service_resource_mutation, runtime_reset' \
-	'harness-contract inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off), SUITE=contract|smoke|execution|regression|lifecycle|full|runtime|fixtures|runtime-boundary|artifact-consumers|ui-review (default contract)' \
+	'harness-contract inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic|raw (default off), HARNESS_ACCOUNTING=off|required (default off), SUITE=contract|smoke|execution|regression|lifecycle|full|runtime|fixtures|runtime-boundary|artifact-consumers|ui-review (default contract)' \
 	'  side effects: retained_artifacts' \
-	'lint inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off), CHECK=standard|go|types|frontend|scripts|shell|frontend-boundary|backend-boundary|protocol (default standard)' \
+	'lint inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic|raw (default off), HARNESS_ACCOUNTING=off|required (default off), CHECK=standard|go|types|frontend|scripts|shell|frontend-boundary|backend-boundary|protocol (default standard)' \
 	'  side effects: retained_artifacts' \
 	'lint-markdown inputs: none' \
 	'  side effects: authored_source_write' \
-	'source-check inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off), CHECK=generated|schema|catalog|surface|identity|toolchain|migration-input|all (default all)' \
+	'source-check inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic|raw (default off), HARNESS_ACCOUNTING=off|required (default off), CHECK=generated|schema|catalog|surface|identity|toolchain|migration-input|all (default all)' \
 	'  side effects: retained_artifacts' \
-	'migration-drift inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off)' \
+	'migration-drift inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic|raw (default off), HARNESS_ACCOUNTING=off|required (default off)' \
 	'  side effects: retained_artifacts, service_resource_mutation' \
-	'openapi-compatibility-check inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off)' \
+	'openapi-compatibility-check inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic|raw (default off), HARNESS_ACCOUNTING=off|required (default off)' \
 	'  side effects: retained_artifacts' \
-	'otel-conformance inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off)' \
+	'otel-conformance inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic|raw (default off), HARNESS_ACCOUNTING=off|required (default off)' \
 	'  side effects: retained_artifacts, service_start, service_resource_mutation, runtime_reset' \
-	'go-vulncheck inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), GOVULNCHECK_DB=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off)' \
+	'go-vulncheck inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), GOVULNCHECK_DB=path (optional), HARNESS_DIAGNOSTICS=off|basic|raw (default off), HARNESS_ACCOUNTING=off|required (default off)' \
 	'  side effects: retained_artifacts' \
-	'go-gosec-targeted inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off)' \
+	'go-gosec-targeted inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic|raw (default off), HARNESS_ACCOUNTING=off|required (default off)' \
 	'  side effects: retained_artifacts' \
-	'go-error-declaration-audit inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off)' \
+	'go-error-declaration-audit inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic|raw (default off), HARNESS_ACCOUNTING=off|required (default off)' \
 	'  side effects: retained_artifacts' \
-	'go-error-declaration-check inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off)' \
+	'go-error-declaration-check inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic|raw (default off), HARNESS_ACCOUNTING=off|required (default off)' \
 	'  side effects: retained_artifacts' \
-	'go-gosec-audit inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off)' \
+	'go-gosec-audit inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic|raw (default off), HARNESS_ACCOUNTING=off|required (default off)' \
 	'  side effects: retained_artifacts' \
-	'frontend-fallow-static inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off)' \
+	'frontend-fallow-static inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic|raw (default off), HARNESS_ACCOUNTING=off|required (default off)' \
 	'  side effects: retained_artifacts' \
 	'generate inputs: none' \
 	'  side effects: retained_artifacts, generated_artifacts' \
-	'agent-finalize inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), ALLOW_OLDER_RESULTS_DIR=exact_1_bool (optional), RESULTS_DIR=result_selector (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off)' \
+	'agent-finalize inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), ALLOW_OLDER_RESULTS_DIR=exact_1_bool (optional), RESULTS_DIR=result_selector (optional), HARNESS_DIAGNOSTICS=off|basic|raw (default off), HARNESS_ACCOUNTING=off|required (default off)' \
 	'  side effects: retained_artifacts, generated_artifacts' \
-	'format inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off)' \
+	'format inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic|raw (default off), HARNESS_ACCOUNTING=off|required (default off)' \
 	'  side effects: retained_artifacts, authored_source_write' \
-	'build inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off), COMPONENT=production|server|server-harness|migrate|operator|web|web-measurement|report-renderer (default production), SERVER_HARNESS_BIN=path (default $(CURDIR)/build/bin/server-harness), OPERATOR_BIN=path (default $(CURDIR)/build/bin/operator)' \
+	'build inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic|raw (default off), HARNESS_ACCOUNTING=off|required (default off), COMPONENT=production|server|server-harness|migrate|operator|web|web-measurement|report-renderer (default production), SERVER_HARNESS_BIN=path (default $(CURDIR)/build/bin/server-harness), OPERATOR_BIN=path (default $(CURDIR)/build/bin/operator)' \
 	'  side effects: retained_artifacts, build_outputs' \
 	'frontend-lockfile-update inputs: none' \
 	'  side effects: retained_artifacts, authored_source_write' \
@@ -348,25 +348,25 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'  side effects: retained_artifacts, authored_source_write' \
 	'test-run-status inputs: RESULTS_DIR=result_selector (required), RUN_ID=run_id (optional), TARGET=target_name (optional), JSON=exact_1_bool (default false), AFTER_REVISION=positive_integer (optional), WAIT_SECONDS=positive_integer (default 0)' \
 	'  side effects: none' \
-	'test-evidence-audit inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), OWNER=owner_id (required), EVIDENCE_ROOTS_FILE=path (required), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off)' \
+	'test-evidence-audit inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), OWNER=owner_id (required), EVIDENCE_ROOTS_FILE=path (required), HARNESS_DIAGNOSTICS=off|basic|raw (default off), HARNESS_ACCOUNTING=off|required (default off)' \
 	'  side effects: retained_artifacts' \
 	'harness-observability-check inputs: RESULTS_DIR=result_selector (required), RUN_ID=run_id (optional), CHECK=all|events|timing|evidence|diagnostics (default all)' \
 	'  side effects: none' \
 	'harness-otel-export inputs: RESULTS_DIR=result_selector (required), RUN_ID=run_id (optional), HARNESS_OTLP_ENDPOINT=url (required), HARNESS_OTLP_HEADERS_FILE=path (optional)' \
 	'  side effects: external_network' \
-	'benchmark-claim-check inputs: BENCHMARK_MANIFEST=path (default .cartulary/benchmark/benchmark_manifest.json), CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off)' \
+	'benchmark-claim-check inputs: BENCHMARK_MANIFEST=path (default .cartulary/benchmark/benchmark_manifest.json), CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic|raw (default off), HARNESS_ACCOUNTING=off|required (default off)' \
 	'  side effects: retained_artifacts' \
-	'package-release inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off)' \
+	'package-release inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic|raw (default off), HARNESS_ACCOUNTING=off|required (default off)' \
 	'  side effects: retained_artifacts, build_outputs, service_start, service_resource_mutation' \
-	'package-inspect inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off), CHECK=archive|startup|reference-pack|recovery|all (default archive)' \
+	'package-inspect inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic|raw (default off), HARNESS_ACCOUNTING=off|required (default off), CHECK=archive|startup|reference-pack|recovery|all (default archive)' \
 	'  side effects: retained_artifacts, build_outputs, service_start, service_resource_mutation' \
-	'seaweedfs-compatibility inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off)' \
+	'seaweedfs-compatibility inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic|raw (default off), HARNESS_ACCOUNTING=off|required (default off)' \
 	'  side effects: retained_artifacts, service_start, service_resource_mutation' \
-	'seaweedfs-release-gate inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off)' \
+	'seaweedfs-release-gate inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic|raw (default off), HARNESS_ACCOUNTING=off|required (default off)' \
 	'  side effects: retained_artifacts' \
-	'cryptographic-policy-assessment inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off)' \
+	'cryptographic-policy-assessment inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic|raw (default off), HARNESS_ACCOUNTING=off|required (default off)' \
 	'  side effects: retained_artifacts' \
-	'credential-capacity-assessment inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off), RELEASE_RESULTS_DIR=result_selector (required)' \
+	'credential-capacity-assessment inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic|raw (default off), HARNESS_ACCOUNTING=off|required (default off), RELEASE_RESULTS_DIR=result_selector (required)' \
 	'  side effects: retained_artifacts, build_outputs, service_start, service_resource_mutation' \
 	'browser-design-review inputs: REVIEW_PROFILE=default|network_flow_claimed (default network_flow_claimed)' \
 	'  side effects: service_start' \
@@ -392,7 +392,7 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'  side effects: retained_artifacts, destructive_cleanup' \
 	'release inputs: CI_RESULTS_DIR=result_selector (optional), RELEASE_CHECK_RESULTS_DIR=result_selector (optional), RELEASE_MEASURE_RESULTS_DIR=result_selector (optional)' \
 	'  side effects: retained_artifacts, service_start, service_resource_mutation, runtime_reset' \
-	'release-evidence-verify inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), EVIDENCE_ROOTS_FILE=path (required), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off)' \
+	'release-evidence-verify inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), EVIDENCE_ROOTS_FILE=path (required), HARNESS_DIAGNOSTICS=off|basic|raw (default off), HARNESS_ACCOUNTING=off|required (default off)' \
 	'  side effects: retained_artifacts' \
 	'test-run-recovery-status inputs: RESULTS_DIR=path (required)' \
 	'  side effects: retained_artifacts' \

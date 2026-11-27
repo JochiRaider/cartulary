@@ -1,6 +1,6 @@
 # Test Execution Efficiency Remediation Plan
 
-**Status.** Active remediation tracker, last updated 2026-11-27. Phase 7 ([Section 16](#16-phase-7-plan--run-root-size-and-wall-time-margin)) is approved (D35 to D41) and under way; P7-0 and P7-1 are done (16.6, 16.7). Phase 6 ([Section 15](#15-phase-6-plan--phase-5-residuals)) is complete and handed off (15.11); Phases 1–5 are closed. Earlier status follows. Phases 1–3 are closed. The Go-planned `check` has run at 593–626 s graph wall since 2026-11-24 (1,341 s at the 2026-11-22 baseline). The release redesign took quiet measurement out of `ci`, which now runs in 1,618–1,735 s (3,279 s in `ws1-ci01`). Phase 4 ([Section 13](#13-phase-4-plan--daily-check-and-ci)) is the active plan. It targets the two commands used to validate everyday changes, `check` and `ci`, and the stability of `ci`, which passed 3 of its last 11 runs.
+**Status.** Active remediation tracker, last updated 2026-11-27. Phase 7 ([Section 16](#16-phase-7-plan--run-root-size-and-wall-time-margin)) is approved (D35 to D41) and under way; P7-0, P7-1 and P7-2a are done (16.6 to 16.8). Phase 6 ([Section 15](#15-phase-6-plan--phase-5-residuals)) is complete and handed off (15.11); Phases 1–5 are closed. Earlier status follows. Phases 1–3 are closed. The Go-planned `check` has run at 593–626 s graph wall since 2026-11-24 (1,341 s at the 2026-11-22 baseline). The release redesign took quiet measurement out of `ci`, which now runs in 1,618–1,735 s (3,279 s in `ws1-ci01`). Phase 4 ([Section 13](#13-phase-4-plan--daily-check-and-ci)) is the active plan. It targets the two commands used to validate everyday changes, `check` and `ci`, and the stability of `ci`, which passed 3 of its last 11 runs.
 
 **Phase 1–3 history (2026-11-23).** All phase-1 work is committed. Phase 2 ([Section 12](#12-phase-2-plan--check-wall-clock)) landed G7 and G6; G6 brought the `check` graph wall from 1,022–1,157 s to under 900 s. In G17 (phase 3), G17b and G17c landed, G17a was not adopted, and disk stall was identified as the contention the failing tests hit. G17f withdrew A17 and added A18 (WAL compression, −22% container writes), and G17g bounded test-side waits by the test deadline. G17 is closed. G27 (heavy-row test work) is done: graph wall 800–840 s, the best recorded. G28 measured the disk flushes and, with owner-approved options A (session slides persist at most once a minute on every route) and C (Go test temp work in RAM), cut heavy work 14–27% and brought the graph wall to 702–710 s, the best recorded. The run now ends with a late-starting Vitest cohort (G29). `make distclean` on 2026-11-22 deleted every retained run, so the run IDs in Section 11 before that date are a record, not retrievable evidence.
 
@@ -1399,6 +1399,7 @@ Phase 4 decisions (D11–D17) are listed in [Section 13.8](#138-decisions-and-am
 | 2026-11-27 | Phase 7 plan | Traced the two Phase 6 residuals (run-root size, wall-time margin) and proposed Phase 7 (P7-0 to P7-6, G56 to G63, D35 to D41) | `p6-6-check02`, `p6-6-ci04`, `p7-0-psi-check` (host pressure, disk and PostgreSQL size sampling) | Approved as recommended (16.5) |
 | 2026-11-27 | P7-0 | Post-graph time split; readers of wait events and of raw Playwright, Fallow and fixture output inventoried; the 16.1 scan inference corrected | `p7-0-split-check` (timed runtime), scan copies of `p6-6-check02` and `p6-6-ci04` | Recorded (16.6) |
 | 2026-11-27 | P7-1 / G56 | Wait segments change only with their reason; `wait_ended` carries bounded attribution; unit events v5 and critical path v6; every reader cut over | Same-run v4-to-v5 conversion of `p6-6-check02` and `p6-6-ci04`; `p7-1-seg-contract`, `p7-1-seg-cmd`, `p7-1-seg-ev`, `p7-1-seg-browser`, `p7-1-check01`, `p7-1-seg-lintgo`, `p7-1-seg-cmd2` | Pass after a format fix. Event log 270 to 3.2 MB, root 317 to 65 MB, 4.5 s outside the graph (16.7) |
+| 2026-11-27 | P7-2a / G57 | `HARNESS_DIAGNOSTICS=raw`; passing cohorts and Fallow keep only normalized evidence; checkpoint removed once the report parses; browser group result v12, Fallow summary v3 | `p7-2a-seg-regression`, `-contract`, `-adapter`, `-uireview`, `-cmd`, `-ev`, `-browser`, `-browser-raw`, `-fallow`, `-fallow-raw` | Pass. Browser slice 13 to 3.1 MB, Fallow 23 to 2.1 MB (16.8) |
 | 2026-11-27 | P6-1, P6-2 / G48, G52, G53 | Release inventory rows in `ci`; four mode switches removed; one became run-context data, two producer arguments, two reclassified; the diagnostic scan race fixed | `p6-1-*`, `p6-2a`, `p6-2b`, `p6-2c`, `p6-2d`, `p6-2e` (segments), `scan-churn`, `p6-2-check01`, `p6-2-check02` | Pass. `p6-2-check02` passed all 1,899 rows in a 579 s graph; the `mode_switch` role is deleted (15.6, 15.7) |
 | 2026-11-25 | P4-4 / G39 | Wait audit: 31 whole-test hang guards derive from the test deadline (`testdeadline`) | `p44-port-*` (16 owner slices, every row holding a converted guard) | Pass. Committed `bdd8f4e1d` |
 
@@ -6423,3 +6424,69 @@ Section 9 applies.
   - **Exits.** The `check` event log is under D38's 10 MB. Its root is now
     under the 150 MB target before G57 and G58. Its post-graph time is under
     G59's 15 s. `ci` is measured in P7-6.
+
+### 16.8 Retention by Outcome (P7-2a, done)
+
+P7-2 is split in two. P7-2a is G57; P7-2b is G58 (16.9).
+
+- **The raw request.** `HARNESS_DIAGNOSTICS` gains a third level, `raw`,
+  which is `basic` plus raw tool output on success. Every requirement on
+  `basic` (required accounting, the envelope, execution evidence, Go test
+  durations) accepts either level. The manifest and performance-explanation
+  enums widen, with no version change because no earlier run records `raw`.
+  Units learn the level from the run context (`CARTULARY_HARNESS_RAW_OUTPUT`),
+  as they learn `basic` from `CARTULARY_HARNESS_EXECUTION_ENABLED`. One
+  diagnostics input stays, rather than a second input on 33 targets.
+- **Specification.** TH-HARNESS-REQ-873 (new) states the rule: a successful
+  unit keeps normalized evidence, and raw output that the unit has
+  normalized stays only for a failure, a declared later reader, or `raw`.
+  Its owner applies it after its own last reader. AC-177 covers it.
+  REQ-830, REQ-856 and REQ-869 name `raw`; the Fallow output paragraph and
+  the Fallow and browser artifact rows follow.
+- **Playwright.** The cohort runner removes `playwright-checkpoint.json`
+  once the report parses. For a passing cohort it also removes
+  `playwright-report.json` and `playwright-output/`, except in the `visual`
+  and `measurement` stages: the visual reconciliation, the UI-review import
+  and the measurement finalizer read those after the cohort.
+  `cartulary.browser_group_result.v12` records a removed report as `null`;
+  its two later readers require the report their stage keeps.
+  `removePrivateTree` now reopens sealed fixture copies (directories 0500)
+  without following links, because browser tests seal their IR inputs under
+  `playwright-output/`.
+- **Fallow.** A passing `frontend-fallow-static` removes the raw dead-code
+  JSON, SARIF and Markdown, `dupes.json`, `health.json` and the
+  package-surface report. It keeps the summary, counts, warnings and both
+  resolved configurations. `cartulary.fallow_static_summary.v3` records
+  `raw_reports` as `retained` or `discarded`, and a discarded report's
+  `artifact` is `null`. No reader used the raw files.
+- **Tests.**
+  - The Fallow cases add success (discarded), raw request (retained) and the
+    existing failure (retained); the fixture now writes reports privately,
+    as Fallow does under the private umask.
+  - The cohort rule is a pure function, `cohortRetainsRawOutput`, tested
+    for every stage, outcome and request.
+  - A sealed tree with a link to an outside directory is removed and the
+    outside directory is untouched.
+- **Proof.** Segments in the Section 9 configuration, all passing:
+  - `p7-2a-seg-regression` (`harness-contract SUITE=regression`, which holds
+    the `ci`-only Fallow assurance) and `p7-2a-seg-contract`
+    (`SUITE=contract`: the boundary, evidence, observation and
+    browser-assurance contracts);
+  - `p7-2a-seg-adapter` (the `ci`-only Playwright adapter row) and
+    `p7-2a-seg-uireview` (`SUITE=ui-review`, for the import's null guard);
+  - `p7-2a-seg-cmd` and `p7-2a-seg-ev`, the Go rows of the run context,
+    planner, runtime, accounting and diagnostics;
+  - real producers, each in its default form and under `raw`:
+
+    | Segment | Raw output kept | Root |
+    | --- | --- | ---: |
+    | `p7-2a-seg-browser` (three IR-corpus and keyboard rows) | none: no report, checkpoint or output; null report refs | 3.1 MB |
+    | `p7-2a-seg-browser-raw` | report and 9.4 MB of output, sealed IR copies among it | 13 MB |
+    | `p7-2a-seg-fallow` | none: `discarded`, logs and both resolved configurations only | 2.1 MB |
+    | `p7-2a-seg-fallow-raw` | every report: `retained` | 23 MB |
+
+  - **Not run.** No `visual` or `measurement` cohort ran. Their behaviour
+    changes only in that the checkpoint is removed and the group result is
+    v12; both stages keep their reports. No forced producer failure ran
+    either: failures keep everything because the code path that removes raw
+    output is skipped.

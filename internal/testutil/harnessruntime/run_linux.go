@@ -106,7 +106,7 @@ func RunWithOptions(ctx context.Context, root, binary string, args, environment 
 	if mode == "" {
 		mode = "off"
 	}
-	if mode != "off" && mode != "basic" {
+	if mode != "off" && mode != "basic" && mode != "raw" {
 		return nil, 2, entryFailureAt("diagnostic_mode", failed("config", "configuration_error"))
 	}
 	accountingParent, accountingErr := harnessaccount.ContainerParent()
@@ -130,7 +130,9 @@ func RunWithOptions(ctx context.Context, root, binary string, args, environment 
 		// Independent nested commands may deliberately clear the environment.
 		// The fenced kernel membership proves the outer measurement policy;
 		// ambient variables cannot opt a descendant out of that policy.
-		mode = "basic"
+		if mode == "off" {
+			mode = "basic"
+		}
 		env["HARNESS_DIAGNOSTICS"] = mode
 		env["CARTULARY_HARNESS_CACHE_MODE"] = "off"
 		imposedCacheMode = "off"
@@ -138,7 +140,7 @@ func RunWithOptions(ctx context.Context, root, binary string, args, environment 
 		// exact owner finalizer. An unscoped auxiliary reaper is not admissible.
 		env["TESTCONTAINERS_RYUK_DISABLED"] = "true"
 	}
-	diagnostics := newGraphObservation(mode == "basic")
+	diagnostics := newGraphObservation(mode != "off")
 	if env["CARTULARY_TEST_RUN_ID"] == "" {
 		runcontext.Context{RunID: fmt.Sprintf("%s-p%d", time.Now().UTC().Format("20060102T150405000Z"), os.Getpid())}.Apply(env)
 	}
@@ -243,7 +245,8 @@ func RunWithOptions(ctx context.Context, root, binary string, args, environment 
 	// receives this publisher's complete-record prefix below.
 	delete(child, "CARTULARY_HARNESS_UNIT_EVENT_PREFIX")
 	delete(child, runcontext.ExecutionObservedName)
-	runcontext.Context{ExecutionObserved: mode == "basic"}.Apply(child)
+	delete(child, runcontext.RawOutputName)
+	runcontext.Context{ExecutionObserved: mode != "off", RawOutput: mode == "raw"}.Apply(child)
 	fixtureEnv := maps.Clone(child)
 	services := map[string]bool{}
 	for _, unit := range plan.facts.Graph.Units {
