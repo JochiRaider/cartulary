@@ -350,7 +350,8 @@ describe('right', () => { test('same name', () => expect(2).toBe(2)); });`);
   writeFileSync(environment, "export default { name: 'fixture', viteEnvironment: 'ssr', setup(global) { return { teardown() { if (global.failEnvironmentTeardown) throw new Error('environment teardown failed'); } }; } };");
   config({ environment });
   const failedEnvironment = runObserved("failed-environment", request([[environmentFailure, ["ok"]], [passFile, ["ok"]]]));
-  assert.deepEqual(failedEnvironment.activities.filter((entry) => entry.activity === "file_teardown").map((entry) => entry.outcome).sort(), ["failed", "passed"]);
+  assert.deepEqual(failedEnvironment.activities.filter((entry) => entry.activity === "file_teardown").map((entry) => entry.outcome).sort(), ["failed", "passed"],
+    JSON.stringify({ observations: failedEnvironment.details.observations.filter((entry) => entry.scope !== "test"), rows: failedEnvironment.rows.map((row) => [row.terminal_state, row.failure_class]), status: failedEnvironment.result.status }));
   assert.equal(failedEnvironment.rows[0].failure_class, "infra", failedEnvironment.result.stderr);
   assert.equal(failedEnvironment.rows[1].terminal_state, "passed");
   writeFileSync(environment, `import { writeFileSync } from 'node:fs'; export default { name: 'fixture', viteEnvironment: 'ssr', setup() { return { async teardown() { writeFileSync(${JSON.stringify(teardownMarker)}, 'pending'); await new Promise(() => {}); } }; } };`);

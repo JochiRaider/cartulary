@@ -249,12 +249,16 @@ wait "$descendant"`);
       let stdout = "", stderr = "", identities = [];
       child.stdout.on("data", (chunk) => { stdout += chunk; });
       child.stderr.on("data", (chunk) => { stderr += chunk; });
-      const exited = once(child, "exit");
-      const barrier = path.join(f.root, "barrier");
-      for (let attempt = 0; !existsSync(barrier) && attempt < 500; attempt++) await new Promise((resolve) => setTimeout(resolve, 10));
-      assert.ok(existsSync(barrier), `${command} did not reach the cancellation barrier: ${stderr}`);
-      identities = readFileSync(barrier, "utf8").trim().split(" ").map(Number);
-      assert.equal(identities.length, 3);
+      // "close" follows the end of the child's output streams; "exit" can
+      // precede the last stderr chunk.
+      const exited = once(child, "close");
+      // The shell creates the barrier before it writes the line; wait for the
+      // complete line.
+      const barrier = path.join(f.root, "barrier"), complete = /^\d+ \d+ \d+\n$/u;
+      const barrierLine = () => (existsSync(barrier) ? readFileSync(barrier, "utf8") : "");
+      for (let attempt = 0; !complete.test(barrierLine()) && attempt < 500; attempt++) await new Promise((resolve) => setTimeout(resolve, 10));
+      assert.match(barrierLine(), complete, `${command} did not reach the cancellation barrier: ${stderr}`);
+      identities = barrierLine().trim().split(" ").map(Number);
       f.own(identities[1]); // The utility starts a separate session and owns its sleeper.
       process.kill(identities[0], signal);
       const [code] = await exited;
@@ -268,7 +272,14 @@ wait "$descendant"`);
       for (const pid of identities.slice(1)) {
         for (let attempt = 0; existsSync(`/proc/${pid}/fd/8`) && attempt < 100; attempt++) await new Promise((resolve) => setTimeout(resolve, 10));
         assert.equal(existsSync(`/proc/${pid}/fd/8`), false, `${pid} retained admission`);
-        if (existsSync(`/proc/${pid}/status`)) assert.match(readFileSync(`/proc/${pid}/status`, "utf8"), /^State:\s+Z/mu);
+        // An exiting process closes its descriptors before it becomes a
+        // zombie, so wait for it to finish exiting or be reaped.
+        let state = processState(pid);
+        for (let attempt = 0; state !== null && !/^[ZX]/u.test(state) && attempt < 100; attempt++) {
+          await new Promise((resolve) => setTimeout(resolve, 10));
+          state = processState(pid);
+        }
+        assert.ok(state === null || /^[ZX]/u.test(state), `${pid} is still ${state}`);
       }
       // Prove the settled children no longer hold admission without deleting.
       success(f.run(["clean", "CARTULARY_CLEANUP_DRY_RUN=1"]));
@@ -367,6 +378,17 @@ test("execution failure reports progress and permits idempotent retry", (t) => {
   assert.equal(existsSync(path.join(f.root, "tmp")), false); assert.equal(existsSync(path.join(f.root, "build/bin/server")), true);
   success(f.run(["clean"]));
 });
+
+// processState is the state field of pid's /proc status, or null once it has
+// been reaped.
+function processState(pid) {
+  try {
+    return readFileSync(`/proc/${pid}/status`, "utf8").match(/^State:\s+(.*)$/mu)?.[1] ?? null;
+  } catch (error) {
+    if (error.code === "ENOENT" || error.code === "ESRCH") return null;
+    throw error;
+  }
+}
 
 async function ready(child) {
   let output = "";

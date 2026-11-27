@@ -102,8 +102,18 @@ async function main() {
       const teardownError = await settleFile();
       if (signal) break;
       if (current.completed_files.length !== 1 || current.completed_files[0].owner_path !== request.files[index].file || current.completed_files[0].project !== request.project) throw diagnosticFailure("Vitest settled a different file", "scheduler_accounting_error");
-      if (teardownError) current.observations.push({ project: request.project, owner_path: request.files[index].file, title: "(environment teardown)", test_name: "", scope: "suite", status: "failed", duration_ms: 0, timeout_ms: null,
-        errors: [{ name: String(teardownError.name ?? "Error"), message: String(teardownError.message ?? ""), stack: String(teardownError.stack ?? "") }] });
+      if (teardownError) {
+        const error = { name: String(teardownError.name ?? "Error"), message: String(teardownError.message ?? ""), stack: String(teardownError.stack ?? "") };
+        // Depending on when the fork's teardown settles, Vitest can also report
+        // this error as an unhandled runner error. It is this file's teardown
+        // failure, not a run failure that would stop the remaining files.
+        current.observations = current.observations.flatMap((item) => {
+          if (item.scope !== "run") return [item];
+          const errors = item.errors.filter((other) => other.name !== error.name || other.message !== error.message || other.stack !== error.stack);
+          return errors.length ? [{ ...item, errors }] : [];
+        });
+        current.observations.push({ project: request.project, owner_path: request.files[index].file, title: "(environment teardown)", test_name: "", scope: "suite", status: "failed", duration_ms: 0, timeout_ms: null, errors: [error] });
+      }
       const runObservations = current.observations.filter((item) => item.scope === "run");
       evidence.recordRunFailures(runObservations);
       const settled = evidence.settleFile(index, current, readVitestJSON(rawReport));
